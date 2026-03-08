@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">android-planner</string>
+    <string name="title_activity_main">android-planner</string>
+    <string name="package_name">com.digisdot.androidplanner</string>
+    <string name="custom_url_scheme">com.digisdot.androidplanner</string>
+</resources>
