@@ -1,99 +1,40 @@
-import { GRID, PX_TO_FT, SNAP_DIST, WALL_HEIGHT, WALL_REGISTRY, WIDGET_REGISTRY } from './registry.js';
+import { GRID, PX_TO_FT, SNAP_DIST, WALL_HEIGHT, WALL_REGISTRY, WIDGET_REGISTRY, FURNITURE_REGISTRY } from './registry.js';
 import Konva from 'konva';
 
 export class Anchor {
     constructor(planner, x, y) {
-        this.planner = planner; 
-        this.lastValidPos = { x, y };
+        this.planner = planner; this.lastValidPos = { x, y };
         this.node = new Konva.Group({ x, y, draggable: true, visible: false });
-        
-        // Base Anchor Circle
         this.node.add(new Konva.Circle({ radius: 8, fill: "#111827", stroke: "white", strokeWidth: 2 }));
-        
-        // Anchor Drag Arrows
         const arrowOffset = 11; const arrowSize = 4;
         const makeArrow = (points) => new Konva.Line({ points, fill: '#111827', closed: true });
-        this.node.add(makeArrow([0, -arrowOffset, -arrowSize, -arrowOffset+arrowSize, arrowSize, -arrowOffset+arrowSize])); 
-        this.node.add(makeArrow([0, arrowOffset, -arrowSize, arrowOffset-arrowSize, arrowSize, arrowOffset-arrowSize])); 
-        this.node.add(makeArrow([-arrowOffset, 0, -arrowOffset+arrowSize, -arrowSize, -arrowOffset+arrowSize, arrowSize])); 
-        this.node.add(makeArrow([arrowOffset, 0, arrowOffset-arrowSize, -arrowSize, arrowOffset-arrowSize, arrowSize]));
-
-        this.node.on('dragstart', () => { 
-            let attachedWalls = this.planner.walls.filter(w => w.startAnchor === this || w.endAnchor === this); 
-            attachedWalls.forEach(w => w.setHighlight(true)); 
-        });
-
+        this.node.add(makeArrow([0, -arrowOffset, -arrowSize, -arrowOffset+arrowSize, arrowSize, -arrowOffset+arrowSize])); this.node.add(makeArrow([0, arrowOffset, -arrowSize, arrowOffset-arrowSize, arrowSize, arrowOffset-arrowSize])); this.node.add(makeArrow([-arrowOffset, 0, -arrowOffset+arrowSize, -arrowSize, -arrowOffset+arrowSize, arrowSize])); this.node.add(makeArrow([arrowOffset, 0, arrowOffset-arrowSize, -arrowSize, arrowOffset-arrowSize, arrowSize]));
+        this.node.on('dragstart', () => { let attachedWalls = this.planner.walls.filter(w => w.startAnchor === this || w.endAnchor === this); attachedWalls.forEach(w => w.setHighlight(true)); });
         this.node.on('dragmove', () => {
             let rawPos = { x: this.planner.snap(this.node.x()), y: this.planner.snap(this.node.y()) };
             let attachedWalls = this.planner.walls.filter(w => w.startAnchor === this || w.endAnchor === this);
-            
-            // 1. ANGLE GUIDELINES (While dragging anchor)
             if (attachedWalls.length === 1) {
                 let fixedAnchor = attachedWalls[0].startAnchor === this ? attachedWalls[0].endAnchor : attachedWalls[0].startAnchor;
-                let dx = rawPos.x - fixedAnchor.x;
-                let dy = rawPos.y - fixedAnchor.y;
-                let rawAngle = Math.atan2(dy, dx) * 180 / Math.PI;
-                let dist = Math.hypot(dx, dy);
-                
+                let dx = rawPos.x - fixedAnchor.x; let dy = rawPos.y - fixedAnchor.y; let rawAngle = Math.atan2(dy, dx) * 180 / Math.PI; let dist = Math.hypot(dx, dy);
                 for (let a of [0, 45, 90, 135, 180, -45, -90, -135, -180]) {
-                    if (Math.abs(rawAngle - a) < 5) {
-                        let rad = a * Math.PI / 180;
-                        rawPos.x = fixedAnchor.x + dist * Math.cos(rad);
-                        rawPos.y = fixedAnchor.y + dist * Math.sin(rad);
-                        this.planner.drawGuideLine(fixedAnchor.x, fixedAnchor.y, rawPos.x, rawPos.y, true);
-                        break;
-                    } else {
-                        this.planner.drawGuideLine(0,0,0,0, false);
-                    }
+                    if (Math.abs(rawAngle - a) < 5) { let rad = a * Math.PI / 180; rawPos.x = fixedAnchor.x + dist * Math.cos(rad); rawPos.y = fixedAnchor.y + dist * Math.sin(rad); this.planner.drawGuideLine(fixedAnchor.x, fixedAnchor.y, rawPos.x, rawPos.y, true); break; } else { this.planner.drawGuideLine(0,0,0,0, false); }
                 }
             }
-            
-            let proposedPos = rawPos; 
-            let targetSnapWall = null, closestDist = SNAP_DIST, snappedObj = false;
-            
-            for (let w of this.planner.walls) { 
-                if (attachedWalls.includes(w)) continue; 
-                let proj = this.planner.getClosestPointOnSegment(proposedPos, w.startAnchor.position(), w.endAnchor.position());
-                let dist = Math.hypot(proposedPos.x - proj.x, proposedPos.y - proj.y); 
-                if (dist < closestDist) { closestDist = dist; proposedPos = proj; targetSnapWall = w; snappedObj = true; } 
-            }
-            
-            // 2. LIVE INFO BADGE (Degree and Length while dragging anchor)
+            let proposedPos = rawPos; let targetSnapWall = null, closestDist = SNAP_DIST, snappedObj = false;
+            for (let w of this.planner.walls) { if (attachedWalls.includes(w)) continue; let proj = this.planner.getClosestPointOnSegment(proposedPos, w.startAnchor.position(), w.endAnchor.position()); let dist = Math.hypot(proposedPos.x - proj.x, proposedPos.y - proj.y); if (dist < closestDist) { closestDist = dist; proposedPos = proj; targetSnapWall = w; snappedObj = true; } }
             if (attachedWalls.length === 1) {
-                let fixedAnchor = attachedWalls[0].startAnchor === this ? attachedWalls[0].endAnchor : attachedWalls[0].startAnchor;
-                let dx = proposedPos.x - fixedAnchor.x;
-                let dy = proposedPos.y - fixedAnchor.y;
-                let len = this.planner.formatLength(Math.hypot(dx, dy));
-                let ang = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI).toFixed(1);
-                this.planner.updateInfoBadge(proposedPos.x, proposedPos.y, len, ang, snappedObj);
+                let fixedAnchor = attachedWalls[0].startAnchor === this ? attachedWalls[0].endAnchor : attachedWalls[0].startAnchor; let dx = proposedPos.x - fixedAnchor.x; let dy = proposedPos.y - fixedAnchor.y; let len = this.planner.formatLength(Math.hypot(dx, dy)); let ang = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI).toFixed(1); this.planner.updateInfoBadge(proposedPos.x, proposedPos.y, len, ang, snappedObj);
             }
-
             this.planner.walls.forEach(w => { w.setHighlight(attachedWalls.includes(w) || w === this.planner.selectedEntity); });
-            
-            let collision = false; 
-            for (let w of attachedWalls) { if (w.hasEvent("stop_collision")) { let otherAnc = w.startAnchor === this ? w.endAnchor : w.startAnchor; if (this.planner.checkWallIntersection(proposedPos, otherAnc.position(), [targetSnapWall])) { collision = true; break; } } }
-            
-            if (collision) { this.node.position(this.lastValidPos); } 
-            else { this.node.position(proposedPos); this.lastValidPos = proposedPos; } 
-            
-            if (snappedObj) this.planner.showSnapGlow(proposedPos.x, proposedPos.y); 
-            else this.planner.hideSnapGlow();
-            
+            let collision = false; for (let w of attachedWalls) { if (w.hasEvent("stop_collision")) { let otherAnc = w.startAnchor === this ? w.endAnchor : w.startAnchor; if (this.planner.checkWallIntersection(proposedPos, otherAnc.position(), [targetSnapWall])) { collision = true; break; } } }
+            if (collision) { this.node.position(this.lastValidPos); } else { this.node.position(proposedPos); this.lastValidPos = proposedPos; } 
+            if (snappedObj) this.planner.showSnapGlow(proposedPos.x, proposedPos.y); else this.planner.hideSnapGlow();
             this.planner.syncAll();
         });
-        
-        this.node.on('dragend', () => { 
-            this.planner.walls.forEach(w => w.setHighlight(w === this.planner.selectedEntity)); 
-            this.planner.drawGuideLine(0,0,0,0, false);
-            this.planner.hideInfoBadge();
-            this.planner.hideSnapGlow();
-            this.planner.syncAll(); 
-        }); 
+        this.node.on('dragend', () => { this.planner.walls.forEach(w => w.setHighlight(w === this.planner.selectedEntity)); this.planner.drawGuideLine(0,0,0,0, false); this.planner.hideInfoBadge(); this.planner.hideSnapGlow(); this.planner.syncAll(); }); 
         this.planner.uiLayer.add(this.node);
     }
-    get x() { return this.node.x(); } get y() { return this.node.y(); } 
-    show() { this.node.show(); } hide() { this.node.hide(); } 
-    position() { return this.node.position(); }
+    get x() { return this.node.x(); } get y() { return this.node.y(); } show() { this.node.show(); } hide() { this.node.hide(); } position() { return this.node.position(); }
 }
 
 export class PremiumStair {
@@ -207,16 +148,13 @@ export class PremiumWall {
         this.planner = planner; this.startAnchor = startAnchor; this.endAnchor = endAnchor; this.attachedWidgets = []; this.type = type; this.config = WALL_REGISTRY[type] || WALL_REGISTRY['outer'];
         this.elevationLayers = { front: [{ id: Date.now(), texture: 'none', color: '#e2e8f0', x: 0, y: 0, w: '100%', h: '100%' }], back: [{ id: Date.now()+1, texture: 'none', color: '#f8fafc', x: 0, y: 0, w: '100%', h: '100%' }] };
         this.fillColor = this.type === 'outer' ? '#e5e5e5' : '#f3f4f6'; this.strokeColor = this.type === 'outer' ? '#9ca3af' : '#d1d5db';
-        
         this.wallGroup = new Konva.Group(); 
         this.poly = new Konva.Line({ fill: this.fillColor, stroke: this.strokeColor, strokeWidth: 2, closed: true, lineJoin: 'miter', shadowColor: 'black', shadowBlur: 10, shadowOffset: {x: 2, y: 2}, shadowOpacity: 0.2 });
         this.frontHighlight = new Konva.Line({ stroke: '#3b82f6', strokeWidth: 4, visible: false }); 
         this.backHighlight = new Konva.Line({ stroke: '#10b981', strokeWidth: 4, visible: false });
-        
         this.wallGroup.add(this.poly, this.frontHighlight, this.backHighlight); 
         this.planner.wallLayer.add(this.wallGroup);
         
-        // 3. WALL LENGTH LABEL (Rendered permanently on top of the wall layer)
         this.labelGroup = new Konva.Group({ listening: false }); 
         this.labelText = new Konva.Text({ fontSize: 11, fill: "#4b5563", padding: 2, fontStyle: 'bold' }); 
         this.labelGroup.add(this.labelText); 
@@ -261,20 +199,40 @@ export class PremiumWall {
         const [startL, startR] = getCorners(this.startAnchor, true), [endL, endR] = getCorners(this.endAnchor, false);
         this.poly.points([ startL.x, startL.y, endL.x, endL.y, endR.x, endR.y, startR.x, startR.y ]);
         const fOff = 4; this.frontHighlight.points([ startL.x + n.x * fOff, startL.y + n.y * fOff, endL.x + n.x * fOff, endL.y + n.y * fOff ]); this.backHighlight.points([ startR.x - n.x * fOff, startR.y - n.y * fOff, endR.x - n.x * fOff, endR.y - n.y * fOff ]);
-        
-        // Dynamically update the Text Node value
-        this.labelText.text(this.planner.formatLength(this.getLength())); 
-        this.labelGroup.position({ x: (p1.x + p2.x) / 2 - this.labelText.width() / 2, y: (p1.y + p2.y) / 2 - 15 });
-        
+        this.labelText.text(this.planner.formatLength(this.getLength())); this.labelGroup.position({ x: (p1.x + p2.x) / 2 - this.labelText.width() / 2, y: (p1.y + p2.y) / 2 - 15 });
         this.attachedWidgets.forEach(w => w.update()); 
     }   
     remove() { this.wallGroup.destroy(); this.labelGroup.destroy(); this.attachedWidgets.forEach(w => w.remove()); this.planner.walls = this.planner.walls.filter(w => w !== this); this.planner.selectEntity(null); this.planner.syncAll(); }
 }
 
+export class PremiumFurniture {
+    constructor(planner, x, y, configId) {
+        this.planner = planner; this.type = 'furniture'; this.config = FURNITURE_REGISTRY[configId];
+        this.width = this.config.default.width; this.depth = this.config.default.depth; this.height = this.config.default.height; 
+        this.rotation = 0; this.isDragging = false;
+        this.group = new Konva.Group({ x: x, y: y, width: this.width, height: this.depth, draggable: true, offsetX: this.width / 2, offsetY: this.depth / 2 });
+        this.body = new Konva.Rect({ width: this.width, height: this.depth, fill: '#fde68a', stroke: '#ea580c', strokeWidth: 2, cornerRadius: 4, shadowColor: 'black', shadowBlur: 5, shadowOpacity: 0.2 });
+        this.rotHandle = new Konva.Circle({ x: this.width / 2, y: -15, radius: 6, fill: '#ea580c', stroke: 'white', strokeWidth: 2, draggable: true, visible: false });
+        this.group.add(this.body, this.rotHandle); this.planner.furnitureLayer.add(this.group);
+        this.initEvents();
+    }
+    setHighlight(isActive) { this.body.stroke(isActive ? '#4f46e5' : '#ea580c'); this.body.strokeWidth(isActive ? 3 : 2); this.rotHandle.visible(isActive); this.planner.stage.batchDraw(); }
+    initEvents() {
+        this.group.on('mouseenter', () => document.body.style.cursor = 'move'); this.group.on('mouseleave', () => document.body.style.cursor = 'default');
+        this.group.on('mousedown', (e) => { e.cancelBubble = true; this.planner.selectEntity(this, 'furniture'); });
+        this.group.on('dragstart', () => { this.isDragging = true; this.planner.selectEntity(this, 'furniture'); });
+        this.group.on('dragmove', (e) => { if (e.target === this.rotHandle) return; this.planner.syncAll(); });
+        this.group.on('dragend', () => { this.isDragging = false; });
+        this.rotHandle.on('dragmove', (e) => { e.cancelBubble = true; const pos = this.planner.stage.getPointerPosition(); const angleRad = Math.atan2(pos.y - this.group.y(), pos.x - this.group.x()); this.rotation = (angleRad * 180 / Math.PI) + 90; this.group.rotation(this.rotation); this.rotHandle.position({ x: this.width / 2, y: -15 }); this.planner.syncAll(); });
+    }
+    update() { this.group.width(this.width); this.group.height(this.depth); this.group.offsetX(this.width / 2); this.group.offsetY(this.depth / 2); this.body.width(this.width); this.body.height(this.depth); this.group.rotation(this.rotation); this.rotHandle.x(this.width / 2); }
+    remove() { this.group.destroy(); this.planner.furniture = this.planner.furniture.filter(f => f !== this); this.planner.selectEntity(null); this.planner.syncAll(); }
+}
+
 export class FloorPlanner {
     constructor(containerEl) { 
         this.container = containerEl; this.tool = "outer"; this.currentUnit = "ft"; this.drawing = false; this.lastAnchor = null; this.startAnchor = null; this.drawingStair = null; this.preview = null;
-        this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
+        this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
         this.onSelectionChange = null; 
         this.initKonva(); this.drawGrid(); this.initHUD(); this.initStageEvents(); 
     }
@@ -282,10 +240,10 @@ export class FloorPlanner {
     initKonva() { 
         this.stage = new Konva.Stage({ container: this.container, width: window.innerWidth - 380, height: window.innerHeight }); 
         this.gridLayer = new Konva.Layer(); this.roomLayer = new Konva.Layer(); this.wallLayer = new Konva.Layer(); this.widgetLayer = new Konva.Layer(); 
+        this.furnitureLayer = new Konva.Layer(); // New layer for furniture
+        this.uiLayer = new Konva.Layer(); // Top layer for UI
         
-        // UI layer explicitly placed at the very top
-        this.uiLayer = new Konva.Layer(); 
-        this.stage.add(this.gridLayer, this.roomLayer, this.wallLayer, this.widgetLayer, this.uiLayer); 
+        this.stage.add(this.gridLayer, this.roomLayer, this.wallLayer, this.widgetLayer, this.furnitureLayer, this.uiLayer); 
     }
     
     initHUD() {
@@ -310,7 +268,6 @@ export class FloorPlanner {
         const dx = x2 - x1, dy = y2 - y1; const scale = 2000; 
         this.guideLineInfinite.points([x1 - dx*scale, y1 - dy*scale, x1 + dx*scale, y1 + dy*scale]); 
         this.guideLineInfinite.show(); 
-        // Force guideline behind other UI elements to avoid visual clutter
         this.guideLineInfinite.moveToBottom(); 
     }
     
@@ -318,20 +275,11 @@ export class FloorPlanner {
         let txt = `${length}\n${angle}°`; 
         if (snapped) txt += `\n🎯 Snapped`; 
         this.infoBadgeText.text(txt); 
-        
-        // Dynamically update Background rect relative to text
-        this.infoBadgeBg.setAttrs({
-            width: this.infoBadgeText.width(),
-            height: this.infoBadgeText.height()
-        });
-        
+        this.infoBadgeBg.setAttrs({ width: this.infoBadgeText.width(), height: this.infoBadgeText.height() });
         this.infoBadgeGroup.position({ x: x + 15, y: y + 15 }); 
         this.infoBadgeGroup.show(); 
-        
-        // 4. THE CRITICAL FIX: Explicitly force the Info Badge to the absolute top of the render stack!
         this.infoBadgeGroup.moveToTop(); 
     } 
-    
     hideInfoBadge() { this.infoBadgeGroup.hide(); }
 
     snap(v) { return Math.round(v / GRID) * GRID; }
@@ -347,17 +295,25 @@ export class FloorPlanner {
         if (this.selectedEntity && this.selectedType === 'wall') this.selectedEntity.setHighlight(false);
         if (this.selectedEntity && this.selectedType === 'stair') this.selectedEntity.setHighlight(false);
         if (this.selectedEntity && this.selectedType === 'stair_node') this.selectedEntity.setHighlight(false);
+        if (this.selectedEntity && this.selectedType === 'furniture') this.selectedEntity.setHighlight(false);
         
         this.selectedEntity = entity; this.selectedType = type; this.selectedNodeIndex = nodeIndex;
         
-        if (entity && (type === 'wall' || type === 'stair' || type === 'stair_node')) entity.setHighlight(true);
+        if (entity && (type === 'wall' || type === 'stair' || type === 'stair_node' || type === 'furniture')) entity.setHighlight(true);
         if (this.onSelectionChange) this.onSelectionChange(entity, type, nodeIndex);
     }
 
-    updateToolStates() { const isSelect = this.tool === "select"; this.walls.forEach(w => { w.poly.setAttr('draggable', isSelect); w.attachedWidgets.forEach(widg => widg.visualGroup.setAttr('draggable', isSelect)); }); this.stairs.forEach(s => { s.group.setAttr('draggable', isSelect); }); this.anchors.forEach(a => { a.node.setAttr('draggable', isSelect); }); }
+    updateToolStates() { 
+        const isSelect = this.tool === "select"; 
+        this.walls.forEach(w => { w.poly.setAttr('draggable', isSelect); w.attachedWidgets.forEach(widg => widg.visualGroup.setAttr('draggable', isSelect)); }); 
+        this.stairs.forEach(s => { s.group.setAttr('draggable', isSelect); }); 
+        this.anchors.forEach(a => { a.node.setAttr('draggable', isSelect); }); 
+        this.furniture.forEach(f => { f.group.setAttr('draggable', isSelect); });
+    }
+
     getOrCreateAnchor(x, y) { let a = this.anchors.find(a => Math.hypot(a.x - x, a.y - y) < SNAP_DIST); if (a) return a; const newAnchor = new Anchor(this, x, y); this.anchors.push(newAnchor); return newAnchor; }
-    deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.anchors.forEach(a => a.hide()); this.selectEntity(null); this.syncAll(); }
-    syncAll() { this.walls.forEach(w => w.update()); this.stairs.forEach(s => s.update()); this.stage.draw(); this.detectRooms(); }
+    deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.anchors.forEach(a => a.hide()); this.selectEntity(null); this.syncAll(); }
+    syncAll() { this.walls.forEach(w => w.update()); this.stairs.forEach(s => s.update()); this.furniture.forEach(f => f.update()); this.stage.draw(); this.detectRooms(); }
     
     finishChain() { 
         if (this.drawingStair) { this.drawingStair.finishDrawing(); this.drawingStair = null; } 
@@ -402,7 +358,6 @@ export class FloorPlanner {
             if (!this.drawing) return; 
             const wallConfig = WALL_REGISTRY[this.tool]; 
             
-            // ANGLE GUIDELINES (While drawing new wall)
             let dxAxis = rawPos.x - this.lastAnchor.x, dyAxis = rawPos.y - this.lastAnchor.y, rawAngle = Math.atan2(dyAxis, dxAxis) * 180 / Math.PI, distAxis = Math.hypot(dxAxis, dyAxis), snappedToAxis = false;
             for (let a of [0, 45, 90, 135, 180, -45, -90, -135, -180]) {
                 if (Math.abs(rawAngle - a) < 5) { 
@@ -424,7 +379,6 @@ export class FloorPlanner {
                 else { let closestDist = SNAP_DIST, closestPoint = null; for (let w of this.walls) { let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = w; snappedObj = true; } } if (closestPoint) snapPos = closestPoint; } 
             } 
             
-            // DEGREE AND LENGTH BADGE UPDATE
             let dxBadge = snapPos.x - this.lastAnchor.x, dyBadge = snapPos.y - this.lastAnchor.y;
             let lenBadge = this.formatLength(Math.hypot(dxBadge, dyBadge));
             let angBadge = Math.abs(Math.atan2(dyBadge, dxBadge) * 180 / Math.PI).toFixed(1);
@@ -436,15 +390,11 @@ export class FloorPlanner {
             let isColliding = false; 
             if (wallConfig && (wallConfig.events.includes("collision_detected") || wallConfig.events.includes("stop_collision"))) { isColliding = this.checkWallIntersection(this.lastAnchor.position(), snapPos, [targetSnapWall]); } 
             
-            // PREVIEW LINE (Rendered specifically at the bottom of the UI layer stack so Badge stays visible)
             this.preview?.destroy(); 
             const isClosing = (this.startAnchor && Math.hypot(this.startAnchor.x - snapPos.x, this.startAnchor.y - snapPos.y) < 15); 
             let drawColor = (isColliding && wallConfig && wallConfig.events.includes("stop_collision")) ? "#ef4444" : (isClosing ? "#10b981" : "#3b82f6"); 
             this.preview = new Konva.Line({ points: [this.lastAnchor.x, this.lastAnchor.y, snapPos.x, snapPos.y], stroke: drawColor, strokeWidth: 2, opacity: 0.8 }); 
-            
             this.uiLayer.add(this.preview); 
-            
-            // 5. THE SECOND CRITICAL FIX: Push the dynamic line node BEHIND everything else.
             this.preview.moveToBottom();
             
             this.uiLayer.draw(); 

@@ -23,6 +23,16 @@
     </div>
 
     <div class="unit-section">
+      <div class="unit-label">Furniture Catalog</div>
+      <div class="catalog-grid">
+        <div v-for="(item, key) in FURNITURE_REGISTRY" :key="key" class="catalog-item" @click="$emit('add-furniture', key)">
+          <img :src="item.preview" :alt="item.name">
+          <span>{{ item.name }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="unit-section">
       <div class="unit-label">Circulation</div>
       <div class="toolbar-group">
         <div class="tool" :class="{ active: activeTool === 'stair' }" @click="$emit('select-tool', 'stair')">Draw Path Stair<br><span style="font-size:8px; font-weight:normal">(Click pts, Esc to finish)</span></div>
@@ -45,9 +55,10 @@
 
 <script setup>
 import { ref } from 'vue';
-import { WALL_REGISTRY, WIDGET_REGISTRY } from '../core/registry';
+import { WALL_REGISTRY, WIDGET_REGISTRY, FURNITURE_REGISTRY } from '../core/registry';
+
 defineProps(['activeTool']);
-const emit = defineEmits(['select-tool', 'toggle-3d', 'export', 'import']);
+const emit = defineEmits(['select-tool', 'toggle-3d', 'export', 'import', 'add-furniture']);
 
 const fileInput = ref(null);
 const triggerFileInput = () => fileInput.value.click();
@@ -73,4 +84,9 @@ button { width: 100%; padding: 10px; border-radius: 6px; font-size: 12px; cursor
 .btn-primary { background: #111827; color: white; border: none; }
 .btn-primary:hover { background: #374151; }
 .btn-secondary { background: #f9fafb; color: #111827; border: 1px solid #e5e7eb; }
+.catalog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.catalog-item { cursor: pointer; border: 1px solid #e5e7eb; border-radius: 6px; padding: 4px; text-align: center; transition: 0.2s; }
+.catalog-item:hover { border-color: #4f46e5; background: #f3f4f6; }
+.catalog-item img { width: 100%; height: 40px; object-fit: cover; border-radius: 4px; }
+.catalog-item span { font-size: 9px; font-weight: bold; color: #4b5563; display: block; margin-top: 4px; }
 </style>

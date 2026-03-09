@@ -4,6 +4,7 @@
       :activeTool="activeTool" 
       @select-tool="setTool" 
       @toggle-3d="toggle3D"
+      @add-furniture="spawnFurniture"
       @export="saveProject"
       @import="loadProject"
     />
@@ -32,12 +33,11 @@
 import { ref, shallowRef, onMounted, nextTick } from 'vue';
 import LeftSidebar from './components/LeftSidebar.vue';
 import RightSidebar from './components/RightSidebar.vue';
-import { FloorPlanner } from './core/engine2d';
+import { FloorPlanner, PremiumFurniture } from './core/engine2d';
 import { Preview3D } from './core/engine3d';
 import { FileManager } from './core/io';
 import { DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from './core/registry';
 
-// Expose globals for procedural 3D generation mapping
 window.DOOR_MATERIALS = DOOR_MATERIALS;
 window.WINDOW_FRAME_MATERIALS = WINDOW_FRAME_MATERIALS;
 window.WINDOW_GLASS_MATERIALS = WINDOW_GLASS_MATERIALS;
@@ -72,6 +72,14 @@ const setTool = (tool) => {
     planner.value.selectEntity(null);
 };
 
+const spawnFurniture = (configId) => {
+    const center = { x: planner.value.stage.width() / 2, y: planner.value.stage.height() / 2 };
+    const item = new PremiumFurniture(planner.value, center.x, center.y, configId);
+    planner.value.furniture.push(item);
+    planner.value.selectEntity(item, 'furniture');
+    planner.value.syncAll();
+};
+
 const syncEngine = () => planner.value.syncAll();
 const handleDelete = () => { if (selectedEntity.value) selectedEntity.value.remove(); };
 
@@ -81,7 +89,7 @@ const toggle3D = async () => {
     viewMode.value = '3d';
     await nextTick();
     renderer3D.value.resize();
-    renderer3D.value.buildScene(planner.value.walls, planner.value.roomPaths, planner.value.stairs); 
+    renderer3D.value.buildScene(planner.value.walls, planner.value.roomPaths, planner.value.stairs, planner.value.furniture); 
 };
 
 const saveProject = () => FileManager.exportJSON(planner.value);

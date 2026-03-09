@@ -30,7 +30,26 @@ export const WALL_REGISTRY = {
     'inner': { type: "inner", label: "INNER WALL", thickness: 8, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] }
 };
 
-// 3D Door Generation Helper
+export const FURNITURE_REGISTRY = {
+    'chair_ekero': {
+        id: 'chair_ekero',
+        name: 'Ekero Chair',
+        model: 'models/chair_ekero.glb', 
+        texture: 'textures/ik-ekero-orange_baked.png',
+        preview: 'https://via.placeholder.com/150/FF8C00/FFFFFF?text=Chair', 
+        default: { width: 40, height: 50, depth: 40 }, 
+        editable: { resize: true, rotation: true, move: true }
+    },
+    'table_dining': {
+        id: 'table_dining',
+        name: 'Dining Table',
+        model: 'models/table_dining.glb',
+        preview: 'https://via.placeholder.com/150/8B4513/FFFFFF?text=Table',
+        default: { width: 100, height: 40, depth: 60 },
+        editable: { resize: true, rotation: true, move: true }
+    }
+};
+
 function buildDetailedDoorPanel(width, height, thickness, material, type, isGlass, signX = 1, helpers) {
     const group = new THREE.Group(); const gap = 0.2; 
     if (isGlass || type === 'french') {
@@ -68,7 +87,6 @@ export const WIDGET_REGISTRY = {
         widget: "door", label: "DOOR",
         events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "jump_wall_to_wall", "prevent_overlap", "resize_handles_along_wall_axis"],
         defaultConfig: { width: 40, doorType: 'single', doorMat: 'wood', facing: 1, side: 1 },
-        
         render2D: (group, entity) => {
             const hw = entity.width / 2; const thick = entity.wall.config.thickness;
             if (entity.doorType === 'single') {
@@ -87,7 +105,6 @@ export const WIDGET_REGISTRY = {
                 const qw = entity.width / 4; group.add(new Konva.Line({ points: [-hw, 0, -hw + qw, -qw*entity.facing], stroke: '#374151', strokeWidth: 3 }), new Konva.Line({ points: [-hw + qw, -qw*entity.facing, 0, 0], stroke: '#374151', strokeWidth: 3 })); 
             }
         },
-
         render3D: (sceneGroup, entity, helpers) => {
             const doorGroup = new THREE.Group(); doorGroup.position.set(entity.x, 0, entity.z); doorGroup.rotation.y = -entity.angle;
             const matDoor = helpers.getDynamicMaterial(entity.doorMat, 'door'); const conf = DOOR_MATERIALS[entity.doorMat] || DOOR_MATERIALS.wood; const frameColorHex = new THREE.Color(conf.color).multiplyScalar(0.85);
@@ -96,14 +113,12 @@ export const WIDGET_REGISTRY = {
             const isGlassDoor = entity.doorMat === 'glass'; const frameWidth = 1.5; const frameThick = entity.thick + 1; const doorThick = 2.0; const gapSide = 0.15; const gapTop = 0.15; const gapBottom = 0.5; 
             const leafWidth = entity.width - (frameWidth * 2) - (gapSide * 2); const leafHeight = DOOR_HEIGHT - frameWidth - gapTop - gapBottom;
             const openAngle = (Math.PI / 4) * (entity.facing === 1 ? 1 : -1); const pivotXOffset = -entity.width/2 + frameWidth + gapSide/2; const hingePinZ = 0; 
-
             if (entity.doorType !== 'pocket') { 
                 const jamGeo = new THREE.BoxGeometry(frameWidth, DOOR_HEIGHT, frameThick); const jamL = new THREE.Mesh(jamGeo, matFrame); jamL.position.set(-entity.width/2 + frameWidth/2, DOOR_HEIGHT/2, 0); const jamR = new THREE.Mesh(jamGeo, matFrame); jamR.position.set(entity.width/2 - frameWidth/2, DOOR_HEIGHT/2, 0); const jamT = new THREE.Mesh(new THREE.BoxGeometry(entity.width, frameWidth, frameThick), matFrame); jamT.position.set(0, DOOR_HEIGHT - frameWidth/2, 0);
                 const trimStile = new THREE.BoxGeometry(4, DOOR_HEIGHT + 2, 0.5); const trimRail = new THREE.BoxGeometry(entity.width + 8, 4, 0.5);
                 [-frameThick/2 - 0.25, frameThick/2 + 0.25].forEach(zOff => { const tL = new THREE.Mesh(trimStile, matFrame); tL.position.set(-entity.width/2 - 2 + frameWidth, DOOR_HEIGHT/2 + 1, zOff); const tR = new THREE.Mesh(trimStile, matFrame); tR.position.set(entity.width/2 + 2 - frameWidth, DOOR_HEIGHT/2 + 1, zOff); const tT = new THREE.Mesh(trimRail, matFrame); tT.position.set(0, DOOR_HEIGHT + 2, zOff); [tL, tR, tT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); }); });
                 [jamL, jamR, jamT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); });
             }
-
             if (entity.doorType === 'single') {
                 const panel = buildDetailedDoorPanel(leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, entity.side, helpers); const hingeHolder = new THREE.Group(); 
                 if (entity.side === 1) { hingeHolder.position.set(-pivotXOffset, gapBottom, hingePinZ); panel.position.set(-leafWidth/2 - gapSide/2, 0, -hingePinZ); panel.rotation.y = Math.PI; hingeHolder.rotation.y = -openAngle; } else { hingeHolder.position.set(pivotXOffset, gapBottom, hingePinZ); panel.position.set(leafWidth/2 + gapSide/2, 0, -hingePinZ); hingeHolder.rotation.y = openAngle; } 
@@ -152,12 +167,10 @@ export const WIDGET_REGISTRY = {
             sceneGroup.add(doorGroup);
         }
     },
-    
     'window': {
         widget: "window", label: "WINDOW",
         events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "jump_wall_to_wall", "prevent_overlap", "resize_handles_along_wall_axis"],
         defaultConfig: { width: 50, windowType: 'sliding_std', frameMat: 'alum_powder', glassMat: 'clear', grillePattern: 'grid', facing: 1, side: 1 },
-        
         render2D: (group, entity) => {
             const hw = entity.width / 2; const thick = entity.wall.config.thickness; const wConf = WINDOW_TYPES[entity.windowType] || WINDOW_TYPES.sliding_std;
             if (wConf.type === 'fixed' || wConf.type === 'louver') { group.add(new Konva.Rect({ fill: '#bae6fd', opacity: 0.6, stroke: '#38bdf8', strokeWidth: 1, width: entity.width - 8, height: thick * 0.4, x: -hw + 4, y: -thick * 0.2 })); } 
@@ -166,19 +179,16 @@ export const WIDGET_REGISTRY = {
             else if (wConf.type === 'bay') { group.add(new Konva.Line({ points: [-hw, 0, -hw+10, -20*entity.facing, hw-10, -20*entity.facing, hw, 0], stroke: '#38bdf8', strokeWidth: 2 })); }
             if (entity.grillePattern !== 'none') { group.add(new Konva.Line({ points: [-hw, thick*0.4, hw, thick*0.4], stroke: '#ef4444', dash: [2,2] })); }
         },
-
         render3D: (sceneGroup, entity, helpers) => {
             const winGroup = new THREE.Group(); winGroup.position.set(entity.x, WINDOW_SILL, entity.z); winGroup.rotation.y = -entity.angle;
             const wConf = WINDOW_TYPES[entity.windowType] || WINDOW_TYPES.sliding_std;
             const matFrame = helpers.getDynamicMaterial(entity.frameMat, 'window_frame'); const matGlass = helpers.getDynamicMaterial(entity.glassMat, 'window_glass');
             const isTrad = wConf.type === 'traditional'; const isBay = wConf.type === 'bay'; const fW = isTrad ? 5 : 3; const fThick = entity.thick + (isTrad ? 4 : 1); const zOffset = isBay ? 12 : 0; 
             const matGrille = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8, roughness: 0.2 }); const matConcrete = new THREE.MeshStandardMaterial({ color: 0xd4d4d4, roughness: 1.0 });
-
             const outStile = new THREE.BoxGeometry(fW, WINDOW_HEIGHT, fThick); const outRail = new THREE.BoxGeometry(entity.width - fW*2, fW, fThick);
             const sl = new THREE.Mesh(outStile, matFrame); sl.position.set(-entity.width/2 + fW/2, WINDOW_HEIGHT/2, zOffset); const sr = new THREE.Mesh(outStile, matFrame); sr.position.set(entity.width/2 - fW/2, WINDOW_HEIGHT/2, zOffset);
             const rt = new THREE.Mesh(outRail, matFrame); rt.position.set(0, WINDOW_HEIGHT - fW/2, zOffset); const rb = new THREE.Mesh(outRail, matFrame); rb.position.set(0, fW/2, zOffset);
             [sl, sr, rt, rb].forEach(m => { m.castShadow = true; m.receiveShadow = true; winGroup.add(m); });
-
             const iW = entity.width - fW*2; const iH = WINDOW_HEIGHT - fW*2; const sThick = entity.thick * 0.6;
             const makeSash = (w, h, useGlass=true) => {
                 const sG = new THREE.Group(); const sFw = isTrad ? 4 : 2.5; const geoS = new THREE.BoxGeometry(sFw, h, sThick); const geoR = new THREE.BoxGeometry(w - sFw*2, sFw, sThick);
@@ -189,7 +199,6 @@ export const WIDGET_REGISTRY = {
                 else { const woodPanel = new THREE.Mesh(new THREE.BoxGeometry(w - sFw*2, h - sFw*2, sThick*0.5), matFrame); woodPanel.position.set(0, h/2, 0); sG.add(woodPanel); }
                 return sG;
             };
-
             if (wConf.type === 'fixed') { const sash = makeSash(iW, iH); sash.position.set(0, fW, zOffset); winGroup.add(sash); } 
             else if (wConf.type === 'casement' || wConf.type === 'traditional') {
                 const hw = iW / 2; const useGlass = wConf.type !== 'traditional';
@@ -206,7 +215,6 @@ export const WIDGET_REGISTRY = {
                 const capShape = new THREE.Shape(); capShape.moveTo(-iW/2 - fW, 0); capShape.lineTo(iW/2 + fW, 0); capShape.lineTo(frontW/2 + fW, zOffset + fThick/2); capShape.lineTo(-frontW/2 - fW, zOffset + fThick/2);
                 const capGeo = new THREE.ExtrudeGeometry(capShape, {depth: fW, bevelEnabled:false}); capGeo.rotateX(Math.PI/2); const capT = new THREE.Mesh(capGeo, matFrame); capT.position.set(0, WINDOW_HEIGHT, 0); const capB = new THREE.Mesh(capGeo, matFrame); capB.position.set(0, fW, 0); winGroup.add(capT, capB);
             }
-
             if (entity.grillePattern && entity.grillePattern !== 'none') {
                 const grilleGroup = new THREE.Group(); const grilleZ = entity.facing === 1 ? fThick/2 - 0.5 : -fThick/2 + 0.5; grilleGroup.position.set(0, 0, grilleZ); const barRadius = 0.3;
                 const makeVBar = (x) => { const b = new THREE.Mesh(new THREE.CylinderGeometry(barRadius, barRadius, iH + 2, 8), matGrille); b.position.set(x, WINDOW_HEIGHT/2, 0); return b; }; const makeHBar = (y) => { const b = new THREE.Mesh(new THREE.CylinderGeometry(barRadius, barRadius, iW + 2, 8), matGrille); b.rotation.z = Math.PI/2; b.position.set(0, y, 0); return b; };
@@ -220,35 +228,3 @@ export const WIDGET_REGISTRY = {
         }
     }
 };
-
-export function applyPatternToCtx(ctx, texture, color, x, y, w, h, scaleMult = 1) {
-    ctx.fillStyle = color; ctx.fillRect(x, y, w, h);
-    if (!texture || texture === 'none') return;
-    ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip(); const scale = scaleMult;
-    if (texture === 'subway' || texture === 'brick') {
-        ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1 * scale; const bW = (texture === 'subway' ? 20 : 40) * scale; const bH = (texture === 'subway' ? 10 : 20) * scale;
-        for(let py = y; py < y + h; py += bH) { ctx.beginPath(); ctx.moveTo(x, py); ctx.lineTo(x + w, py); ctx.stroke(); const offsetX = (Math.round((py - y) / bH) % 2 === 0) ? 0 : bW / 2;
-            for(let px = x - offsetX; px < x + w; px += bW) { ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py + bH); ctx.stroke(); if(texture === 'subway') { ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(px + 1, py + 1, bW - 2, bH * 0.4); } } }
-    } else if (texture === 'tile' || texture === 'porcelain' || texture === 'large_slab') {
-        ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 1 * scale; const tS = (texture === 'large_slab' ? 80 : 40) * scale;
-        for(let py = y; py < y + h; py += tS) { ctx.beginPath(); ctx.moveTo(x, py); ctx.lineTo(x + w, py); ctx.stroke(); }
-        for(let px = x; px < x + w; px += tS) { ctx.beginPath(); ctx.moveTo(px, y); ctx.lineTo(px, y + h); ctx.stroke(); }
-        if (texture === 'porcelain' || texture === 'large_slab') { const grd = ctx.createLinearGradient(x, y, x+w, y+h); grd.addColorStop(0, "rgba(255,255,255,0.3)"); grd.addColorStop(1, "rgba(255,255,255,0)"); ctx.fillStyle = grd; ctx.fillRect(x, y, w, h); }
-    } else if (texture === 'wood') {
-        ctx.strokeStyle = 'rgba(0,0,0,0.15)'; const plankW = 15 * scale; for(let px = x; px < x + w; px += plankW) { ctx.beginPath(); ctx.moveTo(px, y); ctx.lineTo(px, y + h); ctx.stroke(); }
-        for(let i=0; i<w; i+= 4 * scale) { ctx.beginPath(); ctx.lineWidth = Math.random() * 2 * scale; ctx.moveTo(x + i + Math.random()*2, y); ctx.lineTo(x + i + Math.random()*2, y + h); ctx.stroke(); }
-    } else if (texture === 'marble') {
-        ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 2 * scale; for(let i=0; i<6; i++) { ctx.beginPath(); let vx = x + Math.random()*w; let vy = y; ctx.moveTo(vx, vy); while(vy < y+h) { vx += (Math.random()-0.5)*25*scale; vy += 15*scale; ctx.lineTo(vx, vy); } ctx.stroke(); }
-    } else if (texture === 'granite') {
-        for(let i=0; i<(w*h/(15*scale)); i++) { ctx.fillStyle = Math.random() > 0.5 ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)'; ctx.fillRect(x + Math.random()*w, y + Math.random()*h, 2*scale, 2*scale); }
-    } else if (texture === 'mosaic') {
-        ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.5 * scale; const tS = 5 * scale; for(let py = y; py < y + h; py += tS) { ctx.beginPath(); ctx.moveTo(x, py); ctx.lineTo(x + w, py); ctx.stroke(); } for(let px = x; px < x + w; px += tS) { ctx.beginPath(); ctx.moveTo(px, y); ctx.lineTo(px, y + h); ctx.stroke(); }
-        for(let i=0; i<(w*h/(50*scale)); i++) { ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fillRect(x + Math.floor(Math.random()*(w/tS))*tS, y + Math.floor(Math.random()*(h/tS))*tS, tS, tS); }
-    } else if (texture === 'hexagon') {
-        ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1 * scale; const r = 12 * scale; const a = 2 * Math.PI / 6;
-        for (let py = y; py < y + h + r; py += r * Math.sin(a)) { for (let px = x, j = 0; px < x + w + r; px += r * (1 + Math.cos(a)), py += (-1) ** j++ * r * Math.sin(a)) { ctx.beginPath(); for (let i = 0; i < 6; i++) { ctx.lineTo(px + r * Math.cos(a * i), py + r * Math.sin(a * i)); } ctx.closePath(); ctx.stroke(); } }
-    } else if (texture === 'wallpaper' || texture === 'patterned') {
-        ctx.fillStyle = 'rgba(0,0,0,0.1)'; const s = 30 * scale; for(let py = y; py < y + h; py += s) { for(let px = x; px < x + w; px += s) { ctx.beginPath(); ctx.moveTo(px + s/2, py); ctx.lineTo(px + s, py + s/2); ctx.lineTo(px + s/2, py + s); ctx.lineTo(px, py + s/2); ctx.fill(); } }
-    }
-    ctx.restore();
-}

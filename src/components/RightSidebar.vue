@@ -75,6 +75,29 @@
       <button class="btn-danger" @click="deleteEntity">Delete Staircase</button>
     </div>
 
+    <div v-if="type === 'furniture'">
+      <div class="unit-label">Width (X)</div>
+      <input type="range" v-model.number="entity.width" min="20" max="200" @input="onUpdate">
+      
+      <div class="unit-label">Depth (Z)</div>
+      <input type="range" v-model.number="entity.depth" min="20" max="200" @input="onUpdate">
+      
+      <div class="unit-label">Height (Y)</div>
+      <input type="range" v-model.number="entity.height" min="20" max="200" @input="onUpdate">
+
+      <div class="unit-label">Rotation</div>
+      <input type="range" v-model.number="entity.rotation" min="0" max="360" @input="onUpdate">
+
+      <div class="unit-label" style="margin-top:15px">Position (Room Coordinates)</div>
+      <div style="display:flex; gap:10px">
+        <input type="number" :value="Math.round(entity.group.x())" @input="e => updatePos(e, 'x')">
+        <input type="number" :value="Math.round(entity.group.y())" @input="e => updatePos(e, 'y')">
+      </div>
+
+      <hr>
+      <button class="btn-danger" @click="deleteEntity">Delete Furniture</button>
+    </div>
+
   </div>
 </template>
 
@@ -89,13 +112,21 @@ const onStairUpdate = () => { if (props.entity && props.entity.update) props.ent
 
 const flip = (prop) => { props.entity[prop] *= -1; onUpdate(); };
 const deleteEntity = () => emit('delete');
+
+const updatePos = (e, axis) => {
+    const val = parseFloat(e.target.value);
+    if(isNaN(val)) return;
+    if(axis === 'x') props.entity.group.x(val);
+    if(axis === 'y') props.entity.group.y(val);
+    onUpdate();
+};
 </script>
 
 <style scoped>
 .right-sidebar { width: 240px; background: #fff; border-left: 1px solid #e5e7eb; padding: 20px; display: flex; flex-direction: column; gap: 15px; z-index: 10; box-shadow: -2px 0 10px rgba(0,0,0,0.05); overflow-y: auto; }
 .title { font-size: 14px; color: #111827; margin-bottom: 0px; }
 .unit-label { font-size: 10px; color: #9ca3af; margin-top: 10px; margin-bottom: 5px; text-transform: uppercase; font-weight: bold; }
-select, input[type="range"] { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #e5e7eb; font-size: 12px; }
+select, input[type="range"], input[type="number"] { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #e5e7eb; font-size: 12px; box-sizing: border-box; }
 .slider-row { display: flex; gap: 10px; align-items: center; }
 .slider-row span { font-size: 11px; font-weight: bold; color: #4f46e5; width: 40px; text-align: right; }
 hr { width: 100%; border: 0; border-top: 1px solid #eee; margin: 10px 0; }
