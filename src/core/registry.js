@@ -30,7 +30,48 @@ export const WALL_REGISTRY = {
     'inner': { type: "inner", label: "INNER WALL", thickness: 8, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] }
 };
 
+// --- NEW WALL DECOR PATTERNS REGISTRY ---
+export const WALL_DECOR_REGISTRY = {
+    'modern_panel': {
+        id: 'modern_panel',
+        name: 'Wood Panel',
+        model: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Box/glTF-Binary/Box.glb', 
+        thumbnail: 'https://via.placeholder.com/150x150/3b82f6/ffffff?text=Wood+Panel', 
+        defaultWidth: 100,
+        defaultHeight: 250,
+        defaultDepth: 5
+    },
+    'classic_molding': {
+        id: 'classic_molding',
+        name: 'Molding',
+        model: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Box/glTF-Binary/Box.glb', 
+        thumbnail: 'https://via.placeholder.com/150x150/8b5cf6/ffffff?text=Molding', 
+        defaultWidth: 120,
+        defaultHeight: 90,
+        defaultDepth: 3
+    },
+    'art_frame': {
+        id: 'art_frame',
+        name: 'Art Frame',
+        model: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Box/glTF-Binary/Box.glb', 
+        thumbnail: 'https://via.placeholder.com/150x150/10b981/ffffff?text=Art+Frame', 
+        defaultWidth: 60,
+        defaultHeight: 80,
+        defaultDepth: 2
+    }
+};
+
 export const FURNITURE_REGISTRY = {
+      'couch_1': {
+        id: 'couch_1',
+        name: 'Ekero couch',
+        model: 'models/chairs_couch/couch.glb', 
+        texture: 'textures/ik-ekero-orange_baked.png',
+        preview: 'https://via.placeholder.com/150/FF8C00/FFFFFF?text=Chair', 
+        default: { width: 40, height: 50, depth: 40 }, 
+        editable: { resize: true, rotation: true, move: true }
+    },
+    
     'chair_ekero': {
         id: 'chair_ekero',
         name: 'Ekero Chair',

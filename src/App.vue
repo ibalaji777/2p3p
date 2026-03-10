@@ -25,18 +25,84 @@
 
         <div class="status-bar">
             <span v-if="mode3D === 'camera'">🖱️ Left-Click: Rotate Room | Scroll: Zoom</span>
-            <span v-else-if="mode3D === 'edit' && selectedEntity">⚙️ Use panel to adjust width, height, and rotation</span>
-            <span v-else-if="mode3D === 'edit'">🖱️ Click an object to edit its properties</span>
-            <span v-else-if="mode3D === 'adjust' && isPlacing3D">🖱️ Move mouse to preview • <strong>Click floor to drop</strong> • (ESC to cancel)</span>
-            <span v-else-if="mode3D === 'adjust'">🖱️ Click object to pick up, click floor to drop</span>
+            <span v-else-if="mode3D === 'edit' && selectedType === 'wall'">⚙️ Click a pattern from the gallery to apply it, or edit applied layers</span>
+            <span v-else-if="mode3D === 'edit'">🖱️ Click a Wall, Furniture, or Pattern to edit</span>
+            <span v-else-if="mode3D === 'adjust' && isPlacing3D">🖱️ Previewing position • <strong>Click to drop</strong></span>
+            <span v-else-if="mode3D === 'adjust'">🖱️ Click object to pick up, drag across floor or wall to move</span>
+        </div>
+
+        <div class="floating-hud" v-if="mode3D === 'edit' && selectedType === 'wall' && selectedEntity">
+            <div class="hud-header">
+                <h3>{{ selectedWallSide === 'front' ? 'Inner Wall Face' : 'Outer Wall Face' }}</h3>
+                <button class="btn-close-hud" @click="handleDeselect">✕</button>
+            </div>
+            
+            <div class="decor-gallery" v-if="currentFaceDecors.length > 0">
+                <h4>Applied Layers (Click to Edit)</h4>
+                <div class="applied-list">
+                    <div v-for="decor in currentFaceDecors" :key="decor.id" class="applied-item-wrapper">
+                        <div class="applied-item-header" :class="{active: activeDecorId === decor.id}" @click="toggleEditDecor(decor.id)">
+                            <span>{{ wallDecorRegistry[decor.configId]?.name }}</span>
+                            <button class="btn-sm-delete" @click.stop="handleDeleteSpecificDecor(decor)">✕</button>
+                        </div>
+
+                        <div class="applied-item-body" v-if="activeDecorId === decor.id">
+                            <div class="control-group">
+                                <label>Width (%)</label>
+                                <div class="input-wrap">
+                                    <input type="range" v-model.number="decor.width" min="1" max="100" @input="syncSpecificDecor(decor)">
+                                    <input type="number" v-model.number="decor.width" @input="syncSpecificDecor(decor)">
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <label>Height (%)</label>
+                                <div class="input-wrap">
+                                    <input type="range" v-model.number="decor.height" min="1" max="100" @input="syncSpecificDecor(decor)">
+                                    <input type="number" v-model.number="decor.height" @input="syncSpecificDecor(decor)">
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <label>Left Position (%)</label>
+                                <div class="input-wrap">
+                                    <input type="range" v-model.number="decor.localX" min="0" max="100" @input="syncSpecificDecor(decor)">
+                                    <input type="number" v-model.number="decor.localX" @input="syncSpecificDecor(decor)">
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <label>Bottom Position (%)</label>
+                                <div class="input-wrap">
+                                    <input type="range" v-model.number="decor.localY" min="0" max="100" @input="syncSpecificDecor(decor)">
+                                    <input type="number" v-model.number="decor.localY" @input="syncSpecificDecor(decor)">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="decor-gallery">
+                <h4>Add New Pattern Layer</h4>
+                <div class="decor-grid">
+                    <div 
+                        v-for="(config, key) in wallDecorRegistry" 
+                        :key="key" 
+                        class="decor-item" 
+                        @click="spawnWallPattern(key)"
+                        :title="'Click to apply ' + config.name"
+                    >
+                        <img :src="config.thumbnail" :alt="config.name" />
+                        <span>{{ config.name }}</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="floating-hud" v-if="mode3D === 'edit' && selectedType === 'furniture' && selectedEntity">
             <div class="hud-header">
-                <h3>Edit Properties</h3>
+                <h3>Edit Furniture</h3>
                 <button class="btn-close-hud" @click="handleDeselect">✕</button>
             </div>
-            <span class="hud-type">{{ selectedEntity.config.name }}</span>
+            <span class="hud-type">{{ selectedEntity.config?.name || 'Object' }}</span>
 
             <div class="hud-controls" :key="uiTrigger">
                 <div class="control-group">
@@ -73,25 +139,19 @@
         </div>
       </div>
     </div>
-
-    <RightSidebar 
-      v-if="selectedEntity && viewMode === '2d'" 
-      :entity="selectedEntity" 
-      :type="selectedType" 
-      :nodeIndex="selectedNodeIndex"
-      @sync="syncEngine"
-      @delete="handleDelete"
-    />
   </div>
 </template>
 
 <script setup>
-import { ref, shallowRef, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, shallowRef, onMounted, onBeforeUnmount } from 'vue';
 import LeftSidebar from './components/LeftSidebar.vue';
 import RightSidebar from './components/RightSidebar.vue';
 import { FloorPlanner, PremiumFurniture } from './core/engine2d';
 import { Preview3D } from './core/engine3d';
 import { FileManager } from './core/io';
+import { WALL_DECOR_REGISTRY } from './core/registry';
+
+const wallDecorRegistry = WALL_DECOR_REGISTRY;
 
 const canvas2D = ref(null);
 const canvas3D = ref(null);
@@ -99,15 +159,24 @@ const planner = shallowRef(null);
 const renderer3D = shallowRef(null);
 
 const viewMode = ref('2d');
-const mode3D = ref('adjust'); // Default to Adjust so user can arrange room immediately
+const mode3D = ref('edit'); 
 const activeTool = ref('select');
 
 const selectedEntity = shallowRef(null);
 const selectedType = ref(null);
+const selectedWallSide = ref(null); 
 const selectedNodeIndex = ref(-1);
 
 const uiTrigger = ref(0); 
 const isPlacing3D = ref(false);
+
+const activeDecorId = ref(null);
+
+const currentFaceDecors = computed(() => {
+    const trigger = uiTrigger.value; // Forces reactive update when arrays change
+    if (!selectedEntity.value || !selectedEntity.value.attachedDecor) return [];
+    return selectedEntity.value.attachedDecor.filter(d => d.side === selectedWallSide.value);
+});
 
 onMounted(() => {
     planner.value = new FloorPlanner(canvas2D.value);
@@ -128,19 +197,15 @@ onMounted(() => {
 
     renderer3D.value = new Preview3D(canvas3D.value);
     
-    renderer3D.value.onFurnitureSelect = (entity) => {
+    renderer3D.value.onEntitySelect = (entity, type, side = null) => {
         selectedEntity.value = entity;
-        selectedType.value = entity ? 'furniture' : null;
-        if (entity) planner.value.selectEntity(entity, 'furniture');
+        selectedType.value = type; 
+        selectedWallSide.value = side;
+        activeDecorId.value = null; 
     };
     
-    renderer3D.value.onFurnitureTransform = () => {
-        uiTrigger.value++; 
-    };
-
-    renderer3D.value.onRelocateStateChange = (state) => {
-        isPlacing3D.value = state;
-    };
+    renderer3D.value.onEntityTransform = () => { uiTrigger.value++; };
+    renderer3D.value.onRelocateStateChange = (state) => { isPlacing3D.value = state; };
 
     window.addEventListener('keydown', handleGlobalKeys);
 });
@@ -148,13 +213,11 @@ onMounted(() => {
 onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeys));
 
 const handleGlobalKeys = (e) => {
-    if (viewMode.value === '3d' && selectedType.value === 'furniture') {
-        if (e.key === 'Delete' || e.key === 'Backspace') handleDelete();
-        
-        // Escape cancels placement
-        if (e.key === 'Escape' && renderer3D.value) {
-            renderer3D.value.cancelRelocation();
+    if (viewMode.value === '3d') {
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            if (selectedType.value === 'furniture') handleDelete();
         }
+        if (e.key === 'Escape' && renderer3D.value) renderer3D.value.cancelRelocation();
     }
 };
 
@@ -167,6 +230,8 @@ const handleDeselect = () => {
     if (renderer3D.value) renderer3D.value.deselectObject();
     selectedEntity.value = null;
     selectedType.value = null;
+    selectedWallSide.value = null;
+    activeDecorId.value = null;
 };
 
 const close3D = () => {
@@ -183,6 +248,22 @@ const setTool = (tool) => {
     planner.value.selectEntity(null);
 };
 
+const toggleEditDecor = (decorId) => {
+    activeDecorId.value = activeDecorId.value === decorId ? null : decorId;
+};
+
+const spawnWallPattern = (configId) => {
+    if (renderer3D.value && selectedType.value === 'wall' && selectedEntity.value) {
+        const decor = renderer3D.value.addWallPattern(selectedEntity.value, configId, selectedWallSide.value);
+        
+        // VUE FIX: Clone array to trigger instant UI re-render
+        selectedEntity.value.attachedDecor = [...selectedEntity.value.attachedDecor];
+        
+        activeDecorId.value = decor.id; 
+        uiTrigger.value++; 
+    }
+};
+
 const spawnFurniture = (configId) => {
     const center = { x: planner.value.stage.width() / 2, y: planner.value.stage.height() / 2 };
     const item = new PremiumFurniture(planner.value, center.x, center.y, configId);
@@ -194,16 +275,17 @@ const spawnFurniture = (configId) => {
 const syncEngine = () => {
     if (viewMode.value === '2d') {
         planner.value.syncAll();
-    } else if (viewMode.value === '3d') {
-        planner.value.syncAll(); 
-        if (selectedEntity.value && selectedType.value === 'furniture') {
-            renderer3D.value.updateFurnitureLive(selectedEntity.value); 
-        }
+    } else if (viewMode.value === '3d' && selectedType.value === 'furniture') {
+        renderer3D.value.updateFurnitureLive(selectedEntity.value); 
     }
 };
 
+const syncSpecificDecor = (decor) => {
+    if (renderer3D.value) renderer3D.value.updateWallDecorLive(decor);
+};
+
 const handleDelete = () => { 
-    if (selectedEntity.value) {
+    if (selectedEntity.value && selectedType.value === 'furniture') {
         if (viewMode.value === '3d' && renderer3D.value.selectedObject?.userData.entity === selectedEntity.value) {
             renderer3D.value.structureGroup.remove(renderer3D.value.selectedObject);
             renderer3D.value.deselectObject();
@@ -214,23 +296,34 @@ const handleDelete = () => {
     }
 };
 
+const handleDeleteSpecificDecor = (decor) => {
+    const wall = decor.mesh3D.userData.parentWall;
+    wall.attachedDecor = wall.attachedDecor.filter(d => d !== decor);
+    wall.mesh3D.remove(decor.mesh3D);
+    
+    if (selectedEntity.value === wall) {
+        wall.attachedDecor = [...wall.attachedDecor]; // Trigger UI render
+    }
+
+    if (activeDecorId.value === decor.id) activeDecorId.value = null;
+    uiTrigger.value++;
+};
+
 const toggle3D = () => {
     planner.value.finishChain();
     viewMode.value = '3d';
-    
-    mode3D.value = 'adjust'; 
+    mode3D.value = 'edit'; 
 
     setTimeout(() => {
         if (renderer3D.value) {
             renderer3D.value.resize();
-            renderer3D.value.setInteractionMode('adjust'); 
+            renderer3D.value.setInteractionMode('edit'); 
             
             renderer3D.value.buildScene(
                 planner.value.walls, 
                 planner.value.roomPaths, 
                 planner.value.stairs, 
-                planner.value.furniture, 
-                selectedEntity.value 
+                planner.value.furniture
             ); 
         }
     }, 100); 
@@ -274,10 +367,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f3f4f6; overflo
     cursor: pointer;
     transition: 0.2s;
 }
-.mode-toggle-3d button.active {
-    background: #3b82f6;
-    color: white;
-}
+.mode-toggle-3d button.active { background: #3b82f6; color: white; }
 
 /* --- DYNAMIC STATUS BAR --- */
 .status-bar {
@@ -299,7 +389,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f3f4f6; overflo
 /* PROFESSIONAL FLOATING 3D HUD */
 .floating-hud {
     position: absolute;
-    top: 20px; 
+    top: 80px; 
     right: 20px;
     width: 280px;
     background: rgba(17, 24, 39, 0.95); 
@@ -313,15 +403,36 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f3f4f6; overflo
     display: flex;
     flex-direction: column;
     gap: 15px;
-    animation: fadeIn 0.2s ease-out;
+    max-height: 80vh;
+    overflow-y: auto;
 }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+.floating-hud::-webkit-scrollbar { width: 6px; }
+.floating-hud::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 10px; }
+.floating-hud::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
 
 .hud-header { display: flex; justify-content: space-between; align-items: center; }
 .hud-header h3 { margin: 0; font-size: 14px; font-weight: bold; color: #f3f4f6; }
 .btn-close-hud { background: transparent; border: none; color: #9ca3af; cursor: pointer; font-size: 16px; transition: 0.2s; }
 .btn-close-hud:hover { color: white; }
 .hud-type { font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-top:-5px; display:block;}
+
+/* WALL DECOR ARRAY ACCORDION */
+.applied-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.applied-item-wrapper { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; overflow: hidden; }
+.applied-item-header { display: flex; justify-content: space-between; padding: 10px; cursor: pointer; transition: 0.2s; font-size: 12px; font-weight: bold; color: #d1d5db; }
+.applied-item-header:hover, .applied-item-header.active { background: rgba(59, 130, 246, 0.2); color: white; }
+.applied-item-body { padding: 15px 10px; border-top: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.5); }
+.btn-sm-delete { background: transparent; border: none; color: #ef4444; font-weight: bold; cursor: pointer; }
+.btn-sm-delete:hover { color: #fca5a5; }
+
+/* WALL DECOR GALLERY GRID */
+.decor-gallery { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; margin-top: 5px; }
+.decor-gallery h4 { margin: 0 0 10px 0; font-size: 12px; color: #93c5fd; }
+.decor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.decor-item { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px; cursor: pointer; text-align: center; transition: 0.2s; }
+.decor-item:hover { background: rgba(59, 130, 246, 0.4); border-color: #3b82f6; }
+.decor-item img { width: 100%; height: 60px; object-fit: cover; border-radius: 4px; margin-bottom: 5px; }
+.decor-item span { font-size: 10px; color: #f3f4f6; display: block; line-height: 1.2; }
 
 .hud-controls { display: flex; flex-direction: column; gap: 12px; }
 .control-group label { font-size: 11px; color: #d1d5db; font-weight: bold; margin-bottom: 4px; display: block; }
@@ -330,6 +441,6 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f3f4f6; overflo
 .input-wrap input[type="number"] { width: 60px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 4px; padding: 5px; text-align: center; font-size: 12px; font-weight: bold; }
 .input-wrap input[type="number"]:focus { outline: none; border-color: #3b82f6; }
 
-.hud-delete { background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 5px; }
+.hud-delete { background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 5px; width: 100%; }
 .hud-delete:hover { background: #ef4444; color: white; }
 </style>
