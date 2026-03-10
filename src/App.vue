@@ -25,9 +25,10 @@
 
         <div class="status-bar">
             <span v-if="mode3D === 'camera'">🖱️ Left-Click: Rotate Room | Scroll: Zoom</span>
-            <span v-else-if="mode3D === 'edit' && !selectedEntity">🖱️ Click an object to edit properties</span>
             <span v-else-if="mode3D === 'edit' && selectedEntity">⚙️ Use panel to adjust width, height, and rotation</span>
-            <span v-else-if="mode3D === 'adjust'">🖱️ Click and drag an object to move it anywhere on the floor</span>
+            <span v-else-if="mode3D === 'edit'">🖱️ Click an object to edit its properties</span>
+            <span v-else-if="mode3D === 'adjust' && isPlacing3D">🖱️ Move mouse to preview • <strong>Click floor to drop</strong> • (ESC to cancel)</span>
+            <span v-else-if="mode3D === 'adjust'">🖱️ Click object to pick up, click floor to drop</span>
         </div>
 
         <div class="floating-hud" v-if="mode3D === 'edit' && selectedType === 'furniture' && selectedEntity">
@@ -98,7 +99,7 @@ const planner = shallowRef(null);
 const renderer3D = shallowRef(null);
 
 const viewMode = ref('2d');
-const mode3D = ref('adjust'); // Default to Adjustment mode for instant drag & drop
+const mode3D = ref('adjust'); // Default to Adjust so user can arrange room immediately
 const activeTool = ref('select');
 
 const selectedEntity = shallowRef(null);
@@ -106,11 +107,11 @@ const selectedType = ref(null);
 const selectedNodeIndex = ref(-1);
 
 const uiTrigger = ref(0); 
+const isPlacing3D = ref(false);
 
 onMounted(() => {
     planner.value = new FloorPlanner(canvas2D.value);
     
-    // Sync 2D Selection to 3D
     planner.value.onSelectionChange = (entity, type, nodeIdx = -1) => {
         selectedEntity.value = entity;
         selectedType.value = type;
@@ -127,16 +128,18 @@ onMounted(() => {
 
     renderer3D.value = new Preview3D(canvas3D.value);
     
-    // 3D CLICK CALLBACK
     renderer3D.value.onFurnitureSelect = (entity) => {
         selectedEntity.value = entity;
         selectedType.value = entity ? 'furniture' : null;
         if (entity) planner.value.selectEntity(entity, 'furniture');
     };
     
-    // Sync dragging back to the UI sliders instantly
     renderer3D.value.onFurnitureTransform = () => {
         uiTrigger.value++; 
+    };
+
+    renderer3D.value.onRelocateStateChange = (state) => {
+        isPlacing3D.value = state;
     };
 
     window.addEventListener('keydown', handleGlobalKeys);
@@ -147,10 +150,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeys));
 const handleGlobalKeys = (e) => {
     if (viewMode.value === '3d' && selectedType.value === 'furniture') {
         if (e.key === 'Delete' || e.key === 'Backspace') handleDelete();
+        
+        // Escape cancels placement
+        if (e.key === 'Escape' && renderer3D.value) {
+            renderer3D.value.cancelRelocation();
+        }
     }
 };
 
-// UI Toggles the Interaction logic in Engine3D
 const set3DMode = (mode) => {
     mode3D.value = mode;
     if (renderer3D.value) renderer3D.value.setInteractionMode(mode);
@@ -211,7 +218,6 @@ const toggle3D = () => {
     planner.value.finishChain();
     viewMode.value = '3d';
     
-    // Default to Adjust mode when opening 3D so user can arrange furniture
     mode3D.value = 'adjust'; 
 
     setTimeout(() => {
@@ -293,7 +299,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f3f4f6; overflo
 /* PROFESSIONAL FLOATING 3D HUD */
 .floating-hud {
     position: absolute;
-    top: 80px; 
+    top: 20px; 
     right: 20px;
     width: 280px;
     background: rgba(17, 24, 39, 0.95); 
@@ -326,4 +332,4 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f3f4f6; overflo
 
 .hud-delete { background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 5px; }
 .hud-delete:hover { background: #ef4444; color: white; }
-</style>  
+</style>

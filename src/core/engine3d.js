@@ -30,7 +30,7 @@ export class Preview3D {
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
-        this.controls.maxPolarAngle = Math.PI / 2 - 0.02; // Lock camera from going beneath floor
+        this.controls.maxPolarAngle = Math.PI / 2 - 0.02; 
         
         this.generateEnvironmentMap();
         this.initLighting();
@@ -42,9 +42,9 @@ export class Preview3D {
         this.proceduralTextures = {}; 
         this.modelCache = {}; 
         
-        // --- NEW STATE MACHINE (SELECT -> MOVE -> DROP) ---
-        this.interactionMode = 'edit'; 
-        this.controls.enabled = false; // Lock camera in edit mode
+        // --- 3 ISOLATED MODES ('camera', 'edit', 'adjust') ---
+        this.interactionMode = 'adjust'; 
+        this.controls.enableRotate = false; // Lock camera initially
         
         this.interactableObjects = [];
         this.raycaster = new THREE.Raycaster();
@@ -54,7 +54,7 @@ export class Preview3D {
         this.dragOffset = new THREE.Vector3();
         
         this.selectedObject = null;
-        this.isPlacing = false; // True when object is attached to mouse
+        this.isPlacing = false; 
         
         // 1. Rectangular Highlight Box (Selection)
         const dummyMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1));
@@ -63,13 +63,14 @@ export class Preview3D {
         this.scene.add(this.selectionBox);
 
         // 2. Floor Footprint Highlight (Placement)
+        this.dropGroup = new THREE.Group();
         const dropGeo = new THREE.PlaneGeometry(1, 1);
         const dropMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false });
         this.dropHighlight = new THREE.Mesh(dropGeo, dropMat);
         this.dropHighlight.rotation.x = -Math.PI / 2; 
-        this.dropHighlight.position.y = 0.5; // Hover slightly above floor to prevent Z-fighting
-        this.dropHighlight.visible = false;
-        this.scene.add(this.dropHighlight);
+        this.dropGroup.add(this.dropHighlight);
+        this.scene.add(this.dropGroup);
+        this.dropGroup.visible = false;
 
         this.isUpdatingFromUI = false;
         this.isUpdatingFrom3D = false;
@@ -78,7 +79,6 @@ export class Preview3D {
 
         // Vue Callbacks
         this.onFurnitureSelect = null;
-        this.onFurnitureDoubleClick = null;
         this.onFurnitureTransform = null;
         this.onRelocateStateChange = null; 
 
@@ -88,13 +88,14 @@ export class Preview3D {
 
     setInteractionMode(mode) {
         this.interactionMode = mode;
+        this.cancelRelocation(); // Cancel placement if switching modes
+
         if (mode === 'camera') {
-            this.controls.enabled = true; // Allow room spinning
-            this.cancelRelocation();
+            this.controls.enableRotate = true; // Allow room spinning
             this.deselectObject();
-            this.renderer.domElement.style.cursor = 'auto';
-        } else if (mode === 'edit') {
-            this.controls.enabled = false; // Lock camera completely
+            this.renderer.domElement.style.cursor = 'grab';
+        } else {
+            this.controls.enableRotate = false; // Lock camera for Edit & Adjust
             this.renderer.domElement.style.cursor = 'auto';
         }
     }
@@ -120,124 +121,107 @@ export class Preview3D {
     }
 
     initInteraction() {
-        // --- 1. SINGLE CLICK (SELECT OR DROP) ---
+        // --- POINTER DOWN ---
         this.renderer.domElement.addEventListener('pointerdown', (event) => {
-            if (this.interactionMode !== 'edit') return; 
+            if (this.interactionMode === 'camera') return; 
             if (event.button !== 0) return; 
 
             this.updateMouseCoords(event);
 
-            // STATE A: User is currently moving an object -> Click to DROP
-            if (this.isPlacing && this.selectedObject) {
-                this.raycaster.setFromCamera(this.mouse, this.camera);
-                const target = new THREE.Vector3();
-                if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
-                    const newPos = target.add(this.dragOffset);
-                    this.selectedObject.position.set(newPos.x, 0, newPos.z);
-                    this.selectionBox.update();
-                    
-                    this.setRelocationState(false); // Stop moving
-                    
-                    // Sync to 2D UI
-                    if (!this.isUpdatingFromUI) {
-                        this.isUpdatingFrom3D = true;
-                        const entity = this.selectedObject.userData.entity;
-                        if (entity && entity.group) {
-                            entity.group.x(newPos.x);
-                            entity.group.y(newPos.z); 
-                            entity.update();
+            // ==========================================
+            // ADJUSTMENT MODE (The exact flow you pasted)
+            // ==========================================
+            if (this.interactionMode === 'adjust') {
+                // STATE A: User is currently moving an object -> Click to DROP
+                if (this.isPlacing && this.selectedObject) {
+                    this.raycaster.setFromCamera(this.mouse, this.camera);
+                    const target = new THREE.Vector3();
+                    if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
+                        const newPos = target.add(this.dragOffset);
+                        this.selectedObject.position.set(newPos.x, 0, newPos.z);
+                        this.selectionBox.update();
+                        
+                        this.setRelocationState(false); // Stop moving
+                        
+                        if (!this.isUpdatingFromUI) {
+                            this.isUpdatingFrom3D = true;
+                            const entity = this.selectedObject.userData.entity;
+                            if (entity && entity.group) {
+                                entity.group.x(newPos.x);
+                                entity.group.y(newPos.z); 
+                                entity.update();
+                            }
+                            if (this.onFurnitureTransform) this.onFurnitureTransform();
+                            this.isUpdatingFrom3D = false;
                         }
-                        if (this.onFurnitureTransform) this.onFurnitureTransform();
-                        this.isUpdatingFrom3D = false;
                     }
+                    return;
                 }
-                return;
+
+                // STATE B: Click an object to SELECT or PICK UP
+                this.raycaster.setFromCamera(this.mouse, this.camera);
+                const intersects = this.raycaster.intersectObjects(this.interactableObjects, true);
+
+                if (intersects.length > 0) {
+                    let mesh = intersects[0].object;
+                    while (mesh.parent && !mesh.userData.isFurniture) {
+                        mesh = mesh.parent; // Traverse to root
+                    }
+                    
+                    if (mesh && mesh.userData.isFurniture) {
+                        if (this.selectedObject === mesh) {
+                            // Clicked an ALREADY selected object -> PICK IT UP
+                            this.setRelocationState(true);
+                            const target = new THREE.Vector3();
+                            if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
+                                this.dragOffset.copy(mesh.position).sub(target);
+                            }
+                        } else {
+                            // Clicked a NEW object -> SELECT IT
+                            this.selectObject(mesh);
+                        }
+                    }
+                } else {
+                    this.deselectObject(); // Clicked empty floor
+                }
             }
 
-            // STATE B: Click an object to SELECT or PICK UP
-            this.raycaster.setFromCamera(this.mouse, this.camera);
-            const intersects = this.raycaster.intersectObjects(this.interactableObjects, true);
+            // ==========================================
+            // EDIT MODE (Just select, NEVER pick up)
+            // ==========================================
+            else if (this.interactionMode === 'edit') {
+                this.raycaster.setFromCamera(this.mouse, this.camera);
+                const intersects = this.raycaster.intersectObjects(this.interactableObjects, true);
 
-            if (intersects.length > 0) {
-                let mesh = intersects[0].object;
-                while (mesh.parent && !mesh.userData.isFurniture) {
-                    mesh = mesh.parent; // Traverse to root
-                }
-                
-                if (mesh && mesh.userData.isFurniture) {
-                    if (this.selectedObject === mesh) {
-                        // Clicked an ALREADY selected object -> PICK IT UP
-                        this.setRelocationState(true);
-                        
-                        const target = new THREE.Vector3();
-                        if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
-                            this.dragOffset.copy(mesh.position).sub(target);
-                        }
-                    } else {
-                        // Clicked a NEW object -> SELECT IT
+                if (intersects.length > 0) {
+                    let mesh = intersects[0].object;
+                    while (mesh.parent && !mesh.userData.isFurniture) {
+                        mesh = mesh.parent; 
+                    }
+                    if (mesh && mesh.userData.isFurniture) {
                         this.selectObject(mesh);
                     }
-                }
-            } else {
-                this.deselectObject(); // Clicked empty floor
-            }
-        });
-
-        // --- 2. DOUBLE CLICK (OPEN PROPERTIES) ---
-        this.renderer.domElement.addEventListener('dblclick', (event) => {
-            if (this.interactionMode !== 'edit') return;
-            if (event.button !== 0) return;
-
-            this.updateMouseCoords(event);
-            this.raycaster.setFromCamera(this.mouse, this.camera);
-            const intersects = this.raycaster.intersectObjects(this.interactableObjects, true);
-
-            if (intersects.length > 0) {
-                let mesh = intersects[0].object;
-                while (mesh.parent && !mesh.userData.isFurniture) {
-                    mesh = mesh.parent;
-                }
-                if (mesh && mesh.userData.isFurniture) {
-                    this.selectObject(mesh);
-                    if (this.onFurnitureDoubleClick) this.onFurnitureDoubleClick(mesh.userData.entity);
+                } else {
+                    this.deselectObject();
                 }
             }
         });
 
-        // --- 3. MOUSE MOVE (LIVE PREVIEW) ---
+        // --- POINTER MOVE ---
         this.renderer.domElement.addEventListener('pointermove', (event) => {
-            if (this.interactionMode !== 'edit') return;
+            if (this.interactionMode === 'camera') return;
             this.updateMouseCoords(event);
 
-            if (this.isPlacing && this.selectedObject) {
-                // Object is actively attached to mouse
+            if (this.interactionMode === 'adjust' && this.isPlacing && this.selectedObject) {
+                // Footprint follows mouse
                 this.raycaster.setFromCamera(this.mouse, this.camera);
                 const target = new THREE.Vector3();
                 if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
                     const newPos = target.add(this.dragOffset);
-                    
-                    // Move 3D object and selection box
-                    this.selectedObject.position.set(newPos.x, 0, newPos.z);
-                    this.selectionBox.update();
-                    
-                    // Move floor highlight footprint
-                    this.dropHighlight.position.set(newPos.x, 0.5, newPos.z);
-
-                    // Live sync for smooth UI
-                    if (!this.isUpdatingFromUI) {
-                        this.isUpdatingFrom3D = true;
-                        const entity = this.selectedObject.userData.entity;
-                        if (entity && entity.group) {
-                            entity.group.x(newPos.x);
-                            entity.group.y(newPos.z);
-                            entity.update();
-                        }
-                        if (this.onFurnitureTransform) this.onFurnitureTransform();
-                        this.isUpdatingFrom3D = false;
-                    }
+                    this.dropGroup.position.set(newPos.x, 0.5, newPos.z);
                 }
             } else {
-                // Hover pointer effect
+                // Change cursor to pointer if hovering over object
                 this.raycaster.setFromCamera(this.mouse, this.camera);
                 const intersects = this.raycaster.intersectObjects(this.interactableObjects, true);
                 this.renderer.domElement.style.cursor = intersects.length > 0 ? 'pointer' : 'auto';
@@ -250,9 +234,11 @@ export class Preview3D {
         if (isRelocating && this.selectedObject) {
             const entity = this.selectedObject.userData.entity;
             this.dropHighlight.scale.set(entity.width, entity.depth, 1);
-            this.dropHighlight.visible = true; // Show floor footprint
+            this.dropGroup.rotation.y = this.selectedObject.rotation.y;
+            this.dropGroup.position.set(this.selectedObject.position.x, 0.5, this.selectedObject.position.z);
+            this.dropGroup.visible = true; 
         } else {
-            this.dropHighlight.visible = false;
+            this.dropGroup.visible = false;
         }
         if (this.onRelocateStateChange) this.onRelocateStateChange(this.isPlacing);
     }
@@ -266,7 +252,7 @@ export class Preview3D {
     selectObject(object) {
         this.selectedObject = object;
         this.selectionBox.setFromObject(object);
-        this.selectionBox.visible = true; // Show Rectangle Box
+        this.selectionBox.visible = true; 
         if (this.onFurnitureSelect) this.onFurnitureSelect(object.userData.entity);
     }
 
@@ -277,6 +263,7 @@ export class Preview3D {
         if (this.onFurnitureSelect) this.onFurnitureSelect(null);
     }
 
+    // LIVE UPDATE FROM UI SLIDERS
     updateFurnitureLive(entity) {
         if (this.isUpdatingFrom3D) return;
         if (!entity || !entity.mesh3D) return;
@@ -294,9 +281,6 @@ export class Preview3D {
         if (this.selectionBox.visible && this.selectedObject === object) {
             this.selectionBox.update();
         }
-        if (this.isPlacing && this.selectedObject === object) {
-            this.dropHighlight.scale.set(entity.width, entity.depth, 1);
-        }
         
         this.isUpdatingFromUI = false;
     }
@@ -309,9 +293,9 @@ export class Preview3D {
     generateEnvironmentMap() { const pmremGenerator = new THREE.PMREMGenerator(this.renderer); pmremGenerator.compileEquirectangularShader(); this.scene.environment = pmremGenerator.fromScene(new THREE.Scene()).texture; }
     resize() { if (this.container.style.display !== 'none') { const w = this.container.clientWidth > 0 ? this.container.clientWidth : window.innerWidth; const h = this.container.clientHeight > 0 ? this.container.clientHeight : window.innerHeight; this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); this.renderer.setSize(w, h); } }
     animate() { requestAnimationFrame(() => this.animate()); this.controls.update(); this.renderer.render(this.scene, this.camera); }
-    getProceduralTexture(type, colorHex) { /* Kept Native */ }
-    getDynamicMaterial(matKey, category = 'door') { /* Kept Native */ }
-    createElevation3DTexture(layers, wallLen) { /* Kept Native */ }
+    getProceduralTexture(type, colorHex) { /* Native */ }
+    getDynamicMaterial(matKey, category = 'door') { /* Native */ }
+    createElevation3DTexture(layers, wallLen) { /* Native */ }
 
     buildScene(walls, roomPaths, stairs = [], furnitureList = [], activeEntity = null) {
         this.deselectObject();
@@ -341,9 +325,7 @@ export class Preview3D {
             w.attachedWidgets.forEach(widg => { const wcx = p1.x + dx * widg.t, wcz = p1.y + dz * widg.t; const entityData = { ...widg, x: wcx, z: wcz, angle: angle, thick: w.config.thickness }; const definition = WIDGET_REGISTRY[widg.type]; if (definition && definition.render3D) definition.render3D(this.structureGroup, entityData, this); });
         });
 
-        if (furnitureList) {
-            furnitureList.forEach(furn => this.loadAndPlaceFurniture(furn));
-        }
+        if (furnitureList) furnitureList.forEach(furn => this.loadAndPlaceFurniture(furn));
 
         if (count > 0) { centerX /= count; centerZ /= count; } 
         else if (furnitureList && furnitureList.length > 0) { centerX = furnitureList[0].group.x(); centerZ = furnitureList[0].group.y(); } 
@@ -372,6 +354,12 @@ export class Preview3D {
             const center = box.getCenter(new THREE.Vector3());
             gltfScene.position.set(-center.x, -box.min.y, -center.z);
 
+            const hitBoxGeo = new THREE.BoxGeometry(size.x, size.y, size.z);
+            const hitBoxMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 }); 
+            const hitBox = new THREE.Mesh(hitBoxGeo, hitBoxMat);
+            hitBox.position.set(0, size.y / 2, 0);
+            wrapper.add(hitBox);
+
             const safeW = size.x > 0 ? size.x : 1; 
             const safeH = size.y > 0 ? size.y : 1; 
             const safeD = size.z > 0 ? size.z : 1;
@@ -380,7 +368,6 @@ export class Preview3D {
             wrapper.position.set(entity.group.x(), 0, entity.group.y());
             wrapper.rotation.y = -entity.rotation * (Math.PI / 180);
 
-            // Push actual geometry into interactableObjects so Raycaster works flawlessly
             wrapper.traverse((child) => { 
                 if (child.isMesh) { 
                     child.castShadow = true; 
@@ -392,6 +379,7 @@ export class Preview3D {
             wrapper.userData = { isFurniture: true, entity: entity, originalSize: new THREE.Vector3(safeW, safeH, safeD) };
             entity.mesh3D = wrapper;
             
+            this.interactableObjects.push(hitBox);
             this.structureGroup.add(wrapper);
 
             if (this.activeEntityOnLoad === entity) this.selectObject(wrapper);
