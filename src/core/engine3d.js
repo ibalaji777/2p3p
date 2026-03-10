@@ -55,20 +55,14 @@ export class Preview3D {
         this.selectedObject = null;
         this.isPlacing = false; 
         
-        // 1. STANDARD SELECTION BOX (Furniture Only)
         this.selectionBox = new THREE.BoxHelper(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1)), 0x3b82f6); 
         this.selectionBox.visible = false;
         this.scene.add(this.selectionBox);
 
-        // 2. PERFECT WALL HIGHLIGHT
         const wallHiGeo = new THREE.PlaneGeometry(1, 1);
         wallHiGeo.translate(0.5, 0.5, 0); 
         const wallHiMat = new THREE.MeshBasicMaterial({ 
-            color: 0x3b82f6, 
-            transparent: true, 
-            opacity: 0.35, 
-            side: THREE.DoubleSide,
-            depthWrite: false 
+            color: 0x3b82f6, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false 
         });
         this.wallHighlight = new THREE.Mesh(wallHiGeo, wallHiMat);
         this.wallHighlight.visible = false;
@@ -131,7 +125,6 @@ export class Preview3D {
     initInteraction() {
         this.renderer.domElement.addEventListener('pointerdown', (event) => {
             if (this.interactionMode === 'camera' || event.button !== 0) return; 
-
             this.updateMouseCoords(event);
 
             if (this.interactionMode === 'adjust' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isFurniture) {
@@ -156,9 +149,7 @@ export class Preview3D {
                 }
                 
                 if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor)) {
-                    
                     if (this.interactionMode === 'edit') {
-                        // IF THEY CLICK A WALL PATTERN, SELECT THE WALL INSTEAD!
                         if (mesh.userData.isWallDecor) {
                             const wallEntity = mesh.userData.parentWall;
                             const side = mesh.userData.entity.side;
@@ -182,7 +173,6 @@ export class Preview3D {
                                 this.dragPlane.setFromNormalAndCoplanarPoint(wallNormal, mesh.getWorldPosition(new THREE.Vector3()));
                                 this.isPlacing = true; 
                                 this.renderer.domElement.style.cursor = 'grabbing';
-                                
                                 const target = new THREE.Vector3();
                                 if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
                                     this.dragOffset.copy(mesh.position).sub(mesh.parent.worldToLocal(target));
@@ -270,7 +260,6 @@ export class Preview3D {
 
     selectObject(object) {
         this.selectedObject = object;
-        
         this.selectionBox.visible = false; 
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
 
@@ -299,7 +288,6 @@ export class Preview3D {
         }
         else if (object.userData.isWallDecor) {
             type = 'wallDecor';
-            // SELECTION BOX REMAINS INVISIBLE FOR WALL DECOR!
         }
 
         if (type && this.onEntitySelect) {
@@ -425,6 +413,91 @@ export class Preview3D {
         const origSize = object.userData.originalSize;
         if (origSize) {
             object.scale.set(physicalW / origSize.x, physicalH / origSize.y, entity.depth / origSize.z);
+        }
+    }
+
+    // --- FIX FOR CUSTOM TEXTURES ON FURNITURE ---
+    async loadAndPlaceFurniture(entity) {
+        // Robust config ID lookup
+        const confId = entity.configId || (entity.config && entity.config.id);
+        const config = FURNITURE_REGISTRY[confId];
+
+        if (!config) return;
+
+        try {
+            if (!this.modelCache[config.id]) {
+                const loader = new GLTFLoader();
+                const gltf = await loader.loadAsync(config.model);
+
+                // Automatically load external .png textures if specified in registry!
+                if (config.texture) {
+                    const texLoader = new THREE.TextureLoader();
+                    const tex = await texLoader.loadAsync(config.texture);
+                    tex.flipY = false; // GLTF uses flipped Y coords
+                    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+                    
+                    gltf.scene.traverse((child) => {
+                        if (child.isMesh && child.material) {
+                            child.material.map = tex;
+                            child.material.needsUpdate = true;
+                        }
+                    });
+                }
+                this.modelCache[config.id] = gltf.scene;
+            }
+            
+            const gltfScene = this.modelCache[config.id].clone();
+            const wrapper = new THREE.Group();
+            wrapper.add(gltfScene);
+            
+            const box = new THREE.Box3().setFromObject(gltfScene);
+            const size = box.getSize(new THREE.Vector3());
+            const center = box.getCenter(new THREE.Vector3());
+            gltfScene.position.set(-center.x, -box.min.y, -center.z);
+
+            const hitBoxGeo = new THREE.BoxGeometry(size.x, size.y, size.z);
+            const hitBoxMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 }); 
+            const hitBox = new THREE.Mesh(hitBoxGeo, hitBoxMat);
+            hitBox.position.set(0, size.y / 2, 0);
+            
+            // Critical fix for furniture hitboxes:
+            hitBox.userData = { isFurniture: true, entity: entity }; 
+            
+            wrapper.add(hitBox);
+
+            const safeW = size.x > 0 ? size.x : 1; 
+            const safeH = size.y > 0 ? size.y : 1; 
+            const safeD = size.z > 0 ? size.z : 1;
+
+            // Safety check for group properties to prevent loading crashes
+            const posX = entity.group ? entity.group.x() : entity.x;
+            const posZ = entity.group ? entity.group.y() : entity.z;
+
+            wrapper.scale.set(entity.width / safeW, entity.height / safeH, entity.depth / safeD);
+            wrapper.position.set(posX, 0, posZ);
+            wrapper.rotation.y = -(entity.rotation || 0) * (Math.PI / 180);
+
+            wrapper.traverse((child) => { 
+                if (child.isMesh) { 
+                    child.castShadow = true; 
+                    child.receiveShadow = true; 
+                    this.interactableObjects.push(child); 
+                } 
+            });
+
+            wrapper.userData = { isFurniture: true, entity: entity, originalSize: new THREE.Vector3(safeW, safeH, safeD) };
+            entity.mesh3D = wrapper;
+            
+            this.interactableObjects.push(hitBox); 
+            this.structureGroup.add(wrapper);
+
+            // Keep it selected if it just loaded
+            if (this.selectedObject && this.selectedObject.userData.entity === entity) {
+                this.selectObject(wrapper);
+            }
+
+        } catch (error) {
+            console.error(`Failed to load GLB/Texture for furniture: ${config.model}`, error);
         }
     }
 
