@@ -55,17 +55,6 @@ export class Preview3D {
         this.selectedObject = null;
         this.isPlacing = false; 
         
-        // 1. SNUG CAD HIGHLIGHT BOX (Replaces the broken/huge bounding box)
-        const hlGeo = new THREE.BoxGeometry(1, 1, 1);
-        const edgeMat = new THREE.LineBasicMaterial({ color: 0x3b82f6, depthTest: false, linewidth: 2 });
-        const edgeMesh = new THREE.LineSegments(new THREE.EdgesGeometry(hlGeo), edgeMat);
-        const fillMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.15, depthWrite: false });
-        const fillMesh = new THREE.Mesh(hlGeo, fillMat);
-        this.selectionBoxHighlight = new THREE.Group();
-        this.selectionBoxHighlight.add(edgeMesh, fillMesh);
-        this.selectionBoxHighlight.visible = false;
-
-        // 2. PERFECT WALL HIGHLIGHT
         const wallHiGeo = new THREE.PlaneGeometry(1, 1);
         wallHiGeo.translate(0.5, 0.5, 0); 
         const wallHiMat = new THREE.MeshBasicMaterial({ 
@@ -131,6 +120,42 @@ export class Preview3D {
         const rect = this.renderer.domElement.getBoundingClientRect();
         this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    }
+
+    setObjectHighlight(group, active) {
+        if (!group) return;
+        group.traverse((child) => {
+            if (child.isMesh && !child.userData.isHitbox && child.material) {
+                const materials = Array.isArray(child.material) ? child.material : [child.material];
+                materials.forEach(mat => {
+                    if (mat.emissive !== undefined) {
+                        if (active) {
+                            if (mat.userData.origEmissive === undefined) {
+                                mat.userData.origEmissive = mat.emissive.getHex();
+                                mat.userData.origEmissiveIntensity = mat.emissiveIntensity || 0;
+                            }
+                            mat.emissive.setHex(0x3b82f6);
+                            mat.emissiveIntensity = 0.5;
+                        } else {
+                            if (mat.userData.origEmissive !== undefined) {
+                                mat.emissive.setHex(mat.userData.origEmissive);
+                                mat.emissiveIntensity = mat.userData.origEmissiveIntensity;
+                            }
+                        }
+                        mat.needsUpdate = true;
+                    } 
+                    else if (mat.color) {
+                        if (active) {
+                            if (mat.userData.origColor === undefined) mat.userData.origColor = mat.color.getHex();
+                            mat.color.setHex(0x3b82f6);
+                        } else {
+                            if (mat.userData.origColor !== undefined) mat.color.setHex(mat.userData.origColor);
+                        }
+                        mat.needsUpdate = true;
+                    }
+                });
+            }
+        });
     }
 
     initInteraction() {
@@ -219,19 +244,13 @@ export class Preview3D {
                     const entity = this.selectedObject.userData.entity;
                     const wallData = wallGroup.userData.entity;
                     
-                    const physicalW = wallData.length3D * (entity.width / 100);
-                    const physicalH = WALL_HEIGHT * (entity.height / 100);
-                    
                     let visualLocalX = localTarget.x;
                     if (entity.side === 'back') {
                         visualLocalX = wallData.length3D - localTarget.x; 
                     }
                     
-                    let newXPercent = ((visualLocalX - physicalW / 2) / wallData.length3D) * 100;
-                    let newYPercent = ((localTarget.y - physicalH / 2) / WALL_HEIGHT) * 100;
-
-                    entity.localX = Math.max(0, Math.min(newXPercent, 100 - entity.width));
-                    entity.localY = Math.max(0, Math.min(newYPercent, 100 - entity.height));
+                    entity.localX = Math.max(0, Math.min(visualLocalX, wallData.length3D));
+                    entity.localY = Math.max(0, Math.min(localTarget.y, WALL_HEIGHT));
                     
                     this.updateWallDecorLive(entity);
                     this.syncToUI();
@@ -271,10 +290,8 @@ export class Preview3D {
     }
 
     selectObject(object) {
-        // Clear highlights cleanly
-        this.selectionBoxHighlight.visible = false;
-        if (this.selectionBoxHighlight.parent) {
-            this.selectionBoxHighlight.parent.remove(this.selectionBoxHighlight);
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor)) {
+            this.setObjectHighlight(this.selectedObject, false);
         }
         if (this.wallHighlight.parent) {
             this.wallHighlight.parent.remove(this.wallHighlight);
@@ -302,23 +319,7 @@ export class Preview3D {
         } 
         else if (object.userData.isFurniture || object.userData.isWallDecor) {
             type = object.userData.isFurniture ? 'furniture' : 'wallDecor';
-            
-            // Search the object for the exact mathematical HitBox to draw the glowing box
-            const hitBox = object.children.find(c => c.userData && c.userData.isHitbox);
-            if (hitBox) {
-                // Scale the glowing box exactly to the physical dimensions of the object
-                this.selectionBoxHighlight.scale.set(
-                    hitBox.geometry.parameters.width,
-                    hitBox.geometry.parameters.height,
-                    hitBox.geometry.parameters.depth
-                );
-                // Position it exactly where the hitbox lives inside the wrapper
-                this.selectionBoxHighlight.position.copy(hitBox.position);
-                
-                // Add the highlight directly to the object so it rotates naturally with it
-                object.add(this.selectionBoxHighlight);
-                this.selectionBoxHighlight.visible = true;
-            }
+            this.setObjectHighlight(object, true);
         }
 
         if (type && this.onEntitySelect) {
@@ -329,9 +330,8 @@ export class Preview3D {
     deselectObject() {
         this.cancelRelocation();
         
-        this.selectionBoxHighlight.visible = false;
-        if (this.selectionBoxHighlight.parent) {
-            this.selectionBoxHighlight.parent.remove(this.selectionBoxHighlight);
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor)) {
+            this.setObjectHighlight(this.selectedObject, false);
         }
         if (this.wallHighlight.parent) {
             this.wallHighlight.parent.remove(this.wallHighlight);
@@ -361,15 +361,17 @@ export class Preview3D {
 
         if (!wallEntity.attachedDecor) wallEntity.attachedDecor = [];
         
+        // Exact reference logic defaults
         const decor = {
             id: 'decor_' + Math.random().toString(36).substr(2, 9),
             configId: configId,
             side: side, 
-            localX: 0,
-            localY: 0,
-            width: 100, 
-            height: 100,
-            depth: 2
+            localX: wallEntity.length3D / 2, 
+            localY: WALL_HEIGHT / 2,         
+            width: wallEntity.length3D,      
+            height: WALL_HEIGHT,             
+            depth: config.defaultDepth || 0.2,
+            tileSize: config.defaultTileSize || 40 // Controls how big one tile is in 3D units
         };
         
         wallEntity.attachedDecor.push(decor);
@@ -382,41 +384,48 @@ export class Preview3D {
         if (!config) return;
 
         try {
+            let texture;
             if (!this.modelCache[config.id]) {
-                const loader = new GLTFLoader();
-                const gltf = await loader.loadAsync(config.model);
-                this.modelCache[config.id] = gltf.scene;
+                const texLoader = new THREE.TextureLoader();
+                texture = await texLoader.loadAsync(config.texture);
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                if (THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
+                this.modelCache[config.id] = texture;
+            } else {
+                texture = this.modelCache[config.id];
             }
-            
-            const gltfScene = this.modelCache[config.id].clone();
-            const wrapper = new THREE.Group();
-            wrapper.add(gltfScene);
-            
-            const box = new THREE.Box3().setFromObject(gltfScene);
-            const size = box.getSize(new THREE.Vector3());
-            const center = box.getCenter(new THREE.Vector3());
-            gltfScene.position.set(-center.x, -center.y, -center.z); 
 
-            // Create mathematical HitBox
-            const hitBoxGeo = new THREE.BoxGeometry(size.x, size.y, size.z);
+            const clonedTexture = texture.clone();
+            clonedTexture.needsUpdate = true;
+
+            const mat = new THREE.MeshStandardMaterial({ map: clonedTexture, color: 0xffffff });
+            const geo = new THREE.BoxGeometry(1, 1, 1); 
+            const mesh = new THREE.Mesh(geo, mat);
+            
+            const wrapper = new THREE.Group();
+            wrapper.add(mesh);
+
+            const hitBoxGeo = new THREE.BoxGeometry(1, 1, 1);
             const hitBoxMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 }); 
             const hitBox = new THREE.Mesh(hitBoxGeo, hitBoxMat);
             hitBox.userData = { isHitbox: true }; 
             wrapper.add(hitBox);
 
-            const safeW = size.x > 0 ? size.x : 1; 
-            const safeH = size.y > 0 ? size.y : 1; 
-            const safeD = size.z > 0 ? size.z : 1;
-
             wrapper.traverse((child) => { 
-                if (child.isMesh) { 
+                if (child.isMesh && !child.userData.isHitbox) { 
                     child.castShadow = true; 
                     child.receiveShadow = true; 
                     this.interactableObjects.push(child);
                 } 
             });
 
-            wrapper.userData = { isWallDecor: true, entity: decor, parentWall: wallEntity, originalSize: new THREE.Vector3(safeW, safeH, safeD) };
+            wrapper.userData = { 
+                isWallDecor: true, 
+                entity: decor, 
+                parentWall: wallEntity, 
+                texture: clonedTexture 
+            };
             decor.mesh3D = wrapper;
             
             this.interactableObjects.push(hitBox); 
@@ -425,34 +434,42 @@ export class Preview3D {
             this.updateWallDecorLive(decor);
 
         } catch (error) {
-            console.error(`Failed to load GLB model for wall decor: ${config.model}`, error);
+            console.error(`Failed to load texture for wall decor: ${config.texture}`, error);
         }
     }
 
+    // EXACT REFERENCE LOGIC MATH
     updateWallDecorLive(entity) {
         if (!entity || !entity.mesh3D) return;
         const object = entity.mesh3D;
         const wallEntity = object.userData.parentWall;
 
-        const physicalW = wallEntity.length3D * (entity.width / 100);
-        const physicalH = WALL_HEIGHT * (entity.height / 100);
+        const w = entity.width;
+        const h = entity.height;
+        const d = entity.depth;
 
-        let calculatedXPercent = entity.localX;
+        let posX = entity.localX;
         if (entity.side === 'back') {
-            calculatedXPercent = 100 - entity.localX - entity.width;
+            posX = wallEntity.length3D - entity.localX;
         }
 
-        const posX = (wallEntity.length3D * (calculatedXPercent / 100)) + (physicalW / 2);
-        const posY = (WALL_HEIGHT * (entity.localY / 100)) + (physicalH / 2);
+        const posY = entity.localY;
         
-        const zPos = entity.side === 'front' ? (wallEntity.config.thickness / 2 + entity.depth / 2) : (-wallEntity.config.thickness / 2 - entity.depth / 2);
+        const zPos = entity.side === 'front' 
+            ? (wallEntity.config.thickness / 2 + d / 2) 
+            : (-wallEntity.config.thickness / 2 - d / 2);
 
         object.position.set(posX, posY, zPos);
         object.rotation.y = entity.side === 'front' ? 0 : Math.PI;
         
-        const origSize = object.userData.originalSize;
-        if (origSize) {
-            object.scale.set(physicalW / origSize.x, physicalH / origSize.y, entity.depth / origSize.z);
+        // Match exact BoxGeometry scale
+        object.scale.set(w, h, d);
+
+        // EXACT REFERENCE REPEAT CALCULATION (width / tileSize)
+        if (object.userData.texture && entity.tileSize > 0) {
+            const repeatX = w / entity.tileSize;
+            const repeatY = h / entity.tileSize;
+            object.userData.texture.repeat.set(repeatX, repeatY);
         }
     }
 
@@ -484,6 +501,14 @@ export class Preview3D {
             }
             
             const gltfScene = this.modelCache[config.id].clone();
+            
+            gltfScene.traverse((child) => {
+                if (child.isMesh && child.material) {
+                    if (Array.isArray(child.material)) child.material = child.material.map(m => m.clone());
+                    else child.material = child.material.clone();
+                }
+            });
+
             const wrapper = new THREE.Group();
             wrapper.add(gltfScene);
             
@@ -492,12 +517,12 @@ export class Preview3D {
             const center = box.getCenter(new THREE.Vector3());
             gltfScene.position.set(-center.x, -box.min.y, -center.z);
 
-            // Create mathematical HitBox
             const hitBoxGeo = new THREE.BoxGeometry(size.x, size.y, size.z);
             const hitBoxMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 }); 
             const hitBox = new THREE.Mesh(hitBoxGeo, hitBoxMat);
             hitBox.position.set(0, size.y / 2, 0);
             hitBox.userData = { isHitbox: true }; 
+            
             wrapper.add(hitBox);
 
             const safeW = size.x > 0 ? size.x : 1; 
@@ -512,7 +537,7 @@ export class Preview3D {
             wrapper.rotation.y = -(entity.rotation || 0) * (Math.PI / 180);
 
             wrapper.traverse((child) => { 
-                if (child.isMesh) { 
+                if (child.isMesh && !child.userData.isHitbox) { 
                     child.castShadow = true; 
                     child.receiveShadow = true; 
                     this.interactableObjects.push(child); 

@@ -48,30 +48,44 @@
 
                         <div class="applied-item-body" v-if="activeDecorId === decor.id">
                             <div class="control-group">
-                                <label>Width (%)</label>
+                                <label>Tile Size (Physical Units)</label>
                                 <div class="input-wrap">
-                                    <input type="range" v-model.number="decor.width" min="1" max="100" @input="syncSpecificDecor(decor)">
+                                    <input type="range" v-model.number="decor.tileSize" min="1" max="200" step="1" @input="syncSpecificDecor(decor)">
+                                    <input type="number" v-model.number="decor.tileSize" step="1" @input="syncSpecificDecor(decor)">
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <label>Thickness (Depth)</label>
+                                <div class="input-wrap">
+                                    <input type="range" v-model.number="decor.depth" min="0.1" max="20" step="0.1" @input="syncSpecificDecor(decor)">
+                                    <input type="number" v-model.number="decor.depth" step="0.1" @input="syncSpecificDecor(decor)">
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <label>Width</label>
+                                <div class="input-wrap">
+                                    <input type="range" v-model.number="decor.width" min="1" :max="selectedEntity.length3D * 1.5 || 1000" @input="syncSpecificDecor(decor)">
                                     <input type="number" v-model.number="decor.width" @input="syncSpecificDecor(decor)">
                                 </div>
                             </div>
                             <div class="control-group">
-                                <label>Height (%)</label>
+                                <label>Height</label>
                                 <div class="input-wrap">
-                                    <input type="range" v-model.number="decor.height" min="1" max="100" @input="syncSpecificDecor(decor)">
+                                    <input type="range" v-model.number="decor.height" min="1" max="500" @input="syncSpecificDecor(decor)">
                                     <input type="number" v-model.number="decor.height" @input="syncSpecificDecor(decor)">
                                 </div>
                             </div>
                             <div class="control-group">
-                                <label>Left Position (%)</label>
+                                <label>Center X Position</label>
                                 <div class="input-wrap">
-                                    <input type="range" v-model.number="decor.localX" min="0" max="100" @input="syncSpecificDecor(decor)">
+                                    <input type="range" v-model.number="decor.localX" min="0" :max="selectedEntity.length3D || 1000" @input="syncSpecificDecor(decor)">
                                     <input type="number" v-model.number="decor.localX" @input="syncSpecificDecor(decor)">
                                 </div>
                             </div>
                             <div class="control-group">
-                                <label>Bottom Position (%)</label>
+                                <label>Center Y Position</label>
                                 <div class="input-wrap">
-                                    <input type="range" v-model.number="decor.localY" min="0" max="100" @input="syncSpecificDecor(decor)">
+                                    <input type="range" v-model.number="decor.localY" min="0" max="500" @input="syncSpecificDecor(decor)">
                                     <input type="number" v-model.number="decor.localY" @input="syncSpecificDecor(decor)">
                                 </div>
                             </div>
@@ -173,7 +187,7 @@ const isPlacing3D = ref(false);
 const activeDecorId = ref(null);
 
 const currentFaceDecors = computed(() => {
-    const trigger = uiTrigger.value; // Forces reactive update when arrays change
+    const trigger = uiTrigger.value; 
     if (!selectedEntity.value || !selectedEntity.value.attachedDecor) return [];
     return selectedEntity.value.attachedDecor.filter(d => d.side === selectedWallSide.value);
 });
@@ -198,10 +212,15 @@ onMounted(() => {
     renderer3D.value = new Preview3D(canvas3D.value);
     
     renderer3D.value.onEntitySelect = (entity, type, side = null) => {
-        selectedEntity.value = entity;
-        selectedType.value = type; 
-        selectedWallSide.value = side;
-        activeDecorId.value = null; 
+        if (type === 'wallDecor') {
+            selectedEntity.value = entity;
+            selectedType.value = type;
+        } else {
+            selectedEntity.value = entity;
+            selectedType.value = type; 
+            selectedWallSide.value = side;
+            activeDecorId.value = null; 
+        }
     };
     
     renderer3D.value.onEntityTransform = () => { uiTrigger.value++; };
@@ -255,10 +274,7 @@ const toggleEditDecor = (decorId) => {
 const spawnWallPattern = (configId) => {
     if (renderer3D.value && selectedType.value === 'wall' && selectedEntity.value) {
         const decor = renderer3D.value.addWallPattern(selectedEntity.value, configId, selectedWallSide.value);
-        
-        // VUE FIX: Clone array to trigger instant UI re-render
         selectedEntity.value.attachedDecor = [...selectedEntity.value.attachedDecor];
-        
         activeDecorId.value = decor.id; 
         uiTrigger.value++; 
     }
@@ -296,17 +312,23 @@ const handleDelete = () => {
     }
 };
 
-const handleDeleteSpecificDecor = (decor) => {
-    const wall = decor.mesh3D.userData.parentWall;
-    wall.attachedDecor = wall.attachedDecor.filter(d => d !== decor);
-    wall.mesh3D.remove(decor.mesh3D);
-    
-    if (selectedEntity.value === wall) {
-        wall.attachedDecor = [...wall.attachedDecor]; // Trigger UI render
-    }
+const handleDeleteDecor = (decorObj) => {
+    const decor = decorObj || selectedEntity.value;
+    if (decor) {
+        const wall = decor.mesh3D.userData.parentWall;
+        wall.attachedDecor = wall.attachedDecor.filter(d => d !== decor);
+        wall.mesh3D.remove(decor.mesh3D);
+        
+        if (selectedEntity.value === wall || selectedEntity.value === decor) {
+            wall.attachedDecor = [...wall.attachedDecor]; 
+        }
 
-    if (activeDecorId.value === decor.id) activeDecorId.value = null;
-    uiTrigger.value++;
+        if (renderer3D.value && renderer3D.value.selectedObject === decor.mesh3D) {
+            renderer3D.value.deselectObject();
+            handleDeselect();
+        }
+        uiTrigger.value++;
+    }
 };
 
 const toggle3D = () => {
