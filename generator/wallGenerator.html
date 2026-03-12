@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Wall Generator</title>
+
+<style>
+body{margin:0;overflow:hidden;font-family:Arial}
+
+#panel{
+position:absolute;
+top:10px;
+left:10px;
+background:white;
+padding:12px;
+border-radius:8px;
+box-shadow:0 0 10px rgba(0,0,0,.3);
+width:260px;
+z-index:10;
+font-size:13px;
+}
+
+#panel input{width:100%;margin-bottom:6px}
+#panel button{width:100%;padding:6px;margin-top:6px}
+
+.faceRow{display:flex;gap:6px;margin-bottom:4px}
+</style>
+</head>
+
+<body>
+
+<div id="panel">
+
+<h3>Wall Generator</h3>
+
+<input type="file" id="textureUpload">
+
+<label>Width</label>
+<input type="number" id="roomWidth" value="6">
+
+<label>Depth</label>
+<input type="number" id="roomDepth" value="5">
+
+<label>Height</label>
+<input type="number" id="wallHeight" value="3">
+
+<label>Thickness</label>
+<input type="number" id="thickness" value="0.2">
+
+<label>Tile Size</label>
+<input type="number" id="tileSize" value="1">
+
+<h4>Wall Mode</h4>
+
+<label>
+<input type="radio" name="mode" value="single" checked>
+Single Wall
+</label>
+
+<label>
+<input type="radio" name="mode" value="four">
+Four Wall (Room)
+</label>
+
+<h4>Pattern Faces</h4>
+
+<div class="faceRow">
+<label><input type="checkbox" id="frontFace" checked>Front</label>
+<label><input type="checkbox" id="backFace" checked>Back</label>
+</div>
+
+<div class="faceRow">
+<label><input type="checkbox" id="leftFace" checked>Left</label>
+<label><input type="checkbox" id="rightFace" checked>Right</label>
+</div>
+
+<div class="faceRow">
+<label><input type="checkbox" id="topFace">Top</label>
+<label><input type="checkbox" id="bottomFace">Bottom</label>
+</div>
+
+<button id="generateBtn">Generate</button>
+<button id="exportBtn">Export GLB</button>
+
+</div>
+
+<script type="importmap">
+{
+"imports":{
+"three":"https://unpkg.com/three@0.160.0/build/three.module.js"
+}
+}
+</script>
+
+<script type="module">
+
+import * as THREE from "three"
+import {OrbitControls} from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js"
+import {GLTFExporter} from "https://unpkg.com/three@0.160.0/examples/jsm/exporters/GLTFExporter.js"
+
+let scene=new THREE.Scene()
+scene.background=new THREE.Color(0xf2f2f2)
+
+let camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,1000)
+camera.position.set(8,6,8)
+
+let renderer=new THREE.WebGLRenderer({antialias:true})
+renderer.setSize(innerWidth,innerHeight)
+document.body.appendChild(renderer.domElement)
+
+new OrbitControls(camera,renderer.domElement)
+
+scene.add(new THREE.AmbientLight(0xffffff,0.8))
+
+let light=new THREE.DirectionalLight(0xffffff,1)
+light.position.set(5,10,5)
+scene.add(light)
+
+scene.add(new THREE.GridHelper(20,20))
+
+let texture=null
+let walls=[]
+
+function clearWalls(){
+
+walls.forEach(w=>scene.remove(w))
+walls=[]
+
+}
+
+function faceConfig(){
+
+return{
+
+front:document.getElementById("frontFace").checked,
+back:document.getElementById("backFace").checked,
+left:document.getElementById("leftFace").checked,
+right:document.getElementById("rightFace").checked,
+top:document.getElementById("topFace").checked,
+bottom:document.getElementById("bottomFace").checked
+
+}
+
+}
+
+function createWall(width,height,depth,x,y,z,rotation){
+
+let config=faceConfig()
+
+let geo=new THREE.BoxGeometry(width,height,depth)
+
+let tileSize=parseFloat(document.getElementById("tileSize").value)
+
+let materials=[]
+
+for(let i=0;i<6;i++){
+
+let useTexture=false
+
+if(i==4 && config.front) useTexture=true
+if(i==5 && config.back) useTexture=true
+if(i==0 && config.left) useTexture=true
+if(i==1 && config.right) useTexture=true
+if(i==2 && config.top) useTexture=true
+if(i==3 && config.bottom) useTexture=true
+
+if(useTexture && texture){
+
+let tex=texture.clone()
+
+tex.wrapS=THREE.RepeatWrapping
+tex.wrapT=THREE.RepeatWrapping
+
+if(i==0||i==1)
+tex.repeat.set(depth/tileSize,height/tileSize)
+
+else if(i==2||i==3)
+tex.repeat.set(width/tileSize,depth/tileSize)
+
+else
+tex.repeat.set(width/tileSize,height/tileSize)
+
+materials.push(new THREE.MeshStandardMaterial({map:tex}))
+
+}else{
+
+materials.push(new THREE.MeshStandardMaterial({color:0xcccccc}))
+
+}
+
+}
+
+let wall=new THREE.Mesh(geo,materials)
+
+wall.position.set(x,y,z)
+
+if(rotation) wall.rotation.y=rotation
+
+scene.add(wall)
+
+walls.push(wall)
+
+}
+
+function generateSingleWall(){
+
+clearWalls()
+
+let w=parseFloat(document.getElementById("roomWidth").value)
+let h=parseFloat(document.getElementById("wallHeight").value)
+let t=parseFloat(document.getElementById("thickness").value)
+
+createWall(w,h,t,0,h/2,0,0)
+
+}
+
+function generateFourWalls(){
+
+clearWalls()
+
+let w=parseFloat(document.getElementById("roomWidth").value)
+let d=parseFloat(document.getElementById("roomDepth").value)
+let h=parseFloat(document.getElementById("wallHeight").value)
+let t=parseFloat(document.getElementById("thickness").value)
+
+let y=h/2
+
+createWall(w,h,t,0,y,-(d/2+t/2),0)
+createWall(w,h,t,0,y,(d/2+t/2),0)
+
+createWall(d+t*2,h,t,-(w/2+t/2),y,0,Math.PI/2)
+createWall(d+t*2,h,t,(w/2+t/2),y,0,Math.PI/2)
+
+}
+
+document.getElementById("generateBtn").onclick=function(){
+
+let mode=document.querySelector("input[name=mode]:checked").value
+
+if(mode==="single")
+generateSingleWall()
+else
+generateFourWalls()
+
+}
+
+document.getElementById("textureUpload").addEventListener("change",e=>{
+
+let file=e.target.files[0]
+
+let reader=new FileReader()
+
+reader.onload=function(ev){
+
+let loader=new THREE.TextureLoader()
+
+texture=loader.load(ev.target.result)
+
+}
+
+reader.readAsDataURL(file)
+
+})
+
+document.getElementById("exportBtn").onclick=function(){
+
+let exporter=new GLTFExporter()
+
+exporter.parse(scene,function(res){
+
+let blob=new Blob([res],{type:"model/gltf-binary"})
+
+let a=document.createElement("a")
+
+a.href=URL.createObjectURL(blob)
+a.download="walls.glb"
+a.click()
+
+},{binary:true})
+
+}
+
+function animate(){
+
+requestAnimationFrame(animate)
+renderer.render(scene,camera)
+
+}
+
+animate()
+
+</script>
+
+</body>
+</html>
