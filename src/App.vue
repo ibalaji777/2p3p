@@ -55,52 +55,52 @@
                             </div>
 
                             <div class="control-group">
-                                <label>Tile Size (Scale)</label>
+                                <label>Tile Size (Physical Scale)</label>
                                 <div class="input-wrap">
                                     <input type="range" v-model.number="decor.tileSize" min="1" max="200" step="1" @input="syncSpecificDecor(decor)">
-                                    <input type="number" v-model.number="decor.tileSize" step="1" @input="syncSpecificDecor(decor)">
+                                    <input type="number" v-model.number="decor.tileSize" min="1" max="200" step="1" @input="syncSpecificDecor(decor)">
                                 </div>
                             </div>
                             <div class="control-group">
-                                <label>Thickness</label>
+                                <label>Thickness (Physical Units)</label>
                                 <div class="input-wrap">
                                     <input type="range" v-model.number="decor.depth" min="0.1" max="40" step="0.1" @input="syncSpecificDecor(decor)">
-                                    <input type="number" v-model.number="decor.depth" step="0.1" @input="syncSpecificDecor(decor)">
+                                    <input type="number" v-model.number="decor.depth" min="0.1" max="40" step="0.1" @input="syncSpecificDecor(decor)">
                                 </div>
                             </div>
                             <div class="control-group">
-                                <label>Width</label>
+                                <label>Width (%)</label>
                                 <div class="input-wrap">
-                                    <input type="range" v-model.number="decor.width" min="1" :max="selectedEntity.length3D * 1.5 || 1000" @input="syncSpecificDecor(decor)">
-                                    <input type="number" v-model.number="decor.width" @input="syncSpecificDecor(decor)">
+                                    <input type="range" v-model.number="decor.width" min="1" max="100" step="1" @input="syncSpecificDecor(decor)">
+                                    <input type="number" v-model.number="decor.width" min="1" max="100" step="1" @input="syncSpecificDecor(decor)">
                                 </div>
                             </div>
                             <div class="control-group">
-                                <label>Height</label>
+                                <label>Height (%)</label>
                                 <div class="input-wrap">
-                                    <input type="range" v-model.number="decor.height" min="1" max="500" @input="syncSpecificDecor(decor)">
-                                    <input type="number" v-model.number="decor.height" @input="syncSpecificDecor(decor)">
+                                    <input type="range" v-model.number="decor.height" min="1" max="100" step="1" @input="syncSpecificDecor(decor)">
+                                    <input type="number" v-model.number="decor.height" min="1" max="100" step="1" @input="syncSpecificDecor(decor)">
                                 </div>
                             </div>
                             <div class="control-group">
-                                <label>Center X Position</label>
+                                <label>Center X Position (%)</label>
                                 <div class="input-wrap">
-                                    <input type="range" v-model.number="decor.localX" min="-100" :max="selectedEntity.length3D + 100 || 1000" @input="syncSpecificDecor(decor)">
-                                    <input type="number" v-model.number="decor.localX" @input="syncSpecificDecor(decor)">
+                                    <input type="range" v-model.number="decor.localX" min="-10" max="110" step="1" @input="syncSpecificDecor(decor)">
+                                    <input type="number" v-model.number="decor.localX" min="-10" max="110" step="1" @input="syncSpecificDecor(decor)">
                                 </div>
                             </div>
                             <div class="control-group">
-                                <label>Center Y Position</label>
+                                <label>Center Y Position (%)</label>
                                 <div class="input-wrap">
-                                    <input type="range" v-model.number="decor.localY" min="-100" max="500" @input="syncSpecificDecor(decor)">
-                                    <input type="number" v-model.number="decor.localY" @input="syncSpecificDecor(decor)">
+                                    <input type="range" v-model.number="decor.localY" min="-10" max="110" step="1" @input="syncSpecificDecor(decor)">
+                                    <input type="number" v-model.number="decor.localY" min="-10" max="110" step="1" @input="syncSpecificDecor(decor)">
                                 </div>
                             </div>
                             <div class="control-group">
                                 <label>Center Z Position (Depth Offset)</label>
                                 <div class="input-wrap">
                                     <input type="range" v-model.number="decor.localZ" min="-20" max="20" step="0.1" @input="syncSpecificDecor(decor)">
-                                    <input type="number" v-model.number="decor.localZ" step="0.1" @input="syncSpecificDecor(decor)">
+                                    <input type="number" v-model.number="decor.localZ" min="-20" max="20" step="0.1" @input="syncSpecificDecor(decor)">
                                 </div>
                             </div>
                         </div>
@@ -310,6 +310,7 @@ const syncEngine = () => {
     }
 };
 
+// 3. UI FIX: Only calls the update logic. Does not re-clone the Vue array, which preserves input focus!
 const syncSpecificDecor = (decor) => {
     if (renderer3D.value) renderer3D.value.updateWallDecorLive(decor);
 };

@@ -55,8 +55,7 @@ export class Preview3D {
         this.selectedObject = null;
         this.isPlacing = false; 
         
-        // --- HIGHLIGHT PIVOT FIX ---
-        // Clean centered plane, no internal translation offsets
+        // 1. HIGHLIGHT PIVOT FIX: Center pivot geometry (No translation offset)
         const wallHiGeo = new THREE.PlaneGeometry(1, 1);
         const wallHiMat = new THREE.MeshBasicMaterial({ 
             color: 0x3b82f6, 
@@ -250,8 +249,8 @@ export class Preview3D {
                         visualLocalX = wallData.length3D - localTarget.x; 
                     }
                     
-                    entity.localX = Math.max(-100, Math.min(visualLocalX, wallData.length3D + 100));
-                    entity.localY = Math.max(-100, Math.min(localTarget.y, WALL_HEIGHT + 100));
+                    entity.localX = Math.max(-10, Math.min((visualLocalX / wallData.length3D) * 100, 110));
+                    entity.localY = Math.max(-10, Math.min((localTarget.y / WALL_HEIGHT) * 100, 110));
                     
                     this.updateWallDecorLive(entity);
                     this.syncToUI();
@@ -311,9 +310,9 @@ export class Preview3D {
             
             wallGroup.add(this.wallHighlight);
             
+            // HIGHLIGHT POSITION & SCALE FIX
             this.wallHighlight.scale.set(w.length3D, WALL_HEIGHT, 1);
             
-            // Push highlight dynamically outwards to sit above any attached brick layers
             let maxDepth = 0;
             if (w.attachedDecor && w.attachedDecor.length > 0) {
                 w.attachedDecor.forEach(d => { if (d.side === side && d.depth > maxDepth) maxDepth = d.depth; });
@@ -322,7 +321,7 @@ export class Preview3D {
                 ? (w.config.thickness / 2 + maxDepth + 0.15) 
                 : (-w.config.thickness / 2 - maxDepth - 0.15);
 
-            // Centered perfectly on the wall
+            // Because the pivot is perfectly centered, we just set the position to the middle of the wall!
             this.wallHighlight.position.set(w.length3D / 2, WALL_HEIGHT / 2, zOffset);
             this.wallHighlight.rotation.set(0, 0, 0); 
             
@@ -366,6 +365,7 @@ export class Preview3D {
         }
     }
 
+    // THE GOOD LOGIC RETAINED EXACTLY
     addWallPattern(wallEntity, configId, side) {
         const config = WALL_DECOR_REGISTRY[configId];
         if (!config) return null;
@@ -378,16 +378,16 @@ export class Preview3D {
             id: 'decor_' + Math.random().toString(36).substr(2, 9),
             configId: configId,
             side: side, 
-            localX: wallEntity.length3D / 2, 
-            localY: WALL_HEIGHT / 2,         
+            localX: 50,  
+            localY: 50,         
             localZ: 0, 
-            width: wallEntity.length3D,      
-            height: WALL_HEIGHT,             
+            width: 100,  
+            height: 100, 
             depth: config.defaultDepth || 0.2, 
             tileSize: config.defaultTileSize || 40,
             faces: {
                 front: true, 
-                back: false, // Prevents bleed
+                back: false, 
                 left: isOuter,
                 right: isOuter
             }
@@ -418,13 +418,13 @@ export class Preview3D {
 
             const wrapper = new THREE.Group();
 
-            // 1. Center Flat Box
             const boxGeo = new THREE.BoxGeometry(1, 1, 1); 
             const boxMesh = new THREE.Mesh(boxGeo, new THREE.MeshStandardMaterial({ color: 0xcccccc }));
             boxMesh.userData = { isPatternBox: true };
             
-            // 2. SMART HALF-CYLINDERS: These wrap the corners flawlessly
-            const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 32);
+            // 2. TOP UNNECESSARY TEXTURE FIX: openEnded (6th param) is set to TRUE.
+            // This completely deletes the flat circular lids from the top and bottom of the cylinder!
+            const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 32, 1, true);
             
             const leftCyl = new THREE.Mesh(cylGeo, new THREE.MeshStandardMaterial({ color: 0xcccccc }));
             leftCyl.userData = { isLeftCyl: true };
@@ -434,7 +434,6 @@ export class Preview3D {
 
             wrapper.add(boxMesh, leftCyl, rightCyl);
 
-            // 3. Hitbox
             const hitBoxGeo = new THREE.BoxGeometry(1, 1, 1);
             const hitBoxMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 }); 
             const hitBox = new THREE.Mesh(hitBoxGeo, hitBoxMat);
@@ -467,104 +466,125 @@ export class Preview3D {
         }
     }
 
-    // --- FLAWLESS WRAPPING LOGIC ---
     updateWallDecorLive(entity) {
         if (!entity || !entity.mesh3D) return;
         const object = entity.mesh3D;
         const wallEntity = object.userData.parentWall;
 
-        const w = entity.width;
-        const h = entity.height;
-        const d = entity.depth;
         const t = wallEntity.config.thickness;
+        const d = entity.depth;
         const isFront = entity.side === 'front';
 
-        const texture = object.userData.texture;
-        const tileSize = entity.tileSize || 1;
+        // Percentage to Physical Calculation
+        const w = wallEntity.length3D * (entity.width / 100);
+        const h = WALL_HEIGHT * (entity.height / 100);
 
-        // 1. POSITION THE MAIN GROUP EXACTLY ON THE WALL CENTERLINE (Z=0)
-        let posX = entity.localX;
-        if (!isFront) posX = wallEntity.length3D - entity.localX;
-        object.position.set(posX, entity.localY, 0);
-        object.rotation.y = isFront ? 0 : Math.PI;
+        // Cylinder radius perfectly encapsulates the structural corner + pattern depth
+        const cylRadius = (t / 2) + d;
 
-        // 2. FLAT BOX (Offset to surface)
         const boxMesh = object.children.find(c => c.userData.isPatternBox);
-        if (boxMesh) {
-            if (boxMesh.geometry) boxMesh.geometry.dispose();
+        if (boxMesh && boxMesh.geometry) {
+            boxMesh.geometry.dispose();
             boxMesh.geometry = new THREE.BoxGeometry(w, h, d);
-            
-            // Offset exactly to the face of the wall
             boxMesh.position.z = (t / 2 + d / 2) + (entity.localZ || 0);
+        }
+        
+        const leftCyl = object.children.find(c => c.userData.isLeftCyl);
+        const rightCyl = object.children.find(c => c.userData.isRightCyl);
 
-            const materials = [];
+        // 2. TOP CAP FIX: true keeps it open-ended, removing the ugly circle on top
+        if (leftCyl && leftCyl.geometry) {
+            leftCyl.geometry.dispose();
+            leftCyl.geometry = new THREE.CylinderGeometry(cylRadius, cylRadius, h, 32, 1, true, isFront ? -Math.PI/2 : Math.PI/2, Math.PI);
+        }
+        
+        if (rightCyl && rightCyl.geometry) {
+            rightCyl.geometry.dispose();
+            rightCyl.geometry = new THREE.CylinderGeometry(cylRadius, cylRadius, h, 32, 1, true, isFront ? -Math.PI/2 : Math.PI/2, Math.PI);
+        }
+
+        const hitbox = object.children.find(c => c.userData && c.userData.isHitbox);
+        if (hitbox && hitbox.geometry) {
+            hitbox.geometry.dispose();
+            hitbox.geometry = new THREE.BoxGeometry(w, h, d);
+            hitbox.position.z = (t / 2 + d / 2) + (entity.localZ || 0);
+        }
+
+        const texture = object.userData.texture;
+        const materials = [];
+        let sharedCylMaterial = new THREE.MeshStandardMaterial({ color: 0xe5e7eb });
+
+        if (texture) {
             for (let i = 0; i < 6; i++) {
-                if (i === 4 && texture) { // Front face
+                let useTexture = false;
+                if (i === 4) useTexture = true; 
+                
+                if (i === 0 && !entity.faces.right) useTexture = true; 
+                if (i === 1 && !entity.faces.left) useTexture = true;
+                if (i === 2 || i === 3) useTexture = true;
+
+                if (useTexture) {
                     let tex = texture.clone();
                     tex.wrapS = THREE.RepeatWrapping;
                     tex.wrapT = THREE.RepeatWrapping;
                     if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
-                    tex.repeat.set(w / tileSize, h / tileSize);
-                    materials.push(new THREE.MeshStandardMaterial({ map: tex, color: 0xffffff }));
-                } else if ((i === 2 || i === 3) && texture) { // Top/Bot face
-                    let tex = texture.clone();
-                    tex.wrapS = THREE.RepeatWrapping;
-                    tex.wrapT = THREE.RepeatWrapping;
-                    tex.repeat.set(w / tileSize, d / tileSize);
+
+                    const tileSize = entity.tileSize || 1;
+                    if (i === 0 || i === 1) tex.repeat.set(d / tileSize, h / tileSize);
+                    else if (i === 2 || i === 3) tex.repeat.set(w / tileSize, d / tileSize);
+                    else tex.repeat.set(w / tileSize, h / tileSize);
+                    
                     materials.push(new THREE.MeshStandardMaterial({ map: tex, color: 0xffffff }));
                 } else {
                     materials.push(new THREE.MeshBasicMaterial({ visible: false }));
                 }
             }
+            
+            let cylTex = texture.clone();
+            cylTex.wrapS = THREE.RepeatWrapping;
+            cylTex.wrapT = THREE.RepeatWrapping;
+            if (THREE.SRGBColorSpace) cylTex.colorSpace = THREE.SRGBColorSpace;
+            const tileSize = entity.tileSize || 1;
+            const arcLength = Math.PI * cylRadius;
+            cylTex.repeat.set(arcLength / tileSize, h / tileSize);
+            sharedCylMaterial = new THREE.MeshStandardMaterial({ map: cylTex, color: 0xffffff });
+
+        } else {
+            for (let i = 0; i < 6; i++) materials.push(new THREE.MeshStandardMaterial({ color: 0xe5e7eb }));
+        }
+
+        if (boxMesh) {
             if (Array.isArray(boxMesh.material)) {
                 boxMesh.material.forEach(m => { if(m.map) m.map.dispose(); m.dispose(); });
             }
             boxMesh.material = materials;
         }
 
-        // 3. HALF-CYLINDER WRAPPERS
-        // Radius covers the wall cylinder + pattern depth
-        const radius = (t / 2) + d;
-        // Sweeps perfectly from the wall side outwards
-        const startAngle = -Math.PI / 2; 
-
-        let cylMat = new THREE.MeshBasicMaterial({ visible: false });
-        if (texture) {
-            let tex = texture.clone();
-            tex.wrapS = THREE.RepeatWrapping;
-            tex.wrapT = THREE.RepeatWrapping;
-            if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
-            const arcLength = Math.PI * radius;
-            tex.repeat.set(arcLength / tileSize, h / tileSize);
-            cylMat = new THREE.MeshStandardMaterial({ map: tex, color: 0xffffff });
-        }
-
-        const leftCyl = object.children.find(c => c.userData.isLeftCyl);
         if (leftCyl) {
-            if (leftCyl.geometry) leftCyl.geometry.dispose();
-            leftCyl.geometry = new THREE.CylinderGeometry(radius, radius, h, 32, 1, false, startAngle, Math.PI);
-            leftCyl.position.set(-w / 2, 0, entity.localZ || 0); // Positioned at exact left edge
-            leftCyl.material = cylMat;
+            if (leftCyl.material.map) leftCyl.material.map.dispose();
+            leftCyl.material.dispose();
+            leftCyl.material = sharedCylMaterial;
             leftCyl.visible = entity.faces.left;
+            leftCyl.position.set(-w / 2, 0, 0); 
         }
 
-        const rightCyl = object.children.find(c => c.userData.isRightCyl);
         if (rightCyl) {
-            if (rightCyl.geometry) rightCyl.geometry.dispose();
-            rightCyl.geometry = new THREE.CylinderGeometry(radius, radius, h, 32, 1, false, startAngle, Math.PI);
-            rightCyl.position.set(w / 2, 0, entity.localZ || 0); // Positioned at exact right edge
-            rightCyl.material = cylMat;
+            if (rightCyl.material.map) rightCyl.material.map.dispose();
+            rightCyl.material.dispose();
+            rightCyl.material = sharedCylMaterial;
             rightCyl.visible = entity.faces.right;
+            rightCyl.position.set(w / 2, 0, 0);
         }
 
-        // 4. HITBOX
-        const hitbox = object.children.find(c => c.userData && c.userData.isHitbox);
-        if (hitbox) {
-            if (hitbox.geometry) hitbox.geometry.dispose();
-            hitbox.geometry = new THREE.BoxGeometry(w, h, d);
-            hitbox.position.z = (t / 2 + d / 2) + (entity.localZ || 0);
+        let posX = wallEntity.length3D * (entity.localX / 100);
+        if (!isFront) {
+            posX = wallEntity.length3D - posX;
         }
 
+        const posY = WALL_HEIGHT * (entity.localY / 100);
+        
+        object.position.set(posX, posY, 0);
+        object.rotation.y = isFront ? 0 : Math.PI;
         object.scale.set(1, 1, 1); 
     }
 
@@ -700,7 +720,6 @@ export class Preview3D {
             centerX += p1.x + dx/2; centerZ += p1.y + dz/2; count++;
             w.length3D = length; 
 
-            // RESTORED: Standard structural non-overlapping wall geometry
             const wallShape = new THREE.Shape(); 
             wallShape.moveTo(0, 0); 
             wallShape.lineTo(length, 0); 
@@ -755,8 +774,7 @@ export class Preview3D {
             }
         });
 
-        // RESTORED: Stable Gray Structural Cylinders. 
-        // These perfectly fill the triangle gaps, and the new Pattern Half-Cylinders wrap seamlessly around them.
+        // RESTORED: Stable Gray Structural Cylinders that the wrappers perfectly hide.
         const anchorMap = new Map(); walls.forEach(w => { [w.startAnchor, w.endAnchor].forEach(a => { const data = anchorMap.get(a) || { thickness: 0 }; if (w.config.thickness > data.thickness) { data.thickness = w.config.thickness; } anchorMap.set(a, data); }); });
         
         anchorMap.forEach((data, anchor) => { 
