@@ -47,17 +47,24 @@
                         </div>
 
                         <div class="applied-item-body" v-if="activeDecorId === decor.id">
+                            
+                            <h4 style="margin-top: 0; color: #93c5fd; font-size: 11px;">Wrap Edges (Pattern Sides)</h4>
+                            <div class="faceRow" style="margin-bottom: 12px;">
+                                <label><input type="checkbox" v-model="decor.faces.left" @change="syncSpecificDecor(decor)">Left Edge</label>
+                                <label><input type="checkbox" v-model="decor.faces.right" @change="syncSpecificDecor(decor)">Right Edge</label>
+                            </div>
+
                             <div class="control-group">
-                                <label>Tile Size (Physical Units)</label>
+                                <label>Tile Size (Scale)</label>
                                 <div class="input-wrap">
                                     <input type="range" v-model.number="decor.tileSize" min="1" max="200" step="1" @input="syncSpecificDecor(decor)">
                                     <input type="number" v-model.number="decor.tileSize" step="1" @input="syncSpecificDecor(decor)">
                                 </div>
                             </div>
                             <div class="control-group">
-                                <label>Thickness (Depth)</label>
+                                <label>Thickness</label>
                                 <div class="input-wrap">
-                                    <input type="range" v-model.number="decor.depth" min="0.1" max="20" step="0.1" @input="syncSpecificDecor(decor)">
+                                    <input type="range" v-model.number="decor.depth" min="0.1" max="40" step="0.1" @input="syncSpecificDecor(decor)">
                                     <input type="number" v-model.number="decor.depth" step="0.1" @input="syncSpecificDecor(decor)">
                                 </div>
                             </div>
@@ -78,15 +85,22 @@
                             <div class="control-group">
                                 <label>Center X Position</label>
                                 <div class="input-wrap">
-                                    <input type="range" v-model.number="decor.localX" min="0" :max="selectedEntity.length3D || 1000" @input="syncSpecificDecor(decor)">
+                                    <input type="range" v-model.number="decor.localX" min="-100" :max="selectedEntity.length3D + 100 || 1000" @input="syncSpecificDecor(decor)">
                                     <input type="number" v-model.number="decor.localX" @input="syncSpecificDecor(decor)">
                                 </div>
                             </div>
                             <div class="control-group">
                                 <label>Center Y Position</label>
                                 <div class="input-wrap">
-                                    <input type="range" v-model.number="decor.localY" min="0" max="500" @input="syncSpecificDecor(decor)">
+                                    <input type="range" v-model.number="decor.localY" min="-100" max="500" @input="syncSpecificDecor(decor)">
                                     <input type="number" v-model.number="decor.localY" @input="syncSpecificDecor(decor)">
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <label>Center Z Position (Depth Offset)</label>
+                                <div class="input-wrap">
+                                    <input type="range" v-model.number="decor.localZ" min="-20" max="20" step="0.1" @input="syncSpecificDecor(decor)">
+                                    <input type="number" v-model.number="decor.localZ" step="0.1" @input="syncSpecificDecor(decor)">
                                 </div>
                             </div>
                         </div>
@@ -446,6 +460,11 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f3f4f6; overflo
 .applied-item-body { padding: 15px 10px; border-top: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.5); }
 .btn-sm-delete { background: transparent; border: none; color: #ef4444; font-weight: bold; cursor: pointer; }
 .btn-sm-delete:hover { color: #fca5a5; }
+
+/* PATTERN FACES CSS */
+.faceRow { display: flex; gap: 12px; margin-bottom: 6px; }
+.faceRow label { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #d1d5db; cursor: pointer; }
+.faceRow input[type="checkbox"] { margin: 0; cursor: pointer; }
 
 /* WALL DECOR GALLERY GRID */
 .decor-gallery { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; margin-top: 5px; }

@@ -25,39 +25,44 @@ export const WINDOW_FRAME_MATERIALS = { upvc_white: { label: "White uPVC", color
 export const WINDOW_GLASS_MATERIALS = { clear: { label: "Clear Glass", color: 0xeff6ff, transmission: 0.95, roughness: 0.0, ior: 1.5, transparent: true }, frosted: { label: "Frosted / Privacy Glass", color: 0xffffff, transmission: 0.5, roughness: 0.5, ior: 1.4, transparent: true }, tinted: { label: "Tinted Glass (Dark)", color: 0x222222, transmission: 0.85, roughness: 0.0, ior: 1.5, transparent: true }, reflective: { label: "Reflective / Mirror", color: 0xaaaaaa, transmission: 0.3, roughness: 0.0, metalness: 1.0, ior: 2.0, transparent: true } };
 export const WINDOW_GRILLE_PATTERNS = { grid: { label: "Standard Grid" }, horizontal: { label: "Horizontal Bars" }, vertical: { label: "Vertical Bars" }, diamond: { label: "Diamond Pattern" }, none: { label: "No Safety Grille" } };
 
+// Outer wall is thicker (16), Inner wall is less thick (8)
 export const WALL_REGISTRY = {
     'outer': { type: "outer", label: "OUTER WALL", thickness: 16, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
     'inner': { type: "inner", label: "INNER WALL", thickness: 8, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] }
 };
 
-// --- NEW WALL DECOR PATTERNS REGISTRY ---
+// --- PNG WALL PATTERNS REGISTRY ---
 export const WALL_DECOR_REGISTRY = {
-    'modern_panel': {
-        id: 'modern_panel',
-        name: 'Wood Panel',
-        model: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Box/glTF-Binary/Box.glb', 
-        thumbnail: 'https://via.placeholder.com/150x150/3b82f6/ffffff?text=Wood+Panel', 
+    'brick_wall': {
+        id: 'brick_wall',
+        name: 'Red Bricks',
+                texture: 'models/wall/redbrick.png', 
+        // texture: 'https://threejs.org/examples/textures/brick_diffuse.jpg', 
+        thumbnail: 'https://threejs.org/examples/textures/brick_diffuse.jpg', 
         defaultWidth: 100,
-        defaultHeight: 250,
-        defaultDepth: 5
+        defaultHeight: 100,
+        defaultDepth: 0.2, // Reference Code logic
+        defaultRepeat: 3   // Reference Code logic
     },
-    'classic_molding': {
-        id: 'classic_molding',
-        name: 'Molding',
-        model: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Box/glTF-Binary/Box.glb', 
-        thumbnail: 'https://via.placeholder.com/150x150/8b5cf6/ffffff?text=Molding', 
-        defaultWidth: 120,
-        defaultHeight: 90,
-        defaultDepth: 3
+    'wood_panel': {
+        id: 'wood_panel',
+        name: 'Wood Panels',
+        texture: 'https://threejs.org/examples/textures/hardwood2_diffuse.jpg', 
+        thumbnail: 'https://threejs.org/examples/textures/hardwood2_diffuse.jpg', 
+        defaultWidth: 100,
+        defaultHeight: 100,
+        defaultDepth: 0.2, 
+        defaultRepeat: 3   
     },
-    'art_frame': {
-        id: 'art_frame',
-        name: 'Art Frame',
-        model: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Box/glTF-Binary/Box.glb', 
-        thumbnail: 'https://via.placeholder.com/150x150/10b981/ffffff?text=Art+Frame', 
-        defaultWidth: 60,
-        defaultHeight: 80,
-        defaultDepth: 2
+    'solid_color': {
+        id: 'solid_color',
+        name: 'Painted Wall',
+        texture: 'https://via.placeholder.com/512x512/e2e8f0/e2e8f0', 
+        thumbnail: 'https://via.placeholder.com/150x150/e2e8f0/000?text=Paint', 
+        defaultWidth: 100,
+        defaultHeight: 100,
+        defaultDepth: 0.2,
+        defaultRepeat: 1
     }
 };
 
@@ -71,7 +76,6 @@ export const FURNITURE_REGISTRY = {
         default: { width: 40, height: 50, depth: 40 }, 
         editable: { resize: true, rotation: true, move: true }
     },
-    
     'chair_ekero': {
         id: 'chair_ekero',
         name: 'Ekero Chair',

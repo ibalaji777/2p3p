@@ -55,8 +55,9 @@ export class Preview3D {
         this.selectedObject = null;
         this.isPlacing = false; 
         
+        // --- HIGHLIGHT PIVOT FIX ---
+        // Clean centered plane, no internal translation offsets
         const wallHiGeo = new THREE.PlaneGeometry(1, 1);
-        wallHiGeo.translate(0.5, 0.5, 0); 
         const wallHiMat = new THREE.MeshBasicMaterial({ 
             color: 0x3b82f6, 
             transparent: true, 
@@ -249,8 +250,8 @@ export class Preview3D {
                         visualLocalX = wallData.length3D - localTarget.x; 
                     }
                     
-                    entity.localX = Math.max(0, Math.min(visualLocalX, wallData.length3D));
-                    entity.localY = Math.max(0, Math.min(localTarget.y, WALL_HEIGHT));
+                    entity.localX = Math.max(-100, Math.min(visualLocalX, wallData.length3D + 100));
+                    entity.localY = Math.max(-100, Math.min(localTarget.y, WALL_HEIGHT + 100));
                     
                     this.updateWallDecorLive(entity);
                     this.syncToUI();
@@ -309,10 +310,20 @@ export class Preview3D {
             const w = wallGroup.userData.entity;
             
             wallGroup.add(this.wallHighlight);
+            
             this.wallHighlight.scale.set(w.length3D, WALL_HEIGHT, 1);
             
-            const zOffset = side === 'front' ? (w.config.thickness / 2 + 0.15) : (-w.config.thickness / 2 - 0.15);
-            this.wallHighlight.position.set(0, 0, zOffset);
+            // Push highlight dynamically outwards to sit above any attached brick layers
+            let maxDepth = 0;
+            if (w.attachedDecor && w.attachedDecor.length > 0) {
+                w.attachedDecor.forEach(d => { if (d.side === side && d.depth > maxDepth) maxDepth = d.depth; });
+            }
+            const zOffset = side === 'front' 
+                ? (w.config.thickness / 2 + maxDepth + 0.15) 
+                : (-w.config.thickness / 2 - maxDepth - 0.15);
+
+            // Centered perfectly on the wall
+            this.wallHighlight.position.set(w.length3D / 2, WALL_HEIGHT / 2, zOffset);
             this.wallHighlight.rotation.set(0, 0, 0); 
             
             this.wallHighlight.visible = true;
@@ -361,17 +372,25 @@ export class Preview3D {
 
         if (!wallEntity.attachedDecor) wallEntity.attachedDecor = [];
         
-        // Exact reference logic defaults
+        const isOuter = wallEntity.type === 'outer';
+
         const decor = {
             id: 'decor_' + Math.random().toString(36).substr(2, 9),
             configId: configId,
             side: side, 
             localX: wallEntity.length3D / 2, 
             localY: WALL_HEIGHT / 2,         
+            localZ: 0, 
             width: wallEntity.length3D,      
             height: WALL_HEIGHT,             
-            depth: config.defaultDepth || 0.2,
-            tileSize: config.defaultTileSize || 40 // Controls how big one tile is in 3D units
+            depth: config.defaultDepth || 0.2, 
+            tileSize: config.defaultTileSize || 40,
+            faces: {
+                front: true, 
+                back: false, // Prevents bleed
+                left: isOuter,
+                right: isOuter
+            }
         };
         
         wallEntity.attachedDecor.push(decor);
@@ -388,8 +407,6 @@ export class Preview3D {
             if (!this.modelCache[config.id]) {
                 const texLoader = new THREE.TextureLoader();
                 texture = await texLoader.loadAsync(config.texture);
-                texture.wrapS = THREE.RepeatWrapping;
-                texture.wrapT = THREE.RepeatWrapping;
                 if (THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
                 this.modelCache[config.id] = texture;
             } else {
@@ -399,13 +416,25 @@ export class Preview3D {
             const clonedTexture = texture.clone();
             clonedTexture.needsUpdate = true;
 
-            const mat = new THREE.MeshStandardMaterial({ map: clonedTexture, color: 0xffffff });
-            const geo = new THREE.BoxGeometry(1, 1, 1); 
-            const mesh = new THREE.Mesh(geo, mat);
-            
             const wrapper = new THREE.Group();
-            wrapper.add(mesh);
 
+            // 1. Center Flat Box
+            const boxGeo = new THREE.BoxGeometry(1, 1, 1); 
+            const boxMesh = new THREE.Mesh(boxGeo, new THREE.MeshStandardMaterial({ color: 0xcccccc }));
+            boxMesh.userData = { isPatternBox: true };
+            
+            // 2. SMART HALF-CYLINDERS: These wrap the corners flawlessly
+            const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 32);
+            
+            const leftCyl = new THREE.Mesh(cylGeo, new THREE.MeshStandardMaterial({ color: 0xcccccc }));
+            leftCyl.userData = { isLeftCyl: true };
+            
+            const rightCyl = new THREE.Mesh(cylGeo.clone(), new THREE.MeshStandardMaterial({ color: 0xcccccc }));
+            rightCyl.userData = { isRightCyl: true };
+
+            wrapper.add(boxMesh, leftCyl, rightCyl);
+
+            // 3. Hitbox
             const hitBoxGeo = new THREE.BoxGeometry(1, 1, 1);
             const hitBoxMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 }); 
             const hitBox = new THREE.Mesh(hitBoxGeo, hitBoxMat);
@@ -438,7 +467,7 @@ export class Preview3D {
         }
     }
 
-    // EXACT REFERENCE LOGIC MATH
+    // --- FLAWLESS WRAPPING LOGIC ---
     updateWallDecorLive(entity) {
         if (!entity || !entity.mesh3D) return;
         const object = entity.mesh3D;
@@ -447,30 +476,96 @@ export class Preview3D {
         const w = entity.width;
         const h = entity.height;
         const d = entity.depth;
+        const t = wallEntity.config.thickness;
+        const isFront = entity.side === 'front';
 
+        const texture = object.userData.texture;
+        const tileSize = entity.tileSize || 1;
+
+        // 1. POSITION THE MAIN GROUP EXACTLY ON THE WALL CENTERLINE (Z=0)
         let posX = entity.localX;
-        if (entity.side === 'back') {
-            posX = wallEntity.length3D - entity.localX;
+        if (!isFront) posX = wallEntity.length3D - entity.localX;
+        object.position.set(posX, entity.localY, 0);
+        object.rotation.y = isFront ? 0 : Math.PI;
+
+        // 2. FLAT BOX (Offset to surface)
+        const boxMesh = object.children.find(c => c.userData.isPatternBox);
+        if (boxMesh) {
+            if (boxMesh.geometry) boxMesh.geometry.dispose();
+            boxMesh.geometry = new THREE.BoxGeometry(w, h, d);
+            
+            // Offset exactly to the face of the wall
+            boxMesh.position.z = (t / 2 + d / 2) + (entity.localZ || 0);
+
+            const materials = [];
+            for (let i = 0; i < 6; i++) {
+                if (i === 4 && texture) { // Front face
+                    let tex = texture.clone();
+                    tex.wrapS = THREE.RepeatWrapping;
+                    tex.wrapT = THREE.RepeatWrapping;
+                    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+                    tex.repeat.set(w / tileSize, h / tileSize);
+                    materials.push(new THREE.MeshStandardMaterial({ map: tex, color: 0xffffff }));
+                } else if ((i === 2 || i === 3) && texture) { // Top/Bot face
+                    let tex = texture.clone();
+                    tex.wrapS = THREE.RepeatWrapping;
+                    tex.wrapT = THREE.RepeatWrapping;
+                    tex.repeat.set(w / tileSize, d / tileSize);
+                    materials.push(new THREE.MeshStandardMaterial({ map: tex, color: 0xffffff }));
+                } else {
+                    materials.push(new THREE.MeshBasicMaterial({ visible: false }));
+                }
+            }
+            if (Array.isArray(boxMesh.material)) {
+                boxMesh.material.forEach(m => { if(m.map) m.map.dispose(); m.dispose(); });
+            }
+            boxMesh.material = materials;
         }
 
-        const posY = entity.localY;
-        
-        const zPos = entity.side === 'front' 
-            ? (wallEntity.config.thickness / 2 + d / 2) 
-            : (-wallEntity.config.thickness / 2 - d / 2);
+        // 3. HALF-CYLINDER WRAPPERS
+        // Radius covers the wall cylinder + pattern depth
+        const radius = (t / 2) + d;
+        // Sweeps perfectly from the wall side outwards
+        const startAngle = -Math.PI / 2; 
 
-        object.position.set(posX, posY, zPos);
-        object.rotation.y = entity.side === 'front' ? 0 : Math.PI;
-        
-        // Match exact BoxGeometry scale
-        object.scale.set(w, h, d);
-
-        // EXACT REFERENCE REPEAT CALCULATION (width / tileSize)
-        if (object.userData.texture && entity.tileSize > 0) {
-            const repeatX = w / entity.tileSize;
-            const repeatY = h / entity.tileSize;
-            object.userData.texture.repeat.set(repeatX, repeatY);
+        let cylMat = new THREE.MeshBasicMaterial({ visible: false });
+        if (texture) {
+            let tex = texture.clone();
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+            const arcLength = Math.PI * radius;
+            tex.repeat.set(arcLength / tileSize, h / tileSize);
+            cylMat = new THREE.MeshStandardMaterial({ map: tex, color: 0xffffff });
         }
+
+        const leftCyl = object.children.find(c => c.userData.isLeftCyl);
+        if (leftCyl) {
+            if (leftCyl.geometry) leftCyl.geometry.dispose();
+            leftCyl.geometry = new THREE.CylinderGeometry(radius, radius, h, 32, 1, false, startAngle, Math.PI);
+            leftCyl.position.set(-w / 2, 0, entity.localZ || 0); // Positioned at exact left edge
+            leftCyl.material = cylMat;
+            leftCyl.visible = entity.faces.left;
+        }
+
+        const rightCyl = object.children.find(c => c.userData.isRightCyl);
+        if (rightCyl) {
+            if (rightCyl.geometry) rightCyl.geometry.dispose();
+            rightCyl.geometry = new THREE.CylinderGeometry(radius, radius, h, 32, 1, false, startAngle, Math.PI);
+            rightCyl.position.set(w / 2, 0, entity.localZ || 0); // Positioned at exact right edge
+            rightCyl.material = cylMat;
+            rightCyl.visible = entity.faces.right;
+        }
+
+        // 4. HITBOX
+        const hitbox = object.children.find(c => c.userData && c.userData.isHitbox);
+        if (hitbox) {
+            if (hitbox.geometry) hitbox.geometry.dispose();
+            hitbox.geometry = new THREE.BoxGeometry(w, h, d);
+            hitbox.position.z = (t / 2 + d / 2) + (entity.localZ || 0);
+        }
+
+        object.scale.set(1, 1, 1); 
     }
 
     async loadAndPlaceFurniture(entity) {
@@ -596,7 +691,7 @@ export class Preview3D {
         }
         
         let centerX = 0, centerZ = 0, count = 0; 
-        const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0x2d3748, roughness: 0.8 }), matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7 }); 
+        const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8 }), matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7 }); 
         
         roomPaths.forEach(path => { const floorShape = new THREE.Shape(); floorShape.moveTo(path[0].x, path[0].y); for(let i=1; i<path.length; i++) floorShape.lineTo(path[i].x, path[i].y); const floorGeo = new THREE.ShapeGeometry(floorShape); floorGeo.rotateX(-Math.PI / 2); const floorMesh = new THREE.Mesh(floorGeo, matFloor); floorMesh.position.y = 1; floorMesh.receiveShadow = true; this.structureGroup.add(floorMesh); });
         
@@ -605,12 +700,27 @@ export class Preview3D {
             centerX += p1.x + dx/2; centerZ += p1.y + dz/2; count++;
             w.length3D = length; 
 
-            const wallShape = new THREE.Shape(); wallShape.moveTo(0, 0); wallShape.lineTo(length, 0); wallShape.lineTo(length, WALL_HEIGHT); wallShape.lineTo(0, WALL_HEIGHT); wallShape.lineTo(0, 0);
-            w.attachedWidgets.forEach(widg => { const hole = new THREE.Path(), wCenter = length * widg.t, halfW = widg.width / 2; if (widg.type === 'door') { hole.moveTo(wCenter - halfW, 0); hole.lineTo(wCenter + halfW, 0); hole.lineTo(wCenter + halfW, DOOR_HEIGHT); hole.lineTo(wCenter - halfW, DOOR_HEIGHT); hole.lineTo(wCenter - halfW, 0); } else if (widg.type === 'window') { hole.moveTo(wCenter - halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL); } wallShape.holes.push(hole); });
+            // RESTORED: Standard structural non-overlapping wall geometry
+            const wallShape = new THREE.Shape(); 
+            wallShape.moveTo(0, 0); 
+            wallShape.lineTo(length, 0); 
+            wallShape.lineTo(length, WALL_HEIGHT); 
+            wallShape.lineTo(0, WALL_HEIGHT); 
+            wallShape.lineTo(0, 0);
+
+            w.attachedWidgets.forEach(widg => { 
+                const hole = new THREE.Path(), wCenter = length * widg.t, halfW = widg.width / 2; 
+                if (widg.type === 'door') { 
+                    hole.moveTo(wCenter - halfW, 0); hole.lineTo(wCenter + halfW, 0); hole.lineTo(wCenter + halfW, DOOR_HEIGHT); hole.lineTo(wCenter - halfW, DOOR_HEIGHT); hole.lineTo(wCenter - halfW, 0); 
+                } else if (widg.type === 'window') { 
+                    hole.moveTo(wCenter - halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL); 
+                } 
+                wallShape.holes.push(hole); 
+            });
             
             const extrudeOpts = { depth: w.config.thickness, bevelEnabled: false };
             const matMain = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
-            const matEdge = new THREE.MeshStandardMaterial({ color: 0x2d3748, roughness: 0.8 });
+            const matEdge = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8 });
             
             const wallGeo = new THREE.ExtrudeGeometry(wallShape, extrudeOpts);
             wallGeo.translate(0, 0, -w.config.thickness / 2);
@@ -645,11 +755,13 @@ export class Preview3D {
             }
         });
 
+        // RESTORED: Stable Gray Structural Cylinders. 
+        // These perfectly fill the triangle gaps, and the new Pattern Half-Cylinders wrap seamlessly around them.
         const anchorMap = new Map(); walls.forEach(w => { [w.startAnchor, w.endAnchor].forEach(a => { const data = anchorMap.get(a) || { thickness: 0 }; if (w.config.thickness > data.thickness) { data.thickness = w.config.thickness; } anchorMap.set(a, data); }); });
         
         anchorMap.forEach((data, anchor) => { 
             const pos = anchor.position(); 
-            const jointGeo = new THREE.CylinderGeometry(data.thickness / 2, data.thickness / 2, WALL_HEIGHT, 16); 
+            const jointGeo = new THREE.CylinderGeometry(data.thickness / 2, data.thickness / 2, WALL_HEIGHT, 32); 
             const jointMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
             const jointMesh = new THREE.Mesh(jointGeo, jointMat); 
             jointMesh.position.set(pos.x, WALL_HEIGHT / 2, pos.y); 
@@ -657,7 +769,7 @@ export class Preview3D {
             jointMesh.receiveShadow = true;
             this.structureGroup.add(jointMesh); 
             
-            const capGeo = new THREE.CylinderGeometry(data.thickness / 2, data.thickness / 2, 1, 16); 
+            const capGeo = new THREE.CylinderGeometry(data.thickness / 2, data.thickness / 2, 1, 32); 
             const capMesh = new THREE.Mesh(capGeo, matEdgeDark); 
             capMesh.position.set(pos.x, WALL_HEIGHT, pos.y); 
             this.structureGroup.add(capMesh); 
