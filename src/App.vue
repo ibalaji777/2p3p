@@ -50,57 +50,57 @@
                             
                             <h4 style="margin-top: 0; color: #93c5fd; font-size: 11px;">Wrap Edges (Pattern Sides)</h4>
                             <div class="faceRow" style="margin-bottom: 12px;">
-                                <label><input type="checkbox" v-model="decor.faces.left" @change="syncSpecificDecor(decor)">Left Edge</label>
-                                <label><input type="checkbox" v-model="decor.faces.right" @change="syncSpecificDecor(decor)">Right Edge</label>
+                                <label><input type="checkbox" v-model="decor.faces.left" @change="onDecorUpdate(decor)">Left Edge</label>
+                                <label><input type="checkbox" v-model="decor.faces.right" @change="onDecorUpdate(decor)">Right Edge</label>
                             </div>
 
                             <div class="control-group">
                                 <label>Tile Size (Physical Scale)</label>
                                 <div class="input-wrap">
-                                    <input type="range" v-model.number="decor.tileSize" min="1" max="200" step="1" @input="syncSpecificDecor(decor)">
-                                    <input type="number" v-model.number="decor.tileSize" min="1" max="200" step="1" @input="syncSpecificDecor(decor)">
+                                    <input type="range" v-model.number="decor.tileSize" min="1" max="200" step="1" @input="onDecorUpdate(decor)">
+                                    <input type="number" v-model.number="decor.tileSize" min="1" max="200" step="1" @input="onDecorUpdate(decor)">
                                 </div>
                             </div>
                             <div class="control-group">
                                 <label>Thickness (Physical Units)</label>
                                 <div class="input-wrap">
-                                    <input type="range" v-model.number="decor.depth" min="0.1" max="40" step="0.1" @input="syncSpecificDecor(decor)">
-                                    <input type="number" v-model.number="decor.depth" min="0.1" max="40" step="0.1" @input="syncSpecificDecor(decor)">
+                                    <input type="range" v-model.number="decor.depth" min="0.1" max="40" step="0.1" @input="onDecorUpdate(decor)">
+                                    <input type="number" v-model.number="decor.depth" min="0.1" max="40" step="0.1" @input="onDecorUpdate(decor)">
                                 </div>
                             </div>
                             <div class="control-group">
                                 <label>Width (%)</label>
                                 <div class="input-wrap">
-                                    <input type="range" v-model.number="decor.width" min="1" max="100" step="1" @input="syncSpecificDecor(decor)">
-                                    <input type="number" v-model.number="decor.width" min="1" max="100" step="1" @input="syncSpecificDecor(decor)">
+                                    <input type="range" v-model.number="decor.width" min="1" max="100" step="1" @input="onDecorUpdate(decor)">
+                                    <input type="number" v-model.number="decor.width" min="1" max="100" step="1" @input="onDecorUpdate(decor)">
                                 </div>
                             </div>
                             <div class="control-group">
                                 <label>Height (%)</label>
                                 <div class="input-wrap">
-                                    <input type="range" v-model.number="decor.height" min="1" max="100" step="1" @input="syncSpecificDecor(decor)">
-                                    <input type="number" v-model.number="decor.height" min="1" max="100" step="1" @input="syncSpecificDecor(decor)">
+                                    <input type="range" v-model.number="decor.height" min="1" max="100" step="1" @input="onDecorUpdate(decor)">
+                                    <input type="number" v-model.number="decor.height" min="1" max="100" step="1" @input="onDecorUpdate(decor)">
                                 </div>
                             </div>
                             <div class="control-group">
                                 <label>Center X Position (%)</label>
                                 <div class="input-wrap">
-                                    <input type="range" v-model.number="decor.localX" min="-10" max="110" step="1" @input="syncSpecificDecor(decor)">
-                                    <input type="number" v-model.number="decor.localX" min="-10" max="110" step="1" @input="syncSpecificDecor(decor)">
+                                    <input type="range" v-model.number="decor.localX" min="-10" max="110" step="1" @input="onDecorUpdate(decor)">
+                                    <input type="number" v-model.number="decor.localX" min="-10" max="110" step="1" @input="onDecorUpdate(decor)">
                                 </div>
                             </div>
                             <div class="control-group">
                                 <label>Center Y Position (%)</label>
                                 <div class="input-wrap">
-                                    <input type="range" v-model.number="decor.localY" min="-10" max="110" step="1" @input="syncSpecificDecor(decor)">
-                                    <input type="number" v-model.number="decor.localY" min="-10" max="110" step="1" @input="syncSpecificDecor(decor)">
+                                    <input type="range" v-model.number="decor.localY" min="-10" max="110" step="1" @input="onDecorUpdate(decor)">
+                                    <input type="number" v-model.number="decor.localY" min="-10" max="110" step="1" @input="onDecorUpdate(decor)">
                                 </div>
                             </div>
                             <div class="control-group">
                                 <label>Center Z Position (Depth Offset)</label>
                                 <div class="input-wrap">
-                                    <input type="range" v-model.number="decor.localZ" min="-20" max="20" step="0.1" @input="syncSpecificDecor(decor)">
-                                    <input type="number" v-model.number="decor.localZ" min="-20" max="20" step="0.1" @input="syncSpecificDecor(decor)">
+                                    <input type="range" v-model.number="decor.localZ" min="-20" max="20" step="0.1" @input="onDecorUpdate(decor)">
+                                    <input type="number" v-model.number="decor.localZ" min="-20" max="20" step="0.1" @input="onDecorUpdate(decor)">
                                 </div>
                             </div>
                         </div>
@@ -310,9 +310,10 @@ const syncEngine = () => {
     }
 };
 
-// 3. UI FIX: Only calls the update logic. Does not re-clone the Vue array, which preserves input focus!
-const syncSpecificDecor = (decor) => {
-    if (renderer3D.value) renderer3D.value.updateWallDecorLive(decor);
+const onDecorUpdate = (decor) => {
+    if (renderer3D.value) {
+        renderer3D.value.updateWallDecorLive(decor);
+    }
 };
 
 const handleDelete = () => { 
@@ -327,7 +328,8 @@ const handleDelete = () => {
     }
 };
 
-const handleDeleteDecor = (decorObj) => {
+// Fixed function name to match the template!
+const handleDeleteSpecificDecor = (decorObj) => {
     const decor = decorObj || selectedEntity.value;
     if (decor) {
         const wall = decor.mesh3D.userData.parentWall;
