@@ -55,8 +55,9 @@ export class Preview3D {
         this.selectedObject = null;
         this.isPlacing = false; 
         
-        // 1. HIGHLIGHT PIVOT FIX: Center pivot geometry (No translation offset)
+        // 1. HIGHLIGHT PIVOT FIX: Origin is perfectly at the bottom-left corner for exact length scaling
         const wallHiGeo = new THREE.PlaneGeometry(1, 1);
+        wallHiGeo.translate(0.5, 0.5, 0); 
         const wallHiMat = new THREE.MeshBasicMaterial({ 
             color: 0x3b82f6, 
             transparent: true, 
@@ -249,6 +250,7 @@ export class Preview3D {
                         visualLocalX = wallData.length3D - localTarget.x; 
                     }
                     
+                    // 0-100% Tracking
                     entity.localX = Math.max(-10, Math.min((visualLocalX / wallData.length3D) * 100, 110));
                     entity.localY = Math.max(-10, Math.min((localTarget.y / WALL_HEIGHT) * 100, 110));
                     
@@ -310,19 +312,23 @@ export class Preview3D {
             
             wallGroup.add(this.wallHighlight);
             
-            // HIGHLIGHT POSITION & SCALE FIX
-            this.wallHighlight.scale.set(w.length3D, WALL_HEIGHT, 1);
-            
+            // 1. HIGHLIGHT ALIGNMENT FIX: 
+            // Calculate absolute bounds of wall including joints and patterns
+            const overlap = w.config.thickness / 2;
             let maxDepth = 0;
             if (w.attachedDecor && w.attachedDecor.length > 0) {
                 w.attachedDecor.forEach(d => { if (d.side === side && d.depth > maxDepth) maxDepth = d.depth; });
             }
+
+            const totalLength = w.length3D + (overlap * 2) + (maxDepth * 2);
+            this.wallHighlight.scale.set(totalLength, WALL_HEIGHT, 1);
+            
             const zOffset = side === 'front' 
                 ? (w.config.thickness / 2 + maxDepth + 0.15) 
                 : (-w.config.thickness / 2 - maxDepth - 0.15);
 
-            // Because the pivot is perfectly centered, we just set the position to the middle of the wall!
-            this.wallHighlight.position.set(w.length3D / 2, WALL_HEIGHT / 2, zOffset);
+            // Anchor it to the absolute bottom-left edge (-overlap - maxDepth) so it spans perfectly to the right!
+            this.wallHighlight.position.set(-overlap - maxDepth, 0, zOffset);
             this.wallHighlight.rotation.set(0, 0, 0); 
             
             this.wallHighlight.visible = true;
@@ -365,7 +371,6 @@ export class Preview3D {
         }
     }
 
-    // THE GOOD LOGIC RETAINED EXACTLY
     addWallPattern(wallEntity, configId, side) {
         const config = WALL_DECOR_REGISTRY[configId];
         if (!config) return null;
@@ -378,11 +383,11 @@ export class Preview3D {
             id: 'decor_' + Math.random().toString(36).substr(2, 9),
             configId: configId,
             side: side, 
-            localX: 50,  
-            localY: 50,         
+            localX: 50,  // % Center
+            localY: 50,  // % Center        
             localZ: 0, 
-            width: 100,  
-            height: 100, 
+            width: 100,  // % Span
+            height: 100, // % Span
             depth: config.defaultDepth || 0.2, 
             tileSize: config.defaultTileSize || 40,
             faces: {
@@ -422,9 +427,8 @@ export class Preview3D {
             const boxMesh = new THREE.Mesh(boxGeo, new THREE.MeshStandardMaterial({ color: 0xcccccc }));
             boxMesh.userData = { isPatternBox: true };
             
-            // 2. TOP UNNECESSARY TEXTURE FIX: openEnded (6th param) is set to TRUE.
-            // This completely deletes the flat circular lids from the top and bottom of the cylinder!
-            const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 32, 1, true);
+            // SMART CORNERS RESTORED
+            const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 32);
             
             const leftCyl = new THREE.Mesh(cylGeo, new THREE.MeshStandardMaterial({ color: 0xcccccc }));
             leftCyl.userData = { isLeftCyl: true };
@@ -475,115 +479,123 @@ export class Preview3D {
         const d = entity.depth;
         const isFront = entity.side === 'front';
 
-        // Percentage to Physical Calculation
+        // 100% Width Maps directly to the wall length
         const w = wallEntity.length3D * (entity.width / 100);
         const h = WALL_HEIGHT * (entity.height / 100);
 
-        // Cylinder radius perfectly encapsulates the structural corner + pattern depth
+        // Cylinder radius perfectly fits around the structural gray joint
         const cylRadius = (t / 2) + d;
 
         const boxMesh = object.children.find(c => c.userData.isPatternBox);
         if (boxMesh && boxMesh.geometry) {
             boxMesh.geometry.dispose();
             boxMesh.geometry = new THREE.BoxGeometry(w, h, d);
-            boxMesh.position.z = (t / 2 + d / 2) + (entity.localZ || 0);
         }
         
         const leftCyl = object.children.find(c => c.userData.isLeftCyl);
         const rightCyl = object.children.find(c => c.userData.isRightCyl);
 
-        // 2. TOP CAP FIX: true keeps it open-ended, removing the ugly circle on top
         if (leftCyl && leftCyl.geometry) {
             leftCyl.geometry.dispose();
-            leftCyl.geometry = new THREE.CylinderGeometry(cylRadius, cylRadius, h, 32, 1, true, isFront ? -Math.PI/2 : Math.PI/2, Math.PI);
+            leftCyl.geometry = new THREE.CylinderGeometry(cylRadius, cylRadius, h, 32, 1, false, -Math.PI/2, Math.PI);
         }
         
         if (rightCyl && rightCyl.geometry) {
             rightCyl.geometry.dispose();
-            rightCyl.geometry = new THREE.CylinderGeometry(cylRadius, cylRadius, h, 32, 1, true, isFront ? -Math.PI/2 : Math.PI/2, Math.PI);
+            rightCyl.geometry = new THREE.CylinderGeometry(cylRadius, cylRadius, h, 32, 1, false, -Math.PI/2, Math.PI);
         }
 
         const hitbox = object.children.find(c => c.userData && c.userData.isHitbox);
         if (hitbox && hitbox.geometry) {
             hitbox.geometry.dispose();
             hitbox.geometry = new THREE.BoxGeometry(w, h, d);
-            hitbox.position.z = (t / 2 + d / 2) + (entity.localZ || 0);
         }
 
         const texture = object.userData.texture;
-        const materials = [];
-        let sharedCylMaterial = new THREE.MeshStandardMaterial({ color: 0xe5e7eb });
+        const boxMaterials = [];
+        let cylMaterials = [];
 
         if (texture) {
+            let tex = texture.clone();
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+            const tileSize = entity.tileSize || 1;
+            tex.repeat.set(w / tileSize, h / tileSize);
+            
+            let edgeTex = texture.clone();
+            edgeTex.wrapS = THREE.RepeatWrapping;
+            edgeTex.wrapT = THREE.RepeatWrapping;
+            if (THREE.SRGBColorSpace) edgeTex.colorSpace = THREE.SRGBColorSpace;
+            edgeTex.repeat.set(d / tileSize, h / tileSize);
+
+            // 2. TOP UNNECESSARY TEXTURE FIX
+            // We use an invisible material for top, bottom, and back edges!
+            const invMat = new THREE.MeshBasicMaterial({ visible: false });
+
             for (let i = 0; i < 6; i++) {
-                let useTexture = false;
-                if (i === 4) useTexture = true; 
-                
-                if (i === 0 && !entity.faces.right) useTexture = true; 
-                if (i === 1 && !entity.faces.left) useTexture = true;
-                if (i === 2 || i === 3) useTexture = true;
-
-                if (useTexture) {
-                    let tex = texture.clone();
-                    tex.wrapS = THREE.RepeatWrapping;
-                    tex.wrapT = THREE.RepeatWrapping;
-                    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
-
-                    const tileSize = entity.tileSize || 1;
-                    if (i === 0 || i === 1) tex.repeat.set(d / tileSize, h / tileSize);
-                    else if (i === 2 || i === 3) tex.repeat.set(w / tileSize, d / tileSize);
-                    else tex.repeat.set(w / tileSize, h / tileSize);
-                    
-                    materials.push(new THREE.MeshStandardMaterial({ map: tex, color: 0xffffff }));
+                if (i === 4) { // Front face
+                    boxMaterials.push(new THREE.MeshStandardMaterial({ map: tex, color: 0xffffff }));
+                } else if (i === 0 && !entity.faces.right) { // Right flat edge
+                    boxMaterials.push(new THREE.MeshStandardMaterial({ map: edgeTex, color: 0xffffff }));
+                } else if (i === 1 && !entity.faces.left) { // Left flat edge
+                    boxMaterials.push(new THREE.MeshStandardMaterial({ map: edgeTex, color: 0xffffff }));
                 } else {
-                    materials.push(new THREE.MeshBasicMaterial({ visible: false }));
+                    boxMaterials.push(invMat); // Hides Top/Bot/Back
                 }
             }
-            
+
+            // Cylinders Material Array: [Side, Top Cap, Bottom Cap]
             let cylTex = texture.clone();
             cylTex.wrapS = THREE.RepeatWrapping;
             cylTex.wrapT = THREE.RepeatWrapping;
             if (THREE.SRGBColorSpace) cylTex.colorSpace = THREE.SRGBColorSpace;
-            const tileSize = entity.tileSize || 1;
             const arcLength = Math.PI * cylRadius;
             cylTex.repeat.set(arcLength / tileSize, h / tileSize);
-            sharedCylMaterial = new THREE.MeshStandardMaterial({ map: cylTex, color: 0xffffff });
+            
+            cylMaterials.push(new THREE.MeshStandardMaterial({ map: cylTex, color: 0xffffff })); // Side gets bricks
+            cylMaterials.push(invMat); // Top lid is invisible!
+            cylMaterials.push(invMat); // Bottom lid is invisible!
 
         } else {
-            for (let i = 0; i < 6; i++) materials.push(new THREE.MeshStandardMaterial({ color: 0xe5e7eb }));
+            const blankMat = new THREE.MeshStandardMaterial({ color: 0xe5e7eb });
+            const invMat = new THREE.MeshBasicMaterial({ visible: false });
+            boxMaterials.push(invMat, invMat, invMat, invMat, blankMat, invMat);
+            cylMaterials.push(blankMat, invMat, invMat);
         }
 
         if (boxMesh) {
-            if (Array.isArray(boxMesh.material)) {
-                boxMesh.material.forEach(m => { if(m.map) m.map.dispose(); m.dispose(); });
-            }
-            boxMesh.material = materials;
+            if (Array.isArray(boxMesh.material)) boxMesh.material.forEach(m => m.dispose());
+            boxMesh.material = boxMaterials;
+            // Push box flush against the wall surface
+            boxMesh.position.z = (t / 2 + d / 2) + (entity.localZ || 0);
         }
 
         if (leftCyl) {
-            if (leftCyl.material.map) leftCyl.material.map.dispose();
-            leftCyl.material.dispose();
-            leftCyl.material = sharedCylMaterial;
+            if (Array.isArray(leftCyl.material)) leftCyl.material.forEach(m => m.dispose());
+            leftCyl.material = cylMaterials;
             leftCyl.visible = entity.faces.left;
-            leftCyl.position.set(-w / 2, 0, 0); 
+            leftCyl.position.set(-w / 2, 0, (entity.localZ || 0)); 
         }
 
         if (rightCyl) {
-            if (rightCyl.material.map) rightCyl.material.map.dispose();
-            rightCyl.material.dispose();
-            rightCyl.material = sharedCylMaterial;
+            if (Array.isArray(rightCyl.material)) rightCyl.material.forEach(m => m.dispose());
+            rightCyl.material = cylMaterials;
             rightCyl.visible = entity.faces.right;
-            rightCyl.position.set(w / 2, 0, 0);
+            rightCyl.position.set(w / 2, 0, (entity.localZ || 0));
+        }
+
+        if (hitbox) {
+            hitbox.position.z = (t / 2 + d / 2) + (entity.localZ || 0);
         }
 
         let posX = wallEntity.length3D * (entity.localX / 100);
-        if (!isFront) {
-            posX = wallEntity.length3D - posX;
-        }
+        if (!isFront) posX = wallEntity.length3D - posX;
 
         const posY = WALL_HEIGHT * (entity.localY / 100);
         
-        object.position.set(posX, posY, 0);
+        // Group root stays exactly on structural center line, mathematical rotation handles Front/Back flips naturally
+        object.position.set(posX, posY, 0); 
         object.rotation.y = isFront ? 0 : Math.PI;
         object.scale.set(1, 1, 1); 
     }
@@ -711,7 +723,7 @@ export class Preview3D {
         }
         
         let centerX = 0, centerZ = 0, count = 0; 
-        const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8 }), matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7 }); 
+        const matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7 }); 
         
         roomPaths.forEach(path => { const floorShape = new THREE.Shape(); floorShape.moveTo(path[0].x, path[0].y); for(let i=1; i<path.length; i++) floorShape.lineTo(path[i].x, path[i].y); const floorGeo = new THREE.ShapeGeometry(floorShape); floorGeo.rotateX(-Math.PI / 2); const floorMesh = new THREE.Mesh(floorGeo, matFloor); floorMesh.position.y = 1; floorMesh.receiveShadow = true; this.structureGroup.add(floorMesh); });
         
@@ -738,12 +750,13 @@ export class Preview3D {
             });
             
             const extrudeOpts = { depth: w.config.thickness, bevelEnabled: false };
+            
             const matMain = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
-            const matEdge = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8 });
+            const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 }); // Black Top Edges for screenshot match
             
             const wallGeo = new THREE.ExtrudeGeometry(wallShape, extrudeOpts);
             wallGeo.translate(0, 0, -w.config.thickness / 2);
-            const wallMesh = new THREE.Mesh(wallGeo, [matMain, matEdge]);
+            const wallMesh = new THREE.Mesh(wallGeo, [matMain, matEdgeDark]);
             wallMesh.castShadow = true;
             wallMesh.receiveShadow = true;
             
@@ -774,7 +787,7 @@ export class Preview3D {
             }
         });
 
-        // RESTORED: Stable Gray Structural Cylinders that the wrappers perfectly hide.
+        // SOLID STRUCTURAL CYLINDERS RESTORED
         const anchorMap = new Map(); walls.forEach(w => { [w.startAnchor, w.endAnchor].forEach(a => { const data = anchorMap.get(a) || { thickness: 0 }; if (w.config.thickness > data.thickness) { data.thickness = w.config.thickness; } anchorMap.set(a, data); }); });
         
         anchorMap.forEach((data, anchor) => { 
@@ -788,7 +801,7 @@ export class Preview3D {
             this.structureGroup.add(jointMesh); 
             
             const capGeo = new THREE.CylinderGeometry(data.thickness / 2, data.thickness / 2, 1, 32); 
-            const capMesh = new THREE.Mesh(capGeo, matEdgeDark); 
+            const capMesh = new THREE.Mesh(capGeo, new THREE.MeshStandardMaterial({ color: 0x111111 })); // Black Caps
             capMesh.position.set(pos.x, WALL_HEIGHT, pos.y); 
             this.structureGroup.add(capMesh); 
         });
