@@ -234,16 +234,40 @@ export class FloorPlanner {
         this.container = containerEl; this.tool = "outer"; this.currentUnit = "ft"; this.drawing = false; this.lastAnchor = null; this.startAnchor = null; this.drawingStair = null; this.preview = null;
         this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
         this.onSelectionChange = null; 
+        
+        this.virtualWidth = 3000;
+        this.virtualHeight = 2000;
+
         this.initKonva(); this.drawGrid(); this.initHUD(); this.initStageEvents(); 
     }
     
     initKonva() { 
-        this.stage = new Konva.Stage({ container: this.container, width: window.innerWidth - 380, height: window.innerHeight }); 
-        this.gridLayer = new Konva.Layer(); this.roomLayer = new Konva.Layer(); this.wallLayer = new Konva.Layer(); this.widgetLayer = new Konva.Layer(); 
-        this.furnitureLayer = new Konva.Layer(); // New layer for furniture
-        this.uiLayer = new Konva.Layer(); // Top layer for UI
+        const rect = this.container.getBoundingClientRect();
+        this.stage = new Konva.Stage({ container: this.container, width: rect.width, height: rect.height }); 
         
-        this.stage.add(this.gridLayer, this.roomLayer, this.wallLayer, this.widgetLayer, this.furnitureLayer, this.uiLayer); 
+        this.bgLayer = new Konva.Layer();
+        this.gridLayer = new Konva.Group(); 
+        this.referenceLayer = new Konva.Group(); 
+        this.roomLayer = new Konva.Group(); 
+        this.bgLayer.add(this.gridLayer, this.referenceLayer, this.roomLayer);
+
+        this.mainLayer = new Konva.Layer();
+        this.wallLayer = new Konva.Group(); 
+        this.widgetLayer = new Konva.Group(); 
+        this.furnitureLayer = new Konva.Group(); 
+        this.mainLayer.add(this.wallLayer, this.widgetLayer, this.furnitureLayer);
+
+        this.uiLayer = new Konva.Layer(); 
+        
+        this.stage.add(this.bgLayer, this.mainLayer, this.uiLayer); 
+        
+        window.addEventListener('resize', () => {
+            if(this.container.clientWidth > 0) {
+                this.stage.width(this.container.clientWidth);
+                this.stage.height(this.container.clientHeight);
+                this.drawGrid();
+            }
+        });
     }
     
     initHUD() {
@@ -284,7 +308,16 @@ export class FloorPlanner {
 
     snap(v) { return Math.round(v / GRID) * GRID; }
     formatLength(px) { const feet = px * PX_TO_FT; if (this.currentUnit === 'in') return Math.round(feet * 12) + '"'; if (this.currentUnit === 'cm') return Math.round(feet * 30.48) + ' cm'; if (this.currentUnit === 'm') return (feet * 0.3048).toFixed(2) + ' m'; const wholeFeet = Math.floor(feet), inches = Math.round((feet - wholeFeet) * 12); return inches > 0 ? `${wholeFeet}' ${inches}"` : `${wholeFeet}'`; }
-    drawGrid() { for (let i = 0; i < this.stage.width() / GRID; i++) this.gridLayer.add(new Konva.Line({ points: [i * GRID, 0, i * GRID, this.stage.height()], stroke: "#f0f0f0", strokeWidth: 1, listening: false })); for (let j = 0; j < this.stage.height() / GRID; j++) this.gridLayer.add(new Konva.Line({ points: [0, j * GRID, this.stage.width(), j * GRID], stroke: "#f0f0f0", strokeWidth: 1, listening: false })); }
+    
+    drawGrid() { 
+        this.gridLayer.destroyChildren();
+        const w = Math.max(this.stage.width(), this.virtualWidth);
+        const h = Math.max(this.stage.height(), this.virtualHeight);
+        
+        for (let i = 0; i < w / GRID; i++) this.gridLayer.add(new Konva.Line({ points: [i * GRID, 0, i * GRID, h], stroke: "#f0f0f0", strokeWidth: 1, listening: false })); 
+        for (let j = 0; j < h / GRID; j++) this.gridLayer.add(new Konva.Line({ points: [0, j * GRID, w, j * GRID], stroke: "#f0f0f0", strokeWidth: 1, listening: false })); 
+        this.bgLayer.batchDraw();
+    }
     
     doIntersect(p1, p2, p3, p4) { const ccw = (A, B, C) => (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x); return ccw(p1, p3, p4) !== ccw(p2, p3, p4) && ccw(p1, p2, p3) !== ccw(p1, p2, p4); }
     checkWallIntersection(p1, p2, ignoreWalls = []) { for (let w of this.walls) { if (ignoreWalls.includes(w)) continue; if (this.getDistanceToWall(p1, w) < 1.0) continue; if (this.getDistanceToWall(p2, w) < 1.0) continue; if (this.doIntersect(p1, p2, w.startAnchor.position(), w.endAnchor.position())) return true; } return false; }
@@ -313,7 +346,7 @@ export class FloorPlanner {
 
     getOrCreateAnchor(x, y) { let a = this.anchors.find(a => Math.hypot(a.x - x, a.y - y) < SNAP_DIST); if (a) return a; const newAnchor = new Anchor(this, x, y); this.anchors.push(newAnchor); return newAnchor; }
     deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.anchors.forEach(a => a.hide()); this.selectEntity(null); this.syncAll(); }
-    syncAll() { this.walls.forEach(w => w.update()); this.stairs.forEach(s => s.update()); this.furniture.forEach(f => f.update()); this.stage.draw(); this.detectRooms(); }
+    syncAll() { this.walls.forEach(w => w.update()); this.stairs.forEach(s => s.update()); this.furniture.forEach(f => f.update()); this.mainLayer.batchDraw(); this.detectRooms(); }
     
     finishChain() { 
         if (this.drawingStair) { this.drawingStair.finishDrawing(); this.drawingStair = null; } 
@@ -325,7 +358,7 @@ export class FloorPlanner {
     
     initStageEvents() { 
         this.stage.on("mousedown", (e) => { 
-            if (e.target === this.stage || e.target === this.gridLayer || e.target === this.roomLayer) this.deselectAll(); 
+            if (e.target === this.stage || e.target === this.bgLayer || e.target === this.mainLayer) this.deselectAll(); 
             const wallConfig = WALL_REGISTRY[this.tool]; 
             const pos = this.stage.getPointerPosition(); 
             if (!pos) return;
@@ -376,7 +409,34 @@ export class FloorPlanner {
             if (wallConfig && wallConfig.events.includes("snap_to_wall")) { 
                 let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < SNAP_DIST); 
                 if (a) { snapPos = { x: a.x, y: a.y }; targetSnapWall = this.walls.find(w => w.startAnchor === a || w.endAnchor === a); snappedObj = true; } 
-                else { let closestDist = SNAP_DIST, closestPoint = null; for (let w of this.walls) { let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = w; snappedObj = true; } } if (closestPoint) snapPos = closestPoint; } 
+                else { 
+                    let closestDist = SNAP_DIST, closestPoint = null; 
+                    
+                    let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
+                    for (let line of allReferenceWalls) {
+                        let pts = line.points();
+                        if (pts && pts.length === 4) {
+                            let d1 = Math.hypot(pos.x - pts[0], pos.y - pts[1]);
+                            let d2 = Math.hypot(pos.x - pts[2], pos.y - pts[3]);
+                            
+                            // 40px radius overrides all other snaps
+                            if (d1 < 40) { closestDist = 0; closestPoint = {x: pts[0], y: pts[1]}; snappedObj = true; }
+                            else if (d2 < 40) { closestDist = 0; closestPoint = {x: pts[2], y: pts[3]}; snappedObj = true; }
+                            else if (!snappedObj) {
+                                let proj = this.getClosestPointOnSegment(pos, {x: pts[0], y: pts[1]}, {x: pts[2], y: pts[3]});
+                                let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                                if (dist < closestDist) { closestDist = dist; closestPoint = proj; snappedObj = true; }
+                            }
+                        }
+                    }
+
+                    for (let w of this.walls) { 
+                        let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); 
+                        let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); 
+                        if (dist < closestDist && !snappedObj) { closestDist = dist; closestPoint = proj; targetSnapWall = w; snappedObj = true; } 
+                    } 
+                    if (closestPoint) snapPos = closestPoint; 
+                } 
             } 
             
             let dxBadge = snapPos.x - this.lastAnchor.x, dyBadge = snapPos.y - this.lastAnchor.y;
@@ -397,11 +457,140 @@ export class FloorPlanner {
             this.uiLayer.add(this.preview); 
             this.preview.moveToBottom();
             
-            this.uiLayer.draw(); 
+            this.uiLayer.batchDraw(); 
         }); 
     }
 
     detectRooms() { this.roomLayer.destroyChildren(); this.roomPaths = []; const visited = new Set(); for (let wall of this.walls) { let path = []; let current = wall.startAnchor; let next = wall.endAnchor; path.push(current); let attempts = 0; while (next && attempts < this.walls.length) { path.push(next); if (next === wall.startAnchor && path.length > 2) { this.drawRoom(path); this.roomPaths.push(path); break; } let nextWall = this.walls.find(w => w !== wall && !visited.has(w) && (w.startAnchor === next || w.endAnchor === next)); if (!nextWall) break; visited.add(nextWall); next = (nextWall.startAnchor === next) ? nextWall.endAnchor : nextWall.startAnchor; attempts++; } } }
     drawRoom(anchorPath) { const points = anchorPath.flatMap(a => [a.x, a.y]); const poly = new Konva.Line({ points: points, fill: '#f0f4f8', closed: true, opacity: 0.7 }); let cx = 0, cy = 0; anchorPath.forEach(a => { cx += a.x; cy += a.y; }); cx /= anchorPath.length; cy /= anchorPath.length; const label = new Konva.Text({ x: cx, y: cy, text: "Room\n" + Math.round(this.calculateArea(points)) + " sqft", fontSize: 12, fill: '#6b7280', align: 'center', fontStyle: 'bold' }); label.offsetX(label.width() / 2); label.offsetY(label.height() / 2); this.roomLayer.add(poly); this.roomLayer.add(label); }
     calculateArea(points) { let area = 0; for (let i = 0; i < points.length; i += 2) { let j = (i + 2) % points.length; area += points[i] * points[j + 1]; area -= points[i + 1] * points[j]; } return Math.abs(area / 2) * (PX_TO_FT * PX_TO_FT); }
+
+    clearAll() {
+        [...this.walls].forEach(w => w.remove());
+        [...this.furniture].forEach(f => f.remove());
+        [...this.stairs].forEach(s => s.remove());
+        this.walls = [];
+        this.furniture = [];
+        this.stairs = [];
+        this.roomPaths = [];
+        
+        this.anchors.forEach(a => { if(a.node) a.node.destroy(); });
+        this.anchors = [];
+        
+        if (this.wallLayer) this.wallLayer.destroyChildren();
+        if (this.furnitureLayer) this.furnitureLayer.destroyChildren();
+        if (this.widgetLayer) this.widgetLayer.destroyChildren();
+        
+        if (this.mainLayer) this.mainLayer.batchDraw();
+        this.selectEntity(null);
+    }
+
+    exportState() {
+        const state = {
+            walls: this.walls.map(w => ({
+                startX: w.startAnchor.x, startY: w.startAnchor.y,
+                endX: w.endAnchor.x, endY: w.endAnchor.y,
+                thickness: w.config.thickness,
+                type: w.type,
+                widgets: w.attachedWidgets.map(wid => ({ t: wid.t, configId: wid.type, width: wid.width })),
+                decors: w.attachedDecor ? w.attachedDecor.map(d => ({
+                    id: d.id, configId: d.configId, side: d.side,
+                    localX: d.localX, localY: d.localY, localZ: d.localZ,
+                    width: d.width, height: d.height, depth: d.depth, tileSize: d.tileSize,
+                    faces: { front: d.faces.front, back: d.faces.back, left: d.faces.left, right: d.faces.right }
+                })) : []
+            })),
+            furniture: this.furniture.map(f => ({
+                x: f.group.x(), y: f.group.y(),
+                rotation: f.rotation, width: f.width, depth: f.depth, height: f.height,
+                configId: f.config.id
+            })),
+            stairs: this.stairs.map(s => ({
+                path: s.path.map(p => ({ x: p.x, y: p.y, shape: p.shape }))
+            })),
+            roomPaths: this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y })))
+        };
+        return JSON.stringify(state);
+    }
+
+    importState(jsonStr) {
+        this.clearAll();
+        if (!jsonStr) return;
+        try {
+            const state = JSON.parse(jsonStr);
+            if (state.walls) {
+                state.walls.forEach(wData => {
+                    const a1 = this.getOrCreateAnchor(wData.startX, wData.startY);
+                    const a2 = this.getOrCreateAnchor(wData.endX, wData.endY);
+                    const wall = new PremiumWall(this, a1, a2, wData.type);
+                    if (wData.widgets) {
+                        wData.widgets.forEach(wd => {
+                            const widget = new PremiumWidget(this, wall, wd.t, wd.configId);
+                            widget.width = wd.width;
+                            wall.attachedWidgets.push(widget);
+                        });
+                    }
+                    if (wData.decors) {
+                        wall.attachedDecor = JSON.parse(JSON.stringify(wData.decors));
+                    }
+                    this.walls.push(wall);
+                });
+            }
+            if (state.furniture) {
+                state.furniture.forEach(fData => {
+                    const furn = new PremiumFurniture(this, fData.x, fData.y, fData.configId);
+                    furn.rotation = fData.rotation; furn.width = fData.width; furn.depth = fData.depth; furn.height = fData.height;
+                    this.furniture.push(furn);
+                });
+            }
+            if (state.stairs) {
+                state.stairs.forEach(sData => {
+                    if (sData.path && sData.path.length > 0) {
+                        const stair = new PremiumStair(this, sData.path[0].x, sData.path[0].y);
+                        stair.path = sData.path;
+                        stair.initHandles();
+                        this.stairs.push(stair);
+                    }
+                });
+            }
+            this.syncAll();
+        } catch (e) {
+            console.error("Failed to import internal state", e);
+        }
+    }
+
+    clearReferenceBackground() {
+        if (this.referenceGroup) {
+            this.referenceGroup.destroy();
+            this.referenceGroup = null;
+            if (this.bgLayer) this.bgLayer.batchDraw();
+        }
+    }
+
+    loadReferenceBackground(jsonStr) {
+        this.clearReferenceBackground();
+        if (!jsonStr) return;
+
+        this.referenceGroup = new Konva.Group({ opacity: 0.35, listening: false });
+        this.referenceLayer.add(this.referenceGroup);
+
+        try {
+            const state = JSON.parse(jsonStr);
+            if (state && state.walls) {
+                state.walls.forEach(wData => {
+                    const line = new Konva.Line({
+                        points: [wData.startX, wData.startY, wData.endX, wData.endY],
+                        stroke: '#94a3b8', 
+                        strokeWidth: wData.thickness || 20,
+                        lineCap: 'round', lineJoin: 'round',
+                        dash: [] 
+                    });
+                    this.referenceGroup.add(line);
+                });
+            }
+            this.bgLayer.batchDraw();
+        } catch (err) {
+            console.error("Failed to load reference background", err);
+        }
+    }
 }

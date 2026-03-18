@@ -3,9 +3,6 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT } from './registry.js';
 
-// ============================================================================
-// 1. ASSET MANAGER
-// ============================================================================
 class AssetManager {
     constructor() {
         this.cache = new Map();
@@ -39,9 +36,6 @@ class AssetManager {
     }
 }
 
-// ============================================================================
-// 2. ENVIRONMENT BUILDER
-// ============================================================================
 class EnvironmentBuilder {
     constructor(ctx) {
         this.ctx = ctx;
@@ -81,7 +75,8 @@ class EnvironmentBuilder {
         this.ctx.scene.add(sunLight);
     }
 
-    buildStructure(walls, roomPaths) {
+    buildActiveFloor(walls, roomPaths) {
+        const matMain = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
         const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8 });
         const matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7 });
 
@@ -117,7 +112,6 @@ class EnvironmentBuilder {
                 wallShape.holes.push(hole);
             });
 
-            const matMain = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
             const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: w.config.thickness, bevelEnabled: false });
             wallGeo.translate(0, 0, -w.config.thickness / 2);
             const wallMesh = new THREE.Mesh(wallGeo, [matMain, matEdgeDark]);
@@ -147,7 +141,6 @@ class EnvironmentBuilder {
             if (w.attachedDecor) w.attachedDecor.forEach(decor => this.ctx.decorManager.load(w, decor));
         });
 
-        // Smart Structural Corner Cylinders (Always present internally to handle extreme angles)
         const anchorMap = new Map();
         walls.forEach(w => {
             [w.startAnchor, w.endAnchor].forEach(a => {
@@ -160,29 +153,221 @@ class EnvironmentBuilder {
         anchorMap.forEach((data, anchor) => {
             const pos = anchor.position();
             const jointGeo = new THREE.CylinderGeometry(data.thickness / 2, data.thickness / 2, WALL_HEIGHT, 32);
-            const jointMesh = new THREE.Mesh(jointGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }));
+            const jointMesh = new THREE.Mesh(jointGeo, matMain);
             jointMesh.position.set(pos.x, WALL_HEIGHT / 2, pos.y);
             jointMesh.castShadow = true; jointMesh.receiveShadow = true;
-            
             this.ctx.structureGroup.add(jointMesh);
+        });
+    }
+
+    buildStaticFloors(levelsJsonArray, activeIndex, viewMode3D) {
+        levelsJsonArray.forEach((levelStr, index) => {
+            if (index === activeIndex) return; 
+            if (!levelStr) return;
+
+            try {
+                const data = JSON.parse(levelStr);
+                const floorGroup = new THREE.Group();
+                floorGroup.position.y = index * WALL_HEIGHT;
+
+                const isPreview = viewMode3D === 'preview';
+                
+                // NEW: If "Full Building" editing, upper floors become transparent glass so you can see inside!
+                const isAbove = index > activeIndex && !isPreview;
+                
+                const matMain = new THREE.MeshStandardMaterial({ 
+                    color: 0xffffff, roughness: 0.9, 
+                    transparent: isAbove, opacity: isAbove ? 0.2 : 1.0,
+                    depthWrite: !isAbove
+                });
+                const matEdgeDark = new THREE.MeshStandardMaterial({ 
+                    color: 0xcccccc, roughness: 0.8,
+                    transparent: isAbove, opacity: isAbove ? 0.2 : 1.0,
+                    depthWrite: !isAbove
+                });
+
+                if (data.roomPaths) {
+                    data.roomPaths.forEach(path => {
+                        const floorShape = new THREE.Shape();
+                        floorShape.moveTo(path[0].x, path[0].y);
+                        for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
+                        const floorGeo = new THREE.ShapeGeometry(floorShape);
+                        floorGeo.rotateX(-Math.PI / 2);
+                        const floorMesh = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({ 
+                            color: 0xd1d5db, roughness: 0.7,
+                            transparent: isAbove, opacity: isAbove ? 0.1 : 1.0, depthWrite: !isAbove
+                        }));
+                        floorMesh.position.y = 1;
+                        if (!isAbove) floorMesh.receiveShadow = true;
+                        
+                        if (!isPreview) {
+                            floorMesh.userData = { isFloorTrigger: true, levelIndex: index };
+                            this.ctx.interactables.push(floorMesh);
+                        }
+                        floorGroup.add(floorMesh);
+                    });
+                }
+
+                if (data.walls) {
+                    const anchorMap = new Map(); 
+
+                    data.walls.forEach(w => {
+                        const dx = w.endX - w.startX;
+                        const dz = w.endY - w.startY;
+                        const length = Math.hypot(dx, dz);
+                        const angle = Math.atan2(dz, dx);
+                        
+                        const wallShape = new THREE.Shape();
+                        wallShape.moveTo(0, 0); wallShape.lineTo(length, 0); wallShape.lineTo(length, WALL_HEIGHT); wallShape.lineTo(0, WALL_HEIGHT); wallShape.lineTo(0, 0);
+                        
+                        if (w.widgets) {
+                            w.widgets.forEach(widg => {
+                                const hole = new THREE.Path(), wCenter = length * widg.t, halfW = widg.width / 2;
+                                if (widg.configId === 'door') {
+                                    hole.moveTo(wCenter - halfW, 0); hole.lineTo(wCenter + halfW, 0); hole.lineTo(wCenter + halfW, DOOR_HEIGHT); hole.lineTo(wCenter - halfW, DOOR_HEIGHT); hole.lineTo(wCenter - halfW, 0);
+                                } else if (widg.configId === 'window') {
+                                    hole.moveTo(wCenter - halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL);
+                                }
+                                wallShape.holes.push(hole);
+                            });
+                        }
+
+                        const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: w.thickness, bevelEnabled: false });
+                        wallGeo.translate(0, 0, -w.thickness / 2);
+                        
+                        const wallMesh = new THREE.Mesh(wallGeo, [matMain, matEdgeDark]);
+                        wallMesh.position.set(w.startX, 0, w.startY);
+                        wallMesh.rotation.y = -angle;
+                        if (!isAbove) { wallMesh.castShadow = true; wallMesh.receiveShadow = true; }
+                        
+                        if (!isPreview) {
+                            const hitBox = new THREE.Mesh(wallGeo, new THREE.MeshBasicMaterial({ visible: false }));
+                            hitBox.position.copy(wallMesh.position); hitBox.rotation.y = wallMesh.rotation.y;
+                            hitBox.userData = { isFloorTrigger: true, levelIndex: index };
+                            floorGroup.add(hitBox);
+                            this.ctx.interactables.push(hitBox);
+                        }
+
+                        floorGroup.add(wallMesh);
+
+                        // FULLY RECONSTRUCTED STATIC DECORS (Patterns perfectly identical)
+                        if (w.decors && !isAbove) {
+                            w.decors.forEach(async (decor) => {
+                                const config = WALL_DECOR_REGISTRY[decor.configId];
+                                if (!config) return;
+                                const tex = await this.ctx.assets.getTexture(config);
+
+                                const d = decor.depth; const t = w.thickness; const cylRadius = (t / 2) + d;
+                                const dw = length * (decor.width / 100); const dh = WALL_HEIGHT * (decor.height / 100);
+                                const isFront = decor.side === 'front';
+                                let posX = length * (decor.localX / 100); if (!isFront) posX = length - posX;
+                                const posY = WALL_HEIGHT * (decor.localY / 100);
+
+                                const dShape = new THREE.Shape();
+                                dShape.moveTo(-dw/2, -dh/2); dShape.lineTo(dw/2, -dh/2); dShape.lineTo(dw/2, dh/2); dShape.lineTo(-dw/2, dh/2); dShape.lineTo(-dw/2, -dh/2);
+
+                                if (w.widgets) {
+                                    w.widgets.forEach(widg => {
+                                        const wCenter = length * widg.t; const halfW = widg.width / 2;
+                                        const wx_min = wCenter - halfW; const wx_max = wCenter + halfW;
+                                        const wy_min = widg.configId === 'door' ? 0 : WINDOW_SILL;
+                                        const wy_max = widg.configId === 'door' ? DOOR_HEIGHT : WINDOW_SILL + WINDOW_HEIGHT;
+
+                                        let local_wx_min, local_wx_max;
+                                        if (isFront) { local_wx_min = wx_min - posX; local_wx_max = wx_max - posX; }
+                                        else { local_wx_min = -(wx_max - posX); local_wx_max = -(wx_min - posX); }
+
+                                        const local_wy_min = wy_min - posY; const local_wy_max = wy_max - posY;
+                                        const ix_min = Math.max(local_wx_min, -dw/2); const ix_max = Math.min(local_wx_max, dw/2);
+                                        const iy_min = Math.max(local_wy_min, -dh/2); const iy_max = Math.min(local_wy_max, dh/2);
+
+                                        if (ix_min < ix_max && iy_min < iy_max) {
+                                            const hole = new THREE.Path();
+                                            hole.moveTo(ix_min, iy_min); hole.lineTo(ix_max, iy_min); hole.lineTo(ix_max, iy_max); hole.lineTo(ix_min, iy_max); hole.lineTo(ix_min, iy_min);
+                                            dShape.holes.push(hole);
+                                        }
+                                    });
+                                }
+
+                                const dGeo = new THREE.ExtrudeGeometry(dShape, { depth: d, bevelEnabled: false });
+                                dGeo.translate(0, 0, -d/2);
+
+                                const tileSize = decor.tileSize || 40;
+                                const clonedTex = tex.clone(); clonedTex.wrapS = clonedTex.wrapT = THREE.RepeatWrapping;
+                                if (THREE.SRGBColorSpace) clonedTex.colorSpace = THREE.SRGBColorSpace;
+                                clonedTex.repeat.set(1 / tileSize, 1 / tileSize);
+                                const dMat = new THREE.MeshStandardMaterial({ map: clonedTex, color: 0xffffff });
+
+                                const boxMesh = new THREE.Mesh(dGeo, [new THREE.MeshBasicMaterial({visible:false}), new THREE.MeshBasicMaterial({visible:false})]);
+                                boxMesh.material = [dMat, dMat];
+                                boxMesh.position.z = (t / 2 + d / 2) + 0.05 + (decor.localZ || 0);
+                                boxMesh.castShadow = true; boxMesh.receiveShadow = true;
+                                
+                                if (!isPreview) {
+                                    boxMesh.userData = { isFloorTrigger: true, levelIndex: index };
+                                    this.ctx.interactables.push(boxMesh);
+                                }
+
+                                const cylTex = clonedTex.clone(); cylTex.repeat.set((Math.PI * cylRadius) / tileSize, dh / tileSize);
+                                const cylMat = new THREE.MeshStandardMaterial({ map: cylTex, color: 0xffffff });
+
+                                const leftCyl = new THREE.Mesh(new THREE.CylinderGeometry(cylRadius, cylRadius, dh, 32, 1, true, Math.PI, Math.PI), cylMat);
+                                leftCyl.position.set(-dw/2, 0, 0); leftCyl.visible = decor.faces?.left !== false;
+                                leftCyl.castShadow = true; leftCyl.receiveShadow = true;
+
+                                const rightCyl = new THREE.Mesh(new THREE.CylinderGeometry(cylRadius, cylRadius, dh, 32, 1, true, 0, Math.PI), cylMat);
+                                rightCyl.position.set(dw/2, 0, 0); rightCyl.visible = decor.faces?.right !== false;
+                                rightCyl.castShadow = true; rightCyl.receiveShadow = true;
+
+                                const decorGroup = new THREE.Group();
+                                decorGroup.add(boxMesh, leftCyl, rightCyl);
+                                decorGroup.position.set(posX, posY, 0);
+                                decorGroup.rotation.y = isFront ? 0 : Math.PI;
+
+                                const wrapper = new THREE.Group();
+                                wrapper.position.set(w.startX, 0, w.startY); wrapper.rotation.y = -angle;
+                                wrapper.add(decorGroup);
+                                floorGroup.add(wrapper);
+                            });
+                        }
+
+                        const startKey = `${w.startX.toFixed(2)},${w.startY.toFixed(2)}`;
+                        const endKey = `${w.endX.toFixed(2)},${w.endY.toFixed(2)}`;
+                        
+                        let sData = anchorMap.get(startKey) || { x: w.startX, y: w.startY, thickness: 0 };
+                        if (w.thickness > sData.thickness) sData.thickness = w.thickness;
+                        anchorMap.set(startKey, sData);
+
+                        let eData = anchorMap.get(endKey) || { x: w.endX, y: w.endY, thickness: 0 };
+                        if (w.thickness > eData.thickness) eData.thickness = w.thickness;
+                        anchorMap.set(endKey, eData);
+                    });
+
+                    anchorMap.forEach(data => {
+                        const jointGeo = new THREE.CylinderGeometry(data.thickness / 2, data.thickness / 2, WALL_HEIGHT, 32);
+                        const jointMesh = new THREE.Mesh(jointGeo, matMain);
+                        jointMesh.position.set(data.x, WALL_HEIGHT / 2, data.y);
+                        if (!isAbove) { jointMesh.castShadow = true; jointMesh.receiveShadow = true; }
+                        floorGroup.add(jointMesh);
+                    });
+                }
+                
+                // CEILING REMOVED. Top is fully open!
+
+                this.ctx.staticStructureGroup.add(floorGroup);
+            } catch (e) { console.error("Error parsing static floor", e); }
         });
     }
 }
 
-// ============================================================================
-// 3. DECOR MANAGER (Pattern Wrappers with Window/Door Holes!)
-// ============================================================================
 class DecorManager {
-    constructor(ctx) {
-        this.ctx = ctx;
-    }
+    constructor(ctx) { this.ctx = ctx; }
 
     add(wallEntity, configId, side) {
         const config = WALL_DECOR_REGISTRY[configId];
         if (!config) return null;
         if (!wallEntity.attachedDecor) wallEntity.attachedDecor = [];
         
-        const isOuter = wallEntity.type === 'outer';
         const decor = {
             id: 'decor_' + Math.random().toString(36).substr(2, 9),
             configId: configId,
@@ -191,7 +376,7 @@ class DecorManager {
             width: 100, height: 100,
             depth: config.defaultDepth || 0.2,
             tileSize: config.defaultTileSize || 40,
-            faces: { front: true, back: false, left: true, right: true } // Corners ON by default to prevent white gaps
+            faces: { front: true, back: false, left: true, right: true } 
         };
         
         wallEntity.attachedDecor.push(decor);
@@ -210,11 +395,9 @@ class DecorManager {
         const wrapper = new THREE.Group();
         const matDefaults = Array(6).fill(new THREE.MeshStandardMaterial({ color: 0xcccccc }));
         
-        // Placeholder Box. Replaced dynamically by updateLive to cut holes!
         const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), matDefaults);
         boxMesh.userData = { isPatternBox: true };
         
-        // Open-ended corner wrappers
         const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 32, 1, true);
         const leftCyl = new THREE.Mesh(cylGeo, new THREE.MeshStandardMaterial({ color: 0xcccccc }));
         leftCyl.userData = { isLeftCyl: true };
@@ -244,19 +427,14 @@ class DecorManager {
         const d = entity.depth;
         const isFront = entity.side === 'front';
 
-        // 1. DIMENSION FIX: Do not add invisible overlaps to the width, just scale exactly to the wall length.
         const w = wallEntity.length3D * (entity.width / 100);
         const h = WALL_HEIGHT * (entity.height / 100);
-        
-        // Cylinder radius expands just enough to wrap the gray structural joint
         const cylRadius = (t / 2) + d;
 
-        // Position coordinates for intersections
         let posX = wallEntity.length3D * (entity.localX / 100);
         if (!isFront) posX = wallEntity.length3D - posX;
         const posY = WALL_HEIGHT * (entity.localY / 100);
 
-        // --- HOLE CUTTING LOGIC ---
         const shape = new THREE.Shape();
         shape.moveTo(-w/2, -h/2);
         shape.lineTo(w/2, -h/2);
@@ -273,13 +451,8 @@ class DecorManager {
             const wy_max = widg.type === 'door' ? DOOR_HEIGHT : WINDOW_SILL + WINDOW_HEIGHT;
 
             let local_wx_min, local_wx_max;
-            if (isFront) {
-                local_wx_min = wx_min - posX;
-                local_wx_max = wx_max - posX;
-            } else {
-                local_wx_min = -(wx_max - posX);
-                local_wx_max = -(wx_min - posX);
-            }
+            if (isFront) { local_wx_min = wx_min - posX; local_wx_max = wx_max - posX; } 
+            else { local_wx_min = -(wx_max - posX); local_wx_max = -(wx_min - posX); }
             
             const local_wy_min = wy_min - posY;
             const local_wy_max = wy_max - posY;
@@ -291,42 +464,28 @@ class DecorManager {
 
             if (ix_min < ix_max && iy_min < iy_max) {
                 const hole = new THREE.Path();
-                hole.moveTo(ix_min, iy_min);
-                hole.lineTo(ix_max, iy_min);
-                hole.lineTo(ix_max, iy_max);
-                hole.lineTo(ix_min, iy_max);
-                hole.lineTo(ix_min, iy_min);
+                hole.moveTo(ix_min, iy_min); hole.lineTo(ix_max, iy_min); hole.lineTo(ix_max, iy_max); hole.lineTo(ix_min, iy_max); hole.lineTo(ix_min, iy_min);
                 shape.holes.push(hole);
             }
         });
 
-        // Rebuild Meshes
         const boxMesh = object.children.find(c => c.userData.isPatternBox);
         if (boxMesh) { 
             boxMesh.geometry.dispose(); 
             boxMesh.geometry = new THREE.ExtrudeGeometry(shape, { depth: d, bevelEnabled: false }); 
-            boxMesh.position.z = (t / 2 + d / 2) + 0.05 + (entity.localZ || 0); // 0.05 push prevents Z-fighting
+            boxMesh.position.z = (t / 2 + d / 2) + 0.05 + (entity.localZ || 0); 
             boxMesh.geometry.translate(0, 0, -d/2);
         }
         
         const leftCyl = object.children.find(c => c.userData.isLeftCyl);
-        if (leftCyl) { 
-            leftCyl.geometry.dispose(); 
-            // Mathematically precise arc spanning from the face around to the back
-            leftCyl.geometry = new THREE.CylinderGeometry(cylRadius, cylRadius, h, 32, 1, true, Math.PI, Math.PI); 
-        }
+        if (leftCyl) { leftCyl.geometry.dispose(); leftCyl.geometry = new THREE.CylinderGeometry(cylRadius, cylRadius, h, 32, 1, true, Math.PI, Math.PI); }
         
         const rightCyl = object.children.find(c => c.userData.isRightCyl);
-        if (rightCyl) { 
-            rightCyl.geometry.dispose(); 
-            // Mathematically precise arc spanning from the face around to the back
-            rightCyl.geometry = new THREE.CylinderGeometry(cylRadius, cylRadius, h, 32, 1, true, 0, Math.PI); 
-        }
+        if (rightCyl) { rightCyl.geometry.dispose(); rightCyl.geometry = new THREE.CylinderGeometry(cylRadius, cylRadius, h, 32, 1, true, 0, Math.PI); }
 
         const hitbox = object.children.find(c => c.userData && c.userData.isHitbox);
         if (hitbox) { hitbox.geometry.dispose(); hitbox.geometry = new THREE.BoxGeometry(w, h, d); hitbox.position.z = (t / 2 + d / 2) + (entity.localZ || 0); }
 
-        // --- UV MAPPING FIX (Solves the flat brown texture bug) ---
         const texture = object.userData.texture;
         let matFront = new THREE.MeshBasicMaterial({ visible: false });
         let matSide = new THREE.MeshBasicMaterial({ visible: false });
@@ -334,8 +493,6 @@ class DecorManager {
 
         if (texture) {
             const tileSize = entity.tileSize || 1;
-            
-            // ExtrudeGeometry maps world coordinates (X,Y) directly to UVs. We just divide by tileSize!
             let texFront = texture.clone(); texFront.wrapS = texFront.wrapT = THREE.RepeatWrapping; if (THREE.SRGBColorSpace) texFront.colorSpace = THREE.SRGBColorSpace;
             texFront.repeat.set(1 / tileSize, 1 / tileSize);
             matFront = new THREE.MeshStandardMaterial({ map: texFront, color: 0xffffff });
@@ -344,7 +501,6 @@ class DecorManager {
             texSide.repeat.set(1 / tileSize, 1 / tileSize);
             matSide = new THREE.MeshStandardMaterial({ map: texSide, color: 0xffffff });
 
-            // Cylinder Edge Wrapper
             let cylTex = texture.clone(); cylTex.wrapS = cylTex.wrapT = THREE.RepeatWrapping; if (THREE.SRGBColorSpace) cylTex.colorSpace = THREE.SRGBColorSpace;
             cylTex.repeat.set((Math.PI * cylRadius) / tileSize, h / tileSize);
             sharedCylMaterial = new THREE.MeshStandardMaterial({ map: cylTex, color: 0xffffff });
@@ -358,7 +514,6 @@ class DecorManager {
             boxMesh.material = [matFront, matSide]; 
         }
 
-        // Exactly attach wrappers to the left and right ends of the pattern
         if (leftCyl) { leftCyl.material = sharedCylMaterial; leftCyl.visible = entity.faces.left; leftCyl.position.set(-w / 2, 0, 0); }
         if (rightCyl) { rightCyl.material = sharedCylMaterial; rightCyl.visible = entity.faces.right; rightCyl.position.set(w / 2, 0, 0); }
 
@@ -367,13 +522,8 @@ class DecorManager {
     }
 }
 
-// ============================================================================
-// 4. FURNITURE MANAGER
-// ============================================================================
 class FurnitureManager {
-    constructor(ctx) {
-        this.ctx = ctx;
-    }
+    constructor(ctx) { this.ctx = ctx; }
 
     async load(entity) {
         const config = FURNITURE_REGISTRY[entity.configId || (entity.config && entity.config.id)];
@@ -433,9 +583,6 @@ class FurnitureManager {
     }
 }
 
-// ============================================================================
-// 5. INTERACTION SYSTEM
-// ============================================================================
 class InteractionSystem {
     constructor(ctx) {
         this.ctx = ctx;
@@ -480,6 +627,7 @@ class InteractionSystem {
         const dom = this.ctx.renderer.domElement;
         
         dom.addEventListener('pointerdown', (e) => {
+            if (this.ctx.viewMode3D === 'preview') return;
             if (this.mode === 'camera' || e.button !== 0) return;
             this.updateMouse(e);
             
@@ -498,6 +646,15 @@ class InteractionSystem {
             const intersects = this.raycaster.intersectObjects(this.ctx.interactables, true);
             if (intersects.length > 0) {
                 let mesh = intersects[0].object;
+
+                // NEW: Seamless Floor Switching Click Intercept
+                if (mesh.userData.isFloorTrigger) {
+                    if (this.ctx.onLevelSwitchRequest) {
+                        this.ctx.onLevelSwitchRequest(mesh.userData.levelIndex);
+                    }
+                    return;
+                }
+
                 while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor) mesh = mesh.parent;
                 
                 if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor)) {
@@ -511,7 +668,7 @@ class InteractionSystem {
                     } else if (this.mode === 'adjust') {
                         if (this.selectedObject === mesh && mesh.userData.isFurniture) {
                             this.setRelocationState(true);
-                            this.dragPlane.set(new THREE.Vector3(0, 1, 0), 0);
+                            this.dragPlane.set(new THREE.Vector3(0, 1, 0), -this.ctx.structureGroup.position.y); 
                         } else {
                             this.selectObject(mesh);
                             if (mesh.userData.isWallDecor) {
@@ -529,13 +686,14 @@ class InteractionSystem {
         });
 
         dom.addEventListener('pointermove', (e) => {
+            if (this.ctx.viewMode3D === 'preview') return;
             if (this.mode === 'camera') return;
             this.updateMouse(e);
 
             if (this.mode === 'adjust' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isFurniture) {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
                 const target = new THREE.Vector3();
-                if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) this.dropGroup.position.set(target.x, 0.5, target.z);
+                if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) this.dropGroup.position.set(target.x, this.ctx.structureGroup.position.y + 0.5, target.z);
             } 
             else if (this.mode === 'adjust' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isWallDecor) {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
@@ -571,7 +729,7 @@ class InteractionSystem {
             const entity = this.selectedObject.userData.entity;
             this.dropHighlight.scale.set(entity.width, entity.depth, 1);
             this.dropGroup.rotation.y = this.selectedObject.rotation.y;
-            this.dropGroup.position.set(this.selectedObject.position.x, 0.5, this.selectedObject.position.z);
+            this.dropGroup.position.set(this.selectedObject.position.x, this.ctx.structureGroup.position.y + 0.5, this.selectedObject.position.z);
             this.dropGroup.visible = true;
         } else this.dropGroup.visible = false;
         if (this.ctx.onRelocateStateChange) this.ctx.onRelocateStateChange(active);
@@ -615,35 +773,21 @@ class InteractionSystem {
             const w = wallGroup.userData.entity;
             wallGroup.add(this.wallHighlight);
             
-            // --- HIGHLIGHT HOLE CUTTING LOGIC ---
             let maxDepth = 0;
             if (w.attachedDecor) w.attachedDecor.forEach(d => { if (d.side === side && d.depth > maxDepth) maxDepth = d.depth; });
-            const hlWidth = w.length3D + (maxDepth * 2) + 0.5; // Removed overlap addition
+            const hlWidth = w.length3D + (maxDepth * 2) + 0.5;
             const hlHeight = WALL_HEIGHT + 0.5;
 
             const shape = new THREE.Shape();
-            shape.moveTo(-hlWidth/2, -hlHeight/2);
-            shape.lineTo(hlWidth/2, -hlHeight/2);
-            shape.lineTo(hlWidth/2, hlHeight/2);
-            shape.lineTo(-hlWidth/2, hlHeight/2);
-            shape.lineTo(-hlWidth/2, -hlHeight/2);
+            shape.moveTo(-hlWidth/2, -hlHeight/2); shape.lineTo(hlWidth/2, -hlHeight/2); shape.lineTo(hlWidth/2, hlHeight/2); shape.lineTo(-hlWidth/2, hlHeight/2); shape.lineTo(-hlWidth/2, -hlHeight/2);
 
             w.attachedWidgets.forEach(widg => {
-                const wCenter = w.length3D * widg.t;
-                const halfW = widg.width / 2;
-                const cx = w.length3D / 2;
-                const cy = WALL_HEIGHT / 2;
-                const hx_min = (wCenter - halfW) - cx;
-                const hx_max = (wCenter + halfW) - cx;
-                const hy_min = (widg.type === 'door' ? 0 : WINDOW_SILL) - cy;
-                const hy_max = (widg.type === 'door' ? DOOR_HEIGHT : WINDOW_SILL + WINDOW_HEIGHT) - cy;
+                const wCenter = w.length3D * widg.t; const halfW = widg.width / 2; const cx = w.length3D / 2; const cy = WALL_HEIGHT / 2;
+                const hx_min = (wCenter - halfW) - cx; const hx_max = (wCenter + halfW) - cx;
+                const hy_min = (widg.type === 'door' ? 0 : WINDOW_SILL) - cy; const hy_max = (widg.type === 'door' ? DOOR_HEIGHT : WINDOW_SILL + WINDOW_HEIGHT) - cy;
 
                 const hole = new THREE.Path();
-                hole.moveTo(hx_min, hy_min);
-                hole.lineTo(hx_max, hy_min);
-                hole.lineTo(hx_max, hy_max);
-                hole.lineTo(hx_min, hy_max);
-                hole.lineTo(hx_min, hy_min);
+                hole.moveTo(hx_min, hy_min); hole.lineTo(hx_max, hy_min); hole.lineTo(hx_max, hy_max); hole.lineTo(hx_min, hy_max); hole.lineTo(hx_min, hy_min);
                 shape.holes.push(hole);
             });
 
@@ -672,15 +816,14 @@ class InteractionSystem {
     }
 }
 
-// ============================================================================
-// 6. MAIN FACADE
-// ============================================================================
 export class Preview3D {
     constructor(containerEl) {
         this.container = containerEl;
         this.scene = new THREE.Scene();
         this.structureGroup = new THREE.Group();
+        this.staticStructureGroup = new THREE.Group();
         this.scene.add(this.structureGroup);
+        this.scene.add(this.staticStructureGroup);
         
         const w = this.container.clientWidth > 0 ? this.container.clientWidth : window.innerWidth;
         const h = this.container.clientHeight > 0 ? this.container.clientHeight : window.innerHeight;
@@ -753,26 +896,51 @@ export class Preview3D {
         if (this.onEntityTransform) this.onEntityTransform();
     }
 
-    buildScene(walls, roomPaths, stairs = [], furnitureList = []) {
+    deepDispose(obj) {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+            if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+            else obj.material.dispose();
+        }
+        if (obj.children) [...obj.children].forEach(c => this.deepDispose(c));
+    }
+
+    buildScene(walls, roomPaths, stairs = [], furnitureList = [], levelsJsonArray = [], activeIndex = 0, viewMode3D = 'full-edit', preserveCamera = false) {
         this.deselectObject();
         this.interactables = [];
+        this.viewMode3D = viewMode3D;
+        
         while(this.structureGroup.children.length > 0) { 
             const c = this.structureGroup.children[0]; 
-            if(c.geometry) c.geometry.dispose(); 
+            this.deepDispose(c); 
             this.structureGroup.remove(c); 
         }
+        while(this.staticStructureGroup.children.length > 0) { 
+            const c = this.staticStructureGroup.children[0]; 
+            this.deepDispose(c); 
+            this.staticStructureGroup.remove(c); 
+        }
 
-        this.envBuilder.buildStructure(walls, roomPaths);
+        this.structureGroup.position.y = activeIndex * WALL_HEIGHT;
+
+        this.envBuilder.buildActiveFloor(walls, roomPaths);
         if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn));
 
-        let centerX = 0, centerZ = 0;
-        if (walls.length > 0) {
-            walls.forEach(w => { const p = w.startAnchor.position(); centerX += p.x; centerZ += p.y; });
-            centerX /= walls.length; centerZ /= walls.length;
+        if (viewMode3D !== 'isolate' && levelsJsonArray.length > 0) {
+            this.envBuilder.buildStaticFloors(levelsJsonArray, activeIndex, viewMode3D);
         }
-        this.controls.target.set(centerX, 0, centerZ); 
-        this.camera.position.set(centerX, 400, centerZ + 500); 
-        this.controls.update(); 
+
+        // NEW: Do NOT reset camera if switching floors in Full Building mode
+        if (!preserveCamera) {
+            let centerX = 0, centerZ = 0;
+            if (walls.length > 0) {
+                walls.forEach(w => { const p = w.startAnchor.position(); centerX += p.x; centerZ += p.y; });
+                centerX /= walls.length; centerZ /= walls.length;
+            }
+            this.controls.target.set(centerX, activeIndex * WALL_HEIGHT, centerZ); 
+            this.camera.position.set(centerX, (activeIndex * WALL_HEIGHT) + 400, centerZ + 500); 
+            this.controls.update(); 
+        }
     }
     
     get selectedObject() { return this.interactions.selectedObject; }
