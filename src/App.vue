@@ -155,7 +155,6 @@ const uiTrigger = ref(0);
 const isPlacing3D = ref(false);
 const activeDecorId = ref(null);
 
-// LEVELS STATE
 const levels = ref([{ id: 'level-' + Date.now(), name: 'Floor 1', data: null }]);
 const activeLevelIndex = ref(0);
 
@@ -186,9 +185,10 @@ onMounted(() => {
     renderer3D.value.onEntityTransform = () => { uiTrigger.value++; };
     renderer3D.value.onRelocateStateChange = (state) => { isPlacing3D.value = state; };
     
-    // Seamless Switch: Clicking a floor in 3D instantly shifts the app to that floor
-    // without resetting camera or view mode.
     renderer3D.value.onLevelSwitchRequest = (targetIndex, entityIndex, entityType) => { 
+        // Extra protection: Don't allow floor switching if in full-edit mode.
+        if (viewMode3D.value === 'full-edit') return;
+
         if (targetIndex !== activeLevelIndex.value) {
             switchLevel(targetIndex);
             
@@ -200,7 +200,7 @@ onMounted(() => {
                         const frontSkin = targetWall.mesh3D.children.find(c => c.userData.side === 'front');
                         if (frontSkin) renderer3D.value.selectObject(frontSkin);
                     }
-                }, 50);
+                }, 100);
             }
         } 
     };
@@ -219,6 +219,25 @@ const handleGlobalKeys = (e) => {
 
 const saveCurrentLevelState = () => { if (planner.value) levels.value[activeLevelIndex.value].data = planner.value.exportState(); };
 
+// MAGIC FUNCTION: Serializes static edits directly into the JSON level array
+const updateStaticLevelData = (staticWall) => {
+    const levelIdx = staticWall.levelIndex;
+    if (levelIdx === undefined || !levels.value[levelIdx]) return;
+    
+    const levelData = JSON.parse(levels.value[levelIdx].data);
+    const targetWall = levelData.walls[staticWall.wallIndex];
+    
+    if (targetWall) {
+        targetWall.decors = staticWall.attachedDecor.map(d => ({
+            id: d.id, configId: d.configId, side: d.side,
+            localX: d.localX, localY: d.localY, localZ: d.localZ,
+            width: d.width, height: d.height, depth: d.depth, tileSize: d.tileSize,
+            faces: { front: d.faces?.front, back: d.faces?.back, left: d.faces?.left, right: d.faces?.right }
+        }));
+        levels.value[levelIdx].data = JSON.stringify(levelData);
+    }
+};
+
 const switchLevel = (index) => {
     if (index === activeLevelIndex.value) return; 
     saveCurrentLevelState();
@@ -234,7 +253,6 @@ const switchLevel = (index) => {
         if (referenceData) planner.value.loadReferenceBackground(referenceData);
     }
     
-    // Switch floors while preserving exact camera angle
     if (viewMode.value === '3d') refresh3DScene(true); 
 };
 
@@ -285,6 +303,9 @@ const spawnWallPattern = (configId) => {
         const decor = renderer3D.value.addWallPattern(selectedEntity.value, configId, selectedWallSide.value);
         selectedEntity.value.attachedDecor = [...selectedEntity.value.attachedDecor];
         activeDecorId.value = decor.id; uiTrigger.value++; 
+        
+        // INTERCEPT STATIC EDITS
+        if (selectedEntity.value.isStatic) updateStaticLevelData(selectedEntity.value);
     }
 };
 
@@ -298,7 +319,12 @@ const syncEngine = () => {
     if (viewMode.value === '2d') planner.value.syncAll();
     else if (viewMode.value === '3d' && selectedType.value === 'furniture') renderer3D.value.updateFurnitureLive(selectedEntity.value); 
 };
-const onDecorUpdate = (decor) => { if (renderer3D.value) renderer3D.value.updateWallDecorLive(decor); };
+
+const onDecorUpdate = (decor) => { 
+    if (renderer3D.value) renderer3D.value.updateWallDecorLive(decor); 
+    // INTERCEPT STATIC EDITS
+    if (selectedEntity.value?.isStatic) updateStaticLevelData(selectedEntity.value);
+};
 
 const handleDelete = () => { 
     if (selectedEntity.value && selectedType.value === 'furniture') {
@@ -317,6 +343,9 @@ const handleDeleteSpecificDecor = (decorObj) => {
         if (selectedEntity.value === wall || selectedEntity.value === decor) wall.attachedDecor = [...wall.attachedDecor]; 
         if (renderer3D.value && renderer3D.value.selectedObject === decor.mesh3D) { renderer3D.value.deselectObject(); handleDeselect(); }
         uiTrigger.value++;
+        
+        // INTERCEPT STATIC EDITS
+        if (wall.isStatic) updateStaticLevelData(wall);
     }
 };
 
@@ -331,7 +360,6 @@ const refresh3DScene = (preserveCamera = true) => {
 const saveProject = () => FileManager.exportJSON(planner.value);
 const loadProject = (json) => FileManager.importJSON(planner.value, json);
 </script>
-
 <style>
 body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflow: hidden; }
 .app-root { display: flex; flex-direction: column; height: 100vh; overflow: hidden; width: 100vw; }
