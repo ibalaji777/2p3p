@@ -84,10 +84,12 @@ class EnvironmentBuilder {
             const floorShape = new THREE.Shape();
             floorShape.moveTo(path[0].x, path[0].y);
             for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
-            const floorGeo = new THREE.ShapeGeometry(floorShape);
-            floorGeo.rotateX(-Math.PI / 2);
+            
+            // Extrude downward 10 units to make a solid slab that acts as a ceiling for the floor below
+            const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 10, bevelEnabled: false });
+            floorGeo.rotateX(Math.PI / 2);
             const floorMesh = new THREE.Mesh(floorGeo, matFloor);
-            floorMesh.position.y = 1;
+            floorMesh.position.y = 0;
             floorMesh.receiveShadow = true;
             this.ctx.structureGroup.add(floorMesh);
         });
@@ -164,6 +166,7 @@ class EnvironmentBuilder {
         levelsJsonArray.forEach((levelStr, index) => {
             if (index === activeIndex) return; 
             if (!levelStr) return;
+            if (viewMode3D === 'isolate') return;
 
             try {
                 const data = JSON.parse(levelStr);
@@ -171,34 +174,21 @@ class EnvironmentBuilder {
                 floorGroup.position.y = index * WALL_HEIGHT;
 
                 const isPreview = viewMode3D === 'preview';
-                
-                // NEW: If "Full Building" editing, upper floors become transparent glass so you can see inside!
-                const isAbove = index > activeIndex && !isPreview;
-                
-                const matMain = new THREE.MeshStandardMaterial({ 
-                    color: 0xffffff, roughness: 0.9, 
-                    transparent: isAbove, opacity: isAbove ? 0.2 : 1.0,
-                    depthWrite: !isAbove
-                });
-                const matEdgeDark = new THREE.MeshStandardMaterial({ 
-                    color: 0xcccccc, roughness: 0.8,
-                    transparent: isAbove, opacity: isAbove ? 0.2 : 1.0,
-                    depthWrite: !isAbove
-                });
+                const matMain = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
+                const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8 });
 
                 if (data.roomPaths) {
                     data.roomPaths.forEach(path => {
                         const floorShape = new THREE.Shape();
                         floorShape.moveTo(path[0].x, path[0].y);
                         for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
-                        const floorGeo = new THREE.ShapeGeometry(floorShape);
-                        floorGeo.rotateX(-Math.PI / 2);
-                        const floorMesh = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({ 
-                            color: 0xd1d5db, roughness: 0.7,
-                            transparent: isAbove, opacity: isAbove ? 0.1 : 1.0, depthWrite: !isAbove
-                        }));
-                        floorMesh.position.y = 1;
-                        if (!isAbove) floorMesh.receiveShadow = true;
+                        
+                        // Extrude downward 10 units for solid slab
+                        const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 10, bevelEnabled: false });
+                        floorGeo.rotateX(Math.PI / 2);
+                        const floorMesh = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7 }));
+                        floorMesh.position.y = 0;
+                        floorMesh.receiveShadow = true;
                         
                         if (!isPreview) {
                             floorMesh.userData = { isFloorTrigger: true, levelIndex: index };
@@ -211,7 +201,7 @@ class EnvironmentBuilder {
                 if (data.walls) {
                     const anchorMap = new Map(); 
 
-                    data.walls.forEach(w => {
+                    data.walls.forEach((w, wallIndex) => {
                         const dx = w.endX - w.startX;
                         const dz = w.endY - w.startY;
                         const length = Math.hypot(dx, dz);
@@ -238,20 +228,19 @@ class EnvironmentBuilder {
                         const wallMesh = new THREE.Mesh(wallGeo, [matMain, matEdgeDark]);
                         wallMesh.position.set(w.startX, 0, w.startY);
                         wallMesh.rotation.y = -angle;
-                        if (!isAbove) { wallMesh.castShadow = true; wallMesh.receiveShadow = true; }
+                        wallMesh.castShadow = true; wallMesh.receiveShadow = true;
                         
                         if (!isPreview) {
                             const hitBox = new THREE.Mesh(wallGeo, new THREE.MeshBasicMaterial({ visible: false }));
                             hitBox.position.copy(wallMesh.position); hitBox.rotation.y = wallMesh.rotation.y;
-                            hitBox.userData = { isFloorTrigger: true, levelIndex: index };
+                            hitBox.userData = { isFloorTrigger: true, levelIndex: index, entityIndex: wallIndex, entityType: 'wall' };
                             floorGroup.add(hitBox);
                             this.ctx.interactables.push(hitBox);
                         }
 
                         floorGroup.add(wallMesh);
 
-                        // FULLY RECONSTRUCTED STATIC DECORS (Patterns perfectly identical)
-                        if (w.decors && !isAbove) {
+                        if (w.decors) {
                             w.decors.forEach(async (decor) => {
                                 const config = WALL_DECOR_REGISTRY[decor.configId];
                                 if (!config) return;
@@ -304,13 +293,14 @@ class EnvironmentBuilder {
                                 boxMesh.castShadow = true; boxMesh.receiveShadow = true;
                                 
                                 if (!isPreview) {
-                                    boxMesh.userData = { isFloorTrigger: true, levelIndex: index };
+                                    boxMesh.userData = { isFloorTrigger: true, levelIndex: index, entityIndex: wallIndex, entityType: 'wall' };
                                     this.ctx.interactables.push(boxMesh);
                                 }
 
                                 const cylTex = clonedTex.clone(); cylTex.repeat.set((Math.PI * cylRadius) / tileSize, dh / tileSize);
                                 const cylMat = new THREE.MeshStandardMaterial({ map: cylTex, color: 0xffffff });
 
+                                // EXACTLY AS PASTED BY YOU: Math.PI, Math.PI logic preserved to fix the glitch
                                 const leftCyl = new THREE.Mesh(new THREE.CylinderGeometry(cylRadius, cylRadius, dh, 32, 1, true, Math.PI, Math.PI), cylMat);
                                 leftCyl.position.set(-dw/2, 0, 0); leftCyl.visible = decor.faces?.left !== false;
                                 leftCyl.castShadow = true; leftCyl.receiveShadow = true;
@@ -318,6 +308,12 @@ class EnvironmentBuilder {
                                 const rightCyl = new THREE.Mesh(new THREE.CylinderGeometry(cylRadius, cylRadius, dh, 32, 1, true, 0, Math.PI), cylMat);
                                 rightCyl.position.set(dw/2, 0, 0); rightCyl.visible = decor.faces?.right !== false;
                                 rightCyl.castShadow = true; rightCyl.receiveShadow = true;
+
+                                if (!isPreview) {
+                                    leftCyl.userData = { isFloorTrigger: true, levelIndex: index, entityIndex: wallIndex, entityType: 'wall' };
+                                    rightCyl.userData = { isFloorTrigger: true, levelIndex: index, entityIndex: wallIndex, entityType: 'wall' };
+                                    this.ctx.interactables.push(leftCyl, rightCyl);
+                                }
 
                                 const decorGroup = new THREE.Group();
                                 decorGroup.add(boxMesh, leftCyl, rightCyl);
@@ -347,12 +343,10 @@ class EnvironmentBuilder {
                         const jointGeo = new THREE.CylinderGeometry(data.thickness / 2, data.thickness / 2, WALL_HEIGHT, 32);
                         const jointMesh = new THREE.Mesh(jointGeo, matMain);
                         jointMesh.position.set(data.x, WALL_HEIGHT / 2, data.y);
-                        if (!isAbove) { jointMesh.castShadow = true; jointMesh.receiveShadow = true; }
+                        jointMesh.castShadow = true; jointMesh.receiveShadow = true;
                         floorGroup.add(jointMesh);
                     });
                 }
-                
-                // CEILING REMOVED. Top is fully open!
 
                 this.ctx.staticStructureGroup.add(floorGroup);
             } catch (e) { console.error("Error parsing static floor", e); }
@@ -477,6 +471,7 @@ class DecorManager {
             boxMesh.geometry.translate(0, 0, -d/2);
         }
         
+        // EXACTLY AS PASTED BY YOU: Math.PI, Math.PI logic preserved
         const leftCyl = object.children.find(c => c.userData.isLeftCyl);
         if (leftCyl) { leftCyl.geometry.dispose(); leftCyl.geometry = new THREE.CylinderGeometry(cylRadius, cylRadius, h, 32, 1, true, Math.PI, Math.PI); }
         
@@ -514,8 +509,8 @@ class DecorManager {
             boxMesh.material = [matFront, matSide]; 
         }
 
-        if (leftCyl) { leftCyl.material = sharedCylMaterial; leftCyl.visible = entity.faces.left; leftCyl.position.set(-w / 2, 0, 0); }
-        if (rightCyl) { rightCyl.material = sharedCylMaterial; rightCyl.visible = entity.faces.right; rightCyl.position.set(w / 2, 0, 0); }
+        if (leftCyl) { leftCyl.material = sharedCylMaterial; leftCyl.visible = entity.faces.left !== false; leftCyl.position.set(-w / 2, 0, 0); }
+        if (rightCyl) { rightCyl.material = sharedCylMaterial; rightCyl.visible = entity.faces.right !== false; rightCyl.position.set(w / 2, 0, 0); }
 
         object.position.set(posX, posY, 0);
         object.rotation.y = isFront ? 0 : Math.PI;
@@ -647,10 +642,13 @@ class InteractionSystem {
             if (intersects.length > 0) {
                 let mesh = intersects[0].object;
 
-                // NEW: Seamless Floor Switching Click Intercept
                 if (mesh.userData.isFloorTrigger) {
                     if (this.ctx.onLevelSwitchRequest) {
-                        this.ctx.onLevelSwitchRequest(mesh.userData.levelIndex);
+                        this.ctx.onLevelSwitchRequest(
+                            mesh.userData.levelIndex, 
+                            mesh.userData.entityIndex, 
+                            mesh.userData.entityType
+                        );
                     }
                     return;
                 }
@@ -921,7 +919,8 @@ export class Preview3D {
             this.staticStructureGroup.remove(c); 
         }
 
-        this.structureGroup.position.y = activeIndex * WALL_HEIGHT;
+        const targetY = activeIndex * WALL_HEIGHT;
+        this.structureGroup.position.y = targetY;
 
         this.envBuilder.buildActiveFloor(walls, roomPaths);
         if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn));
@@ -930,17 +929,28 @@ export class Preview3D {
             this.envBuilder.buildStaticFloors(levelsJsonArray, activeIndex, viewMode3D);
         }
 
-        // NEW: Do NOT reset camera if switching floors in Full Building mode
-        if (!preserveCamera) {
+        // PERFECT CAMERA PANNING LOGIC
+        if (this.previousTargetY === undefined) this.previousTargetY = targetY;
+        const diff = targetY - this.previousTargetY;
+
+        if (preserveCamera) {
+            if (diff !== 0) {
+                // Slide up/down to match new floor without changing angle/zoom
+                this.controls.target.y += diff;
+                this.camera.position.y += diff;
+                this.controls.update();
+            }
+        } else {
             let centerX = 0, centerZ = 0;
             if (walls.length > 0) {
-                walls.forEach(w => { const p = w.startAnchor.position(); centerX += p.x; centerZ += p.y; });
+                walls.forEach(w => { const p = w.startAnchor ? w.startAnchor.position() : w; centerX += p.x || w.startX; centerZ += p.y || w.startY; });
                 centerX /= walls.length; centerZ /= walls.length;
             }
-            this.controls.target.set(centerX, activeIndex * WALL_HEIGHT, centerZ); 
-            this.camera.position.set(centerX, (activeIndex * WALL_HEIGHT) + 400, centerZ + 500); 
+            this.controls.target.set(centerX, targetY, centerZ); 
+            this.camera.position.set(centerX, targetY + 600, centerZ + 800); 
             this.controls.update(); 
         }
+        this.previousTargetY = targetY;
     }
     
     get selectedObject() { return this.interactions.selectedObject; }

@@ -115,7 +115,7 @@
             </div>
 
             <div class="props-empty" v-else>
-                <span v-if="viewMode==='2d'">Properties are currently edited in 3D Mode.</span>
+                <span v-if="viewMode==='2d'">Properties are edited in 3D Mode.</span>
                 <span v-else-if="viewMode3D==='preview'">Exit Preview Mode to edit.</span>
                 <span v-else>Select a wall or object to edit its properties.</span>
             </div>
@@ -186,18 +186,17 @@ onMounted(() => {
     renderer3D.value.onEntityTransform = () => { uiTrigger.value++; };
     renderer3D.value.onRelocateStateChange = (state) => { isPlacing3D.value = state; };
     
-    // Switch floor AND gracefully re-select the wall that was clicked
+    // Seamless Switch: Clicking a floor in 3D instantly shifts the app to that floor
+    // without resetting camera or view mode.
     renderer3D.value.onLevelSwitchRequest = (targetIndex, entityIndex, entityType) => { 
         if (targetIndex !== activeLevelIndex.value) {
             switchLevel(targetIndex);
             
             if (entityType === 'wall' && entityIndex !== undefined) {
-                // Short timeout to let the new 3D models generate
                 setTimeout(() => {
                     const targetWall = planner.value.walls[entityIndex];
                     if (targetWall && targetWall.mesh3D) {
                         planner.value.selectEntity(targetWall, 'wall');
-                        // By default, select the "front" face for editing
                         const frontSkin = targetWall.mesh3D.children.find(c => c.userData.side === 'front');
                         if (frontSkin) renderer3D.value.selectObject(frontSkin);
                     }
@@ -235,6 +234,7 @@ const switchLevel = (index) => {
         if (referenceData) planner.value.loadReferenceBackground(referenceData);
     }
     
+    // Switch floors while preserving exact camera angle
     if (viewMode.value === '3d') refresh3DScene(true); 
 };
 

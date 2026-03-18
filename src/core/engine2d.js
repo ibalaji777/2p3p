@@ -234,16 +234,11 @@ export class FloorPlanner {
         this.container = containerEl; this.tool = "outer"; this.currentUnit = "ft"; this.drawing = false; this.lastAnchor = null; this.startAnchor = null; this.drawingStair = null; this.preview = null;
         this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
         this.onSelectionChange = null; 
-        
-        this.virtualWidth = 3000;
-        this.virtualHeight = 2000;
-
         this.initKonva(); this.drawGrid(); this.initHUD(); this.initStageEvents(); 
     }
     
     initKonva() { 
-        const rect = this.container.getBoundingClientRect();
-        this.stage = new Konva.Stage({ container: this.container, width: rect.width, height: rect.height }); 
+        this.stage = new Konva.Stage({ container: this.container, width: window.innerWidth - 380, height: window.innerHeight }); 
         
         this.bgLayer = new Konva.Layer();
         this.gridLayer = new Konva.Group(); 
@@ -260,14 +255,6 @@ export class FloorPlanner {
         this.uiLayer = new Konva.Layer(); 
         
         this.stage.add(this.bgLayer, this.mainLayer, this.uiLayer); 
-        
-        window.addEventListener('resize', () => {
-            if(this.container.clientWidth > 0) {
-                this.stage.width(this.container.clientWidth);
-                this.stage.height(this.container.clientHeight);
-                this.drawGrid();
-            }
-        });
     }
     
     initHUD() {
@@ -308,16 +295,7 @@ export class FloorPlanner {
 
     snap(v) { return Math.round(v / GRID) * GRID; }
     formatLength(px) { const feet = px * PX_TO_FT; if (this.currentUnit === 'in') return Math.round(feet * 12) + '"'; if (this.currentUnit === 'cm') return Math.round(feet * 30.48) + ' cm'; if (this.currentUnit === 'm') return (feet * 0.3048).toFixed(2) + ' m'; const wholeFeet = Math.floor(feet), inches = Math.round((feet - wholeFeet) * 12); return inches > 0 ? `${wholeFeet}' ${inches}"` : `${wholeFeet}'`; }
-    
-    drawGrid() { 
-        this.gridLayer.destroyChildren();
-        const w = Math.max(this.stage.width(), this.virtualWidth);
-        const h = Math.max(this.stage.height(), this.virtualHeight);
-        
-        for (let i = 0; i < w / GRID; i++) this.gridLayer.add(new Konva.Line({ points: [i * GRID, 0, i * GRID, h], stroke: "#f0f0f0", strokeWidth: 1, listening: false })); 
-        for (let j = 0; j < h / GRID; j++) this.gridLayer.add(new Konva.Line({ points: [0, j * GRID, w, j * GRID], stroke: "#f0f0f0", strokeWidth: 1, listening: false })); 
-        this.bgLayer.batchDraw();
-    }
+    drawGrid() { for (let i = 0; i < this.stage.width() / GRID; i++) this.gridLayer.add(new Konva.Line({ points: [i * GRID, 0, i * GRID, this.stage.height()], stroke: "#f0f0f0", strokeWidth: 1, listening: false })); for (let j = 0; j < this.stage.height() / GRID; j++) this.gridLayer.add(new Konva.Line({ points: [0, j * GRID, this.stage.width(), j * GRID], stroke: "#f0f0f0", strokeWidth: 1, listening: false })); this.bgLayer.batchDraw(); }
     
     doIntersect(p1, p2, p3, p4) { const ccw = (A, B, C) => (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x); return ccw(p1, p3, p4) !== ccw(p2, p3, p4) && ccw(p1, p2, p3) !== ccw(p1, p2, p4); }
     checkWallIntersection(p1, p2, ignoreWalls = []) { for (let w of this.walls) { if (ignoreWalls.includes(w)) continue; if (this.getDistanceToWall(p1, w) < 1.0) continue; if (this.getDistanceToWall(p2, w) < 1.0) continue; if (this.doIntersect(p1, p2, w.startAnchor.position(), w.endAnchor.position())) return true; } return false; }
@@ -411,15 +389,13 @@ export class FloorPlanner {
                 if (a) { snapPos = { x: a.x, y: a.y }; targetSnapWall = this.walls.find(w => w.startAnchor === a || w.endAnchor === a); snappedObj = true; } 
                 else { 
                     let closestDist = SNAP_DIST, closestPoint = null; 
-                    
+
                     let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
                     for (let line of allReferenceWalls) {
                         let pts = line.points();
                         if (pts && pts.length === 4) {
                             let d1 = Math.hypot(pos.x - pts[0], pos.y - pts[1]);
                             let d2 = Math.hypot(pos.x - pts[2], pos.y - pts[3]);
-                            
-                            // 40px radius overrides all other snaps
                             if (d1 < 40) { closestDist = 0; closestPoint = {x: pts[0], y: pts[1]}; snappedObj = true; }
                             else if (d2 < 40) { closestDist = 0; closestPoint = {x: pts[2], y: pts[3]}; snappedObj = true; }
                             else if (!snappedObj) {
