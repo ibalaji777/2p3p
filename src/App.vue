@@ -129,8 +129,13 @@
 <script setup>
 import { ref, computed, shallowRef, onMounted, onBeforeUnmount } from 'vue';
 import LeftSidebar from './components/LeftSidebar.vue';
+
+// 1. Import from 2D Engine
 import { FloorPlanner, PremiumFurniture } from './core/engine2d';
-import { Preview3D } from './core/engine3d';
+
+// 2. Import from our new SOLID 3D Engine Orchestrator
+import { Preview3D } from './core/engine3d'; 
+
 import { FileManager } from './core/io';
 import { WALL_DECOR_REGISTRY } from './core/registry';
 
@@ -159,7 +164,7 @@ const levels = ref([{ id: 'level-' + Date.now(), name: 'Floor 1', data: null }])
 const activeLevelIndex = ref(0);
 
 const currentFaceDecors = computed(() => {
-    const trigger = uiTrigger.value; 
+    const trigger = uiTrigger.value; // Force reactivity
     if (!selectedEntity.value || !selectedEntity.value.attachedDecor) return [];
     return selectedEntity.value.attachedDecor.filter(d => d.side === selectedWallSide.value);
 });
@@ -175,6 +180,7 @@ onMounted(() => {
         }
     };
 
+    // Instantiate Orchestrator
     renderer3D.value = new Preview3D(canvas3D.value);
     
     renderer3D.value.onEntitySelect = (entity, type, side = null) => {
@@ -185,14 +191,16 @@ onMounted(() => {
     renderer3D.value.onEntityTransform = () => { uiTrigger.value++; };
     renderer3D.value.onRelocateStateChange = (state) => { isPlacing3D.value = state; };
     
+    // Core Engine Callback: Handle Floor Switching safely
     renderer3D.value.onLevelSwitchRequest = (targetIndex, entityIndex, entityType) => { 
-        // Extra protection: Don't allow floor switching if in full-edit mode.
+        // SUCCESS: Stop floor jump if the user is in "Full Building" view!
         if (viewMode3D.value === 'full-edit') return;
 
         if (targetIndex !== activeLevelIndex.value) {
             switchLevel(targetIndex);
             
             if (entityType === 'wall' && entityIndex !== undefined) {
+                // Ensure 3D Engine has 100ms to build before trying to select
                 setTimeout(() => {
                     const targetWall = planner.value.walls[entityIndex];
                     if (targetWall && targetWall.mesh3D) {
@@ -219,7 +227,7 @@ const handleGlobalKeys = (e) => {
 
 const saveCurrentLevelState = () => { if (planner.value) levels.value[activeLevelIndex.value].data = planner.value.exportState(); };
 
-// MAGIC FUNCTION: Serializes static edits directly into the JSON level array
+// MAGIC FUNCTION: Intercepts edits made in 3D to INACTIVE floors and saves them safely.
 const updateStaticLevelData = (staticWall) => {
     const levelIdx = staticWall.levelIndex;
     if (levelIdx === undefined || !levels.value[levelIdx]) return;
@@ -304,7 +312,7 @@ const spawnWallPattern = (configId) => {
         selectedEntity.value.attachedDecor = [...selectedEntity.value.attachedDecor];
         activeDecorId.value = decor.id; uiTrigger.value++; 
         
-        // INTERCEPT STATIC EDITS
+        // INTERCEPT STATIC EDITS to apply directly to offline JSON state
         if (selectedEntity.value.isStatic) updateStaticLevelData(selectedEntity.value);
     }
 };
@@ -322,7 +330,7 @@ const syncEngine = () => {
 
 const onDecorUpdate = (decor) => { 
     if (renderer3D.value) renderer3D.value.updateWallDecorLive(decor); 
-    // INTERCEPT STATIC EDITS
+    // INTERCEPT STATIC EDITS to apply directly to offline JSON state
     if (selectedEntity.value?.isStatic) updateStaticLevelData(selectedEntity.value);
 };
 
@@ -344,7 +352,7 @@ const handleDeleteSpecificDecor = (decorObj) => {
         if (renderer3D.value && renderer3D.value.selectedObject === decor.mesh3D) { renderer3D.value.deselectObject(); handleDeselect(); }
         uiTrigger.value++;
         
-        // INTERCEPT STATIC EDITS
+        // INTERCEPT STATIC EDITS to apply directly to offline JSON state
         if (wall.isStatic) updateStaticLevelData(wall);
     }
 };
@@ -360,6 +368,7 @@ const refresh3DScene = (preserveCamera = true) => {
 const saveProject = () => FileManager.exportJSON(planner.value);
 const loadProject = (json) => FileManager.importJSON(planner.value, json);
 </script>
+
 <style>
 body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflow: hidden; }
 .app-root { display: flex; flex-direction: column; height: 100vh; overflow: hidden; width: 100vw; }
@@ -440,4 +449,4 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 
 .hud-delete { background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; width: 100%; padding: 8px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
 .hud-delete:hover { background: #ef4444; color: white; }
-</style>
+</style> 
