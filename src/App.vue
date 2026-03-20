@@ -65,7 +65,7 @@
         <div class="panel properties-panel flex-1">
             <div class="panel-header"><h3>Properties</h3></div>
             
-            <div class="props-content" v-if="viewMode==='3d' && mode3D==='edit' && selectedEntity && viewMode3D !== 'preview'">
+            <div class="props-content" v-if="(viewMode==='3d' || viewMode==='2d') && selectedEntity && viewMode3D !== 'preview'">
                 
                 <div v-if="selectedType === 'wall'">
                     <h4 class="props-subtitle">{{ selectedWallSide === 'front' ? 'Inner Wall Face' : 'Outer Wall Face' }}</h4>
@@ -93,7 +93,7 @@
                         </div>
                     </div>
                     
-                    <div class="decor-gallery">
+                    <div class="decor-gallery" v-if="viewMode === '3d'">
                         <h4 class="props-subtitle">Add Pattern Layer</h4>
                         <div class="decor-grid">
                             <div v-for="(config, key) in wallDecorRegistry" :key="key" class="decor-item" @click="spawnWallPattern(key)">
@@ -104,7 +104,7 @@
                     </div>
                 </div>
 
-                <div v-else-if="selectedType === 'furniture'" :key="uiTrigger">
+                <div v-else-if="selectedType === 'furniture'" :key="'f-'+uiTrigger">
                     <h4 class="props-subtitle">{{ selectedEntity.config?.name || 'Object' }}</h4>
                     <div class="control-group"><label>Rotation (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.rotation" min="0" max="360" @input="syncEngine"><input type="number" v-model.number="selectedEntity.rotation" @input="syncEngine"></div></div>
                     <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="10" max="500" @input="syncEngine"><input type="number" v-model.number="selectedEntity.width" @input="syncEngine"></div></div>
@@ -115,7 +115,7 @@
             </div>
 
             <div class="props-empty" v-else>
-                <span v-if="viewMode==='2d'">Properties are edited in 3D Mode.</span>
+                <span v-if="viewMode==='2d'">Properties are edited in 3D Mode. Select an Object to edit sizing here.</span>
                 <span v-else-if="viewMode3D==='preview'">Exit Preview Mode to edit.</span>
                 <span v-else>Select a wall or object to edit its properties.</span>
             </div>
@@ -130,10 +130,8 @@
 import { ref, computed, shallowRef, onMounted, onBeforeUnmount } from 'vue';
 import LeftSidebar from './components/LeftSidebar.vue';
 
-// 1. Import from 2D Engine
+// Clean imports: No PremiumRoof
 import { FloorPlanner, PremiumFurniture } from './core/engine2d';
-
-// 2. Import from our new SOLID 3D Engine Orchestrator
 import { Preview3D } from './core/engine3d'; 
 
 import { FileManager } from './core/io';
@@ -164,7 +162,7 @@ const levels = ref([{ id: 'level-' + Date.now(), name: 'Floor 1', data: null }])
 const activeLevelIndex = ref(0);
 
 const currentFaceDecors = computed(() => {
-    const trigger = uiTrigger.value; // Force reactivity
+    const trigger = uiTrigger.value; 
     if (!selectedEntity.value || !selectedEntity.value.attachedDecor) return [];
     return selectedEntity.value.attachedDecor.filter(d => d.side === selectedWallSide.value);
 });
@@ -180,7 +178,6 @@ onMounted(() => {
         }
     };
 
-    // Instantiate Orchestrator
     renderer3D.value = new Preview3D(canvas3D.value);
     
     renderer3D.value.onEntitySelect = (entity, type, side = null) => {
@@ -191,16 +188,13 @@ onMounted(() => {
     renderer3D.value.onEntityTransform = () => { uiTrigger.value++; };
     renderer3D.value.onRelocateStateChange = (state) => { isPlacing3D.value = state; };
     
-    // Core Engine Callback: Handle Floor Switching safely
     renderer3D.value.onLevelSwitchRequest = (targetIndex, entityIndex, entityType) => { 
-        // SUCCESS: Stop floor jump if the user is in "Full Building" view!
         if (viewMode3D.value === 'full-edit') return;
 
         if (targetIndex !== activeLevelIndex.value) {
             switchLevel(targetIndex);
             
             if (entityType === 'wall' && entityIndex !== undefined) {
-                // Ensure 3D Engine has 100ms to build before trying to select
                 setTimeout(() => {
                     const targetWall = planner.value.walls[entityIndex];
                     if (targetWall && targetWall.mesh3D) {
@@ -220,14 +214,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeys));
 
 const handleGlobalKeys = (e) => {
     if (viewMode.value === '3d') {
-        if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedType.value === 'furniture') handleDelete(); }
+        // Clean keybinding: No roof
+        if (e.key === 'Delete' || e.key === 'Backspace') { 
+            if (selectedType.value === 'furniture') handleDelete(); 
+        }
         if (e.key === 'Escape' && renderer3D.value) renderer3D.value.cancelRelocation();
     }
 };
 
 const saveCurrentLevelState = () => { if (planner.value) levels.value[activeLevelIndex.value].data = planner.value.exportState(); };
 
-// MAGIC FUNCTION: Intercepts edits made in 3D to INACTIVE floors and saves them safely.
 const updateStaticLevelData = (staticWall) => {
     const levelIdx = staticWall.levelIndex;
     if (levelIdx === undefined || !levels.value[levelIdx]) return;
@@ -312,7 +308,6 @@ const spawnWallPattern = (configId) => {
         selectedEntity.value.attachedDecor = [...selectedEntity.value.attachedDecor];
         activeDecorId.value = decor.id; uiTrigger.value++; 
         
-        // INTERCEPT STATIC EDITS to apply directly to offline JSON state
         if (selectedEntity.value.isStatic) updateStaticLevelData(selectedEntity.value);
     }
 };
@@ -324,22 +319,30 @@ const spawnFurniture = (configId) => {
 };
 
 const syncEngine = () => {
-    if (viewMode.value === '2d') planner.value.syncAll();
-    else if (viewMode.value === '3d' && selectedType.value === 'furniture') renderer3D.value.updateFurnitureLive(selectedEntity.value); 
+    if (viewMode.value === '2d') {
+        planner.value.syncAll();
+    } else if (viewMode.value === '3d' && selectedType.value === 'furniture') {
+        renderer3D.value.updateFurnitureLive(selectedEntity.value); 
+    }
 };
 
 const onDecorUpdate = (decor) => { 
     if (renderer3D.value) renderer3D.value.updateWallDecorLive(decor); 
-    // INTERCEPT STATIC EDITS to apply directly to offline JSON state
     if (selectedEntity.value?.isStatic) updateStaticLevelData(selectedEntity.value);
 };
 
 const handleDelete = () => { 
+    // Clean deletion: No roof
     if (selectedEntity.value && selectedType.value === 'furniture') {
         if (viewMode.value === '3d' && renderer3D.value.selectedObject?.userData.entity === selectedEntity.value) {
-            renderer3D.value.structureGroup.remove(renderer3D.value.selectedObject); renderer3D.value.deselectObject();
+            renderer3D.value.structureGroup.remove(renderer3D.value.selectedObject); 
+            renderer3D.value.deselectObject();
         }
-        selectedEntity.value.remove(); selectedEntity.value = null; selectedType.value = null;
+        selectedEntity.value.remove(); 
+        selectedEntity.value = null; 
+        selectedType.value = null;
+        
+        if (viewMode.value === '3d') refresh3DScene(true);
     }
 };
 
@@ -352,7 +355,6 @@ const handleDeleteSpecificDecor = (decorObj) => {
         if (renderer3D.value && renderer3D.value.selectedObject === decor.mesh3D) { renderer3D.value.deselectObject(); handleDeselect(); }
         uiTrigger.value++;
         
-        // INTERCEPT STATIC EDITS to apply directly to offline JSON state
         if (wall.isStatic) updateStaticLevelData(wall);
     }
 };
@@ -361,7 +363,18 @@ const refresh3DScene = (preserveCamera = true) => {
     if (renderer3D.value) {
         saveCurrentLevelState(); 
         const levelsJsonArray = levels.value.map(l => l.data);
-        renderer3D.value.buildScene(planner.value.walls, planner.value.roomPaths, planner.value.stairs, planner.value.furniture, levelsJsonArray, activeLevelIndex.value, viewMode3D.value, preserveCamera); 
+        
+        // Clean function call: No roofs array passed to buildScene
+        renderer3D.value.buildScene(
+            planner.value.walls, 
+            planner.value.roomPaths, 
+            planner.value.stairs, 
+            planner.value.furniture, 
+            levelsJsonArray, 
+            activeLevelIndex.value, 
+            viewMode3D.value, 
+            preserveCamera
+        ); 
     }
 };
 
@@ -449,4 +462,4 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 
 .hud-delete { background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; width: 100%; padding: 8px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
 .hud-delete:hover { background: #ef4444; color: white; }
-</style> 
+</style>
