@@ -40,6 +40,13 @@
     </div>
 
     <div class="unit-section">
+      <div class="unit-label">Roofing</div>
+      <div class="toolbar-group">
+        <div class="tool" :class="{ active: activeTool === 'roof' }" @click="$emit('select-tool', 'roof')">Draw Hip Roof<br><span style="font-size:8px; font-weight:normal">(Trace Outer Walls)</span></div>
+      </div>
+    </div>
+
+    <div class="unit-section">
       <div class="unit-label">Views</div>
       <button class="btn-toggle" @click="$emit('toggle-3d')">3D PREVIEW</button>
     </div>
@@ -55,7 +62,7 @@
 
 <script setup>
 import { ref } from 'vue';
-import { WALL_REGISTRY, WIDGET_REGISTRY, FURNITURE_REGISTRY } from '../core/registry';
+import { WALL_REGISTRY, WIDGET_REGISTRY, FURNITURE_REGISTRY } from '../core/registry.js';
 
 defineProps(['activeTool']);
 const emit = defineEmits(['select-tool', 'toggle-3d', 'export', 'import', 'add-furniture']);

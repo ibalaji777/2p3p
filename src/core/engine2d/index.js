@@ -3,15 +3,15 @@ import Konva from 'konva';
 import { GRID, PX_TO_FT, SNAP_DIST } from '../registry.js';
 
 // SOLID: Import the decoupled 2D entity classes from the same folder
-import { Anchor } from './Anchor.js';
-import { PremiumWall } from './PremiumWall.js';
-import { PremiumWidget } from './PremiumWidget.js';
-import { PremiumFurniture } from './PremiumFurniture.js';
-import { PremiumStair } from './PremiumStair.js';
-import { PremiumRoof } from './PremiumRoof.js';
+import { Anchor } from '/src/core/engine2d/Anchor.js';
+import { PremiumWall } from '/src/core/engine2d/PremiumWall.js';
+import { PremiumWidget } from '/src/core/engine2d/PremiumWidget.js';
+import { PremiumFurniture } from '/src/core/engine2d/PremiumFurniture.js';
+import { PremiumStair } from '/src/core/engine2d/PremiumStair.js';
+import { PremiumHipRoof } from '/src/core/engine2d/PremiumHipRoof.js';
 
 // Export the specific classes that App.vue needs to spawn items
-export { PremiumFurniture, PremiumRoof };
+export { PremiumFurniture, PremiumHipRoof };
 
 export class FloorPlanner {
     constructor(containerEl) { 
@@ -56,11 +56,9 @@ export class FloorPlanner {
                 let w = maxX - minX; let d = maxY - minY;
                 let cx = minX + w / 2; let cy = minY + d / 2;
                 
-                let rotation = 0;
-                if (d > w) { const temp = w; w = d; d = temp; rotation = 90; } // Auto-rotate to fit
+                const points = [{x: minX, y: minY}, {x: maxX, y: minY}, {x: maxX, y: maxY}, {x: minX, y: maxY}];
 
-                const newRoof = new PremiumRoof(this, cx, cy, w, d);
-                newRoof.rotation = rotation; newRoof.update();
+                const newRoof = new PremiumHipRoof(this, points);
                 this.roofs.push(newRoof);
                 this.selectEntity(newRoof, 'roof');
             });
@@ -76,16 +74,16 @@ export class FloorPlanner {
             let w = maxX - minX; let d = maxY - minY;
             let cx = minX + w / 2; let cy = minY + d / 2;
 
-            let rotation = 0;
-            if (d > w) { const temp = w; w = d; d = temp; rotation = 90; }
+            const points = [{x: minX, y: minY}, {x: maxX, y: minY}, {x: maxX, y: maxY}, {x: minX, y: maxY}];
 
-            const newRoof = new PremiumRoof(this, cx, cy, w, d);
-            newRoof.rotation = rotation; newRoof.update();
+            const newRoof = new PremiumHipRoof(this, points);
             this.roofs.push(newRoof);
             this.selectEntity(newRoof, 'roof');
         } else {
             // EMPTY CANVAS FALLBACK
-            const newRoof = new PremiumRoof(this, this.stage.width()/2, this.stage.height()/2, 400, 300);
+            const cx = this.stage.width()/2; const cy = this.stage.height()/2;
+            const points = [{x: cx - 200, y: cy - 150}, {x: cx + 200, y: cy - 150}, {x: cx + 200, y: cy + 150}, {x: cx - 200, y: cy + 150}];
+            const newRoof = new PremiumHipRoof(this, points);
             this.roofs.push(newRoof);
             this.selectEntity(newRoof, 'roof');
         }
@@ -153,11 +151,36 @@ export class FloorPlanner {
 
     updateToolStates() { 
         const isSelect = this.tool === "select"; 
-        this.walls.forEach(w => { w.poly.setAttr('draggable', isSelect); w.attachedWidgets.forEach(widg => widg.visualGroup.setAttr('draggable', isSelect)); }); 
-        this.stairs.forEach(s => { s.group.setAttr('draggable', isSelect); }); 
-        this.anchors.forEach(a => { a.node.setAttr('draggable', isSelect); }); 
-        this.furniture.forEach(f => { f.group.setAttr('draggable', isSelect); });
-        this.roofs.forEach(r => { r.group.setAttr('draggable', isSelect); });
+        this.walls.forEach(w => { 
+            if(w.poly) { w.poly.setAttr('draggable', isSelect); w.poly.setAttr('listening', isSelect); }
+            w.attachedWidgets.forEach(widg => { if(widg.visualGroup) { widg.visualGroup.setAttr('draggable', isSelect); widg.visualGroup.setAttr('listening', isSelect); } }); 
+        }); 
+        this.stairs.forEach(s => { if(s.group) { s.group.setAttr('draggable', isSelect); s.group.setAttr('listening', isSelect); } }); 
+        this.anchors.forEach(a => { if(a.node) { a.node.setAttr('draggable', isSelect); a.node.setAttr('listening', isSelect); } }); 
+        this.furniture.forEach(f => { if(f.group) { f.group.setAttr('draggable', isSelect); f.group.setAttr('listening', isSelect); } });
+        this.roofs.forEach(r => { if(r.group) { r.group.setAttr('draggable', isSelect); r.group.setAttr('listening', isSelect); } });
+
+        // FORCE LAYER LISTENING OFF DURING DRAWING (prevents rogue clicks from getting swallowed)
+        if (this.wallLayer) this.wallLayer.listening(isSelect);
+        if (this.widgetLayer) this.widgetLayer.listening(isSelect);
+        if (this.furnitureLayer) this.furnitureLayer.listening(isSelect);
+        if (this.roofLayer) this.roofLayer.listening(isSelect);
+    }
+
+    loadDefaultHouse() {
+        if (this.walls && this.walls.length > 0) return;
+        
+        const cx = this.stage.width() / 2;
+        const cy = this.stage.height() / 2;
+        
+        // 750 sqft shape (25ft x 30ft). With GRID=20 (PX_TO_FT = 1/20), 25ft=500px, 30ft=600px.
+        const hw = 300; const hd = 250;
+        
+        const a1 = this.getOrCreateAnchor(cx - hw, cy - hd); const a2 = this.getOrCreateAnchor(cx + hw, cy - hd);
+        const a3 = this.getOrCreateAnchor(cx + hw, cy + hd); const a4 = this.getOrCreateAnchor(cx - hw, cy + hd);
+
+        this.walls.push(new PremiumWall(this, a1, a2, 'outer'), new PremiumWall(this, a2, a3, 'outer'), new PremiumWall(this, a3, a4, 'outer'), new PremiumWall(this, a4, a1, 'outer'));
+        this.syncAll();
     }
 
     getOrCreateAnchor(x, y) { let a = this.anchors.find(a => Math.hypot(a.x - x, a.y - y) < SNAP_DIST); if (a) return a; const newAnchor = new Anchor(this, x, y); this.anchors.push(newAnchor); return newAnchor; }
@@ -166,6 +189,7 @@ export class FloorPlanner {
     
     finishChain() { 
         if (this.drawingStair) { this.drawingStair.finishDrawing(); this.drawingStair = null; } 
+        if (this.drawingRoofPoints) { this.drawingRoofPoints = null; if (this.roofPreview) { this.roofPreview.destroy(); this.roofPreview = null; } }
         this.drawing = false; this.lastAnchor = null; this.startAnchor = null; 
         this.preview?.destroy(); this.preview = null; 
         this.hideSnapGlow(); this.drawGuideLine(0,0,0,0, false); this.hideInfoBadge(); 
@@ -180,6 +204,59 @@ export class FloorPlanner {
         this.stage.on("mousemove", () => { 
              // ... (rest of your standard mousemove events remain exactly the same)
         }); 
+
+        // --- Hip Roof Drawing Mode Logic ---
+        this.stage.on("mousedown.roof", (e) => {
+            if (this.tool !== 'roof') return;
+            const pos = this.stage.getPointerPosition();
+            if (!pos) return;
+            
+            let snap = pos;
+            let closestAnchor = null;
+            let minDist = SNAP_DIST;
+            this.anchors.forEach(a => {
+                const d = Math.hypot(a.x - pos.x, a.y - pos.y);
+                if (d < minDist) { minDist = d; closestAnchor = a; }
+            });
+            if (closestAnchor) { snap = { x: closestAnchor.x, y: closestAnchor.y }; }
+            
+            if (!this.drawingRoofPoints) {
+                this.drawingRoofPoints = [snap];
+                this.roofPreview = new Konva.Line({ points: [snap.x, snap.y, snap.x, snap.y], stroke: '#FFA500', strokeWidth: 3, dash: [4, 4], fill: 'rgba(255, 165, 0, 0.2)' });
+                this.roofLayer.add(this.roofPreview);
+            } else {
+                const startP = this.drawingRoofPoints[0];
+                if (Math.hypot(snap.x - startP.x, snap.y - startP.y) < SNAP_DIST && this.drawingRoofPoints.length > 2) {
+                    const roof = new PremiumHipRoof(this, this.drawingRoofPoints);
+                    this.roofs.push(roof); this.selectEntity(roof, 'roof');
+                    this.drawingRoofPoints = null; this.roofPreview.destroy(); this.roofPreview = null;
+                    this.tool = 'select'; this.updateToolStates(); this.syncAll();
+                } else {
+                    this.drawingRoofPoints.push(snap);
+                }
+            }
+        });
+
+        this.stage.on("mousemove.roof", () => {
+            if (this.tool === 'roof') {
+                const pos = this.stage.getPointerPosition();
+                if (!pos) return;
+                
+                let snap = pos; let closestAnchor = null; let minDist = SNAP_DIST;
+                this.anchors.forEach(a => { const d = Math.hypot(a.x - pos.x, a.y - pos.y); if (d < minDist) { minDist = d; closestAnchor = a; } });
+                if (closestAnchor) { snap = { x: closestAnchor.x, y: closestAnchor.y }; this.showSnapGlow(snap.x, snap.y); } else { this.hideSnapGlow(); }
+
+                if (this.drawingRoofPoints && this.roofPreview) {
+                    const pts = this.drawingRoofPoints.flatMap(p => [p.x, p.y]); pts.push(snap.x, snap.y);
+                    this.roofPreview.points(pts);
+                }
+                
+                document.body.style.cursor = 'crosshair'; this.mainLayer.batchDraw();
+            } else {
+                if (this.drawingRoofPoints) { this.drawingRoofPoints = null; if (this.roofPreview) { this.roofPreview.destroy(); this.roofPreview = null; } }
+                if (document.body.style.cursor === 'crosshair') { document.body.style.cursor = 'default'; }
+            }
+        });
     }
 
     detectRooms() { this.roomLayer.destroyChildren(); this.roomPaths = []; const visited = new Set(); for (let wall of this.walls) { let path = []; let current = wall.startAnchor; let next = wall.endAnchor; path.push(current); let attempts = 0; while (next && attempts < this.walls.length) { path.push(next); if (next === wall.startAnchor && path.length > 2) { this.drawRoom(path); this.roomPaths.push(path); break; } let nextWall = this.walls.find(w => w !== wall && !visited.has(w) && (w.startAnchor === next || w.endAnchor === next)); if (!nextWall) break; visited.add(nextWall); next = (nextWall.startAnchor === next) ? nextWall.endAnchor : nextWall.startAnchor; attempts++; } } }
@@ -204,7 +281,7 @@ export class FloorPlanner {
             })),
             furniture: this.furniture.map(f => ({ x: f.group.x(), y: f.group.y(), rotation: f.rotation, width: f.width, depth: f.depth, height: f.height, configId: f.config.id })),
             stairs: this.stairs.map(s => ({ path: s.path.map(p => ({ x: p.x, y: p.y, shape: p.shape })) })),
-            roofs: this.roofs.map(r => ({ x: r.group.x(), y: r.group.y(), rotation: r.rotation, width: r.config.width, depth: r.config.depth, pitch: r.config.pitch, overhang: r.config.overhang, thickness: r.config.thickness, ridgeOffset: r.config.ridgeOffset })),
+            roofs: this.roofs.map(r => ({ x: r.group.x(), y: r.group.y(), rotation: r.rotation, width: r.config?.width, depth: r.config?.depth, pitch: r.config?.pitch, overhang: r.config?.overhang, thickness: r.config?.thickness, ridgeOffset: r.config?.ridgeOffset, points: r.points, isHip: !!r.points })),
             roomPaths: this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y })))
         };
         return JSON.stringify(state);
@@ -240,9 +317,15 @@ export class FloorPlanner {
             }
             if (state.roofs) {
                 state.roofs.forEach(rData => {
-                    const roof = new PremiumRoof(this, rData.x, rData.y, rData.width, rData.depth);
+                    let roof;
+                    if (rData.points) {
+                        roof = new PremiumHipRoof(this, rData.points);
+                        roof.group.position({ x: rData.x, y: rData.y });
+                    } else {
+                        return; // Ignore old legacy roofs missing points arrays
+                    }
                     if(rData.rotation) roof.rotation = rData.rotation;
-                    roof.config.pitch = rData.pitch; roof.config.overhang = rData.overhang; roof.config.thickness = rData.thickness; roof.config.ridgeOffset = rData.ridgeOffset;
+                    if(roof.config) { roof.config.pitch = rData.pitch; roof.config.overhang = rData.overhang; roof.config.thickness = rData.thickness; roof.config.ridgeOffset = rData.ridgeOffset; }
                     roof.update(); this.roofs.push(roof);
                 });
             }

@@ -112,6 +112,13 @@
                     <div class="control-group"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="500" @input="syncEngine"><input type="number" v-model.number="selectedEntity.height" @input="syncEngine"></div></div>
                     <button class="hud-delete" @click="handleDelete">Delete Object</button>
                 </div>
+
+                <div v-else-if="selectedType === 'roof'" :key="'r-'+uiTrigger">
+                    <h4 class="props-subtitle">Roof Properties</h4>
+                    <div class="control-group"><label>Pitch (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.pitch" min="0" max="60" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.pitch" @input="syncEngine"></div></div>
+                    <div class="control-group"><label>Overhang</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.overhang" min="0" max="50" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.overhang" @input="syncEngine"></div></div>
+                    <button class="hud-delete" @click="handleDelete">Delete Roof</button>
+                </div>
             </div>
 
             <div class="props-empty" v-else>
@@ -130,12 +137,11 @@
 import { ref, computed, shallowRef, onMounted, onBeforeUnmount } from 'vue';
 import LeftSidebar from './components/LeftSidebar.vue';
 
-// Clean imports: No PremiumRoof
-import { FloorPlanner, PremiumFurniture } from './core/engine2d';
-import { Preview3D } from './core/engine3d'; 
+import { FloorPlanner, PremiumFurniture } from './core/engine2d/index.js';
+import { Preview3D } from './core/engine3d/index.js'; 
 
 import { FileManager } from './core/io';
-import { WALL_DECOR_REGISTRY } from './core/registry';
+import { WALL_DECOR_REGISTRY } from './core/registry.js';
 
 const wallDecorRegistry = WALL_DECOR_REGISTRY;
 
@@ -169,6 +175,7 @@ const currentFaceDecors = computed(() => {
 
 onMounted(() => {
     planner.value = new FloorPlanner(canvas2D.value);
+    planner.value.loadDefaultHouse();
     
     planner.value.onSelectionChange = (entity, type, nodeIdx = -1) => {
         selectedEntity.value = entity; selectedType.value = type; selectedNodeIndex.value = nodeIdx;
@@ -214,11 +221,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeys));
 
 const handleGlobalKeys = (e) => {
     if (viewMode.value === '3d') {
-        // Clean keybinding: No roof
         if (e.key === 'Delete' || e.key === 'Backspace') { 
             if (selectedType.value === 'furniture') handleDelete(); 
         }
         if (e.key === 'Escape' && renderer3D.value) renderer3D.value.cancelRelocation();
+    } else if (viewMode.value === '2d') {
+        if (e.key === 'Delete' || e.key === 'Backspace') if (selectedType.value === 'roof' || selectedType.value === 'furniture') handleDelete();
     }
 };
 
@@ -332,17 +340,21 @@ const onDecorUpdate = (decor) => {
 };
 
 const handleDelete = () => { 
-    // Clean deletion: No roof
-    if (selectedEntity.value && selectedType.value === 'furniture') {
-        if (viewMode.value === '3d' && renderer3D.value.selectedObject?.userData.entity === selectedEntity.value) {
-            renderer3D.value.structureGroup.remove(renderer3D.value.selectedObject); 
-            renderer3D.value.deselectObject();
+    if (selectedEntity.value) {
+        if (selectedType.value === 'furniture') {
+            if (viewMode.value === '3d' && renderer3D.value.selectedObject?.userData.entity === selectedEntity.value) {
+                renderer3D.value.structureGroup.remove(renderer3D.value.selectedObject); 
+                renderer3D.value.deselectObject();
+            }
+            selectedEntity.value.remove(); 
+            selectedEntity.value = null; 
+            selectedType.value = null;
+            if (viewMode.value === '3d') refresh3DScene(true);
+        } else if (selectedType.value === 'roof') {
+            selectedEntity.value.remove();
+            selectedEntity.value = null;
+            selectedType.value = null;
         }
-        selectedEntity.value.remove(); 
-        selectedEntity.value = null; 
-        selectedType.value = null;
-        
-        if (viewMode.value === '3d') refresh3DScene(true);
     }
 };
 
