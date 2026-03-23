@@ -54,7 +54,8 @@
     <div class="unit-section">
       <div class="unit-label">File</div>
       <button class="btn-primary" @click="$emit('export')" style="margin-bottom: 8px;">SAVE JSON</button>
-      <button class="btn-secondary" @click="triggerFileInput">LOAD JSON</button>
+      <button class="btn-secondary" @click="triggerFileInput" style="margin-bottom: 8px;">LOAD JSON</button>
+      <button class="btn-danger" @click="$emit('clear')">CLEAR WORKSPACE</button>
       <input type="file" ref="fileInput" style="display:none" accept=".json" @change="handleFileUpload">
     </div>
   </div>
@@ -65,7 +66,7 @@ import { ref } from 'vue';
 import { WALL_REGISTRY, WIDGET_REGISTRY, FURNITURE_REGISTRY } from '../core/registry.js';
 
 defineProps(['activeTool']);
-const emit = defineEmits(['select-tool', 'toggle-3d', 'export', 'import', 'add-furniture']);
+const emit = defineEmits(['select-tool', 'toggle-3d', 'export', 'import', 'add-furniture', 'clear']);
 
 const fileInput = ref(null);
 const triggerFileInput = () => fileInput.value.click();
@@ -91,6 +92,8 @@ button { width: 100%; padding: 10px; border-radius: 6px; font-size: 12px; cursor
 .btn-primary { background: #111827; color: white; border: none; }
 .btn-primary:hover { background: #374151; }
 .btn-secondary { background: #f9fafb; color: #111827; border: 1px solid #e5e7eb; }
+.btn-danger { background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; }
+.btn-danger:hover { background: #ef4444; color: white; }
 .catalog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .catalog-item { cursor: pointer; border: 1px solid #e5e7eb; border-radius: 6px; padding: 4px; text-align: center; transition: 0.2s; }
 .catalog-item:hover { border-color: #4f46e5; background: #f3f4f6; }

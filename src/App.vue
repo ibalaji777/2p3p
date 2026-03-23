@@ -28,6 +28,7 @@
         @add-furniture="spawnFurniture"
         @export="saveProject"
         @import="loadProject"
+        @clear="clearWorkspace"
       />
 
       <main class="canvas-container">
@@ -392,6 +393,17 @@ const refresh3DScene = (preserveCamera = true) => {
 
 const saveProject = () => FileManager.exportJSON(planner.value);
 const loadProject = (json) => FileManager.importJSON(planner.value, json);
+
+const clearWorkspace = () => {
+    if (confirm('Are you sure you want to clear the workspace? All unsaved progress will be lost.')) {
+        levels.value = [{ id: 'level-' + Date.now(), name: 'Floor 1', data: null }];
+        activeLevelIndex.value = 0;
+        planner.value.clearAll();
+        planner.value.clearReferenceBackground();
+        handleDeselect();
+        if (viewMode.value === '3d') refresh3DScene(true);
+    }
+};
 </script>
 
 <style>

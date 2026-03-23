@@ -1,6 +1,6 @@
 // src/core/engine2d/index.js
 import Konva from 'konva';
-import { GRID, PX_TO_FT, SNAP_DIST } from '../registry.js';
+import { GRID, PX_TO_FT, SNAP_DIST, WALL_REGISTRY } from '../registry.js';
 
 // SOLID: Import the decoupled 2D entity classes from the same folder
 import { Anchor } from '/src/core/engine2d/Anchor.js';
@@ -199,11 +199,111 @@ export class FloorPlanner {
     initStageEvents() { 
         this.stage.on("mousedown", (e) => { 
             if (e.target === this.stage || e.target === this.bgLayer || e.target === this.mainLayer) this.deselectAll(); 
-            // ... (rest of your standard drawing events remain exactly the same)
+            const wallConfig = WALL_REGISTRY[this.tool]; 
+            
+            const pos = this.stage.getPointerPosition();
+            if (!pos) return;
+            
+            let targetPos = { x: this.snap(pos.x), y: this.snap(pos.y) }; 
+
+            if (this.tool === 'stair') { if (!this.drawingStair) { this.drawingStair = new PremiumStair(this, targetPos.x, targetPos.y); this.stairs.push(this.drawingStair); } else { this.drawingStair.addPoint(targetPos.x, targetPos.y); } this.syncAll(); return; }
+            if (!wallConfig) return; 
+
+            let targetSnapWall = null; 
+            if (wallConfig && wallConfig.events.includes("snap_to_wall")) { 
+                let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < SNAP_DIST); 
+                if (a) { targetPos = { x: a.x, y: a.y }; targetSnapWall = this.walls.find(w => w.startAnchor === a || w.endAnchor === a); } 
+                else { let closestDist = SNAP_DIST, closestPoint = null; for (let w of this.walls) { let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = w; } } if (closestPoint) targetPos = closestPoint; } 
+            } 
+            
+            if (this.drawing && wallConfig && wallConfig.events.includes("stop_collision") && this.checkWallIntersection(this.lastAnchor.position(), targetPos, [targetSnapWall])) return; 
+            
+            const currentAnchor = this.getOrCreateAnchor(targetPos.x, targetPos.y); 
+            if (!this.drawing) { this.drawing = true; this.lastAnchor = currentAnchor; this.startAnchor = currentAnchor; currentAnchor.show(); } 
+            else { if (this.lastAnchor !== currentAnchor) { this.walls.push(new PremiumWall(this, this.lastAnchor, currentAnchor, this.tool)); } if (currentAnchor === this.startAnchor) this.finishChain(); else { this.lastAnchor = currentAnchor; currentAnchor.show(); } } 
+            this.syncAll(); 
         }); 
+
         this.stage.on("mousemove", () => { 
-             // ... (rest of your standard mousemove events remain exactly the same)
+            const pos = this.stage.getPointerPosition();
+            if (!pos) return;
+            
+            let rawPos = { x: this.snap(pos.x), y: this.snap(pos.y) }; 
+            
+            if (this.drawingStair) { this.drawingStair.updateLastPoint(rawPos.x, rawPos.y); return; }
+            if (!this.drawing) return; 
+            const wallConfig = WALL_REGISTRY[this.tool]; 
+            
+            let dxAxis = rawPos.x - this.lastAnchor.x, dyAxis = rawPos.y - this.lastAnchor.y, rawAngle = Math.atan2(dyAxis, dxAxis) * 180 / Math.PI, distAxis = Math.hypot(dxAxis, dyAxis), snappedToAxis = false;
+            for (let a of [0, 45, 90, 135, 180, -45, -90, -135, -180]) {
+                if (Math.abs(rawAngle - a) < 5) { 
+                    let rad = a * Math.PI / 180; 
+                    rawPos.x = this.lastAnchor.x + distAxis * Math.cos(rad); 
+                    rawPos.y = this.lastAnchor.y + distAxis * Math.sin(rad); 
+                    snappedToAxis = true; 
+                    this.drawGuideLine(this.lastAnchor.x, this.lastAnchor.y, rawPos.x, rawPos.y, true); 
+                    break; 
+                }
+            }
+            if (!snappedToAxis) this.drawGuideLine(0,0,0,0, false);
+
+            let snapPos = rawPos; let targetSnapWall = null; let snappedObj = false;
+
+            if (wallConfig && wallConfig.events.includes("snap_to_wall")) { 
+                let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < SNAP_DIST); 
+                if (a) { snapPos = { x: a.x, y: a.y }; targetSnapWall = this.walls.find(w => w.startAnchor === a || w.endAnchor === a); snappedObj = true; } 
+                else { 
+                    let closestDist = SNAP_DIST, closestPoint = null; 
+
+                    let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
+                    for (let line of allReferenceWalls) {
+                        let pts = line.points();
+                        if (pts && pts.length === 4) {
+                            let d1 = Math.hypot(pos.x - pts[0], pos.y - pts[1]);
+                            let d2 = Math.hypot(pos.x - pts[2], pos.y - pts[3]);
+                            if (d1 < 40) { closestDist = 0; closestPoint = {x: pts[0], y: pts[1]}; snappedObj = true; }
+                            else if (d2 < 40) { closestDist = 0; closestPoint = {x: pts[2], y: pts[3]}; snappedObj = true; }
+                            else if (!snappedObj) {
+                                let proj = this.getClosestPointOnSegment(pos, {x: pts[0], y: pts[1]}, {x: pts[2], y: pts[3]});
+                                let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                                if (dist < closestDist) { closestDist = dist; closestPoint = proj; snappedObj = true; }
+                            }
+                        }
+                    }
+
+                    for (let w of this.walls) { 
+                        let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); 
+                        let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); 
+                        if (dist < closestDist && !snappedObj) { closestDist = dist; closestPoint = proj; targetSnapWall = w; snappedObj = true; } 
+                    } 
+                    if (closestPoint) snapPos = closestPoint; 
+                } 
+            } 
+            
+            let dxBadge = snapPos.x - this.lastAnchor.x, dyBadge = snapPos.y - this.lastAnchor.y;
+            let lenBadge = this.formatLength(Math.hypot(dxBadge, dyBadge));
+            let angBadge = Math.abs(Math.atan2(dyBadge, dxBadge) * 180 / Math.PI).toFixed(1);
+            this.updateInfoBadge(snapPos.x, snapPos.y, lenBadge, angBadge, snappedObj);
+
+            if (snappedObj) this.showSnapGlow(snapPos.x, snapPos.y); else this.hideSnapGlow();
+            this.walls.forEach(w => w.setHighlight(w === this.selectedEntity));
+
+            let isColliding = false; 
+            if (wallConfig && (wallConfig.events.includes("collision_detected") || wallConfig.events.includes("stop_collision"))) { isColliding = this.checkWallIntersection(this.lastAnchor.position(), snapPos, [targetSnapWall]); } 
+            
+            this.preview?.destroy(); 
+            const isClosing = (this.startAnchor && Math.hypot(this.startAnchor.x - snapPos.x, this.startAnchor.y - snapPos.y) < 15); 
+            let drawColor = (isColliding && wallConfig && wallConfig.events.includes("stop_collision")) ? "#ef4444" : (isClosing ? "#10b981" : "#3b82f6"); 
+            this.preview = new Konva.Line({ points: [this.lastAnchor.x, this.lastAnchor.y, snapPos.x, snapPos.y], stroke: drawColor, strokeWidth: 2, opacity: 0.8 }); 
+            this.uiLayer.add(this.preview); 
+            this.preview.moveToBottom();
+            
+            this.uiLayer.batchDraw(); 
         }); 
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') this.finishChain();
+        });
 
         // --- Hip Roof Drawing Mode Logic ---
         this.stage.on("mousedown.roof", (e) => {
