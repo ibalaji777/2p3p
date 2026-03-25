@@ -6,20 +6,12 @@
 
 <style>
 body{margin:0;overflow:hidden;font-family:Arial}
-
 #panel{
-position:absolute;
-top:10px;
-left:10px;
-background:white;
-padding:12px;
-border-radius:8px;
+position:absolute;top:10px;left:10px;
+background:white;padding:12px;border-radius:8px;
 box-shadow:0 0 10px rgba(0,0,0,.3);
-width:260px;
-z-index:10;
-font-size:13px;
+width:260px;z-index:10;font-size:13px;
 }
-
 #panel input,#panel select{width:100%;margin-bottom:6px}
 #panel button{width:100%;padding:6px;margin-top:6px}
 </style>
@@ -47,19 +39,15 @@ font-size:13px;
 
 <label>Width</label>
 <input type="number" id="roomWidth" value="6">
-
 <label>Depth</label>
 <input type="number" id="roomDepth" value="5">
-
 <label>Height</label>
 <input type="number" id="wallHeight" value="3">
-
 <label>Thickness</label>
 <input type="number" id="thickness" value="0.2">
 
 <label>Tile Size</label>
 <input type="number" id="tileSize" value="1">
-
 <label>Roof Tile Size</label>
 <input type="number" id="roofTileSize" value="1">
 
@@ -169,7 +157,7 @@ objects.push(wall)
 // ===== ROOM =====
 function createRoom(w,d,h,t,x,z){
 
-rooms.push({w,d,x,z})
+rooms.push({w,d,x,z,h,t})
 
 let y=h/2
 
@@ -199,112 +187,121 @@ createRoom(w,d,h,t,0,0)
 createRoom(w*0.7,d*0.5,h,t,0,(d/2)+(d*0.25))
 }
 
-// ===== ROOF FIXED =====
+// ===== ROOF ENGINE =====
 function createMultiRoof(){
 
 rooms.forEach(room=>{
 
-let w=room.w
-let d=room.d
-let x=room.x
-let z=room.z
-let h=+wallHeight.value
+let {w,d,x,z,h,t}=room
 let rh=h*0.6
 
-let type=roofTypeSelect.value
+let W=w+t
+let D=d+t
 
-if(type==="flat"){
-let geo=new THREE.PlaneGeometry(w,d)
-let mat=roofTexture
-? new THREE.MeshStandardMaterial({map:roofTexture.clone(),side:THREE.DoubleSide})
-: new THREE.MeshStandardMaterial({color:0x999999})
-
-let mesh=new THREE.Mesh(geo,mat)
-mesh.rotation.x=-Math.PI/2
-mesh.position.set(x,h+0.01,z)
-
-scene.add(mesh)
-objects.push(mesh)
-return
-}
+let p1=[x-W/2,h,z-D/2]
+let p2=[x+W/2,h,z-D/2]
+let p3=[x+W/2,h,z+D/2]
+let p4=[x-W/2,h,z+D/2]
 
 // helper
 function quad(a,b,c,d){
-return [
-...a,...b,...c,
-...a,...c,...d
-]
+v.push(...a,...b,...c,...a,...c,...d)
+uv.push(0,0,1,0,1,1,0,0,1,1,0,1)
+}
+
+// triangle wall
+function addGableTriangle(a,b,c){
+let geo=new THREE.BufferGeometry()
+geo.setAttribute("position",new THREE.Float32BufferAttribute([...a,...b,...c],3))
+geo.setAttribute("uv",new THREE.Float32BufferAttribute([0,0,1,0,0.5,1],2))
+geo.computeVertexNormals()
+
+let mat = texture
+? new THREE.MeshStandardMaterial({map:texture.clone(),side:THREE.DoubleSide})
+: new THREE.MeshStandardMaterial({color:0xdddddd,side:THREE.DoubleSide})
+
+let m=new THREE.Mesh(geo,mat)
+scene.add(m)
+objects.push(m)
 }
 
 let geo=new THREE.BufferGeometry()
 let v=[],uv=[]
 
-function pushQuad(a,b,c,d){
-v.push(...quad(a,b,c,d))
-uv.push(0,0,1,0,1,1,0,0,1,1,0,1)
-}
-
-let p1=[x-w/2,h,z-d/2]
-let p2=[x+w/2,h,z-d/2]
-let p3=[x+w/2,h,z+d/2]
-let p4=[x-w/2,h,z+d/2]
-
-// ===== GABLE FIX =====
-if(type==="gable"){
+// ===== GABLE =====
+if(roofTypeSelect.value==="gable"){
 
 let useX=w>=d
 
 if(useX){
+let r1=[x-W/2,h+rh,z]
+let r2=[x+W/2,h+rh,z]
 
-let r1=[x-w/2,h+rh,z]
-let r2=[x+w/2,h+rh,z]
+quad(p1,p2,r2,r1)
+quad(p4,p3,r2,r1)
 
-pushQuad(p1,p2,r2,r1)
-pushQuad(p4,p3,r2,r1)
+// triangle walls
+addGableTriangle(p1,r1,p4)
+addGableTriangle(p2,p3,r2)
 
 }else{
+let r1=[x,h+rh,z-D/2]
+let r2=[x,h+rh,z+D/2]
 
-let r1=[x,h+rh,z-d/2]
-let r2=[x,h+rh,z+d/2]
+quad(p1,p4,r2,r1)
+quad(p2,p3,r2,r1)
 
-pushQuad(p1,p4,r2,r1)
-pushQuad(p2,p3,r2,r1)
+addGableTriangle(p1,p2,r1)
+addGableTriangle(p4,r2,p3)
 }
 }
 
 // ===== HIP =====
-else if(type==="hip"){
+if(roofTypeSelect.value==="hip"){
 let top=[x,h+rh,z]
-function tri(a,b,c){
-v.push(...a,...b,...c)
-uv.push(0,0,1,0,0.5,1)
-}
-tri(p1,p2,top)
-tri(p2,p3,top)
-tri(p3,p4,top)
-tri(p4,p1,top)
+v.push(...p1,...p2,...top,...p2,...p3,...top,...p3,...p4,...top,...p4,...p1,...top)
+uv.push(0,0,1,0,0.5,1,0,0,1,0,0.5,1,0,0,1,0,0.5,1,0,0,1,0,0.5,1)
 }
 
 // ===== SHED =====
-else if(type==="shed"){
-let t1=[x-w/2,h+rh,z+d/2]
-let t2=[x+w/2,h+rh,z+d/2]
-pushQuad(p1,p2,t2,t1)
+if(roofTypeSelect.value==="shed"){
+let t1=[x-W/2,h+rh,z+D/2]
+let t2=[x+W/2,h+rh,z+D/2]
+quad(p1,p2,t2,t1)
 }
 
+// ===== FLAT =====
+if(roofTypeSelect.value==="flat"){
+let geoF=new THREE.PlaneGeometry(W,D)
+let tex=roofTexture?.clone()
+if(tex){
+tex.wrapS=tex.wrapT=THREE.RepeatWrapping
+tex.repeat.set(W/roofTileSizeInput.value,D/roofTileSizeInput.value)
+}
+let mat=tex?new THREE.MeshStandardMaterial({map:tex,side:THREE.DoubleSide})
+:new THREE.MeshStandardMaterial({color:0x999999})
+
+let m=new THREE.Mesh(geoF,mat)
+m.rotation.x=-Math.PI/2
+m.position.set(x,h+0.01,z)
+scene.add(m)
+objects.push(m)
+return
+}
+
+// APPLY
 geo.setAttribute("position",new THREE.Float32BufferAttribute(v,3))
 geo.setAttribute("uv",new THREE.Float32BufferAttribute(uv,2))
 geo.computeVertexNormals()
 
-let mat
-if(roofTexture){
-let tex=roofTexture.clone()
+let tex=roofTexture?.clone()
+if(tex){
 tex.wrapS=tex.wrapT=THREE.RepeatWrapping
-tex.repeat.set(w/roofTileSizeInput.value,d/roofTileSizeInput.value)
-mat=new THREE.MeshStandardMaterial({map:tex,side:THREE.DoubleSide})
-}else{
-mat=new THREE.MeshStandardMaterial({color:0x999999,side:THREE.DoubleSide})
+tex.repeat.set(W/roofTileSizeInput.value,D/roofTileSizeInput.value)
 }
+
+let mat=tex?new THREE.MeshStandardMaterial({map:tex,side:THREE.DoubleSide})
+:new THREE.MeshStandardMaterial({color:0x999999,side:THREE.DoubleSide})
 
 let roof=new THREE.Mesh(geo,mat)
 scene.add(roof)
@@ -316,15 +313,13 @@ objects.push(roof)
 
 // ===== EVENTS =====
 generateBtn.onclick=generateWalls
-
-randomBtn.onclick=function(){
-let type=Math.floor(Math.random()*3)
-if(type===0) generateWalls()
-if(type===1) generateLShape()
-if(type===2) generateTShape()
+randomBtn.onclick=()=>{
+let r=Math.floor(Math.random()*3)
+if(r===0)generateWalls()
+if(r===1)generateLShape()
+if(r===2)generateTShape()
 createMultiRoof()
 }
-
 roofBtn.onclick=createMultiRoof
 
 textureUpload.onchange=e=>{
@@ -348,7 +343,7 @@ a.click()
 },{binary:true})
 }
 
-// ===== RENDER =====
+// ===== LOOP =====
 function animate(){
 requestAnimationFrame(animate)
 renderer.render(scene,camera)
