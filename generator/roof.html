@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Wall + Multi Roof Generator</title>
+<title>Wall + Multi Roof Generator (Fixed UV)</title>
 
 <style>
 body{margin:0;overflow:hidden;font-family:Arial}
@@ -20,7 +20,6 @@ width:260px;z-index:10;font-size:13px;
 <body>
 
 <div id="panel">
-
 <h3>Wall + Roof Generator</h3>
 
 <label>Wall Texture</label>
@@ -51,15 +50,10 @@ width:260px;z-index:10;font-size:13px;
 <label>Roof Tile Size</label>
 <input type="number" id="roofTileSize" value="1">
 
-<h4>Wall Mode</h4>
-<label><input type="radio" name="mode" value="single" checked> Single Wall</label>
-<label><input type="radio" name="mode" value="four"> Four Wall</label>
-
 <button id="generateBtn">Generate Walls</button>
 <button id="randomBtn">Random House</button>
 <button id="roofBtn">Add Smart Roof</button>
 <button id="exportBtn">Export GLB</button>
-
 </div>
 
 <script type="importmap">
@@ -76,23 +70,6 @@ import * as THREE from "three"
 import {OrbitControls} from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js"
 import {GLTFExporter} from "https://unpkg.com/three@0.160.0/examples/jsm/exporters/GLTFExporter.js"
 
-// ===== DOM =====
-const roomWidth = document.getElementById("roomWidth")
-const roomDepth = document.getElementById("roomDepth")
-const wallHeight = document.getElementById("wallHeight")
-const thickness = document.getElementById("thickness")
-const tileSizeInput = document.getElementById("tileSize")
-const roofTileSizeInput = document.getElementById("roofTileSize")
-const roofTypeSelect = document.getElementById("roofType")
-
-const generateBtn = document.getElementById("generateBtn")
-const randomBtn = document.getElementById("randomBtn")
-const roofBtn = document.getElementById("roofBtn")
-const exportBtn = document.getElementById("exportBtn")
-
-const textureUpload = document.getElementById("textureUpload")
-const roofTextureUpload = document.getElementById("roofTextureUpload")
-
 // ===== SCENE =====
 let scene=new THREE.Scene()
 scene.background=new THREE.Color(0xf2f2f2)
@@ -108,7 +85,6 @@ document.body.appendChild(renderer.domElement)
 new OrbitControls(camera,renderer.domElement)
 
 scene.add(new THREE.AmbientLight(0xffffff,0.6))
-
 let light=new THREE.DirectionalLight(0xffffff,1)
 light.position.set(5,10,5)
 light.castShadow=true
@@ -130,7 +106,6 @@ rooms=[]
 
 // ===== WALL =====
 function createWall(width,height,depth,x,y,z,rotation){
-
 let geo=new THREE.BoxGeometry(width,height,depth)
 
 let mat
@@ -147,16 +122,12 @@ let wall=new THREE.Mesh(geo,mat)
 wall.position.set(x,y,z)
 if(rotation) wall.rotation.y=rotation
 
-wall.castShadow=true
-wall.receiveShadow=true
-
 scene.add(wall)
 objects.push(wall)
 }
 
 // ===== ROOM =====
 function createRoom(w,d,h,t,x,z){
-
 rooms.push({w,d,x,z,h,t})
 
 let y=h/2
@@ -167,183 +138,191 @@ createWall(d+t*2,h,t,x-(w/2+t/2),y,z,Math.PI/2)
 createWall(d+t*2,h,t,x+(w/2+t/2),y,z,Math.PI/2)
 }
 
-// ===== SHAPES =====
-function generateWalls(){
-clearScene()
-createRoom(+roomWidth.value,+roomDepth.value,+wallHeight.value,+thickness.value,0,0)
+// ===== ROOF SYSTEM =====
+class RoofUtils{
+
+static mat(tex,w,d){
+if(!tex) return new THREE.MeshStandardMaterial({color:0x999999,side:THREE.DoubleSide})
+
+let t=tex.clone()
+t.wrapS=t.wrapT=THREE.RepeatWrapping
+t.repeat.set(w/roofTileSizeInput.value,d/roofTileSizeInput.value)
+
+return new THREE.MeshStandardMaterial({map:t,side:THREE.DoubleSide})
 }
 
-function generateLShape(){
-clearScene()
-let w=+roomWidth.value,d=+roomDepth.value,h=+wallHeight.value,t=+thickness.value
-createRoom(w,d,h,t,0,0)
-createRoom(w*0.6,d*0.6,h,t,(w/2)-(w*0.3),(d/2)+(d*0.3))
+// 🔥 FIXED UV (WORLD PROJECTION)
+static quadUVProjected(v,uv,a,b,c,d){
+
+v.push(...a,...b,...c,...a,...c,...d)
+
+function map(p){
+return [p[0], p[2]] // XZ projection
 }
 
-function generateTShape(){
-clearScene()
-let w=+roomWidth.value,d=+roomDepth.value,h=+wallHeight.value,t=+thickness.value
-createRoom(w,d,h,t,0,0)
-createRoom(w*0.7,d*0.5,h,t,0,(d/2)+(d*0.25))
+let A=map(a), B=map(b), C=map(c), D=map(d)
+
+uv.push(
+A[0],A[1],
+B[0],B[1],
+C[0],C[1],
+
+A[0],A[1],
+C[0],C[1],
+D[0],D[1]
+)
 }
 
-// ===== ROOF ENGINE =====
-function createMultiRoof(){
+static mesh(v,uv,mat){
+let g=new THREE.BufferGeometry()
+g.setAttribute("position",new THREE.Float32BufferAttribute(v,3))
+g.setAttribute("uv",new THREE.Float32BufferAttribute(uv,2))
+g.computeVertexNormals()
+return new THREE.Mesh(g,mat)
+}
 
-rooms.forEach(room=>{
+static triangle(a,b,c,mat){
+let g=new THREE.BufferGeometry()
+g.setAttribute("position",new THREE.Float32BufferAttribute([...a,...b,...c],3))
+g.setAttribute("uv",new THREE.Float32BufferAttribute([0,0,1,0,0.5,1],2))
+g.computeVertexNormals()
+return new THREE.Mesh(g,mat)
+}
+}
 
-let {w,d,x,z,h,t}=room
-let rh=h*0.6
+class Roof{
+constructor(room){this.room=room}
+add(m){scene.add(m);objects.push(m)}
+}
 
-let W=w+t
-let D=d+t
+// ===== GABLE (FIXED) =====
+class GableRoof extends Roof{
+build(){
+
+let {w,d,x,z,h,t}=this.room
+let rh=h*0.6, W=w+t, D=d+t
 
 let p1=[x-W/2,h,z-D/2]
 let p2=[x+W/2,h,z-D/2]
 let p3=[x+W/2,h,z+D/2]
 let p4=[x-W/2,h,z+D/2]
 
-// helpers
-function quad(a,b,c,d){
-v.push(...a,...b,...c,...a,...c,...d)
-uv.push(0,0,1,0,1,1,0,0,1,1,0,1)
-}
-
-function addGableTriangle(a,b,c){
-let geo=new THREE.BufferGeometry()
-geo.setAttribute("position",new THREE.Float32BufferAttribute([...a,...b,...c],3))
-geo.setAttribute("uv",new THREE.Float32BufferAttribute([0,0,1,0,0.5,1],2))
-geo.computeVertexNormals()
-
-let mat = texture
-? new THREE.MeshStandardMaterial({map:texture.clone(),side:THREE.DoubleSide})
-: new THREE.MeshStandardMaterial({color:0xdddddd,side:THREE.DoubleSide})
-
-let m=new THREE.Mesh(geo,mat)
-scene.add(m)
-objects.push(m)
-}
-
-function addShedWall(a,b,c,d){
-let geo=new THREE.BufferGeometry()
-geo.setAttribute("position",new THREE.Float32BufferAttribute([...a,...b,...c,...a,...c,...d],3))
-geo.setAttribute("uv",new THREE.Float32BufferAttribute([0,0,1,0,1,1,0,0,1,1,0,1],2))
-geo.computeVertexNormals()
-
-let mat = texture
-? new THREE.MeshStandardMaterial({map:texture.clone(),side:THREE.DoubleSide})
-: new THREE.MeshStandardMaterial({color:0xdddddd,side:THREE.DoubleSide})
-
-let m=new THREE.Mesh(geo,mat)
-scene.add(m)
-objects.push(m)
-}
-
-let geo=new THREE.BufferGeometry()
 let v=[],uv=[]
+let mat=RoofUtils.mat(roofTexture,W,D)
 
-// ===== GABLE =====
-if(roofTypeSelect.value==="gable"){
-
-let useX=w>=d
-
-if(useX){
+if(w>=d){
 let r1=[x-W/2,h+rh,z]
 let r2=[x+W/2,h+rh,z]
 
-quad(p1,p2,r2,r1)
-quad(p4,p3,r2,r1)
+RoofUtils.quadUVProjected(v,uv,p1,p2,r2,r1)
+RoofUtils.quadUVProjected(v,uv,p4,p3,r2,r1)
 
-addGableTriangle(p1,r1,p4)
-addGableTriangle(p2,p3,r2)
+this.add(RoofUtils.triangle(p1,r1,p4,mat))
+this.add(RoofUtils.triangle(p2,p3,r2,mat))
 
 }else{
 let r1=[x,h+rh,z-D/2]
 let r2=[x,h+rh,z+D/2]
 
-quad(p1,p4,r2,r1)
-quad(p2,p3,r2,r1)
+RoofUtils.quadUVProjected(v,uv,p1,p4,r2,r1)
+RoofUtils.quadUVProjected(v,uv,p2,p3,r2,r1)
 
-addGableTriangle(p1,p2,r1)
-addGableTriangle(p4,r2,p3)
+this.add(RoofUtils.triangle(p1,p2,r1,mat))
+this.add(RoofUtils.triangle(p4,r2,p3,mat))
+}
+
+this.add(RoofUtils.mesh(v,uv,mat))
 }
 }
 
-// ===== HIP =====
-if(roofTypeSelect.value==="hip"){
+// HIP
+class HipRoof extends Roof{
+build(){
+let {w,d,x,z,h,t}=this.room
+let rh=h*0.6, W=w+t, D=d+t
+
+let p1=[x-W/2,h,z-D/2]
+let p2=[x+W/2,h,z-D/2]
+let p3=[x+W/2,h,z+D/2]
+let p4=[x-W/2,h,z+D/2]
 let top=[x,h+rh,z]
+
+let v=[],uv=[]
+let mat=RoofUtils.mat(roofTexture,W,D)
+
 v.push(...p1,...p2,...top,...p2,...p3,...top,...p3,...p4,...top,...p4,...p1,...top)
 uv.push(0,0,1,0,0.5,1,0,0,1,0,0.5,1,0,0,1,0,0.5,1,0,0,1,0,0.5,1)
+
+this.add(RoofUtils.mesh(v,uv,mat))
+}
 }
 
-// ===== SHED =====
-if(roofTypeSelect.value==="shed"){
+// SHED
+class ShedRoof extends Roof{
+build(){
+let {w,d,x,z,h,t}=this.room
+let rh=h*0.6, W=w+t, D=d+t
 
+let p1=[x-W/2,h,z-D/2]
+let p2=[x+W/2,h,z-D/2]
 let t1=[x-W/2,h+rh,z+D/2]
 let t2=[x+W/2,h+rh,z+D/2]
 
-// roof
-quad(p1,p2,t2,t1)
+let v=[],uv=[]
+let mat=RoofUtils.mat(roofTexture,W,D)
 
-// walls (3 sides)
-addShedWall(p1,t1,[p1[0],h,p1[2]],p1)
-addShedWall(p2,t2,[p2[0],h,p2[2]],p2)
-addShedWall(p1,p2,t2,t1)
+RoofUtils.quadUVProjected(v,uv,p1,p2,t2,t1)
+
+this.add(RoofUtils.mesh(v,uv,mat))
+}
 }
 
-// ===== FLAT =====
-if(roofTypeSelect.value==="flat"){
-let geoF=new THREE.PlaneGeometry(W,D)
+// FLAT
+class FlatRoof extends Roof{
+build(){
+let {w,d,x,z,h,t}=this.room
+let W=w+t, D=d+t
 
-let tex=roofTexture?.clone()
-if(tex){
-tex.wrapS=tex.wrapT=THREE.RepeatWrapping
-tex.repeat.set(W/roofTileSizeInput.value,D/roofTileSizeInput.value)
+let g=new THREE.PlaneGeometry(W,D)
+let m=RoofUtils.mat(roofTexture,W,D)
+
+let mesh=new THREE.Mesh(g,m)
+mesh.rotation.x=-Math.PI/2
+mesh.position.set(x,h+0.01,z)
+
+this.add(mesh)
+}
 }
 
-let mat=tex?new THREE.MeshStandardMaterial({map:tex,side:THREE.DoubleSide})
-:new THREE.MeshStandardMaterial({color:0x999999})
-
-let m=new THREE.Mesh(geoF,mat)
-m.rotation.x=-Math.PI/2
-m.position.set(x,h+0.01,z)
-
-scene.add(m)
-objects.push(m)
-return
+// FACTORY
+class RoofFactory{
+static create(type,room){
+if(type==="gable") return new GableRoof(room)
+if(type==="hip") return new HipRoof(room)
+if(type==="shed") return new ShedRoof(room)
+if(type==="flat") return new FlatRoof(room)
+}
 }
 
-// APPLY
-geo.setAttribute("position",new THREE.Float32BufferAttribute(v,3))
-geo.setAttribute("uv",new THREE.Float32BufferAttribute(uv,2))
-geo.computeVertexNormals()
-
-let tex=roofTexture?.clone()
-if(tex){
-tex.wrapS=tex.wrapT=THREE.RepeatWrapping
-tex.repeat.set(W/roofTileSizeInput.value,D/roofTileSizeInput.value)
-}
-
-let mat=tex?new THREE.MeshStandardMaterial({map:tex,side:THREE.DoubleSide})
-:new THREE.MeshStandardMaterial({color:0x999999,side:THREE.DoubleSide})
-
-let roof=new THREE.Mesh(geo,mat)
-scene.add(roof)
-objects.push(roof)
-
+function createMultiRoof(){
+rooms.forEach(r=>{
+let roof=RoofFactory.create(document.getElementById("roofType").value,r)
+roof?.build()
 })
-
 }
 
 // ===== EVENTS =====
-generateBtn.onclick=generateWalls
+generateBtn.onclick=()=>{
+clearScene()
+createRoom(+roomWidth.value,+roomDepth.value,+wallHeight.value,+thickness.value,0,0)
+}
+
 randomBtn.onclick=()=>{
-let r=Math.floor(Math.random()*3)
-if(r===0)generateWalls()
-if(r===1)generateLShape()
-if(r===2)generateTShape()
+clearScene()
+createRoom(6,5,3,0.2,0,0)
 createMultiRoof()
 }
+
 roofBtn.onclick=createMultiRoof
 
 textureUpload.onchange=e=>{
