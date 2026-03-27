@@ -203,17 +203,31 @@ let p2=[x+W/2,h,z-D/2]
 let p3=[x+W/2,h,z+D/2]
 let p4=[x-W/2,h,z+D/2]
 
-// helper
+// helpers
 function quad(a,b,c,d){
 v.push(...a,...b,...c,...a,...c,...d)
 uv.push(0,0,1,0,1,1,0,0,1,1,0,1)
 }
 
-// triangle wall
 function addGableTriangle(a,b,c){
 let geo=new THREE.BufferGeometry()
 geo.setAttribute("position",new THREE.Float32BufferAttribute([...a,...b,...c],3))
 geo.setAttribute("uv",new THREE.Float32BufferAttribute([0,0,1,0,0.5,1],2))
+geo.computeVertexNormals()
+
+let mat = texture
+? new THREE.MeshStandardMaterial({map:texture.clone(),side:THREE.DoubleSide})
+: new THREE.MeshStandardMaterial({color:0xdddddd,side:THREE.DoubleSide})
+
+let m=new THREE.Mesh(geo,mat)
+scene.add(m)
+objects.push(m)
+}
+
+function addShedWall(a,b,c,d){
+let geo=new THREE.BufferGeometry()
+geo.setAttribute("position",new THREE.Float32BufferAttribute([...a,...b,...c,...a,...c,...d],3))
+geo.setAttribute("uv",new THREE.Float32BufferAttribute([0,0,1,0,1,1,0,0,1,1,0,1],2))
 geo.computeVertexNormals()
 
 let mat = texture
@@ -240,7 +254,6 @@ let r2=[x+W/2,h+rh,z]
 quad(p1,p2,r2,r1)
 quad(p4,p3,r2,r1)
 
-// triangle walls
 addGableTriangle(p1,r1,p4)
 addGableTriangle(p2,p3,r2)
 
@@ -265,25 +278,36 @@ uv.push(0,0,1,0,0.5,1,0,0,1,0,0.5,1,0,0,1,0,0.5,1,0,0,1,0,0.5,1)
 
 // ===== SHED =====
 if(roofTypeSelect.value==="shed"){
+
 let t1=[x-W/2,h+rh,z+D/2]
 let t2=[x+W/2,h+rh,z+D/2]
+
+// roof
 quad(p1,p2,t2,t1)
+
+// walls (3 sides)
+addShedWall(p1,t1,[p1[0],h,p1[2]],p1)
+addShedWall(p2,t2,[p2[0],h,p2[2]],p2)
+addShedWall(p1,p2,t2,t1)
 }
 
 // ===== FLAT =====
 if(roofTypeSelect.value==="flat"){
 let geoF=new THREE.PlaneGeometry(W,D)
+
 let tex=roofTexture?.clone()
 if(tex){
 tex.wrapS=tex.wrapT=THREE.RepeatWrapping
 tex.repeat.set(W/roofTileSizeInput.value,D/roofTileSizeInput.value)
 }
+
 let mat=tex?new THREE.MeshStandardMaterial({map:tex,side:THREE.DoubleSide})
 :new THREE.MeshStandardMaterial({color:0x999999})
 
 let m=new THREE.Mesh(geoF,mat)
 m.rotation.x=-Math.PI/2
 m.position.set(x,h+0.01,z)
+
 scene.add(m)
 objects.push(m)
 return
