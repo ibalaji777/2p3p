@@ -34,6 +34,28 @@
       <main class="canvas-container">
         <div class="hint" v-show="viewMode === '2d'">SELECT mode: Click elements to edit. Trace Faded Fills from lower floors perfectly.</div>
         
+        <div class="floating-env-toolbar" v-show="viewMode === '3d'">
+            <div class="env-dropdown" @mouseenter="showSky = true" @mouseleave="showSky = false">
+                <button class="env-icon-btn">🌤️ Sky</button>
+                <div class="env-menu" v-show="showSky">
+                    <div v-for="(config, key) in skyRegistry" :key="key" class="env-menu-item" :class="{active: selectedSky === key}" @click="setSky(key)">
+                        {{ config.name }}
+                    </div>
+                </div>
+            </div>
+            <div class="env-dropdown" @mouseenter="showGround = true" @mouseleave="showGround = false">
+                <button class="env-icon-btn">🌱 Ground</button>
+                <div class="env-menu" v-show="showGround">
+                    <div class="decor-grid">
+                        <div v-for="(config, key) in groundRegistry" :key="key" class="decor-item" @click="setGround(key)" :class="{ active: selectedGround === key }">
+                            <img :src="config.thumbnail" :alt="config.name" />
+                            <span>{{ config.name }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div ref="canvas2D" class="canvas-host" v-show="viewMode === '2d'"></div>
         <div ref="canvas3D" class="canvas-host canvas-3d" v-show="viewMode === '3d'"></div>
         
@@ -60,29 +82,6 @@
             <div class="levels-actions">
                 <button class="btn-duplicate" @click="addLevel('duplicate')">+ Duplicate Current</button>
                 <button class="btn-empty" @click="addLevel('empty')">+ Add Empty Floor</button>
-            </div>
-        </div>
-
-        <div class="panel environment-panel">
-            <div class="panel-header"><h3>Environment</h3></div>
-            <div class="props-content">
-                <div class="control-group">
-                    <label>Sky</label>
-                    <select v-model="selectedSky" @change="updateEnvironment" class="env-select">
-                        <option v-for="(config, key) in skyRegistry" :key="key" :value="key">
-                            {{ config.name }}
-                        </option>
-                    </select>
-                </div>
-                <div class="control-group">
-                    <label>Ground</label>
-                    <div class="decor-grid">
-                        <div v-for="(config, key) in groundRegistry" :key="key" class="decor-item" @click="setGround(key)" :class="{ active: selectedGround === key }">
-                            <img :src="config.thumbnail" :alt="config.name" />
-                            <span>{{ config.name }}</span>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -212,6 +211,9 @@ const activeLevelIndex = ref(0);
 
 const selectedSky = ref('arch_viz_sunny');
 const selectedGround = ref('grass'); // Start with new Grass + Normal map terrain
+
+const showSky = ref(false);
+const showGround = ref(false);
 
 const currentFaceDecors = computed(() => {
     const trigger = uiTrigger.value; 
@@ -355,9 +357,16 @@ const updateEnvironment = () => {
     }
 };
 
+const setSky = (key) => {
+    selectedSky.value = key;
+    updateEnvironment();
+    showSky.value = false;
+};
+
 const setGround = (key) => {
     selectedGround.value = key;
     updateEnvironment();
+    showGround.value = false;
 };
 
 const set3DMode = (mode) => { mode3D.value = mode; if (renderer3D.value) renderer3D.value.setInteractionMode(mode); };
@@ -552,12 +561,12 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .hud-delete { background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; width: 100%; padding: 8px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
 .hud-delete:hover { background: #ef4444; color: white; }
 
-.env-select {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    background: white;
-    font-size: 13px;
-}
+.floating-env-toolbar { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 100; }
+.env-dropdown { position: relative; }
+.env-icon-btn { background: rgba(17, 24, 39, 0.8); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; backdrop-filter: blur(4px); transition: 0.2s; }
+.env-icon-btn:hover { background: rgba(17, 24, 39, 1); box-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
+.env-menu { position: absolute; top: 100%; right: 0; margin-top: 5px; background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); padding: 10px; width: 240px; display: flex; flex-direction: column; gap: 5px; }
+.env-menu-item { padding: 8px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; color: #374151; transition: 0.2s; }
+.env-menu-item:hover { background: #f3f4f6; }
+.env-menu-item.active { background: #eff6ff; color: #1d4ed8; }
 </style>
