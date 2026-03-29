@@ -93,24 +93,28 @@ export const SKY_REGISTRY = {
 };
 
 export const GROUND_REGISTRY = {
-    'grid': { 
-        id: 'grid', name: 'Blueprint Grid', type: 'grid', color: 0x9aa297 
+    'grid': {
+        id: 'grid', name: 'Blueprint Grid', type: 'grid', color: 0x9aa297,
+        thumbnail: 'https://via.placeholder.com/150/9aa297/fff?text=Grid'
     },
     'grass': {
         id: 'grass', name: 'Lush Grass', type: 'terrain',
         texture: 'https://threejs.org/examples/textures/terrain/grasslight-big.jpg',
+        thumbnail: 'https://threejs.org/examples/textures/terrain/grasslight-big.jpg',
         normal: 'https://threejs.org/examples/textures/water/Water_1_M_Normal.jpg',
         repeat: 200, roughness: 1.0, normalScale: 1.0, terrainHeight: 15
     },
     'dark_soil': {
         id: 'dark_soil', name: 'Dark Soil', type: 'terrain',
-        texture: 'assets/ground/soil.jpg', // Safe dark soil fallback
+        texture: 'assets/ground/soil.jpg',
+        thumbnail: 'assets/ground/soil.jpg',
         normal: 'https://threejs.org/examples/textures/water/Water_1_M_Normal.jpg',
         repeat: 200, roughness: 1.0, normalScale: 1.2, terrainHeight: 18
     },
     'sand': {
         id: 'sand', name: 'Sand Terrain', type: 'terrain',
         texture: 'https://cdn.renderhub.com/eagle-soft/ground-terrain-gravel-pbr-texture/ground-terrain-gravel-pbr-texture-01.jpg',
+        thumbnail: 'https://cdn.renderhub.com/eagle-soft/ground-terrain-gravel-pbr-texture/ground-terrain-gravel-pbr-texture-01.jpg',
         normal: 'https://threejs.org/examples/textures/water/Water_1_M_Normal.jpg',
         repeat: 200, roughness: 1.0, normalScale: 0.8, terrainHeight: 10
     }

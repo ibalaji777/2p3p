@@ -76,11 +76,12 @@
                 </div>
                 <div class="control-group">
                     <label>Ground</label>
-                    <select v-model="selectedGround" @change="updateEnvironment" class="env-select">
-                        <option v-for="(config, key) in groundRegistry" :key="key" :value="key">
-                            {{ config.name }}
-                        </option>
-                    </select>
+                    <div class="decor-grid">
+                        <div v-for="(config, key) in groundRegistry" :key="key" class="decor-item" @click="setGround(key)" :class="{ active: selectedGround === key }">
+                            <img :src="config.thumbnail" :alt="config.name" />
+                            <span>{{ config.name }}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -352,6 +353,11 @@ const updateEnvironment = () => {
     if (renderer3D.value) {
         renderer3D.value.setEnvironment(selectedSky.value, selectedGround.value);
     }
+};
+
+const setGround = (key) => {
+    selectedGround.value = key;
+    updateEnvironment();
 };
 
 const set3DMode = (mode) => { mode3D.value = mode; if (renderer3D.value) renderer3D.value.setInteractionMode(mode); };
