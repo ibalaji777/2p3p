@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Three.js Terrain + Controls</title>
+<title>Soil Types + Realism Controls</title>
 
 <!-- ✅ Import Map -->
 <script type="importmap">
@@ -50,7 +50,7 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
 /* ------------------ LIGHTING ------------------ */
-const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+const ambient = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambient);
 
 const sun = new THREE.DirectionalLight(0xffffff, 1);
@@ -58,27 +58,45 @@ sun.position.set(10, 20, 10);
 sun.castShadow = true;
 scene.add(sun);
 
-/* ------------------ TEXTURES ------------------ */
+/* ------------------ TEXTURE LOADER ------------------ */
 const loader = new THREE.TextureLoader();
 
-const diffuse = loader.load("https://threejs.org/examples/textures/terrain/grasslight-big.jpg");
-const normal = loader.load("https://threejs.org/examples/textures/water/Water_1_M_Normal.jpg");
-const roughness = loader.load("https://threejs.org/examples/textures/terrain/grasslight-big-nm.jpg");
+/* ------------------ SOIL TYPES ------------------ */
+const soils = {
 
-/* repeat */
-[diffuse, normal, roughness].forEach(tex => {
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(8, 8);
+  "brown soil": {
+    map: loader.load("https://threejs.org/examples/textures/terrain/grasslight-big.jpg"),
+    normal: loader.load("https://threejs.org/examples/textures/water/Water_1_M_Normal.jpg")
+  },
+
+  "dark soil": {
+    map: loader.load("https://threejs.org/examples/textures/terrain/terrain.jpg"),
+    normal: loader.load("https://threejs.org/examples/textures/water/Water_1_M_Normal.jpg")
+  },
+
+  "sand": {
+    map: loader.load("https://threejs.org/examples/textures/terrain/sand.jpg"),
+    normal: loader.load("https://threejs.org/examples/textures/water/Water_1_M_Normal.jpg")
+  }
+
+};
+
+/* repeat all textures */
+Object.values(soils).forEach(s => {
+  s.map.wrapS = s.map.wrapT = THREE.RepeatWrapping;
+  s.map.repeat.set(8, 8);
+
+  s.normal.wrapS = s.normal.wrapT = THREE.RepeatWrapping;
+  s.normal.repeat.set(8, 8);
 });
 
-/* ------------------ PARAMETERS (CONTROLLED) ------------------ */
+/* ------------------ PARAMETERS ------------------ */
 const params = {
-  height: 0.15,
-  normalScale: 1.2,
-  sunIntensity: 1,
-  sunX: 10,
-  sunY: 20,
-  sunZ: 10
+  soilType: "brown soil",
+  height: 0.12,
+  roughness: 1.0,        // 🔥 key for removing water reflection
+  normalScale: 1.0,
+  sunIntensity: 1
 };
 
 /* ------------------ TERRAIN ------------------ */
@@ -94,36 +112,58 @@ function updateTerrain() {
     let x = pos.getX(i);
     let z = pos.getZ(i);
 
-    let height =
+    let h =
       Math.sin(x * 0.3) * params.height +
       Math.cos(z * 0.3) * params.height;
 
-    pos.setY(i, height);
+    pos.setY(i, h);
   }
 
   pos.needsUpdate = true;
   groundGeo.computeVertexNormals();
 }
 
-updateTerrain();
-
 /* ------------------ MATERIAL ------------------ */
 const soilMaterial = new THREE.MeshStandardMaterial({
-  map: diffuse,
-  normalMap: normal,
-  roughnessMap: roughness,
-  roughness: 0.9,
-  normalScale: new THREE.Vector2(params.normalScale, params.normalScale)
+  roughness: params.roughness,
+  metalness: 0,
 });
 
+/* apply initial texture */
+function updateMaterial() {
+
+  const s = soils[params.soilType];
+
+  soilMaterial.map = s.map;
+  soilMaterial.normalMap = s.normal;
+
+  soilMaterial.roughness = params.roughness;
+
+  soilMaterial.normalScale.set(params.normalScale, params.normalScale);
+
+  soilMaterial.needsUpdate = true;
+}
+
+updateTerrain();
+updateMaterial();
+
+/* ------------------ MESH ------------------ */
 const ground = new THREE.Mesh(groundGeo, soilMaterial);
 ground.receiveShadow = true;
 scene.add(ground);
 
-/* ------------------ GUI CONTROLS ------------------ */
+/* ------------------ GUI ------------------ */
 const gui = new GUI();
 
-gui.add(params, "height", 0, 0.5, 0.01).name("Terrain Height").onChange(updateTerrain);
+gui.add(params, "soilType", Object.keys(soils)).name("Soil Type").onChange(() => {
+  updateMaterial();
+});
+
+gui.add(params, "roughness", 0.7, 1.5, 0.01).name("Roughness").onChange(() => {
+  updateMaterial();
+});
+
+gui.add(params, "height", 0, 0.3, 0.01).name("Terrain Height").onChange(updateTerrain);
 
 gui.add(params, "normalScale", 0.1, 3, 0.1).name("Surface Detail").onChange(() => {
   soilMaterial.normalScale.set(params.normalScale, params.normalScale);
@@ -131,18 +171,6 @@ gui.add(params, "normalScale", 0.1, 3, 0.1).name("Surface Detail").onChange(() =
 
 gui.add(params, "sunIntensity", 0, 2, 0.1).name("Sun Intensity").onChange(() => {
   sun.intensity = params.sunIntensity;
-});
-
-gui.add(params, "sunX", -30, 30).name("Sun X").onChange(() => {
-  sun.position.x = params.sunX;
-});
-
-gui.add(params, "sunY", 0, 50).name("Sun Y").onChange(() => {
-  sun.position.y = params.sunY;
-});
-
-gui.add(params, "sunZ", -30, 30).name("Sun Z").onChange(() => {
-  sun.position.z = params.sunZ;
 });
 
 /* ------------------ RESIZE ------------------ */
@@ -157,11 +185,8 @@ window.addEventListener("resize", () => {
 
 /* ------------------ ANIMATE ------------------ */
 function animate() {
-
   requestAnimationFrame(animate);
-
   controls.update();
-
   renderer.render(scene, camera);
 }
 
