@@ -130,7 +130,7 @@ export class Preview3D {
         if (obj.children) [...obj.children].forEach(c => this.deepDispose(c));
     }
 
-    buildScene(walls, roomPaths, stairs = [], furnitureList = [], levelsJsonArray = [], activeIndex = 0, viewMode3D = 'full-edit', preserveCamera = false) {
+    buildScene(walls, roomPaths, stairs = [], furnitureList = [], roofs = [], levelsJsonArray = [], activeIndex = 0, viewMode3D = 'full-edit', preserveCamera = false) {
         this.deselectObject();
         this.interactables.length = 0; 
         this.viewMode3D = viewMode3D;
@@ -151,7 +151,7 @@ export class Preview3D {
         this.structureGroup.position.y = targetY;
 
         // BUILD ACTIVE
-        this.activeFloorBuilder.build(walls, roomPaths);
+        this.activeFloorBuilder.build(walls, roomPaths, roofs);
         if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn));
 
         // BUILD STATIC

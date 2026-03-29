@@ -10,9 +10,11 @@ export class PremiumHipRoof {
         
         this.config = {
             pitch: 30,
-            overhang: 0,
+            overhang: 20,
             thickness: 10,
-            ridgeOffset: 0
+            ridgeOffset: 0,
+            roofType: 'hip',
+            material: 'asphalt_shingles'
         };
         
         this.rotation = 0; 

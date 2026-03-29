@@ -116,8 +116,25 @@
 
                 <div v-else-if="selectedType === 'roof'" :key="'r-'+uiTrigger">
                     <h4 class="props-subtitle">Roof Properties</h4>
-                    <div class="control-group"><label>Pitch (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.pitch" min="0" max="60" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.pitch" @input="syncEngine"></div></div>
+                    <div class="control-group">>
+                        <select v-model="selectedEntity.config.roofType" @change="syncEngine" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                            <option value="hip">Hip Roof</option>
+                            <option value="flat">Flat Roof</option>
+                        </select>
+                    </div>
+                    <div class="control-group" v-if="selectedEntity.config.roofType === 'hip'"><label>Pitch (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.pitch" min="0" max="60" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.pitch" @input="syncEngine"></div></div>
                     <div class="control-group"><label>Overhang</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.overhang" min="0" max="50" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.overhang" @input="syncEngine"></div></div>
+                    
+                    <div class="decor-gallery">
+                        <h4 class="props-subtitle">Roof Material</h4>
+                        <div class="decor-grid">
+                            <div v-for="(config, key) in roofDecorRegistry" :key="key" class="decor-item" @click="setRoofMaterial(key)" :class="{ active: selectedEntity.config.material === key }">
+                                <img :src="config.thumbnail" />
+                                <span>{{ config.name }}</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <button class="hud-delete" @click="handleDelete">Delete Roof</button>
                 </div>
             </div>
@@ -142,9 +159,9 @@ import { FloorPlanner, PremiumFurniture } from './core/engine2d/index.js';
 import { Preview3D } from './core/engine3d/index.js'; 
 
 import { FileManager } from './core/io';
-import { WALL_DECOR_REGISTRY } from './core/registry.js';
-
+import { WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY } from './core/registry.js';
 const wallDecorRegistry = WALL_DECOR_REGISTRY;
+const roofDecorRegistry = ROOF_DECOR_REGISTRY;
 
 const canvas2D = ref(null);
 const canvas3D = ref(null);
@@ -332,6 +349,15 @@ const syncEngine = () => {
         planner.value.syncAll();
     } else if (viewMode.value === '3d' && selectedType.value === 'furniture') {
         renderer3D.value.updateFurnitureLive(selectedEntity.value); 
+    } else if (viewMode.value === '3d' && selectedType.value === 'roof') {
+        refresh3DScene(true);
+    }
+};
+
+const setRoofMaterial = (key) => {
+    if (selectedEntity.value && selectedType.value === 'roof') {
+        selectedEntity.value.config.material = key;
+        syncEngine();
     }
 };
 
@@ -377,12 +403,12 @@ const refresh3DScene = (preserveCamera = true) => {
         saveCurrentLevelState(); 
         const levelsJsonArray = levels.value.map(l => l.data);
         
-        // Clean function call: No roofs array passed to buildScene
         renderer3D.value.buildScene(
             planner.value.walls, 
-            planner.value.roomPaths, 
+            planner.value.roomPaths,
             planner.value.stairs, 
             planner.value.furniture, 
+            planner.value.roofs,
             levelsJsonArray, 
             activeLevelIndex.value, 
             viewMode3D.value, 
@@ -480,10 +506,9 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .decor-gallery { margin-top: 15px; }
 .decor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .decor-item { border: 1px solid #e5e7eb; border-radius: 6px; padding: 6px; cursor: pointer; text-align: center; background: #fff; transition: 0.2s; }
-.decor-item:hover { border-color: #3b82f6; background: #eff6ff; }
+.decor-item:hover, .decor-item.active { border-color: #3b82f6; background: #eff6ff; }
 .decor-item img { width: 100%; height: 50px; object-fit: cover; border-radius: 4px; margin-bottom: 4px; }
 .decor-item span { font-size: 10px; color: #4b5563; font-weight: bold; }
-
 .hud-delete { background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; width: 100%; padding: 8px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
 .hud-delete:hover { background: #ef4444; color: white; }
 </style>

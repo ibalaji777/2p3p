@@ -66,6 +66,23 @@ export const WALL_DECOR_REGISTRY = {
     }
 };
 
+export const ROOF_DECOR_REGISTRY = {
+    'asphalt_shingles': {
+        id: 'asphalt_shingles',
+        name: 'Dark Shingles',
+        texture: 'models/wall/redbrick.png', 
+         thumbnail:'models/wall/redbrick.png',
+        repeat: 2
+    },
+    'concrete_flat': {
+        id: 'concrete_flat',
+        name: 'Concrete Flat',
+        texture: 'https://via.placeholder.com/512x512/d1d5db/d1d5db', 
+        thumbnail: 'https://via.placeholder.com/150/d1d5db/000?text=Concrete', 
+        repeat: 1
+    }
+};
+
 export const FURNITURE_REGISTRY = {
       'couch_1': {
         id: 'couch_1',

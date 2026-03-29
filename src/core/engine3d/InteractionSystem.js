@@ -89,9 +89,9 @@ export class InteractionSystem {
                     return;
                 }
 
-                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor) mesh = mesh.parent;
+                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isRoof) mesh = mesh.parent;
                 
-                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor)) {
+                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isRoof)) {
                     if (this.mode === 'edit') {
                         if (mesh.userData.isWallDecor) {
                             const side = mesh.userData.entity.side;
@@ -236,8 +236,8 @@ export class InteractionSystem {
             this.wallHighlight.rotation.set(0, 0, 0); 
             this.wallHighlight.visible = true;
         } 
-        else if (object.userData.isFurniture || object.userData.isWallDecor) {
-            type = object.userData.isFurniture ? 'furniture' : 'wallDecor';
+        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isRoof) {
+            type = object.userData.isFurniture ? 'furniture' : (object.userData.isRoof ? 'roof' : 'wallDecor');
             this.setHighlight(object, true);
         }
         if (type && this.callbacks.onEntitySelect) this.callbacks.onEntitySelect(object.userData.entity, type, side);
@@ -245,7 +245,7 @@ export class InteractionSystem {
 
     deselect() {
         this.cancelRelocation();
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor)) this.setHighlight(this.selectedObject, false);
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isRoof)) this.setHighlight(this.selectedObject, false);
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
         this.selectedObject = null;
         if (this.callbacks.onEntitySelect) this.callbacks.onEntitySelect(null, null, null);

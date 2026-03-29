@@ -381,7 +381,7 @@ export class FloorPlanner {
             })),
             furniture: this.furniture.map(f => ({ x: f.group.x(), y: f.group.y(), rotation: f.rotation, width: f.width, depth: f.depth, height: f.height, configId: f.config.id })),
             stairs: this.stairs.map(s => ({ path: s.path.map(p => ({ x: p.x, y: p.y, shape: p.shape })) })),
-            roofs: this.roofs.map(r => ({ x: r.group.x(), y: r.group.y(), rotation: r.rotation, width: r.config?.width, depth: r.config?.depth, pitch: r.config?.pitch, overhang: r.config?.overhang, thickness: r.config?.thickness, ridgeOffset: r.config?.ridgeOffset, points: r.points, isHip: !!r.points })),
+            roofs: this.roofs.map(r => ({ x: r.group.x(), y: r.group.y(), rotation: r.rotation, width: r.config?.width, depth: r.config?.depth, pitch: r.config?.pitch, overhang: r.config?.overhang, thickness: r.config?.thickness, ridgeOffset: r.config?.ridgeOffset, points: r.points, isHip: !!r.points, roofType: r.config?.roofType, material: r.config?.material })),
             roomPaths: this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y })))
         };
         return JSON.stringify(state);
@@ -425,7 +425,7 @@ export class FloorPlanner {
                         return; // Ignore old legacy roofs missing points arrays
                     }
                     if(rData.rotation) roof.rotation = rData.rotation;
-                    if(roof.config) { roof.config.pitch = rData.pitch; roof.config.overhang = rData.overhang; roof.config.thickness = rData.thickness; roof.config.ridgeOffset = rData.ridgeOffset; }
+                    if(roof.config) { roof.config.pitch = rData.pitch; roof.config.overhang = rData.overhang; roof.config.thickness = rData.thickness; roof.config.ridgeOffset = rData.ridgeOffset; roof.config.roofType = rData.roofType || 'hip'; roof.config.material = rData.material || 'asphalt_shingles'; }
                     roof.update(); this.roofs.push(roof);
                 });
             }

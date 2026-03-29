@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WALL_HEIGHT } from '../registry.js';
+import { WALL_HEIGHT, ROOF_DECOR_REGISTRY } from '../registry.js';
 import { Wall3DBuilder } from './Wall3DBuilder.js';
 
 export class StaticFloors {
@@ -89,6 +89,53 @@ export class StaticFloors {
                         floorGroup.add(this.wallBuilder.createJoint(data.x, data.y, data.thickness));
                     });
                 }
+                
+                // Build Roofs
+                if (data.roofs) {
+                    data.roofs.forEach(roofData => {
+                        const pts = roofData.points;
+                        if (!pts || pts.length < 3) return;
+
+                        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                        pts.forEach(p => {
+                            minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+                            minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+                        });
+
+                        const overhang = roofData.overhang || 0;
+                        const W = (maxX - minX) + overhang * 2;
+                        const D = (maxY - minY) + overhang * 2;
+                        const cx = minX + (maxX - minX) / 2;
+                        const cz = minY + (maxY - minY) / 2;
+                        const h = WALL_HEIGHT;
+
+                        const decor = ROOF_DECOR_REGISTRY[roofData.material] || ROOF_DECOR_REGISTRY['asphalt_shingles'];
+                        const tex = new THREE.TextureLoader().load(decor.texture);
+                        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+                        tex.repeat.set(W / (100 * (decor.repeat || 1)), D / (100 * (decor.repeat || 1)));
+                        const mat = new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide });
+
+                        let mesh;
+                        if (roofData.roofType === 'flat') {
+                            const geo = new THREE.BoxGeometry(W, roofData.thickness || 2, D);
+                            mesh = new THREE.Mesh(geo, mat); mesh.position.set(cx, (roofData.thickness || 2)/2, cz);
+                        } else {
+                            const rh = Math.tan((roofData.pitch || 30) * Math.PI / 180) * (Math.min(W, D) / 2);
+                            const top = [cx, rh, cz];
+                            const v = [], uv = [];
+                            v.push(...[cx - W/2, 0, cz - D/2],...[cx + W/2, 0, cz - D/2],...top, ...[cx + W/2, 0, cz - D/2],...[cx + W/2, 0, cz + D/2],...top, ...[cx + W/2, 0, cz + D/2],...[cx - W/2, 0, cz + D/2],...top, ...[cx - W/2, 0, cz + D/2],...[cx - W/2, 0, cz - D/2],...top);
+                            uv.push(0,0,1,0,0.5,1, 0,0,1,0,0.5,1, 0,0,1,0,0.5,1, 0,0,1,0,0.5,1);
+                            const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(v, 3)); geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); geo.computeVertexNormals();
+                            mesh = new THREE.Mesh(geo, mat);
+                        }
+
+                        const roofGroup = new THREE.Group(); roofGroup.position.set(roofData.x || 0, h, roofData.y || 0); roofGroup.rotation.y = -(roofData.rotation || 0) * Math.PI / 180;
+                        mesh.castShadow = true; mesh.receiveShadow = true;
+                        if (!isPreview) { mesh.userData = { isFloorTrigger: true, levelIndex: index }; this.interactables.push(mesh); }
+                        roofGroup.add(mesh); floorGroup.add(roofGroup);
+                    });
+                }
+                
                 staticStructureGroup.add(floorGroup);
             } catch (e) { console.error("Error parsing static floor", e); }
         });
