@@ -36,7 +36,7 @@ export const WALL_DECOR_REGISTRY = {
     'brick_wall': {
         id: 'brick_wall',
         name: 'Red Bricks',
-                texture: 'models/wall/redbrick.png', 
+        texture: 'models/wall/redbrick.png', 
         // texture: 'https://threejs.org/examples/textures/brick_diffuse.jpg', 
         thumbnail: 'https://threejs.org/examples/textures/brick_diffuse.jpg', 
         defaultWidth: 100,
@@ -63,6 +63,56 @@ export const WALL_DECOR_REGISTRY = {
         defaultHeight: 100,
         defaultDepth: 0.2,
         defaultRepeat: 1
+    }
+};
+
+export const SKY_REGISTRY = {
+    'arch_viz_sunny': {
+        id: 'arch_viz_sunny',
+        name: 'Vibrant Sunny',
+        type: 'color',
+        skyColor: 0x5dade2,
+        fogColor: 0xe0eaf5,
+        hemiSky: 0xffffff,
+        hemiGround: 0x4ade80,
+        sunColor: 0xffffee,
+        ambient: 0.3,
+        hemi: 0.8,
+        sun: 2.5
+    },
+    'cloudy_day': {
+        id: 'cloudy_day',
+        name: 'Realistic Cloudy',
+        type: 'hdri',
+        url: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/jpg/1k/cloudy_sky_1k.jpg',
+        sunColor: 0xffffff,
+        ambient: 0.7,
+        hemi: 0.6,
+        sun: 1.8
+    }
+};
+
+export const GROUND_REGISTRY = {
+    'grid': { 
+        id: 'grid', name: 'Blueprint Grid', type: 'grid', color: 0x9aa297 
+    },
+    'grass': {
+        id: 'grass', name: 'Lush Grass', type: 'terrain',
+        texture: 'https://threejs.org/examples/textures/terrain/grasslight-big.jpg',
+        normal: 'https://threejs.org/examples/textures/water/Water_1_M_Normal.jpg',
+        repeat: 200, roughness: 1.0, normalScale: 1.0, terrainHeight: 15
+    },
+    'dark_soil': {
+        id: 'dark_soil', name: 'Dark Soil', type: 'terrain',
+        texture: 'assets/ground/soil.jpg', // Safe dark soil fallback
+        normal: 'https://threejs.org/examples/textures/water/Water_1_M_Normal.jpg',
+        repeat: 200, roughness: 1.0, normalScale: 1.2, terrainHeight: 18
+    },
+    'sand': {
+        id: 'sand', name: 'Sand Terrain', type: 'terrain',
+        texture: 'https://cdn.renderhub.com/eagle-soft/ground-terrain-gravel-pbr-texture/ground-terrain-gravel-pbr-texture-01.jpg',
+        normal: 'https://threejs.org/examples/textures/water/Water_1_M_Normal.jpg',
+        repeat: 200, roughness: 1.0, normalScale: 0.8, terrainHeight: 10
     }
 };
 

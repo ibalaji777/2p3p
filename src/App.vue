@@ -63,6 +63,28 @@
             </div>
         </div>
 
+        <div class="panel environment-panel">
+            <div class="panel-header"><h3>Environment</h3></div>
+            <div class="props-content">
+                <div class="control-group">
+                    <label>Sky</label>
+                    <select v-model="selectedSky" @change="updateEnvironment" class="env-select">
+                        <option v-for="(config, key) in skyRegistry" :key="key" :value="key">
+                            {{ config.name }}
+                        </option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Ground</label>
+                    <select v-model="selectedGround" @change="updateEnvironment" class="env-select">
+                        <option v-for="(config, key) in groundRegistry" :key="key" :value="key">
+                            {{ config.name }}
+                        </option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
         <div class="panel properties-panel flex-1">
             <div class="panel-header"><h3>Properties</h3></div>
             
@@ -159,9 +181,11 @@ import { FloorPlanner, PremiumFurniture } from './core/engine2d/index.js';
 import { Preview3D } from './core/engine3d/index.js'; 
 
 import { FileManager } from './core/io';
-import { WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY } from './core/registry.js';
+import { WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY } from './core/registry.js';
 const wallDecorRegistry = WALL_DECOR_REGISTRY;
 const roofDecorRegistry = ROOF_DECOR_REGISTRY;
+const skyRegistry = SKY_REGISTRY;
+const groundRegistry = GROUND_REGISTRY;
 
 const canvas2D = ref(null);
 const canvas3D = ref(null);
@@ -184,6 +208,9 @@ const activeDecorId = ref(null);
 
 const levels = ref([{ id: 'level-' + Date.now(), name: 'Floor 1', data: null }]);
 const activeLevelIndex = ref(0);
+
+const selectedSky = ref('arch_viz_sunny');
+const selectedGround = ref('grass'); // Start with new Grass + Normal map terrain
 
 const currentFaceDecors = computed(() => {
     const trigger = uiTrigger.value; 
@@ -308,6 +335,7 @@ const switchTo3D = () => {
     setTimeout(() => {
         if (renderer3D.value) {
             renderer3D.value.resize();
+            updateEnvironment();
             renderer3D.value.setInteractionMode(mode3D.value); 
             refresh3DScene(false); 
         }
@@ -318,6 +346,12 @@ const setViewMode3D = (mode) => {
     viewMode3D.value = mode; handleDeselect();
     if (mode === 'preview') set3DMode('camera'); 
     refresh3DScene(true); 
+};
+
+const updateEnvironment = () => {
+    if (renderer3D.value) {
+        renderer3D.value.setEnvironment(selectedSky.value, selectedGround.value);
+    }
 };
 
 const set3DMode = (mode) => { mode3D.value = mode; if (renderer3D.value) renderer3D.value.setInteractionMode(mode); };
@@ -511,4 +545,13 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .decor-item span { font-size: 10px; color: #4b5563; font-weight: bold; }
 .hud-delete { background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; width: 100%; padding: 8px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 10px; }
 .hud-delete:hover { background: #ef4444; color: white; }
+
+.env-select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: white;
+    font-size: 13px;
+}
 </style>

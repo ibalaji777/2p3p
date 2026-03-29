@@ -99,6 +99,13 @@ export class Preview3D {
 
     // --- Vue API Bridge Methods ---
 
+    setEnvironment(skyKey, groundKey) {
+        if (this.sceneSetup) {
+            if (skyKey) this.sceneSetup.setSky(skyKey);
+            if (groundKey) this.sceneSetup.setGround(groundKey);
+        }
+    }
+
     setInteractionMode(mode) { 
         this.interactions.setMode(mode); 
         this.controls.enableRotate = (mode === 'camera');
