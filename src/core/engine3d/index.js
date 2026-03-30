@@ -158,7 +158,7 @@ export class Preview3D {
         this.structureGroup.position.y = targetY;
 
         // BUILD ACTIVE
-        this.activeFloorBuilder.build(walls, roomPaths, roofs);
+        this.activeFloorBuilder.build(walls, roomPaths, roofs, activeIndex);
         if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn));
 
         // BUILD STATIC

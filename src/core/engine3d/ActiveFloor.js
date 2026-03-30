@@ -11,10 +11,11 @@ export class ActiveFloor {
         this.matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7 });
     }
 
-    build(walls, roomPaths, roofs) {
+    build(walls, roomPaths, roofs, activeIndex = 0) {
         this._buildSlabs(roomPaths);
         
-        if (roofs) this._buildRoofs(roofs);
+        const hasWalls = walls && walls.length > 0;
+        if (roofs) this._buildRoofs(roofs, activeIndex, hasWalls);
         
         const anchorMap = new Map();
 
@@ -70,7 +71,7 @@ export class ActiveFloor {
         });
     }
 
-    _buildRoofs(roofs) {
+    _buildRoofs(roofs, activeIndex, hasWalls) {
         roofs.forEach(roof => {
             const pts = roof.points || [];
             if (pts.length < 3) return;
@@ -83,11 +84,17 @@ export class ActiveFloor {
 
             const conf = roof.config || {};
             const overhang = conf.overhang || 0;
-            const W = (maxX - minX) + overhang * 2;
-            const D = (maxY - minY) + overhang * 2;
+            const wallGap = conf.wallGap || 0;
+            const wallOffset = 8; // Expands base to outer wall edges to prevent wall poking
+
+            const W = (maxX - minX) + (wallOffset * 2) + (overhang * 2);
+            const D = (maxY - minY) + (wallOffset * 2) + (overhang * 2);
             const cx = minX + (maxX - minX) / 2;
             const cz = minY + (maxY - minY) / 2;
-            const h = WALL_HEIGHT; 
+            
+            // Auto-detect: if no walls exist here, roof mathematically caps the floor below
+            const baseHeight = (hasWalls || activeIndex === 0) ? WALL_HEIGHT : 0;
+            const h = baseHeight + wallGap; 
 
             const decor = ROOF_DECOR_REGISTRY[conf.material] || ROOF_DECOR_REGISTRY['asphalt_shingles'];
             const tex = new THREE.TextureLoader().load(decor.texture);
@@ -103,14 +110,30 @@ export class ActiveFloor {
                 mesh.position.set(cx, (conf.thickness || 2)/2, cz);
             } else {
                 const pitch = conf.pitch || 30;
+                const drop = Math.tan(pitch * Math.PI / 180) * overhang;
                 const rh = Math.tan(pitch * Math.PI / 180) * (Math.min(W, D) / 2);
-                const p1 = [cx - W/2, 0, cz - D/2]; const p2 = [cx + W/2, 0, cz - D/2];
-                const p3 = [cx + W/2, 0, cz + D/2]; const p4 = [cx - W/2, 0, cz + D/2];
-                const top = [cx, rh, cz];
+                
+                const p1 = [cx - W/2, -drop, cz - D/2];
+                const p2 = [cx + W/2, -drop, cz - D/2];
+                const p3 = [cx + W/2, -drop, cz + D/2];
+                const p4 = [cx - W/2, -drop, cz + D/2];
 
                 const v = [], uv = [];
-                v.push(...p1,...p2,...top, ...p2,...p3,...top, ...p3,...p4,...top, ...p4,...p1,...top);
-                uv.push(0,0,1,0,0.5,1, 0,0,1,0,0.5,1, 0,0,1,0,0.5,1, 0,0,1,0,0.5,1);
+                if (W >= D) {
+                    const r1 = [cx - (W - D)/2, rh - drop, cz];
+                    const r2 = [cx + (W - D)/2, rh - drop, cz];
+                    v.push(...p4, ...p3, ...r2, ...p4, ...r2, ...r1); uv.push(0,0, 1,0, 0.75,1, 0,0, 0.75,1, 0.25,1);
+                    v.push(...p3, ...p2, ...r2); uv.push(0,0, 1,0, 0.5,1);
+                    v.push(...p2, ...p1, ...r1, ...p2, ...r1, ...r2); uv.push(0,0, 1,0, 0.75,1, 0,0, 0.75,1, 0.25,1);
+                    v.push(...p1, ...p4, ...r1); uv.push(0,0, 1,0, 0.5,1);
+                } else {
+                    const r1 = [cx, rh - drop, cz - (D - W)/2];
+                    const r2 = [cx, rh - drop, cz + (D - W)/2];
+                    v.push(...p4, ...p3, ...r2); uv.push(0,0, 1,0, 0.5,1);
+                    v.push(...p3, ...p2, ...r1, ...p3, ...r1, ...r2); uv.push(0,0, 1,0, 0.75,1, 0,0, 0.75,1, 0.25,1);
+                    v.push(...p2, ...p1, ...r1); uv.push(0,0, 1,0, 0.5,1);
+                    v.push(...p1, ...p4, ...r2, ...p1, ...r2, ...r1); uv.push(0,0, 1,0, 0.75,1, 0,0, 0.75,1, 0.25,1);
+                }
 
                 const geo = new THREE.BufferGeometry();
                 geo.setAttribute("position", new THREE.Float32BufferAttribute(v, 3));

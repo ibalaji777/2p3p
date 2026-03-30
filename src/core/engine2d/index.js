@@ -312,13 +312,18 @@ export class FloorPlanner {
             if (!pos) return;
             
             let snap = pos;
-            let closestAnchor = null;
-            let minDist = SNAP_DIST;
-            this.anchors.forEach(a => {
-                const d = Math.hypot(a.x - pos.x, a.y - pos.y);
-                if (d < minDist) { minDist = d; closestAnchor = a; }
-            });
-            if (closestAnchor) { snap = { x: closestAnchor.x, y: closestAnchor.y }; }
+            let closestDist = SNAP_DIST;
+            
+            let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
+            for (let line of allReferenceWalls) {
+                let pts = line.points();
+                if (pts && pts.length === 4) {
+                    let d1 = Math.hypot(pos.x - pts[0], pos.y - pts[1]); let d2 = Math.hypot(pos.x - pts[2], pos.y - pts[3]);
+                    if (d1 < closestDist) { closestDist = d1; snap = {x: pts[0], y: pts[1]}; }
+                    if (d2 < closestDist) { closestDist = d2; snap = {x: pts[2], y: pts[3]}; }
+                    let proj = this.getClosestPointOnSegment(pos, {x: pts[0], y: pts[1]}, {x: pts[2], y: pts[3]}); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); if (dist < closestDist) { closestDist = dist; snap = proj; }
+                }
+            }
             
             if (!this.drawingRoofPoints) {
                 this.drawingRoofPoints = [snap];
@@ -342,9 +347,21 @@ export class FloorPlanner {
                 const pos = this.stage.getPointerPosition();
                 if (!pos) return;
                 
-                let snap = pos; let closestAnchor = null; let minDist = SNAP_DIST;
-                this.anchors.forEach(a => { const d = Math.hypot(a.x - pos.x, a.y - pos.y); if (d < minDist) { minDist = d; closestAnchor = a; } });
-                if (closestAnchor) { snap = { x: closestAnchor.x, y: closestAnchor.y }; this.showSnapGlow(snap.x, snap.y); } else { this.hideSnapGlow(); }
+                let snap = pos; 
+                let closestDist = SNAP_DIST;
+                let snappedObj = false;
+
+                let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
+                for (let line of allReferenceWalls) {
+                    let pts = line.points();
+                    if (pts && pts.length === 4) {
+                        let d1 = Math.hypot(pos.x - pts[0], pos.y - pts[1]); let d2 = Math.hypot(pos.x - pts[2], pos.y - pts[3]);
+                        if (d1 < closestDist) { closestDist = d1; snap = {x: pts[0], y: pts[1]}; snappedObj = true; } if (d2 < closestDist) { closestDist = d2; snap = {x: pts[2], y: pts[3]}; snappedObj = true; }
+                        let proj = this.getClosestPointOnSegment(pos, {x: pts[0], y: pts[1]}, {x: pts[2], y: pts[3]}); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); if (dist < closestDist) { closestDist = dist; snap = proj; snappedObj = true; }
+                    }
+                }
+                
+                if (snappedObj) { this.showSnapGlow(snap.x, snap.y); } else { this.hideSnapGlow(); }
 
                 if (this.drawingRoofPoints && this.roofPreview) {
                     const pts = this.drawingRoofPoints.flatMap(p => [p.x, p.y]); pts.push(snap.x, snap.y);
@@ -381,7 +398,7 @@ export class FloorPlanner {
             })),
             furniture: this.furniture.map(f => ({ x: f.group.x(), y: f.group.y(), rotation: f.rotation, width: f.width, depth: f.depth, height: f.height, configId: f.config.id })),
             stairs: this.stairs.map(s => ({ path: s.path.map(p => ({ x: p.x, y: p.y, shape: p.shape })) })),
-            roofs: this.roofs.map(r => ({ x: r.group.x(), y: r.group.y(), rotation: r.rotation, width: r.config?.width, depth: r.config?.depth, pitch: r.config?.pitch, overhang: r.config?.overhang, thickness: r.config?.thickness, ridgeOffset: r.config?.ridgeOffset, points: r.points, isHip: !!r.points, roofType: r.config?.roofType, material: r.config?.material })),
+            roofs: this.roofs.map(r => ({ x: r.group.x(), y: r.group.y(), rotation: r.rotation, width: r.config?.width, depth: r.config?.depth, pitch: r.config?.pitch, overhang: r.config?.overhang, thickness: r.config?.thickness, ridgeOffset: r.config?.ridgeOffset, points: r.points, isHip: !!r.points, roofType: r.config?.roofType, material: r.config?.material, wallGap: r.config?.wallGap })),
             roomPaths: this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y })))
         };
         return JSON.stringify(state);
@@ -425,7 +442,7 @@ export class FloorPlanner {
                         return; // Ignore old legacy roofs missing points arrays
                     }
                     if(rData.rotation) roof.rotation = rData.rotation;
-                    if(roof.config) { roof.config.pitch = rData.pitch; roof.config.overhang = rData.overhang; roof.config.thickness = rData.thickness; roof.config.ridgeOffset = rData.ridgeOffset; roof.config.roofType = rData.roofType || 'hip'; roof.config.material = rData.material || 'asphalt_shingles'; }
+                    if(roof.config) { roof.config.pitch = rData.pitch; roof.config.overhang = rData.overhang; roof.config.thickness = rData.thickness; roof.config.ridgeOffset = rData.ridgeOffset; roof.config.roofType = rData.roofType || 'hip'; roof.config.material = rData.material || 'asphalt_shingles'; roof.config.wallGap = rData.wallGap || 0; }
                     roof.update(); this.roofs.push(roof);
                 });
             }

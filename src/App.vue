@@ -127,7 +127,7 @@
                     </div>
                 </div>
 
-                <div v-else-if="selectedType === 'furniture'" :key="'f-'+uiTrigger">
+                <div v-else-if="selectedType === 'furniture'">
                     <h4 class="props-subtitle">{{ selectedEntity.config?.name || 'Object' }}</h4>
                     <div class="control-group"><label>Rotation (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.rotation" min="0" max="360" @input="syncEngine"><input type="number" v-model.number="selectedEntity.rotation" @input="syncEngine"></div></div>
                     <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="10" max="500" @input="syncEngine"><input type="number" v-model.number="selectedEntity.width" @input="syncEngine"></div></div>
@@ -136,9 +136,9 @@
                     <button class="hud-delete" @click="handleDelete">Delete Object</button>
                 </div>
 
-                <div v-else-if="selectedType === 'roof'" :key="'r-'+uiTrigger">
+                <div v-else-if="selectedType === 'roof'">
                     <h4 class="props-subtitle">Roof Properties</h4>
-                    <div class="control-group">>
+                    <div class="control-group">
                         <select v-model="selectedEntity.config.roofType" @change="syncEngine" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
                             <option value="hip">Hip Roof</option>
                             <option value="flat">Flat Roof</option>
@@ -146,6 +146,7 @@
                     </div>
                     <div class="control-group" v-if="selectedEntity.config.roofType === 'hip'"><label>Pitch (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.pitch" min="0" max="60" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.pitch" @input="syncEngine"></div></div>
                     <div class="control-group"><label>Overhang</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.overhang" min="0" max="50" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.overhang" @input="syncEngine"></div></div>
+                    <div class="control-group"><label>Elevation Gap</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.wallGap" min="-50" max="100" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.wallGap" @input="syncEngine"></div></div>
                     
                     <div class="decor-gallery">
                         <h4 class="props-subtitle">Roof Material</h4>
@@ -205,6 +206,7 @@ const selectedNodeIndex = ref(-1);
 const uiTrigger = ref(0); 
 const isPlacing3D = ref(false);
 const activeDecorId = ref(null);
+const isRebuilding = ref(false);
 
 const levels = ref([{ id: 'level-' + Date.now(), name: 'Floor 1', data: null }]);
 const activeLevelIndex = ref(0);
@@ -236,6 +238,7 @@ onMounted(() => {
     renderer3D.value = new Preview3D(canvas3D.value);
     
     renderer3D.value.onEntitySelect = (entity, type, side = null) => {
+        if (isRebuilding.value && !entity) return; // Prevent losing slider focus during rebuilds
         selectedEntity.value = entity; selectedType.value = type; 
         if (type !== 'wallDecor') { selectedWallSide.value = side; activeDecorId.value = null; }
     };
@@ -449,6 +452,11 @@ const handleDeleteSpecificDecor = (decorObj) => {
 
 const refresh3DScene = (preserveCamera = true) => {
     if (renderer3D.value) {
+        isRebuilding.value = true;
+        const prevSel = selectedEntity.value;
+        const prevType = selectedType.value;
+        const prevSide = selectedWallSide.value;
+        
         saveCurrentLevelState(); 
         const levelsJsonArray = levels.value.map(l => l.data);
         
@@ -463,6 +471,19 @@ const refresh3DScene = (preserveCamera = true) => {
             viewMode3D.value, 
             preserveCamera
         ); 
+
+        if (prevSel) {
+            const newMesh = renderer3D.value.interactables.find(m => {
+                if (prevType === 'wall' && m.userData.isWallSide && m.userData.entity === prevSel && m.userData.side === prevSide) return true;
+                if (m.userData && m.userData.entity === prevSel) return true;
+                return false;
+            });
+            if (newMesh) {
+                renderer3D.value.selectObject(newMesh);
+            }
+        }
+        
+        isRebuilding.value = false;
     }
 };
 

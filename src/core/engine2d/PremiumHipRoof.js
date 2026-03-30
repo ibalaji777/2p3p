@@ -14,7 +14,8 @@ export class PremiumHipRoof {
             thickness: 10,
             ridgeOffset: 0,
             roofType: 'hip',
-            material: 'asphalt_shingles'
+            material: 'asphalt_shingles',
+            wallGap: 0
         };
         
         this.rotation = 0; 
@@ -95,8 +96,24 @@ export class PremiumHipRoof {
         let cx = minX + (maxX - minX) / 2;
         let cy = minY + (maxY - minY) / 2;
         
-        // Draw hip lines from corners to the centroid
-        this.points.forEach(p => { this.hipLinesGroup.add(new Konva.Line({ points: [p.x, p.y, cx, cy], stroke: '#FFA500', strokeWidth: 2, dash: [4, 4] })); });
+        let W = maxX - minX, D = maxY - minY;
+        let r1x, r1y, r2x, r2y;
+        
+        if (W >= D) {
+            r1x = cx - (W - D)/2; r1y = cy; r2x = cx + (W - D)/2; r2y = cy;
+            this.hipLinesGroup.add(new Konva.Line({ points: [r1x, r1y, r2x, r2y], stroke: '#FFA500', strokeWidth: 2, dash: [4, 4] }));
+            this.points.forEach(p => { 
+                let targetX = (p.x < cx) ? r1x : r2x; 
+                this.hipLinesGroup.add(new Konva.Line({ points: [p.x, p.y, targetX, cy], stroke: '#FFA500', strokeWidth: 2, dash: [4, 4] })); 
+            });
+        } else {
+            r1x = cx; r1y = cy - (D - W)/2; r2x = cx; r2y = cy + (D - W)/2;
+            this.hipLinesGroup.add(new Konva.Line({ points: [r1x, r1y, r2x, r2y], stroke: '#FFA500', strokeWidth: 2, dash: [4, 4] }));
+            this.points.forEach(p => { 
+                let targetY = (p.y < cy) ? r1y : r2y; 
+                this.hipLinesGroup.add(new Konva.Line({ points: [p.x, p.y, cx, targetY], stroke: '#FFA500', strokeWidth: 2, dash: [4, 4] })); 
+            });
+        }
     }
     
     remove() { this.group.destroy(); this.planner.roofs = this.planner.roofs.filter(r => r !== this); this.planner.selectEntity(null); this.planner.syncAll(); }

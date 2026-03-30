@@ -50,10 +50,7 @@ export class StaticFloors {
                         const length = Math.hypot(dx, dz); const angle = Math.atan2(dz, dx);
                         
                         // Mock Data for Managers
-                        w.config = { thickness: w.thickness }; w.length3D = length;
-                        w.attachedWidgets = w.widgets || []; w.attachedDecor = w.decors || [];
-                        w.isStatic = true; w.levelIndex = index; w.wallIndex = wallIndex;
-
+                        w.config = { thickness: w.thickness }; w.length3D = length; w.attachedWidgets = w.widgets || []; w.attachedDecor = w.decors || []; w.isStatic = true; w.levelIndex = index; w.wallIndex = wallIndex;
                         const { wallGroup } = this.wallBuilder.buildWallGroup(length, w.thickness, w.attachedWidgets, w.startX, w.startY, angle);
                         wallGroup.userData = { entity: w };
                         w.mesh3D = wallGroup;
@@ -86,12 +83,15 @@ export class StaticFloors {
 
                     // Build Joints
                     anchorMap.forEach((data) => {
-                        floorGroup.add(this.wallBuilder.createJoint(data.x, data.y, data.thickness));
+                        floorGroup.add(this.wallBuilder.createJoint(data.x, data.y, data.thickness)); 
                     });
                 }
                 
                 // Build Roofs
                 if (data.roofs) {
+                    const hasWalls = data.walls && data.walls.length > 0;
+                    const baseHeight = (hasWalls || index === 0) ? WALL_HEIGHT : 0;
+
                     data.roofs.forEach(roofData => {
                         const pts = roofData.points;
                         if (!pts || pts.length < 3) return;
@@ -103,11 +103,14 @@ export class StaticFloors {
                         });
 
                         const overhang = roofData.overhang || 0;
-                        const W = (maxX - minX) + overhang * 2;
-                        const D = (maxY - minY) + overhang * 2;
+                        const wallGap = roofData.wallGap || 0;
+                        const wallOffset = 8; // Fixes wall poking by expanding base to outer edges
+
+                        const W = (maxX - minX) + (wallOffset * 2) + (overhang * 2);
+                        const D = (maxY - minY) + (wallOffset * 2) + (overhang * 2);
                         const cx = minX + (maxX - minX) / 2;
                         const cz = minY + (maxY - minY) / 2;
-                        const h = WALL_HEIGHT;
+                        const h = baseHeight + wallGap;
 
                         const decor = ROOF_DECOR_REGISTRY[roofData.material] || ROOF_DECOR_REGISTRY['asphalt_shingles'];
                         const tex = new THREE.TextureLoader().load(decor.texture);
@@ -120,11 +123,27 @@ export class StaticFloors {
                             const geo = new THREE.BoxGeometry(W, roofData.thickness || 2, D);
                             mesh = new THREE.Mesh(geo, mat); mesh.position.set(cx, (roofData.thickness || 2)/2, cz);
                         } else {
-                            const rh = Math.tan((roofData.pitch || 30) * Math.PI / 180) * (Math.min(W, D) / 2);
-                            const top = [cx, rh, cz];
+                            const pitch = roofData.pitch || 30;
+                            const drop = Math.tan(pitch * Math.PI / 180) * overhang;
+                            const rh = Math.tan(pitch * Math.PI / 180) * (Math.min(W, D) / 2);
+                            
+                            const p1 = [cx - W/2, -drop, cz - D/2]; const p2 = [cx + W/2, -drop, cz - D/2];
+                            const p3 = [cx + W/2, -drop, cz + D/2]; const p4 = [cx - W/2, -drop, cz + D/2];
                             const v = [], uv = [];
-                            v.push(...[cx - W/2, 0, cz - D/2],...[cx + W/2, 0, cz - D/2],...top, ...[cx + W/2, 0, cz - D/2],...[cx + W/2, 0, cz + D/2],...top, ...[cx + W/2, 0, cz + D/2],...[cx - W/2, 0, cz + D/2],...top, ...[cx - W/2, 0, cz + D/2],...[cx - W/2, 0, cz - D/2],...top);
-                            uv.push(0,0,1,0,0.5,1, 0,0,1,0,0.5,1, 0,0,1,0,0.5,1, 0,0,1,0,0.5,1);
+                            if (W >= D) {
+                                const r1 = [cx - (W - D)/2, rh - drop, cz]; const r2 = [cx + (W - D)/2, rh - drop, cz];
+                                v.push(...p4, ...p3, ...r2, ...p4, ...r2, ...r1); uv.push(0,0, 1,0, 0.75,1, 0,0, 0.75,1, 0.25,1);
+                                v.push(...p3, ...p2, ...r2); uv.push(0,0, 1,0, 0.5,1);
+                                v.push(...p2, ...p1, ...r1, ...p2, ...r1, ...r2); uv.push(0,0, 1,0, 0.75,1, 0,0, 0.75,1, 0.25,1);
+                                v.push(...p1, ...p4, ...r1); uv.push(0,0, 1,0, 0.5,1);
+                            } else {
+                                const r1 = [cx, rh - drop, cz - (D - W)/2]; const r2 = [cx, rh - drop, cz + (D - W)/2];
+                                v.push(...p4, ...p3, ...r2); uv.push(0,0, 1,0, 0.5,1);
+                                v.push(...p3, ...p2, ...r1, ...p3, ...r1, ...r2); uv.push(0,0, 1,0, 0.75,1, 0,0, 0.75,1, 0.25,1);
+                                v.push(...p2, ...p1, ...r1); uv.push(0,0, 1,0, 0.5,1);
+                                v.push(...p1, ...p4, ...r2, ...p1, ...r2, ...r1); uv.push(0,0, 1,0, 0.75,1, 0,0, 0.75,1, 0.25,1);
+                            }
+
                             const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(v, 3)); geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); geo.computeVertexNormals();
                             mesh = new THREE.Mesh(geo, mat);
                         }
