@@ -83,18 +83,14 @@ export class ActiveFloor {
             });
 
             const conf = roof.config || {};
-            const overhang = conf.overhang || 0;
             const wallGap = conf.wallGap || 0;
-            const wallOffset = 8; // Expands base to outer wall edges to prevent wall poking
-
-            const W = (maxX - minX) + (wallOffset * 2) + (overhang * 2);
-            const D = (maxY - minY) + (wallOffset * 2) + (overhang * 2);
-            const cx = minX + (maxX - minX) / 2;
-            const cz = minY + (maxY - minY) / 2;
+            
+            const W = maxX - minX;
+            const D = maxY - minY;
             
             // Auto-detect: if no walls exist here, roof mathematically caps the floor below
             const baseHeight = (hasWalls || activeIndex === 0) ? WALL_HEIGHT : 0;
-            const h = baseHeight + wallGap; 
+            const h = baseHeight + wallGap + 0.5; // +0.5 prevents z-fighting with top of the walls
 
             const decor = ROOF_DECOR_REGISTRY[conf.material] || ROOF_DECOR_REGISTRY['asphalt_shingles'];
             const tex = new THREE.TextureLoader().load(decor.texture);
@@ -105,34 +101,46 @@ export class ActiveFloor {
 
             let mesh;
             if (conf.roofType === 'flat') {
-                const geo = new THREE.BoxGeometry(W, conf.thickness || 2, D);
+                const shape = new THREE.Shape();
+                shape.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) shape.lineTo(pts[i].x, pts[i].y);
+                shape.lineTo(pts[0].x, pts[0].y);
+                
+                const geo = new THREE.ExtrudeGeometry(shape, { depth: conf.thickness || 2, bevelEnabled: false });
+                geo.rotateX(Math.PI / 2);
+                geo.translate(0, conf.thickness || 2, 0); // Flat roofs rest perfectly flush
                 mesh = new THREE.Mesh(geo, mat);
-                mesh.position.set(cx, (conf.thickness || 2)/2, cz);
             } else {
                 const pitch = conf.pitch || 30;
-                const drop = Math.tan(pitch * Math.PI / 180) * overhang;
-                const rh = Math.tan(pitch * Math.PI / 180) * (Math.min(W, D) / 2);
+                const maxSpan = Math.min(W, D);
+                const rh = Math.tan(pitch * Math.PI / 180) * (maxSpan / 2);
                 
-                const p1 = [cx - W/2, -drop, cz - D/2];
-                const p2 = [cx + W/2, -drop, cz - D/2];
-                const p3 = [cx + W/2, -drop, cz + D/2];
-                const p4 = [cx - W/2, -drop, cz + D/2];
+                // Calculate Polygon Mathematical Centroid
+                let cx = 0, cy = 0, signedArea = 0;
+                for (let i = 0; i < pts.length; i++) {
+                    let p0 = pts[i], p1 = pts[(i + 1) % pts.length];
+                    let a = p0.x * p1.y - p1.x * p0.y;
+                    signedArea += a;
+                    cx += (p0.x + p1.x) * a;
+                    cy += (p0.y + p1.y) * a;
+                }
+                signedArea *= 0.5;
+                if (signedArea !== 0) { cx /= (6.0 * signedArea); cy /= (6.0 * signedArea); } 
+                else { cx = minX + W/2; cy = minY + D/2; }
 
+                const top = [cx, rh, cy];
                 const v = [], uv = [];
-                if (W >= D) {
-                    const r1 = [cx - (W - D)/2, rh - drop, cz];
-                    const r2 = [cx + (W - D)/2, rh - drop, cz];
-                    v.push(...p4, ...p3, ...r2, ...p4, ...r2, ...r1); uv.push(0,0, 1,0, 0.75,1, 0,0, 0.75,1, 0.25,1);
-                    v.push(...p3, ...p2, ...r2); uv.push(0,0, 1,0, 0.5,1);
-                    v.push(...p2, ...p1, ...r1, ...p2, ...r1, ...r2); uv.push(0,0, 1,0, 0.75,1, 0,0, 0.75,1, 0.25,1);
-                    v.push(...p1, ...p4, ...r1); uv.push(0,0, 1,0, 0.5,1);
-                } else {
-                    const r1 = [cx, rh - drop, cz - (D - W)/2];
-                    const r2 = [cx, rh - drop, cz + (D - W)/2];
-                    v.push(...p4, ...p3, ...r2); uv.push(0,0, 1,0, 0.5,1);
-                    v.push(...p3, ...p2, ...r1, ...p3, ...r1, ...r2); uv.push(0,0, 1,0, 0.75,1, 0,0, 0.75,1, 0.25,1);
-                    v.push(...p2, ...p1, ...r1); uv.push(0,0, 1,0, 0.5,1);
-                    v.push(...p1, ...p4, ...r2, ...p1, ...r2, ...r1); uv.push(0,0, 1,0, 0.75,1, 0,0, 0.75,1, 0.25,1);
+                
+                // Build perfectly sealed triangles with upward facing normals
+                for (let i = 0; i < pts.length; i++) {
+                    let p0 = pts[i], p1 = pts[(i + 1) % pts.length];
+                    let dx1 = p1.x - p0.x, dz1 = p1.y - p0.y;
+                    let dx2 = top[0] - p0.x, dz2 = top[2] - p0.y;
+                    let ny = dx1 * dz2 - dz1 * dx2; 
+                    
+                    if (ny < 0) { v.push(p1.x, 0, p1.y, p0.x, 0, p0.y, ...top); } 
+                    else { v.push(p0.x, 0, p0.y, p1.x, 0, p1.y, ...top); }
+                    uv.push(0, 0, 1, 0, 0.5, 1);
                 }
 
                 const geo = new THREE.BufferGeometry();
@@ -143,7 +151,7 @@ export class ActiveFloor {
             }
 
             const roofGroup = new THREE.Group();
-            roofGroup.position.set(roof.group.x(), h, roof.group.y());
+            roofGroup.position.set(0, h, 0); // Rely purely on exact point coords
             roofGroup.rotation.y = -roof.rotation * Math.PI / 180; 
             
             mesh.castShadow = true; mesh.receiveShadow = true;

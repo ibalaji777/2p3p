@@ -10,7 +10,7 @@ export class PremiumHipRoof {
         
         this.config = {
             pitch: 30,
-            overhang: 20,
+            overhang: 0,
             thickness: 10,
             ridgeOffset: 0,
             roofType: 'hip',
@@ -89,31 +89,24 @@ export class PremiumHipRoof {
     generateHipLines() {
         this.hipLinesGroup.destroyChildren();
         
-        // Calculate generic center visual (inward bisector intersection approximation)
-        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        this.points.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
-        
-        let cx = minX + (maxX - minX) / 2;
-        let cy = minY + (maxY - minY) / 2;
-        
-        let W = maxX - minX, D = maxY - minY;
-        let r1x, r1y, r2x, r2y;
-        
-        if (W >= D) {
-            r1x = cx - (W - D)/2; r1y = cy; r2x = cx + (W - D)/2; r2y = cy;
-            this.hipLinesGroup.add(new Konva.Line({ points: [r1x, r1y, r2x, r2y], stroke: '#FFA500', strokeWidth: 2, dash: [4, 4] }));
-            this.points.forEach(p => { 
-                let targetX = (p.x < cx) ? r1x : r2x; 
-                this.hipLinesGroup.add(new Konva.Line({ points: [p.x, p.y, targetX, cy], stroke: '#FFA500', strokeWidth: 2, dash: [4, 4] })); 
-            });
-        } else {
-            r1x = cx; r1y = cy - (D - W)/2; r2x = cx; r2y = cy + (D - W)/2;
-            this.hipLinesGroup.add(new Konva.Line({ points: [r1x, r1y, r2x, r2y], stroke: '#FFA500', strokeWidth: 2, dash: [4, 4] }));
-            this.points.forEach(p => { 
-                let targetY = (p.y < cy) ? r1y : r2y; 
-                this.hipLinesGroup.add(new Konva.Line({ points: [p.x, p.y, cx, targetY], stroke: '#FFA500', strokeWidth: 2, dash: [4, 4] })); 
-            });
+        let cx = 0, cy = 0, signedArea = 0;
+        for (let i = 0; i < this.points.length; i++) {
+            let p0 = this.points[i], p1 = this.points[(i + 1) % this.points.length];
+            let a = p0.x * p1.y - p1.x * p0.y;
+            signedArea += a; cx += (p0.x + p1.x) * a; cy += (p0.y + p1.y) * a;
         }
+        signedArea *= 0.5;
+        
+        if (signedArea !== 0) { cx /= (6.0 * signedArea); cy /= (6.0 * signedArea); } 
+        else {
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            this.points.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
+            cx = minX + (maxX - minX) / 2; cy = minY + (maxY - minY) / 2;
+        }
+        
+        this.points.forEach(p => { 
+            this.hipLinesGroup.add(new Konva.Line({ points: [p.x, p.y, cx, cy], stroke: '#FFA500', strokeWidth: 2, dash: [4, 4] })); 
+        });
     }
     
     remove() { this.group.destroy(); this.planner.roofs = this.planner.roofs.filter(r => r !== this); this.planner.selectEntity(null); this.planner.syncAll(); }

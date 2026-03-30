@@ -102,15 +102,10 @@ export class StaticFloors {
                             minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
                         });
 
-                        const overhang = roofData.overhang || 0;
                         const wallGap = roofData.wallGap || 0;
-                        const wallOffset = 8; // Fixes wall poking by expanding base to outer edges
-
-                        const W = (maxX - minX) + (wallOffset * 2) + (overhang * 2);
-                        const D = (maxY - minY) + (wallOffset * 2) + (overhang * 2);
-                        const cx = minX + (maxX - minX) / 2;
-                        const cz = minY + (maxY - minY) / 2;
-                        const h = baseHeight + wallGap;
+                        const W = maxX - minX;
+                        const D = maxY - minY;
+                        const h = baseHeight + wallGap + 0.5;
 
                         const decor = ROOF_DECOR_REGISTRY[roofData.material] || ROOF_DECOR_REGISTRY['asphalt_shingles'];
                         const tex = new THREE.TextureLoader().load(decor.texture);
@@ -120,35 +115,44 @@ export class StaticFloors {
 
                         let mesh;
                         if (roofData.roofType === 'flat') {
-                            const geo = new THREE.BoxGeometry(W, roofData.thickness || 2, D);
-                            mesh = new THREE.Mesh(geo, mat); mesh.position.set(cx, (roofData.thickness || 2)/2, cz);
+                            const shape = new THREE.Shape();
+                            shape.moveTo(pts[0].x, pts[0].y);
+                            for (let i = 1; i < pts.length; i++) shape.lineTo(pts[i].x, pts[i].y);
+                            shape.lineTo(pts[0].x, pts[0].y);
+                            const geo = new THREE.ExtrudeGeometry(shape, { depth: roofData.thickness || 2, bevelEnabled: false });
+                            geo.rotateX(Math.PI / 2); geo.translate(0, roofData.thickness || 2, 0);
+                            mesh = new THREE.Mesh(geo, mat);
                         } else {
                             const pitch = roofData.pitch || 30;
-                            const drop = Math.tan(pitch * Math.PI / 180) * overhang;
                             const rh = Math.tan(pitch * Math.PI / 180) * (Math.min(W, D) / 2);
                             
-                            const p1 = [cx - W/2, -drop, cz - D/2]; const p2 = [cx + W/2, -drop, cz - D/2];
-                            const p3 = [cx + W/2, -drop, cz + D/2]; const p4 = [cx - W/2, -drop, cz + D/2];
+                            let cx = 0, cy = 0, signedArea = 0;
+                            for (let i = 0; i < pts.length; i++) {
+                                let p0 = pts[i], p1 = pts[(i + 1) % pts.length];
+                                let a = p0.x * p1.y - p1.x * p0.y;
+                                signedArea += a; cx += (p0.x + p1.x) * a; cy += (p0.y + p1.y) * a;
+                            }
+                            signedArea *= 0.5;
+                            if (signedArea !== 0) { cx /= (6.0 * signedArea); cy /= (6.0 * signedArea); } 
+                            else { cx = minX + W/2; cy = minY + D/2; }
+
+                            const top = [cx, rh, cy];
                             const v = [], uv = [];
-                            if (W >= D) {
-                                const r1 = [cx - (W - D)/2, rh - drop, cz]; const r2 = [cx + (W - D)/2, rh - drop, cz];
-                                v.push(...p4, ...p3, ...r2, ...p4, ...r2, ...r1); uv.push(0,0, 1,0, 0.75,1, 0,0, 0.75,1, 0.25,1);
-                                v.push(...p3, ...p2, ...r2); uv.push(0,0, 1,0, 0.5,1);
-                                v.push(...p2, ...p1, ...r1, ...p2, ...r1, ...r2); uv.push(0,0, 1,0, 0.75,1, 0,0, 0.75,1, 0.25,1);
-                                v.push(...p1, ...p4, ...r1); uv.push(0,0, 1,0, 0.5,1);
-                            } else {
-                                const r1 = [cx, rh - drop, cz - (D - W)/2]; const r2 = [cx, rh - drop, cz + (D - W)/2];
-                                v.push(...p4, ...p3, ...r2); uv.push(0,0, 1,0, 0.5,1);
-                                v.push(...p3, ...p2, ...r1, ...p3, ...r1, ...r2); uv.push(0,0, 1,0, 0.75,1, 0,0, 0.75,1, 0.25,1);
-                                v.push(...p2, ...p1, ...r1); uv.push(0,0, 1,0, 0.5,1);
-                                v.push(...p1, ...p4, ...r2, ...p1, ...r2, ...r1); uv.push(0,0, 1,0, 0.75,1, 0,0, 0.75,1, 0.25,1);
+                            for (let i = 0; i < pts.length; i++) {
+                                let p0 = pts[i], p1 = pts[(i + 1) % pts.length];
+                                let dx1 = p1.x - p0.x, dz1 = p1.y - p0.y;
+                                let dx2 = top[0] - p0.x, dz2 = top[2] - p0.y;
+                                let ny = dx1 * dz2 - dz1 * dx2; 
+                                if (ny < 0) { v.push(p1.x, 0, p1.y, p0.x, 0, p0.y, ...top); } 
+                                else { v.push(p0.x, 0, p0.y, p1.x, 0, p1.y, ...top); }
+                                uv.push(0, 0, 1, 0, 0.5, 1);
                             }
 
                             const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(v, 3)); geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); geo.computeVertexNormals();
                             mesh = new THREE.Mesh(geo, mat);
                         }
 
-                        const roofGroup = new THREE.Group(); roofGroup.position.set(roofData.x || 0, h, roofData.y || 0); roofGroup.rotation.y = -(roofData.rotation || 0) * Math.PI / 180;
+                        const roofGroup = new THREE.Group(); roofGroup.position.set(0, h, 0); roofGroup.rotation.y = -(roofData.rotation || 0) * Math.PI / 180;
                         mesh.castShadow = true; mesh.receiveShadow = true;
                         if (!isPreview) { mesh.userData = { isFloorTrigger: true, levelIndex: index }; this.interactables.push(mesh); }
                         roofGroup.add(mesh); floorGroup.add(roofGroup);
