@@ -35,7 +35,8 @@ export class Preview3D {
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
-        this.controls.maxPolarAngle = Math.PI / 2 - 0.02; 
+        // this.controls.maxPolarAngle = Math.PI / 2 - 0.02; // Allow looking from underneath
+        this.controls.screenSpacePanning = true; // Enable panning
 
         // Shared Global State
         this.interactables = [];

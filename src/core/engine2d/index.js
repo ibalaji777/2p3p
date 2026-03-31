@@ -129,7 +129,15 @@ export class FloorPlanner {
 
     snap(v) { return Math.round(v / GRID) * GRID; }
     formatLength(px) { const feet = px * PX_TO_FT; if (this.currentUnit === 'in') return Math.round(feet * 12) + '"'; if (this.currentUnit === 'cm') return Math.round(feet * 30.48) + ' cm'; if (this.currentUnit === 'm') return (feet * 0.3048).toFixed(2) + ' m'; const wholeFeet = Math.floor(feet), inches = Math.round((feet - wholeFeet) * 12); return inches > 0 ? `${wholeFeet}' ${inches}"` : `${wholeFeet}'`; }
-    drawGrid() { for (let i = 0; i < this.stage.width() / GRID; i++) this.gridLayer.add(new Konva.Line({ points: [i * GRID, 0, i * GRID, this.stage.height()], stroke: "#f0f0f0", strokeWidth: 1, listening: false })); for (let j = 0; j < this.stage.height() / GRID; j++) this.gridLayer.add(new Konva.Line({ points: [0, j * GRID, this.stage.width(), j * GRID], stroke: "#f0f0f0", strokeWidth: 1, listening: false })); this.bgLayer.batchDraw(); }
+    
+    drawGrid() { 
+        const size = 5000; // Giant 10,000px canvas workspace
+        for (let i = -size; i <= size; i += GRID) {
+            this.gridLayer.add(new Konva.Line({ points: [i, -size, i, size], stroke: "#f0f0f0", strokeWidth: 1, listening: false })); 
+            this.gridLayer.add(new Konva.Line({ points: [-size, i, size, i], stroke: "#f0f0f0", strokeWidth: 1, listening: false })); 
+        }
+        this.bgLayer.batchDraw(); 
+    }
     
     doIntersect(p1, p2, p3, p4) { const ccw = (A, B, C) => (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x); return ccw(p1, p3, p4) !== ccw(p2, p3, p4) && ccw(p1, p2, p3) !== ccw(p1, p2, p4); }
     checkWallIntersection(p1, p2, ignoreWalls = []) { for (let w of this.walls) { if (ignoreWalls.includes(w)) continue; if (this.getDistanceToWall(p1, w) < 1.0) continue; if (this.getDistanceToWall(p2, w) < 1.0) continue; if (this.doIntersect(p1, p2, w.startAnchor.position(), w.endAnchor.position())) return true; } return false; }

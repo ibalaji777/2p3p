@@ -35,6 +35,16 @@
         <div class="hint" v-show="viewMode === '2d'">SELECT mode: Click elements to edit. Trace Faded Fills from lower floors perfectly.</div>
         
         <div class="floating-env-toolbar" v-show="viewMode === '3d'">
+            <div class="env-dropdown" @mouseenter="showCamera = true" @mouseleave="showCamera = false">
+                <button class="env-icon-btn">📷 Camera</button>
+                <div class="env-menu" v-show="showCamera">
+                    <div class="env-menu-item" @click="setCameraPreset('iso')">Isometric View</div>
+                    <div class="env-menu-item" @click="setCameraPreset('top')">Top-Down View</div>
+                    <div class="env-menu-item" @click="setCameraPreset('front')">Front View</div>
+                    <div class="env-menu-item" @click="rotateCamera(-0.1)">Rotate Left</div>
+                    <div class="env-menu-item" @click="rotateCamera(0.1)">Rotate Right</div>
+                </div>
+            </div>
             <div class="env-dropdown" @mouseenter="showSky = true" @mouseleave="showSky = false">
                 <button class="env-icon-btn">🌤️ Sky</button>
                 <div class="env-menu" v-show="showSky">
@@ -54,6 +64,12 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <div class="bottom-right-toolbar">
+            <button @click="zoomIn" title="Zoom In">+</button>
+            <button @click="zoomOut" title="Zoom Out">-</button>
+            <button @click="resetZoom" title="Reset Zoom">⛶</button>
         </div>
 
         <div ref="canvas2D" class="canvas-host" v-show="viewMode === '2d'"></div>
@@ -180,6 +196,7 @@ import LeftSidebar from './components/LeftSidebar.vue';
 
 import { FloorPlanner, PremiumFurniture } from './core/engine2d/index.js';
 import { Preview3D } from './core/engine3d/index.js'; 
+import { WorkspaceControls } from '/src/core/engine3d/WorkspaceControls.js';
 
 import { FileManager } from './core/io';
 import { WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY } from './core/registry.js';
@@ -192,6 +209,7 @@ const canvas2D = ref(null);
 const canvas3D = ref(null);
 const planner = shallowRef(null);
 const renderer3D = shallowRef(null);
+const workspaceControls = shallowRef(null);
 
 const viewMode = ref('2d');
 const mode3D = ref('edit'); 
@@ -216,6 +234,7 @@ const selectedGround = ref('grass'); // Start with new Grass + Normal map terrai
 
 const showSky = ref(false);
 const showGround = ref(false);
+const showCamera = ref(false);
 
 const currentFaceDecors = computed(() => {
     const trigger = uiTrigger.value; 
@@ -236,6 +255,8 @@ onMounted(() => {
     };
 
     renderer3D.value = new Preview3D(canvas3D.value);
+
+    workspaceControls.value = new WorkspaceControls(renderer3D.value.camera, renderer3D.value.controls, planner.value);
     
     renderer3D.value.onEntitySelect = (entity, type, side = null) => {
         if (isRebuilding.value && !entity) return; // Prevent losing slider focus during rebuilds
@@ -370,6 +391,30 @@ const setGround = (key) => {
     selectedGround.value = key;
     updateEnvironment();
     showGround.value = false;
+};
+
+const zoomIn = () => {
+    if (viewMode.value === '2d') workspaceControls.value?.zoomIn2D();
+    else workspaceControls.value?.zoomIn3D();
+};
+
+const zoomOut = () => {
+    if (viewMode.value === '2d') workspaceControls.value?.zoomOut2D();
+    else workspaceControls.value?.zoomOut3D();
+};
+
+const resetZoom = () => {
+    if (viewMode.value === '2d') workspaceControls.value?.resetZoom2D();
+    // 3D reset can be more complex, often handled by `refresh3DScene`
+};
+
+const setCameraPreset = (preset) => {
+    workspaceControls.value?.setCameraPosition(preset);
+    showCamera.value = false;
+};
+
+const rotateCamera = (angle) => {
+    workspaceControls.value?.rotateCamera(angle);
 };
 
 const set3DMode = (mode) => { mode3D.value = mode; if (renderer3D.value) renderer3D.value.setInteractionMode(mode); };
@@ -590,4 +635,8 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .env-menu-item { padding: 8px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; color: #374151; transition: 0.2s; }
 .env-menu-item:hover { background: #f3f4f6; }
 .env-menu-item.active { background: #eff6ff; color: #1d4ed8; }
+
+.bottom-right-toolbar { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }
+.bottom-right-toolbar button { width: 40px; height: 40px; background: rgba(17, 24, 39, 0.8); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 50%; cursor: pointer; font-size: 20px; font-weight: bold; backdrop-filter: blur(4px); transition: 0.2s; display: flex; align-items: center; justify-content: center; }
+.bottom-right-toolbar button:hover { background: rgba(17, 24, 39, 1); }
 </style>
