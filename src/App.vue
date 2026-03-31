@@ -35,15 +35,13 @@
         <div class="hint" v-show="viewMode === '2d'">SELECT mode: Click elements to edit. Trace Faded Fills from lower floors perfectly.</div>
         
         <div class="floating-env-toolbar" v-show="viewMode === '3d'">
-            <div class="env-dropdown" @mouseenter="showCamera = true" @mouseleave="showCamera = false">
-                <button class="env-icon-btn">📷 Camera</button>
-                <div class="env-menu" v-show="showCamera">
-                    <div class="env-menu-item" @click="setCameraPreset('iso')">Isometric View</div>
-                    <div class="env-menu-item" @click="setCameraPreset('top')">Top-Down View</div>
-                    <div class="env-menu-item" @click="setCameraPreset('front')">Front View</div>
-                    <div class="env-menu-item" @click="rotateCamera(-0.1)">Rotate Left</div>
-                    <div class="env-menu-item" @click="rotateCamera(0.1)">Rotate Right</div>
-                </div>
+            <div class="camera-controls">
+                <button class="env-icon-btn" @click="setCameraPreset('iso')" title="Isometric View">📷</button>
+            <button class="env-icon-btn" @click="setCameraPreset('top')" title="Top View">🔝</button>
+            <button class="env-icon-btn" @click="setCameraPreset('front')" title="Front View">⬆️</button>
+            <button class="env-icon-btn" @click="setCameraPreset('left')" title="Left View">⬅️</button>
+                <button class="env-icon-btn" @click="rotateCamera(-0.1)" title="Rotate Left">↺</button>
+                <button class="env-icon-btn" @click="rotateCamera(0.1)" title="Rotate Right">↻</button>
             </div>
             <div class="env-dropdown" @mouseenter="showSky = true" @mouseleave="showSky = false">
                 <button class="env-icon-btn">🌤️ Sky</button>
@@ -234,7 +232,6 @@ const selectedGround = ref('grass'); // Start with new Grass + Normal map terrai
 
 const showSky = ref(false);
 const showGround = ref(false);
-const showCamera = ref(false);
 
 const currentFaceDecors = computed(() => {
     const trigger = uiTrigger.value; 
@@ -256,7 +253,7 @@ onMounted(() => {
 
     renderer3D.value = new Preview3D(canvas3D.value);
 
-    workspaceControls.value = new WorkspaceControls(renderer3D.value.camera, renderer3D.value.controls, planner.value);
+    workspaceControls.value = new WorkspaceControls(renderer3D.value, planner.value);
     
     renderer3D.value.onEntitySelect = (entity, type, side = null) => {
         if (isRebuilding.value && !entity) return; // Prevent losing slider focus during rebuilds
@@ -410,7 +407,6 @@ const resetZoom = () => {
 
 const setCameraPreset = (preset) => {
     workspaceControls.value?.setCameraPosition(preset);
-    showCamera.value = false;
 };
 
 const rotateCamera = (angle) => {
@@ -528,6 +524,10 @@ const refresh3DScene = (preserveCamera = true) => {
             }
         }
         
+        if (workspaceControls.value) {
+            workspaceControls.value.updateCameraBounds();
+        }
+        
         isRebuilding.value = false;
     }
 };
@@ -635,6 +635,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .env-menu-item { padding: 8px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; color: #374151; transition: 0.2s; }
 .env-menu-item:hover { background: #f3f4f6; }
 .env-menu-item.active { background: #eff6ff; color: #1d4ed8; }
+.camera-controls { display: flex; gap: 8px; }
 
 .bottom-right-toolbar { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }
 .bottom-right-toolbar button { width: 40px; height: 40px; background: rgba(17, 24, 39, 0.8); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 50%; cursor: pointer; font-size: 20px; font-weight: bold; backdrop-filter: blur(4px); transition: 0.2s; display: flex; align-items: center; justify-content: center; }

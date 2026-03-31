@@ -35,8 +35,11 @@ export class Preview3D {
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
-        // this.controls.maxPolarAngle = Math.PI / 2 - 0.02; // Allow looking from underneath
+        this.controls.maxPolarAngle = Infinity; // Allow looking from underneath
         this.controls.screenSpacePanning = true; // Enable panning
+        this.controls.enableRotate = true; // Explicitly enable rotate
+        this.controls.enablePan = true; // Explicitly enable pan
+        this.controls.enableZoom = true; // Explicitly enable zoom
 
         // Shared Global State
         this.interactables = [];
@@ -86,7 +89,14 @@ export class Preview3D {
         if (this.container.style.display !== 'none') { 
             const w = this.container.clientWidth || window.innerWidth; 
             const h = this.container.clientHeight || window.innerHeight; 
-            this.camera.aspect = w / h; 
+            if (this.camera.isPerspectiveCamera) {
+                this.camera.aspect = w / h;
+            } else if (this.camera.isOrthographicCamera) {
+                const frustumHeight = this.camera.top - this.camera.bottom;
+                const aspect = w / h;
+                this.camera.left = -frustumHeight * aspect / 2;
+                this.camera.right = frustumHeight * aspect / 2;
+            }
             this.camera.updateProjectionMatrix(); 
             this.renderer.setSize(w, h); 
         }
@@ -109,7 +119,7 @@ export class Preview3D {
 
     setInteractionMode(mode) { 
         this.interactions.setMode(mode); 
-        this.controls.enableRotate = (mode === 'camera');
+        this.controls.enableRotate = (mode === 'camera' && !this.camera.isOrthographicCamera);
         this.renderer.domElement.style.cursor = (mode === 'camera') ? 'grab' : 'auto';
     }
     
@@ -183,8 +193,8 @@ export class Preview3D {
                 walls.forEach(w => { const p = w.startAnchor ? w.startAnchor.position() : w; centerX += p.x || w.startX; centerZ += p.y || w.startY; });
                 centerX /= walls.length; centerZ /= walls.length;
             }
-            this.controls.target.set(centerX, targetY, centerZ); 
-            this.camera.position.set(centerX, targetY + 600, centerZ + 800); 
+            this.controls.target.set(centerX, targetY, centerZ);
+            this.camera.position.set(centerX + 800, targetY + 500, centerZ + 800); // More flexible initial camera
             this.controls.update(); 
         }
         this.previousTargetY = targetY;
