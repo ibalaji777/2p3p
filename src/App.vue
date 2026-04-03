@@ -6,6 +6,9 @@
            <button :class="{active: viewMode==='3d'}" @click="switchTo3D">🧊 3D Preview</button>
        </div>
        
+       <div class="center-tools" v-if="viewMode==='2d'">
+       </div>
+
        <div class="center-tools" v-if="viewMode==='3d'">
            <div class="tool-group" v-if="viewMode3D !== 'preview'">
                <button :class="{active: mode3D === 'camera'}" @click="set3DMode('camera')">🎥 Camera</button>
@@ -22,17 +25,37 @@
     </header>
 
     <div class="main-workspace">
-      <LeftSidebar 
-        :activeTool="activeTool" 
-        @select-tool="setTool" 
-        @add-furniture="spawnFurniture"
-        @export="saveProject"
-        @import="loadProject"
-        @clear="clearWorkspace"
-      />
+      <aside class="left-sidebar" v-show="viewMode === '2d'">
+        <div class="sidebar-header">
+            <h3>Design Tools</h3>
+        </div>
+        <div class="accordion">
+            <div v-for="cat in menuCategories" :key="cat.id" class="accordion-item">
+                <button class="accordion-header" :class="{ active: activeCategory === cat.id }" @click="toggleCategory(cat.id)">
+                    <span>{{ cat.name }}</span>
+                    <span class="arrow">{{ activeCategory === cat.id ? '▼' : '▶' }}</span>
+                </button>
+                <div class="accordion-content" v-show="activeCategory === cat.id">
+                    <button v-for="tool in cat.tools" :key="tool.id" 
+                        class="tool-btn" 
+                        :class="{ active: activeTool === tool.id && !tool.action }"
+                        @click="handleToolClick(tool)">
+                        {{ tool.name }}
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="sidebar-footer">
+            <button class="action-btn export" @click="saveProject">💾 Export Project</button>
+            <button class="action-btn import" @click="triggerFileInput">📂 Import Project</button>
+            <button class="action-btn clear" @click="clearWorkspace">🗑️ Clear All</button>
+            <input type="file" id="fileInput" @change="handleFileUpload" style="display: none" accept=".json"/>
+        </div>
+      </aside>
 
       <main class="canvas-container">
-        <div class="hint" v-show="viewMode === '2d'">SELECT mode: Click elements to edit. Trace Faded Fills from lower floors perfectly.</div>
+        <div class="hint" v-show="viewMode === '2d' && activeTool !== 'roof'">SELECT mode: Click elements to edit. Trace Faded Fills from lower floors perfectly.</div>
+        <div class="hint" style="background: #f59e0b;" v-show="viewMode === '2d' && activeTool === 'roof'">ROOF mode: Click corners to draw a custom roof polygon. Click the start point to finish.</div>
         
         <div class="floating-env-toolbar" v-show="viewMode === '3d'">
             <div class="camera-controls">
@@ -141,6 +164,39 @@
                     </div>
                 </div>
 
+                <div v-else-if="selectedType === 'widget'">
+                    <h4 class="props-subtitle">{{ selectedEntity.config?.label || 'DOOR/WINDOW' }} Properties</h4>
+                    <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="10" max="200" @input="syncEngine"><input type="number" v-model.number="selectedEntity.width" @input="syncEngine"></div></div>
+                    <div class="faceRow">
+                        <button class="action-btn clear" style="flex: 1; padding: 4px;" @click="selectedEntity.facing *= -1; syncEngine()">Flip In/Out</button>
+                        <button class="action-btn clear" style="flex: 1; padding: 4px;" @click="selectedEntity.side *= -1; syncEngine()">Flip L/R</button>
+                    </div>
+                    <div v-if="selectedEntity.type === 'door'">
+                        <div class="control-group">
+                            <label>Door Type</label>
+                            <select v-model="selectedEntity.doorType" @change="syncEngine" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                                <option value="single">Single Hinged</option>
+                                <option value="double">Double Door</option>
+                                <option value="sliding">Sliding</option>
+                                <option value="pocket">Pocket</option>
+                                <option value="french">French (Glass)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div v-else-if="selectedEntity.type === 'window'">
+                        <div class="control-group">
+                            <label>Window Type</label>
+                            <select v-model="selectedEntity.windowType" @change="syncEngine" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                                <option value="sliding_std">Standard Sliding</option>
+                                <option value="casement_std">Casement / Hinged</option>
+                                <option value="fixed_elevation">Fixed Glass</option>
+                                <option value="bay_box">Box Bay Window</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="hud-delete" @click="handleDelete">Delete Object</button>
+                </div>
+
                 <div v-else-if="selectedType === 'furniture'">
                     <h4 class="props-subtitle">{{ selectedEntity.config?.name || 'Object' }}</h4>
                     <div class="control-group"><label>Rotation (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.rotation" min="0" max="360" @input="syncEngine"><input type="number" v-model.number="selectedEntity.rotation" @input="syncEngine"></div></div>
@@ -190,13 +246,12 @@
 
 <script setup>
 import { ref, computed, shallowRef, onMounted, onBeforeUnmount } from 'vue';
-import LeftSidebar from './components/LeftSidebar.vue';
 
 import { FloorPlanner, PremiumFurniture } from './core/engine2d/index.js';
 import { Preview3D } from './core/engine3d/index.js'; 
 import { WorkspaceControls } from '/src/core/engine3d/WorkspaceControls.js';
 
-import { FileManager } from './core/io';
+import { FileManager } from './core/io.js';
 import { WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY } from './core/registry.js';
 const wallDecorRegistry = WALL_DECOR_REGISTRY;
 const roofDecorRegistry = ROOF_DECOR_REGISTRY;
@@ -218,6 +273,54 @@ const selectedEntity = shallowRef(null);
 const selectedType = ref(null);
 const selectedWallSide = ref(null); 
 const selectedNodeIndex = ref(-1);
+
+const activeCategory = ref('tools');
+const menuCategories = ref([
+    {
+        id: 'tools', name: '🛠️ General Tools',
+        tools: [
+            { id: 'select', name: '👆 Select & Edit' }
+        ]
+    },
+    {
+        id: 'walls', name: '🧱 Walls',
+        tools: [
+            { id: 'outer', name: 'Outer Wall' },
+            { id: 'inner', name: 'Inner Wall' }
+        ]
+    },
+    {
+        id: 'doors_windows', name: '🚪 Doors & Windows',
+        tools: [
+            { id: 'door', name: 'Add Door' },
+            { id: 'window', name: 'Add Window' }
+        ]
+    },
+    {
+        id: 'structures', name: '🏗️ Structures',
+        tools: [
+            { id: 'stair', name: 'Draw Stairs' },
+            { id: 'roof', name: 'Draw Roof' },
+            { id: 'auto_roof', name: 'Generate Auto-Roof', action: 'auto_roof' }
+        ]
+    },
+    {
+        id: 'furniture', name: '🛋️ Furniture',
+        tools: [
+            { id: 'couch_1', name: 'Couch', action: 'furniture' },
+            { id: 'chair_ekero', name: 'Chair', action: 'furniture' },
+            { id: 'table_dining', name: 'Dining Table', action: 'furniture' }
+        ]
+    }
+]);
+
+const toggleCategory = (catId) => {
+    activeCategory.value = catId;
+    if (planner.value) {
+        planner.value.activeCategory = catId;
+        planner.value.updateToolStates();
+    }
+};
 
 const uiTrigger = ref(0); 
 const isPlacing3D = ref(false);
@@ -295,7 +398,13 @@ const handleGlobalKeys = (e) => {
         }
         if (e.key === 'Escape' && renderer3D.value) renderer3D.value.cancelRelocation();
     } else if (viewMode.value === '2d') {
-        if (e.key === 'Delete' || e.key === 'Backspace') if (selectedType.value === 'roof' || selectedType.value === 'furniture') handleDelete();
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            if (selectedType.value === 'roof' || selectedType.value === 'furniture' || selectedType.value === 'widget') handleDelete();
+        }
+        if (e.key === 'Escape') {
+            setTool('select');
+            toggleCategory('tools');
+        }
     }
 };
 
@@ -418,7 +527,15 @@ const handleDeselect = () => {
     if (renderer3D.value) renderer3D.value.deselectObject();
     selectedEntity.value = null; selectedType.value = null; selectedWallSide.value = null; activeDecorId.value = null;
 };
-const setTool = (tool) => { activeTool.value = tool; planner.value.tool = tool; planner.value.finishChain(); planner.value.updateToolStates(); planner.value.selectEntity(null); };
+const setTool = (tool) => { 
+    activeTool.value = tool; planner.value.tool = tool; planner.value.finishChain(); planner.value.updateToolStates(); planner.value.selectEntity(null); 
+};
+const handleToolClick = (tool) => {
+    if (tool.action === 'furniture') spawnFurniture(tool.id);
+    else if (tool.action === 'auto_roof') { if (planner.value) planner.value.addAutoRoof(); }
+    else setTool(tool.id);
+};
+
 const toggleEditDecor = (decorId) => { activeDecorId.value = activeDecorId.value === decorId ? null : decorId; };
 
 const spawnWallPattern = (configId) => {
@@ -440,7 +557,7 @@ const spawnFurniture = (configId) => {
 const syncEngine = () => {
     if (viewMode.value === '2d') {
         planner.value.syncAll();
-    } else if (viewMode.value === '3d' && selectedType.value === 'furniture') {
+    } else if (viewMode.value === '3d' && selectedType.value === 'furniture' && selectedEntity.value) {
         renderer3D.value.updateFurnitureLive(selectedEntity.value); 
     } else if (viewMode.value === '3d' && selectedType.value === 'roof') {
         refresh3DScene(true);
@@ -474,6 +591,11 @@ const handleDelete = () => {
             selectedEntity.value.remove();
             selectedEntity.value = null;
             selectedType.value = null;
+        } else if (selectedType.value === 'widget') {
+            selectedEntity.value.remove();
+            selectedEntity.value = null;
+            selectedType.value = null;
+            if (viewMode.value === '3d') refresh3DScene(true);
         }
     }
 };
@@ -535,6 +657,17 @@ const refresh3DScene = (preserveCamera = true) => {
 const saveProject = () => FileManager.exportJSON(planner.value);
 const loadProject = (json) => FileManager.importJSON(planner.value, json);
 
+const triggerFileInput = () => document.getElementById('fileInput').click();
+const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => loadProject(e.target.result);
+        reader.readAsText(file);
+    }
+    event.target.value = '';
+};
+
 const clearWorkspace = () => {
     if (confirm('Are you sure you want to clear the workspace? All unsaved progress will be lost.')) {
         levels.value = [{ id: 'level-' + Date.now(), name: 'Floor 1', data: null }];
@@ -577,6 +710,38 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .status-bar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(17, 24, 39, 0.9); color: white; padding: 12px 25px; border-radius: 30px; font-size: 13px; font-weight: bold; z-index: 100; pointer-events: none; }
 
 /* DOCKED RIGHT SIDEBAR */
+.left-sidebar {
+    width: 260px; background: #ffffff; border-right: 1px solid #e5e7eb;
+    display: flex; flex-direction: column; height: 100%; overflow-y: auto;
+}
+.sidebar-header { padding: 15px; background: #f8fafc; border-bottom: 1px solid #e5e7eb; }
+.sidebar-header h3 { margin: 0; font-size: 15px; color: #1f2937; }
+.accordion { flex: 1; overflow-y: auto; }
+.accordion-item { border-bottom: 1px solid #e5e7eb; }
+.accordion-header {
+    width: 100%; text-align: left; padding: 12px 15px; background: #ffffff;
+    border: none; outline: none; cursor: pointer; display: flex;
+    justify-content: space-between; align-items: center;
+    font-size: 13px; font-weight: bold; color: #4b5563; transition: 0.2s;
+}
+.accordion-header:hover { background: #f3f4f6; }
+.accordion-header.active { background: #eff6ff; color: #2563eb; }
+.accordion-content { padding: 10px; background: #f8fafc; display: flex; flex-direction: column; gap: 8px; }
+.tool-btn {
+    padding: 10px; text-align: left; background: #ffffff; border: 1px solid #d1d5db;
+    border-radius: 6px; cursor: pointer; font-size: 13px; color: #374151; transition: 0.2s;
+}
+.tool-btn:hover { border-color: #9ca3af; background: #f3f4f6; }
+.tool-btn.active { border-color: #3b82f6; background: #eff6ff; color: #1d4ed8; font-weight: bold; }
+.sidebar-footer { padding: 15px; display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #e5e7eb; background: #f8fafc; }
+.action-btn { padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; transition: 0.2s; }
+.action-btn.export { background: #10b981; color: white; }
+.action-btn.export:hover { background: #059669; }
+.action-btn.import { background: #3b82f6; color: white; }
+.action-btn.import:hover { background: #2563eb; }
+.action-btn.clear { background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; }
+.action-btn.clear:hover { background: #ef4444; color: white; }
+
 .right-sidebar {
     width: 320px; background: #f8fafc; border-left: 1px solid #e5e7eb;
     display: flex; flex-direction: column; overflow: hidden;

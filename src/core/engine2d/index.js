@@ -1,6 +1,6 @@
 // src/core/engine2d/index.js
 import Konva from 'konva';
-import { GRID, PX_TO_FT, SNAP_DIST, WALL_REGISTRY } from '../registry.js';
+import { GRID, PX_TO_FT, SNAP_DIST, WALL_REGISTRY, WIDGET_REGISTRY } from '../registry.js';
 
 // SOLID: Import the decoupled 2D entity classes from the same folder
 import { Anchor } from '/src/core/engine2d/Anchor.js';
@@ -13,9 +13,12 @@ import { PremiumHipRoof } from '/src/core/engine2d/PremiumHipRoof.js';
 // Export the specific classes that App.vue needs to spawn items
 export { PremiumFurniture, PremiumHipRoof };
 
+export class PremiumBalcony {}
+
 export class FloorPlanner {
     constructor(containerEl) { 
         this.container = containerEl; this.tool = "outer"; this.currentUnit = "ft"; this.drawing = false; this.lastAnchor = null; this.startAnchor = null; this.drawingStair = null; this.preview = null;
+        this.activeCategory = 'tools';
         this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
         this.onSelectionChange = null; 
         this.initKonva(); this.drawGrid(); this.initHUD(); this.initStageEvents(); 
@@ -103,6 +106,9 @@ export class FloorPlanner {
         this.infoBadgeText = new Konva.Text({ text: '', fill: 'white', padding: 8, fontSize: 11, align: 'center', fontStyle: 'bold', lineHeight: 1.4 }); 
         this.infoBadgeGroup.add(this.infoBadgeBg, this.infoBadgeText); 
         this.uiLayer.add(this.infoBadgeGroup);
+
+        this.wallHighlight = new Konva.Line({ stroke: '#3b82f6', strokeWidth: 6, opacity: 0.7, visible: false, listening: false });
+        this.uiLayer.add(this.wallHighlight);
     }
     
     showSnapGlow(x, y) { this.snapGlow.position({x, y}); this.snapGlow.show(); } 
@@ -150,26 +156,29 @@ export class FloorPlanner {
         if (this.selectedEntity && this.selectedType === 'stair_node') this.selectedEntity.setHighlight(false);
         if (this.selectedEntity && this.selectedType === 'furniture') this.selectedEntity.setHighlight(false);
         if (this.selectedEntity && this.selectedType === 'roof') this.selectedEntity.setHighlight(false);
+        if (this.selectedEntity && this.selectedType === 'balcony') this.selectedEntity.setHighlight(false);
         
         this.selectedEntity = entity; this.selectedType = type; this.selectedNodeIndex = nodeIndex;
         
-        if (entity && (type === 'wall' || type === 'stair' || type === 'stair_node' || type === 'furniture' || type === 'roof')) entity.setHighlight(true);
+        if (entity && (type === 'wall' || type === 'stair' || type === 'stair_node' || type === 'furniture' || type === 'roof' || type === 'balcony')) entity.setHighlight(true);
         if (this.onSelectionChange) this.onSelectionChange(entity, type, nodeIndex);
     }
 
     updateToolStates() { 
         const isSelect = this.tool === "select"; 
+        const isWidget = !!WIDGET_REGISTRY[this.tool];
         this.walls.forEach(w => { 
-            if(w.poly) { w.poly.setAttr('draggable', isSelect); w.poly.setAttr('listening', isSelect); }
+            if(w.poly) { w.poly.setAttr('draggable', isSelect); w.poly.setAttr('listening', isSelect || isWidget); }
             w.attachedWidgets.forEach(widg => { if(widg.visualGroup) { widg.visualGroup.setAttr('draggable', isSelect); widg.visualGroup.setAttr('listening', isSelect); } }); 
         }); 
         this.stairs.forEach(s => { if(s.group) { s.group.setAttr('draggable', isSelect); s.group.setAttr('listening', isSelect); } }); 
         this.anchors.forEach(a => { if(a.node) { a.node.setAttr('draggable', isSelect); a.node.setAttr('listening', isSelect); } }); 
         this.furniture.forEach(f => { if(f.group) { f.group.setAttr('draggable', isSelect); f.group.setAttr('listening', isSelect); } });
         this.roofs.forEach(r => { if(r.group) { r.group.setAttr('draggable', isSelect); r.group.setAttr('listening', isSelect); } });
+        if(this.balconies) this.balconies.forEach(b => { if(b.group) { b.group.setAttr('draggable', isSelect); b.group.setAttr('listening', isSelect); } });
 
         // FORCE LAYER LISTENING OFF DURING DRAWING (prevents rogue clicks from getting swallowed)
-        if (this.wallLayer) this.wallLayer.listening(isSelect);
+        if (this.wallLayer) this.wallLayer.listening(isSelect || isWidget);
         if (this.widgetLayer) this.widgetLayer.listening(isSelect);
         if (this.furnitureLayer) this.furnitureLayer.listening(isSelect);
         if (this.roofLayer) this.roofLayer.listening(isSelect);
@@ -192,9 +201,36 @@ export class FloorPlanner {
     }
 
     getOrCreateAnchor(x, y) { let a = this.anchors.find(a => Math.hypot(a.x - x, a.y - y) < SNAP_DIST); if (a) return a; const newAnchor = new Anchor(this, x, y); this.anchors.push(newAnchor); return newAnchor; }
-    deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.roofs.forEach(r => r.setHighlight(false)); this.anchors.forEach(a => a.hide()); this.selectEntity(null); this.syncAll(); }
-    syncAll() { this.walls.forEach(w => w.update()); this.stairs.forEach(s => s.update()); this.furniture.forEach(f => f.update()); this.roofs.forEach(r => r.update()); this.mainLayer.batchDraw(); this.detectRooms(); }
+    deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.roofs.forEach(r => r.setHighlight(false)); if(this.balconies) this.balconies.forEach(b => b.setHighlight(false)); this.anchors.forEach(a => a.hide()); this.selectEntity(null); this.syncAll(); }
+    syncAll() { this.buildingCenter = null; this.walls.forEach(w => w.update()); this.stairs.forEach(s => s.update()); this.furniture.forEach(f => f.update()); this.roofs.forEach(r => r.update()); if(this.balconies) this.balconies.forEach(b => b.update()); this.mainLayer.batchDraw(); this.detectRooms(); }
     
+    getOutwardNormal(wall) {
+        if (!this.buildingCenter) {
+            let totalX = 0, totalY = 0, count = 0;
+            this.walls.forEach(w => { totalX += w.startAnchor.x; totalY += w.startAnchor.y; count++; });
+            if (count > 0) { this.buildingCenter = { x: totalX / count, y: totalY / count }; } 
+            else { this.buildingCenter = { x: this.stage.width() / 2, y: this.stage.height() / 2 }; }
+        }
+        const p1 = wall.startAnchor.position(), p2 = wall.endAnchor.position();
+        const wallCenter = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+        const dx = p2.x - p1.x, dy = p2.y - p1.y;
+        const normal = { x: -dy, y: dx };
+        const len = Math.hypot(normal.x, normal.y);
+        if (len > 0) { normal.x /= len; normal.y /= len; }
+        const vecToCenter = { x: this.buildingCenter.x - wallCenter.x, y: this.buildingCenter.y - wallCenter.y };
+        if (normal.x * vecToCenter.x + normal.y * vecToCenter.y > 0) { normal.x *= -1; normal.y *= -1; }
+        return normal;
+    }
+
+    getPointerPos() {
+        const pointer = this.stage.getPointerPosition();
+        if (!pointer) return null;
+        if (typeof this.stage.getRelativePointerPosition === 'function') {
+            return this.stage.getRelativePointerPosition();
+        }
+        return this.stage.getAbsoluteTransform().copy().invert().point(pointer);
+    }
+
     finishChain() { 
         if (this.drawingStair) { this.drawingStair.finishDrawing(); this.drawingStair = null; } 
         if (this.drawingRoofPoints) { this.drawingRoofPoints = null; if (this.roofPreview) { this.roofPreview.destroy(); this.roofPreview = null; } }
@@ -205,11 +241,12 @@ export class FloorPlanner {
     }
     
     initStageEvents() { 
-        this.stage.on("mousedown", (e) => { 
+        this.stage.on("mousedown touchstart", (e) => { 
+            if (this.tool === 'roof') return;
             if (e.target === this.stage || e.target === this.bgLayer || e.target === this.mainLayer) this.deselectAll(); 
             const wallConfig = WALL_REGISTRY[this.tool]; 
             
-            const pos = this.stage.getPointerPosition();
+            const pos = this.getPointerPos();
             if (!pos) return;
             
             let targetPos = { x: this.snap(pos.x), y: this.snap(pos.y) }; 
@@ -232,28 +269,22 @@ export class FloorPlanner {
             this.syncAll(); 
         }); 
 
-        this.stage.on("mousemove", () => { 
-            const pos = this.stage.getPointerPosition();
+        this.stage.on("mousemove touchmove", () => { 
+            const pos = this.getPointerPos();
             if (!pos) return;
             
             let rawPos = { x: this.snap(pos.x), y: this.snap(pos.y) }; 
             
             if (this.drawingStair) { this.drawingStair.updateLastPoint(rawPos.x, rawPos.y); return; }
-            if (!this.drawing) return; 
             const wallConfig = WALL_REGISTRY[this.tool]; 
             
-            let dxAxis = rawPos.x - this.lastAnchor.x, dyAxis = rawPos.y - this.lastAnchor.y, rawAngle = Math.atan2(dyAxis, dxAxis) * 180 / Math.PI, distAxis = Math.hypot(dxAxis, dyAxis), snappedToAxis = false;
-            for (let a of [0, 45, 90, 135, 180, -45, -90, -135, -180]) {
-                if (Math.abs(rawAngle - a) < 5) { 
-                    let rad = a * Math.PI / 180; 
-                    rawPos.x = this.lastAnchor.x + distAxis * Math.cos(rad); 
-                    rawPos.y = this.lastAnchor.y + distAxis * Math.sin(rad); 
-                    snappedToAxis = true; 
-                    this.drawGuideLine(this.lastAnchor.x, this.lastAnchor.y, rawPos.x, rawPos.y, true); 
-                    break; 
+            let dxAxis = rawPos.x - (this.lastAnchor?.x || 0), dyAxis = rawPos.y - (this.lastAnchor?.y || 0), rawAngle = Math.atan2(dyAxis, dxAxis) * 180 / Math.PI, distAxis = Math.hypot(dxAxis, dyAxis), snappedToAxis = false;
+            if (this.drawing) {
+                for (let a of [0, 45, 90, 135, 180, -45, -90, -135, -180]) {
+                    if (Math.abs(rawAngle - a) < 5) { let rad = a * Math.PI / 180; rawPos.x = this.lastAnchor.x + distAxis * Math.cos(rad); rawPos.y = this.lastAnchor.y + distAxis * Math.sin(rad); snappedToAxis = true; this.drawGuideLine(this.lastAnchor.x, this.lastAnchor.y, rawPos.x, rawPos.y, true); break; }
                 }
+                if (!snappedToAxis) this.drawGuideLine(0,0,0,0, false);
             }
-            if (!snappedToAxis) this.drawGuideLine(0,0,0,0, false);
 
             let snapPos = rawPos; let targetSnapWall = null; let snappedObj = false;
 
@@ -293,7 +324,12 @@ export class FloorPlanner {
             let angBadge = Math.abs(Math.atan2(dyBadge, dxBadge) * 180 / Math.PI).toFixed(1);
             this.updateInfoBadge(snapPos.x, snapPos.y, lenBadge, angBadge, snappedObj);
 
-            if (snappedObj) this.showSnapGlow(snapPos.x, snapPos.y); else this.hideSnapGlow();
+            if (snappedObj) { this.showSnapGlow(snapPos.x, snapPos.y); } else { this.hideSnapGlow(); }
+
+            if (!this.drawing) {
+                this.uiLayer.batchDraw();
+                return;
+            }
             this.walls.forEach(w => w.setHighlight(w === this.selectedEntity));
 
             let isColliding = false; 
@@ -314,9 +350,9 @@ export class FloorPlanner {
         });
 
         // --- Hip Roof Drawing Mode Logic ---
-        this.stage.on("mousedown.roof", (e) => {
+        this.stage.on("mousedown.roof touchstart.roof", (e) => {
             if (this.tool !== 'roof') return;
-            const pos = this.stage.getPointerPosition();
+            const pos = this.getPointerPos();
             if (!pos) return;
             
             let snap = pos;
@@ -350,9 +386,9 @@ export class FloorPlanner {
             }
         });
 
-        this.stage.on("mousemove.roof", () => {
+        this.stage.on("mousemove.roof touchmove.roof", () => {
             if (this.tool === 'roof') {
-                const pos = this.stage.getPointerPosition();
+                const pos = this.getPointerPos();
                 if (!pos) return;
                 
                 let snap = pos; 
@@ -390,7 +426,8 @@ export class FloorPlanner {
 
     clearAll() {
         [...this.walls].forEach(w => w.remove()); [...this.furniture].forEach(f => f.remove()); [...this.stairs].forEach(s => s.remove()); [...this.roofs].forEach(r => r.remove()); 
-        this.walls = []; this.furniture = []; this.stairs = []; this.roofs = []; this.roomPaths = [];
+        if (this.balconies) [...this.balconies].forEach(b => b.remove());
+        this.walls = []; this.furniture = []; this.stairs = []; this.roofs = []; this.balconies = []; this.roomPaths = [];
         this.anchors.forEach(a => { if(a.node) a.node.destroy(); }); this.anchors = [];
         if (this.wallLayer) this.wallLayer.destroyChildren(); if (this.furnitureLayer) this.furnitureLayer.destroyChildren(); if (this.widgetLayer) this.widgetLayer.destroyChildren(); if (this.roofLayer) this.roofLayer.destroyChildren();
         if (this.mainLayer) this.mainLayer.batchDraw();

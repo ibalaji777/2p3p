@@ -27,13 +27,32 @@ export class PremiumWall {
     setHighlight(isActive) { this.poly.stroke(this.planner.selectedEntity === this ? "#4f46e5" : this.strokeColor); this.planner.stage.batchDraw(); }
     
     initEvents() { 
-        this.poly.on('mousedown', (e) => { 
-            if (WIDGET_REGISTRY[this.planner.tool]) { let t = this.getClosestT(this.planner.stage.getPointerPosition()); const widget = new PremiumWidget(this.planner, this, t, this.planner.tool); this.attachedWidgets.push(widget); this.planner.updateToolStates(); this.planner.syncAll(); return; } 
+        this.poly.on('mouseenter', () => { if (this.planner.tool === 'select' || WIDGET_REGISTRY[this.planner.tool]) document.body.style.cursor = 'pointer'; });
+        this.poly.on('mouseleave', () => { document.body.style.cursor = 'default'; });
+        this.poly.on('mousedown touchstart', (e) => { 
+            console.log("Wall mousedown/touchstart event fired.", { tool: this.planner.tool, isWidget: !!WIDGET_REGISTRY[this.planner.tool] });
+            if (WIDGET_REGISTRY[this.planner.tool]) { 
+                console.log("Widget tool is active. Attempting to create widget.");
+                e.cancelBubble = true; 
+                const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); 
+                if (!pos) {
+                    console.error("Could not get pointer position.");
+                    return;
+                }
+                let t = this.getClosestT(pos); 
+                console.log("Calculated t:", t, "Position:", pos);
+                const widget = new PremiumWidget(this.planner, this, t, this.planner.tool); 
+                this.attachedWidgets.push(widget); 
+                this.planner.selectEntity(widget, 'widget'); 
+                this.planner.syncAll(); 
+                console.log("Widget added:", widget);
+                return; 
+            } 
             if (this.planner.tool !== 'select') return; e.cancelBubble = true; this.planner.selectEntity(this, 'wall'); 
         }); 
         let startAncPos = {}, startPointer = {}; 
-        this.poly.on('dragstart', () => { this.setHighlight(true); const pos = this.planner.stage.getPointerPosition(); startPointer = { x: pos.x, y: pos.y }; startAncPos = { x1: this.startAnchor.x, y1: this.startAnchor.y, x2: this.endAnchor.x, y2: this.endAnchor.y }; }); 
-        this.poly.on('dragmove', () => { const pos = this.planner.stage.getPointerPosition(); const dx = this.planner.snap(pos.x - startPointer.x), dy = this.planner.snap(pos.y - startPointer.y); const proposedStart = { x: startAncPos.x1 + dx, y: startAncPos.y1 + dy }; const proposedEnd = { x: startAncPos.x2 + dx, y: startAncPos.y2 + dy }; if (this.hasEvent("stop_collision") && this.planner.checkWallIntersection(proposedStart, proposedEnd, [this])) return; this.startAnchor.node.position(proposedStart); this.endAnchor.node.position(proposedEnd); this.poly.position({ x: 0, y: 0 }); this.planner.syncAll(); }); 
+        this.poly.on('dragstart', () => { this.setHighlight(true); const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); startPointer = { x: pos.x, y: pos.y }; startAncPos = { x1: this.startAnchor.x, y1: this.startAnchor.y, x2: this.endAnchor.x, y2: this.endAnchor.y }; }); 
+        this.poly.on('dragmove', () => { const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); const dx = this.planner.snap(pos.x - startPointer.x), dy = this.planner.snap(pos.y - startPointer.y); const proposedStart = { x: startAncPos.x1 + dx, y: startAncPos.y1 + dy }; const proposedEnd = { x: startAncPos.x2 + dx, y: startAncPos.y2 + dy }; if (this.hasEvent("stop_collision") && this.planner.checkWallIntersection(proposedStart, proposedEnd, [this])) return; this.startAnchor.node.position(proposedStart); this.endAnchor.node.position(proposedEnd); this.poly.position({ x: 0, y: 0 }); this.planner.syncAll(); }); 
         this.poly.on('dragend', () => { this.setHighlight(this.planner.selectedEntity === this); });
     }
     

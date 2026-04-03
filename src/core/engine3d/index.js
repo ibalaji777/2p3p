@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { WALL_HEIGHT } from '../registry.js';
+import { WIDGET_REGISTRY } from '../registry.js';
 
 // Import our specialized SOLID Managers
 import { AssetManager } from './AssetManager.js';

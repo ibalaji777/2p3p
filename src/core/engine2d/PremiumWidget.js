@@ -24,7 +24,7 @@ export class PremiumWidget {
                 handle.on('mouseenter', () => document.body.style.cursor = 'ew-resize'); 
                 handle.on('mouseleave', () => document.body.style.cursor = 'pointer'); 
                 handle.on('dragstart', (e) => { e.cancelBubble = true; }); 
-                handle.on('dragmove', (e) => { e.cancelBubble = true; this.requestResize(this.planner.stage.getPointerPosition(), idx === 0); }); 
+                handle.on('dragmove', (e) => { e.cancelBubble = true; const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); this.requestResize(pos, idx === 0); }); 
                 handle.on('dragend', (e) => { e.cancelBubble = true; this.planner.syncAll(); }); 
             }); 
             this.planner.uiLayer.add(this.leftHandle, this.rightHandle);
@@ -66,7 +66,7 @@ export class PremiumWidget {
         this.visualGroup.on('dragstart', () => { this.isDragging = true; }); 
         this.visualGroup.on('dragmove', () => { 
             if (!this.hasEvent("drag_along_wall")) return; 
-            const pos = this.planner.stage.getPointerPosition(); 
+            const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
             let targetWall = this.wall; 
             if (this.hasEvent("jump_wall_to_wall")) { 
                 let minDist = this.planner.getDistanceToWall(pos, this.wall); 
@@ -93,7 +93,7 @@ export class PremiumWidget {
             this.t = t; this.update(); 
         }); 
         this.visualGroup.on('dragend', () => { setTimeout(() => { this.isDragging = false; }, 100); this.planner.syncAll(); }); 
-        this.visualGroup.on('click', (e) => { if (this.planner.tool === 'select' && !this.isDragging) { this.planner.selectEntity(this, 'widget'); e.cancelBubble = true; } }); 
+        this.visualGroup.on('click tap', (e) => { if (this.planner.tool === 'select' && !this.isDragging) { this.planner.selectEntity(this, 'widget'); e.cancelBubble = true; } }); 
     }
     
     remove() { this.cutter.destroy(); this.visualGroup.destroy(); if (this.leftHandle) { this.leftHandle.destroy(); this.rightHandle.destroy(); } this.wall.attachedWidgets = this.wall.attachedWidgets.filter(d => d !== this); this.planner.selectEntity(null); this.planner.syncAll(); }

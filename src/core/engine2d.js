@@ -1,6 +1,33 @@
 import { GRID, PX_TO_FT, SNAP_DIST, WALL_HEIGHT, WALL_REGISTRY, WIDGET_REGISTRY, FURNITURE_REGISTRY } from './registry.js';
 import Konva from 'konva';
 
+/**
+ * A simple local event emitter class.
+ */
+class EventEmitter {
+    constructor() {
+        this.events = {};
+    }
+    on(eventName, fn) {
+        if (!this.events[eventName]) {
+            this.events[eventName] = [];
+        }
+        this.events[eventName].push(fn);
+        return () => this.off(eventName, fn);
+    }
+    off(eventName, fn) {
+        if (this.events[eventName]) {
+            this.events[eventName] = this.events[eventName].filter(f => f !== fn);
+        }
+    }
+    emit(eventName, ...args) {
+        if (this.events[eventName]) {
+            this.events[eventName].forEach(fn => fn(...args));
+        }
+    }
+}
+
+
 export class Anchor {
     constructor(planner, x, y) {
         this.planner = planner; this.lastValidPos = { x, y };
@@ -27,11 +54,11 @@ export class Anchor {
             }
             this.planner.walls.forEach(w => { w.setHighlight(attachedWalls.includes(w) || w === this.planner.selectedEntity); });
             let collision = false; for (let w of attachedWalls) { if (w.hasEvent("stop_collision")) { let otherAnc = w.startAnchor === this ? w.endAnchor : w.startAnchor; if (this.planner.checkWallIntersection(proposedPos, otherAnc.position(), [targetSnapWall])) { collision = true; break; } } }
-            if (collision) { this.node.position(this.lastValidPos); } else { this.node.position(proposedPos); this.lastValidPos = proposedPos; } 
+            if (collision) { this.node.position(this.lastValidPos); } else { this.node.position(proposedPos); this.lastValidPos = proposedPos; }
             if (snappedObj) this.planner.showSnapGlow(proposedPos.x, proposedPos.y); else this.planner.hideSnapGlow();
             this.planner.syncAll();
         });
-        this.node.on('dragend', () => { this.planner.walls.forEach(w => w.setHighlight(w === this.planner.selectedEntity)); this.planner.drawGuideLine(0,0,0,0, false); this.planner.hideInfoBadge(); this.planner.hideSnapGlow(); this.planner.syncAll(); }); 
+        this.node.on('dragend', () => { this.planner.walls.forEach(w => w.setHighlight(w === this.planner.selectedEntity)); this.planner.drawGuideLine(0,0,0,0, false); this.planner.hideInfoBadge(); this.planner.hideSnapGlow(); this.planner.syncAll(); });
         this.planner.uiLayer.add(this.node);
     }
     get x() { return this.node.x(); } get y() { return this.node.y(); } show() { this.node.show(); } hide() { this.node.hide(); } position() { return this.node.position(); }
@@ -74,9 +101,9 @@ export class PremiumStair {
         if (this.path.length < 2) return;
         let w = this.config.width, hw = w / 2; this.stepData3D = []; let totalRun = 0, flights = [];
         for (let i = 0; i < this.path.length - 1; i++) {
-            let p1 = this.path[i], p2 = this.path[i+1], dx = p2.x - p1.x, dy = p2.y - p1.y, dist = Math.hypot(dx, dy); if (dist < 1) continue; 
+            let p1 = this.path[i], p2 = this.path[i+1], dx = p2.x - p1.x, dy = p2.y - p1.y, dist = Math.hypot(dx, dy); if (dist < 1) continue;
             let dir = { x: dx/dist, y: dy/dist }, n = { x: -dir.y, y: dir.x }, angle = Math.atan2(dy, dx), hasStartLanding = (i > 0), hasEndLanding = (i < this.path.length - 2);
-            let startOff = hasStartLanding ? hw : 0, endOff = hasEndLanding ? hw : 0, effDist = Math.max(0.1, dist - startOff - endOff); 
+            let startOff = hasStartLanding ? hw : 0, endOff = hasEndLanding ? hw : 0, effDist = Math.max(0.1, dist - startOff - endOff);
             let sP = { x: p1.x + dir.x * startOff, y: p1.y + dir.y * startOff }, eP = { x: p2.x - dir.x * endOff, y: p2.y - dir.y * endOff };
             flights.push({ sP, eP, dir, n, angle, effDist, hasStartLanding, hasEndLanding, p1, p2, startNodeIdx: i }); totalRun += effDist;
         }
@@ -87,7 +114,7 @@ export class PremiumStair {
                 let prevF = flights[idx - 1], currF = flight, shape = this.path[flight.startNodeIdx].shape || 'flat';
                 let prevL = { x: prevF.eP.x - prevF.n.x * hw, y: prevF.eP.y - prevF.n.y * hw }, prevR = { x: prevF.eP.x + prevF.n.x * hw, y: prevF.eP.y + prevF.n.y * hw };
                 let currL = { x: currF.sP.x - currF.n.x * hw, y: currF.sP.y - currF.n.y * hw }, currR = { x: currF.sP.x + currF.n.x * hw, y: currF.sP.y + currF.n.y * hw };
-                if (shape === 'circular') { this.stepsGroup.add(new Konva.Circle({ x: currF.p1.x, y: currF.p1.y, radius: hw, fill: 'rgba(139, 90, 43, 0.2)', stroke: strokeColor, strokeWidth: 2 })); this.stepData3D.push({ type: 'landing_circ', x: currF.p1.x, y: currentHeight, z: currF.p1.y, r: hw, h: riserH, angle: currF.angle }); } 
+                if (shape === 'circular') { this.stepsGroup.add(new Konva.Circle({ x: currF.p1.x, y: currF.p1.y, radius: hw, fill: 'rgba(139, 90, 43, 0.2)', stroke: strokeColor, strokeWidth: 2 })); this.stepData3D.push({ type: 'landing_circ', x: currF.p1.x, y: currentHeight, z: currF.p1.y, r: hw, h: riserH, angle: currF.angle }); }
                 else { this.stepsGroup.add(new Konva.Line({ points: [prevL.x, prevL.y, prevR.x, prevR.y, currR.x, currR.y, currL.x, currL.y], fill: 'rgba(139, 90, 43, 0.2)', stroke: strokeColor, strokeWidth: 3, closed: true })); this.stepData3D.push({ type: 'landing_poly', pts: [prevL, prevR, currR, currL], y: currentHeight, h: riserH }); }
                 currentHeight += riserH;
             }
@@ -110,7 +137,8 @@ export class PremiumStair {
 
 export class PremiumWidget {
     constructor(planner, wall, t, configId) {
-        this.planner = planner; this.wall = wall; this.t = t; this.type = configId; this.isDragging = false; 
+        console.log(`PremiumWidget constructor called with configId: ${configId}`);
+        this.planner = planner; this.wall = wall; this.t = t; this.type = configId; this.isDragging = false;
         this.config = WIDGET_REGISTRY[configId];
         Object.assign(this, JSON.parse(JSON.stringify(this.config.defaultConfig)));
         this.cutter = new Konva.Rect({ height: wall.config.thickness + 4, fill: 'black', globalCompositeOperation: 'destination-out', listening: false }); this.planner.wallLayer.add(this.cutter);
@@ -125,17 +153,19 @@ export class PremiumWidget {
     hasEvent(eventName) { return this.config.events.includes(eventName); }
     checkOverlap(targetWall, proposedT, proposedWidth) { const wallLen = targetWall.getLength(), pMin = proposedT * wallLen - proposedWidth / 2, pMax = proposedT * wallLen + proposedWidth / 2; for (let w of targetWall.attachedWidgets) { if (w === this) continue; const wMin = w.t * wallLen - w.width / 2, wMax = w.t * wallLen + w.width / 2; if (pMax > wMin + 1 && pMin < wMax - 1) return true; } return false; }
     requestResize(pos, isLeft) { const wallLen = this.wall.getLength(); let targetT = this.wall.getClosestT(pos); const fixedEdgeT = this.t + (isLeft ? (this.width / 2) / wallLen : -(this.width / 2) / wallLen); let newWidth = Math.abs(fixedEdgeT - targetT) * wallLen; if (newWidth < 20) newWidth = 20; let newT = (fixedEdgeT + targetT) / 2; if (newWidth === 20) { targetT = fixedEdgeT + (isLeft ? -20/wallLen : 20/wallLen); newT = (fixedEdgeT + targetT) / 2; } const halfW = newWidth / 2; if (newT - halfW/wallLen < 0 || newT + halfW/wallLen > 1) return; if (this.hasEvent("prevent_overlap") && this.checkOverlap(this.wall, newT, newWidth)) return; this.width = newWidth; this.t = newT; this.update(); }
-    initEvents() { 
-        this.visualGroup.on('mouseenter', () => { if (this.planner.tool === 'select') document.body.style.cursor = 'pointer'; }); 
-        this.visualGroup.on('mouseleave', () => { document.body.style.cursor = 'default'; }); 
-        this.visualGroup.on('dragstart', () => { this.isDragging = true; }); 
-        this.visualGroup.on('dragmove', () => { if (!this.hasEvent("drag_along_wall")) return; const pos = this.planner.stage.getPointerPosition(); let targetWall = this.wall; if (this.hasEvent("jump_wall_to_wall")) { let minDist = this.planner.getDistanceToWall(pos, this.wall); this.planner.walls.forEach(w => { if (w === this.wall) return; const dist = this.planner.getDistanceToWall(pos, w); if (dist < minDist && dist < 50) { minDist = dist; targetWall = w; } }); if (targetWall !== this.wall) { let tempT = targetWall.getClosestT(pos); if (!this.hasEvent("prevent_overlap") || !this.checkOverlap(targetWall, tempT, this.width)) { this.wall.attachedWidgets = this.wall.attachedWidgets.filter(d => d !== this); this.wall = targetWall; this.wall.attachedWidgets.push(this); } } } let rawT = this.wall.getClosestT(pos); const wallLen = this.wall.getLength(), halfW = this.width / 2; const minT = halfW / wallLen, maxT = 1 - (halfW / wallLen); let t = rawT; const snapMargin = 15 / wallLen; if (this.hasEvent("snap_to_corners")) { if (Math.abs(t - minT) < snapMargin) t = minT; if (Math.abs(maxT - t) < snapMargin) t = maxT; } if (this.hasEvent("snap_to_center")) { if (Math.abs(t - 0.5) < snapMargin) t = 0.5; } t = Math.max(minT, Math.min(maxT, t)); if (this.hasEvent("prevent_overlap") && this.checkOverlap(this.wall, t, this.width)) return; this.t = t; this.update(); }); 
-        this.visualGroup.on('dragend', () => { setTimeout(() => { this.isDragging = false; }, 100); this.planner.syncAll(); }); 
-        this.visualGroup.on('click', (e) => { if (this.planner.tool === 'select' && !this.isDragging) { this.planner.selectEntity(this, 'widget'); e.cancelBubble = true; } }); 
+    initEvents() {
+        this.visualGroup.on('mouseenter', () => { if (this.planner.tool === 'select') document.body.style.cursor = 'pointer'; });
+        this.visualGroup.on('mouseleave', () => { document.body.style.cursor = 'default'; });
+        this.visualGroup.on('dragstart', () => { this.isDragging = true; });
+        this.visualGroup.on('dragmove', () => { if (!this.hasEvent("drag_along_wall")) return; const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); let targetWall = this.wall; if (this.hasEvent("jump_wall_to_wall")) { let minDist = this.planner.getDistanceToWall(pos, this.wall); this.planner.walls.forEach(w => { if (w === this.wall) return; const dist = this.planner.getDistanceToWall(pos, w); if (dist < minDist && dist < 50) { minDist = dist; targetWall = w; } }); if (targetWall !== this.wall) { let tempT = targetWall.getClosestT(pos); if (!this.hasEvent("prevent_overlap") || !this.checkOverlap(targetWall, tempT, this.width)) { this.wall.attachedWidgets = this.wall.attachedWidgets.filter(d => d !== this); this.wall = targetWall; this.wall.attachedWidgets.push(this); } } } let rawT = this.wall.getClosestT(pos); const wallLen = this.wall.getLength(), halfW = this.width / 2; const minT = halfW / wallLen, maxT = 1 - (halfW / wallLen); let t = rawT; const snapMargin = 15 / wallLen; if (this.hasEvent("snap_to_corners")) { if (Math.abs(t - minT) < snapMargin) t = minT; if (Math.abs(maxT - t) < snapMargin) t = maxT; } if (this.hasEvent("snap_to_center")) { if (Math.abs(t - 0.5) < snapMargin) t = 0.5; } t = Math.max(minT, Math.min(maxT, t)); if (this.hasEvent("prevent_overlap") && this.checkOverlap(this.wall, t, this.width)) return; this.t = t; this.update(); });
+        this.visualGroup.on('dragend', () => { setTimeout(() => { this.isDragging = false; }, 100); this.planner.syncAll(); });
+        this.visualGroup.on('click tap', (e) => { if (this.planner.tool === 'select' && !this.isDragging) { this.planner.selectEntity(this, 'widget'); e.cancelBubble = true; } });
     }
     remove() { this.cutter.destroy(); this.visualGroup.destroy(); if (this.leftHandle) { this.leftHandle.destroy(); this.rightHandle.destroy(); } this.wall.attachedWidgets = this.wall.attachedWidgets.filter(d => d !== this); this.planner.selectEntity(null); this.planner.syncAll(); }
     update() {
+        console.log(`Updating widget of type: ${this.type}`);
         const p1 = this.wall.startAnchor.position(), p2 = this.wall.endAnchor.position(), dx = p2.x - p1.x, dy = p2.y - p1.y, angle = Math.atan2(dy, dx) * 180 / Math.PI, absPos = { x: p1.x + dx * this.t, y: p1.y + dy * this.t }, thick = this.wall.config.thickness, hw = this.width / 2;
+        console.log(`Widget position:`, absPos, `angle: ${angle}`);
         this.cutter.width(this.width); this.cutter.offsetX(this.width / 2); this.cutter.offsetY((thick + 4) / 2); this.cutter.absolutePosition(absPos); this.cutter.rotation(angle);
         this.visualGroup.absolutePosition(absPos); this.visualGroup.rotation(angle); this.frameL.setAttrs({ height: thick, x: -hw, y: -thick/2 }); this.frameR.setAttrs({ height: thick, x: hw - 4, y: -thick/2 });
         this.innerParts.destroyChildren(); this.config.render2D(this.innerParts, this);
@@ -148,16 +178,18 @@ export class PremiumWall {
         this.planner = planner; this.startAnchor = startAnchor; this.endAnchor = endAnchor; this.attachedWidgets = []; this.type = type; this.config = WALL_REGISTRY[type] || WALL_REGISTRY['outer'];
         this.elevationLayers = { front: [{ id: Date.now(), texture: 'none', color: '#e2e8f0', x: 0, y: 0, w: '100%', h: '100%' }], back: [{ id: Date.now()+1, texture: 'none', color: '#f8fafc', x: 0, y: 0, w: '100%', h: '100%' }] };
         this.fillColor = this.type === 'outer' ? '#e5e5e5' : '#f3f4f6'; this.strokeColor = this.type === 'outer' ? '#9ca3af' : '#d1d5db';
-        this.wallGroup = new Konva.Group(); 
+        this.wallGroup = new Konva.Group();
         this.poly = new Konva.Line({ fill: this.fillColor, stroke: this.strokeColor, strokeWidth: 2, closed: true, lineJoin: 'miter', shadowColor: 'black', shadowBlur: 10, shadowOffset: {x: 2, y: 2}, shadowOpacity: 0.2 });
-        this.frontHighlight = new Konva.Line({ stroke: '#3b82f6', strokeWidth: 4, visible: false }); 
+        this.poly.parentWall = this;
+        this.poly.isWallPoly = true;
+        this.frontHighlight = new Konva.Line({ stroke: '#3b82f6', strokeWidth: 4, visible: false });
         this.backHighlight = new Konva.Line({ stroke: '#10b981', strokeWidth: 4, visible: false });
-        this.wallGroup.add(this.poly, this.frontHighlight, this.backHighlight); 
+        this.wallGroup.add(this.poly, this.frontHighlight, this.backHighlight);
         this.planner.wallLayer.add(this.wallGroup);
-        
-        this.labelGroup = new Konva.Group({ listening: false }); 
-        this.labelText = new Konva.Text({ fontSize: 11, fill: "#4b5563", padding: 2, fontStyle: 'bold' }); 
-        this.labelGroup.add(this.labelText); 
+
+        this.labelGroup = new Konva.Group({ listening: false });
+        this.labelText = new Konva.Text({ fontSize: 11, fill: "#4b5563", padding: 2, fontStyle: 'bold' });
+        this.labelGroup.add(this.labelText);
         this.planner.uiLayer.add(this.labelGroup);
 
         this.initEvents(); this.update();
@@ -165,18 +197,70 @@ export class PremiumWall {
     hasEvent(eventName) { return this.config.events.includes(eventName); }
     getLength() { const p1 = this.startAnchor.position(), p2 = this.endAnchor.position(); return Math.hypot(p2.x - p1.x, p2.y - p1.y); }
     setHighlight(isActive) { this.poly.stroke(this.planner.selectedEntity === this ? "#4f46e5" : this.strokeColor); this.planner.stage.batchDraw(); }
-    initEvents() { 
-        this.poly.on('mousedown', (e) => { 
-            if (WIDGET_REGISTRY[this.planner.tool]) { let t = this.getClosestT(this.planner.stage.getPointerPosition()); const widget = new PremiumWidget(this.planner, this, t, this.planner.tool); this.attachedWidgets.push(widget); this.planner.updateToolStates(); this.planner.syncAll(); return; } 
-            if (this.planner.tool !== 'select') return; e.cancelBubble = true; this.planner.selectEntity(this, 'wall'); 
-        }); 
-        let startAncPos = {}, startPointer = {}; 
-        this.poly.on('dragstart', () => { this.setHighlight(true); const pos = this.planner.stage.getPointerPosition(); startPointer = { x: pos.x, y: pos.y }; startAncPos = { x1: this.startAnchor.x, y1: this.startAnchor.y, x2: this.endAnchor.x, y2: this.endAnchor.y }; }); 
-        this.poly.on('dragmove', () => { const pos = this.planner.stage.getPointerPosition(); const dx = this.planner.snap(pos.x - startPointer.x), dy = this.planner.snap(pos.y - startPointer.y); const proposedStart = { x: startAncPos.x1 + dx, y: startAncPos.y1 + dy }; const proposedEnd = { x: startAncPos.x2 + dx, y: startAncPos.y2 + dy }; if (this.hasEvent("stop_collision") && this.planner.checkWallIntersection(proposedStart, proposedEnd, [this])) return; this.startAnchor.node.position(proposedStart); this.endAnchor.node.position(proposedEnd); this.poly.position({ x: 0, y: 0 }); this.planner.syncAll(); }); 
+    initEvents() {
+        this.poly.on('mouseenter', () => {
+            if (this.planner.tool === 'select' || WIDGET_REGISTRY[this.planner.tool]) {
+                document.body.style.cursor = 'pointer';
+            }
+        });
+        this.poly.on('mouseleave', () => { document.body.style.cursor = 'default'; });
+
+        this.poly.on('mousedown touchstart', (e) => {
+            console.log("Wall mousedown/touchstart event fired.");
+            const toolIsWidget = !!WIDGET_REGISTRY[this.planner.tool];
+            const pos = this.planner.getPointerPos();
+            console.log(`Current tool: ${this.planner.tool}, Is Widget: ${toolIsWidget}, Position:`, pos);
+
+            if (!pos) {
+                console.error("Could not get pointer position.");
+                return;
+            }
+
+            if (toolIsWidget) {
+                console.log("Widget tool is active. Attempting to create widget.");
+                e.cancelBubble = true;
+                let t = this.getClosestT(pos);
+                const widget = new PremiumWidget(this.planner, this, t, this.planner.tool);
+                this.attachedWidgets.push(widget);
+                this.planner.selectEntity(widget, 'widget');
+                this.planner.syncAll();
+                return;
+            }
+
+            if (this.planner.tool === 'select') {
+                console.log("Select tool is active. Selecting wall.");
+                e.cancelBubble = true;
+                this.planner.selectEntity(this, 'wall');
+            }
+        });
+
+        let startAncPos = {}, startPointer = {};
+        this.poly.on('dragstart', (e) => {
+            if (this.planner.tool !== 'select') {
+                e.target.stopDrag();
+                e.cancelBubble = true;
+                return;
+            }
+            this.setHighlight(true);
+            const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
+            startPointer = { x: pos.x, y: pos.y };
+            startAncPos = { x1: this.startAnchor.x, y1: this.startAnchor.y, x2: this.endAnchor.x, y2: this.endAnchor.y };
+        });
+        this.poly.on('dragmove', () => {
+            if (this.planner.tool !== 'select') return;
+            const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
+            const dx = this.planner.snap(pos.x - startPointer.x), dy = this.planner.snap(pos.y - startPointer.y);
+            const proposedStart = { x: startAncPos.x1 + dx, y: startAncPos.y1 + dy };
+            const proposedEnd = { x: startAncPos.x2 + dx, y: startAncPos.y2 + dy };
+            if (this.hasEvent("stop_collision") && this.planner.checkWallIntersection(proposedStart, proposedEnd, [this])) return;
+            this.startAnchor.node.position(proposedStart);
+            this.endAnchor.node.position(proposedEnd);
+            this.poly.position({ x: 0, y: 0 }); this.planner.syncAll();
+        });
         this.poly.on('dragend', () => { this.setHighlight(this.planner.selectedEntity === this); });
     }
     getClosestT(pos) { const p1 = this.startAnchor.position(), p2 = this.endAnchor.position(), dx = p2.x - p1.x, dy = p2.y - p1.y, lenSq = dx*dx + dy*dy; if (lenSq === 0) return 0.5; let t = ((pos.x - p1.x) * dx + (pos.y - p1.y) * dy) / lenSq; return Math.max(0, Math.min(1, t)); }
-    update() { 
+    update() {
         const p1 = this.startAnchor.position(), p2 = this.endAnchor.position(); const vdx = p2.x - p1.x, vdy = p2.y - p1.y, vlen = Math.hypot(vdx, vdy); if (vlen === 0) return;
         const u = { x: vdx/vlen, y: vdy/vlen }, n = { x: -u.y, y: u.x }, ht = this.config.thickness / 2;
         const p1_L = { x: p1.x + n.x * ht, y: p1.y + n.y * ht }, p1_R = { x: p1.x - n.x * ht, y: p1.y - n.y * ht }, p2_L = { x: p2.x + n.x * ht, y: p2.y + n.y * ht }, p2_R = { x: p2.x - n.x * ht, y: p2.y - n.y * ht };
@@ -200,15 +284,15 @@ export class PremiumWall {
         this.poly.points([ startL.x, startL.y, endL.x, endL.y, endR.x, endR.y, startR.x, startR.y ]);
         const fOff = 4; this.frontHighlight.points([ startL.x + n.x * fOff, startL.y + n.y * fOff, endL.x + n.x * fOff, endL.y + n.y * fOff ]); this.backHighlight.points([ startR.x - n.x * fOff, startR.y - n.y * fOff, endR.x - n.x * fOff, endR.y - n.y * fOff ]);
         this.labelText.text(this.planner.formatLength(this.getLength())); this.labelGroup.position({ x: (p1.x + p2.x) / 2 - this.labelText.width() / 2, y: (p1.y + p2.y) / 2 - 15 });
-        this.attachedWidgets.forEach(w => w.update()); 
-    }   
+        this.attachedWidgets.forEach(w => w.update());
+    }
     remove() { this.wallGroup.destroy(); this.labelGroup.destroy(); this.attachedWidgets.forEach(w => w.remove()); this.planner.walls = this.planner.walls.filter(w => w !== this); this.planner.selectEntity(null); this.planner.syncAll(); }
 }
 
 export class PremiumFurniture {
     constructor(planner, x, y, configId) {
         this.planner = planner; this.type = 'furniture'; this.config = FURNITURE_REGISTRY[configId];
-        this.width = this.config.default.width; this.depth = this.config.default.depth; this.height = this.config.default.height; 
+        this.width = this.config.default.width; this.depth = this.config.default.depth; this.height = this.config.default.height;
         this.rotation = 0; this.isDragging = false;
         this.group = new Konva.Group({ x: x, y: y, width: this.width, height: this.depth, draggable: true, offsetX: this.width / 2, offsetY: this.depth / 2 });
         this.body = new Konva.Rect({ width: this.width, height: this.depth, fill: '#fde68a', stroke: '#ea580c', strokeWidth: 2, cornerRadius: 4, shadowColor: 'black', shadowBlur: 5, shadowOpacity: 0.2 });
@@ -223,172 +307,305 @@ export class PremiumFurniture {
         this.group.on('dragstart', () => { this.isDragging = true; this.planner.selectEntity(this, 'furniture'); });
         this.group.on('dragmove', (e) => { if (e.target === this.rotHandle) return; this.planner.syncAll(); });
         this.group.on('dragend', () => { this.isDragging = false; });
-        this.rotHandle.on('dragmove', (e) => { e.cancelBubble = true; const pos = this.planner.stage.getPointerPosition(); const angleRad = Math.atan2(pos.y - this.group.y(), pos.x - this.group.x()); this.rotation = (angleRad * 180 / Math.PI) + 90; this.group.rotation(this.rotation); this.rotHandle.position({ x: this.width / 2, y: -15 }); this.planner.syncAll(); });
+        this.rotHandle.on('dragmove', (e) => { e.cancelBubble = true; const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); const angleRad = Math.atan2(pos.y - this.group.y(), pos.x - this.group.x()); this.rotation = (angleRad * 180 / Math.PI) + 90; this.group.rotation(this.rotation); this.rotHandle.position({ x: this.width / 2, y: -15 }); this.planner.syncAll(); });
     }
     update() { this.group.width(this.width); this.group.height(this.depth); this.group.offsetX(this.width / 2); this.group.offsetY(this.depth / 2); this.body.width(this.width); this.body.height(this.depth); this.group.rotation(this.rotation); this.rotHandle.x(this.width / 2); }
     remove() { this.group.destroy(); this.planner.furniture = this.planner.furniture.filter(f => f !== this); this.planner.selectEntity(null); this.planner.syncAll(); }
 }
 
+
 export class FloorPlanner {
-    constructor(containerEl) { 
+    constructor(containerEl) {
         this.container = containerEl; this.tool = "outer"; this.currentUnit = "ft"; this.drawing = false; this.lastAnchor = null; this.startAnchor = null; this.drawingStair = null; this.preview = null;
-        this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
-        this.onSelectionChange = null; 
-        this.initKonva(); this.drawGrid(); this.initHUD(); this.initStageEvents(); 
+        this.activeCategory = 'tools';
+        this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
+        this.events = new EventEmitter();
+        this.initKonva(); this.drawGrid(); this.initHUD(); this.initStageEvents();
     }
-    
-    initKonva() { 
-        this.stage = new Konva.Stage({ container: this.container, width: window.innerWidth - 380, height: window.innerHeight }); 
-        
+
+    on(eventName, listener) { return this.events.on(eventName, listener); }
+    off(eventName, listener) { this.events.off(eventName, listener); }
+    emit(eventName, ...args) { this.events.emit(eventName, ...args); }
+
+    initKonva() {
+        this.stage = new Konva.Stage({ container: this.container, width: window.innerWidth - 380, height: window.innerHeight });
+
         this.bgLayer = new Konva.Layer();
-        this.gridLayer = new Konva.Group(); 
-        this.referenceLayer = new Konva.Group(); 
-        this.roomLayer = new Konva.Group(); 
+        this.gridLayer = new Konva.Group();
+        this.referenceLayer = new Konva.Group();
+        this.roomLayer = new Konva.Group();
         this.bgLayer.add(this.gridLayer, this.referenceLayer, this.roomLayer);
 
         this.mainLayer = new Konva.Layer();
-        this.wallLayer = new Konva.Group(); 
-        this.widgetLayer = new Konva.Group(); 
-        this.furnitureLayer = new Konva.Group(); 
-        this.mainLayer.add(this.wallLayer, this.widgetLayer, this.furnitureLayer);
+        this.wallLayer = new Konva.Group();
+        this.widgetLayer = new Konva.Group();
+        this.furnitureLayer = new Konva.Group();
+        this.roofLayer = new Konva.Group();
+        this.mainLayer.add(this.wallLayer, this.widgetLayer, this.furnitureLayer, this.roofLayer);
 
-        this.uiLayer = new Konva.Layer(); 
-        
-        this.stage.add(this.bgLayer, this.mainLayer, this.uiLayer); 
+        this.uiLayer = new Konva.Layer();
+
+        this.stage.add(this.bgLayer, this.mainLayer, this.uiLayer);
     }
-    
+
     initHUD() {
-        this.snapGlow = new Konva.Circle({ radius: 8, fill: '#10b981', shadowColor: '#10b981', shadowBlur: 15, opacity: 0.8, visible: false, listening: false }); 
+        this.snapGlow = new Konva.Circle({ radius: 8, fill: '#10b981', shadowColor: '#10b981', shadowBlur: 15, opacity: 0.8, visible: false, listening: false });
         this.uiLayer.add(this.snapGlow);
-        
-        this.guideLineInfinite = new Konva.Line({ points: [0,0,0,0], stroke: '#38bdf8', strokeWidth: 1, dash: [4, 4], visible: false, listening: false }); 
+
+        this.splitPreviewGlow = new Konva.Circle({ radius: 5, fill: '#ef4444', opacity: 0.8, visible: false, listening: false });
+        this.uiLayer.add(this.splitPreviewGlow);
+
+        this.guideLineInfinite = new Konva.Line({ points: [0,0,0,0], stroke: '#38bdf8', strokeWidth: 1, dash: [4, 4], visible: false, listening: false });
         this.uiLayer.add(this.guideLineInfinite);
-        
-        this.infoBadgeGroup = new Konva.Group({ visible: false, listening: false }); 
-        this.infoBadgeBg = new Konva.Rect({ fill: '#111827', cornerRadius: 6, opacity: 0.9, shadowColor: 'black', shadowBlur: 4, shadowOffsetY: 2, shadowOpacity: 0.2 }); 
-        this.infoBadgeText = new Konva.Text({ text: '', fill: 'white', padding: 8, fontSize: 11, align: 'center', fontStyle: 'bold', lineHeight: 1.4 }); 
-        this.infoBadgeGroup.add(this.infoBadgeBg, this.infoBadgeText); 
+
+        this.infoBadgeGroup = new Konva.Group({ visible: false, listening: false });
+        this.infoBadgeBg = new Konva.Rect({ fill: '#111827', cornerRadius: 6, opacity: 0.9, shadowColor: 'black', shadowBlur: 4, shadowOffsetY: 2, shadowOpacity: 0.2 });
+        this.infoBadgeText = new Konva.Text({ text: '', fill: 'white', padding: 8, fontSize: 11, align: 'center', fontStyle: 'bold', lineHeight: 1.4 });
+        this.infoBadgeGroup.add(this.infoBadgeBg, this.infoBadgeText);
         this.uiLayer.add(this.infoBadgeGroup);
+
+        this.wallHighlight = new Konva.Line({ stroke: '#3b82f6', strokeWidth: 6, opacity: 0.7, visible: false, listening: false });
+        this.uiLayer.add(this.wallHighlight);
     }
-    
-    showSnapGlow(x, y) { this.snapGlow.position({x, y}); this.snapGlow.show(); } 
+
+    showSnapGlow(x, y) { this.snapGlow.position({x, y}); this.snapGlow.show(); }
     hideSnapGlow() { this.snapGlow.hide(); }
-    
-    drawGuideLine(x1, y1, x2, y2, show) { 
-        if (!show) { this.guideLineInfinite.hide(); return; } 
-        const dx = x2 - x1, dy = y2 - y1; const scale = 2000; 
-        this.guideLineInfinite.points([x1 - dx*scale, y1 - dy*scale, x1 + dx*scale, y1 + dy*scale]); 
-        this.guideLineInfinite.show(); 
-        this.guideLineInfinite.moveToBottom(); 
+
+    drawGuideLine(x1, y1, x2, y2, show) {
+        if (!show) { this.guideLineInfinite.hide(); return; }
+        const dx = x2 - x1, dy = y2 - y1; const scale = 2000;
+        this.guideLineInfinite.points([x1 - dx*scale, y1 - dy*scale, x1 + dx*scale, y1 + dy*scale]);
+        this.guideLineInfinite.show();
+        this.guideLineInfinite.moveToBottom();
     }
-    
-    updateInfoBadge(x, y, length, angle, snapped) { 
-        let txt = `${length}\n${angle}°`; 
-        if (snapped) txt += `\n🎯 Snapped`; 
-        this.infoBadgeText.text(txt); 
+
+    updateInfoBadge(x, y, length, angle, snapped) {
+        let txt = `${length}\n${angle}°`;
+        if (snapped) txt += `\n🎯 Snapped`;
+        this.infoBadgeText.text(txt);
         this.infoBadgeBg.setAttrs({ width: this.infoBadgeText.width(), height: this.infoBadgeText.height() });
-        this.infoBadgeGroup.position({ x: x + 15, y: y + 15 }); 
-        this.infoBadgeGroup.show(); 
-        this.infoBadgeGroup.moveToTop(); 
-    } 
+        this.infoBadgeGroup.position({ x: x + 15, y: y + 15 });
+        this.infoBadgeGroup.show();
+        this.infoBadgeGroup.moveToTop();
+    }
     hideInfoBadge() { this.infoBadgeGroup.hide(); }
 
     snap(v) { return Math.round(v / GRID) * GRID; }
     formatLength(px) { const feet = px * PX_TO_FT; if (this.currentUnit === 'in') return Math.round(feet * 12) + '"'; if (this.currentUnit === 'cm') return Math.round(feet * 30.48) + ' cm'; if (this.currentUnit === 'm') return (feet * 0.3048).toFixed(2) + ' m'; const wholeFeet = Math.floor(feet), inches = Math.round((feet - wholeFeet) * 12); return inches > 0 ? `${wholeFeet}' ${inches}"` : `${wholeFeet}'`; }
     drawGrid() { for (let i = 0; i < this.stage.width() / GRID; i++) this.gridLayer.add(new Konva.Line({ points: [i * GRID, 0, i * GRID, this.stage.height()], stroke: "#f0f0f0", strokeWidth: 1, listening: false })); for (let j = 0; j < this.stage.height() / GRID; j++) this.gridLayer.add(new Konva.Line({ points: [0, j * GRID, this.stage.width(), j * GRID], stroke: "#f0f0f0", strokeWidth: 1, listening: false })); this.bgLayer.batchDraw(); }
-    
+
     doIntersect(p1, p2, p3, p4) { const ccw = (A, B, C) => (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x); return ccw(p1, p3, p4) !== ccw(p2, p3, p4) && ccw(p1, p2, p3) !== ccw(p1, p2, p4); }
     checkWallIntersection(p1, p2, ignoreWalls = []) { for (let w of this.walls) { if (ignoreWalls.includes(w)) continue; if (this.getDistanceToWall(p1, w) < 1.0) continue; if (this.getDistanceToWall(p2, w) < 1.0) continue; if (this.doIntersect(p1, p2, w.startAnchor.position(), w.endAnchor.position())) return true; } return false; }
     getDistanceToWall(pos, wall) { const p1 = wall.startAnchor.position(), p2 = wall.endAnchor.position(), C = p2.x - p1.x, D = p2.y - p1.y, dot = (pos.x - p1.x) * C + (pos.y - p1.y) * D, lenSq = C * C + D * D; let param = -1; if (lenSq !== 0) param = Math.max(0, Math.min(1, dot / lenSq)); const xx = p1.x + param * C, yy = p1.y + param * D; return Math.hypot(pos.x - xx, pos.y - yy); }
     getClosestPointOnSegment(p, p1, p2) { const C = p2.x - p1.x, D = p2.y - p1.y, lenSq = C*C + D*D; if (lenSq === 0) return p1; let t = Math.max(0, Math.min(1, ((p.x - p1.x)*C + (p.y - p1.y)*D) / lenSq)); return { x: p1.x + t*C, y: p1.y + t*D }; }
 
-    selectEntity(entity, type, nodeIndex = -1) { 
-        if (this.selectedEntity && this.selectedType === 'wall') this.selectedEntity.setHighlight(false);
-        if (this.selectedEntity && this.selectedType === 'stair') this.selectedEntity.setHighlight(false);
-        if (this.selectedEntity && this.selectedType === 'stair_node') this.selectedEntity.setHighlight(false);
-        if (this.selectedEntity && this.selectedType === 'furniture') this.selectedEntity.setHighlight(false);
-        
+    selectEntity(entity, type, nodeIndex = -1) {
+        if (this.selectedEntity && this.selectedEntity.setHighlight) {
+            this.selectedEntity.setHighlight(false);
+        }
+
         this.selectedEntity = entity; this.selectedType = type; this.selectedNodeIndex = nodeIndex;
-        
-        if (entity && (type === 'wall' || type === 'stair' || type === 'stair_node' || type === 'furniture')) entity.setHighlight(true);
-        if (this.onSelectionChange) this.onSelectionChange(entity, type, nodeIndex);
+
+        if (entity && entity.setHighlight) {
+             entity.setHighlight(true);
+        }
+        this.emit('selectionchange', entity, type, nodeIndex);
     }
 
-    updateToolStates() { 
-        const isSelect = this.tool === "select"; 
-        this.walls.forEach(w => { w.poly.setAttr('draggable', isSelect); w.attachedWidgets.forEach(widg => widg.visualGroup.setAttr('draggable', isSelect)); }); 
-        this.stairs.forEach(s => { s.group.setAttr('draggable', isSelect); }); 
-        this.anchors.forEach(a => { a.node.setAttr('draggable', isSelect); }); 
-        this.furniture.forEach(f => { f.group.setAttr('draggable', isSelect); });
+    updateToolStates() {
+        const isSelect = this.tool === "select";
+        const isWidget = !!WIDGET_REGISTRY[this.tool];
+
+        this.walls.forEach(w => {
+            if(w.poly) { w.poly.setAttr('draggable', isSelect); w.poly.setAttr('listening', isSelect || isWidget); }
+            w.attachedWidgets.forEach(widg => { if(widg.visualGroup) { widg.visualGroup.setAttr('draggable', isSelect); widg.visualGroup.setAttr('listening', isSelect); } });
+        });
+        this.stairs.forEach(s => { if(s.group) { s.group.setAttr('draggable', isSelect); s.group.setAttr('listening', isSelect); } });
+        this.anchors.forEach(a => { if(a.node) { a.node.setAttr('draggable', isSelect); a.node.setAttr('listening', isSelect); } });
+        this.furniture.forEach(f => { if(f.group) { f.group.setAttr('draggable', isSelect); f.group.setAttr('listening', isSelect); } });
+
+        if (this.wallLayer) this.wallLayer.listening(isSelect || isWidget);
+        if (this.widgetLayer) this.widgetLayer.listening(isSelect);
+        if (this.furnitureLayer) this.furnitureLayer.listening(isSelect);
+        if (this.roofLayer) this.roofLayer.listening(isSelect);
     }
 
     getOrCreateAnchor(x, y) { let a = this.anchors.find(a => Math.hypot(a.x - x, a.y - y) < SNAP_DIST); if (a) return a; const newAnchor = new Anchor(this, x, y); this.anchors.push(newAnchor); return newAnchor; }
-    deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.anchors.forEach(a => a.hide()); this.selectEntity(null); this.syncAll(); }
-    syncAll() { this.walls.forEach(w => w.update()); this.stairs.forEach(s => s.update()); this.furniture.forEach(f => f.update()); this.mainLayer.batchDraw(); this.detectRooms(); }
-    
-    finishChain() { 
-        if (this.drawingStair) { this.drawingStair.finishDrawing(); this.drawingStair = null; } 
-        this.drawing = false; this.lastAnchor = null; this.startAnchor = null; 
-        this.preview?.destroy(); this.preview = null; 
-        this.hideSnapGlow(); this.drawGuideLine(0,0,0,0, false); this.hideInfoBadge(); 
-        this.deselectAll(); 
+    deselectAll() { if (this.selectedEntity) { this.selectEntity(null); } this.anchors.forEach(a => a.hide()); this.syncAll(); }
+    syncAll() { this.buildingCenter = null; this.walls.forEach(w => w.update()); this.stairs.forEach(s => s.update()); this.furniture.forEach(f => f.update()); this.roofs.forEach(r => r.update()); this.mainLayer.batchDraw(); this.detectRooms(); this.emit('sync'); }
+
+    getOutwardNormal(wall) {
+        if (!this.buildingCenter) {
+            let totalX = 0, totalY = 0, count = 0;
+            this.walls.forEach(w => { totalX += w.startAnchor.x; totalY += w.startAnchor.y; count++; });
+            if (count > 0) { this.buildingCenter = { x: totalX / count, y: totalY / count }; }
+            else { this.buildingCenter = { x: this.stage.width() / 2, y: this.stage.height() / 2 }; }
+        }
+        const p1 = wall.startAnchor.position(), p2 = wall.endAnchor.position();
+        const wallCenter = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+        const dx = p2.x - p1.x, dy = p2.y - p1.y;
+        const normal = { x: -dy, y: dx };
+        const len = Math.hypot(normal.x, normal.y);
+        if (len > 0) { normal.x /= len; normal.y /= len; }
+        const vecToCenter = { x: this.buildingCenter.x - wallCenter.x, y: this.buildingCenter.y - wallCenter.y };
+        if (normal.x * vecToCenter.x + normal.y * vecToCenter.y > 0) { normal.x *= -1; normal.y *= -1; }
+        return normal;
     }
-    
-    initStageEvents() { 
-        this.stage.on("mousedown", (e) => { 
-            if (e.target === this.stage || e.target === this.bgLayer || e.target === this.mainLayer) this.deselectAll(); 
-            const wallConfig = WALL_REGISTRY[this.tool]; 
-            const pos = this.stage.getPointerPosition(); 
+
+    getPointerPos() {
+        const pointer = this.stage.getPointerPosition();
+        if (!pointer) return null;
+        if (typeof this.stage.getRelativePointerPosition === 'function') {
+            return this.stage.getRelativePointerPosition();
+        }
+        return this.stage.getAbsoluteTransform().copy().invert().point(pointer);
+    }
+
+    finishChain() {
+        if (this.drawingStair) { this.drawingStair.finishDrawing(); this.drawingStair = null; }
+        this.drawing = false; this.lastAnchor = null; this.startAnchor = null;
+        this.preview?.destroy(); this.preview = null;
+        this.hideSnapGlow(); this.drawGuideLine(0,0,0,0, false); this.hideInfoBadge();
+        this.deselectAll();
+    }
+
+    initStageEvents() {
+
+        this.stage.on("mousedown touchstart", (e) => {
+            const target = e.target;
+            const pos = this.getPointerPos();
             if (!pos) return;
-            let targetPos = { x: this.snap(pos.x), y: this.snap(pos.y) }; 
+            
+            // Logic for placing widgets on walls and selecting walls has been moved to PremiumWall.initEvents
+            // This makes event handling more localized and robust.
+
+            if (target.isWallPoly) {
+                // This event is now handled by the polygon itself in PremiumWall.
+                // We let the event bubble up if not handled there (e.g., for dragging the stage).
+                return;
+            }
+
+            if (this.tool === 'roof') return;
+            if (this.tool === 'split') {
+                const hitThreshold = 20 / (this.stage.scaleX() || 1);
+
+                for (let w of this.walls) {
+                    if (!WALL_REGISTRY[w.type] || !WALL_REGISTRY[w.type].events.includes('split_edge')) continue;
+                    const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
+                    const proj = this.getClosestPointOnSegment(pos, p1, p2);
+                    if (Math.hypot(pos.x - proj.x, pos.y - proj.y) < hitThreshold) {
+                        if (Math.hypot(proj.x - p1.x, proj.y - p1.y) < hitThreshold || Math.hypot(proj.x - p2.x, proj.y - p2.y) < hitThreshold) return;
+
+                        const newAnchor = this.getOrCreateAnchor(proj.x, proj.y);
+                        const oldEnd = w.endAnchor;
+                        w.endAnchor = newAnchor;
+                        const newWall = new PremiumWall(this, newAnchor, oldEnd, w.type);
+                        this.walls.push(newWall);
+
+                        this.tool = 'select'; this.updateToolStates();
+                        this.selectEntity(newWall, 'wall');
+                        newAnchor.show();
+                        this.syncAll();
+                        this.splitPreviewGlow.hide();
+                        this.uiLayer.batchDraw();
+                        return;
+                    }
+                }
+
+                if (this.balconies) {
+                    for (let b of this.balconies) {
+                        if (!WIDGET_REGISTRY['balcony'] || !WIDGET_REGISTRY['balcony'].events.includes('split_edge')) continue;
+                        const pts = b.vertices || b.points;
+                        if (!pts || pts.length < 3) continue;
+
+                        const transform = b.group.getTransform();
+                        for (let i = 0; i < pts.length; i++) {
+                            const p1 = transform.point(pts[i]);
+                            const p2 = transform.point(pts[(i + 1) % pts.length]);
+                            const proj = this.getClosestPointOnSegment(pos, p1, p2);
+                            if (Math.hypot(pos.x - proj.x, pos.y - proj.y) < hitThreshold) {
+                                const localProj = transform.copy().invert().point(proj);
+                                if (b.splitEdge) {
+                                    b.splitEdge(i, localProj);
+                                    this.tool = 'select'; this.updateToolStates();
+                                    this.selectEntity(b, 'balcony');
+                                }
+                                this.splitPreviewGlow.hide();
+                                this.uiLayer.batchDraw();
+                                return;
+                            }
+                        }
+                    }
+                }
+                return;
+            }
+
+            if (e.target === this.stage || e.target.getLayer() === this.bgLayer) {
+                 this.deselectAll();
+            }
+
+            const wallConfig = WALL_REGISTRY[this.tool];
+            let targetPos = { x: this.snap(pos.x), y: this.snap(pos.y) };
 
             if (this.tool === 'stair') { if (!this.drawingStair) { this.drawingStair = new PremiumStair(this, targetPos.x, targetPos.y); this.stairs.push(this.drawingStair); } else { this.drawingStair.addPoint(targetPos.x, targetPos.y); } this.syncAll(); return; }
-            if (!wallConfig) return; 
-
-            let targetSnapWall = null; 
-            if (wallConfig && wallConfig.events.includes("snap_to_wall")) { 
-                let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < SNAP_DIST); 
-                if (a) { targetPos = { x: a.x, y: a.y }; targetSnapWall = this.walls.find(w => w.startAnchor === a || w.endAnchor === a); } 
-                else { let closestDist = SNAP_DIST, closestPoint = null; for (let w of this.walls) { let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = w; } } if (closestPoint) targetPos = closestPoint; } 
-            } 
-            
-            if (this.drawing && wallConfig && wallConfig.events.includes("stop_collision") && this.checkWallIntersection(this.lastAnchor.position(), targetPos, [targetSnapWall])) return; 
-            
-            const currentAnchor = this.getOrCreateAnchor(targetPos.x, targetPos.y); 
-            if (!this.drawing) { this.drawing = true; this.lastAnchor = currentAnchor; this.startAnchor = currentAnchor; currentAnchor.show(); } 
-            else { if (this.lastAnchor !== currentAnchor) { this.walls.push(new PremiumWall(this, this.lastAnchor, currentAnchor, this.tool)); } if (currentAnchor === this.startAnchor) this.finishChain(); else { this.lastAnchor = currentAnchor; currentAnchor.show(); } } 
-            this.syncAll(); 
-        }); 
-
-        this.stage.on("mousemove", () => { 
-            const pos = this.stage.getPointerPosition(); 
-            if (!pos) return;
-            let rawPos = { x: this.snap(pos.x), y: this.snap(pos.y) }; 
-            
-            if (this.drawingStair) { this.drawingStair.updateLastPoint(rawPos.x, rawPos.y); return; }
-            if (!this.drawing) return; 
-            const wallConfig = WALL_REGISTRY[this.tool]; 
-            
-            let dxAxis = rawPos.x - this.lastAnchor.x, dyAxis = rawPos.y - this.lastAnchor.y, rawAngle = Math.atan2(dyAxis, dxAxis) * 180 / Math.PI, distAxis = Math.hypot(dxAxis, dyAxis), snappedToAxis = false;
-            for (let a of [0, 45, 90, 135, 180, -45, -90, -135, -180]) {
-                if (Math.abs(rawAngle - a) < 5) { 
-                    let rad = a * Math.PI / 180; 
-                    rawPos.x = this.lastAnchor.x + distAxis * Math.cos(rad); 
-                    rawPos.y = this.lastAnchor.y + distAxis * Math.sin(rad); 
-                    snappedToAxis = true; 
-                    this.drawGuideLine(this.lastAnchor.x, this.lastAnchor.y, rawPos.x, rawPos.y, true); 
-                    break; 
-                }
+            if (this.tool === 'balcony') {
+                if (!this.balconies) this.balconies = [];
+                const newBalcony = new PremiumBalcony(this, targetPos.x, targetPos.y, 'rectangle');
+                this.balconies.push(newBalcony);
+                this.selectEntity(newBalcony, 'balcony');
+                this.tool = 'select'; this.updateToolStates();
+                this.syncAll();
+                return;
             }
-            if (!snappedToAxis) this.drawGuideLine(0,0,0,0, false);
+            if (!wallConfig) return;
+
+            let targetSnapWall = null;
+            if (wallConfig && wallConfig.events.includes("snap_to_wall")) {
+                let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < SNAP_DIST);
+                if (a) { targetPos = { x: a.x, y: a.y }; targetSnapWall = this.walls.find(w => w.startAnchor === a || w.endAnchor === a); }
+                else { let closestDist = SNAP_DIST, closestPoint = null; for (let w of this.walls) { let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = w; } } if (closestPoint) targetPos = closestPoint; }
+            }
+
+            if (this.drawing && wallConfig && wallConfig.events.includes("stop_collision") && this.checkWallIntersection(this.lastAnchor.position(), targetPos, [targetSnapWall])) return;
+
+            const currentAnchor = this.getOrCreateAnchor(targetPos.x, targetPos.y);
+            if (!this.drawing) { this.drawing = true; this.lastAnchor = currentAnchor; this.startAnchor = currentAnchor; currentAnchor.show(); }
+            else { if (this.lastAnchor !== currentAnchor) { this.walls.push(new PremiumWall(this, this.lastAnchor, currentAnchor, this.tool)); } if (currentAnchor === this.startAnchor) this.finishChain(); else { this.lastAnchor = currentAnchor; currentAnchor.show(); } }
+            this.syncAll();
+        });
+
+        this.stage.on("mousemove touchmove", () => {
+            const pos = this.getPointerPos();
+            if (!pos) return;
+
+            let rawPos = { x: this.snap(pos.x), y: this.snap(pos.y) };
+
+            if (this.drawingStair) { this.drawingStair.updateLastPoint(rawPos.x, rawPos.y); return; }
+            if (!this.drawing) return;
+            const wallConfig = WALL_REGISTRY[this.tool];
+
+            let dxAxis = rawPos.x - this.lastAnchor.x, dyAxis = rawPos.y - this.lastAnchor.y, rawAngle = Math.atan2(dyAxis, dxAxis) * 180 / Math.PI, distAxis = Math.hypot(dxAxis, dyAxis), snappedToAxis = false;
+            if (this.drawing) {
+                for (let a of [0, 45, 90, 135, 180, -45, -90, -135, -180]) {
+                    if (Math.abs(rawAngle - a) < 5) {
+                        let rad = a * Math.PI / 180;
+                        rawPos.x = this.lastAnchor.x + distAxis * Math.cos(rad);
+                        rawPos.y = this.lastAnchor.y + distAxis * Math.sin(rad);
+                        snappedToAxis = true;
+                        this.drawGuideLine(this.lastAnchor.x, this.lastAnchor.y, rawPos.x, rawPos.y, true);
+                        break;
+                    }
+                }
+                if (!snappedToAxis) this.drawGuideLine(0,0,0,0, false);
+            }
 
             let snapPos = rawPos; let targetSnapWall = null; let snappedObj = false;
 
-            if (wallConfig && wallConfig.events.includes("snap_to_wall")) { 
-                let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < SNAP_DIST); 
-                if (a) { snapPos = { x: a.x, y: a.y }; targetSnapWall = this.walls.find(w => w.startAnchor === a || w.endAnchor === a); snappedObj = true; } 
-                else { 
-                    let closestDist = SNAP_DIST, closestPoint = null; 
+            if (wallConfig && wallConfig.events.includes("snap_to_wall")) {
+                let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < SNAP_DIST);
+                if (a) { snapPos = { x: a.x, y: a.y }; targetSnapWall = this.walls.find(w => w.startAnchor === a || w.endAnchor === a); snappedObj = true; }
+                else {
+                    let closestDist = SNAP_DIST, closestPoint = null;
 
                     let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
                     for (let line of allReferenceWalls) {
@@ -406,15 +623,15 @@ export class FloorPlanner {
                         }
                     }
 
-                    for (let w of this.walls) { 
-                        let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); 
-                        let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); 
-                        if (dist < closestDist && !snappedObj) { closestDist = dist; closestPoint = proj; targetSnapWall = w; snappedObj = true; } 
-                    } 
-                    if (closestPoint) snapPos = closestPoint; 
-                } 
-            } 
-            
+                    for (let w of this.walls) {
+                        let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position());
+                        let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                        if (dist < closestDist && !snappedObj) { closestDist = dist; closestPoint = proj; targetSnapWall = w; snappedObj = true; }
+                    }
+                    if (closestPoint) snapPos = closestPoint;
+                }
+            }
+
             let dxBadge = snapPos.x - this.lastAnchor.x, dyBadge = snapPos.y - this.lastAnchor.y;
             let lenBadge = this.formatLength(Math.hypot(dxBadge, dyBadge));
             let angBadge = Math.abs(Math.atan2(dyBadge, dxBadge) * 180 / Math.PI).toFixed(1);
@@ -423,18 +640,78 @@ export class FloorPlanner {
             if (snappedObj) this.showSnapGlow(snapPos.x, snapPos.y); else this.hideSnapGlow();
             this.walls.forEach(w => w.setHighlight(w === this.selectedEntity));
 
-            let isColliding = false; 
-            if (wallConfig && (wallConfig.events.includes("collision_detected") || wallConfig.events.includes("stop_collision"))) { isColliding = this.checkWallIntersection(this.lastAnchor.position(), snapPos, [targetSnapWall]); } 
-            
-            this.preview?.destroy(); 
-            const isClosing = (this.startAnchor && Math.hypot(this.startAnchor.x - snapPos.x, this.startAnchor.y - snapPos.y) < 15); 
-            let drawColor = (isColliding && wallConfig && wallConfig.events.includes("stop_collision")) ? "#ef4444" : (isClosing ? "#10b981" : "#3b82f6"); 
-            this.preview = new Konva.Line({ points: [this.lastAnchor.x, this.lastAnchor.y, snapPos.x, snapPos.y], stroke: drawColor, strokeWidth: 2, opacity: 0.8 }); 
-            this.uiLayer.add(this.preview); 
+            let isColliding = false;
+            if (wallConfig && (wallConfig.events.includes("collision_detected") || wallConfig.events.includes("stop_collision"))) { isColliding = this.checkWallIntersection(this.lastAnchor.position(), snapPos, [targetSnapWall]); }
+
+            this.preview?.destroy();
+            const isClosing = (this.startAnchor && Math.hypot(this.startAnchor.x - snapPos.x, this.startAnchor.y - snapPos.y) < 15);
+            let drawColor = (isColliding && wallConfig && wallConfig.events.includes("stop_collision")) ? "#ef4444" : (isClosing ? "#10b981" : "#3b82f6");
+            this.preview = new Konva.Line({ points: [this.lastAnchor.x, this.lastAnchor.y, snapPos.x, snapPos.y], stroke: drawColor, strokeWidth: 2, opacity: 0.8 });
+            this.uiLayer.add(this.preview);
             this.preview.moveToBottom();
-            
-            this.uiLayer.batchDraw(); 
-        }); 
+
+            this.uiLayer.batchDraw();
+        });
+
+        this.stage.on("mousedown.roof touchstart.roof", (e) => {
+            if (this.tool !== 'roof') return;
+            const pos = this.getPointerPos();
+            if (!pos) return;
+
+            let snap = pos;
+            let closestDist = SNAP_DIST;
+
+            let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
+            for (let line of allReferenceWalls) {
+                let pts = line.points();
+                if (pts && pts.length === 4) {
+                    let d1 = Math.hypot(pos.x - pts[0], pos.y - pts[1]); let d2 = Math.hypot(pos.x - pts[2], pos.y - pts[3]);
+                    if (d1 < closestDist) { closestDist = d1; snap = {x: pts[0], y: pts[1]}; }
+                    if (d2 < closestDist) { closestDist = d2; snap = {x: pts[2], y: pts[3]}; }
+                    let proj = this.getClosestPointOnSegment(pos, {x: pts[0], y: pts[1]}, {x: pts[2], y: pts[3]}); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); if (dist < closestDist) { closestDist = dist; snap = proj; }
+                }
+            }
+            for (let w of this.walls) {
+                const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
+                let d1 = Math.hypot(pos.x - p1.x, pos.y - p1.y); let d2 = Math.hypot(pos.x - p2.x, pos.y - p2.y);
+                if (d1 < closestDist) { closestDist = d1; snap = p1; }
+                if (d2 < closestDist) { closestDist = d2; snap = p2; }
+            }
+
+            if (!this.drawingRoofPoints) {
+                this.drawingRoofPoints = [snap];
+                this.roofPreview = new Konva.Line({ points: [snap.x, snap.y, snap.x, snap.y], stroke: '#FFA500', strokeWidth: 3, dash: [4, 4], fill: 'rgba(255, 165, 0, 0.2)' });
+                this.roofLayer.add(this.roofPreview);
+            } else {
+                const startP = this.drawingRoofPoints[0];
+                if (Math.hypot(snap.x - startP.x, snap.y - startP.y) < SNAP_DIST && this.drawingRoofPoints.length > 2) {
+                    const roof = new PremiumHipRoof(this, this.drawingRoofPoints);
+                    this.roofs.push(roof); this.selectEntity(roof, 'roof');
+                    this.drawingRoofPoints = null; this.roofPreview.destroy(); this.roofPreview = null;
+                    this.tool = 'select'; this.updateToolStates(); this.syncAll();
+                } else {
+                    this.drawingRoofPoints.push(snap);
+                }
+            }
+        });
+
+        this.stage.on("mousemove.roof touchmove.roof", () => {
+            if (this.tool === 'roof') {
+                const pos = this.getPointerPos();
+                if (!pos) return;
+
+                let snap = pos;
+                if (this.drawingRoofPoints && this.roofPreview) {
+                    const pts = this.drawingRoofPoints.flatMap(p => [p.x, p.y]); pts.push(snap.x, snap.y);
+                    this.roofPreview.points(pts);
+                }
+
+                document.body.style.cursor = 'crosshair'; this.mainLayer.batchDraw();
+            } else {
+                if (this.drawingRoofPoints) { this.drawingRoofPoints = null; if (this.roofPreview) { this.roofPreview.destroy(); this.roofPreview = null; } }
+                if (document.body.style.cursor === 'crosshair') { document.body.style.cursor = 'default'; }
+            }
+        });
     }
 
     detectRooms() { this.roomLayer.destroyChildren(); this.roomPaths = []; const visited = new Set(); for (let wall of this.walls) { let path = []; let current = wall.startAnchor; let next = wall.endAnchor; path.push(current); let attempts = 0; while (next && attempts < this.walls.length) { path.push(next); if (next === wall.startAnchor && path.length > 2) { this.drawRoom(path); this.roomPaths.push(path); break; } let nextWall = this.walls.find(w => w !== wall && !visited.has(w) && (w.startAnchor === next || w.endAnchor === next)); if (!nextWall) break; visited.add(nextWall); next = (nextWall.startAnchor === next) ? nextWall.endAnchor : nextWall.startAnchor; attempts++; } } }
@@ -449,14 +726,14 @@ export class FloorPlanner {
         this.furniture = [];
         this.stairs = [];
         this.roomPaths = [];
-        
+
         this.anchors.forEach(a => { if(a.node) a.node.destroy(); });
         this.anchors = [];
-        
+
         if (this.wallLayer) this.wallLayer.destroyChildren();
         if (this.furnitureLayer) this.furnitureLayer.destroyChildren();
         if (this.widgetLayer) this.widgetLayer.destroyChildren();
-        
+
         if (this.mainLayer) this.mainLayer.batchDraw();
         this.selectEntity(null);
     }
@@ -556,10 +833,10 @@ export class FloorPlanner {
                 state.walls.forEach(wData => {
                     const line = new Konva.Line({
                         points: [wData.startX, wData.startY, wData.endX, wData.endY],
-                        stroke: '#94a3b8', 
+                        stroke: '#94a3b8',
                         strokeWidth: wData.thickness || 20,
                         lineCap: 'round', lineJoin: 'round',
-                        dash: [] 
+                        dash: []
                     });
                     this.referenceGroup.add(line);
                 });
