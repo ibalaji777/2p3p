@@ -151,8 +151,16 @@ export class ActiveFloor {
             }
 
             const roofGroup = new THREE.Group();
-            roofGroup.position.set(0, h, 0); // Rely purely on exact point coords
-            roofGroup.rotation.y = -roof.rotation * Math.PI / 180; 
+            let groupX = 0, groupZ = 0;
+            if (roof.group && typeof roof.group.x === 'function') {
+                groupX = roof.group.x();
+                groupZ = roof.group.y();
+            } else if (roof.x !== undefined) {
+                groupX = roof.x;
+                groupZ = roof.y;
+            }
+            roofGroup.position.set(groupX, h, groupZ); // Account for 2D dragging
+            roofGroup.rotation.y = -(roof.rotation || 0) * Math.PI / 180; 
             
             mesh.castShadow = true; mesh.receiveShadow = true;
             mesh.userData = { entity: roof, isRoof: true };

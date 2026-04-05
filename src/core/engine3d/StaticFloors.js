@@ -152,7 +152,7 @@ export class StaticFloors {
                             mesh = new THREE.Mesh(geo, mat);
                         }
 
-                        const roofGroup = new THREE.Group(); roofGroup.position.set(0, h, 0); roofGroup.rotation.y = -(roofData.rotation || 0) * Math.PI / 180;
+                        const roofGroup = new THREE.Group(); roofGroup.position.set(roofData.x || 0, h, roofData.y || 0); roofGroup.rotation.y = -(roofData.rotation || 0) * Math.PI / 180;
                         mesh.castShadow = true; mesh.receiveShadow = true;
                         if (!isPreview) { mesh.userData = { isFloorTrigger: true, levelIndex: index }; this.interactables.push(mesh); }
                         roofGroup.add(mesh); floorGroup.add(roofGroup);
