@@ -52,7 +52,23 @@ export class PremiumWall {
         }); 
         let startAncPos = {}, startPointer = {}; 
         this.poly.on('dragstart', () => { this.setHighlight(true); const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); startPointer = { x: pos.x, y: pos.y }; startAncPos = { x1: this.startAnchor.x, y1: this.startAnchor.y, x2: this.endAnchor.x, y2: this.endAnchor.y }; }); 
-        this.poly.on('dragmove', () => { const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); const dx = this.planner.snap(pos.x - startPointer.x), dy = this.planner.snap(pos.y - startPointer.y); const proposedStart = { x: startAncPos.x1 + dx, y: startAncPos.y1 + dy }; const proposedEnd = { x: startAncPos.x2 + dx, y: startAncPos.y2 + dy }; if (this.hasEvent("stop_collision") && this.planner.checkWallIntersection(proposedStart, proposedEnd, [this])) return; this.startAnchor.node.position(proposedStart); this.endAnchor.node.position(proposedEnd); this.poly.position({ x: 0, y: 0 }); this.planner.syncAll(); }); 
+        this.poly.on('dragmove', () => { 
+            const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); 
+            const dx = this.planner.snap(pos.x - startPointer.x), dy = this.planner.snap(pos.y - startPointer.y); 
+            const proposedStart = { x: startAncPos.x1 + dx, y: startAncPos.y1 + dy }; 
+            const proposedEnd = { x: startAncPos.x2 + dx, y: startAncPos.y2 + dy }; 
+            
+            this.poly.position({ x: 0, y: 0 }); // Prevent drift on collision
+            
+            if (this.hasEvent("stop_collision") && this.planner.checkWallIntersection(proposedStart, proposedEnd, [this])) return; 
+            
+            this.startAnchor.node.position(proposedStart); 
+            this.endAnchor.node.position(proposedEnd); 
+            this.startAnchor.lastValidPos = proposedStart;
+            this.endAnchor.lastValidPos = proposedEnd;
+            
+            this.planner.syncAll(); 
+        }); 
         this.poly.on('dragend', () => { this.setHighlight(this.planner.selectedEntity === this); });
     }
     

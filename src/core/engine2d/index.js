@@ -158,9 +158,17 @@ export class FloorPlanner {
         if (this.selectedEntity && this.selectedType === 'roof') this.selectedEntity.setHighlight(false);
         if (this.selectedEntity && this.selectedType === 'balcony') this.selectedEntity.setHighlight(false);
         
+        this.anchors.forEach(a => a.hide());
+        
         this.selectedEntity = entity; this.selectedType = type; this.selectedNodeIndex = nodeIndex;
         
         if (entity && (type === 'wall' || type === 'stair' || type === 'stair_node' || type === 'furniture' || type === 'roof' || type === 'balcony')) entity.setHighlight(true);
+        
+        if (entity && type === 'wall') {
+            entity.startAnchor.show();
+            entity.endAnchor.show();
+        }
+
         if (this.onSelectionChange) this.onSelectionChange(entity, type, nodeIndex);
     }
 
