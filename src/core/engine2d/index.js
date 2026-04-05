@@ -158,34 +158,30 @@ export class FloorPlanner {
         if (this.selectedEntity && this.selectedType === 'roof') this.selectedEntity.setHighlight(false);
         if (this.selectedEntity && this.selectedType === 'balcony') this.selectedEntity.setHighlight(false);
         
-        this.anchors.forEach(a => a.hide());
-        
         this.selectedEntity = entity; this.selectedType = type; this.selectedNodeIndex = nodeIndex;
         
         if (entity && (type === 'wall' || type === 'stair' || type === 'stair_node' || type === 'furniture' || type === 'roof' || type === 'balcony')) entity.setHighlight(true);
         
-        if (entity && type === 'wall') {
-            entity.startAnchor.show();
-            entity.endAnchor.show();
-        }
+        this.syncAll();
 
         if (this.onSelectionChange) this.onSelectionChange(entity, type, nodeIndex);
     }
 
     updateToolStates() {
+        const cat = this.activeCategory || 'tools';
         const isSelect = this.tool === "select";
+        const allowWallEdit = isSelect || cat === 'walls';
         const isWidget = !!WIDGET_REGISTRY[this.tool];
         this.walls.forEach(w => {
-            if(w.poly) { w.poly.setAttr('draggable', isSelect); w.poly.setAttr('listening', isSelect || isWidget); }
+            if(w.poly) { w.poly.setAttr('draggable', allowWallEdit); w.poly.setAttr('listening', allowWallEdit || isWidget); }
             w.attachedWidgets.forEach(widg => { if(widg.visualGroup) { widg.visualGroup.setAttr('draggable', isSelect); widg.visualGroup.setAttr('listening', isSelect); } });
         });
         this.stairs.forEach(s => { if(s.group) { s.group.setAttr('draggable', isSelect); s.group.setAttr('listening', isSelect); } });
-        this.anchors.forEach(a => { if(a.node) { a.node.setAttr('draggable', isSelect); a.node.setAttr('listening', isSelect); } });
+        this.anchors.forEach(a => { if(a.node) { a.node.setAttr('draggable', allowWallEdit); a.node.setAttr('listening', allowWallEdit); } });
         this.furniture.forEach(f => { if(f.group) { f.group.setAttr('draggable', isSelect); f.group.setAttr('listening', isSelect); } });
         this.roofs.forEach(r => { if(r.group) { r.group.setAttr('draggable', isSelect); r.group.setAttr('listening', isSelect); } });
         if(this.balconies) this.balconies.forEach(b => { if(b.group) { b.group.setAttr('draggable', isSelect); b.group.setAttr('listening', isSelect); } });
 
-        const cat = this.activeCategory || 'tools';
         const allowAll = (cat === 'tools' || cat === 'advanced');
 
         // FORCE LAYER LISTENING OFF DURING DRAWING OR RESTRICT BY CATEGORY
@@ -211,8 +207,32 @@ export class FloorPlanner {
     }
 
     getOrCreateAnchor(x, y) { let a = this.anchors.find(a => Math.hypot(a.x - x, a.y - y) < SNAP_DIST); if (a) return a; const newAnchor = new Anchor(this, x, y); this.anchors.push(newAnchor); return newAnchor; }
-    deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.roofs.forEach(r => r.setHighlight(false)); if(this.balconies) this.balconies.forEach(b => b.setHighlight(false)); this.anchors.forEach(a => a.hide()); this.selectEntity(null); this.syncAll(); }
-    syncAll() { this.buildingCenter = null; this.walls.forEach(w => w.update()); this.stairs.forEach(s => s.update()); this.furniture.forEach(f => f.update()); this.roofs.forEach(r => r.update()); if(this.balconies) this.balconies.forEach(b => b.update()); this.mainLayer.batchDraw(); this.detectRooms(); }
+    deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.roofs.forEach(r => r.setHighlight(false)); if(this.balconies) this.balconies.forEach(b => b.setHighlight(false)); this.selectEntity(null); this.syncAll(); }
+    syncAll() { 
+        this.buildingCenter = null; 
+        this.walls.forEach(w => w.update()); 
+        this.stairs.forEach(s => s.update()); 
+        this.furniture.forEach(f => f.update()); 
+        this.roofs.forEach(r => r.update()); 
+        if(this.balconies) this.balconies.forEach(b => b.update()); 
+        
+        this.anchors.forEach(a => {
+            let connectedCount = this.walls.filter(w => w.startAnchor === a || w.endAnchor === a).length;
+            if (connectedCount >= 2) {
+                a.show();
+            } else if (this.selectedEntity && this.selectedType === 'wall' && (this.selectedEntity.startAnchor === a || this.selectedEntity.endAnchor === a)) {
+                a.show();
+            } else if (this.drawing && (this.startAnchor === a || this.lastAnchor === a)) {
+                a.show();
+            } else {
+                a.hide();
+            }
+        });
+
+        this.mainLayer.batchDraw(); 
+        this.uiLayer.batchDraw();
+        this.detectRooms(); 
+    }
     
     getOutwardNormal(wall) {
         if (!this.buildingCenter) {
