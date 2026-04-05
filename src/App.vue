@@ -29,23 +29,21 @@
         <div class="sidebar-header">
             <h3>Design Tools</h3>
         </div>
-        <div class="accordion">
-            <div v-for="cat in menuCategories" :key="cat.id" class="accordion-item">
-                <button class="accordion-header" :class="{ active: activeCategory === cat.id }" @click="toggleCategory(cat.id)">
-                    <span>{{ cat.name }}</span>
-                    <span class="arrow">{{ activeCategory === cat.id ? '▼' : '▶' }}</span>
-                </button>
-                <div class="accordion-content" v-show="activeCategory === cat.id">
-                    <button v-for="tool in cat.tools" :key="tool.id" 
-                        class="tool-btn" 
+        <div class="sidebar-cards">
+            <div v-for="cat in menuCategories" :key="cat.id" class="parent-card" :class="{ active: activeCategory === cat.id }">
+                <div class="parent-card-header" @click="toggleCategory(cat.id)">
+                    <div class="parent-title">{{ cat.name }}</div>
+                </div>
+                <div class="child-cards" v-show="activeCategory === cat.id">
+                    <button v-for="tool in cat.tools" :key="tool.id"
+                        class="child-card-btn"
                         :class="{ active: activeTool === tool.id && !tool.action }"
                         @click="handleToolClick(tool)">
                         {{ tool.name }}
                     </button>
                 </div>
             </div>
-        </div>
-        <div class="sidebar-footer">
+        </div>        <div class="sidebar-footer">
             <button class="action-btn export" @click="saveProject">💾 Export Project</button>
             <button class="action-btn import" @click="triggerFileInput">📂 Import Project</button>
             <button class="action-btn clear" @click="clearWorkspace">🗑️ Clear All</button>
@@ -316,9 +314,16 @@ const menuCategories = ref([
 
 const toggleCategory = (catId) => {
     activeCategory.value = catId;
+    
     if (planner.value) {
         planner.value.activeCategory = catId;
+        
+        // Ensure selecting a parent switches to Select mode for that category
+        activeTool.value = 'select';
+        planner.value.tool = 'select';
+        planner.value.finishChain();
         planner.value.updateToolStates();
+        planner.value.selectEntity(null);
     }
 };
 
@@ -352,6 +357,10 @@ onMounted(() => {
             if (type === 'furniture' && entity && entity.mesh3D) renderer3D.value.selectObject(entity.mesh3D);
             else renderer3D.value.deselectObject();
         }
+    };
+
+    planner.value.onToolChange = (toolId) => {
+        activeTool.value = toolId;
     };
 
     renderer3D.value = new Preview3D(canvas3D.value);
@@ -716,23 +725,22 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 }
 .sidebar-header { padding: 15px; background: #f8fafc; border-bottom: 1px solid #e5e7eb; }
 .sidebar-header h3 { margin: 0; font-size: 15px; color: #1f2937; }
-.accordion { flex: 1; overflow-y: auto; }
-.accordion-item { border-bottom: 1px solid #e5e7eb; }
-.accordion-header {
-    width: 100%; text-align: left; padding: 12px 15px; background: #ffffff;
-    border: none; outline: none; cursor: pointer; display: flex;
-    justify-content: space-between; align-items: center;
-    font-size: 13px; font-weight: bold; color: #4b5563; transition: 0.2s;
+.sidebar-cards { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; background: #f1f5f9; }
+.parent-card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; transition: 0.2s; }
+.parent-card.active { border-color: #3b82f6; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15); }
+.parent-card-header {
+    padding: 12px 15px; cursor: pointer; background: #ffffff; display: flex; align-items: center; justify-content: space-between;
+    font-size: 14px; font-weight: bold; color: #374151; transition: 0.2s;
 }
-.accordion-header:hover { background: #f3f4f6; }
-.accordion-header.active { background: #eff6ff; color: #2563eb; }
-.accordion-content { padding: 10px; background: #f8fafc; display: flex; flex-direction: column; gap: 8px; }
-.tool-btn {
-    padding: 10px; text-align: left; background: #ffffff; border: 1px solid #d1d5db;
-    border-radius: 6px; cursor: pointer; font-size: 13px; color: #374151; transition: 0.2s;
+.parent-card.active .parent-card-header { background: #eff6ff; color: #1d4ed8; border-bottom: 1px solid #bfdbfe; }
+.parent-card-header:hover { background: #f8fafc; }
+.child-cards { padding: 10px; background: #ffffff; display: flex; flex-direction: column; gap: 8px; }
+.child-card-btn {
+    padding: 10px 12px; text-align: left; background: #f8fafc; border: 1px solid #e2e8f0;
+    border-radius: 6px; cursor: pointer; font-size: 13px; color: #4b5563; transition: 0.2s;
 }
-.tool-btn:hover { border-color: #9ca3af; background: #f3f4f6; }
-.tool-btn.active { border-color: #3b82f6; background: #eff6ff; color: #1d4ed8; font-weight: bold; }
+.child-card-btn:hover { border-color: #cbd5e1; background: #f1f5f9; }
+.child-card-btn.active { border-color: #3b82f6; background: #3b82f6; color: #ffffff; font-weight: bold; }
 .sidebar-footer { padding: 15px; display: flex; flex-direction: column; gap: 10px; border-top: 1px solid #e5e7eb; background: #f8fafc; }
 .action-btn { padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; transition: 0.2s; }
 .action-btn.export { background: #10b981; color: white; }

@@ -1,5 +1,6 @@
 import { GRID, PX_TO_FT, SNAP_DIST, WALL_HEIGHT, WALL_REGISTRY, WIDGET_REGISTRY, FURNITURE_REGISTRY } from './registry.js';
 import Konva from 'konva';
+import { PremiumHipRoof } from './engine2d/PremiumHipRoof.js';
 
 /**
  * A simple local event emitter class.
@@ -196,7 +197,7 @@ export class PremiumWall {
     }
     hasEvent(eventName) { return this.config.events.includes(eventName); }
     getLength() { const p1 = this.startAnchor.position(), p2 = this.endAnchor.position(); return Math.hypot(p2.x - p1.x, p2.y - p1.y); }
-    setHighlight(isActive) { this.poly.stroke(this.planner.selectedEntity === this ? "#4f46e5" : this.strokeColor); this.planner.stage.batchDraw(); }
+    setHighlight(isActive) { this.poly.stroke(isActive ? "#4f46e5" : (this.planner.selectedEntity === this ? "#4f46e5" : this.strokeColor)); this.planner.stage.batchDraw(); }
     initEvents() {
         this.poly.on('mouseenter', () => {
             if (this.planner.tool === 'select' || WIDGET_REGISTRY[this.planner.tool]) {
@@ -424,10 +425,14 @@ export class FloorPlanner {
         this.anchors.forEach(a => { if(a.node) { a.node.setAttr('draggable', isSelect); a.node.setAttr('listening', isSelect); } });
         this.furniture.forEach(f => { if(f.group) { f.group.setAttr('draggable', isSelect); f.group.setAttr('listening', isSelect); } });
 
-        if (this.wallLayer) this.wallLayer.listening(isSelect || isWidget);
-        if (this.widgetLayer) this.widgetLayer.listening(isSelect);
-        if (this.furnitureLayer) this.furnitureLayer.listening(isSelect);
-        if (this.roofLayer) this.roofLayer.listening(isSelect);
+        const cat = this.activeCategory || 'tools';
+        const allowAll = (cat === 'tools' || cat === 'advanced');
+
+        // FORCE LAYER LISTENING OFF DURING DRAWING OR RESTRICT BY CATEGORY
+        if (this.wallLayer) this.wallLayer.listening(allowAll || cat === 'walls' || cat === 'doors_windows' || isWidget);
+        if (this.widgetLayer) this.widgetLayer.listening(allowAll || cat === 'doors_windows' || cat === 'structures');
+        if (this.furnitureLayer) this.furnitureLayer.listening(allowAll || cat === 'furniture');
+        if (this.roofLayer) this.roofLayer.listening(allowAll || cat === 'structures');
     }
 
     getOrCreateAnchor(x, y) { let a = this.anchors.find(a => Math.hypot(a.x - x, a.y - y) < SNAP_DIST); if (a) return a; const newAnchor = new Anchor(this, x, y); this.anchors.push(newAnchor); return newAnchor; }
@@ -653,6 +658,7 @@ export class FloorPlanner {
             this.uiLayer.batchDraw();
         });
 
+        // --- Hip Roof Drawing Mode Logic ---
         this.stage.on("mousedown.roof touchstart.roof", (e) => {
             if (this.tool !== 'roof') return;
             const pos = this.getPointerPos();
@@ -676,12 +682,14 @@ export class FloorPlanner {
                 let d1 = Math.hypot(pos.x - p1.x, pos.y - p1.y); let d2 = Math.hypot(pos.x - p2.x, pos.y - p2.y);
                 if (d1 < closestDist) { closestDist = d1; snap = p1; }
                 if (d2 < closestDist) { closestDist = d2; snap = p2; }
+                let proj = this.getClosestPointOnSegment(pos, p1, p2); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                if (dist < closestDist) { closestDist = dist; snap = proj; }
             }
 
             if (!this.drawingRoofPoints) {
                 this.drawingRoofPoints = [snap];
-                this.roofPreview = new Konva.Line({ points: [snap.x, snap.y, snap.x, snap.y], stroke: '#FFA500', strokeWidth: 3, dash: [4, 4], fill: 'rgba(255, 165, 0, 0.2)' });
-                this.roofLayer.add(this.roofPreview);
+                this.roofPreview = new Konva.Line({ points: [snap.x, snap.y, snap.x, snap.y], stroke: '#f59e0b', strokeWidth: 4, dash: [6, 4], fill: 'rgba(245, 158, 11, 0.3)' });
+                this.uiLayer.add(this.roofPreview);
             } else {
                 const startP = this.drawingRoofPoints[0];
                 if (Math.hypot(snap.x - startP.x, snap.y - startP.y) < SNAP_DIST && this.drawingRoofPoints.length > 2) {
@@ -701,12 +709,40 @@ export class FloorPlanner {
                 if (!pos) return;
 
                 let snap = pos;
+                let closestDist = SNAP_DIST;
+                let snappedObj = false;
+                let targetSnapWall = null;
+
+                let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
+                for (let line of allReferenceWalls) {
+                    let pts = line.points();
+                    if (pts && pts.length === 4) {
+                        let d1 = Math.hypot(pos.x - pts[0], pos.y - pts[1]); let d2 = Math.hypot(pos.x - pts[2], pos.y - pts[3]);
+                        if (d1 < closestDist) { closestDist = d1; snap = {x: pts[0], y: pts[1]}; snappedObj = true; } if (d2 < closestDist) { closestDist = d2; snap = {x: pts[2], y: pts[3]}; snappedObj = true; }
+                        let proj = this.getClosestPointOnSegment(pos, {x: pts[0], y: pts[1]}, {x: pts[2], y: pts[3]}); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); if (dist < closestDist) { closestDist = dist; snap = proj; snappedObj = true; }
+                    }
+                }
+
+                // ADD WALL SNAPPING TO MOUSEMOVE
+                for (let w of this.walls) {
+                    const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
+                    let d1 = Math.hypot(pos.x - p1.x, pos.y - p1.y); let d2 = Math.hypot(pos.x - p2.x, pos.y - p2.y);
+                    if (d1 < closestDist) { closestDist = d1; snap = p1; snappedObj = true; targetSnapWall = w; }
+                    if (d2 < closestDist) { closestDist = d2; snap = p2; snappedObj = true; targetSnapWall = w; }
+                    let proj = this.getClosestPointOnSegment(pos, p1, p2); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                    if (dist < closestDist) { closestDist = dist; snap = proj; snappedObj = true; targetSnapWall = w; }
+                }
+
+                this.walls.forEach(w => w.setHighlight(w === targetSnapWall || w === this.selectedEntity));
+
+                if (snappedObj) { this.showSnapGlow(snap.x, snap.y); } else { this.hideSnapGlow(); }
+
                 if (this.drawingRoofPoints && this.roofPreview) {
                     const pts = this.drawingRoofPoints.flatMap(p => [p.x, p.y]); pts.push(snap.x, snap.y);
                     this.roofPreview.points(pts);
                 }
 
-                document.body.style.cursor = 'crosshair'; this.mainLayer.batchDraw();
+                document.body.style.cursor = 'crosshair'; this.mainLayer.batchDraw(); this.uiLayer.batchDraw();
             } else {
                 if (this.drawingRoofPoints) { this.drawingRoofPoints = null; if (this.roofPreview) { this.roofPreview.destroy(); this.roofPreview = null; } }
                 if (document.body.style.cursor === 'crosshair') { document.body.style.cursor = 'default'; }

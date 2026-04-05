@@ -24,11 +24,15 @@ export class PremiumHipRoof {
         
         this.boundary = new Konva.Line({
             points: this.getFlatPoints(),
-            fill: 'rgba(255, 165, 0, 0.2)', // Orange fill
-            stroke: '#FFA500',              // Orange stroke
-            strokeWidth: 3,
+            fill: 'rgba(245, 158, 11, 0.3)', // Solid orange fill
+            stroke: '#f59e0b',               // Thicker orange stroke
+            strokeWidth: 4,
             closed: true,
-            lineJoin: 'round'
+            lineJoin: 'round',
+            shadowColor: 'black',
+            shadowBlur: 15,
+            shadowOffset: {x: 3, y: 3},
+            shadowOpacity: 0.3
         });
         
         this.hipLinesGroup = new Konva.Group();
