@@ -31,6 +31,26 @@ export class PremiumWall {
         this.poly.on('mouseleave', () => { document.body.style.cursor = 'default'; });
         this.poly.on('mousedown touchstart', (e) => { 
             console.log("Wall mousedown/touchstart event fired.", { tool: this.planner.tool, isWidget: !!WIDGET_REGISTRY[this.planner.tool] });
+            if (this.planner.tool === 'split_wall') {
+                e.cancelBubble = true;
+                const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
+                if (!pos) return;
+                
+                const proj = this.planner.getClosestPointOnSegment(pos, this.startAnchor.position(), this.endAnchor.position());
+                const splitAnchor = this.planner.getOrCreateAnchor(proj.x, proj.y);
+                
+                const newWall = new PremiumWall(this.planner, splitAnchor, this.endAnchor, this.type);
+                this.endAnchor = splitAnchor;
+                
+                this.planner.walls.push(newWall);
+                
+                this.planner.tool = 'select';
+                if (this.planner.onToolChange) this.planner.onToolChange('select');
+                this.planner.updateToolStates();
+                this.planner.selectEntity(splitAnchor, 'anchor');
+                this.planner.syncAll();
+                return;
+            }
             if (WIDGET_REGISTRY[this.planner.tool]) { 
                 console.log("Widget tool is active. Attempting to create widget.");
                 e.cancelBubble = true; 

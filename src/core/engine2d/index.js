@@ -170,10 +170,11 @@ export class FloorPlanner {
     updateToolStates() {
         const cat = this.activeCategory || 'tools';
         const isSelect = this.tool === "select";
+        const isSplitWall = this.tool === "split_wall";
         const allowWallEdit = isSelect || cat === 'walls';
         const isWidget = !!WIDGET_REGISTRY[this.tool];
         this.walls.forEach(w => {
-            if(w.poly) { w.poly.setAttr('draggable', allowWallEdit); w.poly.setAttr('listening', allowWallEdit || isWidget); }
+            if(w.poly) { w.poly.setAttr('draggable', allowWallEdit); w.poly.setAttr('listening', allowWallEdit || isWidget || isSplitWall); }
             w.attachedWidgets.forEach(widg => { if(widg.visualGroup) { widg.visualGroup.setAttr('draggable', isSelect); widg.visualGroup.setAttr('listening', isSelect); } });
         });
         this.stairs.forEach(s => { if(s.group) { s.group.setAttr('draggable', isSelect); s.group.setAttr('listening', isSelect); } });
@@ -185,7 +186,7 @@ export class FloorPlanner {
         const allowAll = (cat === 'tools' || cat === 'advanced');
 
         // FORCE LAYER LISTENING OFF DURING DRAWING OR RESTRICT BY CATEGORY
-        if (this.wallLayer) this.wallLayer.listening(allowAll || cat === 'walls' || cat === 'doors_windows' || cat === 'structures' || isWidget);
+        if (this.wallLayer) this.wallLayer.listening(allowAll || cat === 'walls' || cat === 'doors_windows' || cat === 'structures' || isWidget || isSplitWall);
         if (this.widgetLayer) this.widgetLayer.listening(allowAll || cat === 'doors_windows' || cat === 'structures');
         if (this.furnitureLayer) this.furnitureLayer.listening(allowAll || cat === 'furniture');
         if (this.roofLayer) this.roofLayer.listening(allowAll || cat === 'structures');

@@ -309,6 +309,12 @@ const menuCategories = ref([
             { id: 'chair_ekero', name: 'Chair', action: 'furniture' },
             { id: 'table_dining', name: 'Dining Table', action: 'furniture' }
         ]
+    },
+    {
+        id: 'advanced', name: '⚙️ Advanced Tools',
+        tools: [
+            { id: 'split_wall', name: 'Split Wall' }
+        ]
     }
 ]);
 
