@@ -11,13 +11,19 @@
             position: absolute;
             top: 20px;
             left: 20px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 15px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
             z-index: 10;
+            width: 250px;
         }
-        button, input { margin-top: 10px; }
+        h3 { margin-top: 0; margin-bottom: 10px; font-size: 1.1em; }
+        p { font-size: 0.85em; color: #444; margin-bottom: 15px; }
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-size: 0.85em; font-weight: bold; margin-bottom: 5px; }
+        select, input[type="file"] { width: 100%; padding: 5px; box-sizing: border-box; }
+        #status { margin-top: 10px; font-size: 0.85em; color: #1a73e8; font-weight: bold; }
     </style>
     <script type="importmap">
         {
@@ -31,10 +37,24 @@
 <body>
 
     <div id="ui-container">
-        <h3>Upload Railing Model</h3>
-        <p>Supports .glb or .obj files.</p>
-        <input type="file" id="fileInput" accept=".glb, .obj">
-        <div id="status" style="margin-top: 10px; font-size: 0.9em; color: #555;">Waiting for upload...</div>
+        <h3>Railing Configurator</h3>
+        
+        <div class="control-group">
+            <label for="shapeSelect">1. Select Balcony Shape</label>
+            <select id="shapeSelect">
+                <option value="u-shape">Standard U-Shape</option>
+                <option value="square">Closed Square</option>
+                <option value="triangle">Triangle</option>
+                <option value="hexagon">Hexagon</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="fileInput">2. Upload Railing (.glb/.obj)</label>
+            <input type="file" id="fileInput" accept=".glb, .obj">
+        </div>
+
+        <div id="status">Waiting for upload...</div>
     </div>
 
     <div id="canvas-container"></div>
@@ -45,12 +65,13 @@
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 
+        // --- Scene Setup ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xa0a0a0);
         scene.fog = new THREE.Fog(0xa0a0a0, 10, 50);
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-        camera.position.set(0, 5, 12);
+        camera.position.set(0, 8, 15);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -61,12 +82,13 @@
         controls.target.set(0, 1, 0);
         controls.update();
 
+        // --- Lighting ---
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2);
         hemiLight.position.set(0, 20, 0);
         scene.add(hemiLight);
 
         const dirLight = new THREE.DirectionalLight(0xffffff, 2);
-        dirLight.position.set(3, 10, 10);
+        dirLight.position.set(5, 10, 10);
         dirLight.castShadow = true;
         dirLight.shadow.camera.top = 10;
         dirLight.shadow.camera.bottom = -10;
@@ -82,44 +104,124 @@
         ground.receiveShadow = true;
         scene.add(ground);
 
+        // --- Global State Variables ---
         const balconyGroup = new THREE.Group();
         scene.add(balconyGroup);
-
-        const material = new THREE.MeshStandardMaterial({ color: 0xdddddd });
         
-        const floor = new THREE.Mesh(new THREE.BoxGeometry(8, 0.2, 5), material);
-        floor.position.set(0, 0.1, 0);
-        floor.receiveShadow = true;
-        balconyGroup.add(floor);
-
-        const wallThickness = 0.2;
-        const wallHeight = 0.5;
-        
-        const frontWall = new THREE.Mesh(new THREE.BoxGeometry(8, wallHeight, wallThickness), material);
-        frontWall.position.set(0, wallHeight/2 + 0.2, 2.5 - wallThickness/2);
-        frontWall.castShadow = true; frontWall.receiveShadow = true;
-        balconyGroup.add(frontWall);
-
-        const leftWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, wallHeight, 5), material);
-        leftWall.position.set(-4 + wallThickness/2, wallHeight/2 + 0.2, 0);
-        leftWall.castShadow = true; leftWall.receiveShadow = true;
-        balconyGroup.add(leftWall);
-
-        const rightWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, wallHeight, 5), material);
-        rightWall.position.set(4 - wallThickness/2, wallHeight/2 + 0.2, 0);
-        rightWall.castShadow = true; rightWall.receiveShadow = true;
-        balconyGroup.add(rightWall);
-
-        const railingHeightOffset = 0.2 + wallHeight; 
-        const edges = [
-            { start: new THREE.Vector3(-4 + wallThickness/2, railingHeightOffset, -2.5), end: new THREE.Vector3(-4 + wallThickness/2, railingHeightOffset, 2.5 - wallThickness) }, 
-            { start: new THREE.Vector3(-4 + wallThickness/2, railingHeightOffset, 2.5 - wallThickness/2), end: new THREE.Vector3(4 - wallThickness/2, railingHeightOffset, 2.5 - wallThickness/2) }, 
-            { start: new THREE.Vector3(4 - wallThickness/2, railingHeightOffset, 2.5 - wallThickness), end: new THREE.Vector3(4 - wallThickness/2, railingHeightOffset, -2.5) }  
-        ];
-
         const railingsContainer = new THREE.Group();
         scene.add(railingsContainer);
 
+        let currentEdges = [];
+        let currentUploadedModel = null;
+        let currentRailingLength = 0;
+
+        // --- Dynamic Wall Generation ---
+        const wallMaterial = new THREE.MeshStandardMaterial({ color: 0xdddddd });
+        const floorMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc });
+
+        function setBalconyShape(shapeType) {
+            // Clear existing geometry
+            while(balconyGroup.children.length > 0) { 
+                balconyGroup.remove(balconyGroup.children[0]); 
+            }
+            currentEdges = [];
+
+            let points = [];
+            // Define shapes using 2D coordinates (X, Z)
+            if (shapeType === 'u-shape') {
+                // Open at the back
+                points = [
+                    new THREE.Vector2(-4, -2.5), 
+                    new THREE.Vector2(-4, 2.5), 
+                    new THREE.Vector2(4, 2.5), 
+                    new THREE.Vector2(4, -2.5)
+                ];
+            } else if (shapeType === 'square') {
+                points = [
+                    new THREE.Vector2(-3, -3), new THREE.Vector2(-3, 3), 
+                    new THREE.Vector2(3, 3), new THREE.Vector2(3, -3), 
+                    new THREE.Vector2(-3, -3) // loop back to close
+                ];
+            } else if (shapeType === 'triangle') {
+                points = [
+                    new THREE.Vector2(-4, -2.5), new THREE.Vector2(0, 4), 
+                    new THREE.Vector2(4, -2.5), new THREE.Vector2(-4, -2.5)
+                ];
+            } else if (shapeType === 'hexagon') {
+                const radius = 4;
+                for(let i = 0; i <= 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2 + (Math.PI/2); // Rotate to point forward
+                    points.push(new THREE.Vector2(Math.cos(angle)*radius, Math.sin(angle)*radius));
+                }
+            }
+
+            // 1. Build Custom Floor using ShapeGeometry
+            // We use the points to draw a 2D shape, then lay it flat.
+            const floorShape = new THREE.Shape();
+            floorShape.moveTo(points[0].x, points[0].y);
+            for(let i = 1; i < points.length; i++) {
+                floorShape.lineTo(points[i].x, points[i].y);
+            }
+            // If it's the U-shape, we still want a rectangular floor
+            if(shapeType === 'u-shape'){
+                floorShape.lineTo(-4, -2.5); // manually close the floor
+            }
+
+            const floorGeo = new THREE.ShapeGeometry(floorShape);
+            const floor = new THREE.Mesh(floorGeo, floorMaterial);
+            floor.rotation.x = -Math.PI / 2; // Lay flat
+            floor.position.y = 0.1; // Slightly above ground
+            floor.receiveShadow = true;
+            balconyGroup.add(floor);
+
+            // 2. Build Walls and Extract Edges
+            const wallThickness = 0.2;
+            const wallHeight = 0.5;
+            const railingHeightOffset = 0.1 + wallHeight; 
+
+            for (let i = 0; i < points.length - 1; i++) {
+                const p1 = points[i];
+                const p2 = points[i+1];
+                
+                const distance = p1.distanceTo(p2);
+                const center = new THREE.Vector2().addVectors(p1, p2).multiplyScalar(0.5);
+                
+                // Calculate angle for the wall
+                const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+
+                // Create Wall Box
+                const wallGeo = new THREE.BoxGeometry(distance, wallHeight, wallThickness);
+                const wall = new THREE.Mesh(wallGeo, wallMaterial);
+                
+                // Position wall in 3D (mapping 2D X/Y to 3D X/Z)
+                wall.position.set(center.x, wallHeight/2 + 0.1, center.y);
+                wall.rotation.y = -angle; 
+                wall.castShadow = true; 
+                wall.receiveShadow = true;
+                balconyGroup.add(wall);
+
+                // Save top-center edge for railing placement
+                currentEdges.push({ 
+                    start: new THREE.Vector3(p1.x, railingHeightOffset, p1.y), 
+                    end: new THREE.Vector3(p2.x, railingHeightOffset, p2.y) 
+                });
+            }
+
+            // If a railing model is already uploaded, immediately re-tile it!
+            if (currentUploadedModel) {
+                tileRailings();
+            }
+        }
+
+        // Initialize default shape
+        setBalconyShape('u-shape');
+
+        // Handle UI Shape Change
+        document.getElementById('shapeSelect').addEventListener('change', (e) => {
+            setBalconyShape(e.target.value);
+        });
+
+        // --- File Upload Logic ---
         const fileInput = document.getElementById('fileInput');
         const statusDiv = document.getElementById('status');
 
@@ -127,106 +229,105 @@
             const file = event.target.files[0];
             if (!file) return;
 
-            statusDiv.innerText = `Loading ${file.name}...`;
+            statusDiv.innerText = `Processing ${file.name}...`;
             const reader = new FileReader();
             const extension = file.name.split('.').pop().toLowerCase();
 
             reader.onload = function(e) {
                 const contents = e.target.result;
-
                 if (extension === 'glb') {
-                    const loader = new GLTFLoader();
-                    loader.parse(contents, '', function(gltf) {
-                        processUploadedModel(gltf.scene);
-                    }, function(error) {
-                        console.error(error);
-                        statusDiv.innerText = "Error loading GLB.";
-                    });
+                    new GLTFLoader().parse(contents, '', (gltf) => processUploadedModel(gltf.scene));
                 } else if (extension === 'obj') {
-                    const loader = new OBJLoader();
-                    const object = loader.parse(contents);
-                    processUploadedModel(object);
+                    processUploadedModel(new OBJLoader().parse(contents));
                 }
             };
 
-            if (extension === 'glb') {
-                reader.readAsArrayBuffer(file);
-            } else if (extension === 'obj') {
-                reader.readAsText(file); 
-            } else {
-                statusDiv.innerText = "Unsupported file type.";
-            }
+            if (extension === 'glb') reader.readAsArrayBuffer(file);
+            else if (extension === 'obj') reader.readAsText(file); 
         });
 
         function processUploadedModel(model) {
-            // Clear old railings
-            while(railingsContainer.children.length > 0){ 
-                railingsContainer.remove(railingsContainer.children[0]); 
-            }
-
-            // 1. Get initial dimensions
+            // 1. Get initial dimensions to normalize
             const initialBox = new THREE.Box3().setFromObject(model);
             const initialSize = initialBox.getSize(new THREE.Vector3());
             const center = initialBox.getCenter(new THREE.Vector3());
 
-            // Protect against empty models
             if (initialSize.y === 0 || initialSize.x === 0) {
-                statusDiv.innerText = "Error: Model has 0 width or height.";
+                statusDiv.innerText = "Error: Invalid model.";
                 return;
             }
 
-            // 2. Calculate automatic scale factor
-            // We want the railing to be exactly 1.0 unit tall. You can change this number!
+            // 2. Scale model down to exactly 1.0 unit tall
             const TARGET_HEIGHT = 1.0; 
             const scaleFactor = TARGET_HEIGHT / initialSize.y;
 
-            // 3. Normalize the geometry: Center it, set pivot to bottom, and bake the scale in
+            // 3. Bake changes directly into the mesh
             model.traverse(function(child) {
                 if (child.isMesh) {
-                    // Translate pivot to bottom center
+                    // Reset pivot to bottom-center
                     child.geometry.translate(-center.x, -initialBox.min.y, -center.z);
-                    // Bake the scale reduction directly into the mesh vertices
+                    // Bake size reduction
                     child.geometry.scale(scaleFactor, scaleFactor, scaleFactor);
-                    
                     child.castShadow = true;
                     child.receiveShadow = true;
                 }
             });
 
-            // 4. Get the NEW dimensions after scaling for tiling math
-            const scaledBox = new THREE.Box3().setFromObject(model);
-            const railingLength = scaledBox.getSize(new THREE.Vector3()).x;
+            // 4. Save normalized model globally
+            currentUploadedModel = model;
+            
+            // 5. Measure exact width after scaling
+            const scaledBox = new THREE.Box3().setFromObject(currentUploadedModel);
+            currentRailingLength = scaledBox.getSize(new THREE.Vector3()).x;
 
-            // 5. Tile along the balcony edges
-            edges.forEach(edge => {
+            statusDiv.innerText = "Model uploaded and scaled successfully!";
+            
+            // 6. Draw on the wall
+            tileRailings();
+        }
+
+        // --- Tiling Math ---
+        function tileRailings() {
+            if (!currentUploadedModel) return;
+
+            // Clear old railings
+            while(railingsContainer.children.length > 0) { 
+                railingsContainer.remove(railingsContainer.children[0]); 
+            }
+
+            // Loop through the edges of whatever shape is currently selected
+            currentEdges.forEach(edge => {
                 const edgeVector = new THREE.Vector3().subVectors(edge.end, edge.start);
                 const edgeLength = edgeVector.length();
                 const direction = edgeVector.clone().normalize();
                 
-                const count = Math.floor(edgeLength / railingLength);
+                // How many railings fit?
+                const count = Math.floor(edgeLength / currentRailingLength);
                 
+                // Auto-stretch to prevent tiny gaps
                 let stretchScale = 1;
                 let actualCount = count;
                 if (count === 0) {
-                    stretchScale = edgeLength / railingLength;
+                    stretchScale = edgeLength / currentRailingLength;
                     actualCount = 1;
                 } else {
-                    stretchScale = (edgeLength / count) / railingLength; 
+                    stretchScale = (edgeLength / count) / currentRailingLength; 
                 }
 
                 for (let i = 0; i < actualCount; i++) {
-                    const clone = model.clone();
+                    const clone = currentUploadedModel.clone();
                     
-                    // We only stretch on X to fit the wall length, keeping Y and Z at our target height scale
+                    // Stretch along X to fill gaps
                     clone.scale.set(stretchScale, 1, 1); 
                     
-                    const segmentLength = (railingLength * stretchScale);
+                    // Place exactly along the wall
+                    const segmentLength = (currentRailingLength * stretchScale);
                     const offsetDistance = (i * segmentLength) + (segmentLength / 2);
                     
                     const position = edge.start.clone().add(direction.clone().multiplyScalar(offsetDistance));
                     clone.position.copy(position);
 
-                    const up = new THREE.Vector3(0, 1, 0);
+                    // Auto-orient
                     const target = position.clone().add(direction);
                     clone.lookAt(target);
                     clone.rotateY(Math.PI / 2);
@@ -234,10 +335,9 @@
                     railingsContainer.add(clone);
                 }
             });
-
-            statusDiv.innerText = `Model placed! Automatically scaled to ${TARGET_HEIGHT} unit height.`;
         }
 
+        // --- Render Loop ---
         window.addEventListener('resize', onWindowResize, false);
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
