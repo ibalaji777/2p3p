@@ -138,10 +138,10 @@ export class InteractionSystem {
                     const localTarget = wallGroup.worldToLocal(target.clone()).add(this.dragOffset);
                     const entity = this.selectedObject.userData.entity, wallData = wallGroup.userData.entity;
                     let visualLocalX = entity.side === 'back' ? wallData.length3D - localTarget.x : localTarget.x;
-                    
+                    const wallHeight = wallData.config?.height || wallData.height || WALL_HEIGHT;
+
                     entity.localX = Math.max(-10, Math.min((visualLocalX / wallData.length3D) * 100, 110));
-                    entity.localY = Math.max(-10, Math.min((localTarget.y / WALL_HEIGHT) * 100, 110));
-                    if (this.callbacks.updateWallDecorLive) this.callbacks.updateWallDecorLive(entity);
+                    entity.localY = Math.max(-10, Math.min((localTarget.y / wallHeight) * 100, 110));                    if (this.callbacks.updateWallDecorLive) this.callbacks.updateWallDecorLive(entity);
                     if (this.callbacks.syncToUI) this.callbacks.syncToUI();
                 }
             } else {
@@ -212,13 +212,14 @@ export class InteractionSystem {
             let maxDepth = 0;
             if (w.attachedDecor) w.attachedDecor.forEach(d => { if (d.side === side && d.depth > maxDepth) maxDepth = d.depth; });
             const hlWidth = w.length3D + (maxDepth * 2) + 0.5;
-            const hlHeight = WALL_HEIGHT + 0.5;
+            const wallHeight = w.config?.height || w.height || WALL_HEIGHT;
+            const hlHeight = wallHeight + 0.5;
 
             const shape = new THREE.Shape();
             shape.moveTo(-hlWidth/2, -hlHeight/2); shape.lineTo(hlWidth/2, -hlHeight/2); shape.lineTo(hlWidth/2, hlHeight/2); shape.lineTo(-hlWidth/2, hlHeight/2); shape.lineTo(-hlWidth/2, -hlHeight/2);
 
             w.attachedWidgets.forEach(widg => {
-                const wCenter = w.length3D * widg.t; const halfW = widg.width / 2; const cx = w.length3D / 2; const cy = WALL_HEIGHT / 2;
+                const wCenter = w.length3D * widg.t; const halfW = widg.width / 2; const cx = w.length3D / 2; const cy = wallHeight / 2;
                 const hx_min = (wCenter - halfW) - cx; const hx_max = (wCenter + halfW) - cx;
                 const hy_min = (widg.type === 'door' ? 0 : WINDOW_SILL) - cy; const hy_max = (widg.type === 'door' ? DOOR_HEIGHT : WINDOW_SILL + WINDOW_HEIGHT) - cy;
 
@@ -231,8 +232,9 @@ export class InteractionSystem {
             this.wallHighlight.geometry = new THREE.ShapeGeometry(shape);
             this.wallHighlight.scale.set(1, 1, 1);
 
-            const zOffset = side === 'front' ? (w.config.thickness / 2 + maxDepth + 0.15) : (-w.config.thickness / 2 - maxDepth - 0.15);
-            this.wallHighlight.position.set(w.length3D / 2, WALL_HEIGHT / 2, zOffset);
+            const wallThickness = w.thickness || w.config?.thickness || 20;
+            const zOffset = side === 'front' ? (wallThickness / 2 + maxDepth + 0.15) : (-wallThickness / 2 - maxDepth - 0.15);
+            this.wallHighlight.position.set(w.length3D / 2, wallHeight / 2, zOffset);
             this.wallHighlight.rotation.set(0, 0, 0); 
             this.wallHighlight.visible = true;
         } 

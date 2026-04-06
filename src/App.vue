@@ -126,6 +126,10 @@
             <div class="props-content" v-if="(viewMode==='3d' || viewMode==='2d') && selectedEntity && viewMode3D !== 'preview'">
                 
                 <div v-if="selectedType === 'wall'">
+                    <h4 class="props-subtitle">Wall Properties</h4>
+                    <div class="control-group"><label>Thickness</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.thickness" min="1" max="100" step="1" @input="syncEngine"><input type="number" v-model.number="selectedEntity.thickness" min="1" max="100" step="1" @input="syncEngine"></div></div>
+                    <div class="control-group"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="500" step="1" @input="syncEngine"><input type="number" v-model.number="selectedEntity.height" min="10" max="500" step="1" @input="syncEngine"></div></div>
+
                     <h4 class="props-subtitle">{{ selectedWallSide === 'front' ? 'Inner Wall Face' : 'Outer Wall Face' }}</h4>
                     
                     <div v-if="currentFaceDecors.length > 0">

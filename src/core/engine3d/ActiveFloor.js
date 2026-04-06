@@ -15,7 +15,12 @@ export class ActiveFloor {
         this._buildSlabs(roomPaths);
         
         const hasWalls = walls && walls.length > 0;
-        if (roofs) this._buildRoofs(roofs, activeIndex, hasWalls);
+        let maxWallHeight = WALL_HEIGHT;
+        if (hasWalls) {
+            maxWallHeight = Math.max(...walls.map(w => w.height || w.config?.height || WALL_HEIGHT));
+        }
+
+        if (roofs) this._buildRoofs(roofs, activeIndex, hasWalls, maxWallHeight);
         
         const anchorMap = new Map();
 
@@ -26,12 +31,14 @@ export class ActiveFloor {
             w.length3D = length;
 
             // Generate Wall Mesh
-            const { wallGroup } = this.wallBuilder.buildWallGroup(length, w.config.thickness, w.attachedWidgets, p1.x, p1.y, angle);
+            const wallHeight = w.height || w.config?.height || WALL_HEIGHT;
+            const wallThickness = w.thickness || w.config?.thickness || 20;
+            const { wallGroup } = this.wallBuilder.buildWallGroup(length, wallThickness, w.attachedWidgets, p1.x, p1.y, angle, wallHeight);
             wallGroup.userData = { entity: w };
             w.mesh3D = wallGroup;
 
             // Generate Hitboxes
-            const hitboxes = this.wallBuilder.createHitboxes(length, w.config.thickness, w);
+            const hitboxes = this.wallBuilder.createHitboxes(length, wallThickness, w, false, 0, 0, wallHeight);
             hitboxes.forEach(hb => {
                 wallGroup.add(hb);
                 this.interactables.push(hb);
@@ -44,8 +51,9 @@ export class ActiveFloor {
 
             // Map Joints
             [w.startAnchor, w.endAnchor].forEach(a => {
-                const data = anchorMap.get(a) || { thickness: 0 };
-                if (w.config.thickness > data.thickness) data.thickness = w.config.thickness;
+                const data = anchorMap.get(a) || { thickness: 0, height: 0 };
+                if (wallThickness > data.thickness) data.thickness = wallThickness;
+                if (wallHeight > data.height) data.height = wallHeight;
                 anchorMap.set(a, data);
             });
         });
@@ -53,7 +61,7 @@ export class ActiveFloor {
         // Build Corner Joints
         anchorMap.forEach((data, anchor) => {
             const pos = anchor.position();
-            this.structureGroup.add(this.wallBuilder.createJoint(pos.x, pos.y, data.thickness));
+            this.structureGroup.add(this.wallBuilder.createJoint(pos.x, pos.y, data.thickness, data.height));
         });
     }
 
@@ -71,7 +79,7 @@ export class ActiveFloor {
         });
     }
 
-    _buildRoofs(roofs, activeIndex, hasWalls) {
+    _buildRoofs(roofs, activeIndex, hasWalls, maxWallHeight = WALL_HEIGHT) {
         roofs.forEach(roof => {
             const pts = roof.points || [];
             if (pts.length < 3) return;
@@ -89,7 +97,7 @@ export class ActiveFloor {
             const D = maxY - minY;
             
             // Auto-detect: if no walls exist here, roof mathematically caps the floor below
-            const baseHeight = (hasWalls || activeIndex === 0) ? WALL_HEIGHT : 0;
+            const baseHeight = (hasWalls || activeIndex === 0) ? maxWallHeight : 0;
             const h = baseHeight + wallGap + 0.5; // +0.5 prevents z-fighting with top of the walls
 
             const decor = ROOF_DECOR_REGISTRY[conf.material] || ROOF_DECOR_REGISTRY['asphalt_shingles'];

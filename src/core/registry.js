@@ -27,8 +27,8 @@ export const WINDOW_GRILLE_PATTERNS = { grid: { label: "Standard Grid" }, horizo
 
 // Outer wall is thicker (16), Inner wall is less thick (8)
 export const WALL_REGISTRY = {
-    'outer': { type: "outer", label: "OUTER WALL", thickness: 16, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
-    'inner': { type: "inner", label: "INNER WALL", thickness: 8, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] }
+    'outer': { type: "outer", label: "OUTER WALL", thickness: 16, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
+    'inner': { type: "inner", label: "INNER WALL", thickness: 8, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] }
 };
 
 // --- PNG WALL PATTERNS REGISTRY ---

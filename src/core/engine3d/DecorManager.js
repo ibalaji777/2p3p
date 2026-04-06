@@ -85,13 +85,15 @@ export class DecorManager {
         const d = entity.depth;
         const isFront = entity.side === 'front';
 
+        const wallHeight = wallEntity.config?.height || wallEntity.height || WALL_HEIGHT;
+
         const w = wallEntity.length3D * (entity.width / 100);
-        const h = WALL_HEIGHT * (entity.height / 100);
+        const h = wallHeight * (entity.height / 100);
         const cylRadius = (t / 2) + d;
 
         let posX = wallEntity.length3D * (entity.localX / 100);
         if (!isFront) posX = wallEntity.length3D - posX;
-        const posY = WALL_HEIGHT * (entity.localY / 100);
+        const posY = wallHeight * (entity.localY / 100);
 
         const shape = new THREE.Shape();
         shape.moveTo(-w/2, -h/2);

@@ -49,14 +49,15 @@ export class StaticFloors {
                         const dx = w.endX - w.startX; const dz = w.endY - w.startY;
                         const length = Math.hypot(dx, dz); const angle = Math.atan2(dz, dx);
                         
+                        const wallHeight = w.height || w.config?.height || WALL_HEIGHT;
                         // Mock Data for Managers
-                        w.config = { thickness: w.thickness }; w.length3D = length; w.attachedWidgets = w.widgets || []; w.attachedDecor = w.decors || []; w.isStatic = true; w.levelIndex = index; w.wallIndex = wallIndex;
-                        const { wallGroup } = this.wallBuilder.buildWallGroup(length, w.thickness, w.attachedWidgets, w.startX, w.startY, angle);
+                        w.config = { thickness: w.thickness, height: wallHeight }; w.length3D = length; w.attachedWidgets = w.widgets || []; w.attachedDecor = w.decors || []; w.isStatic = true; w.levelIndex = index; w.wallIndex = wallIndex;
+                        const { wallGroup } = this.wallBuilder.buildWallGroup(length, w.thickness, w.attachedWidgets, w.startX, w.startY, angle, wallHeight);
                         wallGroup.userData = { entity: w };
                         w.mesh3D = wallGroup;
 
                         if (!isPreview) {
-                            const hitboxes = this.wallBuilder.createHitboxes(length, w.thickness, w, true, index, wallIndex);
+                            const hitboxes = this.wallBuilder.createHitboxes(length, w.thickness, w, true, index, wallIndex, wallHeight);
                             hitboxes.forEach(hb => {
                                 // Only add Face hitboxes if in full-edit mode. Otherwise, just add the volume trigger.
                                 if (viewMode3D === 'full-edit' || hb.userData.isFloorTrigger) {
@@ -72,25 +73,31 @@ export class StaticFloors {
                         // Map Joints
                         const startKey = `${w.startX.toFixed(2)},${w.startY.toFixed(2)}`;
                         const endKey = `${w.endX.toFixed(2)},${w.endY.toFixed(2)}`;
-                        let sData = anchorMap.get(startKey) || { x: w.startX, y: w.startY, thickness: 0 };
+                        let sData = anchorMap.get(startKey) || { x: w.startX, y: w.startY, thickness: 0, height: 0 };
                         if (w.thickness > sData.thickness) sData.thickness = w.thickness;
+                        if (wallHeight > sData.height) sData.height = wallHeight;
                         anchorMap.set(startKey, sData);
 
-                        let eData = anchorMap.get(endKey) || { x: w.endX, y: w.endY, thickness: 0 };
+                        let eData = anchorMap.get(endKey) || { x: w.endX, y: w.endY, thickness: 0, height: 0 };
                         if (w.thickness > eData.thickness) eData.thickness = w.thickness;
+                        if (wallHeight > eData.height) eData.height = wallHeight;
                         anchorMap.set(endKey, eData);
                     });
 
                     // Build Joints
                     anchorMap.forEach((data) => {
-                        floorGroup.add(this.wallBuilder.createJoint(data.x, data.y, data.thickness)); 
+                        floorGroup.add(this.wallBuilder.createJoint(data.x, data.y, data.thickness, data.height)); 
                     });
                 }
                 
                 // Build Roofs
                 if (data.roofs) {
                     const hasWalls = data.walls && data.walls.length > 0;
-                    const baseHeight = (hasWalls || index === 0) ? WALL_HEIGHT : 0;
+                    let maxWallHeight = WALL_HEIGHT;
+                    if (hasWalls) {
+                        maxWallHeight = Math.max(...data.walls.map(w => w.height || w.config?.height || WALL_HEIGHT));
+                    }
+                    const baseHeight = (hasWalls || index === 0) ? maxWallHeight : 0;
 
                     data.roofs.forEach(roofData => {
                         const pts = roofData.points;

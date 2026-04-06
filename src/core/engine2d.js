@@ -779,7 +779,8 @@ export class FloorPlanner {
             walls: this.walls.map(w => ({
                 startX: w.startAnchor.x, startY: w.startAnchor.y,
                 endX: w.endAnchor.x, endY: w.endAnchor.y,
-                thickness: w.config.thickness,
+                thickness: w.thickness || w.config.thickness,
+                height: w.height || w.config?.height || 120,
                 type: w.type,
                 widgets: w.attachedWidgets.map(wid => ({ t: wid.t, configId: wid.type, width: wid.width })),
                 decors: w.attachedDecor ? w.attachedDecor.map(d => ({
@@ -812,6 +813,8 @@ export class FloorPlanner {
                     const a1 = this.getOrCreateAnchor(wData.startX, wData.startY);
                     const a2 = this.getOrCreateAnchor(wData.endX, wData.endY);
                     const wall = new PremiumWall(this, a1, a2, wData.type);
+                    if (wData.thickness) wall.thickness = wData.thickness;
+                    if (wData.height) wall.height = wData.height;
                     if (wData.widgets) {
                         wData.widgets.forEach(wd => {
                             const widget = new PremiumWidget(this, wall, wd.t, wd.configId);

@@ -8,8 +8,8 @@ export class Wall3DBuilder {
     }
 
     // Abstract method that works for both Active (Konva) and Static (JSON) walls
-    buildWallGroup(length, thickness, widgets, startX, startY, angle) {
-        const wallShape = this._createShape(length, widgets);
+    buildWallGroup(length, thickness, widgets, startX, startY, angle, wallHeight = WALL_HEIGHT) {
+        const wallShape = this._createShape(length, widgets, wallHeight);
         const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: thickness, bevelEnabled: false });
         wallGeo.translate(0, 0, -thickness / 2);
         
@@ -25,12 +25,12 @@ export class Wall3DBuilder {
         return { wallGroup, wallGeo };
     }
 
-    createHitboxes(length, thickness, wallData, isStatic = false, levelIndex = 0, wallIndex = 0) {
+    createHitboxes(length, thickness, wallData, isStatic = false, levelIndex = 0, wallIndex = 0, wallHeight = WALL_HEIGHT) {
         const hitboxes = [];
         
         // Front and Back skins for editing textures
-        const skinGeo = new THREE.PlaneGeometry(length - 0.5, WALL_HEIGHT - 0.5);
-        skinGeo.translate(length / 2, WALL_HEIGHT / 2, 0);
+        const skinGeo = new THREE.PlaneGeometry(length - 0.5, wallHeight - 0.5);
+        skinGeo.translate(length / 2, wallHeight / 2, 0);
 
         const hitFront = new THREE.Mesh(skinGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
         hitFront.position.set(0, 0, thickness / 2 + 0.1);
@@ -44,8 +44,8 @@ export class Wall3DBuilder {
 
         // If it's a static wall, add a volume trigger to catch "Switch Floor" clicks
         if (isStatic) {
-            const volGeo = new THREE.BoxGeometry(length, WALL_HEIGHT, thickness);
-            volGeo.translate(length / 2, WALL_HEIGHT / 2, 0);
+            const volGeo = new THREE.BoxGeometry(length, wallHeight, thickness);
+            volGeo.translate(length / 2, wallHeight / 2, 0);
             const trigger = new THREE.Mesh(volGeo, new THREE.MeshBasicMaterial({ visible: false }));
             trigger.userData = { isFloorTrigger: true, levelIndex, entityIndex: wallIndex, entityType: 'wall' };
             hitboxes.push(trigger);
@@ -54,18 +54,18 @@ export class Wall3DBuilder {
         return hitboxes;
     }
 
-    createJoint(x, y, thickness) {
-        const jointGeo = new THREE.CylinderGeometry(thickness / 2, thickness / 2, WALL_HEIGHT, 32);
+    createJoint(x, y, thickness, wallHeight = WALL_HEIGHT) {
+        const jointGeo = new THREE.CylinderGeometry(thickness / 2, thickness / 2, wallHeight, 32);
         const jointMesh = new THREE.Mesh(jointGeo, this.matMain);
-        jointMesh.position.set(x, WALL_HEIGHT / 2, y);
+        jointMesh.position.set(x, wallHeight / 2, y);
         jointMesh.castShadow = true; 
         jointMesh.receiveShadow = true;
         return jointMesh;
     }
 
-    _createShape(length, widgets) {
+    _createShape(length, widgets, wallHeight = WALL_HEIGHT) {
         const wallShape = new THREE.Shape();
-        wallShape.moveTo(0, 0); wallShape.lineTo(length, 0); wallShape.lineTo(length, WALL_HEIGHT); wallShape.lineTo(0, WALL_HEIGHT); wallShape.lineTo(0, 0);
+        wallShape.moveTo(0, 0); wallShape.lineTo(length, 0); wallShape.lineTo(length, wallHeight); wallShape.lineTo(0, wallHeight); wallShape.lineTo(0, 0);
 
         if (!widgets) return wallShape;
 
