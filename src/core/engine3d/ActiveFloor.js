@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Wall3DBuilder } from './Wall3DBuilder.js';
-import { WALL_HEIGHT, ROOF_DECOR_REGISTRY } from '../registry.js';
+import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY } from '../registry.js';
 
 export class ActiveFloor {
     constructor(decorManager, interactables, structureGroup) {
@@ -8,20 +8,19 @@ export class ActiveFloor {
         this.interactables = interactables;
         this.structureGroup = structureGroup;
         this.wallBuilder = new Wall3DBuilder();
-        this.matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7 });
+        this.matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7, side: THREE.DoubleSide });
     }
 
-    build(walls, roomPaths, roofs, activeIndex = 0) {
-        this._buildSlabs(roomPaths);
-        
+    build(walls, rooms, roofs, activeIndex = 0) {
+        this._buildSlabs(rooms);
+
         const hasWalls = walls && walls.length > 0;
         let maxWallHeight = WALL_HEIGHT;
         if (hasWalls) {
             maxWallHeight = Math.max(...walls.map(w => w.height || w.config?.height || WALL_HEIGHT));
         }
 
-        if (roofs) this._buildRoofs(roofs, activeIndex, hasWalls, maxWallHeight);
-        
+        if (roofs) this._buildRoofs(roofs, activeIndex, hasWalls, maxWallHeight);        
         const anchorMap = new Map();
 
         walls.forEach(w => {
@@ -65,15 +64,34 @@ export class ActiveFloor {
         });
     }
 
-    _buildSlabs(roomPaths) {
-        roomPaths.forEach(path => {
+    _buildSlabs(rooms) {
+        if (!rooms) return;
+        rooms.forEach(room => {
+            const path = room.path;
+            if (!path || path.length < 3) return;
             const floorShape = new THREE.Shape();
             floorShape.moveTo(path[0].x, path[0].y);
             for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
             
-            const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 10, bevelEnabled: false });
-            floorGeo.rotateX(Math.PI / 2);
-            const floorMesh = new THREE.Mesh(floorGeo, this.matFloor);
+                        const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
+                        floorGeo.rotateX(Math.PI / 2);
+                        floorGeo.translate(0, 0.2, 0);
+            
+            let mat = this.matFloor;
+            const configId = room.configId || 'hardwood';
+            const floorConfig = FLOOR_REGISTRY[configId];
+            if (floorConfig && floorConfig.texture) {
+                const tex = new THREE.TextureLoader().load(floorConfig.texture);
+                tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+                const repeatScale = floorConfig.repeat || 1;
+                // Use a default size for calculating UV repeat if not specified, 100 is typically 1 unit in 3D
+                tex.repeat.set(1 / (100 * repeatScale), 1 / (100 * repeatScale));
+                mat = new THREE.MeshStandardMaterial({ map: tex, roughness: floorConfig.roughness !== undefined ? floorConfig.roughness : 0.8, color: floorConfig.color || 0xffffff, side: THREE.DoubleSide });
+            } else if (floorConfig && floorConfig.color) {
+                mat = new THREE.MeshStandardMaterial({ color: floorConfig.color, roughness: floorConfig.roughness !== undefined ? floorConfig.roughness : 0.8, side: THREE.DoubleSide });
+            }
+
+            const floorMesh = new THREE.Mesh(floorGeo, mat);
             floorMesh.receiveShadow = true;
             this.structureGroup.add(floorMesh);
         });

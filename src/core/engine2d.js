@@ -750,8 +750,141 @@ export class FloorPlanner {
         });
     }
 
-    detectRooms() { this.roomLayer.destroyChildren(); this.roomPaths = []; const visited = new Set(); for (let wall of this.walls) { let path = []; let current = wall.startAnchor; let next = wall.endAnchor; path.push(current); let attempts = 0; while (next && attempts < this.walls.length) { path.push(next); if (next === wall.startAnchor && path.length > 2) { this.drawRoom(path); this.roomPaths.push(path); break; } let nextWall = this.walls.find(w => w !== wall && !visited.has(w) && (w.startAnchor === next || w.endAnchor === next)); if (!nextWall) break; visited.add(nextWall); next = (nextWall.startAnchor === next) ? nextWall.endAnchor : nextWall.startAnchor; attempts++; } } }
-    drawRoom(anchorPath) { const points = anchorPath.flatMap(a => [a.x, a.y]); const poly = new Konva.Line({ points: points, fill: '#f0f4f8', closed: true, opacity: 0.7 }); let cx = 0, cy = 0; anchorPath.forEach(a => { cx += a.x; cy += a.y; }); cx /= anchorPath.length; cy /= anchorPath.length; const label = new Konva.Text({ x: cx, y: cy, text: "Room\n" + Math.round(this.calculateArea(points)) + " sqft", fontSize: 12, fill: '#6b7280', align: 'center', fontStyle: 'bold' }); label.offsetX(label.width() / 2); label.offsetY(label.height() / 2); this.roomLayer.add(poly); this.roomLayer.add(label); }
+    detectRooms() { 
+        this.roomLayer.destroyChildren(); 
+        const newRooms = []; 
+        const edges = [];
+        
+        const isPointOnSegment = (p, p1, p2) => {
+            const crossProduct = (p.y - p1.y) * (p2.x - p1.x) - (p.x - p1.x) * (p2.y - p1.y);
+            const dist = Math.abs(crossProduct) / Math.hypot(p2.x - p1.x, p2.y - p1.y);
+            if (dist > 1.0) return false;
+            const dotProduct = (p.x - p1.x) * (p2.x - p1.x) + (p.y - p1.y) * (p2.y - p1.y);
+            if (dotProduct < 0) return false;
+            const squaredLengthBA = (p2.x - p1.x)*(p2.x - p1.x) + (p2.y - p1.y)*(p2.y - p1.y);
+            if (dotProduct > squaredLengthBA) return false;
+            return true;
+        };
+
+        this.walls.forEach(w => {
+            const p1 = w.startAnchor;
+            const p2 = w.endAnchor;
+            const pointsOnWall = [];
+            this.anchors.forEach(a => {
+                if (a === p1 || a === p2) return;
+                if (isPointOnSegment(a.position(), p1.position(), p2.position())) {
+                    pointsOnWall.push(a);
+                }
+            });
+            pointsOnWall.sort((a, b) => {
+                return Math.hypot(a.x - p1.x, a.y - p1.y) - Math.hypot(b.x - p1.x, b.y - p1.y);
+            });
+            const segments = [p1, ...pointsOnWall, p2];
+            for (let i = 0; i < segments.length - 1; i++) {
+                edges.push({ from: segments[i], to: segments[i+1], wall: w });
+                edges.push({ from: segments[i+1], to: segments[i], wall: w });
+            }
+        });
+
+        const adj = new Map();
+        edges.forEach(e => {
+            if (!adj.has(e.from)) adj.set(e.from, []);
+            adj.get(e.from).push(e);
+        });
+
+        adj.forEach((outgoing, anchor) => {
+            outgoing.sort((a, b) => {
+                const angleA = Math.atan2(a.to.y - anchor.y, a.to.x - anchor.x);
+                const angleB = Math.atan2(b.to.y - anchor.y, b.to.x - anchor.x);
+                return angleA - angleB;
+            });
+        });
+
+        const visitedEdges = new Set();
+        const faces = [];
+
+        edges.forEach(startEdge => {
+            if (visitedEdges.has(startEdge)) return;
+            
+            const face = [];
+            let currentEdge = startEdge;
+            let isClosed = false;
+
+            while (!visitedEdges.has(currentEdge)) {
+                visitedEdges.add(currentEdge);
+                face.push(currentEdge);
+                
+                const nextAnchor = currentEdge.to;
+                const outgoing = adj.get(nextAnchor);
+                if (!outgoing || outgoing.length === 0) break;
+                
+                let revIndex = outgoing.findIndex(e => e.to === currentEdge.from);
+                let nextIndex = (revIndex - 1 + outgoing.length) % outgoing.length;
+                currentEdge = outgoing[nextIndex];
+                
+                if (currentEdge === startEdge) {
+                    isClosed = true;
+                    break;
+                }
+            }
+
+            if (isClosed && face.length >= 3) {
+                let area = 0;
+                for (let i = 0; i < face.length; i++) {
+                    const p1 = face[i].from;
+                    const p2 = face[i].to;
+                    area += (p2.x - p1.x) * (p2.y + p1.y);
+                }
+                if (area < 0) {
+                    faces.push(face);
+                }
+            }
+        });
+
+        faces.forEach(face => {
+            const path = face.map(e => e.from);
+            path.push(face[face.length - 1].to); 
+            
+            let cx = 0, cy = 0;
+            const uniquePoints = path.slice(0, -1);
+            uniquePoints.forEach(p => { cx += p.x; cy += p.y; });
+            cx /= uniquePoints.length;
+            cy /= uniquePoints.length;
+
+            let existingRoom = (this.rooms || []).find(r => Math.hypot(r.cx - cx, r.cy - cy) < 20);
+            const room = { path, cx, cy, configId: existingRoom ? existingRoom.configId : 'hardwood' };
+            newRooms.push(room);
+            this.drawRoom(room);
+        });
+
+        this.rooms = newRooms;
+        this.roomPaths = newRooms.map(r => r.path);
+        if (this.bgLayer) this.bgLayer.batchDraw();
+    }
+    drawRoom(room) { 
+        const anchorPath = room.path;
+        const points = anchorPath.flatMap(a => [a.x, a.y]); 
+        const poly = new Konva.Line({ points: points, fill: '#f0f4f8', closed: true, opacity: 0.7 }); 
+        
+        poly.on('mouseenter', () => { if(this.tool === 'select') document.body.style.cursor = 'pointer'; });
+        poly.on('mouseleave', () => document.body.style.cursor = 'default');
+        poly.on('click', (e) => { 
+            if(this.tool === 'select') {
+                e.cancelBubble = true;
+                this.selectEntity(room, 'room');
+            }
+        });
+        
+        room.setHighlight = (active) => {
+            poly.stroke(active ? '#4f46e5' : null);
+            poly.strokeWidth(active ? 4 : 0);
+            this.stage.batchDraw();
+        };
+
+        const label = new Konva.Text({ x: room.cx, y: room.cy, text: "Room\n" + Math.round(this.calculateArea(points)) + " sqft", fontSize: 12, fill: '#6b7280', align: 'center', fontStyle: 'bold', listening: false }); 
+        label.offsetX(label.width() / 2); label.offsetY(label.height() / 2); 
+        this.roomLayer.add(poly); this.roomLayer.add(label); 
+    }
     calculateArea(points) { let area = 0; for (let i = 0; i < points.length; i += 2) { let j = (i + 2) % points.length; area += points[i] * points[j + 1]; area -= points[i + 1] * points[j]; } return Math.abs(area / 2) * (PX_TO_FT * PX_TO_FT); }
 
     clearAll() {
@@ -798,7 +931,8 @@ export class FloorPlanner {
             stairs: this.stairs.map(s => ({
                 path: s.path.map(p => ({ x: p.x, y: p.y, shape: p.shape }))
             })),
-            roomPaths: this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y })))
+            rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, configId: r.configId })) : [],
+            roomPaths: this.roomPaths ? this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y }))) : []
         };
         return JSON.stringify(state);
     }
@@ -808,6 +942,9 @@ export class FloorPlanner {
         if (!jsonStr) return;
         try {
             const state = JSON.parse(jsonStr);
+            if (state.rooms) {
+                this.rooms = state.rooms;
+            }
             if (state.walls) {
                 state.walls.forEach(wData => {
                     const a1 = this.getOrCreateAnchor(wData.startX, wData.startY);

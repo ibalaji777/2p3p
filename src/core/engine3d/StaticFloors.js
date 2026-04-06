@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WALL_HEIGHT, ROOF_DECOR_REGISTRY } from '../registry.js';
+import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY } from '../registry.js';
 import { Wall3DBuilder } from './Wall3DBuilder.js';
 
 export class StaticFloors {
@@ -7,7 +7,7 @@ export class StaticFloors {
         this.decorManager = decorManager;
         this.interactables = interactables;
         this.wallBuilder = new Wall3DBuilder();
-        this.matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7 });
+        this.matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7, side: THREE.DoubleSide });
     }
 
     build(levelsJsonArray, activeIndex, viewMode3D, staticStructureGroup) {
@@ -22,15 +22,32 @@ export class StaticFloors {
                 floorGroup.position.y = index * WALL_HEIGHT;
 
                 // Build Slabs
-                if (data.roomPaths) {
-                    data.roomPaths.forEach(path => {
+                if (data.rooms) {
+                    data.rooms.forEach(room => {
+                        const path = room.path;
+                        if (!path || path.length < 3) return;
                         const floorShape = new THREE.Shape();
                         floorShape.moveTo(path[0].x, path[0].y);
                         for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
                         
-                        const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 10, bevelEnabled: false });
+                        const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
                         floorGeo.rotateX(Math.PI / 2);
-                        const floorMesh = new THREE.Mesh(floorGeo, this.matFloor);
+                        floorGeo.translate(0, 0.2, 0);
+                        
+                        let mat = this.matFloor;
+                        const configId = room.configId || 'hardwood';
+                        const floorConfig = FLOOR_REGISTRY[configId];
+                        if (floorConfig && floorConfig.texture) {
+                            const tex = new THREE.TextureLoader().load(floorConfig.texture);
+                            tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+                            const repeatScale = floorConfig.repeat || 1;
+                            tex.repeat.set(1 / (100 * repeatScale), 1 / (100 * repeatScale));
+                            mat = new THREE.MeshStandardMaterial({ map: tex, roughness: floorConfig.roughness !== undefined ? floorConfig.roughness : 0.8, color: floorConfig.color || 0xffffff, side: THREE.DoubleSide });
+                        } else if (floorConfig && floorConfig.color) {
+                            mat = new THREE.MeshStandardMaterial({ color: floorConfig.color, roughness: floorConfig.roughness !== undefined ? floorConfig.roughness : 0.8, side: THREE.DoubleSide });
+                        }
+
+                        const floorMesh = new THREE.Mesh(floorGeo, mat);
                         floorMesh.receiveShadow = true;
                         
                         if (!isPreview) {

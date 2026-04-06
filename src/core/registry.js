@@ -92,6 +92,26 @@ export const SKY_REGISTRY = {
     }
 };
 
+export const FLOOR_REGISTRY = {
+    'hardwood': {
+        id: 'hardwood', name: 'Hardwood Floor', type: 'floor',
+        texture: 'https://threejs.org/examples/textures/hardwood2_diffuse.jpg',
+        thumbnail: 'https://threejs.org/examples/textures/hardwood2_diffuse.jpg',
+        roughness: 0.6, repeat: 5
+    },
+    'tiles': {
+        id: 'tiles', name: 'Ceramic Tiles', type: 'floor',
+        texture: 'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg', // Placeholder tile
+        thumbnail: 'https://via.placeholder.com/150/ffffff/000000?text=Tiles',
+        color: 0xcccccc, roughness: 0.2, repeat: 10
+    },
+    'carpet': {
+        id: 'carpet', name: 'Soft Carpet', type: 'floor',
+        color: 0x8b5a2b, roughness: 0.9,
+        thumbnail: 'https://via.placeholder.com/150/8b5a2b/fff?text=Carpet'
+    }
+};
+
 export const GROUND_REGISTRY = {
     'grid': {
         id: 'grid', name: 'Blueprint Grid', type: 'grid', color: 0x9aa297,

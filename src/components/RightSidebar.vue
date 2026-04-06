@@ -8,6 +8,13 @@
     <div v-if="type === 'wall'">
       </div>
     
+    <div v-if="type === 'room'">
+      <div class="unit-label">Floor Material</div>
+      <select v-model="entity.configId" @change="onUpdate">
+        <option v-for="(val, key) in FLOOR_REGISTRY" :key="key" :value="key">{{ val.name }}</option>
+      </select>
+    </div>
+
     <div v-if="type === 'stair' || type === 'stair_node'">
       </div>
 
@@ -56,6 +63,7 @@
 </template>
 
 <script setup>
+import { FLOOR_REGISTRY } from '../core/registry.js';
 const props = defineProps(['entity', 'type', 'nodeIndex']);
 const emit = defineEmits(['sync', 'delete']);
 

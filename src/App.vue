@@ -643,12 +643,11 @@ const refresh3DScene = (preserveCamera = true) => {
         const levelsJsonArray = levels.value.map(l => l.data);
         
         renderer3D.value.buildScene(
-            planner.value.walls, 
-            planner.value.roomPaths,
-            planner.value.stairs, 
-            planner.value.furniture, 
-            planner.value.roofs,
-            levelsJsonArray, 
+            planner.value.walls,
+            planner.value.rooms,
+            planner.value.stairs,
+            planner.value.furniture,
+            planner.value.roofs,            levelsJsonArray, 
             activeLevelIndex.value, 
             viewMode3D.value, 
             preserveCamera
