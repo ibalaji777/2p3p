@@ -164,6 +164,22 @@
                             </div>
                         </div>
                     </div>
+                    <button class="hud-delete" @click="handleDelete">Delete Wall</button>
+                </div>
+
+                <div v-else-if="selectedType === 'room'">
+                    <h4 class="props-subtitle">Floor Properties</h4>
+                    <div class="decor-gallery">
+                        <h4 class="props-subtitle">Floor Material</h4>
+                        <div class="decor-grid">
+                            <div v-for="(config, key) in floorRegistry" :key="key" class="decor-item" @click="setFloorMaterial(key)" :class="{ active: selectedEntity.configId === key }">
+                                <img :src="config.thumbnail" />
+                                <span>{{ config.name }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="hud-delete" @click="handleDelete">Delete Floor & Walls</button>
                 </div>
 
                 <div v-else-if="selectedType === 'widget'">
@@ -254,11 +270,12 @@ import { Preview3D } from './core/engine3d/index.js';
 import { WorkspaceControls } from '/src/core/engine3d/WorkspaceControls.js';
 
 import { FileManager } from './core/io.js';
-import { WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY } from './core/registry.js';
+import { WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, FLOOR_REGISTRY } from './core/registry.js';
 const wallDecorRegistry = WALL_DECOR_REGISTRY;
 const roofDecorRegistry = ROOF_DECOR_REGISTRY;
 const skyRegistry = SKY_REGISTRY;
 const groundRegistry = GROUND_REGISTRY;
+const floorRegistry = FLOOR_REGISTRY;
 
 const canvas2D = ref(null);
 const canvas3D = ref(null);
@@ -578,7 +595,7 @@ const syncEngine = () => {
         planner.value.syncAll();
     } else if (viewMode.value === '3d' && selectedType.value === 'furniture' && selectedEntity.value) {
         renderer3D.value.updateFurnitureLive(selectedEntity.value); 
-    } else if (viewMode.value === '3d' && selectedType.value === 'roof') {
+    } else if (viewMode.value === '3d' && (selectedType.value === 'roof' || selectedType.value === 'room' || selectedType.value === 'wall' || selectedType.value === 'widget')) {
         refresh3DScene(true);
     }
 };
@@ -586,6 +603,13 @@ const syncEngine = () => {
 const setRoofMaterial = (key) => {
     if (selectedEntity.value && selectedType.value === 'roof') {
         selectedEntity.value.config.material = key;
+        syncEngine();
+    }
+};
+
+const setFloorMaterial = (key) => {
+    if (selectedEntity.value && selectedType.value === 'room') {
+        selectedEntity.value.configId = key;
         syncEngine();
     }
 };
@@ -610,8 +634,16 @@ const handleDelete = () => {
             selectedEntity.value.remove();
             selectedEntity.value = null;
             selectedType.value = null;
-        } else if (selectedType.value === 'widget') {
+            if (viewMode.value === '3d') refresh3DScene(true);
+        } else if (selectedType.value === 'widget' || selectedType.value === 'wall') {
             selectedEntity.value.remove();
+            selectedEntity.value = null;
+            selectedType.value = null;
+            if (viewMode.value === '3d') refresh3DScene(true);
+        } else if (selectedType.value === 'room') {
+            const roomPath = selectedEntity.value.path;
+            const roomWalls = planner.value.walls.filter(w => roomPath.includes(w.startAnchor) && roomPath.includes(w.endAnchor));
+            roomWalls.forEach(w => w.remove());
             selectedEntity.value = null;
             selectedType.value = null;
             if (viewMode.value === '3d') refresh3DScene(true);

@@ -93,6 +93,8 @@ export class ActiveFloor {
 
             const floorMesh = new THREE.Mesh(floorGeo, mat);
             floorMesh.receiveShadow = true;
+            floorMesh.userData = { entity: room, isRoom: true };
+            this.interactables.push(floorMesh);
             this.structureGroup.add(floorMesh);
         });
     }
