@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js Auto-Railing Placer</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #f0f0f0; font-family: sans-serif; }
+        #canvas-container { width: 100vw; height: 100vh; display: block; }
+        #ui-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+        button, input { margin-top: 10px; }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div id="ui-container">
+        <h3>Upload Railing Model</h3>
+        <p>Supports .glb or .obj files.</p>
+        <input type="file" id="fileInput" accept=".glb, .obj">
+        <div id="status" style="margin-top: 10px; font-size: 0.9em; color: #555;">Waiting for upload...</div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xa0a0a0);
+        scene.fog = new THREE.Fog(0xa0a0a0, 10, 50);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 5, 12);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 1, 0);
+        controls.update();
+
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2);
+        hemiLight.position.set(0, 20, 0);
+        scene.add(hemiLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+        dirLight.position.set(3, 10, 10);
+        dirLight.castShadow = true;
+        dirLight.shadow.camera.top = 10;
+        dirLight.shadow.camera.bottom = -10;
+        dirLight.shadow.camera.left = -10;
+        dirLight.shadow.camera.right = 10;
+        scene.add(dirLight);
+
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(50, 50),
+            new THREE.MeshPhongMaterial({ color: 0x999999, depthWrite: false })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        const balconyGroup = new THREE.Group();
+        scene.add(balconyGroup);
+
+        const material = new THREE.MeshStandardMaterial({ color: 0xdddddd });
+        
+        const floor = new THREE.Mesh(new THREE.BoxGeometry(8, 0.2, 5), material);
+        floor.position.set(0, 0.1, 0);
+        floor.receiveShadow = true;
+        balconyGroup.add(floor);
+
+        const wallThickness = 0.2;
+        const wallHeight = 0.5;
+        
+        const frontWall = new THREE.Mesh(new THREE.BoxGeometry(8, wallHeight, wallThickness), material);
+        frontWall.position.set(0, wallHeight/2 + 0.2, 2.5 - wallThickness/2);
+        frontWall.castShadow = true; frontWall.receiveShadow = true;
+        balconyGroup.add(frontWall);
+
+        const leftWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, wallHeight, 5), material);
+        leftWall.position.set(-4 + wallThickness/2, wallHeight/2 + 0.2, 0);
+        leftWall.castShadow = true; leftWall.receiveShadow = true;
+        balconyGroup.add(leftWall);
+
+        const rightWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, wallHeight, 5), material);
+        rightWall.position.set(4 - wallThickness/2, wallHeight/2 + 0.2, 0);
+        rightWall.castShadow = true; rightWall.receiveShadow = true;
+        balconyGroup.add(rightWall);
+
+        const railingHeightOffset = 0.2 + wallHeight; 
+        const edges = [
+            { start: new THREE.Vector3(-4 + wallThickness/2, railingHeightOffset, -2.5), end: new THREE.Vector3(-4 + wallThickness/2, railingHeightOffset, 2.5 - wallThickness) }, 
+            { start: new THREE.Vector3(-4 + wallThickness/2, railingHeightOffset, 2.5 - wallThickness/2), end: new THREE.Vector3(4 - wallThickness/2, railingHeightOffset, 2.5 - wallThickness/2) }, 
+            { start: new THREE.Vector3(4 - wallThickness/2, railingHeightOffset, 2.5 - wallThickness), end: new THREE.Vector3(4 - wallThickness/2, railingHeightOffset, -2.5) }  
+        ];
+
+        const railingsContainer = new THREE.Group();
+        scene.add(railingsContainer);
+
+        const fileInput = document.getElementById('fileInput');
+        const statusDiv = document.getElementById('status');
+
+        fileInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            statusDiv.innerText = `Loading ${file.name}...`;
+            const reader = new FileReader();
+            const extension = file.name.split('.').pop().toLowerCase();
+
+            reader.onload = function(e) {
+                const contents = e.target.result;
+
+                if (extension === 'glb') {
+                    const loader = new GLTFLoader();
+                    loader.parse(contents, '', function(gltf) {
+                        processUploadedModel(gltf.scene);
+                    }, function(error) {
+                        console.error(error);
+                        statusDiv.innerText = "Error loading GLB.";
+                    });
+                } else if (extension === 'obj') {
+                    const loader = new OBJLoader();
+                    const object = loader.parse(contents);
+                    processUploadedModel(object);
+                }
+            };
+
+            if (extension === 'glb') {
+                reader.readAsArrayBuffer(file);
+            } else if (extension === 'obj') {
+                reader.readAsText(file); 
+            } else {
+                statusDiv.innerText = "Unsupported file type.";
+            }
+        });
+
+        function processUploadedModel(model) {
+            // Clear old railings
+            while(railingsContainer.children.length > 0){ 
+                railingsContainer.remove(railingsContainer.children[0]); 
+            }
+
+            // 1. Get initial dimensions
+            const initialBox = new THREE.Box3().setFromObject(model);
+            const initialSize = initialBox.getSize(new THREE.Vector3());
+            const center = initialBox.getCenter(new THREE.Vector3());
+
+            // Protect against empty models
+            if (initialSize.y === 0 || initialSize.x === 0) {
+                statusDiv.innerText = "Error: Model has 0 width or height.";
+                return;
+            }
+
+            // 2. Calculate automatic scale factor
+            // We want the railing to be exactly 1.0 unit tall. You can change this number!
+            const TARGET_HEIGHT = 1.0; 
+            const scaleFactor = TARGET_HEIGHT / initialSize.y;
+
+            // 3. Normalize the geometry: Center it, set pivot to bottom, and bake the scale in
+            model.traverse(function(child) {
+                if (child.isMesh) {
+                    // Translate pivot to bottom center
+                    child.geometry.translate(-center.x, -initialBox.min.y, -center.z);
+                    // Bake the scale reduction directly into the mesh vertices
+                    child.geometry.scale(scaleFactor, scaleFactor, scaleFactor);
+                    
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+
+            // 4. Get the NEW dimensions after scaling for tiling math
+            const scaledBox = new THREE.Box3().setFromObject(model);
+            const railingLength = scaledBox.getSize(new THREE.Vector3()).x;
+
+            // 5. Tile along the balcony edges
+            edges.forEach(edge => {
+                const edgeVector = new THREE.Vector3().subVectors(edge.end, edge.start);
+                const edgeLength = edgeVector.length();
+                const direction = edgeVector.clone().normalize();
+                
+                const count = Math.floor(edgeLength / railingLength);
+                
+                let stretchScale = 1;
+                let actualCount = count;
+                if (count === 0) {
+                    stretchScale = edgeLength / railingLength;
+                    actualCount = 1;
+                } else {
+                    stretchScale = (edgeLength / count) / railingLength; 
+                }
+
+                for (let i = 0; i < actualCount; i++) {
+                    const clone = model.clone();
+                    
+                    // We only stretch on X to fit the wall length, keeping Y and Z at our target height scale
+                    clone.scale.set(stretchScale, 1, 1); 
+                    
+                    const segmentLength = (railingLength * stretchScale);
+                    const offsetDistance = (i * segmentLength) + (segmentLength / 2);
+                    
+                    const position = edge.start.clone().add(direction.clone().multiplyScalar(offsetDistance));
+                    clone.position.copy(position);
+
+                    const up = new THREE.Vector3(0, 1, 0);
+                    const target = position.clone().add(direction);
+                    clone.lookAt(target);
+                    clone.rotateY(Math.PI / 2);
+
+                    railingsContainer.add(clone);
+                }
+            });
+
+            statusDiv.innerText = `Model placed! Automatically scaled to ${TARGET_HEIGHT} unit height.`;
+        }
+
+        window.addEventListener('resize', onWindowResize, false);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
