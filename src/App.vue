@@ -280,7 +280,7 @@
 import { ref, computed, shallowRef, onMounted, onBeforeUnmount } from 'vue';
 
 import { FloorPlanner, PremiumFurniture } from './core/engine2d/index.js';
-import { Preview3D } from './core/engine3d/index.js'; 
+import { Preview3D } from './core/engine3d.js'; 
 import { WorkspaceControls } from '/src/core/engine3d/WorkspaceControls.js';
 
 import { FileManager } from './core/io.js';

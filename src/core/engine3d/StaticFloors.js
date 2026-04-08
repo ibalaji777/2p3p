@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY } from '../registry.js';
 import { Wall3DBuilder } from './Wall3DBuilder.js';
+import { RailingBuilder } from './RailingBuilder.js';
 
 export class StaticFloors {
-    constructor(decorManager, interactables) {
+    constructor(assets, decorManager, interactables) {
+        this.assets = assets;
         this.decorManager = decorManager;
         this.interactables = interactables;
         this.wallBuilder = new Wall3DBuilder();
@@ -61,8 +63,11 @@ export class StaticFloors {
                 // Build Walls
                 if (data.walls) {
                     const anchorMap = new Map(); 
+                    
+                    const standardWalls = data.walls.filter(w => w.type !== 'railing');
+                    const railingWalls = data.walls.filter(w => w.type === 'railing');
 
-                    data.walls.forEach((w, wallIndex) => {
+                    standardWalls.forEach((w, wallIndex) => {
                         const dx = w.endX - w.startX; const dz = w.endY - w.startY;
                         const length = Math.hypot(dx, dz); const angle = Math.atan2(dz, dx);
                         
@@ -105,6 +110,9 @@ export class StaticFloors {
                     anchorMap.forEach((data) => {
                         floorGroup.add(this.wallBuilder.createJoint(data.x, data.y, data.thickness, data.height)); 
                     });
+
+                    const railingBuilder = new RailingBuilder(this.assets, this.interactables, floorGroup);
+                    railingBuilder.build(railingWalls);
                 }
                 
                 // Build Roofs

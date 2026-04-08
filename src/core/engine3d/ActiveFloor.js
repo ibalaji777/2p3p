@@ -1,13 +1,15 @@
 import * as THREE from 'three';
 import { Wall3DBuilder } from './Wall3DBuilder.js';
+import { RailingBuilder } from './RailingBuilder.js';
 import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY } from '../registry.js';
 
 export class ActiveFloor {
-    constructor(decorManager, interactables, structureGroup) {
+    constructor(assets, decorManager, interactables, structureGroup) {
         this.decorManager = decorManager;
         this.interactables = interactables;
         this.structureGroup = structureGroup;
         this.wallBuilder = new Wall3DBuilder();
+        this.railingBuilder = new RailingBuilder(assets, interactables, structureGroup);
         this.matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7, side: THREE.DoubleSide });
     }
 
@@ -23,7 +25,10 @@ export class ActiveFloor {
         if (roofs) this._buildRoofs(roofs, activeIndex, hasWalls, maxWallHeight);        
         const anchorMap = new Map();
 
-        walls.forEach(w => {
+        const standardWalls = walls.filter(w => w.type !== 'railing');
+        const railingWalls = walls.filter(w => w.type === 'railing');
+
+        standardWalls.forEach(w => {
             const p1 = w.startAnchor.position(); const p2 = w.endAnchor.position();
             const dx = p2.x - p1.x; const dz = p2.y - p1.y;
             const length = Math.hypot(dx, dz); const angle = Math.atan2(dz, dx);
@@ -62,6 +67,8 @@ export class ActiveFloor {
             const pos = anchor.position();
             this.structureGroup.add(this.wallBuilder.createJoint(pos.x, pos.y, data.thickness, data.height));
         });
+
+        this.railingBuilder.build(railingWalls);
     }
 
     _buildSlabs(rooms) {

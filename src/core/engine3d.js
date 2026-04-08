@@ -1,21 +1,34 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY } from './registry.js';
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY } from './registry.js';
 
 class AssetManager {
     constructor() {
         this.cache = new Map();
         this.texLoader = new THREE.TextureLoader();
         this.gltfLoader = new GLTFLoader();
+        this.objLoader = new OBJLoader();
     }
 
     async getTexture(config) {
         if (this.cache.has(config.id)) return await this.cache.get(config.id);
-        const loadPromise = this.texLoader.loadAsync(config.texture).then(texture => {
+        
+        // Force absolute path so Vite serves from the /public folder
+        let url = config.texture;
+        if (!url.startsWith('http') && !url.startsWith('data:') && !url.startsWith('/')) {
+            url = '/' + url;
+        }
+        
+        const loadPromise = this.texLoader.loadAsync(url).then(texture => {
             if (THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
             return texture;
+        }).catch(e => {
+            console.error(`[AssetManager] Failed to load texture at ${url}. Check your public/ folder!`, e);
+            throw e;
         });
+        
         this.cache.set(config.id, loadPromise);
         return await loadPromise;
     }
@@ -23,18 +36,49 @@ class AssetManager {
     async getModel(config) {
         if (this.cache.has(config.id)) return await this.cache.get(config.id);
         const loadPromise = (async () => {
-            const gltf = await this.gltfLoader.loadAsync(config.model);
-            if (config.texture) {
-                const tex = await this.getTexture({ id: config.id + '_tex', texture: config.texture });
-                tex.flipY = false;
-                gltf.scene.traverse((child) => {
-                    if (child.isMesh && child.material) {
-                        child.material.map = tex;
-                        child.material.needsUpdate = true;
-                    }
-                });
+            let url = config.model;
+            if (!url.startsWith('http') && !url.startsWith('data:') && !url.startsWith('/')) {
+                url = '/' + url;
             }
-            return gltf.scene;
+            
+            console.log(`[AssetManager] Initiating Loader for URL: ${url}`);
+            try {
+                let modelScene;
+                if (url.toLowerCase().endsWith('.obj')) {
+                    modelScene = await this.objLoader.loadAsync(url);
+                    // OBJ files do not contain materials natively. Apply Registry config colors/materials!
+                    modelScene.traverse((child) => {
+                        if (child.isMesh) {
+                            child.material = new THREE.MeshStandardMaterial({
+                                color: config.color !== undefined ? config.color : 0xcccccc,
+                                transparent: config.transparent || false,
+                                opacity: config.opacity !== undefined ? config.opacity : 1.0,
+                                roughness: config.roughness !== undefined ? config.roughness : 0.5,
+                                metalness: config.metalness !== undefined ? config.metalness : 0.0,
+                                side: THREE.DoubleSide
+                            });
+                        }
+                    });
+                } else {
+                    const gltf = await this.gltfLoader.loadAsync(url);
+                    modelScene = gltf.scene;
+                }
+
+                if (config.texture) {
+                    const tex = await this.getTexture({ id: config.id + '_tex', texture: config.texture });
+                    tex.flipY = false;
+                    modelScene.traverse((child) => {
+                        if (child.isMesh && child.material) {
+                            child.material.map = tex;
+                            child.material.needsUpdate = true;
+                        }
+                    });
+                }
+                return modelScene;
+            } catch (e) {
+                console.error(`[AssetManager] CRITICAL ERROR: Could not load model at ${url}. Vite is returning HTML (404 Not Found). Make sure the file exists exactly at public${url}!`);
+                throw e;
+            }
         })();
         this.cache.set(config.id, loadPromise);
         return await loadPromise;
@@ -56,15 +100,18 @@ class EnvironmentBuilder {
         ground.rotation.x = -Math.PI / 2;
         ground.receiveShadow = true;
         this.ctx.scene.add(ground);
+        this.ground = ground;
 
         const grid = new THREE.GridHelper(5000, 250, 0x000000, 0x000000);
         grid.material.opacity = 0.05;
         grid.material.transparent = true;
         this.ctx.scene.add(grid);
+        this.grid = grid;
 
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 3.0);
         hemiLight.position.set(0, 500, 0);
         this.ctx.scene.add(hemiLight);
+        this.hemiLight = hemiLight;
 
         const sunLight = new THREE.DirectionalLight(0xfffaed, 5.0);
         sunLight.position.set(300, 600, 400);
@@ -78,6 +125,45 @@ class EnvironmentBuilder {
         sunLight.shadow.camera.left = -d; sunLight.shadow.camera.right = d;
         sunLight.shadow.camera.top = d; sunLight.shadow.camera.bottom = -d;
         this.ctx.scene.add(sunLight);
+        this.sunLight = sunLight;
+    }
+
+    setEnvironment(skyKey, groundKey) {
+        const skyConfig = SKY_REGISTRY[skyKey];
+        if (skyConfig) {
+            if (skyConfig.skyColor) {
+                this.ctx.scene.background = new THREE.Color(skyConfig.skyColor);
+                if (this.ctx.scene.fog) this.ctx.scene.fog.color.setHex(skyConfig.fogColor || skyConfig.skyColor);
+            }
+            if (this.hemiLight) {
+                this.hemiLight.color.setHex(skyConfig.hemiSky || 0xffffff);
+                this.hemiLight.groundColor.setHex(skyConfig.hemiGround || 0x444444);
+                this.hemiLight.intensity = skyConfig.hemi || 1.0;
+            }
+            if (this.sunLight) {
+                this.sunLight.color.setHex(skyConfig.sunColor || 0xffffff);
+                this.sunLight.intensity = skyConfig.sun || 1.0;
+            }
+        }
+
+        const groundConfig = GROUND_REGISTRY[groundKey];
+        if (groundConfig && this.ground) {
+            if (groundConfig.color) {
+                this.ground.material.color.setHex(groundConfig.color);
+                this.ground.material.map = null;
+                this.ground.material.needsUpdate = true;
+            }
+            if (groundConfig.texture) {
+                this.ctx.assets.getTexture(groundConfig).then(tex => {
+                    const texClone = tex.clone();
+                    texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                    texClone.repeat.set(groundConfig.repeat || 100, groundConfig.repeat || 100);
+                    this.ground.material.map = texClone;
+                    this.ground.material.color.setHex(0xffffff);
+                    this.ground.material.needsUpdate = true;
+                });
+            }
+        }
     }
 
     buildActiveFloor(walls, rooms) {
@@ -155,18 +241,54 @@ class EnvironmentBuilder {
 
             const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: w.config.thickness, bevelEnabled: false });
             wallGeo.translate(0, 0, -w.config.thickness / 2);
+            
+            // ====== MITER JOINT SHEARING ======
+            const pts = typeof w.poly?.points === 'function' ? w.poly.points() : null;
+            let localSL_x = 0, localSR_x = 0, localEL_x = length, localER_x = length;
+            if (pts && pts.length === 8) {
+                const toLocalX = (ptX, ptY) => {
+                    const dx_pt = ptX - p1.x;
+                    const dy_pt = ptY - p1.y;
+                    return dx_pt * Math.cos(angle) + dy_pt * Math.sin(angle);
+                };
+                localSL_x = toLocalX(pts[0], pts[1]);
+                localEL_x = toLocalX(pts[2], pts[3]);
+                localER_x = toLocalX(pts[4], pts[5]);
+                localSR_x = toLocalX(pts[6], pts[7]);
+            }
+
+            const shearGeo = (geo) => {
+                const pos = geo.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    const x = pos.getX(i);
+                    const z = pos.getZ(i);
+                    const tZ = Math.max(0, Math.min(1, (z + w.config.thickness / 2) / w.config.thickness));
+                    const startX = localSR_x + tZ * (localSL_x - localSR_x);
+                    const endX = localER_x + tZ * (localEL_x - localER_x);
+                    const tX = x / length;
+                    pos.setX(i, startX + tX * (endX - startX));
+                }
+                geo.computeVertexNormals();
+            };
+
+            if (pts && pts.length === 8) {
+                shearGeo(wallGeo);
+            }
+            // ==================================
+
             const wallMesh = new THREE.Mesh(wallGeo, [matMain, matEdgeDark]);
             wallMesh.castShadow = true; wallMesh.receiveShadow = true;
 
-            const skinGeo = new THREE.PlaneGeometry(length - 0.5, WALL_HEIGHT - 0.5);
-            skinGeo.translate(length / 2, WALL_HEIGHT / 2, 0);
-
-            const hitFront = new THREE.Mesh(skinGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
-            hitFront.position.set(0, 0, w.config.thickness / 2 + 0.1);
+            const skinFrontGeo = new THREE.PlaneGeometry(length - 0.5, WALL_HEIGHT - 0.5);
+            skinFrontGeo.translate(length / 2, WALL_HEIGHT / 2, w.config.thickness / 2 + 0.1);
+            if (pts && pts.length === 8) shearGeo(skinFrontGeo);
+            const hitFront = new THREE.Mesh(skinFrontGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
             hitFront.userData = { isWallSide: true, side: 'front', entity: w };
 
-            const hitBack = new THREE.Mesh(skinGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
-            hitBack.position.set(0, 0, -w.config.thickness / 2 - 0.1);
+            const skinBackGeo = new THREE.PlaneGeometry(length - 0.5, WALL_HEIGHT - 0.5);
+            skinBackGeo.translate(length / 2, WALL_HEIGHT / 2, -w.config.thickness / 2 - 0.1);
+            if (pts && pts.length === 8) shearGeo(skinBackGeo);
+            const hitBack = new THREE.Mesh(skinBackGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
             hitBack.userData = { isWallSide: true, side: 'back', entity: w };
 
             const wallGroup = new THREE.Group();
@@ -180,24 +302,6 @@ class EnvironmentBuilder {
             this.ctx.structureGroup.add(wallGroup);
 
             if (w.attachedDecor) w.attachedDecor.forEach(decor => this.ctx.decorManager.load(w, decor));
-        });
-
-        const anchorMap = new Map();
-        standardWalls.forEach(w => {
-            [w.startAnchor, w.endAnchor].forEach(a => {
-                const data = anchorMap.get(a) || { thickness: 0 };
-                if (w.config.thickness > data.thickness) data.thickness = w.config.thickness;
-                anchorMap.set(a, data);
-            });
-        });
-
-        anchorMap.forEach((data, anchor) => {
-            const pos = anchor.position();
-            const jointGeo = new THREE.CylinderGeometry(data.thickness / 2, data.thickness / 2, WALL_HEIGHT, 32);
-            const jointMesh = new THREE.Mesh(jointGeo, matMain);
-            jointMesh.position.set(pos.x, WALL_HEIGHT / 2, pos.y);
-            jointMesh.castShadow = true; jointMesh.receiveShadow = true;
-            this.ctx.structureGroup.add(jointMesh);
         });
 
         this.buildRailings(railingWalls);
@@ -215,17 +319,42 @@ class EnvironmentBuilder {
                 end: new THREE.Vector3(p2.x, 0, p2.y)
             };
 
-            const configId = w.configId || 'default_basic';
-            const config = RAILING_REGISTRY[configId] || RAILING_REGISTRY['default_basic'];
+            const configId = w.configId || 'rail_1';
+            const config = RAILING_REGISTRY[configId] || RAILING_REGISTRY['rail_1'];
             
             const wallGroup = new THREE.Group();
             wallGroup.position.set(0, 0, 0);
 
-            const hitGeo = new THREE.BoxGeometry(length, 40, 10);
-            hitGeo.translate(length / 2, 20, 0);
+            let hitGeo;
+            let isMitered = false;
+            const h = w.height || w.config?.height || 40;
+            const pts = (w.poly && typeof w.poly.points === 'function') ? w.poly.points() : w.pts;
+
+            // Use the exact mitered 2D boundaries for extrusion if available
+            if (pts && pts.length === 8) {
+                const shape = new THREE.Shape();
+                shape.moveTo(pts[0], pts[1]);
+                shape.lineTo(pts[2], pts[3]);
+                shape.lineTo(pts[4], pts[5]);
+                shape.lineTo(pts[6], pts[7]);
+                shape.lineTo(pts[0], pts[1]);
+                hitGeo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false });
+                hitGeo.rotateX(Math.PI / 2);
+                isMitered = true;
+            }
+            
+            if (!isMitered) {
+                hitGeo = new THREE.BoxGeometry(length, h, 10);
+                hitGeo.translate(length / 2, h / 2, 0);
+            }
+
             const hitMesh = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ visible: false }));
-            hitMesh.position.set(p1.x, 0, p1.y);
-            hitMesh.rotation.y = -Math.atan2(dz, dx);
+            if (isMitered) {
+                hitMesh.position.set(0, h, 0);
+            } else {
+                hitMesh.position.set(p1.x, 0, p1.y);
+                hitMesh.rotation.y = -Math.atan2(dz, dx);
+            }
             hitMesh.userData = { isWallSide: true, side: 'front', entity: w };
             wallGroup.add(hitMesh);
             this.ctx.interactables.push(hitMesh);
@@ -234,29 +363,57 @@ class EnvironmentBuilder {
             w.mesh3D = wallGroup;
 
             const buildFallback = () => {
-                const geo = new THREE.BoxGeometry(length, 40, 4);
-                geo.translate(length/2, 20, 0);
+                console.log(`[3D Engine] Using Fallback Solid Geometry for Railing.`);
+                let geo;
+                if (isMitered) {
+                    const shape = new THREE.Shape();
+                    shape.moveTo(pts[0], pts[1]);
+                    shape.lineTo(pts[2], pts[3]);
+                    shape.lineTo(pts[4], pts[5]);
+                    shape.lineTo(pts[6], pts[7]);
+                    shape.lineTo(pts[0], pts[1]);
+                    geo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false });
+                    geo.rotateX(Math.PI / 2); // Rotates the 2D footprint to lay flat on X/Z plane
+                } else {
+                    geo = new THREE.BoxGeometry(length, h, w.config?.thickness || 4);
+                    geo.translate(length / 2, h / 2, 0);
+                }
+                
                 const mat = new THREE.MeshStandardMaterial({ color: config?.color || 0xcccccc, transparent: config?.transparent || false, opacity: config?.opacity || 1 });
                 const mesh = new THREE.Mesh(geo, mat);
-                mesh.position.set(p1.x, 0, p1.y);
-                mesh.rotation.y = -Math.atan2(dz, dx);
+                
+                if (isMitered) {
+                    // Pull up by height 'h' since rotation extrudes down naturally
+                    mesh.position.set(0, h, 0);
+                } else {
+                    mesh.position.set(p1.x, 0, p1.y);
+                    mesh.rotation.y = -Math.atan2(dz, dx);
+                }
                 mesh.castShadow = true; mesh.receiveShadow = true;
                 wallGroup.add(mesh);
             };
 
             if (config && config.model) {
+                console.log(`[3D Engine] Attempting to load Railing GLB Model: ${config.model}`);
                 this.ctx.assets.getModel(config).then(model => {
+                    console.log(`[3D Engine] Successfully loaded GLB. Analyzing size...`);
                     const clone = model.clone();
+                    
+                    // Safely force matrix update so BoundingBox detects correct size
+                    clone.updateMatrixWorld(true);
+                    
                     const initialBox = new THREE.Box3().setFromObject(clone);
                     const initialSize = initialBox.getSize(new THREE.Vector3());
                     const center = initialBox.getCenter(new THREE.Vector3());
+                    console.log(`[3D Engine] Bounding Box Computed. Size:`, initialSize, `Center:`, center);
 
                     if (initialSize.y === 0 || initialSize.x === 0) {
+                        console.warn(`[3D Engine] Invalid model size (X or Y is 0). Falling back to solid geometry.`);
                         buildFallback();
                         return;
                     }
 
-                    const TARGET_HEIGHT = 40.0;
+                    const TARGET_HEIGHT = h;
                     const scaleFactor = TARGET_HEIGHT / initialSize.y;
 
                     clone.traverse((child) => {
@@ -264,11 +421,24 @@ class EnvironmentBuilder {
                             child.geometry = child.geometry.clone();
                             child.geometry.translate(-center.x, -initialBox.min.y, -center.z);
                             child.geometry.scale(scaleFactor, scaleFactor, scaleFactor);
+                            // Force Bounding Box update so the tiling math calculates the exact scaled size
+                            child.geometry.computeBoundingBox();
+                            child.geometry.computeBoundingSphere();
+                            if (child.material) {
+                                child.material.side = THREE.DoubleSide;
+                                child.material.needsUpdate = true;
+                            }
                             child.castShadow = true; child.receiveShadow = true;
                         }
                     });
+                    
+                    // Reset root transforms so non-uniform scaling works predictably
+                    clone.position.set(0, 0, 0);
+                    clone.rotation.set(0, 0, 0);
+                    clone.scale.set(1, 1, 1);
+                    clone.updateMatrixWorld(true);
 
-                    const currentRailingLength = initialSize.x * scaleFactor;
+                    const currentRailingLength = new THREE.Box3().setFromObject(clone).getSize(new THREE.Vector3()).x;
                     const edgeVector = new THREE.Vector3().subVectors(edge.end, edge.start);
                     const edgeLength = edgeVector.length();
                     const direction = edgeVector.clone().normalize();
@@ -283,6 +453,8 @@ class EnvironmentBuilder {
                     } else {
                         stretchScale = (edgeLength / count) / currentRailingLength;
                     }
+                    
+                    console.log(`[3D Engine] Placing ${actualCount} model instances over wall length: ${edgeLength}`);
 
                     for (let i = 0; i < actualCount; i++) {
                         const inst = clone.clone();
@@ -301,7 +473,7 @@ class EnvironmentBuilder {
                         wallGroup.add(inst);
                     }
                 }).catch(e => {
-                    console.error("Failed to load railing model", e);
+                    console.error(`[3D Engine] Failed to load railing model from ${config.model}:`, e);
                     buildFallback();
                 });
             } else {
@@ -390,8 +562,6 @@ class EnvironmentBuilder {
                 }
 
                 if (data.walls) {
-                    const anchorMap = new Map(); 
-
                     data.walls.forEach((w, wallIndex) => {
                         const dx = w.endX - w.startX;
                         const dz = w.endY - w.startY;
@@ -425,6 +595,33 @@ class EnvironmentBuilder {
                         const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: w.thickness, bevelEnabled: false });
                         wallGeo.translate(0, 0, -w.thickness / 2);
                         
+                        // ====== MITER JOINT SHEARING ======
+                        let localSL_x = 0, localSR_x = 0, localEL_x = length, localER_x = length;
+                        if (w.pts && w.pts.length === 8) {
+                            const toLocalX = (ptX, ptY) => {
+                                const dx_pt = ptX - w.startX;
+                                const dy_pt = ptY - w.startY;
+                                return dx_pt * Math.cos(angle) + dy_pt * Math.sin(angle);
+                            };
+                            localSL_x = toLocalX(w.pts[0], w.pts[1]);
+                            localEL_x = toLocalX(w.pts[2], w.pts[3]);
+                            localER_x = toLocalX(w.pts[4], w.pts[5]);
+                            localSR_x = toLocalX(w.pts[6], w.pts[7]);
+
+                            const pos = wallGeo.attributes.position;
+                            for (let i = 0; i < pos.count; i++) {
+                                const x = pos.getX(i);
+                                const z = pos.getZ(i);
+                                const tZ = Math.max(0, Math.min(1, (z + w.thickness / 2) / w.thickness));
+                                const startX = localSR_x + tZ * (localSL_x - localSR_x);
+                                const endX = localER_x + tZ * (localEL_x - localER_x);
+                                const tX = x / length;
+                                pos.setX(i, startX + tX * (endX - startX));
+                            }
+                            wallGeo.computeVertexNormals();
+                        }
+                        // ==================================
+
                         const wallMesh = new THREE.Mesh(wallGeo, [matMain, matEdgeDark]);
                         wallMesh.castShadow = true; wallMesh.receiveShadow = true;
 
@@ -437,15 +634,30 @@ class EnvironmentBuilder {
                         
                         if (!isPreview && viewMode3D === 'full-edit') {
                             // CREATE HITBOXES FOR DIRECT SELECTION IN FULL-BUILDING VIEW
-                            const skinGeo = new THREE.PlaneGeometry(length - 0.5, WALL_HEIGHT - 0.5);
-                            skinGeo.translate(length / 2, WALL_HEIGHT / 2, 0);
-
-                            const hitFront = new THREE.Mesh(skinGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
-                            hitFront.position.set(0, 0, w.thickness / 2 + 0.1);
+                            const shearSkin = (geo) => {
+                                const pos = geo.attributes.position;
+                                for (let i = 0; i < pos.count; i++) {
+                                    const x = pos.getX(i);
+                                    const z = pos.getZ(i);
+                                    const tZ = Math.max(0, Math.min(1, (z + w.thickness / 2) / w.thickness));
+                                    const startX = localSR_x + tZ * (localSL_x - localSR_x);
+                                    const endX = localER_x + tZ * (localEL_x - localER_x);
+                                    const tX = x / length;
+                                    pos.setX(i, startX + tX * (endX - startX));
+                                }
+                                geo.computeVertexNormals();
+                            };
+                            
+                            const skinFrontGeo = new THREE.PlaneGeometry(length - 0.5, WALL_HEIGHT - 0.5);
+                            skinFrontGeo.translate(length / 2, WALL_HEIGHT / 2, w.thickness / 2 + 0.1);
+                            if (w.pts && w.pts.length === 8) shearSkin(skinFrontGeo);
+                            const hitFront = new THREE.Mesh(skinFrontGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
                             hitFront.userData = { isWallSide: true, side: 'front', entity: w };
 
-                            const hitBack = new THREE.Mesh(skinGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
-                            hitBack.position.set(0, 0, -w.thickness / 2 - 0.1);
+                            const skinBackGeo = new THREE.PlaneGeometry(length - 0.5, WALL_HEIGHT - 0.5);
+                            skinBackGeo.translate(length / 2, WALL_HEIGHT / 2, -w.thickness / 2 - 0.1);
+                            if (w.pts && w.pts.length === 8) shearSkin(skinBackGeo);
+                            const hitBack = new THREE.Mesh(skinBackGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
                             hitBack.userData = { isWallSide: true, side: 'back', entity: w };
 
                             wallGroup.add(hitFront, hitBack);
@@ -464,24 +676,6 @@ class EnvironmentBuilder {
                         if (w.attachedDecor) {
                             w.attachedDecor.forEach(decor => this.ctx.decorManager.load(w, decor));
                         }
-
-                        const startKey = `${w.startX.toFixed(2)},${w.startY.toFixed(2)}`;
-                        const endKey = `${w.endX.toFixed(2)},${w.endY.toFixed(2)}`;
-                        let sData = anchorMap.get(startKey) || { x: w.startX, y: w.startY, thickness: 0 };
-                        if (w.thickness > sData.thickness) sData.thickness = w.thickness;
-                        anchorMap.set(startKey, sData);
-
-                        let eData = anchorMap.get(endKey) || { x: w.endX, y: w.endY, thickness: 0 };
-                        if (w.thickness > eData.thickness) eData.thickness = w.thickness;
-                        anchorMap.set(endKey, eData);
-                    });
-
-                    anchorMap.forEach(data => {
-                        const jointGeo = new THREE.CylinderGeometry(data.thickness / 2, data.thickness / 2, WALL_HEIGHT, 32);
-                        const jointMesh = new THREE.Mesh(jointGeo, matMain);
-                        jointMesh.position.set(data.x, WALL_HEIGHT / 2, data.y);
-                        jointMesh.castShadow = true; jointMesh.receiveShadow = true;
-                        floorGroup.add(jointMesh);
                     });
                 }
 
@@ -980,7 +1174,7 @@ export class Preview3D {
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 1.0;
         this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.shadowMap.type = THREE.PCFShadowMap;
         this.container.appendChild(this.renderer.domElement);
         
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -1022,6 +1216,7 @@ export class Preview3D {
         this.renderer.render(this.scene, this.camera); 
     }
 
+    setEnvironment(skyKey, groundKey) { this.envBuilder.setEnvironment(skyKey, groundKey); }
     setInteractionMode(mode) { this.interactions.setMode(mode); }
     cancelRelocation() { this.interactions.cancelRelocation(); }
     selectObject(obj) { this.interactions.selectObject(obj); }

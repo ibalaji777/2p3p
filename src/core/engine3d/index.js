@@ -74,8 +74,8 @@ export class Preview3D {
         });
         
         // 3. Initialize Floor Builders
-        this.activeFloorBuilder = new ActiveFloor(this.decorManager, this.interactables, this.structureGroup);
-        this.staticFloorBuilder = new StaticFloors(this.decorManager, this.interactables);
+        this.activeFloorBuilder = new ActiveFloor(this.assets, this.decorManager, this.interactables, this.structureGroup);
+        this.staticFloorBuilder = new StaticFloors(this.assets, this.decorManager, this.interactables);
 
         // Env Maps
         const pmremGenerator = new THREE.PMREMGenerator(this.renderer); 

@@ -120,7 +120,7 @@ export class PremiumWall {
         this.poly.points([ startL.x, startL.y, endL.x, endL.y, endR.x, endR.y, startR.x, startR.y ]);
         
         if (this.type === 'railing') {
-            const rConf = RAILING_REGISTRY[this.configId || 'default_basic'];
+            const rConf = RAILING_REGISTRY[this.configId || 'rail_1'];
             if (rConf && rConf.color) {
                 this.poly.fill('#' + rConf.color.toString(16).padStart(6, '0'));
             }
