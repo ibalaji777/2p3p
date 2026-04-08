@@ -313,7 +313,6 @@ const menuCategories = ref([
     {
         id: 'common', name: '🌟 Common',
         tools: [
-            { id: 'select', name: '👆 Select & Edit' },
             { id: 'railing', name: 'Draw Railing' }
         ]
     },
