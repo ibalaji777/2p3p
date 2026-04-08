@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+miterjoin.html
+parallelWall.html
+wallGenerator.html
+couch.glb
+modern_chair.glb
+simple_chair.glb
+.gitignore
+./models

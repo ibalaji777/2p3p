@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT } from '../registry.js';
+import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, RAILING_REGISTRY } from '../registry.js';
 
 export class Wall3DBuilder {
     constructor() {
@@ -8,12 +8,35 @@ export class Wall3DBuilder {
     }
 
     // Abstract method that works for both Active (Konva) and Static (JSON) walls
-    buildWallGroup(length, thickness, widgets, startX, startY, angle, wallHeight = WALL_HEIGHT) {
-        const wallShape = this._createShape(length, widgets, wallHeight);
+    buildWallGroup(length, thickness, wallData, startX, startY, angle, wallHeight = WALL_HEIGHT) {
+        const wallShape = this._createShape(length, wallData.attachedWidgets, wallHeight);
         const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: thickness, bevelEnabled: false });
         wallGeo.translate(0, 0, -thickness / 2);
+
+        let materials = [this.matMain, this.matEdgeDark];
         
-        const wallMesh = new THREE.Mesh(wallGeo, [this.matMain, this.matEdgeDark]);
+        if (wallData.type === 'railing') {
+            const configId = wallData.configId || 'glass';
+            const rConf = RAILING_REGISTRY[configId];
+            if (rConf) {
+                let railMat;
+                if (rConf.texture) {
+                    const tex = new THREE.TextureLoader().load(rConf.texture);
+                    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+                    tex.repeat.set(length / (100 * (rConf.repeat || 1)), wallHeight / (100 * (rConf.repeat || 1)));
+                    railMat = new THREE.MeshStandardMaterial({ map: tex, roughness: rConf.roughness || 0.8, side: THREE.DoubleSide });
+                } else {
+                    railMat = new THREE.MeshStandardMaterial({ 
+                        color: rConf.color, roughness: rConf.roughness || 0.3, 
+                        metalness: rConf.metalness || 0.1, transparent: rConf.transparent || false, 
+                        opacity: rConf.opacity || 1.0, side: THREE.DoubleSide 
+                    });
+                }
+                materials = [railMat, railMat];
+            }
+        }
+        
+        const wallMesh = new THREE.Mesh(wallGeo, materials);
         wallMesh.castShadow = true; 
         wallMesh.receiveShadow = true;
 

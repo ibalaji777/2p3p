@@ -28,7 +28,35 @@ export const WINDOW_GRILLE_PATTERNS = { grid: { label: "Standard Grid" }, horizo
 // Outer wall is thicker (16), Inner wall is less thick (8)
 export const WALL_REGISTRY = {
     'outer': { type: "outer", label: "OUTER WALL", thickness: 16, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
-    'inner': { type: "inner", label: "INNER WALL", thickness: 8, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] }
+    'inner': { type: "inner", label: "INNER WALL", thickness: 8, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
+    'railing': { type: "railing", label: "RAILING", thickness: 4, height: 40, events: ["proximity_highlight", "snap_preview", "snap_to_wall"] }
+};
+
+export const RAILING_REGISTRY = {
+    'default_basic': {
+        id: 'default_basic', name: 'Basic Glass (Default)', type: 'railing',
+        color: 0x88ccff, transparent: true, opacity: 0.5, roughness: 0.1, metalness: 0.1,
+        thumbnail: 'https://via.placeholder.com/150/88ccff/000000?text=Basic'
+    },
+    'glass': {
+        id: 'glass', name: 'Glass Railing', type: 'railing',
+        model: 'models/rail_1.glb',
+        color: 0x88ccff, transparent: true, opacity: 0.5, roughness: 0.1, metalness: 0.1,
+        thumbnail: 'https://via.placeholder.com/150/88ccff/000000?text=Glass'
+    },
+    'wood': {
+        id: 'wood', name: 'Wooden Railing', type: 'railing',
+        model: 'models/railing_wood.glb',
+        texture: 'https://threejs.org/examples/textures/hardwood2_diffuse.jpg',
+        thumbnail: 'https://threejs.org/examples/textures/hardwood2_diffuse.jpg',
+        roughness: 0.8, repeat: 1
+    },
+    'metal': {
+        id: 'metal', name: 'Metal Railing', type: 'railing',
+        model: 'models/railing_metal.glb',
+        color: 0x444444, metalness: 0.8, roughness: 0.3,
+        thumbnail: 'https://via.placeholder.com/150/444444/ffffff?text=Metal'
+    }
 };
 
 // --- PNG WALL PATTERNS REGISTRY ---

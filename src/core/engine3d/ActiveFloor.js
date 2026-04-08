@@ -32,7 +32,7 @@ export class ActiveFloor {
             // Generate Wall Mesh
             const wallHeight = w.height || w.config?.height || WALL_HEIGHT;
             const wallThickness = w.thickness || w.config?.thickness || 20;
-            const { wallGroup } = this.wallBuilder.buildWallGroup(length, wallThickness, w.attachedWidgets, p1.x, p1.y, angle, wallHeight);
+            const { wallGroup } = this.wallBuilder.buildWallGroup(length, wallThickness, w, p1.x, p1.y, angle, wallHeight);
             wallGroup.userData = { entity: w };
             w.mesh3D = wallGroup;
 

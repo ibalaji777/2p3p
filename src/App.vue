@@ -126,45 +126,59 @@
             <div class="props-content" v-if="(viewMode==='3d' || viewMode==='2d') && selectedEntity && viewMode3D !== 'preview'">
                 
                 <div v-if="selectedType === 'wall'">
-                    <h4 class="props-subtitle">Wall Properties</h4>
+                    <h4 class="props-subtitle" v-if="selectedEntity.type === 'railing'">Railing Properties</h4>
+                    <h4 class="props-subtitle" v-else>Wall Properties</h4>
                     <div class="control-group"><label>Thickness</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.thickness" min="1" max="100" step="1" @input="syncEngine"><input type="number" v-model.number="selectedEntity.thickness" min="1" max="100" step="1" @input="syncEngine"></div></div>
                     <div class="control-group"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="500" step="1" @input="syncEngine"><input type="number" v-model.number="selectedEntity.height" min="10" max="500" step="1" @input="syncEngine"></div></div>
 
-                    <h4 class="props-subtitle">{{ selectedWallSide === 'front' ? 'Inner Wall Face' : 'Outer Wall Face' }}</h4>
-                    
-                    <div v-if="currentFaceDecors.length > 0">
-                        <div class="applied-list">
-                            <div v-for="decor in currentFaceDecors" :key="decor.id" class="applied-item-wrapper">
-                                <div class="applied-item-header" :class="{active: activeDecorId === decor.id}" @click="toggleEditDecor(decor.id)">
-                                    <span>{{ wallDecorRegistry[decor.configId]?.name }}</span>
-                                    <button class="btn-sm-delete" @click.stop="handleDeleteSpecificDecor(decor)">✕</button>
+                    <div v-if="selectedEntity.type === 'railing'">
+                        <div class="decor-gallery">
+                            <h4 class="props-subtitle">Railing Material</h4>
+                            <div class="decor-grid">
+                                <div v-for="(config, key) in railingRegistry" :key="key" class="decor-item" @click="selectedEntity.configId = key; syncEngine()" :class="{ active: selectedEntity.configId === key }">
+                                    <img :src="config.thumbnail" />
+                                    <span>{{ config.name }}</span>
                                 </div>
-                                <div class="applied-item-body" v-if="activeDecorId === decor.id">
-                                    <div class="faceRow">
-                                        <label><input type="checkbox" v-model="decor.faces.left" @change="onDecorUpdate(decor)">L-Edge</label>
-                                        <label><input type="checkbox" v-model="decor.faces.right" @change="onDecorUpdate(decor)">R-Edge</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else>
+                        <h4 class="props-subtitle">{{ selectedWallSide === 'front' ? 'Inner Wall Face' : 'Outer Wall Face' }}</h4>
+                        
+                        <div v-if="currentFaceDecors.length > 0">
+                            <div class="applied-list">
+                                <div v-for="decor in currentFaceDecors" :key="decor.id" class="applied-item-wrapper">
+                                    <div class="applied-item-header" :class="{active: activeDecorId === decor.id}" @click="toggleEditDecor(decor.id)">
+                                        <span>{{ wallDecorRegistry[decor.configId]?.name }}</span>
+                                        <button class="btn-sm-delete" @click.stop="handleDeleteSpecificDecor(decor)">✕</button>
                                     </div>
-                                    <div class="control-group"><label>Tile Size</label><div class="input-wrap"><input type="range" v-model.number="decor.tileSize" min="1" max="200" step="1" @input="onDecorUpdate(decor)"><input type="number" v-model.number="decor.tileSize" min="1" max="200" step="1" @input="onDecorUpdate(decor)"></div></div>
-                                    <div class="control-group"><label>Thickness</label><div class="input-wrap"><input type="range" v-model.number="decor.depth" min="0.1" max="40" step="0.1" @input="onDecorUpdate(decor)"><input type="number" v-model.number="decor.depth" min="0.1" max="40" step="0.1" @input="onDecorUpdate(decor)"></div></div>
-                                    <div class="control-group"><label>Width (%)</label><div class="input-wrap"><input type="range" v-model.number="decor.width" min="1" max="100" step="1" @input="onDecorUpdate(decor)"><input type="number" v-model.number="decor.width" min="1" max="100" step="1" @input="onDecorUpdate(decor)"></div></div>
-                                    <div class="control-group"><label>Height (%)</label><div class="input-wrap"><input type="range" v-model.number="decor.height" min="1" max="100" step="1" @input="onDecorUpdate(decor)"><input type="number" v-model.number="decor.height" min="1" max="100" step="1" @input="onDecorUpdate(decor)"></div></div>
-                                    <div class="control-group"><label>X Offset (%)</label><div class="input-wrap"><input type="range" v-model.number="decor.localX" min="-10" max="110" step="1" @input="onDecorUpdate(decor)"><input type="number" v-model.number="decor.localX" min="-10" max="110" step="1" @input="onDecorUpdate(decor)"></div></div>
-                                    <div class="control-group"><label>Y Offset (%)</label><div class="input-wrap"><input type="range" v-model.number="decor.localY" min="-10" max="110" step="1" @input="onDecorUpdate(decor)"><input type="number" v-model.number="decor.localY" min="-10" max="110" step="1" @input="onDecorUpdate(decor)"></div></div>
+                                    <div class="applied-item-body" v-if="activeDecorId === decor.id">
+                                        <div class="faceRow">
+                                            <label><input type="checkbox" v-model="decor.faces.left" @change="onDecorUpdate(decor)">L-Edge</label>
+                                            <label><input type="checkbox" v-model="decor.faces.right" @change="onDecorUpdate(decor)">R-Edge</label>
+                                        </div>
+                                        <div class="control-group"><label>Tile Size</label><div class="input-wrap"><input type="range" v-model.number="decor.tileSize" min="1" max="200" step="1" @input="onDecorUpdate(decor)"><input type="number" v-model.number="decor.tileSize" min="1" max="200" step="1" @input="onDecorUpdate(decor)"></div></div>
+                                        <div class="control-group"><label>Thickness</label><div class="input-wrap"><input type="range" v-model.number="decor.depth" min="0.1" max="40" step="0.1" @input="onDecorUpdate(decor)"><input type="number" v-model.number="decor.depth" min="0.1" max="40" step="0.1" @input="onDecorUpdate(decor)"></div></div>
+                                        <div class="control-group"><label>Width (%)</label><div class="input-wrap"><input type="range" v-model.number="decor.width" min="1" max="100" step="1" @input="onDecorUpdate(decor)"><input type="number" v-model.number="decor.width" min="1" max="100" step="1" @input="onDecorUpdate(decor)"></div></div>
+                                        <div class="control-group"><label>Height (%)</label><div class="input-wrap"><input type="range" v-model.number="decor.height" min="1" max="100" step="1" @input="onDecorUpdate(decor)"><input type="number" v-model.number="decor.height" min="1" max="100" step="1" @input="onDecorUpdate(decor)"></div></div>
+                                        <div class="control-group"><label>X Offset (%)</label><div class="input-wrap"><input type="range" v-model.number="decor.localX" min="-10" max="110" step="1" @input="onDecorUpdate(decor)"><input type="number" v-model.number="decor.localX" min="-10" max="110" step="1" @input="onDecorUpdate(decor)"></div></div>
+                                        <div class="control-group"><label>Y Offset (%)</label><div class="input-wrap"><input type="range" v-model.number="decor.localY" min="-10" max="110" step="1" @input="onDecorUpdate(decor)"><input type="number" v-model.number="decor.localY" min="-10" max="110" step="1" @input="onDecorUpdate(decor)"></div></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="decor-gallery" v-if="viewMode === '3d'">
+                            <h4 class="props-subtitle">Add Pattern Layer</h4>
+                            <div class="decor-grid">
+                                <div v-for="(config, key) in wallDecorRegistry" :key="key" class="decor-item" @click="spawnWallPattern(key)">
+                                    <img :src="config.thumbnail" />
+                                    <span>{{ config.name }}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
-                    <div class="decor-gallery" v-if="viewMode === '3d'">
-                        <h4 class="props-subtitle">Add Pattern Layer</h4>
-                        <div class="decor-grid">
-                            <div v-for="(config, key) in wallDecorRegistry" :key="key" class="decor-item" @click="spawnWallPattern(key)">
-                                <img :src="config.thumbnail" />
-                                <span>{{ config.name }}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <button class="hud-delete" @click="handleDelete">Delete Wall</button>
+                    <button class="hud-delete" @click="handleDelete">Delete {{ selectedEntity.type === 'railing' ? 'Railing' : 'Wall' }}</button>
                 </div>
 
                 <div v-else-if="selectedType === 'room'">
@@ -270,12 +284,13 @@ import { Preview3D } from './core/engine3d/index.js';
 import { WorkspaceControls } from '/src/core/engine3d/WorkspaceControls.js';
 
 import { FileManager } from './core/io.js';
-import { WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, FLOOR_REGISTRY } from './core/registry.js';
+import { WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, FLOOR_REGISTRY, RAILING_REGISTRY } from './core/registry.js';
 const wallDecorRegistry = WALL_DECOR_REGISTRY;
 const roofDecorRegistry = ROOF_DECOR_REGISTRY;
 const skyRegistry = SKY_REGISTRY;
 const groundRegistry = GROUND_REGISTRY;
 const floorRegistry = FLOOR_REGISTRY;
+const railingRegistry = RAILING_REGISTRY;
 
 const canvas2D = ref(null);
 const canvas3D = ref(null);
@@ -295,6 +310,13 @@ const selectedNodeIndex = ref(-1);
 
 const activeCategory = ref('tools');
 const menuCategories = ref([
+    {
+        id: 'common', name: '🌟 Common',
+        tools: [
+            { id: 'select', name: '👆 Select & Edit' },
+            { id: 'railing', name: 'Draw Railing' }
+        ]
+    },
     {
         id: 'tools', name: '🛠️ General Tools',
         tools: [

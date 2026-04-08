@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT } from './registry.js';
+import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY } from './registry.js';
 
 class AssetManager {
     constructor() {
@@ -11,28 +11,33 @@ class AssetManager {
     }
 
     async getTexture(config) {
-        if (this.cache.has(config.id)) return this.cache.get(config.id);
-        const texture = await this.texLoader.loadAsync(config.texture);
-        if (THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
-        this.cache.set(config.id, texture);
-        return texture;
+        if (this.cache.has(config.id)) return await this.cache.get(config.id);
+        const loadPromise = this.texLoader.loadAsync(config.texture).then(texture => {
+            if (THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
+            return texture;
+        });
+        this.cache.set(config.id, loadPromise);
+        return await loadPromise;
     }
 
     async getModel(config) {
-        if (this.cache.has(config.id)) return this.cache.get(config.id);
-        const gltf = await this.gltfLoader.loadAsync(config.model);
-        if (config.texture) {
-            const tex = await this.getTexture({ id: config.id + '_tex', texture: config.texture });
-            tex.flipY = false;
-            gltf.scene.traverse((child) => {
-                if (child.isMesh && child.material) {
-                    child.material.map = tex;
-                    child.material.needsUpdate = true;
-                }
-            });
-        }
-        this.cache.set(config.id, gltf.scene);
-        return gltf.scene;
+        if (this.cache.has(config.id)) return await this.cache.get(config.id);
+        const loadPromise = (async () => {
+            const gltf = await this.gltfLoader.loadAsync(config.model);
+            if (config.texture) {
+                const tex = await this.getTexture({ id: config.id + '_tex', texture: config.texture });
+                tex.flipY = false;
+                gltf.scene.traverse((child) => {
+                    if (child.isMesh && child.material) {
+                        child.material.map = tex;
+                        child.material.needsUpdate = true;
+                    }
+                });
+            }
+            return gltf.scene;
+        })();
+        this.cache.set(config.id, loadPromise);
+        return await loadPromise;
     }
 }
 
@@ -75,25 +80,60 @@ class EnvironmentBuilder {
         this.ctx.scene.add(sunLight);
     }
 
-    buildActiveFloor(walls, roomPaths) {
+    buildActiveFloor(walls, rooms) {
         const matMain = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
         const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8 });
-        const matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7 });
 
-        roomPaths.forEach(path => {
-            const floorShape = new THREE.Shape();
-            floorShape.moveTo(path[0].x, path[0].y);
-            for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
-            
-            const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 10, bevelEnabled: false });
-            floorGeo.rotateX(Math.PI / 2);
-            const floorMesh = new THREE.Mesh(floorGeo, matFloor);
-            floorMesh.position.y = 0;
-            floorMesh.receiveShadow = true;
-            this.ctx.structureGroup.add(floorMesh);
-        });
+        if (rooms) {
+            rooms.forEach(room => {
+                const path = room.path;
+                if (!path || path.length < 3) return;
 
-        walls.forEach(w => {
+                const floorShape = new THREE.Shape();
+                floorShape.moveTo(path[0].x, path[0].y);
+                for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
+                
+                const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 10, bevelEnabled: false });
+                floorGeo.rotateX(Math.PI / 2);
+                
+                const pos = floorGeo.attributes.position;
+                const uvs = new Float32Array(pos.count * 2);
+                for (let i = 0; i < pos.count; i++) {
+                    uvs[i * 2] = pos.getX(i) / 100;
+                    uvs[i * 2 + 1] = -pos.getZ(i) / 100;
+                }
+                floorGeo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+
+                const configId = room.configId || 'hardwood';
+                const config = FLOOR_REGISTRY[configId];
+                
+                const matFloor = new THREE.MeshStandardMaterial({ color: config?.color || 0xd1d5db, roughness: config?.roughness || 0.7 });
+                const floorMesh = new THREE.Mesh(floorGeo, matFloor);
+                floorMesh.position.y = 0;
+                floorMesh.receiveShadow = true;
+                floorMesh.userData = { isFloor: true, entity: room };
+
+                if (config && config.texture) {
+                    this.ctx.assets.getTexture(config).then(tex => {
+                        const texClone = tex.clone();
+                        texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                        const repeat = config.repeat || 10;
+                        texClone.repeat.set(1 / repeat, 1 / repeat);
+                        matFloor.map = texClone;
+                        matFloor.needsUpdate = true;
+                    });
+                }
+
+                this.ctx.interactables.push(floorMesh);
+                this.ctx.structureGroup.add(floorMesh);
+                room.mesh3D = floorMesh;
+            });
+        }
+
+        const standardWalls = walls.filter(w => w.type !== 'railing');
+        const railingWalls = walls.filter(w => w.type === 'railing');
+
+        standardWalls.forEach(w => {
             const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
             const dx = p2.x - p1.x, dz = p2.y - p1.y;
             const length = Math.hypot(dx, dz);
@@ -143,7 +183,7 @@ class EnvironmentBuilder {
         });
 
         const anchorMap = new Map();
-        walls.forEach(w => {
+        standardWalls.forEach(w => {
             [w.startAnchor, w.endAnchor].forEach(a => {
                 const data = anchorMap.get(a) || { thickness: 0 };
                 if (w.config.thickness > data.thickness) data.thickness = w.config.thickness;
@@ -158,6 +198,115 @@ class EnvironmentBuilder {
             jointMesh.position.set(pos.x, WALL_HEIGHT / 2, pos.y);
             jointMesh.castShadow = true; jointMesh.receiveShadow = true;
             this.ctx.structureGroup.add(jointMesh);
+        });
+
+        this.buildRailings(railingWalls);
+    }
+
+    buildRailings(railingWalls) {
+        railingWalls.forEach(w => {
+            const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
+            const dx = p2.x - p1.x, dz = p2.y - p1.y;
+            const length = Math.hypot(dx, dz);
+            w.length3D = length;
+
+            const edge = {
+                start: new THREE.Vector3(p1.x, 0, p1.y),
+                end: new THREE.Vector3(p2.x, 0, p2.y)
+            };
+
+            const configId = w.configId || 'default_basic';
+            const config = RAILING_REGISTRY[configId] || RAILING_REGISTRY['default_basic'];
+            
+            const wallGroup = new THREE.Group();
+            wallGroup.position.set(0, 0, 0);
+
+            const hitGeo = new THREE.BoxGeometry(length, 40, 10);
+            hitGeo.translate(length / 2, 20, 0);
+            const hitMesh = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ visible: false }));
+            hitMesh.position.set(p1.x, 0, p1.y);
+            hitMesh.rotation.y = -Math.atan2(dz, dx);
+            hitMesh.userData = { isWallSide: true, side: 'front', entity: w };
+            wallGroup.add(hitMesh);
+            this.ctx.interactables.push(hitMesh);
+
+            this.ctx.structureGroup.add(wallGroup);
+            w.mesh3D = wallGroup;
+
+            const buildFallback = () => {
+                const geo = new THREE.BoxGeometry(length, 40, 4);
+                geo.translate(length/2, 20, 0);
+                const mat = new THREE.MeshStandardMaterial({ color: config?.color || 0xcccccc, transparent: config?.transparent || false, opacity: config?.opacity || 1 });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(p1.x, 0, p1.y);
+                mesh.rotation.y = -Math.atan2(dz, dx);
+                mesh.castShadow = true; mesh.receiveShadow = true;
+                wallGroup.add(mesh);
+            };
+
+            if (config && config.model) {
+                this.ctx.assets.getModel(config).then(model => {
+                    const clone = model.clone();
+                    const initialBox = new THREE.Box3().setFromObject(clone);
+                    const initialSize = initialBox.getSize(new THREE.Vector3());
+                    const center = initialBox.getCenter(new THREE.Vector3());
+
+                    if (initialSize.y === 0 || initialSize.x === 0) {
+                        buildFallback();
+                        return;
+                    }
+
+                    const TARGET_HEIGHT = 40.0;
+                    const scaleFactor = TARGET_HEIGHT / initialSize.y;
+
+                    clone.traverse((child) => {
+                        if (child.isMesh) {
+                            child.geometry = child.geometry.clone();
+                            child.geometry.translate(-center.x, -initialBox.min.y, -center.z);
+                            child.geometry.scale(scaleFactor, scaleFactor, scaleFactor);
+                            child.castShadow = true; child.receiveShadow = true;
+                        }
+                    });
+
+                    const currentRailingLength = initialSize.x * scaleFactor;
+                    const edgeVector = new THREE.Vector3().subVectors(edge.end, edge.start);
+                    const edgeLength = edgeVector.length();
+                    const direction = edgeVector.clone().normalize();
+
+                    const count = Math.floor(edgeLength / currentRailingLength);
+                    let stretchScale = 1;
+                    let actualCount = count;
+
+                    if (count === 0) {
+                        stretchScale = edgeLength / currentRailingLength;
+                        actualCount = 1;
+                    } else {
+                        stretchScale = (edgeLength / count) / currentRailingLength;
+                    }
+
+                    for (let i = 0; i < actualCount; i++) {
+                        const inst = clone.clone();
+                        inst.scale.set(stretchScale, 1, 1);
+
+                        const segmentLength = (currentRailingLength * stretchScale);
+                        const offsetDistance = (i * segmentLength) + (segmentLength / 2);
+
+                        const position = edge.start.clone().add(direction.clone().multiplyScalar(offsetDistance));
+                        inst.position.copy(position);
+
+                        const target = position.clone().add(direction);
+                        inst.lookAt(target);
+                        inst.rotateY(-Math.PI / 2); 
+
+                        wallGroup.add(inst);
+                    }
+                }).catch(e => {
+                    console.error("Failed to load railing model", e);
+                    buildFallback();
+                });
+            } else {
+                buildFallback();
+            }
         });
     }
 
@@ -176,7 +325,51 @@ class EnvironmentBuilder {
                 const matMain = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
                 const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8 });
 
-                if (data.roomPaths) {
+                if (data.rooms) {
+                    data.rooms.forEach(room => {
+                        const path = room.path;
+                        if (!path || path.length < 3) return;
+                        const floorShape = new THREE.Shape();
+                        floorShape.moveTo(path[0].x, path[0].y);
+                        for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
+                        
+                        const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 10, bevelEnabled: false });
+                        floorGeo.rotateX(Math.PI / 2);
+                        
+                        const pos = floorGeo.attributes.position;
+                        const uvs = new Float32Array(pos.count * 2);
+                        for (let i = 0; i < pos.count; i++) {
+                            uvs[i * 2] = pos.getX(i) / 100;
+                            uvs[i * 2 + 1] = -pos.getZ(i) / 100;
+                        }
+                        floorGeo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+                        
+                        const configId = room.configId || 'hardwood';
+                        const config = FLOOR_REGISTRY[configId];
+                        
+                        const matFloor = new THREE.MeshStandardMaterial({ color: config?.color || 0xd1d5db, roughness: config?.roughness || 0.7 });
+                        const floorMesh = new THREE.Mesh(floorGeo, matFloor);
+                        floorMesh.position.y = 0;
+                        floorMesh.receiveShadow = true;
+                        
+                        if (config && config.texture) {
+                            this.ctx.assets.getTexture(config).then(tex => {
+                                const texClone = tex.clone();
+                                texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                                const repeat = config.repeat || 10;
+                                texClone.repeat.set(1 / repeat, 1 / repeat);
+                                matFloor.map = texClone;
+                                matFloor.needsUpdate = true;
+                            });
+                        }
+                        
+                        if (!isPreview) {
+                            floorMesh.userData = { isFloorTrigger: true, levelIndex: index };
+                            this.ctx.interactables.push(floorMesh);
+                        }
+                        floorGroup.add(floorMesh);
+                    });
+                } else if (data.roomPaths) {
                     data.roomPaths.forEach(path => {
                         const floorShape = new THREE.Shape();
                         floorShape.moveTo(path[0].x, path[0].y);
@@ -213,9 +406,9 @@ class EnvironmentBuilder {
                         w.isStatic = true;
                         w.levelIndex = index;
                         w.wallIndex = wallIndex;
-                        
+                        const h = w.type === 'railing' ? 40 : WALL_HEIGHT;
                         const wallShape = new THREE.Shape();
-                        wallShape.moveTo(0, 0); wallShape.lineTo(length, 0); wallShape.lineTo(length, WALL_HEIGHT); wallShape.lineTo(0, WALL_HEIGHT); wallShape.lineTo(0, 0);
+                        wallShape.moveTo(0, 0); wallShape.lineTo(length, 0); wallShape.lineTo(length, h); wallShape.lineTo(0, h); wallShape.lineTo(0, 0);
                         
                         if (w.attachedWidgets) {
                             w.attachedWidgets.forEach(widg => {
@@ -349,7 +542,7 @@ class DecorManager {
         wrapper.traverse(c => { 
             if (c.isMesh && !c.userData.isHitbox) { 
                 c.castShadow = true; c.receiveShadow = true; 
-                if (this.ctx.viewMode3D !== 'preview') this.ctx.interactables.push(c); 
+                if (this.ctx.viewMode3D !== 'preview' && !c.userData.isWallDecor) this.ctx.interactables.push(c); 
             }
         });
         
@@ -604,9 +797,9 @@ class InteractionSystem {
                     return;
                 }
 
-                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor) mesh = mesh.parent;
+                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor) mesh = mesh.parent;
                 
-                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor)) {
+                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor)) {
                     if (this.mode === 'edit') {
                         if (mesh.userData.isWallDecor) {
                             const side = mesh.userData.entity.side;
@@ -710,7 +903,7 @@ class InteractionSystem {
     }
 
     selectObject(object) {
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor)) this.setHighlight(this.selectedObject, false);
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor)) this.setHighlight(this.selectedObject, false);
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
 
         this.selectedObject = object;
@@ -749,8 +942,10 @@ class InteractionSystem {
             this.wallHighlight.rotation.set(0, 0, 0); 
             this.wallHighlight.visible = true;
         } 
-        else if (object.userData.isFurniture || object.userData.isWallDecor) {
-            type = object.userData.isFurniture ? 'furniture' : 'wallDecor';
+        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor) {
+            if (object.userData.isFurniture) type = 'furniture';
+            else if (object.userData.isWallDecor) type = 'wallDecor';
+            else if (object.userData.isFloor) type = 'room';
             this.setHighlight(object, true);
         }
         if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
@@ -758,7 +953,7 @@ class InteractionSystem {
 
     deselect() {
         this.cancelRelocation();
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor)) this.setHighlight(this.selectedObject, false);
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor)) this.setHighlight(this.selectedObject, false);
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
         this.selectedObject = null;
         if (this.ctx.onEntitySelect) this.ctx.onEntitySelect(null, null, null);
@@ -854,7 +1049,7 @@ export class Preview3D {
         if (obj.children) [...obj.children].forEach(c => this.deepDispose(c));
     }
 
-    buildScene(walls, roomPaths, stairs = [], furnitureList = [], levelsJsonArray = [], activeIndex = 0, viewMode3D = 'full-edit', preserveCamera = false) {
+    buildScene(walls, rooms, stairs = [], furnitureList = [], roofs = [], levelsJsonArray = [], activeIndex = 0, viewMode3D = 'full-edit', preserveCamera = false) {
         this.deselectObject();
         this.interactables = [];
         this.viewMode3D = viewMode3D;
@@ -873,10 +1068,10 @@ export class Preview3D {
         const targetY = activeIndex * WALL_HEIGHT;
         this.structureGroup.position.y = targetY;
 
-        this.envBuilder.buildActiveFloor(walls, roomPaths);
+        this.envBuilder.buildActiveFloor(walls, rooms);
         if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn));
 
-        if (viewMode3D !== 'isolate' && levelsJsonArray.length > 0) {
+        if (viewMode3D !== 'isolate' && levelsJsonArray && levelsJsonArray.length > 0) {
             this.envBuilder.buildStaticFloors(levelsJsonArray, activeIndex, viewMode3D);
         }
 

@@ -178,9 +178,9 @@ export class PremiumWall {
     constructor(planner, startAnchor, endAnchor, type = "outer") {
         this.planner = planner; this.startAnchor = startAnchor; this.endAnchor = endAnchor; this.attachedWidgets = []; this.type = type; this.config = WALL_REGISTRY[type] || WALL_REGISTRY['outer'];
         this.elevationLayers = { front: [{ id: Date.now(), texture: 'none', color: '#e2e8f0', x: 0, y: 0, w: '100%', h: '100%' }], back: [{ id: Date.now()+1, texture: 'none', color: '#f8fafc', x: 0, y: 0, w: '100%', h: '100%' }] };
-        this.fillColor = this.type === 'outer' ? '#e5e5e5' : '#f3f4f6'; this.strokeColor = this.type === 'outer' ? '#9ca3af' : '#d1d5db';
+        this.fillColor = this.type === 'outer' ? '#e5e5e5' : (this.type === 'railing' ? '#374151' : '#f3f4f6'); this.strokeColor = this.type === 'outer' ? '#9ca3af' : (this.type === 'railing' ? '#111827' : '#d1d5db');
         this.wallGroup = new Konva.Group();
-        this.poly = new Konva.Line({ fill: this.fillColor, stroke: this.strokeColor, strokeWidth: 2, closed: true, lineJoin: 'miter', shadowColor: 'black', shadowBlur: 10, shadowOffset: {x: 2, y: 2}, shadowOpacity: 0.2 });
+        this.poly = new Konva.Line({ fill: this.fillColor, stroke: this.strokeColor, strokeWidth: this.type === 'railing' ? 6 : 2, closed: true, lineJoin: 'miter', shadowColor: 'black', shadowBlur: 10, shadowOffset: {x: 2, y: 2}, shadowOpacity: 0.2 });
         this.poly.parentWall = this;
         this.poly.isWallPoly = true;
         this.frontHighlight = new Konva.Line({ stroke: '#3b82f6', strokeWidth: 4, visible: false });
@@ -269,7 +269,7 @@ export class PremiumWall {
         const getCorners = (anchor, isStart) => {
             const baseL = isStart ? p1_L : p2_L, baseR = isStart ? p1_R : p2_R, P = anchor.position();
             const connectedWalls = this.planner.walls.filter(w => (w.startAnchor === anchor || w.endAnchor === anchor) && w !== this);
-            if (connectedWalls.length === 1) {
+            if (connectedWalls.length >= 1) {
                 const w2 = connectedWalls[0], w2_p1 = w2.startAnchor.position(), w2_p2 = w2.endAnchor.position(), vdx2 = w2_p2.x - w2_p1.x, vdy2 = w2_p2.y - w2_p1.y, vlen2 = Math.hypot(vdx2, vdy2);
                 if (vlen2 > 0) { const u2 = { x: vdx2/vlen2, y: vdy2/vlen2 }, n2 = { x: -u2.y, y: u2.x }, ht2 = w2.config.thickness / 2; const w2_baseL = { x: P.x + n2.x * ht2, y: P.y + n2.y * ht2 }, w2_baseR = { x: P.x - n2.x * ht2, y: P.y - n2.y * ht2 }; const iL = intersectLines(baseL, u, w2_baseL, u2), iR = intersectLines(baseR, u, w2_baseR, u2); if (iL && iR) { const distL = Math.hypot(iL.x - P.x, iL.y - P.y), distR = Math.hypot(iR.x - P.x, iR.y - P.y), maxDist = Math.max(ht, ht2) * 5; if (distL < maxDist && distR < maxDist) { return [iL, iR]; } } }
             } else if (connectedWalls.length === 0) {
@@ -286,6 +286,12 @@ export class PremiumWall {
         const fOff = 4; this.frontHighlight.points([ startL.x + n.x * fOff, startL.y + n.y * fOff, endL.x + n.x * fOff, endL.y + n.y * fOff ]); this.backHighlight.points([ startR.x - n.x * fOff, startR.y - n.y * fOff, endR.x - n.x * fOff, endR.y - n.y * fOff ]);
         this.labelText.text(this.planner.formatLength(this.getLength())); this.labelGroup.position({ x: (p1.x + p2.x) / 2 - this.labelText.width() / 2, y: (p1.y + p2.y) / 2 - 15 });
         this.attachedWidgets.forEach(w => w.update());
+
+        // Railing explicit color update in fallback drawing mode
+        if (this.type === 'railing') {
+            const rConf = RAILING_REGISTRY[this.configId || 'default_basic'];
+            if (rConf && rConf.color) this.poly.fill('#' + rConf.color.toString(16).padStart(6, '0'));
+        }
     }
     remove() { this.wallGroup.destroy(); this.labelGroup.destroy(); this.attachedWidgets.forEach(w => w.remove()); this.planner.walls = this.planner.walls.filter(w => w !== this); this.planner.selectEntity(null); this.planner.syncAll(); }
 }
@@ -485,6 +491,10 @@ export class FloorPlanner {
             // This makes event handling more localized and robust.
 
             if (target.isWallPoly) {
+                // Do not intercept if actively drawing a new railing or wall
+                if (this.drawing) {
+                    return;
+                }
                 // This event is now handled by the polygon itself in PremiumWall.
                 // We let the event bubble up if not handled there (e.g., for dragging the stage).
                 return;
@@ -568,7 +578,27 @@ export class FloorPlanner {
             if (wallConfig && wallConfig.events.includes("snap_to_wall")) {
                 let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < SNAP_DIST);
                 if (a) { targetPos = { x: a.x, y: a.y }; targetSnapWall = this.walls.find(w => w.startAnchor === a || w.endAnchor === a); }
-                else { let closestDist = SNAP_DIST, closestPoint = null; for (let w of this.walls) { let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = w; } } if (closestPoint) targetPos = closestPoint; }
+                else { 
+                    let closestDist = SNAP_DIST, closestPoint = null; 
+                    for (let w of this.walls) { 
+                        let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); 
+                        if (this.tool === 'railing') {
+                            const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
+                            const vdx = p2.x - p1.x, vdy = p2.y - p1.y, vlen = Math.hypot(vdx, vdy);
+                            if (vlen > 0) {
+                                const n = { x: -vdy/vlen, y: vdx/vlen }, ht = (w.thickness || w.config.thickness) / 2;
+                                const e1 = { x: proj.x + n.x * ht, y: proj.y + n.y * ht }, e2 = { x: proj.x - n.x * ht, y: proj.y - n.y * ht };
+                                const d1 = Math.hypot(pos.x - e1.x, pos.y - e1.y), d2 = Math.hypot(pos.x - e2.x, pos.y - e2.y);
+                                if (d1 < closestDist) { closestDist = d1; closestPoint = e1; targetSnapWall = w; }
+                                if (d2 < closestDist) { closestDist = d2; closestPoint = e2; targetSnapWall = w; }
+                            }
+                            continue;
+                        }
+                        let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); 
+                        if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = w; } 
+                    } 
+                    if (closestPoint) targetPos = closestPoint; 
+                }
             }
 
             if (this.drawing && wallConfig && wallConfig.events.includes("stop_collision") && this.checkWallIntersection(this.lastAnchor.position(), targetPos, [targetSnapWall])) return;
@@ -630,6 +660,18 @@ export class FloorPlanner {
 
                     for (let w of this.walls) {
                         let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position());
+                        if (this.tool === 'railing') {
+                            const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
+                            const vdx = p2.x - p1.x, vdy = p2.y - p1.y, vlen = Math.hypot(vdx, vdy);
+                            if (vlen > 0) {
+                                const n = { x: -vdy/vlen, y: vdx/vlen }, ht = (w.thickness || w.config.thickness) / 2;
+                                const e1 = { x: proj.x + n.x * ht, y: proj.y + n.y * ht }, e2 = { x: proj.x - n.x * ht, y: proj.y - n.y * ht };
+                                const d1 = Math.hypot(pos.x - e1.x, pos.y - e1.y), d2 = Math.hypot(pos.x - e2.x, pos.y - e2.y);
+                                if (d1 < closestDist && !snappedObj) { closestDist = d1; closestPoint = e1; targetSnapWall = w; snappedObj = true; }
+                                if (d2 < closestDist && !snappedObj) { closestDist = d2; closestPoint = e2; targetSnapWall = w; snappedObj = true; }
+                            }
+                            continue;
+                        }
                         let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
                         if (dist < closestDist && !snappedObj) { closestDist = dist; closestPoint = proj; targetSnapWall = w; snappedObj = true; }
                     }
@@ -643,7 +685,7 @@ export class FloorPlanner {
             this.updateInfoBadge(snapPos.x, snapPos.y, lenBadge, angBadge, snappedObj);
 
             if (snappedObj) this.showSnapGlow(snapPos.x, snapPos.y); else this.hideSnapGlow();
-            this.walls.forEach(w => w.setHighlight(w === this.selectedEntity));
+            this.walls.forEach(w => w.setHighlight(w === targetSnapWall || w === this.selectedEntity));
 
             let isColliding = false;
             if (wallConfig && (wallConfig.events.includes("collision_detected") || wallConfig.events.includes("stop_collision"))) { isColliding = this.checkWallIntersection(this.lastAnchor.position(), snapPos, [targetSnapWall]); }
@@ -915,7 +957,10 @@ export class FloorPlanner {
                 thickness: w.thickness || w.config.thickness,
                 height: w.height || w.config?.height || 120,
                 type: w.type,
-                widgets: w.attachedWidgets.map(wid => ({ t: wid.t, configId: wid.type, width: wid.width })),
+                configId: w.configId,
+                widgets: w.attachedWidgets.map(wid => ({
+                    t: wid.t, configId: wid.type, width: wid.width
+                })),
                 decors: w.attachedDecor ? w.attachedDecor.map(d => ({
                     id: d.id, configId: d.configId, side: d.side,
                     localX: d.localX, localY: d.localY, localZ: d.localZ,
@@ -924,9 +969,8 @@ export class FloorPlanner {
                 })) : []
             })),
             furniture: this.furniture.map(f => ({
-                x: f.group.x(), y: f.group.y(),
-                rotation: f.rotation, width: f.width, depth: f.depth, height: f.height,
-                configId: f.config.id
+                x: f.group.x(), y: f.group.y(), rotation: f.rotation,
+                width: f.width, depth: f.depth, height: f.height, configId: f.config.id
             })),
             stairs: this.stairs.map(s => ({
                 path: s.path.map(p => ({ x: p.x, y: p.y, shape: p.shape }))
@@ -952,6 +996,7 @@ export class FloorPlanner {
                     const wall = new PremiumWall(this, a1, a2, wData.type);
                     if (wData.thickness) wall.thickness = wData.thickness;
                     if (wData.height) wall.height = wData.height;
+                    if (wData.configId) wall.configId = wData.configId;
                     if (wData.widgets) {
                         wData.widgets.forEach(wd => {
                             const widget = new PremiumWidget(this, wall, wd.t, wd.configId);

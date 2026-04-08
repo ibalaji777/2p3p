@@ -69,7 +69,7 @@ export class StaticFloors {
                         const wallHeight = w.height || w.config?.height || WALL_HEIGHT;
                         // Mock Data for Managers
                         w.config = { thickness: w.thickness, height: wallHeight }; w.length3D = length; w.attachedWidgets = w.widgets || []; w.attachedDecor = w.decors || []; w.isStatic = true; w.levelIndex = index; w.wallIndex = wallIndex;
-                        const { wallGroup } = this.wallBuilder.buildWallGroup(length, w.thickness, w.attachedWidgets, w.startX, w.startY, angle, wallHeight);
+                        const { wallGroup } = this.wallBuilder.buildWallGroup(length, w.thickness, w, w.startX, w.startY, angle, wallHeight);
                         wallGroup.userData = { entity: w };
                         w.mesh3D = wallGroup;
 

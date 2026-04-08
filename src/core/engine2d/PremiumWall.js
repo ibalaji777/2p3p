@@ -1,5 +1,5 @@
 import Konva from 'konva';
-import { WALL_REGISTRY, WIDGET_REGISTRY } from '../registry.js';
+import { WALL_REGISTRY, WIDGET_REGISTRY, RAILING_REGISTRY } from '../registry.js';
 import { PremiumWidget } from './PremiumWidget.js';
 
 export class PremiumWall {
@@ -8,9 +8,9 @@ export class PremiumWall {
         this.thickness = this.config.thickness;
         this.height = this.config.height || 120;
         this.elevationLayers = { front: [{ id: Date.now(), texture: 'none', color: '#e2e8f0', x: 0, y: 0, w: '100%', h: '100%' }], back: [{ id: Date.now()+1, texture: 'none', color: '#f8fafc', x: 0, y: 0, w: '100%', h: '100%' }] };
-        this.fillColor = this.type === 'outer' ? '#e5e5e5' : '#f3f4f6'; this.strokeColor = this.type === 'outer' ? '#9ca3af' : '#d1d5db';
+        this.fillColor = this.type === 'outer' ? '#e5e5e5' : (this.type === 'railing' ? '#4b5563' : '#f3f4f6'); this.strokeColor = this.type === 'outer' ? '#9ca3af' : (this.type === 'railing' ? '#1f2937' : '#d1d5db');
         this.wallGroup = new Konva.Group(); 
-        this.poly = new Konva.Line({ fill: this.fillColor, stroke: this.strokeColor, strokeWidth: 2, closed: true, lineJoin: 'miter', shadowColor: 'black', shadowBlur: 10, shadowOffset: {x: 2, y: 2}, shadowOpacity: 0.2 });
+        this.poly = new Konva.Line({ fill: this.fillColor, stroke: this.strokeColor, strokeWidth: 2, closed: true, lineJoin: 'miter', shadowColor: 'black', shadowBlur: 10, shadowOffset: {x: 2, y: 2}, shadowOpacity: 0.2, hitStrokeWidth: 20 });
         this.frontHighlight = new Konva.Line({ stroke: '#3b82f6', strokeWidth: 4, visible: false }); 
         this.backHighlight = new Konva.Line({ stroke: '#10b981', strokeWidth: 4, visible: false });
         this.wallGroup.add(this.poly, this.frontHighlight, this.backHighlight); 
@@ -104,7 +104,7 @@ export class PremiumWall {
         const getCorners = (anchor, isStart) => {
             const baseL = isStart ? p1_L : p2_L, baseR = isStart ? p1_R : p2_R, P = anchor.position();
             const connectedWalls = this.planner.walls.filter(w => (w.startAnchor === anchor || w.endAnchor === anchor) && w !== this);
-            if (connectedWalls.length === 1) {
+            if (connectedWalls.length >= 1) {
                 const w2 = connectedWalls[0], w2_p1 = w2.startAnchor.position(), w2_p2 = w2.endAnchor.position(), vdx2 = w2_p2.x - w2_p1.x, vdy2 = w2_p2.y - w2_p1.y, vlen2 = Math.hypot(vdx2, vdy2);
                 if (vlen2 > 0) { const u2 = { x: vdx2/vlen2, y: vdy2/vlen2 }, n2 = { x: -u2.y, y: u2.x }, ht2 = w2.thickness / 2; const w2_baseL = { x: P.x + n2.x * ht2, y: P.y + n2.y * ht2 }, w2_baseR = { x: P.x - n2.x * ht2, y: P.y - n2.y * ht2 }; const iL = intersectLines(baseL, u, w2_baseL, u2), iR = intersectLines(baseR, u, w2_baseR, u2); if (iL && iR) { const distL = Math.hypot(iL.x - P.x, iL.y - P.y), distR = Math.hypot(iR.x - P.x, iR.y - P.y), maxDist = Math.max(ht, ht2) * 5; if (distL < maxDist && distR < maxDist) { return [iL, iR]; } } }
             } else if (connectedWalls.length === 0) {
@@ -118,6 +118,14 @@ export class PremiumWall {
         };
         const [startL, startR] = getCorners(this.startAnchor, true), [endL, endR] = getCorners(this.endAnchor, false);
         this.poly.points([ startL.x, startL.y, endL.x, endL.y, endR.x, endR.y, startR.x, startR.y ]);
+        
+        if (this.type === 'railing') {
+            const rConf = RAILING_REGISTRY[this.configId || 'default_basic'];
+            if (rConf && rConf.color) {
+                this.poly.fill('#' + rConf.color.toString(16).padStart(6, '0'));
+            }
+        }
+
         const fOff = 4; this.frontHighlight.points([ startL.x + n.x * fOff, startL.y + n.y * fOff, endL.x + n.x * fOff, endL.y + n.y * fOff ]); this.backHighlight.points([ startR.x - n.x * fOff, startR.y - n.y * fOff, endR.x - n.x * fOff, endR.y - n.y * fOff ]);
         this.labelText.text(this.planner.formatLength(this.getLength())); this.labelGroup.position({ x: (p1.x + p2.x) / 2 - this.labelText.width() / 2, y: (p1.y + p2.y) / 2 - 15 });
         this.attachedWidgets.forEach(w => w.update()); 
