@@ -171,25 +171,61 @@ export class FloorPlanner {
         const cat = this.activeCategory || 'tools';
         const isSelect = this.tool === "select";
         const isSplitWall = this.tool === "split_wall";
-        const allowWallEdit = isSelect || cat === 'walls';
         const isWidget = !!WIDGET_REGISTRY[this.tool];
-        this.walls.forEach(w => {
-            if(w.poly) { w.poly.setAttr('draggable', allowWallEdit); w.poly.setAttr('listening', allowWallEdit || isWidget || isSplitWall); }
-            w.attachedWidgets.forEach(widg => { if(widg.visualGroup) { widg.visualGroup.setAttr('draggable', isSelect); widg.visualGroup.setAttr('listening', isSelect); } });
-        });
-        this.stairs.forEach(s => { if(s.group) { s.group.setAttr('draggable', isSelect); s.group.setAttr('listening', isSelect); } });
-        this.anchors.forEach(a => { if(a.node) { a.node.setAttr('draggable', allowWallEdit); a.node.setAttr('listening', allowWallEdit); } });
-        this.furniture.forEach(f => { if(f.group) { f.group.setAttr('draggable', isSelect); f.group.setAttr('listening', isSelect); } });
-        this.roofs.forEach(r => { if(r.group) { r.group.setAttr('draggable', isSelect); r.group.setAttr('listening', isSelect); } });
-        if(this.balconies) this.balconies.forEach(b => { if(b.group) { b.group.setAttr('draggable', isSelect); b.group.setAttr('listening', isSelect); } });
-
         const allowAll = (cat === 'tools' || cat === 'advanced');
 
+        this.walls.forEach(w => {
+            let isRailing = w.type === 'railing';
+            let canEditThisWall = false;
+
+            if (allowAll) {
+                canEditThisWall = isSelect || isSplitWall;
+            } else if (cat === 'walls') {
+                canEditThisWall = !isRailing && (isSelect || isSplitWall);
+            } else if (cat === 'common') {
+                canEditThisWall = isRailing && (isSelect || isSplitWall);
+            }
+
+            if(w.poly) { 
+                w.poly.setAttr('draggable', canEditThisWall); 
+                w.poly.setAttr('listening', canEditThisWall || isWidget || isSplitWall); 
+            }
+            
+            w.attachedWidgets.forEach(widg => { 
+                if(widg.visualGroup) { 
+                    let canEditWidget = isSelect && (allowAll || cat === 'doors_windows');
+                    widg.visualGroup.setAttr('draggable', canEditWidget); 
+                    widg.visualGroup.setAttr('listening', canEditWidget); 
+                } 
+            });
+        });
+
+        this.stairs.forEach(s => { 
+            let canEdit = isSelect && (allowAll || cat === 'structures');
+            if(s.group) { s.group.setAttr('draggable', canEdit); s.group.setAttr('listening', canEdit); } 
+        });
+        this.anchors.forEach(a => { 
+            let canEdit = isSelect && (allowAll || cat === 'walls' || cat === 'common');
+            if(a.node) { a.node.setAttr('draggable', canEdit); a.node.setAttr('listening', canEdit); } 
+        });
+        this.furniture.forEach(f => { 
+            let canEdit = isSelect && (allowAll || cat === 'furniture');
+            if(f.group) { f.group.setAttr('draggable', canEdit); f.group.setAttr('listening', canEdit); } 
+        });
+        this.roofs.forEach(r => { 
+            let canEdit = isSelect && (allowAll || cat === 'structures');
+            if(r.group) { r.group.setAttr('draggable', canEdit); r.group.setAttr('listening', canEdit); } 
+        });
+        if(this.balconies) this.balconies.forEach(b => { 
+            let canEdit = isSelect && (allowAll || cat === 'structures');
+            if(b.group) { b.group.setAttr('draggable', canEdit); b.group.setAttr('listening', canEdit); } 
+        });
+
         // FORCE LAYER LISTENING OFF DURING DRAWING OR RESTRICT BY CATEGORY
-        if (this.wallLayer) this.wallLayer.listening(allowAll || cat === 'walls' || cat === 'doors_windows' || cat === 'structures' || isWidget || isSplitWall);
-        if (this.widgetLayer) this.widgetLayer.listening(allowAll || cat === 'doors_windows' || cat === 'structures');
-        if (this.furnitureLayer) this.furnitureLayer.listening(allowAll || cat === 'furniture');
-        if (this.roofLayer) this.roofLayer.listening(allowAll || cat === 'structures');
+        if (this.wallLayer) { this.wallLayer.listening(allowAll || cat === "common" || cat === "walls" || cat === "doors_windows" || cat === "structures" || isWidget || isSplitWall); }
+        if (this.widgetLayer) { this.widgetLayer.listening(allowAll || cat === "doors_windows" || cat === "structures"); }
+        if (this.furnitureLayer) { this.furnitureLayer.listening(allowAll || cat === "furniture"); }
+        if (this.roofLayer) { this.roofLayer.listening(allowAll || cat === "structures"); }
     }
     loadDefaultHouse() {
         if (this.walls && this.walls.length > 0) return;
