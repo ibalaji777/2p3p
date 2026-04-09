@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY } from './registry.js';
+import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY } from './registry.js';
 
 class AssetManager {
     constructor() {
@@ -748,8 +748,131 @@ class EnvironmentBuilder {
                     });
                 }
 
+                if (data.roofs) {
+                    this.buildRoofs(data.roofs, index, data.walls, floorGroup);
+                }
+
                 this.ctx.staticStructureGroup.add(floorGroup);
             } catch (e) { console.error("Error parsing static floor", e); }
+        });
+    }
+
+    buildRoofs(roofs, activeIndex, walls, targetGroup) {
+        if (!roofs || roofs.length === 0) return;
+        
+        const hasWalls = walls && walls.length > 0;
+        let maxWallHeight = WALL_HEIGHT;
+        if (hasWalls) {
+            maxWallHeight = Math.max(...walls.map(w => w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT)));
+        }
+
+        roofs.forEach(roof => {
+            const pts = roof.points || [];
+            if (pts.length < 3) return;
+
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            pts.forEach(p => {
+                minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+                minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+            });
+
+            const conf = roof.config || roof; 
+            const wallGap = conf.wallGap || 0;
+            
+            const W = maxX - minX;
+            const D = maxY - minY;
+            
+            const baseHeight = (hasWalls || activeIndex === 0) ? maxWallHeight : 0;
+            const h = baseHeight + wallGap + 0.5;
+
+            const decor = ROOF_DECOR_REGISTRY[conf.material] || ROOF_DECOR_REGISTRY['asphalt_shingles'];
+            const mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide });
+
+            if (decor && decor.texture) {
+                this.ctx.assets.getTexture(decor).then(tex => {
+                    const texClone = tex.clone();
+                    texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                    const repeatScale = decor.repeat || 1;
+                    texClone.repeat.set(W / (100 * repeatScale), D / (100 * repeatScale));
+                    mat.map = texClone;
+                    mat.needsUpdate = true;
+                });
+            }
+
+            let mesh;
+            if (conf.roofType === 'flat') {
+                const shape = new THREE.Shape();
+                shape.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) shape.lineTo(pts[i].x, pts[i].y);
+                shape.lineTo(pts[0].x, pts[0].y);
+                
+                const geo = new THREE.ExtrudeGeometry(shape, { depth: conf.thickness || 2, bevelEnabled: false });
+                geo.rotateX(Math.PI / 2);
+                geo.translate(0, conf.thickness || 2, 0); 
+                mesh = new THREE.Mesh(geo, mat);
+            } else {
+                const pitch = conf.pitch || 30;
+                const maxSpan = Math.min(W, D);
+                const rh = Math.tan(pitch * Math.PI / 180) * (maxSpan / 2);
+                
+                let cx = 0, cy = 0, signedArea = 0;
+                for (let i = 0; i < pts.length; i++) {
+                    let p0 = pts[i], p1 = pts[(i + 1) % pts.length];
+                    let a = p0.x * p1.y - p1.x * p0.y;
+                    signedArea += a;
+                    cx += (p0.x + p1.x) * a;
+                    cy += (p0.y + p1.y) * a;
+                }
+                signedArea *= 0.5;
+                if (signedArea !== 0) { cx /= (6.0 * signedArea); cy /= (6.0 * signedArea); } 
+                else { cx = minX + W/2; cy = minY + D/2; }
+
+                const top = [cx, rh, cy];
+                const v = [], uv = [];
+                
+                for (let i = 0; i < pts.length; i++) {
+                    let p0 = pts[i], p1 = pts[(i + 1) % pts.length];
+                    let dx1 = p1.x - p0.x, dz1 = p1.y - p0.y;
+                    let dx2 = top[0] - p0.x, dz2 = top[2] - p0.y;
+                    let ny = dx1 * dz2 - dz1 * dx2; 
+                    
+                    if (ny < 0) { v.push(p1.x, 0, p1.y, p0.x, 0, p0.y, ...top); } 
+                    else { v.push(p0.x, 0, p0.y, p1.x, 0, p1.y, ...top); }
+                    uv.push(0, 0, 1, 0, 0.5, 1);
+                }
+
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute("position", new THREE.Float32BufferAttribute(v, 3));
+                geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+                geo.computeVertexNormals();
+                mesh = new THREE.Mesh(geo, mat);
+            }
+
+            const roofGroup = new THREE.Group();
+            let groupX = 0, groupZ = 0;
+            if (roof.group && typeof roof.group.x === 'function') {
+                groupX = roof.group.x();
+                groupZ = roof.group.y();
+            } else if (roof.x !== undefined) {
+                groupX = roof.x;
+                groupZ = roof.y;
+            }
+            roofGroup.position.set(groupX, h, groupZ);
+            
+            let rot = roof.rotation || 0;
+            roofGroup.rotation.y = -rot * Math.PI / 180;
+
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            
+            if (this.ctx.viewMode3D !== 'preview' && targetGroup === this.ctx.structureGroup) {
+                mesh.userData = { isFurniture: true, entity: roof }; 
+                this.ctx.interactables.push(mesh);
+            }
+            
+            roofGroup.add(mesh);
+            targetGroup.add(roofGroup);
+            roof.mesh3D = roofGroup;
         });
     }
 }
@@ -1426,6 +1549,8 @@ export class Preview3D {
 
         this.envBuilder.buildActiveFloor(walls, rooms);
         if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn));
+
+        if (roofs && roofs.length > 0) this.envBuilder.buildRoofs(roofs, activeIndex, walls, this.structureGroup);
 
         if (viewMode3D !== 'isolate' && levelsJsonArray && levelsJsonArray.length > 0) {
             this.envBuilder.buildStaticFloors(levelsJsonArray, activeIndex, viewMode3D);
