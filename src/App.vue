@@ -129,13 +129,13 @@
                     <h4 class="props-subtitle" v-if="selectedEntity.type === 'railing'">Railing Properties</h4>
                     <h4 class="props-subtitle" v-else>Wall Properties</h4>
                     <div class="control-group"><label>Thickness</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.thickness" min="1" max="100" step="1" @input="syncEngine"><input type="number" v-model.number="selectedEntity.thickness" min="1" max="100" step="1" @input="syncEngine"></div></div>
-                    <div class="control-group"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="500" step="1" @input="syncEngine"><input type="number" v-model.number="selectedEntity.height" min="10" max="500" step="1" @input="syncEngine"></div></div>
+                    <div class="control-group"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="0" max="500" step="1" @input="syncEngine"><input type="number" v-model.number="selectedEntity.height" min="0" max="500" step="1" @input="syncEngine"></div></div>
 
                     <div v-if="selectedEntity.type === 'railing'">
                         <div class="decor-gallery">
                             <h4 class="props-subtitle">Railing Material</h4>
                             <div class="decor-grid">
-                                <div v-for="(config, key) in railingRegistry" :key="key" class="decor-item" @click="selectedEntity.configId = key; syncEngine()" :class="{ active: selectedEntity.configId === key }">
+                                <div v-for="(config, key) in railingRegistry" :key="key" class="decor-item" @click="selectedEntity.configId = key; uiTrigger++; syncEngine()" :class="{ active: (selectedEntity.configId || 'rail_1') === key && uiTrigger !== -1 }">
                                     <img :src="config.thumbnail" />
                                     <span>{{ config.name }}</span>
                                 </div>

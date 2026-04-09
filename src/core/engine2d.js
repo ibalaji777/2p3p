@@ -998,7 +998,7 @@ export class FloorPlanner {
                 startX: w.startAnchor.x, startY: w.startAnchor.y,
                 endX: w.endAnchor.x, endY: w.endAnchor.y,
                 thickness: w.thickness || w.config.thickness,
-                height: w.height || w.config?.height || 120,
+                height: w.height !== undefined ? w.height : (w.config?.height || 120),
                 type: w.type,
                 configId: w.configId,
                 pts: w.poly ? w.poly.points() : null,

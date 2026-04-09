@@ -29,7 +29,7 @@ export const WINDOW_GRILLE_PATTERNS = { grid: { label: "Standard Grid" }, horizo
 export const WALL_REGISTRY = {
     'outer': { type: "outer", label: "OUTER WALL", thickness: 16, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
     'inner': { type: "inner", label: "INNER WALL", thickness: 8, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
-    'railing': { type: "railing", label: "RAILING", thickness: 4, height: 40, events: ["proximity_highlight", "snap_preview", "snap_to_wall"] }
+    'railing': { type: "railing", label: "RAILING", thickness: 4, height: 0, events: ["proximity_highlight", "snap_preview", "snap_to_wall"] }
 };
 
 export const RAILING_REGISTRY = {

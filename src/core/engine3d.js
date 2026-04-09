@@ -45,7 +45,10 @@ class AssetManager {
             try {
                 let modelScene;
                 if (url.toLowerCase().endsWith('.obj')) {
-                    modelScene = await this.objLoader.loadAsync(url);
+                    console.log(`[AssetManager] Downloading OBJ file from: ${url}`);
+                    modelScene = await this.objLoader.loadAsync(url, (xhr) => {
+                        console.log(`[AssetManager] OBJ Loading Progress: ${(xhr.loaded / xhr.total * 100).toFixed(2)}%`);
+                    });
                     // OBJ files do not contain materials natively. Apply Registry config colors/materials!
                     modelScene.traverse((child) => {
                         if (child.isMesh) {
@@ -60,7 +63,10 @@ class AssetManager {
                         }
                     });
                 } else {
-                    const gltf = await this.gltfLoader.loadAsync(url);
+                    console.log(`[AssetManager] Downloading GLTF/GLB file from: ${url}`);
+                    const gltf = await this.gltfLoader.loadAsync(url, (xhr) => {
+                        console.log(`[AssetManager] GLTF/GLB Loading Progress: ${(xhr.loaded / xhr.total * 100).toFixed(2)}%`);
+                    });
                     modelScene = gltf.scene;
                 }
 
@@ -74,9 +80,10 @@ class AssetManager {
                         }
                     });
                 }
+                console.log(`[AssetManager] Successfully loaded and configured 3D model for: ${config.id}`);
                 return modelScene;
             } catch (e) {
-                console.error(`[AssetManager] CRITICAL ERROR: Could not load model at ${url}. Vite is returning HTML (404 Not Found). Make sure the file exists exactly at public${url}!`);
+                console.error(`[AssetManager] CRITICAL ERROR: Could not load model at ${url}. Details:`, e);
                 throw e;
             }
         })();
@@ -226,8 +233,11 @@ class EnvironmentBuilder {
             const angle = Math.atan2(dz, dx);
             w.length3D = length;
 
+            const h = w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT);
+            const t = w.thickness !== undefined ? w.thickness : (w.config?.thickness || 8);
+
             const wallShape = new THREE.Shape();
-            wallShape.moveTo(0, 0); wallShape.lineTo(length, 0); wallShape.lineTo(length, WALL_HEIGHT); wallShape.lineTo(0, WALL_HEIGHT); wallShape.lineTo(0, 0);
+            wallShape.moveTo(0, 0); wallShape.lineTo(length, 0); wallShape.lineTo(length, h); wallShape.lineTo(0, h); wallShape.lineTo(0, 0);
 
             w.attachedWidgets.forEach(widg => {
                 const hole = new THREE.Path(), wCenter = length * widg.t, halfW = widg.width / 2;
@@ -239,8 +249,8 @@ class EnvironmentBuilder {
                 wallShape.holes.push(hole);
             });
 
-            const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: w.config.thickness, bevelEnabled: false });
-            wallGeo.translate(0, 0, -w.config.thickness / 2);
+            const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: t, bevelEnabled: false });
+            wallGeo.translate(0, 0, -t / 2);
             
             // ====== MITER JOINT SHEARING ======
             const pts = typeof w.poly?.points === 'function' ? w.poly.points() : null;
@@ -262,7 +272,7 @@ class EnvironmentBuilder {
                 for (let i = 0; i < pos.count; i++) {
                     const x = pos.getX(i);
                     const z = pos.getZ(i);
-                    const tZ = Math.max(0, Math.min(1, (z + w.config.thickness / 2) / w.config.thickness));
+                    const tZ = Math.max(0, Math.min(1, (z + t / 2) / t));
                     const startX = localSR_x + tZ * (localSL_x - localSR_x);
                     const endX = localER_x + tZ * (localEL_x - localER_x);
                     const tX = x / length;
@@ -279,14 +289,14 @@ class EnvironmentBuilder {
             const wallMesh = new THREE.Mesh(wallGeo, [matMain, matEdgeDark]);
             wallMesh.castShadow = true; wallMesh.receiveShadow = true;
 
-            const skinFrontGeo = new THREE.PlaneGeometry(length - 0.5, WALL_HEIGHT - 0.5);
-            skinFrontGeo.translate(length / 2, WALL_HEIGHT / 2, w.config.thickness / 2 + 0.1);
+            const skinFrontGeo = new THREE.PlaneGeometry(length - 0.5, h - 0.5);
+            skinFrontGeo.translate(length / 2, h / 2, t / 2 + 0.1);
             if (pts && pts.length === 8) shearGeo(skinFrontGeo);
             const hitFront = new THREE.Mesh(skinFrontGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
             hitFront.userData = { isWallSide: true, side: 'front', entity: w };
 
-            const skinBackGeo = new THREE.PlaneGeometry(length - 0.5, WALL_HEIGHT - 0.5);
-            skinBackGeo.translate(length / 2, WALL_HEIGHT / 2, -w.config.thickness / 2 - 0.1);
+            const skinBackGeo = new THREE.PlaneGeometry(length - 0.5, h - 0.5);
+            skinBackGeo.translate(length / 2, h / 2, -t / 2 - 0.1);
             if (pts && pts.length === 8) shearGeo(skinBackGeo);
             const hitBack = new THREE.Mesh(skinBackGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
             hitBack.userData = { isWallSide: true, side: 'back', entity: w };
@@ -304,20 +314,38 @@ class EnvironmentBuilder {
             if (w.attachedDecor) w.attachedDecor.forEach(decor => this.ctx.decorManager.load(w, decor));
         });
 
-        this.buildRailings(railingWalls);
+        this.buildRailings(railingWalls, standardWalls);
     }
 
-    buildRailings(railingWalls) {
+    buildRailings(railingWalls, standardWalls) {
         railingWalls.forEach(w => {
             const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
             const dx = p2.x - p1.x, dz = p2.y - p1.y;
             const length = Math.hypot(dx, dz);
             w.length3D = length;
 
-            const edge = {
-                start: new THREE.Vector3(p1.x, 0, p1.y),
-                end: new THREE.Vector3(p2.x, 0, p2.y)
-            };
+            let h = w.height !== undefined ? w.height : (w.config?.height || 0);
+            let underlyingWall = null;
+            
+            // Auto-detect if this railing sits directly on top of a standard wall
+            if (standardWalls) {
+                const midX = (p1.x + p2.x) / 2, midY = (p1.y + p2.y) / 2;
+                for (let sw of standardWalls) {
+                    const sp1 = sw.startAnchor.position(), sp2 = sw.endAnchor.position();
+                    const C = sp2.x - sp1.x, D = sp2.y - sp1.y;
+                    const lenSq = C * C + D * D;
+                    if (lenSq !== 0) {
+                        const param = Math.max(0, Math.min(1, ((midX - sp1.x) * C + (midY - sp1.y) * D) / lenSq));
+                        if (Math.hypot(midX - (sp1.x + param*C), midY - (sp1.y + param*D)) < 5) {
+                            underlyingWall = sw;
+                            h = sw.height !== undefined ? sw.height : (sw.config?.height || WALL_HEIGHT);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            const t = Math.max(1, w.thickness !== undefined ? w.thickness : (w.config?.thickness || 4));
 
             const configId = w.configId || 'rail_1';
             const config = RAILING_REGISTRY[configId] || RAILING_REGISTRY['rail_1'];
@@ -327,8 +355,10 @@ class EnvironmentBuilder {
 
             let hitGeo;
             let isMitered = false;
-            const h = w.height || w.config?.height || 40;
             const pts = (w.poly && typeof w.poly.points === 'function') ? w.poly.points() : w.pts;
+            
+            // The 3D selection mesh must encompass the curb (h) + the railing physical size (40)
+            const totalH = h + 40;
 
             // Use the exact mitered 2D boundaries for extrusion if available
             if (pts && pts.length === 8) {
@@ -338,19 +368,19 @@ class EnvironmentBuilder {
                 shape.lineTo(pts[4], pts[5]);
                 shape.lineTo(pts[6], pts[7]);
                 shape.lineTo(pts[0], pts[1]);
-                hitGeo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false });
+                hitGeo = new THREE.ExtrudeGeometry(shape, { depth: totalH, bevelEnabled: false });
                 hitGeo.rotateX(Math.PI / 2);
                 isMitered = true;
             }
             
             if (!isMitered) {
-                hitGeo = new THREE.BoxGeometry(length, h, 10);
-                hitGeo.translate(length / 2, h / 2, 0);
+                hitGeo = new THREE.BoxGeometry(length, totalH, 10);
+                hitGeo.translate(length / 2, totalH / 2, 0);
             }
 
             const hitMesh = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ visible: false }));
             if (isMitered) {
-                hitMesh.position.set(0, h, 0);
+                hitMesh.position.set(0, totalH, 0);
             } else {
                 hitMesh.position.set(p1.x, 0, p1.y);
                 hitMesh.rotation.y = -Math.atan2(dz, dx);
@@ -362,8 +392,9 @@ class EnvironmentBuilder {
             this.ctx.structureGroup.add(wallGroup);
             w.mesh3D = wallGroup;
 
-            const buildFallback = () => {
-                console.log(`[3D Engine] Using Fallback Solid Geometry for Railing.`);
+            const buildBaseWall = (baseH, useColor = true) => {
+                if (baseH <= 0) return;
+                if (underlyingWall && baseH === h) return; // Skip building redundant curb to prevent Z-fighting
                 let geo;
                 if (isMitered) {
                     const shape = new THREE.Shape();
@@ -372,19 +403,22 @@ class EnvironmentBuilder {
                     shape.lineTo(pts[4], pts[5]);
                     shape.lineTo(pts[6], pts[7]);
                     shape.lineTo(pts[0], pts[1]);
-                    geo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false });
-                    geo.rotateX(Math.PI / 2); // Rotates the 2D footprint to lay flat on X/Z plane
+                    geo = new THREE.ExtrudeGeometry(shape, { depth: baseH, bevelEnabled: false });
+                    geo.rotateX(Math.PI / 2); 
                 } else {
-                    geo = new THREE.BoxGeometry(length, h, w.config?.thickness || 4);
-                    geo.translate(length / 2, h / 2, 0);
+                    geo = new THREE.BoxGeometry(length, baseH, t);
+                    geo.translate(length / 2, baseH / 2, 0);
                 }
                 
-                const mat = new THREE.MeshStandardMaterial({ color: config?.color || 0xcccccc, transparent: config?.transparent || false, opacity: config?.opacity || 1 });
+                const mat = new THREE.MeshStandardMaterial({ 
+                    color: useColor ? (config?.color || 0xcccccc) : 0xcccccc, 
+                    transparent: useColor ? (config?.transparent || false) : false, 
+                    opacity: useColor ? (config?.opacity || 1) : 1 
+                });
                 const mesh = new THREE.Mesh(geo, mat);
                 
                 if (isMitered) {
-                    // Pull up by height 'h' since rotation extrudes down naturally
-                    mesh.position.set(0, h, 0);
+                    mesh.position.set(0, baseH, 0);
                 } else {
                     mesh.position.set(p1.x, 0, p1.y);
                     mesh.rotation.y = -Math.atan2(dz, dx);
@@ -394,9 +428,9 @@ class EnvironmentBuilder {
             };
 
             if (config && config.model) {
-                console.log(`[3D Engine] Attempting to load Railing GLB Model: ${config.model}`);
+                console.log(`[3D Engine] Requesting model build for Railing config: ${configId}`);
                 this.ctx.assets.getModel(config).then(model => {
-                    console.log(`[3D Engine] Successfully loaded GLB. Analyzing size...`);
+                    console.log(`[3D Engine] Model successfully received by Railing builder for: ${configId}`);
                     const clone = model.clone();
                     
                     // Safely force matrix update so BoundingBox detects correct size
@@ -405,40 +439,53 @@ class EnvironmentBuilder {
                     const initialBox = new THREE.Box3().setFromObject(clone);
                     const initialSize = initialBox.getSize(new THREE.Vector3());
                     const center = initialBox.getCenter(new THREE.Vector3());
-                    console.log(`[3D Engine] Bounding Box Computed. Size:`, initialSize, `Center:`, center);
 
                     if (initialSize.y === 0 || initialSize.x === 0) {
-                        console.warn(`[3D Engine] Invalid model size (X or Y is 0). Falling back to solid geometry.`);
-                        buildFallback();
+                        buildBaseWall(totalH, true);
                         return;
                     }
 
-                    const TARGET_HEIGHT = h;
-                    const scaleFactor = TARGET_HEIGHT / initialSize.y;
+                    buildBaseWall(h, false); // Base physical curb/wall beneath the railing
 
-                    clone.traverse((child) => {
-                        if (child.isMesh) {
-                            child.geometry = child.geometry.clone();
-                            child.geometry.translate(-center.x, -initialBox.min.y, -center.z);
-                            child.geometry.scale(scaleFactor, scaleFactor, scaleFactor);
-                            // Force Bounding Box update so the tiling math calculates the exact scaled size
-                            child.geometry.computeBoundingBox();
-                            child.geometry.computeBoundingSphere();
-                            if (child.material) {
-                                child.material.side = THREE.DoubleSide;
-                                child.material.needsUpdate = true;
-                            }
-                            child.castShadow = true; child.receiveShadow = true;
+                    const RAILING_TARGET_HEIGHT = 40;
+                    const scaleFactor = RAILING_TARGET_HEIGHT / initialSize.y;
+
+                    const translationMat = new THREE.Matrix4().makeTranslation(-center.x, -initialBox.min.y, -center.z);
+                    const scaleMat = new THREE.Matrix4().makeScale(scaleFactor, scaleFactor, scaleFactor);
+
+                    const meshes = [];
+                    clone.traverse(child => { if (child.isMesh) meshes.push(child); });
+
+                    // Force geometry matrix baking to eliminate nested model transform sinking bugs
+                    meshes.forEach(child => {
+                        child.geometry = child.geometry.clone();
+                        child.geometry.applyMatrix4(child.matrixWorld);
+                        child.geometry.applyMatrix4(translationMat);
+                        child.geometry.applyMatrix4(scaleMat);
+                        child.geometry.computeBoundingBox();
+                        child.geometry.computeBoundingSphere();
+                        
+                        if (child.material) {
+                            child.material.side = THREE.DoubleSide;
+                            child.material.needsUpdate = true;
                         }
+                        child.castShadow = true; child.receiveShadow = true;
                     });
-                    
-                    // Reset root transforms so non-uniform scaling works predictably
-                    clone.position.set(0, 0, 0);
-                    clone.rotation.set(0, 0, 0);
-                    clone.scale.set(1, 1, 1);
+
+                    clone.traverse(child => {
+                        child.position.set(0, 0, 0);
+                        child.rotation.set(0, 0, 0);
+                        child.scale.set(1, 1, 1);
+                        child.updateMatrix();
+                    });
                     clone.updateMatrixWorld(true);
 
                     const currentRailingLength = new THREE.Box3().setFromObject(clone).getSize(new THREE.Vector3()).x;
+                    
+                    const edge = {
+                        start: new THREE.Vector3(p1.x, h, p1.y),
+                        end: new THREE.Vector3(p2.x, h, p2.y)
+                    };
                     const edgeVector = new THREE.Vector3().subVectors(edge.end, edge.start);
                     const edgeLength = edgeVector.length();
                     const direction = edgeVector.clone().normalize();
@@ -454,8 +501,6 @@ class EnvironmentBuilder {
                         stretchScale = (edgeLength / count) / currentRailingLength;
                     }
                     
-                    console.log(`[3D Engine] Placing ${actualCount} model instances over wall length: ${edgeLength}`);
-
                     for (let i = 0; i < actualCount; i++) {
                         const inst = clone.clone();
                         inst.scale.set(stretchScale, 1, 1);
@@ -474,10 +519,10 @@ class EnvironmentBuilder {
                     }
                 }).catch(e => {
                     console.error(`[3D Engine] Failed to load railing model from ${config.model}:`, e);
-                    buildFallback();
+                    buildBaseWall(totalH, true);
                 });
             } else {
-                buildFallback();
+                buildBaseWall(totalH, true);
             }
         });
     }
@@ -576,9 +621,31 @@ class EnvironmentBuilder {
                         w.isStatic = true;
                         w.levelIndex = index;
                         w.wallIndex = wallIndex;
-                        const h = w.type === 'railing' ? 40 : WALL_HEIGHT;
+                        
+                        let h = w.height !== undefined ? w.height : (w.config?.height || (w.type === 'railing' ? 0 : WALL_HEIGHT));
+                        let underlyingWall = null;
+                        
+                        if (w.type === 'railing') {
+                            const midX = (w.startX + w.endX) / 2, midY = (w.startY + w.endY) / 2;
+                            for (let sw of data.walls) {
+                                if (sw.type === 'railing') continue;
+                                const C = sw.endX - sw.startX, D = sw.endY - sw.startY;
+                                const lenSq = C * C + D * D;
+                                if (lenSq !== 0) {
+                                    const param = Math.max(0, Math.min(1, ((midX - sw.startX)*C + (midY - sw.startY)*D)/lenSq));
+                                    if (Math.hypot(midX - (sw.startX + param*C), midY - (sw.startY + param*D)) < 5) {
+                                        underlyingWall = sw;
+                                        h = sw.height !== undefined ? sw.height : (sw.config?.height || WALL_HEIGHT);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        const totalH = w.type === 'railing' ? h + 40 : h;
+                        const startY = (w.type === 'railing' && underlyingWall && h > 0) ? h : 0;
                         const wallShape = new THREE.Shape();
-                        wallShape.moveTo(0, 0); wallShape.lineTo(length, 0); wallShape.lineTo(length, h); wallShape.lineTo(0, h); wallShape.lineTo(0, 0);
+                        wallShape.moveTo(0, startY); wallShape.lineTo(length, startY); wallShape.lineTo(length, totalH); wallShape.lineTo(0, totalH); wallShape.lineTo(0, startY);
                         
                         if (w.attachedWidgets) {
                             w.attachedWidgets.forEach(widg => {
@@ -648,14 +715,14 @@ class EnvironmentBuilder {
                                 geo.computeVertexNormals();
                             };
                             
-                            const skinFrontGeo = new THREE.PlaneGeometry(length - 0.5, WALL_HEIGHT - 0.5);
-                            skinFrontGeo.translate(length / 2, WALL_HEIGHT / 2, w.thickness / 2 + 0.1);
+                            const skinFrontGeo = new THREE.PlaneGeometry(length - 0.5, totalH - 0.5);
+                            skinFrontGeo.translate(length / 2, totalH / 2, w.thickness / 2 + 0.1);
                             if (w.pts && w.pts.length === 8) shearSkin(skinFrontGeo);
                             const hitFront = new THREE.Mesh(skinFrontGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
                             hitFront.userData = { isWallSide: true, side: 'front', entity: w };
 
-                            const skinBackGeo = new THREE.PlaneGeometry(length - 0.5, WALL_HEIGHT - 0.5);
-                            skinBackGeo.translate(length / 2, WALL_HEIGHT / 2, -w.thickness / 2 - 0.1);
+                            const skinBackGeo = new THREE.PlaneGeometry(length - 0.5, totalH - 0.5);
+                            skinBackGeo.translate(length / 2, totalH / 2, -w.thickness / 2 - 0.1);
                             if (w.pts && w.pts.length === 8) shearSkin(skinBackGeo);
                             const hitBack = new THREE.Mesh(skinBackGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
                             hitBack.userData = { isWallSide: true, side: 'back', entity: w };
@@ -754,17 +821,18 @@ class DecorManager {
         const object = entity.mesh3D;
         const wallEntity = object.userData.parentWall;
 
-        const t = wallEntity.config.thickness;
+        const t = wallEntity.thickness || wallEntity.config?.thickness || 8;
+        const wallH = wallEntity.height || wallEntity.config?.height || WALL_HEIGHT;
         const d = entity.depth;
         const isFront = entity.side === 'front';
 
         const w = wallEntity.length3D * (entity.width / 100);
-        const h = WALL_HEIGHT * (entity.height / 100);
+        const h = wallH * (entity.height / 100);
         const cylRadius = (t / 2) + d;
 
         let posX = wallEntity.length3D * (entity.localX / 100);
         if (!isFront) posX = wallEntity.length3D - posX;
-        const posY = WALL_HEIGHT * (entity.localY / 100);
+        const posY = wallH * (entity.localY / 100);
 
         const shape = new THREE.Shape();
         shape.moveTo(-w/2, -h/2);
@@ -1040,8 +1108,10 @@ class InteractionSystem {
                     const entity = this.selectedObject.userData.entity, wallData = wallGroup.userData.entity;
                     let visualLocalX = entity.side === 'back' ? wallData.length3D - localTarget.x : localTarget.x;
                     
+                    const wallH = wallData.height || wallData.config?.height || WALL_HEIGHT;
+                    
                     entity.localX = Math.max(-10, Math.min((visualLocalX / wallData.length3D) * 100, 110));
-                    entity.localY = Math.max(-10, Math.min((localTarget.y / WALL_HEIGHT) * 100, 110));
+                    entity.localY = Math.max(-10, Math.min((localTarget.y / wallH) * 100, 110));
                     this.ctx.decorManager.updateLive(entity);
                     this.ctx.syncToUI();
                 }
@@ -1111,14 +1181,41 @@ class InteractionSystem {
             
             let maxDepth = 0;
             if (w.attachedDecor) w.attachedDecor.forEach(d => { if (d.side === side && d.depth > maxDepth) maxDepth = d.depth; });
+            
+            const isRailing = w.type === 'railing';
+            let currentH = w.height !== undefined ? w.height : (w.config?.height || (isRailing ? 0 : WALL_HEIGHT));
+            
+            if (isRailing && this.ctx.planner) {
+                const p1 = w.startAnchor ? w.startAnchor.position() : {x: w.startX, y: w.startY};
+                const p2 = w.endAnchor ? w.endAnchor.position() : {x: w.endX, y: w.endY};
+                const midX = (p1.x + p2.x) / 2, midY = (p1.y + p2.y) / 2;
+                for (let sw of this.ctx.planner.walls) {
+                    if (sw.type === 'railing') continue;
+                    const sp1 = sw.startAnchor ? sw.startAnchor.position() : {x: sw.startX, y: sw.startY};
+                    const sp2 = sw.endAnchor ? sw.endAnchor.position() : {x: sw.endX, y: sw.endY};
+                    const C = sp2.x - sp1.x, D = sp2.y - sp1.y;
+                    const lenSq = C * C + D * D;
+                    if (lenSq !== 0) {
+                        const param = Math.max(0, Math.min(1, ((midX - sp1.x)*C + (midY - sp1.y)*D)/lenSq));
+                        if (Math.hypot(midX - (sp1.x + param*C), midY - (sp1.y + param*D)) < 5) {
+                            currentH = sw.height !== undefined ? sw.height : (sw.config?.height || WALL_HEIGHT);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            const currentT = w.thickness !== undefined ? w.thickness : (w.config?.thickness || (isRailing ? 4 : 8));
+            const totalH = isRailing ? currentH + 40 : currentH;
+            
             const hlWidth = w.length3D + (maxDepth * 2) + 0.5;
-            const hlHeight = WALL_HEIGHT + 0.5;
+            const hlHeight = totalH + 0.5;
 
             const shape = new THREE.Shape();
             shape.moveTo(-hlWidth/2, -hlHeight/2); shape.lineTo(hlWidth/2, -hlHeight/2); shape.lineTo(hlWidth/2, hlHeight/2); shape.lineTo(-hlWidth/2, hlHeight/2); shape.lineTo(-hlWidth/2, -hlHeight/2);
 
             w.attachedWidgets.forEach(widg => {
-                const wCenter = w.length3D * widg.t; const halfW = widg.width / 2; const cx = w.length3D / 2; const cy = WALL_HEIGHT / 2;
+                const wCenter = w.length3D * widg.t; const halfW = widg.width / 2; const cx = w.length3D / 2; const cy = totalH / 2;
                 const hx_min = (wCenter - halfW) - cx; const hx_max = (wCenter + halfW) - cx;
                 const hy_min = (widg.type === 'door' ? 0 : WINDOW_SILL) - cy; const hy_max = (widg.type === 'door' ? DOOR_HEIGHT : WINDOW_SILL + WINDOW_HEIGHT) - cy;
 
@@ -1131,9 +1228,21 @@ class InteractionSystem {
             this.wallHighlight.geometry = new THREE.ShapeGeometry(shape);
             this.wallHighlight.scale.set(1, 1, 1);
 
-            const zOffset = side === 'front' ? (w.config.thickness / 2 + maxDepth + 0.15) : (-w.config.thickness / 2 - maxDepth - 0.15);
-            this.wallHighlight.position.set(w.length3D / 2, WALL_HEIGHT / 2, zOffset);
-            this.wallHighlight.rotation.set(0, 0, 0); 
+            const zOffset = side === 'front' ? (currentT / 2 + maxDepth + 0.15) : (-currentT / 2 - maxDepth - 0.15);
+            
+            if (isRailing) {
+                const p1 = w.startAnchor ? w.startAnchor.position() : {x: w.startX, y: w.startY};
+                const p2 = w.endAnchor ? w.endAnchor.position() : {x: w.endX, y: w.endY};
+                const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+                
+                this.wallHighlight.position.set(p1.x, totalH / 2, p1.y);
+                this.wallHighlight.rotation.set(0, -angle, 0);
+                this.wallHighlight.translateX(w.length3D / 2);
+                this.wallHighlight.translateZ(zOffset);
+            } else {
+                this.wallHighlight.position.set(w.length3D / 2, totalH / 2, zOffset);
+                this.wallHighlight.rotation.set(0, 0, 0); 
+            }
             this.wallHighlight.visible = true;
         } 
         else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor) {
