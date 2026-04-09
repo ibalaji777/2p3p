@@ -226,6 +226,12 @@ export class FloorPlanner {
         if (this.widgetLayer) { this.widgetLayer.listening(allowAll || cat === "doors_windows" || cat === "structures"); }
         if (this.furnitureLayer) { this.furnitureLayer.listening(allowAll || cat === "furniture"); }
         if (this.roofLayer) { this.roofLayer.listening(allowAll || cat === "structures"); }
+
+        if (this.stage) {
+            this.stage.draggable(isSelect);
+            this.stage.container().style.cursor = isSelect ? 'grab' : 'crosshair';
+            document.body.style.cursor = '';
+        }
     }
     loadDefaultHouse() {
         if (this.walls && this.walls.length > 0) return;
@@ -308,6 +314,13 @@ export class FloorPlanner {
     }
     
     initStageEvents() { 
+        this.stage.on('dragstart', (e) => {
+            if (e.target === this.stage) this.stage.container().style.cursor = 'grabbing';
+        });
+        this.stage.on('dragend', (e) => {
+            if (e.target === this.stage) this.stage.container().style.cursor = this.tool === 'select' ? 'grab' : 'crosshair';
+        });
+
         this.stage.on("mousedown touchstart", (e) => { 
             if (this.tool === 'roof') return;
             if (e.target === this.stage || e.target === this.bgLayer || e.target === this.mainLayer) this.deselectAll(); 
@@ -336,8 +349,14 @@ export class FloorPlanner {
             this.syncAll(); 
         }); 
 
-        this.stage.on("mousemove touchmove", () => { 
+        this.stage.on("mousemove touchmove", (e) => { 
             if (this.tool === 'roof') return;
+
+            if (e.target === this.stage || e.target === this.bgLayer || e.target === this.mainLayer) {
+                document.body.style.cursor = ''; 
+                this.stage.container().style.cursor = this.tool === 'select' ? (this.stage.isDragging() ? 'grabbing' : 'grab') : 'crosshair';
+            }
+
             const pos = this.getPointerPos();
             if (!pos) return;
             

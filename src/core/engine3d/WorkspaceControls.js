@@ -200,7 +200,8 @@ export class WorkspaceControls {
                 e.evt.preventDefault();
                 this.isPanning2D = true;
                 this.lastPanPos = { x: e.evt.clientX, y: e.evt.clientY };
-                document.body.style.cursor = 'grabbing';
+                stage.container().style.cursor = 'grabbing';
+                document.body.style.cursor = '';
             }
         });
 
@@ -216,7 +217,10 @@ export class WorkspaceControls {
         window.addEventListener('mouseup', (e) => {
             if (this.isPanning2D && (e.button === 1 || e.button === 2)) {
                 this.isPanning2D = false;
-                document.body.style.cursor = 'default';
+                if (this.planner && this.planner.stage) {
+                    this.planner.stage.container().style.cursor = this.planner.tool === 'select' ? 'grab' : 'crosshair';
+                    document.body.style.cursor = '';
+                }
             }
         });
         
