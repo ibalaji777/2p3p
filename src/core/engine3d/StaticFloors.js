@@ -62,7 +62,6 @@ export class StaticFloors {
 
                 // Build Walls
                 if (data.walls) {
-                    const anchorMap = new Map(); 
                     
                     const standardWalls = data.walls.filter(w => w.type !== 'railing');
                     const railingWalls = data.walls.filter(w => w.type === 'railing');
@@ -91,24 +90,6 @@ export class StaticFloors {
 
                         floorGroup.add(wallGroup);
                         if (w.attachedDecor) w.attachedDecor.forEach(decor => this.decorManager.load(w, decor));
-
-                        // Map Joints
-                        const startKey = `${w.startX.toFixed(2)},${w.startY.toFixed(2)}`;
-                        const endKey = `${w.endX.toFixed(2)},${w.endY.toFixed(2)}`;
-                        let sData = anchorMap.get(startKey) || { x: w.startX, y: w.startY, thickness: 0, height: 0 };
-                        if (w.thickness > sData.thickness) sData.thickness = w.thickness;
-                        if (wallHeight > sData.height) sData.height = wallHeight;
-                        anchorMap.set(startKey, sData);
-
-                        let eData = anchorMap.get(endKey) || { x: w.endX, y: w.endY, thickness: 0, height: 0 };
-                        if (w.thickness > eData.thickness) eData.thickness = w.thickness;
-                        if (wallHeight > eData.height) eData.height = wallHeight;
-                        anchorMap.set(endKey, eData);
-                    });
-
-                    // Build Joints
-                    anchorMap.forEach((data) => {
-                        floorGroup.add(this.wallBuilder.createJoint(data.x, data.y, data.thickness, data.height)); 
                     });
 
                     const railingBuilder = new RailingBuilder(this.assets, this.interactables, floorGroup);
@@ -185,14 +166,4 @@ export class StaticFloors {
                         }
 
                         const roofGroup = new THREE.Group(); roofGroup.position.set(roofData.x || 0, h, roofData.y || 0); roofGroup.rotation.y = -(roofData.rotation || 0) * Math.PI / 180;
-                        mesh.castShadow = true; mesh.receiveShadow = true;
-                        if (!isPreview) { mesh.userData = { isFloorTrigger: true, levelIndex: index }; this.interactables.push(mesh); }
-                        roofGroup.add(mesh); floorGroup.add(roofGroup);
-                    });
-                }
-                
-                staticStructureGroup.add(floorGroup);
-            } catch (e) { console.error("Error parsing static floor", e); }
-        });
-    }
-}
+                        mesh.castShad

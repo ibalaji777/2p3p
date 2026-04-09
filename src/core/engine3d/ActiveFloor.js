@@ -23,7 +23,6 @@ export class ActiveFloor {
         }
 
         if (roofs) this._buildRoofs(roofs, activeIndex, hasWalls, maxWallHeight);        
-        const anchorMap = new Map();
 
         const standardWalls = walls.filter(w => w.type !== 'railing');
         const railingWalls = walls.filter(w => w.type === 'railing');
@@ -52,20 +51,6 @@ export class ActiveFloor {
 
             // Load Decors
             if (w.attachedDecor) w.attachedDecor.forEach(decor => this.decorManager.load(w, decor));
-
-            // Map Joints
-            [w.startAnchor, w.endAnchor].forEach(a => {
-                const data = anchorMap.get(a) || { thickness: 0, height: 0 };
-                if (wallThickness > data.thickness) data.thickness = wallThickness;
-                if (wallHeight > data.height) data.height = wallHeight;
-                anchorMap.set(a, data);
-            });
-        });
-
-        // Build Corner Joints
-        anchorMap.forEach((data, anchor) => {
-            const pos = anchor.position();
-            this.structureGroup.add(this.wallBuilder.createJoint(pos.x, pos.y, data.thickness, data.height));
         });
 
         this.railingBuilder.build(railingWalls);
@@ -195,14 +180,4 @@ export class ActiveFloor {
                 groupZ = roof.y;
             }
             roofGroup.position.set(groupX, h, groupZ); // Account for 2D dragging
-            roofGroup.rotation.y = -(roof.rotation || 0) * Math.PI / 180; 
-            
-            mesh.castShadow = true; mesh.receiveShadow = true;
-            mesh.userData = { entity: roof, isRoof: true };
-            roofGroup.add(mesh);
-
-            this.structureGroup.add(roofGroup);
-            this.interactables.push(mesh);
-        });
-    }
-}
+       

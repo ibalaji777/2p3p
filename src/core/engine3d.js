@@ -105,11 +105,13 @@ class EnvironmentBuilder {
         const groundMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0 });
         const ground = new THREE.Mesh(groundGeo, groundMat);
         ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.5; // Prevent Z-fighting with room floors
         ground.receiveShadow = true;
         this.ctx.scene.add(ground);
         this.ground = ground;
 
         const grid = new THREE.GridHelper(5000, 250, 0x000000, 0x000000);
+        grid.position.y = -0.4; // Prevent Z-fighting with room floors
         grid.material.opacity = 0.05;
         grid.material.transparent = true;
         this.ctx.scene.add(grid);
@@ -785,21 +787,14 @@ class DecorManager {
         clonedTexture.needsUpdate = true;
 
         const wrapper = new THREE.Group();
-        const matDefaults = Array(6).fill(new THREE.MeshStandardMaterial({ color: 0xcccccc }));
-        
-        const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), matDefaults);
+        const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), []);
         boxMesh.userData = { isPatternBox: true };
         
-        const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 32, 1, true);
-        const leftCyl = new THREE.Mesh(cylGeo, new THREE.MeshStandardMaterial({ color: 0xcccccc }));
-        leftCyl.userData = { isLeftCyl: true };
-        const rightCyl = new THREE.Mesh(cylGeo.clone(), new THREE.MeshStandardMaterial({ color: 0xcccccc }));
-        rightCyl.userData = { isRightCyl: true };
 
         const hitBox = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 }));
         hitBox.userData = { isHitbox: true };
 
-        wrapper.add(boxMesh, leftCyl, rightCyl, hitBox);
+        wrapper.add(boxMesh, hitBox);
         wrapper.traverse(c => { 
             if (c.isMesh && !c.userData.isHitbox) { 
                 c.castShadow = true; c.receiveShadow = true; 
@@ -828,7 +823,6 @@ class DecorManager {
 
         const w = wallEntity.length3D * (entity.width / 100);
         const h = wallH * (entity.height / 100);
-        const cylRadius = (t / 2) + d;
 
         let posX = wallEntity.length3D * (entity.localX / 100);
         if (!isFront) posX = wallEntity.length3D - posX;
@@ -872,15 +866,48 @@ class DecorManager {
         if (boxMesh) { 
             boxMesh.geometry.dispose(); 
             boxMesh.geometry = new THREE.ExtrudeGeometry(shape, { depth: d, bevelEnabled: false }); 
-            boxMesh.position.z = (t / 2 + d / 2) + 0.05 + (entity.localZ || 0); 
+            const decorLocalZ = (t / 2 + d / 2) + 0.05 + (entity.localZ || 0);
+            boxMesh.position.z = decorLocalZ; 
             boxMesh.geometry.translate(0, 0, -d/2);
+            
+            // ====== MITER JOINT SHEARING FOR TEXTURES ======
+            const pts = (wallEntity.poly && typeof wallEntity.poly.points === 'function') ? wallEntity.poly.points() : wallEntity.pts;
+            if (pts && pts.length === 8) {
+                const p1 = wallEntity.startAnchor ? wallEntity.startAnchor.position() : {x: wallEntity.startX, y: wallEntity.startY};
+                const p2 = wallEntity.endAnchor ? wallEntity.endAnchor.position() : {x: wallEntity.endX, y: wallEntity.endY};
+                const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+                
+                const toLocalX = (ptX, ptY) => {
+                    const dx_pt = ptX - p1.x;
+                    const dy_pt = ptY - p1.y;
+                    return dx_pt * Math.cos(angle) + dy_pt * Math.sin(angle);
+                };
+                const localSL_x = toLocalX(pts[0], pts[1]);
+                const localEL_x = toLocalX(pts[2], pts[3]);
+                const localER_x = toLocalX(pts[4], pts[5]);
+                const localSR_x = toLocalX(pts[6], pts[7]);
+                
+                const pos = boxMesh.geometry.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    const vx = pos.getX(i);
+                    const vz = pos.getZ(i);
+                    const wallX = isFront ? (posX + vx) : (posX - vx);
+                    const wallZ = isFront ? (decorLocalZ + vz) : -(decorLocalZ + vz);
+                    const tZ = (wallZ + t/2) / t;
+                    const startX = localSR_x + tZ * (localSL_x - localSR_x);
+                    const endX = localER_x + tZ * (localEL_x - localER_x);
+                    const tX = wallX / wallEntity.length3D;
+                    const shearedWallX = startX + tX * (endX - startX);
+                    const newVx = isFront ? (shearedWallX - posX) : (posX - shearedWallX);
+                    pos.setX(i, newVx);
+                }
+                boxMesh.geometry.computeVertexNormals();
+                boxMesh.geometry.computeBoundingBox();
+                boxMesh.geometry.computeBoundingSphere();
+            }
+            // ===============================================
         }
         
-        const leftCyl = object.children.find(c => c.userData.isLeftCyl);
-        if (leftCyl) { leftCyl.geometry.dispose(); leftCyl.geometry = new THREE.CylinderGeometry(cylRadius, cylRadius, h, 32, 1, true, Math.PI, Math.PI); }
-        
-        const rightCyl = object.children.find(c => c.userData.isRightCyl);
-        if (rightCyl) { rightCyl.geometry.dispose(); rightCyl.geometry = new THREE.CylinderGeometry(cylRadius, cylRadius, h, 32, 1, true, 0, Math.PI); }
 
         const hitbox = object.children.find(c => c.userData && c.userData.isHitbox);
         if (hitbox) { hitbox.geometry.dispose(); hitbox.geometry = new THREE.BoxGeometry(w, h, d); hitbox.position.z = (t / 2 + d / 2) + (entity.localZ || 0); }
@@ -888,7 +915,6 @@ class DecorManager {
         const texture = object.userData.texture;
         let matFront = new THREE.MeshBasicMaterial({ visible: false });
         let matSide = new THREE.MeshBasicMaterial({ visible: false });
-        let sharedCylMaterial = new THREE.MeshStandardMaterial({ color: 0xe5e7eb });
 
         if (texture) {
             const tileSize = entity.tileSize || 1;
@@ -899,10 +925,6 @@ class DecorManager {
             let texSide = texture.clone(); texSide.wrapS = texSide.wrapT = THREE.RepeatWrapping; if (THREE.SRGBColorSpace) texSide.colorSpace = THREE.SRGBColorSpace;
             texSide.repeat.set(1 / tileSize, 1 / tileSize);
             matSide = new THREE.MeshStandardMaterial({ map: texSide, color: 0xffffff });
-
-            let cylTex = texture.clone(); cylTex.wrapS = cylTex.wrapT = THREE.RepeatWrapping; if (THREE.SRGBColorSpace) cylTex.colorSpace = THREE.SRGBColorSpace;
-            cylTex.repeat.set((Math.PI * cylRadius) / tileSize, h / tileSize);
-            sharedCylMaterial = new THREE.MeshStandardMaterial({ map: cylTex, color: 0xffffff });
         } else {
             matFront = new THREE.MeshStandardMaterial({ color: 0xe5e7eb });
             matSide = new THREE.MeshStandardMaterial({ color: 0xcccccc });
@@ -912,9 +934,6 @@ class DecorManager {
             if (Array.isArray(boxMesh.material)) boxMesh.material.forEach(m => { if(m.map) m.map.dispose(); m.dispose(); }); 
             boxMesh.material = [matFront, matSide]; 
         }
-
-        if (leftCyl) { leftCyl.material = sharedCylMaterial; leftCyl.visible = entity.faces.left !== false; leftCyl.position.set(-w / 2, 0, 0); }
-        if (rightCyl) { rightCyl.material = sharedCylMaterial; rightCyl.visible = entity.faces.right !== false; rightCyl.position.set(w / 2, 0, 0); }
 
         object.position.set(posX, posY, 0);
         object.rotation.y = isFront ? 0 : Math.PI;
@@ -1229,6 +1248,39 @@ class InteractionSystem {
             this.wallHighlight.scale.set(1, 1, 1);
 
             const zOffset = side === 'front' ? (currentT / 2 + maxDepth + 0.15) : (-currentT / 2 - maxDepth - 0.15);
+            
+            // ====== MITER JOINT SHEARING FOR HIGHLIGHT ======
+            const pts = (w.poly && typeof w.poly.points === 'function') ? w.poly.points() : w.pts;
+            if (pts && pts.length === 8 && !isRailing) {
+                const p1 = w.startAnchor ? w.startAnchor.position() : {x: w.startX, y: w.startY};
+                const p2 = w.endAnchor ? w.endAnchor.position() : {x: w.endX, y: w.endY};
+                const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+                
+                const toLocalX = (ptX, ptY) => {
+                    const dx_pt = ptX - p1.x;
+                    const dy_pt = ptY - p1.y;
+                    return dx_pt * Math.cos(angle) + dy_pt * Math.sin(angle);
+                };
+                const localSL_x = toLocalX(pts[0], pts[1]);
+                const localEL_x = toLocalX(pts[2], pts[3]);
+                const localER_x = toLocalX(pts[4], pts[5]);
+                const localSR_x = toLocalX(pts[6], pts[7]);
+                
+                const pos = this.wallHighlight.geometry.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    const vx = pos.getX(i);
+                    const wallX = (w.length3D / 2) + vx; 
+                    const tZ = (zOffset + currentT/2) / currentT;
+                    const startX = localSR_x + tZ * (localSL_x - localSR_x);
+                    const endX = localER_x + tZ * (localEL_x - localER_x);
+                    const tX = wallX / w.length3D;
+                    const shearedWallX = startX + tX * (endX - startX);
+                    pos.setX(i, shearedWallX - w.length3D / 2);
+                }
+                this.wallHighlight.geometry.computeVertexNormals();
+                this.wallHighlight.geometry.computeBoundingBox();
+                this.wallHighlight.geometry.computeBoundingSphere();
+            }
             
             if (isRailing) {
                 const p1 = w.startAnchor ? w.startAnchor.position() : {x: w.startX, y: w.startY};
