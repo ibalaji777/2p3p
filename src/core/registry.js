@@ -253,7 +253,7 @@ export const WIDGET_REGISTRY = {
         events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "jump_wall_to_wall", "prevent_overlap", "resize_handles_along_wall_axis"],
         defaultConfig: { width: 40, doorType: 'single', doorMat: 'wood', facing: 1, side: 1 },
         render2D: (group, entity) => {
-            const hw = entity.width / 2; const thick = entity.wall.config.thickness;
+            const hw = entity.width / 2; const thick = entity.wall.thickness || entity.wall.config.thickness;
             if (entity.doorType === 'single') {
                 const hingeX = (entity.side === 1) ? hw : -hw; const arcRot = (entity.side === 1) ? ((entity.facing === 1) ? 180 : 90) : ((entity.facing === 1) ? 270 : 0); 
                 group.add(new Konva.Arc({ x: hingeX, y: 0, innerRadius: entity.width, outerRadius: entity.width, angle: 90, stroke: '#9ca3af', dash: [4, 4], rotation: arcRot }), new Konva.Line({ points: [hingeX, 0, hingeX, -entity.width * entity.facing], stroke: '#374151', strokeWidth: 3 })); 
@@ -337,7 +337,7 @@ export const WIDGET_REGISTRY = {
         events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "jump_wall_to_wall", "prevent_overlap", "resize_handles_along_wall_axis"],
         defaultConfig: { width: 50, windowType: 'sliding_std', frameMat: 'alum_powder', glassMat: 'clear', grillePattern: 'grid', facing: 1, side: 1 },
         render2D: (group, entity) => {
-            const hw = entity.width / 2; const thick = entity.wall.config.thickness; const wConf = WINDOW_TYPES[entity.windowType] || WINDOW_TYPES.sliding_std;
+            const hw = entity.width / 2; const thick = entity.wall.thickness || entity.wall.config.thickness; const wConf = WINDOW_TYPES[entity.windowType] || WINDOW_TYPES.sliding_std;
             if (wConf.type === 'fixed' || wConf.type === 'louver') { group.add(new Konva.Rect({ fill: '#bae6fd', opacity: 0.6, stroke: '#38bdf8', strokeWidth: 1, width: entity.width - 8, height: thick * 0.4, x: -hw + 4, y: -thick * 0.2 })); } 
             else if (wConf.type === 'sliding') { const off = thick * 0.2; group.add(new Konva.Line({ points: [-hw, -off, 0, -off], stroke: '#38bdf8', strokeWidth: 2 }), new Konva.Line({ points: [0, off, hw, off], stroke: '#38bdf8', strokeWidth: 2 })); } 
             else if (wConf.type === 'casement' || wConf.type === 'traditional') { const hingeX = (entity.side === 1) ? hw : -hw, arcRot = (entity.side === 1) ? ((entity.facing === 1) ? 180 : 90) : ((entity.facing === 1) ? 270 : 0); group.add(new Konva.Arc({ x: hingeX, y: 0, innerRadius: entity.width, outerRadius: entity.width, angle: 60, stroke: '#9ca3af', dash: [4, 4], rotation: arcRot }), new Konva.Line({ points: [hingeX, 0, hingeX, -entity.width * 0.8 * entity.facing], stroke: '#38bdf8', strokeWidth: 2 })); }
