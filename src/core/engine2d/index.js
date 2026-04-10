@@ -17,7 +17,7 @@ export class PremiumBalcony {}
 
 export class FloorPlanner {
     constructor(containerEl) { 
-        this.container = containerEl; this.tool = "outer"; this.currentUnit = "ft"; this.drawing = false; this.lastAnchor = null; this.startAnchor = null; this.drawingStair = null; this.preview = null;
+        this.container = containerEl; this.tool = "select"; this.currentUnit = "ft"; this.drawing = false; this.lastAnchor = null; this.startAnchor = null; this.drawingStair = null; this.preview = null;
         this.activeCategory = 'tools';
         this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
         this.onSelectionChange = null; 
@@ -247,6 +247,7 @@ export class FloorPlanner {
 
         this.walls.push(new PremiumWall(this, a1, a2, 'outer'), new PremiumWall(this, a2, a3, 'outer'), new PremiumWall(this, a3, a4, 'outer'), new PremiumWall(this, a4, a1, 'outer'));
         this.syncAll();
+        this.updateToolStates();
     }
 
     getOrCreateAnchor(x, y) { let a = this.anchors.find(a => Math.hypot(a.x - x, a.y - y) < SNAP_DIST); if (a) return a; const newAnchor = new Anchor(this, x, y); this.anchors.push(newAnchor); return newAnchor; }
