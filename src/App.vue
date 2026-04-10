@@ -52,8 +52,9 @@
       </aside>
 
       <main class="canvas-container">
-        <div class="hint" v-show="viewMode === '2d' && activeTool !== 'roof'">SELECT mode: Click elements to edit. Trace Faded Fills from lower floors perfectly.</div>
+        <div class="hint" v-show="viewMode === '2d' && activeTool !== 'roof' && activeTool !== 'arc'">SELECT mode: Click elements to edit. Trace Faded Fills from lower floors perfectly.</div>
         <div class="hint" style="background: #f59e0b;" v-show="viewMode === '2d' && activeTool === 'roof'">ROOF mode: Click corners to draw a custom roof polygon. Click the start point to finish.</div>
+        <div class="hint" style="background: #8b5cf6;" v-show="viewMode === '2d' && activeTool === 'arc'">ARC mode: 1. Click Start Point  2. Click End Point  3. Move mouse to set Curvature & Click.</div>
         
         <div class="floating-env-toolbar" v-show="viewMode === '3d'">
             <div class="camera-controls">
@@ -326,7 +327,8 @@ const menuCategories = ref([
         id: 'walls', name: '🧱 Walls',
         tools: [
             { id: 'outer', name: 'Outer Wall' },
-            { id: 'inner', name: 'Inner Wall' }
+            { id: 'inner', name: 'Inner Wall' },
+            { id: 'arc', name: 'Curved Wall (Arc)' }
         ]
     },
     {

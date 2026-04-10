@@ -13,13 +13,116 @@ import { PremiumHipRoof } from '/src/core/engine2d/PremiumHipRoof.js';
 // Export the specific classes that App.vue needs to spawn items
 export { PremiumFurniture, PremiumHipRoof };
 
+export class PremiumArc {
+    constructor(planner, p1, p2, pos) {
+        this.planner = planner;
+        this.type = 'arc';
+        this.p1 = p1; 
+        this.p2 = p2;
+        this.pos = { x: pos.x, y: pos.y }; 
+        this.walls = [];
+        this.intermediateAnchors = [];
+        
+        this.group = new Konva.Group();
+        this.controlHandle = new Konva.Circle({
+            radius: 8, fill: '#38bdf8', stroke: 'white', strokeWidth: 2, draggable: true, visible: false
+        });
+        
+        this.controlHandle.on('mouseenter', () => { if(this.planner.tool === 'select') document.body.style.cursor = 'move'; });
+        this.controlHandle.on('mouseleave', () => document.body.style.cursor = 'default');
+        this.controlHandle.on('mousedown touchstart', (e) => { e.cancelBubble = true; this.planner.selectEntity(this, 'arc'); });
+        this.controlHandle.on('dragmove', (e) => {
+            e.cancelBubble = true;
+            this.pos = this.controlHandle.position();
+            this.rebuild();
+            this.planner.syncAll();
+        });
+        this.controlHandle.on('dragend', (e) => {
+            e.cancelBubble = true;
+            this.planner.syncAll();
+        });
+        
+        this.group.add(this.controlHandle);
+        this.planner.uiLayer.add(this.group);
+        
+        this.rebuild();
+    }
+    
+    setHighlight(isActive) {
+        this.controlHandle.visible(isActive);
+        if (isActive) {
+            this.controlHandle.position(this.pos);
+            this.controlHandle.moveToTop();
+        }
+        this.walls.forEach(w => w.poly.stroke(isActive ? '#3b82f6' : w.strokeColor));
+        this.planner.stage.batchDraw();
+    }
+
+    rebuild() {
+        this.walls.forEach(w => { w.wallGroup.destroy(); w.labelGroup.destroy(); this.planner.walls = this.planner.walls.filter(existing => existing !== w); });
+        this.intermediateAnchors.forEach(a => { a.node.destroy(); this.planner.anchors = this.planner.anchors.filter(existing => existing !== a); });
+        this.walls = []; this.intermediateAnchors = [];
+
+        const p1 = this.p1.position(), p2 = this.p2.position();
+        const dx = p2.x - p1.x, dy = p2.y - p1.y, L = Math.hypot(dx, dy);
+        if (L < 0.5) return;
+        
+        const mid = { x: p1.x + dx/2, y: p1.y + dy/2 }, n = { x: -dy/L, y: dx/L };
+        let h = (this.pos.x - mid.x)*n.x + (this.pos.y - mid.y)*n.y;
+        if (Math.abs(Math.abs(h) - L/2) < SNAP_DIST) { h = Math.sign(h) * (L/2); }
+        if (Math.abs(h) < 0.1) h = Math.sign(h) * 0.1 || 0.1;
+        
+        this.pos = { x: mid.x + n.x * h, y: mid.y + n.y * h };
+        this.controlHandle.position(this.pos);
+        
+        const R = Math.abs(h/2 + (L*L)/(8*h)), dC = (L*L)/(8*h) - h/2;
+        const center = { x: mid.x - n.x * dC, y: mid.y - n.y * dC };
+        const sAng = Math.atan2(p1.y - center.y, p1.x - center.x), eAng = Math.atan2(p2.y - center.y, p2.x - center.x);
+        const ccw = h < 0;
+        let sweep = eAng - sAng;
+        if (ccw) { while(sweep > 0) sweep -= Math.PI * 2; } else { while(sweep < 0) sweep += Math.PI * 2; }
+        
+        const arcLen = Math.abs(sweep) * R;
+        let segments = Math.max(6, Math.min(48, Math.floor(arcLen / 15))), prevAnchor = this.p1;
+        
+        for (let i = 1; i <= segments; i++) {
+            const t = i / segments, cAng = sAng + sweep * t;
+            const x = center.x + R * Math.cos(cAng), y = center.y + R * Math.sin(cAng);
+            
+            let currentAnchor;
+            if (i === segments) { currentAnchor = this.p2; } 
+            else { currentAnchor = new Anchor(this.planner, x, y); currentAnchor.isArcIntermediate = true; currentAnchor.hide(); this.planner.anchors.push(currentAnchor); this.intermediateAnchors.push(currentAnchor); }
+            
+            if (prevAnchor !== currentAnchor) {
+                if (Math.hypot(currentAnchor.x - prevAnchor.x, currentAnchor.y - prevAnchor.y) > 1.0) {
+                    const newWall = new PremiumWall(this.planner, prevAnchor, currentAnchor, 'outer');
+                    newWall.parentArc = this; newWall.labelGroup.visible(false);
+                    newWall.poly.off('mousedown touchstart');
+                    newWall.poly.on('mousedown touchstart', (e) => { if (this.planner.tool === 'select') { e.cancelBubble = true; this.planner.selectEntity(this, 'arc'); } });
+                    newWall.poly.draggable(false); newWall.poly.on('dragstart dragmove dragend', (e) => e.cancelBubble = true);
+                    this.walls.push(newWall); this.planner.walls.push(newWall); prevAnchor = currentAnchor;
+                } else if (i === segments && this.walls.length > 0) { this.walls[this.walls.length - 1].endAnchor = currentAnchor; }
+            }
+        }
+        this.lastP1 = { ...p1 }; this.lastP2 = { ...p2 };
+        
+        if (this.planner.selectedEntity === this) {
+            this.walls.forEach(w => w.poly.stroke('#3b82f6'));
+        }
+    }
+    
+    update() { const p1 = this.p1.position(), p2 = this.p2.position(); if (!this.lastP1 || !this.lastP2 || this.lastP1.x !== p1.x || this.lastP1.y !== p1.y || this.lastP2.x !== p2.x || this.lastP2.y !== p2.y) this.rebuild(); }
+    
+    remove() { this.walls.forEach(w => { w.wallGroup.destroy(); w.labelGroup.destroy(); this.planner.walls = this.planner.walls.filter(existing => existing !== w); }); this.intermediateAnchors.forEach(a => { a.node.destroy(); this.planner.anchors = this.planner.anchors.filter(existing => existing !== a); }); this.group.destroy(); this.planner.arcs = (this.planner.arcs || []).filter(a => a !== this); this.planner.selectEntity(null); this.planner.syncAll(); }
+}
+
 export class PremiumBalcony {}
 
 export class FloorPlanner {
     constructor(containerEl) { 
         this.container = containerEl; this.tool = "select"; this.currentUnit = "ft"; this.drawing = false; this.lastAnchor = null; this.startAnchor = null; this.drawingStair = null; this.preview = null;
         this.activeCategory = 'tools';
-        this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
+        this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.arcs = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
         this.onSelectionChange = null; 
         this.initKonva(); this.drawGrid(); this.initHUD(); this.initStageEvents(); 
     }
@@ -157,10 +260,11 @@ export class FloorPlanner {
         if (this.selectedEntity && this.selectedType === 'furniture') this.selectedEntity.setHighlight(false);
         if (this.selectedEntity && this.selectedType === 'roof') this.selectedEntity.setHighlight(false);
         if (this.selectedEntity && this.selectedType === 'balcony') this.selectedEntity.setHighlight(false);
+        if (this.selectedEntity && this.selectedType === 'arc') this.selectedEntity.setHighlight(false);
         
         this.selectedEntity = entity; this.selectedType = type; this.selectedNodeIndex = nodeIndex;
         
-        if (entity && (type === 'wall' || type === 'stair' || type === 'stair_node' || type === 'furniture' || type === 'roof' || type === 'balcony')) entity.setHighlight(true);
+        if (entity && (type === 'wall' || type === 'stair' || type === 'stair_node' || type === 'furniture' || type === 'roof' || type === 'balcony' || type === 'arc')) entity.setHighlight(true);
         
         this.syncAll();
 
@@ -259,12 +363,19 @@ export class FloorPlanner {
         this.furniture.forEach(f => f.update()); 
         this.roofs.forEach(r => r.update()); 
         if(this.balconies) this.balconies.forEach(b => b.update()); 
+        if(this.arcs) this.arcs.forEach(a => a.update());
         
         this.anchors.forEach(a => {
+            if (a.isArcIntermediate) {
+                a.hide();
+                return;
+            }
             let connectedCount = this.walls.filter(w => w.startAnchor === a || w.endAnchor === a).length;
             if (connectedCount >= 2) {
                 a.show();
             } else if (this.selectedEntity && this.selectedType === 'wall' && (this.selectedEntity.startAnchor === a || this.selectedEntity.endAnchor === a)) {
+                a.show();
+            } else if (this.selectedEntity && this.selectedType === 'arc' && (this.selectedEntity.p1 === a || this.selectedEntity.p2 === a)) {
                 a.show();
             } else if (this.drawing && (this.startAnchor === a || this.lastAnchor === a)) {
                 a.show();
@@ -308,6 +419,7 @@ export class FloorPlanner {
     finishChain() { 
         if (this.drawingStair) { this.drawingStair.finishDrawing(); this.drawingStair = null; } 
         if (this.drawingRoofPoints) { this.drawingRoofPoints = null; if (this.roofPreview) { this.roofPreview.destroy(); this.roofPreview = null; } }
+        if (this.drawingArc) { this.drawingArc = null; if (this.arcPreview) { this.arcPreview.destroy(); this.arcPreview = null; } }
         this.drawing = false; this.lastAnchor = null; this.startAnchor = null; 
         this.preview?.destroy(); this.preview = null; 
         this.hideSnapGlow(); this.drawGuideLine(0,0,0,0, false); this.hideInfoBadge(); 
@@ -333,6 +445,64 @@ export class FloorPlanner {
             let targetPos = { x: this.snap(pos.x), y: this.snap(pos.y) }; 
 
             if (this.tool === 'stair') { if (!this.drawingStair) { this.drawingStair = new PremiumStair(this, targetPos.x, targetPos.y); this.stairs.push(this.drawingStair); } else { this.drawingStair.addPoint(targetPos.x, targetPos.y); } this.syncAll(); return; }
+            
+            if (this.tool === 'arc') {
+                let snap = targetPos;
+                let closestDist = SNAP_DIST;
+                
+                let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < closestDist);
+                if (a) { snap = { x: a.x, y: a.y }; closestDist = Math.hypot(a.x - pos.x, a.y - pos.y); }
+
+                for (let w of this.walls) {
+                    let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position());
+                    let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                    if (dist < closestDist) { closestDist = dist; snap = proj; }
+                }
+                
+                if (this.drawingArc && this.arcMousePos) {
+                    snap = this.arcMousePos;
+                }
+
+                if (!this.drawingArc) {
+                    this.drawingArc = { p1: snap, p2: null, state: 1 };
+                    this.arcMousePos = snap;
+                    
+                    this.arcPreview = new Konva.Group();
+                    this.arcPreview.ghostCircle = new Konva.Circle({ stroke: '#cbd5e1', dash: [4,4], strokeWidth: 1, listening: false });
+                    this.arcPreview.angleFill = new Konva.Shape({ fill: 'rgba(59, 130, 246, 0.15)', listening: false });
+                    this.arcPreview.radiusLines = new Konva.Line({ stroke: '#9ca3af', dash: [4,4], strokeWidth: 1, listening: false });
+                    this.arcPreview.lineBase = new Konva.Line({ stroke: '#9ca3af', dash: [5,5], strokeWidth: 2, listening: false });
+                    this.arcPreview.guideLine = new Konva.Line({ stroke: '#38bdf8', dash: [4,4], strokeWidth: 1, listening: false });
+                    this.arcPreview.arcCurve = new Konva.Shape({ stroke: '#3b82f6', strokeWidth: 4, listening: false });
+                    this.arcPreview.dragDot = new Konva.Circle({ radius: 6, fill: '#38bdf8', stroke: 'white', strokeWidth: 2, listening: false });
+
+                    this.arcPreview.add(this.arcPreview.ghostCircle, this.arcPreview.angleFill, this.arcPreview.radiusLines, this.arcPreview.lineBase, this.arcPreview.guideLine, this.arcPreview.arcCurve, this.arcPreview.dragDot);
+                    this.uiLayer.add(this.arcPreview);
+                } else if (this.drawingArc.state === 1) {
+                    if (Math.hypot(snap.x - this.drawingArc.p1.x, snap.y - this.drawingArc.p1.y) > 5) {
+                        this.drawingArc.p2 = snap;
+                        this.drawingArc.state = 2;
+                        
+                        const dx = snap.x - this.drawingArc.p1.x;
+                        const dy = snap.y - this.drawingArc.p1.y;
+                        const L = Math.hypot(dx, dy), n = { x: -dy/L, y: dx/L };
+                        this.arcMousePos = { x: this.drawingArc.p1.x + dx/2 + n.x * (L/4), y: this.drawingArc.p1.y + dy/2 + n.y * (L/4) };
+                        this.uiLayer.batchDraw();
+                    }
+                } else if (this.drawingArc.state === 2) {
+                    if (!this.arcs) this.arcs = [];
+                    const a1 = this.getOrCreateAnchor(this.drawingArc.p1.x, this.drawingArc.p1.y);
+                    const a2 = this.getOrCreateAnchor(this.drawingArc.p2.x, this.drawingArc.p2.y);
+                    const newArc = new PremiumArc(this, a1, a2, snap);
+                    this.arcs.push(newArc);
+                    this.finishChain();
+                    this.tool = 'select'; this.updateToolStates();
+                    if (this.onToolChange) this.onToolChange('select');
+                    this.selectEntity(newArc, 'arc');
+                    this.syncAll();
+                }
+                return;
+            }
             if (!wallConfig) return; 
 
             let targetSnapWall = null; 
@@ -364,6 +534,102 @@ export class FloorPlanner {
             let rawPos = { x: this.snap(pos.x), y: this.snap(pos.y) }; 
             
             if (this.drawingStair) { this.drawingStair.updateLastPoint(rawPos.x, rawPos.y); return; }
+            
+            if (this.tool === 'arc') {
+                let snap = rawPos;
+                let closestDist = SNAP_DIST;
+                let snappedObj = false;
+                let targetSnapWall = null;
+
+                let snappedToAxis = false;
+                if (this.drawingArc && this.drawingArc.state === 1) {
+                    const p1 = this.drawingArc.p1;
+                    let dxAxis = rawPos.x - p1.x, dyAxis = rawPos.y - p1.y;
+                    let rawAngle = Math.atan2(dyAxis, dxAxis) * 180 / Math.PI;
+                    let distAxis = Math.hypot(dxAxis, dyAxis);
+                    for (let a of [0, 45, 90, 135, 180, -45, -90, -135, -180]) {
+                        if (Math.abs(rawAngle - a) < 5) { 
+                            let rad = a * Math.PI / 180; 
+                            rawPos.x = p1.x + distAxis * Math.cos(rad); 
+                            rawPos.y = p1.y + distAxis * Math.sin(rad); 
+                            snappedToAxis = true; 
+                            this.drawGuideLine(p1.x, p1.y, rawPos.x, rawPos.y, true); 
+                            break; 
+                        }
+                    }
+                    if (!snappedToAxis) this.drawGuideLine(0,0,0,0, false);
+                    snap = rawPos;
+                }
+
+                let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < closestDist);
+                if (a) { snap = { x: a.x, y: a.y }; closestDist = Math.hypot(a.x - pos.x, a.y - pos.y); snappedObj = true; }
+
+                for (let w of this.walls) {
+                    let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position());
+                    let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                    if (dist < closestDist) { closestDist = dist; snap = proj; snappedObj = true; targetSnapWall = w; }
+                }
+
+                if (snappedObj && (!this.drawingArc || this.drawingArc.state === 1)) {
+                    this.showSnapGlow(snap.x, snap.y);
+                } else {
+                    this.hideSnapGlow();
+                }
+                
+                this.walls.forEach(w => w.setHighlight(w === targetSnapWall || w === this.selectedEntity));
+                
+                this.arcMousePos = (this.drawingArc && this.drawingArc.state === 2) ? pos : snap;
+                
+                if (this.drawingArc && this.arcPreview) {
+                    if (this.drawingArc.state === 1) {
+                        this.arcPreview.lineBase.points([this.drawingArc.p1.x, this.drawingArc.p1.y, snap.x, snap.y]);
+                        this.arcPreview.lineBase.visible(true);
+                        this.arcPreview.ghostCircle.visible(false);
+                        this.arcPreview.angleFill.visible(false);
+                        this.arcPreview.radiusLines.visible(false);
+                        this.arcPreview.guideLine.visible(false);
+                        this.arcPreview.arcCurve.visible(false);
+                        this.arcPreview.dragDot.visible(false);
+                        
+                        let dxBadge = snap.x - this.drawingArc.p1.x, dyBadge = snap.y - this.drawingArc.p1.y;
+                        let lenBadge = this.formatLength(Math.hypot(dxBadge, dyBadge));
+                        let angBadge = Math.abs(Math.atan2(dyBadge, dxBadge) * 180 / Math.PI).toFixed(1);
+                        this.updateInfoBadge(snap.x, snap.y, lenBadge, angBadge, snappedObj);
+                    } else if (this.drawingArc.state === 2) {
+                        const p1 = this.drawingArc.p1, p2 = this.drawingArc.p2, posCurve = this.arcMousePos;
+                        const dx = p2.x - p1.x, dy = p2.y - p1.y, L = Math.hypot(dx, dy);
+                        if (L >= 0.5) {
+                            const mid = { x: p1.x + dx/2, y: p1.y + dy/2 }, n = { x: -dy/L, y: dx/L };
+                            let h = (posCurve.x - mid.x)*n.x + (posCurve.y - mid.y)*n.y;
+                            if (Math.abs(Math.abs(h) - L/2) < SNAP_DIST) { h = Math.sign(h) * (L/2); }
+                            if (Math.abs(h) < 0.1) h = Math.sign(h) * 0.1 || 0.1;
+                            
+                            const R = Math.abs(h/2 + (L*L)/(8*h)), dC = (L*L)/(8*h) - h/2;
+                            const center = { x: mid.x - n.x * dC, y: mid.y - n.y * dC };
+                            const sAng = Math.atan2(p1.y - center.y, p1.x - center.x), eAng = Math.atan2(p2.y - center.y, p2.x - center.x), ccw = h < 0;
+                            
+                            this.arcPreview.lineBase.points([p1.x, p1.y, p2.x, p2.y]);
+                            this.arcPreview.lineBase.visible(true);
+                            this.arcPreview.ghostCircle.setAttrs({ x: center.x, y: center.y, radius: R, visible: true });
+                            this.arcPreview.arcCurve.sceneFunc((ctx, shape) => { ctx.beginPath(); ctx.arc(center.x, center.y, R, sAng, eAng, ccw); ctx.strokeShape(shape); });
+                            this.arcPreview.arcCurve.visible(true);
+                            this.arcPreview.radiusLines.points([p1.x, p1.y, center.x, center.y, p2.x, p2.y]);
+                            this.arcPreview.radiusLines.visible(true);
+                            const curveMidX = mid.x + n.x * h, curveMidY = mid.y + n.y * h;
+                            this.arcPreview.guideLine.points([mid.x, mid.y, curveMidX, curveMidY]);
+                            this.arcPreview.guideLine.visible(true);
+                            this.arcPreview.dragDot.position({ x: curveMidX, y: curveMidY });
+                            this.arcPreview.dragDot.visible(true);
+                            
+                            this.updateInfoBadge(posCurve.x, posCurve.y + 30, "Move mouse to form curve", "", false);
+                        }
+                    }
+                    this.uiLayer.batchDraw();
+                }
+                
+                document.body.style.cursor = 'crosshair';
+                return;
+            }
             const wallConfig = WALL_REGISTRY[this.tool]; 
             
             let dxAxis = rawPos.x - (this.lastAnchor?.x || 0), dyAxis = rawPos.y - (this.lastAnchor?.y || 0), rawAngle = Math.atan2(dyAxis, dxAxis) * 180 / Math.PI, distAxis = Math.hypot(dxAxis, dyAxis), snappedToAxis = false;
@@ -552,13 +818,13 @@ export class FloorPlanner {
         const edges = [];
         
         const isPointOnSegment = (p, p1, p2) => {
+            const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+            if (len < 0.5) return false;
             const crossProduct = (p.y - p1.y) * (p2.x - p1.x) - (p.x - p1.x) * (p2.y - p1.y);
-            const dist = Math.abs(crossProduct) / Math.hypot(p2.x - p1.x, p2.y - p1.y);
-            if (dist > 1.0) return false;
+            const dist = Math.abs(crossProduct) / len;
+            if (dist > 0.5) return false; // Tighten cross-axis tolerance
             const dotProduct = (p.x - p1.x) * (p2.x - p1.x) + (p.y - p1.y) * (p2.y - p1.y);
-            if (dotProduct < 0) return false;
-            const squaredLengthBA = (p2.x - p1.x)*(p2.x - p1.x) + (p2.y - p1.y)*(p2.y - p1.y);
-            if (dotProduct > squaredLengthBA) return false;
+            if (dotProduct < 0.1 || dotProduct > len * len - 0.1) return false; // Strictly inside endpoints
             return true;
         };
 
@@ -575,10 +841,24 @@ export class FloorPlanner {
             pointsOnWall.sort((a, b) => {
                 return Math.hypot(a.x - p1.x, a.y - p1.y) - Math.hypot(b.x - p1.x, b.y - p1.y);
             });
-            const segments = [p1, ...pointsOnWall, p2];
-            for (let i = 0; i < segments.length - 1; i++) {
-                edges.push({ from: segments[i], to: segments[i+1], wall: w });
-                edges.push({ from: segments[i+1], to: segments[i], wall: w });
+            
+            const uniquePoints = [p1];
+            pointsOnWall.forEach(pt => {
+                const last = uniquePoints[uniquePoints.length - 1];
+                if (Math.hypot(pt.x - last.x, pt.y - last.y) > 0.5) {
+                    uniquePoints.push(pt);
+                }
+            });
+            
+            if (Math.hypot(p2.x - uniquePoints[uniquePoints.length - 1].x, p2.y - uniquePoints[uniquePoints.length - 1].y) > 0.5) {
+                uniquePoints.push(p2);
+            } else {
+                uniquePoints[uniquePoints.length - 1] = p2;
+            }
+
+            for (let i = 0; i < uniquePoints.length - 1; i++) {
+                edges.push({ from: uniquePoints[i], to: uniquePoints[i+1], wall: w });
+                edges.push({ from: uniquePoints[i+1], to: uniquePoints[i], wall: w });
             }
         });
 
@@ -631,7 +911,8 @@ export class FloorPlanner {
                     const p2 = face[i].to;
                     area += (p2.x - p1.x) * (p2.y + p1.y);
                 }
-                if (area < 0) {
+                // Reject mathematically impossible slivers and the infinite outer boundary
+                if (area < -50) {
                     faces.push(face);
                 }
             }
@@ -686,7 +967,8 @@ export class FloorPlanner {
     clearAll() {
         [...this.walls].forEach(w => w.remove()); [...this.furniture].forEach(f => f.remove()); [...this.stairs].forEach(s => s.remove()); [...this.roofs].forEach(r => r.remove()); 
         if (this.balconies) [...this.balconies].forEach(b => b.remove());
-        this.walls = []; this.furniture = []; this.stairs = []; this.roofs = []; this.balconies = []; this.roomPaths = [];
+        if (this.arcs) [...this.arcs].forEach(a => a.remove());
+        this.walls = []; this.furniture = []; this.stairs = []; this.roofs = []; this.balconies = []; this.arcs = []; this.roomPaths = [];
         this.anchors.forEach(a => { if(a.node) a.node.destroy(); }); this.anchors = [];
         if (this.wallLayer) this.wallLayer.destroyChildren(); if (this.furnitureLayer) this.furnitureLayer.destroyChildren(); if (this.widgetLayer) this.widgetLayer.destroyChildren(); if (this.roofLayer) this.roofLayer.destroyChildren();
         if (this.mainLayer) this.mainLayer.batchDraw();
@@ -694,8 +976,9 @@ export class FloorPlanner {
     }
 
     exportState() {
+        const standardWalls = this.walls.filter(w => !w.parentArc);
         const state = {
-            walls: this.walls.map(w => ({
+            walls: standardWalls.map(w => ({
                 startX: w.startAnchor.x, startY: w.startAnchor.y, endX: w.endAnchor.x, endY: w.endAnchor.y, thickness: w.thickness || w.config.thickness, height: w.height !== undefined ? w.height : (w.config?.height || 120), type: w.type, configId: w.configId,
                 pts: w.poly ? w.poly.points() : null,
                 widgets: w.attachedWidgets.map(wid => ({ t: wid.t, configId: wid.type, width: wid.width })),
@@ -704,6 +987,7 @@ export class FloorPlanner {
             furniture: this.furniture.map(f => ({ x: f.group.x(), y: f.group.y(), rotation: f.rotation, width: f.width, depth: f.depth, height: f.height, configId: f.config.id })),
             stairs: this.stairs.map(s => ({ path: s.path.map(p => ({ x: p.x, y: p.y, shape: p.shape })) })),
             roofs: this.roofs.map(r => ({ x: r.group.x(), y: r.group.y(), rotation: r.rotation, width: r.config?.width, depth: r.config?.depth, pitch: r.config?.pitch, overhang: r.config?.overhang, thickness: r.config?.thickness, ridgeOffset: r.config?.ridgeOffset, points: r.points, isHip: !!r.points, roofType: r.config?.roofType, material: r.config?.material, wallGap: r.config?.wallGap })),
+            arcs: this.arcs ? this.arcs.map(a => ({ p1: {x: a.p1.x, y: a.p1.y}, p2: {x: a.p2.x, y: a.p2.y}, pos: a.pos })) : [],
             rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, configId: r.configId })) : [],
             roomPaths: this.roomPaths ? this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y }))) : []
         };
@@ -756,6 +1040,15 @@ export class FloorPlanner {
                     if(rData.rotation) roof.rotation = rData.rotation;
                     if(roof.config) { roof.config.pitch = rData.pitch; roof.config.overhang = rData.overhang; roof.config.thickness = rData.thickness; roof.config.ridgeOffset = rData.ridgeOffset; roof.config.roofType = rData.roofType || 'hip'; roof.config.material = rData.material || 'asphalt_shingles'; roof.config.wallGap = rData.wallGap || 0; }
                     roof.update(); this.roofs.push(roof);
+                });
+            }
+            if (state.arcs) {
+                if (!this.arcs) this.arcs = [];
+                state.arcs.forEach(aData => {
+                    const a1 = this.getOrCreateAnchor(aData.p1.x, aData.p1.y);
+                    const a2 = this.getOrCreateAnchor(aData.p2.x, aData.p2.y);
+                    const arc = new PremiumArc(this, a1, a2, aData.pos);
+                    this.arcs.push(arc);
                 });
             }
             this.syncAll();
