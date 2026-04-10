@@ -40,14 +40,22 @@ export class PremiumWall {
     hasEvent(eventName) { return this.config.events.includes(eventName); }
     getLength() { const p1 = this.startAnchor.position(), p2 = this.endAnchor.position(); return Math.hypot(p2.x - p1.x, p2.y - p1.y); }
     setHighlight(isActive) { 
+        const getBaseColor = (w) => {
+            if (w.type === 'railing') {
+                const rConf = RAILING_REGISTRY[w.configId || 'rail_1'];
+                return rConf && rConf.color ? '#' + rConf.color.toString(16).padStart(6, '0') : w.strokeColor;
+            }
+            return w.strokeColor;
+        };
+
         if (this.parentArc && this.type === 'railing') {
             this.parentArc.walls.filter(w => w.type === 'railing').forEach(w => {
-                w.poly.stroke(isActive ? "#4f46e5" : w.strokeColor);
+                w.poly.stroke(isActive ? "#4f46e5" : getBaseColor(w));
             });
             this.planner.stage.batchDraw();
             return;
         }
-        this.poly.stroke(isActive ? "#4f46e5" : (this.planner.selectedEntity === this ? "#4f46e5" : this.strokeColor)); this.planner.stage.batchDraw(); 
+        this.poly.stroke(isActive ? "#4f46e5" : (this.planner.selectedEntity === this ? "#4f46e5" : getBaseColor(this))); this.planner.stage.batchDraw(); 
     }
     
     initEvents() { 
@@ -129,7 +137,8 @@ export class PremiumWall {
                     w.thickness = this.thickness;
                     w.height = this.height;
                     const rConf = RAILING_REGISTRY[w.configId || 'rail_1'];
-                    if (rConf && rConf.color) w.poly.fill('#' + rConf.color.toString(16).padStart(6, '0'));
+                    if (rConf && rConf.color) w.poly.stroke('#' + rConf.color.toString(16).padStart(6, '0'));
+                    else w.poly.stroke(w.strokeColor);
                 }
             });
         }
