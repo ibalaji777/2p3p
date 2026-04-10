@@ -783,12 +783,12 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 /* DOCKED RIGHT SIDEBAR */
 .left-sidebar {
     width: 260px; background: #ffffff; border-right: 1px solid #e5e7eb;
-    display: flex; flex-direction: column; height: 100%; overflow-y: auto;
+    display: flex; flex-direction: column; height: 100%; overflow: hidden;
 }
 .sidebar-header { padding: 15px; background: #f8fafc; border-bottom: 1px solid #e5e7eb; }
 .sidebar-header h3 { margin: 0; font-size: 15px; color: #1f2937; }
-.sidebar-cards { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; background: #f1f5f9; }
-.parent-card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; transition: 0.2s; }
+.sidebar-cards { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; background: #f1f5f9; min-height: 0; }
+.parent-card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; transition: 0.2s; flex-shrink: 0; }
 .parent-card.active { border-color: #3b82f6; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15); }
 .parent-card-header {
     padding: 12px 15px; cursor: pointer; background: #ffffff; display: flex; align-items: center; justify-content: space-between;
