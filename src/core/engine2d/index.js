@@ -22,6 +22,8 @@ export class PremiumArc {
         this.pos = { x: pos.x, y: pos.y }; 
         this.walls = [];
         this.intermediateAnchors = [];
+        this.hasRailing = false;
+        this.railingConfig = { configId: 'rail_1', thickness: 4, height: undefined };
         
         this.group = new Konva.Group();
         this.controlHandle = new Konva.Circle({
@@ -100,8 +102,36 @@ export class PremiumArc {
                     newWall.poly.off('mousedown touchstart');
                     newWall.poly.on('mousedown touchstart', (e) => { if (this.planner.tool === 'select') { e.cancelBubble = true; this.planner.selectEntity(this, 'arc'); } });
                     newWall.poly.draggable(false); newWall.poly.on('dragstart dragmove dragend', (e) => e.cancelBubble = true);
-                    this.walls.push(newWall); this.planner.walls.push(newWall); prevAnchor = currentAnchor;
-                } else if (i === segments && this.walls.length > 0) { this.walls[this.walls.length - 1].endAnchor = currentAnchor; }
+                    this.walls.push(newWall); this.planner.walls.push(newWall);
+                    
+                    // Auto-generate linked railing if enabled
+                    if (this.hasRailing) {
+                        const r = new PremiumWall(this.planner, prevAnchor, currentAnchor, 'railing');
+                        r.parentArc = this; r.labelGroup.visible(false);
+                        r.configId = this.railingConfig.configId;
+                        if (this.railingConfig.thickness) r.thickness = this.railingConfig.thickness;
+                        if (this.railingConfig.height !== undefined) r.height = this.railingConfig.height;
+                        r.poly.off('mousedown touchstart');
+                        r.poly.on('mousedown touchstart', (e) => { 
+                            if (this.planner.tool === 'select') { 
+                                e.cancelBubble = true; 
+                                this.planner.selectEntity(r, 'wall'); 
+                            } 
+                        });
+                        r.poly.draggable(false); r.poly.on('dragstart dragmove dragend', (e) => e.cancelBubble = true);
+                        this.walls.push(r); this.planner.walls.push(r);
+                    }
+                    
+                    prevAnchor = currentAnchor;
+                    
+                } else if (i === segments && this.walls.length > 0) { 
+                    if (this.hasRailing && this.walls.length >= 2) {
+                        this.walls[this.walls.length - 1].endAnchor = currentAnchor; 
+                        this.walls[this.walls.length - 2].endAnchor = currentAnchor; 
+                    } else {
+                        this.walls[this.walls.length - 1].endAnchor = currentAnchor; 
+                    }
+                }
             }
         }
         this.lastP1 = { ...p1 }; this.lastP2 = { ...p2 };
@@ -514,9 +544,68 @@ export class FloorPlanner {
             
             if (this.drawing && wallConfig && wallConfig.events.includes("stop_collision") && this.checkWallIntersection(this.lastAnchor.position(), targetPos, [targetSnapWall])) return; 
             
+            
             const currentAnchor = this.getOrCreateAnchor(targetPos.x, targetPos.y); 
             if (!this.drawing) { this.drawing = true; this.lastAnchor = currentAnchor; this.startAnchor = currentAnchor; currentAnchor.show(); } 
-            else { if (this.lastAnchor !== currentAnchor) { this.walls.push(new PremiumWall(this, this.lastAnchor, currentAnchor, this.tool)); } if (currentAnchor === this.startAnchor) this.finishChain(); else { this.lastAnchor = currentAnchor; currentAnchor.show(); } } 
+            else { 
+                let reachedArcEnd = false;
+                let sharedArc = null;
+                if (this.lastAnchor !== currentAnchor) { 
+                    sharedArc = (this.arcs || []).find(arc => {
+                        let arcNodes = [arc.p1, ...arc.intermediateAnchors, arc.p2];
+                        return arcNodes.includes(this.lastAnchor) && arcNodes.includes(currentAnchor);
+                    });
+                    
+                    if (sharedArc) {
+                        let arcNodes = [sharedArc.p1, ...sharedArc.intermediateAnchors, sharedArc.p2];
+                        let i1 = arcNodes.indexOf(this.lastAnchor);
+                        let i2 = arcNodes.indexOf(currentAnchor);
+                        let step = i1 < i2 ? 1 : -1;
+                        
+                        let prev = arcNodes[i1];
+                        for(let i = i1 + step; i !== i2 + step; i += step) {
+                            let curr = arcNodes[i];
+                            const w = new PremiumWall(this, prev, curr, this.tool);
+                            if (this.tool === 'railing') {
+                                w.parentArc = sharedArc;
+                                w.labelGroup.visible(false);
+                                w.poly.off('mousedown touchstart');
+                                w.poly.on('mousedown touchstart', (e) => { 
+                                    if (this.tool === 'select') { 
+                                        e.cancelBubble = true; 
+                                        this.selectEntity(w, 'wall'); 
+                                    } 
+                                });
+                                w.poly.draggable(false); 
+                                w.poly.on('dragstart dragmove dragend', (e) => e.cancelBubble = true);
+                            }
+                            this.walls.push(w);
+                            prev = curr;
+                        }
+                        
+                        if (i2 === 0 || i2 === arcNodes.length - 1) reachedArcEnd = true;
+                        if (this.tool === 'railing' && ((i1 === 0 && i2 === arcNodes.length - 1) || (i2 === 0 && i1 === arcNodes.length - 1))) {
+                            sharedArc.hasRailing = true;
+                        }
+                    } else {
+                        this.walls.push(new PremiumWall(this, this.lastAnchor, currentAnchor, this.tool)); 
+                    }
+                } 
+                if (currentAnchor === this.startAnchor || reachedArcEnd) { 
+                    this.finishChain(); 
+                    if (reachedArcEnd && this.tool === 'railing') {
+                        this.tool = 'select'; this.updateToolStates();
+                        if (this.onToolChange) this.onToolChange('select');
+                        
+                        if (sharedArc) {
+                            const attachedRailing = this.walls.filter(w => w.type === 'railing' && w.parentArc === sharedArc);
+                            if (attachedRailing.length > 0) {
+                                this.selectEntity(attachedRailing[0], 'wall');
+                            }
+                        }
+                    }
+                } else { this.lastAnchor = currentAnchor; currentAnchor.show(); } 
+            } 
             this.syncAll(); 
         }); 
 
@@ -684,7 +773,13 @@ export class FloorPlanner {
 
             if (snappedObj) { this.showSnapGlow(snapPos.x, snapPos.y); } else { this.hideSnapGlow(); }
 
-            this.walls.forEach(w => w.setHighlight(w === targetSnapWall || w === this.selectedEntity));
+            this.walls.forEach(w => {
+                let isHigh = (w === this.selectedEntity);
+                if (!isHigh && w === targetSnapWall) {
+                    isHigh = true;
+                }
+                w.setHighlight(isHigh);
+            });
 
             if (!this.drawing) {
                 this.uiLayer.batchDraw();
@@ -697,7 +792,27 @@ export class FloorPlanner {
             this.preview?.destroy(); 
             const isClosing = (this.startAnchor && Math.hypot(this.startAnchor.x - snapPos.x, this.startAnchor.y - snapPos.y) < 15); 
             let drawColor = (isColliding && wallConfig && wallConfig.events.includes("stop_collision")) ? "#ef4444" : (isClosing ? "#10b981" : "#3b82f6"); 
-            this.preview = new Konva.Line({ points: [this.lastAnchor.x, this.lastAnchor.y, snapPos.x, snapPos.y], stroke: drawColor, strokeWidth: 2, opacity: 0.8 }); 
+            
+            let previewPoints = [this.lastAnchor.x, this.lastAnchor.y, snapPos.x, snapPos.y];
+            if (!isColliding && this.drawing && (this.tool === 'railing' || this.tool === 'outer' || this.tool === 'inner')) {
+                let a2 = this.anchors.find(a => Math.hypot(a.x - snapPos.x, a.y - snapPos.y) < 1);
+                if (a2) {
+                    let sharedArc = (this.arcs || []).find(arc => {
+                        let arcNodes = [arc.p1, ...arc.intermediateAnchors, arc.p2];
+                        return arcNodes.includes(this.lastAnchor) && arcNodes.includes(a2);
+                    });
+                    if (sharedArc) {
+                        let arcNodes = [sharedArc.p1, ...sharedArc.intermediateAnchors, sharedArc.p2];
+                        let i1 = arcNodes.indexOf(this.lastAnchor);
+                        let i2 = arcNodes.indexOf(a2);
+                        let step = i1 < i2 ? 1 : -1;
+                        previewPoints = [];
+                        for(let i = i1; i !== i2 + step; i += step) previewPoints.push(arcNodes[i].x, arcNodes[i].y);
+                    }
+                }
+            }
+            
+            this.preview = new Konva.Line({ points: previewPoints, stroke: drawColor, strokeWidth: 2, opacity: 0.8 }); 
             this.uiLayer.add(this.preview); 
             this.preview.moveToBottom();
             
@@ -987,7 +1102,7 @@ export class FloorPlanner {
             furniture: this.furniture.map(f => ({ x: f.group.x(), y: f.group.y(), rotation: f.rotation, width: f.width, depth: f.depth, height: f.height, configId: f.config.id })),
             stairs: this.stairs.map(s => ({ path: s.path.map(p => ({ x: p.x, y: p.y, shape: p.shape })) })),
             roofs: this.roofs.map(r => ({ x: r.group.x(), y: r.group.y(), rotation: r.rotation, width: r.config?.width, depth: r.config?.depth, pitch: r.config?.pitch, overhang: r.config?.overhang, thickness: r.config?.thickness, ridgeOffset: r.config?.ridgeOffset, points: r.points, isHip: !!r.points, roofType: r.config?.roofType, material: r.config?.material, wallGap: r.config?.wallGap })),
-            arcs: this.arcs ? this.arcs.map(a => ({ p1: {x: a.p1.x, y: a.p1.y}, p2: {x: a.p2.x, y: a.p2.y}, pos: a.pos })) : [],
+            arcs: this.arcs ? this.arcs.map(a => ({ p1: {x: a.p1.x, y: a.p1.y}, p2: {x: a.p2.x, y: a.p2.y}, pos: a.pos, hasRailing: a.hasRailing, railingConfig: a.railingConfig })) : [],
             rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, configId: r.configId })) : [],
             roomPaths: this.roomPaths ? this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y }))) : []
         };
@@ -1048,6 +1163,11 @@ export class FloorPlanner {
                     const a1 = this.getOrCreateAnchor(aData.p1.x, aData.p1.y);
                     const a2 = this.getOrCreateAnchor(aData.p2.x, aData.p2.y);
                     const arc = new PremiumArc(this, a1, a2, aData.pos);
+                    if (aData.hasRailing) {
+                        arc.hasRailing = true;
+                        if (aData.railingConfig) arc.railingConfig = aData.railingConfig;
+                        arc.rebuild();
+                    }
                     this.arcs.push(arc);
                 });
             }
