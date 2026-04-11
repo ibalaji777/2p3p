@@ -197,7 +197,12 @@ export class PremiumBalcony {
     initEvents() {
         this.group.on('mouseenter', () => { if (this.planner.tool === 'select') document.body.style.cursor = 'move'; });
         this.group.on('mouseleave', () => document.body.style.cursor = 'default');
-        this.group.on('mousedown', (e) => { if (this.planner.tool !== 'select') return; e.cancelBubble = true; this.planner.selectEntity(this, 'balcony'); });
+        this.group.on('mousedown touchstart', (e) => { 
+            if (this.planner.tool !== 'select') return; 
+            e.cancelBubble = true; 
+            if (e.evt) e.evt.stopPropagation();
+            this.planner.selectEntity(this, 'balcony'); 
+        });
 
         this.polygon.on('click tap', (e) => {
             if (this.planner.tool !== 'split') return;
@@ -254,7 +259,7 @@ export class PremiumBalcony {
             // Track "ghost" raw vertices to prevent the cursor from getting permanently stuck to the wall!
             const rawVertices = startVertices.map(v => ({ x: v.x + deltaX, y: v.y + deltaY }));
 
-            let minDist = 60; // Strong magnetic feel
+            let minDist = 20; // Reduced magnetic feel to prevent unexpected attachment
             let targetWall = null;
 
             let cx = 0, cy = 0;

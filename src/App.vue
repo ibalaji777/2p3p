@@ -52,16 +52,12 @@
       </aside>
 
       <main class="canvas-container">
-        <div class="hint" v-show="viewMode === '2d' && activeTool !== 'roof' && activeTool !== 'arc'">SELECT mode: Click elements to edit. Trace Faded Fills from lower floors perfectly.</div>
-        <div class="hint" style="background: #f59e0b;" v-show="viewMode === '2d' && activeTool === 'roof'">ROOF mode: Click corners to draw a custom roof polygon. Click the start point to finish.</div>
-        <div class="hint" style="background: #8b5cf6;" v-show="viewMode === '2d' && activeTool === 'arc'">ARC mode: 1. Click Start Point  2. Click End Point  3. Move mouse to set Curvature & Click.</div>
+        <div class="hint" :style="{ background: hintData.color }" v-show="viewMode === '2d'">{{ hintData.text }}</div>
         
         <div class="floating-env-toolbar" v-show="viewMode === '3d'">
             <div class="camera-controls">
-                <button class="env-icon-btn" @click="setCameraPreset('iso')" title="Isometric View">📷</button>
-            <button class="env-icon-btn" @click="setCameraPreset('top')" title="Top View">🔝</button>
-            <button class="env-icon-btn" @click="setCameraPreset('front')" title="Front View">⬆️</button>
-            <button class="env-icon-btn" @click="setCameraPreset('left')" title="Left View">⬅️</button>
+                <button class="env-icon-btn" @click="setCameraPreset('front')" title="Front View">⬆️</button>
+                <button class="env-icon-btn" @click="setCameraPreset('left')" title="Left View">⬅️</button>
                 <button class="env-icon-btn" @click="rotateCamera(-0.1)" title="Rotate Left">↺</button>
                 <button class="env-icon-btn" @click="rotateCamera(0.1)" title="Rotate Right">↻</button>
             </div>
@@ -230,6 +226,21 @@
                     <button class="hud-delete" @click="handleDelete">Delete Object</button>
                 </div>
 
+                <div v-else-if="selectedType === 'shape'">
+                    <h4 class="props-subtitle">{{ selectedEntity.type === 'shape_rect' ? 'Box' : selectedEntity.type === 'shape_circle' ? 'Cylinder' : 'Prism / Polygon' }} Properties</h4>
+                    <div class="control-group"><label>Rotation (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.rotation" min="0" max="360" @input="syncEngine"><input type="number" v-model.number="selectedEntity.rotation" @input="syncEngine"></div></div>
+                    <div class="control-group"><label>3D Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.params.height3D" min="10" max="1000" @input="syncEngine"><input type="number" v-model.number="selectedEntity.params.height3D" @input="syncEngine"></div></div>
+                    <div v-if="selectedEntity.type === 'shape_rect'">
+                        <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.params.width" min="10" max="1000" @input="syncEngine"><input type="number" v-model.number="selectedEntity.params.width" @input="syncEngine"></div></div>
+                        <div class="control-group"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.params.height" min="10" max="1000" @input="syncEngine"><input type="number" v-model.number="selectedEntity.params.height" @input="syncEngine"></div></div>
+                    </div>
+                    <div v-if="selectedEntity.type === 'shape_circle'">
+                        <div class="control-group"><label>Radius</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.params.radius" min="10" max="1000" @input="syncEngine"><input type="number" v-model.number="selectedEntity.params.radius" @input="syncEngine"></div></div>
+                    </div>
+                    <div class="control-group"><label>Color</label><div class="input-wrap"><input type="color" v-model="selectedEntity.params.fill" @input="syncEngine" style="width: 100%; padding: 0;"></div></div>
+                    <button class="hud-delete" @click="handleDelete">Delete Shape</button>
+                </div>
+
                 <div v-else-if="selectedType === 'furniture'">
                     <h4 class="props-subtitle">{{ selectedEntity.config?.name || 'Object' }}</h4>
                     <div class="control-group"><label>Rotation (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.rotation" min="0" max="360" @input="syncEngine"><input type="number" v-model.number="selectedEntity.rotation" @input="syncEngine"></div></div>
@@ -355,9 +366,18 @@ const menuCategories = ref([
         ]
     },
     {
+        id: 'shapes', name: '🔳 Shapes',
+        tools: [
+            { id: 'shape_rect', name: 'Box (Rectangle)' },
+            { id: 'shape_circle', name: 'Cylinder (Circle)' },
+            { id: 'shape_triangle', name: 'Prism (Polygon)' }
+        ]
+    },
+    {
         id: 'advanced', name: '⚙️ Advanced Tools',
         tools: [
-            { id: 'split_wall', name: 'Split Wall' }
+            { id: 'split', name: 'Split' },
+            { id: 'extender', name: 'Extender' }
         ]
     }
 ]);
@@ -395,6 +415,15 @@ const currentFaceDecors = computed(() => {
     const trigger = uiTrigger.value; 
     if (!selectedEntity.value || !selectedEntity.value.attachedDecor) return [];
     return selectedEntity.value.attachedDecor.filter(d => d.side === selectedWallSide.value);
+});
+
+const hintData = computed(() => {
+    if (activeTool.value === 'roof') return { text: 'ROOF mode: Click corners to draw a custom roof polygon. Click the start point to finish.', color: '#f59e0b' };
+    if (activeTool.value === 'arc') return { text: 'ARC mode: 1. Click Start Point  2. Click End Point  3. Move mouse to set Curvature & Click.', color: '#8b5cf6' };
+    if (activeTool.value === 'shape_rect') return { text: 'BOX: Click and drag to draw a box.', color: '#3b82f6' };
+    if (activeTool.value === 'shape_circle') return { text: 'CYLINDER: Click center and drag to define radius.', color: '#3b82f6' };
+    if (activeTool.value === 'shape_triangle') return { text: 'PRISM: Click 3 points on the grid to create a triangle.', color: '#3b82f6' };
+    return { text: 'SELECT mode: Click elements to edit. Trace Faded Fills from lower floors perfectly.', color: 'rgba(17, 24, 39, 0.9)' };
 });
 
 onMounted(() => {
@@ -458,7 +487,7 @@ const handleGlobalKeys = (e) => {
         if (e.key === 'Escape' && renderer3D.value) renderer3D.value.cancelRelocation();
     } else if (viewMode.value === '2d') {
         if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (selectedType.value === 'roof' || selectedType.value === 'furniture' || selectedType.value === 'widget') handleDelete();
+            if (selectedType.value === 'roof' || selectedType.value === 'furniture' || selectedType.value === 'widget' || selectedType.value === 'shape') handleDelete();
         }
         if (e.key === 'Escape') {
             setTool('select');
@@ -618,6 +647,8 @@ const syncEngine = () => {
         planner.value.syncAll();
     } else if (viewMode.value === '3d' && selectedType.value === 'furniture' && selectedEntity.value) {
         renderer3D.value.updateFurnitureLive(selectedEntity.value); 
+    } else if (viewMode.value === '3d' && selectedType.value === 'shape' && selectedEntity.value) {
+        renderer3D.value.updateShapeLive(selectedEntity.value);
     } else if (viewMode.value === '3d' && (selectedType.value === 'roof' || selectedType.value === 'room' || selectedType.value === 'wall' || selectedType.value === 'widget')) {
         refresh3DScene(true);
     }
@@ -654,6 +685,15 @@ const handleDelete = () => {
             selectedType.value = null;
             if (viewMode.value === '3d') refresh3DScene(true);
         } else if (selectedType.value === 'roof') {
+            selectedEntity.value.remove();
+            selectedEntity.value = null;
+            selectedType.value = null;
+            if (viewMode.value === '3d') refresh3DScene(true);
+        } else if (selectedType.value === 'shape') {
+            if (viewMode.value === '3d' && renderer3D.value.selectedObject?.userData.entity === selectedEntity.value) {
+                renderer3D.value.structureGroup.remove(renderer3D.value.selectedObject);
+                renderer3D.value.deselectObject();
+            }
             selectedEntity.value.remove();
             selectedEntity.value = null;
             selectedType.value = null;
@@ -702,7 +742,9 @@ const refresh3DScene = (preserveCamera = true) => {
             planner.value.rooms,
             planner.value.stairs,
             planner.value.furniture,
-            planner.value.roofs,            levelsJsonArray, 
+            planner.value.roofs,
+            planner.value.shapes,
+            levelsJsonArray, 
             activeLevelIndex.value, 
             viewMode3D.value, 
             preserveCamera

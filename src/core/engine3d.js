@@ -875,6 +875,60 @@ class EnvironmentBuilder {
             roof.mesh3D = roofGroup;
         });
     }
+
+    buildShapes(shapes) {
+        if (!shapes) return;
+        shapes.forEach(shape => {
+            const h = shape.params.height3D || 100;
+            let geo, mat;
+            const color = shape.params.fill ? parseInt(shape.params.fill.replace('#', '0x')) : 0x38bdf8;
+            mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.7 });
+
+            if (shape.type === 'shape_rect') {
+                geo = new THREE.BoxGeometry(shape.params.width, h, shape.params.height);
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(shape.group.x(), h / 2, shape.group.y());
+                mesh.rotation.y = -(shape.rotation || 0) * Math.PI / 180;
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                mesh.userData = { isFurniture: true, entity: shape };
+                this.ctx.interactables.push(mesh);
+                this.ctx.structureGroup.add(mesh);
+                shape.mesh3D = mesh;
+            } else if (shape.type === 'shape_circle') {
+                geo = new THREE.CylinderGeometry(shape.params.radius, shape.params.radius, h, 32);
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.set(shape.group.x(), h / 2, shape.group.y());
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                mesh.userData = { isFurniture: true, entity: shape };
+                this.ctx.interactables.push(mesh);
+                this.ctx.structureGroup.add(mesh);
+                shape.mesh3D = mesh;
+            } else if (shape.type === 'shape_triangle' || shape.type === 'shape_polygon') {
+                const shape2d = new THREE.Shape();
+                if (shape.params.points && shape.params.points.length >= 3) {
+                    const pts = shape.params.points;
+                    
+                    shape2d.moveTo(pts[0].x, pts[0].y);
+                    for(let i=1; i<pts.length; i++) shape2d.lineTo(pts[i].x, pts[i].y);
+                    shape2d.lineTo(pts[0].x, pts[0].y);
+                    
+                    geo = new THREE.ExtrudeGeometry(shape2d, { depth: h, bevelEnabled: false });
+                    geo.rotateX(Math.PI / 2);
+                    const mesh = new THREE.Mesh(geo, mat);
+                    mesh.position.set(shape.group.x(), h, shape.group.y());
+                    mesh.rotation.y = -(shape.rotation || 0) * Math.PI / 180;
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    mesh.userData = { isFurniture: true, entity: shape };
+                    this.ctx.interactables.push(mesh);
+                    this.ctx.structureGroup.add(mesh);
+                    shape.mesh3D = mesh;
+                }
+            }
+        });
+    }
 }
 
 class DecorManager {
@@ -1511,6 +1565,53 @@ export class Preview3D {
     
     updateFurnitureLive(e) { this.furnitureManager.updateLive(e); }
     
+    updateShapeLive(entity) {
+        if (!entity || !entity.mesh3D || this.isUpdatingFrom3D) return;
+        this.isUpdatingFromUI = true;
+        const obj = entity.mesh3D;
+        const h = entity.params.height3D || 100;
+        
+        if (entity.type === 'shape_rect') {
+            obj.position.set(entity.group.x(), h / 2, entity.group.y());
+            obj.rotation.y = -(entity.rotation || 0) * Math.PI / 180;
+            obj.geometry.dispose();
+            obj.geometry = new THREE.BoxGeometry(entity.params.width, h, entity.params.height);
+            obj.geometry.translate(0, h / 2, 0);
+        } else if (entity.type === 'shape_circle') {
+            obj.position.set(entity.group.x(), 0, entity.group.y());
+            obj.geometry.dispose();
+            obj.geometry = new THREE.CylinderGeometry(entity.params.radius, entity.params.radius, h, 32);
+            obj.geometry.translate(0, h / 2, 0);
+        } else if (entity.type === 'shape_triangle' || entity.type === 'shape_polygon') {
+            const shape2d = new THREE.Shape();
+            if (entity.params.points && entity.params.points.length >= 3) {
+                const pts = entity.params.points;
+                shape2d.moveTo(pts[0].x, pts[0].y);
+                for(let i=1; i<pts.length; i++) shape2d.lineTo(pts[i].x, pts[i].y);
+                shape2d.lineTo(pts[0].x, pts[0].y);
+                obj.geometry.dispose();
+                obj.geometry = new THREE.ExtrudeGeometry(shape2d, { depth: h, bevelEnabled: false });
+                obj.geometry.rotateX(Math.PI / 2);
+                obj.geometry.translate(0, h, 0);
+            }
+        }
+        
+        obj.position.set(entity.group.x(), 0, entity.group.y());
+        obj.rotation.y = -(entity.rotation || 0) * Math.PI / 180;
+
+        const color = entity.params.fill ? parseInt(entity.params.fill.replace('#', '0x')) : 0x38bdf8;
+        if (obj.material && obj.material.color) {
+            obj.material.color.setHex(color);
+        }
+        
+        const hitbox = obj.children.find(c => c.userData.isHitbox);
+        if (hitbox) {
+            hitbox.geometry.dispose();
+            hitbox.geometry = obj.geometry;
+        }
+        this.isUpdatingFromUI = false;
+    }
+
     syncToUI() {
         if (!this.isUpdatingFromUI && this.interactions.selectedObject && this.interactions.selectedObject.userData.isFurniture) {
             const ent = this.interactions.selectedObject.userData.entity;
@@ -1528,7 +1629,7 @@ export class Preview3D {
         if (obj.children) [...obj.children].forEach(c => this.deepDispose(c));
     }
 
-    buildScene(walls, rooms, stairs = [], furnitureList = [], roofs = [], levelsJsonArray = [], activeIndex = 0, viewMode3D = 'full-edit', preserveCamera = false) {
+    buildScene(walls, rooms, stairs = [], furnitureList = [], roofs = [], shapes = [], levelsJsonArray = [], activeIndex = 0, viewMode3D = 'full-edit', preserveCamera = false) {
         this.deselectObject();
         this.interactables = [];
         this.viewMode3D = viewMode3D;
@@ -1551,6 +1652,7 @@ export class Preview3D {
         if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn));
 
         if (roofs && roofs.length > 0) this.envBuilder.buildRoofs(roofs, activeIndex, walls, this.structureGroup);
+        if (shapes && shapes.length > 0) this.envBuilder.buildShapes(shapes);
 
         if (viewMode3D !== 'isolate' && levelsJsonArray && levelsJsonArray.length > 0) {
             this.envBuilder.buildStaticFloors(levelsJsonArray, activeIndex, viewMode3D);

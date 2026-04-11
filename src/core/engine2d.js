@@ -2,6 +2,7 @@ import { GRID, PX_TO_FT, SNAP_DIST, WALL_HEIGHT, WALL_REGISTRY, WIDGET_REGISTRY,
 import Konva from 'konva';
 import { PremiumHipRoof } from './engine2d/PremiumHipRoof.js';
 
+
 /**
  * A simple local event emitter class.
  */
@@ -321,11 +322,103 @@ export class PremiumFurniture {
 }
 
 
+export class PremiumShape {
+    constructor(planner, type, params) {
+        this.planner = planner;
+        this.type = type;
+        this.params = params || {};
+        this.rotation = params.rotation || 0;
+        
+        if (!this.params.fill) this.params.fill = '#38bdf8';
+        if (!this.params.stroke) this.params.stroke = '#0284c7';
+        
+        this.group = new Konva.Group({
+            x: params.x || 0,
+            y: params.y || 0,
+            rotation: this.rotation,
+            draggable: true
+        });
+
+        if (type === 'shape_rect') {
+            this.shape = new Konva.Rect({
+                width: params.width,
+                height: params.height,
+                fill: this.params.fill, stroke: this.params.stroke, strokeWidth: 2,
+                offsetX: params.width / 2,
+                offsetY: params.height / 2,
+                opacity: 0.7
+            });
+        } else if (type === 'shape_circle') {
+            this.shape = new Konva.Circle({
+                radius: params.radius,
+                fill: this.params.fill, stroke: this.params.stroke, strokeWidth: 2,
+                opacity: 0.7
+            });
+        } else if (type === 'shape_triangle') {
+            let minX = Math.min(...params.points.map(p => p.x));
+            let maxX = Math.max(...params.points.map(p => p.x));
+            let minY = Math.min(...params.points.map(p => p.y));
+            let maxY = Math.max(...params.points.map(p => p.y));
+            let cx = (minX + maxX) / 2;
+            let cy = (minY + maxY) / 2;
+            
+            let localPts = params.points.flatMap(p => [p.x - cx, p.y - cy]);
+            
+            this.group.position({ x: cx, y: cy });
+            
+            this.shape = new Konva.Line({
+                points: localPts,
+                closed: true,
+                fill: this.params.fill, stroke: this.params.stroke, strokeWidth: 2,
+                opacity: 0.7
+            });
+        }
+
+        this.group.add(this.shape);
+        this.planner.furnitureLayer.add(this.group);
+        
+        this.group.on('mouseenter', () => { if (this.planner.tool === 'select') document.body.style.cursor = 'move'; });
+        this.group.on('mouseleave', () => document.body.style.cursor = 'default');
+        this.group.on('mousedown touchstart', (e) => { e.cancelBubble = true; this.planner.selectEntity(this, 'shape'); });
+        this.group.on('dragmove', () => { this.planner.syncAll(); });
+        this.group.on('transform', () => {
+            this.rotation = this.group.rotation();
+            if (this.type === 'shape_rect') {
+                this.params.width = Math.abs(this.shape.width() * this.group.scaleX());
+                this.params.height = Math.abs(this.shape.height() * this.group.scaleY());
+                this.group.scaleX(1); this.group.scaleY(1);
+                this.shape.width(this.params.width); this.shape.height(this.params.height);
+                this.shape.offsetX(this.params.width / 2); this.shape.offsetY(this.params.height / 2);
+            } else if (this.type === 'shape_circle') {
+                this.params.radius = Math.abs(this.shape.radius() * Math.max(Math.abs(this.group.scaleX()), Math.abs(this.group.scaleY())));
+                this.group.scaleX(1); this.group.scaleY(1);
+                this.shape.radius(this.params.radius);
+            }
+            this.planner.syncAll();
+        });
+    }
+    setHighlight(isActive) { this.shape.strokeWidth(isActive ? 4 : 2); this.planner.stage.batchDraw(); }
+    update() {
+        if (this.type === 'shape_rect') {
+            this.shape.width(this.params.width); this.shape.height(this.params.height);
+            this.shape.offsetX(this.params.width / 2); this.shape.offsetY(this.params.height / 2);
+        } else if (this.type === 'shape_circle') {
+            this.shape.radius(this.params.radius);
+        }
+        this.shape.fill(this.params.fill); this.group.rotation(this.rotation);
+    }
+    remove() {
+        if (this.planner.shapeTransformer && this.planner.shapeTransformer.nodes().includes(this.group)) { this.planner.shapeTransformer.nodes([]); }
+        this.group.destroy(); this.planner.shapes = (this.planner.shapes || []).filter(s => s !== this);
+        this.planner.selectEntity(null); this.planner.syncAll();
+    }
+}
+
 export class FloorPlanner {
     constructor(containerEl) {
         this.container = containerEl; this.tool = "outer"; this.currentUnit = "ft"; this.drawing = false; this.lastAnchor = null; this.startAnchor = null; this.drawingStair = null; this.preview = null;
         this.activeCategory = 'tools';
-        this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
+        this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.shapes = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
         this.events = new EventEmitter();
         this.initKonva(); this.drawGrid(); this.initHUD(); this.initStageEvents();
     }
@@ -358,6 +451,19 @@ export class FloorPlanner {
     initHUD() {
         this.snapGlow = new Konva.Circle({ radius: 8, fill: '#10b981', shadowColor: '#10b981', shadowBlur: 15, opacity: 0.8, visible: false, listening: false });
         this.uiLayer.add(this.snapGlow);
+        
+        this.shapeTransformer = new Konva.Transformer({
+            borderStroke: '#3b82f6', anchorStroke: '#3b82f6', anchorFill: '#ffffff',
+            anchorSize: 10, rotationSnaps: [0, 45, 90, 135, 180, 225, 270, 315]
+        });
+        this.uiLayer.add(this.shapeTransformer);
+        
+        this.shapePreviewGroup = new Konva.Group({ listening: false });
+        this.shapePreviewRect = new Konva.Rect({ stroke: '#3b82f6', dash: [4, 4], strokeWidth: 2, visible: false, listening: false });
+        this.shapePreviewCircle = new Konva.Circle({ stroke: '#3b82f6', dash: [4, 4], strokeWidth: 2, visible: false, listening: false });
+        this.shapePreviewTriangle = new Konva.Line({ stroke: '#3b82f6', dash: [4, 4], strokeWidth: 2, visible: false, listening: false });
+        this.shapePreviewGroup.add(this.shapePreviewRect, this.shapePreviewCircle, this.shapePreviewTriangle);
+        this.uiLayer.add(this.shapePreviewGroup);
 
         this.splitPreviewGlow = new Konva.Circle({ radius: 5, fill: '#ef4444', opacity: 0.8, visible: false, listening: false });
         this.uiLayer.add(this.splitPreviewGlow);
@@ -423,6 +529,13 @@ export class FloorPlanner {
         if (entity && entity.setHighlight) {
              entity.setHighlight(true);
         }
+        if (this.shapeTransformer) {
+            if (type === 'shape') {
+                this.shapeTransformer.nodes([entity.group]);
+            } else {
+                this.shapeTransformer.nodes([]);
+            }
+        }
         this.emit('selectionchange', entity, type, nodeIndex);
     }
 
@@ -483,11 +596,15 @@ export class FloorPlanner {
                 if(b.group) { b.group.setAttr('draggable', canEdit); b.group.setAttr('listening', canEdit); } 
             });
         }
+        if (this.shapes) this.shapes.forEach(s => {
+            let canEdit = isSelect && (allowAll || cat === 'shapes');
+            if(s.group) { s.group.setAttr('draggable', canEdit); s.group.setAttr('listening', canEdit); } 
+        });
 
         // FORCE LAYER LISTENING OFF DURING DRAWING OR RESTRICT BY CATEGORY
         if (this.wallLayer) { this.wallLayer.listening(allowAll || cat === "common" || cat === "walls" || cat === "doors_windows" || cat === "structures" || isWidget || isSplitWall); }
         if (this.widgetLayer) { this.widgetLayer.listening(allowAll || cat === "doors_windows" || cat === "structures"); }
-        if (this.furnitureLayer) { this.furnitureLayer.listening(allowAll || cat === "furniture"); }
+        if (this.furnitureLayer) { this.furnitureLayer.listening(allowAll || cat === "furniture" || cat === "shapes"); }
         if (this.roofLayer) { this.roofLayer.listening(allowAll || cat === "structures"); }
 
         if (this.stage) {
@@ -497,7 +614,7 @@ export class FloorPlanner {
 
     getOrCreateAnchor(x, y) { let a = this.anchors.find(a => Math.hypot(a.x - x, a.y - y) < SNAP_DIST); if (a) return a; const newAnchor = new Anchor(this, x, y); this.anchors.push(newAnchor); return newAnchor; }
     deselectAll() { if (this.selectedEntity) { this.selectEntity(null); } this.anchors.forEach(a => a.hide()); this.syncAll(); }
-    syncAll() { this.buildingCenter = null; this.walls.forEach(w => w.update()); this.stairs.forEach(s => s.update()); this.furniture.forEach(f => f.update()); this.roofs.forEach(r => r.update()); this.mainLayer.batchDraw(); this.detectRooms(); this.emit('sync'); }
+    syncAll() { this.buildingCenter = null; this.walls.forEach(w => w.update()); this.stairs.forEach(s => s.update()); this.furniture.forEach(f => f.update()); this.roofs.forEach(r => r.update()); if(this.shapes) this.shapes.forEach(s => s.update()); this.mainLayer.batchDraw(); this.detectRooms(); this.emit('sync'); }
 
     getOutwardNormal(wall) {
         if (!this.buildingCenter) {
@@ -528,6 +645,7 @@ export class FloorPlanner {
 
     finishChain() {
         if (this.drawingStair) { this.drawingStair.finishDrawing(); this.drawingStair = null; }
+        if (this.shapePreviewGroup) { this.shapePreviewRect.visible(false); this.shapePreviewCircle.visible(false); this.shapePreviewTriangle.visible(false); }
         this.drawing = false; this.lastAnchor = null; this.startAnchor = null;
         this.preview?.destroy(); this.preview = null;
         this.hideSnapGlow(); this.drawGuideLine(0,0,0,0, false); this.hideInfoBadge();
@@ -626,6 +744,32 @@ export class FloorPlanner {
                 this.syncAll();
                 return;
             }
+            if (this.tool.startsWith('shape_')) {
+                let snapPos = targetPos;
+                let closestDist = SNAP_DIST;
+                let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < closestDist);
+                if (a) { snapPos = { x: a.x, y: a.y }; }
+                else {
+                    for (let w of this.walls) {
+                        let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position());
+                        let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                        if (dist < closestDist) { closestDist = dist; snapPos = proj; }
+                    }
+                }
+                if (this.tool === 'shape_rect' || this.tool === 'shape_circle') {
+                    this.drawingShapeType = this.tool; this.shapeStartPos = snapPos;
+                    if (this.tool === 'shape_rect') { this.shapePreviewRect.position(snapPos); this.shapePreviewRect.width(0); this.shapePreviewRect.height(0); this.shapePreviewRect.visible(true); }
+                    else if (this.tool === 'shape_circle') { this.shapePreviewCircle.position(snapPos); this.shapePreviewCircle.radius(0); this.shapePreviewCircle.visible(true); }
+                    this.uiLayer.batchDraw();
+                } else if (this.tool === 'shape_triangle') {
+                    if (!this.drawingTriangle) { this.drawingTriangle = [snapPos]; }
+                    else {
+                        this.drawingTriangle.push(snapPos);
+                        if (this.drawingTriangle.length === 3) { const newShape = new PremiumShape(this, 'shape_triangle', { points: [...this.drawingTriangle] }); if(!this.shapes) this.shapes = []; this.shapes.push(newShape); this.drawingTriangle = null; this.shapePreviewTriangle.visible(false); this.tool = 'select'; this.updateToolStates(); if (this.onToolChange) this.onToolChange('select'); this.selectEntity(newShape, 'shape'); this.syncAll(); }
+                    }
+                }
+                return;
+            }
             if (!wallConfig) return;
 
             let targetSnapWall = null;
@@ -670,6 +814,22 @@ export class FloorPlanner {
             let rawPos = { x: this.snap(pos.x), y: this.snap(pos.y) };
 
             if (this.drawingStair) { this.drawingStair.updateLastPoint(rawPos.x, rawPos.y); return; }
+            if (this.drawingShapeType === 'shape_rect' && this.shapeStartPos) {
+                const w = pos.x - this.shapeStartPos.x; const h = pos.y - this.shapeStartPos.y;
+                this.shapePreviewRect.width(w); this.shapePreviewRect.height(h);
+                this.updateInfoBadge(pos.x, pos.y + 30, `W: ${this.formatLength(Math.abs(w))}\nH: ${this.formatLength(Math.abs(h))}`, "", false);
+                this.uiLayer.batchDraw(); return;
+            } else if (this.drawingShapeType === 'shape_circle' && this.shapeStartPos) {
+                const r = Math.hypot(pos.x - this.shapeStartPos.x, pos.y - this.shapeStartPos.y);
+                this.shapePreviewCircle.radius(r);
+                this.updateInfoBadge(pos.x, pos.y + 30, `R: ${this.formatLength(r)}`, "", false);
+                this.uiLayer.batchDraw(); return;
+            } else if (this.tool === 'shape_triangle' && this.drawingTriangle) {
+                const pts = this.drawingTriangle.flatMap(p => [p.x, p.y]); pts.push(pos.x, pos.y);
+                this.shapePreviewTriangle.points(pts); this.shapePreviewTriangle.visible(true);
+                this.updateInfoBadge(pos.x, pos.y + 30, `Point ${this.drawingTriangle.length + 1}`, "", false);
+                this.uiLayer.batchDraw(); return;
+            }
             if (!this.drawing) return;
             const wallConfig = WALL_REGISTRY[this.tool];
 
@@ -752,6 +912,28 @@ export class FloorPlanner {
             this.preview.moveToBottom();
 
             this.uiLayer.batchDraw();
+        });
+        
+        this.stage.on('mouseup touchend', (e) => {
+            if (this.drawingShapeType) {
+                if (this.drawingShapeType === 'shape_rect') {
+                    const w = this.shapePreviewRect.width(); const h = this.shapePreviewRect.height();
+                    if (Math.abs(w) > 5 && Math.abs(h) > 5) {
+                        const cx = this.shapeStartPos.x + w / 2; const cy = this.shapeStartPos.y + h / 2;
+                        const newShape = new PremiumShape(this, 'shape_rect', { x: cx, y: cy, width: Math.abs(w), height: Math.abs(h) });
+                        if(!this.shapes) this.shapes = []; this.shapes.push(newShape); this.tool = 'select'; this.updateToolStates(); if (this.onToolChange) this.onToolChange('select'); this.selectEntity(newShape, 'shape');
+                    }
+                    this.shapePreviewRect.visible(false);
+                } else if (this.drawingShapeType === 'shape_circle') {
+                    const r = this.shapePreviewCircle.radius();
+                    if (r > 5) {
+                        const newShape = new PremiumShape(this, 'shape_circle', { x: this.shapeStartPos.x, y: this.shapeStartPos.y, radius: r });
+                        if(!this.shapes) this.shapes = []; this.shapes.push(newShape); this.tool = 'select'; this.updateToolStates(); if (this.onToolChange) this.onToolChange('select'); this.selectEntity(newShape, 'shape');
+                    }
+                    this.shapePreviewCircle.visible(false);
+                }
+                this.drawingShapeType = null; this.shapeStartPos = null; this.hideInfoBadge(); this.uiLayer.batchDraw(); this.syncAll();
+            }
         });
 
         // --- Hip Roof Drawing Mode Logic ---
@@ -987,10 +1169,12 @@ export class FloorPlanner {
         [...this.walls].forEach(w => w.remove());
         [...this.furniture].forEach(f => f.remove());
         [...this.stairs].forEach(s => s.remove());
+        if (this.shapes) [...this.shapes].forEach(s => s.remove());
+        if (this.shapeTransformer) this.shapeTransformer.nodes([]);
         this.walls = [];
         this.furniture = [];
         this.stairs = [];
-        this.roomPaths = [];
+        this.shapes = []; this.roomPaths = [];
 
         this.anchors.forEach(a => { if(a.node) a.node.destroy(); });
         this.anchors = [];
@@ -1030,6 +1214,7 @@ export class FloorPlanner {
             stairs: this.stairs.map(s => ({
                 path: s.path.map(p => ({ x: p.x, y: p.y, shape: p.shape }))
             })),
+            shapes: this.shapes ? this.shapes.map(s => ({ type: s.type, x: s.group.x(), y: s.group.y(), rotation: s.rotation, scaleX: s.group.scaleX(), scaleY: s.group.scaleY(), params: s.params })) : [],
             rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, configId: r.configId })) : [],
             roomPaths: this.roomPaths ? this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y }))) : []
         };
@@ -1080,6 +1265,16 @@ export class FloorPlanner {
                         stair.initHandles();
                         this.stairs.push(stair);
                     }
+                });
+            }
+            if (state.shapes) {
+                if (!this.shapes) this.shapes = [];
+                state.shapes.forEach(sData => {
+                    const shape = new PremiumShape(this, sData.type, sData.params);
+                    shape.group.position({ x: sData.x, y: sData.y });
+                    shape.rotation = sData.rotation;
+                    shape.group.scale({ x: sData.scaleX || 1, y: sData.scaleY || 1 });
+                    shape.update(); this.shapes.push(shape);
                 });
             }
             this.syncAll();

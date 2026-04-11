@@ -13,7 +13,7 @@ export class ActiveFloor {
         this.matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7, side: THREE.DoubleSide });
     }
 
-    build(walls, rooms, roofs, activeIndex = 0) {
+    build(walls, rooms, roofs, shapes, activeIndex = 0) {
         this._buildSlabs(rooms);
 
         const hasWalls = walls && walls.length > 0;
@@ -23,6 +23,7 @@ export class ActiveFloor {
         }
 
         if (roofs) this._buildRoofs(roofs, activeIndex, hasWalls, maxWallHeight);        
+        if (shapes) this._buildShapes(shapes);
 
         const standardWalls = walls.filter(w => w.type !== 'railing');
         const railingWalls = walls.filter(w => w.type === 'railing');
@@ -54,6 +55,62 @@ export class ActiveFloor {
         });
 
         this.railingBuilder.build(railingWalls);
+    }
+
+    _buildShapes(shapes) {
+        if (!shapes) return;
+        shapes.forEach(shapeData => {
+            let geo;
+            const w = shapeData.width || 40;
+            const d = shapeData.depth || 40;
+            const h = shapeData.height || 120;
+            const type = shapeData.type || shapeData.shapeType || 'shape_rect';
+            
+            if (type === 'shape_circle') {
+                geo = new THREE.CylinderGeometry(shapeData.params.radius, shapeData.params.radius, h, 32);
+            } else if (type === 'shape_polygon' || type === 'shape_triangle') {
+                const shape2d = new THREE.Shape();
+                if (shapeData.params.points && shapeData.params.points.length >= 3) {
+                    const pts = shapeData.params.points;
+                    shape2d.moveTo(pts[0].x, pts[0].y);
+                    for(let i=1; i<pts.length; i++) shape2d.lineTo(pts[i].x, pts[i].y);
+                    shape2d.lineTo(pts[0].x, pts[0].y);
+                    geo = new THREE.ExtrudeGeometry(shape2d, { depth: h, bevelEnabled: false });
+                    geo.rotateX(Math.PI / 2);
+                }
+            } else if (type === 'shape_rect') {
+                geo = new THREE.BoxGeometry(shapeData.params.width, h, shapeData.params.height);
+            }
+            // Correctly elevate the shapes to sit flat onto the base plane
+            geo.translate(0, h / 2, 0);
+
+            const color = shapeData.params?.fill ? parseInt(shapeData.params.fill.replace('#', '0x')) : 0xfcd34d;
+            const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.4 });
+            const mesh = new THREE.Mesh(geo, mat);
+            
+            const groupX = shapeData.group ? shapeData.group.x() : shapeData.x;
+            const groupZ = shapeData.group ? shapeData.group.y() : shapeData.y;
+            const rot = shapeData.rotation || 0;
+            const elevation = shapeData.elevation || 0;
+
+            mesh.position.set(groupX, elevation, groupZ);
+            mesh.rotation.y = -rot * Math.PI / 180;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+
+            // Create invisible hitbox for perfect mouse raycasting & highlighting
+            const hitBox = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 }));
+            hitBox.position.set(0, h / 2, 0);
+            hitBox.userData = { isHitbox: true };
+            mesh.add(hitBox);
+
+            mesh.userData = { isFurniture: true, entity: shapeData, originalSize: new THREE.Vector3(w, h, d), isShape: true };
+            shapeData.mesh3D = mesh;
+
+            this.interactables.push(mesh);
+            this.interactables.push(hitBox);
+            this.structureGroup.add(mesh);
+        });
     }
 
     _buildSlabs(rooms) {

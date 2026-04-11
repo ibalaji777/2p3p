@@ -63,8 +63,9 @@ export class PremiumWall {
         this.poly.on('mouseleave', () => { document.body.style.cursor = 'default'; });
         this.poly.on('mousedown touchstart', (e) => { 
             console.log("Wall mousedown/touchstart event fired.", { tool: this.planner.tool, isWidget: !!WIDGET_REGISTRY[this.planner.tool] });
-            if (this.planner.tool === 'split_wall') {
+            if (this.planner.tool === 'split') {
                 e.cancelBubble = true;
+                if (e.evt) e.evt.stopPropagation();
                 const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
                 if (!pos) return;
                 
@@ -86,6 +87,7 @@ export class PremiumWall {
             if (WIDGET_REGISTRY[this.planner.tool]) { 
                 console.log("Widget tool is active. Attempting to create widget.");
                 e.cancelBubble = true; 
+                if (e.evt) e.evt.stopPropagation();
                 const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); 
                 if (!pos) {
                     console.error("Could not get pointer position.");
@@ -100,7 +102,10 @@ export class PremiumWall {
                 console.log("Widget added:", widget);
                 return; 
             } 
-            if (this.planner.tool !== 'select') return; e.cancelBubble = true; this.planner.selectEntity(this, 'wall'); 
+            if (this.planner.tool !== 'select') return; 
+            e.cancelBubble = true; 
+            if (e.evt) e.evt.stopPropagation();
+            this.planner.selectEntity(this, 'wall'); 
         }); 
         let startAncPos = {}, startPointer = {}; 
         this.poly.on('dragstart', () => { this.setHighlight(true); const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); startPointer = { x: pos.x, y: pos.y }; startAncPos = { x1: this.startAnchor.x, y1: this.startAnchor.y, x2: this.endAnchor.x, y2: this.endAnchor.y }; }); 

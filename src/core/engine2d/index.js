@@ -148,11 +148,521 @@ export class PremiumArc {
 
 export class PremiumBalcony {}
 
+export class PremiumShape {
+    constructor(planner, type, params) {
+        this.planner = planner;
+        if (type === 'shape_triangle') type = 'shape_polygon';
+        this.type = type;
+        this.params = params || {};
+        this.rotation = params.rotation || 0;
+        
+        if (!this.params.fill) this.params.fill = '#f0f4f8';
+        if (!this.params.stroke) this.params.stroke = '#9ca3af';
+        if (this.params.height3D === undefined) this.params.height3D = 100;
+        
+        this.group = new Konva.Group({
+            x: params.x || 0,
+            y: params.y || 0,
+            rotation: this.rotation,
+            draggable: true
+        });
+
+        const shapeConfig = {
+            fill: this.params.fill,
+            stroke: this.params.stroke,
+            strokeWidth: 8,
+            lineJoin: 'round',
+            shadowColor: 'black', 
+            shadowBlur: 10, 
+            shadowOffset: {x: 2, y: 2}, 
+            shadowOpacity: 0.2
+        };
+
+        if (type === 'shape_rect') {
+            this.shape = new Konva.Rect({
+                ...shapeConfig,
+                width: params.width,
+                height: params.height,
+                offsetX: params.width / 2,
+                offsetY: params.height / 2
+            });
+        } else if (type === 'shape_circle') {
+            this.shape = new Konva.Circle({
+                ...shapeConfig,
+                radius: params.radius
+            });
+        } else if (type === 'shape_polygon') {
+            this.shape = new Konva.Line({
+                ...shapeConfig,
+                points: this.params.points ? this.params.points.flatMap(p => [p.x, p.y]) : [],
+                closed: true
+            });
+        }
+
+        this.group.add(this.shape);
+        this.planner.furnitureLayer.add(this.group);
+        
+        this.group.on('mouseenter', () => { if (this.planner.tool === 'select') document.body.style.cursor = 'move'; });
+        this.group.on('mouseleave', () => document.body.style.cursor = 'default');
+        this.group.on('mousedown touchstart', (e) => { 
+            e.cancelBubble = true; 
+            if (e.evt) e.evt.stopPropagation();
+            if (this.planner.tool === 'split') {
+                const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
+                this.convertToPolygon(pos);
+            } else {
+                this.planner.selectEntity(this, 'shape'); 
+            }
+        });
+        this.group.on('dragmove', () => { this.planner.syncAll(); });
+        this.group.on('transform', () => {
+            this.rotation = this.group.rotation();
+            if (this.type === 'shape_rect') {
+                this.params.width = Math.abs(this.shape.width() * this.group.scaleX());
+                this.params.height = Math.abs(this.shape.height() * this.group.scaleY());
+                this.group.scaleX(1); this.group.scaleY(1);
+                this.shape.width(this.params.width); this.shape.height(this.params.height);
+                this.shape.offsetX(this.params.width / 2); this.shape.offsetY(this.params.height / 2);
+            } else if (this.type === 'shape_circle') {
+                this.params.radius = Math.abs(this.shape.radius() * Math.max(Math.abs(this.group.scaleX()), Math.abs(this.group.scaleY())));
+                this.group.scaleX(1); this.group.scaleY(1);
+                this.shape.radius(this.params.radius);
+            }
+            this.planner.syncAll();
+            
+            if (this.planner.snapAndAlign) {
+                this.planner.snapAndAlign(this.group, true);
+            }
+        });
+        this.group.on('transformend', () => {
+            if (this.planner.alignmentLines) {
+                this.planner.alignmentLines.destroyChildren();
+                this.planner.uiLayer.batchDraw();
+            }
+        });
+        
+        if (this.type === 'shape_polygon') {
+            this.rebuildHandles();
+        }
+    }
+    setHighlight(isActive) { this.shape.stroke(this.params.stroke); if (this.handlesGroup) this.handlesGroup.visible(isActive); this.planner.stage.batchDraw(); }
+    update() {
+        if (this.type === 'shape_rect') {
+            this.shape.width(this.params.width); this.shape.height(this.params.height);
+            this.shape.offsetX(this.params.width / 2); this.shape.offsetY(this.params.height / 2);
+        } else if (this.type === 'shape_circle') {
+            this.shape.radius(this.params.radius);
+        } else if (this.type === 'shape_polygon') {
+            if (this.params.points) {
+                this.shape.points(this.params.points.flatMap(p => [p.x, p.y]));
+            }
+        }
+        this.shape.fill(this.params.fill); this.group.rotation(this.rotation);
+        if (this.handlesGroup) {
+            this.handles.forEach((h, i) => h.position(this.params.points[i]));
+                if (this.updateEdgeHandles) this.updateEdgeHandles();
+        }
+    }
+        
+    updateEdgeHandles() {
+        if (this.edgeHandles) {
+            this.edgeHandles.forEach((h, i) => {
+                const p1 = this.params.points[i];
+                const p2 = this.params.points[(i + 1) % this.params.points.length];
+                h.position({ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 });
+            });
+        }
+        if (this.edgeHits) {
+            this.edgeHits.forEach((h, i) => {
+                const p1 = this.params.points[i];
+                const p2 = this.params.points[(i + 1) % this.params.points.length];
+                h.points([p1.x, p1.y, p2.x, p2.y]);
+            });
+        }
+    }
+
+    rebuildHandles() {
+        if (this.handlesGroup) this.handlesGroup.destroy();
+        this.handlesGroup = new Konva.Group({ visible: this.planner.selectedEntity === this });
+        this.group.add(this.handlesGroup);
+        this.handles = [];
+        this.edgeHandles = [];
+        this.edgeHits = [];
+        if (!this.params.points) return;
+        
+        this.params.points.forEach((pt, i) => {
+            const handle = new Konva.Group({ x: pt.x, y: pt.y, draggable: true, name: 'shape-handle' });
+            handle.add(new Konva.Circle({ radius: 8, fill: "#111827", stroke: "white", strokeWidth: 2 }));
+            const arrowOffset = 11; const arrowSize = 4;
+            const makeArrow = (pts) => new Konva.Line({ points: pts, fill: '#111827', closed: true });
+            handle.add(makeArrow([0, -arrowOffset, -arrowSize, -arrowOffset+arrowSize, arrowSize, -arrowOffset+arrowSize]));
+            handle.add(makeArrow([0, arrowOffset, -arrowSize, arrowOffset-arrowSize, arrowSize, arrowOffset-arrowSize]));
+            handle.add(makeArrow([-arrowOffset, 0, -arrowOffset+arrowSize, -arrowSize, -arrowOffset+arrowSize, arrowSize]));
+            handle.add(makeArrow([arrowOffset, 0, arrowOffset-arrowSize, -arrowSize, arrowOffset-arrowSize, arrowSize]));
+
+            handle.on('mouseenter', () => document.body.style.cursor = 'crosshair');
+            handle.on('mouseleave', () => document.body.style.cursor = 'default');
+            handle.on('dragstart', (e) => { e.cancelBubble = true; });
+            handle.on('dragmove', (e) => {
+                e.cancelBubble = true;
+                const pos = this.planner.getPointerPos();
+                let snapPos = pos; let closestDist = SNAP_DIST; let snapped = false;
+                for (let w of this.planner.walls) {
+                    const proj = this.planner.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position());
+                    const dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                    if (dist < closestDist) { closestDist = dist; snapPos = proj; snapped = true; }
+                }
+                const localSnap = this.group.getTransform().copy().invert().point(snapPos);
+                handle.position(localSnap); this.params.points[i] = localSnap;
+                this.shape.points(this.params.points.flatMap(p => [p.x, p.y]));
+                if (snapped) this.planner.showSnapGlow(snapPos.x, snapPos.y); else this.planner.hideSnapGlow();
+                if (this.updateEdgeHandles) this.updateEdgeHandles();
+                this.planner.mainLayer.batchDraw(); this.planner.uiLayer.batchDraw(); this.planner.syncAll();
+            });
+            handle.on('dragend', (e) => { e.cancelBubble = true; this.planner.hideSnapGlow(); this.planner.syncAll(); });
+            this.handlesGroup.add(handle); this.handles.push(handle);
+        });
+        
+        for (let i = 0; i < this.params.points.length; i++) {
+            const p1 = this.params.points[i];
+            const p2 = this.params.points[(i + 1) % this.params.points.length];
+            
+            // Visible center handle for pulling out a new corner/extrusion
+            const edgeHandle = new Konva.Circle({
+                x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2,
+                radius: 6, fill: '#111827', stroke: '#ffffff', strokeWidth: 2,
+                draggable: true, name: 'edge-handle',
+                visible: false // Hidden by default, shown via extender tool
+            });
+            
+            // Invisible hit area for dragging the border itself
+            const edgeHit = new Konva.Line({
+                points: [p1.x, p1.y, p2.x, p2.y],
+                stroke: 'transparent',
+                strokeWidth: 20,
+                draggable: true,
+                name: 'edge-hit'
+            });
+            
+            edgeHit.on('mousedown touchstart', (e) => {
+                if (this.planner.tool === 'extender') {
+                    e.cancelBubble = true;
+                    edgeHandle.visible(true);
+                    this.planner.tool = 'select';
+                    this.planner.updateToolStates();
+                    if (this.planner.onToolChange) this.planner.onToolChange('select');
+                    this.planner.selectEntity(this, 'shape');
+                    this.planner.syncAll();
+                }
+            });
+            
+            edgeHit.on('dragstart', (e) => { e.cancelBubble = true; });
+            edgeHit.on('dragmove', (e) => {
+                e.cancelBubble = true;
+                const mousePos = this.planner.getPointerPos();
+                const localMousePos = this.group.getTransform().copy().invert().point(mousePos);
+                const edgeDx = p2.x - p1.x; const edgeDy = p2.y - p1.y;
+                const len = Math.hypot(edgeDx, edgeDy);
+                if (len === 0) return;
+                const nx = -edgeDy / len; const ny = edgeDx / len;
+                const midX = (p1.x + p2.x) / 2; const midY = (p1.y + p2.y) / 2;
+                const dragVecX = localMousePos.x - midX; const dragVecY = localMousePos.y - midY;
+                const dot = dragVecX * nx + dragVecY * ny;
+                const shiftX = nx * dot; const shiftY = ny * dot;
+                
+                this.params.points[i].x += shiftX; this.params.points[i].y += shiftY;
+                this.params.points[(i + 1) % this.params.points.length].x += shiftX; 
+                this.params.points[(i + 1) % this.params.points.length].y += shiftY;
+                
+                this.shape.points(this.params.points.flatMap(p => [p.x, p.y]));
+                this.handles[i].position(this.params.points[i]);
+                this.handles[(i + 1) % this.params.points.length].position(this.params.points[(i + 1) % this.params.points.length]);
+                if (this.updateEdgeHandles) this.updateEdgeHandles();
+                this.planner.mainLayer.batchDraw(); this.planner.uiLayer.batchDraw(); this.planner.syncAll();
+            });
+            edgeHit.on('dragend', (e) => { e.cancelBubble = true; this.planner.syncAll(); });
+            edgeHit.on('mouseenter', () => {
+                if (this.planner.tool === 'extender') {
+                    document.body.style.cursor = 'crosshair';
+                } else {
+                    document.body.style.cursor = 'move';
+                }
+            });
+            edgeHit.on('mouseleave', () => document.body.style.cursor = 'default');
+            this.handlesGroup.add(edgeHit);
+            this.edgeHits.push(edgeHit);
+            
+            let dragPos = null;
+            let hasExtruded = false;
+            let isMovingEdge = false;
+            let startP1 = null;
+            let startP2 = null;
+
+            edgeHandle.on('dragstart', (e) => { 
+                e.cancelBubble = true; 
+                dragPos = { x: edgeHandle.x(), y: edgeHandle.y() };
+                hasExtruded = false;
+                
+                const p0 = this.params.points[(i - 1 + this.params.points.length) % this.params.points.length];
+                const pt1 = this.params.points[i];
+                const pt2 = this.params.points[(i + 1) % this.params.points.length];
+                const p3 = this.params.points[(i + 2) % this.params.points.length];
+                
+                startP1 = { x: pt1.x, y: pt1.y };
+                startP2 = { x: pt2.x, y: pt2.y };
+
+                const dx_edge = pt2.x - pt1.x;
+                const dy_edge = pt2.y - pt1.y;
+                const len_edge = Math.hypot(dx_edge, dy_edge);
+                isMovingEdge = false;
+                
+                if (len_edge > 0.1) {
+                    const ux = dx_edge / len_edge;
+                    const uy = dy_edge / len_edge;
+                    const prev_x = pt1.x - p0.x;
+                    const prev_y = pt1.y - p0.y;
+                    const next_x = p3.x - pt2.x;
+                    const next_y = p3.y - pt2.y;
+                    
+                    const dot_prev = prev_x * ux + prev_y * uy;
+                    const dot_next = next_x * ux + next_y * uy;
+                    
+                    // Check if adjacent edges are perpendicular to the dragged edge
+                    if (Math.abs(dot_prev) < 0.1 && Math.abs(dot_next) < 0.1) {
+                        isMovingEdge = true;
+                    }
+                }
+            });
+            edgeHandle.on('dragmove', (e) => {
+                e.cancelBubble = true;
+                const pos = this.planner.getPointerPos();
+                let snapPos = pos; let closestDist = SNAP_DIST; let snapped = false;
+                for (let w of this.planner.walls) {
+                    const proj = this.planner.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position());
+                    const dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                    if (dist < closestDist) { closestDist = dist; snapPos = proj; snapped = true; }
+                }
+                const localSnap = this.group.getTransform().copy().invert().point(snapPos);
+                dragPos = localSnap;
+                
+                const edgeDx = startP2.x - startP1.x;
+                const edgeDy = startP2.y - startP1.y;
+                const len = Math.hypot(edgeDx, edgeDy);
+                if (len === 0) return;
+                
+                const nx = -edgeDy / len; const ny = edgeDx / len;
+                const midX = (startP1.x + startP2.x) / 2;
+                const midY = (startP1.y + startP2.y) / 2;
+                
+                const dragVecX = dragPos.x - midX;
+                const dragVecY = dragPos.y - midY;
+                const dot = dragVecX * nx + dragVecY * ny;
+                
+                const shiftX = nx * dot;
+                const shiftY = ny * dot;
+                
+                edgeHandle.position({ x: midX + shiftX, y: midY + shiftY });
+
+                if (isMovingEdge) {
+                    this.params.points[i].x = startP1.x + shiftX;
+                    this.params.points[i].y = startP1.y + shiftY;
+                    this.params.points[(i + 1) % this.params.points.length].x = startP2.x + shiftX;
+                    this.params.points[(i + 1) % this.params.points.length].y = startP2.y + shiftY;
+                    this.shape.points(this.params.points.flatMap(p => [p.x, p.y]));
+                } else {
+                    if (Math.hypot(shiftX, shiftY) > 5) {
+                        hasExtruded = true;
+                        const tempPts = [...this.params.points];
+                        tempPts.splice(i + 1, 0, { x: startP1.x + shiftX, y: startP1.y + shiftY }, { x: startP2.x + shiftX, y: startP2.y + shiftY });
+                        this.shape.points(tempPts.flatMap(p => [p.x, p.y]));
+                    } else {
+                        hasExtruded = false;
+                        this.shape.points(this.params.points.flatMap(p => [p.x, p.y]));
+                    }
+                }
+                
+                if (snapped) this.planner.showSnapGlow(snapPos.x, snapPos.y); else this.planner.hideSnapGlow();
+                this.planner.mainLayer.batchDraw(); this.planner.uiLayer.batchDraw(); 
+            });
+            edgeHandle.on('dragend', (e) => { 
+                e.cancelBubble = true; 
+                this.planner.hideSnapGlow();
+                
+                if (!isMovingEdge) {
+                    if (dragPos && hasExtruded) {
+                        const edgeDx = startP2.x - startP1.x;
+                        const edgeDy = startP2.y - startP1.y;
+                        const len = Math.hypot(edgeDx, edgeDy);
+                        if (len > 0) {
+                            const nx = -edgeDy / len; const ny = edgeDx / len;
+                            const midX = (startP1.x + startP2.x) / 2;
+                            const midY = (startP1.y + startP2.y) / 2;
+                            const dragVecX = dragPos.x - midX;
+                            const dragVecY = dragPos.y - midY;
+                            const dot = dragVecX * nx + dragVecY * ny;
+                            const shiftX = nx * dot;
+                            const shiftY = ny * dot;
+                            this.params.points.splice(i + 1, 0, { x: startP1.x + shiftX, y: startP1.y + shiftY }, { x: startP2.x + shiftX, y: startP2.y + shiftY });
+                        }
+                    } else {
+                        edgeHandle.position({ x: (startP1.x + startP2.x) / 2, y: (startP1.y + startP2.y) / 2 });
+                    }
+                }
+                
+                edgeHandle.visible(false); // Hide the handle after using the extender
+                this.cleanupCollinearPoints();
+                this.rebuildHandles(); 
+                this.planner.syncAll(); 
+            });
+            edgeHandle.on('dblclick', (e) => { 
+                e.cancelBubble = true; 
+                const stagePt = this.group.getTransform().point(edgeHandle.position());
+                this.convertToPolygon(stagePt); 
+            });
+            edgeHandle.on('mouseenter', () => document.body.style.cursor = 'crosshair');
+            edgeHandle.on('mouseleave', () => document.body.style.cursor = 'default');
+            
+            this.handlesGroup.add(edgeHandle);
+            this.edgeHandles.push(edgeHandle);
+        }
+    }
+    cleanupCollinearPoints() {
+        if (!this.params.points || this.params.points.length <= 3) return;
+        let cleaned = true;
+        while (cleaned && this.params.points.length > 3) {
+            cleaned = false;
+            for (let i = 0; i < this.params.points.length; i++) {
+                const p0 = this.params.points[(i - 1 + this.params.points.length) % this.params.points.length];
+                const p1 = this.params.points[i];
+                const p2 = this.params.points[(i + 1) % this.params.points.length];
+                
+                const dx1 = p1.x - p0.x; const dy1 = p1.y - p0.y;
+                const dx2 = p2.x - p1.x; const dy2 = p2.y - p1.y;
+                
+                const len1 = Math.hypot(dx1, dy1);
+                const len2 = Math.hypot(dx2, dy2);
+                
+                // Remove redundant nodes if they are extremely close to neighbors
+                if (len1 < 1.0) {
+                    this.params.points.splice(i, 1);
+                    cleaned = true;
+                    break;
+                }
+                
+                if (len1 > 0.1 && len2 > 0.1) {
+                    const ux1 = dx1 / len1; const uy1 = dy1 / len1;
+                    const ux2 = dx2 / len2; const uy2 = dy2 / len2;
+                    const cross = ux1 * uy2 - uy1 * ux2;
+                    const dot = ux1 * ux2 + uy1 * uy2;
+                    
+                    // If cross product is ~0 and dot product is ~1, they are collinear and in same direction
+                    if (Math.abs(cross) < 0.05 && dot > 0.95) {
+                        this.params.points.splice(i, 1);
+                        cleaned = true;
+                        break;
+                    }
+                }
+            }
+        }
+        this.shape.points(this.params.points.flatMap(p => [p.x, p.y]));
+    }
+
+    remove() {
+        if (this.planner.shapeTransformer && this.planner.shapeTransformer.nodes().includes(this.group)) { this.planner.shapeTransformer.nodes([]); }
+        this.group.destroy(); this.planner.shapes = (this.planner.shapes || []).filter(s => s !== this);
+        this.planner.selectEntity(null); this.planner.syncAll();
+    }
+
+    convertToPolygon(clickPos) {
+        if (this.type === 'shape_circle') return; // Cannot easily split circles into linear walls
+
+        if (this.type === 'shape_polygon') {
+            if (clickPos) {
+                const localClick = this.group.getTransform().copy().invert().point(clickPos);
+                let bestDist = Infinity, bestEdge = -1, bestProj = null;
+                for(let i = 0; i < this.params.points.length; i++) {
+                    const p1 = this.params.points[i], p2 = this.params.points[(i + 1) % this.params.points.length];
+                    const proj = this.planner.getClosestPointOnSegment(localClick, p1, p2);
+                    const dist = Math.hypot(localClick.x - proj.x, localClick.y - proj.y);
+                    if (dist < bestDist) { bestDist = dist; bestEdge = i; bestProj = proj; }
+                }
+                const hitThreshold = 20 / (this.planner.stage.scaleX() || 1);
+                if (bestEdge !== -1 && bestDist < hitThreshold) {
+                    this.params.points.splice(bestEdge + 1, 0, bestProj);
+                    this.shape.points(this.params.points.flatMap(p => [p.x, p.y]));
+                    this.rebuildHandles();
+                }
+            }
+            this.planner.tool = 'select'; this.planner.updateToolStates();
+            if (this.planner.onToolChange) this.planner.onToolChange('select');
+            this.planner.selectEntity(this, 'shape'); this.planner.syncAll();
+            return;
+        }
+
+        let localPts = [];
+        if (this.type === 'shape_rect') {
+            const w = this.params.width;
+            const h = this.params.height;
+            localPts = [
+                { x: -w / 2, y: -h / 2 },
+                { x: w / 2, y: -h / 2 },
+                { x: w / 2, y: h / 2 },
+                { x: -w / 2, y: h / 2 }
+            ];
+        } else if (this.type === 'shape_triangle') {
+            const linePts = this.shape.points();
+            for (let i = 0; i < linePts.length; i += 2) {
+                localPts.push({ x: linePts[i], y: linePts[i+1] });
+            }
+        }
+
+        const transform = this.group.getTransform();
+        let stagePts = localPts.map(p => transform.point(p));
+
+        let cx = 0, cy = 0;
+        stagePts.forEach(p => { cx += p.x; cy += p.y; });
+        cx /= stagePts.length; cy /= stagePts.length;
+
+        let newLocalPts = stagePts.map(p => ({ x: p.x - cx, y: p.y - cy }));
+        
+        this.group.setAttrs({ x: cx, y: cy, rotation: 0, scaleX: 1, scaleY: 1 });
+        this.rotation = 0; this.params.width = 0; this.params.height = 0;
+        this.type = 'shape_polygon'; this.params.points = newLocalPts;
+
+        if (clickPos) {
+            const localClick = this.group.getTransform().copy().invert().point(clickPos);
+            let bestDist = Infinity, bestEdge = -1, bestProj = null;
+            for(let i = 0; i < newLocalPts.length; i++) {
+                const p1 = newLocalPts[i], p2 = newLocalPts[(i + 1) % newLocalPts.length];
+                const proj = this.planner.getClosestPointOnSegment(localClick, p1, p2);
+                const dist = Math.hypot(localClick.x - proj.x, localClick.y - proj.y);
+                if (dist < bestDist) { bestDist = dist; bestEdge = i; bestProj = proj; }
+            }
+            const hitThreshold = 20 / (this.planner.stage.scaleX() || 1);
+            if (bestEdge !== -1 && bestDist < hitThreshold) {
+                this.params.points.splice(bestEdge + 1, 0, bestProj);
+            }
+        }
+
+        this.shape.destroy();
+        const shapeConfig = { fill: this.params.fill, stroke: this.params.stroke, strokeWidth: 8, lineJoin: 'round', shadowColor: 'black', shadowBlur: 10, shadowOffset: {x: 2, y: 2}, shadowOpacity: 0.2, closed: true };
+        this.shape = new Konva.Line({ ...shapeConfig, points: this.params.points.flatMap(p => [p.x, p.y]) });
+        this.group.add(this.shape); this.shape.moveToBottom();
+        this.rebuildHandles();
+        
+        this.planner.tool = 'select';
+        this.planner.updateToolStates();
+        if (this.planner.onToolChange) this.planner.onToolChange('select');
+        this.planner.selectEntity(this, 'shape');
+        this.planner.syncAll();
+    }
+}
+
 export class FloorPlanner {
     constructor(containerEl) { 
         this.container = containerEl; this.tool = "select"; this.currentUnit = "ft"; this.drawing = false; this.lastAnchor = null; this.startAnchor = null; this.drawingStair = null; this.preview = null;
         this.activeCategory = 'tools';
-        this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.arcs = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
+        this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.arcs = []; this.shapes = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
         this.onSelectionChange = null; 
         this.initKonva(); this.drawGrid(); this.initHUD(); this.initStageEvents(); 
     }
@@ -242,6 +752,78 @@ export class FloorPlanner {
 
         this.wallHighlight = new Konva.Line({ stroke: '#3b82f6', strokeWidth: 6, opacity: 0.7, visible: false, listening: false });
         this.uiLayer.add(this.wallHighlight);
+        
+        this.shapeTransformer = new Konva.Transformer({
+            borderStroke: '#3b82f6', anchorStroke: '#ffffff', anchorFill: '#111827',
+            anchorSize: 16, anchorCornerRadius: 8, anchorStrokeWidth: 2,
+            rotationSnaps: [0, 45, 90, 135, 180, 225, 270, 315],
+            boundBoxFunc: (oldBox, newBox) => {
+                // Only snap cleanly unrotated boxes 
+                if (Math.abs(newBox.rotation % 90) > 0.1) return newBox;
+                
+                const SNAP_TOLERANCE = 10;
+                let snapX = null;
+                let snapY = null;
+                
+                const nodes = [...this.furnitureLayer.getChildren(), ...this.widgetLayer.getChildren()];
+
+                const activeAnchor = this.shapeTransformer.getActiveAnchor();
+                let isTop = activeAnchor && activeAnchor.includes('top');
+                let isBottom = activeAnchor && activeAnchor.includes('bottom');
+                let isLeft = activeAnchor && activeAnchor.includes('left');
+                let isRight = activeAnchor && activeAnchor.includes('right');
+
+                nodes.forEach(node => {
+                    if (this.selectedEntity && this.selectedEntity.group === node) return;
+                    if (node.name() && node.name().includes('anchor')) return;
+                    
+                    const targetRect = node.getClientRect();
+                    if (targetRect.width === 0 || targetRect.height === 0) return;
+
+                    const targetCenter = { x: targetRect.x + targetRect.width/2, y: targetRect.y + targetRect.height/2 };
+
+                    if (isLeft || isRight) {
+                        const sourceEdge = isLeft ? newBox.x : newBox.x + newBox.width;
+                        const targetsX = [targetRect.x, targetCenter.x, targetRect.x + targetRect.width];
+                        if (snapX === null) {
+                            for (let t of targetsX) {
+                                if (Math.abs(sourceEdge - t) < SNAP_TOLERANCE) { snapX = t - sourceEdge; break; }
+                            }
+                        }
+                    }
+
+                    if (isTop || isBottom) {
+                        const sourceEdge = isTop ? newBox.y : newBox.y + newBox.height;
+                        const targetsY = [targetRect.y, targetCenter.y, targetRect.y + targetRect.height];
+                        if (snapY === null) {
+                            for (let t of targetsY) {
+                                if (Math.abs(sourceEdge - t) < SNAP_TOLERANCE) { snapY = t - sourceEdge; break; }
+                            }
+                        }
+                    }
+                });
+
+                if (snapX !== null) {
+                    if (isLeft) { newBox.x += snapX; newBox.width -= snapX; } else if (isRight) { newBox.width += snapX; }
+                }
+                if (snapY !== null) {
+                    if (isTop) { newBox.y += snapY; newBox.height -= snapY; } else if (isBottom) { newBox.height += snapY; }
+                }
+                if (newBox.width < 10) newBox.width = 10; if (newBox.height < 10) newBox.height = 10;
+                return newBox;
+            }
+        });
+        this.uiLayer.add(this.shapeTransformer);
+        
+        this.shapePreviewGroup = new Konva.Group({ listening: false });
+        this.shapePreviewRect = new Konva.Rect({ stroke: '#3b82f6', dash: [4, 4], strokeWidth: 2, visible: false, listening: false });
+        this.shapePreviewCircle = new Konva.Circle({ stroke: '#3b82f6', dash: [4, 4], strokeWidth: 2, visible: false, listening: false });
+        this.shapePreviewTriangle = new Konva.Line({ stroke: '#3b82f6', dash: [4, 4], strokeWidth: 2, visible: false, listening: false });
+        this.shapePreviewGroup.add(this.shapePreviewRect, this.shapePreviewCircle, this.shapePreviewTriangle);
+        this.uiLayer.add(this.shapePreviewGroup);
+
+        this.alignmentLines = new Konva.Group({ listening: false });
+        this.uiLayer.add(this.alignmentLines);
     }
     
     showSnapGlow(x, y) { this.snapGlow.position({x, y}); this.snapGlow.show(); } 
@@ -269,6 +851,174 @@ export class FloorPlanner {
     snap(v) { return Math.round(v / GRID) * GRID; }
     formatLength(px) { const feet = px * PX_TO_FT; if (this.currentUnit === 'in') return Math.round(feet * 12) + '"'; if (this.currentUnit === 'cm') return Math.round(feet * 30.48) + ' cm'; if (this.currentUnit === 'm') return (feet * 0.3048).toFixed(2) + ' m'; const wholeFeet = Math.floor(feet), inches = Math.round((feet - wholeFeet) * 12); return inches > 0 ? `${wholeFeet}' ${inches}"` : `${wholeFeet}'`; }
     
+    snapAndAlign(dragNode, isTransforming = false) {
+        if (!this.alignmentLines) {
+            this.alignmentLines = new Konva.Group({ listening: false });
+            this.uiLayer.add(this.alignmentLines);
+        }
+        this.alignmentLines.destroyChildren();
+
+        if (this.tool !== 'select' || dragNode.isWallPoly || dragNode.isStairNodeHandle || (dragNode.name() && dragNode.name().includes('anchor'))) {
+            this.uiLayer.batchDraw();
+            return;
+        }
+
+        const SNAP_TOLERANCE = 10; 
+        const dragRect = dragNode.getClientRect();
+        const dragCenter = { x: dragRect.x + dragRect.width / 2, y: dragRect.y + dragRect.height / 2 };
+
+        const nodes = [...this.furnitureLayer.getChildren(), ...this.widgetLayer.getChildren()];
+
+        let snapX = null;
+        let snapY = null;
+        let guideX = null;
+        let guideY = null;
+        let isColliding = false;
+        let distTargetX = null;
+        let distTargetY = null;
+
+        nodes.forEach(node => {
+            if (node === dragNode || node === this.ghostPreview || node.isAncestorOf(dragNode) || dragNode.isAncestorOf(node) || (node.name() && node.name().includes('anchor'))) return;
+
+            const targetRect = node.getClientRect();
+            if (targetRect.width === 0 || targetRect.height === 0) return;
+            
+            const targetCenter = { x: targetRect.x + targetRect.width / 2, y: targetRect.y + targetRect.height / 2 };
+
+            // Check Bounding Box Collision
+            if (
+                dragRect.x < targetRect.x + targetRect.width &&
+                dragRect.x + dragRect.width > targetRect.x &&
+                dragRect.y < targetRect.y + targetRect.height &&
+                dragRect.y + dragRect.height > targetRect.y
+            ) {
+                isColliding = true;
+            }
+
+            let activeAnchor = (isTransforming && this.shapeTransformer) ? this.shapeTransformer.getActiveAnchor() : null;
+            let checkLeft = !activeAnchor || activeAnchor.includes('left');
+            let checkRight = !activeAnchor || activeAnchor.includes('right');
+            let checkTop = !activeAnchor || activeAnchor.includes('top');
+            let checkBottom = !activeAnchor || activeAnchor.includes('bottom');
+            let checkCenterX = !activeAnchor;
+            let checkCenterY = !activeAnchor;
+
+            // X Alignments
+            const xAlignments = [];
+            if (checkLeft) {
+                xAlignments.push({ source: dragRect.x, target: targetRect.x });
+                xAlignments.push({ source: dragRect.x, target: targetRect.x + targetRect.width });
+                xAlignments.push({ source: dragRect.x, target: targetCenter.x });
+            }
+            if (checkRight) {
+                xAlignments.push({ source: dragRect.x + dragRect.width, target: targetRect.x + targetRect.width });
+                xAlignments.push({ source: dragRect.x + dragRect.width, target: targetRect.x });
+                xAlignments.push({ source: dragRect.x + dragRect.width, target: targetCenter.x });
+            }
+            if (checkCenterX) {
+                xAlignments.push({ source: dragCenter.x, target: targetCenter.x });
+            }
+
+            // Y Alignments
+            const yAlignments = [];
+            if (checkTop) {
+                yAlignments.push({ source: dragRect.y, target: targetRect.y });
+                yAlignments.push({ source: dragRect.y, target: targetRect.y + targetRect.height });
+                yAlignments.push({ source: dragRect.y, target: targetCenter.y });
+            }
+            if (checkBottom) {
+                yAlignments.push({ source: dragRect.y + dragRect.height, target: targetRect.y + targetRect.height });
+                yAlignments.push({ source: dragRect.y + dragRect.height, target: targetRect.y });
+                yAlignments.push({ source: dragRect.y + dragRect.height, target: targetCenter.y });
+            }
+            if (checkCenterY) {
+                yAlignments.push({ source: dragCenter.y, target: targetCenter.y });
+            }
+
+            if (snapX === null) {
+                for (let xA of xAlignments) {
+                    if (Math.abs(xA.source - xA.target) < SNAP_TOLERANCE) {
+                        snapX = xA.target - xA.source;
+                        guideX = xA.target;
+                        distTargetX = targetRect;
+                        break;
+                    }
+                }
+            }
+
+            if (snapY === null) {
+                for (let yA of yAlignments) {
+                    if (Math.abs(yA.source - yA.target) < SNAP_TOLERANCE) {
+                        snapY = yA.target - yA.source;
+                        guideY = yA.target;
+                        distTargetY = targetRect;
+                        break;
+                    }
+                }
+            }
+        });
+
+        // Apply Snapping (Absolute Position adjustment)
+        if (!isTransforming) {
+            let newAbsPos = dragNode.getAbsolutePosition();
+            if (snapX !== null) newAbsPos.x += snapX;
+            if (snapY !== null) newAbsPos.y += snapY;
+            if (snapX !== null || snapY !== null) dragNode.setAbsolutePosition(newAbsPos);
+        }
+
+        // Draw Guides (Convert absolute guide coordinates back to local UI Layer coordinates)
+        const inverseTransform = this.uiLayer.getAbsoluteTransform().copy().invert();
+        const scale = 1 / this.stage.scaleX();
+        
+        if (guideX !== null) {
+            const p1 = inverseTransform.point({ x: guideX, y: -5000 });
+            const p2 = inverseTransform.point({ x: guideX, y: 5000 });
+            this.alignmentLines.add(new Konva.Line({ points: [p1.x, p1.y, p2.x, p2.y], stroke: '#38bdf8', strokeWidth: scale, dash: [4 * scale, 4 * scale] }));
+            
+            if (distTargetX) {
+                const yPos = inverseTransform.point({ x: 0, y: Math.min(dragCenter.y, distTargetX.y + distTargetX.height / 2) }).y;
+                let gapStart, gapEnd;
+                if (dragCenter.x < distTargetX.x + distTargetX.width / 2) { gapStart = dragRect.x + dragRect.width; gapEnd = distTargetX.x; } 
+                else { gapStart = distTargetX.x + distTargetX.width; gapEnd = dragRect.x; }
+                if (gapEnd > gapStart) {
+                    const pS = inverseTransform.point({ x: gapStart, y: 0 }); const pE = inverseTransform.point({ x: gapEnd, y: 0 });
+                    this.alignmentLines.add(new Konva.Line({ points: [pS.x, yPos, pE.x, yPos], stroke: '#f59e0b', strokeWidth: scale }));
+                    const txt = new Konva.Text({ x: (pS.x + pE.x) / 2, y: yPos - 12 * scale, text: `← ${this.formatLength(gapEnd - gapStart)} →`, fontSize: 11 * scale, fill: '#f59e0b', fontStyle: 'bold' });
+                    txt.offsetX(txt.width() / 2); this.alignmentLines.add(txt);
+                }
+            }
+        }
+        
+        if (guideY !== null) {
+            const p1 = inverseTransform.point({ x: -5000, y: guideY });
+            const p2 = inverseTransform.point({ x: 5000, y: guideY });
+            this.alignmentLines.add(new Konva.Line({ points: [p1.x, p1.y, p2.x, p2.y], stroke: '#38bdf8', strokeWidth: scale, dash: [4 * scale, 4 * scale] }));
+            
+            if (distTargetY) {
+                const xPos = inverseTransform.point({ x: Math.min(dragCenter.x, distTargetY.x + distTargetY.width / 2), y: 0 }).x;
+                let gapStart, gapEnd;
+                if (dragCenter.y < distTargetY.y + distTargetY.height / 2) { gapStart = dragRect.y + dragRect.height; gapEnd = distTargetY.y; } 
+                else { gapStart = distTargetY.y + distTargetY.height; gapEnd = dragRect.y; }
+                if (gapEnd > gapStart) {
+                    const pS = inverseTransform.point({ x: 0, y: gapStart }); const pE = inverseTransform.point({ x: 0, y: gapEnd });
+                    this.alignmentLines.add(new Konva.Line({ points: [xPos, pS.y, xPos, pE.y], stroke: '#f59e0b', strokeWidth: scale }));
+                    const txt = new Konva.Text({ x: xPos + 5 * scale, y: (pS.y + pE.y) / 2, text: `↕ ${this.formatLength(gapEnd - gapStart)}`, fontSize: 11 * scale, fill: '#f59e0b', fontStyle: 'bold' });
+                    txt.offsetY(txt.height() / 2); this.alignmentLines.add(txt);
+                }
+            }
+        }
+
+        if (isColliding) {
+            const effSnapX = isTransforming ? 0 : (snapX || 0);
+            const effSnapY = isTransforming ? 0 : (snapY || 0);
+            const pTL = inverseTransform.point({ x: dragRect.x + effSnapX, y: dragRect.y + effSnapY });
+            const pBR = inverseTransform.point({ x: dragRect.x + dragRect.width + effSnapX, y: dragRect.y + dragRect.height + effSnapY });
+            this.alignmentLines.add(new Konva.Rect({ x: pTL.x, y: pTL.y, width: pBR.x - pTL.x, height: pBR.y - pTL.y, fill: 'rgba(239, 68, 68, 0.25)', stroke: '#ef4444', strokeWidth: 2 * scale, cornerRadius: 4 * scale }));
+        }
+
+        this.uiLayer.batchDraw();
+    }
+
     drawGrid() { 
         const size = 5000; // Giant 10,000px canvas workspace
         for (let i = -size; i <= size; i += GRID) {
@@ -294,8 +1044,54 @@ export class FloorPlanner {
         
         this.selectedEntity = entity; this.selectedType = type; this.selectedNodeIndex = nodeIndex;
         
-        if (entity && (type === 'wall' || type === 'stair' || type === 'stair_node' || type === 'furniture' || type === 'roof' || type === 'balcony' || type === 'arc')) entity.setHighlight(true);
-        
+        if (entity && (type === 'wall' || type === 'stair' || type === 'stair_node' || type === 'furniture' || type === 'roof' || type === 'balcony' || type === 'arc' || type === 'shape')) entity.setHighlight(true);
+        if (this.shapeTransformer) {
+            if (type === 'shape') {
+                this.shapeTransformer.nodes([entity.group]);
+                this.shapeTransformer.resizeEnabled(entity.type !== 'shape_polygon');
+                
+                // Inject custom arrows into the transformer resizing anchors
+                this.shapeTransformer.find('Rect').forEach(anchor => {
+                    if (anchor.name() && anchor.name().includes('rotater')) return;
+                    if (anchor.hasCustomStyle) return;
+                    anchor.hasCustomStyle = true;
+                    anchor.sceneFunc((ctx, shape) => {
+                        const size = shape.width();
+                        const r = size / 2;
+                        
+                        ctx.beginPath();
+                        ctx.arc(r, r, r, 0, Math.PI * 2);
+                        ctx.fillStyle = "#111827";
+                        ctx.fill();
+                        ctx.lineWidth = 2;
+                        ctx.strokeStyle = "white";
+                        ctx.stroke();
+
+                        ctx.fillStyle = "#111827";
+                        const arrowOffset = 11; const arrowSize = 4;
+                        const drawArr = (pts) => {
+                            ctx.beginPath(); ctx.moveTo(r + pts[0], r + pts[1]); ctx.lineTo(r + pts[2], r + pts[3]); ctx.lineTo(r + pts[4], r + pts[5]); ctx.closePath(); ctx.fill();
+                        };
+                        drawArr([0, -arrowOffset, -arrowSize, -arrowOffset+arrowSize, arrowSize, -arrowOffset+arrowSize]);
+                        drawArr([0, arrowOffset, -arrowSize, arrowOffset-arrowSize, arrowSize, arrowOffset-arrowSize]);
+                        drawArr([-arrowOffset, 0, -arrowOffset+arrowSize, -arrowSize, -arrowOffset+arrowSize, arrowSize]);
+                        drawArr([arrowOffset, 0, arrowOffset-arrowSize, -arrowSize, arrowOffset-arrowSize, arrowSize]);
+                    });
+                    
+                    // Expand hit area slightly so it covers the arrows too
+                    anchor.hitFunc((ctx, shape) => {
+                        const size = shape.width();
+                        const r = size / 2;
+                        ctx.beginPath();
+                        ctx.arc(r, r, r + 15, 0, Math.PI * 2);
+                        ctx.closePath();
+                        ctx.fillStrokeShape(shape);
+                    });
+                });
+            } else {
+                this.shapeTransformer.nodes([]);
+            }
+        }
         this.syncAll();
 
         if (this.onSelectionChange) this.onSelectionChange(entity, type, nodeIndex);
@@ -304,7 +1100,8 @@ export class FloorPlanner {
     updateToolStates() {
         const cat = this.activeCategory || 'tools';
         const isSelect = this.tool === "select";
-        const isSplitWall = this.tool === "split_wall";
+        const isSplit = this.tool === "split";
+        const isExtender = this.tool === "extender";
         const isWidget = !!WIDGET_REGISTRY[this.tool];
         const allowAll = (cat === 'tools' || cat === 'advanced');
 
@@ -313,16 +1110,16 @@ export class FloorPlanner {
             let canEditThisWall = false;
 
             if (allowAll) {
-                canEditThisWall = isSelect || isSplitWall;
+                canEditThisWall = isSelect || isSplit || isExtender;
             } else if (cat === 'walls') {
-                canEditThisWall = !isRailing && (isSelect || isSplitWall);
+                canEditThisWall = !isRailing && (isSelect || isSplit || isExtender);
             } else if (cat === 'common') {
-                canEditThisWall = isRailing && (isSelect || isSplitWall);
+                canEditThisWall = isRailing && (isSelect || isSplit || isExtender);
             }
 
             if(w.poly) { 
                 w.poly.setAttr('draggable', canEditThisWall); 
-                w.poly.setAttr('listening', canEditThisWall || isWidget || isSplitWall); 
+                w.poly.setAttr('listening', canEditThisWall || isWidget || isSplit || isExtender); 
             }
             
             w.attachedWidgets.forEach(widg => { 
@@ -354,11 +1151,19 @@ export class FloorPlanner {
             let canEdit = isSelect && (allowAll || cat === 'structures');
             if(b.group) { b.group.setAttr('draggable', canEdit); b.group.setAttr('listening', canEdit); } 
         });
+        if (this.shapes) this.shapes.forEach(s => {
+            let canEdit = isSelect && (allowAll || cat === 'shapes');
+            let canSplit = (isSplit || isExtender) && (allowAll || cat === 'advanced' || cat === 'shapes');
+            if(s.group) { 
+                s.group.setAttr('draggable', canEdit); 
+                s.group.setAttr('listening', canEdit || canSplit); 
+            } 
+        });
 
         // FORCE LAYER LISTENING OFF DURING DRAWING OR RESTRICT BY CATEGORY
-        if (this.wallLayer) { this.wallLayer.listening(allowAll || cat === "common" || cat === "walls" || cat === "doors_windows" || cat === "structures" || isWidget || isSplitWall); }
+        if (this.wallLayer) { this.wallLayer.listening(allowAll || cat === "common" || cat === "walls" || cat === "doors_windows" || cat === "structures" || isWidget || isSplit || isExtender); }
         if (this.widgetLayer) { this.widgetLayer.listening(allowAll || cat === "doors_windows" || cat === "structures"); }
-        if (this.furnitureLayer) { this.furnitureLayer.listening(allowAll || cat === "furniture"); }
+        if (this.furnitureLayer) { this.furnitureLayer.listening(allowAll || cat === "furniture" || cat === "shapes" || isSplit || isExtender); }
         if (this.roofLayer) { this.roofLayer.listening(allowAll || cat === "structures"); }
 
         if (this.stage) {
@@ -385,7 +1190,7 @@ export class FloorPlanner {
     }
 
     getOrCreateAnchor(x, y) { let a = this.anchors.find(a => Math.hypot(a.x - x, a.y - y) < SNAP_DIST); if (a) return a; const newAnchor = new Anchor(this, x, y); this.anchors.push(newAnchor); return newAnchor; }
-    deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.roofs.forEach(r => r.setHighlight(false)); if(this.balconies) this.balconies.forEach(b => b.setHighlight(false)); this.selectEntity(null); this.syncAll(); }
+    deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.roofs.forEach(r => r.setHighlight(false)); if(this.balconies) this.balconies.forEach(b => b.setHighlight(false)); if(this.shapes) this.shapes.forEach(s => s.setHighlight(false)); this.selectEntity(null); this.syncAll(); }
     syncAll() { 
         this.buildingCenter = null; 
         this.walls.forEach(w => w.update()); 
@@ -394,6 +1199,7 @@ export class FloorPlanner {
         this.roofs.forEach(r => r.update()); 
         if(this.balconies) this.balconies.forEach(b => b.update()); 
         if(this.arcs) this.arcs.forEach(a => a.update());
+        if(this.shapes) this.shapes.forEach(s => s.update());
         
         this.anchors.forEach(a => {
             if (a.isArcIntermediate) {
@@ -450,6 +1256,7 @@ export class FloorPlanner {
         if (this.drawingStair) { this.drawingStair.finishDrawing(); this.drawingStair = null; } 
         if (this.drawingRoofPoints) { this.drawingRoofPoints = null; if (this.roofPreview) { this.roofPreview.destroy(); this.roofPreview = null; } }
         if (this.drawingArc) { this.drawingArc = null; if (this.arcPreview) { this.arcPreview.destroy(); this.arcPreview = null; } }
+        if (this.shapePreviewGroup) { this.shapePreviewRect.visible(false); this.shapePreviewCircle.visible(false); this.shapePreviewTriangle.visible(false); }
         this.drawing = false; this.lastAnchor = null; this.startAnchor = null; 
         this.preview?.destroy(); this.preview = null; 
         this.hideSnapGlow(); this.drawGuideLine(0,0,0,0, false); this.hideInfoBadge(); 
@@ -459,9 +1266,36 @@ export class FloorPlanner {
     initStageEvents() { 
         this.stage.on('dragstart', (e) => {
             if (e.target === this.stage) this.stage.container().style.cursor = 'grabbing';
+            
+            if (this.tool === 'select' && (e.target.nodeType === 'Group' || e.target.nodeType === 'Shape') && !e.target.isWallPoly && !e.target.isStairNodeHandle && !(e.target.name() && e.target.name().includes('anchor'))) {
+                if (this.ghostPreview) { this.ghostPreview.destroy(); }
+                this.ghostPreview = e.target.clone();
+                this.ghostPreview.opacity(0.3);
+                this.ghostPreview.listening(false);
+                e.target.getLayer().add(this.ghostPreview);
+                this.ghostPreview.moveToBottom();
+            }
         });
+        
+        this.stage.on('dragmove', (e) => {
+            if (e.target === this.stage) return;
+            if (e.target.nodeType === 'Group' || e.target.nodeType === 'Shape') {
+                if (this.tool === 'select' && !e.target.isWallPoly && !e.target.isStairNodeHandle && !(e.target.name() && e.target.name().includes('anchor'))) {
+                    this.snapAndAlign(e.target);
+                }
+            }
+        });
+
         this.stage.on('dragend', (e) => {
             if (e.target === this.stage) this.stage.container().style.cursor = this.tool === 'select' ? 'grab' : 'crosshair';
+            if (this.alignmentLines) {
+                this.alignmentLines.destroyChildren();
+                this.uiLayer.batchDraw();
+            }
+            if (this.ghostPreview) {
+                this.ghostPreview.destroy();
+                this.ghostPreview = null;
+            }
         });
 
         this.stage.on("mousedown touchstart", (e) => { 
@@ -530,6 +1364,33 @@ export class FloorPlanner {
                     if (this.onToolChange) this.onToolChange('select');
                     this.selectEntity(newArc, 'arc');
                     this.syncAll();
+                }
+                return;
+            }
+            
+            if (this.tool.startsWith('shape_')) {
+                let snapPos = targetPos;
+                let closestDist = SNAP_DIST;
+                let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < closestDist);
+                if (a) { snapPos = { x: a.x, y: a.y }; }
+                else {
+                    for (let w of this.walls) {
+                        let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position());
+                        let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                        if (dist < closestDist) { closestDist = dist; snapPos = proj; }
+                    }
+                }
+                if (this.tool === 'shape_rect' || this.tool === 'shape_circle') {
+                    this.drawingShapeType = this.tool; this.shapeStartPos = snapPos;
+                    if (this.tool === 'shape_rect') { this.shapePreviewRect.position(snapPos); this.shapePreviewRect.width(0); this.shapePreviewRect.height(0); this.shapePreviewRect.visible(true); }
+                    else if (this.tool === 'shape_circle') { this.shapePreviewCircle.position(snapPos); this.shapePreviewCircle.radius(0); this.shapePreviewCircle.visible(true); }
+                    this.uiLayer.batchDraw();
+                } else if (this.tool === 'shape_triangle') {
+                    if (!this.drawingTriangle) { this.drawingTriangle = [snapPos]; }
+                    else {
+                        this.drawingTriangle.push(snapPos);
+                        if (this.drawingTriangle.length === 3) { const newShape = new PremiumShape(this, 'shape_triangle', { points: [...this.drawingTriangle] }); if(!this.shapes) this.shapes = []; this.shapes.push(newShape); this.drawingTriangle = null; this.shapePreviewTriangle.visible(false); this.tool = 'select'; this.updateToolStates(); if (this.onToolChange) this.onToolChange('select'); this.selectEntity(newShape, 'shape'); this.syncAll(); }
+                    }
                 }
                 return;
             }
@@ -624,6 +1485,61 @@ export class FloorPlanner {
             
             if (this.drawingStair) { this.drawingStair.updateLastPoint(rawPos.x, rawPos.y); return; }
             
+            if (this.drawingShapeType === 'shape_rect' && this.shapeStartPos) {
+                const w = pos.x - this.shapeStartPos.x; const h = pos.y - this.shapeStartPos.y;
+                this.shapePreviewRect.width(w); this.shapePreviewRect.height(h);
+                this.updateInfoBadge(pos.x, pos.y + 30, `W: ${this.formatLength(Math.abs(w))}\nH: ${this.formatLength(Math.abs(h))}`, "", false);
+                this.uiLayer.batchDraw(); return;
+            } else if (this.drawingShapeType === 'shape_circle' && this.shapeStartPos) {
+                const r = Math.hypot(pos.x - this.shapeStartPos.x, pos.y - this.shapeStartPos.y);
+                this.shapePreviewCircle.radius(r);
+                this.updateInfoBadge(pos.x, pos.y + 30, `R: ${this.formatLength(r)}`, "", false);
+                this.uiLayer.batchDraw(); return;
+            } else if (this.tool === 'shape_triangle' && this.drawingTriangle) {
+                const pts = this.drawingTriangle.flatMap(p => [p.x, p.y]); pts.push(pos.x, pos.y);
+                this.shapePreviewTriangle.points(pts); this.shapePreviewTriangle.visible(true);
+                this.updateInfoBadge(pos.x, pos.y + 30, `Point ${this.drawingTriangle.length + 1}`, "", false);
+                this.uiLayer.batchDraw(); return;
+            }
+
+            if (this.tool === 'split') {
+                const hitThreshold = 20 / (this.stage.scaleX() || 1);
+                let foundGlow = false;
+                for (let w of this.walls) {
+                    if (!WALL_REGISTRY[w.type] || !WALL_REGISTRY[w.type].events.includes('split_edge')) continue;
+                    const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
+                    const proj = this.getClosestPointOnSegment(pos, p1, p2);
+                    if (Math.hypot(pos.x - proj.x, pos.y - proj.y) < hitThreshold) {
+                        this.splitPreviewGlow.position(proj); this.splitPreviewGlow.show();
+                        foundGlow = true; break;
+                    }
+                }
+                if (!foundGlow && this.balconies) {
+                    for (let b of this.balconies) {
+                        if (!WIDGET_REGISTRY['balcony'] || !WIDGET_REGISTRY['balcony'].events.includes('split_edge')) continue;
+                        const pts = b.vertices || b.points; if (!pts || pts.length < 3) continue;
+                        const transform = b.group.getTransform();
+                        for (let i = 0; i < pts.length; i++) {
+                            const p1 = transform.point(pts[i]); const p2 = transform.point(pts[(i + 1) % pts.length]);
+                            const proj = this.getClosestPointOnSegment(pos, p1, p2);
+                            if (Math.hypot(pos.x - proj.x, pos.y - proj.y) < hitThreshold) { this.splitPreviewGlow.position(proj); this.splitPreviewGlow.show(); foundGlow = true; break; }
+                        }
+                    }
+                }
+                if (!foundGlow && this.shapes) {
+                    for (let s of this.shapes) {
+                        if (s.type !== 'shape_rect' && s.type !== 'shape_polygon') continue;
+                        let pts = []; if (s.type === 'shape_rect') { const w = s.params.width; const h = s.params.height; pts = [ {x: -w/2, y: -h/2}, {x: w/2, y: -h/2}, {x: w/2, y: h/2}, {x: -w/2, y: h/2} ]; } else { pts = s.params.points; }
+                        const transform = s.group.getTransform();
+                        for (let i = 0; i < pts.length; i++) {
+                            const p1 = transform.point(pts[i]); const p2 = transform.point(pts[(i + 1) % pts.length]); const proj = this.getClosestPointOnSegment(pos, p1, p2);
+                            if (Math.hypot(pos.x - proj.x, pos.y - proj.y) < hitThreshold) { this.splitPreviewGlow.position(proj); this.splitPreviewGlow.show(); foundGlow = true; break; }
+                        }
+                    }
+                }
+                if (!foundGlow) this.splitPreviewGlow.hide(); this.uiLayer.batchDraw(); return;
+            } else { this.splitPreviewGlow.hide(); }
+
             if (this.tool === 'arc') {
                 let snap = rawPos;
                 let closestDist = SNAP_DIST;
@@ -821,6 +1737,28 @@ export class FloorPlanner {
 
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') this.finishChain();
+        });
+
+        this.stage.on('mouseup touchend', (e) => {
+            if (this.drawingShapeType) {
+                if (this.drawingShapeType === 'shape_rect') {
+                    const w = this.shapePreviewRect.width(); const h = this.shapePreviewRect.height();
+                    if (Math.abs(w) > 5 && Math.abs(h) > 5) {
+                        const cx = this.shapeStartPos.x + w / 2; const cy = this.shapeStartPos.y + h / 2;
+                        const newShape = new PremiumShape(this, 'shape_rect', { x: cx, y: cy, width: Math.abs(w), height: Math.abs(h) });
+                        if(!this.shapes) this.shapes = []; this.shapes.push(newShape); this.tool = 'select'; this.updateToolStates(); if (this.onToolChange) this.onToolChange('select'); this.selectEntity(newShape, 'shape');
+                    }
+                    this.shapePreviewRect.visible(false);
+                } else if (this.drawingShapeType === 'shape_circle') {
+                    const r = this.shapePreviewCircle.radius();
+                    if (r > 5) {
+                        const newShape = new PremiumShape(this, 'shape_circle', { x: this.shapeStartPos.x, y: this.shapeStartPos.y, radius: r });
+                        if(!this.shapes) this.shapes = []; this.shapes.push(newShape); this.tool = 'select'; this.updateToolStates(); if (this.onToolChange) this.onToolChange('select'); this.selectEntity(newShape, 'shape');
+                    }
+                    this.shapePreviewCircle.visible(false);
+                }
+                this.drawingShapeType = null; this.shapeStartPos = null; this.hideInfoBadge(); this.uiLayer.batchDraw(); this.syncAll();
+            }
         });
 
         // --- Hip Roof Drawing Mode Logic ---
@@ -1083,7 +2021,9 @@ export class FloorPlanner {
         [...this.walls].forEach(w => w.remove()); [...this.furniture].forEach(f => f.remove()); [...this.stairs].forEach(s => s.remove()); [...this.roofs].forEach(r => r.remove()); 
         if (this.balconies) [...this.balconies].forEach(b => b.remove());
         if (this.arcs) [...this.arcs].forEach(a => a.remove());
-        this.walls = []; this.furniture = []; this.stairs = []; this.roofs = []; this.balconies = []; this.arcs = []; this.roomPaths = [];
+        if (this.shapes) [...this.shapes].forEach(s => s.remove());
+        if (this.shapeTransformer) this.shapeTransformer.nodes([]);
+        this.walls = []; this.furniture = []; this.stairs = []; this.roofs = []; this.balconies = []; this.arcs = []; this.shapes = []; this.roomPaths = [];
         this.anchors.forEach(a => { if(a.node) a.node.destroy(); }); this.anchors = [];
         if (this.wallLayer) this.wallLayer.destroyChildren(); if (this.furnitureLayer) this.furnitureLayer.destroyChildren(); if (this.widgetLayer) this.widgetLayer.destroyChildren(); if (this.roofLayer) this.roofLayer.destroyChildren();
         if (this.mainLayer) this.mainLayer.batchDraw();
@@ -1103,6 +2043,7 @@ export class FloorPlanner {
             stairs: this.stairs.map(s => ({ path: s.path.map(p => ({ x: p.x, y: p.y, shape: p.shape })) })),
             roofs: this.roofs.map(r => ({ x: r.group.x(), y: r.group.y(), rotation: r.rotation, width: r.config?.width, depth: r.config?.depth, pitch: r.config?.pitch, overhang: r.config?.overhang, thickness: r.config?.thickness, ridgeOffset: r.config?.ridgeOffset, points: r.points, isHip: !!r.points, roofType: r.config?.roofType, material: r.config?.material, wallGap: r.config?.wallGap })),
             arcs: this.arcs ? this.arcs.map(a => ({ p1: {x: a.p1.x, y: a.p1.y}, p2: {x: a.p2.x, y: a.p2.y}, pos: a.pos, hasRailing: a.hasRailing, railingConfig: a.railingConfig })) : [],
+            shapes: this.shapes ? this.shapes.map(s => ({ type: s.type, x: s.group.x(), y: s.group.y(), rotation: s.rotation, scaleX: s.group.scaleX(), scaleY: s.group.scaleY(), params: s.params })) : [],
             rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, configId: r.configId })) : [],
             roomPaths: this.roomPaths ? this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y }))) : []
         };
@@ -1169,6 +2110,16 @@ export class FloorPlanner {
                         arc.rebuild();
                     }
                     this.arcs.push(arc);
+                });
+            }
+            if (state.shapes) {
+                if (!this.shapes) this.shapes = [];
+                state.shapes.forEach(sData => {
+                    const shape = new PremiumShape(this, sData.type, sData.params);
+                    shape.group.position({ x: sData.x, y: sData.y });
+                    shape.rotation = sData.rotation;
+                    shape.group.scale({ x: sData.scaleX || 1, y: sData.scaleY || 1 });
+                    shape.update(); this.shapes.push(shape);
                 });
             }
             this.syncAll();
