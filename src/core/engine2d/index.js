@@ -9,6 +9,7 @@ import { PremiumWidget } from '/src/core/engine2d/PremiumWidget.js';
 import { PremiumFurniture } from '/src/core/engine2d/PremiumFurniture.js';
 import { PremiumStair } from '/src/core/engine2d/PremiumStair.js';
 import { PremiumHipRoof } from '/src/core/engine2d/PremiumHipRoof.js';
+import { PremiumRailing } from '/src/core/engine2d/PremiumRailing.js';
 
 // Export the specific classes that App.vue needs to spawn items
 export { PremiumFurniture, PremiumHipRoof };
@@ -106,7 +107,7 @@ export class PremiumArc {
                     
                     // Auto-generate linked railing if enabled
                     if (this.hasRailing) {
-                        const r = new PremiumWall(this.planner, prevAnchor, currentAnchor, 'railing');
+                        const r = new PremiumRailing(this.planner, prevAnchor, currentAnchor);
                         r.parentArc = this; r.labelGroup.visible(false);
                         r.configId = this.railingConfig.configId;
                         if (this.railingConfig.thickness) r.thickness = this.railingConfig.thickness;
@@ -1265,8 +1266,9 @@ export class FloorPlanner {
                         let prev = arcNodes[i1];
                         for(let i = i1 + step; i !== i2 + step; i += step) {
                             let curr = arcNodes[i];
-                            const w = new PremiumWall(this, prev, curr, this.tool);
+                            let w;
                             if (this.tool === 'railing') {
+                                w = new PremiumRailing(this, prev, curr);
                                 w.parentArc = sharedArc;
                                 w.labelGroup.visible(false);
                                 w.poly.off('mousedown touchstart');
@@ -1278,6 +1280,8 @@ export class FloorPlanner {
                                 });
                                 w.poly.draggable(false); 
                                 w.poly.on('dragstart dragmove dragend', (e) => e.cancelBubble = true);
+                            } else {
+                                w = new PremiumWall(this, prev, curr, this.tool);
                             }
                             this.walls.push(w);
                             prev = curr;
@@ -1288,7 +1292,11 @@ export class FloorPlanner {
                             sharedArc.hasRailing = true;
                         }
                     } else {
-                        this.walls.push(new PremiumWall(this, this.lastAnchor, currentAnchor, this.tool)); 
+                        if (this.tool === 'railing') {
+                            this.walls.push(new PremiumRailing(this, this.lastAnchor, currentAnchor));
+                        } else {
+                            this.walls.push(new PremiumWall(this, this.lastAnchor, currentAnchor, this.tool)); 
+                        }
                     }
                 } 
                 if (currentAnchor === this.startAnchor || reachedArcEnd) { 
