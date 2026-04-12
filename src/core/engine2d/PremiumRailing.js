@@ -13,7 +13,7 @@ export class PremiumRailing {
         this.height = this.config.height || 0;
         this.configId = 'rail_1';
 
-        this.strokeColor = '#1f2937';
+        this.strokeColor = '#9ca3af'; // Match wall default appearance
         
         this.wallGroup = new Konva.Group();
         this.poly = new Konva.Line({

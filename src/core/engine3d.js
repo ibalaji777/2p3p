@@ -175,7 +175,7 @@ class EnvironmentBuilder {
         }
     }
 
-    buildActiveFloor(walls, rooms) {
+    buildActiveFloor(walls, rooms, shapes) {
         const matMain = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
         const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8 });
 
@@ -316,10 +316,10 @@ class EnvironmentBuilder {
             if (w.attachedDecor) w.attachedDecor.forEach(decor => this.ctx.decorManager.load(w, decor));
         });
 
-        this.buildRailings(railingWalls, standardWalls);
+        this.buildRailings(railingWalls, standardWalls, shapes);
     }
 
-    buildRailings(railingWalls, standardWalls) {
+    buildRailings(railingWalls, standardWalls, shapes) {
         railingWalls.forEach(w => {
             const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
             const dx = p2.x - p1.x, dz = p2.y - p1.y;
@@ -344,6 +344,38 @@ class EnvironmentBuilder {
                             break;
                         }
                     }
+                }
+            }
+
+            if (!underlyingWall && shapes) {
+                const midX = (p1.x + p2.x) / 2, midY = (p1.y + p2.y) / 2;
+                for (let s of shapes) {
+                    if (s.type !== 'shape_rect' && s.type !== 'shape_polygon') continue;
+                    let pts = []; 
+                    if (s.type === 'shape_rect') { 
+                        const sw = s.params.width; const sh = s.params.height; 
+                        pts = [ {x: -sw/2, y: -sh/2}, {x: sw/2, y: -sh/2}, {x: sw/2, y: sh/2}, {x: -sw/2, y: sh/2} ]; 
+                    } else { 
+                        pts = s.params.points; 
+                    }
+                    if (!pts || !s.group) continue;
+
+                    const transform = s.group.getTransform();
+                    for (let i = 0; i < pts.length; i++) {
+                        const sp1 = transform.point(pts[i]); 
+                        const sp2 = transform.point(pts[(i + 1) % pts.length]);
+                        const C = sp2.x - sp1.x, D = sp2.y - sp1.y;
+                        const lenSq = C * C + D * D;
+                        if (lenSq !== 0) {
+                            const param = Math.max(0, Math.min(1, ((midX - sp1.x) * C + (midY - sp1.y) * D) / lenSq));
+                            if (Math.hypot(midX - (sp1.x + param*C), midY - (sp1.y + param*D)) < 5) {
+                                h = s.params.height3D !== undefined ? s.params.height3D : 100;
+                                underlyingWall = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (underlyingWall) break;
                 }
             }
 
@@ -640,6 +672,43 @@ class EnvironmentBuilder {
                                         h = sw.height !== undefined ? sw.height : (sw.config?.height || WALL_HEIGHT);
                                         break;
                                     }
+                                }
+                            }
+                            
+                            if (!underlyingWall && data.shapes) {
+                                for (let s of data.shapes) {
+                                    if (s.type !== 'shape_rect' && s.type !== 'shape_polygon') continue;
+                                    let pts = [];
+                                    if (s.type === 'shape_rect') { 
+                                        const sw = s.params.width; const sh = s.params.height; 
+                                        pts = [ {x: -sw/2, y: -sh/2}, {x: sw/2, y: -sh/2}, {x: sw/2, y: sh/2}, {x: -sw/2, y: sh/2} ]; 
+                                    } else { 
+                                        pts = s.params.points; 
+                                    }
+                                    if (!pts) continue;
+
+                                    const rad = (s.rotation || 0) * Math.PI / 180;
+                                    const cos = Math.cos(rad), sin = Math.sin(rad);
+                                    const sx = s.scaleX || 1, sy = s.scaleY || 1;
+                                    const cx = s.x || 0, cy = s.y || 0;
+
+                                    for (let i = 0; i < pts.length; i++) {
+                                        const p1 = pts[i], p2 = pts[(i + 1) % pts.length];
+                                        const sp1 = { x: cx + (p1.x * sx * cos - p1.y * sy * sin), y: cy + (p1.x * sx * sin + p1.y * sy * cos) };
+                                        const sp2 = { x: cx + (p2.x * sx * cos - p2.y * sy * sin), y: cy + (p2.x * sx * sin + p2.y * sy * cos) };
+
+                                        const C = sp2.x - sp1.x, D = sp2.y - sp1.y;
+                                        const lenSq = C * C + D * D;
+                                        if (lenSq !== 0) {
+                                            const param = Math.max(0, Math.min(1, ((midX - sp1.x) * C + (midY - sp1.y) * D) / lenSq));
+                                            if (Math.hypot(midX - (sp1.x + param*C), midY - (sp1.y + param*D)) < 5) {
+                                                underlyingWall = true;
+                                                h = s.params !== undefined && s.params.height3D !== undefined ? s.params.height3D : 100;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (underlyingWall) break;
                                 }
                             }
                         }
@@ -1385,6 +1454,7 @@ class InteractionSystem {
                 const p1 = w.startAnchor ? w.startAnchor.position() : {x: w.startX, y: w.startY};
                 const p2 = w.endAnchor ? w.endAnchor.position() : {x: w.endX, y: w.endY};
                 const midX = (p1.x + p2.x) / 2, midY = (p1.y + p2.y) / 2;
+            let foundSupport = false;
                 for (let sw of this.ctx.planner.walls) {
                     if (sw.type === 'railing') continue;
                     const sp1 = sw.startAnchor ? sw.startAnchor.position() : {x: sw.startX, y: sw.startY};
@@ -1395,10 +1465,42 @@ class InteractionSystem {
                         const param = Math.max(0, Math.min(1, ((midX - sp1.x)*C + (midY - sp1.y)*D)/lenSq));
                         if (Math.hypot(midX - (sp1.x + param*C), midY - (sp1.y + param*D)) < 5) {
                             currentH = sw.height !== undefined ? sw.height : (sw.config?.height || WALL_HEIGHT);
+                        foundSupport = true;
                             break;
                         }
                     }
                 }
+
+            if (!foundSupport && this.ctx.planner.shapes) {
+                for (let s of this.ctx.planner.shapes) {
+                    if (s.type !== 'shape_rect' && s.type !== 'shape_polygon') continue;
+                    let pts = []; 
+                    if (s.type === 'shape_rect') { 
+                        const sw = s.params.width; const sh = s.params.height; 
+                        pts = [ {x: -sw/2, y: -sh/2}, {x: sw/2, y: -sh/2}, {x: sw/2, y: sh/2}, {x: -sw/2, y: sh/2} ]; 
+                    } else { 
+                        pts = s.params.points; 
+                    }
+                    if (!pts || !s.group) continue;
+
+                    const transform = s.group.getTransform();
+                    for (let i = 0; i < pts.length; i++) {
+                        const sp1 = transform.point(pts[i]); 
+                        const sp2 = transform.point(pts[(i + 1) % pts.length]);
+                        const C = sp2.x - sp1.x, D = sp2.y - sp1.y;
+                        const lenSq = C * C + D * D;
+                        if (lenSq !== 0) {
+                            const param = Math.max(0, Math.min(1, ((midX - sp1.x) * C + (midY - sp1.y) * D) / lenSq));
+                            if (Math.hypot(midX - (sp1.x + param*C), midY - (sp1.y + param*D)) < 5) {
+                                currentH = s.params.height3D !== undefined ? s.params.height3D : 100;
+                                foundSupport = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (foundSupport) break;
+                }
+            }
             }
 
             const currentT = w.thickness !== undefined ? w.thickness : (w.config?.thickness || (isRailing ? 4 : 8));
@@ -1648,7 +1750,7 @@ export class Preview3D {
         const targetY = activeIndex * WALL_HEIGHT;
         this.structureGroup.position.y = targetY;
 
-        this.envBuilder.buildActiveFloor(walls, rooms);
+        this.envBuilder.buildActiveFloor(walls, rooms, shapes);
         if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn));
 
         if (roofs && roofs.length > 0) this.envBuilder.buildRoofs(roofs, activeIndex, walls, this.structureGroup);

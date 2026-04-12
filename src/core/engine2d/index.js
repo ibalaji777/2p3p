@@ -206,12 +206,14 @@ export class PremiumShape {
         this.group.on('mouseenter', () => { if (this.planner.tool === 'select') document.body.style.cursor = 'move'; });
         this.group.on('mouseleave', () => document.body.style.cursor = 'default');
         this.group.on('mousedown touchstart', (e) => { 
-            e.cancelBubble = true; 
-            if (e.evt) e.evt.stopPropagation();
             if (this.planner.tool === 'split') {
+                e.cancelBubble = true; 
+                if (e.evt) e.evt.stopPropagation();
                 const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
                 this.convertToPolygon(pos);
-            } else {
+            } else if (this.planner.tool === 'select') {
+                e.cancelBubble = true; 
+                if (e.evt) e.evt.stopPropagation();
                 this.planner.selectEntity(this, 'shape'); 
             }
         });
@@ -519,7 +521,7 @@ export class FloorPlanner {
         this.widgetLayer = new Konva.Group(); 
         this.furnitureLayer = new Konva.Group(); 
         this.roofLayer = new Konva.Group(); 
-        this.mainLayer.add(this.wallLayer, this.widgetLayer, this.furnitureLayer, this.roofLayer);
+        this.mainLayer.add(this.furnitureLayer, this.wallLayer, this.widgetLayer, this.roofLayer);
 
         this.uiLayer = new Konva.Layer(); 
         this.stage.add(this.bgLayer, this.mainLayer, this.uiLayer); 
@@ -1240,7 +1242,56 @@ export class FloorPlanner {
             if (wallConfig && wallConfig.events.includes("snap_to_wall")) { 
                 let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < SNAP_DIST); 
                 if (a) { targetPos = { x: a.x, y: a.y }; targetSnapWall = this.walls.find(w => w.startAnchor === a || w.endAnchor === a); } 
-                else { let closestDist = SNAP_DIST, closestPoint = null; for (let w of this.walls) { let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = w; } } if (closestPoint) targetPos = closestPoint; } 
+                else { 
+                    let closestDist = SNAP_DIST, closestPoint = null; 
+
+                    let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
+                    for (let line of allReferenceWalls) {
+                        let pts = line.points();
+                        if (pts && pts.length === 4) {
+                            let d1 = Math.hypot(pos.x - pts[0], pos.y - pts[1]); let d2 = Math.hypot(pos.x - pts[2], pos.y - pts[3]);
+                            if (d1 < 40 && d1 < closestDist) { closestDist = 0; closestPoint = {x: pts[0], y: pts[1]}; targetSnapWall = null; }
+                            else if (d2 < 40 && d2 < closestDist) { closestDist = 0; closestPoint = {x: pts[2], y: pts[3]}; targetSnapWall = null; }
+                            else { let proj = this.getClosestPointOnSegment(pos, {x: pts[0], y: pts[1]}, {x: pts[2], y: pts[3]}); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = null; } }
+                        }
+                    }
+
+                    if (this.shapes) {
+                        for (let s of this.shapes) {
+                            if (s.type !== 'shape_rect' && s.type !== 'shape_polygon') continue;
+                            let pts = []; if (s.type === 'shape_rect') { const w = s.params.width; const h = s.params.height; pts = [ {x: -w/2, y: -h/2}, {x: w/2, y: -h/2}, {x: w/2, y: h/2}, {x: -w/2, y: h/2} ]; } else { pts = s.params.points; }
+                            if (!pts) continue;
+                            const transform = s.group.getTransform();
+                            for (let i = 0; i < pts.length; i++) {
+                                const p1 = transform.point(pts[i]); const p2 = transform.point(pts[(i + 1) % pts.length]);
+                                let d1 = Math.hypot(pos.x - p1.x, pos.y - p1.y);
+                                if (d1 < closestDist) { closestDist = d1; closestPoint = p1; targetSnapWall = null; }
+                                const proj = this.getClosestPointOnSegment(pos, p1, p2);
+                                const dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                                if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = null; }
+                            }
+                        }
+                    }
+
+                    for (let w of this.walls) { 
+                        let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); 
+                        if (this.tool === 'railing') {
+                            const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
+                            const vdx = p2.x - p1.x, vdy = p2.y - p1.y, vlen = Math.hypot(vdx, vdy);
+                            if (vlen > 0) {
+                                const n = { x: -vdy/vlen, y: vdx/vlen }, ht = (w.thickness || w.config.thickness) / 2;
+                                const e1 = { x: proj.x + n.x * ht, y: proj.y + n.y * ht }, e2 = { x: proj.x - n.x * ht, y: proj.y - n.y * ht };
+                                const d1 = Math.hypot(pos.x - e1.x, pos.y - e1.y), d2 = Math.hypot(pos.x - e2.x, pos.y - e2.y);
+                                if (d1 < closestDist) { closestDist = d1; closestPoint = e1; targetSnapWall = w; }
+                                if (d2 < closestDist) { closestDist = d2; closestPoint = e2; targetSnapWall = w; }
+                            }
+                            continue;
+                        }
+                        let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); 
+                        if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = w; } 
+                    } 
+                    if (closestPoint) targetPos = closestPoint; 
+                } 
             } 
             
             if (this.drawing && wallConfig && wallConfig.events.includes("stop_collision") && this.checkWallIntersection(this.lastAnchor.position(), targetPos, [targetSnapWall])) return; 
@@ -1506,20 +1557,49 @@ export class FloorPlanner {
                         if (pts && pts.length === 4) {
                             let d1 = Math.hypot(pos.x - pts[0], pos.y - pts[1]);
                             let d2 = Math.hypot(pos.x - pts[2], pos.y - pts[3]);
-                            if (d1 < 40) { closestDist = 0; closestPoint = {x: pts[0], y: pts[1]}; snappedObj = true; }
-                            else if (d2 < 40) { closestDist = 0; closestPoint = {x: pts[2], y: pts[3]}; snappedObj = true; }
-                            else if (!snappedObj) {
+                            if (d1 < 40 && d1 < closestDist) { closestDist = 0; closestPoint = {x: pts[0], y: pts[1]}; snappedObj = true; targetSnapWall = null; }
+                            else if (d2 < 40 && d2 < closestDist) { closestDist = 0; closestPoint = {x: pts[2], y: pts[3]}; snappedObj = true; targetSnapWall = null; }
+                            else {
                                 let proj = this.getClosestPointOnSegment(pos, {x: pts[0], y: pts[1]}, {x: pts[2], y: pts[3]});
                                 let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
-                                if (dist < closestDist) { closestDist = dist; closestPoint = proj; snappedObj = true; }
+                                if (dist < closestDist) { closestDist = dist; closestPoint = proj; snappedObj = true; targetSnapWall = null; }
+                            }
+                        }
+                    }
+
+                    if (this.shapes) {
+                        for (let s of this.shapes) {
+                            if (s.type !== 'shape_rect' && s.type !== 'shape_polygon') continue;
+                            let pts = []; if (s.type === 'shape_rect') { const w = s.params.width; const h = s.params.height; pts = [ {x: -w/2, y: -h/2}, {x: w/2, y: -h/2}, {x: w/2, y: h/2}, {x: -w/2, y: h/2} ]; } else { pts = s.params.points; }
+                            if (!pts) continue;
+                            const transform = s.group.getTransform();
+                            for (let i = 0; i < pts.length; i++) {
+                                const p1 = transform.point(pts[i]); const p2 = transform.point(pts[(i + 1) % pts.length]);
+                                let d1 = Math.hypot(pos.x - p1.x, pos.y - p1.y);
+                                if (d1 < closestDist) { closestDist = d1; closestPoint = p1; snappedObj = true; targetSnapWall = null; }
+                                const proj = this.getClosestPointOnSegment(pos, p1, p2);
+                                const dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                                if (dist < closestDist) { closestDist = dist; closestPoint = proj; snappedObj = true; targetSnapWall = null; }
                             }
                         }
                     }
 
                     for (let w of this.walls) { 
                         let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); 
+                        if (this.tool === 'railing') {
+                            const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
+                            const vdx = p2.x - p1.x, vdy = p2.y - p1.y, vlen = Math.hypot(vdx, vdy);
+                            if (vlen > 0) {
+                                const n = { x: -vdy/vlen, y: vdx/vlen }, ht = (w.thickness || w.config.thickness) / 2;
+                                const e1 = { x: proj.x + n.x * ht, y: proj.y + n.y * ht }, e2 = { x: proj.x - n.x * ht, y: proj.y - n.y * ht };
+                                const d1 = Math.hypot(pos.x - e1.x, pos.y - e1.y), d2 = Math.hypot(pos.x - e2.x, pos.y - e2.y);
+                                if (d1 < closestDist) { closestDist = d1; closestPoint = e1; targetSnapWall = w; snappedObj = true; }
+                                if (d2 < closestDist) { closestDist = d2; closestPoint = e2; targetSnapWall = w; snappedObj = true; }
+                            }
+                            continue;
+                        }
                         let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); 
-                        if (dist < closestDist && !snappedObj) { closestDist = dist; closestPoint = proj; targetSnapWall = w; snappedObj = true; } 
+                        if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = w; snappedObj = true; } 
                     } 
                     if (closestPoint) snapPos = closestPoint; 
                 } 

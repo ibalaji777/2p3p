@@ -16,9 +16,11 @@ export class PremiumFurniture {
     initEvents() {
         this.group.on('mouseenter', () => document.body.style.cursor = 'move'); this.group.on('mouseleave', () => document.body.style.cursor = 'default');
         this.group.on('mousedown touchstart', (e) => { 
-            e.cancelBubble = true; 
-            if (e.evt) e.evt.stopPropagation();
-            this.planner.selectEntity(this, 'furniture'); 
+            if (this.planner.tool === 'select') {
+                e.cancelBubble = true; 
+                if (e.evt) e.evt.stopPropagation();
+                this.planner.selectEntity(this, 'furniture'); 
+            }
         });
         this.group.on('dragstart', () => { this.isDragging = true; this.planner.selectEntity(this, 'furniture'); });
         this.group.on('dragmove', (e) => { if (e.target === this.rotHandle) return; this.planner.syncAll(); });
