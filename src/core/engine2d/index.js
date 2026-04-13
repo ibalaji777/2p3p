@@ -721,7 +721,7 @@ export class FloorPlanner {
         let distTargetY = null;
 
         nodes.forEach(node => {
-            if (node === dragNode || node === this.ghostPreview || node.isAncestorOf(dragNode) || dragNode.isAncestorOf(node) || (node.name() && node.name().includes('anchor'))) return;
+            if (node === dragNode || node.isAncestorOf(dragNode) || dragNode.isAncestorOf(node) || (node.name() && node.name().includes('anchor'))) return;
 
             const targetRect = node.getClientRect();
             if (targetRect.width === 0 || targetRect.height === 0) return;
@@ -1108,15 +1108,6 @@ export class FloorPlanner {
     initStageEvents() { 
         this.stage.on('dragstart', (e) => {
             if (e.target === this.stage) this.stage.container().style.cursor = 'grabbing';
-            
-            if (this.tool === 'select' && (e.target.nodeType === 'Group' || e.target.nodeType === 'Shape') && !e.target.isWallPoly && !e.target.isStairNodeHandle && !(e.target.name() && e.target.name().includes('anchor'))) {
-                if (this.ghostPreview) { this.ghostPreview.destroy(); }
-                this.ghostPreview = e.target.clone();
-                this.ghostPreview.opacity(0.3);
-                this.ghostPreview.listening(false);
-                e.target.getLayer().add(this.ghostPreview);
-                this.ghostPreview.moveToBottom();
-            }
         });
         
         this.stage.on('dragmove', (e) => {
@@ -1133,10 +1124,6 @@ export class FloorPlanner {
             if (this.alignmentLines) {
                 this.alignmentLines.destroyChildren();
                 this.uiLayer.batchDraw();
-            }
-            if (this.ghostPreview) {
-                this.ghostPreview.destroy();
-                this.ghostPreview = null;
             }
         });
 
