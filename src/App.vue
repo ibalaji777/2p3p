@@ -428,6 +428,7 @@ const hintData = computed(() => {
 
 onMounted(() => {
     planner.value = new FloorPlanner(canvas2D.value);
+    planner.value.activeCategory = activeCategory.value;
     planner.value.loadDefaultHouse();
     
     planner.value.onSelectionChange = (entity, type, nodeIdx = -1) => {

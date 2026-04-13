@@ -1139,7 +1139,7 @@ export class FloorPlanner {
         if(this.shapes) this.shapes.forEach(s => s.update());
         
         this.anchors.forEach(a => {
-            if (a.isArcIntermediate) {
+            if (a.isArcIntermediate || this.activeCategory !== 'walls') {
                 a.hide();
                 return;
             }
