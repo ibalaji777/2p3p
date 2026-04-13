@@ -196,6 +196,21 @@ export class PremiumBalcony {
             });
         });
         if (this.rotater) this.rotater.position(this.getCenter());
+
+        if (this.attachedWall && this.attachedEdge && this.attachedEdge.i1 !== undefined && this.attachedEdge.i2 !== undefined) {
+            const outNorm = this.planner.getOutwardNormal(this.attachedWall);
+            const pA = this.vertices[this.attachedEdge.i1];
+            const pB = this.vertices[this.attachedEdge.i2];
+            const finalEdgeMid = { x: (pA.x + pB.x) / 2, y: (pA.y + pB.y) / 2 };
+            const arrowRotation = Math.atan2(outNorm.y, outNorm.x) * 180 / Math.PI + 90;
+            this.attachmentArrow.rotation(arrowRotation);
+            this.attachmentArrow.position(finalEdgeMid);
+            this.attachmentArrow.fill('#10b981');
+            this.attachmentArrow.stroke('#10b981');
+            this.attachmentArrow.visible(true);
+        } else {
+            this.attachmentArrow.visible(false);
+        }
     }
 
     initEvents() {
@@ -327,6 +342,8 @@ export class PremiumBalcony {
                 const arrowRotation = Math.atan2(outNorm.y, outNorm.x) * 180 / Math.PI + 90;
                 this.attachmentArrow.rotation(arrowRotation);
                 this.attachmentArrow.position(finalEdgeMid);
+                this.attachmentArrow.fill('#f59e0b');
+                this.attachmentArrow.stroke('#f59e0b');
                 this.attachmentArrow.visible(true);
 
                 this.attachedWall = targetWall;
@@ -347,9 +364,17 @@ export class PremiumBalcony {
         this.group.on('dragend', () => {
             startPointer = null;
             startVertices = null;
-            this.attachmentArrow.visible(false);
             this.planner.wallHighlight.hide();
             this.planner.drawGuideLine(0, 0, 0, 0, false);
+            
+            if (this.attachedWall) {
+                this.attachmentArrow.fill('#10b981');
+                this.attachmentArrow.stroke('#10b981');
+                this.attachmentArrow.visible(true);
+            } else {
+                this.attachmentArrow.visible(false);
+            }
+
             if (this.planner.baseLayer) {
                 this.group.moveTo(this.planner.baseLayer);
             } else {

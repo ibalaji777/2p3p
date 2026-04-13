@@ -380,7 +380,19 @@ export class PremiumShape {
             });
         }
 
-        this.group.add(this.shape);
+        this.attachedWall = null;
+        this.isDragging = false;
+        this.attachmentArrow = new Konva.Arrow({
+            points: [0, 0, 0, -20],
+            pointerLength: 8,
+            pointerWidth: 8,
+            fill: '#f59e0b',
+            stroke: '#f59e0b',
+            strokeWidth: 3,
+            visible: false,
+            listening: false
+        });
+        this.group.add(this.shape, this.attachmentArrow);
         if (this.planner.baseLayer) {
             this.planner.baseLayer.add(this.group);
         } else {
@@ -395,19 +407,78 @@ export class PremiumShape {
                 this.planner.selectEntity(this, 'shape'); 
             }
         });
-        this.group.on('dragmove', () => { this.planner.syncAll(); });
+        this.group.on('dragmove', (e) => {
+            if (e.target !== this.group) { this.planner.syncAll(); return; }
+            const center = this.group.position();
+            let minDist = 40; 
+            let targetWall = null;
+            let finalSnapDist = 0;
+            
+            this.planner.walls.forEach(w => {
+                const wallP1 = w.startAnchor.position();
+                const wallP2 = w.endAnchor.position();
+                const proj = this.planner.getClosestPointOnSegment(center, wallP1, wallP2);
+                const dist = Math.hypot(center.x - proj.x, center.y - proj.y);
+                
+                let outNorm = { ...this.planner.getOutwardNormal(w) };
+                const toCenterX = center.x - proj.x; const toCenterY = center.y - proj.y;
+                if (toCenterX * outNorm.x + toCenterY * outNorm.y < 0) { outNorm.x *= -1; outNorm.y *= -1; }
+                
+                let currentSnapDist = 0;
+                if (this.type === 'shape_rect') {
+                    const normAngle = Math.atan2(outNorm.y, outNorm.x);
+                    const shapeAngle = this.rotation * Math.PI / 180;
+                    const theta = shapeAngle - normAngle;
+                    currentSnapDist = (this.params.width / 2) * Math.abs(Math.cos(theta)) + (this.params.height / 2) * Math.abs(Math.sin(theta));
+                } else if (this.type === 'shape_circle') { 
+                    currentSnapDist = this.params.radius; 
+                } else if (this.type === 'shape_polygon') { 
+                    currentSnapDist = 20; 
+                }
+                
+                const surfaceDist = Math.max(0, dist - currentSnapDist);
+                const effectiveDist = (this.attachedWall === w) ? surfaceDist * 0.5 : surfaceDist;
+                if (effectiveDist < minDist) { minDist = effectiveDist; targetWall = w; finalSnapDist = currentSnapDist; }
+            });
+
+            if (targetWall) {
+                let outNorm = { ...this.planner.getOutwardNormal(targetWall) };
+                const wallP1 = targetWall.startAnchor.position();
+                const wallP2 = targetWall.endAnchor.position();
+                const proj = this.planner.getClosestPointOnSegment(center, wallP1, wallP2);
+                const toCenterX = center.x - proj.x; const toCenterY = center.y - proj.y;
+                if (toCenterX * outNorm.x + toCenterY * outNorm.y < 0) { outNorm.x *= -1; outNorm.y *= -1; }
+                
+                if (finalSnapDist > 0 && minDist < 15) {
+                    const ht = targetWall.thickness ? targetWall.thickness / 2 : (targetWall.config ? targetWall.config.thickness / 2 : 4);
+                    this.group.position({ x: proj.x + outNorm.x * (ht + finalSnapDist), y: proj.y + outNorm.y * (ht + finalSnapDist) });
+                }
+                this.attachedWall = targetWall;
+                this.planner.wallHighlight.points([wallP1.x, wallP1.y, wallP2.x, wallP2.y]).show();
+            } else {
+                this.attachedWall = null;
+                this.planner.wallHighlight.hide();
+            }
+            this.update();
+            this.planner.syncAll();
+        });
         this.group.on('dragstart', (e) => {
+            this.isDragging = true;
             if (this.planner.roofLayer) {
                 this.group.moveTo(this.planner.roofLayer);
                 this.planner.mainLayer.batchDraw();
             }
+            this.update();
         });
         this.group.on('dragend', (e) => {
+            this.isDragging = false;
+            this.planner.wallHighlight.hide();
             if (this.planner.baseLayer) {
                 this.group.moveTo(this.planner.baseLayer);
             } else {
                 this.group.moveTo(this.planner.furnitureLayer);
             }
+            this.update();
             this.planner.mainLayer.batchDraw();
         });
         this.group.on('transform', () => {
@@ -435,6 +506,37 @@ export class PremiumShape {
             this.shape.radius(this.params.radius);
         }
         this.shape.fill(this.params.fill); this.group.rotation(this.rotation);
+
+        if (this.attachedWall) {
+            let outNorm = { ...this.planner.getOutwardNormal(this.attachedWall) };
+            const wallP1 = this.attachedWall.startAnchor.position();
+            const wallP2 = this.attachedWall.endAnchor.position();
+            const center = this.group.position();
+            const proj = this.planner.getClosestPointOnSegment(center, wallP1, wallP2);
+            const toCenterX = center.x - proj.x; const toCenterY = center.y - proj.y;
+            if (toCenterX * outNorm.x + toCenterY * outNorm.y < 0) { outNorm.x *= -1; outNorm.y *= -1; }
+            
+            const transform = this.group.getAbsoluteTransform().copy().invert();
+            const localProj = transform.point(proj);
+            const localCenter = transform.point(center);
+            const arrowRotation = Math.atan2(localProj.y - localCenter.y, localProj.x - localCenter.x) * 180 / Math.PI + 90;
+            const dist = Math.hypot(localProj.x - localCenter.x, localProj.y - localCenter.y);
+            
+            this.attachmentArrow.points([0, 0, 0, -dist]);
+            this.attachmentArrow.position(localCenter);
+            this.attachmentArrow.rotation(arrowRotation);
+            if (this.isDragging) {
+                this.attachmentArrow.fill('#f59e0b');
+                this.attachmentArrow.stroke('#f59e0b');
+            } else {
+                this.attachmentArrow.fill('#10b981');
+                this.attachmentArrow.stroke('#10b981');
+            }
+            this.attachmentArrow.visible(true);
+            this.attachmentArrow.moveToTop();
+        } else {
+            if (this.attachmentArrow) this.attachmentArrow.visible(false);
+        }
     }
     remove() {
         if (this.planner.shapeTransformer && this.planner.shapeTransformer.nodes().includes(this.group)) { this.planner.shapeTransformer.nodes([]); }
@@ -484,7 +586,7 @@ export class FloorPlanner {
         
         this.shapeTransformer = new Konva.Transformer({
             borderStroke: '#3b82f6', anchorStroke: '#3b82f6', anchorFill: '#ffffff',
-            anchorSize: 10, rotationSnaps: [0, 45, 90, 135, 180, 225, 270, 315]
+            anchorSize: 10, rotateEnabled: false, rotationSnaps: [0, 45, 90, 135, 180, 225, 270, 315]
         });
         this.uiLayer.add(this.shapeTransformer);
         

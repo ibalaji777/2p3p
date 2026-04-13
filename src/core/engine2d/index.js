@@ -200,6 +200,8 @@ export class PremiumShape {
             });
         }
 
+        this.attachedWall = null;
+        this.isDragging = false;
         this.group.add(this.shape);
         if (this.planner.baseLayer) {
             this.planner.baseLayer.add(this.group);
@@ -222,19 +224,110 @@ export class PremiumShape {
                 this.planner.selectEntity(this, 'shape'); 
             }
         });
-        this.group.on('dragmove', () => { this.planner.syncAll(); });
+        this.group.on('dragmove', (e) => {
+            if (e.target !== this.group) { this.planner.syncAll(); return; }
+            const center = this.group.position();
+            let minDist = 40; 
+            let targetWall = null;
+            let finalSnapDist = 0;
+            
+            const checkWall = (w) => {
+                const wallP1 = w.startAnchor.position();
+                const wallP2 = w.endAnchor.position();
+                const proj = this.planner.getClosestPointOnSegment(center, wallP1, wallP2);
+                const dist = Math.hypot(center.x - proj.x, center.y - proj.y);
+                
+                let outNorm = { ...this.planner.getOutwardNormal(w) };
+                const toCenterX = center.x - proj.x; const toCenterY = center.y - proj.y;
+                if (toCenterX * outNorm.x + toCenterY * outNorm.y < 0) { outNorm.x *= -1; outNorm.y *= -1; }
+                
+                let currentSnapDist = 0;
+                if (this.type === 'shape_rect') {
+                    const normAngle = Math.atan2(outNorm.y, outNorm.x);
+                    const shapeAngle = this.rotation * Math.PI / 180;
+                    const theta = shapeAngle - normAngle;
+                    currentSnapDist = (this.params.width / 2) * Math.abs(Math.cos(theta)) + (this.params.height / 2) * Math.abs(Math.sin(theta));
+                } else if (this.type === 'shape_circle') { 
+                    currentSnapDist = this.params.radius; 
+                } else if (this.type === 'shape_polygon') { 
+                    if (this.params.points && this.params.points.length > 0) {
+                        let maxDist = 0;
+                        const rad = this.rotation * Math.PI / 180;
+                        const cos = Math.cos(rad), sin = Math.sin(rad);
+                        for (let p of this.params.points) {
+                            const rx = p.x * cos - p.y * sin;
+                            const ry = p.x * sin + p.y * cos;
+                            const projDist = -(rx * outNorm.x + ry * outNorm.y);
+                            if (projDist > maxDist) maxDist = projDist;
+                        }
+                        currentSnapDist = maxDist;
+                    } else {
+                        currentSnapDist = 20; 
+                    }
+                }
+                
+                currentSnapDist += 5; // Account for visual stroke widths (shape stroke=4px outer, wall stroke=1px outer)
+                
+                const surfaceDist = Math.max(0, dist - currentSnapDist);
+                return { surfaceDist, currentSnapDist };
+            };
+            
+            if (this.attachedWall) {
+                const res = checkWall(this.attachedWall);
+                if (res.surfaceDist < 40) { // Keep attached unless dragged fully away
+                    minDist = res.surfaceDist;
+                    targetWall = this.attachedWall;
+                    finalSnapDist = res.currentSnapDist;
+                } else {
+                    this.attachedWall = null;
+                }
+            }
+            
+            if (!this.attachedWall) {
+                this.planner.walls.forEach(w => {
+                    const res = checkWall(w);
+                    if (res.surfaceDist < minDist) { minDist = res.surfaceDist; targetWall = w; finalSnapDist = res.currentSnapDist; }
+                });
+            }
+
+            if (targetWall) {
+                let outNorm = { ...this.planner.getOutwardNormal(targetWall) };
+                const wallP1 = targetWall.startAnchor.position();
+                const wallP2 = targetWall.endAnchor.position();
+                const proj = this.planner.getClosestPointOnSegment(center, wallP1, wallP2);
+                const toCenterX = center.x - proj.x; const toCenterY = center.y - proj.y;
+                if (toCenterX * outNorm.x + toCenterY * outNorm.y < 0) { outNorm.x *= -1; outNorm.y *= -1; }
+                
+                if (finalSnapDist > 0 && minDist < 15) {
+                    const ht = targetWall.thickness ? targetWall.thickness / 2 : (targetWall.config ? targetWall.config.thickness / 2 : 4);
+                    this.group.position({ x: proj.x + outNorm.x * (ht + finalSnapDist), y: proj.y + outNorm.y * (ht + finalSnapDist) });
+                }
+                this.attachedWall = targetWall;
+                this.planner.wallHighlight.points([wallP1.x, wallP1.y, wallP2.x, wallP2.y]).show();
+            } else {
+                this.attachedWall = null;
+                this.planner.wallHighlight.hide();
+            }
+            this.update();
+            this.planner.syncAll();
+        });
         this.group.on('dragstart', (e) => {
+            this.isDragging = true;
             if (this.planner.roofLayer) {
                 this.group.moveTo(this.planner.roofLayer);
                 this.planner.mainLayer.batchDraw();
             }
+            this.update();
         });
         this.group.on('dragend', (e) => {
+            this.isDragging = false;
+            this.planner.wallHighlight.hide();
             if (this.planner.baseLayer) {
                 this.group.moveTo(this.planner.baseLayer);
             } else {
                 this.group.moveTo(this.planner.furnitureLayer);
             }
+            this.update();
             this.planner.mainLayer.batchDraw();
         });
         this.group.on('transform', () => {
@@ -618,7 +711,7 @@ export class FloorPlanner {
         
         this.shapeTransformer = new Konva.Transformer({
             borderStroke: '#3b82f6', anchorStroke: '#ffffff', anchorFill: '#111827',
-            anchorSize: 16, anchorCornerRadius: 8, anchorStrokeWidth: 2,
+            anchorSize: 16, anchorCornerRadius: 8, anchorStrokeWidth: 2, rotateEnabled: false,
             rotationSnaps: [0, 45, 90, 135, 180, 225, 270, 315],
             boundBoxFunc: (oldBox, newBox) => {
                 // Only snap cleanly unrotated boxes 
