@@ -202,7 +202,19 @@ export class PremiumShape {
 
         this.attachedWall = null;
         this.isDragging = false;
+
+        this.attachmentArrow = new Konva.Arrow({
+            points: [0, 15, 0, -5],
+            pointerLength: 8,
+            pointerWidth: 8,
+            fill: '#f59e0b',
+            stroke: '#f59e0b',
+            strokeWidth: 3,
+            visible: false
+        });
+
         this.group.add(this.shape);
+        this.group.add(this.attachmentArrow);
         if (this.planner.baseLayer) {
             this.planner.baseLayer.add(this.group);
         } else {
@@ -300,13 +312,82 @@ export class PremiumShape {
                 
                 if (finalSnapDist > 0 && minDist < 15) {
                     const ht = targetWall.thickness ? targetWall.thickness / 2 : (targetWall.config ? targetWall.config.thickness / 2 : 4);
+                    
+                    // Auto-rotate shape to align closest side with wall
+                    const wallAngle = Math.atan2(wallP2.y - wallP1.y, wallP2.x - wallP1.x) * 180 / Math.PI;
+                    let bestDelta = 0;
+                    
+                    if (this.type === 'shape_rect' || this.type === 'shape_circle') {
+                        const diff = wallAngle - this.rotation;
+                        bestDelta = diff - Math.round(diff / 90) * 90;
+                    } else if (this.type === 'shape_polygon') {
+                        let minAngleDiff = Infinity;
+                        const pts = this.params.points;
+                        if (pts && pts.length > 1) {
+                            for (let i = 0; i < pts.length; i++) {
+                                const p1 = pts[i];
+                                const p2 = pts[(i + 1) % pts.length];
+                                const edgeLocalAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
+                                const edgeWorldAngle = edgeLocalAngle + this.rotation;
+                                
+                                const diff1 = wallAngle - edgeWorldAngle;
+                                const normDiff1 = ((diff1 % 360) + 540) % 360 - 180;
+                                
+                                const diff2 = (wallAngle + 180) - edgeWorldAngle;
+                                const normDiff2 = ((diff2 % 360) + 540) % 360 - 180;
+
+                                if (Math.abs(normDiff1) < Math.abs(minAngleDiff)) minAngleDiff = normDiff1;
+                                if (Math.abs(normDiff2) < Math.abs(minAngleDiff)) minAngleDiff = normDiff2;
+                            }
+                            bestDelta = minAngleDiff !== Infinity ? minAngleDiff : 0;
+                        }
+                    }
+
+                    this.rotation += bestDelta;
+                    this.group.rotation(this.rotation);
+
+                    // Recompute finalSnapDist with the new aligned rotation
+                    if (this.type === 'shape_rect') {
+                        const normAngle = Math.atan2(outNorm.y, outNorm.x);
+                        const shapeAngle = this.rotation * Math.PI / 180;
+                        const theta = shapeAngle - normAngle;
+                        finalSnapDist = (this.params.width / 2) * Math.abs(Math.cos(theta)) + (this.params.height / 2) * Math.abs(Math.sin(theta)) + 5;
+                    } else if (this.type === 'shape_circle') {
+                        finalSnapDist = this.params.radius + 5;
+                    } else if (this.type === 'shape_polygon') {
+                        if (this.params.points && this.params.points.length > 0) {
+                            let maxDist = 0;
+                            const rad = this.rotation * Math.PI / 180;
+                            const cos = Math.cos(rad), sin = Math.sin(rad);
+                            for (let p of this.params.points) {
+                                const rx = p.x * cos - p.y * sin;
+                                const ry = p.x * sin + p.y * cos;
+                                const projDist = -(rx * outNorm.x + ry * outNorm.y);
+                                if (projDist > maxDist) maxDist = projDist;
+                            }
+                            finalSnapDist = maxDist + 5;
+                        } else {
+                            finalSnapDist = 25;
+                        }
+                    }
+
                     this.group.position({ x: proj.x + outNorm.x * (ht + finalSnapDist), y: proj.y + outNorm.y * (ht + finalSnapDist) });
                 }
+                
                 this.attachedWall = targetWall;
                 this.planner.wallHighlight.points([wallP1.x, wallP1.y, wallP2.x, wallP2.y]).show();
+                this.shape.stroke('#f59e0b');
+
+                const arrowRotation = Math.atan2(outNorm.y, outNorm.x) * 180 / Math.PI + 90;
+                this.attachmentArrow.rotation(arrowRotation - this.rotation); // Relative to group rotation
+                this.attachmentArrow.fill('#f59e0b');
+                this.attachmentArrow.stroke('#f59e0b');
+                this.attachmentArrow.visible(true);
             } else {
                 this.attachedWall = null;
                 this.planner.wallHighlight.hide();
+                this.shape.stroke(this.params.stroke);
+                this.attachmentArrow.visible(false);
             }
             this.update();
             this.planner.syncAll();
@@ -322,6 +403,15 @@ export class PremiumShape {
         this.group.on('dragend', (e) => {
             this.isDragging = false;
             this.planner.wallHighlight.hide();
+            
+            if (this.attachedWall) {
+                this.attachmentArrow.fill('#10b981');
+                this.attachmentArrow.stroke('#10b981');
+                this.attachmentArrow.visible(true);
+            } else {
+                this.attachmentArrow.visible(false);
+            }
+
             if (this.planner.baseLayer) {
                 this.group.moveTo(this.planner.baseLayer);
             } else {
