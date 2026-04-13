@@ -54,6 +54,19 @@
       <main class="canvas-container">
         <div class="hint" :style="{ background: hintData.color }" v-show="viewMode === '2d'">{{ hintData.text }}</div>
         
+        <div class="floating-advanced-toolbar" v-show="viewMode === '2d'">
+            <div class="adv-dropdown">
+                <button class="adv-trigger-btn" @click="handleAdvTriggerClick" :class="{active: showAdvancedTools || isAdvancedToolActive}" :title="isAdvancedToolActive ? 'Clear Tool' : 'Advanced Tools'">
+                    <span v-if="isAdvancedToolActive" style="color: #fca5a5; font-size: 16px;">✕</span>
+                    <span v-else>⚙️</span>
+                </button>
+                <div class="adv-side-menu" v-show="showAdvancedTools && !isAdvancedToolActive">
+                    <button class="adv-round-btn" :class="{active: activeTool === 'split'}" @click="setAdvancedTool('split'); showAdvancedTools=false" title="Split Wall">✂️</button>
+                    <button class="adv-round-btn" :class="{active: activeTool === 'extender'}" @click="setAdvancedTool('extender'); showAdvancedTools=false" title="Extend Wall">📏</button>
+                </div>
+            </div>
+        </div>
+
         <div class="floating-env-toolbar" v-show="viewMode === '3d'">
             <div class="camera-controls">
                 <button class="env-icon-btn" @click="setCameraPreset('front')" title="Front View">⬆️</button>
@@ -372,13 +385,6 @@ const menuCategories = ref([
             { id: 'shape_circle', name: 'Cylinder (Circle)' },
             { id: 'shape_triangle', name: 'Prism (Polygon)' }
         ]
-    },
-    {
-        id: 'advanced', name: '⚙️ Advanced Tools',
-        tools: [
-            { id: 'split', name: 'Split' },
-            { id: 'extender', name: 'Extender' }
-        ]
     }
 ]);
 
@@ -410,6 +416,7 @@ const selectedGround = ref('grass'); // Start with new Grass + Normal map terrai
 
 const showSky = ref(false);
 const showGround = ref(false);
+const showAdvancedTools = ref(false);
 
 const currentFaceDecors = computed(() => {
     const trigger = uiTrigger.value; 
@@ -618,6 +625,23 @@ const handleDeselect = () => {
 };
 const setTool = (tool) => { 
     activeTool.value = tool; planner.value.tool = tool; planner.value.finishChain(); planner.value.updateToolStates(); planner.value.selectEntity(null); 
+};
+const isAdvancedToolActive = computed(() => ['split', 'extender'].includes(activeTool.value));
+const handleAdvTriggerClick = () => {
+    if (isAdvancedToolActive.value) {
+        setTool('select');
+        showAdvancedTools.value = false;
+    } else {
+        showAdvancedTools.value = !showAdvancedTools.value;
+    }
+};
+const setAdvancedTool = (tool) => {
+    activeTool.value = tool;
+    if (planner.value) {
+        planner.value.tool = tool;
+        planner.value.finishChain();
+        planner.value.updateToolStates();
+    }
 };
 const handleToolClick = (tool) => {
     if (tool.action === 'furniture') spawnFurniture(tool.id);
@@ -908,6 +932,15 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .hud-delete:hover { background: #ef4444; color: white; }
 
 .floating-env-toolbar { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 100; }
+.floating-advanced-toolbar { position: absolute; top: 20px; right: 20px; z-index: 100; }
+.adv-dropdown { position: relative; display: flex; align-items: center; }
+.adv-trigger-btn { width: 44px; height: 44px; border-radius: 50%; background: rgba(17, 24, 39, 0.8); color: white; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: 0.3s; z-index: 101; position: relative; backdrop-filter: blur(4px); }
+.adv-trigger-btn:hover, .adv-trigger-btn.active { background: rgba(17, 24, 39, 1); border-color: rgba(255,255,255,0.4); transform: scale(1.05); }
+.adv-side-menu { position: absolute; right: 100%; top: 50%; transform: translateY(-50%); margin-right: 12px; display: flex; gap: 8px; background: rgba(17, 24, 39, 0.8); padding: 6px; border-radius: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); animation: slideInRight 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); backdrop-filter: blur(4px); }
+@keyframes slideInRight { from { opacity: 0; transform: translate(20px, -50%) scale(0.9); } to { opacity: 1; transform: translate(0, -50%) scale(1); } }
+.adv-round-btn { width: 36px; height: 36px; border-radius: 50%; background: transparent; color: white; border: 1px solid transparent; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+.adv-round-btn:hover { background: rgba(255,255,255,0.1); transform: scale(1.1); }
+.adv-round-btn.active { background: #ffffff; color: #111827; border-color: #ffffff; }
 .env-dropdown { position: relative; }
 .env-icon-btn { background: rgba(17, 24, 39, 0.8); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; backdrop-filter: blur(4px); transition: 0.2s; }
 .env-icon-btn:hover { background: rgba(17, 24, 39, 1); box-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
