@@ -63,6 +63,7 @@ export class PremiumWidget {
     initEvents() { 
         this.visualGroup.on('mouseenter', () => { if (this.planner.tool === 'select') document.body.style.cursor = 'pointer'; }); 
         this.visualGroup.on('mouseleave', () => { document.body.style.cursor = 'default'; }); 
+        this.visualGroup.on('mousedown touchstart', () => { this.visualGroup.moveToTop(); });
         this.visualGroup.on('dragstart', () => { this.isDragging = true; }); 
         this.visualGroup.on('dragmove', () => { 
             if (!this.hasEvent("drag_along_wall")) return; 

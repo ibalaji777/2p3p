@@ -80,7 +80,7 @@ export class PremiumHipRoof {
         this.group.on('mouseenter', () => { if(this.planner.tool === 'select') document.body.style.cursor = 'move'; });
         this.group.on('mouseleave', () => document.body.style.cursor = 'default');
         
-        this.group.on('mousedown', (e) => { if (this.planner.tool !== 'select') return; e.cancelBubble = true; this.planner.selectEntity(this, 'roof'); });
+        this.group.on('mousedown touchstart', (e) => { this.group.moveToTop(); if (this.planner.tool !== 'select') return; e.cancelBubble = true; this.planner.selectEntity(this, 'roof'); });
         this.group.on('dragstart', (e) => { if (this.planner.tool !== 'select' || this.handles.includes(e.target)) return; this.planner.selectEntity(this, 'roof'); });
         this.group.on('dragmove', (e) => { if (this.planner.tool !== 'select' || this.handles.includes(e.target)) return; this.planner.syncAll(); });
     }

@@ -201,11 +201,16 @@ export class PremiumShape {
         }
 
         this.group.add(this.shape);
-        this.planner.furnitureLayer.add(this.group);
+        if (this.planner.baseLayer) {
+            this.planner.baseLayer.add(this.group);
+        } else {
+            this.planner.furnitureLayer.add(this.group);
+        }
         
         this.group.on('mouseenter', () => { if (this.planner.tool === 'select') document.body.style.cursor = 'move'; });
         this.group.on('mouseleave', () => document.body.style.cursor = 'default');
         this.group.on('mousedown touchstart', (e) => { 
+            this.group.moveToTop();
             if (this.planner.tool === 'split') {
                 e.cancelBubble = true; 
                 if (e.evt) e.evt.stopPropagation();
@@ -218,6 +223,20 @@ export class PremiumShape {
             }
         });
         this.group.on('dragmove', () => { this.planner.syncAll(); });
+        this.group.on('dragstart', (e) => {
+            if (this.planner.roofLayer) {
+                this.group.moveTo(this.planner.roofLayer);
+                this.planner.mainLayer.batchDraw();
+            }
+        });
+        this.group.on('dragend', (e) => {
+            if (this.planner.baseLayer) {
+                this.group.moveTo(this.planner.baseLayer);
+            } else {
+                this.group.moveTo(this.planner.furnitureLayer);
+            }
+            this.planner.mainLayer.batchDraw();
+        });
         this.group.on('transform', () => {
             this.rotation = this.group.rotation();
             if (this.type === 'shape_rect') {
@@ -517,11 +536,12 @@ export class FloorPlanner {
         this.bgLayer.add(this.gridLayer, this.referenceLayer, this.roomLayer);
 
         this.mainLayer = new Konva.Layer();
+        this.baseLayer = new Konva.Group();
         this.wallLayer = new Konva.Group(); 
         this.widgetLayer = new Konva.Group(); 
         this.furnitureLayer = new Konva.Group(); 
         this.roofLayer = new Konva.Group(); 
-        this.mainLayer.add(this.furnitureLayer, this.wallLayer, this.widgetLayer, this.roofLayer);
+        this.mainLayer.add(this.baseLayer, this.wallLayer, this.widgetLayer, this.furnitureLayer, this.roofLayer);
 
         this.uiLayer = new Konva.Layer(); 
         this.stage.add(this.bgLayer, this.mainLayer, this.uiLayer); 
@@ -716,7 +736,6 @@ export class FloorPlanner {
         let snapY = null;
         let guideX = null;
         let guideY = null;
-        let isColliding = false;
         let distTargetX = null;
         let distTargetY = null;
 
@@ -727,16 +746,6 @@ export class FloorPlanner {
             if (targetRect.width === 0 || targetRect.height === 0) return;
             
             const targetCenter = { x: targetRect.x + targetRect.width / 2, y: targetRect.y + targetRect.height / 2 };
-
-            // Check Bounding Box Collision
-            if (
-                dragRect.x < targetRect.x + targetRect.width &&
-                dragRect.x + dragRect.width > targetRect.x &&
-                dragRect.y < targetRect.y + targetRect.height &&
-                dragRect.y + dragRect.height > targetRect.y
-            ) {
-                isColliding = true;
-            }
 
             let activeAnchor = (isTransforming && this.shapeTransformer) ? this.shapeTransformer.getActiveAnchor() : null;
             let checkLeft = !activeAnchor || activeAnchor.includes('left');
@@ -849,14 +858,6 @@ export class FloorPlanner {
                     txt.offsetY(txt.height() / 2); this.alignmentLines.add(txt);
                 }
             }
-        }
-
-        if (isColliding) {
-            const effSnapX = isTransforming ? 0 : (snapX || 0);
-            const effSnapY = isTransforming ? 0 : (snapY || 0);
-            const pTL = inverseTransform.point({ x: dragRect.x + effSnapX, y: dragRect.y + effSnapY });
-            const pBR = inverseTransform.point({ x: dragRect.x + dragRect.width + effSnapX, y: dragRect.y + dragRect.height + effSnapY });
-            this.alignmentLines.add(new Konva.Rect({ x: pTL.x, y: pTL.y, width: pBR.x - pTL.x, height: pBR.y - pTL.y, fill: 'rgba(239, 68, 68, 0.25)', stroke: '#ef4444', strokeWidth: 2 * scale, cornerRadius: 4 * scale }));
         }
 
         this.uiLayer.batchDraw();
@@ -1003,6 +1004,7 @@ export class FloorPlanner {
         });
 
         // FORCE LAYER LISTENING OFF DURING DRAWING OR RESTRICT BY CATEGORY
+        if (this.baseLayer) { this.baseLayer.listening(allowAll || cat === "shapes" || cat === "structures" || isSplit); }
         if (this.wallLayer) { this.wallLayer.listening(allowAll || cat === "common" || cat === "walls" || cat === "doors_windows" || cat === "structures" || isWidget || isSplit); }
         if (this.widgetLayer) { this.widgetLayer.listening(allowAll || cat === "doors_windows" || cat === "structures"); }
         if (this.furnitureLayer) { this.furnitureLayer.listening(allowAll || cat === "furniture" || cat === "shapes" || isSplit); }
@@ -1939,6 +1941,7 @@ export class FloorPlanner {
         if (this.shapeTransformer) this.shapeTransformer.nodes([]);
         this.walls = []; this.furniture = []; this.stairs = []; this.roofs = []; this.balconies = []; this.arcs = []; this.shapes = []; this.roomPaths = [];
         this.anchors.forEach(a => { if(a.node) a.node.destroy(); }); this.anchors = [];
+        if (this.baseLayer) this.baseLayer.destroyChildren();
         if (this.wallLayer) this.wallLayer.destroyChildren(); if (this.furnitureLayer) this.furnitureLayer.destroyChildren(); if (this.widgetLayer) this.widgetLayer.destroyChildren(); if (this.roofLayer) this.roofLayer.destroyChildren();
         if (this.mainLayer) this.mainLayer.batchDraw();
         this.selectEntity(null);

@@ -36,6 +36,7 @@ export class PremiumStair {
         this.stepsGroup.on('mouseenter', () => { if (this.planner.tool === 'select') document.body.style.cursor = 'pointer'; });
         this.stepsGroup.on('mouseleave', () => document.body.style.cursor = 'default');
         this.stepsGroup.on('click', (e) => { if (this.planner.tool === 'select') { this.planner.selectEntity(this, 'stair'); e.cancelBubble = true; } });
+        this.group.on('mousedown touchstart', () => { this.group.moveToTop(); });
         this.group.on('dragstart', (e) => { if (e.target.isStairNodeHandle) return; this.basePath = JSON.parse(JSON.stringify(this.path)); });
         this.group.setAttr('dragBoundFunc', (pos) => { if (!this.basePath) return {x:0, y:0}; let dx = pos.x; let dy = pos.y; for (let i = 0; i < this.path.length; i++) { this.path[i].x = this.basePath[i].x + dx; this.path[i].y = this.basePath[i].y + dy; } this.update(true); this.planner.syncAll(); return { x: 0, y: 0 }; });
         this.group.on('dragend', (e) => { if (e.target.isStairNodeHandle) return; this.basePath = null; this.planner.syncAll(); });

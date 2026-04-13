@@ -381,7 +381,11 @@ export class PremiumShape {
         }
 
         this.group.add(this.shape);
-        this.planner.furnitureLayer.add(this.group);
+        if (this.planner.baseLayer) {
+            this.planner.baseLayer.add(this.group);
+        } else {
+            this.planner.furnitureLayer.add(this.group);
+        }
         
         this.group.on('mouseenter', () => { if (this.planner.tool === 'select') document.body.style.cursor = 'move'; });
         this.group.on('mouseleave', () => document.body.style.cursor = 'default');
@@ -392,6 +396,20 @@ export class PremiumShape {
             }
         });
         this.group.on('dragmove', () => { this.planner.syncAll(); });
+        this.group.on('dragstart', (e) => {
+            if (this.planner.roofLayer) {
+                this.group.moveTo(this.planner.roofLayer);
+                this.planner.mainLayer.batchDraw();
+            }
+        });
+        this.group.on('dragend', (e) => {
+            if (this.planner.baseLayer) {
+                this.group.moveTo(this.planner.baseLayer);
+            } else {
+                this.group.moveTo(this.planner.furnitureLayer);
+            }
+            this.planner.mainLayer.batchDraw();
+        });
         this.group.on('transform', () => {
             this.rotation = this.group.rotation();
             if (this.type === 'shape_rect') {
@@ -448,11 +466,12 @@ export class FloorPlanner {
         this.bgLayer.add(this.gridLayer, this.referenceLayer, this.roomLayer);
 
         this.mainLayer = new Konva.Layer();
+        this.baseLayer = new Konva.Group();
         this.wallLayer = new Konva.Group();
         this.widgetLayer = new Konva.Group();
         this.furnitureLayer = new Konva.Group();
         this.roofLayer = new Konva.Group();
-        this.mainLayer.add(this.furnitureLayer, this.wallLayer, this.widgetLayer, this.roofLayer);
+        this.mainLayer.add(this.baseLayer, this.wallLayer, this.widgetLayer, this.furnitureLayer, this.roofLayer);
 
         this.uiLayer = new Konva.Layer();
 
@@ -613,6 +632,7 @@ export class FloorPlanner {
         });
 
         // FORCE LAYER LISTENING OFF DURING DRAWING OR RESTRICT BY CATEGORY
+        if (this.baseLayer) { this.baseLayer.listening(allowAll || cat === "shapes" || cat === "structures" || isSplitWall); }
         if (this.wallLayer) { this.wallLayer.listening(allowAll || cat === "common" || cat === "walls" || cat === "doors_windows" || cat === "structures" || isWidget || isSplitWall); }
         if (this.widgetLayer) { this.widgetLayer.listening(allowAll || cat === "doors_windows" || cat === "structures"); }
         if (this.furnitureLayer) { this.furnitureLayer.listening(allowAll || cat === "furniture" || cat === "shapes"); }
@@ -1241,6 +1261,7 @@ export class FloorPlanner {
         this.anchors.forEach(a => { if(a.node) a.node.destroy(); });
         this.anchors = [];
 
+        if (this.baseLayer) this.baseLayer.destroyChildren();
         if (this.wallLayer) this.wallLayer.destroyChildren();
         if (this.furnitureLayer) this.furnitureLayer.destroyChildren();
         if (this.widgetLayer) this.widgetLayer.destroyChildren();

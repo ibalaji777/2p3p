@@ -16,6 +16,7 @@ export class PremiumFurniture {
     initEvents() {
         this.group.on('mouseenter', () => document.body.style.cursor = 'move'); this.group.on('mouseleave', () => document.body.style.cursor = 'default');
         this.group.on('mousedown touchstart', (e) => { 
+            this.group.moveToTop();
             if (this.planner.tool === 'select') {
                 e.cancelBubble = true; 
                 if (e.evt) e.evt.stopPropagation();

@@ -49,6 +49,7 @@ export class PremiumWall {
         this.poly.on('mouseenter', () => { if (this.planner.tool === 'select' || WIDGET_REGISTRY[this.planner.tool]) document.body.style.cursor = 'pointer'; });
         this.poly.on('mouseleave', () => { document.body.style.cursor = 'default'; });
         this.poly.on('mousedown touchstart', (e) => { 
+            this.wallGroup.moveToTop();
             console.log("Wall mousedown/touchstart event fired.", { tool: this.planner.tool, isWidget: !!WIDGET_REGISTRY[this.planner.tool] });
             
             if (this.planner.tool === 'split') {

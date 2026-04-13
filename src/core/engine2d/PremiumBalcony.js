@@ -96,7 +96,11 @@ export class PremiumBalcony {
         this.rotater.on('mouseup', () => document.body.style.cursor = 'grab');
 
         this.group.add(this.polygon, this.rotater, this.attachmentArrow);
-        this.planner.widgetLayer.add(this.group);
+        if (this.planner.baseLayer) {
+            this.planner.baseLayer.add(this.group);
+        } else {
+            this.planner.widgetLayer.add(this.group);
+        }
 
         this.rebuildHandles();
         this.initEvents();
@@ -198,6 +202,7 @@ export class PremiumBalcony {
         this.group.on('mouseenter', () => { if (this.planner.tool === 'select') document.body.style.cursor = 'move'; });
         this.group.on('mouseleave', () => document.body.style.cursor = 'default');
         this.group.on('mousedown touchstart', (e) => { 
+            this.group.moveToTop();
             if (this.planner.tool !== 'select') return; 
             e.cancelBubble = true; 
             if (e.evt) e.evt.stopPropagation();
@@ -244,6 +249,9 @@ export class PremiumBalcony {
             if (e.target !== this.group) return;
             startPointer = this.planner.stage.getPointerPosition();
             startVertices = this.vertices.map(v => ({ ...v }));
+            if (this.planner.roofLayer) {
+                this.group.moveTo(this.planner.roofLayer);
+            }
         });
 
         this.group.on('dragmove', (e) => {
@@ -342,6 +350,11 @@ export class PremiumBalcony {
             this.attachmentArrow.visible(false);
             this.planner.wallHighlight.hide();
             this.planner.drawGuideLine(0, 0, 0, 0, false);
+            if (this.planner.baseLayer) {
+                this.group.moveTo(this.planner.baseLayer);
+            } else {
+                this.group.moveTo(this.planner.widgetLayer);
+            }
             this.planner.syncAll();
         });
     }
