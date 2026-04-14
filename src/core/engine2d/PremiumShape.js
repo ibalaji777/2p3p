@@ -90,7 +90,9 @@ export class PremiumShape {
         });
         this.group.on('dragmove', (e) => {
             if (e.target !== this.group) { this.planner.syncAll(); return; }
-            const center = this.group.position();
+            const pointer = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
+            const rawCenter = { x: pointer.x + (this.dragOffset ? this.dragOffset.x : 0), y: pointer.y + (this.dragOffset ? this.dragOffset.y : 0) };
+            const center = rawCenter;
             let minDist = 40; 
             let targetWall = null;
             let finalSnapDist = 0;
@@ -224,6 +226,8 @@ export class PremiumShape {
                     }
 
                     this.group.position({ x: proj.x + outNorm.x * (ht + finalSnapDist), y: proj.y + outNorm.y * (ht + finalSnapDist) });
+                } else {
+                    this.group.position(rawCenter);
                 }
                 
                 this.attachedWall = targetWall;
@@ -240,12 +244,17 @@ export class PremiumShape {
                 this.planner.wallHighlight.hide();
                 this.shape.stroke(this.params.stroke);
                 this.attachmentArrow.visible(false);
+                this.group.position(rawCenter);
             }
             this.update();
             this.planner.syncAll();
         });
         this.group.on('dragstart', (e) => {
             this.isDragging = true;
+            const pointer = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
+            const pos = this.group.position();
+            this.dragOffset = { x: pos.x - pointer.x, y: pos.y - pointer.y };
+
             if (this.planner.roofLayer) {
                 this.group.moveTo(this.planner.roofLayer);
                 this.planner.mainLayer.batchDraw();
