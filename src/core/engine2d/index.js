@@ -11,6 +11,7 @@ import { PremiumFurniture } from '/src/core/engine2d/PremiumFurniture.js';
 import { PremiumStair } from '/src/core/engine2d/PremiumStair.js';
 import { PremiumHipRoof } from '/src/core/engine2d/PremiumHipRoof.js';
 import { PremiumRailing } from '/src/core/engine2d/PremiumRailing.js';
+import { SnapManager } from '/src/core/engine2d/SnapManager.js';
 
 // Export the specific classes that App.vue needs to spawn items
 export { PremiumFurniture, PremiumHipRoof };
@@ -159,6 +160,7 @@ export class FloorPlanner {
         this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.arcs = []; this.shapes = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
         this.onSelectionChange = null; 
         this.initKonva(); this.drawGrid(); this.initHUD(); this.initStageEvents(); 
+        this.snapManager = new SnapManager(this);
     }
     
     initKonva() { 
