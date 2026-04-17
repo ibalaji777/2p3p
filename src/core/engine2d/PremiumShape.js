@@ -13,9 +13,21 @@ export class PremiumShape {
         if (!this.params.stroke) this.params.stroke = '#9ca3af';
         if (this.params.height3D === undefined) this.params.height3D = 100;
         
+        // Ensure newly drawn polygons have their group centered and points relative
+        // This prevents wild erratic movement when dragging a freshly drawn prism
+        if (this.type === 'shape_polygon' && this.params.points && this.params.x === undefined && this.params.y === undefined) {
+            let cx = 0, cy = 0;
+            this.params.points.forEach(p => { cx += p.x; cy += p.y; });
+            cx /= this.params.points.length;
+            cy /= this.params.points.length;
+            this.params.x = cx;
+            this.params.y = cy;
+            this.params.points = this.params.points.map(p => ({ x: p.x - cx, y: p.y - cy }));
+        }
+
         this.group = new Konva.Group({
-            x: params.x || 0,
-            y: params.y || 0,
+            x: this.params.x || 0,
+            y: this.params.y || 0,
             rotation: this.rotation,
             draggable: true
         });
@@ -167,64 +179,6 @@ export class PremiumShape {
                 if (finalSnapDist > 0 && minDist < 15) {
                     const ht = targetWall.thickness ? targetWall.thickness / 2 : (targetWall.config ? targetWall.config.thickness / 2 : 4);
                     
-                    // Auto-rotate shape to align closest side with wall
-                    const wallAngle = Math.atan2(wallP2.y - wallP1.y, wallP2.x - wallP1.x) * 180 / Math.PI;
-                    let bestDelta = 0;
-                    
-                    if (this.type === 'shape_rect' || this.type === 'shape_circle') {
-                        const diff = wallAngle - this.rotation;
-                        bestDelta = diff - Math.round(diff / 90) * 90;
-                    } else if (this.type === 'shape_polygon') {
-                        let minAngleDiff = Infinity;
-                        const pts = this.params.points;
-                        if (pts && pts.length > 1) {
-                            for (let i = 0; i < pts.length; i++) {
-                                const p1 = pts[i];
-                                const p2 = pts[(i + 1) % pts.length];
-                                const edgeLocalAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
-                                const edgeWorldAngle = edgeLocalAngle + this.rotation;
-                                
-                                const diff1 = wallAngle - edgeWorldAngle;
-                                const normDiff1 = ((diff1 % 360) + 540) % 360 - 180;
-                                
-                                const diff2 = (wallAngle + 180) - edgeWorldAngle;
-                                const normDiff2 = ((diff2 % 360) + 540) % 360 - 180;
-
-                                if (Math.abs(normDiff1) < Math.abs(minAngleDiff)) minAngleDiff = normDiff1;
-                                if (Math.abs(normDiff2) < Math.abs(minAngleDiff)) minAngleDiff = normDiff2;
-                            }
-                            bestDelta = minAngleDiff !== Infinity ? minAngleDiff : 0;
-                        }
-                    }
-
-                    this.rotation += bestDelta;
-                    this.group.rotation(this.rotation);
-
-                    // Recompute finalSnapDist with the new aligned rotation
-                    if (this.type === 'shape_rect') {
-                        const normAngle = Math.atan2(outNorm.y, outNorm.x);
-                        const shapeAngle = this.rotation * Math.PI / 180;
-                        const theta = shapeAngle - normAngle;
-                        finalSnapDist = (this.params.width / 2) * Math.abs(Math.cos(theta)) + (this.params.height / 2) * Math.abs(Math.sin(theta)) + 5;
-                    } else if (this.type === 'shape_circle') {
-                        finalSnapDist = this.params.radius + 5;
-                    } else if (this.type === 'shape_polygon') {
-                        if (this.params.points && this.params.points.length > 0) {
-                            let maxDist = 0;
-                            const rad = this.rotation * Math.PI / 180;
-                            const cos = Math.cos(rad), sin = Math.sin(rad);
-                            for (let p of this.params.points) {
-                                const rx = p.x * cos - p.y * sin;
-                                const ry = p.x * sin + p.y * cos;
-                                const projDist = -(rx * outNorm.x + ry * outNorm.y);
-                                if (projDist > maxDist) maxDist = projDist;
-                            }
-                            finalSnapDist = maxDist + 5;
-                        } else {
-                            finalSnapDist = 25;
-                        }
-                    }
-
                     this.group.position({ x: proj.x + outNorm.x * (ht + finalSnapDist), y: proj.y + outNorm.y * (ht + finalSnapDist) });
                 } else {
                     this.group.position(rawCenter);
