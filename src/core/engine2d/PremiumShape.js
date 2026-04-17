@@ -24,7 +24,7 @@ export class PremiumShape {
             fill: this.params.fill,
             stroke: this.params.stroke,
             strokeWidth: 8,
-            lineJoin: 'round',
+            lineJoin: 'miter',
             shadowColor: 'black', 
             shadowBlur: 10, 
             shadowOffset: {x: 2, y: 2}, 
@@ -548,7 +548,7 @@ export class PremiumShape {
         }
 
         this.shape.destroy();
-        const shapeConfig = { fill: this.params.fill, stroke: this.params.stroke, strokeWidth: 8, lineJoin: 'round', shadowColor: 'black', shadowBlur: 10, shadowOffset: {x: 2, y: 2}, shadowOpacity: 0.2, closed: true };
+        const shapeConfig = { fill: this.params.fill, stroke: this.params.stroke, strokeWidth: 8, lineJoin: 'miter', shadowColor: 'black', shadowBlur: 10, shadowOffset: {x: 2, y: 2}, shadowOpacity: 0.2, closed: true };
         this.shape = new Konva.Line({ ...shapeConfig, points: this.params.points.flatMap(p => [p.x, p.y]) });
         this.group.add(this.shape); this.shape.moveToBottom();
         this.rebuildHandles();
