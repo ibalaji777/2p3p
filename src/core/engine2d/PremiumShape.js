@@ -205,6 +205,14 @@ export class PremiumShape {
         });
         this.group.on('dragstart', (e) => {
             this.isDragging = true;
+
+            if (this.planner.shapeTransformer) {
+                this.planner.shapeTransformer.visible(false);
+            }
+            if (this.handlesGroup) {
+                this.handlesGroup.visible(false);
+            }
+
             const pointer = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
             const pos = this.group.position();
             this.dragOffset = { x: pos.x - pointer.x, y: pos.y - pointer.y };
@@ -217,6 +225,14 @@ export class PremiumShape {
         });
         this.group.on('dragend', (e) => {
             this.isDragging = false;
+
+            if (this.planner.shapeTransformer && this.planner.selectedEntity === this) {
+                this.planner.shapeTransformer.visible(true);
+            }
+            if (this.handlesGroup && this.planner.selectedEntity === this) {
+                this.handlesGroup.visible(true);
+            }
+
             this.planner.wallHighlight.hide();
             
             if (this.attachedWall) {

@@ -465,6 +465,14 @@ export class PremiumShape {
         });
         this.group.on('dragstart', (e) => {
             this.isDragging = true;
+
+            if (this.planner.shapeTransformer) {
+                this.planner.shapeTransformer.visible(false);
+            }
+            if (this.handlesGroup) {
+                this.handlesGroup.visible(false);
+            }
+
             if (this.planner.roofLayer) {
                 this.group.moveTo(this.planner.roofLayer);
                 this.planner.mainLayer.batchDraw();
@@ -473,6 +481,14 @@ export class PremiumShape {
         });
         this.group.on('dragend', (e) => {
             this.isDragging = false;
+
+            if (this.planner.shapeTransformer && this.planner.selectedEntity === this) {
+                this.planner.shapeTransformer.visible(true);
+            }
+            if (this.handlesGroup && this.planner.selectedEntity === this) {
+                this.handlesGroup.visible(true);
+            }
+
             this.planner.wallHighlight.hide();
             if (this.planner.baseLayer) {
                 this.group.moveTo(this.planner.baseLayer);
