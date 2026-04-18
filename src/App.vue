@@ -4,6 +4,9 @@
        <div class="left-tools">
            <button :class="{active: viewMode==='2d'}" @click="switchTo2D">📐 2D Plan</button>
            <button :class="{active: viewMode==='3d'}" @click="switchTo3D">🧊 3D Preview</button>
+           <div class="divider"></div>
+           <button @click="undo" :disabled="historyIndex <= 0" title="Undo (Ctrl+Z)">↩️ Undo</button>
+           <button @click="redo" :disabled="historyIndex >= historyStack.length - 1" title="Redo (Ctrl+Y)">↪️ Redo</button>
        </div>
        
        <div class="center-tools" v-if="viewMode==='2d'">
@@ -24,7 +27,7 @@
        </div>
     </header>
 
-    <div class="main-workspace">
+    <div class="main-workspace" @mouseup="debouncedSaveHistory" @touchend="debouncedSaveHistory">
       <aside class="left-sidebar" v-show="viewMode === '2d'">
         <div class="sidebar-header">
             <h3>Design Tools</h3>
@@ -323,6 +326,10 @@ const planner = shallowRef(null);
 const renderer3D = shallowRef(null);
 const workspaceControls = shallowRef(null);
 
+const historyStack = ref([]);
+const historyIndex = ref(-1);
+const isUndoRedoAction = ref(false);
+
 const viewMode = ref('2d');
 const mode3D = ref('edit'); 
 const activeTool = ref('select');
@@ -418,6 +425,86 @@ const showSky = ref(false);
 const showGround = ref(false);
 const showAdvancedTools = ref(false);
 
+const saveHistory = () => {
+    if (isUndoRedoAction.value) return;
+    
+    if (planner.value && viewMode.value === '2d') {
+        levels.value[activeLevelIndex.value].data = planner.value.exportState();
+    }
+    
+    const currentState = JSON.stringify({
+        levels: levels.value,
+        activeLevelIndex: activeLevelIndex.value
+    });
+
+    if (historyIndex.value >= 0 && historyStack.value[historyIndex.value] === currentState) {
+        return; 
+    }
+
+    historyStack.value = historyStack.value.slice(0, historyIndex.value + 1);
+    historyStack.value.push(currentState);
+    
+    if (historyStack.value.length > 50) {
+        historyStack.value.shift();
+    } else {
+        historyIndex.value++;
+    }
+};
+
+let historyTimeout = null;
+const debouncedSaveHistory = () => {
+    if (historyTimeout) clearTimeout(historyTimeout);
+    historyTimeout = setTimeout(() => {
+        saveHistory();
+    }, 500);
+};
+
+const undo = () => {
+    if (historyIndex.value > 0) {
+        isUndoRedoAction.value = true;
+        historyIndex.value--;
+        restoreHistoryState(historyStack.value[historyIndex.value]);
+        setTimeout(() => { isUndoRedoAction.value = false; }, 100);
+    }
+};
+
+const redo = () => {
+    if (historyIndex.value < historyStack.value.length - 1) {
+        isUndoRedoAction.value = true;
+        historyIndex.value++;
+        restoreHistoryState(historyStack.value[historyIndex.value]);
+        setTimeout(() => { isUndoRedoAction.value = false; }, 100);
+    }
+};
+
+const restoreHistoryState = (stateStr) => {
+    const state = JSON.parse(stateStr);
+    
+    levels.value = state.levels;
+    activeLevelIndex.value = state.activeLevelIndex;
+    
+    if (planner.value) {
+        if (levels.value[activeLevelIndex.value].data) {
+            planner.value.importState(levels.value[activeLevelIndex.value].data);
+        } else {
+            planner.value.clearAll();
+        }
+        
+        if (activeLevelIndex.value > 0 && levels.value[activeLevelIndex.value - 1].data) {
+            planner.value.loadReferenceBackground(levels.value[activeLevelIndex.value - 1].data);
+        } else {
+            planner.value.clearReferenceBackground();
+        }
+    }
+    
+    handleDeselect();
+    if (viewMode.value === '3d') {
+        refresh3DScene(true);
+    } else {
+        if (planner.value) planner.value.syncAll();
+    }
+};
+
 const currentFaceDecors = computed(() => {
     const trigger = uiTrigger.value; 
     if (!selectedEntity.value || !selectedEntity.value.attachedDecor) return [];
@@ -483,19 +570,31 @@ onMounted(() => {
     };
 
     window.addEventListener('keydown', handleGlobalKeys);
+    
+    setTimeout(() => {
+        saveHistory();
+    }, 500);
 });
 
 onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeys));
 
 const handleGlobalKeys = (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        if (e.shiftKey) redo(); else undo();
+        e.preventDefault(); return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        redo(); e.preventDefault(); return;
+    }
+
     if (viewMode.value === '3d') {
         if (e.key === 'Delete' || e.key === 'Backspace') { 
-            if (selectedType.value === 'furniture') handleDelete(); 
+            if (selectedType.value === 'furniture') { handleDelete(); debouncedSaveHistory(); }
         }
         if (e.key === 'Escape' && renderer3D.value) renderer3D.value.cancelRelocation();
     } else if (viewMode.value === '2d') {
         if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (selectedType.value === 'roof' || selectedType.value === 'furniture' || selectedType.value === 'widget' || selectedType.value === 'shape') handleDelete();
+            if (selectedType.value === 'roof' || selectedType.value === 'furniture' || selectedType.value === 'widget' || selectedType.value === 'shape' || selectedType.value === 'wall' || selectedType.value === 'room') { handleDelete(); debouncedSaveHistory(); }
         }
         if (e.key === 'Escape') {
             setTool('select');
@@ -540,6 +639,7 @@ const switchLevel = (index) => {
     }
     
     if (viewMode.value === '3d') refresh3DScene(true); 
+    saveHistory();
 };
 
 const addLevel = (type) => {
@@ -547,6 +647,7 @@ const addLevel = (type) => {
     const newIndex = levels.value.length;
     levels.value.push({ id: 'level-' + Date.now(), name: `Floor ${newIndex + 1}`, data: type === 'duplicate' ? levels.value[activeLevelIndex.value].data : null });
     switchLevel(newIndex);
+    saveHistory();
 };
 
 const switchTo2D = () => {
@@ -658,6 +759,7 @@ const spawnWallPattern = (configId) => {
         activeDecorId.value = decor.id; uiTrigger.value++; 
         
         if (selectedEntity.value.isStatic) updateStaticLevelData(selectedEntity.value);
+        debouncedSaveHistory();
     }
 };
 
@@ -665,6 +767,7 @@ const spawnFurniture = (configId) => {
     const center = { x: planner.value.stage.width() / 2, y: planner.value.stage.height() / 2 };
     const item = new PremiumFurniture(planner.value, center.x, center.y, configId);
     planner.value.furniture.push(item); planner.value.selectEntity(item, 'furniture'); planner.value.syncAll();
+    debouncedSaveHistory();
 };
 
 const syncEngine = () => {
@@ -677,6 +780,7 @@ const syncEngine = () => {
     } else if (viewMode.value === '3d' && (selectedType.value === 'roof' || selectedType.value === 'room' || selectedType.value === 'wall' || selectedType.value === 'widget')) {
         refresh3DScene(true);
     }
+    debouncedSaveHistory();
 };
 
 const setRoofMaterial = (key) => {
@@ -696,6 +800,7 @@ const setFloorMaterial = (key) => {
 const onDecorUpdate = (decor) => { 
     if (renderer3D.value) renderer3D.value.updateWallDecorLive(decor); 
     if (selectedEntity.value?.isStatic) updateStaticLevelData(selectedEntity.value);
+    debouncedSaveHistory();
 };
 
 const handleDelete = () => { 
@@ -736,6 +841,7 @@ const handleDelete = () => {
             selectedType.value = null;
             if (viewMode.value === '3d') refresh3DScene(true);
         }
+        debouncedSaveHistory();
     }
 };
 
@@ -749,6 +855,7 @@ const handleDeleteSpecificDecor = (decorObj) => {
         uiTrigger.value++;
         
         if (wall.isStatic) updateStaticLevelData(wall);
+        debouncedSaveHistory();
     }
 };
 
@@ -802,7 +909,10 @@ const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
         const reader = new FileReader();
-        reader.onload = (e) => loadProject(e.target.result);
+        reader.onload = (e) => {
+            loadProject(e.target.result);
+            setTimeout(() => saveHistory(), 200);
+        };
         reader.readAsText(file);
     }
     event.target.value = '';
@@ -816,6 +926,7 @@ const clearWorkspace = () => {
         planner.value.clearReferenceBackground();
         handleDeselect();
         if (viewMode.value === '3d') refresh3DScene(true);
+        saveHistory();
     }
 };
 </script>
@@ -837,6 +948,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 }
 .top-toolbar button:hover { background: #4b5563; color: white; }
 .top-toolbar button.active { background: #3b82f6; color: white; box-shadow: 0 0 10px rgba(59, 130, 246, 0.4); }
+.top-toolbar button:disabled { opacity: 0.5; cursor: not-allowed; background: #374151; color: #9ca3af; }
 .divider { width: 1px; height: 20px; background: #4b5563; margin: 0 5px; }
 
 /* MAIN WORKSPACE */
