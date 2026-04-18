@@ -133,10 +133,14 @@
             </div>
         </div>
 
-        <div class="panel properties-panel flex-1">
-            <div class="panel-header"><h3>Properties</h3></div>
+        <div class="panel tabs-panel flex-1">
+            <div class="tabs-header">
+                <button :class="{active: activeRightTab === 'properties'}" @click="activeRightTab = 'properties'">Properties</button>
+                <button :class="{active: activeRightTab === 'layers'}" @click="activeRightTab = 'layers'">Layer List</button>
+            </div>
             
-            <div class="props-content" v-if="(viewMode==='3d' || viewMode==='2d') && selectedEntity && viewMode3D !== 'preview'">
+            <div class="tab-body" v-show="activeRightTab === 'properties'">
+                <div class="props-content" v-if="(viewMode==='3d' || viewMode==='2d') && selectedEntity && viewMode3D !== 'preview'">
                 
                 <div v-if="selectedType === 'wall'">
                     <h4 class="props-subtitle" v-if="selectedEntity.type === 'railing'">Railing Properties</h4>
@@ -292,10 +296,29 @@
                 </div>
             </div>
 
-            <div class="props-empty" v-else>
+            <div class="props-empty" v-else v-show="activeRightTab === 'properties'">
                 <span v-if="viewMode==='2d'">Properties are edited in 3D Mode. Select an Object to edit sizing here.</span>
                 <span v-else-if="viewMode3D==='preview'">Exit Preview Mode to edit.</span>
                 <span v-else>Select a wall or object to edit its properties.</span>
+            </div>
+            </div>
+
+            <div class="layers-content" v-show="activeRightTab === 'layers'">
+                <div class="layers-list">
+                    <div v-for="item in layerItems" :key="item.id" class="layer-item" :class="{active: selectedEntity === item.entity}" @click="selectLayerItem(item)">
+                        <div class="layer-info">
+                            <span class="layer-type-icon">{{ getLayerIcon(item.type) }}</span>
+                            <span class="layer-name">{{ item.name }}</span>
+                        </div>
+                        <div class="layer-actions">
+                            <button @click.stop="toggleLayerVisibility(item)" :title="item.entity.isHidden ? 'Show' : 'Hide'">
+                                {{ item.entity.isHidden ? '👁️‍🗨️' : '👁️' }}
+                            </button>
+                            <button @click.stop="removeLayerItem(item)" title="Delete">🗑️</button>
+                        </div>
+                    </div>
+                    <div v-if="layerItems.length === 0" class="props-empty">No objects in the current floor.</div>
+                </div>
             </div>
         </div>
       </aside>
@@ -425,6 +448,106 @@ const showSky = ref(false);
 const showGround = ref(false);
 const showAdvancedTools = ref(false);
 
+const activeRightTab = ref('properties');
+const layerRefreshTrigger = ref(0);
+
+const layerItems = computed(() => {
+    const trigger = layerRefreshTrigger.value;
+    if (!planner.value) return [];
+    
+    const items = [];
+    
+    if (planner.value.walls) {
+        planner.value.walls.forEach((w, i) => {
+            if (w.type === 'railing') {
+                items.push({ id: `rail-${i}`, name: `Railing ${i + 1}`, entity: w, type: 'railing' });
+            } else {
+                items.push({ id: `wall-${i}`, name: w.type === 'inner' ? `Inner Wall ${i + 1}` : `Outer Wall ${i + 1}`, entity: w, type: 'wall' });
+            }
+        });
+    }
+    if (planner.value.rooms) {
+        planner.value.rooms.forEach((r, i) => {
+            items.push({ id: `room-${i}`, name: `Room/Floor ${i + 1}`, entity: r, type: 'room' });
+        });
+    }
+    if (planner.value.furniture) {
+        planner.value.furniture.forEach((f, i) => {
+            items.push({ id: `furn-${i}`, name: f.config?.name || `Furniture ${i + 1}`, entity: f, type: 'furniture' });
+        });
+    }
+    if (planner.value.shapes) {
+        planner.value.shapes.forEach((s, i) => {
+            let sName = 'Shape';
+            if (s.type === 'shape_rect') sName = 'Box';
+            if (s.type === 'shape_circle') sName = 'Cylinder';
+            if (s.type === 'shape_triangle') sName = 'Prism';
+            items.push({ id: `shape-${i}`, name: `${sName} ${i + 1}`, entity: s, type: 'shape' });
+        });
+    }
+    if (planner.value.roofs) {
+        planner.value.roofs.forEach((r, i) => {
+            items.push({ id: `roof-${i}`, name: `Roof ${i + 1}`, entity: r, type: 'roof' });
+        });
+    }
+    if (planner.value.stairs) {
+        planner.value.stairs.forEach((s, i) => {
+            items.push({ id: `stair-${i}`, name: `Stair ${i + 1}`, entity: s, type: 'stair' });
+        });
+    }
+    if (planner.value.walls) {
+        let wCount = 0;
+        planner.value.walls.forEach((w) => {
+            if (w.attachedWidgets) {
+                w.attachedWidgets.forEach(widget => {
+                    items.push({ id: `widget-${wCount++}`, name: widget.type === 'door' ? 'Door' : 'Window', entity: widget, type: 'widget' });
+                });
+            }
+        });
+    }
+    
+    return items;
+});
+
+const getLayerIcon = (type) => {
+    const icons = {
+        'wall': '🧱', 'railing': '🪜', 'room': '⬜', 'furniture': '🛋️', 
+        'shape': '🔳', 'roof': '🏠', 'stair': '📶', 'widget': '🚪'
+    };
+    return icons[type] || '📦';
+};
+
+const selectLayerItem = (item) => {
+    if (item.entity.isHidden) toggleLayerVisibility(item);
+    if (planner.value) planner.value.selectEntity(item.entity, item.type);
+};
+
+const toggleLayerVisibility = (item) => {
+    const ent = item.entity;
+    ent.isHidden = !ent.isHidden;
+    
+    const group2D = ent.group || ent.wallGroup || ent.visualGroup || ent.poly;
+    if (group2D && typeof group2D.visible === 'function') {
+        group2D.visible(!ent.isHidden);
+    }
+    if (ent.labelGroup && typeof ent.labelGroup.visible === 'function') ent.labelGroup.visible(!ent.isHidden);
+    if (ent.cutter && typeof ent.cutter.visible === 'function') ent.cutter.visible(!ent.isHidden);
+    if (ent.frontHighlight && typeof ent.frontHighlight.visible === 'function') ent.frontHighlight.visible(false);
+    if (ent.backHighlight && typeof ent.backHighlight.visible === 'function') ent.backHighlight.visible(false);
+
+    if (planner.value) planner.value.syncAll();
+    
+    if (ent.mesh3D) ent.mesh3D.visible = !ent.isHidden;
+    if (viewMode.value === '3d') refresh3DScene(true);
+};
+
+const removeLayerItem = (item) => {
+    selectedEntity.value = item.entity;
+    selectedType.value = item.type;
+    handleDelete();
+    layerRefreshTrigger.value++;
+};
+
 const saveHistory = () => {
     if (isUndoRedoAction.value) return;
     
@@ -456,6 +579,7 @@ const debouncedSaveHistory = () => {
     if (historyTimeout) clearTimeout(historyTimeout);
     historyTimeout = setTimeout(() => {
         saveHistory();
+        layerRefreshTrigger.value++;
     }, 500);
 };
 
@@ -882,6 +1006,12 @@ const refresh3DScene = (preserveCamera = true) => {
             preserveCamera
         ); 
 
+        layerItems.value.forEach(item => {
+            if (item.entity.isHidden && item.entity.mesh3D) {
+                item.entity.mesh3D.visible = false;
+            }
+        });
+
         if (prevSel) {
             const newMesh = renderer3D.value.interactables.find(m => {
                 if (prevType === 'wall' && m.userData.isWallSide && m.userData.entity === prevSel && m.userData.side === prevSide) return true;
@@ -1016,6 +1146,26 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .props-content { padding: 15px; overflow-y: auto; height: 100%; }
 .props-empty { padding: 30px 15px; text-align: center; color: #9ca3af; font-size: 13px; font-style: italic; }
 .props-subtitle { font-size: 13px; color: #111827; margin: 0 0 10px 0; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; }
+
+.tabs-header { display: flex; background: #f1f5f9; border-bottom: 1px solid #e5e7eb; }
+.tabs-header button { flex: 1; padding: 12px; background: transparent; border: none; border-bottom: 2px solid transparent; font-size: 13px; font-weight: bold; color: #6b7280; cursor: pointer; transition: 0.2s; }
+.tabs-header button.active { color: #3b82f6; border-bottom-color: #3b82f6; background: #fff; }
+.tabs-header button:hover:not(.active) { background: #e2e8f0; }
+
+.tab-body { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+.layers-content { padding: 0; display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+.layers-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 5px; }
+.layer-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+.layer-item:hover { background: #f8fafc; border-color: #cbd5e1; }
+.layer-item.active { background: #eff6ff; border-color: #3b82f6; box-shadow: 0 0 0 1px #3b82f6 inset; }
+.layer-info { display: flex; align-items: center; gap: 8px; flex: 1; overflow: hidden; }
+.layer-type-icon { font-size: 14px; }
+.layer-name { font-size: 12px; color: #374151; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.layer-actions { display: flex; gap: 4px; }
+.layer-actions button { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: transparent; border: none; border-radius: 4px; cursor: pointer; transition: 0.2s; opacity: 0.6; }
+.layer-actions button:hover { background: #e5e7eb; opacity: 1; }
+.layer-item.active .layer-actions button { opacity: 1; }
 
 /* PROPERTY CONTROLS */
 .control-group { margin-bottom: 10px; }
