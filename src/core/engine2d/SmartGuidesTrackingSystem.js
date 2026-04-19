@@ -8,16 +8,44 @@ export class SmartGuidesTrackingSystem {
         this.layer.add(this.guideGroup);
         
         this.config = {
-            snapThreshold: 10,
-            guideColor: '#10b981',       // Green dashed alignment guide
-            projectionColor: '#000000',  // Black dashed projection line
-            dashArray: [4, 4]
+            alignThreshold: 20,          // Distance to show dashed guides
+            snapThreshold: 8,            // Distance to snap/lock position
+            solidColor: '#3498db',       // Solid blue for locked reference
+            dashedColor: '#555555',      // Gray for potential reference
+            guideColor: '#2ecc71',       // Green alignment line
+            crosshairColor: 'rgba(59, 130, 246, 0.3)'
         };
+
+        this.lastPointer = { x: 0, y: 0 };
+        this.lastValidDx = 0;
+        this.lastValidDy = 0;
+        this.activeSnap = null;
     }
 
     clear() {
         this.guideGroup.destroyChildren();
         this.layer.batchDraw();
+        this.activeSnap = null;
+    }
+
+    projectPointOntoLine(P, A, B) {
+        const dx = B.x - A.x;
+        const dy = B.y - A.y;
+        const lengthSq = dx * dx + dy * dy;
+        if (lengthSq === 0) return { x: A.x, y: A.y }; 
+
+        let t = ((P.x - A.x) * dx + (P.y - A.y) * dy) / lengthSq;
+        // Clamp to segment so it behaves exactly like the HTML demo
+        t = Math.max(0, Math.min(1, t));
+
+        return {
+            x: A.x + t * dx,
+            y: A.y + t * dy
+        };
+    }
+
+    distance(p1, p2) {
+        return Math.hypot(p2.x - p1.x, p2.y - p1.y);
     }
 
     snapAndAlign(dragNode, isTransforming = false) {
@@ -28,173 +56,215 @@ export class SmartGuidesTrackingSystem {
             return;
         }
 
-        const scale = 1 / this.planner.stage.scaleX();
-        const threshold = this.config.snapThreshold / this.planner.stage.scaleX();
+        const scale = this.planner.stage.scaleX();
+        const alignThresh = this.config.alignThreshold / scale;
+        const snapThresh = this.config.snapThreshold / scale;
 
-        // 1. Get Object Bounds
+        // 1. Update Hysteresis / Velocity Tracking
+        const pointer = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
+        if (pointer) {
+            const dx = pointer.x - this.lastPointer.x;
+            const dy = pointer.y - this.lastPointer.y;
+            if (Math.abs(dx) > 1.5 / scale) this.lastValidDx = dx;
+            if (Math.abs(dy) > 1.5 / scale) this.lastValidDy = dy;
+            this.lastPointer = { ...pointer };
+        }
+
+        // Get Object Bounds (Absolute coords)
         const dragRect = dragNode.getClientRect({ skipShadow: true });
         if (dragRect.width === 0 || dragRect.height === 0) return;
 
-        const dragCenter = { x: dragRect.x + dragRect.width / 2, y: dragRect.y + dragRect.height / 2 };
-        
-        const dragPointsX = [
-            { val: dragRect.x, type: 'left', y: dragCenter.y }, 
-            { val: dragCenter.x, type: 'center', y: dragCenter.y }, 
-            { val: dragRect.x + dragRect.width, type: 'right', y: dragCenter.y }
-        ];
-        
-        const dragPointsY = [
-            { val: dragRect.y, type: 'top', x: dragCenter.x }, 
-            { val: dragCenter.y, type: 'center', x: dragCenter.x }, 
-            { val: dragRect.y + dragRect.height, type: 'bottom', x: dragCenter.x }
-        ];
+        // 2. Calculate Dynamic Leading Corner
+        const centerX = dragRect.x + dragRect.width / 2;
+        const centerY = dragRect.y + dragRect.height / 2;
+        let leadPoint = { x: centerX, y: centerY };
 
-        // 2. Gather references (Nodes, Walls, Shapes, Furniture)
-        let nodes = [...(this.planner.furnitureLayer ? this.planner.furnitureLayer.getChildren() : []), 
-                     ...(this.planner.widgetLayer ? this.planner.widgetLayer.getChildren() : [])];
-                     
-        if (this.planner.shapes) nodes.push(...this.planner.shapes.map(s => s.group));
+        // Determine leading corner based on movement direction
+        if (this.lastValidDx > 0) leadPoint.x = dragRect.x + dragRect.width;      // Moving Right
+        else if (this.lastValidDx < 0) leadPoint.x = dragRect.x;                  // Moving Left
+
+        if (this.lastValidDy > 0) leadPoint.y = dragRect.y + dragRect.height;     // Moving Down
+        else if (this.lastValidDy < 0) leadPoint.y = dragRect.y;                  // Moving Up
+
+        // Transform absolute leadPoint to local UI Layer coordinates for drawing
+        const inverseTransform = this.layer.getAbsoluteTransform().copy().invert();
+        const leadLocal = inverseTransform.point(leadPoint);
+
+        // Draw Faint Dynamic Crosshairs (Visual indicator of leading edge)
+        const crossSize = 5000;
+        this.guideGroup.add(new Konva.Line({
+            points: [leadLocal.x, leadLocal.y - crossSize, leadLocal.x, leadLocal.y + crossSize],
+            stroke: this.config.crosshairColor,
+            strokeWidth: 1 / scale,
+            dash: [4 / scale, 4 / scale]
+        }));
+        this.guideGroup.add(new Konva.Line({
+            points: [leadLocal.x - crossSize, leadLocal.y, leadLocal.x + crossSize, leadLocal.y],
+            stroke: this.config.crosshairColor,
+            strokeWidth: 1 / scale,
+            dash: [4 / scale, 4 / scale]
+        }));
+
+        // 3. Gather Geometry (Lines)
+        let segments = [];
+
+        // Add Walls
         if (this.planner.walls) {
             this.planner.walls.forEach(w => {
-                if (w.group) nodes.push(w.group);
-                else if (w.poly) nodes.push(w.poly);
+                if (w.wallGroup === dragNode || w.poly === dragNode) return;
+                const p1 = w.startAnchor.node.getAbsolutePosition();
+                const p2 = w.endAnchor.node.getAbsolutePosition();
+                segments.push({ p1, p2 });
             });
         }
 
-        let bestSnapX = null;
-        let bestSnapY = null;
-        let guideLineX = null;
-        let guideLineY = null;
+        // Add Bounding Boxes of other elements
+        const extraNodes = [...(this.planner.furnitureLayer ? this.planner.furnitureLayer.getChildren() : []), 
+                            ...(this.planner.widgetLayer ? this.planner.widgetLayer.getChildren() : [])];
+        if (this.planner.shapes) extraNodes.push(...this.planner.shapes.map(s => s.group));
+        if (this.planner.stairs) extraNodes.push(...this.planner.stairs.map(s => s.group).filter(Boolean));
+        if (this.planner.roofs) extraNodes.push(...this.planner.roofs.map(r => r.group).filter(Boolean));
         
-        let projXStart = null;
-        let projXEnd = null;
-        let projYStart = null;
-        let projYEnd = null;
-
-        let activeAnchor = (isTransforming && this.planner.shapeTransformer) ? this.planner.shapeTransformer.getActiveAnchor() : null;
-        let checkLeft = !activeAnchor || activeAnchor.includes('left');
-        let checkRight = !activeAnchor || activeAnchor.includes('right');
-        let checkTop = !activeAnchor || activeAnchor.includes('top');
-        let checkBottom = !activeAnchor || activeAnchor.includes('bottom');
-        let checkCenterX = !activeAnchor;
-        let checkCenterY = !activeAnchor;
-
-        // 3. Find closest alignment
-        nodes.forEach(node => {
-            if (!node || node === dragNode || node === dragNode.parent || node.isAncestorOf(dragNode) || dragNode.isAncestorOf(node) || (node.name() && node.name().includes('anchor'))) return;
-
+        extraNodes.forEach(node => {
+            if (!node || node === dragNode || node === dragNode.parent || node.isAncestorOf(dragNode) || dragNode.isAncestorOf(node)) return;
             const targetRect = node.getClientRect({ skipShadow: true });
             if (targetRect.width === 0 || targetRect.height === 0) return;
             
-            // Performance: Limit checks to nearby objects
-            const distSq = Math.pow(dragCenter.x - (targetRect.x + targetRect.width/2), 2) + Math.pow(dragCenter.y - (targetRect.y + targetRect.height/2), 2);
-            if (distSq > Math.pow(2000, 2)) return; // Only process within 2000px radius
-
-            const targetCenter = { x: targetRect.x + targetRect.width / 2, y: targetRect.y + targetRect.height / 2 };
+            // Limit checks to nearby
+            const distSq = Math.pow(centerX - (targetRect.x + targetRect.width/2), 2) + Math.pow(centerY - (targetRect.y + targetRect.height/2), 2);
+            if (distSq > Math.pow(3000, 2)) return;
             
-            const tPointsX = [
-                { val: targetRect.x, y: targetCenter.y }, 
-                { val: targetCenter.x, y: targetCenter.y }, 
-                { val: targetRect.x + targetRect.width, y: targetCenter.y }
-            ];
+            const tl = { x: targetRect.x, y: targetRect.y };
+            const tr = { x: targetRect.x + targetRect.width, y: targetRect.y };
+            const br = { x: targetRect.x + targetRect.width, y: targetRect.y + targetRect.height };
+            const bl = { x: targetRect.x, y: targetRect.y + targetRect.height };
             
-            const tPointsY = [
-                { val: targetRect.y, x: targetCenter.x }, 
-                { val: targetCenter.y, x: targetCenter.x }, 
-                { val: targetRect.y + targetRect.height, x: targetCenter.x }
-            ];
+            segments.push({ p1: tl, p2: tr });
+            segments.push({ p1: tr, p2: br });
+            segments.push({ p1: br, p2: bl });
+            segments.push({ p1: bl, p2: tl });
+        });
 
-            // Check X Alignments
-            if (bestSnapX === null) {
-                for (let sp of dragPointsX) {
-                    if ((sp.type === 'left' && !checkLeft) || (sp.type === 'right' && !checkRight) || (sp.type === 'center' && !checkCenterX)) continue;
-                    for (let tp of tPointsX) {
-                        if (Math.abs(sp.val - tp.val) < threshold) {
-                            bestSnapX = tp.val - sp.val;
-                            guideLineX = tp.val;
-                            projXStart = { x: tp.val, y: sp.y };
-                            projXEnd = { x: tp.val, y: tp.y };
-                            break;
-                        }
-                    }
-                    if (bestSnapX !== null) break;
-                }
-            }
+        // 4. Snapping Detection
+        let bestDistanceX = Infinity;
+        let bestCandidateX = null;
 
-            // Check Y Alignments
-            if (bestSnapY === null) {
-                for (let sp of dragPointsY) {
-                    if ((sp.type === 'top' && !checkTop) || (sp.type === 'bottom' && !checkBottom) || (sp.type === 'center' && !checkCenterY)) continue;
-                    for (let tp of tPointsY) {
-                        if (Math.abs(sp.val - tp.val) < threshold) {
-                            bestSnapY = tp.val - sp.val;
-                            guideLineY = tp.val;
-                            projYStart = { x: sp.x, y: tp.val };
-                            projYEnd = { x: tp.x, y: tp.val };
-                            break;
-                        }
+        let bestDistanceY = Infinity;
+        let bestCandidateY = null;
+
+        // The HTML demo checks distance to ANY line. 
+        // To allow sliding along horizontal and vertical walls simultaneously (corner snapping),
+        // we separate the candidates into horizontal and vertical constraints.
+        
+        segments.forEach(segment => {
+            const proj = this.projectPointOntoLine(leadPoint, segment.p1, segment.p2);
+            const dist = this.distance(leadPoint, proj);
+
+            if (dist < alignThresh) {
+                // Determine if segment is roughly horizontal or vertical
+                const isHorizontal = Math.abs(segment.p1.y - segment.p2.y) < 1;
+                const isVertical = Math.abs(segment.p1.x - segment.p2.x) < 1;
+
+                if (isVertical && dist < bestDistanceX) {
+                    bestDistanceX = dist;
+                    bestCandidateX = { wall: segment, proj, dist };
+                } else if (isHorizontal && dist < bestDistanceY) {
+                    bestDistanceY = dist;
+                    bestCandidateY = { wall: segment, proj, dist };
+                } else if (!isHorizontal && !isVertical) {
+                    // Diagonal walls can lock both
+                    if (dist < bestDistanceX && dist < bestDistanceY) {
+                        bestDistanceX = dist;
+                        bestDistanceY = dist;
+                        bestCandidateX = { wall: segment, proj, dist };
                     }
-                    if (bestSnapY !== null) break;
                 }
             }
         });
 
-        // 4. Apply Snapping Translation
+        // 5. Apply State (Snap or Align)
+        let activeGuideX = null;
+        let activeGuideY = null;
+        let newAbsPos = dragNode.getAbsolutePosition();
+        let finalLeadX = leadPoint.x;
+        let finalLeadY = leadPoint.y;
+
         if (!isTransforming) {
-            let newAbsPos = dragNode.getAbsolutePosition();
-            if (bestSnapX !== null) newAbsPos.x += bestSnapX * this.planner.stage.scaleX();
-            if (bestSnapY !== null) newAbsPos.y += bestSnapY * this.planner.stage.scaleY();
-            if (bestSnapX !== null || bestSnapY !== null) {
+            // Apply X Snapping
+            if (bestCandidateX) {
+                if (bestCandidateX.dist < snapThresh) {
+                    // LOCK AND SNAP X
+                    newAbsPos.x = bestCandidateX.proj.x - (leadPoint.x - newAbsPos.x);
+                    finalLeadX = bestCandidateX.proj.x;
+                    activeGuideX = { type: 'SOLID', wall: bestCandidateX.wall, proj: bestCandidateX.proj };
+                } else {
+                    activeGuideX = { type: 'DASHED', wall: bestCandidateX.wall, proj: bestCandidateX.proj };
+                }
+            }
+
+            // Apply Y Snapping
+            if (bestCandidateY && bestCandidateY !== bestCandidateX) {
+                if (bestCandidateY.dist < snapThresh) {
+                    // LOCK AND SNAP Y
+                    newAbsPos.y = bestCandidateY.proj.y - (leadPoint.y - newAbsPos.y);
+                    finalLeadY = bestCandidateY.proj.y;
+                    activeGuideY = { type: 'SOLID', wall: bestCandidateY.wall, proj: bestCandidateY.proj };
+                } else {
+                    activeGuideY = { type: 'DASHED', wall: bestCandidateY.wall, proj: bestCandidateY.proj };
+                }
+            } else if (bestCandidateX && bestCandidateY === bestCandidateX && bestCandidateX.dist < snapThresh) {
+                // Handle diagonal wall snapping (both X and Y locked to same projection)
+                newAbsPos.y = bestCandidateX.proj.y - (leadPoint.y - newAbsPos.y);
+                finalLeadY = bestCandidateX.proj.y;
+            }
+
+            if ((activeGuideX && activeGuideX.type === 'SOLID') || (activeGuideY && activeGuideY.type === 'SOLID')) {
                 dragNode.setAbsolutePosition(newAbsPos);
+                this.activeSnap = { ...newAbsPos };
+            } else {
+                this.activeSnap = null;
             }
         }
 
-        // 5. Draw Visual Feedback (Green Alignment Guides + Black Projection Lines)
-        const inverseTransform = this.layer.getAbsoluteTransform().copy().invert();
-        
-        if (guideLineX !== null) {
-            // Full infinite green dashed guide line
-            const p1 = inverseTransform.point({ x: guideLineX, y: -5000 });
-            const p2 = inverseTransform.point({ x: guideLineX, y: 5000 });
-            this.guideGroup.add(new Konva.Line({ 
-                points: [p1.x, p1.y, p2.x, p2.y], 
-                stroke: this.config.guideColor, 
-                strokeWidth: scale, 
-                dash: [4 * scale, 4 * scale] 
-            }));
+        // 6. Draw Visual Guides
+        const drawActiveGuide = (guide, isX) => {
+            if (!guide) return;
+
+            // Reference Wall Outline (Solid Blue or Dashed Gray)
+            const wP1 = inverseTransform.point(guide.wall.p1);
+            const wP2 = inverseTransform.point(guide.wall.p2);
             
-            // Black dashed projection line connecting object to reference
-            const s = inverseTransform.point({ x: projXStart.x, y: projXStart.y });
-            const t = inverseTransform.point({ x: projXEnd.x, y: projXEnd.y });
-            this.guideGroup.add(new Konva.Line({ 
-                points: [s.x, s.y, t.x, t.y], 
-                stroke: this.config.projectionColor, 
-                strokeWidth: 1 * scale, 
-                dash: [4 * scale, 4 * scale], 
-                opacity: 0.5 
-            }));
-        }
-        
-        if (guideLineY !== null) {
-            // Full infinite green dashed guide line
-            const p1 = inverseTransform.point({ x: -5000, y: guideLineY });
-            const p2 = inverseTransform.point({ x: 5000, y: guideLineY });
-            this.guideGroup.add(new Konva.Line({ 
-                points: [p1.x, p1.y, p2.x, p2.y], 
-                stroke: this.config.guideColor, 
-                strokeWidth: scale, 
-                dash: [4 * scale, 4 * scale] 
+            this.guideGroup.add(new Konva.Line({
+                points: [wP1.x, wP1.y, wP2.x, wP2.y],
+                stroke: guide.type === 'SOLID' ? this.config.solidColor : this.config.dashedColor,
+                strokeWidth: (guide.type === 'SOLID' ? 4 : 3) / scale
             }));
 
-            // Black dashed projection line connecting object to reference
-            const s = inverseTransform.point({ x: projYStart.x, y: projYStart.y });
-            const t = inverseTransform.point({ x: projYEnd.x, y: projYEnd.y });
-            this.guideGroup.add(new Konva.Line({ 
-                points: [s.x, s.y, t.x, t.y], 
-                stroke: this.config.projectionColor, 
-                strokeWidth: 1 * scale, 
-                dash: [4 * scale, 4 * scale], 
-                opacity: 0.5 
+            // Green Alignment Line from Leading Corner to Projection
+            const leadP = inverseTransform.point({ x: isX ? finalLeadX : leadLocal.x, y: isX ? leadLocal.y : finalLeadY });
+            const projP = inverseTransform.point(guide.proj);
+
+            this.guideGroup.add(new Konva.Line({
+                points: [leadLocal.x, leadLocal.y, projP.x, projP.y],
+                stroke: this.config.guideColor,
+                strokeWidth: 2 / scale,
+                dash: [5 / scale, 5 / scale]
+            }));
+        };
+
+        drawActiveGuide(activeGuideX, true);
+        if (activeGuideY !== activeGuideX) {
+            drawActiveGuide(activeGuideY, false);
+        }
+
+        // Leading Point Indicator (Red Dot)
+        if (activeGuideX || activeGuideY) {
+            const finalLeadLocal = inverseTransform.point({ x: finalLeadX, y: finalLeadY });
+            this.guideGroup.add(new Konva.Circle({
+                x: finalLeadLocal.x,
+                y: finalLeadLocal.y,
+                radius: 5 / scale,
+                fill: '#e74c3c'
             }));
         }
 
