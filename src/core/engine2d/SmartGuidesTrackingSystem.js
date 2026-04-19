@@ -11,9 +11,9 @@ export class SmartGuidesTrackingSystem {
             alignThreshold: 20,          // Distance to show dashed guides
             snapThreshold: 8,            // Distance to snap/lock position
             solidColor: '#3498db',       // Solid blue for locked reference
-            dashedColor: '#555555',      // Gray for potential reference
+            dashedColor: '#2ecc71',      // Green for potential reference
             guideColor: '#2ecc71',       // Green alignment line
-            crosshairColor: 'rgba(59, 130, 246, 0.3)'
+            crosshairColor: '#2ecc71'    // Green dynamic crosshairs
         };
 
         this.lastPointer = { x: 0, y: 0 };
@@ -48,15 +48,6 @@ export class SmartGuidesTrackingSystem {
         return Math.hypot(p2.x - p1.x, p2.y - p1.y);
     }
 
-    getAccurateRect(node) {
-        const excludeNodes = node.find('.shape-handle, .edge-handle, .edge-hit, .attachment-arrow');
-        const visibilityState = excludeNodes.map(n => n.visible());
-        excludeNodes.forEach(n => n.visible(false));
-        const rect = node.getClientRect({ skipShadow: true, skipStroke: false });
-        excludeNodes.forEach((n, i) => n.visible(visibilityState[i]));
-        return rect;
-    }
-
     snapAndAlign(dragNode, isTransforming = false) {
         this.guideGroup.destroyChildren();
 
@@ -80,7 +71,7 @@ export class SmartGuidesTrackingSystem {
         }
 
         // Get Object Bounds (Absolute coords)
-        const dragRect = this.getAccurateRect(dragNode);
+        const dragRect = dragNode.getClientRect({ skipShadow: true });
         if (dragRect.width === 0 || dragRect.height === 0) return;
 
         // 2. Calculate Dynamic Leading Corner
@@ -98,6 +89,32 @@ export class SmartGuidesTrackingSystem {
         // Transform absolute leadPoint to local UI Layer coordinates for drawing
         const inverseTransform = this.layer.getAbsoluteTransform().copy().invert();
         const leadLocal = inverseTransform.point(leadPoint);
+
+        // Draw Faint Dynamic Crosshairs (Visual indicator of leading edge)
+        const crossSize = 5000;
+        const dashConfig = {
+            stroke: this.config.crosshairColor,
+            strokeWidth: 1.5 / scale,
+            dash: [5 / scale, 5 / scale]
+        };
+
+        // Draw outward from center to ensure dash starts solid exactly at the corner (no gap)
+        this.guideGroup.add(new Konva.Line({
+            points: [leadLocal.x, leadLocal.y, leadLocal.x, leadLocal.y - crossSize],
+            ...dashConfig
+        }));
+        this.guideGroup.add(new Konva.Line({
+            points: [leadLocal.x, leadLocal.y, leadLocal.x, leadLocal.y + crossSize],
+            ...dashConfig
+        }));
+        this.guideGroup.add(new Konva.Line({
+            points: [leadLocal.x, leadLocal.y, leadLocal.x - crossSize, leadLocal.y],
+            ...dashConfig
+        }));
+        this.guideGroup.add(new Konva.Line({
+            points: [leadLocal.x, leadLocal.y, leadLocal.x + crossSize, leadLocal.y],
+            ...dashConfig
+        }));
 
         // 3. Gather Geometry (Lines)
         let segments = [];
@@ -121,7 +138,7 @@ export class SmartGuidesTrackingSystem {
         
         extraNodes.forEach(node => {
             if (!node || node === dragNode || node === dragNode.parent || node.isAncestorOf(dragNode) || dragNode.isAncestorOf(node)) return;
-            const targetRect = this.getAccurateRect(node);
+            const targetRect = node.getClientRect({ skipShadow: true });
             if (targetRect.width === 0 || targetRect.height === 0) return;
             
             // Limit checks to nearby
@@ -221,25 +238,29 @@ export class SmartGuidesTrackingSystem {
         }
 
         // 6. Draw Visual Guides
-        const finalLeadLocal = inverseTransform.point({ x: finalLeadX, y: finalLeadY });
+        const drawActiveGuide = (guide, isX) => {
+            if (!guide) return;
 
+            // Green Alignment Line from Leading Corner to Projection
+            const leadP = inverseTransform.point({ x: isX ? finalLeadX : leadLocal.x, y: isX ? leadLocal.y : finalLeadY });
+            const projP = inverseTransform.point(guide.proj);
+
+            this.guideGroup.add(new Konva.Line({
+                points: [leadLocal.x, leadLocal.y, projP.x, projP.y],
+                stroke: this.config.guideColor,
+                strokeWidth: 1.5 / scale,
+                dash: [5 / scale, 5 / scale]
+            }));
+        };
+
+        drawActiveGuide(activeGuideX, true);
+        if (activeGuideY !== activeGuideX) {
+            drawActiveGuide(activeGuideY, false);
+        }
+
+        // Leading Point Indicator (Red Dot)
         if (activeGuideX || activeGuideY) {
-            // Draw Guide Lines (Crosshairs) directly at the corner
-            const crossSize = 5000;
-            this.guideGroup.add(new Konva.Line({
-                points: [finalLeadLocal.x, finalLeadLocal.y - crossSize, finalLeadLocal.x, finalLeadLocal.y + crossSize],
-                stroke: this.config.crosshairColor,
-                strokeWidth: 1 / scale,
-                dash: [4 / scale, 4 / scale]
-            }));
-            this.guideGroup.add(new Konva.Line({
-                points: [finalLeadLocal.x - crossSize, finalLeadLocal.y, finalLeadLocal.x + crossSize, finalLeadLocal.y],
-                stroke: this.config.crosshairColor,
-                strokeWidth: 1 / scale,
-                dash: [4 / scale, 4 / scale]
-            }));
-
-            // Leading Point Indicator (Red Dot)
+            const finalLeadLocal = inverseTransform.point({ x: finalLeadX, y: finalLeadY });
             this.guideGroup.add(new Konva.Circle({
                 x: finalLeadLocal.x,
                 y: finalLeadLocal.y,
