@@ -74,7 +74,8 @@ export class PremiumShape {
             fill: '#f59e0b',
             stroke: '#f59e0b',
             strokeWidth: 3,
-            visible: false
+            visible: false,
+            name: 'attachment-arrow'
         });
 
         this.group.add(this.shape);
