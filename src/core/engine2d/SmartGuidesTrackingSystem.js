@@ -71,50 +71,34 @@ export class SmartGuidesTrackingSystem {
         }
 
         // Get Object Bounds (Absolute coords)
+        // Include stroke so the tracking and guides align perfectly with the visual outer border (corner)
         const dragRect = dragNode.getClientRect({ skipShadow: true });
         if (dragRect.width === 0 || dragRect.height === 0) return;
 
-        // 2. Calculate Dynamic Leading Corner
-        const centerX = dragRect.x + dragRect.width / 2;
-        const centerY = dragRect.y + dragRect.height / 2;
+        // Pixel-Perfect Rendering: Round values to prevent half-pixel shifts
+        const rX = Math.round(dragRect.x);
+        const rY = Math.round(dragRect.y);
+        const rW = Math.round(dragRect.width);
+        const rH = Math.round(dragRect.height);
+
+        // 2. Calculate Dynamic Leading Corner (Handles Top-Left and Center origins via absolute bounds)
+        const centerX = rX + rW / 2;
+        const centerY = rY + rH / 2;
         let leadPoint = { x: centerX, y: centerY };
 
         // Determine leading corner based on movement direction
-        if (this.lastValidDx > 0) leadPoint.x = dragRect.x + dragRect.width;      // Moving Right
-        else if (this.lastValidDx < 0) leadPoint.x = dragRect.x;                  // Moving Left
+        if (this.lastValidDx > 0) leadPoint.x = rX + rW;      // Moving Right
+        else if (this.lastValidDx < 0) leadPoint.x = rX;                  // Moving Left
 
-        if (this.lastValidDy > 0) leadPoint.y = dragRect.y + dragRect.height;     // Moving Down
-        else if (this.lastValidDy < 0) leadPoint.y = dragRect.y;                  // Moving Up
+        if (this.lastValidDy > 0) leadPoint.y = rY + rH;     // Moving Down
+        else if (this.lastValidDy < 0) leadPoint.y = rY;                  // Moving Up
+
+        // Force exact pixel coordinate for the leading point
+        leadPoint.x = Math.round(leadPoint.x);
+        leadPoint.y = Math.round(leadPoint.y);
 
         // Transform absolute leadPoint to local UI Layer coordinates for drawing
         const inverseTransform = this.layer.getAbsoluteTransform().copy().invert();
-        const leadLocal = inverseTransform.point(leadPoint);
-
-        // Draw Faint Dynamic Crosshairs (Visual indicator of leading edge)
-        const crossSize = 5000;
-        const dashConfig = {
-            stroke: this.config.crosshairColor,
-            strokeWidth: 1.5 / scale,
-            dash: [5 / scale, 5 / scale]
-        };
-
-        // Draw outward from center to ensure dash starts solid exactly at the corner (no gap)
-        this.guideGroup.add(new Konva.Line({
-            points: [leadLocal.x, leadLocal.y, leadLocal.x, leadLocal.y - crossSize],
-            ...dashConfig
-        }));
-        this.guideGroup.add(new Konva.Line({
-            points: [leadLocal.x, leadLocal.y, leadLocal.x, leadLocal.y + crossSize],
-            ...dashConfig
-        }));
-        this.guideGroup.add(new Konva.Line({
-            points: [leadLocal.x, leadLocal.y, leadLocal.x - crossSize, leadLocal.y],
-            ...dashConfig
-        }));
-        this.guideGroup.add(new Konva.Line({
-            points: [leadLocal.x, leadLocal.y, leadLocal.x + crossSize, leadLocal.y],
-            ...dashConfig
-        }));
 
         // 3. Gather Geometry (Lines)
         let segments = [];
@@ -125,7 +109,10 @@ export class SmartGuidesTrackingSystem {
                 if (w.wallGroup === dragNode || w.poly === dragNode) return;
                 const p1 = w.startAnchor.node.getAbsolutePosition();
                 const p2 = w.endAnchor.node.getAbsolutePosition();
-                segments.push({ p1, p2 });
+                segments.push({ 
+                    p1: { x: Math.round(p1.x), y: Math.round(p1.y) }, 
+                    p2: { x: Math.round(p2.x), y: Math.round(p2.y) } 
+                });
             });
         }
 
@@ -145,10 +132,15 @@ export class SmartGuidesTrackingSystem {
             const distSq = Math.pow(centerX - (targetRect.x + targetRect.width/2), 2) + Math.pow(centerY - (targetRect.y + targetRect.height/2), 2);
             if (distSq > Math.pow(3000, 2)) return;
             
-            const tl = { x: targetRect.x, y: targetRect.y };
-            const tr = { x: targetRect.x + targetRect.width, y: targetRect.y };
-            const br = { x: targetRect.x + targetRect.width, y: targetRect.y + targetRect.height };
-            const bl = { x: targetRect.x, y: targetRect.y + targetRect.height };
+            const trX = Math.round(targetRect.x);
+            const trY = Math.round(targetRect.y);
+            const trW = Math.round(targetRect.width);
+            const trH = Math.round(targetRect.height);
+            
+            const tl = { x: trX, y: trY };
+            const tr = { x: trX + trW, y: trY };
+            const br = { x: trX + trW, y: trY + trH };
+            const bl = { x: trX, y: trY + trH };
             
             segments.push({ p1: tl, p2: tr });
             segments.push({ p1: tr, p2: br });
@@ -168,7 +160,11 @@ export class SmartGuidesTrackingSystem {
         // we separate the candidates into horizontal and vertical constraints.
         
         segments.forEach(segment => {
-            const proj = this.projectPointOntoLine(leadPoint, segment.p1, segment.p2);
+            let proj = this.projectPointOntoLine(leadPoint, segment.p1, segment.p2);
+            // Ensure snap target is perfectly rounded to avoid subpixel tolerance
+            proj.x = Math.round(proj.x);
+            proj.y = Math.round(proj.y);
+
             const dist = this.distance(leadPoint, proj);
 
             if (dist < alignThresh) {
@@ -205,7 +201,7 @@ export class SmartGuidesTrackingSystem {
             if (bestCandidateX) {
                 if (bestCandidateX.dist < snapThresh) {
                     // LOCK AND SNAP X
-                    newAbsPos.x = bestCandidateX.proj.x - (leadPoint.x - newAbsPos.x);
+                    newAbsPos.x = Math.round(bestCandidateX.proj.x - (leadPoint.x - newAbsPos.x));
                     finalLeadX = bestCandidateX.proj.x;
                     activeGuideX = { type: 'SOLID', wall: bestCandidateX.wall, proj: bestCandidateX.proj };
                 } else {
@@ -217,7 +213,7 @@ export class SmartGuidesTrackingSystem {
             if (bestCandidateY && bestCandidateY !== bestCandidateX) {
                 if (bestCandidateY.dist < snapThresh) {
                     // LOCK AND SNAP Y
-                    newAbsPos.y = bestCandidateY.proj.y - (leadPoint.y - newAbsPos.y);
+                    newAbsPos.y = Math.round(bestCandidateY.proj.y - (leadPoint.y - newAbsPos.y));
                     finalLeadY = bestCandidateY.proj.y;
                     activeGuideY = { type: 'SOLID', wall: bestCandidateY.wall, proj: bestCandidateY.proj };
                 } else {
@@ -225,7 +221,7 @@ export class SmartGuidesTrackingSystem {
                 }
             } else if (bestCandidateX && bestCandidateY === bestCandidateX && bestCandidateX.dist < snapThresh) {
                 // Handle diagonal wall snapping (both X and Y locked to same projection)
-                newAbsPos.y = bestCandidateX.proj.y - (leadPoint.y - newAbsPos.y);
+                newAbsPos.y = Math.round(bestCandidateX.proj.y - (leadPoint.y - newAbsPos.y));
                 finalLeadY = bestCandidateX.proj.y;
             }
 
@@ -240,33 +236,23 @@ export class SmartGuidesTrackingSystem {
         // 6. Draw Visual Guides
         const drawActiveGuide = (guide, isX) => {
             if (!guide) return;
-
-            // Green Alignment Line from Leading Corner to Projection
-            const leadP = inverseTransform.point({ x: isX ? finalLeadX : leadLocal.x, y: isX ? leadLocal.y : finalLeadY });
             const projP = inverseTransform.point(guide.proj);
 
+            // Visual Debug Mode: Infinite guide lines crossing entirely over the workspace to verify perfect alignment
             this.guideGroup.add(new Konva.Line({
-                points: [leadLocal.x, leadLocal.y, projP.x, projP.y],
-                stroke: this.config.guideColor,
-                strokeWidth: 1.5 / scale,
-                dash: [5 / scale, 5 / scale]
+                points: isX ? [projP.x, -99999, projP.x, 99999] : [-99999, projP.y, 99999, projP.y],
+                stroke: guide.type === 'SOLID' ? this.config.solidColor : this.config.dashedColor,
+                strokeWidth: 1 / scale, // Perfect 1px line scaling
+                dash: [4 / scale, 4 / scale],
+                opacity: 0.8,
+                perfectDrawEnabled: false,
+                listening: false
             }));
         };
 
         drawActiveGuide(activeGuideX, true);
         if (activeGuideY !== activeGuideX) {
             drawActiveGuide(activeGuideY, false);
-        }
-
-        // Leading Point Indicator (Red Dot)
-        if (activeGuideX || activeGuideY) {
-            const finalLeadLocal = inverseTransform.point({ x: finalLeadX, y: finalLeadY });
-            this.guideGroup.add(new Konva.Circle({
-                x: finalLeadLocal.x,
-                y: finalLeadLocal.y,
-                radius: 5 / scale,
-                fill: '#e74c3c'
-            }));
         }
 
         this.layer.batchDraw();
