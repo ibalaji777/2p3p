@@ -273,8 +273,11 @@ export class PremiumShape {
         this.group.on('transformend', () => {
             if (this.planner.alignmentLines) {
                 this.planner.alignmentLines.destroyChildren();
-                this.planner.uiLayer.batchDraw();
             }
+            if (this.planner.smartGuides) {
+                this.planner.smartGuides.clear();
+            }
+            this.planner.uiLayer.batchDraw();
         });
         
         if (this.type === 'shape_polygon') {

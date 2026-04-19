@@ -12,6 +12,7 @@ import { PremiumStair } from '/src/core/engine2d/PremiumStair.js';
 import { PremiumHipRoof } from '/src/core/engine2d/PremiumHipRoof.js';
 import { PremiumRailing } from '/src/core/engine2d/PremiumRailing.js';
 import { SnapManager } from '/src/core/engine2d/SnapManager.js';
+import { SmartGuidesTrackingSystem } from '/src/core/engine2d/SmartGuidesTrackingSystem.js';
 
 // Export the specific classes that App.vue needs to spawn items
 export { PremiumFurniture, PremiumHipRoof };
@@ -235,6 +236,8 @@ export class FloorPlanner {
     }
     
     initHUD() {
+        this.smartGuides = new SmartGuidesTrackingSystem(this);
+        
         this.snapGlow = new Konva.Circle({ radius: 8, fill: '#10b981', shadowColor: '#10b981', shadowBlur: 15, opacity: 0.8, visible: false, listening: false }); 
         this.uiLayer.add(this.snapGlow);
         
@@ -353,152 +356,7 @@ export class FloorPlanner {
     formatLength(px) { const feet = px * PX_TO_FT; if (this.currentUnit === 'in') return Math.round(feet * 12) + '"'; if (this.currentUnit === 'cm') return Math.round(feet * 30.48) + ' cm'; if (this.currentUnit === 'm') return (feet * 0.3048).toFixed(2) + ' m'; const wholeFeet = Math.floor(feet), inches = Math.round((feet - wholeFeet) * 12); return inches > 0 ? `${wholeFeet}' ${inches}"` : `${wholeFeet}'`; }
     
     snapAndAlign(dragNode, isTransforming = false) {
-        if (!this.alignmentLines) {
-            this.alignmentLines = new Konva.Group({ listening: false });
-            this.uiLayer.add(this.alignmentLines);
-        }
-        this.alignmentLines.destroyChildren();
-
-        if (this.tool !== 'select' || dragNode.isWallPoly || dragNode.isStairNodeHandle || (dragNode.name() && dragNode.name().includes('anchor'))) {
-            this.uiLayer.batchDraw();
-            return;
-        }
-
-        const SNAP_TOLERANCE = 10; 
-        const dragRect = dragNode.getClientRect();
-        const dragCenter = { x: dragRect.x + dragRect.width / 2, y: dragRect.y + dragRect.height / 2 };
-
-        const nodes = [...this.furnitureLayer.getChildren(), ...this.widgetLayer.getChildren()];
-
-        let snapX = null;
-        let snapY = null;
-        let guideX = null;
-        let guideY = null;
-        let distTargetX = null;
-        let distTargetY = null;
-
-        nodes.forEach(node => {
-            if (node === dragNode || node.isAncestorOf(dragNode) || dragNode.isAncestorOf(node) || (node.name() && node.name().includes('anchor'))) return;
-
-            const targetRect = node.getClientRect();
-            if (targetRect.width === 0 || targetRect.height === 0) return;
-            
-            const targetCenter = { x: targetRect.x + targetRect.width / 2, y: targetRect.y + targetRect.height / 2 };
-
-            let activeAnchor = (isTransforming && this.shapeTransformer) ? this.shapeTransformer.getActiveAnchor() : null;
-            let checkLeft = !activeAnchor || activeAnchor.includes('left');
-            let checkRight = !activeAnchor || activeAnchor.includes('right');
-            let checkTop = !activeAnchor || activeAnchor.includes('top');
-            let checkBottom = !activeAnchor || activeAnchor.includes('bottom');
-            let checkCenterX = !activeAnchor;
-            let checkCenterY = !activeAnchor;
-
-            // X Alignments
-            const xAlignments = [];
-            if (checkLeft) {
-                xAlignments.push({ source: dragRect.x, target: targetRect.x });
-                xAlignments.push({ source: dragRect.x, target: targetRect.x + targetRect.width });
-                xAlignments.push({ source: dragRect.x, target: targetCenter.x });
-            }
-            if (checkRight) {
-                xAlignments.push({ source: dragRect.x + dragRect.width, target: targetRect.x + targetRect.width });
-                xAlignments.push({ source: dragRect.x + dragRect.width, target: targetRect.x });
-                xAlignments.push({ source: dragRect.x + dragRect.width, target: targetCenter.x });
-            }
-            if (checkCenterX) {
-                xAlignments.push({ source: dragCenter.x, target: targetCenter.x });
-            }
-
-            // Y Alignments
-            const yAlignments = [];
-            if (checkTop) {
-                yAlignments.push({ source: dragRect.y, target: targetRect.y });
-                yAlignments.push({ source: dragRect.y, target: targetRect.y + targetRect.height });
-                yAlignments.push({ source: dragRect.y, target: targetCenter.y });
-            }
-            if (checkBottom) {
-                yAlignments.push({ source: dragRect.y + dragRect.height, target: targetRect.y + targetRect.height });
-                yAlignments.push({ source: dragRect.y + dragRect.height, target: targetRect.y });
-                yAlignments.push({ source: dragRect.y + dragRect.height, target: targetCenter.y });
-            }
-            if (checkCenterY) {
-                yAlignments.push({ source: dragCenter.y, target: targetCenter.y });
-            }
-
-            if (snapX === null) {
-                for (let xA of xAlignments) {
-                    if (Math.abs(xA.source - xA.target) < SNAP_TOLERANCE) {
-                        snapX = xA.target - xA.source;
-                        guideX = xA.target;
-                        distTargetX = targetRect;
-                        break;
-                    }
-                }
-            }
-
-            if (snapY === null) {
-                for (let yA of yAlignments) {
-                    if (Math.abs(yA.source - yA.target) < SNAP_TOLERANCE) {
-                        snapY = yA.target - yA.source;
-                        guideY = yA.target;
-                        distTargetY = targetRect;
-                        break;
-                    }
-                }
-            }
-        });
-
-        // Apply Snapping (Absolute Position adjustment)
-        if (!isTransforming) {
-            let newAbsPos = dragNode.getAbsolutePosition();
-            if (snapX !== null) newAbsPos.x += snapX;
-            if (snapY !== null) newAbsPos.y += snapY;
-            if (snapX !== null || snapY !== null) dragNode.setAbsolutePosition(newAbsPos);
-        }
-
-        // Draw Guides (Convert absolute guide coordinates back to local UI Layer coordinates)
-        const inverseTransform = this.uiLayer.getAbsoluteTransform().copy().invert();
-        const scale = 1 / this.stage.scaleX();
-        
-        if (guideX !== null) {
-            const p1 = inverseTransform.point({ x: guideX, y: -5000 });
-            const p2 = inverseTransform.point({ x: guideX, y: 5000 });
-            this.alignmentLines.add(new Konva.Line({ points: [p1.x, p1.y, p2.x, p2.y], stroke: '#38bdf8', strokeWidth: scale, dash: [4 * scale, 4 * scale] }));
-            
-            if (distTargetX) {
-                const yPos = inverseTransform.point({ x: 0, y: Math.min(dragCenter.y, distTargetX.y + distTargetX.height / 2) }).y;
-                let gapStart, gapEnd;
-                if (dragCenter.x < distTargetX.x + distTargetX.width / 2) { gapStart = dragRect.x + dragRect.width; gapEnd = distTargetX.x; } 
-                else { gapStart = distTargetX.x + distTargetX.width; gapEnd = dragRect.x; }
-                if (gapEnd > gapStart) {
-                    const pS = inverseTransform.point({ x: gapStart, y: 0 }); const pE = inverseTransform.point({ x: gapEnd, y: 0 });
-                    this.alignmentLines.add(new Konva.Line({ points: [pS.x, yPos, pE.x, yPos], stroke: '#f59e0b', strokeWidth: scale }));
-                    const txt = new Konva.Text({ x: (pS.x + pE.x) / 2, y: yPos - 12 * scale, text: `← ${this.formatLength(gapEnd - gapStart)} →`, fontSize: 11 * scale, fill: '#f59e0b', fontStyle: 'bold' });
-                    txt.offsetX(txt.width() / 2); this.alignmentLines.add(txt);
-                }
-            }
-        }
-        
-        if (guideY !== null) {
-            const p1 = inverseTransform.point({ x: -5000, y: guideY });
-            const p2 = inverseTransform.point({ x: 5000, y: guideY });
-            this.alignmentLines.add(new Konva.Line({ points: [p1.x, p1.y, p2.x, p2.y], stroke: '#38bdf8', strokeWidth: scale, dash: [4 * scale, 4 * scale] }));
-            
-            if (distTargetY) {
-                const xPos = inverseTransform.point({ x: Math.min(dragCenter.x, distTargetY.x + distTargetY.width / 2), y: 0 }).x;
-                let gapStart, gapEnd;
-                if (dragCenter.y < distTargetY.y + distTargetY.height / 2) { gapStart = dragRect.y + dragRect.height; gapEnd = distTargetY.y; } 
-                else { gapStart = distTargetY.y + distTargetY.height; gapEnd = dragRect.y; }
-                if (gapEnd > gapStart) {
-                    const pS = inverseTransform.point({ x: 0, y: gapStart }); const pE = inverseTransform.point({ x: 0, y: gapEnd });
-                    this.alignmentLines.add(new Konva.Line({ points: [xPos, pS.y, xPos, pE.y], stroke: '#f59e0b', strokeWidth: scale }));
-                    const txt = new Konva.Text({ x: xPos + 5 * scale, y: (pS.y + pE.y) / 2, text: `↕ ${this.formatLength(gapEnd - gapStart)}`, fontSize: 11 * scale, fill: '#f59e0b', fontStyle: 'bold' });
-                    txt.offsetY(txt.height() / 2); this.alignmentLines.add(txt);
-                }
-            }
-        }
-
-        this.uiLayer.batchDraw();
+        if (this.smartGuides) this.smartGuides.snapAndAlign(dragNode, isTransforming);
     }
 
     drawGrid() { 
@@ -763,8 +621,11 @@ export class FloorPlanner {
             if (e.target === this.stage) this.stage.container().style.cursor = this.tool === 'select' ? 'grab' : 'crosshair';
             if (this.alignmentLines) {
                 this.alignmentLines.destroyChildren();
-                this.uiLayer.batchDraw();
             }
+            if (this.smartGuides) {
+                this.smartGuides.clear();
+            }
+            this.uiLayer.batchDraw();
         });
 
         this.stage.on("mousedown touchstart", (e) => { 
