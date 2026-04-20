@@ -7,6 +7,12 @@ export class PremiumWall {
         this.planner = planner; this.startAnchor = startAnchor; this.endAnchor = endAnchor; this.attachedWidgets = []; this.type = type; this.config = WALL_REGISTRY[type] || WALL_REGISTRY['outer'];
         this.thickness = this.config.thickness;
         this.height = this.config.height || 120;
+        
+        // Parametric constraints to prevent joint folding on acute angles
+        this.miterLimitRatio = this.config.miterLimitRatio || 3;
+        this.miterLimit = this.config.miterLimit || 10; // Native canvas bevel cutoff (standard is 10)
+        this.miterFoldLimit = this.config.miterFoldLimit || 20; // Intersection distance multiplier fallback
+        
         this.elevationLayers = { front: [{ id: Date.now(), texture: 'none', color: '#e2e8f0', x: 0, y: 0, w: '100%', h: '100%' }], back: [{ id: Date.now()+1, texture: 'none', color: '#f8fafc', x: 0, y: 0, w: '100%', h: '100%' }] };
         this.fillColor = this.type === 'outer' ? '#e5e5e5' : '#f3f4f6'; 
         this.strokeColor = this.type === 'outer' ? '#9ca3af' : '#d1d5db';
@@ -17,17 +23,71 @@ export class PremiumWall {
             stroke: this.strokeColor, 
             strokeWidth: 1,
             closed: true, 
-            lineJoin: 'round',
-            shadowColor: 'black', 
-            shadowBlur: 10, 
-            shadowOffset: {x: 2, y: 2}, 
-            shadowOpacity: 0.2, 
+            lineJoin: 'miter',
+            lineCap: 'butt',
+            miterLimit: this.miterLimit,
         });
         this.poly.parentWall = this;
         this.poly.isWallPoly = true;
         
-        this.frontHighlight = new Konva.Line({ stroke: '#3b82f6', strokeWidth: 4, visible: false }); 
-        this.backHighlight = new Konva.Line({ stroke: '#10b981', strokeWidth: 4, visible: false });
+        this.poly.sceneFunc((ctx, shape) => {
+            if (!this.wallShapeData) return;
+            const { startL, endL, endR, startR, hasStartCap, hasEndCap, startData, endData } = this.wallShapeData;
+
+            // 1. Fill Path (Solid Interior)
+            ctx.beginPath();
+            if (startData.bevelL) { ctx.moveTo(startData.bevelL.x, startData.bevelL.y); ctx.lineTo(startL.x, startL.y); }
+            else { ctx.moveTo(startL.x, startL.y); }
+            
+            ctx.lineTo(endL.x, endL.y);
+            
+            if (endData.bevelL) { ctx.lineTo(endData.bevelL.x, endData.bevelL.y); }
+            if (endData.bevelR) { ctx.lineTo(endData.bevelR.x, endData.bevelR.y); }
+            
+            ctx.lineTo(endR.x, endR.y);
+            ctx.lineTo(startR.x, startR.y);
+            
+            if (startData.bevelR) { ctx.lineTo(startData.bevelR.x, startData.bevelR.y); }
+            
+            ctx.closePath();
+            ctx.fillShape(shape);
+
+            // 2. Stroke Path (Exact outlines following bevel rules without overshooting)
+            ctx.beginPath();
+            
+            // Left side
+            if (startData.bevelL) { ctx.moveTo(startData.bevelL.x, startData.bevelL.y); ctx.lineTo(startL.x, startL.y); }
+            else { ctx.moveTo(startL.x, startL.y); }
+            
+            ctx.lineTo(endL.x, endL.y);
+            if (endData.bevelL) { ctx.lineTo(endData.bevelL.x, endData.bevelL.y); }
+
+            // Handle end cap or start a new right-side stroke
+            if (hasEndCap) {
+                if (endData.bevelR) { ctx.lineTo(endData.bevelR.x, endData.bevelR.y); }
+                ctx.lineTo(endR.x, endR.y);
+            } else {
+                ctx.strokeShape(shape); // Stroke the left path
+                ctx.beginPath(); // Start new path for right side
+                if (endData.bevelR) { ctx.moveTo(endData.bevelR.x, endData.bevelR.y); ctx.lineTo(endR.x, endR.y); }
+                else { ctx.moveTo(endR.x, endR.y); }
+            }
+
+            // Right side (drawn backwards from end to start)
+            ctx.lineTo(startR.x, startR.y);
+            if (startData.bevelR) { ctx.lineTo(startData.bevelR.x, startData.bevelR.y); }
+
+            // Handle start cap transition
+            if (hasStartCap) {
+                if (startData.bevelL) { ctx.lineTo(startData.bevelL.x, startData.bevelL.y); }
+                else { ctx.lineTo(startL.x, startL.y); }
+            }
+            
+            ctx.strokeShape(shape);
+        });
+        
+        this.frontHighlight = new Konva.Line({ stroke: '#3b82f6', strokeWidth: 4, visible: false, lineCap: 'butt', lineJoin: 'miter' }); 
+        this.backHighlight = new Konva.Line({ stroke: '#10b981', strokeWidth: 4, visible: false, lineCap: 'butt', lineJoin: 'miter' });
         this.wallGroup.add(this.poly, this.frontHighlight, this.backHighlight); 
         this.planner.wallLayer.add(this.wallGroup);
         
@@ -42,7 +102,9 @@ export class PremiumWall {
     hasEvent(eventName) { return this.config.events.includes(eventName); }
     getLength() { const p1 = this.startAnchor.position(), p2 = this.endAnchor.position(); return Math.hypot(p2.x - p1.x, p2.y - p1.y); }
     setHighlight(isActive) { 
-        this.poly.stroke(isActive ? "#4f46e5" : (this.planner.selectedEntity === this ? "#4f46e5" : this.strokeColor)); this.planner.stage.batchDraw(); 
+        const isSel = isActive || this.planner.selectedEntity === this;
+        this.poly.fill(isSel ? '#bfdbfe' : this.fillColor);
+        this.planner.stage.batchDraw(); 
     }
     
     initEvents() { 
@@ -121,45 +183,19 @@ export class PremiumWall {
     getClosestT(pos) { const p1 = this.startAnchor.position(), p2 = this.endAnchor.position(), dx = p2.x - p1.x, dy = p2.y - p1.y, lenSq = dx*dx + dy*dy; if (lenSq === 0) return 0.5; let t = ((pos.x - p1.x) * dx + (pos.y - p1.y) * dy) / lenSq; return Math.max(0, Math.min(1, t)); }
     
     update() { 
-        const getRoundedPos = (anchor) => { const p = anchor.position(); return { x: Math.round(p.x), y: Math.round(p.y) }; };
-        const p1 = getRoundedPos(this.startAnchor), p2 = getRoundedPos(this.endAnchor); const vdx = p2.x - p1.x, vdy = p2.y - p1.y, vlen = Math.hypot(vdx, vdy); if (vlen === 0) return;
+        const getExactPos = (anchor) => { const p = anchor.position(); return { x: p.x, y: p.y }; };
+        const p1 = getExactPos(this.startAnchor), p2 = getExactPos(this.endAnchor); const vdx = p2.x - p1.x, vdy = p2.y - p1.y, vlen = Math.hypot(vdx, vdy); if (vlen === 0) return;
         const u = { x: vdx/vlen, y: vdy/vlen }, n = { x: -u.y, y: u.x }, ht = this.thickness / 2;
         const p1_L = { x: p1.x + n.x * ht, y: p1.y + n.y * ht }, p1_R = { x: p1.x - n.x * ht, y: p1.y - n.y * ht }, p2_L = { x: p2.x + n.x * ht, y: p2.y + n.y * ht }, p2_R = { x: p2.x - n.x * ht, y: p2.y - n.y * ht };
         
         let startL = p1_L, startR = p1_R, endL = p2_L, endR = p2_R;
         const intersectLines = (pA, dA, pB, dB) => { const det = dA.x * dB.y - dA.y * dB.x; if (Math.abs(det) < 1e-5) return null; const t = ((pB.x - pA.x) * dB.y - (pB.y - pA.y) * dB.x) / det; return { x: pA.x + t * dA.x, y: pA.y + t * dA.y }; };
         const getCorners = (anchor, isStart) => {
-            const baseL = isStart ? p1_L : p2_L, baseR = isStart ? p1_R : p2_R, P = getRoundedPos(anchor);
+            const baseL = isStart ? p1_L : p2_L, baseR = isStart ? p1_R : p2_R, P = getExactPos(anchor);
             const connectedWalls = this.planner.walls.filter(w => (w.startAnchor === anchor || w.endAnchor === anchor) && w !== this && w.type !== 'railing');
             
-            const getCornerIntersections = (w2) => {
-                const w2_p1 = getRoundedPos(w2.startAnchor), w2_p2 = getRoundedPos(w2.endAnchor), vdx2 = w2_p2.x - w2_p1.x, vdy2 = w2_p2.y - w2_p1.y, vlen2 = Math.hypot(vdx2, vdy2);
-                if (vlen2 > 0) {
-                    const u2 = { x: vdx2/vlen2, y: vdy2/vlen2 }, n2 = { x: -u2.y, y: u2.x }, ht2 = (w2.thickness || w2.config.thickness) / 2;
-                    const w2_L = { x: w2_p1.x + n2.x * ht2, y: w2_p1.y + n2.y * ht2 };
-                    const w2_R = { x: w2_p1.x - n2.x * ht2, y: w2_p1.y - n2.y * ht2 };
-                    const A_dir = isStart ? -1 : 1;
-                    const B_dir = (w2.startAnchor === anchor) ? -1 : 1;
-                    let iL, iR;
-                    if (A_dir === B_dir) {
-                        iL = intersectLines(baseL, u, w2_R, u2);
-                        iR = intersectLines(baseR, u, w2_L, u2);
-                    } else {
-                        iL = intersectLines(baseL, u, w2_L, u2);
-                        iR = intersectLines(baseR, u, w2_R, u2);
-                    }
-                    if (iL && iR) {
-                        const maxDist = Math.max(ht, ht2) * 5;
-                        if (Math.hypot(iL.x - P.x, iL.y - P.y) < maxDist && Math.hypot(iR.x - P.x, iR.y - P.y) < maxDist) {
-                            return [iL, iR];
-                        }
-                    }
-                }
-                return null;
-            };
-            
             const getTJointIntersections = (snappedWall) => {
-                const w2_p1 = getRoundedPos(snappedWall.startAnchor), w2_p2 = getRoundedPos(snappedWall.endAnchor), vdx2 = w2_p2.x - w2_p1.x, vdy2 = w2_p2.y - w2_p1.y, vlen2 = Math.hypot(vdx2, vdy2);
+                const w2_p1 = getExactPos(snappedWall.startAnchor), w2_p2 = getExactPos(snappedWall.endAnchor), vdx2 = w2_p2.x - w2_p1.x, vdy2 = w2_p2.y - w2_p1.y, vlen2 = Math.hypot(vdx2, vdy2);
                 if (vlen2 > 0) {
                     const u2 = { x: vdx2/vlen2, y: vdy2/vlen2 }, n2 = { x: -u2.y, y: u2.x }, ht2 = (snappedWall.thickness || snappedWall.config.thickness) / 2;
                     const edge1_P = { x: w2_p1.x + n2.x * ht2, y: w2_p1.y + n2.y * ht2 }, edge2_P = { x: w2_p1.x - n2.x * ht2, y: w2_p1.y - n2.y * ht2 };
@@ -174,52 +210,131 @@ export class PremiumWall {
                 return null;
             };
             
-            if (connectedWalls.length === 1) {
-                const corners = getCornerIntersections(connectedWalls[0]);
-                if (corners) return corners;
-            } else if (connectedWalls.length > 1) {
-                let myDir = isStart ? { x: p2.x - p1.x, y: p2.y - p1.y } : { x: p1.x - p2.x, y: p1.y - p2.y };
-                let myAngle = Math.atan2(myDir.y, myDir.x);
-                let neighbors = connectedWalls.map(w => {
-                    let w_p1 = getRoundedPos(w.startAnchor), w_p2 = getRoundedPos(w.endAnchor);
-                    let dir = w.startAnchor === anchor ? { x: w_p2.x - w_p1.x, y: w_p2.y - w_p1.y } : { x: w_p1.x - w_p2.x, y: w_p1.y - w_p2.y };
-                    let ang = Math.atan2(dir.y, dir.x);
-                    let diff = ang - myAngle;
-                    while (diff <= -Math.PI) diff += 2 * Math.PI;
-                    while (diff > Math.PI) diff -= 2 * Math.PI;
-                    return { w, diff };
-                });
-                neighbors.sort((a, b) => a.diff - b.diff);
-                let rightNeighbor = neighbors.filter(n => n.diff > 0).shift() || neighbors[0];
-                let leftNeighbor = neighbors.filter(n => n.diff < 0).pop() || neighbors[neighbors.length - 1];
-                let finalL = baseL, finalR = baseR;
-                const lCorners = getCornerIntersections(leftNeighbor.w);
-                if (lCorners) finalL = lCorners[0];
-                const rCorners = getCornerIntersections(rightNeighbor.w);
-                if (rCorners) finalR = rCorners[1];
-                return [finalL, finalR];
-            } else {
+            const rays = [];
+            this.planner.walls.forEach(w => {
+                if ((w.startAnchor === anchor || w.endAnchor === anchor) && w.type !== 'railing') {
+                    const isWStart = w.startAnchor === anchor;
+                    const wp1 = getExactPos(w.startAnchor);
+                    const wp2 = getExactPos(w.endAnchor);
+                    const wu = { x: wp2.x - wp1.x, y: wp2.y - wp1.y };
+                    const wlen = Math.hypot(wu.x, wu.y);
+                    if (wlen === 0) return;
+                    wu.x /= wlen; wu.y /= wlen;
+                    const wn = { x: -wu.y, y: wu.x };
+                    const wht = (w.thickness || w.config.thickness) / 2;
+                    
+                    const w_p1_L = { x: wp1.x + wn.x * wht, y: wp1.y + wn.y * wht };
+                    const w_p1_R = { x: wp1.x - wn.x * wht, y: wp1.y - wn.y * wht };
+                    const w_p2_L = { x: wp2.x + wn.x * wht, y: wp2.y + wn.y * wht };
+                    const w_p2_R = { x: wp2.x - wn.x * wht, y: wp2.y - wn.y * wht };
+                    
+                    const dir = isWStart ? wu : { x: -wu.x, y: -wu.y };
+                    rays.push({
+                        w: w,
+                        dir: dir,
+                        angle: Math.atan2(dir.y, dir.x),
+                        L_pt: isWStart ? w_p1_L : w_p2_R,
+                        R_pt: isWStart ? w_p1_R : w_p2_L
+                    });
+                }
+            });
+            
+            if (rays.length === 1) {
                 let snappedWall = null; for (let w of this.planner.walls) { if (w === this || w.type === 'railing') continue; if (this.planner.getDistanceToWall(P, w) < 2) { snappedWall = w; break; } }
                 if (snappedWall) {
                     const corners = getTJointIntersections(snappedWall);
-                    if (corners) return corners;
+                    if (corners) return { corners, hasCap: false };
+                }
+                return { corners: [baseL, baseR], hasCap: true };
+            }
+            
+            rays.sort((a, b) => a.angle - b.angle);
+            const myIndex = rays.findIndex(r => r.w === this);
+            if (myIndex === -1) return { corners: [baseL, baseR], hasCap: true };
+            
+            const leftNeighbor = rays[(myIndex - 1 + rays.length) % rays.length];
+            const rightNeighbor = rays[(myIndex + 1) % rays.length];
+            
+            const myRay = rays[myIndex];
+            
+            const maxMiterLength = ht * this.miterLimitRatio;
+
+            // Cross products to determine if the wedge is an inner corner (<180 deg) or outer corner (>180 deg)
+            const cpL = myRay.dir.x * rightNeighbor.dir.y - myRay.dir.y * rightNeighbor.dir.x;
+            let leftSideCorner = myRay.L_pt, leftSideBevel = rightNeighbor.R_pt;
+            const iL = intersectLines(myRay.L_pt, myRay.dir, rightNeighbor.R_pt, rightNeighbor.dir);
+            if (iL) {
+                if (cpL >= -1e-5) { 
+                    // Inner corner: Always use exact intersection to prevent inner geometry gaps/crossings
+                    leftSideCorner = iL;
+                    leftSideBevel = null;
+                } else if (Math.hypot(iL.x - P.x, iL.y - P.y) <= maxMiterLength) { 
+                    // Outer corner: Apply miter limit, fallback to bevel if exceeded
+                    leftSideCorner = iL;
+                    leftSideBevel = null;
                 }
             }
-            return [baseL, baseR];
+
+            const cpR = leftNeighbor.dir.x * myRay.dir.y - leftNeighbor.dir.y * myRay.dir.x;
+            let rightSideCorner = myRay.R_pt, rightSideBevel = leftNeighbor.L_pt;
+            const iR = intersectLines(myRay.R_pt, myRay.dir, leftNeighbor.L_pt, leftNeighbor.dir);
+            if (iR) {
+                if (cpR >= -1e-5) {
+                    // Inner corner
+                    rightSideCorner = iR;
+                    rightSideBevel = null;
+                } else if (Math.hypot(iR.x - P.x, iR.y - P.y) <= maxMiterLength) {
+                    // Outer corner
+                    rightSideCorner = iR;
+                    rightSideBevel = null;
+                }
+            }
+
+            let finalL, finalR, bevelL, bevelR;
+            if (isStart) {
+                finalL = leftSideCorner; finalR = rightSideCorner;
+                bevelL = leftSideBevel; bevelR = rightSideBevel;
+            } else {
+                finalL = rightSideCorner; finalR = leftSideCorner;
+                bevelL = rightSideBevel; bevelR = leftSideBevel;
+            }
+
+            return { 
+                corners: [finalL, finalR], 
+                hasCap: false, 
+                leftDir: leftNeighbor.dir, 
+                rightDir: rightNeighbor.dir,
+                bevelL: bevelL,
+                bevelR: bevelR
+            };
         };
-        const startCorners = getCorners(this.startAnchor, true);
-        const endCorners = getCorners(this.endAnchor, false);
-        startL = { x: Math.round(startCorners[0].x), y: Math.round(startCorners[0].y) };
-        startR = { x: Math.round(startCorners[1].x), y: Math.round(startCorners[1].y) };
-        endL = { x: Math.round(endCorners[0].x), y: Math.round(endCorners[0].y) };
-        endR = { x: Math.round(endCorners[1].x), y: Math.round(endCorners[1].y) };
+        const startData = getCorners(this.startAnchor, true);
+        const endData = getCorners(this.endAnchor, false);
+        const startCorners = startData.corners;
+        const endCorners = endData.corners;
+        startL = { x: startCorners[0].x, y: startCorners[0].y };
+        startR = { x: startCorners[1].x, y: startCorners[1].y };
+        endL = { x: endCorners[0].x, y: endCorners[0].y };
+        endR = { x: endCorners[1].x, y: endCorners[1].y };
+        
+        this.wallShapeData = {
+            startL, endL, endR, startR,
+            hasStartCap: startData.hasCap,
+            hasEndCap: endData.hasCap,
+            startData,
+            endData
+        };
+        
         this.poly.points([startL.x, startL.y, endL.x, endL.y, endR.x, endR.y, startR.x, startR.y]);
         this.poly.closed(true);
         this.poly.fillEnabled(true);
         this.poly.strokeWidth(1);
-        this.poly.lineJoin('round');
+        this.poly.lineJoin('miter');
+        this.poly.lineCap('butt');
+        this.poly.miterLimit(this.miterLimit);
         this.poly.stroke(this.strokeColor);
-        this.poly.fill(this.fillColor);
+        const isSel = this.planner.selectedEntity === this;
+        this.poly.fill(isSel ? '#bfdbfe' : this.fillColor);
 
         const fOff = 4; this.frontHighlight.points([ startL.x + n.x * fOff, startL.y + n.y * fOff, endL.x + n.x * fOff, endL.y + n.y * fOff ]); this.backHighlight.points([ startR.x - n.x * fOff, startR.y - n.y * fOff, endR.x - n.x * fOff, endR.y - n.y * fOff ]);
         this.labelText.text(this.planner.formatLength(this.getLength())); this.labelGroup.position({ x: (p1.x + p2.x) / 2 - this.labelText.width() / 2, y: (p1.y + p2.y) / 2 - 15 });
