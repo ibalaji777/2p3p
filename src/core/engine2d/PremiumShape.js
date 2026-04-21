@@ -186,7 +186,7 @@ export class PremiumShape {
                 }
                 
                 this.attachedWall = targetWall;
-                this.planner.wallHighlight.points([wallP1.x, wallP1.y, wallP2.x, wallP2.y]).show();
+                // this.planner.wallHighlight.points([wallP1.x, wallP1.y, wallP2.x, wallP2.y]).show();
                 this.shape.stroke('#f59e0b');
 
                 const arrowRotation = Math.atan2(outNorm.y, outNorm.x) * 180 / Math.PI + 90;
