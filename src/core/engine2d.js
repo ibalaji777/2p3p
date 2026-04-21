@@ -2,7 +2,7 @@ import { GRID, PX_TO_FT, SNAP_DIST, WALL_HEIGHT, WALL_REGISTRY, WIDGET_REGISTRY,
 import Konva from 'konva';
 import { PremiumHipRoof } from './engine2d/PremiumHipRoof.js';
 import { PremiumRailing } from './engine2d/PremiumRailing.js';
-import { SnapManager } from './engine2d/SnapManager.js';
+// Removed SnapManager import
 
 
 /**
