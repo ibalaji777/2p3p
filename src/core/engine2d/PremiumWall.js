@@ -24,7 +24,7 @@ export class PremiumWall {
             strokeWidth: 1,
             closed: true, 
             lineJoin: 'miter',
-            lineCap: 'butt',
+            lineCap: 'square',
             miterLimit: this.miterLimit,
         });
         this.poly.parentWall = this;
@@ -86,8 +86,8 @@ export class PremiumWall {
             ctx.strokeShape(shape);
         });
         
-        this.frontHighlight = new Konva.Line({ stroke: '#3b82f6', strokeWidth: 4, visible: false, lineCap: 'butt', lineJoin: 'miter' }); 
-        this.backHighlight = new Konva.Line({ stroke: '#10b981', strokeWidth: 4, visible: false, lineCap: 'butt', lineJoin: 'miter' });
+        this.frontHighlight = new Konva.Line({ stroke: '#3b82f6', strokeWidth: 4, visible: false, lineCap: 'square', lineJoin: 'miter' }); 
+        this.backHighlight = new Konva.Line({ stroke: '#10b981', strokeWidth: 4, visible: false, lineCap: 'square', lineJoin: 'miter' });
         this.wallGroup.add(this.poly, this.frontHighlight, this.backHighlight); 
         this.planner.wallLayer.add(this.wallGroup);
         
@@ -330,7 +330,7 @@ export class PremiumWall {
         this.poly.fillEnabled(true);
         this.poly.strokeWidth(1);
         this.poly.lineJoin('miter');
-        this.poly.lineCap('butt');
+        this.poly.lineCap('square');
         this.poly.miterLimit(this.miterLimit);
         this.poly.stroke(this.strokeColor);
         const isSel = this.planner.selectedEntity === this;

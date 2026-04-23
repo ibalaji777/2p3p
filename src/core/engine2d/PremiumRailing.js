@@ -19,8 +19,8 @@ export class PremiumRailing {
         this.poly = new Konva.Line({
             stroke: this.strokeColor,
             strokeWidth: this.thickness,
-            lineJoin: 'round',
-            lineCap: 'round',
+            lineJoin: 'miter',
+            lineCap: 'square',
             shadowColor: 'black',
             shadowBlur: 10,
             shadowOffset: { x: 2, y: 2 },

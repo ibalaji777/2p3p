@@ -183,11 +183,11 @@ export class PremiumWall {
         this.elevationLayers = { front: [{ id: Date.now(), texture: 'none', color: '#e2e8f0', x: 0, y: 0, w: '100%', h: '100%' }], back: [{ id: Date.now()+1, texture: 'none', color: '#f8fafc', x: 0, y: 0, w: '100%', h: '100%' }] };
         this.fillColor = this.type === 'outer' ? '#e5e5e5' : (this.type === 'railing' ? '#374151' : '#f3f4f6'); this.strokeColor = this.type === 'outer' ? '#9ca3af' : (this.type === 'railing' ? '#111827' : '#d1d5db');
         this.wallGroup = new Konva.Group();
-        this.poly = new Konva.Line({ fill: this.fillColor, stroke: this.strokeColor, strokeWidth: this.type === 'railing' ? 6 : 2, closed: true, lineJoin: 'miter', shadowColor: 'black', shadowBlur: 10, shadowOffset: {x: 2, y: 2}, shadowOpacity: 0.2 });
+        this.poly = new Konva.Line({ fill: this.fillColor, stroke: this.strokeColor, strokeWidth: this.type === 'railing' ? 6 : 2, closed: true, lineJoin: 'miter', lineCap: 'square', shadowColor: 'black', shadowBlur: 10, shadowOffset: {x: 2, y: 2}, shadowOpacity: 0.2 });
         this.poly.parentWall = this;
         this.poly.isWallPoly = true;
-        this.frontHighlight = new Konva.Line({ stroke: '#3b82f6', strokeWidth: 4, visible: false });
-        this.backHighlight = new Konva.Line({ stroke: '#10b981', strokeWidth: 4, visible: false });
+        this.frontHighlight = new Konva.Line({ stroke: '#3b82f6', strokeWidth: 4, visible: false, lineCap: 'square', lineJoin: 'miter' });
+        this.backHighlight = new Konva.Line({ stroke: '#10b981', strokeWidth: 4, visible: false, lineCap: 'square', lineJoin: 'miter' });
         this.wallGroup.add(this.poly, this.frontHighlight, this.backHighlight);
         this.planner.wallLayer.add(this.wallGroup);
 
