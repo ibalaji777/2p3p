@@ -11,6 +11,8 @@ export class PremiumWidget {
         this.planner.wallLayer.add(this.cutter);
         
         this.visualGroup = new Konva.Group({ draggable: false }); 
+        this.hitBox = new Konva.Rect({ fill: 'transparent', listening: true });
+        this.visualGroup.add(this.hitBox);
         this.frameL = new Konva.Rect({ width: 4, fill: '#374151' }); 
         this.frameR = new Konva.Rect({ width: 4, fill: '#374151' }); 
         this.visualGroup.add(this.frameL, this.frameR);
@@ -94,14 +96,23 @@ export class PremiumWidget {
             this.t = t; this.update(); 
         }); 
         this.visualGroup.on('dragend', () => { setTimeout(() => { this.isDragging = false; }, 100); this.planner.syncAll(); }); 
-        this.visualGroup.on('click tap', (e) => {
-            const isWidgetMode = ['door', 'window'].includes(this.planner.tool) || this.planner.activeCategory === 'doors_windows';
-            if ((this.planner.tool === 'select' || isWidgetMode) && !this.isDragging) {
-                this.planner.selectEntity(this, 'widget');
+        this.visualGroup.on('click tap', (e) => { 
+            if (this.planner.tool === 'select' && !this.isDragging) { 
+                this.planner.selectEntity(this, 'widget'); 
+                e.cancelBubble = true; 
+                if (e.evt) e.evt.stopPropagation();
+            } 
+        }); 
+        this.visualGroup.on('dblclick dbltap', (e) => {
+            if (this.planner.tool === 'select') {
+                this.facing = this.facing === 1 ? -1 : 1;
+                this.update();
+                this.planner.syncAll();
                 e.cancelBubble = true;
                 if (e.evt) e.evt.stopPropagation();
             }
-        });    }
+        });
+    }
     
     remove() { this.cutter.destroy(); this.visualGroup.destroy(); if (this.leftHandle) { this.leftHandle.destroy(); this.rightHandle.destroy(); } this.wall.attachedWidgets = this.wall.attachedWidgets.filter(d => d !== this); this.planner.selectEntity(null); this.planner.syncAll(); }
     
@@ -109,6 +120,8 @@ export class PremiumWidget {
         const p1 = this.wall.startAnchor.position(), p2 = this.wall.endAnchor.position(), dx = p2.x - p1.x, dy = p2.y - p1.y, angle = Math.atan2(dy, dx) * 180 / Math.PI, absPos = { x: p1.x + dx * this.t, y: p1.y + dy * this.t }, thick = this.wall.thickness || this.wall.config.thickness, hw = this.width / 2;
         this.cutter.width(this.width); this.cutter.height(thick + 4); this.cutter.offsetX(this.width / 2); this.cutter.offsetY((thick + 4) / 2); this.cutter.position(absPos); this.cutter.rotation(angle);
         this.visualGroup.position(absPos); this.visualGroup.rotation(angle); this.frameL.setAttrs({ height: thick, x: -hw, y: -thick/2 }); this.frameR.setAttrs({ height: thick, x: hw - 4, y: -thick/2 });
+        const hitHeight = Math.max(thick + 20, this.width * 2);
+        this.hitBox.setAttrs({ x: -hw, y: -hitHeight / 2, width: this.width, height: hitHeight });
         this.innerParts.destroyChildren(); this.config.render2D(this.innerParts, this);
         if (this.leftHandle && this.rightHandle) { const rad = angle * Math.PI / 180, cosA = Math.cos(rad), sinA = Math.sin(rad); this.leftHandle.position({ x: absPos.x - hw * cosA, y: absPos.y - hw * sinA }); this.rightHandle.position({ x: absPos.x + hw * cosA, y: absPos.y + hw * sinA }); }
     }

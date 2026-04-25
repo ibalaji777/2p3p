@@ -250,7 +250,7 @@ function buildDetailedDoorPanel(width, height, thickness, material, type, isGlas
 export const WIDGET_REGISTRY = {
     'door': {
         widget: "door", label: "DOOR",
-        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "jump_wall_to_wall", "prevent_overlap", "resize_handles_along_wall_axis"],
+        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
         defaultConfig: { width: 40, doorType: 'single', doorMat: 'wood', facing: 1, side: 1 },
         render2D: (group, entity) => {
             const hw = entity.width / 2; const thick = entity.wall.thickness || entity.wall.config.thickness;
@@ -340,7 +340,7 @@ export const WIDGET_REGISTRY = {
     },
     'window': {
         widget: "window", label: "WINDOW",
-        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "jump_wall_to_wall", "prevent_overlap", "resize_handles_along_wall_axis"],
+        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
         defaultConfig: { width: 50, windowType: 'sliding_std', frameMat: 'alum_powder', glassMat: 'clear', grillePattern: 'grid', facing: 1, side: 1 },
         render2D: (group, entity) => {
             const hw = entity.width / 2; const thick = entity.wall.thickness || entity.wall.config.thickness; const wConf = WINDOW_TYPES[entity.windowType] || WINDOW_TYPES.sliding_std;
