@@ -329,7 +329,13 @@ export const WIDGET_REGISTRY = {
                 const jointHingeGeo = new THREE.CylinderGeometry(0.3, 0.3, 3, 12); [leafHeight * 0.85, leafHeight * 0.5, leafHeight * 0.15].forEach(yPos => { const hingeMesh = new THREE.Mesh(jointHingeGeo, metalMat); hingeMesh.position.set(0, yPos, (doorThick/2 + 0.1) * swingDir); pivot2.add(hingeMesh); });
                 const guidePin = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 3, 8), metalMat); guidePin.position.set((panelW - 2) * -signX, leafHeight, 0); p2.add(guidePin); p1.add(pivot2); doorGroup.add(pivot1);
             }
+            const hitboxGeo = new THREE.BoxGeometry(entity.width + 10, DOOR_HEIGHT + 10, (entity.thick || 20) + 10);
+            const hitbox = new THREE.Mesh(hitboxGeo, new THREE.MeshBasicMaterial({transparent: true, opacity: 0, depthWrite: false}));
+            hitbox.position.set(0, DOOR_HEIGHT/2, 0);
+            doorGroup.add(hitbox);
+            doorGroup.userData = { isWidget: true, entity: entity };
             sceneGroup.add(doorGroup);
+            return doorGroup;
         }
     },
     'window': {
@@ -389,7 +395,13 @@ export const WIDGET_REGISTRY = {
                 winGroup.add(grilleGroup);
             }
             if (wConf.hasChajja) { const chajjaDepth = 15; const chajjaHeight = 2; const chajjaGeo = new THREE.BoxGeometry(entity.width + 10, chajjaHeight, chajjaDepth); const chajja = new THREE.Mesh(chajjaGeo, matConcrete); const cZ = entity.facing === 1 ? chajjaDepth/2 : -chajjaDepth/2; chajja.position.set(0, WINDOW_HEIGHT + chajjaHeight/2, cZ); chajja.castShadow = true; winGroup.add(chajja); }
+            const hitboxGeo = new THREE.BoxGeometry(entity.width + 10, WINDOW_HEIGHT + 10, (entity.thick || 20) + 10);
+            const hitbox = new THREE.Mesh(hitboxGeo, new THREE.MeshBasicMaterial({transparent: true, opacity: 0, depthWrite: false}));
+            hitbox.position.set(0, WINDOW_HEIGHT/2, 0);
+            winGroup.add(hitbox);
+            winGroup.userData = { isWidget: true, entity: entity };
             sceneGroup.add(winGroup);
+            return winGroup;
         }
     }
 };

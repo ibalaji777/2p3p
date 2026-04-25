@@ -89,9 +89,9 @@ export class InteractionSystem {
                     return;
                 }
 
-                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isRoof && !mesh.userData.isRoom) mesh = mesh.parent;
-                
-                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isRoof || mesh.userData.isRoom)) {
+                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isRoom && !mesh.userData.isRoof && !mesh.userData.isWidget) mesh = mesh.parent;
+
+                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isRoom || mesh.userData.isRoof || mesh.userData.isWidget)) {
                     if (this.mode === 'edit') {
                         if (mesh.userData.isWallDecor) {
                             const side = mesh.userData.entity.side;
@@ -146,12 +146,45 @@ export class InteractionSystem {
                 }
             } else {
                 this.raycaster.setFromCamera(this.mouse, this.camera);
-                dom.style.cursor = this.raycaster.intersectObjects(this.interactables, true).length > 0 ? 'pointer' : 'auto';
+                const intersects = this.raycaster.intersectObjects(this.interactables, true);
+                if (intersects.length > 0) {
+                    dom.style.cursor = 'pointer';
+                    let mesh = intersects[0].object;
+                    while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isRoom && !mesh.userData.isRoof && !mesh.userData.isWidget) mesh = mesh.parent;
+                    if (this.hoveredObject !== mesh) {
+                        if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget)) this.setHighlight(this.hoveredObject, false);
+                        this.hoveredObject = mesh;
+                        if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget)) this.setHighlight(this.hoveredObject, true, 0x93c5fd);
+                    }
+                } else {
+                    dom.style.cursor = 'auto';
+                    if (this.hoveredObject) {
+                        if (this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget)) this.setHighlight(this.hoveredObject, false);
+                        this.hoveredObject = null;
+                    }
+                }
+            }
+        });
+
+        dom.addEventListener('dblclick', (e) => {
+            if (this.viewMode3D === 'preview') return;
+            if (this.mode === 'camera') return;
+            if (this.mode === 'adjust' && this.selectedObject && this.selectedObject.userData.isWidget) {
+                const mesh = this.selectedObject;
+                const entity = mesh.userData.entity;
+                if (!entity.wall) return;
+                const wallNormal = new THREE.Vector3(0,0,1).applyEuler(mesh.rotation);
+                this.dragPlane.setFromNormalAndCoplanarPoint(wallNormal, mesh.getWorldPosition(new THREE.Vector3()));
+                this.isPlacing = true;
+                dom.style.cursor = 'grabbing';
+                const target = new THREE.Vector3();
+                this.raycaster.setFromCamera(this.mouse, this.camera);
+                if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) this.dragOffset.copy(mesh.position).sub(target);
             }
         });
 
         window.addEventListener('pointerup', () => {
-            if (this.isPlacing && this.selectedObject && this.selectedObject.userData.isWallDecor) {
+            if (this.isPlacing && this.selectedObject && (this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isWidget)) {
                 this.isPlacing = false;
                 dom.style.cursor = 'pointer';
             }
@@ -176,16 +209,16 @@ export class InteractionSystem {
         this.isPlacing = false;
     }
 
-    setHighlight(group, active) {
+    setHighlight(group, active, color = 0x3b82f6) {
         if (!group) return;
         group.traverse((child) => {
-            if (child.isMesh && !child.userData.isHitbox && child.material) {
+            if (child.isMesh && !child.userData.isHitbox && child.material && child.material.type !== 'MeshBasicMaterial') {
                 const mats = Array.isArray(child.material) ? child.material : [child.material];
                 mats.forEach(mat => {
                     if (mat.emissive !== undefined) {
                         if (active) {
                             if (mat.userData.origEmissive === undefined) { mat.userData.origEmissive = mat.emissive.getHex(); mat.userData.origEmissiveIntensity = mat.emissiveIntensity || 0; }
-                            mat.emissive.setHex(0x3b82f6); mat.emissiveIntensity = 0.5;
+                            mat.emissive.setHex(color); mat.emissiveIntensity = 0.5;
                         } else {
                             if (mat.userData.origEmissive !== undefined) { mat.emissive.setHex(mat.userData.origEmissive); mat.emissiveIntensity = mat.userData.origEmissiveIntensity; }
                         }
@@ -197,7 +230,7 @@ export class InteractionSystem {
     }
 
     selectObject(object) {
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isRoof || this.selectedObject.userData.isRoom)) this.setHighlight(this.selectedObject, false);
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isRoof || this.selectedObject.userData.isRoom || this.selectedObject.userData.isWidget)) this.setHighlight(this.selectedObject, false);
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
 
         this.selectedObject = object;
@@ -238,8 +271,8 @@ export class InteractionSystem {
             this.wallHighlight.rotation.set(0, 0, 0); 
             this.wallHighlight.visible = true;
         } 
-        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isRoof || object.userData.isRoom) {
-            type = object.userData.isFurniture ? 'furniture' : (object.userData.isRoof ? 'roof' : (object.userData.isRoom ? 'room' : 'wallDecor'));
+        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isRoof || object.userData.isRoom || object.userData.isWidget) {
+            type = object.userData.isFurniture ? 'furniture' : (object.userData.isRoof ? 'roof' : (object.userData.isRoom ? 'room' : (object.userData.isWidget ? 'widget' : 'wallDecor')));
             this.setHighlight(object, true);
         }
         if (type && this.callbacks.onEntitySelect) this.callbacks.onEntitySelect(object.userData.entity, type, side);
@@ -247,7 +280,7 @@ export class InteractionSystem {
 
     deselect() {
         this.cancelRelocation();
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isRoof || this.selectedObject.userData.isRoom)) this.setHighlight(this.selectedObject, false);
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isRoof || this.selectedObject.userData.isRoom || this.selectedObject.userData.isWidget)) this.setHighlight(this.selectedObject, false);
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
         this.selectedObject = null;
         if (this.callbacks.onEntitySelect) this.callbacks.onEntitySelect(null, null, null);

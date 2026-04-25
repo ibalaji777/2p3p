@@ -460,14 +460,13 @@ export class FloorPlanner {
                 w.poly.setAttr('listening', canEditThisWall || isWidget || isSplit); 
             }
             
-            w.attachedWidgets.forEach(widg => { 
-                if(widg.visualGroup) { 
-                    let canEditWidget = isSelect && (allowAll || cat === 'doors_windows');
-                    widg.visualGroup.setAttr('draggable', canEditWidget); 
-                    widg.visualGroup.setAttr('listening', canEditWidget); 
-                } 
-            });
-        });
+            w.attachedWidgets.forEach(widg => {
+                if(widg.visualGroup) {
+                    let canEditWidget = isSelect || cat === 'doors_windows';
+                    widg.visualGroup.setAttr('draggable', canEditWidget);
+                    widg.visualGroup.setAttr('listening', canEditWidget);
+                }
+            });        });
 
         this.stairs.forEach(s => { 
             let canEdit = isSelect && (allowAll || cat === 'structures');

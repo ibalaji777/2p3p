@@ -163,7 +163,14 @@ export class PremiumWidget {
         this.visualGroup.on('dragstart', () => { this.isDragging = true; });
         this.visualGroup.on('dragmove', () => { if (!this.hasEvent("drag_along_wall")) return; const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); let targetWall = this.wall; if (this.hasEvent("jump_wall_to_wall")) { let minDist = this.planner.getDistanceToWall(pos, this.wall); this.planner.walls.forEach(w => { if (w === this.wall) return; const dist = this.planner.getDistanceToWall(pos, w); if (dist < minDist && dist < 50) { minDist = dist; targetWall = w; } }); if (targetWall !== this.wall) { let tempT = targetWall.getClosestT(pos); if (!this.hasEvent("prevent_overlap") || !this.checkOverlap(targetWall, tempT, this.width)) { this.wall.attachedWidgets = this.wall.attachedWidgets.filter(d => d !== this); this.wall = targetWall; this.wall.attachedWidgets.push(this); } } } let rawT = this.wall.getClosestT(pos); const wallLen = this.wall.getLength(), halfW = this.width / 2; const minT = halfW / wallLen, maxT = 1 - (halfW / wallLen); let t = rawT; const snapMargin = 15 / wallLen; if (this.hasEvent("snap_to_corners")) { if (Math.abs(t - minT) < snapMargin) t = minT; if (Math.abs(maxT - t) < snapMargin) t = maxT; } if (this.hasEvent("snap_to_center")) { if (Math.abs(t - 0.5) < snapMargin) t = 0.5; } t = Math.max(minT, Math.min(maxT, t)); if (this.hasEvent("prevent_overlap") && this.checkOverlap(this.wall, t, this.width)) return; this.t = t; this.update(); });
         this.visualGroup.on('dragend', () => { setTimeout(() => { this.isDragging = false; }, 100); this.planner.syncAll(); });
-        this.visualGroup.on('click tap', (e) => { if (this.planner.tool === 'select' && !this.isDragging) { this.planner.selectEntity(this, 'widget'); e.cancelBubble = true; } });
+        this.visualGroup.on('click tap', (e) => {
+            const isWidgetMode = ['door', 'window'].includes(this.planner.tool) || this.planner.activeCategory === 'doors_windows';
+            if ((this.planner.tool === 'select' || isWidgetMode) && !this.isDragging) {
+                this.planner.selectEntity(this, 'widget');
+                e.cancelBubble = true;
+                if (e.evt) e.evt.stopPropagation();
+            }
+        });
     }
     remove() { this.cutter.destroy(); this.visualGroup.destroy(); if (this.leftHandle) { this.leftHandle.destroy(); this.rightHandle.destroy(); } this.wall.attachedWidgets = this.wall.attachedWidgets.filter(d => d !== this); this.planner.selectEntity(null); this.planner.syncAll(); }
     update() {
@@ -714,7 +721,7 @@ export class FloorPlanner {
             
             w.attachedWidgets.forEach(widg => { 
                 if(widg.visualGroup) { 
-                    let canEditWidget = isSelect && (allowAll || cat === 'doors_windows');
+                    let canEditWidget = isSelect || cat === 'doors_windows';
                     widg.visualGroup.setAttr('draggable', canEditWidget); 
                     widg.visualGroup.setAttr('listening', canEditWidget); 
                 } 

@@ -94,14 +94,14 @@ export class PremiumWidget {
             this.t = t; this.update(); 
         }); 
         this.visualGroup.on('dragend', () => { setTimeout(() => { this.isDragging = false; }, 100); this.planner.syncAll(); }); 
-        this.visualGroup.on('click tap', (e) => { 
-            if (this.planner.tool === 'select' && !this.isDragging) { 
-                this.planner.selectEntity(this, 'widget'); 
-                e.cancelBubble = true; 
+        this.visualGroup.on('click tap', (e) => {
+            const isWidgetMode = ['door', 'window'].includes(this.planner.tool) || this.planner.activeCategory === 'doors_windows';
+            if ((this.planner.tool === 'select' || isWidgetMode) && !this.isDragging) {
+                this.planner.selectEntity(this, 'widget');
+                e.cancelBubble = true;
                 if (e.evt) e.evt.stopPropagation();
-            } 
-        }); 
-    }
+            }
+        });    }
     
     remove() { this.cutter.destroy(); this.visualGroup.destroy(); if (this.leftHandle) { this.leftHandle.destroy(); this.rightHandle.destroy(); } this.wall.attachedWidgets = this.wall.attachedWidgets.filter(d => d !== this); this.planner.selectEntity(null); this.planner.syncAll(); }
     

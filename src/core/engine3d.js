@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY } from './registry.js';
+import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from './registry.js';
 
 class AssetManager {
     constructor() {
@@ -249,6 +249,17 @@ class EnvironmentBuilder {
                     hole.moveTo(wCenter - halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL);
                 }
                 wallShape.holes.push(hole);
+
+                                const type = widg.type || widg.configId;
+                                if (WIDGET_REGISTRY[type] && WIDGET_REGISTRY[type].render3D) {
+                                    widg.x = p1.x + Math.cos(angle) * wCenter;
+                                    widg.z = p1.y + Math.sin(angle) * wCenter;
+                                    widg.angle = angle;
+                                    widg.thick = t;
+                                    widg.wall = w;
+                                    const widgetGroup = WIDGET_REGISTRY[type].render3D(this.ctx.structureGroup, widg, this.ctx.helpers);
+                                    if (widgetGroup) this.ctx.interactables.push(widgetGroup);
+                                }
             });
 
             const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: t, bevelEnabled: false });
@@ -727,6 +738,17 @@ class EnvironmentBuilder {
                                     hole.moveTo(wCenter - halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL);
                                 }
                                 wallShape.holes.push(hole);
+
+                                const type = widg.type || widg.configId;
+                                if (WIDGET_REGISTRY[type] && WIDGET_REGISTRY[type].render3D) {
+                                    widg.x = w.startX + Math.cos(angle) * wCenter;
+                                    widg.z = w.startY + Math.sin(angle) * wCenter;
+                                    widg.angle = angle;
+                                    widg.thick = w.thickness;
+                                    widg.wall = w;
+                                    const widgetGroup = WIDGET_REGISTRY[type].render3D(floorGroup, widg, this.ctx.helpers);
+                                    if (widgetGroup) this.ctx.interactables.push(widgetGroup);
+                                }
                             });
                         }
 
@@ -1324,9 +1346,9 @@ class InteractionSystem {
                     return;
                 }
 
-                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor) mesh = mesh.parent;
+                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor && !mesh.userData.isWidget) mesh = mesh.parent;
                 
-                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor)) {
+                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget)) {
                     if (this.mode === 'edit') {
                         if (mesh.userData.isWallDecor) {
                             const side = mesh.userData.entity.side;
@@ -1380,14 +1402,69 @@ class InteractionSystem {
                     this.ctx.decorManager.updateLive(entity);
                     this.ctx.syncToUI();
                 }
+            } else if (this.mode === 'adjust' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isWidget) {
+                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+                const target = new THREE.Vector3();
+                if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
+                    target.add(this.dragOffset);
+                    const entity = this.selectedObject.userData.entity;
+                    const wall = entity.wall || (entity.parentWall ? entity.parentWall : null);
+                    if (wall) {
+                        const p1 = wall.startAnchor ? wall.startAnchor.position() : {x: wall.startX, y: wall.startY};
+                        const p2 = wall.endAnchor ? wall.endAnchor.position() : {x: wall.endX, y: wall.endY};
+                        const C = p2.x - p1.x, D = p2.y - p1.y;
+                        const lenSq = C * C + D * D;
+                        if (lenSq !== 0) {
+                            const param = Math.max(0.01, Math.min(0.99, ((target.x - p1.x) * C + (target.z - p1.y) * D) / lenSq));
+                            entity.t = param;
+                            if (window.plannerInstance && window.plannerInstance.syncAll) window.plannerInstance.syncAll();
+                            else if (this.ctx.syncToUI) this.ctx.syncToUI();
+                        }
+                    }
+                }
             } else {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-                dom.style.cursor = this.raycaster.intersectObjects(this.ctx.interactables, true).length > 0 ? 'pointer' : 'auto';
+                const intersects = this.raycaster.intersectObjects(this.ctx.interactables, true);
+                if (intersects.length > 0) {
+                    dom.style.cursor = 'pointer';
+                    let mesh = intersects[0].object;
+                    while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isRoom && !mesh.userData.isRoof && !mesh.userData.isWidget) mesh = mesh.parent;
+                    if (this.hoveredObject !== mesh) {
+                        if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget)) this.setHighlight(this.hoveredObject, false);
+                        this.hoveredObject = mesh;
+                        if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget)) this.setHighlight(this.hoveredObject, true, 0x93c5fd);
+                    }
+                } else {
+                    dom.style.cursor = 'auto';
+                    if (this.hoveredObject) {
+                        if (this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget)) this.setHighlight(this.hoveredObject, false);
+                        this.hoveredObject = null;
+                    }
+                }
+            }
+        });
+
+        dom.addEventListener('dblclick', (e) => {
+            if (this.ctx.viewMode3D === 'preview') return;
+            if (this.mode === 'camera') return;
+            if (this.mode === 'adjust' && this.selectedObject && this.selectedObject.userData.isWidget) {
+                const mesh = this.selectedObject;
+                const wallGroup = mesh.parent; // sceneGroup in builder? Wait, in ActiveFloor: "WIDGET_REGISTRY[type].render3D(this.ctx.structureGroup...)"
+                // But double clicking simply changes mode to drag along wall
+                const entity = mesh.userData.entity;
+                if (!entity.wall) return;
+                const wallNormal = new THREE.Vector3(0,0,1).applyEuler(mesh.rotation);
+                this.dragPlane.setFromNormalAndCoplanarPoint(wallNormal, mesh.getWorldPosition(new THREE.Vector3()));
+                this.isPlacing = true;
+                dom.style.cursor = 'grabbing';
+                const target = new THREE.Vector3();
+                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+                if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) this.dragOffset.copy(mesh.position).sub(target);
             }
         });
 
         window.addEventListener('pointerup', () => {
-            if (this.isPlacing && this.selectedObject && this.selectedObject.userData.isWallDecor) {
+            if (this.isPlacing && this.selectedObject && (this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isWidget)) {
                 this.isPlacing = false;
                 dom.style.cursor = 'pointer';
             }
@@ -1411,16 +1488,16 @@ class InteractionSystem {
         this.isPlacing = false;
     }
 
-    setHighlight(group, active) {
+    setHighlight(group, active, color = 0x3b82f6) {
         if (!group) return;
         group.traverse((child) => {
-            if (child.isMesh && !child.userData.isHitbox && child.material) {
+            if (child.isMesh && !child.userData.isHitbox && child.material && child.material.type !== 'MeshBasicMaterial') {
                 const mats = Array.isArray(child.material) ? child.material : [child.material];
                 mats.forEach(mat => {
                     if (mat.emissive !== undefined) {
                         if (active) {
                             if (mat.userData.origEmissive === undefined) { mat.userData.origEmissive = mat.emissive.getHex(); mat.userData.origEmissiveIntensity = mat.emissiveIntensity || 0; }
-                            mat.emissive.setHex(0x3b82f6); mat.emissiveIntensity = 0.5;
+                            mat.emissive.setHex(color); mat.emissiveIntensity = 0.5;
                         } else {
                             if (mat.userData.origEmissive !== undefined) { mat.emissive.setHex(mat.userData.origEmissive); mat.emissiveIntensity = mat.userData.origEmissiveIntensity; }
                         }
@@ -1432,7 +1509,7 @@ class InteractionSystem {
     }
 
     selectObject(object) {
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor)) this.setHighlight(this.selectedObject, false);
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget)) this.setHighlight(this.selectedObject, false);
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
 
         this.selectedObject = object;
@@ -1576,10 +1653,11 @@ class InteractionSystem {
             }
             this.wallHighlight.visible = true;
         } 
-        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor) {
+        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor || object.userData.isWidget) {
             if (object.userData.isFurniture) type = 'furniture';
             else if (object.userData.isWallDecor) type = 'wallDecor';
             else if (object.userData.isFloor) type = 'room';
+            else if (object.userData.isWidget) type = 'widget';
             this.setHighlight(object, true);
         }
         if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
@@ -1587,7 +1665,7 @@ class InteractionSystem {
 
     deselect() {
         this.cancelRelocation();
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor)) this.setHighlight(this.selectedObject, false);
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget)) this.setHighlight(this.selectedObject, false);
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
         this.selectedObject = null;
         if (this.ctx.onEntitySelect) this.ctx.onEntitySelect(null, null, null);
@@ -1626,6 +1704,28 @@ export class Preview3D {
         this.isUpdatingFromUI = false;
         
         this.assets = new AssetManager();
+        
+        this.helpers = {
+            getDynamicMaterial: (matId, category) => {
+                let conf;
+                if (category === 'door') conf = DOOR_MATERIALS[matId] || DOOR_MATERIALS.wood;
+                else if (category === 'window_frame') conf = WINDOW_FRAME_MATERIALS[matId] || WINDOW_FRAME_MATERIALS.alum_powder;
+                else if (category === 'window_glass') conf = WINDOW_GLASS_MATERIALS[matId] || WINDOW_GLASS_MATERIALS.clear;
+                
+                if (!conf) return new THREE.MeshStandardMaterial();
+                
+                return new THREE.MeshStandardMaterial({
+                    color: conf.color,
+                    roughness: conf.roughness !== undefined ? conf.roughness : 0.5,
+                    metalness: conf.metalness !== undefined ? conf.metalness : 0.1,
+                    transmission: conf.transmission || 0,
+                    ior: conf.ior || 1.5,
+                    transparent: conf.transparent || false,
+                    opacity: conf.transmission ? (1 - conf.transmission) : 1
+                });
+            }
+        };
+
         this.envBuilder = new EnvironmentBuilder(this);
         this.decorManager = new DecorManager(this);
         this.furnitureManager = new FurnitureManager(this);

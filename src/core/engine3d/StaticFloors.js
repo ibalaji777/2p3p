@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY } from '../registry.js';
+import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from '../registry.js';
 import { Wall3DBuilder } from './Wall3DBuilder.js';
 import { RailingBuilder } from './RailingBuilder.js';
 
@@ -10,6 +10,27 @@ export class StaticFloors {
         this.interactables = interactables;
         this.wallBuilder = new Wall3DBuilder();
         this.matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7, side: THREE.DoubleSide });
+        
+        this.helpers = {
+            getDynamicMaterial: (matId, category) => {
+                let conf;
+                if (category === 'door') conf = DOOR_MATERIALS[matId] || DOOR_MATERIALS.wood;
+                else if (category === 'window_frame') conf = WINDOW_FRAME_MATERIALS[matId] || WINDOW_FRAME_MATERIALS.alum_powder;
+                else if (category === 'window_glass') conf = WINDOW_GLASS_MATERIALS[matId] || WINDOW_GLASS_MATERIALS.clear;
+                
+                if (!conf) return new THREE.MeshStandardMaterial();
+                
+                return new THREE.MeshStandardMaterial({
+                    color: conf.color,
+                    roughness: conf.roughness !== undefined ? conf.roughness : 0.5,
+                    metalness: conf.metalness !== undefined ? conf.metalness : 0.1,
+                    transmission: conf.transmission || 0,
+                    ior: conf.ior || 1.5,
+                    transparent: conf.transparent || false,
+                    opacity: conf.transmission ? (1 - conf.transmission) : 1
+                });
+            }
+        };
     }
 
     build(levelsJsonArray, activeIndex, viewMode3D, staticStructureGroup) {
@@ -76,6 +97,24 @@ export class StaticFloors {
                         const { wallGroup } = this.wallBuilder.buildWallGroup(length, w.thickness, w, w.startX, w.startY, angle, wallHeight);
                         wallGroup.userData = { entity: w };
                         w.mesh3D = wallGroup;
+
+                        // Render Widgets (Doors & Windows)
+                        if (w.attachedWidgets) {
+                            w.attachedWidgets.forEach(widg => {
+                                const wCenter = length * widg.t;
+                                const widgEntity = {
+                                    ...widg,
+                                    x: w.startX + Math.cos(angle) * wCenter,
+                                    z: w.startY + Math.sin(angle) * wCenter,
+                                    angle: angle,
+                                    thick: w.thickness
+                                };
+                                const type = widg.type || widg.configId;
+                                if (WIDGET_REGISTRY[type] && WIDGET_REGISTRY[type].render3D) {
+                                    WIDGET_REGISTRY[type].render3D(floorGroup, widgEntity, this.helpers);
+                                }
+                            });
+                        }
 
                         if (!isPreview) {
                             const hitboxes = this.wallBuilder.createHitboxes(length, w.thickness, w, true, index, wallIndex, wallHeight);
