@@ -40,7 +40,8 @@ export class PremiumShape {
             shadowColor: 'black', 
             shadowBlur: 10, 
             shadowOffset: {x: 2, y: 2}, 
-            shadowOpacity: 0.2
+            shadowOpacity: 0.2,
+            strokeScaleEnabled: false
         };
 
         if (type === 'shape_rect') {
@@ -67,19 +68,7 @@ export class PremiumShape {
         this.attachedWall = null;
         this.isDragging = false;
 
-        this.attachmentArrow = new Konva.Arrow({
-            points: [0, 15, 0, -5],
-            pointerLength: 8,
-            pointerWidth: 8,
-            fill: '#f59e0b',
-            stroke: '#f59e0b',
-            strokeWidth: 3,
-            visible: false,
-            name: 'attachment-arrow'
-        });
-
         this.group.add(this.shape);
-        this.group.add(this.attachmentArrow);
         if (this.planner.baseLayer) {
             this.planner.baseLayer.add(this.group);
         } else {
@@ -186,19 +175,9 @@ export class PremiumShape {
                 }
                 
                 this.attachedWall = targetWall;
-                // this.planner.wallHighlight.points([wallP1.x, wallP1.y, wallP2.x, wallP2.y]).show();
-                this.shape.stroke('#f59e0b');
-
-                const arrowRotation = Math.atan2(outNorm.y, outNorm.x) * 180 / Math.PI + 90;
-                this.attachmentArrow.rotation(arrowRotation - this.rotation); // Relative to group rotation
-                this.attachmentArrow.fill('#f59e0b');
-                this.attachmentArrow.stroke('#f59e0b');
-                this.attachmentArrow.visible(true);
             } else {
                 this.attachedWall = null;
                 this.planner.wallHighlight.hide();
-                this.shape.stroke(this.params.stroke);
-                this.attachmentArrow.visible(false);
                 this.group.position(rawCenter);
             }
             this.update();
@@ -236,14 +215,6 @@ export class PremiumShape {
 
             this.planner.wallHighlight.hide();
             
-            if (this.attachedWall) {
-                this.attachmentArrow.fill('#10b981');
-                this.attachmentArrow.stroke('#10b981');
-                this.attachmentArrow.visible(true);
-            } else {
-                this.attachmentArrow.visible(false);
-            }
-
             if (this.planner.baseLayer) {
                 this.group.moveTo(this.planner.baseLayer);
             } else {
@@ -253,6 +224,14 @@ export class PremiumShape {
             this.planner.mainLayer.batchDraw();
         });
         this.group.on('transform', () => {
+            this.rotation = this.group.rotation();
+            this.planner.syncAll();
+            
+            if (this.planner.snapAndAlign) {
+                this.planner.snapAndAlign(this.group, true);
+            }
+        });
+        this.group.on('transformend', () => {
             this.rotation = this.group.rotation();
             if (this.type === 'shape_rect') {
                 this.params.width = Math.abs(this.shape.width() * this.group.scaleX());
@@ -267,9 +246,13 @@ export class PremiumShape {
             }
             this.planner.syncAll();
             
-            if (this.planner.snapAndAlign) {
-                this.planner.snapAndAlign(this.group, true);
+            if (this.planner.alignmentLines) {
+                this.planner.alignmentLines.destroyChildren();
             }
+            if (this.planner.smartGuides) {
+                this.planner.smartGuides.clear();
+            }
+            this.planner.uiLayer.batchDraw();
         });
         this.group.on('transformend', () => {
             if (this.planner.alignmentLines) {

@@ -260,6 +260,7 @@ export class FloorPlanner {
             borderStroke: '#3b82f6', anchorStroke: '#ffffff', anchorFill: '#111827',
             anchorSize: 16, anchorCornerRadius: 8, anchorStrokeWidth: 2, rotateEnabled: false,
             rotationSnaps: [0, 45, 90, 135, 180, 225, 270, 315],
+            ignoreStroke: true,
             boundBoxFunc: (oldBox, newBox) => {
                 // Only snap cleanly unrotated boxes 
                 if (Math.abs(newBox.rotation % 90) > 0.1) return newBox;
