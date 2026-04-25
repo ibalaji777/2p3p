@@ -1409,10 +1409,14 @@ export class FloorPlanner {
         const points = anchorPath.flatMap(a => [a.x, a.y]); 
         const poly = new Konva.Line({ points: points, fill: '#f0f4f8', closed: true, opacity: 0.7 }); 
         
-        poly.on('mouseenter', () => { if(this.tool === 'select') document.body.style.cursor = 'pointer'; });
+        poly.on('mouseenter', () => { 
+            const cat = this.activeCategory || 'tools';
+            if(this.tool === 'select' && cat !== 'doors_windows') document.body.style.cursor = 'pointer'; 
+        });
         poly.on('mouseleave', () => document.body.style.cursor = 'default');
         poly.on('click', (e) => { 
-            if(this.tool === 'select') {
+            const cat = this.activeCategory || 'tools';
+            if(this.tool === 'select' && cat !== 'doors_windows') {
                 e.cancelBubble = true;
                 this.selectEntity(room, 'room');
             }
