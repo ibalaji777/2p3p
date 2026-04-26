@@ -1321,7 +1321,11 @@ export class FloorPlanner {
             if (clusterFrom === clusterTo) return;
             
             if (!adj.has(clusterFrom)) adj.set(clusterFrom, []);
-            adj.get(clusterFrom).push({ from: clusterFrom, to: clusterTo, wall: e.wall, realFrom: e.from, realTo: e.to });
+            
+            // Prevent duplicate edges from identical overlapping walls (like railings on top of walls)
+            if (!adj.get(clusterFrom).some(ex => ex.to === clusterTo)) {
+                adj.get(clusterFrom).push({ from: clusterFrom, to: clusterTo, wall: e.wall, realFrom: e.from, realTo: e.to });
+            }
         });
 
         adj.forEach((outgoing, anchor) => {
