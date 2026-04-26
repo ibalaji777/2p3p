@@ -942,18 +942,6 @@ export class FloorPlanner {
 
                     for (let w of this.walls) { 
                         let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); 
-                        if (this.tool === 'railing') {
-                            const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
-                            const vdx = p2.x - p1.x, vdy = p2.y - p1.y, vlen = Math.hypot(vdx, vdy);
-                            if (vlen > 0) {
-                                const n = { x: -vdy/vlen, y: vdx/vlen }, ht = (w.thickness || w.config.thickness) / 2;
-                                const e1 = { x: proj.x + n.x * ht, y: proj.y + n.y * ht }, e2 = { x: proj.x - n.x * ht, y: proj.y - n.y * ht };
-                                const d1 = Math.hypot(pos.x - e1.x, pos.y - e1.y), d2 = Math.hypot(pos.x - e2.x, pos.y - e2.y);
-                                if (d1 < closestDist) { closestDist = d1; closestPoint = e1; targetSnapWall = w; }
-                                if (d2 < closestDist) { closestDist = d2; closestPoint = e2; targetSnapWall = w; }
-                            }
-                            continue;
-                        }
                         let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); 
                         if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = w; } 
                     } 
@@ -1053,18 +1041,6 @@ export class FloorPlanner {
 
                     for (let w of this.walls) {
                         let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position());
-                        if (this.tool === 'railing') {
-                            const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
-                            const vdx = p2.x - p1.x, vdy = p2.y - p1.y, vlen = Math.hypot(vdx, vdy);
-                            if (vlen > 0) {
-                                const n = { x: -vdy/vlen, y: vdx/vlen }, ht = (w.thickness || w.config.thickness) / 2;
-                                const e1 = { x: proj.x + n.x * ht, y: proj.y + n.y * ht }, e2 = { x: proj.x - n.x * ht, y: proj.y - n.y * ht };
-                                const d1 = Math.hypot(pos.x - e1.x, pos.y - e1.y), d2 = Math.hypot(pos.x - e2.x, pos.y - e2.y);
-                                if (d1 < closestDist) { closestDist = d1; closestPoint = e1; targetSnapWall = w; snappedObj = true; }
-                                if (d2 < closestDist) { closestDist = d2; closestPoint = e2; targetSnapWall = w; snappedObj = true; }
-                            }
-                            continue;
-                        }
                         let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
                         if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = w; snappedObj = true; } 
                     }

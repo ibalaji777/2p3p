@@ -762,18 +762,6 @@ export class FloorPlanner {
 
                     for (let w of this.walls) { 
                         let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); 
-                        if (this.tool === 'railing') {
-                            const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
-                            const vdx = p2.x - p1.x, vdy = p2.y - p1.y, vlen = Math.hypot(vdx, vdy);
-                            if (vlen > 0) {
-                                const n = { x: -vdy/vlen, y: vdx/vlen }, ht = (w.thickness || w.config.thickness) / 2;
-                                const e1 = { x: proj.x + n.x * ht, y: proj.y + n.y * ht }, e2 = { x: proj.x - n.x * ht, y: proj.y - n.y * ht };
-                                const d1 = Math.hypot(pos.x - e1.x, pos.y - e1.y), d2 = Math.hypot(pos.x - e2.x, pos.y - e2.y);
-                                if (d1 < closestDist) { closestDist = d1; closestPoint = e1; targetSnapWall = w; }
-                                if (d2 < closestDist) { closestDist = d2; closestPoint = e2; targetSnapWall = w; }
-                            }
-                            continue;
-                        }
                         let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); 
                         if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = w; } 
                     } 
@@ -1073,18 +1061,6 @@ export class FloorPlanner {
 
                     for (let w of this.walls) { 
                         let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); 
-                        if (this.tool === 'railing') {
-                            const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
-                            const vdx = p2.x - p1.x, vdy = p2.y - p1.y, vlen = Math.hypot(vdx, vdy);
-                            if (vlen > 0) {
-                                const n = { x: -vdy/vlen, y: vdx/vlen }, ht = (w.thickness || w.config.thickness) / 2;
-                                const e1 = { x: proj.x + n.x * ht, y: proj.y + n.y * ht }, e2 = { x: proj.x - n.x * ht, y: proj.y - n.y * ht };
-                                const d1 = Math.hypot(pos.x - e1.x, pos.y - e1.y), d2 = Math.hypot(pos.x - e2.x, pos.y - e2.y);
-                                if (d1 < closestDist) { closestDist = d1; closestPoint = e1; targetSnapWall = w; snappedObj = true; }
-                                if (d2 < closestDist) { closestDist = d2; closestPoint = e2; targetSnapWall = w; snappedObj = true; }
-                            }
-                            continue;
-                        }
                         let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); 
                         if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = w; snappedObj = true; } 
                     } 
@@ -1329,10 +1305,23 @@ export class FloorPlanner {
             }
         });
 
+        const getCluster = (anchor, adjMap) => {
+            for (let cluster of adjMap.keys()) {
+                if (Math.hypot(cluster.x - anchor.x, cluster.y - anchor.y) < 2) {
+                    return cluster;
+                }
+            }
+            return anchor;
+        };
+
         const adj = new Map();
         edges.forEach(e => {
-            if (!adj.has(e.from)) adj.set(e.from, []);
-            adj.get(e.from).push(e);
+            const clusterFrom = getCluster(e.from, adj);
+            const clusterTo = getCluster(e.to, adj);
+            if (clusterFrom === clusterTo) return;
+            
+            if (!adj.has(clusterFrom)) adj.set(clusterFrom, []);
+            adj.get(clusterFrom).push({ from: clusterFrom, to: clusterTo, wall: e.wall, realFrom: e.from, realTo: e.to });
         });
 
         adj.forEach((outgoing, anchor) => {
@@ -1347,10 +1336,17 @@ export class FloorPlanner {
         const faces = [];
 
         edges.forEach(startEdge => {
-            if (visitedEdges.has(startEdge)) return;
+            const clusterStartFrom = getCluster(startEdge.from, adj);
+            const clusterStartTo = getCluster(startEdge.to, adj);
+            if (clusterStartFrom === clusterStartTo) return;
+            
+            const clusteredStartEdges = adj.get(clusterStartFrom);
+            if (!clusteredStartEdges) return;
+            const clusteredStartEdge = clusteredStartEdges.find(e => e.to === clusterStartTo);
+            if (!clusteredStartEdge || visitedEdges.has(clusteredStartEdge)) return;
             
             const face = [];
-            let currentEdge = startEdge;
+            let currentEdge = clusteredStartEdge;
             let isClosed = false;
 
             while (!visitedEdges.has(currentEdge)) {
@@ -1365,7 +1361,7 @@ export class FloorPlanner {
                 let nextIndex = (revIndex - 1 + outgoing.length) % outgoing.length;
                 currentEdge = outgoing[nextIndex];
                 
-                if (currentEdge === startEdge) {
+                if (currentEdge === clusteredStartEdge) {
                     isClosed = true;
                     break;
                 }
@@ -1386,8 +1382,8 @@ export class FloorPlanner {
         });
 
         faces.forEach(face => {
-            const path = face.map(e => e.from);
-            path.push(face[face.length - 1].to); 
+            const path = face.map(e => e.realFrom || e.from);
+            path.push(face[face.length - 1].realTo || face[face.length - 1].to); 
             
             let cx = 0, cy = 0;
             const uniquePoints = path.slice(0, -1);
@@ -1451,11 +1447,23 @@ export class FloorPlanner {
 
     exportState() {
         const standardWalls = this.walls.filter(w => !w.parentArc);
+        // Explicitly map anchors by index so we retain exact topology without accidental merging
+        this.anchors.forEach((a, i) => a._id = i);
+
         const state = {
+            unit: this.currentUnit,
+            anchors: this.anchors.map(a => ({ id: a._id, x: a.x, y: a.y })),
             walls: standardWalls.map(w => ({
+                startAnchorId: w.startAnchor._id, endAnchorId: w.endAnchor._id, 
                 startX: w.startAnchor.x, startY: w.startAnchor.y, endX: w.endAnchor.x, endY: w.endAnchor.y, thickness: w.thickness || w.config.thickness, height: w.height !== undefined ? w.height : (w.config?.height || 120), type: w.type, configId: w.configId,
                 pts: w.poly ? w.poly.points() : null,
-                widgets: w.attachedWidgets.map(wid => ({ t: wid.t, configId: wid.type, width: wid.width })),
+                elevationLayers: w.elevationLayers,
+                widgets: w.attachedWidgets.map(wid => ({ 
+                    t: wid.t, type: wid.type, configId: wid.type, width: wid.width, 
+                    facing: wid.facing, side: wid.side, 
+                    doorType: wid.doorType, doorMat: wid.doorMat, 
+                    windowType: wid.windowType, frameMat: wid.frameMat, glassMat: wid.glassMat, grillePattern: wid.grillePattern 
+                })),
                 decors: w.attachedDecor ? w.attachedDecor.map(d => ({ id: d.id, configId: d.configId, side: d.side, localX: d.localX, localY: d.localY, localZ: d.localZ, width: d.width, height: d.height, depth: d.depth, tileSize: d.tileSize, faces: { front: d.faces.front, back: d.faces.back, left: d.faces.left, right: d.faces.right } })) : []
             })),
             furniture: this.furniture.map(f => ({ x: f.group.x(), y: f.group.y(), rotation: f.rotation, width: f.width, depth: f.depth, height: f.height, configId: f.config.id })),
@@ -1474,17 +1482,60 @@ export class FloorPlanner {
         if (!jsonStr) return;
         try {
             const state = JSON.parse(jsonStr);
+            if (state.unit) {
+                this.currentUnit = state.unit;
+            }
             if (state.rooms) {
                 this.rooms = state.rooms;
             }
+
+            const anchorMap = new Map();
+            if (state.anchors && Array.isArray(state.anchors)) { 
+                state.anchors.forEach(aData => { 
+                    const newAnchor = new Anchor(this, aData.x, aData.y); 
+                    this.anchors.push(newAnchor); 
+                    anchorMap.set(aData.id, newAnchor); 
+                }); 
+            }
+
             if (state.walls) {
                 state.walls.forEach(wData => {
-                    const a1 = this.getOrCreateAnchor(wData.startX, wData.startY); const a2 = this.getOrCreateAnchor(wData.endX, wData.endY);
-                    const wall = new PremiumWall(this, a1, a2, wData.type);
+                    let a1, a2;
+                    if (wData.startAnchorId !== undefined && wData.endAnchorId !== undefined && anchorMap.has(wData.startAnchorId) && anchorMap.has(wData.endAnchorId)) {
+                        a1 = anchorMap.get(wData.startAnchorId);
+                        a2 = anchorMap.get(wData.endAnchorId);
+                    } else {
+                        // Fallback for legacy state format
+                        a1 = this.getOrCreateAnchor(wData.startX, wData.startY); 
+                        a2 = this.getOrCreateAnchor(wData.endX, wData.endY);
+                    }
+
+                    let wall;
+                    if (wData.type === 'railing') {
+                        wall = new PremiumRailing(this, a1, a2);
+                    } else {
+                        wall = new PremiumWall(this, a1, a2, wData.type);
+                    }
                     if (wData.thickness) wall.thickness = wData.thickness;
                     if (wData.height) wall.height = wData.height;
                     if (wData.configId) wall.configId = wData.configId;
-                    if (wData.widgets) { wData.widgets.forEach(wd => { const widget = new PremiumWidget(this, wall, wd.t, wd.configId); widget.width = wd.width; wall.attachedWidgets.push(widget); }); }
+                    if (wData.elevationLayers) wall.elevationLayers = wData.elevationLayers;
+
+                    if (wData.widgets) { 
+                        wData.widgets.forEach(wd => { 
+                            const widget = new PremiumWidget(this, wall, wd.t, wd.configId || wd.type); 
+                            widget.width = wd.width; 
+                            if (wd.facing !== undefined) widget.facing = wd.facing;
+                            if (wd.side !== undefined) widget.side = wd.side;
+                            if (wd.doorType) widget.doorType = wd.doorType;
+                            if (wd.doorMat) widget.doorMat = wd.doorMat;
+                            if (wd.windowType) widget.windowType = wd.windowType;
+                            if (wd.frameMat) widget.frameMat = wd.frameMat;
+                            if (wd.glassMat) widget.glassMat = wd.glassMat;
+                            if (wd.grillePattern) widget.grillePattern = wd.grillePattern;
+                            wall.attachedWidgets.push(widget); 
+                        }); 
+                    }
                     if (wData.decors) { wall.attachedDecor = JSON.parse(JSON.stringify(wData.decors)); }
                     this.walls.push(wall);
                 });

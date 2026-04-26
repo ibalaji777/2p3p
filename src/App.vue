@@ -1031,8 +1031,36 @@ const refresh3DScene = (preserveCamera = true) => {
     }
 };
 
-const saveProject = () => FileManager.exportJSON(planner.value);
-const loadProject = (json) => FileManager.importJSON(planner.value, json);
+const saveProject = () => {
+    saveCurrentLevelState();
+    const projectData = {
+        levels: levels.value,
+        activeLevelIndex: activeLevelIndex.value
+    };
+    FileManager.exportJSON(projectData);
+};
+const loadProject = (jsonStr) => {
+    try {
+        const parsed = JSON.parse(jsonStr);
+        if (parsed.levels && parsed.activeLevelIndex !== undefined) {
+            levels.value = parsed.levels;
+            activeLevelIndex.value = parsed.activeLevelIndex;
+            planner.value.importState(levels.value[activeLevelIndex.value].data);
+            planner.value.syncAll();
+            
+            // Clear history when loading new project
+            historyStack.value = [];
+            historyIndex.value = -1;
+            setTimeout(() => saveHistory(), 200);
+        } else {
+            // Fallback for single floor plans or old exports
+            FileManager.importJSON(planner.value, jsonStr);
+        }
+    } catch(e) {
+        console.error(e);
+        alert("Failed to load project file.");
+    }
+};
 
 const triggerFileInput = () => document.getElementById('fileInput').click();
 const handleFileUpload = (event) => {
