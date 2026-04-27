@@ -458,7 +458,7 @@ export class FloorPlanner {
 
             if(w.poly) { 
                 w.poly.setAttr('draggable', canEditThisWall); 
-                w.poly.setAttr('listening', canEditThisWall || isWidget || isSplit); 
+                w.poly.setAttr('listening', canEditThisWall || (isWidget && !isRailing) || isSplit); 
             }
             
             w.attachedWidgets.forEach(widg => {

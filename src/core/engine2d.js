@@ -685,11 +685,10 @@ export class FloorPlanner {
                 canEditThisWall = isRailing && (isSelect || isSplitWall);
             }
 
-            if(w.poly) { 
-                w.poly.setAttr('draggable', canEditThisWall); 
-                w.poly.setAttr('listening', canEditThisWall || isWidget || isSplitWall); 
-            }
-            
+            if(w.poly) {
+                w.poly.setAttr('draggable', canEditThisWall);
+                w.poly.setAttr('listening', canEditThisWall || (isWidget && !isRailing) || isSplitWall);
+            }            
             w.attachedWidgets.forEach(widg => { 
                 if(widg.visualGroup) { 
                     let canEditWidget = isSelect && (allowAll || cat === 'doors_windows');

@@ -554,15 +554,15 @@ class EnvironmentBuilder {
                         const offsetDistance = (i * segmentLength) + (segmentLength / 2);
 
                         const position = edge.start.clone().add(direction.clone().multiplyScalar(offsetDistance));
+                        position.y = h; // Lift railing to sit on top of underlying wall
                         inst.position.copy(position);
 
                         const target = position.clone().add(direction);
                         inst.lookAt(target);
-                        inst.rotateY(-Math.PI / 2); 
+                        inst.rotateY(-Math.PI / 2);
 
                         wallGroup.add(inst);
-                    }
-                }).catch(e => {
+                    }                }).catch(e => {
                     console.error(`[3D Engine] Failed to load railing model from ${config.model}:`, e);
                     buildBaseWall(totalH, true);
                 });

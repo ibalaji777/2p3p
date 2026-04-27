@@ -156,11 +156,12 @@ export class RailingBuilder {
                         const offsetDistance = (i * segmentLength) + (segmentLength / 2);
 
                         const position = edge.start.clone().add(direction.clone().multiplyScalar(offsetDistance));
+                        position.y = h; // Lift railing to sit on top of underlying wall
                         inst.position.copy(position);
 
                         const target = position.clone().add(direction);
                         inst.lookAt(target);
-                        inst.rotateY(-Math.PI / 2); 
+                        inst.rotateY(-Math.PI / 2);
 
                         wallGroup.add(inst);
                     }
