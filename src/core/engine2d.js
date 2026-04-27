@@ -118,9 +118,26 @@ export class PremiumStair {
                 let prevF = flights[idx - 1], currF = flight, shape = this.path[flight.startNodeIdx].shape || 'flat';
                 let prevL = { x: prevF.eP.x - prevF.n.x * hw, y: prevF.eP.y - prevF.n.y * hw }, prevR = { x: prevF.eP.x + prevF.n.x * hw, y: prevF.eP.y + prevF.n.y * hw };
                 let currL = { x: currF.sP.x - currF.n.x * hw, y: currF.sP.y - currF.n.y * hw }, currR = { x: currF.sP.x + currF.n.x * hw, y: currF.sP.y + currF.n.y * hw };
-                if (shape === 'circular') { this.stepsGroup.add(new Konva.Circle({ x: currF.p1.x, y: currF.p1.y, radius: hw, fill: 'rgba(139, 90, 43, 0.2)', stroke: strokeColor, strokeWidth: 2 })); this.stepData3D.push({ type: 'landing_circ', x: currF.p1.x, y: currentHeight, z: currF.p1.y, r: hw, h: riserH, angle: currF.angle }); }
-                else { this.stepsGroup.add(new Konva.Line({ points: [prevL.x, prevL.y, prevR.x, prevR.y, currR.x, currR.y, currL.x, currL.y], fill: 'rgba(139, 90, 43, 0.2)', stroke: strokeColor, strokeWidth: 3, closed: true })); this.stepData3D.push({ type: 'landing_poly', pts: [prevL, prevR, currR, currL], y: currentHeight, h: riserH }); }
-                currentHeight += riserH;
+                let cross = prevF.dir.x * currF.dir.y - prevF.dir.y * currF.dir.x;
+                let polyPoints = [];
+                if (Math.abs(cross) > 0.01) {
+                    let dx = hw * (currF.n.y - prevF.n.y) / cross;
+                    let dy = hw * (prevF.n.x - currF.n.x) / cross;
+                    let miterLen = Math.hypot(dx, dy);
+                    if (miterLen > hw * 5) { let scale = (hw * 5) / miterLen; dx *= scale; dy *= scale; }
+                    let intR = { x: currF.p1.x + dx, y: currF.p1.y + dy };
+                    let intL = { x: currF.p1.x - dx, y: currF.p1.y - dy };
+                    polyPoints = [prevL.x, prevL.y, intL.x, intL.y, currL.x, currL.y, currR.x, currR.y, intR.x, intR.y, prevR.x, prevR.y];
+                } else {
+                    polyPoints = [prevL.x, prevL.y, currL.x, currL.y, currR.x, currR.y, prevR.x, prevR.y];
+                }
+
+                if (shape === 'circular') { this.stepsGroup.add(new Konva.Circle({ x: currF.p1.x, y: currF.p1.y, radius: hw, fill: 'rgba(139, 90, 43, 0.2)', stroke: strokeColor, strokeWidth: 2 })); this.stepData3D.push({ type: 'landing_circ', x: currF.p1.x, y: currentHeight, z: currF.p1.y, r: hw, h: riserH, angle: currF.angle }); } 
+                else { 
+                    this.stepsGroup.add(new Konva.Line({ points: polyPoints, fill: 'rgba(139, 90, 43, 0.2)', stroke: strokeColor, strokeWidth: 3, closed: true })); 
+                    let pts3d = []; for(let i=0; i<polyPoints.length; i+=2) pts3d.push({x: polyPoints[i], y: polyPoints[i+1]});
+                    this.stepData3D.push({ type: 'landing_poly', pts: pts3d, y: currentHeight, h: riserH }); 
+                }                currentHeight += riserH;
             }
             let pL1 = { x: flight.sP.x - flight.n.x * hw, y: flight.sP.y - flight.n.y * hw }, pL2 = { x: flight.eP.x - flight.n.x * hw, y: flight.eP.y - flight.n.y * hw };
             let pR1 = { x: flight.sP.x + flight.n.x * hw, y: flight.sP.y + flight.n.y * hw }, pR2 = { x: flight.eP.x + flight.n.x * hw, y: flight.eP.y + flight.n.y * hw };
