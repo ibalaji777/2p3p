@@ -64,13 +64,22 @@ export class PremiumArc {
     }
 
     rebuild() {
-        this.walls.forEach(w => { w.wallGroup.destroy(); w.labelGroup.destroy(); this.planner.walls = this.planner.walls.filter(existing => existing !== w); });
+        const savedWidgets = [];
+        this.walls.forEach(w => { 
+            if (w.attachedWidgets) w.attachedWidgets.forEach(widg => savedWidgets.push({ widg: widg, oldPos: widg.visualGroup.position() }));
+            w.wallGroup.destroy(); 
+            w.labelGroup.destroy(); 
+            this.planner.walls = this.planner.walls.filter(existing => existing !== w); 
+        });
         this.intermediateAnchors.forEach(a => { a.node.destroy(); this.planner.anchors = this.planner.anchors.filter(existing => existing !== a); });
         this.walls = []; this.intermediateAnchors = [];
 
         const p1 = this.p1.position(), p2 = this.p2.position();
         const dx = p2.x - p1.x, dy = p2.y - p1.y, L = Math.hypot(dx, dy);
-        if (L < 0.5) return;
+        if (L < 0.5) {
+            savedWidgets.forEach(sw => sw.widg.remove());
+            return;
+        }
         
         const mid = { x: p1.x + dx/2, y: p1.y + dy/2 }, n = { x: -dy/L, y: dx/L };
         let h = (this.pos.x - mid.x)*n.x + (this.pos.y - mid.y)*n.y;
@@ -103,7 +112,21 @@ export class PremiumArc {
                     const newWall = new PremiumWall(this.planner, prevAnchor, currentAnchor, 'outer');
                     newWall.parentArc = this; newWall.labelGroup.visible(false);
                     newWall.poly.off('mousedown touchstart');
-                    newWall.poly.on('mousedown touchstart', (e) => { if (this.planner.tool === 'select') { e.cancelBubble = true; this.planner.selectEntity(this, 'arc'); } });
+                    newWall.poly.on('mousedown touchstart', (e) => { 
+                        if (WIDGET_REGISTRY[this.planner.tool]) {
+                            e.cancelBubble = true;
+                            if (e.evt) e.evt.stopPropagation();
+                            const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
+                            if (!pos) return;
+                            let newT = newWall.getClosestT(pos);
+                            const widget = new PremiumWidget(this.planner, newWall, newT, this.planner.tool);
+                            newWall.attachedWidgets.push(widget);
+                            this.planner.selectEntity(widget, 'widget');
+                            this.planner.syncAll();
+                            return;
+                        }
+                        if (this.planner.tool === 'select') { e.cancelBubble = true; this.planner.selectEntity(this, 'arc'); } 
+                    });
                     newWall.poly.draggable(false); newWall.poly.on('dragstart dragmove dragend', (e) => e.cancelBubble = true);
                     this.walls.push(newWall); this.planner.walls.push(newWall);
                     
@@ -137,6 +160,27 @@ export class PremiumArc {
                 }
             }
         }
+        
+        // Re-attach saved widgets
+        savedWidgets.forEach(sw => {
+             let closestWall = null; let closestDist = Infinity;
+             this.walls.forEach(nw => {
+                  if (nw.type === 'railing') return;
+                  let proj = this.planner.getClosestPointOnSegment(sw.oldPos, nw.startAnchor.position(), nw.endAnchor.position());
+                  let dist = Math.hypot(sw.oldPos.x - proj.x, sw.oldPos.y - proj.y);
+                  if (dist < closestDist) { closestDist = dist; closestWall = nw; }
+             });
+             if (closestWall && closestDist < 50) {
+                  let newT = closestWall.getClosestT(sw.oldPos);
+                  sw.widg.wall = closestWall;
+                  sw.widg.t = newT;
+                  closestWall.attachedWidgets.push(sw.widg);
+                  sw.widg.update();
+             } else {
+                  sw.widg.remove();
+             }
+        });
+
         this.lastP1 = { ...p1 }; this.lastP2 = { ...p2 };
         
         if (this.planner.selectedEntity === this) {
