@@ -93,7 +93,7 @@ export class ActiveFloor {
             if (w.attachedDecor) w.attachedDecor.forEach(decor => this.decorManager.load(w, decor));
         });
 
-        this.railingBuilder.build(railingWalls);
+        this.railingBuilder.build(railingWalls, standardWalls);
     }
 
     _buildShapes(shapes) {

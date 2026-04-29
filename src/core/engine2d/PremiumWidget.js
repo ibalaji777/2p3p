@@ -71,15 +71,15 @@ export class PremiumWidget {
             if (!this.hasEvent("drag_along_wall")) return; 
             const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
             let targetWall = this.wall; 
-            if (this.hasEvent("jump_wall_to_wall")) { 
-                let minDist = this.planner.getDistanceToWall(pos, this.wall); 
-                this.planner.walls.forEach(w => { 
-                    if (w === this.wall) return; 
-                    const dist = this.planner.getDistanceToWall(pos, w); 
-                    if (dist < minDist && dist < 50) { minDist = dist; targetWall = w; } 
-                }); 
-                if (targetWall !== this.wall) { 
-                    let tempT = targetWall.getClosestT(pos); 
+            if (this.hasEvent("jump_wall_to_wall")) {
+                let targetWall = this.wall;
+                let minDist = this.planner.getDistanceToWall(pos, this.wall);
+                this.planner.walls.forEach(w => {
+                    if (w === this.wall || w.type === 'railing') return;
+                    const dist = this.planner.getDistanceToWall(pos, w);
+                    if (dist < minDist && dist < 50) { minDist = dist; targetWall = w; }
+                });
+                if (targetWall !== this.wall) {                    let tempT = targetWall.getClosestT(pos); 
                     if (!this.hasEvent("prevent_overlap") || !this.checkOverlap(targetWall, tempT, this.width)) { 
                         this.wall.attachedWidgets = this.wall.attachedWidgets.filter(d => d !== this); 
                         this.wall = targetWall; this.wall.attachedWidgets.push(this); 

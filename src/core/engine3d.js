@@ -80,6 +80,22 @@ class AssetManager {
                         }
                     });
                 }
+                
+                // CRITICAL: Protect cached geometry and materials from being destroyed by deepDispose
+                modelScene.traverse((child) => {
+                    if (child.isMesh) {
+                        child.userData.keepAlive = true;
+                        if (child.geometry) child.geometry.userData = { keepAlive: true };
+                        if (child.material) {
+                            if (Array.isArray(child.material)) {
+                                child.material.forEach(m => m.userData = { keepAlive: true });
+                            } else {
+                                child.material.userData = { keepAlive: true };
+                            }
+                        }
+                    }
+                });
+
                 console.log(`[AssetManager] Successfully loaded and configured 3D model for: ${config.id}`);
                 return modelScene;
             } catch (e) {
@@ -732,10 +748,14 @@ class EnvironmentBuilder {
                         if (w.attachedWidgets) {
                             w.attachedWidgets.forEach(widg => {
                                 const hole = new THREE.Path(), wCenter = length * widg.t, halfW = widg.width / 2;
+                                const maxH = totalH; // totalH is the wall height (h)
                                 if (widg.type === 'door') {
-                                    hole.moveTo(wCenter - halfW, 0); hole.lineTo(wCenter + halfW, 0); hole.lineTo(wCenter + halfW, DOOR_HEIGHT); hole.lineTo(wCenter - halfW, DOOR_HEIGHT); hole.lineTo(wCenter - halfW, 0);
+                                    const dh = Math.min(DOOR_HEIGHT, maxH);
+                                    hole.moveTo(wCenter - halfW, 0); hole.lineTo(wCenter + halfW, 0); hole.lineTo(wCenter + halfW, dh); hole.lineTo(wCenter - halfW, dh); hole.lineTo(wCenter - halfW, 0);
                                 } else if (widg.type === 'window') {
-                                    hole.moveTo(wCenter - halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL);
+                                    const ws = Math.min(WINDOW_SILL, maxH);
+                                    const wh = Math.min(WINDOW_SILL + WINDOW_HEIGHT, maxH);
+                                    hole.moveTo(wCenter - halfW, ws); hole.lineTo(wCenter + halfW, ws); hole.lineTo(wCenter + halfW, wh); hole.lineTo(wCenter - halfW, wh); hole.lineTo(wCenter - halfW, ws);
                                 }
                                 wallShape.holes.push(hole);
 
@@ -1823,10 +1843,15 @@ export class Preview3D {
     }
 
     deepDispose(obj) {
-        if (obj.geometry) obj.geometry.dispose();
+        if (obj.userData && obj.userData.keepAlive) return;
+        
+        if (obj.geometry && !obj.geometry.userData?.keepAlive) obj.geometry.dispose();
         if (obj.material) {
-            if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
-            else obj.material.dispose();
+            if (Array.isArray(obj.material)) {
+                obj.material.forEach(m => { if (!m.userData?.keepAlive) m.dispose(); });
+            } else {
+                if (!obj.material.userData?.keepAlive) obj.material.dispose();
+            }
         }
         if (obj.children) [...obj.children].forEach(c => this.deepDispose(c));
     }

@@ -35,7 +35,7 @@ export class PremiumRailing {
         this.frontHighlight = new Konva.Line({ stroke: '#3b82f6', strokeWidth: 4, visible: false }); 
         this.backHighlight = new Konva.Line({ stroke: '#10b981', strokeWidth: 4, visible: false });
         this.wallGroup.add(this.poly, this.frontHighlight, this.backHighlight);
-        this.planner.wallLayer.add(this.wallGroup);
+        this.planner.widgetLayer.add(this.wallGroup);
 
         this.labelGroup = new Konva.Group({ listening: false });
         this.labelText = new Konva.Text({ fontSize: 11, fill: "#4b5563", padding: 2, fontStyle: 'bold' });

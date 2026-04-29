@@ -132,7 +132,7 @@ export class StaticFloors {
                     });
 
                     const railingBuilder = new RailingBuilder(this.assets, this.interactables, floorGroup);
-                    railingBuilder.build(railingWalls);
+                    railingBuilder.build(railingWalls, standardWalls);
                 }
                 
                 // Build Roofs

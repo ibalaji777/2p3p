@@ -8,7 +8,7 @@ export class RailingBuilder {
         this.structureGroup = structureGroup;
     }
 
-    build(railingWalls) {
+    build(railingWalls, standardWalls = null) {
         railingWalls.forEach(w => {
             const p1 = w.startAnchor ? w.startAnchor.position() : { x: w.startX, y: w.startY };
             const p2 = w.endAnchor ? w.endAnchor.position() : { x: w.endX, y: w.endY };
@@ -29,7 +29,30 @@ export class RailingBuilder {
 
             let hitGeo;
             let isMitered = false;
-            const h = w.height || w.config?.height || 40;
+            let railingHeight = w.height !== undefined && w.height !== null && w.height !== 0 ? w.height : (w.config?.height || 40);
+            if (railingHeight === 0) railingHeight = 40;
+
+            let elevation = 0;
+            let underlyingWall = null;
+            if (standardWalls) {
+                const midX = (p1.x + p2.x) / 2, midY = (p1.y + p2.y) / 2;
+                for (let sw of standardWalls) {
+                    const sp1 = sw.startAnchor ? sw.startAnchor.position() : { x: sw.startX, y: sw.startY };
+                    const sp2 = sw.endAnchor ? sw.endAnchor.position() : { x: sw.endX, y: sw.endY };
+                    const C = sp2.x - sp1.x, D = sp2.y - sp1.y;
+                    const lenSq = C * C + D * D;
+                    if (lenSq !== 0) {
+                        const param = Math.max(0, Math.min(1, ((midX - sp1.x) * C + (midY - sp1.y) * D) / lenSq));
+                        if (Math.hypot(midX - (sp1.x + param*C), midY - (sp1.y + param*D)) < 5) {
+                            underlyingWall = sw;
+                            if (sw.type !== 'railing') {
+                                elevation = sw.height !== undefined ? sw.height : (sw.config?.height || 120);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
 
             // Use the exact mitered 2D boundaries for extrusion if available
             if (w.poly && typeof w.poly.points === 'function') {
@@ -41,22 +64,22 @@ export class RailingBuilder {
                     shape.lineTo(pts[4], pts[5]);
                     shape.lineTo(pts[6], pts[7]);
                     shape.lineTo(pts[0], pts[1]);
-                    hitGeo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false });
+                    hitGeo = new THREE.ExtrudeGeometry(shape, { depth: railingHeight, bevelEnabled: false });
                     hitGeo.rotateX(Math.PI / 2);
                     isMitered = true;
                 }
             }
             
             if (!isMitered) {
-                hitGeo = new THREE.BoxGeometry(length, h, 10);
-                hitGeo.translate(length / 2, h / 2, 0);
+                hitGeo = new THREE.BoxGeometry(length, railingHeight, 10);
+                hitGeo.translate(length / 2, railingHeight / 2, 0);
             }
 
             const hitMesh = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ visible: false }));
             if (isMitered) {
-                hitMesh.position.set(0, h, 0);
+                hitMesh.position.set(0, elevation + railingHeight, 0);
             } else {
-                hitMesh.position.set(p1.x, 0, p1.y);
+                hitMesh.position.set(p1.x, elevation, p1.y);
                 hitMesh.rotation.y = -Math.atan2(dz, dx);
             }
             hitMesh.userData = { isWallSide: true, side: 'front', entity: w };
@@ -77,20 +100,20 @@ export class RailingBuilder {
                     shape.lineTo(pts[4], pts[5]);
                     shape.lineTo(pts[6], pts[7]);
                     shape.lineTo(pts[0], pts[1]);
-                    geo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false });
+                    geo = new THREE.ExtrudeGeometry(shape, { depth: railingHeight, bevelEnabled: false });
                     geo.rotateX(Math.PI / 2);
                 } else {
-                    geo = new THREE.BoxGeometry(length, h, w.config?.thickness || 4);
-                    geo.translate(length / 2, h / 2, 0);
+                    geo = new THREE.BoxGeometry(length, railingHeight, w.config?.thickness || 4);
+                    geo.translate(length / 2, railingHeight / 2, 0);
                 }
                 
                 const mat = new THREE.MeshStandardMaterial({ color: config?.color || 0xcccccc, transparent: config?.transparent || false, opacity: config?.opacity || 1 });
                 const mesh = new THREE.Mesh(geo, mat);
                 
                 if (isMitered) {
-                    mesh.position.set(0, h, 0);
+                    mesh.position.set(0, elevation + railingHeight, 0);
                 } else {
-                    mesh.position.set(p1.x, 0, p1.y);
+                    mesh.position.set(p1.x, elevation, p1.y);
                     mesh.rotation.y = -Math.atan2(dz, dx);
                 }
                 mesh.castShadow = true; mesh.receiveShadow = true;
@@ -115,12 +138,17 @@ export class RailingBuilder {
                         return;
                     }
 
-                    const TARGET_HEIGHT = h;
+                    const TARGET_HEIGHT = railingHeight;
                     const scaleFactor = TARGET_HEIGHT / initialSize.y;
 
                     clone.traverse((child) => {
                         if (child.isMesh) {
                             child.geometry = child.geometry.clone();
+                            if (child.material) {
+                                child.material = Array.isArray(child.material)
+                                    ? child.material.map(m => m.clone())
+                                    : child.material.clone();
+                            }
                             child.geometry.translate(-center.x, -initialBox.min.y, -center.z);
                             child.geometry.scale(scaleFactor, scaleFactor, scaleFactor);
                             child.castShadow = true; child.receiveShadow = true;
@@ -156,7 +184,7 @@ export class RailingBuilder {
                         const offsetDistance = (i * segmentLength) + (segmentLength / 2);
 
                         const position = edge.start.clone().add(direction.clone().multiplyScalar(offsetDistance));
-                        position.y = h; // Lift railing to sit on top of underlying wall
+                        position.y = elevation; // Lift railing to sit on top of underlying wall
                         inst.position.copy(position);
 
                         const target = position.clone().add(direction);
