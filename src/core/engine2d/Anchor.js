@@ -22,21 +22,15 @@ export class Anchor {
             let rawPos = { x: this.planner.snap(this.node.x()), y: this.planner.snap(this.node.y()) };
             let attachedWalls = this.planner.walls.filter(w => w.startAnchor === this || w.endAnchor === this);
             
+            let fixedAnchor = null;
+            let refAngle = 0;
             if (attachedWalls.length === 1) {
-                let fixedAnchor = attachedWalls[0].startAnchor === this ? attachedWalls[0].endAnchor : attachedWalls[0].startAnchor;
-                let dx = rawPos.x - fixedAnchor.x; let dy = rawPos.y - fixedAnchor.y; 
-                let rawAngle = Math.atan2(dy, dx) * 180 / Math.PI; let dist = Math.hypot(dx, dy);
-                for (let a of [0, 45, 90, 135, 180, -45, -90, -135, -180]) {
-                    if (Math.abs(rawAngle - a) < 5) { 
-                        let rad = a * Math.PI / 180; 
-                        rawPos.x = fixedAnchor.x + dist * Math.cos(rad); 
-                        rawPos.y = fixedAnchor.y + dist * Math.sin(rad); 
-                        this.planner.drawGuideLine(fixedAnchor.x, fixedAnchor.y, rawPos.x, rawPos.y, true); 
-                        break; 
-                    } else { 
-                        this.planner.drawGuideLine(0,0,0,0, false); 
-                    }
+                fixedAnchor = attachedWalls[0].startAnchor === this ? attachedWalls[0].endAnchor : attachedWalls[0].startAnchor;
+                if (this.planner.smartGuides && this.planner.smartGuides.calculateAngleSnap) {
+                    rawPos = this.planner.smartGuides.calculateAngleSnap({x: fixedAnchor.x, y: fixedAnchor.y}, rawPos, 0);
                 }
+            } else if (attachedWalls.length >= 2) {
+                fixedAnchor = attachedWalls[0].startAnchor === this ? attachedWalls[0].endAnchor : attachedWalls[0].startAnchor;
             }
             
             let proposedPos = rawPos; let targetSnapWall = null, closestDist = SNAP_DIST, snappedObj = false;
@@ -55,7 +49,7 @@ export class Anchor {
                 this.planner.updateInfoBadge(proposedPos.x, proposedPos.y, len, ang, snappedObj);
             }
             
-            this.planner.walls.forEach(w => w.setHighlight(w === this.planner.selectedEntity || (w.parentArc && w.parentArc === this.planner.selectedEntity) || (typeof attachedWalls !== 'undefined' && attachedWalls.includes(w))));
+            this.planner.walls.forEach(w => { w.setHighlight(attachedWalls.includes(w) || w === this.planner.selectedEntity); });
             let collision = false; 
             for (let w of attachedWalls) { 
                 if (w.hasEvent("stop_collision")) { 
@@ -70,14 +64,25 @@ export class Anchor {
             if (snappedObj) this.planner.showSnapGlow(proposedPos.x, proposedPos.y); 
             else this.planner.hideSnapGlow();
             
+            if (fixedAnchor && this.planner.smartGuides && this.planner.smartGuides.drawAngleGuide) {
+                if (attachedWalls.length >= 2) {
+                    let fix2 = attachedWalls[1].startAnchor === this ? attachedWalls[1].endAnchor : attachedWalls[1].startAnchor;
+                    let angle2 = Math.atan2(fix2.y - proposedPos.y, fix2.x - proposedPos.x) * 180 / Math.PI;
+                    this.planner.smartGuides.drawAngleGuide(proposedPos, {x: fixedAnchor.x, y: fixedAnchor.y}, angle2, true);
+                } else {
+                    this.planner.smartGuides.clear();
+                }
+            }
+
             this.planner.syncAll();
         });
         
         this.node.on('dragend', () => { 
-            this.planner.walls.forEach(w => w.setHighlight(w === this.planner.selectedEntity || (w.parentArc && w.parentArc === this.planner.selectedEntity))); 
+            this.planner.walls.forEach(w => w.setHighlight(w === this.planner.selectedEntity)); 
             this.planner.drawGuideLine(0,0,0,0, false); 
             this.planner.hideInfoBadge(); 
             this.planner.hideSnapGlow(); 
+            if (this.planner.smartGuides) this.planner.smartGuides.clear();
             this.planner.syncAll(); 
         }); 
         this.planner.uiLayer.add(this.node);

@@ -661,6 +661,7 @@ export class FloorPlanner {
         this.drawing = false; this.lastAnchor = null; this.startAnchor = null; 
         this.preview?.destroy(); this.preview = null; 
         this.hideSnapGlow(); this.drawGuideLine(0,0,0,0, false); this.hideInfoBadge(); 
+        if (this.smartGuides) this.smartGuides.clear();
         this.deselectAll(); 
     }
     
@@ -1072,12 +1073,37 @@ export class FloorPlanner {
             }
             const wallConfig = WALL_REGISTRY[this.tool]; 
             
-            let dxAxis = rawPos.x - (this.lastAnchor?.x || 0), dyAxis = rawPos.y - (this.lastAnchor?.y || 0), rawAngle = Math.atan2(dyAxis, dxAxis) * 180 / Math.PI, distAxis = Math.hypot(dxAxis, dyAxis), snappedToAxis = false;
-            if (this.drawing) {
-                for (let a of [0, 45, 90, 135, 180, -45, -90, -135, -180]) {
-                    if (Math.abs(rawAngle - a) < 5) { let rad = a * Math.PI / 180; rawPos.x = this.lastAnchor.x + distAxis * Math.cos(rad); rawPos.y = this.lastAnchor.y + distAxis * Math.sin(rad); snappedToAxis = true; this.drawGuideLine(this.lastAnchor.x, this.lastAnchor.y, rawPos.x, rawPos.y, true); break; }
+            let refAngle = 0;
+            let isWallReference = false;
+            if (this.drawing && this.lastAnchor) {
+                const connectedWalls = this.walls.filter(w => w.endAnchor === this.lastAnchor || w.startAnchor === this.lastAnchor);
+                if (connectedWalls.length > 0) {
+                    const w = connectedWalls[0];
+                    const otherAnc = w.startAnchor === this.lastAnchor ? w.endAnchor : w.startAnchor;
+                    refAngle = Math.atan2(otherAnc.y - this.lastAnchor.y, otherAnc.x - this.lastAnchor.x) * 180 / Math.PI;
+                    isWallReference = true;
+                } else {
+                    for (let w of this.walls) {
+                        const p1 = w.startAnchor.position();
+                        const p2 = w.endAnchor.position();
+                        const lastPos = { x: this.lastAnchor.x, y: this.lastAnchor.y };
+                        const proj = this.getClosestPointOnSegment(lastPos, p1, p2);
+                        if (Math.hypot(lastPos.x - proj.x, lastPos.y - proj.y) < 2) {
+                            let distToP1 = Math.hypot(lastPos.x - p1.x, lastPos.y - p1.y);
+                            let distToP2 = Math.hypot(lastPos.x - p2.x, lastPos.y - p2.y);
+                            if (distToP1 > distToP2) {
+                                refAngle = Math.atan2(p1.y - lastPos.y, p1.x - lastPos.x) * 180 / Math.PI;
+                            } else {
+                                refAngle = Math.atan2(p2.y - lastPos.y, p2.x - lastPos.x) * 180 / Math.PI;
+                            }
+                            isWallReference = true;
+                            break;
+                        }
+                    }
                 }
-                if (!snappedToAxis) this.drawGuideLine(0,0,0,0, false);
+                if (this.smartGuides && this.smartGuides.calculateAngleSnap) {
+                    rawPos = this.smartGuides.calculateAngleSnap(this.lastAnchor.position(), rawPos, refAngle);
+                }
             }
 
             let snapPos = rawPos; let targetSnapWall = null; let snappedObj = false;
@@ -1129,6 +1155,21 @@ export class FloorPlanner {
                     if (closestPoint) snapPos = closestPoint; 
                 } 
             } 
+
+            let endRefAngle = 0;
+            let isEndWallReference = false;
+            if (this.drawing && targetSnapWall) {
+                const p1 = targetSnapWall.startAnchor.position();
+                const p2 = targetSnapWall.endAnchor.position();
+                let distToP1 = Math.hypot(snapPos.x - p1.x, snapPos.y - p1.y);
+                let distToP2 = Math.hypot(snapPos.x - p2.x, snapPos.y - p2.y);
+                if (distToP1 > distToP2) {
+                    endRefAngle = Math.atan2(p1.y - snapPos.y, p1.x - snapPos.x) * 180 / Math.PI;
+                } else {
+                    endRefAngle = Math.atan2(p2.y - snapPos.y, p2.x - snapPos.x) * 180 / Math.PI;
+                }
+                isEndWallReference = true;
+            }
             
             if (this.lastAnchor) {
                 let dxBadge = snapPos.x - this.lastAnchor.x, dyBadge = snapPos.y - this.lastAnchor.y;
@@ -1180,10 +1221,26 @@ export class FloorPlanner {
                 }
             }
             
-            this.preview = new Konva.Line({ points: previewPoints, stroke: drawColor, strokeWidth: 2, opacity: 0.8 }); 
+            let previewThickness = wallConfig && wallConfig.thickness ? wallConfig.thickness : 2;
+            this.preview = new Konva.Line({ points: previewPoints, stroke: drawColor, strokeWidth: previewThickness, lineCap: 'square', opacity: 0.6 }); 
             this.uiLayer.add(this.preview); 
             this.preview.moveToBottom();
             
+            if (this.drawing && this.lastAnchor && this.smartGuides && this.smartGuides.drawAngleGuide) {
+                let drawnStart = false;
+                if (isWallReference) {
+                    this.smartGuides.drawAngleGuide(this.lastAnchor.position(), snapPos, refAngle, true);
+                    drawnStart = true;
+                } else {
+                    this.smartGuides.clear();
+                }
+                if (isEndWallReference) {
+                    this.smartGuides.drawAngleGuide(snapPos, this.lastAnchor.position(), endRefAngle, true, drawnStart);
+                }
+            } else if (this.smartGuides && this.smartGuides.clear) {
+                this.smartGuides.clear();
+            }
+
             this.uiLayer.batchDraw(); 
         }); 
 

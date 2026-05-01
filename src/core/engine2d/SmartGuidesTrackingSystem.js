@@ -26,6 +26,193 @@ export class SmartGuidesTrackingSystem {
         this.lastDashedSnapY = null;
     }
 
+    calculateAngleSnap(center, movingPoint, referenceAngle = 0) {
+        const dx = movingPoint.x - center.x;
+        const dy = movingPoint.y - center.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist < 10) return movingPoint;
+
+        let rawAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+        let relativeAngle = rawAngle - referenceAngle;
+        while (relativeAngle > 180) relativeAngle -= 360;
+        while (relativeAngle <= -180) relativeAngle += 360;
+
+        const snapIncrements = [0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180, -15, -30, -45, -60, -75, -90, -105, -120, -135, -150, -165, -180];
+        for (let a of snapIncrements) {
+            if (Math.abs(relativeAngle - a) < 5) {
+                let snappedAngle = referenceAngle + a;
+                let rad = snappedAngle * Math.PI / 180;
+                return {
+                    x: center.x + dist * Math.cos(rad),
+                    y: center.y + dist * Math.sin(rad),
+                    snapped: true
+                };
+            }
+        }
+        return movingPoint;
+    }
+
+    drawAngleGuide(center, movingPoint, referenceAngle = 0, hideLines = false, append = false) {
+        if (!append) {
+            this.guideGroup.destroyChildren();
+        }
+
+        const scale = this.planner.stage.scaleX() || 1;
+        
+        // 1. Get wall endpoints: startPoint (P1) and endPoint (P2)
+        // 2. Use P1 (or shared junction point) as vertex
+        const p1 = center; 
+        const p2 = movingPoint;
+        
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist < 10) {
+            this.layer.batchDraw();
+            return;
+        }
+
+        // 3. Compute direction vectors
+        // v1 = normalize(P2 - P1)
+        const v1 = { x: dx / dist, y: dy / dist };
+        
+        // v2 = normalize(P3 - P1)
+        const refRad = referenceAngle * Math.PI / 180;
+        const v2 = { x: Math.cos(refRad), y: Math.sin(refRad) };
+
+        // 4. Angle = acos(dot(v1, v2))
+        let dot = v1.x * v2.x + v1.y * v2.y;
+        dot = Math.max(-1, Math.min(1, dot)); // clamp to avoid NaN
+        const angleRad = Math.acos(dot);
+        const exactAngle = angleRad * 180 / Math.PI;
+        const displayAngle = Math.round(exactAngle);
+
+        // Compute cross product (v1 x v2) to determine orientation (clockwise / anticlockwise)
+        const cross = v1.x * v2.y - v1.y * v2.x;
+
+        let arcStart = referenceAngle;
+        let arcAngle = exactAngle;
+        
+        // Render angle on the smaller angle side (usually interior)
+        // Avoid showing reflex angle (>180)
+        if (cross > 0) {
+            arcStart = referenceAngle - exactAngle;
+        }
+
+        // Calculate interior corner for "real physical world" angle placement
+        // Assume default wall thickness is 16 (half thickness is 8)
+        const h = 8; 
+        let origin = { x: p1.x, y: p1.y };
+        let offsetDist = 0;
+        
+        // Offset origin along the bisector into the interior angle 
+        if (angleRad > 0.05 && angleRad < Math.PI - 0.05) {
+            const bisector = { x: v1.x + v2.x, y: v1.y + v2.y };
+            const bLen = Math.hypot(bisector.x, bisector.y);
+            if (bLen > 0.001) {
+                const bisectorNorm = { x: bisector.x / bLen, y: bisector.y / bLen };
+                const computedOffset = h / Math.sin(angleRad / 2);
+                offsetDist = Math.min(dist * 0.8, computedOffset); // Clamp to prevent origin from flying away at extremely acute angles
+                origin = {
+                    x: p1.x + bisectorNorm.x * offsetDist,
+                    y: p1.y + bisectorNorm.y * offsetDist
+                };
+            }
+        }
+
+        const availableDist = Math.max(15, dist - offsetDist);
+        const radius = Math.min(45, availableDist * 0.4);
+
+        // 5. Render arc using the calculated inner corner as center
+        const arc = new Konva.Arc({
+            x: origin.x,
+            y: origin.y,
+            innerRadius: 0,
+            outerRadius: radius,
+            angle: arcAngle,
+            rotation: arcStart,
+            fill: '#2ecc71',
+            opacity: 0.3,
+            listening: false
+        });
+
+        // Boundary stroke for the arc (CAD-like edge clarity)
+        const arcStroke = new Konva.Arc({
+            x: origin.x,
+            y: origin.y,
+            innerRadius: radius,
+            outerRadius: radius + (1.5 / scale),
+            angle: arcAngle,
+            rotation: arcStart,
+            fill: '#2ecc71',
+            opacity: 0.8,
+            listening: false
+        });
+
+        // Text
+        const midRad = (arcStart + arcAngle / 2) * Math.PI / 180;
+        const textDist = radius + (20 / scale);
+        
+        const text = new Konva.Text({
+            x: origin.x + Math.cos(midRad) * textDist,
+            y: origin.y + Math.sin(midRad) * textDist,
+            text: `${displayAngle}°`,
+            fontSize: 13 / scale,
+            fill: '#111827',
+            fontStyle: 'bold',
+            align: 'center'
+        });
+
+        text.offsetX(text.width() / 2);
+        text.offsetY(text.height() / 2);
+
+        const labelBg = new Konva.Rect({
+            x: text.x() - text.offsetX() - (4 / scale),
+            y: text.y() - text.offsetY() - (2 / scale),
+            width: text.width() + (8 / scale),
+            height: text.height() + (4 / scale),
+            fill: '#ffffff',
+            stroke: '#e5e7eb',
+            strokeWidth: 1 / scale,
+            cornerRadius: 12 / scale,
+            opacity: 0.95
+        });
+
+        this.guideGroup.add(arc, arcStroke, labelBg, text);
+
+        if (!hideLines) {
+            const baseLine = new Konva.Line({
+                points: [
+                    origin.x, origin.y,
+                    origin.x + v2.x * availableDist,
+                    origin.y + v2.y * availableDist
+                ],
+                stroke: '#9ca3af',
+                strokeWidth: 1.5 / scale,
+                dash: [4 / scale, 4 / scale],
+                listening: false
+            });
+
+            const currentLine = new Konva.Line({
+                points: [
+                    origin.x, origin.y,
+                    origin.x + v1.x * availableDist,
+                    origin.y + v1.y * availableDist
+                ],
+                stroke: this.config.dashedColor,
+                strokeWidth: 2 / scale,
+                listening: false
+            });
+            this.guideGroup.add(baseLine, currentLine);
+            baseLine.moveToBottom();
+            currentLine.moveToBottom();
+        }
+
+        this.layer.batchDraw();
+    }
+
     clear() {
         // Final placement lock: Snap to the dashed preview line when the mouse is released
         if (this.lastDragNode && (this.lastDashedSnapX !== null || this.lastDashedSnapY !== null)) {
