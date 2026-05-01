@@ -84,8 +84,8 @@ export class StaticFloors {
                 // Build Walls
                 if (data.walls) {
                     
-                    const standardWalls = data.walls.filter(w => w.type !== 'railing');
-                    const railingWalls = data.walls.filter(w => w.type === 'railing');
+                    const standardWalls = data.walls.filter(w => w.type !== 'railing' && !w.hidden);
+                    const railingWalls = data.walls.filter(w => w.type === 'railing' && !w.hidden);
 
                     standardWalls.forEach((w, wallIndex) => {
                         const dx = w.endX - w.startX; const dz = w.endY - w.startY;

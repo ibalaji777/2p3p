@@ -102,8 +102,14 @@ export class PremiumWall {
     hasEvent(eventName) { return this.config.events.includes(eventName); }
     getLength() { const p1 = this.startAnchor.position(), p2 = this.endAnchor.position(); return Math.hypot(p2.x - p1.x, p2.y - p1.y); }
     setHighlight(isActive) { 
-        const isSel = isActive || this.planner.selectedEntity === this;
-        this.poly.fill(isSel ? '#bfdbfe' : this.fillColor);
+        const isSel = isActive;
+        if (this.hidden) {
+            this.poly.fill(isSel ? '#bfdbfe' : '#cbd5e1');
+            this.poly.stroke(isSel ? '#4f46e5' : '#475569');
+        } else {
+            this.poly.fill(isSel ? '#bfdbfe' : this.fillColor);
+            this.poly.stroke(isSel ? '#4f46e5' : this.strokeColor);
+        }
         this.planner.stage.batchDraw(); 
     }
     
@@ -332,9 +338,19 @@ export class PremiumWall {
         this.poly.lineJoin('miter');
         this.poly.lineCap('square');
         this.poly.miterLimit(this.miterLimit);
-        this.poly.stroke(this.strokeColor);
+        
         const isSel = this.planner.selectedEntity === this;
-        this.poly.fill(isSel ? '#bfdbfe' : this.fillColor);
+        if (this.hidden) {
+            this.poly.dash([6, 6]);
+            this.poly.opacity(0.7);
+            this.poly.stroke('#475569');
+            this.poly.fill(isSel ? '#bfdbfe' : '#cbd5e1');
+        } else {
+            this.poly.dash([]);
+            this.poly.opacity(1);
+            this.poly.stroke(this.strokeColor);
+            this.poly.fill(isSel ? '#bfdbfe' : this.fillColor);
+        }
 
         const fOff = 4; this.frontHighlight.points([ startL.x + n.x * fOff, startL.y + n.y * fOff, endL.x + n.x * fOff, endL.y + n.y * fOff ]); this.backHighlight.points([ startR.x - n.x * fOff, startR.y - n.y * fOff, endR.x - n.x * fOff, endR.y - n.y * fOff ]);
         this.labelText.text(this.planner.formatLength(this.getLength())); this.labelGroup.position({ x: (p1.x + p2.x) / 2 - this.labelText.width() / 2, y: (p1.y + p2.y) / 2 - 15 });

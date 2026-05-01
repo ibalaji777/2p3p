@@ -46,8 +46,8 @@ export class ActiveFloor {
         if (roofs) this._buildRoofs(roofs, activeIndex, hasWalls, maxWallHeight);        
         if (shapes) this._buildShapes(shapes);
 
-        const standardWalls = walls.filter(w => w.type !== 'railing');
-        const railingWalls = walls.filter(w => w.type === 'railing');
+        const standardWalls = walls.filter(w => w.type !== 'railing' && !w.hidden);
+        const railingWalls = walls.filter(w => w.type === 'railing' && !w.hidden);
 
         standardWalls.forEach(w => {
             const p1 = w.startAnchor.position(); const p2 = w.endAnchor.position();

@@ -55,14 +55,15 @@ export class PremiumRailing {
     }
 
     setHighlight(isActive) {
+        const isSel = isActive || this.planner.selectedEntity === this;
         if (this.parentArc) {
             this.parentArc.walls.filter(w => w.type === 'railing').forEach(w => {
-                w.poly.stroke(isActive ? "#4f46e5" : w.getBaseColor());
+                w.poly.stroke(isSel ? "#4f46e5" : (w.hidden ? '#475569' : w.getBaseColor()));
             });
             this.planner.stage.batchDraw();
             return;
         }
-        this.poly.stroke(isActive ? "#4f46e5" : (this.planner.selectedEntity === this ? "#4f46e5" : this.getBaseColor()));
+        this.poly.stroke(isSel ? "#4f46e5" : (this.hidden ? '#475569' : this.getBaseColor()));
         this.planner.stage.batchDraw();
     }
 
@@ -130,7 +131,15 @@ export class PremiumRailing {
         }
         const p1 = this.startAnchor.position(), p2 = this.endAnchor.position(); 
         this.poly.points([p1.x, p1.y, p2.x, p2.y]);
-        this.poly.stroke(this.getBaseColor());
+        if (this.hidden) {
+            this.poly.stroke('#475569');
+            this.poly.dash([6, 6]);
+            this.poly.opacity(0.7);
+        } else {
+            this.poly.stroke(this.getBaseColor());
+            this.poly.dash([]);
+            this.poly.opacity(1);
+        }
         this.poly.strokeWidth(this.thickness || this.config.thickness || 4);
         this.labelText.text(this.planner.formatLength(this.getLength())); 
         this.labelGroup.position({ x: (p1.x + p2.x) / 2 - this.labelText.width() / 2, y: (p1.y + p2.y) / 2 - 15 });

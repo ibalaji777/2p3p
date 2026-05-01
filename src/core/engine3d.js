@@ -241,8 +241,8 @@ class EnvironmentBuilder {
             });
         }
 
-        const standardWalls = walls.filter(w => w.type !== 'railing');
-        const railingWalls = walls.filter(w => w.type === 'railing');
+        const standardWalls = walls.filter(w => w.type !== 'railing' && !w.hidden);
+        const railingWalls = walls.filter(w => w.type === 'railing' && !w.hidden);
 
         standardWalls.forEach(w => {
             const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();

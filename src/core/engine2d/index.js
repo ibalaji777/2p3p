@@ -52,6 +52,13 @@ export class PremiumArc {
         
         this.rebuild();
     }
+    getBaseColor(w) {
+        if (w.type === 'railing') {
+            const rConf = RAILING_REGISTRY[w.configId || 'rail_1'];
+            return rConf && rConf.color ? '#' + rConf.color.toString(16).padStart(6, '0') : w.strokeColor;
+        }
+        return w.strokeColor;
+    }
     
     setHighlight(isActive) {
         this.controlHandle.visible(isActive);
@@ -59,10 +66,21 @@ export class PremiumArc {
             this.controlHandle.position(this.pos);
             this.controlHandle.moveToTop();
         }
-        this.walls.forEach(w => w.poly.stroke(isActive ? '#3b82f6' : w.strokeColor));
+        this.walls.forEach(w => {
+            if (w.type === 'railing') {
+                w.poly.stroke(isActive ? '#3b82f6' : (w.hidden ? '#475569' : this.getBaseColor(w)));
+            } else {
+                if (w.hidden) {
+                    w.poly.fill(isActive ? '#bfdbfe' : '#cbd5e1');
+                    w.poly.stroke(isActive ? '#4f46e5' : '#475569');
+                } else {
+                    w.poly.fill(isActive ? '#bfdbfe' : w.fillColor);
+                    w.poly.stroke(isActive ? '#3b82f6' : this.getBaseColor(w));
+                }
+            }
+        });
         this.planner.stage.batchDraw();
     }
-
     rebuild() {
         const savedWidgets = [];
         this.walls.forEach(w => { 
@@ -1502,10 +1520,10 @@ export class FloorPlanner {
             unit: this.currentUnit,
             anchors: this.anchors.map(a => ({ id: a._id, x: a.x, y: a.y })),
             walls: standardWalls.map(w => ({
-                startAnchorId: w.startAnchor._id, endAnchorId: w.endAnchor._id, 
+                startAnchorId: w.startAnchor._id, endAnchorId: w.endAnchor._id,
                 startX: w.startAnchor.x, startY: w.startAnchor.y, endX: w.endAnchor.x, endY: w.endAnchor.y, thickness: w.thickness || w.config.thickness, height: w.height !== undefined ? w.height : (w.config?.height || 120), type: w.type, configId: w.configId,
-                pts: w.poly ? w.poly.points() : null,
-                elevationLayers: w.elevationLayers,
+                hidden: w.hidden,
+                pts: w.poly ? w.poly.points() : null,                elevationLayers: w.elevationLayers,
                 widgets: w.attachedWidgets.map(wid => ({ 
                     t: wid.t, type: wid.type, configId: wid.type, width: wid.width, 
                     facing: wid.facing, side: wid.side, 
@@ -1517,7 +1535,7 @@ export class FloorPlanner {
             furniture: this.furniture.map(f => ({ x: f.group.x(), y: f.group.y(), rotation: f.rotation, width: f.width, depth: f.depth, height: f.height, configId: f.config.id })),
             stairs: this.stairs.map(s => ({ path: s.path.map(p => ({ x: p.x, y: p.y, shape: p.shape })) })),
             roofs: this.roofs.map(r => ({ x: r.group.x(), y: r.group.y(), rotation: r.rotation, width: r.config?.width, depth: r.config?.depth, pitch: r.config?.pitch, overhang: r.config?.overhang, thickness: r.config?.thickness, ridgeOffset: r.config?.ridgeOffset, points: r.points, isHip: !!r.points, roofType: r.config?.roofType, material: r.config?.material, wallGap: r.config?.wallGap })),
-            arcs: this.arcs ? this.arcs.map(a => ({ p1: {x: a.p1.x, y: a.p1.y}, p2: {x: a.p2.x, y: a.p2.y}, pos: a.pos, hasRailing: a.hasRailing, railingConfig: a.railingConfig })) : [],
+            arcs: this.arcs ? this.arcs.map(a => ({ p1: {x: a.p1.x, y: a.p1.y}, p2: {x: a.p2.x, y: a.p2.y}, pos: a.pos, hasRailing: a.hasRailing, railingConfig: a.railingConfig, hidden: a.hidden })) : [],
             shapes: this.shapes ? this.shapes.map(s => ({ type: s.type, x: s.group.x(), y: s.group.y(), rotation: s.rotation, scaleX: s.group.scaleX(), scaleY: s.group.scaleY(), params: s.params })) : [],
             rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, configId: r.configId })) : [],
             roomPaths: this.roomPaths ? this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y }))) : []
@@ -1567,6 +1585,7 @@ export class FloorPlanner {
                     if (wData.thickness) wall.thickness = wData.thickness;
                     if (wData.height) wall.height = wData.height;
                     if (wData.configId) wall.configId = wData.configId;
+                    if (wData.hidden !== undefined) wall.hidden = wData.hidden;
                     if (wData.elevationLayers) wall.elevationLayers = wData.elevationLayers;
 
                     if (wData.widgets) { 
@@ -1625,7 +1644,13 @@ export class FloorPlanner {
                     if (aData.hasRailing) {
                         arc.hasRailing = true;
                         if (aData.railingConfig) arc.railingConfig = aData.railingConfig;
-                        arc.rebuild();
+                    }
+                    if (aData.hidden !== undefined) {
+                        arc.hidden = aData.hidden;
+                    }
+                    arc.rebuild();
+                    if (arc.hidden) {
+                        arc.walls.forEach(w => w.hidden = true);
                     }
                     this.arcs.push(arc);
                 });

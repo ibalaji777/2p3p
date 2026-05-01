@@ -145,6 +145,7 @@
                 <div v-if="selectedType === 'wall'">
                     <h4 class="props-subtitle" v-if="selectedEntity.type === 'railing'">Railing Properties</h4>
                     <h4 class="props-subtitle" v-else>Wall Properties</h4>
+                    <div class="control-group"><label>Hidden Wall</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="selectedEntity.hidden" @change="syncEngine"></div></div>
                     <div class="control-group"><label>Thickness</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.thickness" min="1" max="100" step="1" @input="syncEngine"><input type="number" v-model.number="selectedEntity.thickness" min="1" max="100" step="1" @input="syncEngine"></div></div>
                     <div class="control-group"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="0" max="500" step="1" @input="syncEngine"><input type="number" v-model.number="selectedEntity.height" min="0" max="500" step="1" @input="syncEngine"></div></div>
 
@@ -196,6 +197,12 @@
                         </div>
                     </div>
                     <button class="hud-delete" @click="handleDelete">Delete {{ selectedEntity.type === 'railing' ? 'Railing' : 'Wall' }}</button>
+                </div>
+
+                <div v-else-if="selectedType === 'arc'">
+                    <h4 class="props-subtitle">Curved Wall Properties</h4>
+                    <div class="control-group"><label>Hidden Wall</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="selectedEntity.hidden" @change="() => { selectedEntity.walls.forEach(w => w.hidden = selectedEntity.hidden); syncEngine(); }"></div></div>
+                    <button class="hud-delete" @click="handleDelete">Delete Curved Wall</button>
                 </div>
 
                 <div v-else-if="selectedType === 'room'">
