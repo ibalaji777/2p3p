@@ -466,11 +466,17 @@ const layerItems = computed(() => {
     
     if (planner.value.walls) {
         planner.value.walls.forEach((w, i) => {
+            if (w.parentArc) return;
             if (w.type === 'railing') {
                 items.push({ id: `rail-${i}`, name: `Railing ${i + 1}`, entity: w, type: 'railing' });
             } else {
                 items.push({ id: `wall-${i}`, name: w.type === 'inner' ? `Inner Wall ${i + 1}` : `Outer Wall ${i + 1}`, entity: w, type: 'wall' });
             }
+        });
+    }
+    if (planner.value.arcs) {
+        planner.value.arcs.forEach((a, i) => {
+            items.push({ id: `arc-${i}`, name: `Curved Wall ${i + 1}`, entity: a, type: 'arc' });
         });
     }
     if (planner.value.rooms) {
@@ -519,7 +525,7 @@ const layerItems = computed(() => {
 const getLayerIcon = (type) => {
     const icons = {
         'wall': '🧱', 'railing': '🪜', 'room': '⬜', 'furniture': '🛋️', 
-        'shape': '🔳', 'roof': '🏠', 'stair': '📶', 'widget': '🚪'
+        'shape': '🔳', 'roof': '🏠', 'stair': '📶', 'widget': '🚪', 'arc': '🌙'
     };
     return icons[type] || '📦';
 };
@@ -725,7 +731,7 @@ const handleGlobalKeys = (e) => {
         if (e.key === 'Escape' && renderer3D.value) renderer3D.value.cancelRelocation();
     } else if (viewMode.value === '2d') {
         if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (selectedType.value === 'roof' || selectedType.value === 'furniture' || selectedType.value === 'widget' || selectedType.value === 'shape' || selectedType.value === 'wall' || selectedType.value === 'room') { handleDelete(); debouncedSaveHistory(); }
+            if (selectedType.value === 'roof' || selectedType.value === 'furniture' || selectedType.value === 'widget' || selectedType.value === 'shape' || selectedType.value === 'wall' || selectedType.value === 'arc' || selectedType.value === 'room') { handleDelete(); debouncedSaveHistory(); }
         }
         if (e.key === 'Escape') {
             setTool('select');
@@ -959,7 +965,7 @@ const handleDelete = () => {
             selectedEntity.value = null;
             selectedType.value = null;
             if (viewMode.value === '3d') refresh3DScene(true);
-        } else if (selectedType.value === 'widget' || selectedType.value === 'wall') {
+        } else if (selectedType.value === 'widget' || selectedType.value === 'wall' || selectedType.value === 'arc') {
             selectedEntity.value.remove();
             selectedEntity.value = null;
             selectedType.value = null;
