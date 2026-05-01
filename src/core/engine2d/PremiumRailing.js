@@ -131,12 +131,14 @@ export class PremiumRailing {
         }
         const p1 = this.startAnchor.position(), p2 = this.endAnchor.position(); 
         this.poly.points([p1.x, p1.y, p2.x, p2.y]);
+        
+        const isSel = this.planner.selectedEntity === this || (this.parentArc && this.planner.selectedEntity === this.parentArc);
         if (this.hidden) {
-            this.poly.stroke('#475569');
+            this.poly.stroke(isSel ? '#4f46e5' : '#475569');
             this.poly.dash([6, 6]);
             this.poly.opacity(0.7);
         } else {
-            this.poly.stroke(this.getBaseColor());
+            this.poly.stroke(isSel ? '#4f46e5' : this.getBaseColor());
             this.poly.dash([]);
             this.poly.opacity(1);
         }

@@ -55,7 +55,7 @@ export class Anchor {
                 this.planner.updateInfoBadge(proposedPos.x, proposedPos.y, len, ang, snappedObj);
             }
             
-            this.planner.walls.forEach(w => { w.setHighlight(attachedWalls.includes(w) || w === this.planner.selectedEntity); });
+            this.planner.walls.forEach(w => w.setHighlight(w === this.planner.selectedEntity || (w.parentArc && w.parentArc === this.planner.selectedEntity) || (typeof attachedWalls !== 'undefined' && attachedWalls.includes(w))));
             let collision = false; 
             for (let w of attachedWalls) { 
                 if (w.hasEvent("stop_collision")) { 
@@ -74,7 +74,7 @@ export class Anchor {
         });
         
         this.node.on('dragend', () => { 
-            this.planner.walls.forEach(w => w.setHighlight(w === this.planner.selectedEntity)); 
+            this.planner.walls.forEach(w => w.setHighlight(w === this.planner.selectedEntity || (w.parentArc && w.parentArc === this.planner.selectedEntity))); 
             this.planner.drawGuideLine(0,0,0,0, false); 
             this.planner.hideInfoBadge(); 
             this.planner.hideSnapGlow(); 

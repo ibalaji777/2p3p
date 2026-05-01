@@ -1016,7 +1016,7 @@ export class FloorPlanner {
                     this.hideSnapGlow();
                 }
                 
-                this.walls.forEach(w => w.setHighlight(w === targetSnapWall || w === this.selectedEntity));
+                this.walls.forEach(w => w.setHighlight(w === targetSnapWall || w === this.selectedEntity || (w.parentArc && w.parentArc === this.selectedEntity)));
                 
                 this.arcMousePos = (this.drawingArc && this.drawingArc.state === 2) ? pos : snap;
                 
@@ -1142,7 +1142,7 @@ export class FloorPlanner {
             if (snappedObj) { this.showSnapGlow(snapPos.x, snapPos.y); } else { this.hideSnapGlow(); }
 
             this.walls.forEach(w => {
-                let isHigh = (w === this.selectedEntity);
+                let isHigh = (w === this.selectedEntity || (w.parentArc && w.parentArc === this.selectedEntity));
                 if (!isHigh && w === targetSnapWall) {
                     isHigh = true;
                 }
@@ -1300,7 +1300,7 @@ export class FloorPlanner {
                     if (dist < closestDist) { closestDist = dist; snap = proj; snappedObj = true; targetSnapWall = w; }
                 }
                 
-                this.walls.forEach(w => w.setHighlight(w === targetSnapWall || w === this.selectedEntity));
+                this.walls.forEach(w => w.setHighlight(w === targetSnapWall || w === this.selectedEntity || (w.parentArc && w.parentArc === this.selectedEntity)));
                 
                 if (snappedObj) { this.showSnapGlow(snap.x, snap.y); } else { this.hideSnapGlow(); }
 

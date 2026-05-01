@@ -339,16 +339,16 @@ export class PremiumWall {
         this.poly.lineCap('square');
         this.poly.miterLimit(this.miterLimit);
         
-        const isSel = this.planner.selectedEntity === this;
+        const isSel = this.planner.selectedEntity === this || (this.parentArc && this.planner.selectedEntity === this.parentArc);
         if (this.hidden) {
             this.poly.dash([6, 6]);
             this.poly.opacity(0.7);
-            this.poly.stroke('#475569');
+            this.poly.stroke(isSel ? '#4f46e5' : '#475569');
             this.poly.fill(isSel ? '#bfdbfe' : '#cbd5e1');
         } else {
             this.poly.dash([]);
             this.poly.opacity(1);
-            this.poly.stroke(this.strokeColor);
+            this.poly.stroke(isSel ? '#4f46e5' : this.strokeColor);
             this.poly.fill(isSel ? '#bfdbfe' : this.fillColor);
         }
 
