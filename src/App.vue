@@ -314,8 +314,11 @@
                 <div class="layers-list">
                     <div v-for="item in layerItems" :key="item.id" class="layer-item" :class="{active: selectedEntity === item.entity}" @click="selectLayerItem(item)">
                         <div class="layer-info">
-                            <span class="layer-type-icon">{{ getLayerIcon(item.type) }}</span>
-                            <span class="layer-name">{{ item.name }}</span>
+                            <div class="layer-title-row">
+                                <span class="layer-type-icon">{{ getLayerIcon(item.type) }}</span>
+                                <span class="layer-name">{{ item.name }}</span>
+                            </div>
+                            <input type="text" v-model="item.entity.description" @input="debouncedSaveHistory" @click.stop @keydown.stop placeholder="Add description..." class="layer-desc-input" />
                         </div>
                         <div class="layer-actions">
                             <button @click.stop="toggleLayerVisibility(item)" :title="item.entity.isHidden ? 'Show' : 'Hide'">
@@ -1200,13 +1203,19 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .layer-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; cursor: pointer; transition: 0.2s; }
 .layer-item:hover { background: #f8fafc; border-color: #cbd5e1; }
 .layer-item.active { background: #eff6ff; border-color: #3b82f6; box-shadow: 0 0 0 1px #3b82f6 inset; }
-.layer-info { display: flex; align-items: center; gap: 8px; flex: 1; overflow: hidden; }
+.layer-info { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; flex: 1; overflow: hidden; }
+.layer-title-row { display: flex; align-items: center; gap: 8px; width: 100%; }
 .layer-type-icon { font-size: 14px; }
 .layer-name { font-size: 12px; color: #374151; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .layer-actions { display: flex; gap: 4px; }
 .layer-actions button { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: transparent; border: none; border-radius: 4px; cursor: pointer; transition: 0.2s; opacity: 0.6; }
 .layer-actions button:hover { background: #e5e7eb; opacity: 1; }
 .layer-item.active .layer-actions button { opacity: 1; }
+
+.layer-desc-input { width: 100%; border: 1px solid transparent; background: transparent; font-size: 11px; color: #6b7280; padding: 4px; border-radius: 4px; transition: 0.2s; box-sizing: border-box; }
+.layer-desc-input:hover, .layer-desc-input:focus { border-color: #cbd5e1; background: #fff; outline: none; color: #1f2937; }
+.layer-item.active .layer-desc-input { color: #1e3a8a; }
+.layer-item.active .layer-desc-input:hover, .layer-item.active .layer-desc-input:focus { background: #fff; border-color: #93c5fd; }
 
 /* PROPERTY CONTROLS */
 .control-group { margin-bottom: 10px; }

@@ -198,7 +198,7 @@ export class PremiumWall {
         const intersectLines = (pA, dA, pB, dB) => { const det = dA.x * dB.y - dA.y * dB.x; if (Math.abs(det) < 1e-5) return null; const t = ((pB.x - pA.x) * dB.y - (pB.y - pA.y) * dB.x) / det; return { x: pA.x + t * dA.x, y: pA.y + t * dA.y }; };
         const getCorners = (anchor, isStart) => {
             const baseL = isStart ? p1_L : p2_L, baseR = isStart ? p1_R : p2_R, P = getExactPos(anchor);
-            const connectedWalls = this.planner.walls.filter(w => (w.startAnchor === anchor || w.endAnchor === anchor) && w !== this && w.type !== 'railing');
+            const connectedWalls = this.planner.walls.filter(w => (w.startAnchor === anchor || w.endAnchor === anchor) && w !== this && w.type !== 'railing' && !w.hidden);
             
             const getTJointIntersections = (snappedWall) => {
                 const w2_p1 = getExactPos(snappedWall.startAnchor), w2_p2 = getExactPos(snappedWall.endAnchor), vdx2 = w2_p2.x - w2_p1.x, vdy2 = w2_p2.y - w2_p1.y, vlen2 = Math.hypot(vdx2, vdy2);
@@ -218,7 +218,7 @@ export class PremiumWall {
             
             const rays = [];
             this.planner.walls.forEach(w => {
-                if ((w.startAnchor === anchor || w.endAnchor === anchor) && w.type !== 'railing') {
+                if ((w.startAnchor === anchor || w.endAnchor === anchor) && w.type !== 'railing' && (!w.hidden || w === this)) {
                     const isWStart = w.startAnchor === anchor;
                     const wp1 = getExactPos(w.startAnchor);
                     const wp2 = getExactPos(w.endAnchor);
@@ -246,7 +246,7 @@ export class PremiumWall {
             });
             
             if (rays.length === 1) {
-                let snappedWall = null; for (let w of this.planner.walls) { if (w === this || w.type === 'railing') continue; if (this.planner.getDistanceToWall(P, w) < 2) { snappedWall = w; break; } }
+                let snappedWall = null; for (let w of this.planner.walls) { if (w === this || w.type === 'railing' || w.hidden) continue; if (this.planner.getDistanceToWall(P, w) < 2) { snappedWall = w; break; } }
                 if (snappedWall) {
                     const corners = getTJointIntersections(snappedWall);
                     if (corners) return { corners, hasCap: false };
