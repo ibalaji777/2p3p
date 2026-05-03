@@ -118,10 +118,19 @@ export class Anchor {
             
             this.planner.walls.forEach(w => { w.setHighlight(attachedWalls.includes(w) || w === this.planner.selectedEntity); });
             let collision = false; 
+            let ignoreWalls = attachedWalls.slice();
+            if (targetSnapWall) ignoreWalls.push(targetSnapWall);
+            if (this.trackedArcs) {
+                this.trackedArcs.forEach(item => {
+                    if (item.arc && item.arc.walls) {
+                        ignoreWalls.push(...item.arc.walls);
+                    }
+                });
+            }
             for (let w of attachedWalls) { 
                 if (w.hasEvent("stop_collision")) { 
                     let otherAnc = w.startAnchor === this ? w.endAnchor : w.startAnchor; 
-                    if (this.planner.checkWallIntersection(proposedPos, otherAnc.position(), [targetSnapWall])) { collision = true; break; } 
+                    if (this.planner.checkWallIntersection(proposedPos, otherAnc.position(), ignoreWalls)) { collision = true; break; } 
                 } 
             }
             
