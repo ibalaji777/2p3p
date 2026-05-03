@@ -215,24 +215,105 @@ export class PremiumWall {
                     if (s.attachedWall === this) initialObjectPositions.push({ type: 'shape', obj: s, x: s.group.x(), y: s.group.y() });
                 });
             }
+
+            let attachedWalls = this.planner.walls.filter(w => 
+                w !== this && (w.startAnchor === this.startAnchor || w.endAnchor === this.startAnchor || w.startAnchor === this.endAnchor || w.endAnchor === this.endAnchor)
+            );
+
+            const getBestWallForObject = (item, type) => {
+                let objPos;
+                if (type === 'furniture' || (type && type.startsWith('shape'))) objPos = { x: item.group.x(), y: item.group.y() };
+                else return null;
+                let minDist = 100;
+                let bestWall = null;
+                let dThis = this.planner.getDistanceToWall(objPos, this);
+                if (dThis < minDist) { minDist = dThis; bestWall = this; }
+                attachedWalls.forEach(w => {
+                    let d = this.planner.getDistanceToWall(objPos, w);
+                    if (d < minDist) { minDist = d; bestWall = w; }
+                });
+                return bestWall;
+            };
+
             if (this.planner.wallTrackingEnabled) {
                 const collectNear = (list, type) => {
                     if (!list) return;
                     list.forEach(item => {
                         if (initialObjectPositions.some(io => io.obj === item)) return;
-                        let objPos;
-                        if (type === 'furniture' || (type && type.startsWith('shape'))) objPos = { x: item.group.x(), y: item.group.y() };
-                        else return;
-                        
-                        if (this.planner.getDistanceToWall(objPos, this) < 100) {
-                            initialObjectPositions.push({ type, obj: item, x: objPos.x, y: objPos.y });
+                        if (getBestWallForObject(item, type) === this) {
+                            initialObjectPositions.push({ type, obj: item, x: item.group.x(), y: item.group.y() });
                         }
                     });
                 };
                 collectNear(this.planner.furniture, 'furniture');
                 collectNear(this.planner.shapes, 'shape');
             }
-        }); 
+
+            this.trackedAttachedObjects = [];
+            this.trackedAttachedArcs = [];
+
+            attachedWalls.forEach(w => {
+                const p1 = w.startAnchor.position();
+                const p2 = w.endAnchor.position();
+                const dx = p2.x - p1.x, dy = p2.y - p1.y;
+                const wallAngle = Math.atan2(dy, dx);
+                const len = Math.hypot(dx, dy);
+
+                if (this.planner.wallTrackingEnabled) {
+                    const collectNearAtt = (list, type) => {
+                        if (!list) return;
+                        list.forEach(item => {
+                            if (this.trackedAttachedObjects.some(to => to.obj === item)) return;
+                            if (initialObjectPositions.some(io => io.obj === item)) return;
+                            if (getBestWallForObject(item, type) === w) {
+                                let pos = { x: item.group.x(), y: item.group.y() };
+                                const t = len === 0 ? 0 : ((pos.x - p1.x)*dx + (pos.y - p1.y)*dy) / (len*len);
+                                const distToWall = len === 0 ? 0 : (pos.x - p1.x)*(-dy/len) + (pos.y - p1.y)*(dx/len);
+                                this.trackedAttachedObjects.push({
+                                    wall: w, type, obj: item,
+                                    relT: t, normDist: distToWall,
+                                    relRot: (item.rotation || 0) - (wallAngle * 180 / Math.PI),
+                                    initialLen: len,
+                                    initialScaleX: item.group.scaleX ? item.group.scaleX() : 1,
+                                    initialScaleY: item.group.scaleY ? item.group.scaleY() : 1,
+                                    initialWidth: item.width || (item.params ? item.params.width : undefined),
+                                    initialHeight: item.depth || item.height || (item.params ? item.params.height : undefined)
+                                });
+                            }
+                        });
+                    };
+                    collectNearAtt(this.planner.furniture, 'furniture');
+                    collectNearAtt(this.planner.shapes, 'shape');
+                }
+
+                if (this.planner.arcs) {
+                    const isPointOnSegment = (p, pA, pB) => {
+                        if (Math.hypot(p.x - pA.x, p.y - pA.y) < 1) return true;
+                        if (Math.hypot(p.x - pB.x, p.y - pB.y) < 1) return true;
+                        const C = pB.x - pA.x, D = pB.y - pA.y, lenSq = C*C + D*D;
+                        if (lenSq === 0) return false;
+                        let t = ((p.x - pA.x)*C + (p.y - pA.y)*D) / lenSq;
+                        if (t < 0 || t > 1) return false;
+                        let projX = pA.x + t*C, projY = pA.y + t*D;
+                        return Math.hypot(p.x - projX, p.y - projY) < 2.0;
+                    };
+                    this.planner.arcs.forEach(a => {
+                        if (arcsOnWall.some(aw => aw.arc === a)) return;
+                        if (this.trackedAttachedArcs.some(ta => ta.arc === a)) return;
+
+                        let p1OnWall = isPointOnSegment(a.p1.position(), p1, p2);
+                        let p2OnWall = isPointOnSegment(a.p2.position(), p1, p2);
+                        if (p1OnWall && p2OnWall) {
+                            const getRel = (pos) => {
+                                const t = len === 0 ? 0 : ((pos.x - p1.x)*dx + (pos.y - p1.y)*dy) / (len*len);
+                                const normDist = len === 0 ? 0 : (pos.x - p1.x)*(-dy/len) + (pos.y - p1.y)*(dx/len);
+                                return { t, normDist, initialLen: len };
+                            };
+                            this.trackedAttachedArcs.push({ arc: a, wall: w, p1Rel: getRel(a.p1.position()), p2Rel: getRel(a.p2.position()), posRel: getRel(a.pos) });
+                        }
+                    });
+                }
+            });        }); 
         this.poly.on('dragmove', () => { 
             if (this.planner.tool !== 'select') return;
             const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); 
@@ -291,6 +372,65 @@ export class PremiumWall {
                     }
                 });
             }
+
+            if (this.planner.wallTrackingEnabled && this.trackedAttachedObjects && this.trackedAttachedObjects.length > 0) {
+                this.trackedAttachedObjects.forEach(item => {
+                    const w = item.wall;
+                    const p1 = w.startAnchor.position();
+                    const p2 = w.endAnchor.position();
+                    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+                    const len = Math.hypot(dx, dy);
+                    if (len === 0) return;
+                    const wallAngle = Math.atan2(dy, dx);
+                    const nx = -dy / len;
+                    const ny = dx / len;
+
+                    const scaleRatio = item.initialLen > 0 ? len / item.initialLen : 1;
+
+                    const newX = p1.x + item.relT * dx + nx * (item.normDist * scaleRatio);
+                    const newY = p1.y + item.relT * dy + ny * (item.normDist * scaleRatio);
+                    const newRot = item.relRot + (wallAngle * 180 / Math.PI);
+
+                    if (item.type === 'furniture' || (item.type && item.type.startsWith('shape'))) {
+                        item.obj.group.position({ x: newX, y: newY });
+                        item.obj.rotation = newRot;
+                        if (item.type === 'furniture') {
+                            if (item.initialWidth !== undefined) item.obj.width = item.initialWidth * scaleRatio;
+                            if (item.initialHeight !== undefined) item.obj.depth = item.initialHeight * scaleRatio;
+                        } else {
+                            if (item.initialScaleX !== undefined) item.obj.group.scaleX(item.initialScaleX * scaleRatio);
+                            if (item.initialScaleY !== undefined) item.obj.group.scaleY(item.initialScaleY * scaleRatio);
+                        }
+                        if (item.obj.update) item.obj.update();
+                    }
+                });
+            }
+
+            if (this.trackedAttachedArcs && this.trackedAttachedArcs.length > 0) {
+                this.trackedAttachedArcs.forEach(item => {
+                    const w = item.wall;
+                    const p1 = w.startAnchor.position();
+                    const p2 = w.endAnchor.position();
+                    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+                    const len = Math.hypot(dx, dy);
+                    if (len === 0) return;
+                    const nx = -dy / len;
+                    const ny = dx / len;
+
+                    const scaleRatio = item.p1Rel.initialLen > 0 ? len / item.p1Rel.initialLen : 1;
+                    const getAbs = (rel) => ({ x: p1.x + rel.t * dx + nx * (rel.normDist * scaleRatio), y: p1.y + rel.t * dy + ny * (rel.normDist * scaleRatio) });
+
+                    const newP1 = getAbs(item.p1Rel);
+                    const newP2 = getAbs(item.p2Rel);
+                    const newPos = getAbs(item.posRel);
+
+                    if (item.arc.p1 !== w.startAnchor && item.arc.p1 !== w.endAnchor) { item.arc.p1.node.position(newP1); item.arc.p1.lastValidPos = newP1; }
+                    if (item.arc.p2 !== w.startAnchor && item.arc.p2 !== w.endAnchor) { item.arc.p2.node.position(newP2); item.arc.p2.lastValidPos = newP2; }
+                    item.arc.pos = newPos;
+                    if (item.arc.controlHandle) item.arc.controlHandle.position(item.arc.pos);
+                });
+            }
+
             this.planner.syncAll(); 
         }); 
         this.poly.on('dragend', () => { this.planner.selectEntity(this.planner.selectedEntity, this.planner.selectedType, this.planner.selectedNodeIndex); });

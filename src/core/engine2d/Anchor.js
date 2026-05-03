@@ -21,7 +21,20 @@ export class Anchor {
             
             this.trackedObjects = [];
             this.trackedArcs = [];
-            
+
+            const getBestWallForObject = (item, type) => {
+                let objPos;
+                if (type === 'furniture' || (type && type.startsWith('shape'))) objPos = { x: item.group.x(), y: item.group.y() };
+                else return null;
+                let minDist = 100;
+                let bestWall = null;
+                attachedWalls.forEach(w => {
+                    let d = this.planner.getDistanceToWall(objPos, w);
+                    if (d < minDist) { minDist = d; bestWall = w; }
+                });
+                return bestWall;
+            };
+
             attachedWalls.forEach(w => {
                 const p1 = w.startAnchor.position();
                 const p2 = w.endAnchor.position();
@@ -34,17 +47,19 @@ export class Anchor {
                         if (!list) return;
                         list.forEach(item => {
                             if (this.trackedObjects.some(to => to.obj === item)) return;
-                            let pos;
-                            if (type === 'furniture' || (type && type.startsWith('shape'))) pos = { x: item.group.x(), y: item.group.y() };
-                            else return;
-                            
-                            if (this.planner.getDistanceToWall(pos, w) < 100) {
+                            if (getBestWallForObject(item, type) === w) {
+                                let pos = { x: item.group.x(), y: item.group.y() };
                                 const t = len === 0 ? 0 : ((pos.x - p1.x)*dx + (pos.y - p1.y)*dy) / (len*len);
                                 const distToWall = len === 0 ? 0 : (pos.x - p1.x)*(-dy/len) + (pos.y - p1.y)*(dx/len);
                                 this.trackedObjects.push({
                                     wall: w, type, obj: item,
                                     relT: t, normDist: distToWall,
-                                    relRot: (item.rotation || 0) - (wallAngle * 180 / Math.PI)
+                                    relRot: (item.rotation || 0) - (wallAngle * 180 / Math.PI),
+                                    initialLen: len,
+                                    initialScaleX: item.group.scaleX ? item.group.scaleX() : 1,
+                                    initialScaleY: item.group.scaleY ? item.group.scaleY() : 1,
+                                    initialWidth: item.width || (item.params ? item.params.width : undefined),
+                                    initialHeight: item.depth || item.height || (item.params ? item.params.height : undefined)
                                 });
                             }
                         });
@@ -72,7 +87,7 @@ export class Anchor {
                             const getRel = (pos) => {
                                 const t = len === 0 ? 0 : ((pos.x - p1.x)*dx + (pos.y - p1.y)*dy) / (len*len);
                                 const normDist = len === 0 ? 0 : (pos.x - p1.x)*(-dy/len) + (pos.y - p1.y)*(dx/len);
-                                return { t, normDist };
+                                return { t, normDist, initialLen: len };
                             };
                             this.trackedArcs.push({ arc: a, wall: w, p1Rel: getRel(a.p1.position()), p2Rel: getRel(a.p2.position()), posRel: getRel(a.pos) });
                         }
@@ -149,13 +164,22 @@ export class Anchor {
                     const nx = -dy / len;
                     const ny = dx / len;
                     
-                    const newX = p1.x + item.relT * dx + nx * item.normDist;
-                    const newY = p1.y + item.relT * dy + ny * item.normDist;
+                    const scaleRatio = item.initialLen > 0 ? len / item.initialLen : 1;
+                    
+                    const newX = p1.x + item.relT * dx + nx * (item.normDist * scaleRatio);
+                    const newY = p1.y + item.relT * dy + ny * (item.normDist * scaleRatio);
                     const newRot = item.relRot + (wallAngle * 180 / Math.PI);
                     
                     if (item.type === 'furniture' || (item.type && item.type.startsWith('shape'))) {
                         item.obj.group.position({ x: newX, y: newY });
                         item.obj.rotation = newRot;
+                        if (item.type === 'furniture') {
+                            if (item.initialWidth !== undefined) item.obj.width = item.initialWidth * scaleRatio;
+                            if (item.initialHeight !== undefined) item.obj.depth = item.initialHeight * scaleRatio;
+                        } else {
+                            if (item.initialScaleX !== undefined) item.obj.group.scaleX(item.initialScaleX * scaleRatio);
+                            if (item.initialScaleY !== undefined) item.obj.group.scaleY(item.initialScaleY * scaleRatio);
+                        }
                         if (item.obj.update) item.obj.update();
                     }
                 });
@@ -172,7 +196,8 @@ export class Anchor {
                     const nx = -dy / len;
                     const ny = dx / len;
                     
-                    const getAbs = (rel) => ({ x: p1.x + rel.t * dx + nx * rel.normDist, y: p1.y + rel.t * dy + ny * rel.normDist });
+                    const scaleRatio = item.p1Rel.initialLen > 0 ? len / item.p1Rel.initialLen : 1;
+                    const getAbs = (rel) => ({ x: p1.x + rel.t * dx + nx * (rel.normDist * scaleRatio), y: p1.y + rel.t * dy + ny * (rel.normDist * scaleRatio) });
                     
                     const newP1 = getAbs(item.p1Rel);
                     const newP2 = getAbs(item.p2Rel);
