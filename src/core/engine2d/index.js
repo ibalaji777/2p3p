@@ -219,12 +219,21 @@ export class FloorPlanner {
     constructor(containerEl) { 
         this.container = containerEl; this.tool = "select"; this.currentUnit = "ft"; this.drawing = false; this.lastAnchor = null; this.startAnchor = null; this.drawingStair = null; this.preview = null;
         this.activeCategory = 'tools';
+        this.wallTrackingEnabled = false;
         this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.arcs = []; this.shapes = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
         this.onSelectionChange = null; 
         this.initKonva(); this.drawGrid(); this.initHUD(); this.initStageEvents(); 
         this.snapManager = this.smartGuides;
     }
     
+    setWallTracking(enabled) {
+        this.wallTrackingEnabled = enabled;
+        if (this.onWallTrackingChange) this.onWallTrackingChange(enabled);
+        if (this.selectedEntity && (this.selectedType === 'wall' || this.selectedType === 'railing' || this.selectedType === 'arc')) {
+            this.selectEntity(this.selectedEntity, this.selectedType, this.selectedNodeIndex);
+        }
+    }
+
     initKonva() { 
         this.stage = new Konva.Stage({ container: this.container, width: window.innerWidth - 380, height: window.innerHeight }); 
         
@@ -436,60 +445,100 @@ export class FloorPlanner {
     getClosestPointOnSegment(p, p1, p2) { const C = p2.x - p1.x, D = p2.y - p1.y, lenSq = C*C + D*D; if (lenSq === 0) return p1; let t = Math.max(0, Math.min(1, ((p.x - p1.x)*C + (p.y - p1.y)*D) / lenSq)); return { x: p1.x + t*C, y: p1.y + t*D }; }
 
     selectEntity(entity, type, nodeIndex = -1) { 
-        if (this.selectedEntity && this.selectedType === 'wall') this.selectedEntity.setHighlight(false);
-        if (this.selectedEntity && this.selectedType === 'stair') this.selectedEntity.setHighlight(false);
-        if (this.selectedEntity && this.selectedType === 'stair_node') this.selectedEntity.setHighlight(false);
-        if (this.selectedEntity && this.selectedType === 'furniture') this.selectedEntity.setHighlight(false);
-        if (this.selectedEntity && this.selectedType === 'roof') this.selectedEntity.setHighlight(false);
-        if (this.selectedEntity && this.selectedType === 'balcony') this.selectedEntity.setHighlight(false);
-        if (this.selectedEntity && this.selectedType === 'arc') this.selectedEntity.setHighlight(false);
+        this.walls.forEach(w => { if(w.setHighlight) w.setHighlight(false); });
+        this.stairs.forEach(s => { if(s.setHighlight) s.setHighlight(false); });
+        this.furniture.forEach(f => { if(f.setHighlight) f.setHighlight(false); });
+        this.roofs.forEach(r => { if(r.setHighlight) r.setHighlight(false); });
+        if (this.balconies) this.balconies.forEach(b => { if(b.setHighlight) b.setHighlight(false); });
+        if (this.shapes) this.shapes.forEach(s => { if(s.setHighlight) s.setHighlight(false); });
+        if (this.arcs) this.arcs.forEach(a => { if(a.setHighlight) a.setHighlight(false); });
         
         this.selectedEntity = entity; this.selectedType = type; this.selectedNodeIndex = nodeIndex;
         
-        if (entity && (type === 'wall' || type === 'stair' || type === 'stair_node' || type === 'furniture' || type === 'roof' || type === 'balcony' || type === 'arc' || type === 'shape')) entity.setHighlight(true);
+        if (this.wallTrackingEnabled && entity && (type === 'wall' || type === 'railing' || type === 'arc')) {
+            if (entity.setHighlight) entity.setHighlight(true);
+            const highlightNear = (list) => {
+                if (!list) return;
+                list.forEach(item => {
+                    let pos;
+                    if (item.type === 'furniture' || (item.type && item.type.startsWith('shape'))) pos = { x: item.group.x(), y: item.group.y() };
+                    else return;
+                    if (this.getDistanceToWall(pos, entity) < 100) {
+                        if (item.setHighlight) item.setHighlight(true);
+                    }
+                });
+            };
+            highlightNear(this.furniture);
+            highlightNear(this.shapes);
+        } else if (this.wallTrackingEnabled && entity && type === 'anchor') {
+            let attachedWalls = this.walls.filter(w => w.startAnchor === entity || w.endAnchor === entity);
+            attachedWalls.forEach(w => {
+                if (w.setHighlight) w.setHighlight(true);
+                const highlightNear = (list) => {
+                    if (!list) return;
+                    list.forEach(item => {
+                        let pos;
+                        if (item.type === 'furniture' || (item.type && item.type.startsWith('shape'))) pos = { x: item.group.x(), y: item.group.y() };
+                        else return;
+                        if (this.getDistanceToWall(pos, w) < 100) {
+                            if (item.setHighlight) item.setHighlight(true);
+                        }
+                    });
+                };
+                highlightNear(this.furniture);
+                highlightNear(this.shapes);
+            });
+        } else if (entity && entity.setHighlight) {
+            entity.setHighlight(true);
+        }
+
         if (this.shapeTransformer) {
             if (type === 'shape') {
-                this.shapeTransformer.nodes([entity.group]);
-                this.shapeTransformer.resizeEnabled(entity.type !== 'shape_polygon');
-                
-                // Inject custom arrows into the transformer resizing anchors
-                this.shapeTransformer.find('Rect').forEach(anchor => {
-                    if (anchor.name() && anchor.name().includes('rotater')) return;
-                    if (anchor.hasCustomStyle) return;
-                    anchor.hasCustomStyle = true;
-                    anchor.sceneFunc((ctx, shape) => {
-                        const size = shape.width();
-                        const r = size / 2;
-                        
-                        ctx.beginPath();
-                        ctx.arc(r, r, r, 0, Math.PI * 2);
-                        ctx.fillStyle = "#111827";
-                        ctx.fill();
-                        ctx.lineWidth = 2;
-                        ctx.strokeStyle = "white";
-                        ctx.stroke();
-
-                        ctx.fillStyle = "#111827";
-                        const arrowOffset = 11; const arrowSize = 4;
-                        const drawArr = (pts) => {
-                            ctx.beginPath(); ctx.moveTo(r + pts[0], r + pts[1]); ctx.lineTo(r + pts[2], r + pts[3]); ctx.lineTo(r + pts[4], r + pts[5]); ctx.closePath(); ctx.fill();
-                        };
-                        drawArr([0, -arrowOffset, -arrowSize, -arrowOffset+arrowSize, arrowSize, -arrowOffset+arrowSize]);
-                        drawArr([0, arrowOffset, -arrowSize, arrowOffset-arrowSize, arrowSize, arrowOffset-arrowSize]);
-                        drawArr([-arrowOffset, 0, -arrowOffset+arrowSize, -arrowSize, -arrowOffset+arrowSize, arrowSize]);
-                        drawArr([arrowOffset, 0, arrowOffset-arrowSize, -arrowSize, arrowOffset-arrowSize, arrowSize]);
-                    });
+                if (!this.wallTrackingEnabled) {
+                    this.shapeTransformer.nodes([entity.group]);
+                    this.shapeTransformer.resizeEnabled(entity.type !== 'shape_polygon');
                     
-                    // Expand hit area slightly so it covers the arrows too
-                    anchor.hitFunc((ctx, shape) => {
-                        const size = shape.width();
-                        const r = size / 2;
-                        ctx.beginPath();
-                        ctx.arc(r, r, r + 15, 0, Math.PI * 2);
-                        ctx.closePath();
-                        ctx.fillStrokeShape(shape);
+                    // Inject custom arrows into the transformer resizing anchors
+                    this.shapeTransformer.find('Rect').forEach(anchor => {
+                        if (anchor.name() && anchor.name().includes('rotater')) return;
+                        if (anchor.hasCustomStyle) return;
+                        anchor.hasCustomStyle = true;
+                        anchor.sceneFunc((ctx, shape) => {
+                            const size = shape.width();
+                            const r = size / 2;
+                            
+                            ctx.beginPath();
+                            ctx.arc(r, r, r, 0, Math.PI * 2);
+                            ctx.fillStyle = "#111827";
+                            ctx.fill();
+                            ctx.lineWidth = 2;
+                            ctx.strokeStyle = "white";
+                            ctx.stroke();
+    
+                            ctx.fillStyle = "#111827";
+                            const arrowOffset = 11; const arrowSize = 4;
+                            const drawArr = (pts) => {
+                                ctx.beginPath(); ctx.moveTo(r + pts[0], r + pts[1]); ctx.lineTo(r + pts[2], r + pts[3]); ctx.lineTo(r + pts[4], r + pts[5]); ctx.closePath(); ctx.fill();
+                            };
+                            drawArr([0, -arrowOffset, -arrowSize, -arrowOffset+arrowSize, arrowSize, -arrowOffset+arrowSize]);
+                            drawArr([0, arrowOffset, -arrowSize, arrowOffset-arrowSize, arrowSize, arrowOffset-arrowSize]);
+                            drawArr([-arrowOffset, 0, -arrowOffset+arrowSize, -arrowSize, -arrowOffset+arrowSize, arrowSize]);
+                            drawArr([arrowOffset, 0, arrowOffset-arrowSize, -arrowSize, arrowOffset-arrowSize, arrowSize]);
+                        });
+                        
+                        // Expand hit area slightly so it covers the arrows too
+                        anchor.hitFunc((ctx, shape) => {
+                            const size = shape.width();
+                            const r = size / 2;
+                            ctx.beginPath();
+                            ctx.arc(r, r, r + 15, 0, Math.PI * 2);
+                            ctx.closePath();
+                            ctx.fillStrokeShape(shape);
+                        });
                     });
-                });
+                } else {
+                    this.shapeTransformer.nodes([]);
+                }
             } else {
                 this.shapeTransformer.nodes([]);
             }

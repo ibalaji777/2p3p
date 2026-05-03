@@ -66,6 +66,7 @@
                 <div class="adv-side-menu" v-show="showAdvancedTools && !isAdvancedToolActive">
                     <button class="adv-round-btn" :class="{active: activeTool === 'split'}" @click="setAdvancedTool('split'); showAdvancedTools=false" title="Split Wall">✂️</button>
                     <button class="adv-round-btn" :class="{active: activeTool === 'extender'}" @click="setAdvancedTool('extender'); showAdvancedTools=false" title="Extend Wall">📏</button>
+                    <button class="adv-round-btn" :class="{active: isWallTrackingEnabled}" @click="toggleWallTracking" title="Toggle Wall Tracking">🔗</button>
                 </div>
             </div>
         </div>
@@ -457,6 +458,14 @@ const selectedGround = ref('grass'); // Start with new Grass + Normal map terrai
 const showSky = ref(false);
 const showGround = ref(false);
 const showAdvancedTools = ref(false);
+
+const isWallTrackingEnabled = ref(false);
+const toggleWallTracking = () => {
+    isWallTrackingEnabled.value = !isWallTrackingEnabled.value;
+    if (planner.value) {
+        planner.value.setWallTracking(isWallTrackingEnabled.value);
+    }
+};
 
 const activeRightTab = ref('properties');
 const layerRefreshTrigger = ref(0);

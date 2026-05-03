@@ -8,14 +8,51 @@ export class Anchor {
         this.node.add(new Konva.Circle({ radius: 8, fill: "#111827", stroke: "white", strokeWidth: 2 }));
         const arrowOffset = 11; const arrowSize = 4;
         const makeArrow = (points) => new Konva.Line({ points, fill: '#111827', closed: true });
-        this.node.add(makeArrow([0, -arrowOffset, -arrowSize, -arrowOffset+arrowSize, arrowSize, -arrowOffset+arrowSize])); 
-        this.node.add(makeArrow([0, arrowOffset, -arrowSize, arrowOffset-arrowSize, arrowSize, arrowOffset-arrowSize])); 
-        this.node.add(makeArrow([-arrowOffset, 0, -arrowOffset+arrowSize, -arrowSize, -arrowOffset+arrowSize, arrowSize])); 
+        this.node.add(makeArrow([0, -arrowOffset, -arrowSize, -arrowOffset+arrowSize, arrowSize, -arrowOffset+arrowSize]));
+        this.node.add(makeArrow([0, arrowOffset, -arrowSize, arrowOffset-arrowSize, arrowSize, arrowOffset-arrowSize]));
+        this.node.add(makeArrow([-arrowOffset, 0, -arrowOffset+arrowSize, -arrowSize, -arrowOffset+arrowSize, arrowSize]));
         this.node.add(makeArrow([arrowOffset, 0, arrowOffset-arrowSize, -arrowSize, arrowOffset-arrowSize, arrowSize]));
         
-        this.node.on('dragstart', () => { 
+        this.node.on('dragstart', (e) => {
+            if (this.planner.tool !== 'select') { e.target.stopDrag(); e.cancelBubble = true; return; }
             let attachedWalls = this.planner.walls.filter(w => w.startAnchor === this || w.endAnchor === this); 
-            attachedWalls.forEach(w => w.setHighlight(true)); 
+            
+            this.planner.selectEntity(this, 'anchor');
+            
+            this.trackedObjects = [];
+            if (this.planner.wallTrackingEnabled) {
+                attachedWalls.forEach(w => {
+                    const p1 = w.startAnchor.position();
+                    const p2 = w.endAnchor.position();
+                    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+                    const wallAngle = Math.atan2(dy, dx);
+                    const len = Math.hypot(dx, dy);
+                    
+                    const collectNear = (list, type) => {
+                        if (!list) return;
+                        list.forEach(item => {
+                            if (this.trackedObjects.some(to => to.obj === item)) return;
+                            let pos;
+                            if (type === 'furniture' || (type && type.startsWith('shape'))) pos = { x: item.group.x(), y: item.group.y() };
+                            else return;
+                            
+                            if (this.planner.getDistanceToWall(pos, w) < 100) {
+                                const t = len === 0 ? 0 : ((pos.x - p1.x)*dx + (pos.y - p1.y)*dy) / (len*len);
+                                const distToWall = len === 0 ? 0 : (pos.x - p1.x)*(-dy/len) + (pos.y - p1.y)*(dx/len);
+                                this.trackedObjects.push({
+                                    wall: w, type, obj: item,
+                                    relT: t, normDist: distToWall,
+                                    relRot: (item.rotation || 0) - (wallAngle * 180 / Math.PI)
+                                });
+                            }
+                        });
+                    };
+                    collectNear(this.planner.furniture, 'furniture');
+                    collectNear(this.planner.shapes, 'shape');
+                });
+            } else {
+                attachedWalls.forEach(w => w.setHighlight(true));
+            }
         });
         
         this.node.on('dragmove', () => {
@@ -61,6 +98,30 @@ export class Anchor {
             if (collision) { this.node.position(this.lastValidPos); } 
             else { this.node.position(proposedPos); this.lastValidPos = proposedPos; } 
             
+            if (this.planner.wallTrackingEnabled && this.trackedObjects && this.trackedObjects.length > 0) {
+                this.trackedObjects.forEach(item => {
+                    const w = item.wall;
+                    const p1 = w.startAnchor.position();
+                    const p2 = w.endAnchor.position();
+                    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+                    const len = Math.hypot(dx, dy);
+                    if (len === 0) return;
+                    const wallAngle = Math.atan2(dy, dx);
+                    const nx = -dy / len;
+                    const ny = dx / len;
+                    
+                    const newX = p1.x + item.relT * dx + nx * item.normDist;
+                    const newY = p1.y + item.relT * dy + ny * item.normDist;
+                    const newRot = item.relRot + (wallAngle * 180 / Math.PI);
+                    
+                    if (item.type === 'furniture' || (item.type && item.type.startsWith('shape'))) {
+                        item.obj.group.position({ x: newX, y: newY });
+                        item.obj.rotation = newRot;
+                        if (item.obj.update) item.obj.update();
+                    }
+                });
+            }
+
             if (snappedObj) this.planner.showSnapGlow(proposedPos.x, proposedPos.y); 
             else this.planner.hideSnapGlow();
             
@@ -78,7 +139,7 @@ export class Anchor {
         });
         
         this.node.on('dragend', () => { 
-            this.planner.walls.forEach(w => w.setHighlight(w === this.planner.selectedEntity)); 
+            this.planner.selectEntity(this.planner.selectedEntity, this.planner.selectedType, this.planner.selectedNodeIndex);
             this.planner.drawGuideLine(0,0,0,0, false); 
             this.planner.hideInfoBadge(); 
             this.planner.hideSnapGlow(); 

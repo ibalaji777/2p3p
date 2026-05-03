@@ -40,8 +40,51 @@ export class Anchor {
         this.node.add(new Konva.Circle({ radius: 8, fill: "#111827", stroke: "white", strokeWidth: 2 }));
         const arrowOffset = 11; const arrowSize = 4;
         const makeArrow = (points) => new Konva.Line({ points, fill: '#111827', closed: true });
-        this.node.add(makeArrow([0, -arrowOffset, -arrowSize, -arrowOffset+arrowSize, arrowSize, -arrowOffset+arrowSize])); this.node.add(makeArrow([0, arrowOffset, -arrowSize, arrowOffset-arrowSize, arrowSize, arrowOffset-arrowSize])); this.node.add(makeArrow([-arrowOffset, 0, -arrowOffset+arrowSize, -arrowSize, -arrowOffset+arrowSize, arrowSize])); this.node.add(makeArrow([arrowOffset, 0, arrowOffset-arrowSize, -arrowSize, arrowOffset-arrowSize, arrowSize]));
-        this.node.on('dragstart', () => { let attachedWalls = this.planner.walls.filter(w => w.startAnchor === this || w.endAnchor === this); attachedWalls.forEach(w => w.setHighlight(true)); });
+        this.node.add(makeArrow([0, -arrowOffset, -arrowSize, -arrowOffset+arrowSize, arrowSize, -arrowOffset+arrowSize]));
+        this.node.add(makeArrow([0, arrowOffset, -arrowSize, arrowOffset-arrowSize, arrowSize, arrowOffset-arrowSize]));
+        this.node.add(makeArrow([-arrowOffset, 0, -arrowOffset+arrowSize, -arrowSize, -arrowOffset+arrowSize, arrowSize]));
+        this.node.add(makeArrow([arrowOffset, 0, arrowOffset-arrowSize, -arrowSize, arrowOffset-arrowSize, arrowSize]));
+        
+        this.node.on('dragstart', (e) => {
+            if (this.planner.tool !== 'select') { e.target.stopDrag(); e.cancelBubble = true; return; }
+            let attachedWalls = this.planner.walls.filter(w => w.startAnchor === this || w.endAnchor === this);
+            this.planner.selectEntity(this, 'anchor');
+            
+            this.trackedObjects = [];
+            if (this.planner.wallTrackingEnabled) {
+                attachedWalls.forEach(w => {
+                    const p1 = w.startAnchor.position();
+                    const p2 = w.endAnchor.position();
+                    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+                    const wallAngle = Math.atan2(dy, dx);
+                    const len = Math.hypot(dx, dy);
+                    
+                    const collectNear = (list, type) => {
+                        if (!list) return;
+                        list.forEach(item => {
+                            if (this.trackedObjects.some(to => to.obj === item)) return;
+                            let pos;
+                            if (type === 'furniture' || (type && type.startsWith('shape'))) pos = { x: item.group.x(), y: item.group.y() };
+                            else return;
+                            
+                            if (this.planner.getDistanceToWall(pos, w) < 100) {
+                                const t = len === 0 ? 0 : ((pos.x - p1.x)*dx + (pos.y - p1.y)*dy) / (len*len);
+                                const distToWall = len === 0 ? 0 : (pos.x - p1.x)*(-dy/len) + (pos.y - p1.y)*(dx/len);
+                                this.trackedObjects.push({
+                                    wall: w, type, obj: item,
+                                    relT: t, normDist: distToWall,
+                                    relRot: (item.rotation || 0) - (wallAngle * 180 / Math.PI)
+                                });
+                            }
+                        });
+                    };
+                    collectNear(this.planner.furniture, 'furniture');
+                    collectNear(this.planner.shapes, 'shape');
+                });
+            } else {
+                attachedWalls.forEach(w => w.setHighlight(true));
+            }
+        });
         this.node.on('dragmove', () => {
             let rawPos = { x: this.planner.snap(this.node.x()), y: this.planner.snap(this.node.y()) };
             let attachedWalls = this.planner.walls.filter(w => w.startAnchor === this || w.endAnchor === this);
@@ -60,10 +103,38 @@ export class Anchor {
             this.planner.walls.forEach(w => { w.setHighlight(attachedWalls.includes(w) || w === this.planner.selectedEntity); });
             let collision = false; for (let w of attachedWalls) { if (w.hasEvent("stop_collision")) { let otherAnc = w.startAnchor === this ? w.endAnchor : w.startAnchor; if (this.planner.checkWallIntersection(proposedPos, otherAnc.position(), [targetSnapWall])) { collision = true; break; } } }
             if (collision) { this.node.position(this.lastValidPos); } else { this.node.position(proposedPos); this.lastValidPos = proposedPos; }
+            
+            if (this.planner.wallTrackingEnabled && this.trackedObjects && this.trackedObjects.length > 0) {
+                this.trackedObjects.forEach(item => {
+                    const w = item.wall;
+                    const p1 = w.startAnchor.position();
+                    const p2 = w.endAnchor.position();
+                    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+                    const len = Math.hypot(dx, dy);
+                    if (len === 0) return;
+                    const wallAngle = Math.atan2(dy, dx);
+                    const nx = -dy / len;
+                    const ny = dx / len;
+                    
+                    const newX = p1.x + item.relT * dx + nx * item.normDist;
+                    const newY = p1.y + item.relT * dy + ny * item.normDist;
+                    const newRot = item.relRot + (wallAngle * 180 / Math.PI);
+                    
+                    if (item.type === 'furniture' || (item.type && item.type.startsWith('shape'))) {
+                        item.obj.group.position({ x: newX, y: newY });
+                        item.obj.rotation = newRot;
+                        if (item.obj.update) item.obj.update();
+                    }
+                });
+            }
+
             if (snappedObj) this.planner.showSnapGlow(proposedPos.x, proposedPos.y); else this.planner.hideSnapGlow();
             this.planner.syncAll();
         });
-        this.node.on('dragend', () => { this.planner.walls.forEach(w => w.setHighlight(w === this.planner.selectedEntity)); this.planner.drawGuideLine(0,0,0,0, false); this.planner.hideInfoBadge(); this.planner.hideSnapGlow(); this.planner.syncAll(); });
+        this.node.on('dragend', () => {
+            this.planner.selectEntity(this.planner.selectedEntity, this.planner.selectedType, this.planner.selectedNodeIndex);
+            this.planner.drawGuideLine(0,0,0,0, false); this.planner.hideInfoBadge(); this.planner.hideSnapGlow(); this.planner.syncAll();
+        });
         this.planner.uiLayer.add(this.node);
     }
     get x() { return this.node.x(); } get y() { return this.node.y(); } show() { this.node.show(); } hide() { this.node.hide(); } position() { return this.node.position(); }
@@ -260,7 +331,7 @@ export class PremiumWall {
             }
         });
 
-        let startAncPos = {}, startPointer = {};
+        let startAncPos = {}, startPointer = {}, initialObjectPositions = [];
         this.poly.on('dragstart', (e) => {
             if (this.planner.tool !== 'select') {
                 e.target.stopDrag();
@@ -271,6 +342,29 @@ export class PremiumWall {
             const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
             startPointer = { x: pos.x, y: pos.y };
             startAncPos = { x1: this.startAnchor.x, y1: this.startAnchor.y, x2: this.endAnchor.x, y2: this.endAnchor.y };
+            initialObjectPositions = [];
+            if (this.planner.shapes) {
+                this.planner.shapes.forEach(s => {
+                    if (s.attachedWall === this) initialObjectPositions.push({ type: 'shape', obj: s, x: s.group.x(), y: s.group.y() });
+                });
+            }
+            if (this.planner.wallTrackingEnabled) {
+                const collectNear = (list, type) => {
+                    if (!list) return;
+                    list.forEach(item => {
+                        if (initialObjectPositions.some(io => io.obj === item)) return;
+                        let objPos;
+                        if (type === 'furniture' || (type && type.startsWith('shape'))) objPos = { x: item.group.x(), y: item.group.y() };
+                        else return;
+                        
+                        if (this.planner.getDistanceToWall(objPos, this) < 100) {
+                            initialObjectPositions.push({ type, obj: item, x: objPos.x, y: objPos.y });
+                        }
+                    });
+                };
+                collectNear(this.planner.furniture, 'furniture');
+                collectNear(this.planner.shapes, 'shape');
+            }
         });
         this.poly.on('dragmove', () => {
             if (this.planner.tool !== 'select') return;
@@ -281,9 +375,19 @@ export class PremiumWall {
             if (this.hasEvent("stop_collision") && this.planner.checkWallIntersection(proposedStart, proposedEnd, [this])) return;
             this.startAnchor.node.position(proposedStart);
             this.endAnchor.node.position(proposedEnd);
-            this.poly.position({ x: 0, y: 0 }); this.planner.syncAll();
+            this.poly.position({ x: 0, y: 0 }); 
+            
+            if (initialObjectPositions.length > 0) {
+                initialObjectPositions.forEach(item => {
+                    if (item.type === 'furniture' || item.type === 'shape') {
+                        item.obj.group.position({ x: item.x + dx, y: item.y + dy });
+                        if (item.obj.update) item.obj.update();
+                    }
+                });
+            }
+            this.planner.syncAll();
         });
-        this.poly.on('dragend', () => { this.setHighlight(this.planner.selectedEntity === this); });
+        this.poly.on('dragend', () => { this.planner.selectEntity(this.planner.selectedEntity, this.planner.selectedType, this.planner.selectedNodeIndex); });
     }
     getClosestT(pos) { const p1 = this.startAnchor.position(), p2 = this.endAnchor.position(), dx = p2.x - p1.x, dy = p2.y - p1.y, lenSq = dx*dx + dy*dy; if (lenSq === 0) return 0.5; let t = ((pos.x - p1.x) * dx + (pos.y - p1.y) * dy) / lenSq; return Math.max(0, Math.min(1, t)); }
     update() {
@@ -424,7 +528,7 @@ export class PremiumShape {
             }
         });
         this.group.on('dragmove', (e) => {
-            if (e.target !== this.group) { this.planner.syncAll(); return; }
+            if (e.target !== this.group && e.target !== this.shape) { this.planner.syncAll(); return; }
             const center = this.group.position();
             let minDist = 40; 
             let targetWall = null;
@@ -561,6 +665,7 @@ export class FloorPlanner {
     constructor(containerEl) {
         this.container = containerEl; this.tool = "outer"; this.currentUnit = "ft"; this.drawing = false; this.lastAnchor = null; this.startAnchor = null; this.drawingStair = null; this.preview = null;
         this.activeCategory = 'tools';
+        this.wallTrackingEnabled = false;
         this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.shapes = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
         this.events = new EventEmitter();
         this.initKonva(); this.drawGrid(); this.initHUD(); this.initStageEvents();
@@ -569,6 +674,14 @@ export class FloorPlanner {
     on(eventName, listener) { return this.events.on(eventName, listener); }
     off(eventName, listener) { this.events.off(eventName, listener); }
     emit(eventName, ...args) { this.events.emit(eventName, ...args); }
+
+    setWallTracking(enabled) {
+        this.wallTrackingEnabled = enabled;
+        this.emit('wallTrackingChanged', enabled);
+        if (this.selectedEntity && (this.selectedType === 'wall' || this.selectedType === 'railing' || this.selectedType === 'arc')) {
+            this.selectEntity(this.selectedEntity, this.selectedType, this.selectedNodeIndex);
+        }
+    }
 
     initKonva() {
         this.stage = new Konva.Stage({ container: this.container, width: window.innerWidth - 380, height: window.innerHeight });
@@ -667,17 +780,55 @@ export class FloorPlanner {
     getClosestPointOnSegment(p, p1, p2) { const C = p2.x - p1.x, D = p2.y - p1.y, lenSq = C*C + D*D; if (lenSq === 0) return p1; let t = Math.max(0, Math.min(1, ((p.x - p1.x)*C + (p.y - p1.y)*D) / lenSq)); return { x: p1.x + t*C, y: p1.y + t*D }; }
 
     selectEntity(entity, type, nodeIndex = -1) {
-        if (this.selectedEntity && this.selectedEntity.setHighlight) {
-            this.selectedEntity.setHighlight(false);
-        }
+        this.walls.forEach(w => { if(w.setHighlight) w.setHighlight(false); });
+        this.stairs.forEach(s => { if(s.setHighlight) s.setHighlight(false); });
+        this.furniture.forEach(f => { if(f.setHighlight) f.setHighlight(false); });
+        this.roofs.forEach(r => { if(r.setHighlight) r.setHighlight(false); });
+        if (this.balconies) this.balconies.forEach(b => { if(b.setHighlight) b.setHighlight(false); });
+        if (this.shapes) this.shapes.forEach(s => { if(s.setHighlight) s.setHighlight(false); });
+        if (this.arcs) this.arcs.forEach(a => { if(a.setHighlight) a.setHighlight(false); });
 
         this.selectedEntity = entity; this.selectedType = type; this.selectedNodeIndex = nodeIndex;
 
-        if (entity && entity.setHighlight) {
+        if (this.wallTrackingEnabled && entity && (type === 'wall' || type === 'railing' || type === 'arc')) {
+            if (entity.setHighlight) entity.setHighlight(true);
+            const highlightNear = (list) => {
+                if (!list) return;
+                list.forEach(item => {
+                    let pos;
+                    if (item.type === 'furniture' || (item.type && item.type.startsWith('shape'))) pos = { x: item.group.x(), y: item.group.y() };
+                    else return;
+                    if (this.getDistanceToWall(pos, entity) < 100) {
+                        if (item.setHighlight) item.setHighlight(true);
+                    }
+                });
+            };
+            highlightNear(this.furniture);
+            highlightNear(this.shapes);
+        } else if (this.wallTrackingEnabled && entity && type === 'anchor') {
+            let attachedWalls = this.walls.filter(w => w.startAnchor === entity || w.endAnchor === entity);
+            attachedWalls.forEach(w => {
+                if (w.setHighlight) w.setHighlight(true);
+                const highlightNear = (list) => {
+                    if (!list) return;
+                    list.forEach(item => {
+                        let pos;
+                        if (item.type === 'furniture' || (item.type && item.type.startsWith('shape'))) pos = { x: item.group.x(), y: item.group.y() };
+                        else return;
+                        if (this.getDistanceToWall(pos, w) < 100) {
+                            if (item.setHighlight) item.setHighlight(true);
+                        }
+                    });
+                };
+                highlightNear(this.furniture);
+                highlightNear(this.shapes);
+            });
+        } else if (entity && entity.setHighlight) {
              entity.setHighlight(true);
         }
+        
         if (this.shapeTransformer) {
-            if (type === 'shape') {
+            if (type === 'shape' && !this.wallTrackingEnabled) {
                 this.shapeTransformer.nodes([entity.group]);
             } else {
                 this.shapeTransformer.nodes([]);

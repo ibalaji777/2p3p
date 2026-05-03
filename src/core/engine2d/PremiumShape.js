@@ -91,7 +91,7 @@ export class PremiumShape {
             }
         });
         this.group.on('dragmove', (e) => {
-            if (e.target !== this.group) { this.planner.syncAll(); return; }
+            if (e.target !== this.group && e.target !== this.shape) { this.planner.syncAll(); return; }
             const pointer = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
             const rawCenter = { x: pointer.x + (this.dragOffset ? this.dragOffset.x : 0), y: pointer.y + (this.dragOffset ? this.dragOffset.y : 0) };
             const center = rawCenter;

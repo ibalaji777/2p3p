@@ -96,12 +96,35 @@ export class PremiumRailing {
             this.planner.selectEntity(this, 'wall'); 
         });
 
-        let startAncPos = {}, startPointer = {};
+        let startAncPos = {}, startPointer = {}, initialObjectPositions = [];
         this.poly.on('dragstart', (e) => { 
             if (this.planner.tool !== 'select') { e.target.stopDrag(); e.cancelBubble = true; return; }
             this.setHighlight(true); 
             const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); 
             startPointer = { x: pos.x, y: pos.y }; startAncPos = { x1: this.startAnchor.x, y1: this.startAnchor.y, x2: this.endAnchor.x, y2: this.endAnchor.y }; 
+            initialObjectPositions = [];
+            if (this.planner.shapes) {
+                this.planner.shapes.forEach(s => {
+                    if (s.attachedWall === this) initialObjectPositions.push({ type: 'shape', obj: s, x: s.group.x(), y: s.group.y() });
+                });
+            }
+            if (this.planner.wallTrackingEnabled) {
+                const collectNear = (list, type) => {
+                    if (!list) return;
+                    list.forEach(item => {
+                        if (initialObjectPositions.some(io => io.obj === item)) return;
+                        let objPos;
+                        if (type === 'furniture' || (type && type.startsWith('shape'))) objPos = { x: item.group.x(), y: item.group.y() };
+                        else return;
+                        
+                        if (this.planner.getDistanceToWall(objPos, this) < 100) {
+                            initialObjectPositions.push({ type, obj: item, x: objPos.x, y: objPos.y });
+                        }
+                    });
+                };
+                collectNear(this.planner.furniture, 'furniture');
+                collectNear(this.planner.shapes, 'shape');
+            }
         });
         this.poly.on('dragmove', () => {
             if (this.planner.tool !== 'select') return;
@@ -111,9 +134,19 @@ export class PremiumRailing {
             this.poly.position({ x: 0, y: 0 });
             if (this.hasEvent("stop_collision") && this.planner.checkWallIntersection(proposedStart, proposedEnd, [this])) return; 
             this.startAnchor.node.position(proposedStart); this.endAnchor.node.position(proposedEnd); this.startAnchor.lastValidPos = proposedStart; this.endAnchor.lastValidPos = proposedEnd;
+            
+            if (initialObjectPositions.length > 0) {
+                initialObjectPositions.forEach(item => {
+                    if (item.type === 'furniture' || item.type === 'shape') {
+                        item.obj.group.position({ x: item.x + dx, y: item.y + dy });
+                        if (item.obj.update) item.obj.update();
+                    }
+                });
+            }
+
             this.planner.syncAll();
         });
-        this.poly.on('dragend', () => { this.setHighlight(this.planner.selectedEntity === this); });
+        this.poly.on('dragend', () => { this.planner.selectEntity(this.planner.selectedEntity, this.planner.selectedType, this.planner.selectedNodeIndex); });
     }
 
     getClosestT(pos) { const p1 = this.startAnchor.position(), p2 = this.endAnchor.position(), dx = p2.x - p1.x, dy = p2.y - p1.y, lenSq = dx*dx + dy*dy; if (lenSq === 0) return 0.5; let t = ((pos.x - p1.x) * dx + (pos.y - p1.y) * dy) / lenSq; return Math.max(0, Math.min(1, t)); }
