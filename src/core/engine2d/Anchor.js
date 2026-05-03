@@ -20,14 +20,16 @@ export class Anchor {
             this.planner.selectEntity(this, 'anchor');
             
             this.trackedObjects = [];
-            if (this.planner.wallTrackingEnabled) {
-                attachedWalls.forEach(w => {
-                    const p1 = w.startAnchor.position();
-                    const p2 = w.endAnchor.position();
-                    const dx = p2.x - p1.x, dy = p2.y - p1.y;
-                    const wallAngle = Math.atan2(dy, dx);
-                    const len = Math.hypot(dx, dy);
-                    
+            this.trackedArcs = [];
+            
+            attachedWalls.forEach(w => {
+                const p1 = w.startAnchor.position();
+                const p2 = w.endAnchor.position();
+                const dx = p2.x - p1.x, dy = p2.y - p1.y;
+                const wallAngle = Math.atan2(dy, dx);
+                const len = Math.hypot(dx, dy);
+                
+                if (this.planner.wallTrackingEnabled) {
                     const collectNear = (list, type) => {
                         if (!list) return;
                         list.forEach(item => {
@@ -49,8 +51,36 @@ export class Anchor {
                     };
                     collectNear(this.planner.furniture, 'furniture');
                     collectNear(this.planner.shapes, 'shape');
-                });
-            } else {
+                }
+                
+                if (this.planner.arcs) {
+                    const isPointOnSegment = (p, pA, pB) => {
+                        if (Math.hypot(p.x - pA.x, p.y - pA.y) < 1) return true;
+                        if (Math.hypot(p.x - pB.x, p.y - pB.y) < 1) return true;
+                        const C = pB.x - pA.x, D = pB.y - pA.y, lenSq = C*C + D*D;
+                        if (lenSq === 0) return false;
+                        let t = ((p.x - pA.x)*C + (p.y - pA.y)*D) / lenSq;
+                        if (t < 0 || t > 1) return false;
+                        let projX = pA.x + t*C, projY = pA.y + t*D;
+                        return Math.hypot(p.x - projX, p.y - projY) < 2.0;
+                    };
+                    this.planner.arcs.forEach(a => {
+                        if (this.trackedArcs.some(ta => ta.arc === a)) return;
+                        let p1OnWall = isPointOnSegment(a.p1.position(), p1, p2);
+                        let p2OnWall = isPointOnSegment(a.p2.position(), p1, p2);
+                        if (p1OnWall && p2OnWall) {
+                            const getRel = (pos) => {
+                                const t = len === 0 ? 0 : ((pos.x - p1.x)*dx + (pos.y - p1.y)*dy) / (len*len);
+                                const normDist = len === 0 ? 0 : (pos.x - p1.x)*(-dy/len) + (pos.y - p1.y)*(dx/len);
+                                return { t, normDist };
+                            };
+                            this.trackedArcs.push({ arc: a, wall: w, p1Rel: getRel(a.p1.position()), p2Rel: getRel(a.p2.position()), posRel: getRel(a.pos) });
+                        }
+                    });
+                }
+            });
+            
+            if (!this.planner.wallTrackingEnabled) {
                 attachedWalls.forEach(w => w.setHighlight(true));
             }
         });
@@ -119,6 +149,30 @@ export class Anchor {
                         item.obj.rotation = newRot;
                         if (item.obj.update) item.obj.update();
                     }
+                });
+            }
+
+            if (this.trackedArcs && this.trackedArcs.length > 0) {
+                this.trackedArcs.forEach(item => {
+                    const w = item.wall;
+                    const p1 = w.startAnchor.position();
+                    const p2 = w.endAnchor.position();
+                    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+                    const len = Math.hypot(dx, dy);
+                    if (len === 0) return;
+                    const nx = -dy / len;
+                    const ny = dx / len;
+                    
+                    const getAbs = (rel) => ({ x: p1.x + rel.t * dx + nx * rel.normDist, y: p1.y + rel.t * dy + ny * rel.normDist });
+                    
+                    const newP1 = getAbs(item.p1Rel);
+                    const newP2 = getAbs(item.p2Rel);
+                    const newPos = getAbs(item.posRel);
+                    
+                    if (item.arc.p1 !== w.startAnchor && item.arc.p1 !== w.endAnchor) { item.arc.p1.node.position(newP1); item.arc.p1.lastValidPos = newP1; }
+                    if (item.arc.p2 !== w.startAnchor && item.arc.p2 !== w.endAnchor) { item.arc.p2.node.position(newP2); item.arc.p2.lastValidPos = newP2; }
+                    item.arc.pos = newPos;
+                    if (item.arc.controlHandle) item.arc.controlHandle.position(item.arc.pos);
                 });
             }
 

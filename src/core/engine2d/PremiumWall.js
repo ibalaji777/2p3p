@@ -165,9 +165,50 @@ export class PremiumWall {
             this.planner.selectEntity(this, 'wall'); 
         }); 
         let startAncPos = {}, startPointer = {}, initialObjectPositions = []; 
+        let anchorsOnWall = [], arcsOnWall = [];
         this.poly.on('dragstart', (e) => { 
             if (this.planner.tool !== 'select') { e.target.stopDrag(); e.cancelBubble = true; return; }
             this.setHighlight(true); const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); startPointer = { x: pos.x, y: pos.y }; startAncPos = { x1: this.startAnchor.x, y1: this.startAnchor.y, x2: this.endAnchor.x, y2: this.endAnchor.y }; 
+            
+            anchorsOnWall = [];
+            arcsOnWall = [];
+            if (this.planner.anchors) {
+                const p1 = this.startAnchor.position();
+                const p2 = this.endAnchor.position();
+                const isPointOnSegment = (p, p1, p2) => {
+                    if (Math.hypot(p.x - p1.x, p.y - p1.y) < 1) return true;
+                    if (Math.hypot(p.x - p2.x, p.y - p2.y) < 1) return true;
+                    const C = p2.x - p1.x, D = p2.y - p1.y, lenSq = C*C + D*D;
+                    if (lenSq === 0) return false;
+                    let t = ((p.x - p1.x)*C + (p.y - p1.y)*D) / lenSq;
+                    if (t < 0 || t > 1) return false;
+                    let projX = p1.x + t*C, projY = p1.y + t*D;
+                    return Math.hypot(p.x - projX, p.y - projY) < 2.0;
+                };
+                this.planner.anchors.forEach(a => {
+                    if (a !== this.startAnchor && a !== this.endAnchor && isPointOnSegment(a.position(), p1, p2)) {
+                        anchorsOnWall.push({ anchor: a, startPos: a.position() });
+                    }
+                });
+            }
+            if (this.planner.arcs) {
+                this.planner.arcs.forEach(a => {
+                    let p1Moving = false, p2Moving = false;
+                    if (a.p1 === this.startAnchor || a.p1 === this.endAnchor || anchorsOnWall.some(aw => aw.anchor === a.p1)) p1Moving = true;
+                    if (a.p2 === this.startAnchor || a.p2 === this.endAnchor || anchorsOnWall.some(aw => aw.anchor === a.p2)) p2Moving = true;
+                    if (p1Moving || p2Moving) {
+                        const p1Pos = a.p1.position(), p2Pos = a.p2.position();
+                        const adx = p2Pos.x - p1Pos.x, ady = p2Pos.y - p1Pos.y, L = Math.hypot(adx, ady);
+                        let initialH = 0;
+                        if (L > 0) {
+                            const mid = { x: p1Pos.x + adx/2, y: p1Pos.y + ady/2 }, n = { x: -ady/L, y: adx/L };
+                            initialH = (a.pos.x - mid.x)*n.x + (a.pos.y - mid.y)*n.y;
+                        }
+                        arcsOnWall.push({ arc: a, startPos: { ...a.pos }, p1Moving, p2Moving, initialH });
+                    }
+                });
+            }
+            
             initialObjectPositions = [];
             if (this.planner.shapes) {
                 this.planner.shapes.forEach(s => {
@@ -201,12 +242,46 @@ export class PremiumWall {
             
             this.poly.position({ x: 0, y: 0 }); // Prevent drift on collision
             
-            if (this.hasEvent("stop_collision") && this.planner.checkWallIntersection(proposedStart, proposedEnd, [this])) return; 
+            let ignoreList = [this];
+            this.planner.walls.forEach(w => {
+                if (w.startAnchor === this.startAnchor || w.endAnchor === this.startAnchor || 
+                    w.startAnchor === this.endAnchor || w.endAnchor === this.endAnchor) {
+                    ignoreList.push(w);
+                }
+                if (anchorsOnWall.some(aw => aw.anchor === w.startAnchor || aw.anchor === w.endAnchor)) {
+                    ignoreList.push(w);
+                }
+            });
+            arcsOnWall.forEach(item => {
+                if (item.arc && item.arc.walls) {
+                    ignoreList.push(...item.arc.walls);
+                }
+            });
+            if (this.hasEvent("stop_collision") && this.planner.checkWallIntersection(proposedStart, proposedEnd, ignoreList)) return; 
             
             this.startAnchor.node.position(proposedStart); 
             this.endAnchor.node.position(proposedEnd); 
             this.startAnchor.lastValidPos = proposedStart;
             this.endAnchor.lastValidPos = proposedEnd;
+            
+            anchorsOnWall.forEach(item => {
+                item.anchor.node.position({ x: item.startPos.x + dx, y: item.startPos.y + dy });
+                item.anchor.lastValidPos = { x: item.startPos.x + dx, y: item.startPos.y + dy };
+            });
+            
+            arcsOnWall.forEach(item => {
+                if (item.p1Moving && item.p2Moving) {
+                    item.arc.pos = { x: item.startPos.x + dx, y: item.startPos.y + dy };
+                } else {
+                    const p1Pos = item.arc.p1.position(), p2Pos = item.arc.p2.position();
+                    const adx = p2Pos.x - p1Pos.x, ady = p2Pos.y - p1Pos.y, L = Math.hypot(adx, ady);
+                    if (L > 0.5) {
+                        const mid = { x: p1Pos.x + adx/2, y: p1Pos.y + ady/2 }, n = { x: -ady/L, y: adx/L };
+                        item.arc.pos = { x: mid.x + n.x * item.initialH, y: mid.y + n.y * item.initialH };
+                    }
+                }
+                if (item.arc.controlHandle) item.arc.controlHandle.position(item.arc.pos);
+            });
             
             if (initialObjectPositions.length > 0) {
                 initialObjectPositions.forEach(item => {

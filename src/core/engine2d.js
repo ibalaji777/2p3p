@@ -342,6 +342,45 @@ export class PremiumWall {
             const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
             startPointer = { x: pos.x, y: pos.y };
             startAncPos = { x1: this.startAnchor.x, y1: this.startAnchor.y, x2: this.endAnchor.x, y2: this.endAnchor.y };
+            
+            anchorsOnWall = [];
+            arcsOnWall = [];
+            if (this.planner.anchors) {
+                const p1 = this.startAnchor.position();
+                const p2 = this.endAnchor.position();
+                const isPointOnSegment = (p, p1, p2) => {
+                    const crossProduct = (p.y - p1.y) * (p2.x - p1.x) - (p.x - p1.x) * (p2.y - p1.y);
+                    const dist = Math.abs(crossProduct) / Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                    if (dist > 1.0) return false;
+                    const dotProduct = (p.x - p1.x) * (p2.x - p1.x) + (p.y - p1.y) * (p2.y - p1.y);
+                    if (dotProduct < 0) return false;
+                    const squaredLengthBA = (p2.x - p1.x)*(p2.x - p1.x) + (p2.y - p1.y)*(p2.y - p1.y);
+                    if (dotProduct > squaredLengthBA) return false;
+                    return true;
+                };
+                this.planner.anchors.forEach(a => {
+                    if (a !== this.startAnchor && a !== this.endAnchor && isPointOnSegment(a.position(), p1, p2)) {
+                        anchorsOnWall.push({ anchor: a, startPos: a.position() });
+                    }
+                });
+            }
+            if (this.planner.arcs) {
+                this.planner.arcs.forEach(a => {
+                    let p1Moving = false, p2Moving = false;
+                    if (a.p1 === this.startAnchor || a.p1 === this.endAnchor || anchorsOnWall.some(aw => aw.anchor === a.p1)) p1Moving = true;
+                    if (a.p2 === this.startAnchor || a.p2 === this.endAnchor || anchorsOnWall.some(aw => aw.anchor === a.p2)) p2Moving = true;
+                    if (p1Moving || p2Moving) {
+                        const p1Pos = a.p1.position(), p2Pos = a.p2.position();
+                        const adx = p2Pos.x - p1Pos.x, ady = p2Pos.y - p1Pos.y, L = Math.hypot(adx, ady);
+                        let initialH = 0;
+                        if (L > 0) {
+                            const mid = { x: p1Pos.x + adx/2, y: p1Pos.y + ady/2 }, n = { x: -ady/L, y: adx/L };
+                            initialH = (a.pos.x - mid.x)*n.x + (a.pos.y - mid.y)*n.y;
+                        }
+                        arcsOnWall.push({ arc: a, startPos: { ...a.pos }, p1Moving, p2Moving, initialH });
+                    }
+                });
+            }
             initialObjectPositions = [];
             if (this.planner.shapes) {
                 this.planner.shapes.forEach(s => {
