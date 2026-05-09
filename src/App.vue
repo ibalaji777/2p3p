@@ -154,8 +154,9 @@
                 <div class="props-content">
                     <h4 class="props-subtitle">Floor Plan Configuration</h4>
                     
-                    <div class="control-group"><label>Entrance Facing</label>
-                        <select v-model="floorPlanSettings.mainEntranceFacing" @change="syncSettings" style="flex:1; margin-left: 8px;">
+                    <div class="control-group">
+                        <label>Entrance Facing</label>
+                        <select v-model="floorPlanSettings.mainEntranceFacing" @change="syncSettings" class="settings-select">
                             <option value="north">North</option>
                             <option value="south">South</option>
                             <option value="east">East</option>
@@ -167,8 +168,9 @@
                         </select>
                     </div>
                     
-                    <div class="control-group"><label>Length Unit</label>
-                        <select v-model="floorPlanSettings.measurementUnit" @change="syncSettings" style="flex:1; margin-left: 8px;">
+                    <div class="control-group">
+                        <label>Length Unit</label>
+                        <select v-model="floorPlanSettings.measurementUnit" @change="syncSettings" class="settings-select">
                             <option value="ft">Feet (ft)</option>
                             <option value="in">Inches (in)</option>
                             <option value="feet_inches">Feet & Inches</option>
@@ -178,8 +180,9 @@
                         </select>
                     </div>
                     
-                    <div class="control-group"><label>Area Unit</label>
-                        <select v-model="floorPlanSettings.areaUnit" @change="syncSettings" style="flex:1; margin-left: 8px;">
+                    <div class="control-group">
+                        <label>Area Unit</label>
+                        <select v-model="floorPlanSettings.areaUnit" @change="syncSettings" class="settings-select">
                             <option value="sqft">Square Feet (sqft)</option>
                             <option value="sqm">Square Meter (sqm)</option>
                             <option value="cent">Cent</option>
@@ -188,13 +191,30 @@
                         </select>
                     </div>
 
-                    <div class="control-group"><label>Show Compass</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="floorPlanSettings.showCompass" @change="syncSettings"></div></div>
-                    <div class="control-group"><label>Show Grid</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="floorPlanSettings.showGrid" @change="syncSettings"></div></div>
-                    <div class="control-group"><label>Dimension Labels</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="floorPlanSettings.showDimensionLabels" @change="syncSettings"></div></div>
-                    <div class="control-group"><label>Workspace Labels</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="floorPlanSettings.showWorkspaceLabels" @change="syncSettings"></div></div>
-                    <div class="control-group"><label>Wall Tracking</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="floorPlanSettings.wallTracking" @change="syncSettings"></div></div>
+                    <div class="settings-divider"></div>
+
+                    <div class="control-group-inline">
+                        <label>Show Compass</label>
+                        <input type="checkbox" v-model="floorPlanSettings.showCompass" @change="syncSettings" class="settings-checkbox">
+                    </div>
+                    <div class="control-group-inline">
+                        <label>Show Grid</label>
+                        <input type="checkbox" v-model="floorPlanSettings.showGrid" @change="syncSettings" class="settings-checkbox">
+                    </div>
+                    <div class="control-group-inline">
+                        <label>Dimension Labels</label>
+                        <input type="checkbox" v-model="floorPlanSettings.showDimensionLabels" @change="syncSettings" class="settings-checkbox">
+                    </div>
+                    <div class="control-group-inline">
+                        <label>Workspace Labels</label>
+                        <input type="checkbox" v-model="floorPlanSettings.showWorkspaceLabels" @change="syncSettings" class="settings-checkbox">
+                    </div>
+                    <div class="control-group-inline">
+                        <label>Wall Tracking</label>
+                        <input type="checkbox" v-model="floorPlanSettings.wallTracking" @change="syncSettings" class="settings-checkbox">
+                    </div>
                     
-                    <div v-if="selectedType === 'wall'" style="margin-top: 15px;">
+                    <div v-if="selectedType === 'wall'" style="margin-top: 20px;">
                         <button class="btn-primary" style="width: 100%;" @click="setEntranceWall">Set Selected Wall as Entrance</button>
                     </div>
                 </div>
@@ -1321,6 +1341,13 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .input-wrap { display: flex; gap: 10px; align-items: center; }
 .input-wrap input[type="range"] { flex: 1; accent-color: #3b82f6; cursor: pointer; }
 .input-wrap input[type="number"] { width: 60px; border: 1px solid #d1d5db; border-radius: 4px; padding: 4px; text-align: center; font-size: 12px; }
+
+.settings-select { width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; background-color: #fff; font-size: 12px; color: #374151; cursor: pointer; outline: none; transition: 0.2s; }
+.settings-select:hover, .settings-select:focus { border-color: #3b82f6; }
+.settings-divider { height: 1px; background: #e5e7eb; margin: 15px 0; }
+.control-group-inline { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.control-group-inline label { font-size: 11px; color: #4b5563; font-weight: bold; margin: 0; }
+.settings-checkbox { accent-color: #3b82f6; cursor: pointer; width: 16px; height: 16px; margin: 0; }
 
 .applied-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
 .applied-item-wrapper { border: 1px solid #d1d5db; border-radius: 6px; overflow: hidden; }
