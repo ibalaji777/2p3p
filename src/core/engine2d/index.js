@@ -226,6 +226,7 @@ export class FloorPlanner {
             showCompass: true,
             showGrid: true,
             showDimensionLabels: true,
+            showDiagonalDimensions: true,
             showWorkspaceLabels: true,
             wallTracking: true,
             entranceWallId: null
@@ -1633,6 +1634,94 @@ export class FloorPlanner {
         const label = new Konva.Text({ x: room.cx, y: room.cy, text: "Room\n" + areaText, fontSize: 12, fill: '#6b7280', align: 'center', fontStyle: 'bold', listening: false, visible: this.settings ? this.settings.showWorkspaceLabels : true }); 
         label.offsetX(label.width() / 2); label.offsetY(label.height() / 2); 
         this.roomLayer.add(poly); this.roomLayer.add(label); 
+
+        // Draw Diagonal Dimensions if enabled
+        if (this.settings && this.settings.showDiagonalDimensions && anchorPath.length > 3) {
+            let corners = [];
+            let uniquePoints = anchorPath.slice(0, -1);
+            
+            if (uniquePoints.length >= 4) {
+                for (let i = 0; i < uniquePoints.length; i++) {
+                    let pPrev = uniquePoints[(i - 1 + uniquePoints.length) % uniquePoints.length];
+                    let pCurr = uniquePoints[i];
+                    let pNext = uniquePoints[(i + 1) % uniquePoints.length];
+                    
+                    let dir1 = { x: pCurr.x - pPrev.x, y: pCurr.y - pPrev.y };
+                    let len1 = Math.hypot(dir1.x, dir1.y);
+                    if (len1 > 0) { dir1.x /= len1; dir1.y /= len1; }
+                    
+                    let dir2 = { x: pNext.x - pCurr.x, y: pNext.y - pCurr.y };
+                    let len2 = Math.hypot(dir2.x, dir2.y);
+                    if (len2 > 0) { dir2.x /= len2; dir2.y /= len2; }
+                    
+                    let ang1 = Math.atan2(dir1.y, dir1.x);
+                    let ang2 = Math.atan2(dir2.y, dir2.x);
+                    
+                    let diff = Math.abs(ang1 - ang2);
+                    diff = diff % (2 * Math.PI);
+                    if (diff > Math.PI) diff = 2 * Math.PI - diff;
+                    
+                    // Register corner if angle change is more than ~5.7 degrees (0.1 rad)
+                    if (diff > 0.1) {
+                        let w1s = this.walls.filter(w => (w.startAnchor === pPrev && w.endAnchor === pCurr) || (w.endAnchor === pPrev && w.startAnchor === pCurr));
+                        let w1 = w1s.find(w => w.type !== 'railing') || w1s[0];
+                        
+                        let w2s = this.walls.filter(w => (w.startAnchor === pCurr && w.endAnchor === pNext) || (w.endAnchor === pCurr && w.startAnchor === pNext));
+                        let w2 = w2s.find(w => w.type !== 'railing') || w2s[0];
+                        
+                        let t1 = w1 ? (w1.thickness || (w1.config && w1.config.thickness) || 10) : 10;
+                        let t2 = w2 ? (w2.thickness || (w2.config && w2.config.thickness) || 10) : 10;
+                        
+                        let n1 = { x: -dir1.y, y: dir1.x };
+                        let n2 = { x: -dir2.y, y: dir2.x };
+                        
+                        let toCenter = { x: room.cx - pCurr.x, y: room.cy - pCurr.y };
+                        if (n1.x * toCenter.x + n1.y * toCenter.y < 0) { n1.x *= -1; n1.y *= -1; }
+                        if (n2.x * toCenter.x + n2.y * toCenter.y < 0) { n2.x *= -1; n2.y *= -1; }
+                        
+                        let L1_p = { x: pCurr.x + n1.x * (t1/2), y: pCurr.y + n1.y * (t1/2) };
+                        let L2_p = { x: pCurr.x + n2.x * (t2/2), y: pCurr.y + n2.y * (t2/2) };
+                        
+                        let det = dir1.x * dir2.y - dir1.y * dir2.x;
+                        let innerCorner;
+                        if (Math.abs(det) < 1e-6) {
+                            innerCorner = { x: pCurr.x, y: pCurr.y };
+                        } else {
+                            let t = ((L2_p.x - L1_p.x) * dir2.y - (L2_p.y - L1_p.y) * dir2.x) / det;
+                            innerCorner = { x: L1_p.x + t * dir1.x, y: L1_p.y + t * dir1.y };
+                        }
+                        corners.push(innerCorner);
+                    }
+                }
+            }
+            
+            if (corners.length === 4) {
+                const d1 = new Konva.Line({ points: [corners[0].x, corners[0].y, corners[2].x, corners[2].y], stroke: '#9ca3af', strokeWidth: 1, dash: [4, 4], listening: false });
+                const d2 = new Konva.Line({ points: [corners[1].x, corners[1].y, corners[3].x, corners[3].y], stroke: '#9ca3af', strokeWidth: 1, dash: [4, 4], listening: false });
+                
+                const len1 = Math.hypot(corners[2].x - corners[0].x, corners[2].y - corners[0].y);
+                const len2 = Math.hypot(corners[3].x - corners[1].x, corners[3].y - corners[1].y);
+                
+                // Position text at 30% of the diagonal to avoid overlapping at the center
+                let cx1 = corners[0].x + (corners[2].x - corners[0].x) * 0.3;
+                let cy1 = corners[0].y + (corners[2].y - corners[0].y) * 0.3;
+                let ang1 = Math.atan2(corners[2].y - corners[0].y, corners[2].x - corners[0].x) * 180 / Math.PI;
+                if (ang1 > 90 || ang1 < -90) ang1 += 180;
+                
+                const text1 = new Konva.Text({ x: cx1, y: cy1, text: this.formatLength(len1), fontSize: 11, fill: '#6b7280', align: 'center', fontStyle: 'bold', listening: false, rotation: ang1 });
+                text1.offsetX(text1.width() / 2); text1.offsetY(text1.height() + 2);
+                
+                let cx2 = corners[1].x + (corners[3].x - corners[1].x) * 0.3;
+                let cy2 = corners[1].y + (corners[3].y - corners[1].y) * 0.3;
+                let ang2 = Math.atan2(corners[3].y - corners[1].y, corners[3].x - corners[1].x) * 180 / Math.PI;
+                if (ang2 > 90 || ang2 < -90) ang2 += 180;
+                
+                const text2 = new Konva.Text({ x: cx2, y: cy2, text: this.formatLength(len2), fontSize: 11, fill: '#6b7280', align: 'center', fontStyle: 'bold', listening: false, rotation: ang2 });
+                text2.offsetX(text2.width() / 2); text2.offsetY(text2.height() + 2);
+                
+                this.roomLayer.add(d1, d2, text1, text2);
+            }
+        }
     }
     calculateArea(points) { let area = 0; for (let i = 0; i < points.length; i += 2) { let j = (i + 2) % points.length; area += points[i] * points[j + 1]; area -= points[i + 1] * points[j]; } return Math.abs(area / 2) * (PX_TO_FT * PX_TO_FT); }
 

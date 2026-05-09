@@ -206,6 +206,10 @@
                         <input type="checkbox" v-model="floorPlanSettings.showDimensionLabels" @change="syncSettings" class="settings-checkbox">
                     </div>
                     <div class="control-group-inline">
+                        <label>Diagonal Dimensions</label>
+                        <input type="checkbox" v-model="floorPlanSettings.showDiagonalDimensions" @change="syncSettings" class="settings-checkbox">
+                    </div>
+                    <div class="control-group-inline">
                         <label>Workspace Labels</label>
                         <input type="checkbox" v-model="floorPlanSettings.showWorkspaceLabels" @change="syncSettings" class="settings-checkbox">
                     </div>
@@ -441,6 +445,7 @@ const floorPlanSettings = ref({
     showCompass: true,
     showGrid: true,
     showDimensionLabels: true,
+    showDiagonalDimensions: true,
     showWorkspaceLabels: true,
     wallTracking: true,
     entranceWallId: null
