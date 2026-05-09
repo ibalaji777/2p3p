@@ -392,9 +392,9 @@ export class PremiumRailing {
             this.poly.opacity(1);
         }
         this.poly.strokeWidth(this.thickness || this.config.thickness || 4);
-        this.labelText.text(this.planner.formatLength(this.getLength())); 
+        this.labelText.text(this.planner.formatLength(this.getLength()));
         this.labelGroup.position({ x: (p1.x + p2.x) / 2 - this.labelText.width() / 2, y: (p1.y + p2.y) / 2 - 15 });
-    }
+        this.labelGroup.visible(this.planner.settings ? this.planner.settings.showDimensionLabels : true);    }
 
     remove() {
         if (this.parentArc) {

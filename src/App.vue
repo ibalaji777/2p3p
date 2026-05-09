@@ -106,7 +106,7 @@
         </div>
 
         <!-- 2D Compass Widget -->
-        <div class="compass-widget" v-show="viewMode === '2d'">
+        <div class="compass-widget" v-show="viewMode === '2d' && floorPlanSettings.showCompass">
             <div class="compass-n">N</div>
             <div class="compass-w">W</div>
             <div class="compass-center"></div>
@@ -147,8 +147,59 @@
             <div class="tabs-header">
                 <button :class="{active: activeRightTab === 'properties'}" @click="activeRightTab = 'properties'">Properties</button>
                 <button :class="{active: activeRightTab === 'layers'}" @click="activeRightTab = 'layers'">Layer List</button>
+                <button :class="{active: activeRightTab === 'settings'}" @click="activeRightTab = 'settings'">Settings</button>
             </div>
             
+            <div class="tab-body" v-show="activeRightTab === 'settings'">
+                <div class="props-content">
+                    <h4 class="props-subtitle">Floor Plan Configuration</h4>
+                    
+                    <div class="control-group"><label>Entrance Facing</label>
+                        <select v-model="floorPlanSettings.mainEntranceFacing" @change="syncSettings" style="flex:1; margin-left: 8px;">
+                            <option value="north">North</option>
+                            <option value="south">South</option>
+                            <option value="east">East</option>
+                            <option value="west">West</option>
+                            <option value="north_east">North-East</option>
+                            <option value="north_west">North-West</option>
+                            <option value="south_east">South-East</option>
+                            <option value="south_west">South-West</option>
+                        </select>
+                    </div>
+                    
+                    <div class="control-group"><label>Length Unit</label>
+                        <select v-model="floorPlanSettings.measurementUnit" @change="syncSettings" style="flex:1; margin-left: 8px;">
+                            <option value="ft">Feet (ft)</option>
+                            <option value="in">Inches (in)</option>
+                            <option value="feet_inches">Feet & Inches</option>
+                            <option value="m">Meter (m)</option>
+                            <option value="cm">Centimeter (cm)</option>
+                            <option value="mm">Millimeter (mm)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="control-group"><label>Area Unit</label>
+                        <select v-model="floorPlanSettings.areaUnit" @change="syncSettings" style="flex:1; margin-left: 8px;">
+                            <option value="sqft">Square Feet (sqft)</option>
+                            <option value="sqm">Square Meter (sqm)</option>
+                            <option value="cent">Cent</option>
+                            <option value="ground">Ground</option>
+                            <option value="gunta">Gunta</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group"><label>Show Compass</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="floorPlanSettings.showCompass" @change="syncSettings"></div></div>
+                    <div class="control-group"><label>Show Grid</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="floorPlanSettings.showGrid" @change="syncSettings"></div></div>
+                    <div class="control-group"><label>Dimension Labels</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="floorPlanSettings.showDimensionLabels" @change="syncSettings"></div></div>
+                    <div class="control-group"><label>Workspace Labels</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="floorPlanSettings.showWorkspaceLabels" @change="syncSettings"></div></div>
+                    <div class="control-group"><label>Wall Tracking</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="floorPlanSettings.wallTracking" @change="syncSettings"></div></div>
+                    
+                    <div v-if="selectedType === 'wall'" style="margin-top: 15px;">
+                        <button class="btn-primary" style="width: 100%;" @click="setEntranceWall">Set Selected Wall as Entrance</button>
+                    </div>
+                </div>
+            </div>
+
             <div class="tab-body" v-show="activeRightTab === 'properties'">
                 <div class="props-content" v-if="(viewMode==='3d' || viewMode==='2d') && selectedEntity && viewMode3D !== 'preview'">
                 
@@ -362,6 +413,35 @@ const skyRegistry = SKY_REGISTRY;
 const groundRegistry = GROUND_REGISTRY;
 const floorRegistry = FLOOR_REGISTRY;
 const railingRegistry = RAILING_REGISTRY;
+
+const floorPlanSettings = ref({
+    mainEntranceFacing: 'north',
+    measurementUnit: 'feet_inches',
+    areaUnit: 'sqft',
+    showCompass: true,
+    showGrid: true,
+    showDimensionLabels: true,
+    showWorkspaceLabels: true,
+    wallTracking: true,
+    entranceWallId: null
+});
+
+const syncSettings = () => {
+    if (planner.value) {
+        planner.value.settings = { ...floorPlanSettings.value };
+        planner.value.setWallTracking(floorPlanSettings.value.wallTracking);
+        isWallTrackingEnabled.value = floorPlanSettings.value.wallTracking;
+        planner.value.syncAll();
+        debouncedSaveHistory();
+    }
+};
+
+const setEntranceWall = () => {
+    if (selectedType.value === 'wall' && selectedEntity.value) {
+        floorPlanSettings.value.entranceWallId = selectedEntity.value;
+        syncSettings();
+    }
+};
 
 const canvas2D = ref(null);
 const canvas3D = ref(null);

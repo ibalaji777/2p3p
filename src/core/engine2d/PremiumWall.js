@@ -91,11 +91,16 @@ export class PremiumWall {
         this.wallGroup.add(this.poly, this.frontHighlight, this.backHighlight); 
         this.planner.wallLayer.add(this.wallGroup);
         
-        this.labelGroup = new Konva.Group({ listening: false }); 
-        this.labelText = new Konva.Text({ fontSize: 11, fill: "#4b5563", padding: 2, fontStyle: 'bold' }); 
-        this.labelGroup.add(this.labelText); 
+        this.labelGroup = new Konva.Group({ listening: false });
+        this.labelText = new Konva.Text({ fontSize: 11, fill: "#4b5563", padding: 2, fontStyle: 'bold' });
+        this.labelGroup.add(this.labelText);
         this.planner.uiLayer.add(this.labelGroup);
 
+        this.entranceGroup = new Konva.Group({ listening: false, visible: false });
+        this.entranceBg = new Konva.Rect({ fill: '#f59e0b', cornerRadius: 4, height: 20 });
+        this.entranceText = new Konva.Text({ fill: 'white', padding: 4, fontSize: 10, fontStyle: 'bold' });
+        this.entranceGroup.add(this.entranceBg, this.entranceText);
+        this.planner.uiLayer.add(this.entranceGroup);
         this.initEvents(); this.update();
     }
     
@@ -603,10 +608,33 @@ export class PremiumWall {
         }
 
         const fOff = 4; this.frontHighlight.points([ startL.x + n.x * fOff, startL.y + n.y * fOff, endL.x + n.x * fOff, endL.y + n.y * fOff ]); this.backHighlight.points([ startR.x - n.x * fOff, startR.y - n.y * fOff, endR.x - n.x * fOff, endR.y - n.y * fOff ]);
-        this.labelText.text(this.planner.formatLength(this.getLength())); this.labelGroup.position({ x: (p1.x + p2.x) / 2 - this.labelText.width() / 2, y: (p1.y + p2.y) / 2 - 15 });
+        this.labelText.text(this.planner.formatLength(this.getLength())); 
+        this.labelGroup.position({ x: (p1.x + p2.x) / 2 - this.labelText.width() / 2, y: (p1.y + p2.y) / 2 - 15 });
+        this.labelGroup.visible(this.planner.settings ? this.planner.settings.showDimensionLabels : true);
+        
+        if (this.planner.settings && this.planner.settings.entranceWallId === this) {
+            let facing = this.planner.settings.mainEntranceFacing || 'north';
+            let labelMap = { north: 'North', south: 'South', east: 'East', west: 'West', north_east: 'North-East', north_west: 'North-West', south_east: 'South-East', south_west: 'South-West' };
+            this.entranceText.text('🧭 ' + (labelMap[facing] || 'North') + ' Facing Entrance');
+            this.entranceBg.width(this.entranceText.width());
+            
+            const dx = p2.x - p1.x; const dy = p2.y - p1.y;
+            let ang = Math.atan2(dy, dx) * 180 / Math.PI;
+            if (ang > 90 || ang <= -90) ang += 180;
+
+            this.entranceGroup.position({ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 });
+            this.entranceGroup.rotation(ang);
+            this.entranceGroup.offsetX(this.entranceText.width() / 2);
+            this.entranceGroup.offsetY(-15);
+            this.entranceGroup.visible(true);
+            this.entranceGroup.moveToTop();
+        } else {
+            this.entranceGroup.visible(false);
+        }
+
         this.attachedWidgets.forEach(w => w.update()); 
     }   
     remove() { 
-        this.wallGroup.destroy(); this.labelGroup.destroy(); this.attachedWidgets.forEach(w => w.remove()); this.planner.walls = this.planner.walls.filter(w => w !== this); this.planner.selectEntity(null); this.planner.syncAll(); 
+        this.wallGroup.destroy(); this.labelGroup.destroy(); this.entranceGroup.destroy(); this.attachedWidgets.forEach(w => w.remove()); this.planner.walls = this.planner.walls.filter(w => w !== this); this.planner.selectEntity(null); this.planner.syncAll(); 
     }
 }

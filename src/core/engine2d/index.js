@@ -219,7 +219,18 @@ export class FloorPlanner {
     constructor(containerEl) { 
         this.container = containerEl; this.tool = "select"; this.currentUnit = "ft"; this.drawing = false; this.lastAnchor = null; this.startAnchor = null; this.drawingStair = null; this.preview = null;
         this.activeCategory = 'tools';
-        this.wallTrackingEnabled = false;
+        this.settings = {
+            mainEntranceFacing: 'north',
+            measurementUnit: 'feet_inches',
+            areaUnit: 'sqft',
+            showCompass: true,
+            showGrid: true,
+            showDimensionLabels: true,
+            showWorkspaceLabels: true,
+            wallTracking: true,
+            entranceWallId: null
+        };
+        this.wallTrackingEnabled = this.settings.wallTracking;
         this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.arcs = []; this.shapes = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
         this.onSelectionChange = null; 
         this.initKonva(); this.drawGrid(); this.initHUD(); this.initStageEvents(); 
@@ -424,7 +435,17 @@ export class FloorPlanner {
     hideInfoBadge() { this.infoBadgeGroup.hide(); }
 
     snap(v) { return Math.round(v / GRID) * GRID; }
-    formatLength(px) { const feet = px * PX_TO_FT; if (this.currentUnit === 'in') return Math.round(feet * 12) + '"'; if (this.currentUnit === 'cm') return Math.round(feet * 30.48) + ' cm'; if (this.currentUnit === 'm') return (feet * 0.3048).toFixed(2) + ' m'; const wholeFeet = Math.floor(feet), inches = Math.round((feet - wholeFeet) * 12); return inches > 0 ? `${wholeFeet}' ${inches}"` : `${wholeFeet}'`; }
+    formatLength(px) { 
+        const feet = px * PX_TO_FT; 
+        const unit = this.settings ? this.settings.measurementUnit : this.currentUnit;
+        if (unit === 'in') return Math.round(feet * 12) + '"'; 
+        if (unit === 'cm') return Math.round(feet * 30.48) + ' cm'; 
+        if (unit === 'mm') return Math.round(feet * 304.8) + ' mm'; 
+        if (unit === 'm') return (feet * 0.3048).toFixed(2) + ' m'; 
+        if (unit === 'ft') return feet.toFixed(2) + ' ft'; 
+        const wholeFeet = Math.floor(feet), inches = Math.round((feet - wholeFeet) * 12); 
+        return inches > 0 ? `${wholeFeet}' ${inches}"` : `${wholeFeet}'`; 
+    }
     
     snapAndAlign(dragNode, isTransforming = false) {
         if (this.smartGuides) this.smartGuides.snapAndAlign(dragNode, isTransforming);
@@ -641,10 +662,12 @@ export class FloorPlanner {
 
     getOrCreateAnchor(x, y) { let a = this.anchors.find(a => Math.hypot(a.x - x, a.y - y) < SNAP_DIST); if (a) return a; const newAnchor = new Anchor(this, x, y); this.anchors.push(newAnchor); return newAnchor; }
     deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.roofs.forEach(r => r.setHighlight(false)); if(this.balconies) this.balconies.forEach(b => b.setHighlight(false)); if(this.shapes) this.shapes.forEach(s => s.setHighlight(false)); this.selectEntity(null); this.syncAll(); }
-    syncAll() { 
-        this.buildingCenter = null; 
-        this.walls.forEach(w => w.update()); 
-        this.stairs.forEach(s => s.update()); 
+    syncAll() {
+        this.buildingCenter = null;
+        if (this.gridLayer) {
+            this.gridLayer.visible(this.settings ? this.settings.showGrid : true);
+        }
+        this.walls.forEach(w => w.update());        this.stairs.forEach(s => s.update()); 
         this.furniture.forEach(f => f.update()); 
         this.roofs.forEach(r => r.update()); 
         if(this.balconies) this.balconies.forEach(b => b.update()); 
@@ -1597,7 +1620,17 @@ export class FloorPlanner {
             this.stage.batchDraw();
         };
 
-        const label = new Konva.Text({ x: room.cx, y: room.cy, text: "Room\n" + Math.round(this.calculateArea(points)) + " sqft", fontSize: 12, fill: '#6b7280', align: 'center', fontStyle: 'bold', listening: false }); 
+        const areaSqFt = this.calculateArea(points);
+        let areaText = Math.round(areaSqFt) + " sqft";
+        if (this.settings && this.settings.areaUnit) {
+            const au = this.settings.areaUnit;
+            if (au === 'sqm') areaText = (areaSqFt * 0.092903).toFixed(2) + " sqm";
+            else if (au === 'cent') areaText = (areaSqFt / 435.6).toFixed(2) + " cent";
+            else if (au === 'ground') areaText = (areaSqFt / 2400).toFixed(2) + " ground";
+            else if (au === 'gunta') areaText = (areaSqFt / 1089).toFixed(2) + " gunta";
+            else areaText = Math.round(areaSqFt) + " sqft";
+        }
+        const label = new Konva.Text({ x: room.cx, y: room.cy, text: "Room\n" + areaText, fontSize: 12, fill: '#6b7280', align: 'center', fontStyle: 'bold', listening: false, visible: this.settings ? this.settings.showWorkspaceLabels : true }); 
         label.offsetX(label.width() / 2); label.offsetY(label.height() / 2); 
         this.roomLayer.add(poly); this.roomLayer.add(label); 
     }
@@ -1623,6 +1656,7 @@ export class FloorPlanner {
         this.anchors.forEach((a, i) => a._id = i);
 
         const state = {
+            settings: this.settings,
             unit: this.currentUnit,
             anchors: this.anchors.map(a => ({ id: a._id, x: a.x, y: a.y })),
             walls: standardWalls.map(w => ({
@@ -1656,6 +1690,10 @@ export class FloorPlanner {
         if (!jsonStr) return;
         try {
             const state = JSON.parse(jsonStr);
+            if (state.settings) {
+                this.settings = state.settings;
+                this.wallTrackingEnabled = this.settings.wallTracking;
+            }
             if (state.unit) {
                 this.currentUnit = state.unit;
             }
