@@ -105,6 +105,15 @@
             <button @click="resetZoom" title="Reset Zoom">⛶</button>
         </div>
 
+        <!-- 2D Compass Widget -->
+        <div class="compass-widget" v-show="viewMode === '2d'">
+            <div class="compass-n">N</div>
+            <div class="compass-w">W</div>
+            <div class="compass-center"></div>
+            <div class="compass-e">E</div>
+            <div class="compass-s">S</div>
+        </div>
+
         <div ref="canvas2D" class="canvas-host" v-show="viewMode === '2d'"></div>
         <div ref="canvas3D" class="canvas-host canvas-3d" v-show="viewMode === '3d'"></div>
         
@@ -1274,4 +1283,12 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .bottom-right-toolbar { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }
 .bottom-right-toolbar button { width: 40px; height: 40px; background: rgba(17, 24, 39, 0.8); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 50%; cursor: pointer; font-size: 20px; font-weight: bold; backdrop-filter: blur(4px); transition: 0.2s; display: flex; align-items: center; justify-content: center; }
 .bottom-right-toolbar button:hover { background: rgba(17, 24, 39, 1); }
+
+/* COMPASS WIDGET */
+.compass-widget { position: absolute; bottom: 20px; left: 20px; width: 60px; height: 60px; background: rgba(17, 24, 39, 0.8); border-radius: 50%; border: 2px solid rgba(255,255,255,0.2); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.compass-center { width: 8px; height: 8px; background: white; border-radius: 50%; }
+.compass-n { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: bold; color: #ef4444; }
+.compass-s { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: bold; color: #9ca3af; }
+.compass-w { position: absolute; left: 6px; top: 50%; transform: translateY(-50%); font-size: 10px; font-weight: bold; color: #9ca3af; }
+.compass-e { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font-size: 10px; font-weight: bold; color: #9ca3af; }
 </style>
