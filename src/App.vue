@@ -353,6 +353,34 @@
                     <button class="hud-delete" @click="handleDelete">Delete Shape</button>
                 </div>
 
+                <div v-else-if="selectedType === 'stair' || selectedType === 'staircase_two'">
+                    <h4 class="props-subtitle">Staircase Properties</h4>
+                    <div v-if="selectedType === 'staircase_two'">
+                        <div class="control-group">
+                            <label>Stair Type</label>
+                            <select v-model="selectedEntity.config.stairType" @change="syncEngine" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                                <option value="straight">Straight</option>
+                                <option value="l_shape">L-Shape</option>
+                                <option value="u_shape">U-Shape</option>
+                                <option value="spiral">Spiral</option>
+                            </select>
+                        </div>
+                        <div class="control-group"><label>Rotation (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.rotation" min="0" max="360" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.rotation" @input="syncEngine"></div></div>
+                        <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.width" min="20" max="200" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.width" @input="syncEngine"></div></div>
+                        <div class="control-group"><label>Step Count</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.stepCount" min="3" max="40" step="1" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.stepCount" min="3" max="40" step="1" @input="syncEngine"></div></div>
+                        <div class="control-group"><label>Tread Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.treadDepth" min="5" max="30" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.treadDepth" @input="syncEngine"></div></div>
+                        <div class="control-group"><label>Riser Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.riserHeight" min="4" max="15" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.riserHeight" @input="syncEngine"></div></div>
+                        <div class="control-group"><label>Support Type</label>
+                            <select v-model="selectedEntity.config.support" @change="syncEngine" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                                <option value="none">None</option>
+                                <option value="beam">Under-Beam</option>
+                                <option value="center_pole">Center Pole</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="hud-delete" @click="handleDelete">Delete Stairs</button>
+                </div>
+
                 <div v-else-if="selectedType === 'furniture'">
                     <h4 class="props-subtitle">{{ selectedEntity.config?.name || 'Object' }}</h4>
                     <div class="control-group"><label>Rotation (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.rotation" min="0" max="360" @input="syncEngine"><input type="number" v-model.number="selectedEntity.rotation" @input="syncEngine"></div></div>
@@ -521,6 +549,7 @@ const menuCategories = ref([
         id: 'structures', name: '🏗️ Structures',
         tools: [
             { id: 'stair', name: 'Draw Stairs' },
+            { id: 'staircase_two', name: 'Place Staircase V2' },
             { id: 'roof', name: 'Draw Roof' },
             { id: 'auto_roof', name: 'Generate Auto-Roof', action: 'auto_roof' }
         ]

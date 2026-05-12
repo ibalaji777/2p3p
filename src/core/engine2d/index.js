@@ -9,6 +9,7 @@ import { PremiumWall } from '/src/core/engine2d/PremiumWall.js';
 import { PremiumWidget } from '/src/core/engine2d/PremiumWidget.js';
 import { PremiumFurniture } from '/src/core/engine2d/PremiumFurniture.js';
 import { PremiumStair } from '/src/core/engine2d/PremiumStair.js';
+import { StaircaseTwo } from '/src/core/engine2d/StaircaseTwo.js';
 import { PremiumHipRoof } from '/src/core/engine2d/PremiumHipRoof.js';
 import { PremiumRailing } from '/src/core/engine2d/PremiumRailing.js';
 import { SmartGuidesTrackingSystem } from '/src/core/engine2d/SmartGuidesTrackingSystem.js';
@@ -774,6 +775,15 @@ export class FloorPlanner {
             let targetPos = { x: this.snap(pos.x), y: this.snap(pos.y) }; 
 
             if (this.tool === 'stair') { if (!this.drawingStair) { this.drawingStair = new PremiumStair(this, targetPos.x, targetPos.y); this.stairs.push(this.drawingStair); } else { this.drawingStair.addPoint(targetPos.x, targetPos.y); } this.syncAll(); return; }
+            if (this.tool === 'staircase_two') {
+                const stair2 = new StaircaseTwo(this, targetPos.x, targetPos.y);
+                this.stairs.push(stair2);
+                this.tool = 'select';
+                this.selectEntity(stair2, 'staircase_two');
+                this.updateToolStates();
+                this.syncAll();
+                return;
+            }
             
             if (this.tool === 'arc') {
                 let snap = targetPos;
@@ -1766,7 +1776,7 @@ export class FloorPlanner {
                 decors: w.attachedDecor ? w.attachedDecor.map(d => ({ id: d.id, configId: d.configId, side: d.side, localX: d.localX, localY: d.localY, localZ: d.localZ, width: d.width, height: d.height, depth: d.depth, tileSize: d.tileSize, faces: { front: d.faces.front, back: d.faces.back, left: d.faces.left, right: d.faces.right } })) : []
             })),
             furniture: this.furniture.map(f => ({ x: f.group.x(), y: f.group.y(), rotation: f.rotation, width: f.width, depth: f.depth, height: f.height, configId: f.config.id, description: f.description })),
-            stairs: this.stairs.map(s => ({ path: s.path.map(p => ({ x: p.x, y: p.y, shape: p.shape })), description: s.description })),
+            stairs: this.stairs.map(s => s.type === 'staircase_two' ? s.export() : { path: s.path.map(p => ({ x: p.x, y: p.y, shape: p.shape })), description: s.description }),
             roofs: this.roofs.map(r => ({ x: r.group.x(), y: r.group.y(), rotation: r.rotation, width: r.config?.width, depth: r.config?.depth, pitch: r.config?.pitch, overhang: r.config?.overhang, thickness: r.config?.thickness, ridgeOffset: r.config?.ridgeOffset, points: r.points, isHip: !!r.points, roofType: r.config?.roofType, material: r.config?.material, wallGap: r.config?.wallGap, description: r.description })),
             arcs: this.arcs ? this.arcs.map(a => ({ p1: {x: a.p1.x, y: a.p1.y}, p2: {x: a.p2.x, y: a.p2.y}, pos: a.pos, hasRailing: a.hasRailing, railingConfig: a.railingConfig, hidden: a.hidden, description: a.description })) : [],
             shapes: this.shapes ? this.shapes.map(s => ({ type: s.type, x: s.group.x(), y: s.group.y(), rotation: s.rotation, scaleX: s.group.scaleX(), scaleY: s.group.scaleY(), params: s.params, description: s.description })) : [],
@@ -1856,7 +1866,11 @@ export class FloorPlanner {
             }
             if (state.stairs) {
                 state.stairs.forEach(sData => {
-                    if (sData.path && sData.path.length > 0) {
+                    if (sData.type === 'staircase_two') {
+                        const stair2 = new StaircaseTwo(this, sData.x, sData.y, sData.config);
+                        if (sData.description !== undefined) stair2.description = sData.description;
+                        this.stairs.push(stair2);
+                    } else if (sData.path && sData.path.length > 0) {
                         const stair = new PremiumStair(this, sData.path[0].x, sData.path[0].y); stair.path = sData.path; stair.initHandles();
                         if (sData.description !== undefined) stair.description = sData.description;
                         this.stairs.push(stair);
