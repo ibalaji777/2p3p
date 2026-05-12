@@ -607,7 +607,9 @@ const layerItems = computed(() => {
     }
     if (planner.value.rooms) {
         planner.value.rooms.forEach((r, i) => {
-            items.push({ id: `room-${i}`, name: `Room/Floor ${i + 1}`, entity: r, type: 'room' });
+            if (!r.isDeleted) {
+                items.push({ id: `room-${i}`, name: `Room/Floor ${i + 1}`, entity: r, type: 'room' });
+            }
         });
     }
     if (planner.value.furniture) {
@@ -1097,12 +1099,11 @@ const handleDelete = () => {
             selectedType.value = null;
             if (viewMode.value === '3d') refresh3DScene(true);
         } else if (selectedType.value === 'room') {
-            const roomPath = selectedEntity.value.path;
-            const roomWalls = planner.value.walls.filter(w => roomPath.includes(w.startAnchor) && roomPath.includes(w.endAnchor));
-            roomWalls.forEach(w => w.remove());
+            selectedEntity.value.isDeleted = true;
             selectedEntity.value = null;
             selectedType.value = null;
             if (viewMode.value === '3d') refresh3DScene(true);
+            else if (planner.value) planner.value.syncAll();
         }
         debouncedSaveHistory();
     }

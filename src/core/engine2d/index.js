@@ -1588,9 +1588,11 @@ export class FloorPlanner {
             cy /= uniquePoints.length;
 
             let existingRoom = (this.rooms || []).find(r => Math.hypot(r.cx - cx, r.cy - cy) < 20);
-            const room = { path, cx, cy, configId: existingRoom ? existingRoom.configId : 'hardwood' };
+            const room = { path, cx, cy, configId: existingRoom ? existingRoom.configId : 'hardwood', isDeleted: existingRoom ? existingRoom.isDeleted : false, isHidden: existingRoom ? existingRoom.isHidden : false };
             newRooms.push(room);
-            this.drawRoom(room);
+            if (!room.isDeleted && !room.isHidden) {
+                this.drawRoom(room);
+            }
         });
 
         this.rooms = newRooms;

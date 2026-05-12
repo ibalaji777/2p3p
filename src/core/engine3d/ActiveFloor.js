@@ -155,6 +155,7 @@ export class ActiveFloor {
     _buildSlabs(rooms) {
         if (!rooms) return;
         rooms.forEach(room => {
+            if (room.isDeleted || room.isHidden) return;
             const path = room.path;
             if (!path || path.length < 3) return;
             const floorShape = new THREE.Shape();
