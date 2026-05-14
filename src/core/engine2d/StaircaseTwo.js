@@ -32,16 +32,31 @@ export class StaircaseTwo {
             draggable: true
         });
 
+        this.previewGroup = new Konva.Group({
+            x: this.x,
+            y: this.y,
+            rotation: this.config.rotation,
+            visible: false,
+            opacity: 0.5
+        });
+
         this.baseGroup = new Konva.Group();
         this.stepsGroup = new Konva.Group();
         this.labelsGroup = new Konva.Group();
         this.handlesGroup = new Konva.Group({ visible: false });
 
         this.group.add(this.baseGroup, this.stepsGroup, this.labelsGroup, this.handlesGroup);
-        this.planner.widgetLayer.add(this.group);
+        
+        if (this.planner.widgetLayer) {
+            this.planner.widgetLayer.add(this.previewGroup);
+            this.planner.widgetLayer.add(this.group);
+        }
 
         this.stepData3D = [];
         this.validationWarnings = [];
+        this.isDragging = false;
+        this.isResizing = false;
+        this.isRotating = false;
 
         this.initEvents();
         this.update();
@@ -49,47 +64,60 @@ export class StaircaseTwo {
 
     initEvents() {
         this.group.on('mouseenter', () => {
-            if (this.planner.tool === 'select') document.body.style.cursor = 'pointer';
+            if (this.planner.tool === 'select') document.body.style.cursor = 'move';
         });
         this.group.on('mouseleave', () => document.body.style.cursor = 'default');
         
-        this.group.on('click', (e) => {
+        this.group.on('click tap', (e) => {
             if (this.planner.tool === 'select') {
                 this.planner.selectEntity(this, 'staircase_two');
                 e.cancelBubble = true;
             }
         });
 
-        this.group.on('dragstart', () => {
+        this.group.on('dragstart', (e) => {
+            this.isDragging = true;
             this.group.moveToTop();
             this.setHighlight(true);
+            
+            this.updatePreview();
+            this.previewGroup.visible(true);
+            this.update(true, '#3b82f6'); 
         });
 
-        this.group.on('dragmove', () => {
+        this.group.on('dragmove', (e) => {
             this.x = this.group.x();
             this.y = this.group.y();
             this.checkSnapping();
             this.planner.syncAll();
         });
 
-        this.group.on('dragend', () => {
+        this.group.on('dragend', (e) => {
+            this.isDragging = false;
             this.x = this.group.x();
             this.y = this.group.y();
+            this.previewGroup.visible(false);
+            this.update(true);
             this.planner.syncAll();
         });
     }
 
+    updatePreview() {
+        this.previewGroup.destroyChildren();
+        const clone = this.baseGroup.clone();
+        clone.children.forEach(c => {
+            c.stroke('#94a3b8');
+            c.fill('rgba(148, 163, 184, 0.2)');
+        });
+        this.previewGroup.add(clone);
+        this.previewGroup.position(this.group.position());
+        this.previewGroup.rotation(this.group.rotation());
+    }
+
     validate() {
         this.validationWarnings = [];
-        // Steepness Check
-        if (this.config.riserHeight > 10) {
-            this.validationWarnings.push('Stair Too Steep');
-        }
-        // Tread Check
-        if (this.config.treadDepth < 9) {
-            this.validationWarnings.push('Unsafe Step Depth');
-        }
-        // Landing size check
+        if (this.config.riserHeight > 10) this.validationWarnings.push('Stair Too Steep');
+        if (this.config.treadDepth < 9) this.validationWarnings.push('Unsafe Step Depth');
         if (this.config.landing.enabled && this.config.landing.length < this.config.width) {
             this.validationWarnings.push('Landing Too Small');
         }
@@ -99,25 +127,39 @@ export class StaircaseTwo {
     setHighlight(isActive) {
         this.handlesGroup.visible(isActive);
         this.update(isActive);
+        if (isActive) {
+            this.group.moveToTop();
+        } else {
+            this.previewGroup.visible(false);
+        }
     }
 
     checkSnapping() {
-        // Implement simple snapping to walls or grids
         const snapDist = 15;
     }
 
-    update(isActive = false) {
+    update(isActive = null, customColor = null) {
+        if (isActive === null) {
+            isActive = (this.planner.selectedEntity === this);
+        }
         this.baseGroup.destroyChildren();
         this.stepsGroup.destroyChildren();
         this.labelsGroup.destroyChildren();
-        this.handlesGroup.destroyChildren();
+        
+        if (!this.isResizing && !this.isRotating) {
+            this.handlesGroup.destroyChildren();
+        } else if (!isActive) {
+            this.handlesGroup.destroyChildren();
+        }
+
         this.stepData3D = [];
 
         this.validate();
         this.group.rotation(this.config.rotation);
 
-        const strokeColor = isActive ? '#4f46e5' : '#8b5a2b';
-        const warningColor = this.validationWarnings.length > 0 ? '#ef4444' : strokeColor;
+        let strokeColor = isActive ? '#4f46e5' : '#8b5a2b';
+        if (customColor) strokeColor = customColor;
+        let warningColor = this.validationWarnings.length > 0 ? '#ef4444' : strokeColor;
 
         switch (this.config.stairType) {
             case 'straight':
@@ -147,7 +189,11 @@ export class StaircaseTwo {
             }));
         }
 
-        if (isActive) this.addHandles();
+        if (isActive) {
+            if (!this.isResizing && !this.isRotating) {
+                this.addHandles();
+            }
+        }
     }
 
     buildStraightStair(color, isActive) {
@@ -155,13 +201,11 @@ export class StaircaseTwo {
         const hw = w / 2;
         const l = this.config.stepCount * this.config.treadDepth;
 
-        // Base outline
         this.baseGroup.add(new Konva.Rect({
             x: -hw, y: 0, width: w, height: l,
-            stroke: color, strokeWidth: 2, fill: 'rgba(139, 90, 43, 0.1)'
+            stroke: color, strokeWidth: 2, fill: isActive ? 'rgba(79, 70, 229, 0.1)' : 'rgba(139, 90, 43, 0.1)'
         }));
 
-        // Steps
         let currY = 0;
         let currH = 0;
         for (let i = 0; i < this.config.stepCount; i++) {
@@ -181,15 +225,14 @@ export class StaircaseTwo {
 
         this.drawDirectionArrow(0, 5, 0, Math.min(l - 5, 40));
 
-        // Railings
         if (this.config.railing.enabled) {
             if (this.config.railing.left) this.stepsGroup.add(new Konva.Line({ points: [-hw + 2, 0, -hw + 2, l], stroke: '#374151', strokeWidth: 2 }));
             if (this.config.railing.right) this.stepsGroup.add(new Konva.Line({ points: [hw - 2, 0, hw - 2, l], stroke: '#374151', strokeWidth: 2 }));
         }
 
-        // Dimension
         if (isActive) {
             this.labelsGroup.add(new Konva.Text({ x: hw + 5, y: l / 2, text: `${l.toFixed(1)}`, fontSize: 10, fill: '#6b7280', rotation: 90 }));
+            this.labelsGroup.add(new Konva.Text({ x: 0, y: l + 5, text: `W: ${w.toFixed(1)}`, fontSize: 10, fill: '#6b7280', align: 'center', offsetX: 15 }));
         }
     }
 
@@ -203,17 +246,14 @@ export class StaircaseTwo {
         const lDepth = this.config.landing.enabled ? this.config.landing.length : w;
         const m = this.config.isMirrored ? -1 : 1;
 
-        // Flight 1
-        this.baseGroup.add(new Konva.Rect({ x: -hw, y: 0, width: w, height: f1Len, stroke: color, strokeWidth: 2, fill: 'rgba(139, 90, 43, 0.1)' }));
+        this.baseGroup.add(new Konva.Rect({ x: -hw, y: 0, width: w, height: f1Len, stroke: color, strokeWidth: 2, fill: isActive ? 'rgba(79, 70, 229, 0.1)' : 'rgba(139, 90, 43, 0.1)' }));
         
-        // Landing
         const lX = -hw;
         const lY = f1Len;
-        this.baseGroup.add(new Konva.Rect({ x: lX, y: lY, width: w, height: lDepth, stroke: color, strokeWidth: 2, fill: 'rgba(139, 90, 43, 0.3)' }));
+        this.baseGroup.add(new Konva.Rect({ x: lX, y: lY, width: w, height: lDepth, stroke: color, strokeWidth: 2, fill: isActive ? 'rgba(79, 70, 229, 0.2)' : 'rgba(139, 90, 43, 0.3)' }));
         
-        // Flight 2
         const f2X = this.config.isMirrored ? lX - f2Len : lX + w;
-        this.baseGroup.add(new Konva.Rect({ x: f2X, y: lY, width: f2Len, height: w, stroke: color, strokeWidth: 2, fill: 'rgba(139, 90, 43, 0.1)' }));
+        this.baseGroup.add(new Konva.Rect({ x: f2X, y: lY, width: f2Len, height: w, stroke: color, strokeWidth: 2, fill: isActive ? 'rgba(79, 70, 229, 0.1)' : 'rgba(139, 90, 43, 0.1)' }));
 
         let currY = 0;
         for (let i = 0; i < f1Steps; i++) {
@@ -238,12 +278,9 @@ export class StaircaseTwo {
         const fLen = fSteps * this.config.treadDepth;
         const lDepth = this.config.landing.enabled ? this.config.landing.length : w;
 
-        // F1
-        this.baseGroup.add(new Konva.Rect({ x: -w - gap/2, y: 0, width: w, height: fLen, stroke: color, strokeWidth: 2, fill: 'rgba(139, 90, 43, 0.1)' }));
-        // L
-        this.baseGroup.add(new Konva.Rect({ x: -w - gap/2, y: fLen, width: w * 2 + gap, height: lDepth, stroke: color, strokeWidth: 2, fill: 'rgba(139, 90, 43, 0.3)' }));
-        // F2
-        this.baseGroup.add(new Konva.Rect({ x: gap/2, y: 0, width: w, height: fLen, stroke: color, strokeWidth: 2, fill: 'rgba(139, 90, 43, 0.1)' }));
+        this.baseGroup.add(new Konva.Rect({ x: -w - gap/2, y: 0, width: w, height: fLen, stroke: color, strokeWidth: 2, fill: isActive ? 'rgba(79, 70, 229, 0.1)' : 'rgba(139, 90, 43, 0.1)' }));
+        this.baseGroup.add(new Konva.Rect({ x: -w - gap/2, y: fLen, width: w * 2 + gap, height: lDepth, stroke: color, strokeWidth: 2, fill: isActive ? 'rgba(79, 70, 229, 0.2)' : 'rgba(139, 90, 43, 0.3)' }));
+        this.baseGroup.add(new Konva.Rect({ x: gap/2, y: 0, width: w, height: fLen, stroke: color, strokeWidth: 2, fill: isActive ? 'rgba(79, 70, 229, 0.1)' : 'rgba(139, 90, 43, 0.1)' }));
 
         let currY = 0;
         for (let i = 0; i < fSteps; i++) {
@@ -263,7 +300,7 @@ export class StaircaseTwo {
     buildSpiralStair(color, isActive) {
         const rOut = this.config.width;
         const rIn = rOut * 0.2;
-        this.baseGroup.add(new Konva.Circle({ x: 0, y: 0, radius: rOut, stroke: color, strokeWidth: 2, fill: 'rgba(139, 90, 43, 0.1)' }));
+        this.baseGroup.add(new Konva.Circle({ x: 0, y: 0, radius: rOut, stroke: color, strokeWidth: 2, fill: isActive ? 'rgba(79, 70, 229, 0.1)' : 'rgba(139, 90, 43, 0.1)' }));
         this.baseGroup.add(new Konva.Circle({ x: 0, y: 0, radius: rIn, stroke: color, strokeWidth: 2, fill: '#fff' }));
         
         const steps = this.config.stepCount;
@@ -293,25 +330,152 @@ export class StaircaseTwo {
     }
 
     addHandles() {
-        const rotHandle = new Konva.Circle({ x: 0, y: -25, radius: 8, fill: '#3b82f6', stroke: 'white', strokeWidth: 2, draggable: true });
-        rotHandle.on('mouseenter', () => document.body.style.cursor = 'grab');
-        rotHandle.on('mouseleave', () => document.body.style.cursor = 'pointer');
-        rotHandle.on('dragmove', (e) => {
+        const rotHandleGroup = new Konva.Group({ x: 0, y: -35, draggable: true });
+        this.handlesGroup.add(new Konva.Line({ points: [0, 0, 0, -35], stroke: '#3b82f6', strokeWidth: 2, dash: [4, 4] }));
+        rotHandleGroup.add(new Konva.Circle({ x: 0, y: 0, radius: 20, fill: 'transparent' }));
+        const rotHandle = new Konva.Circle({ x: 0, y: 0, radius: 10, fill: '#ffffff', stroke: '#3b82f6', strokeWidth: 3 });
+        rotHandleGroup.add(rotHandle);
+        rotHandleGroup.add(new Konva.Path({
+            x: -6, y: -6,
+            data: 'M10.14,1.16a11,11,0,0,0-9,8.92M1.16,10.14a11,11,0,0,0,8.92,9M10.14,1.16v4.3m0-4.3h-4.3',
+            stroke: '#3b82f6', strokeWidth: 1.5,
+            scale: { x: 0.6, y: 0.6 }
+        }));
+
+        rotHandleGroup.on('mouseenter', () => document.body.style.cursor = 'grab');
+        rotHandleGroup.on('mouseleave', () => document.body.style.cursor = 'move');
+        rotHandleGroup.on('dragstart', (e) => {
             e.cancelBubble = true;
-            const angle = Math.atan2(rotHandle.y(), rotHandle.x()) + Math.PI/2;
-            this.config.rotation = (angle * 180 / Math.PI);
-            rotHandle.position({ x: 0, y: -25 }); // reset local position as rotation happens on group
+            this.isRotating = true;
+            document.body.style.cursor = 'grabbing';
+            this.update(true, '#f59e0b');
+        });
+        rotHandleGroup.on('dragmove', (e) => {
+            e.cancelBubble = true;
+            const pos = this.group.getAbsolutePosition();
+            const pointer = this.planner.stage?.getPointerPosition() || this.planner.layer?.getStage()?.getPointerPosition();
+            if (pointer) {
+                const angle = Math.atan2(pointer.y - pos.y, pointer.x - pos.x) + Math.PI / 2;
+                this.config.rotation = (angle * 180 / Math.PI);
+                this.group.rotation(this.config.rotation);
+                rotHandleGroup.position({ x: 0, y: -35 });
+                this.updatePreview();
+                this.planner.syncAll();
+            }
+        });
+        rotHandleGroup.on('dragend', (e) => {
+            e.cancelBubble = true;
+            this.isRotating = false;
+            document.body.style.cursor = 'move';
             this.update(true);
             this.planner.syncAll();
         });
-        this.handlesGroup.add(new Konva.Line({ points: [0, 0, 0, -25], stroke: '#3b82f6', strokeWidth: 1, dash: [2,2] }));
-        this.handlesGroup.add(rotHandle);
+        this.handlesGroup.add(rotHandleGroup);
         
-        // Convert Type Button
-        const convertBtn = new Konva.Label({ x: this.config.width/2 + 20, y: 0, opacity: 0.9 });
-        convertBtn.add(new Konva.Tag({ fill: '#10b981', cornerRadius: 4 }));
-        convertBtn.add(new Konva.Text({ text: 'Cycle Type', padding: 5, fill: 'white', fontSize: 10 }));
-        convertBtn.on('click', (e) => {
+        const isSpiral = ['spiral', 'circular'].includes(this.config.stairType);
+        
+        if (!isSpiral) {
+            let fLen = this.config.stairType === 'straight' ? 
+                this.config.stepCount * this.config.treadDepth : 
+                Math.floor(this.config.stepCount / 2) * this.config.treadDepth;
+
+            const resizeHandleGroup = new Konva.Group({
+                x: 0, y: fLen, draggable: true
+            });
+
+            resizeHandleGroup.add(new Konva.Circle({ x: 0, y: 0, radius: 15, fill: 'transparent' }));
+            resizeHandleGroup.add(new Konva.Rect({
+                x: -8, y: -4, width: 16, height: 8, fill: '#ffffff', stroke: '#10b981', strokeWidth: 2, cornerRadius: 2
+            }));
+
+            resizeHandleGroup.on('mouseenter', () => document.body.style.cursor = 'ns-resize');
+            resizeHandleGroup.on('mouseleave', () => document.body.style.cursor = 'move');
+            resizeHandleGroup.on('dragstart', (e) => {
+                e.cancelBubble = true;
+                this.isResizing = true;
+                this.update(true, '#10b981');
+            });
+            resizeHandleGroup.on('dragmove', (e) => {
+                e.cancelBubble = true;
+                const newY = resizeHandleGroup.y();
+                let newFlightSteps = Math.round(newY / this.config.treadDepth);
+                if (newFlightSteps < 2) newFlightSteps = 2;
+                
+                let newSteps = this.config.stairType === 'straight' ? newFlightSteps : newFlightSteps * 2;
+                if (newSteps > 40) newSteps = 40;
+                
+                if (newSteps !== this.config.stepCount) {
+                    this.config.stepCount = newSteps;
+                    this.update(true, '#10b981');
+                    this.planner.syncAll();
+                }
+                
+                let updatedFLen = this.config.stairType === 'straight' ? 
+                    this.config.stepCount * this.config.treadDepth : 
+                    Math.floor(this.config.stepCount / 2) * this.config.treadDepth;
+                    
+                resizeHandleGroup.position({ x: 0, y: updatedFLen });
+            });
+            resizeHandleGroup.on('dragend', (e) => {
+                e.cancelBubble = true;
+                this.isResizing = false;
+                this.update(true);
+                this.planner.syncAll();
+            });
+            this.handlesGroup.add(resizeHandleGroup);
+            
+            const w = this.config.width;
+            const widthHandleGroup = new Konva.Group({
+                x: w/2, y: fLen/2, draggable: true
+            });
+            widthHandleGroup.add(new Konva.Circle({ x: 0, y: 0, radius: 15, fill: 'transparent' }));
+            widthHandleGroup.add(new Konva.Rect({
+                x: -4, y: -8, width: 8, height: 16, fill: '#ffffff', stroke: '#8b5cf6', strokeWidth: 2, cornerRadius: 2
+            }));
+
+            widthHandleGroup.on('mouseenter', () => document.body.style.cursor = 'ew-resize');
+            widthHandleGroup.on('mouseleave', () => document.body.style.cursor = 'move');
+            widthHandleGroup.on('dragstart', (e) => {
+                e.cancelBubble = true;
+                this.isResizing = true;
+                this.update(true, '#8b5cf6');
+            });
+            widthHandleGroup.on('dragmove', (e) => {
+                e.cancelBubble = true;
+                const newX = widthHandleGroup.x();
+                let newWidth = Math.round(newX * 2);
+                if (newWidth < 20) newWidth = 20;
+                if (newWidth > 150) newWidth = 150;
+                
+                if (newWidth !== this.config.width) {
+                    this.config.width = newWidth;
+                    this.update(true, '#8b5cf6');
+                    this.planner.syncAll();
+                }
+                
+                let updatedFLen = this.config.stairType === 'straight' ? 
+                    this.config.stepCount * this.config.treadDepth : 
+                    Math.floor(this.config.stepCount / 2) * this.config.treadDepth;
+                
+                widthHandleGroup.position({ x: this.config.width/2, y: updatedFLen/2 });
+            });
+            widthHandleGroup.on('dragend', (e) => {
+                e.cancelBubble = true;
+                this.isResizing = false;
+                this.update(true);
+                this.planner.syncAll();
+            });
+            this.handlesGroup.add(widthHandleGroup);
+        }
+
+        const buttonsGroup = new Konva.Group({ x: this.config.width/2 + 25, y: -10 });
+        
+        const convertBtn = new Konva.Label({ x: 0, y: 0, opacity: 0.9 });
+        convertBtn.add(new Konva.Tag({ fill: '#10b981', cornerRadius: 4, shadowColor: 'black', shadowBlur: 4, shadowOpacity: 0.2, shadowOffset: { x: 1, y: 1 } }));
+        convertBtn.add(new Konva.Text({ text: '🔄 Cycle Type', padding: 6, fill: 'white', fontSize: 11, fontStyle: 'bold' }));
+        convertBtn.on('mouseenter', () => document.body.style.cursor = 'pointer');
+        convertBtn.on('mouseleave', () => document.body.style.cursor = 'move');
+        convertBtn.on('click tap', (e) => {
             e.cancelBubble = true;
             const types = ['straight', 'l_shape', 'u_shape', 'spiral'];
             let idx = types.indexOf(this.config.stairType);
@@ -319,19 +483,22 @@ export class StaircaseTwo {
             this.update(true);
             this.planner.syncAll();
         });
-        this.handlesGroup.add(convertBtn);
+        buttonsGroup.add(convertBtn);
         
-        // Mirror Button
-        const mirrorBtn = new Konva.Label({ x: this.config.width/2 + 20, y: 25, opacity: 0.9 });
-        mirrorBtn.add(new Konva.Tag({ fill: '#8b5cf6', cornerRadius: 4 }));
-        mirrorBtn.add(new Konva.Text({ text: 'Mirror', padding: 5, fill: 'white', fontSize: 10 }));
-        mirrorBtn.on('click', (e) => {
+        const mirrorBtn = new Konva.Label({ x: 0, y: 30, opacity: 0.9 });
+        mirrorBtn.add(new Konva.Tag({ fill: '#8b5cf6', cornerRadius: 4, shadowColor: 'black', shadowBlur: 4, shadowOpacity: 0.2, shadowOffset: { x: 1, y: 1 } }));
+        mirrorBtn.add(new Konva.Text({ text: '◨ Mirror', padding: 6, fill: 'white', fontSize: 11, fontStyle: 'bold' }));
+        mirrorBtn.on('mouseenter', () => document.body.style.cursor = 'pointer');
+        mirrorBtn.on('mouseleave', () => document.body.style.cursor = 'move');
+        mirrorBtn.on('click tap', (e) => {
             e.cancelBubble = true;
             this.config.isMirrored = !this.config.isMirrored;
             this.update(true);
             this.planner.syncAll();
         });
-        this.handlesGroup.add(mirrorBtn);
+        buttonsGroup.add(mirrorBtn);
+
+        this.handlesGroup.add(buttonsGroup);
     }
 
     export() {
@@ -344,6 +511,7 @@ export class StaircaseTwo {
     }
 
     remove() {
+        this.previewGroup.destroy();
         this.group.destroy();
         this.planner.stairs = this.planner.stairs.filter(s => s !== this);
         this.planner.selectEntity(null);
