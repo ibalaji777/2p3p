@@ -106,8 +106,8 @@ export class StaircaseTwo {
         this.previewGroup.destroyChildren();
         const clone = this.baseGroup.clone();
         clone.children.forEach(c => {
-            c.stroke('#94a3b8');
-            c.fill('rgba(148, 163, 184, 0.2)');
+            if (typeof c.stroke === 'function' && c.stroke()) c.stroke('#94a3b8');
+            if (typeof c.fill === 'function' && c.fill()) c.fill('rgba(148, 163, 184, 0.2)');
         });
         this.previewGroup.add(clone);
         this.previewGroup.position(this.group.position());
@@ -243,17 +243,50 @@ export class StaircaseTwo {
         const f2Steps = this.config.stepCount - f1Steps;
         const f1Len = f1Steps * this.config.treadDepth;
         const f2Len = f2Steps * this.config.treadDepth;
-        const lDepth = this.config.landing.enabled ? this.config.landing.length : w;
+        const lDepth = this.config.landing.enabled ? Math.max(this.config.landing.length, w) : w;
         const m = this.config.isMirrored ? -1 : 1;
 
-        this.baseGroup.add(new Konva.Rect({ x: -hw, y: 0, width: w, height: f1Len, stroke: color, strokeWidth: 2, fill: isActive ? 'rgba(79, 70, 229, 0.1)' : 'rgba(139, 90, 43, 0.1)' }));
-        
         const lX = -hw;
         const lY = f1Len;
-        this.baseGroup.add(new Konva.Rect({ x: lX, y: lY, width: w, height: lDepth, stroke: color, strokeWidth: 2, fill: isActive ? 'rgba(79, 70, 229, 0.2)' : 'rgba(139, 90, 43, 0.3)' }));
-        
         const f2X = this.config.isMirrored ? lX - f2Len : lX + w;
-        this.baseGroup.add(new Konva.Rect({ x: f2X, y: lY, width: f2Len, height: w, stroke: color, strokeWidth: 2, fill: isActive ? 'rgba(79, 70, 229, 0.1)' : 'rgba(139, 90, 43, 0.1)' }));
+
+        this.baseGroup.add(new Konva.Rect({ x: -hw, y: 0, width: w, height: f1Len, fill: isActive ? 'rgba(79, 70, 229, 0.1)' : 'rgba(139, 90, 43, 0.1)' }));
+        this.baseGroup.add(new Konva.Rect({ x: lX, y: lY, width: w, height: lDepth, fill: isActive ? 'rgba(79, 70, 229, 0.2)' : 'rgba(139, 90, 43, 0.3)' }));
+        this.baseGroup.add(new Konva.Rect({ x: f2X, y: lY, width: f2Len, height: w, fill: isActive ? 'rgba(79, 70, 229, 0.1)' : 'rgba(139, 90, 43, 0.1)' }));
+
+        let points = [];
+        if (!this.config.isMirrored) {
+            points = [
+                -hw, 0,
+                hw, 0,
+                hw, f1Len,
+                hw + f2Len, f1Len,
+                hw + f2Len, f1Len + w,
+                hw, f1Len + w,
+                hw, f1Len + lDepth,
+                -hw, f1Len + lDepth
+            ];
+        } else {
+            points = [
+                -hw, 0,
+                hw, 0,
+                hw, f1Len + lDepth,
+                -hw, f1Len + lDepth,
+                -hw, f1Len + w,
+                -hw - f2Len, f1Len + w,
+                -hw - f2Len, f1Len,
+                -hw, f1Len
+            ];
+        }
+
+        this.baseGroup.add(new Konva.Line({
+            points: points,
+            closed: true,
+            stroke: color,
+            strokeWidth: 2
+        }));
+
+        this.stepsGroup.add(new Konva.Line({ points: [-hw, f1Len, hw, f1Len], stroke: '#9ca3af', strokeWidth: 1 }));
 
         let currY = 0;
         for (let i = 0; i < f1Steps; i++) {
@@ -276,11 +309,29 @@ export class StaircaseTwo {
         const gap = 10;
         const fSteps = Math.floor(this.config.stepCount / 2);
         const fLen = fSteps * this.config.treadDepth;
-        const lDepth = this.config.landing.enabled ? this.config.landing.length : w;
+        const lDepth = this.config.landing.enabled ? Math.max(this.config.landing.length, w) : w;
 
-        this.baseGroup.add(new Konva.Rect({ x: -w - gap/2, y: 0, width: w, height: fLen, stroke: color, strokeWidth: 2, fill: isActive ? 'rgba(79, 70, 229, 0.1)' : 'rgba(139, 90, 43, 0.1)' }));
-        this.baseGroup.add(new Konva.Rect({ x: -w - gap/2, y: fLen, width: w * 2 + gap, height: lDepth, stroke: color, strokeWidth: 2, fill: isActive ? 'rgba(79, 70, 229, 0.2)' : 'rgba(139, 90, 43, 0.3)' }));
-        this.baseGroup.add(new Konva.Rect({ x: gap/2, y: 0, width: w, height: fLen, stroke: color, strokeWidth: 2, fill: isActive ? 'rgba(79, 70, 229, 0.1)' : 'rgba(139, 90, 43, 0.1)' }));
+        this.baseGroup.add(new Konva.Rect({ x: -w - gap/2, y: 0, width: w, height: fLen, fill: isActive ? 'rgba(79, 70, 229, 0.1)' : 'rgba(139, 90, 43, 0.1)' }));
+        this.baseGroup.add(new Konva.Rect({ x: -w - gap/2, y: fLen, width: w * 2 + gap, height: lDepth, fill: isActive ? 'rgba(79, 70, 229, 0.2)' : 'rgba(139, 90, 43, 0.3)' }));
+        this.baseGroup.add(new Konva.Rect({ x: gap/2, y: 0, width: w, height: fLen, fill: isActive ? 'rgba(79, 70, 229, 0.1)' : 'rgba(139, 90, 43, 0.1)' }));
+
+        this.baseGroup.add(new Konva.Line({
+            points: [
+                -w - gap/2, 0,
+                -gap/2, 0,
+                -gap/2, fLen,
+                gap/2, fLen,
+                gap/2, 0,
+                w + gap/2, 0,
+                w + gap/2, fLen + lDepth,
+                -w - gap/2, fLen + lDepth
+            ],
+            closed: true,
+            stroke: color,
+            strokeWidth: 2
+        }));
+
+        this.stepsGroup.add(new Konva.Line({ points: [-w - gap/2, fLen, -gap/2, fLen], stroke: '#9ca3af', strokeWidth: 1 }));
 
         let currY = 0;
         for (let i = 0; i < fSteps; i++) {
