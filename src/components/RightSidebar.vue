@@ -15,7 +15,7 @@
       </select>
     </div>
 
-    <div v-if="type === 'stair' || type === 'stair_node'">
+    <div v-if="type === 'stair' || type === 'stair_node' || type === 'staircase_two'">
       <div class="unit-label">Staircase Type</div>
       <select v-model="entity.config.stairType" @change="onUpdate">
         <option value="straight">Straight</option>
@@ -89,6 +89,8 @@
           <option value="wooden">Wooden</option>
           <option value="minimal">Minimal</option>
           <option value="classic">Classic</option>
+          <option value="cable">Cable</option>
+          <option value="industrial">Industrial</option>
         </select>
         <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
           <input type="checkbox" v-model="entity.config.railing.left" @change="onUpdate">

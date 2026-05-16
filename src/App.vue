@@ -370,15 +370,51 @@
                         <div class="control-group"><label>Step Count</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.stepCount" min="3" max="40" step="1" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.stepCount" min="3" max="40" step="1" @input="syncEngine"></div></div>
                         <div class="control-group"><label>Tread Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.treadDepth" min="5" max="30" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.treadDepth" @input="syncEngine"></div></div>
                         <div class="control-group"><label>Riser Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.riserHeight" min="4" max="15" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.riserHeight" @input="syncEngine"></div></div>
-                        <div class="control-group"><label>Support Type</label>
-                            <select v-model="selectedEntity.config.support" @change="syncEngine" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
-                                <option value="none">None</option>
-                                <option value="beam">Under-Beam</option>
-                                <option value="center_pole">Center Pole</option>
-                            </select>
+                        
+                        <div class="control-group" style="display:flex; align-items:center; gap:8px;">
+                            <input type="checkbox" v-model="selectedEntity.config.isMirrored" @change="syncEngine">
+                            <label style="margin-bottom:0">Mirrored Layout</label>
+                        </div>
+
+                        <hr style="margin: 15px 0; border:0; border-top:1px solid #d1d5db;">
+                        <h4 class="props-subtitle" style="margin-top:0">Landing Settings</h4>
+                        <div class="control-group" style="display:flex; align-items:center; gap:8px;">
+                            <input type="checkbox" v-model="selectedEntity.config.landing.enabled" @change="syncEngine">
+                            <label style="margin-bottom:0">Enable Landing</label>
+                        </div>
+                        <div class="control-group" v-if="selectedEntity.config.landing.enabled"><label>Landing Length</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.landing.length" min="20" max="200" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.landing.length" @input="syncEngine"></div></div>
+
+                        <hr style="margin: 15px 0; border:0; border-top:1px solid #d1d5db;">
+                        <h4 class="props-subtitle" style="margin-top:0">Railing Settings</h4>
+                        <div class="control-group" style="display:flex; align-items:center; gap:8px;">
+                            <input type="checkbox" v-model="selectedEntity.config.railing.enabled" @change="syncEngine">
+                            <label style="margin-bottom:0">Enable Railings</label>
+                        </div>
+                        <div v-if="selectedEntity.config.railing.enabled">
+                            <div class="control-group">
+                                <label>Railing Style</label>
+                                <select v-model="selectedEntity.config.railing.style" @change="syncEngine" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                                    <option value="modern">Modern</option>
+                                    <option value="glass">Glass</option>
+                                    <option value="steel">Steel</option>
+                                    <option value="wooden">Wooden</option>
+                                    <option value="minimal">Minimal</option>
+                                    <option value="classic">Classic</option>
+                                    <option value="cable">Cable</option>
+                                    <option value="industrial">Industrial</option>
+                                </select>
+                            </div>
+                            <div class="control-group" style="display:flex; align-items:center; gap:8px;">
+                                <input type="checkbox" v-model="selectedEntity.config.railing.left" @change="syncEngine">
+                                <label style="margin-bottom:0">Left Railing</label>
+                            </div>
+                            <div class="control-group" style="display:flex; align-items:center; gap:8px;">
+                                <input type="checkbox" v-model="selectedEntity.config.railing.right" @change="syncEngine">
+                                <label style="margin-bottom:0">Right Railing</label>
+                            </div>
                         </div>
                     </div>
-                    <button class="hud-delete" @click="handleDelete">Delete Stairs</button>
+                    <button class="hud-delete" @click="handleDelete" style="margin-top: 15px;">Delete Stairs</button>
                 </div>
 
                 <div v-else-if="selectedType === 'furniture'">

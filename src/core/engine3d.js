@@ -203,6 +203,53 @@ class Stair3DBuilder {
                     const handGeo = new THREE.BoxGeometry(3, 3, len);
                     handGeo.translate(0, 91.5, len/2);
                     section.add(new THREE.Mesh(handGeo, this.matSteel));
+                } else if (style === 'cable') {
+                    const rMat = this.matSteel;
+                    for (let j = 0; j <= 1; j++) {
+                        const post = new THREE.Mesh(new THREE.BoxGeometry(2, 90, 2), this.matBlack);
+                        post.position.set(0, 45 + p2.y*j, j * len);
+                        section.add(post);
+                    }
+                    const handGeo = new THREE.BoxGeometry(3, 3, len);
+                    handGeo.translate(0, 91.5, len/2);
+                    handGeo.rotateX(-Math.atan2(p2.y - p1.y, len));
+                    section.add(new THREE.Mesh(handGeo, this.matBlack));
+                    
+                    for (let j = 1; j <= 6; j++) {
+                        const mid = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, len, 4), rMat);
+                        mid.rotateX(Math.PI/2);
+                        const hRatio = j / 7;
+                        mid.position.set(0, 90 * hRatio, len/2);
+                        mid.position.y += (p2.y - p1.y) * 0.5;
+                        mid.rotation.x -= Math.atan2(p2.y - p1.y, len);
+                        section.add(mid);
+                    }
+                } else if (style === 'industrial') {
+                    const rMat = this.matBlack;
+                    for (let j = 0; j <= 1; j++) {
+                        const postGeo = new THREE.CylinderGeometry(1.5, 1.5, 90, 8);
+                        postGeo.translate(0, 45, 0);
+                        const post = new THREE.Mesh(postGeo, rMat);
+                        post.position.set(0, p2.y*j, j * len);
+                        section.add(post);
+                    }
+                    const handGeo = new THREE.CylinderGeometry(2, 2, len, 8);
+                    handGeo.rotateX(Math.PI/2);
+                    handGeo.translate(0, 90, len/2);
+                    const handMesh = new THREE.Mesh(handGeo, rMat);
+                    handMesh.rotation.x = -Math.atan2(p2.y - p1.y, len);
+                    handMesh.position.y += Math.sin(-Math.atan2(p2.y - p1.y, len)) * len/2;
+                    section.add(handMesh);
+                    
+                    for (let j = 1; j <= 2; j++) {
+                        const midGeo = new THREE.CylinderGeometry(1, 1, len, 8);
+                        midGeo.rotateX(Math.PI/2);
+                        midGeo.translate(0, 90 * (j/3), len/2);
+                        const mid = new THREE.Mesh(midGeo, rMat);
+                        mid.rotation.x = -Math.atan2(p2.y - p1.y, len);
+                        mid.position.y += Math.sin(-Math.atan2(p2.y - p1.y, len)) * len/2;
+                        section.add(mid);
+                    }
                 } else if (style === 'modern' || style === 'steel' || style === 'minimal') {
                     const rMat = style === 'steel' ? this.matSteel : this.matBlack;
                     for (let j = 0; j <= 1; j++) {
