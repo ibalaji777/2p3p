@@ -391,6 +391,7 @@ class Stair3DBuilder {
 
             const pole = new THREE.Mesh(new THREE.CylinderGeometry(rIn, rIn, h, 16), this.matSteel);
             pole.position.set(0, h/2, 0);
+            pole.castShadow = true; pole.receiveShadow = true;
             group.add(pole);
 
             for (let i = 0; i < stepCount; i++) {
@@ -400,20 +401,31 @@ class Stair3DBuilder {
                 stepG.rotation.y = -a;
 
                 const shape = new THREE.Shape();
-                shape.moveTo(rIn, -2);
-                shape.lineTo(rOut, -tDepth/2);
-                shape.lineTo(rOut, tDepth/2);
-                shape.lineTo(rIn, 2);
+                shape.moveTo(rIn, 0);
+                shape.lineTo(rOut, 0);
+                shape.lineTo(rOut * Math.cos(angleStep), -rOut * Math.sin(angleStep));
+                shape.lineTo(rIn * Math.cos(angleStep), -rIn * Math.sin(angleStep));
+                shape.lineTo(rIn, 0);
 
-                const tGeo = new THREE.ExtrudeGeometry(shape, { depth: 2, bevelEnabled: false });
-                tGeo.rotateX(Math.PI/2);
-                stepG.add(new THREE.Mesh(tGeo, this.matStep));
+                const tGeo = new THREE.ExtrudeGeometry(shape, { depth: rHeight, bevelEnabled: false });
+                tGeo.rotateX(-Math.PI/2);
+                const stepMesh = new THREE.Mesh(tGeo, this.matStep);
+                stepMesh.castShadow = true; stepMesh.receiveShadow = true;
+                stepG.add(stepMesh);
                 
-                leftPoints.push(new THREE.Vector3(Math.cos(-a)*(rOut-2), currY, Math.sin(-a)*(rOut-2)));
+                leftPoints.push(new THREE.Vector3(Math.cos(a)*(rOut-2), currY + rHeight, Math.sin(a)*(rOut-2)));
+                rightPoints.push(new THREE.Vector3(Math.cos(a)*(rIn+2), currY + rHeight, Math.sin(a)*(rIn+2)));
+                
                 group.add(stepG);
                 currY += rHeight;
             }
+            
+            const finalA = stepCount * angleStep;
+            leftPoints.push(new THREE.Vector3(Math.cos(finalA)*(rOut-2), currY, Math.sin(finalA)*(rOut-2)));
+            rightPoints.push(new THREE.Vector3(Math.cos(finalA)*(rIn+2), currY, Math.sin(finalA)*(rIn+2)));
+            
             addRailing(leftPoints, true);
+            addRailing(rightPoints, false);
         }
         
         if (config.stairType !== 'spiral' && config.stairType !== 'circular') {
