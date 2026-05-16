@@ -3,6 +3,8 @@ import { Wall3DBuilder } from './Wall3DBuilder.js';
 import { RailingBuilder } from './RailingBuilder.js';
 import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from '../registry.js';
 
+import { Stair3DBuilder } from './Stair3DBuilder.js';
+
 export class ActiveFloor {
     constructor(assets, decorManager, interactables, structureGroup) {
         this.decorManager = decorManager;
@@ -34,8 +36,8 @@ export class ActiveFloor {
         };
     }
 
-    build(walls, rooms, roofs, shapes, activeIndex = 0) {
-        this._buildSlabs(rooms);
+    build(walls, rooms, roofs, shapes, stairs = [], activeIndex = 0) {
+        this._buildSlabs(rooms, stairs);
 
         const hasWalls = walls && walls.length > 0;
         let maxWallHeight = WALL_HEIGHT;
@@ -152,8 +154,10 @@ export class ActiveFloor {
         });
     }
 
-    _buildSlabs(rooms) {
+    _buildSlabs(rooms, stairs = []) {
         if (!rooms) return;
+        const stairHoles = Stair3DBuilder.getStairHoles(stairs);
+
         rooms.forEach(room => {
             if (room.isDeleted || room.isHidden) return;
             const path = room.path;
@@ -162,9 +166,11 @@ export class ActiveFloor {
             floorShape.moveTo(path[0].x, path[0].y);
             for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
             
-                        const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
-                        floorGeo.rotateX(Math.PI / 2);
-                        floorGeo.translate(0, 0.2, 0);
+            stairHoles.forEach(hole => floorShape.holes.push(hole));
+
+            const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
+            floorGeo.rotateX(Math.PI / 2);
+            floorGeo.translate(0, 0.2, 0);
             
             let mat = this.matFloor;
             const configId = room.configId || 'hardwood';

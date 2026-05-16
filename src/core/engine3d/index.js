@@ -11,6 +11,7 @@ import { FurnitureManager } from './FurnitureManager.js';
 import { InteractionSystem } from './InteractionSystem.js';
 import { ActiveFloor } from './ActiveFloor.js';
 import { StaticFloors } from './StaticFloors.js';
+import { Stair3DBuilder } from './Stair3DBuilder.js';
 
 export class Preview3D {
     constructor(containerEl) {
@@ -76,6 +77,7 @@ export class Preview3D {
         // 3. Initialize Floor Builders
         this.activeFloorBuilder = new ActiveFloor(this.assets, this.decorManager, this.interactables, this.structureGroup);
         this.staticFloorBuilder = new StaticFloors(this.assets, this.decorManager, this.interactables);
+        this.stairBuilder = new Stair3DBuilder(this.assets, this.interactables);
 
         // Env Maps
         const pmremGenerator = new THREE.PMREMGenerator(this.renderer); 
@@ -170,8 +172,9 @@ export class Preview3D {
         this.structureGroup.position.y = targetY;
 
         // BUILD ACTIVE
-        this.activeFloorBuilder.build(walls, roomPaths, roofs, shapes, activeIndex);
+        this.activeFloorBuilder.build(walls, roomPaths, roofs, shapes, stairs, activeIndex);
         if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn));
+        this.stairBuilder.build(stairs, this.structureGroup, activeIndex);
 
         // BUILD STATIC
         if (viewMode3D !== 'isolate' && levelsJsonArray.length > 0) {

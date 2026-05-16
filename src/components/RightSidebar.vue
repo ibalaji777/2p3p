@@ -16,7 +16,106 @@
     </div>
 
     <div v-if="type === 'stair' || type === 'stair_node'">
+      <div class="unit-label">Staircase Type</div>
+      <select v-model="entity.config.stairType" @change="onUpdate">
+        <option value="straight">Straight</option>
+        <option value="l_shape">L-Shape</option>
+        <option value="u_shape">U-Shape / Dog-Leg</option>
+        <option value="spiral">Spiral</option>
+      </select>
+
+      <div class="unit-label">Width</div>
+      <div class="slider-row">
+        <input type="range" v-model.number="entity.config.width" min="20" max="200" @input="onUpdate">
+        <input type="number" v-model.number="entity.config.width" class="number-input" @input="onUpdate">
       </div>
+
+      <div class="unit-label">Step Count</div>
+      <div class="slider-row">
+        <input type="range" v-model.number="entity.config.stepCount" min="2" max="60" @input="onUpdate">
+        <input type="number" v-model.number="entity.config.stepCount" class="number-input" @input="onUpdate">
+      </div>
+
+      <div class="unit-label">Riser Height</div>
+      <div class="slider-row">
+        <input type="range" v-model.number="entity.config.riserHeight" min="5" max="30" step="0.5" @input="onUpdate">
+        <input type="number" v-model.number="entity.config.riserHeight" class="number-input" @input="onUpdate">
+      </div>
+
+      <div class="unit-label">Tread Depth</div>
+      <div class="slider-row">
+        <input type="range" v-model.number="entity.config.treadDepth" min="5" max="50" step="0.5" @input="onUpdate">
+        <input type="number" v-model.number="entity.config.treadDepth" class="number-input" @input="onUpdate">
+      </div>
+
+      <div class="unit-label">Rotation (Degrees)</div>
+      <div class="slider-row">
+        <input type="range" v-model.number="entity.config.rotation" min="-180" max="180" @input="onUpdate">
+        <input type="number" v-model.number="entity.config.rotation" class="number-input" @input="onUpdate">
+      </div>
+
+      <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
+        <input type="checkbox" v-model="entity.config.isMirrored" @change="onUpdate">
+        <label style="font-size:12px">Mirrored</label>
+      </div>
+
+      <hr>
+      <div class="unit-label title">Landing Settings</div>
+      <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
+        <input type="checkbox" v-model="entity.config.landing.enabled" @change="onUpdate">
+        <label style="font-size:12px">Enable Landing</label>
+      </div>
+      <div v-if="entity.config.landing.enabled">
+        <div class="unit-label">Landing Length</div>
+        <div class="slider-row">
+          <input type="range" v-model.number="entity.config.landing.length" min="20" max="200" @input="onUpdate">
+          <input type="number" v-model.number="entity.config.landing.length" class="number-input" @input="onUpdate">
+        </div>
+      </div>
+
+      <hr>
+      <div class="unit-label title">Railing Settings</div>
+      <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
+        <input type="checkbox" v-model="entity.config.railing.enabled" @change="onUpdate">
+        <label style="font-size:12px">Enable Railing</label>
+      </div>
+      
+      <div v-if="entity.config.railing.enabled">
+        <div class="unit-label">Railing Style</div>
+        <select v-model="entity.config.railing.style" @change="onUpdate">
+          <option value="modern">Modern</option>
+          <option value="glass">Glass</option>
+          <option value="steel">Steel</option>
+          <option value="wooden">Wooden</option>
+          <option value="minimal">Minimal</option>
+          <option value="classic">Classic</option>
+        </select>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
+          <input type="checkbox" v-model="entity.config.railing.left" @change="onUpdate">
+          <label style="font-size:12px">Left Railing</label>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:10px;">
+          <input type="checkbox" v-model="entity.config.railing.right" @change="onUpdate">
+          <label style="font-size:12px">Right Railing</label>
+        </div>
+      </div>
+
+      <hr>
+      <div class="unit-label" style="margin-top:15px">Position (Floor Coordinates)</div>
+      <div style="display:flex; gap:10px">
+        <div style="flex: 1">
+          <span style="font-size:9px; color:#6b7280; display:block; margin-bottom:2px;">Pos X</span>
+          <input type="number" :value="Math.round(entity.x || (entity.group && entity.group.x()) || 0)" @input="e => updatePos(e, 'x')">
+        </div>
+        <div style="flex: 1">
+          <span style="font-size:9px; color:#6b7280; display:block; margin-bottom:2px;">Pos Y</span>
+          <input type="number" :value="Math.round(entity.y || (entity.group && entity.group.y()) || 0)" @input="e => updatePos(e, 'y')">
+        </div>
+      </div>
+
+      <hr>
+      <button class="btn-danger" @click="deleteEntity">Delete Staircase</button>
+    </div>
 
     <div v-if="type === 'furniture'">
       <div class="unit-label">Width (X)</div>

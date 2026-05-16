@@ -121,6 +121,9 @@ export class StaircaseTwo {
         if (this.config.landing.enabled && this.config.landing.length < this.config.width) {
             this.validationWarnings.push('Landing Too Small');
         }
+        if (this.config.floorHeight && this.config.floorHeight < 200) {
+            this.validationWarnings.push('Low Headroom (< 200cm)');
+        }
         return this.validationWarnings.length === 0;
     }
 
