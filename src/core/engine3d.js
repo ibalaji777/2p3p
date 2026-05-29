@@ -2375,7 +2375,44 @@ export class Preview3D {
             this.controls.update(); 
         }
         this.previousTargetY = targetY;
+
+        if (this.isXRayMode) {
+            this.setXRayMode(true);
+        }
     }
     
+    setXRayMode(enabled) {
+        this.isXRayMode = enabled;
+        const applyXRay = (group) => {
+            group.traverse((child) => {
+                if (child.isMesh && child.material) {
+                    const mats = Array.isArray(child.material) ? child.material : [child.material];
+                    mats.forEach(mat => {
+                        if (mat.name === 'highlightMaterial' || mat.name === 'cutHighlightMaterial' || child.userData.isHighlight) return;
+                        
+                        if (mat._originalOpacity === undefined) {
+                            mat._originalOpacity = mat.opacity;
+                            mat._originalTransparent = mat.transparent;
+                            mat._originalDepthWrite = mat.depthWrite;
+                        }
+
+                        if (enabled) {
+                            mat.transparent = true;
+                            mat.opacity = 0.3;
+                            mat.depthWrite = false;
+                        } else {
+                            mat.opacity = mat._originalOpacity !== undefined ? mat._originalOpacity : 1;
+                            mat.transparent = mat._originalTransparent !== undefined ? mat._originalTransparent : false;
+                            mat.depthWrite = mat._originalDepthWrite !== undefined ? mat._originalDepthWrite : true;
+                        }
+                        mat.needsUpdate = true;
+                    });
+                }
+            });
+        };
+        applyXRay(this.structureGroup);
+        applyXRay(this.staticStructureGroup);
+    }
+
     get selectedObject() { return this.interactions.selectedObject; }
 }

@@ -22,8 +22,8 @@
            <div class="tool-group">
                <button :class="{active: viewMode3D === 'full-edit'}" @click="setViewMode3D('full-edit')">🏢 Edit Mode</button>
                <button :class="{active: viewMode3D === 'preview'}" @click="setViewMode3D('preview')">👁️ Preview Only</button>
-           </div>
-       </div>
+               <button :class="{active: isXRayMode}" @click="toggleXRayMode" title="Toggle Transparent/X-Ray Mode">🩻 X-Ray</button>
+           </div>       </div>
     </header>
 
     <div class="main-workspace" @mouseup="debouncedSaveHistory" @touchend="debouncedSaveHistory">
@@ -635,6 +635,14 @@ const uiTrigger = ref(0);
 const isPlacing3D = ref(false);
 const activeDecorId = ref(null);
 const isRebuilding = ref(false);
+const isXRayMode = ref(false);
+
+const toggleXRayMode = () => {
+    isXRayMode.value = !isXRayMode.value;
+    if (renderer3D.value) {
+        renderer3D.value.setXRayMode(isXRayMode.value);
+    }
+};
 
 const levels = ref([{ id: 'level-' + Date.now(), name: 'Floor 1', data: null, isVisible: true }]);
 const activeLevelIndex = ref(0);
