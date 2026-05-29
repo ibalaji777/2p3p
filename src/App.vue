@@ -20,8 +20,7 @@
            </div>
            <div class="divider" v-if="viewMode3D !== 'preview'"></div>
            <div class="tool-group">
-               <button :class="{active: viewMode3D === 'isolate'}" @click="setViewMode3D('isolate')">📏 Isolate Floor</button>
-               <button :class="{active: viewMode3D === 'full-edit'}" @click="setViewMode3D('full-edit')">🏢 Full Building</button>
+               <button :class="{active: viewMode3D === 'full-edit'}" @click="setViewMode3D('full-edit')">🏢 Edit Mode</button>
                <button :class="{active: viewMode3D === 'preview'}" @click="setViewMode3D('preview')">👁️ Preview Only</button>
            </div>
        </div>
@@ -129,12 +128,21 @@
         <div class="panel levels-panel">
             <div class="panel-header"><h3>Floor Levels</h3></div>
             <div class="levels-list">
+                <div v-if="viewMode === '3d'" class="level-item" @click="toggleAllFloors" style="background: #f1f5f9; border-bottom: 2px solid #e5e7eb;">
+                    <div style="display:flex; align-items:center; gap: 8px;">
+                        <input type="checkbox" :checked="allFloorsVisible" @change="toggleAllFloors" @click.stop title="Toggle All">
+                        <span style="font-weight: bold;">Show All</span>
+                    </div>
+                </div>
                 <div v-for="(level, index) in levels" :key="level.id" 
                      class="level-item" 
-                     :class="{ 'active': activeLevelIndex === index }"
+                     :class="{ 'active': activeLevelIndex === index && viewMode === '2d' }"
                      @click="switchLevel(index)">
-                    <span>Floor {{ index + 1 }}</span>
-                    <span class="level-indicator" v-if="activeLevelIndex === index">Active</span>
+                    <div style="display:flex; align-items:center; gap: 8px;">
+                        <input v-if="viewMode === '3d'" type="checkbox" :checked="level.isVisible !== false" @change="(e) => { level.isVisible = e.target.checked; onLevelVisibilityChange(); }" @click.stop title="Toggle Visibility">
+                        <span>Floor {{ index + 1 }}</span>
+                    </div>
+                    <span class="level-indicator" v-if="activeLevelIndex === index && viewMode === '2d'">Active</span>
                 </div>
             </div>
             <div class="levels-actions">
@@ -628,8 +636,20 @@ const isPlacing3D = ref(false);
 const activeDecorId = ref(null);
 const isRebuilding = ref(false);
 
-const levels = ref([{ id: 'level-' + Date.now(), name: 'Floor 1', data: null }]);
+const levels = ref([{ id: 'level-' + Date.now(), name: 'Floor 1', data: null, isVisible: true }]);
 const activeLevelIndex = ref(0);
+
+const allFloorsVisible = computed(() => levels.value.every(l => l.isVisible !== false));
+
+const toggleAllFloors = () => {
+    const newState = !allFloorsVisible.value;
+    levels.value.forEach(l => { l.isVisible = newState; });
+    if (viewMode.value === '3d') refresh3DScene(true);
+};
+
+const onLevelVisibilityChange = () => {
+    if (viewMode.value === '3d') refresh3DScene(true);
+};
 
 const selectedSky = ref('arch_viz_sunny');
 const selectedGround = ref('grass'); // Start with new Grass + Normal map terrain
@@ -809,10 +829,9 @@ const redo = () => {
 
 const restoreHistoryState = (stateStr) => {
     const state = JSON.parse(stateStr);
-    
-    levels.value = state.levels;
-    activeLevelIndex.value = state.activeLevelIndex;
-    
+
+    levels.value = state.levels.map(l => ({ ...l, isVisible: l.isVisible !== false }));
+    activeLevelIndex.value = state.activeLevelIndex;    
     if (planner.value) {
         if (levels.value[activeLevelIndex.value].data) {
             planner.value.importState(levels.value[activeLevelIndex.value].data);
@@ -975,7 +994,7 @@ const switchLevel = (index) => {
 const addLevel = (type) => {
     saveCurrentLevelState();
     const newIndex = levels.value.length;
-    levels.value.push({ id: 'level-' + Date.now(), name: `Floor ${newIndex + 1}`, data: type === 'duplicate' ? levels.value[activeLevelIndex.value].data : null });
+    levels.value.push({ id: 'level-' + Date.now(), name: `Floor ${newIndex + 1}`, data: type === 'duplicate' ? levels.value[activeLevelIndex.value].data : null, isVisible: true });
     switchLevel(newIndex);
     saveHistory();
 };
@@ -1196,7 +1215,7 @@ const refresh3DScene = (preserveCamera = true) => {
         const prevSide = selectedWallSide.value;
         
         saveCurrentLevelState(); 
-        const levelsJsonArray = levels.value.map(l => l.data);
+        const levelsConfigArray = levels.value.map(l => ({ data: l.data, isVisible: l.isVisible !== false }));
         
         renderer3D.value.buildScene(
             planner.value.walls,
@@ -1205,7 +1224,7 @@ const refresh3DScene = (preserveCamera = true) => {
             planner.value.furniture,
             planner.value.roofs,
             planner.value.shapes,
-            levelsJsonArray, 
+            levelsConfigArray, 
             activeLevelIndex.value, 
             viewMode3D.value, 
             preserveCamera
@@ -1283,7 +1302,7 @@ const handleFileUpload = (event) => {
 
 const clearWorkspace = () => {
     if (confirm('Are you sure you want to clear the workspace? All unsaved progress will be lost.')) {
-        levels.value = [{ id: 'level-' + Date.now(), name: 'Floor 1', data: null }];
+        levels.value = [{ id: 'level-' + Date.now(), name: 'Floor 1', data: null, isVisible: true }];
         activeLevelIndex.value = 0;
         planner.value.clearAll();
         planner.value.clearReferenceBackground();

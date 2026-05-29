@@ -33,14 +33,15 @@ export class StaticFloors {
         };
     }
 
-    build(levelsJsonArray, activeIndex, viewMode3D, staticStructureGroup) {
+    build(levelsConfigArray, activeIndex, viewMode3D, staticStructureGroup) {
         const isPreview = viewMode3D === 'preview';
 
-        levelsJsonArray.forEach((levelStr, index) => {
-            if (index === activeIndex || !levelStr || viewMode3D === 'isolate') return;
+        levelsConfigArray.forEach((levelConfig, index) => {
+            if (index === activeIndex || !levelConfig || !levelConfig.data) return;
+            if (levelConfig.isVisible === false) return;
 
             try {
-                const data = JSON.parse(levelStr);
+                const data = JSON.parse(levelConfig.data);
                 const floorGroup = new THREE.Group();
                 floorGroup.position.y = index * WALL_HEIGHT;
 

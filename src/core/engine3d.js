@@ -1051,14 +1051,14 @@ class EnvironmentBuilder {
         });
     }
 
-    buildStaticFloors(levelsJsonArray, activeIndex, viewMode3D, stairs = []) {
-        levelsJsonArray.forEach((levelStr, index) => {
+    buildStaticFloors(levelsConfigArray, activeIndex, viewMode3D, stairs = []) {
+        levelsConfigArray.forEach((levelConfig, index) => {
             if (index === activeIndex) return; 
-            if (!levelStr) return;
-            if (viewMode3D === 'isolate') return;
+            if (!levelConfig || !levelConfig.data) return;
+            if (levelConfig.isVisible === false) return;
 
             try {
-                const data = JSON.parse(levelStr);
+                const data = JSON.parse(levelConfig.data);
                 const floorGroup = new THREE.Group();
                 floorGroup.position.y = index * WALL_HEIGHT;
 
@@ -2320,7 +2320,7 @@ export class Preview3D {
         if (obj.children) [...obj.children].forEach(c => this.deepDispose(c));
     }
 
-    buildScene(walls, rooms, stairs = [], furnitureList = [], roofs = [], shapes = [], levelsJsonArray = [], activeIndex = 0, viewMode3D = 'full-edit', preserveCamera = false) {
+    buildScene(walls, rooms, stairs = [], furnitureList = [], roofs = [], shapes = [], levelsConfigArray = [], activeIndex = 0, viewMode3D = 'full-edit', preserveCamera = false) {
         this.deselectObject();
         this.interactables = [];
         this.viewMode3D = viewMode3D;
@@ -2339,15 +2339,20 @@ export class Preview3D {
         const targetY = activeIndex * WALL_HEIGHT;
         this.structureGroup.position.y = targetY;
 
-        this.envBuilder.buildActiveFloor(walls, rooms, shapes, stairs);
-        this.stairBuilder.build(stairs, this.structureGroup, activeIndex);
-        if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn));
+        const activeLevelConfig = levelsConfigArray[activeIndex];
+        const isActiveVisible = activeLevelConfig ? activeLevelConfig.isVisible : true;
 
-        if (roofs && roofs.length > 0) this.envBuilder.buildRoofs(roofs, activeIndex, walls, this.structureGroup);
-        if (shapes && shapes.length > 0) this.envBuilder.buildShapes(shapes);
+        if (isActiveVisible) {
+            this.envBuilder.buildActiveFloor(walls, rooms, shapes, stairs);
+            this.stairBuilder.build(stairs, this.structureGroup, activeIndex);
+            if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn));
 
-        if (viewMode3D !== 'isolate' && levelsJsonArray && levelsJsonArray.length > 0) {
-            this.envBuilder.buildStaticFloors(levelsJsonArray, activeIndex, viewMode3D, stairs);
+            if (roofs && roofs.length > 0) this.envBuilder.buildRoofs(roofs, activeIndex, walls, this.structureGroup);
+            if (shapes && shapes.length > 0) this.envBuilder.buildShapes(shapes);
+        }
+
+        if (levelsConfigArray && levelsConfigArray.length > 0) {
+            this.envBuilder.buildStaticFloors(levelsConfigArray, activeIndex, viewMode3D, stairs);
         }
 
         if (this.previousTargetY === undefined) this.previousTargetY = targetY;

@@ -151,7 +151,7 @@ export class Preview3D {
         if (obj.children) [...obj.children].forEach(c => this.deepDispose(c));
     }
 
-    buildScene(walls, roomPaths, stairs = [], furnitureList = [], roofs = [], shapes = [], levelsJsonArray = [], activeIndex = 0, viewMode3D = 'full-edit', preserveCamera = false) {
+    buildScene(walls, roomPaths, stairs = [], furnitureList = [], roofs = [], shapes = [], levelsConfigArray = [], activeIndex = 0, viewMode3D = 'full-edit', preserveCamera = false) {
         this.deselectObject();
         this.interactables.length = 0; 
         this.viewMode3D = viewMode3D;
@@ -171,14 +171,19 @@ export class Preview3D {
         const targetY = activeIndex * WALL_HEIGHT;
         this.structureGroup.position.y = targetY;
 
+        const activeLevelConfig = levelsConfigArray[activeIndex];
+        const isActiveVisible = activeLevelConfig ? activeLevelConfig.isVisible : true;
+
         // BUILD ACTIVE
-        this.activeFloorBuilder.build(walls, roomPaths, roofs, shapes, stairs, activeIndex);
-        if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn));
-        this.stairBuilder.build(stairs, this.structureGroup, activeIndex);
+        if (isActiveVisible) {
+            this.activeFloorBuilder.build(walls, roomPaths, roofs, shapes, stairs, activeIndex);
+            if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn));
+            this.stairBuilder.build(stairs, this.structureGroup, activeIndex);
+        }
 
         // BUILD STATIC
-        if (viewMode3D !== 'isolate' && levelsJsonArray.length > 0) {
-            this.staticFloorBuilder.build(levelsJsonArray, activeIndex, viewMode3D, this.staticStructureGroup);
+        if (levelsConfigArray.length > 0) {
+            this.staticFloorBuilder.build(levelsConfigArray, activeIndex, viewMode3D, this.staticStructureGroup);
         }
 
         // CAMERA PANNING
