@@ -435,6 +435,7 @@ export class FloorPlanner {
         this.infoBadgeText.text(txt); 
         this.infoBadgeBg.setAttrs({ width: this.infoBadgeText.width(), height: this.infoBadgeText.height() });
         this.infoBadgeGroup.position({ x: x + 15, y: y + 15 }); 
+        this.infoBadgeGroup.rotation(-(this.settings?.houseRotation || 0));
         this.infoBadgeGroup.show(); 
         this.infoBadgeGroup.moveToTop(); 
     } 
@@ -673,17 +674,26 @@ export class FloorPlanner {
         if (this.gridLayer) {
             this.gridLayer.visible(this.settings ? this.settings.showGrid : true);
         }
-        
+
         if (this.settings && this.settings.houseRotation !== undefined) {
             if (this.settings.housePivotX !== undefined && this.settings.housePivotY !== undefined) {
                 this.houseGroup.offset({ x: this.settings.housePivotX, y: this.settings.housePivotY });
                 this.houseGroup.position({ x: this.settings.housePivotX, y: this.settings.housePivotY });
+                this.uiLayer.offset({ x: this.settings.housePivotX, y: this.settings.housePivotY });
+                this.uiLayer.position({ x: this.settings.housePivotX, y: this.settings.housePivotY });
             }
             this.houseGroup.rotation(this.settings.houseRotation);
+            this.uiLayer.rotation(this.settings.houseRotation);
+        } else {
+            this.houseGroup.offset({ x: 0, y: 0 });
+            this.houseGroup.position({ x: 0, y: 0 });
+            this.houseGroup.rotation(0);
+            this.uiLayer.offset({ x: 0, y: 0 });
+            this.uiLayer.position({ x: 0, y: 0 });
+            this.uiLayer.rotation(0);
         }
 
-        this.walls.forEach(w => w.update());        this.stairs.forEach(s => s.update()); 
-        this.furniture.forEach(f => f.update()); 
+        this.walls.forEach(w => w.update());        this.stairs.forEach(s => s.update());         this.furniture.forEach(f => f.update()); 
         this.roofs.forEach(r => r.update()); 
         if(this.balconies) this.balconies.forEach(b => b.update()); 
         if(this.arcs) this.arcs.forEach(a => a.update());
@@ -1658,6 +1668,7 @@ export class FloorPlanner {
         }
         const label = new Konva.Text({ x: room.cx, y: room.cy, text: "Room\n" + areaText, fontSize: 12, fill: '#6b7280', align: 'center', fontStyle: 'bold', listening: false, visible: this.settings ? this.settings.showWorkspaceLabels : true }); 
         label.offsetX(label.width() / 2); label.offsetY(label.height() / 2); 
+        label.rotation(-(this.settings?.houseRotation || 0));
         this.roomLayer.add(poly); this.roomLayer.add(label); 
 
         // Draw Diagonal Dimensions if enabled
@@ -1727,11 +1738,12 @@ export class FloorPlanner {
                 const len1 = Math.hypot(corners[2].x - corners[0].x, corners[2].y - corners[0].y);
                 const len2 = Math.hypot(corners[3].x - corners[1].x, corners[3].y - corners[1].y);
                 
-                // Position text at 30% of the diagonal to avoid overlapping at the center
                 let cx1 = corners[0].x + (corners[2].x - corners[0].x) * 0.3;
                 let cy1 = corners[0].y + (corners[2].y - corners[0].y) * 0.3;
                 let ang1 = Math.atan2(corners[2].y - corners[0].y, corners[2].x - corners[0].x) * 180 / Math.PI;
-                if (ang1 > 90 || ang1 < -90) ang1 += 180;
+                let screenAng1 = (ang1 + (this.settings?.houseRotation || 0)) % 360;
+                if (screenAng1 > 180) screenAng1 -= 360; if (screenAng1 < -180) screenAng1 += 360;
+                if (screenAng1 > 90 || screenAng1 <= -90) ang1 += 180;
                 
                 const text1 = new Konva.Text({ x: cx1, y: cy1, text: this.formatLength(len1), fontSize: 11, fill: '#6b7280', align: 'center', fontStyle: 'bold', listening: false, rotation: ang1 });
                 text1.offsetX(text1.width() / 2); text1.offsetY(text1.height() + 2);
@@ -1739,7 +1751,9 @@ export class FloorPlanner {
                 let cx2 = corners[1].x + (corners[3].x - corners[1].x) * 0.3;
                 let cy2 = corners[1].y + (corners[3].y - corners[1].y) * 0.3;
                 let ang2 = Math.atan2(corners[3].y - corners[1].y, corners[3].x - corners[1].x) * 180 / Math.PI;
-                if (ang2 > 90 || ang2 < -90) ang2 += 180;
+                let screenAng2 = (ang2 + (this.settings?.houseRotation || 0)) % 360;
+                if (screenAng2 > 180) screenAng2 -= 360; if (screenAng2 < -180) screenAng2 += 360;
+                if (screenAng2 > 90 || screenAng2 <= -90) ang2 += 180;
                 
                 const text2 = new Konva.Text({ x: cx2, y: cy2, text: this.formatLength(len2), fontSize: 11, fill: '#6b7280', align: 'center', fontStyle: 'bold', listening: false, rotation: ang2 });
                 text2.offsetX(text2.width() / 2); text2.offsetY(text2.height() + 2);

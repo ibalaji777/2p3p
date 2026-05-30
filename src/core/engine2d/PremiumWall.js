@@ -608,24 +608,25 @@ export class PremiumWall {
         }
 
         const fOff = 4; this.frontHighlight.points([ startL.x + n.x * fOff, startL.y + n.y * fOff, endL.x + n.x * fOff, endL.y + n.y * fOff ]); this.backHighlight.points([ startR.x - n.x * fOff, startR.y - n.y * fOff, endR.x - n.x * fOff, endR.y - n.y * fOff ]);
-        this.labelText.text(this.planner.formatLength(this.getLength())); 
-        this.labelGroup.position({ x: (p1.x + p2.x) / 2 - this.labelText.width() / 2, y: (p1.y + p2.y) / 2 - 15 });
+        this.labelText.text(this.planner.formatLength(this.getLength()));
+        this.labelGroup.position({ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 });
+        this.labelGroup.offset({ x: this.labelText.width() / 2, y: 15 });
+        this.labelGroup.rotation(-(this.planner.settings?.houseRotation || 0));
         this.labelGroup.visible(this.planner.settings ? this.planner.settings.showDimensionLabels : true);
-        
+
         if (this.planner.settings && this.planner.settings.entranceWallId === this) {
             let facing = this.planner.settings.mainEntranceFacing || 'north';
             let labelMap = { north: 'North', south: 'South', east: 'East', west: 'West', north_east: 'North-East', north_west: 'North-West', south_east: 'South-East', south_west: 'South-West' };
             this.entranceText.text('🧭 ' + (labelMap[facing] || 'North') + ' Facing Entrance');
             this.entranceBg.width(this.entranceText.width());
-            
+
             const dx = p2.x - p1.x; const dy = p2.y - p1.y;
             let ang = Math.atan2(dy, dx) * 180 / Math.PI;
             if (ang > 90 || ang <= -90) ang += 180;
 
             this.entranceGroup.position({ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 });
             this.entranceGroup.rotation(ang);
-            this.entranceGroup.offsetX(this.entranceText.width() / 2);
-            this.entranceGroup.offsetY(-15);
+            this.entranceGroup.offsetX(this.entranceText.width() / 2);            this.entranceGroup.offsetY(-15);
             this.entranceGroup.visible(true);
             this.entranceGroup.moveToTop();
         } else {
