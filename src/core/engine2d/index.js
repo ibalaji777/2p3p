@@ -253,16 +253,20 @@ export class FloorPlanner {
         this.bgLayer = new Konva.Layer();
         this.gridLayer = new Konva.Group(); 
         this.referenceLayer = new Konva.Group(); 
-        this.roomLayer = new Konva.Group(); 
-        this.bgLayer.add(this.gridLayer, this.referenceLayer, this.roomLayer);
+        this.bgLayer.add(this.gridLayer, this.referenceLayer);
 
         this.mainLayer = new Konva.Layer();
+        this.houseGroup = new Konva.Group();
+
+        this.roomLayer = new Konva.Group(); 
         this.baseLayer = new Konva.Group();
         this.wallLayer = new Konva.Group(); 
         this.widgetLayer = new Konva.Group(); 
         this.furnitureLayer = new Konva.Group(); 
         this.roofLayer = new Konva.Group(); 
-        this.mainLayer.add(this.baseLayer, this.wallLayer, this.widgetLayer, this.furnitureLayer, this.roofLayer);
+
+        this.houseGroup.add(this.roomLayer, this.baseLayer, this.wallLayer, this.widgetLayer, this.furnitureLayer, this.roofLayer);
+        this.mainLayer.add(this.houseGroup);
 
         this.uiLayer = new Konva.Layer(); 
         this.stage.add(this.bgLayer, this.mainLayer, this.uiLayer); 
@@ -669,6 +673,15 @@ export class FloorPlanner {
         if (this.gridLayer) {
             this.gridLayer.visible(this.settings ? this.settings.showGrid : true);
         }
+        
+        if (this.settings && this.settings.houseRotation !== undefined) {
+            if (this.settings.housePivotX !== undefined && this.settings.housePivotY !== undefined) {
+                this.houseGroup.offset({ x: this.settings.housePivotX, y: this.settings.housePivotY });
+                this.houseGroup.position({ x: this.settings.housePivotX, y: this.settings.housePivotY });
+            }
+            this.houseGroup.rotation(this.settings.houseRotation);
+        }
+
         this.walls.forEach(w => w.update());        this.stairs.forEach(s => s.update()); 
         this.furniture.forEach(f => f.update()); 
         this.roofs.forEach(r => r.update()); 

@@ -171,19 +171,46 @@ export class Preview3D {
         const targetY = activeIndex * WALL_HEIGHT;
         this.structureGroup.position.y = targetY;
 
+        let px = 0, py = 0, rot = 0;
+        if (walls && walls.length > 0 && walls[0].planner && walls[0].planner.settings) {
+            rot = walls[0].planner.settings.houseRotation || 0;
+            px = walls[0].planner.settings.housePivotX || 0;
+            py = walls[0].planner.settings.housePivotY || 0;
+        }
+
+        // Active Floor Hierarchy
+        const activePivot = new THREE.Group();
+        activePivot.position.set(px, 0, py);
+        activePivot.rotation.y = THREE.MathUtils.degToRad(-rot);
+        
+        const activeOffset = new THREE.Group();
+        activeOffset.position.set(-px, 0, -py);
+        activePivot.add(activeOffset);
+        this.structureGroup.add(activePivot);
+
+        // Static Floors Hierarchy
+        const staticPivot = new THREE.Group();
+        staticPivot.position.set(px, 0, py);
+        staticPivot.rotation.y = THREE.MathUtils.degToRad(-rot);
+        
+        const staticOffset = new THREE.Group();
+        staticOffset.position.set(-px, 0, -py);
+        staticPivot.add(staticOffset);
+        this.staticStructureGroup.add(staticPivot);
+
         const activeLevelConfig = levelsConfigArray[activeIndex];
         const isActiveVisible = activeLevelConfig ? activeLevelConfig.isVisible : true;
 
-        // BUILD ACTIVE
+        // BUILD ACTIVE (Pass the offset groups instead of the root groups)
         if (isActiveVisible) {
-            this.activeFloorBuilder.build(walls, roomPaths, roofs, shapes, stairs, activeIndex);
-            if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn));
-            this.stairBuilder.build(stairs, this.structureGroup, activeIndex);
+            this.activeFloorBuilder.build(walls, roomPaths, roofs, shapes, stairs, activeIndex, activeOffset);
+            if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn, activeOffset));
+            this.stairBuilder.build(stairs, activeOffset, activeIndex);
         }
 
         // BUILD STATIC
         if (levelsConfigArray.length > 0) {
-            this.staticFloorBuilder.build(levelsConfigArray, activeIndex, viewMode3D, this.staticStructureGroup);
+            this.staticFloorBuilder.build(levelsConfigArray, activeIndex, viewMode3D, staticOffset);
         }
 
         // CAMERA PANNING

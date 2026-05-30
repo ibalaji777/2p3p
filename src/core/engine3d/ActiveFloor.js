@@ -36,8 +36,8 @@ export class ActiveFloor {
         };
     }
 
-    build(walls, rooms, roofs, shapes, stairs = [], activeIndex = 0) {
-        this._buildSlabs(rooms, stairs);
+    build(walls, rooms, roofs, shapes, stairs = [], activeIndex = 0, targetGroup = this.structureGroup) {
+        this._buildSlabs(rooms, stairs, targetGroup);
 
         const hasWalls = walls && walls.length > 0;
         let maxWallHeight = WALL_HEIGHT;
@@ -45,8 +45,8 @@ export class ActiveFloor {
             maxWallHeight = Math.max(...walls.map(w => w.height || w.config?.height || WALL_HEIGHT));
         }
 
-        if (roofs) this._buildRoofs(roofs, activeIndex, hasWalls, maxWallHeight);        
-        if (shapes) this._buildShapes(shapes);
+        if (roofs) this._buildRoofs(roofs, activeIndex, hasWalls, maxWallHeight, targetGroup);        
+        if (shapes) this._buildShapes(shapes, targetGroup);
 
         const standardWalls = walls.filter(w => w.type !== 'railing' && !w.hidden);
         const railingWalls = walls.filter(w => w.type === 'railing' && !w.hidden);
@@ -77,7 +77,7 @@ export class ActiveFloor {
                     };
                     const type = widg.type || widg.configId;
                     if (WIDGET_REGISTRY[type] && WIDGET_REGISTRY[type].render3D) {
-                        WIDGET_REGISTRY[type].render3D(this.structureGroup, widgEntity, this.helpers);
+                        WIDGET_REGISTRY[type].render3D(targetGroup, widgEntity, this.helpers);
                     }
                 });
             }
@@ -89,16 +89,16 @@ export class ActiveFloor {
                 this.interactables.push(hb);
             });
 
-            this.structureGroup.add(wallGroup);
+            targetGroup.add(wallGroup);
 
             // Load Decors
             if (w.attachedDecor) w.attachedDecor.forEach(decor => this.decorManager.load(w, decor));
         });
 
-        this.railingBuilder.build(railingWalls, standardWalls);
+        this.railingBuilder.build(railingWalls, standardWalls, targetGroup);
     }
 
-    _buildShapes(shapes) {
+    _buildShapes(shapes, targetGroup = this.structureGroup) {
         if (!shapes) return;
         shapes.forEach(shapeData => {
             let geo;
@@ -150,11 +150,11 @@ export class ActiveFloor {
 
             this.interactables.push(mesh);
             this.interactables.push(hitBox);
-            this.structureGroup.add(mesh);
+            targetGroup.add(mesh);
         });
     }
 
-    _buildSlabs(rooms, stairs = []) {
+    _buildSlabs(rooms, stairs = [], targetGroup = this.structureGroup) {
         if (!rooms) return;
         const stairHoles = Stair3DBuilder.getStairHoles(stairs);
 
@@ -190,11 +190,11 @@ export class ActiveFloor {
             floorMesh.receiveShadow = true;
             floorMesh.userData = { entity: room, isRoom: true };
             this.interactables.push(floorMesh);
-            this.structureGroup.add(floorMesh);
+            targetGroup.add(floorMesh);
         });
     }
 
-    _buildRoofs(roofs, activeIndex, hasWalls, maxWallHeight = WALL_HEIGHT) {
+    _buildRoofs(roofs, activeIndex, hasWalls, maxWallHeight = WALL_HEIGHT, targetGroup = this.structureGroup) {
         roofs.forEach(roof => {
             const pts = roof.points || [];
             if (pts.length < 3) return;

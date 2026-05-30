@@ -7,6 +7,8 @@
            <div class="divider"></div>
            <button @click="undo" :disabled="historyIndex <= 0" title="Undo (Ctrl+Z)">↩️ Undo</button>
            <button @click="redo" :disabled="historyIndex >= historyStack.length - 1" title="Redo (Ctrl+Y)">↪️ Redo</button>
+           <div class="divider"></div>
+           <button @click="openWizard('smart_facing')" class="wizard-btn">🧭 Facing</button>
        </div>
        
        <div class="center-tools" v-if="viewMode==='2d'">
@@ -490,12 +492,41 @@
         </div>
       </aside>
 
+      <!-- Wizard Popup -->
+      <div class="wizard-overlay" v-if="showWizard">
+        <div class="wizard-modal">
+          <div class="wizard-header">
+            <h3>{{ activeWizardPlugin?.name }}</h3>
+            <button @click="showWizard = false" class="wizard-close">✕</button>
+          </div>
+          <div class="wizard-body">
+            <p class="wizard-desc">{{ activeWizardPlugin?.description }}</p>
+            <div v-if="wizardError" class="wizard-error">{{ wizardError }}</div>
+            
+            <div v-for="field in wizardFields" :key="field.name" class="control-group">
+              <label>{{ field.label }}</label>
+              <select v-if="field.type === 'select'" v-model="wizardConfig[field.name]" class="settings-select">
+                <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+              </select>
+              <input v-if="field.type === 'text'" type="text" v-model="wizardConfig[field.name]" class="settings-select" />
+            </div>
+          </div>
+          <div class="wizard-footer">
+            <button @click="showWizard = false" class="action-btn clear">Cancel</button>
+            <button @click="executeWizard" class="action-btn import">Apply</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, shallowRef, onMounted, onBeforeUnmount } from 'vue';
+
+import { SmartWizardManager } from './core/plugins/SmartWizardManager.js';
+import { SmartFacingPlugin } from './core/plugins/SmartFacingPlugin.js';
 
 import { FloorPlanner, PremiumFurniture } from './core/engine2d/index.js';
 import { Preview3D } from './core/engine3d.js'; 
@@ -509,6 +540,13 @@ const skyRegistry = SKY_REGISTRY;
 const groundRegistry = GROUND_REGISTRY;
 const floorRegistry = FLOOR_REGISTRY;
 const railingRegistry = RAILING_REGISTRY;
+
+const showWizard = ref(false);
+const activeWizardPlugin = ref(null);
+const wizardConfig = ref({});
+const wizardFields = ref([]);
+const wizardError = ref('');
+let wizardManager = null;
 
 const floorPlanSettings = ref({
     mainEntranceFacing: 'north',
@@ -615,6 +653,32 @@ const menuCategories = ref([
         ]
     }
 ]);
+
+const openWizard = (pluginId) => {
+    const plugin = wizardManager.getPlugin(pluginId);
+    if (!plugin) return;
+    activeWizardPlugin.value = plugin;
+    wizardConfig.value = {};
+    const context = { floorPlanSettings, planner };
+    wizardFields.value = plugin.getFields ? plugin.getFields(context) : [];
+    wizardFields.value.forEach(f => {
+        wizardConfig.value[f.name] = f.defaultValue !== undefined ? f.defaultValue : '';
+    });
+    showWizard.value = true;
+    wizardError.value = '';
+};
+
+const executeWizard = async () => {
+    if (!activeWizardPlugin.value) return;
+    wizardError.value = '';
+    const result = await wizardManager.executePlugin(activeWizardPlugin.value.id, wizardConfig.value);
+    if (result.success) {
+        showWizard.value = false;
+        debouncedSaveHistory();
+    } else {
+        wizardError.value = result.error || 'Failed to execute wizard.';
+    }
+};
 
 const toggleCategory = (catId) => {
     activeCategory.value = catId;
@@ -852,6 +916,10 @@ const restoreHistoryState = (stateStr) => {
         } else {
             planner.value.clearReferenceBackground();
         }
+        
+        if (planner.value.settings) {
+            Object.assign(floorPlanSettings.value, planner.value.settings);
+        }
     }
     
     handleDeselect();
@@ -881,6 +949,15 @@ onMounted(() => {
     planner.value = new FloorPlanner(canvas2D.value);
     planner.value.activeCategory = activeCategory.value;
     planner.value.loadDefaultHouse();
+
+    wizardManager = new SmartWizardManager({
+        get planner() { return planner; },
+        get floorPlanSettings() { return floorPlanSettings; },
+        syncSettings,
+        refresh3DScene
+    });
+    wizardManager.registerPlugin(SmartFacingPlugin);
+    wizardManager.enablePlugins(['smart_facing']);
     
     planner.value.onSelectionChange = (entity, type, nodeIdx = -1) => {
         selectedEntity.value = entity; selectedType.value = type; selectedNodeIndex.value = nodeIdx;
@@ -1280,6 +1357,10 @@ const loadProject = (jsonStr) => {
             planner.value.importState(levels.value[activeLevelIndex.value].data);
             planner.value.syncAll();
             
+            if (planner.value.settings) {
+                Object.assign(floorPlanSettings.value, planner.value.settings);
+            }
+            
             // Clear history when loading new project
             historyStack.value = [];
             historyIndex.value = -1;
@@ -1496,4 +1577,37 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .compass-s { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: bold; color: #9ca3af; }
 .compass-w { position: absolute; left: 6px; top: 50%; transform: translateY(-50%); font-size: 10px; font-weight: bold; color: #9ca3af; }
 .compass-e { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font-size: 10px; font-weight: bold; color: #9ca3af; }
+
+/* WIZARD MODAL */
+.wizard-overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center; z-index: 2000;
+}
+.wizard-modal {
+    background: white; border-radius: 12px; width: 400px; max-width: 90%;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: flex; flex-direction: column; overflow: hidden;
+}
+.wizard-header {
+    background: #f8fafc; padding: 15px 20px; border-bottom: 1px solid #e5e7eb;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.wizard-header h3 { margin: 0; font-size: 16px; color: #1f2937; }
+.wizard-close { background: transparent; border: none; font-size: 18px; cursor: pointer; color: #6b7280; }
+.wizard-close:hover { color: #ef4444; }
+.wizard-body { padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+.wizard-desc { margin: 0; font-size: 13px; color: #4b5563; line-height: 1.4; }
+.wizard-error { background: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 6px; font-size: 12px; font-weight: bold; border: 1px solid #fca5a5; }
+.wizard-footer {
+    padding: 15px 20px; background: #f8fafc; border-top: 1px solid #e5e7eb;
+    display: flex; justify-content: flex-end; gap: 10px;
+}
+.wizard-btn {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+    border: none; color: white !important; padding: 8px 16px;
+    border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+}
+.wizard-btn:hover {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed) !important; transform: translateY(-1px);
+}
 </style>
