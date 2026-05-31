@@ -50,6 +50,7 @@
             </div>
         </div>        <div class="sidebar-footer">
             <button class="action-btn export" @click="saveProject">💾 Export Project</button>
+            <button class="action-btn export" style="background: #8b5cf6;" @click="openSavePopup">☁️ Save to Cloud</button>
             <button class="action-btn import" @click="triggerFileInput">📂 Import Project</button>
             <button class="action-btn clear" @click="clearWorkspace">🗑️ Clear All</button>
             <input type="file" id="fileInput" @change="handleFileUpload" style="display: none" accept=".json"/>
@@ -544,6 +545,34 @@
         </div>
       </div>
 
+      <!-- Save Popup Overlay -->
+      <div class="wizard-overlay" v-if="showSavePopup">
+        <div class="wizard-modal">
+          <div class="wizard-header">
+            <h3>Save Project to Cloud</h3>
+            <button @click="showSavePopup = false" class="wizard-close">✕</button>
+          </div>
+          <div class="wizard-body" style="text-align: center;">
+            <div v-if="isSaving" class="wizard-desc">Generating previews and saving... Please wait.</div>
+            <div v-if="saveError" class="wizard-error">{{ saveError }}</div>
+            <div class="control-group" style="text-align: left;">
+              <label>Project Name</label>
+              <input type="text" v-model="projectName" class="settings-select" placeholder="Enter project name..." />
+            </div>
+            <div v-if="Object.keys(previewImages).length > 0" class="decor-grid" style="grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px;">
+                <div class="decor-item" v-for="(imgUrl, key) in previewImages" :key="key">
+                    <img :src="imgUrl" style="height: 60px; width: 100%; object-fit: contain; background: #e5e7eb; border-radius: 4px;" />
+                    <span style="font-size: 10px; font-weight: bold; text-transform: capitalize; margin-top: 4px; display: block;">{{ key.replace('Preview', '').replace(/([A-Z])/g, ' $1').trim() }}</span>
+                </div>
+            </div>
+          </div>
+          <div class="wizard-footer">
+            <button @click="showSavePopup = false" class="action-btn clear" :disabled="isSaving">Cancel</button>
+            <button @click="confirmSave" class="action-btn import" :disabled="isSaving || !projectName">Save</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
@@ -558,6 +587,7 @@ import { SmartWallResizePlugin } from './core/plugins/SmartWallResizePlugin.js';
 import { FloorPlanner, PremiumFurniture } from './core/engine2d/index.js';
 import { Preview3D } from './core/engine3d.js'; 
 import { WorkspaceControls } from '/src/core/engine3d/WorkspaceControls.js';
+import { ServerClass } from './core/ServerClass.js';
 
 import { FileManager } from './core/io.js';
 import { WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, FLOOR_REGISTRY, RAILING_REGISTRY } from './core/registry.js';
@@ -610,6 +640,13 @@ const canvas3D = ref(null);
 const planner = shallowRef(null);
 const renderer3D = shallowRef(null);
 const workspaceControls = shallowRef(null);
+const serverService = shallowRef(null);
+
+const showSavePopup = ref(false);
+const projectName = ref('');
+const isSaving = ref(false);
+const saveError = ref('');
+const previewImages = ref({});
 
 const historyStack = ref([]);
 const historyIndex = ref(-1);
@@ -1028,6 +1065,14 @@ onMounted(() => {
     renderer3D.value = new Preview3D(canvas3D.value);
 
     workspaceControls.value = new WorkspaceControls(renderer3D.value, planner.value);
+    
+    serverService.value = new ServerClass(renderer3D.value, planner.value, () => {
+        saveCurrentLevelState();
+        return {
+            levels: levels.value,
+            activeLevelIndex: activeLevelIndex.value
+        };
+    });
     
     renderer3D.value.onEntitySelect = (entity, type, side = null) => {
         if (isRebuilding.value && !entity) return; // Prevent losing slider focus during rebuilds
@@ -1452,6 +1497,37 @@ const clearWorkspace = () => {
         handleDeselect();
         if (viewMode.value === '3d') refresh3DScene(true);
         saveHistory();
+    }
+};
+
+const openSavePopup = async () => {
+    showSavePopup.value = true;
+    saveError.value = '';
+    projectName.value = `Project ${new Date().toLocaleDateString()}`;
+    previewImages.value = {};
+    
+    if (viewMode.value === '2d') {
+        refresh3DScene(true);
+    }
+    
+    try {
+        previewImages.value = await serverService.value.generatePreviewImages();
+    } catch (e) {
+        console.error("Failed to generate previews:", e);
+    }
+};
+
+const confirmSave = async () => {
+    isSaving.value = true;
+    saveError.value = '';
+    try {
+        await serverService.value.saveProject(projectName.value);
+        showSavePopup.value = false;
+        alert("Project saved successfully!");
+    } catch (e) {
+        saveError.value = e.message || "Failed to save project.";
+    } finally {
+        isSaving.value = false;
     }
 };
 </script>
