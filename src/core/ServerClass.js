@@ -189,7 +189,17 @@ export class ServerClass {
         
         // 45-degree angled sunlight for professional architectural shadows
         const keyLight = new THREE.DirectionalLight(0xfffdfa, 1.2);
-        keyLight.position.copy(camTarget).add(new THREE.Vector3(maxDim, maxDim, maxDim));
+        
+        let lightOffsetX = maxDim;
+        let lightOffsetZ = maxDim;
+        
+        if (viewType === 'frontRight' || viewType === 'right') {
+            lightOffsetX = -maxDim;
+        } else if (viewType === 'back') {
+            lightOffsetZ = -maxDim;
+        }
+        
+        keyLight.position.copy(camTarget).add(new THREE.Vector3(lightOffsetX, maxDim, lightOffsetZ));
         keyLight.target.position.copy(camTarget);
         keyLight.castShadow = true;
         keyLight.shadow.mapSize.width = 2048; // High res shadows for soft edges
@@ -207,7 +217,7 @@ export class ServerClass {
 
         // Strong Fill Light to prevent overly dark geometry corners
         const fillLight = new THREE.DirectionalLight(0xeaeff5, 0.5);
-        fillLight.position.copy(camTarget).add(new THREE.Vector3(-maxDim, maxDim * 0.5, -maxDim));
+        fillLight.position.copy(camTarget).add(new THREE.Vector3(-lightOffsetX, maxDim * 0.5, -lightOffsetZ));
         fillLight.target.position.copy(camTarget);
 
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
@@ -255,12 +265,16 @@ export class ServerClass {
     }
 
     async generatePreviewImages() {
-        const views = ['front', 'left', 'right', 'top', 'back', 'frontLeft', 'frontRight'];
+        // Add a small initial delay to ensure textures are fully uploaded to the GPU
+        await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 100)));
+
+        const views = ['frontLeft', 'frontRight', 'top', 'back'];
         const images = {};
         for (const view of views) {
             images[`${view}Preview`] = await this.captureView(view);
-            // Small yield to not block UI completely if generating many large images
-            await new Promise(resolve => setTimeout(resolve, 10));
+            
+            // Yield to avoid blocking the main thread while rendering multiple angles
+            await new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 50)));
         }
         return images;
     }

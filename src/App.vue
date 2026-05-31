@@ -1510,6 +1510,9 @@ const openSavePopup = async () => {
         refresh3DScene(true);
     }
     
+    // Give the 3D renderer a moment to build geometry and compile shaders
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     try {
         previewImages.value = await serverService.value.generatePreviewImages();
     } catch (e) {
