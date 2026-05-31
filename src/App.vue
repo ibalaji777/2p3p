@@ -8,7 +8,8 @@
            <button @click="undo" :disabled="historyIndex <= 0" title="Undo (Ctrl+Z)">↩️ Undo</button>
            <button @click="redo" :disabled="historyIndex >= historyStack.length - 1" title="Redo (Ctrl+Y)">↪️ Redo</button>
            <div class="divider"></div>
-           <button @click="openWizard('smart_facing')" class="wizard-btn">🧭 Facing</button>
+           <button @click="openWizard('smart_facing')" class="wizard-btn" style="margin-right: 5px;">🧭 Facing</button>
+           <button @click="openWizard('smart_wall_resize')" class="wizard-btn">📏 Resize Plan</button>
        </div>
        
        <div class="center-tools" v-if="viewMode==='2d'">
@@ -504,11 +505,36 @@
             <div v-if="wizardError" class="wizard-error">{{ wizardError }}</div>
             
             <div v-for="field in wizardFields" :key="field.name" class="control-group">
-              <label>{{ field.label }}</label>
-              <select v-if="field.type === 'select'" v-model="wizardConfig[field.name]" class="settings-select">
+              <label v-if="field.label">{{ field.label }}</label>
+              
+              <div v-if="field.type === 'visual_boundary'" class="visual-boundary-box">
+                  <div class="vb-compass-line-v"></div>
+                  <div class="vb-compass-line-h"></div>
+                  <div class="vb-north">N</div>
+                  <div class="vb-south">S</div>
+                  <div class="vb-west">W</div>
+                  <div class="vb-east">E</div>
+                  
+                  <input class="vb-input top" type="number" step="0.1" v-model="wizardConfig['targetN']" @input="updateVisualBoundary('targetN')" />
+                  <input class="vb-input bottom" type="number" step="0.1" v-model="wizardConfig['targetS']" @input="updateVisualBoundary('targetS')" />
+                  <input class="vb-input left" type="number" step="0.1" v-model="wizardConfig['targetW']" @input="updateVisualBoundary('targetW')" />
+                  <input class="vb-input right" type="number" step="0.1" v-model="wizardConfig['targetE']" @input="updateVisualBoundary('targetE')" />
+                  
+                  <div class="vb-center-text">
+                      <input class="vb-sqft-input" type="number" step="1" v-model="wizardConfig['targetSqft']" @input="updateVisualBoundary('targetSqft')" />
+                      <div style="font-size: 11px; color: #6b7280; margin-top: 4px;">Sq Ft</div>
+                  </div>
+              </div>
+
+              <select v-else-if="field.type === 'select'" v-model="wizardConfig[field.name]" class="settings-select">
                 <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
               </select>
-              <input v-if="field.type === 'text'" type="text" v-model="wizardConfig[field.name]" class="settings-select" />
+              <input v-else-if="field.type === 'text'" type="text" v-model="wizardConfig[field.name]" class="settings-select" />
+              <input v-else-if="field.type === 'number'" type="number" step="0.1" v-model="wizardConfig[field.name]" @input="updateVisualBoundary(field.name)" class="settings-select" />
+              <div v-else-if="field.type === 'checkbox'" style="display: flex; align-items: center; gap: 8px;">
+                  <input type="checkbox" v-model="wizardConfig[field.name]" class="settings-checkbox" />
+                  <span style="font-size: 13px; color: #4b5563;">{{ field.checkboxLabel || field.label }}</span>
+              </div>
             </div>
           </div>
           <div class="wizard-footer">
@@ -527,6 +553,7 @@ import { ref, computed, shallowRef, onMounted, onBeforeUnmount } from 'vue';
 
 import { SmartWizardManager } from './core/plugins/SmartWizardManager.js';
 import { SmartFacingPlugin } from './core/plugins/SmartFacingPlugin.js';
+import { SmartWallResizePlugin } from './core/plugins/SmartWallResizePlugin.js';
 
 import { FloorPlanner, PremiumFurniture } from './core/engine2d/index.js';
 import { Preview3D } from './core/engine3d.js'; 
@@ -662,10 +689,36 @@ const openWizard = (pluginId) => {
     const context = { floorPlanSettings, planner };
     wizardFields.value = plugin.getFields ? plugin.getFields(context) : [];
     wizardFields.value.forEach(f => {
-        wizardConfig.value[f.name] = f.defaultValue !== undefined ? f.defaultValue : '';
+        if (typeof f.defaultValue === 'object' && f.defaultValue !== null) {
+            Object.assign(wizardConfig.value, f.defaultValue);
+        } else {
+            wizardConfig.value[f.name] = f.defaultValue !== undefined ? f.defaultValue : '';
+        }
     });
     showWizard.value = true;
     wizardError.value = '';
+};
+
+const updateVisualBoundary = (changedField) => {
+    if (changedField === 'targetWidth' || changedField === 'targetDepth') {
+        const w = parseFloat(wizardConfig.value['targetWidth']) || 0;
+        const d = parseFloat(wizardConfig.value['targetDepth']) || 0;
+        wizardConfig.value['targetSqft'] = (w * d).toFixed(0);
+    } else if (changedField === 'targetSqft') {
+        // If they enter sqft directly, scale proportionally based on current aspect ratio
+        const currentSqft = parseFloat(wizardConfig.value['targetSqft']) || 0;
+        if (currentSqft > 0) {
+            const w = parseFloat(wizardConfig.value['targetWidth']) || 1;
+            const d = parseFloat(wizardConfig.value['targetDepth']) || 1;
+            const ratio = w / d;
+            
+            const newD = Math.sqrt(currentSqft / ratio);
+            const newW = currentSqft / newD;
+            
+            wizardConfig.value['targetWidth'] = newW.toFixed(1);
+            wizardConfig.value['targetDepth'] = newD.toFixed(1);
+        }
+    }
 };
 
 const executeWizard = async () => {
@@ -957,7 +1010,8 @@ onMounted(() => {
         refresh3DScene
     });
     wizardManager.registerPlugin(SmartFacingPlugin);
-    wizardManager.enablePlugins(['smart_facing']);
+    wizardManager.registerPlugin(SmartWallResizePlugin);
+    wizardManager.enablePlugins(['smart_facing', 'smart_wall_resize']);
     
     planner.value.onSelectionChange = (entity, type, nodeIdx = -1) => {
         selectedEntity.value = entity; selectedType.value = type; selectedNodeIndex.value = nodeIdx;
@@ -1610,4 +1664,30 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .wizard-btn:hover {
     background: linear-gradient(135deg, #4f46e5, #7c3aed) !important; transform: translateY(-1px);
 }
+.visual-boundary-box {
+    position: relative; height: 180px; border: 2px dashed #9ca3af; border-radius: 8px; margin: 40px;
+    background: #f1f5f9; display: flex; align-items: center; justify-content: center;
+}
+.vb-compass-line-v { position: absolute; top: -20px; bottom: -20px; left: 50%; border-left: 1px dashed #cbd5e1; z-index: 1; pointer-events: none; }
+.vb-compass-line-h { position: absolute; left: -30px; right: -30px; top: 50%; border-top: 1px dashed #cbd5e1; z-index: 1; pointer-events: none; }
+
+.vb-north, .vb-south, .vb-east, .vb-west {
+    position: absolute; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 900; z-index: 10; padding: 0; box-sizing: border-box; letter-spacing: 0;
+}
+.vb-north { top: -45px; left: 50%; transform: translateX(-50%); color: white; background: #ef4444; border: none; box-shadow: 0 2px 5px rgba(239, 68, 68, 0.4); }
+.vb-south { bottom: -45px; left: 50%; transform: translateX(-50%); color: #6b7280; background: #ffffff; border: 2px solid #e5e7eb; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+.vb-east { right: -65px; top: 50%; transform: translateY(-50%); color: #6b7280; background: #ffffff; border: 2px solid #e5e7eb; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+.vb-west { left: -65px; top: 50%; transform: translateY(-50%); color: #6b7280; background: #ffffff; border: 2px solid #e5e7eb; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+
+.vb-input { position: absolute; background: white; width: 60px; text-align: center; padding: 4px 6px; border-radius: 4px; font-size: 13px; font-weight: bold; border: 2px solid #3b82f6; color: #1d4ed8; outline: none; transition: 0.2s; z-index: 5; }
+.vb-input:focus { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
+.vb-input:disabled { border: 1px solid #d1d5db; color: #6b7280; background: #f3f4f6; }
+.vb-input.top { top: -14px; left: 50%; transform: translateX(-50%); }
+.vb-input.bottom { bottom: -14px; left: 50%; transform: translateX(-50%); }
+.vb-input.left { left: -30px; top: 50%; transform: translateY(-50%); }
+.vb-input.right { right: -30px; top: 50%; transform: translateY(-50%); }
+
+.vb-center-text { text-align: center; display: flex; flex-direction: column; align-items: center; }
+.vb-sqft-input { width: 80px; text-align: center; font-size: 20px; font-weight: bold; color: #1e40af; border: none; background: transparent; border-bottom: 2px dashed #93c5fd; outline: none; transition: 0.2s; }
+.vb-sqft-input:focus { border-bottom-color: #1e40af; }
 </style>
