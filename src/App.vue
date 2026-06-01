@@ -30,7 +30,8 @@
     </header>
 
     <div class="main-workspace" @mouseup="debouncedSaveHistory" @touchend="debouncedSaveHistory">
-      <aside class="left-sidebar" v-show="viewMode === '2d'">
+      <aside class="left-sidebar" v-show="viewMode === '2d' && (!(isMobile || isTablet) || ((isMobile || isTablet) && mobileMenuOpen && activeMobileTab === 'tools'))" :class="{'mobile-panel': isMobile || isTablet}">
+        <div v-if="isMobile || isTablet" class="mobile-close-btn" @click="mobileMenuOpen = false">✕ Close</div>
         <div class="sidebar-header">
             <h3>Design Tools</h3>
         </div>
@@ -57,6 +58,14 @@
         </div>
       </aside>
 
+            <!-- Mobile Bottom Navigation -->
+      <div class="mobile-bottom-nav" v-if="isMobile || isTablet">
+        <button @click="activeMobileTab = 'tools'; mobileMenuOpen = true" :class="{active: activeMobileTab === 'tools' && mobileMenuOpen}">🛠️ Tools</button>
+        <button @click="activeMobileTab = 'properties'; mobileMenuOpen = true" :class="{active: activeMobileTab === 'properties' && mobileMenuOpen}">⚙️ Props</button>
+        <button @click="activeMobileTab = 'layers'; mobileMenuOpen = true" :class="{active: activeMobileTab === 'layers' && mobileMenuOpen}">📚 Layers</button>
+        <button @click="activeMobileTab = 'settings'; mobileMenuOpen = true" :class="{active: activeMobileTab === 'settings' && mobileMenuOpen}">🛠️ Settings</button>
+      </div>
+      
       <main class="canvas-container">
         <div class="hint" :style="{ background: hintData.color }" v-show="viewMode === '2d'">{{ hintData.text }}</div>
         
@@ -128,7 +137,8 @@
         </div>
       </main>
 
-      <aside class="right-sidebar">
+      <aside class="right-sidebar" v-show="!(isMobile || isTablet) || ((isMobile || isTablet) && mobileMenuOpen && ['properties', 'layers', 'settings'].includes(activeMobileTab))" :class="{'mobile-panel': isMobile || isTablet}">
+        <div v-if="isMobile || isTablet" class="mobile-close-btn" @click="mobileMenuOpen = false">✕ Close</div>
         <div class="panel levels-panel">
             <div class="panel-header"><h3>Floor Levels</h3></div>
             <div class="levels-list">
@@ -156,7 +166,7 @@
         </div>
 
         <div class="panel tabs-panel flex-1">
-            <div class="tabs-header">
+            <div class="tabs-header" v-show="!(isMobile || isTablet)">
                 <button :class="{active: activeRightTab === 'properties'}" @click="activeRightTab = 'properties'">Properties</button>
                 <button :class="{active: activeRightTab === 'layers'}" @click="activeRightTab = 'layers'">Layer List</button>
                 <button :class="{active: activeRightTab === 'settings'}" @click="activeRightTab = 'settings'">Settings</button>
@@ -578,7 +588,33 @@
 </template>
 
 <script setup>
-import { ref, computed, shallowRef, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, shallowRef, onMounted, onBeforeUnmount, watch } from 'vue';
+
+const windowWidth = ref(window.innerWidth);
+const isMobile = computed(() => windowWidth.value < 768);
+const isTablet = computed(() => windowWidth.value >= 768 && windowWidth.value < 1200);
+const isDesktop = computed(() => windowWidth.value >= 1200);
+const mobileMenuOpen = ref(true);
+const activeMobileTab = ref('tools');
+
+watch(activeMobileTab, (newVal) => {
+    if (['properties', 'layers', 'settings'].includes(newVal)) {
+        activeRightTab.value = newVal;
+    }
+});
+
+const handleResize = () => {
+    windowWidth.value = window.innerWidth;
+    if (!isMobile.value && !isTablet.value) mobileMenuOpen.value = false;
+    
+    if (planner.value) {
+        planner.value.resize();
+    }
+    if (renderer3D.value) {
+        renderer3D.value.resize();
+    }
+};
+
 
 import { SmartWizardManager } from './core/plugins/SmartWizardManager.js';
 import { SmartFacingPlugin } from './core/plugins/SmartFacingPlugin.js';
@@ -1036,6 +1072,7 @@ const hintData = computed(() => {
 });
 
 onMounted(() => {
+    window.addEventListener('resize', handleResize);
     planner.value = new FloorPlanner(canvas2D.value);
     planner.value.activeCategory = activeCategory.value;
     planner.value.loadDefaultHouse();
@@ -1109,7 +1146,10 @@ onMounted(() => {
     }, 500);
 });
 
-onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeys));
+onBeforeUnmount(() => {
+    window.removeEventListener('resize', handleResize);
+    window.removeEventListener('keydown', handleGlobalKeys);
+});
 
 const handleGlobalKeys = (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
@@ -1769,4 +1809,71 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .vb-center-text { text-align: center; display: flex; flex-direction: column; align-items: center; }
 .vb-sqft-input { width: 80px; text-align: center; font-size: 20px; font-weight: bold; color: #1e40af; border: none; background: transparent; border-bottom: 2px dashed #93c5fd; outline: none; transition: 0.2s; }
 .vb-sqft-input:focus { border-bottom-color: #1e40af; }
+
+/* RESPONSIVE LAYOUT */
+
+@media (max-width: 1199px) {
+    .main-workspace { flex-direction: column; padding-bottom: 60px; position: relative; }
+    
+    .mobile-panel { 
+        position: absolute !important; 
+        z-index: 2000 !important; 
+        box-shadow: 0 0 20px rgba(0,0,0,0.2) !important; 
+    }
+    
+    .left-sidebar.mobile-panel { 
+        left: 0 !important; 
+        top: 0 !important; 
+        bottom: 60px !important; 
+        width: 300px !important; 
+        height: calc(100% - 60px) !important; 
+        background: #ffffff !important; 
+    }
+    
+    .right-sidebar.mobile-panel { 
+        right: 0 !important; 
+        top: 0 !important; 
+        bottom: 60px !important; 
+        width: 320px !important; 
+        height: calc(100% - 60px) !important; 
+        background: #f8fafc !important; 
+    }
+
+    .mobile-bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; background: #111827; display: flex; justify-content: space-around; align-items: center; z-index: 2100; border-top: 1px solid #1f2937; }
+    .mobile-bottom-nav button { background: transparent; border: none; color: #9ca3af; display: flex; flex-direction: column; align-items: center; font-size: 13px; gap: 4px; padding: 5px; cursor: pointer; font-weight: bold; }
+    .mobile-bottom-nav button.active { color: #3b82f6; }
+    .mobile-close-btn { background: #f8fafc; padding: 15px; text-align: right; font-weight: bold; color: #ef4444; border-bottom: 1px solid #e5e7eb; cursor: pointer; font-size: 14px; display: block; }
+}
+
+@media (max-width: 767px) {
+    .left-sidebar.mobile-panel { 
+        width: 100% !important; 
+        left: 0 !important; 
+        top: 0 !important; 
+        bottom: 60px !important; 
+        height: calc(100% - 60px) !important; 
+    }
+    
+    .right-sidebar.mobile-panel { 
+        width: 100% !important; 
+        left: 0 !important; 
+        top: auto !important; 
+        bottom: 60px !important; 
+        height: 50% !important; 
+        border-top: 1px solid #e5e7eb !important;
+        border-radius: 16px 16px 0 0 !important;
+        background: #f8fafc !important;
+    }
+
+    .top-toolbar { flex-wrap: wrap; padding: 8px 10px; gap: 8px; justify-content: center; }
+    .left-tools, .center-tools { flex-wrap: wrap; justify-content: center; width: 100%; gap: 6px; }
+    .top-toolbar button { padding: 6px 10px; font-size: 11px; }
+    .floating-advanced-toolbar { top: 10px; right: 10px; }
+    .floating-env-toolbar { top: 10px; right: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    .bottom-right-toolbar { bottom: 80px; right: 10px; }
+    .compass-widget { bottom: 80px; left: 10px; width: 40px; height: 40px; }
+    .compass-n, .compass-s, .compass-e, .compass-w { font-size: 8px; }
+    .compass-center { width: 6px; height: 6px; }
+    .status-bar { bottom: 80px; font-size: 11px; padding: 8px 15px; width: 90%; text-align: center; }
+}
 </style>

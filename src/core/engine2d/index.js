@@ -247,9 +247,19 @@ export class FloorPlanner {
         }
     }
 
-    initKonva() { 
-        this.stage = new Konva.Stage({ container: this.container, width: window.innerWidth - 380, height: window.innerHeight }); 
-        
+    resize() {
+        if (!this.stage) return;
+        const w = this.container.clientWidth || window.innerWidth;
+        const h = this.container.clientHeight || window.innerHeight;
+        this.stage.width(w);
+        this.stage.height(h);
+        this.syncAll();
+    }
+
+    initKonva() {
+        const w = this.container.clientWidth || window.innerWidth;
+        const h = this.container.clientHeight || window.innerHeight;
+        this.stage = new Konva.Stage({ container: this.container, width: w, height: h });        
         this.bgLayer = new Konva.Layer();
         this.gridLayer = new Konva.Group(); 
         this.referenceLayer = new Konva.Group(); 
@@ -787,7 +797,9 @@ export class FloorPlanner {
             this.uiLayer.batchDraw();
         });
 
-        this.stage.on("mousedown touchstart", (e) => { 
+        this.stage.on("mousedown touchstart", (e) => {
+            if (e.evt && e.evt.touches && e.evt.touches.length > 1) return;
+ 
             if (this.tool === 'roof') return;
             if (e.target === this.stage || e.target === this.bgLayer || e.target === this.mainLayer) this.deselectAll(); 
             const wallConfig = WALL_REGISTRY[this.tool]; 
@@ -1012,7 +1024,9 @@ export class FloorPlanner {
             this.syncAll(); 
         }); 
 
-        this.stage.on("mousemove touchmove", (e) => { 
+        this.stage.on("mousemove touchmove", (e) => {
+            if (e.evt && e.evt.touches && e.evt.touches.length > 1) return;
+ 
             if (this.tool === 'roof') return;
 
             if (e.target === this.stage || e.target === this.bgLayer || e.target === this.mainLayer) {
@@ -1355,6 +1369,8 @@ export class FloorPlanner {
         });
 
         this.stage.on('mouseup touchend', (e) => {
+            if (e.evt && e.evt.touches && e.evt.touches.length > 0) return;
+
             if (this.drawingShapeType) {
                 if (this.drawingShapeType === 'shape_rect') {
                     const w = this.shapePreviewRect.width(); const h = this.shapePreviewRect.height();
@@ -1378,6 +1394,8 @@ export class FloorPlanner {
 
         // --- Hip Roof Drawing Mode Logic ---
         this.stage.on("mousedown.roof touchstart.roof", (e) => {
+            if (e.evt && e.evt.touches && e.evt.touches.length > 1) return;
+
             if (this.tool !== 'roof') return;
             const pos = this.getPointerPos();
             if (!pos) return;
@@ -1433,7 +1451,9 @@ export class FloorPlanner {
             }
         });
 
-        this.stage.on("mousemove.roof touchmove.roof", () => {
+        this.stage.on("mousemove.roof touchmove.roof", (e) => {
+            if (e && e.evt && e.evt.touches && e.evt.touches.length > 1) return;
+
             if (this.tool === 'roof') {
                 const pos = this.getPointerPos();
                 if (!pos) return;

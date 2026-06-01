@@ -224,6 +224,65 @@ export class WorkspaceControls {
             }
         });
         
+        
+        // Touch Pinch Zoom & Two-Finger Pan
+        let lastCenter = null;
+        let lastDist = 0;
+
+        stage.on('touchmove', (e) => {
+            const touch1 = e.evt.touches[0];
+            const touch2 = e.evt.touches[1];
+
+            if (touch1 && touch2) {
+                e.evt.preventDefault();
+                
+                const p1 = { x: touch1.clientX, y: touch1.clientY };
+                const p2 = { x: touch2.clientX, y: touch2.clientY };
+                
+                const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                const center = {
+                    x: (p1.x + p2.x) / 2,
+                    y: (p1.y + p2.y) / 2,
+                };
+
+                if (lastCenter && lastDist) {
+                    // Pan
+                    const dx = center.x - lastCenter.x;
+                    const dy = center.y - lastCenter.y;
+                    
+                    // Zoom
+                    const oldScale = stage.scaleX();
+                    const scaleBy = dist / lastDist;
+                    const newScale = oldScale * scaleBy;
+                    
+                    // Adjust stage scale
+                    stage.scale({ x: newScale, y: newScale });
+                    
+                    // 2. Adjust for zoom around center and apply pan
+                    const pointTo = {
+                        x: (lastCenter.x - stage.x()) / oldScale,
+                        y: (lastCenter.y - stage.y()) / oldScale,
+                    };
+                    
+                    const newPos = {
+                        x: center.x - pointTo.x * newScale,
+                        y: center.y - pointTo.y * newScale
+                    };
+
+                    stage.position(newPos);
+                    stage.batchDraw();
+                }
+
+                lastDist = dist;
+                lastCenter = center;
+            }
+        });
+
+        stage.on('touchend', () => {
+            lastDist = 0;
+            lastCenter = null;
+        });
+
         stage.on('contextmenu', (e) => e.evt.preventDefault()); // Prevent browser menu on right click
     }
 
