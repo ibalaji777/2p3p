@@ -578,7 +578,7 @@ class EnvironmentBuilder {
 
     setupBaseEnvironment() {
         this.ctx.scene.background = new THREE.Color(0xf3f4f6);
-        this.ctx.scene.fog = new THREE.FogExp2(0xf3f4f6, 0.0008);
+        this.ctx.scene.fog = new THREE.Fog(0xf3f4f6, 1000, 8000);
 
         const groundGeo = new THREE.PlaneGeometry(10000, 10000);
         const groundMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0 });
@@ -596,7 +596,7 @@ class EnvironmentBuilder {
         this.ctx.scene.add(grid);
         this.grid = grid;
 
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 3.0);
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
         hemiLight.position.set(0, 500, 0);
         this.ctx.scene.add(hemiLight);
         this.hemiLight = hemiLight;
@@ -609,6 +609,8 @@ class EnvironmentBuilder {
         sunLight.shadow.camera.near = 10;
         sunLight.shadow.camera.far = 2000;
         sunLight.shadow.bias = -0.0005;
+        sunLight.shadow.radius = 4;
+        sunLight.shadow.normalBias = 0.02;
         const d = 800;
         sunLight.shadow.camera.left = -d; sunLight.shadow.camera.right = d;
         sunLight.shadow.camera.top = d; sunLight.shadow.camera.bottom = -d;
@@ -2173,7 +2175,7 @@ export class Preview3D {
         this.renderer.setPixelRatio(window.devicePixelRatio);
         if (THREE.SRGBColorSpace) this.renderer.outputColorSpace = THREE.SRGBColorSpace; 
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 1.0;
+        this.renderer.toneMappingExposure = 0.85;
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFShadowMap;
         this.container.appendChild(this.renderer.domElement);

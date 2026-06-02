@@ -105,9 +105,9 @@ export const SKY_REGISTRY = {
         hemiSky: 0xffffff,
         hemiGround: 0x4ade80,
         sunColor: 0xffffee,
-        ambient: 0.3,
-        hemi: 0.8,
-        sun: 2.5
+        ambient: 0.15,
+        hemi: 0.4,
+        sun: 4.5
     },
     'cloudy_day': {
         id: 'cloudy_day',

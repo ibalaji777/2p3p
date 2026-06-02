@@ -40,6 +40,8 @@ export class BaseSceneSetup {
         this.sunLight.shadow.mapSize.width = 4096;
         this.sunLight.shadow.mapSize.height = 4096;
         this.sunLight.shadow.bias = -0.0005;
+        this.sunLight.shadow.radius = 4;
+        this.sunLight.shadow.normalBias = 0.02;
         const d = 1200;
         this.sunLight.shadow.camera.left = -d; this.sunLight.shadow.camera.right = d;
         this.sunLight.shadow.camera.top = d; this.sunLight.shadow.camera.bottom = -d;
@@ -63,14 +65,14 @@ export class BaseSceneSetup {
 
         if (config.type === 'color') {
             this.scene.background = new THREE.Color(config.skyColor);
-            this.scene.fog = new THREE.FogExp2(config.fogColor, 0.0004);
+            this.scene.fog = new THREE.Fog(config.fogColor, 1000, 8000);
             this.hemiLight.groundColor.setHex(config.hemiGround);
             this.scene.environment = null;
         } else if (config.type === 'hdri') {
             this.textureLoader.load(config.url, (texture) => {
                 texture.mapping = THREE.EquirectangularReflectionMapping;
                 this.scene.background = texture; this.scene.environment = texture;
-                this.scene.fog = new THREE.Fog(0xcccccc, 500, 3000);
+                this.scene.fog = new THREE.Fog(0xcccccc, 1000, 8000);
             });
             this.hemiLight.groundColor.setHex(0xaaaaaa);
         }
