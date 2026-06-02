@@ -23,8 +23,7 @@
            </div>
            <div class="divider" v-if="viewMode3D !== 'preview'"></div>
            <div class="tool-group">
-               <button :class="{active: viewMode3D === 'full-edit'}" @click="setViewMode3D('full-edit')">🏢 Edit Mode</button>
-               <button :class="{active: viewMode3D === 'preview'}" @click="setViewMode3D('preview')">👁️ Preview Only</button>
+               <button :class="{active: viewMode3D === 'preview'}" @click="togglePreviewMode">👁️ Preview Only</button>
                <button :class="{active: isXRayMode}" @click="toggleXRayMode" title="Toggle Transparent/X-Ray Mode">🩻 X-Ray</button>
            </div>       </div>
     </header>
@@ -85,8 +84,19 @@
 
         <div class="floating-env-toolbar" v-show="viewMode === '3d'">
             <div class="camera-controls">
-                <button class="env-icon-btn" @click="setCameraPreset('front')" title="Front View">⬆️</button>
-                <button class="env-icon-btn" @click="setCameraPreset('left')" title="Left View">⬅️</button>
+                <div class="env-dropdown" @mouseenter="showCamera = true" @mouseleave="showCamera = false">
+                    <button class="env-icon-btn">🎥 View</button>
+                    <div class="env-menu" v-show="showCamera">
+                        <div class="env-menu-item" @click="setCameraPreset('iso'); showCamera = false">Perspective (3D)</div>
+                        <div class="env-menu-item" @click="setCameraPreset('top'); showCamera = false">Top (2D Ortho)</div>
+                        <div class="env-menu-item" @click="setCameraPreset('front'); showCamera = false">Front</div>
+                        <div class="env-menu-item" @click="setCameraPreset('back'); showCamera = false">Back</div>
+                        <div class="env-menu-item" @click="setCameraPreset('left'); showCamera = false">Left</div>
+                        <div class="env-menu-item" @click="setCameraPreset('right'); showCamera = false">Right</div>
+                        <div class="env-menu-item" @click="setCameraPreset('frontLeft'); showCamera = false">Front-Left</div>
+                        <div class="env-menu-item" @click="setCameraPreset('frontRight'); showCamera = false">Front-Right</div>
+                    </div>
+                </div>
                 <button class="env-icon-btn" @click="rotateCamera(-0.1)" title="Rotate Left">↺</button>
                 <button class="env-icon-btn" @click="rotateCamera(0.1)" title="Rotate Right">↻</button>
             </div>
@@ -854,6 +864,7 @@ const selectedGround = ref('grass'); // Start with new Grass + Normal map terrai
 
 const showSky = ref(false);
 const showGround = ref(false);
+const showCamera = ref(false);
 const showAdvancedTools = ref(false);
 
 const isWallTrackingEnabled = ref(false);
@@ -1249,6 +1260,10 @@ const setViewMode3D = (mode) => {
     viewMode3D.value = mode; handleDeselect();
     if (mode === 'preview') set3DMode('camera'); 
     refresh3DScene(true); 
+};
+
+const togglePreviewMode = () => {
+    setViewMode3D(viewMode3D.value === 'preview' ? 'full-edit' : 'preview');
 };
 
 const updateEnvironment = () => {
@@ -1734,6 +1749,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .env-icon-btn { background: rgba(17, 24, 39, 0.8); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; backdrop-filter: blur(4px); transition: 0.2s; }
 .env-icon-btn:hover { background: rgba(17, 24, 39, 1); box-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
 .env-menu { position: absolute; top: 100%; right: 0; margin-top: 5px; background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); padding: 10px; width: 240px; display: flex; flex-direction: column; gap: 5px; }
+.env-menu::before { content: ''; position: absolute; top: -10px; left: 0; right: 0; height: 10px; }
 .env-menu-item { padding: 8px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; color: #374151; transition: 0.2s; }
 .env-menu-item:hover { background: #f3f4f6; }
 .env-menu-item.active { background: #eff6ff; color: #1d4ed8; }

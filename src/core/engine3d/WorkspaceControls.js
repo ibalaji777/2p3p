@@ -74,7 +74,7 @@ export class WorkspaceControls {
         const h = this.preview3D.container.clientHeight || window.innerHeight;
         const aspect = w / h;
 
-        if (preset === 'top' || preset === 'left') {
+        if (preset === 'top') {
             // 1. Swap to Orthographic for 2D Plan/Elevation Projections
             this.preview3D.camera = this.orthoCamera;
             this.controls.object = this.orthoCamera;
@@ -98,8 +98,6 @@ export class WorkspaceControls {
             
             if (preset === 'top') {
                 this.orthoCamera.position.set(center.x, center.y + offset, center.z);
-            } else if (preset === 'left') {
-                this.orthoCamera.position.set(center.x - offset, center.y, center.z);
             }
         } else {
             // 2. Restore Perspective for 3D Angled views
@@ -116,6 +114,16 @@ export class WorkspaceControls {
                 this.perspCamera.position.set(center.x + offset, center.y + offset, center.z + offset);
             } else if (preset === 'front') {
                 this.perspCamera.position.set(center.x, center.y + offset * 0.2, center.z + offset);
+            } else if (preset === 'back') {
+                this.perspCamera.position.set(center.x, center.y + offset * 0.2, center.z - offset);
+            } else if (preset === 'left') {
+                this.perspCamera.position.set(center.x - offset, center.y + offset * 0.2, center.z);
+            } else if (preset === 'right') {
+                this.perspCamera.position.set(center.x + offset, center.y + offset * 0.2, center.z);
+            } else if (preset === 'frontLeft') {
+                this.perspCamera.position.set(center.x - offset, center.y + offset * 0.5, center.z + offset);
+            } else if (preset === 'frontRight') {
+                this.perspCamera.position.set(center.x + offset, center.y + offset * 0.5, center.z + offset);
             }
         }
         
