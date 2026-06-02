@@ -16,16 +16,13 @@
        </div>
 
        <div class="center-tools" v-if="viewMode==='3d'">
-           <div class="tool-group" v-if="viewMode3D !== 'preview'">
-               <button :class="{active: mode3D === 'camera'}" @click="set3DMode('camera')">🎥 Camera</button>
-               <button :class="{active: mode3D === 'edit'}" @click="set3DMode('edit')">⚙️ Edit Obj</button>
-               <button :class="{active: mode3D === 'adjust'}" @click="set3DMode('adjust')">🖐️ Move Obj</button>
-           </div>
-           <div class="divider" v-if="viewMode3D !== 'preview'"></div>
            <div class="tool-group">
-               <button :class="{active: viewMode3D === 'preview'}" @click="togglePreviewMode">👁️ Preview Only</button>
+               <button :class="{active: viewMode3D === 'full-edit'}" @click="togglePreviewMode">
+                   {{ viewMode3D === 'preview' ? '⚙️ Edit Mode' : '👁️ Preview Mode' }}
+               </button>
                <button :class="{active: isXRayMode}" @click="toggleXRayMode" title="Toggle Transparent/X-Ray Mode">🩻 X-Ray</button>
-           </div>       </div>
+           </div>
+       </div>
     </header>
 
     <div class="main-workspace" @mouseup="debouncedSaveHistory" @touchend="debouncedSaveHistory">
@@ -139,11 +136,10 @@
         <div ref="canvas2D" class="canvas-host" v-show="viewMode === '2d'"></div>
         <div ref="canvas3D" class="canvas-host canvas-3d" v-show="viewMode === '3d'"></div>
         
-        <div class="status-bar" v-if="viewMode === '3d' && viewMode3D !== 'preview'">
-            <span v-if="mode3D === 'camera'">🖱️ Left-Click: Rotate Room | Scroll: Zoom</span>
+        <div class="status-bar" v-if="viewMode === '3d'">
+            <span v-if="viewMode3D === 'preview'">🖱️ Left-Click: Rotate Room | Scroll: Zoom</span>
             <span v-else-if="mode3D === 'edit' && selectedType === 'wall'">⚙️ Click a pattern from the gallery to apply it.</span>
-            <span v-else-if="mode3D === 'edit'">🖱️ Click a Wall/Obj to edit (Click other floors to switch to them)</span>
-            <span v-else-if="mode3D === 'adjust'">🖱️ Click object to pick up, drag to move</span>
+            <span v-else-if="mode3D === 'edit'">🖱️ Click object to select/move, or click wall to add patterns</span>
         </div>
       </main>
 
@@ -1263,7 +1259,12 @@ const setViewMode3D = (mode) => {
 };
 
 const togglePreviewMode = () => {
-    setViewMode3D(viewMode3D.value === 'preview' ? 'full-edit' : 'preview');
+    if (viewMode3D.value === 'preview') {
+        setViewMode3D('full-edit');
+        set3DMode('edit');
+    } else {
+        setViewMode3D('preview');
+    }
 };
 
 const updateEnvironment = () => {

@@ -10,7 +10,7 @@ export class InteractionSystem {
         this.interactables = interactables;
         this.callbacks = callbacks; // Expected: onLevelSwitchRequest, onEntitySelect, onRelocateStateChange, syncToUI, updateWallDecorLive
         
-        this.mode = 'adjust';
+        this.mode = 'edit';
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
         this.dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -59,7 +59,7 @@ export class InteractionSystem {
             this.updateMouse(e);
             
             // Drop placement for Furniture
-            if (this.mode === 'adjust' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isFurniture) {
+            if (this.mode === 'edit' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isFurniture) {
                 this.raycaster.setFromCamera(this.mouse, this.camera);
                 const target = new THREE.Vector3();
                 if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
@@ -93,13 +93,6 @@ export class InteractionSystem {
 
                 if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isRoom || mesh.userData.isRoof || mesh.userData.isWidget)) {
                     if (this.mode === 'edit') {
-                        if (mesh.userData.isWallDecor) {
-                            const side = mesh.userData.entity.side;
-                            let targetSkin = null;
-                            mesh.userData.parentWall.mesh3D.children.forEach(c => { if (c.userData.isWallSide && c.userData.side === side) targetSkin = c; });
-                            if (targetSkin) this.selectObject(targetSkin);
-                        } else this.selectObject(mesh);
-                    } else if (this.mode === 'adjust') {
                         if (this.selectedObject === mesh && mesh.userData.isFurniture) {
                             this.setRelocationState(true);
                             this.dragPlane.set(new THREE.Vector3(0, 1, 0), -this.structureGroup.position.y); 
@@ -125,12 +118,12 @@ export class InteractionSystem {
             this.updateMouse(e);
 
             // Real-time drag positioning
-            if (this.mode === 'adjust' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isFurniture) {
+            if (this.mode === 'edit' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isFurniture) {
                 this.raycaster.setFromCamera(this.mouse, this.camera);
                 const target = new THREE.Vector3();
                 if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) this.dropGroup.position.set(target.x, this.structureGroup.position.y + 0.5, target.z);
             } 
-            else if (this.mode === 'adjust' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isWallDecor) {
+            else if (this.mode === 'edit' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isWallDecor) {
                 this.raycaster.setFromCamera(this.mouse, this.camera);
                 const target = new THREE.Vector3();
                 if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
@@ -169,7 +162,7 @@ export class InteractionSystem {
         dom.addEventListener('dblclick', (e) => {
             if (this.viewMode3D === 'preview') return;
             if (this.mode === 'camera') return;
-            if (this.mode === 'adjust' && this.selectedObject && this.selectedObject.userData.isWidget) {
+            if (this.mode === 'edit' && this.selectedObject && this.selectedObject.userData.isWidget) {
                 const mesh = this.selectedObject;
                 const entity = mesh.userData.entity;
                 if (!entity.wall) return;

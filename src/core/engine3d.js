@@ -1837,7 +1837,7 @@ class FurnitureManager {
 class InteractionSystem {
     constructor(ctx) {
         this.ctx = ctx;
-        this.mode = 'adjust';
+        this.mode = 'edit';
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
         this.dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -1882,13 +1882,14 @@ class InteractionSystem {
             if (this.mode === 'camera' || e.button !== 0) return;
             this.updateMouse(e);
             
-            if (this.mode === 'adjust' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isFurniture) {
+            if (this.mode === 'edit' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isFurniture) {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
                 const target = new THREE.Vector3();
                 if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
                     this.selectedObject.position.set(target.x, 0, target.z);
                     this.setRelocationState(false);
                     this.ctx.syncToUI();
+                    if (this.ctx.controls) this.ctx.controls.enabled = true;
                 }
                 return;
             }
@@ -1915,26 +1916,20 @@ class InteractionSystem {
                 
                 if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget)) {
                     if (this.mode === 'edit') {
-                        if (mesh.userData.isWallDecor) {
-                            const side = mesh.userData.entity.side;
-                            let targetSkin = null;
-                            mesh.userData.parentWall.mesh3D.children.forEach(c => { if (c.userData.isWallSide && c.userData.side === side) targetSkin = c; });
-                            if (targetSkin) this.selectObject(targetSkin);
-                        } else this.selectObject(mesh);
-                    } else if (this.mode === 'adjust') {
                         if (this.selectedObject === mesh && mesh.userData.isFurniture) {
                             this.setRelocationState(true);
                             this.dragPlane.set(new THREE.Vector3(0, 1, 0), -this.ctx.structureGroup.position.y); 
-                        } else {
-                            this.selectObject(mesh);
-                            if (mesh.userData.isWallDecor) {
+                            if (this.ctx.controls) this.ctx.controls.enabled = false;
+                        } else if (this.selectedObject === mesh && mesh.userData.isWallDecor) {
                                 const wallNormal = new THREE.Vector3(0,0,1).applyEuler(mesh.parent.rotation);
                                 this.dragPlane.setFromNormalAndCoplanarPoint(wallNormal, mesh.getWorldPosition(new THREE.Vector3()));
                                 this.isPlacing = true;
                                 dom.style.cursor = 'grabbing';
                                 const target = new THREE.Vector3();
                                 if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) this.dragOffset.copy(mesh.position).sub(mesh.parent.worldToLocal(target));
-                            }
+                                if (this.ctx.controls) this.ctx.controls.enabled = false;
+                        } else {
+                            this.selectObject(mesh);
                         }
                     }
                 }
@@ -1946,12 +1941,12 @@ class InteractionSystem {
             if (this.mode === 'camera') return;
             this.updateMouse(e);
 
-            if (this.mode === 'adjust' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isFurniture) {
+            if (this.mode === 'edit' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isFurniture) {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
                 const target = new THREE.Vector3();
                 if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) this.dropGroup.position.set(target.x, this.ctx.structureGroup.position.y + 0.5, target.z);
             } 
-            else if (this.mode === 'adjust' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isWallDecor) {
+            else if (this.mode === 'edit' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isWallDecor) {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
                 const target = new THREE.Vector3();
                 if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
@@ -1967,7 +1962,7 @@ class InteractionSystem {
                     this.ctx.decorManager.updateLive(entity);
                     this.ctx.syncToUI();
                 }
-            } else if (this.mode === 'adjust' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isWidget) {
+            } else if (this.mode === 'edit' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isWidget) {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
                 const target = new THREE.Vector3();
                 if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
@@ -2012,7 +2007,7 @@ class InteractionSystem {
         dom.addEventListener('dblclick', (e) => {
             if (this.ctx.viewMode3D === 'preview') return;
             if (this.mode === 'camera') return;
-            if (this.mode === 'adjust' && this.selectedObject && this.selectedObject.userData.isWidget) {
+            if (this.mode === 'edit' && this.selectedObject && this.selectedObject.userData.isWidget) {
                 const mesh = this.selectedObject;
                 const wallGroup = mesh.parent; // sceneGroup in builder? Wait, in ActiveFloor: "WIDGET_REGISTRY[type].render3D(this.ctx.structureGroup...)"
                 // But double clicking simply changes mode to drag along wall
@@ -2022,6 +2017,7 @@ class InteractionSystem {
                 this.dragPlane.setFromNormalAndCoplanarPoint(wallNormal, mesh.getWorldPosition(new THREE.Vector3()));
                 this.isPlacing = true;
                 dom.style.cursor = 'grabbing';
+                if (this.ctx.controls) this.ctx.controls.enabled = false;
                 const target = new THREE.Vector3();
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
                 if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) this.dragOffset.copy(mesh.position).sub(target);
@@ -2032,6 +2028,7 @@ class InteractionSystem {
             if (this.isPlacing && this.selectedObject && (this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isWidget)) {
                 this.isPlacing = false;
                 dom.style.cursor = 'pointer';
+                if (this.ctx && this.ctx.controls) this.ctx.controls.enabled = true;
             }
         });
     }
@@ -2051,6 +2048,7 @@ class InteractionSystem {
     cancelRelocation() {
         if (this.isPlacing) this.setRelocationState(false);
         this.isPlacing = false;
+        if (this.ctx && this.ctx.controls) this.ctx.controls.enabled = true;
     }
 
     setHighlight(group, active, color = 0x3b82f6) {
