@@ -504,14 +504,14 @@ export class PremiumWall {
                 let snappedWall = null; for (let w of this.planner.walls) { if (w === this || w.type === 'railing' || w.hidden) continue; if (this.planner.getDistanceToWall(P, w) < 2) { snappedWall = w; break; } }
                 if (snappedWall) {
                     const corners = getTJointIntersections(snappedWall);
-                    if (corners) return { corners, hasCap: false };
+                    if (corners) return { corners, trueCorners: corners, hasCap: false };
                 }
-                return { corners: [baseL, baseR], hasCap: true };
+                return { corners: [baseL, baseR], trueCorners: [baseL, baseR], hasCap: true };
             }
             
             rays.sort((a, b) => a.angle - b.angle);
             const myIndex = rays.findIndex(r => r.w === this);
-            if (myIndex === -1) return { corners: [baseL, baseR], hasCap: true };
+            if (myIndex === -1) return { corners: [baseL, baseR], trueCorners: [baseL, baseR], hasCap: true };
             
             const leftNeighbor = rays[(myIndex - 1 + rays.length) % rays.length];
             const rightNeighbor = rays[(myIndex + 1) % rays.length];
@@ -523,8 +523,10 @@ export class PremiumWall {
             // Cross products to determine if the wedge is an inner corner (<180 deg) or outer corner (>180 deg)
             const cpL = myRay.dir.x * rightNeighbor.dir.y - myRay.dir.y * rightNeighbor.dir.x;
             let leftSideCorner = myRay.L_pt, leftSideBevel = rightNeighbor.R_pt;
+            let trueL = myRay.L_pt;
             const iL = intersectLines(myRay.L_pt, myRay.dir, rightNeighbor.R_pt, rightNeighbor.dir);
             if (iL) {
+                trueL = iL;
                 if (cpL >= -1e-5) { 
                     // Inner corner: Always use exact intersection to prevent inner geometry gaps/crossings
                     leftSideCorner = iL;
@@ -538,8 +540,10 @@ export class PremiumWall {
 
             const cpR = leftNeighbor.dir.x * myRay.dir.y - leftNeighbor.dir.y * myRay.dir.x;
             let rightSideCorner = myRay.R_pt, rightSideBevel = leftNeighbor.L_pt;
+            let trueR = myRay.R_pt;
             const iR = intersectLines(myRay.R_pt, myRay.dir, leftNeighbor.L_pt, leftNeighbor.dir);
             if (iR) {
+                trueR = iR;
                 if (cpR >= -1e-5) {
                     // Inner corner
                     rightSideCorner = iR;
@@ -551,17 +555,20 @@ export class PremiumWall {
                 }
             }
 
-            let finalL, finalR, bevelL, bevelR;
+            let finalL, finalR, bevelL, bevelR, trueFinalL, trueFinalR;
             if (isStart) {
                 finalL = leftSideCorner; finalR = rightSideCorner;
                 bevelL = leftSideBevel; bevelR = rightSideBevel;
+                trueFinalL = trueL; trueFinalR = trueR;
             } else {
                 finalL = rightSideCorner; finalR = leftSideCorner;
                 bevelL = rightSideBevel; bevelR = leftSideBevel;
+                trueFinalL = trueR; trueFinalR = trueL;
             }
 
             return { 
                 corners: [finalL, finalR], 
+                trueCorners: [trueFinalL, trueFinalR],
                 hasCap: false, 
                 leftDir: leftNeighbor.dir, 
                 rightDir: rightNeighbor.dir,
@@ -583,10 +590,15 @@ export class PremiumWall {
             hasStartCap: startData.hasCap,
             hasEndCap: endData.hasCap,
             startData,
-            endData
+            endData,
+            startProfile: [startR, startData.bevelR, startData.bevelL, startL].filter(Boolean),
+            endProfile: [endR, endData.bevelR, endData.bevelL, endL].filter(Boolean)
         };
         
-        this.poly.points([startL.x, startL.y, endL.x, endL.y, endR.x, endR.y, startR.x, startR.y]);
+        const startTrue = startData.trueCorners || startData.corners;
+        const endTrue = endData.trueCorners || endData.corners;
+
+        this.poly.points([startTrue[0].x, startTrue[0].y, endTrue[0].x, endTrue[0].y, endTrue[1].x, endTrue[1].y, startTrue[1].x, startTrue[1].y]);
         this.poly.closed(true);
         this.poly.fillEnabled(true);
         this.poly.strokeWidth(1);
@@ -607,7 +619,7 @@ export class PremiumWall {
             this.poly.fill(isSel ? '#bfdbfe' : this.fillColor);
         }
 
-        const fOff = 4; this.frontHighlight.points([ startL.x + n.x * fOff, startL.y + n.y * fOff, endL.x + n.x * fOff, endL.y + n.y * fOff ]); this.backHighlight.points([ startR.x - n.x * fOff, startR.y - n.y * fOff, endR.x - n.x * fOff, endR.y - n.y * fOff ]);
+        const fOff = 4; this.frontHighlight.points([ startTrue[0].x + n.x * fOff, startTrue[0].y + n.y * fOff, endTrue[0].x + n.x * fOff, endTrue[0].y + n.y * fOff ]); this.backHighlight.points([ startTrue[1].x - n.x * fOff, startTrue[1].y - n.y * fOff, endTrue[1].x - n.x * fOff, endTrue[1].y - n.y * fOff ]);
         this.labelText.text(this.planner.formatLength(this.getLength()));
         this.labelGroup.position({ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 });
         this.labelGroup.offset({ x: this.labelText.width() / 2, y: 15 });

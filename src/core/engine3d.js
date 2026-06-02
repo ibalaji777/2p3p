@@ -574,11 +574,25 @@ class Stair3DBuilder {
 class EnvironmentBuilder {
     constructor(ctx) {
         this.ctx = ctx;
+
+        // Procedural noise bump texture for realistic wall finish
+        const canvas = document.createElement('canvas');
+        canvas.width = 256; canvas.height = 256;
+        const ctx2d = canvas.getContext('2d');
+        const imgData = ctx2d.createImageData(256, 256);
+        for (let i = 0; i < imgData.data.length; i += 4) {
+            const val = 150 + Math.random() * 50;
+            imgData.data[i] = val; imgData.data[i + 1] = val; imgData.data[i + 2] = val; imgData.data[i + 3] = 255;
+        }
+        ctx2d.putImageData(imgData, 0, 0);
+        this.wallBumpTex = new THREE.CanvasTexture(canvas);
+        this.wallBumpTex.wrapS = this.wallBumpTex.wrapT = THREE.RepeatWrapping;
+        this.wallBumpTex.repeat.set(2, 2);
     }
 
     setupBaseEnvironment() {
         this.ctx.scene.background = new THREE.Color(0xf3f4f6);
-        this.ctx.scene.fog = new THREE.FogExp2(0xf3f4f6, 0.0008);
+        this.ctx.scene.fog = new THREE.FogExp2(0xf3f4f6, 0.00016);
 
         const groundGeo = new THREE.PlaneGeometry(10000, 10000);
         const groundMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0 });
@@ -596,19 +610,23 @@ class EnvironmentBuilder {
         this.ctx.scene.add(grid);
         this.grid = grid;
 
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 3.0);
+        const hemiLight = new THREE.HemisphereLight(0xe6f0ff, 0x222222, 1.5);
         hemiLight.position.set(0, 500, 0);
         this.ctx.scene.add(hemiLight);
         this.hemiLight = hemiLight;
 
-        const sunLight = new THREE.DirectionalLight(0xfffaed, 5.0);
-        sunLight.position.set(300, 600, 400);
+        const sunLight = new THREE.DirectionalLight(0xfff5e6, 3.5);
+        sunLight.position.set(500, 400, 500);
         sunLight.castShadow = true;
         sunLight.shadow.mapSize.width = 2048;
         sunLight.shadow.mapSize.height = 2048;
+        sunLight.shadow.mapSize.width = 4096;
+        sunLight.shadow.mapSize.height = 4096;
         sunLight.shadow.camera.near = 10;
         sunLight.shadow.camera.far = 2000;
         sunLight.shadow.bias = -0.0005;
+        sunLight.shadow.bias = -0.0004;
+        sunLight.shadow.radius = 4;
         const d = 800;
         sunLight.shadow.camera.left = -d; sunLight.shadow.camera.right = d;
         sunLight.shadow.camera.top = d; sunLight.shadow.camera.bottom = -d;
@@ -655,8 +673,14 @@ class EnvironmentBuilder {
     }
 
     buildActiveFloor(walls, rooms, shapes, stairs = []) {
-        const matMain = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
-        const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8 });
+        const matMain = new THREE.MeshStandardMaterial({ 
+            color: 0xf5f5f0, // Subtle warm off-white
+            roughness: 0.95, 
+            bumpMap: this.wallBumpTex, 
+            bumpScale: 0.005 
+        });
+        const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xdddddb, roughness: 0.9 });
+        const matBaseboard = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.1 });
 
         if (rooms) {
             rooms.forEach(room => {
@@ -744,6 +768,22 @@ class EnvironmentBuilder {
             const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: t, bevelEnabled: false });
             wallGeo.translate(0, 0, -t / 2);
             
+            let bbGeo = null;
+            if (w.type !== 'railing') {
+                const bbHeight = 4; const bbThick = t + 1.2;
+                const bbShape = new THREE.Shape();
+                bbShape.moveTo(0, 0); bbShape.lineTo(length, 0); bbShape.lineTo(length, bbHeight); bbShape.lineTo(0, bbHeight); bbShape.lineTo(0, 0);
+                w.attachedWidgets.forEach(widg => {
+                    if (widg.type === 'door') {
+                        const hole = new THREE.Path(), wCenter = length * widg.t, halfW = widg.width / 2;
+                        hole.moveTo(wCenter - halfW, 0); hole.lineTo(wCenter + halfW, 0); hole.lineTo(wCenter + halfW, bbHeight); hole.lineTo(wCenter - halfW, bbHeight); hole.lineTo(wCenter - halfW, 0);
+                        bbShape.holes.push(hole);
+                    }
+                });
+                bbGeo = new THREE.ExtrudeGeometry(bbShape, { depth: bbThick, bevelEnabled: false });
+                bbGeo.translate(0, 0, -bbThick / 2);
+            }
+
             // ====== MITER JOINT SHEARING ======
             const pts = typeof w.poly?.points === 'function' ? w.poly.points() : null;
             let localSL_x = 0, localSR_x = 0, localEL_x = length, localER_x = length;
@@ -761,10 +801,11 @@ class EnvironmentBuilder {
 
             const shearGeo = (geo) => {
                 const pos = geo.attributes.position;
+            const geomThickness = geo === bbGeo ? t + 1.2 : t;
                 for (let i = 0; i < pos.count; i++) {
                     const x = pos.getX(i);
                     const z = pos.getZ(i);
-                    const tZ = Math.max(0, Math.min(1, (z + t / 2) / t));
+                const tZ = Math.max(0, Math.min(1, (z + geomThickness / 2) / geomThickness));
                     const startX = localSR_x + tZ * (localSL_x - localSR_x);
                     const endX = localER_x + tZ * (localEL_x - localER_x);
                     const tX = x / length;
@@ -775,6 +816,7 @@ class EnvironmentBuilder {
 
             if (pts && pts.length === 8) {
                 shearGeo(wallGeo);
+            if (bbGeo) shearGeo(bbGeo);
             }
             // ==================================
 
@@ -797,6 +839,11 @@ class EnvironmentBuilder {
             wallGroup.position.set(p1.x, 0, p1.y);
             wallGroup.rotation.y = -angle;
             wallGroup.add(wallMesh, hitFront, hitBack);
+        if (bbGeo) {
+            const bbMesh = new THREE.Mesh(bbGeo, matBaseboard);
+            bbMesh.castShadow = true; bbMesh.receiveShadow = true;
+            wallGroup.add(bbMesh);
+        }
             wallGroup.userData = { entity: w };
             w.mesh3D = wallGroup;
 
@@ -1063,8 +1110,14 @@ class EnvironmentBuilder {
                 floorGroup.position.y = index * WALL_HEIGHT;
 
                 const isPreview = viewMode3D === 'preview';
-                const matMain = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
-                const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8 });
+            const matMain = new THREE.MeshStandardMaterial({ 
+                color: 0xf5f5f0, // Subtle warm off-white
+                roughness: 0.95, 
+                bumpMap: this.wallBumpTex, 
+                bumpScale: 0.005 
+            });
+            const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xdddddb, roughness: 0.9 });
+            const matBaseboard = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.1 });
 
                 if (data.rooms) {
                     data.rooms.forEach(room => {
@@ -1238,6 +1291,26 @@ class EnvironmentBuilder {
                         const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: w.thickness, bevelEnabled: false });
                         wallGeo.translate(0, 0, -w.thickness / 2);
                         
+                        let bbGeo = null;
+                        if (w.type !== 'railing') {
+                            const bbHeight = 4;
+                            const bbThick = w.thickness + 1.2;
+                            const bbShape = new THREE.Shape();
+                            bbShape.moveTo(0, startY); bbShape.lineTo(length, startY); bbShape.lineTo(length, startY + bbHeight); bbShape.lineTo(0, startY + bbHeight); bbShape.lineTo(0, startY);
+                            if (w.attachedWidgets) {
+                                w.attachedWidgets.forEach(widg => {
+                                    if (widg.type === 'door') {
+                                        const hole = new THREE.Path(), wCenter = length * widg.t, halfW = widg.width / 2;
+                                        const dh = Math.min(DOOR_HEIGHT, totalH, startY + bbHeight);
+                                        hole.moveTo(wCenter - halfW, startY); hole.lineTo(wCenter + halfW, startY); hole.lineTo(wCenter + halfW, dh); hole.lineTo(wCenter - halfW, dh); hole.lineTo(wCenter - halfW, startY);
+                                        bbShape.holes.push(hole);
+                                    }
+                                });
+                            }
+                            bbGeo = new THREE.ExtrudeGeometry(bbShape, { depth: bbThick, bevelEnabled: false });
+                            bbGeo.translate(0, 0, -bbThick / 2);
+                        }
+
                         // ====== MITER JOINT SHEARING ======
                         let localSL_x = 0, localSR_x = 0, localEL_x = length, localER_x = length;
                         if (w.pts && w.pts.length === 8) {
@@ -1251,17 +1324,21 @@ class EnvironmentBuilder {
                             localER_x = toLocalX(w.pts[4], w.pts[5]);
                             localSR_x = toLocalX(w.pts[6], w.pts[7]);
 
-                            const pos = wallGeo.attributes.position;
+                        const shearGeo = (geo, geomThickness = w.thickness) => {
+                            const pos = geo.attributes.position;
                             for (let i = 0; i < pos.count; i++) {
                                 const x = pos.getX(i);
                                 const z = pos.getZ(i);
-                                const tZ = Math.max(0, Math.min(1, (z + w.thickness / 2) / w.thickness));
+                                const tZ = Math.max(0, Math.min(1, (z + geomThickness / 2) / geomThickness));
                                 const startX = localSR_x + tZ * (localSL_x - localSR_x);
                                 const endX = localER_x + tZ * (localEL_x - localER_x);
                                 const tX = x / length;
                                 pos.setX(i, startX + tX * (endX - startX));
                             }
-                            wallGeo.computeVertexNormals();
+                            geo.computeVertexNormals();
+                        };
+                        shearGeo(wallGeo, w.thickness);
+                        if (bbGeo) shearGeo(bbGeo, w.thickness + 1.2);
                         }
                         // ==================================
 
@@ -1273,6 +1350,11 @@ class EnvironmentBuilder {
                         wallGroup.rotation.y = -angle;
                         wallGroup.userData = { entity: w };
                         w.mesh3D = wallGroup;
+                    if (bbGeo) {
+                        const bbMesh = new THREE.Mesh(bbGeo, matBaseboard);
+                        bbMesh.castShadow = true; bbMesh.receiveShadow = true;
+                        wallGroup.add(bbMesh);
+                    }
                         wallGroup.add(wallMesh);
                         
                         if (!isPreview && viewMode3D === 'full-edit') {
@@ -2176,6 +2258,7 @@ export class Preview3D {
         this.renderer.toneMappingExposure = 1.0;
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFShadowMap;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.container.appendChild(this.renderer.domElement);
         
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);

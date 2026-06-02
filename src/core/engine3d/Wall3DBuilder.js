@@ -3,15 +3,119 @@ import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, RAILING_REGISTRY 
 
 export class Wall3DBuilder {
     constructor() {
-        this.matMain = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
-        this.matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8 });
+        // Procedural noise bump texture for realistic wall finish
+        const canvas = document.createElement('canvas');
+        canvas.width = 256; canvas.height = 256;
+        const ctx2d = canvas.getContext('2d');
+        const imgData = ctx2d.createImageData(256, 256);
+        for (let i = 0; i < imgData.data.length; i += 4) {
+            const val = 150 + Math.random() * 50;
+            imgData.data[i] = val; imgData.data[i + 1] = val; imgData.data[i + 2] = val; imgData.data[i + 3] = 255;
+        }
+        ctx2d.putImageData(imgData, 0, 0);
+        this.wallBumpTex = new THREE.CanvasTexture(canvas);
+        this.wallBumpTex.wrapS = this.wallBumpTex.wrapT = THREE.RepeatWrapping;
+        this.wallBumpTex.repeat.set(2, 2);
+
+        this.matMain = new THREE.MeshStandardMaterial({ 
+            color: 0xf5f5f0, // Subtle warm off-white cream
+            roughness: 0.95, 
+            bumpMap: this.wallBumpTex, 
+            bumpScale: 0.005 
+        });
+        this.matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xdddddb, roughness: 0.9 });
+        this.matBaseboard = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.1 });
     }
 
     // Abstract method that works for both Active (Konva) and Static (JSON) walls
     buildWallGroup(length, thickness, wallData, startX, startY, angle, wallHeight = WALL_HEIGHT) {
         const wallShape = this._createShape(length, wallData.attachedWidgets, wallHeight);
-        const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: thickness, bevelEnabled: false });
+        const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: thickness, bevelEnabled: false, steps: 12 });
         wallGeo.translate(0, 0, -thickness / 2);
+
+        let bbGeo = null;
+        if (wallData.type !== 'railing') {
+            const bbHeight = 4;
+            const bbThick = thickness + 1.2;
+            const bbShape = new THREE.Shape();
+            bbShape.moveTo(0, 0); bbShape.lineTo(length, 0); bbShape.lineTo(length, bbHeight); bbShape.lineTo(0, bbHeight); bbShape.lineTo(0, 0);
+            if (wallData.attachedWidgets) {
+                wallData.attachedWidgets.forEach(widg => {
+                    if (widg.type === 'door' || widg.configId === 'door') {
+                        const hole = new THREE.Path(), wCenter = length * widg.t, halfW = widg.width / 2;
+                        hole.moveTo(wCenter - halfW, 0); hole.lineTo(wCenter + halfW, 0); hole.lineTo(wCenter + halfW, bbHeight); hole.lineTo(wCenter - halfW, bbHeight); hole.lineTo(wCenter - halfW, 0);
+                        bbShape.holes.push(hole);
+                    }
+                });
+            }
+            bbGeo = new THREE.ExtrudeGeometry(bbShape, { depth: bbThick, bevelEnabled: false, steps: 12 });
+            bbGeo.translate(0, 0, -bbThick / 2);
+        }
+
+        // ====== MITER JOINT SHEARING ======
+        const startProfile = wallData.wallShapeData ? wallData.wallShapeData.startProfile : wallData.startProfile;
+        const endProfile = wallData.wallShapeData ? wallData.wallShapeData.endProfile : wallData.endProfile;
+        const pts = (wallData.poly && typeof wallData.poly.points === 'function') ? wallData.poly.points() : wallData.pts;
+        
+        let localSL_x = 0, localSR_x = 0, localEL_x = length, localER_x = length;
+        
+        if (startProfile && endProfile) {
+            const toLocal = (ptX, ptY) => {
+                const dx = ptX - startX; const dy = ptY - startY;
+                const c = Math.cos(angle); const s = Math.sin(angle);
+                return { x: dx * c + dy * s, z: -dx * s + dy * c };
+            };
+            const startProfileLocal = startProfile.map(p => toLocal(p.x, p.y)).sort((a,b) => a.z - b.z);
+            const endProfileLocal = endProfile.map(p => toLocal(p.x, p.y)).sort((a,b) => a.z - b.z);
+
+            const interpolateX = (profile, zTarget) => {
+                if (profile.length === 1) return profile[0].x;
+                if (zTarget <= profile[0].z) return profile[0].x;
+                if (zTarget >= profile[profile.length - 1].z) return profile[profile.length - 1].x;
+                for (let i = 0; i < profile.length - 1; i++) {
+                    const p1 = profile[i]; const p2 = profile[i+1];
+                    if (zTarget >= p1.z && zTarget <= p2.z) {
+                        if (p2.z === p1.z) return p1.x;
+                        const t = (zTarget - p1.z) / (p2.z - p1.z);
+                        return p1.x + t * (p2.x - p1.x);
+                    }
+                }
+                return profile[0].x;
+            };
+
+            const shearGeo = (geo, isBaseboard = false) => {
+                const pos = geo.attributes.position;
+                const bbThick = thickness + 1.2;
+                for (let i = 0; i < pos.count; i++) {
+                    const x = pos.getX(i);
+                    let z = pos.getZ(i);
+                    if (isBaseboard) z *= (thickness / bbThick);
+
+                    const sX = interpolateX(startProfileLocal, z);
+                    const eX = interpolateX(endProfileLocal, z);
+                    pos.setX(i, sX + (x / length) * (eX - sX));
+                }
+                geo.computeVertexNormals();
+            };
+            shearGeo(wallGeo, false);
+            if (bbGeo) shearGeo(bbGeo, true);
+        } else if (pts && pts.length === 8) {
+            const toLocalX = (ptX, ptY) => { return (ptX - startX) * Math.cos(angle) + (ptY - startY) * Math.sin(angle); };
+            localSL_x = toLocalX(pts[0], pts[1]); localEL_x = toLocalX(pts[2], pts[3]); localER_x = toLocalX(pts[4], pts[5]); localSR_x = toLocalX(pts[6], pts[7]);
+
+            const shearGeo = (geo) => {
+                const pos = geo.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    const x = pos.getX(i); const z = pos.getZ(i);
+                    const tZ = (z + thickness / 2) / thickness;
+                    const sX = localSR_x + tZ * (localSL_x - localSR_x); const eX = localER_x + tZ * (localEL_x - localER_x);
+                    pos.setX(i, sX + (x / length) * (eX - sX));
+                }
+                geo.computeVertexNormals();
+            };
+            shearGeo(wallGeo);
+            if (bbGeo) shearGeo(bbGeo);
+        }
 
         let materials = [this.matMain, this.matEdgeDark];
         
@@ -43,24 +147,85 @@ export class Wall3DBuilder {
         const wallGroup = new THREE.Group();
         wallGroup.position.set(startX, 0, startY);
         wallGroup.rotation.y = -angle;
+        
+        if (bbGeo) {
+            const bbMesh = new THREE.Mesh(bbGeo, this.matBaseboard);
+            bbMesh.castShadow = true; bbMesh.receiveShadow = true;
+            wallGroup.add(bbMesh);
+        }
         wallGroup.add(wallMesh);
 
         return { wallGroup, wallGeo };
     }
 
-    createHitboxes(length, thickness, wallData, isStatic = false, levelIndex = 0, wallIndex = 0, wallHeight = WALL_HEIGHT) {
+    createHitboxes(length, thickness, wallData, isStatic = false, levelIndex = 0, wallIndex = 0, wallHeight = WALL_HEIGHT, startX = 0, startY = 0, angle = 0) {
         const hitboxes = [];
         
-        // Front and Back skins for editing textures
-        const skinGeo = new THREE.PlaneGeometry(length - 0.5, wallHeight - 0.5);
-        skinGeo.translate(length / 2, wallHeight / 2, 0);
+        const skinGeoFront = new THREE.PlaneGeometry(length - 0.5, wallHeight - 0.5);
+        skinGeoFront.translate(length / 2, wallHeight / 2, thickness / 2 + 0.1);
 
-        const hitFront = new THREE.Mesh(skinGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
-        hitFront.position.set(0, 0, thickness / 2 + 0.1);
+        const skinGeoBack = new THREE.PlaneGeometry(length - 0.5, wallHeight - 0.5);
+        skinGeoBack.translate(length / 2, wallHeight / 2, -thickness / 2 - 0.1);
+
+        const startProfile = wallData.wallShapeData ? wallData.wallShapeData.startProfile : wallData.startProfile;
+        const endProfile = wallData.wallShapeData ? wallData.wallShapeData.endProfile : wallData.endProfile;
+        const pts = (wallData.poly && typeof wallData.poly.points === 'function') ? wallData.poly.points() : wallData.pts;
+        
+        if (startProfile && endProfile) {
+            const toLocal = (ptX, ptY) => {
+                const dx = ptX - startX; const dy = ptY - startY;
+                const c = Math.cos(angle); const s = Math.sin(angle);
+                return { x: dx * c + dy * s, z: -dx * s + dy * c };
+            };
+            const startProfileLocal = startProfile.map(p => toLocal(p.x, p.y)).sort((a,b) => a.z - b.z);
+            const endProfileLocal = endProfile.map(p => toLocal(p.x, p.y)).sort((a,b) => a.z - b.z);
+
+            const interpolateX = (profile, zTarget) => {
+                if (profile.length === 1) return profile[0].x;
+                if (zTarget <= profile[0].z) return profile[0].x;
+                if (zTarget >= profile[profile.length - 1].z) return profile[profile.length - 1].x;
+                for (let i = 0; i < profile.length - 1; i++) {
+                    const p1 = profile[i]; const p2 = profile[i+1];
+                    if (zTarget >= p1.z && zTarget <= p2.z) {
+                        if (p2.z === p1.z) return p1.x;
+                        const t = (zTarget - p1.z) / (p2.z - p1.z);
+                        return p1.x + t * (p2.x - p1.x);
+                    }
+                }
+                return profile[0].x;
+            };
+
+            const shearGeo = (geo) => {
+                const pos = geo.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    const x = pos.getX(i); const z = pos.getZ(i);
+                    const sX = interpolateX(startProfileLocal, z);
+                    const eX = interpolateX(endProfileLocal, z);
+                    pos.setX(i, sX + (x / length) * (eX - sX));
+                }
+                geo.computeVertexNormals();
+            };
+            shearGeo(skinGeoFront); shearGeo(skinGeoBack);
+        } else if (pts && pts.length === 8) {
+            const toLocalX = (ptX, ptY) => { return (ptX - startX) * Math.cos(angle) + (ptY - startY) * Math.sin(angle); };
+            const localSL_x = toLocalX(pts[0], pts[1]), localEL_x = toLocalX(pts[2], pts[3]), localER_x = toLocalX(pts[4], pts[5]), localSR_x = toLocalX(pts[6], pts[7]);
+            const shearGeo = (geo) => {
+                const pos = geo.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    const x = pos.getX(i); const z = pos.getZ(i);
+                    const tZ = (z + thickness / 2) / thickness;
+                    const sX = localSR_x + tZ * (localSL_x - localSR_x); const eX = localER_x + tZ * (localEL_x - localER_x);
+                    pos.setX(i, sX + (x / length) * (eX - sX));
+                }
+                geo.computeVertexNormals();
+            };
+            shearGeo(skinGeoFront); shearGeo(skinGeoBack);
+        }
+
+        const hitFront = new THREE.Mesh(skinGeoFront, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
         hitFront.userData = { isWallSide: true, side: 'front', entity: wallData };
 
-        const hitBack = new THREE.Mesh(skinGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
-        hitBack.position.set(0, 0, -thickness / 2 - 0.1);
+        const hitBack = new THREE.Mesh(skinGeoBack, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
         hitBack.userData = { isWallSide: true, side: 'back', entity: wallData };
 
         hitboxes.push(hitFront, hitBack);

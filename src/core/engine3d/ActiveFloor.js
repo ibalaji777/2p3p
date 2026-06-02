@@ -83,7 +83,7 @@ export class ActiveFloor {
             }
 
             // Generate Hitboxes
-            const hitboxes = this.wallBuilder.createHitboxes(length, wallThickness, w, false, 0, 0, wallHeight);
+            const hitboxes = this.wallBuilder.createHitboxes(length, wallThickness, w, false, 0, 0, wallHeight, p1.x, p1.y, angle);
             hitboxes.forEach(hb => {
                 wallGroup.add(hb);
                 this.interactables.push(hb);

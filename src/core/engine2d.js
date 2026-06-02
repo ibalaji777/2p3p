@@ -1612,6 +1612,8 @@ export class FloorPlanner {
                 type: w.type,
                 configId: w.configId,
                 pts: w.poly ? w.poly.points() : null,
+                startProfile: w.wallShapeData ? w.wallShapeData.startProfile : null,
+                endProfile: w.wallShapeData ? w.wallShapeData.endProfile : null,
                 widgets: w.attachedWidgets.map(wid => ({
                     t: wid.t, configId: wid.type, width: wid.width
                 })),

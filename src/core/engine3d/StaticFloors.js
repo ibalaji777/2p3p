@@ -121,7 +121,7 @@ export class StaticFloors {
                         }
 
                         if (!isPreview) {
-                            const hitboxes = this.wallBuilder.createHitboxes(length, w.thickness, w, true, index, wallIndex, wallHeight);
+                            const hitboxes = this.wallBuilder.createHitboxes(length, w.thickness, w, true, index, wallIndex, wallHeight, w.startX, w.startY, angle);
                             hitboxes.forEach(hb => {
                                 // Only add Face hitboxes if in full-edit mode. Otherwise, just add the volume trigger.
                                 if (viewMode3D === 'full-edit' || hb.userData.isFloorTrigger) {
