@@ -1746,9 +1746,9 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .adv-round-btn:hover { background: rgba(255,255,255,0.1); transform: scale(1.1); }
 .adv-round-btn.active { background: #ffffff; color: #111827; border-color: #ffffff; }
 .env-dropdown { position: relative; }
-.env-icon-btn { background: rgba(17, 24, 39, 0.8); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; backdrop-filter: blur(4px); transition: 0.2s; }
+.env-icon-btn { background: rgba(17, 24, 39, 0.8); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; backdrop-filter: blur(4px); transition: 0.2s; white-space: nowrap; }
 .env-icon-btn:hover { background: rgba(17, 24, 39, 1); box-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
-.env-menu { position: absolute; top: 100%; right: 0; margin-top: 5px; background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); padding: 10px; width: 240px; display: flex; flex-direction: column; gap: 5px; }
+.env-menu { position: absolute; top: 100%; right: 0; margin-top: 5px; background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); padding: 10px; width: 240px; max-width: calc(100vw - 40px); max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; z-index: 1000; }
 .env-menu::before { content: ''; position: absolute; top: -10px; left: 0; right: 0; height: 10px; }
 .env-menu-item { padding: 8px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; color: #374151; transition: 0.2s; }
 .env-menu-item:hover { background: #f3f4f6; }
@@ -1859,6 +1859,8 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
     .mobile-bottom-nav button { background: transparent; border: none; color: #9ca3af; display: flex; flex-direction: column; align-items: center; font-size: 13px; gap: 4px; padding: 5px; cursor: pointer; font-weight: bold; }
     .mobile-bottom-nav button.active { color: #3b82f6; }
     .mobile-close-btn { background: #f8fafc; padding: 15px; text-align: right; font-weight: bold; color: #ef4444; border-bottom: 1px solid #e5e7eb; cursor: pointer; font-size: 14px; display: block; }
+    
+    .env-dropdown { position: static; }
 }
 
 @media (max-width: 767px) {
