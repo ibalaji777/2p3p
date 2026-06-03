@@ -133,10 +133,22 @@
 
       <!-- Mobile Bottom Navigation -->
       <div class="mobile-bottom-nav" v-if="isMobile || isTablet">
-        <button @click="toggleMobileTab('levels')" :class="{active: activeMobileTab === 'levels' && mobileMenuOpen}">🏢 Floors</button>
-        <button @click="toggleMobileTab('properties')" :class="{active: activeMobileTab === 'properties' && mobileMenuOpen}">⚙️ Props</button>
-        <button @click="toggleMobileTab('layers')" :class="{active: activeMobileTab === 'layers' && mobileMenuOpen}">📚 Layers</button>
-        <button @click="toggleMobileTab('settings')" :class="{active: activeMobileTab === 'settings' && mobileMenuOpen}">🛠️ Settings</button>
+        <button @click="toggleMobileTab('levels')" :class="{active: activeMobileTab === 'levels' && mobileMenuOpen}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="bottom-nav-icon"><path d="M3 21h18"></path><path d="M5 21V7l8-4v18"></path><path d="M19 21V11l-6-3"></path><path d="M9 9v.01"></path><path d="M9 13v.01"></path><path d="M9 17v.01"></path></svg>
+            <span>Floors</span>
+        </button>
+        <button @click="toggleMobileTab('properties')" :class="{active: activeMobileTab === 'properties' && mobileMenuOpen}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="bottom-nav-icon"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            <span>Props</span>
+        </button>
+        <button @click="toggleMobileTab('layers')" :class="{active: activeMobileTab === 'layers' && mobileMenuOpen}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="bottom-nav-icon"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+            <span>Layers</span>
+        </button>
+        <button @click="toggleMobileTab('settings')" :class="{active: activeMobileTab === 'settings' && mobileMenuOpen}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="bottom-nav-icon"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span>Settings</span>
+        </button>
       </div>
       
       <main class="canvas-container">
@@ -1702,8 +1714,10 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
     display: flex; justify-content: space-between; align-items: center;
     background: #ffffff; padding: 8px 20px; color: #111827;
     border-bottom: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05); z-index: 1000;
+    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
 }
-.left-tools, .center-tools, .tool-group { display: flex; align-items: stretch; gap: 4px; }
+.top-toolbar::-webkit-scrollbar { display: none; }
+.left-tools, .center-tools, .tool-group { display: flex; align-items: stretch; gap: 4px; flex-shrink: 0; }
 .divider { width: 1px; height: 32px; background: #e5e7eb; margin: auto 12px; }
 
 .tool-btn {
@@ -2002,9 +2016,11 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
         background: #f8fafc !important; 
     }
 
-    .mobile-bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; background: #111827; display: flex; justify-content: space-around; align-items: center; z-index: 2100; border-top: 1px solid #1f2937; }
-    .mobile-bottom-nav button { background: transparent; border: none; color: #9ca3af; display: flex; flex-direction: column; align-items: center; font-size: 13px; gap: 4px; padding: 5px; cursor: pointer; font-weight: bold; }
-    .mobile-bottom-nav button.active { color: #3b82f6; }
+    .mobile-bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; background: #ffffff; display: flex; justify-content: space-around; align-items: center; z-index: 2100; border-top: 1px solid #e5e7eb; padding: 4px; box-sizing: border-box; }
+    .mobile-bottom-nav button { flex: 1; height: 100%; background: transparent; border: none; color: #6b7280; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 10px; gap: 4px; cursor: pointer; font-weight: 600; transition: 0.2s; border-radius: 8px; }
+    .mobile-bottom-nav button:hover { background: #f8fafc; color: #111827; }
+    .mobile-bottom-nav button.active { color: #2563eb; background: #eff6ff; }
+    .bottom-nav-icon { width: 22px; height: 22px; }
     .mobile-close-btn { background: #f8fafc; padding: 15px; text-align: right; font-weight: bold; color: #ef4444; border-bottom: 1px solid #e5e7eb; cursor: pointer; font-size: 14px; display: block; }
     
     .levels-panel { flex: 1; border-bottom: none; }
@@ -2033,9 +2049,9 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
         background: #ffffff !important;
     }
 
-    .top-toolbar { flex-wrap: wrap; padding: 8px 10px; gap: 8px; justify-content: center; }
-    .left-tools, .center-tools { flex-wrap: wrap; justify-content: center; width: 100%; gap: 6px; }
-    .tool-btn { padding: 4px 8px; min-width: 50px; }
+    .top-toolbar { padding: 6px 10px; gap: 8px; justify-content: flex-start; }
+    .left-tools, .center-tools { flex-wrap: nowrap; justify-content: flex-start; width: auto; gap: 6px; }
+    .tool-btn { padding: 4px 8px; min-width: max-content; flex-shrink: 0; }
     .tool-icon { width: 18px; height: 18px; }
     .tool-label { font-size: 9px; }
     .floating-advanced-toolbar { top: 10px; right: 10px; }
