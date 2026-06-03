@@ -124,9 +124,15 @@
         </div>
       </aside>
 
+      <!-- Mobile Left Trigger -->
+      <div class="mobile-left-trigger" v-if="(isMobile || isTablet) && viewMode === '2d' && !(mobileMenuOpen && activeMobileTab === 'tools')" @click="activeMobileTab = 'tools'; mobileMenuOpen = true" title="Open Tools">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </div>
+
             <!-- Mobile Bottom Navigation -->
       <div class="mobile-bottom-nav" v-if="isMobile || isTablet">
-        <button @click="activeMobileTab = 'tools'; mobileMenuOpen = true" :class="{active: activeMobileTab === 'tools' && mobileMenuOpen}">🛠️ Tools</button>
         <button @click="activeMobileTab = 'properties'; mobileMenuOpen = true" :class="{active: activeMobileTab === 'properties' && mobileMenuOpen}">⚙️ Props</button>
         <button @click="activeMobileTab = 'layers'; mobileMenuOpen = true" :class="{active: activeMobileTab === 'layers' && mobileMenuOpen}">📚 Layers</button>
         <button @click="activeMobileTab = 'settings'; mobileMenuOpen = true" :class="{active: activeMobileTab === 'settings' && mobileMenuOpen}">🛠️ Settings</button>
@@ -1419,6 +1425,10 @@ const handleToolClick = (tool) => {
     if (tool.action === 'furniture') spawnFurniture(tool.id);
     else if (tool.action === 'auto_roof') { if (planner.value) planner.value.addAutoRoof(); }
     else setTool(tool.id);
+    
+    if (isMobile.value || isTablet.value) {
+        mobileMenuOpen.value = false;
+    }
 };
 
 const toggleEditDecor = (decorId) => { activeDecorId.value = activeDecorId.value === decorId ? null : decorId; };
@@ -1935,6 +1945,29 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 @media (max-width: 1199px) {
     .main-workspace { flex-direction: column; padding-bottom: 60px; position: relative; }
     
+    .mobile-left-trigger {
+        position: fixed;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        background: #ffffff;
+        color: #4b5563;
+        border: 1px solid #e5e7eb;
+        border-left: none;
+        padding: 12px 4px;
+        border-radius: 0 8px 8px 0;
+        z-index: 1000;
+        cursor: pointer;
+        box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .mobile-left-trigger svg {
+        width: 24px;
+        height: 24px;
+    }
+
     .mobile-panel { 
         position: absolute !important; 
         z-index: 2000 !important; 
