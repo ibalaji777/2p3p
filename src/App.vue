@@ -125,17 +125,18 @@
       </aside>
 
       <!-- Mobile Left Trigger -->
-      <div class="mobile-left-trigger" v-if="(isMobile || isTablet) && viewMode === '2d' && !(mobileMenuOpen && activeMobileTab === 'tools')" @click="activeMobileTab = 'tools'; mobileMenuOpen = true" title="Open Tools">
+      <div class="mobile-left-trigger" v-if="(isMobile || isTablet) && viewMode === '2d' && !(mobileMenuOpen && activeMobileTab === 'tools')" @click="toggleMobileTab('tools')" title="Open Tools">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="9 18 15 12 9 6"></polyline>
         </svg>
       </div>
 
-            <!-- Mobile Bottom Navigation -->
+      <!-- Mobile Bottom Navigation -->
       <div class="mobile-bottom-nav" v-if="isMobile || isTablet">
-        <button @click="activeMobileTab = 'properties'; mobileMenuOpen = true" :class="{active: activeMobileTab === 'properties' && mobileMenuOpen}">⚙️ Props</button>
-        <button @click="activeMobileTab = 'layers'; mobileMenuOpen = true" :class="{active: activeMobileTab === 'layers' && mobileMenuOpen}">📚 Layers</button>
-        <button @click="activeMobileTab = 'settings'; mobileMenuOpen = true" :class="{active: activeMobileTab === 'settings' && mobileMenuOpen}">🛠️ Settings</button>
+        <button @click="toggleMobileTab('levels')" :class="{active: activeMobileTab === 'levels' && mobileMenuOpen}">🏢 Floors</button>
+        <button @click="toggleMobileTab('properties')" :class="{active: activeMobileTab === 'properties' && mobileMenuOpen}">⚙️ Props</button>
+        <button @click="toggleMobileTab('layers')" :class="{active: activeMobileTab === 'layers' && mobileMenuOpen}">📚 Layers</button>
+        <button @click="toggleMobileTab('settings')" :class="{active: activeMobileTab === 'settings' && mobileMenuOpen}">🛠️ Settings</button>
       </div>
       
       <main class="canvas-container">
@@ -219,9 +220,9 @@
         </div>
       </main>
 
-      <aside class="right-sidebar" v-show="!(isMobile || isTablet) || ((isMobile || isTablet) && mobileMenuOpen && ['properties', 'layers', 'settings'].includes(activeMobileTab))" :class="{'mobile-panel': isMobile || isTablet}">
+      <aside class="right-sidebar" v-show="!(isMobile || isTablet) || ((isMobile || isTablet) && mobileMenuOpen && ['levels', 'properties', 'layers', 'settings'].includes(activeMobileTab))" :class="{'mobile-panel': isMobile || isTablet}">
         <div v-if="isMobile || isTablet" class="mobile-close-btn" @click="mobileMenuOpen = false">✕ Close</div>
-        <div class="panel levels-panel">
+        <div class="panel levels-panel" v-show="!(isMobile || isTablet) || activeMobileTab === 'levels'">
             <div class="panel-header"><h3>Floor Levels</h3></div>
             <div class="levels-list">
                 <div v-if="viewMode === '3d'" class="level-item" @click="toggleAllFloors" style="background: #fafafa; border-bottom: 1px solid #f1f5f9;">
@@ -247,7 +248,7 @@
             </div>
         </div>
 
-        <div class="panel tabs-panel flex-1">
+        <div class="panel tabs-panel flex-1" v-show="!(isMobile || isTablet) || ['properties', 'layers', 'settings'].includes(activeMobileTab)">
             <div class="tabs-header" v-show="!(isMobile || isTablet)">
                 <button :class="{active: activeRightTab === 'properties'}" @click="activeRightTab = 'properties'">Properties</button>
                 <button :class="{active: activeRightTab === 'layers'}" @click="activeRightTab = 'layers'">Layer List</button>
@@ -557,7 +558,7 @@
             </div>
 
             <div class="props-empty" v-else v-show="activeRightTab === 'properties'">
-                <span v-if="viewMode==='2d'">Properties are edited in 3D Mode. Select an Object to edit sizing here.</span>
+                <span v-if="viewMode==='2d'">Select a wall, door, window, or object on the canvas to edit its properties here.</span>
                 <span v-else-if="viewMode3D==='preview'">Exit Preview Mode to edit.</span>
                 <span v-else>Select a wall or object to edit its properties.</span>
             </div>
@@ -678,6 +679,15 @@ const isTablet = computed(() => windowWidth.value >= 768 && windowWidth.value < 
 const isDesktop = computed(() => windowWidth.value >= 1200);
 const mobileMenuOpen = ref(true);
 const activeMobileTab = ref('tools');
+
+const toggleMobileTab = (tab) => {
+    if (activeMobileTab.value === tab && mobileMenuOpen.value) {
+        mobileMenuOpen.value = false;
+    } else {
+        activeMobileTab.value = tab;
+        mobileMenuOpen.value = true;
+    }
+};
 
 watch(activeMobileTab, (newVal) => {
     if (['properties', 'layers', 'settings'].includes(newVal)) {
@@ -1997,6 +2007,9 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
     .mobile-bottom-nav button.active { color: #3b82f6; }
     .mobile-close-btn { background: #f8fafc; padding: 15px; text-align: right; font-weight: bold; color: #ef4444; border-bottom: 1px solid #e5e7eb; cursor: pointer; font-size: 14px; display: block; }
     
+    .levels-panel { flex: 1; border-bottom: none; }
+    .levels-list { max-height: none; }
+
     .env-dropdown { position: static; }
 }
 
@@ -2014,10 +2027,10 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
         left: 0 !important; 
         top: auto !important; 
         bottom: 60px !important; 
-        height: 50% !important; 
+        height: 60% !important; 
         border-top: 1px solid #e5e7eb !important;
         border-radius: 16px 16px 0 0 !important;
-        background: #f8fafc !important;
+        background: #ffffff !important;
     }
 
     .top-toolbar { flex-wrap: wrap; padding: 8px 10px; gap: 8px; justify-content: center; }
