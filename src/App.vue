@@ -2,14 +2,62 @@
   <div class="app-root">
     <header class="top-toolbar">
        <div class="left-tools">
-           <button :class="{active: viewMode==='2d'}" @click="switchTo2D">📐 2D Plan</button>
-           <button :class="{active: viewMode==='3d'}" @click="switchTo3D">🧊 3D Preview</button>
+           <button class="tool-btn" :class="{active: viewMode==='2d'}" @click="switchTo2D">
+               <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                   <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                   <path d="M15 5l4 4"></path>
+                   <path d="M3 21h6v-6"></path>
+               </svg>
+               <span class="tool-label">2D Plan</span>
+           </button>
+
+           <button class="tool-btn" :class="{active: viewMode==='3d'}" @click="switchTo3D">
+               <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                   <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                   <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                   <line x1="12" y1="22.08" x2="12" y2="12"></line>
+               </svg>
+               <span class="tool-label">3D Preview</span>
+           </button>
+
            <div class="divider"></div>
-           <button @click="undo" :disabled="historyIndex <= 0" title="Undo (Ctrl+Z)">↩️ Undo</button>
-           <button @click="redo" :disabled="historyIndex >= historyStack.length - 1" title="Redo (Ctrl+Y)">↪️ Redo</button>
+
+           <button class="tool-btn" @click="undo" :disabled="historyIndex <= 0" title="Undo (Ctrl+Z)">
+               <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                   <path d="M3 7v6h6"></path>
+                   <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+               </svg>
+               <span class="tool-label">Undo</span>
+           </button>
+
+           <button class="tool-btn" @click="redo" :disabled="historyIndex >= historyStack.length - 1" title="Redo (Ctrl+Y)">
+               <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                   <path d="M21 7v6h-6"></path>
+                   <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"></path>
+               </svg>
+               <span class="tool-label">Redo</span>
+           </button>
+
            <div class="divider"></div>
-           <button @click="openWizard('smart_facing')" class="wizard-btn" style="margin-right: 5px;">🧭 Facing</button>
-           <button @click="openWizard('smart_wall_resize')" class="wizard-btn">📏 Resize Plan</button>
+
+           <button class="tool-btn" @click="openWizard('smart_facing')">
+               <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                   <circle cx="12" cy="12" r="10"></circle>
+                   <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+               </svg>
+               <span class="tool-label">Facing</span>
+           </button>
+
+           <button class="tool-btn" @click="openWizard('smart_wall_resize')">
+               <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                   <path d="M21 21L3 21"></path>
+                   <path d="M21 3L3 3"></path>
+                   <path d="M12 3v18"></path>
+                   <path d="M8 3v18"></path>
+                   <path d="M16 3v18"></path>
+               </svg>
+               <span class="tool-label">Resize Plan</span>
+           </button>
        </div>
        
        <div class="center-tools" v-if="viewMode==='2d'">
@@ -17,10 +65,19 @@
 
        <div class="center-tools" v-if="viewMode==='3d'">
            <div class="tool-group">
-               <button :class="{active: viewMode3D === 'full-edit'}" @click="togglePreviewMode">
-                   {{ viewMode3D === 'preview' ? '⚙️ Edit Mode' : '👁️ Preview Mode' }}
+               <button class="tool-btn" :class="{active: viewMode3D === 'full-edit'}" @click="togglePreviewMode">
+                   <svg v-if="viewMode3D === 'preview'" class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                   <svg v-else class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                   <span class="tool-label">{{ viewMode3D === 'preview' ? 'Edit Mode' : 'Preview Mode' }}</span>
                </button>
-               <button :class="{active: isXRayMode}" @click="toggleXRayMode" title="Toggle Transparent/X-Ray Mode">🩻 X-Ray</button>
+               <button class="tool-btn" :class="{active: isXRayMode}" @click="toggleXRayMode" title="Toggle Transparent/X-Ray Mode">
+                   <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                       <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                       <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                       <polyline points="21 15 16 10 5 21"></polyline>
+                   </svg>
+                   <span class="tool-label">X-Ray</span>
+               </button>
            </div>
        </div>
     </header>
@@ -1598,18 +1655,26 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 /* TOP TOOLBAR */
 .top-toolbar {
     display: flex; justify-content: space-between; align-items: center;
-    background: #111827; padding: 10px 20px; color: white;
-    border-bottom: 1px solid #1f2937; z-index: 1000;
+    background: #ffffff; padding: 8px 20px; color: #111827;
+    border-bottom: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05); z-index: 1000;
 }
-.left-tools, .center-tools, .tool-group { display: flex; align-items: center; gap: 8px; }
-.top-toolbar button {
-    background: #374151; border: none; color: #d1d5db; padding: 8px 16px;
-    border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.2s;
+.left-tools, .center-tools, .tool-group { display: flex; align-items: stretch; gap: 4px; }
+.divider { width: 1px; height: 32px; background: #e5e7eb; margin: auto 12px; }
+
+.tool-btn {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: transparent; border: none; color: #111827; padding: 6px 16px;
+    border-radius: 8px; cursor: pointer; transition: all 0.2s ease;
+    min-width: 64px;
 }
-.top-toolbar button:hover { background: #4b5563; color: white; }
-.top-toolbar button.active { background: #3b82f6; color: white; box-shadow: 0 0 10px rgba(59, 130, 246, 0.4); }
-.top-toolbar button:disabled { opacity: 0.5; cursor: not-allowed; background: #374151; color: #9ca3af; }
-.divider { width: 1px; height: 20px; background: #4b5563; margin: 0 5px; }
+.tool-btn:hover { background: #f8fafc; }
+.tool-btn.active {
+    background: #f1f5f9; color: #10b981; border-bottom: 2px solid #10b981;
+    border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+}
+.tool-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.tool-icon { width: 22px; height: 22px; margin-bottom: 4px; stroke: currentColor; }
+.tool-label { font-size: 11px; font-weight: 700; font-family: 'Inter', sans-serif; letter-spacing: 0.2px; }
 
 /* MAIN WORKSPACE */
 .main-workspace { display: flex; flex: 1; overflow: hidden; }
@@ -1886,7 +1951,9 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 
     .top-toolbar { flex-wrap: wrap; padding: 8px 10px; gap: 8px; justify-content: center; }
     .left-tools, .center-tools { flex-wrap: wrap; justify-content: center; width: 100%; gap: 6px; }
-    .top-toolbar button { padding: 6px 10px; font-size: 11px; }
+    .tool-btn { padding: 4px 8px; min-width: 50px; }
+    .tool-icon { width: 18px; height: 18px; }
+    .tool-label { font-size: 9px; }
     .floating-advanced-toolbar { top: 10px; right: 10px; }
     .floating-env-toolbar { top: 10px; right: 10px; flex-wrap: wrap; justify-content: flex-end; }
     .bottom-right-toolbar { bottom: 80px; right: 10px; }
