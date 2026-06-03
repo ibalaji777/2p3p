@@ -85,16 +85,35 @@
     <div class="main-workspace" @mouseup="debouncedSaveHistory" @touchend="debouncedSaveHistory">
       <aside class="left-sidebar" v-show="viewMode === '2d' && (!(isMobile || isTablet) || ((isMobile || isTablet) && mobileMenuOpen && activeMobileTab === 'tools'))" :class="{'mobile-panel': isMobile || isTablet}">
         <div v-if="isMobile || isTablet" class="mobile-close-btn" @click="mobileMenuOpen = false">✕ Close</div>
-        <div class="sidebar-header">
-            <h3>Design Tools</h3>
-        </div>
-        <div class="sidebar-cards">
-            <div v-for="cat in menuCategories" :key="cat.id" class="parent-card" :class="{ active: activeCategory === cat.id }">
-                <div class="parent-card-header" @click="toggleCategory(cat.id)">
-                    <div class="parent-title">{{ cat.name }}</div>
+        <div class="sidebar-layout">
+            <div class="sidebar-dock">
+                <button v-for="cat in menuCategories" :key="cat.id" class="dock-btn" :class="{ active: activeCategory === cat.id }" @click="toggleCategory(cat.id)" :title="cat.name">
+                    <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" v-html="cat.icon"></svg>
+                </button>
+                
+                <div style="flex: 1;"></div>
+                
+                <button class="dock-btn" @click="saveProject" title="Export Project">
+                    <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                </button>
+                <button class="dock-btn" @click="openSavePopup" title="Save to Cloud" style="color: #8b5cf6;">
+                    <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
+                </button>
+                <button class="dock-btn" @click="triggerFileInput" title="Import Project">
+                    <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                </button>
+                <button class="dock-btn" @click="clearWorkspace" title="Clear All" style="color: #ef4444;">
+                    <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                </button>
+                <input type="file" id="fileInput" @change="handleFileUpload" style="display: none" accept=".json"/>
+            </div>
+
+            <div class="sidebar-submenu" v-if="activeCategoryObj">
+                <div class="submenu-header">
+                    <h3>{{ activeCategoryObj.name }}</h3>
                 </div>
-                <div class="child-cards" v-show="activeCategory === cat.id">
-                    <button v-for="tool in cat.tools" :key="tool.id"
+                <div class="submenu-content">
+                    <button v-for="tool in activeCategoryObj.tools" :key="tool.id"
                         class="child-card-btn"
                         :class="{ active: activeTool === tool.id && !tool.action }"
                         @click="handleToolClick(tool)">
@@ -102,12 +121,6 @@
                     </button>
                 </div>
             </div>
-        </div>        <div class="sidebar-footer">
-            <button class="action-btn export" @click="saveProject">💾 Export Project</button>
-            <button class="action-btn export" style="background: #8b5cf6;" @click="openSavePopup">☁️ Save to Cloud</button>
-            <button class="action-btn import" @click="triggerFileInput">📂 Import Project</button>
-            <button class="action-btn clear" @click="clearWorkspace">🗑️ Clear All</button>
-            <input type="file" id="fileInput" @change="handleFileUpload" style="display: none" accept=".json"/>
         </div>
       </aside>
 
@@ -764,19 +777,22 @@ const selectedNodeIndex = ref(-1);
 const activeCategory = ref('tools');
 const menuCategories = ref([
     {
-        id: 'common', name: '🌟 Common',
+        id: 'common', name: 'Common',
+        icon: '<path d="M4 6h16M4 12h16M4 18h16M8 6v12M16 6v12"></path>',
         tools: [
             { id: 'railing', name: 'Draw Railing' }
         ]
     },
     {
-        id: 'tools', name: '🛠️ General Tools',
+        id: 'tools', name: 'General',
+        icon: '<path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path><path d="M13 13l6 6"></path>',
         tools: [
-            { id: 'select', name: '👆 Select & Edit' }
+            { id: 'select', name: 'Select & Edit' }
         ]
     },
     {
-        id: 'walls', name: '🧱 Walls',
+        id: 'walls', name: 'Walls',
+        icon: '<path d="M4 4h16v16H4z"></path><path d="M4 12h16"></path><path d="M12 4v16"></path>',
         tools: [
             { id: 'outer', name: 'Outer Wall' },
             { id: 'inner', name: 'Inner Wall' },
@@ -784,14 +800,16 @@ const menuCategories = ref([
         ]
     },
     {
-        id: 'doors_windows', name: '🚪 Doors & Windows',
+        id: 'doors_windows', name: 'Doors & Windows',
+        icon: '<path d="M4 22h16"></path><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"></path><path d="M14 12h2"></path>',
         tools: [
             { id: 'door', name: 'Add Door' },
             { id: 'window', name: 'Add Window' }
         ]
     },
     {
-        id: 'structures', name: '🏗️ Structures',
+        id: 'structures', name: 'Structures',
+        icon: '<path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>',
         tools: [
             { id: 'stair', name: 'Draw Stairs' },
             { id: 'staircase_two', name: 'Place Staircase V2' },
@@ -800,7 +818,8 @@ const menuCategories = ref([
         ]
     },
     {
-        id: 'furniture', name: '🛋️ Furniture',
+        id: 'furniture', name: 'Furniture',
+        icon: '<path d="M20 9V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v2"></path><path d="M2 13h20v5H2z"></path><path d="M4 18v2"></path><path d="M20 18v2"></path>',
         tools: [
             { id: 'couch_1', name: 'Couch', action: 'furniture' },
             { id: 'chair_ekero', name: 'Chair', action: 'furniture' },
@@ -808,7 +827,8 @@ const menuCategories = ref([
         ]
     },
     {
-        id: 'shapes', name: '🔳 Shapes',
+        id: 'shapes', name: 'Shapes',
+        icon: '<path d="M3 8l4-4 4 4v4H3V8z"></path><circle cx="17" cy="6" r="3"></circle><rect x="14" y="14" width="6" height="6" rx="1"></rect><path d="M3 14h6v6H3z"></path>',
         tools: [
             { id: 'shape_rect', name: 'Box (Rectangle)' },
             { id: 'shape_circle', name: 'Cylinder (Circle)' },
@@ -816,6 +836,10 @@ const menuCategories = ref([
         ]
     }
 ]);
+
+const activeCategoryObj = computed(() => {
+    return menuCategories.value.find(c => c.id === activeCategory.value);
+});
 
 const openWizard = (pluginId) => {
     const plugin = wizardManager.getPlugin(pluginId);
@@ -870,17 +894,18 @@ const executeWizard = async () => {
 };
 
 const toggleCategory = (catId) => {
-    activeCategory.value = catId;
-    
-    if (planner.value) {
-        planner.value.activeCategory = catId;
-        
-        // Ensure selecting a parent switches to Select mode for that category
-        activeTool.value = 'select';
-        planner.value.tool = 'select';
-        planner.value.finishChain();
-        planner.value.updateToolStates();
-        planner.value.selectEntity(null);
+    if (activeCategory.value === catId) {
+        activeCategory.value = null; // collapse
+    } else {
+        activeCategory.value = catId;
+        if (planner.value) {
+            planner.value.activeCategory = catId;
+            activeTool.value = 'select';
+            planner.value.tool = 'select';
+            planner.value.finishChain();
+            planner.value.updateToolStates();
+            planner.value.selectEntity(null);
+        }
     }
 };
 
@@ -1688,43 +1713,39 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 
 /* DOCKED LEFT SIDEBAR */
 .left-sidebar {
-    width: 260px; background: #ffffff; border-right: 1px solid #e5e7eb;
+    width: auto; background: #ffffff; border-right: 1px solid #e5e7eb;
     display: flex; flex-direction: column; height: 100%; overflow: hidden;
     box-shadow: none; z-index: 10;
 }
-.sidebar-header { padding: 16px 20px; background: #ffffff; border-bottom: 1px solid #e5e7eb; }
-.sidebar-header h3 { margin: 0; font-size: 12px; font-weight: 700; color: #6b7280; letter-spacing: 0.5px; text-transform: uppercase; }
 
-.sidebar-cards { flex: 1; overflow-y: auto; padding: 8px 0; display: flex; flex-direction: column; background: #ffffff; min-height: 0; }
-
-.parent-card { background: #ffffff; overflow: hidden; transition: background-color 0.2s ease; flex-shrink: 0; border-bottom: 1px solid #f1f5f9; }
-.parent-card:last-child { border-bottom: none; }
-.parent-card-header {
-    padding: 12px 20px; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
-    font-size: 13px; font-weight: 600; color: #374151; transition: all 0.2s ease; user-select: none;
+.sidebar-layout { display: flex; flex: 1; height: 100%; min-height: 0; }
+.sidebar-dock {
+    width: 60px; background: #ffffff;
+    display: flex; flex-direction: column; padding: 12px 0; align-items: center; gap: 8px;
+    border-right: 1px solid #e5e7eb; flex-shrink: 0; overflow-y: auto;
 }
-.parent-card-header::after {
-    content: ''; display: inline-block; width: 6px; height: 6px;
-    border-right: 2px solid #9ca3af; border-bottom: 2px solid #9ca3af;
-    transform: rotate(45deg); transition: transform 0.2s ease;
+.dock-btn {
+    width: 44px; height: 44px; border-radius: 8px; border: none; background: transparent; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; color: #4b5563; transition: 0.2s; flex-shrink: 0;
 }
-.parent-card.active .parent-card-header { background: #f8fafc; color: #2563eb; border-left: 3px solid #3b82f6; padding-left: 17px; }
-.parent-card.active .parent-card-header::after { transform: rotate(-135deg); border-color: #2563eb; }
-.parent-card-header:hover { background: #f1f5f9; color: #111827; }
+.dock-btn:hover { background: #f1f5f9; color: #111827; }
+.dock-btn.active { background: #eff6ff; color: #2563eb; }
+.dock-icon { width: 22px; height: 22px; stroke: currentColor; }
 
-.child-cards { padding: 0 12px 12px 12px; display: flex; flex-direction: column; gap: 2px; }
+.sidebar-submenu { width: 180px; background: #fafafa; display: flex; flex-direction: column; }
+.submenu-header { padding: 16px; border-bottom: 1px solid #e5e7eb; }
+.submenu-header h3 { margin: 0; font-size: 12px; font-weight: 700; color: #6b7280; letter-spacing: 0.5px; text-transform: uppercase; }
+.submenu-content { padding: 12px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
+
 .child-card-btn {
     padding: 8px 12px; text-align: left; background: transparent; border: none;
     border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: #4b5563; transition: all 0.2s ease;
     display: flex; align-items: center; gap: 8px;
 }
 .child-card-btn:hover { background: #f1f5f9; color: #111827; }
-.child-card-btn.active { 
-    background: #eff6ff; color: #2563eb; font-weight: 600;
-}
+.child-card-btn.active { background: #eff6ff; color: #2563eb; font-weight: 600; }
 
-.sidebar-footer { padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #e5e7eb; background: #fafafa; }
-.action-btn { padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.action-btn { padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .action-btn.export { background: #111827; color: white; }
 .action-btn.export:hover { background: #374151; }
 .action-btn.import { background: #ffffff; color: #111827; border: 1px solid #d1d5db; }
@@ -1924,7 +1945,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
         left: 0 !important; 
         top: 0 !important; 
         bottom: 60px !important; 
-        width: 300px !important; 
+            width: max-content !important; 
         height: calc(100% - 60px) !important; 
         background: #ffffff !important; 
     }
