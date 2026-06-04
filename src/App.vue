@@ -132,7 +132,6 @@
                 </button>
                 <div class="adv-side-menu" v-show="showAdvancedTools && !isAdvancedToolActive">
                     <button class="adv-round-btn" :class="{active: activeTool === 'split'}" @click="setAdvancedTool('split'); showAdvancedTools=false" title="Split Wall">✂️</button>
-                    <button class="adv-round-btn" :class="{active: activeTool === 'extender'}" @click="setAdvancedTool('extender'); showAdvancedTools=false" title="Extend Wall">📏</button>
                     <button class="adv-round-btn" :class="{active: isWallTrackingEnabled}" @click="toggleWallTracking" title="Toggle Wall Tracking">🔗</button>
                 </div>
             </div>
@@ -1414,7 +1413,7 @@ const handleDeselect = () => {
 const setTool = (tool) => { 
     activeTool.value = tool; planner.value.tool = tool; planner.value.finishChain(); planner.value.updateToolStates(); planner.value.selectEntity(null); 
 };
-const isAdvancedToolActive = computed(() => ['split', 'extender'].includes(activeTool.value));
+const isAdvancedToolActive = computed(() => ['split'].includes(activeTool.value));
 const handleAdvTriggerClick = () => {
     if (isAdvancedToolActive.value) {
         setTool('select');
