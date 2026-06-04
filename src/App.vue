@@ -17,7 +17,7 @@
                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
                </svg>
-               <span class="tool-label">3D Preview</span>
+               <span class="tool-label">3D Build</span>
            </button>
        </div>
        
@@ -29,7 +29,7 @@
                <button class="tool-btn" :class="{active: viewMode3D === 'full-edit'}" @click="togglePreviewMode">
                    <svg v-if="viewMode3D === 'preview'" class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                    <svg v-else class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                   <span class="tool-label">{{ viewMode3D === 'preview' ? 'Edit Mode' : 'Preview Mode' }}</span>
+                   <span class="tool-label">{{ viewMode3D === 'preview' ? 'Build Mode' : 'Walkthrough' }}</span>
                </button>
            </div>
        </div>
@@ -139,46 +139,28 @@
         </div>
 
         <div class="floating-env-toolbar" v-show="viewMode === '3d'">
-            <div class="camera-controls">
-                <div class="env-dropdown" @mouseenter="showCamera = true" @mouseleave="showCamera = false">
-                    <button class="env-icon-btn">🎥 View</button>
-                    <div class="env-menu" v-show="showCamera">
-                        <div class="env-menu-item" @click="setCameraPreset('iso'); showCamera = false">Perspective (3D)</div>
-                        <div class="env-menu-item" @click="setCameraPreset('top'); showCamera = false">Top (2D Ortho)</div>
-                        <div class="env-menu-item" @click="setCameraPreset('front'); showCamera = false">Front</div>
-                        <div class="env-menu-item" @click="setCameraPreset('back'); showCamera = false">Back</div>
-                        <div class="env-menu-item" @click="setCameraPreset('left'); showCamera = false">Left</div>
-                        <div class="env-menu-item" @click="setCameraPreset('right'); showCamera = false">Right</div>
-                        <div class="env-menu-item" @click="setCameraPreset('frontLeft'); showCamera = false">Front-Left</div>
-                        <div class="env-menu-item" @click="setCameraPreset('frontRight'); showCamera = false">Front-Right</div>
-                    </div>
+            <div class="env-dropdown" @mouseenter="showCamera = true" @mouseleave="showCamera = false">
+                <button class="env-icon-btn" title="View Angles"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"></path><rect x="3" y="6" width="12" height="12" rx="2" ry="2"></rect></svg></button>
+                <div class="env-menu" v-show="showCamera">
+                    <div class="env-menu-item" @click="setCameraPreset('iso'); showCamera = false">Perspective (3D)</div>
+                    <div class="env-menu-item" @click="setCameraPreset('top'); showCamera = false">Top (2D Ortho)</div>
+                    <div class="env-menu-item" @click="setCameraPreset('front'); showCamera = false">Front</div>
+                    <div class="env-menu-item" @click="setCameraPreset('back'); showCamera = false">Back</div>
+                    <div class="env-menu-item" @click="setCameraPreset('left'); showCamera = false">Left</div>
+                    <div class="env-menu-item" @click="setCameraPreset('right'); showCamera = false">Right</div>
+                    <div class="env-menu-item" @click="setCameraPreset('frontLeft'); showCamera = false">Front-Left</div>
+                    <div class="env-menu-item" @click="setCameraPreset('frontRight'); showCamera = false">Front-Right</div>
                 </div>
-                <button class="env-icon-btn" @click="rotateCamera(-0.1)" title="Rotate Left">↺</button>
-                <button class="env-icon-btn" @click="rotateCamera(0.1)" title="Rotate Right">↻</button>
             </div>
-            <button class="env-icon-btn" :class="{active: isXRayMode}" @click="toggleXRayMode" title="Toggle Transparent/X-Ray Mode" style="display: flex; align-items: center; gap: 6px;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="12" height="12" rx="2" ry="2"></rect><rect x="9" y="9" width="12" height="12" rx="2" ry="2"></rect></svg>
-                X-Ray
+            <button class="env-icon-btn" @click="rotateCamera(-0.1)" title="Rotate Left">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>
             </button>
-            <div class="env-dropdown" @mouseenter="showSky = true" @mouseleave="showSky = false">
-                <button class="env-icon-btn">🌤️ Sky</button>
-                <div class="env-menu" v-show="showSky">
-                    <div v-for="(config, key) in skyRegistry" :key="key" class="env-menu-item" :class="{active: selectedSky === key}" @click="setSky(key)">
-                        {{ config.name }}
-                    </div>
-                </div>
-            </div>
-            <div class="env-dropdown" @mouseenter="showGround = true" @mouseleave="showGround = false">
-                <button class="env-icon-btn">🌱 Ground</button>
-                <div class="env-menu" v-show="showGround">
-                    <div class="decor-grid">
-                        <div v-for="(config, key) in groundRegistry" :key="key" class="decor-item" @click="setGround(key)" :class="{ active: selectedGround === key }">
-                            <img :src="config.thumbnail" :alt="config.name" />
-                            <span>{{ config.name }}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <button class="env-icon-btn" @click="rotateCamera(0.1)" title="Rotate Right">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><polyline points="21 3 21 8 16 8"></polyline></svg>
+            </button>
+            <button class="env-icon-btn" :class="{active: isXRayMode}" @click="toggleXRayMode" title="Toggle Transparent/X-Ray Mode">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="12" height="12" rx="2" ry="2"></rect><rect x="9" y="9" width="12" height="12" rx="2" ry="2"></rect></svg>
+            </button>
         </div>
 
         <div class="bottom-right-toolbar">
@@ -196,8 +178,17 @@
             <div class="compass-s">S</div>
         </div>
 
-        <div ref="canvas2D" class="canvas-host" v-show="viewMode === '2d'"></div>
-        <div ref="canvas3D" class="canvas-host canvas-3d" v-show="viewMode === '3d'"></div>
+        <transition name="fade">
+            <div ref="canvas2D" class="canvas-host" v-show="viewMode === '2d'"></div>
+        </transition>
+        <transition name="fade">
+            <div ref="canvas3D" class="canvas-host canvas-3d" v-show="viewMode === '3d'"></div>
+        </transition>
+        
+        <div class="loader-overlay" v-show="viewMode === '3d' && isRebuilding">
+            <div class="spinner"></div>
+            <span style="font-weight: 600; color: #4b5563;">Loading 3D Scene...</span>
+        </div>
         
         <div class="status-bar" v-if="viewMode === '3d'">
             <span v-if="viewMode3D === 'preview'">🖱️ Left-Click: Rotate Room | Scroll: Zoom</span>
@@ -307,6 +298,22 @@
                     <div class="control-group-inline">
                         <label>Wall Tracking</label>
                         <input type="checkbox" v-model="floorPlanSettings.wallTracking" @change="syncSettings" class="settings-checkbox">
+                    </div>
+
+                    <div class="settings-divider"></div>
+                    <h4 class="props-subtitle">Environment Settings</h4>
+                    
+                    <div class="control-group">
+                        <label>Sky Environment</label>
+                        <select v-model="selectedSky" @change="setSky(selectedSky)" class="settings-select">
+                            <option v-for="(config, key) in skyRegistry" :key="key" :value="key">{{ config.name }}</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>Ground Environment</label>
+                        <select v-model="selectedGround" @change="setGround(selectedGround)" class="settings-select">
+                            <option v-for="(config, key) in groundRegistry" :key="key" :value="key">{{ config.name }}</option>
+                        </select>
                     </div>
                     
                     <div v-if="selectedType === 'wall'" style="margin-top: 20px;">
@@ -949,9 +956,6 @@ const onLevelVisibilityChange = () => {
 
 const selectedSky = ref('arch_viz_sunny');
 const selectedGround = ref('grass'); // Start with new Grass + Normal map terrain
-
-const showSky = ref(false);
-const showGround = ref(false);
 const showCamera = ref(false);
 const showAdvancedTools = ref(false);
 
@@ -1368,13 +1372,11 @@ const updateEnvironment = () => {
 const setSky = (key) => {
     selectedSky.value = key;
     updateEnvironment();
-    showSky.value = false;
 };
 
 const setGround = (key) => {
     selectedGround.value = key;
     updateEnvironment();
-    showGround.value = false;
 };
 
 const zoomIn = () => {
@@ -1712,7 +1714,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 }
 .tool-btn:hover { background: #f8fafc; }
 .tool-btn.active {
-    background: #f1f5f9; color: #10b981; border-bottom: 2px solid #10b981;
+    background: #eff6ff; color: #2563eb; border-bottom: 2px solid #2563eb;
     border-bottom-left-radius: 0; border-bottom-right-radius: 0;
 }
 .tool-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -1728,6 +1730,16 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .canvas-3d { background: #e5e7eb; }
 .hint { position: absolute; top: 20px; left: 20px; background: rgba(17, 24, 39, 0.9); color: white; padding: 10px 15px; border-radius: 6px; font-size: 12px; pointer-events: none; z-index: 100; }
 .status-bar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(17, 24, 39, 0.9); color: white; padding: 12px 25px; border-radius: 30px; font-size: 13px; font-weight: bold; z-index: 100; pointer-events: none; }
+
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+.loader-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; backdrop-filter: blur(2px); transition: opacity 0.3s; }
+.spinner {
+    width: 40px; height: 40px; border: 4px solid #e5e7eb; border-top-color: #3b82f6;
+    border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px;
+}
+@keyframes spin { 100% { transform: rotate(360deg); } }
 
 /* DOCKED LEFT SIDEBAR */
 .left-sidebar {
@@ -1857,7 +1869,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .hud-delete { background: #ffffff; color: #ef4444; border: 1px solid #fecaca; width: 100%; padding: 10px; border-radius: 6px; font-weight: 600; cursor: pointer; margin-top: 15px; transition: 0.2s; }
 .hud-delete:hover { background: #fef2f2; border-color: #f87171; }
 
-.floating-env-toolbar { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 100; }
+.floating-env-toolbar { position: absolute; top: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 100; }
 .floating-advanced-toolbar { position: absolute; top: 20px; right: 20px; z-index: 100; }
 .adv-dropdown { position: relative; display: flex; align-items: center; }
 .adv-trigger-btn { width: 44px; height: 44px; border-radius: 50%; background: rgba(17, 24, 39, 0.8); color: white; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: 0.3s; z-index: 101; position: relative; backdrop-filter: blur(4px); }
@@ -1868,7 +1880,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .adv-round-btn:hover { background: rgba(255,255,255,0.1); transform: scale(1.1); }
 .adv-round-btn.active { background: #ffffff; color: #111827; border-color: #ffffff; }
 .env-dropdown { position: relative; }
-.env-icon-btn { background: rgba(17, 24, 39, 0.8); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; backdrop-filter: blur(4px); transition: 0.2s; white-space: nowrap; }
+.env-icon-btn { background: rgba(17, 24, 39, 0.8); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; backdrop-filter: blur(4px); transition: 0.2s; white-space: nowrap; display: flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
 .env-icon-btn:hover { background: rgba(17, 24, 39, 1); box-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
 .env-icon-btn.active { background: rgba(59, 130, 246, 0.9); border-color: rgba(96, 165, 250, 1); box-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
 .env-menu { position: absolute; top: 100%; right: 0; margin-top: 5px; background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); padding: 10px; width: 240px; max-width: calc(100vw - 40px); max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; z-index: 1000; }
@@ -1876,7 +1888,6 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .env-menu-item { padding: 8px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; color: #374151; transition: 0.2s; }
 .env-menu-item:hover { background: #f3f4f6; }
 .env-menu-item.active { background: #eff6ff; color: #1d4ed8; }
-.camera-controls { display: flex; gap: 8px; }
 
 .bottom-right-toolbar { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }
 .bottom-right-toolbar button { width: 40px; height: 40px; background: rgba(17, 24, 39, 0.8); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 50%; cursor: pointer; font-size: 20px; font-weight: bold; backdrop-filter: blur(4px); transition: 0.2s; display: flex; align-items: center; justify-content: center; }
