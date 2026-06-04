@@ -19,45 +19,6 @@
                </svg>
                <span class="tool-label">3D Preview</span>
            </button>
-
-           <div class="divider"></div>
-
-           <button class="tool-btn" @click="undo" :disabled="historyIndex <= 0" title="Undo (Ctrl+Z)">
-               <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                   <path d="M3 7v6h6"></path>
-                   <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
-               </svg>
-               <span class="tool-label">Undo</span>
-           </button>
-
-           <button class="tool-btn" @click="redo" :disabled="historyIndex >= historyStack.length - 1" title="Redo (Ctrl+Y)">
-               <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                   <path d="M21 7v6h-6"></path>
-                   <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"></path>
-               </svg>
-               <span class="tool-label">Redo</span>
-           </button>
-
-           <div class="divider"></div>
-
-           <button class="tool-btn" @click="openWizard('smart_facing')">
-               <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                   <circle cx="12" cy="12" r="10"></circle>
-                   <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
-               </svg>
-               <span class="tool-label">Facing</span>
-           </button>
-
-           <button class="tool-btn" @click="openWizard('smart_wall_resize')">
-               <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                   <path d="M21 21L3 21"></path>
-                   <path d="M21 3L3 3"></path>
-                   <path d="M12 3v18"></path>
-                   <path d="M8 3v18"></path>
-                   <path d="M16 3v18"></path>
-               </svg>
-               <span class="tool-label">Resize Plan</span>
-           </button>
        </div>
        
        <div class="center-tools" v-if="viewMode==='2d'">
@@ -70,15 +31,24 @@
                    <svg v-else class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                    <span class="tool-label">{{ viewMode3D === 'preview' ? 'Edit Mode' : 'Preview Mode' }}</span>
                </button>
-               <button class="tool-btn" :class="{active: isXRayMode}" @click="toggleXRayMode" title="Toggle Transparent/X-Ray Mode">
-                   <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                       <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                       <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                       <polyline points="21 15 16 10 5 21"></polyline>
-                   </svg>
-                   <span class="tool-label">X-Ray</span>
-               </button>
            </div>
+       </div>
+       
+       <div class="right-tools" v-if="viewMode==='2d'">
+           <button class="tool-btn" @click="undo" :disabled="historyIndex <= 0" title="Undo (Ctrl+Z)">
+               <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                   <path d="M3 7v6h6"></path>
+                   <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+               </svg>
+               <span class="tool-label">Undo</span>
+           </button>
+           <button class="tool-btn" @click="redo" :disabled="historyIndex >= historyStack.length - 1" title="Redo (Ctrl+Y)">
+               <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                   <path d="M21 7v6h-6"></path>
+                   <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"></path>
+               </svg>
+               <span class="tool-label">Redo</span>
+           </button>
        </div>
     </header>
 
@@ -186,6 +156,10 @@
                 <button class="env-icon-btn" @click="rotateCamera(-0.1)" title="Rotate Left">↺</button>
                 <button class="env-icon-btn" @click="rotateCamera(0.1)" title="Rotate Right">↻</button>
             </div>
+            <button class="env-icon-btn" :class="{active: isXRayMode}" @click="toggleXRayMode" title="Toggle Transparent/X-Ray Mode" style="display: flex; align-items: center; gap: 6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="12" height="12" rx="2" ry="2"></rect><rect x="9" y="9" width="12" height="12" rx="2" ry="2"></rect></svg>
+                X-Ray
+            </button>
             <div class="env-dropdown" @mouseenter="showSky = true" @mouseleave="showSky = false">
                 <button class="env-icon-btn">🌤️ Sky</button>
                 <div class="env-menu" v-show="showSky">
@@ -862,6 +836,14 @@ const menuCategories = ref([
             { id: 'shape_circle', name: 'Cylinder (Circle)' },
             { id: 'shape_triangle', name: 'Prism (Polygon)' }
         ]
+    },
+    {
+        id: 'smart_wizard', name: 'Smart Wizard',
+        icon: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>',
+        tools: [
+            { id: 'smart_facing', name: 'Facing', action: 'wizard' },
+            { id: 'smart_wall_resize', name: 'Resize Plan', action: 'wizard' }
+        ]
     }
 ]);
 
@@ -1446,6 +1428,7 @@ const setAdvancedTool = (tool) => {
 const handleToolClick = (tool) => {
     if (tool.action === 'furniture') spawnFurniture(tool.id);
     else if (tool.action === 'auto_roof') { if (planner.value) planner.value.addAutoRoof(); }
+    else if (tool.action === 'wizard') { openWizard(tool.id); }
     else setTool(tool.id);
     
     if (isMobile.value || isTablet.value) {
@@ -1717,7 +1700,8 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
     flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
 }
 .top-toolbar::-webkit-scrollbar { display: none; }
-.left-tools, .center-tools, .tool-group { display: flex; align-items: stretch; gap: 4px; flex-shrink: 0; }
+.left-tools, .center-tools, .right-tools, .tool-group { display: flex; align-items: stretch; gap: 4px; flex-shrink: 0; }
+.right-tools { margin-left: auto; }
 .divider { width: 1px; height: 32px; background: #e5e7eb; margin: auto 12px; }
 
 .tool-btn {
@@ -1886,6 +1870,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .env-dropdown { position: relative; }
 .env-icon-btn { background: rgba(17, 24, 39, 0.8); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; backdrop-filter: blur(4px); transition: 0.2s; white-space: nowrap; }
 .env-icon-btn:hover { background: rgba(17, 24, 39, 1); box-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
+.env-icon-btn.active { background: rgba(59, 130, 246, 0.9); border-color: rgba(96, 165, 250, 1); box-shadow: 0 0 10px rgba(59, 130, 246, 0.5); }
 .env-menu { position: absolute; top: 100%; right: 0; margin-top: 5px; background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); padding: 10px; width: 240px; max-width: calc(100vw - 40px); max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; z-index: 1000; }
 .env-menu::before { content: ''; position: absolute; top: -10px; left: 0; right: 0; height: 10px; }
 .env-menu-item { padding: 8px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; color: #374151; transition: 0.2s; }
@@ -2050,7 +2035,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
     }
 
     .top-toolbar { padding: 6px 10px; gap: 8px; justify-content: flex-start; }
-    .left-tools, .center-tools { flex-wrap: nowrap; justify-content: flex-start; width: auto; gap: 6px; }
+    .left-tools, .center-tools, .right-tools { flex-wrap: nowrap; justify-content: flex-start; width: auto; gap: 6px; }
     .tool-btn { padding: 4px 8px; min-width: max-content; flex-shrink: 0; }
     .tool-icon { width: 18px; height: 18px; }
     .tool-label { font-size: 9px; }
