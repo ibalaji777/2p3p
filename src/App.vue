@@ -122,7 +122,7 @@
       </div>
       
       <main class="canvas-container">
-        <div class="hint" :style="{ background: hintData.color }" v-show="viewMode === '2d'">{{ hintData.text }}</div>
+        <div class="hint" :style="{ background: hintData.color }" v-show="viewMode === '2d' && showGuide">{{ hintData.text }}</div>
         
         <div class="floating-advanced-toolbar" v-show="viewMode === '2d'">
             <div class="adv-dropdown">
@@ -164,6 +164,9 @@
         </div>
 
         <div class="bottom-right-toolbar">
+            <button @click="showGuide = !showGuide" :title="showGuide ? 'Hide Guide' : 'Show Guide'" :style="{ background: showGuide ? 'rgba(59, 130, 246, 0.9)' : '', borderColor: showGuide ? 'rgba(96, 165, 250, 1)' : '' }">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            </button>
             <button @click="zoomIn" title="Zoom In">+</button>
             <button @click="zoomOut" title="Zoom Out">-</button>
             <button @click="resetZoom" title="Reset Zoom">⛶</button>
@@ -190,7 +193,7 @@
             <span style="font-weight: 600; color: #4b5563;">Loading 3D Scene...</span>
         </div>
         
-        <div class="status-bar" v-if="viewMode === '3d'">
+        <div class="status-bar" v-if="viewMode === '3d' && showGuide">
             <span v-if="viewMode3D === 'preview'">🖱️ Left-Click: Rotate Room | Scroll: Zoom</span>
             <span v-else-if="mode3D === 'edit' && selectedType === 'wall'">⚙️ Click a pattern from the gallery to apply it.</span>
             <span v-else-if="mode3D === 'edit'">🖱️ Click object to select/move, or click wall to add patterns</span>
@@ -931,6 +934,7 @@ const isPlacing3D = ref(false);
 const activeDecorId = ref(null);
 const isRebuilding = ref(false);
 const isXRayMode = ref(false);
+const showGuide = ref(false);
 
 const toggleXRayMode = () => {
     isXRayMode.value = !isXRayMode.value;
@@ -1889,7 +1893,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .env-menu-item:hover { background: #f3f4f6; }
 .env-menu-item.active { background: #eff6ff; color: #1d4ed8; }
 
-.bottom-right-toolbar { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }
+.bottom-right-toolbar { position: absolute; bottom: 15px; right: 15px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }
 .bottom-right-toolbar button { width: 40px; height: 40px; background: rgba(17, 24, 39, 0.8); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 50%; cursor: pointer; font-size: 20px; font-weight: bold; backdrop-filter: blur(4px); transition: 0.2s; display: flex; align-items: center; justify-content: center; }
 .bottom-right-toolbar button:hover { background: rgba(17, 24, 39, 1); }
 
@@ -2052,7 +2056,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
     .tool-label { font-size: 9px; }
     .floating-advanced-toolbar { top: 10px; right: 10px; }
     .floating-env-toolbar { top: 10px; right: 10px; flex-wrap: wrap; justify-content: flex-end; }
-    .bottom-right-toolbar { bottom: 80px; right: 10px; }
+    .bottom-right-toolbar { bottom: 70px; right: 10px; }
     .compass-widget { bottom: 80px; left: 10px; width: 40px; height: 40px; }
     .compass-n, .compass-s, .compass-e, .compass-w { font-size: 8px; }
     .compass-center { width: 6px; height: 6px; }
