@@ -59,25 +59,6 @@ export class Wall3DBuilder {
         const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: thickness, bevelEnabled: false, steps: 12 });
         wallGeo.translate(0, 0, -thickness / 2);
 
-        let bbGeo = null;
-        if (wallData.type !== 'railing') {
-            const bbHeight = 4;
-            const bbThick = thickness + 1.2;
-            const bbShape = new THREE.Shape();
-            bbShape.moveTo(0, 0); bbShape.lineTo(length, 0); bbShape.lineTo(length, bbHeight); bbShape.lineTo(0, bbHeight); bbShape.lineTo(0, 0);
-            if (wallData.attachedWidgets) {
-                wallData.attachedWidgets.forEach(widg => {
-                    if (widg.type === 'door' || widg.configId === 'door') {
-                        const hole = new THREE.Path(), wCenter = length * widg.t, halfW = widg.width / 2;
-                        hole.moveTo(wCenter - halfW, 0); hole.lineTo(wCenter + halfW, 0); hole.lineTo(wCenter + halfW, bbHeight); hole.lineTo(wCenter - halfW, bbHeight); hole.lineTo(wCenter - halfW, 0);
-                        bbShape.holes.push(hole);
-                    }
-                });
-            }
-            bbGeo = new THREE.ExtrudeGeometry(bbShape, { depth: bbThick, bevelEnabled: false, steps: 12 });
-            bbGeo.translate(0, 0, -bbThick / 2);
-        }
-
         // ====== MITER JOINT SHEARING ======
         const startProfile = wallData.wallShapeData ? wallData.wallShapeData.startProfile : wallData.startProfile;
         const endProfile = wallData.wallShapeData ? wallData.wallShapeData.endProfile : wallData.endProfile;
@@ -109,13 +90,11 @@ export class Wall3DBuilder {
                 return profile[0].x;
             };
 
-            const shearGeo = (geo, isBaseboard = false) => {
+            const shearGeo = (geo) => {
                 const pos = geo.attributes.position;
-                const bbThick = thickness + 1.2;
                 for (let i = 0; i < pos.count; i++) {
                     const x = pos.getX(i);
-                    let z = pos.getZ(i);
-                    if (isBaseboard) z *= (thickness / bbThick);
+                    const z = pos.getZ(i);
 
                     const sX = interpolateX(startProfileLocal, z);
                     const eX = interpolateX(endProfileLocal, z);
@@ -123,8 +102,7 @@ export class Wall3DBuilder {
                 }
                 geo.computeVertexNormals();
             };
-            shearGeo(wallGeo, false);
-            if (bbGeo) shearGeo(bbGeo, true);
+            shearGeo(wallGeo);
         } else if (pts && pts.length === 8) {
             const toLocalX = (ptX, ptY) => { return (ptX - startX) * Math.cos(angle) + (ptY - startY) * Math.sin(angle); };
             localSL_x = toLocalX(pts[0], pts[1]); localEL_x = toLocalX(pts[2], pts[3]); localER_x = toLocalX(pts[4], pts[5]); localSR_x = toLocalX(pts[6], pts[7]);
@@ -140,7 +118,6 @@ export class Wall3DBuilder {
                 geo.computeVertexNormals();
             };
             shearGeo(wallGeo);
-            if (bbGeo) shearGeo(bbGeo);
         }
 
         let materials = [this.matMain, this.matEdgeDark];
@@ -174,11 +151,6 @@ export class Wall3DBuilder {
         wallGroup.position.set(startX, 0, startY);
         wallGroup.rotation.y = -angle;
         
-        if (bbGeo) {
-            const bbMesh = new THREE.Mesh(bbGeo, this.matBaseboard);
-            bbMesh.castShadow = true; bbMesh.receiveShadow = true;
-            wallGroup.add(bbMesh);
-        }
         wallGroup.add(wallMesh);
 
         return { wallGroup, wallGeo };

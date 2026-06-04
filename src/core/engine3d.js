@@ -768,22 +768,6 @@ class EnvironmentBuilder {
             const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: t, bevelEnabled: false });
             wallGeo.translate(0, 0, -t / 2);
             
-            let bbGeo = null;
-            if (w.type !== 'railing') {
-                const bbHeight = 4; const bbThick = t + 1.2;
-                const bbShape = new THREE.Shape();
-                bbShape.moveTo(0, 0); bbShape.lineTo(length, 0); bbShape.lineTo(length, bbHeight); bbShape.lineTo(0, bbHeight); bbShape.lineTo(0, 0);
-                w.attachedWidgets.forEach(widg => {
-                    if (widg.type === 'door') {
-                        const hole = new THREE.Path(), wCenter = length * widg.t, halfW = widg.width / 2;
-                        hole.moveTo(wCenter - halfW, 0); hole.lineTo(wCenter + halfW, 0); hole.lineTo(wCenter + halfW, bbHeight); hole.lineTo(wCenter - halfW, bbHeight); hole.lineTo(wCenter - halfW, 0);
-                        bbShape.holes.push(hole);
-                    }
-                });
-                bbGeo = new THREE.ExtrudeGeometry(bbShape, { depth: bbThick, bevelEnabled: false });
-                bbGeo.translate(0, 0, -bbThick / 2);
-            }
-
             // ====== MITER JOINT SHEARING ======
             const pts = typeof w.poly?.points === 'function' ? w.poly.points() : null;
             let localSL_x = 0, localSR_x = 0, localEL_x = length, localER_x = length;
@@ -801,11 +785,10 @@ class EnvironmentBuilder {
 
             const shearGeo = (geo) => {
                 const pos = geo.attributes.position;
-            const geomThickness = geo === bbGeo ? t + 1.2 : t;
                 for (let i = 0; i < pos.count; i++) {
                     const x = pos.getX(i);
                     const z = pos.getZ(i);
-                const tZ = Math.max(0, Math.min(1, (z + geomThickness / 2) / geomThickness));
+                const tZ = Math.max(0, Math.min(1, (z + t / 2) / t));
                     const startX = localSR_x + tZ * (localSL_x - localSR_x);
                     const endX = localER_x + tZ * (localEL_x - localER_x);
                     const tX = x / length;
@@ -816,7 +799,6 @@ class EnvironmentBuilder {
 
             if (pts && pts.length === 8) {
                 shearGeo(wallGeo);
-            if (bbGeo) shearGeo(bbGeo);
             }
             // ==================================
 
@@ -839,11 +821,6 @@ class EnvironmentBuilder {
             wallGroup.position.set(p1.x, 0, p1.y);
             wallGroup.rotation.y = -angle;
             wallGroup.add(wallMesh, hitFront, hitBack);
-        if (bbGeo) {
-            const bbMesh = new THREE.Mesh(bbGeo, matBaseboard);
-            bbMesh.castShadow = true; bbMesh.receiveShadow = true;
-            wallGroup.add(bbMesh);
-        }
             wallGroup.userData = { entity: w };
             w.mesh3D = wallGroup;
 
@@ -1291,26 +1268,6 @@ class EnvironmentBuilder {
                         const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: w.thickness, bevelEnabled: false });
                         wallGeo.translate(0, 0, -w.thickness / 2);
                         
-                        let bbGeo = null;
-                        if (w.type !== 'railing') {
-                            const bbHeight = 4;
-                            const bbThick = w.thickness + 1.2;
-                            const bbShape = new THREE.Shape();
-                            bbShape.moveTo(0, startY); bbShape.lineTo(length, startY); bbShape.lineTo(length, startY + bbHeight); bbShape.lineTo(0, startY + bbHeight); bbShape.lineTo(0, startY);
-                            if (w.attachedWidgets) {
-                                w.attachedWidgets.forEach(widg => {
-                                    if (widg.type === 'door') {
-                                        const hole = new THREE.Path(), wCenter = length * widg.t, halfW = widg.width / 2;
-                                        const dh = Math.min(DOOR_HEIGHT, totalH, startY + bbHeight);
-                                        hole.moveTo(wCenter - halfW, startY); hole.lineTo(wCenter + halfW, startY); hole.lineTo(wCenter + halfW, dh); hole.lineTo(wCenter - halfW, dh); hole.lineTo(wCenter - halfW, startY);
-                                        bbShape.holes.push(hole);
-                                    }
-                                });
-                            }
-                            bbGeo = new THREE.ExtrudeGeometry(bbShape, { depth: bbThick, bevelEnabled: false });
-                            bbGeo.translate(0, 0, -bbThick / 2);
-                        }
-
                         // ====== MITER JOINT SHEARING ======
                         let localSL_x = 0, localSR_x = 0, localEL_x = length, localER_x = length;
                         if (w.pts && w.pts.length === 8) {
@@ -1338,7 +1295,6 @@ class EnvironmentBuilder {
                             geo.computeVertexNormals();
                         };
                         shearGeo(wallGeo, w.thickness);
-                        if (bbGeo) shearGeo(bbGeo, w.thickness + 1.2);
                         }
                         // ==================================
 
@@ -1350,11 +1306,6 @@ class EnvironmentBuilder {
                         wallGroup.rotation.y = -angle;
                         wallGroup.userData = { entity: w };
                         w.mesh3D = wallGroup;
-                    if (bbGeo) {
-                        const bbMesh = new THREE.Mesh(bbGeo, matBaseboard);
-                        bbMesh.castShadow = true; bbMesh.receiveShadow = true;
-                        wallGroup.add(bbMesh);
-                    }
                         wallGroup.add(wallMesh);
                         
                         if (!isPreview && viewMode3D === 'full-edit') {
@@ -2256,7 +2207,6 @@ export class Preview3D {
         this.renderer.toneMappingExposure = 1.0;
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFShadowMap;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.container.appendChild(this.renderer.domElement);
         
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
