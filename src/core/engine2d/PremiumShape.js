@@ -35,7 +35,7 @@ export class PremiumShape {
         const shapeConfig = {
             fill: this.params.fill,
             stroke: this.params.stroke,
-            strokeWidth: 8,
+            strokeWidth: 0,
             lineJoin: 'miter',
             shadowColor: 'black', 
             shadowBlur: 10, 
@@ -66,13 +66,14 @@ export class PremiumShape {
         }
         
         this.sealHighlight = new Konva.Line({
-            stroke: '#f59e0b',
-            strokeWidth: 8,
-            lineCap: 'round',
-            lineJoin: 'round',
+            stroke: '#2563eb',
+            strokeWidth: 4,
+            lineCap: 'square',
+            lineJoin: 'miter',
+            dash: [10, 8],
             opacity: 0.9,
-            shadowColor: '#f59e0b',
-            shadowBlur: 10,
+            shadowColor: '#60a5fa',
+            shadowBlur: 6,
             listening: false,
             visible: false
         });
@@ -278,7 +279,7 @@ export class PremiumShape {
             this.rebuildHandles();
         }
     }
-    setHighlight(isActive) { this.shape.stroke(this.params.stroke); if (this.handlesGroup) this.handlesGroup.visible(isActive); this.planner.stage.batchDraw(); }
+    setHighlight(isActive) { this.shape.strokeWidth(isActive ? 2 : 0); this.shape.stroke(isActive ? '#3b82f6' : this.params.stroke); if (this.handlesGroup) this.handlesGroup.visible(isActive); this.planner.stage.batchDraw(); }
     update() {
         if (this.type === 'shape_rect') {
             this.shape.width(this.params.width); this.shape.height(this.params.height);
@@ -563,7 +564,7 @@ export class PremiumShape {
         }
 
         this.shape.destroy();
-        const shapeConfig = { fill: this.params.fill, stroke: this.params.stroke, strokeWidth: 8, lineJoin: 'miter', shadowColor: 'black', shadowBlur: 10, shadowOffset: {x: 2, y: 2}, shadowOpacity: 0.2, closed: true };
+        const shapeConfig = { fill: this.params.fill, stroke: this.params.stroke, strokeWidth: 0, lineJoin: 'miter', shadowColor: 'black', shadowBlur: 10, shadowOffset: {x: 2, y: 2}, shadowOpacity: 0.2, closed: true };
         this.shape = new Konva.Line({ ...shapeConfig, points: this.params.points.flatMap(p => [p.x, p.y]) });
         this.group.add(this.shape); this.shape.moveToBottom();
         this.rebuildHandles();
