@@ -66,12 +66,13 @@ export class PremiumShape {
         }
         
         this.sealHighlight = new Konva.Line({
-            stroke: '#10b981',
-            strokeWidth: 6,
+            stroke: '#f59e0b',
+            strokeWidth: 8,
             lineCap: 'round',
+            lineJoin: 'round',
             opacity: 0.9,
-            shadowColor: '#10b981',
-            shadowBlur: 8,
+            shadowColor: '#f59e0b',
+            shadowBlur: 10,
             listening: false,
             visible: false
         });
@@ -146,7 +147,7 @@ export class PremiumShape {
                     }
                 }
                 
-                currentSnapDist += 5; // Account for visual stroke widths (shape stroke=4px outer, wall stroke=1px outer)
+                // No gap added to ensure the shape perfectly seals and touches the wall geometry
                 
                 const surfaceDist = Math.max(0, dist - currentSnapDist);
                 return { surfaceDist, currentSnapDist };
