@@ -155,6 +155,7 @@ export class PremiumRailing {
             );
 
             const getBestWallForObject = (item, type) => {
+                if (item.attachedWall) return item.attachedWall;
                 let objPos;
                 if (type === 'furniture' || (type && type.startsWith('shape'))) objPos = { x: item.group.x(), y: item.group.y() };
                 else return null;

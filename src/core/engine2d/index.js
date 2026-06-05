@@ -503,7 +503,7 @@ export class FloorPlanner {
                     let pos;
                     if (item.type === 'furniture' || (item.type && item.type.startsWith('shape'))) pos = { x: item.group.x(), y: item.group.y() };
                     else return;
-                    if (this.getDistanceToWall(pos, entity) < 100) {
+                        if (item.attachedWall === entity || this.getDistanceToWall(pos, entity) < 100) {
                         if (item.setHighlight) item.setHighlight(true);
                     }
                 });
@@ -520,7 +520,7 @@ export class FloorPlanner {
                         let pos;
                         if (item.type === 'furniture' || (item.type && item.type.startsWith('shape'))) pos = { x: item.group.x(), y: item.group.y() };
                         else return;
-                        if (this.getDistanceToWall(pos, w) < 100) {
+                            if (item.attachedWall === w || this.getDistanceToWall(pos, w) < 100) {
                             if (item.setHighlight) item.setHighlight(true);
                         }
                     });

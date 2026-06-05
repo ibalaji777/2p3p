@@ -64,11 +64,23 @@ export class PremiumShape {
                 closed: true
             });
         }
+        
+        this.sealHighlight = new Konva.Line({
+            stroke: '#10b981',
+            strokeWidth: 6,
+            lineCap: 'round',
+            opacity: 0.9,
+            shadowColor: '#10b981',
+            shadowBlur: 8,
+            listening: false,
+            visible: false
+        });
 
         this.attachedWall = null;
         this.isDragging = false;
 
         this.group.add(this.shape);
+        this.group.add(this.sealHighlight);
         if (this.planner.baseLayer) {
             this.planner.baseLayer.add(this.group);
         } else {
@@ -177,7 +189,6 @@ export class PremiumShape {
                 this.attachedWall = targetWall;
             } else {
                 this.attachedWall = null;
-                this.planner.wallHighlight.hide();
                 this.group.position(rawCenter);
             }
             this.update();
@@ -213,8 +224,6 @@ export class PremiumShape {
                 this.handlesGroup.visible(true);
             }
 
-            this.planner.wallHighlight.hide();
-            
             if (this.planner.baseLayer) {
                 this.group.moveTo(this.planner.baseLayer);
             } else {
@@ -281,6 +290,54 @@ export class PremiumShape {
             }
         }
         this.shape.fill(this.params.fill); this.group.rotation(this.rotation);
+        
+        // Calculate and position the glowing edge seal dynamically
+        if (this.attachedWall) {
+            const w = this.attachedWall;
+            const wallP1 = w.startAnchor.position(), wallP2 = w.endAnchor.position();
+            const center = this.group.position();
+            const proj = this.planner.getClosestPointOnSegment(center, wallP1, wallP2);
+            
+            let outNorm = { ...this.planner.getOutwardNormal(w) };
+            if ((center.x - proj.x) * outNorm.x + (center.y - proj.y) * outNorm.y < 0) { outNorm.x *= -1; outNorm.y *= -1; }
+            
+            const dx = wallP2.x - wallP1.x, dy = wallP2.y - wallP1.y, len = Math.hypot(dx, dy);
+            const wallDir = { x: dx/len, y: dy/len };
+            const ht = w.thickness ? w.thickness / 2 : (w.config ? w.config.thickness / 2 : 4);
+            const sealCenter = { x: proj.x + outNorm.x * ht, y: proj.y + outNorm.y * ht };
+            
+            let sealP1, sealP2;
+            if (this.type === 'shape_circle') {
+                const sealLen = Math.min(20, this.params.radius); 
+                sealP1 = { x: sealCenter.x - wallDir.x * (sealLen/2), y: sealCenter.y - wallDir.y * (sealLen/2) };
+                sealP2 = { x: sealCenter.x + wallDir.x * (sealLen/2), y: sealCenter.y + wallDir.y * (sealLen/2) };
+            } else {
+                const transform = this.group.getTransform();
+                let localPts = this.type === 'shape_rect' ? [ {x:-this.params.width/2,y:-this.params.height/2}, {x:this.params.width/2,y:-this.params.height/2}, {x:this.params.width/2,y:this.params.height/2}, {x:-this.params.width/2,y:this.params.height/2} ] : this.params.points;
+                
+                let touchingPts = localPts.map(p => transform.point(p)).filter(p => {
+                    return Math.abs((p.x - sealCenter.x) * outNorm.x + (p.y - sealCenter.y) * outNorm.y) < 8; 
+                });
+                
+                if (touchingPts.length >= 2) {
+                    let minT = Infinity, maxT = -Infinity;
+                    touchingPts.forEach(p => { const t = (p.x - sealCenter.x) * wallDir.x + (p.y - sealCenter.y) * wallDir.y; if (t < minT) minT = t; if (t > maxT) maxT = t; });
+                    sealP1 = { x: sealCenter.x + wallDir.x * minT, y: sealCenter.y + wallDir.y * minT };
+                    sealP2 = { x: sealCenter.x + wallDir.x * maxT, y: sealCenter.y + wallDir.y * maxT };
+                } else {
+                    const tPt = touchingPts.length === 1 ? touchingPts[0] : sealCenter;
+                    sealP1 = { x: tPt.x - wallDir.x * 5, y: tPt.y - wallDir.y * 5 };
+                    sealP2 = { x: tPt.x + wallDir.x * 5, y: tPt.y + wallDir.y * 5 };
+                }
+            }
+            
+            const inverseTransform = this.group.getTransform().copy().invert();
+            const localP1 = inverseTransform.point(sealP1), localP2 = inverseTransform.point(sealP2);
+            this.sealHighlight.points([localP1.x, localP1.y, localP2.x, localP2.y]).show();
+        } else {
+            this.sealHighlight.hide();
+        }
+
         if (this.handlesGroup) {
             this.handles.forEach((h, i) => h.position(this.params.points[i]));
                 if (this.updateEdgeHandles) this.updateEdgeHandles();
