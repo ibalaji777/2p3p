@@ -293,6 +293,13 @@
                         <label>Diagonal Dimensions</label>
                         <input type="checkbox" v-model="floorPlanSettings.showDiagonalDimensions" @change="syncSettings" class="settings-checkbox">
                     </div>
+                    <div class="control-group" v-if="floorPlanSettings.showDiagonalDimensions">
+                        <label>Diagonal Mode</label>
+                        <select v-model="floorPlanSettings.diagonalMeasurementMode" @change="syncSettings" class="settings-select">
+                            <option value="inner">Inner Corner to Inner Corner</option>
+                            <option value="outer">Outer Corner to Outer Corner</option>
+                        </select>
+                    </div>
                     <div class="control-group-inline">
                         <label>Workspace Labels</label>
                         <input type="checkbox" v-model="floorPlanSettings.showWorkspaceLabels" @change="syncSettings" class="settings-checkbox">
@@ -736,6 +743,7 @@ const floorPlanSettings = ref({
     showGrid: true,
     showDimensionLabels: true,
     showDiagonalDimensions: true,
+    diagonalMeasurementMode: 'inner',
     showWorkspaceLabels: true,
     wallTracking: true,
     entranceWallId: null

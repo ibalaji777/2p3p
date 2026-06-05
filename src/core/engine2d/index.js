@@ -228,6 +228,7 @@ export class FloorPlanner {
             showGrid: true,
             showDimensionLabels: true,
             showDiagonalDimensions: true,
+            diagonalMeasurementMode: 'inner',
             showWorkspaceLabels: true,
             wallTracking: true,
             entranceWallId: null
@@ -271,11 +272,12 @@ export class FloorPlanner {
         this.roomLayer = new Konva.Group(); 
         this.baseLayer = new Konva.Group();
         this.wallLayer = new Konva.Group(); 
+        this.roomLabelLayer = new Konva.Group(); 
         this.widgetLayer = new Konva.Group(); 
         this.furnitureLayer = new Konva.Group(); 
         this.roofLayer = new Konva.Group(); 
 
-        this.houseGroup.add(this.roomLayer, this.baseLayer, this.wallLayer, this.widgetLayer, this.furnitureLayer, this.roofLayer);
+        this.houseGroup.add(this.roomLayer, this.baseLayer, this.wallLayer, this.roomLabelLayer, this.widgetLayer, this.furnitureLayer, this.roofLayer);
         this.mainLayer.add(this.houseGroup);
 
         this.uiLayer = new Konva.Layer(); 
@@ -1502,6 +1504,7 @@ export class FloorPlanner {
 
     detectRooms() { 
         this.roomLayer.destroyChildren(); 
+        if (this.roomLabelLayer) this.roomLabelLayer.destroyChildren();
         const newRooms = []; 
         const edges = [];
         
@@ -1689,7 +1692,8 @@ export class FloorPlanner {
         const label = new Konva.Text({ x: room.cx, y: room.cy, text: "Room\n" + areaText, fontSize: 12, fill: '#6b7280', align: 'center', fontStyle: 'bold', listening: false, visible: this.settings ? this.settings.showWorkspaceLabels : true }); 
         label.offsetX(label.width() / 2); label.offsetY(label.height() / 2); 
         label.rotation(-(this.settings?.houseRotation || 0));
-        this.roomLayer.add(poly); this.roomLayer.add(label); 
+        this.roomLayer.add(poly); 
+        if (this.roomLabelLayer) this.roomLabelLayer.add(label); else this.roomLayer.add(label);
 
         // Draw Diagonal Dimensions if enabled
         if (this.settings && this.settings.showDiagonalDimensions && anchorPath.length > 3) {
@@ -1719,11 +1723,11 @@ export class FloorPlanner {
                     
                     // Register corner if angle change is more than ~5.7 degrees (0.1 rad)
                     if (diff > 0.1) {
-                        let w1s = this.walls.filter(w => (w.startAnchor === pPrev && w.endAnchor === pCurr) || (w.endAnchor === pPrev && w.startAnchor === pCurr));
-                        let w1 = w1s.find(w => w.type !== 'railing') || w1s[0];
+                        let w1s = this.walls.filter(w => w.type !== 'railing' && this.getDistanceToWall(pPrev, w) < 2 && this.getDistanceToWall(pCurr, w) < 2);
+                        let w1 = w1s[0];
                         
-                        let w2s = this.walls.filter(w => (w.startAnchor === pCurr && w.endAnchor === pNext) || (w.endAnchor === pCurr && w.startAnchor === pNext));
-                        let w2 = w2s.find(w => w.type !== 'railing') || w2s[0];
+                        let w2s = this.walls.filter(w => w.type !== 'railing' && this.getDistanceToWall(pCurr, w) < 2 && this.getDistanceToWall(pNext, w) < 2);
+                        let w2 = w2s[0];
                         
                         let t1 = w1 ? (w1.thickness || (w1.config && w1.config.thickness) || 10) : 10;
                         let t2 = w2 ? (w2.thickness || (w2.config && w2.config.thickness) || 10) : 10;
@@ -1731,12 +1735,10 @@ export class FloorPlanner {
                         let n1 = { x: -dir1.y, y: dir1.x };
                         let n2 = { x: -dir2.y, y: dir2.x };
                         
-                        let toCenter = { x: room.cx - pCurr.x, y: room.cy - pCurr.y };
-                        if (n1.x * toCenter.x + n1.y * toCenter.y < 0) { n1.x *= -1; n1.y *= -1; }
-                        if (n2.x * toCenter.x + n2.y * toCenter.y < 0) { n2.x *= -1; n2.y *= -1; }
+                        let sign = (this.settings && this.settings.diagonalMeasurementMode === 'outer') ? -1 : 1;
                         
-                        let L1_p = { x: pCurr.x + n1.x * (t1/2), y: pCurr.y + n1.y * (t1/2) };
-                        let L2_p = { x: pCurr.x + n2.x * (t2/2), y: pCurr.y + n2.y * (t2/2) };
+                        let L1_p = { x: pCurr.x + n1.x * (t1/2) * sign, y: pCurr.y + n1.y * (t1/2) * sign };
+                        let L2_p = { x: pCurr.x + n2.x * (t2/2) * sign, y: pCurr.y + n2.y * (t2/2) * sign };
                         
                         let det = dir1.x * dir2.y - dir1.y * dir2.x;
                         let innerCorner;
@@ -1778,7 +1780,11 @@ export class FloorPlanner {
                 const text2 = new Konva.Text({ x: cx2, y: cy2, text: this.formatLength(len2), fontSize: 11, fill: '#6b7280', align: 'center', fontStyle: 'bold', listening: false, rotation: ang2 });
                 text2.offsetX(text2.width() / 2); text2.offsetY(text2.height() + 2);
                 
-                this.roomLayer.add(d1, d2, text1, text2);
+                if (this.roomLabelLayer) {
+                    this.roomLabelLayer.add(d1, d2, text1, text2);
+                } else {
+                    this.roomLayer.add(d1, d2, text1, text2);
+                }
             }
         }
     }
@@ -1794,6 +1800,7 @@ export class FloorPlanner {
         this.anchors.forEach(a => { if(a.node) a.node.destroy(); }); this.anchors = [];
         if (this.baseLayer) this.baseLayer.destroyChildren();
         if (this.wallLayer) this.wallLayer.destroyChildren(); if (this.furnitureLayer) this.furnitureLayer.destroyChildren(); if (this.widgetLayer) this.widgetLayer.destroyChildren(); if (this.roofLayer) this.roofLayer.destroyChildren();
+        if (this.roomLabelLayer) this.roomLabelLayer.destroyChildren();
         if (this.mainLayer) this.mainLayer.batchDraw();
         this.selectEntity(null);
     }
