@@ -744,16 +744,82 @@ class EnvironmentBuilder {
             const wallShape = new THREE.Shape();
             wallShape.moveTo(0, 0); wallShape.lineTo(length, 0); wallShape.lineTo(length, h); wallShape.lineTo(0, h); wallShape.lineTo(0, 0);
 
+            const extraMeshes = [];
             w.attachedWidgets.forEach(widg => {
                 const hole = new THREE.Path(), wCenter = length * widg.t, halfW = widg.width / 2;
-                if (widg.type === 'door') {
+                let hasHole = false;
+                const type = widg.type || widg.configId;
+                
+                if (type === 'door') {
                     hole.moveTo(wCenter - halfW, 0); hole.lineTo(wCenter + halfW, 0); hole.lineTo(wCenter + halfW, DOOR_HEIGHT); hole.lineTo(wCenter - halfW, DOOR_HEIGHT); hole.lineTo(wCenter - halfW, 0);
-                } else if (widg.type === 'window') {
+                    hasHole = true;
+                } else if (type === 'window') {
                     hole.moveTo(wCenter - halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL);
-                }
-                wallShape.holes.push(hole);
+                    hasHole = true;
+                } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type)) {
+                    let elev = widg.elevation || 0;
+                    let h_opening = widg.height || 200;
+                    elev = Math.max(0, Math.min(elev, h));
+                    h_opening = Math.max(0, Math.min(h_opening, h - elev));
+                    
+                    if (type === 'arch_opening') {
+                        const radius = halfW;
+                        const straightH = Math.max(0, h_opening - radius);
+                        hole.moveTo(wCenter - halfW, elev);
+                        hole.lineTo(wCenter + halfW, elev);
+                        hole.lineTo(wCenter + halfW, elev + straightH);
+                        if (radius > 0) hole.absarc(wCenter, elev + straightH, radius, 0, Math.PI, false);
+                        hole.lineTo(wCenter - halfW, elev);
+                        hasHole = true;
+                    } else if (type === 'circular_opening') {
+                        hole.moveTo(wCenter + halfW, elev + h_opening / 2);
+                        hole.absellipse(wCenter, elev + h_opening / 2, halfW, h_opening / 2, 0, Math.PI * 2, false, 0);
+                        hasHole = true;
+                    } else if (type === 'custom_shape_opening') {
+                        hole.moveTo(wCenter, elev);
+                        hole.lineTo(wCenter + halfW, elev + h_opening / 2);
+                        hole.lineTo(wCenter, elev + h_opening);
+                        hole.lineTo(wCenter - halfW, elev + h_opening / 2);
+                        hole.lineTo(wCenter, elev);
+                        hasHole = true;
+                    } else if (type === 'pattern_opening') {
+                        const rows = widg.rows || 4, cols = widg.cols || 4, spacing = widg.spacing !== undefined ? widg.spacing : 5;
+                        const pW = (widg.width - spacing * (cols + 1)) / cols;
+                        const pH = (h_opening - spacing * (rows + 1)) / rows;
+                        if (pW > 0 && pH > 0) {
+                            for (let r = 0; r < rows; r++) {
+                                for (let c = 0; c < cols; c++) {
+                                    const px = (wCenter - halfW) + spacing + c * (pW + spacing);
+                                    const py = elev + spacing + r * (pH + spacing);
+                                    const pPath = new THREE.Path();
+                                    pPath.moveTo(px, py);
+                                    pPath.lineTo(px + pW, py);
+                                    pPath.lineTo(px + pW, py + pH);
+                                    pPath.lineTo(px, py + pH);
+                                    pPath.lineTo(px, py);
+                                    wallShape.holes.push(pPath);
+                                }
+                            }
+                        }
+                        hasHole = false;
+                    } else {
+                        hole.moveTo(wCenter - halfW, elev); hole.lineTo(wCenter + halfW, elev); hole.lineTo(wCenter + halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev);
+                        hasHole = true;
+                    }
 
-                                const type = widg.type || widg.configId;
+                    if (type === 'niche_recess') {
+                        const depth = widg.depth || 10;
+                        const recessThickness = Math.max(0.5, t - depth);
+                        const nicheGeo = new THREE.BoxGeometry(widg.width, h_opening, recessThickness);
+                        const zOffset = (widg.facing === -1) ? (t/2 - recessThickness/2) : (-t/2 + recessThickness/2);
+                        nicheGeo.translate(wCenter, elev + h_opening/2, zOffset);
+                        const nicheMesh = new THREE.Mesh(nicheGeo, matMain);
+                        nicheMesh.castShadow = true; nicheMesh.receiveShadow = true;
+                        extraMeshes.push(nicheMesh);
+                    }
+                }
+                if (hasHole) wallShape.holes.push(hole);
+
                                 if (WIDGET_REGISTRY[type] && WIDGET_REGISTRY[type].render3D) {
                                     widg.x = p1.x + Math.cos(angle) * wCenter;
                                     widg.z = p1.y + Math.sin(angle) * wCenter;
@@ -820,7 +886,7 @@ class EnvironmentBuilder {
             const wallGroup = new THREE.Group();
             wallGroup.position.set(p1.x, 0, p1.y);
             wallGroup.rotation.y = -angle;
-            wallGroup.add(wallMesh, hitFront, hitBack);
+            wallGroup.add(wallMesh, hitFront, hitBack, ...extraMeshes);
             wallGroup.userData = { entity: w };
             w.mesh3D = wallGroup;
 
@@ -1238,21 +1304,88 @@ class EnvironmentBuilder {
                         const wallShape = new THREE.Shape();
                         wallShape.moveTo(0, startY); wallShape.lineTo(length, startY); wallShape.lineTo(length, totalH); wallShape.lineTo(0, totalH); wallShape.lineTo(0, startY);
                         
+                        const extraMeshes = [];
                         if (w.attachedWidgets) {
                             w.attachedWidgets.forEach(widg => {
                                 const hole = new THREE.Path(), wCenter = length * widg.t, halfW = widg.width / 2;
                                 const maxH = totalH; // totalH is the wall height (h)
-                                if (widg.type === 'door') {
+                                let hasHole = false;
+                                const type = widg.type || widg.configId;
+                                
+                                if (type === 'door') {
                                     const dh = Math.min(DOOR_HEIGHT, maxH);
                                     hole.moveTo(wCenter - halfW, 0); hole.lineTo(wCenter + halfW, 0); hole.lineTo(wCenter + halfW, dh); hole.lineTo(wCenter - halfW, dh); hole.lineTo(wCenter - halfW, 0);
-                                } else if (widg.type === 'window') {
+                                    hasHole = true;
+                                } else if (type === 'window') {
                                     const ws = Math.min(WINDOW_SILL, maxH);
                                     const wh = Math.min(WINDOW_SILL + WINDOW_HEIGHT, maxH);
                                     hole.moveTo(wCenter - halfW, ws); hole.lineTo(wCenter + halfW, ws); hole.lineTo(wCenter + halfW, wh); hole.lineTo(wCenter - halfW, wh); hole.lineTo(wCenter - halfW, ws);
+                                    hasHole = true;
+                                } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type)) {
+                                    let elev = widg.elevation || 0;
+                                    let h_opening = widg.height || 200;
+                                    elev = Math.max(0, Math.min(elev, maxH));
+                                    h_opening = Math.max(0, Math.min(h_opening, maxH - elev));
+                                    if (h_opening > 0) {
+                                        if (type === 'arch_opening') {
+                                            const radius = halfW;
+                                            const straightH = Math.max(0, h_opening - radius);
+                                            hole.moveTo(wCenter - halfW, elev);
+                                            hole.lineTo(wCenter + halfW, elev);
+                                            hole.lineTo(wCenter + halfW, elev + straightH);
+                                            if (radius > 0) hole.absarc(wCenter, elev + straightH, radius, 0, Math.PI, false);
+                                            hole.lineTo(wCenter - halfW, elev);
+                                            hasHole = true;
+                                        } else if (type === 'circular_opening') {
+                                            hole.moveTo(wCenter + halfW, elev + h_opening / 2);
+                                            hole.absellipse(wCenter, elev + h_opening / 2, halfW, h_opening / 2, 0, Math.PI * 2, false, 0);
+                                            hasHole = true;
+                                        } else if (type === 'custom_shape_opening') {
+                                            hole.moveTo(wCenter, elev);
+                                            hole.lineTo(wCenter + halfW, elev + h_opening / 2);
+                                            hole.lineTo(wCenter, elev + h_opening);
+                                            hole.lineTo(wCenter - halfW, elev + h_opening / 2);
+                                            hole.lineTo(wCenter, elev);
+                                            hasHole = true;
+                                        } else if (type === 'pattern_opening') {
+                                            const rows = widg.rows || 4, cols = widg.cols || 4, spacing = widg.spacing !== undefined ? widg.spacing : 5;
+                                            const pW = (widg.width - spacing * (cols + 1)) / cols;
+                                            const pH = (h_opening - spacing * (rows + 1)) / rows;
+                                            if (pW > 0 && pH > 0) {
+                                                for (let r = 0; r < rows; r++) {
+                                                    for (let c = 0; c < cols; c++) {
+                                                        const px = (wCenter - halfW) + spacing + c * (pW + spacing);
+                                                        const py = elev + spacing + r * (pH + spacing);
+                                                        const pPath = new THREE.Path();
+                                                        pPath.moveTo(px, py);
+                                                        pPath.lineTo(px + pW, py);
+                                                        pPath.lineTo(px + pW, py + pH);
+                                                        pPath.lineTo(px, py + pH);
+                                                        pPath.lineTo(px, py);
+                                                        wallShape.holes.push(pPath);
+                                                    }
+                                                }
+                                            }
+                                            hasHole = false;
+                                        } else {
+                                            hole.moveTo(wCenter - halfW, elev); hole.lineTo(wCenter + halfW, elev); hole.lineTo(wCenter + halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev);
+                                            hasHole = true;
+                                        }
+                                        
+                                        if (type === 'niche_recess') {
+                                            const depth = widg.depth || 10;
+                                            const recessThickness = Math.max(0.5, w.thickness - depth);
+                                            const nicheGeo = new THREE.BoxGeometry(widg.width, h_opening, recessThickness);
+                                            const zOffset = (widg.facing === -1) ? (w.thickness/2 - recessThickness/2) : (-w.thickness/2 + recessThickness/2);
+                                            nicheGeo.translate(wCenter, elev + h_opening/2, zOffset);
+                                            const nicheMesh = new THREE.Mesh(nicheGeo, matMain);
+                                            nicheMesh.castShadow = true; nicheMesh.receiveShadow = true;
+                                            extraMeshes.push(nicheMesh);
+                                        }
+                                    }
                                 }
-                                wallShape.holes.push(hole);
+                                if (hasHole) wallShape.holes.push(hole);
 
-                                const type = widg.type || widg.configId;
                                 if (WIDGET_REGISTRY[type] && WIDGET_REGISTRY[type].render3D) {
                                     widg.x = w.startX + Math.cos(angle) * wCenter;
                                     widg.z = w.startY + Math.sin(angle) * wCenter;
@@ -1306,7 +1439,7 @@ class EnvironmentBuilder {
                         wallGroup.rotation.y = -angle;
                         wallGroup.userData = { entity: w };
                         w.mesh3D = wallGroup;
-                        wallGroup.add(wallMesh);
+                        wallGroup.add(wallMesh, ...extraMeshes);
                         
                         if (!isPreview && viewMode3D === 'full-edit') {
                             // CREATE HITBOXES FOR DIRECT SELECTION IN FULL-BUILDING VIEW
@@ -1624,8 +1757,18 @@ class DecorManager {
             const halfW = widg.width / 2;
             const wx_min = wCenter - halfW;
             const wx_max = wCenter + halfW;
-            const wy_min = widg.type === 'door' ? 0 : WINDOW_SILL;
-            const wy_max = widg.type === 'door' ? DOOR_HEIGHT : WINDOW_SILL + WINDOW_HEIGHT;
+            let wy_min = 0, wy_max = 0;
+            if (widg.type === 'door') {
+                wy_min = 0; wy_max = DOOR_HEIGHT;
+            } else if (widg.type === 'window') {
+                wy_min = WINDOW_SILL; wy_max = WINDOW_SILL + WINDOW_HEIGHT;
+            } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(widg.type || widg.configId)) {
+                const wallH = wallEntity.height || wallEntity.config?.height || WALL_HEIGHT;
+                let elev = widg.elevation || 0; let h_opening = widg.height || 200;
+                elev = Math.max(0, Math.min(elev, wallH)); h_opening = Math.max(0, Math.min(h_opening, wallH - elev));
+                wy_min = elev; wy_max = elev + h_opening;
+            }
+            if (wy_min === wy_max) return;
 
             let local_wx_min, local_wx_max;
             if (isFront) { local_wx_min = wx_min - posX; local_wx_max = wx_max - posX; } 
@@ -1640,9 +1783,53 @@ class DecorManager {
             const iy_max = Math.min(local_wy_max, h/2);
 
             if (ix_min < ix_max && iy_min < iy_max) {
+                const type = widg.type || widg.configId;
                 const hole = new THREE.Path();
-                hole.moveTo(ix_min, iy_min); hole.lineTo(ix_max, iy_min); hole.lineTo(ix_max, iy_max); hole.lineTo(ix_min, iy_max); hole.lineTo(ix_min, iy_min);
-                shape.holes.push(hole);
+                const hCenter = (ix_min + ix_max) / 2;
+                const halfW_hole = (ix_max - ix_min) / 2;
+                if (type === 'arch_opening') {
+                    const radius = halfW_hole;
+                    const straightH = Math.max(0, (iy_max - iy_min) - radius);
+                    hole.moveTo(ix_min, iy_min);
+                    hole.lineTo(ix_max, iy_min);
+                    hole.lineTo(ix_max, iy_min + straightH);
+                    if (radius > 0) hole.absarc(hCenter, iy_min + straightH, radius, 0, Math.PI, false);
+                    hole.lineTo(ix_min, iy_min);
+                    shape.holes.push(hole);
+                } else if (type === 'circular_opening') {
+                    hole.moveTo(ix_max, iy_min + (iy_max - iy_min)/2);
+                    hole.absellipse(hCenter, iy_min + (iy_max - iy_min)/2, halfW_hole, (iy_max - iy_min)/2, 0, Math.PI * 2, false, 0);
+                    shape.holes.push(hole);
+                } else if (type === 'custom_shape_opening') {
+                    hole.moveTo(hCenter, iy_min);
+                    hole.lineTo(ix_max, iy_min + (iy_max - iy_min)/2);
+                    hole.lineTo(hCenter, iy_max);
+                    hole.lineTo(ix_min, iy_min + (iy_max - iy_min)/2);
+                    hole.lineTo(hCenter, iy_min);
+                    shape.holes.push(hole);
+                } else if (type === 'pattern_opening') {
+                    const rows = widg.rows || 4, cols = widg.cols || 4, spacing = widg.spacing !== undefined ? widg.spacing : 5;
+                    const pW = ((ix_max - ix_min) - spacing * (cols + 1)) / cols;
+                    const pH = ((iy_max - iy_min) - spacing * (rows + 1)) / rows;
+                    if (pW > 0 && pH > 0) {
+                        for (let r = 0; r < rows; r++) {
+                            for (let c = 0; c < cols; c++) {
+                                const px = ix_min + spacing + c * (pW + spacing);
+                                const py = iy_min + spacing + r * (pH + spacing);
+                                const pPath = new THREE.Path();
+                                pPath.moveTo(px, py);
+                                pPath.lineTo(px + pW, py);
+                                pPath.lineTo(px + pW, py + pH);
+                                pPath.lineTo(px, py + pH);
+                                pPath.lineTo(px, py);
+                                shape.holes.push(pPath);
+                            }
+                        }
+                    }
+                } else {
+                    hole.moveTo(ix_min, iy_min); hole.lineTo(ix_max, iy_min); hole.lineTo(ix_max, iy_max); hole.lineTo(ix_min, iy_max); hole.lineTo(ix_min, iy_min);
+                    shape.holes.push(hole);
+                }
             }
         });
 
@@ -2106,11 +2293,65 @@ class InteractionSystem {
             w.attachedWidgets.forEach(widg => {
                 const wCenter = w.length3D * widg.t; const halfW = widg.width / 2; const cx = w.length3D / 2; const cy = totalH / 2;
                 const hx_min = (wCenter - halfW) - cx; const hx_max = (wCenter + halfW) - cx;
-                const hy_min = (widg.type === 'door' ? 0 : WINDOW_SILL) - cy; const hy_max = (widg.type === 'door' ? DOOR_HEIGHT : WINDOW_SILL + WINDOW_HEIGHT) - cy;
-
-                const hole = new THREE.Path();
-                hole.moveTo(hx_min, hy_min); hole.lineTo(hx_max, hy_min); hole.lineTo(hx_max, hy_max); hole.lineTo(hx_min, hy_max); hole.lineTo(hx_min, hy_min);
-                shape.holes.push(hole);
+                let w_y_min = 0, w_y_max = 0;
+                if (widg.type === 'door') { w_y_min = 0; w_y_max = DOOR_HEIGHT; }
+                else if (widg.type === 'window') { w_y_min = WINDOW_SILL; w_y_max = WINDOW_SILL + WINDOW_HEIGHT; }
+                else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(widg.type || widg.configId)) {
+                    let elev = widg.elevation || 0; let h_opening = widg.height || 200;
+                    elev = Math.max(0, Math.min(elev, currentH));
+                    h_opening = Math.max(0, Math.min(h_opening, currentH - elev));
+                    w_y_min = elev; w_y_max = elev + h_opening;
+                }
+                if (w_y_max > w_y_min) {
+                    const hy_min = w_y_min - cy; const hy_max = w_y_max - cy;
+                    const type = widg.type || widg.configId;
+                    const hole = new THREE.Path();
+                    const hCenter = wCenter - cx;
+                    
+                    if (type === 'arch_opening') {
+                        const radius = halfW;
+                        const straightH = Math.max(0, (hy_max - hy_min) - radius);
+                        hole.moveTo(hx_min, hy_min);
+                        hole.lineTo(hx_max, hy_min);
+                        hole.lineTo(hx_max, hy_min + straightH);
+                        if (radius > 0) hole.absarc(hCenter, hy_min + straightH, radius, 0, Math.PI, false);
+                        hole.lineTo(hx_min, hy_min);
+                        shape.holes.push(hole);
+                    } else if (type === 'circular_opening') {
+                        hole.moveTo(hx_max, hy_min + (hy_max - hy_min)/2);
+                        hole.absellipse(hCenter, hy_min + (hy_max - hy_min)/2, halfW, (hy_max - hy_min)/2, 0, Math.PI * 2, false, 0);
+                        shape.holes.push(hole);
+                    } else if (type === 'custom_shape_opening') {
+                        hole.moveTo(hCenter, hy_min);
+                        hole.lineTo(hx_max, hy_min + (hy_max - hy_min)/2);
+                        hole.lineTo(hCenter, hy_max);
+                        hole.lineTo(hx_min, hy_min + (hy_max - hy_min)/2);
+                        hole.lineTo(hCenter, hy_min);
+                        shape.holes.push(hole);
+                    } else if (type === 'pattern_opening') {
+                        const rows = widg.rows || 4, cols = widg.cols || 4, spacing = widg.spacing !== undefined ? widg.spacing : 5;
+                        const pW = ((hx_max - hx_min) - spacing * (cols + 1)) / cols;
+                        const pH = ((hy_max - hy_min) - spacing * (rows + 1)) / rows;
+                        if (pW > 0 && pH > 0) {
+                            for (let r = 0; r < rows; r++) {
+                                for (let c = 0; c < cols; c++) {
+                                    const px = hx_min + spacing + c * (pW + spacing);
+                                    const py = hy_min + spacing + r * (pH + spacing);
+                                    const pPath = new THREE.Path();
+                                    pPath.moveTo(px, py);
+                                    pPath.lineTo(px + pW, py);
+                                    pPath.lineTo(px + pW, py + pH);
+                                    pPath.lineTo(px, py + pH);
+                                    pPath.lineTo(px, py);
+                                    shape.holes.push(pPath);
+                                }
+                            }
+                        }
+                    } else {
+                        hole.moveTo(hx_min, hy_min); hole.lineTo(hx_max, hy_min); hole.lineTo(hx_max, hy_max); hole.lineTo(hx_min, hy_max); hole.lineTo(hx_min, hy_min);
+                        shape.holes.push(hole);
+                    }
+                }
             });
 
             this.wallHighlight.geometry.dispose();

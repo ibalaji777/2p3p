@@ -1,6 +1,7 @@
 import Konva from 'konva';
 import { WALL_REGISTRY, WIDGET_REGISTRY, RAILING_REGISTRY } from '../registry.js';
 import { PremiumWidget } from './PremiumWidget.js';
+import { advance_openings } from './advance_openings.js';
 
 export class PremiumWall {
     constructor(planner, startAnchor, endAnchor, type = "outer") {
@@ -119,11 +120,17 @@ export class PremiumWall {
     }
     
     initEvents() { 
-        this.poly.on('mouseenter', () => { if (this.planner.tool === 'select' || WIDGET_REGISTRY[this.planner.tool]) document.body.style.cursor = 'pointer'; });
+        this.poly.on('mouseenter', () => {
+            const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(this.planner.tool);
+            if (this.planner.tool === 'select' || WIDGET_REGISTRY[this.planner.tool] || isAdvancedOpening) {
+                document.body.style.cursor = 'pointer';
+            }
+        });
         this.poly.on('mouseleave', () => { document.body.style.cursor = 'default'; });
         this.poly.on('mousedown touchstart', (e) => { 
             this.wallGroup.moveToTop();
-            console.log("Wall mousedown/touchstart event fired.", { tool: this.planner.tool, isWidget: !!WIDGET_REGISTRY[this.planner.tool] });
+            const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(this.planner.tool);
+            console.log("Wall mousedown/touchstart event fired.", { tool: this.planner.tool, isWidget: !!WIDGET_REGISTRY[this.planner.tool], isAdvancedOpening });
             
             if (this.planner.tool === 'split') {
                 e.cancelBubble = true;
@@ -146,7 +153,7 @@ export class PremiumWall {
                 this.planner.syncAll();
                 return;
             }
-            if (WIDGET_REGISTRY[this.planner.tool]) { 
+            if (WIDGET_REGISTRY[this.planner.tool] || isAdvancedOpening) { 
                 console.log("Widget tool is active. Attempting to create widget.");
                 e.cancelBubble = true; 
                 if (e.evt) e.evt.stopPropagation();
@@ -157,9 +164,15 @@ export class PremiumWall {
                 }
                 let t = this.getClosestT(pos); 
                 console.log("Calculated t:", t, "Position:", pos);
-                const widget = new PremiumWidget(this.planner, this, t, this.planner.tool); 
+                let widget;
+                if (isAdvancedOpening) {
+                    widget = new advance_openings(this.planner, this, t, this.planner.tool);
+                    this.planner.selectEntity(widget, 'advance_openings');
+                } else {
+                    widget = new PremiumWidget(this.planner, this, t, this.planner.tool); 
+                    this.planner.selectEntity(widget, 'widget'); 
+                }
                 this.attachedWidgets.push(widget); 
-                this.planner.selectEntity(widget, 'widget'); 
                 this.planner.syncAll(); 
                 console.log("Widget added:", widget);
                 return; 

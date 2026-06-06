@@ -13,6 +13,7 @@ import { StaircaseTwo } from '/src/core/engine2d/StaircaseTwo.js';
 import { PremiumHipRoof } from '/src/core/engine2d/PremiumHipRoof.js';
 import { PremiumRailing } from '/src/core/engine2d/PremiumRailing.js';
 import { SmartGuidesTrackingSystem } from '/src/core/engine2d/SmartGuidesTrackingSystem.js';
+import { advance_openings } from '/src/core/engine2d/advance_openings.js';
 
 // Export the specific classes that App.vue needs to spawn items
 export { PremiumFurniture, PremiumHipRoof };
@@ -85,7 +86,10 @@ export class PremiumArc {
     rebuild() {
         const savedWidgets = [];
         this.walls.forEach(w => { 
-            if (w.attachedWidgets) w.attachedWidgets.forEach(widg => savedWidgets.push({ widg: widg, oldPos: widg.visualGroup.position() }));
+            if (w.attachedWidgets) w.attachedWidgets.forEach(widg => {
+                let grp = widg.visualGroup || widg.group;
+                if (grp) savedWidgets.push({ widg: widg, oldPos: grp.position() });
+            });
             w.wallGroup.destroy(); 
             w.labelGroup.destroy(); 
             this.planner.walls = this.planner.walls.filter(existing => existing !== w); 
@@ -132,15 +136,22 @@ export class PremiumArc {
                     newWall.parentArc = this; newWall.labelGroup.visible(false);
                     newWall.poly.off('mousedown touchstart');
                     newWall.poly.on('mousedown touchstart', (e) => { 
-                        if (WIDGET_REGISTRY[this.planner.tool]) {
+                        const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(this.planner.tool);
+                        if (WIDGET_REGISTRY[this.planner.tool] || isAdvancedOpening) {
                             e.cancelBubble = true;
                             if (e.evt) e.evt.stopPropagation();
                             const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
                             if (!pos) return;
                             let newT = newWall.getClosestT(pos);
-                            const widget = new PremiumWidget(this.planner, newWall, newT, this.planner.tool);
+                            let widget;
+                            if (isAdvancedOpening) {
+                                widget = new advance_openings(this.planner, newWall, newT, this.planner.tool);
+                                this.planner.selectEntity(widget, 'advance_openings');
+                            } else {
+                                widget = new PremiumWidget(this.planner, newWall, newT, this.planner.tool);
+                                this.planner.selectEntity(widget, 'widget');
+                            }
                             newWall.attachedWidgets.push(widget);
-                            this.planner.selectEntity(widget, 'widget');
                             this.planner.syncAll();
                             return;
                         }
@@ -593,6 +604,7 @@ export class FloorPlanner {
         const isSelect = this.tool === "select";
         const isSplit = this.tool === "split";
         const isWidget = !!WIDGET_REGISTRY[this.tool];
+        const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(this.tool);
         const allowAll = (cat === 'tools' || cat === 'advanced');
 
         this.walls.forEach(w => {
@@ -609,14 +621,15 @@ export class FloorPlanner {
 
             if(w.poly) { 
                 w.poly.setAttr('draggable', canEditThisWall); 
-                w.poly.setAttr('listening', canEditThisWall || (isWidget && !isRailing) || isSplit); 
+                w.poly.setAttr('listening', canEditThisWall || (isWidget && !isRailing) || isSplit || isAdvancedOpening); 
             }
             
             w.attachedWidgets.forEach(widg => {
-                if(widg.visualGroup) {
-                    let canEditWidget = isSelect || cat === 'doors_windows';
-                    widg.visualGroup.setAttr('draggable', canEditWidget);
-                    widg.visualGroup.setAttr('listening', canEditWidget);
+                let group = widg.visualGroup || widg.group;
+                if(group) {
+                    let canEditWidget = isSelect || cat === 'doors_windows' || cat === 'advance_openings';
+                    group.setAttr('draggable', canEditWidget);
+                    group.setAttr('listening', canEditWidget);
                 }
             });        });
 
@@ -651,8 +664,8 @@ export class FloorPlanner {
 
         // FORCE LAYER LISTENING OFF DURING DRAWING OR RESTRICT BY CATEGORY
         if (this.baseLayer) { this.baseLayer.listening(allowAll || cat === "shapes" || cat === "structures" || isSplit); }
-        if (this.wallLayer) { this.wallLayer.listening(allowAll || cat === "common" || cat === "walls" || cat === "doors_windows" || cat === "structures" || isWidget || isSplit); }
-        if (this.widgetLayer) { this.widgetLayer.listening(allowAll || cat === "doors_windows" || cat === "structures"); }
+        if (this.wallLayer) { this.wallLayer.listening(allowAll || cat === "common" || cat === "walls" || cat === "doors_windows" || cat === "advance_openings" || cat === "structures" || isWidget || isSplit || isAdvancedOpening); }
+        if (this.widgetLayer) { this.widgetLayer.listening(allowAll || cat === "doors_windows" || cat === "advance_openings" || cat === "structures"); }
         if (this.furnitureLayer) { this.furnitureLayer.listening(allowAll || cat === "furniture" || cat === "shapes" || isSplit); }
         if (this.roofLayer) { this.roofLayer.listening(allowAll || cat === "structures"); }
 
@@ -1821,8 +1834,9 @@ export class FloorPlanner {
                 description: w.description,
                 pts: w.poly ? w.poly.points() : null,                elevationLayers: w.elevationLayers,
                 widgets: w.attachedWidgets.map(wid => ({ 
-                    t: wid.t, type: wid.type, configId: wid.type, width: wid.width, 
+                    t: wid.t, type: wid.type, configId: wid.type, width: wid.width, height: wid.height, depth: wid.depth, elevation: wid.elevation,
                     facing: wid.facing, side: wid.side, 
+                    rows: wid.rows, cols: wid.cols, spacing: wid.spacing,
                     doorType: wid.doorType, doorMat: wid.doorMat, 
                     windowType: wid.windowType, frameMat: wid.frameMat, glassMat: wid.glassMat, grillePattern: wid.grillePattern,
                     description: wid.description
@@ -1892,18 +1906,30 @@ export class FloorPlanner {
 
                     if (wData.widgets) { 
                         wData.widgets.forEach(wd => { 
-                            const widget = new PremiumWidget(this, wall, wd.t, wd.configId || wd.type); 
-                            widget.width = wd.width; 
-                            if (wd.description !== undefined) widget.description = wd.description;
-                            if (wd.facing !== undefined) widget.facing = wd.facing;
-                            if (wd.side !== undefined) widget.side = wd.side;
-                            if (wd.doorType) widget.doorType = wd.doorType;
-                            if (wd.doorMat) widget.doorMat = wd.doorMat;
-                            if (wd.windowType) widget.windowType = wd.windowType;
-                            if (wd.frameMat) widget.frameMat = wd.frameMat;
-                            if (wd.glassMat) widget.glassMat = wd.glassMat;
-                            if (wd.grillePattern) widget.grillePattern = wd.grillePattern;
-                            wall.attachedWidgets.push(widget); 
+                            if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(wd.type || wd.configId)) {
+                                const advOp = new advance_openings(this, wall, wd.t, wd.type || wd.configId);
+                                if (wd.width !== undefined) advOp.width = wd.width;
+                                if (wd.height !== undefined) advOp.height = wd.height;
+                                if (wd.depth !== undefined) advOp.depth = wd.depth;
+                                if (wd.elevation !== undefined) advOp.elevation = wd.elevation;
+                                if (wd.rows !== undefined) advOp.rows = wd.rows;
+                                if (wd.cols !== undefined) advOp.cols = wd.cols;
+                                if (wd.spacing !== undefined) advOp.spacing = wd.spacing;
+                                wall.attachedWidgets.push(advOp);
+                            } else {
+                                const widget = new PremiumWidget(this, wall, wd.t, wd.configId || wd.type); 
+                                widget.width = wd.width; 
+                                if (wd.description !== undefined) widget.description = wd.description;
+                                if (wd.facing !== undefined) widget.facing = wd.facing;
+                                if (wd.side !== undefined) widget.side = wd.side;
+                                if (wd.doorType) widget.doorType = wd.doorType;
+                                if (wd.doorMat) widget.doorMat = wd.doorMat;
+                                if (wd.windowType) widget.windowType = wd.windowType;
+                                if (wd.frameMat) widget.frameMat = wd.frameMat;
+                                if (wd.glassMat) widget.glassMat = wd.glassMat;
+                                if (wd.grillePattern) widget.grillePattern = wd.grillePattern;
+                                wall.attachedWidgets.push(widget); 
+                            }
                         }); 
                     }
                     if (wData.decors) { wall.attachedDecor = JSON.parse(JSON.stringify(wData.decors)); }

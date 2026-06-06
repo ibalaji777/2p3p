@@ -412,6 +412,20 @@
                     <button class="hud-delete" @click="handleDelete">Delete Floor & Walls</button>
                 </div>
 
+                <div v-else-if="selectedType === 'advance_openings'">
+                    <h4 class="props-subtitle">Advanced Opening Properties</h4>
+                    <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="10" max="500" @input="syncEngine"><input type="number" v-model.number="selectedEntity.width" @input="syncEngine"></div></div>
+                    <div class="control-group"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="300" @input="syncEngine"><input type="number" v-model.number="selectedEntity.height" @input="syncEngine"></div></div>
+                    <div class="control-group" v-if="selectedEntity.type === 'niche_recess'"><label>Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.depth" min="1" max="50" @input="syncEngine"><input type="number" v-model.number="selectedEntity.depth" @input="syncEngine"></div></div>
+                    <div class="control-group"><label>Elevation (from floor)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.elevation" min="0" max="200" @input="syncEngine"><input type="number" v-model.number="selectedEntity.elevation" @input="syncEngine"></div></div>
+                    <div v-if="selectedEntity.type === 'pattern_opening'">
+                        <div class="control-group"><label>Rows</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.rows" min="1" max="20" @input="syncEngine"><input type="number" v-model.number="selectedEntity.rows" @input="syncEngine"></div></div>
+                        <div class="control-group"><label>Columns</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.cols" min="1" max="20" @input="syncEngine"><input type="number" v-model.number="selectedEntity.cols" @input="syncEngine"></div></div>
+                        <div class="control-group"><label>Spacing</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.spacing" min="0" max="50" @input="syncEngine"><input type="number" v-model.number="selectedEntity.spacing" @input="syncEngine"></div></div>
+                    </div>
+                    <button class="hud-delete" @click="handleDelete">Delete Opening</button>
+                </div>
+
                 <div v-else-if="selectedType === 'widget'">
                     <h4 class="props-subtitle">{{ selectedEntity.config?.label || 'DOOR/WINDOW' }} Properties</h4>
                     <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="10" max="200" @input="syncEngine"><input type="number" v-model.number="selectedEntity.width" @input="syncEngine"></div></div>
@@ -861,6 +875,18 @@ const menuCategories = ref([
             { id: 'smart_facing', name: 'Facing', action: 'wizard' },
             { id: 'smart_wall_resize', name: 'Resize Plan', action: 'wizard' }
         ]
+    },
+    {
+        id: 'advance_openings', name: 'Advanced Openings',
+        icon: '<path d="M12 2L2 22h20L12 2z"></path><circle cx="12" cy="14" r="3"></circle>',
+        tools: [
+            { id: 'arch_opening', name: 'Arch Opening' },
+            { id: 'circular_opening', name: 'Circular & Oval' },
+            { id: 'custom_shape_opening', name: 'Custom Shape Cut' },
+            { id: 'niche_recess', name: 'Niche & Recess' },
+            { id: 'pattern_opening', name: 'Pattern Opening' },
+            { id: 'boolean_cut', name: 'Boolean Cut' }
+        ]
     }
 ]);
 
@@ -1038,7 +1064,11 @@ const layerItems = computed(() => {
         planner.value.walls.forEach((w) => {
             if (w.attachedWidgets) {
                 w.attachedWidgets.forEach(widget => {
-                    items.push({ id: `widget-${wCount++}`, name: widget.type === 'door' ? 'Door' : 'Window', entity: widget, type: 'widget' });
+                    if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(widget.type)) {
+                        items.push({ id: `adv-op-${wCount++}`, name: widget.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), entity: widget, type: 'advance_openings' });
+                    } else {
+                        items.push({ id: `widget-${wCount++}`, name: widget.type === 'door' ? 'Door' : 'Window', entity: widget, type: 'widget' });
+                    }
                 });
             }
         });
@@ -1049,8 +1079,8 @@ const layerItems = computed(() => {
 
 const getLayerIcon = (type) => {
     const icons = {
-        'wall': '🧱', 'railing': '🪜', 'room': '⬜', 'furniture': '🛋️', 
-        'shape': '🔳', 'roof': '🏠', 'stair': '📶', 'widget': '🚪', 'arc': '🌙'
+            'wall': '🧱', 'railing': '🪜', 'room': '⬜', 'furniture': '🛋️',
+            'shape': '🔳', 'roof': '🏠', 'stair': '📶', 'widget': '🚪', 'arc': '🌙', 'advance_openings': '✂️'
     };
     return icons[type] || '📦';
 };
@@ -1281,7 +1311,7 @@ const handleGlobalKeys = (e) => {
         if (e.key === 'Escape' && renderer3D.value) renderer3D.value.cancelRelocation();
     } else if (viewMode.value === '2d') {
         if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (selectedType.value === 'roof' || selectedType.value === 'furniture' || selectedType.value === 'widget' || selectedType.value === 'shape' || selectedType.value === 'wall' || selectedType.value === 'arc' || selectedType.value === 'room') { handleDelete(); debouncedSaveHistory(); }
+            if (selectedType.value === 'roof' || selectedType.value === 'furniture' || selectedType.value === 'widget' || selectedType.value === 'advance_openings' || selectedType.value === 'shape' || selectedType.value === 'wall' || selectedType.value === 'arc' || selectedType.value === 'room') { handleDelete(); debouncedSaveHistory(); }
         }
         if (e.key === 'Escape') {
             setTool('select');
@@ -1527,7 +1557,7 @@ const handleDelete = () => {
             selectedEntity.value = null;
             selectedType.value = null;
             if (viewMode.value === '3d') refresh3DScene(true);
-        } else if (selectedType.value === 'widget' || selectedType.value === 'wall' || selectedType.value === 'arc') {
+        } else if (selectedType.value === 'widget' || selectedType.value === 'advance_openings' || selectedType.value === 'wall' || selectedType.value === 'arc') {
             selectedEntity.value.remove();
             selectedEntity.value = null;
             selectedType.value = null;
