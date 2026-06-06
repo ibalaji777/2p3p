@@ -784,6 +784,7 @@ class EnvironmentBuilder {
                         hasHole = true;
                     } else if (type === 'pattern_opening') {
                         const rows = widg.rows || 4, cols = widg.cols || 4, spacing = widg.spacing !== undefined ? widg.spacing : 5;
+                        const style = widg.patternStyle || 'grid';
                         const pW = (widg.width - spacing * (cols + 1)) / cols;
                         const pH = (h_opening - spacing * (rows + 1)) / rows;
                         if (pW > 0 && pH > 0) {
@@ -792,11 +793,28 @@ class EnvironmentBuilder {
                                     const px = (wCenter - halfW) + spacing + c * (pW + spacing);
                                     const py = elev + spacing + r * (pH + spacing);
                                     const pPath = new THREE.Path();
-                                    pPath.moveTo(px, py);
-                                    pPath.lineTo(px + pW, py);
-                                    pPath.lineTo(px + pW, py + pH);
-                                    pPath.lineTo(px, py + pH);
-                                    pPath.lineTo(px, py);
+                                    const cx = px + pW/2, cy = py + pH/2;
+                                    if (style === 'diamond') {
+                                        pPath.moveTo(cx, py); pPath.lineTo(px + pW, cy); pPath.lineTo(cx, py + pH); pPath.lineTo(px, cy); pPath.lineTo(cx, py);
+                                    } else if (style === 'circle') {
+                                        pPath.moveTo(cx + Math.min(pW, pH)/2, cy); pPath.absarc(cx, cy, Math.min(pW, pH)/2, 0, Math.PI * 2, false);
+                                    } else if (style === 'cross') {
+                                        const w1 = pW*0.2, h1 = pH*0.8, w2 = pW*0.8, h2 = pH*0.2;
+                                        pPath.moveTo(cx-w1/2, cy-h1/2); pPath.lineTo(cx+w1/2, cy-h1/2); pPath.lineTo(cx+w1/2, cy-h2/2); pPath.lineTo(cx+w2/2, cy-h2/2); pPath.lineTo(cx+w2/2, cy+h2/2); pPath.lineTo(cx+w1/2, cy+h2/2); pPath.lineTo(cx+w1/2, cy+h1/2); pPath.lineTo(cx-w1/2, cy+h1/2); pPath.lineTo(cx-w1/2, cy+h2/2); pPath.lineTo(cx-w2/2, cy+h2/2); pPath.lineTo(cx-w2/2, cy-h2/2); pPath.lineTo(cx-w1/2, cy-h2/2); pPath.lineTo(cx-w1/2, cy-h1/2);
+                                    } else if (style === 'hexagon') {
+                                        const rad = Math.min(pW, pH)/2; for (let i = 0; i < 6; i++) { const a = (i*Math.PI)/3; const hx = cx + rad*Math.cos(a), hy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(hx,hy); else pPath.lineTo(hx,hy); } pPath.lineTo(cx+rad, cy);
+                                    } else if (style === 'star') {
+                                        const rOut = Math.min(pW, pH)/2, rIn = rOut*0.3; for (let i = 0; i < 8; i++) { const a = (i*Math.PI)/4; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); } pPath.lineTo(cx+rOut, cy);
+                                    } else if (style === 'slit') {
+                                        const slitW = pW*0.3, slitH = pH*0.9; pPath.moveTo(cx-slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy-slitH/2);
+                                    } else if (style === 'terracotta') {
+                                        const pr = Math.min(pW, pH) / 4; pPath.moveTo(cx + pr, cy - pr); pPath.absarc(cx + pr, cy, pr, -Math.PI/2, Math.PI/2, false); pPath.absarc(cx, cy + pr, pr, 0, Math.PI, false); pPath.absarc(cx - pr, cy, pr, Math.PI/2, 3*Math.PI/2, false); pPath.absarc(cx, cy - pr, pr, Math.PI, 2*Math.PI, false);
+                                    } else if (style === 'arabesque') {
+                                        const rOut = Math.min(pW, pH)/2, rIn = rOut*0.55; for (let i = 0; i < 16; i++) { const a = (i*Math.PI)/8; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); }
+                                    } else {
+                                        pPath.moveTo(px, py); pPath.lineTo(px + pW, py); pPath.lineTo(px + pW, py + pH); pPath.lineTo(px, py + pH); pPath.lineTo(px, py);
+                                    }
+                                    pPath.closePath();
                                     wallShape.holes.push(pPath);
                                 }
                             }
@@ -1349,6 +1367,7 @@ class EnvironmentBuilder {
                                             hasHole = true;
                                         } else if (type === 'pattern_opening') {
                                             const rows = widg.rows || 4, cols = widg.cols || 4, spacing = widg.spacing !== undefined ? widg.spacing : 5;
+                                            const style = widg.patternStyle || 'grid';
                                             const pW = (widg.width - spacing * (cols + 1)) / cols;
                                             const pH = (h_opening - spacing * (rows + 1)) / rows;
                                             if (pW > 0 && pH > 0) {
@@ -1357,11 +1376,28 @@ class EnvironmentBuilder {
                                                         const px = (wCenter - halfW) + spacing + c * (pW + spacing);
                                                         const py = elev + spacing + r * (pH + spacing);
                                                         const pPath = new THREE.Path();
-                                                        pPath.moveTo(px, py);
-                                                        pPath.lineTo(px + pW, py);
-                                                        pPath.lineTo(px + pW, py + pH);
-                                                        pPath.lineTo(px, py + pH);
-                                                        pPath.lineTo(px, py);
+                                                        const cx = px + pW/2, cy = py + pH/2;
+                                                        if (style === 'diamond') {
+                                                            pPath.moveTo(cx, py); pPath.lineTo(px + pW, cy); pPath.lineTo(cx, py + pH); pPath.lineTo(px, cy); pPath.lineTo(cx, py);
+                                                        } else if (style === 'circle') {
+                                                            pPath.moveTo(cx + Math.min(pW, pH)/2, cy); pPath.absarc(cx, cy, Math.min(pW, pH)/2, 0, Math.PI * 2, false);
+                                                        } else if (style === 'cross') {
+                                                            const w1 = pW*0.2, h1 = pH*0.8, w2 = pW*0.8, h2 = pH*0.2;
+                                                            pPath.moveTo(cx-w1/2, cy-h1/2); pPath.lineTo(cx+w1/2, cy-h1/2); pPath.lineTo(cx+w1/2, cy-h2/2); pPath.lineTo(cx+w2/2, cy-h2/2); pPath.lineTo(cx+w2/2, cy+h2/2); pPath.lineTo(cx+w1/2, cy+h2/2); pPath.lineTo(cx+w1/2, cy+h1/2); pPath.lineTo(cx-w1/2, cy+h1/2); pPath.lineTo(cx-w1/2, cy+h2/2); pPath.lineTo(cx-w2/2, cy+h2/2); pPath.lineTo(cx-w2/2, cy-h2/2); pPath.lineTo(cx-w1/2, cy-h2/2); pPath.lineTo(cx-w1/2, cy-h1/2);
+                                                        } else if (style === 'hexagon') {
+                                                            const rad = Math.min(pW, pH)/2; for (let i = 0; i < 6; i++) { const a = (i*Math.PI)/3; const hx = cx + rad*Math.cos(a), hy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(hx,hy); else pPath.lineTo(hx,hy); } pPath.lineTo(cx+rad, cy);
+                                                        } else if (style === 'star') {
+                                                            const rOut = Math.min(pW, pH)/2, rIn = rOut*0.3; for (let i = 0; i < 8; i++) { const a = (i*Math.PI)/4; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); } pPath.lineTo(cx+rOut, cy);
+                                                        } else if (style === 'slit') {
+                                                            const slitW = pW*0.3, slitH = pH*0.9; pPath.moveTo(cx-slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy-slitH/2);
+                                                    } else if (style === 'terracotta') {
+                                                        const pr = Math.min(pW, pH) / 4; pPath.moveTo(cx + pr, cy - pr); pPath.absarc(cx + pr, cy, pr, -Math.PI/2, Math.PI/2, false); pPath.absarc(cx, cy + pr, pr, 0, Math.PI, false); pPath.absarc(cx - pr, cy, pr, Math.PI/2, 3*Math.PI/2, false); pPath.absarc(cx, cy - pr, pr, Math.PI, 2*Math.PI, false);
+                                                        } else if (style === 'arabesque') {
+                                                            const rOut = Math.min(pW, pH)/2, rIn = rOut*0.55; for (let i = 0; i < 16; i++) { const a = (i*Math.PI)/8; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); }
+                                                        } else {
+                                                            pPath.moveTo(px, py); pPath.lineTo(px + pW, py); pPath.lineTo(px + pW, py + pH); pPath.lineTo(px, py + pH); pPath.lineTo(px, py);
+                                                        }
+                                                        pPath.closePath();
                                                         wallShape.holes.push(pPath);
                                                     }
                                                 }
@@ -1809,19 +1845,47 @@ class DecorManager {
                     shape.holes.push(hole);
                 } else if (type === 'pattern_opening') {
                     const rows = widg.rows || 4, cols = widg.cols || 4, spacing = widg.spacing !== undefined ? widg.spacing : 5;
-                    const pW = ((ix_max - ix_min) - spacing * (cols + 1)) / cols;
-                    const pH = ((iy_max - iy_min) - spacing * (rows + 1)) / rows;
+                    const style = widg.patternStyle || 'grid';
+                    const h_opening = widg.height || 200;
+                    const pW = (widg.width - spacing * (cols + 1)) / cols;
+                    const pH = (h_opening - spacing * (rows + 1)) / rows;
                     if (pW > 0 && pH > 0) {
                         for (let r = 0; r < rows; r++) {
                             for (let c = 0; c < cols; c++) {
-                                const px = ix_min + spacing + c * (pW + spacing);
-                                const py = iy_min + spacing + r * (pH + spacing);
+                                const cell_wx_min = wx_min + spacing + c * (pW + spacing);
+                                const cell_wy_min = wy_min + spacing + r * (pH + spacing);
+                                const local_c_xmin = isFront ? (cell_wx_min - posX) : -(cell_wx_min + pW - posX);
+                                const local_c_xmax = isFront ? (cell_wx_min + pW - posX) : -(cell_wx_min - posX);
+                                const local_c_ymin = cell_wy_min - posY;
+                                const local_c_ymax = cell_wy_min + pH - posY;
+                                
+                                if (local_c_xmax < -w/2 || local_c_xmin > w/2 || local_c_ymax < -h/2 || local_c_ymin > h/2) continue;
+                                
+                                const px = local_c_xmin;
+                                const py = local_c_ymin;
                                 const pPath = new THREE.Path();
-                                pPath.moveTo(px, py);
-                                pPath.lineTo(px + pW, py);
-                                pPath.lineTo(px + pW, py + pH);
-                                pPath.lineTo(px, py + pH);
-                                pPath.lineTo(px, py);
+                                const cx = px + pW/2, cy = py + pH/2;
+                                if (style === 'diamond') {
+                                    pPath.moveTo(cx, py); pPath.lineTo(px + pW, cy); pPath.lineTo(cx, py + pH); pPath.lineTo(px, cy); pPath.lineTo(cx, py);
+                                } else if (style === 'circle') {
+                                    pPath.moveTo(cx + Math.min(pW, pH)/2, cy); pPath.absarc(cx, cy, Math.min(pW, pH)/2, 0, Math.PI * 2, false);
+                                } else if (style === 'cross') {
+                                    const w1 = pW*0.2, h1 = pH*0.8, w2 = pW*0.8, h2 = pH*0.2;
+                                    pPath.moveTo(cx-w1/2, cy-h1/2); pPath.lineTo(cx+w1/2, cy-h1/2); pPath.lineTo(cx+w1/2, cy-h2/2); pPath.lineTo(cx+w2/2, cy-h2/2); pPath.lineTo(cx+w2/2, cy+h2/2); pPath.lineTo(cx+w1/2, cy+h2/2); pPath.lineTo(cx+w1/2, cy+h1/2); pPath.lineTo(cx-w1/2, cy+h1/2); pPath.lineTo(cx-w1/2, cy+h2/2); pPath.lineTo(cx-w2/2, cy+h2/2); pPath.lineTo(cx-w2/2, cy-h2/2); pPath.lineTo(cx-w1/2, cy-h2/2); pPath.lineTo(cx-w1/2, cy-h1/2);
+                                } else if (style === 'hexagon') {
+                                    const rad = Math.min(pW, pH)/2; for (let i = 0; i < 6; i++) { const a = (i*Math.PI)/3; const hx = cx + rad*Math.cos(a), hy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(hx,hy); else pPath.lineTo(hx,hy); } pPath.lineTo(cx+rad, cy);
+                                } else if (style === 'star') {
+                                    const rOut = Math.min(pW, pH)/2, rIn = rOut*0.3; for (let i = 0; i < 8; i++) { const a = (i*Math.PI)/4; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); } pPath.lineTo(cx+rOut, cy);
+                                } else if (style === 'slit') {
+                                    const slitW = pW*0.3, slitH = pH*0.9; pPath.moveTo(cx-slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy-slitH/2);
+                            } else if (style === 'terracotta') {
+                                    const pr = Math.min(pW, pH) / 4; pPath.moveTo(cx + pr, cy - pr); pPath.absarc(cx + pr, cy, pr, -Math.PI/2, Math.PI/2, false); pPath.absarc(cx, cy + pr, pr, 0, Math.PI, false); pPath.absarc(cx - pr, cy, pr, Math.PI/2, 3*Math.PI/2, false); pPath.absarc(cx, cy - pr, pr, Math.PI, 2*Math.PI, false);
+                                } else if (style === 'arabesque') {
+                                    const rOut = Math.min(pW, pH)/2, rIn = rOut*0.55; for (let i = 0; i < 16; i++) { const a = (i*Math.PI)/8; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); }
+                                } else {
+                                    pPath.moveTo(px, py); pPath.lineTo(px + pW, py); pPath.lineTo(px + pW, py + pH); pPath.lineTo(px, py + pH); pPath.lineTo(px, py);
+                                }
+                                pPath.closePath();
                                 shape.holes.push(pPath);
                             }
                         }
@@ -2330,19 +2394,38 @@ class InteractionSystem {
                         shape.holes.push(hole);
                     } else if (type === 'pattern_opening') {
                         const rows = widg.rows || 4, cols = widg.cols || 4, spacing = widg.spacing !== undefined ? widg.spacing : 5;
-                        const pW = ((hx_max - hx_min) - spacing * (cols + 1)) / cols;
-                        const pH = ((hy_max - hy_min) - spacing * (rows + 1)) / rows;
+                        const style = widg.patternStyle || 'grid';
+                        const h_opening = widg.height || 200;
+                        const pW = (widg.width - spacing * (cols + 1)) / cols;
+                        const pH = (h_opening - spacing * (rows + 1)) / rows;
                         if (pW > 0 && pH > 0) {
                             for (let r = 0; r < rows; r++) {
                                 for (let c = 0; c < cols; c++) {
                                     const px = hx_min + spacing + c * (pW + spacing);
                                     const py = hy_min + spacing + r * (pH + spacing);
                                     const pPath = new THREE.Path();
-                                    pPath.moveTo(px, py);
-                                    pPath.lineTo(px + pW, py);
-                                    pPath.lineTo(px + pW, py + pH);
-                                    pPath.lineTo(px, py + pH);
-                                    pPath.lineTo(px, py);
+                                    const cx = px + pW/2, cy = py + pH/2;
+                                    if (style === 'diamond') {
+                                        pPath.moveTo(cx, py); pPath.lineTo(px + pW, cy); pPath.lineTo(cx, py + pH); pPath.lineTo(px, cy); pPath.lineTo(cx, py);
+                                    } else if (style === 'circle') {
+                                        pPath.moveTo(cx + Math.min(pW, pH)/2, cy); pPath.absarc(cx, cy, Math.min(pW, pH)/2, 0, Math.PI * 2, false);
+                                    } else if (style === 'cross') {
+                                        const w1 = pW*0.2, h1 = pH*0.8, w2 = pW*0.8, h2 = pH*0.2;
+                                        pPath.moveTo(cx-w1/2, cy-h1/2); pPath.lineTo(cx+w1/2, cy-h1/2); pPath.lineTo(cx+w1/2, cy-h2/2); pPath.lineTo(cx+w2/2, cy-h2/2); pPath.lineTo(cx+w2/2, cy+h2/2); pPath.lineTo(cx+w1/2, cy+h2/2); pPath.lineTo(cx+w1/2, cy+h1/2); pPath.lineTo(cx-w1/2, cy+h1/2); pPath.lineTo(cx-w1/2, cy+h2/2); pPath.lineTo(cx-w2/2, cy+h2/2); pPath.lineTo(cx-w2/2, cy-h2/2); pPath.lineTo(cx-w1/2, cy-h2/2); pPath.lineTo(cx-w1/2, cy-h1/2);
+                                    } else if (style === 'hexagon') {
+                                        const rad = Math.min(pW, pH)/2; for (let i = 0; i < 6; i++) { const a = (i*Math.PI)/3; const hx = cx + rad*Math.cos(a), hy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(hx,hy); else pPath.lineTo(hx,hy); } pPath.lineTo(cx+rad, cy);
+                                    } else if (style === 'star') {
+                                        const rOut = Math.min(pW, pH)/2, rIn = rOut*0.3; for (let i = 0; i < 8; i++) { const a = (i*Math.PI)/4; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); } pPath.lineTo(cx+rOut, cy);
+                                    } else if (style === 'slit') {
+                                        const slitW = pW*0.3, slitH = pH*0.9; pPath.moveTo(cx-slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy-slitH/2);
+                                    } else if (style === 'terracotta') {
+                                        const pr = Math.min(pW, pH) / 4; pPath.moveTo(cx + pr, cy - pr); pPath.absarc(cx + pr, cy, pr, -Math.PI/2, Math.PI/2, false); pPath.absarc(cx, cy + pr, pr, 0, Math.PI, false); pPath.absarc(cx - pr, cy, pr, Math.PI/2, 3*Math.PI/2, false); pPath.absarc(cx, cy - pr, pr, Math.PI, 2*Math.PI, false);
+                                    } else if (style === 'arabesque') {
+                                        const rOut = Math.min(pW, pH)/2, rIn = rOut*0.55; for (let i = 0; i < 16; i++) { const a = (i*Math.PI)/8; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); }
+                                    } else {
+                                        pPath.moveTo(px, py); pPath.lineTo(px + pW, py); pPath.lineTo(px + pW, py + pH); pPath.lineTo(px, py + pH); pPath.lineTo(px, py);
+                                    }
+                                    pPath.closePath();
                                     shape.holes.push(pPath);
                                 }
                             }

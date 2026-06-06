@@ -419,6 +419,20 @@
                     <div class="control-group" v-if="selectedEntity.type === 'niche_recess'"><label>Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.depth" min="1" max="50" @input="syncEngine"><input type="number" v-model.number="selectedEntity.depth" @input="syncEngine"></div></div>
                     <div class="control-group"><label>Elevation (from floor)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.elevation" min="0" max="200" @input="syncEngine"><input type="number" v-model.number="selectedEntity.elevation" @input="syncEngine"></div></div>
                     <div v-if="selectedEntity.type === 'pattern_opening'">
+                        <div class="control-group">
+                            <label>Pattern Style</label>
+                            <select v-model="selectedEntity.patternStyle" @change="syncEngine" class="settings-select">
+                                <option value="grid">Square Grid</option>
+                                <option value="diamond">Diamond Lattice</option>
+                                <option value="circle">Circular Perforations</option>
+                                <option value="cross">Terracotta Cross (Kerala)</option>
+                                <option value="hexagon">Honeycomb (Chettinad)</option>
+                                <option value="star">Floral Star</option>
+                                <option value="slit">Vertical Slits</option>
+                                <option value="terracotta">Terracotta Jali (Classic)</option>
+                                <option value="arabesque">Geometric Arabesque</option>
+                            </select>
+                        </div>
                         <div class="control-group"><label>Rows</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.rows" min="1" max="20" @input="syncEngine"><input type="number" v-model.number="selectedEntity.rows" @input="syncEngine"></div></div>
                         <div class="control-group"><label>Columns</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.cols" min="1" max="20" @input="syncEngine"><input type="number" v-model.number="selectedEntity.cols" @input="syncEngine"></div></div>
                         <div class="control-group"><label>Spacing</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.spacing" min="0" max="50" @input="syncEngine"><input type="number" v-model.number="selectedEntity.spacing" @input="syncEngine"></div></div>

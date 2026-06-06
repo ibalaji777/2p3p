@@ -18,6 +18,7 @@ export class advance_openings {
         this.rows = 4;
         this.cols = 4;
         this.spacing = 5;
+        this.patternStyle = 'grid'; // grid, diamond, circle
         
         this.config = {
             id: type,
@@ -169,7 +170,29 @@ export class advance_openings {
             const pCols = this.cols || 4;
             const step = this.width / pCols;
             for(let i = 0; i < pCols; i++) {
-                this.shapeGroup.add(new Konva.Circle({ x: -hw + (i + 0.5) * step, y: 0, radius: Math.max(1, step*0.2), fill: strokeColor }));
+                if (this.patternStyle === 'grid') {
+                    this.shapeGroup.add(new Konva.Rect({ x: -hw + i * step + step*0.25, y: -step*0.25, width: step*0.5, height: step*0.5, fill: strokeColor }));
+                } else if (this.patternStyle === 'diamond') {
+                    this.shapeGroup.add(new Konva.RegularPolygon({ x: -hw + (i + 0.5) * step, y: 0, sides: 4, radius: step*0.3, fill: strokeColor }));
+                } else if (this.patternStyle === 'circle') {
+                    this.shapeGroup.add(new Konva.Circle({ x: -hw + (i + 0.5) * step, y: 0, radius: Math.max(1, step*0.2), fill: strokeColor }));
+                } else if (this.patternStyle === 'cross') {
+                    this.shapeGroup.add(new Konva.Rect({ x: -hw + (i + 0.5) * step, y: 0, width: step*0.15, height: step*0.5, offsetX: step*0.075, offsetY: step*0.25, fill: strokeColor }));
+                    this.shapeGroup.add(new Konva.Rect({ x: -hw + (i + 0.5) * step, y: 0, width: step*0.5, height: step*0.15, offsetX: step*0.25, offsetY: step*0.075, fill: strokeColor }));
+                } else if (this.patternStyle === 'hexagon') {
+                    this.shapeGroup.add(new Konva.RegularPolygon({ x: -hw + (i + 0.5) * step, y: 0, sides: 6, radius: step*0.3, fill: strokeColor }));
+                } else if (this.patternStyle === 'star') {
+                    this.shapeGroup.add(new Konva.Star({ x: -hw + (i + 0.5) * step, y: 0, numPoints: 4, innerRadius: step*0.1, outerRadius: step*0.3, fill: strokeColor }));
+                } else if (this.patternStyle === 'slit') {
+                    this.shapeGroup.add(new Konva.Rect({ x: -hw + i * step + step*0.35, y: -step*0.4, width: step*0.3, height: step*0.8, fill: strokeColor }));
+                } else if (this.patternStyle === 'terracotta') {
+                    this.shapeGroup.add(new Konva.Circle({ x: -hw + (i + 0.5) * step, y: 0, radius: step*0.25, stroke: strokeColor, strokeWidth: 1 }));
+                    this.shapeGroup.add(new Konva.RegularPolygon({ x: -hw + (i + 0.5) * step, y: 0, sides: 4, radius: step*0.12, fill: strokeColor }));
+                } else if (this.patternStyle === 'arabesque') {
+                    this.shapeGroup.add(new Konva.Star({ x: -hw + (i + 0.5) * step, y: 0, numPoints: 8, innerRadius: step*0.15, outerRadius: step*0.28, fill: strokeColor }));
+                } else {
+                    this.shapeGroup.add(new Konva.Circle({ x: -hw + (i + 0.5) * step, y: 0, radius: Math.max(1, step*0.2), fill: strokeColor }));
+                }
             }
         } 
         else if (this.type === 'boolean_cut') {

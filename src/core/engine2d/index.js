@@ -1836,7 +1836,7 @@ export class FloorPlanner {
                 widgets: w.attachedWidgets.map(wid => ({ 
                     t: wid.t, type: wid.type, configId: wid.type, width: wid.width, height: wid.height, depth: wid.depth, elevation: wid.elevation,
                     facing: wid.facing, side: wid.side, 
-                    rows: wid.rows, cols: wid.cols, spacing: wid.spacing,
+                    rows: wid.rows, cols: wid.cols, spacing: wid.spacing, patternStyle: wid.patternStyle,
                     doorType: wid.doorType, doorMat: wid.doorMat, 
                     windowType: wid.windowType, frameMat: wid.frameMat, glassMat: wid.glassMat, grillePattern: wid.grillePattern,
                     description: wid.description
@@ -1915,6 +1915,7 @@ export class FloorPlanner {
                                 if (wd.rows !== undefined) advOp.rows = wd.rows;
                                 if (wd.cols !== undefined) advOp.cols = wd.cols;
                                 if (wd.spacing !== undefined) advOp.spacing = wd.spacing;
+                                if (wd.patternStyle !== undefined) advOp.patternStyle = wd.patternStyle;
                                 wall.attachedWidgets.push(advOp);
                             } else {
                                 const widget = new PremiumWidget(this, wall, wd.t, wd.configId || wd.type); 
