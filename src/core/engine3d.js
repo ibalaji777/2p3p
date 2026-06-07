@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { TransformControls } from './engine3d/TransformControls.js';
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from './registry.js';
 
 class AssetManager {
@@ -2081,6 +2082,19 @@ class InteractionSystem {
         this.dropGroup.visible = false;
         this.ctx.scene.add(this.dropGroup);
 
+        this.transformControls = new TransformControls(this.ctx.camera, this.ctx.renderer.domElement);
+        this.transformControls.addEventListener('dragstart', () => {
+            if (this.ctx.controls) this.ctx.controls.enabled = false;
+        });
+        this.transformControls.addEventListener('change', () => {
+            if (this.ctx.syncToUI) this.ctx.syncToUI();
+        });
+        this.transformControls.addEventListener('dragend', () => {
+            if (this.ctx.controls) this.ctx.controls.enabled = true;
+        });
+        this.transformControls.visible = false;
+        this.ctx.scene.add(this.transformControls);
+
         this.initEvents();
     }
 
@@ -2103,6 +2117,8 @@ class InteractionSystem {
         
         dom.addEventListener('pointerdown', (e) => {
             if (this.ctx.viewMode3D === 'preview') return;
+            if (this.transformControls && this.transformControls.active) return;
+            if (this.transformControls && this.transformControls.active) return;
             if (this.mode === 'camera' || e.button !== 0) return;
             this.updateMouse(e);
             
@@ -2162,6 +2178,7 @@ class InteractionSystem {
 
         dom.addEventListener('pointermove', (e) => {
             if (this.ctx.viewMode3D === 'preview') return;
+            if (this.transformControls && this.transformControls.active) return;
             if (this.mode === 'camera') return;
             this.updateMouse(e);
 
@@ -2230,6 +2247,7 @@ class InteractionSystem {
 
         dom.addEventListener('dblclick', (e) => {
             if (this.ctx.viewMode3D === 'preview') return;
+            if (this.transformControls && this.transformControls.active) return;
             if (this.mode === 'camera') return;
             if (this.mode === 'edit' && this.selectedObject && (this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) {
                 const mesh = this.selectedObject;
@@ -2297,6 +2315,7 @@ class InteractionSystem {
 
     selectObject(object) {
         if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);
+        if (this.transformControls) this.transformControls.detach();
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
 
         this.selectedObject = object;
@@ -2483,6 +2502,10 @@ class InteractionSystem {
             else if (object.userData.isWidget) type = 'widget';
             else if (object.userData.isPattern) type = 'advance_openings';
             this.setHighlight(object, true);
+                
+            if (type === 'furniture' || type === 'shape') {
+                if (this.transformControls) this.transformControls.attach(object);
+            }
         }
         if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
         if (window.plannerInstance && object.userData.entity) {
@@ -2492,7 +2515,9 @@ class InteractionSystem {
 
     deselect() {
         this.cancelRelocation();
+        if (this.transformControls) this.transformControls.detach();
         if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);
+        if (this.transformControls) this.transformControls.detach();
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
         this.selectedObject = null;
         if (this.ctx.onEntitySelect) this.ctx.onEntitySelect(null, null, null);
@@ -2695,9 +2720,15 @@ export class Preview3D {
     }
 
     syncToUI() {
-        if (!this.isUpdatingFromUI && this.interactions.selectedObject && this.interactions.selectedObject.userData.isFurniture) {
-            const ent = this.interactions.selectedObject.userData.entity;
-            if (ent && ent.group) { ent.group.x(this.interactions.selectedObject.position.x); ent.group.y(this.interactions.selectedObject.position.z); ent.update(); }
+        if (!this.isUpdatingFromUI && this.interactions.selectedObject && (this.interactions.selectedObject.userData.isFurniture || this.interactions.selectedObject.userData.isShape)) {
+            const obj3D = this.interactions.selectedObject;
+            const ent2D = obj3D.userData.entity;
+            if (ent2D && ent2D.group) { 
+                ent2D.group.x(obj3D.position.x); 
+                ent2D.group.y(obj3D.position.z); 
+                ent2D.rotation = -obj3D.rotation.y * (180 / Math.PI);
+                ent2D.update(); 
+            }
         }
         if (this.onEntityTransform) this.onEntityTransform();
     }

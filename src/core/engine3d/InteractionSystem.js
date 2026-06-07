@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT } from '../registry.js';
+import { TransformControls } from './TransformControls.js';
 
 export class InteractionSystem {
     constructor(camera, renderer, scene, structureGroup, interactables, callbacks) {
@@ -31,6 +32,20 @@ export class InteractionSystem {
         this.dropGroup.visible = false;
         this.scene.add(this.dropGroup);
 
+        this.transformControls = new TransformControls(this.camera, this.renderer.domElement);
+        this.transformControls.addEventListener('dragstart', () => {
+            if (this.camera && this.camera.parent === null) { if (this.callbacks.onRelocateStateChange) this.callbacks.onRelocateStateChange(true); } // Dummy trigger to lock Orbit controls via external hook if passed
+            if (this.callbacks.onTransformStart) this.callbacks.onTransformStart();
+        });
+        this.transformControls.addEventListener('change', () => {
+            if (this.callbacks.syncToUI) this.callbacks.syncToUI();
+        });
+        this.transformControls.addEventListener('dragend', () => {
+            if (this.callbacks.onRelocateStateChange) this.callbacks.onRelocateStateChange(false);
+        });
+        this.transformControls.visible = false;
+        this.scene.add(this.transformControls);
+
         this.initEvents();
     }
 
@@ -55,6 +70,8 @@ export class InteractionSystem {
         
         dom.addEventListener('pointerdown', (e) => {
             if (this.viewMode3D === 'preview') return;
+            if (this.transformControls.active) return;
+
             if (this.mode === 'camera' || e.button !== 0) return;
             this.updateMouse(e);
             
@@ -224,6 +241,7 @@ export class InteractionSystem {
 
     selectObject(object) {
         if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isRoof || this.selectedObject.userData.isRoom || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);
+        this.transformControls.detach();
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
 
         this.selectedObject = object;
@@ -267,6 +285,9 @@ export class InteractionSystem {
         else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isRoof || object.userData.isRoom || object.userData.isWidget || object.userData.isPattern) {
             type = object.userData.isShape ? 'shape' : (object.userData.isFurniture ? 'furniture' : (object.userData.isRoof ? 'roof' : (object.userData.isRoom ? 'room' : (object.userData.isWidget ? 'widget' : (object.userData.isPattern ? 'advance_openings' : 'wallDecor')))));
             this.setHighlight(object, true);
+            if (type === 'furniture' || type === 'shape') {
+                this.transformControls.attach(object);
+            }
         }
         if (type && this.callbacks.onEntitySelect) this.callbacks.onEntitySelect(object.userData.entity, type, side);
         if (window.plannerInstance && object.userData.entity) {
@@ -277,6 +298,7 @@ export class InteractionSystem {
     deselect() {
         this.cancelRelocation();
         if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isRoof || this.selectedObject.userData.isRoom || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);
+        this.transformControls.detach();
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
         this.selectedObject = null;
         if (this.callbacks.onEntitySelect) this.callbacks.onEntitySelect(null, null, null);

@@ -108,6 +108,10 @@ export class Preview3D {
     animate() { 
         requestAnimationFrame(() => this.animate()); 
         this.controls.update(); 
+        if (this.interactions && this.interactions.transformControls) {
+            this.interactions.transformControls.camera = this.camera;
+            this.interactions.transformControls.update();
+        }
         this.renderer.render(this.scene, this.camera); 
     }
 
@@ -184,9 +188,16 @@ export class Preview3D {
     }
 
     syncToUI() {
-        if (this.interactions.selectedObject && this.interactions.selectedObject.userData.isFurniture) {
-            const ent = this.interactions.selectedObject.userData.entity;
-            if (ent && ent.group) { ent.group.x(this.interactions.selectedObject.position.x); ent.group.y(this.interactions.selectedObject.position.z); ent.update(); }
+        if (!this.isUpdatingFromUI && this.interactions.selectedObject && this.interactions.selectedObject.userData.isFurniture) {
+            const obj3D = this.interactions.selectedObject;
+            const ent2D = obj3D.userData.entity;
+            if (ent2D && ent2D.group) { 
+                ent2D.group.x(obj3D.position.x); 
+                ent2D.group.y(obj3D.position.z); 
+                // Sync rotation from 3D back to 2D entity
+                ent2D.rotation = -obj3D.rotation.y * (180 / Math.PI);
+                ent2D.update(); 
+            }
         }
         if (this.onEntityTransform) this.onEntityTransform();
     }
