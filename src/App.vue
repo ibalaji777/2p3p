@@ -437,6 +437,17 @@
                         <div class="control-group"><label>Columns</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.cols" min="1" max="20" @input="syncEngine"><input type="number" v-model.number="selectedEntity.cols" @input="syncEngine"></div></div>
                         <div class="control-group"><label>Spacing</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.spacing" min="0" max="50" @input="syncEngine"><input type="number" v-model.number="selectedEntity.spacing" @input="syncEngine"></div></div>
                     </div>
+                    
+                    <div class="decor-gallery" v-if="viewMode === '3d'">
+                        <h4 class="props-subtitle">Opening Material</h4>
+                        <div class="decor-grid">
+                            <div v-for="(config, key) in wallDecorRegistry" :key="key" class="decor-item" @click="setOpeningMaterial(key)" :class="{ active: selectedEntity.decorConfigId === key }">
+                                <img :src="config.thumbnail" />
+                                <span>{{ config.name }}</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <button class="hud-delete" @click="handleDelete">Delete Opening</button>
                 </div>
 
@@ -1536,7 +1547,7 @@ const syncEngine = () => {
         renderer3D.value.updateFurnitureLive(selectedEntity.value); 
     } else if (viewMode.value === '3d' && selectedType.value === 'shape' && selectedEntity.value) {
         renderer3D.value.updateShapeLive(selectedEntity.value);
-    } else if (viewMode.value === '3d' && (selectedType.value === 'roof' || selectedType.value === 'room' || selectedType.value === 'wall' || selectedType.value === 'widget')) {
+    } else if (viewMode.value === '3d' && (selectedType.value === 'roof' || selectedType.value === 'room' || selectedType.value === 'wall' || selectedType.value === 'widget' || selectedType.value === 'advance_openings')) {
         refresh3DScene(true);
     }
     debouncedSaveHistory();
@@ -1553,6 +1564,16 @@ const setFloorMaterial = (key) => {
     if (selectedEntity.value && selectedType.value === 'room') {
         selectedEntity.value.configId = key;
         syncEngine();
+    }
+};
+
+const setOpeningMaterial = (key) => {
+    if (selectedEntity.value && selectedType.value === 'advance_openings') {
+        selectedEntity.value.decorConfigId = key;
+        if (renderer3D.value) {
+            renderer3D.value.updatePatternLive(selectedEntity.value);
+        }
+        debouncedSaveHistory();
     }
 };
 
