@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { WALL_HEIGHT } from '../registry.js';
-import { WIDGET_REGISTRY } from '../registry.js';
+import { WIDGET_REGISTRY, WALL_DECOR_REGISTRY } from '../registry.js';
 
 // Import our specialized SOLID Managers
 import { AssetManager } from './AssetManager.js';
@@ -75,8 +75,8 @@ export class Preview3D {
         });
         
         // 3. Initialize Floor Builders
-        this.activeFloorBuilder = new ActiveFloor(this.assets, this.decorManager, this.interactables, this.structureGroup);
-        this.staticFloorBuilder = new StaticFloors(this.assets, this.decorManager, this.interactables);
+        this.activeFloorBuilder = new ActiveFloor(this.assets, this.decorManager, this.interactables, this.structureGroup, { updatePatternLive: (w) => this.updatePatternLive(w) });
+        this.staticFloorBuilder = new StaticFloors(this.assets, this.decorManager, this.interactables, { updatePatternLive: (w) => this.updatePatternLive(w) });
         this.stairBuilder = new Stair3DBuilder(this.assets, this.interactables);
 
         // Env Maps
@@ -134,6 +134,55 @@ export class Preview3D {
     updateWallDecorLive(e) { this.decorManager.updateLive(e); }
     updateFurnitureLive(e) { this.furnitureManager.updateLive(e); }
     
+    updatePatternLive(widg) {
+        if (!widg || !widg.patternMesh3D) return;
+        const mat = widg.patternMat3D || (widg.patternMesh3D.isGroup ? widg.patternMesh3D.children[0].material : widg.patternMesh3D.material);
+
+        if (widg.patternLayer && typeof widg.patternLayer === 'object') {
+            const layer = widg.patternLayer;
+            if (layer.texture && layer.texture !== 'none' && layer.texture !== '') {
+                this.assets.getTexture({ id: 'pat_tex_' + (layer.texture.replace(/[^a-z0-9]/gi, '')), texture: layer.texture }).then(tex => {
+                    const texClone = tex.clone();
+                    texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                    const tileSize = layer.tileSize || 40;
+                    texClone.repeat.set(1 / tileSize, 1 / tileSize);
+                    if (layer.rotation) texClone.rotation = (layer.rotation * Math.PI) / 180;
+                    if (layer.offsetX || layer.offsetY) texClone.offset.set(layer.offsetX || 0, layer.offsetY || 0);
+                    mat.map = texClone;
+                    mat.color.setHex(layer.color ? parseInt(layer.color.replace('#', '0x')) : 0xffffff);
+                    mat.needsUpdate = true;
+                }).catch(() => {
+                    mat.map = null;
+                    if (layer.color) mat.color.setHex(parseInt(layer.color.replace('#', '0x')));
+                    mat.needsUpdate = true;
+                });
+            } else {
+                mat.map = null;
+                mat.color.setHex(layer.color ? parseInt(layer.color.replace('#', '0x')) : 0xd1d5db);
+                mat.needsUpdate = true;
+            }
+            return;
+        }
+        
+        const configId = typeof widg.patternLayer === 'string' && widg.patternLayer ? widg.patternLayer : widg.decorConfigId;
+        if (configId && WALL_DECOR_REGISTRY[configId]) {
+            const config = WALL_DECOR_REGISTRY[configId];
+            this.assets.getTexture(config).then(tex => {
+                const texClone = tex.clone();
+                texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                const tileSize = config.defaultTileSize || 40;
+                texClone.repeat.set(1 / tileSize, 1 / tileSize);
+                mat.map = texClone;
+                mat.color.setHex(0xffffff);
+                mat.needsUpdate = true;
+            });
+        } else {
+            mat.map = null;
+            mat.color.setHex(0xf5f5f0);
+            mat.needsUpdate = true;
+        }
+    }
+
     syncToUI() {
         if (this.interactions.selectedObject && this.interactions.selectedObject.userData.isFurniture) {
             const ent = this.interactions.selectedObject.userData.entity;

@@ -6,13 +6,14 @@ import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR
 import { Stair3DBuilder } from './Stair3DBuilder.js';
 
 export class ActiveFloor {
-    constructor(assets, decorManager, interactables, structureGroup) {
+    constructor(assets, decorManager, interactables, structureGroup, callbacks = {}) {
         this.decorManager = decorManager;
         this.interactables = interactables;
         this.structureGroup = structureGroup;
         this.wallBuilder = new Wall3DBuilder();
         this.railingBuilder = new RailingBuilder(assets, interactables, structureGroup);
         this.matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7, side: THREE.DoubleSide });
+        this.callbacks = callbacks;
         
         this.helpers = {
             getDynamicMaterial: (matId, category) => {
@@ -60,7 +61,7 @@ export class ActiveFloor {
             // Generate Wall Mesh
             const wallHeight = w.height || w.config?.height || WALL_HEIGHT;
             const wallThickness = w.thickness || w.config?.thickness || 20;
-            const { wallGroup } = this.wallBuilder.buildWallGroup(length, wallThickness, w, p1.x, p1.y, angle, wallHeight);
+            const { wallGroup, extraInteractables } = this.wallBuilder.buildWallGroup(length, wallThickness, w, p1.x, p1.y, angle, wallHeight);
             wallGroup.userData = { entity: w };
             w.mesh3D = wallGroup;
 
@@ -79,6 +80,9 @@ export class ActiveFloor {
                     if (WIDGET_REGISTRY[type] && WIDGET_REGISTRY[type].render3D) {
                         WIDGET_REGISTRY[type].render3D(targetGroup, widgEntity, this.helpers);
                     }
+                    if (widg.patternMesh3D && this.callbacks.updatePatternLive) {
+                        this.callbacks.updatePatternLive(widg);
+                    }
                 });
             }
 
@@ -88,6 +92,8 @@ export class ActiveFloor {
                 wallGroup.add(hb);
                 this.interactables.push(hb);
             });
+
+            if (extraInteractables) extraInteractables.forEach(hb => this.interactables.push(hb));
 
             targetGroup.add(wallGroup);
 

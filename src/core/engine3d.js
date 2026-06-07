@@ -783,6 +783,20 @@ class EnvironmentBuilder {
                         hole.lineTo(wCenter, elev);
                         hasHole = true;
                     } else if (type === 'pattern_opening') {
+                        hole.moveTo(wCenter - halfW, elev);
+                        hole.lineTo(wCenter + halfW, elev);
+                        hole.lineTo(wCenter + halfW, elev + h_opening);
+                        hole.lineTo(wCenter - halfW, elev + h_opening);
+                        hole.lineTo(wCenter - halfW, elev);
+                        hasHole = true;
+
+                        const patternShape = new THREE.Shape();
+                        patternShape.moveTo(wCenter - halfW, elev);
+                        patternShape.lineTo(wCenter + halfW, elev);
+                        patternShape.lineTo(wCenter + halfW, elev + h_opening);
+                        patternShape.lineTo(wCenter - halfW, elev + h_opening);
+                        patternShape.lineTo(wCenter - halfW, elev);
+
                         const rows = widg.rows || 4, cols = widg.cols || 4, spacing = widg.spacing !== undefined ? widg.spacing : 5;
                         const style = widg.patternStyle || 'grid';
                         const pW = (widg.width - spacing * (cols + 1)) / cols;
@@ -815,11 +829,32 @@ class EnvironmentBuilder {
                                         pPath.moveTo(px, py); pPath.lineTo(px + pW, py); pPath.lineTo(px + pW, py + pH); pPath.lineTo(px, py + pH); pPath.lineTo(px, py);
                                     }
                                     pPath.closePath();
-                                    wallShape.holes.push(pPath);
+                                    patternShape.holes.push(pPath);
                                 }
                             }
                         }
-                        hasHole = false;
+                        
+                        const patternGeo = new THREE.ExtrudeGeometry(patternShape, { depth: t, bevelEnabled: false });
+                        patternGeo.translate(0, 0, -t / 2);
+                        const patternMat = matMain.clone(); // inherit wall material
+                        const patternMesh = new THREE.Mesh(patternGeo, patternMat);
+                        patternMesh.castShadow = true; patternMesh.receiveShadow = true;
+                        
+                        const hitBoxGeo = new THREE.BoxGeometry(widg.width, h_opening, t + 4);
+                        hitBoxGeo.translate(wCenter, elev + h_opening / 2, 0);
+                        const hitBox = new THREE.Mesh(hitBoxGeo, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+                        hitBox.userData = { isHitbox: true };
+                        
+                        const patternGroup = new THREE.Group();
+                        patternGroup.add(patternMesh, hitBox);
+                        patternGroup.userData = { isPattern: true, entity: widg };
+                        widg.patternMesh3D = patternGroup;
+                        widg.patternMat3D = patternMat;
+                        
+                        this.ctx.updatePatternLive(widg);
+                        extraMeshes.push(patternGroup);
+                        if (this.ctx.viewMode3D !== 'preview') this.ctx.interactables.push(hitBox);
+
                     } else {
                         hole.moveTo(wCenter - halfW, elev); hole.lineTo(wCenter + halfW, elev); hole.lineTo(wCenter + halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev);
                         hasHole = true;
@@ -1366,6 +1401,20 @@ class EnvironmentBuilder {
                                             hole.lineTo(wCenter, elev);
                                             hasHole = true;
                                         } else if (type === 'pattern_opening') {
+                                            hole.moveTo(wCenter - halfW, elev);
+                                            hole.lineTo(wCenter + halfW, elev);
+                                            hole.lineTo(wCenter + halfW, elev + h_opening);
+                                            hole.lineTo(wCenter - halfW, elev + h_opening);
+                                            hole.lineTo(wCenter - halfW, elev);
+                                            hasHole = true;
+
+                                            const patternShape = new THREE.Shape();
+                                            patternShape.moveTo(wCenter - halfW, elev);
+                                            patternShape.lineTo(wCenter + halfW, elev);
+                                            patternShape.lineTo(wCenter + halfW, elev + h_opening);
+                                            patternShape.lineTo(wCenter - halfW, elev + h_opening);
+                                            patternShape.lineTo(wCenter - halfW, elev);
+
                                             const rows = widg.rows || 4, cols = widg.cols || 4, spacing = widg.spacing !== undefined ? widg.spacing : 5;
                                             const style = widg.patternStyle || 'grid';
                                             const pW = (widg.width - spacing * (cols + 1)) / cols;
@@ -1398,11 +1447,31 @@ class EnvironmentBuilder {
                                                             pPath.moveTo(px, py); pPath.lineTo(px + pW, py); pPath.lineTo(px + pW, py + pH); pPath.lineTo(px, py + pH); pPath.lineTo(px, py);
                                                         }
                                                         pPath.closePath();
-                                                        wallShape.holes.push(pPath);
+                                                        patternShape.holes.push(pPath);
                                                     }
                                                 }
                                             }
-                                            hasHole = false;
+                                            const patternGeo = new THREE.ExtrudeGeometry(patternShape, { depth: w.thickness, bevelEnabled: false });
+                                            patternGeo.translate(0, 0, -w.thickness / 2);
+                                            const patternMat = matMain.clone();
+                                            const patternMesh = new THREE.Mesh(patternGeo, patternMat);
+                                            patternMesh.castShadow = true; patternMesh.receiveShadow = true;
+                                            
+                                            const hitBoxGeo = new THREE.BoxGeometry(widg.width, h_opening, w.thickness + 4);
+                                            hitBoxGeo.translate(wCenter, elev + h_opening / 2, 0);
+                                            const hitBox = new THREE.Mesh(hitBoxGeo, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+                                            hitBox.userData = { isHitbox: true };
+                                            
+                                            const patternGroup = new THREE.Group();
+                                            patternGroup.add(patternMesh, hitBox);
+                                            patternGroup.userData = { isPattern: true, entity: widg };
+                                            widg.patternMesh3D = patternGroup;
+                                            widg.patternMat3D = patternMat;
+                                            
+                                            this.ctx.updatePatternLive(widg);
+                                            extraMeshes.push(patternGroup);
+                                            if (!isPreview) this.ctx.interactables.push(hitBox);
+
                                         } else {
                                             hole.moveTo(wCenter - halfW, elev); hole.lineTo(wCenter + halfW, elev); hole.lineTo(wCenter + halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev);
                                             hasHole = true;
@@ -1843,53 +1912,6 @@ class DecorManager {
                     hole.lineTo(ix_min, iy_min + (iy_max - iy_min)/2);
                     hole.lineTo(hCenter, iy_min);
                     shape.holes.push(hole);
-                } else if (type === 'pattern_opening') {
-                    const rows = widg.rows || 4, cols = widg.cols || 4, spacing = widg.spacing !== undefined ? widg.spacing : 5;
-                    const style = widg.patternStyle || 'grid';
-                    const h_opening = widg.height || 200;
-                    const pW = (widg.width - spacing * (cols + 1)) / cols;
-                    const pH = (h_opening - spacing * (rows + 1)) / rows;
-                    if (pW > 0 && pH > 0) {
-                        for (let r = 0; r < rows; r++) {
-                            for (let c = 0; c < cols; c++) {
-                                const cell_wx_min = wx_min + spacing + c * (pW + spacing);
-                                const cell_wy_min = wy_min + spacing + r * (pH + spacing);
-                                const local_c_xmin = isFront ? (cell_wx_min - posX) : -(cell_wx_min + pW - posX);
-                                const local_c_xmax = isFront ? (cell_wx_min + pW - posX) : -(cell_wx_min - posX);
-                                const local_c_ymin = cell_wy_min - posY;
-                                const local_c_ymax = cell_wy_min + pH - posY;
-                                
-                                if (local_c_xmax < -w/2 || local_c_xmin > w/2 || local_c_ymax < -h/2 || local_c_ymin > h/2) continue;
-                                
-                                const px = local_c_xmin;
-                                const py = local_c_ymin;
-                                const pPath = new THREE.Path();
-                                const cx = px + pW/2, cy = py + pH/2;
-                                if (style === 'diamond') {
-                                    pPath.moveTo(cx, py); pPath.lineTo(px + pW, cy); pPath.lineTo(cx, py + pH); pPath.lineTo(px, cy); pPath.lineTo(cx, py);
-                                } else if (style === 'circle') {
-                                    pPath.moveTo(cx + Math.min(pW, pH)/2, cy); pPath.absarc(cx, cy, Math.min(pW, pH)/2, 0, Math.PI * 2, false);
-                                } else if (style === 'cross') {
-                                    const w1 = pW*0.2, h1 = pH*0.8, w2 = pW*0.8, h2 = pH*0.2;
-                                    pPath.moveTo(cx-w1/2, cy-h1/2); pPath.lineTo(cx+w1/2, cy-h1/2); pPath.lineTo(cx+w1/2, cy-h2/2); pPath.lineTo(cx+w2/2, cy-h2/2); pPath.lineTo(cx+w2/2, cy+h2/2); pPath.lineTo(cx+w1/2, cy+h2/2); pPath.lineTo(cx+w1/2, cy+h1/2); pPath.lineTo(cx-w1/2, cy+h1/2); pPath.lineTo(cx-w1/2, cy+h2/2); pPath.lineTo(cx-w2/2, cy+h2/2); pPath.lineTo(cx-w2/2, cy-h2/2); pPath.lineTo(cx-w1/2, cy-h2/2); pPath.lineTo(cx-w1/2, cy-h1/2);
-                                } else if (style === 'hexagon') {
-                                    const rad = Math.min(pW, pH)/2; for (let i = 0; i < 6; i++) { const a = (i*Math.PI)/3; const hx = cx + rad*Math.cos(a), hy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(hx,hy); else pPath.lineTo(hx,hy); } pPath.lineTo(cx+rad, cy);
-                                } else if (style === 'star') {
-                                    const rOut = Math.min(pW, pH)/2, rIn = rOut*0.3; for (let i = 0; i < 8; i++) { const a = (i*Math.PI)/4; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); } pPath.lineTo(cx+rOut, cy);
-                                } else if (style === 'slit') {
-                                    const slitW = pW*0.3, slitH = pH*0.9; pPath.moveTo(cx-slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy-slitH/2);
-                            } else if (style === 'terracotta') {
-                                    const pr = Math.min(pW, pH) / 4; pPath.moveTo(cx + pr, cy - pr); pPath.absarc(cx + pr, cy, pr, -Math.PI/2, Math.PI/2, false); pPath.absarc(cx, cy + pr, pr, 0, Math.PI, false); pPath.absarc(cx - pr, cy, pr, Math.PI/2, 3*Math.PI/2, false); pPath.absarc(cx, cy - pr, pr, Math.PI, 2*Math.PI, false);
-                                } else if (style === 'arabesque') {
-                                    const rOut = Math.min(pW, pH)/2, rIn = rOut*0.55; for (let i = 0; i < 16; i++) { const a = (i*Math.PI)/8; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); }
-                                } else {
-                                    pPath.moveTo(px, py); pPath.lineTo(px + pW, py); pPath.lineTo(px + pW, py + pH); pPath.lineTo(px, py + pH); pPath.lineTo(px, py);
-                                }
-                                pPath.closePath();
-                                shape.holes.push(pPath);
-                            }
-                        }
-                    }
                 } else {
                     hole.moveTo(ix_min, iy_min); hole.lineTo(ix_max, iy_min); hole.lineTo(ix_max, iy_max); hole.lineTo(ix_min, iy_max); hole.lineTo(ix_min, iy_min);
                     shape.holes.push(hole);
@@ -2114,9 +2136,9 @@ class InteractionSystem {
                     return;
                 }
 
-                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor && !mesh.userData.isWidget) mesh = mesh.parent;
+                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isPattern) mesh = mesh.parent;
                 
-                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget)) {
+                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isPattern)) {
                     if (this.mode === 'edit') {
                         if (this.selectedObject === mesh && mesh.userData.isFurniture) {
                             this.setRelocationState(true);
@@ -2164,7 +2186,7 @@ class InteractionSystem {
                     this.ctx.decorManager.updateLive(entity);
                     this.ctx.syncToUI();
                 }
-            } else if (this.mode === 'edit' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isWidget) {
+            } else if (this.mode === 'edit' && this.isPlacing && this.selectedObject && (this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
                 const target = new THREE.Vector3();
                 if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
@@ -2190,16 +2212,16 @@ class InteractionSystem {
                 if (intersects.length > 0) {
                     dom.style.cursor = 'pointer';
                     let mesh = intersects[0].object;
-                    while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isRoom && !mesh.userData.isRoof && !mesh.userData.isWidget) mesh = mesh.parent;
+                    while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isRoom && !mesh.userData.isRoof && !mesh.userData.isWidget && !mesh.userData.isPattern) mesh = mesh.parent;
                     if (this.hoveredObject !== mesh) {
-                        if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget)) this.setHighlight(this.hoveredObject, false);
+                        if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) this.setHighlight(this.hoveredObject, false);
                         this.hoveredObject = mesh;
-                        if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget)) this.setHighlight(this.hoveredObject, true, 0x93c5fd);
+                        if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) this.setHighlight(this.hoveredObject, true, 0x93c5fd);
                     }
                 } else {
                     dom.style.cursor = 'auto';
                     if (this.hoveredObject) {
-                        if (this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget)) this.setHighlight(this.hoveredObject, false);
+                        if (this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) this.setHighlight(this.hoveredObject, false);
                         this.hoveredObject = null;
                     }
                 }
@@ -2209,7 +2231,7 @@ class InteractionSystem {
         dom.addEventListener('dblclick', (e) => {
             if (this.ctx.viewMode3D === 'preview') return;
             if (this.mode === 'camera') return;
-            if (this.mode === 'edit' && this.selectedObject && this.selectedObject.userData.isWidget) {
+            if (this.mode === 'edit' && this.selectedObject && (this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) {
                 const mesh = this.selectedObject;
                 const wallGroup = mesh.parent; // sceneGroup in builder? Wait, in ActiveFloor: "WIDGET_REGISTRY[type].render3D(this.ctx.structureGroup...)"
                 // But double clicking simply changes mode to drag along wall
@@ -2227,7 +2249,7 @@ class InteractionSystem {
         });
 
         window.addEventListener('pointerup', () => {
-            if (this.isPlacing && this.selectedObject && (this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isWidget)) {
+            if (this.isPlacing && this.selectedObject && (this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) {
                 this.isPlacing = false;
                 dom.style.cursor = 'pointer';
                 if (this.ctx && this.ctx.controls) this.ctx.controls.enabled = true;
@@ -2274,7 +2296,7 @@ class InteractionSystem {
     }
 
     selectObject(object) {
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget)) this.setHighlight(this.selectedObject, false);
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
 
         this.selectedObject = object;
@@ -2392,44 +2414,6 @@ class InteractionSystem {
                         hole.lineTo(hx_min, hy_min + (hy_max - hy_min)/2);
                         hole.lineTo(hCenter, hy_min);
                         shape.holes.push(hole);
-                    } else if (type === 'pattern_opening') {
-                        const rows = widg.rows || 4, cols = widg.cols || 4, spacing = widg.spacing !== undefined ? widg.spacing : 5;
-                        const style = widg.patternStyle || 'grid';
-                        const h_opening = widg.height || 200;
-                        const pW = (widg.width - spacing * (cols + 1)) / cols;
-                        const pH = (h_opening - spacing * (rows + 1)) / rows;
-                        if (pW > 0 && pH > 0) {
-                            for (let r = 0; r < rows; r++) {
-                                for (let c = 0; c < cols; c++) {
-                                    const px = hx_min + spacing + c * (pW + spacing);
-                                    const py = hy_min + spacing + r * (pH + spacing);
-                                    const pPath = new THREE.Path();
-                                    const cx = px + pW/2, cy = py + pH/2;
-                                    if (style === 'diamond') {
-                                        pPath.moveTo(cx, py); pPath.lineTo(px + pW, cy); pPath.lineTo(cx, py + pH); pPath.lineTo(px, cy); pPath.lineTo(cx, py);
-                                    } else if (style === 'circle') {
-                                        pPath.moveTo(cx + Math.min(pW, pH)/2, cy); pPath.absarc(cx, cy, Math.min(pW, pH)/2, 0, Math.PI * 2, false);
-                                    } else if (style === 'cross') {
-                                        const w1 = pW*0.2, h1 = pH*0.8, w2 = pW*0.8, h2 = pH*0.2;
-                                        pPath.moveTo(cx-w1/2, cy-h1/2); pPath.lineTo(cx+w1/2, cy-h1/2); pPath.lineTo(cx+w1/2, cy-h2/2); pPath.lineTo(cx+w2/2, cy-h2/2); pPath.lineTo(cx+w2/2, cy+h2/2); pPath.lineTo(cx+w1/2, cy+h2/2); pPath.lineTo(cx+w1/2, cy+h1/2); pPath.lineTo(cx-w1/2, cy+h1/2); pPath.lineTo(cx-w1/2, cy+h2/2); pPath.lineTo(cx-w2/2, cy+h2/2); pPath.lineTo(cx-w2/2, cy-h2/2); pPath.lineTo(cx-w1/2, cy-h2/2); pPath.lineTo(cx-w1/2, cy-h1/2);
-                                    } else if (style === 'hexagon') {
-                                        const rad = Math.min(pW, pH)/2; for (let i = 0; i < 6; i++) { const a = (i*Math.PI)/3; const hx = cx + rad*Math.cos(a), hy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(hx,hy); else pPath.lineTo(hx,hy); } pPath.lineTo(cx+rad, cy);
-                                    } else if (style === 'star') {
-                                        const rOut = Math.min(pW, pH)/2, rIn = rOut*0.3; for (let i = 0; i < 8; i++) { const a = (i*Math.PI)/4; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); } pPath.lineTo(cx+rOut, cy);
-                                    } else if (style === 'slit') {
-                                        const slitW = pW*0.3, slitH = pH*0.9; pPath.moveTo(cx-slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy-slitH/2);
-                                    } else if (style === 'terracotta') {
-                                        const pr = Math.min(pW, pH) / 4; pPath.moveTo(cx + pr, cy - pr); pPath.absarc(cx + pr, cy, pr, -Math.PI/2, Math.PI/2, false); pPath.absarc(cx, cy + pr, pr, 0, Math.PI, false); pPath.absarc(cx - pr, cy, pr, Math.PI/2, 3*Math.PI/2, false); pPath.absarc(cx, cy - pr, pr, Math.PI, 2*Math.PI, false);
-                                    } else if (style === 'arabesque') {
-                                        const rOut = Math.min(pW, pH)/2, rIn = rOut*0.55; for (let i = 0; i < 16; i++) { const a = (i*Math.PI)/8; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); }
-                                    } else {
-                                        pPath.moveTo(px, py); pPath.lineTo(px + pW, py); pPath.lineTo(px + pW, py + pH); pPath.lineTo(px, py + pH); pPath.lineTo(px, py);
-                                    }
-                                    pPath.closePath();
-                                    shape.holes.push(pPath);
-                                }
-                            }
-                        }
                     } else {
                         hole.moveTo(hx_min, hy_min); hole.lineTo(hx_max, hy_min); hole.lineTo(hx_max, hy_max); hole.lineTo(hx_min, hy_max); hole.lineTo(hx_min, hy_min);
                         shape.holes.push(hole);
@@ -2491,11 +2475,12 @@ class InteractionSystem {
             }
             this.wallHighlight.visible = true;
         } 
-        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor || object.userData.isWidget) {
+        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor || object.userData.isWidget || object.userData.isPattern) {
             if (object.userData.isFurniture) type = 'furniture';
             else if (object.userData.isWallDecor) type = 'wallDecor';
             else if (object.userData.isFloor) type = 'room';
             else if (object.userData.isWidget) type = 'widget';
+            else if (object.userData.isPattern) type = 'advance_openings';
             this.setHighlight(object, true);
         }
         if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
@@ -2503,7 +2488,7 @@ class InteractionSystem {
 
     deselect() {
         this.cancelRelocation();
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget)) this.setHighlight(this.selectedObject, false);
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
         this.selectedObject = null;
         if (this.ctx.onEntitySelect) this.ctx.onEntitySelect(null, null, null);
@@ -2606,6 +2591,55 @@ export class Preview3D {
     
     updateFurnitureLive(e) { this.furnitureManager.updateLive(e); }
     
+    updatePatternLive(widg) {
+        if (!widg || !widg.patternMesh3D) return;
+        const mat = widg.patternMat3D || (widg.patternMesh3D.isGroup ? widg.patternMesh3D.children[0].material : widg.patternMesh3D.material);
+
+        if (widg.patternLayer && typeof widg.patternLayer === 'object') {
+            const layer = widg.patternLayer;
+            if (layer.texture && layer.texture !== 'none' && layer.texture !== '') {
+                this.assets.getTexture({ id: 'pat_tex_' + (layer.texture.replace(/[^a-z0-9]/gi, '')), texture: layer.texture }).then(tex => {
+                    const texClone = tex.clone();
+                    texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                    const tileSize = layer.tileSize || 40;
+                    texClone.repeat.set(1 / tileSize, 1 / tileSize);
+                    if (layer.rotation) texClone.rotation = (layer.rotation * Math.PI) / 180;
+                    if (layer.offsetX || layer.offsetY) texClone.offset.set(layer.offsetX || 0, layer.offsetY || 0);
+                    mat.map = texClone;
+                    mat.color.setHex(layer.color ? parseInt(layer.color.replace('#', '0x')) : 0xffffff);
+                    mat.needsUpdate = true;
+                }).catch(() => {
+                    mat.map = null;
+                    if (layer.color) mat.color.setHex(parseInt(layer.color.replace('#', '0x')));
+                    mat.needsUpdate = true;
+                });
+            } else {
+                mat.map = null;
+                mat.color.setHex(layer.color ? parseInt(layer.color.replace('#', '0x')) : 0xd1d5db);
+                mat.needsUpdate = true;
+            }
+            return;
+        }
+        
+        const configId = typeof widg.patternLayer === 'string' && widg.patternLayer ? widg.patternLayer : widg.decorConfigId;
+        if (configId && WALL_DECOR_REGISTRY[configId]) {
+            const config = WALL_DECOR_REGISTRY[configId];
+            this.assets.getTexture(config).then(tex => {
+                const texClone = tex.clone();
+                texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                const tileSize = config.defaultTileSize || 40;
+                texClone.repeat.set(1 / tileSize, 1 / tileSize);
+                mat.map = texClone;
+                mat.color.setHex(0xffffff);
+                mat.needsUpdate = true;
+            });
+        } else {
+            mat.map = null;
+            mat.color.setHex(0xf5f5f0);
+            mat.needsUpdate = true;
+        }
+    }
+
     updateShapeLive(entity) {
         if (!entity || !entity.mesh3D || this.isUpdatingFrom3D) return;
         this.isUpdatingFromUI = true;

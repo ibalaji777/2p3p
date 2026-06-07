@@ -55,7 +55,9 @@ export class Wall3DBuilder {
 
     // Abstract method that works for both Active (Konva) and Static (JSON) walls
     buildWallGroup(length, thickness, wallData, startX, startY, angle, wallHeight = WALL_HEIGHT) {
-        const wallShape = this._createShape(length, wallData.attachedWidgets, wallHeight);
+        const extraMeshes = [];
+        const extraInteractables = [];
+        const wallShape = this._createShape(length, wallData.attachedWidgets, wallHeight, thickness, extraMeshes, extraInteractables);
         const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: thickness, bevelEnabled: false, steps: 12 });
         wallGeo.translate(0, 0, -thickness / 2);
 
@@ -151,9 +153,9 @@ export class Wall3DBuilder {
         wallGroup.position.set(startX, 0, startY);
         wallGroup.rotation.y = -angle;
         
-        wallGroup.add(wallMesh);
+        wallGroup.add(wallMesh, ...extraMeshes);
 
-        return { wallGroup, wallGeo };
+        return { wallGroup, wallGeo, extraInteractables };
     }
 
     createHitboxes(length, thickness, wallData, isStatic = false, levelIndex = 0, wallIndex = 0, wallHeight = WALL_HEIGHT, startX = 0, startY = 0, angle = 0) {
@@ -249,7 +251,7 @@ export class Wall3DBuilder {
         return jointMesh;
     }
 
-    _createShape(length, widgets, wallHeight = WALL_HEIGHT) {
+    _createShape(length, widgets, wallHeight = WALL_HEIGHT, thickness = 20, extraMeshes = null, extraInteractables = null) {
         const wallShape = new THREE.Shape();
         wallShape.moveTo(0, 0); wallShape.lineTo(length, 0); wallShape.lineTo(length, wallHeight); wallShape.lineTo(0, wallHeight); wallShape.lineTo(0, 0);
 
@@ -265,6 +267,115 @@ export class Wall3DBuilder {
                 hole.moveTo(wCenter - halfW, 0); hole.lineTo(wCenter + halfW, 0); hole.lineTo(wCenter + halfW, DOOR_HEIGHT); hole.lineTo(wCenter - halfW, DOOR_HEIGHT); hole.lineTo(wCenter - halfW, 0); // Doors always go from 0 to DOOR_HEIGHT
             } else if (type === 'window') {
                 hole.moveTo(wCenter - halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL); // Windows are relative to WINDOW_SILL
+            } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type)) {
+                let elev = widg.elevation || 0;
+                let h_opening = widg.height || 200;
+                elev = Math.max(0, Math.min(elev, wallHeight));
+                h_opening = Math.max(0, Math.min(h_opening, wallHeight - elev));
+                
+                if (type === 'arch_opening') {
+                    const radius = halfW;
+                    const straightH = Math.max(0, h_opening - radius);
+                    hole.moveTo(wCenter - halfW, elev);
+                    hole.lineTo(wCenter + halfW, elev);
+                    hole.lineTo(wCenter + halfW, elev + straightH);
+                    if (radius > 0) hole.absarc(wCenter, elev + straightH, radius, 0, Math.PI, false);
+                    hole.lineTo(wCenter - halfW, elev);
+                } else if (type === 'circular_opening') {
+                    hole.moveTo(wCenter + halfW, elev + h_opening / 2);
+                    hole.absellipse(wCenter, elev + h_opening / 2, halfW, h_opening / 2, 0, Math.PI * 2, false, 0);
+                } else if (type === 'custom_shape_opening') {
+                    hole.moveTo(wCenter, elev);
+                    hole.lineTo(wCenter + halfW, elev + h_opening / 2);
+                    hole.lineTo(wCenter, elev + h_opening);
+                    hole.lineTo(wCenter - halfW, elev + h_opening / 2);
+                    hole.lineTo(wCenter, elev);
+                } else if (type === 'pattern_opening') {
+                    hole.moveTo(wCenter - halfW, elev);
+                    hole.lineTo(wCenter + halfW, elev);
+                    hole.lineTo(wCenter + halfW, elev + h_opening);
+                    hole.lineTo(wCenter - halfW, elev + h_opening);
+                    hole.lineTo(wCenter - halfW, elev);
+
+                    const patternShape = new THREE.Shape();
+                    patternShape.moveTo(wCenter - halfW, elev);
+                    patternShape.lineTo(wCenter + halfW, elev);
+                    patternShape.lineTo(wCenter + halfW, elev + h_opening);
+                    patternShape.lineTo(wCenter - halfW, elev + h_opening);
+                    patternShape.lineTo(wCenter - halfW, elev);
+
+                    const rows = widg.rows || 4, cols = widg.cols || 4, spacing = widg.spacing !== undefined ? widg.spacing : 5;
+                    const style = widg.patternStyle || 'grid';
+                    const pW = (widg.width - spacing * (cols + 1)) / cols;
+                    const pH = (h_opening - spacing * (rows + 1)) / rows;
+                    if (pW > 0 && pH > 0) {
+                        for (let r = 0; r < rows; r++) {
+                            for (let c = 0; c < cols; c++) {
+                                const px = (wCenter - halfW) + spacing + c * (pW + spacing);
+                                const py = elev + spacing + r * (pH + spacing);
+                                const pPath = new THREE.Path();
+                                const cx = px + pW/2, cy = py + pH/2;
+                                if (style === 'diamond') {
+                                    pPath.moveTo(cx, py); pPath.lineTo(px + pW, cy); pPath.lineTo(cx, py + pH); pPath.lineTo(px, cy); pPath.lineTo(cx, py);
+                                } else if (style === 'circle') {
+                                    pPath.moveTo(cx + Math.min(pW, pH)/2, cy); pPath.absarc(cx, cy, Math.min(pW, pH)/2, 0, Math.PI * 2, false);
+                                } else if (style === 'cross') {
+                                    const w1 = pW*0.2, h1 = pH*0.8, w2 = pW*0.8, h2 = pH*0.2;
+                                    pPath.moveTo(cx-w1/2, cy-h1/2); pPath.lineTo(cx+w1/2, cy-h1/2); pPath.lineTo(cx+w1/2, cy-h2/2); pPath.lineTo(cx+w2/2, cy-h2/2); pPath.lineTo(cx+w2/2, cy+h2/2); pPath.lineTo(cx+w1/2, cy+h2/2); pPath.lineTo(cx+w1/2, cy+h1/2); pPath.lineTo(cx-w1/2, cy+h1/2); pPath.lineTo(cx-w1/2, cy+h2/2); pPath.lineTo(cx-w2/2, cy+h2/2); pPath.lineTo(cx-w2/2, cy-h2/2); pPath.lineTo(cx-w1/2, cy-h2/2); pPath.lineTo(cx-w1/2, cy-h1/2);
+                                } else if (style === 'hexagon') {
+                                    const rad = Math.min(pW, pH)/2; for (let i = 0; i < 6; i++) { const a = (i*Math.PI)/3; const hx = cx + rad*Math.cos(a), hy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(hx,hy); else pPath.lineTo(hx,hy); } pPath.lineTo(cx+rad, cy);
+                                } else if (style === 'star') {
+                                    const rOut = Math.min(pW, pH)/2, rIn = rOut*0.3; for (let i = 0; i < 8; i++) { const a = (i*Math.PI)/4; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); } pPath.lineTo(cx+rOut, cy);
+                                } else if (style === 'slit') {
+                                    const slitW = pW*0.3, slitH = pH*0.9; pPath.moveTo(cx-slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy-slitH/2);
+                                } else if (style === 'terracotta') {
+                                    const pr = Math.min(pW, pH) / 4; pPath.moveTo(cx + pr, cy - pr); pPath.absarc(cx + pr, cy, pr, -Math.PI/2, Math.PI/2, false); pPath.absarc(cx, cy + pr, pr, 0, Math.PI, false); pPath.absarc(cx - pr, cy, pr, Math.PI/2, 3*Math.PI/2, false); pPath.absarc(cx, cy - pr, pr, Math.PI, 2*Math.PI, false);
+                                } else if (style === 'arabesque') {
+                                    const rOut = Math.min(pW, pH)/2, rIn = rOut*0.55; for (let i = 0; i < 16; i++) { const a = (i*Math.PI)/8; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); }
+                                } else {
+                                    pPath.moveTo(px, py); pPath.lineTo(px + pW, py); pPath.lineTo(px + pW, py + pH); pPath.lineTo(px, py + pH); pPath.lineTo(px, py);
+                                }
+                                pPath.closePath();
+                                patternShape.holes.push(pPath);
+                            }
+                        }
+                    }
+
+                    if (extraMeshes) {
+                        const patternGeo = new THREE.ExtrudeGeometry(patternShape, { depth: thickness, bevelEnabled: false });
+                        patternGeo.translate(0, 0, -thickness / 2);
+                        const patternMat = this.matMain.clone(); // inherit wall material
+                        const patternMesh = new THREE.Mesh(patternGeo, patternMat);
+                        patternMesh.castShadow = true; patternMesh.receiveShadow = true;
+                        
+                        const hitBoxGeo = new THREE.BoxGeometry(widg.width, h_opening, thickness + 4);
+                        hitBoxGeo.translate(wCenter, elev + h_opening / 2, 0);
+                        const hitBox = new THREE.Mesh(hitBoxGeo, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+                        hitBox.userData = { isHitbox: true };
+                        
+                        const patternGroup = new THREE.Group();
+                        patternGroup.add(patternMesh, hitBox);
+                        patternGroup.userData = { isPattern: true, entity: widg };
+                        widg.patternMesh3D = patternGroup;
+                        widg.patternMat3D = patternMat;
+                        
+                        extraMeshes.push(patternGroup);
+                        if (extraInteractables) extraInteractables.push(hitBox);
+                    }
+                } else {
+                    hole.moveTo(wCenter - halfW, elev); hole.lineTo(wCenter + halfW, elev); hole.lineTo(wCenter + halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev);
+                }
+                
+                if (type === 'niche_recess' && extraMeshes) {
+                    const depth = widg.depth || 10;
+                    const recessThickness = Math.max(0.5, thickness - depth);
+                    const nicheGeo = new THREE.BoxGeometry(widg.width, h_opening, recessThickness);
+                    const zOffset = (widg.facing === -1) ? (thickness/2 - recessThickness/2) : (-thickness/2 + recessThickness/2);
+                    nicheGeo.translate(wCenter, elev + h_opening/2, zOffset);
+                    const nicheMesh = new THREE.Mesh(nicheGeo, this.matMain);
+                    nicheMesh.castShadow = true; nicheMesh.receiveShadow = true;
+                    extraMeshes.push(nicheMesh);
+                }
             }
             wallShape.holes.push(hole);
         });

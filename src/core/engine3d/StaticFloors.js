@@ -4,12 +4,13 @@ import { Wall3DBuilder } from './Wall3DBuilder.js';
 import { RailingBuilder } from './RailingBuilder.js';
 
 export class StaticFloors {
-    constructor(assets, decorManager, interactables) {
+    constructor(assets, decorManager, interactables, callbacks = {}) {
         this.assets = assets;
         this.decorManager = decorManager;
         this.interactables = interactables;
         this.wallBuilder = new Wall3DBuilder();
         this.matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7, side: THREE.DoubleSide });
+        this.callbacks = callbacks;
         
         this.helpers = {
             getDynamicMaterial: (matId, category) => {
@@ -98,7 +99,7 @@ export class StaticFloors {
                         const wallHeight = w.height || w.config?.height || WALL_HEIGHT;
                         // Mock Data for Managers
                         w.config = { thickness: w.thickness, height: wallHeight }; w.length3D = length; w.attachedWidgets = w.widgets || []; w.attachedDecor = w.decors || []; w.isStatic = true; w.levelIndex = index; w.wallIndex = wallIndex;
-                        const { wallGroup } = this.wallBuilder.buildWallGroup(length, w.thickness, w, w.startX, w.startY, angle, wallHeight);
+                        const { wallGroup, extraInteractables } = this.wallBuilder.buildWallGroup(length, w.thickness, w, w.startX, w.startY, angle, wallHeight);
                         wallGroup.userData = { entity: w };
                         w.mesh3D = wallGroup;
 
@@ -117,6 +118,9 @@ export class StaticFloors {
                                 if (WIDGET_REGISTRY[type] && WIDGET_REGISTRY[type].render3D) {
                                     WIDGET_REGISTRY[type].render3D(floorGroup, widgEntity, this.helpers);
                                 }
+                                if (widg.patternMesh3D && this.callbacks.updatePatternLive) {
+                                    this.callbacks.updatePatternLive(widg);
+                                }
                             });
                         }
 
@@ -129,6 +133,8 @@ export class StaticFloors {
                                     this.interactables.push(hb);
                                 }
                             });
+
+                            if (extraInteractables) extraInteractables.forEach(hb => this.interactables.push(hb));
                         }
 
                         floorGroup.add(wallGroup);
