@@ -1251,6 +1251,14 @@ onMounted(() => {
             if (type === 'furniture' && entity && entity.mesh3D) renderer3D.value.selectObject(entity.mesh3D);
             else renderer3D.value.deselectObject();
         }
+
+        if (entity) {
+            activeRightTab.value = 'properties';
+            if (isMobile.value || isTablet.value) {
+                mobileMenuOpen.value = true;
+                activeMobileTab.value = 'properties';
+            }
+        }
     };
 
     planner.value.onToolChange = (toolId) => {
@@ -1273,6 +1281,14 @@ onMounted(() => {
         if (isRebuilding.value && !entity) return; // Prevent losing slider focus during rebuilds
         selectedEntity.value = entity; selectedType.value = type; 
         if (type !== 'wallDecor') { selectedWallSide.value = side; activeDecorId.value = null; }
+
+        if (entity) {
+            activeRightTab.value = 'properties';
+            if (isMobile.value || isTablet.value) {
+                mobileMenuOpen.value = true;
+                activeMobileTab.value = 'properties';
+            }
+        }
     };
     
     renderer3D.value.onEntityTransform = () => { uiTrigger.value++; };

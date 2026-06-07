@@ -265,10 +265,13 @@ export class InteractionSystem {
             this.wallHighlight.visible = true;
         } 
         else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isRoof || object.userData.isRoom || object.userData.isWidget || object.userData.isPattern) {
-            type = object.userData.isFurniture ? 'furniture' : (object.userData.isRoof ? 'roof' : (object.userData.isRoom ? 'room' : (object.userData.isWidget ? 'widget' : (object.userData.isPattern ? 'advance_openings' : 'wallDecor'))));
+            type = object.userData.isShape ? 'shape' : (object.userData.isFurniture ? 'furniture' : (object.userData.isRoof ? 'roof' : (object.userData.isRoom ? 'room' : (object.userData.isWidget ? 'widget' : (object.userData.isPattern ? 'advance_openings' : 'wallDecor')))));
             this.setHighlight(object, true);
         }
         if (type && this.callbacks.onEntitySelect) this.callbacks.onEntitySelect(object.userData.entity, type, side);
+        if (window.plannerInstance && object.userData.entity) {
+            window.plannerInstance.selectEntity(object.userData.entity, type);
+        }
     }
 
     deselect() {
@@ -277,5 +280,8 @@ export class InteractionSystem {
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
         this.selectedObject = null;
         if (this.callbacks.onEntitySelect) this.callbacks.onEntitySelect(null, null, null);
+        if (window.plannerInstance) {
+            window.plannerInstance.selectEntity(null, null);
+        }
     }
 }
