@@ -1273,10 +1273,6 @@ onMounted(() => {
 
         if (entity) {
             activeRightTab.value = 'properties';
-            if (isMobile.value || isTablet.value) {
-                mobileMenuOpen.value = true;
-                activeMobileTab.value = 'properties';
-            }
         }
     };
 
@@ -1303,10 +1299,6 @@ onMounted(() => {
 
         if (entity) {
             activeRightTab.value = 'properties';
-            if (isMobile.value || isTablet.value) {
-                mobileMenuOpen.value = true;
-                activeMobileTab.value = 'properties';
-            }
         }
     };
     
