@@ -399,6 +399,13 @@
 
                 <div v-else-if="selectedType === 'room'">
                     <h4 class="props-subtitle">Floor Properties</h4>
+                    <div class="control-group">
+                        <label>Material Scale</label>
+                        <div class="input-wrap">
+                            <input type="range" :value="selectedEntity.materialRepeat || floorRegistry[selectedEntity.configId]?.repeat || 10" @input="e => { selectedEntity.materialRepeat = parseFloat(e.target.value); syncEngine(); }" min="1" max="100" step="1">
+                            <input type="number" :value="selectedEntity.materialRepeat || floorRegistry[selectedEntity.configId]?.repeat || 10" @input="e => { selectedEntity.materialRepeat = parseFloat(e.target.value); syncEngine(); }" min="1" max="100" step="1">
+                        </div>
+                    </div>
                     <div class="decor-gallery">
                         <h4 class="props-subtitle">Floor Material</h4>
                         <div class="decor-grid">
@@ -1144,7 +1151,7 @@ const removeLayerItem = (item) => {
 const saveHistory = () => {
     if (isUndoRedoAction.value) return;
     
-    if (planner.value && viewMode.value === '2d') {
+    if (planner.value) {
         levels.value[activeLevelIndex.value].data = planner.value.exportState();
     }
     

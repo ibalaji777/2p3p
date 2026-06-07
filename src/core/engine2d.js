@@ -1555,7 +1555,7 @@ export class FloorPlanner {
             cy /= uniquePoints.length;
 
             let existingRoom = (this.rooms || []).find(r => Math.hypot(r.cx - cx, r.cy - cy) < 20);
-            const room = { path, cx, cy, configId: existingRoom ? existingRoom.configId : 'hardwood' };
+            const room = { path, cx, cy, configId: existingRoom ? existingRoom.configId : 'hardwood', materialRepeat: existingRoom ? existingRoom.materialRepeat : undefined };
             newRooms.push(room);
             this.drawRoom(room);
         });
@@ -1648,7 +1648,7 @@ export class FloorPlanner {
                 path: s.path.map(p => ({ x: p.x, y: p.y, shape: p.shape }))
             })),
             shapes: this.shapes ? this.shapes.map(s => ({ type: s.type, x: s.group.x(), y: s.group.y(), rotation: s.rotation, scaleX: s.group.scaleX(), scaleY: s.group.scaleY(), params: s.params })) : [],
-            rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, configId: r.configId })) : [],
+            rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, configId: r.configId, materialRepeat: r.materialRepeat })) : [],
             roomPaths: this.roomPaths ? this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y }))) : []
         };
         return JSON.stringify(state);

@@ -715,7 +715,7 @@ class EnvironmentBuilder {
                     this.ctx.assets.getTexture(config).then(tex => {
                         const texClone = tex.clone();
                         texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                        const repeat = config.repeat || 10;
+                        const repeat = room.materialRepeat || config.repeat || 10;
                         texClone.repeat.set(1 / repeat, 1 / repeat);
                         matFloor.map = texClone;
                         matFloor.needsUpdate = true;
@@ -1246,7 +1246,7 @@ class EnvironmentBuilder {
                             this.ctx.assets.getTexture(config).then(tex => {
                                 const texClone = tex.clone();
                                 texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                                const repeat = config.repeat || 10;
+                                const repeat = room.materialRepeat || config.repeat || 10;
                                 texClone.repeat.set(1 / repeat, 1 / repeat);
                                 matFloor.map = texClone;
                                 matFloor.needsUpdate = true;

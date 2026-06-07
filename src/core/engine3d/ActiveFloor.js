@@ -184,7 +184,7 @@ export class ActiveFloor {
             if (floorConfig && floorConfig.texture) {
                 const tex = new THREE.TextureLoader().load(floorConfig.texture);
                 tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-                const repeatScale = floorConfig.repeat || 1;
+                const repeatScale = room.materialRepeat || floorConfig.repeat || 1;
                 // Use a default size for calculating UV repeat if not specified, 100 is typically 1 unit in 3D
                 tex.repeat.set(1 / (100 * repeatScale), 1 / (100 * repeatScale));
                 mat = new THREE.MeshStandardMaterial({ map: tex, roughness: floorConfig.roughness !== undefined ? floorConfig.roughness : 0.8, color: floorConfig.color || 0xffffff, side: THREE.DoubleSide });

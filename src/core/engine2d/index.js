@@ -1657,7 +1657,7 @@ export class FloorPlanner {
             cy /= uniquePoints.length;
 
             let existingRoom = (this.rooms || []).find(r => Math.hypot(r.cx - cx, r.cy - cy) < 20);
-            const room = { path, cx, cy, configId: existingRoom ? existingRoom.configId : 'hardwood', isDeleted: existingRoom ? existingRoom.isDeleted : false, isHidden: existingRoom ? existingRoom.isHidden : false };
+            const room = { path, cx, cy, configId: existingRoom ? existingRoom.configId : 'hardwood', isDeleted: existingRoom ? existingRoom.isDeleted : false, isHidden: existingRoom ? existingRoom.isHidden : false, materialRepeat: existingRoom ? existingRoom.materialRepeat : undefined };
             newRooms.push(room);
             if (!room.isDeleted && !room.isHidden) {
                 this.drawRoom(room);
@@ -1848,7 +1848,7 @@ export class FloorPlanner {
             roofs: this.roofs.map(r => ({ x: r.group.x(), y: r.group.y(), rotation: r.rotation, width: r.config?.width, depth: r.config?.depth, pitch: r.config?.pitch, overhang: r.config?.overhang, thickness: r.config?.thickness, ridgeOffset: r.config?.ridgeOffset, points: r.points, isHip: !!r.points, roofType: r.config?.roofType, material: r.config?.material, wallGap: r.config?.wallGap, description: r.description })),
             arcs: this.arcs ? this.arcs.map(a => ({ p1: {x: a.p1.x, y: a.p1.y}, p2: {x: a.p2.x, y: a.p2.y}, pos: a.pos, hasRailing: a.hasRailing, railingConfig: a.railingConfig, hidden: a.hidden, description: a.description })) : [],
             shapes: this.shapes ? this.shapes.map(s => ({ type: s.type, x: s.group.x(), y: s.group.y(), rotation: s.rotation, scaleX: s.group.scaleX(), scaleY: s.group.scaleY(), params: s.params, description: s.description })) : [],
-            rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, configId: r.configId, description: r.description })) : [],
+            rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, configId: r.configId, materialRepeat: r.materialRepeat, description: r.description })) : [],
             roomPaths: this.roomPaths ? this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y }))) : []
         };
         return JSON.stringify(state);
