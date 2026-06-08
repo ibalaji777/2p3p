@@ -36,6 +36,7 @@ export class TransformControls extends THREE.Group {
         this.rotationAngle = 0;
         this.startRotationMatrix = new THREE.Matrix4();
         this.startObjectQuaternion = new THREE.Quaternion();
+        this.startObjectPosition = new THREE.Vector3();
 
         this.cameraPosition = new THREE.Vector3();
         this.cameraQuaternion = new THREE.Quaternion();
@@ -82,6 +83,40 @@ export class TransformControls extends THREE.Group {
         rotateZ.name = 'Z';
         rotateZ.renderOrder = 999;
         this.handles.add(rotateZ);
+
+        // Move Handle (XZ plane disc + arrows)
+        const moveGroup = new THREE.Group();
+        moveGroup.name = 'XZ';
+        
+        const movePlane = new THREE.Mesh(
+            new THREE.CircleGeometry(1.2, 32),
+            new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2, depthTest: false, depthWrite: false, side: THREE.DoubleSide })
+        );
+        movePlane.rotation.x = -Math.PI / 2;
+        movePlane.name = 'XZ';
+        moveGroup.add(movePlane);
+
+        const createArrow = (color, rotY) => {
+            const arrowGroup = new THREE.Group();
+            arrowGroup.rotation.y = rotY;
+            const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.6), new THREE.MeshBasicMaterial({ color: color, depthTest: false }));
+            shaft.rotation.x = Math.PI / 2;
+            shaft.position.z = 0.4;
+            shaft.name = 'XZ';
+            const head = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.3, 8), new THREE.MeshBasicMaterial({ color: color, depthTest: false }));
+            head.rotation.x = Math.PI / 2;
+            head.position.z = 0.7;
+            head.name = 'XZ';
+            arrowGroup.add(shaft, head);
+            return arrowGroup;
+        };
+
+        moveGroup.add(createArrow(GIZMO_COLOR_X, Math.PI / 2)); // X
+        moveGroup.add(createArrow(GIZMO_COLOR_X, -Math.PI / 2)); // -X
+        moveGroup.add(createArrow(GIZMO_COLOR_Z, 0)); // Z
+        moveGroup.add(createArrow(GIZMO_COLOR_Z, Math.PI)); // -Z
+        
+        this.handles.add(moveGroup);
     }
 
     attach(object) {
@@ -102,11 +137,12 @@ export class TransformControls extends THREE.Group {
         if (this.handles) {
             this.handles.children.forEach(child => {
                 if (this.mode === 'translate') {
-                    child.visible = false;
+                    child.visible = child.name === 'XZ';
                 } else {
                     if (child.name === 'X') child.visible = !!this.showX;
                     if (child.name === 'Y') child.visible = !!this.showY;
                     if (child.name === 'Z') child.visible = !!this.showZ;
+                    if (child.name === 'XZ') child.visible = false;
                 }
             });
         }
@@ -134,18 +170,25 @@ export class TransformControls extends THREE.Group {
             event.stopPropagation();
 
             this.axis = intersects[0].object.name;
+            if (!this.axis) return;
             this.active = true;
             this.dispatchEvent({ type: 'dragstart', object: this.object });
 
-            const plane = new THREE.Plane();
-            this.rotationAxis.set(0,0,0);
-            if (this.axis === 'X') this.rotationAxis.set(1,0,0);
-            if (this.axis === 'Y') this.rotationAxis.set(0,1,0);
-            if (this.axis === 'Z') this.rotationAxis.set(0,0,1);
+            if (this.mode === 'translate') {
+                const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.worldPosition.y);
+                this.raycaster.ray.intersectPlane(plane, this.pointStart);
+                this.startObjectPosition.copy(this.object.position);
+            } else {
+                const plane = new THREE.Plane();
+                this.rotationAxis.set(0,0,0);
+                if (this.axis === 'X') this.rotationAxis.set(1,0,0);
+                if (this.axis === 'Y') this.rotationAxis.set(0,1,0);
+                if (this.axis === 'Z') this.rotationAxis.set(0,0,1);
 
-            plane.setFromNormalAndCoplanarPoint(this.rotationAxis, this.worldPosition);
-            this.raycaster.ray.intersectPlane(plane, this.pointStart);
-            this.startObjectQuaternion.copy(this.object.quaternion);
+                plane.setFromNormalAndCoplanarPoint(this.rotationAxis, this.worldPosition);
+                this.raycaster.ray.intersectPlane(plane, this.pointStart);
+                this.startObjectQuaternion.copy(this.object.quaternion);
+            }
 
             this.domElement.addEventListener('pointermove', this.onPointerMove, { passive: false });
             this.domElement.addEventListener('pointerup', this.onPointerUp, { passive: false });
@@ -160,35 +203,44 @@ export class TransformControls extends THREE.Group {
 
         this.updateMouse(event);
         
-        const plane = new THREE.Plane();
-        plane.setFromNormalAndCoplanarPoint(this.rotationAxis, this.worldPosition);
-        this.raycaster.setFromCamera(this.mouse, this.camera);
-        if (!this.raycaster.ray.intersectPlane(plane, this.pointEnd)) return;
+        if (this.mode === 'translate') {
+            const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.worldPosition.y);
+            this.raycaster.setFromCamera(this.mouse, this.camera);
+            if (!this.raycaster.ray.intersectPlane(plane, this.pointEnd)) return;
 
-        const vStart = this.pointStart.clone().sub(this.worldPosition);
-        const vEnd = this.pointEnd.clone().sub(this.worldPosition);
-
-        this.rotationAngle = vEnd.angleTo(vStart);
-
-        const cross = vStart.clone().cross(vEnd);
-        if (this.rotationAxis.dot(cross) < 0) {
-            this.rotationAngle *= -1;
-        }
-
-        const tempQuaternion = new THREE.Quaternion();
-        tempQuaternion.setFromAxisAngle(this.rotationAxis, this.rotationAngle);
-        
-        const newQuaternion = this.startObjectQuaternion.clone().multiply(tempQuaternion);
-
-        if (this.rotationSnap) {
-            const euler = new THREE.Euler().setFromQuaternion(newQuaternion, 'YXZ');
-            const snapRad = THREE.MathUtils.degToRad(this.rotationSnap);
-            if (this.axis === 'X') euler.x = Math.round(euler.x / snapRad) * snapRad;
-            if (this.axis === 'Y') euler.y = Math.round(euler.y / snapRad) * snapRad;
-            if (this.axis === 'Z') euler.z = Math.round(euler.z / snapRad) * snapRad;
-            this.object.quaternion.setFromEuler(euler);
+            const delta = new THREE.Vector3().subVectors(this.pointEnd, this.pointStart);
+            this.object.position.copy(this.startObjectPosition).add(delta);
         } else {
-            this.object.quaternion.copy(newQuaternion);
+            const plane = new THREE.Plane();
+            plane.setFromNormalAndCoplanarPoint(this.rotationAxis, this.worldPosition);
+            this.raycaster.setFromCamera(this.mouse, this.camera);
+            if (!this.raycaster.ray.intersectPlane(plane, this.pointEnd)) return;
+
+            const vStart = this.pointStart.clone().sub(this.worldPosition);
+            const vEnd = this.pointEnd.clone().sub(this.worldPosition);
+
+            this.rotationAngle = vEnd.angleTo(vStart);
+
+            const cross = vStart.clone().cross(vEnd);
+            if (this.rotationAxis.dot(cross) < 0) {
+                this.rotationAngle *= -1;
+            }
+
+            const tempQuaternion = new THREE.Quaternion();
+            tempQuaternion.setFromAxisAngle(this.rotationAxis, this.rotationAngle);
+            
+            const newQuaternion = this.startObjectQuaternion.clone().multiply(tempQuaternion);
+
+            if (this.rotationSnap) {
+                const euler = new THREE.Euler().setFromQuaternion(newQuaternion, 'YXZ');
+                const snapRad = THREE.MathUtils.degToRad(this.rotationSnap);
+                if (this.axis === 'X') euler.x = Math.round(euler.x / snapRad) * snapRad;
+                if (this.axis === 'Y') euler.y = Math.round(euler.y / snapRad) * snapRad;
+                if (this.axis === 'Z') euler.z = Math.round(euler.z / snapRad) * snapRad;
+                this.object.quaternion.setFromEuler(euler);
+            } else {
+                this.object.quaternion.copy(newQuaternion);
+            }
         }
 
         this.update();

@@ -76,18 +76,6 @@ export class InteractionSystem {
             if (this.mode === 'camera' || e.button !== 0) return;
             this.updateMouse(e);
             
-            // Drop placement for Furniture
-            if (this.mode === 'edit' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isFurniture) {
-                this.raycaster.setFromCamera(this.mouse, this.camera);
-                const target = new THREE.Vector3();
-                if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
-                    this.selectedObject.position.set(target.x, 0, target.z);
-                    this.setRelocationState(false);
-                    if (this.callbacks.syncToUI) this.callbacks.syncToUI();
-                }
-                return;
-            }
-
             this.raycaster.setFromCamera(this.mouse, this.camera);
             const intersects = this.raycaster.intersectObjects(this.interactables, true);
             
@@ -111,19 +99,14 @@ export class InteractionSystem {
 
                 if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isRoom || mesh.userData.isRoof || mesh.userData.isWidget || mesh.userData.isPattern)) {
                     if (this.mode === 'edit') {
-                        if (this.selectedObject === mesh && mesh.userData.isFurniture) {
-                            this.setRelocationState(true);
-                            this.dragPlane.set(new THREE.Vector3(0, 1, 0), -this.structureGroup.position.y); 
-                        } else {
-                            this.selectObject(mesh);
-                            if (mesh.userData.isWallDecor) {
-                                const wallNormal = new THREE.Vector3(0,0,1).applyEuler(mesh.parent.rotation);
-                                this.dragPlane.setFromNormalAndCoplanarPoint(wallNormal, mesh.getWorldPosition(new THREE.Vector3()));
-                                this.isPlacing = true;
-                                dom.style.cursor = 'grabbing';
-                                const target = new THREE.Vector3();
-                                if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) this.dragOffset.copy(mesh.position).sub(mesh.parent.worldToLocal(target));
-                            }
+                        this.selectObject(mesh);
+                        if (mesh.userData.isWallDecor) {
+                            const wallNormal = new THREE.Vector3(0,0,1).applyEuler(mesh.parent.rotation);
+                            this.dragPlane.setFromNormalAndCoplanarPoint(wallNormal, mesh.getWorldPosition(new THREE.Vector3()));
+                            this.isPlacing = true;
+                            dom.style.cursor = 'grabbing';
+                            const target = new THREE.Vector3();
+                            if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) this.dragOffset.copy(mesh.position).sub(mesh.parent.worldToLocal(target));
                         }
                     }
                 }
@@ -136,12 +119,7 @@ export class InteractionSystem {
             this.updateMouse(e);
 
             // Real-time drag positioning
-            if (this.mode === 'edit' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isFurniture) {
-                this.raycaster.setFromCamera(this.mouse, this.camera);
-                const target = new THREE.Vector3();
-                if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) this.dropGroup.position.set(target.x, this.structureGroup.position.y + 0.5, target.z);
-            } 
-            } else if (this.mode === 'edit' && this.isPlacing && this.selectedObject && (this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) {
+            if (this.mode === 'edit' && this.isPlacing && this.selectedObject && (this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) {
                 this.raycaster.setFromCamera(this.mouse, this.camera);
                 const target = new THREE.Vector3();
                 if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
@@ -210,13 +188,7 @@ export class InteractionSystem {
 
     setRelocationState(active) {
         this.isPlacing = active;
-        if (active && this.selectedObject && this.selectedObject.userData.isFurniture) {
-            const entity = this.selectedObject.userData.entity;
-            this.dropHighlight.scale.set(entity.width, entity.depth, 1);
-            this.dropGroup.rotation.y = this.selectedObject.rotation.y;
-            this.dropGroup.position.set(this.selectedObject.position.x, this.structureGroup.position.y + 0.5, this.selectedObject.position.z);
-            this.dropGroup.visible = true;
-        } else this.dropGroup.visible = false;
+        this.dropGroup.visible = false;
         
         if (this.callbacks.onRelocateStateChange) this.callbacks.onRelocateStateChange(active);
     }
