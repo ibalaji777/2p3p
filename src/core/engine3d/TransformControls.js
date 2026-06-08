@@ -38,6 +38,7 @@ export class TransformControls extends THREE.Group {
         this.startObjectQuaternion = new THREE.Quaternion();
         this.startObjectPosition = new THREE.Vector3();
         this.startScale = new THREE.Vector3();
+        this.startWorldPosition = new THREE.Vector3();
 
         this.cameraPosition = new THREE.Vector3();
         this.cameraQuaternion = new THREE.Quaternion();
@@ -211,6 +212,7 @@ export class TransformControls extends THREE.Group {
             this.axis = intersects[0].object.name;
             if (!this.axis) return;
             this.active = true;
+            this.startWorldPosition.copy(this.worldPosition);
             this.dispatchEvent({ type: 'dragstart', object: this.object });
 
             if (this.mode === 'translate') {
@@ -264,7 +266,7 @@ export class TransformControls extends THREE.Group {
         this.updateMouse(event);
         
         if (this.mode === 'translate') {
-            const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.worldPosition.y);
+            const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.startWorldPosition.y);
             this.raycaster.setFromCamera(this.mouse, this.camera);
             if (!this.raycaster.ray.intersectPlane(plane, this.pointEnd)) return;
 
@@ -279,15 +281,15 @@ export class TransformControls extends THREE.Group {
             
             this.object.position.copy(this.startObjectPosition).add(delta);
         } else if (this.mode === 'scale') {
-            const camDir = new THREE.Vector3().subVectors(this.camera.position, this.worldPosition).normalize();
+            const camDir = new THREE.Vector3().subVectors(this.camera.position, this.startWorldPosition).normalize();
             if (this.axis === 'scaleUniform') {
                 const planeNormal = camDir.clone();
-                const plane = new THREE.Plane(); plane.setFromNormalAndCoplanarPoint(planeNormal, this.worldPosition);
+                const plane = new THREE.Plane(); plane.setFromNormalAndCoplanarPoint(planeNormal, this.startWorldPosition);
                 this.raycaster.setFromCamera(this.mouse, this.camera);
                 if (!this.raycaster.ray.intersectPlane(plane, this.pointEnd)) return;
                 
-                const dStart = this.pointStart.distanceTo(this.worldPosition);
-                const dEnd = this.pointEnd.distanceTo(this.worldPosition);
+                const dStart = this.pointStart.distanceTo(this.startWorldPosition);
+                const dEnd = this.pointEnd.distanceTo(this.startWorldPosition);
                 if (Math.abs(dStart) > 0.01) {
                     const scaleFactor = Math.max(0.1, dEnd / dStart);
                     this.object.scale.copy(this.startScale).multiplyScalar(scaleFactor);
@@ -301,12 +303,12 @@ export class TransformControls extends THREE.Group {
                 const planeNormal = new THREE.Vector3().crossVectors(localAxis, camDir).cross(localAxis).normalize();
                 if (planeNormal.lengthSq() < 0.001) planeNormal.copy(camDir);
                 
-                const plane = new THREE.Plane(); plane.setFromNormalAndCoplanarPoint(planeNormal, this.worldPosition);
+                const plane = new THREE.Plane(); plane.setFromNormalAndCoplanarPoint(planeNormal, this.startWorldPosition);
                 this.raycaster.setFromCamera(this.mouse, this.camera);
                 if (!this.raycaster.ray.intersectPlane(plane, this.pointEnd)) return;
 
-                const dStart = this.pointStart.clone().sub(this.worldPosition).dot(localAxis);
-                const dEnd = this.pointEnd.clone().sub(this.worldPosition).dot(localAxis);
+                const dStart = this.pointStart.clone().sub(this.startWorldPosition).dot(localAxis);
+                const dEnd = this.pointEnd.clone().sub(this.startWorldPosition).dot(localAxis);
                 if (Math.abs(dStart) > 0.01) {
                     const scaleFactor = Math.max(0.1, dEnd / dStart); // Restrict shrinking past 10%
                     this.object.scale.copy(this.startScale);
@@ -317,12 +319,12 @@ export class TransformControls extends THREE.Group {
             }
         } else {
             const plane = new THREE.Plane();
-            plane.setFromNormalAndCoplanarPoint(this.rotationAxis, this.worldPosition);
+            plane.setFromNormalAndCoplanarPoint(this.rotationAxis, this.startWorldPosition);
             this.raycaster.setFromCamera(this.mouse, this.camera);
             if (!this.raycaster.ray.intersectPlane(plane, this.pointEnd)) return;
 
-            const vStart = this.pointStart.clone().sub(this.worldPosition);
-            const vEnd = this.pointEnd.clone().sub(this.worldPosition);
+            const vStart = this.pointStart.clone().sub(this.startWorldPosition);
+            const vEnd = this.pointEnd.clone().sub(this.startWorldPosition);
 
             this.rotationAngle = vEnd.angleTo(vStart);
 
