@@ -560,6 +560,11 @@ export class PremiumShape {
                 opacity: 0.7
             });
         }
+        
+        this.rotHandle = new Konva.Circle({ 
+            radius: 6, fill: '#3b82f6', stroke: 'white', strokeWidth: 2, draggable: true, visible: false,
+            name: 'shape-rotater'
+        });
 
         this.attachedWall = null;
         this.isDragging = false;
@@ -569,6 +574,7 @@ export class PremiumShape {
         } else {
             this.planner.furnitureLayer.add(this.group);
         }
+        this.group.add(this.rotHandle);
         
         this.group.on('mouseenter', () => { if (this.planner.tool === 'select') document.body.style.cursor = 'move'; });
         this.group.on('mouseleave', () => document.body.style.cursor = 'default');
@@ -668,6 +674,24 @@ export class PremiumShape {
             this.update();
             this.planner.mainLayer.batchDraw();
         });
+
+        this.rotHandle.on('mousedown touchstart', (e) => { e.cancelBubble = true; });
+        this.rotHandle.on('dragstart', (e) => { e.cancelBubble = true; });
+        this.rotHandle.on('dragend', (e) => { e.cancelBubble = true; this.planner.syncAll(); });
+        this.rotHandle.on('mouseenter', () => document.body.style.cursor = 'crosshair');
+        this.rotHandle.on('mouseleave', () => document.body.style.cursor = 'default');
+        this.rotHandle.on('dragmove', (e) => {
+            e.cancelBubble = true;
+            const pos = this.planner.stage.getPointerPosition();
+            if (!pos) return;
+            const groupPos = this.group.getAbsolutePosition();
+            const angleRad = Math.atan2(pos.y - groupPos.y, pos.x - groupPos.x);
+            this.rotation = (angleRad * 180 / Math.PI) + 90;
+            this.group.rotation(this.rotation);
+            this.update();
+            this.planner.syncAll();
+        });
+
         this.group.on('transform', () => {
             this.rotation = this.group.rotation();
             this.planner.syncAll();
@@ -695,13 +719,22 @@ export class PremiumShape {
             this.planner.uiLayer.batchDraw();
         });
     }
-    setHighlight(isActive) { this.shape.strokeWidth(isActive ? 4 : 2); this.planner.stage.batchDraw(); }
+    setHighlight(isActive) { this.shape.strokeWidth(isActive ? 4 : 2); if (this.rotHandle) this.rotHandle.visible(isActive); this.planner.stage.batchDraw(); }
     update() {
         if (this.type === 'shape_rect') {
             this.shape.width(this.params.width); this.shape.height(this.params.height);
             this.shape.offsetX(this.params.width / 2); this.shape.offsetY(this.params.height / 2);
+            if (this.rotHandle) this.rotHandle.position({ x: 0, y: -this.params.height / 2 - 15 });
         } else if (this.type === 'shape_circle') {
             this.shape.radius(this.params.radius);
+            if (this.rotHandle) this.rotHandle.position({ x: 0, y: -this.params.radius - 15 });
+        } else if (this.type === 'shape_triangle') {
+            const pts = this.shape.points();
+            if (pts && pts.length > 0) {
+                let minY = pts[1];
+                for (let i = 3; i < pts.length; i += 2) if (pts[i] < minY) minY = pts[i];
+                if (this.rotHandle) this.rotHandle.position({ x: 0, y: minY - 15 });
+            }
         }
         this.shape.fill(this.params.fill); this.group.rotation(this.rotation);
     }
