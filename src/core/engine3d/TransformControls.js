@@ -37,6 +37,7 @@ export class TransformControls extends THREE.Group {
         this.startRotationMatrix = new THREE.Matrix4();
         this.startObjectQuaternion = new THREE.Quaternion();
         this.startObjectPosition = new THREE.Vector3();
+        this.startScale = new THREE.Vector3();
 
         this.cameraPosition = new THREE.Vector3();
         this.cameraQuaternion = new THREE.Quaternion();
@@ -99,14 +100,17 @@ export class TransformControls extends THREE.Group {
         const createArrow = (color, rotY) => {
             const arrowGroup = new THREE.Group();
             arrowGroup.rotation.y = rotY;
-            const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.6), new THREE.MeshBasicMaterial({ color: color, depthTest: false }));
+            const mat = new THREE.MeshBasicMaterial({ color: color, depthTest: false, depthWrite: false, transparent: true, opacity: 0.9 });
+            const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.6), mat);
             shaft.rotation.x = Math.PI / 2;
             shaft.position.z = 0.4;
             shaft.name = 'XZ';
-            const head = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.3, 8), new THREE.MeshBasicMaterial({ color: color, depthTest: false }));
+            shaft.renderOrder = 999;
+            const head = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.3, 8), mat);
             head.rotation.x = Math.PI / 2;
             head.position.z = 0.7;
             head.name = 'XZ';
+            head.renderOrder = 999;
             arrowGroup.add(shaft, head);
             return arrowGroup;
         };
@@ -117,6 +121,38 @@ export class TransformControls extends THREE.Group {
         moveGroup.add(createArrow(GIZMO_COLOR_Z, Math.PI)); // -Z
         
         this.handles.add(moveGroup);
+
+        // Scale Handles
+        const scaleGroup = new THREE.Group();
+        scaleGroup.name = 'scale';
+
+        const createScaleHandle = (color, rotX, rotY, rotZ, name) => {
+            const handleGroup = new THREE.Group();
+            handleGroup.rotation.set(rotX, rotY, rotZ);
+            const mat = new THREE.MeshBasicMaterial({ color: color, depthTest: false, depthWrite: false, transparent: true, opacity: 0.9 });
+            const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.6), mat);
+            shaft.rotation.x = Math.PI / 2;
+            shaft.position.z = 0.4;
+            shaft.name = name;
+            shaft.renderOrder = 999;
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), mat);
+            head.position.z = 0.7;
+            head.name = name;
+            head.renderOrder = 999;
+            handleGroup.add(shaft, head);
+            return handleGroup;
+        };
+        scaleGroup.add(createScaleHandle(GIZMO_COLOR_X, 0, Math.PI / 2, 0, 'scaleX'));
+        scaleGroup.add(createScaleHandle(GIZMO_COLOR_Y, -Math.PI / 2, 0, 0, 'scaleY'));
+        scaleGroup.add(createScaleHandle(GIZMO_COLOR_Z, 0, 0, 0, 'scaleZ'));
+        
+        const uniformMat = new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, depthWrite: false, transparent: true, opacity: 0.9 });
+        const uniformScale = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.25, 0.25), uniformMat);
+        uniformScale.name = 'scaleUniform';
+        uniformScale.renderOrder = 999;
+        scaleGroup.add(uniformScale);
+        
+        this.handles.add(scaleGroup);
     }
 
     attach(object) {
@@ -138,11 +174,14 @@ export class TransformControls extends THREE.Group {
             this.handles.children.forEach(child => {
                 if (this.mode === 'translate') {
                     child.visible = child.name === 'XZ';
+                } else if (this.mode === 'scale') {
+                    child.visible = child.name === 'scale';
                 } else {
                     if (child.name === 'X') child.visible = !!this.showX;
                     if (child.name === 'Y') child.visible = !!this.showY;
                     if (child.name === 'Z') child.visible = !!this.showZ;
                     if (child.name === 'XZ') child.visible = false;
+                    if (child.name === 'scale') child.visible = false;
                 }
             });
         }
@@ -178,6 +217,27 @@ export class TransformControls extends THREE.Group {
                 const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.worldPosition.y);
                 this.raycaster.ray.intersectPlane(plane, this.pointStart);
                 this.startObjectPosition.copy(this.object.position);
+            } else if (this.mode === 'scale') {
+                const camDir = new THREE.Vector3().subVectors(this.camera.position, this.worldPosition).normalize();
+                if (this.axis === 'scaleUniform') {
+                    const planeNormal = camDir.clone();
+                    const plane = new THREE.Plane(); plane.setFromNormalAndCoplanarPoint(planeNormal, this.worldPosition);
+                    if (this.raycaster.ray.intersectPlane(plane, this.pointStart)) {
+                        this.startScale.copy(this.object.scale);
+                    }
+                } else {
+                const localAxis = new THREE.Vector3();
+                if (this.axis === 'scaleX') localAxis.set(1,0,0);
+                if (this.axis === 'scaleY') localAxis.set(0,1,0);
+                if (this.axis === 'scaleZ') localAxis.set(0,0,1);
+                localAxis.applyQuaternion(this.worldQuaternion).normalize();
+                const planeNormal = new THREE.Vector3().crossVectors(localAxis, camDir).cross(localAxis).normalize();
+                if (planeNormal.lengthSq() < 0.001) planeNormal.copy(camDir);
+                const plane = new THREE.Plane(); plane.setFromNormalAndCoplanarPoint(planeNormal, this.worldPosition);
+                    if (this.raycaster.ray.intersectPlane(plane, this.pointStart)) {
+                        this.startScale.copy(this.object.scale);
+                    }
+                }
             } else {
                 const plane = new THREE.Plane();
                 this.rotationAxis.set(0,0,0);
@@ -209,7 +269,52 @@ export class TransformControls extends THREE.Group {
             if (!this.raycaster.ray.intersectPlane(plane, this.pointEnd)) return;
 
             const delta = new THREE.Vector3().subVectors(this.pointEnd, this.pointStart);
+            
+            // Convert world delta to local delta to handle house rotations correctly
+            if (this.object.parent) {
+                const parentInverse = this.object.parent.matrixWorld.clone().invert();
+                const rotMat = new THREE.Matrix4().extractRotation(parentInverse);
+                delta.applyMatrix4(rotMat);
+            }
+            
             this.object.position.copy(this.startObjectPosition).add(delta);
+        } else if (this.mode === 'scale') {
+            const camDir = new THREE.Vector3().subVectors(this.camera.position, this.worldPosition).normalize();
+            if (this.axis === 'scaleUniform') {
+                const planeNormal = camDir.clone();
+                const plane = new THREE.Plane(); plane.setFromNormalAndCoplanarPoint(planeNormal, this.worldPosition);
+                this.raycaster.setFromCamera(this.mouse, this.camera);
+                if (!this.raycaster.ray.intersectPlane(plane, this.pointEnd)) return;
+                
+                const dStart = this.pointStart.distanceTo(this.worldPosition);
+                const dEnd = this.pointEnd.distanceTo(this.worldPosition);
+                if (Math.abs(dStart) > 0.01) {
+                    const scaleFactor = Math.max(0.1, dEnd / dStart);
+                    this.object.scale.copy(this.startScale).multiplyScalar(scaleFactor);
+                }
+            } else {
+                const localAxis = new THREE.Vector3();
+                if (this.axis === 'scaleX') localAxis.set(1,0,0);
+                if (this.axis === 'scaleY') localAxis.set(0,1,0);
+                if (this.axis === 'scaleZ') localAxis.set(0,0,1);
+                localAxis.applyQuaternion(this.worldQuaternion).normalize();
+                const planeNormal = new THREE.Vector3().crossVectors(localAxis, camDir).cross(localAxis).normalize();
+                if (planeNormal.lengthSq() < 0.001) planeNormal.copy(camDir);
+                
+                const plane = new THREE.Plane(); plane.setFromNormalAndCoplanarPoint(planeNormal, this.worldPosition);
+                this.raycaster.setFromCamera(this.mouse, this.camera);
+                if (!this.raycaster.ray.intersectPlane(plane, this.pointEnd)) return;
+
+                const dStart = this.pointStart.clone().sub(this.worldPosition).dot(localAxis);
+                const dEnd = this.pointEnd.clone().sub(this.worldPosition).dot(localAxis);
+                if (Math.abs(dStart) > 0.01) {
+                    const scaleFactor = Math.max(0.1, dEnd / dStart); // Restrict shrinking past 10%
+                    this.object.scale.copy(this.startScale);
+                    if (this.axis === 'scaleX') this.object.scale.x *= scaleFactor;
+                    if (this.axis === 'scaleY') this.object.scale.y *= scaleFactor;
+                    if (this.axis === 'scaleZ') this.object.scale.z *= scaleFactor;
+                }
+            }
         } else {
             const plane = new THREE.Plane();
             plane.setFromNormalAndCoplanarPoint(this.rotationAxis, this.worldPosition);
@@ -242,6 +347,25 @@ export class TransformControls extends THREE.Group {
                 this.object.quaternion.copy(newQuaternion);
             }
         }
+
+        // --- REAL PHYSICS GROUND CLAMPING ---
+        this.object.updateMatrixWorld(true);
+        
+        const entity = this.object.userData.entity || {};
+        const intentionalElevation = entity.elevation || 0;
+        this.object.position.y = intentionalElevation;
+        this.object.updateMatrixWorld(true);
+        
+        const box = new THREE.Box3().setFromObject(this.object);
+        const floorWorldPos = new THREE.Vector3(0, 0.2, 0); // 0.2 matches floor extrusion thickness
+        if (this.object.parent) {
+            floorWorldPos.applyMatrix4(this.object.parent.matrixWorld);
+        }
+        
+        const targetMinY = floorWorldPos.y + intentionalElevation;
+        this.object.position.y += (targetMinY - box.min.y);
+        this.object.updateMatrixWorld(true);
+        // ------------------------------------
 
         this.update();
         this.dispatchEvent({ type: 'change' });

@@ -191,12 +191,27 @@ export class Preview3D {
         if (!this.isUpdatingFromUI && this.interactions.selectedObject && this.interactions.selectedObject.userData.isFurniture) {
             const obj3D = this.interactions.selectedObject;
             const ent2D = obj3D.userData.entity;
-            if (ent2D && ent2D.group) { 
-                ent2D.group.x(obj3D.position.x); 
-                ent2D.group.y(obj3D.position.z); 
-                // Sync rotation from 3D back to 2D entity
-                ent2D.rotation = -obj3D.rotation.y * (180 / Math.PI);
-                ent2D.update(); 
+            if (ent2D) {
+                if (ent2D.group) { 
+                    ent2D.group.x(obj3D.position.x); 
+                    ent2D.group.y(obj3D.position.z); 
+                    ent2D.rotation = -obj3D.rotation.y * (180 / Math.PI);
+                    ent2D.update(); 
+                }
+                
+                const origSize = obj3D.userData.originalSize;
+                if (origSize) {
+                    if (ent2D.width !== undefined) ent2D.width = obj3D.scale.x * origSize.x;
+                    if (ent2D.depth !== undefined) ent2D.depth = obj3D.scale.z * origSize.z;
+                    if (ent2D.height !== undefined) ent2D.height = obj3D.scale.y * origSize.y;
+                    
+                    if (ent2D.params) {
+                        if (ent2D.params.width !== undefined) ent2D.params.width = obj3D.scale.x * origSize.x;
+                        if (ent2D.params.height !== undefined) ent2D.params.height = obj3D.scale.z * origSize.z;
+                        if (ent2D.params.height3D !== undefined) ent2D.params.height3D = obj3D.scale.y * origSize.y;
+                        if (ent2D.params.radius !== undefined) ent2D.params.radius = (obj3D.scale.x * origSize.x) / 2;
+                    }
+                }
             }
         }
         if (this.onEntityTransform) this.onEntityTransform();

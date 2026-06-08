@@ -2624,24 +2624,29 @@ export class Preview3D {
         this.btnMove = document.createElement('button');
         this.btnMove.className = 'transform-menu-btn';
         this.btnMove.innerHTML = '⬌<br>Move';
-        this.btnMove.style.top = '-20px';
+        this.btnMove.style.top = '-30px';
         this.btnMove.style.left = '38px';
         this.btnMove.onclick = () => this.setTransformMode('translate');
         
+        this.btnScale = document.createElement('button');
+        this.btnScale.className = 'transform-menu-btn';
+        this.btnScale.innerHTML = '⤢<br>Scale';
+        this.btnScale.style.top = '80px';
+        this.btnScale.style.left = '38px';
+        this.btnScale.onclick = () => this.setTransformMode('scale');
+
         this.btnRotX = document.createElement('button');
         this.btnRotX.className = 'transform-menu-btn';
-        this.btnRotX.innerHTML = '↻<br>Rot X';
         this.btnRotX.innerHTML = '⭮<br>Rot X';
-        this.btnRotX.style.top = '70px';
-        this.btnRotX.style.left = '-10px';
+        this.btnRotX.style.top = '25px';
+        this.btnRotX.style.left = '-15px';
         this.btnRotX.onclick = () => this.setTransformMode('rotateX');
         
         this.btnRotY = document.createElement('button');
         this.btnRotY.className = 'transform-menu-btn';
-        this.btnRotY.innerHTML = '↻<br>Rot Y';
         this.btnRotY.innerHTML = '⭮<br>Rot Y';
-        this.btnRotY.style.top = '70px';
-        this.btnRotY.style.left = '86px';
+        this.btnRotY.style.top = '25px';
+        this.btnRotY.style.left = '90px';
         this.btnRotY.onclick = () => this.setTransformMode('rotateY');
 
         this.btnDone = document.createElement('button');
@@ -2655,6 +2660,7 @@ export class Preview3D {
         this.btnDone.onclick = () => this.setTransformMode('none');
 
         this.transformMenu.appendChild(this.btnMove);
+        this.transformMenu.appendChild(this.btnScale);
         this.transformMenu.appendChild(this.btnRotX);
         this.transformMenu.appendChild(this.btnRotY);
         this.transformMenu.appendChild(this.btnDone);
@@ -2710,6 +2716,7 @@ export class Preview3D {
         this.currentTransformMode = mode;
 
         this.btnMove.classList.remove('active');
+        if (this.btnScale) this.btnScale.classList.remove('active');
         this.btnRotX.classList.remove('active');
         this.btnRotY.classList.remove('active');
 
@@ -2719,6 +2726,7 @@ export class Preview3D {
             tc.showX = false; tc.showY = false; tc.showZ = false;
             
             this.btnMove.style.display = 'flex';
+            if (this.btnScale) this.btnScale.style.display = 'flex';
             this.btnRotX.style.display = 'flex';
             this.btnRotY.style.display = 'flex';
             if (this.btnDone) this.btnDone.style.display = 'none';
@@ -2735,6 +2743,7 @@ export class Preview3D {
         if (selectedObj) this.interactions.setHighlight(selectedObj, false);
 
         this.btnMove.style.display = mode === 'translate' ? 'flex' : 'none';
+        if (this.btnScale) this.btnScale.style.display = mode === 'scale' ? 'flex' : 'none';
         this.btnRotX.style.display = mode === 'rotateX' ? 'flex' : 'none';
         this.btnRotY.style.display = mode === 'rotateY' ? 'flex' : 'none';
         if (this.btnDone) this.btnDone.style.display = 'flex';
@@ -2747,15 +2756,20 @@ export class Preview3D {
             tc.showTranslate = true; tc.showRotate = false; tc.showScale = false;
             tc.showX = true; tc.showY = false; tc.showZ = true; // Drag only on floor plane
             this.btnMove.classList.add('active');
+        } else if (mode === 'scale') {
+            tc.mode = 'scale';
+            tc.showTranslate = false; tc.showRotate = false; tc.showScale = true;
+            tc.showX = true; tc.showY = true; tc.showZ = true;
+            if (this.btnScale) this.btnScale.classList.add('active');
         } else if (mode === 'rotateX') {
             tc.mode = 'rotate';
             tc.showTranslate = false; tc.showRotate = true; tc.showScale = false;
-            tc.showX = false; tc.showY = true; tc.showZ = false; // Green circle (yaw)
+            tc.showX = true; tc.showY = false; tc.showZ = false; // Red circle (pitch)
             this.btnRotX.classList.add('active');
         } else if (mode === 'rotateY') {
             tc.mode = 'rotate';
             tc.showTranslate = false; tc.showRotate = true; tc.showScale = false;
-            tc.showX = true; tc.showY = false; tc.showZ = false; // Red circle (pitch)
+            tc.showX = false; tc.showY = true; tc.showZ = false; // Green circle (yaw)
             this.btnRotY.classList.add('active');
         }
 
