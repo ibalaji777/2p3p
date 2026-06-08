@@ -68,6 +68,7 @@ export class InteractionSystem {
     initEvents() {
         const dom = this.renderer.domElement;
         
+        dom.addEventListener('contextmenu', e => e.preventDefault());
         dom.addEventListener('pointerdown', (e) => {
             if (this.viewMode3D === 'preview') return;
             if (this.transformControls.active) return;
@@ -162,14 +163,20 @@ export class InteractionSystem {
                     let mesh = intersects[0].object;
                     while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isRoom && !mesh.userData.isRoof && !mesh.userData.isWidget && !mesh.userData.isPattern) mesh = mesh.parent;
                     if (this.hoveredObject !== mesh) {
-                        if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) this.setHighlight(this.hoveredObject, false);
+                        if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) {
+                            if (!this.hoveredObject.userData.isRoom) this.setHighlight(this.hoveredObject, false);
+                        }
                         this.hoveredObject = mesh;
-                        if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) this.setHighlight(this.hoveredObject, true, 0x93c5fd);
+                        if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) {
+                            if (!this.hoveredObject.userData.isRoom) this.setHighlight(this.hoveredObject, true, 0x93c5fd);
+                        }
                     }
                 } else {
                     dom.style.cursor = 'auto';
                     if (this.hoveredObject) {
-                        if (this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) this.setHighlight(this.hoveredObject, false);
+                        if (this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) {
+                            if (!this.hoveredObject.userData.isRoom) this.setHighlight(this.hoveredObject, false);
+                        }
                         this.hoveredObject = null;
                     }
                 }
@@ -240,7 +247,9 @@ export class InteractionSystem {
     }
 
     selectObject(object) {
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isRoof || this.selectedObject.userData.isRoom || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isRoof || this.selectedObject.userData.isRoom || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) {
+            if (!this.selectedObject.userData.isRoom) this.setHighlight(this.selectedObject, false);
+        }
         this.transformControls.detach();
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
 
@@ -284,7 +293,7 @@ export class InteractionSystem {
         } 
         else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isRoof || object.userData.isRoom || object.userData.isWidget || object.userData.isPattern) {
             type = object.userData.isShape ? 'shape' : (object.userData.isFurniture ? 'furniture' : (object.userData.isRoof ? 'roof' : (object.userData.isRoom ? 'room' : (object.userData.isWidget ? 'widget' : (object.userData.isPattern ? 'advance_openings' : 'wallDecor')))));
-            this.setHighlight(object, true);
+            if (!object.userData.isRoom) this.setHighlight(object, true);
             if (type === 'furniture' || type === 'shape') {
                 this.transformControls.attach(object);
             }
@@ -297,7 +306,9 @@ export class InteractionSystem {
 
     deselect() {
         this.cancelRelocation();
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isRoof || this.selectedObject.userData.isRoom || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isRoof || this.selectedObject.userData.isRoom || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) {
+            if (!this.selectedObject.userData.isRoom) this.setHighlight(this.selectedObject, false);
+        }
         this.transformControls.detach();
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
         this.selectedObject = null;

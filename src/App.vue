@@ -1783,6 +1783,26 @@ const confirmSave = async () => {
 </script>
 
 <style>
+/* Fix for mobile blue highlight on tap/hold */
+* {
+    -webkit-tap-highlight-color: transparent;
+}
+body, .app-root, .main-workspace, .canvas-container, canvas {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+input, textarea, select {
+    -webkit-user-select: auto;
+    -khtml-user-select: auto;
+    -moz-user-select: auto;
+    -ms-user-select: auto;
+    user-select: auto;
+}
+
 body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflow: hidden; }
 .app-root { display: flex; flex-direction: column; height: 100vh; overflow: hidden; width: 100vw; }
 

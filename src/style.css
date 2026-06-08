@@ -77,3 +77,16 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+
+/* Prevent mobile long-press selection and context menu on canvases */
+canvas {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
