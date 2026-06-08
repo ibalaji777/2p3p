@@ -2742,10 +2742,10 @@ export class Preview3D {
         // Remove selection highlight during active transform for a cleaner workspace
         if (selectedObj) this.interactions.setHighlight(selectedObj, false);
 
-        this.btnMove.style.display = mode === 'translate' ? 'flex' : 'none';
-        if (this.btnScale) this.btnScale.style.display = mode === 'scale' ? 'flex' : 'none';
-        this.btnRotX.style.display = mode === 'rotateX' ? 'flex' : 'none';
-        this.btnRotY.style.display = mode === 'rotateY' ? 'flex' : 'none';
+        this.btnMove.style.display = 'none';
+        if (this.btnScale) this.btnScale.style.display = 'none';
+        this.btnRotX.style.display = 'none';
+        this.btnRotY.style.display = 'none';
         if (this.btnDone) this.btnDone.style.display = 'flex';
 
         // Force a UI refresh for the TransformControls by detaching before mode switch
@@ -2764,12 +2764,12 @@ export class Preview3D {
         } else if (mode === 'rotateX') {
             tc.mode = 'rotate';
             tc.showTranslate = false; tc.showRotate = true; tc.showScale = false;
-            tc.showX = true; tc.showY = false; tc.showZ = false; // Red circle (pitch)
+            tc.showX = false; tc.showY = true; tc.showZ = false; // Green circle (yaw)
             this.btnRotX.classList.add('active');
         } else if (mode === 'rotateY') {
             tc.mode = 'rotate';
             tc.showTranslate = false; tc.showRotate = true; tc.showScale = false;
-            tc.showX = false; tc.showY = true; tc.showZ = false; // Green circle (yaw)
+            tc.showX = true; tc.showY = false; tc.showZ = false; // Red circle (pitch)
             this.btnRotY.classList.add('active');
         }
 
