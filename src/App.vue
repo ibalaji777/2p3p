@@ -2013,6 +2013,47 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .compass-w { position: absolute; left: 6px; top: 50%; transform: translateY(-50%); font-size: 10px; font-weight: bold; color: #9ca3af; }
 .compass-e { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font-size: 10px; font-weight: bold; color: #9ca3af; }
 
+/* TRANSFORM MENU 3D */
+.transform-menu-3d {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 100;
+}
+.transform-menu-btn {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(17, 24, 39, 0.85);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.2);
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: bold;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+    transition: 0.2s;
+    backdrop-filter: blur(4px);
+    text-align: center;
+    line-height: 1.1;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+.transform-menu-btn:hover {
+    background: rgba(37, 99, 235, 0.9);
+    transform: scale(1.1);
+}
+.transform-menu-btn.active {
+    background: rgba(59, 130, 246, 1);
+    border-color: #93c5fd;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
+}
+
 /* WIZARD MODAL */
 .wizard-overlay {
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;

@@ -15,6 +15,11 @@ export class TransformControls extends THREE.Group {
         this.mouse = new THREE.Vector2();
         this.active = false;
         this.axis = null;
+        
+        this.mode = 'rotate';
+        this.showX = true;
+        this.showY = true;
+        this.showZ = true;
 
         this.rotationSnap = null;
 
@@ -93,6 +98,18 @@ export class TransformControls extends THREE.Group {
 
     update() {
         if (this.object === null) return;
+
+        if (this.handles) {
+            this.handles.children.forEach(child => {
+                if (this.mode === 'translate') {
+                    child.visible = false;
+                } else {
+                    if (child.name === 'X') child.visible = !!this.showX;
+                    if (child.name === 'Y') child.visible = !!this.showY;
+                    if (child.name === 'Z') child.visible = !!this.showZ;
+                }
+            });
+        }
 
         this.object.updateWorldMatrix(true, false);
         this.object.matrixWorld.decompose(this.worldPosition, this.worldQuaternion, this.worldScale);

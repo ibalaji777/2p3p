@@ -2118,10 +2118,23 @@ class InteractionSystem {
         dom.addEventListener('pointerdown', (e) => {
             if (this.ctx.viewMode3D === 'preview') return;
             if (this.transformControls && this.transformControls.active) return;
-            if (this.transformControls && this.transformControls.active) return;
             if (this.mode === 'camera' || e.button !== 0) return;
             this.updateMouse(e);
             
+            // If currently in a transform mode, block all other object selections
+            if (this.ctx.currentTransformMode && this.ctx.currentTransformMode !== 'none') {
+                // If clicking directly on a transform axis gizmo, allow it
+                if (this.transformControls && this.transformControls.axis !== null) return;
+                
+                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+                const intersects = this.raycaster.intersectObjects(this.ctx.interactables, true);
+                if (intersects.length === 0) {
+                    this.ctx.setTransformMode('none');
+                    this.deselect();
+                }
+                return;
+            }
+
             if (this.mode === 'edit' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isFurniture) {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
                 const target = new THREE.Vector3();
@@ -2181,6 +2194,15 @@ class InteractionSystem {
             if (this.transformControls && this.transformControls.active) return;
             if (this.mode === 'camera') return;
             this.updateMouse(e);
+            
+            if (this.ctx.currentTransformMode && this.ctx.currentTransformMode !== 'none') {
+                // Clear hover highlights while using transform gizmos
+                if (this.hoveredObject && this.hoveredObject !== this.selectedObject) {
+                    this.setHighlight(this.hoveredObject, false);
+                    this.hoveredObject = null;
+                }
+                return;
+            }
 
             if (this.mode === 'edit' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isFurniture) {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
@@ -2504,7 +2526,12 @@ class InteractionSystem {
             this.setHighlight(object, true);
                 
             if (type === 'furniture' || type === 'shape') {
-                if (this.transformControls) this.transformControls.attach(object);
+                if (this.transformControls) {
+                    this.transformControls.attach(object);
+                    if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
+                }
+            } else {
+                if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
             }
         }
         if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
@@ -2516,6 +2543,7 @@ class InteractionSystem {
     deselect() {
         this.cancelRelocation();
         if (this.transformControls) this.transformControls.detach();
+        if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
         if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);
         if (this.transformControls) this.transformControls.detach();
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
@@ -2587,6 +2615,52 @@ export class Preview3D {
         this.furnitureManager = new FurnitureManager(this);
         this.interactions = new InteractionSystem(this);
 
+        // Setup transform menu
+        this.transformMenu = document.createElement('div');
+        this.transformMenu.className = 'transform-menu-3d';
+        this.transformMenu.style.display = 'none';
+        this.transformMenu.style.transform = 'translate(-50%, -50%)';
+        
+        this.btnMove = document.createElement('button');
+        this.btnMove.className = 'transform-menu-btn';
+        this.btnMove.innerHTML = '⬌<br>Move';
+        this.btnMove.style.top = '-20px';
+        this.btnMove.style.left = '38px';
+        this.btnMove.onclick = () => this.setTransformMode('translate');
+        
+        this.btnRotX = document.createElement('button');
+        this.btnRotX.className = 'transform-menu-btn';
+        this.btnRotX.innerHTML = '↻<br>Rot X';
+        this.btnRotX.innerHTML = '⭮<br>Rot X';
+        this.btnRotX.style.top = '70px';
+        this.btnRotX.style.left = '-10px';
+        this.btnRotX.onclick = () => this.setTransformMode('rotateX');
+        
+        this.btnRotY = document.createElement('button');
+        this.btnRotY.className = 'transform-menu-btn';
+        this.btnRotY.innerHTML = '↻<br>Rot Y';
+        this.btnRotY.innerHTML = '⭮<br>Rot Y';
+        this.btnRotY.style.top = '70px';
+        this.btnRotY.style.left = '86px';
+        this.btnRotY.onclick = () => this.setTransformMode('rotateY');
+
+        this.btnDone = document.createElement('button');
+        this.btnDone.className = 'transform-menu-btn done-btn';
+        this.btnDone.innerHTML = '✓<br>Done';
+        this.btnDone.style.top = '25px';
+        this.btnDone.style.left = '38px';
+        this.btnDone.style.background = 'rgba(16, 185, 129, 0.9)';
+        this.btnDone.style.borderColor = 'rgba(52, 211, 153, 1)';
+        this.btnDone.style.display = 'none';
+        this.btnDone.onclick = () => this.setTransformMode('none');
+
+        this.transformMenu.appendChild(this.btnMove);
+        this.transformMenu.appendChild(this.btnRotX);
+        this.transformMenu.appendChild(this.btnRotY);
+        this.transformMenu.appendChild(this.btnDone);
+        
+        this.container.appendChild(this.transformMenu);
+
         this.envBuilder.setupBaseEnvironment();
         const pmremGenerator = new THREE.PMREMGenerator(this.renderer); 
         pmremGenerator.compileEquirectangularShader(); 
@@ -2610,6 +2684,104 @@ export class Preview3D {
         requestAnimationFrame(() => this.animate()); 
         this.controls.update(); 
         this.renderer.render(this.scene, this.camera); 
+        this.updateTransformMenu();
+    }
+
+    showTransformMenu(visible) {
+        if (this.transformMenu) {
+            if (!visible) {
+                this.transformMenu.style.display = 'none';
+                this.setTransformMode('none');
+            } else {
+                this.transformMenu.style.display = 'block';
+                this.setTransformMode('none'); // default hidden until explicitly selected
+            }
+        }
+    }
+
+    setTransformMode(mode) {
+        if (!this.interactions.transformControls) return;
+        const tc = this.interactions.transformControls;
+        const selectedObj = this.interactions.selectedObject;
+        
+        if (this.currentTransformMode === mode && mode !== 'none') {
+            mode = 'none';
+        }
+        this.currentTransformMode = mode;
+
+        this.btnMove.classList.remove('active');
+        this.btnRotX.classList.remove('active');
+        this.btnRotY.classList.remove('active');
+
+        if (mode === 'none') {
+            tc.visible = false;
+            tc.enabled = false;
+            tc.showX = false; tc.showY = false; tc.showZ = false;
+            
+            this.btnMove.style.display = 'flex';
+            this.btnRotX.style.display = 'flex';
+            this.btnRotY.style.display = 'flex';
+            if (this.btnDone) this.btnDone.style.display = 'none';
+            
+            // Restore selection highlight when returning to normal view
+            if (selectedObj) this.interactions.setHighlight(selectedObj, true);
+            return;
+        }
+
+        tc.visible = true;
+        tc.enabled = true;
+        
+        // Remove selection highlight during active transform for a cleaner workspace
+        if (selectedObj) this.interactions.setHighlight(selectedObj, false);
+
+        this.btnMove.style.display = mode === 'translate' ? 'flex' : 'none';
+        this.btnRotX.style.display = mode === 'rotateX' ? 'flex' : 'none';
+        this.btnRotY.style.display = mode === 'rotateY' ? 'flex' : 'none';
+        if (this.btnDone) this.btnDone.style.display = 'flex';
+
+        // Force a UI refresh for the TransformControls by detaching before mode switch
+        if (selectedObj) tc.detach();
+
+        if (mode === 'translate') {
+            tc.mode = 'translate';
+            tc.showTranslate = true; tc.showRotate = false; tc.showScale = false;
+            tc.showX = true; tc.showY = false; tc.showZ = true; // Drag only on floor plane
+            this.btnMove.classList.add('active');
+        } else if (mode === 'rotateX') {
+            tc.mode = 'rotate';
+            tc.showTranslate = false; tc.showRotate = true; tc.showScale = false;
+            tc.showX = false; tc.showY = true; tc.showZ = false; // Green circle (yaw)
+            this.btnRotX.classList.add('active');
+        } else if (mode === 'rotateY') {
+            tc.mode = 'rotate';
+            tc.showTranslate = false; tc.showRotate = true; tc.showScale = false;
+            tc.showX = true; tc.showY = false; tc.showZ = false; // Red circle (pitch)
+            this.btnRotY.classList.add('active');
+        }
+
+        // Re-attach to cleanly render only the requested handles
+        if (selectedObj) tc.attach(selectedObj);
+    }
+
+    updateTransformMenu() {
+        if (this.transformMenu && this.transformMenu.style.display !== 'none' && this.interactions.selectedObject) {
+            const pos = new THREE.Vector3();
+            this.interactions.selectedObject.getWorldPosition(pos);
+            pos.project(this.camera);
+            
+            const w = this.container.clientWidth;
+            const h = this.container.clientHeight;
+            
+            if (pos.z > 1) {
+                this.transformMenu.style.display = 'none';
+                return;
+            }
+            
+            const x = (pos.x * .5 + .5) * w;
+            const y = (pos.y * -.5 + .5) * h;
+            this.transformMenu.style.left = `${x}px`;
+            this.transformMenu.style.top = `${y}px`;
+        }
     }
 
     setEnvironment(skyKey, groundKey) { this.envBuilder.setEnvironment(skyKey, groundKey); }
