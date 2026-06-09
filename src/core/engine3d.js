@@ -12,17 +12,6 @@ import { FurnitureManager  } from "./engine3d/engine3d.FurnitureManager.js";
 import { InteractionSystem  } from "./engine3d/engine3d.InteractionSystem.js";
 
 
-
-
-
-
-
-
-
-
-
-
-
 export class Preview3D {
     constructor(containerEl) {
         this.container = containerEl;
