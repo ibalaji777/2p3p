@@ -20,6 +20,8 @@ export class TransformControls extends THREE.Group {
         this.showX = true;
         this.showY = true;
         this.showZ = true;
+        this.snapEnabled = true;
+        this.snapSize = 20; // Matches GRID in registry.js
 
         this.rotationSnap = null;
 
@@ -121,6 +123,15 @@ export class TransformControls extends THREE.Group {
         moveGroup.add(createArrow(GIZMO_COLOR_Z, 0)); // Z
         moveGroup.add(createArrow(GIZMO_COLOR_Z, Math.PI)); // -Z
         
+        const gizmoGrid = new THREE.GridHelper(100, 10, 0x3b82f6, 0xffffff);
+        gizmoGrid.material.transparent = true;
+        gizmoGrid.material.opacity = 0.3;
+        gizmoGrid.material.depthWrite = false;
+        gizmoGrid.material.depthTest = false;
+        gizmoGrid.renderOrder = 998;
+        gizmoGrid.name = 'gizmoGrid';
+        moveGroup.add(gizmoGrid);
+
         this.handles.add(moveGroup);
 
         // Scale Handles
@@ -173,8 +184,13 @@ export class TransformControls extends THREE.Group {
 
         if (this.handles) {
             this.handles.children.forEach(child => {
-                if (this.mode === 'translate') {
+                if (this.mode === 'translate' || this.mode === 'place') {
                     child.visible = child.name === 'XZ';
+                    if (child.name === 'XZ') {
+                        child.children.forEach(c => {
+                            if (c.name === 'gizmoGrid') c.visible = (this.mode === 'place');
+                        });
+                    }
                 } else if (this.mode === 'scale') {
                     child.visible = child.name === 'scale';
                 } else {
@@ -197,6 +213,26 @@ export class TransformControls extends THREE.Group {
         this.scale.set(scale, scale, scale);
     }
 
+    createGhost() {
+        if (!this.object) return;
+        this.ghost = this.object.clone();
+        this.ghost.traverse(c => {
+            if (c.isMesh) {
+                c.material = Array.isArray(c.material) ? c.material.map(m => m.clone()) : c.material.clone();
+                const mats = Array.isArray(c.material) ? c.material : [c.material];
+                mats.forEach(m => { m.transparent = true; m.opacity = 0.3; m.depthWrite = false; });
+            }
+        });
+        if (this.object.parent) this.object.parent.add(this.ghost);
+    }
+
+    removeGhost() {
+        if (this.ghost) {
+            if (this.ghost.parent) this.ghost.parent.remove(this.ghost);
+            this.ghost = null;
+        }
+    }
+
     onPointerDown(event) {
         if (this.object === null || this.active === true || !this.visible) return;
 
@@ -215,10 +251,11 @@ export class TransformControls extends THREE.Group {
             this.startWorldPosition.copy(this.worldPosition);
             this.dispatchEvent({ type: 'dragstart', object: this.object });
 
-            if (this.mode === 'translate') {
+            if (this.mode === 'translate' || this.mode === 'place') {
                 const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.worldPosition.y);
                 this.raycaster.ray.intersectPlane(plane, this.pointStart);
                 this.startObjectPosition.copy(this.object.position);
+                if (this.mode === 'place') this.createGhost();
             } else if (this.mode === 'scale') {
                 const camDir = new THREE.Vector3().subVectors(this.camera.position, this.worldPosition).normalize();
                 if (this.axis === 'scaleUniform') {
@@ -265,7 +302,7 @@ export class TransformControls extends THREE.Group {
 
         this.updateMouse(event);
         
-        if (this.mode === 'translate') {
+        if (this.mode === 'translate' || this.mode === 'place') {
             const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.startWorldPosition.y);
             this.raycaster.setFromCamera(this.mouse, this.camera);
             if (!this.raycaster.ray.intersectPlane(plane, this.pointEnd)) return;
@@ -279,7 +316,12 @@ export class TransformControls extends THREE.Group {
                 delta.applyMatrix4(rotMat);
             }
             
-            this.object.position.copy(this.startObjectPosition).add(delta);
+            let newPos = this.startObjectPosition.clone().add(delta);
+            if (this.mode === 'place' && this.snapEnabled) {
+                newPos.x = Math.round(newPos.x / this.snapSize) * this.snapSize;
+                newPos.z = Math.round(newPos.z / this.snapSize) * this.snapSize;
+            }
+            this.object.position.copy(newPos);
         } else if (this.mode === 'scale') {
             const camDir = new THREE.Vector3().subVectors(this.camera.position, this.startWorldPosition).normalize();
             if (this.axis === 'scaleUniform') {
@@ -382,6 +424,10 @@ export class TransformControls extends THREE.Group {
         this.active = false;
         this.axis = null;
         this.dispatchEvent({ type: 'dragend', object: this.object });
+
+        if (this.mode === 'place') {
+            this.removeGhost();
+        }
 
         this.domElement.removeEventListener('pointermove', this.onPointerMove);
         this.domElement.removeEventListener('pointerup', this.onPointerUp);

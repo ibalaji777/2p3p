@@ -77,14 +77,66 @@ export class Preview3D {
         this.transformMenu.className = 'transform-menu-3d';
         this.transformMenu.style.display = 'none';
         this.transformMenu.style.transform = 'translate(-50%, -50%)';
+        this.transformMenu.style.position = 'absolute';
+        this.transformMenu.style.zIndex = '1000';
         
+        this.xyPanel = document.createElement('div');
+        this.xyPanel.style.display = 'none';
+        this.xyPanel.style.position = 'absolute';
+        this.xyPanel.style.top = '-90px';
+        this.xyPanel.style.left = '50%';
+        this.xyPanel.style.transform = 'translateX(-50%)';
+        this.xyPanel.style.background = 'rgba(17, 24, 39, 0.95)';
+        this.xyPanel.style.padding = '10px 14px';
+        this.xyPanel.style.borderRadius = '8px';
+        this.xyPanel.style.color = 'white';
+        this.xyPanel.style.pointerEvents = 'auto';
+        this.xyPanel.style.boxShadow = '0 4px 15px rgba(0,0,0,0.4)';
+        this.xyPanel.style.border = '1px solid rgba(255,255,255,0.15)';
+        this.xyPanel.style.zIndex = '1000';
+        this.xyPanel.style.flexDirection = 'column';
+        this.xyPanel.style.gap = '8px';
+        this.xyPanel.style.width = 'max-content';
+
+        this.xyPanel.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">
+                <span style="font-size: 11px; font-weight: bold; color: #9ca3af; letter-spacing: 0.5px;">XYZ PLACEMENT</span>
+                <label style="font-size: 11px; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                    <input type="checkbox" id="gizmo-snap" checked style="accent-color: #3b82f6;"> Snap
+                </label>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <span style="font-size:13px; font-weight: bold; color:#fca5a5;">X</span>
+                    <input type="number" id="gizmo-x" step="10" style="width: 55px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 4px; padding: 4px 6px; font-size: 12px; outline: none;">
+                </div>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <span style="font-size:13px; font-weight: bold; color:#86efac;">Y</span>
+                    <input type="number" id="gizmo-y" step="10" style="width: 55px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 4px; padding: 4px 6px; font-size: 12px; outline: none;">
+                </div>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <span style="font-size:13px; font-weight: bold; color:#93c5fd;">Z</span>
+                    <input type="number" id="gizmo-z" step="10" style="width: 55px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 4px; padding: 4px 6px; font-size: 12px; outline: none;">
+                </div>
+            </div>
+        `;
+        this.xyPanel.addEventListener('pointerdown', e => e.stopPropagation());
+        this.transformMenu.appendChild(this.xyPanel);
+
         this.btnMove = document.createElement('button');
         this.btnMove.className = 'transform-menu-btn';
         this.btnMove.innerHTML = '⬌<br>Move';
         this.btnMove.style.top = '-30px';
-        this.btnMove.style.left = '38px';
+        this.btnMove.style.left = '-15px';
         this.btnMove.onclick = () => this.setTransformMode('translate');
         
+        this.btnPlace = document.createElement('button');
+        this.btnPlace.className = 'transform-menu-btn';
+        this.btnPlace.innerHTML = '🎯<br>Place';
+        this.btnPlace.style.top = '-30px';
+        this.btnPlace.style.left = '90px';
+        this.btnPlace.onclick = () => this.setTransformMode('place');
+
         this.btnScale = document.createElement('button');
         this.btnScale.className = 'transform-menu-btn';
         this.btnScale.innerHTML = '⤢<br>Scale';
@@ -117,12 +169,70 @@ export class Preview3D {
         this.btnDone.onclick = () => this.setTransformMode('none');
 
         this.transformMenu.appendChild(this.btnMove);
+        this.transformMenu.appendChild(this.btnPlace);
         this.transformMenu.appendChild(this.btnScale);
         this.transformMenu.appendChild(this.btnRotX);
         this.transformMenu.appendChild(this.btnRotY);
         this.transformMenu.appendChild(this.btnDone);
         
         this.container.appendChild(this.transformMenu);
+
+        setTimeout(() => {
+            this.inputX = document.getElementById('gizmo-x');
+            this.inputY = document.getElementById('gizmo-y');
+            this.inputZ = document.getElementById('gizmo-z');
+            this.inputSnap = document.getElementById('gizmo-snap');
+
+            if (this.inputSnap) {
+                this.inputSnap.addEventListener('change', (e) => {
+                    if (this.interactions.transformControls) {
+                        this.interactions.transformControls.snapEnabled = e.target.checked;
+                    }
+                });
+            }
+
+            const updatePos = () => {
+                if(this.interactions.selectedObject) {
+                    const obj = this.interactions.selectedObject;
+                    obj.position.x = parseFloat(this.inputX.value) || 0;
+                    obj.position.z = parseFloat(this.inputY.value) || 0;
+                    
+                    const newElevation = parseFloat(this.inputZ.value) || 0;
+                    if (obj.userData.entity) {
+                        obj.userData.entity.elevation = newElevation;
+                    }
+                    // Apply raw offset for visual update before bounding box clamps it
+                    obj.position.y = newElevation;
+                    
+                    obj.updateMatrixWorld(true);
+                    if(this.interactions.transformControls) this.interactions.transformControls.update();
+                    this.syncToUI();
+                }
+            };
+
+            if (this.inputX) {
+                this.inputX.addEventListener('input', updatePos);
+                this.inputX.addEventListener('keydown', (e) => { e.stopPropagation(); });
+            }
+            if (this.inputY) {
+                this.inputY.addEventListener('input', updatePos);
+                this.inputY.addEventListener('keydown', (e) => { e.stopPropagation(); });
+            }
+            if (this.inputZ) {
+                this.inputZ.addEventListener('input', updatePos);
+                this.inputZ.addEventListener('keydown', (e) => { e.stopPropagation(); });
+            }
+        }, 100);
+
+        this.interactions.transformControls.addEventListener('change', () => {
+            if (this.currentTransformMode === 'place' && this.inputX && this.interactions.selectedObject) {
+                this.inputX.value = this.interactions.selectedObject.position.x.toFixed(1);
+                this.inputY.value = this.interactions.selectedObject.position.z.toFixed(1);
+                if (this.inputZ && this.interactions.selectedObject.userData.entity) {
+                    this.inputZ.value = (this.interactions.selectedObject.userData.entity.elevation || 0).toFixed(1);
+                }
+            }
+        });
 
         this.envBuilder.setupBaseEnvironment();
         const pmremGenerator = new THREE.PMREMGenerator(this.renderer); 
@@ -152,6 +262,7 @@ export class Preview3D {
 
     showTransformMenu(visible) {
         if (this.transformMenu) {
+            this.menuVisible = visible;
             if (!visible) {
                 this.transformMenu.style.display = 'none';
                 this.setTransformMode('none');
@@ -173,6 +284,7 @@ export class Preview3D {
         this.currentTransformMode = mode;
 
         this.btnMove.classList.remove('active');
+        if (this.btnPlace) this.btnPlace.classList.remove('active');
         if (this.btnScale) this.btnScale.classList.remove('active');
         this.btnRotX.classList.remove('active');
         this.btnRotY.classList.remove('active');
@@ -183,9 +295,11 @@ export class Preview3D {
             tc.showX = false; tc.showY = false; tc.showZ = false;
             
             this.btnMove.style.display = 'flex';
+            if (this.btnPlace) this.btnPlace.style.display = 'flex';
             if (this.btnScale) this.btnScale.style.display = 'flex';
             this.btnRotX.style.display = 'flex';
             this.btnRotY.style.display = 'flex';
+            if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.btnDone) this.btnDone.style.display = 'none';
             
             // Restore selection highlight when returning to normal view
@@ -200,6 +314,7 @@ export class Preview3D {
         if (selectedObj) this.interactions.setHighlight(selectedObj, false);
 
         this.btnMove.style.display = 'none';
+        if (this.btnPlace) this.btnPlace.style.display = 'none';
         if (this.btnScale) this.btnScale.style.display = 'none';
         this.btnRotX.style.display = 'none';
         this.btnRotY.style.display = 'none';
@@ -213,20 +328,37 @@ export class Preview3D {
             tc.showTranslate = true; tc.showRotate = false; tc.showScale = false;
             tc.showX = true; tc.showY = false; tc.showZ = true; // Drag only on floor plane
             this.btnMove.classList.add('active');
+            if (this.xyPanel) this.xyPanel.style.display = 'none';
+        } else if (mode === 'place') {
+            tc.mode = 'place';
+            tc.showTranslate = true; tc.showRotate = false; tc.showScale = false;
+            tc.showX = true; tc.showY = false; tc.showZ = true;
+            if (this.btnPlace) this.btnPlace.classList.add('active');
+            if (this.xyPanel) this.xyPanel.style.display = 'flex';
+            if (this.inputX && selectedObj) {
+                this.inputX.value = selectedObj.position.x.toFixed(1);
+                this.inputY.value = selectedObj.position.z.toFixed(1);
+                if (this.inputZ && selectedObj.userData.entity) {
+                    this.inputZ.value = (selectedObj.userData.entity.elevation || 0).toFixed(1);
+                }
+            }
         } else if (mode === 'scale') {
             tc.mode = 'scale';
             tc.showTranslate = false; tc.showRotate = false; tc.showScale = true;
             tc.showX = true; tc.showY = true; tc.showZ = true;
+            if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.btnScale) this.btnScale.classList.add('active');
         } else if (mode === 'rotateX') {
             tc.mode = 'rotate';
             tc.showTranslate = false; tc.showRotate = true; tc.showScale = false;
             tc.showX = false; tc.showY = true; tc.showZ = false; // Green circle (yaw)
+            if (this.xyPanel) this.xyPanel.style.display = 'none';
             this.btnRotX.classList.add('active');
         } else if (mode === 'rotateY') {
             tc.mode = 'rotate';
             tc.showTranslate = false; tc.showRotate = true; tc.showScale = false;
             tc.showX = true; tc.showY = false; tc.showZ = false; // Red circle (pitch)
+            if (this.xyPanel) this.xyPanel.style.display = 'none';
             this.btnRotY.classList.add('active');
         }
 
@@ -235,19 +367,21 @@ export class Preview3D {
     }
 
     updateTransformMenu() {
-        if (this.transformMenu && this.transformMenu.style.display !== 'none' && this.interactions.selectedObject) {
-            const pos = new THREE.Vector3();
-            this.interactions.selectedObject.getWorldPosition(pos);
-            pos.project(this.camera);
-            
-            const w = this.container.clientWidth;
-            const h = this.container.clientHeight;
-            
-            if (pos.z > 1) {
-                this.transformMenu.style.display = 'none';
-                return;
-            }
-            
+        if (!this.transformMenu || !this.interactions.selectedObject || !this.menuVisible) {
+            if (this.transformMenu) this.transformMenu.style.display = 'none';
+            return;
+        }
+        
+        const pos = new THREE.Vector3();
+        this.interactions.selectedObject.getWorldPosition(pos);
+        pos.project(this.camera);
+        
+        if (pos.z > 1) {
+            this.transformMenu.style.display = 'none';
+        } else {
+            this.transformMenu.style.display = 'block';
+            const w = this.container.clientWidth > 0 ? this.container.clientWidth : window.innerWidth;
+            const h = this.container.clientHeight > 0 ? this.container.clientHeight : window.innerHeight;
             const x = (pos.x * .5 + .5) * w;
             const y = (pos.y * -.5 + .5) * h;
             this.transformMenu.style.left = `${x}px`;
