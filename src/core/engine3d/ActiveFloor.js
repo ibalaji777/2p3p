@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Wall3DBuilder } from './Wall3DBuilder.js';
 import { RailingBuilder } from './RailingBuilder.js';
-import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from '../registry.js';
+import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, WALL_DECOR_REGISTRY } from '../registry.js';
 
 import { Stair3DBuilder } from './Stair3DBuilder.js';
 
@@ -10,6 +10,7 @@ export class ActiveFloor {
         this.decorManager = decorManager;
         this.interactables = interactables;
         this.structureGroup = structureGroup;
+        this.assets = assets;
         this.wallBuilder = new Wall3DBuilder();
         this.railingBuilder = new RailingBuilder(assets, interactables, structureGroup);
         this.matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7, side: THREE.DoubleSide });
@@ -132,8 +133,50 @@ export class ActiveFloor {
             geo.translate(0, h / 2, 0);
 
             const color = shapeData.params?.fill ? parseInt(shapeData.params.fill.replace('#', '0x')) : 0xfcd34d;
-            const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.4 });
-            const mesh = new THREE.Mesh(geo, mat);
+            const matBase = new THREE.MeshStandardMaterial({ color: color, roughness: 0.7 });
+            let matSides = matBase.clone();
+            let matTop = matBase.clone();
+            let matBottom = matBase.clone();
+            let matLeft = matBase.clone();
+            let matRight = matBase.clone();
+            let matFront = matBase.clone();
+            let matBack = matBase.clone();
+
+            const applyTex = (mat, texKey) => {
+                if (!texKey) return;
+                const config = WALL_DECOR_REGISTRY[texKey];
+                if (config) {
+                    this.assets.getTexture(config).then(tex => {
+                        const texClone = tex.clone();
+                        texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                        const tileSize = config.defaultTileSize || 40;
+                        const maxDim = Math.max(shapeData.params.width || shapeData.params.radius || 100, h);
+                        texClone.repeat.set(maxDim / tileSize, maxDim / tileSize);
+                        mat.map = texClone;
+                        mat.color.setHex(0xffffff);
+                        mat.needsUpdate = true;
+                    });
+                }
+            };
+
+            applyTex(matTop, shapeData.params.textureTop || shapeData.params.texture);
+            applyTex(matBottom, shapeData.params.textureBottom || shapeData.params.texture);
+            applyTex(matSides, shapeData.params.textureSides || shapeData.params.texture);
+            applyTex(matLeft, shapeData.params.textureLeft || shapeData.params.textureSides || shapeData.params.texture);
+            applyTex(matRight, shapeData.params.textureRight || shapeData.params.textureSides || shapeData.params.texture);
+            applyTex(matFront, shapeData.params.textureFront || shapeData.params.textureSides || shapeData.params.texture);
+            applyTex(matBack, shapeData.params.textureBack || shapeData.params.textureSides || shapeData.params.texture);
+
+            let materials;
+            if (type === 'shape_rect') {
+                materials = [matRight, matLeft, matTop, matBottom, matFront, matBack];
+            } else if (type === 'shape_circle') {
+                materials = [matSides, matTop, matBottom];
+            } else {
+                materials = [matTop, matSides];
+            }
+            
+            const mesh = new THREE.Mesh(geo, materials);
             
             const groupX = shapeData.group ? shapeData.group.x() : shapeData.x;
             const groupZ = shapeData.group ? shapeData.group.y() : shapeData.y;

@@ -138,6 +138,103 @@ export class Preview3D {
     updateWallDecorLive(e) { this.decorManager.updateLive(e); }
     updateFurnitureLive(e) { this.furnitureManager.updateLive(e); }
     
+    updateShapeLive(entity) {
+        if (!entity || !entity.mesh3D) return;
+        
+        const obj = entity.mesh3D;
+        const h = entity.params.height3D || 100;
+        
+        if (entity.type === 'shape_rect') {
+            obj.geometry.dispose();
+            obj.geometry = new THREE.BoxGeometry(entity.params.width, h, entity.params.height);
+            obj.geometry.translate(0, h / 2, 0);
+        } else if (entity.type === 'shape_circle') {
+            obj.geometry.dispose();
+            obj.geometry = new THREE.CylinderGeometry(entity.params.radius, entity.params.radius, h, 32);
+            obj.geometry.translate(0, h / 2, 0);
+        } else if (entity.type === 'shape_triangle' || entity.type === 'shape_polygon') {
+            const shape2d = new THREE.Shape();
+            if (entity.params.points && entity.params.points.length >= 3) {
+                const pts = entity.params.points;
+                shape2d.moveTo(pts[0].x, pts[0].y);
+                for(let i=1; i<pts.length; i++) shape2d.lineTo(pts[i].x, pts[i].y);
+                shape2d.lineTo(pts[0].x, pts[0].y);
+                obj.geometry.dispose();
+                obj.geometry = new THREE.ExtrudeGeometry(shape2d, { depth: h, bevelEnabled: false });
+                obj.geometry.rotateX(Math.PI / 2);
+                obj.geometry.translate(0, h, 0);
+            }
+        }
+        
+        const groupX = entity.group ? entity.group.x() : entity.x;
+        const groupZ = entity.group ? entity.group.y() : entity.y;
+        const intentionalElevation = entity.elevation || 0;
+        
+        obj.position.set(groupX, intentionalElevation, groupZ);
+        obj.rotation.y = -(entity.rotation || 0) * Math.PI / 180;
+
+        const color = entity.params.fill ? parseInt(entity.params.fill.replace('#', '0x')) : 0x38bdf8;
+        
+        const matBase = new THREE.MeshStandardMaterial({ color: color, roughness: 0.7 });
+        let matSides = matBase.clone();
+        let matTop = matBase.clone();
+        let matBottom = matBase.clone();
+        let matLeft = matBase.clone();
+        let matRight = matBase.clone();
+        let matFront = matBase.clone();
+        let matBack = matBase.clone();
+
+        const applyTex = (mat, texKey) => {
+            if (!texKey) return;
+            const config = WALL_DECOR_REGISTRY[texKey];
+            if (config) {
+                this.assets.getTexture(config).then(tex => {
+                    const texClone = tex.clone();
+                    texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                    const tileSize = config.defaultTileSize || 40;
+                    const maxDim = Math.max(entity.params.width || entity.params.radius || 100, h);
+                    texClone.repeat.set(maxDim / tileSize, maxDim / tileSize);
+                    mat.map = texClone;
+                    mat.color.setHex(0xffffff);
+                    mat.needsUpdate = true;
+                });
+            }
+        };
+
+        applyTex(matTop, entity.params.textureTop || entity.params.texture);
+        applyTex(matBottom, entity.params.textureBottom || entity.params.texture);
+        applyTex(matSides, entity.params.textureSides || entity.params.texture);
+        applyTex(matLeft, entity.params.textureLeft || entity.params.textureSides || entity.params.texture);
+        applyTex(matRight, entity.params.textureRight || entity.params.textureSides || entity.params.texture);
+        applyTex(matFront, entity.params.textureFront || entity.params.textureSides || entity.params.texture);
+        applyTex(matBack, entity.params.textureBack || entity.params.textureSides || entity.params.texture);
+
+        if (entity.type === 'shape_rect') {
+            obj.material = [matRight, matLeft, matTop, matBottom, matFront, matBack];
+        } else if (entity.type === 'shape_circle') {
+            obj.material = [matSides, matTop, matBottom];
+        } else {
+            obj.material = [matTop, matSides];
+        }
+        
+        const hitbox = obj.children.find(c => c.userData && c.userData.isHitbox);
+        if (hitbox) {
+            hitbox.geometry.dispose();
+            hitbox.geometry = obj.geometry;
+        }
+
+        // --- REAL PHYSICS GROUND CLAMPING ---
+        obj.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(obj);
+        const floorWorldPos = new THREE.Vector3(0, 0.2, 0);
+        if (obj.parent) floorWorldPos.applyMatrix4(obj.parent.matrixWorld);
+        
+        const targetMinY = floorWorldPos.y + intentionalElevation;
+        obj.position.y += (targetMinY - box.min.y);
+        obj.updateMatrixWorld(true);
+        // ------------------------------------
+    }
+
     updatePatternLive(widg) {
         if (!widg || !widg.patternMesh3D) return;
         const mat = widg.patternMat3D || (widg.patternMesh3D.isGroup ? widg.patternMesh3D.children[0].material : widg.patternMesh3D.material);
@@ -191,27 +288,12 @@ export class Preview3D {
         if (!this.isUpdatingFromUI && this.interactions.selectedObject && this.interactions.selectedObject.userData.isFurniture) {
             const obj3D = this.interactions.selectedObject;
             const ent2D = obj3D.userData.entity;
-            if (ent2D) {
-                if (ent2D.group) { 
-                    ent2D.group.x(obj3D.position.x); 
-                    ent2D.group.y(obj3D.position.z); 
-                    ent2D.rotation = -obj3D.rotation.y * (180 / Math.PI);
-                    ent2D.update(); 
-                }
-                
-                const origSize = obj3D.userData.originalSize;
-                if (origSize) {
-                    if (ent2D.width !== undefined) ent2D.width = obj3D.scale.x * origSize.x;
-                    if (ent2D.depth !== undefined) ent2D.depth = obj3D.scale.z * origSize.z;
-                    if (ent2D.height !== undefined) ent2D.height = obj3D.scale.y * origSize.y;
-                    
-                    if (ent2D.params) {
-                        if (ent2D.params.width !== undefined) ent2D.params.width = obj3D.scale.x * origSize.x;
-                        if (ent2D.params.height !== undefined) ent2D.params.height = obj3D.scale.z * origSize.z;
-                        if (ent2D.params.height3D !== undefined) ent2D.params.height3D = obj3D.scale.y * origSize.y;
-                        if (ent2D.params.radius !== undefined) ent2D.params.radius = (obj3D.scale.x * origSize.x) / 2;
-                    }
-                }
+            if (ent2D && ent2D.group) { 
+                ent2D.group.x(obj3D.position.x); 
+                ent2D.group.y(obj3D.position.z); 
+                // Sync rotation from 3D back to 2D entity
+                ent2D.rotation = -obj3D.rotation.y * (180 / Math.PI);
+                ent2D.update(); 
             }
         }
         if (this.onEntityTransform) this.onEntityTransform();

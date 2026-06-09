@@ -492,18 +492,62 @@
                 </div>
 
                 <div v-else-if="selectedType === 'shape'">
-                    <h4 class="props-subtitle">{{ selectedEntity.type === 'shape_rect' ? 'Box' : selectedEntity.type === 'shape_circle' ? 'Cylinder' : 'Prism / Polygon' }} Properties</h4>
-                    <div class="control-group"><label>Rotation (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.rotation" min="0" max="360" @input="syncEngine"><input type="number" v-model.number="selectedEntity.rotation" @input="syncEngine"></div></div>
-                    <div class="control-group"><label>3D Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.params.height3D" min="10" max="1000" @input="syncEngine"><input type="number" v-model.number="selectedEntity.params.height3D" @input="syncEngine"></div></div>
-                    <div v-if="selectedEntity.type === 'shape_rect'">
-                        <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.params.width" min="10" max="1000" @input="syncEngine"><input type="number" v-model.number="selectedEntity.params.width" @input="syncEngine"></div></div>
-                        <div class="control-group"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.params.height" min="10" max="1000" @input="syncEngine"><input type="number" v-model.number="selectedEntity.params.height" @input="syncEngine"></div></div>
+                    <div v-if="!selectedEntity.params.isEditingMaterials">
+                        <h4 class="props-subtitle">{{ selectedEntity.type === 'shape_rect' ? 'Box' : selectedEntity.type === 'shape_circle' ? 'Cylinder' : 'Prism / Polygon' }} Properties</h4>
+                        <div class="control-group"><label>Rotation (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.rotation" min="0" max="360" @input="syncEngine"><input type="number" v-model.number="selectedEntity.rotation" @input="syncEngine"></div></div>
+                        <div class="control-group"><label>3D Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.params.height3D" min="10" max="1000" @input="syncEngine"><input type="number" v-model.number="selectedEntity.params.height3D" @input="syncEngine"></div></div>
+                        <div v-if="selectedEntity.type === 'shape_rect'">
+                            <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.params.width" min="10" max="1000" @input="syncEngine"><input type="number" v-model.number="selectedEntity.params.width" @input="syncEngine"></div></div>
+                            <div class="control-group"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.params.height" min="10" max="1000" @input="syncEngine"><input type="number" v-model.number="selectedEntity.params.height" @input="syncEngine"></div></div>
+                        </div>
+                        <div v-if="selectedEntity.type === 'shape_circle'">
+                            <div class="control-group"><label>Radius</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.params.radius" min="10" max="1000" @input="syncEngine"><input type="number" v-model.number="selectedEntity.params.radius" @input="syncEngine"></div></div>
+                        </div>
+                        <div class="control-group"><label>Color</label><div class="input-wrap"><input type="color" v-model="selectedEntity.params.fill" @input="e => { clearShapeTextures(); syncEngine(); }" style="width: 100%; padding: 0;"></div></div>
+                        
+                        <button v-if="viewMode === '3d'" class="btn-primary" style="width: 100%; margin-top: 10px;" @click="selectedEntity.params.isEditingMaterials = true">Apply Wall Facing / Materials</button>
+                        <button class="hud-delete" @click="handleDelete" style="margin-top: 10px;">Delete Shape</button>
                     </div>
-                    <div v-if="selectedEntity.type === 'shape_circle'">
-                        <div class="control-group"><label>Radius</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.params.radius" min="10" max="1000" @input="syncEngine"><input type="number" v-model.number="selectedEntity.params.radius" @input="syncEngine"></div></div>
+                    
+                    <div v-else>
+                        <button class="btn-secondary" @click="selectedEntity.params.isEditingMaterials = false" style="width: 100%; margin-bottom: 15px;">← Back to Shape Properties</button>
+                        
+                        <h4 class="props-subtitle">Face Selection</h4>
+                        <div class="control-group-inline" style="margin-bottom: 12px;">
+                            <label>Apply to All Sides</label>
+                            <input type="checkbox" 
+                                   :checked="!selectedEntity.params.materialTarget || selectedEntity.params.materialTarget === 'all'" 
+                                   @change="e => { selectedEntity.params.materialTarget = e.target.checked ? 'all' : 'top'; syncEngine(); }" 
+                                   class="settings-checkbox">
+                        </div>
+                        
+                        <div class="control-group" v-if="selectedEntity.params.materialTarget && selectedEntity.params.materialTarget !== 'all'">
+                            <label>Target Face</label>
+                            <select v-model="selectedEntity.params.materialTarget" class="settings-select">
+                                <option value="top">Top Facing</option>
+                                <option value="bottom">Bottom Facing</option>
+                                <template v-if="selectedEntity.type === 'shape_rect'">
+                                    <option value="left">Left Facing</option>
+                                    <option value="right">Right Facing</option>
+                                    <option value="front">Front Facing</option>
+                                    <option value="back">Back Facing</option>
+                                </template>
+                                <template v-else>
+                                    <option value="sides">Side Faces</option>
+                                </template>
+                            </select>
+                        </div>
+                        
+                        <div class="decor-gallery">
+                            <h4 class="props-subtitle">Wall Facing / Material</h4>
+                            <div class="decor-grid">
+                                <div v-for="(config, key) in wallDecorRegistry" :key="key" class="decor-item" @click="setShapeMaterial(key)" :class="{ active: isShapeMaterialActive(key) }">
+                                    <img :src="config.thumbnail" />
+                                    <span>{{ config.name }}</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="control-group"><label>Color</label><div class="input-wrap"><input type="color" v-model="selectedEntity.params.fill" @input="syncEngine" style="width: 100%; padding: 0;"></div></div>
-                    <button class="hud-delete" @click="handleDelete">Delete Shape</button>
                 </div>
 
                 <div v-else-if="selectedType === 'stair' || selectedType === 'staircase_two'">
@@ -1574,6 +1618,62 @@ const setOpeningMaterial = (key) => {
             renderer3D.value.updatePatternLive(selectedEntity.value);
         }
         debouncedSaveHistory();
+    }
+};
+
+const clearShapeTextures = () => {
+    if (selectedEntity.value && selectedEntity.value.params) {
+        selectedEntity.value.params.texture = '';
+        selectedEntity.value.params.textureTop = '';
+        selectedEntity.value.params.textureBottom = '';
+        selectedEntity.value.params.textureSides = '';
+        selectedEntity.value.params.textureLeft = '';
+        selectedEntity.value.params.textureRight = '';
+        selectedEntity.value.params.textureFront = '';
+        selectedEntity.value.params.textureBack = '';
+    }
+};
+
+const isShapeMaterialActive = (key) => {
+    if (!selectedEntity.value || !selectedEntity.value.params) return false;
+    const target = selectedEntity.value.params.materialTarget || 'all';
+    if (target === 'all') return selectedEntity.value.params.texture === key;
+    if (target === 'top') return selectedEntity.value.params.textureTop === key;
+    if (target === 'sides') return selectedEntity.value.params.textureSides === key;
+    if (target === 'left') return selectedEntity.value.params.textureLeft === key;
+    if (target === 'right') return selectedEntity.value.params.textureRight === key;
+    if (target === 'front') return selectedEntity.value.params.textureFront === key;
+    if (target === 'back') return selectedEntity.value.params.textureBack === key;
+    if (target === 'bottom') return selectedEntity.value.params.textureBottom === key;
+    return false;
+};
+
+const setShapeMaterial = (key) => {
+    if (selectedEntity.value && selectedType.value === 'shape') {
+        const target = selectedEntity.value.params.materialTarget || 'all';
+        if (target === 'all') {
+            selectedEntity.value.params.texture = key;
+            selectedEntity.value.params.textureTop = key;
+            selectedEntity.value.params.textureBottom = key;
+            selectedEntity.value.params.textureSides = key;
+            selectedEntity.value.params.textureLeft = key;
+            selectedEntity.value.params.textureRight = key;
+            selectedEntity.value.params.textureFront = key;
+            selectedEntity.value.params.textureBack = key;
+        } else if (target === 'top') selectedEntity.value.params.textureTop = key;
+        else if (target === 'bottom') selectedEntity.value.params.textureBottom = key;
+        else if (target === 'sides') {
+            selectedEntity.value.params.textureSides = key;
+            selectedEntity.value.params.textureLeft = key;
+            selectedEntity.value.params.textureRight = key;
+            selectedEntity.value.params.textureFront = key;
+            selectedEntity.value.params.textureBack = key;
+        }
+        else if (target === 'left') selectedEntity.value.params.textureLeft = key;
+        else if (target === 'right') selectedEntity.value.params.textureRight = key;
+        else if (target === 'front') selectedEntity.value.params.textureFront = key;
+        else if (target === 'back') selectedEntity.value.params.textureBack = key;
+        syncEngine();
     }
 };
 

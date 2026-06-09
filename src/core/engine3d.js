@@ -1726,31 +1726,14 @@ class EnvironmentBuilder {
         if (!shapes) return;
         shapes.forEach(shape => {
             const h = shape.params.height3D || 100;
-            let geo, mat;
-            const color = shape.params.fill ? parseInt(shape.params.fill.replace('#', '0x')) : 0x38bdf8;
-            mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.7 });
+            let geo;
 
             if (shape.type === 'shape_rect') {
                 geo = new THREE.BoxGeometry(shape.params.width, h, shape.params.height);
-                const mesh = new THREE.Mesh(geo, mat);
-                mesh.position.set(shape.group.x(), h / 2, shape.group.y());
-                mesh.rotation.y = -(shape.rotation || 0) * Math.PI / 180;
-                mesh.castShadow = true;
-                mesh.receiveShadow = true;
-                mesh.userData = { isFurniture: true, entity: shape };
-                this.ctx.interactables.push(mesh);
-                this.ctx.structureGroup.add(mesh);
-                shape.mesh3D = mesh;
+                geo.translate(0, h / 2, 0);
             } else if (shape.type === 'shape_circle') {
                 geo = new THREE.CylinderGeometry(shape.params.radius, shape.params.radius, h, 32);
-                const mesh = new THREE.Mesh(geo, mat);
-                mesh.position.set(shape.group.x(), h / 2, shape.group.y());
-                mesh.castShadow = true;
-                mesh.receiveShadow = true;
-                mesh.userData = { isFurniture: true, entity: shape };
-                this.ctx.interactables.push(mesh);
-                this.ctx.structureGroup.add(mesh);
-                shape.mesh3D = mesh;
+                geo.translate(0, h / 2, 0);
             } else if (shape.type === 'shape_triangle' || shape.type === 'shape_polygon') {
                 const shape2d = new THREE.Shape();
                 if (shape.params.points && shape.params.points.length >= 3) {
@@ -1762,17 +1745,65 @@ class EnvironmentBuilder {
                     
                     geo = new THREE.ExtrudeGeometry(shape2d, { depth: h, bevelEnabled: false });
                     geo.rotateX(Math.PI / 2);
-                    const mesh = new THREE.Mesh(geo, mat);
-                    mesh.position.set(shape.group.x(), h, shape.group.y());
-                    mesh.rotation.y = -(shape.rotation || 0) * Math.PI / 180;
-                    mesh.castShadow = true;
-                    mesh.receiveShadow = true;
-                    mesh.userData = { isFurniture: true, entity: shape };
-                    this.ctx.interactables.push(mesh);
-                    this.ctx.structureGroup.add(mesh);
-                    shape.mesh3D = mesh;
+                    geo.translate(0, h, 0);
                 }
             }
+            
+            if (!geo) return;
+
+            const color = shape.params.fill ? parseInt(shape.params.fill.replace('#', '0x')) : 0x38bdf8;
+            const matBase = new THREE.MeshStandardMaterial({ color: color, roughness: 0.7 });
+            let matSides = matBase.clone();
+            let matTop = matBase.clone();
+            let matBottom = matBase.clone();
+            let matLeft = matBase.clone();
+            let matRight = matBase.clone();
+            let matFront = matBase.clone();
+            let matBack = matBase.clone();
+
+            const applyTex = (mat, texKey) => {
+                if (!texKey) return;
+                const config = WALL_DECOR_REGISTRY[texKey];
+                if (config) {
+                    this.ctx.assets.getTexture(config).then(tex => {
+                        const texClone = tex.clone();
+                        texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                        const tileSize = config.defaultTileSize || 40;
+                        const maxDim = Math.max(shape.params.width || shape.params.radius || 100, h);
+                        texClone.repeat.set(maxDim / tileSize, maxDim / tileSize);
+                        mat.map = texClone;
+                        mat.color.setHex(0xffffff);
+                        mat.needsUpdate = true;
+                    });
+                }
+            };
+
+            applyTex(matTop, shape.params.textureTop || shape.params.texture);
+            applyTex(matBottom, shape.params.textureBottom || shape.params.texture);
+            applyTex(matSides, shape.params.textureSides || shape.params.texture);
+            applyTex(matLeft, shape.params.textureLeft || shape.params.textureSides || shape.params.texture);
+            applyTex(matRight, shape.params.textureRight || shape.params.textureSides || shape.params.texture);
+            applyTex(matFront, shape.params.textureFront || shape.params.textureSides || shape.params.texture);
+            applyTex(matBack, shape.params.textureBack || shape.params.textureSides || shape.params.texture);
+
+            let materials;
+            if (shape.type === 'shape_rect') {
+                materials = [matRight, matLeft, matTop, matBottom, matFront, matBack];
+            } else if (shape.type === 'shape_circle') {
+                materials = [matSides, matTop, matBottom];
+            } else {
+                materials = [matTop, matSides];
+            }
+
+            const mesh = new THREE.Mesh(geo, materials);
+            mesh.position.set(shape.group ? shape.group.x() : shape.x, shape.elevation || 0, shape.group ? shape.group.y() : shape.y);
+            mesh.rotation.y = -(shape.rotation || 0) * Math.PI / 180;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            mesh.userData = { isFurniture: true, entity: shape, isShape: true };
+            this.ctx.interactables.push(mesh);
+            this.ctx.structureGroup.add(mesh);
+            shape.mesh3D = mesh;
         });
     }
 }
@@ -2893,8 +2924,47 @@ export class Preview3D {
         obj.rotation.y = -(entity.rotation || 0) * Math.PI / 180;
 
         const color = entity.params.fill ? parseInt(entity.params.fill.replace('#', '0x')) : 0x38bdf8;
-        if (obj.material && obj.material.color) {
-            obj.material.color.setHex(color);
+        
+        const matBase = new THREE.MeshStandardMaterial({ color: color, roughness: 0.7 });
+        let matSides = matBase.clone();
+        let matTop = matBase.clone();
+        let matBottom = matBase.clone();
+        let matLeft = matBase.clone();
+        let matRight = matBase.clone();
+        let matFront = matBase.clone();
+        let matBack = matBase.clone();
+
+        const applyTex = (mat, texKey) => {
+            if (!texKey) return;
+            const config = WALL_DECOR_REGISTRY[texKey];
+            if (config) {
+                this.assets.getTexture(config).then(tex => {
+                    const texClone = tex.clone();
+                    texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                    const tileSize = config.defaultTileSize || 40;
+                    const maxDim = Math.max(entity.params.width || entity.params.radius || 100, h);
+                    texClone.repeat.set(maxDim / tileSize, maxDim / tileSize);
+                    mat.map = texClone;
+                    mat.color.setHex(0xffffff);
+                    mat.needsUpdate = true;
+                });
+            }
+        };
+
+        applyTex(matTop, entity.params.textureTop || entity.params.texture);
+        applyTex(matBottom, entity.params.textureBottom || entity.params.texture);
+        applyTex(matSides, entity.params.textureSides || entity.params.texture);
+        applyTex(matLeft, entity.params.textureLeft || entity.params.textureSides || entity.params.texture);
+        applyTex(matRight, entity.params.textureRight || entity.params.textureSides || entity.params.texture);
+        applyTex(matFront, entity.params.textureFront || entity.params.textureSides || entity.params.texture);
+        applyTex(matBack, entity.params.textureBack || entity.params.textureSides || entity.params.texture);
+
+        if (entity.type === 'shape_rect') {
+            obj.material = [matRight, matLeft, matTop, matBottom, matFront, matBack];
+        } else if (entity.type === 'shape_circle') {
+            obj.material = [matSides, matTop, matBottom];
+        } else {
+            obj.material = [matTop, matSides];
         }
         
         const hitbox = obj.children.find(c => c.userData.isHitbox);
