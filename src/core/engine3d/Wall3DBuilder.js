@@ -252,8 +252,9 @@ export class Wall3DBuilder {
     }
 
     _createShape(length, widgets, wallHeight = WALL_HEIGHT, thickness = 20, extraMeshes = null, extraInteractables = null) {
+        const wallBottom = -1;
         const wallShape = new THREE.Shape();
-        wallShape.moveTo(0, 0); wallShape.lineTo(length, 0); wallShape.lineTo(length, wallHeight); wallShape.lineTo(0, wallHeight); wallShape.lineTo(0, 0);
+        wallShape.moveTo(0, wallBottom); wallShape.lineTo(length, wallBottom); wallShape.lineTo(length, wallHeight); wallShape.lineTo(0, wallHeight); wallShape.lineTo(0, wallBottom);
 
         if (!widgets) return wallShape;
 
@@ -263,46 +264,65 @@ export class Wall3DBuilder {
             const halfW = widg.width / 2;
             const type = widg.type || widg.configId; 
             
-            if (type === 'door') {
-                hole.moveTo(wCenter - halfW, 0); hole.lineTo(wCenter + halfW, 0); hole.lineTo(wCenter + halfW, DOOR_HEIGHT); hole.lineTo(wCenter - halfW, DOOR_HEIGHT); hole.lineTo(wCenter - halfW, 0); // Doors always go from 0 to DOOR_HEIGHT
-            } else if (type === 'window') {
-                hole.moveTo(wCenter - halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL); // Windows are relative to WINDOW_SILL
-            } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type)) {
-                let elev = widg.elevation || 0;
-                let h_opening = widg.height || 200;
-                elev = Math.max(0, Math.min(elev, wallHeight));
-                h_opening = Math.max(0, Math.min(h_opening, wallHeight - elev));
-                
-                if (type === 'arch_opening') {
-                    const radius = halfW;
-                    const straightH = Math.max(0, h_opening - radius);
-                    hole.moveTo(wCenter - halfW, elev);
-                    hole.lineTo(wCenter + halfW, elev);
-                    hole.lineTo(wCenter + halfW, elev + straightH);
-                    if (radius > 0) hole.absarc(wCenter, elev + straightH, radius, 0, Math.PI, false);
-                    hole.lineTo(wCenter - halfW, elev);
-                } else if (type === 'circular_opening') {
-                    hole.moveTo(wCenter + halfW, elev + h_opening / 2);
-                    hole.absellipse(wCenter, elev + h_opening / 2, halfW, h_opening / 2, 0, Math.PI * 2, false, 0);
-                } else if (type === 'custom_shape_opening') {
-                    hole.moveTo(wCenter, elev);
-                    hole.lineTo(wCenter + halfW, elev + h_opening / 2);
-                    hole.lineTo(wCenter, elev + h_opening);
-                    hole.lineTo(wCenter - halfW, elev + h_opening / 2);
-                    hole.lineTo(wCenter, elev);
-                } else if (type === 'pattern_opening') {
-                    hole.moveTo(wCenter - halfW, elev);
-                    hole.lineTo(wCenter + halfW, elev);
-                    hole.lineTo(wCenter + halfW, elev + h_opening);
-                    hole.lineTo(wCenter - halfW, elev + h_opening);
-                    hole.lineTo(wCenter - halfW, elev);
+            let h_opening = widg.height;
+            if (h_opening === undefined) h_opening = (type === 'door') ? DOOR_HEIGHT : ((type === 'window') ? WINDOW_HEIGHT : 200);
+            let elev = widg.elevation;
+            if (elev === undefined) elev = (type === 'window') ? WINDOW_SILL : 0;
+            
+            let cutElev = (elev <= 0.1) ? wallBottom : elev;
+            elev = Math.max(0, Math.min(elev, wallHeight));
+            h_opening = Math.max(0, Math.min(h_opening, wallHeight - elev));
 
+            const xMin = wCenter - halfW;
+            const xMax = wCenter + halfW;
+            const yMax = elev + h_opening;
+            const yMid = elev + h_opening / 2;
+
+            if (type === 'arch_opening') {
+                const radius = halfW;
+                const straightH = Math.max(0, h_opening - radius);
+                hole.moveTo(xMin, cutElev);
+                hole.lineTo(xMax, cutElev);
+                hole.lineTo(xMax, elev + straightH);
+                if (radius > 0) hole.absarc(wCenter, elev + straightH, radius, 0, Math.PI, false);
+                else hole.lineTo(xMin, elev + straightH);
+                hole.lineTo(xMin, cutElev);
+            } else if (type === 'circular_opening') {
+                hole.moveTo(xMax, yMid);
+                hole.absellipse(wCenter, yMid, halfW, h_opening / 2, 0, Math.PI * 2, false, 0);
+            } else if (type === 'custom_shape_opening') {
+                hole.moveTo(wCenter, cutElev);
+                hole.lineTo(xMax, yMid);
+                hole.lineTo(wCenter, yMax);
+                hole.lineTo(xMin, yMid);
+                hole.lineTo(wCenter, cutElev);
+            } else {
+                hole.moveTo(xMin, cutElev); 
+                hole.lineTo(xMax, cutElev); 
+                hole.lineTo(xMax, yMax); 
+                hole.lineTo(xMin, yMax); 
+                hole.lineTo(xMin, cutElev);
+            }
+            wallShape.holes.push(hole);
+
+            if (extraMeshes && ['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type)) {
+                const hitBoxGeo = new THREE.BoxGeometry(widg.width, h_opening, thickness + 4);
+                hitBoxGeo.translate(0, h_opening / 2, 0);
+                const hitBox = new THREE.Mesh(hitBoxGeo, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+                hitBox.userData = { isHitbox: true };
+                
+                const group = new THREE.Group();
+                group.position.set(wCenter, elev, 0);
+                group.userData = { isPattern: true, entity: widg };
+                widg.patternMesh3D = group;
+
+                if (type === 'pattern_opening') {
                     const patternShape = new THREE.Shape();
-                    patternShape.moveTo(wCenter - halfW, elev);
-                    patternShape.lineTo(wCenter + halfW, elev);
-                    patternShape.lineTo(wCenter + halfW, elev + h_opening);
-                    patternShape.lineTo(wCenter - halfW, elev + h_opening);
-                    patternShape.lineTo(wCenter - halfW, elev);
+                    patternShape.moveTo(-halfW, 0);
+                    patternShape.lineTo(halfW, 0);
+                    patternShape.lineTo(halfW, h_opening);
+                    patternShape.lineTo(-halfW, h_opening);
+                    patternShape.lineTo(-halfW, 0);
 
                     const rows = widg.rows || 4, cols = widg.cols || 4, spacing = widg.spacing !== undefined ? widg.spacing : 5;
                     const style = widg.patternStyle || 'grid';
@@ -311,8 +331,8 @@ export class Wall3DBuilder {
                     if (pW > 0 && pH > 0) {
                         for (let r = 0; r < rows; r++) {
                             for (let c = 0; c < cols; c++) {
-                                const px = (wCenter - halfW) + spacing + c * (pW + spacing);
-                                const py = elev + spacing + r * (pH + spacing);
+                                const px = -halfW + spacing + c * (pW + spacing);
+                                const py = spacing + r * (pH + spacing);
                                 const pPath = new THREE.Path();
                                 const cx = px + pW/2, cy = py + pH/2;
                                 if (style === 'diamond') {
@@ -363,7 +383,8 @@ export class Wall3DBuilder {
                         if (extraInteractables) extraInteractables.push(hitBox);
                     }
                 } else {
-                    hole.moveTo(wCenter - halfW, elev); hole.lineTo(wCenter + halfW, elev); hole.lineTo(wCenter + halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev);
+                    // This branch is for advanced openings that are not pattern-based.
+                    // The hole is already created and pushed above. No action needed.
                 }
                 
                 if (type === 'niche_recess' && extraMeshes) {
@@ -377,7 +398,6 @@ export class Wall3DBuilder {
                     extraMeshes.push(nicheMesh);
                 }
             }
-            wallShape.holes.push(hole);
         });
         return wallShape;
     }

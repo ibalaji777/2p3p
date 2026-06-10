@@ -90,17 +90,18 @@ export class DecorManager {
             const halfW = widg.width / 2;
             const wx_min = wCenter - halfW;
             const wx_max = wCenter + halfW;
-            let wy_min = 0, wy_max = 0;
-            if (widg.type === 'door') {
-                wy_min = 0; wy_max = DOOR_HEIGHT;
-            } else if (widg.type === 'window') {
-                wy_min = WINDOW_SILL; wy_max = WINDOW_SILL + WINDOW_HEIGHT;
-            } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(widg.type || widg.configId)) {
-                const wallH = wallEntity.height || wallEntity.config?.height || WALL_HEIGHT;
-                let elev = widg.elevation || 0; let h_opening = widg.height || 200;
-                elev = Math.max(0, Math.min(elev, wallH)); h_opening = Math.max(0, Math.min(h_opening, wallH - elev));
-                wy_min = elev; wy_max = elev + h_opening;
-            }
+            const type = widg.type || widg.configId;
+            let h_opening = widg.height;
+            if (h_opening === undefined) h_opening = (type === 'door') ? DOOR_HEIGHT : ((type === 'window') ? WINDOW_HEIGHT : 200);
+            let elev = widg.elevation;
+            if (elev === undefined) elev = (type === 'window') ? WINDOW_SILL : 0;
+            
+            elev = Math.max(0, Math.min(elev, wallH));
+            h_opening = Math.max(0, Math.min(h_opening, wallH - elev));
+            
+            const wy_min = elev;
+            const wy_max = elev + h_opening;
+
             if (wy_min === wy_max) return;
 
             let local_wx_min, local_wx_max;
@@ -110,41 +111,44 @@ export class DecorManager {
             const local_wy_min = wy_min - posY;
             const local_wy_max = wy_max - posY;
 
-            const ix_min = Math.max(local_wx_min, -w/2);
-            const ix_max = Math.min(local_wx_max, w/2);
-            const iy_min = Math.max(local_wy_min, -h/2);
-            const iy_max = Math.min(local_wy_max, h/2);
+            if (local_wx_max <= -w/2 || local_wx_min >= w/2 || local_wy_max <= -h/2 || local_wy_min >= h/2) return;
+            
+            let cut_iy_min = local_wy_min;
+            if (Math.abs(cut_iy_min - (-h/2)) < 0.1) cut_iy_min -= 1;
 
-            if (ix_min < ix_max && iy_min < iy_max) {
-                const type = widg.type || widg.configId;
-                const hole = new THREE.Path();
-                const hCenter = (ix_min + ix_max) / 2;
-                const halfW_hole = (ix_max - ix_min) / 2;
-                if (type === 'arch_opening') {
-                    const radius = halfW_hole;
-                    const straightH = Math.max(0, (iy_max - iy_min) - radius);
-                    hole.moveTo(ix_min, iy_min);
-                    hole.lineTo(ix_max, iy_min);
-                    hole.lineTo(ix_max, iy_min + straightH);
-                    if (radius > 0) hole.absarc(hCenter, iy_min + straightH, radius, 0, Math.PI, false);
-                    hole.lineTo(ix_min, iy_min);
-                    shape.holes.push(hole);
-                } else if (type === 'circular_opening') {
-                    hole.moveTo(ix_max, iy_min + (iy_max - iy_min)/2);
-                    hole.absellipse(hCenter, iy_min + (iy_max - iy_min)/2, halfW_hole, (iy_max - iy_min)/2, 0, Math.PI * 2, false, 0);
-                    shape.holes.push(hole);
-                } else if (type === 'custom_shape_opening') {
-                    hole.moveTo(hCenter, iy_min);
-                    hole.lineTo(ix_max, iy_min + (iy_max - iy_min)/2);
-                    hole.lineTo(hCenter, iy_max);
-                    hole.lineTo(ix_min, iy_min + (iy_max - iy_min)/2);
-                    hole.lineTo(hCenter, iy_min);
-                    shape.holes.push(hole);
-                } else {
-                    hole.moveTo(ix_min, iy_min); hole.lineTo(ix_max, iy_min); hole.lineTo(ix_max, iy_max); hole.lineTo(ix_min, iy_max); hole.lineTo(ix_min, iy_min);
-                    shape.holes.push(hole);
-                }
+            const hole = new THREE.Path();
+            const hCenter = (local_wx_min + local_wx_max) / 2;
+            const halfW_hole = (local_wx_max - local_wx_min) / 2;
+            const hole_h = local_wy_max - local_wy_min;
+            const yMid = local_wy_min + hole_h / 2;
+            const yMax = local_wy_max;
+
+            if (type === 'arch_opening') {
+                const radius = halfW_hole;
+                const straightH = Math.max(0, hole_h - radius);
+                hole.moveTo(local_wx_min, cut_iy_min);
+                hole.lineTo(local_wx_max, cut_iy_min);
+                hole.lineTo(local_wx_max, local_wy_min + straightH);
+                if (radius > 0) hole.absarc(hCenter, local_wy_min + straightH, radius, 0, Math.PI, false);
+                else hole.lineTo(local_wx_min, local_wy_min + straightH);
+                hole.lineTo(local_wx_min, cut_iy_min);
+            } else if (type === 'circular_opening') {
+                hole.moveTo(local_wx_max, yMid);
+                hole.absellipse(hCenter, yMid, halfW_hole, hole_h / 2, 0, Math.PI * 2, false, 0);
+            } else if (type === 'custom_shape_opening') {
+                hole.moveTo(hCenter, cut_iy_min);
+                hole.lineTo(local_wx_max, yMid);
+                hole.lineTo(hCenter, yMax);
+                hole.lineTo(local_wx_min, yMid);
+                hole.lineTo(hCenter, cut_iy_min);
+            } else {
+                hole.moveTo(local_wx_min, cut_iy_min); 
+                hole.lineTo(local_wx_max, cut_iy_min); 
+                hole.lineTo(local_wx_max, yMax); 
+                hole.lineTo(local_wx_min, yMax); 
+                hole.lineTo(local_wx_min, cut_iy_min);
             }
+            shape.holes.push(hole);
         });
 
         const boxMesh = object.children.find(c => c.userData.isPatternBox);

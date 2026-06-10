@@ -246,7 +246,12 @@ export class InteractionSystem {
             w.attachedWidgets.forEach(widg => {
                 const wCenter = w.length3D * widg.t; const halfW = widg.width / 2; const cx = w.length3D / 2; const cy = wallHeight / 2;
                 const hx_min = (wCenter - halfW) - cx; const hx_max = (wCenter + halfW) - cx;
-                const hy_min = (widg.type === 'door' ? 0 : WINDOW_SILL) - cy; const hy_max = (widg.type === 'door' ? DOOR_HEIGHT : WINDOW_SILL + WINDOW_HEIGHT) - cy;
+            const type = widg.type || widg.configId;
+            let elev = widg.elevation; if (elev === undefined) elev = (type === 'window') ? WINDOW_SILL : 0;
+            let h_opening = widg.height; if (h_opening === undefined) h_opening = (type === 'door') ? DOOR_HEIGHT : ((type === 'window') ? WINDOW_HEIGHT : 200);
+            elev = Math.max(0, Math.min(elev, wallHeight));
+            h_opening = Math.max(0, Math.min(h_opening, wallHeight - elev));
+            const hy_min = elev - cy; const hy_max = (elev + h_opening) - cy;
 
                 const hole = new THREE.Path();
                 hole.moveTo(hx_min, hy_min); hole.lineTo(hx_max, hy_min); hole.lineTo(hx_max, hy_max); hole.lineTo(hx_min, hy_max); hole.lineTo(hx_min, hy_min);

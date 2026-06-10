@@ -100,6 +100,8 @@ export class OpeningGizmo extends THREE.Group {
                     const entity = this.target.userData.entity;
                     const wall = entity.wall;
                     
+                    const newWorldPos = targetPoint.clone().sub(this.dragOffset);
+                    
                     if (this.activeHandle === 'left') {
                         let maxHalfW = Infinity;
                         if (wall && wall.length3D) maxHalfW = wall.length3D * (entity.t || 0.5) - 2;
@@ -111,24 +113,39 @@ export class OpeningGizmo extends THREE.Group {
                         const newHalfW = Math.min(maxHalfW, Math.max(5, localTarget.x));
                         entity.width = newHalfW * 2;
                     } else if (this.activeHandle === 'top') {
-                        const newH = Math.max(10, localTarget.y + entity.height / 2);
+                        const newH = Math.max(10, localTarget.y);
                         entity.height = newH;
                     } else if (this.activeHandle === 'bottom') {
-                        const parentTarget = this.target.parent.worldToLocal(targetPoint.clone());
-                        entity.elevation = Math.max(0, parentTarget.y);
+                        const parentTarget = this.target.parent.worldToLocal(newWorldPos);
+                        const wallH = wall.height || wall.config?.height || 120;
+                        let opH = entity.height; if (opH === undefined) opH = (entity.type === 'window' ? 45 : (entity.type === 'door' ? 80 : 200));
+                        
+                        let currentElev = entity.elevation; if (currentElev === undefined) currentElev = (entity.type === 'window' ? 35 : 0);
+                        let currentTop = currentElev + opH;
+                        let newElev = Math.max(0, Math.min(parentTarget.y, wallH - 10));
+                        if (newElev > currentTop - 10) newElev = currentTop - 10;
+                        entity.elevation = newElev;
+                        entity.height = currentTop - newElev;
                     } else if (this.activeHandle === 'front' || this.activeHandle === 'back') {
                         const newHalfD = Math.max(2, Math.abs(localTarget.z));
                         entity.depth = newHalfD * 2;
                     } else if (this.activeHandle === 'center') {
                         if (wall) {
+                            const parentTarget = this.target.parent.worldToLocal(newWorldPos);
                             const p1 = wall.startAnchor ? wall.startAnchor.position() : {x: wall.startX, y: wall.startY};
                             const p2 = wall.endAnchor ? wall.endAnchor.position() : {x: wall.endX, y: wall.endY};
                             const C = p2.x - p1.x, D = p2.y - p1.y;
                             const lenSq = C * C + D * D;
                             if (lenSq !== 0) {
-                                const projT = Math.max(0.01, Math.min(0.99, ((targetPoint.x - p1.x) * C + (targetPoint.z - p1.y) * D) / lenSq));
+                                let projT = this.target.parent.userData?.entity === wall ? parentTarget.x / wall.length3D : ((parentTarget.x - p1.x) * C + (parentTarget.z - p1.y) * D) / lenSq;
+                                projT = Math.max(0.01, Math.min(0.99, projT));
                                 entity.t = projT;
                             }
+                            
+                            const wallH = wall.height || wall.config?.height || 120;
+                            let opH = entity.height; if (opH === undefined) opH = (entity.type === 'window' ? 45 : (entity.type === 'door' ? 80 : 200));
+                            let newElev = parentTarget.y - opH / 2;
+                            entity.elevation = Math.max(0, Math.min(newElev, wallH - opH));
                         }
                     }
                     
@@ -176,21 +193,20 @@ export class OpeningGizmo extends THREE.Group {
         const entity = this.target.userData.entity;
         
         const w = entity.width || 100;
-        let h = entity.height || 200;
-        if (entity.type === 'door') h = 200; 
-        if (entity.type === 'window') h = 120;
+        let h = entity.height;
+        if (h === undefined) h = (entity.type === 'door') ? 80 : ((entity.type === 'window') ? 45 : 200);
         const d = entity.depth || entity.wall?.thickness || 20;
         
         this.position.copy(this.target.getWorldPosition(new THREE.Vector3()));
         this.quaternion.copy(this.target.getWorldQuaternion(new THREE.Quaternion()));
 
-        this.hLeft.position.set(-w/2, 0, 0);
-        this.hRight.position.set(w/2, 0, 0);
-        this.hTop.position.set(0, h/2, 0);
-        this.hBottom.position.set(0, -h/2, 0);
-        this.hFront.position.set(0, 0, d/2);
-        this.hBack.position.set(0, 0, -d/2);
-        this.hCenter.position.set(0, 0, 0);
+        this.hLeft.position.set(-w/2, h/2, 0);
+        this.hRight.position.set(w/2, h/2, 0);
+        this.hTop.position.set(0, h, 0);
+        this.hBottom.position.set(0, 0, 0);
+        this.hFront.position.set(0, h/2, d/2);
+        this.hBack.position.set(0, h/2, -d/2);
+        this.hCenter.position.set(0, h/2, 0);
         
         this.renderOrder = 999;
     }
@@ -560,15 +576,13 @@ export class InteractionSystem {
             w.attachedWidgets.forEach(widg => {
                 const wCenter = w.length3D * widg.t; const halfW = widg.width / 2; const cx = w.length3D / 2; const cy = totalH / 2;
                 const hx_min = (wCenter - halfW) - cx; const hx_max = (wCenter + halfW) - cx;
-                let w_y_min = 0, w_y_max = 0;
-                if (widg.type === 'door') { w_y_min = 0; w_y_max = DOOR_HEIGHT; }
-                else if (widg.type === 'window') { w_y_min = WINDOW_SILL; w_y_max = WINDOW_SILL + WINDOW_HEIGHT; }
-                else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(widg.type || widg.configId)) {
-                    let elev = widg.elevation || 0; let h_opening = widg.height || 200;
-                    elev = Math.max(0, Math.min(elev, currentH));
-                    h_opening = Math.max(0, Math.min(h_opening, currentH - elev));
-                    w_y_min = elev; w_y_max = elev + h_opening;
-                }
+                
+                let elev = widg.elevation; if (elev === undefined) elev = (widg.type === 'window') ? 35 : 0;
+                let h_opening = widg.height; if (h_opening === undefined) h_opening = (widg.type === 'door') ? 80 : ((widg.type === 'window') ? 45 : 200);
+                elev = Math.max(0, Math.min(elev, currentH));
+                h_opening = Math.max(0, Math.min(h_opening, currentH - elev));
+                const w_y_min = elev; const w_y_max = elev + h_opening;
+
                 if (w_y_max > w_y_min) {
                     const hy_min = w_y_min - cy; const hy_max = w_y_max - cy;
                     const type = widg.type || widg.configId;

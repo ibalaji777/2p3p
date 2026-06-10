@@ -191,23 +191,18 @@ export class Preview3D {
             <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                     <span style="font-size:12px; color:#fca5a5; font-weight:600; width: 45px;">Width</span>
-                    <input type="range" id="gizmo-opening-w-range" min="10" max="300" style="flex: 1; accent-color:#fca5a5;">
-                    <input type="number" id="gizmo-opening-w" step="1" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 12px; outline: none; text-align: right;">
+                    <input type="range" id="gizmo-opening-w-range" min="10" max="300" step="1" style="flex: 1; accent-color:#fca5a5;">
+                    <input type="number" id="gizmo-opening-w" step="0.1" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 12px; outline: none; text-align: right;">
                 </div>
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                     <span style="font-size:12px; color:#86efac; font-weight:600; width: 45px;">Height</span>
-                    <input type="range" id="gizmo-opening-h-range" min="10" max="300" style="flex: 1; accent-color:#86efac;">
-                    <input type="number" id="gizmo-opening-h" step="1" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 12px; outline: none; text-align: right;">
+                    <input type="range" id="gizmo-opening-h-range" min="10" max="300" step="1" style="flex: 1; accent-color:#86efac;">
+                    <input type="number" id="gizmo-opening-h" step="0.1" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 12px; outline: none; text-align: right;">
                 </div>
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                     <span style="font-size:12px; color:#93c5fd; font-weight:600; width: 45px;">Elev</span>
-                    <input type="range" id="gizmo-opening-e-range" min="0" max="300" style="flex: 1; accent-color:#93c5fd;">
-                    <input type="number" id="gizmo-opening-e" step="1" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 12px; outline: none; text-align: right;">
-                </div>
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                    <span style="font-size:12px; color:#fde047; font-weight:600; width: 45px;">Pos T</span>
-                    <input type="range" id="gizmo-opening-t-range" min="0" max="100" style="flex: 1; accent-color:#fde047;">
-                    <input type="number" id="gizmo-opening-t" step="1" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 12px; outline: none; text-align: right;">
+                    <input type="range" id="gizmo-opening-e-range" min="0" max="300" step="1" style="flex: 1; accent-color:#93c5fd;">
+                    <input type="number" id="gizmo-opening-e" step="0.1" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 12px; outline: none; text-align: right;">
                 </div>
             </div>
         `;
@@ -286,15 +281,12 @@ export class Preview3D {
             const opHR = document.getElementById('gizmo-opening-h-range');
             const opE = document.getElementById('gizmo-opening-e');
             const opER = document.getElementById('gizmo-opening-e-range');
-            const opT = document.getElementById('gizmo-opening-t');
-            const opTR = document.getElementById('gizmo-opening-t-range');
             const updateOpeningPos = (prop, val) => {
                 if (this.interactions.selectedObject && this.interactions.selectedObject.userData.entity) {
                     const entity = this.interactions.selectedObject.userData.entity;
                     if (prop === 'width') entity.width = val;
                     if (prop === 'height') entity.height = val;
                     if (prop === 'elevation') entity.elevation = val;
-                    if (prop === 't') entity.t = val / 100;
                     
                     if (window.plannerInstance && window.plannerInstance.syncAll) window.plannerInstance.syncAll();
                     if (this.interactions.openingGizmo) this.interactions.openingGizmo.updateHandles();
@@ -305,7 +297,6 @@ export class Preview3D {
             if (opW) { opW.addEventListener('input', e => updateOpeningPos('width', parseFloat(e.target.value))); opWR.addEventListener('input', e => updateOpeningPos('width', parseFloat(e.target.value))); }
             if (opH) { opH.addEventListener('input', e => updateOpeningPos('height', parseFloat(e.target.value))); opHR.addEventListener('input', e => updateOpeningPos('height', parseFloat(e.target.value))); }
             if (opE) { opE.addEventListener('input', e => updateOpeningPos('elevation', parseFloat(e.target.value))); opER.addEventListener('input', e => updateOpeningPos('elevation', parseFloat(e.target.value))); }
-            if (opT) { opT.addEventListener('input', e => updateOpeningPos('t', parseFloat(e.target.value))); opTR.addEventListener('input', e => updateOpeningPos('t', parseFloat(e.target.value))); }
             
         }, 100);
 
@@ -336,16 +327,12 @@ export class Preview3D {
         const opHR = document.getElementById('gizmo-opening-h-range');
         const opE = document.getElementById('gizmo-opening-e');
         const opER = document.getElementById('gizmo-opening-e-range');
-        const opT = document.getElementById('gizmo-opening-t');
-        const opTR = document.getElementById('gizmo-opening-t-range');
         const w = entity.width || 100;
-        let h = entity.height || 200;
-        const e = entity.elevation || 0;
-        const t = (entity.t || 0) * 100;
+        let h = entity.height; if (h === undefined) h = (entity.type === 'door') ? 80 : ((entity.type === 'window') ? 45 : 200);
+        let e = entity.elevation; if (e === undefined) e = (entity.type === 'window') ? 35 : 0;
         if (opW && document.activeElement !== opW) opW.value = w.toFixed(1); if (opWR && document.activeElement !== opWR) opWR.value = w.toFixed(1);
         if (opH && document.activeElement !== opH) opH.value = h.toFixed(1); if (opHR && document.activeElement !== opHR) opHR.value = h.toFixed(1);
         if (opE && document.activeElement !== opE) opE.value = e.toFixed(1); if (opER && document.activeElement !== opER) opER.value = e.toFixed(1);
-        if (opT && document.activeElement !== opT) opT.value = t.toFixed(1); if (opTR && document.activeElement !== opTR) opTR.value = t.toFixed(1);
     }
 
     resize() {
@@ -421,12 +408,6 @@ export class Preview3D {
             // Restore selection highlight when returning to normal view
             if (selectedObj) this.interactions.setHighlight(selectedObj, true);
             
-            if (isOpening && !this.wasOpeningModeActivated) {
-                this.wasOpeningModeActivated = true;
-                this.setTransformMode('opening', true);
-            } else if (!isOpening) {
-                this.wasOpeningModeActivated = false;
-            }
             return;
         }
 

@@ -174,8 +174,9 @@ export class EnvironmentBuilder {
             const h = w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT);
             const t = w.thickness !== undefined ? w.thickness : (w.config?.thickness || 8);
 
+            const wallBottom = -1;
             const wallShape = new THREE.Shape();
-            wallShape.moveTo(0, 0); wallShape.lineTo(length, 0); wallShape.lineTo(length, h); wallShape.lineTo(0, h); wallShape.lineTo(0, 0);
+            wallShape.moveTo(0, wallBottom); wallShape.lineTo(length, wallBottom); wallShape.lineTo(length, h); wallShape.lineTo(0, h); wallShape.lineTo(0, wallBottom);
 
             const extraMeshes = [];
             w.attachedWidgets.forEach(widg => {
@@ -184,10 +185,16 @@ export class EnvironmentBuilder {
                 const type = widg.type || widg.configId;
                 
                 if (type === 'door') {
-                    hole.moveTo(wCenter - halfW, 0); hole.lineTo(wCenter + halfW, 0); hole.lineTo(wCenter + halfW, DOOR_HEIGHT); hole.lineTo(wCenter - halfW, DOOR_HEIGHT); hole.lineTo(wCenter - halfW, 0);
+                    let dh = widg.height !== undefined ? widg.height : DOOR_HEIGHT;
+                    let elev = widg.elevation !== undefined ? widg.elevation : 0;
+                    let cutElev = (elev <= 0.1) ? wallBottom : elev;
+                    hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + dh); hole.lineTo(wCenter - halfW, elev + dh); hole.lineTo(wCenter - halfW, cutElev);
                     hasHole = true;
                 } else if (type === 'window') {
-                    hole.moveTo(wCenter - halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL); hole.lineTo(wCenter + halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL + WINDOW_HEIGHT); hole.lineTo(wCenter - halfW, WINDOW_SILL);
+                    let dh = widg.height !== undefined ? widg.height : WINDOW_HEIGHT;
+                    let elev = widg.elevation !== undefined ? widg.elevation : WINDOW_SILL;
+                    let cutElev = (elev <= 0.1) ? wallBottom : elev;
+                    hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + dh); hole.lineTo(wCenter - halfW, elev + dh); hole.lineTo(wCenter - halfW, cutElev);
                     hasHole = true;
                 } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type)) {
                     let elev = widg.elevation || 0;
@@ -198,29 +205,29 @@ export class EnvironmentBuilder {
                     if (type === 'arch_opening') {
                         const radius = halfW;
                         const straightH = Math.max(0, h_opening - radius);
-                        hole.moveTo(wCenter - halfW, elev);
-                        hole.lineTo(wCenter + halfW, elev);
+                                        hole.moveTo(wCenter - halfW, cutElev);
+                                        hole.lineTo(wCenter + halfW, cutElev);
                         hole.lineTo(wCenter + halfW, elev + straightH);
                         if (radius > 0) hole.absarc(wCenter, elev + straightH, radius, 0, Math.PI, false);
-                        hole.lineTo(wCenter - halfW, elev);
+                                        hole.lineTo(wCenter - halfW, cutElev);
                         hasHole = true;
                     } else if (type === 'circular_opening') {
                         hole.moveTo(wCenter + halfW, elev + h_opening / 2);
                         hole.absellipse(wCenter, elev + h_opening / 2, halfW, h_opening / 2, 0, Math.PI * 2, false, 0);
                         hasHole = true;
                     } else if (type === 'custom_shape_opening') {
-                        hole.moveTo(wCenter, elev);
+                                        hole.moveTo(wCenter, cutElev);
                         hole.lineTo(wCenter + halfW, elev + h_opening / 2);
                         hole.lineTo(wCenter, elev + h_opening);
                         hole.lineTo(wCenter - halfW, elev + h_opening / 2);
-                        hole.lineTo(wCenter, elev);
+                                        hole.lineTo(wCenter, cutElev);
                         hasHole = true;
                     } else if (type === 'pattern_opening') {
-                        hole.moveTo(wCenter - halfW, elev);
-                        hole.lineTo(wCenter + halfW, elev);
+                                        hole.moveTo(wCenter - halfW, cutElev);
+                                        hole.lineTo(wCenter + halfW, cutElev);
                         hole.lineTo(wCenter + halfW, elev + h_opening);
                         hole.lineTo(wCenter - halfW, elev + h_opening);
-                        hole.lineTo(wCenter - halfW, elev);
+                                        hole.lineTo(wCenter - halfW, cutElev);
                         hasHole = true;
 
                         const patternShape = new THREE.Shape();
@@ -289,7 +296,7 @@ export class EnvironmentBuilder {
                         if (this.ctx.viewMode3D !== 'preview') this.ctx.interactables.push(hitBox);
 
                     } else {
-                        hole.moveTo(wCenter - halfW, elev); hole.lineTo(wCenter + halfW, elev); hole.lineTo(wCenter + halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev);
+                    hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev + h_opening); hole.lineTo(wCenter - halfW, cutElev);
                         hasHole = true;
                     }
 
@@ -787,8 +794,9 @@ export class EnvironmentBuilder {
                         
                         const totalH = w.type === 'railing' ? h + 40 : h;
                         const startY = (w.type === 'railing' && underlyingWall && h > 0) ? h : 0;
+                        const wallBottom = w.type === 'railing' ? startY : -1;
                         const wallShape = new THREE.Shape();
-                        wallShape.moveTo(0, startY); wallShape.lineTo(length, startY); wallShape.lineTo(length, totalH); wallShape.lineTo(0, totalH); wallShape.lineTo(0, startY);
+                        wallShape.moveTo(0, wallBottom); wallShape.lineTo(length, wallBottom); wallShape.lineTo(length, totalH); wallShape.lineTo(0, totalH); wallShape.lineTo(0, wallBottom);
                         
                         const extraMeshes = [];
                         if (w.attachedWidgets) {
@@ -799,13 +807,18 @@ export class EnvironmentBuilder {
                                 const type = widg.type || widg.configId;
                                 
                                 if (type === 'door') {
-                                    const dh = Math.min(DOOR_HEIGHT, maxH);
-                                    hole.moveTo(wCenter - halfW, 0); hole.lineTo(wCenter + halfW, 0); hole.lineTo(wCenter + halfW, dh); hole.lineTo(wCenter - halfW, dh); hole.lineTo(wCenter - halfW, 0);
+                                    let dh = widg.height !== undefined ? widg.height : DOOR_HEIGHT;
+                                    let elev = widg.elevation !== undefined ? widg.elevation : 0;
+                                    dh = Math.min(dh, maxH - elev);
+                                    let cutElev = (elev <= 0.1) ? wallBottom : elev;
+                                    hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + dh); hole.lineTo(wCenter - halfW, elev + dh); hole.lineTo(wCenter - halfW, cutElev);
                                     hasHole = true;
                                 } else if (type === 'window') {
-                                    const ws = Math.min(WINDOW_SILL, maxH);
-                                    const wh = Math.min(WINDOW_SILL + WINDOW_HEIGHT, maxH);
-                                    hole.moveTo(wCenter - halfW, ws); hole.lineTo(wCenter + halfW, ws); hole.lineTo(wCenter + halfW, wh); hole.lineTo(wCenter - halfW, wh); hole.lineTo(wCenter - halfW, ws);
+                                    let dh = widg.height !== undefined ? widg.height : WINDOW_HEIGHT;
+                                    let elev = widg.elevation !== undefined ? widg.elevation : WINDOW_SILL;
+                                    dh = Math.min(dh, maxH - elev);
+                                    let cutElev = (elev <= 0.1) ? wallBottom : elev;
+                                    hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + dh); hole.lineTo(wCenter - halfW, elev + dh); hole.lineTo(wCenter - halfW, cutElev);
                                     hasHole = true;
                                 } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type)) {
                                     let elev = widg.elevation || 0;
@@ -906,7 +919,7 @@ export class EnvironmentBuilder {
                                             if (!isPreview) this.ctx.interactables.push(hitBox);
 
                                         } else {
-                                            hole.moveTo(wCenter - halfW, elev); hole.lineTo(wCenter + halfW, elev); hole.lineTo(wCenter + halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev);
+                                        hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev + h_opening); hole.lineTo(wCenter - halfW, cutElev);
                                             hasHole = true;
                                         }
                                         

@@ -283,17 +283,26 @@ export const WIDGET_REGISTRY = {
             }
         },
         render3D: (sceneGroup, entity, helpers) => {
-            const doorGroup = new THREE.Group(); doorGroup.position.set(entity.x, 0, entity.z); doorGroup.rotation.y = -entity.angle;
+            let elev = entity.elevation; if (elev === undefined) elev = 0;
+            let height = entity.height; if (height === undefined) height = DOOR_HEIGHT;
+            const doorGroup = new THREE.Group(); doorGroup.position.set(entity.x, elev, entity.z); doorGroup.rotation.y = -entity.angle;
             const matDoor = helpers.getDynamicMaterial(entity.doorMat, 'door'); const conf = DOOR_MATERIALS[entity.doorMat] || DOOR_MATERIALS.wood; const frameColorHex = new THREE.Color(conf.color).multiplyScalar(0.85);
             const matFrame = new THREE.MeshStandardMaterial({ color: frameColorHex, roughness: conf.roughness, metalness: conf.metalness, map: matDoor.map, bumpMap: matDoor.bumpMap, bumpScale: conf.bumpScale });
             const metalMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8, roughness: 0.2 });
             const isGlassDoor = entity.doorMat === 'glass'; const frameWidth = 1.5; const frameThick = entity.thick + 1; const doorThick = 2.0; const gapSide = 0.15; const gapTop = 0.15; const gapBottom = 0.5; 
-            const leafWidth = entity.width - (frameWidth * 2) - (gapSide * 2); const leafHeight = DOOR_HEIGHT - frameWidth - gapTop - gapBottom;
+            const leafWidth = entity.width - (frameWidth * 2) - (gapSide * 2); const leafHeight = height - frameWidth - gapTop - gapBottom;
             const openAngle = (Math.PI / 4) * (entity.facing === 1 ? 1 : -1); const pivotXOffset = -entity.width/2 + frameWidth + gapSide/2; const hingePinZ = 0; 
+            
+            const thresholdGeo = new THREE.BoxGeometry(entity.width, 0.4, (entity.thick || 20) + 0.5);
+            const threshold = new THREE.Mesh(thresholdGeo, matFrame);
+            threshold.position.set(0, 0.2, 0);
+            threshold.receiveShadow = true; threshold.castShadow = true;
+            doorGroup.add(threshold);
+            
             if (entity.doorType !== 'pocket') { 
-                const jamGeo = new THREE.BoxGeometry(frameWidth, DOOR_HEIGHT, frameThick); const jamL = new THREE.Mesh(jamGeo, matFrame); jamL.position.set(-entity.width/2 + frameWidth/2, DOOR_HEIGHT/2, 0); const jamR = new THREE.Mesh(jamGeo, matFrame); jamR.position.set(entity.width/2 - frameWidth/2, DOOR_HEIGHT/2, 0); const jamT = new THREE.Mesh(new THREE.BoxGeometry(entity.width, frameWidth, frameThick), matFrame); jamT.position.set(0, DOOR_HEIGHT - frameWidth/2, 0);
-                const trimStile = new THREE.BoxGeometry(4, DOOR_HEIGHT + 2, 0.5); const trimRail = new THREE.BoxGeometry(entity.width + 8, 4, 0.5);
-                [-frameThick/2 - 0.25, frameThick/2 + 0.25].forEach(zOff => { const tL = new THREE.Mesh(trimStile, matFrame); tL.position.set(-entity.width/2 - 2 + frameWidth, DOOR_HEIGHT/2 + 1, zOff); const tR = new THREE.Mesh(trimStile, matFrame); tR.position.set(entity.width/2 + 2 - frameWidth, DOOR_HEIGHT/2 + 1, zOff); const tT = new THREE.Mesh(trimRail, matFrame); tT.position.set(0, DOOR_HEIGHT + 2, zOff); [tL, tR, tT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); }); });
+                const jamGeo = new THREE.BoxGeometry(frameWidth, height, frameThick); const jamL = new THREE.Mesh(jamGeo, matFrame); jamL.position.set(-entity.width/2 + frameWidth/2, height/2, 0); const jamR = new THREE.Mesh(jamGeo, matFrame); jamR.position.set(entity.width/2 - frameWidth/2, height/2, 0); const jamT = new THREE.Mesh(new THREE.BoxGeometry(entity.width, frameWidth, frameThick), matFrame); jamT.position.set(0, height - frameWidth/2, 0);
+                const trimStile = new THREE.BoxGeometry(4, height + 2, 0.5); const trimRail = new THREE.BoxGeometry(entity.width + 8, 4, 0.5);
+                [-frameThick/2 - 0.25, frameThick/2 + 0.25].forEach(zOff => { const tL = new THREE.Mesh(trimStile, matFrame); tL.position.set(-entity.width/2 - 2 + frameWidth, height/2 + 1, zOff); const tR = new THREE.Mesh(trimStile, matFrame); tR.position.set(entity.width/2 + 2 - frameWidth, height/2 + 1, zOff); const tT = new THREE.Mesh(trimRail, matFrame); tT.position.set(0, height + 2, zOff); [tL, tR, tT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); }); });
                 [jamL, jamR, jamT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); });
             }
             if (entity.doorType === 'single') {
@@ -308,7 +317,7 @@ export const WIDGET_REGISTRY = {
                 doorGroup.add(hL, hR);
             } else if (entity.doorType === 'sliding' || entity.doorType === 'double_sliding') {
                 const trackMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.6, roughness: 0.5 }); const trackW = doorThick * 2.5; const trackGeo = new THREE.BoxGeometry(leafWidth, 0.5, trackW); 
-                const trackT = new THREE.Mesh(trackGeo, trackMat); trackT.position.set(0, DOOR_HEIGHT - frameWidth - 0.25, 0); const trackB = new THREE.Mesh(trackGeo, trackMat); trackB.position.set(0, gapBottom - 0.25, 0); doorGroup.add(trackT, trackB);
+                const trackT = new THREE.Mesh(trackGeo, trackMat); trackT.position.set(0, height - frameWidth - 0.25, 0); const trackB = new THREE.Mesh(trackGeo, trackMat); trackB.position.set(0, gapBottom - 0.25, 0); doorGroup.add(trackT, trackB);
                 const overlap = 2; 
                 if (entity.doorType === 'sliding') {
                     const hw = (leafWidth / 2) + (overlap / 2);
@@ -324,14 +333,14 @@ export const WIDGET_REGISTRY = {
                     doorGroup.add(pFixL, pFixR, pSlideL, pSlideR);
                 }
             } else if (entity.doorType === 'pocket') {
-                const jamL = new THREE.Mesh(new THREE.BoxGeometry(frameWidth, DOOR_HEIGHT, frameThick), matFrame); jamL.position.set(-entity.width/2 + frameWidth/2, DOOR_HEIGHT/2, 0); doorGroup.add(jamL);
+                const jamL = new THREE.Mesh(new THREE.BoxGeometry(frameWidth, height, frameThick), matFrame); jamL.position.set(-entity.width/2 + frameWidth/2, height/2, 0); doorGroup.add(jamL);
                 const p = buildDetailedDoorPanel(leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); p.position.set(pivotXOffset - leafWidth * 0.4, gapBottom, 0); doorGroup.add(p);
             } else if (entity.doorType === 'pivot') {
                 const p = buildDetailedDoorPanel(leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); const off = leafWidth * 0.15; p.position.set(leafWidth/2 - off, gapBottom, 0);
                 const pivot = new THREE.Group(); const signX = entity.side === 1 ? 1 : -1; pivot.position.set(pivotXOffset + off, 0, 0); pivot.rotation.y = -openAngle * 1.2 * signX; pivot.add(p);
-                const plateGeo = new THREE.CylinderGeometry(1.5, 1.5, 0.5, 16); const floorPlate = new THREE.Mesh(plateGeo, metalMat); floorPlate.position.set(pivotXOffset + off, 0.2, 0); const topPlate = new THREE.Mesh(plateGeo, metalMat); topPlate.position.set(pivotXOffset + off, DOOR_HEIGHT - 0.2, 0); doorGroup.add(pivot, floorPlate, topPlate);
+                const plateGeo = new THREE.CylinderGeometry(1.5, 1.5, 0.5, 16); const floorPlate = new THREE.Mesh(plateGeo, metalMat); floorPlate.position.set(pivotXOffset + off, 0.2, 0); const topPlate = new THREE.Mesh(plateGeo, metalMat); topPlate.position.set(pivotXOffset + off, height - 0.2, 0); doorGroup.add(pivot, floorPlate, topPlate);
             } else if (entity.doorType === 'folding') {
-                const trackGeo = new THREE.BoxGeometry(entity.width - frameWidth*2, 1.5, doorThick + 1); const track = new THREE.Mesh(trackGeo, metalMat); track.position.set(0, DOOR_HEIGHT - frameWidth/2 - 0.75, 0); doorGroup.add(track);
+                const trackGeo = new THREE.BoxGeometry(entity.width - frameWidth*2, 1.5, doorThick + 1); const track = new THREE.Mesh(trackGeo, metalMat); track.position.set(0, height - frameWidth/2 - 0.75, 0); doorGroup.add(track);
                 const panelW = leafWidth / 2 - gapSide/2; const foldAngleBase = Math.PI / 4.5; 
                 const isRightHinge = entity.side === 1; const signX = isRightHinge ? 1 : -1; const startX = isRightHinge ? -pivotXOffset : pivotXOffset; const swingDir = entity.facing === 1 ? 1 : -1; 
                 const pivot1 = new THREE.Group(); pivot1.position.set(startX, gapBottom, hingePinZ * swingDir); pivot1.rotation.y = -foldAngleBase * swingDir * signX;
@@ -341,9 +350,9 @@ export const WIDGET_REGISTRY = {
                 const jointHingeGeo = new THREE.CylinderGeometry(0.3, 0.3, 3, 12); [leafHeight * 0.85, leafHeight * 0.5, leafHeight * 0.15].forEach(yPos => { const hingeMesh = new THREE.Mesh(jointHingeGeo, metalMat); hingeMesh.position.set(0, yPos, (doorThick/2 + 0.1) * swingDir); pivot2.add(hingeMesh); });
                 const guidePin = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 3, 8), metalMat); guidePin.position.set((panelW - 2) * -signX, leafHeight, 0); p2.add(guidePin); p1.add(pivot2); doorGroup.add(pivot1);
             }
-            const hitboxGeo = new THREE.BoxGeometry(entity.width + 10, DOOR_HEIGHT + 10, (entity.thick || 20) + 10);
+            const hitboxGeo = new THREE.BoxGeometry(entity.width + 10, height + 10, (entity.thick || 20) + 10);
             const hitbox = new THREE.Mesh(hitboxGeo, new THREE.MeshBasicMaterial({transparent: true, opacity: 0, depthWrite: false}));
-            hitbox.position.set(0, DOOR_HEIGHT/2, 0);
+            hitbox.position.set(0, height/2, 0);
             doorGroup.add(hitbox);
             doorGroup.userData = { isWidget: true, entity: entity };
             sceneGroup.add(doorGroup);
@@ -363,16 +372,18 @@ export const WIDGET_REGISTRY = {
             if (entity.grillePattern !== 'none') { group.add(new Konva.Line({ points: [-hw, thick*0.4, hw, thick*0.4], stroke: '#ef4444', dash: [2,2] })); }
         },
         render3D: (sceneGroup, entity, helpers) => {
-            const winGroup = new THREE.Group(); winGroup.position.set(entity.x, WINDOW_SILL, entity.z); winGroup.rotation.y = -entity.angle;
+            let elev = entity.elevation; if (elev === undefined) elev = WINDOW_SILL;
+            let height = entity.height; if (height === undefined) height = WINDOW_HEIGHT;
+            const winGroup = new THREE.Group(); winGroup.position.set(entity.x, elev, entity.z); winGroup.rotation.y = -entity.angle;
             const wConf = WINDOW_TYPES[entity.windowType] || WINDOW_TYPES.sliding_std;
             const matFrame = helpers.getDynamicMaterial(entity.frameMat, 'window_frame'); const matGlass = helpers.getDynamicMaterial(entity.glassMat, 'window_glass');
             const isTrad = wConf.type === 'traditional'; const isBay = wConf.type === 'bay'; const fW = isTrad ? 5 : 3; const fThick = entity.thick + (isTrad ? 4 : 1); const zOffset = isBay ? 12 : 0; 
             const matGrille = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8, roughness: 0.2 }); const matConcrete = new THREE.MeshStandardMaterial({ color: 0xd4d4d4, roughness: 1.0 });
-            const outStile = new THREE.BoxGeometry(fW, WINDOW_HEIGHT, fThick); const outRail = new THREE.BoxGeometry(entity.width - fW*2, fW, fThick);
-            const sl = new THREE.Mesh(outStile, matFrame); sl.position.set(-entity.width/2 + fW/2, WINDOW_HEIGHT/2, zOffset); const sr = new THREE.Mesh(outStile, matFrame); sr.position.set(entity.width/2 - fW/2, WINDOW_HEIGHT/2, zOffset);
-            const rt = new THREE.Mesh(outRail, matFrame); rt.position.set(0, WINDOW_HEIGHT - fW/2, zOffset); const rb = new THREE.Mesh(outRail, matFrame); rb.position.set(0, fW/2, zOffset);
+            const outStile = new THREE.BoxGeometry(fW, height, fThick); const outRail = new THREE.BoxGeometry(entity.width - fW*2, fW, fThick);
+            const sl = new THREE.Mesh(outStile, matFrame); sl.position.set(-entity.width/2 + fW/2, height/2, zOffset); const sr = new THREE.Mesh(outStile, matFrame); sr.position.set(entity.width/2 - fW/2, height/2, zOffset);
+            const rt = new THREE.Mesh(outRail, matFrame); rt.position.set(0, height - fW/2, zOffset); const rb = new THREE.Mesh(outRail, matFrame); rb.position.set(0, fW/2, zOffset);
             [sl, sr, rt, rb].forEach(m => { m.castShadow = true; m.receiveShadow = true; winGroup.add(m); });
-            const iW = entity.width - fW*2; const iH = WINDOW_HEIGHT - fW*2; const sThick = entity.thick * 0.6;
+            const iW = entity.width - fW*2; const iH = height - fW*2; const sThick = entity.thick * 0.6;
             const makeSash = (w, h, useGlass=true) => {
                 const sG = new THREE.Group(); const sFw = isTrad ? 4 : 2.5; const geoS = new THREE.BoxGeometry(sFw, h, sThick); const geoR = new THREE.BoxGeometry(w - sFw*2, sFw, sThick);
                 const s1 = new THREE.Mesh(geoS, matFrame); s1.position.set(-w/2 + sFw/2, h/2, 0); const s2 = new THREE.Mesh(geoS, matFrame); s2.position.set(w/2 - sFw/2, h/2, 0);
@@ -396,20 +407,20 @@ export const WIDGET_REGISTRY = {
                 const sideW = Math.hypot(iW*0.2, zOffset); const sideAng = Math.atan2(zOffset, iW*0.2);
                 const sL = makeSash(sideW, iH); sL.position.set(-iW/2 + (iW*0.2)/2, fW, zOffset/2); sL.rotation.y = -sideAng; winGroup.add(sL); const sR = makeSash(sideW, iH); sR.position.set(iW/2 - (iW*0.2)/2, fW, zOffset/2); sR.rotation.y = sideAng; winGroup.add(sR);
                 const capShape = new THREE.Shape(); capShape.moveTo(-iW/2 - fW, 0); capShape.lineTo(iW/2 + fW, 0); capShape.lineTo(frontW/2 + fW, zOffset + fThick/2); capShape.lineTo(-frontW/2 - fW, zOffset + fThick/2);
-                const capGeo = new THREE.ExtrudeGeometry(capShape, {depth: fW, bevelEnabled:false}); capGeo.rotateX(Math.PI/2); const capT = new THREE.Mesh(capGeo, matFrame); capT.position.set(0, WINDOW_HEIGHT, 0); const capB = new THREE.Mesh(capGeo, matFrame); capB.position.set(0, fW, 0); winGroup.add(capT, capB);
+                const capGeo = new THREE.ExtrudeGeometry(capShape, {depth: fW, bevelEnabled:false}); capGeo.rotateX(Math.PI/2); const capT = new THREE.Mesh(capGeo, matFrame); capT.position.set(0, height, 0); const capB = new THREE.Mesh(capGeo, matFrame); capB.position.set(0, fW, 0); winGroup.add(capT, capB);
             }
             if (entity.grillePattern && entity.grillePattern !== 'none') {
                 const grilleGroup = new THREE.Group(); const grilleZ = entity.facing === 1 ? fThick/2 - 0.5 : -fThick/2 + 0.5; grilleGroup.position.set(0, 0, grilleZ); const barRadius = 0.3;
-                const makeVBar = (x) => { const b = new THREE.Mesh(new THREE.CylinderGeometry(barRadius, barRadius, iH + 2, 8), matGrille); b.position.set(x, WINDOW_HEIGHT/2, 0); return b; }; const makeHBar = (y) => { const b = new THREE.Mesh(new THREE.CylinderGeometry(barRadius, barRadius, iW + 2, 8), matGrille); b.rotation.z = Math.PI/2; b.position.set(0, y, 0); return b; };
+                const makeVBar = (x) => { const b = new THREE.Mesh(new THREE.CylinderGeometry(barRadius, barRadius, iH + 2, 8), matGrille); b.position.set(x, height/2, 0); return b; }; const makeHBar = (y) => { const b = new THREE.Mesh(new THREE.CylinderGeometry(barRadius, barRadius, iW + 2, 8), matGrille); b.rotation.z = Math.PI/2; b.position.set(0, y, 0); return b; };
                 if (entity.grillePattern === 'vertical' || entity.grillePattern === 'grid') { for (let i = -iW/2 + 5; i < iW/2; i += 5) { grilleGroup.add(makeVBar(i)); } }
-                if (entity.grillePattern === 'horizontal' || entity.grillePattern === 'grid') { for (let j = fW + 6; j < WINDOW_HEIGHT - fW; j += 6) { grilleGroup.add(makeHBar(j)); } }
-                if (entity.grillePattern === 'diamond') { const dGroup = new THREE.Group(); const maxDim = Math.max(iW, iH) * 1.5; for (let i = -maxDim/2; i <= maxDim/2; i += 6) { const v = new THREE.Mesh(new THREE.CylinderGeometry(barRadius, barRadius, maxDim, 8), matGrille); v.position.set(i, 0, 0); dGroup.add(v); const h = new THREE.Mesh(new THREE.CylinderGeometry(barRadius, barRadius, maxDim, 8), matGrille); h.rotation.z = Math.PI/2; h.position.set(0, i, 0); dGroup.add(h); } dGroup.rotation.z = Math.PI / 4; dGroup.position.set(0, WINDOW_HEIGHT/2, 0); grilleGroup.add(dGroup); }
+                if (entity.grillePattern === 'horizontal' || entity.grillePattern === 'grid') { for (let j = fW + 6; j < height - fW; j += 6) { grilleGroup.add(makeHBar(j)); } }
+                if (entity.grillePattern === 'diamond') { const dGroup = new THREE.Group(); const maxDim = Math.max(iW, iH) * 1.5; for (let i = -maxDim/2; i <= maxDim/2; i += 6) { const v = new THREE.Mesh(new THREE.CylinderGeometry(barRadius, barRadius, maxDim, 8), matGrille); v.position.set(i, 0, 0); dGroup.add(v); const h = new THREE.Mesh(new THREE.CylinderGeometry(barRadius, barRadius, maxDim, 8), matGrille); h.rotation.z = Math.PI/2; h.position.set(0, i, 0); dGroup.add(h); } dGroup.rotation.z = Math.PI / 4; dGroup.position.set(0, height/2, 0); grilleGroup.add(dGroup); }
                 winGroup.add(grilleGroup);
             }
-            if (wConf.hasChajja) { const chajjaDepth = 15; const chajjaHeight = 2; const chajjaGeo = new THREE.BoxGeometry(entity.width + 10, chajjaHeight, chajjaDepth); const chajja = new THREE.Mesh(chajjaGeo, matConcrete); const cZ = entity.facing === 1 ? chajjaDepth/2 : -chajjaDepth/2; chajja.position.set(0, WINDOW_HEIGHT + chajjaHeight/2, cZ); chajja.castShadow = true; winGroup.add(chajja); }
-            const hitboxGeo = new THREE.BoxGeometry(entity.width + 10, WINDOW_HEIGHT + 10, (entity.thick || 20) + 10);
+            if (wConf.hasChajja) { const chajjaDepth = 15; const chajjaHeight = 2; const chajjaGeo = new THREE.BoxGeometry(entity.width + 10, chajjaHeight, chajjaDepth); const chajja = new THREE.Mesh(chajjaGeo, matConcrete); const cZ = entity.facing === 1 ? chajjaDepth/2 : -chajjaDepth/2; chajja.position.set(0, height + chajjaHeight/2, cZ); chajja.castShadow = true; winGroup.add(chajja); }
+            const hitboxGeo = new THREE.BoxGeometry(entity.width + 10, height + 10, (entity.thick || 20) + 10);
             const hitbox = new THREE.Mesh(hitboxGeo, new THREE.MeshBasicMaterial({transparent: true, opacity: 0, depthWrite: false}));
-            hitbox.position.set(0, WINDOW_HEIGHT/2, 0);
+            hitbox.position.set(0, height/2, 0);
             winGroup.add(hitbox);
             winGroup.userData = { isWidget: true, entity: entity };
             sceneGroup.add(winGroup);
