@@ -1370,6 +1370,9 @@ onMounted(() => {
 
     window.addEventListener('keydown', handleGlobalKeys);
     
+    window.addEventListener('opening-gizmo-change', throttledSyncEngine);
+    window.addEventListener('opening-gizmo-end', syncEngine);
+
     setTimeout(() => {
         saveHistory();
     }, 500);
@@ -1378,6 +1381,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
     window.removeEventListener('resize', handleResize);
     window.removeEventListener('keydown', handleGlobalKeys);
+    window.removeEventListener('opening-gizmo-change', throttledSyncEngine);
+    window.removeEventListener('opening-gizmo-end', syncEngine);
 });
 
 const handleGlobalKeys = (e) => {
@@ -1597,6 +1602,15 @@ const syncEngine = () => {
     debouncedSaveHistory();
 };
 
+let gizmoSyncTimeout = null;
+const throttledSyncEngine = () => {
+    if (gizmoSyncTimeout) return;
+    gizmoSyncTimeout = setTimeout(() => {
+        syncEngine();
+        gizmoSyncTimeout = null;
+    }, 50);
+};
+
 const setRoofMaterial = (key) => {
     if (selectedEntity.value && selectedType.value === 'roof') {
         selectedEntity.value.config.material = key;
@@ -1741,9 +1755,11 @@ const handleDeleteSpecificDecor = (decorObj) => {
 const refresh3DScene = (preserveCamera = true) => {
     if (renderer3D.value) {
         isRebuilding.value = true;
+        renderer3D.value.isRebuildingScene = true;
         const prevSel = selectedEntity.value;
         const prevType = selectedType.value;
         const prevSide = selectedWallSide.value;
+        const prevMode = renderer3D.value.currentTransformMode;
         
         saveCurrentLevelState(); 
         const levelsConfigArray = levels.value.map(l => ({ data: l.data, isVisible: l.isVisible !== false }));
@@ -1775,8 +1791,16 @@ const refresh3DScene = (preserveCamera = true) => {
             });
             if (newMesh) {
                 renderer3D.value.selectObject(newMesh);
+                if (prevMode && prevMode !== 'none') {
+                    renderer3D.value.setTransformMode(prevMode, true);
+                }
+            }
+            else {
+                renderer3D.value.isRebuildingScene = false;
+                renderer3D.value.showTransformMenu(false);
             }
         }
+        renderer3D.value.isRebuildingScene = false;
         
         if (workspaceControls.value) {
             workspaceControls.value.updateCameraBounds();

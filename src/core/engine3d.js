@@ -158,6 +158,63 @@ export class Preview3D {
         this.btnRotY.style.left = '90px';
         this.btnRotY.onclick = () => this.setTransformMode('rotateY');
 
+        this.btnOpening = document.createElement('button');
+        this.btnOpening.className = 'transform-menu-btn';
+        this.btnOpening.innerHTML = '✂️<br>Opening';
+        this.btnOpening.style.top = '-30px';
+        this.btnOpening.style.left = '90px';
+        this.btnOpening.style.display = 'none';
+        this.btnOpening.onclick = () => this.setTransformMode('opening');
+        
+        this.openingPanel = document.createElement('div');
+        this.openingPanel.style.display = 'none';
+        this.openingPanel.style.position = 'absolute';
+        this.openingPanel.style.top = '-160px';
+        this.openingPanel.style.left = '50%';
+        this.openingPanel.style.transform = 'translateX(-50%)';
+        this.openingPanel.style.background = 'rgba(15, 23, 42, 0.9)';
+        this.openingPanel.style.padding = '12px 16px';
+        this.openingPanel.style.borderRadius = '12px';
+        this.openingPanel.style.color = 'white';
+        this.openingPanel.style.pointerEvents = 'auto';
+        this.openingPanel.style.boxShadow = '0 8px 32px rgba(0,0,0,0.5)';
+        this.openingPanel.style.border = '1px solid rgba(255,255,255,0.15)';
+        this.openingPanel.style.backdropFilter = 'blur(8px)';
+        this.openingPanel.style.zIndex = '1000';
+        this.openingPanel.style.flexDirection = 'column';
+        this.openingPanel.style.gap = '10px';
+        this.openingPanel.style.width = '240px';
+        this.openingPanel.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+                <span style="font-size: 11px; font-weight: 800; color: #94a3b8; letter-spacing: 0.5px;">OPENING CONTROLS</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <span style="font-size:12px; color:#fca5a5; font-weight:600; width: 45px;">Width</span>
+                    <input type="range" id="gizmo-opening-w-range" min="10" max="300" style="flex: 1; accent-color:#fca5a5;">
+                    <input type="number" id="gizmo-opening-w" step="1" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 12px; outline: none; text-align: right;">
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <span style="font-size:12px; color:#86efac; font-weight:600; width: 45px;">Height</span>
+                    <input type="range" id="gizmo-opening-h-range" min="10" max="300" style="flex: 1; accent-color:#86efac;">
+                    <input type="number" id="gizmo-opening-h" step="1" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 12px; outline: none; text-align: right;">
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <span style="font-size:12px; color:#93c5fd; font-weight:600; width: 45px;">Elev</span>
+                    <input type="range" id="gizmo-opening-e-range" min="0" max="300" style="flex: 1; accent-color:#93c5fd;">
+                    <input type="number" id="gizmo-opening-e" step="1" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 12px; outline: none; text-align: right;">
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <span style="font-size:12px; color:#fde047; font-weight:600; width: 45px;">Pos T</span>
+                    <input type="range" id="gizmo-opening-t-range" min="0" max="100" style="flex: 1; accent-color:#fde047;">
+                    <input type="number" id="gizmo-opening-t" step="1" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 12px; outline: none; text-align: right;">
+                </div>
+            </div>
+        `;
+        this.openingPanel.addEventListener('pointerdown', e => e.stopPropagation());
+        this.transformMenu.appendChild(this.openingPanel);
+        this.transformMenu.appendChild(this.btnOpening);
+
         this.btnDone = document.createElement('button');
         this.btnDone.className = 'transform-menu-btn done-btn';
         this.btnDone.innerHTML = '✓<br>Done';
@@ -222,6 +279,34 @@ export class Preview3D {
                 this.inputZ.addEventListener('input', updatePos);
                 this.inputZ.addEventListener('keydown', (e) => { e.stopPropagation(); });
             }
+            
+            const opW = document.getElementById('gizmo-opening-w');
+            const opWR = document.getElementById('gizmo-opening-w-range');
+            const opH = document.getElementById('gizmo-opening-h');
+            const opHR = document.getElementById('gizmo-opening-h-range');
+            const opE = document.getElementById('gizmo-opening-e');
+            const opER = document.getElementById('gizmo-opening-e-range');
+            const opT = document.getElementById('gizmo-opening-t');
+            const opTR = document.getElementById('gizmo-opening-t-range');
+            const updateOpeningPos = (prop, val) => {
+                if (this.interactions.selectedObject && this.interactions.selectedObject.userData.entity) {
+                    const entity = this.interactions.selectedObject.userData.entity;
+                    if (prop === 'width') entity.width = val;
+                    if (prop === 'height') entity.height = val;
+                    if (prop === 'elevation') entity.elevation = val;
+                    if (prop === 't') entity.t = val / 100;
+                    
+                    if (window.plannerInstance && window.plannerInstance.syncAll) window.plannerInstance.syncAll();
+                    if (this.interactions.openingGizmo) this.interactions.openingGizmo.updateHandles();
+                    this.updateOpeningPanel(entity);
+                    window.dispatchEvent(new CustomEvent('opening-gizmo-change', { detail: { entity }}));
+                }
+            };
+            if (opW) { opW.addEventListener('input', e => updateOpeningPos('width', parseFloat(e.target.value))); opWR.addEventListener('input', e => updateOpeningPos('width', parseFloat(e.target.value))); }
+            if (opH) { opH.addEventListener('input', e => updateOpeningPos('height', parseFloat(e.target.value))); opHR.addEventListener('input', e => updateOpeningPos('height', parseFloat(e.target.value))); }
+            if (opE) { opE.addEventListener('input', e => updateOpeningPos('elevation', parseFloat(e.target.value))); opER.addEventListener('input', e => updateOpeningPos('elevation', parseFloat(e.target.value))); }
+            if (opT) { opT.addEventListener('input', e => updateOpeningPos('t', parseFloat(e.target.value))); opTR.addEventListener('input', e => updateOpeningPos('t', parseFloat(e.target.value))); }
+            
         }, 100);
 
         this.interactions.transformControls.addEventListener('change', () => {
@@ -243,6 +328,26 @@ export class Preview3D {
         this.animate();
     }
 
+    updateOpeningPanel(entity) {
+        if (!entity) return;
+        const opW = document.getElementById('gizmo-opening-w');
+        const opWR = document.getElementById('gizmo-opening-w-range');
+        const opH = document.getElementById('gizmo-opening-h');
+        const opHR = document.getElementById('gizmo-opening-h-range');
+        const opE = document.getElementById('gizmo-opening-e');
+        const opER = document.getElementById('gizmo-opening-e-range');
+        const opT = document.getElementById('gizmo-opening-t');
+        const opTR = document.getElementById('gizmo-opening-t-range');
+        const w = entity.width || 100;
+        let h = entity.height || 200;
+        const e = entity.elevation || 0;
+        const t = (entity.t || 0) * 100;
+        if (opW && document.activeElement !== opW) opW.value = w.toFixed(1); if (opWR && document.activeElement !== opWR) opWR.value = w.toFixed(1);
+        if (opH && document.activeElement !== opH) opH.value = h.toFixed(1); if (opHR && document.activeElement !== opHR) opHR.value = h.toFixed(1);
+        if (opE && document.activeElement !== opE) opE.value = e.toFixed(1); if (opER && document.activeElement !== opER) opER.value = e.toFixed(1);
+        if (opT && document.activeElement !== opT) opT.value = t.toFixed(1); if (opTR && document.activeElement !== opTR) opTR.value = t.toFixed(1);
+    }
+
     resize() {
         if (this.container.style.display !== 'none') { 
             const w = this.container.clientWidth > 0 ? this.container.clientWidth : window.innerWidth; 
@@ -261,24 +366,26 @@ export class Preview3D {
     }
 
     showTransformMenu(visible) {
+        if (this.isRebuildingScene) return;
         if (this.transformMenu) {
+            if (this.menuVisible === visible) return;
             this.menuVisible = visible;
             if (!visible) {
                 this.transformMenu.style.display = 'none';
-                this.setTransformMode('none');
+                this.setTransformMode('none', true);
             } else {
                 this.transformMenu.style.display = 'block';
-                this.setTransformMode('none'); // default hidden until explicitly selected
+                this.setTransformMode('none', true); // default hidden until explicitly selected
             }
         }
     }
 
-    setTransformMode(mode) {
+    setTransformMode(mode, force = false) {
         if (!this.interactions.transformControls) return;
         const tc = this.interactions.transformControls;
         const selectedObj = this.interactions.selectedObject;
         
-        if (this.currentTransformMode === mode && mode !== 'none') {
+        if (!force && this.currentTransformMode === mode && mode !== 'none') {
             mode = 'none';
         }
         this.currentTransformMode = mode;
@@ -288,22 +395,38 @@ export class Preview3D {
         if (this.btnScale) this.btnScale.classList.remove('active');
         this.btnRotX.classList.remove('active');
         this.btnRotY.classList.remove('active');
+        if (this.btnOpening) this.btnOpening.classList.remove('active');
+
+        if (this.interactions.openingGizmo) {
+            this.interactions.openingGizmo.detach();
+        }
+
+        const isOpening = selectedObj && (selectedObj.userData.isWidget || selectedObj.userData.isPattern || (selectedObj.userData.entity && selectedObj.userData.entity.type && ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(selectedObj.userData.entity.type)));
 
         if (mode === 'none') {
             tc.visible = false;
             tc.enabled = false;
             tc.showX = false; tc.showY = false; tc.showZ = false;
             
-            this.btnMove.style.display = 'flex';
-            if (this.btnPlace) this.btnPlace.style.display = 'flex';
-            if (this.btnScale) this.btnScale.style.display = 'flex';
-            this.btnRotX.style.display = 'flex';
-            this.btnRotY.style.display = 'flex';
+            this.btnMove.style.display = isOpening ? 'none' : 'flex';
+            if (this.btnPlace) this.btnPlace.style.display = isOpening ? 'none' : 'flex';
+            if (this.btnScale) this.btnScale.style.display = isOpening ? 'none' : 'flex';
+            this.btnRotX.style.display = isOpening ? 'none' : 'flex';
+            this.btnRotY.style.display = isOpening ? 'none' : 'flex';
+            if (this.btnOpening) this.btnOpening.style.display = isOpening ? 'flex' : 'none';
             if (this.xyPanel) this.xyPanel.style.display = 'none';
+            if (this.openingPanel) this.openingPanel.style.display = 'none';
             if (this.btnDone) this.btnDone.style.display = 'none';
             
             // Restore selection highlight when returning to normal view
             if (selectedObj) this.interactions.setHighlight(selectedObj, true);
+            
+            if (isOpening && !this.wasOpeningModeActivated) {
+                this.wasOpeningModeActivated = true;
+                this.setTransformMode('opening', true);
+            } else if (!isOpening) {
+                this.wasOpeningModeActivated = false;
+            }
             return;
         }
 
@@ -318,10 +441,24 @@ export class Preview3D {
         if (this.btnScale) this.btnScale.style.display = 'none';
         this.btnRotX.style.display = 'none';
         this.btnRotY.style.display = 'none';
+        if (this.btnOpening) this.btnOpening.style.display = 'none';
         if (this.btnDone) this.btnDone.style.display = 'flex';
 
         // Force a UI refresh for the TransformControls by detaching before mode switch
         if (selectedObj) tc.detach();
+
+        if (mode === 'opening') {
+            tc.visible = false;
+            tc.enabled = false;
+            if (this.btnOpening) this.btnOpening.classList.add('active');
+            if (this.openingPanel) this.openingPanel.style.display = 'flex';
+            if (this.xyPanel) this.xyPanel.style.display = 'none';
+            if (this.interactions.openingGizmo && selectedObj) {
+                this.interactions.openingGizmo.attach(selectedObj);
+                this.updateOpeningPanel(selectedObj.userData.entity);
+            }
+            return;
+        }
 
         if (mode === 'translate') {
             tc.mode = 'translate';
