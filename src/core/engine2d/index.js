@@ -22,8 +22,10 @@ export class PremiumStairV3 {
     constructor(planner, data) {
         this.planner = planner;
         Object.assign(this, data);
+        if (!this.id) this.id = 'stair_' + Math.random().toString(36).substr(2, 9);
+        if (!this.systemId) this.systemId = this.id;
         
-        this.group = new Konva.Group({ draggable: !this.connectedFrom });
+        this.group = new Konva.Group({ draggable: true });
         this.poly = new Konva.Line({
             fill: 'rgba(59, 130, 246, 0.2)',
             stroke: '#3b82f6',
@@ -59,25 +61,13 @@ export class PremiumStairV3 {
             }
         });
         this.group.on('dragstart', (e) => {
-            if (this.connectedFrom) { e.target.stopDrag(); return; }
             this.planner.selectEntity(this, 'stair');
         });
         this.group.on('dragmove', (e) => {
-            if (this.connectedFrom) return;
-            this.x = this.group.x();
-            this.y = this.group.y();
-            for (let s of this.planner.stairs) {
-                if (s === this || s.systemId === this.systemId || (s.type !== 'stair' && s.type !== 'stair_landing')) continue;
-                if (s.endX !== undefined && s.endY !== undefined && !s.connectedTo) {
-                    if (Math.hypot(this.x - s.endX, this.y - s.endY) < 30) {
-                        this.group.position({ x: s.endX, y: s.endY });
-                        break;
-                    }
-                }
-            }
-            this.planner.stairs.filter(s => s.systemId === this.systemId).forEach(s => {
-                if (s !== this && s.update) s.update();
-            });
+            if (e.target !== this.group || this.connectedFrom) return;
+            this.x = this.group.x(); this.y = this.group.y();
+            const token = Date.now() + Math.random();
+            this.planner.stairs.forEach(s => { if (s.systemId === this.systemId) s.update(token); });
             this.planner.syncAll();
         });
         if (this.rotHandle) {
@@ -89,39 +79,45 @@ export class PremiumStairV3 {
                 const angleRad = Math.atan2(pos.y - groupPos.y, pos.x - groupPos.x);
                 this.rotation = (angleRad * 180 / Math.PI) + 90;
                 this.update();
-                this.planner.stairs.filter(s => s.systemId === this.systemId).forEach(s => {
-                    if (s !== this && s.update) s.update();
-                });
+            const token = Date.now() + Math.random();
+            this.planner.stairs.forEach(s => { if (s.systemId === this.systemId) s.update(token); });
                 this.planner.syncAll();
             });
             this.rotHandle.on('mouseenter', () => document.body.style.cursor = 'crosshair');
             this.rotHandle.on('mouseleave', () => document.body.style.cursor = 'default');
         }
         this.group.on('dragend', (e) => {
-            if (this.connectedFrom) return;
+            if (e.target !== this.group || this.connectedFrom) return;
+            let snapped = false;
+            const isAncestor = (node, pAnc) => { let curr = node; while(curr) { if (curr.id === pAnc.id) return true; curr = this.planner.stairs.find(x => x.id === curr.connectedFrom); } return false; };
             for (let s of this.planner.stairs) {
-                if (s === this || s.systemId === this.systemId || (s.type !== 'stair' && s.type !== 'stair_landing')) continue;
-                if (s.endX !== undefined && s.endY !== undefined && !s.connectedTo) {
-                    if (Math.hypot(this.group.x() - s.endX, this.group.y() - s.endY) < 30) {
-                        this.connectedFrom = s.id;
-                        s.connectedTo = this.id;
-                        let parentRot = (s.absRot || 0) * 180 / Math.PI;
-                        this.rotationOffset = this.rotation - parentRot;
-                        this.x = undefined; this.y = undefined;
-                        this.group.draggable(false);
-                        const updateSystemId = (node, sysId) => {
-                            node.systemId = sysId;
-                            if (node.connectedTo) {
-                                const child = this.planner.stairs.find(c => c.id === node.connectedTo);
-                                if (child) updateSystemId(child, sysId);
-                            }
-                        };
-                        updateSystemId(this, s.systemId);
-                        this.planner.syncAll();
-                        break;
+                if (s === this || (s.type !== 'stair' && s.type !== 'stair_landing') || isAncestor(s, this)) continue;
+                if (s.type === 'stair') {
+                    if (Math.hypot(this.x - (s.endX||0), this.y - (s.endY||0)) < 30) {
+                        this.connectedFrom = s.id; this.attachEdge = 'top'; this.attachOffsetX = 0; this.attachOffsetY = 0;
+                        this.rotationOffset = this.rotation - ((s.absRot||0) * 180 / Math.PI);
+                        this.systemId = s.systemId; snapped = true; break;
+                    }
+                } else if (s.type === 'stair_landing') {
+                    const cos = Math.cos(-(s.absRot||0)), sin = Math.sin(-(s.absRot||0));
+                    const lx = (this.x - (s.absX||0)) * cos - (this.y - (s.absY||0)) * sin;
+                    const ly = (this.x - (s.absX||0)) * sin + (this.y - (s.absY||0)) * cos;
+                    const w = s.width || 100, l = s.length || 100, dTop = Math.abs(ly - l), dBot = Math.abs(ly), dL = Math.abs(lx - (-w/2)), dR = Math.abs(lx - (w/2));
+                    const minD = Math.min(dTop, dBot, dL, dR);
+                    if (minD < 30 && lx > -w/2 - 20 && lx < w/2 + 20 && ly > -20 && ly < l + 20) {
+                        this.connectedFrom = s.id; this.systemId = s.systemId;
+                        if (minD === dTop) { this.attachEdge = 'top'; this.attachOffsetX = lx; this.rotationOffset = 0; }
+                        else if (minD === dBot) { this.attachEdge = 'bottom'; this.attachOffsetX = lx; this.rotationOffset = 180; }
+                        else if (minD === dL) { this.attachEdge = 'left'; this.attachOffsetY = ly - l/2; this.rotationOffset = -90; }
+                        else { this.attachEdge = 'right'; this.attachOffsetY = ly - l/2; this.rotationOffset = 90; }
+                        snapped = true; break;
                     }
                 }
             }
+            if (snapped) { const u = (node, sysId) => { node.systemId = sysId; this.planner.stairs.filter(c => c.connectedFrom === node.id).forEach(c => u(c, sysId)); }; u(this, this.systemId); }
+            const token = Date.now() + Math.random();
+            this.planner.stairs.forEach(s => { if (s.systemId === this.systemId) s.update(token); });
+            this.planner.syncAll();
         });
     }
     
@@ -133,36 +129,36 @@ export class PremiumStairV3 {
         this.planner.stage.batchDraw();
     }
     
-    update() {
+    update(forceToken = null) {
+        if (forceToken && this.lastUpdateToken === forceToken) return;
+        if (forceToken) this.lastUpdateToken = forceToken;
+
         let cursorX = this.x || 0;
         let cursorZ = this.y || 0;
         let radRot = (this.rotation || 0) * (Math.PI / 180);
         let cursorElev = this.elevation || 0;
         
         if (this.connectedFrom) {
-            let chain = [];
-            let current = this;
-            while(current) {
-                chain.unshift(current);
-                if (!current.connectedFrom) break;
-                current = this.planner.stairs.find(s => s.id === current.connectedFrom);
-            }
-            
-            if (chain.length > 0) {
-                cursorX = chain[0].x || 0;
-                cursorZ = chain[0].y || 0;
-                cursorElev = chain[0].elevation || 0;
-                radRot = (chain[0].rotation || 0) * (Math.PI / 180);
+            const parent = this.planner.stairs.find(s => s.id === this.connectedFrom);
+            if (parent) {
+                if (forceToken) parent.update(forceToken); else if (parent.absX === undefined) parent.update();
+                const px = parent.absX !== undefined ? parent.absX : (parent.x || 0), pz = parent.absY !== undefined ? parent.absY : (parent.y || 0);
+                const pr = parent.absRot !== undefined ? parent.absRot : ((parent.rotation || 0) * (Math.PI / 180)), pe = parent.absElev !== undefined ? parent.absElev : (parent.elevation || 0);
+                const pCos = Math.cos(pr), pSin = Math.sin(pr), trans = (lx, lz) => ({ x: px + lx * pCos + lz * pSin, y: pz - lx * pSin + lz * pCos });
                 
-                for (let i = 0; i < chain.length - 1; i++) {
-                    let node = chain[i];
-                    let l = node.type === 'stair' ? (node.stepCount || 10) * (node.stepDepth || 28.0) : (node.length || 100);
-                    let elev = node.type === 'stair' ? (node.stepCount || 10) * (node.stepHeight || 17.5) : 0;
-                    cursorX += Math.sin(radRot) * l;
-                    cursorZ += Math.cos(radRot) * l;
-                    cursorElev += elev;
-                    let next = chain[i+1];
-                    if (next && next.rotationOffset) radRot += next.rotationOffset * (Math.PI / 180);
+                if (parent.type === 'stair') {
+                    const pt = trans(0, (parent.stepCount || 10) * (parent.stepDepth || 28));
+                    cursorX = pt.x; cursorZ = pt.y; cursorElev = pe + (parent.stepCount || 10) * (parent.stepHeight || 17.5);
+                    radRot = pr + (this.rotationOffset || 0) * Math.PI / 180;
+                } else if (parent.type === 'stair_landing') {
+                    const pw = parent.width || 100, pl = parent.length || 100, ox = this.attachOffsetX || 0, oy = this.attachOffsetY || 0;
+                    let pt;
+                    if (this.attachEdge === 'top') { pt = trans(ox, pl); radRot = pr + (this.rotationOffset || 0) * Math.PI / 180; }
+                    else if (this.attachEdge === 'bottom') { pt = trans(ox, 0); radRot = pr + (180 + (this.rotationOffset || 0)) * Math.PI / 180; }
+                    else if (this.attachEdge === 'left') { pt = trans(-pw/2, pl/2 + oy); radRot = pr + (-90 + (this.rotationOffset || 0)) * Math.PI / 180; }
+                    else if (this.attachEdge === 'right') { pt = trans(pw/2, pl/2 + oy); radRot = pr + (90 + (this.rotationOffset || 0)) * Math.PI / 180; }
+                    else { pt = trans(0, pl); radRot = pr + (this.rotationOffset || 0) * Math.PI / 180; }
+                    cursorX = pt.x; cursorZ = pt.y; cursorElev = pe;
                 }
             }
         }
@@ -171,6 +167,7 @@ export class PremiumStairV3 {
         this.absY = cursorZ;
         this.absRot = radRot;
         this.absElev = cursorElev;
+        this.absX = cursorX; this.absY = cursorZ; this.absRot = radRot; this.absElev = cursorElev;
         
         const w = this.width || 100;
         const l = this.type === 'stair' ? (this.stepCount || 10) * (this.stepDepth || 28.0) : (this.length || 100);
@@ -180,43 +177,50 @@ export class PremiumStairV3 {
         this.endY = cursorZ + Math.cos(radRot) * l;
         this.endElev = cursorElev + nextElev;
         
-        if (!this.connectedFrom) {
-            this.group.position({ x: cursorX, y: cursorZ });
-            this.poly.position({ x: 0, y: 0 });
-            this.stepsGroup.position({ x: 0, y: 0 });
-            const cos = Math.cos(radRot); const sin = Math.sin(radRot);
-            const transformLocal = (lx, lz) => ({ x: lx * cos + lz * sin, y: -lx * sin + lz * cos });
-            const p1 = transformLocal(-w/2, 0), p2 = transformLocal(w/2, 0), p3 = transformLocal(w/2, l), p4 = transformLocal(-w/2, l);
-            this.poly.points([p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, p4.x, p4.y]);
-            
-            if (this.rotHandle) {
-                const rotPos = transformLocal(0, -20);
-                this.rotHandle.position({ x: rotPos.x, y: rotPos.y });
-            }
-        } else {
-            this.group.position({ x: 0, y: 0 });
-            const cos = Math.cos(radRot); const sin = Math.sin(radRot);
-            const transformAbs = (lx, lz) => ({ x: cursorX + lx * cos + lz * sin, y: cursorZ - lx * sin + lz * cos });
-            const p1 = transformAbs(-w/2, 0), p2 = transformAbs(w/2, 0), p3 = transformAbs(w/2, l), p4 = transformAbs(-w/2, l);
-            this.poly.points([p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, p4.x, p4.y]);
+        this.group.position({ x: cursorX, y: cursorZ });
+        this.group.rotation(-radRot * 180 / Math.PI);
+        this.poly.position({ x: 0, y: 0 });
+        this.stepsGroup.position({ x: 0, y: 0 });
+        this.poly.points([-w/2, 0, w/2, 0, w/2, l, -w/2, l]);
+
+        if (this.rotHandle) {
+            this.rotHandle.position({ x: 0, y: l + 30 });
         }
         
         this.stepsGroup.destroyChildren();
         if (this.type === 'stair') {
-            const cos = Math.cos(radRot); const sin = Math.sin(radRot);
-            const transform = !this.connectedFrom ? ((lx, lz) => ({ x: lx * cos + lz * sin, y: -lx * sin + lz * cos })) : ((lx, lz) => ({ x: cursorX + lx * cos + lz * sin, y: cursorZ - lx * sin + lz * cos }));
             for(let i=1; i<this.stepCount; i++) {
                 const sy = i * this.stepDepth;
-                const sp1 = transform(-w/2, sy), sp2 = transform(w/2, sy);
-                this.stepsGroup.add(new Konva.Line({ points: [sp1.x, sp1.y, sp2.x, sp2.y], stroke: '#3b82f6', strokeWidth: 1 }));
+                this.stepsGroup.add(new Konva.Line({ points: [-w/2, sy, w/2, sy], stroke: '#3b82f6', strokeWidth: 1 }));
             }
-            const arrowP1 = transform(0, 5), arrowP2 = transform(0, Math.min(l-5, 40));
-            this.stepsGroup.add(new Konva.Arrow({ points: [arrowP1.x, arrowP1.y, arrowP2.x, arrowP2.y], fill: '#111827', stroke: '#111827', strokeWidth: 2, pointerLength: 6, pointerWidth: 6 }));
+            this.stepsGroup.add(new Konva.Arrow({ points: [0, 5, 0, Math.min(l-5, 40)], fill: '#111827', stroke: '#111827', strokeWidth: 2, pointerLength: 6, pointerWidth: 6 }));
         } else {
-            const cos = Math.cos(radRot); const sin = Math.sin(radRot);
-            const transform = !this.connectedFrom ? ((lx, lz) => ({ x: lx * cos + lz * sin, y: -lx * sin + lz * cos })) : ((lx, lz) => ({ x: cursorX + lx * cos + lz * sin, y: cursorZ - lx * sin + lz * cos }));
-            const mid = transform(0, l/2);
-            const txt = new Konva.Text({ x: mid.x, y: mid.y, text: 'LANDING', fontSize: 12, fill: '#3b82f6', align: 'center', fontStyle: 'bold', rotation: -radRot * 180 / Math.PI });
+            const children = this.planner.stairs.filter(s => s.connectedFrom === this.id);
+            let occupiedEdges = [];
+            if (this.connectedFrom) {
+                const parent = this.planner.stairs.find(s => s.id === this.connectedFrom);
+                if (parent && parent.type === 'stair') occupiedEdges.push('bottom');
+                else if (parent && parent.type === 'stair_landing') {
+                    if (this.attachEdge === 'top') occupiedEdges.push('bottom');
+                    else if (this.attachEdge === 'bottom') occupiedEdges.push('top');
+                    else if (this.attachEdge === 'left') occupiedEdges.push('right');
+                    else if (this.attachEdge === 'right') occupiedEdges.push('left');
+                }
+                let inX = 0, inY = 0;
+                if (this.attachEdge === 'bottom') { inX = 0; inY = l; }
+                else if (this.attachEdge === 'left') { inX = -w/2; inY = l/2; }
+                else if (this.attachEdge === 'right') { inX = w/2; inY = l/2; }
+                this.stepsGroup.add(new Konva.Arrow({ points: [inX, inY, 0, l/2], stroke: '#10b981', fill: '#10b981', strokeWidth: 3, dash: [6, 4], pointerLength: 8, pointerWidth: 8 }));
+            }
+            children.forEach(c => { if (c.attachEdge) occupiedEdges.push(c.attachEdge); });
+            children.forEach(child => {
+                let ex = 0, ey = l;
+                if (child.attachEdge === 'right') { ex = w/2; ey = l/2; }
+                else if (child.attachEdge === 'left') { ex = -w/2; ey = l/2; }
+                else if (child.attachEdge === 'bottom') { ex = 0; ey = 0; }
+                this.stepsGroup.add(new Konva.Arrow({ points: [0, l/2, ex, ey], stroke: '#3b82f6', fill: '#3b82f6', strokeWidth: 3, dash: [6, 4], tension: 0.4, pointerLength: 8, pointerWidth: 8 }));
+            });
+            const txt = new Konva.Text({ x: 0, y: l/2, text: 'JUNCTION', fontSize: 10, fill: '#3b82f6', align: 'center', fontStyle: 'bold', rotation: radRot * 180 / Math.PI });
             txt.offsetX(txt.width()/2); txt.offsetY(txt.height()/2);
             this.stepsGroup.add(txt);
         }

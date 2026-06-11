@@ -37,20 +37,12 @@ export class StairSystemManager {
             });
         }
 
-        const btnLanding = document.getElementById('gizmo-stair-btn-landing');
-        if (btnLanding) btnLanding.onclick = () => this.addLandingToSelected();
-
-        const btnFlight = document.getElementById('gizmo-stair-btn-flight');
-        if (btnFlight) btnFlight.onclick = () => this.addFlightToSelected();
-
-        const btnRot45 = document.getElementById('gizmo-stair-btn-rot45');
-        if (btnRot45) btnRot45.onclick = () => this.rotateStairChain(45);
-
-        const btnRot90 = document.getElementById('gizmo-stair-btn-rot90');
-        if (btnRot90) btnRot90.onclick = () => this.rotateStairChain(90);
-
-        const btnRot180 = document.getElementById('gizmo-stair-btn-rot180');
-        if (btnRot180) btnRot180.onclick = () => this.rotateStairChain(180);
+        const bindBtn = (id, handler) => { const el = document.getElementById(id); if (el) el.onclick = handler; };
+        bindBtn('gizmo-stair-btn-straight', () => this.addTopology('straight'));
+        bindBtn('gizmo-stair-btn-lshape', () => this.addTopology('l_shape'));
+        bindBtn('gizmo-stair-btn-ushape', () => this.addTopology('u_shape'));
+        bindBtn('gizmo-stair-btn-tshape', () => this.addTopology('t_shape'));
+        bindBtn('gizmo-stair-btn-yshape', () => this.addTopology('y_shape'));
 
         const btnDetach = document.getElementById('gizmo-stair-btn-detach');
         if (btnDetach) btnDetach.onclick = () => this.detachSelected();
@@ -105,25 +97,25 @@ export class StairSystemManager {
             if (elr && document.activeElement !== elr) elr.value = val;
         };
 
-        const btnLanding = document.getElementById('gizmo-stair-btn-landing');
-        const btnFlight = document.getElementById('gizmo-stair-btn-flight');
-        const btnRot45 = document.getElementById('gizmo-stair-btn-rot45');
-        const btnRot90 = document.getElementById('gizmo-stair-btn-rot90');
-        const btnRot180 = document.getElementById('gizmo-stair-btn-rot180');
+        const btnStraight = document.getElementById('gizmo-stair-btn-straight');
+        const btnLShape = document.getElementById('gizmo-stair-btn-lshape');
+        const btnUShape = document.getElementById('gizmo-stair-btn-ushape');
+        const btnTShape = document.getElementById('gizmo-stair-btn-tshape');
+        const btnYShape = document.getElementById('gizmo-stair-btn-yshape');
         const btnDetach = document.getElementById('gizmo-stair-btn-detach');
 
         if (isLanding) {
-            if (btnLanding) btnLanding.style.display = 'none';
-            if (btnFlight) btnFlight.style.display = 'block';
-            if (btnRot45) btnRot45.style.display = 'block';
-            if (btnRot90) btnRot90.style.display = 'block';
-            if (btnRot180) btnRot180.style.display = 'block';
+            if (btnStraight) btnStraight.style.display = 'none';
+            if (btnLShape) btnLShape.style.display = 'none';
+            if (btnUShape) btnUShape.style.display = 'none';
+            if (btnTShape) btnTShape.style.display = 'none';
+            if (btnYShape) btnYShape.style.display = 'none';
         } else {
-            if (btnLanding) btnLanding.style.display = 'block';
-            if (btnFlight) btnFlight.style.display = 'none';
-            if (btnRot45) btnRot45.style.display = 'none';
-            if (btnRot90) btnRot90.style.display = 'none';
-            if (btnRot180) btnRot180.style.display = 'none';
+            if (btnStraight) btnStraight.style.display = 'block';
+            if (btnLShape) btnLShape.style.display = 'block';
+            if (btnUShape) btnUShape.style.display = 'block';
+            if (btnTShape) btnTShape.style.display = 'block';
+            if (btnYShape) btnYShape.style.display = 'block';
         }
 
         if (isLanding) {
@@ -144,8 +136,7 @@ export class StairSystemManager {
     getSelectionTargets(entity) {
         if (this.selectionScope === 'flight') return [entity];
         
-        const plannerStairs = window.plannerInstance?.planner?.stairs || [];
-        const allStairs = (window.plannerInstance?.entities || plannerStairs).filter(e => e.type === 'stair' || e.type === 'stair_landing');
+        const allStairs = entity.planner ? entity.planner.stairs : [];
         const systemId = entity.systemId || entity.id; 
         
         if (this.selectionScope === 'system') {
@@ -183,58 +174,61 @@ export class StairSystemManager {
     }
 
     // V3 Advanced Features
-    addLandingToSelected() {
+    addTopology(type) {
         const selected = this.engine.interactions.selectedObject;
         if (!selected || !selected.userData.entity) return;
-        const entity = selected.userData.entity;
+        const baseEntity = selected.userData.entity;
+        const planner = baseEntity.planner || window.plannerInstance?.planner;
+        if (!planner) return;
 
-        if (entity.type !== 'stair') return console.warn("Select a flight to attach landing.");
-
-        const landing = { id: 'stair_landing_' + Math.random().toString(36).substr(2, 9), type: 'stair_landing', systemId: entity.systemId || entity.id, connectedFrom: entity.id, width: entity.width || 100, length: entity.width || 100, thickness: 20, elevation: (entity.elevation || 0) + ((entity.stepCount || 10) * (entity.stepHeight || 17.5)) };
-        entity.connectedTo = landing.id;
+        if (baseEntity.type !== 'stair') return console.warn("Select a flight to construct topology.");
         
-        if (window.plannerInstance && window.plannerInstance.entities) {
-            window.plannerInstance.entities.push(landing);
-            window.plannerInstance.syncAll();
-        } else if (window.plannerInstance && window.plannerInstance.planner) {
-            landing.update = function() {}; landing.setHighlight = function() {}; landing.remove = function() { window.plannerInstance.planner.stairs = window.plannerInstance.planner.stairs.filter(s => s !== this); };
-            window.plannerInstance.planner.stairs.push(landing);
-            window.plannerInstance.syncAll();
+        const w = baseEntity.width || 100;
+        let lWidth = w, lLength = w, aOffsetX = 0;
+        
+        if (type === 'u_shape') { lWidth = w * 2.2; lLength = w; aOffsetX = -w * 0.6; }
+        if (type === 't_shape') { lWidth = w * 3; lLength = w; }
+        if (type === 'y_shape') { lWidth = w * 3; lLength = w * 1.5; }
+        
+        const parentLanding = { 
+            id: 'stair_landing_' + Math.random().toString(36).substr(2, 9), type: 'stair_landing', 
+            systemId: baseEntity.systemId || baseEntity.id, connectedFrom: baseEntity.id, 
+            attachEdge: 'top', attachOffsetX: aOffsetX, attachOffsetY: 0, width: lWidth, length: lLength, thickness: 20, 
+            elevation: (baseEntity.absElev || baseEntity.elevation || 0) + ((baseEntity.stepCount || 10) * (baseEntity.stepHeight || 17.5)) 
+        };
+        this.injectEntity(parentLanding, planner);
+        
+        if (type === 'straight') {
+            this.spawnFlight(parentLanding, 'top', 0, 0, 0, planner);
+        } else if (type === 'l_shape') {
+            this.spawnFlight(parentLanding, 'right', 0, 0, 0, planner);
+        } else if (type === 'u_shape') {
+            this.spawnFlight(parentLanding, 'bottom', w * 0.6, 0, 0, planner);
+        } else if (type === 't_shape') {
+            this.spawnFlight(parentLanding, 'left', 0, 0, 0, planner);
+            this.spawnFlight(parentLanding, 'right', 0, 0, 0, planner);
+        } else if (type === 'y_shape') {
+            this.spawnFlight(parentLanding, 'top', -w * 0.6, 0, -45, planner);
+            this.spawnFlight(parentLanding, 'top', w * 0.6, 0, 45, planner);
         }
+        if (planner.syncAll) planner.syncAll();
     }
 
-    addFlightToSelected() {
-        this.rotateStairChain(0);
+    spawnFlight(parent, edge, offX, offY, rotOffset, planner) {
+        const newFlight = { 
+            id: 'stair_' + Math.random().toString(36).substr(2, 9), type: 'stair', 
+            systemId: parent.systemId || parent.id, connectedFrom: parent.id, 
+            attachEdge: edge, attachOffsetX: offX, attachOffsetY: offY, width: 100, 
+            stepCount: 10, stepHeight: 17.5, stepDepth: 28.0, rotationOffset: rotOffset, 
+            elevation: parent.absElev || parent.elevation || 0 
+        };
+        if (parent.connectedFrom) { const gp = planner.stairs.find(s => s.id === parent.connectedFrom); if (gp) newFlight.width = gp.width || 100; }
+        this.injectEntity(newFlight, planner);
     }
-
-    rotateStairChain(angle) {
-        const selected = this.engine.interactions.selectedObject;
-        if (!selected || !selected.userData.entity) return;
-        const entity = selected.userData.entity;
-
-        if (entity.type !== 'stair_landing') return console.warn("Select a landing to rotate chain.");
-
-        const plannerStairs = window.plannerInstance?.planner?.stairs || window.plannerInstance?.entities || [];
-        const nextNode = plannerStairs.find(s => s.connectedFrom === entity.id);
-        
-        // If a flight is already attached, simply modify its rotation instead of spawning duplicates!
-        if (nextNode) {
-            nextNode.rotationOffset = angle;
-            if (window.plannerInstance && window.plannerInstance.syncAll) window.plannerInstance.syncAll();
-            return;
-        }
-
-        const newFlight = { id: 'stair_' + Math.random().toString(36).substr(2, 9), type: 'stair', systemId: entity.systemId || entity.id, connectedFrom: entity.id, width: entity.width || 100, stepCount: 10, stepHeight: 17.5, stepDepth: 28.0, rotationOffset: angle, elevation: entity.elevation || 0 };
-        entity.connectedTo = newFlight.id;
-
-        if (window.plannerInstance && window.plannerInstance.entities) {
-            window.plannerInstance.entities.push(newFlight);
-            window.plannerInstance.syncAll();
-        } else if (window.plannerInstance && window.plannerInstance.planner) {
-            newFlight.update = function() {}; newFlight.setHighlight = function() {}; newFlight.remove = function() { window.plannerInstance.planner.stairs = window.plannerInstance.planner.stairs.filter(s => s !== this); };
-            window.plannerInstance.planner.stairs.push(newFlight);
-            window.plannerInstance.syncAll();
-        }
+    
+    injectEntity(ent, planner) {
+        ent.update = function() {}; ent.setHighlight = function() {}; ent.remove = function() { planner.stairs = planner.stairs.filter(s => s !== this); };
+        planner.stairs.push(ent);
     }
 
     deleteSelected() {
@@ -243,7 +237,7 @@ export class StairSystemManager {
         const entity = selected.userData.entity;
         
         const targets = this.getSelectionTargets(entity);
-        const planner = window.plannerInstance?.planner;
+        const planner = entity.planner || window.plannerInstance?.planner;
         if (planner) {
             targets.forEach(t => {
                 if (t.remove) t.remove();
@@ -251,9 +245,6 @@ export class StairSystemManager {
             });
             planner.selectEntity(null);
             planner.syncAll();
-        } else if (window.plannerInstance && window.plannerInstance.entities) {
-            targets.forEach(t => { window.plannerInstance.entities = window.plannerInstance.entities.filter(s => s.id !== t.id); });
-            window.plannerInstance.syncAll();
         }
         this.engine.setTransformMode('none');
     }
@@ -263,8 +254,9 @@ export class StairSystemManager {
         if (!selected || !selected.userData.entity) return;
         const entity = selected.userData.entity;
         if (entity.connectedFrom) {
-            const plannerStairs = window.plannerInstance?.planner?.stairs || window.plannerInstance?.entities || [];
-            const parent = plannerStairs.find(s => s.id === entity.connectedFrom);
+            const planner = entity.planner || window.plannerInstance?.planner;
+            if (!planner) return;
+            const parent = planner.stairs.find(s => s.id === entity.connectedFrom);
             if (parent && parent.connectedTo === entity.id) parent.connectedTo = null;
             
             entity.connectedFrom = null;
@@ -275,14 +267,12 @@ export class StairSystemManager {
             
             const updateSystemId = (node, sysId) => {
                 node.systemId = sysId;
-                if (node.connectedTo) {
-                    const child = plannerStairs.find(c => c.id === node.connectedTo);
-                    if (child) updateSystemId(child, sysId);
-                }
+                const children = planner.stairs.filter(c => c.connectedFrom === node.id);
+                children.forEach(c => updateSystemId(c, sysId));
             };
             updateSystemId(entity, entity.id);
             if (entity.group) entity.group.draggable(true);
-            if (window.plannerInstance && window.plannerInstance.syncAll) window.plannerInstance.syncAll();
+            if (planner.syncAll) planner.syncAll();
             this.updatePanel(entity);
         }
     }
