@@ -18,6 +18,219 @@ import { advance_openings } from '/src/core/engine2d/advance_openings.js';
 // Export the specific classes that App.vue needs to spawn items
 export { PremiumFurniture, PremiumHipRoof };
 
+export class PremiumStairV3 {
+    constructor(planner, data) {
+        this.planner = planner;
+        Object.assign(this, data);
+        
+        this.group = new Konva.Group({ draggable: !this.connectedFrom });
+        this.poly = new Konva.Line({
+            fill: 'rgba(59, 130, 246, 0.2)',
+            stroke: '#3b82f6',
+            strokeWidth: 2,
+            closed: true
+        });
+        this.stepsGroup = new Konva.Group();
+        this.group.add(this.poly, this.stepsGroup);
+        
+        if (!this.connectedFrom) {
+            this.rotHandle = new Konva.Circle({ 
+                radius: 6, fill: '#3b82f6', stroke: 'white', strokeWidth: 2, draggable: true, visible: false,
+                name: 'stair-rotater'
+            });
+            this.group.add(this.rotHandle);
+        }
+        
+        if (this.planner.widgetLayer) {
+            this.planner.widgetLayer.add(this.group);
+        }
+        
+        this.initEvents();
+        this.update();
+    }
+    
+    initEvents() {
+        this.group.on('mouseenter', () => { if (this.planner.tool === 'select') document.body.style.cursor = 'pointer'; });
+        this.group.on('mouseleave', () => document.body.style.cursor = 'default');
+        this.group.on('click tap', (e) => {
+            if (this.planner.tool === 'select') {
+                e.cancelBubble = true;
+                this.planner.selectEntity(this, 'stair');
+            }
+        });
+        this.group.on('dragstart', (e) => {
+            if (this.connectedFrom) { e.target.stopDrag(); return; }
+            this.planner.selectEntity(this, 'stair');
+        });
+        this.group.on('dragmove', (e) => {
+            if (this.connectedFrom) return;
+            this.x = this.group.x();
+            this.y = this.group.y();
+            for (let s of this.planner.stairs) {
+                if (s === this || s.systemId === this.systemId || (s.type !== 'stair' && s.type !== 'stair_landing')) continue;
+                if (s.endX !== undefined && s.endY !== undefined && !s.connectedTo) {
+                    if (Math.hypot(this.x - s.endX, this.y - s.endY) < 30) {
+                        this.group.position({ x: s.endX, y: s.endY });
+                        break;
+                    }
+                }
+            }
+            this.planner.stairs.filter(s => s.systemId === this.systemId).forEach(s => {
+                if (s !== this && s.update) s.update();
+            });
+            this.planner.syncAll();
+        });
+        if (this.rotHandle) {
+            this.rotHandle.on('dragmove', (e) => {
+                e.cancelBubble = true;
+                const pos = this.planner.stage.getPointerPosition();
+                if (!pos) return;
+                const groupPos = this.group.getAbsolutePosition();
+                const angleRad = Math.atan2(pos.y - groupPos.y, pos.x - groupPos.x);
+                this.rotation = (angleRad * 180 / Math.PI) + 90;
+                this.update();
+                this.planner.stairs.filter(s => s.systemId === this.systemId).forEach(s => {
+                    if (s !== this && s.update) s.update();
+                });
+                this.planner.syncAll();
+            });
+            this.rotHandle.on('mouseenter', () => document.body.style.cursor = 'crosshair');
+            this.rotHandle.on('mouseleave', () => document.body.style.cursor = 'default');
+        }
+        this.group.on('dragend', (e) => {
+            if (this.connectedFrom) return;
+            for (let s of this.planner.stairs) {
+                if (s === this || s.systemId === this.systemId || (s.type !== 'stair' && s.type !== 'stair_landing')) continue;
+                if (s.endX !== undefined && s.endY !== undefined && !s.connectedTo) {
+                    if (Math.hypot(this.group.x() - s.endX, this.group.y() - s.endY) < 30) {
+                        this.connectedFrom = s.id;
+                        s.connectedTo = this.id;
+                        let parentRot = (s.absRot || 0) * 180 / Math.PI;
+                        this.rotationOffset = this.rotation - parentRot;
+                        this.x = undefined; this.y = undefined;
+                        this.group.draggable(false);
+                        const updateSystemId = (node, sysId) => {
+                            node.systemId = sysId;
+                            if (node.connectedTo) {
+                                const child = this.planner.stairs.find(c => c.id === node.connectedTo);
+                                if (child) updateSystemId(child, sysId);
+                            }
+                        };
+                        updateSystemId(this, s.systemId);
+                        this.planner.syncAll();
+                        break;
+                    }
+                }
+            }
+        });
+    }
+    
+    setHighlight(isActive) {
+        this.poly.stroke(isActive ? '#f59e0b' : '#3b82f6');
+        this.poly.strokeWidth(isActive ? 3 : 2);
+        if (this.rotHandle) this.rotHandle.visible(isActive);
+        if (isActive) this.group.moveToTop();
+        this.planner.stage.batchDraw();
+    }
+    
+    update() {
+        let cursorX = this.x || 0;
+        let cursorZ = this.y || 0;
+        let radRot = (this.rotation || 0) * (Math.PI / 180);
+        let cursorElev = this.elevation || 0;
+        
+        if (this.connectedFrom) {
+            let chain = [];
+            let current = this;
+            while(current) {
+                chain.unshift(current);
+                if (!current.connectedFrom) break;
+                current = this.planner.stairs.find(s => s.id === current.connectedFrom);
+            }
+            
+            if (chain.length > 0) {
+                cursorX = chain[0].x || 0;
+                cursorZ = chain[0].y || 0;
+                cursorElev = chain[0].elevation || 0;
+                radRot = (chain[0].rotation || 0) * (Math.PI / 180);
+                
+                for (let i = 0; i < chain.length - 1; i++) {
+                    let node = chain[i];
+                    let l = node.type === 'stair' ? (node.stepCount || 10) * (node.stepDepth || 28.0) : (node.length || 100);
+                    let elev = node.type === 'stair' ? (node.stepCount || 10) * (node.stepHeight || 17.5) : 0;
+                    cursorX += Math.sin(radRot) * l;
+                    cursorZ += Math.cos(radRot) * l;
+                    cursorElev += elev;
+                    let next = chain[i+1];
+                    if (next && next.rotationOffset) radRot += next.rotationOffset * (Math.PI / 180);
+                }
+            }
+        }
+        
+        this.absX = cursorX;
+        this.absY = cursorZ;
+        this.absRot = radRot;
+        this.absElev = cursorElev;
+        
+        const w = this.width || 100;
+        const l = this.type === 'stair' ? (this.stepCount || 10) * (this.stepDepth || 28.0) : (this.length || 100);
+        const nextElev = this.type === 'stair' ? (this.stepCount || 10) * (this.stepHeight || 17.5) : 0;
+        
+        this.endX = cursorX + Math.sin(radRot) * l;
+        this.endY = cursorZ + Math.cos(radRot) * l;
+        this.endElev = cursorElev + nextElev;
+        
+        if (!this.connectedFrom) {
+            this.group.position({ x: cursorX, y: cursorZ });
+            this.poly.position({ x: 0, y: 0 });
+            this.stepsGroup.position({ x: 0, y: 0 });
+            const cos = Math.cos(radRot); const sin = Math.sin(radRot);
+            const transformLocal = (lx, lz) => ({ x: lx * cos + lz * sin, y: -lx * sin + lz * cos });
+            const p1 = transformLocal(-w/2, 0), p2 = transformLocal(w/2, 0), p3 = transformLocal(w/2, l), p4 = transformLocal(-w/2, l);
+            this.poly.points([p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, p4.x, p4.y]);
+            
+            if (this.rotHandle) {
+                const rotPos = transformLocal(0, -20);
+                this.rotHandle.position({ x: rotPos.x, y: rotPos.y });
+            }
+        } else {
+            this.group.position({ x: 0, y: 0 });
+            const cos = Math.cos(radRot); const sin = Math.sin(radRot);
+            const transformAbs = (lx, lz) => ({ x: cursorX + lx * cos + lz * sin, y: cursorZ - lx * sin + lz * cos });
+            const p1 = transformAbs(-w/2, 0), p2 = transformAbs(w/2, 0), p3 = transformAbs(w/2, l), p4 = transformAbs(-w/2, l);
+            this.poly.points([p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, p4.x, p4.y]);
+        }
+        
+        this.stepsGroup.destroyChildren();
+        if (this.type === 'stair') {
+            const cos = Math.cos(radRot); const sin = Math.sin(radRot);
+            const transform = !this.connectedFrom ? ((lx, lz) => ({ x: lx * cos + lz * sin, y: -lx * sin + lz * cos })) : ((lx, lz) => ({ x: cursorX + lx * cos + lz * sin, y: cursorZ - lx * sin + lz * cos }));
+            for(let i=1; i<this.stepCount; i++) {
+                const sy = i * this.stepDepth;
+                const sp1 = transform(-w/2, sy), sp2 = transform(w/2, sy);
+                this.stepsGroup.add(new Konva.Line({ points: [sp1.x, sp1.y, sp2.x, sp2.y], stroke: '#3b82f6', strokeWidth: 1 }));
+            }
+            const arrowP1 = transform(0, 5), arrowP2 = transform(0, Math.min(l-5, 40));
+            this.stepsGroup.add(new Konva.Arrow({ points: [arrowP1.x, arrowP1.y, arrowP2.x, arrowP2.y], fill: '#111827', stroke: '#111827', strokeWidth: 2, pointerLength: 6, pointerWidth: 6 }));
+        } else {
+            const cos = Math.cos(radRot); const sin = Math.sin(radRot);
+            const transform = !this.connectedFrom ? ((lx, lz) => ({ x: lx * cos + lz * sin, y: -lx * sin + lz * cos })) : ((lx, lz) => ({ x: cursorX + lx * cos + lz * sin, y: cursorZ - lx * sin + lz * cos }));
+            const mid = transform(0, l/2);
+            const txt = new Konva.Text({ x: mid.x, y: mid.y, text: 'LANDING', fontSize: 12, fill: '#3b82f6', align: 'center', fontStyle: 'bold', rotation: -radRot * 180 / Math.PI });
+            txt.offsetX(txt.width()/2); txt.offsetY(txt.height()/2);
+            this.stepsGroup.add(txt);
+        }
+    }
+    
+    remove() {
+        this.group.destroy();
+        this.planner.stairs = this.planner.stairs.filter(s => s !== this);
+        this.planner.stairs.filter(s => s.connectedFrom === this.id).forEach(s => s.remove());
+        this.planner.selectEntity(null);
+        this.planner.syncAll();
+    }
+}
+
 export class PremiumArc {
     constructor(planner, p1, p2, pos) {
         this.planner = planner;
@@ -718,7 +931,14 @@ export class FloorPlanner {
             this.uiLayer.rotation(0);
         }
 
-        this.walls.forEach(w => w.update());        this.stairs.forEach(s => s.update());         this.furniture.forEach(f => f.update()); 
+        this.walls.forEach(w => w.update());
+        for (let i = 0; i < this.stairs.length; i++) {
+            if ((this.stairs[i].type === 'stair' || this.stairs[i].type === 'stair_landing') && !this.stairs[i].group) {
+                this.stairs[i] = new PremiumStairV3(this, this.stairs[i]);
+            }
+        }
+        this.stairs.forEach(s => s.update());
+        this.furniture.forEach(f => f.update()); 
         this.roofs.forEach(r => r.update()); 
         if(this.balconies) this.balconies.forEach(b => b.update()); 
         if(this.arcs) this.arcs.forEach(a => a.update());
@@ -831,6 +1051,40 @@ export class FloorPlanner {
                 this.tool = 'select';
                 this.selectEntity(stair2, 'staircase_two');
                 this.updateToolStates();
+                this.syncAll();
+                return;
+            }
+            if (this.tool === 'stair_v3') {
+                const rootId = 'stair_' + Math.random().toString(36).substr(2, 9);
+                const stairV3Data = {
+                    id: rootId,
+                    type: 'stair',
+                    systemId: rootId,
+                    x: targetPos.x, y: targetPos.y, elevation: 0, rotation: 0,
+                    width: 100, stepCount: 10, stepHeight: 17.5, stepDepth: 28.0
+                };
+                const stairV3 = new PremiumStairV3(this, stairV3Data);
+                this.stairs.push(stairV3);
+                this.tool = 'select';
+                this.updateToolStates();
+                this.selectEntity(stairV3, 'stair');
+                this.syncAll();
+                return;
+            }
+            if (this.tool === 'stair_landing') {
+                const rootId = 'stair_landing_' + Math.random().toString(36).substr(2, 9);
+                const landingData = {
+                    id: rootId,
+                    type: 'stair_landing',
+                    systemId: rootId,
+                    x: targetPos.x, y: targetPos.y, elevation: 0, rotation: 0,
+                    width: 100, length: 100, thickness: 20
+                };
+                const landing = new PremiumStairV3(this, landingData);
+                this.stairs.push(landing);
+                this.tool = 'select';
+                this.updateToolStates();
+                this.selectEntity(landing, 'stair');
                 this.syncAll();
                 return;
             }
@@ -1844,7 +2098,19 @@ export class FloorPlanner {
                 decors: w.attachedDecor ? w.attachedDecor.map(d => ({ id: d.id, configId: d.configId, side: d.side, localX: d.localX, localY: d.localY, localZ: d.localZ, width: d.width, height: d.height, depth: d.depth, tileSize: d.tileSize, faces: { front: d.faces.front, back: d.faces.back, left: d.faces.left, right: d.faces.right } })) : []
             })),
             furniture: this.furniture.map(f => ({ x: f.group.x(), y: f.group.y(), rotation: f.rotation, width: f.width, depth: f.depth, height: f.height, configId: f.config.id, description: f.description })),
-            stairs: this.stairs.map(s => s.type === 'staircase_two' ? s.export() : { path: s.path.map(p => ({ x: p.x, y: p.y, shape: p.shape })), description: s.description }),
+            stairs: this.stairs.map(s => {
+                if (s.type === 'staircase_two') return s.export();
+                if (s.type === 'stair' || s.type === 'stair_landing') {
+                    return {
+                        id: s.id, type: s.type, systemId: s.systemId,
+                        connectedFrom: s.connectedFrom, connectedTo: s.connectedTo,
+                        x: s.x, y: s.y, elevation: s.elevation, rotation: s.rotation, rotationOffset: s.rotationOffset,
+                        width: s.width, stepCount: s.stepCount, stepHeight: s.stepHeight, stepDepth: s.stepDepth,
+                        length: s.length, thickness: s.thickness
+                    };
+                }
+                return { path: s.path ? s.path.map(p => ({ x: p.x, y: p.y, shape: p.shape })) : [], description: s.description };
+            }),
             roofs: this.roofs.map(r => ({ x: r.group.x(), y: r.group.y(), rotation: r.rotation, width: r.config?.width, depth: r.config?.depth, pitch: r.config?.pitch, overhang: r.config?.overhang, thickness: r.config?.thickness, ridgeOffset: r.config?.ridgeOffset, points: r.points, isHip: !!r.points, roofType: r.config?.roofType, material: r.config?.material, wallGap: r.config?.wallGap, description: r.description })),
             arcs: this.arcs ? this.arcs.map(a => ({ p1: {x: a.p1.x, y: a.p1.y}, p2: {x: a.p2.x, y: a.p2.y}, pos: a.pos, hasRailing: a.hasRailing, railingConfig: a.railingConfig, hidden: a.hidden, description: a.description })) : [],
             shapes: this.shapes ? this.shapes.map(s => ({ type: s.type, x: s.group.x(), y: s.group.y(), rotation: s.rotation, scaleX: s.group.scaleX(), scaleY: s.group.scaleY(), params: s.params, description: s.description })) : [],
@@ -1952,6 +2218,9 @@ export class FloorPlanner {
                         const stair2 = new StaircaseTwo(this, sData.x, sData.y, sData.config);
                         if (sData.description !== undefined) stair2.description = sData.description;
                         this.stairs.push(stair2);
+                        } else if (sData.type === 'stair' || sData.type === 'stair_landing') {
+                            const stairV3 = new PremiumStairV3(this, sData);
+                            this.stairs.push(stairV3);
                     } else if (sData.path && sData.path.length > 0) {
                         const stair = new PremiumStair(this, sData.path[0].x, sData.path[0].y); stair.path = sData.path; stair.initHandles();
                         if (sData.description !== undefined) stair.description = sData.description;

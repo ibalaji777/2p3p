@@ -222,6 +222,10 @@ export class InteractionSystem {
         this.dragOffset = new THREE.Vector3();
         this.selectedObject = null;
         this.isPlacing = false;
+        
+        this.tapCount = 0;
+        this.lastTapTime = 0;
+        this.tapTimeout = null;
 
         const geo = new THREE.PlaneGeometry(1, 1);
         const mat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false });
@@ -251,6 +255,59 @@ export class InteractionSystem {
         this.openingGizmo = new OpeningGizmo(ctx);
         this.ctx.scene.add(this.openingGizmo);
 
+        this.transformControls.addEventListener('change', () => {
+            const obj = this.selectedObject;
+            if (this.ctx.currentTransformMode === 'translate' && obj && obj.userData.isStair && obj.userData.entity && !obj.userData.entity.connectedFrom) {
+                const entity = obj.userData.entity;
+                if (window.plannerInstance && window.plannerInstance.planner) {
+                    for (let s of window.plannerInstance.planner.stairs) {
+                        if (s === entity || s.systemId === entity.systemId || (s.type !== 'stair' && s.type !== 'stair_landing')) continue;
+                        if (s.endX !== undefined && s.endY !== undefined && !s.connectedTo) {
+                            if (Math.hypot(obj.position.x - s.endX, obj.position.z - s.endY) < 30) {
+                                obj.position.x = s.endX;
+                                obj.position.z = s.endY;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            if (this.ctx.syncToUI) this.ctx.syncToUI();
+        });
+
+        this.transformControls.addEventListener('dragend', () => {
+            const obj = this.selectedObject;
+            if (this.ctx.currentTransformMode === 'translate' && obj && obj.userData.isStair && obj.userData.entity && !obj.userData.entity.connectedFrom) {
+                const entity = obj.userData.entity;
+                if (window.plannerInstance && window.plannerInstance.planner) {
+                    for (let s of window.plannerInstance.planner.stairs) {
+                        if (s === entity || s.systemId === entity.systemId || (s.type !== 'stair' && s.type !== 'stair_landing')) continue;
+                        if (s.endX !== undefined && s.endY !== undefined && !s.connectedTo) {
+                            if (Math.hypot(obj.position.x - s.endX, obj.position.z - s.endY) < 5) {
+                                entity.connectedFrom = s.id;
+                                s.connectedTo = entity.id;
+                                entity.rotationOffset = entity.rotation - ((s.absRot || 0) * 180 / Math.PI);
+                                entity.x = undefined; entity.y = undefined;
+                                if (entity.group) entity.group.draggable(false);
+                                const updateSystemId = (node, sysId) => {
+                                    node.systemId = sysId;
+                                    if (node.connectedTo) {
+                                        const child = window.plannerInstance.planner.stairs.find(c => c.id === node.connectedTo);
+                                        if (child) updateSystemId(child, sysId);
+                                    }
+                                };
+                                updateSystemId(entity, s.systemId);
+                                window.plannerInstance.syncAll();
+                                if (this.ctx.stairSystemManager) this.ctx.stairSystemManager.updatePanel(entity);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            if (this.ctx.controls) this.ctx.controls.enabled = true;
+        });
+
         this.initEvents();
     }
 
@@ -276,6 +333,14 @@ export class InteractionSystem {
             if (this.transformControls && this.transformControls.active) return;
             if (this.mode === 'camera' || e.button !== 0) return;
             this.updateMouse(e);
+            
+            const now = Date.now();
+            if (now - this.lastTapTime < 350) {
+                this.tapCount++;
+            } else {
+                this.tapCount = 1;
+            }
+            this.lastTapTime = now;
             
             // If currently in a transform mode, block all other object selections
             if (this.ctx.currentTransformMode && this.ctx.currentTransformMode !== 'none') {
@@ -321,9 +386,9 @@ export class InteractionSystem {
                     return;
                 }
 
-                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isPattern) mesh = mesh.parent;
+                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isPattern && !mesh.userData.isStair && !(mesh.userData.entity && (mesh.userData.entity.type === 'stair' || mesh.userData.entity.type === 'stair_landing'))) mesh = mesh.parent;
                 
-                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isPattern)) {
+                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isPattern || mesh.userData.isStair || (mesh.userData.entity && (mesh.userData.entity.type === 'stair' || mesh.userData.entity.type === 'stair_landing')))) {
                     if (this.mode === 'edit') {
                         if (this.selectedObject === mesh && mesh.userData.isFurniture) {
                             this.setRelocationState(true);
@@ -670,13 +735,14 @@ export class InteractionSystem {
             }
             this.wallHighlight.visible = true;
         } 
-        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor || object.userData.isWidget || object.userData.isPattern) {
+        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor || object.userData.isWidget || object.userData.isPattern || object.userData.isStair || (object.userData.entity && (object.userData.entity.type === 'stair' || object.userData.entity.type === 'stair_landing'))) {
             if (object.userData.isShape) type = 'shape';
             else if (object.userData.isFurniture) type = 'furniture';
             else if (object.userData.isWallDecor) type = 'wallDecor';
             else if (object.userData.isFloor) type = 'room';
             else if (object.userData.isWidget) type = 'widget';
             else if (object.userData.isPattern) type = 'advance_openings';
+            else if (object.userData.isStair || (object.userData.entity && (object.userData.entity.type === 'stair' || object.userData.entity.type === 'stair_landing'))) type = 'stair';
             this.setHighlight(object, true);
                 
             if (type === 'furniture' || type === 'shape') {
@@ -684,11 +750,27 @@ export class InteractionSystem {
                     this.transformControls.attach(object);
                     if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
                 }
-            } else if (type === 'widget' || type === 'advance_openings') {
+            } else if (type === 'widget' || type === 'advance_openings' || type === 'stair') {
                 if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
+                if (type === 'stair' && this.ctx.setTransformMode) {
+                    this.ctx.setTransformMode('stair');
+                }
             } else {
                 if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
             }
+            
+            if (type === 'stair') {
+                if (this.tapTimeout) clearTimeout(this.tapTimeout);
+                this.tapTimeout = setTimeout(() => {
+                    if (this.ctx.stairSystemManager) {
+                        if (this.tapCount === 1) this.ctx.stairSystemManager.setSelectionScope('flight');
+                        else if (this.tapCount === 2) this.ctx.stairSystemManager.setSelectionScope('connected');
+                        else if (this.tapCount >= 3) this.ctx.stairSystemManager.setSelectionScope('system');
+                    }
+                    this.tapCount = 0;
+                }, 350);
+            }
+            
         }
         if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
         if (window.plannerInstance && object.userData.entity) {

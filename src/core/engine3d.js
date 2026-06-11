@@ -10,6 +10,7 @@ import { AssetManager  } from "./engine3d/engine3d.AssetManager.js";
 import { DecorManager  } from "./engine3d/engine3d.DecorManager.js";
 import { FurnitureManager  } from "./engine3d/engine3d.FurnitureManager.js";
 import { InteractionSystem  } from "./engine3d/engine3d.InteractionSystem.js";
+import { StairSystemManager } from "./engine3d/engine3d.StairSystem.js";
 
 
 export class Preview3D {
@@ -71,6 +72,7 @@ export class Preview3D {
         this.decorManager = new DecorManager(this);
         this.furnitureManager = new FurnitureManager(this);
         this.interactions = new InteractionSystem(this);
+        this.stairSystemManager = new StairSystemManager(this);
 
         // Setup transform menu
         this.transformMenu = document.createElement('div');
@@ -209,6 +211,63 @@ export class Preview3D {
         this.openingPanel.addEventListener('pointerdown', e => e.stopPropagation());
         this.transformMenu.appendChild(this.openingPanel);
         this.transformMenu.appendChild(this.btnOpening);
+        
+        this.btnStair = document.createElement('button');
+        this.btnStair.className = 'transform-menu-btn';
+        this.btnStair.innerHTML = '🪜<br>Stair V3';
+        this.btnStair.style.top = '80px';
+        this.btnStair.style.left = '90px';
+        this.btnStair.style.display = 'none';
+        this.btnStair.onclick = () => this.setTransformMode('stair');
+        
+        this.stairPanel = document.createElement('div');
+        this.stairPanel.style.display = 'none';
+        this.stairPanel.style.position = 'absolute';
+        this.stairPanel.style.top = '-260px';
+        this.stairPanel.style.left = '50%';
+        this.stairPanel.style.transform = 'translateX(-50%)';
+        this.stairPanel.style.background = 'rgba(15, 23, 42, 0.95)';
+        this.stairPanel.style.padding = '12px 16px';
+        this.stairPanel.style.borderRadius = '12px';
+        this.stairPanel.style.color = 'white';
+        this.stairPanel.style.pointerEvents = 'auto';
+        this.stairPanel.style.boxShadow = '0 8px 32px rgba(0,0,0,0.5)';
+        this.stairPanel.style.border = '1px solid rgba(255,255,255,0.15)';
+        this.stairPanel.style.backdropFilter = 'blur(8px)';
+        this.stairPanel.style.zIndex = '1000';
+        this.stairPanel.style.flexDirection = 'column';
+        this.stairPanel.style.gap = '10px';
+        this.stairPanel.style.width = '280px';
+        this.stairPanel.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+                <span style="font-size: 11px; font-weight: 800; color: #94a3b8; letter-spacing: 0.5px;">STAIR SYSTEM V3</span>
+                <select id="gizmo-stair-select-scope" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 4px; padding: 2px 4px; font-size: 10px; outline: none;"><option value="flight">Current Flight</option><option value="connected">Connected Flights</option><option value="system">Entire System</option><option value="above">Above Flights</option><option value="below">Below Flights</option></select>
+            </div>
+            <div id="gizmo-stair-flight-controls" style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                <div style="font-size: 10px; color: #64748b; font-weight: bold; text-transform: uppercase;">Flight Parameters</div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;"><span style="font-size:11px; color:#fca5a5; font-weight:600; width: 55px;">Width</span><input type="range" id="gizmo-stair-w-range" min="50" max="300" step="1" style="flex: 1; accent-color:#fca5a5;"><input type="number" id="gizmo-stair-w" step="1" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 11px; outline: none; text-align: right;"></div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;"><span style="font-size:11px; color:#86efac; font-weight:600; width: 55px;">Step H</span><input type="range" id="gizmo-stair-h-range" min="10" max="30" step="0.5" style="flex: 1; accent-color:#86efac;"><input type="number" id="gizmo-stair-h" step="0.5" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 11px; outline: none; text-align: right;"></div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;"><span style="font-size:11px; color:#93c5fd; font-weight:600; width: 55px;">Step D</span><input type="range" id="gizmo-stair-d-range" min="20" max="50" step="0.5" style="flex: 1; accent-color:#93c5fd;"><input type="number" id="gizmo-stair-d" step="0.5" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 11px; outline: none; text-align: right;"></div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;"><span style="font-size:11px; color:#fde047; font-weight:600; width: 55px;">Count</span><input type="range" id="gizmo-stair-c-range" min="1" max="50" step="1" style="flex: 1; accent-color:#fde047;"><input type="number" id="gizmo-stair-c" step="1" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 11px; outline: none; text-align: right;"></div>
+            </div>
+            <div id="gizmo-stair-landing-controls" style="display: none; flex-direction: column; gap: 8px; margin-top: 4px;">
+                <div style="font-size: 10px; color: #64748b; font-weight: bold; text-transform: uppercase;">Landing Parameters</div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;"><span style="font-size:11px; color:#c084fc; font-weight:600; width: 55px;">Length</span><input type="range" id="gizmo-landing-l-range" min="50" max="400" step="1" style="flex: 1; accent-color:#c084fc;"><input type="number" id="gizmo-landing-l" step="1" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 11px; outline: none; text-align: right;"></div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;"><span style="font-size:11px; color:#f472b6; font-weight:600; width: 55px;">Thick</span><input type="range" id="gizmo-landing-t-range" min="5" max="50" step="1" style="flex: 1; accent-color:#f472b6;"><input type="number" id="gizmo-landing-t" step="1" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 11px; outline: none; text-align: right;"></div>
+            </div>
+            <div style="display: flex; gap: 6px; margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px; flex-wrap: wrap;">
+                <button id="gizmo-stair-btn-landing" style="flex: 1 1 45%; background: #3b82f6; color: white; border: none; border-radius: 4px; padding: 6px 0; font-size: 10px; font-weight: bold; cursor: pointer;">+ Landing</button>
+                <button id="gizmo-stair-btn-flight" style="flex: 1 1 45%; background: #3b82f6; color: white; border: none; border-radius: 4px; padding: 6px 0; font-size: 10px; font-weight: bold; cursor: pointer; display: none;">+ Flight</button>
+                <button id="gizmo-stair-btn-rot45" style="flex: 1 1 30%; background: #10b981; color: white; border: none; border-radius: 4px; padding: 6px 0; font-size: 10px; font-weight: bold; cursor: pointer; display: none;">Turn 45°</button>
+                <button id="gizmo-stair-btn-rot90" style="flex: 1 1 30%; background: #10b981; color: white; border: none; border-radius: 4px; padding: 6px 0; font-size: 10px; font-weight: bold; cursor: pointer; display: none;">Turn 90°</button>
+                <button id="gizmo-stair-btn-rot180" style="flex: 1 1 30%; background: #8b5cf6; color: white; border: none; border-radius: 4px; padding: 6px 0; font-size: 10px; font-weight: bold; cursor: pointer; display: none;">Turn 180°</button>
+                <button id="gizmo-stair-btn-detach" style="flex: 1 1 100%; background: #f59e0b; color: white; border: none; border-radius: 4px; padding: 6px 0; font-size: 10px; font-weight: bold; cursor: pointer; margin-top: 4px; display: none;">Detach Component</button>
+                <button id="gizmo-stair-btn-delete" style="flex: 1 1 100%; background: #ef4444; color: white; border: none; border-radius: 4px; padding: 6px 0; font-size: 10px; font-weight: bold; cursor: pointer; margin-top: 4px;">Delete Selected</button>
+            </div>
+        `;
+        this.stairPanel.addEventListener('pointerdown', e => e.stopPropagation());
+        this.transformMenu.appendChild(this.stairPanel);
+        this.transformMenu.appendChild(this.btnStair);
 
         this.btnDone = document.createElement('button');
         this.btnDone.className = 'transform-menu-btn done-btn';
@@ -298,6 +357,8 @@ export class Preview3D {
             if (opH) { opH.addEventListener('input', e => updateOpeningPos('height', parseFloat(e.target.value))); opHR.addEventListener('input', e => updateOpeningPos('height', parseFloat(e.target.value))); }
             if (opE) { opE.addEventListener('input', e => updateOpeningPos('elevation', parseFloat(e.target.value))); opER.addEventListener('input', e => updateOpeningPos('elevation', parseFloat(e.target.value))); }
             
+            this.stairSystemManager.bindUI();
+            
         }, 100);
 
         this.interactions.transformControls.addEventListener('change', () => {
@@ -383,12 +444,14 @@ export class Preview3D {
         this.btnRotX.classList.remove('active');
         this.btnRotY.classList.remove('active');
         if (this.btnOpening) this.btnOpening.classList.remove('active');
+        if (this.btnStair) this.btnStair.classList.remove('active');
 
         if (this.interactions.openingGizmo) {
             this.interactions.openingGizmo.detach();
         }
 
         const isOpening = selectedObj && (selectedObj.userData.isWidget || selectedObj.userData.isPattern || (selectedObj.userData.entity && selectedObj.userData.entity.type && ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(selectedObj.userData.entity.type)));
+        const isStair = selectedObj && (selectedObj.userData.isStair || (selectedObj.userData.entity && (selectedObj.userData.entity.type === 'stair' || selectedObj.userData.entity.type === 'stair_landing')));
 
         if (mode === 'none') {
             tc.visible = false;
@@ -401,8 +464,10 @@ export class Preview3D {
             this.btnRotX.style.display = isOpening ? 'none' : 'flex';
             this.btnRotY.style.display = isOpening ? 'none' : 'flex';
             if (this.btnOpening) this.btnOpening.style.display = isOpening ? 'flex' : 'none';
+            if (this.btnStair) this.btnStair.style.display = isStair ? 'flex' : 'none';
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
+            if (this.stairPanel) this.stairPanel.style.display = 'none';
             if (this.btnDone) this.btnDone.style.display = 'none';
             
             // Restore selection highlight when returning to normal view
@@ -423,6 +488,7 @@ export class Preview3D {
         this.btnRotX.style.display = 'none';
         this.btnRotY.style.display = 'none';
         if (this.btnOpening) this.btnOpening.style.display = 'none';
+        if (this.btnStair) this.btnStair.style.display = 'none';
         if (this.btnDone) this.btnDone.style.display = 'flex';
 
         // Force a UI refresh for the TransformControls by detaching before mode switch
@@ -437,6 +503,18 @@ export class Preview3D {
             if (this.interactions.openingGizmo && selectedObj) {
                 this.interactions.openingGizmo.attach(selectedObj);
                 this.updateOpeningPanel(selectedObj.userData.entity);
+            }
+            return;
+        }
+
+        if (mode === 'stair') {
+            tc.visible = false;
+            tc.enabled = false;
+            if (this.btnStair) this.btnStair.classList.add('active');
+            if (this.stairPanel) this.stairPanel.style.display = 'flex';
+            if (this.xyPanel) this.xyPanel.style.display = 'none';
+            if (selectedObj && selectedObj.userData.entity) {
+                this.stairSystemManager.updatePanel(selectedObj.userData.entity);
             }
             return;
         }
@@ -683,7 +761,7 @@ export class Preview3D {
 
     buildScene(walls, rooms, stairs = [], furnitureList = [], roofs = [], shapes = [], levelsConfigArray = [], activeIndex = 0, viewMode3D = 'full-edit', preserveCamera = false) {
         this.deselectObject();
-        this.interactables = [];
+        this.interactables.length = 0;
         this.viewMode3D = viewMode3D;
         
         while(this.structureGroup.children.length > 0) { 

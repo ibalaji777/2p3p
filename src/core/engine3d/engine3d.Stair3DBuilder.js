@@ -28,7 +28,143 @@ export class Stair3DBuilder {
                 this._buildFromStepData(stair.stepData3D, stairGroup, stair.config);
             }
 
+            stairGroup.userData.entity = stair;
+            stairGroup.userData.isStair = true;
+            stair.mesh3D = stairGroup;
+            this.interactables.push(stairGroup);
             parentGroup.add(stairGroup);
+        });
+
+        // --- NEW V3 LOGIC: Completely Independent Smart Chaining Builder ---
+        this._buildStairSystemV3(stairs, parentGroup);
+    }
+
+    _buildStairSystemV3(stairs, parentGroup) {
+        const v3Components = stairs.filter(s => s.type === 'stair' || s.type === 'stair_landing');
+        if (v3Components.length === 0) return;
+
+        const compMap = new Map();
+        v3Components.forEach(c => compMap.set(c.id, c));
+        
+        // Find root nodes (staircases that are the start of a chain)
+        const roots = v3Components.filter(c => !c.connectedFrom || !compMap.has(c.connectedFrom));
+        
+        roots.forEach(root => {
+            let current = root;
+            
+            // Master parameters initialized by the root flight
+            let cursorX = root.x || 0;
+            let cursorZ = root.y || 0; 
+            let cursorElev = root.elevation || 0;
+            let radRot = (root.rotation || 0) * (Math.PI / 180);
+            
+            const systemGroup = new THREE.Group();
+            systemGroup.userData.systemId = root.systemId || root.id;
+            parentGroup.add(systemGroup);
+            
+            while (current) {
+                const meshGroup = new THREE.Group();
+                meshGroup.position.set(cursorX, cursorElev, cursorZ);
+                meshGroup.rotation.y = -radRot; 
+                
+                meshGroup.userData.entity = current;
+                meshGroup.userData.isStair = true;
+                this.interactables.push(meshGroup);
+                current.mesh3D = meshGroup;
+                
+                let advanceLen = 0;
+                let advanceElev = 0;
+
+                const leftRailing = new THREE.Group();
+                const rightRailing = new THREE.Group();
+
+                // 1. Generate Parametric Stair Flight
+                if (current.type === 'stair') {
+                    const w = current.width || 100;
+                    const c = current.stepCount || 10;
+                    const h = current.stepHeight || 17.5;
+                    const d = current.stepDepth || 28.0;
+                    
+                    for (let i = 0; i < c; i++) {
+                        const stepG = new THREE.Group();
+                        stepG.position.set(0, i * h, i * d);
+                        
+                        const tGeo = new THREE.BoxGeometry(w, 2, d);
+                        tGeo.translate(0, 1, d/2);
+                        const tread = new THREE.Mesh(tGeo, this.matStep);
+                        tread.castShadow = true; tread.receiveShadow = true;
+                        stepG.add(tread);
+                        
+                        const rGeo = new THREE.BoxGeometry(w, h, 1);
+                        rGeo.translate(0, h/2, 0.5);
+                        const riser = new THREE.Mesh(rGeo, this.matRiser);
+                        riser.castShadow = true; riser.receiveShadow = true;
+                        stepG.add(riser);
+                        
+                        // Add simple balusters
+                        const balGeo = new THREE.CylinderGeometry(1.5, 1.5, 90, 8);
+                        balGeo.translate(0, 45, 0);
+                        const balL = new THREE.Mesh(balGeo, this.matSteel);
+                        balL.position.set(-w/2 + 3, i * h, i * d + d/2);
+                        leftRailing.add(balL);
+                        
+                        const balR = new THREE.Mesh(balGeo, this.matSteel);
+                        balR.position.set(w/2 - 3, i * h, i * d + d/2);
+                        rightRailing.add(balR);
+                        
+                        meshGroup.add(stepG);
+                    }
+                    
+                    // Handrails
+                    const flightLen = Math.hypot(c * d, c * h);
+                    const handAng = -Math.atan2(c * h, c * d);
+                    const handGeo = new THREE.CylinderGeometry(2.5, 2.5, flightLen, 12);
+                    handGeo.rotateX(Math.PI/2); handGeo.translate(0, 90, flightLen/2);
+                    
+                    const handL = new THREE.Mesh(handGeo, this.matBlack);
+                    handL.position.set(-w/2 + 3, 0, 0); handL.rotation.x = handAng; leftRailing.add(handL);
+                    const handR = new THREE.Mesh(handGeo, this.matBlack);
+                    handR.position.set(w/2 - 3, 0, 0); handR.rotation.x = handAng; rightRailing.add(handR);
+
+                    meshGroup.add(leftRailing, rightRailing);
+                    
+                    advanceLen = c * d;
+                    advanceElev = c * h;
+                } 
+                // 2. Generate Parametric Smart Landing
+                else if (current.type === 'stair_landing') {
+                    const w = current.width || 100;
+                    const l = current.length || 100;
+                    const t = current.thickness || 20;
+                    
+                    const lGeo = new THREE.BoxGeometry(w, t, l);
+                    lGeo.translate(0, -t/2, l/2);
+                    const landing = new THREE.Mesh(lGeo, this.matStep);
+                    landing.castShadow = true; landing.receiveShadow = true;
+                    meshGroup.add(landing);
+                    
+                    // Landing Railings
+                    const railH = 90;
+                    const lRailL = new THREE.Mesh(new THREE.BoxGeometry(3, railH, l), this.matGlass); lRailL.position.set(-w/2 + 1.5, railH/2, l/2);
+                    const lRailR = new THREE.Mesh(new THREE.BoxGeometry(3, railH, l), this.matGlass); lRailR.position.set(w/2 - 1.5, railH/2, l/2);
+                    meshGroup.add(lRailL, lRailR);
+                    
+                    advanceLen = l;
+                }
+                
+                systemGroup.add(meshGroup);
+                
+                // 3. Move the cursor forward precisely to snap the next chain node
+                cursorX += Math.sin(radRot) * advanceLen;
+                cursorZ += Math.cos(radRot) * advanceLen;
+                cursorElev += advanceElev;
+                
+                // 4. Trace graph to the next connected part and inherit its rotational turn if present
+                current = current.connectedTo ? compMap.get(current.connectedTo) : null;
+                if (current && current.rotationOffset) {
+                    radRot += current.rotationOffset * (Math.PI / 180);
+                }
+            }
         });
     }
 

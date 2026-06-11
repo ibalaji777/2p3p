@@ -923,6 +923,8 @@ const menuCategories = ref([
         tools: [
             { id: 'stair', name: 'Draw Stairs' },
             { id: 'staircase_two', name: 'Place Staircase V2' },
+            { id: 'stair_v3', name: 'Smart Stair V3' },
+            { id: 'stair_landing', name: 'Smart Landing' },
             { id: 'roof', name: 'Draw Roof' },
             { id: 'auto_roof', name: 'Generate Auto-Roof', action: 'auto_roof' }
         ]
