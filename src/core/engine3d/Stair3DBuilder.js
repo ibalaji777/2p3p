@@ -456,42 +456,29 @@ export class Stair3DBuilder {
         
         // --- NEW V3 LOGIC: Accurate hole cutting for smart chained nodes ---
         const v3Components = stairs.filter(s => s.type === 'stair' || s.type === 'stair_landing');
-        const compMap = new Map();
-        v3Components.forEach(c => compMap.set(c.id, c));
-        const roots = v3Components.filter(c => !c.connectedFrom || !compMap.has(c.connectedFrom));
         
-        roots.forEach(root => {
-            let current = root;
-            let cursorX = root.x || 0;
-            let cursorZ = root.y || 0;
-            let radRot = (root.rotation || 0) * (Math.PI / 180);
+        v3Components.forEach(current => {
+            let cursorX = current.absX !== undefined ? current.absX : (current.x || 0);
+            let cursorZ = current.absY !== undefined ? current.absY : (current.y || 0); 
+            let radRot = current.absRot !== undefined ? current.absRot : ((current.rotation || 0) * (Math.PI / 180));
+            let w = current.width || 100;
+            let l = current.type === 'stair' ? (current.stepCount || 10) * (current.stepDepth || 28.0) : (current.length || 100);
             
-            while (current) {
-                let w = current.width || 100;
-                let l = current.type === 'stair' ? (current.stepCount || 10) * (current.stepDepth || 28.0) : (current.length || 100);
-                
-                const cos = Math.cos(radRot);
-                const sin = Math.sin(radRot);
-                
-                const transform = (lx, lz) => ({
-                    x: cursorX + lx * cos + lz * sin,
-                    y: cursorZ - lx * sin + lz * cos 
-                });
-                
-                const pts = [ transform(-w/2, 0), transform(w/2, 0), transform(w/2, l), transform(-w/2, l) ];
-                
-                const holePath = new THREE.Path();
-                holePath.moveTo(pts[0].x, pts[0].y);
-                for (let i = 1; i < pts.length; i++) holePath.lineTo(pts[i].x, pts[i].y);
-                holePath.lineTo(pts[0].x, pts[0].y);
-                holes.push(holePath);
-                
-                cursorX += sin * l;
-                cursorZ += cos * l;
-                
-                current = current.connectedTo ? compMap.get(current.connectedTo) : null;
-                if (current && current.rotationOffset) radRot += current.rotationOffset * (Math.PI / 180);
-            }
+            const cos = Math.cos(-radRot);
+            const sin = Math.sin(-radRot);
+            
+            const transform = (lx, lz) => ({
+                x: cursorX + lx * cos + lz * sin,
+                y: cursorZ - lx * sin + lz * cos 
+            });
+            
+            const pts = [ transform(-w/2, 0), transform(w/2, 0), transform(w/2, l), transform(-w/2, l) ];
+            
+            const holePath = new THREE.Path();
+            holePath.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) holePath.lineTo(pts[i].x, pts[i].y);
+            holePath.lineTo(pts[0].x, pts[0].y);
+            holes.push(holePath);
         });
 
         return holes;

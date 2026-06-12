@@ -798,7 +798,8 @@ export class FloorPlanner {
         this.shapeTransformer = new Konva.Transformer({
             borderStroke: '#3b82f6', anchorStroke: '#3b82f6', anchorFill: '#ffffff',
             anchorSize: 10, rotateEnabled: false, rotationSnaps: [0, 45, 90, 135, 180, 225, 270, 315],
-            ignoreStroke: true
+            ignoreStroke: true,
+            enabledAnchors: ['top-center', 'bottom-center', 'middle-left', 'middle-right']
         });
         this.uiLayer.add(this.shapeTransformer);
         

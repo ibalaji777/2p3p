@@ -257,40 +257,112 @@ export class InteractionSystem {
 
         this.transformControls.addEventListener('change', () => {
             const obj = this.selectedObject;
-            if (this.ctx.currentTransformMode === 'translate' && obj && obj.userData.isStair && obj.userData.entity && !obj.userData.entity.connectedFrom) {
+            if (this.ctx.currentTransformMode === 'translate' && obj && obj.userData.isStair && obj.userData.entity) {
                 const entity = obj.userData.entity;
-                const planner = entity.planner || (window.plannerInstance ? window.plannerInstance.planner : null);
-                if (planner) {
-                    for (let s of planner.stairs) {
-                        if (s === entity || (s.type !== 'stair' && s.type !== 'stair_landing')) continue;
-                        const isAncestor = (node, pAnc) => { let curr = node; while(curr) { if (curr.id === pAnc.id) return true; curr = planner.stairs.find(x => x.id === curr.connectedFrom); } return false; };
-                        if (isAncestor(s, entity)) continue;
-                        if (s.type === 'stair') {
-                            if (Math.hypot(obj.position.x - (s.endX||0), obj.position.z - (s.endY||0)) < 30) {
-                                obj.position.x = s.endX; obj.position.z = s.endY; break;
+                if (entity.connectedFrom) {
+                    const planner = entity.planner || (window.plannerInstance ? window.plannerInstance.planner : null);
+                    if (planner) {
+                        const parent = planner.stairs.find(s => s.id === entity.connectedFrom);
+                        if (parent && parent.type === 'stair_landing') {
+                            const pr = parent.absRot !== undefined ? parent.absRot : ((parent.rotation || 0) * Math.PI / 180);
+                            const px = parent.absX !== undefined ? parent.absX : (parent.x || 0);
+                            const pz = parent.absY !== undefined ? parent.absY : (parent.y || 0);
+                            
+                            const cos = Math.cos(-pr), sin = Math.sin(-pr);
+                            const lx = (obj.position.x - px) * cos - (obj.position.z - pz) * sin;
+                            const ly = (obj.position.x - px) * sin + (obj.position.z - pz) * cos;
+                            
+                            if (entity.attachEdge === 'top' || entity.attachEdge === 'bottom') {
+                                entity.attachOffsetX = lx;
+                            } else if (entity.attachEdge === 'left' || entity.attachEdge === 'right') {
+                                entity.attachOffsetY = ly - (parent.length || 100)/2;
                             }
-                        } else if (s.type === 'stair_landing') {
-                            const sRot = s.absRot || 0;
-                            const cos = Math.cos(-sRot), sin = Math.sin(-sRot);
-                            const dx = obj.position.x - (s.absX||0), dy = obj.position.z - (s.absY||0);
-                            const lx = dx * cos - dy * sin;
-                            const ly = dx * sin + dy * cos;
-                            const w = s.width || 100, l = s.length || 100;
-                            const dTop = Math.abs(ly - l), dBot = Math.abs(ly), dL = Math.abs(lx - (-w/2)), dR = Math.abs(lx - (w/2));
-                            const minD = Math.min(dTop, dBot, dL, dR);
-                            if (minD < 30 && lx > -w/2 - 20 && lx < w/2 + 20 && ly > -20 && ly < l + 20) {
-                                let sx=0, sy=0;
-                                if (minD === dTop) { sx = lx; sy = l; }
-                                else if (minD === dBot) { sx = lx; sy = 0; }
-                                else if (minD === dL) { sx = -w/2; sy = ly; }
-                                else { sx = w/2; sy = ly; }
-                                const rCos = Math.cos(sRot), rSin = Math.sin(sRot);
-                                obj.position.x = (s.absX||0) + sx * rCos + sy * rSin;
-                                obj.position.z = (s.absY||0) - sx * rSin + sy * rCos;
-                                break;
+                            
+                            entity.update();
+                            obj.position.x = entity.absX;
+                            obj.position.z = entity.absY;
+                            
+                            const token = Date.now() + Math.random();
+                            planner.stairs.forEach(s => { if (s.systemId === entity.systemId) s.update(token); });
+                            
+                            if (window.plannerInstance) window.plannerInstance.syncAll();
+                        } else {
+                            entity.update();
+                            obj.position.x = entity.absX;
+                            obj.position.z = entity.absY;
+                        }
+                    }
+                } else {
+                    const planner = entity.planner || (window.plannerInstance ? window.plannerInstance.planner : null);
+                    if (planner) {
+                        for (let s of planner.stairs) {
+                            if (s === entity || (s.type !== 'stair' && s.type !== 'stair_landing')) continue;
+                            const isAncestor = (node, pAnc) => { let curr = node; while(curr) { if (curr.id === pAnc.id) return true; curr = planner.stairs.find(x => x.id === curr.connectedFrom); } return false; };
+                            if (isAncestor(s, entity)) continue;
+                            if (s.type === 'stair') {
+                                if (Math.hypot(obj.position.x - (s.endX||0), obj.position.z - (s.endY||0)) < 30) {
+                                    obj.position.x = s.endX; obj.position.z = s.endY; break;
+                                }
+                            } else if (s.type === 'stair_landing') {
+                                const sRot = s.absRot || 0;
+                                const cos = Math.cos(-sRot), sin = Math.sin(-sRot);
+                                const dx = obj.position.x - (s.absX||0), dy = obj.position.z - (s.absY||0);
+                                const lx = dx * cos - dy * sin;
+                                const ly = dx * sin + dy * cos;
+                                const w = s.width || 100, l = s.length || 100;
+                                const dTop = Math.abs(ly - l), dBot = Math.abs(ly), dL = Math.abs(lx - (-w/2)), dR = Math.abs(lx - (w/2));
+                                const minD = Math.min(dTop, dBot, dL, dR);
+                                if (minD < 30 && lx > -w/2 - 20 && lx < w/2 + 20 && ly > -20 && ly < l + 20) {
+                                    let sx=0, sy=0;
+                                    if (minD === dTop) { sx = lx; sy = l; }
+                                    else if (minD === dBot) { sx = lx; sy = 0; }
+                                    else if (minD === dL) { sx = -w/2; sy = ly; }
+                                    else { sx = w/2; sy = ly; }
+                                    const rCos = Math.cos(sRot), rSin = Math.sin(sRot);
+                                    obj.position.x = (s.absX||0) + sx * rCos + sy * rSin;
+                                    obj.position.z = (s.absY||0) - sx * rSin + sy * rCos;
+                                    break;
+                                }
                             }
                         }
                     }
+                }
+            }
+            
+            if (this.ctx.currentTransformMode === 'rotate' && obj && obj.userData.isStair && obj.userData.entity) {
+                const entity = obj.userData.entity;
+                if (entity.connectedFrom) {
+                    const planner = entity.planner || (window.plannerInstance ? window.plannerInstance.planner : null);
+                    if (planner) {
+                        const parent = planner.stairs.find(s => s.id === entity.connectedFrom);
+                        if (parent) {
+                            const pr = parent.absRot !== undefined ? parent.absRot : ((parent.rotation || 0) * (Math.PI / 180));
+                            let baseEdgeRot = 0;
+                            if (parent.type === 'stair_landing') {
+                                if (entity.attachEdge === 'bottom') baseEdgeRot = 180;
+                                else if (entity.attachEdge === 'left') baseEdgeRot = -90;
+                                else if (entity.attachEdge === 'right') baseEdgeRot = 90;
+                            }
+                            
+                            let rawRot = -obj.rotation.y * 180 / Math.PI; 
+                            let rotOff = rawRot - (pr * 180 / Math.PI) - baseEdgeRot;
+                            rotOff = Math.round(rotOff / 15) * 15;
+                            entity.rotationOffset = rotOff;
+                            entity.update();
+                            obj.rotation.y = -entity.absRot;
+                            
+                            const token = Date.now() + Math.random();
+                            planner.stairs.forEach(s => { if (s.systemId === entity.systemId) s.update(token); });
+                            
+                            if (window.plannerInstance) window.plannerInstance.syncAll();
+                        }
+                    }
+                } else {
+                    entity.rotation = -obj.rotation.y * 180 / Math.PI;
+                    entity.update();
+                    const token = Date.now() + Math.random();
+                    const planner = entity.planner || (window.plannerInstance ? window.plannerInstance.planner : null);
+                    if (planner) planner.stairs.forEach(s => { if (s.systemId === entity.systemId) s.update(token); });
                 }
             }
             if (this.ctx.syncToUI) this.ctx.syncToUI();

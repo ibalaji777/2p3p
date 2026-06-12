@@ -611,6 +611,15 @@
                             </div>
                         </div>
                     </div>
+                    <div v-else-if="selectedEntity.type === 'stair'">
+                        <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="20" max="200" @input="syncEngine"><input type="number" v-model.number="selectedEntity.width" @input="syncEngine"></div></div>
+                        <div class="control-group"><label>Step Count</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stepCount" min="3" max="50" step="1" @input="syncEngine"><input type="number" v-model.number="selectedEntity.stepCount" min="3" max="50" step="1" @input="syncEngine"></div></div>
+                        <div class="control-group"><label>Step Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stepDepth" min="15" max="40" step="0.5" @input="syncEngine"><input type="number" v-model.number="selectedEntity.stepDepth" min="15" max="40" step="0.5" @input="syncEngine"></div></div>
+                    </div>
+                    <div v-else-if="selectedEntity.type === 'stair_landing'">
+                        <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="20" max="400" @input="syncEngine"><input type="number" v-model.number="selectedEntity.width" @input="syncEngine"></div></div>
+                        <div class="control-group"><label>Length</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.length" min="20" max="400" @input="syncEngine"><input type="number" v-model.number="selectedEntity.length" @input="syncEngine"></div></div>
+                    </div>
                     <button class="hud-delete" @click="handleDelete" style="margin-top: 15px;">Delete Stairs</button>
                 </div>
 
