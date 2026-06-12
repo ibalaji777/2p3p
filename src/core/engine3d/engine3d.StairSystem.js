@@ -105,17 +105,17 @@ export class StairSystemManager {
         const btnDetach = document.getElementById('gizmo-stair-btn-detach');
 
         if (isLanding) {
-            if (btnStraight) btnStraight.style.display = 'none';
-            if (btnLShape) btnLShape.style.display = 'none';
-            if (btnUShape) btnUShape.style.display = 'none';
-            if (btnTShape) btnTShape.style.display = 'none';
-            if (btnYShape) btnYShape.style.display = 'none';
+            if (btnStraight) { btnStraight.style.display = 'block'; btnStraight.innerHTML = '+ Top Flight'; }
+            if (btnLShape) { btnLShape.style.display = 'block'; btnLShape.innerHTML = '+ Right Flight'; }
+            if (btnUShape) { btnUShape.style.display = 'block'; btnUShape.innerHTML = '+ Left Flight'; }
+            if (btnTShape) { btnTShape.style.display = 'block'; btnTShape.innerHTML = '+ Bottom Flight'; }
+            if (btnYShape) { btnYShape.style.display = 'none'; }
         } else {
-            if (btnStraight) btnStraight.style.display = 'block';
-            if (btnLShape) btnLShape.style.display = 'block';
-            if (btnUShape) btnUShape.style.display = 'block';
-            if (btnTShape) btnTShape.style.display = 'block';
-            if (btnYShape) btnYShape.style.display = 'block';
+            if (btnStraight) { btnStraight.style.display = 'block'; btnStraight.innerHTML = 'Straight'; }
+            if (btnLShape) { btnLShape.style.display = 'block'; btnLShape.innerHTML = 'L-Shape'; }
+            if (btnUShape) { btnUShape.style.display = 'block'; btnUShape.innerHTML = 'U-Shape'; }
+            if (btnTShape) { btnTShape.style.display = 'block'; btnTShape.innerHTML = 'T-Shape'; }
+            if (btnYShape) { btnYShape.style.display = 'block'; btnYShape.innerHTML = 'Y-Shape'; }
         }
 
         if (isLanding) {
@@ -142,7 +142,7 @@ export class StairSystemManager {
         if (this.selectionScope === 'system') {
             return allStairs.filter(e => e.systemId === systemId);
         } else if (this.selectionScope === 'connected') {
-            return allStairs.filter(e => e.systemId === systemId && (e.connectedTo === entity.id || entity.connectedTo === e.id || e.id === entity.id));
+            return allStairs.filter(e => e.systemId === systemId && (e.connectedFrom === entity.id || entity.connectedFrom === e.id || e.id === entity.id));
         } else if (this.selectionScope === 'above') {
             return allStairs.filter(e => e.systemId === systemId && (e.elevation >= entity.elevation));
         } else if (this.selectionScope === 'below') {
@@ -180,6 +180,15 @@ export class StairSystemManager {
         const baseEntity = selected.userData.entity;
         const planner = baseEntity.planner || window.plannerInstance?.planner;
         if (!planner) return;
+
+        if (baseEntity.type === 'stair_landing') {
+            if (type === 'straight') this.spawnFlight(baseEntity, 'top', 0, 0, 0, planner);
+            else if (type === 'l_shape') this.spawnFlight(baseEntity, 'right', 0, 0, 0, planner);
+            else if (type === 'u_shape') this.spawnFlight(baseEntity, 'left', 0, 0, 0, planner);
+            else if (type === 't_shape') this.spawnFlight(baseEntity, 'bottom', 0, 0, 180, planner);
+            if (planner.syncAll) planner.syncAll();
+            return;
+        }
 
         if (baseEntity.type !== 'stair') return console.warn("Select a flight to construct topology.");
         

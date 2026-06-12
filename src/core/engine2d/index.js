@@ -473,9 +473,10 @@ export class PremiumStairV3 {
             children.forEach(c => { if (c.attachEdge) occupiedEdges.push(c.attachEdge); });
             children.forEach(child => {
                 let ex = 0, ey = l;
-                if (child.attachEdge === 'right') { ex = w/2; ey = l/2; }
-                else if (child.attachEdge === 'left') { ex = -w/2; ey = l/2; }
-                else if (child.attachEdge === 'bottom') { ex = 0; ey = 0; }
+                if (child.attachEdge === 'right') { ex = w/2; ey = l/2 + (child.attachOffsetY || 0); }
+                else if (child.attachEdge === 'left') { ex = -w/2; ey = l/2 + (child.attachOffsetY || 0); }
+                else if (child.attachEdge === 'bottom') { ex = (child.attachOffsetX || 0); ey = 0; }
+                else if (child.attachEdge === 'top') { ex = (child.attachOffsetX || 0); ey = l; }
                 this.stepsGroup.add(new Konva.Arrow({ points: [0, l/2, ex, ey], stroke: '#3b82f6', fill: '#3b82f6', strokeWidth: 3, dash: [6, 4], tension: 0.4, pointerLength: 8, pointerWidth: 8 }));
             });
             const txt = new Konva.Text({ x: 0, y: l/2, text: 'JUNCTION', fontSize: 10, fill: '#3b82f6', align: 'center', fontStyle: 'bold', rotation: radRot * 180 / Math.PI });
