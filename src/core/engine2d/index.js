@@ -59,16 +59,21 @@ export class PremiumStairV3 {
                 let shiftLocalX;
                 if (isLeft) {
                     newWidth = Math.round(oldWidth / 2 - newLocalX);
+                    if (this.type === 'stair_landing' && newWidth < oldWidth) newWidth = oldWidth;
                     if (newWidth < 20) newWidth = 20;
                     const dw = newWidth - oldWidth;
                     shiftLocalX = -dw / 2;
                 } else {
                     newWidth = Math.round(newLocalX + oldWidth / 2);
+                    if (this.type === 'stair_landing' && newWidth < oldWidth) newWidth = oldWidth;
                     if (newWidth < 20) newWidth = 20;
                     const dw = newWidth - oldWidth;
                     shiftLocalX = dw / 2;
                 }
-                if (newWidth === oldWidth) return;
+                if (newWidth === oldWidth) {
+                    this.update();
+                    return;
+                }
                 this.width = newWidth;
                 const radRot = this.absRot !== undefined ? this.absRot : ((this.rotation || 0) * Math.PI / 180);
                 const newAbsX = (this.absX !== undefined ? this.absX : this.x) + shiftLocalX * Math.cos(radRot);
@@ -114,8 +119,14 @@ export class PremiumStairV3 {
                 if (newSteps < 3) newSteps = 3;
                 this.stepCount = newSteps;
             } else {
+                const oldLength = this.length || 100;
                 let newLength = Math.round(newY);
+                if (this.type === 'stair_landing' && newLength < oldLength) newLength = oldLength;
                 if (newLength < 20) newLength = 20;
+                if (newLength === oldLength) {
+                    this.update();
+                    return;
+                }
                 this.length = newLength;
             }
             this.update();
@@ -135,10 +146,14 @@ export class PremiumStairV3 {
             const oldLength = this.length || 100;
             const newLocalY = this.lengthHandleT.y(); 
             let newLength = Math.round(oldLength - newLocalY);
+            if (newLength < oldLength) newLength = oldLength;
             if (newLength < 20) newLength = 20;
             
             const dl = newLength - oldLength;
-            if (dl === 0) return;
+            if (dl === 0) {
+                this.update();
+                return;
+            }
 
             const shiftLocalY = -dl;
             this.length = newLength;
