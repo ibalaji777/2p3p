@@ -615,10 +615,27 @@
                         <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="20" max="200" @input="syncEngine"><input type="number" v-model.number="selectedEntity.width" @input="syncEngine"></div></div>
                         <div class="control-group"><label>Step Count</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stepCount" min="3" max="50" step="1" @input="syncEngine"><input type="number" v-model.number="selectedEntity.stepCount" min="3" max="50" step="1" @input="syncEngine"></div></div>
                         <div class="control-group"><label>Step Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stepDepth" min="15" max="40" step="0.5" @input="syncEngine"><input type="number" v-model.number="selectedEntity.stepDepth" min="15" max="40" step="0.5" @input="syncEngine"></div></div>
+                        <hr style="margin: 15px 0; border:0; border-top:1px solid #d1d5db;">
+                        <h4 class="props-subtitle" style="margin-top:0">Chain / Add Topology</h4>
+                        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                            <button class="action-btn import" style="flex:1;" @click="addTopology('straight')">Straight</button>
+                            <button class="action-btn import" style="flex:1;" @click="addTopology('l_shape')">L-Shape</button>
+                            <button class="action-btn import" style="flex:1;" @click="addTopology('u_shape')">U-Shape</button>
+                            <button class="action-btn import" style="flex:1;" @click="addTopology('t_shape')">T-Shape</button>
+                            <button class="action-btn import" style="flex:1;" @click="addTopology('y_shape')">Y-Shape</button>
+                        </div>
                     </div>
                     <div v-else-if="selectedEntity.type === 'stair_landing'">
                         <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="20" max="400" @input="syncEngine"><input type="number" v-model.number="selectedEntity.width" @input="syncEngine"></div></div>
                         <div class="control-group"><label>Length</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.length" min="20" max="400" @input="syncEngine"><input type="number" v-model.number="selectedEntity.length" @input="syncEngine"></div></div>
+                        <hr style="margin: 15px 0; border:0; border-top:1px solid #d1d5db;">
+                        <h4 class="props-subtitle" style="margin-top:0">Add Connected Flight</h4>
+                        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                            <button class="action-btn import" style="flex:1;" @click="addTopology('straight')">+ Top Flight</button>
+                            <button class="action-btn import" style="flex:1;" @click="addTopology('l_shape')">+ Right Flight</button>
+                            <button class="action-btn import" style="flex:1;" @click="addTopology('u_shape')">+ Left Flight</button>
+                            <button class="action-btn import" style="flex:1;" @click="addTopology('t_shape')">+ Bottom Flight</button>
+                        </div>
                     </div>
                     <button class="hud-delete" @click="handleDelete" style="margin-top: 15px;">Delete Stairs</button>
                 </div>
@@ -814,7 +831,7 @@ import { SmartWizardManager } from './core/plugins/SmartWizardManager.js';
 import { SmartFacingPlugin } from './core/plugins/SmartFacingPlugin.js';
 import { SmartWallResizePlugin } from './core/plugins/SmartWallResizePlugin.js';
 
-import { FloorPlanner, PremiumFurniture } from './core/engine2d/index.js';
+import { FloorPlanner, PremiumFurniture, PremiumStairV3 } from './core/engine2d/index.js';
 import { Preview3D } from './core/engine3d.js'; 
 import { WorkspaceControls } from '/src/core/engine3d/WorkspaceControls.js';
 import { ServerClass } from './core/ServerClass.js';
@@ -1706,6 +1723,69 @@ const onDecorUpdate = (decor) => {
     if (renderer3D.value) renderer3D.value.updateWallDecorLive(decor); 
     if (selectedEntity.value?.isStatic) updateStaticLevelData(selectedEntity.value);
     debouncedSaveHistory();
+};
+
+const addTopology = (type) => {
+    if (!selectedEntity.value) return;
+    const baseEntity = selectedEntity.value;
+    const plannerInstance = planner.value;
+    if (!plannerInstance) return;
+
+    if (baseEntity.type === 'stair_landing') {
+        spawnFlight(baseEntity, type === 'straight' ? 'top' : type === 'l_shape' ? 'right' : type === 'u_shape' ? 'left' : 'bottom', 0, 0, type === 't_shape' ? 180 : 0, plannerInstance);
+        plannerInstance.syncAll();
+        debouncedSaveHistory();
+        return;
+    }
+
+    if (baseEntity.type !== 'stair') return;
+    
+    const w = baseEntity.width || 100;
+    let lWidth = w, lLength = w, aOffsetX = 0;
+    
+    if (type === 'u_shape') { lWidth = w * 2.2; lLength = w; aOffsetX = -w * 0.6; }
+    if (type === 't_shape') { lWidth = w * 3; lLength = w; }
+    if (type === 'y_shape') { lWidth = w * 3; lLength = w * 1.5; }
+    
+    const parentLanding = { 
+        id: 'stair_landing_' + Math.random().toString(36).substr(2, 9), type: 'stair_landing', 
+        systemId: baseEntity.systemId || baseEntity.id, connectedFrom: baseEntity.id, 
+        attachEdge: 'top', attachOffsetX: aOffsetX, attachOffsetY: 0, width: lWidth, length: lLength, thickness: 20, 
+        elevation: (baseEntity.absElev || baseEntity.elevation || 0) + ((baseEntity.stepCount || 10) * (baseEntity.stepHeight || 17.5)) 
+    };
+    injectEntity(parentLanding, plannerInstance);
+    
+    if (type === 'straight') spawnFlight(parentLanding, 'top', 0, 0, 0, plannerInstance);
+    else if (type === 'l_shape') spawnFlight(parentLanding, 'right', 0, 0, 0, plannerInstance);
+    else if (type === 'u_shape') spawnFlight(parentLanding, 'bottom', w * 0.6, 0, 0, plannerInstance);
+    else if (type === 't_shape') { spawnFlight(parentLanding, 'left', 0, 0, 0, plannerInstance); spawnFlight(parentLanding, 'right', 0, 0, 0, plannerInstance); }
+    else if (type === 'y_shape') { spawnFlight(parentLanding, 'top', -w * 0.6, 0, -45, plannerInstance); spawnFlight(parentLanding, 'top', w * 0.6, 0, 45, plannerInstance); }
+    
+    plannerInstance.syncAll();
+    debouncedSaveHistory();
+};
+
+const spawnFlight = (parent, edge, offX, offY, rotOffset, plannerInstance) => {
+    const newFlight = { 
+        id: 'stair_' + Math.random().toString(36).substr(2, 9), type: 'stair', 
+        systemId: parent.systemId || parent.id, connectedFrom: parent.id, 
+        attachEdge: edge, attachOffsetX: offX, attachOffsetY: offY, width: 100, 
+        stepCount: 10, stepHeight: 17.5, stepDepth: 28.0, rotationOffset: rotOffset, 
+        elevation: parent.absElev || parent.elevation || 0 
+    };
+    if (parent.connectedFrom) { const gp = plannerInstance.stairs.find(s => s.id === parent.connectedFrom); if (gp) newFlight.width = gp.width || 100; }
+    injectEntity(newFlight, plannerInstance);
+};
+
+const injectEntity = (ent, plannerInstance) => {
+    
+    if (PremiumStairV3) {
+        const stairV3 = new PremiumStairV3(plannerInstance, ent);
+        plannerInstance.stairs.push(stairV3);
+    } else {
+        ent.update = function() {}; ent.setHighlight = function() {}; ent.remove = function() { plannerInstance.stairs = plannerInstance.stairs.filter(s => s !== this); };
+        plannerInstance.stairs.push(ent);
+    }
 };
 
 const handleDelete = () => { 

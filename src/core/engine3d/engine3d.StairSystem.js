@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { PremiumStairV3 } from '../engine2d/index.js';
 
 /**
  * Advanced Stair System Gizmo (Professional Architectural Stair Builder) V3
@@ -174,10 +175,14 @@ export class StairSystemManager {
     }
 
     // V3 Advanced Features
-    addTopology(type) {
-        const selected = this.engine.interactions.selectedObject;
-        if (!selected || !selected.userData.entity) return;
-        const baseEntity = selected.userData.entity;
+    addTopology(type, entity = null) {
+        let baseEntity = entity;
+        if (!baseEntity) {
+            const selected = this.engine.interactions.selectedObject;
+            if (!selected || !selected.userData.entity) return;
+            baseEntity = selected.userData.entity;
+        }
+        
         const planner = baseEntity.planner || window.plannerInstance?.planner;
         if (!planner) return;
 
@@ -236,8 +241,13 @@ export class StairSystemManager {
     }
     
     injectEntity(ent, planner) {
-        ent.update = function() {}; ent.setHighlight = function() {}; ent.remove = function() { planner.stairs = planner.stairs.filter(s => s !== this); };
-        planner.stairs.push(ent);
+        if (typeof PremiumStairV3 !== 'undefined') {
+            const stairV3 = new PremiumStairV3(planner, ent);
+            planner.stairs.push(stairV3);
+        } else {
+            ent.update = function() {}; ent.setHighlight = function() {}; ent.remove = function() { planner.stairs = planner.stairs.filter(s => s !== this); };
+            planner.stairs.push(ent);
+        }
     }
 
     deleteSelected() {

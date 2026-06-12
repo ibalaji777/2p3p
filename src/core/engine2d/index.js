@@ -333,10 +333,10 @@ export class PremiumStairV3 {
             for (let s of this.planner.stairs) {
                 if (s === this || (s.type !== 'stair' && s.type !== 'stair_landing') || isAncestor(s, this)) continue;
                 if (s.type === 'stair') {
-                    if (Math.hypot(this.x - (s.endX||0), this.y - (s.endY||0)) < 30) {
+                    if (Math.hypot(this.x - (s.endX||0), this.y - (s.endY||0)) < 60) {
                         this.connectedFrom = s.id; this.attachEdge = 'top'; this.attachOffsetX = 0; this.attachOffsetY = 0;
                         this.rotationOffset = this.rotation - ((s.absRot||0) * 180 / Math.PI);
-                        this.systemId = s.systemId; snapped = true; break;
+                        this.systemId = s.systemId; snapped = true; s.setHighlight(true); setTimeout(() => s.setHighlight(false), 500); break;
                     }
                 } else if (s.type === 'stair_landing') {
                     const cos = Math.cos(-(s.absRot||0)), sin = Math.sin(-(s.absRot||0));
@@ -344,13 +344,13 @@ export class PremiumStairV3 {
                     const ly = (this.x - (s.absX||0)) * sin + (this.y - (s.absY||0)) * cos;
                     const w = s.width || 100, l = s.length || 100, dTop = Math.abs(ly - l), dBot = Math.abs(ly), dL = Math.abs(lx - (-w/2)), dR = Math.abs(lx - (w/2));
                     const minD = Math.min(dTop, dBot, dL, dR);
-                    if (minD < 30 && lx > -w/2 - 20 && lx < w/2 + 20 && ly > -20 && ly < l + 20) {
+                    if (minD < 60 && lx > -w/2 - 40 && lx < w/2 + 40 && ly > -40 && ly < l + 40) {
                         this.connectedFrom = s.id; this.systemId = s.systemId;
                         if (minD === dTop) { this.attachEdge = 'top'; this.attachOffsetX = lx; this.rotationOffset = 0; }
-                        else if (minD === dBot) { this.attachEdge = 'bottom'; this.attachOffsetX = lx; this.rotationOffset = 180; }
-                        else if (minD === dL) { this.attachEdge = 'left'; this.attachOffsetY = ly - l/2; this.rotationOffset = -90; }
-                        else { this.attachEdge = 'right'; this.attachOffsetY = ly - l/2; this.rotationOffset = 90; }
-                        snapped = true; break;
+                        else if (minD === dBot) { this.attachEdge = "bottom"; this.attachOffsetX = lx; this.rotationOffset = 0; }
+                        else if (minD === dL) { this.attachEdge = "left"; this.attachOffsetY = ly - l/2; this.rotationOffset = 0; }
+                        else { this.attachEdge = "right"; this.attachOffsetY = ly - l/2; this.rotationOffset = 0; }
+                        snapped = true; s.setHighlight(true); setTimeout(() => s.setHighlight(false), 500); break;
                     }
                 }
             }
