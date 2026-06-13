@@ -53,46 +53,25 @@
     </header>
 
     <div class="main-workspace" @mouseup="debouncedSaveHistory" @touchend="debouncedSaveHistory">
-      <aside class="left-sidebar" v-show="viewMode === '2d' && (!(isMobile || isTablet) || ((isMobile || isTablet) && mobileMenuOpen && activeMobileTab === 'tools'))" :class="{'mobile-panel': isMobile || isTablet}">
-        <div v-if="isMobile || isTablet" class="mobile-close-btn" @click="mobileMenuOpen = false">✕ Close</div>
-        <div class="sidebar-layout">
-            <div class="sidebar-dock">
-                <button v-for="cat in menuCategories" :key="cat.id" class="dock-btn" :class="{ active: activeCategory === cat.id }" @click="toggleCategory(cat.id)" :title="cat.name">
-                    <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" v-html="cat.icon"></svg>
-                </button>
-                
-                <div style="flex: 1;"></div>
-                
-                <button class="dock-btn" @click="saveProject" title="Export Project">
-                    <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                </button>
-                <button class="dock-btn" @click="openSavePopup" title="Save to Cloud" style="color: #8b5cf6;">
-                    <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
-                </button>
-                <button class="dock-btn" @click="triggerFileInput" title="Import Project">
-                    <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-                </button>
-                <button class="dock-btn" @click="clearWorkspace" title="Clear All" style="color: #ef4444;">
-                    <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                </button>
-                <input type="file" id="fileInput" @change="handleFileUpload" style="display: none" accept=".json"/>
-            </div>
-
-            <div class="sidebar-submenu" v-if="activeCategoryObj">
-                <div class="submenu-header">
-                    <h3>{{ activeCategoryObj.name }}</h3>
-                </div>
-                <div class="submenu-content">
-                    <button v-for="tool in activeCategoryObj.tools" :key="tool.id"
-                        class="child-card-btn"
-                        :class="{ active: activeTool === tool.id && !tool.action }"
-                        @click="handleToolClick(tool)">
-                        {{ tool.name }}
-                    </button>
-                </div>
-            </div>
-        </div>
-      </aside>
+      <LeftSidebar
+        :view-mode="viewMode"
+        :is-mobile="isMobile"
+        :is-tablet="isTablet"
+        :mobile-menu-open="mobileMenuOpen"
+        :active-mobile-tab="activeMobileTab"
+        :menu-categories="menuCategories"
+        :active-category="activeCategory"
+        :active-category-obj="activeCategoryObj"
+        :active-tool="activeTool"
+        @close-mobile-menu="mobileMenuOpen = false"
+        @toggle-category="toggleCategory"
+        @save-project="saveProject"
+        @open-save-popup="openSavePopup"
+        @trigger-file-input="triggerFileInput"
+        @clear-workspace="clearWorkspace"
+        @file-uploaded="handleFileUpload"
+        @tool-click="handleToolClick"
+      />
 
       <!-- Mobile Left Trigger -->
       <div class="mobile-left-trigger" v-if="(isMobile || isTablet) && viewMode === '2d' && !(mobileMenuOpen && activeMobileTab === 'tools')" @click="toggleMobileTab('tools')" title="Open Tools">
@@ -199,512 +178,63 @@
         </div>
       </main>
 
-      <aside class="right-sidebar" v-show="!(isMobile || isTablet) || ((isMobile || isTablet) && mobileMenuOpen && ['levels', 'properties', 'layers', 'settings'].includes(activeMobileTab))" :class="{'mobile-panel': isMobile || isTablet}">
-        <div v-if="isMobile || isTablet" class="mobile-close-btn" @click="mobileMenuOpen = false">✕ Close</div>
-        <div class="panel levels-panel" v-show="!(isMobile || isTablet) || activeMobileTab === 'levels'">
-            <div class="panel-header"><h3>Floor Levels</h3></div>
-            <div class="levels-list">
-                <div v-if="viewMode === '3d'" class="level-item" @click="toggleAllFloors" style="background: #fafafa; border-bottom: 1px solid #f1f5f9;">
-                    <div style="display:flex; align-items:center; gap: 8px;">
-                        <input type="checkbox" :checked="allFloorsVisible" @change="toggleAllFloors" @click.stop title="Toggle All">
-                        <span style="font-weight: bold;">Show All</span>
-                    </div>
-                </div>
-                <div v-for="(level, index) in levels" :key="level.id" 
-                     class="level-item" 
-                     :class="{ 'active': activeLevelIndex === index && viewMode === '2d' }"
-                     @click="switchLevel(index)">
-                    <div style="display:flex; align-items:center; gap: 8px;">
-                        <input v-if="viewMode === '3d'" type="checkbox" :checked="level.isVisible !== false" @change="(e) => { level.isVisible = e.target.checked; onLevelVisibilityChange(); }" @click.stop title="Toggle Visibility">
-                        <span>Floor {{ index + 1 }}</span>
-                    </div>
-                    <span class="level-indicator" v-if="activeLevelIndex === index && viewMode === '2d'">Active</span>
-                </div>
-            </div>
-            <div class="levels-actions">
-                <button class="btn-duplicate" @click="addLevel('duplicate')">+ Duplicate Current</button>
-                <button class="btn-empty" @click="addLevel('empty')">+ Add Empty Floor</button>
-            </div>
-        </div>
-
-        <div class="panel tabs-panel flex-1" v-show="!(isMobile || isTablet) || ['properties', 'layers', 'settings'].includes(activeMobileTab)">
-            <div class="tabs-header" v-show="!(isMobile || isTablet)">
-                <button :class="{active: activeRightTab === 'properties'}" @click="activeRightTab = 'properties'">Properties</button>
-                <button :class="{active: activeRightTab === 'layers'}" @click="activeRightTab = 'layers'">Layer List</button>
-                <button :class="{active: activeRightTab === 'settings'}" @click="activeRightTab = 'settings'">Settings</button>
-            </div>
-            
-            <div class="tab-body" v-show="activeRightTab === 'settings'">
-                <div class="props-content">
-                    <h4 class="props-subtitle">Floor Plan Configuration</h4>
-                    
-                    <div class="control-group">
-                        <label>Entrance Facing</label>
-                        <select v-model="floorPlanSettings.mainEntranceFacing" @change="syncSettings" class="settings-select">
-                            <option value="north">North</option>
-                            <option value="south">South</option>
-                            <option value="east">East</option>
-                            <option value="west">West</option>
-                            <option value="north_east">North-East</option>
-                            <option value="north_west">North-West</option>
-                            <option value="south_east">South-East</option>
-                            <option value="south_west">South-West</option>
-                        </select>
-                    </div>
-                    
-                    <div class="control-group">
-                        <label>Length Unit</label>
-                        <select v-model="floorPlanSettings.measurementUnit" @change="syncSettings" class="settings-select">
-                            <option value="ft">Feet (ft)</option>
-                            <option value="in">Inches (in)</option>
-                            <option value="feet_inches">Feet & Inches</option>
-                            <option value="m">Meter (m)</option>
-                            <option value="cm">Centimeter (cm)</option>
-                            <option value="mm">Millimeter (mm)</option>
-                        </select>
-                    </div>
-                    
-                    <div class="control-group">
-                        <label>Area Unit</label>
-                        <select v-model="floorPlanSettings.areaUnit" @change="syncSettings" class="settings-select">
-                            <option value="sqft">Square Feet (sqft)</option>
-                            <option value="sqm">Square Meter (sqm)</option>
-                            <option value="cent">Cent</option>
-                            <option value="ground">Ground</option>
-                            <option value="gunta">Gunta</option>
-                        </select>
-                    </div>
-
-                    <div class="settings-divider"></div>
-
-                    <div class="control-group-inline">
-                        <label>Show Compass</label>
-                        <input type="checkbox" v-model="floorPlanSettings.showCompass" @change="syncSettings" class="settings-checkbox">
-                    </div>
-                    <div class="control-group-inline">
-                        <label>Show Grid</label>
-                        <input type="checkbox" v-model="floorPlanSettings.showGrid" @change="syncSettings" class="settings-checkbox">
-                    </div>
-                    <div class="control-group-inline">
-                        <label>Dimension Labels</label>
-                        <input type="checkbox" v-model="floorPlanSettings.showDimensionLabels" @change="syncSettings" class="settings-checkbox">
-                    </div>
-                    <div class="control-group-inline">
-                        <label>Diagonal Dimensions</label>
-                        <input type="checkbox" v-model="floorPlanSettings.showDiagonalDimensions" @change="syncSettings" class="settings-checkbox">
-                    </div>
-                    <div class="control-group" v-if="floorPlanSettings.showDiagonalDimensions">
-                        <label>Diagonal Mode</label>
-                        <select v-model="floorPlanSettings.diagonalMeasurementMode" @change="syncSettings" class="settings-select">
-                            <option value="inner">Inner Corner to Inner Corner</option>
-                            <option value="outer">Outer Corner to Outer Corner</option>
-                        </select>
-                    </div>
-                    <div class="control-group-inline">
-                        <label>Workspace Labels</label>
-                        <input type="checkbox" v-model="floorPlanSettings.showWorkspaceLabels" @change="syncSettings" class="settings-checkbox">
-                    </div>
-                    <div class="control-group-inline">
-                        <label>Wall Tracking</label>
-                        <input type="checkbox" v-model="floorPlanSettings.wallTracking" @change="syncSettings" class="settings-checkbox">
-                    </div>
-
-                    <div class="settings-divider"></div>
-                    <h4 class="props-subtitle">Environment Settings</h4>
-                    
-                    <div class="control-group">
-                        <label>Sky Environment</label>
-                        <select v-model="selectedSky" @change="setSky(selectedSky)" class="settings-select">
-                            <option v-for="(config, key) in skyRegistry" :key="key" :value="key">{{ config.name }}</option>
-                        </select>
-                    </div>
-                    <div class="control-group">
-                        <label>Ground Environment</label>
-                        <select v-model="selectedGround" @change="setGround(selectedGround)" class="settings-select">
-                            <option v-for="(config, key) in groundRegistry" :key="key" :value="key">{{ config.name }}</option>
-                        </select>
-                    </div>
-                    
-                    <div v-if="selectedType === 'wall'" style="margin-top: 20px;">
-                        <button class="btn-primary" style="width: 100%;" @click="setEntranceWall">Set Selected Wall as Entrance</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="tab-body" v-show="activeRightTab === 'properties'">
-                <div class="props-content" v-if="(viewMode==='3d' || viewMode==='2d') && selectedEntity && viewMode3D !== 'preview'">
-                
-                <div v-if="selectedType === 'wall'">
-                    <h4 class="props-subtitle" v-if="selectedEntity.type === 'railing'">Railing Properties</h4>
-                    <h4 class="props-subtitle" v-else>Wall Properties</h4>
-                    <div class="control-group"><label>Hidden Wall</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="selectedEntity.hidden" @change="syncEngine"></div></div>
-                    <div class="control-group"><label>Thickness</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.thickness" min="1" max="100" step="1" @input="syncEngine"><input type="number" v-model.number="selectedEntity.thickness" min="1" max="100" step="1" @input="syncEngine"></div></div>
-                    <div class="control-group"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="0" max="500" step="1" @input="syncEngine"><input type="number" v-model.number="selectedEntity.height" min="0" max="500" step="1" @input="syncEngine"></div></div>
-
-                    <div v-if="selectedEntity.type === 'railing'">
-                        <div class="decor-gallery">
-                            <h4 class="props-subtitle">Railing Material</h4>
-                            <div class="decor-grid">
-                                <div v-for="(config, key) in railingRegistry" :key="key" class="decor-item" @click="selectedEntity.configId = key; uiTrigger++; syncEngine()" :class="{ active: (selectedEntity.configId || 'rail_1') === key && uiTrigger !== -1 }">
-                                    <img :src="config.thumbnail" />
-                                    <span>{{ config.name }}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div v-else>
-                        <h4 class="props-subtitle">{{ selectedWallSide === 'front' ? 'Inner Wall Face' : 'Outer Wall Face' }}</h4>
-                        
-                        <div v-if="currentFaceDecors.length > 0">
-                            <div class="applied-list">
-                                <div v-for="decor in currentFaceDecors" :key="decor.id" class="applied-item-wrapper">
-                                    <div class="applied-item-header" :class="{active: activeDecorId === decor.id}" @click="toggleEditDecor(decor.id)">
-                                        <span>{{ wallDecorRegistry[decor.configId]?.name }}</span>
-                                        <button class="btn-sm-delete" @click.stop="handleDeleteSpecificDecor(decor)">✕</button>
-                                    </div>
-                                    <div class="applied-item-body" v-if="activeDecorId === decor.id">
-                                        <div class="faceRow">
-                                            <label><input type="checkbox" v-model="decor.faces.left" @change="onDecorUpdate(decor)">L-Edge</label>
-                                            <label><input type="checkbox" v-model="decor.faces.right" @change="onDecorUpdate(decor)">R-Edge</label>
-                                        </div>
-                                        <div class="control-group"><label>Tile Size</label><div class="input-wrap"><input type="range" v-model.number="decor.tileSize" min="1" max="200" step="1" @input="onDecorUpdate(decor)"><input type="number" v-model.number="decor.tileSize" min="1" max="200" step="1" @input="onDecorUpdate(decor)"></div></div>
-                                        <div class="control-group"><label>Thickness</label><div class="input-wrap"><input type="range" v-model.number="decor.depth" min="0.1" max="40" step="0.1" @input="onDecorUpdate(decor)"><input type="number" v-model.number="decor.depth" min="0.1" max="40" step="0.1" @input="onDecorUpdate(decor)"></div></div>
-                                        <div class="control-group"><label>Width (%)</label><div class="input-wrap"><input type="range" v-model.number="decor.width" min="1" max="100" step="1" @input="onDecorUpdate(decor)"><input type="number" v-model.number="decor.width" min="1" max="100" step="1" @input="onDecorUpdate(decor)"></div></div>
-                                        <div class="control-group"><label>Height (%)</label><div class="input-wrap"><input type="range" v-model.number="decor.height" min="1" max="100" step="1" @input="onDecorUpdate(decor)"><input type="number" v-model.number="decor.height" min="1" max="100" step="1" @input="onDecorUpdate(decor)"></div></div>
-                                        <div class="control-group"><label>X Offset (%)</label><div class="input-wrap"><input type="range" v-model.number="decor.localX" min="-10" max="110" step="1" @input="onDecorUpdate(decor)"><input type="number" v-model.number="decor.localX" min="-10" max="110" step="1" @input="onDecorUpdate(decor)"></div></div>
-                                        <div class="control-group"><label>Y Offset (%)</label><div class="input-wrap"><input type="range" v-model.number="decor.localY" min="-10" max="110" step="1" @input="onDecorUpdate(decor)"><input type="number" v-model.number="decor.localY" min="-10" max="110" step="1" @input="onDecorUpdate(decor)"></div></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="decor-gallery" v-if="viewMode === '3d'">
-                            <h4 class="props-subtitle">Add Pattern Layer</h4>
-                            <div class="decor-grid">
-                                <div v-for="(config, key) in wallDecorRegistry" :key="key" class="decor-item" @click="spawnWallPattern(key)">
-                                    <img :src="config.thumbnail" />
-                                    <span>{{ config.name }}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <button class="hud-delete" @click="handleDelete">Delete {{ selectedEntity.type === 'railing' ? 'Railing' : 'Wall' }}</button>
-                </div>
-
-                <div v-else-if="selectedType === 'arc'">
-                    <h4 class="props-subtitle">Curved Wall Properties</h4>
-                    <div class="control-group"><label>Hidden Wall</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="selectedEntity.hidden" @change="() => { selectedEntity.walls.forEach(w => w.hidden = selectedEntity.hidden); syncEngine(); }"></div></div>
-                    <button class="hud-delete" @click="handleDelete">Delete Curved Wall</button>
-                </div>
-
-                <div v-else-if="selectedType === 'room'">
-                    <h4 class="props-subtitle">Floor Properties</h4>
-                    <div class="control-group">
-                        <label>Material Scale</label>
-                        <div class="input-wrap">
-                            <input type="range" :value="selectedEntity.materialRepeat || floorRegistry[selectedEntity.configId]?.repeat || 10" @input="e => { selectedEntity.materialRepeat = parseFloat(e.target.value); syncEngine(); }" min="1" max="100" step="1">
-                            <input type="number" :value="selectedEntity.materialRepeat || floorRegistry[selectedEntity.configId]?.repeat || 10" @input="e => { selectedEntity.materialRepeat = parseFloat(e.target.value); syncEngine(); }" min="1" max="100" step="1">
-                        </div>
-                    </div>
-                    <div class="decor-gallery">
-                        <h4 class="props-subtitle">Floor Material</h4>
-                        <div class="decor-grid">
-                            <div v-for="(config, key) in floorRegistry" :key="key" class="decor-item" @click="setFloorMaterial(key)" :class="{ active: selectedEntity.configId === key }">
-                                <img :src="config.thumbnail" />
-                                <span>{{ config.name }}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button class="hud-delete" @click="handleDelete">Delete Floor & Walls</button>
-                </div>
-
-                <div v-else-if="selectedType === 'advance_openings'">
-                    <h4 class="props-subtitle">Advanced Opening Properties</h4>
-                    <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="10" max="500" @input="syncEngine"><input type="number" v-model.number="selectedEntity.width" @input="syncEngine"></div></div>
-                    <div class="control-group"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="300" @input="syncEngine"><input type="number" v-model.number="selectedEntity.height" @input="syncEngine"></div></div>
-                    <div class="control-group" v-if="selectedEntity.type === 'niche_recess'"><label>Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.depth" min="1" max="50" @input="syncEngine"><input type="number" v-model.number="selectedEntity.depth" @input="syncEngine"></div></div>
-                    <div class="control-group"><label>Elevation (from floor)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.elevation" min="0" max="200" @input="syncEngine"><input type="number" v-model.number="selectedEntity.elevation" @input="syncEngine"></div></div>
-                    <div v-if="selectedEntity.type === 'pattern_opening'">
-                        <div class="control-group">
-                            <label>Pattern Style</label>
-                            <select v-model="selectedEntity.patternStyle" @change="syncEngine" class="settings-select">
-                                <option value="grid">Square Grid</option>
-                                <option value="diamond">Diamond Lattice</option>
-                                <option value="circle">Circular Perforations</option>
-                                <option value="cross">Terracotta Cross (Kerala)</option>
-                                <option value="hexagon">Honeycomb (Chettinad)</option>
-                                <option value="star">Floral Star</option>
-                                <option value="slit">Vertical Slits</option>
-                                <option value="terracotta">Terracotta Jali (Classic)</option>
-                                <option value="arabesque">Geometric Arabesque</option>
-                            </select>
-                        </div>
-                        <div class="control-group"><label>Rows</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.rows" min="1" max="20" @input="syncEngine"><input type="number" v-model.number="selectedEntity.rows" @input="syncEngine"></div></div>
-                        <div class="control-group"><label>Columns</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.cols" min="1" max="20" @input="syncEngine"><input type="number" v-model.number="selectedEntity.cols" @input="syncEngine"></div></div>
-                        <div class="control-group"><label>Spacing</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.spacing" min="0" max="50" @input="syncEngine"><input type="number" v-model.number="selectedEntity.spacing" @input="syncEngine"></div></div>
-                    </div>
-                    
-                    <div class="decor-gallery" v-if="viewMode === '3d'">
-                        <h4 class="props-subtitle">Opening Material</h4>
-                        <div class="decor-grid">
-                            <div v-for="(config, key) in wallDecorRegistry" :key="key" class="decor-item" @click="setOpeningMaterial(key)" :class="{ active: selectedEntity.decorConfigId === key }">
-                                <img :src="config.thumbnail" />
-                                <span>{{ config.name }}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button class="hud-delete" @click="handleDelete">Delete Opening</button>
-                </div>
-
-                <div v-else-if="selectedType === 'widget'">
-                    <h4 class="props-subtitle">{{ selectedEntity.config?.label || 'DOOR/WINDOW' }} Properties</h4>
-                    <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="10" max="200" @input="syncEngine"><input type="number" v-model.number="selectedEntity.width" @input="syncEngine"></div></div>
-                    <div class="faceRow">
-                        <button class="action-btn clear" style="flex: 1; padding: 4px;" @click="selectedEntity.facing *= -1; syncEngine()">Flip In/Out</button>
-                        <button class="action-btn clear" style="flex: 1; padding: 4px;" @click="selectedEntity.side *= -1; syncEngine()">Flip L/R</button>
-                    </div>
-                    <div v-if="selectedEntity.type === 'door'">
-                        <div class="control-group">
-                            <label>Door Type</label>
-                            <select v-model="selectedEntity.doorType" @change="syncEngine" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
-                                <option value="single">Single Hinged</option>
-                                <option value="double">Double Door</option>
-                                <option value="sliding">Sliding</option>
-                                <option value="pocket">Pocket</option>
-                                <option value="french">French (Glass)</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div v-else-if="selectedEntity.type === 'window'">
-                        <div class="control-group">
-                            <label>Window Type</label>
-                            <select v-model="selectedEntity.windowType" @change="syncEngine" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
-                                <option value="sliding_std">Standard Sliding</option>
-                                <option value="casement_std">Casement / Hinged</option>
-                                <option value="fixed_elevation">Fixed Glass</option>
-                                <option value="bay_box">Box Bay Window</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button class="hud-delete" @click="handleDelete">Delete Object</button>
-                </div>
-
-                <div v-else-if="selectedType === 'shape'">
-                    <div v-if="!selectedEntity.params.isEditingMaterials">
-                        <h4 class="props-subtitle">{{ selectedEntity.type === 'shape_rect' ? 'Box' : selectedEntity.type === 'shape_circle' ? 'Cylinder' : 'Prism / Polygon' }} Properties</h4>
-                        <div class="control-group"><label>Rotation (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.rotation" min="0" max="360" @input="syncEngine"><input type="number" v-model.number="selectedEntity.rotation" @input="syncEngine"></div></div>
-                        <div class="control-group"><label>3D Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.params.height3D" min="10" max="1000" @input="syncEngine"><input type="number" v-model.number="selectedEntity.params.height3D" @input="syncEngine"></div></div>
-                        <div v-if="selectedEntity.type === 'shape_rect'">
-                            <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.params.width" min="10" max="1000" @input="syncEngine"><input type="number" v-model.number="selectedEntity.params.width" @input="syncEngine"></div></div>
-                            <div class="control-group"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.params.height" min="10" max="1000" @input="syncEngine"><input type="number" v-model.number="selectedEntity.params.height" @input="syncEngine"></div></div>
-                        </div>
-                        <div v-if="selectedEntity.type === 'shape_circle'">
-                            <div class="control-group"><label>Radius</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.params.radius" min="10" max="1000" @input="syncEngine"><input type="number" v-model.number="selectedEntity.params.radius" @input="syncEngine"></div></div>
-                        </div>
-                        <div class="control-group"><label>Color</label><div class="input-wrap"><input type="color" v-model="selectedEntity.params.fill" @input="e => { clearShapeTextures(); syncEngine(); }" style="width: 100%; padding: 0;"></div></div>
-                        
-                        <button v-if="viewMode === '3d'" class="btn-primary" style="width: 100%; margin-top: 10px;" @click="selectedEntity.params.isEditingMaterials = true">Apply Wall Facing / Materials</button>
-                        <button class="hud-delete" @click="handleDelete" style="margin-top: 10px;">Delete Shape</button>
-                    </div>
-                    
-                    <div v-else>
-                        <button class="btn-secondary" @click="selectedEntity.params.isEditingMaterials = false" style="width: 100%; margin-bottom: 15px;">← Back to Shape Properties</button>
-                        
-                        <h4 class="props-subtitle">Face Selection</h4>
-                        <div class="control-group-inline" style="margin-bottom: 12px;">
-                            <label>Apply to All Sides</label>
-                            <input type="checkbox" 
-                                   :checked="!selectedEntity.params.materialTarget || selectedEntity.params.materialTarget === 'all'" 
-                                   @change="e => { selectedEntity.params.materialTarget = e.target.checked ? 'all' : 'top'; syncEngine(); }" 
-                                   class="settings-checkbox">
-                        </div>
-                        
-                        <div class="control-group" v-if="selectedEntity.params.materialTarget && selectedEntity.params.materialTarget !== 'all'">
-                            <label>Target Face</label>
-                            <select v-model="selectedEntity.params.materialTarget" class="settings-select">
-                                <option value="top">Top Facing</option>
-                                <option value="bottom">Bottom Facing</option>
-                                <template v-if="selectedEntity.type === 'shape_rect'">
-                                    <option value="left">Left Facing</option>
-                                    <option value="right">Right Facing</option>
-                                    <option value="front">Front Facing</option>
-                                    <option value="back">Back Facing</option>
-                                </template>
-                                <template v-else>
-                                    <option value="sides">Side Faces</option>
-                                </template>
-                            </select>
-                        </div>
-                        
-                        <div class="decor-gallery">
-                            <h4 class="props-subtitle">Wall Facing / Material</h4>
-                            <div class="decor-grid">
-                                <div v-for="(config, key) in wallDecorRegistry" :key="key" class="decor-item" @click="setShapeMaterial(key)" :class="{ active: isShapeMaterialActive(key) }">
-                                    <img :src="config.thumbnail" />
-                                    <span>{{ config.name }}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div v-else-if="selectedType === 'stair' || selectedType === 'staircase_two'">
-                    <h4 class="props-subtitle">Staircase Properties</h4>
-                    <div v-if="selectedType === 'staircase_two'">
-                        <div class="control-group">
-                            <label>Stair Type</label>
-                            <select v-model="selectedEntity.config.stairType" @change="syncEngine" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
-                                <option value="straight">Straight</option>
-                                <option value="l_shape">L-Shape</option>
-                                <option value="u_shape">U-Shape</option>
-                                <option value="spiral">Spiral</option>
-                            </select>
-                        </div>
-                        <div class="control-group"><label>Rotation (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.rotation" min="0" max="360" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.rotation" @input="syncEngine"></div></div>
-                        <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.width" min="20" max="200" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.width" @input="syncEngine"></div></div>
-                        <div class="control-group"><label>Step Count</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.stepCount" min="3" max="40" step="1" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.stepCount" min="3" max="40" step="1" @input="syncEngine"></div></div>
-                        <div class="control-group"><label>Tread Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.treadDepth" min="5" max="30" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.treadDepth" @input="syncEngine"></div></div>
-                        <div class="control-group"><label>Riser Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.riserHeight" min="4" max="15" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.riserHeight" @input="syncEngine"></div></div>
-                        
-                        <div class="control-group" style="display:flex; align-items:center; gap:8px;">
-                            <input type="checkbox" v-model="selectedEntity.config.isMirrored" @change="syncEngine">
-                            <label style="margin-bottom:0">Mirrored Layout</label>
-                        </div>
-
-                        <hr style="margin: 15px 0; border:0; border-top:1px solid #d1d5db;">
-                        <h4 class="props-subtitle" style="margin-top:0">Landing Settings</h4>
-                        <div class="control-group" style="display:flex; align-items:center; gap:8px;">
-                            <input type="checkbox" v-model="selectedEntity.config.landing.enabled" @change="syncEngine">
-                            <label style="margin-bottom:0">Enable Landing</label>
-                        </div>
-                        <div class="control-group" v-if="selectedEntity.config.landing.enabled"><label>Landing Length</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.landing.length" min="20" max="200" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.landing.length" @input="syncEngine"></div></div>
-
-                        <hr style="margin: 15px 0; border:0; border-top:1px solid #d1d5db;">
-                        <h4 class="props-subtitle" style="margin-top:0">Railing Settings</h4>
-                        <div class="control-group" style="display:flex; align-items:center; gap:8px;">
-                            <input type="checkbox" v-model="selectedEntity.config.railing.enabled" @change="syncEngine">
-                            <label style="margin-bottom:0">Enable Railings</label>
-                        </div>
-                        <div v-if="selectedEntity.config.railing.enabled">
-                            <div class="control-group">
-                                <label>Railing Style</label>
-                                <select v-model="selectedEntity.config.railing.style" @change="syncEngine" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
-                                    <option value="modern">Modern</option>
-                                    <option value="glass">Glass</option>
-                                    <option value="steel">Steel</option>
-                                    <option value="wooden">Wooden</option>
-                                    <option value="minimal">Minimal</option>
-                                    <option value="classic">Classic</option>
-                                    <option value="cable">Cable</option>
-                                    <option value="industrial">Industrial</option>
-                                </select>
-                            </div>
-                            <div class="control-group" style="display:flex; align-items:center; gap:8px;">
-                                <input type="checkbox" v-model="selectedEntity.config.railing.left" @change="syncEngine">
-                                <label style="margin-bottom:0">Left Railing</label>
-                            </div>
-                            <div class="control-group" style="display:flex; align-items:center; gap:8px;">
-                                <input type="checkbox" v-model="selectedEntity.config.railing.right" @change="syncEngine">
-                                <label style="margin-bottom:0">Right Railing</label>
-                            </div>
-                        </div>
-                    </div>
-                    <div v-else-if="selectedEntity.type === 'stair'">
-                        <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="20" max="200" @input="syncEngine"><input type="number" v-model.number="selectedEntity.width" @input="syncEngine"></div></div>
-                        <div class="control-group"><label>Step Count</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stepCount" min="3" max="50" step="1" @input="syncEngine"><input type="number" v-model.number="selectedEntity.stepCount" min="3" max="50" step="1" @input="syncEngine"></div></div>
-                        <div class="control-group"><label>Step Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stepDepth" min="15" max="40" step="0.5" @input="syncEngine"><input type="number" v-model.number="selectedEntity.stepDepth" min="15" max="40" step="0.5" @input="syncEngine"></div></div>
-                        <hr style="margin: 15px 0; border:0; border-top:1px solid #d1d5db;">
-                        <h4 class="props-subtitle" style="margin-top:0">Chain / Add Topology</h4>
-                        <div style="display:flex; flex-wrap:wrap; gap:8px;">
-                            <button class="action-btn import" style="flex:1;" @click="addTopology('straight')">Straight</button>
-                            <button class="action-btn import" style="flex:1;" @click="addTopology('l_shape')">L-Shape</button>
-                            <button class="action-btn import" style="flex:1;" @click="addTopology('u_shape')">U-Shape</button>
-                            <button class="action-btn import" style="flex:1;" @click="addTopology('t_shape')">T-Shape</button>
-                            <button class="action-btn import" style="flex:1;" @click="addTopology('y_shape')">Y-Shape</button>
-                        </div>
-                    </div>
-                    <div v-else-if="selectedEntity.type === 'stair_landing'">
-                        <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="20" max="400" @input="syncEngine"><input type="number" v-model.number="selectedEntity.width" @input="syncEngine"></div></div>
-                        <div class="control-group"><label>Length</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.length" min="20" max="400" @input="syncEngine"><input type="number" v-model.number="selectedEntity.length" @input="syncEngine"></div></div>
-                        <hr style="margin: 15px 0; border:0; border-top:1px solid #d1d5db;">
-                        <h4 class="props-subtitle" style="margin-top:0">Add Connected Flight</h4>
-                        <div style="display:flex; flex-wrap:wrap; gap:8px;">
-                            <button class="action-btn import" style="flex:1;" @click="addTopology('straight')">+ Top Flight</button>
-                            <button class="action-btn import" style="flex:1;" @click="addTopology('l_shape')">+ Right Flight</button>
-                            <button class="action-btn import" style="flex:1;" @click="addTopology('u_shape')">+ Left Flight</button>
-                            <button class="action-btn import" style="flex:1;" @click="addTopology('t_shape')">+ Bottom Flight</button>
-                        </div>
-                    </div>
-                    <button class="hud-delete" @click="handleDelete" style="margin-top: 15px;">Delete Stairs</button>
-                </div>
-
-                <div v-else-if="selectedType === 'furniture'">
-                    <h4 class="props-subtitle">{{ selectedEntity.config?.name || 'Object' }}</h4>
-                    <div class="control-group"><label>Rotation (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.rotation" min="0" max="360" @input="syncEngine"><input type="number" v-model.number="selectedEntity.rotation" @input="syncEngine"></div></div>
-                    <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="10" max="500" @input="syncEngine"><input type="number" v-model.number="selectedEntity.width" @input="syncEngine"></div></div>
-                    <div class="control-group"><label>Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.depth" min="10" max="500" @input="syncEngine"><input type="number" v-model.number="selectedEntity.depth" @input="syncEngine"></div></div>
-                    <div class="control-group"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="500" @input="syncEngine"><input type="number" v-model.number="selectedEntity.height" @input="syncEngine"></div></div>
-                    
-                    <button class="hud-delete" @click="handleDelete">Delete Object</button>
-                </div>
-
-                <div v-else-if="selectedType === 'roof'">
-                    <h4 class="props-subtitle">Roof Properties</h4>
-                    <div class="control-group">
-                        <select v-model="selectedEntity.config.roofType" @change="syncEngine" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
-                            <option value="hip">Hip Roof</option>
-                            <option value="flat">Flat Roof</option>
-                        </select>
-                    </div>
-                    <div class="control-group" v-if="selectedEntity.config.roofType === 'hip'"><label>Pitch (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.pitch" min="0" max="60" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.pitch" @input="syncEngine"></div></div>
-                    <div class="control-group"><label>Overhang</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.overhang" min="0" max="50" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.overhang" @input="syncEngine"></div></div>
-                    <div class="control-group"><label>Elevation Gap</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.wallGap" min="-50" max="100" @input="syncEngine"><input type="number" v-model.number="selectedEntity.config.wallGap" @input="syncEngine"></div></div>
-                    
-                    <div class="decor-gallery">
-                        <h4 class="props-subtitle">Roof Material</h4>
-                        <div class="decor-grid">
-                            <div v-for="(config, key) in roofDecorRegistry" :key="key" class="decor-item" @click="setRoofMaterial(key)" :class="{ active: selectedEntity.config.material === key }">
-                                <img :src="config.thumbnail" />
-                                <span>{{ config.name }}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button class="hud-delete" @click="handleDelete">Delete Roof</button>
-                </div>
-            </div>
-
-            <div class="props-empty" v-else v-show="activeRightTab === 'properties'">
-                <span v-if="viewMode==='2d'">Select a wall, door, window, or object on the canvas to edit its properties here.</span>
-                <span v-else-if="viewMode3D==='preview'">Exit Preview Mode to edit.</span>
-                <span v-else>Select a wall or object to edit its properties.</span>
-            </div>
-            </div>
-
-            <div class="layers-content" v-show="activeRightTab === 'layers'">
-                <div class="layers-list">
-                    <div v-for="item in layerItems" :key="item.id" class="layer-item" :class="{active: selectedEntity === item.entity}" @click="selectLayerItem(item)">
-                        <div class="layer-info">
-                            <div class="layer-title-row">
-                                <span class="layer-type-icon">{{ getLayerIcon(item.type) }}</span>
-                                <span class="layer-name">{{ item.name }}</span>
-                            </div>
-                            <input type="text" v-model="item.entity.description" @input="debouncedSaveHistory" @click.stop @keydown.stop placeholder="Add description..." class="layer-desc-input" />
-                        </div>
-                        <div class="layer-actions">
-                            <button @click.stop="toggleLayerVisibility(item)" :title="item.entity.isHidden ? 'Show' : 'Hide'">
-                                {{ item.entity.isHidden ? '👁️‍🗨️' : '👁️' }}
-                            </button>
-                            <button @click.stop="removeLayerItem(item)" title="Delete">🗑️</button>
-                        </div>
-                    </div>
-                    <div v-if="layerItems.length === 0" class="props-empty">No objects in the current floor.</div>
-                </div>
-            </div>
-        </div>
-      </aside>
+      <RightSidebar
+        @update:mobileMenuOpen="mobileMenuOpen = $event"
+        @update:activeRightTab="activeRightTab = $event"
+        @update:selectedSky="selectedSky = $event"
+        @update:selectedGround="selectedGround = $event"
+        :is-mobile="isMobile"
+        :is-tablet="isTablet"
+        :mobile-menu-open="mobileMenuOpen"
+        :active-mobile-tab="activeMobileTab"
+        :view-mode="viewMode"
+        :view-mode3D="viewMode3D"
+        :levels="levels"
+        :active-level-index="activeLevelIndex"
+        :all-floors-visible="allFloorsVisible"
+        :active-right-tab="activeRightTab"
+        :floor-plan-settings="floorPlanSettings"
+        :selected-sky="selectedSky"
+        :selected-ground="selectedGround"
+        :sky-registry="skyRegistry"
+        :ground-registry="groundRegistry"
+        :selected-type="selectedType"
+        :selected-entity="selectedEntity"
+        :railing-registry="railingRegistry"
+        :selected-wall-side="selectedWallSide"
+        :current-face-decors="currentFaceDecors"
+        :active-decor-id="activeDecorId"
+        :wall-decor-registry="wallDecorRegistry"
+        :ui-trigger="uiTrigger"
+        :floor-registry="floorRegistry"
+        :roof-decor-registry="roofDecorRegistry"
+        :layer-items="layerItems"
+        @toggle-all-floors="toggleAllFloors"
+        @level-visibility-change="onLevelVisibilityChange"
+        @switch-level="switchLevel"
+        @add-level="addLevel"
+        @sync-settings="syncSettings"
+        @set-entrance-wall="setEntranceWall"
+        @set-sky="setSky"
+        @set-ground="setGround"
+        @sync-engine="syncEngine"
+        @ui-trigger="uiTrigger++"
+        @toggle-edit-decor="toggleEditDecor"
+        @delete-specific-decor="handleDeleteSpecificDecor"
+        @decor-update="onDecorUpdate"
+        @spawn-wall-pattern="spawnWallPattern"
+        @delete-entity="handleDelete"
+        @set-floor-material="setFloorMaterial"
+        @set-opening-material="setOpeningMaterial"
+        @clear-shape-textures="clearShapeTextures"
+        @set-shape-material="setShapeMaterial"
+        @add-topology="addTopology"
+        @set-roof-material="setRoofMaterial"
+        @select-layer-item="selectLayerItem"
+        @toggle-layer-visibility="toggleLayerVisibility"
+        @remove-layer-item="removeLayerItem"
+        @debounced-save-history="debouncedSaveHistory"
+      />
 
       <!-- Wizard Popup -->
       <div class="wizard-overlay" v-if="showWizard">
@@ -791,6 +321,8 @@
 
 <script setup>
 import { ref, computed, shallowRef, onMounted, onBeforeUnmount, watch } from 'vue';
+import LeftSidebar from './components/LeftSidebar.vue';
+import RightSidebar from './components/RightSidebar.vue';
 
 const windowWidth = ref(window.innerWidth);
 const isMobile = computed(() => windowWidth.value < 768);

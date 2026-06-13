@@ -1,102 +1,62 @@
 <template>
-  <div class="left-sidebar">
-    <div class="tool" :class="{ active: activeTool === 'select' }" @click="$emit('select-tool', 'select')">
-      SELECT<br>Adjust
-    </div>
-
-    <div class="unit-section">
-      <div class="unit-label">Build Walls</div>
-      <div class="toolbar-group">
-        <div v-for="(config, key) in WALL_REGISTRY" :key="key" class="tool" :class="{ active: activeTool === key }" @click="$emit('select-tool', key)">
-          {{ config.label }}
+  <aside
+    class="left-sidebar"
+    v-show="viewMode === '2d' && (!(isMobile || isTablet) || ((isMobile || isTablet) && mobileMenuOpen && activeMobileTab === 'tools'))"
+    :class="{'mobile-panel': isMobile || isTablet}"
+  >
+    <div v-if="isMobile || isTablet" class="mobile-close-btn" @click="$emit('close-mobile-menu')">✕ Close</div>
+    <div class="sidebar-layout">
+        <div class="sidebar-dock">
+            <button v-for="cat in menuCategories" :key="cat.id" class="dock-btn" :class="{ active: activeCategory === cat.id }" @click="$emit('toggle-category', cat.id)" :title="cat.name">
+                <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" v-html="cat.icon"></svg>
+            </button>
+            
+            <div style="flex: 1;"></div>
+            
+            <button class="dock-btn" @click="$emit('save-project')" title="Export Project">
+                <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            </button>
+            <button class="dock-btn" @click="$emit('open-save-popup')" title="Save to Cloud" style="color: #8b5cf6;">
+                <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
+            </button>
+            <button class="dock-btn" @click="$emit('trigger-file-input')" title="Import Project">
+                <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            </button>
+            <button class="dock-btn" @click="$emit('clear-workspace')" title="Clear All" style="color: #ef4444;">
+                <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+            <input type="file" id="fileInput" @change="$emit('file-uploaded', $event)" style="display: none" accept=".json"/>
         </div>
-      </div>
-    </div>
 
-    <div class="unit-section">
-      <div class="unit-label">Openings</div>
-      <div class="toolbar-group">
-        <div v-for="(config, key) in WIDGET_REGISTRY" :key="key" class="tool" :class="{ active: activeTool === key }" @click="$emit('select-tool', key)">
-          {{ config.label }}
+        <div class="sidebar-submenu" v-if="activeCategoryObj">
+            <div class="submenu-header">
+                <h3>{{ activeCategoryObj.name }}</h3>
+            </div>
+            <div class="submenu-content">
+                <button v-for="tool in activeCategoryObj.tools" :key="tool.id"
+                    class="child-card-btn"
+                    :class="{ active: activeTool === tool.id && !tool.action }"
+                    @click="$emit('tool-click', tool)">
+                    {{ tool.name }}
+                </button>
+            </div>
         </div>
-      </div>
     </div>
-
-    <div class="unit-section">
-      <div class="unit-label">Furniture Catalog</div>
-      <div class="catalog-grid">
-        <div v-for="(item, key) in FURNITURE_REGISTRY" :key="key" class="catalog-item" @click="$emit('add-furniture', key)">
-          <img :src="item.preview" :alt="item.name">
-          <span>{{ item.name }}</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="unit-section">
-      <div class="unit-label">Circulation</div>
-      <div class="toolbar-group">
-        <div class="tool" :class="{ active: activeTool === 'stair' }" @click="$emit('select-tool', 'stair')">Draw Path Stair<br><span style="font-size:8px; font-weight:normal">(Click pts, Esc to finish)</span></div>
-      </div>
-    </div>
-
-    <div class="unit-section">
-      <div class="unit-label">Roofing</div>
-      <div class="toolbar-group">
-        <div class="tool" :class="{ active: activeTool === 'roof' }" @click="$emit('select-tool', 'roof')">Draw Hip Roof<br><span style="font-size:8px; font-weight:normal">(Trace Outer Walls)</span></div>
-      </div>
-    </div>
-
-    <div class="unit-section">
-      <div class="unit-label">Views</div>
-      <button class="btn-toggle" @click="$emit('toggle-3d')">3D PREVIEW</button>
-    </div>
-
-    <div class="unit-section">
-      <div class="unit-label">File</div>
-      <button class="btn-primary" @click="$emit('export')" style="margin-bottom: 8px;">SAVE JSON</button>
-      <button class="btn-secondary" @click="triggerFileInput" style="margin-bottom: 8px;">LOAD JSON</button>
-      <button class="btn-danger" @click="$emit('clear')">CLEAR WORKSPACE</button>
-      <input type="file" ref="fileInput" style="display:none" accept=".json" @change="handleFileUpload">
-    </div>
-  </div>
+  </aside>
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import { WALL_REGISTRY, WIDGET_REGISTRY, FURNITURE_REGISTRY } from '../core/registry.js';
+const props = defineProps({
+  viewMode: String,
+  isMobile: Boolean,
+  isTablet: Boolean,
+  mobileMenuOpen: Boolean,
+  activeMobileTab: String,
+  menuCategories: Array,
+  activeCategory: String,
+  activeCategoryObj: Object,
+  activeTool: String
+});
 
-defineProps(['activeTool']);
-const emit = defineEmits(['select-tool', 'toggle-3d', 'export', 'import', 'add-furniture', 'clear']);
-
-const fileInput = ref(null);
-const triggerFileInput = () => fileInput.value.click();
-const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => { try { emit('import', JSON.parse(event.target.result)); } catch(err) { alert("Failed to read file."); } fileInput.value.value = ""; };
-    reader.readAsText(file);
-};
+const emit = defineEmits(['close-mobile-menu', 'toggle-category', 'save-project', 'open-save-popup', 'trigger-file-input', 'clear-workspace', 'file-uploaded', 'tool-click']);
 </script>
-
-<style scoped>
-.left-sidebar { width: 140px; background: #fff; border-right: 1px solid #e5e7eb; padding: 15px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; z-index: 10; box-shadow: 2px 0 10px rgba(0,0,0,0.05); }
-.toolbar-group { display: flex; flex-direction: column; gap: 8px; }
-.tool { height: 45px; border: 1px solid #e5e7eb; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 11px; background: white; text-align: center; color: #6b7280; transition: 0.2s; }
-.tool.active { background: #111827; color: white; border-color: #111827; font-weight: bold; }
-.unit-section { margin-top: 5px; padding-top: 10px; border-top: 1px solid #eee; }
-.unit-label { font-size: 10px; color: #9ca3af; margin-bottom: 5px; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; }
-button { width: 100%; padding: 10px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: 0.2s; font-weight: bold; }
-.btn-toggle { background: #4f46e5; color: white; border: none; }
-.btn-toggle:hover { background: #4338ca; }
-.btn-primary { background: #111827; color: white; border: none; }
-.btn-primary:hover { background: #374151; }
-.btn-secondary { background: #f9fafb; color: #111827; border: 1px solid #e5e7eb; }
-.btn-danger { background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; }
-.btn-danger:hover { background: #ef4444; color: white; }
-.catalog-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.catalog-item { cursor: pointer; border: 1px solid #e5e7eb; border-radius: 6px; padding: 4px; text-align: center; transition: 0.2s; }
-.catalog-item:hover { border-color: #4f46e5; background: #f3f4f6; }
-.catalog-item img { width: 100%; height: 40px; object-fit: cover; border-radius: 4px; }
-.catalog-item span { font-size: 9px; font-weight: bold; color: #4b5563; display: block; margin-top: 4px; }
-</style>
