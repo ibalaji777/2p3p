@@ -54,8 +54,8 @@
         <div class="compass-n">N</div><div class="compass-w">W</div><div class="compass-center"></div><div class="compass-e">E</div><div class="compass-s">S</div>
     </div>
 
-    <transition name="fade"><div ref="canvas2D" class="canvas-host" v-show="viewMode === '2d'"></div></transition>
-    <transition name="fade"><div ref="canvas3D" class="canvas-host canvas-3d" v-show="viewMode === '3d'"></div></transition>
+    <div ref="canvas2D" class="canvas-host" :class="{ 'active-canvas': viewMode === '2d', 'inactive-canvas': viewMode !== '2d' }"></div>
+    <div ref="canvas3D" class="canvas-host canvas-3d" :class="{ 'active-canvas': viewMode === '3d', 'inactive-canvas': viewMode !== '3d' }"></div>
     
     <div class="loader-overlay" v-show="viewMode === '3d' && isRebuilding">
         <div class="spinner"></div><span style="font-weight: 600; color: #4b5563;">Loading 3D Scene...</span>

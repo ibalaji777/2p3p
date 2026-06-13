@@ -26,7 +26,7 @@
         @close-mobile-menu="mobileMenuOpen = false"
         @toggle-category="toggleCategory"
         @save-project="saveProject"
-        @open-save-popup="openSavePopup"
+        @open-save-popup="savePopupRef?.open()"
         @trigger-file-input="triggerFileInput"
         @clear-workspace="clearWorkspace"
         @file-uploaded="handleFileUpload"
@@ -139,26 +139,19 @@
 
       <!-- Wizard Popup -->
       <SmartWizardPopup
-        :show="showWizard"
-        :plugin="activeWizardPlugin"
-        :config="wizardConfig"
-        :fields="wizardFields"
-        :error="wizardError"
-        @close="showWizard = false"
-        @execute="executeWizard"
-        @update-boundary="updateVisualBoundary"
+        ref="wizardPopupRef"
+        :wizard-manager="wizardManager"
+        :context-data="{ floorPlanSettings, planner, syncSettings, refresh3DScene }"
+        @success="debouncedSaveHistory"
       />
 
       <!-- Save Popup Overlay -->
       <SavePopup
-        :show="showSavePopup"
-        :is-saving="isSaving"
-        :save-error="saveError"
-        :project-name="projectName"
-        :preview-images="previewImages"
-        @update:project-name="projectName = $event"
-        @close="showSavePopup = false"
-        @save="confirmSave"
+        ref="savePopupRef"
+        :server-service="serverService"
+        :view-mode="viewMode"
+        @refresh-scene="refresh3DScene"
+        @saved="debouncedSaveHistory"
       />
 
     </div>
@@ -228,12 +221,9 @@ const groundRegistry = GROUND_REGISTRY;
 const floorRegistry = FLOOR_REGISTRY;
 const railingRegistry = RAILING_REGISTRY;
 
-const showWizard = ref(false);
-const activeWizardPlugin = ref(null);
-const wizardConfig = ref({});
-const wizardFields = ref([]);
-const wizardError = ref('');
-let wizardManager = null;
+const wizardPopupRef = ref(null);
+const savePopupRef = ref(null);
+const wizardManager = shallowRef(null);
 
 const floorPlanSettings = ref({
     mainEntranceFacing: 'north',
@@ -271,12 +261,6 @@ const planner = shallowRef(null);
 const renderer3D = shallowRef(null);
 const workspaceControls = shallowRef(null);
 const serverService = shallowRef(null);
-
-const showSavePopup = ref(false);
-const projectName = ref('');
-const isSaving = ref(false);
-const saveError = ref('');
-const previewImages = ref({});
 
 const historyStack = ref([]);
 const historyIndex = ref(-1);
@@ -380,58 +364,6 @@ const menuCategories = ref([
 const activeCategoryObj = computed(() => {
     return menuCategories.value.find(c => c.id === activeCategory.value);
 });
-
-const openWizard = (pluginId) => {
-    const plugin = wizardManager.getPlugin(pluginId);
-    if (!plugin) return;
-    activeWizardPlugin.value = plugin;
-    wizardConfig.value = {};
-    const context = { floorPlanSettings, planner };
-    wizardFields.value = plugin.getFields ? plugin.getFields(context) : [];
-    wizardFields.value.forEach(f => {
-        if (typeof f.defaultValue === 'object' && f.defaultValue !== null) {
-            Object.assign(wizardConfig.value, f.defaultValue);
-        } else {
-            wizardConfig.value[f.name] = f.defaultValue !== undefined ? f.defaultValue : '';
-        }
-    });
-    showWizard.value = true;
-    wizardError.value = '';
-};
-
-const updateVisualBoundary = (changedField) => {
-    if (changedField === 'targetWidth' || changedField === 'targetDepth') {
-        const w = parseFloat(wizardConfig.value['targetWidth']) || 0;
-        const d = parseFloat(wizardConfig.value['targetDepth']) || 0;
-        wizardConfig.value['targetSqft'] = (w * d).toFixed(0);
-    } else if (changedField === 'targetSqft') {
-        // If they enter sqft directly, scale proportionally based on current aspect ratio
-        const currentSqft = parseFloat(wizardConfig.value['targetSqft']) || 0;
-        if (currentSqft > 0) {
-            const w = parseFloat(wizardConfig.value['targetWidth']) || 1;
-            const d = parseFloat(wizardConfig.value['targetDepth']) || 1;
-            const ratio = w / d;
-            
-            const newD = Math.sqrt(currentSqft / ratio);
-            const newW = currentSqft / newD;
-            
-            wizardConfig.value['targetWidth'] = newW.toFixed(1);
-            wizardConfig.value['targetDepth'] = newD.toFixed(1);
-        }
-    }
-};
-
-const executeWizard = async () => {
-    if (!activeWizardPlugin.value) return;
-    wizardError.value = '';
-    const result = await wizardManager.executePlugin(activeWizardPlugin.value.id, wizardConfig.value);
-    if (result.success) {
-        showWizard.value = false;
-        debouncedSaveHistory();
-    } else {
-        wizardError.value = result.error || 'Failed to execute wizard.';
-    }
-};
 
 const toggleCategory = (catId) => {
     if (activeCategory.value === catId) {
@@ -708,15 +640,15 @@ onMounted(() => {
     planner.value.activeCategory = activeCategory.value;
     planner.value.loadDefaultHouse();
 
-    wizardManager = new SmartWizardManager({
+    wizardManager.value = new SmartWizardManager({
         get planner() { return planner; },
         get floorPlanSettings() { return floorPlanSettings; },
         syncSettings,
         refresh3DScene
     });
-    wizardManager.registerPlugin(SmartFacingPlugin);
-    wizardManager.registerPlugin(SmartWallResizePlugin);
-    wizardManager.enablePlugins(['smart_facing', 'smart_wall_resize']);
+    wizardManager.value.registerPlugin(SmartFacingPlugin);
+    wizardManager.value.registerPlugin(SmartWallResizePlugin);
+    wizardManager.value.enablePlugins(['smart_facing', 'smart_wall_resize']);
     
     planner.value.onSelectionChange = (entity, type, nodeIdx = -1) => {
         selectedEntity.value = entity; selectedType.value = type; selectedNodeIndex.value = nodeIdx;
@@ -971,7 +903,7 @@ const setAdvancedTool = (tool) => {
 const handleToolClick = (tool) => {
     if (tool.action === 'furniture') spawnFurniture(tool.id);
     else if (tool.action === 'auto_roof') { if (planner.value) planner.value.addAutoRoof(); }
-    else if (tool.action === 'wizard') { openWizard(tool.id); }
+    else if (tool.action === 'wizard') { wizardPopupRef.value?.open(tool.id); }
     else setTool(tool.id);
     
     if (isMobile.value || isTablet.value) {
@@ -1341,40 +1273,6 @@ const clearWorkspace = () => {
         handleDeselect();
         if (viewMode.value === '3d') refresh3DScene(true);
         saveHistory();
-    }
-};
-
-const openSavePopup = async () => {
-    showSavePopup.value = true;
-    saveError.value = '';
-    projectName.value = `Project ${new Date().toLocaleDateString()}`;
-    previewImages.value = {};
-    
-    if (viewMode.value === '2d') {
-        refresh3DScene(true);
-    }
-    
-    // Give the 3D renderer a moment to build geometry and compile shaders
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    try {
-        previewImages.value = await serverService.value.generatePreviewImages();
-    } catch (e) {
-        console.error("Failed to generate previews:", e);
-    }
-};
-
-const confirmSave = async () => {
-    isSaving.value = true;
-    saveError.value = '';
-    try {
-        await serverService.value.saveProject(projectName.value);
-        showSavePopup.value = false;
-        alert("Project saved successfully!");
-    } catch (e) {
-        saveError.value = e.message || "Failed to save project.";
-    } finally {
-        isSaving.value = false;
     }
 };
 </script>
