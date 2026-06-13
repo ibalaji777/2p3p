@@ -1,56 +1,16 @@
 <template>
   <div class="app-root">
-    <header class="top-toolbar">
-       <div class="left-tools">
-           <button class="tool-btn" :class="{active: viewMode==='2d'}" @click="switchTo2D">
-               <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                   <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-                   <path d="M15 5l4 4"></path>
-                   <path d="M3 21h6v-6"></path>
-               </svg>
-               <span class="tool-label">2D Plan</span>
-           </button>
-
-           <button class="tool-btn" :class="{active: viewMode==='3d'}" @click="switchTo3D">
-               <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                   <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                   <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                   <line x1="12" y1="22.08" x2="12" y2="12"></line>
-               </svg>
-               <span class="tool-label">3D Build</span>
-           </button>
-       </div>
-       
-       <div class="center-tools" v-if="viewMode==='2d'">
-       </div>
-
-       <div class="right-tools" v-if="viewMode==='3d'">
-           <div class="tool-group">
-               <button class="tool-btn" :class="{active: viewMode3D === 'full-edit'}" @click="togglePreviewMode">
-                   <svg v-if="viewMode3D === 'preview'" class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-                   <svg v-else class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                   <span class="tool-label">{{ viewMode3D === 'preview' ? 'Build Mode' : 'Walkthrough' }}</span>
-               </button>
-           </div>
-       </div>
-       
-       <div class="right-tools" v-if="viewMode==='2d'">
-           <button class="tool-btn" @click="undo" :disabled="historyIndex <= 0" title="Undo (Ctrl+Z)">
-               <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                   <path d="M3 7v6h6"></path>
-                   <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
-               </svg>
-               <span class="tool-label">Undo</span>
-           </button>
-           <button class="tool-btn" @click="redo" :disabled="historyIndex >= historyStack.length - 1" title="Redo (Ctrl+Y)">
-               <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                   <path d="M21 7v6h-6"></path>
-                   <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"></path>
-               </svg>
-               <span class="tool-label">Redo</span>
-           </button>
-       </div>
-    </header>
+    <TopToolbar
+      :view-mode="viewMode"
+      :view-mode3D="viewMode3D"
+      :history-index="historyIndex"
+      :history-length="historyStack.length"
+      @switch-2d="switchTo2D"
+      @switch-3d="switchTo3D"
+      @toggle-preview="togglePreviewMode"
+      @undo="undo"
+      @redo="redo"
+    />
 
     <div class="main-workspace" @mouseup="debouncedSaveHistory" @touchend="debouncedSaveHistory">
       <LeftSidebar
@@ -100,83 +60,35 @@
         </button>
       </div>
       
-      <main class="canvas-container">
-        <div class="hint" :style="{ background: hintData.color }" v-show="viewMode === '2d' && showGuide">{{ hintData.text }}</div>
-        
-        <div class="floating-advanced-toolbar" v-show="viewMode === '2d'">
-            <div class="adv-dropdown">
-                <button class="adv-trigger-btn" @click="handleAdvTriggerClick" :class="{active: showAdvancedTools || isAdvancedToolActive}" :title="isAdvancedToolActive ? 'Clear Tool' : 'Advanced Tools'">
-                    <span v-if="isAdvancedToolActive" style="color: #fca5a5; font-size: 16px;">✕</span>
-                    <span v-else>⚙️</span>
-                </button>
-                <div class="adv-side-menu" v-show="showAdvancedTools && !isAdvancedToolActive">
-                    <button class="adv-round-btn" :class="{active: activeTool === 'split'}" @click="setAdvancedTool('split'); showAdvancedTools=false" title="Split Wall">✂️</button>
-                    <button class="adv-round-btn" :class="{active: isWallTrackingEnabled}" @click="toggleWallTracking" title="Toggle Wall Tracking">🔗</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="floating-env-toolbar" v-show="viewMode === '3d'">
-            <div class="env-dropdown" @mouseenter="showCamera = true" @mouseleave="showCamera = false">
-                <button class="env-icon-btn" title="View Angles"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"></path><rect x="3" y="6" width="12" height="12" rx="2" ry="2"></rect></svg></button>
-                <div class="env-menu" v-show="showCamera">
-                    <div class="env-menu-item" @click="setCameraPreset('iso'); showCamera = false">Perspective (3D)</div>
-                    <div class="env-menu-item" @click="setCameraPreset('top'); showCamera = false">Top (2D Ortho)</div>
-                    <div class="env-menu-item" @click="setCameraPreset('front'); showCamera = false">Front</div>
-                    <div class="env-menu-item" @click="setCameraPreset('back'); showCamera = false">Back</div>
-                    <div class="env-menu-item" @click="setCameraPreset('left'); showCamera = false">Left</div>
-                    <div class="env-menu-item" @click="setCameraPreset('right'); showCamera = false">Right</div>
-                    <div class="env-menu-item" @click="setCameraPreset('frontLeft'); showCamera = false">Front-Left</div>
-                    <div class="env-menu-item" @click="setCameraPreset('frontRight'); showCamera = false">Front-Right</div>
-                </div>
-            </div>
-            <button class="env-icon-btn" @click="rotateCamera(-0.1)" title="Rotate Left">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>
-            </button>
-            <button class="env-icon-btn" @click="rotateCamera(0.1)" title="Rotate Right">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><polyline points="21 3 21 8 16 8"></polyline></svg>
-            </button>
-            <button class="env-icon-btn" :class="{active: isXRayMode}" @click="toggleXRayMode" title="Toggle Transparent/X-Ray Mode">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="12" height="12" rx="2" ry="2"></rect><rect x="9" y="9" width="12" height="12" rx="2" ry="2"></rect></svg>
-            </button>
-        </div>
-
-        <div class="bottom-right-toolbar">
-            <button @click="showGuide = !showGuide" :title="showGuide ? 'Hide Guide' : 'Show Guide'" :style="{ background: showGuide ? 'rgba(59, 130, 246, 0.9)' : '', borderColor: showGuide ? 'rgba(96, 165, 250, 1)' : '' }">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-            </button>
-            <button @click="zoomIn" title="Zoom In">+</button>
-            <button @click="zoomOut" title="Zoom Out">-</button>
-            <button @click="resetZoom" title="Reset Zoom">⛶</button>
-        </div>
-
-        <!-- 2D Compass Widget -->
-        <div class="compass-widget" v-show="viewMode === '2d' && floorPlanSettings.showCompass">
-            <div class="compass-n">N</div>
-            <div class="compass-w">W</div>
-            <div class="compass-center"></div>
-            <div class="compass-e">E</div>
-            <div class="compass-s">S</div>
-        </div>
-
-        <transition name="fade">
-            <div ref="canvas2D" class="canvas-host" v-show="viewMode === '2d'"></div>
-        </transition>
-        <transition name="fade">
-            <div ref="canvas3D" class="canvas-host canvas-3d" v-show="viewMode === '3d'"></div>
-        </transition>
-        
-        <div class="loader-overlay" v-show="viewMode === '3d' && isRebuilding">
-            <div class="spinner"></div>
-            <span style="font-weight: 600; color: #4b5563;">Loading 3D Scene...</span>
-        </div>
-        
-        <div class="status-bar" v-if="viewMode === '3d' && showGuide">
-            <span v-if="viewMode3D === 'preview'">🖱️ Left-Click: Rotate Room | Scroll: Zoom</span>
-            <span v-else-if="mode3D === 'edit' && selectedType === 'wall'">⚙️ Click a pattern from the gallery to apply it.</span>
-            <span v-else-if="mode3D === 'edit'">🖱️ Click object to select/move, or click wall to add patterns</span>
-        </div>
-      </main>
+      <CanvasWorkspace
+        ref="canvasWorkspaceRef"
+        :hint-data="hintData"
+        :view-mode="viewMode"
+        :show-guide="showGuide"
+        :show-advanced-tools="showAdvancedTools"
+        :is-advanced-tool-active="isAdvancedToolActive"
+        :active-tool="activeTool"
+        :is-wall-tracking-enabled="isWallTrackingEnabled"
+        :show-camera="showCamera"
+        :is-xray-mode="isXRayMode"
+        :floor-plan-settings="floorPlanSettings"
+        :is-rebuilding="isRebuilding"
+        :view-mode3D="viewMode3D"
+        :mode3D="mode3D"
+        :selected-type="selectedType"
+        @update:show-guide="showGuide = $event"
+        @update:show-advanced-tools="showAdvancedTools = $event"
+        @update:show-camera="showCamera = $event"
+        @handle-adv-trigger-click="handleAdvTriggerClick"
+        @set-advanced-tool="setAdvancedTool"
+        @toggle-wall-tracking="toggleWallTracking"
+        @set-camera-preset="setCameraPreset"
+        @rotate-camera="rotateCamera"
+        @toggle-xray-mode="toggleXRayMode"
+        @zoom-in="zoomIn"
+        @zoom-out="zoomOut"
+        @reset-zoom="resetZoom"
+      />
 
       <RightSidebar
         @update:mobileMenuOpen="mobileMenuOpen = $event"
@@ -323,6 +235,8 @@
 import { ref, computed, shallowRef, onMounted, onBeforeUnmount, watch } from 'vue';
 import LeftSidebar from './components/LeftSidebar.vue';
 import RightSidebar from './components/RightSidebar.vue';
+import TopToolbar from './components/TopToolbar.vue';
+import CanvasWorkspace from './components/CanvasWorkspace.vue';
 
 const windowWidth = ref(window.innerWidth);
 const isMobile = computed(() => windowWidth.value < 768);
@@ -415,8 +329,7 @@ const setEntranceWall = () => {
     }
 };
 
-const canvas2D = ref(null);
-const canvas3D = ref(null);
+const canvasWorkspaceRef = ref(null);
 const planner = shallowRef(null);
 const renderer3D = shallowRef(null);
 const workspaceControls = shallowRef(null);
@@ -854,7 +767,7 @@ const hintData = computed(() => {
 
 onMounted(() => {
     window.addEventListener('resize', handleResize);
-    planner.value = new FloorPlanner(canvas2D.value);
+    planner.value = new FloorPlanner(canvasWorkspaceRef.value.canvas2D);
     planner.value.activeCategory = activeCategory.value;
     planner.value.loadDefaultHouse();
 
@@ -884,7 +797,7 @@ onMounted(() => {
         activeTool.value = toolId;
     };
 
-    renderer3D.value = new Preview3D(canvas3D.value);
+    renderer3D.value = new Preview3D(canvasWorkspaceRef.value.canvas3D);
 
     workspaceControls.value = new WorkspaceControls(renderer3D.value, planner.value);
     
