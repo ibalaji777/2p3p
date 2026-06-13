@@ -41,24 +41,13 @@
       </div>
 
       <!-- Mobile Bottom Navigation -->
-      <div class="mobile-bottom-nav" v-if="isMobile || isTablet">
-        <button @click="toggleMobileTab('levels')" :class="{active: activeMobileTab === 'levels' && mobileMenuOpen}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="bottom-nav-icon"><path d="M3 21h18"></path><path d="M5 21V7l8-4v18"></path><path d="M19 21V11l-6-3"></path><path d="M9 9v.01"></path><path d="M9 13v.01"></path><path d="M9 17v.01"></path></svg>
-            <span>Floors</span>
-        </button>
-        <button @click="toggleMobileTab('properties')" :class="{active: activeMobileTab === 'properties' && mobileMenuOpen}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="bottom-nav-icon"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-            <span>Props</span>
-        </button>
-        <button @click="toggleMobileTab('layers')" :class="{active: activeMobileTab === 'layers' && mobileMenuOpen}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="bottom-nav-icon"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
-            <span>Layers</span>
-        </button>
-        <button @click="toggleMobileTab('settings')" :class="{active: activeMobileTab === 'settings' && mobileMenuOpen}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="bottom-nav-icon"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-            <span>Settings</span>
-        </button>
-      </div>
+      <MobileBottomNav
+        :is-mobile="isMobile"
+        :is-tablet="isTablet"
+        :active-mobile-tab="activeMobileTab"
+        :mobile-menu-open="mobileMenuOpen"
+        @toggle-tab="toggleMobileTab"
+      />
       
       <CanvasWorkspace
         ref="canvasWorkspaceRef"
@@ -149,83 +138,28 @@
       />
 
       <!-- Wizard Popup -->
-      <div class="wizard-overlay" v-if="showWizard">
-        <div class="wizard-modal">
-          <div class="wizard-header">
-            <h3>{{ activeWizardPlugin?.name }}</h3>
-            <button @click="showWizard = false" class="wizard-close">✕</button>
-          </div>
-          <div class="wizard-body">
-            <p class="wizard-desc">{{ activeWizardPlugin?.description }}</p>
-            <div v-if="wizardError" class="wizard-error">{{ wizardError }}</div>
-            
-            <div v-for="field in wizardFields" :key="field.name" class="control-group">
-              <label v-if="field.label">{{ field.label }}</label>
-              
-              <div v-if="field.type === 'visual_boundary'" class="visual-boundary-box">
-                  <div class="vb-compass-line-v"></div>
-                  <div class="vb-compass-line-h"></div>
-                  <div class="vb-north">N</div>
-                  <div class="vb-south">S</div>
-                  <div class="vb-west">W</div>
-                  <div class="vb-east">E</div>
-                  
-                  <input class="vb-input top" type="number" step="0.1" v-model="wizardConfig['targetN']" @input="updateVisualBoundary('targetN')" />
-                  <input class="vb-input bottom" type="number" step="0.1" v-model="wizardConfig['targetS']" @input="updateVisualBoundary('targetS')" />
-                  <input class="vb-input left" type="number" step="0.1" v-model="wizardConfig['targetW']" @input="updateVisualBoundary('targetW')" />
-                  <input class="vb-input right" type="number" step="0.1" v-model="wizardConfig['targetE']" @input="updateVisualBoundary('targetE')" />
-                  
-                  <div class="vb-center-text">
-                      <input class="vb-sqft-input" type="number" step="1" v-model="wizardConfig['targetSqft']" @input="updateVisualBoundary('targetSqft')" />
-                      <div style="font-size: 11px; color: #6b7280; margin-top: 4px;">Sq Ft</div>
-                  </div>
-              </div>
-
-              <select v-else-if="field.type === 'select'" v-model="wizardConfig[field.name]" class="settings-select">
-                <option v-for="opt in field.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-              </select>
-              <input v-else-if="field.type === 'text'" type="text" v-model="wizardConfig[field.name]" class="settings-select" />
-              <input v-else-if="field.type === 'number'" type="number" step="0.1" v-model="wizardConfig[field.name]" @input="updateVisualBoundary(field.name)" class="settings-select" />
-              <div v-else-if="field.type === 'checkbox'" style="display: flex; align-items: center; gap: 8px;">
-                  <input type="checkbox" v-model="wizardConfig[field.name]" class="settings-checkbox" />
-                  <span style="font-size: 13px; color: #4b5563;">{{ field.checkboxLabel || field.label }}</span>
-              </div>
-            </div>
-          </div>
-          <div class="wizard-footer">
-            <button @click="showWizard = false" class="action-btn clear">Cancel</button>
-            <button @click="executeWizard" class="action-btn import">Apply</button>
-          </div>
-        </div>
-      </div>
+      <SmartWizardPopup
+        :show="showWizard"
+        :plugin="activeWizardPlugin"
+        :config="wizardConfig"
+        :fields="wizardFields"
+        :error="wizardError"
+        @close="showWizard = false"
+        @execute="executeWizard"
+        @update-boundary="updateVisualBoundary"
+      />
 
       <!-- Save Popup Overlay -->
-      <div class="wizard-overlay" v-if="showSavePopup">
-        <div class="wizard-modal">
-          <div class="wizard-header">
-            <h3>Save Project to Cloud</h3>
-            <button @click="showSavePopup = false" class="wizard-close">✕</button>
-          </div>
-          <div class="wizard-body" style="text-align: center;">
-            <div v-if="isSaving" class="wizard-desc">Generating previews and saving... Please wait.</div>
-            <div v-if="saveError" class="wizard-error">{{ saveError }}</div>
-            <div class="control-group" style="text-align: left;">
-              <label>Project Name</label>
-              <input type="text" v-model="projectName" class="settings-select" placeholder="Enter project name..." />
-            </div>
-            <div v-if="Object.keys(previewImages).length > 0" class="decor-grid" style="grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px;">
-                <div class="decor-item" v-for="(imgUrl, key) in previewImages" :key="key">
-                    <img :src="imgUrl" style="height: 60px; width: 100%; object-fit: contain; background: #e5e7eb; border-radius: 4px;" />
-                    <span style="font-size: 10px; font-weight: bold; text-transform: capitalize; margin-top: 4px; display: block;">{{ key.replace('Preview', '').replace(/([A-Z])/g, ' $1').trim() }}</span>
-                </div>
-            </div>
-          </div>
-          <div class="wizard-footer">
-            <button @click="showSavePopup = false" class="action-btn clear" :disabled="isSaving">Cancel</button>
-            <button @click="confirmSave" class="action-btn import" :disabled="isSaving || !projectName">Save</button>
-          </div>
-        </div>
-      </div>
+      <SavePopup
+        :show="showSavePopup"
+        :is-saving="isSaving"
+        :save-error="saveError"
+        :project-name="projectName"
+        :preview-images="previewImages"
+        @update:project-name="projectName = $event"
+        @close="showSavePopup = false"
+        @save="confirmSave"
+      />
 
     </div>
   </div>
@@ -237,6 +171,9 @@ import LeftSidebar from './components/LeftSidebar.vue';
 import RightSidebar from './components/RightSidebar.vue';
 import TopToolbar from './components/TopToolbar.vue';
 import CanvasWorkspace from './components/CanvasWorkspace.vue';
+import SmartWizardPopup from './components/SmartWizardPopup.vue';
+import SavePopup from './components/SavePopup.vue';
+import MobileBottomNav from './components/MobileBottomNav.vue';
 
 const windowWidth = ref(window.innerWidth);
 const isMobile = computed(() => windowWidth.value < 768);
