@@ -86,24 +86,30 @@ export class StairV4Node {
                 if (landingConn) {
                     const landing = this.planner.stairs.find(s => s.id === landingConn.targetId);
                     const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
-                    const lSocketGlob = landing.getGlobalSocket(landingConn.targetSpot);
-                    const radEdge = (lSocketGlob.angle + 90) * Math.PI / 180;
                     
-                    const dx = pos.x - lSocketGlob.x;
-                    const dy = pos.y - lSocketGlob.y;
-                    let offset = dx * Math.cos(radEdge) + dy * Math.sin(radEdge);
-                    
-                    const clampExt = Math.max(landing.width, landing.length) + 100;
-                    if (offset > clampExt) offset = clampExt;
-                    if (offset < -clampExt) offset = -clampExt;
-                    
-                    landingConn.slideOffset = -offset;
-                    const myConnOnLanding = landing.connections.find(c => c.targetId === this.id && c.targetSpot === landingConn.mySpot);
-                    if (myConnOnLanding) myConnOnLanding.slideOffset = offset;
-                    
-                    StaircaseV4Solver.solve(this.planner, this.systemId, landing.id);
-                    this.planner.syncAll();
-                    return;
+                    const edge = landing.getEdges().find(e => e.id === landingConn.targetSpot);
+                    if (edge) {
+                        const p1Glob = landing.getGlobalEdgeSocket(edge.id, 0);
+                        const p2Glob = landing.getGlobalEdgeSocket(edge.id, 1);
+                        const dx = p2Glob.x - p1Glob.x; const dy = p2Glob.y - p1Glob.y; const len = Math.hypot(dx, dy);
+                        if (len > 0) {
+                            let t = ((pos.x - p1Glob.x) * dx + (pos.y - p1Glob.y) * dy) / (len * len);
+                            const halfWT = (this.width / 2) / len;
+                            t = Math.max(halfWT, Math.min(1 - halfWT, t));
+                            
+                            const otherConns = landing.connections.filter(c => c.mySpot === landingConn.targetSpot && c.targetId !== this.id);
+                            for (let oc of otherConns) { const otherFlight = this.planner.stairs.find(s => s.id === oc.targetId); if (otherFlight) { const otherHalfWT = (otherFlight.width / 2) / len; if (Math.abs(t - oc.offset) < halfWT + otherHalfWT) { if (t < oc.offset) t = oc.offset - halfWT - otherHalfWT; else t = oc.offset + halfWT + otherHalfWT; } } }
+                            t = Math.max(halfWT, Math.min(1 - halfWT, t));
+                            
+                            landingConn.offset = t;
+                            const myConnOnLanding = landing.connections.find(c => c.targetId === this.id && c.mySpot === landingConn.targetSpot);
+                            if (myConnOnLanding) myConnOnLanding.offset = t;
+                            
+                            StaircaseV4Solver.solve(this.planner, this.systemId, landing.id);
+                            this.planner.syncAll();
+                            return;
+                        }
+                    }
                 }
             }
             
@@ -153,8 +159,12 @@ export class StairV4Node {
                                 }
                             }
                         }
-                        if (isHovered) { edgeLine.stroke(isValid ? '#10b981' : '#ef4444'); edgeLine.opacity(0.9); edgeLine.strokeWidth(8); }
-                        else { edgeLine.stroke('#10b981'); edgeLine.opacity(0.5); edgeLine.strokeWidth(6); }
+                        if (isHovered) { 
+                            edgeLine.stroke(isValid ? '#10b981' : '#ef4444'); edgeLine.opacity(1); edgeLine.strokeWidth(2);
+                        } else { 
+                            const hasConn = other.connections.some(c => c.mySpot === e.id);
+                            edgeLine.stroke(hasConn ? '#10b981' : 'transparent'); edgeLine.opacity(1); edgeLine.strokeWidth(2);
+                        }
                     });
                 }
                 
@@ -192,8 +202,12 @@ export class StairV4Node {
                                 }
                             }
                         }
-                        if (isHovered) { edgeLine.stroke(isValid ? '#10b981' : '#ef4444'); edgeLine.opacity(0.9); edgeLine.strokeWidth(8); }
-                        else { edgeLine.stroke('#10b981'); edgeLine.opacity(0.5); edgeLine.strokeWidth(6); }
+                        if (isHovered) { 
+                            edgeLine.stroke(isValid ? '#10b981' : '#ef4444'); edgeLine.opacity(1); edgeLine.strokeWidth(2);
+                        } else { 
+                            const hasConn = this.connections.some(c => c.mySpot === e.id);
+                            edgeLine.stroke(hasConn ? '#10b981' : 'transparent'); edgeLine.opacity(1); edgeLine.strokeWidth(2);
+                        }
                     });
                 }
             });
@@ -215,7 +229,7 @@ export class StairV4Node {
 
     setHighlight(isActive) {
         this.poly.stroke(isActive ? '#f59e0b' : '#3b82f6');
-        this.poly.strokeWidth(isActive ? 3 : 2);
+        this.poly.strokeWidth(2);
         this.handlesGroup.visible(isActive);
         this.snapPointsGroup.listening(isActive);
         this.showSnapPoints(isActive, false);
@@ -284,9 +298,10 @@ export class StairV4Node {
                 const edgeLine = new Konva.Line({
                     name: 'edge-line',
                     points: [e.p1.x, e.p1.y, e.p2.x, e.p2.y],
-                    stroke: '#10b981',
-                    strokeWidth: 6,
-                    opacity: 0.5,
+                    stroke: conns.length > 0 ? '#10b981' : 'transparent',
+                    strokeWidth: 2,
+                    opacity: 1,
+                    lineCap: 'square',
                     listening: false
                 });
                 this.snapPointsGroup.add(edgeLine);
