@@ -2407,6 +2407,16 @@ export class FloorPlanner {
                         length: s.length, thickness: s.thickness
                     };
                 }
+                if (s.type === 'stair_v4_flight' || s.type === 'stair_v4_landing') {
+                    return {
+                        id: s.id, type: s.type, systemId: s.systemId,
+                        x: s.x, y: s.y, elevation: s.elevation, rotation: s.rotation,
+                        width: s.width, length: s.length,
+                        stepCount: s.stepCount, stepHeight: s.stepHeight, stepDepth: s.stepDepth, direction: s.direction,
+                        shape: s.shape, innerRadius: s.innerRadius, arrowRotation: s.arrowRotation, arrowDirection: s.arrowDirection,
+                        connections: s.connections ? JSON.parse(JSON.stringify(s.connections)) : []
+                    };
+                }
                 return { path: s.path ? s.path.map(p => ({ x: p.x, y: p.y, shape: p.shape })) : [], description: s.description };
             }),
             roofs: this.roofs.map(r => ({ x: r.group.x(), y: r.group.y(), rotation: r.rotation, width: r.config?.width, depth: r.config?.depth, pitch: r.config?.pitch, overhang: r.config?.overhang, thickness: r.config?.thickness, ridgeOffset: r.config?.ridgeOffset, points: r.points, isHip: !!r.points, roofType: r.config?.roofType, material: r.config?.material, wallGap: r.config?.wallGap, description: r.description })),
@@ -2519,6 +2529,12 @@ export class FloorPlanner {
                         } else if (sData.type === 'stair' || sData.type === 'stair_landing') {
                             const stairV3 = new PremiumStairV3(this, sData);
                             this.stairs.push(stairV3);
+                    } else if (sData.type === 'stair_v4_flight') {
+                        const stairV4 = new StairV4Flight(this, sData);
+                        this.stairs.push(stairV4);
+                    } else if (sData.type === 'stair_v4_landing') {
+                        const landingV4 = new StairV4Landing(this, sData);
+                        this.stairs.push(landingV4);
                     } else if (sData.path && sData.path.length > 0) {
                         const stair = new PremiumStair(this, sData.path[0].x, sData.path[0].y); stair.path = sData.path; stair.initHandles();
                         if (sData.description !== undefined) stair.description = sData.description;

@@ -675,6 +675,7 @@ export class StairV4Landing extends StairV4Node {
         this.width = data.width || 100;
         this.length = data.length || 100;
         this.innerRadius = data.innerRadius || 20;
+        this.arrowDirection = data.arrowDirection || 'forward';
         
         this.initLandingHandles();
         this.update();
@@ -843,31 +844,51 @@ export class StairV4Landing extends StairV4Node {
         
         this.contentGroup.destroyChildren();
         
-        let arrowY = l/2;
+        let arrowGroup;
+        let arrowLine;
+
         if (this.shape === 'u_curve') {
             const rIn = this.innerRadius;
             const rOut = rIn + this.length;
-            arrowY = -(rIn + rOut) / 2;
+            const midR = (rIn + rOut) / 2;
+            
+            arrowGroup = new Konva.Group({ x: 0, y: 0 });
+            const arrowPoints = [];
+            const arcSegments = 24;
+            const startAng = Math.PI * 0.85;
+            const endAng = Math.PI * 0.15;
+            
+            for (let i = 0; i <= arcSegments; i++) {
+                const fraction = this.arrowDirection === 'reverse' ? (1 - i / arcSegments) : (i / arcSegments);
+                const ang = startAng - fraction * (startAng - endAng);
+                arrowPoints.push(midR * Math.cos(ang), -midR * Math.sin(ang));
+            }
+            
+            arrowLine = new Konva.Arrow({ 
+                points: arrowPoints, fill: '#3b82f6', stroke: '#3b82f6', 
+                strokeWidth: 3, pointerLength: 8, pointerWidth: 8, hitStrokeWidth: 25, tension: 0
+            });
+            arrowGroup.add(arrowLine);
+        } else {
+            arrowGroup = new Konva.Group({ x: 0, y: l/2, rotation: this.arrowRotation || 0 });
+            const lineLength = Math.min(l - 20, 60);
+            const halfL = lineLength / 2;
+            arrowLine = new Konva.Arrow({ 
+                points: [0, halfL, 0, -halfL], fill: '#3b82f6', stroke: '#3b82f6', 
+                strokeWidth: 3, pointerLength: 8, pointerWidth: 8, hitStrokeWidth: 25
+            });
+            arrowGroup.add(arrowLine);
         }
-        const arrowGroup = new Konva.Group({ x: 0, y: arrowY, rotation: this.arrowRotation || 0 });
-        const lineLength = Math.min(l - 20, 60);
-        const halfL = lineLength / 2;
-        const arrowLine = new Konva.Arrow({ 
-            points: [0, halfL, 0, -halfL], 
-            fill: '#3b82f6', 
-            stroke: '#3b82f6', 
-            strokeWidth: 3, 
-            pointerLength: 8, 
-            pointerWidth: 8,
-            hitStrokeWidth: 25
-        });
         
-        arrowGroup.add(arrowLine);
         arrowGroup.on('mouseenter', () => { document.body.style.cursor = 'pointer'; arrowLine.stroke('#2563eb'); arrowLine.fill('#2563eb'); this.planner.stage.batchDraw(); });
         arrowGroup.on('mouseleave', () => { document.body.style.cursor = 'default'; arrowLine.stroke('#3b82f6'); arrowLine.fill('#3b82f6'); this.planner.stage.batchDraw(); });
         arrowGroup.on('click tap', (e) => {
             e.cancelBubble = true;
-            this.arrowRotation = ((this.arrowRotation || 0) + 90) % 360;
+            if (this.shape === 'u_curve') {
+                this.arrowDirection = this.arrowDirection === 'reverse' ? 'forward' : 'reverse';
+            } else {
+                this.arrowRotation = ((this.arrowRotation || 0) + 90) % 360;
+            }
             this.update();
             this.planner.syncAll();
         });
