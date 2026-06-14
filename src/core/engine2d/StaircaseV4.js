@@ -19,13 +19,30 @@ export class StairV4Node {
         this.handlesGroup = new Konva.Group({ visible: false });
         this.snapPointsGroup = new Konva.Group({ listening: false });
 
-        this.group.add(this.poly, this.contentGroup, this.handlesGroup, this.snapPointsGroup);
+        // Render handles on top of snap points so they can be grabbed when connected
+        this.group.add(this.poly, this.contentGroup, this.snapPointsGroup, this.handlesGroup);
         if (this.planner.widgetLayer) this.planner.widgetLayer.add(this.group);
 
         this.initBaseEvents();
     }
 
     getSockets() { return []; }
+    getEdges() { return []; }
+
+    getGlobalEdgeSocket(edgeId, offset) {
+        const edge = this.getEdges().find(e => e.id === edgeId);
+        if (!edge) return null;
+        const localX = edge.p1.x + (edge.p2.x - edge.p1.x) * offset;
+        const localY = edge.p1.y + (edge.p2.y - edge.p1.y) * offset;
+        const rad = this.rotation * Math.PI / 180;
+        const cos = Math.cos(rad), sin = Math.sin(rad);
+        return {
+            x: this.x + localX * cos - localY * sin,
+            y: this.y + localX * sin + localY * cos,
+            angle: this.rotation + edge.localAngle,
+            elev: this.elevation + edge.elevOffset
+        };
+    }
 
     getGlobalSocket(spotId) {
         const socket = this.getSockets().find(s => s.id === spotId);
@@ -58,6 +75,129 @@ export class StairV4Node {
 
         this.group.on('dragmove', (e) => {
             if (e.target !== this.group) return;
+            
+            // If this is a flight and it's connected to a landing, slide it along the edge!
+            if (this.type === 'stair_v4_flight') {
+                const landingConn = this.connections.find(c => {
+                    const target = this.planner.stairs.find(s => s.id === c.targetId);
+                    return target && target.type === 'stair_v4_landing';
+                });
+                
+                if (landingConn) {
+                    const landing = this.planner.stairs.find(s => s.id === landingConn.targetId);
+                    const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
+                    const lSocketGlob = landing.getGlobalSocket(landingConn.targetSpot);
+                    const radEdge = (lSocketGlob.angle + 90) * Math.PI / 180;
+                    
+                    const dx = pos.x - lSocketGlob.x;
+                    const dy = pos.y - lSocketGlob.y;
+                    let offset = dx * Math.cos(radEdge) + dy * Math.sin(radEdge);
+                    
+                    const clampExt = Math.max(landing.width, landing.length) + 100;
+                    if (offset > clampExt) offset = clampExt;
+                    if (offset < -clampExt) offset = -clampExt;
+                    
+                    landingConn.slideOffset = -offset;
+                    const myConnOnLanding = landing.connections.find(c => c.targetId === this.id && c.targetSpot === landingConn.mySpot);
+                    if (myConnOnLanding) myConnOnLanding.slideOffset = offset;
+                    
+                    StaircaseV4Solver.solve(this.planner, this.systemId, landing.id);
+                    this.planner.syncAll();
+                    return;
+                }
+            }
+            
+            const mySockets = this.getSockets ? this.getSockets().filter(s => !this.connections.find(c => c.mySpot === s.id)) : [];
+            const myGlobSockets = mySockets.map(s => this.getGlobalSocket(s.id));
+            const myEdges = this.getEdges ? this.getEdges() : [];
+            
+            this.planner.stairs.forEach(other => {
+                if (other === this || other.systemId === this.systemId) return;
+                
+                if (other.snapPointsGroup && other.getEdges) {
+                    const edgeLines = other.snapPointsGroup.find('.edge-line');
+                    const otherEdges = other.getEdges();
+                    otherEdges.forEach((e, i) => {
+                        const edgeLine = edgeLines[i];
+                        if (!edgeLine) return;
+                        let isHovered = false;
+                        let isValid = false;
+                        const p1Glob = other.getGlobalEdgeSocket(e.id, 0);
+                        const p2Glob = other.getGlobalEdgeSocket(e.id, 1);
+                        const dx = p2Glob.x - p1Glob.x;
+                        const dy = p2Glob.y - p1Glob.y;
+                        const lenSq = dx*dx + dy*dy;
+                        if (lenSq > 0) {
+                            for (let myGlob of myGlobSockets) {
+                                let t = ((myGlob.x - p1Glob.x) * dx + (myGlob.y - p1Glob.y) * dy) / lenSq;
+                                if (t >= 0 && t <= 1) {
+                                    const projX = p1Glob.x + t * dx;
+                                    const projY = p1Glob.y + t * dy;
+                                    if (Math.hypot(myGlob.x - projX, myGlob.y - projY) < 40) {
+                                        isHovered = true;
+                                        const len = Math.sqrt(lenSq);
+                                        const halfWT = (this.width / 2) / len;
+                                        t = Math.max(halfWT, Math.min(1 - halfWT, t));
+                                        let overlap = false;
+                                        const otherConns = other.connections.filter(c => c.mySpot === e.id);
+                                        for (let oc of otherConns) {
+                                            const otherFlight = this.planner.stairs.find(st => st.id === oc.targetId);
+                                            if (otherFlight) {
+                                                const otherHalfWT = (otherFlight.width / 2) / len;
+                                                if (Math.abs(t - oc.offset) < halfWT + otherHalfWT) { overlap = true; break; }
+                                            }
+                                        }
+                                        isValid = !overlap;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        if (isHovered) { edgeLine.stroke(isValid ? '#10b981' : '#ef4444'); edgeLine.opacity(0.9); edgeLine.strokeWidth(8); }
+                        else { edgeLine.stroke('#10b981'); edgeLine.opacity(0.5); edgeLine.strokeWidth(6); }
+                    });
+                }
+                
+                if (this.snapPointsGroup && this.getEdges && other.getSockets) {
+                    const edgeLines = this.snapPointsGroup.find('.edge-line');
+                    const otherSockets = other.getSockets().filter(os => !other.connections.find(c => c.mySpot === os.id));
+                    const otherGlobSockets = otherSockets.map(os => other.getGlobalSocket(os.id));
+                    myEdges.forEach((e, i) => {
+                        const edgeLine = edgeLines[i];
+                        if (!edgeLine) return;
+                        let isHovered = false;
+                        let isValid = false;
+                        const p1Glob = this.getGlobalEdgeSocket(e.id, 0);
+                        const p2Glob = this.getGlobalEdgeSocket(e.id, 1);
+                        const dx = p2Glob.x - p1Glob.x;
+                        const dy = p2Glob.y - p1Glob.y;
+                        const lenSq = dx*dx + dy*dy;
+                        if (lenSq > 0) {
+                            for (let osGlob of otherGlobSockets) {
+                                let t = ((osGlob.x - p1Glob.x) * dx + (osGlob.y - p1Glob.y) * dy) / lenSq;
+                                if (t >= 0 && t <= 1) {
+                                    const projX = p1Glob.x + t * dx;
+                                    const projY = p1Glob.y + t * dy;
+                                    if (Math.hypot(osGlob.x - projX, osGlob.y - projY) < 40) {
+                                        isHovered = true;
+                                        const len = Math.sqrt(lenSq);
+                                        const halfWT = (other.width / 2) / len;
+                                        t = Math.max(halfWT, Math.min(1 - halfWT, t));
+                                        let overlap = false;
+                                        const myConns = this.connections.filter(c => c.mySpot === e.id);
+                                        for (let mc of myConns) { const myFlight = this.planner.stairs.find(st => st.id === mc.targetId); if (myFlight) { const myHalfWT = (myFlight.width / 2) / len; if (Math.abs(t - mc.offset) < halfWT + myHalfWT) { overlap = true; break; } } }
+                                        isValid = !overlap;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        if (isHovered) { edgeLine.stroke(isValid ? '#10b981' : '#ef4444'); edgeLine.opacity(0.9); edgeLine.strokeWidth(8); }
+                        else { edgeLine.stroke('#10b981'); edgeLine.opacity(0.5); edgeLine.strokeWidth(6); }
+                    });
+                }
+            });
+            
             this.x = this.group.x();
             this.y = this.group.y();
             StaircaseV4Solver.solve(this.planner, this.systemId, this.id);
@@ -80,6 +220,7 @@ export class StairV4Node {
         this.snapPointsGroup.listening(isActive);
         this.showSnapPoints(isActive, false);
         if (isActive) this.group.moveToTop();
+        if (isActive) this.handlesGroup.moveToTop();
         this.planner.stage.batchDraw();
     }
 
@@ -98,57 +239,182 @@ export class StairV4Node {
             return;
         }
         
-        const sockets = this.getSockets();
-        sockets.forEach(s => {
-            const isConn = this.connections.find(c => c.mySpot === s.id);
-            if (!isConn && !showUnconnected) return;
+        if (this.getSockets) {
+            const sockets = this.getSockets();
+            sockets.forEach(s => {
+                const isConn = this.connections.find(c => c.mySpot === s.id);
+                if (!isConn && !showUnconnected) return;
 
-            const pt = new Konva.Circle({
-                x: s.localX, y: s.localY, radius: 12,
-                fill: isConn ? '#ef4444' : '#10b981',
-                opacity: isConn ? 0.9 : 0.5,
-                listening: true
-            });
-            
-            pt.on('mouseenter', () => document.body.style.cursor = 'pointer');
-            pt.on('mouseleave', () => document.body.style.cursor = 'default');
-            
-            pt.on('click tap', (e) => {
-                e.cancelBubble = true;
-                if (isConn) {
-                    StaircaseV4Solver.disconnect(this.planner, this.id, s.id);
+                const pt = new Konva.Circle({
+                    x: s.localX, y: s.localY, radius: 12,
+                    fill: isConn ? '#ef4444' : '#10b981',
+                    opacity: isConn ? 0.9 : 0.5,
+                    listening: true
+                });
+                
+                pt.on('mouseenter', () => document.body.style.cursor = 'pointer');
+                pt.on('mouseleave', () => document.body.style.cursor = 'default');
+                
+                pt.on('click tap', (e) => {
+                    e.cancelBubble = true;
+                    if (isConn) {
+                        StaircaseV4Solver.disconnect(this.planner, this.id, s.id);
+                    }
+                });
+                
+                this.snapPointsGroup.add(pt);
+                
+                if (!isConn) {
+                    const rad = s.localAngle * Math.PI / 180;
+                    const ax = s.localX + Math.cos(rad) * 25;
+                    const ay = s.localY + Math.sin(rad) * 25;
+                    this.snapPointsGroup.add(new Konva.Arrow({
+                        x: s.localX, y: s.localY, points: [0, 0, ax - s.localX, ay - s.localY],
+                        stroke: '#10b981', fill: '#10b981', strokeWidth: 3, pointerLength: 6, pointerWidth: 6, listening: false
+                    }));
                 }
             });
-            
-            this.snapPointsGroup.add(pt);
-            
-            if (!isConn) {
-                const rad = s.localAngle * Math.PI / 180;
-                const ax = s.localX + Math.cos(rad) * 25;
-                const ay = s.localY + Math.sin(rad) * 25;
-                this.snapPointsGroup.add(new Konva.Arrow({
-                    x: s.localX, y: s.localY, points: [0, 0, ax - s.localX, ay - s.localY],
-                    stroke: '#10b981', fill: '#10b981', strokeWidth: 3, pointerLength: 6, pointerWidth: 6, listening: false
-                }));
-            }
-        });
+        }
+        
+        if (this.getEdges) {
+            const edges = this.getEdges();
+            edges.forEach(e => {
+                const conns = this.connections.filter(c => c.mySpot === e.id);
+                
+                const edgeLine = new Konva.Line({
+                    name: 'edge-line',
+                    points: [e.p1.x, e.p1.y, e.p2.x, e.p2.y],
+                    stroke: '#10b981',
+                    strokeWidth: 6,
+                    opacity: 0.5,
+                    listening: false
+                });
+                this.snapPointsGroup.add(edgeLine);
+                
+                conns.forEach(c => {
+                    const localX = e.p1.x + (e.p2.x - e.p1.x) * c.offset;
+                    const localY = e.p1.y + (e.p2.y - e.p1.y) * c.offset;
+                    
+                    const pt = new Konva.Circle({
+                        x: localX, y: localY, radius: 12,
+                        fill: '#ef4444',
+                        opacity: 0.9,
+                        listening: true
+                    });
+                    
+                    pt.on('mouseenter', () => document.body.style.cursor = 'pointer');
+                    pt.on('mouseleave', () => document.body.style.cursor = 'default');
+                    
+                    pt.on('click tap', (ev) => {
+                        ev.cancelBubble = true;
+                        StaircaseV4Solver.disconnectTarget(this.planner, this.id, e.id, c.targetId);
+                    });
+                    
+                    this.snapPointsGroup.add(pt);
+                });
+            });
+        }
+        
         this.planner.stage.batchDraw();
     }
 
     trySnap() {
-        const mySockets = this.getSockets().filter(s => !this.connections.find(c => c.mySpot === s.id));
+        const mySockets = this.getSockets ? this.getSockets().filter(s => !this.connections.find(c => c.mySpot === s.id)) : [];
+        const myEdges = this.getEdges ? this.getEdges() : [];
+        
         for (let s of mySockets) {
             const myGlob = this.getGlobalSocket(s.id);
             for (let other of this.planner.stairs) {
-                if (other.id === this.id || !other.getSockets) continue;
+                if (other.id === this.id) continue;
                 if (other.systemId === this.systemId) continue;
                 
-                const otherSockets = other.getSockets().filter(os => !other.connections.find(c => c.mySpot === os.id));
-                for (let os of otherSockets) {
-                    const osGlob = other.getGlobalSocket(os.id);
-                    if (Math.hypot(myGlob.x - osGlob.x, myGlob.y - osGlob.y) < 40) {
-                        StaircaseV4Solver.connect(this.planner, this, s.id, other, os.id);
-                        return;
+                let snapped = false;
+                if (other.getSockets) {
+                    const otherSockets = other.getSockets().filter(os => !other.connections.find(c => c.mySpot === os.id));
+                    for (let os of otherSockets) {
+                        const osGlob = other.getGlobalSocket(os.id);
+                        if (Math.hypot(myGlob.x - osGlob.x, myGlob.y - osGlob.y) < 40) {
+                            StaircaseV4Solver.connect(this.planner, this, s.id, false, other, os.id, false, 0);
+                            snapped = true;
+                            break;
+                        }
+                    }
+                }
+                if (snapped) return;
+                
+                if (other.getEdges) {
+                    const otherEdges = other.getEdges();
+                    for (let e of otherEdges) {
+                        const p1Glob = other.getGlobalEdgeSocket(e.id, 0);
+                        const p2Glob = other.getGlobalEdgeSocket(e.id, 1);
+                        const dx = p2Glob.x - p1Glob.x;
+                        const dy = p2Glob.y - p1Glob.y;
+                        const lenSq = dx*dx + dy*dy;
+                        if (lenSq === 0) continue;
+                        
+                        let t = ((myGlob.x - p1Glob.x) * dx + (myGlob.y - p1Glob.y) * dy) / lenSq;
+                        if (t >= 0 && t <= 1) {
+                            const projX = p1Glob.x + t * dx;
+                            const projY = p1Glob.y + t * dy;
+                            if (Math.hypot(myGlob.x - projX, myGlob.y - projY) < 40) {
+                                const len = Math.sqrt(lenSq);
+                                const halfWT = (this.width / 2) / len;
+                                t = Math.max(halfWT, Math.min(1 - halfWT, t));
+                                
+                                let overlap = false;
+                                const otherConns = other.connections.filter(c => c.mySpot === e.id);
+                                for (let oc of otherConns) {
+                                    const otherFlight = this.planner.stairs.find(st => st.id === oc.targetId);
+                                    if (otherFlight) { const otherHalfWT = (otherFlight.width / 2) / len; if (Math.abs(t - oc.offset) < halfWT + otherHalfWT) { overlap = true; break; } }
+                                }
+                                if (!overlap) {
+                                    StaircaseV4Solver.connect(this.planner, this, s.id, false, other, e.id, true, t);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        for (let e of myEdges) {
+            const p1Glob = this.getGlobalEdgeSocket(e.id, 0);
+            const p2Glob = this.getGlobalEdgeSocket(e.id, 1);
+            const dx = p2Glob.x - p1Glob.x;
+            const dy = p2Glob.y - p1Glob.y;
+            const lenSq = dx*dx + dy*dy;
+            if (lenSq === 0) continue;
+            
+            for (let other of this.planner.stairs) {
+                if (other.id === this.id) continue;
+                if (other.systemId === this.systemId) continue;
+                
+                if (other.getSockets) {
+                    const otherSockets = other.getSockets().filter(os => !other.connections.find(c => c.mySpot === os.id));
+                    for (let os of otherSockets) {
+                        const osGlob = other.getGlobalSocket(os.id);
+                        let t = ((osGlob.x - p1Glob.x) * dx + (osGlob.y - p1Glob.y) * dy) / lenSq;
+                        if (t >= 0 && t <= 1) {
+                            const projX = p1Glob.x + t * dx;
+                            const projY = p1Glob.y + t * dy;
+                            if (Math.hypot(osGlob.x - projX, osGlob.y - projY) < 40) {
+                                const len = Math.sqrt(lenSq);
+                                const halfWT = (other.width / 2) / len;
+                                t = Math.max(halfWT, Math.min(1 - halfWT, t));
+                                
+                                let overlap = false;
+                                const myConns = this.connections.filter(c => c.mySpot === e.id);
+                                for (let mc of myConns) {
+                                    const myFlight = this.planner.stairs.find(st => st.id === mc.targetId);
+                                    if (myFlight) { const myHalfWT = (myFlight.width / 2) / len; if (Math.abs(t - mc.offset) < halfWT + myHalfWT) { overlap = true; break; } }
+                                }
+                                if (!overlap) {
+                                    StaircaseV4Solver.connect(this.planner, this, e.id, true, other, os.id, false, t);
+                                    return;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -226,7 +492,7 @@ export class StairV4Flight extends StairV4Node {
             this.planner.syncAll();
         });
         
-        this.lenHandle = new Konva.Rect({ width: 12, height: 12, fill: 'white', stroke: '#3b82f6', strokeWidth: 2, cornerRadius: 6, offsetX: 6, offsetY: 6, draggable: true });
+        this.lenHandle = new Konva.Rect({ width: 16, height: 16, fill: 'white', stroke: '#3b82f6', strokeWidth: 2, cornerRadius: 4, offsetX: 8, offsetY: 8, draggable: true });
         this.lenHandle.on('mouseenter', () => document.body.style.cursor = 'ns-resize');
         this.lenHandle.on('mouseleave', () => document.body.style.cursor = 'default');
         this.lenHandle.on('dragmove', (e) => {
@@ -240,7 +506,7 @@ export class StairV4Flight extends StairV4Node {
             this.planner.syncAll();
         });
 
-        this.wRight = new Konva.Rect({ width: 12, height: 12, fill: 'white', stroke: '#3b82f6', strokeWidth: 2, cornerRadius: 6, offsetX: 6, offsetY: 6, draggable: true });
+        this.wRight = new Konva.Rect({ width: 16, height: 16, fill: 'white', stroke: '#3b82f6', strokeWidth: 2, cornerRadius: 4, offsetX: 8, offsetY: 8, draggable: true });
         this.wRight.on('mouseenter', () => document.body.style.cursor = 'ew-resize');
         this.wRight.on('mouseleave', () => document.body.style.cursor = 'default');
         this.wRight.on('dragmove', (e) => {
@@ -258,7 +524,7 @@ export class StairV4Flight extends StairV4Node {
             this.update(); StaircaseV4Solver.solve(this.planner, this.systemId, this.id); this.planner.syncAll();
         });
 
-        this.wLeft = new Konva.Rect({ width: 12, height: 12, fill: 'white', stroke: '#3b82f6', strokeWidth: 2, cornerRadius: 6, offsetX: 6, offsetY: 6, draggable: true });
+        this.wLeft = new Konva.Rect({ width: 16, height: 16, fill: 'white', stroke: '#3b82f6', strokeWidth: 2, cornerRadius: 4, offsetX: 8, offsetY: 8, draggable: true });
         this.wLeft.on('mouseenter', () => document.body.style.cursor = 'ew-resize');
         this.wLeft.on('mouseleave', () => document.body.style.cursor = 'default');
         this.wLeft.on('dragmove', (e) => {
@@ -286,7 +552,7 @@ export class StairV4Flight extends StairV4Node {
         super.updateGeometry();
         
         this.poly.points([-w/2, 0, w/2, 0, w/2, l, -w/2, l]);
-        this.rotHandle.position({ x: 0, y: l + 30 });
+        this.rotHandle.position({ x: 0, y: l + 40 });
         this.lenHandle.position({ x: 0, y: l });
         this.wRight.position({ x: w/2, y: l/2 });
         this.wLeft.position({ x: -w/2, y: l/2 });
@@ -298,6 +564,54 @@ export class StairV4Flight extends StairV4Node {
         }
         this.contentGroup.add(new Konva.Arrow({ points: [0, 5, 0, Math.min(l-5, 40)], fill: '#111827', stroke: '#111827', strokeWidth: 2, pointerLength: 6, pointerWidth: 6 }));
         
+        this.handlesGroup.find('.slide-handle').forEach(h => h.destroy());
+        this.handlesGroup.find('.slide-arrow').forEach(h => h.destroy());
+        this.connections.forEach(conn => {
+            if (conn.targetIsEdge) {
+                const isStart = conn.mySpot === 'start';
+                const yPos = isStart ? 0 : l;
+                const slideHandle = new Konva.Rect({
+                    name: 'slide-handle',
+                    width: 32, height: 16, fill: 'white', stroke: '#f59e0b', strokeWidth: 2, cornerRadius: 4,
+                    offsetX: 16, offsetY: 8, x: 0, y: yPos, draggable: true
+                });
+                
+                const arrowL = new Konva.Path({ name: 'slide-arrow', data: 'M 4 6 L 8 2 L 8 10 Z', fill: '#f59e0b', listening: false, x: -12, y: yPos - 6 });
+                const arrowR = new Konva.Path({ name: 'slide-arrow', data: 'M 28 6 L 24 2 L 24 10 Z', fill: '#f59e0b', listening: false, x: -20, y: yPos - 6 });
+                
+                slideHandle.on('mouseenter', () => document.body.style.cursor = 'grab');
+                slideHandle.on('mouseleave', () => document.body.style.cursor = 'default');
+                slideHandle.on('dragstart', (e) => { e.cancelBubble = true; document.body.style.cursor = 'grabbing'; });
+                slideHandle.on('dragmove', (e) => {
+                    e.cancelBubble = true;
+                    const pos = this.planner.stage.getPointerPosition();
+                    const landing = this.planner.stairs.find(s => s.id === conn.targetId);
+                    const flightWidth = this.width;
+                    if (landing) {
+                        const edge = landing.getEdges().find(e => e.id === conn.targetSpot);
+                        if (edge) {
+                            const p1Glob = landing.getGlobalEdgeSocket(edge.id, 0);
+                            const p2Glob = landing.getGlobalEdgeSocket(edge.id, 1);
+                            const dx = p2Glob.x - p1Glob.x; const dy = p2Glob.y - p1Glob.y; const len = Math.hypot(dx, dy);
+                            if (len > 0) {
+                                let t = ((pos.x - p1Glob.x) * dx + (pos.y - p1Glob.y) * dy) / (len * len);
+                                const halfWT = (flightWidth / 2) / len;
+                                t = Math.max(halfWT, Math.min(1 - halfWT, t));
+                                
+                                const otherConns = landing.connections.filter(c => c.mySpot === conn.targetSpot && c.targetId !== this.id);
+                                for (let oc of otherConns) { const otherFlight = this.planner.stairs.find(s => s.id === oc.targetId); if (otherFlight) { const otherHalfWT = (otherFlight.width / 2) / len; if (Math.abs(t - oc.offset) < halfWT + otherHalfWT) { if (t < oc.offset) t = oc.offset - halfWT - otherHalfWT; else t = oc.offset + halfWT + otherHalfWT; } } }
+                                t = Math.max(halfWT, Math.min(1 - halfWT, t));
+                                conn.offset = t; const landingConn = landing.connections.find(c => c.mySpot === conn.targetSpot && c.targetId === this.id); if (landingConn) landingConn.offset = t;
+                                StaircaseV4Solver.solve(this.planner, this.systemId, landing.id); this.planner.syncAll();
+                            }
+                        }
+                    }
+                });
+                slideHandle.on('dragend', (e) => { e.cancelBubble = true; document.body.style.cursor = 'grab'; this.planner.syncAll(); });
+                this.handlesGroup.add(slideHandle, arrowL, arrowR);
+            }
+        });
+
         if (this.snapPointsGroup.listening() || this._showUnconnected) this.showSnapPoints(true, this._showUnconnected);
     }
 }
@@ -313,30 +627,21 @@ export class StairV4Landing extends StairV4Node {
         this.update();
     }
 
-    getSockets() {
+    getSockets() { return []; }
+
+    getEdges() {
         const w = this.width, l = this.length;
         return [
-            { id: 'south_center', localX: 0, localY: 0, localAngle: -90, elevOffset: 0 },
-            { id: 'south_left', localX: -w/3, localY: 0, localAngle: -90, elevOffset: 0 },
-            { id: 'south_right', localX: w/3, localY: 0, localAngle: -90, elevOffset: 0 },
-            
-            { id: 'north_center', localX: 0, localY: l, localAngle: 90, elevOffset: 0 },
-            { id: 'north_left', localX: -w/3, localY: l, localAngle: 90, elevOffset: 0 },
-            { id: 'north_right', localX: w/3, localY: l, localAngle: 90, elevOffset: 0 },
-            
-            { id: 'west_center', localX: -w/2, localY: l/2, localAngle: 180, elevOffset: 0 },
-            { id: 'west_top', localX: -w/2, localY: l*0.75, localAngle: 180, elevOffset: 0 },
-            { id: 'west_bot', localX: -w/2, localY: l*0.25, localAngle: 180, elevOffset: 0 },
-            
-            { id: 'east_center', localX: w/2, localY: l/2, localAngle: 0, elevOffset: 0 },
-            { id: 'east_top', localX: w/2, localY: l*0.75, localAngle: 0, elevOffset: 0 },
-            { id: 'east_bot', localX: w/2, localY: l*0.25, localAngle: 0, elevOffset: 0 }
+            { id: 'north', p1: {x: -w/2, y: l}, p2: {x: w/2, y: l}, localAngle: 90, elevOffset: 0 },
+            { id: 'south', p1: {x: w/2, y: 0}, p2: {x: -w/2, y: 0}, localAngle: -90, elevOffset: 0 },
+            { id: 'east', p1: {x: w/2, y: l}, p2: {x: w/2, y: 0}, localAngle: 0, elevOffset: 0 },
+            { id: 'west', p1: {x: -w/2, y: 0}, p2: {x: -w/2, y: l}, localAngle: 180, elevOffset: 0 }
         ];
     }
 
     initLandingHandles() {
         const createHandle = (name) => {
-            const h = new Konva.Rect({ width: 12, height: 12, fill: 'white', stroke: '#10b981', strokeWidth: 2, cornerRadius: 6, offsetX: 6, offsetY: 6, draggable: true, name });
+            const h = new Konva.Rect({ width: 16, height: 16, fill: 'white', stroke: '#10b981', strokeWidth: 2, cornerRadius: 4, offsetX: 8, offsetY: 8, draggable: true, name });
             h.on('mouseenter', () => document.body.style.cursor = name.includes('w') ? 'ew-resize' : 'ns-resize');
             h.on('mouseleave', () => document.body.style.cursor = 'default');
             this.handlesGroup.add(h);
@@ -364,10 +669,10 @@ export class StairV4Landing extends StairV4Node {
                 let anchorConn = this.connections[0];
                 const parent = this.planner.stairs.find(s => s.id === anchorConn.targetId);
                 if (parent) {
-                    const pSocketGlob = parent.getGlobalSocket(anchorConn.targetSpot);
-                    const mSocketLoc = this.getSockets().find(s => s.id === anchorConn.mySpot);
+                    const pSocketGlob = anchorConn.targetIsEdge ? parent.getGlobalEdgeSocket(anchorConn.targetSpot, anchorConn.offset) : parent.getGlobalSocket(anchorConn.targetSpot);
+                    const mSocketLoc = this.getEdges().find(e => e.id === anchorConn.mySpot);
                     
-                    let reqGlobAngle = newRot + mSocketLoc.localAngle;
+                    let reqGlobAngle = newRot + (mSocketLoc ? mSocketLoc.localAngle : 0);
                     let newUserRot = reqGlobAngle - 180 - pSocketGlob.angle;
                     newUserRot = Math.round(newUserRot / 15) * 15;
                     
@@ -434,7 +739,7 @@ export class StairV4Landing extends StairV4Node {
         this.wRight.position({ x: w/2, y: l/2 });
         this.wLeft.position({ x: -w/2, y: l/2 });
         this.lBot.position({ x: 0, y: l });
-        this.rotHandle.position({ x: 0, y: l + 30 });
+        this.rotHandle.position({ x: 0, y: l + 40 });
         
         this.contentGroup.destroyChildren();
         
@@ -464,17 +769,18 @@ export class StairV4Landing extends StairV4Node {
 }
 
 export const StaircaseV4Solver = {
-    connect: function(planner, nodeA, spotAId, nodeB, spotBId) {
-        if (nodeA.connections.find(c => c.mySpot === spotAId)) return;
-        if (nodeB.connections.find(c => c.mySpot === spotBId)) return;
+    connect: function(planner, nodeA, spotAId, isAEdge, nodeB, spotBId, isBEdge, offset) {
+        if (!isAEdge && nodeA.connections.find(c => c.mySpot === spotAId)) return;
+        if (!isBEdge && nodeB.connections.find(c => c.mySpot === spotBId)) return;
         
-        const locA = nodeA.getSockets().find(s => s.id === spotAId);
-        const locB = nodeB.getSockets().find(s => s.id === spotBId);
+        let locA = isAEdge ? nodeA.getEdges().find(e => e.id === spotAId) : nodeA.getSockets().find(s => s.id === spotAId);
+        let locB = isBEdge ? nodeB.getEdges().find(e => e.id === spotBId) : nodeB.getSockets().find(s => s.id === spotBId);
+        
         let currentUserRot = nodeA.rotation + locA.localAngle - (nodeB.rotation + locB.localAngle) - 180;
         currentUserRot = Math.round(currentUserRot / 15) * 15;
         
-        nodeA.connections.push({ mySpot: spotAId, targetId: nodeB.id, targetSpot: spotBId, userRot: -currentUserRot });
-        nodeB.connections.push({ mySpot: spotBId, targetId: nodeA.id, targetSpot: spotAId, userRot: currentUserRot });
+        nodeA.connections.push({ mySpot: spotAId, targetId: nodeB.id, targetSpot: spotBId, targetIsEdge: isBEdge, offset: offset, userRot: -currentUserRot });
+        nodeB.connections.push({ mySpot: spotBId, targetId: nodeA.id, targetSpot: spotAId, targetIsEdge: isAEdge, offset: offset, userRot: currentUserRot });
         
         const newSysId = nodeB.systemId;
         const oldSysId = nodeA.systemId;
@@ -485,17 +791,17 @@ export const StaircaseV4Solver = {
         this.solve(planner, newSysId, nodeB.id);
     },
     
-    disconnect: function(planner, nodeId, spotId) {
+    disconnectTarget: function(planner, nodeId, spotId, targetId) {
         const nodeA = planner.stairs.find(s => s.id === nodeId);
         if (!nodeA) return;
-        const conn = nodeA.connections.find(c => c.mySpot === spotId);
+        const conn = nodeA.connections.find(c => c.mySpot === spotId && c.targetId === targetId);
         if (!conn) return;
         
-        const nodeB = planner.stairs.find(s => s.id === conn.targetId);
+        const nodeB = planner.stairs.find(s => s.id === targetId);
         
-        nodeA.connections = nodeA.connections.filter(c => c.mySpot !== spotId);
+        nodeA.connections = nodeA.connections.filter(c => c !== conn);
         if (nodeB) {
-            nodeB.connections = nodeB.connections.filter(c => c.mySpot !== conn.targetSpot);
+            nodeB.connections = nodeB.connections.filter(c => !(c.targetId === nodeId && c.targetSpot === spotId));
         }
         
         this._rebuildSystemId(planner, nodeA, 'sys_' + Math.random().toString(36).substr(2, 9));
@@ -505,6 +811,15 @@ export const StaircaseV4Solver = {
         
         nodeA.update();
         if (nodeB) nodeB.update();
+    },
+
+    disconnect: function(planner, nodeId, spotId) {
+        const nodeA = planner.stairs.find(s => s.id === nodeId);
+        if (!nodeA) return;
+        const conns = nodeA.connections.filter(c => c.mySpot === spotId);
+        conns.forEach(conn => {
+            this.disconnectTarget(planner, nodeId, spotId, conn.targetId);
+        });
     },
     
     _rebuildSystemId: function(planner, startNode, newSysId) {
@@ -539,7 +854,7 @@ export const StaircaseV4Solver = {
                     visited.add(conn.targetId);
                     const target = nodes.find(n => n.id === conn.targetId);
                     if (target) {
-                        this._alignTarget(curr, conn.mySpot, target, conn.targetSpot, conn.userRot);
+                        this._alignTarget(curr, conn.mySpot, target, conn.targetSpot, conn.userRot, conn.targetIsEdge, conn.offset);
                         target.updateGeometry();
                         q.push(target);
                     }
@@ -549,9 +864,28 @@ export const StaircaseV4Solver = {
         }
     },
     
-    _alignTarget: function(source, sourceSpotId, target, targetSpotId, userRot) {
-        const sSocketGlobal = source.getGlobalSocket(sourceSpotId);
-        const tSocketLocal = target.getSockets().find(s => s.id === targetSpotId);
+    _alignTarget: function(source, sourceSpotId, target, targetSpotId, userRot, targetIsEdge, offset) {
+        let sSocketGlobal;
+        const sIsEdge = source.getEdges && source.getEdges().find(e => e.id === sourceSpotId);
+        if (sIsEdge) {
+            sSocketGlobal = source.getGlobalEdgeSocket(sourceSpotId, offset);
+        } else {
+            sSocketGlobal = source.getGlobalSocket(sourceSpotId);
+        }
+        
+        let tSocketLocal;
+        if (targetIsEdge) {
+            const edge = target.getEdges().find(e => e.id === targetSpotId);
+            tSocketLocal = {
+                localX: edge.p1.x + (edge.p2.x - edge.p1.x) * offset,
+                localY: edge.p1.y + (edge.p2.y - edge.p1.y) * offset,
+                localAngle: edge.localAngle,
+                elevOffset: edge.elevOffset
+            };
+        } else {
+            tSocketLocal = target.getSockets().find(s => s.id === targetSpotId);
+        }
+        
         if (!sSocketGlobal || !tSocketLocal) return;
         
         let requiredGlobalAngle = sSocketGlobal.angle + 180 + userRot;
