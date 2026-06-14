@@ -740,12 +740,12 @@ const handleGlobalKeys = (e) => {
 
     if (viewMode.value === '3d') {
         if (e.key === 'Delete' || e.key === 'Backspace') { 
-            if (selectedType.value === 'furniture') { handleDelete(); debouncedSaveHistory(); }
+            if (selectedType.value === 'furniture' || selectedType.value === 'stair' || selectedType.value === 'staircase_two') { handleDelete(); debouncedSaveHistory(); }
         }
         if (e.key === 'Escape' && renderer3D.value) renderer3D.value.cancelRelocation();
     } else if (viewMode.value === '2d') {
         if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (selectedType.value === 'roof' || selectedType.value === 'furniture' || selectedType.value === 'widget' || selectedType.value === 'advance_openings' || selectedType.value === 'shape' || selectedType.value === 'wall' || selectedType.value === 'arc' || selectedType.value === 'room') { handleDelete(); debouncedSaveHistory(); }
+            if (selectedType.value === 'roof' || selectedType.value === 'furniture' || selectedType.value === 'widget' || selectedType.value === 'advance_openings' || selectedType.value === 'shape' || selectedType.value === 'wall' || selectedType.value === 'arc' || selectedType.value === 'room' || selectedType.value === 'stair' || selectedType.value === 'staircase_two') { handleDelete(); debouncedSaveHistory(); }
         }
         if (e.key === 'Escape') {
             setTool('select');
@@ -1129,7 +1129,7 @@ const handleDelete = () => {
             selectedEntity.value = null;
             selectedType.value = null;
             if (viewMode.value === '3d') refresh3DScene(true);
-        } else if (selectedType.value === 'widget' || selectedType.value === 'advance_openings' || selectedType.value === 'wall' || selectedType.value === 'arc') {
+        } else if (selectedType.value === 'widget' || selectedType.value === 'advance_openings' || selectedType.value === 'wall' || selectedType.value === 'arc' || selectedType.value === 'stair' || selectedType.value === 'staircase_two') {
             selectedEntity.value.remove();
             selectedEntity.value = null;
             selectedType.value = null;

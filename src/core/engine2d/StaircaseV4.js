@@ -242,6 +242,7 @@ export class StairV4Node {
         [...this.connections].forEach(c => StaircaseV4Solver.disconnect(this.planner, this.id, c.mySpot));
         this.group.destroy();
         this.planner.stairs = this.planner.stairs.filter(s => s !== this);
+        this.planner.selectEntity(null);
         this.planner.syncAll();
     }
 
@@ -278,7 +279,7 @@ export class StairV4Node {
                 
                 this.snapPointsGroup.add(pt);
                 
-                if (!isConn) {
+                if (!isConn && this.type !== 'stair_v4_landing') {
                     const rad = s.localAngle * Math.PI / 180;
                     const ax = s.localX + Math.cos(rad) * 25;
                     const ay = s.localY + Math.sin(rad) * 25;
@@ -343,8 +344,12 @@ export class StairV4Node {
                 if (other.id === this.id) continue;
                 if (other.systemId === this.systemId) continue;
                 
+                let skipSocketToSocket = false;
+                if (this.type === 'stair_v4_flight' && other.type === 'stair_v4_landing') skipSocketToSocket = true;
+                if (this.type === 'stair_v4_landing' && other.type === 'stair_v4_flight') skipSocketToSocket = true;
+
                 let snapped = false;
-                if (other.getSockets) {
+                if (other.getSockets && !skipSocketToSocket) {
                     const otherSockets = other.getSockets().filter(os => !other.connections.find(c => c.mySpot === os.id));
                     for (let os of otherSockets) {
                         const osGlob = other.getGlobalSocket(os.id);
@@ -405,7 +410,11 @@ export class StairV4Node {
                 if (other.id === this.id) continue;
                 if (other.systemId === this.systemId) continue;
                 
-                if (other.getSockets) {
+                let skipSocketToSocket = false;
+                if (this.type === 'stair_v4_flight' && other.type === 'stair_v4_landing') skipSocketToSocket = true;
+                if (this.type === 'stair_v4_landing' && other.type === 'stair_v4_flight') skipSocketToSocket = true;
+
+                if (other.getSockets && !skipSocketToSocket) {
                     const otherSockets = other.getSockets().filter(os => !other.connections.find(c => c.mySpot === os.id));
                     for (let os of otherSockets) {
                         const osGlob = other.getGlobalSocket(os.id);
@@ -455,6 +464,7 @@ export class StairV4Flight extends StairV4Node {
         this.stepHeight = data.stepHeight || 17.5;
         this.width = data.width || 100;
         this.length = this.stepCount * this.stepDepth;
+        this.direction = data.direction || 'up';
 
         this.initFlightHandles();
         this.update();
@@ -577,7 +587,33 @@ export class StairV4Flight extends StairV4Node {
             const sy = i * this.stepDepth;
             this.contentGroup.add(new Konva.Line({ points: [-w/2, sy, w/2, sy], stroke: '#3b82f6', strokeWidth: 1 }));
         }
-        this.contentGroup.add(new Konva.Arrow({ points: [0, 5, 0, Math.min(l-5, 40)], fill: '#111827', stroke: '#111827', strokeWidth: 2, pointerLength: 6, pointerWidth: 6 }));
+        
+        const arrowGroup = new Konva.Group();
+        const longArrow = new Konva.Arrow({ 
+            fill: '#3b82f6', 
+            stroke: '#3b82f6', 
+            strokeWidth: 3, 
+            pointerLength: 8, 
+            pointerWidth: 8,
+            hitStrokeWidth: 25
+        });
+        if (this.direction === 'down') {
+            longArrow.points([0, 5, 0, Math.min(l-5, 40)]);
+        } else {
+            longArrow.points([0, Math.min(l-5, 40), 0, 5]);
+        }
+        
+        arrowGroup.add(longArrow);
+        arrowGroup.on('mouseenter', () => { document.body.style.cursor = 'pointer'; longArrow.stroke('#2563eb'); longArrow.fill('#2563eb'); this.planner.stage.batchDraw(); });
+        arrowGroup.on('mouseleave', () => { document.body.style.cursor = 'default'; longArrow.stroke('#3b82f6'); longArrow.fill('#3b82f6'); this.planner.stage.batchDraw(); });
+        arrowGroup.on('click tap', (e) => {
+            e.cancelBubble = true;
+            this.direction = this.direction === 'up' ? 'down' : 'up';
+            this.update();
+            this.planner.syncAll();
+        });
+        
+        this.contentGroup.add(arrowGroup);
         
         this.handlesGroup.find('.slide-handle').forEach(h => h.destroy());
         this.handlesGroup.find('.slide-arrow').forEach(h => h.destroy());
@@ -642,7 +678,15 @@ export class StairV4Landing extends StairV4Node {
         this.update();
     }
 
-    getSockets() { return []; }
+    getSockets() {
+        const w = this.width, l = this.length;
+        return [
+            { id: 'north_sock', localX: 0, localY: l, localAngle: 90, elevOffset: 0 },
+            { id: 'south_sock', localX: 0, localY: 0, localAngle: -90, elevOffset: 0 },
+            { id: 'east_sock', localX: w/2, localY: l/2, localAngle: 0, elevOffset: 0 },
+            { id: 'west_sock', localX: -w/2, localY: l/2, localAngle: 180, elevOffset: 0 }
+        ];
+    }
 
     getEdges() {
         const w = this.width, l = this.length;
@@ -738,19 +782,22 @@ export class StairV4Landing extends StairV4Node {
         this.contentGroup.destroyChildren();
         
         const arrowGroup = new Konva.Group({ x: 0, y: l/2, rotation: this.arrowRotation || 0 });
-        const arrow = new Konva.Arrow({ 
-            points: [0, -20, 0, 20], 
-            fill: '#111827', 
-            stroke: '#111827', 
-            strokeWidth: 2, 
-            pointerLength: 6, 
-            pointerWidth: 6,
-            hitStrokeWidth: 20
+        const lineLength = Math.min(l - 20, 60);
+        const halfL = lineLength / 2;
+        const arrowLine = new Konva.Arrow({ 
+            points: [0, halfL, 0, -halfL], 
+            fill: '#3b82f6', 
+            stroke: '#3b82f6', 
+            strokeWidth: 3, 
+            pointerLength: 8, 
+            pointerWidth: 8,
+            hitStrokeWidth: 25
         });
-        arrowGroup.add(arrow);
-        arrow.on('mouseenter', () => document.body.style.cursor = 'pointer');
-        arrow.on('mouseleave', () => document.body.style.cursor = 'default');
-        arrow.on('click tap', (e) => {
+        
+        arrowGroup.add(arrowLine);
+        arrowGroup.on('mouseenter', () => { document.body.style.cursor = 'pointer'; arrowLine.stroke('#2563eb'); arrowLine.fill('#2563eb'); this.planner.stage.batchDraw(); });
+        arrowGroup.on('mouseleave', () => { document.body.style.cursor = 'default'; arrowLine.stroke('#3b82f6'); arrowLine.fill('#3b82f6'); this.planner.stage.batchDraw(); });
+        arrowGroup.on('click tap', (e) => {
             e.cancelBubble = true;
             this.arrowRotation = ((this.arrowRotation || 0) + 90) % 360;
             this.update();
