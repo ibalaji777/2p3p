@@ -53,7 +53,7 @@ export class StairV4Node {
 
         this.group.on('dragstart', () => {
             this.planner.selectEntity(this, 'stair');
-            this.planner.stairs.forEach(s => { if (s.showSnapPoints && s !== this) s.showSnapPoints(true); });
+            this.planner.stairs.forEach(s => { if (s.showSnapPoints && s !== this) s.showSnapPoints(true, true); });
         });
 
         this.group.on('dragmove', (e) => {
@@ -66,7 +66,7 @@ export class StairV4Node {
 
         this.group.on('dragend', (e) => {
             if (e.target !== this.group) return;
-            this.planner.stairs.forEach(s => { if (s.showSnapPoints) s.showSnapPoints(false); });
+            this.planner.stairs.forEach(s => { if (s.showSnapPoints && s !== this) s.showSnapPoints(false); });
             this.trySnap();
             StaircaseV4Solver.solve(this.planner, this.systemId, this.id);
             this.planner.syncAll();
@@ -78,7 +78,7 @@ export class StairV4Node {
         this.poly.strokeWidth(isActive ? 3 : 2);
         this.handlesGroup.visible(isActive);
         this.snapPointsGroup.listening(isActive);
-        this.showSnapPoints(isActive);
+        this.showSnapPoints(isActive, false);
         if (isActive) this.group.moveToTop();
         this.planner.stage.batchDraw();
     }
@@ -90,7 +90,8 @@ export class StairV4Node {
         this.planner.syncAll();
     }
 
-    showSnapPoints(active) {
+    showSnapPoints(active, showUnconnected = true) {
+        this._showUnconnected = showUnconnected;
         this.snapPointsGroup.destroyChildren();
         if (!active) {
             this.planner.stage.batchDraw();
@@ -100,6 +101,8 @@ export class StairV4Node {
         const sockets = this.getSockets();
         sockets.forEach(s => {
             const isConn = this.connections.find(c => c.mySpot === s.id);
+            if (!isConn && !showUnconnected) return;
+
             const pt = new Konva.Circle({
                 x: s.localX, y: s.localY, radius: 12,
                 fill: isConn ? '#ef4444' : '#10b981',
@@ -237,7 +240,43 @@ export class StairV4Flight extends StairV4Node {
             this.planner.syncAll();
         });
 
-        this.handlesGroup.add(this.rotHandle, this.lenHandle);
+        this.wRight = new Konva.Rect({ width: 12, height: 12, fill: 'white', stroke: '#3b82f6', strokeWidth: 2, cornerRadius: 6, offsetX: 6, offsetY: 6, draggable: true });
+        this.wRight.on('mouseenter', () => document.body.style.cursor = 'ew-resize');
+        this.wRight.on('mouseleave', () => document.body.style.cursor = 'default');
+        this.wRight.on('dragmove', (e) => {
+            e.cancelBubble = true;
+            let localX = this.wRight.x();
+            let currentW = this.width;
+            let leftEdge = -currentW / 2;
+            let newW = localX - leftEdge;
+            if (newW < 40) { newW = 40; localX = leftEdge + 40; }
+            let shiftLocalX = (localX - currentW / 2) / 2;
+            this.width = newW;
+            const rad = this.rotation * Math.PI / 180;
+            this.x += shiftLocalX * Math.cos(rad);
+            this.y += shiftLocalX * Math.sin(rad);
+            this.update(); StaircaseV4Solver.solve(this.planner, this.systemId, this.id); this.planner.syncAll();
+        });
+
+        this.wLeft = new Konva.Rect({ width: 12, height: 12, fill: 'white', stroke: '#3b82f6', strokeWidth: 2, cornerRadius: 6, offsetX: 6, offsetY: 6, draggable: true });
+        this.wLeft.on('mouseenter', () => document.body.style.cursor = 'ew-resize');
+        this.wLeft.on('mouseleave', () => document.body.style.cursor = 'default');
+        this.wLeft.on('dragmove', (e) => {
+            e.cancelBubble = true;
+            let localX = this.wLeft.x();
+            let currentW = this.width;
+            let rightEdge = currentW / 2;
+            let newW = rightEdge - localX;
+            if (newW < 40) { newW = 40; localX = rightEdge - 40; }
+            let shiftLocalX = (localX - (-currentW / 2)) / 2;
+            this.width = newW;
+            const rad = this.rotation * Math.PI / 180;
+            this.x += shiftLocalX * Math.cos(rad);
+            this.y += shiftLocalX * Math.sin(rad);
+            this.update(); StaircaseV4Solver.solve(this.planner, this.systemId, this.id); this.planner.syncAll();
+        });
+
+        this.handlesGroup.add(this.rotHandle, this.lenHandle, this.wRight, this.wLeft);
     }
 
     update() {
@@ -249,6 +288,8 @@ export class StairV4Flight extends StairV4Node {
         this.poly.points([-w/2, 0, w/2, 0, w/2, l, -w/2, l]);
         this.rotHandle.position({ x: 0, y: l + 30 });
         this.lenHandle.position({ x: 0, y: l });
+        this.wRight.position({ x: w/2, y: l/2 });
+        this.wLeft.position({ x: -w/2, y: l/2 });
         
         this.contentGroup.destroyChildren();
         for(let i=1; i<this.stepCount; i++) {
@@ -257,7 +298,7 @@ export class StairV4Flight extends StairV4Node {
         }
         this.contentGroup.add(new Konva.Arrow({ points: [0, 5, 0, Math.min(l-5, 40)], fill: '#111827', stroke: '#111827', strokeWidth: 2, pointerLength: 6, pointerWidth: 6 }));
         
-        if (this.snapPointsGroup.listening()) this.showSnapPoints(true);
+        if (this.snapPointsGroup.listening() || this._showUnconnected) this.showSnapPoints(true, this._showUnconnected);
     }
 }
 
@@ -305,20 +346,74 @@ export class StairV4Landing extends StairV4Node {
         this.wRight = createHandle('wRight');
         this.wLeft = createHandle('wLeft');
         this.lBot = createHandle('lBot');
+        
+        this.rotHandle = new Konva.Circle({ radius: 8, fill: '#10b981', stroke: 'white', strokeWidth: 2, draggable: true });
+        this.rotHandle.on('mouseenter', () => document.body.style.cursor = 'crosshair');
+        this.rotHandle.on('mouseleave', () => document.body.style.cursor = 'default');
+        this.handlesGroup.add(this.rotHandle);
+        
+        this.rotHandle.on('dragmove', (e) => {
+            e.cancelBubble = true;
+            const pos = this.planner.stage.getPointerPosition();
+            if (!pos) return;
+            const groupPos = this.group.getAbsolutePosition();
+            const angleRad = Math.atan2(pos.y - groupPos.y, pos.x - groupPos.x);
+            let newRot = (angleRad * 180 / Math.PI) - 90;
+            
+            if (this.connections.length > 0) {
+                let anchorConn = this.connections[0];
+                const parent = this.planner.stairs.find(s => s.id === anchorConn.targetId);
+                if (parent) {
+                    const pSocketGlob = parent.getGlobalSocket(anchorConn.targetSpot);
+                    const mSocketLoc = this.getSockets().find(s => s.id === anchorConn.mySpot);
+                    
+                    let reqGlobAngle = newRot + mSocketLoc.localAngle;
+                    let newUserRot = reqGlobAngle - 180 - pSocketGlob.angle;
+                    newUserRot = Math.round(newUserRot / 15) * 15;
+                    
+                    anchorConn.userRot = newUserRot;
+                    const pConn = parent.connections.find(c => c.targetId === this.id && c.mySpot === anchorConn.targetSpot);
+                    if (pConn) pConn.userRot = -newUserRot;
+                    
+                    StaircaseV4Solver.solve(this.planner, this.systemId, parent.id);
+                    this.planner.syncAll();
+                    return;
+                }
+            }
+            
+            this.rotation = Math.round(newRot / 15) * 15;
+            this.update();
+            StaircaseV4Solver.solve(this.planner, this.systemId, this.id);
+            this.planner.syncAll();
+        });
 
         this.wRight.on('dragmove', (e) => {
             e.cancelBubble = true;
-            let newW = this.wRight.x() * 2;
-            if (newW < 40) newW = 40;
+            let localX = this.wRight.x();
+            let currentW = this.width;
+            let leftEdge = -currentW / 2;
+            let newW = localX - leftEdge;
+            if (newW < 40) { newW = 40; localX = leftEdge + 40; }
+            let shiftLocalX = (localX - currentW / 2) / 2;
             this.width = newW;
+            const rad = this.rotation * Math.PI / 180;
+            this.x += shiftLocalX * Math.cos(rad);
+            this.y += shiftLocalX * Math.sin(rad);
             this.update(); StaircaseV4Solver.solve(this.planner, this.systemId, this.id); this.planner.syncAll();
         });
         
         this.wLeft.on('dragmove', (e) => {
             e.cancelBubble = true;
-            let newW = -this.wLeft.x() * 2;
-            if (newW < 40) newW = 40;
+            let localX = this.wLeft.x();
+            let currentW = this.width;
+            let rightEdge = currentW / 2;
+            let newW = rightEdge - localX;
+            if (newW < 40) { newW = 40; localX = rightEdge - 40; }
+            let shiftLocalX = (localX - (-currentW / 2)) / 2;
             this.width = newW;
+            const rad = this.rotation * Math.PI / 180;
+            this.x += shiftLocalX * Math.cos(rad);
+            this.y += shiftLocalX * Math.sin(rad);
             this.update(); StaircaseV4Solver.solve(this.planner, this.systemId, this.id); this.planner.syncAll();
         });
         
@@ -339,10 +434,32 @@ export class StairV4Landing extends StairV4Node {
         this.wRight.position({ x: w/2, y: l/2 });
         this.wLeft.position({ x: -w/2, y: l/2 });
         this.lBot.position({ x: 0, y: l });
+        this.rotHandle.position({ x: 0, y: l + 30 });
         
         this.contentGroup.destroyChildren();
         
-        if (this.snapPointsGroup.listening()) this.showSnapPoints(true);
+        const arrowGroup = new Konva.Group({ x: 0, y: l/2, rotation: this.arrowRotation || 0 });
+        const arrow = new Konva.Arrow({ 
+            points: [0, -20, 0, 20], 
+            fill: '#111827', 
+            stroke: '#111827', 
+            strokeWidth: 2, 
+            pointerLength: 6, 
+            pointerWidth: 6,
+            hitStrokeWidth: 20
+        });
+        arrowGroup.add(arrow);
+        arrow.on('mouseenter', () => document.body.style.cursor = 'pointer');
+        arrow.on('mouseleave', () => document.body.style.cursor = 'default');
+        arrow.on('click tap', (e) => {
+            e.cancelBubble = true;
+            this.arrowRotation = ((this.arrowRotation || 0) + 90) % 360;
+            this.update();
+            this.planner.syncAll();
+        });
+        this.contentGroup.add(arrowGroup);
+        
+        if (this.snapPointsGroup.listening() || this._showUnconnected) this.showSnapPoints(true, this._showUnconnected);
     }
 }
 
@@ -351,8 +468,13 @@ export const StaircaseV4Solver = {
         if (nodeA.connections.find(c => c.mySpot === spotAId)) return;
         if (nodeB.connections.find(c => c.mySpot === spotBId)) return;
         
-        nodeA.connections.push({ mySpot: spotAId, targetId: nodeB.id, targetSpot: spotBId, userRot: 0 });
-        nodeB.connections.push({ mySpot: spotBId, targetId: nodeA.id, targetSpot: spotAId, userRot: 0 });
+        const locA = nodeA.getSockets().find(s => s.id === spotAId);
+        const locB = nodeB.getSockets().find(s => s.id === spotBId);
+        let currentUserRot = nodeA.rotation + locA.localAngle - (nodeB.rotation + locB.localAngle) - 180;
+        currentUserRot = Math.round(currentUserRot / 15) * 15;
+        
+        nodeA.connections.push({ mySpot: spotAId, targetId: nodeB.id, targetSpot: spotBId, userRot: -currentUserRot });
+        nodeB.connections.push({ mySpot: spotBId, targetId: nodeA.id, targetSpot: spotAId, userRot: currentUserRot });
         
         const newSysId = nodeB.systemId;
         const oldSysId = nodeA.systemId;

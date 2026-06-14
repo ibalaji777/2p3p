@@ -608,6 +608,23 @@ export class Stair3DBuilder {
                     });
                 }
 
+                // Flow Direction Arrow
+                const aLen = Math.min(l - 20, 60);
+                const aBodyGeo = new THREE.BoxGeometry(2, 0.5, aLen - 10);
+                const aHeadGeo = new THREE.ConeGeometry(6, 12, 4);
+                aHeadGeo.rotateX(Math.PI/2);
+                aHeadGeo.rotateY(Math.PI/4); // Square pyramid to point
+                aHeadGeo.translate(0, 0, aLen/2 - 6);
+                const arrowG = new THREE.Group();
+                arrowG.add(new THREE.Mesh(aBodyGeo, this.matBlack));
+                arrowG.add(new THREE.Mesh(aHeadGeo, this.matBlack));
+                arrowG.position.set(0, t/2 + 0.2, l/2);
+                
+                const aRot = (current.arrowRotation || 0) * Math.PI / 180;
+                arrowG.rotation.y = -aRot; // Match 2D clockwise rotation
+                
+                meshGroup.add(arrowG);
+
                 if (!occupiedEdges.includes('west')) { const lRailL = new THREE.Mesh(new THREE.BoxGeometry(3, railH, l), this.matGlass); lRailL.position.set(-w/2 + 1.5, railH/2, l/2); meshGroup.add(lRailL); }
                 if (!occupiedEdges.includes('east')) { const lRailR = new THREE.Mesh(new THREE.BoxGeometry(3, railH, l), this.matGlass); lRailR.position.set(w/2 - 1.5, railH/2, l/2); meshGroup.add(lRailR); }
                 if (!occupiedEdges.includes('north')) { const lRailT = new THREE.Mesh(new THREE.BoxGeometry(w, railH, 3), this.matGlass); lRailT.position.set(0, railH/2, l - 1.5); meshGroup.add(lRailT); }
