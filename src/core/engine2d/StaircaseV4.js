@@ -680,27 +680,6 @@ export class StairV4Landing extends StairV4Node {
             const angleRad = Math.atan2(pos.y - groupPos.y, pos.x - groupPos.x);
             let newRot = (angleRad * 180 / Math.PI) - 90;
             
-            if (this.connections.length > 0) {
-                let anchorConn = this.connections[0];
-                const parent = this.planner.stairs.find(s => s.id === anchorConn.targetId);
-                if (parent) {
-                    const pSocketGlob = anchorConn.targetIsEdge ? parent.getGlobalEdgeSocket(anchorConn.targetSpot, anchorConn.offset) : parent.getGlobalSocket(anchorConn.targetSpot);
-                    const mSocketLoc = this.getEdges().find(e => e.id === anchorConn.mySpot);
-                    
-                    let reqGlobAngle = newRot + (mSocketLoc ? mSocketLoc.localAngle : 0);
-                    let newUserRot = reqGlobAngle - 180 - pSocketGlob.angle;
-                    newUserRot = Math.round(newUserRot / 15) * 15;
-                    
-                    anchorConn.userRot = newUserRot;
-                    const pConn = parent.connections.find(c => c.targetId === this.id && c.mySpot === anchorConn.targetSpot);
-                    if (pConn) pConn.userRot = -newUserRot;
-                    
-                    StaircaseV4Solver.solve(this.planner, this.systemId, parent.id);
-                    this.planner.syncAll();
-                    return;
-                }
-            }
-            
             this.rotation = Math.round(newRot / 15) * 15;
             this.update();
             StaircaseV4Solver.solve(this.planner, this.systemId, this.id);
