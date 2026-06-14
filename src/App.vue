@@ -319,6 +319,7 @@ const menuCategories = ref([
             { id: 'stair_landing', name: 'Smart Landing V3' },
             { id: 'stair_v4_flight', name: 'Stair Flight (V4)' },
             { id: 'stair_v4_landing', name: 'Landing (V4)' },
+            { id: 'stair_v4_landing_curve', name: 'U-Curve Landing (V4)' },
             { id: 'roof', name: 'Draw Roof' },
             { id: 'auto_roof', name: 'Generate Auto-Roof', action: 'auto_roof' }
         ]

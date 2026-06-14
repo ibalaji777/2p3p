@@ -1375,6 +1375,17 @@ export class FloorPlanner {
                 this.syncAll();
                 return;
             }
+            if (this.tool === 'stair_v4_landing_curve') {
+                const rootId = 'stairv4_landing_' + Math.random().toString(36).substr(2, 9);
+                const landingData = { id: rootId, x: targetPos.x, y: targetPos.y, shape: 'u_curve', length: 100, innerRadius: 40 };
+                const landing = new StairV4Landing(this, landingData);
+                this.stairs.push(landing);
+                this.tool = 'select';
+                this.updateToolStates();
+                this.selectEntity(landing, 'stair');
+                this.syncAll();
+                return;
+            }
             
             if (this.tool === 'arc') {
                 let snap = targetPos;

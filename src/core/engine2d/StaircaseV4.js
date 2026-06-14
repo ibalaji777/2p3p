@@ -671,14 +671,25 @@ export class StairV4Landing extends StairV4Node {
     constructor(planner, data) {
         super(planner, data);
         this.type = 'stair_v4_landing';
+        this.shape = data.shape || 'rectangular'; // 'rectangular' or 'u_curve'
         this.width = data.width || 100;
         this.length = data.length || 100;
+        this.innerRadius = data.innerRadius || 20;
         
         this.initLandingHandles();
         this.update();
     }
 
     getSockets() {
+        if (this.shape === 'u_curve') {
+            const rIn = this.innerRadius;
+            const rOut = rIn + this.length; // using length as the flight width footprint
+            const midR = (rIn + rOut) / 2;
+            return [
+                { id: 'left_sock', localX: -midR, localY: 0, localAngle: -90, elevOffset: 0 },
+                { id: 'right_sock', localX: midR, localY: 0, localAngle: -90, elevOffset: 0 }
+            ];
+        }
         const w = this.width, l = this.length;
         return [
             { id: 'north_sock', localX: 0, localY: l, localAngle: 90, elevOffset: 0 },
@@ -689,6 +700,14 @@ export class StairV4Landing extends StairV4Node {
     }
 
     getEdges() {
+        if (this.shape === 'u_curve') {
+            const rIn = this.innerRadius;
+            const rOut = rIn + this.length;
+            return [
+                { id: 'left_edge', p1: {x: -rIn, y: 0}, p2: {x: -rOut, y: 0}, localAngle: -90, elevOffset: 0 },
+                { id: 'right_edge', p1: {x: rOut, y: 0}, p2: {x: rIn, y: 0}, localAngle: -90, elevOffset: 0 }
+            ];
+        }
         const w = this.width, l = this.length;
         return [
             { id: 'north', p1: {x: -w/2, y: l}, p2: {x: w/2, y: l}, localAngle: 90, elevOffset: 0 },
@@ -710,6 +729,8 @@ export class StairV4Landing extends StairV4Node {
         this.wRight = createHandle('wRight');
         this.wLeft = createHandle('wLeft');
         this.lBot = createHandle('lBot');
+        this.rInHandle = createHandle('rIn');
+        this.rOutHandle = createHandle('rOut');
         
         this.rotHandle = new Konva.Circle({ radius: 8, fill: '#10b981', stroke: 'white', strokeWidth: 2, draggable: true });
         this.rotHandle.on('mouseenter', () => document.body.style.cursor = 'crosshair');
@@ -767,21 +788,68 @@ export class StairV4Landing extends StairV4Node {
             this.length = newL;
             this.update(); StaircaseV4Solver.solve(this.planner, this.systemId, this.id); this.planner.syncAll();
         });
+
+        this.rInHandle.on('dragmove', (e) => {
+            e.cancelBubble = true;
+            let newRIn = -this.rInHandle.y();
+            if (newRIn < 20) newRIn = 20;
+            if (newRIn >= this.innerRadius + this.length - 20) newRIn = this.innerRadius + this.length - 20;
+            const oldROut = this.innerRadius + this.length;
+            this.innerRadius = newRIn;
+            this.length = oldROut - this.innerRadius;
+            this.update(); StaircaseV4Solver.solve(this.planner, this.systemId, this.id); this.planner.syncAll();
+        });
+
+        this.rOutHandle.on('dragmove', (e) => {
+            e.cancelBubble = true;
+            let newROut = -this.rOutHandle.y();
+            if (newROut <= this.innerRadius + 20) newROut = this.innerRadius + 20;
+            this.length = newROut - this.innerRadius;
+            this.update(); StaircaseV4Solver.solve(this.planner, this.systemId, this.id); this.planner.syncAll();
+        });
     }
 
     update() {
         const w = this.width, l = this.length;
         super.updateGeometry();
         
-        this.poly.points([-w/2, 0, w/2, 0, w/2, l, -w/2, l]);
-        this.wRight.position({ x: w/2, y: l/2 });
-        this.wLeft.position({ x: -w/2, y: l/2 });
-        this.lBot.position({ x: 0, y: l });
-        this.rotHandle.position({ x: 0, y: l + 40 });
+        if (this.shape === 'u_curve') {
+            const rIn = this.innerRadius;
+            const rOut = rIn + this.length;
+            const pts = [];
+            const segments = 16;
+            for(let i=0; i<=segments; i++) {
+                const ang = Math.PI - (i/segments)*Math.PI;
+                pts.push(rOut * Math.cos(ang), -rOut * Math.sin(ang));
+            }
+            for(let i=0; i<=segments; i++) {
+                const ang = (i/segments)*Math.PI;
+                pts.push(rIn * Math.cos(ang), -rIn * Math.sin(ang));
+            }
+            this.poly.points(pts);
+            
+            this.wRight.visible(false); this.wLeft.visible(false); this.lBot.visible(false);
+            this.rInHandle.visible(true); this.rOutHandle.visible(true);
+            this.rInHandle.position({ x: 0, y: -rIn });
+            this.rOutHandle.position({ x: 0, y: -rOut });
+            this.rotHandle.position({ x: 0, y: 40 });
+        } else {
+            this.poly.points([-w/2, 0, w/2, 0, w/2, l, -w/2, l]);
+            this.wRight.position({ x: w/2, y: l/2 }); this.wLeft.position({ x: -w/2, y: l/2 }); this.lBot.position({ x: 0, y: l });
+            this.rotHandle.position({ x: 0, y: l + 40 });
+            this.wRight.visible(true); this.wLeft.visible(true); this.lBot.visible(true);
+            this.rInHandle.visible(false); this.rOutHandle.visible(false);
+        }
         
         this.contentGroup.destroyChildren();
         
-        const arrowGroup = new Konva.Group({ x: 0, y: l/2, rotation: this.arrowRotation || 0 });
+        let arrowY = l/2;
+        if (this.shape === 'u_curve') {
+            const rIn = this.innerRadius;
+            const rOut = rIn + this.length;
+            arrowY = -(rIn + rOut) / 2;
+        }
+        const arrowGroup = new Konva.Group({ x: 0, y: arrowY, rotation: this.arrowRotation || 0 });
         const lineLength = Math.min(l - 20, 60);
         const halfL = lineLength / 2;
         const arrowLine = new Konva.Arrow({ 

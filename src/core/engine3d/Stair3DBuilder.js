@@ -501,13 +501,32 @@ export class Stair3DBuilder {
                 y: cursorZ - lx * sin + lz * cos 
             });
             
-            const pts = [ transform(-w/2, 0), transform(w/2, 0), transform(w/2, l), transform(-w/2, l) ];
-            
-            const holePath = new THREE.Path();
-            holePath.moveTo(pts[0].x, pts[0].y);
-            for (let i = 1; i < pts.length; i++) holePath.lineTo(pts[i].x, pts[i].y);
-            holePath.lineTo(pts[0].x, pts[0].y);
-            holes.push(holePath);
+            if (current.shape === 'u_curve') {
+                const rIn = current.innerRadius || 20;
+                const rOut = rIn + l;
+                const segments = 16;
+                const pts = [];
+                for(let i=0; i<=segments; i++) {
+                    const ang = Math.PI - (i/segments)*Math.PI;
+                    pts.push(transform(rOut * Math.cos(ang), -rOut * Math.sin(ang)));
+                }
+                for(let i=0; i<=segments; i++) {
+                    const ang = (i/segments)*Math.PI;
+                    pts.push(transform(rIn * Math.cos(ang), -rIn * Math.sin(ang)));
+                }
+                const holePath = new THREE.Path();
+                holePath.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) holePath.lineTo(pts[i].x, pts[i].y);
+                holePath.lineTo(pts[0].x, pts[0].y);
+                holes.push(holePath);
+            } else {
+                const pts = [ transform(-w/2, 0), transform(w/2, 0), transform(w/2, l), transform(-w/2, l) ];
+                const holePath = new THREE.Path();
+                holePath.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) holePath.lineTo(pts[i].x, pts[i].y);
+                holePath.lineTo(pts[0].x, pts[0].y);
+                holes.push(holePath);
+            }
         });
 
         return holes;
@@ -589,46 +608,89 @@ export class Stair3DBuilder {
             else if (current.type === 'stair_v4_landing') {
                 const w = current.width || 100;
                 const l = current.length || 100;
+                const shapeType = current.shape || 'rectangular';
                 const t = 20; 
                 
-                const lGeo = new THREE.BoxGeometry(w, t, l);
-                lGeo.translate(0, -t/2, l/2);
-                const landing = new THREE.Mesh(lGeo, this.matStep);
-                landing.castShadow = true; landing.receiveShadow = true;
-                meshGroup.add(landing);
-                
                 const railH = 90;
-                const occupiedEdges = [];
-                if (current.connections) {
-                    current.connections.forEach(conn => {
-                        if (conn.mySpot.startsWith('south')) occupiedEdges.push('south');
-                        if (conn.mySpot.startsWith('north')) occupiedEdges.push('north');
-                        if (conn.mySpot.startsWith('east')) occupiedEdges.push('east');
-                        if (conn.mySpot.startsWith('west')) occupiedEdges.push('west');
-                    });
+                if (shapeType === 'u_curve') {
+                    const rIn = current.innerRadius || 20;
+                    const rOut = rIn + l;
+                    const segments = 16;
+                    const shape = new THREE.Shape();
+                    for(let i=0; i<=segments; i++) {
+                        const ang = Math.PI - (i/segments)*Math.PI;
+                        if(i===0) shape.moveTo(rOut * Math.cos(ang), -rOut * Math.sin(ang));
+                        else shape.lineTo(rOut * Math.cos(ang), -rOut * Math.sin(ang));
+                    }
+                    for(let i=0; i<=segments; i++) {
+                        const ang = (i/segments)*Math.PI;
+                        shape.lineTo(rIn * Math.cos(ang), -rIn * Math.sin(ang));
+                    }
+                    
+                    const lGeo = new THREE.ExtrudeGeometry(shape, { depth: t, bevelEnabled: false });
+                    lGeo.rotateX(Math.PI/2);
+                    const landing = new THREE.Mesh(lGeo, this.matStep);
+                    landing.castShadow = true; landing.receiveShadow = true;
+                    meshGroup.add(landing);
+                    
+                    const createCurvedRailing = (radius) => {
+                        const rShape = new THREE.Shape();
+                        for(let i=0; i<=segments; i++) {
+                            const ang = Math.PI - (i/segments)*Math.PI;
+                            if (i===0) rShape.moveTo((radius + 1.5) * Math.cos(ang), -(radius + 1.5) * Math.sin(ang));
+                            else rShape.lineTo((radius + 1.5) * Math.cos(ang), -(radius + 1.5) * Math.sin(ang));
+                        }
+                        for(let i=0; i<=segments; i++) {
+                            const ang = (i/segments)*Math.PI;
+                            rShape.lineTo((radius - 1.5) * Math.cos(ang), -(radius - 1.5) * Math.sin(ang));
+                        }
+                        const rGeo = new THREE.ExtrudeGeometry(rShape, { depth: railH, bevelEnabled: false });
+                        rGeo.rotateX(Math.PI/2);
+                        rGeo.translate(0, railH, 0);
+                        return new THREE.Mesh(rGeo, this.matGlass);
+                    };
+                    
+                    meshGroup.add(createCurvedRailing(rOut - 1.5));
+                    meshGroup.add(createCurvedRailing(rIn + 1.5));
+                } else {
+                    const lGeo = new THREE.BoxGeometry(w, t, l);
+                    lGeo.translate(0, -t/2, l/2);
+                    const landing = new THREE.Mesh(lGeo, this.matStep);
+                    landing.castShadow = true; landing.receiveShadow = true;
+                    meshGroup.add(landing);
+                    
+                    const occupiedEdges = [];
+                    if (current.connections) {
+                        current.connections.forEach(conn => {
+                            if (conn.mySpot.startsWith('south') || conn.mySpot === 'south') occupiedEdges.push('south');
+                            if (conn.mySpot.startsWith('north') || conn.mySpot === 'north') occupiedEdges.push('north');
+                            if (conn.mySpot.startsWith('east') || conn.mySpot === 'east') occupiedEdges.push('east');
+                            if (conn.mySpot.startsWith('west') || conn.mySpot === 'west') occupiedEdges.push('west');
+                        });
+                    }
+
+                    // Flow Direction Arrow
+                    const aLen = Math.min(l - 20, 60);
+                    const aBodyGeo = new THREE.BoxGeometry(2, 0.5, aLen - 10);
+                    const aHeadGeo = new THREE.ConeGeometry(6, 12, 4);
+                    aHeadGeo.rotateX(Math.PI/2);
+                    aHeadGeo.rotateY(Math.PI/4); 
+                    aHeadGeo.translate(0, 0, aLen/2 - 6);
+                    const arrowG = new THREE.Group();
+                    arrowG.add(new THREE.Mesh(aBodyGeo, this.matBlack));
+                    arrowG.add(new THREE.Mesh(aHeadGeo, this.matBlack));
+                    arrowG.position.set(0, t/2 + 0.2, l/2);
+                    
+                    const aRot = (current.arrowRotation || 0) * Math.PI / 180;
+                    arrowG.rotation.y = -aRot; 
+                    
+                    meshGroup.add(arrowG);
+
+                    if (!occupiedEdges.includes('west')) { const lRailL = new THREE.Mesh(new THREE.BoxGeometry(3, railH, l), this.matGlass); lRailL.position.set(-w/2 + 1.5, railH/2, l/2); meshGroup.add(lRailL); }
+                    if (!occupiedEdges.includes('east')) { const lRailR = new THREE.Mesh(new THREE.BoxGeometry(3, railH, l), this.matGlass); lRailR.position.set(w/2 - 1.5, railH/2, l/2); meshGroup.add(lRailR); }
+                    if (!occupiedEdges.includes('north')) { const lRailT = new THREE.Mesh(new THREE.BoxGeometry(w, railH, 3), this.matGlass); lRailT.position.set(0, railH/2, l - 1.5); meshGroup.add(lRailT); }
+                    if (!occupiedEdges.includes('south')) { const lRailB = new THREE.Mesh(new THREE.BoxGeometry(w, railH, 3), this.matGlass); lRailB.position.set(0, railH/2, 1.5); meshGroup.add(lRailB); }
                 }
-
-                // Flow Direction Arrow
-                const aLen = Math.min(l - 20, 60);
-                const aBodyGeo = new THREE.BoxGeometry(2, 0.5, aLen - 10);
-                const aHeadGeo = new THREE.ConeGeometry(6, 12, 4);
-                aHeadGeo.rotateX(Math.PI/2);
-                aHeadGeo.rotateY(Math.PI/4); // Square pyramid to point
-                aHeadGeo.translate(0, 0, aLen/2 - 6);
-                const arrowG = new THREE.Group();
-                arrowG.add(new THREE.Mesh(aBodyGeo, this.matBlack));
-                arrowG.add(new THREE.Mesh(aHeadGeo, this.matBlack));
-                arrowG.position.set(0, t/2 + 0.2, l/2);
-                
-                const aRot = (current.arrowRotation || 0) * Math.PI / 180;
-                arrowG.rotation.y = -aRot; // Match 2D clockwise rotation
-                
-                meshGroup.add(arrowG);
-
-                if (!occupiedEdges.includes('west')) { const lRailL = new THREE.Mesh(new THREE.BoxGeometry(3, railH, l), this.matGlass); lRailL.position.set(-w/2 + 1.5, railH/2, l/2); meshGroup.add(lRailL); }
-                if (!occupiedEdges.includes('east')) { const lRailR = new THREE.Mesh(new THREE.BoxGeometry(3, railH, l), this.matGlass); lRailR.position.set(w/2 - 1.5, railH/2, l/2); meshGroup.add(lRailR); }
-                if (!occupiedEdges.includes('north')) { const lRailT = new THREE.Mesh(new THREE.BoxGeometry(w, railH, 3), this.matGlass); lRailT.position.set(0, railH/2, l - 1.5); meshGroup.add(lRailT); }
-                if (!occupiedEdges.includes('south')) { const lRailB = new THREE.Mesh(new THREE.BoxGeometry(w, railH, 3), this.matGlass); lRailB.position.set(0, railH/2, 1.5); meshGroup.add(lRailB); }
             }
             
             systemGroup.add(meshGroup);
