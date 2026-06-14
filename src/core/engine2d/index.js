@@ -14,9 +14,10 @@ import { PremiumHipRoof } from '/src/core/engine2d/PremiumHipRoof.js';
 import { PremiumRailing } from '/src/core/engine2d/PremiumRailing.js';
 import { SmartGuidesTrackingSystem } from '/src/core/engine2d/SmartGuidesTrackingSystem.js';
 import { advance_openings } from '/src/core/engine2d/advance_openings.js';
+import { StairV4Flight, StairV4Landing } from '/src/core/engine2d/StaircaseV4.js';
 
 // Export the specific classes that App.vue needs to spawn items
-export { PremiumFurniture, PremiumHipRoof };
+export { PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing };
 
 export class PremiumStairV3 {
     constructor(planner, data) {
@@ -1345,6 +1346,28 @@ export class FloorPlanner {
                     width: 100, length: 100, thickness: 20
                 };
                 const landing = new PremiumStairV3(this, landingData);
+                this.stairs.push(landing);
+                this.tool = 'select';
+                this.updateToolStates();
+                this.selectEntity(landing, 'stair');
+                this.syncAll();
+                return;
+            }
+            if (this.tool === 'stair_v4_flight') {
+                const rootId = 'stairv4_' + Math.random().toString(36).substr(2, 9);
+                const flightData = { id: rootId, x: targetPos.x, y: targetPos.y };
+                const flight = new StairV4Flight(this, flightData);
+                this.stairs.push(flight);
+                this.tool = 'select';
+                this.updateToolStates();
+                this.selectEntity(flight, 'stair');
+                this.syncAll();
+                return;
+            }
+            if (this.tool === 'stair_v4_landing') {
+                const rootId = 'stairv4_landing_' + Math.random().toString(36).substr(2, 9);
+                const landingData = { id: rootId, x: targetPos.x, y: targetPos.y };
+                const landing = new StairV4Landing(this, landingData);
                 this.stairs.push(landing);
                 this.tool = 'select';
                 this.updateToolStates();

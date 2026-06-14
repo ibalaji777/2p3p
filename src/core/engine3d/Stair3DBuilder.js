@@ -31,6 +31,9 @@ export class Stair3DBuilder {
 
         // --- NEW V3 LOGIC: Completely Independent Smart Chaining Builder ---
         this._buildStairSystemV3(stairs, parentGroup);
+        
+        // --- NEW V4 LOGIC: Fully Graph-Based Smart Builder ---
+        this._buildStairSystemV4(stairs, parentGroup);
     }
 
     _buildStairSystemV3(stairs, parentGroup) {
@@ -481,6 +484,137 @@ export class Stair3DBuilder {
             holes.push(holePath);
         });
 
+        // --- NEW V4 LOGIC: Hole cutting ---
+        const v4Components = stairs.filter(s => s.type === 'stair_v4_flight' || s.type === 'stair_v4_landing');
+        v4Components.forEach(current => {
+            let cursorX = current.x || 0;
+            let cursorZ = current.y || 0; 
+            let radRot = (current.rotation || 0) * (Math.PI / 180);
+            let w = current.width || 100;
+            let l = current.length || 100;
+            
+            const cos = Math.cos(-radRot);
+            const sin = Math.sin(-radRot);
+            
+            const transform = (lx, lz) => ({
+                x: cursorX + lx * cos + lz * sin,
+                y: cursorZ - lx * sin + lz * cos 
+            });
+            
+            const pts = [ transform(-w/2, 0), transform(w/2, 0), transform(w/2, l), transform(-w/2, l) ];
+            
+            const holePath = new THREE.Path();
+            holePath.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) holePath.lineTo(pts[i].x, pts[i].y);
+            holePath.lineTo(pts[0].x, pts[0].y);
+            holes.push(holePath);
+        });
+
         return holes;
+    }
+
+    _buildStairSystemV4(stairs, parentGroup) {
+        const v4Components = stairs.filter(s => s.type === 'stair_v4_flight' || s.type === 'stair_v4_landing');
+        if (v4Components.length === 0) return;
+
+        v4Components.forEach(current => {
+            let cursorX = current.x || 0;
+            let cursorZ = current.y || 0; 
+            let cursorElev = current.elevation || 0;
+            let radRot = (current.rotation || 0) * (Math.PI / 180);
+
+            const systemGroup = new THREE.Group();
+            systemGroup.userData.systemId = current.systemId || current.id;
+            parentGroup.add(systemGroup);
+            
+            const meshGroup = new THREE.Group();
+            meshGroup.position.set(cursorX, cursorElev, cursorZ);
+            meshGroup.rotation.y = -radRot; 
+            
+            meshGroup.userData.entity = current;
+            meshGroup.userData.isStair = true;
+            this.interactables.push(meshGroup);
+            current.mesh3D = meshGroup;
+
+            const leftRailing = new THREE.Group();
+            const rightRailing = new THREE.Group();
+
+            if (current.type === 'stair_v4_flight') {
+                const w = current.width || 100;
+                const c = current.stepCount || 10;
+                const h = current.stepHeight || 17.5;
+                const d = current.stepDepth || 28.0;
+                
+                for (let i = 0; i < c; i++) {
+                    const stepG = new THREE.Group();
+                    stepG.position.set(0, i * h, i * d);
+                    
+                    const tGeo = new THREE.BoxGeometry(w, 2, d);
+                    tGeo.translate(0, 1, d/2);
+                    const tread = new THREE.Mesh(tGeo, this.matStep);
+                    tread.castShadow = true; tread.receiveShadow = true;
+                    stepG.add(tread);
+                    
+                    const rGeo = new THREE.BoxGeometry(w, h, 1);
+                    rGeo.translate(0, h/2, 0.5);
+                    const riser = new THREE.Mesh(rGeo, this.matRiser);
+                    riser.castShadow = true; riser.receiveShadow = true;
+                    stepG.add(riser);
+                    
+                    const balGeo = new THREE.CylinderGeometry(1.5, 1.5, 90, 8);
+                    balGeo.translate(0, 45, 0);
+                    const balL = new THREE.Mesh(balGeo, this.matSteel);
+                    balL.position.set(-w/2 + 3, i * h, i * d + d/2);
+                    leftRailing.add(balL);
+                    
+                    const balR = new THREE.Mesh(balGeo, this.matSteel);
+                    balR.position.set(w/2 - 3, i * h, i * d + d/2);
+                    rightRailing.add(balR);
+                    
+                    meshGroup.add(stepG);
+                }
+                
+                const flightLen = Math.hypot(c * d, c * h);
+                const handAng = -Math.atan2(c * h, c * d);
+                const handGeo = new THREE.CylinderGeometry(2.5, 2.5, flightLen, 12);
+                handGeo.rotateX(Math.PI/2); handGeo.translate(0, 90, flightLen/2);
+                
+                const handL = new THREE.Mesh(handGeo, this.matBlack);
+                handL.position.set(-w/2 + 3, 0, 0); handL.rotation.x = handAng; leftRailing.add(handL);
+                const handR = new THREE.Mesh(handGeo, this.matBlack);
+                handR.position.set(w/2 - 3, 0, 0); handR.rotation.x = handAng; rightRailing.add(handR);
+
+                meshGroup.add(leftRailing, rightRailing);
+            } 
+            else if (current.type === 'stair_v4_landing') {
+                const w = current.width || 100;
+                const l = current.length || 100;
+                const t = 20; 
+                
+                const lGeo = new THREE.BoxGeometry(w, t, l);
+                lGeo.translate(0, -t/2, l/2);
+                const landing = new THREE.Mesh(lGeo, this.matStep);
+                landing.castShadow = true; landing.receiveShadow = true;
+                meshGroup.add(landing);
+                
+                const railH = 90;
+                const occupiedEdges = [];
+                if (current.connections) {
+                    current.connections.forEach(conn => {
+                        if (conn.mySpot.startsWith('south')) occupiedEdges.push('south');
+                        if (conn.mySpot.startsWith('north')) occupiedEdges.push('north');
+                        if (conn.mySpot.startsWith('east')) occupiedEdges.push('east');
+                        if (conn.mySpot.startsWith('west')) occupiedEdges.push('west');
+                    });
+                }
+
+                if (!occupiedEdges.includes('west')) { const lRailL = new THREE.Mesh(new THREE.BoxGeometry(3, railH, l), this.matGlass); lRailL.position.set(-w/2 + 1.5, railH/2, l/2); meshGroup.add(lRailL); }
+                if (!occupiedEdges.includes('east')) { const lRailR = new THREE.Mesh(new THREE.BoxGeometry(3, railH, l), this.matGlass); lRailR.position.set(w/2 - 1.5, railH/2, l/2); meshGroup.add(lRailR); }
+                if (!occupiedEdges.includes('north')) { const lRailT = new THREE.Mesh(new THREE.BoxGeometry(w, railH, 3), this.matGlass); lRailT.position.set(0, railH/2, l - 1.5); meshGroup.add(lRailT); }
+                if (!occupiedEdges.includes('south')) { const lRailB = new THREE.Mesh(new THREE.BoxGeometry(w, railH, 3), this.matGlass); lRailB.position.set(0, railH/2, 1.5); meshGroup.add(lRailB); }
+            }
+            
+            systemGroup.add(meshGroup);
+        });
     }
 }

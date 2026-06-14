@@ -316,7 +316,9 @@ const menuCategories = ref([
             { id: 'stair', name: 'Draw Stairs' },
             { id: 'staircase_two', name: 'Place Staircase V2' },
             { id: 'stair_v3', name: 'Smart Stair V3' },
-            { id: 'stair_landing', name: 'Smart Landing' },
+            { id: 'stair_landing', name: 'Smart Landing V3' },
+            { id: 'stair_v4_flight', name: 'Stair Flight (V4)' },
+            { id: 'stair_v4_landing', name: 'Landing (V4)' },
             { id: 'roof', name: 'Draw Roof' },
             { id: 'auto_roof', name: 'Generate Auto-Roof', action: 'auto_roof' }
         ]
