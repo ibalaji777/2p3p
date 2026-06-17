@@ -350,96 +350,6 @@
                 </div>
             </div>
 
-            <div v-else-if="selectedType === 'stair' || selectedType === 'staircase_two'">
-                <h4 class="props-subtitle">Staircase Properties</h4>
-                <div v-if="selectedType === 'staircase_two'">
-                    <div class="control-group">
-                        <label>Stair Type</label>
-                        <select v-model="selectedEntity.config.stairType" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
-                            <option value="straight">Straight</option>
-                            <option value="l_shape">L-Shape</option>
-                            <option value="u_shape">U-Shape</option>
-                            <option value="spiral">Spiral</option>
-                        </select>
-                    </div>
-                    <div class="control-group"><label>Rotation (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.rotation" min="0" max="360" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.config.rotation" @input="$emit('sync-engine')"></div></div>
-                    <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.width" min="20" max="200" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.config.width" @input="$emit('sync-engine')"></div></div>
-                    <div class="control-group"><label>Step Count</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.stepCount" min="3" max="40" step="1" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.config.stepCount" min="3" max="40" step="1" @input="$emit('sync-engine')"></div></div>
-                    <div class="control-group"><label>Tread Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.treadDepth" min="5" max="30" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.config.treadDepth" @input="$emit('sync-engine')"></div></div>
-                    <div class="control-group"><label>Riser Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.riserHeight" min="4" max="15" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.config.riserHeight" @input="$emit('sync-engine')"></div></div>
-                    
-                    <div class="control-group" style="display:flex; align-items:center; gap:8px;">
-                        <input type="checkbox" v-model="selectedEntity.config.isMirrored" @change="$emit('sync-engine')">
-                        <label style="margin-bottom:0">Mirrored Layout</label>
-                    </div>
-
-                    <hr style="margin: 15px 0; border:0; border-top:1px solid #d1d5db;">
-                    <h4 class="props-subtitle" style="margin-top:0">Landing Settings</h4>
-                    <div class="control-group" style="display:flex; align-items:center; gap:8px;">
-                        <input type="checkbox" v-model="selectedEntity.config.landing.enabled" @change="$emit('sync-engine')">
-                        <label style="margin-bottom:0">Enable Landing</label>
-                    </div>
-                    <div class="control-group" v-if="selectedEntity.config.landing.enabled"><label>Landing Length</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.landing.length" min="20" max="200" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.config.landing.length" @input="$emit('sync-engine')"></div></div>
-
-                    <hr style="margin: 15px 0; border:0; border-top:1px solid #d1d5db;">
-                    <h4 class="props-subtitle" style="margin-top:0">Railing Settings</h4>
-                    <div class="control-group" style="display:flex; align-items:center; gap:8px;">
-                        <input type="checkbox" v-model="selectedEntity.config.railing.enabled" @change="$emit('sync-engine')">
-                        <label style="margin-bottom:0">Enable Railings</label>
-                    </div>
-                    <div v-if="selectedEntity.config.railing.enabled">
-                        <div class="control-group">
-                            <label>Railing Style</label>
-                            <select v-model="selectedEntity.config.railing.style" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
-                                <option value="modern">Modern</option>
-                                <option value="glass">Glass</option>
-                                <option value="steel">Steel</option>
-                                <option value="wooden">Wooden</option>
-                                <option value="minimal">Minimal</option>
-                                <option value="classic">Classic</option>
-                                <option value="cable">Cable</option>
-                                <option value="industrial">Industrial</option>
-                            </select>
-                        </div>
-                        <div class="control-group" style="display:flex; align-items:center; gap:8px;">
-                            <input type="checkbox" v-model="selectedEntity.config.railing.left" @change="$emit('sync-engine')">
-                            <label style="margin-bottom:0">Left Railing</label>
-                        </div>
-                        <div class="control-group" style="display:flex; align-items:center; gap:8px;">
-                            <input type="checkbox" v-model="selectedEntity.config.railing.right" @change="$emit('sync-engine')">
-                            <label style="margin-bottom:0">Right Railing</label>
-                        </div>
-                    </div>
-                </div>
-                <div v-else-if="selectedEntity.type === 'stair'">
-                    <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="20" max="200" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.width" @input="$emit('sync-engine')"></div></div>
-                    <div class="control-group"><label>Step Count</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stepCount" min="3" max="50" step="1" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.stepCount" min="3" max="50" step="1" @input="$emit('sync-engine')"></div></div>
-                    <div class="control-group"><label>Step Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stepDepth" min="15" max="40" step="0.5" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.stepDepth" min="15" max="40" step="0.5" @input="$emit('sync-engine')"></div></div>
-                    <hr style="margin: 15px 0; border:0; border-top:1px solid #d1d5db;">
-                    <h4 class="props-subtitle" style="margin-top:0">Chain / Add Topology</h4>
-                    <div style="display:flex; flex-wrap:wrap; gap:8px;">
-                        <button class="action-btn import" style="flex:1;" @click="$emit('add-topology', 'straight')">Straight</button>
-                        <button class="action-btn import" style="flex:1;" @click="$emit('add-topology', 'l_shape')">L-Shape</button>
-                        <button class="action-btn import" style="flex:1;" @click="$emit('add-topology', 'u_shape')">U-Shape</button>
-                        <button class="action-btn import" style="flex:1;" @click="$emit('add-topology', 't_shape')">T-Shape</button>
-                        <button class="action-btn import" style="flex:1;" @click="$emit('add-topology', 'y_shape')">Y-Shape</button>
-                    </div>
-                </div>
-                <div v-else-if="selectedEntity.type === 'stair_landing'">
-                    <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="20" max="400" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.width" @input="$emit('sync-engine')"></div></div>
-                    <div class="control-group"><label>Length</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.length" min="20" max="400" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.length" @input="$emit('sync-engine')"></div></div>
-                    <hr style="margin: 15px 0; border:0; border-top:1px solid #d1d5db;">
-                    <h4 class="props-subtitle" style="margin-top:0">Add Connected Flight</h4>
-                    <div style="display:flex; flex-wrap:wrap; gap:8px;">
-                        <button class="action-btn import" style="flex:1;" @click="$emit('add-topology', 'straight')">+ Top Flight</button>
-                        <button class="action-btn import" style="flex:1;" @click="$emit('add-topology', 'l_shape')">+ Right Flight</button>
-                        <button class="action-btn import" style="flex:1;" @click="$emit('add-topology', 'u_shape')">+ Left Flight</button>
-                        <button class="action-btn import" style="flex:1;" @click="$emit('add-topology', 't_shape')">+ Bottom Flight</button>
-                    </div>
-                </div>
-                <button class="hud-delete" @click="$emit('delete-entity')" style="margin-top: 15px;">Delete Stairs</button>
-            </div>
-
             <div v-else-if="selectedType === 'furniture'">
                 <h4 class="props-subtitle">{{ selectedEntity.config?.name || 'Object' }}</h4>
                 <div class="control-group"><label>Rotation (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.rotation" min="0" max="360" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.rotation" @input="$emit('sync-engine')"></div></div>
@@ -561,7 +471,6 @@ const emit = defineEmits([
   'set-opening-material',
   'clear-shape-textures',
   'set-shape-material',
-  'add-topology',
   'set-roof-material',
   'select-layer-item',
   'toggle-layer-visibility',

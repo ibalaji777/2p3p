@@ -183,7 +183,7 @@ export const SmartWallResizePlugin = {
                 
                 if (this.planner.stairs) {
                     this.planner.stairs.forEach(s => {
-                        if (s.type === 'staircase_two' && s.group) {
+                        if (s.group) {
                             cacheConstraint(s, s.group.position(), s.rotation !== undefined ? s.rotation : s.group.rotation());
                         } else if (s.path) {
                             s.path.forEach(p => {
@@ -354,7 +354,7 @@ export const SmartWallResizePlugin = {
                 if (!this.planner.stairs) return;
                 
                 this.planner.stairs.forEach(s => {
-                    if (s.type === 'staircase_two') {
+                    if (s.group) {
                         const constraint = this.objectConstraints.get(s);
                         if (!constraint) return;
                         

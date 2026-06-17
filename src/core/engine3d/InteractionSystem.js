@@ -95,9 +95,9 @@ export class InteractionSystem {
                     return;
                 }
 
-                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isRoom && !mesh.userData.isRoof && !mesh.userData.isWidget && !mesh.userData.isPattern) mesh = mesh.parent;
+                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isRoom && !mesh.userData.isRoof && !mesh.userData.isWidget && !mesh.userData.isPattern && !mesh.userData.isStair && !(mesh.userData.entity && mesh.userData.entity.type && mesh.userData.entity.type.startsWith('stair_v4'))) mesh = mesh.parent;
 
-                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isRoom || mesh.userData.isRoof || mesh.userData.isWidget || mesh.userData.isPattern)) {
+                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isRoom || mesh.userData.isRoof || mesh.userData.isWidget || mesh.userData.isPattern || mesh.userData.isStair || (mesh.userData.entity && mesh.userData.entity.type && mesh.userData.entity.type.startsWith('stair_v4')))) {
                     if (this.mode === 'edit') {
                         this.selectObject(mesh);
                         if (mesh.userData.isWallDecor) {
@@ -139,20 +139,20 @@ export class InteractionSystem {
                 if (intersects.length > 0) {
                     dom.style.cursor = 'pointer';
                     let mesh = intersects[0].object;
-                    while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isRoom && !mesh.userData.isRoof && !mesh.userData.isWidget && !mesh.userData.isPattern) mesh = mesh.parent;
+                    while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isRoom && !mesh.userData.isRoof && !mesh.userData.isWidget && !mesh.userData.isPattern && !mesh.userData.isStair && !(mesh.userData.entity && mesh.userData.entity.type && mesh.userData.entity.type.startsWith('stair_v4'))) mesh = mesh.parent;
                     if (this.hoveredObject !== mesh) {
-                        if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) {
+                        if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern || this.hoveredObject.userData.isStair || (this.hoveredObject.userData.entity && this.hoveredObject.userData.entity.type && this.hoveredObject.userData.entity.type.startsWith('stair_v4')))) {
                             if (!this.hoveredObject.userData.isRoom) this.setHighlight(this.hoveredObject, false);
                         }
                         this.hoveredObject = mesh;
-                        if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) {
+                        if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern || this.hoveredObject.userData.isStair || (this.hoveredObject.userData.entity && this.hoveredObject.userData.entity.type && this.hoveredObject.userData.entity.type.startsWith('stair_v4')))) {
                             if (!this.hoveredObject.userData.isRoom) this.setHighlight(this.hoveredObject, true, 0x93c5fd);
                         }
                     }
                 } else {
                     dom.style.cursor = 'auto';
                     if (this.hoveredObject) {
-                        if (this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) {
+                        if (this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern || this.hoveredObject.userData.isStair || (this.hoveredObject.userData.entity && this.hoveredObject.userData.entity.type && this.hoveredObject.userData.entity.type.startsWith('stair_v4')))) {
                             if (!this.hoveredObject.userData.isRoom) this.setHighlight(this.hoveredObject, false);
                         }
                         this.hoveredObject = null;
@@ -219,7 +219,7 @@ export class InteractionSystem {
     }
 
     selectObject(object) {
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isRoof || this.selectedObject.userData.isRoom || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) {
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isRoof || this.selectedObject.userData.isRoom || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern || this.selectedObject.userData.isStair || (this.selectedObject.userData.entity && this.selectedObject.userData.entity.type && this.selectedObject.userData.entity.type.startsWith('stair_v4')))) {
             if (!this.selectedObject.userData.isRoom) this.setHighlight(this.selectedObject, false);
         }
         this.transformControls.detach();
@@ -268,10 +268,10 @@ export class InteractionSystem {
             this.wallHighlight.rotation.set(0, 0, 0); 
             this.wallHighlight.visible = true;
         } 
-        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isRoof || object.userData.isRoom || object.userData.isWidget || object.userData.isPattern) {
-            type = object.userData.isShape ? 'shape' : (object.userData.isFurniture ? 'furniture' : (object.userData.isRoof ? 'roof' : (object.userData.isRoom ? 'room' : (object.userData.isWidget ? 'widget' : (object.userData.isPattern ? 'advance_openings' : 'wallDecor')))));
+        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isRoof || object.userData.isRoom || object.userData.isWidget || object.userData.isPattern || object.userData.isStair || (object.userData.entity && object.userData.entity.type && object.userData.entity.type.startsWith('stair_v4'))) {
+            type = object.userData.isShape ? 'shape' : (object.userData.isFurniture ? 'furniture' : (object.userData.isRoof ? 'roof' : (object.userData.isRoom ? 'room' : (object.userData.isWidget ? 'widget' : (object.userData.isPattern ? 'advance_openings' : (object.userData.isStair || (object.userData.entity && object.userData.entity.type && object.userData.entity.type.startsWith('stair_v4')) ? 'stair' : 'wallDecor'))))));
             if (!object.userData.isRoom) this.setHighlight(object, true);
-            if (type === 'furniture' || type === 'shape') {
+            if (type === 'furniture' || type === 'shape' || type === 'stair') {
                 this.transformControls.attach(object);
             }
         }
@@ -283,7 +283,7 @@ export class InteractionSystem {
 
     deselect() {
         this.cancelRelocation();
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isRoof || this.selectedObject.userData.isRoom || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) {
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isRoof || this.selectedObject.userData.isRoom || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern || this.selectedObject.userData.isStair || (this.selectedObject.userData.entity && this.selectedObject.userData.entity.type && this.selectedObject.userData.entity.type.startsWith('stair_v4')))) {
             if (!this.selectedObject.userData.isRoom) this.setHighlight(this.selectedObject, false);
         }
         this.transformControls.detach();

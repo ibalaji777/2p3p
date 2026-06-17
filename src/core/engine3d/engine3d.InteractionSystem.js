@@ -255,172 +255,6 @@ export class InteractionSystem {
         this.openingGizmo = new OpeningGizmo(ctx);
         this.ctx.scene.add(this.openingGizmo);
 
-        this.transformControls.addEventListener('change', () => {
-            const obj = this.selectedObject;
-            if (this.ctx.currentTransformMode === 'translate' && obj && obj.userData.isStair && obj.userData.entity) {
-                const entity = obj.userData.entity;
-                if (entity.connectedFrom) {
-                    const planner = entity.planner || (window.plannerInstance ? window.plannerInstance.planner : null);
-                    if (planner) {
-                        const parent = planner.stairs.find(s => s.id === entity.connectedFrom);
-                        if (parent && parent.type === 'stair_landing') {
-                            const pr = parent.absRot !== undefined ? parent.absRot : ((parent.rotation || 0) * Math.PI / 180);
-                            const px = parent.absX !== undefined ? parent.absX : (parent.x || 0);
-                            const pz = parent.absY !== undefined ? parent.absY : (parent.y || 0);
-                            
-                            const cos = Math.cos(-pr), sin = Math.sin(-pr);
-                            const lx = (obj.position.x - px) * cos - (obj.position.z - pz) * sin;
-                            const ly = (obj.position.x - px) * sin + (obj.position.z - pz) * cos;
-                            
-                            if (entity.attachEdge === 'top' || entity.attachEdge === 'bottom') {
-                                entity.attachOffsetX = lx;
-                            } else if (entity.attachEdge === 'left' || entity.attachEdge === 'right') {
-                                entity.attachOffsetY = ly - (parent.length || 100)/2;
-                            }
-                            
-                            entity.update();
-                            obj.position.x = entity.absX;
-                            obj.position.z = entity.absY;
-                            
-                            const token = Date.now() + Math.random();
-                            planner.stairs.forEach(s => { if (s.systemId === entity.systemId) s.update(token); });
-                            
-                            if (window.plannerInstance) window.plannerInstance.syncAll();
-                        } else {
-                            entity.update();
-                            obj.position.x = entity.absX;
-                            obj.position.z = entity.absY;
-                        }
-                    }
-                } else {
-                    const planner = entity.planner || (window.plannerInstance ? window.plannerInstance.planner : null);
-                    if (planner) {
-                        for (let s of planner.stairs) {
-                            if (s === entity || (s.type !== 'stair' && s.type !== 'stair_landing')) continue;
-                            const isAncestor = (node, pAnc) => { let curr = node; while(curr) { if (curr.id === pAnc.id) return true; curr = planner.stairs.find(x => x.id === curr.connectedFrom); } return false; };
-                            if (isAncestor(s, entity)) continue;
-                            if (s.type === 'stair') {
-                                if (Math.hypot(obj.position.x - (s.endX||0), obj.position.z - (s.endY||0)) < 30) {
-                                    obj.position.x = s.endX; obj.position.z = s.endY; break;
-                                }
-                            } else if (s.type === 'stair_landing') {
-                                const sRot = s.absRot || 0;
-                                const cos = Math.cos(-sRot), sin = Math.sin(-sRot);
-                                const dx = obj.position.x - (s.absX||0), dy = obj.position.z - (s.absY||0);
-                                const lx = dx * cos - dy * sin;
-                                const ly = dx * sin + dy * cos;
-                                const w = s.width || 100, l = s.length || 100;
-                                const dTop = Math.abs(ly - l), dBot = Math.abs(ly), dL = Math.abs(lx - (-w/2)), dR = Math.abs(lx - (w/2));
-                                const minD = Math.min(dTop, dBot, dL, dR);
-                                if (minD < 30 && lx > -w/2 - 20 && lx < w/2 + 20 && ly > -20 && ly < l + 20) {
-                                    let sx=0, sy=0;
-                                    if (minD === dTop) { sx = lx; sy = l; }
-                                    else if (minD === dBot) { sx = lx; sy = 0; }
-                                    else if (minD === dL) { sx = -w/2; sy = ly; }
-                                    else { sx = w/2; sy = ly; }
-                                    const rCos = Math.cos(sRot), rSin = Math.sin(sRot);
-                                    obj.position.x = (s.absX||0) + sx * rCos + sy * rSin;
-                                    obj.position.z = (s.absY||0) - sx * rSin + sy * rCos;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            
-            if (this.ctx.currentTransformMode === 'rotate' && obj && obj.userData.isStair && obj.userData.entity) {
-                const entity = obj.userData.entity;
-                if (entity.connectedFrom) {
-                    const planner = entity.planner || (window.plannerInstance ? window.plannerInstance.planner : null);
-                    if (planner) {
-                        const parent = planner.stairs.find(s => s.id === entity.connectedFrom);
-                        if (parent) {
-                            const pr = parent.absRot !== undefined ? parent.absRot : ((parent.rotation || 0) * (Math.PI / 180));
-                            let baseEdgeRot = 0;
-                            if (parent.type === 'stair_landing') {
-                                if (entity.attachEdge === 'bottom') baseEdgeRot = 180;
-                                else if (entity.attachEdge === 'left') baseEdgeRot = -90;
-                                else if (entity.attachEdge === 'right') baseEdgeRot = 90;
-                            }
-                            
-                            let rawRot = -obj.rotation.y * 180 / Math.PI; 
-                            let rotOff = rawRot - (pr * 180 / Math.PI) - baseEdgeRot;
-                            rotOff = Math.round(rotOff / 15) * 15;
-                            entity.rotationOffset = rotOff;
-                            entity.update();
-                            obj.rotation.y = -entity.absRot;
-                            
-                            const token = Date.now() + Math.random();
-                            planner.stairs.forEach(s => { if (s.systemId === entity.systemId) s.update(token); });
-                            
-                            if (window.plannerInstance) window.plannerInstance.syncAll();
-                        }
-                    }
-                } else {
-                    entity.rotation = -obj.rotation.y * 180 / Math.PI;
-                    entity.update();
-                    const token = Date.now() + Math.random();
-                    const planner = entity.planner || (window.plannerInstance ? window.plannerInstance.planner : null);
-                    if (planner) planner.stairs.forEach(s => { if (s.systemId === entity.systemId) s.update(token); });
-                }
-            }
-            if (this.ctx.syncToUI) this.ctx.syncToUI();
-        });
-
-        this.transformControls.addEventListener('dragend', () => {
-            const obj = this.selectedObject;
-            if (this.ctx.currentTransformMode === 'translate' && obj && obj.userData.isStair && obj.userData.entity && !obj.userData.entity.connectedFrom) {
-                const entity = obj.userData.entity;
-                const planner = entity.planner || (window.plannerInstance ? window.plannerInstance.planner : null);
-                if (planner) {
-                    for (let s of planner.stairs) {
-                        if (s === entity || (s.type !== 'stair' && s.type !== 'stair_landing')) continue;
-                        const isAncestor = (node, pAnc) => { let curr = node; while(curr) { if (curr.id === pAnc.id) return true; curr = planner.stairs.find(x => x.id === curr.connectedFrom); } return false; };
-                        if (isAncestor(s, entity)) continue;
-                        if (s.type === 'stair') {
-                            if (Math.hypot(obj.position.x - (s.endX||0), obj.position.z - (s.endY||0)) < 5) {
-                                entity.connectedFrom = s.id;
-                                entity.attachEdge = 'top'; entity.attachOffsetX = 0; entity.attachOffsetY = 0;
-                                entity.rotationOffset = entity.rotation - ((s.absRot || 0) * 180 / Math.PI);
-                                entity.systemId = s.systemId;
-                                entity.x = undefined; entity.y = undefined;
-                                if (entity.group) entity.group.draggable(false);
-                                const updateSystemId = (node, sysId) => { node.systemId = sysId; const children = planner.stairs.filter(c => c.connectedFrom === node.id); children.forEach(c => updateSystemId(c, sysId)); }; updateSystemId(entity, s.systemId);
-                                planner.syncAll();
-                                if (this.ctx.stairSystemManager) this.ctx.stairSystemManager.updatePanel(entity);
-                                break;
-                            }
-                        } else if (s.type === 'stair_landing') {
-                            const sRot = s.absRot || 0;
-                            const cos = Math.cos(-sRot), sin = Math.sin(-sRot);
-                            const dx = obj.position.x - (s.absX||0), dy = obj.position.z - (s.absY||0);
-                            const lx = dx * cos - dy * sin;
-                            const ly = dx * sin + dy * cos;
-                            const w = s.width || 100, l = s.length || 100;
-                            const dTop = Math.abs(ly - l), dBot = Math.abs(ly), dL = Math.abs(lx - (-w/2)), dR = Math.abs(lx - (w/2));
-                            const minD = Math.min(dTop, dBot, dL, dR);
-                            if (minD < 5 && lx > -w/2 - 20 && lx < w/2 + 20 && ly > -20 && ly < l + 20) {
-                                entity.connectedFrom = s.id;
-                                entity.systemId = s.systemId;
-                                if (minD === dTop) { entity.attachEdge = 'top'; entity.attachOffsetX = lx; entity.rotationOffset = 0; }
-                                else if (minD === dBot) { entity.attachEdge = 'bottom'; entity.attachOffsetX = lx; entity.rotationOffset = 180; }
-                                else if (minD === dL) { entity.attachEdge = 'left'; entity.attachOffsetY = ly - l/2; entity.rotationOffset = -90; }
-                                else { entity.attachEdge = 'right'; entity.attachOffsetY = ly - l/2; entity.rotationOffset = 90; }
-                                entity.x = undefined; entity.y = undefined;
-                                if (entity.group) entity.group.draggable(false);
-                                const updateSystemId = (node, sysId) => { node.systemId = sysId; const children = planner.stairs.filter(c => c.connectedFrom === node.id); children.forEach(c => updateSystemId(c, sysId)); }; updateSystemId(entity, s.systemId);
-                                planner.syncAll();
-                                if (this.ctx.stairSystemManager) this.ctx.stairSystemManager.updatePanel(entity);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            if (this.ctx.controls) this.ctx.controls.enabled = true;
-        });
-
         this.initEvents();
     }
 
@@ -499,9 +333,9 @@ export class InteractionSystem {
                     return;
                 }
 
-                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isPattern && !mesh.userData.isStair && !(mesh.userData.entity && (mesh.userData.entity.type === 'stair' || mesh.userData.entity.type === 'stair_landing'))) mesh = mesh.parent;
+                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isPattern && !mesh.userData.isStair && !(mesh.userData.entity && (mesh.userData.entity.type === 'stair' || mesh.userData.entity.type.startsWith('stair_v4')))) mesh = mesh.parent;
                 
-                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isPattern || mesh.userData.isStair || (mesh.userData.entity && (mesh.userData.entity.type === 'stair' || mesh.userData.entity.type === 'stair_landing')))) {
+                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isPattern || mesh.userData.isStair || (mesh.userData.entity && (mesh.userData.entity.type === 'stair' || mesh.userData.entity.type.startsWith('stair_v4'))))) {
                     if (this.mode === 'edit') {
                         if (this.selectedObject === mesh && mesh.userData.isFurniture) {
                             this.setRelocationState(true);
@@ -848,40 +682,25 @@ export class InteractionSystem {
             }
             this.wallHighlight.visible = true;
         } 
-        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor || object.userData.isWidget || object.userData.isPattern || object.userData.isStair || (object.userData.entity && (object.userData.entity.type === 'stair' || object.userData.entity.type === 'stair_landing'))) {
+        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor || object.userData.isWidget || object.userData.isPattern || object.userData.isStair || (object.userData.entity && (object.userData.entity.type === 'stair' || object.userData.entity.type.startsWith('stair_v4')))) {
             if (object.userData.isShape) type = 'shape';
             else if (object.userData.isFurniture) type = 'furniture';
             else if (object.userData.isWallDecor) type = 'wallDecor';
             else if (object.userData.isFloor) type = 'room';
             else if (object.userData.isWidget) type = 'widget';
             else if (object.userData.isPattern) type = 'advance_openings';
-            else if (object.userData.isStair || (object.userData.entity && (object.userData.entity.type === 'stair' || object.userData.entity.type === 'stair_landing'))) type = 'stair';
+            else if (object.userData.isStair || (object.userData.entity && (object.userData.entity.type === 'stair' || object.userData.entity.type.startsWith('stair_v4')))) type = 'stair';
             this.setHighlight(object, true);
                 
-            if (type === 'furniture' || type === 'shape') {
+            if (type === 'furniture' || type === 'shape' || type === 'stair') {
                 if (this.transformControls) {
                     this.transformControls.attach(object);
                     if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
                 }
-            } else if (type === 'widget' || type === 'advance_openings' || type === 'stair') {
+            } else if (type === 'widget' || type === 'advance_openings') {
                 if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
-                if (type === 'stair' && this.ctx.setTransformMode) {
-                    this.ctx.setTransformMode('stair');
-                }
             } else {
                 if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
-            }
-            
-            if (type === 'stair') {
-                if (this.tapTimeout) clearTimeout(this.tapTimeout);
-                this.tapTimeout = setTimeout(() => {
-                    if (this.ctx.stairSystemManager) {
-                        if (this.tapCount === 1) this.ctx.stairSystemManager.setSelectionScope('flight');
-                        else if (this.tapCount === 2) this.ctx.stairSystemManager.setSelectionScope('connected');
-                        else if (this.tapCount >= 3) this.ctx.stairSystemManager.setSelectionScope('system');
-                    }
-                    this.tapCount = 0;
-                }, 350);
             }
             
         }

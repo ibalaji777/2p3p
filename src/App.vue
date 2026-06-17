@@ -129,7 +129,6 @@
         @set-opening-material="setOpeningMaterial"
         @clear-shape-textures="clearShapeTextures"
         @set-shape-material="setShapeMaterial"
-        @add-topology="addTopology"
         @set-roof-material="setRoofMaterial"
         @select-layer-item="selectLayerItem"
         @toggle-layer-visibility="toggleLayerVisibility"
@@ -207,7 +206,7 @@ import { SmartWizardManager } from './core/plugins/SmartWizardManager.js';
 import { SmartFacingPlugin } from './core/plugins/SmartFacingPlugin.js';
 import { SmartWallResizePlugin } from './core/plugins/SmartWallResizePlugin.js';
 
-import { FloorPlanner, PremiumFurniture, PremiumStairV3 } from './core/engine2d/index.js';
+import { FloorPlanner, PremiumFurniture } from './core/engine2d/index.js';
 import { Preview3D } from './core/engine3d.js'; 
 import { WorkspaceControls } from '/src/core/engine3d/WorkspaceControls.js';
 import { ServerClass } from './core/ServerClass.js';
@@ -313,10 +312,9 @@ const menuCategories = ref([
         id: 'structures', name: 'Structures',
         icon: '<path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>',
         tools: [
-            { id: 'stair', name: 'Draw Stairs' },
-            { id: 'staircase_two', name: 'Place Staircase V2' },
-            { id: 'stair_v3', name: 'Smart Stair V3' },
-            { id: 'stair_landing', name: 'Smart Landing V3' },
+            
+            
+            
             { id: 'stair_v4_flight', name: 'Stair Flight (V4)' },
             { id: 'stair_v4_landing', name: 'Landing (V4)' },
             { id: 'stair_v4_landing_curve', name: 'U-Curve Landing (V4)' },
@@ -741,12 +739,12 @@ const handleGlobalKeys = (e) => {
 
     if (viewMode.value === '3d') {
         if (e.key === 'Delete' || e.key === 'Backspace') { 
-            if (selectedType.value === 'furniture' || selectedType.value === 'stair' || selectedType.value === 'staircase_two') { handleDelete(); debouncedSaveHistory(); }
+            if (selectedType.value === 'furniture' || selectedType.value === 'stair' ) { handleDelete(); debouncedSaveHistory(); }
         }
         if (e.key === 'Escape' && renderer3D.value) renderer3D.value.cancelRelocation();
     } else if (viewMode.value === '2d') {
         if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (selectedType.value === 'roof' || selectedType.value === 'furniture' || selectedType.value === 'widget' || selectedType.value === 'advance_openings' || selectedType.value === 'shape' || selectedType.value === 'wall' || selectedType.value === 'arc' || selectedType.value === 'room' || selectedType.value === 'stair' || selectedType.value === 'staircase_two') { handleDelete(); debouncedSaveHistory(); }
+            if (selectedType.value === 'roof' || selectedType.value === 'furniture' || selectedType.value === 'widget' || selectedType.value === 'advance_openings' || selectedType.value === 'shape' || selectedType.value === 'wall' || selectedType.value === 'arc' || selectedType.value === 'room' || selectedType.value === 'stair' ) { handleDelete(); debouncedSaveHistory(); }
         }
         if (e.key === 'Escape') {
             setTool('select');
@@ -1042,69 +1040,6 @@ const onDecorUpdate = (decor) => {
     debouncedSaveHistory();
 };
 
-const addTopology = (type) => {
-    if (!selectedEntity.value) return;
-    const baseEntity = selectedEntity.value;
-    const plannerInstance = planner.value;
-    if (!plannerInstance) return;
-
-    if (baseEntity.type === 'stair_landing') {
-        spawnFlight(baseEntity, type === 'straight' ? 'top' : type === 'l_shape' ? 'right' : type === 'u_shape' ? 'left' : 'bottom', 0, 0, type === 't_shape' ? 180 : 0, plannerInstance);
-        plannerInstance.syncAll();
-        debouncedSaveHistory();
-        return;
-    }
-
-    if (baseEntity.type !== 'stair') return;
-    
-    const w = baseEntity.width || 100;
-    let lWidth = w, lLength = w, aOffsetX = 0;
-    
-    if (type === 'u_shape') { lWidth = w * 2.2; lLength = w; aOffsetX = -w * 0.6; }
-    if (type === 't_shape') { lWidth = w * 3; lLength = w; }
-    if (type === 'y_shape') { lWidth = w * 3; lLength = w * 1.5; }
-    
-    const parentLanding = { 
-        id: 'stair_landing_' + Math.random().toString(36).substr(2, 9), type: 'stair_landing', 
-        systemId: baseEntity.systemId || baseEntity.id, connectedFrom: baseEntity.id, 
-        attachEdge: 'top', attachOffsetX: aOffsetX, attachOffsetY: 0, width: lWidth, length: lLength, thickness: 20, 
-        elevation: (baseEntity.absElev || baseEntity.elevation || 0) + ((baseEntity.stepCount || 10) * (baseEntity.stepHeight || 17.5)) 
-    };
-    injectEntity(parentLanding, plannerInstance);
-    
-    if (type === 'straight') spawnFlight(parentLanding, 'top', 0, 0, 0, plannerInstance);
-    else if (type === 'l_shape') spawnFlight(parentLanding, 'right', 0, 0, 0, plannerInstance);
-    else if (type === 'u_shape') spawnFlight(parentLanding, 'bottom', w * 0.6, 0, 0, plannerInstance);
-    else if (type === 't_shape') { spawnFlight(parentLanding, 'left', 0, 0, 0, plannerInstance); spawnFlight(parentLanding, 'right', 0, 0, 0, plannerInstance); }
-    else if (type === 'y_shape') { spawnFlight(parentLanding, 'top', -w * 0.6, 0, -45, plannerInstance); spawnFlight(parentLanding, 'top', w * 0.6, 0, 45, plannerInstance); }
-    
-    plannerInstance.syncAll();
-    debouncedSaveHistory();
-};
-
-const spawnFlight = (parent, edge, offX, offY, rotOffset, plannerInstance) => {
-    const newFlight = { 
-        id: 'stair_' + Math.random().toString(36).substr(2, 9), type: 'stair', 
-        systemId: parent.systemId || parent.id, connectedFrom: parent.id, 
-        attachEdge: edge, attachOffsetX: offX, attachOffsetY: offY, width: 100, 
-        stepCount: 10, stepHeight: 17.5, stepDepth: 28.0, rotationOffset: rotOffset, 
-        elevation: parent.absElev || parent.elevation || 0 
-    };
-    if (parent.connectedFrom) { const gp = plannerInstance.stairs.find(s => s.id === parent.connectedFrom); if (gp) newFlight.width = gp.width || 100; }
-    injectEntity(newFlight, plannerInstance);
-};
-
-const injectEntity = (ent, plannerInstance) => {
-    
-    if (PremiumStairV3) {
-        const stairV3 = new PremiumStairV3(plannerInstance, ent);
-        plannerInstance.stairs.push(stairV3);
-    } else {
-        ent.update = function() {}; ent.setHighlight = function() {}; ent.remove = function() { plannerInstance.stairs = plannerInstance.stairs.filter(s => s !== this); };
-        plannerInstance.stairs.push(ent);
-    }
-};
-
 const handleDelete = () => { 
     if (selectedEntity.value) {
         if (selectedType.value === 'furniture') {
@@ -1130,7 +1065,7 @@ const handleDelete = () => {
             selectedEntity.value = null;
             selectedType.value = null;
             if (viewMode.value === '3d') refresh3DScene(true);
-        } else if (selectedType.value === 'widget' || selectedType.value === 'advance_openings' || selectedType.value === 'wall' || selectedType.value === 'arc' || selectedType.value === 'stair' || selectedType.value === 'staircase_two') {
+        } else if (selectedType.value === 'widget' || selectedType.value === 'advance_openings' || selectedType.value === 'wall' || selectedType.value === 'arc' || selectedType.value === 'stair' ) {
             selectedEntity.value.remove();
             selectedEntity.value = null;
             selectedType.value = null;
