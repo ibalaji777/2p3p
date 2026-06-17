@@ -47,7 +47,7 @@ export class OpeningGizmo extends THREE.Group {
         const dom = this.ctx.renderer.domElement;
         
         dom.addEventListener('pointerdown', (e) => {
-            if (!this.visible || this.ctx.currentTransformMode !== 'opening') return;
+            if (!this.visible || (this.ctx.currentTransformMode !== 'opening' && this.ctx.currentTransformMode !== 'translate')) return;
             if (e.button !== 0) return;
             this.updateMouse(e);
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
@@ -77,7 +77,7 @@ export class OpeningGizmo extends THREE.Group {
         });
         
         dom.addEventListener('pointermove', (e) => {
-            if (!this.visible || this.ctx.currentTransformMode !== 'opening') return;
+            if (!this.visible || (this.ctx.currentTransformMode !== 'opening' && this.ctx.currentTransformMode !== 'translate')) return;
             this.updateMouse(e);
             
             if (!this.activeHandle) {
@@ -176,8 +176,9 @@ export class OpeningGizmo extends THREE.Group {
         this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     }
 
-    attach(target) {
+    attach(target, mode = 'opening') {
         this.target = target;
+        this.mode = mode;
         this.visible = true;
         this.updateHandles();
     }
@@ -200,13 +201,32 @@ export class OpeningGizmo extends THREE.Group {
         this.position.copy(this.target.getWorldPosition(new THREE.Vector3()));
         this.quaternion.copy(this.target.getWorldQuaternion(new THREE.Quaternion()));
 
-        this.hLeft.position.set(-w/2, h/2, 0);
-        this.hRight.position.set(w/2, h/2, 0);
-        this.hTop.position.set(0, h, 0);
-        this.hBottom.position.set(0, 0, 0);
-        this.hFront.position.set(0, h/2, d/2);
-        this.hBack.position.set(0, h/2, -d/2);
-        this.hCenter.position.set(0, h/2, 0);
+        if (this.mode === 'move') {
+            this.hCenter.visible = true;
+            this.hLeft.visible = false;
+            this.hRight.visible = false;
+            this.hTop.visible = false;
+            this.hBottom.visible = false;
+            this.hFront.visible = false;
+            this.hBack.visible = false;
+            
+            this.hCenter.position.set(0, h/2, 0);
+        } else {
+            this.hCenter.visible = false;
+            this.hLeft.visible = true;
+            this.hRight.visible = true;
+            this.hTop.visible = true;
+            this.hBottom.visible = true;
+            this.hFront.visible = true;
+            this.hBack.visible = true;
+            
+            this.hLeft.position.set(-w/2, h/2, 0);
+            this.hRight.position.set(w/2, h/2, 0);
+            this.hTop.position.set(0, h, 0);
+            this.hBottom.position.set(0, 0, 0);
+            this.hFront.position.set(0, h/2, d/2);
+            this.hBack.position.set(0, h/2, -d/2);
+        }
         
         this.renderOrder = 999;
     }

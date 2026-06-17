@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TransformControls } from './engine3d/TransformControls.js';
-import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from './registry.js';
+import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, DOOR_TYPES, WINDOW_TYPES } from './registry.js';
 import { EnvironmentBuilder } from "./engine3d/engine3d.EnvironmentBuilder.js";
 import { AssetManager  } from "./engine3d/engine3d.AssetManager.js";
 import { DecorManager  } from "./engine3d/engine3d.DecorManager.js";
@@ -90,7 +90,7 @@ export class Preview3D {
         this.xyPanel = document.createElement('div');
         this.xyPanel.style.display = 'none';
         this.xyPanel.style.position = 'absolute';
-        this.xyPanel.style.top = '-90px';
+        this.xyPanel.style.bottom = '100px';
         this.xyPanel.style.left = '50%';
         this.xyPanel.style.transform = 'translateX(-50%)';
         this.xyPanel.style.background = 'rgba(17, 24, 39, 0.95)';
@@ -104,6 +104,7 @@ export class Preview3D {
         this.xyPanel.style.flexDirection = 'column';
         this.xyPanel.style.gap = '8px';
         this.xyPanel.style.width = 'max-content';
+        this.xyPanel.setAttribute('draggable', 'true'); // Make panel draggable
 
         this.xyPanel.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">
@@ -128,7 +129,7 @@ export class Preview3D {
             </div>
         `;
         this.xyPanel.addEventListener('pointerdown', e => e.stopPropagation());
-        this.transformMenu.appendChild(this.xyPanel);
+        this.container.appendChild(this.xyPanel);
 
         this.btnMove = document.createElement('button');
         this.btnMove.className = 'transform-menu-btn';
@@ -176,7 +177,7 @@ export class Preview3D {
         this.openingPanel = document.createElement('div');
         this.openingPanel.style.display = 'none';
         this.openingPanel.style.position = 'absolute';
-        this.openingPanel.style.top = '-160px';
+        this.openingPanel.style.bottom = '100px';
         this.openingPanel.style.left = '50%';
         this.openingPanel.style.transform = 'translateX(-50%)';
         this.openingPanel.style.background = 'rgba(15, 23, 42, 0.9)';
@@ -191,6 +192,7 @@ export class Preview3D {
         this.openingPanel.style.flexDirection = 'column';
         this.openingPanel.style.gap = '10px';
         this.openingPanel.style.width = '240px';
+        this.openingPanel.setAttribute('draggable', 'true'); // Make panel draggable
         this.openingPanel.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
                 <span style="font-size: 11px; font-weight: 800; color: #94a3b8; letter-spacing: 0.5px;">OPENING CONTROLS</span>
@@ -211,20 +213,40 @@ export class Preview3D {
                     <input type="range" id="gizmo-opening-e-range" min="0" max="300" step="1" style="flex: 1; accent-color:#93c5fd;">
                     <input type="number" id="gizmo-opening-e" step="0.1" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 12px; outline: none; text-align: right;">
                 </div>
+                <div style="display: flex; gap: 8px; margin-top: 4px;" id="gizmo-opening-flips">
+                    <button id="gizmo-opening-flip-inout" style="flex: 1; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 4px; padding: 4px; font-size: 11px; cursor: pointer; transition: all 0.2s;">Flip In/Out</button>
+                    <button id="gizmo-opening-flip-lr" style="flex: 1; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 4px; padding: 4px; font-size: 11px; cursor: pointer; transition: all 0.2s;">Flip L/R</button>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px;" id="gizmo-opening-type-container">
+                    <span style="font-size:12px; color:#e2e8f0; font-weight:600; width: 45px;">Type</span>
+                    <select id="gizmo-opening-type" style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 4px; font-size: 11px; border-radius: 4px; outline: none;"></select>
+                </div>
             </div>
         `;
         this.openingPanel.addEventListener('pointerdown', e => e.stopPropagation());
-        this.transformMenu.appendChild(this.openingPanel);
+        this.container.appendChild(this.openingPanel);
         this.transformMenu.appendChild(this.btnOpening);
         
         this.btnDone = document.createElement('button');
-        this.btnDone.className = 'transform-menu-btn done-btn';
-        this.btnDone.innerHTML = '✓<br>Done';
-        this.btnDone.style.top = '25px';
-        this.btnDone.style.left = '38px';
-        this.btnDone.style.background = 'rgba(16, 185, 129, 0.9)';
-        this.btnDone.style.borderColor = 'rgba(52, 211, 153, 1)';
+        this.btnDone.className = 'done-btn';
+        this.btnDone.innerHTML = '✓ Done';
+        this.btnDone.style.position = 'absolute';
+        this.btnDone.style.bottom = '40px';
+        this.btnDone.style.left = '50%';
+        this.btnDone.style.transform = 'translateX(-50%)';
+        this.btnDone.style.background = 'rgba(16, 185, 129, 0.95)';
+        this.btnDone.style.border = '2px solid rgba(52, 211, 153, 1)';
+        this.btnDone.style.color = 'white';
+        this.btnDone.style.padding = '10px 30px';
+        this.btnDone.style.borderRadius = '30px';
+        this.btnDone.style.fontWeight = 'bold';
+        this.btnDone.style.fontSize = '15px';
+        this.btnDone.style.boxShadow = '0 4px 15px rgba(0,0,0,0.4)';
+        this.btnDone.style.cursor = 'pointer';
+        this.btnDone.style.zIndex = '1000';
         this.btnDone.style.display = 'none';
+        this.btnDone.style.alignItems = 'center';
+        this.btnDone.style.justifyContent = 'center';
         this.btnDone.onclick = () => this.setTransformMode('none');
 
         this.transformMenu.appendChild(this.btnMove);
@@ -232,9 +254,12 @@ export class Preview3D {
         this.transformMenu.appendChild(this.btnScale);
         this.transformMenu.appendChild(this.btnRotX);
         this.transformMenu.appendChild(this.btnRotY);
-        this.transformMenu.appendChild(this.btnDone);
         
         this.container.appendChild(this.transformMenu);
+        this.container.appendChild(this.btnDone);
+
+        this._makePanelDraggable(this.xyPanel);
+        this._makePanelDraggable(this.openingPanel);
 
         setTimeout(() => {
             this.inputX = document.getElementById('gizmo-x');
@@ -304,6 +329,45 @@ export class Preview3D {
             if (opW) { opW.addEventListener('input', e => updateOpeningPos('width', parseFloat(e.target.value))); opWR.addEventListener('input', e => updateOpeningPos('width', parseFloat(e.target.value))); }
             if (opH) { opH.addEventListener('input', e => updateOpeningPos('height', parseFloat(e.target.value))); opHR.addEventListener('input', e => updateOpeningPos('height', parseFloat(e.target.value))); }
             if (opE) { opE.addEventListener('input', e => updateOpeningPos('elevation', parseFloat(e.target.value))); opER.addEventListener('input', e => updateOpeningPos('elevation', parseFloat(e.target.value))); }
+            
+            const flipInOutBtn = document.getElementById('gizmo-opening-flip-inout');
+            const flipLRBtn = document.getElementById('gizmo-opening-flip-lr');
+            const typeSelect = document.getElementById('gizmo-opening-type');
+
+            if (flipInOutBtn) {
+                flipInOutBtn.addEventListener('click', () => {
+                    if (this.interactions.selectedObject && this.interactions.selectedObject.userData.entity) {
+                        const entity = this.interactions.selectedObject.userData.entity;
+                        entity.facing = (entity.facing === 1) ? -1 : 1;
+                        if (window.plannerInstance && window.plannerInstance.syncAll) window.plannerInstance.syncAll();
+                        if (this.interactions.openingGizmo) this.interactions.openingGizmo.updateHandles();
+                        window.dispatchEvent(new CustomEvent('opening-gizmo-change', { detail: { entity }}));
+                    }
+                });
+            }
+            if (flipLRBtn) {
+                flipLRBtn.addEventListener('click', () => {
+                    if (this.interactions.selectedObject && this.interactions.selectedObject.userData.entity) {
+                        const entity = this.interactions.selectedObject.userData.entity;
+                        entity.side = (entity.side === 1) ? -1 : 1;
+                        if (window.plannerInstance && window.plannerInstance.syncAll) window.plannerInstance.syncAll();
+                        if (this.interactions.openingGizmo) this.interactions.openingGizmo.updateHandles();
+                        window.dispatchEvent(new CustomEvent('opening-gizmo-change', { detail: { entity }}));
+                    }
+                });
+            }
+            if (typeSelect) {
+                typeSelect.addEventListener('change', (e) => {
+                    if (this.interactions.selectedObject && this.interactions.selectedObject.userData.entity) {
+                        const entity = this.interactions.selectedObject.userData.entity;
+                        if (entity.type === 'door') entity.doorType = e.target.value;
+                        else if (entity.type === 'window') entity.windowType = e.target.value;
+                        if (window.plannerInstance && window.plannerInstance.syncAll) window.plannerInstance.syncAll();
+                        if (this.interactions.openingGizmo) this.interactions.openingGizmo.updateHandles();
+                        window.dispatchEvent(new CustomEvent('opening-gizmo-change', { detail: { entity }}));
+                    }
+                });
+            }
         }, 100);
 
         this.interactions.transformControls.addEventListener('change', () => {
@@ -333,12 +397,139 @@ export class Preview3D {
         const opHR = document.getElementById('gizmo-opening-h-range');
         const opE = document.getElementById('gizmo-opening-e');
         const opER = document.getElementById('gizmo-opening-e-range');
+        const flipContainer = document.getElementById('gizmo-opening-flips');
+        const typeContainer = document.getElementById('gizmo-opening-type-container');
+        const typeSelect = document.getElementById('gizmo-opening-type');
+
         const w = entity.width || 100;
         let h = entity.height; if (h === undefined) h = (entity.type === 'door') ? 80 : ((entity.type === 'window') ? 45 : 200);
         let e = entity.elevation; if (e === undefined) e = (entity.type === 'window') ? 35 : 0;
         if (opW && document.activeElement !== opW) opW.value = w.toFixed(1); if (opWR && document.activeElement !== opWR) opWR.value = w.toFixed(1);
         if (opH && document.activeElement !== opH) opH.value = h.toFixed(1); if (opHR && document.activeElement !== opHR) opHR.value = h.toFixed(1);
         if (opE && document.activeElement !== opE) opE.value = e.toFixed(1); if (opER && document.activeElement !== opER) opER.value = e.toFixed(1);
+
+        if (flipContainer) {
+            flipContainer.style.display = (entity.type === 'door' || entity.type === 'window') ? 'flex' : 'none';
+        }
+        if (typeContainer && typeSelect) {
+            if (entity.type === 'door') {
+                typeContainer.style.display = 'flex';
+                if (typeSelect.dataset.currentType !== 'door') {
+                    typeSelect.innerHTML = '';
+                    for (const [key, val] of Object.entries(DOOR_TYPES)) {
+                        const opt = document.createElement('option');
+                        opt.value = key;
+                        opt.textContent = val.label;
+                        typeSelect.appendChild(opt);
+                    }
+                    typeSelect.dataset.currentType = 'door';
+                }
+                typeSelect.value = entity.doorType;
+            } else if (entity.type === 'window') {
+                typeContainer.style.display = 'flex';
+                if (typeSelect.dataset.currentType !== 'window') {
+                    typeSelect.innerHTML = '';
+                    for (const [key, val] of Object.entries(WINDOW_TYPES)) {
+                        const opt = document.createElement('option');
+                        opt.value = key;
+                        opt.textContent = val.label;
+                        typeSelect.appendChild(opt);
+                    }
+                    typeSelect.dataset.currentType = 'window';
+                }
+                typeSelect.value = entity.windowType;
+            } else {
+                typeContainer.style.display = 'none';
+            }
+        }
+    }
+
+    /**
+     * Makes a given HTML panel element draggable within the 3D container.
+     * @param {HTMLElement} panel The panel element to make draggable.
+     */
+    _makePanelDraggable(panel) {
+        panel.removeAttribute('draggable');
+        panel.style.touchAction = 'none'; // Prevent browser scrolling on mobile during drag
+
+        let isDragging = false;
+        let startX = 0, startY = 0;
+        let initialLeft = 0, initialTop = 0;
+        let containerRect, panelRect;
+
+        panel.style.cursor = 'grab';
+
+        const onPointerDown = (e) => {
+            const ignoreTags = ['INPUT', 'BUTTON', 'SELECT', 'TEXTAREA', 'LABEL', 'OPTION'];
+            if (ignoreTags.includes(e.target.tagName) || e.target.closest('input, button, select, textarea, label')) {
+                return;
+            }
+
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (isDragging) return;
+            isDragging = true;
+            panel.style.cursor = 'grabbing';
+
+            containerRect = this.container.getBoundingClientRect();
+            panelRect = panel.getBoundingClientRect();
+
+            if (panel.style.bottom !== 'auto' && panel.style.bottom !== '') {
+                panel.style.top = `${panelRect.top - containerRect.top}px`;
+                panel.style.bottom = 'auto';
+            }
+            if (panel.style.transform !== 'none' && panel.style.transform !== '') {
+                panel.style.left = `${panelRect.left - containerRect.left}px`;
+                panel.style.transform = 'none';
+            }
+            
+            initialLeft = parseFloat(panel.style.left) || (panelRect.left - containerRect.left);
+            initialTop = parseFloat(panel.style.top) || (panelRect.top - containerRect.top);
+
+            panel.style.left = `${initialLeft}px`;
+            panel.style.top = `${initialTop}px`;
+
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            window.addEventListener('pointermove', onPointerMove, { passive: false });
+            window.addEventListener('pointerup', onPointerUp);
+            window.addEventListener('pointercancel', onPointerUp);
+        };
+
+        const onPointerMove = (e) => {
+            if (!isDragging) return;
+            e.preventDefault(); 
+            
+            let dx = e.clientX - startX;
+            let dy = e.clientY - startY;
+            
+            let newLeft = initialLeft + dx;
+            let newTop = initialTop + dy;
+            
+            const maxLeft = containerRect.width - panelRect.width;
+            const maxTop = containerRect.height - panelRect.height;
+            
+            newLeft = Math.max(0, Math.min(newLeft, maxLeft));
+            newTop = Math.max(0, Math.min(newTop, maxTop));
+            
+            panel.style.left = `${newLeft}px`;
+            panel.style.top = `${newTop}px`;
+        };
+
+        const onPointerUp = (e) => {
+            if (!isDragging) return;
+            isDragging = false;
+            panel.style.cursor = 'grab';
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', onPointerUp);
+            window.removeEventListener('pointercancel', onPointerUp);
+        };
+        
+        panel.addEventListener('pointerdown', onPointerDown);
     }
 
     resize() {
@@ -401,7 +592,7 @@ export class Preview3D {
             tc.enabled = false;
             tc.showX = false; tc.showY = false; tc.showZ = false;
             
-            this.btnMove.style.display = isOpening ? 'none' : 'flex';
+            this.btnMove.style.display = 'flex';
             if (this.btnPlace) this.btnPlace.style.display = isOpening ? 'none' : 'flex';
             if (this.btnScale) this.btnScale.style.display = isOpening ? 'none' : 'flex';
             this.btnRotX.style.display = isOpening ? 'none' : 'flex';
@@ -441,13 +632,23 @@ export class Preview3D {
             if (this.openingPanel) this.openingPanel.style.display = 'flex';
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.interactions.openingGizmo && selectedObj) {
-                this.interactions.openingGizmo.attach(selectedObj);
+                this.interactions.openingGizmo.attach(selectedObj, 'opening');
                 this.updateOpeningPanel(selectedObj.userData.entity);
             }
             return;
         }
 
         if (mode === 'translate') {
+            if (isOpening) {
+                tc.visible = false;
+                tc.enabled = false;
+                this.btnMove.classList.add('active');
+                if (this.xyPanel) this.xyPanel.style.display = 'none';
+                if (this.interactions.openingGizmo && selectedObj) {
+                    this.interactions.openingGizmo.attach(selectedObj, 'move');
+                }
+                return;
+            }
             tc.mode = 'translate';
             tc.showTranslate = true; tc.showRotate = false; tc.showScale = false;
             tc.showX = true; tc.showY = false; tc.showZ = true; // Drag only on floor plane
