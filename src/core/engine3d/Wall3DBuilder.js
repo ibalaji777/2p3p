@@ -122,6 +122,24 @@ export class Wall3DBuilder {
             shearGeo(wallGeo);
         }
 
+        // Manually generate UVs to prevent texture stretching across openings.
+        // This applies a planar mapping based on the wall's local coordinates,
+        // ensuring the texture tiles correctly regardless of holes.
+        const positions = wallGeo.attributes.position;
+        const normals = wallGeo.attributes.normal;
+        if (wallGeo.attributes.uv) {
+            const uvs = wallGeo.attributes.uv;
+            const TILE_SIZE = 100; // Represents the world-space size of one texture tile (e.g., 1m).
+
+            for (let i = 0; i < positions.count; i++) {
+                // Only apply to front and back faces (where normal is along the local Z-axis).
+                if (Math.abs(normals.getZ(i)) > 0.99) {
+                    uvs.setXY(i, positions.getX(i) / TILE_SIZE, positions.getY(i) / TILE_SIZE);
+                }
+            }
+            uvs.needsUpdate = true;
+        }
+
         let materials = [this.matMain, this.matEdgeDark];
         
         if (wallData.type === 'railing') {

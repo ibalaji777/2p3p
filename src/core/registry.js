@@ -283,9 +283,12 @@ export const WIDGET_REGISTRY = {
             }
         },
         render3D: (sceneGroup, entity, helpers) => {
-            let elev = entity.elevation; if (elev === undefined) elev = 0;
-            let height = entity.height; if (height === undefined) height = DOOR_HEIGHT;
-            const doorGroup = new THREE.Group(); doorGroup.position.set(entity.x, elev, entity.z); doorGroup.rotation.y = -entity.angle;
+            let baseElev = entity.elevation || 0;
+            let rawHeight = entity.height || DOOR_HEIGHT;
+            let bottomY = Math.max(0.2, baseElev); // Prevent frame from sinking into floor
+            let topY = baseElev + rawHeight;
+            let height = topY - bottomY;
+            const doorGroup = new THREE.Group(); doorGroup.position.set(entity.x, bottomY, entity.z); doorGroup.rotation.y = -entity.angle;
             const matDoor = helpers.getDynamicMaterial(entity.doorMat, 'door'); const conf = DOOR_MATERIALS[entity.doorMat] || DOOR_MATERIALS.wood; const frameColorHex = new THREE.Color(conf.color).multiplyScalar(0.85);
             const matFrame = new THREE.MeshStandardMaterial({ color: frameColorHex, roughness: conf.roughness, metalness: conf.metalness, map: matDoor.map, bumpMap: matDoor.bumpMap, bumpScale: conf.bumpScale });
             const metalMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8, roughness: 0.2 });
@@ -295,7 +298,7 @@ export const WIDGET_REGISTRY = {
             
             const thresholdGeo = new THREE.BoxGeometry(entity.width, 0.4, (entity.thick || 20) + 0.5);
             const threshold = new THREE.Mesh(thresholdGeo, matFrame);
-            threshold.position.set(0, 0.2, 0);
+            threshold.position.set(0, 0, 0);
             threshold.receiveShadow = true; threshold.castShadow = true;
             doorGroup.add(threshold);
             
@@ -372,9 +375,12 @@ export const WIDGET_REGISTRY = {
             if (entity.grillePattern !== 'none') { group.add(new Konva.Line({ points: [-hw, thick*0.4, hw, thick*0.4], stroke: '#ef4444', dash: [2,2] })); }
         },
         render3D: (sceneGroup, entity, helpers) => {
-            let elev = entity.elevation; if (elev === undefined) elev = WINDOW_SILL;
-            let height = entity.height; if (height === undefined) height = WINDOW_HEIGHT;
-            const winGroup = new THREE.Group(); winGroup.position.set(entity.x, elev, entity.z); winGroup.rotation.y = -entity.angle;
+            let baseElev = entity.elevation !== undefined ? entity.elevation : WINDOW_SILL;
+            let rawHeight = entity.height !== undefined ? entity.height : WINDOW_HEIGHT;
+            let bottomY = Math.max(0.2, baseElev);
+            let topY = baseElev + rawHeight;
+            let height = topY - bottomY;
+            const winGroup = new THREE.Group(); winGroup.position.set(entity.x, bottomY, entity.z); winGroup.rotation.y = -entity.angle;
             const wConf = WINDOW_TYPES[entity.windowType] || WINDOW_TYPES.sliding_std;
             const matFrame = helpers.getDynamicMaterial(entity.frameMat, 'window_frame'); const matGlass = helpers.getDynamicMaterial(entity.glassMat, 'window_glass');
             const isTrad = wConf.type === 'traditional'; const isBay = wConf.type === 'bay'; const fW = isTrad ? 5 : 3; const fThick = entity.thick + (isTrad ? 4 : 1); const zOffset = isBay ? 12 : 0; 

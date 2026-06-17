@@ -113,24 +113,26 @@ export class DecorManager {
 
             if (local_wx_max <= -w/2 || local_wx_min >= w/2 || local_wy_max <= -h/2 || local_wy_min >= h/2) return;
             
-            let cut_iy_min = local_wy_min;
-            if (Math.abs(cut_iy_min - (-h/2)) < 0.1) cut_iy_min -= 1;
+            // Constrain hole to decor boundaries to prevent Earcut triangulation failures
+            local_wx_min = Math.max(-w/2, local_wx_min);
+            local_wx_max = Math.min(w/2, local_wx_max);
+            const cut_iy_min = Math.max(-h/2, local_wy_min);
+            const yMax = Math.min(h/2, local_wy_max);
 
             const hole = new THREE.Path();
             const hCenter = (local_wx_min + local_wx_max) / 2;
             const halfW_hole = (local_wx_max - local_wx_min) / 2;
-            const hole_h = local_wy_max - local_wy_min;
-            const yMid = local_wy_min + hole_h / 2;
-            const yMax = local_wy_max;
+            const hole_h = yMax - cut_iy_min;
+            const yMid = cut_iy_min + hole_h / 2;
 
             if (type === 'arch_opening') {
                 const radius = halfW_hole;
                 const straightH = Math.max(0, hole_h - radius);
                 hole.moveTo(local_wx_min, cut_iy_min);
                 hole.lineTo(local_wx_max, cut_iy_min);
-                hole.lineTo(local_wx_max, local_wy_min + straightH);
-                if (radius > 0) hole.absarc(hCenter, local_wy_min + straightH, radius, 0, Math.PI, false);
-                else hole.lineTo(local_wx_min, local_wy_min + straightH);
+                hole.lineTo(local_wx_max, cut_iy_min + straightH);
+                if (radius > 0) hole.absarc(hCenter, cut_iy_min + straightH, radius, 0, Math.PI, false);
+                else hole.lineTo(local_wx_min, cut_iy_min + straightH);
                 hole.lineTo(local_wx_min, cut_iy_min);
             } else if (type === 'circular_opening') {
                 hole.moveTo(local_wx_max, yMid);
@@ -195,6 +197,25 @@ export class DecorManager {
                 boxMesh.geometry.computeBoundingSphere();
             }
             // ===============================================
+
+            // Manually generate UVs for the main decor face to respect openings and ensure continuous texture.
+            // This applies a planar mapping based on the wall's absolute coordinate system.
+            const positions = boxMesh.geometry.attributes.position;
+            const normals = boxMesh.geometry.attributes.normal;
+            const uvs = boxMesh.geometry.attributes.uv;
+            const TILE_SIZE = entity.tileSize || 40;
+
+            for (let i = 0; i < positions.count; i++) {
+                // Only apply to front and back faces of the decor mesh (where normal is along the local Z-axis).
+                if (Math.abs(normals.getZ(i)) > 0.99) {
+                    // The decor mesh geometry is created relative to its own center.
+                    // We offset by the decor's position on the wall (posX, posY) to get absolute coordinates for seamless mapping.
+                    const worldX = isFront ? (posX + positions.getX(i)) : (posX - positions.getX(i));
+                    const worldY = posY + positions.getY(i);
+                    uvs.setXY(i, worldX / TILE_SIZE, worldY / TILE_SIZE);
+                }
+            }
+            uvs.needsUpdate = true;
         }
         
 
@@ -206,14 +227,15 @@ export class DecorManager {
         let matSide = new THREE.MeshBasicMaterial({ visible: false });
 
         if (texture) {
-            const tileSize = entity.tileSize || 1;
+            const TILE_SIZE = entity.tileSize || 40;
             let texFront = texture.clone(); texFront.wrapS = texFront.wrapT = THREE.RepeatWrapping; if (THREE.SRGBColorSpace) texFront.colorSpace = THREE.SRGBColorSpace;
-            texFront.repeat.set(1 / tileSize, 1 / tileSize);
+            texFront.repeat.set(1, 1); // Repeat is 1x1 because tiling is handled by the UV coordinates.
             matFront = new THREE.MeshStandardMaterial({ map: texFront, color: 0xffffff });
 
-            let texSide = texture.clone(); texSide.wrapS = texSide.wrapT = THREE.RepeatWrapping; if (THREE.SRGBColorSpace) texSide.colorSpace = THREE.SRGBColorSpace;
-            texSide.repeat.set(1 / tileSize, 1 / tileSize);
-            matSide = new THREE.MeshStandardMaterial({ map: texSide, color: 0xffffff });
+            // For the side faces (including inside the openings), use a solid color
+            // Using MeshBasicMaterial ensures no lighting/reflection artifacts appear on the inside surfaces.
+            // This provides a clean, solid color for the "cut" part of the decor.
+            matSide = new THREE.MeshBasicMaterial({ color: 0x888888 });
         } else {
             matFront = new THREE.MeshStandardMaterial({ color: 0xe5e7eb });
             matSide = new THREE.MeshStandardMaterial({ color: 0xcccccc });
