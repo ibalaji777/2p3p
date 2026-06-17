@@ -3,9 +3,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TransformControls } from './engine3d/TransformControls.js';
-import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from './registry.js';
+import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from './registry.js';
 import { EnvironmentBuilder } from "./engine3d/engine3d.EnvironmentBuilder.js";
-import { Stair3DBuilder  } from "./engine3d/engine3d.Stair3DBuilder.js";
 import { AssetManager  } from "./engine3d/engine3d.AssetManager.js";
 import { DecorManager  } from "./engine3d/engine3d.DecorManager.js";
 import { FurnitureManager  } from "./engine3d/engine3d.FurnitureManager.js";
@@ -54,20 +53,28 @@ export class Preview3D {
                 
                 if (!conf) return new THREE.MeshStandardMaterial();
                 
+                if (conf.transmission) {
+                    return new THREE.MeshPhysicalMaterial({
+                        color: conf.color,
+                        roughness: conf.roughness !== undefined ? conf.roughness : 0.5,
+                        metalness: conf.metalness !== undefined ? conf.metalness : 0.1,
+                        transmission: conf.transmission,
+                        ior: conf.ior || 1.5,
+                        transparent: true
+                    });
+                }
+                
                 return new THREE.MeshStandardMaterial({
                     color: conf.color,
                     roughness: conf.roughness !== undefined ? conf.roughness : 0.5,
                     metalness: conf.metalness !== undefined ? conf.metalness : 0.1,
-                    transmission: conf.transmission || 0,
-                    ior: conf.ior || 1.5,
                     transparent: conf.transparent || false,
-                    opacity: conf.transmission ? (1 - conf.transmission) : 1
+                    opacity: conf.opacity !== undefined ? conf.opacity : 1
                 });
             }
         };
 
         this.envBuilder = new EnvironmentBuilder(this);
-        this.stairBuilder = new Stair3DBuilder(this.assets, this.interactables);
         this.decorManager = new DecorManager(this);
         this.furnitureManager = new FurnitureManager(this);
         this.interactions = new InteractionSystem(this);
@@ -704,7 +711,6 @@ export class Preview3D {
 
         if (isActiveVisible) {
             this.envBuilder.buildActiveFloor(walls, rooms, shapes, stairs);
-            this.stairBuilder.build(stairs, this.structureGroup, activeIndex);
             if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn));
 
             if (roofs && roofs.length > 0) this.envBuilder.buildRoofs(roofs, activeIndex, walls, this.structureGroup);

@@ -3,7 +3,6 @@ import { Wall3DBuilder } from './Wall3DBuilder.js';
 import { RailingBuilder } from './RailingBuilder.js';
 import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, WALL_DECOR_REGISTRY } from '../registry.js';
 
-import { Stair3DBuilder } from './Stair3DBuilder.js';
 
 export class ActiveFloor {
     constructor(assets, decorManager, interactables, structureGroup, callbacks = {}) {
@@ -25,14 +24,22 @@ export class ActiveFloor {
                 
                 if (!conf) return new THREE.MeshStandardMaterial();
                 
+                if (conf.transmission) {
+                    return new THREE.MeshPhysicalMaterial({
+                        color: conf.color,
+                        roughness: conf.roughness !== undefined ? conf.roughness : 0.5,
+                        metalness: conf.metalness !== undefined ? conf.metalness : 0.1,
+                        transmission: conf.transmission,
+                        ior: conf.ior || 1.5,
+                        transparent: true
+                    });
+                }
                 return new THREE.MeshStandardMaterial({
                     color: conf.color,
                     roughness: conf.roughness !== undefined ? conf.roughness : 0.5,
                     metalness: conf.metalness !== undefined ? conf.metalness : 0.1,
-                    transmission: conf.transmission || 0,
-                    ior: conf.ior || 1.5,
                     transparent: conf.transparent || false,
-                    opacity: conf.transmission ? (1 - conf.transmission) : 1
+                    opacity: conf.opacity !== undefined ? conf.opacity : 1
                 });
             }
         };
@@ -205,7 +212,6 @@ export class ActiveFloor {
 
     _buildSlabs(rooms, stairs = [], targetGroup = this.structureGroup) {
         if (!rooms) return;
-        const stairHoles = Stair3DBuilder.getStairHoles(stairs);
 
         rooms.forEach(room => {
             if (room.isDeleted || room.isHidden) return;
@@ -215,8 +221,6 @@ export class ActiveFloor {
             floorShape.moveTo(path[0].x, path[0].y);
             for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
             
-            stairHoles.forEach(hole => floorShape.holes.push(hole));
-
             const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
             floorGeo.rotateX(Math.PI / 2);
             floorGeo.translate(0, 0.2, 0);

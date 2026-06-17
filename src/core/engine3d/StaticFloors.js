@@ -21,20 +21,29 @@ export class StaticFloors {
                 
                 if (!conf) return new THREE.MeshStandardMaterial();
                 
+                if (conf.transmission) {
+                    return new THREE.MeshPhysicalMaterial({
+                        color: conf.color,
+                        roughness: conf.roughness !== undefined ? conf.roughness : 0.5,
+                        metalness: conf.metalness !== undefined ? conf.metalness : 0.1,
+                        transmission: conf.transmission,
+                        ior: conf.ior || 1.5,
+                        transparent: true
+                    });
+                }
+                
                 return new THREE.MeshStandardMaterial({
                     color: conf.color,
                     roughness: conf.roughness !== undefined ? conf.roughness : 0.5,
                     metalness: conf.metalness !== undefined ? conf.metalness : 0.1,
-                    transmission: conf.transmission || 0,
-                    ior: conf.ior || 1.5,
                     transparent: conf.transparent || false,
-                    opacity: conf.transmission ? (1 - conf.transmission) : 1
+                    opacity: conf.opacity !== undefined ? conf.opacity : 1
                 });
             }
         };
     }
 
-    build(levelsConfigArray, activeIndex, viewMode3D, staticStructureGroup) {
+    build(levelsConfigArray, activeIndex, viewMode3D, stairs = [], staticStructureGroup) {
         const isPreview = viewMode3D === 'preview';
 
         levelsConfigArray.forEach((levelConfig, index) => {
@@ -48,7 +57,6 @@ export class StaticFloors {
 
                 // Build Slabs
                 if (data.rooms) {
-                    const stairHoles = Stair3DBuilder.getStairHoles(data.stairs || []);
                     data.rooms.forEach(room => {
                         const path = room.path;
                         if (!path || path.length < 3) return;
@@ -56,8 +64,6 @@ export class StaticFloors {
                         floorShape.moveTo(path[0].x, path[0].y);
                         for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
                         
-                        stairHoles.forEach(hole => floorShape.holes.push(hole));
-
                         const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
                         floorGeo.rotateX(Math.PI / 2);
                         floorGeo.translate(0, 0.2, 0);

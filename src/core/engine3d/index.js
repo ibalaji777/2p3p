@@ -11,7 +11,6 @@ import { FurnitureManager } from './FurnitureManager.js';
 import { InteractionSystem } from './InteractionSystem.js';
 import { ActiveFloor } from './ActiveFloor.js';
 import { StaticFloors } from './StaticFloors.js';
-import { Stair3DBuilder } from './Stair3DBuilder.js';
 
 export class Preview3D {
     constructor(containerEl) {
@@ -77,7 +76,6 @@ export class Preview3D {
         // 3. Initialize Floor Builders
         this.activeFloorBuilder = new ActiveFloor(this.assets, this.decorManager, this.interactables, this.structureGroup, { updatePatternLive: (w) => this.updatePatternLive(w) });
         this.staticFloorBuilder = new StaticFloors(this.assets, this.decorManager, this.interactables, { updatePatternLive: (w) => this.updatePatternLive(w) });
-        this.stairBuilder = new Stair3DBuilder(this.assets, this.interactables);
 
         // Env Maps
         const pmremGenerator = new THREE.PMREMGenerator(this.renderer); 
@@ -362,12 +360,11 @@ export class Preview3D {
         if (isActiveVisible) {
             this.activeFloorBuilder.build(walls, roomPaths, roofs, shapes, stairs, activeIndex, activeOffset);
             if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn, activeOffset));
-            this.stairBuilder.build(stairs, activeOffset, activeIndex);
         }
 
         // BUILD STATIC
         if (levelsConfigArray.length > 0) {
-            this.staticFloorBuilder.build(levelsConfigArray, activeIndex, viewMode3D, staticOffset);
+            this.staticFloorBuilder.build(levelsConfigArray, activeIndex, viewMode3D, stairs, staticOffset);
         }
 
         // CAMERA PANNING

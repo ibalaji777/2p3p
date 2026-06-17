@@ -333,9 +333,9 @@ export class InteractionSystem {
                     return;
                 }
 
-                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isPattern && !mesh.userData.isStair && !(mesh.userData.entity && (mesh.userData.entity.type === 'stair' || mesh.userData.entity.type.startsWith('stair_v4')))) mesh = mesh.parent;
+                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isPattern) mesh = mesh.parent;
                 
-                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isPattern || mesh.userData.isStair || (mesh.userData.entity && (mesh.userData.entity.type === 'stair' || mesh.userData.entity.type.startsWith('stair_v4'))))) {
+                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isPattern)) {
                     if (this.mode === 'edit') {
                         if (this.selectedObject === mesh && mesh.userData.isFurniture) {
                             this.setRelocationState(true);
@@ -682,17 +682,16 @@ export class InteractionSystem {
             }
             this.wallHighlight.visible = true;
         } 
-        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor || object.userData.isWidget || object.userData.isPattern || object.userData.isStair || (object.userData.entity && (object.userData.entity.type === 'stair' || object.userData.entity.type.startsWith('stair_v4')))) {
+        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor || object.userData.isWidget || object.userData.isPattern) {
             if (object.userData.isShape) type = 'shape';
             else if (object.userData.isFurniture) type = 'furniture';
             else if (object.userData.isWallDecor) type = 'wallDecor';
             else if (object.userData.isFloor) type = 'room';
             else if (object.userData.isWidget) type = 'widget';
             else if (object.userData.isPattern) type = 'advance_openings';
-            else if (object.userData.isStair || (object.userData.entity && (object.userData.entity.type === 'stair' || object.userData.entity.type.startsWith('stair_v4')))) type = 'stair';
             this.setHighlight(object, true);
                 
-            if (type === 'furniture' || type === 'shape' || type === 'stair') {
+            if (type === 'furniture' || type === 'shape') {
                 if (this.transformControls) {
                     this.transformControls.attach(object);
                     if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
