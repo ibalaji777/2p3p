@@ -238,10 +238,7 @@ export class InteractionSystem {
         this.mode = 'edit';
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
-        this.dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-        this.dragOffset = new THREE.Vector3();
         this.selectedObject = null;
-        this.isPlacing = false;
         
         this.tapCount = 0;
         this.lastTapTime = 0;
@@ -251,13 +248,6 @@ export class InteractionSystem {
         const mat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false });
         this.wallHighlight = new THREE.Mesh(geo, mat);
         this.wallHighlight.visible = false;
-
-        this.dropGroup = new THREE.Group();
-        this.dropHighlight = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false }));
-        this.dropHighlight.rotation.x = -Math.PI / 2;
-        this.dropGroup.add(this.dropHighlight);
-        this.dropGroup.visible = false;
-        this.ctx.scene.add(this.dropGroup);
 
         this.transformControls = new TransformControls(this.ctx.camera, this.ctx.renderer.domElement);
         this.transformControls.addEventListener('dragstart', () => {
@@ -323,18 +313,6 @@ export class InteractionSystem {
                 return;
             }
 
-            if (this.mode === 'edit' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isFurniture) {
-                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-                const target = new THREE.Vector3();
-                if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
-                    this.selectedObject.position.set(target.x, 0, target.z);
-                    this.setRelocationState(false);
-                    this.ctx.syncToUI();
-                    if (this.ctx.controls) this.ctx.controls.enabled = true;
-                }
-                return;
-            }
-
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
             const intersects = this.raycaster.intersectObjects(this.ctx.interactables, true);
             if (intersects.length > 0) {
@@ -357,21 +335,7 @@ export class InteractionSystem {
                 
                 if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isPattern)) {
                     if (this.mode === 'edit') {
-                        if (this.selectedObject === mesh && mesh.userData.isFurniture) {
-                            this.setRelocationState(true);
-                            this.dragPlane.set(new THREE.Vector3(0, 1, 0), -this.ctx.structureGroup.position.y); 
-                            if (this.ctx.controls) this.ctx.controls.enabled = false;
-                        } else if (this.selectedObject === mesh && mesh.userData.isWallDecor) {
-                                const wallNormal = new THREE.Vector3(0,0,1).applyEuler(mesh.parent.rotation);
-                                this.dragPlane.setFromNormalAndCoplanarPoint(wallNormal, mesh.getWorldPosition(new THREE.Vector3()));
-                                this.isPlacing = true;
-                                dom.style.cursor = 'grabbing';
-                                const target = new THREE.Vector3();
-                                if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) this.dragOffset.copy(mesh.position).sub(mesh.parent.worldToLocal(target));
-                                if (this.ctx.controls) this.ctx.controls.enabled = false;
-                        } else {
-                            this.selectObject(mesh);
-                        }
+                        this.selectObject(mesh);
                     }
                 }
             } else this.deselect();
@@ -392,115 +356,34 @@ export class InteractionSystem {
                 return;
             }
 
-            if (this.mode === 'edit' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isFurniture) {
-                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-                const target = new THREE.Vector3();
-                if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) this.dropGroup.position.set(target.x, this.ctx.structureGroup.position.y + 0.5, target.z);
-            } 
-            else if (this.mode === 'edit' && this.isPlacing && this.selectedObject && this.selectedObject.userData.isWallDecor) {
-                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-                const target = new THREE.Vector3();
-                if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
-                    const wallGroup = this.selectedObject.parent;
-                    const localTarget = wallGroup.worldToLocal(target.clone()).add(this.dragOffset);
-                    const entity = this.selectedObject.userData.entity, wallData = wallGroup.userData.entity;
-                    let visualLocalX = entity.side === 'back' ? wallData.length3D - localTarget.x : localTarget.x;
-                    
-                    const wallH = wallData.height || wallData.config?.height || WALL_HEIGHT;
-                    
-                    entity.localX = Math.max(-10, Math.min((visualLocalX / wallData.length3D) * 100, 110));
-                    entity.localY = Math.max(-10, Math.min((localTarget.y / wallH) * 100, 110));
-                    this.ctx.decorManager.updateLive(entity);
-                    this.ctx.syncToUI();
-                }
-            } else if (this.mode === 'edit' && this.isPlacing && this.selectedObject && (this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) {
-                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-                const target = new THREE.Vector3();
-                if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) {
-                    target.add(this.dragOffset);
-                    const entity = this.selectedObject.userData.entity;
-                    const wall = entity.wall || (entity.parentWall ? entity.parentWall : null);
-                    if (wall) {
-                        const p1 = wall.startAnchor ? wall.startAnchor.position() : {x: wall.startX, y: wall.startY};
-                        const p2 = wall.endAnchor ? wall.endAnchor.position() : {x: wall.endX, y: wall.endY};
-                        const C = p2.x - p1.x, D = p2.y - p1.y;
-                        const lenSq = C * C + D * D;
-                        if (lenSq !== 0) {
-                            const param = Math.max(0.01, Math.min(0.99, ((target.x - p1.x) * C + (target.z - p1.y) * D) / lenSq));
-                            entity.t = param;
-                            if (window.plannerInstance && window.plannerInstance.syncAll) window.plannerInstance.syncAll();
-                            else if (this.ctx.syncToUI) this.ctx.syncToUI();
-                        }
-                    }
+            this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+            const intersects = this.raycaster.intersectObjects(this.ctx.interactables, true);
+            if (intersects.length > 0) {
+                dom.style.cursor = 'pointer';
+                let mesh = intersects[0].object;
+                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isRoom && !mesh.userData.isRoof && !mesh.userData.isWidget && !mesh.userData.isPattern) mesh = mesh.parent;
+                if (this.hoveredObject !== mesh) {
+                    if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) this.setHighlight(this.hoveredObject, false);
+                    this.hoveredObject = mesh;
+                    if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) this.setHighlight(this.hoveredObject, true, 0x93c5fd);
                 }
             } else {
-                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-                const intersects = this.raycaster.intersectObjects(this.ctx.interactables, true);
-                if (intersects.length > 0) {
-                    dom.style.cursor = 'pointer';
-                    let mesh = intersects[0].object;
-                    while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isRoom && !mesh.userData.isRoof && !mesh.userData.isWidget && !mesh.userData.isPattern) mesh = mesh.parent;
-                    if (this.hoveredObject !== mesh) {
-                        if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) this.setHighlight(this.hoveredObject, false);
-                        this.hoveredObject = mesh;
-                        if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) this.setHighlight(this.hoveredObject, true, 0x93c5fd);
-                    }
-                } else {
-                    dom.style.cursor = 'auto';
-                    if (this.hoveredObject) {
-                        if (this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) this.setHighlight(this.hoveredObject, false);
-                        this.hoveredObject = null;
-                    }
+                dom.style.cursor = 'auto';
+                if (this.hoveredObject) {
+                    if (this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) this.setHighlight(this.hoveredObject, false);
+                    this.hoveredObject = null;
                 }
             }
         });
 
-        dom.addEventListener('dblclick', (e) => {
-            if (this.ctx.viewMode3D === 'preview') return;
-            if (this.transformControls && this.transformControls.active) return;
-            if (this.mode === 'camera') return;
-            if (this.mode === 'edit' && this.selectedObject && (this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) {
-                const mesh = this.selectedObject;
-                const wallGroup = mesh.parent; // sceneGroup in builder? Wait, in ActiveFloor: "WIDGET_REGISTRY[type].render3D(this.ctx.structureGroup...)"
-                // But double clicking simply changes mode to drag along wall
-                const entity = mesh.userData.entity;
-                if (!entity.wall) return;
-                const wallNormal = new THREE.Vector3(0,0,1).applyEuler(mesh.rotation);
-                this.dragPlane.setFromNormalAndCoplanarPoint(wallNormal, mesh.getWorldPosition(new THREE.Vector3()));
-                this.isPlacing = true;
-                dom.style.cursor = 'grabbing';
-                if (this.ctx.controls) this.ctx.controls.enabled = false;
-                const target = new THREE.Vector3();
-                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-                if (this.raycaster.ray.intersectPlane(this.dragPlane, target)) this.dragOffset.copy(mesh.position).sub(target);
-            }
-        });
-
-        window.addEventListener('pointerup', () => {
-            if (this.isPlacing && this.selectedObject && (this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) {
-                this.isPlacing = false;
-                dom.style.cursor = 'pointer';
-                if (this.ctx && this.ctx.controls) this.ctx.controls.enabled = true;
-            }
-        });
     }
 
     setRelocationState(active) {
-        this.isPlacing = active;
-        if (active && this.selectedObject && this.selectedObject.userData.isFurniture) {
-            const entity = this.selectedObject.userData.entity;
-            this.dropHighlight.scale.set(entity.width, entity.depth, 1);
-            this.dropGroup.rotation.y = this.selectedObject.rotation.y;
-            this.dropGroup.position.set(this.selectedObject.position.x, this.ctx.structureGroup.position.y + 0.5, this.selectedObject.position.z);
-            this.dropGroup.visible = true;
-        } else this.dropGroup.visible = false;
         if (this.ctx.onRelocateStateChange) this.ctx.onRelocateStateChange(active);
     }
 
     cancelRelocation() {
-        if (this.isPlacing) this.setRelocationState(false);
-        this.isPlacing = false;
-        if (this.ctx && this.ctx.controls) this.ctx.controls.enabled = true;
+        this.setRelocationState(false);
     }
 
     setHighlight(group, active, color = 0x3b82f6) {
@@ -714,10 +597,16 @@ export class InteractionSystem {
             if (type === 'furniture' || type === 'shape') {
                 if (this.transformControls) {
                     this.transformControls.attach(object);
-                    if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
+                    if (this.ctx.showTransformMenu) {
+                        this.ctx.showTransformMenu(true);
+                        if (this.ctx.setTransformMode) this.ctx.setTransformMode('none', true);
+                    }
                 }
             } else if (type === 'widget' || type === 'advance_openings') {
-                if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
+                if (this.ctx.showTransformMenu) {
+                    this.ctx.showTransformMenu(true);
+                    if (this.ctx.setTransformMode) this.ctx.setTransformMode('none', true);
+                }
             } else {
                 if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
             }
