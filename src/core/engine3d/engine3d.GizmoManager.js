@@ -437,12 +437,15 @@ export class GizmoManager {
             if (this.btnDone) this.btnDone.style.display = 'none';
             
             if (selectedObj) this.ctx.interactions.setHighlight(selectedObj, true);
+            tc.detach(); // Completely detach the gizmo to avoid hidden raycast interference
+            if (this.ctx.controls) this.ctx.controls.enabled = true;
             
             return;
         }
 
         tc.visible = true;
         tc.enabled = true;
+        if (this.ctx.controls) this.ctx.controls.enabled = false;
         
         if (selectedObj) this.ctx.interactions.setHighlight(selectedObj, false);
 

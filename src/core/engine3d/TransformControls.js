@@ -15,6 +15,7 @@ export class TransformControls extends THREE.Group {
         this.mouse = new THREE.Vector2();
         this.active = false;
         this.axis = null;
+        this.hoveredAxis = null;
         
         this.mode = 'rotate';
         this.showX = true;
@@ -51,77 +52,97 @@ export class TransformControls extends THREE.Group {
         this.gizmo = new THREE.Group();
         this.handles = new THREE.Group();
         this.gizmo.add(this.handles);
+
+        this.guideMat = new THREE.LineBasicMaterial({ color: GIZMO_COLOR_HOVER, depthTest: false, depthWrite: false, transparent: true, opacity: 0.4 });
+        this.guideX = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-10000, 0, 0), new THREE.Vector3(10000, 0, 0)]), this.guideMat);
+        this.guideY = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -10000, 0), new THREE.Vector3(0, 10000, 0)]), this.guideMat);
+        this.guideZ = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, -10000), new THREE.Vector3(0, 0, 10000)]), this.guideMat);
+        this.guideX.visible = false; this.guideY.visible = false; this.guideZ.visible = false;
+        
+        this.axisGuide = new THREE.Group();
+        this.axisGuide.add(this.guideX, this.guideY, this.guideZ);
+        this.axisGuide.renderOrder = 998;
+        this.add(this.axisGuide);
         this.add(this.gizmo);
 
         this.createHandles();
 
         // Event listeners
+        this.onPointerHover = this.onPointerHover.bind(this);
         this.onPointerDown = this.onPointerDown.bind(this);
         this.onPointerMove = this.onPointerMove.bind(this);
         this.onPointerUp = this.onPointerUp.bind(this);
 
-        this.domElement.addEventListener('pointerdown', this.onPointerDown, { passive: false });
+        this.domElement.addEventListener('pointermove', this.onPointerHover, { capture: true });
+        this.domElement.addEventListener('pointerdown', this.onPointerDown, { passive: false, capture: true });
     }
 
     createHandles() {
-        const ringGeometry = new THREE.TorusGeometry(1, 0.02, 16, 100);
-        const floorDiscGeometry = new THREE.RingGeometry(1.1, 1.3, 64);
+        // Thicker, easily clickable 3D Torus geometry for ALL rotation rings
+        const ringGeometry = new THREE.TorusGeometry(1, 0.25, 16, 64);
 
-        // Y-axis (Floor Disc)
-        const rotateY = new THREE.Mesh(floorDiscGeometry, new THREE.MeshBasicMaterial({ color: GIZMO_COLOR_Y, side: THREE.DoubleSide, transparent: true, opacity: 0.6, depthTest: false, depthWrite: false }));
-        rotateY.rotation.x = -Math.PI / 2;
+        // Y-axis (Green, now facing X to rotate vertically/pitch)
+        const rotateY = new THREE.Mesh(ringGeometry, new THREE.MeshBasicMaterial({ color: GIZMO_COLOR_Y, transparent: true, opacity: 0.6, depthTest: false, depthWrite: false }));
+        rotateY.rotation.set(0, Math.PI / 2, 0); // Faces X
         rotateY.name = 'Y';
+        rotateY.userData = { defaultColor: GIZMO_COLOR_Y, defaultOpacity: 0.6 };
         rotateY.renderOrder = 999;
         this.handles.add(rotateY);
 
-        // X-axis ring
-        const rotateX = new THREE.Mesh(ringGeometry, new THREE.MeshBasicMaterial({ color: GIZMO_COLOR_X, side: THREE.DoubleSide, transparent: true, opacity: 0.6, depthTest: false, depthWrite: false }));
-        rotateX.rotation.y = Math.PI / 2;
+        // X-axis (Red, now horizontal to rotate horizontally/yaw)
+        const rotateX = new THREE.Mesh(ringGeometry, new THREE.MeshBasicMaterial({ color: GIZMO_COLOR_X, transparent: true, opacity: 0.6, depthTest: false, depthWrite: false }));
+        rotateX.rotation.set(-Math.PI / 2, 0, 0); // Horizontal on ground
         rotateX.name = 'X';
+        rotateX.userData = { defaultColor: GIZMO_COLOR_X, defaultOpacity: 0.6 };
         rotateX.renderOrder = 999;
         this.handles.add(rotateX);
 
-        // Z-axis ring
-        const rotateZ = new THREE.Mesh(ringGeometry, new THREE.MeshBasicMaterial({ color: GIZMO_COLOR_Z, side: THREE.DoubleSide, transparent: true, opacity: 0.6, depthTest: false, depthWrite: false }));
-        rotateZ.rotation.x = Math.PI / 2;
+        // Z-axis (Blue, facing Z to rotate vertically/roll)
+        const rotateZ = new THREE.Mesh(ringGeometry, new THREE.MeshBasicMaterial({ color: GIZMO_COLOR_Z, transparent: true, opacity: 0.6, depthTest: false, depthWrite: false }));
+        rotateZ.rotation.set(0, 0, 0); // Faces Z
         rotateZ.name = 'Z';
+        rotateZ.userData = { defaultColor: GIZMO_COLOR_Z, defaultOpacity: 0.6 };
         rotateZ.renderOrder = 999;
         this.handles.add(rotateZ);
 
         // Move Handle (XZ plane disc + arrows)
         const moveGroup = new THREE.Group();
-        moveGroup.name = 'XZ';
+        moveGroup.name = 'translate';
         
         const movePlane = new THREE.Mesh(
             new THREE.CircleGeometry(1.2, 32),
             new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2, depthTest: false, depthWrite: false, side: THREE.DoubleSide })
         );
         movePlane.rotation.x = -Math.PI / 2;
-        movePlane.name = 'XZ';
+        movePlane.name = 'translateXZ';
+        movePlane.userData = { defaultColor: 0xffffff, defaultOpacity: 0.2 };
         moveGroup.add(movePlane);
 
-        const createArrow = (color, rotY) => {
+        const createArrow = (color, rotY, axisName) => {
             const arrowGroup = new THREE.Group();
             arrowGroup.rotation.y = rotY;
             const mat = new THREE.MeshBasicMaterial({ color: color, depthTest: false, depthWrite: false, transparent: true, opacity: 0.9 });
-            const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.6), mat);
+            const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.7), mat); // Thicker shaft
             shaft.rotation.x = Math.PI / 2;
-            shaft.position.z = 0.4;
-            shaft.name = 'XZ';
+            shaft.position.z = 0.45;
+            shaft.name = axisName;
+            shaft.userData = { defaultColor: color, defaultOpacity: 0.9 };
             shaft.renderOrder = 999;
-            const head = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.3, 8), mat);
+            const head = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.4, 12), mat); // Thicker head
             head.rotation.x = Math.PI / 2;
-            head.position.z = 0.7;
-            head.name = 'XZ';
+            head.position.z = 0.9;
+            head.name = axisName;
+            head.userData = { defaultColor: color, defaultOpacity: 0.9 };
             head.renderOrder = 999;
+
             arrowGroup.add(shaft, head);
             return arrowGroup;
         };
 
-        moveGroup.add(createArrow(GIZMO_COLOR_X, Math.PI / 2)); // X
-        moveGroup.add(createArrow(GIZMO_COLOR_X, -Math.PI / 2)); // -X
-        moveGroup.add(createArrow(GIZMO_COLOR_Z, 0)); // Z
-        moveGroup.add(createArrow(GIZMO_COLOR_Z, Math.PI)); // -Z
+        moveGroup.add(createArrow(GIZMO_COLOR_X, Math.PI / 2, 'translateX')); // X
+        moveGroup.add(createArrow(GIZMO_COLOR_X, -Math.PI / 2, 'translateX')); // -X
+        moveGroup.add(createArrow(GIZMO_COLOR_Z, 0, 'translateZ')); // Z
+        moveGroup.add(createArrow(GIZMO_COLOR_Z, Math.PI, 'translateZ')); // -Z
         
         const gizmoGrid = new THREE.GridHelper(100, 10, 0x3b82f6, 0xffffff);
         gizmoGrid.material.transparent = true;
@@ -142,15 +163,18 @@ export class TransformControls extends THREE.Group {
             const handleGroup = new THREE.Group();
             handleGroup.rotation.set(rotX, rotY, rotZ);
             const mat = new THREE.MeshBasicMaterial({ color: color, depthTest: false, depthWrite: false, transparent: true, opacity: 0.9 });
-            const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.6), mat);
+            const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.7), mat); // Thicker shaft
             shaft.rotation.x = Math.PI / 2;
-            shaft.position.z = 0.4;
+            shaft.position.z = 0.45;
             shaft.name = name;
+            shaft.userData = { defaultColor: color, defaultOpacity: 0.9 };
             shaft.renderOrder = 999;
-            const head = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.2), mat);
-            head.position.z = 0.7;
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), mat); // Thicker head
+            head.position.z = 0.9;
             head.name = name;
+            head.userData = { defaultColor: color, defaultOpacity: 0.9 };
             head.renderOrder = 999;
+
             handleGroup.add(shaft, head);
             return handleGroup;
         };
@@ -159,9 +183,11 @@ export class TransformControls extends THREE.Group {
         scaleGroup.add(createScaleHandle(GIZMO_COLOR_Z, 0, 0, 0, 'scaleZ'));
         
         const uniformMat = new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, depthWrite: false, transparent: true, opacity: 0.9 });
-        const uniformScale = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.25, 0.25), uniformMat);
+        const uniformScale = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), uniformMat);
         uniformScale.name = 'scaleUniform';
+        uniformScale.userData = { defaultColor: 0xffffff, defaultOpacity: 0.9 };
         uniformScale.renderOrder = 999;
+        
         scaleGroup.add(uniformScale);
         
         this.handles.add(scaleGroup);
@@ -177,6 +203,8 @@ export class TransformControls extends THREE.Group {
         this.object = null;
         this.visible = false;
         this.axis = null;
+        this.hoveredAxis = null;
+        this.updateHighlight();
     }
 
     update() {
@@ -185,8 +213,8 @@ export class TransformControls extends THREE.Group {
         if (this.handles) {
             this.handles.children.forEach(child => {
                 if (this.mode === 'translate' || this.mode === 'place') {
-                    child.visible = child.name === 'XZ';
-                    if (child.name === 'XZ') {
+                    child.visible = child.name === 'translate';
+                    if (child.name === 'translate') {
                         child.children.forEach(c => {
                             if (c.name === 'gizmoGrid') c.visible = (this.mode === 'place');
                         });
@@ -197,7 +225,7 @@ export class TransformControls extends THREE.Group {
                     if (child.name === 'X') child.visible = !!this.showX;
                     if (child.name === 'Y') child.visible = !!this.showY;
                     if (child.name === 'Z') child.visible = !!this.showZ;
-                    if (child.name === 'XZ') child.visible = false;
+                    if (child.name === 'translate') child.visible = false;
                     if (child.name === 'scale') child.visible = false;
                 }
             });
@@ -207,15 +235,48 @@ export class TransformControls extends THREE.Group {
         this.object.matrixWorld.decompose(this.worldPosition, this.worldQuaternion, this.worldScale);
         this.position.copy(this.worldPosition);
 
+        // Align scale handles visually to match the object's local rotation
+        if (this.handles) {
+            const scaleGroup = this.handles.getObjectByName('scale');
+            if (scaleGroup) scaleGroup.quaternion.copy(this.worldQuaternion);
+        }
+
         // Scale gizmo to be a consistent size on screen
         const camDistance = this.worldPosition.distanceTo(this.camera.position);
         const scale = camDistance / 7; // Adjust this factor for desired screen size
         this.scale.set(scale, scale, scale);
+        
+        // Update axis guide line
+        if (this.active && this.axis) {
+            this.guideX.visible = (this.axis === 'translateX' || this.axis === 'scaleX' || this.axis === 'Y');
+            this.guideY.visible = (this.axis === 'scaleY' || this.axis === 'X');
+            this.guideZ.visible = (this.axis === 'translateZ' || this.axis === 'scaleZ' || this.axis === 'Z');
+            
+            if (this.axis.startsWith('scale')) this.axisGuide.quaternion.copy(this.worldQuaternion);
+            else this.axisGuide.quaternion.identity();
+        } else {
+            this.guideX.visible = false;
+            this.guideY.visible = false;
+            this.guideZ.visible = false;
+        }
     }
 
     createGhost() {
         if (!this.object) return;
+        
+        // Backup userData to prevent circular structure errors during Three.js clone()
+        const userDataBackup = new Map();
+        this.object.traverse(c => {
+            userDataBackup.set(c, c.userData);
+            c.userData = {};
+        });
+        
         this.ghost = this.object.clone();
+        
+        this.object.traverse(c => {
+            c.userData = userDataBackup.get(c);
+        });
+        
         this.ghost.traverse(c => {
             if (c.isMesh) {
                 c.material = Array.isArray(c.material) ? c.material.map(m => m.clone()) : c.material.clone();
@@ -233,6 +294,37 @@ export class TransformControls extends THREE.Group {
         }
     }
 
+    onPointerHover(event) {
+        if (!this.visible || this.active || this.object === null) return;
+        this.updateMouse(event);
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const intersects = this.raycaster.intersectObjects(this.handles.children, true);
+        let foundAxis = null;
+        if (intersects.length > 0) {
+            foundAxis = intersects[0].object.name;
+        }
+        if (this.hoveredAxis !== foundAxis) {
+            this.hoveredAxis = foundAxis;
+            this.updateHighlight();
+            this.domElement.style.cursor = foundAxis ? 'pointer' : 'auto';
+        }
+    }
+
+    updateHighlight() {
+        const activeAxis = this.active ? this.axis : this.hoveredAxis;
+        this.handles.traverse(child => {
+            if (child.isMesh && child.name && child.userData.defaultColor !== undefined) {
+                if (child.name === activeAxis) {
+                    child.material.color.setHex(GIZMO_COLOR_HOVER);
+                    child.material.opacity = child.name === 'translateXZ' ? 0.5 : 1.0;
+                } else {
+                    child.material.color.setHex(child.userData.defaultColor);
+                    child.material.opacity = child.userData.defaultOpacity;
+                }
+            }
+        });
+    }
+
     onPointerDown(event) {
         if (this.object === null || this.active === true || !this.visible) return;
 
@@ -244,16 +336,33 @@ export class TransformControls extends THREE.Group {
         if (intersects.length > 0) {
             event.preventDefault();
             event.stopPropagation();
+            event.stopImmediatePropagation(); // Kills OrbitControls/InteractionSystem events
 
             this.axis = intersects[0].object.name;
             if (!this.axis) return;
             this.active = true;
+            this.updateHighlight();
+            this.update();
             this.startWorldPosition.copy(this.worldPosition);
             this.dispatchEvent({ type: 'dragstart', object: this.object });
 
             if (this.mode === 'translate' || this.mode === 'place') {
-                const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.worldPosition.y);
-                this.raycaster.ray.intersectPlane(plane, this.pointStart);
+                if (this.axis === 'translateX' || this.axis === 'translateZ') {
+                    const camDir = new THREE.Vector3().subVectors(this.camera.position, this.worldPosition).normalize();
+                    const localAxis = new THREE.Vector3();
+                    if (this.axis === 'translateX') localAxis.set(1,0,0);
+                    if (this.axis === 'translateZ') localAxis.set(0,0,1);
+                    
+                    const planeNormal = new THREE.Vector3().crossVectors(localAxis, camDir).cross(localAxis).normalize();
+                    if (planeNormal.lengthSq() < 0.001) planeNormal.copy(camDir);
+                    
+                    const plane = new THREE.Plane();
+                    plane.setFromNormalAndCoplanarPoint(planeNormal, this.worldPosition);
+                    this.raycaster.ray.intersectPlane(plane, this.pointStart);
+                } else {
+                    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.worldPosition.y);
+                    this.raycaster.ray.intersectPlane(plane, this.pointStart);
+                }
                 this.startObjectPosition.copy(this.object.position);
                 if (this.mode === 'place') this.createGhost();
             } else if (this.mode === 'scale') {
@@ -280,17 +389,20 @@ export class TransformControls extends THREE.Group {
             } else {
                 const plane = new THREE.Plane();
                 this.rotationAxis.set(0,0,0);
-                if (this.axis === 'X') this.rotationAxis.set(1,0,0);
-                if (this.axis === 'Y') this.rotationAxis.set(0,1,0);
-                if (this.axis === 'Z') this.rotationAxis.set(0,0,1);
+                if (this.axis === 'X') this.rotationAxis.set(0,1,0); // Red rotates around Y
+                if (this.axis === 'Y') this.rotationAxis.set(1,0,0); // Green rotates around X
+                if (this.axis === 'Z') this.rotationAxis.set(0,0,1); // Blue rotates around Z
 
                 plane.setFromNormalAndCoplanarPoint(this.rotationAxis, this.worldPosition);
                 this.raycaster.ray.intersectPlane(plane, this.pointStart);
                 this.startObjectQuaternion.copy(this.object.quaternion);
             }
 
-            this.domElement.addEventListener('pointermove', this.onPointerMove, { passive: false });
-            this.domElement.addEventListener('pointerup', this.onPointerUp, { passive: false });
+            this.startMouseX = this.mouse.x;
+            this.startMouseY = this.mouse.y;
+
+            this.domElement.addEventListener('pointermove', this.onPointerMove, { passive: false, capture: true });
+            this.domElement.addEventListener('pointerup', this.onPointerUp, { passive: false, capture: true });
         }
     }
 
@@ -299,16 +411,39 @@ export class TransformControls extends THREE.Group {
 
         event.preventDefault();
         event.stopPropagation();
+        event.stopImmediatePropagation();
 
         this.updateMouse(event);
         
         if (this.mode === 'translate' || this.mode === 'place') {
-            const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.startWorldPosition.y);
-            this.raycaster.setFromCamera(this.mouse, this.camera);
-            if (!this.raycaster.ray.intersectPlane(plane, this.pointEnd)) return;
-
-            const delta = new THREE.Vector3().subVectors(this.pointEnd, this.pointStart);
+            let delta = new THREE.Vector3();
             
+            if (this.axis === 'translateX' || this.axis === 'translateZ') {
+                const camDir = new THREE.Vector3().subVectors(this.camera.position, this.startWorldPosition).normalize();
+                const localAxis = new THREE.Vector3();
+                if (this.axis === 'translateX') localAxis.set(1,0,0);
+                if (this.axis === 'translateZ') localAxis.set(0,0,1);
+
+                const planeNormal = new THREE.Vector3().crossVectors(localAxis, camDir).cross(localAxis).normalize();
+                if (planeNormal.lengthSq() < 0.001) planeNormal.copy(camDir);
+                
+                const plane = new THREE.Plane(); 
+                plane.setFromNormalAndCoplanarPoint(planeNormal, this.startWorldPosition);
+                this.raycaster.setFromCamera(this.mouse, this.camera);
+                if (!this.raycaster.ray.intersectPlane(plane, this.pointEnd)) return;
+
+                const projStart = this.pointStart.clone().sub(this.startWorldPosition).dot(localAxis);
+                const projEnd = this.pointEnd.clone().sub(this.startWorldPosition).dot(localAxis);
+                const moveAmount = projEnd - projStart;
+
+                delta.copy(localAxis).multiplyScalar(moveAmount);
+            } else {
+                const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.startWorldPosition.y);
+                this.raycaster.setFromCamera(this.mouse, this.camera);
+                if (!this.raycaster.ray.intersectPlane(plane, this.pointEnd)) return;
+                delta.subVectors(this.pointEnd, this.pointStart);
+            }
+
             // Convert world delta to local delta to handle house rotations correctly
             if (this.object.parent) {
                 const parentInverse = this.object.parent.matrixWorld.clone().invert();
@@ -318,8 +453,14 @@ export class TransformControls extends THREE.Group {
             
             let newPos = this.startObjectPosition.clone().add(delta);
             if (this.mode === 'place' && this.snapEnabled) {
-                newPos.x = Math.round(newPos.x / this.snapSize) * this.snapSize;
-                newPos.z = Math.round(newPos.z / this.snapSize) * this.snapSize;
+                if (this.axis === 'translateX') {
+                    newPos.x = Math.round(newPos.x / this.snapSize) * this.snapSize;
+                } else if (this.axis === 'translateZ') {
+                    newPos.z = Math.round(newPos.z / this.snapSize) * this.snapSize;
+                } else {
+                    newPos.x = Math.round(newPos.x / this.snapSize) * this.snapSize;
+                    newPos.z = Math.round(newPos.z / this.snapSize) * this.snapSize;
+                }
             }
             this.object.position.copy(newPos);
         } else if (this.mode === 'scale') {
@@ -360,56 +501,30 @@ export class TransformControls extends THREE.Group {
                 }
             }
         } else {
-            const plane = new THREE.Plane();
-            plane.setFromNormalAndCoplanarPoint(this.rotationAxis, this.startWorldPosition);
-            this.raycaster.setFromCamera(this.mouse, this.camera);
-            if (!this.raycaster.ray.intersectPlane(plane, this.pointEnd)) return;
-
-            const vStart = this.pointStart.clone().sub(this.startWorldPosition);
-            const vEnd = this.pointEnd.clone().sub(this.startWorldPosition);
-
-            this.rotationAngle = vEnd.angleTo(vStart);
-
-            const cross = vStart.clone().cross(vEnd);
-            if (this.rotationAxis.dot(cross) < 0) {
-                this.rotationAngle *= -1;
+            if (this.axis === 'X') {
+                this.rotationAngle = -(this.mouse.x - this.startMouseX) * Math.PI * 2;
+            } else if (this.axis === 'Y') {
+                this.rotationAngle = -(this.mouse.y - this.startMouseY) * Math.PI * 2;
+            } else if (this.axis === 'Z') {
+                this.rotationAngle = -(this.mouse.x - this.startMouseX) * Math.PI * 2;
             }
 
             const tempQuaternion = new THREE.Quaternion();
             tempQuaternion.setFromAxisAngle(this.rotationAxis, this.rotationAngle);
             
-            const newQuaternion = this.startObjectQuaternion.clone().multiply(tempQuaternion);
+            const newQuaternion = tempQuaternion.clone().multiply(this.startObjectQuaternion);
 
             if (this.rotationSnap) {
                 const euler = new THREE.Euler().setFromQuaternion(newQuaternion, 'YXZ');
                 const snapRad = THREE.MathUtils.degToRad(this.rotationSnap);
-                if (this.axis === 'X') euler.x = Math.round(euler.x / snapRad) * snapRad;
-                if (this.axis === 'Y') euler.y = Math.round(euler.y / snapRad) * snapRad;
+                if (this.axis === 'X') euler.y = Math.round(euler.y / snapRad) * snapRad;
+                if (this.axis === 'Y') euler.x = Math.round(euler.x / snapRad) * snapRad;
                 if (this.axis === 'Z') euler.z = Math.round(euler.z / snapRad) * snapRad;
                 this.object.quaternion.setFromEuler(euler);
             } else {
                 this.object.quaternion.copy(newQuaternion);
             }
         }
-
-        // --- REAL PHYSICS GROUND CLAMPING ---
-        this.object.updateMatrixWorld(true);
-        
-        const entity = this.object.userData.entity || {};
-        const intentionalElevation = entity.elevation || 0;
-        this.object.position.y = intentionalElevation;
-        this.object.updateMatrixWorld(true);
-        
-        const box = new THREE.Box3().setFromObject(this.object);
-        const floorWorldPos = new THREE.Vector3(0, 0.2, 0); // 0.2 matches floor extrusion thickness
-        if (this.object.parent) {
-            floorWorldPos.applyMatrix4(this.object.parent.matrixWorld);
-        }
-        
-        const targetMinY = floorWorldPos.y + intentionalElevation;
-        this.object.position.y += (targetMinY - box.min.y);
-        this.object.updateMatrixWorld(true);
-        // ------------------------------------
 
         this.update();
         this.dispatchEvent({ type: 'change' });
@@ -419,18 +534,21 @@ export class TransformControls extends THREE.Group {
         if (this.active) {
             event.preventDefault();
             event.stopPropagation();
+            event.stopImmediatePropagation();
         }
 
         this.active = false;
         this.axis = null;
+        this.updateHighlight();
+        this.update(); // Refresh guide visibility
         this.dispatchEvent({ type: 'dragend', object: this.object });
 
         if (this.mode === 'place') {
             this.removeGhost();
         }
 
-        this.domElement.removeEventListener('pointermove', this.onPointerMove);
-        this.domElement.removeEventListener('pointerup', this.onPointerUp);
+        this.domElement.removeEventListener('pointermove', this.onPointerMove, { capture: true });
+        this.domElement.removeEventListener('pointerup', this.onPointerUp, { capture: true });
     }
 
     updateMouse(event) {
@@ -440,9 +558,10 @@ export class TransformControls extends THREE.Group {
     }
 
     dispose() {
-        this.domElement.removeEventListener('pointerdown', this.onPointerDown);
-        this.domElement.removeEventListener('pointermove', this.onPointerMove);
-        this.domElement.removeEventListener('pointerup', this.onPointerUp);
+        this.domElement.removeEventListener('pointermove', this.onPointerHover, { capture: true });
+        this.domElement.removeEventListener('pointerdown', this.onPointerDown, { capture: true });
+        this.domElement.removeEventListener('pointermove', this.onPointerMove, { capture: true });
+        this.domElement.removeEventListener('pointerup', this.onPointerUp, { capture: true });
         this.traverse(child => {
             if (child.geometry) child.geometry.dispose();
             if (child.material) {

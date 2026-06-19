@@ -53,8 +53,9 @@ export class OpeningGizmo extends THREE.Group {
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
             const intersects = this.raycaster.intersectObjects(this.handles.children, false);
             if (intersects.length > 0) {
+                e.preventDefault();
+                e.stopPropagation();
                 this.activeHandle = intersects[0].object.name;
-                if (this.ctx.controls) this.ctx.controls.enabled = false;
                 
                 const planeNormal = new THREE.Vector3();
                 const quat = this.quaternion.clone();
@@ -72,12 +73,15 @@ export class OpeningGizmo extends THREE.Group {
                 if (this.raycaster.ray.intersectPlane(this.dragPlane, intersectPoint)) {
                     this.dragOffset.copy(intersectPoint).sub(this.position);
                 }
-                e.stopImmediatePropagation();
             }
-        });
+        }, { passive: false });
         
         dom.addEventListener('pointermove', (e) => {
             if (!this.visible || (this.ctx.currentTransformMode !== 'opening' && this.ctx.currentTransformMode !== 'translate')) return;
+            if (this.activeHandle) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
             this.updateMouse(e);
             
             if (!this.activeHandle) {
@@ -158,16 +162,17 @@ export class OpeningGizmo extends THREE.Group {
                     window.dispatchEvent(event);
                 }
             }
-        });
+        }, { passive: false });
         
-        dom.addEventListener('pointerup', () => {
+        dom.addEventListener('pointerup', (e) => {
             if (this.activeHandle) {
+                e.preventDefault();
+                e.stopPropagation();
                 this.activeHandle = null;
-                if (this.ctx.controls) this.ctx.controls.enabled = true;
                 const event = new CustomEvent('opening-gizmo-end', { detail: { entity: this.target.userData.entity }});
                 window.dispatchEvent(event);
             }
-        });
+        }, { passive: false });
     }
     
     updateMouse(e) {
@@ -250,14 +255,8 @@ export class InteractionSystem {
         this.wallHighlight.visible = false;
 
         this.transformControls = new TransformControls(this.ctx.camera, this.ctx.renderer.domElement);
-        this.transformControls.addEventListener('dragstart', () => {
-            if (this.ctx.controls) this.ctx.controls.enabled = false;
-        });
         this.transformControls.addEventListener('change', () => {
             if (this.ctx.syncToUI) this.ctx.syncToUI();
-        });
-        this.transformControls.addEventListener('dragend', () => {
-            if (this.ctx.controls) this.ctx.controls.enabled = true;
         });
         this.transformControls.visible = false;
         this.ctx.scene.add(this.transformControls);
@@ -301,10 +300,15 @@ export class InteractionSystem {
             
             // If currently in a transform mode, block all other object selections
             if (this.ctx.currentTransformMode && this.ctx.currentTransformMode !== 'none') {
-                // If clicking directly on a transform axis gizmo, allow it
-                if (this.transformControls && this.transformControls.axis !== null) return;
-                
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+                
+                if (this.transformControls && this.transformControls.visible) {
+                    if (this.raycaster.intersectObjects(this.transformControls.handles.children, true).length > 0) return;
+                }
+                if (this.openingGizmo && this.openingGizmo.visible) {
+                    if (this.raycaster.intersectObjects(this.openingGizmo.handles.children, true).length > 0) return;
+                }
+                
                 const intersects = this.raycaster.intersectObjects(this.ctx.interactables, true);
                 if (intersects.length === 0) {
                     this.ctx.setTransformMode('none', true);
@@ -594,19 +598,8 @@ export class InteractionSystem {
             else if (object.userData.isPattern) type = 'advance_openings';
             this.setHighlight(object, true);
                 
-            if (type === 'furniture' || type === 'shape') {
-                if (this.transformControls) {
-                    this.transformControls.attach(object);
-                    if (this.ctx.showTransformMenu) {
-                        this.ctx.showTransformMenu(true);
-                        if (this.ctx.setTransformMode) this.ctx.setTransformMode('none', true);
-                    }
-                }
-            } else if (type === 'widget' || type === 'advance_openings') {
-                if (this.ctx.showTransformMenu) {
-                    this.ctx.showTransformMenu(true);
-                    if (this.ctx.setTransformMode) this.ctx.setTransformMode('none', true);
-                }
+            if (type === 'furniture' || type === 'shape' || type === 'widget' || type === 'advance_openings') {
+                if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
             } else {
                 if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
             }
