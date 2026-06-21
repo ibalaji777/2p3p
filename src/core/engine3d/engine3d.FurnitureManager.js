@@ -57,7 +57,12 @@ export class FurnitureManager {
         this.ctx.isUpdatingFromUI = true;
         const obj = entity.mesh3D;
         obj.position.set(entity.group ? entity.group.x() : entity.x, 0, entity.group ? entity.group.y() : entity.z);
-        obj.rotation.y = -(entity.rotation || 0) * (Math.PI / 180);
+        obj.rotation.set(
+            entity.rotationX || 0,
+            -(entity.rotation || 0) * (Math.PI / 180),
+            entity.rotationZ || 0,
+            'YXZ'
+        );
         const origSize = obj.userData.originalSize;
         obj.scale.set(entity.width / origSize.x, entity.height / origSize.y, entity.depth / origSize.z);
         obj.updateMatrixWorld();

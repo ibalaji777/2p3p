@@ -81,29 +81,22 @@ export class TransformControls extends THREE.Group {
         // Thicker, easily clickable 3D Torus geometry for ALL rotation rings
         const ringGeometry = new THREE.TorusGeometry(1, 0.25, 16, 64);
 
-        // Y-axis (Green, now facing X to rotate vertically/pitch)
+        // Y-axis (Green, Spin: horizontal on ground, rotates around Y)
         const rotateY = new THREE.Mesh(ringGeometry, new THREE.MeshBasicMaterial({ color: GIZMO_COLOR_Y, transparent: true, opacity: 0.6, depthTest: false, depthWrite: false }));
-        rotateY.rotation.set(0, Math.PI / 2, 0); // Faces X
+        rotateY.rotation.set(-Math.PI / 2, 0, 0); // Horizontal on ground
         rotateY.name = 'Y';
         rotateY.userData = { defaultColor: GIZMO_COLOR_Y, defaultOpacity: 0.6 };
         rotateY.renderOrder = 999;
         this.handles.add(rotateY);
 
-        // X-axis (Red, now horizontal to rotate horizontally/yaw)
+        // X-axis (Red, Tilt: vertical facing X, rotates around X)
         const rotateX = new THREE.Mesh(ringGeometry, new THREE.MeshBasicMaterial({ color: GIZMO_COLOR_X, transparent: true, opacity: 0.6, depthTest: false, depthWrite: false }));
-        rotateX.rotation.set(-Math.PI / 2, 0, 0); // Horizontal on ground
+        rotateX.rotation.set(0, Math.PI / 2, 0); // Faces X
         rotateX.name = 'X';
         rotateX.userData = { defaultColor: GIZMO_COLOR_X, defaultOpacity: 0.6 };
         rotateX.renderOrder = 999;
         this.handles.add(rotateX);
 
-        // Z-axis (Blue, facing Z to rotate vertically/roll)
-        const rotateZ = new THREE.Mesh(ringGeometry, new THREE.MeshBasicMaterial({ color: GIZMO_COLOR_Z, transparent: true, opacity: 0.6, depthTest: false, depthWrite: false }));
-        rotateZ.rotation.set(0, 0, 0); // Faces Z
-        rotateZ.name = 'Z';
-        rotateZ.userData = { defaultColor: GIZMO_COLOR_Z, defaultOpacity: 0.6 };
-        rotateZ.renderOrder = 999;
-        this.handles.add(rotateZ);
 
         // Move Handle (XZ plane disc + arrows)
         const moveGroup = new THREE.Group();
@@ -222,11 +215,10 @@ export class TransformControls extends THREE.Group {
                 } else if (this.mode === 'scale') {
                     child.visible = child.name === 'scale';
                 } else {
-                    if (child.name === 'X') child.visible = !!this.showX;
-                    if (child.name === 'Y') child.visible = !!this.showY;
-                    if (child.name === 'Z') child.visible = !!this.showZ;
                     if (child.name === 'translate') child.visible = false;
                     if (child.name === 'scale') child.visible = false;
+                    if (child.name === 'X') child.visible = !!this.showX;
+                    if (child.name === 'Y') child.visible = !!this.showY;
                 }
             });
         }
@@ -248,9 +240,9 @@ export class TransformControls extends THREE.Group {
         
         // Update axis guide line
         if (this.active && this.axis) {
-            this.guideX.visible = (this.axis === 'translateX' || this.axis === 'scaleX' || this.axis === 'Y');
-            this.guideY.visible = (this.axis === 'scaleY' || this.axis === 'X');
-            this.guideZ.visible = (this.axis === 'translateZ' || this.axis === 'scaleZ' || this.axis === 'Z');
+            this.guideX.visible = (this.axis === 'translateX' || this.axis === 'scaleX');
+            this.guideY.visible = (this.axis === 'scaleY');
+            this.guideZ.visible = (this.axis === 'translateZ' || this.axis === 'scaleZ');
             
             if (this.axis.startsWith('scale')) this.axisGuide.quaternion.copy(this.worldQuaternion);
             else this.axisGuide.quaternion.identity();
@@ -298,7 +290,7 @@ export class TransformControls extends THREE.Group {
         if (!this.visible || this.active || this.object === null) return;
         this.updateMouse(event);
         this.raycaster.setFromCamera(this.mouse, this.camera);
-        const intersects = this.raycaster.intersectObjects(this.handles.children, true);
+        const intersects = this.raycaster.intersectObjects(this.handles.children, true).filter(hit => hit.object.visible);
         let foundAxis = null;
         if (intersects.length > 0) {
             foundAxis = intersects[0].object.name;
@@ -331,7 +323,7 @@ export class TransformControls extends THREE.Group {
         this.updateMouse(event);
         this.raycaster.setFromCamera(this.mouse, this.camera);
 
-        const intersects = this.raycaster.intersectObjects(this.handles.children, true);
+        const intersects = this.raycaster.intersectObjects(this.handles.children, true).filter(hit => hit.object.visible);
 
         if (intersects.length > 0) {
             event.preventDefault();
@@ -341,10 +333,18 @@ export class TransformControls extends THREE.Group {
             this.axis = intersects[0].object.name;
             if (!this.axis) return;
             this.active = true;
+            this.activePointerId = event.pointerId;
             this.updateHighlight();
             this.update();
             this.startWorldPosition.copy(this.worldPosition);
-            this.dispatchEvent({ type: 'dragstart', object: this.object });
+
+            if (this.mode === 'translate' || this.mode === 'place') this.dispatchEvent({ type: 'move-start', object: this.object });
+            else if (this.mode === 'scale') this.dispatchEvent({ type: 'scale-start', object: this.object });
+            else if (this.mode === 'rotate') {
+                if (this.axis === 'Y') this.dispatchEvent({ type: 'spin-start', object: this.object });
+                else if (this.axis === 'X') this.dispatchEvent({ type: 'tilt-start', object: this.object });
+                else this.dispatchEvent({ type: 'rotate-start', object: this.object });
+            }
 
             if (this.mode === 'translate' || this.mode === 'place') {
                 if (this.axis === 'translateX' || this.axis === 'translateZ') {
@@ -389,9 +389,9 @@ export class TransformControls extends THREE.Group {
             } else {
                 const plane = new THREE.Plane();
                 this.rotationAxis.set(0,0,0);
-                if (this.axis === 'X') this.rotationAxis.set(0,1,0); // Red rotates around Y
-                if (this.axis === 'Y') this.rotationAxis.set(1,0,0); // Green rotates around X
-                if (this.axis === 'Z') this.rotationAxis.set(0,0,1); // Blue rotates around Z
+                if (this.axis === 'X') this.rotationAxis.set(1,0,0); // Tilt (Local X)
+                if (this.axis === 'Y') this.rotationAxis.set(0,1,0); // Spin (Local Y)
+                if (this.axis === 'Z') this.rotationAxis.set(0,0,1); // Roll (Local Z)
 
                 plane.setFromNormalAndCoplanarPoint(this.rotationAxis, this.worldPosition);
                 this.raycaster.ray.intersectPlane(plane, this.pointStart);
@@ -408,6 +408,7 @@ export class TransformControls extends THREE.Group {
 
     onPointerMove(event) {
         if (this.object === null || this.axis === null || this.active === false) return;
+        if (event.pointerId !== this.activePointerId) return;
 
         event.preventDefault();
         event.stopPropagation();
@@ -502,46 +503,68 @@ export class TransformControls extends THREE.Group {
             }
         } else {
             if (this.axis === 'X') {
-                this.rotationAngle = -(this.mouse.x - this.startMouseX) * Math.PI * 2;
-            } else if (this.axis === 'Y') {
                 this.rotationAngle = -(this.mouse.y - this.startMouseY) * Math.PI * 2;
+            } else if (this.axis === 'Y') {
+                this.rotationAngle = -(this.mouse.x - this.startMouseX) * Math.PI * 2;
             } else if (this.axis === 'Z') {
                 this.rotationAngle = -(this.mouse.x - this.startMouseX) * Math.PI * 2;
             }
 
-            const tempQuaternion = new THREE.Quaternion();
-            tempQuaternion.setFromAxisAngle(this.rotationAxis, this.rotationAngle);
-            
-            const newQuaternion = tempQuaternion.clone().multiply(this.startObjectQuaternion);
+            const euler = new THREE.Euler().setFromQuaternion(this.startObjectQuaternion, 'YXZ');
+
+            if (this.axis === 'X') {
+                euler.x += this.rotationAngle;
+            } else if (this.axis === 'Y') {
+                euler.y += this.rotationAngle;
+            } else if (this.axis === 'Z') {
+                euler.z += this.rotationAngle;
+            }
 
             if (this.rotationSnap) {
-                const euler = new THREE.Euler().setFromQuaternion(newQuaternion, 'YXZ');
                 const snapRad = THREE.MathUtils.degToRad(this.rotationSnap);
-                if (this.axis === 'X') euler.y = Math.round(euler.y / snapRad) * snapRad;
-                if (this.axis === 'Y') euler.x = Math.round(euler.x / snapRad) * snapRad;
+                if (this.axis === 'X') euler.x = Math.round(euler.x / snapRad) * snapRad;
+                if (this.axis === 'Y') euler.y = Math.round(euler.y / snapRad) * snapRad;
                 if (this.axis === 'Z') euler.z = Math.round(euler.z / snapRad) * snapRad;
-                this.object.quaternion.setFromEuler(euler);
-            } else {
-                this.object.quaternion.copy(newQuaternion);
             }
+            
+            this.object.quaternion.setFromEuler(euler);
         }
 
         this.update();
-        this.dispatchEvent({ type: 'change' });
+
+        // Dispatch specific events to prevent confusion
+        if (this.mode === 'translate' || this.mode === 'place') {
+            this.dispatchEvent({ type: 'move-change' });
+        } else if (this.mode === 'scale') {
+            this.dispatchEvent({ type: 'scale-change' });
+        } else if (this.mode === 'rotate') {
+            if (this.axis === 'Y') this.dispatchEvent({ type: 'spin-change' });
+            else if (this.axis === 'X') this.dispatchEvent({ type: 'tilt-change' });
+            else this.dispatchEvent({ type: 'rotate-change' });
+        }
     }
 
     onPointerUp(event) {
         if (this.active) {
+            if (event.pointerId !== this.activePointerId) return;
             event.preventDefault();
             event.stopPropagation();
             event.stopImmediatePropagation();
         }
 
         this.active = false;
+        this.activePointerId = null;
         this.axis = null;
         this.updateHighlight();
         this.update(); // Refresh guide visibility
-        this.dispatchEvent({ type: 'dragend', object: this.object });
+
+        if (this.mode === 'translate' || this.mode === 'place') this.dispatchEvent({ type: 'move-end', object: this.object });
+        else if (this.mode === 'scale') this.dispatchEvent({ type: 'scale-end', object: this.object });
+        else if (this.mode === 'rotate') {
+            // Previous axis state is nullified above, but we can assume generic rotate-end if we want, 
+            // but we cleared this.axis! Let's just dispatch rotate-end.
+            this.dispatchEvent({ type: 'rotate-end', object: this.object });
+        }
 
         if (this.mode === 'place') {
             this.removeGhost();

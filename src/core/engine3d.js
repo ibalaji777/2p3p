@@ -227,7 +227,12 @@ export class Preview3D {
         }
         
         obj.position.set(entity.group.x(), 0, entity.group.y());
-        obj.rotation.y = -(entity.rotation || 0) * Math.PI / 180;
+        obj.rotation.set(
+            entity.rotationX || 0,
+            -(entity.rotation || 0) * Math.PI / 180,
+            entity.rotationZ || 0,
+            'YXZ'
+        );
 
         const color = entity.params.fill ? parseInt(entity.params.fill.replace('#', '0x')) : 0x38bdf8;
         
@@ -289,6 +294,8 @@ export class Preview3D {
                 ent2D.group.x(obj3D.position.x); 
                 ent2D.group.y(obj3D.position.z); 
                 ent2D.rotation = -obj3D.rotation.y * (180 / Math.PI);
+                ent2D.rotationX = obj3D.rotation.x;
+                ent2D.rotationZ = obj3D.rotation.z;
                 ent2D.update(); 
             }
         }

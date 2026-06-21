@@ -81,19 +81,19 @@ export class GizmoManager {
         this.btnScale.style.left = '38px';
         this.btnScale.onclick = () => this.setTransformMode('scale');
 
-        this.btnRotX = document.createElement('button');
-        this.btnRotX.className = 'transform-menu-btn';
-        this.btnRotX.innerHTML = '⭮<br>Rot X';
-        this.btnRotX.style.top = '25px';
-        this.btnRotX.style.left = '-15px';
-        this.btnRotX.onclick = () => this.setTransformMode('rotateX');
+        this.btnSpin = document.createElement('button');
+        this.btnSpin.className = 'transform-menu-btn';
+        this.btnSpin.innerHTML = '⭮<br>Spin';
+        this.btnSpin.style.top = '25px';
+        this.btnSpin.style.left = '-15px';
+        this.btnSpin.onclick = () => this.setTransformMode('rotateY'); // Spin is Y-axis (Yaw)
         
-        this.btnRotY = document.createElement('button');
-        this.btnRotY.className = 'transform-menu-btn';
-        this.btnRotY.innerHTML = '⭮<br>Rot Y';
-        this.btnRotY.style.top = '25px';
-        this.btnRotY.style.left = '90px';
-        this.btnRotY.onclick = () => this.setTransformMode('rotateY');
+        this.btnTilt = document.createElement('button');
+        this.btnTilt.className = 'transform-menu-btn';
+        this.btnTilt.innerHTML = '⭮<br>Tilt';
+        this.btnTilt.style.top = '25px';
+        this.btnTilt.style.left = '90px';
+        this.btnTilt.onclick = () => this.setTransformMode('rotateX'); // Tilt is X-axis (Pitch)
 
         this.btnOpening = document.createElement('button');
         this.btnOpening.className = 'transform-menu-btn';
@@ -181,10 +181,11 @@ export class GizmoManager {
         this.transformMenu.appendChild(this.btnMove);
         this.transformMenu.appendChild(this.btnPlace);
         this.transformMenu.appendChild(this.btnScale);
-        this.transformMenu.appendChild(this.btnRotX);
-        this.transformMenu.appendChild(this.btnRotY);
+        this.transformMenu.appendChild(this.btnSpin);
+        this.transformMenu.appendChild(this.btnTilt);
         
         this.container.appendChild(this.transformMenu);
+        this.transformMenu.addEventListener('pointerdown', e => e.stopPropagation());
         this.container.appendChild(this.btnDone);
 
         this._makePanelDraggable(this.xyPanel);
@@ -411,8 +412,8 @@ export class GizmoManager {
         this.btnMove.classList.remove('active');
         if (this.btnPlace) this.btnPlace.classList.remove('active');
         if (this.btnScale) this.btnScale.classList.remove('active');
-        this.btnRotX.classList.remove('active');
-        this.btnRotY.classList.remove('active');
+        this.btnSpin.classList.remove('active');
+        this.btnTilt.classList.remove('active');
         if (this.btnOpening) this.btnOpening.classList.remove('active');
 
         if (this.ctx.interactions.openingGizmo) {
@@ -429,8 +430,8 @@ export class GizmoManager {
             this.btnMove.style.display = 'flex';
             if (this.btnPlace) this.btnPlace.style.display = isOpening ? 'none' : 'flex';
             if (this.btnScale) this.btnScale.style.display = isOpening ? 'none' : 'flex';
-            this.btnRotX.style.display = isOpening ? 'none' : 'flex';
-            this.btnRotY.style.display = isOpening ? 'none' : 'flex';
+            this.btnSpin.style.display = isOpening ? 'none' : 'flex';
+            this.btnTilt.style.display = isOpening ? 'none' : 'flex';
             if (this.btnOpening) this.btnOpening.style.display = isOpening ? 'flex' : 'none';
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
@@ -452,8 +453,8 @@ export class GizmoManager {
         this.btnMove.style.display = 'none';
         if (this.btnPlace) this.btnPlace.style.display = 'none';
         if (this.btnScale) this.btnScale.style.display = 'none';
-        this.btnRotX.style.display = 'none';
-        this.btnRotY.style.display = 'none';
+        this.btnSpin.style.display = 'none';
+        this.btnTilt.style.display = 'none';
         if (this.btnOpening) this.btnOpening.style.display = 'none';
         if (this.btnDone) this.btnDone.style.display = 'flex';
 
@@ -510,15 +511,15 @@ export class GizmoManager {
         } else if (mode === 'rotateX') {
             tc.mode = 'rotate';
             tc.showTranslate = false; tc.showRotate = true; tc.showScale = false;
-            tc.showX = false; tc.showY = true; tc.showZ = false;
+            tc.showX = true; tc.showY = false; tc.showZ = false;
             if (this.xyPanel) this.xyPanel.style.display = 'none';
-            this.btnRotX.classList.add('active');
+            this.btnTilt.classList.add('active'); // Tilt
         } else if (mode === 'rotateY') {
             tc.mode = 'rotate';
             tc.showTranslate = false; tc.showRotate = true; tc.showScale = false;
-            tc.showX = true; tc.showY = false; tc.showZ = false;
+            tc.showX = false; tc.showY = true; tc.showZ = false;
             if (this.xyPanel) this.xyPanel.style.display = 'none';
-            this.btnRotY.classList.add('active');
+            this.btnSpin.classList.add('active'); // Spin
         }
 
         if (selectedObj) tc.attach(selectedObj);

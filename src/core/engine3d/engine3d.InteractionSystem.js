@@ -255,9 +255,12 @@ export class InteractionSystem {
         this.wallHighlight.visible = false;
 
         this.transformControls = new TransformControls(this.ctx.camera, this.ctx.renderer.domElement);
-        this.transformControls.addEventListener('change', () => {
-            if (this.ctx.syncToUI) this.ctx.syncToUI();
-        });
+        const syncUI = () => { if (this.ctx.syncToUI) this.ctx.syncToUI(); };
+        this.transformControls.addEventListener('move-change', syncUI);
+        this.transformControls.addEventListener('scale-change', syncUI);
+        this.transformControls.addEventListener('spin-change', syncUI);
+        this.transformControls.addEventListener('tilt-change', syncUI);
+        this.transformControls.addEventListener('rotate-change', syncUI);
         this.transformControls.visible = false;
         this.ctx.scene.add(this.transformControls);
 
