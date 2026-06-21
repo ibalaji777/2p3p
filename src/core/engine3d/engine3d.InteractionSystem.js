@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TransformControls } from './TransformControls.js';
+import { MaterialGizmo } from './MaterialGizmo.js';
 
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from '../../core/registry';
 
@@ -267,6 +268,9 @@ export class InteractionSystem {
         this.openingGizmo = new OpeningGizmo(ctx);
         this.ctx.scene.add(this.openingGizmo);
 
+        this.materialGizmo = new MaterialGizmo(ctx);
+        this.ctx.scene.add(this.materialGizmo);
+
         this.initEvents();
     }
 
@@ -310,6 +314,9 @@ export class InteractionSystem {
                 }
                 if (this.openingGizmo && this.openingGizmo.visible) {
                     if (this.raycaster.intersectObjects(this.openingGizmo.handles.children, true).length > 0) return;
+                }
+                if (this.materialGizmo && this.materialGizmo.visible) {
+                    if (this.raycaster.intersectObjects(this.materialGizmo.handles.children, true).length > 0) return;
                 }
                 
                 const intersects = this.raycaster.intersectObjects(this.ctx.interactables, true);
@@ -383,6 +390,31 @@ export class InteractionSystem {
             }
         });
 
+    }
+
+    setTransformMode(mode) {
+        if (!this.selectedObject) return;
+        
+        if (mode === 'material') {
+            if (this.transformControls) this.transformControls.detach();
+            if (this.openingGizmo) this.openingGizmo.detach();
+            if (this.materialGizmo) this.materialGizmo.attach(this.selectedObject);
+        } else if (mode === 'opening') {
+            if (this.transformControls) this.transformControls.detach();
+            if (this.materialGizmo) this.materialGizmo.detach();
+            if (this.openingGizmo) this.openingGizmo.attach(this.selectedObject);
+        } else if (mode === 'none') {
+            if (this.transformControls) this.transformControls.detach();
+            if (this.openingGizmo) this.openingGizmo.detach();
+            if (this.materialGizmo) this.materialGizmo.detach();
+        } else {
+            if (this.openingGizmo) this.openingGizmo.detach();
+            if (this.materialGizmo) this.materialGizmo.detach();
+            if (this.transformControls) {
+                this.transformControls.mode = mode;
+                this.transformControls.attach(this.selectedObject);
+            }
+        }
     }
 
     setRelocationState(active) {
@@ -618,6 +650,8 @@ export class InteractionSystem {
         this.cancelRelocation();
         if (this.transformControls) this.transformControls.detach();
         if (this.openingGizmo) this.openingGizmo.detach();
+        if (this.materialGizmo) this.materialGizmo.detach();
+        this.ctx.currentTransformMode = 'none';
         if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
         if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);
         if (this.transformControls) this.transformControls.detach();

@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TransformControls } from './engine3d/TransformControls.js';
-import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, DOOR_TYPES, WINDOW_TYPES } from './registry.js';
+import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY } from './registry.js';
 import { EnvironmentBuilder } from "./engine3d/engine3d.EnvironmentBuilder.js";
 import { AssetManager  } from "./engine3d/engine3d.AssetManager.js";
 import { DecorManager  } from "./engine3d/engine3d.DecorManager.js";

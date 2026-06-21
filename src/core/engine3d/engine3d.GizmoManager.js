@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DOOR_TYPES, WINDOW_TYPES } from '../registry.js';
+import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY } from '../registry.js';
 
 export class GizmoManager {
     constructor(ctx) {
@@ -103,6 +103,20 @@ export class GizmoManager {
         this.btnOpening.style.display = 'none';
         this.btnOpening.onclick = () => this.setTransformMode('opening');
         
+        this.btnMaterial = document.createElement('button');
+        this.btnMaterial.className = 'transform-menu-btn';
+        this.btnMaterial.innerHTML = '🎨<br>Material';
+        this.btnMaterial.style.top = '-85px';
+        this.btnMaterial.style.left = '38px';
+        this.btnMaterial.style.display = 'none';
+        this.btnMaterial.onclick = () => {
+            if (this.ctx.interactions.selectedObject && this.ctx.interactions.selectedObject.userData.entity) {
+                this.ctx.interactions.selectedObject.userData.entity.params = this.ctx.interactions.selectedObject.userData.entity.params || {};
+                this.ctx.interactions.selectedObject.userData.entity.params.isEditingMaterials = true;
+                this.setTransformMode('material');
+            }
+        };
+        
         this.openingPanel = document.createElement('div');
         this.openingPanel.style.display = 'none';
         this.openingPanel.style.position = 'absolute';
@@ -156,6 +170,63 @@ export class GizmoManager {
         this.container.appendChild(this.openingPanel);
         this.transformMenu.appendChild(this.btnOpening);
         
+        this.materialPanel = document.createElement('div');
+        this.materialPanel.style.display = 'none';
+        this.materialPanel.style.position = 'absolute';
+        this.materialPanel.style.bottom = '100px';
+        this.materialPanel.style.left = '50%';
+        this.materialPanel.style.transform = 'translateX(-50%)';
+        this.materialPanel.style.background = 'rgba(15, 23, 42, 0.9)';
+        this.materialPanel.style.padding = '12px 16px';
+        this.materialPanel.style.borderRadius = '12px';
+        this.materialPanel.style.color = 'white';
+        this.materialPanel.style.pointerEvents = 'auto';
+        this.materialPanel.style.boxShadow = '0 8px 32px rgba(0,0,0,0.5)';
+        this.materialPanel.style.border = '1px solid rgba(255,255,255,0.15)';
+        this.materialPanel.style.backdropFilter = 'blur(8px)';
+        this.materialPanel.style.zIndex = '1000';
+        this.materialPanel.style.flexDirection = 'column';
+        this.materialPanel.style.gap = '10px';
+        this.materialPanel.style.width = '280px';
+        this.materialPanel.setAttribute('draggable', 'true');
+        
+        let decorThumbnails = `
+            <div class="mat-thumb" data-mat="" style="width: 50px; height: 50px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #64748b; text-align: center;">Clear</div>
+        `;
+        for (const [key, val] of Object.entries(WALL_DECOR_REGISTRY)) {
+            const thumbUrl = val.thumbnail || val.texture;
+            decorThumbnails += `
+                <div class="mat-thumb" data-mat="${key}" title="${val.name}" style="width: 50px; height: 50px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; background-image: url('${thumbUrl}'); background-size: cover; background-position: center;"></div>
+            `;
+        }
+        
+        this.materialPanel.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+                <span style="font-size: 11px; font-weight: 800; color: #94a3b8; letter-spacing: 0.5px;">MATERIAL CONTROLS</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 8px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <label style="font-size:12px; color:#fca5a5; font-weight:600; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                        <input type="checkbox" id="gizmo-material-all" checked style="accent-color: #fca5a5;"> All Sides
+                    </label>
+                    <select id="gizmo-material-face" style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 4px; font-size: 11px; border-radius: 4px; outline: none; display: none;">
+                        <option value="top">Top</option>
+                        <option value="bottom">Bottom</option>
+                        <option value="left">Left</option>
+                        <option value="right">Right</option>
+                        <option value="front">Front</option>
+                        <option value="back">Back</option>
+                    </select>
+                </div>
+                <div style="font-size: 11px; color: #cbd5e1; margin-bottom: -4px;">Select Material: <span id="gizmo-material-name" style="font-weight: bold; color: white;"></span></div>
+                <div id="gizmo-material-grid" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 150px; overflow-y: auto; padding-right: 4px;">
+                    ${decorThumbnails}
+                </div>
+            </div>
+        `;
+        this.materialPanel.addEventListener('pointerdown', e => e.stopPropagation());
+        this.container.appendChild(this.materialPanel);
+
         this.btnDone = document.createElement('button');
         this.btnDone.className = 'done-btn';
         this.btnDone.innerHTML = '✓ Done';
@@ -183,6 +254,7 @@ export class GizmoManager {
         this.transformMenu.appendChild(this.btnScale);
         this.transformMenu.appendChild(this.btnSpin);
         this.transformMenu.appendChild(this.btnTilt);
+        this.transformMenu.appendChild(this.btnMaterial);
         
         this.container.appendChild(this.transformMenu);
         this.transformMenu.addEventListener('pointerdown', e => e.stopPropagation());
@@ -190,6 +262,7 @@ export class GizmoManager {
 
         this._makePanelDraggable(this.xyPanel);
         this._makePanelDraggable(this.openingPanel);
+        this._makePanelDraggable(this.materialPanel);
 
         setTimeout(() => {
             this.inputX = document.getElementById('gizmo-x');
@@ -297,6 +370,123 @@ export class GizmoManager {
                     }
                 });
             }
+
+            this.matFaceSelect = document.getElementById('gizmo-material-face');
+            this.matAllCheckbox = document.getElementById('gizmo-material-all');
+            this.matNameDisplay = document.getElementById('gizmo-material-name');
+            const matThumbs = document.querySelectorAll('.mat-thumb');
+
+            const highlightSelectedThumb = (texKey) => {
+                matThumbs.forEach(t => t.style.borderColor = 'transparent');
+                if (texKey !== undefined) {
+                    const activeThumb = Array.from(matThumbs).find(t => t.getAttribute('data-mat') === (texKey || ''));
+                    if (activeThumb) activeThumb.style.borderColor = '#3b82f6';
+                    if (this.matNameDisplay) {
+                        const config = WALL_DECOR_REGISTRY[texKey];
+                        this.matNameDisplay.innerText = config ? config.name : 'Clear Material';
+                    }
+                }
+            };
+
+            matThumbs.forEach(thumb => {
+                thumb.addEventListener('click', (e) => {
+                    const selectedObj = this.ctx.interactions.selectedObject;
+                    if (selectedObj && selectedObj.userData.entity) {
+                        const entity = selectedObj.userData.entity;
+                        entity.params = entity.params || {};
+                        const isAll = this.matAllCheckbox.checked;
+                        const target = isAll ? 'all' : this.matFaceSelect.value;
+                        const key = thumb.getAttribute('data-mat');
+                        
+                        if (target === 'all') {
+                            entity.params.texture = key;
+                            entity.params.textureTop = key;
+                            entity.params.textureBottom = key;
+                            entity.params.textureSides = key;
+                            entity.params.textureLeft = key;
+                            entity.params.textureRight = key;
+                            entity.params.textureFront = key;
+                            entity.params.textureBack = key;
+                        } else if (target === 'top') entity.params.textureTop = key;
+                        else if (target === 'bottom') entity.params.textureBottom = key;
+                        else if (target === 'left') entity.params.textureLeft = key;
+                        else if (target === 'right') entity.params.textureRight = key;
+                        else if (target === 'front') entity.params.textureFront = key;
+                        else if (target === 'back') entity.params.textureBack = key;
+                        
+                        highlightSelectedThumb(key);
+                        
+                        // Update shape instantly without rebuilding entire scene!
+                        if (this.ctx.updateShapeLive) this.ctx.updateShapeLive(entity);
+                    }
+                });
+            });
+
+            if (this.matAllCheckbox && this.matFaceSelect) {
+                this.matAllCheckbox.addEventListener('change', (e) => {
+                    this.matFaceSelect.style.display = e.target.checked ? 'none' : 'block';
+                    // Re-evaluate current selected texture for UI
+                    const selectedObj = this.ctx.interactions.selectedObject;
+                    if (selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.params) {
+                        const p = selectedObj.userData.entity.params;
+                        let tex = p.texture;
+                        if (!e.target.checked) {
+                            const target = this.matFaceSelect.value;
+                            if (target === 'top') tex = p.textureTop;
+                            else if (target === 'bottom') tex = p.textureBottom;
+                            else if (target === 'left') tex = p.textureLeft;
+                            else if (target === 'right') tex = p.textureRight;
+                            else if (target === 'front') tex = p.textureFront;
+                            else if (target === 'back') tex = p.textureBack;
+                        }
+                        highlightSelectedThumb(tex);
+                    }
+                });
+            }
+
+            if (this.matFaceSelect) {
+                this.matFaceSelect.addEventListener('change', (e) => {
+                    const selectedObj = this.ctx.interactions.selectedObject;
+                    if (selectedObj && selectedObj.userData.entity) {
+                        selectedObj.userData.entity.params = selectedObj.userData.entity.params || {};
+                        selectedObj.userData.entity.params.materialTarget = e.target.value;
+                        
+                        const p = selectedObj.userData.entity.params;
+                        let tex = p.texture;
+                        const target = e.target.value;
+                        if (target === 'top') tex = p.textureTop;
+                        else if (target === 'bottom') tex = p.textureBottom;
+                        else if (target === 'left') tex = p.textureLeft;
+                        else if (target === 'right') tex = p.textureRight;
+                        else if (target === 'front') tex = p.textureFront;
+                        else if (target === 'back') tex = p.textureBack;
+                        highlightSelectedThumb(tex);
+                    }
+                });
+            }
+            
+            window.addEventListener('material-gizmo-select', (e) => {
+                if (this.matFaceSelect && this.matAllCheckbox) {
+                    this.matAllCheckbox.checked = false;
+                    this.matFaceSelect.style.display = 'block';
+                    this.matFaceSelect.value = e.detail.face;
+                    
+                    const selectedObj = this.ctx.interactions.selectedObject;
+                    if (selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.params) {
+                        const p = selectedObj.userData.entity.params;
+                        let tex = p.texture;
+                        const target = e.detail.face;
+                        if (target === 'top') tex = p.textureTop;
+                        else if (target === 'bottom') tex = p.textureBottom;
+                        else if (target === 'left') tex = p.textureLeft;
+                        else if (target === 'right') tex = p.textureRight;
+                        else if (target === 'front') tex = p.textureFront;
+                        else if (target === 'back') tex = p.textureBack;
+                        highlightSelectedThumb(tex);
+                    }
+                }
+            });
+
         }, 100);
     }
 
@@ -415,12 +605,21 @@ export class GizmoManager {
         this.btnSpin.classList.remove('active');
         this.btnTilt.classList.remove('active');
         if (this.btnOpening) this.btnOpening.classList.remove('active');
+        if (this.btnMaterial) this.btnMaterial.classList.remove('active');
 
         if (this.ctx.interactions.openingGizmo) {
             this.ctx.interactions.openingGizmo.detach();
         }
+        if (this.ctx.interactions.materialGizmo && mode !== 'material') {
+            this.ctx.interactions.materialGizmo.detach();
+            if (selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.params) {
+                selectedObj.userData.entity.params.isEditingMaterials = false;
+                if (this.ctx.syncToUI) this.ctx.syncToUI();
+            }
+        }
 
         const isOpening = selectedObj && (selectedObj.userData.isWidget || selectedObj.userData.isPattern || (selectedObj.userData.entity && selectedObj.userData.entity.type && ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(selectedObj.userData.entity.type)));
+        const isShape = selectedObj && selectedObj.userData.isShape;
 
         if (mode === 'none') {
             tc.visible = false;
@@ -433,8 +632,10 @@ export class GizmoManager {
             this.btnSpin.style.display = isOpening ? 'none' : 'flex';
             this.btnTilt.style.display = isOpening ? 'none' : 'flex';
             if (this.btnOpening) this.btnOpening.style.display = isOpening ? 'flex' : 'none';
+            if (this.btnMaterial) this.btnMaterial.style.display = isShape ? 'flex' : 'none';
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
+            if (this.materialPanel) this.materialPanel.style.display = 'none';
             if (this.btnDone) this.btnDone.style.display = 'none';
             
             if (selectedObj) this.ctx.interactions.setHighlight(selectedObj, true);
@@ -456,6 +657,7 @@ export class GizmoManager {
         this.btnSpin.style.display = 'none';
         this.btnTilt.style.display = 'none';
         if (this.btnOpening) this.btnOpening.style.display = 'none';
+        if (this.btnMaterial) this.btnMaterial.style.display = 'none';
         if (this.btnDone) this.btnDone.style.display = 'flex';
 
         if (selectedObj) tc.detach();
@@ -469,6 +671,55 @@ export class GizmoManager {
             if (this.ctx.interactions.openingGizmo && selectedObj) {
                 this.ctx.interactions.openingGizmo.attach(selectedObj, 'opening');
                 this.updateOpeningPanel(selectedObj.userData.entity);
+            }
+            return;
+        }
+
+        if (mode === 'material') {
+            tc.visible = false;
+            tc.enabled = false;
+            if (this.btnMaterial) this.btnMaterial.classList.add('active');
+            if (this.xyPanel) this.xyPanel.style.display = 'none';
+            if (this.openingPanel) this.openingPanel.style.display = 'none';
+            if (this.materialPanel) {
+                this.materialPanel.style.display = 'flex';
+                // Sync dropdowns to current entity values
+                if (selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.params) {
+                    const p = selectedObj.userData.entity.params;
+                    const target = p.materialTarget || 'all';
+                    const isAll = target === 'all';
+                    
+                    if (this.matAllCheckbox) {
+                        this.matAllCheckbox.checked = isAll;
+                    }
+                    if (this.matFaceSelect) {
+                        this.matFaceSelect.style.display = isAll ? 'none' : 'block';
+                        this.matFaceSelect.value = isAll ? 'top' : target; // Default to top if switching off all later
+                    }
+                    
+                    let tex = p.texture;
+                    if (!isAll) {
+                        if (target === 'top') tex = p.textureTop;
+                        else if (target === 'bottom') tex = p.textureBottom;
+                        else if (target === 'left') tex = p.textureLeft;
+                        else if (target === 'right') tex = p.textureRight;
+                        else if (target === 'front') tex = p.textureFront;
+                        else if (target === 'back') tex = p.textureBack;
+                    }
+                    
+                    const matThumbs = document.querySelectorAll('.mat-thumb');
+                    matThumbs.forEach(t => t.style.borderColor = 'transparent');
+                    const activeThumb = Array.from(matThumbs).find(t => t.getAttribute('data-mat') === (tex || ''));
+                    if (activeThumb) activeThumb.style.borderColor = '#3b82f6';
+                    
+                    if (this.matNameDisplay) {
+                        const config = WALL_DECOR_REGISTRY[tex];
+                        this.matNameDisplay.innerText = config ? config.name : 'Clear Material';
+                    }
+                }
+            }
+            if (this.ctx.interactions.materialGizmo && selectedObj) {
+                this.ctx.interactions.materialGizmo.attach(selectedObj);
             }
             return;
         }

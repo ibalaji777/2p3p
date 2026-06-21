@@ -715,6 +715,13 @@ onMounted(() => {
     
     window.addEventListener('opening-gizmo-change', throttledSyncEngine);
     window.addEventListener('opening-gizmo-end', syncEngine);
+    
+    window.addEventListener('material-gizmo-select', (e) => {
+        if (selectedEntity.value && selectedEntity.value.params) {
+            selectedEntity.value.params.materialTarget = e.detail.face;
+            uiTrigger.value++;
+        }
+    });
 
     setTimeout(() => {
         saveHistory();
@@ -799,6 +806,16 @@ const addLevel = (type) => {
     switchLevel(newIndex);
     saveHistory();
 };
+
+watch(() => selectedEntity.value?.params?.isEditingMaterials, (newVal) => {
+    if (renderer3D.value) {
+        if (newVal) {
+            renderer3D.value.setTransformMode('material');
+        } else {
+            renderer3D.value.setTransformMode('none');
+        }
+    }
+});
 
 const switchTo2D = () => {
     if(renderer3D.value) renderer3D.value.deselectObject();
