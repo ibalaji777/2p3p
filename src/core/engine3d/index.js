@@ -288,7 +288,7 @@ export class Preview3D {
     }
 
     syncToUI() {
-        if (!this.isUpdatingFromUI && this.interactions.selectedObject && this.interactions.selectedObject.userData.isFurniture) {
+        if (!this.isUpdatingFromUI && this.interactions.selectedObject && this.interactions.selectedObject.userData.entity) {
             const obj3D = this.interactions.selectedObject;
             const ent2D = obj3D.userData.entity;
             if (ent2D && ent2D.group) { 
@@ -298,6 +298,15 @@ export class Preview3D {
                 ent2D.rotation = -obj3D.rotation.y * (180 / Math.PI);
                 ent2D.rotationX = obj3D.rotation.x;
                 ent2D.rotationZ = obj3D.rotation.z;
+                
+                // Sync scale from 3D back to 2D entity
+                if (obj3D.userData && obj3D.userData.originalSize) {
+                    const orig = obj3D.userData.originalSize;
+                    ent2D.width = orig.x * obj3D.scale.x;
+                    ent2D.height = orig.y * obj3D.scale.y;
+                    ent2D.depth = orig.z * obj3D.scale.z;
+                }
+                
                 ent2D.update(); 
             }
         }

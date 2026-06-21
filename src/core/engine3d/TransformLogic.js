@@ -15,6 +15,7 @@ export class TransformLogic {
         this.startScale = new THREE.Vector3();
         this.pointStart = new THREE.Vector3();
         this.rotationAxis = new THREE.Vector3();
+        this.plane = new THREE.Plane();
     }
 
     startInteraction(object, mode, axis, worldPosition, worldQuaternion, mouse, raycaster) {
@@ -41,26 +42,38 @@ export class TransformLogic {
             }
             this.startObjectPosition.copy(object.position);
         } else if (mode === 'scale') {
+            this.startScale.copy(object.scale);
+            
+            const localAxis = new THREE.Vector3();
+            if (axis.includes('X')) localAxis.set(1,0,0);
+            else if (axis.includes('Y')) localAxis.set(0,1,0);
+            else if (axis.includes('Z')) localAxis.set(0,0,1);
+            else localAxis.set(1,1,1); // scaleUniform
+            
+            localAxis.applyQuaternion(worldQuaternion).normalize();
+            
             const camDir = new THREE.Vector3().subVectors(this.camera.position, worldPosition).normalize();
-            if (axis === 'scaleUniform') {
-                const planeNormal = camDir.clone();
-                const plane = new THREE.Plane(); plane.setFromNormalAndCoplanarPoint(planeNormal, worldPosition);
-                if (raycaster.ray.intersectPlane(plane, this.pointStart)) {
-                    this.startScale.copy(object.scale);
-                }
+            let planeNormal = new THREE.Vector3();
+            
+            if (axis.includes('Uniform')) {
+                planeNormal.copy(camDir).negate(); // Face the camera
             } else {
-                const localAxis = new THREE.Vector3();
-                if (axis === 'scaleX') localAxis.set(1,0,0);
-                if (axis === 'scaleY') localAxis.set(0,1,0);
-                if (axis === 'scaleZ') localAxis.set(0,0,1);
-                localAxis.applyQuaternion(worldQuaternion).normalize();
-                const planeNormal = new THREE.Vector3().crossVectors(localAxis, camDir).cross(localAxis).normalize();
-                if (planeNormal.lengthSq() < 0.001) planeNormal.copy(camDir);
-                const plane = new THREE.Plane(); plane.setFromNormalAndCoplanarPoint(planeNormal, worldPosition);
-                if (raycaster.ray.intersectPlane(plane, this.pointStart)) {
-                    this.startScale.copy(object.scale);
+                // Create optimal plane that contains the localAxis and faces the camera as much as possible
+                planeNormal.crossVectors(localAxis, camDir);
+                if (planeNormal.lengthSq() < 0.001) {
+                    planeNormal.set(0,1,0);
+                    if (Math.abs(localAxis.y) > 0.9) planeNormal.set(1,0,0);
+                } else {
+                    planeNormal.normalize();
+                    planeNormal.crossVectors(planeNormal, localAxis).normalize();
                 }
+                // Ensure normal points towards camera
+                if (planeNormal.dot(camDir) < 0) planeNormal.negate();
             }
+            
+            this.plane.setFromNormalAndCoplanarPoint(planeNormal, worldPosition);
+            const hit = raycaster.ray.intersectPlane(this.plane, this.pointStart);
+            if (!hit) this.pointStart.copy(worldPosition);
         } else if (mode === 'rotate') {
             const plane = new THREE.Plane();
             this.rotationAxis.set(0,0,0);
@@ -135,40 +148,44 @@ export class TransformLogic {
             object.position.copy(newPos);
 
         } else if (mode === 'scale') {
-            const camDir = new THREE.Vector3().subVectors(this.camera.position, this.startWorldPosition).normalize();
-            if (axis === 'scaleUniform') {
-                const planeNormal = camDir.clone();
-                const plane = new THREE.Plane(); plane.setFromNormalAndCoplanarPoint(planeNormal, this.startWorldPosition);
-                if (!raycaster.ray.intersectPlane(plane, pointEnd)) return;
-                
-                const dStart = this.pointStart.distanceTo(this.startWorldPosition);
-                const dEnd = pointEnd.distanceTo(this.startWorldPosition);
-                if (Math.abs(dStart) > 0.01) {
-                    const scaleFactor = Math.max(0.1, dEnd / dStart);
-                    object.scale.copy(this.startScale).multiplyScalar(scaleFactor);
-                }
+            if (axis.includes('Uniform')) {
+                // Uniform scaling: smoothly scale based on combined screen X and Y movement
+                const mouseDelta = (mouse.x - startMouse.x) - (mouse.y - startMouse.y);
+                let scaleFactor = Math.exp(mouseDelta * 1.5);
+                scaleFactor = Math.max(0.01, scaleFactor);
+                object.scale.copy(this.startScale).multiplyScalar(scaleFactor);
             } else {
+                // Directional scaling: project 3D axis to 2D screen space to ensure perfect stability
                 const localAxis = new THREE.Vector3();
-                if (axis === 'scaleX') localAxis.set(1,0,0);
-                if (axis === 'scaleY') localAxis.set(0,1,0);
-                if (axis === 'scaleZ') localAxis.set(0,0,1);
-                localAxis.applyQuaternion(worldQuaternion).normalize();
-                const planeNormal = new THREE.Vector3().crossVectors(localAxis, camDir).cross(localAxis).normalize();
-                if (planeNormal.lengthSq() < 0.001) planeNormal.copy(camDir);
+                if (axis.includes('X')) localAxis.set(1,0,0);
+                if (axis.includes('Y')) localAxis.set(0,1,0);
+                if (axis.includes('Z')) localAxis.set(0,0,1);
                 
-                const plane = new THREE.Plane(); plane.setFromNormalAndCoplanarPoint(planeNormal, this.startWorldPosition);
-                if (!raycaster.ray.intersectPlane(plane, pointEnd)) return;
-
-                const dStart = this.pointStart.clone().sub(this.startWorldPosition).dot(localAxis);
-                const dEnd = pointEnd.clone().sub(this.startWorldPosition).dot(localAxis);
-                if (Math.abs(dStart) > 0.01) {
-                    const scaleFactor = Math.max(0.1, dEnd / dStart); 
-                    object.scale.copy(this.startScale);
-                    if (axis === 'scaleX') object.scale.x *= scaleFactor;
-                    if (axis === 'scaleY') object.scale.y *= scaleFactor;
-                    if (axis === 'scaleZ') object.scale.z *= scaleFactor;
+                localAxis.applyQuaternion(worldQuaternion).normalize();
+                
+                // Get the true 2D direction of the axis on the screen by transforming to camera view space
+                const viewAxis = localAxis.clone().transformDirection(this.camera.matrixWorldInverse);
+                const dir2D = new THREE.Vector2(viewAxis.x, viewAxis.y);
+                
+                if (dir2D.lengthSq() < 0.001) {
+                    // Fallback if axis is pointing directly at/away from camera
+                    dir2D.set(1, 1).normalize();
+                } else {
+                    dir2D.normalize();
                 }
+                
+                const mouseDelta = new THREE.Vector2(mouse.x - startMouse.x, mouse.y - startMouse.y);
+                const screenMovement = mouseDelta.dot(dir2D);
+                
+                let scaleFactor = Math.exp(screenMovement * 2.5); // Slightly increased sensitivity for better feel
+                scaleFactor = Math.max(0.01, scaleFactor);
+                
+                object.scale.copy(this.startScale);
+                if (axis.includes('X')) object.scale.x *= scaleFactor;
+                if (axis.includes('Y')) object.scale.y *= scaleFactor;
+                if (axis.includes('Z')) object.scale.z *= scaleFactor;
             }
+            object.updateMatrix(); 
         } else if (mode === 'rotate') {
             let rotationAngle = 0;
             if (axis === 'X') {

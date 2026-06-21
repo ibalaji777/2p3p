@@ -125,39 +125,58 @@ export class TransformGizmo extends THREE.Group {
         const scaleGroup = new THREE.Group();
         scaleGroup.name = 'scale';
 
-        const createScaleHandle = (color, rotX, rotY, rotZ, name) => {
-            const handleGroup = new THREE.Group();
-            handleGroup.rotation.set(rotX, rotY, rotZ);
+        const createScaleHandle = (color, axisName, rotX, rotY, rotZ) => {
+            const group = new THREE.Group();
+            group.name = axisName + '_group';
+            group.rotation.set(rotX, rotY, rotZ);
+            
             const mat = new THREE.MeshBasicMaterial({ color: color, depthTest: false, depthWrite: false, transparent: true, opacity: 0.9 });
-            const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.7), mat); 
+            const handle = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.25, 0.25), mat);
+            handle.position.z = 0.9;
+            handle.name = axisName;
+            handle.userData = { defaultColor: color, defaultOpacity: 0.9, hoverOpacity: 1.0 };
+            handle.renderOrder = 999;
+            
+            const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.8), mat);
             shaft.rotation.x = Math.PI / 2;
             shaft.position.z = 0.45;
-            shaft.name = name;
-            shaft.userData = { defaultColor: color, defaultOpacity: 0.9 };
-            shaft.renderOrder = 999;
-            const head = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), mat); 
-            head.position.z = 0.9;
-            head.name = name;
-            head.userData = { defaultColor: color, defaultOpacity: 0.9 };
-            head.renderOrder = 999;
-            handleGroup.add(shaft, head);
-            return handleGroup;
+            shaft.name = axisName + '_shaft';
+            shaft.renderOrder = 998;
+            
+            group.add(shaft, handle);
+            return group;
         };
-        scaleGroup.add(createScaleHandle(GIZMO_COLOR_X, 0, Math.PI / 2, 0, 'scaleX'));
-        scaleGroup.add(createScaleHandle(GIZMO_COLOR_Y, -Math.PI / 2, 0, 0, 'scaleY'));
-        scaleGroup.add(createScaleHandle(GIZMO_COLOR_Z, 0, 0, 0, 'scaleZ'));
-        
+
+        scaleGroup.add(createScaleHandle(GIZMO_COLOR_X, 'scaleX', 0, Math.PI / 2, 0));
+        scaleGroup.add(createScaleHandle(GIZMO_COLOR_Y, 'scaleY', -Math.PI / 2, 0, 0));
+        scaleGroup.add(createScaleHandle(GIZMO_COLOR_Z, 'scaleZ', 0, 0, 0));
+
         const uniformMat = new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, depthWrite: false, transparent: true, opacity: 0.9 });
-        const uniformScale = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), uniformMat);
-        uniformScale.name = 'scaleUniform';
-        uniformScale.userData = { defaultColor: 0xffffff, defaultOpacity: 0.9 };
-        uniformScale.renderOrder = 999;
-        scaleGroup.add(uniformScale);
-        
+        const uniformHandle = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), uniformMat);
+        uniformHandle.name = 'scaleUniform';
+        uniformHandle.userData = { defaultColor: 0xffffff, defaultOpacity: 0.9, hoverOpacity: 1.0 };
+        uniformHandle.renderOrder = 999;
+        scaleGroup.add(uniformHandle);
+
         this.handles.add(scaleGroup);
     }
+    
+    updateScaleGizmo(object, finalScale) {
+        const scaleGroup = this.handles.getObjectByName('scale');
+        if (!scaleGroup || !object) return;
+        
+        // Ensure scaleGroup isn't affected by any inverse scaling and inherits TransformControls' uniform scale
+        scaleGroup.scale.set(1, 1, 1);
+        scaleGroup.quaternion.copy(object.getWorldQuaternion(new THREE.Quaternion()));
+    }
 
-    updateVisibility(mode, showX, showY, showZ) {
+    updateVisibility(mode, showX, showY, showZ, activeAxis = null) {
+        // Reset all individual meshes to visible first so we recover from isolated dragging
+        this.handles.traverse(child => {
+            if (child.isMesh) child.visible = true;
+        });
+
+        // Apply group-level visibility based on mode
         this.handles.children.forEach(child => {
             if (mode === 'translate' || mode === 'place') {
                 child.visible = child.name === 'translate';
@@ -175,6 +194,25 @@ export class TransformGizmo extends THREE.Group {
                 if (child.name === 'Y') child.visible = !!showY;
             }
         });
+
+        // If we are actively dragging, isolate the view
+        if (activeAxis) {
+            if (mode === 'rotate') {
+                this.handles.traverse(child => {
+                    if (child.isMesh && child.name && child.name !== 'X' && child.name !== 'Y' && child.name !== 'Z') {
+                        child.visible = false;
+                    } else if (child.isMesh && child.name) {
+                        child.visible = false; // Hide completely for clean rotation view
+                    }
+                });
+            } else {
+                this.handles.traverse(child => {
+                    if (child.isMesh && child.name && child.name !== activeAxis && child.name !== 'gizmoGrid') {
+                        child.visible = false;
+                    }
+                });
+            }
+        }
     }
 
     updateHighlight(activeAxis, hoveredAxis) {
@@ -198,9 +236,9 @@ export class TransformGizmo extends THREE.Group {
 
     updateGuides(isActive, activeAxis, worldQuaternion) {
         if (isActive && activeAxis) {
-            this.guideX.visible = (activeAxis === 'translateX' || activeAxis === 'scaleX');
-            this.guideY.visible = (activeAxis === 'scaleY');
-            this.guideZ.visible = (activeAxis === 'translateZ' || activeAxis === 'scaleZ');
+            this.guideX.visible = (activeAxis === 'translateX' || activeAxis.includes('scaleX'));
+            this.guideY.visible = (activeAxis.includes('scaleY'));
+            this.guideZ.visible = (activeAxis === 'translateZ' || activeAxis.includes('scaleZ'));
             
             if (activeAxis.startsWith('scale')) this.axisGuide.quaternion.copy(worldQuaternion);
             else this.axisGuide.quaternion.identity();

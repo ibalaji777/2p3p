@@ -69,7 +69,13 @@ export class TransformControls extends THREE.Group {
     set snapSize(v) { this.logic.snapSize = v; }
     get rotationSnap() { return this.logic.rotationSnap; }
     set rotationSnap(v) { this.logic.rotationSnap = v; }
-    get active() { return this.input.active; }
+    get active() {
+        return this.input ? this.input.active : false;
+    }
+
+    get handles() {
+        return this.gizmo ? this.gizmo.handles : null;
+    }
 
     attach(object) {
         this.object = object;
@@ -95,7 +101,7 @@ export class TransformControls extends THREE.Group {
     update() {
         if (!this.object) return;
 
-        this.gizmo.updateVisibility(this.mode, this.showX, this.showY, this.showZ);
+        this.gizmo.updateVisibility(this.mode, this.showX, this.showY, this.showZ, this.active ? this.axis : null);
 
         this.object.updateWorldMatrix(true, false);
         this.object.matrixWorld.decompose(this.worldPosition, this.worldQuaternion, this.worldScale);
@@ -110,13 +116,29 @@ export class TransformControls extends THREE.Group {
         const finalScale = Math.max(this.objectFitScale || 30, minScreenScale);
         this.scale.set(finalScale, finalScale, finalScale);
         
+        if (this.mode === 'scale') {
+            this.gizmo.updateScaleGizmo(this.object, finalScale);
+        } else {
+            const scaleGroup = this.gizmo.handles.getObjectByName('scale');
+            if (scaleGroup) scaleGroup.quaternion.copy(this.worldQuaternion);
+        }
+        
         this.gizmo.updateGuides(this.active, this.axis, this.worldQuaternion);
     }
 
     handleHover(mouse) {
         if (!this.visible || this.object === null) return;
         this.raycaster.setFromCamera(mouse, this.camera);
-        const intersects = this.raycaster.intersectObjects(this.gizmo.handles.children, true).filter(hit => hit.object.visible);
+        
+        const isVisible = (obj) => {
+            while (obj) {
+                if (!obj.visible) return false;
+                obj = obj.parent;
+            }
+            return true;
+        };
+        
+        const intersects = this.raycaster.intersectObjects(this.gizmo.handles.children, true).filter(hit => isVisible(hit.object));
         
         let foundAxis = null;
         if (intersects.length > 0) {
@@ -136,7 +158,16 @@ export class TransformControls extends THREE.Group {
     handleStart(mouse) {
         if (!this.visible || this.object === null) return null;
         this.raycaster.setFromCamera(mouse, this.camera);
-        const intersects = this.raycaster.intersectObjects(this.gizmo.handles.children, true).filter(hit => hit.object.visible);
+        
+        const isVisible = (obj) => {
+            while (obj) {
+                if (!obj.visible) return false;
+                obj = obj.parent;
+            }
+            return true;
+        };
+        
+        const intersects = this.raycaster.intersectObjects(this.gizmo.handles.children, true).filter(hit => isVisible(hit.object));
         
         let validHit = null;
         for (let i = 0; i < intersects.length; i++) {
@@ -161,7 +192,12 @@ export class TransformControls extends THREE.Group {
                 this.dragIndicator.innerHTML = '⭮ ROTATING...';
                 this.dragIndicator.style.boxShadow = '0 0 15px rgba(16, 185, 129, 0.5)'; // Greenish glow
             } else if (this.mode === 'scale') {
-                this.dragIndicator.innerHTML = '⤢ SCALING...';
+                let dirName = 'UNIFORM';
+                let prefix = '';
+                if (this.axis.includes('X')) { prefix = '[X] '; dirName = 'WIDTH'; }
+                else if (this.axis.includes('Y')) { prefix = '[Y] '; dirName = 'HEIGHT'; }
+                else if (this.axis.includes('Z')) { prefix = '[Z] '; dirName = 'DEPTH'; }
+                this.dragIndicator.innerHTML = `${prefix}⤢ SCALING ${dirName}...`;
                 this.dragIndicator.style.boxShadow = '0 0 15px rgba(245, 158, 11, 0.5)'; // Orange glow
             } else {
                 this.dragIndicator.innerHTML = '⬌ MOVING...';
@@ -188,7 +224,7 @@ export class TransformControls extends THREE.Group {
         this.dragIndicator.style.display = 'none';
         this.gizmo.updateHighlight(this.axis, this.hoveredAxis);
         this.gizmo.handles.visible = true; // Show the rings/arrows after release
-        this.update();
+        this.update(); // Triggers updateVisibility which now restores mesh visibility
     }
 
     createGhost() {
