@@ -623,6 +623,7 @@ export class InteractionSystem {
                 this.wallHighlight.rotation.set(0, 0, 0); 
             }
             this.wallHighlight.visible = true;
+            if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
         } 
         else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor || object.userData.isWidget || object.userData.isPattern) {
             if (object.userData.isShape) type = 'shape';
@@ -639,6 +640,8 @@ export class InteractionSystem {
                 if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
             }
             
+        } else {
+            if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
         }
         if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
         if (window.plannerInstance && object.userData.entity) {
