@@ -36,14 +36,23 @@ export const WINDOW_GLASS_MATERIALS = { clear: { label: "Clear Glass", color: 0x
 export const JALI_PATTERNS = {
     geometric: { label: "Geometric Lattice" },
     islamic: { label: "Islamic Star" },
-    floral: { label: "Floral / Organic" },
-    modern: { label: "Modern Slats" }
+    modern: { label: "Modern Slats" },
+    kolam: { label: "Kolam (Rangoli)", texture: 'textures/jali/kolam.png' },
+    lotus: { label: "Lotus Motif", texture: 'textures/jali/lotus.png' },
+    peacock: { label: "Peacock (Mayil)", texture: 'textures/jali/peacock.png' },
+    gopuram: { label: "Temple Gopuram", texture: 'textures/jali/gopuram.png' },
+    ventilation: { label: "Geometric Vent Block", texture: 'textures/jali/ventilation.png' },
+    mango: { label: "Mango Paisley Vine", texture: 'textures/jali/mango.png' },
+    chettinad: { label: "Chettinad Wooden Jali", texture: 'textures/jali/chettinad.png' }
 };
 
 export const JALI_MATERIALS = {
-    wood: { label: "Teak Wood", color: 0x6b4226, roughness: 0.8, metalness: 0.1, texture: 'wood' },
-    mdf: { label: "White MDF", color: 0xfdfdfd, roughness: 0.9, metalness: 0.0, texture: 'solid' },
-    brass: { label: "Brass Finish", color: 0xb5a642, roughness: 0.3, metalness: 0.8, texture: 'solid' }
+    wood: { label: "Teak Wood", color: 0x6b4226, roughness: 0.4, metalness: 0, clearcoat: 0.2, clearcoatRoughness: 0.1, texture: 'wood' },
+    mdf: { label: "White Painted MDF", color: 0xfdfdfd, roughness: 0.3, metalness: 0, clearcoat: 0.4, clearcoatRoughness: 0.1, texture: 'solid' },
+    brass: { label: "Brass Finish", color: 0xb5a642, roughness: 0.2, metalness: 0.9, clearcoat: 0.5, clearcoatRoughness: 0.1, texture: 'solid' },
+    wpc: { label: "WPC (Wood Plastic)", color: 0x8b5a2b, roughness: 0.5, metalness: 0, clearcoat: 0.1, clearcoatRoughness: 0.2, texture: 'wood' },
+    stone: { label: "Sandstone", color: 0xd2b48c, roughness: 0.9, metalness: 0, clearcoat: 0, clearcoatRoughness: 0, texture: 'solid' },
+    metal_black: { label: "Matte Black Metal", color: 0x1a1a1a, roughness: 0.4, metalness: 0.8, clearcoat: 0.1, clearcoatRoughness: 0.2, texture: 'solid' }
 };
 export const WINDOW_GRILLE_PATTERNS = { grid: { label: "Standard Grid" }, horizontal: { label: "Horizontal Bars" }, vertical: { label: "Vertical Bars" }, diamond: { label: "Diamond Pattern" }, none: { label: "No Safety Grille" } };
 
@@ -288,18 +297,113 @@ export const WIDGET_REGISTRY = {
             let baseElev = entity.elevation || 0; let rawHeight = entity.height || 100;
             let bottomY = Math.max(0.2, baseElev); let topY = baseElev + rawHeight; let height = topY - bottomY;
             const jaliGroup = new THREE.Group(); jaliGroup.position.set(entity.x, bottomY, entity.z); jaliGroup.rotation.y = -entity.angle;
-            const conf = JALI_MATERIALS[entity.jaliMat] || JALI_MATERIALS.wood;
-            const matFrame = new THREE.MeshStandardMaterial({ color: conf.color, roughness: conf.roughness, metalness: conf.metalness });
+            
+            const mount = entity.jaliMount || 'flush';
+            if (mount === 'recessed') jaliGroup.translateZ(-4);
+            if (mount === 'protruding') jaliGroup.translateZ(4);
+            
+            const matConfig = JALI_MATERIALS[entity.jaliMat || 'wood'];
+            const matFrame = new THREE.MeshPhysicalMaterial({ 
+                color: matConfig.color, 
+                roughness: matConfig.roughness, 
+                metalness: matConfig.metalness,
+                clearcoat: matConfig.clearcoat || 0,
+                clearcoatRoughness: matConfig.clearcoatRoughness || 0
+            });
             const frameW = 2; const fThick = entity.thick || 2;
-            const sl = new THREE.Mesh(new THREE.BoxGeometry(frameW, height, fThick), matFrame); sl.position.set(-entity.width/2 + frameW/2, height/2, 0);
-            const sr = new THREE.Mesh(new THREE.BoxGeometry(frameW, height, fThick), matFrame); sr.position.set(entity.width/2 - frameW/2, height/2, 0);
-            const rt = new THREE.Mesh(new THREE.BoxGeometry(entity.width - frameW*2, frameW, fThick), matFrame); rt.position.set(0, height - frameW/2, 0);
-            const rb = new THREE.Mesh(new THREE.BoxGeometry(entity.width - frameW*2, frameW, fThick), matFrame); rb.position.set(0, frameW/2, 0);
+            const createBeveledFramePiece = (w, h) => {
+                const shape = new THREE.Shape();
+                shape.moveTo(-w/2, -h/2); shape.lineTo(w/2, -h/2); shape.lineTo(w/2, h/2); shape.lineTo(-w/2, h/2); shape.lineTo(-w/2, -h/2);
+                const extrudeSettings = { depth: fThick, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.1, bevelThickness: 0.1 };
+                const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+                geo.translate(0, 0, -fThick/2);
+                return new THREE.Mesh(geo, matFrame);
+            };
+            const sl = createBeveledFramePiece(frameW, height); sl.position.set(-entity.width/2 + frameW/2, height/2, 0);
+            const sr = createBeveledFramePiece(frameW, height); sr.position.set(entity.width/2 - frameW/2, height/2, 0);
+            const rt = createBeveledFramePiece(entity.width - frameW*2, frameW); rt.position.set(0, height - frameW/2, 0);
+            const rb = createBeveledFramePiece(entity.width - frameW*2, frameW); rb.position.set(0, frameW/2, 0);
             [sl, sr, rt, rb].forEach(m => { m.castShadow = true; m.receiveShadow = true; jaliGroup.add(m); });
             const iW = entity.width - frameW*2; const iH = height - frameW*2; const lThick = fThick * 0.5;
             const latticeGroup = new THREE.Group(); latticeGroup.position.set(0, height/2, 0);
-            if (entity.jaliPattern === 'modern') {
-                const targetStep = 4;
+            
+            if (['kolam', 'lotus', 'peacock', 'gopuram', 'ventilation', 'mango', 'chettinad'].includes(entity.jaliPattern)) {
+                const targetStep = entity.jaliPatternSize || 20;
+                const cols = Math.max(1, Math.round(iW / targetStep));
+                const rows = Math.max(1, Math.round(iH / targetStep));
+                const stepX = iW / cols; const stepY = iH / rows;
+                
+                const shape = new THREE.Shape();
+                shape.moveTo(-stepX/2, -stepY/2); shape.lineTo(stepX/2, -stepY/2); shape.lineTo(stepX/2, stepY/2); shape.lineTo(-stepX/2, stepY/2); shape.lineTo(-stepX/2, -stepY/2);
+                
+                const maxSize = Math.min(stepX, stepY);
+                const hw = maxSize * 0.45; const hh = maxSize * 0.45;
+                
+                if (entity.jaliPattern === 'ventilation') {
+                    const hole = new THREE.Path();
+                    hole.absellipse(0, 0, hw*0.8, hh*0.8, 0, Math.PI * 2, false);
+                    shape.holes.push(hole);
+                } else if (entity.jaliPattern === 'lotus') {
+                    const h1 = new THREE.Path(); h1.moveTo(0, hh*0.8); h1.quadraticCurveTo(hw*0.4, 0, 0, -hh*0.8); h1.quadraticCurveTo(-hw*0.4, 0, 0, hh*0.8);
+                    const h2 = new THREE.Path(); h2.moveTo(hw*0.1, -hh*0.6); h2.quadraticCurveTo(hw*0.8, -hh*0.2, hw*0.9, hh*0.4); h2.quadraticCurveTo(hw*0.5, hh*0.1, hw*0.1, -hh*0.6);
+                    const h3 = new THREE.Path(); h3.moveTo(-hw*0.1, -hh*0.6); h3.quadraticCurveTo(-hw*0.8, -hh*0.2, -hw*0.9, hh*0.4); h3.quadraticCurveTo(-hw*0.5, hh*0.1, -hw*0.1, -hh*0.6);
+                    shape.holes.push(h1, h2, h3);
+                } else if (entity.jaliPattern === 'peacock') {
+                    const p = new THREE.Path();
+                    p.moveTo(0, -hh); p.quadraticCurveTo(hw, -hh, hw, -hh*0.2);
+                    p.quadraticCurveTo(hw*0.8, hh*0.6, 0, hh*0.8);
+                    p.quadraticCurveTo(-hw*0.6, hh*0.6, -hw*0.6, 0); p.quadraticCurveTo(-hw, hh*0.2, -hw*0.8, 0);
+                    p.quadraticCurveTo(-hw*0.2, -0.4, 0, -hh);
+                    shape.holes.push(p);
+                } else if (entity.jaliPattern === 'gopuram') {
+                    const t1 = new THREE.Path(); t1.moveTo(-hw*0.8, -hh*0.8); t1.lineTo(hw*0.8, -hh*0.8); t1.lineTo(hw*0.6, -hh*0.2); t1.lineTo(-hw*0.6, -hh*0.2); t1.lineTo(-hw*0.8, -hh*0.8);
+                    const t2 = new THREE.Path(); t2.moveTo(-hw*0.5, -hh*0.1); t2.lineTo(hw*0.5, -hh*0.1); t2.lineTo(hw*0.3, hh*0.4); t2.lineTo(-hw*0.3, hh*0.4); t2.lineTo(-hw*0.5, -hh*0.1);
+                    const t3 = new THREE.Path(); t3.moveTo(-hw*0.2, hh*0.5); t3.lineTo(hw*0.2, hh*0.5); t3.lineTo(0, hh*0.9); t3.lineTo(-hw*0.2, hh*0.5);
+                    shape.holes.push(t1, t2, t3);
+                } else if (entity.jaliPattern === 'mango') {
+                    const m = new THREE.Path();
+                    m.moveTo(0, -hh*0.8);
+                    m.bezierCurveTo(hw, -hh*0.8, hw, hh*0.6, 0, hh*0.8);
+                    m.bezierCurveTo(-hw*0.8, hh*0.8, -hw, hh*0.2, -hw*0.4, hh*0.2);
+                    m.bezierCurveTo(-hw*0.2, hh*0.2, -hw*0.2, hh*0.4, 0, hh*0.4);
+                    m.bezierCurveTo(-hw*0.8, hh*0.4, -hw*0.8, -hh*0.6, 0, -hh*0.8);
+                    shape.holes.push(m);
+                } else if (entity.jaliPattern === 'chettinad' || entity.jaliPattern === 'kolam') {
+                    const d = new THREE.Path();
+                    d.moveTo(0, hh*0.8); d.lineTo(hw*0.8, 0); d.lineTo(0, -hh*0.8); d.lineTo(-hw*0.8, 0); d.lineTo(0, hh*0.8);
+                    shape.holes.push(d);
+                    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([dx, dy]) => {
+                        const c = new THREE.Path();
+                        c.absellipse(dx*hw*0.8, dy*hh*0.8, hw*0.15, hh*0.15, 0, Math.PI * 2, false);
+                        shape.holes.push(c);
+                    });
+                }
+                
+                const extrudeSettings = { 
+                    depth: lThick, 
+                    bevelEnabled: true, 
+                    bevelSegments: 5, 
+                    curveSegments: 64,
+                    steps: 1, 
+                    bevelSize: lThick * 0.02, 
+                    bevelThickness: lThick * 0.015 
+                };
+                const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+                const iMesh = new THREE.InstancedMesh(geo, matFrame, cols * rows);
+                iMesh.castShadow = true; iMesh.receiveShadow = true;
+                
+                const dummy = new THREE.Object3D();
+                let idx = 0;
+                for (let c = 0; c < cols; c++) {
+                    for (let rIdx = 0; rIdx < rows; rIdx++) {
+                        dummy.position.set(-iW/2 + (c + 0.5) * stepX, -iH/2 + (rIdx + 0.5) * stepY, -lThick/2);
+                        dummy.updateMatrix();
+                        iMesh.setMatrixAt(idx++, dummy.matrix);
+                    }
+                }
+                latticeGroup.add(iMesh);
+            } else if (entity.jaliPattern === 'modern') {
+                const targetStep = entity.jaliPatternSize || 4;
                 const cols = Math.max(1, Math.round(iW / targetStep));
                 const stepX = iW / cols;
                 for (let c = 1; c < cols; c++) {
@@ -307,7 +411,8 @@ export const WIDGET_REGISTRY = {
                     slat.position.set(-iW/2 + c * stepX, 0, 0); slat.castShadow = true; latticeGroup.add(slat);
                 }
             } else {
-                const targetStep = entity.jaliPattern === 'geometric' ? 6 : 8;
+                const defaultStep = entity.jaliPattern === 'geometric' ? 6 : 8;
+                const targetStep = entity.jaliPatternSize || defaultStep;
                 const cols = Math.max(1, Math.round(iW / targetStep));
                 const rows = Math.max(1, Math.round(iH / targetStep));
                 const stepX = iW / cols;

@@ -261,7 +261,7 @@
             <div v-else-if="selectedType === 'widget'">
                 <h4 class="props-subtitle">{{ selectedEntity.config?.label || 'DOOR/WINDOW' }} Properties</h4>
                 <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="10" max="200" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.width" @input="$emit('sync-engine')"></div></div>
-                <div class="faceRow">
+                <div class="faceRow" v-if="selectedEntity.type !== 'jali_panel'">
                     <button class="action-btn clear" style="flex: 1; padding: 4px;" @click="selectedEntity.facing *= -1; $emit('sync-engine')">Flip In/Out</button>
                     <button class="action-btn clear" style="flex: 1; padding: 4px;" @click="selectedEntity.side *= -1; $emit('sync-engine')">Flip L/R</button>
                 </div>
@@ -294,16 +294,40 @@
                         <select v-model="selectedEntity.jaliPattern" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
                             <option value="geometric">Geometric Lattice</option>
                             <option value="islamic">Islamic Star</option>
-                            <option value="floral">Floral / Organic</option>
                             <option value="modern">Modern Slats</option>
+                            <option value="kolam">Kolam (Rangoli)</option>
+                            <option value="lotus">Lotus Motif</option>
+                            <option value="peacock">Peacock (Mayil)</option>
+                            <option value="gopuram">Temple Gopuram</option>
+                            <option value="ventilation">Geometric Vent Block</option>
+                            <option value="mango">Mango Paisley Vine</option>
+                            <option value="chettinad">Chettinad Wooden Jali</option>
                         </select>
+                    </div>
+                    <div class="control-group">
+                        <label>Pattern Size</label>
+                        <div class="input-wrap">
+                            <input type="range" :value="selectedEntity.jaliPatternSize || 20" @input="e => { selectedEntity.jaliPatternSize = parseFloat(e.target.value); $emit('sync-engine'); }" min="5" max="100" step="1">
+                            <input type="number" :value="selectedEntity.jaliPatternSize || 20" @input="e => { selectedEntity.jaliPatternSize = parseFloat(e.target.value); $emit('sync-engine'); }" min="5" max="100" step="1">
+                        </div>
                     </div>
                     <div class="control-group">
                         <label>Material</label>
                         <select v-model="selectedEntity.jaliMat" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
                             <option value="wood">Teak Wood</option>
-                            <option value="mdf">White MDF</option>
+                            <option value="mdf">White Painted MDF</option>
                             <option value="brass">Brass Finish</option>
+                            <option value="wpc">WPC (Wood Plastic)</option>
+                            <option value="stone">Sandstone</option>
+                            <option value="metal_black">Matte Black Metal</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>Mounting</label>
+                        <select v-model="selectedEntity.jaliMount" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                            <option value="flush">Flush (Centered)</option>
+                            <option value="recessed">Recessed (Inset)</option>
+                            <option value="protruding">Protruding (Surface)</option>
                         </select>
                     </div>
                 </div>
