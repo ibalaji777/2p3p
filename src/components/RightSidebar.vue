@@ -288,6 +288,25 @@
                         </select>
                     </div>
                 </div>
+                <div v-else-if="selectedEntity.type === 'jali_panel'">
+                    <div class="control-group">
+                        <label>Jali Pattern</label>
+                        <select v-model="selectedEntity.jaliPattern" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                            <option value="geometric">Geometric Lattice</option>
+                            <option value="islamic">Islamic Star</option>
+                            <option value="floral">Floral / Organic</option>
+                            <option value="modern">Modern Slats</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>Material</label>
+                        <select v-model="selectedEntity.jaliMat" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                            <option value="wood">Teak Wood</option>
+                            <option value="mdf">White MDF</option>
+                            <option value="brass">Brass Finish</option>
+                        </select>
+                    </div>
+                </div>
                 <button class="hud-delete" @click="$emit('delete-entity')">Delete Object</button>
             </div>
 

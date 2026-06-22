@@ -305,7 +305,8 @@ const menuCategories = ref([
         icon: '<path d="M4 22h16"></path><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"></path><path d="M14 12h2"></path>',
         tools: [
             { id: 'door', name: 'Add Door' },
-            { id: 'window', name: 'Add Window' }
+            { id: 'window', name: 'Add Window' },
+            { id: 'jali_panel', name: 'Add Jali Panel' }
         ]
     },
     {

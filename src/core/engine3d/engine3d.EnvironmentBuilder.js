@@ -190,9 +190,9 @@ export class EnvironmentBuilder {
                     let cutElev = (elev <= 0.1) ? wallBottom : elev;
                     hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + dh); hole.lineTo(wCenter - halfW, elev + dh); hole.lineTo(wCenter - halfW, cutElev);
                     hasHole = true;
-                } else if (type === 'window') {
-                    let dh = widg.height !== undefined ? widg.height : WINDOW_HEIGHT;
-                    let elev = widg.elevation !== undefined ? widg.elevation : WINDOW_SILL;
+                } else if (type === 'window' || type === 'jali_panel') {
+                    let dh = widg.height !== undefined ? widg.height : (type === 'window' ? WINDOW_HEIGHT : 100);
+                    let elev = widg.elevation !== undefined ? widg.elevation : (type === 'window' ? WINDOW_SILL : 0);
                     let cutElev = (elev <= 0.1) ? wallBottom : elev;
                     hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + dh); hole.lineTo(wCenter - halfW, elev + dh); hole.lineTo(wCenter - halfW, cutElev);
                     hasHole = true;
@@ -813,9 +813,9 @@ export class EnvironmentBuilder {
                                     let cutElev = (elev <= 0.1) ? wallBottom : elev;
                                     hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + dh); hole.lineTo(wCenter - halfW, elev + dh); hole.lineTo(wCenter - halfW, cutElev);
                                     hasHole = true;
-                                } else if (type === 'window') {
-                                    let dh = widg.height !== undefined ? widg.height : WINDOW_HEIGHT;
-                                    let elev = widg.elevation !== undefined ? widg.elevation : WINDOW_SILL;
+                                } else if (type === 'window' || type === 'jali_panel') {
+                                    let dh = widg.height !== undefined ? widg.height : (type === 'window' ? WINDOW_HEIGHT : 100);
+                                    let elev = widg.elevation !== undefined ? widg.elevation : (type === 'window' ? WINDOW_SILL : 0);
                                     dh = Math.min(dh, maxH - elev);
                                     let cutElev = (elev <= 0.1) ? wallBottom : elev;
                                     hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + dh); hole.lineTo(wCenter - halfW, elev + dh); hole.lineTo(wCenter - halfW, cutElev);

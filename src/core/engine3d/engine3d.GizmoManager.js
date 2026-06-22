@@ -819,7 +819,7 @@ export class GizmoManager {
         if (opE && document.activeElement !== opE) opE.value = e.toFixed(1); if (opER && document.activeElement !== opER) opER.value = e.toFixed(1);
 
         if (flipContainer) {
-            flipContainer.style.display = (entity.type === 'door' || entity.type === 'window') ? 'flex' : 'none';
+            flipContainer.style.display = (entity.type === 'door' || entity.type === 'window' || entity.type === 'jali_panel') ? 'flex' : 'none';
         }
         if (typeContainer && typeSelect) {
             if (entity.type === 'door') {

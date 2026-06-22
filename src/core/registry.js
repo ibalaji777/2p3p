@@ -32,6 +32,19 @@ export const DOOR_MATERIALS = {
 
 export const WINDOW_FRAME_MATERIALS = { upvc_white: { label: "White uPVC", color: 0xffffff, roughness: 0.8, metalness: 0.0, texture: 'solid' }, upvc_wood: { label: "Wood Finish uPVC", color: 0x8b5a2b, roughness: 0.7, metalness: 0.0, texture: 'wood', bumpScale: 0.005 }, alum_powder: { label: "Powder Coated Alum (Black)", color: 0x1f1f1f, roughness: 0.5, metalness: 0.6, texture: 'solid' }, wood_teak: { label: "Teak Wood", color: 0x6b4226, roughness: 0.6, metalness: 0.1, texture: 'wood', bumpScale: 0.005 }, steel_ms: { label: "MS Steel Frame", color: 0x222222, roughness: 0.4, metalness: 0.9, texture: 'solid' } };
 export const WINDOW_GLASS_MATERIALS = { clear: { label: "Clear Glass", color: 0xeff6ff, transmission: 0.95, roughness: 0.0, ior: 1.5, transparent: true }, frosted: { label: "Frosted / Privacy Glass", color: 0xffffff, transmission: 0.5, roughness: 0.5, ior: 1.4, transparent: true }, tinted: { label: "Tinted Glass (Dark)", color: 0x222222, transmission: 0.85, roughness: 0.0, ior: 1.5, transparent: true }, reflective: { label: "Reflective / Mirror", color: 0xaaaaaa, transmission: 0.3, roughness: 0.0, metalness: 1.0, ior: 2.0, transparent: true } };
+
+export const JALI_PATTERNS = {
+    geometric: { label: "Geometric Lattice" },
+    islamic: { label: "Islamic Star" },
+    floral: { label: "Floral / Organic" },
+    modern: { label: "Modern Slats" }
+};
+
+export const JALI_MATERIALS = {
+    wood: { label: "Teak Wood", color: 0x6b4226, roughness: 0.8, metalness: 0.1, texture: 'wood' },
+    mdf: { label: "White MDF", color: 0xfdfdfd, roughness: 0.9, metalness: 0.0, texture: 'solid' },
+    brass: { label: "Brass Finish", color: 0xb5a642, roughness: 0.3, metalness: 0.8, texture: 'solid' }
+};
 export const WINDOW_GRILLE_PATTERNS = { grid: { label: "Standard Grid" }, horizontal: { label: "Horizontal Bars" }, vertical: { label: "Vertical Bars" }, diamond: { label: "Diamond Pattern" }, none: { label: "No Safety Grille" } };
 
 // Outer wall is thicker (16), Inner wall is less thick (8)
@@ -260,6 +273,78 @@ function buildDetailedDoorPanel(width, height, thickness, material, type, isGlas
 }
 
 export const WIDGET_REGISTRY = {
+    'jali_panel': {
+        widget: "jali_panel", label: "JALI PANEL",
+        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
+        defaultConfig: { width: 40, height: 100, jaliPattern: 'geometric', jaliMat: 'wood', thick: 2, elevation: 0 },
+        render2D: (group, entity) => {
+            const hw = entity.width / 2; const thick = entity.wall ? (entity.wall.thickness || entity.wall.config.thickness) : (entity.thick || 4);
+            const w = entity.width; const h = thick;
+            const rect = new Konva.Rect({ x: -hw, y: -h/2, width: w, height: h, fill: 'transparent', stroke: '#d97706', strokeWidth: 2, dash: [4, 2] });
+            group.add(rect);
+            for(let i = -hw + 4; i < hw; i += 8) { group.add(new Konva.Line({ points: [i, -h/2, i+4, h/2], stroke: '#d97706', strokeWidth: 1 })); }
+        },
+        render3D: (sceneGroup, entity, helpers) => {
+            let baseElev = entity.elevation || 0; let rawHeight = entity.height || 100;
+            let bottomY = Math.max(0.2, baseElev); let topY = baseElev + rawHeight; let height = topY - bottomY;
+            const jaliGroup = new THREE.Group(); jaliGroup.position.set(entity.x, bottomY, entity.z); jaliGroup.rotation.y = -entity.angle;
+            const conf = JALI_MATERIALS[entity.jaliMat] || JALI_MATERIALS.wood;
+            const matFrame = new THREE.MeshStandardMaterial({ color: conf.color, roughness: conf.roughness, metalness: conf.metalness });
+            const frameW = 2; const fThick = entity.thick || 2;
+            const sl = new THREE.Mesh(new THREE.BoxGeometry(frameW, height, fThick), matFrame); sl.position.set(-entity.width/2 + frameW/2, height/2, 0);
+            const sr = new THREE.Mesh(new THREE.BoxGeometry(frameW, height, fThick), matFrame); sr.position.set(entity.width/2 - frameW/2, height/2, 0);
+            const rt = new THREE.Mesh(new THREE.BoxGeometry(entity.width - frameW*2, frameW, fThick), matFrame); rt.position.set(0, height - frameW/2, 0);
+            const rb = new THREE.Mesh(new THREE.BoxGeometry(entity.width - frameW*2, frameW, fThick), matFrame); rb.position.set(0, frameW/2, 0);
+            [sl, sr, rt, rb].forEach(m => { m.castShadow = true; m.receiveShadow = true; jaliGroup.add(m); });
+            const iW = entity.width - frameW*2; const iH = height - frameW*2; const lThick = fThick * 0.5;
+            const latticeGroup = new THREE.Group(); latticeGroup.position.set(0, height/2, 0);
+            if (entity.jaliPattern === 'modern') {
+                const targetStep = 4;
+                const cols = Math.max(1, Math.round(iW / targetStep));
+                const stepX = iW / cols;
+                for (let c = 1; c < cols; c++) {
+                    const slat = new THREE.Mesh(new THREE.BoxGeometry(1.5, iH, lThick), matFrame);
+                    slat.position.set(-iW/2 + c * stepX, 0, 0); slat.castShadow = true; latticeGroup.add(slat);
+                }
+            } else {
+                const targetStep = entity.jaliPattern === 'geometric' ? 6 : 8;
+                const cols = Math.max(1, Math.round(iW / targetStep));
+                const rows = Math.max(1, Math.round(iH / targetStep));
+                const stepX = iW / cols;
+                const stepY = iH / rows;
+                
+                for (let c = 1; c < cols; c++) {
+                    const vBar = new THREE.Mesh(new THREE.BoxGeometry(1, iH, lThick), matFrame);
+                    vBar.position.set(-iW/2 + c * stepX, 0, 0); vBar.castShadow = true; latticeGroup.add(vBar);
+                }
+                for (let r = 1; r < rows; r++) {
+                    const hBar = new THREE.Mesh(new THREE.BoxGeometry(iW, 1, lThick), matFrame);
+                    hBar.position.set(0, -iH/2 + r * stepY, 0); hBar.castShadow = true; latticeGroup.add(hBar);
+                }
+                
+                if (entity.jaliPattern === 'islamic') {
+                    const diagLen = Math.hypot(stepX, stepY);
+                    const angle = Math.atan2(stepY, stepX);
+                    for (let c = 0; c < cols; c++) {
+                        for (let r = 0; r < rows; r++) {
+                            const cx = -iW/2 + (c + 0.5) * stepX;
+                            const cy = -iH/2 + (r + 0.5) * stepY;
+                            const c1 = new THREE.Mesh(new THREE.BoxGeometry(diagLen, 0.5, lThick), matFrame);
+                            c1.position.set(cx, cy, 0); c1.rotation.z = angle; c1.castShadow = true; latticeGroup.add(c1);
+                            const c2 = new THREE.Mesh(new THREE.BoxGeometry(diagLen, 0.5, lThick), matFrame);
+                            c2.position.set(cx, cy, 0); c2.rotation.z = -angle; c2.castShadow = true; latticeGroup.add(c2);
+                        }
+                    }
+                }
+            }
+            jaliGroup.add(latticeGroup);
+            const hitboxGeo = new THREE.BoxGeometry(entity.width + 10, height + 10, (entity.thick || 20) + 10);
+            const hitbox = new THREE.Mesh(hitboxGeo, new THREE.MeshBasicMaterial({transparent: true, opacity: 0, depthWrite: false}));
+            hitbox.position.set(0, height/2, 0); jaliGroup.add(hitbox);
+            jaliGroup.userData = { isWidget: true, entity: entity }; sceneGroup.add(jaliGroup);
+            return jaliGroup;
+        }
+    },
     'door': {
         widget: "door", label: "DOOR",
         events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
