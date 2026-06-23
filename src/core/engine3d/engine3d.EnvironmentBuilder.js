@@ -7,20 +7,6 @@ import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_RE
 export class EnvironmentBuilder {
     constructor(ctx) {
         this.ctx = ctx;
-
-        // Procedural noise bump texture for realistic wall finish
-        const canvas = document.createElement('canvas');
-        canvas.width = 256; canvas.height = 256;
-        const ctx2d = canvas.getContext('2d');
-        const imgData = ctx2d.createImageData(256, 256);
-        for (let i = 0; i < imgData.data.length; i += 4) {
-            const val = 150 + Math.random() * 50;
-            imgData.data[i] = val; imgData.data[i + 1] = val; imgData.data[i + 2] = val; imgData.data[i + 3] = 255;
-        }
-        ctx2d.putImageData(imgData, 0, 0);
-        this.wallBumpTex = new THREE.CanvasTexture(canvas);
-        this.wallBumpTex.wrapS = this.wallBumpTex.wrapT = THREE.RepeatWrapping;
-        this.wallBumpTex.repeat.set(2, 2);
     }
 
     setupBaseEnvironment() {
@@ -43,24 +29,21 @@ export class EnvironmentBuilder {
         this.ctx.scene.add(grid);
         this.grid = grid;
 
-        const hemiLight = new THREE.HemisphereLight(0xe6f0ff, 0x222222, 1.5);
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
         hemiLight.position.set(0, 500, 0);
         this.ctx.scene.add(hemiLight);
         this.hemiLight = hemiLight;
 
-        const sunLight = new THREE.DirectionalLight(0xfff5e6, 3.5);
-        sunLight.position.set(500, 400, 500);
+        const sunLight = new THREE.DirectionalLight(0xfff5e6, 2.5);
+        sunLight.position.set(500, 700, 600); // Higher angle for better architectural shadows
         sunLight.castShadow = true;
-        sunLight.shadow.mapSize.width = 2048;
-        sunLight.shadow.mapSize.height = 2048;
         sunLight.shadow.mapSize.width = 4096;
         sunLight.shadow.mapSize.height = 4096;
         sunLight.shadow.camera.near = 10;
         sunLight.shadow.camera.far = 2000;
-        sunLight.shadow.bias = -0.0005;
-        sunLight.shadow.bias = -0.0004;
-        sunLight.shadow.radius = 4;
-        const d = 800;
+        sunLight.shadow.bias = -0.0003; 
+        sunLight.shadow.radius = 1.2; // Crisp, low-noise soft shadows
+        const d = 900; // Optimal shadow frustum size
         sunLight.shadow.camera.left = -d; sunLight.shadow.camera.right = d;
         sunLight.shadow.camera.top = d; sunLight.shadow.camera.bottom = -d;
         this.ctx.scene.add(sunLight);
@@ -107,12 +90,12 @@ export class EnvironmentBuilder {
 
     buildActiveFloor(walls, rooms, shapes, stairs = []) {
         const matMain = new THREE.MeshStandardMaterial({ 
-            color: 0xf5f5f0, // Subtle warm off-white
-            roughness: 0.95, 
-            bumpMap: this.wallBumpTex, 
-            bumpScale: 0.005 
+            color: 0xf3f2ec, // Warm off-white
+            roughness: 1.0, // Perfectly matte plaster, no shine
+            metalness: 0.0,
+            flatShading: true // Preserves sharp corners
         });
-        const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xdddddb, roughness: 0.9 });
+        const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xeaeaea, roughness: 0.9 });
         const matBaseboard = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.1 });
 
         if (rooms) {
@@ -361,8 +344,14 @@ export class EnvironmentBuilder {
             }
             // ==================================
 
-            const wallMesh = new THREE.Mesh(wallGeo, [matMain, matEdgeDark]);
+            const wallMesh = new THREE.Mesh(wallGeo, matMain);
             wallMesh.castShadow = true; wallMesh.receiveShadow = true;
+            
+            // Add subtle architectural edges for corner visibility
+            const edgesGeo = new THREE.EdgesGeometry(wallGeo, 15);
+            const edgesMat = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.1 });
+            const edgesMesh = new THREE.LineSegments(edgesGeo, edgesMat);
+            wallMesh.add(edgesMesh);
 
             const skinFrontGeo = new THREE.PlaneGeometry(length - 0.5, h - 0.5);
             skinFrontGeo.translate(length / 2, h / 2, t / 2 + 0.1);
@@ -389,10 +378,9 @@ export class EnvironmentBuilder {
             if (w.moldings && w.moldings.length > 0) {
                 w.moldings.forEach(molding => {
                     const moldingMat = new THREE.MeshStandardMaterial({ 
-                        color: molding.color || 0xe0e0e0, 
-                        roughness: 0.8, 
-                        bumpMap: this.wallBumpTex,
-                        bumpScale: 0.05,
+                        color: molding.color || 0xf6f6f6, 
+                        roughness: 1.0, // Matte finish
+                        metalness: 0.0,
                         flatShading: true 
                     });
                     const profileData = MOLDING_PROFILES[molding.profileId];
@@ -709,12 +697,12 @@ export class EnvironmentBuilder {
 
                 const isPreview = viewMode3D === 'preview';
             const matMain = new THREE.MeshStandardMaterial({ 
-                color: 0xf5f5f0, // Subtle warm off-white
-                roughness: 0.95, 
-                bumpMap: this.wallBumpTex, 
-                bumpScale: 0.005 
+                color: 0xf3f2ec, // Warm off-white
+                roughness: 1.0, // Perfectly matte plaster
+                metalness: 0.0,
+                flatShading: true // Preserves sharp corners
             });
-            const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xdddddb, roughness: 0.9 });
+            const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xeaeaea, roughness: 0.9 });
             const matBaseboard = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.1 });
 
                 if (data.rooms) {
@@ -1044,8 +1032,13 @@ export class EnvironmentBuilder {
                         }
                         // ==================================
 
-                        const wallMesh = new THREE.Mesh(wallGeo, [matMain, matEdgeDark]);
+                        const wallMesh = new THREE.Mesh(wallGeo, matMain);
                         wallMesh.castShadow = true; wallMesh.receiveShadow = true;
+                        
+                        const edgesGeo = new THREE.EdgesGeometry(wallGeo, 15);
+                        const edgesMat = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.1 });
+                        const edgesMesh = new THREE.LineSegments(edgesGeo, edgesMat);
+                        wallMesh.add(edgesMesh);
 
                         const wallGroup = new THREE.Group();
                         wallGroup.position.set(w.startX, 0, w.startY);
