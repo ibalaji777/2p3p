@@ -134,6 +134,7 @@
         @toggle-layer-visibility="toggleLayerVisibility"
         @remove-layer-item="removeLayerItem"
         @debounced-save-history="debouncedSaveHistory"
+        @add-molding="handleAddMolding"
       />
 
       <!-- Wizard Popup -->
@@ -978,6 +979,26 @@ const setRoofMaterial = (key) => {
         syncEngine();
     }
 };
+
+const handleAddMolding = () => {
+  if (selectedEntity.value && selectedType.value === 'wall') {
+    if (!selectedEntity.value.moldings) {
+      selectedEntity.value.moldings = [];
+    }
+    selectedEntity.value.moldings.push({
+      profileId: 'roman_classical',
+      offsetY: selectedEntity.value.height || 120,
+      scaleX: 1.0,
+      scaleZ: 1.0,
+      color: '#e0e0e0'
+    });
+    syncEngine();
+  }
+};
+
+// ==========================================
+// 6. HOTKEYS & MOVEMENT
+// ========================================== 
 
 const setFloorMaterial = (key) => {
     if (selectedEntity.value && selectedType.value === 'room') {

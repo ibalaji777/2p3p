@@ -179,6 +179,27 @@
                     </div>
                     
                     <div class="decor-gallery" v-if="viewMode === '3d'">
+                        <h4 class="props-subtitle" style="display: flex; justify-content: space-between; align-items: center;">
+                            Architectural Moldings
+                            <button class="action-btn" style="padding: 2px 8px; font-size: 10px;" @click="$emit('add-molding')">+ Add</button>
+                        </h4>
+                        <div v-if="selectedEntity.moldings && selectedEntity.moldings.length > 0" class="applied-list">
+                            <div v-for="(molding, idx) in selectedEntity.moldings" :key="idx" class="applied-item-wrapper" style="margin-bottom: 10px; background: #f3f4f6; padding: 8px; border-radius: 4px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <select v-model="molding.profileId" @change="$emit('sync-engine')" style="font-size: 11px; padding: 4px; flex: 1; margin-right: 8px;">
+                                        <option v-for="(prof, pId) in MOLDING_PROFILES" :value="pId" :key="pId">{{ prof.name }}</option>
+                                    </select>
+                                    <button class="btn-sm-delete" @click="selectedEntity.moldings.splice(idx, 1); $emit('sync-engine')">✕</button>
+                                </div>
+                                <div class="control-group" style="margin-bottom: 4px;"><label style="font-size: 10px;">Height (Y)</label><div class="input-wrap"><input type="number" v-model.number="molding.offsetY" @input="$emit('sync-engine')" style="font-size: 10px; padding: 2px;"></div></div>
+                                <div class="control-group" style="margin-bottom: 4px;"><label style="font-size: 10px;">Depth (Z)</label><div class="input-wrap"><input type="number" v-model.number="molding.scaleZ" step="0.1" @input="$emit('sync-engine')" style="font-size: 10px; padding: 2px;"></div></div>
+                                <div class="control-group" style="margin-bottom: 4px;"><label style="font-size: 10px;">Width (X)</label><div class="input-wrap"><input type="number" v-model.number="molding.scaleX" step="0.1" @input="$emit('sync-engine')" style="font-size: 10px; padding: 2px;"></div></div>
+                                <div class="control-group" style="margin-bottom: 4px;"><label style="font-size: 10px;">Color</label><div class="input-wrap"><input type="color" v-model="molding.color" @input="$emit('sync-engine')" style="padding: 0; width: 24px; height: 24px; border: none; cursor: pointer;"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="decor-gallery" v-if="viewMode === '3d'">
                         <h4 class="props-subtitle">Add Pattern Layer</h4>
                         <div class="decor-grid">
                             <div v-for="(config, key) in wallDecorRegistry" :key="key" class="decor-item" @click="$emit('spawn-wall-pattern', key)">
@@ -461,6 +482,8 @@
 </template>
 
 <script setup>
+import { MOLDING_PROFILES } from '../core/registry';
+
 const props = defineProps({
   isMobile: Boolean,
   isTablet: Boolean,
