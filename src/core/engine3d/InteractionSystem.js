@@ -214,7 +214,7 @@ export class InteractionSystem {
         }
         if (type && this.callbacks.onEntitySelect) this.callbacks.onEntitySelect(object.userData.entity, type, side);
         if (window.plannerInstance && object.userData.entity) {
-            window.plannerInstance.selectEntity(object.userData.entity, type);
+            window.plannerInstance.selectEntity(object.userData.entity, type, -1, side || 'both');
         }
     }
 

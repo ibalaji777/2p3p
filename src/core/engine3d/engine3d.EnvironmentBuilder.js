@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, MOLDING_PROFILES } from '../../core/registry';
+import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from '../../core/registry';
 
 export class EnvironmentBuilder {
     constructor(ctx) {
@@ -374,67 +374,6 @@ export class EnvironmentBuilder {
 
             this.ctx.interactables.push(hitFront, hitBack);
             this.ctx.structureGroup.add(wallGroup);
-
-            if (w.moldings && w.moldings.length > 0) {
-                w.moldings.forEach(molding => {
-                    const moldingMat = new THREE.MeshStandardMaterial({ 
-                        color: molding.color || 0xf6f6f6, 
-                        roughness: 1.0, // Matte finish
-                        metalness: 0.0,
-                        flatShading: true 
-                    });
-                    const profileData = MOLDING_PROFILES[molding.profileId];
-                    if (!profileData) return;
-                    
-                    const mShape = new THREE.Shape();
-                    const sX = molding.scaleZ || 1.0; 
-                    const sY = molding.scaleX || 1.0; 
-                    
-                    profileData.path.forEach((pt, i) => {
-                        if (i === 0) mShape.moveTo(pt[0] * sX, pt[1] * sY);
-                        else mShape.lineTo(pt[0] * sX, pt[1] * sY);
-                    });
-                    
-                    // Extrude along the wall length (Z axis of ExtrudeGeometry is extrusion depth)
-                    const extrudeSettings = {
-                        depth: length,
-                        bevelEnabled: false
-                    };
-                    const mGeo = new THREE.ExtrudeGeometry(mShape, extrudeSettings);
-                    
-                    // Rotate so extrusion goes along X axis (wall local length)
-                    mGeo.rotateY(Math.PI / 2);
-                    // Flip Z so it points outwards from the front face
-                    mGeo.scale(1, 1, -1);
-                    
-                    // Position at offsetY and outer face (t/2)
-                    mGeo.translate(0, molding.offsetY, t / 2);
-                    
-                    if (pts && pts.length === 8) {
-                        shearGeo(mGeo);
-                    }
-                    
-                    const mMesh = new THREE.Mesh(mGeo, moldingMat);
-                    mMesh.castShadow = true;
-                    mMesh.receiveShadow = true;
-                    wallGroup.add(mMesh);
-                    
-                    // Add identical molding on the inner face
-                    const mGeoInner = new THREE.ExtrudeGeometry(mShape, extrudeSettings);
-                    mGeoInner.rotateY(Math.PI / 2);
-                    // Pointing in -Z direction is already outwards for the back face (-t/2)
-                    mGeoInner.translate(0, molding.offsetY, -t / 2);
-                    
-                    if (pts && pts.length === 8) {
-                        shearGeo(mGeoInner);
-                    }
-                    
-                    const mMeshInner = new THREE.Mesh(mGeoInner, moldingMat);
-                    mMeshInner.castShadow = true;
-                    mMeshInner.receiveShadow = true;
-                    wallGroup.add(mMeshInner);
-                });
-            }
 
             if (w.attachedDecor) w.attachedDecor.forEach(decor => this.ctx.decorManager.load(w, decor));
         });

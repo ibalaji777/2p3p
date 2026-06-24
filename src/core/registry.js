@@ -21,37 +21,7 @@ export const WORKSPACE_2D_SHAPES = {
 export const DOOR_TYPES = { single: { label: "Single Hinged Door" }, double: { label: "Double Door" }, sliding: { label: "Sliding Door" }, double_sliding: { label: "Double Sliding Door" }, folding: { label: "Folding / Bi-fold" }, pivot: { label: "Pivot Door" }, pocket: { label: "Pocket Door" }, french: { label: "French Door (Glass)" } };
 export const WINDOW_TYPES = { sliding_std: { label: "Standard Sliding Window", type: "sliding", hasChajja: false }, casement_std: { label: "Casement / Hinged Window", type: "casement", hasChajja: false }, casement_chajja: { label: "Window with Concrete Sunshade", type: "casement", hasChajja: true }, fixed_elevation: { label: "Fixed Elevation Glass", type: "fixed", hasChajja: false }, bay_box: { label: "Box Bay Window (Villa Style)", type: "bay", hasChajja: true }, louver_vent: { label: "Vent / Louver (Bathroom)", type: "louver", hasChajja: false }, traditional_indian: { label: "Traditional Wooden Shutter", type: "traditional", hasChajja: true } };
 
-export const MOLDING_PROFILES = {
-    'roman_classical': {
-        name: "Roman Classical",
-        path: [
-            [0,0], [10,0], [10,1.5], [9,1.5], 
-            [8.8, 2], [8.2, 2.5], [8, 3],
-            [8, 5], 
-            [8.5, 5], [8.5, 6], [8, 6], 
-            [7.8, 6.8], [7.2, 7.5], [6.2, 8.2], [5.5, 9], [4, 9.5], [2, 9.8], [0,10]
-        ] 
-    },
-    'modern_flat': {
-        name: "Modern Minimal",
-        path: [[0,0], [4,0], [4,1], [3,1], [3,10], [0,10]]
-    },
-    'gothic_ornamental': {
-        name: "Gothic Ornamental",
-        path: [
-            [0,0], [12,0], [12,1], [10.5,1.5], [9.5,2.5], [9,4],
-            [9,7], [8.5,7], [8.5,8], [9,8], [9,10],
-            [8.5,11], [7,12.5], [5,13.5], [2,14], [0,14.5]
-        ]
-    },
-    'crown': {
-        name: "Crown Cornice",
-        path: [
-            [0,0], [2,0], [4,0.5], [6,1.5], [8,3], [9,5], [9.5,7],
-            [9.5,8], [9,8.5], [8,9], [7,10], [5,11.5], [3,12.5], [0,13]
-        ]
-    }
-};
+
 export const DOOR_MATERIALS = {
     wood: { label: "White Oak", color: 0xc4a482, roughness: 0.6, metalness: 0.05, texture: 'wood', bumpScale: 0.005, clearcoat: 0.05 },
     steel: { label: "Brushed Steel", color: 0xa0a5aa, roughness: 0.35, metalness: 0.8, texture: 'brushed', bumpScale: 0.005, clearcoat: 0.2 },

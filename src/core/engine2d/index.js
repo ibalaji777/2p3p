@@ -288,7 +288,7 @@ export class FloorPlanner {
     getDistanceToWall(pos, wall) { const p1 = wall.startAnchor.position(), p2 = wall.endAnchor.position(), C = p2.x - p1.x, D = p2.y - p1.y, dot = (pos.x - p1.x) * C + (pos.y - p1.y) * D, lenSq = C * C + D * D; let param = -1; if (lenSq !== 0) param = Math.max(0, Math.min(1, dot / lenSq)); const xx = p1.x + param * C, yy = p1.y + param * D; return Math.hypot(pos.x - xx, pos.y - yy); }
     getClosestPointOnSegment(p, p1, p2) { const C = p2.x - p1.x, D = p2.y - p1.y, lenSq = C*C + D*D; if (lenSq === 0) return p1; let t = Math.max(0, Math.min(1, ((p.x - p1.x)*C + (p.y - p1.y)*D) / lenSq)); return { x: p1.x + t*C, y: p1.y + t*D }; }
 
-    selectEntity(entity, type, nodeIndex = -1) { 
+    selectEntity(entity, type, nodeIndex = -1, side = 'both') { 
         this.walls.forEach(w => { if(w.setHighlight) w.setHighlight(false); });
         this.stairs.forEach(s => { if(s.setHighlight) s.setHighlight(false); });
         this.furniture.forEach(f => { if(f.setHighlight) f.setHighlight(false); });
@@ -297,7 +297,7 @@ export class FloorPlanner {
         if (this.shapes) this.shapes.forEach(s => { if(s.setHighlight) s.setHighlight(false); });
         if (this.arcs) this.arcs.forEach(a => { if(a.setHighlight) a.setHighlight(false); });
         
-        this.selectedEntity = entity; this.selectedType = type; this.selectedNodeIndex = nodeIndex;
+        this.selectedEntity = entity; this.selectedType = type; this.selectedNodeIndex = nodeIndex; this.selectedSide = side;
         
         if (this.wallTrackingEnabled && entity && (type === 'wall' || type === 'railing' || type === 'arc')) {
             if (entity.setHighlight) entity.setHighlight(true);
