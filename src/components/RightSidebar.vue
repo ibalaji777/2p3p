@@ -359,6 +359,7 @@
                         <option value="ogee">Ogee (Cyma) Crown</option>
                         <option value="egg_and_dart">Egg and Dart Ornate</option>
                         <option value="dentil">Dentil Blocks</option>
+                        <option value="craftsman">Step / Craftsman</option>
                         <option value="layered">Layered Steps</option>
                     </select>
                 </div>

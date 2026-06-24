@@ -53,6 +53,29 @@ export class Molding3DBuilder {
             finalShape.lineTo(d, moldingHeight);
             finalShape.lineTo(0, moldingHeight);
             finalShape.lineTo(0, 0);
+        } else if (profileType === 'craftsman') {
+            // "Step molding favors sharp, parallel geometric tiers and flat angles rather than curves. 
+            // This blocky structure is the hallmark of modern Craftsman, Arts and Crafts, and Art Deco design styles."
+            finalShape.moveTo(0, 0);
+            
+            // Tier 1 (Lowest parallel block against wall)
+            finalShape.lineTo(d * 0.2, 0);
+            finalShape.lineTo(d * 0.2, moldingHeight * 0.35); 
+            
+            // Tier 2 (Middle-lower block)
+            finalShape.lineTo(d * 0.45, moldingHeight * 0.35);
+            finalShape.lineTo(d * 0.45, moldingHeight * 0.6);
+            
+            // Tier 3 (Middle-upper block)
+            finalShape.lineTo(d * 0.75, moldingHeight * 0.6);
+            finalShape.lineTo(d * 0.75, moldingHeight * 0.8);
+            
+            // Tier 4 (Top Cap block against ceiling)
+            finalShape.lineTo(d, moldingHeight * 0.8);
+            finalShape.lineTo(d, moldingHeight);
+            
+            finalShape.lineTo(0, moldingHeight);
+            finalShape.lineTo(0, 0);
         } else if (profileType === 'ogee') {
             // Elegant Ogee (Cyma Recta)
             finalShape.moveTo(0, 0);
@@ -109,7 +132,16 @@ export class Molding3DBuilder {
             finalShape.lineTo(0, 0);
         }
 
-        const finalGeo = new THREE.ExtrudeGeometry(finalShape, { depth: actualLength, bevelEnabled: false, curveSegments: 12 });
+        // CRITICAL FIX: Subdivide the extrusion along its length to prevent massive stretched triangles.
+        // Massive triangles that get twisted by shearGeo will break flatShading (dFdx/dFdy precision errors)
+        // and cause severe shadow acne or wavy rendering artifacts.
+        const extrudeSteps = Math.max(1, Math.floor(actualLength / 10));
+        const finalGeo = new THREE.ExtrudeGeometry(finalShape, { 
+            depth: actualLength, 
+            bevelEnabled: false, 
+            curveSegments: 12, 
+            steps: extrudeSteps 
+        });
         
         // Correct UVs BEFORE transformations
         const posAttr = finalGeo.attributes.position;
@@ -145,6 +177,15 @@ export class Molding3DBuilder {
             // World Z translation in Wall Local Space
             finalGeo.translate(0, 0, moldData.side === 'right' ? depth : -depth);
             finalMat = this.materials.black_metal;
+        }
+
+        // CRITICAL RENDERING FIX: Sharp geometric profiles MUST use flatShading 
+        // otherwise Three.js averages normals across 90-degree corners, making them look muddy and low-poly!
+        const sharpProfiles = ['craftsman', 'dentil', 'layered', 'frame', 'flat', 'groove'];
+        if (sharpProfiles.includes(profileType)) {
+            finalMat = finalMat.clone();
+            finalMat.flatShading = true;
+            finalMat.needsUpdate = true;
         }
 
         const mesh = new THREE.Mesh(finalGeo, finalMat);

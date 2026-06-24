@@ -370,6 +370,7 @@ const menuCategories = ref([
             { id: 'molding_ogee', name: 'Ogee (Cyma) Molding', action: 'molding' },
             { id: 'molding_egg_and_dart', name: 'Egg and Dart Molding', action: 'molding' },
             { id: 'molding_dentil', name: 'Dentil Molding', action: 'molding' },
+            { id: 'molding_craftsman', name: 'Step / Craftsman', action: 'molding' },
             { id: 'molding_window', name: 'Window Frame', action: 'molding' },
             { id: 'molding_door', name: 'Door Frame', action: 'molding' },
             { id: 'molding_groove', name: 'Decorative Groove', action: 'molding' },

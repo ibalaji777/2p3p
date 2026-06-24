@@ -44,6 +44,7 @@ export class EnvironmentBuilder {
         sunLight.shadow.camera.near = 10;
         sunLight.shadow.camera.far = 2000;
         sunLight.shadow.bias = -0.0003; 
+        sunLight.shadow.normalBias = 0.05; // Prevents shadow acne on flat parallel surfaces (like Craftsman steps)
         sunLight.shadow.radius = 1.2; // Crisp, low-noise soft shadows
         const d = 900; // Optimal shadow frustum size
         sunLight.shadow.camera.left = -d; sunLight.shadow.camera.right = d;
