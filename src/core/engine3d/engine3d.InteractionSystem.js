@@ -345,9 +345,9 @@ export class InteractionSystem {
                     return;
                 }
 
-                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isPattern) mesh = mesh.parent;
+                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isMolding && !mesh.userData.isPattern) mesh = mesh.parent;
                 
-                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isPattern)) {
+                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isMolding || mesh.userData.isPattern)) {
                     if (this.mode === 'edit') {
                         this.selectObject(mesh);
                     }
@@ -375,16 +375,16 @@ export class InteractionSystem {
             if (intersects.length > 0) {
                 dom.style.cursor = 'pointer';
                 let mesh = intersects[0].object;
-                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isRoom && !mesh.userData.isRoof && !mesh.userData.isWidget && !mesh.userData.isPattern) mesh = mesh.parent;
+                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isRoom && !mesh.userData.isRoof && !mesh.userData.isWidget && !mesh.userData.isMolding && !mesh.userData.isPattern) mesh = mesh.parent;
                 if (this.hoveredObject !== mesh) {
-                    if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) this.setHighlight(this.hoveredObject, false);
+                    if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isMolding || this.hoveredObject.userData.isPattern)) this.setHighlight(this.hoveredObject, false);
                     this.hoveredObject = mesh;
-                    if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) this.setHighlight(this.hoveredObject, true, 0x93c5fd);
+                    if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isMolding || this.hoveredObject.userData.isPattern)) this.setHighlight(this.hoveredObject, true, 0x93c5fd);
                 }
             } else {
                 dom.style.cursor = 'auto';
                 if (this.hoveredObject) {
-                    if (this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isPattern)) this.setHighlight(this.hoveredObject, false);
+                    if (this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isMolding || this.hoveredObject.userData.isPattern)) this.setHighlight(this.hoveredObject, false);
                     this.hoveredObject = null;
                 }
             }
@@ -446,7 +446,7 @@ export class InteractionSystem {
     }
 
     selectObject(object) {
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isMolding || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);
         if (this.transformControls) this.transformControls.detach();
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
 
@@ -625,16 +625,17 @@ export class InteractionSystem {
             this.wallHighlight.visible = true;
             if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
         } 
-        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor || object.userData.isWidget || object.userData.isPattern) {
+        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor || object.userData.isWidget || object.userData.isMolding || object.userData.isPattern) {
             if (object.userData.isShape) type = 'shape';
             else if (object.userData.isFurniture) type = 'furniture';
             else if (object.userData.isWallDecor) type = 'wallDecor';
             else if (object.userData.isFloor) type = 'room';
             else if (object.userData.isWidget) type = 'widget';
+            else if (object.userData.isMolding) type = 'molding';
             else if (object.userData.isPattern) type = 'advance_openings';
             this.setHighlight(object, true);
                 
-            if (type === 'furniture' || type === 'shape' || type === 'widget' || type === 'advance_openings') {
+            if (type === 'furniture' || type === 'shape' || type === 'widget' || type === 'molding' || type === 'advance_openings') {
                 if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
             } else {
                 if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
@@ -656,7 +657,7 @@ export class InteractionSystem {
         if (this.materialGizmo) this.materialGizmo.detach();
         this.ctx.currentTransformMode = 'none';
         if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isMolding || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);
         if (this.transformControls) this.transformControls.detach();
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
         this.selectedObject = null;

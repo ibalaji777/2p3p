@@ -1,11 +1,12 @@
 import Konva from 'konva';
-import { WALL_REGISTRY, WIDGET_REGISTRY, RAILING_REGISTRY } from '../registry.js';
+import { WALL_REGISTRY, WIDGET_REGISTRY, RAILING_REGISTRY, MOLDING_REGISTRY } from '../registry.js';
 import { PremiumWidget } from './PremiumWidget.js';
+import { PremiumMolding } from './PremiumMolding.js';
 import { advance_openings } from './advance_openings.js';
 
 export class PremiumWall {
     constructor(planner, startAnchor, endAnchor, type = "outer") {
-        this.planner = planner; this.startAnchor = startAnchor; this.endAnchor = endAnchor; this.attachedWidgets = []; this.type = type; this.config = WALL_REGISTRY[type] || WALL_REGISTRY['outer'];
+        this.planner = planner; this.startAnchor = startAnchor; this.endAnchor = endAnchor; this.attachedWidgets = []; this.attachedMoldings = []; this.type = type; this.config = WALL_REGISTRY[type] || WALL_REGISTRY['outer'];
         this.thickness = this.config.thickness;
         this.height = this.config.height || 120;
         
@@ -153,8 +154,9 @@ export class PremiumWall {
                 this.planner.syncAll();
                 return;
             }
-            if (WIDGET_REGISTRY[this.planner.tool] || isAdvancedOpening) { 
-                console.log("Widget tool is active. Attempting to create widget.");
+            const isMolding = !!MOLDING_REGISTRY[this.planner.tool];
+            if (WIDGET_REGISTRY[this.planner.tool] || isAdvancedOpening || isMolding) { 
+                console.log("Widget/Molding tool is active. Attempting to create.");
                 e.cancelBubble = true; 
                 if (e.evt) e.evt.stopPropagation();
                 const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); 
@@ -168,13 +170,32 @@ export class PremiumWall {
                 if (isAdvancedOpening) {
                     widget = new advance_openings(this.planner, this, t, this.planner.tool);
                     this.planner.selectEntity(widget, 'advance_openings');
+                    this.attachedWidgets.push(widget); 
+                } else if (isMolding) {
+                    widget = new PremiumMolding(this.planner, this, 0.5, this.planner.tool);
+                    const start = this.startAnchor.position();
+                    const end = this.endAnchor.position();
+                    const dx = end.x - start.x;
+                    const dy = end.y - start.y;
+                    const cp = (pos.x - start.x) * dy - (pos.y - start.y) * dx;
+                    widget.side = cp > 0 ? 'right' : 'left';
+                    widget.width = Math.hypot(dx, dy);
+                    widget.update();
+                    this.planner.selectEntity(widget, 'molding');
+                    if (!this.attachedMoldings) this.attachedMoldings = [];
+                    this.attachedMoldings.push(widget);
                 } else {
                     widget = new PremiumWidget(this.planner, this, t, this.planner.tool); 
                     this.planner.selectEntity(widget, 'widget'); 
+                    this.attachedWidgets.push(widget); 
                 }
-                this.attachedWidgets.push(widget); 
+                
+                this.planner.tool = 'select';
+                if (this.planner.onToolChange) this.planner.onToolChange('select');
+                this.planner.updateToolStates();
+                
                 this.planner.syncAll(); 
-                console.log("Widget added:", widget);
+                console.log("Object added:", widget);
                 return; 
             } 
             if (this.planner.tool !== 'select') return; 
@@ -660,8 +681,31 @@ export class PremiumWall {
         }
 
         this.attachedWidgets.forEach(w => w.update()); 
-    }   
-    remove() { 
-        this.wallGroup.destroy(); this.labelGroup.destroy(); this.entranceGroup.destroy(); this.attachedWidgets.forEach(w => w.remove()); this.planner.walls = this.planner.walls.filter(w => w !== this); this.planner.selectEntity(null); this.planner.syncAll(); 
+        if (this.attachedMoldings) this.attachedMoldings.forEach(m => m.update());
+    } 
+
+    destroy() { 
+        this.wallGroup.destroy(); this.labelGroup.destroy(); this.entranceGroup.destroy(); 
+        this.attachedWidgets.forEach(w => w.destroy ? w.destroy() : null); 
+        if (this.attachedMoldings) this.attachedMoldings.forEach(m => m.destroy ? m.destroy() : null); 
+        this.planner.walls = this.planner.walls.filter(w => w !== this); 
+        this.planner.selectEntity(null); 
+        this.planner.syncAll(); 
+    } 
+
+    serialize() { 
+        return { 
+            type: this.type, thickness: this.thickness, height: this.height, configId: this.configId, hidden: this.hidden, description: this.description, 
+            startAnchorId: this.startAnchor.id, endAnchorId: this.endAnchor.id, 
+            widgets: this.attachedWidgets.map(w => {
+                if (w.serialize) return w.serialize();
+                return { 
+                    t: w.t, type: w.type || w.configId, width: w.width, height: w.height, depth: w.depth, elevation: w.elevation, rows: w.rows, cols: w.cols, spacing: w.spacing, patternStyle: w.patternStyle, decorConfigId: w.decorConfigId, description: w.description, facing: w.facing, side: w.side, doorType: w.doorType, doorMat: w.doorMat, windowType: w.windowType, frameMat: w.frameMat, glassMat: w.glassMat, grillePattern: w.grillePattern 
+                };
+            }), 
+            moldings: (this.attachedMoldings || []).map(m => m.serialize()),
+            decors: JSON.parse(JSON.stringify(this.attachedDecor || [])),
+            elevationLayers: JSON.parse(JSON.stringify(this.elevationLayers))
+        }; 
     }
 }

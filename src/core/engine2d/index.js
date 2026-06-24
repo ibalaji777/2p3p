@@ -1,7 +1,7 @@
 import { PremiumShape } from '/src/core/engine2d/PremiumShape.js';
 // src/core/engine2d/index.js
 import Konva from 'konva';
-import { GRID, PX_TO_FT, SNAP_DIST, WALL_REGISTRY, WIDGET_REGISTRY } from '../registry.js';
+import { GRID, PX_TO_FT, SNAP_DIST, WALL_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY } from '../registry.js';
 
 // SOLID: Import the decoupled 2D entity classes from the same folder
 import { Anchor } from '/src/core/engine2d/Anchor.js';
@@ -15,9 +15,10 @@ import { SmartGuidesTrackingSystem } from '/src/core/engine2d/SmartGuidesTrackin
 import { advance_openings } from '/src/core/engine2d/advance_openings.js';
 import { PremiumArc } from '/src/core/engine2d/PremiumArc.js';
 import { StairV4Flight, StairV4Landing } from '/src/core/engine2d/StaircaseV4.js';
+import { PremiumMolding } from '/src/core/engine2d/PremiumMolding.js';
 
 // Export the specific classes that App.vue needs to spawn items
-export { PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing };
+export { PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding };
 
 export class FloorPlanner {
     constructor(containerEl) { 
@@ -37,7 +38,7 @@ export class FloorPlanner {
             entranceWallId: null
         };
         this.wallTrackingEnabled = this.settings.wallTracking;
-        this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.arcs = []; this.shapes = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
+        this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.arcs = []; this.shapes = []; this.moldings = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
         this.onSelectionChange = null; 
         this.initKonva(); this.drawGrid(); this.initHUD(); this.initStageEvents(); 
         this.snapManager = this.smartGuides;
@@ -397,6 +398,7 @@ export class FloorPlanner {
         const isSelect = this.tool === "select";
         const isSplit = this.tool === "split";
         const isWidget = !!WIDGET_REGISTRY[this.tool];
+        const isMolding = !!MOLDING_REGISTRY[this.tool];
         const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(this.tool);
         const allowAll = (cat === 'tools' || cat === 'advanced');
 
@@ -414,17 +416,27 @@ export class FloorPlanner {
 
             if(w.poly) { 
                 w.poly.setAttr('draggable', canEditThisWall); 
-                w.poly.setAttr('listening', canEditThisWall || (isWidget && !isRailing) || isSplit || isAdvancedOpening); 
+                w.poly.setAttr('listening', canEditThisWall || (isWidget && !isRailing) || isMolding || isSplit || isAdvancedOpening); 
             }
             
             w.attachedWidgets.forEach(widg => {
                 let group = widg.visualGroup || widg.group;
                 if(group) {
-                    let canEditWidget = isSelect || cat === 'doors_windows' || cat === 'advance_openings';
+                    let canEditWidget = isSelect || cat === 'doors_windows' || cat === 'advance_openings' || cat === 'architectural_details';
                     group.setAttr('draggable', canEditWidget);
                     group.setAttr('listening', canEditWidget);
                 }
-            });        });
+            });
+            if (w.attachedMoldings) {
+                w.attachedMoldings.forEach(mold => {
+                    if(mold.visualGroup) {
+                        let canEditMolding = isSelect || cat === 'architectural_details';
+                        mold.visualGroup.setAttr('draggable', canEditMolding);
+                        mold.visualGroup.setAttr('listening', canEditMolding);
+                    }
+                });
+            }
+        });
 
         this.stairs.forEach(s => { 
             let canEdit = isSelect && (allowAll || cat === 'structures');
@@ -457,8 +469,8 @@ export class FloorPlanner {
 
         // FORCE LAYER LISTENING OFF DURING DRAWING OR RESTRICT BY CATEGORY
         if (this.baseLayer) { this.baseLayer.listening(allowAll || cat === "shapes" || cat === "structures" || isSplit); }
-        if (this.wallLayer) { this.wallLayer.listening(allowAll || cat === "common" || cat === "walls" || cat === "doors_windows" || cat === "advance_openings" || cat === "structures" || isWidget || isSplit || isAdvancedOpening); }
-        if (this.widgetLayer) { this.widgetLayer.listening(allowAll || cat === "doors_windows" || cat === "advance_openings" || cat === "structures"); }
+        if (this.wallLayer) { this.wallLayer.listening(allowAll || cat === "common" || cat === "walls" || cat === "doors_windows" || cat === "advance_openings" || cat === "structures" || cat === "architectural_details" || isWidget || isSplit || isAdvancedOpening || isMolding); }
+        if (this.widgetLayer) { this.widgetLayer.listening(allowAll || cat === "doors_windows" || cat === "advance_openings" || cat === "structures" || cat === "architectural_details"); }
         if (this.furnitureLayer) { this.furnitureLayer.listening(allowAll || cat === "furniture" || cat === "shapes" || isSplit); }
         if (this.roofLayer) { this.roofLayer.listening(allowAll || cat === "structures"); }
 
@@ -1766,6 +1778,24 @@ export class FloorPlanner {
                                 wall.attachedWidgets.push(widget); 
                             }
                         }); 
+                    }
+                    if (wData.moldings) {
+                        wData.moldings.forEach(md => {
+                            const molding = new PremiumMolding(this, wall, md.t, md.type);
+                            if (md.width !== undefined) molding.width = md.width;
+                            if (md.depth !== undefined) molding.depth = md.depth;
+                            if (md.heightOffset !== undefined) molding.heightOffset = md.heightOffset;
+                            if (md.side !== undefined) molding.side = md.side;
+                            if (md.profileType !== undefined) molding.profileType = md.profileType;
+                            molding.material = md.material;
+                            molding.color = md.color;
+                            if (md.layers !== undefined) molding.layers = md.layers;
+                            if (md.layerGap !== undefined) molding.layerGap = md.layerGap;
+                            if (md.grooveWidth !== undefined) molding.grooveWidth = md.grooveWidth;
+                            if (md.frameWidth !== undefined) molding.frameWidth = md.frameWidth;
+                            if (!wall.attachedMoldings) wall.attachedMoldings = [];
+                            wall.attachedMoldings.push(molding);
+                        });
                     }
                     if (wData.decors) { wall.attachedDecor = JSON.parse(JSON.stringify(wData.decors)); }
                     this.walls.push(wall);

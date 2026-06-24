@@ -360,6 +360,21 @@ const menuCategories = ref([
             { id: 'pattern_opening', name: 'Pattern Opening' },
             { id: 'boolean_cut', name: 'Boolean Cut' }
         ]
+    },
+    {
+        id: 'architectural_details', name: 'Architectural Details',
+        icon: '<path d="M3 21h18v-2H3v2zm6-4h12v-2H9v2zm-6-4h18v-2H3v2zm6-4h12V7H9v2zM3 3v2h18V3H3z"></path>',
+        tools: [
+            { id: 'molding_band', name: 'Horizontal Band', action: 'molding' },
+            { id: 'molding_crown', name: 'Crown Molding', action: 'molding' },
+            { id: 'molding_ogee', name: 'Ogee (Cyma) Molding', action: 'molding' },
+            { id: 'molding_egg_and_dart', name: 'Egg and Dart Molding', action: 'molding' },
+            { id: 'molding_dentil', name: 'Dentil Molding', action: 'molding' },
+            { id: 'molding_window', name: 'Window Frame', action: 'molding' },
+            { id: 'molding_door', name: 'Door Frame', action: 'molding' },
+            { id: 'molding_groove', name: 'Decorative Groove', action: 'molding' },
+            { id: 'molding_layered', name: 'Layered Projection', action: 'molding' }
+        ]
     }
 ]);
 
@@ -752,7 +767,7 @@ const handleGlobalKeys = (e) => {
         if (e.key === 'Escape' && renderer3D.value) renderer3D.value.cancelRelocation();
     } else if (viewMode.value === '2d') {
         if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (selectedType.value === 'roof' || selectedType.value === 'furniture' || selectedType.value === 'widget' || selectedType.value === 'advance_openings' || selectedType.value === 'shape' || selectedType.value === 'wall' || selectedType.value === 'arc' || selectedType.value === 'room' || selectedType.value === 'stair' ) { handleDelete(); debouncedSaveHistory(); }
+            if (selectedType.value === 'roof' || selectedType.value === 'furniture' || selectedType.value === 'widget' || selectedType.value === 'molding' || selectedType.value === 'advance_openings' || selectedType.value === 'shape' || selectedType.value === 'wall' || selectedType.value === 'arc' || selectedType.value === 'room' || selectedType.value === 'stair' ) { handleDelete(); debouncedSaveHistory(); }
         }
         if (e.key === 'Escape') {
             setTool('select');
@@ -957,7 +972,7 @@ const syncEngine = () => {
         renderer3D.value.updateFurnitureLive(selectedEntity.value); 
     } else if (viewMode.value === '3d' && selectedType.value === 'shape' && selectedEntity.value) {
         renderer3D.value.updateShapeLive(selectedEntity.value);
-    } else if (viewMode.value === '3d' && (selectedType.value === 'roof' || selectedType.value === 'room' || selectedType.value === 'wall' || selectedType.value === 'widget' || selectedType.value === 'advance_openings')) {
+    } else if (viewMode.value === '3d' && (selectedType.value === 'roof' || selectedType.value === 'room' || selectedType.value === 'wall' || selectedType.value === 'widget' || selectedType.value === 'advance_openings' || selectedType.value === 'molding' || selectedType.value === 'wallDecor' || selectedType.value === 'stair')) {
         refresh3DScene(true);
     }
     debouncedSaveHistory();
@@ -1087,7 +1102,7 @@ const handleDelete = () => {
             selectedEntity.value = null;
             selectedType.value = null;
             if (viewMode.value === '3d') refresh3DScene(true);
-        } else if (selectedType.value === 'widget' || selectedType.value === 'advance_openings' || selectedType.value === 'wall' || selectedType.value === 'arc' || selectedType.value === 'stair' ) {
+        } else if (selectedType.value === 'widget' || selectedType.value === 'molding' || selectedType.value === 'advance_openings' || selectedType.value === 'wall' || selectedType.value === 'arc' || selectedType.value === 'stair' ) {
             selectedEntity.value.remove();
             selectedEntity.value = null;
             selectedType.value = null;

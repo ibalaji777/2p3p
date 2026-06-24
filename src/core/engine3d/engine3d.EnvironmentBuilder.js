@@ -2,11 +2,13 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { Molding3DBuilder } from './Molding3DBuilder.js';
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from '../../core/registry';
 
 export class EnvironmentBuilder {
     constructor(ctx) {
         this.ctx = ctx;
+        this.moldingBuilder = new Molding3DBuilder();
     }
 
     setupBaseEnvironment() {
@@ -364,6 +366,23 @@ export class EnvironmentBuilder {
             if (pts && pts.length === 8) shearGeo(skinBackGeo);
             const hitBack = new THREE.Mesh(skinBackGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
             hitBack.userData = { isWallSide: true, side: 'back', entity: w };
+
+            if (w.attachedMoldings) {
+                w.attachedMoldings.forEach((mold, idx) => {
+                    const mMesh = this.moldingBuilder.buildMolding(mold, length, t);
+                    mMesh.userData.entity = mold;
+                    mMesh.userData.moldData = mold;
+                    if (pts && pts.length === 8) {
+                        if (mMesh.isGroup && mMesh.children.length > 0 && mMesh.children[0].geometry) {
+                            shearGeo(mMesh.children[0].geometry);
+                        } else if (mMesh.geometry) {
+                            shearGeo(mMesh.geometry);
+                        }
+                    }
+                    extraMeshes.push(mMesh);
+                    this.ctx.interactables.push(mMesh);
+                });
+            }
 
             const wallGroup = new THREE.Group();
             wallGroup.position.set(p1.x, 0, p1.y);
@@ -896,7 +915,6 @@ export class EnvironmentBuilder {
                                             hitBoxGeo.translate(wCenter, elev + h_opening / 2, 0);
                                             const hitBox = new THREE.Mesh(hitBoxGeo, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
                                             hitBox.userData = { isHitbox: true };
-                                            
                                             const patternGroup = new THREE.Group();
                                             patternGroup.add(patternMesh, hitBox);
                                             patternGroup.userData = { isPattern: true, entity: widg };
@@ -937,7 +955,6 @@ export class EnvironmentBuilder {
                                 }
                             });
                         }
-
                         const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: w.thickness, bevelEnabled: false });
                         wallGeo.translate(0, 0, -w.thickness / 2);
                         
@@ -978,6 +995,14 @@ export class EnvironmentBuilder {
                         const edgesMat = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.1 });
                         const edgesMesh = new THREE.LineSegments(edgesGeo, edgesMat);
                         wallMesh.add(edgesMesh);
+
+                        if (w.moldings) {
+                            w.moldings.forEach(mold => {
+                                const mMesh = this.moldingBuilder.buildMolding(mold, length, w.thickness);
+                                extraMeshes.push(mMesh);
+                                if (!isPreview) this.ctx.interactables.push(mMesh);
+                            });
+                        }
 
                         const wallGroup = new THREE.Group();
                         wallGroup.position.set(w.startX, 0, w.startY);
