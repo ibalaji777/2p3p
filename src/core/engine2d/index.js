@@ -631,15 +631,71 @@ export class FloorPlanner {
             this.uiLayer.batchDraw();
         });
 
-        this.stage.on("mousedown touchstart", (e) => {
+        this.stage.on("mousedown touchstart touchend", (e) => {
             if (e.evt && e.evt.touches && e.evt.touches.length > 1) return;
  
             if (this.tool === 'roof') return;
-            if (e.target === this.stage || e.target === this.bgLayer || e.target === this.mainLayer) this.deselectAll(); 
+            
+            if (this.lastPlacementTime && Date.now() - this.lastPlacementTime < 500) {
+                return;
+            }
+            
+            if (e.type !== 'touchend' && (e.target === this.stage || e.target === this.bgLayer || e.target === this.mainLayer)) {
+                this.deselectAll(); 
+            }
             const wallConfig = WALL_REGISTRY[this.tool]; 
             
             const pos = this.getPointerPos();
             if (!pos) return;
+            
+            // Handle Smart Snapping Placement for Moldings and Openings
+            const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(this.tool);
+            const isMolding = !!MOLDING_REGISTRY[this.tool];
+            const isWidget = !!WIDGET_REGISTRY[this.tool];
+            const isPlacementTool = isWidget || isAdvancedOpening || isMolding;
+
+            if (isPlacementTool) {
+                let targetWall = null;
+                let targetFace = null;
+                
+                if (e.target && e.target.isWallPoly) {
+                    targetWall = e.target.parentWall;
+                    const start = targetWall.startAnchor.position();
+                    const end = targetWall.endAnchor.position();
+                    const dx = end.x - start.x;
+                    const dy = end.y - start.y;
+                    const cp = (pos.x - start.x) * dy - (pos.y - start.y) * dx;
+                    targetFace = cp > 0 ? 'back' : 'front';
+                } else {
+                    let minWallDist = 60 / (this.stage.scaleX() || 1);
+                    for (let w of this.walls) {
+                        if (w.hidden || w.type === 'railing') continue;
+                        const start = w.startAnchor.position();
+                        const end = w.endAnchor.position();
+                        const proj = this.getClosestPointOnSegment(pos, start, end);
+                        const dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                        
+                        if (dist < minWallDist) {
+                            targetWall = w;
+                            minWallDist = dist;
+                            const dx = end.x - start.x;
+                            const dy = end.y - start.y;
+                            const cp = (pos.x - start.x) * dy - (pos.y - start.y) * dx;
+                            targetFace = cp > 0 ? 'back' : 'front';
+                        }
+                    }
+                }
+                
+                if (targetWall && targetWall.placeItemFromSnapping) {
+                    this.walls.forEach(w => {
+                        if (w.frontHighlight) w.frontHighlight.visible(false);
+                        if (w.backHighlight) w.backHighlight.visible(false);
+                    });
+                    this.mainLayer.batchDraw();
+                    targetWall.placeItemFromSnapping(this.tool, targetFace, pos);
+                    return; 
+                }
+            }
             
             let targetPos = { x: this.snap(pos.x), y: this.snap(pos.y) };
             if (this.tool === 'stair_v4_flight') {
@@ -924,7 +980,7 @@ export class FloorPlanner {
                         const dx = end.x - start.x;
                         const dy = end.y - start.y;
                         const cp = (pos.x - start.x) * dy - (pos.y - start.y) * dx;
-                        closestFace = cp > 0 ? 'front' : 'back';
+                        closestFace = cp > 0 ? 'back' : 'front';
                     }
                 }
                 
@@ -932,7 +988,7 @@ export class FloorPlanner {
                     if (closestFace === 'front' && closestWall.frontHighlight) closestWall.frontHighlight.visible(true);
                     else if (closestWall.backHighlight) closestWall.backHighlight.visible(true);
                 }
-                this.wallLayer.batchDraw();
+                this.mainLayer.batchDraw();
                 return;
             }
             if (this.drawingShapeType === 'shape_rect' && this.shapeStartPos) {
@@ -1721,7 +1777,7 @@ export class FloorPlanner {
                     description: wid.description
                 })),
                 decors: w.attachedDecor ? w.attachedDecor.map(d => ({ id: d.id, configId: d.configId, side: d.side, localX: d.localX, localY: d.localY, localZ: d.localZ, width: d.width, height: d.height, depth: d.depth, tileSize: d.tileSize, faces: { front: d.faces.front, back: d.faces.back, left: d.faces.left, right: d.faces.right } })) : [],
-                moldings: w.moldings ? JSON.parse(JSON.stringify(w.moldings)) : []
+                moldings: w.attachedMoldings ? w.attachedMoldings.map(m => ({ t: m.t, type: m.type, configId: m.type, width: m.width, depth: m.depth, heightOffset: m.heightOffset, side: m.side, profileType: m.profileType, material: m.material, color: m.color, layers: m.layers, layerGap: m.layerGap, grooveWidth: m.grooveWidth, frameWidth: m.frameWidth })) : []
             })),
             furniture: this.furniture.map(f => ({ x: f.group.x(), y: f.group.y(), rotation: f.rotation, width: f.width, depth: f.depth, height: f.height, configId: f.config.id, description: f.description })),
             stairs: this.stairs.map(s => {

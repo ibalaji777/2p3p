@@ -88,8 +88,8 @@ export class PremiumWall {
             ctx.strokeShape(shape);
         });
         
-        this.frontHighlight = new Konva.Line({ stroke: '#3b82f6', strokeWidth: 4, visible: false, lineCap: 'square', lineJoin: 'miter' }); 
-        this.backHighlight = new Konva.Line({ stroke: '#10b981', strokeWidth: 4, visible: false, lineCap: 'square', lineJoin: 'miter' });
+        this.frontHighlight = new Konva.Line({ stroke: '#0ea5e9', strokeWidth: 4, shadowColor: '#0ea5e9', shadowBlur: 8, listening: false, visible: false, lineCap: 'round', lineJoin: 'round' }); 
+        this.backHighlight = new Konva.Line({ stroke: '#0ea5e9', strokeWidth: 4, shadowColor: '#0ea5e9', shadowBlur: 8, listening: false, visible: false, lineCap: 'round', lineJoin: 'round' });
         this.wallGroup.add(this.poly, this.frontHighlight, this.backHighlight); 
         this.planner.wallLayer.add(this.wallGroup);
         
@@ -139,6 +139,51 @@ export class PremiumWall {
         });
         tween.play();
     }
+
+    placeItemFromSnapping(tool, face, pos) {
+        this.planner.lastPlacementTime = Date.now();
+        
+        const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(tool);
+        const isMolding = !!MOLDING_REGISTRY[tool];
+        const isWidget = !!WIDGET_REGISTRY[tool];
+        
+        let t = this.getClosestT(pos);
+        let widget;
+        
+        this.pulseHighlight();
+
+        if (isAdvancedOpening) {
+            // Note: advance_openings requires the class to exist globally, fallback to PremiumOpening if needed
+            widget = typeof advance_openings !== 'undefined' ? new advance_openings(this.planner, this, t, tool) : new PremiumOpening(this.planner, this, tool);
+            this.planner.selectEntity(widget, 'opening');
+            if (!this.attachedWidgets) this.attachedWidgets = [];
+            this.attachedWidgets.push(widget);
+        } else if (isMolding) {
+            widget = new PremiumMolding(this.planner, this, 0.5, tool);
+            const start = this.startAnchor.position();
+            const end = this.endAnchor.position();
+            const dx = end.x - start.x;
+            const dy = end.y - start.y;
+            widget.side = face === 'front' ? 'left' : 'right';
+            widget.width = Math.hypot(dx, dy);
+            widget.update();
+            this.planner.selectEntity(widget, 'molding');
+            if (!this.attachedMoldings) this.attachedMoldings = [];
+            this.attachedMoldings.push(widget);
+        } else if (isWidget) {
+            widget = new PremiumWidget(this.planner, this, t, tool);
+            this.planner.selectEntity(widget, 'widget');
+            if (!this.attachedWidgets) this.attachedWidgets = [];
+            this.attachedWidgets.push(widget);
+        }
+        
+        this.planner.tool = 'select';
+        if (this.planner.onToolChange) this.planner.onToolChange('select');
+        this.planner.updateToolStates();
+        
+        this.planner.syncAll();
+        console.log("Object added via snapping:", widget);
+    }
     
     initEvents() { 
         this.poly.on('mouseenter', () => {
@@ -151,7 +196,7 @@ export class PremiumWall {
         this.poly.on('mouseleave', () => { 
             document.body.style.cursor = 'default'; 
         });
-        this.poly.on('mousedown touchstart', (e) => { 
+        this.poly.on('mousedown touchstart touchend', (e) => { 
             this.wallGroup.moveToTop();
             const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(this.planner.tool);
             console.log("Wall mousedown/touchstart event fired.", { tool: this.planner.tool, isWidget: !!WIDGET_REGISTRY[this.planner.tool], isAdvancedOpening });
@@ -178,53 +223,21 @@ export class PremiumWall {
                 return;
             }
             const isMolding = !!MOLDING_REGISTRY[this.planner.tool];
-            if (WIDGET_REGISTRY[this.planner.tool] || isAdvancedOpening || isMolding) { 
-                console.log("Widget/Molding tool is active. Attempting to create.");
-                e.cancelBubble = true; 
-                if (e.evt) e.evt.stopPropagation();
-                const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); 
-                if (!pos) {
-                    console.error("Could not get pointer position.");
-                    return;
-                }
-                let t = this.getClosestT(pos); 
-                console.log("Calculated t:", t, "Position:", pos);
-                let widget;
-                
-                this.pulseHighlight();
+            const isWidget = !!WIDGET_REGISTRY[this.planner.tool];
+            const isPlacementTool = isWidget || isAdvancedOpening || isMolding;
+            
+            if (isPlacementTool) {
+                // Let index.js handle the placement to ensure unified logic
+                return;
+            }
 
-                if (isAdvancedOpening) {
-                    widget = new advance_openings(this.planner, this, t, this.planner.tool);
-                    this.planner.selectEntity(widget, 'advance_openings');
-                    this.attachedWidgets.push(widget); 
-                } else if (isMolding) {
-                    widget = new PremiumMolding(this.planner, this, 0.5, this.planner.tool);
-                    const start = this.startAnchor.position();
-                    const end = this.endAnchor.position();
-                    const dx = end.x - start.x;
-                    const dy = end.y - start.y;
-                    const cp = (pos.x - start.x) * dy - (pos.y - start.y) * dx;
-                    widget.side = cp > 0 ? 'right' : 'left';
-                    widget.width = Math.hypot(dx, dy);
-                    widget.update();
-                    this.planner.selectEntity(widget, 'molding');
-                    if (!this.attachedMoldings) this.attachedMoldings = [];
-                    this.attachedMoldings.push(widget);
-                } else {
-                    widget = new PremiumWidget(this.planner, this, t, this.planner.tool); 
-                    this.planner.selectEntity(widget, 'widget'); 
-                    this.attachedWidgets.push(widget); 
-                }
-                
-                this.planner.tool = 'select';
-                if (this.planner.onToolChange) this.planner.onToolChange('select');
-                this.planner.updateToolStates();
-                
-                this.planner.syncAll(); 
-                console.log("Object added:", widget);
-                return; 
-            } 
-            if (this.planner.tool !== 'select') return; 
+            if (this.planner.tool !== 'select') {
+                return;
+            }
+            if (this.planner.lastPlacementTime && Date.now() - this.planner.lastPlacementTime < 500) {
+                e.cancelBubble = true;
+                return;
+            }
             e.cancelBubble = true; 
             if (e.evt) e.evt.stopPropagation();
             this.planner.selectEntity(this, 'wall'); 
@@ -680,7 +693,7 @@ export class PremiumWall {
             this.poly.fill(isSel ? '#bfdbfe' : this.fillColor);
         }
 
-        const fOff = 4; this.frontHighlight.points([ startTrue[0].x + n.x * fOff, startTrue[0].y + n.y * fOff, endTrue[0].x + n.x * fOff, endTrue[0].y + n.y * fOff ]); this.backHighlight.points([ startTrue[1].x - n.x * fOff, startTrue[1].y - n.y * fOff, endTrue[1].x - n.x * fOff, endTrue[1].y - n.y * fOff ]);
+        const fOff = 0; this.frontHighlight.points([ startTrue[0].x + n.x * fOff, startTrue[0].y + n.y * fOff, endTrue[0].x + n.x * fOff, endTrue[0].y + n.y * fOff ]); this.backHighlight.points([ startTrue[1].x - n.x * fOff, startTrue[1].y - n.y * fOff, endTrue[1].x - n.x * fOff, endTrue[1].y - n.y * fOff ]);
         this.labelText.text(this.planner.formatLength(this.getLength()));
         this.labelGroup.position({ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 });
         this.labelGroup.offset({ x: this.labelText.width() / 2, y: 15 });

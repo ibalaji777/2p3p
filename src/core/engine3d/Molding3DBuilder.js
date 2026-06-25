@@ -54,24 +54,30 @@ export class Molding3DBuilder {
             finalShape.lineTo(0, moldingHeight);
             finalShape.lineTo(0, 0);
         } else if (profileType === 'craftsman') {
-            // "Step molding favors sharp, parallel geometric tiers and flat angles rather than curves. 
-            // This blocky structure is the hallmark of modern Craftsman, Arts and Crafts, and Art Deco design styles."
+            // "Step molding favors sharp, parallel geometric tiers. 
+            // We add micro-bevels to the edges to catch specular light and give a highly precise, milled appearance."
+            const mb = Math.min(d * 0.05, moldingHeight * 0.02); // 5% depth or 2% height micro-bevel
+            
             finalShape.moveTo(0, 0);
             
             // Tier 1 (Lowest parallel block against wall)
-            finalShape.lineTo(d * 0.2, 0);
-            finalShape.lineTo(d * 0.2, moldingHeight * 0.35); 
+            finalShape.lineTo(d * 0.2 - mb, 0);
+            finalShape.lineTo(d * 0.2, mb); // Outer corner bevel
+            finalShape.lineTo(d * 0.2, moldingHeight * 0.35 - mb); 
             
             // Tier 2 (Middle-lower block)
-            finalShape.lineTo(d * 0.45, moldingHeight * 0.35);
-            finalShape.lineTo(d * 0.45, moldingHeight * 0.6);
+            finalShape.lineTo(d * 0.45 - mb, moldingHeight * 0.35); // Inner corner bevel
+            finalShape.lineTo(d * 0.45, moldingHeight * 0.35 + mb);
+            finalShape.lineTo(d * 0.45, moldingHeight * 0.6 - mb);
             
             // Tier 3 (Middle-upper block)
-            finalShape.lineTo(d * 0.75, moldingHeight * 0.6);
-            finalShape.lineTo(d * 0.75, moldingHeight * 0.8);
+            finalShape.lineTo(d * 0.75 - mb, moldingHeight * 0.6); // Inner corner bevel
+            finalShape.lineTo(d * 0.75, moldingHeight * 0.6 + mb);
+            finalShape.lineTo(d * 0.75, moldingHeight * 0.8 - mb);
             
             // Tier 4 (Top Cap block against ceiling)
-            finalShape.lineTo(d, moldingHeight * 0.8);
+            finalShape.lineTo(d - mb, moldingHeight * 0.8); // Inner corner bevel
+            finalShape.lineTo(d, moldingHeight * 0.8 + mb);
             finalShape.lineTo(d, moldingHeight);
             
             finalShape.lineTo(0, moldingHeight);

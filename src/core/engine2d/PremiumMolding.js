@@ -17,12 +17,13 @@ export class PremiumMolding {
         this.hitBox = new Konva.Rect({ fill: 'transparent', listening: true });
         this.visualGroup.add(this.hitBox);
         
-        // Representation of molding in 2D plan (often a colored rectangle hugging the wall)
-        this.moldingRect = new Konva.Rect({ 
+        // Representation of molding in 2D plan
+        this.moldingPoly = new Konva.Line({ 
             fill: this.type === 'molding_groove' ? '#9ca3af' : '#10b981', 
-            opacity: 0.7 
+            opacity: 0.7,
+            closed: true
         }); 
-        this.visualGroup.add(this.moldingRect);
+        this.visualGroup.add(this.moldingPoly);
         
         if (this.hasEvent("resize_handles_along_wall_axis")) {
             this.leftHandle = new Konva.Circle({ radius: 7, fill: '#3b82f6', stroke: 'white', strokeWidth: 2, draggable: true, visible: false }); 
@@ -87,7 +88,7 @@ export class PremiumMolding {
         const start = this.wall.startAnchor.position(), end = this.wall.endAnchor.position(); 
         const dx = end.x - start.x, dy = end.y - start.y; 
         
-        const cx = start.x + dx * this.t, cy = start.y + dy * this.t; 
+        let cx = start.x + dx * this.t, cy = start.y + dy * this.t; 
         const th = this.wall.thickness || this.wall.config.thickness || 8; 
         
         const wallAngle = Math.atan2(dy, dx); 
@@ -100,39 +101,107 @@ export class PremiumMolding {
             ny = -ny;
         }
         
-        const offsetDist = th / 2 + Math.max(2, this.depth / 2);
-        const px = cx + nx * offsetDist; 
-        const py = cy + ny * offsetDist;
+        let px, py;
+        let currentWidth = this.width;
+        const wallLen = Math.hypot(dx, dy);
+
+        if (Math.abs(this.width - wallLen) < 2 && this.wall.wallShapeData) {
+            const startTrue = this.wall.wallShapeData.startData.trueCorners || this.wall.wallShapeData.startData.corners;
+            const endTrue = this.wall.wallShapeData.endData.trueCorners || this.wall.wallShapeData.endData.corners;
+            const edgeStart = this.side === 'right' ? startTrue[1] : startTrue[0];
+            const edgeEnd = this.side === 'right' ? endTrue[1] : endTrue[0];
+            
+            currentWidth = Math.hypot(edgeEnd.x - edgeStart.x, edgeEnd.y - edgeStart.y);
+            const edgeCx = (edgeStart.x + edgeEnd.x) / 2;
+            const edgeCy = (edgeStart.y + edgeEnd.y) / 2;
+            
+            const depthOffset = Math.max(2, this.depth / 2);
+            px = edgeCx + nx * depthOffset;
+            py = edgeCy + ny * depthOffset;
+        } else {
+            const offsetDist = th / 2 + Math.max(2, this.depth / 2);
+            px = cx + nx * offsetDist; 
+            py = cy + ny * offsetDist;
+        }
 
         this.visualGroup.position({ x: px, y: py }); 
         this.visualGroup.rotation((wallAngle * 180) / Math.PI); 
-
+        
         const visualDepth = Math.max(4, Math.abs(this.depth));
-        this.moldingRect.width(this.width);
-        this.moldingRect.height(visualDepth);
-        this.moldingRect.x(-this.width / 2);
-        this.moldingRect.y(-visualDepth / 2);
+        
+        if (Math.abs(this.width - wallLen) < 2 && this.wall.wallShapeData) {
+            // Full-length molding: compute perfectly mitered polygon
+            const startTrue = this.wall.wallShapeData.startData.trueCorners || this.wall.wallShapeData.startData.corners;
+            const endTrue = this.wall.wallShapeData.endData.trueCorners || this.wall.wallShapeData.endData.corners;
+            const edgeStart = this.side === 'right' ? startTrue[1] : startTrue[0];
+            const edgeEnd = this.side === 'right' ? endTrue[1] : endTrue[0];
+            
+            const pStart = start;
+            const vStart = { x: edgeStart.x - pStart.x, y: edgeStart.y - pStart.y };
+            const pEnd = end;
+            const vEnd = { x: edgeEnd.x - pEnd.x, y: edgeEnd.y - pEnd.y };
+            
+            const scaleOuter = (th / 2 + visualDepth) / (th / 2);
+            
+            const outerStart = { x: pStart.x + vStart.x * scaleOuter, y: pStart.y + vStart.y * scaleOuter };
+            const outerEnd = { x: pEnd.x + vEnd.x * scaleOuter, y: pEnd.y + vEnd.y * scaleOuter };
+            
+            // Convert global points to local space relative to the visualGroup
+            const toLocal = (p) => {
+                const lx = p.x - px;
+                const ly = p.y - py;
+                const cos = Math.cos(-wallAngle);
+                const sin = Math.sin(-wallAngle);
+                return { x: lx * cos - ly * sin, y: lx * sin + ly * cos };
+            };
+            
+            const ls = toLocal(edgeStart);
+            const le = toLocal(edgeEnd);
+            const loe = toLocal(outerEnd);
+            const los = toLocal(outerStart);
+            
+            this.moldingPoly.points([ls.x, ls.y, le.x, le.y, loe.x, loe.y, los.x, los.y]);
+        } else {
+            // Partial molding: just a rectangle
+            this.moldingPoly.points([
+                -currentWidth / 2, -visualDepth / 2,
+                currentWidth / 2, -visualDepth / 2,
+                currentWidth / 2, visualDepth / 2,
+                -currentWidth / 2, visualDepth / 2
+            ]);
+        }
 
-        this.hitBox.width(this.width); 
+        this.hitBox.width(currentWidth); 
         this.hitBox.height(visualDepth + 10); 
-        this.hitBox.x(-this.width / 2); 
+        this.hitBox.x(-currentWidth / 2); 
         this.hitBox.y(-visualDepth / 2 - 5); 
 
         if (this.hasEvent("resize_handles_along_wall_axis")) {
-            this.leftHandle.position({ x: px - Math.cos(wallAngle) * (this.width / 2), y: py - Math.sin(wallAngle) * (this.width / 2) }); 
-            this.rightHandle.position({ x: px + Math.cos(wallAngle) * (this.width / 2), y: py + Math.sin(wallAngle) * (this.width / 2) }); 
+            this.leftHandle.position({ x: px - Math.cos(wallAngle) * (currentWidth / 2), y: py - Math.sin(wallAngle) * (currentWidth / 2) }); 
+            this.rightHandle.position({ x: px + Math.cos(wallAngle) * (currentWidth / 2), y: py + Math.sin(wallAngle) * (currentWidth / 2) }); 
         }
+    }
+
+    setHighlight(active) { 
+        if (active) { 
+            this.moldingPoly.stroke('#3b82f6'); this.moldingPoly.strokeWidth(2); 
+            if (this.hasEvent("resize_handles_along_wall_axis")) { this.leftHandle.visible(true); this.rightHandle.visible(true); } 
+        } else { 
+            this.moldingPoly.stroke(null); this.moldingPoly.strokeWidth(0); 
+            if (this.hasEvent("resize_handles_along_wall_axis")) { this.leftHandle.visible(false); this.rightHandle.visible(false); } 
+        } 
+        this.visualGroup.moveToTop(); 
     }
 
     setSelection(isSelected) { 
         if (isSelected) { 
-            this.moldingRect.stroke('#3b82f6'); this.moldingRect.strokeWidth(2); 
-            if (this.hasEvent("resize_handles_along_wall_axis")) { this.leftHandle.show(); this.rightHandle.show(); } 
+            this.moldingPoly.stroke('#3b82f6'); this.moldingPoly.strokeWidth(2); 
+            if (this.hasEvent("resize_handles_along_wall_axis")) { this.leftHandle.visible(true); this.rightHandle.visible(true); } 
+            this.visualGroup.moveToTop();
         } else { 
-            this.moldingRect.stroke(null); this.moldingRect.strokeWidth(0); 
-            if (this.hasEvent("resize_handles_along_wall_axis")) { this.leftHandle.hide(); this.rightHandle.hide(); } 
+            this.moldingPoly.stroke(null); this.moldingPoly.strokeWidth(0); 
+            if (this.hasEvent("resize_handles_along_wall_axis")) { this.leftHandle.visible(false); this.rightHandle.visible(false); } 
         } 
-        this.visualGroup.moveToTop(); 
     }
 
     destroy() { 
