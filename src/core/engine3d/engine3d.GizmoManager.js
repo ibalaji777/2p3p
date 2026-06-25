@@ -434,13 +434,14 @@ export class GizmoManager {
                             }
                         }
                         
-                        // Ensure parameters are saved for serialization, but DO NOT rebuild the scene
-                        // Update instantly without rebuilding entire scene!
+                        // Ensure parameters are saved for serialization, and trigger Vue reactivity by reassignment
+                        entity.params = Object.assign({}, entity.params);
+                        
+                        // Update instantly by rebuilding the mesh properly
                         if (entity.type && entity.type.startsWith('shape_')) {
                             if (this.ctx.updateShapeLive) this.ctx.updateShapeLive(entity);
                         } else {
-                            // SKIP updateMaterialLive to avoid geometry flash and guarantee isolation
-                            // It will be rebuilt properly on save/load
+                            if (this.ctx.updateMaterialLive) this.ctx.updateMaterialLive(entity);
                         }
                     }
                 });

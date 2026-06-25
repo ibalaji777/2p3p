@@ -677,19 +677,30 @@ export const WIDGET_REGISTRY = {
                 const blockIndex = blockCounter++;
                 if (helpers && helpers.getFaceMaterials) {
                     const blockEntity = { params: {} };
-                    if (entity.params) Object.assign(blockEntity.params, entity.params);
+                    if (entity.params) {
+                        Object.assign(blockEntity.params, entity.params);
+                        // Prevent global textures from bleeding into isolated blocks
+                        delete blockEntity.params.texture;
+                        delete blockEntity.params.textureFront;
+                        delete blockEntity.params.textureBack;
+                        delete blockEntity.params.textureLeft;
+                        delete blockEntity.params.textureRight;
+                        delete blockEntity.params.textureTop;
+                        delete blockEntity.params.textureBottom;
+                        delete blockEntity.params.textureSides;
+                    }
                     if (entity.params && entity.params.blocks && entity.params.blocks[blockIndex]) {
                         Object.assign(blockEntity.params, entity.params.blocks[blockIndex]);
                     }
                     const multiMat = helpers.getFaceMaterials(blockEntity, matFascia, { width: w, height: h });
-                    // box indices: 0: right, 1: left, 2: top, 3: bottom, 4: front, 5: back
+                    // Always allow material application on all faces to support user overrides
                     const faces = [
-                        exposed.right !== false ? multiMat.box[0] : matFascia,
-                        exposed.left !== false ? multiMat.box[1] : matFascia,
-                        exposed.top !== false ? multiMat.box[2] : matFascia,
-                        exposed.bottom !== false ? multiMat.box[3] : matFascia,
-                        exposed.front !== false ? multiMat.box[4] : matFascia,
-                        exposed.back !== false ? multiMat.box[5] : matFascia
+                        multiMat.box[0],
+                        multiMat.box[1],
+                        multiMat.box[2],
+                        multiMat.box[3],
+                        multiMat.box[4],
+                        multiMat.box[5]
                     ];
                     materials = faces;
                 }
