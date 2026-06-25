@@ -636,5 +636,71 @@ export const WIDGET_REGISTRY = {
             sceneGroup.add(winGroup);
             return winGroup;
         }
+    },
+    'elevation_fascia': {
+        widget: "elevation_fascia", label: "ELEVATION FASCIA",
+        events: ["drag_along_wall", "snap_to_corners", "resize_handles_along_wall_axis"],
+        defaultConfig: { width: 100, height: 120, depth: 40, thick: 10, elevation: 0, profileType: 'c_shape_left', fasciaMat: 'white' },
+        render2D: (group, entity) => {
+            const hw = entity.width / 2; const thick = entity.wall ? (entity.wall.thickness || entity.wall.config.thickness) : (entity.thick || 4);
+            const w = entity.width; const h = thick;
+            const rect = new Konva.Rect({ x: -hw, y: -h/2, width: w, height: h, fill: '#60a5fa', stroke: '#2563eb', strokeWidth: 2, opacity: 0.5 });
+            group.add(rect);
+            const d = entity.depth || 40;
+            const projDir = entity.facing === 1 ? -1 : 1; 
+            const projY = projDir === 1 ? h/2 : -h/2 - d;
+            const projRect = new Konva.Rect({ x: -hw, y: projY, width: w, height: d, stroke: '#2563eb', strokeWidth: 1, dash: [4, 4] });
+            group.add(projRect);
+        },
+        render3D: (sceneGroup, entity, helpers) => {
+            let baseElev = entity.elevation || 0; let height = entity.height || 120;
+            let width = entity.width || 100; let depth = entity.depth || 40; let thick = entity.thick || 10;
+            const fasciaGroup = new THREE.Group(); fasciaGroup.position.set(entity.x, baseElev, entity.z); fasciaGroup.rotation.y = -entity.angle;
+            
+            let fColor = 0xffffff;
+            if (entity.fasciaMat === 'dark_grey') fColor = 0x333333;
+            else if (entity.fasciaMat === 'stone') fColor = 0xa8a29e;
+            else if (entity.fasciaMat === 'wood') fColor = 0x8b5a2b;
+            const matFascia = new THREE.MeshStandardMaterial({ color: fColor, roughness: 0.8 });
+            
+            const createBlock = (w, h, d, x, y, z) => {
+                const geo = new THREE.BoxGeometry(w, h, d);
+                const mesh = new THREE.Mesh(geo, matFascia);
+                mesh.position.set(x, y + h/2, z);
+                mesh.castShadow = true; mesh.receiveShadow = true;
+                return mesh;
+            };
+            
+            const wallThick = entity.wall ? (entity.wall.thickness || entity.wall.config.thickness) : 16;
+            const zOffset = (entity.facing === -1) ? (wallThick/2 + depth/2) : -(wallThick/2 + depth/2);
+
+            if (entity.profileType === 'c_shape_left') {
+                fasciaGroup.add(createBlock(width, thick, depth, 0, height - thick, zOffset)); 
+                fasciaGroup.add(createBlock(thick, height, depth, -width/2 + thick/2, 0, zOffset)); 
+                fasciaGroup.add(createBlock(width, thick, depth, 0, 0, zOffset)); 
+            } else if (entity.profileType === 'c_shape_right') {
+                fasciaGroup.add(createBlock(width, thick, depth, 0, height - thick, zOffset)); 
+                fasciaGroup.add(createBlock(thick, height, depth, width/2 - thick/2, 0, zOffset)); 
+                fasciaGroup.add(createBlock(width, thick, depth, 0, 0, zOffset)); 
+            } else if (entity.profileType === 'l_shape_left') {
+                fasciaGroup.add(createBlock(width, thick, depth, 0, height - thick, zOffset)); 
+                fasciaGroup.add(createBlock(thick, height, depth, -width/2 + thick/2, 0, zOffset)); 
+            } else if (entity.profileType === 'l_shape_right') {
+                fasciaGroup.add(createBlock(width, thick, depth, 0, height - thick, zOffset)); 
+                fasciaGroup.add(createBlock(thick, height, depth, width/2 - thick/2, 0, zOffset)); 
+            } else if (entity.profileType === 'full_box') {
+                fasciaGroup.add(createBlock(width, thick, depth, 0, height - thick, zOffset)); 
+                fasciaGroup.add(createBlock(width, thick, depth, 0, 0, zOffset)); 
+                fasciaGroup.add(createBlock(thick, height, depth, -width/2 + thick/2, 0, zOffset)); 
+                fasciaGroup.add(createBlock(thick, height, depth, width/2 - thick/2, 0, zOffset)); 
+            }
+            
+            const hitboxGeo = new THREE.BoxGeometry(width + 10, height + 10, depth + 20);
+            const hitbox = new THREE.Mesh(hitboxGeo, new THREE.MeshBasicMaterial({transparent: true, opacity: 0, depthWrite: false}));
+            hitbox.position.set(0, height/2, zOffset); fasciaGroup.add(hitbox);
+            
+            fasciaGroup.userData = { isWidget: true, entity: entity }; sceneGroup.add(fasciaGroup);
+            return fasciaGroup;
+        }
     }
 };

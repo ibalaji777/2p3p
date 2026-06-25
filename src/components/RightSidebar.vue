@@ -263,7 +263,8 @@
             <div v-else-if="selectedType === 'widget'">
                 <h4 class="props-subtitle">{{ selectedEntity.config?.label || 'DOOR/WINDOW' }} Properties</h4>
                 <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="10" max="200" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.width" @input="$emit('sync-engine')"></div></div>
-                <div class="faceRow" v-if="selectedEntity.type !== 'jali_panel'">
+                <div class="control-group" v-if="selectedEntity.type === 'elevation_fascia'"><label>Height (Drop)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="400" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.height" @input="$emit('sync-engine')"></div></div>
+                <div class="faceRow" v-if="selectedEntity.type !== 'jali_panel' && selectedEntity.type !== 'elevation_fascia'">
                     <button class="action-btn clear" style="flex: 1; padding: 4px;" @click="selectedEntity.facing *= -1; $emit('sync-engine')">Flip In/Out</button>
                     <button class="action-btn clear" style="flex: 1; padding: 4px;" @click="selectedEntity.side *= -1; $emit('sync-engine')">Flip L/R</button>
                 </div>
@@ -330,6 +331,30 @@
                             <option value="flush">Flush (Centered)</option>
                             <option value="recessed">Recessed (Inset)</option>
                             <option value="protruding">Protruding (Surface)</option>
+                        </select>
+                    </div>
+                </div>
+                <div v-else-if="selectedEntity.type === 'elevation_fascia'">
+                    <div class="control-group">
+                        <label>Profile Type</label>
+                        <select v-model="selectedEntity.profileType" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                            <option value="c_shape_left">C-Shape (Left)</option>
+                            <option value="c_shape_right">C-Shape (Right)</option>
+                            <option value="l_shape_left">L-Shape (Left)</option>
+                            <option value="l_shape_right">L-Shape (Right)</option>
+                            <option value="full_box">Full Box Wrap</option>
+                        </select>
+                    </div>
+                    <div class="control-group"><label>Depth (Overhang)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.depth" min="5" max="150" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.depth" @input="$emit('sync-engine')"></div></div>
+                    <div class="control-group"><label>Thickness</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.thick" min="2" max="50" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.thick" @input="$emit('sync-engine')"></div></div>
+                    <div class="control-group"><label>Elevation (Bottom)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.elevation" min="0" max="300" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.elevation" @input="$emit('sync-engine')"></div></div>
+                    <div class="control-group">
+                        <label>Material</label>
+                        <select v-model="selectedEntity.fasciaMat" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                            <option value="white">White Paint</option>
+                            <option value="dark_grey">Dark Grey</option>
+                            <option value="stone">Stone Cladding</option>
+                            <option value="wood">Wood Panel</option>
                         </select>
                     </div>
                 </div>

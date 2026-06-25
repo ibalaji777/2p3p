@@ -374,7 +374,8 @@ const menuCategories = ref([
             { id: 'molding_window', name: 'Window Frame', action: 'molding' },
             { id: 'molding_door', name: 'Door Frame', action: 'molding' },
             { id: 'molding_groove', name: 'Decorative Groove', action: 'molding' },
-            { id: 'molding_layered', name: 'Layered Projection', action: 'molding' }
+            { id: 'molding_layered', name: 'Layered Projection', action: 'molding' },
+            { id: 'elevation_fascia', name: 'Elevation Fascia (C/L Shape)' }
         ]
     }
 ]);

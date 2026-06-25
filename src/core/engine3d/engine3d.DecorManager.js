@@ -91,6 +91,9 @@ export class DecorManager {
             const wx_min = wCenter - halfW;
             const wx_max = wCenter + halfW;
             const type = widg.type || widg.configId;
+            
+            if (type === 'elevation_fascia' || type === 'niche_recess') return;
+            
             let h_opening = widg.height;
             if (h_opening === undefined) h_opening = (type === 'door') ? DOOR_HEIGHT : ((type === 'window') ? WINDOW_HEIGHT : 200);
             let elev = widg.elevation;
