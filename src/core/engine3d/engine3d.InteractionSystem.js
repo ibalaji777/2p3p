@@ -315,9 +315,6 @@ export class InteractionSystem {
                 if (this.openingGizmo && this.openingGizmo.visible) {
                     if (this.raycaster.intersectObjects(this.openingGizmo.handles.children, true).length > 0) return;
                 }
-                if (this.materialGizmo && this.materialGizmo.visible) {
-                    if (this.raycaster.intersectObjects(this.materialGizmo.handles.children, true).length > 0) return;
-                }
                 
                 const intersects = this.raycaster.intersectObjects(this.ctx.interactables, true);
                 if (intersects.length === 0) {
