@@ -674,19 +674,22 @@ export const WIDGET_REGISTRY = {
             const wallThick = entity.wall ? (entity.wall.thickness || entity.wall.config.thickness) : 16;
             const zOffset = (entity.facing === -1) ? (wallThick/2 + depth/2) : -(wallThick/2 + depth/2);
 
+            let topArm = entity.topArm !== undefined ? entity.topArm : width;
+            let bottomArm = entity.bottomArm !== undefined ? entity.bottomArm : width;
+
             if (entity.profileType === 'c_shape_left') {
-                fasciaGroup.add(createBlock(width, thick, depth, 0, height - thick, zOffset)); 
+                fasciaGroup.add(createBlock(topArm, thick, depth, -width/2 + topArm/2, height - thick, zOffset)); 
                 fasciaGroup.add(createBlock(thick, height, depth, -width/2 + thick/2, 0, zOffset)); 
-                fasciaGroup.add(createBlock(width, thick, depth, 0, 0, zOffset)); 
+                fasciaGroup.add(createBlock(bottomArm, thick, depth, -width/2 + bottomArm/2, 0, zOffset)); 
             } else if (entity.profileType === 'c_shape_right') {
-                fasciaGroup.add(createBlock(width, thick, depth, 0, height - thick, zOffset)); 
+                fasciaGroup.add(createBlock(topArm, thick, depth, width/2 - topArm/2, height - thick, zOffset)); 
                 fasciaGroup.add(createBlock(thick, height, depth, width/2 - thick/2, 0, zOffset)); 
-                fasciaGroup.add(createBlock(width, thick, depth, 0, 0, zOffset)); 
+                fasciaGroup.add(createBlock(bottomArm, thick, depth, width/2 - bottomArm/2, 0, zOffset)); 
             } else if (entity.profileType === 'l_shape_left') {
-                fasciaGroup.add(createBlock(width, thick, depth, 0, height - thick, zOffset)); 
+                fasciaGroup.add(createBlock(topArm, thick, depth, -width/2 + topArm/2, height - thick, zOffset)); 
                 fasciaGroup.add(createBlock(thick, height, depth, -width/2 + thick/2, 0, zOffset)); 
             } else if (entity.profileType === 'l_shape_right') {
-                fasciaGroup.add(createBlock(width, thick, depth, 0, height - thick, zOffset)); 
+                fasciaGroup.add(createBlock(topArm, thick, depth, width/2 - topArm/2, height - thick, zOffset)); 
                 fasciaGroup.add(createBlock(thick, height, depth, width/2 - thick/2, 0, zOffset)); 
             } else if (entity.profileType === 'full_box') {
                 fasciaGroup.add(createBlock(width, thick, depth, 0, height - thick, zOffset)); 
