@@ -202,23 +202,11 @@ export class GizmoManager {
         
         this.materialPanel.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
-                <span style="font-size: 11px; font-weight: 800; color: #94a3b8; letter-spacing: 0.5px;">MATERIAL CONTROLS</span>
+                <span style="font-size: 11px; font-weight: 800; color: #94a3b8; letter-spacing: 0.5px;">MATERIAL LIBRARY</span>
             </div>
             <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 8px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                    <label style="font-size:12px; color:#fca5a5; font-weight:600; display: flex; align-items: center; gap: 4px; cursor: pointer;">
-                        <input type="checkbox" id="gizmo-material-all" checked style="accent-color: #fca5a5;"> All Sides
-                    </label>
-                    <select id="gizmo-material-face" style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 4px; font-size: 11px; border-radius: 4px; outline: none; display: none;">
-                        <option value="top">Top</option>
-                        <option value="bottom">Bottom</option>
-                        <option value="left">Left</option>
-                        <option value="right">Right</option>
-                        <option value="front">Front</option>
-                        <option value="back">Back</option>
-                    </select>
-                </div>
-                <div style="font-size: 11px; color: #cbd5e1; margin-bottom: -4px;">Select Material: <span id="gizmo-material-name" style="font-weight: bold; color: white;"></span></div>
+                <div style="font-size: 13px; color: white; margin-bottom: -4px;">Applying material to: <span id="gizmo-material-face-name" style="color: #fca5a5; font-weight: bold; text-transform: capitalize;"></span></div>
+                <div style="font-size: 11px; color: #cbd5e1; margin-bottom: -4px;">Selected Material: <span id="gizmo-material-name" style="font-weight: bold; color: white;"></span></div>
                 <div id="gizmo-material-grid" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 150px; overflow-y: auto; padding-right: 4px;">
                     ${decorThumbnails}
                 </div>
@@ -371,9 +359,8 @@ export class GizmoManager {
                 });
             }
 
-            this.matFaceSelect = document.getElementById('gizmo-material-face');
-            this.matAllCheckbox = document.getElementById('gizmo-material-all');
             this.matNameDisplay = document.getElementById('gizmo-material-name');
+            this.matFaceNameDisplay = document.getElementById('gizmo-material-face-name');
             const matThumbs = document.querySelectorAll('.mat-thumb');
 
             const highlightSelectedThumb = (texKey) => {
@@ -391,103 +378,118 @@ export class GizmoManager {
             matThumbs.forEach(thumb => {
                 thumb.addEventListener('click', (e) => {
                     const selectedObj = this.ctx.interactions.selectedObject;
-                    if (selectedObj && selectedObj.userData.entity) {
+                    if (selectedObj && selectedObj.userData.entity && this.activeFace) {
                         const entity = selectedObj.userData.entity;
                         entity.params = entity.params || {};
-                        const isAll = this.matAllCheckbox.checked;
-                        const target = isAll ? 'all' : this.matFaceSelect.value;
+                        const target = this.activeFace;
                         const key = thumb.getAttribute('data-mat');
                         
-                        if (target === 'all') {
-                            entity.params.texture = key;
-                            entity.params.textureTop = key;
-                            entity.params.textureBottom = key;
-                            entity.params.textureSides = key;
-                            entity.params.textureLeft = key;
-                            entity.params.textureRight = key;
-                            entity.params.textureFront = key;
-                            entity.params.textureBack = key;
-                        } else if (target === 'top') entity.params.textureTop = key;
-                        else if (target === 'bottom') entity.params.textureBottom = key;
-                        else if (target === 'left') entity.params.textureLeft = key;
-                        else if (target === 'right') entity.params.textureRight = key;
-                        else if (target === 'front') entity.params.textureFront = key;
-                        else if (target === 'back') entity.params.textureBack = key;
+                        let targetParams = entity.params;
+                        if (this.activeSubMeshIndex !== -1 && !entity.type.startsWith('shape_')) {
+                            entity.params.blocks = entity.params.blocks || {};
+                            entity.params.blocks[this.activeSubMeshIndex] = entity.params.blocks[this.activeSubMeshIndex] || {};
+                            targetParams = entity.params.blocks[this.activeSubMeshIndex];
+                        }
+                        
+                        if (target === 'top') targetParams.textureTop = key;
+                        else if (target === 'bottom') targetParams.textureBottom = key;
+                        else if (target === 'left') targetParams.textureLeft = key;
+                        else if (target === 'right') targetParams.textureRight = key;
+                        else if (target === 'front') targetParams.textureFront = key;
+                        else if (target === 'back') targetParams.textureBack = key;
                         
                         highlightSelectedThumb(key);
                         
-                        // Update shape instantly without rebuilding entire scene!
-                        if (this.ctx.updateShapeLive) this.ctx.updateShapeLive(entity);
-                    }
-                });
-            });
-
-            if (this.matAllCheckbox && this.matFaceSelect) {
-                this.matAllCheckbox.addEventListener('change', (e) => {
-                    this.matFaceSelect.style.display = e.target.checked ? 'none' : 'block';
-                    // Re-evaluate current selected texture for UI
-                    const selectedObj = this.ctx.interactions.selectedObject;
-                    if (selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.params) {
-                        const p = selectedObj.userData.entity.params;
-                        let tex = p.texture;
-                        if (!e.target.checked) {
-                            const target = this.matFaceSelect.value;
-                            if (target === 'top') tex = p.textureTop;
-                            else if (target === 'bottom') tex = p.textureBottom;
-                            else if (target === 'left') tex = p.textureLeft;
-                            else if (target === 'right') tex = p.textureRight;
-                            else if (target === 'front') tex = p.textureFront;
-                            else if (target === 'back') tex = p.textureBack;
+                        // Apply DIRECTLY to the selected face to guarantee NO spillover
+                        if (this.activeObject && this.activeMatIndex !== undefined && this.activeMatIndex !== -1) {
+                            const mats = Array.isArray(this.activeObject.material) ? this.activeObject.material : [this.activeObject.material];
+                            if (mats[this.activeMatIndex]) {
+                                const newMat = mats[this.activeMatIndex].clone();
+                                if (key && WALL_DECOR_REGISTRY[key]) {
+                                    const config = WALL_DECOR_REGISTRY[key];
+                                    this.ctx.assets.getTexture(config).then(tex => {
+                                        const texClone = tex.clone();
+                                        texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                                        const dim = Math.max(entity.width || 100, entity.height || 100);
+                                        const ts = config.defaultTileSize || 40;
+                                        texClone.repeat.set(dim / ts, dim / ts);
+                                        newMat.map = texClone;
+                                        newMat.color.setHex(0xffffff);
+                                        newMat.needsUpdate = true;
+                                    });
+                                } else {
+                                    newMat.map = null;
+                                    let fColor = 0xffffff;
+                                    if (entity.fasciaMat === 'dark_grey') fColor = 0x333333;
+                                    else if (entity.fasciaMat === 'stone') fColor = 0xa8a29e;
+                                    else if (entity.fasciaMat === 'wood') fColor = 0x8b5a2b;
+                                    newMat.color.setHex(fColor);
+                                }
+                                
+                                if (Array.isArray(this.activeObject.material)) {
+                                    this.activeObject.material[this.activeMatIndex] = newMat;
+                                } else {
+                                    this.activeObject.material = newMat;
+                                }
+                            }
                         }
-                        highlightSelectedThumb(tex);
-                    }
-                });
-            }
-
-            if (this.matFaceSelect) {
-                this.matFaceSelect.addEventListener('change', (e) => {
-                    const selectedObj = this.ctx.interactions.selectedObject;
-                    if (selectedObj && selectedObj.userData.entity) {
-                        selectedObj.userData.entity.params = selectedObj.userData.entity.params || {};
-                        selectedObj.userData.entity.params.materialTarget = e.target.value;
                         
-                        const p = selectedObj.userData.entity.params;
-                        let tex = p.texture;
-                        const target = e.target.value;
-                        if (target === 'top') tex = p.textureTop;
-                        else if (target === 'bottom') tex = p.textureBottom;
-                        else if (target === 'left') tex = p.textureLeft;
-                        else if (target === 'right') tex = p.textureRight;
-                        else if (target === 'front') tex = p.textureFront;
-                        else if (target === 'back') tex = p.textureBack;
-                        highlightSelectedThumb(tex);
+                        // Ensure parameters are saved for serialization, but DO NOT rebuild the scene
+                        // Update instantly without rebuilding entire scene!
+                        if (entity.type && entity.type.startsWith('shape_')) {
+                            if (this.ctx.updateShapeLive) this.ctx.updateShapeLive(entity);
+                        } else {
+                            // SKIP updateMaterialLive to avoid geometry flash and guarantee isolation
+                            // It will be rebuilt properly on save/load
+                        }
                     }
                 });
-            }
-            
-            window.addEventListener('material-gizmo-select', (e) => {
-                if (this.matFaceSelect && this.matAllCheckbox) {
-                    this.matAllCheckbox.checked = false;
-                    this.matFaceSelect.style.display = 'block';
-                    this.matFaceSelect.value = e.detail.face;
-                    
-                    const selectedObj = this.ctx.interactions.selectedObject;
-                    if (selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.params) {
-                        const p = selectedObj.userData.entity.params;
-                        let tex = p.texture;
-                        const target = e.detail.face;
-                        if (target === 'top') tex = p.textureTop;
-                        else if (target === 'bottom') tex = p.textureBottom;
-                        else if (target === 'left') tex = p.textureLeft;
-                        else if (target === 'right') tex = p.textureRight;
-                        else if (target === 'front') tex = p.textureFront;
-                        else if (target === 'back') tex = p.textureBack;
-                        highlightSelectedThumb(tex);
-                    }
-                }
             });
 
         }, 100);
+    }
+
+    onMaterialFaceSelected(faceName, subMeshIndex = -1, activeObject = null, activeMatIndex = -1) {
+        this.activeFace = faceName;
+        this.activeSubMeshIndex = subMeshIndex;
+        this.activeObject = activeObject;
+        this.activeMatIndex = activeMatIndex;
+        if (this.materialPanel) {
+            this.materialPanel.style.display = 'flex';
+        }
+        if (this.matFaceNameDisplay) {
+            this.matFaceNameDisplay.innerText = faceName + ' Face';
+        }
+        
+        // Update highlight for the material of the newly selected face
+        const selectedObj = this.ctx.interactions.selectedObject;
+        if (selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.params) {
+            const p = selectedObj.userData.entity.params;
+            let targetParams = p;
+            if (this.activeSubMeshIndex !== -1 && p.blocks && p.blocks[this.activeSubMeshIndex]) {
+                targetParams = p.blocks[this.activeSubMeshIndex];
+            }
+            let tex = targetParams.texture;
+            if (faceName === 'top') tex = targetParams.textureTop || tex;
+            else if (faceName === 'bottom') tex = targetParams.textureBottom || tex;
+            else if (faceName === 'left') tex = targetParams.textureLeft || tex;
+            else if (faceName === 'right') tex = targetParams.textureRight || tex;
+            else if (faceName === 'front') tex = targetParams.textureFront || tex;
+            else if (faceName === 'back') tex = targetParams.textureBack || tex;
+            
+            const matThumbs = document.querySelectorAll('.mat-thumb');
+            matThumbs.forEach(t => t.style.borderColor = 'transparent');
+            if (tex) {
+                const activeThumb = Array.from(matThumbs).find(t => t.getAttribute('data-mat') === tex);
+                if (activeThumb) activeThumb.style.borderColor = '#3b82f6';
+                if (this.matNameDisplay) {
+                    const config = window.WALL_DECOR_REGISTRY ? window.WALL_DECOR_REGISTRY[tex] : null;
+                    this.matNameDisplay.innerText = config ? config.name : 'Clear Material';
+                }
+            } else {
+                if (this.matNameDisplay) this.matNameDisplay.innerText = 'Clear Material';
+            }
+        }
     }
 
     _makePanelDraggable(panel) {
@@ -619,7 +621,7 @@ export class GizmoManager {
         }
 
         const isOpening = selectedObj && (selectedObj.userData.isWidget || selectedObj.userData.isPattern || (selectedObj.userData.entity && selectedObj.userData.entity.type && ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(selectedObj.userData.entity.type)));
-        const isShape = selectedObj && selectedObj.userData.isShape;
+        const supportsFaceMaterials = selectedObj && (selectedObj.userData.isShape || selectedObj.userData.isWidget || selectedObj.userData.isMolding || selectedObj.userData.isPattern);
 
         if (mode === 'none') {
             tc.visible = false;
@@ -632,7 +634,7 @@ export class GizmoManager {
             this.btnSpin.style.display = isOpening ? 'none' : 'flex';
             this.btnTilt.style.display = isOpening ? 'none' : 'flex';
             if (this.btnOpening) this.btnOpening.style.display = isOpening ? 'flex' : 'none';
-            if (this.btnMaterial) this.btnMaterial.style.display = isShape ? 'flex' : 'none';
+            if (this.btnMaterial) this.btnMaterial.style.display = supportsFaceMaterials ? 'flex' : 'none';
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
             if (this.materialPanel) this.materialPanel.style.display = 'none';
@@ -681,43 +683,7 @@ export class GizmoManager {
             if (this.btnMaterial) this.btnMaterial.classList.add('active');
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
-            if (this.materialPanel) {
-                this.materialPanel.style.display = 'flex';
-                // Sync dropdowns to current entity values
-                if (selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.params) {
-                    const p = selectedObj.userData.entity.params;
-                    const target = p.materialTarget || 'all';
-                    const isAll = target === 'all';
-                    
-                    if (this.matAllCheckbox) {
-                        this.matAllCheckbox.checked = isAll;
-                    }
-                    if (this.matFaceSelect) {
-                        this.matFaceSelect.style.display = isAll ? 'none' : 'block';
-                        this.matFaceSelect.value = isAll ? 'top' : target; // Default to top if switching off all later
-                    }
-                    
-                    let tex = p.texture;
-                    if (!isAll) {
-                        if (target === 'top') tex = p.textureTop;
-                        else if (target === 'bottom') tex = p.textureBottom;
-                        else if (target === 'left') tex = p.textureLeft;
-                        else if (target === 'right') tex = p.textureRight;
-                        else if (target === 'front') tex = p.textureFront;
-                        else if (target === 'back') tex = p.textureBack;
-                    }
-                    
-                    const matThumbs = document.querySelectorAll('.mat-thumb');
-                    matThumbs.forEach(t => t.style.borderColor = 'transparent');
-                    const activeThumb = Array.from(matThumbs).find(t => t.getAttribute('data-mat') === (tex || ''));
-                    if (activeThumb) activeThumb.style.borderColor = '#3b82f6';
-                    
-                    if (this.matNameDisplay) {
-                        const config = WALL_DECOR_REGISTRY[tex];
-                        this.matNameDisplay.innerText = config ? config.name : 'Clear Material';
-                    }
-                }
-            }
+            if (this.materialPanel) this.materialPanel.style.display = 'none'; // HIDDEN initially, waits for face click
             if (this.ctx.interactions.materialGizmo && selectedObj) {
                 this.ctx.interactions.materialGizmo.attach(selectedObj);
             }

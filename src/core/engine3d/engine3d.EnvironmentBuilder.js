@@ -306,7 +306,10 @@ export class EnvironmentBuilder {
                                     widg.thick = t;
                                     widg.wall = w;
                                     const widgetGroup = WIDGET_REGISTRY[type].render3D(this.ctx.structureGroup, widg, this.ctx.helpers);
-                                    if (widgetGroup) this.ctx.interactables.push(widgetGroup);
+                                    if (widgetGroup) {
+                                        widg.mesh3D = widgetGroup;
+                                        this.ctx.interactables.push(widgetGroup);
+                                    }
                                 }
             });
 
@@ -370,7 +373,7 @@ export class EnvironmentBuilder {
 
             if (w.attachedMoldings) {
                 w.attachedMoldings.forEach((mold, idx) => {
-                    const mMesh = this.moldingBuilder.buildMolding(mold, length, t);
+                    const mMesh = this.moldingBuilder.buildMolding(mold, length, t, this.ctx.helpers);
                     mMesh.userData.entity = mold;
                     mMesh.userData.moldData = mold;
                     if (pts && pts.length === 8) {
@@ -952,7 +955,10 @@ export class EnvironmentBuilder {
                                     widg.thick = w.thickness;
                                     widg.wall = w;
                                     const widgetGroup = WIDGET_REGISTRY[type].render3D(floorGroup, widg, this.ctx.helpers);
-                                    if (widgetGroup) this.ctx.interactables.push(widgetGroup);
+                                    if (widgetGroup) {
+                                        widg.mesh3D = widgetGroup;
+                                        this.ctx.interactables.push(widgetGroup);
+                                    }
                                 }
                             });
                         }
@@ -999,7 +1005,7 @@ export class EnvironmentBuilder {
 
                         if (w.moldings) {
                             w.moldings.forEach(mold => {
-                                const mMesh = this.moldingBuilder.buildMolding(mold, length, w.thickness);
+                                const mMesh = this.moldingBuilder.buildMolding(mold, length, w.thickness, this.ctx.helpers);
                                 extraMeshes.push(mMesh);
                                 if (!isPreview) this.ctx.interactables.push(mMesh);
                             });
@@ -1218,46 +1224,18 @@ export class EnvironmentBuilder {
 
             const color = shape.params.fill ? parseInt(shape.params.fill.replace('#', '0x')) : 0x38bdf8;
             const matBase = new THREE.MeshStandardMaterial({ color: color, roughness: 0.7 });
-            let matSides = matBase.clone();
-            let matTop = matBase.clone();
-            let matBottom = matBase.clone();
-            let matLeft = matBase.clone();
-            let matRight = matBase.clone();
-            let matFront = matBase.clone();
-            let matBack = matBase.clone();
-
-            const applyTex = (mat, texKey) => {
-                if (!texKey) return;
-                const config = WALL_DECOR_REGISTRY[texKey];
-                if (config) {
-                    this.ctx.assets.getTexture(config).then(tex => {
-                        const texClone = tex.clone();
-                        texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                        const tileSize = config.defaultTileSize || 40;
-                        const maxDim = Math.max(shape.params.width || shape.params.radius || 100, h);
-                        texClone.repeat.set(maxDim / tileSize, maxDim / tileSize);
-                        mat.map = texClone;
-                        mat.color.setHex(0xffffff);
-                        mat.needsUpdate = true;
-                    });
-                }
-            };
-
-            applyTex(matTop, shape.params.textureTop || shape.params.texture);
-            applyTex(matBottom, shape.params.textureBottom || shape.params.texture);
-            applyTex(matSides, shape.params.textureSides || shape.params.texture);
-            applyTex(matLeft, shape.params.textureLeft || shape.params.textureSides || shape.params.texture);
-            applyTex(matRight, shape.params.textureRight || shape.params.textureSides || shape.params.texture);
-            applyTex(matFront, shape.params.textureFront || shape.params.textureSides || shape.params.texture);
-            applyTex(matBack, shape.params.textureBack || shape.params.textureSides || shape.params.texture);
-
             let materials;
-            if (shape.type === 'shape_rect') {
-                materials = [matRight, matLeft, matTop, matBottom, matFront, matBack];
-            } else if (shape.type === 'shape_circle') {
-                materials = [matSides, matTop, matBottom];
+            if (this.ctx.helpers && this.ctx.helpers.getFaceMaterials) {
+                const mm = this.ctx.helpers.getFaceMaterials(shape, matBase, { width: shape.params.width || shape.params.radius || 100, height: h });
+                if (shape.type === 'shape_rect') {
+                    materials = mm.box;
+                } else if (shape.type === 'shape_circle') {
+                    materials = [mm.extrude[1], mm.extrude[0], mm.extrude[0]]; // sides, top, bottom
+                } else {
+                    materials = mm.extrude;
+                }
             } else {
-                materials = [matTop, matSides];
+                materials = matBase;
             }
 
             const mesh = new THREE.Mesh(geo, materials);

@@ -14,7 +14,7 @@ export class Molding3DBuilder {
         return this.materials[matName] || this.materials.white_paint;
     }
 
-    buildMolding(moldData, wallLength, wallThickness) {
+    buildMolding(moldData, wallLength, wallThickness, helpers = null) {
         const t = moldData.t || 0.5;
         const width = moldData.width || 50; // This is the length along the wall
         const depth = moldData.depth || 5;  // Projection from the wall
@@ -194,7 +194,13 @@ export class Molding3DBuilder {
             finalMat.needsUpdate = true;
         }
 
-        const mesh = new THREE.Mesh(finalGeo, finalMat);
+        let materials = finalMat;
+        if (helpers && helpers.getFaceMaterials) {
+            const multiMat = helpers.getFaceMaterials(moldData, finalMat, { width: actualLength, height: moldingHeight });
+            materials = multiMat.extrude;
+        }
+
+        const mesh = new THREE.Mesh(finalGeo, materials);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         

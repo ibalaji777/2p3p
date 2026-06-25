@@ -324,6 +324,13 @@ export const WIDGET_REGISTRY = {
                 clearcoat: matConfig.clearcoat || 0,
                 clearcoatRoughness: matConfig.clearcoatRoughness || 0
             });
+            let matExtrude = matFrame;
+            let matBox = matFrame;
+            if (helpers && helpers.getFaceMaterials) {
+                const mm = helpers.getFaceMaterials(entity, matFrame, { width: entity.width, height: height });
+                matExtrude = mm.extrude;
+                matBox = mm.box;
+            }
             const frameW = 2; const fThick = entity.thick || 2;
             const createBeveledFramePiece = (w, h) => {
                 const shape = new THREE.Shape();
@@ -331,7 +338,7 @@ export const WIDGET_REGISTRY = {
                 const extrudeSettings = { depth: fThick, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.1, bevelThickness: 0.1 };
                 const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
                 geo.translate(0, 0, -fThick/2);
-                return new THREE.Mesh(geo, matFrame);
+                return new THREE.Mesh(geo, matExtrude);
             };
             const sl = createBeveledFramePiece(frameW, height); sl.position.set(-entity.width/2 + frameW/2, height/2, 0);
             const sr = createBeveledFramePiece(frameW, height); sr.position.set(entity.width/2 - frameW/2, height/2, 0);
@@ -432,13 +439,13 @@ export const WIDGET_REGISTRY = {
                 const stepX = iW / cols;
                 const stepY = iH / rows;
                 
-                for (let c = 1; c < cols; c++) {
-                    const vBar = new THREE.Mesh(new THREE.BoxGeometry(1, iH, lThick), matFrame);
-                    vBar.position.set(-iW/2 + c * stepX, 0, 0); vBar.castShadow = true; latticeGroup.add(vBar);
+                for (let c = 0; c < cols; c++) {
+                    const vBar = new THREE.Mesh(new THREE.BoxGeometry(1, iH, lThick), matBox);
+                    vBar.position.set(-iW/2 + (c + 0.5) * stepX, 0, 0); vBar.castShadow = true; latticeGroup.add(vBar);
                 }
-                for (let r = 1; r < rows; r++) {
-                    const hBar = new THREE.Mesh(new THREE.BoxGeometry(iW, 1, lThick), matFrame);
-                    hBar.position.set(0, -iH/2 + r * stepY, 0); hBar.castShadow = true; latticeGroup.add(hBar);
+                for (let r = 0; r < rows; r++) {
+                    const hBar = new THREE.Mesh(new THREE.BoxGeometry(iW, 1, lThick), matBox);
+                    hBar.position.set(0, -iH/2 + (r + 0.5) * stepY, 0); hBar.castShadow = true; latticeGroup.add(hBar);
                 }
                 
                 if (entity.jaliPattern === 'islamic') {
@@ -448,9 +455,9 @@ export const WIDGET_REGISTRY = {
                         for (let r = 0; r < rows; r++) {
                             const cx = -iW/2 + (c + 0.5) * stepX;
                             const cy = -iH/2 + (r + 0.5) * stepY;
-                            const c1 = new THREE.Mesh(new THREE.BoxGeometry(diagLen, 0.5, lThick), matFrame);
+                            const c1 = new THREE.Mesh(new THREE.BoxGeometry(diagLen, 0.5, lThick), matBox);
                             c1.position.set(cx, cy, 0); c1.rotation.z = angle; c1.castShadow = true; latticeGroup.add(c1);
-                            const c2 = new THREE.Mesh(new THREE.BoxGeometry(diagLen, 0.5, lThick), matFrame);
+                            const c2 = new THREE.Mesh(new THREE.BoxGeometry(diagLen, 0.5, lThick), matBox);
                             c2.position.set(cx, cy, 0); c2.rotation.z = -angle; c2.castShadow = true; latticeGroup.add(c2);
                         }
                     }
@@ -663,9 +670,30 @@ export const WIDGET_REGISTRY = {
             else if (entity.fasciaMat === 'wood') fColor = 0x8b5a2b;
             const matFascia = new THREE.MeshStandardMaterial({ color: fColor, roughness: 0.8 });
             
-            const createBlock = (w, h, d, x, y, z) => {
+            let blockCounter = 0;
+            const createBlock = (w, h, d, x, y, z, exposed = {}) => {
                 const geo = new THREE.BoxGeometry(w, h, d);
-                const mesh = new THREE.Mesh(geo, matFascia);
+                let materials = matFascia;
+                const blockIndex = blockCounter++;
+                if (helpers && helpers.getFaceMaterials) {
+                    const blockEntity = { params: {} };
+                    if (entity.params) Object.assign(blockEntity.params, entity.params);
+                    if (entity.params && entity.params.blocks && entity.params.blocks[blockIndex]) {
+                        Object.assign(blockEntity.params, entity.params.blocks[blockIndex]);
+                    }
+                    const multiMat = helpers.getFaceMaterials(blockEntity, matFascia, { width: w, height: h });
+                    // box indices: 0: right, 1: left, 2: top, 3: bottom, 4: front, 5: back
+                    const faces = [
+                        exposed.right !== false ? multiMat.box[0] : matFascia,
+                        exposed.left !== false ? multiMat.box[1] : matFascia,
+                        exposed.top !== false ? multiMat.box[2] : matFascia,
+                        exposed.bottom !== false ? multiMat.box[3] : matFascia,
+                        exposed.front !== false ? multiMat.box[4] : matFascia,
+                        exposed.back !== false ? multiMat.box[5] : matFascia
+                    ];
+                    materials = faces;
+                }
+                const mesh = new THREE.Mesh(geo, materials);
                 mesh.position.set(x, y + h/2, z);
                 mesh.castShadow = true; mesh.receiveShadow = true;
                 return mesh;
@@ -678,24 +706,24 @@ export const WIDGET_REGISTRY = {
             let bottomArm = entity.bottomArm !== undefined ? entity.bottomArm : width;
 
             if (entity.profileType === 'c_shape_left') {
-                fasciaGroup.add(createBlock(topArm, thick, depth, -width/2 + topArm/2, height - thick, zOffset)); 
-                fasciaGroup.add(createBlock(thick, height, depth, -width/2 + thick/2, 0, zOffset)); 
-                fasciaGroup.add(createBlock(bottomArm, thick, depth, -width/2 + bottomArm/2, 0, zOffset)); 
+                fasciaGroup.add(createBlock(topArm, thick, depth, -width/2 + topArm/2, height - thick, zOffset, { bottom: false })); 
+                fasciaGroup.add(createBlock(thick, height - 2*thick, depth, -width/2 + thick/2, thick, zOffset, { top: false, bottom: false, right: false })); 
+                fasciaGroup.add(createBlock(bottomArm, thick, depth, -width/2 + bottomArm/2, 0, zOffset, { top: false })); 
             } else if (entity.profileType === 'c_shape_right') {
-                fasciaGroup.add(createBlock(topArm, thick, depth, width/2 - topArm/2, height - thick, zOffset)); 
-                fasciaGroup.add(createBlock(thick, height, depth, width/2 - thick/2, 0, zOffset)); 
-                fasciaGroup.add(createBlock(bottomArm, thick, depth, width/2 - bottomArm/2, 0, zOffset)); 
+                fasciaGroup.add(createBlock(topArm, thick, depth, width/2 - topArm/2, height - thick, zOffset, { bottom: false })); 
+                fasciaGroup.add(createBlock(thick, height - 2*thick, depth, width/2 - thick/2, thick, zOffset, { top: false, bottom: false, left: false })); 
+                fasciaGroup.add(createBlock(bottomArm, thick, depth, width/2 - bottomArm/2, 0, zOffset, { top: false })); 
             } else if (entity.profileType === 'l_shape_left') {
-                fasciaGroup.add(createBlock(topArm, thick, depth, -width/2 + topArm/2, height - thick, zOffset)); 
-                fasciaGroup.add(createBlock(thick, height, depth, -width/2 + thick/2, 0, zOffset)); 
+                fasciaGroup.add(createBlock(topArm, thick, depth, -width/2 + topArm/2, height - thick, zOffset, { bottom: false })); 
+                fasciaGroup.add(createBlock(thick, height - thick, depth, -width/2 + thick/2, 0, zOffset, { top: false, right: false })); 
             } else if (entity.profileType === 'l_shape_right') {
-                fasciaGroup.add(createBlock(topArm, thick, depth, width/2 - topArm/2, height - thick, zOffset)); 
-                fasciaGroup.add(createBlock(thick, height, depth, width/2 - thick/2, 0, zOffset)); 
+                fasciaGroup.add(createBlock(topArm, thick, depth, width/2 - topArm/2, height - thick, zOffset, { bottom: false })); 
+                fasciaGroup.add(createBlock(thick, height - thick, depth, width/2 - thick/2, 0, zOffset, { top: false, left: false })); 
             } else if (entity.profileType === 'full_box') {
-                fasciaGroup.add(createBlock(width, thick, depth, 0, height - thick, zOffset)); 
-                fasciaGroup.add(createBlock(width, thick, depth, 0, 0, zOffset)); 
-                fasciaGroup.add(createBlock(thick, height, depth, -width/2 + thick/2, 0, zOffset)); 
-                fasciaGroup.add(createBlock(thick, height, depth, width/2 - thick/2, 0, zOffset)); 
+                fasciaGroup.add(createBlock(width, thick, depth, 0, height - thick, zOffset, { bottom: false })); 
+                fasciaGroup.add(createBlock(width, thick, depth, 0, 0, zOffset, { top: false })); 
+                fasciaGroup.add(createBlock(thick, height - 2*thick, depth, -width/2 + thick/2, thick, zOffset, { top: false, bottom: false, right: false })); 
+                fasciaGroup.add(createBlock(thick, height - 2*thick, depth, width/2 - thick/2, thick, zOffset, { top: false, bottom: false, left: false })); 
             }
             
             const hitboxGeo = new THREE.BoxGeometry(width + 10, height + 10, depth + 20);

@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TransformControls } from './engine3d/TransformControls.js';
-import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY } from './registry.js';
+import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY } from './registry.js';
 import { EnvironmentBuilder } from "./engine3d/engine3d.EnvironmentBuilder.js";
 import { AssetManager  } from "./engine3d/engine3d.AssetManager.js";
 import { DecorManager  } from "./engine3d/engine3d.DecorManager.js";
@@ -72,6 +72,55 @@ export class Preview3D {
                     transparent: conf.transparent || false,
                     opacity: conf.opacity !== undefined ? conf.opacity : 1
                 });
+            },
+            getFaceMaterials: (entity, baseMaterial, dimensions) => {
+                let matSides = baseMaterial.clone();
+                let matTop = baseMaterial.clone();
+                let matBottom = baseMaterial.clone();
+                let matLeft = baseMaterial.clone();
+                let matRight = baseMaterial.clone();
+                let matFront = baseMaterial.clone();
+                let matBack = baseMaterial.clone();
+
+                const applyTex = (mat, texKey) => {
+                    if (!texKey) return;
+
+                    const config = WALL_DECOR_REGISTRY[texKey];
+                    if (config) {
+                        this.assets.getTexture(config).then(tex => {
+                            const texClone = tex.clone();
+                            texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                            const tileSize = config.defaultTileSize || 40;
+                            const maxDim = Math.max(dimensions?.width || 100, dimensions?.height || 100);
+                            texClone.repeat.set(maxDim / tileSize, maxDim / tileSize);
+                            mat.map = texClone;
+                            mat.color.setHex(0xffffff); // Revert to white once texture loads
+                            mat.needsUpdate = true;
+                        });
+                    }
+                };
+
+                if (entity && entity.params) {
+                    const resolveTex = (...keys) => {
+                        for (let k of keys) {
+                            if (entity.params[k] === '' || entity.params[k] === null) return null;
+                            if (entity.params[k] !== undefined) return entity.params[k];
+                        }
+                        return null;
+                    };
+                    applyTex(matTop, resolveTex('textureTop', 'texture'));
+                    applyTex(matBottom, resolveTex('textureBottom', 'texture'));
+                    applyTex(matSides, resolveTex('textureSides', 'texture'));
+                    applyTex(matLeft, resolveTex('textureLeft', 'textureSides', 'texture'));
+                    applyTex(matRight, resolveTex('textureRight', 'textureSides', 'texture'));
+                    applyTex(matFront, resolveTex('textureFront', 'textureSides', 'texture'));
+                    applyTex(matBack, resolveTex('textureBack', 'textureSides', 'texture'));
+                }
+
+                return {
+                    box: [matRight, matLeft, matTop, matBottom, matFront, matBack],
+                    extrude: [matTop, matSides] 
+                };
             }
         };
 
@@ -192,6 +241,55 @@ export class Preview3D {
             mat.map = null;
             mat.color.setHex(0xf5f5f0);
             mat.needsUpdate = true;
+        }
+    }
+
+    updateMaterialLive(entity) {
+        if (!entity || !entity.mesh3D || this.isUpdatingFrom3D) return;
+        const obj = entity.mesh3D;
+        const parent = obj.parent;
+        if (!parent) return;
+
+        let renderFunc = null;
+        if (WIDGET_REGISTRY[entity.type]) renderFunc = WIDGET_REGISTRY[entity.type].render3D;
+        else if (MOLDING_REGISTRY[entity.type]) renderFunc = MOLDING_REGISTRY[entity.type].render3D;
+        else if (entity.type === 'pattern' && window.PATTERN_REGISTRY && window.PATTERN_REGISTRY[entity.patternType]) renderFunc = window.PATTERN_REGISTRY[entity.patternType].render3D;
+
+        if (renderFunc) {
+            const oldMesh = obj;
+            // Generate a fresh mesh using the same registry function
+            const newMesh = renderFunc(new THREE.Group(), entity, this.helpers);
+            
+            // The newMesh is attached to the temporary THREE.Group() inside render3D!
+            // We need to pull it out and replace the old one
+            
+            parent.add(newMesh);
+            parent.remove(oldMesh);
+            
+            // Dispose old resources
+            oldMesh.traverse(child => {
+                if (child.isMesh && child.geometry) child.geometry.dispose();
+                if (child.isMesh && child.material) {
+                    if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                    else child.material.dispose();
+                }
+            });
+
+            entity.mesh3D = newMesh;
+
+            // Maintain interaction state
+            const interactions = this.interactions;
+            if (interactions.selectedObject === oldMesh) {
+                interactions.selectedObject = newMesh;
+                
+                // Update interactables array
+                const idx = this.interactables.indexOf(oldMesh);
+                if (idx > -1) this.interactables[idx] = newMesh;
+                
+                if (this.currentTransformMode === 'material' && interactions.materialGizmo) {
+                    interactions.materialGizmo.attach(newMesh);
+                }
+            }
         }
     }
 

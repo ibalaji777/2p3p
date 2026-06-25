@@ -134,7 +134,38 @@
         <div class="tab-body" v-show="activeRightTab === 'properties'">
             <div class="props-content" v-if="(viewMode==='3d' || viewMode==='2d') && selectedEntity && viewMode3D !== 'preview'">
             
-            <div v-if="selectedType === 'wall'">
+            <!-- Universal Face Material Editor -->
+            <div v-if="selectedEntity.params && selectedEntity.params.isEditingMaterials">
+                <button class="btn-secondary" @click="selectedEntity.params.isEditingMaterials = false" style="width: 100%; margin-bottom: 15px;">← Back to Properties</button>
+                <h4 class="props-subtitle">Face Selection</h4>
+                <div class="control-group-inline" style="margin-bottom: 12px;">
+                    <label>Apply to All Sides</label>
+                    <input type="checkbox" :checked="!selectedEntity.params.materialTarget || selectedEntity.params.materialTarget === 'all'" @change="e => { selectedEntity.params.materialTarget = e.target.checked ? 'all' : 'front'; $emit('sync-engine'); }" class="settings-checkbox">
+                </div>
+                <div class="control-group" v-if="selectedEntity.params.materialTarget && selectedEntity.params.materialTarget !== 'all'">
+                    <label>Target Face</label>
+                    <select v-model="selectedEntity.params.materialTarget" class="settings-select">
+                        <option value="front">Front Facing</option>
+                        <option value="back">Back Facing</option>
+                        <option value="left">Left Facing</option>
+                        <option value="right">Right Facing</option>
+                        <option value="top">Top Facing</option>
+                        <option value="bottom">Bottom Facing</option>
+                        <option value="sides">All Side Faces</option>
+                    </select>
+                </div>
+                <div class="decor-gallery">
+                    <h4 class="props-subtitle">Material</h4>
+                    <div class="decor-grid">
+                        <div v-for="(config, key) in wallDecorRegistry" :key="key" class="decor-item" @click="$emit('set-shape-material', key)" :class="{ active: isShapeMaterialActive(key) }">
+                            <img :src="config.thumbnail" />
+                            <span>{{ config.name }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div v-else-if="selectedType === 'wall'">
                 <h4 class="props-subtitle" v-if="selectedEntity.type === 'railing'">Railing Properties</h4>
                 <h4 class="props-subtitle" v-else>Wall Properties</h4>
                 <div class="control-group"><label>Hidden Wall</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="selectedEntity.hidden" @change="$emit('sync-engine')"></div></div>
@@ -190,6 +221,7 @@
                         </div>
                     </div>
                 </div>
+
                 <button class="hud-delete" @click="$emit('delete-entity')">Delete {{ selectedEntity.type === 'railing' ? 'Railing' : 'Wall' }}</button>
             </div>
 
@@ -372,6 +404,7 @@
                         </select>
                     </div>
                 </div>
+
                 <button class="hud-delete" @click="$emit('delete-entity')">Delete Object</button>
             </div>
 
@@ -417,6 +450,7 @@
                     </select>
                 </div>
 
+
                 <button class="hud-delete" @click="$emit('delete-entity')">Delete Molding</button>
             </div>
 
@@ -433,49 +467,8 @@
                         <div class="control-group"><label>Radius</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.params.radius" min="10" max="1000" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.params.radius" @input="$emit('sync-engine')"></div></div>
                     </div>
                     <div class="control-group"><label>Color</label><div class="input-wrap"><input type="color" v-model="selectedEntity.params.fill" @input="e => { $emit('clear-shape-textures'); $emit('sync-engine'); }" style="width: 100%; padding: 0;"></div></div>
-                    
-                    <button v-if="viewMode === '3d'" class="btn-primary" style="width: 100%; margin-top: 10px;" @click="selectedEntity.params.isEditingMaterials = true">Apply Wall Facing / Materials</button>
+
                     <button class="hud-delete" @click="$emit('delete-entity')" style="margin-top: 10px;">Delete Shape</button>
-                </div>
-                
-                <div v-else>
-                    <button class="btn-secondary" @click="selectedEntity.params.isEditingMaterials = false" style="width: 100%; margin-bottom: 15px;">← Back to Shape Properties</button>
-                    
-                    <h4 class="props-subtitle">Face Selection</h4>
-                    <div class="control-group-inline" style="margin-bottom: 12px;">
-                        <label>Apply to All Sides</label>
-                        <input type="checkbox" 
-                               :checked="!selectedEntity.params.materialTarget || selectedEntity.params.materialTarget === 'all'" 
-                               @change="e => { selectedEntity.params.materialTarget = e.target.checked ? 'all' : 'top'; $emit('sync-engine'); }" 
-                               class="settings-checkbox">
-                    </div>
-                    
-                    <div class="control-group" v-if="selectedEntity.params.materialTarget && selectedEntity.params.materialTarget !== 'all'">
-                        <label>Target Face</label>
-                        <select v-model="selectedEntity.params.materialTarget" class="settings-select">
-                            <option value="top">Top Facing</option>
-                            <option value="bottom">Bottom Facing</option>
-                            <template v-if="selectedEntity.type === 'shape_rect'">
-                                <option value="left">Left Facing</option>
-                                <option value="right">Right Facing</option>
-                                <option value="front">Front Facing</option>
-                                <option value="back">Back Facing</option>
-                            </template>
-                            <template v-else>
-                                <option value="sides">Side Faces</option>
-                            </template>
-                        </select>
-                    </div>
-                    
-                    <div class="decor-gallery">
-                        <h4 class="props-subtitle">Wall Facing / Material</h4>
-                        <div class="decor-grid">
-                            <div v-for="(config, key) in wallDecorRegistry" :key="key" class="decor-item" @click="$emit('set-shape-material', key)" :class="{ active: isShapeMaterialActive(key) }">
-                                <img :src="config.thumbnail" />
-                                <span>{{ config.name }}</span>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -486,6 +479,7 @@
                 <div class="control-group"><label>Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.depth" min="10" max="500" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.depth" @input="$emit('sync-engine')"></div></div>
                 <div class="control-group"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="500" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.height" @input="$emit('sync-engine')"></div></div>
                 
+
                 <button class="hud-delete" @click="$emit('delete-entity')">Delete Object</button>
             </div>
 

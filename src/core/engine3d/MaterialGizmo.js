@@ -6,35 +6,8 @@ export class MaterialGizmo extends THREE.Group {
         this.ctx = ctx;
         this.target = null;
         this.hoveredFace = null;
-        
-        this.handles = new THREE.Group();
-        this.add(this.handles);
-        
-        const createFacePlane = (name, color) => {
-            const mat = new THREE.MeshBasicMaterial({ 
-                color, 
-                transparent: true, 
-                opacity: 0.0, 
-                side: THREE.DoubleSide, 
-                depthTest: false 
-            });
-            const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
-            mesh.name = name;
-            mesh.userData.isFaceHandle = true;
-            mesh.renderOrder = 998;
-            this.handles.add(mesh);
-            return mesh;
-        };
-
-        // Redish/Blueish glowing colors for the faces
-        this.faces = {
-            front: createFacePlane('front', 0x3b82f6),
-            back: createFacePlane('back', 0x3b82f6),
-            left: createFacePlane('left', 0x3b82f6),
-            right: createFacePlane('right', 0x3b82f6),
-            top: createFacePlane('top', 0x10b981),
-            bottom: createFacePlane('bottom', 0x10b981)
-        };
+        this.highlightedObject = null;
+        this.highlightedMatIndex = -1;
         
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
@@ -43,57 +16,124 @@ export class MaterialGizmo extends THREE.Group {
         const dom = this.ctx.renderer.domElement;
         
         dom.addEventListener('pointerdown', (e) => {
-            if (!this.visible || this.ctx.currentTransformMode !== 'material') return;
+            if (!this.visible || this.ctx.currentTransformMode !== 'material' || !this.target || this.isPanelOpen) return;
             if (e.button !== 0) return;
             this.updateMouse(e);
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-            const intersects = this.raycaster.intersectObjects(this.handles.children, false);
-            if (intersects.length > 0) {
+            const intersects = this.raycaster.intersectObject(this.target, true);
+            
+            const validIntersects = intersects.filter(i => {
+                const mat = i.object.material;
+                if (i.object.userData.isHitbox) return false;
+                if (mat && mat.type === 'MeshBasicMaterial' && mat.opacity === 0) return false;
+                return true;
+            });
+            
+            if (validIntersects.length > 0) {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                const selectedFace = intersects[0].object.name;
+                this.isPanelOpen = true;
+                this.clearHighlight();
                 
-                // Highlight briefly to indicate click
-                intersects[0].object.material.opacity = 0.6;
-                setTimeout(() => {
-                    if (intersects[0].object) intersects[0].object.material.opacity = 0.2;
-                }, 150);
+                const intersect = validIntersects[0];
                 
-                // Dispatch event to Vue UI
-                const event = new CustomEvent('material-gizmo-select', { detail: { face: selectedFace }});
-                window.dispatchEvent(event);
+                // Determine face name from local normal
+                const normalMatrix = new THREE.Matrix3().getNormalMatrix(intersect.object.matrixWorld);
+                const worldNormal = intersect.face.normal.clone().applyMatrix3(normalMatrix).normalize();
                 
-                // Also update the target's param if possible
-                if (this.target && this.target.userData.entity) {
-                    this.target.userData.entity.params = this.target.userData.entity.params || {};
-                    this.target.userData.entity.params.materialTarget = selectedFace;
-                    if (this.ctx.syncToUI) this.ctx.syncToUI();
+                const rootNormalMatrix = new THREE.Matrix3().getNormalMatrix(this.target.matrixWorld).invert();
+                const localNormal = worldNormal.clone().applyMatrix3(rootNormalMatrix).normalize();
+                
+                const absX = Math.abs(localNormal.x);
+                const absY = Math.abs(localNormal.y);
+                const absZ = Math.abs(localNormal.z);
+                let selectedFace = '';
+                if (absX > absY && absX > absZ) selectedFace = localNormal.x > 0 ? 'right' : 'left';
+                else if (absY > absX && absY > absZ) selectedFace = localNormal.y > 0 ? 'top' : 'bottom';
+                else selectedFace = localNormal.z > 0 ? 'front' : 'back';
+                
+                this.selectedFace = selectedFace;
+                
+                let subMeshIndex = -1;
+                if (this.target && this.target.isGroup) {
+                    const validChildren = this.target.children.filter(c => !c.userData.isHitbox);
+                    subMeshIndex = validChildren.indexOf(intersect.object);
+                }
+                
+                this.activeObject = intersect.object;
+                this.activeMatIndex = intersect.face.materialIndex;
+                
+                // Dispatch event to Vue UI or GizmoManager
+                if (this.ctx.gizmoManager && this.ctx.gizmoManager.onMaterialFaceSelected) {
+                    this.ctx.gizmoManager.onMaterialFaceSelected(this.selectedFace, subMeshIndex, this.activeObject, this.activeMatIndex);
                 }
             }
         }, { passive: false });
         
         dom.addEventListener('pointermove', (e) => {
-            if (!this.visible || this.ctx.currentTransformMode !== 'material') return;
+            if (!this.visible || this.ctx.currentTransformMode !== 'material' || !this.target || this.isPanelOpen) return;
             this.updateMouse(e);
             
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-            const intersects = this.raycaster.intersectObjects(this.handles.children, false);
+            const intersects = this.raycaster.intersectObject(this.target, true);
             
-            // Reset all
-            Object.values(this.faces).forEach(mesh => mesh.material.opacity = 0.0);
-            this.hoveredFace = null;
-            dom.style.cursor = 'auto';
+            const validIntersects = intersects.filter(i => {
+                const mat = i.object.material;
+                if (i.object.userData.isHitbox) return false;
+                if (mat && mat.type === 'MeshBasicMaterial' && mat.opacity === 0) return false;
+                return true;
+            });
             
-            if (intersects.length > 0) {
-                this.hoveredFace = intersects[0].object;
-                this.hoveredFace.material.opacity = 0.3; // Glow on hover
-                dom.style.cursor = 'pointer';
-                e.stopPropagation();
+            if (validIntersects.length > 0) {
+                dom.style.cursor = 'crosshair';
+                const intersect = validIntersects[0];
+                
+                if (this.highlightedObject !== intersect.object || this.highlightedMatIndex !== intersect.face.materialIndex) {
+                    this.clearHighlight();
+                    this.highlightedObject = intersect.object;
+                    this.highlightedMatIndex = intersect.face.materialIndex;
+                    this.setHighlight(this.highlightedObject, this.highlightedMatIndex, true);
+                }
+            } else {
+                dom.style.cursor = 'auto';
+                this.clearHighlight();
             }
-        }, { passive: false });
+        });
     }
-    
+
+    setHighlight(mesh, matIndex, active) {
+        if (!mesh || !mesh.material) return;
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        if (mats[matIndex] && mats[matIndex].type !== 'MeshBasicMaterial') {
+            const mat = mats[matIndex];
+            if (mat.emissive !== undefined) {
+                if (active) {
+                    if (mat.userData.origEmissive === undefined) { 
+                        mat.userData.origEmissive = mat.emissive.getHex(); 
+                        mat.userData.origEmissiveIntensity = mat.emissiveIntensity || 0; 
+                    }
+                    mat.emissive.setHex(0x00ff00); 
+                    mat.emissiveIntensity = 0.8;
+                } else {
+                    if (mat.userData.origEmissive !== undefined) { 
+                        mat.emissive.setHex(mat.userData.origEmissive); 
+                        mat.emissiveIntensity = mat.userData.origEmissiveIntensity; 
+                    }
+                }
+                mat.needsUpdate = true;
+            }
+        }
+    }
+
+    clearHighlight() {
+        if (this.highlightedObject) {
+            this.setHighlight(this.highlightedObject, this.highlightedMatIndex, false);
+            this.highlightedObject = null;
+            this.highlightedMatIndex = -1;
+        }
+    }
+
     updateMouse(e) {
         const rect = this.ctx.renderer.domElement.getBoundingClientRect();
         this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -103,82 +143,22 @@ export class MaterialGizmo extends THREE.Group {
     attach(target) {
         this.target = target;
         this.visible = true;
-        this.updateHandles();
+        this.isPanelOpen = false;
+        this.clearHighlight();
     }
 
     detach() {
+        this.clearHighlight();
         this.target = null;
         this.visible = false;
-        Object.values(this.faces).forEach(mesh => mesh.material.opacity = 0.0);
+        this.isPanelOpen = false;
+    }
+
+    updateHighlights() {
+        // Obsolete in direct raycast mode
     }
 
     updateHandles() {
-        if (!this.target) return;
-        
-        // Calculate the bounding box of the target to size our planes
-        const box = new THREE.Box3().setFromObject(this.target);
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        const center = new THREE.Vector3();
-        box.getCenter(center);
-        
-        this.position.copy(center);
-        // We do NOT copy the rotation, because Box3 is axis-aligned.
-        // Wait, if the object is rotated, Box3 gives the world-aligned bounding box!
-        // To be accurate, we should align with the object's local axes.
-        this.quaternion.copy(this.target.getWorldQuaternion(new THREE.Quaternion()));
-        
-        // If we want local bounds, we can compute Box3 on the geometry or assume entity dimensions.
-        let w = size.x, h = size.y, d = size.z;
-        if (this.target.userData.entity) {
-            const entity = this.target.userData.entity;
-            if (entity.type === 'shape_rect') {
-                w = entity.params?.width || 100;
-                h = entity.height || 120;
-                d = entity.params?.height || 100; // 2D height is 3D depth
-            } else if (entity.type === 'shape_circle') {
-                w = (entity.params?.radius || 50) * 2;
-                h = entity.height || 120;
-                d = w;
-            } else if (entity.type === 'shape_polygon') {
-                // Polygon requires box3
-                const localBox = new THREE.Box3().setFromObject(this.target);
-                const localSize = new THREE.Vector3();
-                localBox.getSize(localSize);
-                w = localSize.x;
-                h = localSize.y;
-                d = localSize.z;
-            }
-        }
-        
-        const padding = 1.0; // Extend slightly outside the shape
-        
-        // Front Face (+Z)
-        this.faces.front.scale.set(w + padding, h + padding, 1);
-        this.faces.front.position.set(0, 0, d/2 + padding/2);
-        
-        // Back Face (-Z)
-        this.faces.back.scale.set(w + padding, h + padding, 1);
-        this.faces.back.position.set(0, 0, -d/2 - padding/2);
-        
-        // Left Face (-X)
-        this.faces.left.scale.set(d + padding, h + padding, 1);
-        this.faces.left.position.set(-w/2 - padding/2, 0, 0);
-        this.faces.left.rotation.y = Math.PI / 2;
-        
-        // Right Face (+X)
-        this.faces.right.scale.set(d + padding, h + padding, 1);
-        this.faces.right.position.set(w/2 + padding/2, 0, 0);
-        this.faces.right.rotation.y = Math.PI / 2;
-        
-        // Top Face (+Y)
-        this.faces.top.scale.set(w + padding, d + padding, 1);
-        this.faces.top.position.set(0, h/2 + padding/2, 0);
-        this.faces.top.rotation.x = -Math.PI / 2;
-        
-        // Bottom Face (-Y)
-        this.faces.bottom.scale.set(w + padding, d + padding, 1);
-        this.faces.bottom.position.set(0, -h/2 - padding/2, 0);
-        this.faces.bottom.rotation.x = Math.PI / 2;
+        // Obsolete in direct raycast mode
     }
 }

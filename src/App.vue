@@ -1054,8 +1054,22 @@ const isShapeMaterialActive = (key) => {
 };
 
 const setShapeMaterial = (key) => {
-    if (selectedEntity.value && selectedType.value === 'shape') {
+    if (selectedEntity.value) {
+        if (!selectedEntity.value.params) selectedEntity.value.params = {};
         const target = selectedEntity.value.params.materialTarget || 'all';
+        
+        if (selectedType.value === 'wall') {
+            const side = (target === 'front' || target === 'back') ? target : selectedWallSide.value;
+            if (renderer3D.value) {
+                const decor = renderer3D.value.addWallPattern(selectedEntity.value, key, side);
+                selectedEntity.value.attachedDecor = [...selectedEntity.value.attachedDecor];
+                activeDecorId.value = decor.id; uiTrigger.value++; 
+                if (selectedEntity.value.isStatic) updateStaticLevelData(selectedEntity.value);
+                debouncedSaveHistory();
+            }
+            return;
+        }
+        
         if (target === 'all') {
             selectedEntity.value.params.texture = key;
             selectedEntity.value.params.textureTop = key;
