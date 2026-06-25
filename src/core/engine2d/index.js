@@ -290,7 +290,11 @@ export class FloorPlanner {
     getClosestPointOnSegment(p, p1, p2) { const C = p2.x - p1.x, D = p2.y - p1.y, lenSq = C*C + D*D; if (lenSq === 0) return p1; let t = Math.max(0, Math.min(1, ((p.x - p1.x)*C + (p.y - p1.y)*D) / lenSq)); return { x: p1.x + t*C, y: p1.y + t*D }; }
 
     selectEntity(entity, type, nodeIndex = -1, side = 'both') { 
-        this.walls.forEach(w => { if(w.setHighlight) w.setHighlight(false); });
+        this.walls.forEach(w => { 
+            if(w.setHighlight) w.setHighlight(false); 
+            if(w.frontHighlight) w.frontHighlight.visible(false);
+            if(w.backHighlight) w.backHighlight.visible(false);
+        });
         this.stairs.forEach(s => { if(s.setHighlight) s.setHighlight(false); });
         this.furniture.forEach(f => { if(f.setHighlight) f.setHighlight(false); });
         this.roofs.forEach(r => { if(r.setHighlight) r.setHighlight(false); });
@@ -417,6 +421,11 @@ export class FloorPlanner {
             if(w.poly) { 
                 w.poly.setAttr('draggable', canEditThisWall); 
                 w.poly.setAttr('listening', canEditThisWall || (isWidget && !isRailing) || isMolding || isSplit || isAdvancedOpening); 
+                
+                // Clear any existing highlight when switching tools
+                if (this.selectedEntity !== w) {
+                    w.setHighlight(false);
+                }
             }
             
             w.attachedWidgets.forEach(widg => {
@@ -886,8 +895,46 @@ export class FloorPlanner {
             
             let rawPos = { x: this.snap(pos.x), y: this.snap(pos.y) }; 
             
-            
-            
+            // Smart Snapping Edge-Specific Highlight for Placement Tools
+            const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(this.tool);
+            const isMolding = !!MOLDING_REGISTRY[this.tool];
+            const isWidget = !!WIDGET_REGISTRY[this.tool];
+            const isPlacementTool = isWidget || isAdvancedOpening || isMolding;
+
+            if (isPlacementTool) {
+                let closestWall = null;
+                let minWallDist = 60 / (this.stage.scaleX() || 1); // Dynamic snap distance based on zoom
+                let closestFace = null;
+                
+                // Hide all highlights first
+                this.walls.forEach(w => {
+                    if (w.frontHighlight) w.frontHighlight.visible(false);
+                    if (w.backHighlight) w.backHighlight.visible(false);
+                });
+                
+                for (let w of this.walls) {
+                    const start = w.startAnchor.position();
+                    const end = w.endAnchor.position();
+                    const proj = this.getClosestPointOnSegment(pos, start, end);
+                    const dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                    
+                    if (dist < minWallDist) {
+                        closestWall = w;
+                        minWallDist = dist;
+                        const dx = end.x - start.x;
+                        const dy = end.y - start.y;
+                        const cp = (pos.x - start.x) * dy - (pos.y - start.y) * dx;
+                        closestFace = cp > 0 ? 'front' : 'back';
+                    }
+                }
+                
+                if (closestWall) {
+                    if (closestFace === 'front' && closestWall.frontHighlight) closestWall.frontHighlight.visible(true);
+                    else if (closestWall.backHighlight) closestWall.backHighlight.visible(true);
+                }
+                this.wallLayer.batchDraw();
+                return;
+            }
             if (this.drawingShapeType === 'shape_rect' && this.shapeStartPos) {
                 const w = pos.x - this.shapeStartPos.x; const h = pos.y - this.shapeStartPos.y;
                 this.shapePreviewRect.width(w); this.shapePreviewRect.height(h);

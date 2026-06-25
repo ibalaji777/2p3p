@@ -109,25 +109,48 @@ export class PremiumWall {
     hasEvent(eventName) { return this.config.events.includes(eventName); }
     getLength() { const p1 = this.startAnchor.position(), p2 = this.endAnchor.position(); return Math.hypot(p2.x - p1.x, p2.y - p1.y); }
     setHighlight(isActive) { 
-        const isSel = isActive;
-        if (this.hidden) {
-            this.poly.fill(isSel ? '#bfdbfe' : '#cbd5e1');
-            this.poly.stroke(isSel ? '#4f46e5' : '#475569');
+        if (isActive) {
+            // Selected state uses a subtle blue glow
+            this.poly.fill(this.fillColor); 
+            this.poly.stroke('#4f46e5'); 
+            this.poly.strokeWidth(2); 
+            this.poly.shadowColor('#4f46e5');
+            this.poly.shadowBlur(5);
+            this.poly.shadowOpacity(0.3);
+            this.poly.shadowOffset({ x: 0, y: 0 });
         } else {
-            this.poly.fill(isSel ? '#bfdbfe' : this.fillColor);
-            this.poly.stroke(isSel ? '#4f46e5' : this.strokeColor);
+            this.poly.fill(this.hidden ? '#cbd5e1' : this.fillColor);
+            this.poly.stroke(this.hidden ? '#475569' : this.strokeColor);
+            this.poly.strokeWidth(1.5);
+            this.poly.shadowBlur(0);
+            this.poly.shadowOpacity(0);
         }
         this.planner.stage.batchDraw(); 
+    }
+
+    pulseHighlight() {
+        const origFill = this.poly.fill();
+        this.poly.fill('#86efac'); // Flash light green for visual feedback
+        const tween = new Konva.Tween({
+            node: this.poly,
+            duration: 0.5,
+            fill: origFill,
+            onFinish: () => { tween.destroy(); }
+        });
+        tween.play();
     }
     
     initEvents() { 
         this.poly.on('mouseenter', () => {
-            const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(this.planner.tool);
-            if (this.planner.tool === 'select' || WIDGET_REGISTRY[this.planner.tool] || isAdvancedOpening) {
+            const isPlacementTool = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(this.planner.tool) || !!MOLDING_REGISTRY[this.planner.tool] || !!WIDGET_REGISTRY[this.planner.tool];
+            
+            if (this.planner.tool === 'select' || isPlacementTool) {
                 document.body.style.cursor = 'pointer';
             }
         });
-        this.poly.on('mouseleave', () => { document.body.style.cursor = 'default'; });
+        this.poly.on('mouseleave', () => { 
+            document.body.style.cursor = 'default'; 
+        });
         this.poly.on('mousedown touchstart', (e) => { 
             this.wallGroup.moveToTop();
             const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(this.planner.tool);
@@ -167,6 +190,9 @@ export class PremiumWall {
                 let t = this.getClosestT(pos); 
                 console.log("Calculated t:", t, "Position:", pos);
                 let widget;
+                
+                this.pulseHighlight();
+
                 if (isAdvancedOpening) {
                     widget = new advance_openings(this.planner, this, t, this.planner.tool);
                     this.planner.selectEntity(widget, 'advance_openings');

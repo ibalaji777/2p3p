@@ -644,11 +644,20 @@ const currentFaceDecors = computed(() => {
 });
 
 const hintData = computed(() => {
+    if (activeTool.value === 'split') return { text: 'SPLIT mode: Click on a wall to split it into two independent segments.', color: '#10b981' };
     if (activeTool.value === 'roof') return { text: 'ROOF mode: Click corners to draw a custom roof polygon. Click the start point to finish.', color: '#f59e0b' };
     if (activeTool.value === 'arc') return { text: 'ARC mode: 1. Click Start Point  2. Click End Point  3. Move mouse to set Curvature & Click.', color: '#8b5cf6' };
     if (activeTool.value === 'shape_rect') return { text: 'BOX: Click and drag to draw a box.', color: '#3b82f6' };
     if (activeTool.value === 'shape_circle') return { text: 'CYLINDER: Click center and drag to define radius.', color: '#3b82f6' };
     if (activeTool.value === 'shape_triangle') return { text: 'PRISM: Click 3 points on the grid to create a triangle.', color: '#3b82f6' };
+    if (activeTool.value === 'furniture' || activeTool.value.startsWith('furn_')) return { text: 'FURNITURE mode: Click anywhere on the floor to place the item.', color: '#ec4899' };
+    
+    const isTouch = isMobile.value || isTablet.value;
+    if (activeTool.value.startsWith('molding_')) return { text: isTouch ? 'MOLDING mode: Tap near any wall edge to place molding precisely.' : 'MOLDING mode: Hover near any wall edge (glows blue), then click to place.', color: '#0ea5e9' };
+    if (activeTool.value.startsWith('door') || activeTool.value.startsWith('window') || activeTool.value === 'arch_opening') return { text: isTouch ? 'OPENING mode: Tap near any wall edge to place.' : 'OPENING mode: Hover near any wall edge (glows blue), then click to place.', color: '#0ea5e9' };
+    
+    if (activeTool.value === 'wall' || activeTool.value === 'outer' || activeTool.value === 'inner') return { text: 'WALL mode: Click to start drawing a wall. Click again to place corners. Press ESC to finish.', color: '#3b82f6' };
+    
     return { text: 'SELECT mode: Click elements to edit. Trace Faded Fills from lower floors perfectly.', color: 'rgba(17, 24, 39, 0.9)' };
 });
 
@@ -916,7 +925,7 @@ const handleDeselect = () => {
     selectedEntity.value = null; selectedType.value = null; selectedWallSide.value = null; activeDecorId.value = null;
 };
 const setTool = (tool) => { 
-    activeTool.value = tool; planner.value.tool = tool; planner.value.finishChain(); planner.value.updateToolStates(); planner.value.selectEntity(null); 
+    activeTool.value = tool; planner.value.tool = tool; planner.value.finishChain(); planner.value.selectEntity(null); planner.value.updateToolStates(); 
 };
 const isAdvancedToolActive = computed(() => ['split'].includes(activeTool.value));
 const handleAdvTriggerClick = () => {
