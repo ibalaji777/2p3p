@@ -270,8 +270,8 @@ export class Preview3D {
             oldMesh.traverse(child => {
                 if (child.isMesh && child.geometry) child.geometry.dispose();
                 if (child.isMesh && child.material) {
-                    if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
-                    else child.material.dispose();
+                    if (Array.isArray(child.material)) child.material.forEach(m => { if (m && m.dispose) m.dispose(); });
+                    else if (child.material.dispose) child.material.dispose();
                 }
             });
 
@@ -406,9 +406,9 @@ export class Preview3D {
         if (obj.geometry && !obj.geometry.userData?.keepAlive) obj.geometry.dispose();
         if (obj.material) {
             if (Array.isArray(obj.material)) {
-                obj.material.forEach(m => { if (!m.userData?.keepAlive) m.dispose(); });
+                obj.material.forEach(m => { if (m && m.dispose && !m.userData?.keepAlive) m.dispose(); });
             } else {
-                if (!obj.material.userData?.keepAlive) obj.material.dispose();
+                if (obj.material.dispose && !obj.material.userData?.keepAlive) obj.material.dispose();
             }
         }
         if (obj.children) [...obj.children].forEach(c => this.deepDispose(c));

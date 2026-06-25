@@ -671,43 +671,147 @@ export const WIDGET_REGISTRY = {
             const matFascia = new THREE.MeshStandardMaterial({ color: fColor, roughness: 0.8 });
             
             let blockCounter = 0;
-            const createBlock = (w, h, d, x, y, z, exposed = {}) => {
-                const geo = new THREE.BoxGeometry(w, h, d);
+            const createBlock = (w, h, d, x, y, z, exposed = {}, blockRadii = [0,0,0,0]) => {
+                let geo;
+                if (!blockRadii.some(r => r > 0)) {
+                    geo = new THREE.BoxGeometry(w, h, d);
+                } else {
+                    const shape = new THREE.Shape();
+                    const [rBL, rBR, rTR, rTL] = blockRadii;
+                    if (rBL > 0) { shape.moveTo(rBL, 0); shape.absarc(rBL, rBL, rBL, Math.PI, Math.PI*1.5, false); } else shape.moveTo(0, 0);
+                    if (rBR > 0) { shape.lineTo(w - rBR, 0); shape.absarc(w - rBR, rBR, rBR, Math.PI*1.5, Math.PI*2, false); } else shape.lineTo(w, 0);
+                    if (rTR > 0) { shape.lineTo(w, h - rTR); shape.absarc(w - rTR, h - rTR, rTR, 0, Math.PI*0.5, false); } else shape.lineTo(w, h);
+                    if (rTL > 0) { shape.lineTo(rTL, h); shape.absarc(rTL, h - rTL, rTL, Math.PI*0.5, Math.PI, false); } else shape.lineTo(0, h);
+                    shape.lineTo(rBL > 0 ? 0 : 0, rBL > 0 ? rBL : 0);
+                    
+                    const extrudeGeo = new THREE.ExtrudeGeometry(shape, { depth: d, bevelEnabled: false, curveSegments: 8 });
+                    extrudeGeo.translate(-w/2, -h/2, -d/2);
+                    
+                    const geoNonIdx = extrudeGeo.toNonIndexed();
+                    const pos = geoNonIdx.attributes.position.array;
+                    const norm = geoNonIdx.attributes.normal.array;
+                    
+                    const groupedVerts = [[], [], [], [], [], []];
+                    const groupedNorms = [[], [], [], [], [], []];
+                    const groupedUVs = [[], [], [], [], [], []];
+                    
+                    for (let i = 0; i < pos.length / 9; i++) {
+                        const nx = norm[i*9]; const ny = norm[i*9+1]; const nz = norm[i*9+2];
+                        let matIndex = 0;
+                        if (nz > 0.5) matIndex = 4;
+                        else if (nz < -0.5) matIndex = 5;
+                        else {
+                            if (Math.abs(nx) > Math.abs(ny)) matIndex = nx > 0 ? 0 : 1;
+                            else matIndex = ny > 0 ? 2 : 3;
+                        }
+                        
+                        for(let j=0; j<3; j++) {
+                            const vx = pos[i*9 + j*3]; const vy = pos[i*9 + j*3 + 1]; const vz = pos[i*9 + j*3 + 2];
+                            groupedVerts[matIndex].push(vx, vy, vz);
+                            groupedNorms[matIndex].push(norm[i*9 + j*3], norm[i*9 + j*3 + 1], norm[i*9 + j*3 + 2]);
+                            
+                            let u = 0, v = 0;
+                            if (matIndex === 4) { u = (vx + w/2)/w; v = (vy + h/2)/h; }
+                            else if (matIndex === 5) { u = (-vx + w/2)/w; v = (vy + h/2)/h; }
+                            else if (matIndex === 0) { u = (-vz + d/2)/d; v = (vy + h/2)/h; }
+                            else if (matIndex === 1) { u = (vz + d/2)/d; v = (vy + h/2)/h; }
+                            else if (matIndex === 2) { u = (vx + w/2)/w; v = (-vz + d/2)/d; }
+                            else if (matIndex === 3) { u = (vx + w/2)/w; v = (vz + d/2)/d; }
+                            groupedUVs[matIndex].push(u, v);
+                        }
+                    }
+                    
+                    geo = new THREE.BufferGeometry();
+                    let flatPos = [], flatNorm = [], flatUV = [];
+                    let offset = 0;
+                    for(let m=0; m<6; m++) {
+                        const count = groupedVerts[m].length / 3;
+                        if (count > 0) {
+                            flatPos.push(...groupedVerts[m]); flatNorm.push(...groupedNorms[m]); flatUV.push(...groupedUVs[m]);
+                            geo.addGroup(offset, count, m); offset += count;
+                        }
+                    }
+                    geo.setAttribute('position', new THREE.Float32BufferAttribute(flatPos, 3));
+                    geo.setAttribute('normal', new THREE.Float32BufferAttribute(flatNorm, 3));
+                    geo.setAttribute('uv', new THREE.Float32BufferAttribute(flatUV, 2));
+                    extrudeGeo.dispose(); geoNonIdx.dispose();
+                }
+
                 let materials = matFascia;
                 const blockIndex = blockCounter++;
                 if (helpers && helpers.getFaceMaterials) {
                     const blockEntity = { params: {} };
                     if (entity.params) {
                         Object.assign(blockEntity.params, entity.params);
-                        // Prevent global textures from bleeding into isolated blocks
-                        delete blockEntity.params.texture;
-                        delete blockEntity.params.textureFront;
-                        delete blockEntity.params.textureBack;
-                        delete blockEntity.params.textureLeft;
-                        delete blockEntity.params.textureRight;
-                        delete blockEntity.params.textureTop;
-                        delete blockEntity.params.textureBottom;
-                        delete blockEntity.params.textureSides;
+                        delete blockEntity.params.texture; delete blockEntity.params.textureFront; delete blockEntity.params.textureBack;
+                        delete blockEntity.params.textureLeft; delete blockEntity.params.textureRight; delete blockEntity.params.textureTop; delete blockEntity.params.textureBottom; delete blockEntity.params.textureSides;
                     }
                     if (entity.params && entity.params.blocks && entity.params.blocks[blockIndex]) {
                         Object.assign(blockEntity.params, entity.params.blocks[blockIndex]);
                     }
                     const multiMat = helpers.getFaceMaterials(blockEntity, matFascia, { width: w, height: h });
-                    // Always allow material application on all faces to support user overrides
-                    const faces = [
-                        multiMat.box[0],
-                        multiMat.box[1],
-                        multiMat.box[2],
-                        multiMat.box[3],
-                        multiMat.box[4],
-                        multiMat.box[5]
-                    ];
-                    materials = faces;
+                    materials = [ multiMat.box[0], multiMat.box[1], multiMat.box[2], multiMat.box[3], multiMat.box[4], multiMat.box[5] ];
                 }
                 const mesh = new THREE.Mesh(geo, materials);
                 mesh.position.set(x, y + h/2, z);
                 mesh.castShadow = true; mesh.receiveShadow = true;
                 return mesh;
+            };
+
+            const createInnerFillet = (r, d, x, y, z, quad) => {
+                if (!r || r <= 0) return;
+                const shape = new THREE.Shape();
+                shape.moveTo(0, 0);
+                if (quad === 1) { shape.lineTo(r, 0); shape.absarc(r, r, r, Math.PI*1.5, Math.PI, true); shape.lineTo(0, r); }
+                else if (quad === 2) { shape.lineTo(0, r); shape.absarc(-r, r, r, 0, Math.PI*1.5, true); shape.lineTo(-r, 0); }
+                else if (quad === 3) { shape.lineTo(-r, 0); shape.absarc(-r, -r, r, Math.PI*0.5, 0, true); shape.lineTo(0, -r); }
+                else if (quad === 4) { shape.lineTo(0, -r); shape.absarc(r, -r, r, Math.PI, Math.PI*0.5, true); shape.lineTo(r, 0); }
+                shape.lineTo(0, 0);
+                
+                const extrudeGeo = new THREE.ExtrudeGeometry(shape, { depth: d, bevelEnabled: false, curveSegments: 8 });
+                extrudeGeo.translate(0, 0, -d/2);
+                const geoNonIdx = extrudeGeo.toNonIndexed();
+                const pos = geoNonIdx.attributes.position.array;
+                const norm = geoNonIdx.attributes.normal.array;
+                
+                const groupedVerts = [[], [], [], [], [], []];
+                const groupedNorms = [[], [], [], [], [], []];
+                const groupedUVs = [[], [], [], [], [], []];
+                for (let i = 0; i < pos.length / 9; i++) {
+                    const nx = norm[i*9]; const ny = norm[i*9+1]; const nz = norm[i*9+2];
+                    let matIndex = 0;
+                    if (nz > 0.5) matIndex = 4; else if (nz < -0.5) matIndex = 5;
+                    else { if (Math.abs(nx) > Math.abs(ny)) matIndex = nx > 0 ? 0 : 1; else matIndex = ny > 0 ? 2 : 3; }
+                    for(let j=0; j<3; j++) {
+                        const vx = pos[i*9 + j*3]; const vy = pos[i*9 + j*3 + 1]; const vz = pos[i*9 + j*3 + 2];
+                        groupedVerts[matIndex].push(vx, vy, vz); groupedNorms[matIndex].push(norm[i*9 + j*3], norm[i*9 + j*3 + 1], norm[i*9 + j*3 + 2]);
+                        let u = 0, v = 0;
+                        if (matIndex === 4) { u = vx/r; v = vy/r; } else if (matIndex === 5) { u = -vx/r; v = vy/r; }
+                        else if (matIndex === 0) { u = -vz/d; v = vy/r; } else if (matIndex === 1) { u = vz/d; v = vy/r; }
+                        else if (matIndex === 2) { u = vx/r; v = -vz/d; } else if (matIndex === 3) { u = vx/r; v = vz/d; }
+                        groupedUVs[matIndex].push(u, v);
+                    }
+                }
+                const geo = new THREE.BufferGeometry();
+                let flatPos = [], flatNorm = [], flatUV = []; let offset = 0;
+                for(let m=0; m<6; m++) {
+                    const count = groupedVerts[m].length / 3;
+                    if (count > 0) { flatPos.push(...groupedVerts[m]); flatNorm.push(...groupedNorms[m]); flatUV.push(...groupedUVs[m]); geo.addGroup(offset, count, m); offset += count; }
+                }
+                geo.setAttribute('position', new THREE.Float32BufferAttribute(flatPos, 3));
+                geo.setAttribute('normal', new THREE.Float32BufferAttribute(flatNorm, 3));
+                geo.setAttribute('uv', new THREE.Float32BufferAttribute(flatUV, 2));
+                extrudeGeo.dispose(); geoNonIdx.dispose();
+
+                let materials = matFascia;
+                if (helpers && helpers.getFaceMaterials) {
+                    const multiMat = helpers.getFaceMaterials(entity, matFascia, { width: r, height: r });
+                    materials = [multiMat.box[0], multiMat.box[1], multiMat.box[2], multiMat.box[3], multiMat.box[4], multiMat.box[5]];
+                }
+                const mesh = new THREE.Mesh(geo, materials);
+                mesh.position.set(x, y, z);
+                mesh.castShadow = true; mesh.receiveShadow = true;
+                fasciaGroup.add(mesh);
             };
             
             const wallThick = entity.wall ? (entity.wall.thickness || entity.wall.config.thickness) : 16;
@@ -716,27 +820,47 @@ export const WIDGET_REGISTRY = {
             let topArm = entity.topArm !== undefined ? entity.topArm : width;
             let bottomArm = entity.bottomArm !== undefined ? entity.bottomArm : width;
 
+            const radii = entity.cornerRadii || [];
+            const getR = (idx) => Math.max(0, radii[idx] || 0);
+
             if (entity.profileType === 'c_shape_left') {
-                fasciaGroup.add(createBlock(topArm, thick, depth, -width/2 + topArm/2, height - thick, zOffset, { bottom: false })); 
+                fasciaGroup.add(createBlock(topArm, thick, depth, -width/2 + topArm/2, height - thick, zOffset, { bottom: false }, [0, getR(5), getR(6), getR(7)])); 
                 fasciaGroup.add(createBlock(thick, height - 2*thick, depth, -width/2 + thick/2, thick, zOffset, { top: false, bottom: false, right: false })); 
-                fasciaGroup.add(createBlock(bottomArm, thick, depth, -width/2 + bottomArm/2, 0, zOffset, { top: false })); 
+                fasciaGroup.add(createBlock(bottomArm, thick, depth, -width/2 + bottomArm/2, 0, zOffset, { top: false }, [getR(0), getR(1), getR(2), 0])); 
+                createInnerFillet(getR(3), depth, -width/2 + thick, thick, zOffset, 1);
+                createInnerFillet(getR(4), depth, -width/2 + thick, height - thick, zOffset, 4);
+                entity.computedPts = [ new THREE.Vector2(-width/2, 0), new THREE.Vector2(-width/2 + bottomArm, 0), new THREE.Vector2(-width/2 + bottomArm, thick), new THREE.Vector2(-width/2 + thick, thick), new THREE.Vector2(-width/2 + thick, height - thick), new THREE.Vector2(-width/2 + topArm, height - thick), new THREE.Vector2(-width/2 + topArm, height), new THREE.Vector2(-width/2, height) ];
             } else if (entity.profileType === 'c_shape_right') {
-                fasciaGroup.add(createBlock(topArm, thick, depth, width/2 - topArm/2, height - thick, zOffset, { bottom: false })); 
+                fasciaGroup.add(createBlock(topArm, thick, depth, width/2 - topArm/2, height - thick, zOffset, { bottom: false }, [getR(4), 0, getR(2), getR(3)])); 
                 fasciaGroup.add(createBlock(thick, height - 2*thick, depth, width/2 - thick/2, thick, zOffset, { top: false, bottom: false, left: false })); 
-                fasciaGroup.add(createBlock(bottomArm, thick, depth, width/2 - bottomArm/2, 0, zOffset, { top: false })); 
+                fasciaGroup.add(createBlock(bottomArm, thick, depth, width/2 - bottomArm/2, 0, zOffset, { top: false }, [getR(0), getR(1), 0, getR(7)])); 
+                createInnerFillet(getR(5), depth, width/2 - thick, height - thick, zOffset, 3);
+                createInnerFillet(getR(6), depth, width/2 - thick, thick, zOffset, 2);
+                entity.computedPts = [ new THREE.Vector2(width/2 - bottomArm, 0), new THREE.Vector2(width/2, 0), new THREE.Vector2(width/2, height), new THREE.Vector2(width/2 - topArm, height), new THREE.Vector2(width/2 - topArm, height - thick), new THREE.Vector2(width/2 - thick, height - thick), new THREE.Vector2(width/2 - thick, thick), new THREE.Vector2(width/2 - bottomArm, thick) ];
             } else if (entity.profileType === 'l_shape_left') {
-                fasciaGroup.add(createBlock(topArm, thick, depth, -width/2 + topArm/2, height - thick, zOffset, { bottom: false })); 
-                fasciaGroup.add(createBlock(thick, height - thick, depth, -width/2 + thick/2, 0, zOffset, { top: false, right: false })); 
+                fasciaGroup.add(createBlock(topArm, thick, depth, -width/2 + topArm/2, height - thick, zOffset, { bottom: false }, [0, getR(3), getR(4), getR(5)])); 
+                fasciaGroup.add(createBlock(thick, height - thick, depth, -width/2 + thick/2, 0, zOffset, { top: false, right: false }, [getR(0), getR(1), 0, 0])); 
+                createInnerFillet(getR(2), depth, -width/2 + thick, height - thick, zOffset, 4);
+                entity.computedPts = [ new THREE.Vector2(-width/2, 0), new THREE.Vector2(-width/2 + thick, 0), new THREE.Vector2(-width/2 + thick, height - thick), new THREE.Vector2(-width/2 + topArm, height - thick), new THREE.Vector2(-width/2 + topArm, height), new THREE.Vector2(-width/2, height) ];
             } else if (entity.profileType === 'l_shape_right') {
-                fasciaGroup.add(createBlock(topArm, thick, depth, width/2 - topArm/2, height - thick, zOffset, { bottom: false })); 
-                fasciaGroup.add(createBlock(thick, height - thick, depth, width/2 - thick/2, 0, zOffset, { top: false, left: false })); 
+                fasciaGroup.add(createBlock(topArm, thick, depth, width/2 - topArm/2, height - thick, zOffset, { bottom: false }, [getR(4), 0, 0, getR(3)])); 
+                fasciaGroup.add(createBlock(thick, height - thick, depth, width/2 - thick/2, 0, zOffset, { top: false, left: false }, [0, getR(1), getR(2), 0])); 
+                createInnerFillet(getR(5), depth, width/2 - thick, height - thick, zOffset, 3);
+                entity.computedPts = [ new THREE.Vector2(width/2 - thick, 0), new THREE.Vector2(width/2, 0), new THREE.Vector2(width/2, height), new THREE.Vector2(width/2 - topArm, height), new THREE.Vector2(width/2 - topArm, height - thick), new THREE.Vector2(width/2 - thick, height - thick) ];
             } else if (entity.profileType === 'full_box') {
-                fasciaGroup.add(createBlock(width, thick, depth, 0, height - thick, zOffset, { bottom: false })); 
-                fasciaGroup.add(createBlock(width, thick, depth, 0, 0, zOffset, { top: false })); 
+                fasciaGroup.add(createBlock(width, thick, depth, 0, height - thick, zOffset, { bottom: false }, [0, 0, getR(2), getR(3)])); 
+                fasciaGroup.add(createBlock(width, thick, depth, 0, 0, zOffset, { top: false }, [getR(0), getR(1), 0, 0])); 
                 fasciaGroup.add(createBlock(thick, height - 2*thick, depth, -width/2 + thick/2, thick, zOffset, { top: false, bottom: false, right: false })); 
                 fasciaGroup.add(createBlock(thick, height - 2*thick, depth, width/2 - thick/2, thick, zOffset, { top: false, bottom: false, left: false })); 
+                createInnerFillet(getR(4), depth, -width/2 + thick, thick, zOffset, 1);
+                createInnerFillet(getR(5), depth, -width/2 + thick, height - thick, zOffset, 4);
+                createInnerFillet(getR(6), depth, width/2 - thick, height - thick, zOffset, 3);
+                createInnerFillet(getR(7), depth, width/2 - thick, thick, zOffset, 2);
+                entity.computedPts = [ new THREE.Vector2(-width/2, 0), new THREE.Vector2(width/2, 0), new THREE.Vector2(width/2, height), new THREE.Vector2(-width/2, height), new THREE.Vector2(-width/2 + thick, thick), new THREE.Vector2(-width/2 + thick, height - thick), new THREE.Vector2(width/2 - thick, height - thick), new THREE.Vector2(width/2 - thick, thick) ];
             }
             
+            entity.computedZOffset = zOffset;
+
             const hitboxGeo = new THREE.BoxGeometry(width + 10, height + 10, depth + 20);
             const hitbox = new THREE.Mesh(hitboxGeo, new THREE.MeshBasicMaterial({transparent: true, opacity: 0, depthWrite: false}));
             hitbox.position.set(0, height/2, zOffset); fasciaGroup.add(hitbox);

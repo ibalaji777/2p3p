@@ -116,6 +116,14 @@ export class GizmoManager {
                 this.setTransformMode('material');
             }
         };
+
+        this.btnCorner = document.createElement('button');
+        this.btnCorner.className = 'transform-menu-btn';
+        this.btnCorner.innerHTML = '✂️<br>Corner';
+        this.btnCorner.style.top = '80px';
+        this.btnCorner.style.left = '90px';
+        this.btnCorner.style.display = 'none';
+        this.btnCorner.onclick = () => this.setTransformMode('corner');
         
         this.openingPanel = document.createElement('div');
         this.openingPanel.style.display = 'none';
@@ -215,6 +223,41 @@ export class GizmoManager {
         this.materialPanel.addEventListener('pointerdown', e => e.stopPropagation());
         this.container.appendChild(this.materialPanel);
 
+        this.cornerPanel = document.createElement('div');
+        this.cornerPanel.style.display = 'none';
+        this.cornerPanel.style.position = 'absolute';
+        this.cornerPanel.style.bottom = '100px';
+        this.cornerPanel.style.left = '50%';
+        this.cornerPanel.style.transform = 'translateX(-50%)';
+        this.cornerPanel.style.background = 'rgba(15, 23, 42, 0.9)';
+        this.cornerPanel.style.padding = '12px 16px';
+        this.cornerPanel.style.borderRadius = '12px';
+        this.cornerPanel.style.color = 'white';
+        this.cornerPanel.style.pointerEvents = 'auto';
+        this.cornerPanel.style.boxShadow = '0 8px 32px rgba(0,0,0,0.5)';
+        this.cornerPanel.style.border = '1px solid rgba(255,255,255,0.15)';
+        this.cornerPanel.style.backdropFilter = 'blur(8px)';
+        this.cornerPanel.style.zIndex = '1000';
+        this.cornerPanel.style.flexDirection = 'column';
+        this.cornerPanel.style.gap = '10px';
+        this.cornerPanel.style.width = '240px';
+        this.cornerPanel.setAttribute('draggable', 'true');
+        this.cornerPanel.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+                <span style="font-size: 11px; font-weight: 800; color: #94a3b8; letter-spacing: 0.5px;">CORNER RADIUS</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
+                <div style="font-size: 11px; color: #cbd5e1; margin-bottom: -4px;">Selected Corner: <span id="gizmo-corner-index" style="font-weight: bold; color: white;">None</span></div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <span style="font-size:12px; color:#fca5a5; font-weight:600; width: 45px;">Radius</span>
+                    <input type="range" id="gizmo-corner-r-range" min="0" max="100" step="1" style="flex: 1; accent-color:#fca5a5;">
+                    <input type="number" id="gizmo-corner-r" step="1" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 12px; outline: none; text-align: right;">
+                </div>
+            </div>
+        `;
+        this.cornerPanel.addEventListener('pointerdown', e => e.stopPropagation());
+        this.container.appendChild(this.cornerPanel);
+
         this.btnDone = document.createElement('button');
         this.btnDone.className = 'done-btn';
         this.btnDone.innerHTML = '✓ Done';
@@ -243,6 +286,7 @@ export class GizmoManager {
         this.transformMenu.appendChild(this.btnSpin);
         this.transformMenu.appendChild(this.btnTilt);
         this.transformMenu.appendChild(this.btnMaterial);
+        this.transformMenu.appendChild(this.btnCorner);
         
         this.container.appendChild(this.transformMenu);
         this.transformMenu.addEventListener('pointerdown', e => e.stopPropagation());
@@ -251,6 +295,7 @@ export class GizmoManager {
         this._makePanelDraggable(this.xyPanel);
         this._makePanelDraggable(this.openingPanel);
         this._makePanelDraggable(this.materialPanel);
+        this._makePanelDraggable(this.cornerPanel);
 
         setTimeout(() => {
             this.inputX = document.getElementById('gizmo-x');
@@ -447,6 +492,29 @@ export class GizmoManager {
                 });
             });
 
+            this.ctx.updateCornerPanel = this.updateCornerPanel.bind(this);
+            const crR = document.getElementById('gizmo-corner-r-range');
+            const crN = document.getElementById('gizmo-corner-r');
+            const updateCornerRadius = (val) => {
+                const gizmo = this.ctx.interactions.cornerGizmo;
+                if (!gizmo || gizmo.activeHandleIndex === -1) return;
+                const entity = gizmo.target.userData.entity;
+                if (!entity) return;
+                entity.cornerRadii = entity.cornerRadii || [];
+                while(entity.cornerRadii.length <= gizmo.activeHandleIndex) entity.cornerRadii.push(0);
+                entity.cornerRadii[gizmo.activeHandleIndex] = val;
+                if (crR) crR.value = val;
+                if (crN) crN.value = val;
+                if (entity.type && entity.type.startsWith('shape_')) {
+                    if (this.ctx.updateShapeLive) this.ctx.updateShapeLive(entity);
+                } else {
+                    if (this.ctx.updateMaterialLive) this.ctx.updateMaterialLive(entity);
+                }
+                if (gizmo) gizmo.updateHandles();
+            };
+            if (crR) crR.addEventListener('input', e => updateCornerRadius(parseFloat(e.target.value)));
+            if (crN) crN.addEventListener('input', e => updateCornerRadius(parseFloat(e.target.value)));
+
         }, 100);
     }
 
@@ -609,6 +677,7 @@ export class GizmoManager {
         this.btnTilt.classList.remove('active');
         if (this.btnOpening) this.btnOpening.classList.remove('active');
         if (this.btnMaterial) this.btnMaterial.classList.remove('active');
+        if (this.btnCorner) this.btnCorner.classList.remove('active');
 
         if (this.ctx.interactions.openingGizmo) {
             this.ctx.interactions.openingGizmo.detach();
@@ -623,6 +692,7 @@ export class GizmoManager {
 
         const isOpening = selectedObj && (selectedObj.userData.isWidget || selectedObj.userData.isPattern || (selectedObj.userData.entity && selectedObj.userData.entity.type && ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(selectedObj.userData.entity.type)));
         const supportsFaceMaterials = selectedObj && (selectedObj.userData.isShape || selectedObj.userData.isWidget || selectedObj.userData.isMolding || selectedObj.userData.isPattern);
+        const isElevationFascia = selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.type === 'elevation_fascia';
 
         if (mode === 'none') {
             tc.visible = false;
@@ -636,9 +706,11 @@ export class GizmoManager {
             this.btnTilt.style.display = isOpening ? 'none' : 'flex';
             if (this.btnOpening) this.btnOpening.style.display = isOpening ? 'flex' : 'none';
             if (this.btnMaterial) this.btnMaterial.style.display = supportsFaceMaterials ? 'flex' : 'none';
+            if (this.btnCorner) this.btnCorner.style.display = isElevationFascia ? 'flex' : 'none';
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
             if (this.materialPanel) this.materialPanel.style.display = 'none';
+            if (this.cornerPanel) this.cornerPanel.style.display = 'none';
             if (this.btnDone) this.btnDone.style.display = 'none';
             
             if (selectedObj) this.ctx.interactions.setHighlight(selectedObj, true);
@@ -661,6 +733,7 @@ export class GizmoManager {
         this.btnTilt.style.display = 'none';
         if (this.btnOpening) this.btnOpening.style.display = 'none';
         if (this.btnMaterial) this.btnMaterial.style.display = 'none';
+        if (this.btnCorner) this.btnCorner.style.display = 'none';
         if (this.btnDone) this.btnDone.style.display = 'flex';
 
         if (selectedObj) tc.detach();
@@ -685,8 +758,24 @@ export class GizmoManager {
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
             if (this.materialPanel) this.materialPanel.style.display = 'none'; // HIDDEN initially, waits for face click
+            if (this.cornerPanel) this.cornerPanel.style.display = 'none';
             if (this.ctx.interactions.materialGizmo && selectedObj) {
                 this.ctx.interactions.materialGizmo.attach(selectedObj);
+            }
+            return;
+        }
+
+        if (mode === 'corner') {
+            tc.visible = false;
+            tc.enabled = false;
+            if (this.btnCorner) this.btnCorner.classList.add('active');
+            if (this.xyPanel) this.xyPanel.style.display = 'none';
+            if (this.openingPanel) this.openingPanel.style.display = 'none';
+            if (this.materialPanel) this.materialPanel.style.display = 'none';
+            if (this.cornerPanel) this.cornerPanel.style.display = 'flex';
+            if (this.ctx.interactions.cornerGizmo && selectedObj) {
+                this.ctx.interactions.cornerGizmo.attach(selectedObj);
+                this.updateCornerPanel(selectedObj.userData.entity, -1);
             }
             return;
         }
@@ -764,6 +853,26 @@ export class GizmoManager {
             this.transformMenu.style.left = `${x}px`;
             this.transformMenu.style.top = `${y}px`;
         }
+    }
+
+    updateCornerPanel(entity, index) {
+        if (!entity) return;
+        const indexSpan = document.getElementById('gizmo-corner-index');
+        const rRange = document.getElementById('gizmo-corner-r-range');
+        const rNum = document.getElementById('gizmo-corner-r');
+        if (index === -1 || index === undefined) {
+            if (indexSpan) indexSpan.innerText = 'None';
+            if (rRange) { rRange.disabled = true; rRange.value = 0; }
+            if (rNum) { rNum.disabled = true; rNum.value = 0; }
+            return;
+        }
+        if (indexSpan) indexSpan.innerText = `#${index}`;
+        if (rRange) rRange.disabled = false;
+        if (rNum) rNum.disabled = false;
+        const radii = entity.cornerRadii || [];
+        const currentR = radii[index] || 0;
+        if (rRange) rRange.value = currentR;
+        if (rNum) rNum.value = currentR;
     }
 
     updateOpeningPanel(entity) {

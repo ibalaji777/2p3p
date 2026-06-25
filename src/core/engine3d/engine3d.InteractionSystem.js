@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TransformControls } from './TransformControls.js';
 import { MaterialGizmo } from './MaterialGizmo.js';
+import { CornerRadiusGizmo } from './CornerRadiusGizmo.js';
 
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from '../../core/registry';
 
@@ -271,6 +272,9 @@ export class InteractionSystem {
         this.materialGizmo = new MaterialGizmo(ctx);
         this.ctx.scene.add(this.materialGizmo);
 
+        this.cornerGizmo = new CornerRadiusGizmo(ctx);
+        this.ctx.scene.add(this.cornerGizmo);
+
         this.initEvents();
     }
 
@@ -314,6 +318,9 @@ export class InteractionSystem {
                 }
                 if (this.openingGizmo && this.openingGizmo.visible) {
                     if (this.raycaster.intersectObjects(this.openingGizmo.handles.children, true).length > 0) return;
+                }
+                if (this.cornerGizmo && this.cornerGizmo.visible) {
+                    if (this.raycaster.intersectObjects(this.cornerGizmo.handles.children, true).length > 0) return;
                 }
                 
                 const intersects = this.raycaster.intersectObjects(this.ctx.interactables, true);
@@ -395,18 +402,27 @@ export class InteractionSystem {
         if (mode === 'material') {
             if (this.transformControls) this.transformControls.detach();
             if (this.openingGizmo) this.openingGizmo.detach();
+            if (this.cornerGizmo) this.cornerGizmo.detach();
             if (this.materialGizmo) this.materialGizmo.attach(this.selectedObject);
         } else if (mode === 'opening') {
             if (this.transformControls) this.transformControls.detach();
             if (this.materialGizmo) this.materialGizmo.detach();
+            if (this.cornerGizmo) this.cornerGizmo.detach();
             if (this.openingGizmo) this.openingGizmo.attach(this.selectedObject);
+        } else if (mode === 'corner') {
+            if (this.transformControls) this.transformControls.detach();
+            if (this.openingGizmo) this.openingGizmo.detach();
+            if (this.materialGizmo) this.materialGizmo.detach();
+            if (this.cornerGizmo) this.cornerGizmo.attach(this.selectedObject);
         } else if (mode === 'none') {
             if (this.transformControls) this.transformControls.detach();
             if (this.openingGizmo) this.openingGizmo.detach();
             if (this.materialGizmo) this.materialGizmo.detach();
+            if (this.cornerGizmo) this.cornerGizmo.detach();
         } else {
             if (this.openingGizmo) this.openingGizmo.detach();
             if (this.materialGizmo) this.materialGizmo.detach();
+            if (this.cornerGizmo) this.cornerGizmo.detach();
             if (this.transformControls) {
                 this.transformControls.mode = mode;
                 this.transformControls.attach(this.selectedObject);
@@ -652,10 +668,10 @@ export class InteractionSystem {
         if (this.transformControls) this.transformControls.detach();
         if (this.openingGizmo) this.openingGizmo.detach();
         if (this.materialGizmo) this.materialGizmo.detach();
+        if (this.cornerGizmo) this.cornerGizmo.detach();
         this.ctx.currentTransformMode = 'none';
         if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
         if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isMolding || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);
-        if (this.transformControls) this.transformControls.detach();
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
         this.selectedObject = null;
         if (this.ctx.onEntitySelect) this.ctx.onEntitySelect(null, null, null);
