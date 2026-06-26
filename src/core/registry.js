@@ -645,7 +645,7 @@ export const WIDGET_REGISTRY = {
         }
     },
     'sunshade': {
-        widget: "sunshade", label: "SUNSHADE / CHAJJA",
+        widget: "sunshade", label: "SUNSHADE / CHAJJA", cutsWall: false,
         events: ["drag_along_wall", "snap_to_corners", "resize_handles_along_wall_axis"],
         defaultConfig: { width: 60, elevation: 90, thick: 20, chajjaType: 'concrete_slab', facing: -1, depth: 40 },
         render2D: (group, entity) => {
@@ -995,7 +995,7 @@ export const WIDGET_REGISTRY = {
         }
     },
     'elevation_fascia': {
-        widget: "elevation_fascia", label: "ELEVATION FASCIA",
+        widget: "elevation_fascia", label: "ELEVATION FASCIA", cutsWall: false,
         events: ["drag_along_wall", "snap_to_corners", "resize_handles_along_wall_axis"],
         defaultConfig: { width: 100, height: 120, depth: 40, thick: 10, elevation: 0, profileType: 'c_shape_left', fasciaMat: 'white' },
         render2D: (group, entity) => {
@@ -1004,7 +1004,7 @@ export const WIDGET_REGISTRY = {
             const rect = new Konva.Rect({ x: -hw, y: -h/2, width: w, height: h, fill: '#60a5fa', stroke: '#2563eb', strokeWidth: 2, opacity: 0.5 });
             group.add(rect);
             const d = entity.depth || 40;
-            const projDir = entity.facing === 1 ? -1 : 1; 
+            const projDir = entity.facing === 1 ? 1 : -1; 
             const projY = projDir === 1 ? h/2 : -h/2 - d;
             const projRect = new Konva.Rect({ x: -hw, y: projY, width: w, height: d, stroke: '#2563eb', strokeWidth: 1, dash: [4, 4] });
             group.add(projRect);
