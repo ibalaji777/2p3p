@@ -634,7 +634,7 @@ export const WIDGET_REGISTRY = {
                 if (entity.grillePattern === 'diamond') { const dGroup = new THREE.Group(); const maxDim = Math.max(iW, iH) * 1.5; for (let i = -maxDim/2; i <= maxDim/2; i += 6) { const v = new THREE.Mesh(new THREE.CylinderGeometry(barRadius, barRadius, maxDim, 8), matGrille); v.position.set(i, 0, 0); dGroup.add(v); const h = new THREE.Mesh(new THREE.CylinderGeometry(barRadius, barRadius, maxDim, 8), matGrille); h.rotation.z = Math.PI/2; h.position.set(0, i, 0); dGroup.add(h); } dGroup.rotation.z = Math.PI / 4; dGroup.position.set(0, height/2, 0); grilleGroup.add(dGroup); }
                 winGroup.add(grilleGroup);
             }
-            if (wConf.hasChajja) { const chajjaDepth = 15; const chajjaHeight = 2; const chajjaGeo = new THREE.BoxGeometry(entity.width + 10, chajjaHeight, chajjaDepth); const chajja = new THREE.Mesh(chajjaGeo, matConcrete); const cZ = entity.facing === 1 ? chajjaDepth/2 : -chajjaDepth/2; chajja.position.set(0, height + chajjaHeight/2, cZ); chajja.castShadow = true; winGroup.add(chajja); }
+            // Chajja logic moved to standalone sunshade widget
             const hitboxGeo = new THREE.BoxGeometry(entity.width + 10, height + 10, (entity.thick || 20) + 10);
             const hitbox = new THREE.Mesh(hitboxGeo, new THREE.MeshBasicMaterial({transparent: true, opacity: 0, depthWrite: false}));
             hitbox.position.set(0, height/2, 0);
@@ -642,6 +642,323 @@ export const WIDGET_REGISTRY = {
             winGroup.userData = { isWidget: true, entity: entity };
             sceneGroup.add(winGroup);
             return winGroup;
+        }
+    },
+    'sunshade': {
+        widget: "sunshade", label: "SUNSHADE / CHAJJA",
+        events: ["drag_along_wall", "snap_to_corners", "resize_handles_along_wall_axis"],
+        defaultConfig: { width: 60, elevation: 90, thick: 20, chajjaType: 'concrete_slab', facing: -1, depth: 40 },
+        render2D: (group, entity) => {
+            const hw = entity.width / 2;
+            const w = entity.width; 
+            const d = entity.depth || 40; 
+            const wallOffset = 7.5; 
+            const signY = entity.facing === 1 ? -1 : 1; 
+            const rectY = signY === 1 ? wallOffset : -wallOffset - d;
+            
+            const rect = new Konva.Rect({ x: -hw, y: rectY, width: w, height: d, fill: 'transparent', stroke: '#3b82f6', strokeWidth: 2, dash: [4, 4] });
+            group.add(rect);
+        },
+        render3D: (sceneGroup, entity, helpers) => {
+            const sunshadeGroup = new THREE.Group();
+            let baseElev = entity.elevation || 90;
+            sunshadeGroup.position.set(entity.x, baseElev, entity.z);
+            sunshadeGroup.rotation.y = -entity.angle;
+
+            const signZ = entity.facing === 1 ? 1 : -1;
+            const wallOffset = 7.5;
+            const contentGroup = new THREE.Group();
+            contentGroup.position.z = wallOffset * signZ;
+            sunshadeGroup.add(contentGroup);
+
+            let chajjaStyle = entity.chajjaType || 'concrete_slab';
+            const matConcrete = helpers.getDynamicMaterial('concrete', 'wall');
+            const cDepth = entity.depth || 40;
+            
+            if (chajjaStyle === 'concrete_slab') {
+                const cH = 2; 
+                const cGeo = new THREE.BoxGeometry(entity.width, cH, cDepth); 
+                const cMesh = new THREE.Mesh(cGeo, matConcrete); 
+                cMesh.position.set(0, cH/2, (cDepth/2) * signZ); 
+                cMesh.castShadow = true; 
+                contentGroup.add(cMesh);
+            } else if (chajjaStyle === 'wooden_pergola' || chajjaStyle === 'metal_louvers') {
+                const isWood = chajjaStyle === 'wooden_pergola';
+                const cMat = isWood ? JALI_MATERIALS['wood'] : JALI_MATERIALS['metal_black'];
+                const matLouver = new THREE.MeshStandardMaterial({
+                    color: cMat.color, roughness: cMat.roughness, metalness: cMat.metalness
+                });
+                
+                const cWidth = entity.width;
+                const joistWidth = isWood ? 2 : 2;
+                const joistHeight = isWood ? 8 : 8;
+                const joistGeo = new THREE.BoxGeometry(joistWidth, joistHeight, cDepth);
+                
+                const jL = new THREE.Mesh(joistGeo, matLouver);
+                jL.position.set(-cWidth/2 + joistWidth/2, joistHeight/2, (cDepth/2) * signZ);
+                jL.castShadow = true;
+                
+                const jR = new THREE.Mesh(joistGeo, matLouver);
+                jR.position.set(cWidth/2 - joistWidth/2, joistHeight/2, (cDepth/2) * signZ);
+                jR.castShadow = true;
+                
+                contentGroup.add(jL, jR);
+                
+                const fasciaGeo = new THREE.BoxGeometry(cWidth, joistHeight, joistWidth);
+                const fascia = new THREE.Mesh(fasciaGeo, matLouver);
+                fascia.position.set(0, joistHeight/2, (cDepth - joistWidth/2) * signZ);
+                fascia.castShadow = true;
+                contentGroup.add(fascia);
+                
+                const numJoists = Math.max(3, Math.floor(cWidth / 40));
+                if (numJoists > 2) {
+                    const joistSpacing = (cWidth - joistWidth) / (numJoists - 1);
+                    for (let i = 1; i < numJoists - 1; i++) {
+                        const jM = new THREE.Mesh(joistGeo, matLouver);
+                        jM.position.set(-cWidth/2 + joistWidth/2 + i * joistSpacing, joistHeight/2, (cDepth/2) * signZ);
+                        jM.castShadow = true;
+                        contentGroup.add(jM);
+                    }
+                }
+                
+                const louverThick = isWood ? 2 : 1; 
+                const louverHeight = isWood ? 4 : 4;
+                const spacing = isWood ? 8 : 8; 
+                const numLouvers = Math.floor(cDepth / spacing);
+                
+                const lGeo = new THREE.BoxGeometry(cWidth, louverHeight, louverThick);
+                
+                for(let i=1; i<=numLouvers; i++) {
+                    const l = new THREE.Mesh(lGeo, matLouver);
+                    l.position.set(0, joistHeight + louverHeight/2 - (isWood ? 2 : 0), (i * spacing - louverThick/2) * signZ);
+                    l.rotation.x = isWood ? 0 : (Math.PI / 4) * signZ;
+                    l.castShadow = true;
+                    contentGroup.add(l);
+                }
+            } else if (chajjaStyle === 'glass_canopy' || chajjaStyle === 'polycarbonate_canopy') {
+                const isPoly = chajjaStyle === 'polycarbonate_canopy';
+                const cWidth = entity.width; const glassThick = 0.5;
+                const matGlassConf = WINDOW_GLASS_MATERIALS['clear'];
+                
+                let matCanopyPanel;
+                if (isPoly) {
+                    matCanopyPanel = new THREE.MeshPhysicalMaterial({
+                        color: 0xffffff, transmission: 0.4, roughness: 0.6, transparent: true, ior: 1.2, thickness: 0.5
+                    });
+                } else {
+                    matCanopyPanel = new THREE.MeshPhysicalMaterial({
+                        color: matGlassConf.color, transmission: matGlassConf.transmission, roughness: matGlassConf.roughness, transparent: true, ior: matGlassConf.ior, thickness: 0.5
+                    });
+                }
+                const matMetal = new THREE.MeshStandardMaterial({color: 0xe0e0e0, metalness: 0.9, roughness: 0.2});
+                
+                const frameThick = 1.5;
+                const fSideGeo = new THREE.BoxGeometry(frameThick, frameThick, cDepth);
+                const fFrontGeo = new THREE.BoxGeometry(cWidth, frameThick, frameThick);
+                const fL = new THREE.Mesh(fSideGeo, matMetal); fL.position.set(-cWidth/2 + frameThick/2, frameThick/2, (cDepth/2)*signZ); fL.castShadow = true;
+                const fR = new THREE.Mesh(fSideGeo, matMetal); fR.position.set(cWidth/2 - frameThick/2, frameThick/2, (cDepth/2)*signZ); fR.castShadow = true;
+                const fF = new THREE.Mesh(fFrontGeo, matMetal); fF.position.set(0, frameThick/2, (cDepth - frameThick/2)*signZ); fF.castShadow = true;
+                contentGroup.add(fL, fR, fF);
+                
+                const numPanes = Math.max(1, Math.floor(cWidth / 40));
+                const paneWidth = (cWidth - frameThick * 2) / numPanes;
+                for (let i = 1; i < numPanes; i++) {
+                    const m = new THREE.Mesh(fSideGeo, matMetal);
+                    m.position.set(-cWidth/2 + frameThick + i * paneWidth, frameThick/2, (cDepth/2)*signZ);
+                    m.castShadow = true;
+                    contentGroup.add(m);
+                }
+
+                const gGeo = new THREE.BoxGeometry(cWidth - frameThick*2, glassThick, cDepth - frameThick);
+                const gMesh = new THREE.Mesh(gGeo, matCanopyPanel);
+                gMesh.position.set(0, frameThick/2, (cDepth/2)*signZ);
+                contentGroup.add(gMesh);
+                
+                const tieHeight = Math.max(15, cDepth * 0.6);
+                const tieZ = cDepth * 0.8;
+                
+                const bracketGeo = new THREE.BoxGeometry(1, 4, 2);
+                
+                const rodPositions = [];
+                if (numPanes > 1) {
+                    rodPositions.push(-cWidth/2 + 4, cWidth/2 - 4);
+                    for (let i=1; i<numPanes; i++) rodPositions.push(-cWidth/2 + frameThick + i * paneWidth);
+                } else {
+                    rodPositions.push(-cWidth/2 + 4, cWidth/2 - 4);
+                }
+                
+                const bracketZ = 1; 
+                const spiderY = frameThick/2 + 0.5;
+                const dz = tieZ - bracketZ;
+                const dy = tieHeight - spiderY;
+                const tieLen = Math.hypot(dz, dy);
+                const angle = Math.atan2(dz, dy);
+                const tieGeo = new THREE.CylinderGeometry(0.2, 0.2, tieLen, 8);
+                
+                rodPositions.forEach(x => {
+                    const tieGroup = new THREE.Group();
+                    const tie = new THREE.Mesh(tieGeo, matMetal);
+                    tie.position.set(0, spiderY + dy/2, ((bracketZ + tieZ)/2) * signZ);
+                    tie.rotation.x = -angle * signZ;
+                    tie.castShadow = true;
+                    tieGroup.add(tie);
+                    
+                    const wBracket = new THREE.Mesh(bracketGeo, matMetal);
+                    wBracket.position.set(0, tieHeight, bracketZ * signZ);
+                    wBracket.castShadow = true;
+                    tieGroup.add(wBracket);
+                    
+                    const spiderGeo = new THREE.CylinderGeometry(0.8, 0.8, 1, 8);
+                    const spider = new THREE.Mesh(spiderGeo, matMetal);
+                    spider.position.set(0, spiderY, tieZ * signZ);
+                    spider.castShadow = true;
+                    tieGroup.add(spider);
+                    
+                    tieGroup.position.x = x;
+                    contentGroup.add(tieGroup);
+                });
+            } else if (chajjaStyle === 'metal_canopy') {
+                const cWidth = entity.width;
+                const matMetalDark = new THREE.MeshStandardMaterial({color: 0x222222, metalness: 0.5, roughness: 0.5});
+                const matMetalRoof = new THREE.MeshStandardMaterial({color: 0x444444, metalness: 0.3, roughness: 0.8});
+                
+                const lipDrop = 4;
+                const lipThick = 2;
+                const roofThick = 2;
+                
+                const roofGeo = new THREE.BoxGeometry(cWidth, roofThick, cDepth);
+                const roof = new THREE.Mesh(roofGeo, matMetalRoof);
+                roof.position.set(0, lipDrop - roofThick/2, (cDepth/2)*signZ);
+                roof.castShadow = true;
+                contentGroup.add(roof);
+                
+                const fLipGeo = new THREE.BoxGeometry(cWidth, lipDrop, lipThick);
+                const fLip = new THREE.Mesh(fLipGeo, matMetalDark);
+                fLip.position.set(0, lipDrop/2, (cDepth - lipThick/2)*signZ);
+                fLip.castShadow = true;
+                contentGroup.add(fLip);
+                
+                const sLipGeo = new THREE.BoxGeometry(lipThick, lipDrop, cDepth - lipThick);
+                const sL = new THREE.Mesh(sLipGeo, matMetalDark);
+                sL.position.set(-cWidth/2 + lipThick/2, lipDrop/2, ((cDepth - lipThick)/2)*signZ);
+                sL.castShadow = true;
+                const sR = new THREE.Mesh(sLipGeo, matMetalDark);
+                sR.position.set(cWidth/2 - lipThick/2, lipDrop/2, ((cDepth - lipThick)/2)*signZ);
+                sR.castShadow = true;
+                contentGroup.add(sL, sR);
+            } else if (chajjaStyle === 'curved_rcc') {
+                const cH = 4;
+                const radius = Math.min(20, cDepth/2, entity.width/4);
+                const halfW = entity.width/2;
+                const shape = new THREE.Shape();
+                shape.moveTo(-halfW, 0);
+                shape.lineTo(-halfW, cDepth - radius);
+                shape.quadraticCurveTo(-halfW, cDepth, -halfW + radius, cDepth);
+                shape.lineTo(halfW - radius, cDepth);
+                shape.quadraticCurveTo(halfW, cDepth, halfW, cDepth - radius);
+                shape.lineTo(halfW, 0);
+                shape.lineTo(-halfW, 0);
+                
+                const cGeo = new THREE.ExtrudeGeometry(shape, { depth: cH, bevelEnabled: false });
+                const cMesh = new THREE.Mesh(cGeo, matConcrete);
+                cMesh.rotation.x = -Math.PI / 2; 
+                if (signZ === 1) cMesh.rotation.y = Math.PI; 
+                cMesh.position.set(0, 0, 0);
+                cMesh.castShadow = true;
+                contentGroup.add(cMesh);
+            } else if (chajjaStyle === 'cantilever_rcc') {
+                const cH = 2; 
+                const cGeo = new THREE.BoxGeometry(entity.width, cH, cDepth);
+                const cMesh = new THREE.Mesh(cGeo, matConcrete);
+                cMesh.position.set(0, cH/2, (cDepth/2) * signZ);
+                cMesh.castShadow = true;
+                contentGroup.add(cMesh);
+            } else if (chajjaStyle === 'jali_canopy') {
+                const cWidth = entity.width;
+                const roofThick = 2;
+                const dropH = 15;
+                const matSolid = new THREE.MeshStandardMaterial({color: 0xf5f5f5, roughness: 0.9});
+                
+                const roofGeo = new THREE.BoxGeometry(cWidth, roofThick, cDepth);
+                const roof = new THREE.Mesh(roofGeo, matSolid);
+                roof.position.set(0, dropH - roofThick/2, (cDepth/2)*signZ);
+                roof.castShadow = true;
+                contentGroup.add(roof);
+                
+                const buildGrid = (w, h, mat) => {
+                    const group = new THREE.Group();
+                    const thick = 1;
+                    const step = 5;
+                    const hGeo = new THREE.BoxGeometry(w, thick, thick);
+                    const vGeo = new THREE.BoxGeometry(thick, h, thick);
+                    for (let y = -h/2 + step/2; y < h/2; y += step) {
+                        const m = new THREE.Mesh(hGeo, mat);
+                        m.position.y = y; m.castShadow = true;
+                        group.add(m);
+                    }
+                    for (let x = -w/2 + step/2; x < w/2; x += step) {
+                        const m = new THREE.Mesh(vGeo, mat);
+                        m.position.x = x; m.castShadow = true;
+                        group.add(m);
+                    }
+                    const t = new THREE.Mesh(new THREE.BoxGeometry(w, 2, 2), mat); t.position.y = h/2; t.castShadow = true; group.add(t);
+                    const b = new THREE.Mesh(new THREE.BoxGeometry(w, 2, 2), mat); b.position.y = -h/2; b.castShadow = true; group.add(b);
+                    const l = new THREE.Mesh(new THREE.BoxGeometry(2, h, 2), mat); l.position.x = -w/2; l.castShadow = true; group.add(l);
+                    const r = new THREE.Mesh(new THREE.BoxGeometry(2, h, 2), mat); r.position.x = w/2; r.castShadow = true; group.add(r);
+                    return group;
+                };
+                
+                const fJali = buildGrid(cWidth, dropH, matSolid);
+                fJali.position.set(0, dropH/2, cDepth * signZ);
+                if (signZ === -1) fJali.rotation.y = Math.PI;
+                contentGroup.add(fJali);
+                
+                const sL = buildGrid(cDepth, dropH, matSolid);
+                sL.position.set(-cWidth/2, dropH/2, (cDepth/2)*signZ);
+                sL.rotation.y = -Math.PI / 2;
+                
+                const sR = buildGrid(cDepth, dropH, matSolid);
+                sR.position.set(cWidth/2, dropH/2, (cDepth/2)*signZ);
+                sR.rotation.y = Math.PI / 2;
+                
+                contentGroup.add(sL, sR);
+            } else if (chajjaStyle === 'box_frame') {
+                const cWidth = entity.width;
+                const frameDrop = entity.frameHeight || 150;
+                const frameThick = 6;
+                
+                const topGeo = new THREE.BoxGeometry(cWidth, frameThick, cDepth);
+                const topM = new THREE.Mesh(topGeo, matConcrete);
+                topM.position.set(0, frameThick/2, (cDepth/2)*signZ);
+                topM.castShadow = true;
+                contentGroup.add(topM);
+                
+                const sideGeo = new THREE.BoxGeometry(frameThick, frameDrop, cDepth);
+                const sL = new THREE.Mesh(sideGeo, matConcrete);
+                sL.position.set(-cWidth/2 + frameThick/2, -frameDrop/2 + frameThick, (cDepth/2)*signZ);
+                sL.castShadow = true;
+                
+                const sR = new THREE.Mesh(sideGeo, matConcrete);
+                sR.position.set(cWidth/2 - frameThick/2, -frameDrop/2 + frameThick, (cDepth/2)*signZ);
+                sR.castShadow = true;
+                
+                const botGeo = new THREE.BoxGeometry(cWidth, frameThick, cDepth);
+                const botM = new THREE.Mesh(botGeo, matConcrete);
+                botM.position.set(0, -frameDrop + frameThick/2, (cDepth/2)*signZ);
+                botM.castShadow = true;
+                
+                contentGroup.add(sL, sR, botM);
+            }
+
+            const hbHeight = chajjaStyle === 'box_frame' ? (entity.frameHeight || 150) : 10;
+            const hbY = chajjaStyle === 'box_frame' ? -hbHeight/2 + 6 : 5;
+            const hitboxGeo = new THREE.BoxGeometry(entity.width, hbHeight, cDepth);
+            const hitbox = new THREE.Mesh(hitboxGeo, new THREE.MeshBasicMaterial({transparent: true, opacity: 0, depthWrite: false}));
+            hitbox.position.set(0, hbY, (cDepth/2)*signZ);
+            contentGroup.add(hitbox);
+            sunshadeGroup.userData = { isWidget: true, entity: entity };
+            sceneGroup.add(sunshadeGroup);
+            return sunshadeGroup;
         }
     },
     'elevation_fascia': {

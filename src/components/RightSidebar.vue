@@ -296,7 +296,7 @@
                 <h4 class="props-subtitle">{{ selectedEntity.config?.label || 'DOOR/WINDOW' }} Properties</h4>
                 <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="10" max="200" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.width" @input="$emit('sync-engine')"></div></div>
                 <div class="control-group" v-if="selectedEntity.type === 'elevation_fascia'"><label>Height (Drop)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="400" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.height" @input="$emit('sync-engine')"></div></div>
-                <div class="faceRow" v-if="selectedEntity.type !== 'jali_panel' && selectedEntity.type !== 'elevation_fascia'">
+                <div class="faceRow" v-if="selectedEntity.type !== 'jali_panel' && selectedEntity.type !== 'elevation_fascia' && selectedEntity.type !== 'sunshade'">
                     <button class="action-btn clear" style="flex: 1; padding: 4px;" @click="selectedEntity.facing *= -1; $emit('sync-engine')">Flip In/Out</button>
                     <button class="action-btn clear" style="flex: 1; padding: 4px;" @click="selectedEntity.side *= -1; $emit('sync-engine')">Flip L/R</button>
                 </div>
@@ -321,6 +321,40 @@
                             <option value="fixed_elevation">Fixed Glass</option>
                             <option value="bay_box">Box Bay Window</option>
                         </select>
+                    </div>
+                </div>
+                <div v-else-if="selectedEntity.type === 'sunshade'">
+                    <div class="control-group">
+                        <label>Depth (Projection)</label>
+                        <div class="input-wrap">
+                            <input type="range" v-model.number="selectedEntity.depth" min="5" max="100" @input="$emit('sync-engine')">
+                            <input type="number" v-model.number="selectedEntity.depth" @input="$emit('sync-engine')">
+                        </div>
+                    </div>
+                    <div class="control-group">
+                        <label>Sunshade (Chajja) Style</label>
+                        <select v-model="selectedEntity.chajjaType" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                            <!-- Existing Styles -->
+                            <option value="concrete_slab">Concrete Slab (RCC)</option>
+                            <option value="wooden_pergola">Wooden Pergola</option>
+                            <option value="metal_louvers">Metal Louvers</option>
+                            <option value="glass_canopy">Glass Canopy</option>
+                            <!-- New Styles -->
+                            <option value="polycarbonate_canopy">Polycarbonate Canopy</option>
+                            <option value="metal_canopy">Metal Canopy</option>
+                            <option value="curved_rcc">Curved RCC</option>
+                            <option value="cantilever_rcc">Cantilever RCC</option>
+                            <option value="jali_canopy">Decorative Jali</option>
+                            <option value="box_frame">Box Frame</option>
+                        </select>
+                    </div>
+                    
+                    <div v-if="selectedEntity.chajjaType === 'box_frame'" class="control-group">
+                        <label>Frame Drop Height (For Window Wrap)</label>
+                        <div class="input-wrap">
+                            <input type="range" v-model.number="selectedEntity.frameHeight" min="20" max="300" @input="$emit('sync-engine')">
+                            <input type="number" v-model.number="selectedEntity.frameHeight" @input="$emit('sync-engine')">
+                        </div>
                     </div>
                 </div>
                 <div v-else-if="selectedEntity.type === 'jali_panel'">

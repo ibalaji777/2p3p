@@ -8,9 +8,9 @@ export class PremiumWidget {
         Object.assign(this, JSON.parse(JSON.stringify(this.config.defaultConfig)));
         
         this.cutter = new Konva.Rect({ height: (wall.thickness || wall.config.thickness) + 4, fill: 'black', globalCompositeOperation: 'destination-out', listening: false }); 
-        this.planner.wallLayer.add(this.cutter);
+        if (this.config.cutsWall !== false) this.planner.wallLayer.add(this.cutter);
         
-        this.visualGroup = new Konva.Group({ draggable: false }); 
+        this.visualGroup = new Konva.Group({ draggable: true }); 
         this.hitBox = new Konva.Rect({ fill: 'transparent', listening: true });
         this.visualGroup.add(this.hitBox);
         this.frameL = new Konva.Rect({ width: 4, fill: '#374151' }); 

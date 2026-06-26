@@ -306,6 +306,7 @@ const menuCategories = ref([
         tools: [
             { id: 'door', name: 'Add Door' },
             { id: 'window', name: 'Add Window' },
+            { id: 'sunshade', name: 'Add Sunshade' },
             { id: 'jali_panel', name: 'Add Jali Panel' }
         ]
     },
@@ -655,7 +656,7 @@ const hintData = computed(() => {
     
     const isTouch = isMobile.value || isTablet.value;
     if (activeTool.value.startsWith('molding_')) return { text: isTouch ? 'MOLDING mode: Tap near any wall edge to place molding precisely.' : 'MOLDING mode: Hover near any wall edge (glows blue), then click to place.', color: '#0ea5e9' };
-    if (activeTool.value.startsWith('door') || activeTool.value.startsWith('window') || activeTool.value === 'arch_opening') return { text: isTouch ? 'OPENING mode: Tap near any wall edge to place.' : 'OPENING mode: Hover near any wall edge (glows blue), then click to place.', color: '#0ea5e9' };
+    if (activeTool.value.startsWith('door') || activeTool.value.startsWith('window') || activeTool.value === 'arch_opening' || activeTool.value === 'sunshade') return { text: isTouch ? 'OPENING mode: Tap near any wall edge to place.' : 'OPENING mode: Hover near any wall edge (glows blue), then click to place.', color: '#0ea5e9' };
     
     if (activeTool.value === 'wall' || activeTool.value === 'outer' || activeTool.value === 'inner') return { text: 'WALL mode: Click to start drawing a wall. Click again to place corners. Press ESC to finish.', color: '#3b82f6' };
     
