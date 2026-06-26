@@ -30,18 +30,9 @@ export class MaterialGizmo extends THREE.Group {
             });
             
             if (validIntersects.length > 0) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                this.isPanelOpen = true;
-                this.clearHighlight();
-                
                 const intersect = validIntersects[0];
-                
-                // Determine face name from local normal
                 const normalMatrix = new THREE.Matrix3().getNormalMatrix(intersect.object.matrixWorld);
                 const worldNormal = intersect.face.normal.clone().applyMatrix3(normalMatrix).normalize();
-                
                 const rootNormalMatrix = new THREE.Matrix3().getNormalMatrix(this.target.matrixWorld).invert();
                 const localNormal = worldNormal.clone().applyMatrix3(rootNormalMatrix).normalize();
                 
@@ -52,6 +43,12 @@ export class MaterialGizmo extends THREE.Group {
                 if (absX > absY && absX > absZ) selectedFace = localNormal.x > 0 ? 'right' : 'left';
                 else if (absY > absX && absY > absZ) selectedFace = localNormal.y > 0 ? 'top' : 'bottom';
                 else selectedFace = localNormal.z > 0 ? 'front' : 'back';
+                
+                e.preventDefault();
+                e.stopPropagation();
+                
+                this.isPanelOpen = true;
+                this.clearHighlight();
                 
                 this.selectedFace = selectedFace;
                 
@@ -86,8 +83,9 @@ export class MaterialGizmo extends THREE.Group {
             });
             
             if (validIntersects.length > 0) {
-                dom.style.cursor = 'crosshair';
                 const intersect = validIntersects[0];
+                
+                dom.style.cursor = 'crosshair';
                 
                 if (this.highlightedObject !== intersect.object || this.highlightedMatIndex !== intersect.face.materialIndex) {
                     this.clearHighlight();

@@ -159,6 +159,20 @@ export class EnvironmentBuilder {
 
             const h = w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT);
             const t = w.thickness !== undefined ? w.thickness : (w.config?.thickness || 8);
+            
+            // Compute mm early so holes and patterns can inherit painted materials
+            let mm = [matMain, matMain, matMain, matMain, matMain, matMain];
+            if (this.ctx.helpers && this.ctx.helpers.getFaceMaterials) {
+                mm = this.ctx.helpers.getFaceMaterials(w, matMain, { width: length, height: h }).box;
+                
+                // Inherit painted material for newly generated hole faces and wall edges if not explicitly painted
+                const p = w.params || {};
+                const fallbackMat = p.textureFront ? mm[4] : (p.textureBack ? mm[5] : mm[4]);
+                if (!p.textureRight && !p.textureSides && !p.texture) mm[0] = fallbackMat;
+                if (!p.textureLeft && !p.textureSides && !p.texture) mm[1] = fallbackMat;
+                if (!p.textureTop && !p.textureSides && !p.texture) mm[2] = fallbackMat;
+                if (!p.textureBottom && !p.textureSides && !p.texture) mm[3] = fallbackMat;
+            }
 
             const wallBottom = -1;
             const wallShape = new THREE.Shape();
@@ -187,6 +201,7 @@ export class EnvironmentBuilder {
                     let h_opening = widg.height || 200;
                     elev = Math.max(0, Math.min(elev, h));
                     h_opening = Math.max(0, Math.min(h_opening, h - elev));
+                    let cutElev = (elev <= 0.1) ? wallBottom : elev;
                     
                     if (type === 'arch_opening') {
                         const radius = halfW;
@@ -262,7 +277,7 @@ export class EnvironmentBuilder {
                         
                         const patternGeo = new THREE.ExtrudeGeometry(patternShape, { depth: t, bevelEnabled: false });
                         patternGeo.translate(0, 0, -t / 2);
-                        const patternMat = matMain.clone(); // inherit wall material
+                        const patternMat = mm[4].clone(); // inherit wall material
                         const patternMesh = new THREE.Mesh(patternGeo, patternMat);
                         patternMesh.castShadow = true; patternMesh.receiveShadow = true;
                         
@@ -292,7 +307,7 @@ export class EnvironmentBuilder {
                         const nicheGeo = new THREE.BoxGeometry(widg.width, h_opening, recessThickness);
                         const zOffset = (widg.facing === -1) ? (t/2 - recessThickness/2) : (-t/2 + recessThickness/2);
                         nicheGeo.translate(wCenter, elev + h_opening/2, zOffset);
-                        const nicheMesh = new THREE.Mesh(nicheGeo, matMain);
+                        const nicheMesh = new THREE.Mesh(nicheGeo, mm[4]); // inherit wall material
                         nicheMesh.castShadow = true; nicheMesh.receiveShadow = true;
                         extraMeshes.push(nicheMesh);
                     }
@@ -348,9 +363,39 @@ export class EnvironmentBuilder {
             if (pts && pts.length === 8) {
                 shearGeo(wallGeo);
             }
-            // ==================================
+            // ====== MULTI-MATERIAL AND UV FIX FOR EXTRUDED WALLS ======
+            let finalWallGeo = wallGeo.toNonIndexed();
+            finalWallGeo.clearGroups();
+            const pos = finalWallGeo.attributes.position;
+            const norm = finalWallGeo.attributes.normal;
+            const uvs = finalWallGeo.attributes.uv;
+            
+            finalWallGeo.computeVertexNormals();
 
-            const wallMesh = new THREE.Mesh(wallGeo, matMain);
+            for (let i = 0; i < pos.count; i += 3) {
+                const nx = norm.getX(i) + norm.getX(i+1) + norm.getX(i+2);
+                const ny = norm.getY(i) + norm.getY(i+1) + norm.getY(i+2);
+                const nz = norm.getZ(i) + norm.getZ(i+1) + norm.getZ(i+2);
+                const absX = Math.abs(nx);
+                const absY = Math.abs(ny);
+                const absZ = Math.abs(nz);
+                
+                let groupIdx = 0;
+                if (absX > absY && absX > absZ) groupIdx = nx > 0 ? 0 : 1;
+                else if (absY > absX && absY > absZ) groupIdx = ny > 0 ? 2 : 3;
+                else groupIdx = nz > 0 ? 4 : 5;
+                
+                finalWallGeo.addGroup(i, 3, groupIdx);
+                
+                for (let vIdx = i; vIdx < i + 3; vIdx++) {
+                    const vx = pos.getX(vIdx), vy = pos.getY(vIdx), vz = pos.getZ(vIdx);
+                    if (groupIdx <= 1) uvs.setXY(vIdx, vz, vy);
+                    else if (groupIdx <= 3) uvs.setXY(vIdx, vx, vz);
+                    else uvs.setXY(vIdx, vx, vy);
+                }
+            }
+
+            const wallMesh = new THREE.Mesh(finalWallGeo, mm);
             wallMesh.castShadow = true; wallMesh.receiveShadow = true;
             
             // Add subtle architectural edges for corner visibility
@@ -807,6 +852,21 @@ export class EnvironmentBuilder {
                         const totalH = w.type === 'railing' ? h + 40 : h;
                         const startY = (w.type === 'railing' && underlyingWall && h > 0) ? h : 0;
                         const wallBottom = w.type === 'railing' ? startY : -1;
+                        
+                        // Compute mm early so holes and patterns can inherit painted materials
+                        let mm = [matMain, matMain, matMain, matMain, matMain, matMain];
+                        if (this.ctx.helpers && this.ctx.helpers.getFaceMaterials) {
+                            mm = this.ctx.helpers.getFaceMaterials(w, matMain, { width: length, height: totalH }).box;
+                            
+                            // Inherit painted material for newly generated hole faces and wall edges if not explicitly painted
+                            const p = w.params || {};
+                            const fallbackMat = p.textureFront ? mm[4] : (p.textureBack ? mm[5] : mm[4]);
+                            if (!p.textureRight && !p.textureSides && !p.texture) mm[0] = fallbackMat;
+                            if (!p.textureLeft && !p.textureSides && !p.texture) mm[1] = fallbackMat;
+                            if (!p.textureTop && !p.textureSides && !p.texture) mm[2] = fallbackMat;
+                            if (!p.textureBottom && !p.textureSides && !p.texture) mm[3] = fallbackMat;
+                        }
+
                         const wallShape = new THREE.Shape();
                         wallShape.moveTo(0, wallBottom); wallShape.lineTo(length, wallBottom); wallShape.lineTo(length, totalH); wallShape.lineTo(0, totalH); wallShape.lineTo(0, wallBottom);
                         
@@ -911,7 +971,7 @@ export class EnvironmentBuilder {
                                             }
                                             const patternGeo = new THREE.ExtrudeGeometry(patternShape, { depth: w.thickness, bevelEnabled: false });
                                             patternGeo.translate(0, 0, -w.thickness / 2);
-                                            const patternMat = matMain.clone();
+                                            const patternMat = mm[4].clone(); // inherit wall material
                                             const patternMesh = new THREE.Mesh(patternGeo, patternMat);
                                             patternMesh.castShadow = true; patternMesh.receiveShadow = true;
                                             
@@ -940,7 +1000,7 @@ export class EnvironmentBuilder {
                                             const nicheGeo = new THREE.BoxGeometry(widg.width, h_opening, recessThickness);
                                             const zOffset = (widg.facing === -1) ? (w.thickness/2 - recessThickness/2) : (-w.thickness/2 + recessThickness/2);
                                             nicheGeo.translate(wCenter, elev + h_opening/2, zOffset);
-                                            const nicheMesh = new THREE.Mesh(nicheGeo, matMain);
+                                            const nicheMesh = new THREE.Mesh(nicheGeo, mm[4]); // inherit wall material
                                             nicheMesh.castShadow = true; nicheMesh.receiveShadow = true;
                                             extraMeshes.push(nicheMesh);
                                         }
@@ -994,8 +1054,40 @@ export class EnvironmentBuilder {
                         shearGeo(wallGeo, w.thickness);
                         }
                         // ==================================
+                        
+                        // Fix for multi-material mapping on static walls
+                        let finalWallGeo = wallGeo.toNonIndexed();
+                        finalWallGeo.clearGroups();
+                        const finalPos = finalWallGeo.attributes.position;
+                        const finalNorm = finalWallGeo.attributes.normal;
+                        const finalUvs = finalWallGeo.attributes.uv;
+                        
+                        finalWallGeo.computeVertexNormals();
 
-                        const wallMesh = new THREE.Mesh(wallGeo, matMain);
+                        for (let i = 0; i < finalPos.count; i += 3) {
+                            const nx = finalNorm.getX(i) + finalNorm.getX(i+1) + finalNorm.getX(i+2);
+                            const ny = finalNorm.getY(i) + finalNorm.getY(i+1) + finalNorm.getY(i+2);
+                            const nz = finalNorm.getZ(i) + finalNorm.getZ(i+1) + finalNorm.getZ(i+2);
+                            const absX = Math.abs(nx);
+                            const absY = Math.abs(ny);
+                            const absZ = Math.abs(nz);
+                            
+                            let groupIdx = 0;
+                            if (absX > absY && absX > absZ) groupIdx = nx > 0 ? 0 : 1;
+                            else if (absY > absX && absY > absZ) groupIdx = ny > 0 ? 2 : 3;
+                            else groupIdx = nz > 0 ? 4 : 5;
+                            
+                            finalWallGeo.addGroup(i, 3, groupIdx);
+                            
+                            for (let vIdx = i; vIdx < i + 3; vIdx++) {
+                                const vx = finalPos.getX(vIdx), vy = finalPos.getY(vIdx), vz = finalPos.getZ(vIdx);
+                                if (groupIdx <= 1) finalUvs.setXY(vIdx, vz, vy);
+                                else if (groupIdx <= 3) finalUvs.setXY(vIdx, vx, vz);
+                                else finalUvs.setXY(vIdx, vx, vy);
+                            }
+                        }
+
+                        const wallMesh = new THREE.Mesh(finalWallGeo, mm);
                         wallMesh.castShadow = true; wallMesh.receiveShadow = true;
                         
                         const edgesGeo = new THREE.EdgesGeometry(wallGeo, 15);

@@ -476,6 +476,58 @@ export class GizmoManager {
                                 } else {
                                     this.activeObject.material = newMat;
                                 }
+                                
+                                // Fix for walls: apply to the actual visible wall mesh, not just the invisible hit plane
+                                if (entity.type === 'outer' || entity.type === 'inner') {
+                                    const wallGroup = this.activeObject.parent;
+                                    if (wallGroup && wallGroup.children.length > 0) {
+                                        const wallMesh = wallGroup.children[0];
+                                        if (wallMesh.isMesh && Array.isArray(wallMesh.material)) {
+                                            let wIndex = 0;
+                                            if (target === 'right') wIndex = 0;
+                                            else if (target === 'left') wIndex = 1;
+                                            else if (target === 'top') wIndex = 2;
+                                            else if (target === 'bottom') wIndex = 3;
+                                            else if (target === 'front') wIndex = 4;
+                                            else if (target === 'back') wIndex = 5;
+                                            wallMesh.material[wIndex] = newMat;
+                                        }
+                                    }
+                                } else {
+                                    // Fix for widgets (e.g. sunshade, moldings, fascia)
+                                    const widgetGroup = this.activeObject.parent;
+                                    if (widgetGroup) {
+                                        let wIndex = this.activeMatIndex;
+                                        if (target === 'right') wIndex = 0;
+                                        else if (target === 'left') wIndex = 1;
+                                        else if (target === 'top') wIndex = 2;
+                                        else if (target === 'bottom') wIndex = 3;
+                                        else if (target === 'front') wIndex = 4;
+                                        else if (target === 'back') wIndex = 5;
+                                        
+                                        widgetGroup.traverse(child => {
+                                            if (child.isMesh && !child.userData.isHitbox && child.material) {
+                                                // If the mesh uses a material array, update the specific face
+                                                if (Array.isArray(child.material)) {
+                                                    if (child.material[wIndex]) {
+                                                        child.material[wIndex] = newMat;
+                                                    }
+                                                    // Inherit to unpainted faces
+                                                    const p = entity.params || {};
+                                                    const faceKeys = ['textureRight', 'textureLeft', 'textureTop', 'textureBottom', 'textureFront', 'textureBack'];
+                                                    for (let i = 0; i < 6; i++) {
+                                                        if (!p[faceKeys[i]]) {
+                                                            child.material[i] = newMat;
+                                                        }
+                                                    }
+                                                } else {
+                                                    // If the mesh uses a single material, and it's not the hitbox, update it
+                                                    child.material = newMat;
+                                                }
+                                            }
+                                        });
+                                    }
+                                }
                             }
                         }
                         
@@ -486,7 +538,8 @@ export class GizmoManager {
                         if (entity.type && entity.type.startsWith('shape_')) {
                             if (this.ctx.updateShapeLive) this.ctx.updateShapeLive(entity);
                         } else {
-                            if (this.ctx.updateMaterialLive) this.ctx.updateMaterialLive(entity);
+                            // Material is already updated in-place above. No need to call updateMaterialLive which rebuilds the geometry.
+                            // if (this.ctx.updateMaterialLive) this.ctx.updateMaterialLive(entity);
                         }
                     }
                 });

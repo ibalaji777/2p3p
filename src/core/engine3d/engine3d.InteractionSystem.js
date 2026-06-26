@@ -53,7 +53,7 @@ export class OpeningGizmo extends THREE.Group {
             if (e.button !== 0) return;
             this.updateMouse(e);
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-            const intersects = this.raycaster.intersectObjects(this.handles.children, false);
+            const intersects = this.raycaster.intersectObjects(this.handles.children, false).filter(hit => hit.object.visible);
             if (intersects.length > 0) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -88,7 +88,7 @@ export class OpeningGizmo extends THREE.Group {
             
             if (!this.activeHandle) {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-                const intersects = this.raycaster.intersectObjects(this.handles.children, false);
+                const intersects = this.raycaster.intersectObjects(this.handles.children, false).filter(hit => hit.object.visible);
                 this.handles.children.forEach(c => c.scale.set(1, 1, 1));
                 if (intersects.length > 0) {
                     intersects[0].object.scale.set(1.2, 1.2, 1.2);
@@ -202,7 +202,19 @@ export class OpeningGizmo extends THREE.Group {
         
         const w = entity.width || 100;
         let h = entity.height;
-        if (h === undefined) h = (entity.type === 'door') ? 80 : ((entity.type === 'window') ? 45 : 200);
+        let yOffset = 0;
+        
+        if (h === undefined) {
+            if (entity.type === 'sunshade') {
+                h = (entity.chajjaType === 'box_frame') ? (entity.frameHeight || 150) : 10;
+                if (entity.chajjaType === 'box_frame') {
+                    yOffset = -h + 6;
+                }
+            } else {
+                h = (entity.type === 'door') ? 80 : ((entity.type === 'window') ? 45 : 200);
+            }
+        }
+        
         const d = entity.depth || entity.wall?.thickness || 20;
         
         this.position.copy(this.target.getWorldPosition(new THREE.Vector3()));
@@ -217,7 +229,7 @@ export class OpeningGizmo extends THREE.Group {
             this.hFront.visible = false;
             this.hBack.visible = false;
             
-            this.hCenter.position.set(0, h/2, 0);
+            this.hCenter.position.set(0, yOffset + h/2, 0);
         } else {
             this.hCenter.visible = false;
             this.hLeft.visible = true;
@@ -227,12 +239,12 @@ export class OpeningGizmo extends THREE.Group {
             this.hFront.visible = true;
             this.hBack.visible = true;
             
-            this.hLeft.position.set(-w/2, h/2, 0);
-            this.hRight.position.set(w/2, h/2, 0);
-            this.hTop.position.set(0, h, 0);
-            this.hBottom.position.set(0, 0, 0);
-            this.hFront.position.set(0, h/2, d/2);
-            this.hBack.position.set(0, h/2, -d/2);
+            this.hLeft.position.set(-w/2, yOffset + h/2, 0);
+            this.hRight.position.set(w/2, yOffset + h/2, 0);
+            this.hTop.position.set(0, yOffset + h, 0);
+            this.hBottom.position.set(0, yOffset, 0);
+            this.hFront.position.set(0, yOffset + h/2, d/2);
+            this.hBack.position.set(0, yOffset + h/2, -d/2);
         }
         
         this.renderOrder = 999;
@@ -541,18 +553,21 @@ export class InteractionSystem {
             shape.moveTo(-hlWidth/2, -hlHeight/2); shape.lineTo(hlWidth/2, -hlHeight/2); shape.lineTo(hlWidth/2, hlHeight/2); shape.lineTo(-hlWidth/2, hlHeight/2); shape.lineTo(-hlWidth/2, -hlHeight/2);
 
             w.attachedWidgets.forEach(widg => {
+                const type = widg.type || widg.configId;
+                const isOpening = ['door', 'window', 'jali_panel', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type);
+                if (!isOpening) return;
+
                 const wCenter = w.length3D * widg.t; const halfW = widg.width / 2; const cx = w.length3D / 2; const cy = totalH / 2;
                 const hx_min = (wCenter - halfW) - cx; const hx_max = (wCenter + halfW) - cx;
                 
-                let elev = widg.elevation; if (elev === undefined) elev = (widg.type === 'window') ? 35 : 0;
-                let h_opening = widg.height; if (h_opening === undefined) h_opening = (widg.type === 'door') ? 80 : ((widg.type === 'window') ? 45 : 200);
+                let elev = widg.elevation; if (elev === undefined) elev = (type === 'window') ? 35 : 0;
+                let h_opening = widg.height; if (h_opening === undefined) h_opening = (type === 'door') ? 80 : ((type === 'window') ? 45 : 200);
                 elev = Math.max(0, Math.min(elev, currentH));
                 h_opening = Math.max(0, Math.min(h_opening, currentH - elev));
                 const w_y_min = elev; const w_y_max = elev + h_opening;
 
                 if (w_y_max > w_y_min) {
                     const hy_min = w_y_min - cy; const hy_max = w_y_max - cy;
-                    const type = widg.type || widg.configId;
                     const hole = new THREE.Path();
                     const hCenter = wCenter - cx;
                     

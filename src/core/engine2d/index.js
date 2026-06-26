@@ -1774,10 +1774,12 @@ export class FloorPlanner {
                     rows: wid.rows, cols: wid.cols, spacing: wid.spacing, patternStyle: wid.patternStyle, decorConfigId: wid.decorConfigId,
                     doorType: wid.doorType, doorMat: wid.doorMat, 
                     windowType: wid.windowType, frameMat: wid.frameMat, glassMat: wid.glassMat, grillePattern: wid.grillePattern,
-                    description: wid.description
+                    description: wid.description,
+                    params: wid.params || {}
                 })),
                 decors: w.attachedDecor ? w.attachedDecor.map(d => ({ id: d.id, configId: d.configId, side: d.side, localX: d.localX, localY: d.localY, localZ: d.localZ, width: d.width, height: d.height, depth: d.depth, tileSize: d.tileSize, faces: { front: d.faces.front, back: d.faces.back, left: d.faces.left, right: d.faces.right } })) : [],
-                moldings: w.attachedMoldings ? w.attachedMoldings.map(m => ({ t: m.t, type: m.type, configId: m.type, width: m.width, depth: m.depth, heightOffset: m.heightOffset, side: m.side, profileType: m.profileType, material: m.material, color: m.color, layers: m.layers, layerGap: m.layerGap, grooveWidth: m.grooveWidth, frameWidth: m.frameWidth })) : []
+                moldings: w.attachedMoldings ? w.attachedMoldings.map(m => ({ t: m.t, type: m.type, configId: m.type, width: m.width, depth: m.depth, heightOffset: m.heightOffset, side: m.side, profileType: m.profileType, material: m.material, color: m.color, layers: m.layers, layerGap: m.layerGap, grooveWidth: m.grooveWidth, frameWidth: m.frameWidth })) : [],
+                params: w.params || {}
             })),
             furniture: this.furniture.map(f => ({ x: f.group.x(), y: f.group.y(), rotation: f.rotation, width: f.width, depth: f.depth, height: f.height, configId: f.config.id, description: f.description })),
             stairs: this.stairs.map(s => {
@@ -1901,6 +1903,7 @@ export class FloorPlanner {
                         });
                     }
                     if (wData.decors) { wall.attachedDecor = JSON.parse(JSON.stringify(wData.decors)); }
+                    if (wData.params) { wall.params = JSON.parse(JSON.stringify(wData.params)); }
                     this.walls.push(wall);
                 });
             }

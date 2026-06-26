@@ -652,11 +652,16 @@ export const WIDGET_REGISTRY = {
             const hw = entity.width / 2;
             const w = entity.width; 
             const d = entity.depth || 40; 
-            const wallOffset = 7.5; 
-            const signY = entity.facing === 1 ? -1 : 1; 
+            const thick = entity.wall?.thickness || entity.wall?.config?.thickness || 20;
+            const wallOffset = thick / 2; 
+            // Default to pointing OUTSIDE (negative Y) for clockwise rooms
+            const signY = entity.facing === 1 ? 1 : -1; 
             const rectY = signY === 1 ? wallOffset : -wallOffset - d;
             
-            const rect = new Konva.Rect({ x: -hw, y: rectY, width: w, height: d, fill: 'transparent', stroke: '#3b82f6', strokeWidth: 2, dash: [4, 4] });
+            const rect = new Konva.Rect({ 
+                x: -hw, y: rectY, width: w, height: d, 
+                fill: '#fcd34d', opacity: 0.4, stroke: '#f59e0b', strokeWidth: 1 
+            });
             group.add(rect);
         },
         render3D: (sceneGroup, entity, helpers) => {
@@ -665,8 +670,11 @@ export const WIDGET_REGISTRY = {
             sunshadeGroup.position.set(entity.x, baseElev, entity.z);
             sunshadeGroup.rotation.y = -entity.angle;
 
-            const signZ = entity.facing === 1 ? 1 : -1;
-            const wallOffset = 7.5;
+            const thick = entity.thick || 20;
+            const wallOffset = thick / 2; 
+            // Default to pointing OUTSIDE (negative Z) for clockwise rooms
+            const signZ = (entity.facing === -1) ? -1 : 1;
+            
             const contentGroup = new THREE.Group();
             contentGroup.position.z = wallOffset * signZ;
             sunshadeGroup.add(contentGroup);
@@ -675,10 +683,34 @@ export const WIDGET_REGISTRY = {
             const matConcrete = helpers.getDynamicMaterial('concrete', 'wall');
             const cDepth = entity.depth || 40;
             
+            let mmBox = matConcrete;
+            let mmExtrude = matConcrete;
+            if (helpers && helpers.getFaceMaterials) {
+                const mats = helpers.getFaceMaterials(entity, matConcrete, { width: entity.width, height: cDepth });
+                
+                // Inherit painted material for unpainted faces of the sunshade
+                const p = entity.params || {};
+                const paintedMat = mats.box.find((m, i) => {
+                    const key = ['textureRight', 'textureLeft', 'textureTop', 'textureBottom', 'textureFront', 'textureBack'][i];
+                    return p[key];
+                });
+                if (paintedMat) {
+                    for (let i = 0; i < 6; i++) {
+                        const key = ['textureRight', 'textureLeft', 'textureTop', 'textureBottom', 'textureFront', 'textureBack'][i];
+                        if (!p[key]) {
+                            mats.box[i] = paintedMat;
+                        }
+                    }
+                }
+                
+                mmBox = mats.box;
+                mmExtrude = mats.extrude;
+            }
+            
             if (chajjaStyle === 'concrete_slab') {
                 const cH = 2; 
                 const cGeo = new THREE.BoxGeometry(entity.width, cH, cDepth); 
-                const cMesh = new THREE.Mesh(cGeo, matConcrete); 
+                const cMesh = new THREE.Mesh(cGeo, mmBox); 
                 cMesh.position.set(0, cH/2, (cDepth/2) * signZ); 
                 cMesh.castShadow = true; 
                 contentGroup.add(cMesh);
@@ -860,7 +892,7 @@ export const WIDGET_REGISTRY = {
                 shape.lineTo(-halfW, 0);
                 
                 const cGeo = new THREE.ExtrudeGeometry(shape, { depth: cH, bevelEnabled: false });
-                const cMesh = new THREE.Mesh(cGeo, matConcrete);
+                const cMesh = new THREE.Mesh(cGeo, mmExtrude);
                 cMesh.rotation.x = -Math.PI / 2; 
                 if (signZ === 1) cMesh.rotation.y = Math.PI; 
                 cMesh.position.set(0, 0, 0);
@@ -869,7 +901,7 @@ export const WIDGET_REGISTRY = {
             } else if (chajjaStyle === 'cantilever_rcc') {
                 const cH = 2; 
                 const cGeo = new THREE.BoxGeometry(entity.width, cH, cDepth);
-                const cMesh = new THREE.Mesh(cGeo, matConcrete);
+                const cMesh = new THREE.Mesh(cGeo, mmBox);
                 cMesh.position.set(0, cH/2, (cDepth/2) * signZ);
                 cMesh.castShadow = true;
                 contentGroup.add(cMesh);
@@ -928,22 +960,22 @@ export const WIDGET_REGISTRY = {
                 const frameThick = 6;
                 
                 const topGeo = new THREE.BoxGeometry(cWidth, frameThick, cDepth);
-                const topM = new THREE.Mesh(topGeo, matConcrete);
+                const topM = new THREE.Mesh(topGeo, mmBox);
                 topM.position.set(0, frameThick/2, (cDepth/2)*signZ);
                 topM.castShadow = true;
                 contentGroup.add(topM);
                 
                 const sideGeo = new THREE.BoxGeometry(frameThick, frameDrop, cDepth);
-                const sL = new THREE.Mesh(sideGeo, matConcrete);
+                const sL = new THREE.Mesh(sideGeo, mmBox);
                 sL.position.set(-cWidth/2 + frameThick/2, -frameDrop/2 + frameThick, (cDepth/2)*signZ);
                 sL.castShadow = true;
                 
-                const sR = new THREE.Mesh(sideGeo, matConcrete);
+                const sR = new THREE.Mesh(sideGeo, mmBox);
                 sR.position.set(cWidth/2 - frameThick/2, -frameDrop/2 + frameThick, (cDepth/2)*signZ);
                 sR.castShadow = true;
                 
                 const botGeo = new THREE.BoxGeometry(cWidth, frameThick, cDepth);
-                const botM = new THREE.Mesh(botGeo, matConcrete);
+                const botM = new THREE.Mesh(botGeo, mmBox);
                 botM.position.set(0, -frameDrop + frameThick/2, (cDepth/2)*signZ);
                 botM.castShadow = true;
                 
@@ -955,6 +987,7 @@ export const WIDGET_REGISTRY = {
             const hitboxGeo = new THREE.BoxGeometry(entity.width, hbHeight, cDepth);
             const hitbox = new THREE.Mesh(hitboxGeo, new THREE.MeshBasicMaterial({transparent: true, opacity: 0, depthWrite: false}));
             hitbox.position.set(0, hbY, (cDepth/2)*signZ);
+            hitbox.userData = { isHitbox: true };
             contentGroup.add(hitbox);
             sunshadeGroup.userData = { isWidget: true, entity: entity };
             sceneGroup.add(sunshadeGroup);
