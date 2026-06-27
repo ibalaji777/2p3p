@@ -496,6 +496,13 @@ export class GizmoManager {
                                     else if (target === 'back') targetParams.textureBack = key;
                                     else entity.doorMat = key;
                                 }
+                            } else if (entity.type === 'window') {
+                                const isGlass = this.activeObject && this.activeObject.userData && this.activeObject.userData.isGlass;
+                                if (isGlass) {
+                                    entity.glassMat = key;
+                                } else {
+                                    entity.frameMat = key;
+                                }
                             } else {
                                 if (target === 'top') targetParams.textureTop = key;
                                 else if (target === 'bottom') targetParams.textureBottom = key;

@@ -817,15 +817,15 @@ export const WIDGET_REGISTRY = {
             const outStile = new THREE.BoxGeometry(fW, height, fThick); const outRail = new THREE.BoxGeometry(entity.width - fW*2, fW, fThick);
             const sl = new THREE.Mesh(outStile, matFrame); sl.position.set(-entity.width/2 + fW/2, height/2, zOffset); const sr = new THREE.Mesh(outStile, matFrame); sr.position.set(entity.width/2 - fW/2, height/2, zOffset);
             const rt = new THREE.Mesh(outRail, matFrame); rt.position.set(0, height - fW/2, zOffset); const rb = new THREE.Mesh(outRail, matFrame); rb.position.set(0, fW/2, zOffset);
-            [sl, sr, rt, rb].forEach(m => { m.castShadow = true; m.receiveShadow = true; winGroup.add(m); });
+            [sl, sr, rt, rb].forEach(m => { m.castShadow = true; m.receiveShadow = true; m.userData = { isFrame: true }; winGroup.add(m); });
             const iW = entity.width - fW*2; const iH = height - fW*2; const sThick = entity.thick * 0.6;
             const makeSash = (w, h, useGlass=true) => {
                 const sG = new THREE.Group(); const sFw = isTrad ? 4 : 2.5; const geoS = new THREE.BoxGeometry(sFw, h, sThick); const geoR = new THREE.BoxGeometry(w - sFw*2, sFw, sThick);
                 const s1 = new THREE.Mesh(geoS, matFrame); s1.position.set(-w/2 + sFw/2, h/2, 0); const s2 = new THREE.Mesh(geoS, matFrame); s2.position.set(w/2 - sFw/2, h/2, 0);
                 const r1 = new THREE.Mesh(geoR, matFrame); r1.position.set(0, h - sFw/2, 0); const r2 = new THREE.Mesh(geoR, matFrame); r2.position.set(0, sFw/2, 0);
-                [s1, s2, r1, r2].forEach(m => { m.castShadow = true; m.receiveShadow = true; sG.add(m); });
-                if (useGlass) { const glass = new THREE.Mesh(new THREE.BoxGeometry(w - sFw*2, h - sFw*2, sThick*0.3), matGlass); glass.position.set(0, h/2, 0); sG.add(glass); } 
-                else { const woodPanel = new THREE.Mesh(new THREE.BoxGeometry(w - sFw*2, h - sFw*2, sThick*0.5), matFrame); woodPanel.position.set(0, h/2, 0); sG.add(woodPanel); }
+                [s1, s2, r1, r2].forEach(m => { m.castShadow = true; m.receiveShadow = true; m.userData = { isFrame: true }; sG.add(m); });
+                if (useGlass) { const glass = new THREE.Mesh(new THREE.BoxGeometry(w - sFw*2, h - sFw*2, sThick*0.3), matGlass); glass.position.set(0, h/2, 0); glass.userData = { isGlass: true }; sG.add(glass); } 
+                else { const woodPanel = new THREE.Mesh(new THREE.BoxGeometry(w - sFw*2, h - sFw*2, sThick*0.5), matFrame); woodPanel.position.set(0, h/2, 0); woodPanel.userData = { isFrame: true }; sG.add(woodPanel); }
                 return sG;
             };
             if (wConf.type === 'fixed') { const sash = makeSash(iW, iH); sash.position.set(0, fW, zOffset); winGroup.add(sash); } 
@@ -842,7 +842,7 @@ export const WIDGET_REGISTRY = {
                 const sideW = Math.hypot(iW*0.2, zOffset); const sideAng = Math.atan2(zOffset, iW*0.2);
                 const sL = makeSash(sideW, iH); sL.position.set(-iW/2 + (iW*0.2)/2, fW, zOffset/2); sL.rotation.y = -sideAng; winGroup.add(sL); const sR = makeSash(sideW, iH); sR.position.set(iW/2 - (iW*0.2)/2, fW, zOffset/2); sR.rotation.y = sideAng; winGroup.add(sR);
                 const capShape = new THREE.Shape(); capShape.moveTo(-iW/2 - fW, 0); capShape.lineTo(iW/2 + fW, 0); capShape.lineTo(frontW/2 + fW, zOffset + fThick/2); capShape.lineTo(-frontW/2 - fW, zOffset + fThick/2);
-                const capGeo = new THREE.ExtrudeGeometry(capShape, {depth: fW, bevelEnabled:false}); capGeo.rotateX(Math.PI/2); const capT = new THREE.Mesh(capGeo, matFrame); capT.position.set(0, height, 0); const capB = new THREE.Mesh(capGeo, matFrame); capB.position.set(0, fW, 0); winGroup.add(capT, capB);
+                const capGeo = new THREE.ExtrudeGeometry(capShape, {depth: fW, bevelEnabled:false}); capGeo.rotateX(Math.PI/2); const capT = new THREE.Mesh(capGeo, matFrame); capT.position.set(0, height, 0); const capB = new THREE.Mesh(capGeo, matFrame); capB.position.set(0, fW, 0); [capT, capB].forEach(m => m.userData = { isFrame: true }); winGroup.add(capT, capB);
             }
             if (entity.grillePattern && entity.grillePattern !== 'none') {
                 const grilleGroup = new THREE.Group(); const grilleZ = entity.facing === 1 ? fThick/2 - 0.5 : -fThick/2 + 0.5; grilleGroup.position.set(0, 0, grilleZ); const barRadius = 0.3;

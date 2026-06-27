@@ -49,7 +49,7 @@ export class Preview3D {
             getDynamicMaterial: (matId, category) => {
                 let conf;
                 if (category === 'door') conf = DOOR_MATERIALS[matId] || DOOR_MATERIALS_REGISTRY[matId] || DOOR_MATERIALS.wood;
-                else if (category === 'window_frame') conf = WINDOW_FRAME_MATERIALS[matId] || WINDOW_FRAME_MATERIALS.alum_powder;
+                else if (category === 'window_frame') conf = WINDOW_FRAME_MATERIALS[matId] || DOOR_MATERIALS_REGISTRY[matId] || WALL_DECOR_REGISTRY[matId] || WINDOW_FRAME_MATERIALS.alum_powder;
                 else if (category === 'window_glass') conf = WINDOW_GLASS_MATERIALS[matId] || WINDOW_GLASS_MATERIALS.clear;
                 
                 if (!conf) return new THREE.MeshStandardMaterial();
@@ -74,12 +74,12 @@ export class Preview3D {
                     });
                 }
                 
-                if (category === 'door' && DOOR_MATERIALS_REGISTRY[matId] && this.assets) {
-                    const texConf = DOOR_MATERIALS_REGISTRY[matId];
+                if ((category === 'door' || category === 'window_frame') && (DOOR_MATERIALS_REGISTRY[matId] || WALL_DECOR_REGISTRY[matId]) && this.assets) {
+                    const texConf = DOOR_MATERIALS_REGISTRY[matId] || WALL_DECOR_REGISTRY[matId];
                     this.assets.getTexture(texConf).then(tex => {
                         const texClone = tex.clone();
                         texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                        // Use a reasonable tiling for a door panel
+                        // For thin frames/panels, a vertical repeat works best
                         texClone.repeat.set(1, 2); 
                         mat.map = texClone;
                         mat.color.setHex(0xffffff); // clear base color to let texture show
