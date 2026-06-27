@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TransformControls } from './engine3d/TransformControls.js';
-import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY } from './registry.js';
+import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY, DOOR_MATERIALS_REGISTRY } from './registry.js';
 import { EnvironmentBuilder } from "./engine3d/engine3d.EnvironmentBuilder.js";
 import { AssetManager  } from "./engine3d/engine3d.AssetManager.js";
 import { DecorManager  } from "./engine3d/engine3d.DecorManager.js";
@@ -48,30 +48,46 @@ export class Preview3D {
         this.helpers = {
             getDynamicMaterial: (matId, category) => {
                 let conf;
-                if (category === 'door') conf = DOOR_MATERIALS[matId] || DOOR_MATERIALS.wood;
+                if (category === 'door') conf = DOOR_MATERIALS[matId] || DOOR_MATERIALS_REGISTRY[matId] || DOOR_MATERIALS.wood;
                 else if (category === 'window_frame') conf = WINDOW_FRAME_MATERIALS[matId] || WINDOW_FRAME_MATERIALS.alum_powder;
                 else if (category === 'window_glass') conf = WINDOW_GLASS_MATERIALS[matId] || WINDOW_GLASS_MATERIALS.clear;
                 
                 if (!conf) return new THREE.MeshStandardMaterial();
                 
+                let mat;
                 if (conf.transmission) {
-                    return new THREE.MeshPhysicalMaterial({
-                        color: conf.color,
+                    mat = new THREE.MeshPhysicalMaterial({
+                        color: conf.color || 0xffffff,
                         roughness: conf.roughness !== undefined ? conf.roughness : 0.5,
                         metalness: conf.metalness !== undefined ? conf.metalness : 0.1,
                         transmission: conf.transmission,
                         ior: conf.ior || 1.5,
                         transparent: true
                     });
+                } else {
+                    mat = new THREE.MeshStandardMaterial({
+                        color: conf.color || 0xffffff,
+                        roughness: conf.roughness !== undefined ? conf.roughness : 0.5,
+                        metalness: conf.metalness !== undefined ? conf.metalness : 0.1,
+                        transparent: conf.transparent || false,
+                        opacity: conf.opacity !== undefined ? conf.opacity : 1
+                    });
                 }
                 
-                return new THREE.MeshStandardMaterial({
-                    color: conf.color,
-                    roughness: conf.roughness !== undefined ? conf.roughness : 0.5,
-                    metalness: conf.metalness !== undefined ? conf.metalness : 0.1,
-                    transparent: conf.transparent || false,
-                    opacity: conf.opacity !== undefined ? conf.opacity : 1
-                });
+                if (category === 'door' && DOOR_MATERIALS_REGISTRY[matId] && this.assets) {
+                    const texConf = DOOR_MATERIALS_REGISTRY[matId];
+                    this.assets.getTexture(texConf).then(tex => {
+                        const texClone = tex.clone();
+                        texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                        // Use a reasonable tiling for a door panel
+                        texClone.repeat.set(1, 2); 
+                        mat.map = texClone;
+                        mat.color.setHex(0xffffff); // clear base color to let texture show
+                        mat.needsUpdate = true;
+                    });
+                }
+                
+                return mat;
             },
             getFaceMaterials: (entity, baseMaterial, dimensions) => {
                 let matSides = baseMaterial.clone();
@@ -85,14 +101,20 @@ export class Preview3D {
                 const applyTex = (mat, texKey) => {
                     if (!texKey) return;
 
-                    const config = WALL_DECOR_REGISTRY[texKey];
+                    const config = WALL_DECOR_REGISTRY[texKey] || DOOR_MATERIALS_REGISTRY[texKey];
                     if (config) {
                         this.assets.getTexture(config).then(tex => {
                             const texClone = tex.clone();
                             texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                            const tileSize = config.defaultTileSize || 40;
-                            const maxDim = Math.max(dimensions?.width || 100, dimensions?.height || 100);
-                            texClone.repeat.set(maxDim / tileSize, maxDim / tileSize);
+                            
+                            if (DOOR_MATERIALS_REGISTRY[texKey]) {
+                                texClone.repeat.set(1, 2);
+                            } else {
+                                const tileSize = config.defaultTileSize || 40;
+                                const maxDim = Math.max(dimensions?.width || 100, dimensions?.height || 100);
+                                texClone.repeat.set(maxDim / tileSize, maxDim / tileSize);
+                            }
+                            
                             mat.map = texClone;
                             mat.color.setHex(0xffffff); // Revert to white once texture loads
                             mat.needsUpdate = true;

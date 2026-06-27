@@ -106,6 +106,42 @@ export const RAILING_REGISTRY = {
 };
 
 // --- PNG WALL PATTERNS REGISTRY ---
+export const DOOR_MATERIALS_REGISTRY = {
+    'door_indian_1': {
+        id: 'door_indian_1',
+        name: 'Indian Carved Wood',
+        texture: 'models/wall/wood_1_light.png', 
+        thumbnail: 'models/wall/wood_1_light.png', 
+        defaultWidth: 100,
+        defaultHeight: 100,
+        defaultDepth: 0.2,
+        defaultRepeat: 1,
+        scaleMultiplier: 1
+    },
+    'door_indian_2': {
+        id: 'door_indian_2',
+        name: 'Dark Teak Door',
+        texture: 'models/wall/wood_2_dark.png', 
+        thumbnail: 'models/wall/wood_2_dark.png', 
+        defaultWidth: 100,
+        defaultHeight: 100,
+        defaultDepth: 0.2,
+        defaultRepeat: 1,
+        scaleMultiplier: 1
+    },
+    'door_modern_1': {
+        id: 'door_modern_1',
+        name: 'Modern Panel',
+        texture: 'models/wall/marble_1_white.png', 
+        thumbnail: 'models/wall/marble_1_white.png', 
+        defaultWidth: 100,
+        defaultHeight: 100,
+        defaultDepth: 0.2,
+        defaultRepeat: 1,
+        scaleMultiplier: 1
+    }
+};
+
 export const WALL_DECOR_REGISTRY = {
     'brick_wall': {
         id: 'brick_wall',
@@ -374,20 +410,21 @@ export const FURNITURE_REGISTRY = {
     }
 };
 
-function buildDetailedDoorPanel(width, height, thickness, material, type, isGlass, signX = 1, helpers) {
+function buildDetailedDoorPanel(entity, width, height, thickness, material, type, isGlass, signX = 1, helpers) {
+    const mats = (helpers && helpers.getFaceMaterials) ? helpers.getFaceMaterials(entity, material, { width, height, thick: thickness }).box : material;
     const group = new THREE.Group(); const gap = 0.2; 
     if (isGlass || type === 'french') {
         const frameW = 3.5; const topRailH = 3.5; const botRailH = 5;
         const geoStile = new THREE.BoxGeometry(frameW, height, thickness); const geoRailT = new THREE.BoxGeometry(width - frameW*2, topRailH, thickness); const geoRailB = new THREE.BoxGeometry(width - frameW*2, botRailH, thickness);
-        const stileL = new THREE.Mesh(geoStile, material); stileL.position.set(-width/2 + frameW/2, height/2, 0); const stileR = new THREE.Mesh(geoStile, material); stileR.position.set(width/2 - frameW/2, height/2, 0);
-        const railT = new THREE.Mesh(geoRailT, material); railT.position.set(0, height - topRailH/2, 0); const railB = new THREE.Mesh(geoRailB, material); railB.position.set(0, botRailH/2, 0);
+        const stileL = new THREE.Mesh(geoStile, mats); stileL.position.set(-width/2 + frameW/2, height/2, 0); const stileR = new THREE.Mesh(geoStile, mats); stileR.position.set(width/2 - frameW/2, height/2, 0);
+        const railT = new THREE.Mesh(geoRailT, mats); railT.position.set(0, height - topRailH/2, 0); const railB = new THREE.Mesh(geoRailB, mats); railB.position.set(0, botRailH/2, 0);
         [stileL, stileR, railT, railB].forEach(m => { m.castShadow = true; m.receiveShadow = true; group.add(m); });
         const glassMat = helpers.getDynamicMaterial('glass', 'door'); const geoGlass = new THREE.BoxGeometry(width - frameW*2, height - topRailH - botRailH, thickness * 0.4);
         const glass = new THREE.Mesh(geoGlass, glassMat); glass.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(glass);
     } else {
-        const coreGeo = new THREE.BoxGeometry(width, height, thickness - 0.1); const core = new THREE.Mesh(coreGeo, material); core.position.set(0, height/2, 0); core.castShadow = true; core.receiveShadow = true; group.add(core);
+        const coreGeo = new THREE.BoxGeometry(width, height, thickness - 0.1); const core = new THREE.Mesh(coreGeo, mats); core.position.set(0, height/2, 0); core.castShadow = true; core.receiveShadow = true; group.add(core);
         const numPanels = 4; const panelHeight = (height - (gap * (numPanels - 1))) / numPanels; const geoPanel = new THREE.BoxGeometry(width, panelHeight, thickness);
-        for (let i = 0; i < numPanels; i++) { const p = new THREE.Mesh(geoPanel, material); const yPos = (panelHeight / 2) + i * (panelHeight + gap); p.position.set(0, yPos, 0); p.castShadow = true; p.receiveShadow = true; group.add(p); }
+        for (let i = 0; i < numPanels; i++) { const p = new THREE.Mesh(geoPanel, mats); const yPos = (panelHeight / 2) + i * (panelHeight + gap); p.position.set(0, yPos, 0); p.castShadow = true; p.receiveShadow = true; group.add(p); }
     }
     const metalMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8, roughness: 0.2 }); const silverMat = new THREE.MeshStandardMaterial({ color: 0xe5e7eb, metalness: 0.9, roughness: 0.15 }); const handleY = height * 0.45; 
     if (['sliding', 'double_sliding'].includes(type) && isGlass) {
@@ -611,34 +648,53 @@ export const WIDGET_REGISTRY = {
             let topY = baseElev + rawHeight;
             let height = topY - bottomY;
             const doorGroup = new THREE.Group(); doorGroup.position.set(entity.x, bottomY, entity.z); doorGroup.rotation.y = -entity.angle;
-            const matDoor = helpers.getDynamicMaterial(entity.doorMat, 'door'); const conf = DOOR_MATERIALS[entity.doorMat] || DOOR_MATERIALS.wood; const frameColorHex = new THREE.Color(conf.color).multiplyScalar(0.85);
-            const matFrame = new THREE.MeshStandardMaterial({ color: frameColorHex, roughness: conf.roughness, metalness: conf.metalness, map: matDoor.map, bumpMap: matDoor.bumpMap, bumpScale: conf.bumpScale });
+            
+            const matDoor = helpers.getDynamicMaterial(entity.doorMat, 'door'); 
+            const conf = DOOR_MATERIALS[entity.doorMat] || DOOR_MATERIALS_REGISTRY[entity.doorMat] || DOOR_MATERIALS.wood; 
+            
+            const frameMatKey = entity.frameMat || entity.doorMat;
+            const matFrame = helpers.getDynamicMaterial(frameMatKey, 'door');
+            // If the door material has a specific frame color override (or we want it slightly darker)
+            if (!DOOR_MATERIALS_REGISTRY[frameMatKey]) {
+                matFrame.color.multiplyScalar(0.85);
+            }
+            
             const metalMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8, roughness: 0.2 });
+            
+            // Helper to tag frame meshes so GizmoManager knows it's the frame
+            const tagFrame = (mesh) => {
+                if (Array.isArray(mesh)) {
+                    mesh.forEach(m => m.userData = { ...m.userData, isFrame: true });
+                } else {
+                    mesh.userData = { ...mesh.userData, isFrame: true };
+                }
+                return mesh;
+            };
             const isGlassDoor = entity.doorMat === 'glass'; const frameWidth = 1.5; const frameThick = entity.thick + 1; const doorThick = 2.0; const gapSide = 0.15; const gapTop = 0.15; const gapBottom = 0.5; 
             const leafWidth = entity.width - (frameWidth * 2) - (gapSide * 2); const leafHeight = height - frameWidth - gapTop - gapBottom;
             const openAngle = (Math.PI / 4) * (entity.facing === 1 ? 1 : -1); const pivotXOffset = -entity.width/2 + frameWidth + gapSide/2; const hingePinZ = 0; 
             
             const thresholdGeo = new THREE.BoxGeometry(entity.width, 0.4, (entity.thick || 20) + 0.5);
-            const threshold = new THREE.Mesh(thresholdGeo, matFrame);
+            const threshold = tagFrame(new THREE.Mesh(thresholdGeo, matFrame));
             threshold.position.set(0, 0, 0);
             threshold.receiveShadow = true; threshold.castShadow = true;
             doorGroup.add(threshold);
             
             if (entity.doorType !== 'pocket') { 
-                const jamGeo = new THREE.BoxGeometry(frameWidth, height, frameThick); const jamL = new THREE.Mesh(jamGeo, matFrame); jamL.position.set(-entity.width/2 + frameWidth/2, height/2, 0); const jamR = new THREE.Mesh(jamGeo, matFrame); jamR.position.set(entity.width/2 - frameWidth/2, height/2, 0); const jamT = new THREE.Mesh(new THREE.BoxGeometry(entity.width - (frameWidth * 2), frameWidth, frameThick), matFrame); jamT.position.set(0, height - frameWidth/2, 0);
+                const jamGeo = new THREE.BoxGeometry(frameWidth, height, frameThick); const jamL = tagFrame(new THREE.Mesh(jamGeo, matFrame)); jamL.position.set(-entity.width/2 + frameWidth/2, height/2, 0); const jamR = tagFrame(new THREE.Mesh(jamGeo, matFrame)); jamR.position.set(entity.width/2 - frameWidth/2, height/2, 0); const jamT = tagFrame(new THREE.Mesh(new THREE.BoxGeometry(entity.width - (frameWidth * 2), frameWidth, frameThick), matFrame)); jamT.position.set(0, height - frameWidth/2, 0);
                 const trimStile = new THREE.BoxGeometry(4, height + 2, 0.5); const trimRail = new THREE.BoxGeometry(entity.width + 8, 4, 0.5);
-                [-frameThick/2 - 0.25, frameThick/2 + 0.25].forEach(zOff => { const tL = new THREE.Mesh(trimStile, matFrame); tL.position.set(-entity.width/2 - 2 + frameWidth, height/2 + 1, zOff); const tR = new THREE.Mesh(trimStile, matFrame); tR.position.set(entity.width/2 + 2 - frameWidth, height/2 + 1, zOff); const tT = new THREE.Mesh(trimRail, matFrame); tT.position.set(0, height + 2, zOff); [tL, tR, tT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); }); });
+                [-frameThick/2 - 0.25, frameThick/2 + 0.25].forEach(zOff => { const tL = tagFrame(new THREE.Mesh(trimStile, matFrame)); tL.position.set(-entity.width/2 - 2 + frameWidth, height/2 + 1, zOff); const tR = tagFrame(new THREE.Mesh(trimStile, matFrame)); tR.position.set(entity.width/2 + 2 - frameWidth, height/2 + 1, zOff); const tT = tagFrame(new THREE.Mesh(trimRail, matFrame)); tT.position.set(0, height + 2, zOff); [tL, tR, tT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); }); });
                 [jamL, jamR, jamT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); });
             }
             if (entity.doorType === 'single') {
-                const panel = buildDetailedDoorPanel(leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, entity.side, helpers); const hingeHolder = new THREE.Group(); 
+                const panel = buildDetailedDoorPanel(entity, leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, entity.side, helpers); const hingeHolder = new THREE.Group(); 
                 if (entity.side === 1) { hingeHolder.position.set(-pivotXOffset, gapBottom, hingePinZ); panel.position.set(-leafWidth/2 - gapSide/2, 0, -hingePinZ); panel.rotation.y = Math.PI; hingeHolder.rotation.y = -openAngle; } else { hingeHolder.position.set(pivotXOffset, gapBottom, hingePinZ); panel.position.set(leafWidth/2 + gapSide/2, 0, -hingePinZ); hingeHolder.rotation.y = openAngle; } 
                 hingeHolder.add(panel); doorGroup.add(hingeHolder);
             } else if (entity.doorType === 'double' || entity.doorType === 'french') {
                 const hw = leafWidth / 2 - gapSide/2; const hL = new THREE.Group(); hL.position.set(pivotXOffset, gapBottom, hingePinZ); hL.rotation.y = openAngle; 
-                const panelL = buildDetailedDoorPanel(hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); panelL.position.set(hw/2 + gapSide/2, 0, -hingePinZ); hL.add(panelL);
+                const panelL = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); panelL.position.set(hw/2 + gapSide/2, 0, -hingePinZ); hL.add(panelL);
                 const hR = new THREE.Group(); hR.position.set(-pivotXOffset, gapBottom, hingePinZ); hR.rotation.y = -openAngle;
-                const panelR = buildDetailedDoorPanel(hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); panelR.position.set(-hw/2 - gapSide/2, 0, -hingePinZ); panelR.rotation.y = Math.PI; hR.add(panelR);
+                const panelR = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); panelR.position.set(-hw/2 - gapSide/2, 0, -hingePinZ); panelR.rotation.y = Math.PI; hR.add(panelR);
                 doorGroup.add(hL, hR);
             } else if (entity.doorType === 'sliding' || entity.doorType === 'double_sliding') {
                 const trackMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.6, roughness: 0.5 }); const trackW = doorThick * 2.5; const trackGeo = new THREE.BoxGeometry(leafWidth, 0.5, trackW); 
@@ -646,32 +702,34 @@ export const WIDGET_REGISTRY = {
                 const overlap = 2; 
                 if (entity.doorType === 'sliding') {
                     const hw = (leafWidth / 2) + (overlap / 2);
-                    const pFixed = buildDetailedDoorPanel(hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); pFixed.position.set(hw/2 - overlap/2, gapBottom, -doorThick/2 - 0.1); doorGroup.add(pFixed);
-                    const pSlide = buildDetailedDoorPanel(hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, -1, helpers); const slideAmount = hw * 0.4; pSlide.position.set(-hw/2 + overlap/2 + slideAmount, gapBottom, doorThick/2 + 0.1); doorGroup.add(pSlide);
+                    const pFixed = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); pFixed.position.set(hw/2 - overlap/2, gapBottom, -doorThick/2 - 0.1); doorGroup.add(pFixed);
+                    const pSlide = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, -1, helpers); const slideAmount = hw * 0.4; pSlide.position.set(-hw/2 + overlap/2 + slideAmount, gapBottom, doorThick/2 + 0.1); doorGroup.add(pSlide);
                 } else {
                     const hw = (leafWidth / 4) + (overlap / 2);
-                    const pFixL = buildDetailedDoorPanel(hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 0, helpers); pFixL.position.set(-leafWidth/2 + hw/2, gapBottom, -doorThick/2 - 0.1);
-                    const pFixR = buildDetailedDoorPanel(hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 0, helpers); pFixR.position.set(leafWidth/2 - hw/2, gapBottom, -doorThick/2 - 0.1);
+                    const pFixL = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 0, helpers); pFixL.position.set(-leafWidth/2 + hw/2, gapBottom, -doorThick/2 - 0.1);
+                    const pFixR = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 0, helpers); pFixR.position.set(leafWidth/2 - hw/2, gapBottom, -doorThick/2 - 0.1);
                     const slideAmount = hw * 0.45;
-                    const pSlideL = buildDetailedDoorPanel(hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, -1, helpers); pSlideL.position.set(-leafWidth/4 + slideAmount/2, gapBottom, doorThick/2 + 0.1); 
-                    const pSlideR = buildDetailedDoorPanel(hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); pSlideR.position.set(leafWidth/4 - slideAmount/2, gapBottom, doorThick/2 + 0.1);
+                    const pSlideL = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, -1, helpers); pSlideL.position.set(-leafWidth/4 + slideAmount/2, gapBottom, doorThick/2 + 0.1); 
+                    const pSlideR = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); pSlideR.position.set(leafWidth/4 - slideAmount/2, gapBottom, doorThick/2 + 0.1);
                     doorGroup.add(pFixL, pFixR, pSlideL, pSlideR);
                 }
             } else if (entity.doorType === 'pocket') {
-                const jamL = new THREE.Mesh(new THREE.BoxGeometry(frameWidth, height, frameThick), matFrame); jamL.position.set(-entity.width/2 + frameWidth/2, height/2, 0); doorGroup.add(jamL);
-                const p = buildDetailedDoorPanel(leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); p.position.set(pivotXOffset - leafWidth * 0.4, gapBottom, 0); doorGroup.add(p);
+                const jamL = tagFrame(new THREE.Mesh(new THREE.BoxGeometry(frameWidth, height, frameThick), matFrame)); jamL.position.set(-entity.width/2 + frameWidth/2, height/2, 0); doorGroup.add(jamL);
+                const p = buildDetailedDoorPanel(entity, leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); p.position.set(pivotXOffset - leafWidth * 0.4, gapBottom, 0); doorGroup.add(p);
             } else if (entity.doorType === 'pivot') {
-                const p = buildDetailedDoorPanel(leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); const off = leafWidth * 0.15; p.position.set(leafWidth/2 - off, gapBottom, 0);
-                const pivot = new THREE.Group(); const signX = entity.side === 1 ? 1 : -1; pivot.position.set(pivotXOffset + off, 0, 0); pivot.rotation.y = -openAngle * 1.2 * signX; pivot.add(p);
+                const p = buildDetailedDoorPanel(entity, leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); const off = leafWidth * 0.15; p.position.set(leafWidth/2 - off, gapBottom, 0);
+                doorGroup.add(p); const pivot = new THREE.Group(); const signX = entity.side === 1 ? 1 : -1; pivot.position.set(pivotXOffset + off, 0, 0); pivot.rotation.y = -openAngle * 1.2 * signX; pivot.add(p);
                 const plateGeo = new THREE.CylinderGeometry(1.5, 1.5, 0.5, 16); const floorPlate = new THREE.Mesh(plateGeo, metalMat); floorPlate.position.set(pivotXOffset + off, 0.2, 0); const topPlate = new THREE.Mesh(plateGeo, metalMat); topPlate.position.set(pivotXOffset + off, height - 0.2, 0); doorGroup.add(pivot, floorPlate, topPlate);
             } else if (entity.doorType === 'folding') {
+                const numPanels = 2;
                 const trackGeo = new THREE.BoxGeometry(entity.width - frameWidth*2, 1.5, doorThick + 1); const track = new THREE.Mesh(trackGeo, metalMat); track.position.set(0, height - frameWidth/2 - 0.75, 0); doorGroup.add(track);
-                const panelW = leafWidth / 2 - gapSide/2; const foldAngleBase = Math.PI / 4.5; 
-                const isRightHinge = entity.side === 1; const signX = isRightHinge ? 1 : -1; const startX = isRightHinge ? -pivotXOffset : pivotXOffset; const swingDir = entity.facing === 1 ? 1 : -1; 
-                const pivot1 = new THREE.Group(); pivot1.position.set(startX, gapBottom, hingePinZ * swingDir); pivot1.rotation.y = -foldAngleBase * swingDir * signX;
-                const p1HingeSide = isRightHinge ? -1 : 1; const p1 = buildDetailedDoorPanel(panelW, leafHeight, doorThick, matDoor, 'folding_main', isGlassDoor, p1HingeSide, helpers); p1.position.set((panelW/2 + gapSide/2) * -signX, 0, -hingePinZ * swingDir); pivot1.add(p1);
-                const pivot2 = new THREE.Group(); pivot2.position.set((panelW + gapSide) * -signX, 0, 0); pivot2.rotation.y = foldAngleBase * 2 * swingDir * signX; 
-                const p2 = buildDetailedDoorPanel(panelW, leafHeight, doorThick, matDoor, 'folding_lead', isGlassDoor, p1HingeSide, helpers); p2.position.set((panelW/2 + gapSide/2) * -signX, 0, 0); pivot2.add(p2);
+                const panelW = (leafWidth - (gapSide * (numPanels - 1))) / numPanels; const swingDir = entity.facing === 1 ? 1 : -1; const isRightHinge = entity.side === 1; const signX = isRightHinge ? 1 : -1;
+                
+                const pivot1 = new THREE.Group(); pivot1.position.set(pivotXOffset * -signX, gapBottom, hingePinZ); pivot1.rotation.y = openAngle * 1.5; doorGroup.add(pivot1);
+                const p1HingeSide = isRightHinge ? -1 : 1; const p1 = buildDetailedDoorPanel(entity, panelW, leafHeight, doorThick, matDoor, 'folding_main', isGlassDoor, p1HingeSide, helpers); p1.position.set((panelW/2 + gapSide/2) * -signX, 0, -hingePinZ * swingDir); pivot1.add(p1);
+                
+                const pivot2 = new THREE.Group(); pivot2.position.set((panelW + gapSide) * -signX, 0, 0); pivot2.rotation.y = -openAngle * 3; pivot1.add(pivot2);
+                const p2 = buildDetailedDoorPanel(entity, panelW, leafHeight, doorThick, matDoor, 'folding_lead', isGlassDoor, p1HingeSide, helpers); p2.position.set((panelW/2 + gapSide/2) * -signX, 0, 0); pivot2.add(p2);
                 const jointHingeGeo = new THREE.CylinderGeometry(0.3, 0.3, 3, 12); [leafHeight * 0.85, leafHeight * 0.5, leafHeight * 0.15].forEach(yPos => { const hingeMesh = new THREE.Mesh(jointHingeGeo, metalMat); hingeMesh.position.set(0, yPos, (doorThick/2 + 0.1) * swingDir); pivot2.add(hingeMesh); });
                 const guidePin = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 3, 8), metalMat); guidePin.position.set((panelW - 2) * -signX, leafHeight, 0); p2.add(guidePin); p1.add(pivot2); doorGroup.add(pivot1);
             }

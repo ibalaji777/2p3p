@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY } from '../registry.js';
+import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY } from '../registry.js';
 
 export class GizmoManager {
     constructor(ctx) {
@@ -401,106 +401,130 @@ export class GizmoManager {
             const matThumbs = document.querySelectorAll('.mat-thumb');
 
             const highlightSelectedThumb = (texKey) => {
-                matThumbs.forEach(t => t.style.borderColor = 'transparent');
+                const currentThumbs = document.querySelectorAll('.mat-thumb');
+                currentThumbs.forEach(t => t.style.borderColor = 'transparent');
                 if (texKey !== undefined) {
-                    const activeThumb = Array.from(matThumbs).find(t => t.getAttribute('data-mat') === (texKey || ''));
+                    const activeThumb = Array.from(currentThumbs).find(t => t.getAttribute('data-mat') === (texKey || ''));
                     if (activeThumb) activeThumb.style.borderColor = '#3b82f6';
                     if (this.matNameDisplay) {
-                        const config = WALL_DECOR_REGISTRY[texKey];
+                        const selectedObj = this.ctx.interactions.selectedObject;
+                        const registry = (selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.type === 'door') ? DOOR_MATERIALS_REGISTRY : WALL_DECOR_REGISTRY;
+                        const config = registry[texKey];
                         this.matNameDisplay.innerText = config ? config.name : 'Clear Material';
                     }
                 }
             };
 
-            matThumbs.forEach(thumb => {
-                thumb.addEventListener('click', (e) => {
-                    const selectedObj = this.ctx.interactions.selectedObject;
-                    if (selectedObj && selectedObj.userData.entity && this.activeFace) {
-                        const entity = selectedObj.userData.entity;
-                        entity.params = entity.params || {};
-                        const target = this.activeFace;
-                        const key = thumb.getAttribute('data-mat');
-                        
-                        let targetParams = entity.params;
-                        if (this.activeSubMeshIndex !== -1 && !entity.type.startsWith('shape_')) {
-                            entity.params.blocks = entity.params.blocks || {};
-                            entity.params.blocks[this.activeSubMeshIndex] = entity.params.blocks[this.activeSubMeshIndex] || {};
-                            targetParams = entity.params.blocks[this.activeSubMeshIndex];
-                        }
-                        
-                        if (target === 'top') targetParams.textureTop = key;
-                        else if (target === 'bottom') targetParams.textureBottom = key;
-                        else if (target === 'left') targetParams.textureLeft = key;
-                        else if (target === 'right') targetParams.textureRight = key;
-                        else if (target === 'front') targetParams.textureFront = key;
-                        else if (target === 'back') targetParams.textureBack = key;
-                        
-                        highlightSelectedThumb(key);
-                        
-                        // Apply DIRECTLY to the selected face to guarantee NO spillover
-                        if (this.activeObject && this.activeMatIndex !== undefined && this.activeMatIndex !== -1) {
-                            const mats = Array.isArray(this.activeObject.material) ? this.activeObject.material : [this.activeObject.material];
-                            if (mats[this.activeMatIndex]) {
-                                const newMat = mats[this.activeMatIndex].clone();
-                                if (key && WALL_DECOR_REGISTRY[key]) {
-                                    const config = WALL_DECOR_REGISTRY[key];
-                                    this.ctx.assets.getTexture(config).then(tex => {
-                                        const texClone = tex.clone();
-                                        texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                                        const dim = Math.max(entity.width || 100, entity.height || 100);
-                                        const ts = config.defaultTileSize || 40;
-                                        texClone.repeat.set(dim / ts, dim / ts);
-                                        newMat.map = texClone;
-                                        newMat.color.setHex(0xffffff);
-                                        newMat.needsUpdate = true;
-                                    });
+            this._attachMaterialThumbListeners = () => {
+                const currentThumbs = document.querySelectorAll('.mat-thumb');
+                currentThumbs.forEach(thumb => {
+                    thumb.addEventListener('click', (e) => {
+                        const selectedObj = this.ctx.interactions.selectedObject;
+                        if (selectedObj && selectedObj.userData.entity && this.activeFace) {
+                            const entity = selectedObj.userData.entity;
+                            entity.params = entity.params || {};
+                            const target = this.activeFace;
+                            const key = thumb.getAttribute('data-mat');
+                            
+                            let targetParams = entity.params;
+                            if (this.activeSubMeshIndex !== -1 && !entity.type.startsWith('shape_')) {
+                                entity.params.blocks = entity.params.blocks || {};
+                                entity.params.blocks[this.activeSubMeshIndex] = entity.params.blocks[this.activeSubMeshIndex] || {};
+                                targetParams = entity.params.blocks[this.activeSubMeshIndex];
+                            }
+                            
+                            const isFrame = this.activeObject && this.activeObject.userData && this.activeObject.userData.isFrame;
+                            
+                            if (entity.type === 'door') {
+                                if (isFrame) {
+                                    entity.frameMat = key;
                                 } else {
-                                    newMat.map = null;
-                                    let fColor = 0xffffff;
-                                    if (entity.fasciaMat === 'dark_grey') fColor = 0x333333;
-                                    else if (entity.fasciaMat === 'stone') fColor = 0xa8a29e;
-                                    else if (entity.fasciaMat === 'wood') fColor = 0x8b5a2b;
-                                    newMat.color.setHex(fColor);
+                                    if (target === 'top') targetParams.textureTop = key;
+                                    else if (target === 'bottom') targetParams.textureBottom = key;
+                                    else if (target === 'left') targetParams.textureLeft = key;
+                                    else if (target === 'right') targetParams.textureRight = key;
+                                    else if (target === 'front') targetParams.textureFront = key;
+                                    else if (target === 'back') targetParams.textureBack = key;
+                                    else entity.doorMat = key;
                                 }
-                                
-                                if (Array.isArray(this.activeObject.material)) {
-                                    this.activeObject.material[this.activeMatIndex] = newMat;
-                                } else {
-                                    this.activeObject.material = newMat;
-                                }
-                                
-                                // Fix for walls: apply to the actual visible wall mesh, not just the invisible hit plane
-                                if (entity.type === 'outer' || entity.type === 'inner') {
-                                    const wallGroup = this.activeObject.parent;
-                                    if (wallGroup && wallGroup.children.length > 0) {
-                                        const wallMesh = wallGroup.children[0];
-                                        if (wallMesh.isMesh && Array.isArray(wallMesh.material)) {
-                                            let wIndex = 0;
-                                            if (target === 'right') wIndex = 0;
-                                            else if (target === 'left') wIndex = 1;
-                                            else if (target === 'top') wIndex = 2;
-                                            else if (target === 'bottom') wIndex = 3;
-                                            else if (target === 'front') wIndex = 4;
-                                            else if (target === 'back') wIndex = 5;
-                                            wallMesh.material[wIndex] = newMat;
+                            } else {
+                                if (target === 'top') targetParams.textureTop = key;
+                                else if (target === 'bottom') targetParams.textureBottom = key;
+                                else if (target === 'left') targetParams.textureLeft = key;
+                                else if (target === 'right') targetParams.textureRight = key;
+                                else if (target === 'front') targetParams.textureFront = key;
+                                else if (target === 'back') targetParams.textureBack = key;
+                            }
+                            
+                            highlightSelectedThumb(key);
+                            
+                            // Apply DIRECTLY to the selected face to guarantee NO spillover
+                            if (this.activeObject && this.activeMatIndex !== undefined && this.activeMatIndex !== -1) {
+                                const mats = Array.isArray(this.activeObject.material) ? this.activeObject.material : [this.activeObject.material];
+                                if (mats[this.activeMatIndex]) {
+                                    const newMat = mats[this.activeMatIndex].clone();
+                                    const registry = (entity && entity.type === 'door') ? DOOR_MATERIALS_REGISTRY : WALL_DECOR_REGISTRY;
+                                    if (key && registry[key]) {
+                                        const config = registry[key];
+                                        this.ctx.assets.getTexture(config).then(tex => {
+                                            const texClone = tex.clone();
+                                            texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                                            const dim = Math.max(entity.width || 100, entity.height || 100);
+                                            const ts = config.defaultTileSize || 40;
+                                            texClone.repeat.set(dim / ts, dim / ts);
+                                            newMat.map = texClone;
+                                            newMat.color.setHex(0xffffff);
+                                            newMat.needsUpdate = true;
+                                        });
+                                    } else {
+                                        newMat.map = null;
+                                        let fColor = 0xffffff;
+                                        if (entity.fasciaMat === 'dark_grey') fColor = 0x333333;
+                                        else if (entity.fasciaMat === 'stone') fColor = 0xa8a29e;
+                                        else if (entity.fasciaMat === 'wood') fColor = 0x8b5a2b;
+                                        newMat.color.setHex(fColor);
+                                    }
+                                    
+                                    if (Array.isArray(this.activeObject.material)) {
+                                        this.activeObject.material[this.activeMatIndex] = newMat;
+                                    } else {
+                                        this.activeObject.material = newMat;
+                                    }
+                                    
+                                    // Fix for walls: apply to the actual visible wall mesh, not just the invisible hit plane
+                                    if (entity.type === 'outer' || entity.type === 'inner') {
+                                        const wallGroup = this.activeObject.parent;
+                                        if (wallGroup && wallGroup.children.length > 0) {
+                                            const wallMesh = wallGroup.children[0];
+                                            if (wallMesh.isMesh && Array.isArray(wallMesh.material)) {
+                                                let wIndex = 0;
+                                                if (target === 'right') wIndex = 0;
+                                                else if (target === 'left') wIndex = 1;
+                                                else if (target === 'top') wIndex = 2;
+                                                else if (target === 'bottom') wIndex = 3;
+                                                else if (target === 'front') wIndex = 4;
+                                                else if (target === 'back') wIndex = 5;
+                                                wallMesh.material[wIndex] = newMat;
+                                            }
                                         }
                                     }
                                 }
                             }
+                            
+                            // Ensure parameters are saved for serialization, and trigger Vue reactivity by reassignment
+                            entity.params = Object.assign({}, entity.params);
+                            
+                            // Update instantly by rebuilding the mesh properly
+                            if (entity.type && entity.type.startsWith('shape_')) {
+                                if (this.ctx.updateShapeLive) this.ctx.updateShapeLive(entity);
+                            } else {
+                                if (this.ctx.updateMaterialLive) this.ctx.updateMaterialLive(entity);
+                            }
                         }
-                        
-                        // Ensure parameters are saved for serialization, and trigger Vue reactivity by reassignment
-                        entity.params = Object.assign({}, entity.params);
-                        
-                        // Update instantly by rebuilding the mesh properly
-                        if (entity.type && entity.type.startsWith('shape_')) {
-                            if (this.ctx.updateShapeLive) this.ctx.updateShapeLive(entity);
-                        } else {
-                            if (this.ctx.updateMaterialLive) this.ctx.updateMaterialLive(entity);
-                        }
-                    }
+                    });
                 });
-            });
+            };
+            this._attachMaterialThumbListeners();
 
             this.ctx.updateCornerPanel = this.updateCornerPanel.bind(this);
             const crR = document.getElementById('gizmo-corner-r-range');
@@ -556,13 +580,31 @@ export class GizmoManager {
             else if (faceName === 'front') tex = targetParams.textureFront || tex;
             else if (faceName === 'back') tex = targetParams.textureBack || tex;
             
+            const registry = (selectedObj.userData.entity && selectedObj.userData.entity.type === 'door') ? DOOR_MATERIALS_REGISTRY : WALL_DECOR_REGISTRY;
+            
+            // Rebuild grid for doors vs walls dynamically
+            let decorThumbnails = `
+                <div class="mat-thumb" data-mat="" style="width: 50px; height: 50px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #64748b; text-align: center;">Clear</div>
+            `;
+            for (const [key, val] of Object.entries(registry)) {
+                const thumbUrl = val.thumbnail || val.texture;
+                decorThumbnails += `
+                    <div class="mat-thumb" data-mat="${key}" title="${val.name}" style="width: 50px; height: 50px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; background-image: url('${thumbUrl}'); background-size: cover; background-position: center;"></div>
+                `;
+            }
+            const grid = document.getElementById('gizmo-material-grid');
+            if (grid) {
+                grid.innerHTML = decorThumbnails;
+                if (this._attachMaterialThumbListeners) this._attachMaterialThumbListeners();
+            }
+
             const matThumbs = document.querySelectorAll('.mat-thumb');
             matThumbs.forEach(t => t.style.borderColor = 'transparent');
             if (tex) {
                 const activeThumb = Array.from(matThumbs).find(t => t.getAttribute('data-mat') === tex);
                 if (activeThumb) activeThumb.style.borderColor = '#3b82f6';
                 if (this.matNameDisplay) {
-                    const config = window.WALL_DECOR_REGISTRY ? window.WALL_DECOR_REGISTRY[tex] : null;
+                    const config = registry ? registry[tex] : null;
                     this.matNameDisplay.innerText = config ? config.name : 'Clear Material';
                 }
             } else {

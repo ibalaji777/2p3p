@@ -33,7 +33,7 @@ export class MaterialGizmo extends THREE.Group {
                 const intersect = validIntersects[0];
                 const normalMatrix = new THREE.Matrix3().getNormalMatrix(intersect.object.matrixWorld);
                 const worldNormal = intersect.face.normal.clone().applyMatrix3(normalMatrix).normalize();
-                const rootNormalMatrix = new THREE.Matrix3().getNormalMatrix(this.target.matrixWorld).invert();
+                const rootNormalMatrix = new THREE.Matrix3().getNormalMatrix(intersect.object.matrixWorld).invert();
                 const localNormal = worldNormal.clone().applyMatrix3(rootNormalMatrix).normalize();
                 
                 const absX = Math.abs(localNormal.x);
