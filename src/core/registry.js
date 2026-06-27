@@ -118,6 +118,116 @@ export const WALL_DECOR_REGISTRY = {
         defaultDepth: 0.2, // Reference Code logic
         defaultRepeat: 3   // Reference Code logic
     },
+    'brick_1_orange': {
+        id: 'brick_1_orange',
+        name: 'Orange Textured Brick',
+        texture: 'models/wall/brick_1_orange.png', 
+        thumbnail: 'models/wall/brick_1_orange.png', 
+        defaultWidth: 100,
+        defaultHeight: 100,
+        defaultDepth: 0.2,
+        defaultRepeat: 3
+    },
+    'brick_2_mixed': {
+        id: 'brick_2_mixed',
+        name: 'Mixed Brown Brick',
+        texture: 'models/wall/brick_2_mixed.png', 
+        thumbnail: 'models/wall/brick_2_mixed.png', 
+        defaultWidth: 100,
+        defaultHeight: 100,
+        defaultDepth: 0.2,
+        defaultRepeat: 3
+    },
+    'brick_3_red': {
+        id: 'brick_3_red',
+        name: 'Classic Red Brick',
+        texture: 'models/wall/brick_3_red.png', 
+        thumbnail: 'models/wall/brick_3_red.png', 
+        defaultWidth: 100,
+        defaultHeight: 100,
+        defaultDepth: 0.2,
+        defaultRepeat: 3
+    },
+    'brick_4_burgundy': {
+        id: 'brick_4_burgundy',
+        name: 'Dark Burgundy Brick',
+        texture: 'models/wall/brick_4_burgundy.png', 
+        thumbnail: 'models/wall/brick_4_burgundy.png', 
+        defaultWidth: 100,
+        defaultHeight: 100,
+        defaultDepth: 0.2,
+        defaultRepeat: 3
+    },
+    'brick_5_cream': {
+        id: 'brick_5_cream',
+        name: 'Cream Sand Brick',
+        texture: 'models/wall/brick_5_cream.png', 
+        thumbnail: 'models/wall/brick_5_cream.png', 
+        defaultWidth: 100,
+        defaultHeight: 100,
+        defaultDepth: 0.2,
+        defaultRepeat: 3
+    },
+    'brick_6_beige': {
+        id: 'brick_6_beige',
+        name: 'Light Beige Brick',
+        texture: 'models/wall/brick_6_beige.png', 
+        thumbnail: 'models/wall/brick_6_beige.png', 
+        defaultWidth: 100,
+        defaultHeight: 100,
+        defaultDepth: 0.2,
+        defaultRepeat: 3
+    },
+    'brick_7_yellow': {
+        id: 'brick_7_yellow',
+        name: 'Yellow Ochre Brick',
+        texture: 'models/wall/brick_7_yellow.png', 
+        thumbnail: 'models/wall/brick_7_yellow.png', 
+        defaultWidth: 100,
+        defaultHeight: 100,
+        defaultDepth: 0.2,
+        defaultRepeat: 3
+    },
+    'brick_8_white': {
+        id: 'brick_8_white',
+        name: 'White Grey Brick',
+        texture: 'models/wall/brick_8_white.png', 
+        thumbnail: 'models/wall/brick_8_white.png', 
+        defaultWidth: 100,
+        defaultHeight: 100,
+        defaultDepth: 0.2,
+        defaultRepeat: 3
+    },
+    'brick_9_grey': {
+        id: 'brick_9_grey',
+        name: 'Grey Brown Brick',
+        texture: 'models/wall/brick_9_grey.png', 
+        thumbnail: 'models/wall/brick_9_grey.png', 
+        defaultWidth: 100,
+        defaultHeight: 100,
+        defaultDepth: 0.2,
+        defaultRepeat: 3
+    },
+    'stone_wall': {
+        id: 'stone_wall',
+        name: 'Premium Stone',
+        texture: 'models/wall/stone.png',
+        thumbnail: 'models/wall/stone.png', 
+        defaultWidth: 100,
+        defaultHeight: 100,
+        defaultDepth: 0.2,
+        defaultRepeat: 3
+    },
+    'marble_tiles': {
+        id: 'marble_tiles',
+        name: 'Premium Marble',
+        texture: 'models/wall/marble.png',
+        thumbnail: 'models/wall/marble.png', 
+        defaultWidth: 100,
+        defaultHeight: 100,
+        defaultDepth: 0.2,
+        defaultRepeat: 3
+    },
     'wood_panel': {
         id: 'wood_panel',
         name: 'Wood Panels',
