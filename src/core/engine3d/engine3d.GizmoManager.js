@@ -12,8 +12,6 @@ export class GizmoManager {
         this.transformMenu = document.createElement('div');
         this.transformMenu.className = 'transform-menu-3d';
         this.transformMenu.style.display = 'none';
-        this.transformMenu.style.transform = 'translate(-50%, -50%)';
-        this.transformMenu.style.position = 'absolute';
         this.transformMenu.style.zIndex = '1000';
         
         this.xyPanel = document.createElement('div');
@@ -63,51 +61,37 @@ export class GizmoManager {
         this.btnMove = document.createElement('button');
         this.btnMove.className = 'transform-menu-btn';
         this.btnMove.innerHTML = '⬌<br>Move';
-        this.btnMove.style.top = '-30px';
-        this.btnMove.style.left = '-15px';
         this.btnMove.onclick = () => this.setTransformMode('translate');
         
         this.btnPlace = document.createElement('button');
         this.btnPlace.className = 'transform-menu-btn';
         this.btnPlace.innerHTML = '🎯<br>Place';
-        this.btnPlace.style.top = '-30px';
-        this.btnPlace.style.left = '90px';
         this.btnPlace.onclick = () => this.setTransformMode('place');
 
         this.btnScale = document.createElement('button');
         this.btnScale.className = 'transform-menu-btn';
         this.btnScale.innerHTML = '⤢<br>Scale';
-        this.btnScale.style.top = '80px';
-        this.btnScale.style.left = '38px';
         this.btnScale.onclick = () => this.setTransformMode('scale');
 
         this.btnSpin = document.createElement('button');
         this.btnSpin.className = 'transform-menu-btn';
         this.btnSpin.innerHTML = '⭮<br>Spin';
-        this.btnSpin.style.top = '25px';
-        this.btnSpin.style.left = '-15px';
         this.btnSpin.onclick = () => this.setTransformMode('rotateY'); // Spin is Y-axis (Yaw)
         
         this.btnTilt = document.createElement('button');
         this.btnTilt.className = 'transform-menu-btn';
         this.btnTilt.innerHTML = '⭮<br>Tilt';
-        this.btnTilt.style.top = '25px';
-        this.btnTilt.style.left = '90px';
         this.btnTilt.onclick = () => this.setTransformMode('rotateX'); // Tilt is X-axis (Pitch)
 
         this.btnOpening = document.createElement('button');
         this.btnOpening.className = 'transform-menu-btn';
         this.btnOpening.innerHTML = '✂️<br>Opening';
-        this.btnOpening.style.top = '-30px';
-        this.btnOpening.style.left = '90px';
         this.btnOpening.style.display = 'none';
         this.btnOpening.onclick = () => this.setTransformMode('opening');
         
         this.btnMaterial = document.createElement('button');
         this.btnMaterial.className = 'transform-menu-btn';
         this.btnMaterial.innerHTML = '🎨<br>Material';
-        this.btnMaterial.style.top = '-85px';
-        this.btnMaterial.style.left = '38px';
         this.btnMaterial.style.display = 'none';
         this.btnMaterial.onclick = () => {
             if (this.ctx.interactions.selectedObject && this.ctx.interactions.selectedObject.userData.entity) {
@@ -120,16 +104,12 @@ export class GizmoManager {
         this.btnCorner = document.createElement('button');
         this.btnCorner.className = 'transform-menu-btn';
         this.btnCorner.innerHTML = '✂️<br>Corner';
-        this.btnCorner.style.top = '80px';
-        this.btnCorner.style.left = '90px';
         this.btnCorner.style.display = 'none';
         this.btnCorner.onclick = () => this.setTransformMode('corner');
 
         this.btnVertexSlope = document.createElement('button');
         this.btnVertexSlope.className = 'transform-menu-btn';
         this.btnVertexSlope.innerHTML = '⬍<br>Slope';
-        this.btnVertexSlope.style.top = '135px';
-        this.btnVertexSlope.style.left = '90px';
         this.btnVertexSlope.style.display = 'none';
         this.btnVertexSlope.onclick = () => this.setTransformMode('vertex_slope');
         
@@ -297,10 +277,11 @@ export class GizmoManager {
         this.transformMenu.appendChild(this.btnMaterial);
         this.transformMenu.appendChild(this.btnCorner);
         this.transformMenu.appendChild(this.btnVertexSlope);
-        this.transformMenu.appendChild(this.btnDone);
         
         this.container.appendChild(this.transformMenu);
-        this.transformMenu.addEventListener('pointerdown', e => e.stopPropagation());
+        ['pointerdown', 'wheel'].forEach(evt => {
+            this.transformMenu.addEventListener(evt, e => e.stopPropagation(), { passive: true });
+        });
         this.container.appendChild(this.btnDone);
 
         this._makePanelDraggable(this.xyPanel);
@@ -683,7 +664,7 @@ export class GizmoManager {
                 this.transformMenu.style.display = 'none';
                 this.setTransformMode('none', true);
             } else {
-                this.transformMenu.style.display = 'block';
+                this.transformMenu.style.display = 'flex';
                 this.setTransformMode('none', true);
             }
         }
@@ -908,13 +889,9 @@ export class GizmoManager {
         if (pos.z > 1) {
             this.transformMenu.style.display = 'none';
         } else {
-            this.transformMenu.style.display = 'block';
-            const w = this.container.clientWidth > 0 ? this.container.clientWidth : window.innerWidth;
-            const h = this.container.clientHeight > 0 ? this.container.clientHeight : window.innerHeight;
-            const x = (pos.x * .5 + .5) * w;
-            const y = (pos.y * -.5 + .5) * h;
-            this.transformMenu.style.left = `${x}px`;
-            this.transformMenu.style.top = `${y}px`;
+            this.transformMenu.style.display = 'flex';
+            this.transformMenu.style.left = '';
+            this.transformMenu.style.top = '';
         }
     }
 

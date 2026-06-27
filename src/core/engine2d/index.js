@@ -631,7 +631,7 @@ export class FloorPlanner {
             this.uiLayer.batchDraw();
         });
 
-        this.stage.on("mousedown touchstart touchend", (e) => {
+        this.stage.on("mousedown touchstart", (e) => {
             if (e.evt && e.evt.touches && e.evt.touches.length > 1) return;
  
             if (this.tool === 'roof') return;
