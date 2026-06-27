@@ -342,6 +342,8 @@
                         <select v-model="selectedEntity.doorStyle" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
                             <option value="flat">Flat Panel (Default)</option>
                             <option value="classic_4_horizontal">Classic 4-Panel (Horiz)</option>
+                            <option value="glass_bottom_panel">Glass & Bottom Panel</option>
+                            <option value="glass_grid">Glass with Grid</option>
                             <option value="classic_2_panel">Classic 2-Panel</option>
                             <option value="classic_4_panel">Classic 4-Panel</option>
                             <option value="grid_panel">Grid Panel</option>

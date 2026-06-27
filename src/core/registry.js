@@ -147,7 +147,9 @@ export const DOOR_STYLES_REGISTRY = {
     'classic_4_horizontal': { id: 'classic_4_horizontal', name: 'Classic 4-Panel (Horiz)', icon: 'repeating-linear-gradient(180deg, #64748b, #64748b 20%, #475569 20%, #475569 25%)' },
     'classic_2_panel': { id: 'classic_2_panel', name: 'Classic 2-Panel', icon: 'linear-gradient(180deg, #64748b 0%, #64748b 60%, #475569 60%, #475569 65%, #64748b 65%, #64748b 100%)' },
     'classic_4_panel': { id: 'classic_4_panel', name: 'Classic 4-Panel', icon: 'conic-gradient(at 50% 50%, #64748b 25%, #475569 25%, #475569 50%, #64748b 50%, #64748b 75%, #475569 75%)' },
-    'grid_panel': { id: 'grid_panel', name: 'Grid Panel', icon: 'repeating-conic-gradient(#64748b 0% 25%, #475569 0% 50%) 50% / 10px 10px' }
+    'grid_panel': { id: 'grid_panel', name: 'Grid Panel', icon: 'repeating-conic-gradient(#64748b 0% 25%, #475569 0% 50%) 50% / 10px 10px' },
+    'glass_bottom_panel': { id: 'glass_bottom_panel', name: 'Glass & Bottom Panel', icon: 'linear-gradient(180deg, #bae6fd 0%, #bae6fd 70%, #64748b 70%, #64748b 100%)' },
+    'glass_grid': { id: 'glass_grid', name: 'Glass with Grid', icon: 'repeating-linear-gradient(90deg, #bae6fd, #bae6fd 40%, #1e293b 40%, #1e293b 60%, #bae6fd 60%, #bae6fd 100%)' }
 };
 
 export const DOOR_SHAPES_REGISTRY = {
@@ -456,7 +458,42 @@ export const createDoorShape = (w, h, type = 'square') => {
 function buildDetailedDoorPanel(entity, width, height, thickness, material, type, isGlass, signX = 1, helpers) {
     const mats = (helpers && helpers.getFaceMaterials) ? helpers.getFaceMaterials(entity, material, { width, height, thick: thickness }).box : material;
     const group = new THREE.Group(); const gap = 0.2; 
-    if (isGlass || type === 'french') {
+    const style = entity && entity.doorStyle ? entity.doorStyle : 'flat';
+    
+    if (style === 'glass_bottom_panel') {
+        const frameW = 3.5; const topRailH = 3.5; const botRailH = height * 0.28;
+        const geoStile = new THREE.BoxGeometry(frameW, height, thickness); const geoRailT = new THREE.BoxGeometry(width - frameW*2, topRailH, thickness); const geoRailB = new THREE.BoxGeometry(width - frameW*2, botRailH, thickness);
+        const stileL = new THREE.Mesh(geoStile, mats); stileL.position.set(-width/2 + frameW/2, height/2, 0); const stileR = new THREE.Mesh(geoStile, mats); stileR.position.set(width/2 - frameW/2, height/2, 0);
+        const railT = new THREE.Mesh(geoRailT, mats); railT.position.set(0, height - topRailH/2, 0); const railB = new THREE.Mesh(geoRailB, mats); railB.position.set(0, botRailH/2, 0);
+        [stileL, stileR, railT, railB].forEach(m => { m.castShadow = true; m.receiveShadow = true; group.add(m); });
+        
+        const grooveGeo = new THREE.BoxGeometry(width - frameW*2, 0.4, thickness + 0.1);
+        const groove1 = new THREE.Mesh(grooveGeo, mats); groove1.position.set(0, botRailH * 0.4, 0); group.add(groove1);
+        const groove2 = new THREE.Mesh(grooveGeo, mats); groove2.position.set(0, botRailH * 0.7, 0); group.add(groove2);
+
+        const glassMat = helpers.getDynamicMaterial('glass', 'door'); const geoGlass = new THREE.BoxGeometry(width - frameW*2, height - topRailH - botRailH, thickness * 0.4);
+        const glass = new THREE.Mesh(geoGlass, glassMat); glass.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(glass);
+    } else if (style === 'glass_grid') {
+        const frameW = 3.5; const topRailH = 3.5; const botRailH = 5;
+        const geoStile = new THREE.BoxGeometry(frameW, height, thickness); const geoRailT = new THREE.BoxGeometry(width - frameW*2, topRailH, thickness); const geoRailB = new THREE.BoxGeometry(width - frameW*2, botRailH, thickness);
+        const stileL = new THREE.Mesh(geoStile, mats); stileL.position.set(-width/2 + frameW/2, height/2, 0); const stileR = new THREE.Mesh(geoStile, mats); stileR.position.set(width/2 - frameW/2, height/2, 0);
+        const railT = new THREE.Mesh(geoRailT, mats); railT.position.set(0, height - topRailH/2, 0); const railB = new THREE.Mesh(geoRailB, mats); railB.position.set(0, botRailH/2, 0);
+        [stileL, stileR, railT, railB].forEach(m => { m.castShadow = true; m.receiveShadow = true; group.add(m); });
+        
+        const mullionW = 1.5; const glassH = height - topRailH - botRailH; const glassW = width - frameW*2;
+        const vMullionGeo = new THREE.BoxGeometry(mullionW, glassH, thickness);
+        const vMullion = new THREE.Mesh(vMullionGeo, mats); vMullion.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(vMullion);
+        
+        const hMullionGeo = new THREE.BoxGeometry(glassW, mullionW, thickness);
+        for (let i = 1; i <= 3; i++) {
+            const hMullion = new THREE.Mesh(hMullionGeo, mats);
+            hMullion.position.set(0, botRailH + (glassH / 4) * i, 0);
+            group.add(hMullion);
+        }
+
+        const glassMat = helpers.getDynamicMaterial('glass', 'door'); const geoGlass = new THREE.BoxGeometry(glassW, glassH, thickness * 0.4);
+        const glass = new THREE.Mesh(geoGlass, glassMat); glass.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(glass);
+    } else if (isGlass || type === 'french') {
         const frameW = 3.5; const topRailH = 3.5; const botRailH = 5;
         const geoStile = new THREE.BoxGeometry(frameW, height, thickness); const geoRailT = new THREE.BoxGeometry(width - frameW*2, topRailH, thickness); const geoRailB = new THREE.BoxGeometry(width - frameW*2, botRailH, thickness);
         const stileL = new THREE.Mesh(geoStile, mats); stileL.position.set(-width/2 + frameW/2, height/2, 0); const stileR = new THREE.Mesh(geoStile, mats); stileR.position.set(width/2 - frameW/2, height/2, 0);
@@ -472,8 +509,6 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         
         const matsExtrude = Array.isArray(mats) ? [mats[4], mats[1]] : mats;
         const core = new THREE.Mesh(coreGeo, matsExtrude); core.position.set(0, 0, 0); core.castShadow = true; core.receiveShadow = true; group.add(core);
-        
-        const style = entity && entity.doorStyle ? entity.doorStyle : 'flat';
         
         const createBeveledPanelGeo = (pw, ph, pth, panelShape = 'square') => {
             const bSize = 0.12; const bThick = 0.06;
