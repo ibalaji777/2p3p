@@ -188,7 +188,31 @@ export class EnvironmentBuilder {
                     let dh = widg.height !== undefined ? widg.height : DOOR_HEIGHT;
                     let elev = widg.elevation !== undefined ? widg.elevation : 0;
                     let cutElev = (elev <= 0.1) ? wallBottom : elev;
-                    hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + dh); hole.lineTo(wCenter - halfW, elev + dh); hole.lineTo(wCenter - halfW, cutElev);
+                    
+                    const shapeType = widg.doorShape || 'square';
+                    hole.moveTo(wCenter - halfW, cutElev);
+                    hole.lineTo(wCenter + halfW, cutElev);
+                    
+                    if (shapeType === 'radius') {
+                        const straightH = Math.max(0, dh - halfW);
+                        hole.lineTo(wCenter + halfW, elev + straightH);
+                        if (halfW > 0) hole.absarc(wCenter, elev + straightH, halfW, 0, Math.PI, false);
+                    } else if (shapeType === 'segment') {
+                        const rise = widg.width * 0.15;
+                        const straightH = Math.max(0, dh - rise);
+                        hole.lineTo(wCenter + halfW, elev + straightH);
+                        hole.quadraticCurveTo(wCenter, elev + dh + rise*0.5, wCenter - halfW, elev + straightH);
+                    } else if (shapeType === 'gothic') {
+                        const straightH = Math.max(0, dh - (widg.width * 0.7));
+                        hole.lineTo(wCenter + halfW, elev + straightH);
+                        hole.quadraticCurveTo(wCenter + halfW * 0.2, elev + dh, wCenter, elev + dh);
+                        hole.quadraticCurveTo(wCenter - halfW * 0.2, elev + dh, wCenter - halfW, elev + straightH);
+                    } else {
+                        hole.lineTo(wCenter + halfW, elev + dh);
+                        hole.lineTo(wCenter - halfW, elev + dh);
+                    }
+                    
+                    hole.lineTo(wCenter - halfW, cutElev);
                     hasHole = true;
                 } else if (type === 'window' || type === 'jali_panel') {
                     let dh = widg.height !== undefined ? widg.height : (type === 'window' ? WINDOW_HEIGHT : 100);
@@ -883,7 +907,31 @@ export class EnvironmentBuilder {
                                     let elev = widg.elevation !== undefined ? widg.elevation : 0;
                                     dh = Math.min(dh, maxH - elev);
                                     let cutElev = (elev <= 0.1) ? wallBottom : elev;
-                                    hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + dh); hole.lineTo(wCenter - halfW, elev + dh); hole.lineTo(wCenter - halfW, cutElev);
+                                    
+                                    const shapeType = widg.doorShape || 'square';
+                                    hole.moveTo(wCenter - halfW, cutElev);
+                                    hole.lineTo(wCenter + halfW, cutElev);
+                                    
+                                    if (shapeType === 'radius') {
+                                        const straightH = Math.max(0, dh - halfW);
+                                        hole.lineTo(wCenter + halfW, elev + straightH);
+                                        if (halfW > 0) hole.absarc(wCenter, elev + straightH, halfW, 0, Math.PI, false);
+                                    } else if (shapeType === 'segment') {
+                                        const rise = widg.width * 0.15;
+                                        const straightH = Math.max(0, dh - rise);
+                                        hole.lineTo(wCenter + halfW, elev + straightH);
+                                        hole.quadraticCurveTo(wCenter, elev + dh + rise*0.5, wCenter - halfW, elev + straightH);
+                                    } else if (shapeType === 'gothic') {
+                                        const straightH = Math.max(0, dh - (widg.width * 0.7));
+                                        hole.lineTo(wCenter + halfW, elev + straightH);
+                                        hole.quadraticCurveTo(wCenter + halfW * 0.2, elev + dh, wCenter, elev + dh);
+                                        hole.quadraticCurveTo(wCenter - halfW * 0.2, elev + dh, wCenter - halfW, elev + straightH);
+                                    } else {
+                                        hole.lineTo(wCenter + halfW, elev + dh);
+                                        hole.lineTo(wCenter - halfW, elev + dh);
+                                    }
+                                    
+                                    hole.lineTo(wCenter - halfW, cutElev);
                                     hasHole = true;
                                 } else if (type === 'window' || type === 'jali_panel') {
                                     let dh = widg.height !== undefined ? widg.height : (type === 'window' ? WINDOW_HEIGHT : 100);

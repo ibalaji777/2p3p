@@ -150,6 +150,13 @@ export const DOOR_STYLES_REGISTRY = {
     'grid_panel': { id: 'grid_panel', name: 'Grid Panel', icon: 'repeating-conic-gradient(#64748b 0% 25%, #475569 0% 50%) 50% / 10px 10px' }
 };
 
+export const DOOR_SHAPES_REGISTRY = {
+    'square': { id: 'square', name: 'Square Top' },
+    'radius': { id: 'radius', name: 'Radius Arch' },
+    'segment': { id: 'segment', name: 'Segment Arch' },
+    'gothic': { id: 'gothic', name: 'Gothic Arch' }
+};
+
 export const WALL_DECOR_REGISTRY = {
     'brick_wall': {
         id: 'brick_wall',
@@ -418,6 +425,34 @@ export const FURNITURE_REGISTRY = {
     }
 };
 
+export const createDoorShape = (w, h, type = 'square') => {
+    const shape = new THREE.Shape();
+    const hw = w / 2;
+    shape.moveTo(-hw, 0);
+    shape.lineTo(hw, 0);
+    
+    if (type === 'radius') {
+        const straightH = Math.max(0, h - hw);
+        shape.lineTo(hw, straightH);
+        if (hw > 0) shape.absarc(0, straightH, hw, 0, Math.PI, false);
+    } else if (type === 'segment') {
+        const rise = w * 0.15;
+        const straightH = Math.max(0, h - rise);
+        shape.lineTo(hw, straightH);
+        shape.quadraticCurveTo(0, h + rise*0.5, -hw, straightH);
+    } else if (type === 'gothic') {
+        const straightH = Math.max(0, h - (w * 0.7));
+        shape.lineTo(hw, straightH);
+        shape.quadraticCurveTo(hw * 0.2, h, 0, h);
+        shape.quadraticCurveTo(-hw * 0.2, h, -hw, straightH);
+    } else {
+        shape.lineTo(hw, h);
+        shape.lineTo(-hw, h);
+    }
+    shape.lineTo(-hw, 0);
+    return shape;
+};
+
 function buildDetailedDoorPanel(entity, width, height, thickness, material, type, isGlass, signX = 1, helpers) {
     const mats = (helpers && helpers.getFaceMaterials) ? helpers.getFaceMaterials(entity, material, { width, height, thick: thickness }).box : material;
     const group = new THREE.Group(); const gap = 0.2; 
@@ -430,33 +465,68 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         const glassMat = helpers.getDynamicMaterial('glass', 'door'); const geoGlass = new THREE.BoxGeometry(width - frameW*2, height - topRailH - botRailH, thickness * 0.4);
         const glass = new THREE.Mesh(geoGlass, glassMat); glass.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(glass);
     } else {
-        const coreGeo = new THREE.BoxGeometry(width, height, thickness - 0.1); const core = new THREE.Mesh(coreGeo, mats); core.position.set(0, height/2, 0); core.castShadow = true; core.receiveShadow = true; group.add(core);
+        const shapeType = entity && entity.doorShape ? entity.doorShape : 'square';
+        const doorOutline = createDoorShape(width, height, shapeType);
+        const coreGeo = new THREE.ExtrudeGeometry(doorOutline, { depth: Math.max(0.01, thickness - 0.1), bevelEnabled: false });
+        coreGeo.translate(0, 0, -Math.max(0.01, thickness - 0.1) / 2);
+        
+        const matsExtrude = Array.isArray(mats) ? [mats[4], mats[1]] : mats;
+        const core = new THREE.Mesh(coreGeo, matsExtrude); core.position.set(0, 0, 0); core.castShadow = true; core.receiveShadow = true; group.add(core);
         
         const style = entity && entity.doorStyle ? entity.doorStyle : 'flat';
         
-        const createBeveledPanelGeo = (pw, ph, pth) => {
+        const createBeveledPanelGeo = (pw, ph, pth, panelShape = 'square') => {
             const bSize = 0.12; const bThick = 0.06;
             const sw = Math.max(0.1, pw - bSize*2); const sh = Math.max(0.1, ph - bSize*2);
+            
             const shape = new THREE.Shape();
-            shape.moveTo(-sw/2, -sh/2); shape.lineTo(sw/2, -sh/2); shape.lineTo(sw/2, sh/2); shape.lineTo(-sw/2, sh/2); shape.lineTo(-sw/2, -sh/2);
+            const hw = sw / 2;
+            shape.moveTo(-hw, -sh/2); shape.lineTo(hw, -sh/2);
+            
+            if (panelShape === 'radius') {
+                const straightH = (sh/2) - hw;
+                shape.lineTo(hw, straightH);
+                if (hw > 0) shape.absarc(0, straightH, hw, 0, Math.PI, false);
+            } else if (panelShape === 'segment') {
+                const rise = sw * 0.15;
+                const straightH = (sh/2) - rise;
+                shape.lineTo(hw, straightH);
+                shape.quadraticCurveTo(0, sh/2 + rise*0.5, -hw, straightH);
+            } else if (panelShape === 'gothic') {
+                const straightH = (sh/2) - (sw * 0.7);
+                shape.lineTo(hw, straightH);
+                shape.quadraticCurveTo(hw * 0.2, sh/2, 0, sh/2);
+                shape.quadraticCurveTo(-hw * 0.2, sh/2, -hw, straightH);
+            } else {
+                shape.lineTo(hw, sh/2);
+                shape.lineTo(-hw, sh/2);
+            }
+            shape.lineTo(-hw, -sh/2);
+            
             const geo = new THREE.ExtrudeGeometry(shape, { depth: Math.max(0.01, pth - bThick*2), bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: bSize, bevelThickness: bThick });
             geo.translate(0, 0, -Math.max(0.01, pth - bThick*2)/2);
             return geo;
         };
         
-        const matsExtrude = Array.isArray(mats) ? [mats[4], mats[1]] : mats;
+
 
         if (style === 'classic_4_horizontal') {
-            const numPanels = 4; const panelHeight = (height - (gap * (numPanels - 1))) / numPanels; const geoPanel = createBeveledPanelGeo(width - 0.6, panelHeight, thickness + 0.05);
-            for (let i = 0; i < numPanels; i++) { const p = new THREE.Mesh(geoPanel, matsExtrude); const yPos = (panelHeight / 2) + i * (panelHeight + gap); p.position.set(0, yPos, 0); p.castShadow = true; p.receiveShadow = true; group.add(p); }
+            const numPanels = 4; const panelHeight = (height - (gap * (numPanels - 1))) / numPanels; 
+            for (let i = 0; i < numPanels; i++) { 
+                const isTop = (i === numPanels - 1);
+                const geoPanel = createBeveledPanelGeo(width - 0.6, panelHeight, thickness + 0.05, isTop ? shapeType : 'square'); 
+                const p = new THREE.Mesh(geoPanel, matsExtrude); 
+                const yPos = (panelHeight / 2) + i * (panelHeight + gap); 
+                p.position.set(0, yPos, 0); p.castShadow = true; p.receiveShadow = true; group.add(p); 
+            }
         } else if (style === 'classic_2_panel') {
             const topH = height * 0.65; const botH = height * 0.25; 
-            const geoTop = createBeveledPanelGeo(width - 0.8, topH, thickness + 0.05); const geoBot = createBeveledPanelGeo(width - 0.8, botH, thickness + 0.05);
+            const geoTop = createBeveledPanelGeo(width - 0.8, topH, thickness + 0.05, shapeType); const geoBot = createBeveledPanelGeo(width - 0.8, botH, thickness + 0.05, 'square');
             const pTop = new THREE.Mesh(geoTop, matsExtrude); pTop.position.set(0, height - topH/2 - gap, 0); pTop.castShadow = true; group.add(pTop);
             const pBot = new THREE.Mesh(geoBot, matsExtrude); pBot.position.set(0, botH/2 + gap*2, 0); pBot.castShadow = true; group.add(pBot);
         } else if (style === 'classic_4_panel') {
             const topH = height * 0.55; const botH = height * 0.3; const pw = width/2 - 0.4;
-            const geoTop = createBeveledPanelGeo(pw, topH, thickness + 0.05); const geoBot = createBeveledPanelGeo(pw, botH, thickness + 0.05);
+            const geoTop = createBeveledPanelGeo(pw, topH, thickness + 0.05, shapeType); const geoBot = createBeveledPanelGeo(pw, botH, thickness + 0.05, 'square');
             [-1, 1].forEach(side => {
                 const xOff = (pw/2 + 0.15) * side;
                 const pTop = new THREE.Mesh(geoTop, matsExtrude); pTop.position.set(xOff, height - topH/2 - gap, 0); pTop.castShadow = true; group.add(pTop);
@@ -464,9 +534,10 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
             });
         } else if (style === 'grid_panel') {
             const rows = 5; const cols = 3; const pW = (width - gap*(cols+1))/cols; const pH = (height - gap*(rows+1))/rows;
-            const geoGrid = createBeveledPanelGeo(pW - 0.1, pH - 0.1, thickness + 0.05);
             for (let r=0; r<rows; r++) {
+                const isTop = (r === rows - 1);
                 for (let c=0; c<cols; c++) {
+                    const geoGrid = createBeveledPanelGeo(pW - 0.1, pH - 0.1, thickness + 0.05, isTop ? shapeType : 'square');
                     const p = new THREE.Mesh(geoGrid, matsExtrude);
                     const xPos = -width/2 + gap + pW/2 + c*(pW + gap);
                     const yPos = gap + pH/2 + r*(pH + gap);
@@ -730,10 +801,75 @@ export const WIDGET_REGISTRY = {
             doorGroup.add(threshold);
             
             if (entity.doorType !== 'pocket') { 
-                const jamGeo = new THREE.BoxGeometry(frameWidth, height, frameThick); const jamL = tagFrame(new THREE.Mesh(jamGeo, matFrame)); jamL.position.set(-entity.width/2 + frameWidth/2, height/2, 0); const jamR = tagFrame(new THREE.Mesh(jamGeo, matFrame)); jamR.position.set(entity.width/2 - frameWidth/2, height/2, 0); const jamT = tagFrame(new THREE.Mesh(new THREE.BoxGeometry(entity.width - (frameWidth * 2), frameWidth, frameThick), matFrame)); jamT.position.set(0, height - frameWidth/2, 0);
-                const trimStile = new THREE.BoxGeometry(4, height + 2, 0.5); const trimRail = new THREE.BoxGeometry(entity.width + 8, 4, 0.5);
-                [-frameThick/2 - 0.25, frameThick/2 + 0.25].forEach(zOff => { const tL = tagFrame(new THREE.Mesh(trimStile, matFrame)); tL.position.set(-entity.width/2 - 2 + frameWidth, height/2 + 1, zOff); const tR = tagFrame(new THREE.Mesh(trimStile, matFrame)); tR.position.set(entity.width/2 + 2 - frameWidth, height/2 + 1, zOff); const tT = tagFrame(new THREE.Mesh(trimRail, matFrame)); tT.position.set(0, height + 2, zOff); [tL, tR, tT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); }); });
-                [jamL, jamR, jamT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); });
+                const shapeType = entity.doorShape || 'square';
+                if (shapeType === 'square') {
+                    const jamGeo = new THREE.BoxGeometry(frameWidth, height, frameThick); const jamL = tagFrame(new THREE.Mesh(jamGeo, matFrame)); jamL.position.set(-entity.width/2 + frameWidth/2, height/2, 0); const jamR = tagFrame(new THREE.Mesh(jamGeo, matFrame)); jamR.position.set(entity.width/2 - frameWidth/2, height/2, 0); const jamT = tagFrame(new THREE.Mesh(new THREE.BoxGeometry(entity.width - (frameWidth * 2), frameWidth, frameThick), matFrame)); jamT.position.set(0, height - frameWidth/2, 0);
+                    const trimStile = new THREE.BoxGeometry(4, height + 2, 0.5); const trimRail = new THREE.BoxGeometry(entity.width + 8, 4, 0.5);
+                    [-frameThick/2 - 0.25, frameThick/2 + 0.25].forEach(zOff => { const tL = tagFrame(new THREE.Mesh(trimStile, matFrame)); tL.position.set(-entity.width/2 - 2 + frameWidth, height/2 + 1, zOff); const tR = tagFrame(new THREE.Mesh(trimStile, matFrame)); tR.position.set(entity.width/2 + 2 - frameWidth, height/2 + 1, zOff); const tT = tagFrame(new THREE.Mesh(trimRail, matFrame)); tT.position.set(0, height + 2, zOff); [tL, tR, tT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); }); });
+                    [jamL, jamR, jamT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); });
+                } else {
+                    const createArchedFrameShape = (wOuter, hOuter, wInner, hInner, type) => {
+                        const shape = new THREE.Shape();
+                        const hwO = wOuter / 2;
+                        const hwI = wInner / 2;
+                        
+                        shape.moveTo(-hwO, 0);
+                        if (type === 'radius') {
+                            const strHO = Math.max(0, hOuter - hwO);
+                            shape.lineTo(-hwO, strHO);
+                            if (hwO > 0) shape.absarc(0, strHO, hwO, Math.PI, 0, true);
+                        } else if (type === 'segment') {
+                            const riseO = wOuter * 0.15;
+                            const strHO = Math.max(0, hOuter - riseO);
+                            shape.lineTo(-hwO, strHO);
+                            shape.quadraticCurveTo(0, hOuter + riseO*0.5, hwO, strHO);
+                        } else if (type === 'gothic') {
+                            const strHO = Math.max(0, hOuter - (wOuter * 0.7));
+                            shape.lineTo(-hwO, strHO);
+                            shape.quadraticCurveTo(-hwO * 0.2, hOuter, 0, hOuter);
+                            shape.quadraticCurveTo(hwO * 0.2, hOuter, hwO, strHO);
+                        }
+                        
+                        shape.lineTo(hwO, 0);
+                        shape.lineTo(hwI, 0);
+                        
+                        if (type === 'radius') {
+                            const strHI = Math.max(0, hInner - hwI);
+                            shape.lineTo(hwI, strHI);
+                            if (hwI > 0) shape.absarc(0, strHI, hwI, 0, Math.PI, false);
+                        } else if (type === 'segment') {
+                            const riseI = wInner * 0.15;
+                            const strHI = Math.max(0, hInner - riseI);
+                            shape.lineTo(hwI, strHI);
+                            shape.quadraticCurveTo(0, hInner + riseI*0.5, -hwI, strHI);
+                        } else if (type === 'gothic') {
+                            const strHI = Math.max(0, hInner - (wInner * 0.7));
+                            shape.lineTo(hwI, strHI);
+                            shape.quadraticCurveTo(hwI * 0.2, hInner, 0, hInner);
+                            shape.quadraticCurveTo(-hwI * 0.2, hInner, -hwI, strHI);
+                        }
+                        
+                        shape.lineTo(-hwI, 0);
+                        shape.lineTo(-hwO, 0);
+                        return shape;
+                    };
+                    
+                    const frameShape = createArchedFrameShape(entity.width, height, entity.width - (frameWidth * 2), height - frameWidth, shapeType);
+                    const jamGeo = new THREE.ExtrudeGeometry(frameShape, { depth: frameThick, bevelEnabled: false });
+                    jamGeo.translate(0, 0, -frameThick/2);
+                    const jam = tagFrame(new THREE.Mesh(jamGeo, matFrame));
+                    jam.position.set(0, 0, 0);
+                    jam.castShadow = true; jam.receiveShadow = true; doorGroup.add(jam);
+                    
+                    [-frameThick/2 - 0.25, frameThick/2 + 0.25].forEach(zOff => {
+                        const trimShape = createArchedFrameShape(entity.width + 8, height + 4, entity.width - (frameWidth * 2), height - frameWidth, shapeType);
+                        const trimGeo = new THREE.ExtrudeGeometry(trimShape, { depth: 0.5, bevelEnabled: false });
+                        trimGeo.translate(0, 0, -0.25);
+                        const trim = tagFrame(new THREE.Mesh(trimGeo, matFrame));
+                        trim.position.set(0, 0, zOff);
+                        trim.castShadow = true; trim.receiveShadow = true; doorGroup.add(trim);
+                    });
+                }
             }
             if (entity.doorType === 'single') {
                 const panel = buildDetailedDoorPanel(entity, leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, entity.side, helpers); const hingeHolder = new THREE.Group(); 

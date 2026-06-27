@@ -347,6 +347,15 @@
                             <option value="grid_panel">Grid Panel</option>
                         </select>
                     </div>
+                    <div class="control-group">
+                        <label>Door Shape (Top)</label>
+                        <select v-model="selectedEntity.doorShape" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                            <option value="square">Square (Default)</option>
+                            <option value="radius">Radius (True Arch)</option>
+                            <option value="segment">Segment (Eyebrow)</option>
+                            <option value="gothic">Gothic (Pointed)</option>
+                        </select>
+                    </div>
                 </div>
                 <div v-else-if="selectedEntity.type === 'window'">
                     <div class="control-group">
