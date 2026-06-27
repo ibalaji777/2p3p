@@ -337,6 +337,12 @@
                             <option value="french">French (Glass)</option>
                         </select>
                     </div>
+                    <div class="control-group" v-if="!['pocket', 'folding', 'sliding', 'double_sliding'].includes(selectedEntity.doorType)">
+                        <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; font-weight: 500;">
+                            <input type="checkbox" :checked="selectedEntity.hasSidelights" @change="(e) => { selectedEntity.hasSidelights = e.target.checked; if (e.target.checked) { selectedEntity.width = Math.max(selectedEntity.width, selectedEntity.doorType === 'single' ? 100 : 140); } $emit('sync-engine'); }" />
+                            Add Sidelights (Side Windows)
+                        </label>
+                    </div>
                     <div class="control-group" v-if="selectedEntity.doorType !== 'french'">
                         <label>Panel Style (3D Design)</label>
                         <select v-model="selectedEntity.doorStyle" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">

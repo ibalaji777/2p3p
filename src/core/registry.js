@@ -780,20 +780,30 @@ export const WIDGET_REGISTRY = {
         defaultConfig: { width: 40, doorType: 'single', doorMat: 'wood', facing: 1, side: 1 },
         render2D: (group, entity) => {
             const hw = entity.width / 2; const thick = entity.wall.thickness || entity.wall.config.thickness;
+            const slWidth = (entity.hasSidelights && (!entity.doorShape || entity.doorShape === 'square') && !['pocket', 'sliding'].includes(entity.doorType)) ? Math.min(60, entity.width * 0.22) : 0;
+            const doorW = entity.width - (slWidth * 2);
+            const doorHW = doorW / 2;
+            const pivotBase = hw - slWidth;
+            
+            if (slWidth > 0) {
+                group.add(new Konva.Rect({ x: -hw, y: -thick/2, width: slWidth, height: thick, fill: '#bae6fd', opacity: 0.3, stroke: '#9ca3af' }));
+                group.add(new Konva.Rect({ x: hw - slWidth, y: -thick/2, width: slWidth, height: thick, fill: '#bae6fd', opacity: 0.3, stroke: '#9ca3af' }));
+            }
+
             if (entity.doorType === 'single') {
-                const hingeX = (entity.side === 1) ? hw : -hw; const arcRot = (entity.side === 1) ? ((entity.facing === 1) ? 180 : 90) : ((entity.facing === 1) ? 270 : 0); 
-                group.add(new Konva.Arc({ x: hingeX, y: 0, innerRadius: entity.width, outerRadius: entity.width, angle: 90, stroke: '#9ca3af', dash: [4, 4], rotation: arcRot }), new Konva.Line({ points: [hingeX, 0, hingeX, -entity.width * entity.facing], stroke: '#374151', strokeWidth: 3 })); 
+                const hingeX = (entity.side === 1) ? pivotBase : -pivotBase; const arcRot = (entity.side === 1) ? ((entity.facing === 1) ? 180 : 90) : ((entity.facing === 1) ? 270 : 0); 
+                group.add(new Konva.Arc({ x: hingeX, y: 0, innerRadius: doorW, outerRadius: doorW, angle: 90, stroke: '#9ca3af', dash: [4, 4], rotation: arcRot }), new Konva.Line({ points: [hingeX, 0, hingeX, -doorW * entity.facing], stroke: '#374151', strokeWidth: 3 })); 
             } else if (entity.doorType === 'double' || entity.doorType === 'french') { 
                 const arcRotL = entity.facing === 1 ? 270 : 0, arcRotR = entity.facing === 1 ? 180 : 90; 
-                group.add(new Konva.Arc({ x: -hw, y: 0, innerRadius: hw, outerRadius: hw, angle: 90, rotation: arcRotL, stroke: '#9ca3af', dash: [4, 4] }), new Konva.Line({ points: [-hw, 0, -hw, -hw * entity.facing], stroke: '#374151', strokeWidth: 3 }), new Konva.Arc({ x: hw, y: 0, innerRadius: hw, outerRadius: hw, angle: 90, rotation: arcRotR, stroke: '#9ca3af', dash: [4, 4] }), new Konva.Line({ points: [hw, 0, hw, -hw * entity.facing], stroke: '#374151', strokeWidth: 3 })); 
+                group.add(new Konva.Arc({ x: -pivotBase, y: 0, innerRadius: doorHW, outerRadius: doorHW, angle: 90, rotation: arcRotL, stroke: '#9ca3af', dash: [4, 4] }), new Konva.Line({ points: [-pivotBase, 0, -pivotBase, -doorHW * entity.facing], stroke: '#374151', strokeWidth: 3 }), new Konva.Arc({ x: pivotBase, y: 0, innerRadius: doorHW, outerRadius: doorHW, angle: 90, rotation: arcRotR, stroke: '#9ca3af', dash: [4, 4] }), new Konva.Line({ points: [pivotBase, 0, pivotBase, -doorHW * entity.facing], stroke: '#374151', strokeWidth: 3 })); 
             } else if (entity.doorType === 'sliding' || entity.doorType === 'double_sliding') { 
-                const off = thick * 0.2; group.add(new Konva.Line({ points: [-hw, -off, 0, -off], stroke: '#374151', strokeWidth: 3 }), new Konva.Line({ points: [0, off, hw, off], stroke: '#374151', strokeWidth: 3 })); 
+                const off = thick * 0.2; group.add(new Konva.Line({ points: [-doorHW, -off, 0, -off], stroke: '#374151', strokeWidth: 3 }), new Konva.Line({ points: [0, off, doorHW, off], stroke: '#374151', strokeWidth: 3 })); 
             } else if (entity.doorType === 'pocket') { 
-                group.add(new Konva.Line({ points: [-hw, 0, 0, 0], stroke: '#374151', strokeWidth: 3 }), new Konva.Line({ points: [0, 0, hw, 0], stroke: '#374151', strokeWidth: 3, dash: [4,4] })); 
+                group.add(new Konva.Line({ points: [-doorHW, 0, 0, 0], stroke: '#374151', strokeWidth: 3 }), new Konva.Line({ points: [0, 0, doorHW, 0], stroke: '#374151', strokeWidth: 3, dash: [4,4] })); 
             } else if (entity.doorType === 'pivot') { 
-                const pivotX = entity.side === 1 ? hw - 10 : -hw + 10, arcRot = entity.side === 1 ? (entity.facing===1?180:90) : (entity.facing===1?270:0); group.add(new Konva.Line({ points: [pivotX, entity.width*0.2*entity.facing, pivotX, -entity.width*0.8*entity.facing], stroke: '#374151', strokeWidth: 3 }), new Konva.Arc({ x: pivotX, y: 0, innerRadius: entity.width*0.8, outerRadius: entity.width*0.8, angle: 90, rotation: arcRot, stroke: '#9ca3af', dash: [4, 4] })); 
+                const pivotX = entity.side === 1 ? pivotBase - 10 : -pivotBase + 10, arcRot = entity.side === 1 ? (entity.facing===1?180:90) : (entity.facing===1?270:0); group.add(new Konva.Line({ points: [pivotX, doorW*0.2*entity.facing, pivotX, -doorW*0.8*entity.facing], stroke: '#374151', strokeWidth: 3 }), new Konva.Arc({ x: pivotX, y: 0, innerRadius: doorW*0.8, outerRadius: doorW*0.8, angle: 90, rotation: arcRot, stroke: '#9ca3af', dash: [4, 4] })); 
             } else if (entity.doorType === 'folding') { 
-                const qw = entity.width / 4; group.add(new Konva.Line({ points: [-hw, 0, -hw + qw, -qw*entity.facing], stroke: '#374151', strokeWidth: 3 }), new Konva.Line({ points: [-hw + qw, -qw*entity.facing, 0, 0], stroke: '#374151', strokeWidth: 3 })); 
+                const qw = doorW / 4; group.add(new Konva.Line({ points: [-doorHW, 0, -doorHW + qw, -qw*entity.facing], stroke: '#374151', strokeWidth: 3 }), new Konva.Line({ points: [-doorHW + qw, -qw*entity.facing, 0, 0], stroke: '#374151', strokeWidth: 3 })); 
             }
         },
         render3D: (sceneGroup, entity, helpers) => {
@@ -826,8 +836,9 @@ export const WIDGET_REGISTRY = {
                 return mesh;
             };
             const isGlassDoor = entity.doorMat === 'glass'; const frameWidth = 1.5; const frameThick = entity.thick + 1; const doorThick = 2.0; const gapSide = 0.15; const gapTop = 0.15; const gapBottom = 0.5; 
-            const leafWidth = entity.width - (frameWidth * 2) - (gapSide * 2); const leafHeight = height - frameWidth - gapTop - gapBottom;
-            const openAngle = (Math.PI / 4) * (entity.facing === 1 ? 1 : -1); const pivotXOffset = -entity.width/2 + frameWidth + gapSide/2; const hingePinZ = 0; 
+            const slWidth = (entity.hasSidelights && (!entity.doorShape || entity.doorShape === 'square') && !['pocket', 'sliding'].includes(entity.doorType)) ? Math.min(60, entity.width * 0.22) : 0;
+            const leafWidth = entity.width - (frameWidth * 2) - (gapSide * 2) - (slWidth * 2); const leafHeight = height - frameWidth - gapTop - gapBottom;
+            const openAngle = (Math.PI / 4) * (entity.facing === 1 ? 1 : -1); const pivotXOffset = -entity.width/2 + frameWidth + slWidth + gapSide/2; const hingePinZ = 0; 
             
             const thresholdGeo = new THREE.BoxGeometry(entity.width, 0.4, (entity.thick || 20) + 0.5);
             const threshold = tagFrame(new THREE.Mesh(thresholdGeo, matFrame));
@@ -842,6 +853,25 @@ export const WIDGET_REGISTRY = {
                     const trimStile = new THREE.BoxGeometry(4, height + 2, 0.5); const trimRail = new THREE.BoxGeometry(entity.width + 8, 4, 0.5);
                     [-frameThick/2 - 0.25, frameThick/2 + 0.25].forEach(zOff => { const tL = tagFrame(new THREE.Mesh(trimStile, matFrame)); tL.position.set(-entity.width/2 - 2 + frameWidth, height/2 + 1, zOff); const tR = tagFrame(new THREE.Mesh(trimStile, matFrame)); tR.position.set(entity.width/2 + 2 - frameWidth, height/2 + 1, zOff); const tT = tagFrame(new THREE.Mesh(trimRail, matFrame)); tT.position.set(0, height + 2, zOff); [tL, tR, tT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); }); });
                     [jamL, jamR, jamT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); });
+                    
+                    if (slWidth > 0) {
+                        const innerJamGeo = new THREE.BoxGeometry(frameWidth, height - frameWidth, frameThick);
+                        const iJamL = tagFrame(new THREE.Mesh(innerJamGeo, matFrame)); iJamL.position.set(-entity.width/2 + frameWidth + slWidth - frameWidth/2, (height - frameWidth)/2, 0);
+                        const iJamR = tagFrame(new THREE.Mesh(innerJamGeo, matFrame)); iJamR.position.set(entity.width/2 - frameWidth - slWidth + frameWidth/2, (height - frameWidth)/2, 0);
+                        [iJamL, iJamR].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); });
+                        
+                        const slGlassW = slWidth - frameWidth;
+                        const slBotGeo = new THREE.BoxGeometry(slGlassW, 5, frameThick);
+                        const slBotL = tagFrame(new THREE.Mesh(slBotGeo, matFrame)); slBotL.position.set(-entity.width/2 + frameWidth + slGlassW/2, 2.5, 0);
+                        const slBotR = tagFrame(new THREE.Mesh(slBotGeo, matFrame)); slBotR.position.set(entity.width/2 - frameWidth - slGlassW/2, 2.5, 0);
+                        [slBotL, slBotR].forEach(m => doorGroup.add(m));
+                        
+                        const glassMat = helpers.getDynamicMaterial('glass', 'door');
+                        const slGlassGeo = new THREE.BoxGeometry(slGlassW, height - frameWidth - 5, 0.4);
+                        const glassL = new THREE.Mesh(slGlassGeo, glassMat); glassL.position.set(-entity.width/2 + frameWidth + slGlassW/2, 5 + (height - frameWidth - 5)/2, 0);
+                        const glassR = new THREE.Mesh(slGlassGeo, glassMat); glassR.position.set(entity.width/2 - frameWidth - slGlassW/2, 5 + (height - frameWidth - 5)/2, 0);
+                        doorGroup.add(glassL, glassR);
+                    }
                 } else {
                     const createArchedFrameShape = (wOuter, hOuter, wInner, hInner, type) => {
                         const shape = new THREE.Shape();
