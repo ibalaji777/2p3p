@@ -139,39 +139,6 @@ export const DOOR_MATERIALS_REGISTRY = {
         defaultDepth: 0.2,
         defaultRepeat: 1,
         scaleMultiplier: 1
-    },
-    'door_classic_2panel': {
-        id: 'door_classic_2panel',
-        name: 'Classic 2-Panel',
-        texture: 'models/wall/wood_2_dark.png', // Placeholder until quota resets
-        thumbnail: 'models/wall/wood_2_dark.png', 
-        defaultWidth: 100,
-        defaultHeight: 200,
-        defaultDepth: 0.2,
-        defaultRepeat: 1,
-        scaleMultiplier: 1
-    },
-    'door_classic_4panel': {
-        id: 'door_classic_4panel',
-        name: 'Mahogany 4-Panel',
-        texture: 'models/wall/wood_1_light.png', // Placeholder until quota resets
-        thumbnail: 'models/wall/wood_1_light.png', 
-        defaultWidth: 100,
-        defaultHeight: 200,
-        defaultDepth: 0.2,
-        defaultRepeat: 1,
-        scaleMultiplier: 1
-    },
-    'door_grid_panel': {
-        id: 'door_grid_panel',
-        name: 'Grid Panel Door',
-        texture: 'models/wall/wood_2_dark.png', 
-        thumbnail: 'models/wall/wood_2_dark.png', 
-        defaultWidth: 100,
-        defaultHeight: 200,
-        defaultDepth: 0.2,
-        defaultRepeat: 1,
-        scaleMultiplier: 1
     }
 };
 
