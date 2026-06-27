@@ -14,12 +14,13 @@ export class DecorManager {
         
         const decor = {
             id: 'decor_' + Math.random().toString(36).substr(2, 9),
+            type: 'wallDecor',
             configId: configId,
             side: side,
             localX: 50, localY: 50, localZ: 0,
             width: 100, height: 100,
             depth: config.defaultDepth || 0.2,
-            tileSize: config.defaultTileSize || 40,
+            tileSize: config.defaultTileSize || 70,
             faces: { front: true, back: false, left: true, right: true } 
         };
         
@@ -206,7 +207,9 @@ export class DecorManager {
             const positions = boxMesh.geometry.attributes.position;
             const normals = boxMesh.geometry.attributes.normal;
             const uvs = boxMesh.geometry.attributes.uv;
-            const TILE_SIZE = entity.tileSize || 40;
+            const config = WALL_DECOR_REGISTRY[entity.configId] || {};
+            const scaleMult = config.scaleMultiplier || 1;
+            const TILE_SIZE = (entity.tileSize || 70) * scaleMult;
 
             for (let i = 0; i < positions.count; i++) {
                 // Only apply to front and back faces of the decor mesh (where normal is along the local Z-axis).
@@ -230,7 +233,7 @@ export class DecorManager {
         let matSide = new THREE.MeshBasicMaterial({ visible: false });
 
         if (texture) {
-            const TILE_SIZE = entity.tileSize || 40;
+            const TILE_SIZE = entity.tileSize || 70;
             let texFront = texture.clone(); texFront.wrapS = texFront.wrapT = THREE.RepeatWrapping; if (THREE.SRGBColorSpace) texFront.colorSpace = THREE.SRGBColorSpace;
             texFront.repeat.set(1, 1); // Repeat is 1x1 because tiling is handled by the UV coordinates.
             matFront = new THREE.MeshStandardMaterial({ map: texFront, color: 0xffffff });

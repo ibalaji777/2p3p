@@ -126,7 +126,8 @@ export const WALL_DECOR_REGISTRY = {
         defaultWidth: 100,
         defaultHeight: 100,
         defaultDepth: 0.2,
-        defaultRepeat: 3
+        defaultRepeat: 3,
+        scaleMultiplier: 2
     },
     'brick_2_mixed': {
         id: 'brick_2_mixed',
@@ -136,7 +137,8 @@ export const WALL_DECOR_REGISTRY = {
         defaultWidth: 100,
         defaultHeight: 100,
         defaultDepth: 0.2,
-        defaultRepeat: 3
+        defaultRepeat: 3,
+        scaleMultiplier: 2
     },
     'brick_3_red': {
         id: 'brick_3_red',
@@ -146,7 +148,8 @@ export const WALL_DECOR_REGISTRY = {
         defaultWidth: 100,
         defaultHeight: 100,
         defaultDepth: 0.2,
-        defaultRepeat: 3
+        defaultRepeat: 3,
+        scaleMultiplier: 2
     },
     'brick_4_burgundy': {
         id: 'brick_4_burgundy',
@@ -156,7 +159,8 @@ export const WALL_DECOR_REGISTRY = {
         defaultWidth: 100,
         defaultHeight: 100,
         defaultDepth: 0.2,
-        defaultRepeat: 3
+        defaultRepeat: 3,
+        scaleMultiplier: 2
     },
     'brick_5_cream': {
         id: 'brick_5_cream',
@@ -166,7 +170,8 @@ export const WALL_DECOR_REGISTRY = {
         defaultWidth: 100,
         defaultHeight: 100,
         defaultDepth: 0.2,
-        defaultRepeat: 3
+        defaultRepeat: 3,
+        scaleMultiplier: 2
     },
     'brick_6_beige': {
         id: 'brick_6_beige',
@@ -176,7 +181,8 @@ export const WALL_DECOR_REGISTRY = {
         defaultWidth: 100,
         defaultHeight: 100,
         defaultDepth: 0.2,
-        defaultRepeat: 3
+        defaultRepeat: 3,
+        scaleMultiplier: 2
     },
     'brick_7_yellow': {
         id: 'brick_7_yellow',
@@ -186,7 +192,8 @@ export const WALL_DECOR_REGISTRY = {
         defaultWidth: 100,
         defaultHeight: 100,
         defaultDepth: 0.2,
-        defaultRepeat: 3
+        defaultRepeat: 3,
+        scaleMultiplier: 2
     },
     'brick_8_white': {
         id: 'brick_8_white',
@@ -196,7 +203,8 @@ export const WALL_DECOR_REGISTRY = {
         defaultWidth: 100,
         defaultHeight: 100,
         defaultDepth: 0.2,
-        defaultRepeat: 3
+        defaultRepeat: 3,
+        scaleMultiplier: 2
     },
     'brick_9_grey': {
         id: 'brick_9_grey',
@@ -206,7 +214,8 @@ export const WALL_DECOR_REGISTRY = {
         defaultWidth: 100,
         defaultHeight: 100,
         defaultDepth: 0.2,
-        defaultRepeat: 3
+        defaultRepeat: 3,
+        scaleMultiplier: 2
     },
     'stone_wall': {
         id: 'stone_wall',
@@ -216,7 +225,8 @@ export const WALL_DECOR_REGISTRY = {
         defaultWidth: 100,
         defaultHeight: 100,
         defaultDepth: 0.2,
-        defaultRepeat: 3
+        defaultRepeat: 3,
+        scaleMultiplier: 2
     },
     'marble_tiles': {
         id: 'marble_tiles',
@@ -226,7 +236,8 @@ export const WALL_DECOR_REGISTRY = {
         defaultWidth: 100,
         defaultHeight: 100,
         defaultDepth: 0.2,
-        defaultRepeat: 3
+        defaultRepeat: 3,
+        scaleMultiplier: 2
     },
     'wood_panel': {
         id: 'wood_panel',
@@ -237,16 +248,6 @@ export const WALL_DECOR_REGISTRY = {
         defaultHeight: 100,
         defaultDepth: 0.2, 
         defaultRepeat: 3   
-    },
-    'solid_color': {
-        id: 'solid_color',
-        name: 'Painted Wall',
-        texture: 'https://via.placeholder.com/512x512/e2e8f0/e2e8f0', 
-        thumbnail: 'https://via.placeholder.com/150x150/e2e8f0/000?text=Paint', 
-        defaultWidth: 100,
-        defaultHeight: 100,
-        defaultDepth: 0.2,
-        defaultRepeat: 1
     }
 };
 

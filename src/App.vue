@@ -1069,6 +1069,10 @@ const setShapeMaterial = (key) => {
                 debouncedSaveHistory();
             }
             return;
+        } else if (selectedType.value === 'wallDecor') {
+            selectedEntity.value.configId = key;
+            syncEngine();
+            return;
         }
         
         if (target === 'all') {
@@ -1130,6 +1134,15 @@ const handleDelete = () => {
             if (viewMode.value === '3d') refresh3DScene(true);
         } else if (selectedType.value === 'widget' || selectedType.value === 'molding' || selectedType.value === 'advance_openings' || selectedType.value === 'wall' || selectedType.value === 'arc' || selectedType.value === 'stair' ) {
             selectedEntity.value.remove();
+            selectedEntity.value = null;
+            selectedType.value = null;
+            if (viewMode.value === '3d') refresh3DScene(true);
+        } else if (selectedType.value === 'wallDecor') {
+            const wall = planner.value.walls.find(w => w.attachedDecor && w.attachedDecor.some(d => d.id === selectedEntity.value.id));
+            if (wall) {
+                wall.attachedDecor = wall.attachedDecor.filter(d => d.id !== selectedEntity.value.id);
+                if (wall.isStatic) updateStaticLevelData(wall);
+            }
             selectedEntity.value = null;
             selectedType.value = null;
             if (viewMode.value === '3d') refresh3DScene(true);

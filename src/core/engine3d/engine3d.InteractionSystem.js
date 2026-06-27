@@ -663,7 +663,7 @@ export class InteractionSystem {
             else if (object.userData.isPattern) type = 'advance_openings';
             this.setHighlight(object, true);
                 
-            if (type === 'furniture' || type === 'shape' || type === 'widget' || type === 'molding' || type === 'advance_openings') {
+            if (type === 'furniture' || type === 'shape' || type === 'widget' || type === 'molding' || type === 'advance_openings' || type === 'wallDecor') {
                 if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
             } else {
                 if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);

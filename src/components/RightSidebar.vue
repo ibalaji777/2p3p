@@ -194,7 +194,7 @@
                                     <button class="btn-sm-delete" @click.stop="$emit('delete-specific-decor', decor)">✕</button>
                                 </div>
                                 <div class="applied-item-body" v-if="activeDecorId === decor.id">
-                                    <div class="faceRow">
+                                    <div class="faceRow" v-if="decor.faces">
                                         <label><input type="checkbox" v-model="decor.faces.left" @change="$emit('decor-update', decor)">L-Edge</label>
                                         <label><input type="checkbox" v-model="decor.faces.right" @change="$emit('decor-update', decor)">R-Edge</label>
                                     </div>
@@ -223,6 +223,32 @@
                 </div>
 
                 <button class="hud-delete" @click="$emit('delete-entity')">Delete {{ selectedEntity.type === 'railing' ? 'Railing' : 'Wall' }}</button>
+            </div>
+
+            <div v-else-if="selectedType === 'wallDecor'">
+                <h4 class="props-subtitle">Wall Pattern Layer</h4>
+                <div class="faceRow" v-if="selectedEntity.faces">
+                    <label><input type="checkbox" v-model="selectedEntity.faces.left" @change="$emit('decor-update', selectedEntity)">L-Edge</label>
+                    <label><input type="checkbox" v-model="selectedEntity.faces.right" @change="$emit('decor-update', selectedEntity)">R-Edge</label>
+                </div>
+                <div class="control-group"><label>Tile Size</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.tileSize" min="1" max="200" step="1" @input="$emit('decor-update', selectedEntity)"><input type="number" v-model.number="selectedEntity.tileSize" min="1" max="200" step="1" @input="$emit('decor-update', selectedEntity)"></div></div>
+                <div class="control-group"><label>Thickness</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.depth" min="0.1" max="40" step="0.1" @input="$emit('decor-update', selectedEntity)"><input type="number" v-model.number="selectedEntity.depth" min="0.1" max="40" step="0.1" @input="$emit('decor-update', selectedEntity)"></div></div>
+                <div class="control-group"><label>Width (%)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="1" max="100" step="1" @input="$emit('decor-update', selectedEntity)"><input type="number" v-model.number="selectedEntity.width" min="1" max="100" step="1" @input="$emit('decor-update', selectedEntity)"></div></div>
+                <div class="control-group"><label>Height (%)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="1" max="100" step="1" @input="$emit('decor-update', selectedEntity)"><input type="number" v-model.number="selectedEntity.height" min="1" max="100" step="1" @input="$emit('decor-update', selectedEntity)"></div></div>
+                <div class="control-group"><label>X Offset (%)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.localX" min="-10" max="110" step="1" @input="$emit('decor-update', selectedEntity)"><input type="number" v-model.number="selectedEntity.localX" min="-10" max="110" step="1" @input="$emit('decor-update', selectedEntity)"></div></div>
+                <div class="control-group"><label>Y Offset (%)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.localY" min="-10" max="110" step="1" @input="$emit('decor-update', selectedEntity)"><input type="number" v-model.number="selectedEntity.localY" min="-10" max="110" step="1" @input="$emit('decor-update', selectedEntity)"></div></div>
+                
+                <div class="decor-gallery" style="margin-top: 15px;">
+                    <h4 class="props-subtitle">Change Material</h4>
+                    <div class="decor-grid">
+                        <div v-for="(config, key) in wallDecorRegistry" :key="key" class="decor-item" @click="() => { selectedEntity.configId = key; $emit('sync-engine'); }" :class="{ active: selectedEntity.configId === key }">
+                            <img :src="config.thumbnail || config.texture" />
+                            <span>{{ config.name }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="hud-delete" style="margin-top: 10px;" @click="$emit('delete-entity')">Delete Pattern</button>
             </div>
 
             <div v-else-if="selectedType === 'arc'">

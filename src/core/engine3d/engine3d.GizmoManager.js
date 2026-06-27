@@ -706,10 +706,22 @@ export class GizmoManager {
                 selectedObj.userData.entity.params.isEditingMaterials = false;
                 if (this.ctx.syncToUI) this.ctx.syncToUI();
             }
+        } else if (mode === 'material') {
+            const selectedObj = this.ctx.interactions.selectedObject;
+            if (selectedObj && selectedObj.userData.entity) {
+                if (!selectedObj.userData.entity.params) selectedObj.userData.entity.params = {};
+                selectedObj.userData.entity.params.isEditingMaterials = true;
+                
+                if (selectedObj.userData.entity.type === 'elevation_fascia' || selectedObj.userData.entity.type === 'molding' || selectedObj.userData.isWidget || selectedObj.userData.entity.type === 'wallDecor') {
+                    if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('material-gizmo-select', { detail: { entity: selectedObj.userData.entity, face: 'front' }}));
+                }
+                
+                if (this.ctx.syncToUI) this.ctx.syncToUI();
+            }
         }
 
         const isOpening = selectedObj && (selectedObj.userData.isWidget || selectedObj.userData.isPattern || (selectedObj.userData.entity && selectedObj.userData.entity.type && ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(selectedObj.userData.entity.type)));
-        const supportsFaceMaterials = selectedObj && (selectedObj.userData.isShape || selectedObj.userData.isWidget || selectedObj.userData.isMolding || selectedObj.userData.isPattern);
+        const supportsFaceMaterials = selectedObj && (selectedObj.userData.isShape || selectedObj.userData.isWidget || selectedObj.userData.isMolding || selectedObj.userData.isPattern || selectedObj.userData.isWallDecor);
         const isElevationFascia = selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.type === 'elevation_fascia';
 
         if (mode === 'none') {
