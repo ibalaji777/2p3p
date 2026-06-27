@@ -5,6 +5,7 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TransformControls } from './TransformControls.js';
 import { MaterialGizmo } from './MaterialGizmo.js';
 import { CornerRadiusGizmo } from './CornerRadiusGizmo.js';
+import { VertexSlopeGizmo } from './VertexSlopeGizmo.js';
 
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from '../../core/registry';
 
@@ -286,6 +287,9 @@ export class InteractionSystem {
 
         this.cornerGizmo = new CornerRadiusGizmo(ctx);
         this.ctx.scene.add(this.cornerGizmo);
+
+        this.vertexSlopeGizmo = new VertexSlopeGizmo(ctx);
+        this.ctx.scene.add(this.vertexSlopeGizmo);
 
         this.initEvents();
     }
@@ -684,6 +688,7 @@ export class InteractionSystem {
         if (this.openingGizmo) this.openingGizmo.detach();
         if (this.materialGizmo) this.materialGizmo.detach();
         if (this.cornerGizmo) this.cornerGizmo.detach();
+        if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
         this.ctx.currentTransformMode = 'none';
         if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
         if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isMolding || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);

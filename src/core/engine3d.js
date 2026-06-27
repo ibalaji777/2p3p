@@ -324,6 +324,44 @@ export class Preview3D {
             }
         }
         
+        if (entity.params.vertexElevations && entity.params.vertexElevations.some(v => v !== 0)) {
+            let corners = [];
+            if (entity.type === 'shape_rect') {
+                const w2 = (entity.params.width || 100) / 2;
+                const d2 = (entity.params.height || 100) / 2;
+                corners = [ { x: -w2, z: -d2 }, { x: w2, z: -d2 }, { x: w2, z: d2 }, { x: -w2, z: d2 } ];
+            } else if (entity.type === 'shape_polygon' || entity.type === 'shape_triangle') {
+                if (entity.params.points) corners = entity.params.points.map(p => ({ x: p.x, z: p.y }));
+            }
+
+            if (corners.length > 0 && corners.length === entity.params.vertexElevations.length) {
+                const pos = obj.geometry.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    let vy = pos.getY(i);
+                    if (vy > h - 1) {
+                        let vx = pos.getX(i);
+                        let vz = pos.getZ(i);
+                        let minD = Infinity;
+                        let minIdx = -1;
+                        for (let c = 0; c < corners.length; c++) {
+                            let dx = vx - corners[c].x;
+                            let dz = vz - corners[c].z;
+                            let dist = dx*dx + dz*dz;
+                            if (dist < minD) {
+                                minD = dist;
+                                minIdx = c;
+                            }
+                        }
+                        if (minIdx !== -1) {
+                            pos.setY(i, vy + entity.params.vertexElevations[minIdx]);
+                        }
+                    }
+                }
+                pos.needsUpdate = true;
+                obj.geometry.computeVertexNormals();
+            }
+        }
+        
         obj.position.set(entity.group.x(), 0, entity.group.y());
         obj.rotation.set(
             entity.rotationX || 0,

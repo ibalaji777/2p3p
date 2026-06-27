@@ -124,6 +124,14 @@ export class GizmoManager {
         this.btnCorner.style.left = '90px';
         this.btnCorner.style.display = 'none';
         this.btnCorner.onclick = () => this.setTransformMode('corner');
+
+        this.btnVertexSlope = document.createElement('button');
+        this.btnVertexSlope.className = 'transform-menu-btn';
+        this.btnVertexSlope.innerHTML = '⬍<br>Slope';
+        this.btnVertexSlope.style.top = '135px';
+        this.btnVertexSlope.style.left = '90px';
+        this.btnVertexSlope.style.display = 'none';
+        this.btnVertexSlope.onclick = () => this.setTransformMode('vertex_slope');
         
         this.openingPanel = document.createElement('div');
         this.openingPanel.style.display = 'none';
@@ -285,8 +293,11 @@ export class GizmoManager {
         this.transformMenu.appendChild(this.btnScale);
         this.transformMenu.appendChild(this.btnSpin);
         this.transformMenu.appendChild(this.btnTilt);
+        this.transformMenu.appendChild(this.btnOpening);
         this.transformMenu.appendChild(this.btnMaterial);
         this.transformMenu.appendChild(this.btnCorner);
+        this.transformMenu.appendChild(this.btnVertexSlope);
+        this.transformMenu.appendChild(this.btnDone);
         
         this.container.appendChild(this.transformMenu);
         this.transformMenu.addEventListener('pointerdown', e => e.stopPropagation());
@@ -700,6 +711,12 @@ export class GizmoManager {
         if (this.ctx.interactions.openingGizmo) {
             this.ctx.interactions.openingGizmo.detach();
         }
+        if (this.ctx.interactions.cornerGizmo) {
+            this.ctx.interactions.cornerGizmo.detach();
+        }
+        if (this.ctx.interactions.vertexSlopeGizmo) {
+            this.ctx.interactions.vertexSlopeGizmo.detach();
+        }
         if (this.ctx.interactions.materialGizmo && mode !== 'material') {
             this.ctx.interactions.materialGizmo.detach();
             if (selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.params) {
@@ -737,6 +754,7 @@ export class GizmoManager {
             if (this.btnOpening) this.btnOpening.style.display = isOpening ? 'flex' : 'none';
             if (this.btnMaterial) this.btnMaterial.style.display = supportsFaceMaterials ? 'flex' : 'none';
             if (this.btnCorner) this.btnCorner.style.display = isElevationFascia ? 'flex' : 'none';
+            if (this.btnVertexSlope) this.btnVertexSlope.style.display = selectedObj?.userData?.isShape ? 'flex' : 'none';
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
             if (this.materialPanel) this.materialPanel.style.display = 'none';
@@ -764,6 +782,7 @@ export class GizmoManager {
         if (this.btnOpening) this.btnOpening.style.display = 'none';
         if (this.btnMaterial) this.btnMaterial.style.display = 'none';
         if (this.btnCorner) this.btnCorner.style.display = 'none';
+        if (this.btnVertexSlope) this.btnVertexSlope.style.display = 'none';
         if (this.btnDone) this.btnDone.style.display = 'flex';
 
         if (selectedObj) tc.detach();
@@ -806,6 +825,20 @@ export class GizmoManager {
             if (this.ctx.interactions.cornerGizmo && selectedObj) {
                 this.ctx.interactions.cornerGizmo.attach(selectedObj);
                 this.updateCornerPanel(selectedObj.userData.entity, -1);
+            }
+            return;
+        }
+
+        if (mode === 'vertex_slope') {
+            tc.visible = false;
+            tc.enabled = false;
+            if (this.btnVertexSlope) this.btnVertexSlope.classList.add('active');
+            if (this.xyPanel) this.xyPanel.style.display = 'none';
+            if (this.openingPanel) this.openingPanel.style.display = 'none';
+            if (this.materialPanel) this.materialPanel.style.display = 'none';
+            if (this.cornerPanel) this.cornerPanel.style.display = 'none';
+            if (this.ctx.interactions.vertexSlopeGizmo && selectedObj) {
+                this.ctx.interactions.vertexSlopeGizmo.attach(selectedObj);
             }
             return;
         }
