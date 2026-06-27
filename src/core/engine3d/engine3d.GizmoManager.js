@@ -457,7 +457,7 @@ export class GizmoManager {
                     if (activeThumb) activeThumb.style.borderColor = '#3b82f6';
                     if (this.matNameDisplay) {
                         const selectedObj = this.ctx.interactions.selectedObject;
-                        const registry = (selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.type === 'door') ? DOOR_MATERIALS_REGISTRY : WALL_DECOR_REGISTRY;
+                        const registry = (selectedObj && selectedObj.userData.entity && (selectedObj.userData.entity.type === 'door' || selectedObj.userData.entity.type === 'window')) ? DOOR_MATERIALS_REGISTRY : WALL_DECOR_REGISTRY;
                         const config = registry[texKey];
                         this.matNameDisplay.innerText = config ? config.name : 'Clear Material';
                     }
@@ -519,7 +519,7 @@ export class GizmoManager {
                                 const mats = Array.isArray(this.activeObject.material) ? this.activeObject.material : [this.activeObject.material];
                                 if (mats[this.activeMatIndex]) {
                                     const newMat = mats[this.activeMatIndex].clone();
-                                    const registry = (entity && entity.type === 'door') ? DOOR_MATERIALS_REGISTRY : WALL_DECOR_REGISTRY;
+                                    const registry = (entity && (entity.type === 'door' || entity.type === 'window')) ? DOOR_MATERIALS_REGISTRY : WALL_DECOR_REGISTRY;
                                     if (key && registry[key]) {
                                         const config = registry[key];
                                         this.ctx.assets.getTexture(config).then(tex => {
@@ -663,7 +663,7 @@ export class GizmoManager {
             else if (faceName === 'front') tex = targetParams.textureFront || tex;
             else if (faceName === 'back') tex = targetParams.textureBack || tex;
             
-            const registry = (selectedObj.userData.entity && selectedObj.userData.entity.type === 'door') ? DOOR_MATERIALS_REGISTRY : WALL_DECOR_REGISTRY;
+            const registry = (selectedObj.userData.entity && (selectedObj.userData.entity.type === 'door' || selectedObj.userData.entity.type === 'window')) ? DOOR_MATERIALS_REGISTRY : WALL_DECOR_REGISTRY;
             
             // Rebuild grid for doors vs walls dynamically
             let decorThumbnails = `
