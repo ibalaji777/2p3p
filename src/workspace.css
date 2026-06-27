@@ -231,16 +231,35 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 /* TRANSFORM MENU 3D */
 .transform-menu-3d {
     position: absolute;
-    width: 120px;
-    height: 120px;
-    border-radius: 50%;
-    pointer-events: none;
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 8px;
+    background: rgba(17, 24, 39, 0.7);
+    padding: 10px;
+    border-radius: 30px;
+    pointer-events: auto;
     z-index: 100;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    width: max-content;
+    max-width: 95%;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+.transform-menu-3d::-webkit-scrollbar {
+    display: none;
 }
 .transform-menu-btn {
-    position: absolute;
-    width: 44px;
-    height: 44px;
+    position: relative;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     background: rgba(17, 24, 39, 0.85);
     color: white;
@@ -256,8 +275,8 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
     transition: 0.2s;
     backdrop-filter: blur(4px);
     text-align: center;
-    line-height: 1.1;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    line-height: 1.2;
+    flex-shrink: 0;
 }
 .transform-menu-btn:hover {
     background: rgba(37, 99, 235, 0.9);

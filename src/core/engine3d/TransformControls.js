@@ -81,12 +81,6 @@ export class TransformControls extends THREE.Group {
         this.object = object;
         this.visible = true;
         
-        // Calculate object size to fit the gizmo perfectly around it
-        const box = new THREE.Box3().setFromObject(object);
-        const sphere = new THREE.Sphere();
-        box.getBoundingSphere(sphere);
-        this.objectFitScale = sphere.radius > 0 ? sphere.radius * 1.2 : 30;
-        
         this.update();
     }
 
@@ -110,10 +104,11 @@ export class TransformControls extends THREE.Group {
         const scaleGroup = this.gizmo.handles.getObjectByName('scale');
         if (scaleGroup) scaleGroup.quaternion.copy(this.worldQuaternion);
 
-        // Scale gizmo to fit the object
+        // Proven Method: Constant Screen Size
+        // Scale gizmo solely based on distance to camera to maintain fixed visual size
         const camDistance = this.worldPosition.distanceTo(this.camera.position);
-        const minScreenScale = camDistance / 12; 
-        const finalScale = Math.max(this.objectFitScale || 30, minScreenScale);
+        // Adjusting denominator changes the constant visual size of the gizmo
+        const finalScale = camDistance / 8; 
         this.scale.set(finalScale, finalScale, finalScale);
         
         if (this.mode === 'scale') {
