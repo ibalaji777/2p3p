@@ -19,7 +19,7 @@ export const WORKSPACE_2D_SHAPES = {
 };
 
 export const DOOR_TYPES = { single: { label: "Single Hinged Door" }, double: { label: "Double Door" }, sliding: { label: "Sliding Door" }, double_sliding: { label: "Double Sliding Door" }, folding: { label: "Folding / Bi-fold" }, pivot: { label: "Pivot Door" }, pocket: { label: "Pocket Door" }, french: { label: "French Door (Glass)" } };
-export const WINDOW_TYPES = { sliding_std: { label: "Standard Sliding Window", type: "sliding", hasChajja: false }, casement_std: { label: "Casement / Hinged Window", type: "casement", hasChajja: false }, casement_chajja: { label: "Window with Concrete Sunshade", type: "casement", hasChajja: true }, fixed_elevation: { label: "Fixed Elevation Glass", type: "fixed", hasChajja: false }, bay_box: { label: "Box Bay Window (Villa Style)", type: "bay", hasChajja: true }, louver_vent: { label: "Vent / Louver (Bathroom)", type: "louver", hasChajja: false }, traditional_indian: { label: "Traditional Wooden Shutter", type: "traditional", hasChajja: true } };
+export const WINDOW_TYPES = { sliding_std: { label: "Standard Sliding Window", type: "sliding", hasChajja: false }, casement_std: { label: "Casement / Hinged Window", type: "casement", hasChajja: false }, casement_chajja: { label: "Window with Concrete Sunshade", type: "casement", hasChajja: true }, fixed_elevation: { label: "Fixed Elevation Glass", type: "fixed", hasChajja: false }, modern_split: { label: "Modern Asymmetric", type: "split_asymmetric", hasChajja: false }, bay_box: { label: "Box Bay Window (Villa Style)", type: "bay", hasChajja: true }, window_seat: { label: "Window with Seat", type: "window_seat", hasChajja: false }, garden_open: { label: "Open Garden Window", type: "garden_open", hasChajja: true }, panoramic_slider: { label: "Panoramic Slider", type: "panoramic_slider", hasChajja: false }, louver_vent: { label: "Vent / Louver (Bathroom)", type: "louver", hasChajja: false }, traditional_indian: { label: "Traditional Wooden Shutter", type: "traditional", hasChajja: true } };
 
 
 export const DOOR_MATERIALS = {
@@ -1044,6 +1044,41 @@ export const WIDGET_REGISTRY = {
                 const sL = makeSash(sideW, iH); sL.position.set(-iW/2 + (iW*0.2)/2, fW, zOffset/2); sL.rotation.y = -sideAng; winGroup.add(sL); const sR = makeSash(sideW, iH); sR.position.set(iW/2 - (iW*0.2)/2, fW, zOffset/2); sR.rotation.y = sideAng; winGroup.add(sR);
                 const capShape = new THREE.Shape(); capShape.moveTo(-iW/2 - fW, 0); capShape.lineTo(iW/2 + fW, 0); capShape.lineTo(frontW/2 + fW, zOffset + fThick/2); capShape.lineTo(-frontW/2 - fW, zOffset + fThick/2);
                 const capGeo = new THREE.ExtrudeGeometry(capShape, {depth: fW, bevelEnabled:false}); capGeo.rotateX(Math.PI/2); const capT = new THREE.Mesh(capGeo, matFrame); capT.position.set(0, height, 0); const capB = new THREE.Mesh(capGeo, matFrame); capB.position.set(0, fW, 0); [capT, capB].forEach(m => m.userData = { isFrame: true }); winGroup.add(capT, capB);
+            } else if (wConf.type === 'split_asymmetric') {
+                const leftW = iW * 0.45; const rightW = iW - leftW;
+                const rightSash = makeSash(rightW, iH); rightSash.position.set(iW/2 - rightW/2, fW, zOffset); winGroup.add(rightSash);
+                const botH = iH * 0.4; const topH = iH - botH;
+                const botSash = makeSash(leftW, botH); botSash.position.set(-iW/2 + leftW/2, fW, zOffset); winGroup.add(botSash);
+                const topSash = makeSash(leftW, topH); topSash.position.set(-iW/2 + leftW/2, fW + botH, zOffset); winGroup.add(topSash);
+            } else if (wConf.type === 'window_seat') {
+                const hw = iW / 2;
+                const sL = makeSash(hw, iH); sL.position.set(-hw/2, fW, 0); winGroup.add(sL);
+                const sR = makeSash(hw, iH); sR.position.set(hw/2, fW, 0); winGroup.add(sR);
+                const seatDepth = 40; const seatThick = 4;
+                const seatMat = new THREE.MeshStandardMaterial({ color: 0xdfb48c, roughness: 0.8, name: "SeatWood" });
+                const seatZ = entity.facing === 1 ? -seatDepth/2 : seatDepth/2;
+                const seat = new THREE.Mesh(new THREE.BoxGeometry(entity.width + 10, seatThick, seatDepth), seatMat);
+                seat.position.set(0, fW + seatThick/2, seatZ); seat.castShadow = true; seat.receiveShadow = true; winGroup.add(seat);
+            } else if (wConf.type === 'garden_open') {
+                const frontW = iW * 0.6; const frontSash = makeSash(frontW, iH); frontSash.position.set(0, fW, zOffset); winGroup.add(frontSash);
+                const sideW = Math.hypot(iW*0.2, zOffset);
+                const sL = makeSash(sideW, iH, true); const pL = new THREE.Group(); pL.position.set(-frontW/2, fW, zOffset); sL.position.set(-sideW/2, 0, 0); pL.rotation.y = -Math.PI/3; pL.add(sL); winGroup.add(pL);
+                const sR = makeSash(sideW, iH, true); const pR = new THREE.Group(); pR.position.set(frontW/2, fW, zOffset); sR.position.set(sideW/2, 0, 0); pR.rotation.y = Math.PI/3; pR.add(sR); winGroup.add(pR);
+                const capShape = new THREE.Shape(); capShape.moveTo(-iW/2 - fW, 0); capShape.lineTo(iW/2 + fW, 0); capShape.lineTo(frontW/2 + fW, zOffset + fThick/2); capShape.lineTo(-frontW/2 - fW, zOffset + fThick/2);
+                const capGeo = new THREE.ExtrudeGeometry(capShape, {depth: fW, bevelEnabled:false}); capGeo.rotateX(Math.PI/2); const capT = new THREE.Mesh(capGeo, matFrame); capT.position.set(0, height, 0); const capB = new THREE.Mesh(capGeo, matFrame); capB.position.set(0, fW, 0); [capT, capB].forEach(m => m.userData = { isFrame: true }); winGroup.add(capT, capB);
+            } else if (wConf.type === 'panoramic_slider') {
+                const overlap = 2; const panes = 3; const hw = (iW / panes) + (overlap/2);
+                for(let i=0; i<panes; i++) { 
+                    const pG = new THREE.Group(); const thinFw = 1.0;
+                    const tGeoS = new THREE.BoxGeometry(thinFw, iH, sThick); const tGeoR = new THREE.BoxGeometry(hw - thinFw*2, thinFw, sThick);
+                    const s1 = new THREE.Mesh(tGeoS, matFrame); s1.position.set(-hw/2 + thinFw/2, iH/2, 0); const s2 = new THREE.Mesh(tGeoS, matFrame); s2.position.set(hw/2 - thinFw/2, iH/2, 0);
+                    const r1 = new THREE.Mesh(tGeoR, matFrame); r1.position.set(0, iH - thinFw/2, 0); const r2 = new THREE.Mesh(tGeoR, matFrame); r2.position.set(0, thinFw/2, 0);
+                    const glass = new THREE.Mesh(new THREE.BoxGeometry(hw - thinFw*2, iH - thinFw*2, sThick*0.3), matGlass); glass.position.set(0, iH/2, 0);
+                    [s1, s2, r1, r2, glass].forEach(m => { m.castShadow = true; m.receiveShadow = true; pG.add(m); });
+                    const zOff = (i % 2 === 0) ? sThick/2 + 0.1 : -sThick/2 - 0.1; 
+                    let xPos = -iW/2 + hw/2 + (i * (hw - overlap)); 
+                    pG.position.set(xPos, fW, zOffset + zOff); winGroup.add(pG); 
+                }
             }
             if (entity.grillePattern && entity.grillePattern !== 'none') {
                 const grilleGroup = new THREE.Group(); const grilleZ = entity.facing === 1 ? fThick/2 - 0.5 : -fThick/2 + 0.5; grilleGroup.position.set(0, 0, grilleZ); const barRadius = 0.3;

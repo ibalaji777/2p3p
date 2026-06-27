@@ -368,12 +368,29 @@
                 <div v-else-if="selectedEntity.type === 'window'">
                     <div class="control-group">
                         <label>Window Type</label>
-                        <select v-model="selectedEntity.windowType" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                        <select v-model="selectedEntity.windowType" @change="(e) => { 
+                            if (['modern_split', 'window_seat', 'panoramic_slider', 'garden_open', 'bay_box'].includes(selectedEntity.windowType)) {
+                                selectedEntity.width = Math.max(selectedEntity.width, 140);
+                                selectedEntity.height = Math.max(selectedEntity.height || 120, 120);
+                                if (['panoramic_slider', 'modern_split'].includes(selectedEntity.windowType)) selectedEntity.grillePattern = 'none';
+                            }
+                            $emit('sync-engine'); 
+                        }" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
                             <option value="sliding_std">Standard Sliding</option>
                             <option value="casement_std">Casement / Hinged</option>
                             <option value="fixed_elevation">Fixed Glass</option>
+                            <option value="modern_split">Modern Asymmetric</option>
                             <option value="bay_box">Box Bay Window</option>
+                            <option value="window_seat">Window with Seat</option>
+                            <option value="garden_open">Open Garden Window</option>
+                            <option value="panoramic_slider">Panoramic Slider (3-Pane)</option>
                         </select>
+                    </div>
+                    <div class="control-group">
+                        <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; font-weight: 500;">
+                            <input type="checkbox" :checked="selectedEntity.grillePattern && selectedEntity.grillePattern !== 'none'" @change="(e) => { selectedEntity.grillePattern = e.target.checked ? 'grid' : 'none'; $emit('sync-engine'); }" />
+                            Add Window Grill / Bars
+                        </label>
                     </div>
                 </div>
                 <div v-else-if="selectedEntity.type === 'sunshade'">
