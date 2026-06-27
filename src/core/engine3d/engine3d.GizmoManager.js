@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY } from '../registry.js';
+import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY } from '../registry.js';
 
 export class GizmoManager {
     constructor(ctx) {
@@ -99,6 +99,14 @@ export class GizmoManager {
                 this.ctx.interactions.selectedObject.userData.entity.params.isEditingMaterials = true;
                 this.setTransformMode('material');
             }
+        };
+
+        this.btnStyle = document.createElement('button');
+        this.btnStyle.className = 'transform-menu-btn';
+        this.btnStyle.innerHTML = '🚪<br>Style';
+        this.btnStyle.style.display = 'none';
+        this.btnStyle.onclick = () => {
+            this.setTransformMode('doorStyle');
         };
 
         this.btnCorner = document.createElement('button');
@@ -268,6 +276,45 @@ export class GizmoManager {
         this.btnDone.style.justifyContent = 'center';
         this.btnDone.onclick = () => this.setTransformMode('none');
 
+        this.stylePanel = document.createElement('div');
+        this.stylePanel.style.display = 'none';
+        this.stylePanel.style.position = 'absolute';
+        this.stylePanel.style.bottom = '100px';
+        this.stylePanel.style.left = '50%';
+        this.stylePanel.style.transform = 'translateX(-50%)';
+        this.stylePanel.style.background = 'rgba(15, 23, 42, 0.9)';
+        this.stylePanel.style.padding = '12px 16px';
+        this.stylePanel.style.borderRadius = '12px';
+        this.stylePanel.style.color = 'white';
+        this.stylePanel.style.pointerEvents = 'auto';
+        this.stylePanel.style.boxShadow = '0 8px 32px rgba(0,0,0,0.5)';
+        this.stylePanel.style.border = '1px solid rgba(255,255,255,0.15)';
+        this.stylePanel.style.backdropFilter = 'blur(8px)';
+        this.stylePanel.style.zIndex = '1000';
+        this.stylePanel.style.flexDirection = 'column';
+        this.stylePanel.style.gap = '10px';
+        this.stylePanel.style.width = '300px';
+        this.stylePanel.setAttribute('draggable', 'true');
+        
+        let styleThumbnails = '';
+        Object.values(DOOR_STYLES_REGISTRY).forEach(conf => {
+            styleThumbnails += `<div class="style-thumb" data-style="${conf.id}" title="${conf.name}" style="width: 45px; height: 45px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s; background: ${conf.icon}; flex-shrink: 0;"></div>`;
+        });
+        
+        this.stylePanel.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+                <span style="font-size: 11px; font-weight: 800; color: #94a3b8; letter-spacing: 0.5px;">DOOR STYLE LIBRARY</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 8px;">
+                <div style="font-size: 11px; color: #cbd5e1; margin-bottom: -4px;">Selected Style: <span id="gizmo-style-name" style="font-weight: bold; color: white;"></span></div>
+                <div id="gizmo-style-grid" style="display: flex; flex-wrap: wrap; gap: 8px; max-height: 150px; overflow-y: auto; padding-right: 4px;">
+                    ${styleThumbnails}
+                </div>
+            </div>
+        `;
+        this.stylePanel.addEventListener('pointerdown', e => e.stopPropagation());
+        this.container.appendChild(this.stylePanel);
+
         this.transformMenu.appendChild(this.btnMove);
         this.transformMenu.appendChild(this.btnPlace);
         this.transformMenu.appendChild(this.btnScale);
@@ -275,6 +322,7 @@ export class GizmoManager {
         this.transformMenu.appendChild(this.btnTilt);
         this.transformMenu.appendChild(this.btnOpening);
         this.transformMenu.appendChild(this.btnMaterial);
+        this.transformMenu.appendChild(this.btnStyle);
         this.transformMenu.appendChild(this.btnCorner);
         this.transformMenu.appendChild(this.btnVertexSlope);
         
@@ -287,6 +335,7 @@ export class GizmoManager {
         this._makePanelDraggable(this.xyPanel);
         this._makePanelDraggable(this.openingPanel);
         this._makePanelDraggable(this.materialPanel);
+        this._makePanelDraggable(this.stylePanel);
         this._makePanelDraggable(this.cornerPanel);
 
         setTimeout(() => {
@@ -427,7 +476,7 @@ export class GizmoManager {
                             const key = thumb.getAttribute('data-mat');
                             
                             let targetParams = entity.params;
-                            if (this.activeSubMeshIndex !== -1 && !entity.type.startsWith('shape_')) {
+                            if (this.activeSubMeshIndex !== -1 && !entity.type.startsWith('shape_') && entity.type !== 'door') {
                                 entity.params.blocks = entity.params.blocks || {};
                                 entity.params.blocks[this.activeSubMeshIndex] = entity.params.blocks[this.activeSubMeshIndex] || {};
                                 targetParams = entity.params.blocks[this.activeSubMeshIndex];
@@ -525,6 +574,33 @@ export class GizmoManager {
                 });
             };
             this._attachMaterialThumbListeners();
+
+            this._attachStyleThumbListeners = () => {
+                const styleThumbs = document.querySelectorAll('.style-thumb');
+                styleThumbs.forEach(thumb => {
+                    thumb.addEventListener('click', (e) => {
+                        const selectedObj = this.ctx.interactions.selectedObject;
+                        if (selectedObj && selectedObj.userData.entity) {
+                            const entity = selectedObj.userData.entity;
+                            const key = thumb.getAttribute('data-style');
+                            
+                            entity.doorStyle = key;
+                            
+                            styleThumbs.forEach(t => t.style.borderColor = 'transparent');
+                            thumb.style.borderColor = '#3b82f6';
+                            const styleNameDisplay = document.getElementById('gizmo-style-name');
+                            if (styleNameDisplay) {
+                                const config = DOOR_STYLES_REGISTRY[key];
+                                styleNameDisplay.innerText = config ? config.name : key;
+                            }
+                            
+                            if (this.ctx.updateMaterialLive) this.ctx.updateMaterialLive(entity);
+                            if (window.plannerInstance && window.plannerInstance.syncAll) window.plannerInstance.syncAll();
+                        }
+                    });
+                });
+            };
+            this._attachStyleThumbListeners();
 
             this.ctx.updateCornerPanel = this.updateCornerPanel.bind(this);
             const crR = document.getElementById('gizmo-corner-r-range');
@@ -729,6 +805,7 @@ export class GizmoManager {
         this.btnTilt.classList.remove('active');
         if (this.btnOpening) this.btnOpening.classList.remove('active');
         if (this.btnMaterial) this.btnMaterial.classList.remove('active');
+        if (this.btnStyle) this.btnStyle.classList.remove('active');
         if (this.btnCorner) this.btnCorner.classList.remove('active');
 
         if (this.ctx.interactions.openingGizmo) {
@@ -763,6 +840,7 @@ export class GizmoManager {
         const isOpening = selectedObj && (selectedObj.userData.isWidget || selectedObj.userData.isPattern || (selectedObj.userData.entity && selectedObj.userData.entity.type && ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(selectedObj.userData.entity.type)));
         const supportsFaceMaterials = selectedObj && (selectedObj.userData.isShape || selectedObj.userData.isWidget || selectedObj.userData.isMolding || selectedObj.userData.isPattern || selectedObj.userData.isWallDecor);
         const isElevationFascia = selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.type === 'elevation_fascia';
+        const isDoor = selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.type === 'door' && selectedObj.userData.entity.doorType !== 'french';
 
         if (mode === 'none') {
             tc.visible = false;
@@ -776,11 +854,13 @@ export class GizmoManager {
             this.btnTilt.style.display = isOpening ? 'none' : 'flex';
             if (this.btnOpening) this.btnOpening.style.display = isOpening ? 'flex' : 'none';
             if (this.btnMaterial) this.btnMaterial.style.display = supportsFaceMaterials ? 'flex' : 'none';
+            if (this.btnStyle) this.btnStyle.style.display = isDoor ? 'flex' : 'none';
             if (this.btnCorner) this.btnCorner.style.display = isElevationFascia ? 'flex' : 'none';
             if (this.btnVertexSlope) this.btnVertexSlope.style.display = selectedObj?.userData?.isShape ? 'flex' : 'none';
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
             if (this.materialPanel) this.materialPanel.style.display = 'none';
+            if (this.stylePanel) this.stylePanel.style.display = 'none';
             if (this.cornerPanel) this.cornerPanel.style.display = 'none';
             if (this.btnDone) this.btnDone.style.display = 'none';
             
@@ -804,6 +884,7 @@ export class GizmoManager {
         this.btnTilt.style.display = 'none';
         if (this.btnOpening) this.btnOpening.style.display = 'none';
         if (this.btnMaterial) this.btnMaterial.style.display = 'none';
+        if (this.btnStyle) this.btnStyle.style.display = 'none';
         if (this.btnCorner) this.btnCorner.style.display = 'none';
         if (this.btnVertexSlope) this.btnVertexSlope.style.display = 'none';
         if (this.btnDone) this.btnDone.style.display = 'flex';
@@ -833,6 +914,31 @@ export class GizmoManager {
             if (this.cornerPanel) this.cornerPanel.style.display = 'none';
             if (this.ctx.interactions.materialGizmo && selectedObj) {
                 this.ctx.interactions.materialGizmo.attach(selectedObj);
+            }
+            return;
+        }
+
+        if (mode === 'doorStyle') {
+            tc.visible = false;
+            tc.enabled = false;
+            if (this.btnStyle) this.btnStyle.classList.add('active');
+            if (this.xyPanel) this.xyPanel.style.display = 'none';
+            if (this.openingPanel) this.openingPanel.style.display = 'none';
+            if (this.materialPanel) this.materialPanel.style.display = 'none';
+            if (this.cornerPanel) this.cornerPanel.style.display = 'none';
+            if (this.stylePanel) {
+                this.stylePanel.style.display = 'flex';
+                const styleNameDisplay = document.getElementById('gizmo-style-name');
+                const styleThumbs = document.querySelectorAll('.style-thumb');
+                const currentStyle = (selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.doorStyle) ? selectedObj.userData.entity.doorStyle : 'flat';
+                
+                styleThumbs.forEach(t => t.style.borderColor = 'transparent');
+                const activeThumb = Array.from(styleThumbs).find(t => t.getAttribute('data-style') === currentStyle);
+                if (activeThumb) activeThumb.style.borderColor = '#3b82f6';
+                if (styleNameDisplay) {
+                    const config = DOOR_STYLES_REGISTRY[currentStyle];
+                    styleNameDisplay.innerText = config ? config.name : currentStyle;
+                }
             }
             return;
         }

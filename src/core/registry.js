@@ -139,7 +139,48 @@ export const DOOR_MATERIALS_REGISTRY = {
         defaultDepth: 0.2,
         defaultRepeat: 1,
         scaleMultiplier: 1
+    },
+    'door_classic_2panel': {
+        id: 'door_classic_2panel',
+        name: 'Classic 2-Panel',
+        texture: 'models/wall/wood_2_dark.png', // Placeholder until quota resets
+        thumbnail: 'models/wall/wood_2_dark.png', 
+        defaultWidth: 100,
+        defaultHeight: 200,
+        defaultDepth: 0.2,
+        defaultRepeat: 1,
+        scaleMultiplier: 1
+    },
+    'door_classic_4panel': {
+        id: 'door_classic_4panel',
+        name: 'Mahogany 4-Panel',
+        texture: 'models/wall/wood_1_light.png', // Placeholder until quota resets
+        thumbnail: 'models/wall/wood_1_light.png', 
+        defaultWidth: 100,
+        defaultHeight: 200,
+        defaultDepth: 0.2,
+        defaultRepeat: 1,
+        scaleMultiplier: 1
+    },
+    'door_grid_panel': {
+        id: 'door_grid_panel',
+        name: 'Grid Panel Door',
+        texture: 'models/wall/wood_2_dark.png', 
+        thumbnail: 'models/wall/wood_2_dark.png', 
+        defaultWidth: 100,
+        defaultHeight: 200,
+        defaultDepth: 0.2,
+        defaultRepeat: 1,
+        scaleMultiplier: 1
     }
+};
+
+export const DOOR_STYLES_REGISTRY = {
+    'flat': { id: 'flat', name: 'Flat Panel', icon: 'solid #64748b' },
+    'classic_4_horizontal': { id: 'classic_4_horizontal', name: 'Classic 4-Panel (Horiz)', icon: 'repeating-linear-gradient(180deg, #64748b, #64748b 20%, #475569 20%, #475569 25%)' },
+    'classic_2_panel': { id: 'classic_2_panel', name: 'Classic 2-Panel', icon: 'linear-gradient(180deg, #64748b 0%, #64748b 60%, #475569 60%, #475569 65%, #64748b 65%, #64748b 100%)' },
+    'classic_4_panel': { id: 'classic_4_panel', name: 'Classic 4-Panel', icon: 'conic-gradient(at 50% 50%, #64748b 25%, #475569 25%, #475569 50%, #64748b 50%, #64748b 75%, #475569 75%)' },
+    'grid_panel': { id: 'grid_panel', name: 'Grid Panel', icon: 'repeating-conic-gradient(#64748b 0% 25%, #475569 0% 50%) 50% / 10px 10px' }
 };
 
 export const WALL_DECOR_REGISTRY = {
@@ -423,8 +464,49 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         const glass = new THREE.Mesh(geoGlass, glassMat); glass.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(glass);
     } else {
         const coreGeo = new THREE.BoxGeometry(width, height, thickness - 0.1); const core = new THREE.Mesh(coreGeo, mats); core.position.set(0, height/2, 0); core.castShadow = true; core.receiveShadow = true; group.add(core);
-        const numPanels = 4; const panelHeight = (height - (gap * (numPanels - 1))) / numPanels; const geoPanel = new THREE.BoxGeometry(width, panelHeight, thickness);
-        for (let i = 0; i < numPanels; i++) { const p = new THREE.Mesh(geoPanel, mats); const yPos = (panelHeight / 2) + i * (panelHeight + gap); p.position.set(0, yPos, 0); p.castShadow = true; p.receiveShadow = true; group.add(p); }
+        
+        const style = entity && entity.doorStyle ? entity.doorStyle : 'flat';
+        
+        const createBeveledPanelGeo = (pw, ph, pth) => {
+            const bSize = 0.12; const bThick = 0.06;
+            const sw = Math.max(0.1, pw - bSize*2); const sh = Math.max(0.1, ph - bSize*2);
+            const shape = new THREE.Shape();
+            shape.moveTo(-sw/2, -sh/2); shape.lineTo(sw/2, -sh/2); shape.lineTo(sw/2, sh/2); shape.lineTo(-sw/2, sh/2); shape.lineTo(-sw/2, -sh/2);
+            const geo = new THREE.ExtrudeGeometry(shape, { depth: Math.max(0.01, pth - bThick*2), bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: bSize, bevelThickness: bThick });
+            geo.translate(0, 0, -Math.max(0.01, pth - bThick*2)/2);
+            return geo;
+        };
+        
+        const matsExtrude = Array.isArray(mats) ? [mats[4], mats[1]] : mats;
+
+        if (style === 'classic_4_horizontal') {
+            const numPanels = 4; const panelHeight = (height - (gap * (numPanels - 1))) / numPanels; const geoPanel = createBeveledPanelGeo(width - 0.6, panelHeight, thickness + 0.05);
+            for (let i = 0; i < numPanels; i++) { const p = new THREE.Mesh(geoPanel, matsExtrude); const yPos = (panelHeight / 2) + i * (panelHeight + gap); p.position.set(0, yPos, 0); p.castShadow = true; p.receiveShadow = true; group.add(p); }
+        } else if (style === 'classic_2_panel') {
+            const topH = height * 0.65; const botH = height * 0.25; 
+            const geoTop = createBeveledPanelGeo(width - 0.8, topH, thickness + 0.05); const geoBot = createBeveledPanelGeo(width - 0.8, botH, thickness + 0.05);
+            const pTop = new THREE.Mesh(geoTop, matsExtrude); pTop.position.set(0, height - topH/2 - gap, 0); pTop.castShadow = true; group.add(pTop);
+            const pBot = new THREE.Mesh(geoBot, matsExtrude); pBot.position.set(0, botH/2 + gap*2, 0); pBot.castShadow = true; group.add(pBot);
+        } else if (style === 'classic_4_panel') {
+            const topH = height * 0.55; const botH = height * 0.3; const pw = width/2 - 0.4;
+            const geoTop = createBeveledPanelGeo(pw, topH, thickness + 0.05); const geoBot = createBeveledPanelGeo(pw, botH, thickness + 0.05);
+            [-1, 1].forEach(side => {
+                const xOff = (pw/2 + 0.15) * side;
+                const pTop = new THREE.Mesh(geoTop, matsExtrude); pTop.position.set(xOff, height - topH/2 - gap, 0); pTop.castShadow = true; group.add(pTop);
+                const pBot = new THREE.Mesh(geoBot, matsExtrude); pBot.position.set(xOff, botH/2 + gap*2, 0); pBot.castShadow = true; group.add(pBot);
+            });
+        } else if (style === 'grid_panel') {
+            const rows = 5; const cols = 3; const pW = (width - gap*(cols+1))/cols; const pH = (height - gap*(rows+1))/rows;
+            const geoGrid = createBeveledPanelGeo(pW - 0.1, pH - 0.1, thickness + 0.05);
+            for (let r=0; r<rows; r++) {
+                for (let c=0; c<cols; c++) {
+                    const p = new THREE.Mesh(geoGrid, matsExtrude);
+                    const xPos = -width/2 + gap + pW/2 + c*(pW + gap);
+                    const yPos = gap + pH/2 + r*(pH + gap);
+                    p.position.set(xPos, yPos, 0); p.castShadow = true; group.add(p);
+                }
+            }
+        }
     }
     const metalMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8, roughness: 0.2 }); const silverMat = new THREE.MeshStandardMaterial({ color: 0xe5e7eb, metalness: 0.9, roughness: 0.15 }); const handleY = height * 0.45; 
     if (['sliding', 'double_sliding'].includes(type) && isGlass) {

@@ -337,6 +337,16 @@
                             <option value="french">French (Glass)</option>
                         </select>
                     </div>
+                    <div class="control-group" v-if="selectedEntity.doorType !== 'french'">
+                        <label>Panel Style (3D Design)</label>
+                        <select v-model="selectedEntity.doorStyle" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                            <option value="flat">Flat Panel (Default)</option>
+                            <option value="classic_4_horizontal">Classic 4-Panel (Horiz)</option>
+                            <option value="classic_2_panel">Classic 2-Panel</option>
+                            <option value="classic_4_panel">Classic 4-Panel</option>
+                            <option value="grid_panel">Grid Panel</option>
+                        </select>
+                    </div>
                 </div>
                 <div v-else-if="selectedEntity.type === 'window'">
                     <div class="control-group">
