@@ -74,12 +74,17 @@ export class PremiumHipRoof {
     setHighlight(isActive) {
         this.boundary.stroke(isActive ? '#FF8C00' : '#FFA500');
         this.boundary.strokeWidth(isActive ? 4 : 3);
-        this.handles.forEach(h => h.visible(isActive));
+        const mode = this.config?.autoPlacementMode || 'manual';
+        this.handles.forEach(h => h.visible(isActive && mode === 'manual'));
+        this.group.draggable(mode === 'manual');
         this.planner.stage.batchDraw();
     }
     
     initEvents() {
-        this.group.on('mouseenter', () => { if(this.planner.tool === 'select') document.body.style.cursor = 'move'; });
+        this.group.on('mouseenter', () => { 
+            const mode = this.config?.autoPlacementMode || 'manual';
+            if(this.planner.tool === 'select' && mode === 'manual') document.body.style.cursor = 'move'; 
+        });
         this.group.on('mouseleave', () => document.body.style.cursor = 'default');
         
         this.group.on('mousedown touchstart', (e) => { this.group.moveToTop(); if (this.planner.tool !== 'select') return; e.cancelBubble = true; this.planner.selectEntity(this, 'roof'); });
@@ -90,6 +95,15 @@ export class PremiumHipRoof {
     update() {
         this.boundary.points(this.getFlatPoints());
         this.generateHipLines();
+    }
+    
+    updateGeometry() {
+        this.handles.forEach(h => h.destroy());
+        this.handles = [];
+        this.initHandles();
+        this.update();
+        const mode = this.config?.autoPlacementMode || 'manual';
+        this.handles.forEach(h => h.visible(mode === 'manual' && this.planner.selectedEntity === this));
     }
     
     generateHipLines() {

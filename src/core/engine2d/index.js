@@ -1,7 +1,7 @@
 import { PremiumShape } from '/src/core/engine2d/PremiumShape.js';
 // src/core/engine2d/index.js
 import Konva from 'konva';
-import { GRID, PX_TO_FT, SNAP_DIST, WALL_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY } from '../registry.js';
+import { GRID, PX_TO_FT, SNAP_DIST, WALL_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY, offsetPolygon } from '../registry.js';
 
 // SOLID: Import the decoupled 2D entity classes from the same folder
 import { Anchor } from '/src/core/engine2d/Anchor.js';
@@ -1601,8 +1601,86 @@ export class FloorPlanner {
 
         this.rooms = newRooms;
         this.roomPaths = newRooms.map(r => r.path);
+        this.updateRoofAutoPlacement();
         if (this.bgLayer) this.bgLayer.batchDraw();
     }
+
+    updateRoofAutoPlacement() {
+        if (!this.roofs || this.roofs.length === 0) return;
+        
+        let globalPerimeter = null;
+        if (this.roomPaths && this.roomPaths.length > 0) {
+            const edgeCounts = new Map();
+            const getEdgeKey = (p1, p2) => `${Math.round(p1.x)},${Math.round(p1.y)}->${Math.round(p2.x)},${Math.round(p2.y)}`;
+            
+            this.roomPaths.forEach(path => {
+                for (let i = 0; i < path.length; i++) {
+                    const p1 = path[i];
+                    const p2 = path[(i + 1) % path.length];
+                    const key = getEdgeKey(p1, p2);
+                    edgeCounts.set(key, (edgeCounts.get(key) || 0) + 1);
+                }
+            });
+            
+            const boundaryEdges = [];
+            this.roomPaths.forEach(path => {
+                for (let i = 0; i < path.length; i++) {
+                    const p1 = path[i];
+                    const p2 = path[(i + 1) % path.length];
+                    const reverseKey = getEdgeKey(p2, p1);
+                    if (!edgeCounts.has(reverseKey)) {
+                        boundaryEdges.push({ p1, p2 });
+                    }
+                }
+            });
+            
+            if (boundaryEdges.length > 0) {
+                const polygon = [];
+                let currentEdge = boundaryEdges[0];
+                polygon.push(currentEdge.p1);
+                
+                let safety = 0;
+                while (safety < boundaryEdges.length * 2) {
+                    polygon.push(currentEdge.p2);
+                    boundaryEdges.splice(boundaryEdges.indexOf(currentEdge), 1);
+                    
+                    const nextEdge = boundaryEdges.find(e => Math.hypot(e.p1.x - currentEdge.p2.x, e.p1.y - currentEdge.p2.y) < 2);
+                    if (!nextEdge) break;
+                    
+                    currentEdge = nextEdge;
+                    if (Math.hypot(currentEdge.p2.x - polygon[0].x, currentEdge.p2.y - polygon[0].y) < 2) {
+                        break;
+                    }
+                    safety++;
+                }
+                globalPerimeter = polygon;
+            }
+        }
+        
+        if (!globalPerimeter || globalPerimeter.length < 3) return;
+        
+        this.roofs.forEach(roof => {
+            const mode = roof.config?.autoPlacementMode || 'manual';
+            if (mode === 'manual') return;
+            
+            const offset = 5; // Half of typical wall thickness
+            
+            let finalPolygon = [];
+            if (mode === 'center') {
+                finalPolygon = globalPerimeter.map(p => ({x: p.x, y: p.y}));
+            } else if (mode === 'outer') {
+                finalPolygon = offsetPolygon(globalPerimeter, offset);
+            } else if (mode === 'inner') {
+                finalPolygon = offsetPolygon(globalPerimeter, -offset);
+            }
+            
+            if (finalPolygon && finalPolygon.length >= 3) {
+                roof.points = finalPolygon;
+                if (roof.updateGeometry) roof.updateGeometry();
+            }
+        });
+    }
+
     drawRoom(room) { 
         const anchorPath = room.path;
         const points = anchorPath.flatMap(a => [a.x, a.y]); 

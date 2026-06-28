@@ -988,6 +988,7 @@ const syncEngine = () => {
     } else if (viewMode.value === '3d' && selectedType.value === 'shape' && selectedEntity.value) {
         renderer3D.value.updateShapeLive(selectedEntity.value);
     } else if (viewMode.value === '3d' && (selectedType.value === 'roof' || selectedType.value === 'room' || selectedType.value === 'wall' || selectedType.value === 'widget' || selectedType.value === 'advance_openings' || selectedType.value === 'molding' || selectedType.value === 'wallDecor' || selectedType.value === 'stair')) {
+        if (planner.value && planner.value.updateRoofAutoPlacement) planner.value.updateRoofAutoPlacement();
         refresh3DScene(true);
     }
     debouncedSaveHistory();
