@@ -1739,10 +1739,11 @@ export class FloorPlanner {
     calculateArea(points) { let area = 0; for (let i = 0; i < points.length; i += 2) { let j = (i + 2) % points.length; area += points[i] * points[j + 1]; area -= points[i + 1] * points[j]; } return Math.abs(area / 2) * (PX_TO_FT * PX_TO_FT); }
 
     clearAll() {
-        [...this.walls].forEach(w => w.remove()); [...this.furniture].forEach(f => f.remove()); [...this.stairs].forEach(s => s.remove()); [...this.roofs].forEach(r => r.remove()); 
-        if (this.balconies) [...this.balconies].forEach(b => b.remove());
-        if (this.arcs) [...this.arcs].forEach(a => a.remove());
-        if (this.shapes) [...this.shapes].forEach(s => s.remove());
+        const safeRemove = (obj) => { if (obj) { if (typeof obj.remove === 'function') obj.remove(); else if (typeof obj.destroy === 'function') obj.destroy(); } };
+        [...this.walls].forEach(safeRemove); [...this.furniture].forEach(safeRemove); [...this.stairs].forEach(safeRemove); [...this.roofs].forEach(safeRemove); 
+        if (this.balconies) [...this.balconies].forEach(safeRemove);
+        if (this.arcs) [...this.arcs].forEach(safeRemove);
+        if (this.shapes) [...this.shapes].forEach(safeRemove);
         if (this.shapeTransformer) this.shapeTransformer.nodes([]);
         this.walls = []; this.furniture = []; this.stairs = []; this.roofs = []; this.balconies = []; this.arcs = []; this.shapes = []; this.roomPaths = [];
         this.anchors.forEach(a => { if(a.node) a.node.destroy(); }); this.anchors = [];
