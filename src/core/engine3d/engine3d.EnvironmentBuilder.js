@@ -1337,7 +1337,7 @@ export class EnvironmentBuilder {
             mesh.receiveShadow = true;
             
             if (this.ctx.viewMode3D !== 'preview' && targetGroup === this.ctx.structureGroup) {
-                mesh.userData = { isFurniture: true, entity: roof }; 
+                mesh.userData = { isRoof: true, entity: roof }; 
                 this.ctx.interactables.push(mesh);
             }
             

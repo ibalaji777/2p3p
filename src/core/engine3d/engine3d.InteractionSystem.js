@@ -365,9 +365,9 @@ export class InteractionSystem {
                     return;
                 }
 
-                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isMolding && !mesh.userData.isPattern) mesh = mesh.parent;
+                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isMolding && !mesh.userData.isRoof && !mesh.userData.isPattern) mesh = mesh.parent;
                 
-                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isMolding || mesh.userData.isPattern)) {
+                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isMolding || mesh.userData.isRoof || mesh.userData.isPattern)) {
                     if (this.mode === 'edit') {
                         this.selectObject(mesh);
                     }
@@ -475,7 +475,7 @@ export class InteractionSystem {
     }
 
     selectObject(object) {
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isMolding || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isMolding || this.selectedObject.userData.isRoof || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);
         if (this.transformControls) this.transformControls.detach();
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
 
@@ -657,13 +657,14 @@ export class InteractionSystem {
             this.wallHighlight.visible = true;
             if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
         } 
-        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor || object.userData.isWidget || object.userData.isMolding || object.userData.isPattern) {
+        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor || object.userData.isWidget || object.userData.isMolding || object.userData.isRoof || object.userData.isPattern) {
             if (object.userData.isShape) type = 'shape';
             else if (object.userData.isFurniture) type = 'furniture';
             else if (object.userData.isWallDecor) type = 'wallDecor';
             else if (object.userData.isFloor) type = 'room';
             else if (object.userData.isWidget) type = 'widget';
             else if (object.userData.isMolding) type = 'molding';
+            else if (object.userData.isRoof) type = 'roof';
             else if (object.userData.isPattern) type = 'advance_openings';
             this.setHighlight(object, true);
                 
@@ -691,7 +692,7 @@ export class InteractionSystem {
         if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
         this.ctx.currentTransformMode = 'none';
         if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isMolding || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isMolding || this.selectedObject.userData.isRoof || this.selectedObject.userData.isPattern)) this.setHighlight(this.selectedObject, false);
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
         this.selectedObject = null;
         if (this.ctx.onEntitySelect) this.ctx.onEntitySelect(null, null, null);

@@ -338,4 +338,18 @@ export class ActiveFloor {
                 groupZ = roof.y;
             }
             roofGroup.position.set(groupX, h, groupZ); // Account for 2D dragging
-       
+            
+            let rot = roof.rotation || 0;
+            roofGroup.rotation.y = -rot * Math.PI / 180;
+            
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            mesh.userData = { isRoof: true, entity: roof }; 
+            this.interactables.push(mesh);
+            
+            roofGroup.add(mesh);
+            targetGroup.add(roofGroup);
+            roof.mesh3D = roofGroup;
+        });
+    }
+}
