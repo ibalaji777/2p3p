@@ -437,11 +437,7 @@ export class EnvironmentBuilder {
             const wallMesh = new THREE.Mesh(finalWallGeo, mm);
             wallMesh.castShadow = true; wallMesh.receiveShadow = true;
             
-            // Add subtle architectural edges for corner visibility
-            const edgesGeo = new THREE.EdgesGeometry(wallGeo, 15);
-            const edgesMat = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.1 });
-            const edgesMesh = new THREE.LineSegments(edgesGeo, edgesMat);
-            wallMesh.add(edgesMesh);
+            // EdgesGeometry removed to prevent Z-fighting with flush door/window frames
 
             const skinFrontGeo = new THREE.PlaneGeometry(length - 0.5, h - 0.5);
             skinFrontGeo.translate(length / 2, h / 2, t / 2 + 0.1);
@@ -1162,10 +1158,7 @@ export class EnvironmentBuilder {
                         const wallMesh = new THREE.Mesh(finalWallGeo, mm);
                         wallMesh.castShadow = true; wallMesh.receiveShadow = true;
                         
-                        const edgesGeo = new THREE.EdgesGeometry(wallGeo, 15);
-                        const edgesMat = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.1 });
-                        const edgesMesh = new THREE.LineSegments(edgesGeo, edgesMat);
-                        wallMesh.add(edgesMesh);
+                        // EdgesGeometry removed to prevent Z-fighting
 
                         if (w.moldings) {
                             w.moldings.forEach(mold => {

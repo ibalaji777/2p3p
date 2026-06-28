@@ -26,3 +26,22 @@ You are an expert at handling the complexities of door generation and material a
 - All logic for assembling door structures (stiles, rails, glass, carved panels) happens in `registry.js` under `buildDetailedDoorPanel`.
 - Ensure new door styles define proper `depth` and `bevel` calculations to ensure realistic rendering without z-fighting.
 - Always translate extruded geometries back by half their Z-depth to ensure they rotate and place perfectly inside the wall's core opening.
+
+## 4. Door Placement & Geometry Rules
+
+**CRITICAL: Wall Hole Shearing & Miter Joints**
+When applying a shear transformation to wall geometry to form mitered joints (e.g., `shearGeo` in `EnvironmentBuilder.js` or `Wall3DBuilder.js`), you MUST NOT shear the entire wall linearly.
+If the entire wall is sheared (shifted based on `x / length`), any holes (for windows, doors, etc.) inside the wall will also be sheared, causing:
+1. **Slanting:** Rectangular holes turn into parallelograms.
+2. **Scaling:** The width of the hole is scaled proportionally to the corner stretch, creating massive gaps between frames and walls.
+
+* **REQUIRED FIX:** The `shearGeo` function must ONLY shift the vertices at the extreme ends of the wall (`x <= 0.1` and `x >= length - 0.1`). 
+* All internal vertices (holes, cutouts) must be left untouched (`pos.setX(i, x)`).
+* Door meshes should simply be placed at `entity.localX = wCenter`, ensuring they match the mathematically perfect, un-sheared holes. Do not apply complex reverse-shearing math to the widget's local coordinates.
+
+## 5. Material Application Rules
+
+**CRITICAL: Dynamic Materials vs Legacy Fallbacks**
+Do not attempt to manually inject legacy fallbacks for materials (like `helpers.getDoorMaterial`) or manually check undefined registries.
+* Always use `helpers.getDynamicMaterial(matKey, type)` to fetch materials for doors and frames.
+* `getDynamicMaterial` natively handles standard lookups, default fallbacks, and caching. Writing custom fallback blocks around it introduces `TypeError` crashes and circumvents the unified material pipeline.

@@ -826,29 +826,8 @@ export const WIDGET_REGISTRY = {
             const frameMatKey = entity.frameMat || entity.doorMat;
             const matFrame = helpers.getDynamicMaterial(frameMatKey, 'door');
             
-            if (entity.doorShape !== 'radius' && entity.doorShape !== 'segment' && entity.doorShape !== 'gothic') {
-                const frameShape = new THREE.Shape();
-                frameShape.moveTo(-entity.width/2, 0);
-                frameShape.lineTo(-entity.width/2, height);
-                frameShape.lineTo(entity.width/2, height);
-                frameShape.lineTo(entity.width/2, 0);
-                frameShape.lineTo(entity.width/2 - fW, 0);
-                frameShape.lineTo(entity.width/2 - fW, height - fW);
-                frameShape.lineTo(-entity.width/2 + fW, height - fW);
-                frameShape.lineTo(-entity.width/2 + fW, 0);
-                frameShape.lineTo(-entity.width/2, 0);
-                
-                const frameGeo = new THREE.ExtrudeGeometry(frameShape, { depth: fThick, bevelEnabled: false });
-                frameGeo.translate(0, 0, -fThick/2);
-                const mainFrame = new THREE.Mesh(frameGeo, matFrame); mainFrame.castShadow = true; mainFrame.receiveShadow = true; mainFrame.userData = { isFrame: true }; doorGroup.add(mainFrame);
-            } else {
-                const makeFrameBox = (w, h, depth) => { const bg = new THREE.BoxGeometry(w, h, depth); const bm = new THREE.Mesh(bg, matFrame); bm.castShadow = true; bm.receiveShadow = true; bm.userData = { isFrame: true }; return bm; };
-                const sL = makeFrameBox(fW, height, fThick); sL.position.set(-entity.width/2 + fW/2, height/2, 0); doorGroup.add(sL);
-                const sR = makeFrameBox(fW, height, fThick); sR.position.set(entity.width/2 - fW/2, height/2, 0); doorGroup.add(sR);
-            }
-            const metalMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8, roughness: 0.2 });
-            
             // Helper to tag frame meshes so GizmoManager knows it's the frame
+            const metalMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8, roughness: 0.2 });
             const tagFrame = (mesh) => {
                 if (Array.isArray(mesh)) {
                     mesh.forEach(m => m.userData = { ...m.userData, isFrame: true });
