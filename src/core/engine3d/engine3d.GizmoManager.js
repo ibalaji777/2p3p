@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY } from '../registry.js';
+import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY } from '../registry.js';
 
 export class GizmoManager {
     constructor(ctx) {
@@ -464,7 +464,11 @@ export class GizmoManager {
                     if (activeThumb) activeThumb.style.borderColor = '#3b82f6';
                     if (this.matNameDisplay) {
                         const selectedObj = this.ctx.interactions.selectedObject;
-                        const registry = (selectedObj && selectedObj.userData.entity && (selectedObj.userData.entity.type === 'door' || selectedObj.userData.entity.type === 'window')) ? DOOR_MATERIALS_REGISTRY : WALL_DECOR_REGISTRY;
+                        let registry = WALL_DECOR_REGISTRY;
+                        if (selectedObj && selectedObj.userData.entity) {
+                            if (selectedObj.userData.entity.type === 'door' || selectedObj.userData.entity.type === 'window') registry = DOOR_MATERIALS_REGISTRY;
+                            else if (selectedObj.userData.entity.type === 'roof') registry = ROOF_DECOR_REGISTRY;
+                        }
                         const config = registry[texKey];
                         this.matNameDisplay.innerText = config ? config.name : 'Clear Material';
                     }
@@ -510,6 +514,10 @@ export class GizmoManager {
                                 } else {
                                     entity.frameMat = key;
                                 }
+                            } else if (entity.type === 'roof') {
+                                entity.config = entity.config || {};
+                                entity.config.material = key;
+                                entity.configId = key;
                             } else {
                                 if (target === 'top') targetParams.textureTop = key;
                                 else if (target === 'bottom') targetParams.textureBottom = key;
@@ -522,11 +530,17 @@ export class GizmoManager {
                             highlightSelectedThumb(key);
                             
                             // Apply DIRECTLY to the selected face to guarantee NO spillover
-                            if (this.activeObject && this.activeMatIndex !== undefined && this.activeMatIndex !== -1) {
+                            if (entity.type === 'roof') {
+                                if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('material-gizmo-apply'));
+                            } else if (this.activeObject && this.activeMatIndex !== undefined && this.activeMatIndex !== -1) {
                                 const mats = Array.isArray(this.activeObject.material) ? this.activeObject.material : [this.activeObject.material];
                                 if (mats[this.activeMatIndex]) {
                                     const newMat = mats[this.activeMatIndex].clone();
-                                    const registry = (entity && (entity.type === 'door' || entity.type === 'window')) ? DOOR_MATERIALS_REGISTRY : WALL_DECOR_REGISTRY;
+                                    let registry = WALL_DECOR_REGISTRY;
+                                    if (entity) {
+                                        if (entity.type === 'door' || entity.type === 'window') registry = DOOR_MATERIALS_REGISTRY;
+                                        else if (entity.type === 'roof') registry = ROOF_DECOR_REGISTRY;
+                                    }
                                     if (key && registry[key]) {
                                         const config = registry[key];
                                         this.ctx.assets.getTexture(config).then(tex => {
@@ -578,7 +592,9 @@ export class GizmoManager {
                             entity.params = Object.assign({}, entity.params);
                             
                             // Update instantly by rebuilding the mesh properly
-                            if (entity.type && entity.type.startsWith('shape_')) {
+                            if (entity.type === 'roof') {
+                                // Handled by syncAll above
+                            } else if (entity.type && entity.type.startsWith('shape_')) {
                                 if (this.ctx.updateShapeLive) this.ctx.updateShapeLive(entity);
                             } else {
                                 if (this.ctx.updateMaterialLive) this.ctx.updateMaterialLive(entity);
@@ -670,7 +686,11 @@ export class GizmoManager {
             else if (faceName === 'front') tex = targetParams.textureFront || tex;
             else if (faceName === 'back') tex = targetParams.textureBack || tex;
             
-            const registry = (selectedObj.userData.entity && (selectedObj.userData.entity.type === 'door' || selectedObj.userData.entity.type === 'window')) ? DOOR_MATERIALS_REGISTRY : WALL_DECOR_REGISTRY;
+            let registry = WALL_DECOR_REGISTRY;
+            if (selectedObj.userData.entity) {
+                if (selectedObj.userData.entity.type === 'door' || selectedObj.userData.entity.type === 'window') registry = DOOR_MATERIALS_REGISTRY;
+                else if (selectedObj.userData.entity.type === 'roof') registry = ROOF_DECOR_REGISTRY;
+            }
             
             // Rebuild grid for doors vs walls dynamically
             let decorThumbnails = `

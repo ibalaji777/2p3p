@@ -14,7 +14,7 @@ export class PremiumHipRoof {
             thickness: 10,
             ridgeOffset: 0,
             roofType: 'hip',
-            material: 'white_plaster_roof',
+            material: 'dark_asphalt_roof',
             wallGap: 0,
             ridgeAxis: 'x',
             gableMaterial: 'white_plaster_wall'
@@ -22,7 +22,7 @@ export class PremiumHipRoof {
         
         this.rotation = 0; 
         
-        this.configId = 'white_plaster_roof';
+        this.configId = 'dark_asphalt_roof';
 
         this.group = new Konva.Group({ draggable: true });
         

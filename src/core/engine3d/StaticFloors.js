@@ -178,10 +178,15 @@ export class StaticFloors {
                         const h = baseHeight + wallGap + 0.5;
 
                         const decor = ROOF_DECOR_REGISTRY[roofData.material] || ROOF_DECOR_REGISTRY['concrete_flat'];
-                        const tex = new THREE.TextureLoader().load(decor.texture);
-                        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-                        tex.repeat.set(W / (100 * (decor.repeat || 1)), D / (100 * (decor.repeat || 1)));
-                        const mat = new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide });
+                        const mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide });
+                        if (decor && decor.texture) {
+                            const tex = new THREE.TextureLoader().load(decor.texture);
+                            tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+                            const baseSize = roofData.tileSize || 100;
+                            const tSize = baseSize * (decor.scaleRatio || 1);
+                            tex.repeat.set(100 / tSize, 100 / tSize);
+                            mat.map = tex;
+                        }
 
                         let mesh;
                         if (roofData.roofType === 'flat') {
@@ -240,7 +245,7 @@ export class StaticFloors {
                             const v = [], uv = [];
                             const addTriangle = (p0, p1, p2) => {
                                 v.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
-                                uv.push(0, 0, 1, 0, 0.5, 1);
+                                uv.push(p0.x / 100, p0.z / 100, p1.x / 100, p1.z / 100, p2.x / 100, p2.z / 100);
                             };
                             const addQuad = (p0, p1, p2, p3) => {
                                 addTriangle(p0, p1, p2);

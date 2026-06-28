@@ -747,6 +747,7 @@ onMounted(() => {
     window.addEventListener('opening-gizmo-end', syncEngine);
     window.addEventListener('vertex-slope-gizmo-end', syncEngine);
     window.addEventListener('roof-corner-gizmo-end', syncEngine);
+    window.addEventListener('material-gizmo-apply', syncEngine);
     
     window.addEventListener('material-gizmo-select', (e) => {
         if (selectedEntity.value && selectedEntity.value.params) {

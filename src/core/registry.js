@@ -379,41 +379,6 @@ export const GROUND_REGISTRY = {
 };
 
 export const ROOF_DECOR_REGISTRY = {
-    'wood_roof': {
-        id: 'wood_roof',
-        name: 'Wood Planks',
-        texture: 'models/wall/wood_1_light.png',
-        thumbnail: 'models/wall/wood_1_light.png',
-        scaleRatio: 1.5
-    },
-    'stone_roof': {
-        id: 'stone_roof',
-        name: 'Stone Tiles',
-        texture: 'models/wall/stone.png',
-        thumbnail: 'models/wall/stone.png',
-        scaleRatio: 1.5
-    },
-    'red_tiles': {
-        id: 'red_tiles',
-        name: 'Red Tiles',
-        texture: 'models/wall/brick_3_red.png',
-        thumbnail: 'models/wall/brick_3_red.png',
-        scaleRatio: 1.2
-    },
-    'white_plaster_roof': {
-        id: 'white_plaster_roof',
-        name: 'White Plaster',
-        texture: 'models/wall/brick_8_white.png',
-        thumbnail: 'models/wall/brick_8_white.png',
-        scaleRatio: 2.0
-    },
-    'concrete_flat': {
-        id: 'concrete_flat',
-        name: 'Concrete Flat',
-        texture: 'models/wall/brick_9_grey.png', 
-        thumbnail: 'models/wall/brick_9_grey.png', 
-        scaleRatio: 2.0
-    },
     'dark_asphalt_roof': {
         id: 'dark_asphalt_roof',
         name: 'Dark Asphalt',

@@ -1263,8 +1263,9 @@ export class EnvironmentBuilder {
                 this.ctx.assets.getTexture(decor).then(tex => {
                     const texClone = tex.clone();
                     texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                    const repeatScale = decor.repeat || 1;
-                    texClone.repeat.set(W / (100 * repeatScale), D / (100 * repeatScale));
+                    const baseSize = roof.tileSize || 100;
+                    const tSize = baseSize * (decor.scaleRatio || 1);
+                    texClone.repeat.set(100 / tSize, 100 / tSize);
                     mat.map = texClone;
                     mat.needsUpdate = true;
                 });
@@ -1329,7 +1330,7 @@ export class EnvironmentBuilder {
                 const v = [], uv = [];
                 const addTriangle = (p0, p1, p2) => {
                     v.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
-                    uv.push(0, 0, 1, 0, 0.5, 1);
+                    uv.push(p0.x / 100, p0.z / 100, p1.x / 100, p1.z / 100, p2.x / 100, p2.z / 100);
                 };
                 const addQuad = (p0, p1, p2, p3) => {
                     addTriangle(p0, p1, p2);
