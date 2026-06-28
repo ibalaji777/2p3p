@@ -580,6 +580,38 @@ export class PremiumWall {
                     const corners = getTJointIntersections(snappedWall);
                     if (corners) return { corners, trueCorners: corners, hasCap: false };
                 }
+                
+                // Inherit extension length from reference background if drawn as a single wall
+                if (this.planner.referenceGroup) {
+                    const refWalls = this.planner.referenceGroup.getChildren();
+                    for (let rw of refWalls) {
+                        const rPts = rw.getAttr('refPts');
+                        if (rPts && rPts.length === 4) {
+                            const dSS = Math.hypot(rPts[0] - p1.x, rPts[1] - p1.y), dEE = Math.hypot(rPts[2] - p2.x, rPts[3] - p2.y);
+                            const dSE = Math.hypot(rPts[2] - p1.x, rPts[3] - p1.y), dES = Math.hypot(rPts[0] - p2.x, rPts[1] - p2.y);
+                            if ((dSS < 2 && dEE < 2) || (dSE < 2 && dES < 2)) {
+                                const bevels = rw.getAttr('bevels');
+                                if (bevels) {
+                                    const isReversed = (dSE < 2 && dES < 2);
+                                    const bData = isReversed ? (isStart ? bevels.end : bevels.start) : (isStart ? bevels.start : bevels.end);
+                                    if (bData && (bData.trueCorners || bData.corners)) {
+                                        const tCorns = bData.trueCorners || bData.corners;
+                                        const outDir = isStart ? { x: -u.x, y: -u.y } : { x: u.x, y: u.y };
+                                        const c1 = tCorns[0], c2 = tCorns[1];
+                                        const dist1 = (c1.x - P.x) * outDir.x + (c1.y - P.y) * outDir.y;
+                                        const dist2 = (c2.x - P.x) * outDir.x + (c2.y - P.y) * outDir.y;
+                                        const maxDist = Math.max(0, dist1, dist2);
+                                        if (maxDist > 0) {
+                                            const newBaseL = { x: baseL.x + outDir.x * maxDist, y: baseL.y + outDir.y * maxDist };
+                                            const newBaseR = { x: baseR.x + outDir.x * maxDist, y: baseR.y + outDir.y * maxDist };
+                                            return { corners: [newBaseL, newBaseR], trueCorners: [newBaseL, newBaseR], hasCap: true };
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 return { corners: [baseL, baseR], trueCorners: [baseL, baseR], hasCap: true };
             }
             

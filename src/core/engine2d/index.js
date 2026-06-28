@@ -1846,7 +1846,9 @@ export class FloorPlanner {
                 startX: w.startAnchor.x, startY: w.startAnchor.y, endX: w.endAnchor.x, endY: w.endAnchor.y, thickness: w.thickness || w.config.thickness, height: w.height !== undefined ? w.height : (w.config?.height || 120), type: w.type, configId: w.configId,
                 hidden: w.hidden,
                 description: w.description,
-                pts: typeof w.getExactPolygonPoints === 'function' ? w.getExactPolygonPoints() : (w.poly ? w.poly.points() : null),                elevationLayers: w.elevationLayers,
+                pts: typeof w.getExactPolygonPoints === 'function' ? w.getExactPolygonPoints() : (w.poly ? w.poly.points() : null),
+                bevels: w.wallShapeData ? { start: w.wallShapeData.startData, end: w.wallShapeData.endData } : null,
+                elevationLayers: w.elevationLayers,
                 widgets: w.attachedWidgets.map(wid => ({ 
                     t: wid.t, type: wid.type, configId: wid.type, width: wid.width, height: wid.height, depth: wid.depth, elevation: wid.elevation,
                     facing: wid.facing, side: wid.side, 
@@ -2075,6 +2077,7 @@ export class FloorPlanner {
                         shape = new Konva.Line({ points: [wData.startX, wData.startY, wData.endX, wData.endY], stroke: '#94a3b8', strokeWidth: wData.thickness || 20, lineCap: 'round', lineJoin: 'round', dash: [] });
                     }
                     shape.setAttr('refPts', [wData.startX, wData.startY, wData.endX, wData.endY]);
+                    if (wData.bevels) shape.setAttr('bevels', wData.bevels);
                     this.referenceGroup.add(shape);
                 });
             }
