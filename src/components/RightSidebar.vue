@@ -320,8 +320,10 @@
 
             <div v-else-if="selectedType === 'widget'">
                 <h4 class="props-subtitle">{{ selectedEntity.config?.label || 'DOOR/WINDOW' }} Properties</h4>
-                <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="10" max="200" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.width" @input="$emit('sync-engine')"></div></div>
+                <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="10" max="400" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.width" @input="$emit('sync-engine')"></div></div>
                 <div class="control-group" v-if="selectedEntity.type === 'elevation_fascia'"><label>Height (Drop)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="400" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.height" @input="$emit('sync-engine')"></div></div>
+                <div class="control-group" v-if="selectedEntity.type === 'window' || selectedEntity.type === 'door'"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="400" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.height" @input="$emit('sync-engine')"></div></div>
+                <div class="control-group" v-if="selectedEntity.type === 'window'"><label>Elevation (from floor)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.elevation" min="0" max="400" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.elevation" @input="$emit('sync-engine')"></div></div>
                 <div class="faceRow" v-if="selectedEntity.type !== 'jali_panel' && selectedEntity.type !== 'elevation_fascia' && selectedEntity.type !== 'sunshade'">
                     <button class="action-btn clear" style="flex: 1; padding: 4px;" @click="selectedEntity.facing *= -1; $emit('sync-engine')">Flip In/Out</button>
                     <button class="action-btn clear" style="flex: 1; padding: 4px;" @click="selectedEntity.side *= -1; $emit('sync-engine')">Flip L/R</button>
@@ -369,21 +371,18 @@
                     <div class="control-group">
                         <label>Window Type</label>
                         <select v-model="selectedEntity.windowType" @change="(e) => { 
-                            if (['modern_split', 'window_seat', 'panoramic_slider', 'garden_open', 'bay_box'].includes(selectedEntity.windowType)) {
-                                selectedEntity.width = Math.max(selectedEntity.width, 140);
-                                selectedEntity.height = Math.max(selectedEntity.height || 120, 120);
-                                if (['panoramic_slider', 'modern_split'].includes(selectedEntity.windowType)) selectedEntity.grillePattern = 'none';
-                            }
-                            $emit('sync-engine'); 
+                            if (['panoramic_slider', 'modern_split'].includes(selectedEntity.windowType)) selectedEntity.grillePattern = 'none';
+                            $emit('sync-engine');
                         }" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
                             <option value="sliding_std">Standard Sliding</option>
                             <option value="casement_std">Casement / Hinged</option>
                             <option value="fixed_elevation">Fixed Glass</option>
                             <option value="modern_split">Modern Asymmetric</option>
                             <option value="bay_box">Box Bay Window</option>
-                            <option value="window_seat">Window with Seat</option>
+                            <option value="window_seat">Double Picture Window</option>
                             <option value="garden_open">Open Garden Window</option>
                             <option value="panoramic_slider">Panoramic Slider (3-Pane)</option>
+                            <option value="shutter_double">Double Louvered Shutter</option>
                         </select>
                     </div>
                     <div class="control-group">

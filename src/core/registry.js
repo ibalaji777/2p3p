@@ -19,7 +19,7 @@ export const WORKSPACE_2D_SHAPES = {
 };
 
 export const DOOR_TYPES = { single: { label: "Single Hinged Door" }, double: { label: "Double Door" }, sliding: { label: "Sliding Door" }, double_sliding: { label: "Double Sliding Door" }, folding: { label: "Folding / Bi-fold" }, pivot: { label: "Pivot Door" }, pocket: { label: "Pocket Door" }, french: { label: "French Door (Glass)" } };
-export const WINDOW_TYPES = { sliding_std: { label: "Standard Sliding Window", type: "sliding", hasChajja: false }, casement_std: { label: "Casement / Hinged Window", type: "casement", hasChajja: false }, casement_chajja: { label: "Window with Concrete Sunshade", type: "casement", hasChajja: true }, fixed_elevation: { label: "Fixed Elevation Glass", type: "fixed", hasChajja: false }, modern_split: { label: "Modern Asymmetric", type: "split_asymmetric", hasChajja: false }, bay_box: { label: "Box Bay Window (Villa Style)", type: "bay", hasChajja: true }, window_seat: { label: "Window with Seat", type: "window_seat", hasChajja: false }, garden_open: { label: "Open Garden Window", type: "garden_open", hasChajja: true }, panoramic_slider: { label: "Panoramic Slider", type: "panoramic_slider", hasChajja: false }, louver_vent: { label: "Vent / Louver (Bathroom)", type: "louver", hasChajja: false }, traditional_indian: { label: "Traditional Wooden Shutter", type: "traditional", hasChajja: true } };
+export const WINDOW_TYPES = { sliding_std: { label: "Standard Sliding Window", type: "sliding", hasChajja: false }, casement_std: { label: "Casement / Hinged Window", type: "casement", hasChajja: false }, casement_chajja: { label: "Window with Concrete Sunshade", type: "casement", hasChajja: true }, fixed_elevation: { label: "Fixed Elevation Glass", type: "fixed", hasChajja: false }, modern_split: { label: "Modern Asymmetric", type: "split_asymmetric", hasChajja: false }, bay_box: { label: "Box Bay Window (Villa Style)", type: "bay", hasChajja: true }, window_seat: { label: "Double Picture Window", type: "window_seat", hasChajja: false }, garden_open: { label: "Open Garden Window", type: "garden_open", hasChajja: true }, panoramic_slider: { label: "Panoramic Slider", type: "panoramic_slider", hasChajja: false }, shutter_double: { label: "Double Louvered Shutter", type: "shutter_double", hasChajja: false }, louver_vent: { label: "Vent / Louver (Bathroom)", type: "louver", hasChajja: false }, traditional_indian: { label: "Traditional Wooden Shutter", type: "traditional", hasChajja: true } };
 
 
 export const DOOR_MATERIALS = {
@@ -812,18 +812,40 @@ export const WIDGET_REGISTRY = {
             let bottomY = Math.max(0.2, baseElev); // Prevent frame from sinking into floor
             let topY = baseElev + rawHeight;
             let height = topY - bottomY;
-            const doorGroup = new THREE.Group(); doorGroup.position.set(entity.x, bottomY, entity.z); doorGroup.rotation.y = -entity.angle;
-            
+            const doorGroup = new THREE.Group(); 
+            if (entity.localX !== undefined) {
+                doorGroup.position.set(entity.localX, bottomY, 0);
+                doorGroup.rotation.y = 0;
+            } else {
+                doorGroup.position.set(entity.x, bottomY, entity.z);
+                doorGroup.rotation.y = -entity.angle;
+            }
+            const isSliding = entity.doorType === 'sliding' || entity.doorType === 'double_sliding' || entity.doorType === 'pocket';
+            const fW = 4; const fThick = entity.thick + 0.2;
             const matDoor = helpers.getDynamicMaterial(entity.doorMat, 'door'); 
-            const conf = DOOR_MATERIALS[entity.doorMat] || DOOR_MATERIALS_REGISTRY[entity.doorMat] || DOOR_MATERIALS.wood; 
-            
             const frameMatKey = entity.frameMat || entity.doorMat;
             const matFrame = helpers.getDynamicMaterial(frameMatKey, 'door');
-            // If the door material has a specific frame color override (or we want it slightly darker)
-            if (!DOOR_MATERIALS_REGISTRY[frameMatKey]) {
-                matFrame.color.multiplyScalar(0.85);
-            }
             
+            if (entity.doorShape !== 'radius' && entity.doorShape !== 'segment' && entity.doorShape !== 'gothic') {
+                const frameShape = new THREE.Shape();
+                frameShape.moveTo(-entity.width/2, 0);
+                frameShape.lineTo(-entity.width/2, height);
+                frameShape.lineTo(entity.width/2, height);
+                frameShape.lineTo(entity.width/2, 0);
+                frameShape.lineTo(entity.width/2 - fW, 0);
+                frameShape.lineTo(entity.width/2 - fW, height - fW);
+                frameShape.lineTo(-entity.width/2 + fW, height - fW);
+                frameShape.lineTo(-entity.width/2 + fW, 0);
+                frameShape.lineTo(-entity.width/2, 0);
+                
+                const frameGeo = new THREE.ExtrudeGeometry(frameShape, { depth: fThick, bevelEnabled: false });
+                frameGeo.translate(0, 0, -fThick/2);
+                const mainFrame = new THREE.Mesh(frameGeo, matFrame); mainFrame.castShadow = true; mainFrame.receiveShadow = true; mainFrame.userData = { isFrame: true }; doorGroup.add(mainFrame);
+            } else {
+                const makeFrameBox = (w, h, depth) => { const bg = new THREE.BoxGeometry(w, h, depth); const bm = new THREE.Mesh(bg, matFrame); bm.castShadow = true; bm.receiveShadow = true; bm.userData = { isFrame: true }; return bm; };
+                const sL = makeFrameBox(fW, height, fThick); sL.position.set(-entity.width/2 + fW/2, height/2, 0); doorGroup.add(sL);
+                const sR = makeFrameBox(fW, height, fThick); sR.position.set(entity.width/2 - fW/2, height/2, 0); doorGroup.add(sR);
+            }
             const metalMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8, roughness: 0.2 });
             
             // Helper to tag frame meshes so GizmoManager knows it's the frame
@@ -1010,15 +1032,28 @@ export const WIDGET_REGISTRY = {
             let bottomY = Math.max(0.2, baseElev);
             let topY = baseElev + rawHeight;
             let height = topY - bottomY;
-            const winGroup = new THREE.Group(); winGroup.position.set(entity.x, bottomY, entity.z); winGroup.rotation.y = -entity.angle;
+            const winGroup = new THREE.Group(); 
+            if (entity.localX !== undefined) {
+                winGroup.position.set(entity.localX, bottomY, 0);
+                winGroup.rotation.y = 0;
+            } else {
+                winGroup.position.set(entity.x, bottomY, entity.z);
+                winGroup.rotation.y = -entity.angle;
+            }
             const wConf = WINDOW_TYPES[entity.windowType] || WINDOW_TYPES.sliding_std;
             const matFrame = helpers.getDynamicMaterial(entity.frameMat, 'window_frame'); const matGlass = helpers.getDynamicMaterial(entity.glassMat, 'window_glass');
-            const isTrad = wConf.type === 'traditional'; const isBay = wConf.type === 'bay'; const fW = isTrad ? 5 : 3; const fThick = entity.thick + (isTrad ? 4 : 1); const zOffset = isBay ? 12 : 0; 
+            const isTrad = wConf.type === 'traditional'; const isBay = wConf.type === 'bay'; const fW = isTrad ? 5 : 3; const fThick = isTrad ? entity.thick + 2 : entity.thick + 0.2; const zOffset = isBay ? 12 : 0; 
             const matGrille = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8, roughness: 0.2 }); const matConcrete = new THREE.MeshStandardMaterial({ color: 0xd4d4d4, roughness: 1.0 });
-            const outStile = new THREE.BoxGeometry(fW, height, fThick); const outRail = new THREE.BoxGeometry(entity.width - fW*2, fW, fThick);
-            const sl = new THREE.Mesh(outStile, matFrame); sl.position.set(-entity.width/2 + fW/2, height/2, zOffset); const sr = new THREE.Mesh(outStile, matFrame); sr.position.set(entity.width/2 - fW/2, height/2, zOffset);
-            const rt = new THREE.Mesh(outRail, matFrame); rt.position.set(0, height - fW/2, zOffset); const rb = new THREE.Mesh(outRail, matFrame); rb.position.set(0, fW/2, zOffset);
-            [sl, sr, rt, rb].forEach(m => { m.castShadow = true; m.receiveShadow = true; m.userData = { isFrame: true }; winGroup.add(m); });
+            
+            const frameShape = new THREE.Shape();
+            frameShape.moveTo(-entity.width/2, 0); frameShape.lineTo(entity.width/2, 0); frameShape.lineTo(entity.width/2, height); frameShape.lineTo(-entity.width/2, height); frameShape.lineTo(-entity.width/2, 0);
+            const frameHole = new THREE.Path();
+            frameHole.moveTo(-entity.width/2 + fW, fW); frameHole.lineTo(entity.width/2 - fW, fW); frameHole.lineTo(entity.width/2 - fW, height - fW); frameHole.lineTo(-entity.width/2 + fW, height - fW); frameHole.lineTo(-entity.width/2 + fW, fW);
+            frameShape.holes.push(frameHole);
+            const frameGeo = new THREE.ExtrudeGeometry(frameShape, { depth: fThick, bevelEnabled: false });
+            frameGeo.translate(0, 0, -fThick/2 + zOffset);
+            const mainFrame = new THREE.Mesh(frameGeo, matFrame); mainFrame.castShadow = true; mainFrame.receiveShadow = true; mainFrame.userData = { isFrame: true }; winGroup.add(mainFrame);
+
             const iW = entity.width - fW*2; const iH = height - fW*2; const sThick = entity.thick * 0.6;
             const makeSash = (w, h, useGlass=true) => {
                 const sG = new THREE.Group(); const sFw = isTrad ? 4 : 2.5; const geoS = new THREE.BoxGeometry(sFw, h, sThick); const geoR = new THREE.BoxGeometry(w - sFw*2, sFw, sThick);
@@ -1054,11 +1089,6 @@ export const WIDGET_REGISTRY = {
                 const hw = iW / 2;
                 const sL = makeSash(hw, iH); sL.position.set(-hw/2, fW, 0); winGroup.add(sL);
                 const sR = makeSash(hw, iH); sR.position.set(hw/2, fW, 0); winGroup.add(sR);
-                const seatDepth = 40; const seatThick = 4;
-                const seatMat = new THREE.MeshStandardMaterial({ color: 0xdfb48c, roughness: 0.8, name: "SeatWood" });
-                const seatZ = entity.facing === 1 ? -seatDepth/2 : seatDepth/2;
-                const seat = new THREE.Mesh(new THREE.BoxGeometry(entity.width + 10, seatThick, seatDepth), seatMat);
-                seat.position.set(0, fW + seatThick/2, seatZ); seat.castShadow = true; seat.receiveShadow = true; winGroup.add(seat);
             } else if (wConf.type === 'garden_open') {
                 const frontW = iW * 0.6; const frontSash = makeSash(frontW, iH); frontSash.position.set(0, fW, zOffset); winGroup.add(frontSash);
                 const sideW = Math.hypot(iW*0.2, zOffset);

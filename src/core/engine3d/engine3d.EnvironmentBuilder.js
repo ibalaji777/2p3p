@@ -178,6 +178,12 @@ export class EnvironmentBuilder {
             const wallShape = new THREE.Shape();
             wallShape.moveTo(0, wallBottom); wallShape.lineTo(length, wallBottom); wallShape.lineTo(length, h); wallShape.lineTo(0, h); wallShape.lineTo(0, wallBottom);
 
+            const wallGroup = new THREE.Group();
+            wallGroup.position.set(p1.x, 0, p1.y);
+            wallGroup.rotation.y = -angle;
+            wallGroup.userData = { entity: w };
+            w.mesh3D = wallGroup;
+
             const extraMeshes = [];
             w.attachedWidgets.forEach(widg => {
                 const hole = new THREE.Path(), wCenter = length * widg.t, halfW = widg.width / 2;
@@ -344,7 +350,10 @@ export class EnvironmentBuilder {
                                     widg.angle = angle;
                                     widg.thick = t;
                                     widg.wall = w;
-                                    const widgetGroup = WIDGET_REGISTRY[type].render3D(this.ctx.structureGroup, widg, this.ctx.helpers);
+                                    
+                                    widg.localX = wCenter;
+                                    
+                                    const widgetGroup = WIDGET_REGISTRY[type].render3D(wallGroup, widg, this.ctx.helpers);
                                     if (widgetGroup) {
                                         widg.mesh3D = widgetGroup;
                                         this.ctx.interactables.push(widgetGroup);
@@ -378,8 +387,14 @@ export class EnvironmentBuilder {
                     const tZ = (z + t / 2) / t;
                     const startX = localSR_x + tZ * (localSL_x - localSR_x);
                     const endX = localER_x + tZ * (localEL_x - localER_x);
-                    const tX = x / length;
-                    pos.setX(i, startX + tX * (endX - startX));
+                    
+                    if (x <= 0.1) {
+                        pos.setX(i, startX);
+                    } else if (x >= length - 0.1) {
+                        pos.setX(i, endX);
+                    } else {
+                        pos.setX(i, x);
+                    }
                 }
                 geo.computeVertexNormals();
             };
@@ -457,13 +472,7 @@ export class EnvironmentBuilder {
                 });
             }
 
-            const wallGroup = new THREE.Group();
-            wallGroup.position.set(p1.x, 0, p1.y);
-            wallGroup.rotation.y = -angle;
             wallGroup.add(wallMesh, hitFront, hitBack, ...extraMeshes);
-            wallGroup.userData = { entity: w };
-            w.mesh3D = wallGroup;
-
             this.ctx.interactables.push(hitFront, hitBack);
             this.ctx.structureGroup.add(wallGroup);
 
@@ -894,6 +903,12 @@ export class EnvironmentBuilder {
                         const wallShape = new THREE.Shape();
                         wallShape.moveTo(0, wallBottom); wallShape.lineTo(length, wallBottom); wallShape.lineTo(length, totalH); wallShape.lineTo(0, totalH); wallShape.lineTo(0, wallBottom);
                         
+                        const wallGroup = new THREE.Group();
+                        wallGroup.position.set(w.startX, 0, w.startY);
+                        wallGroup.rotation.y = -angle;
+                        wallGroup.userData = { entity: w };
+                        w.mesh3D = wallGroup;
+
                         const extraMeshes = [];
                         if (w.attachedWidgets) {
                             w.attachedWidgets.forEach(widg => {
@@ -1062,7 +1077,10 @@ export class EnvironmentBuilder {
                                     widg.angle = angle;
                                     widg.thick = w.thickness;
                                     widg.wall = w;
-                                    const widgetGroup = WIDGET_REGISTRY[type].render3D(floorGroup, widg, this.ctx.helpers);
+                                    
+                                    widg.localX = wCenter;
+                                    
+                                    const widgetGroup = WIDGET_REGISTRY[type].render3D(wallGroup, widg, this.ctx.helpers);
                                     if (widgetGroup) {
                                         widg.mesh3D = widgetGroup;
                                         this.ctx.interactables.push(widgetGroup);
@@ -1094,8 +1112,14 @@ export class EnvironmentBuilder {
                                 const tZ = Math.max(0, Math.min(1, (z + geomThickness / 2) / geomThickness));
                                 const startX = localSR_x + tZ * (localSL_x - localSR_x);
                                 const endX = localER_x + tZ * (localEL_x - localER_x);
-                                const tX = x / length;
-                                pos.setX(i, startX + tX * (endX - startX));
+                                
+                                if (x <= 0.1) {
+                                    pos.setX(i, startX);
+                                } else if (x >= length - 0.1) {
+                                    pos.setX(i, endX);
+                                } else {
+                                    pos.setX(i, x);
+                                }
                             }
                             geo.computeVertexNormals();
                         };
@@ -1151,11 +1175,6 @@ export class EnvironmentBuilder {
                             });
                         }
 
-                        const wallGroup = new THREE.Group();
-                        wallGroup.position.set(w.startX, 0, w.startY);
-                        wallGroup.rotation.y = -angle;
-                        wallGroup.userData = { entity: w };
-                        w.mesh3D = wallGroup;
                         wallGroup.add(wallMesh, ...extraMeshes);
                         
                         if (!isPreview && viewMode3D === 'full-edit') {

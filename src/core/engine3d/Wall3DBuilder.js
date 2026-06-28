@@ -100,7 +100,14 @@ export class Wall3DBuilder {
 
                     const sX = interpolateX(startProfileLocal, z);
                     const eX = interpolateX(endProfileLocal, z);
-                    pos.setX(i, sX + (x / length) * (eX - sX));
+                    
+                    if (x <= 0.1) {
+                        pos.setX(i, sX);
+                    } else if (x >= length - 0.1) {
+                        pos.setX(i, eX);
+                    } else {
+                        pos.setX(i, x);
+                    }
                 }
                 geo.computeVertexNormals();
             };
@@ -115,7 +122,14 @@ export class Wall3DBuilder {
                     const x = pos.getX(i); const z = pos.getZ(i);
                     const tZ = (z + thickness / 2) / thickness;
                     const sX = localSR_x + tZ * (localSL_x - localSR_x); const eX = localER_x + tZ * (localEL_x - localER_x);
-                    pos.setX(i, sX + (x / length) * (eX - sX));
+                    
+                    if (x <= 0.1) {
+                        pos.setX(i, sX);
+                    } else if (x >= length - 0.1) {
+                        pos.setX(i, eX);
+                    } else {
+                        pos.setX(i, x);
+                    }
                 }
                 geo.computeVertexNormals();
             };
@@ -219,7 +233,14 @@ export class Wall3DBuilder {
                     const x = pos.getX(i); const z = pos.getZ(i);
                     const sX = interpolateX(startProfileLocal, z);
                     const eX = interpolateX(endProfileLocal, z);
-                    pos.setX(i, sX + (x / length) * (eX - sX));
+                    
+                    if (x <= 0.1) {
+                        pos.setX(i, sX);
+                    } else if (x >= length - 0.1) {
+                        pos.setX(i, eX);
+                    } else {
+                        pos.setX(i, x);
+                    }
                 }
                 geo.computeVertexNormals();
             };
@@ -233,7 +254,14 @@ export class Wall3DBuilder {
                     const x = pos.getX(i); const z = pos.getZ(i);
                     const tZ = (z + thickness / 2) / thickness;
                     const sX = localSR_x + tZ * (localSL_x - localSR_x); const eX = localER_x + tZ * (localEL_x - localER_x);
-                    pos.setX(i, sX + (x / length) * (eX - sX));
+                    
+                    if (x <= 0.1) {
+                        pos.setX(i, sX);
+                    } else if (x >= length - 0.1) {
+                        pos.setX(i, eX);
+                    } else {
+                        pos.setX(i, x);
+                    }
                 }
                 geo.computeVertexNormals();
             };
