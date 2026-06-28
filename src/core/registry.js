@@ -384,70 +384,70 @@ export const ROOF_DECOR_REGISTRY = {
         name: 'Wood Planks',
         texture: 'models/wall/wood_1_light.png',
         thumbnail: 'models/wall/wood_1_light.png',
-        defaultRepeat: 3
+        scaleRatio: 1.5
     },
     'stone_roof': {
         id: 'stone_roof',
         name: 'Stone Tiles',
         texture: 'models/wall/stone.png',
         thumbnail: 'models/wall/stone.png',
-        defaultRepeat: 3
+        scaleRatio: 1.5
     },
     'red_tiles': {
         id: 'red_tiles',
         name: 'Red Tiles',
         texture: 'models/wall/brick_3_red.png',
         thumbnail: 'models/wall/brick_3_red.png',
-        defaultRepeat: 3
+        scaleRatio: 1.2
     },
     'white_plaster_roof': {
         id: 'white_plaster_roof',
         name: 'White Plaster',
         texture: 'models/wall/brick_8_white.png',
         thumbnail: 'models/wall/brick_8_white.png',
-        defaultRepeat: 3
+        scaleRatio: 2.0
     },
     'concrete_flat': {
         id: 'concrete_flat',
         name: 'Concrete Flat',
         texture: 'models/wall/brick_9_grey.png', 
         thumbnail: 'models/wall/brick_9_grey.png', 
-        defaultRepeat: 3
+        scaleRatio: 2.0
     },
     'dark_asphalt_roof': {
         id: 'dark_asphalt_roof',
         name: 'Dark Asphalt',
         texture: 'models/wall/dark_asphalt_roof.png', 
         thumbnail: 'models/wall/dark_asphalt_roof.png', 
-        defaultRepeat: 3
+        scaleRatio: 1.5
     },
     'white_gravel_roof': {
         id: 'white_gravel_roof',
         name: 'White Gravel',
         texture: 'models/wall/white_gravel_roof.png', 
         thumbnail: 'models/wall/white_gravel_roof.png', 
-        defaultRepeat: 3
+        scaleRatio: 0.5
     },
     'terracotta_tiles_roof': {
         id: 'terracotta_tiles_roof',
         name: 'Terracotta Tiles',
         texture: 'models/wall/terracotta_tiles_roof.png', 
         thumbnail: 'models/wall/terracotta_tiles_roof.png', 
-        defaultRepeat: 3
+        scaleRatio: 1.2
     },
     'grey_slate_roof': {
         id: 'grey_slate_roof',
         name: 'Grey Slate Tiles',
         texture: 'models/wall/grey_slate_roof.png', 
         thumbnail: 'models/wall/grey_slate_roof.png', 
-        defaultRepeat: 3
+        scaleRatio: 1.2
     },
     'blue_ceramic_tiles_roof': {
         id: 'blue_ceramic_tiles_roof',
         name: 'Blue Ceramic Tiles',
         texture: 'models/wall/blue_ceramic_tiles_roof.png', 
         thumbnail: 'models/wall/blue_ceramic_tiles_roof.png', 
-        defaultRepeat: 3
+        scaleRatio: 1.2
     }
 };
 

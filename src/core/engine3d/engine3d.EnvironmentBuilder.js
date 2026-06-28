@@ -1311,7 +1311,9 @@ export class EnvironmentBuilder {
                     const decorConf = ROOF_DECOR_REGISTRY[matId];
                     const tex = new THREE.TextureLoader().load(decorConf.texture);
                     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-                    tex.repeat.set(1 / (decorConf.defaultRepeat || 3), 1 / (decorConf.defaultRepeat || 3));
+                    const baseSize = roof.tileSize || 100;
+                    const tSize = baseSize * (decorConf.scaleRatio || 1);
+                    tex.repeat.set(100 / tSize, 100 / tSize);
                     flatMat = new THREE.MeshStandardMaterial({ map: tex });
                 }
 
@@ -1342,15 +1344,36 @@ export class EnvironmentBuilder {
                     let dx2 = top[0] - p0.x, dz2 = top[2] - p0.y;
                     let ny = dx1 * dz2 - dz1 * dx2; 
                     
-                    if (ny < 0) { v.push(p1.x, 0, p1.y, p0.x, 0, p0.y, ...top); } 
-                    else { v.push(p0.x, 0, p0.y, p1.x, 0, p1.y, ...top); }
-                    uv.push(0, 0, 1, 0, 0.5, 1);
+                    if (ny < 0) { 
+                        v.push(p1.x, 0, p1.y, p0.x, 0, p0.y, ...top); 
+                        uv.push(p1.x / 100, p1.y / 100, p0.x / 100, p0.y / 100, top[0] / 100, top[2] / 100);
+                    } 
+                    else { 
+                        v.push(p0.x, 0, p0.y, p1.x, 0, p1.y, ...top); 
+                        uv.push(p0.x / 100, p0.y / 100, p1.x / 100, p1.y / 100, top[0] / 100, top[2] / 100);
+                    }
                 }
 
                 const geo = new THREE.BufferGeometry();
                 geo.setAttribute("position", new THREE.Float32BufferAttribute(v, 3));
                 geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
                 geo.computeVertexNormals();
+                
+                const mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide });
+
+                if (decor && decor.texture) {
+                    this.ctx.assets.getTexture(decor).then(tex => {
+                        const texClone = tex.clone();
+                        texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                        
+                        const baseSize = roof.tileSize || 100;
+                        const tSize = baseSize * (decor.scaleRatio || 1);
+                        texClone.repeat.set(100 / tSize, 100 / tSize);
+                        
+                        mat.map = texClone;
+                        mat.needsUpdate = true;
+                    });
+                }
                 mesh = new THREE.Mesh(geo, mat);
             }
 

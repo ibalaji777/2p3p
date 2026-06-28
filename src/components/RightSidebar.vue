@@ -599,6 +599,8 @@
                 <div class="control-group"><label>Elevation Gap</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.wallGap" min="-50" max="100" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.config.wallGap" @input="$emit('sync-engine')"></div></div>
                 
                 <div class="decor-gallery" v-if="selectedEntity.config.roofType === 'hip'">
+                    <div class="control-group"><label>Tile Size</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.tileSize" min="1" max="200" step="1" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.tileSize" min="1" max="200" step="1" @input="$emit('sync-engine')"></div></div>
+                    
                     <h4 class="props-subtitle">Roof Material</h4>
                     <div class="decor-grid">
                         <div v-for="(config, key) in roofDecorRegistry" :key="key" class="decor-item" @click="$emit('set-roof-material', key)" :class="{ active: selectedEntity.config.material === key }">
@@ -609,9 +611,11 @@
                 </div>
 
                 <div class="decor-gallery" v-if="selectedEntity.config.roofType === 'flat'">
-                    <h4 class="props-subtitle">Change Material (Wall Texture)</h4>
+                    <div class="control-group"><label>Tile Size</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.tileSize" min="1" max="200" step="1" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.tileSize" min="1" max="200" step="1" @input="$emit('sync-engine')"></div></div>
+                    
+                    <h4 class="props-subtitle">Change Material (Roof Texture)</h4>
                     <div class="decor-grid">
-                        <div v-for="(config, key) in wallDecorRegistry" :key="key" class="decor-item" @click="() => { selectedEntity.configId = key; $emit('sync-engine'); }" :class="{ active: selectedEntity.configId === key }">
+                        <div v-for="(config, key) in roofDecorRegistry" :key="key" class="decor-item" @click="() => { selectedEntity.configId = key; $emit('sync-engine'); }" :class="{ active: selectedEntity.configId === key }">
                             <img :src="config.thumbnail || config.texture" />
                             <span>{{ config.name }}</span>
                         </div>

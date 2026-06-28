@@ -318,7 +318,9 @@ export class ActiveFloor {
                     const decorConf = ROOF_DECOR_REGISTRY[matId];
                     const tex = new THREE.TextureLoader().load(decorConf.texture);
                     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-                    tex.repeat.set(1 / (decorConf.defaultRepeat || 3), 1 / (decorConf.defaultRepeat || 3));
+                    const baseSize = roof.tileSize || 100;
+                    const tSize = baseSize * (decorConf.scaleRatio || 1);
+                    tex.repeat.set(100 / tSize, 100 / tSize);
                     flatMat = new THREE.MeshStandardMaterial({ map: tex });
                 }
 
