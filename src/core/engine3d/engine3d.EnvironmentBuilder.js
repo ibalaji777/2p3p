@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { Molding3DBuilder } from './Molding3DBuilder.js';
-import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from '../../core/registry';
+import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, offsetPolygon } from '../../core/registry';
 
 export class EnvironmentBuilder {
     constructor(ctx) {
@@ -1236,8 +1236,11 @@ export class EnvironmentBuilder {
         }
 
         roofs.forEach(roof => {
-            const pts = roof.points || [];
-            if (pts.length < 3) return;
+            const basePts = roof.points || [];
+            if (basePts.length < 3) return;
+
+            const conf = roof.config || roof; 
+            const pts = offsetPolygon(basePts, conf.overhang || 0);
 
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
             pts.forEach(p => {
@@ -1245,7 +1248,6 @@ export class EnvironmentBuilder {
                 minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
             });
 
-            const conf = roof.config || roof; 
             const wallGap = conf.wallGap || 0;
             
             const W = maxX - minX;

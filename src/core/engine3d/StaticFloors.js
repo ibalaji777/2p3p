@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from '../registry.js';
+import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, offsetPolygon } from '../registry.js';
 import { Wall3DBuilder } from './Wall3DBuilder.js';
 import { RailingBuilder } from './RailingBuilder.js';
 
@@ -161,8 +161,10 @@ export class StaticFloors {
                     const baseHeight = (hasWalls || index === 0) ? maxWallHeight : 0;
 
                     data.roofs.forEach(roofData => {
-                        const pts = roofData.points;
-                        if (!pts || pts.length < 3) return;
+                        const basePts = roofData.points;
+                        if (!basePts || basePts.length < 3) return;
+
+                        const pts = offsetPolygon(basePts, roofData.overhang || roofData.config?.overhang || 0);
 
                         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
                         pts.forEach(p => {

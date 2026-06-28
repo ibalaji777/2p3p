@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Wall3DBuilder } from './Wall3DBuilder.js';
 import { RailingBuilder } from './RailingBuilder.js';
-import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, WALL_DECOR_REGISTRY } from '../registry.js';
+import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, WALL_DECOR_REGISTRY, offsetPolygon } from '../registry.js';
 
 
 export class ActiveFloor {
@@ -249,8 +249,11 @@ export class ActiveFloor {
 
     _buildRoofs(roofs, activeIndex, hasWalls, maxWallHeight = WALL_HEIGHT, targetGroup = this.structureGroup) {
         roofs.forEach(roof => {
-            const pts = roof.points || [];
-            if (pts.length < 3) return;
+            const basePts = roof.points || [];
+            if (basePts.length < 3) return;
+
+            const conf = roof.config || {};
+            const pts = offsetPolygon(basePts, conf.overhang || 0);
 
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
             pts.forEach(p => {
@@ -258,7 +261,6 @@ export class ActiveFloor {
                 minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
             });
 
-            const conf = roof.config || {};
             const wallGap = conf.wallGap || 0;
             
             const W = maxX - minX;

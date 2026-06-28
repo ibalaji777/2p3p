@@ -1,5 +1,5 @@
 import Konva from 'konva';
-
+import { offsetPolygon } from '../registry.js';
 export class PremiumHipRoof {
     constructor(planner, points) {
         this.planner = planner;
@@ -45,9 +45,9 @@ export class PremiumHipRoof {
         this.update();
         this.initEvents();
     }
-    
     getFlatPoints() {
-        return this.points.flatMap(p => [p.x, p.y]);
+        const offsetPts = offsetPolygon(this.points, this.config.overhang || 0);
+        return offsetPts.flatMap(p => [p.x, p.y]);
     }
     
     initHandles() {
@@ -93,9 +93,11 @@ export class PremiumHipRoof {
     generateHipLines() {
         this.hipLinesGroup.destroyChildren();
         
+        const pts = offsetPolygon(this.points, this.config.overhang || 0);
+        
         let cx = 0, cy = 0, signedArea = 0;
-        for (let i = 0; i < this.points.length; i++) {
-            let p0 = this.points[i], p1 = this.points[(i + 1) % this.points.length];
+        for (let i = 0; i < pts.length; i++) {
+            let p0 = pts[i], p1 = pts[(i + 1) % pts.length];
             let a = p0.x * p1.y - p1.x * p0.y;
             signedArea += a; cx += (p0.x + p1.x) * a; cy += (p0.y + p1.y) * a;
         }
@@ -104,11 +106,11 @@ export class PremiumHipRoof {
         if (signedArea !== 0) { cx /= (6.0 * signedArea); cy /= (6.0 * signedArea); } 
         else {
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-            this.points.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
+            pts.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
             cx = minX + (maxX - minX) / 2; cy = minY + (maxY - minY) / 2;
         }
         
-        this.points.forEach(p => { 
+        pts.forEach(p => { 
             this.hipLinesGroup.add(new Konva.Line({ points: [p.x, p.y, cx, cy], stroke: '#FFA500', strokeWidth: 2, dash: [4, 4] })); 
         });
     }

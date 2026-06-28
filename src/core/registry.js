@@ -1683,3 +1683,59 @@ export const WIDGET_REGISTRY = {
         }
     }
 };
+
+export function offsetPolygon(points, offsetAmount) {
+    if (!offsetAmount || offsetAmount === 0 || points.length < 3) return points;
+    
+    let signedArea = 0;
+    for (let i = 0; i < points.length; i++) {
+        let p0 = points[i];
+        let p1 = points[(i + 1) % points.length];
+        signedArea += (p0.x * p1.y - p1.x * p0.y);
+    }
+    
+    const result = [];
+    for (let i = 0; i < points.length; i++) {
+        let prev = points[(i - 1 + points.length) % points.length];
+        let curr = points[i];
+        let next = points[(i + 1) % points.length];
+        
+        let e1x = curr.x - prev.x;
+        let e1y = curr.y - prev.y;
+        let len1 = Math.sqrt(e1x * e1x + e1y * e1y);
+        if(len1 > 0) { e1x /= len1; e1y /= len1; }
+        
+        let e2x = next.x - curr.x;
+        let e2y = next.y - curr.y;
+        let len2 = Math.sqrt(e2x * e2x + e2y * e2y);
+        if(len2 > 0) { e2x /= len2; e2y /= len2; }
+        
+        let n1x = -e1y; let n1y = e1x;
+        if (signedArea > 0) { n1x = e1y; n1y = -e1x; }
+        
+        let n2x = -e2y; let n2y = e2x;
+        if (signedArea > 0) { n2x = e2y; n2y = -e2x; }
+        
+        let bx = n1x + n2x;
+        let by = n1y + n2y;
+        let blen = Math.sqrt(bx * bx + by * by);
+        
+        if (blen < 0.0001) {
+            bx = n1x;
+            by = n1y;
+            blen = 1;
+        }
+        bx /= blen;
+        by /= blen;
+        
+        let dot = bx * n1x + by * n1y;
+        if (Math.abs(dot) < 0.1) dot = 0.1;
+        let dist = offsetAmount / dot;
+        
+        result.push({
+            x: curr.x + bx * dist,
+            y: curr.y + by * dist
+        });
+    }
+    return result;
+}
