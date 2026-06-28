@@ -732,6 +732,21 @@ export class PremiumWall {
         this.planner.syncAll(); 
     } 
 
+    getExactPolygonPoints() {
+        if (!this.wallShapeData) return this.poly.points();
+        const { startL, endL, endR, startR, startData, endData } = this.wallShapeData;
+        let pts = [];
+        if (startData.bevelL) pts.push(startData.bevelL.x, startData.bevelL.y);
+        pts.push(startL.x, startL.y);
+        pts.push(endL.x, endL.y);
+        if (endData.bevelL) pts.push(endData.bevelL.x, endData.bevelL.y);
+        if (endData.bevelR) pts.push(endData.bevelR.x, endData.bevelR.y);
+        pts.push(endR.x, endR.y);
+        pts.push(startR.x, startR.y);
+        if (startData.bevelR) pts.push(startData.bevelR.x, startData.bevelR.y);
+        return pts;
+    }
+
     serialize() { 
         return { 
             type: this.type, thickness: this.thickness, height: this.height, configId: this.configId, hidden: this.hidden, description: this.description, 

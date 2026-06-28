@@ -827,7 +827,7 @@ export class FloorPlanner {
 
                     let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
                     for (let line of allReferenceWalls) {
-                        let pts = line.points();
+                        let pts = line.getAttr('refPts') || line.points();
                         if (pts && pts.length === 4) {
                             let d1 = Math.hypot(pos.x - pts[0], pos.y - pts[1]); let d2 = Math.hypot(pos.x - pts[2], pos.y - pts[3]);
                             if (d1 < 40 && d1 < closestDist) { closestDist = 0; closestPoint = {x: pts[0], y: pts[1]}; targetSnapWall = null; }
@@ -1186,7 +1186,7 @@ export class FloorPlanner {
 
                     let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
                     for (let line of allReferenceWalls) {
-                        let pts = line.points();
+                        let pts = line.getAttr('refPts') || line.points();
                         if (pts && pts.length === 4) {
                             let d1 = Math.hypot(pos.x - pts[0], pos.y - pts[1]);
                             let d2 = Math.hypot(pos.x - pts[2], pos.y - pts[3]);
@@ -1357,7 +1357,7 @@ export class FloorPlanner {
             
             let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
             for (let line of allReferenceWalls) {
-                let pts = line.points();
+                let pts = line.getAttr('refPts') || line.points();
                 if (pts && pts.length === 4) {
                     let d1 = Math.hypot(pos.x - pts[0], pos.y - pts[1]); let d2 = Math.hypot(pos.x - pts[2], pos.y - pts[3]);
                     if (d1 < closestDist) { closestDist = d1; snap = {x: pts[0], y: pts[1]}; }
@@ -1415,7 +1415,7 @@ export class FloorPlanner {
 
                 let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
                 for (let line of allReferenceWalls) {
-                    let pts = line.points();
+                    let pts = line.getAttr('refPts') || line.points();
                     if (pts && pts.length === 4) {
                         let d1 = Math.hypot(pos.x - pts[0], pos.y - pts[1]); let d2 = Math.hypot(pos.x - pts[2], pos.y - pts[3]);
                         if (d1 < closestDist) { closestDist = d1; snap = {x: pts[0], y: pts[1]}; snappedObj = true; } if (d2 < closestDist) { closestDist = d2; snap = {x: pts[2], y: pts[3]}; snappedObj = true; }
@@ -1846,7 +1846,7 @@ export class FloorPlanner {
                 startX: w.startAnchor.x, startY: w.startAnchor.y, endX: w.endAnchor.x, endY: w.endAnchor.y, thickness: w.thickness || w.config.thickness, height: w.height !== undefined ? w.height : (w.config?.height || 120), type: w.type, configId: w.configId,
                 hidden: w.hidden,
                 description: w.description,
-                pts: w.poly ? w.poly.points() : null,                elevationLayers: w.elevationLayers,
+                pts: typeof w.getExactPolygonPoints === 'function' ? w.getExactPolygonPoints() : (w.poly ? w.poly.points() : null),                elevationLayers: w.elevationLayers,
                 widgets: w.attachedWidgets.map(wid => ({ 
                     t: wid.t, type: wid.type, configId: wid.type, width: wid.width, height: wid.height, depth: wid.depth, elevation: wid.elevation,
                     facing: wid.facing, side: wid.side, 
@@ -2068,8 +2068,14 @@ export class FloorPlanner {
             const state = JSON.parse(jsonStr);
             if (state && state.walls) {
                 state.walls.forEach(wData => {
-                    const line = new Konva.Line({ points: [wData.startX, wData.startY, wData.endX, wData.endY], stroke: '#94a3b8', strokeWidth: wData.thickness || 20, lineCap: 'round', lineJoin: 'round', dash: [] });
-                    this.referenceGroup.add(line);
+                    let shape;
+                    if (wData.pts && wData.pts.length > 4) {
+                        shape = new Konva.Line({ points: wData.pts, fill: '#cbd5e1', stroke: '#94a3b8', strokeWidth: 1, closed: true, lineJoin: 'miter', lineCap: 'square' });
+                    } else {
+                        shape = new Konva.Line({ points: [wData.startX, wData.startY, wData.endX, wData.endY], stroke: '#94a3b8', strokeWidth: wData.thickness || 20, lineCap: 'round', lineJoin: 'round', dash: [] });
+                    }
+                    shape.setAttr('refPts', [wData.startX, wData.startY, wData.endX, wData.endY]);
+                    this.referenceGroup.add(shape);
                 });
             }
             this.bgLayer.batchDraw();
