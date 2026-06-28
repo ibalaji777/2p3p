@@ -15,7 +15,9 @@ export class PremiumHipRoof {
             ridgeOffset: 0,
             roofType: 'hip',
             material: 'white_plaster_roof',
-            wallGap: 0
+            wallGap: 0,
+            ridgeAxis: 'x',
+            gableMaterial: 'white_plaster_wall'
         };
         
         this.rotation = 0; 
@@ -119,16 +121,25 @@ export class PremiumHipRoof {
         }
         signedArea *= 0.5;
         
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        pts.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
+        
         if (signedArea !== 0) { cx /= (6.0 * signedArea); cy /= (6.0 * signedArea); } 
         else {
-            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-            pts.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
             cx = minX + (maxX - minX) / 2; cy = minY + (maxY - minY) / 2;
         }
         
-        pts.forEach(p => { 
-            this.hipLinesGroup.add(new Konva.Line({ points: [p.x, p.y, cx, cy], stroke: '#FFA500', strokeWidth: 2, dash: [4, 4] })); 
-        });
+        if (this.config.roofType === 'gable') {
+            if (this.config.ridgeAxis === 'y') {
+                this.hipLinesGroup.add(new Konva.Line({ points: [cx, minY, cx, maxY], stroke: '#FFA500', strokeWidth: 2, dash: [4, 4] })); 
+            } else {
+                this.hipLinesGroup.add(new Konva.Line({ points: [minX, cy, maxX, cy], stroke: '#FFA500', strokeWidth: 2, dash: [4, 4] })); 
+            }
+        } else {
+            pts.forEach(p => { 
+                this.hipLinesGroup.add(new Konva.Line({ points: [p.x, p.y, cx, cy], stroke: '#FFA500', strokeWidth: 2, dash: [4, 4] })); 
+            });
+        }
     }
     
     remove() { this.group.destroy(); this.planner.roofs = this.planner.roofs.filter(r => r !== this); this.planner.selectEntity(null); this.planner.syncAll(); }

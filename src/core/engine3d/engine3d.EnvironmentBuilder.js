@@ -1318,6 +1318,83 @@ export class EnvironmentBuilder {
                 }
 
                 mesh = new THREE.Mesh(geo, flatMat);
+            } else if (conf.roofType === 'gable') {
+                const pitch = conf.pitch || 30;
+                const axis = conf.ridgeAxis || 'x';
+                const maxSpan = axis === 'x' ? D : W;
+                const rh = Math.tan(pitch * Math.PI / 180) * (maxSpan / 2);
+                let cx = minX + W/2;
+                let cy = minY + D/2;
+
+                const v = [], uv = [];
+                const addTriangle = (p0, p1, p2) => {
+                    v.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+                    uv.push(0, 0, 1, 0, 0.5, 1);
+                };
+                const addQuad = (p0, p1, p2, p3) => {
+                    addTriangle(p0, p1, p2);
+                    addTriangle(p0, p2, p3);
+                };
+
+                const C0 = {x: minX, y: 0, z: minY};
+                const C1 = {x: maxX, y: 0, z: minY};
+                const C2 = {x: maxX, y: 0, z: maxY};
+                const C3 = {x: minX, y: 0, z: maxY};
+
+                if (axis === 'x') {
+                    const R0 = {x: minX, y: rh, z: cy};
+                    const R1 = {x: maxX, y: rh, z: cy};
+                    addQuad(C1, C0, R0, R1); // Front
+                    addQuad(C3, C2, R1, R0); // Back
+                } else {
+                    const R0 = {x: cx, y: rh, z: minY};
+                    const R1 = {x: cx, y: rh, z: maxY};
+                    addQuad(C0, C3, R1, R0); // Left
+                    addQuad(C2, C1, R0, R1); // Right
+                }
+
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute("position", new THREE.Float32BufferAttribute(v, 3));
+                geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+                geo.computeVertexNormals();
+                mesh = new THREE.Mesh(geo, mat);
+                
+                const gableMatId = conf.gableMaterial || 'white_plaster_wall';
+                const wallDecor = WALL_DECOR_REGISTRY[gableMatId] || WALL_DECOR_REGISTRY['white_plaster_wall'];
+                let gableMat = new THREE.MeshStandardMaterial({ color: 0xefede5 });
+                if (wallDecor && wallDecor.texture) {
+                    const gTex = new THREE.TextureLoader().load(wallDecor.texture);
+                    gTex.wrapS = gTex.wrapT = THREE.RepeatWrapping;
+                    gTex.repeat.set(100/(wallDecor.scaleRatio || 100), 100/(wallDecor.scaleRatio || 100));
+                    gableMat = new THREE.MeshStandardMaterial({ map: gTex, side: THREE.DoubleSide, bumpMap: gTex, bumpScale: 0.015 });
+                }
+
+                const gv = [], guv = [];
+                const addGableTri = (p0, p1, p2) => {
+                    gv.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+                    let sc = 1/100;
+                    if (axis === 'x') guv.push(p0.z*sc, p0.y*sc, p1.z*sc, p1.y*sc, p2.z*sc, p2.y*sc);
+                    else guv.push(p0.x*sc, p0.y*sc, p1.x*sc, p1.y*sc, p2.x*sc, p2.y*sc);
+                };
+
+                if (axis === 'x') {
+                    const R0 = {x: minX, y: rh, z: cy};
+                    const R1 = {x: maxX, y: rh, z: cy};
+                    addGableTri(C0, C3, R0); // Left
+                    addGableTri(C2, C1, R1); // Right
+                } else {
+                    const R0 = {x: cx, y: rh, z: minY};
+                    const R1 = {x: cx, y: rh, z: maxY};
+                    addGableTri(C1, C0, R0); // Front
+                    addGableTri(C3, C2, R1); // Back
+                }
+                
+                const gGeo = new THREE.BufferGeometry();
+                gGeo.setAttribute("position", new THREE.Float32BufferAttribute(gv, 3));
+                gGeo.setAttribute("uv", new THREE.Float32BufferAttribute(guv, 2));
+                gGeo.computeVertexNormals();
+                const gableMesh = new THREE.Mesh(gGeo, gableMat);
+                mesh.add(gableMesh);
             } else {
                 const pitch = conf.pitch || 30;
                 const maxSpan = Math.min(W, D);
