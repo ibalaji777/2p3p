@@ -598,11 +598,21 @@
                 <div class="control-group"><label>Overhang</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.overhang" min="0" max="50" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.config.overhang" @input="$emit('sync-engine')"></div></div>
                 <div class="control-group"><label>Elevation Gap</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.wallGap" min="-50" max="100" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.config.wallGap" @input="$emit('sync-engine')"></div></div>
                 
-                <div class="decor-gallery">
+                <div class="decor-gallery" v-if="selectedEntity.config.roofType === 'hip'">
                     <h4 class="props-subtitle">Roof Material</h4>
                     <div class="decor-grid">
                         <div v-for="(config, key) in roofDecorRegistry" :key="key" class="decor-item" @click="$emit('set-roof-material', key)" :class="{ active: selectedEntity.config.material === key }">
                             <img :src="config.thumbnail" />
+                            <span>{{ config.name }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="decor-gallery" v-if="selectedEntity.config.roofType === 'flat'">
+                    <h4 class="props-subtitle">Change Material (Wall Texture)</h4>
+                    <div class="decor-grid">
+                        <div v-for="(config, key) in wallDecorRegistry" :key="key" class="decor-item" @click="() => { selectedEntity.configId = key; $emit('sync-engine'); }" :class="{ active: selectedEntity.configId === key }">
+                            <img :src="config.thumbnail || config.texture" />
                             <span>{{ config.name }}</span>
                         </div>
                     </div>
@@ -700,6 +710,7 @@ const emit = defineEmits([
   'clear-shape-textures',
   'set-shape-material',
   'set-roof-material',
+  'set-roof-fascia-material',
   'select-layer-item',
   'toggle-layer-visibility',
   'remove-layer-item',

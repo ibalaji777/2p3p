@@ -14,12 +14,14 @@ export class PremiumHipRoof {
             thickness: 10,
             ridgeOffset: 0,
             roofType: 'hip',
-            material: 'asphalt_shingles',
+            material: 'white_plaster_roof',
             wallGap: 0
         };
         
         this.rotation = 0; 
         
+        this.configId = 'white_plaster_roof';
+
         this.group = new Konva.Group({ draggable: true });
         
         this.boundary = new Konva.Line({

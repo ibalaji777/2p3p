@@ -130,6 +130,7 @@
         @clear-shape-textures="clearShapeTextures"
         @set-shape-material="setShapeMaterial"
         @set-roof-material="setRoofMaterial"
+        @set-roof-fascia-material="setRoofFasciaMaterial"
         @select-layer-item="selectLayerItem"
         @toggle-layer-visibility="toggleLayerVisibility"
         @remove-layer-item="removeLayerItem"
@@ -1004,6 +1005,13 @@ const throttledSyncEngine = () => {
 const setRoofMaterial = (key) => {
     if (selectedEntity.value && selectedType.value === 'roof') {
         selectedEntity.value.config.material = key;
+        syncEngine();
+    }
+};
+
+const setRoofFasciaMaterial = (key) => {
+    if (selectedEntity.value && selectedType.value === 'roof') {
+        selectedEntity.value.config.fasciaMaterial = key;
         syncEngine();
     }
 };

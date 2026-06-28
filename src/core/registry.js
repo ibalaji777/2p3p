@@ -379,19 +379,75 @@ export const GROUND_REGISTRY = {
 };
 
 export const ROOF_DECOR_REGISTRY = {
-    'asphalt_shingles': {
-        id: 'asphalt_shingles',
-        name: 'Dark Shingles',
-        texture: 'models/wall/redbrick.png', 
-         thumbnail:'models/wall/redbrick.png',
-        repeat: 2
+    'wood_roof': {
+        id: 'wood_roof',
+        name: 'Wood Planks',
+        texture: 'models/wall/wood_1_light.png',
+        thumbnail: 'models/wall/wood_1_light.png',
+        defaultRepeat: 3
+    },
+    'stone_roof': {
+        id: 'stone_roof',
+        name: 'Stone Tiles',
+        texture: 'models/wall/stone.png',
+        thumbnail: 'models/wall/stone.png',
+        defaultRepeat: 3
+    },
+    'red_tiles': {
+        id: 'red_tiles',
+        name: 'Red Tiles',
+        texture: 'models/wall/brick_3_red.png',
+        thumbnail: 'models/wall/brick_3_red.png',
+        defaultRepeat: 3
+    },
+    'white_plaster_roof': {
+        id: 'white_plaster_roof',
+        name: 'White Plaster',
+        texture: 'models/wall/brick_8_white.png',
+        thumbnail: 'models/wall/brick_8_white.png',
+        defaultRepeat: 3
     },
     'concrete_flat': {
         id: 'concrete_flat',
         name: 'Concrete Flat',
-        texture: 'https://via.placeholder.com/512x512/d1d5db/d1d5db', 
-        thumbnail: 'https://via.placeholder.com/150/d1d5db/000?text=Concrete', 
-        repeat: 1
+        texture: 'models/wall/brick_9_grey.png', 
+        thumbnail: 'models/wall/brick_9_grey.png', 
+        defaultRepeat: 3
+    },
+    'dark_asphalt_roof': {
+        id: 'dark_asphalt_roof',
+        name: 'Dark Asphalt',
+        texture: 'models/wall/dark_asphalt_roof.png', 
+        thumbnail: 'models/wall/dark_asphalt_roof.png', 
+        defaultRepeat: 3
+    },
+    'white_gravel_roof': {
+        id: 'white_gravel_roof',
+        name: 'White Gravel',
+        texture: 'models/wall/white_gravel_roof.png', 
+        thumbnail: 'models/wall/white_gravel_roof.png', 
+        defaultRepeat: 3
+    },
+    'terracotta_tiles_roof': {
+        id: 'terracotta_tiles_roof',
+        name: 'Terracotta Tiles',
+        texture: 'models/wall/terracotta_tiles_roof.png', 
+        thumbnail: 'models/wall/terracotta_tiles_roof.png', 
+        defaultRepeat: 3
+    },
+    'grey_slate_roof': {
+        id: 'grey_slate_roof',
+        name: 'Grey Slate Tiles',
+        texture: 'models/wall/grey_slate_roof.png', 
+        thumbnail: 'models/wall/grey_slate_roof.png', 
+        defaultRepeat: 3
+    },
+    'blue_ceramic_tiles_roof': {
+        id: 'blue_ceramic_tiles_roof',
+        name: 'Blue Ceramic Tiles',
+        texture: 'models/wall/blue_ceramic_tiles_roof.png', 
+        thumbnail: 'models/wall/blue_ceramic_tiles_roof.png', 
+        defaultRepeat: 3
     }
 };
 

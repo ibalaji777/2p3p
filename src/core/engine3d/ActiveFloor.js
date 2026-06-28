@@ -270,7 +270,7 @@ export class ActiveFloor {
             const baseHeight = (hasWalls || activeIndex === 0) ? maxWallHeight : 0;
             const h = baseHeight + wallGap + 0.5; // +0.5 prevents z-fighting with top of the walls
 
-            const decor = ROOF_DECOR_REGISTRY[conf.material] || ROOF_DECOR_REGISTRY['asphalt_shingles'];
+            const decor = ROOF_DECOR_REGISTRY[conf.material] || ROOF_DECOR_REGISTRY['concrete_flat'];
             const tex = new THREE.TextureLoader().load(decor.texture);
             tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
             const repeatScale = decor.repeat || 1;
@@ -287,7 +287,42 @@ export class ActiveFloor {
                 const geo = new THREE.ExtrudeGeometry(shape, { depth: conf.thickness || 2, bevelEnabled: false });
                 geo.rotateX(Math.PI / 2);
                 geo.translate(0, conf.thickness || 2, 0); // Flat roofs rest perfectly flush
-                mesh = new THREE.Mesh(geo, mat);
+                
+                // UV Fix for Flat Roof (ExtrudeGeometry) - World Space Projection
+                const uvs = geo.attributes.uv;
+                const pos = geo.attributes.position;
+                geo.computeVertexNormals();
+                const norms = geo.attributes.normal;
+                for (let i = 0; i < uvs.count; i++) {
+                    const nx = Math.abs(norms.getX(i));
+                    const ny = Math.abs(norms.getY(i));
+                    const nz = Math.abs(norms.getZ(i));
+                    const vx = pos.getX(i) / 100;
+                    const vy = pos.getY(i) / 100;
+                    const vz = pos.getZ(i) / 100;
+                    
+                    if (ny > 0.5) uvs.setXY(i, vx, vz); // Top/Bottom
+                    else if (nx > nz) uvs.setXY(i, vz, vy); // Side X
+                    else uvs.setXY(i, vx, vy); // Side Z
+                }
+
+                const matId = roof.configId || conf.material;
+                let flatMat = new THREE.MeshStandardMaterial({ 
+                    color: 0xefede5, // Match wall exactly
+                    roughness: 0.98,
+                    metalness: 0.02,
+                    bumpScale: 0.015
+                });
+                
+                if (matId && ROOF_DECOR_REGISTRY[matId]) {
+                    const decorConf = ROOF_DECOR_REGISTRY[matId];
+                    const tex = new THREE.TextureLoader().load(decorConf.texture);
+                    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+                    tex.repeat.set(1 / (decorConf.defaultRepeat || 3), 1 / (decorConf.defaultRepeat || 3));
+                    flatMat = new THREE.MeshStandardMaterial({ map: tex });
+                }
+
+                mesh = new THREE.Mesh(geo, flatMat);
             } else {
                 const pitch = conf.pitch || 30;
                 const maxSpan = Math.min(W, D);
