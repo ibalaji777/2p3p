@@ -1,9 +1,11 @@
 import Konva from 'konva';
 import { offsetPolygon } from '../registry.js';
+import { PremiumWidget } from './PremiumWidget.js';
 export class PremiumHipRoof {
     constructor(planner, points) {
         this.planner = planner;
         this.type = 'roof';
+        this.id = 'roof_' + Date.now() + '_' + Math.floor(Math.random()*1000);
         
         // Copy node points to avoid direct reference mutation issues
         this.points = points.map(p => ({ x: p.x, y: p.y }));
@@ -142,5 +144,7 @@ export class PremiumHipRoof {
         }
     }
     
-    remove() { this.group.destroy(); this.planner.roofs = this.planner.roofs.filter(r => r !== this); this.planner.selectEntity(null); this.planner.syncAll(); }
+    remove() {
+        this.group.destroy(); this.planner.roofs = this.planner.roofs.filter(r => r !== this); this.planner.selectEntity(null); this.planner.syncAll(); 
+    }
 }

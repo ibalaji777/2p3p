@@ -57,7 +57,7 @@ export class Wall3DBuilder {
     buildWallGroup(length, thickness, wallData, startX, startY, angle, wallHeight = WALL_HEIGHT) {
         const extraMeshes = [];
         const extraInteractables = [];
-        const wallShape = this._createShape(length, wallData.attachedWidgets, wallHeight, thickness, extraMeshes, extraInteractables);
+        const wallShape = this._createShape(length, wallData.attachedWidgets, wallHeight, thickness, extraMeshes, extraInteractables, wallData);
         const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: thickness, bevelEnabled: false, steps: 12 });
         wallGeo.translate(0, 0, -thickness / 2);
 
@@ -193,11 +193,12 @@ export class Wall3DBuilder {
     createHitboxes(length, thickness, wallData, isStatic = false, levelIndex = 0, wallIndex = 0, wallHeight = WALL_HEIGHT, startX = 0, startY = 0, angle = 0) {
         const hitboxes = [];
         
-        const skinGeoFront = new THREE.PlaneGeometry(length - 0.5, wallHeight - 0.5);
-        skinGeoFront.translate(length / 2, wallHeight / 2, thickness / 2 + 0.1);
+        const baseShape = this._createShape(length, null, wallHeight, thickness, null, null, wallData);
+        const skinGeoFront = new THREE.ShapeGeometry(baseShape);
+        skinGeoFront.translate(0, 0, thickness / 2 + 0.1);
 
-        const skinGeoBack = new THREE.PlaneGeometry(length - 0.5, wallHeight - 0.5);
-        skinGeoBack.translate(length / 2, wallHeight / 2, -thickness / 2 - 0.1);
+        const skinGeoBack = new THREE.ShapeGeometry(baseShape);
+        skinGeoBack.translate(0, 0, -thickness / 2 - 0.1);
 
         const startProfile = wallData.wallShapeData ? wallData.wallShapeData.startProfile : wallData.startProfile;
         const endProfile = wallData.wallShapeData ? wallData.wallShapeData.endProfile : wallData.endProfile;
@@ -297,10 +298,31 @@ export class Wall3DBuilder {
         return jointMesh;
     }
 
-    _createShape(length, widgets, wallHeight = WALL_HEIGHT, thickness = 20, extraMeshes = null, extraInteractables = null) {
+    _createShape(length, widgets, wallHeight = WALL_HEIGHT, thickness = 20, extraMeshes = null, extraInteractables = null, wallData = {}) {
         const wallBottom = -1;
         const wallShape = new THREE.Shape();
-        wallShape.moveTo(0, wallBottom); wallShape.lineTo(length, wallBottom); wallShape.lineTo(length, wallHeight); wallShape.lineTo(0, wallHeight); wallShape.lineTo(0, wallBottom);
+        
+        const type = wallData.topProfileType || 'normal';
+        const startH = wallData.startHeight !== undefined ? wallData.startHeight : wallHeight;
+        const endH = wallData.endHeight !== undefined ? wallData.endHeight : wallHeight;
+        const peakH = wallData.peakHeight !== undefined ? wallData.peakHeight : wallHeight;
+        const maxH = Math.max(startH, endH, peakH, wallHeight);
+
+        wallShape.moveTo(0, wallBottom);
+        wallShape.lineTo(length, wallBottom);
+
+        if (type === 'single') {
+            wallShape.lineTo(length, endH);
+            wallShape.lineTo(0, startH);
+        } else if (type === 'gable') {
+            wallShape.lineTo(length, endH);
+            wallShape.lineTo(length / 2, peakH);
+            wallShape.lineTo(0, startH);
+        } else {
+            wallShape.lineTo(length, wallHeight);
+            wallShape.lineTo(0, wallHeight);
+        }
+        wallShape.lineTo(0, wallBottom);
 
         if (!widgets) return wallShape;
 
@@ -318,8 +340,8 @@ export class Wall3DBuilder {
             if (elev === undefined) elev = (type === 'window') ? WINDOW_SILL : 0;
             
             let cutElev = (elev <= 0.1) ? wallBottom : elev;
-            elev = Math.max(0, Math.min(elev, wallHeight));
-            h_opening = Math.max(0, Math.min(h_opening, wallHeight - elev));
+            elev = Math.max(0, Math.min(elev, maxH));
+            h_opening = Math.max(0, Math.min(h_opening, maxH - elev));
 
             const xMin = wCenter - halfW;
             const xMax = wCenter + halfW;

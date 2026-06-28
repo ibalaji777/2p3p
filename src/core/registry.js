@@ -620,6 +620,7 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
 }
 
 export const WIDGET_REGISTRY = {
+
     'jali_panel': {
         widget: "jali_panel", label: "JALI PANEL",
         events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
@@ -1770,4 +1771,4 @@ export const GIZMO_REGISTRY = {
     'shape': ['move', 'place', 'scale', 'spin', 'tilt', 'material', 'vertexSlope'],
     'face_material_obj': ['move', 'place', 'scale', 'spin', 'tilt', 'material'],
     'default': ['move', 'place', 'scale', 'spin', 'tilt']
-};
+};

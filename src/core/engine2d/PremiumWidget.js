@@ -90,7 +90,12 @@ export class PremiumWidget {
             const wallLen = this.wall.getLength(), halfW = this.width / 2; 
             const minT = halfW / wallLen, maxT = 1 - (halfW / wallLen); let t = rawT; const snapMargin = 15 / wallLen; 
             if (this.hasEvent("snap_to_corners")) { if (Math.abs(t - minT) < snapMargin) t = minT; if (Math.abs(maxT - t) < snapMargin) t = maxT; } 
-            if (this.hasEvent("snap_to_center")) { if (Math.abs(t - 0.5) < snapMargin) t = 0.5; } 
+            if (this.hasEvent("snap_to_center")) { 
+                if (Math.abs(rawT - 0.5) < snapMargin) { 
+                    t = 0.5; 
+                    if (this.hasEvent("auto_expand_on_center")) this.width = wallLen;
+                } 
+            } 
             t = Math.max(minT, Math.min(maxT, t)); 
             if (this.hasEvent("prevent_overlap") && this.checkOverlap(this.wall, t, this.width)) return; 
             this.t = t; this.update(); 

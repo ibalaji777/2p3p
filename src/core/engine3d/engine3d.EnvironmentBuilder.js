@@ -173,10 +173,28 @@ export class EnvironmentBuilder {
                 if (!p.textureTop && !p.textureSides && !p.texture) mm[2] = fallbackMat;
                 if (!p.textureBottom && !p.textureSides && !p.texture) mm[3] = fallbackMat;
             }
-
             const wallBottom = -1;
             const wallShape = new THREE.Shape();
-            wallShape.moveTo(0, wallBottom); wallShape.lineTo(length, wallBottom); wallShape.lineTo(length, h); wallShape.lineTo(0, h); wallShape.lineTo(0, wallBottom);
+            const type = w.topProfileType || 'normal';
+            const startH = w.startHeight !== undefined ? w.startHeight : h;
+            const endH = w.endHeight !== undefined ? w.endHeight : h;
+            const peakH = w.peakHeight !== undefined ? w.peakHeight : h;
+            const maxH = Math.max(startH, endH, peakH, h);
+
+            wallShape.moveTo(0, wallBottom);
+            wallShape.lineTo(length, wallBottom);
+            if (type === 'single') {
+                wallShape.lineTo(length, endH);
+                wallShape.lineTo(0, startH);
+            } else if (type === 'gable') {
+                wallShape.lineTo(length, endH);
+                wallShape.lineTo(length / 2, peakH);
+                wallShape.lineTo(0, startH);
+            } else {
+                wallShape.lineTo(length, h);
+                wallShape.lineTo(0, h);
+            }
+            wallShape.lineTo(0, wallBottom);
 
             const wallGroup = new THREE.Group();
             wallGroup.position.set(p1.x, 0, p1.y);
@@ -229,8 +247,8 @@ export class EnvironmentBuilder {
                 } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type)) {
                     let elev = widg.elevation || 0;
                     let h_opening = widg.height || 200;
-                    elev = Math.max(0, Math.min(elev, h));
-                    h_opening = Math.max(0, Math.min(h_opening, h - elev));
+                    elev = Math.max(0, Math.min(elev, maxH));
+                    h_opening = Math.max(0, Math.min(h_opening, maxH - elev));
                     let cutElev = (elev <= 0.1) ? wallBottom : elev;
                     
                     if (type === 'arch_opening') {
@@ -895,10 +913,28 @@ export class EnvironmentBuilder {
                             if (!p.textureTop && !p.textureSides && !p.texture) mm[2] = fallbackMat;
                             if (!p.textureBottom && !p.textureSides && !p.texture) mm[3] = fallbackMat;
                         }
-
                         const wallShape = new THREE.Shape();
-                        wallShape.moveTo(0, wallBottom); wallShape.lineTo(length, wallBottom); wallShape.lineTo(length, totalH); wallShape.lineTo(0, totalH); wallShape.lineTo(0, wallBottom);
-                        
+                        const type = w.topProfileType || 'normal';
+                        const startH = w.startHeight !== undefined ? w.startHeight : totalH;
+                        const endH = w.endHeight !== undefined ? w.endHeight : totalH;
+                        const peakH = w.peakHeight !== undefined ? w.peakHeight : totalH;
+                        const maxH = Math.max(startH, endH, peakH, totalH);
+
+                        wallShape.moveTo(0, wallBottom);
+                        wallShape.lineTo(length, wallBottom);
+                        if (type === 'single') {
+                            wallShape.lineTo(length, endH);
+                            wallShape.lineTo(0, startH);
+                        } else if (type === 'gable') {
+                            wallShape.lineTo(length, endH);
+                            wallShape.lineTo(length / 2, peakH);
+                            wallShape.lineTo(0, startH);
+                        } else {
+                            wallShape.lineTo(length, totalH);
+                            wallShape.lineTo(0, totalH);
+                        }
+                        wallShape.lineTo(0, wallBottom);
+
                         const wallGroup = new THREE.Group();
                         wallGroup.position.set(w.startX, 0, w.startY);
                         wallGroup.rotation.y = -angle;
@@ -956,12 +992,12 @@ export class EnvironmentBuilder {
                                     let h_opening = widg.height || 200;
                                     elev = Math.max(0, Math.min(elev, maxH));
                                     h_opening = Math.max(0, Math.min(h_opening, maxH - elev));
-                                    if (h_opening > 0) {
+                                    let cutElev = (elev <= 0.1) ? wallBottom : elev;    if (h_opening > 0) {
                                         if (type === 'arch_opening') {
                                             const radius = halfW;
                                             const straightH = Math.max(0, h_opening - radius);
-                                            hole.moveTo(wCenter - halfW, elev);
-                                            hole.lineTo(wCenter + halfW, elev);
+                                            hole.moveTo(wCenter - halfW, cutElev);
+                                            hole.lineTo(wCenter + halfW, cutElev);
                                             hole.lineTo(wCenter + halfW, elev + straightH);
                                             if (radius > 0) hole.absarc(wCenter, elev + straightH, radius, 0, Math.PI, false);
                                             hole.lineTo(wCenter - halfW, elev);
@@ -1360,42 +1396,6 @@ export class EnvironmentBuilder {
                 geo.computeVertexNormals();
                 mesh = new THREE.Mesh(geo, mat);
                 
-                const gableMatId = conf.gableMaterial || 'white_plaster_wall';
-                const wallDecor = WALL_DECOR_REGISTRY[gableMatId] || WALL_DECOR_REGISTRY['white_plaster_wall'];
-                let gableMat = new THREE.MeshStandardMaterial({ color: 0xefede5 });
-                if (wallDecor && wallDecor.texture) {
-                    const gTex = new THREE.TextureLoader().load(wallDecor.texture);
-                    gTex.wrapS = gTex.wrapT = THREE.RepeatWrapping;
-                    gTex.repeat.set(100/(wallDecor.scaleRatio || 100), 100/(wallDecor.scaleRatio || 100));
-                    gableMat = new THREE.MeshStandardMaterial({ map: gTex, side: THREE.DoubleSide, bumpMap: gTex, bumpScale: 0.015 });
-                }
-
-                const gv = [], guv = [];
-                const addGableTri = (p0, p1, p2) => {
-                    gv.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
-                    let sc = 1/100;
-                    if (axis === 'x') guv.push(p0.z*sc, p0.y*sc, p1.z*sc, p1.y*sc, p2.z*sc, p2.y*sc);
-                    else guv.push(p0.x*sc, p0.y*sc, p1.x*sc, p1.y*sc, p2.x*sc, p2.y*sc);
-                };
-
-                if (axis === 'x') {
-                    const R0 = {x: minX, y: rh, z: cy};
-                    const R1 = {x: maxX, y: rh, z: cy};
-                    addGableTri(C0, C3, R0); // Left
-                    addGableTri(C2, C1, R1); // Right
-                } else {
-                    const R0 = {x: cx, y: rh, z: minY};
-                    const R1 = {x: cx, y: rh, z: maxY};
-                    addGableTri(C1, C0, R0); // Front
-                    addGableTri(C3, C2, R1); // Back
-                }
-                
-                const gGeo = new THREE.BufferGeometry();
-                gGeo.setAttribute("position", new THREE.Float32BufferAttribute(gv, 3));
-                gGeo.setAttribute("uv", new THREE.Float32BufferAttribute(guv, 2));
-                gGeo.computeVertexNormals();
-                const gableMesh = new THREE.Mesh(gGeo, gableMat);
-                mesh.add(gableMesh);
             } else {
                 const pitch = conf.pitch || 30;
                 const maxSpan = Math.min(W, D);

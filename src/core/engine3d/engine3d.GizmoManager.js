@@ -467,7 +467,10 @@ export class GizmoManager {
                         let registry = WALL_DECOR_REGISTRY;
                         if (selectedObj && selectedObj.userData.entity) {
                             if (selectedObj.userData.entity.type === 'door' || selectedObj.userData.entity.type === 'window') registry = DOOR_MATERIALS_REGISTRY;
-                            else if (selectedObj.userData.entity.type === 'roof') registry = ROOF_DECOR_REGISTRY;
+                            else if (selectedObj.userData.entity.type === 'roof') {
+                                if (this.activeObject && this.activeObject.userData && this.activeObject.userData.isGable) registry = WALL_DECOR_REGISTRY;
+                                else registry = ROOF_DECOR_REGISTRY;
+                            }
                         }
                         const config = registry[texKey];
                         this.matNameDisplay.innerText = config ? config.name : 'Clear Material';
@@ -515,9 +518,13 @@ export class GizmoManager {
                                     entity.frameMat = key;
                                 }
                             } else if (entity.type === 'roof') {
-                                entity.config = entity.config || {};
-                                entity.config.material = key;
-                                entity.configId = key;
+                                if (this.activeObject && this.activeObject.userData && this.activeObject.userData.isGable) {
+                                    entity.gableMaterial = key;
+                                } else {
+                                    entity.config = entity.config || {};
+                                    entity.config.material = key;
+                                    entity.configId = key;
+                                }
                             } else {
                                 if (target === 'top') targetParams.textureTop = key;
                                 else if (target === 'bottom') targetParams.textureBottom = key;
@@ -568,7 +575,6 @@ export class GizmoManager {
                                         this.activeObject.material = newMat;
                                     }
                                     
-                                    // Fix for walls: apply to the actual visible wall mesh, not just the invisible hit plane
                                     if (entity.type === 'outer' || entity.type === 'inner') {
                                         const wallGroup = this.activeObject.parent;
                                         if (wallGroup && wallGroup.children.length > 0) {
@@ -689,7 +695,10 @@ export class GizmoManager {
             let registry = WALL_DECOR_REGISTRY;
             if (selectedObj.userData.entity) {
                 if (selectedObj.userData.entity.type === 'door' || selectedObj.userData.entity.type === 'window') registry = DOOR_MATERIALS_REGISTRY;
-                else if (selectedObj.userData.entity.type === 'roof') registry = ROOF_DECOR_REGISTRY;
+                else if (selectedObj.userData.entity.type === 'roof') {
+                    if (this.activeObject && this.activeObject.userData && this.activeObject.userData.isGable) registry = WALL_DECOR_REGISTRY;
+                    else registry = ROOF_DECOR_REGISTRY;
+                }
             }
             
             // Rebuild grid for doors vs walls dynamically

@@ -170,7 +170,40 @@
                 <h4 class="props-subtitle" v-else>Wall Properties</h4>
                 <div class="control-group"><label>Hidden Wall</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="selectedEntity.hidden" @change="$emit('sync-engine')"></div></div>
                 <div class="control-group"><label>Thickness</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.thickness" min="1" max="100" step="1" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.thickness" min="1" max="100" step="1" @input="$emit('sync-engine')"></div></div>
-                <div class="control-group"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="0" max="500" step="1" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.height" min="0" max="500" step="1" @input="$emit('sync-engine')"></div></div>
+                <div class="control-group" v-if="selectedEntity.type !== 'railing'" style="flex-direction: column; align-items: flex-start;">
+                    <label style="margin-bottom: 8px;">Top Profile Type</label>
+                    <div style="display: flex; gap: 8px; width: 100%;">
+                        <button style="flex: 1; padding: 6px; display: flex; align-items: center; justify-content: center; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; transition: all 0.2s;" :style="{ background: (!selectedEntity.topProfileType || selectedEntity.topProfileType === 'normal') ? '#e5e7eb' : 'white', borderColor: (!selectedEntity.topProfileType || selectedEntity.topProfileType === 'normal') ? '#9ca3af' : '#d1d5db' }" @click="selectedEntity.topProfileType = 'normal'; $emit('sync-engine')" title="Normal Wall">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="16" rx="2" ry="2"></rect></svg>
+                        </button>
+                        <button style="flex: 1; padding: 6px; display: flex; align-items: center; justify-content: center; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; transition: all 0.2s;" :style="{ background: selectedEntity.topProfileType === 'single' ? '#e5e7eb' : 'white', borderColor: selectedEntity.topProfileType === 'single' ? '#9ca3af' : '#d1d5db' }" @click="selectedEntity.topProfileType = 'single'; $emit('sync-engine')" title="Single Slope">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16V6l-16 8v8z"></path></svg>
+                        </button>
+                        <button style="flex: 1; padding: 6px; display: flex; align-items: center; justify-content: center; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; transition: all 0.2s;" :style="{ background: selectedEntity.topProfileType === 'gable' ? '#e5e7eb' : 'white', borderColor: selectedEntity.topProfileType === 'gable' ? '#9ca3af' : '#d1d5db' }" @click="selectedEntity.topProfileType = 'gable'; $emit('sync-engine')" title="Gable Slope">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16V10L12 4 4 10v12z"></path></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div v-if="!selectedEntity.topProfileType || selectedEntity.topProfileType === 'normal' || selectedEntity.type === 'railing'" class="control-group">
+                    <label>Height</label>
+                    <div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="0" max="500" step="1" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.height" min="0" max="500" step="1" @input="$emit('sync-engine')"></div>
+                </div>
+
+                <template v-else>
+                    <div class="control-group">
+                        <label>Start Height</label>
+                        <div class="input-wrap"><input type="range" v-model.number="selectedEntity.startHeight" min="0" max="500" step="1" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.startHeight" min="0" max="500" step="1" @input="$emit('sync-engine')"></div>
+                    </div>
+                    <div class="control-group" v-if="selectedEntity.topProfileType === 'gable'">
+                        <label>Peak Height</label>
+                        <div class="input-wrap"><input type="range" v-model.number="selectedEntity.peakHeight" min="0" max="500" step="1" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.peakHeight" min="0" max="500" step="1" @input="$emit('sync-engine')"></div>
+                    </div>
+                    <div class="control-group">
+                        <label>End Height</label>
+                        <div class="input-wrap"><input type="range" v-model.number="selectedEntity.endHeight" min="0" max="500" step="1" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.endHeight" min="0" max="500" step="1" @input="$emit('sync-engine')"></div>
+                    </div>
+                </template>
 
                 <div v-if="selectedEntity.type === 'railing'">
                     <div class="decor-gallery">
