@@ -1388,6 +1388,7 @@ export class FloorPlanner {
                 if (Math.hypot(snap.x - startP.x, snap.y - startP.y) < SNAP_DIST && this.drawingRoofPoints.length > 2) {
                     console.log("mousedown.roof: Finishing roof");
                     const roof = new PremiumHipRoof(this, this.drawingRoofPoints);
+                    roof.config.roofType = this.currentRoofToolType || 'hip';
                     this.roofs.push(roof); this.selectEntity(roof, 'roof');
                     this.drawingRoofPoints = null; this.roofPreview.destroy(); this.roofPreview = null;
                     this.tool = 'select'; this.updateToolStates(); this.syncAll();

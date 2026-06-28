@@ -321,7 +321,9 @@ const menuCategories = ref([
             { id: 'stair_v4_flight', name: 'Stair Flight (V4)' },
             { id: 'stair_v4_landing', name: 'Landing (V4)' },
             { id: 'stair_v4_landing_curve', name: 'U-Curve Landing (V4)' },
-            { id: 'roof', name: 'Draw Roof' },
+            { id: 'roof_gable', name: 'Draw Gable Roof', roofType: 'gable' },
+            { id: 'roof_flat', name: 'Draw Flat Roof', roofType: 'flat' },
+            { id: 'roof_hip', name: 'Draw Hip Roof', roofType: 'hip' },
             { id: 'auto_roof', name: 'Generate Auto-Roof', action: 'auto_roof' }
         ]
     },
@@ -958,6 +960,10 @@ const handleToolClick = (tool) => {
     if (tool.action === 'furniture') spawnFurniture(tool.id);
     else if (tool.action === 'auto_roof') { if (planner.value) planner.value.addAutoRoof(); }
     else if (tool.action === 'wizard') { wizardPopupRef.value?.open(tool.id); }
+    else if (tool.id.startsWith('roof_')) {
+        if (planner.value) planner.value.currentRoofToolType = tool.roofType;
+        setTool('roof');
+    }
     else setTool(tool.id);
     
     if (isMobile.value || isTablet.value) {

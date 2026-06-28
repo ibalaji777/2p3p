@@ -622,13 +622,6 @@
             <div v-else-if="selectedType === 'roof'">
                 <h4 class="props-subtitle">Roof Properties</h4>
                 <div class="control-group">
-                    <select v-model="selectedEntity.config.roofType" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
-                        <option value="hip">Hip Roof</option>
-                        <option value="gable">Gable Roof</option>
-                        <option value="flat">Flat Roof</option>
-                    </select>
-                </div>
-                <div class="control-group">
                     <label>Auto-Placement</label>
                     <div style="display: flex; gap: 8px; justify-content: space-between; margin-bottom: 10px;">
                         <button style="flex: 1; padding: 6px; display: flex; align-items: center; justify-content: center; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; transition: all 0.2s;" :style="{ background: selectedEntity.config.autoPlacementMode === 'inner' ? '#e5e7eb' : 'white', borderColor: selectedEntity.config.autoPlacementMode === 'inner' ? '#9ca3af' : '#d1d5db' }" @click="selectedEntity.config.autoPlacementMode = 'inner'; $emit('sync-engine')" title="Inner Edge Detection"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="8" y="8" width="8" height="8"></rect></svg></button>
