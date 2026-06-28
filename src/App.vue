@@ -743,8 +743,10 @@ onMounted(() => {
     window.addEventListener('keydown', handleGlobalKeys);
     
     window.addEventListener('opening-gizmo-change', throttledSyncEngine);
+    window.addEventListener('roof-corner-gizmo-change', throttledSyncEngine);
     window.addEventListener('opening-gizmo-end', syncEngine);
     window.addEventListener('vertex-slope-gizmo-end', syncEngine);
+    window.addEventListener('roof-corner-gizmo-end', syncEngine);
     
     window.addEventListener('material-gizmo-select', (e) => {
         if (selectedEntity.value && selectedEntity.value.params) {
@@ -762,8 +764,10 @@ onBeforeUnmount(() => {
     window.removeEventListener('resize', handleResize);
     window.removeEventListener('keydown', handleGlobalKeys);
     window.removeEventListener('opening-gizmo-change', throttledSyncEngine);
+    window.removeEventListener('roof-corner-gizmo-change', throttledSyncEngine);
     window.removeEventListener('opening-gizmo-end', syncEngine);
     window.removeEventListener('vertex-slope-gizmo-end', syncEngine);
+    window.removeEventListener('roof-corner-gizmo-end', syncEngine);
 });
 
 const handleGlobalKeys = (e) => {

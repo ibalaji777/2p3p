@@ -1481,6 +1481,38 @@ export class EnvironmentBuilder {
             roof.mesh3D = roofGroup;
         });
     }
+    
+    updateRoofLive(roof) {
+        if (!roof || !roof.mesh3D) return;
+        
+        const oldMesh = roof.mesh3D.children.find(c => c.userData && c.userData.isRoof);
+        if (!oldMesh) return;
+        
+        // Generate a new temporary roof group using the existing buildRoofs logic
+        const tempTarget = new THREE.Group();
+        this.buildRoofs([roof], this.ctx.activeIndex || 0, this.ctx.walls || [], tempTarget);
+        
+        if (tempTarget.children.length === 0) return;
+        const tempRoofGroup = tempTarget.children[0];
+        const newMesh = tempRoofGroup.children.find(c => c.userData && c.userData.isRoof);
+        
+        if (newMesh) {
+            // Swap geometry
+            if (oldMesh.geometry) oldMesh.geometry.dispose();
+            oldMesh.geometry = newMesh.geometry;
+            
+            // Swap children (e.g. gableMesh)
+            while(oldMesh.children.length > 0) {
+                const child = oldMesh.children[0];
+                oldMesh.remove(child);
+                if (child.geometry) child.geometry.dispose();
+            }
+            
+            while(newMesh.children.length > 0) {
+                oldMesh.add(newMesh.children[0]);
+            }
+        }
+    }
 
     buildShapes(shapes) {
         if (!shapes) return;

@@ -315,6 +315,14 @@ export class Preview3D {
         }
     }
 
+    updateRoofLive(roof) {
+        if (!roof || !roof.mesh3D || this.isUpdatingFrom3D) return;
+        this.isUpdatingFromUI = true;
+        this.envBuilder.updateRoofLive(roof);
+        if (this.syncToUI) this.syncToUI();
+        this.isUpdatingFromUI = false;
+    }
+
     updateShapeLive(entity) {
         if (!entity || !entity.mesh3D || this.isUpdatingFrom3D) return;
         this.isUpdatingFromUI = true;
@@ -445,7 +453,7 @@ export class Preview3D {
     }
 
     syncToUI() {
-        if (!this.isUpdatingFromUI && this.interactions.selectedObject && (this.interactions.selectedObject.userData.isFurniture || this.interactions.selectedObject.userData.isShape)) {
+        if (!this.isUpdatingFromUI && this.interactions.selectedObject && (this.interactions.selectedObject.userData.isFurniture || this.interactions.selectedObject.userData.isShape || this.interactions.selectedObject.userData.isRoof)) {
             const obj3D = this.interactions.selectedObject;
             const ent2D = obj3D.userData.entity;
             if (ent2D && ent2D.group) { 

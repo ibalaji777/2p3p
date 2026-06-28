@@ -6,6 +6,7 @@ import { TransformControls } from './TransformControls.js';
 import { MaterialGizmo } from './MaterialGizmo.js';
 import { CornerRadiusGizmo } from './CornerRadiusGizmo.js';
 import { VertexSlopeGizmo } from './VertexSlopeGizmo.js';
+import { RoofCornerGizmo } from './RoofCornerGizmo.js';
 
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from '../../core/registry';
 
@@ -291,6 +292,9 @@ export class InteractionSystem {
         this.vertexSlopeGizmo = new VertexSlopeGizmo(ctx);
         this.ctx.scene.add(this.vertexSlopeGizmo);
 
+        this.roofCornerGizmo = new RoofCornerGizmo(ctx);
+        this.ctx.scene.add(this.roofCornerGizmo);
+
         this.initEvents();
     }
 
@@ -429,16 +433,29 @@ export class InteractionSystem {
             if (this.transformControls) this.transformControls.detach();
             if (this.openingGizmo) this.openingGizmo.detach();
             if (this.materialGizmo) this.materialGizmo.detach();
+            if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
+            if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
             if (this.cornerGizmo) this.cornerGizmo.attach(this.selectedObject);
+        } else if (mode === 'roof_corners') {
+            if (this.transformControls) this.transformControls.detach();
+            if (this.openingGizmo) this.openingGizmo.detach();
+            if (this.materialGizmo) this.materialGizmo.detach();
+            if (this.cornerGizmo) this.cornerGizmo.detach();
+            if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
+            if (this.roofCornerGizmo) this.roofCornerGizmo.attach(this.selectedObject);
         } else if (mode === 'none') {
             if (this.transformControls) this.transformControls.detach();
             if (this.openingGizmo) this.openingGizmo.detach();
             if (this.materialGizmo) this.materialGizmo.detach();
             if (this.cornerGizmo) this.cornerGizmo.detach();
+            if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
+            if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
         } else {
             if (this.openingGizmo) this.openingGizmo.detach();
             if (this.materialGizmo) this.materialGizmo.detach();
             if (this.cornerGizmo) this.cornerGizmo.detach();
+            if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
+            if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
             if (this.transformControls) {
                 this.transformControls.mode = mode;
                 this.transformControls.attach(this.selectedObject);
@@ -668,7 +685,7 @@ export class InteractionSystem {
             else if (object.userData.isPattern) type = 'advance_openings';
             this.setHighlight(object, true);
                 
-            if (type === 'furniture' || type === 'shape' || type === 'widget' || type === 'molding' || type === 'advance_openings' || type === 'wallDecor') {
+            if (type === 'furniture' || type === 'shape' || type === 'widget' || type === 'molding' || type === 'advance_openings' || type === 'wallDecor' || type === 'roof') {
                 if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
             } else {
                 if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);

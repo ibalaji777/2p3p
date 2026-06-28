@@ -120,6 +120,12 @@ export class GizmoManager {
         this.btnVertexSlope.innerHTML = '⬍<br>Slope';
         this.btnVertexSlope.style.display = 'none';
         this.btnVertexSlope.onclick = () => this.setTransformMode('vertex_slope');
+
+        this.btnRoofCorners = document.createElement('button');
+        this.btnRoofCorners.className = 'transform-menu-btn';
+        this.btnRoofCorners.innerHTML = '⬡<br>Corners';
+        this.btnRoofCorners.style.display = 'none';
+        this.btnRoofCorners.onclick = () => this.setTransformMode('roof_corners');
         
         this.openingPanel = document.createElement('div');
         this.openingPanel.style.display = 'none';
@@ -325,6 +331,7 @@ export class GizmoManager {
         this.transformMenu.appendChild(this.btnStyle);
         this.transformMenu.appendChild(this.btnCorner);
         this.transformMenu.appendChild(this.btnVertexSlope);
+        this.transformMenu.appendChild(this.btnRoofCorners);
         
         this.container.appendChild(this.transformMenu);
         ['pointerdown', 'wheel'].forEach(evt => {
@@ -824,6 +831,9 @@ export class GizmoManager {
         if (this.ctx.interactions.vertexSlopeGizmo) {
             this.ctx.interactions.vertexSlopeGizmo.detach();
         }
+        if (this.ctx.interactions.roofCornerGizmo) {
+            this.ctx.interactions.roofCornerGizmo.detach();
+        }
         if (this.ctx.interactions.materialGizmo && mode !== 'material') {
             this.ctx.interactions.materialGizmo.detach();
             if (selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.params) {
@@ -845,7 +855,7 @@ export class GizmoManager {
         }
 
         const isOpening = selectedObj && (selectedObj.userData.isWidget || selectedObj.userData.isPattern || (selectedObj.userData.entity && selectedObj.userData.entity.type && ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(selectedObj.userData.entity.type)));
-        const supportsFaceMaterials = selectedObj && (selectedObj.userData.isShape || selectedObj.userData.isWidget || selectedObj.userData.isMolding || selectedObj.userData.isPattern || selectedObj.userData.isWallDecor);
+        const supportsFaceMaterials = selectedObj && (selectedObj.userData.isShape || selectedObj.userData.isWidget || selectedObj.userData.isMolding || selectedObj.userData.isPattern || selectedObj.userData.isWallDecor || selectedObj.userData.isRoof);
         const isElevationFascia = selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.type === 'elevation_fascia';
         const isDoor = selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.type === 'door' && selectedObj.userData.entity.doorType !== 'french';
 
@@ -864,6 +874,7 @@ export class GizmoManager {
             if (this.btnStyle) this.btnStyle.style.display = isDoor ? 'flex' : 'none';
             if (this.btnCorner) this.btnCorner.style.display = isElevationFascia ? 'flex' : 'none';
             if (this.btnVertexSlope) this.btnVertexSlope.style.display = selectedObj?.userData?.isShape ? 'flex' : 'none';
+            if (this.btnRoofCorners) this.btnRoofCorners.style.display = selectedObj?.userData?.isRoof ? 'flex' : 'none';
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
             if (this.materialPanel) this.materialPanel.style.display = 'none';
@@ -894,6 +905,7 @@ export class GizmoManager {
         if (this.btnStyle) this.btnStyle.style.display = 'none';
         if (this.btnCorner) this.btnCorner.style.display = 'none';
         if (this.btnVertexSlope) this.btnVertexSlope.style.display = 'none';
+        if (this.btnRoofCorners) this.btnRoofCorners.style.display = 'none';
         if (this.btnDone) this.btnDone.style.display = 'flex';
 
         if (selectedObj) tc.detach();
@@ -975,6 +987,21 @@ export class GizmoManager {
             if (this.cornerPanel) this.cornerPanel.style.display = 'none';
             if (this.ctx.interactions.vertexSlopeGizmo && selectedObj) {
                 this.ctx.interactions.vertexSlopeGizmo.attach(selectedObj);
+            }
+            return;
+        }
+
+        if (mode === 'roof_corners') {
+            tc.visible = false;
+            tc.enabled = false;
+            if (this.btnRoofCorners) this.btnRoofCorners.classList.add('active');
+            if (this.xyPanel) this.xyPanel.style.display = 'none';
+            if (this.openingPanel) this.openingPanel.style.display = 'none';
+            if (this.materialPanel) this.materialPanel.style.display = 'none';
+            if (this.cornerPanel) this.cornerPanel.style.display = 'none';
+            if (this.stylePanel) this.stylePanel.style.display = 'none';
+            if (this.ctx.interactions.roofCornerGizmo && selectedObj) {
+                this.ctx.interactions.roofCornerGizmo.attach(selectedObj);
             }
             return;
         }
