@@ -1759,4 +1759,15 @@ export function offsetPolygon(points, offsetAmount) {
         });
     }
     return result;
-}
+}
+
+export const GIZMO_REGISTRY = {
+    'roof': ['material', 'roofCorners'],
+    'door': ['move', 'opening', 'material', 'style'],
+    'door_french': ['move', 'opening', 'material'],
+    'opening': ['move', 'opening', 'material'],
+    'elevation_fascia': ['move', 'place', 'scale', 'spin', 'tilt', 'material', 'corner'],
+    'shape': ['move', 'place', 'scale', 'spin', 'tilt', 'material', 'vertexSlope'],
+    'face_material_obj': ['move', 'place', 'scale', 'spin', 'tilt', 'material'],
+    'default': ['move', 'place', 'scale', 'spin', 'tilt']
+};

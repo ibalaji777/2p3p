@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY } from '../registry.js';
+import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY } from '../registry.js';
 
 export class GizmoManager {
     constructor(ctx) {
@@ -874,27 +874,51 @@ export class GizmoManager {
             }
         }
 
-        const isOpening = selectedObj && (selectedObj.userData.isWidget || selectedObj.userData.isPattern || (selectedObj.userData.entity && selectedObj.userData.entity.type && ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(selectedObj.userData.entity.type)));
-        const supportsFaceMaterials = selectedObj && (selectedObj.userData.isShape || selectedObj.userData.isWidget || selectedObj.userData.isMolding || selectedObj.userData.isPattern || selectedObj.userData.isWallDecor || selectedObj.userData.isRoof);
-        const isElevationFascia = selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.type === 'elevation_fascia';
-        const isDoor = selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.type === 'door' && selectedObj.userData.entity.doorType !== 'french';
+        let entity = {};
+        let type = '';
+        let isOpening = false;
+        let supportsFaceMaterials = false;
+        
+        if (selectedObj) {
+            entity = selectedObj.userData.entity || {};
+            type = entity.type || '';
+            isOpening = selectedObj.userData.isWidget || selectedObj.userData.isPattern || ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type);
+            supportsFaceMaterials = selectedObj.userData.isShape || selectedObj.userData.isWidget || selectedObj.userData.isMolding || selectedObj.userData.isPattern || selectedObj.userData.isWallDecor || selectedObj.userData.isRoof;
+        }
 
         if (mode === 'none') {
             tc.visible = false;
             tc.enabled = false;
             tc.showX = false; tc.showY = false; tc.showZ = false;
+
+            let activeGizmos = GIZMO_REGISTRY.default;
+            if (selectedObj) {
+                if (selectedObj.userData.isRoof) {
+                    activeGizmos = GIZMO_REGISTRY.roof;
+                } else if (type === 'door') {
+                    activeGizmos = entity.doorType === 'french' ? GIZMO_REGISTRY.door_french : GIZMO_REGISTRY.door;
+                } else if (isOpening) {
+                    activeGizmos = GIZMO_REGISTRY.opening;
+                } else if (type === 'elevation_fascia') {
+                    activeGizmos = GIZMO_REGISTRY.elevation_fascia;
+                } else if (selectedObj.userData.isShape) {
+                    activeGizmos = GIZMO_REGISTRY.shape;
+                } else if (supportsFaceMaterials) {
+                    activeGizmos = GIZMO_REGISTRY.face_material_obj;
+                }
+            }
             
-            this.btnMove.style.display = 'flex';
-            if (this.btnPlace) this.btnPlace.style.display = isOpening ? 'none' : 'flex';
-            if (this.btnScale) this.btnScale.style.display = isOpening ? 'none' : 'flex';
-            this.btnSpin.style.display = isOpening ? 'none' : 'flex';
-            this.btnTilt.style.display = isOpening ? 'none' : 'flex';
-            if (this.btnOpening) this.btnOpening.style.display = isOpening ? 'flex' : 'none';
-            if (this.btnMaterial) this.btnMaterial.style.display = supportsFaceMaterials ? 'flex' : 'none';
-            if (this.btnStyle) this.btnStyle.style.display = isDoor ? 'flex' : 'none';
-            if (this.btnCorner) this.btnCorner.style.display = isElevationFascia ? 'flex' : 'none';
-            if (this.btnVertexSlope) this.btnVertexSlope.style.display = selectedObj?.userData?.isShape ? 'flex' : 'none';
-            if (this.btnRoofCorners) this.btnRoofCorners.style.display = selectedObj?.userData?.isRoof ? 'flex' : 'none';
+            this.btnMove.style.display = activeGizmos.includes('move') ? 'flex' : 'none';
+            if (this.btnPlace) this.btnPlace.style.display = activeGizmos.includes('place') ? 'flex' : 'none';
+            if (this.btnScale) this.btnScale.style.display = activeGizmos.includes('scale') ? 'flex' : 'none';
+            this.btnSpin.style.display = activeGizmos.includes('spin') ? 'flex' : 'none';
+            this.btnTilt.style.display = activeGizmos.includes('tilt') ? 'flex' : 'none';
+            if (this.btnOpening) this.btnOpening.style.display = activeGizmos.includes('opening') ? 'flex' : 'none';
+            if (this.btnMaterial) this.btnMaterial.style.display = activeGizmos.includes('material') ? 'flex' : 'none';
+            if (this.btnStyle) this.btnStyle.style.display = activeGizmos.includes('style') ? 'flex' : 'none';
+            if (this.btnCorner) this.btnCorner.style.display = activeGizmos.includes('corner') ? 'flex' : 'none';
+            if (this.btnVertexSlope) this.btnVertexSlope.style.display = activeGizmos.includes('vertexSlope') ? 'flex' : 'none';
+            if (this.btnRoofCorners) this.btnRoofCorners.style.display = activeGizmos.includes('roofCorners') ? 'flex' : 'none';
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
             if (this.materialPanel) this.materialPanel.style.display = 'none';
