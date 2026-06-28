@@ -630,6 +630,7 @@
                     </div>
                 </div>
                 <div class="control-group" v-if="['hip', 'gable'].includes(selectedEntity.config.roofType)"><label>Pitch (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.pitch" min="0" max="60" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.config.pitch" @input="$emit('sync-engine')"></div></div>
+                <div class="control-group" v-if="['hip', 'gable'].includes(selectedEntity.config.roofType)"><label>Peak Height</label><div class="input-wrap"><input type="number" :value="calculateRoofPeakHeight(selectedEntity)" @change="updateRoofPitchFromHeight($event, selectedEntity)"></div></div>
                 <div class="control-group" v-if="selectedEntity.config.roofType === 'gable'">
                     <label>Ridge Direction</label>
                     <div style="display: flex; gap: 8px;">
@@ -778,7 +779,34 @@ const getLayerIcon = (type) => {
             'wall': '🧱', 'railing': '🪜', 'room': '⬜', 'furniture': '🛋️',
             'shape': '🔳', 'roof': '🏠', 'stair': '📶', 'widget': '🚪', 'arc': '🌙', 'advance_openings': '✂️'
     };
-    return icons[type] || '📦';
+    return icons[type] || '📌';
+};
+
+const calculateRoofPeakHeight = (roof) => {
+    if (!roof || !roof.points || roof.points.length < 3) return 0;
+    const conf = roof.config || roof;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    roof.points.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
+    const W = maxX - minX, D = maxY - minY;
+    const axis = conf.ridgeAxis || 'x';
+    const maxSpan = (conf.roofType === 'gable' && axis === 'x') ? D : (conf.roofType === 'gable' ? W : Math.min(W, D));
+    const pitch = conf.pitch || 30;
+    return parseFloat((Math.tan(pitch * Math.PI / 180) * (maxSpan / 2)).toFixed(2));
+};
+
+const updateRoofPitchFromHeight = (e, roof) => {
+    const targetHeight = parseFloat(e.target.value);
+    if (isNaN(targetHeight) || targetHeight <= 0) return;
+    if (!roof || !roof.points || roof.points.length < 3) return;
+    const conf = roof.config || roof;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    roof.points.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
+    const W = maxX - minX, D = maxY - minY;
+    const axis = conf.ridgeAxis || 'x';
+    const maxSpan = (conf.roofType === 'gable' && axis === 'x') ? D : (conf.roofType === 'gable' ? W : Math.min(W, D));
+    const newPitch = Math.atan(targetHeight / (maxSpan / 2)) * 180 / Math.PI;
+    conf.pitch = newPitch;
+    emit('sync-engine');
 };
 
 const isShapeMaterialActive = (key) => {
