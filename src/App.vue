@@ -992,15 +992,19 @@ const spawnFurniture = (configId) => {
 };
 
 const syncEngine = () => {
-    if (viewMode.value === '2d') {
+    if (planner.value) {
         planner.value.syncAll();
-    } else if (viewMode.value === '3d' && selectedType.value === 'furniture' && selectedEntity.value) {
-        renderer3D.value.updateFurnitureLive(selectedEntity.value); 
-    } else if (viewMode.value === '3d' && selectedType.value === 'shape' && selectedEntity.value) {
-        renderer3D.value.updateShapeLive(selectedEntity.value);
-    } else if (viewMode.value === '3d' && (selectedType.value === 'roof' || selectedType.value === 'room' || selectedType.value === 'wall' || selectedType.value === 'widget' || selectedType.value === 'advance_openings' || selectedType.value === 'molding' || selectedType.value === 'wallDecor' || selectedType.value === 'stair')) {
-        if (planner.value && planner.value.updateRoofAutoPlacement) planner.value.updateRoofAutoPlacement();
-        refresh3DScene(true);
+    }
+    
+    if (viewMode.value === '3d') {
+        if (selectedType.value === 'furniture' && selectedEntity.value) {
+            renderer3D.value.updateFurnitureLive(selectedEntity.value); 
+        } else if (selectedType.value === 'shape' && selectedEntity.value) {
+            renderer3D.value.updateShapeLive(selectedEntity.value);
+        } else if (['roof', 'room', 'wall', 'widget', 'advance_openings', 'molding', 'wallDecor', 'stair'].includes(selectedType.value)) {
+            if (planner.value && planner.value.updateRoofAutoPlacement) planner.value.updateRoofAutoPlacement();
+            refresh3DScene(true);
+        }
     }
     debouncedSaveHistory();
 };

@@ -1843,10 +1843,13 @@ export class FloorPlanner {
             unit: this.currentUnit,
             anchors: this.anchors.map(a => ({ id: a._id, x: a.x, y: a.y })),
             walls: standardWalls.map(w => ({
+                id: w.id,
                 startAnchorId: w.startAnchor._id, endAnchorId: w.endAnchor._id,
                 startX: w.startAnchor.x, startY: w.startAnchor.y, endX: w.endAnchor.x, endY: w.endAnchor.y, thickness: w.thickness || w.config.thickness, height: w.height !== undefined ? w.height : (w.config?.height || 120), type: w.type, configId: w.configId,
                 hidden: w.hidden,
                 description: w.description,
+                topProfileType: w.topProfileType, flipSlope: w.flipSlope, startHeight: w.startHeight, peakHeight: w.peakHeight, endHeight: w.endHeight,
+                isAutoGable: w.isAutoGable, parentWallId: w.parentWallId, parentRoofId: w.parentRoofId, elevation: w.elevation,
                 pts: typeof w.getExactPolygonPoints === 'function' ? w.getExactPolygonPoints() : (w.poly ? w.poly.points() : null),
                 bevels: w.wallShapeData ? { start: w.wallShapeData.startData, end: w.wallShapeData.endData } : null,
                 elevationLayers: w.elevationLayers,
@@ -1877,7 +1880,7 @@ export class FloorPlanner {
                 }
                 return { path: s.path ? s.path.map(p => ({ x: p.x, y: p.y, shape: p.shape })) : [], description: s.description };
             }),
-            roofs: this.roofs.map(r => ({ x: r.group.x(), y: r.group.y(), rotation: r.rotation, width: r.config?.width, depth: r.config?.depth, pitch: r.config?.pitch, overhang: r.config?.overhang, thickness: r.config?.thickness, ridgeOffset: r.config?.ridgeOffset, points: r.points, isHip: !!r.points, roofType: r.config?.roofType, material: r.config?.material, configId: r.configId, wallGap: r.config?.wallGap, ridgeAxis: r.config?.ridgeAxis, gableMaterial: r.config?.gableMaterial, description: r.description })),
+            roofs: this.roofs.map(r => ({ id: r.id, x: r.group.x(), y: r.group.y(), rotation: r.rotation, width: r.config?.width, depth: r.config?.depth, pitch: r.config?.pitch, overhang: r.config?.overhang, thickness: r.config?.thickness, ridgeOffset: r.config?.ridgeOffset, points: r.points, isHip: !!r.points, roofType: r.config?.roofType, material: r.config?.material, configId: r.configId, wallGap: r.config?.wallGap, ridgeAxis: r.config?.ridgeAxis, gableMaterial: r.config?.gableMaterial, autoShapeWalls: r.config?.autoShapeWalls, description: r.description })),
             arcs: this.arcs ? this.arcs.map(a => ({ p1: {x: a.p1.x, y: a.p1.y}, p2: {x: a.p2.x, y: a.p2.y}, pos: a.pos, hasRailing: a.hasRailing, railingConfig: a.railingConfig, hidden: a.hidden, description: a.description })) : [],
             shapes: this.shapes ? this.shapes.map(s => ({ type: s.type, x: s.group.x(), y: s.group.y(), rotation: s.rotation, scaleX: s.group.scaleX(), scaleY: s.group.scaleY(), params: s.params, description: s.description })) : [],
             rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, configId: r.configId, materialRepeat: r.materialRepeat, description: r.description })) : [],
@@ -1929,12 +1932,22 @@ export class FloorPlanner {
                     } else {
                         wall = new PremiumWall(this, a1, a2, wData.type);
                     }
+                    if (wData.id) wall.id = wData.id;
                     if (wData.thickness) wall.thickness = wData.thickness;
                     if (wData.height) wall.height = wData.height;
                     if (wData.configId) wall.configId = wData.configId;
                     if (wData.hidden !== undefined) wall.hidden = wData.hidden;
                     if (wData.description !== undefined) wall.description = wData.description;
                     if (wData.elevationLayers) wall.elevationLayers = wData.elevationLayers;
+                    if (wData.topProfileType !== undefined) wall.topProfileType = wData.topProfileType;
+                    if (wData.flipSlope !== undefined) wall.flipSlope = wData.flipSlope;
+                    if (wData.startHeight !== undefined) wall.startHeight = wData.startHeight;
+                    if (wData.peakHeight !== undefined) wall.peakHeight = wData.peakHeight;
+                    if (wData.endHeight !== undefined) wall.endHeight = wData.endHeight;
+                    if (wData.isAutoGable !== undefined) wall.isAutoGable = wData.isAutoGable;
+                    if (wData.parentWallId !== undefined) wall.parentWallId = wData.parentWallId;
+                    if (wData.parentRoofId !== undefined) wall.parentRoofId = wData.parentRoofId;
+                    if (wData.elevation !== undefined) wall.elevation = wData.elevation;
 
                     if (wData.widgets) { 
                         wData.widgets.forEach(wd => { 
@@ -2017,7 +2030,8 @@ export class FloorPlanner {
                         return; // Ignore old legacy roofs missing points arrays
                     }
                     if(rData.rotation) roof.rotation = rData.rotation;
-                    if(roof.config) { roof.config.pitch = rData.pitch; roof.config.overhang = rData.overhang; roof.config.thickness = rData.thickness; roof.config.ridgeOffset = rData.ridgeOffset; roof.config.roofType = rData.roofType || 'hip'; roof.config.material = rData.material || 'dark_asphalt_roof'; roof.config.wallGap = rData.wallGap || 0; roof.config.ridgeAxis = rData.ridgeAxis || 'x'; roof.config.gableMaterial = rData.gableMaterial || 'white_plaster_wall'; }
+                    if(roof.config) { roof.config.pitch = rData.pitch; roof.config.overhang = rData.overhang; roof.config.thickness = rData.thickness; roof.config.ridgeOffset = rData.ridgeOffset; roof.config.roofType = rData.roofType || 'hip'; roof.config.material = rData.material || 'dark_asphalt_roof'; roof.config.wallGap = rData.wallGap || 0; roof.config.ridgeAxis = rData.ridgeAxis || 'x'; roof.config.gableMaterial = rData.gableMaterial || 'white_plaster_wall'; roof.config.autoShapeWalls = !!rData.autoShapeWalls; }
+                    if (rData.id) roof.id = rData.id;
                     if (rData.configId !== undefined) roof.configId = rData.configId;
                     if (rData.description !== undefined) roof.description = rData.description;
                     roof.update(); this.roofs.push(roof);

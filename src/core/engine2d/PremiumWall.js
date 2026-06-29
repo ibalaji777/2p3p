@@ -7,6 +7,7 @@ import { advance_openings } from './advance_openings.js';
 export class PremiumWall {
     constructor(planner, startAnchor, endAnchor, type = "outer") {
         this.planner = planner; this.startAnchor = startAnchor; this.endAnchor = endAnchor; this.attachedWidgets = []; this.attachedMoldings = []; this.type = type; this.config = WALL_REGISTRY[type] || WALL_REGISTRY['outer'];
+        this.id = 'wall_' + Date.now() + '_' + Math.floor(Math.random()*1000);
         this.thickness = this.config.thickness;
         this.height = this.config.height || 120;
         
@@ -18,6 +19,10 @@ export class PremiumWall {
         this.elevationLayers = { front: [{ id: Date.now(), texture: 'none', color: '#e2e8f0', x: 0, y: 0, w: '100%', h: '100%' }], back: [{ id: Date.now()+1, texture: 'none', color: '#f8fafc', x: 0, y: 0, w: '100%', h: '100%' }] };
         this.fillColor = this.type === 'outer' ? '#e5e5e5' : '#f3f4f6'; 
         this.strokeColor = this.type === 'outer' ? '#9ca3af' : '#d1d5db';
+        this.isAutoGable = false;
+        this.parentWallId = null;
+        this.parentRoofId = null;
+        this.elevation = 0;
         this.wallGroup = new Konva.Group(); 
         
         this.poly = new Konva.Line({ 
@@ -97,6 +102,9 @@ export class PremiumWall {
         this.labelText = new Konva.Text({ fontSize: 11, fill: "#4b5563", padding: 2, fontStyle: 'bold' });
         this.labelGroup.add(this.labelText);
         this.planner.uiLayer.add(this.labelGroup);
+
+        this.profileIndicators = new Konva.Group({ listening: false });
+        this.wallGroup.add(this.profileIndicators);
 
         this.entranceGroup = new Konva.Group({ listening: false, visible: false });
         this.entranceBg = new Konva.Rect({ fill: '#f59e0b', cornerRadius: 4, height: 20 });
@@ -732,6 +740,77 @@ export class PremiumWall {
         this.labelGroup.rotation(-(this.planner.settings?.houseRotation || 0));
         this.labelGroup.visible(this.planner.settings ? this.planner.settings.showDimensionLabels : true);
 
+        // --- Add Wall Profile (Sloped/Gable) Visualization ---
+        this.profileIndicators.destroyChildren();
+        if (this.topProfileType === 'gable' || this.topProfileType === 'single') {
+            const dx = p2.x - p1.x, dy = p2.y - p1.y, len = Math.hypot(dx, dy);
+            if (len > 0) {
+                const u = { x: dx/len, y: dy/len };
+                const inN = { x: -u.y, y: u.x }; // Normal vector extending INWARD
+                const outN = { x: u.y, y: -u.x }; // Normal vector extending OUTWARD
+                const normal = this.flipSlope ? outN : inN;
+                
+                // Get the heights from the wall properties, fallback to standard proportions
+                const baseH = this.startHeight || 0;
+                let peakH = this.peakHeight || (this.height * 1.5);
+                let diffH = Math.max(20, peakH - baseH); // ensure it's at least visible
+                
+                // Scale factor for 2D visualization
+                const visHeight = diffH;
+                
+                // The base of the folded-in elevation should run along the exact center line,
+                // but span the FULL physical length of the wall to eliminate gaps at the corners.
+                const baseP1 = { x: (startTrue[0].x + startTrue[1].x) / 2, y: (startTrue[0].y + startTrue[1].y) / 2 };
+                const baseP2 = { x: (endTrue[0].x + endTrue[1].x) / 2, y: (endTrue[0].y + endTrue[1].y) / 2 };
+                const fullDx = baseP2.x - baseP1.x;
+                const fullDy = baseP2.y - baseP1.y;
+
+                if (this.topProfileType === 'gable') {
+                    const pMid = { x: baseP1.x + fullDx/2, y: baseP1.y + fullDy/2 };
+                    const peak = { x: pMid.x + normal.x * visHeight, y: pMid.y + normal.y * visHeight };
+                    
+                    // Main triangle outline
+                    this.profileIndicators.add(new Konva.Line({
+                        points: [baseP1.x, baseP1.y, peak.x, peak.y, baseP2.x, baseP2.y],
+                        stroke: '#ff4500', strokeWidth: 2, dash: [4, 4],
+                        fill: 'rgba(255, 69, 0, 0.15)', closed: true
+                    }));
+                    
+                    // Hatching lines radiating to peak
+                    for(let i=1; i<=7; i++) {
+                        let bx = baseP1.x + fullDx * (i/8);
+                        let by = baseP1.y + fullDy * (i/8);
+                        this.profileIndicators.add(new Konva.Line({
+                            points: [bx, by, peak.x, peak.y],
+                            stroke: 'rgba(255, 69, 0, 0.5)', strokeWidth: 1
+                        }));
+                    }
+                } else if (this.topProfileType === 'single') {
+                    const peak = { x: baseP2.x + normal.x * visHeight, y: baseP2.y + normal.y * visHeight };
+                    
+                    // Single slope triangle outline
+                    this.profileIndicators.add(new Konva.Line({
+                        points: [baseP1.x, baseP1.y, peak.x, peak.y, baseP2.x, baseP2.y],
+                        stroke: '#0284c7', strokeWidth: 2, dash: [4, 4],
+                        fill: 'rgba(2, 132, 199, 0.15)', closed: true
+                    }));
+                    
+                    // Hatching lines for single slope
+                    for(let i=1; i<=7; i++) {
+                        let bx = baseP1.x + fullDx * (i/8);
+                        let by = baseP1.y + fullDy * (i/8);
+                        let curHeight = visHeight * (i/8);
+                        let pT = { x: bx + normal.x * curHeight, y: by + normal.y * curHeight };
+                        
+                        this.profileIndicators.add(new Konva.Line({
+                            points: [bx, by, pT.x, pT.y],
+                            stroke: 'rgba(2, 132, 199, 0.5)', strokeWidth: 1
+                        }));
+                    }
+                }
+            }
+        }
+
         if (this.planner.settings && this.planner.settings.entranceWallId === this) {
             let facing = this.planner.settings.mainEntranceFacing || 'north';
             let labelMap = { north: 'North', south: 'South', east: 'East', west: 'West', north_east: 'North-East', north_west: 'North-West', south_east: 'South-East', south_west: 'South-West' };
@@ -756,11 +835,15 @@ export class PremiumWall {
     } 
 
     destroy() { 
+        if (this.planner) {
+            // Cascade delete any sloped gable extensions sitting on top of this wall
+            this.planner.walls.filter(w => w.parentWallId === this.id).forEach(cw => cw.destroy());
+        }
         this.wallGroup.destroy(); this.labelGroup.destroy(); this.entranceGroup.destroy(); 
         this.attachedWidgets.forEach(w => w.destroy ? w.destroy() : null); 
         if (this.attachedMoldings) this.attachedMoldings.forEach(m => m.destroy ? m.destroy() : null); 
         this.planner.walls = this.planner.walls.filter(w => w !== this); 
-        this.planner.selectEntity(null); 
+        if (this.planner.selectedEntity === this) this.planner.selectEntity(null); 
         this.planner.syncAll(); 
     } 
 
@@ -783,6 +866,15 @@ export class PremiumWall {
         return { 
             type: this.type, thickness: this.thickness, height: this.height, configId: this.configId, hidden: this.hidden, description: this.description, 
             startAnchorId: this.startAnchor.id, endAnchorId: this.endAnchor.id, 
+            topProfileType: this.topProfileType,
+            flipSlope: this.flipSlope,
+            startHeight: this.startHeight,
+            peakHeight: this.peakHeight,
+            endHeight: this.endHeight,
+            isAutoGable: this.isAutoGable,
+            parentWallId: this.parentWallId,
+            parentRoofId: this.parentRoofId,
+            elevation: this.elevation,
             widgets: this.attachedWidgets.map(w => {
                 if (w.serialize) return w.serialize();
                 return { 

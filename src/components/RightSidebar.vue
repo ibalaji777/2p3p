@@ -203,6 +203,13 @@
                         <label>End Height</label>
                         <div class="input-wrap"><input type="range" v-model.number="selectedEntity.endHeight" min="0" max="500" step="1" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.endHeight" min="0" max="500" step="1" @input="$emit('sync-engine')"></div>
                     </div>
+                    <div class="control-group">
+                        <label>Slope Direction</label>
+                        <div style="display: flex; gap: 8px;">
+                            <button style="flex: 1; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer;" :style="{ background: !selectedEntity.flipSlope ? '#e5e7eb' : 'white', borderColor: !selectedEntity.flipSlope ? '#9ca3af' : '#d1d5db' }" @click="selectedEntity.flipSlope = false; $emit('sync-engine')">Default</button>
+                            <button style="flex: 1; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer;" :style="{ background: selectedEntity.flipSlope ? '#e5e7eb' : 'white', borderColor: selectedEntity.flipSlope ? '#9ca3af' : '#d1d5db' }" @click="selectedEntity.flipSlope = true; $emit('sync-engine')">Flipped</button>
+                        </div>
+                    </div>
                 </template>
 
                 <div v-if="selectedEntity.type === 'railing'">
@@ -634,8 +641,14 @@
                 <div class="control-group" v-if="selectedEntity.config.roofType === 'gable'">
                     <label>Ridge Direction</label>
                     <div style="display: flex; gap: 8px;">
-                        <button style="flex: 1; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer;" :style="{ background: selectedEntity.config.ridgeAxis === 'x' ? '#e5e7eb' : 'white', borderColor: selectedEntity.config.ridgeAxis === 'x' ? '#9ca3af' : '#d1d5db' }" @click="selectedEntity.config.ridgeAxis = 'x'; $emit('sync-engine')">Horizontal</button>
-                        <button style="flex: 1; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer;" :style="{ background: selectedEntity.config.ridgeAxis === 'y' ? '#e5e7eb' : 'white', borderColor: selectedEntity.config.ridgeAxis === 'y' ? '#9ca3af' : '#d1d5db' }" @click="selectedEntity.config.ridgeAxis = 'y'; $emit('sync-engine')">Vertical</button>
+                        <button style="flex: 1; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer;" :style="{ background: selectedEntity.config.ridgeAxis === 'x' ? '#e5e7eb' : 'white', borderColor: selectedEntity.config.ridgeAxis === 'x' ? '#9ca3af' : '#d1d5db' }" @click="selectedEntity.config.ridgeAxis = 'x'; selectedEntity.config.manualRidge = true; $emit('sync-engine')">Horizontal</button>
+                        <button style="flex: 1; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer;" :style="{ background: selectedEntity.config.ridgeAxis === 'y' ? '#e5e7eb' : 'white', borderColor: selectedEntity.config.ridgeAxis === 'y' ? '#9ca3af' : '#d1d5db' }" @click="selectedEntity.config.ridgeAxis = 'y'; selectedEntity.config.manualRidge = true; $emit('sync-engine')">Vertical</button>
+                    </div>
+                </div>
+                <div class="control-group" v-if="selectedEntity.config.roofType === 'gable'">
+                    <label>Auto-Shape Walls</label>
+                    <div class="input-wrap" style="justify-content: flex-end;">
+                        <input type="checkbox" v-model="selectedEntity.config.autoShapeWalls" @change="$emit('sync-engine')">
                     </div>
                 </div>
                 <div class="control-group"><label>Overhang</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.overhang" min="0" max="50" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.config.overhang" @input="$emit('sync-engine')"></div></div>

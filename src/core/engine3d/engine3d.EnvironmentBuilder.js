@@ -197,7 +197,8 @@ export class EnvironmentBuilder {
             wallShape.lineTo(0, wallBottom);
 
             const wallGroup = new THREE.Group();
-            wallGroup.position.set(p1.x, 0, p1.y);
+            const elev = w.elevation || 0;
+            wallGroup.position.set(p1.x, elev, p1.y);
             wallGroup.rotation.y = -angle;
             wallGroup.userData = { entity: w };
             w.mesh3D = wallGroup;
