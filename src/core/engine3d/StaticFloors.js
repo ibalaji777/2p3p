@@ -10,6 +10,7 @@ export class StaticFloors {
         this.interactables = interactables;
         this.wallBuilder = new Wall3DBuilder();
         this.matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7, side: THREE.DoubleSide });
+        this.matFloor.userData = { isShared: true };
         this.callbacks = callbacks;
         
         this.helpers = {

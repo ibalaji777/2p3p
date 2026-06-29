@@ -8,6 +8,7 @@ export class Molding3DBuilder {
             wood_dark: new THREE.MeshStandardMaterial({ color: 0x4a3b32, roughness: 0.6 }),
             black_metal: new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3, metalness: 0.8 })
         };
+        Object.values(this.materials).forEach(m => m.userData = { isShared: true });
     }
 
     getMaterial(matName) {

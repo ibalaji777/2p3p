@@ -49,8 +49,11 @@ export class Wall3DBuilder {
             bumpMap: this.wallBumpTex, 
             bumpScale: 0.015 // Soft but visible plaster grain depth
         });
+        this.matMain.userData = { isShared: true };
         this.matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xdddddb, roughness: 0.9 });
+        this.matEdgeDark.userData = { isShared: true };
         this.matBaseboard = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.1 });
+        this.matBaseboard.userData = { isShared: true };
     }
 
     // Abstract method that works for both Active (Konva) and Static (JSON) walls

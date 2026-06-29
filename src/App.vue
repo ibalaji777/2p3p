@@ -715,7 +715,7 @@ onMounted(() => {
         selectedEntity.value = entity; selectedType.value = type; 
         if (type !== 'wallDecor') { selectedWallSide.value = side; activeDecorId.value = null; }
 
-        if (entity) {
+        if (entity && !isRebuilding.value) {
             activeRightTab.value = 'properties';
         }
     };

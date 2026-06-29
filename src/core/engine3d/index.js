@@ -318,8 +318,11 @@ export class Preview3D {
     deepDispose(obj) {
         if (obj.geometry) obj.geometry.dispose();
         if (obj.material) {
-            if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
-            else obj.material.dispose();
+            const disposeMat = (m) => {
+                if (m && (!m.userData || !m.userData.isShared)) m.dispose();
+            };
+            if (Array.isArray(obj.material)) obj.material.forEach(disposeMat);
+            else disposeMat(obj.material);
         }
         if (obj.children) [...obj.children].forEach(c => this.deepDispose(c));
     }
