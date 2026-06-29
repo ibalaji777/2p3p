@@ -134,7 +134,6 @@ export class FloorPlanner {
             this.roofs.push(newRoof);
             this.selectEntity(newRoof, 'roof');
         }
-
         this.syncAll();
     }
     
@@ -1353,7 +1352,7 @@ export class FloorPlanner {
             console.log("mousedown.roof: Clicked with roof tool at", pos);
 
             let snap = pos;
-            let closestDist = SNAP_DIST;
+            let closestDist = SNAP_DIST * 2.5; // Stronger snapping for roof outer edges
             
             let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
             for (let line of allReferenceWalls) {
@@ -1403,6 +1402,19 @@ export class FloorPlanner {
                 const startP = this.drawingRoofPoints[0];
                 if (Math.hypot(snap.x - startP.x, snap.y - startP.y) < SNAP_DIST && this.drawingRoofPoints.length > 2) {
                     console.log("mousedown.roof: Finishing roof");
+                    
+                    // Auto-correct 4-point roofs to form a perfect parallelogram/rectangle
+                    // This prevents the roof from "collapsing" if the user accidentally snapped the 4th point to an inner corner
+                    if (this.drawingRoofPoints.length === 4) {
+                        const p0 = this.drawingRoofPoints[0];
+                        const p1 = this.drawingRoofPoints[1];
+                        const p2 = this.drawingRoofPoints[2];
+                        this.drawingRoofPoints[3] = {
+                            x: p0.x + (p2.x - p1.x),
+                            y: p0.y + (p2.y - p1.y)
+                        };
+                    }
+                    
                     const roof = new PremiumHipRoof(this, this.drawingRoofPoints);
                     roof.config.roofType = this.currentRoofToolType || 'hip';
                     this.roofs.push(roof); this.selectEntity(roof, 'roof');
@@ -1426,7 +1438,7 @@ export class FloorPlanner {
                 if (!pos) return;
                 
                 let snap = pos; 
-                let closestDist = SNAP_DIST;
+                let closestDist = SNAP_DIST * 2.5; // Stronger snapping for roof outer edges
                 let snappedObj = false;
                 let targetSnapWall = null;
 
