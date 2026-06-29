@@ -1395,6 +1395,10 @@ export class EnvironmentBuilder {
                 geo.setAttribute("position", new THREE.Float32BufferAttribute(v, 3));
                 geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
                 geo.computeVertexNormals();
+                
+                const overhangDrop = (conf.overhang || 0) * Math.tan(pitch * Math.PI / 180);
+                if (overhangDrop > 0) geo.translate(0, -overhangDrop, 0);
+
                 mesh = new THREE.Mesh(geo, mat);
                 
             } else {
@@ -1437,6 +1441,9 @@ export class EnvironmentBuilder {
                 geo.setAttribute("position", new THREE.Float32BufferAttribute(v, 3));
                 geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
                 geo.computeVertexNormals();
+                
+                const overhangDrop = (conf.overhang || 0) * Math.tan(pitch * Math.PI / 180);
+                if (overhangDrop > 0) geo.translate(0, -overhangDrop, 0);
                 
                 const mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide });
 
