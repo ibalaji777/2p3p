@@ -273,9 +273,6 @@ export class PremiumHipRoof {
             const H = (width / 2) * Math.tan((this.config.pitch || 30) * Math.PI / 180);
 
             if (this.config.ridgeAxis === 'y') {
-                this.boundary.fillLinearGradientStartPoint({ x: minX, y: 0 });
-                this.boundary.fillLinearGradientEndPoint({ x: maxX, y: 0 });
-                this.boundary.fillLinearGradientColorStops([0, darkOrange, 0.5, lightOrange, 1, darkOrange]);
                 
                 // Roof Plane Hatching Lines
                 for (let i = 1; i <= 3; i++) {
@@ -312,9 +309,6 @@ export class PremiumHipRoof {
                 );
 
             } else {
-                this.boundary.fillLinearGradientStartPoint({ x: 0, y: minY });
-                this.boundary.fillLinearGradientEndPoint({ x: 0, y: maxY });
-                this.boundary.fillLinearGradientColorStops([0, darkOrange, 0.5, lightOrange, 1, darkOrange]);
                 
                 // Roof Plane Hatching Lines
                 for (let i = 1; i <= 3; i++) {
@@ -350,8 +344,8 @@ export class PremiumHipRoof {
                     rP2s
                 );
             }
-            this.boundary.fill(null); // use gradient instead of solid fill
-            this.boundary.fillPriority('linear-gradient');
+            this.boundary.fill('#f8fafc'); // solid fill without gradient
+            this.boundary.fillPriority('color');
         } else {
             // For hip roof, we can use a radial gradient from center to simulate shading
             this.boundary.fillRadialGradientStartPoint({ x: cx, y: cy });
