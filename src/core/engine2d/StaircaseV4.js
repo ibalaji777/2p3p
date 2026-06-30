@@ -472,10 +472,19 @@ export class StairV4Flight extends StairV4Node {
 
     getSockets() {
         const l = this.stepCount * this.stepDepth;
-        return [
-            { id: 'start', localX: 0, localY: 0, localAngle: -90, elevOffset: 0 },
-            { id: 'end', localX: 0, localY: l, localAngle: 90, elevOffset: this.stepCount * this.stepHeight }
-        ];
+        const h = this.stepCount * this.stepHeight;
+        
+        if (this.direction === 'up') {
+            return [
+                { id: 'start', localX: 0, localY: 0, localAngle: -90, elevOffset: h },
+                { id: 'end', localX: 0, localY: l, localAngle: 90, elevOffset: 0 }
+            ];
+        } else {
+            return [
+                { id: 'start', localX: 0, localY: 0, localAngle: -90, elevOffset: 0 },
+                { id: 'end', localX: 0, localY: l, localAngle: 90, elevOffset: h }
+            ];
+        }
     }
 
     initFlightHandles() {

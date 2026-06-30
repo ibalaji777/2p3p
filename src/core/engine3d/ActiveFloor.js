@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Wall3DBuilder } from './Wall3DBuilder.js';
 import { RailingBuilder } from './RailingBuilder.js';
+import { Stair3DBuilder } from './Stair3DBuilder.js';
 import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, WALL_DECOR_REGISTRY, offsetPolygon } from '../registry.js';
 
 
@@ -12,6 +13,7 @@ export class ActiveFloor {
         this.assets = assets;
         this.wallBuilder = new Wall3DBuilder();
         this.railingBuilder = new RailingBuilder(assets, interactables, structureGroup);
+        this.stairBuilder = new Stair3DBuilder(assets, interactables);
         this.matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7, side: THREE.DoubleSide });
         this.callbacks = callbacks;
         
@@ -47,6 +49,7 @@ export class ActiveFloor {
 
     build(walls, rooms, roofs, shapes, stairs = [], activeIndex = 0, targetGroup = this.structureGroup) {
         this._buildSlabs(rooms, stairs, targetGroup);
+        this.stairBuilder.build(stairs, targetGroup, activeIndex);
 
         const hasWalls = walls && walls.length > 0;
         let maxWallHeight = WALL_HEIGHT;

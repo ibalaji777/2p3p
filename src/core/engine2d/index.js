@@ -14,7 +14,8 @@ import { PremiumRailing } from '/src/core/engine2d/PremiumRailing.js';
 import { SmartGuidesTrackingSystem } from '/src/core/engine2d/SmartGuidesTrackingSystem.js';
 import { advance_openings } from '/src/core/engine2d/advance_openings.js';
 import { PremiumArc } from '/src/core/engine2d/PremiumArc.js';
-import { StairV4Flight, StairV4Landing } from '/src/core/engine2d/StaircaseV4.js';
+import { StairV4Flight, StairV4Landing, StaircaseV4Solver } from '/src/core/engine2d/StaircaseV4.js';
+import { PremiumStaircase } from '/src/core/engine2d/PremiumStaircase.js';
 import { PremiumMolding } from '/src/core/engine2d/PremiumMolding.js';
 
 // Export the specific classes that App.vue needs to spawn items
@@ -727,6 +728,16 @@ export class FloorPlanner {
                 this.tool = 'select';
                 this.updateToolStates();
                 this.selectEntity(landing, 'stair');
+                this.syncAll();
+                return;
+            }
+            if (this.tool.startsWith('stair_v5_')) {
+                const shape = this.tool.split('_').pop(); // straight, L, U, T
+                const stair = new PremiumStaircase(this, shape, { x: targetPos.x, y: targetPos.y });
+                this.stairs.push(stair);
+                this.tool = 'select';
+                this.updateToolStates();
+                this.selectEntity(stair, 'stair');
                 this.syncAll();
                 return;
             }
@@ -1915,16 +1926,21 @@ export class FloorPlanner {
             furniture: this.furniture.map(f => ({ x: f.group.x(), y: f.group.y(), rotation: f.rotation, width: f.width, depth: f.depth, height: f.height, configId: f.config.id, description: f.description })),
             stairs: this.stairs.map(s => {
                 if (s.type === 'stair_v4_flight' || s.type === 'stair_v4_landing') {
-                    return {
-                        id: s.id, type: s.type, systemId: s.systemId,
-                        x: s.x, y: s.y, elevation: s.elevation, rotation: s.rotation,
-                        width: s.width, length: s.length,
-                        stepCount: s.stepCount, stepHeight: s.stepHeight, stepDepth: s.stepDepth, direction: s.direction,
-                        shape: s.shape, innerRadius: s.innerRadius, arrowRotation: s.arrowRotation, arrowDirection: s.arrowDirection,
-                        connections: s.connections ? JSON.parse(JSON.stringify(s.connections)) : []
+                    return { type: s.type, x: s.x, y: s.y, rotation: s.rotation, elevation: s.elevation, direction: s.direction, stepCount: s.stepCount, stepDepth: s.stepDepth, stepHeight: s.stepHeight, width: s.width, length: s.length, shape: s.shape, innerRadius: s.innerRadius, systemId: s.systemId, id: s.id, description: s.description, connections: s.connections ? JSON.parse(JSON.stringify(s.connections)) : [] };
+                } else if (s.type.startsWith('stair_v5_')) {
+                    return { 
+                        type: s.type, shape: s.shape, x: s.x, y: s.y, rotation: s.rotation, elevation: s.elevation, direction: s.direction, 
+                        width: s.width, stepDepth: s.stepDepth, stepHeight: s.stepHeight, totalSteps: s.totalSteps, 
+                        flight1Steps: s.flight1Steps, flight2Steps: s.flight2Steps, turnDirection: s.turnDirection, 
+                        landingSize: s.landingSize, gapWidth: s.gapWidth, id: s.id, description: s.description,
+                        hasTopLanding: s.hasTopLanding, hasBottomLanding: s.hasBottomLanding,
+                        stringerType: s.stringerType, stringerWidth: s.stringerWidth, stringerThickness: s.stringerThickness,
+                        beamOffset: s.beamOffset, landingSupports: s.landingSupports, columnSupports: s.columnSupports,
+                        railingLayout: s.railingLayout, linkRailings: s.linkRailings,
+                        leftRailing: JSON.parse(JSON.stringify(s.leftRailing)),
+                        rightRailing: JSON.parse(JSON.stringify(s.rightRailing))
                     };
                 }
-                return { path: s.path ? s.path.map(p => ({ x: p.x, y: p.y, shape: p.shape })) : [], description: s.description };
             }),
             roofs: this.roofs.map(r => ({ id: r.id, x: r.group.x(), y: r.group.y(), rotation: r.rotation, width: r.config?.width, depth: r.config?.depth, pitch: r.config?.pitch, overhang: r.config?.overhang, thickness: r.config?.thickness, ridgeOffset: r.config?.ridgeOffset, points: r.points, isHip: !!r.points, roofType: r.config?.roofType, material: r.config?.material, configId: r.configId, wallGap: r.config?.wallGap, ridgeAxis: r.config?.ridgeAxis, gableMaterial: r.config?.gableMaterial, autoShapeWalls: r.config?.autoShapeWalls, description: r.description })),
             arcs: this.arcs ? this.arcs.map(a => ({ p1: {x: a.p1.x, y: a.p1.y}, p2: {x: a.p2.x, y: a.p2.y}, pos: a.pos, hasRailing: a.hasRailing, railingConfig: a.railingConfig, hidden: a.hidden, description: a.description })) : [],
@@ -2062,7 +2078,11 @@ export class FloorPlanner {
                         this.stairs.push(stairV4);
                     } else if (sData.type === 'stair_v4_landing') {
                         const landingV4 = new StairV4Landing(this, sData);
+                        landingV4.systemId = sData.systemId || landingV4.systemId;
                         this.stairs.push(landingV4);
+                    } else if (sData.type.startsWith('stair_v5_')) {
+                        const stairV5 = new PremiumStaircase(this, sData.shape, sData);
+                        this.stairs.push(stairV5);
                     }
                 });
             }
@@ -2116,6 +2136,15 @@ export class FloorPlanner {
                     if (sData.description !== undefined) shape.description = sData.description;
                     shape.update(); this.shapes.push(shape);
                 });
+            }
+            // Auto-solve all stairs to repair any corrupted elevations/positions from old bugs
+            if (this.stairs && this.stairs.length > 0) {
+                setTimeout(() => {
+                    this.stairs.forEach(s => {
+                        try { StaircaseV4Solver.solve(this, s.systemId, s.id); } catch(e) {}
+                    });
+                    this.syncAll();
+                }, 50);
             }
             this.syncAll();
         } catch (e) { console.error("Failed to import internal state", e); }

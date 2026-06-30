@@ -3,12 +3,14 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { Molding3DBuilder } from './Molding3DBuilder.js';
+import { Stair3DBuilder } from './Stair3DBuilder.js';
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, offsetPolygon } from '../../core/registry';
 
 export class EnvironmentBuilder {
     constructor(ctx) {
         this.ctx = ctx;
         this.moldingBuilder = new Molding3DBuilder();
+        this.stairBuilder = new Stair3DBuilder(ctx.assets, ctx.interactables);
     }
 
     setupBaseEnvironment() {
@@ -92,6 +94,8 @@ export class EnvironmentBuilder {
     }
 
     buildActiveFloor(walls, rooms, shapes, stairs = []) {
+        this.stairBuilder.build(stairs, this.ctx.structureGroup, 0, false);
+
         const matMain = new THREE.MeshStandardMaterial({ 
             color: 0xf3f2ec, // Warm off-white
             roughness: 1.0, // Perfectly matte plaster, no shine
@@ -740,6 +744,8 @@ export class EnvironmentBuilder {
     }
 
     buildStaticFloors(levelsConfigArray, activeIndex, viewMode3D, stairs = []) {
+        const isPreview = viewMode3D === 'preview';
+
         levelsConfigArray.forEach((levelConfig, index) => {
             if (index === activeIndex) return; 
             if (!levelConfig || !levelConfig.data) return;
@@ -750,15 +756,18 @@ export class EnvironmentBuilder {
                 const floorGroup = new THREE.Group();
                 floorGroup.position.y = index * WALL_HEIGHT;
 
-                const isPreview = viewMode3D === 'preview';
-            const matMain = new THREE.MeshStandardMaterial({ 
-                color: 0xf3f2ec, // Warm off-white
-                roughness: 1.0, // Perfectly matte plaster
-                metalness: 0.0,
-                flatShading: true // Preserves sharp corners
-            });
-            const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xeaeaea, roughness: 0.9 });
-            const matBaseboard = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.1 });
+                if (data.stairs) {
+                    this.stairBuilder.build(data.stairs, floorGroup, index, true);
+                }
+
+                const matMain = new THREE.MeshStandardMaterial({ 
+                    color: 0xf3f2ec, // Warm off-white
+                    roughness: 1.0, // Perfectly matte plaster
+                    metalness: 0.0,
+                    flatShading: true // Preserves sharp corners
+                });
+                const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xeaeaea, roughness: 0.9 });
+                const matBaseboard = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.1 });
 
                 if (data.rooms) {
                     data.rooms.forEach(room => {

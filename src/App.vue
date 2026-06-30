@@ -318,9 +318,13 @@ const menuCategories = ref([
             
             
             
-            { id: 'stair_v4_flight', name: 'Stair Flight (V4)' },
-            { id: 'stair_v4_landing', name: 'Landing (V4)' },
-            { id: 'stair_v4_landing_curve', name: 'U-Curve Landing (V4)' },
+            { id: 'stair_v5_straight', name: 'Straight Staircase (V5)' },
+            { id: 'stair_v5_L', name: 'L-Shape Staircase (V5)' },
+            { id: 'stair_v5_U', name: 'U-Shape Staircase (V5)' },
+            { id: 'stair_v5_T', name: 'T-Shape Staircase (V5)' },
+            { id: 'stair_v4_flight', name: 'Stair Flight (Legacy)' },
+            { id: 'stair_v4_landing', name: 'Landing (Legacy)' },
+            { id: 'stair_v4_landing_curve', name: 'U-Curve Landing (Legacy)' },
             { id: 'roof_gable', name: 'Draw Gable Roof', roofType: 'gable' },
             { id: 'roof_flat', name: 'Draw Flat Roof', roofType: 'flat' },
             { id: 'roof_hip', name: 'Draw Hip Roof', roofType: 'hip' },

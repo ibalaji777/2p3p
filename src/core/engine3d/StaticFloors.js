@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, WALL_DECOR_REGISTRY, offsetPolygon } from '../registry.js';
 import { Wall3DBuilder } from './Wall3DBuilder.js';
 import { RailingBuilder } from './RailingBuilder.js';
+import { Stair3DBuilder } from './Stair3DBuilder.js';
 
 export class StaticFloors {
     constructor(assets, decorManager, interactables, callbacks = {}) {
@@ -9,6 +10,7 @@ export class StaticFloors {
         this.decorManager = decorManager;
         this.interactables = interactables;
         this.wallBuilder = new Wall3DBuilder();
+        this.stairBuilder = new Stair3DBuilder(assets, interactables);
         this.matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7, side: THREE.DoubleSide });
         this.matFloor.userData = { isShared: true };
         this.callbacks = callbacks;
@@ -55,6 +57,10 @@ export class StaticFloors {
                 const data = JSON.parse(levelConfig.data);
                 const floorGroup = new THREE.Group();
                 floorGroup.position.y = index * WALL_HEIGHT;
+
+                if (data.stairs) {
+                    this.stairBuilder.build(data.stairs, floorGroup, index, true);
+                }
 
                 // Build Slabs
                 if (data.rooms) {
