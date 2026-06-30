@@ -8,6 +8,20 @@ export class Stair3DBuilder {
         this.defaultMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.8 }); // Wood-like color
     }
 
+    getTexture(url, repeatX = 1, repeatY = 1) {
+        if (!Stair3DBuilder.textureCache) Stair3DBuilder.textureCache = {};
+        const key = url + '_' + repeatX + '_' + repeatY;
+        if (Stair3DBuilder.textureCache[key]) return Stair3DBuilder.textureCache[key];
+        
+        const tex = new THREE.TextureLoader().load(url);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(repeatX, repeatY);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        Stair3DBuilder.textureCache[key] = tex;
+        return tex;
+    }
+
     build(stairs, parentGroup, activeIndex, isStatic = false) {
         if (!stairs || stairs.length === 0) return;
 
@@ -21,11 +35,37 @@ export class Stair3DBuilder {
             const createMat = (typeId, colorHex) => {
                 const color = new THREE.Color(colorHex || '#8b5a2b');
                 if (typeId === 'glass' || typeId === 'glass_clear') return new THREE.MeshPhysicalMaterial({ color, transmission: 0.9, opacity: 1, transparent: true, roughness: 0.05, ior: 1.5, thickness: 2 });
-                if (typeId === 'concrete') return new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.1 });
+                
+                if (typeId === 'concrete') {
+                    const map = this.getTexture('https://threejs.org/examples/textures/terrain/backgrounddetailed6.jpg', 0.05, 0.05);
+                    return new THREE.MeshStandardMaterial({ color, map, roughness: 0.9, metalness: 0.1 });
+                }
+                
                 if (typeId === 'steel' || typeId === 'stainless_steel') return new THREE.MeshStandardMaterial({ color, roughness: 0.2, metalness: 0.8 });
-                if (typeId === 'marble' || typeId === 'granite') return new THREE.MeshStandardMaterial({ color, roughness: 0.1, metalness: 0.1 });
+                
+                if (typeId === 'marble' || typeId === 'granite') {
+                    // For White Marble, we ignore the tint color and use pure white to show the texture clearly
+                    const mapColor = typeId === 'marble' ? 0xffffff : color;
+                    
+                    // BoxGeometry UVs go 0 to 1. A repeat of 1 or 2 shows the veins nicely.
+                    const map = this.getTexture('models/wall/marble_1_white.png', 1, 1);
+                    return new THREE.MeshPhysicalMaterial({ 
+                        color: mapColor, 
+                        map: map,
+                        bumpMap: map,
+                        bumpScale: 0.5,
+                        roughness: 0.1, 
+                        metalness: 0.05, 
+                        clearcoat: 1.0, 
+                        clearcoatRoughness: 0.1
+                    });
+                }
+                
                 if (typeId === 'white_painted') return new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
-                return new THREE.MeshStandardMaterial({ color, roughness: 0.8 });
+                
+                // Wood Materials (Default)
+                const map = this.getTexture('https://threejs.org/examples/textures/hardwood2_diffuse.jpg', 0.02, 0.02);
+                return new THREE.MeshStandardMaterial({ color, map, roughness: 0.6 });
             };
 
             const primaryMat = createMat(stair.primaryMaterial, stair.primaryColor);
