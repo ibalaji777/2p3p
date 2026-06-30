@@ -324,6 +324,131 @@
                 <h4 class="props-subtitle" v-else>Staircase (Legacy) Properties</h4>
                 
                 <template v-if="selectedEntity.type && selectedEntity.type.startsWith('stair_v5_')">
+                    <!-- Appearance (Advanced Materials) -->
+                    <div style="background: #f1f5f9; padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #cbd5e1;">
+                        <h4 class="props-subtitle" style="margin-top: 0;">Appearance</h4>
+                        <label style="display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 13px; margin-bottom: 12px;">
+                            <input type="checkbox" v-model="selectedEntity.useUnifiedMaterial" @change="$emit('sync-engine')">
+                            Use One Material for Entire Stair
+                        </label>
+
+                        <div v-if="selectedEntity.useUnifiedMaterial">
+                            <div class="control-group">
+                                <label>Primary Material</label>
+                                <select v-model="selectedEntity.primaryMaterial" @change="$emit('sync-engine')" class="settings-select">
+                                    <option value="wood_oak">Oak Wood</option>
+                                    <option value="wood_walnut">Walnut Wood</option>
+                                    <option value="wood_natural">Natural Wood</option>
+                                    <option value="wood_dark">Dark Wood</option>
+                                    <option value="concrete">Concrete</option>
+                                    <option value="marble">White Marble</option>
+                                    <option value="granite">Dark Granite</option>
+                                    <option value="steel">Black Steel</option>
+                                    <option value="stainless_steel">Stainless Steel</option>
+                                    <option value="white_painted">White Painted</option>
+                                </select>
+                            </div>
+                            <div class="control-group">
+                                <label>Primary Color</label>
+                                <div class="input-wrap" style="justify-content: flex-end;">
+                                    <input type="color" v-model="selectedEntity.primaryColor" @change="$emit('sync-engine')">
+                                </div>
+                            </div>
+                        </div>
+                        <div v-else>
+                            <details style="margin-bottom: 8px; background: white; padding: 6px 10px; border-radius: 4px; border: 1px solid #e2e8f0;">
+                                <summary style="font-weight: 500; font-size: 12px; cursor: pointer; outline: none;">Steps (Treads)</summary>
+                                <div style="margin-top: 10px;">
+                                    <div class="control-group">
+                                        <label>Material</label>
+                                        <select v-model="selectedEntity.treadMaterial" @change="$emit('sync-engine')" class="settings-select">
+                                            <option value="default">Use Primary Material</option>
+                                            <option value="wood_oak">Oak Wood</option>
+                                            <option value="wood_walnut">Walnut Wood</option>
+                                            <option value="concrete">Concrete</option>
+                                            <option value="marble">Marble</option>
+                                            <option value="granite">Granite</option>
+                                            <option value="glass">Glass</option>
+                                        </select>
+                                    </div>
+                                    <div class="control-group">
+                                        <label>Color Override</label>
+                                        <div class="input-wrap" style="justify-content: flex-end;">
+                                            <input type="color" v-model="selectedEntity.treadColor" @change="$emit('sync-engine')">
+                                        </div>
+                                    </div>
+                                </div>
+                            </details>
+
+                            <details style="margin-bottom: 8px; background: white; padding: 6px 10px; border-radius: 4px; border: 1px solid #e2e8f0;">
+                                <summary style="font-weight: 500; font-size: 12px; cursor: pointer; outline: none;">Risers</summary>
+                                <div style="margin-top: 10px;">
+                                    <div class="control-group">
+                                        <label>Material</label>
+                                        <select v-model="selectedEntity.riserMaterial" @change="$emit('sync-engine')" class="settings-select">
+                                            <option value="default">Use Primary Material</option>
+                                            <option value="white_painted">White Painted</option>
+                                            <option value="wood_oak">Oak Wood</option>
+                                            <option value="concrete">Concrete</option>
+                                            <option value="marble">Marble</option>
+                                            <option value="none">Open Risers (No Board)</option>
+                                        </select>
+                                    </div>
+                                    <div class="control-group">
+                                        <label>Color Override</label>
+                                        <div class="input-wrap" style="justify-content: flex-end;">
+                                            <input type="color" v-model="selectedEntity.riserColor" @change="$emit('sync-engine')">
+                                        </div>
+                                    </div>
+                                </div>
+                            </details>
+
+                            <details style="margin-bottom: 8px; background: white; padding: 6px 10px; border-radius: 4px; border: 1px solid #e2e8f0;">
+                                <summary style="font-weight: 500; font-size: 12px; cursor: pointer; outline: none;">Landings</summary>
+                                <div style="margin-top: 10px;">
+                                    <div class="control-group">
+                                        <label>Material</label>
+                                        <select v-model="selectedEntity.landingMaterial" @change="$emit('sync-engine')" class="settings-select">
+                                            <option value="default">Use Tread Material</option>
+                                            <option value="wood_oak">Oak Wood</option>
+                                            <option value="concrete">Concrete</option>
+                                            <option value="marble">Marble</option>
+                                        </select>
+                                    </div>
+                                    <div class="control-group">
+                                        <label>Color Override</label>
+                                        <div class="input-wrap" style="justify-content: flex-end;">
+                                            <input type="color" v-model="selectedEntity.landingColor" @change="$emit('sync-engine')">
+                                        </div>
+                                    </div>
+                                </div>
+                            </details>
+
+                            <details style="margin-bottom: 8px; background: white; padding: 6px 10px; border-radius: 4px; border: 1px solid #e2e8f0;">
+                                <summary style="font-weight: 500; font-size: 12px; cursor: pointer; outline: none;">Structure (Stringers)</summary>
+                                <div style="margin-top: 10px;">
+                                    <div class="control-group">
+                                        <label>Material</label>
+                                        <select v-model="selectedEntity.structureMaterial" @change="$emit('sync-engine')" class="settings-select">
+                                            <option value="default">Use Primary Material</option>
+                                            <option value="steel">Black Steel</option>
+                                            <option value="stainless_steel">Stainless Steel</option>
+                                            <option value="white_painted">White Painted</option>
+                                            <option value="wood_oak">Oak Wood</option>
+                                            <option value="concrete">Concrete</option>
+                                        </select>
+                                    </div>
+                                    <div class="control-group">
+                                        <label>Color Override</label>
+                                        <div class="input-wrap" style="justify-content: flex-end;">
+                                            <input type="color" v-model="selectedEntity.structureColor" @change="$emit('sync-engine')">
+                                        </div>
+                                    </div>
+                                </div>
+                            </details>
+                        </div>
+                    </div>
+
                     <!-- Standard Geometry -->
                     <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="40" max="300" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.width" @input="$emit('sync-engine')"></div></div>
                     <div class="control-group"><label>Step Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stepDepth" min="15" max="50" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.stepDepth" @input="$emit('sync-engine')"></div></div>

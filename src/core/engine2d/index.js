@@ -1938,7 +1938,12 @@ export class FloorPlanner {
                         beamOffset: s.beamOffset, landingSupports: s.landingSupports, columnSupports: s.columnSupports,
                         railingLayout: s.railingLayout, linkRailings: s.linkRailings,
                         leftRailing: JSON.parse(JSON.stringify(s.leftRailing)),
-                        rightRailing: JSON.parse(JSON.stringify(s.rightRailing))
+                        rightRailing: JSON.parse(JSON.stringify(s.rightRailing)),
+                        useUnifiedMaterial: s.useUnifiedMaterial, primaryMaterial: s.primaryMaterial, primaryColor: s.primaryColor,
+                        treadMaterial: s.treadMaterial, treadColor: s.treadColor,
+                        riserMaterial: s.riserMaterial, riserColor: s.riserColor,
+                        landingMaterial: s.landingMaterial, landingColor: s.landingColor,
+                        structureMaterial: s.structureMaterial, structureColor: s.structureColor
                     };
                 }
             }),

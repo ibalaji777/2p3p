@@ -55,6 +55,23 @@ export class PremiumStaircase {
             this.landingSize = data.landingSize || this.width;
         }
 
+        // Materials Configuration
+        this.useUnifiedMaterial = data.useUnifiedMaterial !== undefined ? data.useUnifiedMaterial : true;
+        this.primaryMaterial = data.primaryMaterial || 'wood_oak';
+        this.primaryColor = data.primaryColor || '#8b5a2b';
+        
+        this.treadMaterial = data.treadMaterial || 'default';
+        this.treadColor = data.treadColor || '#8b5a2b';
+        
+        this.riserMaterial = data.riserMaterial || 'default';
+        this.riserColor = data.riserColor || '#8b5a2b';
+        
+        this.landingMaterial = data.landingMaterial || 'default';
+        this.landingColor = data.landingColor || '#8b5a2b';
+        
+        this.structureMaterial = data.structureMaterial || 'default';
+        this.structureColor = data.structureColor || '#8b5a2b';
+
         // Railings Configuration
         this.railingLayout = data.railingLayout || 'both'; // 'none', 'left', 'right', 'both'
         this.linkRailings = data.linkRailings !== undefined ? data.linkRailings : true;

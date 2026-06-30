@@ -14,7 +14,32 @@ export class Stair3DBuilder {
         stairs.forEach(stair => {
             if (!stair.type) return;
             const group = new THREE.Group();
-            const stairMat = this.defaultMat.clone();
+            
+            // --- Material Manager ---
+            const useUnified = stair.useUnifiedMaterial !== false;
+            
+            const createMat = (typeId, colorHex) => {
+                const color = new THREE.Color(colorHex || '#8b5a2b');
+                if (typeId === 'glass' || typeId === 'glass_clear') return new THREE.MeshPhysicalMaterial({ color, transmission: 0.9, opacity: 1, transparent: true, roughness: 0.05, ior: 1.5, thickness: 2 });
+                if (typeId === 'concrete') return new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.1 });
+                if (typeId === 'steel' || typeId === 'stainless_steel') return new THREE.MeshStandardMaterial({ color, roughness: 0.2, metalness: 0.8 });
+                if (typeId === 'marble' || typeId === 'granite') return new THREE.MeshStandardMaterial({ color, roughness: 0.1, metalness: 0.1 });
+                if (typeId === 'white_painted') return new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
+                return new THREE.MeshStandardMaterial({ color, roughness: 0.8 });
+            };
+
+            const primaryMat = createMat(stair.primaryMaterial, stair.primaryColor);
+            const stairMat = primaryMat; // Fallback for v4 and legacy
+
+            const getComponentMat = (compMatType, compColor) => {
+                if (useUnified || compMatType === 'default' || !compMatType) return primaryMat;
+                return createMat(compMatType, compColor);
+            };
+
+            const treadMat = getComponentMat(stair.treadMaterial, stair.treadColor);
+            const riserMat = stair.riserMaterial === 'none' ? null : getComponentMat(stair.riserMaterial, stair.riserColor);
+            const landingMat = getComponentMat(stair.landingMaterial, stair.landingColor);
+            const structureMat = getComponentMat(stair.structureMaterial, stair.structureColor);
             
             // Apply global positioning
             const sx = Number(stair.x) || 0;
@@ -135,20 +160,43 @@ export class Stair3DBuilder {
                 const buildTread = (x, y, z, rotY) => {
                     const treadThick = 5;
                     const treadGeo = new THREE.BoxGeometry(width, treadThick, stepDepth);
-                    const treadMesh = new THREE.Mesh(treadGeo, stairMat);
+                    const treadMesh = new THREE.Mesh(treadGeo, treadMat);
                     treadMesh.position.set(x, y - treadThick / 2, z);
                     treadMesh.rotation.y = rotY;
                     treadMesh.castShadow = true; treadMesh.receiveShadow = true;
                     group.add(treadMesh);
+
+                    if (riserMat !== null) {
+                        const riserThick = 3;
+                        const riserHeight = stepHeight - treadThick;
+                        const riserGeo = new THREE.BoxGeometry(width, riserHeight, riserThick);
+                        const riserMesh = new THREE.Mesh(riserGeo, riserMat);
+                        
+                        const zDir = direction === 'up' ? -1 : 1;
+                        const zOffset = (stepDepth / 2 - riserThick / 2) * zDir;
+                        const riserX = x + Math.sin(rotY) * zOffset;
+                        const riserZ = z + Math.cos(rotY) * zOffset;
+                        
+                        riserMesh.position.set(riserX, y - treadThick - riserHeight / 2, riserZ);
+                        riserMesh.rotation.y = rotY;
+                        riserMesh.castShadow = true; riserMesh.receiveShadow = true;
+                        group.add(riserMesh);
+                    }
                 };
 
                 const buildSolidStep = (x, y, z, rotY) => {
                     const solidGeo = new THREE.BoxGeometry(width, y, stepDepth);
-                    const solidMesh = new THREE.Mesh(solidGeo, stairMat);
-                    solidMesh.position.set(x, y / 2, z);
-                    solidMesh.rotation.y = rotY;
-                    solidMesh.castShadow = true; solidMesh.receiveShadow = true;
-                    group.add(solidMesh);
+                    let mesh;
+                    if (riserMat !== null) {
+                        const mats = [riserMat, riserMat, treadMat, treadMat, riserMat, riserMat];
+                        mesh = new THREE.Mesh(solidGeo, mats);
+                    } else {
+                        mesh = new THREE.Mesh(solidGeo, treadMat);
+                    }
+                    mesh.position.set(x, y / 2, z);
+                    mesh.rotation.y = rotY;
+                    mesh.castShadow = true; mesh.receiveShadow = true;
+                    group.add(mesh);
                 };
 
                 const buildFlight = (startX, startZ, rotY, stepCount, startElevIdx) => {
@@ -196,7 +244,7 @@ export class Stair3DBuilder {
                             };
                             
                             const beamGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-                            const beamMesh = new THREE.Mesh(beamGeo, stairMat);
+                            const beamMesh = new THREE.Mesh(beamGeo, structureMat);
                             
                             // Rotate to map Shape X to Flight Z, and Shape Extrude Z to Flight X
                             beamMesh.rotation.y = -Math.PI / 2;
@@ -350,20 +398,20 @@ export class Stair3DBuilder {
                     
                     if (stringerType === 'solid') {
                         const landingGeo = new THREE.BoxGeometry(lw, topHeight, lh);
-                        const landingMesh = new THREE.Mesh(landingGeo, stairMat);
+                        const landingMesh = new THREE.Mesh(landingGeo, landingMat);
                         landingMesh.position.set(x, topHeight / 2, z);
                         landingMesh.castShadow = true; landingMesh.receiveShadow = true;
                         group.add(landingMesh);
                     } else {
                         const plateThick = 5;
                         const landingGeo = new THREE.BoxGeometry(lw, plateThick, lh);
-                        const landingMesh = new THREE.Mesh(landingGeo, stairMat);
+                        const landingMesh = new THREE.Mesh(landingGeo, landingMat);
                         landingMesh.position.set(x, topHeight - plateThick/2, z);
                         landingMesh.castShadow = true; landingMesh.receiveShadow = true;
                         group.add(landingMesh);
                         
                         const frameGeo = new THREE.BoxGeometry(lw, sThick, lh);
-                        const frameMesh = new THREE.Mesh(frameGeo, stairMat);
+                        const frameMesh = new THREE.Mesh(frameGeo, structureMat);
                         frameMesh.position.set(x, topHeight - plateThick - sThick/2, z);
                         frameMesh.castShadow = true; frameMesh.receiveShadow = true;
                         group.add(frameMesh);
@@ -377,7 +425,7 @@ export class Stair3DBuilder {
                                 for (let ci of cx) {
                                     for (let cj of cz) {
                                         const colGeo = new THREE.BoxGeometry(colSize, colHeight, colSize);
-                                        const colMesh = new THREE.Mesh(colGeo, stairMat);
+                                        const colMesh = new THREE.Mesh(colGeo, structureMat);
                                         colMesh.position.set(ci, colHeight/2, cj);
                                         colMesh.castShadow = true; colMesh.receiveShadow = true;
                                         group.add(colMesh);
