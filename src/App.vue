@@ -317,7 +317,7 @@ const menuCategories = ref([
         tools: [
             
             
-            
+            { id: 'shape_floor_cut', name: 'Floor Cut (Hole)' },
             { id: 'stair_v5_straight', name: 'Straight Staircase (V5)' },
             { id: 'stair_v5_L', name: 'L-Shape Staircase (V5)' },
             { id: 'stair_v5_U', name: 'U-Shape Staircase (V5)' },
@@ -657,6 +657,7 @@ const hintData = computed(() => {
     if (activeTool.value === 'roof') return { text: 'ROOF mode: Click corners to draw a custom roof polygon. Click the start point to finish.', color: '#f59e0b' };
     if (activeTool.value === 'arc') return { text: 'ARC mode: 1. Click Start Point  2. Click End Point  3. Move mouse to set Curvature & Click.', color: '#8b5cf6' };
     if (activeTool.value === 'shape_rect') return { text: 'BOX: Click and drag to draw a box.', color: '#3b82f6' };
+    if (activeTool.value === 'shape_floor_cut') return { text: 'FLOOR CUT: Click and drag to draw a hole in the floor slab.', color: '#ef4444' };
     if (activeTool.value === 'shape_circle') return { text: 'CYLINDER: Click center and drag to define radius.', color: '#3b82f6' };
     if (activeTool.value === 'shape_triangle') return { text: 'PRISM: Click 3 points on the grid to create a triangle.', color: '#3b82f6' };
     if (activeTool.value === 'furniture' || activeTool.value.startsWith('furn_')) return { text: 'FURNITURE mode: Click anywhere on the floor to place the item.', color: '#ec4899' };

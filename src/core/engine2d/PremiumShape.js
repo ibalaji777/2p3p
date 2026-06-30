@@ -44,7 +44,7 @@ export class PremiumShape {
             strokeScaleEnabled: false
         };
 
-        if (type === 'shape_rect') {
+        if (type === 'shape_rect' || (type === 'shape_floor_cut' && !this.params.points)) {
             this.shape = new Konva.Rect({
                 ...shapeConfig,
                 width: params.width,
@@ -57,7 +57,7 @@ export class PremiumShape {
                 ...shapeConfig,
                 radius: params.radius
             });
-        } else if (type === 'shape_polygon') {
+        } else if (type === 'shape_polygon' || (type === 'shape_floor_cut' && this.params.points)) {
             this.shape = new Konva.Line({
                 ...shapeConfig,
                 points: this.params.points ? this.params.points.flatMap(p => [p.x, p.y]) : [],

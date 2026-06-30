@@ -848,8 +848,8 @@ export class FloorPlanner {
 
                     if (this.shapes) {
                         for (let s of this.shapes) {
-                            if (s.type !== 'shape_rect' && s.type !== 'shape_polygon') continue;
-                            let pts = []; if (s.type === 'shape_rect') { const w = s.params.width; const h = s.params.height; pts = [ {x: -w/2, y: -h/2}, {x: w/2, y: -h/2}, {x: w/2, y: h/2}, {x: -w/2, y: h/2} ]; } else { pts = s.params.points; }
+                            if (s.type !== 'shape_rect' && s.type !== 'shape_floor_cut' && s.type !== 'shape_polygon') continue;
+                            let pts = []; if (s.type === 'shape_rect' || s.type === 'shape_floor_cut') { const w = s.params.width; const h = s.params.height; pts = [ {x: -w/2, y: -h/2}, {x: w/2, y: -h/2}, {x: w/2, y: h/2}, {x: -w/2, y: h/2} ]; } else { pts = s.params.points; }
                             if (!pts) continue;
                             const transform = s.group.getTransform();
                             for (let i = 0; i < pts.length; i++) {
@@ -1044,8 +1044,8 @@ export class FloorPlanner {
                 }
                 if (!foundGlow && this.shapes) {
                     for (let s of this.shapes) {
-                        if (s.type !== 'shape_rect' && s.type !== 'shape_polygon') continue;
-                        let pts = []; if (s.type === 'shape_rect') { const w = s.params.width; const h = s.params.height; pts = [ {x: -w/2, y: -h/2}, {x: w/2, y: -h/2}, {x: w/2, y: h/2}, {x: -w/2, y: h/2} ]; } else { pts = s.params.points; }
+                        if (s.type !== 'shape_rect' && s.type !== 'shape_floor_cut' && s.type !== 'shape_polygon') continue;
+                        let pts = []; if (s.type === 'shape_rect' || s.type === 'shape_floor_cut') { const w = s.params.width; const h = s.params.height; pts = [ {x: -w/2, y: -h/2}, {x: w/2, y: -h/2}, {x: w/2, y: h/2}, {x: -w/2, y: h/2} ]; } else { pts = s.params.points; }
                         const transform = s.group.getTransform();
                         for (let i = 0; i < pts.length; i++) {
                             const p1 = transform.point(pts[i]); const p2 = transform.point(pts[(i + 1) % pts.length]); const proj = this.getClosestPointOnSegment(pos, p1, p2);
@@ -1212,8 +1212,8 @@ export class FloorPlanner {
 
                     if (this.shapes) {
                         for (let s of this.shapes) {
-                            if (s.type !== 'shape_rect' && s.type !== 'shape_polygon') continue;
-                            let pts = []; if (s.type === 'shape_rect') { const w = s.params.width; const h = s.params.height; pts = [ {x: -w/2, y: -h/2}, {x: w/2, y: -h/2}, {x: w/2, y: h/2}, {x: -w/2, y: h/2} ]; } else { pts = s.params.points; }
+                            if (s.type !== 'shape_rect' && s.type !== 'shape_floor_cut' && s.type !== 'shape_polygon') continue;
+                            let pts = []; if (s.type === 'shape_rect' || s.type === 'shape_floor_cut') { const w = s.params.width; const h = s.params.height; pts = [ {x: -w/2, y: -h/2}, {x: w/2, y: -h/2}, {x: w/2, y: h/2}, {x: -w/2, y: h/2} ]; } else { pts = s.params.points; }
                             if (!pts) continue;
                             const transform = s.group.getTransform();
                             for (let i = 0; i < pts.length; i++) {
@@ -1333,11 +1333,16 @@ export class FloorPlanner {
 
             if (this.drawingShapeType) {
                 if (this.drawingShapeType === 'shape_rect') {
-                    const w = this.shapePreviewRect.width(); const h = this.shapePreviewRect.height();
+                    const targetPos = this.getPointerPos();
+                    const cx = (this.shapeStartPos.x + targetPos.x) / 2;
+                    const cy = (this.shapeStartPos.y + targetPos.y) / 2;
+                    const w = targetPos.x - this.shapeStartPos.x;
+                    const h = targetPos.y - this.shapeStartPos.y;
                     if (Math.abs(w) > 5 && Math.abs(h) > 5) {
-                        const cx = this.shapeStartPos.x + w / 2; const cy = this.shapeStartPos.y + h / 2;
-                        const newShape = new PremiumShape(this, 'shape_rect', { x: cx, y: cy, width: Math.abs(w), height: Math.abs(h) });
-                        if(!this.shapes) this.shapes = []; this.shapes.push(newShape); this.tool = 'select'; this.updateToolStates(); if (this.onToolChange) this.onToolChange('select'); this.selectEntity(newShape, 'shape');
+                        const newShape = new PremiumShape(this, 'shape_rect', { 
+                            x: cx, y: cy, width: Math.abs(w), height: Math.abs(h)
+                        });
+                        if (!this.shapes) this.shapes = []; this.shapes.push(newShape); this.tool = 'select'; this.updateToolStates(); if (this.onToolChange) this.onToolChange('select'); this.selectEntity(newShape, 'shape');
                     }
                     this.shapePreviewRect.visible(false);
                 } else if (this.drawingShapeType === 'shape_circle') {
@@ -1356,23 +1361,25 @@ export class FloorPlanner {
         this.stage.on("mousedown.roof touchstart.roof", (e) => {
             if (e.evt && e.evt.touches && e.evt.touches.length > 1) return;
 
-            if (this.tool !== 'roof') return;
+            if (this.tool !== 'roof' && this.tool !== 'shape_floor_cut') return;
             const pos = this.getPointerPos();
             if (!pos) return;
             
-            console.log("mousedown.roof: Clicked with roof tool at", pos);
-
             let snap = pos;
             let closestDist = SNAP_DIST * 2.5; // Stronger snapping for roof outer edges
             
             let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
             for (let line of allReferenceWalls) {
                 let pts = line.getAttr('refPts') || line.points();
-                if (pts && pts.length === 4) {
-                    let d1 = Math.hypot(pos.x - pts[0], pos.y - pts[1]); let d2 = Math.hypot(pos.x - pts[2], pos.y - pts[3]);
-                    if (d1 < closestDist) { closestDist = d1; snap = {x: pts[0], y: pts[1]}; }
-                    if (d2 < closestDist) { closestDist = d2; snap = {x: pts[2], y: pts[3]}; }
-                    let proj = this.getClosestPointOnSegment(pos, {x: pts[0], y: pts[1]}, {x: pts[2], y: pts[3]}); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); if (dist < closestDist) { closestDist = dist; snap = proj; }
+                if (pts && pts.length >= 4) {
+                    for (let i = 0; i < pts.length; i += 2) {
+                        let cx = pts[i], cy = pts[i+1];
+                        if (Math.hypot(pos.x - cx, pos.y - cy) < closestDist) { closestDist = Math.hypot(pos.x - cx, pos.y - cy); snap = {x: cx, y: cy}; }
+                        let nx = pts[(i+2)%pts.length], ny = pts[(i+3)%pts.length];
+                        let proj = this.getClosestPointOnSegment(pos, {x: cx, y: cy}, {x: nx, y: ny});
+                        let distSeg = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                        if (distSeg < closestDist) { closestDist = distSeg; snap = proj; }
+                    }
                 }
             }
 
@@ -1403,19 +1410,20 @@ export class FloorPlanner {
             }
             
             if (!this.drawingRoofPoints) {
-                console.log("mousedown.roof: Starting new roof");
                 this.drawingRoofPoints = [snap];
-                this.roofPreview = new Konva.Line({ points: [snap.x, snap.y, snap.x, snap.y], stroke: '#f59e0b', strokeWidth: 4, dash: [6, 4], fill: 'rgba(245, 158, 11, 0.3)' });
-                this.uiLayer.add(this.roofPreview); // Add to UI layer so it's always visible above walls
+                this.roofPreview = new Konva.Line({ 
+                    points: [snap.x, snap.y, snap.x, snap.y], 
+                    stroke: this.tool === 'shape_floor_cut' ? '#ef4444' : '#f59e0b', 
+                    strokeWidth: 4, 
+                    dash: [6, 4], 
+                    fill: this.tool === 'shape_floor_cut' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)' 
+                });
+                this.uiLayer.add(this.roofPreview);
                 this.uiLayer.batchDraw();
             } else {
-                console.log("mousedown.roof: Adding point to roof");
                 const startP = this.drawingRoofPoints[0];
                 if (Math.hypot(snap.x - startP.x, snap.y - startP.y) < SNAP_DIST && this.drawingRoofPoints.length > 2) {
-                    console.log("mousedown.roof: Finishing roof");
                     
-                    // Auto-correct 4-point roofs to form a perfect parallelogram/rectangle
-                    // This prevents the roof from "collapsing" if the user accidentally snapped the 4th point to an inner corner
                     if (this.drawingRoofPoints.length === 4) {
                         const p0 = this.drawingRoofPoints[0];
                         const p1 = this.drawingRoofPoints[1];
@@ -1426,9 +1434,29 @@ export class FloorPlanner {
                         };
                     }
                     
-                    const roof = new PremiumHipRoof(this, this.drawingRoofPoints);
-                    roof.config.roofType = this.currentRoofToolType || 'hip';
-                    this.roofs.push(roof); this.selectEntity(roof, 'roof');
+                    if (this.tool === 'shape_floor_cut') {
+                        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                        this.drawingRoofPoints.forEach(p => {
+                            minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+                            minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+                        });
+                        const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+                        const w = maxX - minX, h = maxY - minY;
+                        
+                        const relPts = this.drawingRoofPoints.map(p => ({ x: p.x - cx, y: p.y - cy }));
+                        
+                        const newShape = new PremiumShape(this, 'shape_floor_cut', { 
+                            x: cx, y: cy, width: w, height: h, points: relPts,
+                            stroke: '#ef4444', fill: 'rgba(239, 68, 68, 0.2)'
+                        });
+                        if (!this.shapes) this.shapes = []; this.shapes.push(newShape);
+                        this.selectEntity(newShape, 'shape');
+                    } else {
+                        const roof = new PremiumHipRoof(this, this.drawingRoofPoints);
+                        roof.config.roofType = this.currentRoofToolType || 'hip';
+                        this.roofs.push(roof); this.selectEntity(roof, 'roof');
+                    }
+                    
                     this.drawingRoofPoints = null; this.roofPreview.destroy(); this.roofPreview = null;
                     this.tool = 'select'; this.updateToolStates(); this.syncAll();
                     if (this.onToolChange) this.onToolChange(this.tool);
@@ -1444,7 +1472,7 @@ export class FloorPlanner {
         this.stage.on("mousemove.roof touchmove.roof", (e) => {
             if (e && e.evt && e.evt.touches && e.evt.touches.length > 1) return;
 
-            if (this.tool === 'roof') {
+            if (this.tool === 'roof' || this.tool === 'shape_floor_cut') {
                 const pos = this.getPointerPos();
                 if (!pos) return;
                 
@@ -1456,42 +1484,46 @@ export class FloorPlanner {
                 let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
                 for (let line of allReferenceWalls) {
                     let pts = line.getAttr('refPts') || line.points();
-                    if (pts && pts.length === 4) {
-                        let d1 = Math.hypot(pos.x - pts[0], pos.y - pts[1]); let d2 = Math.hypot(pos.x - pts[2], pos.y - pts[3]);
-                        if (d1 < closestDist) { closestDist = d1; snap = {x: pts[0], y: pts[1]}; snappedObj = true; } 
-                        if (d2 < closestDist) { closestDist = d2; snap = {x: pts[2], y: pts[3]}; snappedObj = true; }
-                        let proj = this.getClosestPointOnSegment(pos, {x: pts[0], y: pts[1]}, {x: pts[2], y: pts[3]}); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); 
-                        if (dist < closestDist) { closestDist = dist; snap = proj; snappedObj = true; }
+                    if (pts && pts.length >= 4) {
+                        for (let i = 0; i < pts.length; i += 2) {
+                            let cx = pts[i], cy = pts[i+1];
+                            if (Math.hypot(pos.x - cx, pos.y - cy) < closestDist) { closestDist = Math.hypot(pos.x - cx, pos.y - cy); snap = {x: cx, y: cy}; snappedObj = true; }
+                            
+                            let nx = pts[(i+2)%pts.length], ny = pts[(i+3)%pts.length];
+                            let proj = this.getClosestPointOnSegment(pos, {x: cx, y: cy}, {x: nx, y: ny});
+                            let distSeg = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                            if (distSeg < closestDist) { closestDist = distSeg; snap = proj; snappedObj = true; }
+                        }
                     }
                 }
 
-                // ADD WALL SNAPPING TO MOUSEMOVE
-                for (let w of this.walls) {
-                    if (typeof w.getExactPolygonPoints === 'function') {
-                        const pts = w.getExactPolygonPoints();
-                        if (pts && pts.length >= 4) {
-                            for (let i = 0; i < pts.length; i += 2) {
-                                let cx = pts[i], cy = pts[i+1];
-                                let distCorner = Math.hypot(pos.x - cx, pos.y - cy);
-                                if (distCorner < closestDist) { closestDist = distCorner; snap = {x: cx, y: cy}; snappedObj = true; targetSnapWall = w; }
-                                
-                                let nx = pts[(i+2)%pts.length], ny = pts[(i+3)%pts.length];
-                                let proj = this.getClosestPointOnSegment(pos, {x: cx, y: cy}, {x: nx, y: ny});
-                                let distSeg = Math.hypot(pos.x - proj.x, pos.y - proj.y);
-                                if (distSeg < closestDist) { closestDist = distSeg; snap = proj; snappedObj = true; targetSnapWall = w; }
+                if (!snappedObj) {
+                    let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < closestDist);
+                    if (a) { snap = { x: a.x, y: a.y }; snappedObj = true; }
+                    else {
+                        for (let w of this.walls) {
+                            if (typeof w.getExactPolygonPoints === 'function') {
+                                const pts = w.getExactPolygonPoints();
+                                if (pts && pts.length >= 4) {
+                                    for (let i = 0; i < pts.length; i += 2) {
+                                        let cx = pts[i], cy = pts[i+1];
+                                        if (Math.hypot(pos.x - cx, pos.y - cy) < closestDist) { closestDist = Math.hypot(pos.x - cx, pos.y - cy); snap = {x: cx, y: cy}; snappedObj = true; }
+                                        let nx = pts[(i+2)%pts.length], ny = pts[(i+3)%pts.length];
+                                        let proj = this.getClosestPointOnSegment(pos, {x: cx, y: cy}, {x: nx, y: ny});
+                                        if (Math.hypot(pos.x - proj.x, pos.y - proj.y) < closestDist) { closestDist = Math.hypot(pos.x - proj.x, pos.y - proj.y); snap = proj; snappedObj = true; }
+                                    }
+                                }
+                            } else {
+                                const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
+                                let d1 = Math.hypot(pos.x - p1.x, pos.y - p1.y); let d2 = Math.hypot(pos.x - p2.x, pos.y - p2.y);
+                                if (d1 < closestDist) { closestDist = d1; snap = p1; snappedObj = true; }
+                                if (d2 < closestDist) { closestDist = d2; snap = p2; snappedObj = true; }
+                                let proj = this.getClosestPointOnSegment(pos, p1, p2); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                                if (dist < closestDist) { closestDist = dist; snap = proj; snappedObj = true; }
                             }
                         }
-                    } else {
-                        const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
-                        let d1 = Math.hypot(pos.x - p1.x, pos.y - p1.y); let d2 = Math.hypot(pos.x - p2.x, pos.y - p2.y);
-                        if (d1 < closestDist) { closestDist = d1; snap = p1; snappedObj = true; targetSnapWall = w; }
-                        if (d2 < closestDist) { closestDist = d2; snap = p2; snappedObj = true; targetSnapWall = w; }
-                        let proj = this.getClosestPointOnSegment(pos, p1, p2); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
-                        if (dist < closestDist) { closestDist = dist; snap = proj; snappedObj = true; targetSnapWall = w; }
                     }
                 }
-                
-                this.walls.forEach(w => w.setHighlight(w === targetSnapWall || w === this.selectedEntity || (w.parentArc && w.parentArc === this.selectedEntity)));
                 
                 if (snappedObj) { this.showSnapGlow(snap.x, snap.y); } else { this.hideSnapGlow(); }
 
@@ -2159,7 +2191,7 @@ export class FloorPlanner {
     loadReferenceBackground(jsonStr) {
         this.clearReferenceBackground();
         if (!jsonStr) return;
-        this.referenceGroup = new Konva.Group({ opacity: 0.35, listening: false });
+        this.referenceGroup = new Konva.Group({ opacity: 0.6, listening: false });
         this.referenceLayer.add(this.referenceGroup);
         try {
             const state = JSON.parse(jsonStr);
@@ -2174,6 +2206,140 @@ export class FloorPlanner {
                     shape.setAttr('refPts', [wData.startX, wData.startY, wData.endX, wData.endY]);
                     if (wData.bevels) shape.setAttr('bevels', wData.bevels);
                     this.referenceGroup.add(shape);
+                });
+            }
+            if (state && state.stairs) {
+                state.stairs.forEach(stair => {
+                    let width = Number(stair.width) || 100;
+                    let sd = Number(stair.stepDepth) || 25;
+                    let l1 = stair.flight1Steps !== undefined ? Number(stair.flight1Steps) * sd : (Number(stair.length1) || 200);
+                    let l2 = stair.flight2Steps !== undefined ? Number(stair.flight2Steps) * sd : (Number(stair.length2) || 200);
+                    let ls = stair.landingSize !== undefined ? Number(stair.landingSize) : width;
+                    let gw = Number(stair.gapWidth) || 10;
+                    let turn = stair.turnDirection || stair.turnDir || 'right';
+                    let pts = [];
+                    
+                    if (stair.shape === 'straight') {
+                        const totalL = (Number(stair.totalSteps) || 12) * sd;
+                        let y = 0; let totalLen = totalL;
+                        if (stair.hasTopLanding) { y -= ls; totalLen += ls; }
+                        if (stair.hasBottomLanding) { totalLen += ls; }
+                        pts = [
+                            {x: -width/2, y: y}, {x: width/2, y: y},
+                            {x: width/2, y: y + totalLen}, {x: -width/2, y: y + totalLen}
+                        ];
+                    } else if (stair.shape === 'L') {
+                        let y = 0; let f1Len = l1;
+                        if (stair.hasTopLanding) { y -= ls; f1Len += ls; }
+                        const f2X = turn === 'right' ? -width/2 : -width/2 - l2;
+                        let f2Len = l2 + width;
+                        let f2Start = f2X;
+                        if (stair.hasBottomLanding) {
+                            f2Len += ls;
+                            if (turn !== 'right') f2Start -= ls;
+                        }
+                        if (turn === 'right') {
+                            pts = [
+                                {x: -width/2, y: y}, {x: width/2, y: y}, {x: width/2, y: l1},
+                                {x: f2Start + f2Len, y: l1}, {x: f2Start + f2Len, y: l1 + width},
+                                {x: -width/2, y: l1 + width}
+                            ];
+                        } else {
+                            pts = [
+                                {x: -width/2, y: y}, {x: width/2, y: y}, {x: width/2, y: l1 + width},
+                                {x: f2Start, y: l1 + width}, {x: f2Start, y: l1}, {x: -width/2, y: l1}
+                            ];
+                        }
+                    } else if (stair.shape === 'U') {
+                        let y = 0; let f1Len = l1;
+                        if (stair.hasTopLanding) { y -= ls; f1Len += ls; }
+                        let f2Y = l1 - l2; let f2Len = l2;
+                        if (stair.hasBottomLanding) { f2Y -= ls; f2Len += ls; }
+                        if (turn === 'right') {
+                            pts = [
+                                {x: -width/2, y: y}, {x: width/2, y: y}, {x: width/2, y: f2Y},
+                                {x: width/2 + gw + width, y: f2Y}, {x: width/2 + gw + width, y: l1 + ls},
+                                {x: -width/2, y: l1 + ls}
+                            ];
+                        } else {
+                            pts = [
+                                {x: -width/2, y: y}, {x: width/2, y: y}, {x: width/2, y: l1 + ls},
+                                {x: -width/2 - width - gw, y: l1 + ls}, {x: -width/2 - width - gw, y: f2Y},
+                                {x: -width/2, y: f2Y}
+                            ];
+                        }
+                    }
+
+                    if (pts.length > 0) {
+                        const rot = (Number(stair.rotation) || 0) * Math.PI / 180;
+                        const sx = Number(stair.x) || 0, sy = Number(stair.y) || 0;
+                        const rotatedPts = pts.map(p => ({
+                            x: sx + (p.x * Math.cos(rot) - p.y * Math.sin(rot)),
+                            y: sy + (p.x * Math.sin(rot) + p.y * Math.cos(rot))
+                        }));
+                        const flatPts = rotatedPts.flatMap(p => [p.x, p.y]);
+                        
+                        const stairGhost = new Konva.Line({
+                            points: flatPts,
+                            fill: 'rgba(239, 68, 68, 0.4)',
+                            stroke: '#ef4444',
+                            strokeWidth: 4,
+                            dash: [8, 4],
+                            closed: true,
+                            lineJoin: 'round'
+                        });
+                        this.referenceGroup.add(stairGhost);
+
+                        // Create a multi-segment arrow path through the center of the staircase
+                        let arrowPath = [];
+                        if (stair.shape === 'straight') {
+                            const y = stair.hasTopLanding ? -ls : 0;
+                            const totalL = ((Number(stair.totalSteps) || 12) * sd) + (stair.hasTopLanding ? ls : 0) + (stair.hasBottomLanding ? ls : 0);
+                            arrowPath = [ {x: 0, y: y}, {x: 0, y: y + totalL} ];
+                        } else if (stair.shape === 'L') {
+                            const y = stair.hasTopLanding ? -ls : 0;
+                            const f2X = turn === 'right' ? -width/2 : -width/2 - l2;
+                            let f2Len = l2 + width + (stair.hasBottomLanding ? ls : 0);
+                            let f2Start = f2X - (stair.hasBottomLanding && turn !== 'right' ? ls : 0);
+                            const endX = turn === 'right' ? f2Start + f2Len : f2Start;
+                            arrowPath = [
+                                {x: 0, y: y},
+                                {x: 0, y: l1 + width/2},
+                                {x: endX, y: l1 + width/2}
+                            ];
+                        } else if (stair.shape === 'U') {
+                            const y = stair.hasTopLanding ? -ls : 0;
+                            let f2Y = l1 - l2 - (stair.hasBottomLanding ? ls : 0);
+                            const centerF2X = turn === 'right' ? (width + gw) : (-width - gw);
+                            const landingY = l1 + ls/2;
+                            arrowPath = [
+                                {x: 0, y: y},
+                                {x: 0, y: landingY},
+                                {x: centerF2X, y: landingY},
+                                {x: centerF2X, y: f2Y}
+                            ];
+                        }
+
+                        if (arrowPath.length > 0) {
+                            const rotArrowPath = arrowPath.map(p => ({
+                                x: sx + (p.x * Math.cos(rot) - p.y * Math.sin(rot)),
+                                y: sy + (p.x * Math.sin(rot) + p.y * Math.cos(rot))
+                            }));
+                            const flatArrowPts = rotArrowPath.flatMap(p => [p.x, p.y]);
+
+                            const stairArrow = new Konva.Arrow({
+                                points: flatArrowPts,
+                                pointerLength: 15,
+                                pointerWidth: 15,
+                                fill: '#ef4444',
+                                stroke: '#ef4444',
+                                strokeWidth: 4,
+                                lineJoin: 'round',
+                                tension: 0
+                            });
+                            this.referenceGroup.add(stairArrow);
+                        }
+                    }
                 });
             }
             this.bgLayer.batchDraw();

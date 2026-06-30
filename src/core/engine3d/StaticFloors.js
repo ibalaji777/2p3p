@@ -173,6 +173,42 @@ export class StaticFloors {
                             });
                         }
                         
+                        if (data.shapes) {
+                            data.shapes.forEach(shape => {
+                                if (shape.type === 'shape_floor_cut') {
+                                    const rot = (shape.rotation || 0) * Math.PI / 180;
+                                    const sx = shape.x || shape.params?.x || 0;
+                                    const sy = shape.y || shape.params?.y || 0;
+                                    let pts;
+                                    if (shape.params?.points) {
+                                        pts = shape.params.points;
+                                    } else {
+                                        const w = shape.params?.width || shape.width || 100;
+                                        const h = shape.params?.height || shape.height || 100;
+                                        pts = [
+                                            { x: -w/2, y: -h/2 }, { x: w/2, y: -h/2 },
+                                            { x: w/2, y: h/2 }, { x: -w/2, y: h/2 }
+                                        ];
+                                    }
+                                    
+                                    const rotC = pts.map(c => {
+                                        return {
+                                            x: sx + (c.x * Math.cos(rot) - c.y * Math.sin(rot)),
+                                            y: sy + (c.x * Math.sin(rot) + c.y * Math.cos(rot))
+                                        };
+                                    });
+                                    
+                                    const hole = new THREE.Path();
+                                    hole.moveTo(rotC[0].x, rotC[0].y);
+                                    for (let i = 1; i < rotC.length; i++) {
+                                        hole.lineTo(rotC[i].x, rotC[i].y);
+                                    }
+                                    hole.lineTo(rotC[0].x, rotC[0].y);
+                                    floorShape.holes.push(hole);
+                                }
+                            });
+                        }
+                        
                         const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
                         floorGeo.rotateX(Math.PI / 2);
                         floorGeo.translate(0, 0.2, 0);
@@ -452,4 +488,18 @@ export class StaticFloors {
                         }
 
                         const roofGroup = new THREE.Group(); roofGroup.position.set(roofData.x || 0, h, roofData.y || 0); roofGroup.rotation.y = -(roofData.rotation || 0) * Math.PI / 180;
-                        mesh.castShad
+                        mesh.castShadow = true;
+                        mesh.receiveShadow = true;
+                        roofGroup.add(mesh);
+                        
+                        this.target.add(roofGroup);
+                    });
+                }
+
+                this.target.add(floorGroup);
+            } catch (e) {
+                console.error("Failed to build static floor level", index, e);
+            }
+        });
+    }
+}
