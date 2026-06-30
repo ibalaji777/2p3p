@@ -22,7 +22,7 @@ export class Stair3DBuilder {
         return tex;
     }
 
-    build(stairs, parentGroup, activeIndex, isStatic = false) {
+    build(stairs, parentGroup, activeIndex, isStatic = false, maxWallHeight = 300) {
         if (!stairs || stairs.length === 0) return;
 
         stairs.forEach(stair => {
@@ -172,11 +172,22 @@ export class Stair3DBuilder {
                 const shape = stair.shape;
                 const width = Number(stair.width) || 100;
                 const stepDepth = Number(stair.stepDepth) || 28;
-                const stepHeight = Number(stair.stepHeight) || 17.5;
                 const direction = stair.direction || 'up';
                 const turnDir = stair.turnDirection || 'right';
                 const f1Steps = Number(stair.flight1Steps) || 0;
                 const f2Steps = Number(stair.flight2Steps) || 0;
+                
+                let totalRisers = 12;
+                if (shape === 'straight') {
+                    totalRisers = Number(stair.totalSteps) || 12;
+                } else if (shape === 'L' || shape === 'U' || shape === 'T') {
+                    const f1 = Number(stair.flight1Steps) || 6;
+                    const f2 = Number(stair.flight2Steps) || 6;
+                    totalRisers = f1 + f2;
+                }
+                
+                // AUTO-FIT HEIGHT: Enforce perfect fit to next floor height
+                const stepHeight = maxWallHeight / totalRisers;
                 const l1 = f1Steps * stepDepth;
                 const l2 = f2Steps * stepDepth;
                 const landingSize = Number(stair.landingSize) || width;
@@ -186,8 +197,7 @@ export class Stair3DBuilder {
                 const sWidth = Number(stair.stringerWidth) || 10;
                 const sThick = Number(stair.stringerThickness) || 20;
                 const bOffset = stair.beamOffset !== undefined ? Number(stair.beamOffset) : 25;
-                const hasLandingSupports = stair.landingSupports !== false;
-                const hasColumnSupports = stair.columnSupports === true;
+                const hasLandingSupports = stair.landingSupports === true;
                 const hasTopLanding = stair.hasTopLanding === true;
                 const hasBottomLanding = stair.hasBottomLanding === true;
                 
@@ -252,11 +262,12 @@ export class Stair3DBuilder {
                 const buildFlight = (startX, startZ, rotY, stepCount, startElevIdx) => {
                     const flightLength = stepCount * stepDepth;
                     
-                    const startH = direction === 'up' ? (startElevIdx + stepCount) * stepHeight : (startElevIdx) * stepHeight;
-                    const endH = direction === 'up' ? (startElevIdx) * stepHeight : (startElevIdx + stepCount) * stepHeight;
+                    const startH = direction === 'up' ? (startElevIdx) * stepHeight : (startElevIdx + stepCount) * stepHeight;
+                    const endH = direction === 'up' ? (startElevIdx + stepCount) * stepHeight : (startElevIdx) * stepHeight;
+
                     
                     for (let i = 0; i < stepCount; i++) {
-                        const logicalIdx = direction === 'up' ? (startElevIdx + stepCount - 1 - i) : (startElevIdx + i);
+                        const logicalIdx = direction === 'up' ? (startElevIdx + i) : (startElevIdx + stepCount - 1 - i);
                         const curHeight = (logicalIdx + 1) * stepHeight;
                         const meshZ = i * stepDepth + stepDepth / 2;
                         const treadX = startX + Math.sin(rotY) * meshZ;
@@ -268,8 +279,8 @@ export class Stair3DBuilder {
 
                     if (stringerType !== 'solid') {
                         const buildBeam = (offsetX, customWidth = sWidth) => {
-                            const startH = direction === 'up' ? (startElevIdx + stepCount) * stepHeight : (startElevIdx) * stepHeight;
-                            const endH = direction === 'up' ? (startElevIdx) * stepHeight : (startElevIdx + stepCount) * stepHeight;
+                            const startH = direction === 'up' ? (startElevIdx) * stepHeight : (startElevIdx + stepCount) * stepHeight;
+                            const endH = direction === 'up' ? (startElevIdx + stepCount) * stepHeight : (startElevIdx) * stepHeight;
                             
                             const shape = new THREE.Shape();
                             
@@ -331,7 +342,7 @@ export class Stair3DBuilder {
                             const cMat = getRailingMaterial(conf.cableMaterial);
 
                             const rOffset = Number(conf.offset) || 5;
-                            const rHeight = Number(conf.height) || 90;
+                            const rHeight = Number(conf.height) || 36;
                             const hSize = Number(conf.handrailSize) || 6;
                             
                             // Determine X offset relative to center of the flight
@@ -466,7 +477,7 @@ export class Stair3DBuilder {
                         frameMesh.castShadow = true; frameMesh.receiveShadow = true;
                         group.add(frameMesh);
                         
-                        if (hasLandingSupports || (isEndLanding && hasColumnSupports)) {
+                        if (hasLandingSupports) {
                             const colSize = 10;
                             const colHeight = topHeight - plateThick - sThick;
                             if (colHeight > 0) {
@@ -494,66 +505,66 @@ export class Stair3DBuilder {
                     buildLanding(cx, cz, lRotX, lRotY, elevIdx, true);
                 };
 
-                const startLanding = direction === 'up' ? hasTopLanding : hasBottomLanding;
-                const endLanding = direction === 'up' ? hasBottomLanding : hasTopLanding;
+                const startLanding = direction === 'up' ? hasBottomLanding : hasTopLanding;
+                const endLanding = direction === 'up' ? hasTopLanding : hasBottomLanding;
 
                 if (shape === 'straight') {
                     const steps = Number(stair.totalSteps) || 12;
-                    if (startLanding) addEndLanding(0, -landingSize, width, landingSize, 0, direction === 'up' ? steps : 0);
+                    if (startLanding) addEndLanding(0, -landingSize, width, landingSize, 0, direction === 'up' ? 0 : steps);
                     buildFlight(0, 0, 0, steps, 0);
-                    if (endLanding) addEndLanding(0, steps * stepDepth, width, landingSize, 0, direction === 'up' ? 0 : steps);
+                    if (endLanding) addEndLanding(0, steps * stepDepth, width, landingSize, 0, direction === 'up' ? steps : 0);
                 } else if (shape === 'L') {
-                    if (startLanding) addEndLanding(0, -landingSize, width, landingSize, 0, direction === 'up' ? f1Steps + f2Steps : 0);
-                    buildFlight(0, 0, 0, f1Steps, f2Steps);
+                    if (startLanding) addEndLanding(0, -landingSize, width, landingSize, 0, direction === 'up' ? 0 : f1Steps + f2Steps);
+                    buildFlight(0, 0, 0, f1Steps, direction === 'up' ? 0 : f2Steps);
                     
-                    const landingElevIdx = direction === 'up' ? f2Steps : f1Steps;
+                    const landingElevIdx = direction === 'up' ? f1Steps : f2Steps;
                     buildLanding(0, l1 + landingSize / 2, width, landingSize, landingElevIdx);
                     
                     const f2X = turnDir === 'right' ? width / 2 : -width / 2;
                     const f2Rot = turnDir === 'right' ? Math.PI / 2 : -Math.PI / 2;
-                    buildFlight(f2X, l1 + landingSize / 2, f2Rot, f2Steps, direction === 'up' ? 0 : f1Steps);
+                    buildFlight(f2X, l1 + landingSize / 2, f2Rot, f2Steps, direction === 'up' ? f1Steps : 0);
                     
                     if (endLanding) {
                         const endX = f2X + Math.sin(f2Rot) * l2;
                         const endZ = l1 + landingSize / 2 + Math.cos(f2Rot) * l2;
-                        addEndLanding(endX, endZ, width, landingSize, f2Rot, direction === 'up' ? 0 : f1Steps + f2Steps);
+                        addEndLanding(endX, endZ, width, landingSize, f2Rot, direction === 'up' ? f1Steps + f2Steps : 0);
                     }
                 } else if (shape === 'U') {
-                    if (startLanding) addEndLanding(0, -landingSize, width, landingSize, 0, direction === 'up' ? f1Steps + f2Steps : 0);
-                    buildFlight(0, 0, 0, f1Steps, f2Steps);
+                    if (startLanding) addEndLanding(0, -landingSize, width, landingSize, 0, direction === 'up' ? 0 : f1Steps + f2Steps);
+                    buildFlight(0, 0, 0, f1Steps, direction === 'up' ? 0 : f2Steps);
                     
-                    const landingElevIdx = direction === 'up' ? f2Steps : f1Steps;
+                    const landingElevIdx = direction === 'up' ? f1Steps : f2Steps;
                     const totalW = width * 2 + gapWidth;
                     const landingX = turnDir === 'right' ? width / 2 + gapWidth / 2 : -width / 2 - gapWidth / 2;
                     buildLanding(landingX, l1 + landingSize / 2, totalW, landingSize, landingElevIdx);
                     
                     const f2X = turnDir === 'right' ? width + gapWidth : -width - gapWidth;
-                    buildFlight(f2X, l1, Math.PI, f2Steps, direction === 'up' ? 0 : f1Steps);
+                    buildFlight(f2X, l1, Math.PI, f2Steps, direction === 'up' ? f1Steps : 0);
 
                     if (endLanding) {
                         const endX = f2X + Math.sin(Math.PI) * l2;
                         const endZ = l1 + Math.cos(Math.PI) * l2;
-                        addEndLanding(endX, endZ, width, landingSize, Math.PI, direction === 'up' ? 0 : f1Steps + f2Steps);
+                        addEndLanding(endX, endZ, width, landingSize, Math.PI, direction === 'up' ? f1Steps + f2Steps : 0);
                     }
                 } else if (shape === 'T') {
-                    if (startLanding) addEndLanding(0, -landingSize, width, landingSize, 0, direction === 'up' ? f1Steps + f2Steps : 0);
-                    buildFlight(0, 0, 0, f1Steps, f2Steps);
+                    if (startLanding) addEndLanding(0, -landingSize, width, landingSize, 0, direction === 'up' ? 0 : f1Steps + f2Steps);
+                    buildFlight(0, 0, 0, f1Steps, direction === 'up' ? 0 : f2Steps);
                     
-                    const landingElevIdx = direction === 'up' ? f2Steps : f1Steps;
+                    const landingElevIdx = direction === 'up' ? f1Steps : f2Steps;
                     const totalW = l2 * 2 + width;
                     buildLanding(0, l1 + landingSize / 2, totalW, landingSize, landingElevIdx);
                     
-                    buildFlight(-width / 2, l1 + landingSize / 2, -Math.PI / 2, f2Steps, direction === 'up' ? 0 : f1Steps);
-                    buildFlight(width / 2, l1 + landingSize / 2, Math.PI / 2, f2Steps, direction === 'up' ? 0 : f1Steps);
+                    buildFlight(-width / 2, l1 + landingSize / 2, -Math.PI / 2, f2Steps, direction === 'up' ? f1Steps : 0);
+                    buildFlight(width / 2, l1 + landingSize / 2, Math.PI / 2, f2Steps, direction === 'up' ? f1Steps : 0);
 
                     if (endLanding) {
                         const lX = -width / 2 + Math.sin(-Math.PI / 2) * l2;
                         const lZ = l1 + landingSize / 2 + Math.cos(-Math.PI / 2) * l2;
-                        addEndLanding(lX, lZ, width, landingSize, -Math.PI / 2, direction === 'up' ? 0 : f1Steps + f2Steps);
+                        addEndLanding(lX, lZ, width, landingSize, -Math.PI / 2, direction === 'up' ? f1Steps + f2Steps : 0);
                         
                         const rX = width / 2 + Math.sin(Math.PI / 2) * l2;
                         const rZ = l1 + landingSize / 2 + Math.cos(Math.PI / 2) * l2;
-                        addEndLanding(rX, rZ, width, landingSize, Math.PI / 2, direction === 'up' ? 0 : f1Steps + f2Steps);
+                        addEndLanding(rX, rZ, width, landingSize, Math.PI / 2, direction === 'up' ? f1Steps + f2Steps : 0);
                     }
                 }
             }

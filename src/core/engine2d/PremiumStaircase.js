@@ -30,8 +30,7 @@ export class PremiumStaircase {
         this.stringerWidth = data.stringerWidth || 10;
         this.stringerThickness = data.stringerThickness || 20;
         this.beamOffset = data.beamOffset !== undefined ? data.beamOffset : 25; // Distance from edge for double stringers
-        this.landingSupports = data.landingSupports !== undefined ? data.landingSupports : true;
-        this.columnSupports = data.columnSupports !== undefined ? data.columnSupports : false;
+        this.landingSupports = data.landingSupports !== undefined ? data.landingSupports : false;
 
         // Shape specific
         if (this.shape === 'straight') {

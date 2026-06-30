@@ -496,7 +496,6 @@
                         <div class="control-group"><label>Stringer Thickness</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stringerThickness" min="5" max="100" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.stringerThickness" @input="$emit('sync-engine')"></div></div>
                         <div class="control-group" v-if="selectedEntity.stringerType === 'double'"><label>Beam Offset</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.beamOffset" min="0" max="100" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.beamOffset" @input="$emit('sync-engine')"></div></div>
                         <div class="control-group"><label>Landing Supports</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="selectedEntity.landingSupports" @change="$emit('sync-engine')"></div></div>
-                        <div class="control-group"><label>Column Supports</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="selectedEntity.columnSupports" @change="$emit('sync-engine')"></div></div>
                     </template>
 
                     <!-- Railings -->

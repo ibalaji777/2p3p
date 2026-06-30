@@ -377,9 +377,17 @@ export class Preview3D {
         const activeLevelConfig = levelsConfigArray[activeIndex];
         const isActiveVisible = activeLevelConfig ? activeLevelConfig.isVisible : true;
 
+        let stairsBelow = [];
+        if (activeIndex > 0 && levelsConfigArray[activeIndex - 1] && levelsConfigArray[activeIndex - 1].data) {
+            try {
+                const prevData = JSON.parse(levelsConfigArray[activeIndex - 1].data);
+                if (prevData.stairs) stairsBelow = prevData.stairs;
+            } catch (e) {}
+        }
+
         // BUILD ACTIVE (Pass the offset groups instead of the root groups)
         if (isActiveVisible) {
-            this.activeFloorBuilder.build(walls, roomPaths, roofs, shapes, stairs, activeIndex, activeOffset);
+            this.activeFloorBuilder.build(walls, roomPaths, roofs, shapes, stairs, activeIndex, activeOffset, stairsBelow);
             if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn, activeOffset));
         }
 

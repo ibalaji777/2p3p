@@ -47,15 +47,17 @@ export class ActiveFloor {
         };
     }
 
-    build(walls, rooms, roofs, shapes, stairs = [], activeIndex = 0, targetGroup = this.structureGroup) {
-        this._buildSlabs(rooms, stairs, targetGroup);
-        this.stairBuilder.build(stairs, targetGroup, activeIndex);
+    build(walls, rooms, roofs, shapes, stairs = [], activeIndex = 0, targetGroup = this.structureGroup, stairsBelow = []) {
+        this._buildSlabs(rooms, stairs, targetGroup, stairsBelow);
+
 
         const hasWalls = walls && walls.length > 0;
         let maxWallHeight = WALL_HEIGHT;
         if (hasWalls) {
             maxWallHeight = Math.max(...walls.map(w => w.height || w.config?.height || WALL_HEIGHT));
         }
+
+        this.stairBuilder.build(stairs, targetGroup, activeIndex, false, maxWallHeight);
 
         if (roofs) this._buildRoofs(roofs, activeIndex, hasWalls, maxWallHeight, targetGroup);        
         if (shapes) this._buildShapes(shapes, targetGroup);
@@ -213,7 +215,7 @@ export class ActiveFloor {
         });
     }
 
-    _buildSlabs(rooms, stairs = [], targetGroup = this.structureGroup) {
+    _buildSlabs(rooms, stairs = [], targetGroup = this.structureGroup, stairsBelow = []) {
         if (!rooms) return;
 
         rooms.forEach(room => {
@@ -223,6 +225,98 @@ export class ActiveFloor {
             const floorShape = new THREE.Shape();
             floorShape.moveTo(path[0].x, path[0].y);
             for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
+            
+            if (stairsBelow && stairsBelow.length > 0) {
+                stairsBelow.forEach(stair => {
+                    if (stair.type && stair.type.startsWith('stair_v5_')) {
+                        const width = Number(stair.width) || 100;
+                        const sd = Number(stair.stepDepth) || 28;
+                        const ls = Number(stair.landingSize) || width;
+                        const f1 = Number(stair.flight1Steps) || 6;
+                        const f2 = Number(stair.flight2Steps) || 6;
+                        const l1 = f1 * sd;
+                        const l2 = f2 * sd;
+                        const turn = stair.turnDirection || 'right';
+                        const gw = Number(stair.gapWidth) || 20;
+
+                        const rects = []; 
+
+                        if (stair.shape === 'straight') {
+                            const totalL = (Number(stair.totalSteps) || 12) * sd;
+                            let y = 0; let totalLen = totalL;
+                            if (stair.hasTopLanding) { y -= ls; totalLen += ls; }
+                            if (stair.hasBottomLanding) { totalLen += ls; }
+                            rects.push({ x: -width/2, y: y, w: width, h: totalLen });
+                        } else if (stair.shape === 'L') {
+                            let y = 0; let f1Len = l1;
+                            if (stair.hasTopLanding) { y -= ls; f1Len += ls; }
+                            // Rect 1: Top Landing (if any) + Main Flight (stops at l1)
+                            rects.push({ x: -width/2, y: y, w: width, h: f1Len });
+                            
+                            // Rect 2: Corner Landing + Second Flight
+                            const f2X = turn === 'right' ? -width/2 : -width/2 - l2;
+                            let f2Len = l2 + width; // includes corner landing
+                            let f2Start = f2X;
+                            if (stair.hasBottomLanding) {
+                                f2Len += ls;
+                                if (turn !== 'right') f2Start -= ls;
+                            }
+                            rects.push({ x: f2Start, y: l1, w: f2Len, h: width });
+                        } else if (stair.shape === 'U') {
+                            let y = 0; let f1Len = l1;
+                            if (stair.hasTopLanding) { y -= ls; f1Len += ls; }
+                            // Rect 1: Top Landing + Main Flight (stops at l1)
+                            rects.push({ x: -width/2, y: y, w: width, h: f1Len });
+                            
+                            // Rect 2: The long continuous landing block covering both corner landings
+                            const totalW = width * 2 + gw;
+                            const landingX = turn === 'right' ? -width/2 : -width/2 - width - gw;
+                            rects.push({ x: landingX, y: l1, w: totalW, h: ls });
+                            
+                            // Rect 3: Second Flight (starts after corner landing)
+                            const f2X = turn === 'right' ? width/2 + gw : -width/2 - width - gw;
+                            let f2Y = l1 - l2; let f2Len = l2;
+                            if (stair.hasBottomLanding) { f2Y -= ls; f2Len += ls; }
+                            rects.push({ x: f2X, y: f2Y, w: width, h: f2Len });
+                        }
+                        
+                        const rot = (stair.rotation || 0) * Math.PI / 180;
+                        const sx = stair.x;
+                        const sy = stair.y;
+                        const pad = 1; // Shrink by 1 unit to prevent wall boundary intersection
+                        
+                        rects.forEach(r => {
+                            const cx1 = r.x + pad;
+                            const cy1 = r.y + pad;
+                            const cx2 = r.x + r.w - pad;
+                            const cy2 = r.y + r.h - pad;
+                            if (cx2 <= cx1 || cy2 <= cy1) return; 
+                            
+                            const corners = [
+                                { x: cx1, y: cy1 },
+                                { x: cx2, y: cy1 },
+                                { x: cx2, y: cy2 },
+                                { x: cx1, y: cy2 }
+                            ];
+                            
+                            const rotC = corners.map(c => {
+                                return {
+                                    x: sx + (c.x * Math.cos(rot) - c.y * Math.sin(rot)),
+                                    y: sy + (c.x * Math.sin(rot) + c.y * Math.cos(rot))
+                                };
+                            });
+                            
+                            const hole = new THREE.Path();
+                            hole.moveTo(rotC[0].x, rotC[0].y);
+                            hole.lineTo(rotC[1].x, rotC[1].y);
+                            hole.lineTo(rotC[2].x, rotC[2].y);
+                            hole.lineTo(rotC[3].x, rotC[3].y);
+                            hole.lineTo(rotC[0].x, rotC[0].y);
+                            floorShape.holes.push(hole);
+                        });
+                    }
+                });
+            }
             
             const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
             floorGeo.rotateX(Math.PI / 2);

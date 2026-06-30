@@ -998,6 +998,14 @@ const spawnFurniture = (configId) => {
 const syncEngine = () => {
     if (planner.value) {
         planner.value.syncAll();
+        if (selectedType.value === 'room' && selectedEntity.value) {
+            const oldCx = selectedEntity.value.cx;
+            const oldCy = selectedEntity.value.cy;
+            const newRoom = planner.value.rooms.find(r => Math.hypot(r.cx - oldCx, r.cy - oldCy) < 20);
+            if (newRoom) {
+                selectedEntity.value = newRoom;
+            }
+        }
     }
     
     if (viewMode.value === '3d') {

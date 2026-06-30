@@ -498,14 +498,39 @@ export class Preview3D {
             this.staticStructureGroup.remove(c); 
         }
 
-        const targetY = activeIndex * WALL_HEIGHT;
+        let cumulativeHeight = 0;
+        for (let i = 0; i < activeIndex; i++) {
+            if (levelsConfigArray[i] && levelsConfigArray[i].data) {
+                try {
+                    const data = JSON.parse(levelsConfigArray[i].data);
+                    let maxH = WALL_HEIGHT;
+                    if (data.walls && data.walls.length > 0) {
+                        maxH = Math.max(...data.walls.map(w => w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT)));
+                    }
+                    cumulativeHeight += maxH;
+                } catch(e) {
+                    cumulativeHeight += WALL_HEIGHT;
+                }
+            } else {
+                cumulativeHeight += WALL_HEIGHT;
+            }
+        }
+        const targetY = cumulativeHeight;
         this.structureGroup.position.y = targetY;
 
         const activeLevelConfig = levelsConfigArray[activeIndex];
         const isActiveVisible = activeLevelConfig ? activeLevelConfig.isVisible : true;
 
+        let stairsBelow = [];
+        if (activeIndex > 0 && levelsConfigArray[activeIndex - 1] && levelsConfigArray[activeIndex - 1].data) {
+            try {
+                const prevData = JSON.parse(levelsConfigArray[activeIndex - 1].data);
+                if (prevData.stairs) stairsBelow = prevData.stairs;
+            } catch(e) {}
+        }
+
         if (isActiveVisible) {
-            this.envBuilder.buildActiveFloor(walls, rooms, shapes, stairs);
+            this.envBuilder.buildActiveFloor(walls, rooms, shapes, stairs, stairsBelow);
             if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn));
 
             if (roofs && roofs.length > 0) this.envBuilder.buildRoofs(roofs, activeIndex, walls, this.structureGroup);

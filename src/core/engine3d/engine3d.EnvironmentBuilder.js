@@ -93,8 +93,12 @@ export class EnvironmentBuilder {
         }
     }
 
-    buildActiveFloor(walls, rooms, shapes, stairs = []) {
-        this.stairBuilder.build(stairs, this.ctx.structureGroup, 0, false);
+    buildActiveFloor(walls, rooms, shapes, stairs = [], stairsBelow = []) {
+        let maxWallHeight = WALL_HEIGHT;
+        if (walls && walls.length > 0) {
+            maxWallHeight = Math.max(...walls.map(w => w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT)));
+        }
+        this.stairBuilder.build(stairs, this.ctx.structureGroup, 0, false, maxWallHeight);
 
         const matMain = new THREE.MeshStandardMaterial({ 
             color: 0xf3f2ec, // Warm off-white
@@ -113,6 +117,91 @@ export class EnvironmentBuilder {
                 const floorShape = new THREE.Shape();
                 floorShape.moveTo(path[0].x, path[0].y);
                 for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
+                
+                if (stairsBelow && stairsBelow.length > 0) {
+                    stairsBelow.forEach(stair => {
+                        if (stair.type && stair.type.startsWith('stair_v5_')) {
+                            const width = Number(stair.width) || 100;
+                            const sd = Number(stair.stepDepth) || 28;
+                            const ls = Number(stair.landingSize) || width;
+                            const f1 = Number(stair.flight1Steps) || 6;
+                            const f2 = Number(stair.flight2Steps) || 6;
+                            const l1 = f1 * sd;
+                            const l2 = f2 * sd;
+                            const turn = stair.turnDirection || 'right';
+                            const gw = Number(stair.gapWidth) || 20;
+
+                            const rects = []; 
+
+                            if (stair.shape === 'straight') {
+                                const totalL = (Number(stair.totalSteps) || 12) * sd;
+                                let y = 0; let totalLen = totalL;
+                                if (stair.hasBottomLanding) { y -= ls; totalLen += ls; }
+                                if (stair.hasTopLanding) { totalLen += ls; }
+                                rects.push({ x: -width/2, y: y, w: width, h: totalLen });
+                            } else if (stair.shape === 'L') {
+                                let y = 0; let f1Len = l1;
+                                if (stair.hasBottomLanding) { y -= ls; f1Len += ls; }
+                                rects.push({ x: -width/2, y: y, w: width, h: f1Len });
+                                
+                                const f2X = turn === 'right' ? -width/2 : -width/2 - l2;
+                                let f2Len = l2 + width;
+                                let f2Start = f2X;
+                                if (stair.hasTopLanding) {
+                                    f2Len += ls;
+                                    if (turn !== 'right') f2Start -= ls;
+                                }
+                                rects.push({ x: f2Start, y: l1, w: f2Len, h: width });
+                            } else if (stair.shape === 'U') {
+                                let y = 0; let f1Len = l1;
+                                if (stair.hasBottomLanding) { y -= ls; f1Len += ls; }
+                                rects.push({ x: -width/2, y: y, w: width, h: f1Len });
+                                
+                                const totalW = width * 2 + gw;
+                                const landingX = turn === 'right' ? -width/2 : -width/2 - width - gw;
+                                rects.push({ x: landingX, y: l1, w: totalW, h: ls });
+                                
+                                const f2X = turn === 'right' ? width/2 + gw : -width/2 - width - gw;
+                                let f2Y = l1 - l2; let f2Len = l2;
+                                if (stair.hasTopLanding) { f2Y -= ls; f2Len += ls; }
+                                rects.push({ x: f2X, y: f2Y, w: width, h: f2Len });
+                            }
+                            
+                            const rot = (stair.rotation || 0) * Math.PI / 180;
+                            const sx = stair.x;
+                            const sy = stair.y;
+                            const pad = -2; 
+                            
+                            rects.forEach(r => {
+                                const cx1 = r.x + pad;
+                                const cy1 = r.y + pad;
+                                const cx2 = r.x + r.w - pad;
+                                const cy2 = r.y + r.h - pad;
+                                if (cx2 <= cx1 || cy2 <= cy1) return; 
+                                
+                                const corners = [
+                                    { x: cx1, y: cy1 }, { x: cx2, y: cy1 },
+                                    { x: cx2, y: cy2 }, { x: cx1, y: cy2 }
+                                ];
+                                
+                                const rotC = corners.map(c => {
+                                    return {
+                                        x: sx + (c.x * Math.cos(rot) - c.y * Math.sin(rot)),
+                                        y: sy + (c.x * Math.sin(rot) + c.y * Math.cos(rot))
+                                    };
+                                });
+                                
+                                const hole = new THREE.Path();
+                                hole.moveTo(rotC[0].x, rotC[0].y);
+                                hole.lineTo(rotC[1].x, rotC[1].y);
+                                hole.lineTo(rotC[2].x, rotC[2].y);
+                                hole.lineTo(rotC[3].x, rotC[3].y);
+                                hole.lineTo(rotC[0].x, rotC[0].y);
+                                floorShape.holes.push(hole);
+                            });
+                        }
+                    });
+                }
                 
                 const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 10, bevelEnabled: false });
                 floorGeo.rotateX(Math.PI / 2);
@@ -754,10 +843,32 @@ export class EnvironmentBuilder {
             try {
                 const data = JSON.parse(levelConfig.data);
                 const floorGroup = new THREE.Group();
-                floorGroup.position.y = index * WALL_HEIGHT;
+                
+                let cumulativeHeight = 0;
+                for (let i = 0; i < index; i++) {
+                    if (levelsConfigArray[i] && levelsConfigArray[i].data) {
+                        try {
+                            const prevData = JSON.parse(levelsConfigArray[i].data);
+                            let maxH = WALL_HEIGHT;
+                            if (prevData.walls && prevData.walls.length > 0) {
+                                maxH = Math.max(...prevData.walls.map(w => w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT)));
+                            }
+                            cumulativeHeight += maxH;
+                        } catch(e) {
+                            cumulativeHeight += WALL_HEIGHT;
+                        }
+                    } else {
+                        cumulativeHeight += WALL_HEIGHT;
+                    }
+                }
+                floorGroup.position.y = cumulativeHeight;
 
                 if (data.stairs) {
-                    this.stairBuilder.build(data.stairs, floorGroup, index, true);
+                    let maxWallHeight2 = WALL_HEIGHT;
+                    if (data.walls && data.walls.length > 0) {
+                        maxWallHeight2 = Math.max(...data.walls.map(w => w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT)));
+                    }
+                    this.stairBuilder.build(data.stairs, floorGroup, index, true, maxWallHeight2);
                 }
 
                 const matMain = new THREE.MeshStandardMaterial({ 
@@ -777,6 +888,99 @@ export class EnvironmentBuilder {
                         floorShape.moveTo(path[0].x, path[0].y);
                         for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
                         
+                        let stairsBelow = [];
+                        if (index > 0 && levelsConfigArray[index - 1] && levelsConfigArray[index - 1].data) {
+                            try {
+                                const prevData = JSON.parse(levelsConfigArray[index - 1].data);
+                                if (prevData.stairs) stairsBelow = prevData.stairs;
+                            } catch (e) {}
+                        }
+                        
+                        if (stairsBelow && stairsBelow.length > 0) {
+                            stairsBelow.forEach(stair => {
+                                if (stair.type && stair.type.startsWith('stair_v5_')) {
+                                    const width = Number(stair.width) || 100;
+                                    const sd = Number(stair.stepDepth) || 28;
+                                    const ls = Number(stair.landingSize) || width;
+                                    const f1 = Number(stair.flight1Steps) || 6;
+                                    const f2 = Number(stair.flight2Steps) || 6;
+                                    const l1 = f1 * sd;
+                                    const l2 = f2 * sd;
+                                    const turn = stair.turnDirection || 'right';
+                                    const gw = Number(stair.gapWidth) || 20;
+
+                                    const rects = []; 
+
+                                    if (stair.shape === 'straight') {
+                                        const totalL = (Number(stair.totalSteps) || 12) * sd;
+                                        let y = 0; let totalLen = totalL;
+                                        if (stair.hasBottomLanding) { y -= ls; totalLen += ls; }
+                                        if (stair.hasTopLanding) { totalLen += ls; }
+                                        rects.push({ x: -width/2, y: y, w: width, h: totalLen });
+                                    } else if (stair.shape === 'L') {
+                                        let y = 0; let f1Len = l1;
+                                        if (stair.hasBottomLanding) { y -= ls; f1Len += ls; }
+                                        rects.push({ x: -width/2, y: y, w: width, h: f1Len });
+                                        
+                                        const f2X = turn === 'right' ? -width/2 : -width/2 - l2;
+                                        let f2Len = l2 + width;
+                                        let f2Start = f2X;
+                                        if (stair.hasTopLanding) {
+                                            f2Len += ls;
+                                            if (turn !== 'right') f2Start -= ls;
+                                        }
+                                        rects.push({ x: f2Start, y: l1, w: f2Len, h: width });
+                                    } else if (stair.shape === 'U') {
+                                        let y = 0; let f1Len = l1;
+                                        if (stair.hasBottomLanding) { y -= ls; f1Len += ls; }
+                                        rects.push({ x: -width/2, y: y, w: width, h: f1Len });
+                                        
+                                        const totalW = width * 2 + gw;
+                                        const landingX = turn === 'right' ? -width/2 : -width/2 - width - gw;
+                                        rects.push({ x: landingX, y: l1, w: totalW, h: ls });
+                                        
+                                        const f2X = turn === 'right' ? width/2 + gw : -width/2 - width - gw;
+                                        let f2Y = l1 - l2; let f2Len = l2;
+                                        if (stair.hasTopLanding) { f2Y -= ls; f2Len += ls; }
+                                        rects.push({ x: f2X, y: f2Y, w: width, h: f2Len });
+                                    }
+                                    
+                                    const rot = (stair.rotation || 0) * Math.PI / 180;
+                                    const sx = stair.x;
+                                    const sy = stair.y;
+                                    const pad = -2; 
+                                    
+                                    rects.forEach(r => {
+                                        const cx1 = r.x + pad;
+                                        const cy1 = r.y + pad;
+                                        const cx2 = r.x + r.w - pad;
+                                        const cy2 = r.y + r.h - pad;
+                                        if (cx2 <= cx1 || cy2 <= cy1) return; 
+                                        
+                                        const corners = [
+                                            { x: cx1, y: cy1 }, { x: cx2, y: cy1 },
+                                            { x: cx2, y: cy2 }, { x: cx1, y: cy2 }
+                                        ];
+                                        
+                                        const rotC = corners.map(c => {
+                                            return {
+                                                x: sx + (c.x * Math.cos(rot) - c.y * Math.sin(rot)),
+                                                y: sy + (c.x * Math.sin(rot) + c.y * Math.cos(rot))
+                                            };
+                                        });
+                                        
+                                        const hole = new THREE.Path();
+                                        hole.moveTo(rotC[0].x, rotC[0].y);
+                                        hole.lineTo(rotC[1].x, rotC[1].y);
+                                        hole.lineTo(rotC[2].x, rotC[2].y);
+                                        hole.lineTo(rotC[3].x, rotC[3].y);
+                                        hole.lineTo(rotC[0].x, rotC[0].y);
+                                        floorShape.holes.push(hole);
+                                    });
+                                }
+                            });
+                        }
+
                         const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 10, bevelEnabled: false });
                         floorGeo.rotateX(Math.PI / 2);
                         
