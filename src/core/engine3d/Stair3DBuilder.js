@@ -43,14 +43,24 @@ export class Stair3DBuilder {
                 
                 if (typeId === 'steel' || typeId === 'stainless_steel') return new THREE.MeshStandardMaterial({ color, roughness: 0.2, metalness: 0.8 });
                 
-                if (typeId === 'marble' || typeId === 'granite') {
-                    // For White Marble, we ignore the tint color and use pure white to show the texture clearly
-                    const mapColor = typeId === 'marble' ? 0xffffff : color;
-                    
-                    // BoxGeometry UVs go 0 to 1. A repeat of 1 or 2 shows the veins nicely.
+                if (typeId === 'marble') {
                     const map = this.getTexture('models/wall/marble_1_white.png', 1, 1);
                     return new THREE.MeshPhysicalMaterial({ 
-                        color: mapColor, 
+                        color: 0xffffff, 
+                        map: map,
+                        bumpMap: map,
+                        bumpScale: 0.5,
+                        roughness: 0.1, 
+                        metalness: 0.05, 
+                        clearcoat: 1.0, 
+                        clearcoatRoughness: 0.1
+                    });
+                }
+                
+                if (typeId === 'granite') {
+                    const map = this.getTexture('models/wall/black_marble.png', 1, 1);
+                    return new THREE.MeshPhysicalMaterial({ 
+                        color: 0xffffff, 
                         map: map,
                         bumpMap: map,
                         bumpScale: 0.5,
