@@ -102,10 +102,10 @@ export class Stair3DBuilder {
             group.rotation.y = -sRot * Math.PI / 180;
 
             if (stair.type === 'stair_v4_flight') {
-                const stepCount = Number(stair.stepCount) || 10;
-                const stepDepth = Number(stair.stepDepth) || 28;
-                const stepHeight = Number(stair.stepHeight) || 17.5;
-                const width = Number(stair.width) || 100;
+                const stepCount = Number(stair.stepCount) || 15;
+                const stepDepth = Number(stair.stepDepth) || 18.33;
+                const stepHeight = Number(stair.stepHeight) || 11.67;
+                const width = Number(stair.width) || 60;
                 const direction = stair.direction || 'up'; // Defaults to up
 
                 const stepGeo = new THREE.BoxGeometry(width, stepHeight, stepDepth);
@@ -158,8 +158,8 @@ export class Stair3DBuilder {
                     group.add(landingMesh);
 
                 } else {
-                    const width = Number(stair.width) || 100;
-                    const length = Number(stair.length) || 100;
+                    const width = Number(stair.width) || 60;
+                    const length = Number(stair.length) || 60;
                     
                     const landingGeo = new THREE.BoxGeometry(width, stepHeight, length);
                     const landingMesh = new THREE.Mesh(landingGeo, stairMat);
@@ -170,19 +170,19 @@ export class Stair3DBuilder {
                 }
             } else if (stair.type && stair.type.startsWith('stair_v5_')) {
                 const shape = stair.shape;
-                const width = Number(stair.width) || 100;
-                const stepDepth = Number(stair.stepDepth) || 28;
+                const width = Number(stair.width) || 60;
+                const stepDepth = Number(stair.stepDepth) || 18.33;
                 const direction = stair.direction || 'up';
                 const turnDir = stair.turnDirection || 'right';
                 const f1Steps = Number(stair.flight1Steps) || 0;
                 const f2Steps = Number(stair.flight2Steps) || 0;
                 
-                let totalRisers = 12;
+                let totalRisers = 15;
                 if (shape === 'straight') {
-                    totalRisers = Number(stair.totalSteps) || 12;
+                    totalRisers = Number(stair.totalSteps) || 15;
                 } else if (shape === 'L' || shape === 'U' || shape === 'T') {
-                    const f1 = Number(stair.flight1Steps) || 6;
-                    const f2 = Number(stair.flight2Steps) || 6;
+                    const f1 = Number(stair.flight1Steps) || 8;
+                    const f2 = Number(stair.flight2Steps) || 7;
                     totalRisers = f1 + f2;
                 }
                 
@@ -342,8 +342,8 @@ export class Stair3DBuilder {
                             const cMat = getRailingMaterial(conf.cableMaterial);
 
                             const rOffset = Number(conf.offset) || 5;
-                            const rHeight = Number(conf.height) || 36;
-                            const hSize = Number(conf.handrailSize) || 6;
+                            const rHeight = Number(conf.height) || 60;
+                            const hSize = Number(conf.handrailSize) || 3.33;
                             
                             // Determine X offset relative to center of the flight
                             const railX = sideStr === 'left' ? -(width/2 - rOffset) : (width/2 - rOffset);

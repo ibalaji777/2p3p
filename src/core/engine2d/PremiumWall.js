@@ -9,7 +9,7 @@ export class PremiumWall {
         this.planner = planner; this.startAnchor = startAnchor; this.endAnchor = endAnchor; this.attachedWidgets = []; this.attachedMoldings = []; this.type = type; this.config = WALL_REGISTRY[type] || WALL_REGISTRY['outer'];
         this.id = 'wall_' + Date.now() + '_' + Math.floor(Math.random()*1000);
         this.thickness = this.config.thickness;
-        this.height = this.config.height || 120;
+        this.height = this.config.height || 180;
         
         // Parametric constraints to prevent joint folding on acute angles
         this.miterLimitRatio = this.config.miterLimitRatio || 3;

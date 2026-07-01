@@ -188,7 +188,7 @@ export class PremiumHipRoof {
                         gableWall.endHeight = 0;
                         this.planner.walls.push(gableWall);
                     }
-                    gableWall.elevation = w.height !== undefined ? w.height : (w.config?.height || 120);
+                    gableWall.elevation = w.height !== undefined ? w.height : (w.config?.height || 180);
                     gableWall.height = 0;
                     gableWall.peakHeight = roofH;
                     if (gableWall.updateGeometry) gableWall.updateGeometry();

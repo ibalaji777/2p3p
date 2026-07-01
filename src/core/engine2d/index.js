@@ -1934,7 +1934,7 @@ export class FloorPlanner {
             walls: standardWalls.map(w => ({
                 id: w.id,
                 startAnchorId: w.startAnchor._id, endAnchorId: w.endAnchor._id,
-                startX: w.startAnchor.x, startY: w.startAnchor.y, endX: w.endAnchor.x, endY: w.endAnchor.y, thickness: w.thickness || w.config.thickness, height: w.height !== undefined ? w.height : (w.config?.height || 120), type: w.type, configId: w.configId,
+                startX: w.startAnchor.x, startY: w.startAnchor.y, endX: w.endAnchor.x, endY: w.endAnchor.y, thickness: w.thickness || w.config.thickness, height: w.height !== undefined ? w.height : (w.config?.height || 180), type: w.type, configId: w.configId,
                 hidden: w.hidden,
                 description: w.description,
                 topProfileType: w.topProfileType, flipSlope: w.flipSlope, startHeight: w.startHeight, peakHeight: w.peakHeight, endHeight: w.endHeight,

@@ -16,9 +16,9 @@ export class PremiumStaircase {
         this.description = data.description || '';
 
         // Standard metrics
-        this.width = data.width || 100;
-        this.stepDepth = data.stepDepth || 28;
-        this.stepHeight = data.stepHeight || 17.5;
+        this.width = data.width || 60;
+        this.stepDepth = data.stepDepth || 18.33;
+        this.stepHeight = data.stepHeight || 11.67;
         this.isStatic = data.isStatic || false;
 
         // End Landings
@@ -34,23 +34,23 @@ export class PremiumStaircase {
 
         // Shape specific
         if (this.shape === 'straight') {
-            this.totalSteps = data.totalSteps || 12;
+            this.totalSteps = data.totalSteps || 15;
             this.flight1Steps = this.totalSteps;
             this.flight2Steps = 0;
         } else if (this.shape === 'L') {
-            this.flight1Steps = data.flight1Steps || 6;
-            this.flight2Steps = data.flight2Steps || 6;
+            this.flight1Steps = data.flight1Steps || 8;
+            this.flight2Steps = data.flight2Steps || 7;
             this.turnDirection = data.turnDirection || 'right'; // 'left' or 'right'
             this.landingSize = data.landingSize || this.width;
         } else if (this.shape === 'U') {
-            this.flight1Steps = data.flight1Steps || 6;
-            this.flight2Steps = data.flight2Steps || 6;
+            this.flight1Steps = data.flight1Steps || 8;
+            this.flight2Steps = data.flight2Steps || 7;
             this.turnDirection = data.turnDirection || 'right';
             this.landingSize = data.landingSize || this.width;
             this.gapWidth = data.gapWidth || 20;
         } else if (this.shape === 'T') {
-            this.flight1Steps = data.flight1Steps || 6; // Main flight
-            this.flight2Steps = data.flight2Steps || 5; // Branch flights
+            this.flight1Steps = data.flight1Steps || 8; // Main flight
+            this.flight2Steps = data.flight2Steps || 7; // Branch flights
             this.landingSize = data.landingSize || this.width;
         }
 
@@ -76,13 +76,13 @@ export class PremiumStaircase {
         this.linkRailings = data.linkRailings !== undefined ? data.linkRailings : true;
         
         const defaultRailing = {
-            height: 90,
+            height: 60,
             offset: 5,
             balusterSpacing: 15,
             balusterShape: 'square',
             balusterSize: 4,
             handrailProfile: 'rectangular',
-            handrailSize: 6,
+            handrailSize: 3.33,
             hasNewelPosts: true,
             newelSize: 8,
             hasCornerPosts: true,
