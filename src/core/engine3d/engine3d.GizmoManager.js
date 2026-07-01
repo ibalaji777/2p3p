@@ -129,9 +129,9 @@ export class GizmoManager {
         this.btnRoofCorners.onclick = () => this.setTransformMode('roof_corners');
 
         this.btnPolygonEdges = document.createElement('button');
-        this.btnPolygonEdges.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
+        this.btnPolygonEdges.innerHTML = '✂️<br>Adjust';
         this.btnPolygonEdges.className = 'transform-menu-btn';
-        this.btnPolygonEdges.title = 'Edit Polygon Edges';
+        this.btnPolygonEdges.title = 'Adjust Shape Cut';
         this.btnPolygonEdges.style.display = 'none';
         this.btnPolygonEdges.onclick = () => this.setTransformMode('polygon_edges');
         
