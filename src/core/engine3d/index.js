@@ -152,7 +152,7 @@ export class Preview3D {
             obj.geometry.dispose();
             obj.geometry = new THREE.CylinderGeometry(entity.params.radius, entity.params.radius, h, 32);
             obj.geometry.translate(0, h / 2, 0);
-        } else if (entity.type === 'shape_triangle' || entity.type === 'shape_polygon') {
+        } else if (entity.type === 'shape_triangle' || entity.type === 'shape_polygon' || entity.type === 'shape_floor_cut') {
             const shape2d = new THREE.Shape();
             if (entity.params.points && entity.params.points.length >= 3) {
                 const pts = entity.params.points;
@@ -160,9 +160,23 @@ export class Preview3D {
                 for(let i=1; i<pts.length; i++) shape2d.lineTo(pts[i].x, pts[i].y);
                 shape2d.lineTo(pts[0].x, pts[0].y);
                 obj.geometry.dispose();
-                obj.geometry = new THREE.ExtrudeGeometry(shape2d, { depth: h, bevelEnabled: false });
-                obj.geometry.rotateX(Math.PI / 2);
-                obj.geometry.translate(0, h, 0);
+                
+                if (entity.type === 'shape_floor_cut') {
+                    obj.geometry = new THREE.ShapeGeometry(shape2d);
+                    obj.geometry.rotateX(Math.PI / 2);
+                    obj.position.y = 0.5; // Match EnvironmentBuilder
+                    
+                    // Update child edges geometry if they exist
+                    if (obj.children && obj.children.length > 0 && obj.children[0].isLineSegments) {
+                        const edgesMesh = obj.children[0];
+                        if (edgesMesh.geometry) edgesMesh.geometry.dispose();
+                        edgesMesh.geometry = new THREE.EdgesGeometry(obj.geometry);
+                    }
+                } else {
+                    obj.geometry = new THREE.ExtrudeGeometry(shape2d, { depth: h, bevelEnabled: false });
+                    obj.geometry.rotateX(Math.PI / 2);
+                    obj.geometry.translate(0, h, 0);
+                }
             }
         }
         
@@ -170,7 +184,11 @@ export class Preview3D {
         const groupZ = entity.group ? entity.group.y() : entity.y;
         const intentionalElevation = entity.elevation || 0;
         
-        obj.position.set(groupX, intentionalElevation, groupZ);
+        if (entity.type === 'shape_floor_cut') {
+            obj.position.set(groupX, 0.5, groupZ);
+        } else {
+            obj.position.set(groupX, intentionalElevation, groupZ);
+        }
         obj.rotation.set(
             entity.rotationX || 0,
             -(entity.rotation || 0) * Math.PI / 180,
@@ -296,6 +314,10 @@ export class Preview3D {
             if (ent2D && ent2D.group) { 
                 ent2D.group.x(obj3D.position.x); 
                 ent2D.group.y(obj3D.position.z); 
+                ent2D.x = obj3D.position.x;
+                ent2D.y = obj3D.position.z;
+                if (ent2D.elevation !== undefined) ent2D.elevation = obj3D.position.y;
+                
                 // Sync rotation from 3D back to 2D entity
                 ent2D.rotation = -obj3D.rotation.y * (180 / Math.PI);
                 ent2D.rotationX = obj3D.rotation.x;
@@ -305,11 +327,43 @@ export class Preview3D {
                 if (obj3D.userData && obj3D.userData.originalSize) {
                     const orig = obj3D.userData.originalSize;
                     ent2D.width = orig.x * obj3D.scale.x;
-                    ent2D.height = orig.y * obj3D.scale.y;
-                    ent2D.depth = orig.z * obj3D.scale.z;
+                    if (ent2D.type === 'shape_floor_cut') {
+                        ent2D.height = orig.z * obj3D.scale.z;
+                    } else {
+                        ent2D.height = orig.y * obj3D.scale.y;
+                        ent2D.depth = orig.z * obj3D.scale.z;
+                    }
                 }
                 
                 ent2D.update(); 
+            } else if (obj3D.userData && obj3D.userData.isStatic && ent2D) {
+                // Handle static cross-floor object syncing
+                ent2D.x = obj3D.position.x;
+                ent2D.y = obj3D.position.z;
+                if (ent2D.elevation !== undefined) ent2D.elevation = obj3D.position.y;
+                ent2D.rotation = -obj3D.rotation.y * (180 / Math.PI);
+                
+                // Save directly to the inactive floor's JSON data
+                for (let i = 0; i < this.levelsConfigArray.length; i++) {
+                    if (i === this.activeIndex) continue;
+                    if (this.levelsConfigArray[i] && this.levelsConfigArray[i].data) {
+                        try {
+                            let lData = JSON.parse(this.levelsConfigArray[i].data);
+                            if (lData.stairs) {
+                                let found = lData.stairs.find(s => s.id === ent2D.id);
+                                if (found) {
+                                    found.x = ent2D.x;
+                                    found.y = ent2D.y;
+                                    if (ent2D.elevation !== undefined) found.elevation = ent2D.elevation;
+                                    found.rotation = ent2D.rotation;
+                                    this.levelsConfigArray[i].data = JSON.stringify(lData);
+                                }
+                            }
+                        } catch (e) {
+                            console.error("Failed to sync static stair to inactive floor", e);
+                        }
+                    }
+                }
             }
         }
         if (this.onEntityTransform) this.onEntityTransform();

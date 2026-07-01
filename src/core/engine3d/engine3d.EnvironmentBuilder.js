@@ -151,6 +151,49 @@ export class EnvironmentBuilder {
                             }
                             hole.lineTo(rotC[0].x, rotC[0].y);
                             floorShape.holes.push(hole);
+
+                            const proxyShape = new THREE.Shape();
+                            if (pts && pts.length > 0) {
+                                proxyShape.moveTo(pts[0].x, pts[0].y);
+                                for (let i = 1; i < pts.length; i++) {
+                                    proxyShape.lineTo(pts[i].x, pts[i].y);
+                                }
+                                proxyShape.lineTo(pts[0].x, pts[0].y);
+                            }
+                            
+                            const proxyGeo = new THREE.ShapeGeometry(proxyShape);
+                            proxyGeo.rotateX(Math.PI / 2); // Lay flat
+                            
+                            const proxyMat = new THREE.MeshBasicMaterial({
+                                color: 0x3b82f6,
+                                side: THREE.DoubleSide,
+                                transparent: true,
+                                opacity: 0.15,
+                                depthWrite: false
+                            });
+                            let proxyMesh = new THREE.Mesh(proxyGeo, proxyMat);
+                            
+                            // Add CAD-style wireframe edges
+                            const edgesGeo = new THREE.EdgesGeometry(proxyGeo);
+                            const edgesMat = new THREE.LineBasicMaterial({ color: 0x3b82f6 });
+                            const edgesMesh = new THREE.LineSegments(edgesGeo, edgesMat);
+                            proxyMesh.add(edgesMesh);
+                            
+                            proxyMesh.position.y = 0.5;
+                            proxyMesh.renderOrder = 1;
+                            proxyMesh.userData = { entity: shape, isFloorCutProxy: true };
+                            proxyMesh.position.set(sx, 0.5, sy);
+                            proxyMesh.rotation.y = -rot;
+                            const w = shape.params?.width || shape.width || 100;
+                            const h = shape.params?.height || shape.height || 100;
+                            proxyMesh.userData = { 
+                                entity: shape,
+                                originalSize: new THREE.Vector3(w, 10, h),
+                                isFloorCutProxy: true
+                            };
+                            this.ctx.interactables.push(proxyMesh);
+                            this.ctx.structureGroup.add(proxyMesh);
+                            shape.mesh3D = proxyMesh;
                         }
                     });
                 }

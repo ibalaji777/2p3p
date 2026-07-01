@@ -124,8 +124,16 @@ export class GizmoManager {
         this.btnRoofCorners = document.createElement('button');
         this.btnRoofCorners.className = 'transform-menu-btn';
         this.btnRoofCorners.innerHTML = '⬡<br>Corners';
+        this.btnRoofCorners.title = 'Edit Roof Corners';
         this.btnRoofCorners.style.display = 'none';
         this.btnRoofCorners.onclick = () => this.setTransformMode('roof_corners');
+
+        this.btnPolygonEdges = document.createElement('button');
+        this.btnPolygonEdges.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
+        this.btnPolygonEdges.className = 'transform-menu-btn';
+        this.btnPolygonEdges.title = 'Edit Polygon Edges';
+        this.btnPolygonEdges.style.display = 'none';
+        this.btnPolygonEdges.onclick = () => this.setTransformMode('polygon_edges');
         
         this.openingPanel = document.createElement('div');
         this.openingPanel.style.display = 'none';
@@ -332,6 +340,7 @@ export class GizmoManager {
         this.transformMenu.appendChild(this.btnCorner);
         this.transformMenu.appendChild(this.btnVertexSlope);
         this.transformMenu.appendChild(this.btnRoofCorners);
+        this.transformMenu.appendChild(this.btnPolygonEdges);
         
         this.container.appendChild(this.transformMenu);
         ['pointerdown', 'wheel'].forEach(evt => {
@@ -850,6 +859,7 @@ export class GizmoManager {
         if (this.btnMaterial) this.btnMaterial.classList.remove('active');
         if (this.btnStyle) this.btnStyle.classList.remove('active');
         if (this.btnCorner) this.btnCorner.classList.remove('active');
+        if (this.btnPolygonEdges) this.btnPolygonEdges.classList.remove('active');
 
         if (this.ctx.interactions.openingGizmo) {
             this.ctx.interactions.openingGizmo.detach();
@@ -862,6 +872,9 @@ export class GizmoManager {
         }
         if (this.ctx.interactions.roofCornerGizmo) {
             this.ctx.interactions.roofCornerGizmo.detach();
+        }
+        if (this.ctx.interactions.polygonGizmo) {
+            this.ctx.interactions.polygonGizmo.detach();
         }
         if (this.ctx.interactions.materialGizmo && mode !== 'material') {
             this.ctx.interactions.materialGizmo.detach();
@@ -928,6 +941,7 @@ export class GizmoManager {
             if (this.btnCorner) this.btnCorner.style.display = activeGizmos.includes('corner') ? 'flex' : 'none';
             if (this.btnVertexSlope) this.btnVertexSlope.style.display = activeGizmos.includes('vertexSlope') ? 'flex' : 'none';
             if (this.btnRoofCorners) this.btnRoofCorners.style.display = activeGizmos.includes('roofCorners') ? 'flex' : 'none';
+            if (this.btnPolygonEdges) this.btnPolygonEdges.style.display = activeGizmos.includes('polygonEdges') ? 'flex' : 'none';
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
             if (this.materialPanel) this.materialPanel.style.display = 'none';
@@ -959,6 +973,7 @@ export class GizmoManager {
         if (this.btnCorner) this.btnCorner.style.display = 'none';
         if (this.btnVertexSlope) this.btnVertexSlope.style.display = 'none';
         if (this.btnRoofCorners) this.btnRoofCorners.style.display = 'none';
+        if (this.btnPolygonEdges) this.btnPolygonEdges.style.display = 'none';
         if (this.btnDone) this.btnDone.style.display = 'flex';
 
         if (selectedObj) tc.detach();
@@ -1055,6 +1070,21 @@ export class GizmoManager {
             if (this.stylePanel) this.stylePanel.style.display = 'none';
             if (this.ctx.interactions.roofCornerGizmo && selectedObj) {
                 this.ctx.interactions.roofCornerGizmo.attach(selectedObj);
+            }
+            return;
+        }
+
+        if (mode === 'polygon_edges') {
+            tc.visible = false;
+            tc.enabled = false;
+            if (this.btnPolygonEdges) this.btnPolygonEdges.classList.add('active');
+            if (this.xyPanel) this.xyPanel.style.display = 'none';
+            if (this.openingPanel) this.openingPanel.style.display = 'none';
+            if (this.materialPanel) this.materialPanel.style.display = 'none';
+            if (this.cornerPanel) this.cornerPanel.style.display = 'none';
+            if (this.stylePanel) this.stylePanel.style.display = 'none';
+            if (this.ctx.interactions.polygonGizmo && selectedObj) {
+                this.ctx.interactions.polygonGizmo.attach(selectedObj);
             }
             return;
         }

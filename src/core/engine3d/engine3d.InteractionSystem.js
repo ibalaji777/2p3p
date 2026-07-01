@@ -7,6 +7,7 @@ import { MaterialGizmo } from './MaterialGizmo.js';
 import { CornerRadiusGizmo } from './CornerRadiusGizmo.js';
 import { VertexSlopeGizmo } from './VertexSlopeGizmo.js';
 import { RoofCornerGizmo } from './RoofCornerGizmo.js';
+import { PolygonGizmo } from './PolygonGizmo.js';
 
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from '../../core/registry';
 
@@ -295,6 +296,9 @@ export class InteractionSystem {
         this.roofCornerGizmo = new RoofCornerGizmo(ctx);
         this.ctx.scene.add(this.roofCornerGizmo);
 
+        this.polygonGizmo = new PolygonGizmo(ctx);
+        this.ctx.scene.add(this.polygonGizmo);
+
         this.initEvents();
     }
 
@@ -342,6 +346,9 @@ export class InteractionSystem {
                 if (this.cornerGizmo && this.cornerGizmo.visible) {
                     if (this.raycaster.intersectObjects(this.cornerGizmo.handles.children, true).length > 0) return;
                 }
+                if (this.polygonGizmo && this.polygonGizmo.visible) {
+                    if (this.raycaster.intersectObjects(this.polygonGizmo.handles.children, true).length > 0) return;
+                }
                 
                 const intersects = this.raycaster.intersectObjects(this.ctx.interactables, true);
                 if (intersects.length === 0) {
@@ -369,9 +376,9 @@ export class InteractionSystem {
                     return;
                 }
 
-                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isMolding && !mesh.userData.isRoof && !mesh.userData.isPattern && !mesh.userData.isStair) mesh = mesh.parent;
+                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isMolding && !mesh.userData.isRoof && !mesh.userData.isPattern && !mesh.userData.isStair && !mesh.userData.isFloorCutProxy) mesh = mesh.parent;
                 
-                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isMolding || mesh.userData.isRoof || mesh.userData.isPattern || mesh.userData.isStair)) {
+                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isMolding || mesh.userData.isRoof || mesh.userData.isPattern || mesh.userData.isStair || mesh.userData.isFloorCutProxy)) {
                     if (this.mode === 'edit') {
                         this.selectObject(mesh);
                     }
@@ -399,16 +406,16 @@ export class InteractionSystem {
             if (intersects.length > 0) {
                 dom.style.cursor = 'pointer';
                 let mesh = intersects[0].object;
-                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isRoom && !mesh.userData.isRoof && !mesh.userData.isWidget && !mesh.userData.isMolding && !mesh.userData.isPattern && !mesh.userData.isStair) mesh = mesh.parent;
+                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isRoom && !mesh.userData.isRoof && !mesh.userData.isWidget && !mesh.userData.isMolding && !mesh.userData.isPattern && !mesh.userData.isStair && !mesh.userData.isFloorCutProxy) mesh = mesh.parent;
                 if (this.hoveredObject !== mesh) {
-                    if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isMolding || this.hoveredObject.userData.isPattern || this.hoveredObject.userData.isStair)) this.setHighlight(this.hoveredObject, false);
+                    if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isMolding || this.hoveredObject.userData.isPattern || this.hoveredObject.userData.isStair || this.hoveredObject.userData.isFloorCutProxy)) this.setHighlight(this.hoveredObject, false);
                     this.hoveredObject = mesh;
-                    if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isMolding || this.hoveredObject.userData.isPattern || this.hoveredObject.userData.isStair)) this.setHighlight(this.hoveredObject, true, 0x93c5fd);
+                    if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isMolding || this.hoveredObject.userData.isPattern || this.hoveredObject.userData.isStair || this.hoveredObject.userData.isFloorCutProxy)) this.setHighlight(this.hoveredObject, true, 0x93c5fd);
                 }
             } else {
                 dom.style.cursor = 'auto';
                 if (this.hoveredObject) {
-                    if (this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isMolding || this.hoveredObject.userData.isPattern || this.hoveredObject.userData.isStair)) this.setHighlight(this.hoveredObject, false);
+                    if (this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isMolding || this.hoveredObject.userData.isPattern || this.hoveredObject.userData.isStair || this.hoveredObject.userData.isFloorCutProxy)) this.setHighlight(this.hoveredObject, false);
                     this.hoveredObject = null;
                 }
             }
@@ -428,6 +435,8 @@ export class InteractionSystem {
             if (this.transformControls) this.transformControls.detach();
             if (this.materialGizmo) this.materialGizmo.detach();
             if (this.cornerGizmo) this.cornerGizmo.detach();
+            if (this.roofCornerGizmo) this.roofCornerGizmo.attach(this.selectedObject);
+            if (this.polygonGizmo) this.polygonGizmo.detach();
             if (this.openingGizmo) this.openingGizmo.attach(this.selectedObject);
         } else if (mode === 'corner') {
             if (this.transformControls) this.transformControls.detach();
@@ -492,7 +501,7 @@ export class InteractionSystem {
     }
 
     selectObject(object) {
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isMolding || this.selectedObject.userData.isRoof || this.selectedObject.userData.isPattern || this.selectedObject.userData.isStair)) this.setHighlight(this.selectedObject, false);
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isMolding || this.selectedObject.userData.isRoof || this.selectedObject.userData.isPattern || this.selectedObject.userData.isStair || this.selectedObject.userData.isFloorCutProxy)) this.setHighlight(this.selectedObject, false);
         if (this.transformControls) this.transformControls.detach();
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
 
@@ -674,11 +683,12 @@ export class InteractionSystem {
             this.wallHighlight.visible = true;
             if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
         } 
-        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor || object.userData.isWidget || object.userData.isMolding || object.userData.isRoof || object.userData.isPattern || object.userData.isStair) {
-            if (object.userData.isShape) type = 'shape';
+        else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor || object.userData.isWidget || object.userData.isMolding || object.userData.isRoof || object.userData.isPattern || object.userData.isStair || object.userData.isFloorCutProxy) {
+            if (object.userData.isShape || object.userData.isFloorCutProxy) type = 'shape';
             else if (object.userData.isFurniture) type = 'furniture';
             else if (object.userData.isWallDecor) type = 'wallDecor';
             else if (object.userData.isFloor) type = 'room';
+            else if (object.userData.isWidget) type = 'widget';
             else if (object.userData.isWidget) type = 'widget';
             else if (object.userData.isMolding) type = 'molding';
             else if (object.userData.isRoof) type = 'roof';
@@ -708,9 +718,11 @@ export class InteractionSystem {
         if (this.materialGizmo) this.materialGizmo.detach();
         if (this.cornerGizmo) this.cornerGizmo.detach();
         if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
+        if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
+        if (this.polygonGizmo) this.polygonGizmo.detach();
         this.ctx.currentTransformMode = 'none';
         if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isMolding || this.selectedObject.userData.isRoof || this.selectedObject.userData.isPattern || this.selectedObject.userData.isStair)) this.setHighlight(this.selectedObject, false);
+        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isMolding || this.selectedObject.userData.isRoof || this.selectedObject.userData.isPattern || this.selectedObject.userData.isStair || this.selectedObject.userData.isFloorCutProxy)) this.setHighlight(this.selectedObject, false);
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
         this.selectedObject = null;
         if (this.ctx.onEntitySelect) this.ctx.onEntitySelect(null, null, null);

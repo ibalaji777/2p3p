@@ -849,7 +849,7 @@ export class FloorPlanner {
                     if (this.shapes) {
                         for (let s of this.shapes) {
                             if (s.type !== 'shape_rect' && s.type !== 'shape_floor_cut' && s.type !== 'shape_polygon') continue;
-                            let pts = []; if (s.type === 'shape_rect' || s.type === 'shape_floor_cut') { const w = s.params.width; const h = s.params.height; pts = [ {x: -w/2, y: -h/2}, {x: w/2, y: -h/2}, {x: w/2, y: h/2}, {x: -w/2, y: h/2} ]; } else { pts = s.params.points; }
+                            let pts = []; if (s.type === 'shape_rect') { const w = s.params.width; const h = s.params.height; pts = [ {x: -w/2, y: -h/2}, {x: w/2, y: -h/2}, {x: w/2, y: h/2}, {x: -w/2, y: h/2} ]; } else { pts = s.params.points; }
                             if (!pts) continue;
                             const transform = s.group.getTransform();
                             for (let i = 0; i < pts.length; i++) {
@@ -1045,7 +1045,7 @@ export class FloorPlanner {
                 if (!foundGlow && this.shapes) {
                     for (let s of this.shapes) {
                         if (s.type !== 'shape_rect' && s.type !== 'shape_floor_cut' && s.type !== 'shape_polygon') continue;
-                        let pts = []; if (s.type === 'shape_rect' || s.type === 'shape_floor_cut') { const w = s.params.width; const h = s.params.height; pts = [ {x: -w/2, y: -h/2}, {x: w/2, y: -h/2}, {x: w/2, y: h/2}, {x: -w/2, y: h/2} ]; } else { pts = s.params.points; }
+                        let pts = []; if (s.type === 'shape_rect') { const w = s.params.width; const h = s.params.height; pts = [ {x: -w/2, y: -h/2}, {x: w/2, y: -h/2}, {x: w/2, y: h/2}, {x: -w/2, y: h/2} ]; } else { pts = s.params.points; }
                         const transform = s.group.getTransform();
                         for (let i = 0; i < pts.length; i++) {
                             const p1 = transform.point(pts[i]); const p2 = transform.point(pts[(i + 1) % pts.length]); const proj = this.getClosestPointOnSegment(pos, p1, p2);
@@ -1213,7 +1213,7 @@ export class FloorPlanner {
                     if (this.shapes) {
                         for (let s of this.shapes) {
                             if (s.type !== 'shape_rect' && s.type !== 'shape_floor_cut' && s.type !== 'shape_polygon') continue;
-                            let pts = []; if (s.type === 'shape_rect' || s.type === 'shape_floor_cut') { const w = s.params.width; const h = s.params.height; pts = [ {x: -w/2, y: -h/2}, {x: w/2, y: -h/2}, {x: w/2, y: h/2}, {x: -w/2, y: h/2} ]; } else { pts = s.params.points; }
+                            let pts = []; if (s.type === 'shape_rect') { const w = s.params.width; const h = s.params.height; pts = [ {x: -w/2, y: -h/2}, {x: w/2, y: -h/2}, {x: w/2, y: h/2}, {x: -w/2, y: h/2} ]; } else { pts = s.params.points; }
                             if (!pts) continue;
                             const transform = s.group.getTransform();
                             for (let i = 0; i < pts.length; i++) {

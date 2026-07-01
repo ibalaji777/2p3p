@@ -570,12 +570,9 @@ export class Stair3DBuilder {
             }
 
             // Assign user data to be able to identify or select it if needed
-            group.userData = { entity: stair, isStair: true };
-            if (!isStatic) {
-                this.interactables.push(...group.children);
-                group.children.forEach(c => c.userData = { entity: stair, isStair: true });
-            }
-
+            group.userData = { entity: stair, isStair: true, isStatic: isStatic };
+            this.interactables.push(group);
+            
             parentGroup.add(group);
         });
     }
