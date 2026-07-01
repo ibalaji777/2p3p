@@ -299,20 +299,20 @@ export class PremiumShape {
             this.planner.uiLayer.batchDraw();
         });
         
-        if (this.type === 'shape_polygon') {
+        if (this.type === 'shape_polygon' || (this.type === 'shape_floor_cut' && this.params.points)) {
             this.rebuildHandles();
         }
     }
     setHighlight(isActive) { this.shape.strokeWidth(isActive ? 2 : 0); this.shape.stroke(isActive ? '#3b82f6' : this.params.stroke); if (this.handlesGroup) this.handlesGroup.visible(isActive); if (this.rotHandle) this.rotHandle.visible(isActive); this.planner.stage.batchDraw(); }
     update() {
-        if (this.type === 'shape_rect') {
+        if (this.type === 'shape_rect' || (this.type === 'shape_floor_cut' && !this.params.points)) {
             this.shape.width(this.params.width); this.shape.height(this.params.height);
             this.shape.offsetX(this.params.width / 2); this.shape.offsetY(this.params.height / 2);
             if (this.rotHandle) this.rotHandle.position({ x: 0, y: -this.params.height / 2 - 15 });
         } else if (this.type === 'shape_circle') {
             this.shape.radius(this.params.radius);
             if (this.rotHandle) this.rotHandle.position({ x: 0, y: -this.params.radius - 15 });
-        } else if (this.type === 'shape_polygon') {
+        } else if (this.type === 'shape_polygon' || (this.type === 'shape_floor_cut' && this.params.points)) {
             if (this.params.points) {
                 this.shape.points(this.params.points.flatMap(p => [p.x, p.y]));
                 let minY = Math.min(...this.params.points.map(p => p.y));

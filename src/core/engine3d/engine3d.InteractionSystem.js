@@ -347,7 +347,8 @@ export class InteractionSystem {
                     if (this.raycaster.intersectObjects(this.cornerGizmo.handles.children, true).length > 0) return;
                 }
                 if (this.polygonGizmo && this.polygonGizmo.visible) {
-                    if (this.raycaster.intersectObjects(this.polygonGizmo.handles.children, true).length > 0) return;
+                    if (this.raycaster.intersectObjects(this.polygonGizmo.edgeHandles.children, true).length > 0) return;
+                    if (this.raycaster.intersectObjects(this.polygonGizmo.cornerHandles.children, true).length > 0) return;
                 }
                 
                 const intersects = this.raycaster.intersectObjects(this.ctx.interactables, true);
@@ -698,6 +699,11 @@ export class InteractionSystem {
                 
             if (type === 'furniture' || type === 'shape' || type === 'widget' || type === 'molding' || type === 'advance_openings' || type === 'wallDecor' || type === 'roof' || type === 'stair') {
                 if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
+                
+                // Auto-activate polygon_edges adjustment gizmo for floor cuts
+                if (object.userData.isFloorCutProxy && this.ctx.setTransformMode) {
+                    this.ctx.setTransformMode('polygon_edges', true);
+                }
             } else {
                 if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
             }

@@ -340,7 +340,7 @@ export class Preview3D {
             obj.geometry.dispose();
             obj.geometry = new THREE.CylinderGeometry(entity.params.radius, entity.params.radius, h, 32);
             obj.geometry.translate(0, h / 2, 0);
-        } else if (entity.type === 'shape_triangle' || entity.type === 'shape_polygon') {
+        } else if (entity.type === 'shape_triangle' || entity.type === 'shape_polygon' || entity.type === 'shape_floor_cut') {
             const shape2d = new THREE.Shape();
             if (entity.params.points && entity.params.points.length >= 3) {
                 const pts = entity.params.points;
@@ -348,9 +348,22 @@ export class Preview3D {
                 for(let i=1; i<pts.length; i++) shape2d.lineTo(pts[i].x, pts[i].y);
                 shape2d.lineTo(pts[0].x, pts[0].y);
                 obj.geometry.dispose();
-                obj.geometry = new THREE.ExtrudeGeometry(shape2d, { depth: h, bevelEnabled: false });
-                obj.geometry.rotateX(Math.PI / 2);
-                obj.geometry.translate(0, h, 0);
+                
+                if (entity.type === 'shape_floor_cut') {
+                    obj.geometry = new THREE.ShapeGeometry(shape2d);
+                    obj.geometry.rotateX(Math.PI / 2);
+                    
+                    if (obj.children && obj.children.length > 0 && obj.children[0].isLineSegments) {
+                        const edgesMesh = obj.children[0];
+                        if (edgesMesh.geometry) edgesMesh.geometry.dispose();
+                        edgesMesh.geometry = new THREE.EdgesGeometry(obj.geometry);
+                    }
+                    this.rebuildActiveFloors();
+                } else {
+                    obj.geometry = new THREE.ExtrudeGeometry(shape2d, { depth: h, bevelEnabled: false });
+                    obj.geometry.rotateX(Math.PI / 2);
+                    obj.geometry.translate(0, h, 0);
+                }
             }
         }
         
@@ -392,7 +405,15 @@ export class Preview3D {
             }
         }
         
-        obj.position.set(entity.group.x(), 0, entity.group.y());
+        const groupX = entity.group ? entity.group.x() : (entity.x || 0);
+        const groupZ = entity.group ? entity.group.y() : (entity.y || 0);
+        const intentionalElevation = entity.elevation || 0;
+        
+        if (entity.type === 'shape_floor_cut') {
+            obj.position.set(groupX, 0.5, groupZ);
+        } else {
+            obj.position.set(groupX, intentionalElevation, groupZ);
+        }
         obj.rotation.set(
             entity.rotationX || 0,
             -(entity.rotation || 0) * Math.PI / 180,
@@ -466,6 +487,56 @@ export class Preview3D {
             }
         }
         if (this.onEntityTransform) this.onEntityTransform();
+    }
+
+    rebuildActiveFloors() {
+        if (!this.envBuilder) return;
+        const floorMeshes = this.interactables.filter(m => m.userData && m.userData.isFloor);
+        const floorCuts = this.interactables.filter(m => m.userData && m.userData.isFloorCutProxy).map(m => m.userData.entity);
+
+        floorMeshes.forEach(floorMesh => {
+            const room = floorMesh.userData.entity;
+            if (!room || !room.path || room.path.length < 3) return;
+            
+            const floorShape = new THREE.Shape();
+            floorShape.moveTo(room.path[0].x, room.path[0].y);
+            for (let i = 1; i < room.path.length; i++) floorShape.lineTo(room.path[i].x, room.path[i].y);
+            
+            floorCuts.forEach(shape => {
+                const rot = (shape.group ? shape.group.rotation() : (shape.rotation || 0)) * Math.PI / 180;
+                const sx = shape.group ? shape.group.x() : (shape.x || shape.params?.x || 0);
+                const sy = shape.group ? shape.group.y() : (shape.y || shape.params?.y || 0);
+                let pts = shape.params?.points;
+                if (!pts) {
+                    const w = shape.params?.width || shape.width || 100;
+                    const h = shape.params?.height || shape.height || 100;
+                    pts = [ { x: -w/2, y: -h/2 }, { x: w/2, y: -h/2 }, { x: w/2, y: h/2 }, { x: -w/2, y: h/2 } ];
+                }
+                const rotC = pts.map(c => {
+                    return {
+                        x: sx + (c.x * Math.cos(rot) - c.y * Math.sin(rot)),
+                        y: sy + (c.x * Math.sin(rot) + c.y * Math.cos(rot))
+                    };
+                });
+                const hole = new THREE.Path();
+                hole.moveTo(rotC[0].x, rotC[0].y);
+                for (let i = 1; i < rotC.length; i++) hole.lineTo(rotC[i].x, rotC[i].y);
+                hole.lineTo(rotC[0].x, rotC[0].y);
+                floorShape.holes.push(hole);
+            });
+            
+            if (floorMesh.geometry && !floorMesh.geometry.userData?.keepAlive) floorMesh.geometry.dispose();
+            floorMesh.geometry = new THREE.ExtrudeGeometry(floorShape, { depth: 10, bevelEnabled: false });
+            floorMesh.geometry.rotateX(Math.PI / 2);
+            
+            const pos = floorMesh.geometry.attributes.position;
+            const uvs = new Float32Array(pos.count * 2);
+            for (let i = 0; i < pos.count; i++) {
+                uvs[i * 2] = pos.getX(i) / 100;
+                uvs[i * 2 + 1] = -pos.getZ(i) / 100;
+            }
+            floorMesh.geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+        });
     }
 
     deepDispose(obj) {

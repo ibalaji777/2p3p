@@ -1769,6 +1769,7 @@ export const GIZMO_REGISTRY = {
     'opening': ['move', 'opening', 'material'],
     'elevation_fascia': ['move', 'place', 'scale', 'spin', 'tilt', 'material', 'corner'],
     'shape': ['move', 'place', 'scale', 'spin', 'tilt', 'material', 'vertexSlope'],
+    'floor_cut': ['polygonEdges'],
     'face_material_obj': ['move', 'place', 'scale', 'spin', 'tilt', 'material'],
     'default': ['move', 'place', 'scale', 'spin', 'tilt']
 };

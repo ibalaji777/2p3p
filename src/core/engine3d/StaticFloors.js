@@ -81,9 +81,6 @@ export class StaticFloors {
                             } catch (e) {}
                         }
                         
-                        if (stairsBelow && stairsBelow.length > 0) {
-                            stairsBelow.forEach(stair => {
-                                if (stair.type && stair.type.startsWith('stair_v5_')) {
                         if (data.shapes) {
                             data.shapes.forEach(shape => {
                                 if (shape.type === 'shape_floor_cut') {

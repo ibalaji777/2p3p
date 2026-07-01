@@ -754,6 +754,7 @@ onMounted(() => {
     window.addEventListener('opening-gizmo-end', syncEngine);
     window.addEventListener('vertex-slope-gizmo-end', syncEngine);
     window.addEventListener('roof-corner-gizmo-end', syncEngine);
+    window.addEventListener('polygon-gizmo-end', syncEngine);
     window.addEventListener('material-gizmo-apply', syncEngine);
     
     window.addEventListener('material-gizmo-select', (e) => {
@@ -1014,6 +1015,7 @@ const syncEngine = () => {
             renderer3D.value.updateFurnitureLive(selectedEntity.value); 
         } else if (selectedType.value === 'shape' && selectedEntity.value) {
             renderer3D.value.updateShapeLive(selectedEntity.value);
+            if (selectedEntity.value.type === 'shape_floor_cut') refresh3DScene(true);
         } else if (['roof', 'room', 'wall', 'widget', 'advance_openings', 'molding', 'wallDecor', 'stair'].includes(selectedType.value)) {
             if (planner.value && planner.value.updateRoofAutoPlacement) planner.value.updateRoofAutoPlacement();
             refresh3DScene(true);

@@ -923,6 +923,8 @@ export class GizmoManager {
                     activeGizmos = GIZMO_REGISTRY.opening;
                 } else if (type === 'elevation_fascia') {
                     activeGizmos = GIZMO_REGISTRY.elevation_fascia;
+                } else if (selectedObj.userData.isFloorCutProxy) {
+                    activeGizmos = GIZMO_REGISTRY.floor_cut;
                 } else if (selectedObj.userData.isShape) {
                     activeGizmos = GIZMO_REGISTRY.shape;
                 } else if (supportsFaceMaterials) {
