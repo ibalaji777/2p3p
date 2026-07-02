@@ -1480,6 +1480,74 @@ export class EnvironmentBuilder {
             maxWallHeight = Math.max(...walls.map(w => w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT)));
         }
 
+        const thickenGeometry = (v, uv, T) => {
+            const vNew = [...v];
+            const uvNew = [...uv];
+            
+            // Bottom surface
+            for (let i = 0; i < v.length; i += 9) {
+                const p0x = v[i], p0y = v[i+1], p0z = v[i+2];
+                const p1x = v[i+3], p1y = v[i+4], p1z = v[i+5];
+                const p2x = v[i+6], p2y = v[i+7], p2z = v[i+8];
+                
+                vNew.push(
+                    p0x, p0y - T, p0z,
+                    p2x, p2y - T, p2z,
+                    p1x, p1y - T, p1z
+                );
+                
+                const uv0u = uv[i/3*2], uv0v = uv[i/3*2+1];
+                const uv1u = uv[i/3*2+2], uv1v = uv[i/3*2+3];
+                const uv2u = uv[i/3*2+4], uv2v = uv[i/3*2+5];
+                
+                uvNew.push(uv0u, uv0v, uv2u, uv2v, uv1u, uv1v);
+            }
+            
+            // Fascia
+            const edges = {};
+            for (let i = 0; i < v.length; i += 9) {
+                for (let j = 0; j < 3; j++) {
+                    const idx1 = i + j*3;
+                    const idx2 = i + ((j+1)%3)*3;
+                    const p1 = {x: v[idx1], y: v[idx1+1], z: v[idx1+2]};
+                    const p2 = {x: v[idx2], y: v[idx2+1], z: v[idx2+2]};
+                    const key = `${p1.x.toFixed(3)},${p1.y.toFixed(3)},${p1.z.toFixed(3)}|${p2.x.toFixed(3)},${p2.y.toFixed(3)},${p2.z.toFixed(3)}`;
+                    const revKey = `${p2.x.toFixed(3)},${p2.y.toFixed(3)},${p2.z.toFixed(3)}|${p1.x.toFixed(3)},${p1.y.toFixed(3)},${p1.z.toFixed(3)}`;
+                    
+                    if (edges[revKey]) delete edges[revKey];
+                    else edges[key] = {p1, p2};
+                }
+            }
+            
+            Object.values(edges).forEach(({p1, p2}) => {
+                const p1d = {x: p1.x, y: p1.y - T, z: p1.z};
+                const p2d = {x: p2.x, y: p2.y - T, z: p2.z};
+                vNew.push(
+                    p1.x, p1.y, p1.z,
+                    p1d.x, p1d.y, p1d.z,
+                    p2d.x, p2d.y, p2d.z,
+                    
+                    p1.x, p1.y, p1.z,
+                    p2d.x, p2d.y, p2d.z,
+                    p2.x, p2.y, p2.z
+                );
+                
+                const dist = Math.hypot(p2.x - p1.x, p2.z - p1.z) / 100;
+                const tUv = T / 100;
+                uvNew.push(
+                    0, tUv,    // p1
+                    0, 0,      // p1d
+                    dist, 0,   // p2d
+                    
+                    0, tUv,    // p1
+                    dist, 0,   // p2d
+                    dist, tUv  // p2
+                );
+            });
+            
+            return {v: vNew, uv: uvNew};
+        };
+
         roofs.forEach(roof => {
             const basePts = roof.points || [];
             if (basePts.length < 3) return;
@@ -1599,15 +1667,24 @@ export class EnvironmentBuilder {
                     addQuad(C2, C1, R0, R1); // Right
                 }
 
+                const T = conf.thickness || 8;
+                const {v: vThick, uv: uvThick} = thickenGeometry(v, uv, T);
+
                 const geo = new THREE.BufferGeometry();
-                geo.setAttribute("position", new THREE.Float32BufferAttribute(v, 3));
-                geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+                geo.setAttribute("position", new THREE.Float32BufferAttribute(vThick, 3));
+                geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvThick, 2));
                 geo.computeVertexNormals();
+                
+                // Group 0: Top surface (roof material)
+                // Group 1: Bottom & Fascia (solid color)
+                geo.addGroup(0, v.length / 3, 0); 
+                geo.addGroup(v.length / 3, (vThick.length - v.length) / 3, 1);
                 
                 const overhangDrop = (conf.overhang || 0) * Math.tan(pitch * Math.PI / 180);
                 if (overhangDrop > 0) geo.translate(0, -overhangDrop, 0);
 
-                mesh = new THREE.Mesh(geo, mat);
+                const fasciaMat = new THREE.MeshStandardMaterial({ color: 0xF5F5F5, roughness: 0.9, metalness: 0.1 });
+                mesh = new THREE.Mesh(geo, [mat, fasciaMat]);
                 
             } else {
                 const pitch = conf.pitch || 30;
@@ -1645,30 +1722,35 @@ export class EnvironmentBuilder {
                     }
                 }
 
+                const T = conf.thickness || 8;
+                const {v: vThick, uv: uvThick} = thickenGeometry(v, uv, T);
+
                 const geo = new THREE.BufferGeometry();
-                geo.setAttribute("position", new THREE.Float32BufferAttribute(v, 3));
-                geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+                geo.setAttribute("position", new THREE.Float32BufferAttribute(vThick, 3));
+                geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvThick, 2));
                 geo.computeVertexNormals();
+                
+                geo.addGroup(0, v.length / 3, 0); 
+                geo.addGroup(v.length / 3, (vThick.length - v.length) / 3, 1);
                 
                 const overhangDrop = (conf.overhang || 0) * Math.tan(pitch * Math.PI / 180);
                 if (overhangDrop > 0) geo.translate(0, -overhangDrop, 0);
                 
                 const mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide });
-
                 if (decor && decor.texture) {
                     this.ctx.assets.getTexture(decor).then(tex => {
                         const texClone = tex.clone();
                         texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                        
                         const baseSize = roof.tileSize || 100;
                         const tSize = baseSize * (decor.scaleRatio || 1);
                         texClone.repeat.set(100 / tSize, 100 / tSize);
-                        
                         mat.map = texClone;
                         mat.needsUpdate = true;
                     });
                 }
-                mesh = new THREE.Mesh(geo, mat);
+
+                const fasciaMat = new THREE.MeshStandardMaterial({ color: 0xF5F5F5, roughness: 0.9, metalness: 0.1 });
+                mesh = new THREE.Mesh(geo, [mat, fasciaMat]);
             }
 
             const roofGroup = new THREE.Group();
