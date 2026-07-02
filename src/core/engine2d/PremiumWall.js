@@ -750,61 +750,63 @@ export class PremiumWall {
                 const outN = { x: u.y, y: -u.x }; // Normal vector extending OUTWARD
                 const normal = this.flipSlope ? outN : inN;
                 
-                // Get the heights from the wall properties, fallback to standard proportions
-                const baseH = this.startHeight || 0;
-                let peakH = this.peakHeight || (this.height * 1.5);
-                let diffH = Math.max(20, peakH - baseH); // ensure it's at least visible
+                // Extract true heights matching 3D EnvironmentBuilder.js
+                const startH = Number(this.startHeight !== undefined ? this.startHeight : this.height) || 0;
+                const endH = Number(this.endHeight !== undefined ? this.endHeight : this.height) || 0;
+                const peakH = Number(this.peakHeight !== undefined ? this.peakHeight : this.height) || 0;
                 
-                // Scale factor for 2D visualization
-                const visHeight = diffH;
-                
-                // The base of the folded-in elevation should run along the exact center line,
-                // but span the FULL physical length of the wall to eliminate gaps at the corners.
-                const baseP1 = { x: (startTrue[0].x + startTrue[1].x) / 2, y: (startTrue[0].y + startTrue[1].y) / 2 };
-                const baseP2 = { x: (endTrue[0].x + endTrue[1].x) / 2, y: (endTrue[0].y + endTrue[1].y) / 2 };
+                // The base of the folded-in elevation should run along the edge of the wall,
+                // between the true anchor points (ignoring miter joint extensions).
+                const halfThick = this.thickness / 2;
+                const baseP1 = { x: p1.x + normal.x * halfThick, y: p1.y + normal.y * halfThick };
+                const baseP2 = { x: p2.x + normal.x * halfThick, y: p2.y + normal.y * halfThick };
                 const fullDx = baseP2.x - baseP1.x;
                 const fullDy = baseP2.y - baseP1.y;
 
                 if (this.topProfileType === 'gable') {
                     const pMid = { x: baseP1.x + fullDx/2, y: baseP1.y + fullDy/2 };
-                    const peak = { x: pMid.x + normal.x * visHeight, y: pMid.y + normal.y * visHeight };
+                    const peak = { x: pMid.x + normal.x * peakH, y: pMid.y + normal.y * peakH };
+                    const pStart = { x: baseP1.x + normal.x * startH, y: baseP1.y + normal.y * startH };
+                    const pEnd = { x: baseP2.x + normal.x * endH, y: baseP2.y + normal.y * endH };
                     
-                    // Main triangle outline
+                    // Main outline
                     this.profileIndicators.add(new Konva.Line({
-                        points: [baseP1.x, baseP1.y, peak.x, peak.y, baseP2.x, baseP2.y],
-                        stroke: '#ff4500', strokeWidth: 2, dash: [4, 4],
-                        fill: 'rgba(255, 69, 0, 0.15)', closed: true
+                        points: [baseP1.x, baseP1.y, pStart.x, pStart.y, peak.x, peak.y, pEnd.x, pEnd.y, baseP2.x, baseP2.y],
+                        stroke: '#94a3b8', strokeWidth: 1.5, dash: [4, 4],
+                        fill: 'rgba(148, 163, 184, 0.15)', closed: true
                     }));
                     
-                    // Hatching lines radiating to peak
+                    // Hatching lines
                     for(let i=1; i<=7; i++) {
-                        let bx = baseP1.x + fullDx * (i/8);
-                        let by = baseP1.y + fullDy * (i/8);
+                        let t = i / 8;
+                        let bx = baseP1.x + fullDx * t;
+                        let by = baseP1.y + fullDy * t;
+                        let h = t <= 0.5 ? startH + (peakH - startH) * (t / 0.5) : peakH + (endH - peakH) * ((t - 0.5) / 0.5);
                         this.profileIndicators.add(new Konva.Line({
-                            points: [bx, by, peak.x, peak.y],
-                            stroke: 'rgba(255, 69, 0, 0.5)', strokeWidth: 1
+                            points: [bx, by, bx + normal.x * h, by + normal.y * h],
+                            stroke: 'rgba(148, 163, 184, 0.4)', strokeWidth: 1
                         }));
                     }
                 } else if (this.topProfileType === 'single') {
-                    const peak = { x: baseP2.x + normal.x * visHeight, y: baseP2.y + normal.y * visHeight };
+                    const pStart = { x: baseP1.x + normal.x * startH, y: baseP1.y + normal.y * startH };
+                    const pEnd = { x: baseP2.x + normal.x * endH, y: baseP2.y + normal.y * endH };
                     
-                    // Single slope triangle outline
+                    // Single slope outline
                     this.profileIndicators.add(new Konva.Line({
-                        points: [baseP1.x, baseP1.y, peak.x, peak.y, baseP2.x, baseP2.y],
-                        stroke: '#0284c7', strokeWidth: 2, dash: [4, 4],
-                        fill: 'rgba(2, 132, 199, 0.15)', closed: true
+                        points: [baseP1.x, baseP1.y, pStart.x, pStart.y, pEnd.x, pEnd.y, baseP2.x, baseP2.y],
+                        stroke: '#94a3b8', strokeWidth: 1.5, dash: [4, 4],
+                        fill: 'rgba(148, 163, 184, 0.15)', closed: true
                     }));
                     
-                    // Hatching lines for single slope
+                    // Hatching lines
                     for(let i=1; i<=7; i++) {
-                        let bx = baseP1.x + fullDx * (i/8);
-                        let by = baseP1.y + fullDy * (i/8);
-                        let curHeight = visHeight * (i/8);
-                        let pT = { x: bx + normal.x * curHeight, y: by + normal.y * curHeight };
-                        
+                        let t = i / 8;
+                        let bx = baseP1.x + fullDx * t;
+                        let by = baseP1.y + fullDy * t;
+                        let h = startH + (endH - startH) * t;
                         this.profileIndicators.add(new Konva.Line({
-                            points: [bx, by, pT.x, pT.y],
-                            stroke: 'rgba(2, 132, 199, 0.5)', strokeWidth: 1
+                            points: [bx, by, bx + normal.x * h, by + normal.y * h],
+                            stroke: 'rgba(148, 163, 184, 0.4)', strokeWidth: 1
                         }));
                     }
                 }
