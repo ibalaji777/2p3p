@@ -1498,30 +1498,30 @@ export class FloorPlanner {
                 }
 
                 if (!snappedObj) {
-                    let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < closestDist);
-                    if (a) { snap = { x: a.x, y: a.y }; snappedObj = true; }
-                    else {
-                        for (let w of this.walls) {
-                            if (typeof w.getExactPolygonPoints === 'function') {
-                                const pts = w.getExactPolygonPoints();
-                                if (pts && pts.length >= 4) {
-                                    for (let i = 0; i < pts.length; i += 2) {
-                                        let cx = pts[i], cy = pts[i+1];
-                                        if (Math.hypot(pos.x - cx, pos.y - cy) < closestDist) { closestDist = Math.hypot(pos.x - cx, pos.y - cy); snap = {x: cx, y: cy}; snappedObj = true; }
-                                        let nx = pts[(i+2)%pts.length], ny = pts[(i+3)%pts.length];
-                                        let proj = this.getClosestPointOnSegment(pos, {x: cx, y: cy}, {x: nx, y: ny});
-                                        if (Math.hypot(pos.x - proj.x, pos.y - proj.y) < closestDist) { closestDist = Math.hypot(pos.x - proj.x, pos.y - proj.y); snap = proj; snappedObj = true; }
-                                    }
+                    for (let w of this.walls) {
+                        if (typeof w.getExactPolygonPoints === 'function') {
+                            const pts = w.getExactPolygonPoints();
+                            if (pts && pts.length >= 4) {
+                                for (let i = 0; i < pts.length; i += 2) {
+                                    let cx = pts[i], cy = pts[i+1];
+                                    if (Math.hypot(pos.x - cx, pos.y - cy) < closestDist) { closestDist = Math.hypot(pos.x - cx, pos.y - cy); snap = {x: cx, y: cy}; snappedObj = true; }
+                                    let nx = pts[(i+2)%pts.length], ny = pts[(i+3)%pts.length];
+                                    let proj = this.getClosestPointOnSegment(pos, {x: cx, y: cy}, {x: nx, y: ny});
+                                    if (Math.hypot(pos.x - proj.x, pos.y - proj.y) < closestDist) { closestDist = Math.hypot(pos.x - proj.x, pos.y - proj.y); snap = proj; snappedObj = true; }
                                 }
-                            } else {
-                                const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
-                                let d1 = Math.hypot(pos.x - p1.x, pos.y - p1.y); let d2 = Math.hypot(pos.x - p2.x, pos.y - p2.y);
-                                if (d1 < closestDist) { closestDist = d1; snap = p1; snappedObj = true; }
-                                if (d2 < closestDist) { closestDist = d2; snap = p2; snappedObj = true; }
-                                let proj = this.getClosestPointOnSegment(pos, p1, p2); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
-                                if (dist < closestDist) { closestDist = dist; snap = proj; snappedObj = true; }
                             }
+                        } else {
+                            const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
+                            let d1 = Math.hypot(pos.x - p1.x, pos.y - p1.y); let d2 = Math.hypot(pos.x - p2.x, pos.y - p2.y);
+                            if (d1 < closestDist) { closestDist = d1; snap = p1; snappedObj = true; }
+                            if (d2 < closestDist) { closestDist = d2; snap = p2; snappedObj = true; }
+                            let proj = this.getClosestPointOnSegment(pos, p1, p2); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                            if (dist < closestDist) { closestDist = dist; snap = proj; snappedObj = true; }
                         }
+                    }
+                    if (!snappedObj) {
+                        let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < closestDist);
+                        if (a) { snap = { x: a.x, y: a.y }; snappedObj = true; }
                     }
                 }
                 
