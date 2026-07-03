@@ -32,7 +32,7 @@ export class PremiumHipRoof {
         this.boundary = new Konva.Line({
             points: this.getFlatPoints(),
             fill: 'rgba(226, 232, 240, 0.4)', // Semi-transparent grey fill
-            stroke: '#334155', // Dark slate stroke
+            stroke: 'rgba(148, 163, 184, 0.5)', // Subtle slate stroke
             strokeWidth: 2,
             closed: true,
             lineJoin: 'round',
@@ -77,8 +77,8 @@ export class PremiumHipRoof {
     }
     
     setHighlight(isActive) {
-        this.boundary.stroke(isActive ? '#FF8C00' : '#FFA500');
-        this.boundary.strokeWidth(isActive ? 4 : 3);
+        this.boundary.stroke(isActive ? '#4f46e5' : 'rgba(148, 163, 184, 0.5)');
+        this.boundary.strokeWidth(isActive ? 3 : 2);
         const mode = this.config?.autoPlacementMode || 'manual';
         this.handles.forEach(h => h.visible(isActive && mode === 'manual'));
         this.group.draggable(mode === 'manual');
@@ -226,7 +226,7 @@ export class PremiumHipRoof {
         else { cx = minX + (maxX - minX) / 2; cy = minY + (maxY - minY) / 2; }
 
         this.boundary.fill('rgba(226, 232, 240, 0.4)'); // Semi-transparent grey fill
-        this.boundary.stroke('#334155'); // Dark slate outer boundary
+        this.boundary.stroke('rgba(148, 163, 184, 0.5)'); // Subtle slate outer boundary
         this.boundary.strokeWidth(2);
         this.boundary.fillPriority('color');
 
@@ -238,7 +238,6 @@ export class PremiumHipRoof {
                 points: innerPts,
                 stroke: '#475569',
                 strokeWidth: 1.5,
-                dash: [6, 6],
                 closed: true
             }));
         }
@@ -322,7 +321,7 @@ export class PremiumHipRoof {
         // Draw the outline of the triangle (subtle slate grey)
         this.hipLinesGroup.add(new Konva.Line({
             points: [p1.x, p1.y, p2.x, p2.y, p3.x, p3.y],
-            stroke: '#94a3b8', strokeWidth: 1.5, dash: [4, 4],
+            stroke: '#94a3b8', strokeWidth: 1.5,
             fill: 'rgba(148, 163, 184, 0.15)', closed: true
         }));
 

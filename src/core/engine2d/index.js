@@ -1415,13 +1415,13 @@ export class FloorPlanner {
                 this.roofPreviewGroup = new Konva.Group();
                 this.roofPreview = new Konva.Line({ 
                     points: [snap.x, snap.y, snap.x, snap.y], 
-                    stroke: this.tool === 'shape_floor_cut' ? '#ef4444' : '#f59e0b', 
-                    strokeWidth: 4, 
-                    fill: this.tool === 'shape_floor_cut' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)',
+                    stroke: this.tool === 'shape_floor_cut' ? '#ef4444' : 'rgba(148, 163, 184, 0.5)', 
+                    strokeWidth: this.tool === 'shape_floor_cut' ? 4 : 2, 
+                    fill: this.tool === 'shape_floor_cut' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(226, 232, 240, 0.4)',
                     closed: true
                 });
                 this.roofPreviewGroup.add(this.roofPreview);
-                const startCircle = new Konva.Circle({ x: snap.x, y: snap.y, radius: 8, fill: '#f59e0b', stroke: 'white', strokeWidth: 2 });
+                const startCircle = new Konva.Circle({ x: snap.x, y: snap.y, radius: 6, fill: '#334155', stroke: 'white', strokeWidth: 1.5 });
                 this.roofPreviewGroup.add(startCircle);
                 this.uiLayer.add(this.roofPreviewGroup);
                 this.uiLayer.batchDraw();
@@ -1462,7 +1462,7 @@ export class FloorPlanner {
                 } else {
                     this.drawingRoofPoints.push(snap);
                     if (this.roofPreviewGroup) {
-                        const newCircle = new Konva.Circle({ x: snap.x, y: snap.y, radius: 6, fill: '#f59e0b', stroke: 'white', strokeWidth: 2 });
+                        const newCircle = new Konva.Circle({ x: snap.x, y: snap.y, radius: 4, fill: '#334155', stroke: 'white', strokeWidth: 1.5 });
                         this.roofPreviewGroup.add(newCircle);
                     }
                     const pts = this.drawingRoofPoints.flatMap(p => [p.x, p.y]); pts.push(snap.x, snap.y);
