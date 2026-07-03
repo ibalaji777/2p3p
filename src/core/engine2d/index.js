@@ -596,7 +596,7 @@ export class FloorPlanner {
 
     finishChain() { 
          
-        if (this.drawingRoofPoints) { this.drawingRoofPoints = null; if (this.roofPreview) { this.roofPreview.destroy(); this.roofPreview = null; } }
+        if (this.drawingRoofPoints) { this.drawingRoofPoints = null; if (this.roofPreviewGroup) { this.roofPreviewGroup.destroy(); this.roofPreviewGroup = null; } else if (this.roofPreview) { this.roofPreview.destroy(); } this.roofPreview = null; }
         if (this.drawingArc) { this.drawingArc = null; if (this.arcPreview) { this.arcPreview.destroy(); this.arcPreview = null; } }
         if (this.shapePreviewGroup) { this.shapePreviewRect.visible(false); this.shapePreviewCircle.visible(false); this.shapePreviewTriangle.visible(false); }
         this.drawing = false; this.lastAnchor = null; this.startAnchor = null; 
@@ -1411,28 +1411,22 @@ export class FloorPlanner {
             
             if (!this.drawingRoofPoints) {
                 this.drawingRoofPoints = [snap];
+                this.roofPreviewGroup = new Konva.Group();
                 this.roofPreview = new Konva.Line({ 
                     points: [snap.x, snap.y, snap.x, snap.y], 
                     stroke: this.tool === 'shape_floor_cut' ? '#ef4444' : '#f59e0b', 
                     strokeWidth: 4, 
-                    dash: [6, 4], 
-                    fill: this.tool === 'shape_floor_cut' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)' 
+                    fill: this.tool === 'shape_floor_cut' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(245, 158, 11, 0.3)',
+                    closed: true
                 });
-                this.uiLayer.add(this.roofPreview);
+                this.roofPreviewGroup.add(this.roofPreview);
+                const startCircle = new Konva.Circle({ x: snap.x, y: snap.y, radius: 8, fill: '#f59e0b', stroke: 'white', strokeWidth: 2 });
+                this.roofPreviewGroup.add(startCircle);
+                this.uiLayer.add(this.roofPreviewGroup);
                 this.uiLayer.batchDraw();
             } else {
                 const startP = this.drawingRoofPoints[0];
                 if (Math.hypot(snap.x - startP.x, snap.y - startP.y) < SNAP_DIST && this.drawingRoofPoints.length > 2) {
-                    
-                    if (this.drawingRoofPoints.length === 4) {
-                        const p0 = this.drawingRoofPoints[0];
-                        const p1 = this.drawingRoofPoints[1];
-                        const p2 = this.drawingRoofPoints[2];
-                        this.drawingRoofPoints[3] = {
-                            x: p0.x + (p2.x - p1.x),
-                            y: p0.y + (p2.y - p1.y)
-                        };
-                    }
                     
                     if (this.tool === 'shape_floor_cut') {
                         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -1457,11 +1451,18 @@ export class FloorPlanner {
                         this.roofs.push(roof); this.selectEntity(roof, 'roof');
                     }
                     
-                    this.drawingRoofPoints = null; this.roofPreview.destroy(); this.roofPreview = null;
+                    this.drawingRoofPoints = null; 
+                    if (this.roofPreviewGroup) { this.roofPreviewGroup.destroy(); this.roofPreviewGroup = null; }
+                    else if (this.roofPreview) { this.roofPreview.destroy(); }
+                    this.roofPreview = null;
                     this.tool = 'select'; this.updateToolStates(); this.syncAll();
                     if (this.onToolChange) this.onToolChange(this.tool);
                 } else {
                     this.drawingRoofPoints.push(snap);
+                    if (this.roofPreviewGroup) {
+                        const newCircle = new Konva.Circle({ x: snap.x, y: snap.y, radius: 6, fill: '#f59e0b', stroke: 'white', strokeWidth: 2 });
+                        this.roofPreviewGroup.add(newCircle);
+                    }
                     const pts = this.drawingRoofPoints.flatMap(p => [p.x, p.y]); pts.push(snap.x, snap.y);
                     this.roofPreview.points(pts);
                     this.uiLayer.batchDraw();
@@ -1534,7 +1535,7 @@ export class FloorPlanner {
                 
                 document.body.style.cursor = 'crosshair'; this.mainLayer.batchDraw(); this.uiLayer.batchDraw();
             } else {
-                if (this.drawingRoofPoints) { this.drawingRoofPoints = null; if (this.roofPreview) { this.roofPreview.destroy(); this.roofPreview = null; } }
+                if (this.drawingRoofPoints) { this.drawingRoofPoints = null; if (this.roofPreviewGroup) { this.roofPreviewGroup.destroy(); this.roofPreviewGroup = null; } else if (this.roofPreview) { this.roofPreview.destroy(); } this.roofPreview = null; }
                 if (document.body.style.cursor === 'crosshair') { document.body.style.cursor = 'default'; }
             }
         });
