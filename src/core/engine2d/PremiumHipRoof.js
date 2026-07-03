@@ -31,7 +31,7 @@ export class PremiumHipRoof {
         
         this.boundary = new Konva.Line({
             points: this.getFlatPoints(),
-            fill: '#e2e8f0', // Simple grey fill
+            fill: 'rgba(226, 232, 240, 0.4)', // Semi-transparent grey fill
             stroke: '#334155', // Dark slate stroke
             strokeWidth: 2,
             closed: true,
@@ -225,7 +225,7 @@ export class PremiumHipRoof {
         if (signedArea !== 0) { cx /= (6.0 * signedArea); cy /= (6.0 * signedArea); } 
         else { cx = minX + (maxX - minX) / 2; cy = minY + (maxY - minY) / 2; }
 
-        this.boundary.fill('#e2e8f0'); // Light grey fill like the example
+        this.boundary.fill('rgba(226, 232, 240, 0.4)'); // Semi-transparent grey fill
         this.boundary.stroke('#334155'); // Dark slate outer boundary
         this.boundary.strokeWidth(2);
         this.boundary.fillPriority('color');

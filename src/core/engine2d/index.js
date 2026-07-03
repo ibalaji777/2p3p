@@ -597,6 +597,7 @@ export class FloorPlanner {
     finishChain() { 
          
         if (this.drawingRoofPoints) { this.drawingRoofPoints = null; if (this.roofPreviewGroup) { this.roofPreviewGroup.destroy(); this.roofPreviewGroup = null; } else if (this.roofPreview) { this.roofPreview.destroy(); } this.roofPreview = null; }
+        if (this.roofCloseTick) { this.roofCloseTick.destroy(); this.roofCloseTick = null; }
         if (this.drawingArc) { this.drawingArc = null; if (this.arcPreview) { this.arcPreview.destroy(); this.arcPreview = null; } }
         if (this.shapePreviewGroup) { this.shapePreviewRect.visible(false); this.shapePreviewCircle.visible(false); this.shapePreviewTriangle.visible(false); }
         this.drawing = false; this.lastAnchor = null; this.startAnchor = null; 
@@ -1455,6 +1456,7 @@ export class FloorPlanner {
                     if (this.roofPreviewGroup) { this.roofPreviewGroup.destroy(); this.roofPreviewGroup = null; }
                     else if (this.roofPreview) { this.roofPreview.destroy(); }
                     this.roofPreview = null;
+                    if (this.roofCloseTick) { this.roofCloseTick.destroy(); this.roofCloseTick = null; }
                     this.tool = 'select'; this.updateToolStates(); this.syncAll();
                     if (this.onToolChange) this.onToolChange(this.tool);
                 } else {
@@ -1525,8 +1527,31 @@ export class FloorPlanner {
                         if (a) { snap = { x: a.x, y: a.y }; snappedObj = true; }
                     }
                 }
+                let isClosing = false;
+                if (this.drawingRoofPoints && this.drawingRoofPoints.length > 2) {
+                    const startP = this.drawingRoofPoints[0];
+                    if (Math.hypot(pos.x - startP.x, pos.y - startP.y) < SNAP_DIST) {
+                        snap = { x: startP.x, y: startP.y };
+                        snappedObj = true;
+                        isClosing = true;
+                    }
+                }
                 
-                if (snappedObj) { this.showSnapGlow(snap.x, snap.y); } else { this.hideSnapGlow(); }
+                if (isClosing) {
+                    if (!this.roofCloseTick) {
+                        this.roofCloseTick = new Konva.Group({ visible: false });
+                        this.roofCloseTick.add(new Konva.Circle({ radius: 12, fill: '#10b981', stroke: 'white', strokeWidth: 2, shadowColor: 'black', shadowBlur: 4, shadowOpacity: 0.3 }));
+                        this.roofCloseTick.add(new Konva.Path({ data: 'M-4,1 L-1,4 L5,-3', stroke: 'white', strokeWidth: 2.5, lineCap: 'round', lineJoin: 'round' }));
+                        this.uiLayer.add(this.roofCloseTick);
+                    }
+                    this.roofCloseTick.position({ x: snap.x, y: snap.y });
+                    this.roofCloseTick.visible(true);
+                    this.roofCloseTick.moveToTop();
+                    this.hideSnapGlow();
+                } else {
+                    if (this.roofCloseTick) this.roofCloseTick.visible(false);
+                    if (snappedObj) { this.showSnapGlow(snap.x, snap.y); } else { this.hideSnapGlow(); }
+                }
 
                 if (this.drawingRoofPoints && this.roofPreview) {
                     const pts = this.drawingRoofPoints.flatMap(p => [p.x, p.y]); pts.push(snap.x, snap.y);
@@ -1536,6 +1561,7 @@ export class FloorPlanner {
                 document.body.style.cursor = 'crosshair'; this.mainLayer.batchDraw(); this.uiLayer.batchDraw();
             } else {
                 if (this.drawingRoofPoints) { this.drawingRoofPoints = null; if (this.roofPreviewGroup) { this.roofPreviewGroup.destroy(); this.roofPreviewGroup = null; } else if (this.roofPreview) { this.roofPreview.destroy(); } this.roofPreview = null; }
+                if (this.roofCloseTick) { this.roofCloseTick.destroy(); this.roofCloseTick = null; }
                 if (document.body.style.cursor === 'crosshair') { document.body.style.cursor = 'default'; }
             }
         });
