@@ -349,8 +349,9 @@ export class ActiveFloor {
             const basePts = roof.points || [];
             if (basePts.length < 3) return;
 
-            const conf = roof.config || {};
-            const pts = offsetPolygon(basePts, conf.overhang || 0);
+            const conf = roof.config || roof;
+            const overhangs = conf.overhangs ? conf.overhangs : (conf.overhang || 0);
+            const pts = offsetPolygon(basePts, overhangs);
 
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
             pts.forEach(p => {

@@ -128,6 +128,13 @@ export class GizmoManager {
         this.btnRoofCorners.style.display = 'none';
         this.btnRoofCorners.onclick = () => this.setTransformMode('roof_corners');
 
+        this.btnRoofOverhang = document.createElement('button');
+        this.btnRoofOverhang.className = 'transform-menu-btn';
+        this.btnRoofOverhang.innerHTML = '↔<br>Overhang';
+        this.btnRoofOverhang.title = 'Edit Roof Overhang';
+        this.btnRoofOverhang.style.display = 'none';
+        this.btnRoofOverhang.onclick = () => this.setTransformMode('roof_overhang');
+
         this.btnPolygonEdges = document.createElement('button');
         this.btnPolygonEdges.innerHTML = '✂️<br>Adjust';
         this.btnPolygonEdges.className = 'transform-menu-btn';
@@ -340,6 +347,7 @@ export class GizmoManager {
         this.transformMenu.appendChild(this.btnCorner);
         this.transformMenu.appendChild(this.btnVertexSlope);
         this.transformMenu.appendChild(this.btnRoofCorners);
+        this.transformMenu.appendChild(this.btnRoofOverhang);
         this.transformMenu.appendChild(this.btnPolygonEdges);
         
         this.container.appendChild(this.transformMenu);
@@ -873,6 +881,9 @@ export class GizmoManager {
         if (this.ctx.interactions.roofCornerGizmo) {
             this.ctx.interactions.roofCornerGizmo.detach();
         }
+        if (this.ctx.interactions.roofOverhangGizmo) {
+            this.ctx.interactions.roofOverhangGizmo.detach();
+        }
         if (this.ctx.interactions.polygonGizmo) {
             this.ctx.interactions.polygonGizmo.detach();
         }
@@ -943,6 +954,7 @@ export class GizmoManager {
             if (this.btnCorner) this.btnCorner.style.display = activeGizmos.includes('corner') ? 'flex' : 'none';
             if (this.btnVertexSlope) this.btnVertexSlope.style.display = activeGizmos.includes('vertexSlope') ? 'flex' : 'none';
             if (this.btnRoofCorners) this.btnRoofCorners.style.display = activeGizmos.includes('roofCorners') ? 'flex' : 'none';
+            if (this.btnRoofOverhang) this.btnRoofOverhang.style.display = activeGizmos.includes('roofCorners') ? 'flex' : 'none';
             if (this.btnPolygonEdges) this.btnPolygonEdges.style.display = activeGizmos.includes('polygonEdges') ? 'flex' : 'none';
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
@@ -975,6 +987,7 @@ export class GizmoManager {
         if (this.btnCorner) this.btnCorner.style.display = 'none';
         if (this.btnVertexSlope) this.btnVertexSlope.style.display = 'none';
         if (this.btnRoofCorners) this.btnRoofCorners.style.display = 'none';
+        if (this.btnRoofOverhang) this.btnRoofOverhang.style.display = 'none';
         if (this.btnPolygonEdges) this.btnPolygonEdges.style.display = 'none';
         if (this.btnDone) this.btnDone.style.display = 'flex';
 
@@ -1072,6 +1085,21 @@ export class GizmoManager {
             if (this.stylePanel) this.stylePanel.style.display = 'none';
             if (this.ctx.interactions.roofCornerGizmo && selectedObj) {
                 this.ctx.interactions.roofCornerGizmo.attach(selectedObj);
+            }
+            return;
+        }
+
+        if (mode === 'roof_overhang') {
+            tc.visible = false;
+            tc.enabled = false;
+            if (this.btnRoofOverhang) this.btnRoofOverhang.classList.add('active');
+            if (this.xyPanel) this.xyPanel.style.display = 'none';
+            if (this.openingPanel) this.openingPanel.style.display = 'none';
+            if (this.materialPanel) this.materialPanel.style.display = 'none';
+            if (this.cornerPanel) this.cornerPanel.style.display = 'none';
+            if (this.stylePanel) this.stylePanel.style.display = 'none';
+            if (this.ctx.interactions.roofOverhangGizmo && selectedObj) {
+                this.ctx.interactions.roofOverhangGizmo.attach(selectedObj);
             }
             return;
         }

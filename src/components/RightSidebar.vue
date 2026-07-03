@@ -987,7 +987,24 @@
                         <input type="checkbox" v-model="selectedEntity.config.autoShapeWalls" @change="$emit('sync-engine')">
                     </div>
                 </div>
-                <div class="control-group"><label>Overhang</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.overhang" min="0" max="50" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.config.overhang" @input="$emit('sync-engine')"></div></div>
+                <div class="control-group">
+                    <label>Master Overhang</label>
+                    <div class="input-wrap">
+                        <input type="range" v-model.number="selectedEntity.config.overhang" min="0" max="50" @input="selectedEntity.config.overhangs && selectedEntity.config.overhangs.fill(selectedEntity.config.overhang); $emit('sync-engine')">
+                        <input type="number" v-model.number="selectedEntity.config.overhang" @input="selectedEntity.config.overhangs && selectedEntity.config.overhangs.fill(selectedEntity.config.overhang); $emit('sync-engine')">
+                    </div>
+                </div>
+                
+                <div v-if="selectedEntity.config.overhangs && selectedEntity.config.overhangs.length > 0">
+                    <div class="control-group" v-for="(o, index) in selectedEntity.config.overhangs" :key="index" style="margin-left: 10px; opacity: 0.9;">
+                        <label style="font-size: 11px;">Side {{ index + 1 }} Overhang</label>
+                        <div class="input-wrap">
+                            <input type="range" v-model.number="selectedEntity.config.overhangs[index]" min="0" max="50" @input="$emit('sync-engine')">
+                            <input type="number" v-model.number="selectedEntity.config.overhangs[index]" @input="$emit('sync-engine')">
+                        </div>
+                    </div>
+                </div>
+
                 <div class="control-group"><label>Elevation Gap</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.wallGap" min="-50" max="100" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.config.wallGap" @input="$emit('sync-engine')"></div></div>
                 
                 <div class="decor-gallery" v-if="['hip', 'gable'].includes(selectedEntity.config.roofType)">

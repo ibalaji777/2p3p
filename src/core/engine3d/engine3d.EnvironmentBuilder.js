@@ -1553,7 +1553,8 @@ export class EnvironmentBuilder {
             if (basePts.length < 3) return;
 
             const conf = roof.config || roof; 
-            const pts = offsetPolygon(basePts, conf.overhang || 0);
+            const overhangs = conf.overhangs ? conf.overhangs : (conf.overhang || 0);
+            const pts = offsetPolygon(basePts, overhangs);
 
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
             pts.forEach(p => {
@@ -1633,12 +1634,20 @@ export class EnvironmentBuilder {
 
                 mesh = new THREE.Mesh(geo, flatMat);
             } else if (conf.roofType === 'gable') {
+                let bMinX = Infinity, bMaxX = -Infinity, bMinY = Infinity, bMaxY = -Infinity;
+                basePts.forEach(p => {
+                    bMinX = Math.min(bMinX, p.x); bMaxX = Math.max(bMaxX, p.x);
+                    bMinY = Math.min(bMinY, p.y); bMaxY = Math.max(bMaxY, p.y);
+                });
+                const bW = bMaxX - bMinX;
+                const bD = bMaxY - bMinY;
+
                 const pitch = conf.pitch || 30;
                 const axis = conf.ridgeAxis || 'x';
-                const maxSpan = axis === 'x' ? D : W;
+                const maxSpan = axis === 'x' ? bD : bW;
                 const rh = Math.tan(pitch * Math.PI / 180) * (maxSpan / 2);
-                let cx = minX + W/2;
-                let cy = minY + D/2;
+                let cx = bMinX + bW/2;
+                let cy = bMinY + bD/2;
 
                 const v = [], uv = [];
                 const addTriangle = (p0, p1, p2) => {
@@ -1650,10 +1659,25 @@ export class EnvironmentBuilder {
                     addTriangle(p0, p2, p3);
                 };
 
-                const C0 = {x: minX, y: 0, z: minY};
-                const C1 = {x: maxX, y: 0, z: minY};
-                const C2 = {x: maxX, y: 0, z: maxY};
-                const C3 = {x: minX, y: 0, z: maxY};
+                const dropFactor = Math.tan(pitch * Math.PI / 180);
+                let dropC0 = 0, dropC1 = 0, dropC2 = 0, dropC3 = 0;
+                
+                if (axis === 'x') {
+                    const dropFront = -((cy - minY) - bD/2) * dropFactor;
+                    const dropBack = -((maxY - cy) - bD/2) * dropFactor;
+                    dropC0 = dropFront; dropC1 = dropFront; // Front edge
+                    dropC2 = dropBack; dropC3 = dropBack;   // Back edge
+                } else {
+                    const dropLeft = -((cx - minX) - bW/2) * dropFactor;
+                    const dropRight = -((maxX - cx) - bW/2) * dropFactor;
+                    dropC0 = dropLeft; dropC3 = dropLeft;   // Left edge
+                    dropC1 = dropRight; dropC2 = dropRight; // Right edge
+                }
+
+                const C0 = {x: minX, y: dropC0, z: minY};
+                const C1 = {x: maxX, y: dropC1, z: minY};
+                const C2 = {x: maxX, y: dropC2, z: maxY};
+                const C3 = {x: minX, y: dropC3, z: maxY};
 
                 if (axis === 'x') {
                     const R0 = {x: minX, y: rh, z: cy};
@@ -1679,45 +1703,64 @@ export class EnvironmentBuilder {
                 // Group 1: Bottom & Fascia (solid color)
                 geo.addGroup(0, v.length / 3, 0); 
                 geo.addGroup(v.length / 3, (vThick.length - v.length) / 3, 1);
-                
-                const overhangDrop = (conf.overhang || 0) * Math.tan(pitch * Math.PI / 180);
-                if (overhangDrop > 0) geo.translate(0, -overhangDrop, 0);
 
                 const fasciaMat = new THREE.MeshStandardMaterial({ color: 0xF5F5F5, roughness: 0.9, metalness: 0.1 });
                 mesh = new THREE.Mesh(geo, [mat, fasciaMat]);
                 
             } else {
+                let bMinX = Infinity, bMaxX = -Infinity, bMinY = Infinity, bMaxY = -Infinity;
+                basePts.forEach(p => {
+                    bMinX = Math.min(bMinX, p.x); bMaxX = Math.max(bMaxX, p.x);
+                    bMinY = Math.min(bMinY, p.y); bMaxY = Math.max(bMaxY, p.y);
+                });
+                const bW = bMaxX - bMinX;
+                const bD = bMaxY - bMinY;
+
                 const pitch = conf.pitch || 30;
-                const maxSpan = Math.min(W, D);
+                const maxSpan = Math.min(bW, bD);
                 const rh = Math.tan(pitch * Math.PI / 180) * (maxSpan / 2);
                 
                 let cx = 0, cy = 0, signedArea = 0;
-                for (let i = 0; i < pts.length; i++) {
-                    let p0 = pts[i], p1 = pts[(i + 1) % pts.length];
+                for (let i = 0; i < basePts.length; i++) {
+                    let p0 = basePts[i], p1 = basePts[(i + 1) % basePts.length];
                     let a = p0.x * p1.y - p1.x * p0.y;
                     signedArea += a;
                     cx += (p0.x + p1.x) * a;
                     cy += (p0.y + p1.y) * a;
                 }
                 signedArea *= 0.5;
-                if (signedArea !== 0) { cx /= (6.0 * signedArea); cy /= (6.0 * signedArea); } 
-                else { cx = minX + W/2; cy = minY + D/2; }
+                if (Math.abs(signedArea) > 0.1) { cx /= (6.0 * signedArea); cy /= (6.0 * signedArea); } 
+                else { cx = bMinX + bW/2; cy = bMinY + bD/2; }
 
                 const top = [cx, rh, cy];
                 const v = [], uv = [];
                 
+                const dropFactor = Math.tan(pitch * Math.PI / 180);
+                
+                // Helper to get overhang for an edge
+                const getOverhang = (idx) => {
+                    if (Array.isArray(conf.overhangs)) return conf.overhangs[idx] || 0;
+                    return conf.overhang || 0;
+                };
+
                 for (let i = 0; i < pts.length; i++) {
                     let p0 = pts[i], p1 = pts[(i + 1) % pts.length];
                     let dx1 = p1.x - p0.x, dz1 = p1.y - p0.y;
                     let dx2 = top[0] - p0.x, dz2 = top[2] - p0.y;
                     let ny = dx1 * dz2 - dz1 * dx2; 
                     
+                    let prevIdx = (i - 1 + pts.length) % pts.length;
+                    let nextIdx = (i + 1) % pts.length;
+                    
+                    let drop0 = -Math.max(getOverhang(prevIdx), getOverhang(i)) * dropFactor;
+                    let drop1 = -Math.max(getOverhang(i), getOverhang(nextIdx)) * dropFactor;
+                    
                     if (ny < 0) { 
-                        v.push(p1.x, 0, p1.y, p0.x, 0, p0.y, ...top); 
+                        v.push(p1.x, drop1, p1.y, p0.x, drop0, p0.y, ...top); 
                         uv.push(p1.x / 100, p1.y / 100, p0.x / 100, p0.y / 100, top[0] / 100, top[2] / 100);
                     } 
                     else { 
-                        v.push(p0.x, 0, p0.y, p1.x, 0, p1.y, ...top); 
+                        v.push(p0.x, drop0, p0.y, p1.x, drop1, p1.y, ...top); 
                         uv.push(p0.x / 100, p0.y / 100, p1.x / 100, p1.y / 100, top[0] / 100, top[2] / 100);
                     }
                 }
@@ -1732,9 +1775,6 @@ export class EnvironmentBuilder {
                 
                 geo.addGroup(0, v.length / 3, 0); 
                 geo.addGroup(v.length / 3, (vThick.length - v.length) / 3, 1);
-                
-                const overhangDrop = (conf.overhang || 0) * Math.tan(pitch * Math.PI / 180);
-                if (overhangDrop > 0) geo.translate(0, -overhangDrop, 0);
                 
                 const mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide });
                 if (decor && decor.texture) {
@@ -1770,14 +1810,17 @@ export class EnvironmentBuilder {
             mesh.castShadow = true;
             mesh.receiveShadow = true;
             
+            mesh.userData = { isRoof: true, entity: roof }; 
             if (this.ctx.viewMode3D !== 'preview' && targetGroup === this.ctx.structureGroup) {
-                mesh.userData = { isRoof: true, entity: roof }; 
                 this.ctx.interactables.push(mesh);
             }
             
             roofGroup.add(mesh);
             targetGroup.add(roofGroup);
-            roof.mesh3D = roofGroup;
+            
+            if (targetGroup === this.ctx.structureGroup) {
+                roof.mesh3D = roofGroup;
+            }
         });
     }
     

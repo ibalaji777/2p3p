@@ -1707,7 +1707,10 @@ export const WIDGET_REGISTRY = {
 };
 
 export function offsetPolygon(points, offsetAmount) {
-    if (!offsetAmount || offsetAmount === 0 || points.length < 3) return points;
+    if (points.length < 3) return points;
+    
+    let isArray = Array.isArray(offsetAmount);
+    if (!isArray && (!offsetAmount || offsetAmount === 0)) return points;
     
     let signedArea = 0;
     for (let i = 0; i < points.length; i++) {
@@ -1717,10 +1720,11 @@ export function offsetPolygon(points, offsetAmount) {
     }
     
     const result = [];
-    for (let i = 0; i < points.length; i++) {
-        let prev = points[(i - 1 + points.length) % points.length];
+    const n = points.length;
+    for (let i = 0; i < n; i++) {
+        let prev = points[(i - 1 + n) % n];
         let curr = points[i];
-        let next = points[(i + 1) % points.length];
+        let next = points[(i + 1) % n];
         
         let e1x = curr.x - prev.x;
         let e1y = curr.y - prev.y;
@@ -1738,26 +1742,40 @@ export function offsetPolygon(points, offsetAmount) {
         let n2x = -e2y; let n2y = e2x;
         if (signedArea > 0) { n2x = e2y; n2y = -e2x; }
         
-        let bx = n1x + n2x;
-        let by = n1y + n2y;
-        let blen = Math.sqrt(bx * bx + by * by);
+        let off1 = isArray ? (offsetAmount[(i - 1 + n) % n] || 0) : offsetAmount;
+        let off2 = isArray ? (offsetAmount[i] || 0) : offsetAmount;
         
-        if (blen < 0.0001) {
-            bx = n1x;
-            by = n1y;
-            blen = 1;
+        let p1x = curr.x + n1x * off1;
+        let p1y = curr.y + n1y * off1;
+        
+        let p2x = curr.x + n2x * off2;
+        let p2y = curr.y + n2y * off2;
+        
+        let cross = e1x * e2y - e1y * e2x;
+        
+        if (Math.abs(cross) < 1e-6) {
+            let bx = n1x + n2x;
+            let by = n1y + n2y;
+            let blen = Math.sqrt(bx * bx + by * by);
+            if (blen < 0.0001) { bx = n1x; by = n1y; blen = 1; }
+            bx /= blen; by /= blen;
+            
+            let dot = bx * n1x + by * n1y;
+            if (Math.abs(dot) < 0.1) dot = 0.1;
+            let avgOff = (off1 + off2) / 2;
+            let dist = avgOff / dot;
+            
+            result.push({ x: curr.x + bx * dist, y: curr.y + by * dist });
+        } else {
+            let dx = p2x - p1x;
+            let dy = p2y - p1y;
+            let t = (dx * e2y - dy * e2x) / cross;
+            
+            result.push({
+                x: p1x + t * e1x,
+                y: p1y + t * e1y
+            });
         }
-        bx /= blen;
-        by /= blen;
-        
-        let dot = bx * n1x + by * n1y;
-        if (Math.abs(dot) < 0.1) dot = 0.1;
-        let dist = offsetAmount / dot;
-        
-        result.push({
-            x: curr.x + bx * dist,
-            y: curr.y + by * dist
-        });
     }
     return result;
 }

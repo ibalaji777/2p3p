@@ -53,7 +53,10 @@ export class PremiumHipRoof {
         this.initEvents();
     }
     getFlatPoints() {
-        const offsetPts = offsetPolygon(this.points, this.config.overhang || 0);
+        if (!this.config.overhangs || this.config.overhangs.length !== this.points.length) {
+            this.config.overhangs = Array(this.points.length).fill(this.config.overhang || 0);
+        }
+        const offsetPts = offsetPolygon(this.points, this.config.overhangs);
         return offsetPts.flatMap(p => [p.x, p.y]);
     }
     
@@ -208,12 +211,12 @@ export class PremiumHipRoof {
     
     generateHipLines() {
         this.hipLinesGroup.destroyChildren();
-        
-        const pts = offsetPolygon(this.points, this.config.overhang || 0);
+        const overhangs = this.config.overhangs ? this.config.overhangs : (this.config.overhang || 0);
+        const pts = offsetPolygon(this.points, overhangs);
         
         let cx = 0, cy = 0, signedArea = 0;
-        for (let i = 0; i < pts.length; i++) {
-            let p0 = pts[i], p1 = pts[(i + 1) % pts.length];
+        for (let i = 0; i < this.points.length; i++) {
+            let p0 = this.points[i], p1 = this.points[(i + 1) % this.points.length];
             let a = p0.x * p1.y - p1.x * p0.y;
             signedArea += a; cx += (p0.x + p1.x) * a; cy += (p0.y + p1.y) * a;
         }
@@ -222,8 +225,11 @@ export class PremiumHipRoof {
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
         pts.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
         
-        if (signedArea !== 0) { cx /= (6.0 * signedArea); cy /= (6.0 * signedArea); } 
-        else { cx = minX + (maxX - minX) / 2; cy = minY + (maxY - minY) / 2; }
+        let bMinX = Infinity, bMaxX = -Infinity, bMinY = Infinity, bMaxY = -Infinity;
+        this.points.forEach(p => { bMinX = Math.min(bMinX, p.x); bMaxX = Math.max(bMaxX, p.x); bMinY = Math.min(bMinY, p.y); bMaxY = Math.max(bMaxY, p.y); });
+
+        if (Math.abs(signedArea) > 0.1) { cx /= (6.0 * signedArea); cy /= (6.0 * signedArea); } 
+        else { cx = bMinX + (bMaxX - bMinX) / 2; cy = bMinY + (bMaxY - bMinY) / 2; }
 
         this.boundary.fill('rgba(226, 232, 240, 0.4)'); // Semi-transparent grey fill
         this.boundary.stroke('rgba(148, 163, 184, 0.5)'); // Subtle slate outer boundary
