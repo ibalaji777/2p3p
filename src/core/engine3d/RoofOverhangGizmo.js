@@ -13,10 +13,13 @@ export class RoofOverhangGizmo extends THREE.Group {
         this.mouse = new THREE.Vector2();
         this.visible = false;
         
-        this.handleMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, depthTest: false, transparent: true, opacity: 0.9 });
-        this.handleMatHover = new THREE.MeshBasicMaterial({ color: 0xfcd34d, depthTest: false, transparent: true, opacity: 1.0 });
-        this.handleMatActive = new THREE.MeshBasicMaterial({ color: 0xef4444, depthTest: false, transparent: true, opacity: 0.9 });
-        this.handleGeo = new THREE.BoxGeometry(20, 20, 20);
+        this.handleMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, depthTest: false, transparent: true, opacity: 0.9 });
+        this.handleMatHover = new THREE.MeshBasicMaterial({ color: 0x60a5fa, depthTest: false, transparent: true, opacity: 1.0 });
+        this.handleMatActive = new THREE.MeshBasicMaterial({ color: 0x2563eb, depthTest: false, transparent: true, opacity: 0.9 });
+        
+        // Create an arrow-like geometry using a cone
+        this.handleGeo = new THREE.ConeGeometry(12, 30, 8);
+        this.handleGeo.rotateX(Math.PI / 2); // Point it along Z axis by default
         
         this.activeDragIndex = -1;
         this.isDragging = false;
@@ -39,13 +42,8 @@ export class RoofOverhangGizmo extends THREE.Group {
                 const handle = intersects[0].object;
                 this.activeDragIndex = handle.userData.index;
                 this.isDragging = true;
-                
-                this.dragPlane.setFromNormalAndCoplanarPoint(
-                    new THREE.Vector3(0, 1, 0),
-                    intersects[0].point
-                );
-                
-                this.dragStartPos.copy(intersects[0].point);
+                this.dragStartScreenY = e.clientY;
+                this.dragStartScreenX = e.clientX;
                 
                 const entity = this.target.userData.entity;
                 if (!entity.points) return;
@@ -53,6 +51,15 @@ export class RoofOverhangGizmo extends THREE.Group {
                 if (!entity.config.overhangs || entity.config.overhangs.length !== entity.points.length) {
                     entity.config.overhangs = Array(entity.points.length).fill(entity.config.overhang || 0);
                 }
+                
+                this.initialOverhangs = [...entity.config.overhangs];
+                
+                this.dragPlane.setFromNormalAndCoplanarPoint(
+                    new THREE.Vector3(0, 1, 0),
+                    intersects[0].point
+                );
+                
+                this.dragStartPos.copy(intersects[0].point);
                 
                 this.handles.children.forEach(h => {
                     const idx = h.userData.index;
@@ -76,8 +83,9 @@ export class RoofOverhangGizmo extends THREE.Group {
                 e.stopPropagation();
                 
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-                if (this.raycaster.ray.intersectPlane(this.dragPlane, this.dragIntersect)) {
-                    
+                this.raycaster.ray.intersectPlane(this.dragPlane, this.dragIntersect);
+                
+                if (this.dragIntersect) {
                     const localIntersect = this.dragIntersect.clone();
                     this.worldToLocal(localIntersect);
                     
@@ -93,7 +101,7 @@ export class RoofOverhangGizmo extends THREE.Group {
                         const ny = handle.userData.ny;
                         
                         const dot = dx * nx + dz * ny;
-                        const deltaOverhang = dot;
+                        const deltaOverhang = dot * 0.25; // Small damper for comfortable weight
                         
                         const entity = this.target.userData.entity;
                         if (!entity.config.overhangs) {
@@ -101,14 +109,14 @@ export class RoofOverhangGizmo extends THREE.Group {
                         }
                         
                         if (e.shiftKey) {
-                            this.handles.children.forEach(h => {
-                                const i = h.userData.index;
-                                let newO = h.userData.initialOverhang + deltaOverhang;
+                            this.initialOverhangs.forEach((initO, i) => {
+                                let newO = initO + deltaOverhang;
                                 if (newO < 0) newO = 0;
                                 entity.config.overhangs[i] = newO;
                             });
                         } else {
-                            let newO = handle.userData.initialOverhang + deltaOverhang;
+                            let initO = this.initialOverhangs[this.activeDragIndex];
+                            let newO = initO + deltaOverhang;
                             if (newO < 0) newO = 0;
                             entity.config.overhangs[this.activeDragIndex] = newO;
                         }
@@ -205,13 +213,7 @@ export class RoofOverhangGizmo extends THREE.Group {
         const offsetPts = offsetPolygon(points, currentOverhangs);
         
         // Find roof elevation
-        let meshY = 0;
-        if (this.target && this.target.position) {
-            meshY = this.target.position.y;
-        } else if (entity.elevation) {
-            meshY = entity.elevation;
-        }
-        console.log('RoofOverhangGizmo meshY:', meshY);
+        const meshY = (this.target.position.y || 0) + 2; 
         
         offsetPts.forEach((p, idx) => {
             const nextIdx = (idx + 1) % offsetPts.length;
@@ -232,6 +234,10 @@ export class RoofOverhangGizmo extends THREE.Group {
             
             const handle = new THREE.Mesh(this.handleGeo, this.handleMat);
             handle.position.set(midX, meshY, midY); 
+            
+            // Point the arrow along the normal direction
+            handle.rotation.y = -Math.atan2(ny, nx) + Math.PI / 2;
+            
             handle.userData = { 
                 index: idx, 
                 nx: nx, 
@@ -239,7 +245,6 @@ export class RoofOverhangGizmo extends THREE.Group {
                 initialOverhang: currentOverhangs[idx] 
             };
             this.handles.add(handle);
-            console.log('RoofOverhangGizmo added handle at:', midX, meshY, midY);
         });
     }
     
