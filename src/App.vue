@@ -315,20 +315,21 @@ const menuCategories = ref([
         id: 'structures', name: 'Structures',
         icon: '<path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>',
         tools: [
-            
-            
-            { id: 'shape_floor_cut', name: 'Floor Cut (Hole)' },
-            { id: 'stair_v5_straight', name: 'Straight Staircase (V5)' },
-            { id: 'stair_v5_L', name: 'L-Shape Staircase (V5)' },
-            { id: 'stair_v5_U', name: 'U-Shape Staircase (V5)' },
-            { id: 'stair_v5_T', name: 'T-Shape Staircase (V5)' },
+            { isDivider: true, name: 'Staircases' },
+            { id: 'stair_v5_straight', name: 'Straight Staircase' },
+            { id: 'stair_v5_L', name: 'L-Shape Staircase' },
+            { id: 'stair_v5_U', name: 'U-Shape Staircase' },
+            { id: 'stair_v5_T', name: 'T-Shape Staircase' },
             { id: 'stair_v4_flight', name: 'Stair Flight (Legacy)' },
             { id: 'stair_v4_landing', name: 'Landing (Legacy)' },
             { id: 'stair_v4_landing_curve', name: 'U-Curve Landing (Legacy)' },
+            { isDivider: true, name: 'Roofs' },
             { id: 'roof_gable', name: 'Draw Gable Roof', roofType: 'gable' },
             { id: 'roof_flat', name: 'Draw Flat Roof', roofType: 'flat' },
             { id: 'roof_hip', name: 'Draw Hip Roof', roofType: 'hip' },
-            { id: 'auto_roof', name: 'Generate Auto-Roof', action: 'auto_roof' }
+            { id: 'auto_roof', name: 'Generate Auto-Roof', action: 'auto_roof' },
+            { isDivider: true, name: 'Floor Cuts' },
+            { id: 'shape_floor_cut', name: 'Floor Cut (Hole)' }
         ]
     },
     {

@@ -95,12 +95,30 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .submenu-content { padding: 12px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
 
 .child-card-btn {
-    padding: 8px 12px; text-align: left; background: transparent; border: none;
-    border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: #4b5563; transition: all 0.2s ease;
-    display: flex; align-items: center; gap: 8px;
+    display: block; width: 100%; text-align: left; padding: 10px 12px;
+    background: transparent; border: none; color: #475569; font-size: 0.85rem; font-weight: 500;
+    border-radius: 6px; cursor: pointer; transition: all 0.2s; margin-bottom: 2px;
 }
 .child-card-btn:hover { background: #f1f5f9; color: #111827; }
 .child-card-btn.active { background: #eff6ff; color: #2563eb; font-weight: 600; }
+
+.submenu-divider {
+    display: flex;
+    align-items: center;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #94a3b8;
+    font-weight: 600;
+    margin: 16px 8px 8px 8px;
+}
+.submenu-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+    margin-left: 8px;
+}
 
 .action-btn { padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .action-btn.export { background: #111827; color: white; }

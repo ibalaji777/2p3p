@@ -33,12 +33,15 @@
                 <h3>{{ activeCategoryObj.name }}</h3>
             </div>
             <div class="submenu-content">
-                <button v-for="tool in activeCategoryObj.tools" :key="tool.id"
-                    class="child-card-btn"
-                    :class="{ active: activeTool === tool.id && !tool.action }"
-                    @click="$emit('tool-click', tool)">
-                    {{ tool.name }}
-                </button>
+                <template v-for="(tool, idx) in activeCategoryObj.tools" :key="tool.id || idx">
+                    <div v-if="tool.isDivider" class="submenu-divider">{{ tool.name }}</div>
+                    <button v-else
+                        class="child-card-btn"
+                        :class="{ active: activeTool === tool.id && !tool.action }"
+                        @click="$emit('tool-click', tool)">
+                        {{ tool.name }}
+                    </button>
+                </template>
             </div>
         </div>
     </div>
