@@ -424,38 +424,130 @@ export class ActiveFloor {
 
                 mesh = new THREE.Mesh(geo, flatMat);
             } else if (conf.roofType === 'gable') {
+                let bMinX = Infinity, bMaxX = -Infinity, bMinY = Infinity, bMaxY = -Infinity;
+                basePts.forEach(p => {
+                    bMinX = Math.min(bMinX, p.x); bMaxX = Math.max(bMaxX, p.x);
+                    bMinY = Math.min(bMinY, p.y); bMaxY = Math.max(bMaxY, p.y);
+                });
+                const bW = bMaxX - bMinX;
+                const bD = bMaxY - bMinY;
+
                 const pitch = conf.pitch || 30;
                 const axis = conf.ridgeAxis || 'x';
-                const maxSpan = axis === 'x' ? D : W;
+                const maxSpan = axis === 'x' ? bD : bW;
                 const rh = Math.tan(pitch * Math.PI / 180) * (maxSpan / 2);
-                let cx = minX + W/2;
-                let cy = minY + D/2;
+                let cx = bMinX + bW/2;
+                let cy = bMinY + bD/2;
 
                 const v = [], uv = [];
-                const addTriangle = (p0, p1, p2) => {
-                    v.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
-                    uv.push(0, 0, 1, 0, 0.5, 1);
-                };
-                const addQuad = (p0, p1, p2, p3) => {
-                    addTriangle(p0, p1, p2);
-                    addTriangle(p0, p2, p3);
-                };
-
-                const C0 = {x: minX, y: 0, z: minY};
-                const C1 = {x: maxX, y: 0, z: minY};
-                const C2 = {x: maxX, y: 0, z: maxY};
-                const C3 = {x: minX, y: 0, z: maxY};
-
-                if (axis === 'x') {
-                    const R0 = {x: minX, y: rh, z: cy};
-                    const R1 = {x: maxX, y: rh, z: cy};
-                    addQuad(C1, C0, R0, R1); // Front
-                    addQuad(C3, C2, R1, R0); // Back
+                
+                const shape = new THREE.Shape();
+                shape.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) shape.lineTo(pts[i].x, pts[i].y);
+                const shapeGeo = new THREE.ShapeGeometry(shape);
+                const pos = shapeGeo.attributes.position;
+                
+                let rawTriangles = [];
+                if (shapeGeo.index) {
+                    const idx = shapeGeo.index.array;
+                    for (let i = 0; i < idx.length; i += 3) {
+                        const a = idx[i], b = idx[i+1], c = idx[i+2];
+                        rawTriangles.push([
+                            {x: pos.getX(a), y: pos.getY(a)},
+                            {x: pos.getX(b), y: pos.getY(b)},
+                            {x: pos.getX(c), y: pos.getY(c)}
+                        ]);
+                    }
                 } else {
-                    const R0 = {x: cx, y: rh, z: minY};
-                    const R1 = {x: cx, y: rh, z: maxY};
-                    addQuad(C0, C3, R1, R0); // Left
-                    addQuad(C2, C1, R0, R1); // Right
+                    for (let i = 0; i < pos.count; i += 3) {
+                        rawTriangles.push([
+                            {x: pos.getX(i), y: pos.getY(i)},
+                            {x: pos.getX(i+1), y: pos.getY(i+1)},
+                            {x: pos.getX(i+2), y: pos.getY(i+2)}
+                        ]);
+                    }
+                }
+                
+                function splitTriangle(p1, p2, p3, lineVal, isAxisX) {
+                    const tPts = [p1, p2, p3];
+                    const val = p => isAxisX ? p.y : p.x;
+                    const above = tPts.filter(p => val(p) < lineVal);
+                    const below = tPts.filter(p => val(p) > lineVal);
+                    const on = tPts.filter(p => val(p) === lineVal);
+
+                    if (above.length === 3 || below.length === 3) return [tPts];
+                    if (above.length === 2 && on.length === 1) return [tPts];
+                    if (below.length === 2 && on.length === 1) return [tPts];
+                    if (above.length === 1 && on.length === 2) return [tPts];
+                    if (below.length === 1 && on.length === 2) return [tPts];
+                    if (on.length === 3) return [tPts];
+
+                    if (on.length === 1) {
+                        const pAbove = above[0], pBelow = below[0], pOn = on[0];
+                        const t = (lineVal - val(pAbove)) / (val(pBelow) - val(pAbove));
+                        const pIntersect = isAxisX ? 
+                            { x: pAbove.x + t * (pBelow.x - pAbove.x), y: lineVal } :
+                            { x: lineVal, y: pAbove.y + t * (pBelow.y - pAbove.y) };
+                        return [
+                            [pAbove, pOn, pIntersect],
+                            [pBelow, pOn, pIntersect]
+                        ];
+                    } else {
+                        const lone = above.length === 1 ? above[0] : below[0];
+                        const pair = above.length === 2 ? above : below;
+                        
+                        const t1 = (lineVal - val(lone)) / (val(pair[0]) - val(lone));
+                        const pI1 = isAxisX ?
+                            { x: lone.x + t1 * (pair[0].x - lone.x), y: lineVal } :
+                            { x: lineVal, y: lone.y + t1 * (pair[0].y - lone.y) };
+                        
+                        const t2 = (lineVal - val(lone)) / (val(pair[1]) - val(lone));
+                        const pI2 = isAxisX ?
+                            { x: lone.x + t2 * (pair[1].x - lone.x), y: lineVal } :
+                            { x: lineVal, y: lone.y + t2 * (pair[1].y - lone.y) };
+                        
+                        return [
+                            [lone, pI1, pI2],
+                            [pair[0], pI1, pI2],
+                            [pair[0], pI2, pair[1]]
+                        ];
+                    }
+                }
+                
+                let refinedTriangles = [];
+                rawTriangles.forEach(tri => {
+                    const split = splitTriangle(tri[0], tri[1], tri[2], axis === 'x' ? cy : cx, axis === 'x');
+                    refinedTriangles.push(...split);
+                });
+                
+                refinedTriangles.forEach(tri => {
+                    for (let i = 0; i < 3; i++) {
+                        const pt = tri[i];
+                        let rv = 0;
+                        if (axis === 'x') {
+                            if (pt.y <= cy) rv = (pt.y - bMinY) * Math.tan(pitch * Math.PI / 180);
+                            else rv = (bMaxY - pt.y) * Math.tan(pitch * Math.PI / 180);
+                        } else {
+                            if (pt.x <= cx) rv = (pt.x - bMinX) * Math.tan(pitch * Math.PI / 180);
+                            else rv = (bMaxX - pt.x) * Math.tan(pitch * Math.PI / 180);
+                        }
+                        v.push(pt.x, rv, pt.y);
+                        uv.push(pt.x / 100, pt.y / 100);
+                    }
+                });
+
+                for (let i = 0; i < v.length; i += 9) {
+                    const dx1 = v[i+3] - v[i], dz1 = v[i+5] - v[i+2];
+                    const dx2 = v[i+6] - v[i], dz2 = v[i+8] - v[i+2];
+                    const ny_true = dz1 * dx2 - dx1 * dz2;
+                    if (ny_true < 0) { 
+                        const tX = v[i+3], tY = v[i+4], tZ = v[i+5];
+                        const tU = uv[i/3*2+2], tV = uv[i/3*2+3];
+                        v[i+3] = v[i+6]; v[i+4] = v[i+7]; v[i+5] = v[i+8];
+                        uv[i/3*2+2] = uv[i/3*2+4]; uv[i/3*2+3] = uv[i/3*2+5];
+                        v[i+6] = tX; v[i+7] = tY; v[i+8] = tZ;
+                        uv[i/3*2+4] = tU; uv[i/3*2+5] = tV;
+                    }
                 }
 
                 const geo = new THREE.BufferGeometry();
@@ -475,31 +567,73 @@ export class ActiveFloor {
                 }
 
                 const gv = [], guv = [];
-                const addGableTri = (p0, p1, p2) => {
-                    gv.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+                const addGableQuad = (p1, p2, h1, h2) => {
+                    gv.push(p1.x, 0, p1.y, p2.x, 0, p2.y, p1.x, h1, p1.y);
+                    gv.push(p1.x, h1, p1.y, p2.x, 0, p2.y, p2.x, h2, p2.y);
                     let sc = 1/100;
-                    if (axis === 'x') guv.push(p0.z*sc, p0.y*sc, p1.z*sc, p1.y*sc, p2.z*sc, p2.y*sc);
-                    else guv.push(p0.x*sc, p0.y*sc, p1.x*sc, p1.y*sc, p2.x*sc, p2.y*sc);
+                    if (axis === 'x') {
+                        guv.push(p1.y*sc, 0, p2.y*sc, 0, p1.y*sc, h1*sc);
+                        guv.push(p1.y*sc, h1*sc, p2.y*sc, 0, p2.y*sc, h2*sc);
+                    } else {
+                        guv.push(p1.x*sc, 0, p2.x*sc, 0, p1.x*sc, h1*sc);
+                        guv.push(p1.x*sc, h1*sc, p2.x*sc, 0, p2.x*sc, h2*sc);
+                    }
                 };
 
-                if (axis === 'x') {
-                    const R0 = {x: minX, y: rh, z: cy};
-                    const R1 = {x: maxX, y: rh, z: cy};
-                    addGableTri(C0, C3, R0); // Left
-                    addGableTri(C2, C1, R1); // Right
-                } else {
-                    const R0 = {x: cx, y: rh, z: minY};
-                    const R1 = {x: cx, y: rh, z: maxY};
-                    addGableTri(C1, C0, R0); // Front
-                    addGableTri(C3, C2, R1); // Back
+                if (conf.autoShapeWalls) {
+                    let perimPts = [];
+                    for(let i=0; i<basePts.length; i++) {
+                        const p1 = basePts[i];
+                        const p2 = basePts[(i+1)%basePts.length];
+                        perimPts.push(p1);
+                        const lineVal = axis === 'x' ? cy : cx;
+                        const val1 = axis === 'x' ? p1.y : p1.x;
+                        const val2 = axis === 'x' ? p2.y : p2.x;
+                        if ((val1 < lineVal && val2 > lineVal) || (val1 > lineVal && val2 < lineVal)) {
+                            const t = (lineVal - val1) / (val2 - val1);
+                            perimPts.push({
+                                x: p1.x + t * (p2.x - p1.x),
+                                y: p1.y + t * (p2.y - p1.y)
+                            });
+                        }
+                    }
+
+                    for(let i=0; i<perimPts.length; i++) {
+                        const p1 = perimPts[i];
+                        const p2 = perimPts[(i+1)%perimPts.length];
+                        let h1 = 0, h2 = 0;
+                        if (axis === 'x') {
+                            h1 = p1.y <= cy ? (p1.y - bMinY) * Math.tan(pitch * Math.PI / 180) : (bMaxY - p1.y) * Math.tan(pitch * Math.PI / 180);
+                            h2 = p2.y <= cy ? (p2.y - bMinY) * Math.tan(pitch * Math.PI / 180) : (bMaxY - p2.y) * Math.tan(pitch * Math.PI / 180);
+                        } else {
+                            h1 = p1.x <= cx ? (p1.x - bMinX) * Math.tan(pitch * Math.PI / 180) : (bMaxX - p1.x) * Math.tan(pitch * Math.PI / 180);
+                            h2 = p2.x <= cx ? (p2.x - bMinX) * Math.tan(pitch * Math.PI / 180) : (bMaxX - p2.x) * Math.tan(pitch * Math.PI / 180);
+                        }
+                        if (h1 > 0.01 || h2 > 0.01) {
+                            addGableQuad(p1, p2, h1, h2);
+                        }
+                    }
+
+                    if (gv.length > 0) {
+                        const gGeo = new THREE.BufferGeometry();
+                        gGeo.setAttribute("position", new THREE.Float32BufferAttribute(gv, 3));
+                        gGeo.setAttribute("uv", new THREE.Float32BufferAttribute(guv, 2));
+                        gGeo.computeVertexNormals();
+
+                        const gableMatId = conf.gableMaterial || 'white_plaster_wall';
+                        const wallDecor = WALL_DECOR_REGISTRY[gableMatId] || WALL_DECOR_REGISTRY['white_plaster_wall'];
+                        let gableMat = new THREE.MeshStandardMaterial({ color: 0xefede5, side: THREE.DoubleSide });
+                        if (wallDecor && wallDecor.texture) {
+                            const gTex = new THREE.TextureLoader().load(wallDecor.texture);
+                            gTex.wrapS = gTex.wrapT = THREE.RepeatWrapping;
+                            gTex.repeat.set(100/(wallDecor.scaleRatio || 100), 100/(wallDecor.scaleRatio || 100));
+                            gableMat = new THREE.MeshStandardMaterial({ map: gTex, side: THREE.DoubleSide, bumpMap: gTex, bumpScale: 0.015 });
+                        }
+
+                        const gableMesh = new THREE.Mesh(gGeo, gableMat);
+                        mesh.add(gableMesh);
+                    }
                 }
-                
-                const gGeo = new THREE.BufferGeometry();
-                gGeo.setAttribute("position", new THREE.Float32BufferAttribute(gv, 3));
-                gGeo.setAttribute("uv", new THREE.Float32BufferAttribute(guv, 2));
-                gGeo.computeVertexNormals();
-                const gableMesh = new THREE.Mesh(gGeo, gableMat);
-                mesh.add(gableMesh);
 
             } else {
                 const pitch = conf.pitch || 30;

@@ -176,8 +176,16 @@ export class PremiumHipRoof {
                 const wDy = Math.abs(w.endAnchor.y - w.startAnchor.y);
                 
                 const isGable = (this.config.ridgeAxis === 'y') ? (wDx > wDy) : (wDy > wDx);
-                
+                let isOuter = false;
                 if (isGable) {
+                    if (this.config.ridgeAxis === 'y') {
+                        isOuter = Math.abs(cy - minY) < 20 || Math.abs(cy - Math.max(minY, maxY)) < 20;
+                    } else {
+                        isOuter = Math.abs(cx - minX) < 20 || Math.abs(cx - Math.max(minX, maxX)) < 20;
+                    }
+                }
+                
+                if (isGable && isOuter) {
                     let gableWall = this.planner.walls.find(cw => cw.isAutoGable && cw.parentWallId === w.id && cw.parentRoofId === this.id);
                     if (!gableWall) {
                         const WallClass = w.constructor; // dynamically get the wall class (e.g. PremiumWall)
@@ -195,6 +203,9 @@ export class PremiumHipRoof {
                     gableWall.height = 0;
                     gableWall.peakHeight = roofH;
                     if (gableWall.updateGeometry) gableWall.updateGeometry();
+                } else {
+                    let gableWall = this.planner.walls.find(cw => cw.isAutoGable && cw.parentWallId === w.id && cw.parentRoofId === this.id);
+                    if (gableWall) gableWall.destroy();
                 }
             }
         });

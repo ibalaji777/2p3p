@@ -465,6 +465,8 @@ const layerItems = computed(() => {
             if (w.parentArc) return;
             if (w.type === 'railing') {
                 items.push({ id: `rail-${i}`, name: `Railing ${i + 1}`, entity: w, type: 'railing' });
+            } else if (w.isAutoGable) {
+                items.push({ id: `wall-${i}`, name: `Gable Wall ${i + 1}`, entity: w, type: 'wall' });
             } else {
                 items.push({ id: `wall-${i}`, name: w.type === 'inner' ? `Inner Wall ${i + 1}` : `Outer Wall ${i + 1}`, entity: w, type: 'wall' });
             }

@@ -68,7 +68,16 @@ export class DecorManager {
         const wallEntity = object.userData.parentWall;
 
         const t = wallEntity.thickness || wallEntity.config?.thickness || 8;
-        const wallH = wallEntity.height || wallEntity.config?.height || WALL_HEIGHT;
+        const type = wallEntity.topProfileType || 'normal';
+        
+        let baseWallH = wallEntity.height !== undefined ? wallEntity.height : (wallEntity.config?.height || WALL_HEIGHT);
+        const startH = wallEntity.startHeight !== undefined ? wallEntity.startHeight : baseWallH;
+        const endH = wallEntity.endHeight !== undefined ? wallEntity.endHeight : baseWallH;
+        const peakH = wallEntity.peakHeight !== undefined ? wallEntity.peakHeight : baseWallH;
+        
+        // For gable/single slopes, use the true highest point to bound the material mapping
+        const wallH = type !== 'normal' ? Math.max(startH, endH, peakH, baseWallH) : baseWallH;
+
         const d = entity.depth;
         const isFront = entity.side === 'front';
 
@@ -79,11 +88,41 @@ export class DecorManager {
         if (!isFront) posX = wallEntity.length3D - posX;
         const posY = wallH * (entity.localY / 100);
 
+        const L = wallEntity.length3D;
+        
+        const getWallHeightAt = (x) => {
+            if (type === 'normal') return wallH;
+            if (type === 'single') return startH + (x / L) * (endH - startH);
+            if (type === 'gable') {
+                if (x <= L / 2) return startH + (x / (L / 2)) * (peakH - startH);
+                return peakH + ((x - L / 2) / (L / 2)) * (endH - peakH);
+            }
+            return wallH;
+        };
+
+        const wallX_left = isFront ? (posX - w/2) : (posX + w/2);
+        const wallX_right = isFront ? (posX + w/2) : (posX - w/2);
+
+        const yLeft = Math.min(h/2, getWallHeightAt(wallX_left) - posY);
+        const yRight = Math.min(h/2, getWallHeightAt(wallX_right) - posY);
+
         const shape = new THREE.Shape();
         shape.moveTo(-w/2, -h/2);
         shape.lineTo(w/2, -h/2);
-        shape.lineTo(w/2, h/2);
-        shape.lineTo(-w/2, h/2);
+        shape.lineTo(w/2, yRight);
+        
+        if (type === 'gable') {
+            const wallX_peak = L / 2;
+            const minX = Math.min(wallX_left, wallX_right);
+            const maxX = Math.max(wallX_left, wallX_right);
+            if (wallX_peak > minX + 0.1 && wallX_peak < maxX - 0.1) {
+                const localX_peak = isFront ? (wallX_peak - posX) : (posX - wallX_peak);
+                const yPeak = Math.min(h/2, peakH - posY);
+                shape.lineTo(localX_peak, yPeak);
+            }
+        }
+        
+        shape.lineTo(-w/2, yLeft);
         shape.lineTo(-w/2, -h/2);
 
         wallEntity.attachedWidgets.forEach(widg => {
@@ -191,8 +230,14 @@ export class DecorManager {
                     const tZ = (wallZ + t/2) / t;
                     const startX = localSR_x + tZ * (localSL_x - localSR_x);
                     const endX = localER_x + tZ * (localEL_x - localER_x);
-                    const tX = wallX / wallEntity.length3D;
-                    const shearedWallX = startX + tX * (endX - startX);
+                    
+                    let shearedWallX = wallX;
+                    if (wallX <= 0.1) {
+                        shearedWallX = startX;
+                    } else if (wallX >= wallEntity.length3D - 0.1) {
+                        shearedWallX = endX;
+                    }
+                    
                     const newVx = isFront ? (shearedWallX - posX) : (posX - shearedWallX);
                     pos.setX(i, newVx);
                 }
@@ -226,7 +271,13 @@ export class DecorManager {
         
 
         const hitbox = object.children.find(c => c.userData && c.userData.isHitbox);
-        if (hitbox) { hitbox.geometry.dispose(); hitbox.geometry = new THREE.BoxGeometry(w, h, d); hitbox.position.z = (t / 2 + d / 2) + (entity.localZ || 0); }
+        if (hitbox) { 
+            hitbox.geometry.dispose(); 
+            hitbox.geometry = new THREE.ExtrudeGeometry(shape, { depth: d, bevelEnabled: false }); 
+            const decorLocalZ = (t / 2 + d / 2) + 0.05 + (entity.localZ || 0);
+            hitbox.position.z = decorLocalZ;
+            hitbox.geometry.translate(0, 0, -d/2);
+        }
 
         const texture = object.userData.texture;
         let matFront = new THREE.MeshBasicMaterial({ visible: false });

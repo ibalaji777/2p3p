@@ -594,11 +594,31 @@ export class InteractionSystem {
             const currentT = w.thickness !== undefined ? w.thickness : (w.config?.thickness || (isRailing ? 4 : 8));
             const totalH = isRailing ? currentH + 40 : currentH;
             
+            const profileType = w.topProfileType || 'normal';
+            const startH = w.startHeight !== undefined ? w.startHeight : totalH;
+            const endH = w.endHeight !== undefined ? w.endHeight : totalH;
+            const peakH = w.peakHeight !== undefined ? w.peakHeight : totalH;
+
             const hlWidth = w.length3D + (maxDepth * 2) + 0.5;
             const hlHeight = totalH + 0.5;
+            const halfW = hlWidth / 2;
 
             const shape = new THREE.Shape();
-            shape.moveTo(-hlWidth/2, -hlHeight/2); shape.lineTo(hlWidth/2, -hlHeight/2); shape.lineTo(hlWidth/2, hlHeight/2); shape.lineTo(-hlWidth/2, hlHeight/2); shape.lineTo(-hlWidth/2, -hlHeight/2);
+            shape.moveTo(-halfW, -hlHeight/2);
+            shape.lineTo(halfW, -hlHeight/2);
+            
+            if (profileType === 'single') {
+                shape.lineTo(halfW, endH - (totalH/2) + 0.5);
+                shape.lineTo(-halfW, startH - (totalH/2) + 0.5);
+            } else if (profileType === 'gable') {
+                shape.lineTo(halfW, endH - (totalH/2) + 0.5);
+                shape.lineTo(0, peakH - (totalH/2) + 0.5);
+                shape.lineTo(-halfW, startH - (totalH/2) + 0.5);
+            } else {
+                shape.lineTo(halfW, hlHeight/2);
+                shape.lineTo(-halfW, hlHeight/2);
+            }
+            shape.lineTo(-halfW, -hlHeight/2);
 
             w.attachedWidgets.forEach(widg => {
                 const type = widg.type || widg.configId;
@@ -676,8 +696,14 @@ export class InteractionSystem {
                     const tZ = (zOffset + currentT/2) / currentT;
                     const startX = localSR_x + tZ * (localSL_x - localSR_x);
                     const endX = localER_x + tZ * (localEL_x - localER_x);
-                    const tX = wallX / w.length3D;
-                    const shearedWallX = startX + tX * (endX - startX);
+                    
+                    let shearedWallX = wallX;
+                    if (wallX <= 0.1) {
+                        shearedWallX = startX;
+                    } else if (wallX >= w.length3D - 0.1) {
+                        shearedWallX = endX;
+                    }
+                    
                     pos.setX(i, shearedWallX - w.length3D / 2);
                 }
                 this.wallHighlight.geometry.computeVertexNormals();
