@@ -673,8 +673,59 @@ export class InteractionSystem {
             const zOffset = side === 'front' ? (currentT / 2 + maxDepth + 0.15) : (-currentT / 2 - maxDepth - 0.15);
             
             // ====== MITER JOINT SHEARING FOR HIGHLIGHT ======
+            const startProfile = w.wallShapeData ? w.wallShapeData.startProfile : w.startProfile;
+            const endProfile = w.wallShapeData ? w.wallShapeData.endProfile : w.endProfile;
             const pts = (w.poly && typeof w.poly.points === 'function') ? w.poly.points() : w.pts;
-            if (pts && pts.length === 8 && !isRailing) {
+            
+            if (startProfile && endProfile && !isRailing) {
+                const p1 = w.startAnchor ? w.startAnchor.position() : {x: w.startX, y: w.startY};
+                const p2 = w.endAnchor ? w.endAnchor.position() : {x: w.endX, y: w.endY};
+                const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+                
+                const toLocal = (ptX, ptY) => {
+                    const dx = ptX - p1.x; const dy = ptY - p1.y;
+                    const c = Math.cos(angle); const s = Math.sin(angle);
+                    return { x: dx * c + dy * s, z: -dx * s + dy * c };
+                };
+                const startProfileLocal = startProfile.map(p => toLocal(p.x, p.y)).sort((a,b) => a.z - b.z);
+                const endProfileLocal = endProfile.map(p => toLocal(p.x, p.y)).sort((a,b) => a.z - b.z);
+
+                const interpolateX = (profile, zTarget) => {
+                    if (profile.length === 1) return profile[0].x;
+                    if (zTarget <= profile[0].z) return profile[0].x;
+                    if (zTarget >= profile[profile.length - 1].z) return profile[profile.length - 1].x;
+                    for (let j = 0; j < profile.length - 1; j++) {
+                        const pr1 = profile[j]; const pr2 = profile[j+1];
+                        if (zTarget >= pr1.z && zTarget <= pr2.z) {
+                            if (pr2.z === pr1.z) return pr1.x;
+                            const tr = (zTarget - pr1.z) / (pr2.z - pr1.z);
+                            return pr1.x + tr * (pr2.x - pr1.x);
+                        }
+                    }
+                    return profile[0].x;
+                };
+
+                const pos = this.wallHighlight.geometry.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    const vx = pos.getX(i);
+                    const wallX = (w.length3D / 2) + vx; 
+                    
+                    const startX = interpolateX(startProfileLocal, zOffset);
+                    const endX = interpolateX(endProfileLocal, zOffset);
+                    
+                    let shearedWallX = wallX;
+                    if (wallX <= 0.1) {
+                        shearedWallX = startX;
+                    } else if (wallX >= w.length3D - 0.1) {
+                        shearedWallX = endX;
+                    }
+                    
+                    pos.setX(i, shearedWallX - w.length3D / 2);
+                }
+                this.wallHighlight.geometry.computeVertexNormals();
+                this.wallHighlight.geometry.computeBoundingBox();
+                this.wallHighlight.geometry.computeBoundingSphere();
+            } else if (pts && pts.length === 8 && !isRailing) {
                 const p1 = w.startAnchor ? w.startAnchor.position() : {x: w.startX, y: w.startY};
                 const p2 = w.endAnchor ? w.endAnchor.position() : {x: w.endX, y: w.endY};
                 const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);

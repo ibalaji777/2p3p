@@ -572,13 +572,20 @@ export class PremiumWall {
                     const w_p2_R = { x: wp2.x - wn.x * wht, y: wp2.y - wn.y * wht };
                     
                     const dir = isWStart ? wu : { x: -wu.x, y: -wu.y };
-                    rays.push({
-                        w: w,
-                        dir: dir,
-                        angle: Math.atan2(dir.y, dir.x),
-                        L_pt: isWStart ? w_p1_L : w_p2_R,
-                        R_pt: isWStart ? w_p1_R : w_p2_L
-                    });
+                    const angle = Math.atan2(dir.y, dir.x);
+                    
+                    const existingRay = rays.find(r => Math.abs(r.angle - angle) < 1e-4);
+                    if (existingRay) {
+                        if (w === this) existingRay.w = this;
+                    } else {
+                        rays.push({
+                            w: w,
+                            dir: dir,
+                            angle: angle,
+                            L_pt: isWStart ? w_p1_L : w_p2_R,
+                            R_pt: isWStart ? w_p1_R : w_p2_L
+                        });
+                    }
                 }
             });
             

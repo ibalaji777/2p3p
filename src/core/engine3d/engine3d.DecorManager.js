@@ -205,8 +205,62 @@ export class DecorManager {
             boxMesh.geometry.translate(0, 0, -d/2);
             
             // ====== MITER JOINT SHEARING FOR TEXTURES ======
+            const startProfile = wallEntity.wallShapeData ? wallEntity.wallShapeData.startProfile : wallEntity.startProfile;
+            const endProfile = wallEntity.wallShapeData ? wallEntity.wallShapeData.endProfile : wallEntity.endProfile;
             const pts = (wallEntity.poly && typeof wallEntity.poly.points === 'function') ? wallEntity.poly.points() : wallEntity.pts;
-            if (pts && pts.length === 8) {
+            
+            if (startProfile && endProfile) {
+                const p1 = wallEntity.startAnchor ? wallEntity.startAnchor.position() : {x: wallEntity.startX, y: wallEntity.startY};
+                const p2 = wallEntity.endAnchor ? wallEntity.endAnchor.position() : {x: wallEntity.endX, y: wallEntity.endY};
+                const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+
+                const toLocal = (ptX, ptY) => {
+                    const dx = ptX - p1.x; const dy = ptY - p1.y;
+                    const c = Math.cos(angle); const s = Math.sin(angle);
+                    return { x: dx * c + dy * s, z: -dx * s + dy * c };
+                };
+                const startProfileLocal = startProfile.map(p => toLocal(p.x, p.y)).sort((a,b) => a.z - b.z);
+                const endProfileLocal = endProfile.map(p => toLocal(p.x, p.y)).sort((a,b) => a.z - b.z);
+
+                const interpolateX = (profile, zTarget) => {
+                    if (profile.length === 1) return profile[0].x;
+                    if (zTarget <= profile[0].z) return profile[0].x;
+                    if (zTarget >= profile[profile.length - 1].z) return profile[profile.length - 1].x;
+                    for (let j = 0; j < profile.length - 1; j++) {
+                        const pr1 = profile[j]; const pr2 = profile[j+1];
+                        if (zTarget >= pr1.z && zTarget <= pr2.z) {
+                            if (pr2.z === pr1.z) return pr1.x;
+                            const tr = (zTarget - pr1.z) / (pr2.z - pr1.z);
+                            return pr1.x + tr * (pr2.x - pr1.x);
+                        }
+                    }
+                    return profile[0].x;
+                };
+
+                const pos = boxMesh.geometry.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    const vx = pos.getX(i);
+                    const vz = pos.getZ(i);
+                    const wallX = isFront ? (posX + vx) : (posX - vx);
+                    const wallZ = isFront ? (decorLocalZ + vz) : -(decorLocalZ + vz);
+                    
+                    const startX = interpolateX(startProfileLocal, wallZ);
+                    const endX = interpolateX(endProfileLocal, wallZ);
+                    
+                    let shearedWallX = wallX;
+                    if (wallX <= 0.1) {
+                        shearedWallX = startX;
+                    } else if (wallX >= wallEntity.length3D - 0.1) {
+                        shearedWallX = endX;
+                    }
+                    
+                    const newVx = isFront ? (shearedWallX - posX) : (posX - shearedWallX);
+                    pos.setX(i, newVx);
+                }
+                boxMesh.geometry.computeVertexNormals();
+                boxMesh.geometry.computeBoundingBox();
+                boxMesh.geometry.computeBoundingSphere();
+            } else if (pts && pts.length === 8) {
                 const p1 = wallEntity.startAnchor ? wallEntity.startAnchor.position() : {x: wallEntity.startX, y: wallEntity.startY};
                 const p2 = wallEntity.endAnchor ? wallEntity.endAnchor.position() : {x: wallEntity.endX, y: wallEntity.endY};
                 const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
@@ -237,6 +291,7 @@ export class DecorManager {
                     } else if (wallX >= wallEntity.length3D - 0.1) {
                         shearedWallX = endX;
                     }
+
                     
                     const newVx = isFront ? (shearedWallX - posX) : (posX - shearedWallX);
                     pos.setX(i, newVx);
