@@ -871,6 +871,34 @@ export class PremiumWall {
         return pts;
     }
 
+    applyMaterial({ target, key, newMat, activeMatIndex, activeObject, ctx }) {
+        this.params = this.params || {};
+        if (target === 'top') this.params.textureTop = key;
+        else if (target === 'bottom') this.params.textureBottom = key;
+        else if (target === 'left') this.params.textureLeft = key;
+        else if (target === 'right') this.params.textureRight = key;
+        else if (target === 'front') this.params.textureFront = key;
+        else if (target === 'back') this.params.textureBack = key;
+        
+        if (activeObject && activeObject.parent) {
+            const wallGroup = activeObject.parent;
+            if (wallGroup && wallGroup.children.length > 0) {
+                const wallMesh = wallGroup.children[0];
+                if (wallMesh.isMesh && Array.isArray(wallMesh.material)) {
+                    let wIndex = 0;
+                    if (target === 'right') wIndex = 0;
+                    else if (target === 'left') wIndex = 1;
+                    else if (target === 'top') wIndex = 2;
+                    else if (target === 'bottom') wIndex = 3;
+                    else if (target === 'front') wIndex = 4;
+                    else if (target === 'back') wIndex = 5;
+                    wallMesh.material[wIndex] = newMat;
+                }
+            }
+        }
+        if (ctx.updateMaterialLive) ctx.updateMaterialLive(this);
+    }
+
     serialize() { 
         return { 
             type: this.type, thickness: this.thickness, height: this.height, configId: this.configId, hidden: this.hidden, description: this.description, 

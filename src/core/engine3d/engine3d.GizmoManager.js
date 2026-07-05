@@ -515,9 +515,71 @@ export class GizmoManager {
                             
                             const isFrame = this.activeObject && this.activeObject.userData && this.activeObject.userData.isFrame;
                             
-                            if (entity.type === 'door') {
-                                if (isFrame) {
-                                    entity.frameMat = key;
+                            // Refactored: Delegate to entity.applyMaterial if available (SOLID: OCP)
+                            if (typeof entity.applyMaterial === 'function') {
+                                // For generic materials that GizmoManager builds (like textures)
+                                let newMat = null;
+                                if (this.activeObject && this.activeMatIndex !== undefined && this.activeMatIndex !== -1) {
+                                    const mats = Array.isArray(this.activeObject.material) ? this.activeObject.material : [this.activeObject.material];
+                                    if (mats[this.activeMatIndex]) {
+                                        newMat = mats[this.activeMatIndex].clone();
+                                        let registry = WALL_DECOR_REGISTRY;
+                                        if (entity.type === 'door' || entity.type === 'window') registry = DOOR_MATERIALS_REGISTRY;
+                                        else if (entity.type === 'roof') registry = ROOF_DECOR_REGISTRY;
+                                        
+                                        if (key && registry[key]) {
+                                            const config = registry[key];
+                                            this.ctx.assets.getTexture(config).then(tex => {
+                                                const texClone = tex.clone();
+                                                texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                                                const dim = Math.max(entity.width || 100, entity.height || 100);
+                                                const ts = config.defaultTileSize || 40;
+                                                texClone.repeat.set(dim / ts, dim / ts);
+                                                newMat.map = texClone;
+                                                newMat.color.setHex(0xffffff);
+                                                newMat.needsUpdate = true;
+                                            });
+                                        } else {
+                                            newMat.map = null;
+                                            let fColor = 0xffffff;
+                                            if (entity.fasciaMat === 'dark_grey') fColor = 0x333333;
+                                            else if (entity.fasciaMat === 'stone') fColor = 0xa8a29e;
+                                            else if (entity.fasciaMat === 'wood') fColor = 0x8b5a2b;
+                                            newMat.color.setHex(fColor);
+                                        }
+                                        
+                                        if (Array.isArray(this.activeObject.material)) {
+                                            this.activeObject.material[this.activeMatIndex] = newMat;
+                                        } else {
+                                            this.activeObject.material = newMat;
+                                        }
+                                    }
+                                }
+                                
+                                entity.applyMaterial({ target, key, newMat, activeMatIndex: this.activeMatIndex, activeObject: this.activeObject, ctx: this.ctx });
+                                entity.params = Object.assign({}, entity.params);
+                                highlightSelectedThumb(key);
+                            } else {
+                                // Legacy Fallback for other entities
+                                if (entity.type === 'door') {
+                                    if (isFrame) {
+                                        entity.frameMat = key;
+                                    } else {
+                                        if (target === 'top') targetParams.textureTop = key;
+                                        else if (target === 'bottom') targetParams.textureBottom = key;
+                                        else if (target === 'left') targetParams.textureLeft = key;
+                                        else if (target === 'right') targetParams.textureRight = key;
+                                        else if (target === 'front') targetParams.textureFront = key;
+                                        else if (target === 'back') targetParams.textureBack = key;
+                                        else entity.doorMat = key;
+                                    }
+                                } else if (entity.type === 'window') {
+                                    const isGlass = this.activeObject && this.activeObject.userData && this.activeObject.userData.isGlass;
+                                    if (isGlass) {
+                                        entity.glassMat = key;
+                                    } else {
+                                        entity.frameMat = key;
+                                    }
                                 } else {
                                     if (target === 'top') targetParams.textureTop = key;
                                     else if (target === 'bottom') targetParams.textureBottom = key;
@@ -525,102 +587,54 @@ export class GizmoManager {
                                     else if (target === 'right') targetParams.textureRight = key;
                                     else if (target === 'front') targetParams.textureFront = key;
                                     else if (target === 'back') targetParams.textureBack = key;
-                                    else entity.doorMat = key;
                                 }
-                            } else if (entity.type === 'window') {
-                                const isGlass = this.activeObject && this.activeObject.userData && this.activeObject.userData.isGlass;
-                                if (isGlass) {
-                                    entity.glassMat = key;
-                                } else {
-                                    entity.frameMat = key;
-                                }
-                            } else if (entity.type === 'roof') {
-                                if (this.activeObject && this.activeObject.userData && this.activeObject.userData.isGable) {
-                                    entity.gableMaterial = key;
-                                } else {
-                                    entity.config = entity.config || {};
-                                    entity.config.material = key;
-                                    entity.configId = key;
-                                }
-                            } else {
-                                if (target === 'top') targetParams.textureTop = key;
-                                else if (target === 'bottom') targetParams.textureBottom = key;
-                                else if (target === 'left') targetParams.textureLeft = key;
-                                else if (target === 'right') targetParams.textureRight = key;
-                                else if (target === 'front') targetParams.textureFront = key;
-                                else if (target === 'back') targetParams.textureBack = key;
-                            }
-                            
-                            highlightSelectedThumb(key);
-                            
-                            // Apply DIRECTLY to the selected face to guarantee NO spillover
-                            if (entity.type === 'roof') {
-                                if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('material-gizmo-apply'));
-                            } else if (this.activeObject && this.activeMatIndex !== undefined && this.activeMatIndex !== -1) {
-                                const mats = Array.isArray(this.activeObject.material) ? this.activeObject.material : [this.activeObject.material];
-                                if (mats[this.activeMatIndex]) {
-                                    const newMat = mats[this.activeMatIndex].clone();
-                                    let registry = WALL_DECOR_REGISTRY;
-                                    if (entity) {
-                                        if (entity.type === 'door' || entity.type === 'window') registry = DOOR_MATERIALS_REGISTRY;
-                                        else if (entity.type === 'roof') registry = ROOF_DECOR_REGISTRY;
-                                    }
-                                    if (key && registry[key]) {
-                                        const config = registry[key];
-                                        this.ctx.assets.getTexture(config).then(tex => {
-                                            const texClone = tex.clone();
-                                            texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                                            const dim = Math.max(entity.width || 100, entity.height || 100);
-                                            const ts = config.defaultTileSize || 40;
-                                            texClone.repeat.set(dim / ts, dim / ts);
-                                            newMat.map = texClone;
-                                            newMat.color.setHex(0xffffff);
-                                            newMat.needsUpdate = true;
-                                        });
-                                    } else {
-                                        newMat.map = null;
-                                        let fColor = 0xffffff;
-                                        if (entity.fasciaMat === 'dark_grey') fColor = 0x333333;
-                                        else if (entity.fasciaMat === 'stone') fColor = 0xa8a29e;
-                                        else if (entity.fasciaMat === 'wood') fColor = 0x8b5a2b;
-                                        newMat.color.setHex(fColor);
-                                    }
-                                    
-                                    if (Array.isArray(this.activeObject.material)) {
-                                        this.activeObject.material[this.activeMatIndex] = newMat;
-                                    } else {
-                                        this.activeObject.material = newMat;
-                                    }
-                                    
-                                    if (entity.type === 'outer' || entity.type === 'inner') {
-                                        const wallGroup = this.activeObject.parent;
-                                        if (wallGroup && wallGroup.children.length > 0) {
-                                            const wallMesh = wallGroup.children[0];
-                                            if (wallMesh.isMesh && Array.isArray(wallMesh.material)) {
-                                                let wIndex = 0;
-                                                if (target === 'right') wIndex = 0;
-                                                else if (target === 'left') wIndex = 1;
-                                                else if (target === 'top') wIndex = 2;
-                                                else if (target === 'bottom') wIndex = 3;
-                                                else if (target === 'front') wIndex = 4;
-                                                else if (target === 'back') wIndex = 5;
-                                                wallMesh.material[wIndex] = newMat;
-                                            }
+                                
+                                highlightSelectedThumb(key);
+                                
+                                if (this.activeObject && this.activeMatIndex !== undefined && this.activeMatIndex !== -1) {
+                                    const mats = Array.isArray(this.activeObject.material) ? this.activeObject.material : [this.activeObject.material];
+                                    if (mats[this.activeMatIndex]) {
+                                        const newMat = mats[this.activeMatIndex].clone();
+                                        let registry = WALL_DECOR_REGISTRY;
+                                        if (entity) {
+                                            if (entity.type === 'door' || entity.type === 'window') registry = DOOR_MATERIALS_REGISTRY;
+                                        }
+                                        if (key && registry[key]) {
+                                            const config = registry[key];
+                                            this.ctx.assets.getTexture(config).then(tex => {
+                                                const texClone = tex.clone();
+                                                texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                                                const dim = Math.max(entity.width || 100, entity.height || 100);
+                                                const ts = config.defaultTileSize || 40;
+                                                texClone.repeat.set(dim / ts, dim / ts);
+                                                newMat.map = texClone;
+                                                newMat.color.setHex(0xffffff);
+                                                newMat.needsUpdate = true;
+                                            });
+                                        } else {
+                                            newMat.map = null;
+                                            let fColor = 0xffffff;
+                                            if (entity.fasciaMat === 'dark_grey') fColor = 0x333333;
+                                            else if (entity.fasciaMat === 'stone') fColor = 0xa8a29e;
+                                            else if (entity.fasciaMat === 'wood') fColor = 0x8b5a2b;
+                                            newMat.color.setHex(fColor);
+                                        }
+                                        
+                                        if (Array.isArray(this.activeObject.material)) {
+                                            this.activeObject.material[this.activeMatIndex] = newMat;
+                                        } else {
+                                            this.activeObject.material = newMat;
                                         }
                                     }
                                 }
-                            }
-                            
-                            // Ensure parameters are saved for serialization, and trigger Vue reactivity by reassignment
-                            entity.params = Object.assign({}, entity.params);
-                            
-                            // Update instantly by rebuilding the mesh properly
-                            if (entity.type === 'roof') {
-                                // Handled by syncAll above
-                            } else if (entity.type && entity.type.startsWith('shape_')) {
-                                if (this.ctx.updateShapeLive) this.ctx.updateShapeLive(entity);
-                            } else {
-                                if (this.ctx.updateMaterialLive) this.ctx.updateMaterialLive(entity);
+                                
+                                entity.params = Object.assign({}, entity.params);
+                                
+                                if (entity.type && entity.type.startsWith('shape_')) {
+                                    if (this.ctx.updateShapeLive) this.ctx.updateShapeLive(entity);
+                                } else {
+                                    if (this.ctx.updateMaterialLive) this.ctx.updateMaterialLive(entity);
+                                }
                             }
                         }
                     });

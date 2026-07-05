@@ -353,6 +353,20 @@ export class PremiumHipRoof {
         }
     }
     
+    applyMaterial({ target, key, activeMatIndex, activeObject, ctx }) {
+        if (activeObject && activeObject.userData && activeObject.userData.isGable) {
+            this.gableMaterial = key;
+        } else {
+            this.config = this.config || {};
+            this.config.material = key;
+            this.configId = key;
+        }
+        
+        if (window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('material-gizmo-apply'));
+        }
+    }
+
     remove() {
         this.group.destroy(); this.planner.roofs = this.planner.roofs.filter(r => r !== this); this.planner.selectEntity(null); this.planner.syncAll(); 
     }
