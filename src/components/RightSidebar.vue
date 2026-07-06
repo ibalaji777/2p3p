@@ -132,7 +132,43 @@
         </div>
 
         <div class="tab-body" v-show="activeRightTab === 'properties'">
-            <div class="props-content" v-if="(viewMode==='3d' || viewMode==='2d') && selectedEntity && viewMode3D !== 'preview'">
+            
+            <div class="props-content" v-if="activeTool && activeTool.startsWith('preset_') && activePresetParams">
+                <h4 class="props-subtitle">Preset Configuration</h4>
+                <div class="control-group" v-if="'width' in activePresetParams">
+                    <label>Width (cm)</label>
+                    <input type="number" v-model.number="activePresetParams.width" class="settings-input" />
+                </div>
+                <div class="control-group" v-if="'depth' in activePresetParams">
+                    <label>Depth (cm)</label>
+                    <input type="number" v-model.number="activePresetParams.depth" class="settings-input" />
+                </div>
+                <div class="control-group" v-if="'wallHeight' in activePresetParams">
+                    <label>Wall Height (cm)</label>
+                    <input type="number" v-model.number="activePresetParams.wallHeight" class="settings-input" />
+                </div>
+                <div class="control-group" v-if="'elevation' in activePresetParams">
+                    <label>Elevation (cm)</label>
+                    <input type="number" v-model.number="activePresetParams.elevation" class="settings-input" title="Height from the floor level" />
+                </div>
+                <div class="control-group" v-if="'pitch' in activePresetParams">
+                    <label>Roof Pitch (deg)</label>
+                    <input type="number" v-model.number="activePresetParams.pitch" class="settings-input" />
+                </div>
+                <div class="control-group" v-if="'roofType' in activePresetParams">
+                    <label>Roof Type</label>
+                    <select v-model="activePresetParams.roofType" class="settings-select">
+                        <option value="gable">Gable</option>
+                        <option value="hip">Hip</option>
+                        <option value="flat">Flat</option>
+                    </select>
+                </div>
+                <div class="properties-help-text" style="margin-top: 15px; color: #64748b; font-size: 0.85rem; padding: 10px; background: #f8fafc; border-radius: 6px;">
+                    Adjust dimensions before placing the preset. Once placed, individual walls and roofs can be edited separately.
+                </div>
+            </div>
+
+            <div class="props-content" v-else-if="(viewMode==='3d' || viewMode==='2d') && selectedEntity && viewMode3D !== 'preview'">
             
             <!-- Universal Face Material Editor -->
             <div v-if="selectedEntity.params && selectedEntity.params.isEditingMaterials">
@@ -1045,7 +1081,7 @@
             </div>
         </div>
 
-        <div class="props-empty" v-else v-show="activeRightTab === 'properties'">
+        <div class="props-empty" v-else-if="!activeTool || !activeTool.startsWith('preset_')" v-show="activeRightTab === 'properties'">
             <span v-if="viewMode==='2d'">Select a wall, door, window, or object on the canvas to edit its properties here.</span>
             <span v-else-if="viewMode3D==='preview'">Exit Preview Mode to edit.</span>
             <span v-else>Select a wall or object to edit its properties.</span>
@@ -1105,7 +1141,9 @@ const props = defineProps({
   uiTrigger: Number,
   floorRegistry: Object,
   roofDecorRegistry: Object,
-  layerItems: Array
+  layerItems: Array,
+  activeTool: String,
+  activePresetParams: Object
 });
 
 const emit = defineEmits([

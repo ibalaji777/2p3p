@@ -110,6 +110,8 @@
         :floor-registry="floorRegistry"
         :roof-decor-registry="roofDecorRegistry"
         :layer-items="layerItems"
+        :active-tool="activeTool"
+        :active-preset-params="activePresetParams"
         @toggle-all-floors="toggleAllFloors"
         @level-visibility-change="onLevelVisibilityChange"
         @switch-level="switchLevel"
@@ -214,6 +216,7 @@ import { ServerClass } from './core/ServerClass.js';
 
 import { FileManager } from './core/io.js';
 import { WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, FLOOR_REGISTRY, RAILING_REGISTRY } from './core/registry.js';
+import { PRESET_REGISTRY, PRESET_CATEGORIES } from './core/engine2d/presetRegistry.js';
 const wallDecorRegistry = WALL_DECOR_REGISTRY;
 const roofDecorRegistry = ROOF_DECOR_REGISTRY;
 const skyRegistry = SKY_REGISTRY;
@@ -269,6 +272,7 @@ const isUndoRedoAction = ref(false);
 const viewMode = ref('2d');
 const mode3D = ref('edit'); 
 const activeTool = ref('select');
+const activePresetParams = ref(null);
 const viewMode3D = ref('full-edit'); 
 
 const selectedEntity = shallowRef(null);
@@ -386,6 +390,15 @@ const menuCategories = ref([
             { id: 'molding_layered', name: 'Layered Projection', action: 'molding' },
             { id: 'elevation_fascia', name: 'Elevation Fascia (C/L Shape)' }
         ]
+    },
+    {
+        id: 'roof_presets', name: 'Roof Presets',
+        icon: '<path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>',
+        tools: Object.keys(PRESET_CATEGORIES).reduce((acc, catName) => {
+            acc.push({ isDivider: true, name: catName });
+            PRESET_CATEGORIES[catName].forEach(preset => acc.push({ id: preset.id, name: preset.name, presetParams: { ...preset.defaultParams } }));
+            return acc;
+        }, [])
     }
 ]);
 
@@ -950,7 +963,24 @@ const handleDeselect = () => {
     selectedEntity.value = null; selectedType.value = null; selectedWallSide.value = null; activeDecorId.value = null;
 };
 const setTool = (tool) => { 
-    activeTool.value = tool; planner.value.tool = tool; planner.value.finishChain(); planner.value.selectEntity(null); planner.value.updateToolStates(); 
+    if (tool === 'split') {
+        const wall = planner.value.walls.find(w => w === planner.value.selectedEntity);
+        if (wall) { wall.split(); debouncedSaveHistory(); }
+        return;
+    }
+    activeTool.value = tool; 
+    
+    // Set preset params if applicable
+    if (tool.startsWith('preset_') && PRESET_REGISTRY[tool]) {
+        activePresetParams.value = JSON.parse(JSON.stringify(PRESET_REGISTRY[tool].defaultParams));
+        planner.value.activePresetParams = activePresetParams.value;
+    } else {
+        activePresetParams.value = null;
+        planner.value.activePresetParams = null;
+    }
+
+    planner.value.tool = tool; planner.value.finishChain(); planner.value.selectEntity(null); planner.value.updateToolStates(); 
+    debouncedSaveHistory();
 };
 const isAdvancedToolActive = computed(() => ['split'].includes(activeTool.value));
 const handleAdvTriggerClick = () => {

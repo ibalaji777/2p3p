@@ -17,13 +17,14 @@ import { PremiumArc } from '/src/core/engine2d/PremiumArc.js';
 import { StairV4Flight, StairV4Landing, StaircaseV4Solver } from '/src/core/engine2d/StaircaseV4.js';
 import { PremiumStaircase } from '/src/core/engine2d/PremiumStaircase.js';
 import { PremiumMolding } from '/src/core/engine2d/PremiumMolding.js';
+import { PRESET_REGISTRY, autoAlign } from '/src/core/engine2d/presetRegistry.js';
 
 // Export the specific classes that App.vue needs to spawn items
 export { PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding };
 
 export class FloorPlanner {
     constructor(containerEl) { 
-        this.container = containerEl; this.tool = "select"; this.currentUnit = "ft"; this.drawing = false; this.lastAnchor = null; this.startAnchor = null;  this.preview = null;
+        this.container = containerEl; this.tool = "select"; this.currentUnit = "ft"; this.drawing = false; this.lastAnchor = null; this.startAnchor = null;  this.preview = null; this.presetPreview = null;
         this.activeCategory = 'tools';
         this.settings = {
             mainEntranceFacing: 'north',
@@ -947,6 +948,23 @@ export class FloorPlanner {
             this.syncAll(); 
         }); 
 
+        this.stage.on("click tap", (e) => {
+            let pos = this.getPointerPos();
+            let snapPos = { x: this.snap(pos.x), y: this.snap(pos.y) };
+
+            if (this.tool.startsWith('preset_') && PRESET_REGISTRY[this.tool] && this.activePresetParams) {
+                const preset = PRESET_REGISTRY[this.tool];
+                const alignData = autoAlign(this, snapPos, this.activePresetParams.elevation, this.activePresetParams.depth);
+                preset.generate(this, snapPos, this.activePresetParams, alignData);
+                this.syncAll();
+                this.updateToolStates();
+                this.tool = 'select';
+                if (this.presetPreview) { this.presetPreview.visible(false); }
+                if (this.onToolChange) this.onToolChange('select');
+                return;
+            }
+        });
+
         this.stage.on("mousemove touchmove", (e) => {
             if (e.evt && e.evt.touches && e.evt.touches.length > 1) return;
  
@@ -1017,6 +1035,35 @@ export class FloorPlanner {
                 this.shapePreviewTriangle.points(pts); this.shapePreviewTriangle.visible(true);
                 this.updateInfoBadge(pos.x, pos.y + 30, `Point ${this.drawingTriangle.length + 1}`, "", false);
                 this.uiLayer.batchDraw(); return;
+            }
+
+            if (this.tool.startsWith('preset_') && PRESET_REGISTRY[this.tool] && this.activePresetParams) {
+                if (!this.presetPreview) {
+                    this.presetPreview = new Konva.Shape({ stroke: '#4f46e5', strokeWidth: 2, fill: 'rgba(79, 70, 229, 0.2)', dash: [5, 5] });
+                    this.presetPreview.sceneFunc((ctx, shape) => {
+                        const preset = PRESET_REGISTRY[this.tool];
+                        if (preset && preset.icon2d && this.activePresetParams) {
+                            preset.icon2d(ctx, this.activePresetParams.width || 200, this.activePresetParams.depth || 200);
+                        }
+                    });
+                    this.uiLayer.add(this.presetPreview);
+                }
+                const alignData = autoAlign(this, rawPos, this.activePresetParams.elevation, this.activePresetParams.depth);
+                this.presetPreview.position(rawPos);
+                this.presetPreview.rotation(alignData.rotation);
+                
+                this.presetPreview.visible(true);
+                this.presetPreview.sceneFunc((ctx, shape) => {
+                    const preset = PRESET_REGISTRY[this.tool];
+                    if (preset && preset.icon2d && this.activePresetParams) {
+                        preset.icon2d(ctx, this.activePresetParams.width || 200, this.activePresetParams.depth || 200);
+                    }
+                });
+                this.uiLayer.batchDraw();
+                return;
+            } else if (this.presetPreview && this.presetPreview.visible()) {
+                this.presetPreview.visible(false);
+                this.uiLayer.batchDraw();
             }
 
             if (this.tool === 'split') {

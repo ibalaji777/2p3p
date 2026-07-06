@@ -75,6 +75,11 @@ export class ActiveFloor {
             const wallHeight = w.height || w.config?.height || WALL_HEIGHT;
             const wallThickness = w.thickness || w.config?.thickness || 20;
             const { wallGroup, extraInteractables } = this.wallBuilder.buildWallGroup(length, wallThickness, w, p1.x, p1.y, angle, wallHeight);
+            
+            if (w.elevation) {
+                wallGroup.position.y = w.elevation;
+            }
+            
             wallGroup.userData = { entity: w };
             w.mesh3D = wallGroup;
 
@@ -365,7 +370,7 @@ export class ActiveFloor {
             const D = maxY - minY;
             
             // Auto-detect: if no walls exist here, roof mathematically caps the floor below
-            const baseHeight = (hasWalls || activeIndex === 0) ? maxWallHeight : 0;
+            const baseHeight = roof.elevation !== undefined ? roof.elevation : ((hasWalls || activeIndex === 0) ? maxWallHeight : 0);
             const h = baseHeight + wallGap + 0.5; // +0.5 prevents z-fighting with top of the walls
 
             const decor = ROOF_DECOR_REGISTRY[conf.material] || ROOF_DECOR_REGISTRY['concrete_flat'];
