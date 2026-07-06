@@ -130,7 +130,16 @@ function createRectangularStructure(planner, origin, w, d, wallHeight, roofType,
         walls.push(wall);
     }
 
-    const roof = new PremiumHipRoof(planner, localPts);
+    // Expand roof points by half-thickness (5) so the roof exactly covers the outer edges of the walls
+    const roofExpand = 5; 
+    let roofPts = [
+        { x: -hw - roofExpand, y: -hd - roofExpand },
+        { x: -hw - roofExpand, y: hd + roofExpand },
+        { x: hw + roofExpand, y: hd + roofExpand },
+        { x: hw + roofExpand, y: -hd - roofExpand }
+    ];
+
+    const roof = new PremiumHipRoof(planner, roofPts);
     roof.group.position({ x: origin.x, y: origin.y });
     roof.rotation = rotationDeg;
     roof.config.roofType = roofType;
