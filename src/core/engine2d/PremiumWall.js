@@ -250,13 +250,25 @@ export class PremiumWall {
             if (e.evt) e.evt.stopPropagation();
             if (this.parentGroup) {
                 this.planner.selectEntity(this.parentGroup, 'preset_group');
-                if (this.planner.tool === 'select' && this.parentGroup.uiGroup) {
-                    this.parentGroup.uiGroup.startDrag(e.evt || e);
-                }
+                this.planner.syncAll();
             } else {
                 this.planner.selectEntity(this, 'wall'); 
+                this.planner.syncAll();
             }
         }); 
+        
+        this.poly.on('click tap', (e) => {
+            if (this.planner.tool !== 'select') return;
+            e.cancelBubble = true;
+            if (this.parentGroup) {
+                this.planner.selectEntity(this.parentGroup, 'preset_group');
+                this.planner.syncAll();
+            } else {
+                this.planner.selectEntity(this, 'wall');
+                this.planner.syncAll();
+            }
+        });
+        
         let startAncPos = {}, startPointer = {}, initialObjectPositions = []; 
         let anchorsOnWall = [], arcsOnWall = [];
         this.poly.on('dragstart', (e) => { 

@@ -168,7 +168,7 @@
                 </div>
             </div>
 
-            <div class="props-content" v-else-if="(viewMode==='3d' || viewMode==='2d') && selectedEntity && viewMode3D !== 'preview'">
+            <div class="props-content" v-else-if="(viewMode==='3d' || viewMode==='2d') && selectedEntity && (viewMode === '2d' || viewMode3D !== 'preview')">
             
             <!-- Universal Face Material Editor -->
             <div v-if="selectedEntity.params && selectedEntity.params.isEditingMaterials">

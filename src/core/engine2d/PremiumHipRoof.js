@@ -99,13 +99,26 @@ export class PremiumHipRoof {
             this.group.moveToTop(); 
             if (this.planner.tool !== 'select') return; 
             e.cancelBubble = true; 
+            if (e.evt) e.evt.stopPropagation();
             if (this.parentGroup) {
                 this.planner.selectEntity(this.parentGroup, 'preset_group');
-                if (this.planner.tool === 'select' && this.parentGroup.uiGroup) {
-                    this.parentGroup.uiGroup.startDrag(e.evt || e);
-                }
+                this.planner.syncAll();
+            } else {
+                this.planner.selectEntity(this, 'roof'); 
+                this.planner.syncAll();
             }
-            else this.planner.selectEntity(this, 'roof'); 
+        });
+        
+        this.group.on('click tap', (e) => {
+            if (this.planner.tool !== 'select') return;
+            e.cancelBubble = true;
+            if (this.parentGroup) {
+                this.planner.selectEntity(this.parentGroup, 'preset_group');
+                this.planner.syncAll();
+            } else {
+                this.planner.selectEntity(this, 'roof');
+                this.planner.syncAll();
+            }
         });
         this.group.on('dragstart', (e) => { 
             if (this.planner.tool !== 'select' || this.handles.includes(e.target) || this.parentGroup) {

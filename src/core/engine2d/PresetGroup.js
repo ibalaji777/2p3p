@@ -21,7 +21,7 @@ export class PresetGroup {
             x: this.origin.x,
             y: this.origin.y,
             draggable: true,
-            visible: false
+            visible: true // Always visible so it catches events
         });
 
         // Add a bounding box (approximate, updated on select)
@@ -30,10 +30,20 @@ export class PresetGroup {
             y: -this.params.depth / 2,
             width: this.params.width,
             height: this.params.depth,
-            stroke: '#38bdf8',
+            stroke: '#3b82f6',
             strokeWidth: 2,
             dash: [5, 5],
-            fill: 'rgba(56, 189, 248, 0.1)'
+            fill: 'rgba(59, 130, 246, 0.1)',
+            visible: false // Hidden by default
+        });
+        
+        // Invisible hit area for catching events when deselected
+        this.hitArea = new Konva.Rect({
+            x: -this.params.width / 2,
+            y: -this.params.depth / 2,
+            width: this.params.width,
+            height: this.params.depth,
+            fill: 'rgba(0,0,0,0)' // Transparent but hittable
         });
         
         // Move Handle Icon
@@ -46,9 +56,11 @@ export class PresetGroup {
             strokeWidth: 2,
             shadowColor: 'black',
             shadowBlur: 4,
-            shadowOpacity: 0.3
+            shadowOpacity: 0.3,
+            visible: false
         });
 
+        this.uiGroup.add(this.hitArea);
         this.uiGroup.add(this.boundingBox);
         this.uiGroup.add(this.moveHandle);
         this.planner.uiLayer.add(this.uiGroup);
@@ -92,16 +104,26 @@ export class PresetGroup {
             this.planner.syncAll();
         });
         
-        // Prevent click events on the uiGroup from bubbling up
-        this.uiGroup.on('click', (e) => {
-            e.cancelBubble = true;
+        // Let mousedown bubble up normally so Konva's native dragging works!
+        // But handle click/tap to ensure it gets selected if clicked directly
+        this.uiGroup.on('click tap', (e) => {
+            if (this.planner.tool === 'select') {
+                e.cancelBubble = true;
+                this.planner.selectEntity(this, 'preset_group');
+                this.planner.syncAll();
+            }
         });
     }
 
     setHighlight(bool) {
-        this.uiGroup.visible(bool);
+        this.boundingBox.visible(bool);
+        this.moveHandle.visible(bool);
         this.uiGroup.x(this.origin.x);
         this.uiGroup.y(this.origin.y);
+        
+        if (bool) {
+            this.uiGroup.moveToTop();
+        }
         
         // Update bounding box size in case it changed
         const w = this.params.width || 100;
@@ -110,6 +132,11 @@ export class PresetGroup {
         this.boundingBox.height(d);
         this.boundingBox.x(-w / 2);
         this.boundingBox.y(-d / 2);
+        
+        this.hitArea.width(w);
+        this.hitArea.height(d);
+        this.hitArea.x(-w / 2);
+        this.hitArea.y(-d / 2);
 
         this.walls.forEach(w => w.setHighlight(bool));
         this.roofs.forEach(r => r.setHighlight(bool));

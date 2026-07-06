@@ -306,6 +306,7 @@ export class FloorPlanner {
         if (this.balconies) this.balconies.forEach(b => { if(b.setHighlight) b.setHighlight(false); });
         if (this.shapes) this.shapes.forEach(s => { if(s.setHighlight) s.setHighlight(false); });
         if (this.arcs) this.arcs.forEach(a => { if(a.setHighlight) a.setHighlight(false); });
+        if (this.presetGroups) this.presetGroups.forEach(pg => { if(pg.setHighlight) pg.setHighlight(false); });
         
         this.selectedEntity = entity; this.selectedType = type; this.selectedNodeIndex = nodeIndex; this.selectedSide = side;
         
@@ -512,7 +513,7 @@ export class FloorPlanner {
     }
 
     getOrCreateAnchor(x, y) { let a = this.anchors.find(a => Math.hypot(a.x - x, a.y - y) < SNAP_DIST); if (a) return a; const newAnchor = new Anchor(this, x, y); this.anchors.push(newAnchor); return newAnchor; }
-    deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.roofs.forEach(r => r.setHighlight(false)); if(this.balconies) this.balconies.forEach(b => b.setHighlight(false)); if(this.shapes) this.shapes.forEach(s => s.setHighlight(false)); this.selectEntity(null); this.syncAll(); }
+    deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.roofs.forEach(r => r.setHighlight(false)); if(this.balconies) this.balconies.forEach(b => b.setHighlight(false)); if(this.shapes) this.shapes.forEach(s => s.setHighlight(false)); if(this.presetGroups) this.presetGroups.forEach(pg => { if(pg.setHighlight) pg.setHighlight(false); }); this.selectEntity(null); this.syncAll(); }
     syncAll() {
         this.buildingCenter = null;
         if (this.gridLayer) {
