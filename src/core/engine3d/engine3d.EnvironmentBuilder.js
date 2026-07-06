@@ -1568,7 +1568,7 @@ export class EnvironmentBuilder {
             const W = maxX - minX;
             const D = maxY - minY;
             
-            const baseHeight = (hasWalls || activeIndex === 0) ? maxWallHeight : 0;
+            const baseHeight = roof.elevation !== undefined ? roof.elevation : ((hasWalls || activeIndex === 0) ? maxWallHeight : 0);
             const h = baseHeight + wallGap + 0.5;
 
             const decor = ROOF_DECOR_REGISTRY[conf.material] || ROOF_DECOR_REGISTRY['concrete_flat'];

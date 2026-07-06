@@ -90,19 +90,20 @@ export function autoAlign(planner, point, defaultElevation = 0, depth = 0) {
 function createRectangularStructure(planner, origin, w, d, wallHeight, roofType, pitch, elevation = 0, rotationDeg = 0) {
     const hw = w / 2;
     const hd = d / 2;
-    let pts = [
-        { x: -hw, y: -hd },
-        { x: hw, y: -hd },
-        { x: hw, y: hd },
-        { x: -hw, y: hd }
+    // Define local points counter-clockwise so Three.js ShapeGeometry reliably triangulates it
+    let localPts = [
+        { x: -hw, y: -hd }, // Top-Left
+        { x: -hw, y: hd },  // Bottom-Left
+        { x: hw, y: hd },   // Bottom-Right
+        { x: hw, y: -hd }   // Top-Right
     ];
 
-    // Apply rotation
+    // Apply rotation for absolute wall positions
     const rad = rotationDeg * Math.PI / 180;
     const cos = Math.cos(rad);
     const sin = Math.sin(rad);
     
-    pts = pts.map(p => {
+    const rotatedPts = localPts.map(p => {
         return {
             x: origin.x + (p.x * cos - p.y * sin),
             y: origin.y + (p.x * sin + p.y * cos)
@@ -110,7 +111,7 @@ function createRectangularStructure(planner, origin, w, d, wallHeight, roofType,
     });
 
     // Create Anchors
-    const anchors = pts.map(p => {
+    const anchors = rotatedPts.map(p => {
         const a = new Anchor(planner, p.x, p.y);
         planner.anchors.push(a);
         return a;
@@ -129,14 +130,17 @@ function createRectangularStructure(planner, origin, w, d, wallHeight, roofType,
         walls.push(wall);
     }
 
-    const roof = new PremiumHipRoof(planner, pts);
+    const roof = new PremiumHipRoof(planner, localPts);
+    roof.group.position({ x: origin.x, y: origin.y });
+    roof.rotation = rotationDeg;
     roof.config.roofType = roofType;
     roof.config.pitch = pitch;
     roof.elevation = elevation + wallHeight;
     // Basic heuristics for roof types
     if (roofType === 'gable') {
         roof.config.gableMaterial = 'white_plaster_wall';
-        roof.config.ridgeAxis = 'x';
+        roof.config.ridgeAxis = 'y'; // Since default dormer faces down, Y-axis is typically depth (ridge runs front-to-back)
+        roof.config.autoShapeWalls = true;
     }
     planner.roofs.push(roof);
 

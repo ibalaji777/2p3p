@@ -369,8 +369,8 @@ export class ActiveFloor {
             const W = maxX - minX;
             const D = maxY - minY;
             
-            // Auto-detect: if no walls exist here, roof mathematically caps the floor below
-            const baseHeight = roof.elevation !== undefined ? roof.elevation : ((hasWalls || activeIndex === 0) ? maxWallHeight : 0);
+            let baseHeight = roof.elevation !== undefined ? roof.elevation : ((hasWalls || activeIndex === 0) ? maxWallHeight : 0);
+
             const h = baseHeight + wallGap + 0.5; // +0.5 prevents z-fighting with top of the walls
 
             const decor = ROOF_DECOR_REGISTRY[conf.material] || ROOF_DECOR_REGISTRY['concrete_flat'];
