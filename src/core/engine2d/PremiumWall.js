@@ -248,12 +248,19 @@ export class PremiumWall {
             }
             e.cancelBubble = true; 
             if (e.evt) e.evt.stopPropagation();
-            this.planner.selectEntity(this, 'wall'); 
+            if (this.parentGroup) {
+                this.planner.selectEntity(this.parentGroup, 'preset_group');
+                if (this.planner.tool === 'select' && this.parentGroup.uiGroup) {
+                    this.parentGroup.uiGroup.startDrag(e.evt || e);
+                }
+            } else {
+                this.planner.selectEntity(this, 'wall'); 
+            }
         }); 
         let startAncPos = {}, startPointer = {}, initialObjectPositions = []; 
         let anchorsOnWall = [], arcsOnWall = [];
         this.poly.on('dragstart', (e) => { 
-            if (this.planner.tool !== 'select') { e.target.stopDrag(); e.cancelBubble = true; return; }
+            if (this.planner.tool !== 'select' || this.parentGroup) { e.target.stopDrag(); e.cancelBubble = true; return; }
             this.setHighlight(true); const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition(); startPointer = { x: pos.x, y: pos.y }; startAncPos = { x1: this.startAnchor.x, y1: this.startAnchor.y, x2: this.endAnchor.x, y2: this.endAnchor.y }; 
             
             anchorsOnWall = [];

@@ -84,7 +84,7 @@ export class PremiumHipRoof {
         this.boundary.strokeWidth(isActive ? 3 : 2);
         const mode = this.config?.autoPlacementMode || 'manual';
         this.handles.forEach(h => h.visible(isActive && mode === 'manual'));
-        this.group.draggable(mode === 'manual');
+        this.group.draggable(mode === 'manual' && !this.parentGroup);
         this.planner.stage.batchDraw();
     }
     
@@ -95,8 +95,25 @@ export class PremiumHipRoof {
         });
         this.group.on('mouseleave', () => document.body.style.cursor = 'default');
         
-        this.group.on('mousedown touchstart', (e) => { this.group.moveToTop(); if (this.planner.tool !== 'select') return; e.cancelBubble = true; this.planner.selectEntity(this, 'roof'); });
-        this.group.on('dragstart', (e) => { if (this.planner.tool !== 'select' || this.handles.includes(e.target)) return; this.planner.selectEntity(this, 'roof'); });
+        this.group.on('mousedown touchstart', (e) => { 
+            this.group.moveToTop(); 
+            if (this.planner.tool !== 'select') return; 
+            e.cancelBubble = true; 
+            if (this.parentGroup) {
+                this.planner.selectEntity(this.parentGroup, 'preset_group');
+                if (this.planner.tool === 'select' && this.parentGroup.uiGroup) {
+                    this.parentGroup.uiGroup.startDrag(e.evt || e);
+                }
+            }
+            else this.planner.selectEntity(this, 'roof'); 
+        });
+        this.group.on('dragstart', (e) => { 
+            if (this.planner.tool !== 'select' || this.handles.includes(e.target) || this.parentGroup) {
+                e.target.stopDrag();
+                return;
+            } 
+            this.planner.selectEntity(this, 'roof'); 
+        });
         this.group.on('dragmove', (e) => { if (this.planner.tool !== 'select' || this.handles.includes(e.target)) return; this.planner.syncAll(); });
     }
     

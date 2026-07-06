@@ -1,23 +1,24 @@
-import { PremiumShape } from '/src/core/engine2d/PremiumShape.js';
+import { PremiumShape } from './PremiumShape.js';
 // src/core/engine2d/index.js
 import Konva from 'konva';
 import { GRID, PX_TO_FT, SNAP_DIST, WALL_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY, offsetPolygon } from '../registry.js';
 
 // SOLID: Import the decoupled 2D entity classes from the same folder
-import { Anchor } from '/src/core/engine2d/Anchor.js';
-import { PremiumWall } from '/src/core/engine2d/PremiumWall.js';
-import { PremiumWidget } from '/src/core/engine2d/PremiumWidget.js';
-import { PremiumFurniture } from '/src/core/engine2d/PremiumFurniture.js';
+import { Anchor } from './Anchor.js';
+import { PremiumWall } from './PremiumWall.js';
+import { PremiumWidget } from './PremiumWidget.js';
+import { PremiumFurniture } from './PremiumFurniture.js';
 
-import { PremiumHipRoof } from '/src/core/engine2d/PremiumHipRoof.js';
-import { PremiumRailing } from '/src/core/engine2d/PremiumRailing.js';
-import { SmartGuidesTrackingSystem } from '/src/core/engine2d/SmartGuidesTrackingSystem.js';
-import { advance_openings } from '/src/core/engine2d/advance_openings.js';
-import { PremiumArc } from '/src/core/engine2d/PremiumArc.js';
-import { StairV4Flight, StairV4Landing, StaircaseV4Solver } from '/src/core/engine2d/StaircaseV4.js';
-import { PremiumStaircase } from '/src/core/engine2d/PremiumStaircase.js';
-import { PremiumMolding } from '/src/core/engine2d/PremiumMolding.js';
-import { PRESET_REGISTRY, autoAlign } from '/src/core/engine2d/presetRegistry.js';
+import { PremiumHipRoof } from './PremiumHipRoof.js';
+import { PremiumRailing } from './PremiumRailing.js';
+import { SmartGuidesTrackingSystem } from './SmartGuidesTrackingSystem.js';
+import { advance_openings } from './advance_openings.js';
+import { PremiumArc } from './PremiumArc.js';
+import { StairV4Flight, StairV4Landing, StaircaseV4Solver } from './StaircaseV4.js';
+import { PremiumStaircase } from './PremiumStaircase.js';
+import { PremiumMolding } from './PremiumMolding.js';
+import { PRESET_REGISTRY, autoAlign } from './presetRegistry.js';
+import { PresetGroup } from './PresetGroup.js';
 
 // Export the specific classes that App.vue needs to spawn items
 export { PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding };
@@ -40,7 +41,10 @@ export class FloorPlanner {
             entranceWallId: null
         };
         this.wallTrackingEnabled = this.settings.wallTracking;
-        this.walls = []; this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.arcs = []; this.shapes = []; this.moldings = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
+        this.walls = [];
+        this.presetRegistry = PRESET_REGISTRY;
+        this.autoAlign = autoAlign;
+        this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.arcs = []; this.shapes = []; this.moldings = []; this.presetGroups = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
         this.onSelectionChange = null; 
         this.initKonva(); this.drawGrid(); this.initHUD(); this.initStageEvents(); 
         this.snapManager = this.smartGuides;
@@ -248,8 +252,8 @@ export class FloorPlanner {
     }
     
     updateInfoBadge(x, y, length, angle, snapped) { 
-        let txt = `${length}\n${angle}°`; 
-        if (snapped) txt += `\n🎯 Snapped`; 
+        let txt = `${length}\n${angle}Â°`; 
+        if (snapped) txt += `\nðŸŽ¯ Snapped`; 
         this.infoBadgeText.text(txt); 
         this.infoBadgeBg.setAttrs({ width: this.infoBadgeText.width(), height: this.infoBadgeText.height() });
         this.infoBadgeGroup.position({ x: x + 15, y: y + 15 }); 
@@ -955,12 +959,15 @@ export class FloorPlanner {
             if (this.tool.startsWith('preset_') && PRESET_REGISTRY[this.tool] && this.activePresetParams) {
                 const preset = PRESET_REGISTRY[this.tool];
                 const alignData = autoAlign(this, snapPos, this.activePresetParams.elevation, this.activePresetParams.depth);
-                preset.generate(this, snapPos, this.activePresetParams, alignData);
+                const group = preset.generate(this, snapPos, this.activePresetParams, alignData);
                 this.syncAll();
                 this.updateToolStates();
                 this.tool = 'select';
                 if (this.presetPreview) { this.presetPreview.visible(false); }
                 if (this.onToolChange) this.onToolChange('select');
+                if (group) {
+                    this.selectEntity(group, 'preset_group');
+                }
                 return;
             }
         });
@@ -2057,7 +2064,8 @@ export class FloorPlanner {
             arcs: this.arcs ? this.arcs.map(a => ({ p1: {x: a.p1.x, y: a.p1.y}, p2: {x: a.p2.x, y: a.p2.y}, pos: a.pos, hasRailing: a.hasRailing, railingConfig: a.railingConfig, hidden: a.hidden, description: a.description })) : [],
             shapes: this.shapes ? this.shapes.map(s => ({ type: s.type, x: s.group.x(), y: s.group.y(), rotation: s.rotation, scaleX: s.group.scaleX(), scaleY: s.group.scaleY(), params: s.params, description: s.description })) : [],
             rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, configId: r.configId, isHidden: r.isHidden, isDeleted: r.isDeleted, materialRepeat: r.materialRepeat, description: r.description })) : [],
-            roomPaths: this.roomPaths ? this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y }))) : []
+            roomPaths: this.roomPaths ? this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y }))) : [],
+            presetGroups: this.presetGroups ? this.presetGroups.map(g => g.export()) : []
         };
         return JSON.stringify(state);
     }
@@ -2247,6 +2255,22 @@ export class FloorPlanner {
                     shape.group.scale({ x: sData.scaleX || 1, y: sData.scaleY || 1 });
                     if (sData.description !== undefined) shape.description = sData.description;
                     shape.update(); this.shapes.push(shape);
+                });
+            }
+            if (state.presetGroups) {
+                if (!this.presetGroups) this.presetGroups = [];
+                state.presetGroups.forEach(gData => {
+                    const group = new PresetGroup(this, gData.typeId, gData.params, gData.origin, gData.rotation);
+                    group.id = gData.id;
+                    if (gData.wallIds) group.walls = this.walls.filter(w => gData.wallIds.includes(w.id));
+                    if (gData.roofIds) group.roofs = this.roofs.filter(r => gData.roofIds.includes(r.id));
+                    if (gData.anchorIds) group.anchors = this.anchors.filter(a => gData.anchorIds.includes(a._id || a.id));
+                    
+                    group.walls.forEach(w => w.parentGroup = group);
+                    group.roofs.forEach(r => r.parentGroup = group);
+                    group.anchors.forEach(a => a.parentGroup = group);
+                    
+                    this.presetGroups.push(group);
                 });
             }
             // Auto-solve all stairs to repair any corrupted elevations/positions from old bugs

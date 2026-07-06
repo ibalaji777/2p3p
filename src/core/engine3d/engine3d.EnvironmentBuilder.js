@@ -96,7 +96,8 @@ export class EnvironmentBuilder {
     buildActiveFloor(walls, rooms, shapes, stairs = [], stairsBelow = []) {
         let maxWallHeight = WALL_HEIGHT;
         if (walls && walls.length > 0) {
-            maxWallHeight = Math.max(...walls.map(w => w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT)));
+            const mainWalls = walls.filter(w => !w.parentGroup);
+            if (mainWalls.length > 0) maxWallHeight = Math.max(...mainWalls.map(w => w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT)));
         }
         this.stairBuilder.build(stairs, this.ctx.structureGroup, 0, false, maxWallHeight);
 
@@ -862,7 +863,8 @@ export class EnvironmentBuilder {
                 if (data.stairs) {
                     let maxWallHeight2 = WALL_HEIGHT;
                     if (data.walls && data.walls.length > 0) {
-                        maxWallHeight2 = Math.max(...data.walls.map(w => w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT)));
+                        const mainWalls2 = data.walls.filter(w => !w.parentGroup);
+                        if (mainWalls2.length > 0) maxWallHeight2 = Math.max(...mainWalls2.map(w => w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT)));
                     }
                     this.stairBuilder.build(data.stairs, floorGroup, index, true, maxWallHeight2);
                 }
@@ -1478,7 +1480,8 @@ export class EnvironmentBuilder {
         const hasWalls = walls && walls.length > 0;
         let maxWallHeight = WALL_HEIGHT;
         if (hasWalls) {
-            maxWallHeight = Math.max(...walls.map(w => w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT)));
+            const mainWalls = walls.filter(w => !w.parentGroup);
+            if (mainWalls.length > 0) maxWallHeight = Math.max(...mainWalls.map(w => w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT)));
         }
 
         const thickenGeometry = (v, uv, T) => {

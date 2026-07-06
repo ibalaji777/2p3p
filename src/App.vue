@@ -516,6 +516,11 @@ const layerItems = computed(() => {
             items.push({ id: `roof-${i}`, name: `Roof ${i + 1}`, entity: r, type: 'roof' });
         });
     }
+    if (planner.value.presetGroups) {
+        planner.value.presetGroups.forEach((g, i) => {
+            items.push({ id: `presetGrp-${i}`, name: g.name || `Group ${i + 1}`, entity: g, type: 'preset_group' });
+        });
+    }
     if (planner.value.stairs) {
         planner.value.stairs.forEach((s, i) => {
             items.push({ id: `stair-${i}`, name: `Stair ${i + 1}`, entity: s, type: 'stair' });
@@ -1230,6 +1235,14 @@ const handleDelete = () => {
             selectedType.value = null;
             if (viewMode.value === '3d') refresh3DScene(true);
             else if (planner.value) planner.value.syncAll();
+        } else if (selectedType.value === 'preset_group') {
+            selectedEntity.value.remove();
+            if (planner.value) {
+                planner.value.presetGroups = planner.value.presetGroups.filter(g => g !== selectedEntity.value);
+            }
+            selectedEntity.value = null;
+            selectedType.value = null;
+            if (viewMode.value === '3d') refresh3DScene(true);
         }
         debouncedSaveHistory();
     }
