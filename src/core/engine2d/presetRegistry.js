@@ -80,12 +80,11 @@ export function autoAlign(planner, point, defaultElevation = 0, depth = 0) {
             result.addedHeight = addedHeight;
             
             // Calculate rotation facing outward from the edge
-            // Edge direction: p1 -> p2
-            const edgeAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-            // Normal facing outward (since polygons are usually clockwise, outward is -90 deg)
-            // Konva rotation is clockwise.
-            // Let's set rotation so local +Y faces the edge (downward slope)
-            result.rotation = (edgeAngle + Math.PI / 2) * 180 / Math.PI;
+            // const edgeAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+            // result.rotation = (edgeAngle + Math.PI / 2) * 180 / Math.PI;
+            
+            // DISABLED AUTO-ROTATE as per user request
+            result.rotation = 0;
             break;
         }
     }
@@ -164,12 +163,21 @@ function createRectangularStructure(planner, origin, w, d, wallHeight, roofType,
 
     // Expand roof points by half-thickness (5) so the roof exactly covers the outer edges of the walls
     const roofExpand = 5; 
-    let roofPts = [
+    let localRoofPts = [
         { x: -hw - roofExpand, y: -hd - roofExpand },
         { x: -hw - roofExpand, y: hd + roofExpand },
         { x: hw + roofExpand, y: hd + roofExpand },
         { x: hw + roofExpand, y: -hd - roofExpand }
     ];
+
+    // Apply the exact same mathematical rotation to the roof points as the walls
+    // so the roof geometry always aligns perfectly with the walls, even if manually rotated!
+    let roofPts = localRoofPts.map(p => {
+        return {
+            x: (p.x * cos - p.y * sin),
+            y: (p.x * sin + p.y * cos)
+        };
+    });
 
     let roof = null;
     if (parentGroup && parentGroup.roofs && parentGroup.roofs.length === 1) {
