@@ -333,6 +333,22 @@ const menuCategories = ref([
         ]
     },
     {
+        id: 'roof_presets', name: 'Roof Presets',
+        icon: '<path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>',
+        tools: [
+            { isDivider: true, name: 'Custom Roofs' },
+            { id: 'roof_gable', name: 'Draw Gable Roof', roofType: 'gable' },
+            { id: 'roof_flat', name: 'Draw Flat Roof', roofType: 'flat' },
+            { id: 'roof_hip', name: 'Draw Hip Roof', roofType: 'hip' },
+            { id: 'auto_roof', name: 'Generate Auto-Roof', action: 'auto_roof' },
+            ...Object.keys(PRESET_CATEGORIES).reduce((acc, catName) => {
+                acc.push({ isDivider: true, name: catName });
+                PRESET_CATEGORIES[catName].forEach(preset => acc.push({ id: preset.id, name: preset.name, presetParams: { ...preset.defaultParams } }));
+                return acc;
+            }, [])
+        ]
+    },
+    {
         id: 'furniture', name: 'Furniture',
         icon: '<path d="M20 9V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v2"></path><path d="M2 13h20v5H2z"></path><path d="M4 18v2"></path><path d="M20 18v2"></path>',
         tools: [
@@ -385,22 +401,6 @@ const menuCategories = ref([
             { id: 'molding_groove', name: 'Decorative Groove', action: 'molding' },
             { id: 'molding_layered', name: 'Layered Projection', action: 'molding' },
             { id: 'elevation_fascia', name: 'Elevation Fascia (C/L Shape)' }
-        ]
-    },
-    {
-        id: 'roof_presets', name: 'Roof Presets',
-        icon: '<path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>',
-        tools: [
-            { isDivider: true, name: 'Custom Roofs' },
-            { id: 'roof_gable', name: 'Draw Gable Roof', roofType: 'gable' },
-            { id: 'roof_flat', name: 'Draw Flat Roof', roofType: 'flat' },
-            { id: 'roof_hip', name: 'Draw Hip Roof', roofType: 'hip' },
-            { id: 'auto_roof', name: 'Generate Auto-Roof', action: 'auto_roof' },
-            ...Object.keys(PRESET_CATEGORIES).reduce((acc, catName) => {
-                acc.push({ isDivider: true, name: catName });
-                PRESET_CATEGORIES[catName].forEach(preset => acc.push({ id: preset.id, name: preset.name, presetParams: { ...preset.defaultParams } }));
-                return acc;
-            }, [])
         ]
     }
 ]);
