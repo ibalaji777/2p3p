@@ -140,18 +140,18 @@
       />
 
       <!-- Mobile Drawing Controls -->
-      <div v-if="isMobile && isDrawing" class="absolute bottom-24 left-1/2 transform -translate-x-1/2 flex gap-4 z-50 pointer-events-auto">
-          <button @click.stop="cancelDrawing" class="px-6 py-3 bg-white text-red-500 font-semibold rounded-full shadow-lg border border-red-100 flex items-center gap-2 active:scale-95 transition-transform">
+      <div v-if="isMobile && isDrawing" class="mobile-drawing-controls">
+          <button @click.stop="cancelDrawing" class="mobile-control-btn cancel-btn">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
               </svg>
-              Cancel
+              <span>Cancel</span>
           </button>
-          <button @click.stop="finishDrawing" class="px-6 py-3 bg-blue-500 text-white font-semibold rounded-full shadow-lg flex items-center gap-2 active:scale-95 transition-transform">
+          <button @click.stop="finishDrawing" class="mobile-control-btn finish-btn">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                   <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
               </svg>
-              Finish
+              <span>Finish</span>
           </button>
       </div>
 
@@ -1453,3 +1453,62 @@ const clearWorkspace = () => {
 </script>
 
 <style src="./workspace.css"></style>
+
+<style scoped>
+.mobile-drawing-controls {
+    position: absolute;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 16px;
+    z-index: 1000;
+    pointer-events: auto;
+}
+
+.mobile-control-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    border-radius: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(4px);
+    transition: transform 0.1s, background-color 0.2s;
+    background-color: rgba(31, 41, 55, 0.95);
+    color: white;
+}
+
+.mobile-control-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.mobile-control-btn:active {
+    transform: scale(0.92);
+}
+
+.cancel-btn {
+    color: #fca5a5;
+}
+
+.cancel-btn:hover {
+    background-color: rgba(220, 38, 38, 0.9);
+    color: white;
+}
+
+.finish-btn {
+    color: #93c5fd;
+}
+
+.finish-btn:hover {
+    background-color: rgba(37, 99, 235, 0.9);
+    color: white;
+}
+</style>
