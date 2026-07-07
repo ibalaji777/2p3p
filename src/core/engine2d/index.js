@@ -640,6 +640,19 @@ export class FloorPlanner {
         this.deselectAll(); 
     }
     
+    cancelChain() {
+        if (this.currentSessionEntities && this.currentSessionEntities.length > 0) {
+            this.currentSessionEntities.forEach(ent => {
+                if (ent.destroy) ent.destroy();
+                if (this.walls) this.walls = this.walls.filter(w => w !== ent);
+                if (this.arcs) this.arcs = this.arcs.filter(a => a !== ent);
+            });
+            this.currentSessionEntities = [];
+        }
+        this.finishChain();
+        this.syncAll();
+    }
+    
     initStageEvents() { 
         this.stage.on('dragstart', (e) => {
             if (e.target === this.stage) this.stage.container().style.cursor = 'grabbing';
@@ -926,7 +939,14 @@ export class FloorPlanner {
             
             
             const currentAnchor = this.getOrCreateAnchor(targetPos.x, targetPos.y); 
-            if (!this.drawing) { this.drawing = true; this.lastAnchor = currentAnchor; this.startAnchor = currentAnchor; currentAnchor.show(); if (this.onDrawingChange) this.onDrawingChange(true); } 
+            if (!this.drawing) { 
+                this.drawing = true; 
+                this.lastAnchor = currentAnchor; 
+                this.startAnchor = currentAnchor; 
+                this.currentSessionEntities = []; 
+                currentAnchor.show(); 
+                if (this.onDrawingChange) this.onDrawingChange(true); 
+            } 
             else { 
                 let reachedArcEnd = false;
                 let sharedArc = null;
@@ -964,6 +984,7 @@ export class FloorPlanner {
                             }
                             this.walls.push(w);
                             this.lastDrawnEntity = w;
+                            this.currentSessionEntities.push(w);
                             prev = curr;
                         }
                         
@@ -976,13 +997,15 @@ export class FloorPlanner {
                             const w = new PremiumRailing(this, this.lastAnchor, currentAnchor);
                             this.walls.push(w);
                             this.lastDrawnEntity = w;
+                            this.currentSessionEntities.push(w);
                         } else {
                             const w = new PremiumWall(this, this.lastAnchor, currentAnchor, this.tool);
                             this.walls.push(w); 
                             this.lastDrawnEntity = w;
+                            this.currentSessionEntities.push(w);
                         }
                     }
-                } 
+                }
                 if (currentAnchor === this.startAnchor || reachedArcEnd) { 
                     this.finishChain(); 
                     if (reachedArcEnd && this.tool === 'railing') {

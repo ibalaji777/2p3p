@@ -292,7 +292,7 @@ const finishDrawing = () => {
 };
 const cancelDrawing = () => { 
     if (planner.value) {
-        planner.value.finishChain(); 
+        planner.value.cancelChain(); 
         planner.value.tool = 'select';
         planner.value.updateToolStates();
         if (planner.value.onToolChange) planner.value.onToolChange('select');
