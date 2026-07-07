@@ -478,7 +478,7 @@ const layerItems = computed(() => {
     
     if (planner.value.walls) {
         planner.value.walls.forEach((w, i) => {
-            if (w.parentArc) return;
+            if (w.parentArc || w.parentGroup) return;
             if (w.type === 'railing') {
                 items.push({ id: `rail-${i}`, name: `Railing ${i + 1}`, entity: w, type: 'railing' });
             } else if (w.isAutoGable) {
@@ -516,12 +516,24 @@ const layerItems = computed(() => {
     }
     if (planner.value.roofs) {
         planner.value.roofs.forEach((r, i) => {
+            if (r.parentGroup) return;
             items.push({ id: `roof-${i}`, name: `Roof ${i + 1}`, entity: r, type: 'roof' });
         });
     }
     if (planner.value.presetGroups) {
         planner.value.presetGroups.forEach((g, i) => {
-            items.push({ id: `presetGrp-${i}`, name: g.name || `Group ${i + 1}`, entity: g, type: 'preset_group' });
+            items.push({ id: `presetGrp-${i}`, name: g.name || `Preset Group ${i + 1}`, entity: g, type: 'preset_group' });
+            
+            if (g.walls) {
+                g.walls.forEach((w, wi) => {
+                    items.push({ id: `presetGrp-${i}-wall-${wi}`, name: `↳ Wall ${wi + 1}`, entity: w, type: 'wall', isSubItem: true });
+                });
+            }
+            if (g.roofs) {
+                g.roofs.forEach((r, ri) => {
+                    items.push({ id: `presetGrp-${i}-roof-${ri}`, name: `↳ Roof ${ri + 1}`, entity: r, type: 'roof', isSubItem: true });
+                });
+            }
         });
     }
     if (planner.value.stairs) {
@@ -564,7 +576,21 @@ const toggleLayerVisibility = (item) => {
     const ent = item.entity;
     ent.isHidden = !ent.isHidden;
     
-    const group2D = ent.group || ent.wallGroup || ent.visualGroup || ent.poly;
+    if (item.type === 'preset_group') {
+        if (ent.walls) ent.walls.forEach(w => {
+            w.isHidden = ent.isHidden;
+            if (w.wallGroup) w.wallGroup.visible(!w.isHidden);
+            if (w.poly) w.poly.visible(!w.isHidden);
+            if (w.mesh3D) w.mesh3D.visible = !w.isHidden;
+        });
+        if (ent.roofs) ent.roofs.forEach(r => {
+            r.isHidden = ent.isHidden;
+            if (r.group) r.group.visible(!r.isHidden);
+            if (r.mesh3D) r.mesh3D.visible = !r.isHidden;
+        });
+    }
+    
+    const group2D = ent.group || ent.wallGroup || ent.visualGroup || ent.poly || ent.uiGroup;
     if (group2D && typeof group2D.visible === 'function') {
         group2D.visible(!ent.isHidden);
     }

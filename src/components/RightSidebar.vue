@@ -1131,7 +1131,7 @@
 
         <div class="layers-content" v-show="activeRightTab === 'layers'">
             <div class="layers-list">
-                <div v-for="item in layerItems" :key="item.id" class="layer-item" :class="{active: selectedEntity === item.entity}" @click="$emit('select-layer-item', item)">
+                <div v-for="item in layerItems" :key="item.id" class="layer-item" :class="{active: selectedEntity === item.entity, subitem: item.isSubItem}" :style="item.isSubItem ? 'margin-left: 24px; opacity: 0.9;' : ''" @click="$emit('select-layer-item', item)">
                     <div class="layer-info">
                         <div class="layer-title-row">
                             <span class="layer-type-icon">{{ getLayerIcon(item.type) }}</span>
