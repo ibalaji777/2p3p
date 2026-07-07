@@ -193,12 +193,29 @@ const isDesktop = computed(() => windowWidth.value >= 1200);
 const mobileMenuOpen = ref(true);
 const activeMobileTab = ref('tools');
 
-const toggleMobileTab = (tab) => {
-    if (activeMobileTab.value === tab && mobileMenuOpen.value) {
+const toggleMobileTab = (tabId) => {
+    if (tabId === '3d') {
+        planner.value.finishChain();
+        saveCurrentLevelState();
+        viewMode.value = '3d';
+        activeMobileTab.value = '3d';
         mobileMenuOpen.value = false;
+        
+        setTimeout(() => {
+            if (renderer3D.value) {
+                renderer3D.value.resize();
+                updateEnvironment();
+                renderer3D.value.setInteractionMode(mode3D.value);
+                refresh3DScene(false);
+            }
+        }, 100);
     } else {
-        activeMobileTab.value = tab;
-        mobileMenuOpen.value = true;
+        if (activeMobileTab.value === tabId && mobileMenuOpen.value) {
+            mobileMenuOpen.value = false;
+        } else {
+            activeMobileTab.value = tabId;
+            mobileMenuOpen.value = true;
+        }
     }
 };
 

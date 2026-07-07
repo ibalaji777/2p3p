@@ -463,7 +463,7 @@ export class Preview3D {
         } else {
             let centerX = 0, centerZ = 0;
             if (walls.length > 0) {
-                walls.forEach(w => { const p = w.startAnchor ? w.startAnchor.position() : w; centerX += p.x || w.startX; centerZ += p.y || w.startY; });
+                walls.forEach(w => { const p = w.startAnchor ? w.startAnchor.position() : w; centerX += p.x ?? w.startX ?? 0; centerZ += p.y ?? w.startY ?? 0; });
                 centerX /= walls.length; centerZ /= walls.length;
             }
             this.controls.target.set(centerX, targetY, centerZ);
