@@ -316,8 +316,8 @@ const menuCategories = ref([
         ]
     },
     {
-        id: 'structures', name: 'Structures',
-        icon: '<path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>',
+        id: 'staircases', name: 'Staircases',
+        icon: '<path d="M19 3H15V7H11V11H7V15H3V21H19Z"></path>',
         tools: [
             { isDivider: true, name: 'Staircases' },
             { id: 'stair_v5_straight', name: 'Straight Staircase' },
