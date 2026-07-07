@@ -5,6 +5,7 @@ export class Anchor {
     constructor(planner, x, y) {
         this.planner = planner; this.lastValidPos = { x, y };
         this.node = new Konva.Group({ x, y, draggable: true, visible: false });
+        this.node.add(new Konva.Circle({ radius: 35, fill: 'transparent' })); // Large invisible touch target
         this.node.add(new Konva.Circle({ radius: 8, fill: "#111827", stroke: "white", strokeWidth: 2 }));
         const arrowOffset = 11; const arrowSize = 4;
         const makeArrow = (points) => new Konva.Line({ points, fill: '#111827', closed: true });

@@ -139,6 +139,22 @@
         @debounced-save-history="debouncedSaveHistory"
       />
 
+      <!-- Mobile Drawing Controls -->
+      <div v-if="isMobile && isDrawing" class="absolute bottom-24 left-1/2 transform -translate-x-1/2 flex gap-4 z-50 pointer-events-auto">
+          <button @click.stop="cancelDrawing" class="px-6 py-3 bg-white text-red-500 font-semibold rounded-full shadow-lg border border-red-100 flex items-center gap-2 active:scale-95 transition-transform">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+              </svg>
+              Cancel
+          </button>
+          <button @click.stop="finishDrawing" class="px-6 py-3 bg-blue-500 text-white font-semibold rounded-full shadow-lg flex items-center gap-2 active:scale-95 transition-transform">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+              </svg>
+              Finish
+          </button>
+      </div>
+
       <!-- Wizard Popup -->
       <SmartWizardPopup
         ref="wizardPopupRef"
@@ -261,6 +277,27 @@ const setEntranceWall = () => {
 
 const canvasWorkspaceRef = ref(null);
 const planner = shallowRef(null);
+const isDrawing = ref(false);
+
+const finishDrawing = () => { 
+    if (planner.value) {
+        planner.value.finishChain(); 
+        planner.value.tool = 'select';
+        planner.value.updateToolStates();
+        if (planner.value.onToolChange) planner.value.onToolChange('select');
+        if (planner.value.lastDrawnEntity) {
+            planner.value.selectEntity(planner.value.lastDrawnEntity, 'wall');
+        }
+    } 
+};
+const cancelDrawing = () => { 
+    if (planner.value) {
+        planner.value.finishChain(); 
+        planner.value.tool = 'select';
+        planner.value.updateToolStates();
+        if (planner.value.onToolChange) planner.value.onToolChange('select');
+    } 
+};
 const renderer3D = shallowRef(null);
 const workspaceControls = shallowRef(null);
 const serverService = shallowRef(null);
@@ -751,6 +788,10 @@ onMounted(() => {
 
     planner.value.onToolChange = (toolId) => {
         activeTool.value = toolId;
+    };
+
+    planner.value.onDrawingChange = (drawing) => {
+        isDrawing.value = drawing;
     };
 
     renderer3D.value = new Preview3D(canvasWorkspaceRef.value.canvas3D);

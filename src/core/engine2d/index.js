@@ -245,7 +245,7 @@ export class FloorPlanner {
         this.uiLayer.add(this.alignmentLines);
     }
     
-    showSnapGlow(x, y) { this.snapGlow.position({x, y}); this.snapGlow.show(); } 
+    showSnapGlow(x, y, isTouch = false) { this.snapGlow.position({x, y}); this.snapGlow.radius(isTouch ? 12 : 6); this.snapGlow.show(); } 
     hideSnapGlow() { this.snapGlow.hide(); }
     
     drawGuideLine(x1, y1, x2, y2, show) { 
@@ -596,13 +596,34 @@ export class FloorPlanner {
         return normal;
     }
 
-    getPointerPos() {
+    getPointerPos(e) {
         const pointer = this.stage.getPointerPosition();
         if (!pointer) return null;
-        if (typeof this.stage.getRelativePointerPosition === 'function') {
-            return this.stage.getRelativePointerPosition();
+        let pos = { x: pointer.x, y: pointer.y };
+
+        const isDrawingTool = this.tool === 'outer' || this.tool === 'inner' || this.tool === 'railing' || this.drawing;
+        const isTouch = e && e.type && (e.type.startsWith('touch') || e.pointerType === 'touch');
+
+        // Jitter Reduction
+        if (isTouch && isDrawingTool && e && e.type === 'touchmove') {
+            if (this.lastRawTouchPos) {
+                const dist = Math.hypot(pos.x - this.lastRawTouchPos.x, pos.y - this.lastRawTouchPos.y);
+                if (dist < 3) { // 3 pixels screen distance ignore
+                    pos = { x: this.lastRawTouchPos.x, y: this.lastRawTouchPos.y };
+                } else {
+                    this.lastRawTouchPos = { x: pos.x, y: pos.y };
+                }
+            } else {
+                this.lastRawTouchPos = { x: pos.x, y: pos.y };
+            }
+        } else if (isTouch && isDrawingTool && e && e.type === 'touchstart') {
+            this.lastRawTouchPos = { x: pos.x, y: pos.y };
         }
-        return this.stage.getAbsoluteTransform().copy().invert().point(pointer);
+
+        const transform = this.stage.getAbsoluteTransform().copy().invert();
+        const worldPos = transform.point(pos);
+
+        return worldPos;
     }
 
     finishChain() { 
@@ -612,6 +633,7 @@ export class FloorPlanner {
         if (this.drawingArc) { this.drawingArc = null; if (this.arcPreview) { this.arcPreview.destroy(); this.arcPreview = null; } }
         if (this.shapePreviewGroup) { this.shapePreviewRect.visible(false); this.shapePreviewCircle.visible(false); this.shapePreviewTriangle.visible(false); }
         this.drawing = false; this.lastAnchor = null; this.startAnchor = null; 
+        if (this.onDrawingChange) this.onDrawingChange(false);
         this.preview?.destroy(); this.preview = null; 
         this.hideSnapGlow(); this.drawGuideLine(0,0,0,0, false); this.hideInfoBadge(); 
         if (this.smartGuides) this.smartGuides.clear();
@@ -658,7 +680,7 @@ export class FloorPlanner {
             }
             const wallConfig = WALL_REGISTRY[this.tool]; 
             
-            const pos = this.getPointerPos();
+            const pos = this.getPointerPos(e);
             if (!pos) return;
             
             // Handle Smart Snapping Placement for Moldings and Openings
@@ -842,54 +864,69 @@ export class FloorPlanner {
             if (!wallConfig) return; 
 
             let targetSnapWall = null; 
+            const isTouch = e && e.type && (e.type.startsWith('touch') || e.pointerType === 'touch');
+            const activeSnapDist = isTouch ? SNAP_DIST * 1.4 : SNAP_DIST;
+
             if (wallConfig && wallConfig.events.includes("snap_to_wall")) { 
-                let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < SNAP_DIST); 
-                if (a) { targetPos = { x: a.x, y: a.y }; targetSnapWall = this.walls.find(w => w.startAnchor === a || w.endAnchor === a); } 
-                else { 
-                    let closestDist = SNAP_DIST, closestPoint = null; 
+                let closestDist = activeSnapDist;
+                
+                if (isTouch && this.lastStickySnap && Math.hypot(pos.x - this.lastStickySnap.rawPos.x, pos.y - this.lastStickySnap.rawPos.y) < activeSnapDist * 1.1) {
+                    targetPos = { x: this.lastStickySnap.snapPos.x, y: this.lastStickySnap.snapPos.y };
+                    targetSnapWall = this.lastStickySnap.wall;
+                    closestDist = 0;
+                } else {
+                    this.lastStickySnap = null;
+                }
 
-                    let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
-                    for (let line of allReferenceWalls) {
-                        let pts = line.getAttr('refPts') || line.points();
-                        if (pts && pts.length === 4) {
-                            let d1 = Math.hypot(pos.x - pts[0], pos.y - pts[1]); let d2 = Math.hypot(pos.x - pts[2], pos.y - pts[3]);
-                            if (d1 < 40 && d1 < closestDist) { closestDist = 0; closestPoint = {x: pts[0], y: pts[1]}; targetSnapWall = null; }
-                            else if (d2 < 40 && d2 < closestDist) { closestDist = 0; closestPoint = {x: pts[2], y: pts[3]}; targetSnapWall = null; }
-                            else { let proj = this.getClosestPointOnSegment(pos, {x: pts[0], y: pts[1]}, {x: pts[2], y: pts[3]}); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = null; } }
-                        }
-                    }
-
-                    if (this.shapes) {
-                        for (let s of this.shapes) {
-                            if (s.type !== 'shape_rect' && s.type !== 'shape_floor_cut' && s.type !== 'shape_polygon') continue;
-                            let pts = []; if (s.type === 'shape_rect') { const w = s.params.width; const h = s.params.height; pts = [ {x: -w/2, y: -h/2}, {x: w/2, y: -h/2}, {x: w/2, y: h/2}, {x: -w/2, y: h/2} ]; } else { pts = s.params.points; }
-                            if (!pts) continue;
-                            const transform = s.group.getTransform();
-                            for (let i = 0; i < pts.length; i++) {
-                                const p1 = transform.point(pts[i]); const p2 = transform.point(pts[(i + 1) % pts.length]);
-                                let d1 = Math.hypot(pos.x - p1.x, pos.y - p1.y);
-                                if (d1 < closestDist) { closestDist = d1; closestPoint = p1; targetSnapWall = null; }
-                                const proj = this.getClosestPointOnSegment(pos, p1, p2);
-                                const dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
-                                if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = null; }
+                if (closestDist > 0) {
+                    let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < activeSnapDist); 
+                    if (a) { targetPos = { x: a.x, y: a.y }; targetSnapWall = this.walls.find(w => w.startAnchor === a || w.endAnchor === a); } 
+                    else { 
+                        let closestPoint = null; 
+    
+                        let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
+                        for (let line of allReferenceWalls) {
+                            let pts = line.getAttr('refPts') || line.points();
+                            if (pts && pts.length === 4) {
+                                let d1 = Math.hypot(pos.x - pts[0], pos.y - pts[1]); let d2 = Math.hypot(pos.x - pts[2], pos.y - pts[3]);
+                                if (d1 < 40 && d1 < closestDist) { closestDist = 0; closestPoint = {x: pts[0], y: pts[1]}; targetSnapWall = null; }
+                                else if (d2 < 40 && d2 < closestDist) { closestDist = 0; closestPoint = {x: pts[2], y: pts[3]}; targetSnapWall = null; }
+                                else { let proj = this.getClosestPointOnSegment(pos, {x: pts[0], y: pts[1]}, {x: pts[2], y: pts[3]}); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = null; } }
                             }
                         }
-                    }
-
-                    for (let w of this.walls) { 
-                        let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); 
-                        let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); 
-                        if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = w; } 
+    
+                        if (this.shapes) {
+                            for (let s of this.shapes) {
+                                if (s.type !== 'shape_rect' && s.type !== 'shape_floor_cut' && s.type !== 'shape_polygon') continue;
+                                let pts = []; if (s.type === 'shape_rect') { const w = s.params.width; const h = s.params.height; pts = [ {x: -w/2, y: -h/2}, {x: w/2, y: -h/2}, {x: w/2, y: h/2}, {x: -w/2, y: h/2} ]; } else { pts = s.params.points; }
+                                if (!pts) continue;
+                                const transform = s.group.getTransform();
+                                for (let i = 0; i < pts.length; i++) {
+                                    const p1 = transform.point(pts[i]); const p2 = transform.point(pts[(i + 1) % pts.length]);
+                                    let d1 = Math.hypot(pos.x - p1.x, pos.y - p1.y);
+                                    if (d1 < closestDist) { closestDist = d1; closestPoint = p1; targetSnapWall = null; }
+                                    const proj = this.getClosestPointOnSegment(pos, p1, p2);
+                                    const dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                                    if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = null; }
+                                }
+                            }
+                        }
+    
+                        for (let w of this.walls) { 
+                            let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); 
+                            let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); 
+                            if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = w; } 
+                        } 
+                        if (closestPoint) targetPos = closestPoint; 
                     } 
-                    if (closestPoint) targetPos = closestPoint; 
-                } 
+                }
             } 
             
             if (this.drawing && wallConfig && wallConfig.events.includes("stop_collision") && this.checkWallIntersection(this.lastAnchor.position(), targetPos, [targetSnapWall])) return; 
             
             
             const currentAnchor = this.getOrCreateAnchor(targetPos.x, targetPos.y); 
-            if (!this.drawing) { this.drawing = true; this.lastAnchor = currentAnchor; this.startAnchor = currentAnchor; currentAnchor.show(); } 
+            if (!this.drawing) { this.drawing = true; this.lastAnchor = currentAnchor; this.startAnchor = currentAnchor; currentAnchor.show(); if (this.onDrawingChange) this.onDrawingChange(true); } 
             else { 
                 let reachedArcEnd = false;
                 let sharedArc = null;
@@ -926,6 +963,7 @@ export class FloorPlanner {
                                 w = new PremiumWall(this, prev, curr, this.tool);
                             }
                             this.walls.push(w);
+                            this.lastDrawnEntity = w;
                             prev = curr;
                         }
                         
@@ -935,9 +973,13 @@ export class FloorPlanner {
                         }
                     } else {
                         if (this.tool === 'railing') {
-                            this.walls.push(new PremiumRailing(this, this.lastAnchor, currentAnchor));
+                            const w = new PremiumRailing(this, this.lastAnchor, currentAnchor);
+                            this.walls.push(w);
+                            this.lastDrawnEntity = w;
                         } else {
-                            this.walls.push(new PremiumWall(this, this.lastAnchor, currentAnchor, this.tool)); 
+                            const w = new PremiumWall(this, this.lastAnchor, currentAnchor, this.tool);
+                            this.walls.push(w); 
+                            this.lastDrawnEntity = w;
                         }
                     }
                 } 
@@ -955,7 +997,8 @@ export class FloorPlanner {
                         }
                     }
                 } else { this.lastAnchor = currentAnchor; currentAnchor.show(); } 
-            } 
+            }
+            this.lastPlacementTime = Date.now();
             this.syncAll(); 
         }); 
 
@@ -991,7 +1034,7 @@ export class FloorPlanner {
                 this.stage.container().style.cursor = this.tool === 'select' ? (this.stage.isDragging() ? 'grabbing' : 'grab') : 'crosshair';
             }
 
-            const pos = this.getPointerPos();
+            const pos = this.getPointerPos(e);
             if (!pos) return;
             
             let rawPos = { x: this.snap(pos.x), y: this.snap(pos.y) }; 
@@ -1251,54 +1294,73 @@ export class FloorPlanner {
             }
 
             let snapPos = rawPos; let targetSnapWall = null; let snappedObj = false;
+            const isTouch = e && e.type && (e.type.startsWith('touch') || e.pointerType === 'touch');
+            const activeSnapDist = isTouch ? SNAP_DIST * 1.4 : SNAP_DIST;
 
             if (wallConfig && wallConfig.events.includes("snap_to_wall")) { 
-                let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < SNAP_DIST); 
-                if (a) { snapPos = { x: a.x, y: a.y }; targetSnapWall = this.walls.find(w => w.startAnchor === a || w.endAnchor === a); snappedObj = true; } 
-                else { 
-                    let closestDist = SNAP_DIST, closestPoint = null; 
+                let closestDist = activeSnapDist;
 
-                    let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
-                    for (let line of allReferenceWalls) {
-                        let pts = line.getAttr('refPts') || line.points();
-                        if (pts && pts.length === 4) {
-                            let d1 = Math.hypot(pos.x - pts[0], pos.y - pts[1]);
-                            let d2 = Math.hypot(pos.x - pts[2], pos.y - pts[3]);
-                            if (d1 < 40 && d1 < closestDist) { closestDist = 0; closestPoint = {x: pts[0], y: pts[1]}; snappedObj = true; targetSnapWall = null; }
-                            else if (d2 < 40 && d2 < closestDist) { closestDist = 0; closestPoint = {x: pts[2], y: pts[3]}; snappedObj = true; targetSnapWall = null; }
-                            else {
-                                let proj = this.getClosestPointOnSegment(pos, {x: pts[0], y: pts[1]}, {x: pts[2], y: pts[3]});
-                                let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
-                                if (dist < closestDist) { closestDist = dist; closestPoint = proj; snappedObj = true; targetSnapWall = null; }
+                if (isTouch && this.lastStickySnap && Math.hypot(pos.x - this.lastStickySnap.rawPos.x, pos.y - this.lastStickySnap.rawPos.y) < activeSnapDist * 1.1) {
+                    snapPos = { x: this.lastStickySnap.snapPos.x, y: this.lastStickySnap.snapPos.y };
+                    targetSnapWall = this.lastStickySnap.wall;
+                    snappedObj = true;
+                    closestDist = 0;
+                } else {
+                    this.lastStickySnap = null;
+                }
+
+                if (closestDist > 0) {
+                    let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < activeSnapDist); 
+                    if (a) { snapPos = { x: a.x, y: a.y }; targetSnapWall = this.walls.find(w => w.startAnchor === a || w.endAnchor === a); snappedObj = true; } 
+                    else { 
+                        let closestPoint = null; 
+    
+                        let allReferenceWalls = this.referenceGroup ? this.referenceGroup.getChildren() : [];
+                        for (let line of allReferenceWalls) {
+                            let pts = line.getAttr('refPts') || line.points();
+                            if (pts && pts.length === 4) {
+                                let d1 = Math.hypot(pos.x - pts[0], pos.y - pts[1]);
+                                let d2 = Math.hypot(pos.x - pts[2], pos.y - pts[3]);
+                                if (d1 < 40 && d1 < closestDist) { closestDist = 0; closestPoint = {x: pts[0], y: pts[1]}; snappedObj = true; targetSnapWall = null; }
+                                else if (d2 < 40 && d2 < closestDist) { closestDist = 0; closestPoint = {x: pts[2], y: pts[3]}; snappedObj = true; targetSnapWall = null; }
+                                else {
+                                    let proj = this.getClosestPointOnSegment(pos, {x: pts[0], y: pts[1]}, {x: pts[2], y: pts[3]});
+                                    let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                                    if (dist < closestDist) { closestDist = dist; closestPoint = proj; snappedObj = true; targetSnapWall = null; }
+                                }
                             }
                         }
-                    }
-
-                    if (this.shapes) {
-                        for (let s of this.shapes) {
-                            if (s.type !== 'shape_rect' && s.type !== 'shape_floor_cut' && s.type !== 'shape_polygon') continue;
-                            let pts = []; if (s.type === 'shape_rect') { const w = s.params.width; const h = s.params.height; pts = [ {x: -w/2, y: -h/2}, {x: w/2, y: -h/2}, {x: w/2, y: h/2}, {x: -w/2, y: h/2} ]; } else { pts = s.params.points; }
-                            if (!pts) continue;
-                            const transform = s.group.getTransform();
-                            for (let i = 0; i < pts.length; i++) {
-                                const p1 = transform.point(pts[i]); const p2 = transform.point(pts[(i + 1) % pts.length]);
-                                let d1 = Math.hypot(pos.x - p1.x, pos.y - p1.y);
-                                if (d1 < closestDist) { closestDist = d1; closestPoint = p1; snappedObj = true; targetSnapWall = null; }
-                                const proj = this.getClosestPointOnSegment(pos, p1, p2);
-                                const dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
-                                if (dist < closestDist) { closestDist = dist; closestPoint = proj; snappedObj = true; targetSnapWall = null; }
+    
+                        if (this.shapes) {
+                            for (let s of this.shapes) {
+                                if (s.type !== 'shape_rect' && s.type !== 'shape_floor_cut' && s.type !== 'shape_polygon') continue;
+                                let pts = []; if (s.type === 'shape_rect') { const w = s.params.width; const h = s.params.height; pts = [ {x: -w/2, y: -h/2}, {x: w/2, y: -h/2}, {x: w/2, y: h/2}, {x: -w/2, y: h/2} ]; } else { pts = s.params.points; }
+                                if (!pts) continue;
+                                const transform = s.group.getTransform();
+                                for (let i = 0; i < pts.length; i++) {
+                                    const p1 = transform.point(pts[i]); const p2 = transform.point(pts[(i + 1) % pts.length]);
+                                    let d1 = Math.hypot(pos.x - p1.x, pos.y - p1.y);
+                                    if (d1 < closestDist) { closestDist = d1; closestPoint = p1; snappedObj = true; targetSnapWall = null; }
+                                    const proj = this.getClosestPointOnSegment(pos, p1, p2);
+                                    const dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                                    if (dist < closestDist) { closestDist = dist; closestPoint = proj; snappedObj = true; targetSnapWall = null; }
+                                }
                             }
                         }
-                    }
-
-                    for (let w of this.walls) { 
-                        let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); 
-                        let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); 
-                        if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = w; snappedObj = true; } 
+    
+                        for (let w of this.walls) { 
+                            let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position()); 
+                            let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y); 
+                            if (dist < closestDist) { closestDist = dist; closestPoint = proj; targetSnapWall = w; snappedObj = true; } 
+                        } 
+                        if (closestPoint) snapPos = closestPoint; 
                     } 
-                    if (closestPoint) snapPos = closestPoint; 
-                } 
-            } 
+                }
+
+                if (isTouch && snappedObj) {
+                    this.lastStickySnap = { rawPos: { x: pos.x, y: pos.y }, snapPos: { x: snapPos.x, y: snapPos.y }, wall: targetSnapWall };
+                }
+            }
 
             let endRefAngle = 0;
             let isEndWallReference = false;
@@ -1324,7 +1386,7 @@ export class FloorPlanner {
                 this.hideInfoBadge();
             }
 
-            if (snappedObj) { this.showSnapGlow(snapPos.x, snapPos.y); } else { this.hideSnapGlow(); }
+            if (snappedObj) { this.showSnapGlow(snapPos.x, snapPos.y, isTouch); } else { this.hideSnapGlow(); }
 
             this.walls.forEach(w => {
                 let isHigh = (w === this.selectedEntity || (w.parentArc && w.parentArc === this.selectedEntity));
@@ -1366,6 +1428,7 @@ export class FloorPlanner {
             }
             
             let previewThickness = wallConfig && wallConfig.thickness ? wallConfig.thickness : 2;
+            if (isTouch) previewThickness = Math.max(previewThickness, 8);
             this.preview = new Konva.Line({ points: previewPoints, stroke: drawColor, strokeWidth: previewThickness, lineCap: 'square', opacity: 0.6 }); 
             this.uiLayer.add(this.preview); 
             this.preview.moveToBottom();
@@ -1397,7 +1460,7 @@ export class FloorPlanner {
 
             if (this.drawingShapeType) {
                 if (this.drawingShapeType === 'shape_rect') {
-                    const targetPos = this.getPointerPos();
+                    const targetPos = this.getPointerPos(e);
                     const cx = (this.shapeStartPos.x + targetPos.x) / 2;
                     const cy = (this.shapeStartPos.y + targetPos.y) / 2;
                     const w = targetPos.x - this.shapeStartPos.x;
@@ -1426,7 +1489,7 @@ export class FloorPlanner {
             if (e.evt && e.evt.touches && e.evt.touches.length > 1) return;
 
             if (this.tool !== 'roof' && this.tool !== 'shape_floor_cut') return;
-            const pos = this.getPointerPos();
+            const pos = this.getPointerPos(e);
             if (!pos) return;
             
             let snap = pos;
@@ -1539,7 +1602,7 @@ export class FloorPlanner {
             if (e && e.evt && e.evt.touches && e.evt.touches.length > 1) return;
 
             if (this.tool === 'roof' || this.tool === 'shape_floor_cut') {
-                const pos = this.getPointerPos();
+                const pos = this.getPointerPos(e);
                 if (!pos) return;
                 
                 let snap = pos; 
