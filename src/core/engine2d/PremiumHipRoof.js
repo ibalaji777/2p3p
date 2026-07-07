@@ -148,10 +148,13 @@ export class PremiumHipRoof {
         let dxSum = 0;
         let dySum = 0;
         
+        // Offset roof local points by group position to get world coordinates
+        const gx = this.group.x() || 0;
+        const gy = this.group.y() || 0;
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
         this.points.forEach(p => { 
-            minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); 
-            minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); 
+            minX = Math.min(minX, p.x + gx); maxX = Math.max(maxX, p.x + gx); 
+            minY = Math.min(minY, p.y + gy); maxY = Math.max(maxY, p.y + gy); 
         });
         
         gableWalls.forEach(w => {
@@ -185,10 +188,14 @@ export class PremiumHipRoof {
             return;
         }
 
+        // Offset roof local points by group position to get world coordinates
+        const gx = this.group.x() || 0;
+        const gy = this.group.y() || 0;
+        
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
         this.points.forEach(p => { 
-            minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); 
-            minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); 
+            minX = Math.min(minX, p.x + gx); maxX = Math.max(maxX, p.x + gx); 
+            minY = Math.min(minY, p.y + gy); maxY = Math.max(maxY, p.y + gy); 
         });
 
         const width = (this.config.ridgeAxis === 'y') ? (maxX - minX) : (maxY - minY);
@@ -229,9 +236,11 @@ export class PremiumHipRoof {
                         gableWall.endHeight = 0;
                         this.planner.walls.push(gableWall);
                     }
-                    gableWall.elevation = w.height !== undefined ? w.height : (w.config?.height || 180);
+                    const baseHeight = w.height !== undefined ? w.height : (w.config?.height || 180);
+                    gableWall.elevation = (w.elevation || 0) + baseHeight;
                     gableWall.height = 0;
                     gableWall.peakHeight = roofH;
+                    if (w.thickness !== undefined) gableWall.thickness = w.thickness;
                     if (gableWall.updateGeometry) gableWall.updateGeometry();
                 } else {
                     let gableWall = this.planner.walls.find(cw => cw.isAutoGable && cw.parentWallId === w.id && cw.parentRoofId === this.id);
