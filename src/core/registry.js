@@ -400,6 +400,20 @@ export const ROOF_DECOR_REGISTRY = {
         thumbnail: 'models/wall/terracotta_tiles_roof.png', 
         scaleRatio: 1.2
     },
+    'terracotta_green_roof': {
+        id: 'terracotta_green_roof',
+        name: 'Terracotta Green',
+        texture: 'models/wall/roof_terracotta_green.png', 
+        thumbnail: 'models/wall/roof_terracotta_green.png', 
+        scaleRatio: 1.2
+    },
+    'terracotta_red_roof': {
+        id: 'terracotta_red_roof',
+        name: 'Terracotta Red',
+        texture: 'models/wall/roof_terracotta_red.png', 
+        thumbnail: 'models/wall/roof_terracotta_red.png', 
+        scaleRatio: 1.2
+    },
     'grey_slate_roof': {
         id: 'grey_slate_roof',
         name: 'Grey Slate Tiles',
