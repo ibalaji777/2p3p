@@ -1,6 +1,8 @@
 import { PremiumShape } from './PremiumShape.js';
 // src/core/engine2d/index.js
 import Konva from 'konva';
+import { CameraController } from './CameraController.js';
+import { GestureManager } from './GestureManager.js';
 import { GRID, PX_TO_FT, SNAP_DIST, WALL_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY, offsetPolygon } from '../registry.js';
 
 // SOLID: Import the decoupled 2D entity classes from the same folder
@@ -46,7 +48,10 @@ export class FloorPlanner {
         this.autoAlign = autoAlign;
         this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.arcs = []; this.shapes = []; this.moldings = []; this.presetGroups = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
         this.onSelectionChange = null; 
-        this.initKonva(); this.drawGrid(); this.initHUD(); this.initStageEvents(); 
+        this.initKonva(); this.drawGrid(); this.initHUD(); 
+        this.cameraController = new CameraController(this);
+        this.gestureManager = new GestureManager(this, this.cameraController);
+        this.initStageEvents(); 
         this.snapManager = this.smartGuides;
     }
     
@@ -640,6 +645,7 @@ export class FloorPlanner {
 
         this.stage.on("mousedown touchstart", (e) => {
             if (e.evt && e.evt.touches && e.evt.touches.length > 1) return;
+            if (this.gestureManager && this.gestureManager.isActive()) return;
  
             if (this.tool === 'roof') return;
             
@@ -954,6 +960,7 @@ export class FloorPlanner {
         }); 
 
         this.stage.on("click tap", (e) => {
+            if (this.gestureManager && this.gestureManager.isActive()) return;
             let pos = this.getPointerPos();
             let snapPos = { x: this.snap(pos.x), y: this.snap(pos.y) };
 
@@ -975,6 +982,7 @@ export class FloorPlanner {
 
         this.stage.on("mousemove touchmove", (e) => {
             if (e.evt && e.evt.touches && e.evt.touches.length > 1) return;
+            if (this.gestureManager && this.gestureManager.isActive()) return;
  
             if (this.tool === 'roof') return;
 
