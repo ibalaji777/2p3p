@@ -630,7 +630,24 @@ export class FloorPlanner {
          
         if (this.drawingRoofPoints) { this.drawingRoofPoints = null; if (this.roofPreviewGroup) { this.roofPreviewGroup.destroy(); this.roofPreviewGroup = null; } else if (this.roofPreview) { this.roofPreview.destroy(); } this.roofPreview = null; }
         if (this.roofCloseTick) { this.roofCloseTick.destroy(); this.roofCloseTick = null; }
-        if (this.drawingArc) { this.drawingArc = null; if (this.arcPreview) { this.arcPreview.destroy(); this.arcPreview = null; } }
+        if (this.drawingArc) { 
+            if (this.drawingArc.state === 2) {
+                if (!this.arcs) this.arcs = [];
+                const a1 = this.getOrCreateAnchor(this.drawingArc.p1.x, this.drawingArc.p1.y);
+                const a2 = this.getOrCreateAnchor(this.drawingArc.p2.x, this.drawingArc.p2.y);
+                const snapPos = this.drawingArc.isFrozen ? this.drawingArc.frozenPos : (this.arcMousePos || this.drawingArc.p2);
+                const newArc = new PremiumArc(this, a1, a2, snapPos);
+                this.arcs.push(newArc);
+                setTimeout(() => {
+                    this.tool = 'select'; this.updateToolStates();
+                    if (this.onToolChange) this.onToolChange('select');
+                    this.selectEntity(newArc, 'arc');
+                    this.syncAll();
+                }, 10);
+            }
+            this.drawingArc = null; 
+            if (this.arcPreview) { this.arcPreview.destroy(); this.arcPreview = null; } 
+        }
         if (this.shapePreviewGroup) { this.shapePreviewRect.visible(false); this.shapePreviewCircle.visible(false); this.shapePreviewTriangle.visible(false); }
         this.drawing = false; this.lastAnchor = null; this.startAnchor = null; 
         if (this.onDrawingChange) this.onDrawingChange(false);
@@ -648,6 +665,10 @@ export class FloorPlanner {
                 if (this.arcs) this.arcs = this.arcs.filter(a => a !== ent);
             });
             this.currentSessionEntities = [];
+        }
+        if (this.drawingArc) {
+            this.drawingArc = null;
+            if (this.arcPreview) { this.arcPreview.destroy(); this.arcPreview = null; }
         }
         this.finishChain();
         this.syncAll();
@@ -791,8 +812,20 @@ export class FloorPlanner {
             }
             
             if (this.tool === 'arc') {
+                const isTouch = e.evt && (e.evt.touches || e.evt.pointerType === 'touch');
+                
+                // Debounce synthetic mousedown events on mobile
+                if (isTouch && e.type === 'touchstart') {
+                    this.lastTouchTime = Date.now();
+                } else if (!isTouch && this.lastTouchTime && Date.now() - this.lastTouchTime < 500) {
+                    return;
+                }
+                
+                const scale = this.stage.scaleX() || 1;
+                let activeSnapDist = isTouch ? (SNAP_DIST * 1.5) / scale : SNAP_DIST / scale;
+                
                 let snap = targetPos;
-                let closestDist = SNAP_DIST;
+                let closestDist = activeSnapDist;
                 
                 let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < closestDist);
                 if (a) { snap = { x: a.x, y: a.y }; closestDist = Math.hypot(a.x - pos.x, a.y - pos.y); }
@@ -803,8 +836,14 @@ export class FloorPlanner {
                     if (dist < closestDist) { closestDist = dist; snap = proj; }
                 }
                 
-                if (this.drawingArc && this.arcMousePos) {
-                    snap = this.arcMousePos;
+                if (this.drawingArc) {
+                    if (this.drawingArc.isFrozen) {
+                        snap = this.drawingArc.frozenPos;
+                    } else if (e.type !== 'touchstart' && this.arcMousePos) {
+                        snap = this.arcMousePos;
+                    } else {
+                        this.arcMousePos = snap;
+                    }
                 }
 
                 if (!this.drawingArc) {
@@ -812,16 +851,19 @@ export class FloorPlanner {
                     this.arcMousePos = snap;
                     
                     this.arcPreview = new Konva.Group();
-                    this.arcPreview.ghostCircle = new Konva.Circle({ stroke: '#cbd5e1', dash: [4,4], strokeWidth: 1, listening: false });
-                    this.arcPreview.angleFill = new Konva.Shape({ fill: 'rgba(59, 130, 246, 0.15)', listening: false });
-                    this.arcPreview.radiusLines = new Konva.Line({ stroke: '#9ca3af', dash: [4,4], strokeWidth: 1, listening: false });
-                    this.arcPreview.lineBase = new Konva.Line({ stroke: '#9ca3af', dash: [5,5], strokeWidth: 2, listening: false });
-                    this.arcPreview.guideLine = new Konva.Line({ stroke: '#38bdf8', dash: [4,4], strokeWidth: 1, listening: false });
-                    this.arcPreview.arcCurve = new Konva.Shape({ stroke: '#3b82f6', strokeWidth: 4, listening: false });
-                    this.arcPreview.dragDot = new Konva.Circle({ radius: 6, fill: '#38bdf8', stroke: 'white', strokeWidth: 2, listening: false });
+                    this.arcPreview.ghostCircle = new Konva.Circle({ stroke: '#cbd5e1', dash: [4,4], strokeWidth: 1, listening: false, visible: false });
+                    this.arcPreview.angleFill = new Konva.Shape({ fill: 'rgba(59, 130, 246, 0.15)', listening: false, visible: false });
+                    this.arcPreview.radiusLines = new Konva.Line({ stroke: '#9ca3af', dash: [4,4], strokeWidth: 1, listening: false, visible: false });
+                    this.arcPreview.lineBase = new Konva.Line({ stroke: '#9ca3af', dash: [5,5], strokeWidth: 2, listening: false, visible: false });
+                    this.arcPreview.guideLine = new Konva.Line({ stroke: '#38bdf8', dash: [4,4], strokeWidth: 1, listening: false, visible: false });
+                    this.arcPreview.arcCurve = new Konva.Shape({ stroke: '#3b82f6', strokeWidth: 4, listening: false, visible: false });
+                    this.arcPreview.p1Dot = new Konva.Circle({ radius: 6, fill: '#22c55e', listening: false, x: snap.x, y: snap.y });
+                    this.arcPreview.p2Dot = new Konva.Circle({ radius: 6, fill: '#22c55e', listening: false, visible: false });
 
-                    this.arcPreview.add(this.arcPreview.ghostCircle, this.arcPreview.angleFill, this.arcPreview.radiusLines, this.arcPreview.lineBase, this.arcPreview.guideLine, this.arcPreview.arcCurve, this.arcPreview.dragDot);
+                    this.arcPreview.add(this.arcPreview.ghostCircle, this.arcPreview.angleFill, this.arcPreview.radiusLines, this.arcPreview.lineBase, this.arcPreview.guideLine, this.arcPreview.arcCurve, this.arcPreview.p1Dot, this.arcPreview.p2Dot);
                     this.uiLayer.add(this.arcPreview);
+                    this.uiLayer.batchDraw();
+                    if (this.onDrawingChange) this.onDrawingChange(true);
                 } else if (this.drawingArc.state === 1) {
                     if (Math.hypot(snap.x - this.drawingArc.p1.x, snap.y - this.drawingArc.p1.y) > 5) {
                         this.drawingArc.p2 = snap;
@@ -831,6 +873,8 @@ export class FloorPlanner {
                         const dy = snap.y - this.drawingArc.p1.y;
                         const L = Math.hypot(dx, dy), n = { x: -dy/L, y: dx/L };
                         this.arcMousePos = { x: this.drawingArc.p1.x + dx/2 + n.x * (L/4), y: this.drawingArc.p1.y + dy/2 + n.y * (L/4) };
+                        this.arcPreview.p2Dot.position(snap);
+                        this.arcPreview.p2Dot.visible(true);
                         this.uiLayer.batchDraw();
                     }
                 } else if (this.drawingArc.state === 2) {
@@ -839,6 +883,10 @@ export class FloorPlanner {
                     const a2 = this.getOrCreateAnchor(this.drawingArc.p2.x, this.drawingArc.p2.y);
                     const newArc = new PremiumArc(this, a1, a2, snap);
                     this.arcs.push(newArc);
+                    
+                    this.drawingArc = null;
+                    if (this.arcPreview) { this.arcPreview.destroy(); this.arcPreview = null; }
+                    
                     this.finishChain();
                     this.tool = 'select'; this.updateToolStates();
                     if (this.onToolChange) this.onToolChange('select');
@@ -1187,10 +1235,27 @@ export class FloorPlanner {
             } else { if (this.splitPreviewGlow) this.splitPreviewGlow.hide(); }
 
             if (this.tool === 'arc') {
+                if (this.drawingArc && this.drawingArc.isFrozen) return;
+                const isTouch = e.evt && (e.evt.touches || e.evt.pointerType === 'touch');
+                const scale = this.stage.scaleX() || 1;
+                let activeSnapDist = isTouch ? (SNAP_DIST * 1.5) / scale : SNAP_DIST / scale;
+                
                 let snap = rawPos;
-                let closestDist = SNAP_DIST;
+                let closestDist = activeSnapDist;
                 let snappedObj = false;
                 let targetSnapWall = null;
+
+                if (isTouch && this.lastStickyArcSnap) {
+                    const dragDist = Math.hypot(pos.x - this.lastStickyArcSnap.rawPos.x, pos.y - this.lastStickyArcSnap.rawPos.y);
+                    if (dragDist < 25) {
+                        snap = { x: this.lastStickyArcSnap.snapPos.x, y: this.lastStickyArcSnap.snapPos.y };
+                        snappedObj = true;
+                        targetSnapWall = this.lastStickyArcSnap.wall;
+                        closestDist = 0;
+                    } else {
+                        this.lastStickyArcSnap = null;
+                    }
+                }
 
                 let snappedToAxis = false;
                 if (this.drawingArc && this.drawingArc.state === 1) {
@@ -1209,16 +1274,22 @@ export class FloorPlanner {
                         }
                     }
                     if (!snappedToAxis) this.drawGuideLine(0,0,0,0, false);
-                    snap = rawPos;
+                    if (!snappedObj) snap = rawPos;
                 }
 
-                let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < closestDist);
-                if (a) { snap = { x: a.x, y: a.y }; closestDist = Math.hypot(a.x - pos.x, a.y - pos.y); snappedObj = true; }
+                if (closestDist > 0) {
+                    let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < activeSnapDist);
+                    if (a) { snap = { x: a.x, y: a.y }; closestDist = Math.hypot(a.x - pos.x, a.y - pos.y); snappedObj = true; }
 
-                for (let w of this.walls) {
-                    let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position());
-                    let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
-                    if (dist < closestDist) { closestDist = dist; snap = proj; snappedObj = true; targetSnapWall = w; }
+                    for (let w of this.walls) {
+                        let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position());
+                        let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                        if (dist < closestDist) { closestDist = dist; snap = proj; snappedObj = true; targetSnapWall = w; }
+                    }
+                }
+                
+                if (isTouch && snappedObj && !this.lastStickyArcSnap) {
+                    this.lastStickyArcSnap = { rawPos: { x: pos.x, y: pos.y }, snapPos: { x: snap.x, y: snap.y }, wall: targetSnapWall };
                 }
 
                 if (snappedObj && (!this.drawingArc || this.drawingArc.state === 1)) {
@@ -1227,7 +1298,7 @@ export class FloorPlanner {
                     this.hideSnapGlow();
                 }
                 
-                this.walls.forEach(w => w.setHighlight(w === targetSnapWall || w === this.selectedEntity || (w.parentArc && w.parentArc === this.selectedEntity)));
+                this.walls.forEach(w => w.setHighlight(w === this.selectedEntity || (w.parentArc && w.parentArc === this.selectedEntity)));
                 
                 this.arcMousePos = (this.drawingArc && this.drawingArc.state === 2) ? pos : snap;
                 
@@ -1240,7 +1311,6 @@ export class FloorPlanner {
                         this.arcPreview.radiusLines.visible(false);
                         this.arcPreview.guideLine.visible(false);
                         this.arcPreview.arcCurve.visible(false);
-                        this.arcPreview.dragDot.visible(false);
                         
                         let dxBadge = snap.x - this.drawingArc.p1.x, dyBadge = snap.y - this.drawingArc.p1.y;
                         let lenBadge = this.formatLength(Math.hypot(dxBadge, dyBadge));
@@ -1269,8 +1339,6 @@ export class FloorPlanner {
                             const curveMidX = mid.x + n.x * h, curveMidY = mid.y + n.y * h;
                             this.arcPreview.guideLine.points([mid.x, mid.y, curveMidX, curveMidY]);
                             this.arcPreview.guideLine.visible(true);
-                            this.arcPreview.dragDot.position({ x: curveMidX, y: curveMidY });
-                            this.arcPreview.dragDot.visible(true);
                             
                             this.updateInfoBadge(posCurve.x, posCurve.y + 30, "Move mouse to form curve", "", false);
                         }
@@ -1480,6 +1548,14 @@ export class FloorPlanner {
 
         this.stage.on('mouseup touchend', (e) => {
             if (e.evt && e.evt.touches && e.evt.touches.length > 0) return;
+            
+            if (this.tool === 'arc' && this.drawingArc && this.drawingArc.state === 2) {
+                const isTouchRelease = e.evt && (e.evt.changedTouches || e.evt.pointerType === 'touch');
+                if (isTouchRelease) {
+                    this.drawingArc.isFrozen = true;
+                    this.drawingArc.frozenPos = { ...this.arcMousePos };
+                }
+            }
 
             if (this.drawingShapeType) {
                 if (this.drawingShapeType === 'shape_rect') {
