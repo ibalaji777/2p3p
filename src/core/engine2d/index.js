@@ -666,6 +666,8 @@ export class FloorPlanner {
                 if (this.onToolChange) this.onToolChange('select');
                 this.selectEntity(newlyCreated[newlyCreated.length - 1], newlyCreated[newlyCreated.length - 1].type || 'wall');
             }, 10);
+        } else {
+            this.updateToolStates();
         }
     }
     
@@ -920,6 +922,7 @@ export class FloorPlanner {
                     if (Math.hypot(snap.x - this.drawingArc.p1.x, snap.y - this.drawingArc.p1.y) > 5) {
                         this.drawingArc.p2 = snap;
                         this.drawingArc.state = 2;
+                        this.stage.draggable(true);
                         
                         const dx = snap.x - this.drawingArc.p1.x;
                         const dy = snap.y - this.drawingArc.p1.y;
