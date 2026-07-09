@@ -15,7 +15,7 @@ export class Anchor {
         this.node.add(makeArrow([arrowOffset, 0, arrowOffset-arrowSize, -arrowSize, arrowOffset-arrowSize, arrowSize]));
         
         this.node.on('dragstart', (e) => {
-            if (this.planner.tool !== 'select') { e.target.stopDrag(); e.cancelBubble = true; return; }
+            if (this.planner.tool !== 'select') { e.target.stopDrag(); return; }
             let attachedWalls = this.planner.walls.filter(w => w.startAnchor === this || w.endAnchor === this); 
             
             this.planner.selectEntity(this, 'anchor');

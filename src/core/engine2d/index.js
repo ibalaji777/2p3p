@@ -33,7 +33,41 @@ export class FloorPlanner {
     }
     
     constructor(containerEl) { 
-        this.container = containerEl; this.tool = "select"; this.currentUnit = "ft"; this.drawing = false; this.lastAnchor = null; this.startAnchor = null;  this.preview = null; this.presetPreview = null;
+        this.container = containerEl; 
+        this._tool = "select"; 
+        this.currentUnit = "ft"; 
+        this.drawing = false; 
+        this.lastAnchor = null; 
+        this.startAnchor = null;  
+        this.preview = null; 
+        this.presetPreview = null;
+        
+        Object.defineProperty(this, 'tool', {
+            get: function() {
+                return this._tool;
+            },
+            set: function(newTool) {
+                if (this._tool === newTool) return;
+                this._tool = newTool;
+                
+                // Clear state when selecting any placement/drawing tool, or cancelling to select
+                if (this.drawing) {
+                    this.drawing = false;
+                }
+                this.lastAnchor = null;
+                this.startAnchor = null;
+                this.currentSessionEntities = [];
+                if (this.preview) {
+                    this.preview.destroy();
+                    this.preview = null;
+                }
+                this.mobileDrawState = 'Idle';
+                if (this.hideSnapGlow) this.hideSnapGlow();
+                if (this.hideInfoBadge) this.hideInfoBadge();
+                if (this.smartGuides) this.smartGuides.clear();
+                if (this.updateMobileDragHandle) this.updateMobileDragHandle();
+            }
+        });
         this._mobileDrawState = 'Idle';
         this.activeCategory = 'tools';
         this.settings = {
@@ -546,6 +580,7 @@ export class FloorPlanner {
         if (this.widgetLayer) { this.widgetLayer.listening(allowAll || cat === "doors_windows" || cat === "advance_openings" || cat === "structures" || cat === "architectural_details"); }
         if (this.furnitureLayer) { this.furnitureLayer.listening(allowAll || cat === "furniture" || cat === "shapes" || isSplit); }
         if (this.roofLayer) { this.roofLayer.listening(allowAll || cat === "structures"); }
+        if (this.roomLayer) { this.roomLayer.listening(isSelect); }
 
         if (this.stage) {
             this.stage.draggable(isSelect || isPan);
@@ -924,8 +959,8 @@ export class FloorPlanner {
                     });
                     this.mainLayer.batchDraw();
                     targetWall.placeItemFromSnapping(this.tool, targetFace, pos);
-                    return; 
                 }
+                return;
             }
             
             let targetPos = { x: this.snap(pos.x), y: this.snap(pos.y) };
@@ -1138,7 +1173,8 @@ export class FloorPlanner {
                 }
             } 
             
-            if (this.drawing && wallConfig && wallConfig.events.includes("stop_collision") && this.checkWallIntersection(this.lastAnchor.position(), targetPos, [targetSnapWall])) return; 
+            // Removed to allow placing walls without collision restrictions, per user request.
+            // if (this.drawing && wallConfig && wallConfig.events.includes("stop_collision") && this.checkWallIntersection(this.lastAnchor.position(), targetPos, [targetSnapWall])) return; 
             
             
             const currentAnchor = this.getOrCreateAnchor(targetPos.x, targetPos.y); 
@@ -1210,20 +1246,24 @@ export class FloorPlanner {
                         }
                     }
                 }
-                if (currentAnchor === this.startAnchor || reachedArcEnd || targetSnapWall) { 
+                this.lastAnchor = currentAnchor; 
+                currentAnchor.show();
+                if (isTouch) {
+                    this.mobileDrawState = 'ChainWaiting';
+                }
+
+                if (reachedArcEnd && this.tool === 'railing') { 
                     this.finishChain(); 
-                    if (reachedArcEnd && this.tool === 'railing') {
-                        this.tool = 'select'; this.updateToolStates();
-                        if (this.onToolChange) this.onToolChange('select');
-                        
-                        if (sharedArc) {
-                            const attachedRailing = this.walls.filter(w => w.type === 'railing' && w.parentArc === sharedArc);
-                            if (attachedRailing.length > 0) {
-                                this.selectEntity(attachedRailing[0], 'wall');
-                            }
+                    this.tool = 'select'; this.updateToolStates();
+                    if (this.onToolChange) this.onToolChange('select');
+                    
+                    if (sharedArc) {
+                        const attachedRailing = this.walls.filter(w => w.type === 'railing' && w.parentArc === sharedArc);
+                        if (attachedRailing.length > 0) {
+                            this.selectEntity(attachedRailing[0], 'wall');
                         }
                     }
-                } else { this.lastAnchor = currentAnchor; currentAnchor.show(); } 
+                }
             }
             this.lastPlacementTime = Date.now();
             this.syncAll(); 
@@ -1231,7 +1271,8 @@ export class FloorPlanner {
 
         this.stage.on("click tap", (e) => {
             if (this.gestureManager && this.gestureManager.isActive()) return;
-            let pos = this.getPointerPos();
+            let pos = this.getPointerPos(e) || this.lastRawTouchPos;
+            if (!pos) return;
             let snapPos = { x: this.snap(pos.x), y: this.snap(pos.y) };
 
             if (this.tool.startsWith('preset_') && PRESET_REGISTRY[this.tool] && this.activePresetParams) {
@@ -1275,7 +1316,8 @@ export class FloorPlanner {
                     }
                 }
 
-                if (tappedEntity) {
+                let isTap = this.lastTouchDownPos && Math.hypot(pos.x - this.lastTouchDownPos.x, pos.y - this.lastTouchDownPos.y) < 10 / scale;
+                if (tappedEntity || isTap) {
                     this._executePointerDownLogic(e, pos, true);
                     this.preview?.destroy(); this.preview = null;
                     this.hideInfoBadge();
