@@ -42,6 +42,7 @@ export class CameraController {
             };
             this.stage.position(newPos);
             this.stage.batchDraw();
+            if (this.floorplanner.updateMobileDragHandle) this.floorplanner.updateMobileDragHandle();
         }
     }
 
@@ -153,6 +154,7 @@ export class CameraController {
                 y: startScale + (targetScale - startScale) * ease
             });
             this.stage.batchDraw();
+            if (this.floorplanner.updateMobileDragHandle) this.floorplanner.updateMobileDragHandle();
             
             if (t < 1) {
                 requestAnimationFrame(animate);
@@ -185,6 +187,7 @@ export class CameraController {
             });
             
             this.stage.batchDraw();
+            if (this.floorplanner.updateMobileDragHandle) this.floorplanner.updateMobileDragHandle();
             
             if (t < 1) {
                 requestAnimationFrame(animate);

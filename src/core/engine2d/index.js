@@ -26,8 +26,15 @@ import { PresetGroup } from './PresetGroup.js';
 export { PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding };
 
 export class FloorPlanner {
+    get mobileDrawState() { return this._mobileDrawState || 'Idle'; }
+    set mobileDrawState(val) {
+        this._mobileDrawState = val;
+        if (this.updateMobileDragHandle) this.updateMobileDragHandle();
+    }
+    
     constructor(containerEl) { 
         this.container = containerEl; this.tool = "select"; this.currentUnit = "ft"; this.drawing = false; this.lastAnchor = null; this.startAnchor = null;  this.preview = null; this.presetPreview = null;
+        this._mobileDrawState = 'Idle';
         this.activeCategory = 'tools';
         this.settings = {
             mainEntranceFacing: 'north',
@@ -55,6 +62,51 @@ export class FloorPlanner {
         this.snapManager = this.smartGuides;
     }
     
+    updateMobileDragHandle() {
+        if (!this.uiLayer) return;
+        if (!this.mobileDragHandle) {
+            this.mobileDragHandle = new Konva.Group({ visible: false, listening: false });
+            
+            const outerCircle = new Konva.Circle({
+                x: 0, y: 0, radius: 25,
+                fill: 'rgba(239, 68, 68, 0.2)', // red-500
+                stroke: '#ef4444', strokeWidth: 2
+            });
+            
+            const innerCircle = new Konva.Circle({
+                x: 0, y: 0, radius: 10,
+                fill: '#ef4444'
+            });
+            
+            this.mobileDragHandle.add(outerCircle, innerCircle);
+            this.uiLayer.add(this.mobileDragHandle);
+            
+            this.mobileDragHandleAnim = new Konva.Animation((frame) => {
+                const scale = 1 + Math.sin(frame.time * 0.005) * 0.15;
+                outerCircle.scale({ x: scale, y: scale });
+            }, this.uiLayer);
+        }
+
+        const isWallTool = ['outer', 'inner', 'railing'].includes(this.tool);
+        
+        if (this._mobileDrawState === 'ChainWaiting' && this.lastAnchor && isWallTool) {
+            const scale = this.stage.scaleX() || 1;
+            this.mobileDragHandle.position(this.lastAnchor.position());
+            this.mobileDragHandle.scale({ x: 1/scale, y: 1/scale });
+            this.mobileDragHandle.visible(true);
+            this.mobileDragHandle.moveToTop();
+            if (!this.mobileDragHandleAnim.isRunning()) {
+                this.mobileDragHandleAnim.start();
+            }
+        } else {
+            this.mobileDragHandle.visible(false);
+            if (this.mobileDragHandleAnim && this.mobileDragHandleAnim.isRunning()) {
+                this.mobileDragHandleAnim.stop();
+            }
+            this.uiLayer.batchDraw();
+        }
+    }
+
     setWallTracking(enabled) {
         this.wallTrackingEnabled = enabled;
         if (this.onWallTrackingChange) this.onWallTrackingChange(enabled);
@@ -411,6 +463,7 @@ export class FloorPlanner {
     updateToolStates() {
         const cat = this.activeCategory || 'tools';
         const isSelect = this.tool === "select";
+        const isPan = this.tool === "pan";
         const isSplit = this.tool === "split";
         const isWidget = !!WIDGET_REGISTRY[this.tool];
         const isMolding = !!MOLDING_REGISTRY[this.tool];
@@ -495,8 +548,8 @@ export class FloorPlanner {
         if (this.roofLayer) { this.roofLayer.listening(allowAll || cat === "structures"); }
 
         if (this.stage) {
-            this.stage.draggable(isSelect);
-            this.stage.container().style.cursor = isSelect ? 'grab' : 'crosshair';
+            this.stage.draggable(isSelect || isPan);
+            this.stage.container().style.cursor = isSelect ? 'grab' : (isPan ? 'move' : 'crosshair');
             document.body.style.cursor = '';
         }
     }
@@ -651,7 +704,7 @@ export class FloorPlanner {
             if (this.arcPreview) { this.arcPreview.destroy(); this.arcPreview = null; } 
         }
         if (this.shapePreviewGroup) { this.shapePreviewRect.visible(false); this.shapePreviewCircle.visible(false); this.shapePreviewTriangle.visible(false); }
-        this.drawing = false; this.lastAnchor = null; this.startAnchor = null; 
+        this.drawing = false; this.lastAnchor = null; this.startAnchor = null; this.mobileDrawState = 'Idle';
         if (this.onDrawingChange) this.onDrawingChange(false);
         this.preview?.destroy(); this.preview = null; 
         this.hideSnapGlow(); this.drawGuideLine(0,0,0,0, false); this.hideInfoBadge(); 
@@ -680,6 +733,8 @@ export class FloorPlanner {
             });
             this.currentSessionEntities = [];
         }
+        this.drawing = false; this.lastAnchor = null; this.startAnchor = null; this.mobileDrawState = 'Idle';
+        if (this.onDrawingChange) this.onDrawingChange(false);
         if (this.drawingShapeType) {
             this.drawingShapeType = null; this.shapeStartPos = null; this.drawingTriangle = null;
             if (this.shapePreviewGroup) { this.shapePreviewRect.visible(false); this.shapePreviewCircle.visible(false); this.shapePreviewTriangle.visible(false); }
@@ -732,7 +787,7 @@ export class FloorPlanner {
         this.stage.on('dragmove', (e) => {
             if (e.target === this.stage) return;
             if (e.target.nodeType === 'Group' || e.target.nodeType === 'Shape') {
-                if (this.tool === 'select' && !e.target.isWallPoly && !e.target.isStairNodeHandle && !(e.target.name() && e.target.name().includes('anchor'))) {
+                if ((this.tool === 'select' || this.tool === 'pan') && !e.target.isWallPoly && !e.target.isStairNodeHandle && !(e.target.name() && e.target.name().includes('anchor'))) {
                     this.snapAndAlign(e.target);
                 }
             }
@@ -751,14 +806,57 @@ export class FloorPlanner {
 
         this.stage.on("mousedown touchstart", (e) => {
             if (e.evt && e.evt.touches && e.evt.touches.length > 1) return;
-            
             const isTouch = e.evt && (e.evt.touches || e.evt.pointerType === 'touch');
+            
             if (isTouch && e.type === 'touchstart') {
-                this.lastTouchTime = Date.now();
-            } else if (!isTouch && this.lastTouchTime && Date.now() - this.lastTouchTime < 500) {
+                const isWallTool = ['outer', 'inner', 'railing'].includes(this.tool);
+                if (isWallTool) {
+                    if (this.gestureManager && this.gestureManager.isActive()) return;
+                    const clonedPos = this.getPointerPos(e);
+                    if (!clonedPos) return;
+                    this.lastTouchDownPos = { x: clonedPos.x, y: clonedPos.y };
+                    if (this.mobileDrawState === 'ChainWaiting') {
+                        let distToLast = Infinity;
+                        if (this.lastAnchor) {
+                            distToLast = Math.hypot(clonedPos.x - this.lastAnchor.x, clonedPos.y - this.lastAnchor.y);
+                        }
+                        const scale = this.stage.scaleX() || 1;
+                        if (distToLast < 60 / scale) {
+                            this.mobileDrawState = 'PreviewDrawing';
+                            this.mobileIsPanning = false;
+                        } else {
+                            this.mobileIsPanning = true;
+                        }
+                    } else {
+                        this.mobileIsPanning = false;
+                        this.mobileDrawState = 'PreviewDrawing';
+                        this._executePointerDownLogic(e, clonedPos, isTouch);
+                    }
+                    return;
+                }
+
+                if (this._touchDrawTimer) clearTimeout(this._touchDrawTimer);
+                this._touchDrawCancelled = false;
+                
+                const clonedPos = this.getPointerPos(e);
+                if (!clonedPos) return;
+
+                this._touchDrawTimer = setTimeout(() => {
+                    this._touchDrawTimer = null;
+                    if (this._touchDrawCancelled) return;
+                    if (this.gestureManager && this.gestureManager.isActive()) return;
+                    this._executePointerDownLogic(e, clonedPos, isTouch);
+                }, 150);
                 return;
             }
             
+            if (this.gestureManager && this.gestureManager.isActive()) return;
+            const pos = this.getPointerPos(e);
+            if (!pos) return;
+            this._executePointerDownLogic(e, pos, isTouch);
+        });
+
+        this._executePointerDownLogic = (e, pos, isTouch) => {
             if (this.gestureManager && this.gestureManager.isActive()) return;
  
             if (this.tool === 'roof') return;
@@ -772,8 +870,6 @@ export class FloorPlanner {
             }
             const wallConfig = WALL_REGISTRY[this.tool]; 
             
-            const pos = this.getPointerPos(e);
-            if (!pos) return;
             
             // Handle Smart Snapping Placement for Moldings and Openings
             const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(this.tool);
@@ -982,12 +1078,16 @@ export class FloorPlanner {
                     targetPos = { x: this.lastStickySnap.snapPos.x, y: this.lastStickySnap.snapPos.y };
                     targetSnapWall = this.lastStickySnap.wall;
                     closestDist = 0;
+                } else if (isTouch && this.drawing && this.startAnchor && Math.hypot(pos.x - this.startAnchor.x, pos.y - this.startAnchor.y) < activeSnapDist * 2) {
+                    targetPos = this.startAnchor.position();
+                    closestDist = 0;
                 } else {
                     this.lastStickySnap = null;
                 }
 
                 if (closestDist > 0) {
-                    let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < activeSnapDist); 
+                    const anchorSnapMult = isTouch ? 1.5 : 1;
+                    let a = this.anchors.find(a => Math.hypot(a.x - pos.x, a.y - pos.y) < activeSnapDist * anchorSnapMult); 
                     if (a) { targetPos = { x: a.x, y: a.y }; targetSnapWall = this.walls.find(w => w.startAnchor === a || w.endAnchor === a); } 
                     else { 
                         let closestPoint = null; 
@@ -1119,7 +1219,7 @@ export class FloorPlanner {
             }
             this.lastPlacementTime = Date.now();
             this.syncAll(); 
-        }); 
+    };
 
         this.stage.on("click tap", (e) => {
             if (this.gestureManager && this.gestureManager.isActive()) return;
@@ -1143,9 +1243,13 @@ export class FloorPlanner {
         });
 
         this.stage.on("mousemove touchmove", (e) => {
+            const _isTouchMove = e.evt && (e.evt.touches || e.evt.pointerType === 'touch');
+            if (_isTouchMove && this._touchDrawTimer) { this._touchDrawCancelled = true; }
             if (e.evt && e.evt.touches && e.evt.touches.length > 1) return;
             if (this.gestureManager && this.gestureManager.isActive()) return;
- 
+            
+            const isWallTool = ['outer', 'inner', 'railing'].includes(this.tool);
+            if (_isTouchMove && isWallTool && (this.mobileDrawState === 'ChainWaiting' || this.mobileIsPanning)) return;
             if (this.tool === 'roof') return;
 
             if (e.target === this.stage || e.target === this.bgLayer || e.target === this.mainLayer) {
@@ -1153,11 +1257,9 @@ export class FloorPlanner {
                 this.stage.container().style.cursor = this.tool === 'select' ? (this.stage.isDragging() ? 'grabbing' : 'grab') : 'crosshair';
             }
 
-            const pos = this.getPointerPos(e);
+            let pos = this.getPointerPos(e);
             if (!pos) return;
-            
-            let rawPos = { x: this.snap(pos.x), y: this.snap(pos.y) }; 
-            
+            let rawPos = { x: this.snap(pos.x), y: this.snap(pos.y) };
             // Smart Snapping Edge-Specific Highlight for Placement Tools
             const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(this.tool);
             const isMolding = !!MOLDING_REGISTRY[this.tool];
@@ -1575,9 +1677,78 @@ export class FloorPlanner {
 
         this.stage.on('mouseup touchend', (e) => {
             if (e.evt && e.evt.touches && e.evt.touches.length > 0) return;
+            const wasPanning = this.mobileIsPanning;
+            this.mobileIsPanning = false;
             
+            const isTouchRelease = e.evt && (e.evt.changedTouches || e.evt.pointerType === 'touch');
+            const isWallTool = ['outer', 'inner', 'railing'].includes(this.tool);
+
+            const pos = this.getPointerPos(e) || this.lastRawTouchPos;
+
+            // Handle Tap to Snap/Close Room while in ChainWaiting
+            if (isTouchRelease && isWallTool && wasPanning && pos && this.lastTouchDownPos && this.mobileDrawState === 'ChainWaiting') {
+                const distMoved = Math.hypot(pos.x - this.lastTouchDownPos.x, pos.y - this.lastTouchDownPos.y);
+                if (distMoved < 10) {
+                    const scale = this.stage.scaleX() || 1;
+                    const activeSnapDist = 20 / scale;
+                    let tappedEntity = false;
+                    
+                    if (this.startAnchor && Math.hypot(pos.x - this.startAnchor.x, pos.y - this.startAnchor.y) < activeSnapDist * 3) {
+                        tappedEntity = true;
+                    } else if (this.anchors.some(a => Math.hypot(a.x - pos.x, a.y - pos.y) < activeSnapDist * 1.5)) {
+                        tappedEntity = true;
+                    } else {
+                        for (let w of this.walls) {
+                            let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position());
+                            if (Math.hypot(pos.x - proj.x, pos.y - proj.y) < activeSnapDist) {
+                                tappedEntity = true; break;
+                            }
+                        }
+                    }
+                    
+                    if (tappedEntity) {
+                        this._executePointerDownLogic(e, pos, true);
+                        this.preview?.destroy(); this.preview = null;
+                        this.hideInfoBadge();
+                        this.hideSnapGlow();
+                        if (this.smartGuides) this.smartGuides.clear();
+                        if (this.drawing) {
+                            this.mobileDrawState = 'ChainWaiting';
+                        } else {
+                            this.mobileDrawState = 'Idle';
+                        }
+                        return;
+                    }
+                }
+            }
+
+            if (isTouchRelease && isWallTool && this.mobileDrawState === 'PreviewDrawing') {
+                if (pos && this.lastAnchor) {
+                    const dist = Math.hypot(pos.x - this.lastAnchor.x, pos.y - this.lastAnchor.y);
+                    if (dist < 10) {
+                        this.mobileDrawState = 'ChainWaiting';
+                        this.preview?.destroy();
+                        this.preview = null;
+                        this.uiLayer.batchDraw();
+                        return;
+                    }
+                    this._executePointerDownLogic(e, pos, true);
+                    this.preview?.destroy(); this.preview = null;
+                    this.hideInfoBadge();
+                    this.hideSnapGlow();
+                    if (this.smartGuides) this.smartGuides.clear();
+                    if (this.drawing) {
+                        this.mobileDrawState = 'ChainWaiting';
+                    }
+                } else {
+                    if (this.drawing) {
+                        this.mobileDrawState = 'ChainWaiting';
+                    }
+                }
+                return;
+            }
+
             if (this.tool === 'arc' && this.drawingArc && this.drawingArc.state === 2) {
-                const isTouchRelease = e.evt && (e.evt.changedTouches || e.evt.pointerType === 'touch');
                 if (isTouchRelease) {
                     this.drawingArc.isFrozen = true;
                     this.drawingArc.frozenPos = { ...this.arcMousePos };
@@ -1615,8 +1786,6 @@ export class FloorPlanner {
             if (e.evt && e.evt.touches && e.evt.touches.length > 1) return;
 
             if (this.tool !== 'roof' && this.tool !== 'shape_floor_cut') return;
-            const pos = this.getPointerPos(e);
-            if (!pos) return;
             
             let snap = pos;
             let closestDist = SNAP_DIST * 2.5; // Stronger snapping for roof outer edges

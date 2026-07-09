@@ -80,7 +80,24 @@ export class GestureManager {
             } else if (touches.length === 1) {
                 // If touching on background, we might want to pan the canvas
                 const target = e.target;
-                if ((target === this.stage || target.name() === 'bgLayer' || target === this.floorplanner.bgLayer || target === this.floorplanner.mainLayer) && this.floorplanner.tool === 'select') {
+                
+                let isWallPan = false;
+                const isWallTool = ['outer', 'inner', 'railing'].includes(this.floorplanner.tool);
+                if (isWallTool && this.floorplanner.mobileDrawState === 'ChainWaiting') {
+                    const pointerPos = this.stage.getPointerPosition();
+                    if (pointerPos && this.floorplanner.lastAnchor) {
+                        const transform = this.stage.getAbsoluteTransform().copy().invert();
+                        const worldPos = transform.point(pointerPos);
+                        const dist = Math.hypot(worldPos.x - this.floorplanner.lastAnchor.x, worldPos.y - this.floorplanner.lastAnchor.y);
+                        const scale = this.stage.scaleX() || 1;
+                        if (dist >= 60 / scale) {
+                            isWallPan = true;
+                            this.floorplanner.mobileIsPanning = true;
+                        }
+                    }
+                }
+
+                if (this.floorplanner.tool === 'pan' || ((target === this.stage || target.name() === 'bgLayer' || target === this.floorplanner.bgLayer || target === this.floorplanner.mainLayer) && this.floorplanner.tool === 'select') || isWallPan) {
                     // Start canvas pan
                     this.isPanning = true;
                     this.lastCenter = { x: touches[0].clientX, y: touches[0].clientY };
@@ -149,8 +166,14 @@ export class GestureManager {
             } else if (touches.length === 1 && this.isPinching) {
                 // Dropped from 2 fingers to 1 finger
                 this.isPinching = false;
-                this.isPanning = true; // Fallback to panning if dragging on bg? 
-                this.lastCenter = { x: touches[0].clientX, y: touches[0].clientY };
+                const isDrawingTool = ['outer', 'inner', 'railing', 'arc', 'shape_rect', 'shape_circle', 'shape_triangle', 'roof'].includes(this.floorplanner.tool) || this.floorplanner.drawing || (this.floorplanner.mobileDrawState && this.floorplanner.mobileDrawState !== 'Idle');
+                if (!isDrawingTool || this.floorplanner.mobileIsPanning) {
+                    this.isPanning = true; // Fallback to panning if dragging on bg? 
+                    this.lastCenter = { x: touches[0].clientX, y: touches[0].clientY };
+                } else {
+                    this.isPanning = false;
+                    this.lastCenter = null;
+                }
             }
         });
         
