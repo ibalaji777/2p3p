@@ -820,8 +820,16 @@ export class FloorPlanner {
                         if (this.lastAnchor) {
                             distToLast = Math.hypot(clonedPos.x - this.lastAnchor.x, clonedPos.y - this.lastAnchor.y);
                         }
+                        let distToStart = Infinity;
+                        if (this.startAnchor) {
+                            distToStart = Math.hypot(clonedPos.x - this.startAnchor.x, clonedPos.y - this.startAnchor.y);
+                        }
                         const scale = this.stage.scaleX() || 1;
-                        if (distToLast < 60 / scale) {
+                        
+                        // Prioritize startAnchor tap if it's closer than the drag handle
+                        if (distToStart < distToLast && distToStart < 40 / scale) {
+                            this.mobileIsPanning = true;
+                        } else if (distToLast < 40 / scale) {
                             this.mobileDrawState = 'PreviewDrawing';
                             this.mobileIsPanning = false;
                         } else {
@@ -1068,8 +1076,8 @@ export class FloorPlanner {
             if (!wallConfig) return; 
 
             let targetSnapWall = null; 
-            // isTouch is already declared at the top of this handler
-            const activeSnapDist = isTouch ? SNAP_DIST * 1.4 : SNAP_DIST;
+            const scale = this.stage.scaleX() || 1;
+            const activeSnapDist = isTouch ? 20 / scale : SNAP_DIST / scale;
 
             if (wallConfig && wallConfig.events.includes("snap_to_wall")) { 
                 let closestDist = activeSnapDist;
@@ -1078,7 +1086,7 @@ export class FloorPlanner {
                     targetPos = { x: this.lastStickySnap.snapPos.x, y: this.lastStickySnap.snapPos.y };
                     targetSnapWall = this.lastStickySnap.wall;
                     closestDist = 0;
-                } else if (isTouch && this.drawing && this.startAnchor && Math.hypot(pos.x - this.startAnchor.x, pos.y - this.startAnchor.y) < activeSnapDist * 2) {
+                } else if (isTouch && this.drawing && this.startAnchor && Math.hypot(pos.x - this.startAnchor.x, pos.y - this.startAnchor.y) < activeSnapDist * 3) {
                     targetPos = this.startAnchor.position();
                     closestDist = 0;
                 } else {
@@ -1202,7 +1210,7 @@ export class FloorPlanner {
                         }
                     }
                 }
-                if (currentAnchor === this.startAnchor || reachedArcEnd) { 
+                if (currentAnchor === this.startAnchor || reachedArcEnd || targetSnapWall) { 
                     this.finishChain(); 
                     if (reachedArcEnd && this.tool === 'railing') {
                         this.tool = 'select'; this.updateToolStates();
@@ -1239,6 +1247,48 @@ export class FloorPlanner {
                     this.selectEntity(group, 'preset_group');
                 }
                 return;
+            }
+
+            const isTouch = e.evt && (e.evt.changedTouches || e.evt.pointerType === 'touch');
+            const isWallTool = ['outer', 'inner', 'railing'].includes(this.tool);
+
+            if (isTouch && isWallTool && this.mobileDrawState === 'ChainWaiting') {
+                const scale = this.stage.scaleX() || 1;
+                const activeSnapDist = 20 / scale;
+                let tappedEntity = false;
+
+                // Don't treat a tap on the lastAnchor (red handle) as a room closure
+                if (this.lastAnchor && Math.hypot(pos.x - this.lastAnchor.x, pos.y - this.lastAnchor.y) < activeSnapDist * 2) {
+                    return; 
+                }
+
+                if (this.startAnchor && Math.hypot(pos.x - this.startAnchor.x, pos.y - this.startAnchor.y) < activeSnapDist * 3) {
+                    tappedEntity = true;
+                } else if (this.anchors.some(a => a !== this.lastAnchor && Math.hypot(a.x - pos.x, a.y - pos.y) < activeSnapDist * 1.5)) {
+                    tappedEntity = true;
+                } else {
+                    for (let w of this.walls) {
+                        let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position());
+                        if (Math.hypot(pos.x - proj.x, pos.y - proj.y) < activeSnapDist) {
+                            tappedEntity = true; break;
+                        }
+                    }
+                }
+
+                if (tappedEntity) {
+                    this._executePointerDownLogic(e, pos, true);
+                    this.preview?.destroy(); this.preview = null;
+                    this.hideInfoBadge();
+                    this.hideSnapGlow();
+                    if (this.smartGuides) this.smartGuides.clear();
+                    if (this.drawing) {
+                        this.mobileDrawState = 'ChainWaiting';
+                    } else {
+                        this.mobileDrawState = 'Idle';
+                    }
+                    this.uiLayer.batchDraw();
+                    return;
+                }
             }
         });
 
@@ -1685,50 +1735,16 @@ export class FloorPlanner {
 
             const pos = this.getPointerPos(e) || this.lastRawTouchPos;
 
-            // Handle Tap to Snap/Close Room while in ChainWaiting
-            if (isTouchRelease && isWallTool && wasPanning && pos && this.lastTouchDownPos && this.mobileDrawState === 'ChainWaiting') {
-                const distMoved = Math.hypot(pos.x - this.lastTouchDownPos.x, pos.y - this.lastTouchDownPos.y);
-                if (distMoved < 10) {
-                    const scale = this.stage.scaleX() || 1;
-                    const activeSnapDist = 20 / scale;
-                    let tappedEntity = false;
-                    
-                    if (this.startAnchor && Math.hypot(pos.x - this.startAnchor.x, pos.y - this.startAnchor.y) < activeSnapDist * 3) {
-                        tappedEntity = true;
-                    } else if (this.anchors.some(a => Math.hypot(a.x - pos.x, a.y - pos.y) < activeSnapDist * 1.5)) {
-                        tappedEntity = true;
-                    } else {
-                        for (let w of this.walls) {
-                            let proj = this.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position());
-                            if (Math.hypot(pos.x - proj.x, pos.y - proj.y) < activeSnapDist) {
-                                tappedEntity = true; break;
-                            }
-                        }
-                    }
-                    
-                    if (tappedEntity) {
-                        this._executePointerDownLogic(e, pos, true);
-                        this.preview?.destroy(); this.preview = null;
-                        this.hideInfoBadge();
-                        this.hideSnapGlow();
-                        if (this.smartGuides) this.smartGuides.clear();
-                        if (this.drawing) {
-                            this.mobileDrawState = 'ChainWaiting';
-                        } else {
-                            this.mobileDrawState = 'Idle';
-                        }
-                        return;
-                    }
-                }
-            }
-
             if (isTouchRelease && isWallTool && this.mobileDrawState === 'PreviewDrawing') {
                 if (pos && this.lastAnchor) {
                     const dist = Math.hypot(pos.x - this.lastAnchor.x, pos.y - this.lastAnchor.y);
-                    if (dist < 10) {
+                    const scale = this.stage.scaleX() || 1;
+                    if (dist < 25 / scale) {
                         this.mobileDrawState = 'ChainWaiting';
                         this.preview?.destroy();
                         this.preview = null;
+                        this.hideInfoBadge();
+                        this.hideSnapGlow();
                         this.uiLayer.batchDraw();
                         return;
                     }
