@@ -5,7 +5,7 @@ export class NavigationCube {
         this.container = container;
         this.cameraController = cameraController;
         
-        this.size = 100; // UI size in pixels
+        this.size = 120; // Increased size to compensate for larger camera frustum
         this.init();
     }
 
@@ -19,18 +19,14 @@ export class NavigationCube {
         this.domElement.style.height = `${this.size}px`;
         this.domElement.style.zIndex = '1000';
         this.domElement.style.cursor = 'pointer';
-        this.domElement.style.transition = 'opacity 0.3s ease';
-        this.domElement.style.opacity = '0.7';
-        
-        this.domElement.addEventListener('mouseenter', () => this.domElement.style.opacity = '1');
-        this.domElement.addEventListener('mouseleave', () => this.domElement.style.opacity = '0.7');
+        this.domElement.style.opacity = '1'; // Solid, not transparent
 
         this.container.appendChild(this.domElement);
 
         this.scene = new THREE.Scene();
         
-        // Orthographic camera for the UI cube
-        this.camera = new THREE.OrthographicCamera(-1.5, 1.5, 1.5, -1.5, 0.1, 10);
+        // Orthographic camera must be large enough to hold the diagonal of a 2x2x2 cube (sqrt(12) / 2 = 1.732)
+        this.camera = new THREE.OrthographicCamera(-1.75, 1.75, 1.75, -1.75, 0.1, 10);
         this.camera.position.set(0, 0, 5);
 
         this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
@@ -39,10 +35,10 @@ export class NavigationCube {
 
         this.createCube();
         
-        // Bright Lighting to ensure the cube looks pure white
-        const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
+        // Very bright lighting to guarantee a polished, bright white metal look
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
         this.scene.add(ambientLight);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
         dirLight.position.set(2, 3, 4);
         this.scene.add(dirLight);
 
@@ -68,9 +64,9 @@ export class NavigationCube {
         this.cubeMesh = new THREE.Mesh(geometry, this.materials);
         this.cubeGroup.add(this.cubeMesh);
 
-        // Add solid light gray edges to define the 3D shape
+        // Add subtle edges to define the 3D shape clearly
         const edgesGeometry = new THREE.EdgesGeometry(geometry);
-        const edgesMaterial = new THREE.LineBasicMaterial({ color: 0xd0d0d0, linewidth: 2 });
+        const edgesMaterial = new THREE.LineBasicMaterial({ color: 0x999999, linewidth: 2 });
         this.cubeEdges = new THREE.LineSegments(edgesGeometry, edgesMaterial);
         this.cubeGroup.add(this.cubeEdges);
         
@@ -78,7 +74,7 @@ export class NavigationCube {
         this.cubeOffsetGroup = new THREE.Group();
         this.cubeGroup.add(this.cubeOffsetGroup);
         
-        // Move mesh and edges into the offset group
+        // Move mesh into the offset group
         this.cubeGroup.remove(this.cubeMesh);
         this.cubeGroup.remove(this.cubeEdges);
         this.cubeOffsetGroup.add(this.cubeMesh);
@@ -114,27 +110,18 @@ export class NavigationCube {
         canvas.height = size;
         const ctx = canvas.getContext('2d');
         
-        // Solid White faces (#FFFFFF)
-        ctx.fillStyle = '#FFFFFF';
+        // Solid white face
+        ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, size, size);
-        
-        // Soft shadow under the border/bevel
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
-        ctx.shadowBlur = 10;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 4;
 
-        // Light gray borders (#D0D0D0) with a slight bevel (rounded inner rect)
-        ctx.strokeStyle = '#D0D0D0';
+        // Draw an inset border so it doesn't get clipped by UV mapping
+        ctx.strokeStyle = '#999999';
         ctx.lineWidth = 6;
-        ctx.beginPath();
-        ctx.roundRect(4, 4, size - 8, size - 8, 16); // slight bevel effect
-        ctx.stroke();
+        ctx.strokeRect(3, 3, size - 6, size - 6);
 
-        // Dark gray text (#555555)
-        ctx.shadowColor = 'transparent'; // Remove shadow for crisp text
-        ctx.fillStyle = '#555555';
-        ctx.font = 'bold 48px "Inter", sans-serif';
+        // Bold, clearly visible black text
+        ctx.fillStyle = '#000000';
+        ctx.font = '700 48px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(text, size / 2, size / 2);
@@ -142,11 +129,11 @@ export class NavigationCube {
         const texture = new THREE.CanvasTexture(canvas);
         texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy() || 4;
         
-        // Slight glossy finish
+        // Use Phong with zero shininess for a solid, matte white painted look
         return new THREE.MeshPhongMaterial({ 
             map: texture, 
-            shininess: 40,
-            specular: 0x444444,
+            shininess: 0,
+            specular: 0x000000,
             color: 0xffffff
         });
     }
