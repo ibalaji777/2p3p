@@ -15,32 +15,12 @@
         </div>
     </div>
 
-    <div class="floating-env-toolbar" v-show="viewMode === '3d'">
-        <div class="env-dropdown" @mouseenter="$emit('update:showCamera', true)" @mouseleave="$emit('update:showCamera', false)">
-            <button class="env-icon-btn" title="View Angles"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"></path><rect x="3" y="6" width="12" height="12" rx="2" ry="2"></rect></svg></button>
-            <div class="env-menu" v-show="showCamera">
-                <div class="env-menu-item" @click="$emit('set-camera-preset', 'iso'); $emit('update:showCamera', false)">Perspective (3D)</div>
-                <div class="env-menu-item" @click="$emit('set-camera-preset', 'top'); $emit('update:showCamera', false)">Top (2D Ortho)</div>
-                <div class="env-menu-item" @click="$emit('set-camera-preset', 'front'); $emit('update:showCamera', false)">Front</div>
-                <div class="env-menu-item" @click="$emit('set-camera-preset', 'back'); $emit('update:showCamera', false)">Back</div>
-                <div class="env-menu-item" @click="$emit('set-camera-preset', 'left'); $emit('update:showCamera', false)">Left</div>
-                <div class="env-menu-item" @click="$emit('set-camera-preset', 'right'); $emit('update:showCamera', false)">Right</div>
-                <div class="env-menu-item" @click="$emit('set-camera-preset', 'frontLeft'); $emit('update:showCamera', false)">Front-Left</div>
-                <div class="env-menu-item" @click="$emit('set-camera-preset', 'frontRight'); $emit('update:showCamera', false)">Front-Right</div>
-            </div>
-        </div>
-        <button class="env-icon-btn" @click="$emit('rotate-camera', -0.1)" title="Rotate Left">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>
-        </button>
-        <button class="env-icon-btn" @click="$emit('rotate-camera', 0.1)" title="Rotate Right">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><polyline points="21 3 21 8 16 8"></polyline></svg>
-        </button>
-        <button class="env-icon-btn" :class="{active: isXRayMode}" @click="$emit('toggle-xray-mode')" title="Toggle Transparent/X-Ray Mode">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="12" height="12" rx="2" ry="2"></rect><rect x="9" y="9" width="12" height="12" rx="2" ry="2"></rect></svg>
-        </button>
-    </div>
+
 
     <div class="bottom-right-toolbar">
+        <button v-show="viewMode === '3d'" class="env-icon-btn" :class="{active: isXRayMode}" @click="$emit('toggle-xray-mode')" title="Toggle Transparent/X-Ray Mode">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="12" height="12" rx="2" ry="2"></rect><rect x="9" y="9" width="12" height="12" rx="2" ry="2"></rect></svg>
+        </button>
         <button @click="$emit('update:showGuide', !showGuide)" :title="showGuide ? 'Hide Guide' : 'Show Guide'" :style="{ background: showGuide ? 'rgba(59, 130, 246, 0.9)' : '', borderColor: showGuide ? 'rgba(96, 165, 250, 1)' : '' }">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
         </button>
@@ -74,13 +54,13 @@ import { ref } from 'vue';
 
 const props = defineProps({
   hintData: Object, viewMode: String, showGuide: Boolean, showAdvancedTools: Boolean, isAdvancedToolActive: Boolean,
-  activeTool: String, isWallTrackingEnabled: Boolean, showCamera: Boolean, isXRayMode: Boolean, floorPlanSettings: Object,
+  activeTool: String, isWallTrackingEnabled: Boolean, isXRayMode: Boolean, floorPlanSettings: Object,
   isRebuilding: Boolean, viewMode3D: String, mode3D: String, selectedType: String
 });
 
 const emit = defineEmits([
-  'update:showGuide', 'update:showAdvancedTools', 'update:showCamera', 'handle-adv-trigger-click', 'set-advanced-tool',
-  'toggle-wall-tracking', 'set-camera-preset', 'rotate-camera', 'toggle-xray-mode', 'zoom-in', 'zoom-out', 'reset-zoom'
+  'update:showGuide', 'update:showAdvancedTools', 'handle-adv-trigger-click', 'set-advanced-tool',
+  'toggle-wall-tracking', 'toggle-xray-mode', 'zoom-in', 'zoom-out', 'reset-zoom'
 ]);
 
 const canvas2D = ref(null);

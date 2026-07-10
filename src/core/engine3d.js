@@ -10,6 +10,8 @@ import { DecorManager  } from "./engine3d/engine3d.DecorManager.js";
 import { FurnitureManager  } from "./engine3d/engine3d.FurnitureManager.js";
 import { InteractionSystem  } from "./engine3d/engine3d.InteractionSystem.js";
 import { GizmoManager } from "./engine3d/engine3d.GizmoManager.js";
+import { CameraController } from "./camera/CameraController.js";
+import { NavigationCube } from "./camera/NavigationCube.js";
 
 
 export class Preview3D {
@@ -35,10 +37,10 @@ export class Preview3D {
         this.renderer.shadowMap.type = THREE.PCFShadowMap;
         this.container.appendChild(this.renderer.domElement);
         
-        this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-        this.controls.enableDamping = true;
-        this.controls.dampingFactor = 0.05;
-        this.controls.maxPolarAngle = Math.PI / 2 - 0.02; 
+        this.cameraController = new CameraController(this.camera, this.renderer.domElement, this);
+        this.controls = this.cameraController.controls;
+
+        this.navigationCube = new NavigationCube(this.container, this.cameraController);
 
         this.interactables = [];
         this.isUpdatingFromUI = false;
@@ -185,7 +187,8 @@ export class Preview3D {
 
     animate() { 
         requestAnimationFrame(() => this.animate()); 
-        this.controls.update(); 
+        this.cameraController.update();
+        this.navigationCube.update(this.camera);
         this.renderer.render(this.scene, this.camera); 
         this.updateTransformMenu();
     }

@@ -58,7 +58,6 @@
         :is-advanced-tool-active="isAdvancedToolActive"
         :active-tool="activeTool"
         :is-wall-tracking-enabled="isWallTrackingEnabled"
-        :show-camera="showCamera"
         :is-xray-mode="isXRayMode"
         :floor-plan-settings="floorPlanSettings"
         :is-rebuilding="isRebuilding"
@@ -67,12 +66,9 @@
         :selected-type="selectedType"
         @update:show-guide="showGuide = $event"
         @update:show-advanced-tools="showAdvancedTools = $event"
-        @update:show-camera="showCamera = $event"
         @handle-adv-trigger-click="handleAdvTriggerClick"
         @set-advanced-tool="setAdvancedTool"
         @toggle-wall-tracking="toggleWallTracking"
-        @set-camera-preset="setCameraPreset"
-        @rotate-camera="rotateCamera"
         @toggle-xray-mode="toggleXRayMode"
         @zoom-in="zoomIn"
         @zoom-out="zoomOut"
@@ -282,6 +278,9 @@ const syncSettings = () => {
         isWallTrackingEnabled.value = floorPlanSettings.value.wallTracking;
         planner.value.syncAll();
         debouncedSaveHistory();
+    }
+    if (renderer3D.value?.navigationCube) {
+        renderer3D.value.navigationCube.setEntranceFacing(floorPlanSettings.value.mainEntranceFacing);
     }
 };
 
@@ -511,7 +510,6 @@ const onLevelVisibilityChange = () => {
 
 const selectedSky = ref('arch_viz_sunny');
 const selectedGround = ref('grass'); // Start with new Grass + Normal map terrain
-const showCamera = ref(false);
 const showAdvancedTools = ref(false);
 
 const isWallTrackingEnabled = ref(false);
@@ -813,6 +811,9 @@ onMounted(() => {
     };
 
     renderer3D.value = new Preview3D(canvasWorkspaceRef.value.canvas3D);
+    if (renderer3D.value?.navigationCube) {
+        renderer3D.value.navigationCube.setEntranceFacing(floorPlanSettings.value.mainEntranceFacing);
+    }
 
     workspaceControls.value = new WorkspaceControls(renderer3D.value, planner.value);
     
@@ -1042,13 +1043,7 @@ const resetZoom = () => {
     // 3D reset can be more complex, often handled by `refresh3DScene`
 };
 
-const setCameraPreset = (preset) => {
-    workspaceControls.value?.setCameraPosition(preset);
-};
 
-const rotateCamera = (angle) => {
-    workspaceControls.value?.rotateCamera(angle);
-};
 
 const set3DMode = (mode) => { mode3D.value = mode; if (renderer3D.value) renderer3D.value.setInteractionMode(mode); };
 const handleDeselect = () => {
@@ -1400,8 +1395,8 @@ const refresh3DScene = (preserveCamera = true) => {
         }
         renderer3D.value.isRebuildingScene = false;
         
-        if (workspaceControls.value) {
-            workspaceControls.value.updateCameraBounds();
+        if (renderer3D.value?.cameraController) {
+            renderer3D.value.cameraController.updateCameraBounds();
         }
         
         isRebuilding.value = false;
