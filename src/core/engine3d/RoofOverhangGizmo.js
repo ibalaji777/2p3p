@@ -1,3 +1,4 @@
+import { EVENTS } from '../registry.js';
 import * as THREE from 'three';
 import { offsetPolygon } from '../registry.js';
 
@@ -152,7 +153,7 @@ export class RoofOverhangGizmo extends THREE.Group {
                 if (this.target && this.target.userData.entity) {
                     const entity = this.target.userData.entity;
                     if (window.dispatchEvent) {
-                        window.dispatchEvent(new CustomEvent('roof-overhang-gizmo-end', { detail: { entity: entity } }));
+                        window.dispatchEvent(new CustomEvent(EVENTS.ROOF_OVERHANG_GIZMO_END, { detail: { entity: entity } }));
                     }
                     if (this.ctx.syncToUI) this.ctx.syncToUI();
                 }

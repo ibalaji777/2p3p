@@ -1,3 +1,4 @@
+import { EVENTS } from '../registry.js';
 import * as THREE from 'three';
 
 export class PolygonGizmo extends THREE.Group {
@@ -151,7 +152,7 @@ export class PolygonGizmo extends THREE.Group {
                     if (this.ctx.syncToUI) this.ctx.syncToUI();
                     if (window.plannerInstance && window.plannerInstance.syncAll) window.plannerInstance.syncAll();
                     
-                    const event = new CustomEvent('polygon-gizmo-end', { detail: { entity: this.target.userData.entity }});
+                    const event = new CustomEvent(EVENTS.POLYGON_GIZMO_END, { detail: { entity: this.target.userData.entity }});
                     window.dispatchEvent(event);
                 }
             }

@@ -1,3 +1,4 @@
+import { EVENTS } from '../registry.js';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -165,7 +166,7 @@ export class OpeningGizmo extends THREE.Group {
                     this.updateHandles();
                     if (this.ctx.updateOpeningPanel) this.ctx.updateOpeningPanel(entity);
                     
-                    const event = new CustomEvent('opening-gizmo-change', { detail: { entity: this.target.userData.entity }});
+                    const event = new CustomEvent(EVENTS.OPENING_GIZMO_CHANGE, { detail: { entity: this.target.userData.entity }});
                     window.dispatchEvent(event);
                 }
             }
@@ -176,7 +177,7 @@ export class OpeningGizmo extends THREE.Group {
                 e.preventDefault();
                 e.stopPropagation();
                 this.activeHandle = null;
-                const event = new CustomEvent('opening-gizmo-end', { detail: { entity: this.target.userData.entity }});
+                const event = new CustomEvent(EVENTS.OPENING_GIZMO_END, { detail: { entity: this.target.userData.entity }});
                 window.dispatchEvent(event);
             }
         }, { passive: false });

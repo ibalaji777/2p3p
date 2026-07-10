@@ -245,7 +245,7 @@ import { WorkspaceControls } from '/src/core/engine3d/WorkspaceControls.js';
 import { ServerClass } from './core/ServerClass.js';
 
 import { FileManager } from './core/io.js';
-import { WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, FLOOR_REGISTRY, RAILING_REGISTRY } from './core/registry.js';
+import { WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, FLOOR_REGISTRY, RAILING_REGISTRY, EVENTS } from './core/registry.js';
 import { PRESET_REGISTRY, PRESET_CATEGORIES } from './core/engine2d/presetRegistry.js';
 const wallDecorRegistry = WALL_DECOR_REGISTRY;
 const roofDecorRegistry = ROOF_DECOR_REGISTRY;
@@ -860,17 +860,17 @@ onMounted(() => {
 
     window.addEventListener('keydown', handleGlobalKeys);
     
-    window.addEventListener('opening-gizmo-change', throttledSyncEngine);
-    window.addEventListener('roof-corner-gizmo-change', throttledSyncEngine);
-    window.addEventListener('roof-overhang-gizmo-change', throttledSyncEngine);
-    window.addEventListener('opening-gizmo-end', syncEngine);
-    window.addEventListener('roof-corner-gizmo-end', syncEngine);
-    window.addEventListener('roof-overhang-gizmo-end', syncEngine);
-    window.addEventListener('vertex-slope-gizmo-end', syncEngine);
-    window.addEventListener('polygon-gizmo-end', syncEngine);
-    window.addEventListener('material-gizmo-apply', syncEngine);
+    window.addEventListener(EVENTS.OPENING_GIZMO_CHANGE, throttledSyncEngine);
+    window.addEventListener(EVENTS.ROOF_CORNER_GIZMO_CHANGE, throttledSyncEngine);
+    window.addEventListener(EVENTS.ROOF_OVERHANG_GIZMO_CHANGE, throttledSyncEngine);
+    window.addEventListener(EVENTS.OPENING_GIZMO_END, syncEngine);
+    window.addEventListener(EVENTS.ROOF_CORNER_GIZMO_END, syncEngine);
+    window.addEventListener(EVENTS.ROOF_OVERHANG_GIZMO_END, syncEngine);
+    window.addEventListener(EVENTS.VERTEX_SLOPE_GIZMO_END, syncEngine);
+    window.addEventListener(EVENTS.POLYGON_GIZMO_END, syncEngine);
+    window.addEventListener(EVENTS.MATERIAL_GIZMO_APPLY, syncEngine);
     
-    window.addEventListener('material-gizmo-select', (e) => {
+    window.addEventListener(EVENTS.MATERIAL_GIZMO_SELECT, (e) => {
         if (selectedEntity.value && selectedEntity.value.params) {
             selectedEntity.value.params.materialTarget = e.detail.face;
             uiTrigger.value++;
@@ -885,13 +885,15 @@ onMounted(() => {
 onBeforeUnmount(() => {
     window.removeEventListener('resize', handleResize);
     window.removeEventListener('keydown', handleGlobalKeys);
-    window.removeEventListener('opening-gizmo-change', throttledSyncEngine);
-    window.removeEventListener('roof-corner-gizmo-change', throttledSyncEngine);
-    window.removeEventListener('roof-overhang-gizmo-change', throttledSyncEngine);
-    window.removeEventListener('opening-gizmo-end', syncEngine);
-    window.removeEventListener('roof-corner-gizmo-end', syncEngine);
-    window.removeEventListener('roof-overhang-gizmo-end', syncEngine);
-    window.removeEventListener('vertex-slope-gizmo-end', syncEngine);
+    window.removeEventListener(EVENTS.OPENING_GIZMO_CHANGE, throttledSyncEngine);
+    window.removeEventListener(EVENTS.ROOF_CORNER_GIZMO_CHANGE, throttledSyncEngine);
+    window.removeEventListener(EVENTS.ROOF_OVERHANG_GIZMO_CHANGE, throttledSyncEngine);
+    window.removeEventListener(EVENTS.OPENING_GIZMO_END, syncEngine);
+    window.removeEventListener(EVENTS.ROOF_CORNER_GIZMO_END, syncEngine);
+    window.removeEventListener(EVENTS.ROOF_OVERHANG_GIZMO_END, syncEngine);
+    window.removeEventListener(EVENTS.VERTEX_SLOPE_GIZMO_END, syncEngine);
+    window.removeEventListener(EVENTS.POLYGON_GIZMO_END, syncEngine);
+    window.removeEventListener(EVENTS.MATERIAL_GIZMO_APPLY, syncEngine);
 });
 
 const handleGlobalKeys = (e) => {

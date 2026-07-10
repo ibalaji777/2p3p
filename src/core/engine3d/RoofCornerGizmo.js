@@ -1,3 +1,4 @@
+import { EVENTS } from '../registry.js';
 import * as THREE from 'three';
 
 export class RoofCornerGizmo extends THREE.Group {
@@ -111,7 +112,7 @@ export class RoofCornerGizmo extends THREE.Group {
                     if (this.ctx.updateRoofLive) {
                         this.ctx.updateRoofLive(entity);
                     } else if (window.dispatchEvent) {
-                        window.dispatchEvent(new CustomEvent('roof-corner-gizmo-change', { detail: { entity: entity } }));
+                        window.dispatchEvent(new CustomEvent(EVENTS.ROOF_CORNER_GIZMO_CHANGE, { detail: { entity: entity } }));
                     }
                 }
             } else {
@@ -138,7 +139,7 @@ export class RoofCornerGizmo extends THREE.Group {
                 this.isDragging = false;
                 if (this.ctx.controls) this.ctx.controls.enabled = true;
                 if (this.target && this.target.userData.entity) {
-                    window.dispatchEvent(new CustomEvent('roof-corner-gizmo-end', { detail: { entity: this.target.userData.entity } }));
+                    window.dispatchEvent(new CustomEvent(EVENTS.ROOF_CORNER_GIZMO_END, { detail: { entity: this.target.userData.entity } }));
                     if (this.ctx.syncToUI) this.ctx.syncToUI();
                 }
             }

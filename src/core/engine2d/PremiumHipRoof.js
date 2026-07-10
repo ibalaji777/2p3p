@@ -1,3 +1,4 @@
+import { EVENTS } from '../registry.js';
 import Konva from 'konva';
 import { offsetPolygon } from '../registry.js';
 import { PremiumWidget } from './PremiumWidget.js';
@@ -432,7 +433,7 @@ export class PremiumHipRoof {
         }
         
         if (window.dispatchEvent) {
-            window.dispatchEvent(new CustomEvent('material-gizmo-apply'));
+            window.dispatchEvent(new CustomEvent(EVENTS.MATERIAL_GIZMO_APPLY));
         }
     }
 

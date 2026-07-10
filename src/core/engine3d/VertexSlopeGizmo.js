@@ -1,3 +1,4 @@
+import { EVENTS } from '../registry.js';
 import * as THREE from 'three';
 
 export class VertexSlopeGizmo extends THREE.Group {
@@ -139,7 +140,7 @@ export class VertexSlopeGizmo extends THREE.Group {
                 if (this.ctx.controls) this.ctx.controls.enabled = true;
                 
                 if (window.dispatchEvent) {
-                    window.dispatchEvent(new CustomEvent('vertex-slope-gizmo-end', { detail: { entity: this.target.userData.entity } }));
+                    window.dispatchEvent(new CustomEvent(EVENTS.VERTEX_SLOPE_GIZMO_END, { detail: { entity: this.target.userData.entity } }));
                 }
             }
         });
