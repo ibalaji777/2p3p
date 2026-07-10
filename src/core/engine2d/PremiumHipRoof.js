@@ -139,7 +139,8 @@ export class PremiumHipRoof {
             }
         });
         this.group.on('dragstart', (e) => { 
-            if (this.planner.tool !== 'select' || this.handles.includes(e.target) || this.parentGroup) {
+            if (this.handles.includes(e.target)) return; // Allow handles to drag even if tool is roof
+            if (this.planner.tool !== 'select' || this.parentGroup) {
                 e.target.stopDrag();
                 return;
             } 
