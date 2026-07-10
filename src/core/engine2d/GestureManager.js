@@ -82,7 +82,7 @@ export class GestureManager {
                 const target = e.target;
                 
                 let isWallPan = false;
-                const isWallTool = ['outer', 'inner', 'railing'].includes(this.floorplanner.tool);
+                const isWallTool = ['outer', 'inner', 'railing', 'roof'].includes(this.floorplanner.tool);
                 if (isWallTool && this.floorplanner.mobileDrawState === 'ChainWaiting') {
                     const pointerPos = this.stage.getPointerPosition();
                     if (pointerPos && this.floorplanner.lastAnchor) {

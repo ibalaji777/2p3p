@@ -7,8 +7,26 @@ export class PremiumHipRoof {
         this.type = 'roof';
         this.id = 'roof_' + Date.now() + '_' + Math.floor(Math.random()*1000);
         
-        // Copy node points to avoid direct reference mutation issues
-        this.points = points.map(p => ({ x: p.x, y: p.y }));
+        // Copy node points and remove consecutive duplicates to prevent duplicate handles
+        let cleanedPoints = [];
+        for (let p of points) {
+            if (cleanedPoints.length > 0) {
+                const last = cleanedPoints[cleanedPoints.length - 1];
+                if (Math.hypot(p.x - last.x, p.y - last.y) < 1) continue; // Skip consecutive duplicates
+            }
+            cleanedPoints.push({ x: p.x, y: p.y });
+        }
+        
+        // If the roof forms a closed loop but the last point equals the first point, remove the duplicate last point
+        if (cleanedPoints.length > 2) {
+            const first = cleanedPoints[0];
+            const last = cleanedPoints[cleanedPoints.length - 1];
+            if (Math.hypot(first.x - last.x, first.y - last.y) < 1) {
+                cleanedPoints.pop();
+            }
+        }
+        
+        this.points = cleanedPoints;
         
         this.config = {
             pitch: 30,
@@ -263,6 +281,17 @@ export class PremiumHipRoof {
         this.hipLinesGroup.destroyChildren();
         const overhangs = this.config.overhangs ? this.config.overhangs : (this.config.overhang || 0);
         const pts = offsetPolygon(this.points, overhangs);
+
+        this.hipLinesGroup.clipFunc((ctx) => {
+            ctx.beginPath();
+            if (pts.length > 0) {
+                ctx.moveTo(pts[0].x, pts[0].y);
+                for(let i=1; i<pts.length; i++) {
+                    ctx.lineTo(pts[i].x, pts[i].y);
+                }
+                ctx.closePath();
+            }
+        });
         
         let cx = 0, cy = 0, signedArea = 0;
         for (let i = 0; i < this.points.length; i++) {
