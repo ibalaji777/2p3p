@@ -1306,7 +1306,8 @@ const handleDelete = () => {
             selectedType.value = null;
             if (viewMode.value === '3d') refresh3DScene(true);
         } else if (selectedType.value === 'widget' || selectedType.value === 'molding' || selectedType.value === 'advance_openings' || selectedType.value === 'wall' || selectedType.value === 'arc' || selectedType.value === 'stair' ) {
-            selectedEntity.value.remove();
+            if (typeof selectedEntity.value.remove === 'function') selectedEntity.value.remove();
+            else if (typeof selectedEntity.value.destroy === 'function') selectedEntity.value.destroy();
             selectedEntity.value = null;
             selectedType.value = null;
             if (viewMode.value === '3d') refresh3DScene(true);
