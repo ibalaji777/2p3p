@@ -27,9 +27,9 @@
         <button @click="$emit('update:showGuide', !showGuide)" :title="showGuide ? 'Hide Guide' : 'Show Guide'" :style="{ background: showGuide ? 'rgba(59, 130, 246, 0.9)' : '', borderColor: showGuide ? 'rgba(96, 165, 250, 1)' : '' }">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
         </button>
-        <button @click="$emit('zoom-in')" title="Zoom In">+</button>
-        <button @click="$emit('zoom-out')" title="Zoom Out">-</button>
-        <button @click="$emit('reset-zoom')" title="Reset Zoom">⛶</button>
+        <button v-show="viewMode === '2d'" @click="$emit('zoom-in')" title="Zoom In">+</button>
+        <button v-show="viewMode === '2d'" @click="$emit('zoom-out')" title="Zoom Out">-</button>
+        <button v-show="viewMode === '2d'" @click="$emit('reset-zoom')" title="Reset Zoom">⛶</button>
     </div>
 
     <!-- 2D Compass Widget -->
