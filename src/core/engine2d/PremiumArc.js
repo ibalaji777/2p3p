@@ -1,7 +1,7 @@
 import Konva from 'konva';
 import { SNAP_DIST, RAILING_REGISTRY } from '../registry.js';
 import { Anchor } from './Anchor.js';
-import { PremiumWall } from './PremiumWall.js';
+import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 
 export class PremiumArc {
     constructor(planner, p1, p2, pos) {

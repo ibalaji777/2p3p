@@ -7,7 +7,7 @@ import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, R
 import { EnvironmentBuilder } from "./engine3d/engine3d.EnvironmentBuilder.js";
 import { AssetManager  } from "./engine3d/engine3d.AssetManager.js";
 import { DecorManager  } from "./engine3d/engine3d.DecorManager.js";
-import { FurnitureManager  } from "./engine3d/engine3d.FurnitureManager.js";
+import { FurnitureManager  } from "../features/furniture/furniture.renderer3d.js";
 import { InteractionSystem  } from "./engine3d/engine3d.InteractionSystem.js";
 import { GizmoManager } from "./engine3d/engine3d.GizmoManager.js";
 import { CameraController } from "./camera/CameraController.js";

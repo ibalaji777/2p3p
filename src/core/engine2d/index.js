@@ -7,17 +7,18 @@ import { GRID, PX_TO_FT, SNAP_DIST, WALL_REGISTRY, WIDGET_REGISTRY, MOLDING_REGI
 
 // SOLID: Import the decoupled 2D entity classes from the same folder
 import { Anchor } from './Anchor.js';
-import { PremiumWall } from './PremiumWall.js';
+import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 import { PremiumWidget } from './PremiumWidget.js';
-import { PremiumFurniture } from './PremiumFurniture.js';
+import { PremiumFurniture } from '../../features/furniture/furniture.renderer2d.js';
+import { WallSerializer } from '../../features/wall/wall.serializer.js';
 
-import { PremiumHipRoof } from './PremiumHipRoof.js';
+import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
 import { PremiumRailing } from './PremiumRailing.js';
 import { SmartGuidesTrackingSystem } from './SmartGuidesTrackingSystem.js';
 import { advance_openings } from './advance_openings.js';
 import { PremiumArc } from './PremiumArc.js';
-import { StairV4Flight, StairV4Landing, StaircaseV4Solver } from './StaircaseV4.js';
-import { PremiumStaircase } from './PremiumStaircase.js';
+import { StairV4Flight, StairV4Landing, StaircaseV4Solver } from '../../features/stairs/StaircaseV4.js';
+import { PremiumStaircase } from '../../features/stairs/stairs.renderer2d.js';
 import { PremiumMolding } from './PremiumMolding.js';
 import { PRESET_REGISTRY, autoAlign } from './presetRegistry.js';
 import { PresetGroup } from './PresetGroup.js';
@@ -2547,30 +2548,7 @@ export class FloorPlanner {
             settings: this.settings,
             unit: this.currentUnit,
             anchors: this.anchors.map(a => ({ id: a._id, x: a.x, y: a.y })),
-            walls: standardWalls.map(w => ({
-                id: w.id,
-                startAnchorId: w.startAnchor._id, endAnchorId: w.endAnchor._id,
-                startX: w.startAnchor.x, startY: w.startAnchor.y, endX: w.endAnchor.x, endY: w.endAnchor.y, thickness: w.thickness || w.config.thickness, height: w.height !== undefined ? w.height : (w.config?.height || 180), type: w.type, configId: w.configId,
-                hidden: w.hidden,
-                description: w.description,
-                topProfileType: w.topProfileType, flipSlope: w.flipSlope, startHeight: w.startHeight, peakHeight: w.peakHeight, endHeight: w.endHeight,
-                isAutoGable: w.isAutoGable, parentWallId: w.parentWallId, parentRoofId: w.parentRoofId, elevation: w.elevation,
-                pts: typeof w.getExactPolygonPoints === 'function' ? w.getExactPolygonPoints() : (w.poly ? w.poly.points() : null),
-                bevels: w.wallShapeData ? { start: w.wallShapeData.startData, end: w.wallShapeData.endData } : null,
-                elevationLayers: w.elevationLayers,
-                widgets: w.attachedWidgets.map(wid => ({ 
-                    t: wid.t, type: wid.type, configId: wid.type, width: wid.width, height: wid.height, depth: wid.depth, elevation: wid.elevation,
-                    facing: wid.facing, side: wid.side, 
-                    rows: wid.rows, cols: wid.cols, spacing: wid.spacing, patternStyle: wid.patternStyle, decorConfigId: wid.decorConfigId,
-                    doorType: wid.doorType, doorMat: wid.doorMat, 
-                    windowType: wid.windowType, frameMat: wid.frameMat, glassMat: wid.glassMat, grillePattern: wid.grillePattern,
-                    description: wid.description,
-                    params: wid.params || {}
-                })),
-                decors: w.attachedDecor ? w.attachedDecor.map(d => ({ id: d.id, configId: d.configId, side: d.side, localX: d.localX, localY: d.localY, localZ: d.localZ, width: d.width, height: d.height, depth: d.depth, tileSize: d.tileSize, faces: { front: d.faces.front, back: d.faces.back, left: d.faces.left, right: d.faces.right } })) : [],
-                moldings: w.attachedMoldings ? w.attachedMoldings.map(m => ({ t: m.t, type: m.type, configId: m.type, width: m.width, depth: m.depth, heightOffset: m.heightOffset, side: m.side, profileType: m.profileType, material: m.material, color: m.color, layers: m.layers, layerGap: m.layerGap, grooveWidth: m.grooveWidth, frameWidth: m.frameWidth })) : [],
-                params: w.params || {}
-            })),
+            walls: standardWalls.map(w => WallSerializer.serialize(w)),
             furniture: this.furniture.map(f => ({ x: f.group.x(), y: f.group.y(), rotation: f.rotation, width: f.width, depth: f.depth, height: f.height, configId: f.config.id, description: f.description })),
             stairs: this.stairs.map(s => {
                 if (s.type === 'stair_v4_flight' || s.type === 'stair_v4_landing') {

@@ -1,5 +1,5 @@
 import Konva from 'konva';
-import { FURNITURE_REGISTRY, WORKSPACE_2D_SHAPES } from '../registry.js';
+import { FURNITURE_REGISTRY, WORKSPACE_2D_SHAPES } from '../../core/registry.js';
 
 export class PremiumFurniture {
     constructor(planner, x, y, configId) {

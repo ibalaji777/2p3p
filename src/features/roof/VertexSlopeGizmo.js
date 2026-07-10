@@ -1,4 +1,4 @@
-import { EVENTS } from '../registry.js';
+import { EVENTS } from '../../core/registry.js';
 import * as THREE from 'three';
 
 export class VertexSlopeGizmo extends THREE.Group {

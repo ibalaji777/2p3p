@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, RAILING_REGISTRY } from '../registry.js';
+import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, RAILING_REGISTRY } from '../../core/registry.js';
 
 export class Wall3DBuilder {
     constructor() {

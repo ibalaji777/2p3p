@@ -7,7 +7,7 @@ import { WIDGET_REGISTRY, WALL_DECOR_REGISTRY } from '../registry.js';
 import { AssetManager } from './AssetManager.js';
 import { BaseSceneSetup } from './BaseSceneSetup.js';
 import { DecorManager } from './DecorManager.js';
-import { FurnitureManager } from './FurnitureManager.js';
+import { FurnitureManager } from '../../features/furniture/furniture.renderer3d.js';
 import { InteractionSystem } from './InteractionSystem.js';
 import { ActiveFloor } from './ActiveFloor.js';
 import { StaticFloors } from './StaticFloors.js';

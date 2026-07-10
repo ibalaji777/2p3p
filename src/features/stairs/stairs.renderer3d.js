@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WALL_HEIGHT } from '../registry.js';
+import { WALL_HEIGHT } from '../../core/registry.js';
 
 export class Stair3DBuilder {
     constructor(assets, interactables) {

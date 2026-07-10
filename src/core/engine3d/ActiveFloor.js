@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { Wall3DBuilder } from './Wall3DBuilder.js';
+import { Wall3DBuilder } from '../../features/wall/wall.renderer3d.js';
 import { RailingBuilder } from './RailingBuilder.js';
-import { Stair3DBuilder } from './Stair3DBuilder.js';
+import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
 import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, WALL_DECOR_REGISTRY, offsetPolygon } from '../registry.js';
 
 

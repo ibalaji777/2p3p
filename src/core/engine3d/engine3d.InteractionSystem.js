@@ -6,9 +6,9 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TransformControls } from './TransformControls.js';
 import { MaterialGizmo } from './MaterialGizmo.js';
 import { CornerRadiusGizmo } from './CornerRadiusGizmo.js';
-import { VertexSlopeGizmo } from './VertexSlopeGizmo.js';
-import { RoofCornerGizmo } from './RoofCornerGizmo.js';
-import { RoofOverhangGizmo } from './RoofOverhangGizmo.js';
+import { VertexSlopeGizmo } from '../../features/roof/VertexSlopeGizmo.js';
+import { RoofCornerGizmo } from '../../features/roof/RoofCornerGizmo.js';
+import { RoofOverhangGizmo } from '../../features/roof/RoofOverhangGizmo.js';
 import { PolygonGizmo } from './PolygonGizmo.js';
 import { SelectionManager } from './engine3d.SelectionManager.js';
 

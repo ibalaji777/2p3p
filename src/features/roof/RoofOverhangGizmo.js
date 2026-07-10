@@ -1,6 +1,6 @@
-import { EVENTS } from '../registry.js';
+import { EVENTS } from '../../core/registry.js';
 import * as THREE from 'three';
-import { offsetPolygon } from '../registry.js';
+import { offsetPolygon } from '../../core/registry.js';
 
 export class RoofOverhangGizmo extends THREE.Group {
     constructor(ctx) {

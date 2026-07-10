@@ -1,8 +1,8 @@
 import Konva from 'konva';
-import { WALL_REGISTRY, WIDGET_REGISTRY, RAILING_REGISTRY, MOLDING_REGISTRY } from '../registry.js';
-import { PremiumWidget } from './PremiumWidget.js';
-import { PremiumMolding } from './PremiumMolding.js';
-import { advance_openings } from './advance_openings.js';
+import { WALL_REGISTRY, WIDGET_REGISTRY, RAILING_REGISTRY, MOLDING_REGISTRY } from '../../core/registry.js';
+import { PremiumWidget } from '../../core/engine2d/PremiumWidget.js';
+import { PremiumMolding } from '../../core/engine2d/PremiumMolding.js';
+import { advance_openings } from '../../core/engine2d/advance_openings.js';
 
 export class PremiumWall {
     constructor(planner, startAnchor, endAnchor, type = "outer") {

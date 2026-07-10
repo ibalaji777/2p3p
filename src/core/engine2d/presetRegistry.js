@@ -1,6 +1,7 @@
-import { PremiumWall } from './PremiumWall.js';
+import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 import { Anchor } from './Anchor.js';
-import { PremiumHipRoof } from './PremiumHipRoof.js';
+import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
+import { PremiumFurniture } from '../../features/furniture/furniture.renderer2d.js';
 import { PresetGroup } from './PresetGroup.js';
 
 // --- Math Helpers ---

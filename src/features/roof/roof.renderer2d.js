@@ -1,7 +1,6 @@
-import { EVENTS } from '../registry.js';
+import { EVENTS, offsetPolygon } from '../../core/registry.js';
 import Konva from 'konva';
-import { offsetPolygon } from '../registry.js';
-import { PremiumWidget } from './PremiumWidget.js';
+
 export class PremiumHipRoof {
     constructor(planner, points) {
         this.planner = planner;

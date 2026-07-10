@@ -426,15 +426,15 @@
 import { ref, computed } from 'vue';
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY } from '../core/registry';
 import MobileBottomSheet from './MobileBottomSheet.vue';
-import WallPanel from './panels/WallPanel.vue';
+import WallPanel from '../features/wall/wall.properties.vue';
 import RoomPanel from './panels/RoomPanel.vue';
 import AdvanceOpeningsPanel from './panels/AdvanceOpeningsPanel.vue';
-import StairPanel from './panels/StairPanel.vue';
+import StairPanel from '../features/stairs/stairs.properties.vue';
 import WidgetPanel from './panels/WidgetPanel.vue';
 import MoldingPanel from './panels/MoldingPanel.vue';
 import ShapePanel from './panels/ShapePanel.vue';
-import FurniturePanel from './panels/FurniturePanel.vue';
-import RoofPanel from './panels/RoofPanel.vue';
+import FurniturePanel from '../features/furniture/furniture.properties.vue';
+import RoofPanel from '../features/roof/roof.properties.vue';
 import PresetGroupPanel from './panels/PresetGroupPanel.vue';
 
 const props = defineProps({
