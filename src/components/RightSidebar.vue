@@ -1,8 +1,18 @@
 <template>
-  <aside class="right-sidebar" v-show="!(isMobile || isTablet) || ((isMobile || isTablet) && mobileMenuOpen && ['levels', 'properties', 'layers', 'settings'].includes(activeMobileTab))" :class="{'mobile-panel': isMobile || isTablet}">
+  <aside class="right-sidebar" v-show="!(isMobile || isTablet)" :class="{'mobile-panel': isMobile || isTablet}">
     <div v-if="isMobile || isTablet" class="mobile-close-btn" @click="$emit('update:mobileMenuOpen', false)">✕ Close</div>
-    <div class="panel levels-panel" v-show="!(isMobile || isTablet) || activeMobileTab === 'levels'">
-        <div class="panel-header"><h3>Floor Levels</h3></div>
+    <Teleport to="body" :disabled="!(isMobile || isTablet)">
+        <component 
+            :is="(isMobile || isTablet) ? MobileBottomSheet : 'div'"
+            class="panel levels-panel properties-wrapper"
+            :class="{ 'desktop-properties': !(isMobile || isTablet) }"
+            :is-visible="(isMobile || isTablet) ? (mobileMenuOpen && activeMobileTab === 'levels') : true"
+            entity-name="Floor Levels"
+            entity-icon="🏢"
+            @close="$emit('update:mobileMenuOpen', false)"
+            v-show="(isMobile || isTablet) ? (mobileMenuOpen && activeMobileTab === 'levels') : true"
+        >
+            <div class="panel-header" v-if="!(isMobile || isTablet)"><h3>Floor Levels</h3></div>
         <div class="levels-list">
             <div v-if="viewMode === '3d'" class="level-item" @click="$emit('toggle-all-floors')" style="background: #fafafa; border-bottom: 1px solid #f1f5f9;">
                 <div style="display:flex; align-items:center; gap: 8px;">
@@ -25,17 +35,29 @@
             <button class="btn-duplicate" @click="$emit('add-level', 'duplicate')">+ Duplicate Current</button>
             <button class="btn-empty" @click="$emit('add-level', 'empty')">+ Add Empty Floor</button>
         </div>
-    </div>
+        </component>
+    </Teleport>
 
-    <div class="panel tabs-panel flex-1" v-show="!(isMobile || isTablet) || ['properties', 'layers', 'settings'].includes(activeMobileTab)">
+    <div class="panel tabs-panel flex-1" v-show="!(isMobile || isTablet) || ['layers', 'settings'].includes(activeMobileTab)">
         <div class="tabs-header" v-show="!(isMobile || isTablet)">
             <button :class="{active: activeRightTab === 'properties'}" @click="$emit('update:activeRightTab', 'properties')">Properties</button>
             <button :class="{active: activeRightTab === 'layers'}" @click="$emit('update:activeRightTab', 'layers')">Layer List</button>
             <button :class="{active: activeRightTab === 'settings'}" @click="$emit('update:activeRightTab', 'settings')">Settings</button>
         </div>
         
-        <div class="tab-body" v-show="activeRightTab === 'settings'">
-            <div class="props-content">
+        <Teleport to="body" :disabled="!(isMobile || isTablet)">
+            <component 
+                :is="(isMobile || isTablet) ? MobileBottomSheet : 'div'"
+                class="properties-wrapper"
+                :class="{ 'desktop-properties': !(isMobile || isTablet) }"
+                :is-visible="(isMobile || isTablet) ? (mobileMenuOpen && activeMobileTab === 'settings') : true"
+                entity-name="Settings"
+                entity-icon="⚙️"
+                @close="$emit('update:mobileMenuOpen', false)"
+                v-show="(isMobile || isTablet) ? (mobileMenuOpen && activeMobileTab === 'settings') : activeRightTab === 'settings'"
+            >
+                <div class="tab-body">
+                    <div class="props-content">
                 <h4 class="props-subtitle">Floor Plan Configuration</h4>
                 
                 <div class="control-group">
@@ -130,8 +152,21 @@
                 </div>
             </div>
         </div>
+    </component>
+</Teleport>
 
-        <div class="tab-body" v-show="activeRightTab === 'properties'">
+        <Teleport to="body" :disabled="!(isMobile || isTablet)">
+            <component 
+                :is="(isMobile || isTablet) ? MobileBottomSheet : 'div'"
+                class="properties-wrapper"
+                :class="{ 'desktop-properties': !(isMobile || isTablet) }"
+                :is-visible="(isMobile || isTablet) ? (mobileMenuOpen && activeMobileTab === 'properties') : true"
+                :entity-name="dynamicEntityName"
+                :entity-icon="dynamicEntityIcon"
+                @close="$emit('update:mobileMenuOpen', false)"
+                v-show="(isMobile || isTablet) ? (mobileMenuOpen && activeMobileTab === 'properties') : activeRightTab === 'properties'"
+            >
+                <div class="tab-body properties-tab-body">
             
             <div class="props-content" v-if="activeTool && activeTool.startsWith('preset_') && activePresetParams">
                 <h4 class="props-subtitle">Preset Configuration</h4>
@@ -1128,8 +1163,21 @@
             <span v-else>Select a wall or object to edit its properties.</span>
         </div>
         </div>
+            </component>
+        </Teleport>
 
-        <div class="layers-content" v-show="activeRightTab === 'layers'">
+        <Teleport to="body" :disabled="!(isMobile || isTablet)">
+            <component 
+                :is="(isMobile || isTablet) ? MobileBottomSheet : 'div'"
+                class="properties-wrapper"
+                :class="{ 'desktop-properties': !(isMobile || isTablet) }"
+                :is-visible="(isMobile || isTablet) ? (mobileMenuOpen && activeMobileTab === 'layers') : true"
+                entity-name="Layer List"
+                entity-icon="🗂️"
+                @close="$emit('update:mobileMenuOpen', false)"
+                v-show="(isMobile || isTablet) ? (mobileMenuOpen && activeMobileTab === 'layers') : activeRightTab === 'layers'"
+            >
+                <div class="layers-content">
             <div class="layers-list">
                 <div v-for="item in layerItems" :key="item.id" class="layer-item" :class="{active: selectedEntity === item.entity, subitem: item.isSubItem}" :style="item.isSubItem ? 'margin-left: 24px; opacity: 0.9;' : ''" @click="$emit('select-layer-item', item)">
                     <div class="layer-info">
@@ -1148,13 +1196,17 @@
                 </div>
                 <div v-if="layerItems.length === 0" class="props-empty">No objects in the current floor.</div>
             </div>
-        </div>
+                </div>
+            </component>
+        </Teleport>
     </div>
   </aside>
 </template>
 
 <script setup>
+import { ref, computed } from 'vue';
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY } from '../core/registry';
+import MobileBottomSheet from './MobileBottomSheet.vue';
 
 const props = defineProps({
   isMobile: Boolean,
@@ -1188,7 +1240,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits([
-  'update:mobileMenuOpen',
+  'update:mobileMenuOpen', 'update:activeMobileTab',
   'update:activeRightTab',
   'update:selectedSky',
   'update:selectedGround',
@@ -1218,6 +1270,51 @@ const emit = defineEmits([
   'remove-layer-item',
   'debounced-save-history'
 ]);
+
+const dynamicEntityName = computed(() => {
+    if (props.activeTool && props.activeTool.startsWith('preset_')) return 'Preset Settings';
+    if (!props.selectedEntity) return 'Properties';
+    
+    const type = props.selectedType;
+    if (type === 'wall') {
+        if (props.selectedEntity.type === 'railing') return 'Railing';
+        return 'Wall';
+    }
+    if (type === 'door') return 'Door';
+    if (type === 'window') return 'Window';
+    if (type === 'room') return 'Room / Floor';
+    if (type === 'stair') return 'Staircase';
+    if (type === 'furniture') return props.selectedEntity?.config?.name || 'Furniture';
+    if (type === 'roof') return 'Roof';
+    if (type === 'shape') return 'Shape';
+    if (type === 'wallDecor') return 'Wall Pattern';
+    if (type === 'arc') return 'Curved Wall';
+    if (type === 'advance_openings') return 'Opening';
+    if (type === 'widget') return 'Feature';
+    return 'Properties';
+});
+
+const dynamicEntityIcon = computed(() => {
+    if (props.activeTool && props.activeTool.startsWith('preset_')) return '⚙️';
+    if (!props.selectedEntity) return '📦';
+    
+    const type = props.selectedType;
+    if (type === 'wall') {
+        if (props.selectedEntity.type === 'railing') return '🪜';
+        return '🧱';
+    }
+    if (type === 'door') return '🚪';
+    if (type === 'window') return '🪟';
+    if (type === 'room') return '⬜';
+    if (type === 'stair') return '📶';
+    if (type === 'furniture') return '🛋️';
+    if (type === 'roof') return '🏠';
+    if (type === 'shape') return '🔳';
+    if (type === 'wallDecor') return '🎨';
+    if (type === 'arc') return '🌙';
+    if (type === 'advance_openings' || type === 'widget') return '✂️';
+    return '📦';
+});
 
 const getLayerIcon = (type) => {
     const icons = {
