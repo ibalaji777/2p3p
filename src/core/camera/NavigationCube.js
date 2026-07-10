@@ -102,6 +102,9 @@ export class NavigationCube {
             const targetRotation = new THREE.Euler(0, angle, 0);
             this.cubeOffsetGroup.setRotationFromEuler(targetRotation);
         }
+        if (this.cameraController) {
+            this.cameraController.setEntranceAngle(angle);
+        }
     }
 
     createTextMaterial(text) {

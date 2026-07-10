@@ -631,7 +631,13 @@ export class Preview3D {
                 centerX /= walls.length; centerZ /= walls.length;
             }
             this.controls.target.set(centerX, targetY, centerZ); 
-            this.camera.position.set(centerX, targetY + 600, centerZ + 800); 
+            
+            const baseDir = new THREE.Vector3(1, 1, 1).normalize();
+            const angle = this.cameraController.entranceAngle || 0;
+            const dir = baseDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+            
+            // Using 1000 for distance to loosely match the previous +800,+600,+800
+            this.camera.position.set(centerX + dir.x * 1280, targetY + Math.abs(dir.y) * 960, centerZ + dir.z * 1280); 
             this.controls.update(); 
         }
         this.previousTargetY = targetY;

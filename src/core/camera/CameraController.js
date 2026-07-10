@@ -48,6 +48,10 @@ export class CameraController {
     }
 
     orbitBy(dx, dy) {
+        if (this.isAnimating) {
+            this.isAnimating = false;
+            this.controls.enableDamping = true;
+        }
         // dx and dy are angles in radians
         this.controls.rotateLeft(dx);
         this.controls.rotateUp(dy);
@@ -74,6 +78,10 @@ export class CameraController {
         this.animateTo(newPos, center);
     }
 
+    setEntranceAngle(angle) {
+        this.entranceAngle = angle;
+    }
+
     resetCamera() {
         const box = this.getBuildingBoundingBox();
         const center = new THREE.Vector3();
@@ -84,7 +92,13 @@ export class CameraController {
         const maxDim = Math.max(size.x, size.y, size.z, 500);
         const distance = maxDim * 1.5;
 
-        const newPos = center.clone().add(new THREE.Vector3(1, 1, 1).normalize().multiplyScalar(distance));
+        const baseDir = new THREE.Vector3(1, 1, 1).normalize();
+        const angle = this.entranceAngle || 0;
+        
+        // Apply entrance rotation (Y-axis) to the direction vector
+        const dir = baseDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+        
+        const newPos = center.clone().add(dir.multiplyScalar(distance));
         this.animateTo(newPos, center);
     }
 

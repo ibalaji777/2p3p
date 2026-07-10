@@ -73,6 +73,7 @@
         @zoom-in="zoomIn"
         @zoom-out="zoomOut"
         @reset-zoom="resetZoom"
+        @reset-camera="resetCamera"
       />
 
       <RightSidebar
@@ -1041,6 +1042,12 @@ const zoomOut = () => {
 const resetZoom = () => {
     if (viewMode.value === '2d') workspaceControls.value?.resetZoom2D();
     // 3D reset can be more complex, often handled by `refresh3DScene`
+};
+
+const resetCamera = () => {
+    if (viewMode.value === '3d' && renderer3D.value?.cameraController) {
+        renderer3D.value.cameraController.resetCamera();
+    }
 };
 
 
