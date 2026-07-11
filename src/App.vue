@@ -187,6 +187,9 @@ import { storeToRefs } from 'pinia';
 import { useUIStore } from './stores/useUIStore.js';
 import { usePlannerStore } from './stores/usePlannerStore.js';
 import { useSettingsStore } from './stores/useSettingsStore.js';
+import { useHistory } from './composables/useHistory.js';
+import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts.js';
+import { useLevelManager } from './composables/useLevelManager.js';
 
 const uiStore = useUIStore();
 const plannerStore = usePlannerStore();
@@ -620,60 +623,7 @@ const removeLayerItem = (item) => {
     layerRefreshTrigger.value++;
 };
 
-const saveHistory = () => {
-    if (planner.value) {
-        levels.value[activeLevelIndex.value].data = planner.value.exportState();
-    }
-};
-
-let historyTimeout = null;
-const debouncedSaveHistory = () => {
-    if (historyTimeout) clearTimeout(historyTimeout);
-    historyTimeout = setTimeout(() => {
-        saveHistory();
-        layerRefreshTrigger.value++;
-    }, 500);
-};
-
-const undo = () => {
-    if (planner.value) planner.value.undo();
-};
-
-const redo = () => {
-    if (planner.value) planner.value.redo();
-};
-
-// Deprecated in Phase 5: Kept for reference but not used for general mutation
-const restoreHistoryState = (stateStr) => {
-    const state = JSON.parse(stateStr);
-
-    levels.value = state.levels.map(l => ({ ...l, isVisible: l.isVisible !== false }));
-    activeLevelIndex.value = state.activeLevelIndex;    
-    if (planner.value) {
-        if (levels.value[activeLevelIndex.value].data) {
-            planner.value.importState(levels.value[activeLevelIndex.value].data);
-        } else {
-            planner.value.clearAll();
-        }
-        
-        if (activeLevelIndex.value > 0 && levels.value[activeLevelIndex.value - 1].data) {
-            planner.value.loadReferenceBackground(levels.value[activeLevelIndex.value - 1].data);
-        } else {
-            planner.value.clearReferenceBackground();
-        }
-        
-        if (planner.value.settings) {
-            Object.assign(floorPlanSettings.value, planner.value.settings);
-        }
-    }
-    
-    handleDeselect();
-    if (viewMode.value === '3d') {
-        refresh3DScene(true);
-    } else {
-        if (planner.value) planner.value.syncAll();
-    }
-};
+const { saveHistory, debouncedSaveHistory, undo, redo, restoreHistoryState } = useHistory({ refresh3DScene: (b) => refresh3DScene(b), handleDeselect: () => handleDeselect() });
 
 const currentFaceDecors = computed(() => {
     const trigger = uiTrigger.value; 
@@ -833,77 +783,9 @@ onBeforeUnmount(() => {
     window.removeEventListener(EVENTS.MATERIAL_GIZMO_APPLY, syncEngine);
 });
 
-const handleGlobalKeys = (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        if (e.shiftKey) redo(); else undo();
-        e.preventDefault(); return;
-    }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
-        redo(); e.preventDefault(); return;
-    }
+const { handleGlobalKeys } = useKeyboardShortcuts({ undo, redo, handleDelete: () => handleDelete(), debouncedSaveHistory, setTool: (t) => setTool(t), toggleCategory: (c) => toggleCategory(c) });
 
-    if (viewMode.value === '3d') {
-        if (e.key === 'Delete' || e.key === 'Backspace') { 
-            if (selectedType.value === 'furniture' || selectedType.value === 'stair' ) { handleDelete(); debouncedSaveHistory(); }
-        }
-        if (e.key === 'Escape' && renderer3D.value) renderer3D.value.cancelRelocation();
-    } else if (viewMode.value === '2d') {
-        if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (selectedType.value === 'roof' || selectedType.value === 'furniture' || selectedType.value === 'widget' || selectedType.value === 'molding' || selectedType.value === 'advance_openings' || selectedType.value === 'shape' || selectedType.value === 'wall' || selectedType.value === 'arc' || selectedType.value === 'room' || selectedType.value === 'stair' ) { handleDelete(); debouncedSaveHistory(); }
-        }
-        if (e.key === 'Escape') {
-            setTool('select');
-            toggleCategory('tools');
-        }
-    }
-};
-
-const saveCurrentLevelState = () => { if (planner.value) levels.value[activeLevelIndex.value].data = planner.value.exportState(); };
-
-const updateStaticLevelData = (staticWall) => {
-    const levelIdx = staticWall.levelIndex;
-    if (levelIdx === undefined || !levels.value[levelIdx]) return;
-    
-    const levelData = JSON.parse(levels.value[levelIdx].data);
-    const targetWall = levelData.walls[staticWall.wallIndex];
-    
-    if (targetWall) {
-        targetWall.decors = staticWall.attachedDecor.map(d => ({
-            id: d.id, configId: d.configId, side: d.side,
-            localX: d.localX, localY: d.localY, localZ: d.localZ,
-            width: d.width, height: d.height, depth: d.depth, tileSize: d.tileSize,
-            faces: { front: d.faces?.front, back: d.faces?.back, left: d.faces?.left, right: d.faces?.right }
-        }));
-        levels.value[levelIdx].data = JSON.stringify(levelData);
-    }
-};
-
-const switchLevel = (index) => {
-    if (index === activeLevelIndex.value) return; 
-    saveCurrentLevelState();
-    planner.value.clearReferenceBackground();
-    handleDeselect();
-
-    activeLevelIndex.value = index;
-    const targetData = levels.value[index].data;
-    if (targetData) planner.value.importState(targetData); else planner.value.clearAll(); 
-
-    if (index > 0) {
-        const referenceData = levels.value[index - 1].data;
-        if (referenceData) planner.value.loadReferenceBackground(referenceData);
-    }
-    
-    if (viewMode.value === '3d') refresh3DScene(true); 
-    saveHistory();
-};
-
-const addLevel = (type) => {
-    saveCurrentLevelState();
-    const newIndex = levels.value.length;
-    levels.value.push({ id: 'level-' + Date.now(), name: `Floor ${newIndex + 1}`, data: type === 'duplicate' ? levels.value[activeLevelIndex.value].data : null, isVisible: true });
-    switchLevel(newIndex);
-    saveHistory();
-};
+const { saveCurrentLevelState, updateStaticLevelData, switchLevel, addLevel } = useLevelManager({ handleDeselect: () => handleDeselect(), refresh3DScene: (b) => refresh3DScene(b), saveHistory });
 
 watch(() => selectedEntity.value?.params?.isEditingMaterials, (newVal) => {
     if (renderer3D.value) {

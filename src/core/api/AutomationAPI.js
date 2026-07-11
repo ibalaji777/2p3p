@@ -36,6 +36,9 @@ export class AutomationAPI {
 
             // 3. Execute
             this.planner.commandManager.execute(command);
+            if (typeof window !== 'undefined' && window.CustomEvent) {
+                window.dispatchEvent(new CustomEvent('sceneChanged'));
+            }
 
             return { success: true, data: { action: payload.action, id: payload.entityId || command.id } };
         } catch (error) {

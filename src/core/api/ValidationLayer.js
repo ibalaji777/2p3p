@@ -10,7 +10,8 @@ export class ValidationLayer {
      * @param {Object} planner - The FloorPlanner instance
      * @param {Object} payload - The command payload from external system
      */
-    static validate(planner, payload, context = { pendingEntities: new Set() }) {
+    static validate(planner, payload, context) {
+        if (!context) context = { pendingEntities: new Set() };
         if (!payload || typeof payload !== 'object') {
             throw new Error('Payload must be a valid JSON object.');
         }
@@ -37,6 +38,7 @@ export class ValidationLayer {
                 try {
                     this.validate(planner, cmd, context);
                 } catch (e) {
+                    console.error('Inner validation error:', e.stack);
                     throw new Error(`Transaction validation failed at command ${idx}: ${e.message}`);
                 }
             });
