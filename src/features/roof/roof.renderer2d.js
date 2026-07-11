@@ -1,4 +1,5 @@
 import { EVENTS, offsetPolygon } from '../../core/registry.js';
+import { coreEventBus } from '../../core/EventBus.js';
 import Konva from 'konva';
 
 export class PremiumHipRoof {
@@ -431,8 +432,8 @@ export class PremiumHipRoof {
             this.configId = key;
         }
         
-        if (window.dispatchEvent) {
-            window.dispatchEvent(new CustomEvent(EVENTS.MATERIAL_GIZMO_APPLY));
+        if (typeof window !== 'undefined') {
+            coreEventBus.emit(EVENTS.MATERIAL_GIZMO_APPLY);
         }
     }
 

@@ -13,6 +13,7 @@ import { DeleteCommand } from '../commands/DeleteCommand.js';
 import { CreateCommand } from '../commands/CreateCommand.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { EVENTS } from '../constants/events.js';
+import { coreEventBus } from '../EventBus.js';
 
 // SOLID: Import the decoupled 2D entity classes from the same folder
 import { Anchor } from './Anchor.js';
@@ -248,8 +249,8 @@ export class FloorPlanner {
         }
         
         if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent(EVENTS.ENTITY_REMOVED, { detail: { entityId } }));
-            window.dispatchEvent(new CustomEvent(EVENTS.SCENE_CHANGED));
+            coreEventBus.emit(EVENTS.ENTITY_REMOVED, { entityId });
+            coreEventBus.emit(EVENTS.SCENE_CHANGED);
         }
         this.syncAll();
     }
@@ -753,7 +754,7 @@ export class FloorPlanner {
 
         if (this.onSelectionChange) this.onSelectionChange(entity, type, nodeIndex);
         if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent(EVENTS.SELECTION_CHANGED, { detail: { entity, type, nodeIndex } }));
+            coreEventBus.emit(EVENTS.SELECTION_CHANGED, { entity, type, nodeIndex });
         }
     }
 

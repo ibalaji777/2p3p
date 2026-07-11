@@ -1,4 +1,5 @@
 import { EVENTS } from '../constants/events.js';
+import { coreEventBus } from '../EventBus.js';
 
 export class CommandManager {
     constructor(limit = 100) {
@@ -20,8 +21,8 @@ export class CommandManager {
         }
 
         if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent(EVENTS.HISTORY_CHANGED));
-            window.dispatchEvent(new CustomEvent(EVENTS.SCENE_CHANGED));
+            coreEventBus.emit(EVENTS.HISTORY_CHANGED);
+            coreEventBus.emit(EVENTS.SCENE_CHANGED);
         }
     }
 
@@ -33,8 +34,8 @@ export class CommandManager {
         this.redoStack.push(command);
         
         if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent(EVENTS.HISTORY_CHANGED));
-            window.dispatchEvent(new CustomEvent(EVENTS.SCENE_CHANGED));
+            coreEventBus.emit(EVENTS.HISTORY_CHANGED);
+            coreEventBus.emit(EVENTS.SCENE_CHANGED);
         }
     }
 
@@ -46,8 +47,8 @@ export class CommandManager {
         this.undoStack.push(command);
         
         if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent(EVENTS.HISTORY_CHANGED));
-            window.dispatchEvent(new CustomEvent(EVENTS.SCENE_CHANGED));
+            coreEventBus.emit(EVENTS.HISTORY_CHANGED);
+            coreEventBus.emit(EVENTS.SCENE_CHANGED);
         }
     }
 }

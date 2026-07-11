@@ -171,8 +171,25 @@ export class Preview3D {
         pmremGenerator.compileEquirectangularShader(); 
         this.scene.environment = pmremGenerator.fromScene(new THREE.Scene()).texture;
 
-        window.addEventListener('resize', () => this.resize()); 
-        this.animate();
+        this._onResize = () => this.resize();
+        window.addEventListener('resize', this._onResize); 
+        this._animateId = requestAnimationFrame(() => this.animate());
+    }
+
+    dispose() {
+        if (this._onResize) window.removeEventListener('resize', this._onResize);
+        if (this._animateId) cancelAnimationFrame(this._animateId);
+        
+        if (this.interactions && this.interactions.dispose) this.interactions.dispose();
+        if (this.gizmoManager && this.gizmoManager.dispose) this.gizmoManager.dispose();
+        if (this.navigationCube && this.navigationCube.dispose) this.navigationCube.dispose();
+        if (this.cameraController && this.cameraController.dispose) this.cameraController.dispose();
+        
+        // Clean up WebGL context and renderer
+        if (this.renderer) {
+            this.renderer.dispose();
+            this.renderer.forceContextLoss();
+        }
     }
 
     resize() {
@@ -186,7 +203,7 @@ export class Preview3D {
     }
 
     animate() { 
-        requestAnimationFrame(() => this.animate()); 
+        this._animateId = requestAnimationFrame(() => this.animate()); 
         this.cameraController.update();
         this.navigationCube.update(this.camera);
         this.renderer.render(this.scene, this.camera); 

@@ -50,16 +50,17 @@ export class WorkspaceControls {
             }
         });
 
-        window.addEventListener('mousemove', (e) => {
+        this._onMouseMove = (e) => {
             if (!this.isPanning2D) return;
             e.preventDefault();
             const dx = e.clientX - this.lastPanPos.x; const dy = e.clientY - this.lastPanPos.y;
             this.lastPanPos = { x: e.clientX, y: e.clientY };
             stage.position({ x: stage.x() + dx, y: stage.y() + dy });
             stage.batchDraw();
-        });
+        };
+        window.addEventListener('mousemove', this._onMouseMove);
 
-        window.addEventListener('mouseup', (e) => {
+        this._onMouseUp = (e) => {
             if (this.isPanning2D && (e.button === 1 || e.button === 2)) {
                 this.isPanning2D = false;
                 if (this.planner && this.planner.stage) {
@@ -67,7 +68,8 @@ export class WorkspaceControls {
                     document.body.style.cursor = '';
                 }
             }
-        });
+        };
+        window.addEventListener('mouseup', this._onMouseUp);
         
         
         // Touch Pinch Zoom & Two-Finger Pan
@@ -165,5 +167,10 @@ export class WorkspaceControls {
         this.planner.stage.scale({ x: 1, y: 1 });
         this.planner.stage.position({ x: 0, y: 0 });
         this.planner.stage.batchDraw();
+    }
+
+    dispose() {
+        if (this._onMouseMove) window.removeEventListener('mousemove', this._onMouseMove);
+        if (this._onMouseUp) window.removeEventListener('mouseup', this._onMouseUp);
     }
 }

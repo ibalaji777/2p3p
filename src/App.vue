@@ -254,6 +254,7 @@ import { ServerClass } from './core/ServerClass.js';
 
 import { FileManager } from './core/io.js';
 import { WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, FLOOR_REGISTRY, RAILING_REGISTRY, EVENTS } from './core/registry.js';
+import { coreEventBus } from './core/EventBus.js';
 import { getMenuCategories } from './core/config/menuCategories.js';
 import { useAppMaterials } from './composables/useAppMaterials.js';
 import { useAppTools } from './composables/useAppTools.js';
@@ -517,6 +518,7 @@ const hintData = computed(() => {
     
     return { text: 'SELECT mode: Click elements to edit. Trace Faded Fills from lower floors perfectly.', color: 'rgba(17, 24, 39, 0.9)' };
 });
+let eventBusUnsubscribers = [];
 
 onMounted(() => {
     window.addEventListener('resize', handleResize);
@@ -604,33 +606,33 @@ onMounted(() => {
 
     window.addEventListener('keydown', handleGlobalKeys);
     
-    window.addEventListener(EVENTS.OPENING_GIZMO_CHANGE, throttledSyncEngine);
-    window.addEventListener(EVENTS.ROOF_CORNER_GIZMO_CHANGE, throttledSyncEngine);
-    window.addEventListener(EVENTS.ROOF_OVERHANG_GIZMO_CHANGE, throttledSyncEngine);
-    window.addEventListener(EVENTS.SCENE_CHANGED, syncEngine);
-    window.addEventListener(EVENTS.ENTITY_REMOVED, syncEngine);
+    eventBusUnsubscribers.push(coreEventBus.on(EVENTS.OPENING_GIZMO_CHANGE, throttledSyncEngine));
+    eventBusUnsubscribers.push(coreEventBus.on(EVENTS.ROOF_CORNER_GIZMO_CHANGE, throttledSyncEngine));
+    eventBusUnsubscribers.push(coreEventBus.on(EVENTS.ROOF_OVERHANG_GIZMO_CHANGE, throttledSyncEngine));
+    eventBusUnsubscribers.push(coreEventBus.on(EVENTS.SCENE_CHANGED, syncEngine));
+    eventBusUnsubscribers.push(coreEventBus.on(EVENTS.ENTITY_REMOVED, syncEngine));
     
-    window.addEventListener(EVENTS.HISTORY_CHANGED, () => {
+    eventBusUnsubscribers.push(coreEventBus.on(EVENTS.HISTORY_CHANGED, () => {
         if (planner.value && planner.value.commandManager) {
             canUndo.value = planner.value.commandManager.undoStack.length > 0;
             canRedo.value = planner.value.commandManager.redoStack.length > 0;
             debouncedSaveHistory(); 
         }
-    });
+    }));
 
-    window.addEventListener(EVENTS.OPENING_GIZMO_END, syncEngine);
-    window.addEventListener(EVENTS.ROOF_CORNER_GIZMO_END, syncEngine);
-    window.addEventListener(EVENTS.ROOF_OVERHANG_GIZMO_END, syncEngine);
-    window.addEventListener(EVENTS.VERTEX_SLOPE_GIZMO_END, syncEngine);
-    window.addEventListener(EVENTS.POLYGON_GIZMO_END, syncEngine);
-    window.addEventListener(EVENTS.MATERIAL_GIZMO_APPLY, syncEngine);
+    eventBusUnsubscribers.push(coreEventBus.on(EVENTS.OPENING_GIZMO_END, syncEngine));
+    eventBusUnsubscribers.push(coreEventBus.on(EVENTS.ROOF_CORNER_GIZMO_END, syncEngine));
+    eventBusUnsubscribers.push(coreEventBus.on(EVENTS.ROOF_OVERHANG_GIZMO_END, syncEngine));
+    eventBusUnsubscribers.push(coreEventBus.on(EVENTS.VERTEX_SLOPE_GIZMO_END, syncEngine));
+    eventBusUnsubscribers.push(coreEventBus.on(EVENTS.POLYGON_GIZMO_END, syncEngine));
+    eventBusUnsubscribers.push(coreEventBus.on(EVENTS.MATERIAL_GIZMO_APPLY, syncEngine));
     
-    window.addEventListener(EVENTS.MATERIAL_GIZMO_SELECT, (e) => {
+    eventBusUnsubscribers.push(coreEventBus.on(EVENTS.MATERIAL_GIZMO_SELECT, (data) => {
         if (selectedEntity.value && selectedEntity.value.params) {
-            selectedEntity.value.params.materialTarget = e.detail.face;
+            selectedEntity.value.params.materialTarget = data.face;
             uiTrigger.value++;
         }
-    });
+    }));
 
     setTimeout(() => {
         saveHistory();
@@ -640,15 +642,20 @@ onMounted(() => {
 onBeforeUnmount(() => {
     window.removeEventListener('resize', handleResize);
     window.removeEventListener('keydown', handleGlobalKeys);
-    window.removeEventListener(EVENTS.OPENING_GIZMO_CHANGE, throttledSyncEngine);
-    window.removeEventListener(EVENTS.ROOF_CORNER_GIZMO_CHANGE, throttledSyncEngine);
-    window.removeEventListener(EVENTS.ROOF_OVERHANG_GIZMO_CHANGE, throttledSyncEngine);
-    window.removeEventListener(EVENTS.OPENING_GIZMO_END, syncEngine);
-    window.removeEventListener(EVENTS.ROOF_CORNER_GIZMO_END, syncEngine);
-    window.removeEventListener(EVENTS.ROOF_OVERHANG_GIZMO_END, syncEngine);
-    window.removeEventListener(EVENTS.VERTEX_SLOPE_GIZMO_END, syncEngine);
-    window.removeEventListener(EVENTS.POLYGON_GIZMO_END, syncEngine);
-    window.removeEventListener(EVENTS.MATERIAL_GIZMO_APPLY, syncEngine);
+    
+    // Clean up all EventBus listeners properly to avoid memory leaks
+    eventBusUnsubscribers.forEach(unsubscribe => unsubscribe());
+    eventBusUnsubscribers = [];
+    
+    // Clean up 3D engine components
+    if (renderer3D.value && renderer3D.value.dispose) {
+        renderer3D.value.dispose();
+    }
+    
+    // Clean up workspace controls
+    if (workspaceControls.value && workspaceControls.value.dispose) {
+        workspaceControls.value.dispose();
+    }
 });
 
 const { handleGlobalKeys } = useKeyboardShortcuts({ undo, redo, handleDelete: () => handleDelete(), debouncedSaveHistory, setTool: (t) => setTool(t), toggleCategory: (c) => toggleCategory(c) });

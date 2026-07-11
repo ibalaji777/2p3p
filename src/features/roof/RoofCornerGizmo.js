@@ -1,4 +1,5 @@
 import { EVENTS } from '../../core/registry.js';
+import { coreEventBus } from '../../core/EventBus.js';
 import * as THREE from 'three';
 
 export class RoofCornerGizmo extends THREE.Group {
@@ -111,8 +112,8 @@ export class RoofCornerGizmo extends THREE.Group {
                     this.updateHandlePositions();
                     if (this.ctx.updateRoofLive) {
                         this.ctx.updateRoofLive(entity);
-                    } else if (window.dispatchEvent) {
-                        window.dispatchEvent(new CustomEvent(EVENTS.ROOF_CORNER_GIZMO_CHANGE, { detail: { entity: entity } }));
+                    } else if (typeof window !== 'undefined') {
+                        coreEventBus.emit(EVENTS.ROOF_CORNER_GIZMO_CHANGE, { entity: entity });
                     }
                 }
             } else {
@@ -139,7 +140,7 @@ export class RoofCornerGizmo extends THREE.Group {
                 this.isDragging = false;
                 if (this.ctx.controls) this.ctx.controls.enabled = true;
                 if (this.target && this.target.userData.entity) {
-                    window.dispatchEvent(new CustomEvent(EVENTS.ROOF_CORNER_GIZMO_END, { detail: { entity: this.target.userData.entity } }));
+                    coreEventBus.emit(EVENTS.ROOF_CORNER_GIZMO_END, { entity: this.target.userData.entity });
                     if (this.ctx.syncToUI) this.ctx.syncToUI();
                 }
             }

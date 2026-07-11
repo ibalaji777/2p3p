@@ -1,4 +1,5 @@
 import { EVENTS } from '../registry.js';
+import { coreEventBus } from '../EventBus.js';
 import * as THREE from 'three';
 import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY } from '../registry.js';
 
@@ -424,7 +425,7 @@ export class GizmoManager {
                     if (window.plannerInstance && window.plannerInstance.syncAll) window.plannerInstance.syncAll();
                     if (this.ctx.interactions.openingGizmo) this.ctx.interactions.openingGizmo.updateHandles();
                     this.updateOpeningPanel(entity);
-                    window.dispatchEvent(new CustomEvent(EVENTS.OPENING_GIZMO_CHANGE, { detail: { entity }}));
+                    coreEventBus.emit(EVENTS.OPENING_GIZMO_CHANGE, { entity });
                 }
             };
             if (opW) { opW.addEventListener('input', e => updateOpeningPos('width', parseFloat(e.target.value))); opWR.addEventListener('input', e => updateOpeningPos('width', parseFloat(e.target.value))); }
@@ -442,7 +443,7 @@ export class GizmoManager {
                         entity.facing = (entity.facing === 1) ? -1 : 1;
                         if (window.plannerInstance && window.plannerInstance.syncAll) window.plannerInstance.syncAll();
                         if (this.ctx.interactions.openingGizmo) this.ctx.interactions.openingGizmo.updateHandles();
-                        window.dispatchEvent(new CustomEvent(EVENTS.OPENING_GIZMO_CHANGE, { detail: { entity }}));
+                        coreEventBus.emit(EVENTS.OPENING_GIZMO_CHANGE, { entity });
                     }
                 });
             }
@@ -453,7 +454,7 @@ export class GizmoManager {
                         entity.side = (entity.side === 1) ? -1 : 1;
                         if (window.plannerInstance && window.plannerInstance.syncAll) window.plannerInstance.syncAll();
                         if (this.ctx.interactions.openingGizmo) this.ctx.interactions.openingGizmo.updateHandles();
-                        window.dispatchEvent(new CustomEvent(EVENTS.OPENING_GIZMO_CHANGE, { detail: { entity }}));
+                        coreEventBus.emit(EVENTS.OPENING_GIZMO_CHANGE, { entity });
                     }
                 });
             }
@@ -465,7 +466,7 @@ export class GizmoManager {
                         else if (entity.type === 'window') entity.windowType = e.target.value;
                         if (window.plannerInstance && window.plannerInstance.syncAll) window.plannerInstance.syncAll();
                         if (this.ctx.interactions.openingGizmo) this.ctx.interactions.openingGizmo.updateHandles();
-                        window.dispatchEvent(new CustomEvent(EVENTS.OPENING_GIZMO_CHANGE, { detail: { entity }}));
+                        coreEventBus.emit(EVENTS.OPENING_GIZMO_CHANGE, { entity });
                     }
                 });
             }
@@ -915,7 +916,7 @@ export class GizmoManager {
                 selectedObj.userData.entity.params.isEditingMaterials = true;
                 
                 if (selectedObj.userData.entity.type === 'elevation_fascia' || selectedObj.userData.entity.type === 'molding' || selectedObj.userData.isWidget || selectedObj.userData.entity.type === 'wallDecor') {
-                    if (window.dispatchEvent) window.dispatchEvent(new CustomEvent(EVENTS.MATERIAL_GIZMO_SELECT, { detail: { entity: selectedObj.userData.entity, face: 'front' }}));
+                    if (typeof window !== 'undefined') coreEventBus.emit(EVENTS.MATERIAL_GIZMO_SELECT, { entity: selectedObj.userData.entity, face: 'front' });
                 }
                 
                 if (this.ctx.syncToUI) this.ctx.syncToUI();
@@ -1278,5 +1279,24 @@ export class GizmoManager {
                 typeContainer.style.display = 'none';
             }
         }
+    }
+
+    dispose() {
+        if (this.xyPanel && this.xyPanel.parentNode) this.xyPanel.parentNode.removeChild(this.xyPanel);
+        if (this.openingPanel && this.openingPanel.parentNode) this.openingPanel.parentNode.removeChild(this.openingPanel);
+        if (this.materialPanel && this.materialPanel.parentNode) this.materialPanel.parentNode.removeChild(this.materialPanel);
+        if (this.cornerPanel && this.cornerPanel.parentNode) this.cornerPanel.parentNode.removeChild(this.cornerPanel);
+        if (this.stylePanel && this.stylePanel.parentNode) this.stylePanel.parentNode.removeChild(this.stylePanel);
+        if (this.transformMenu && this.transformMenu.parentNode) this.transformMenu.parentNode.removeChild(this.transformMenu);
+        if (this.btnDone && this.btnDone.parentNode) this.btnDone.parentNode.removeChild(this.btnDone);
+        
+        // Also dispose of inner gizmos
+        if (this.polygonGizmo && this.polygonGizmo.dispose) this.polygonGizmo.dispose();
+        if (this.materialGizmo && this.materialGizmo.dispose) this.materialGizmo.dispose();
+        if (this.openingGizmo && this.openingGizmo.dispose) this.openingGizmo.dispose();
+        if (this.roofCornerGizmo && this.roofCornerGizmo.dispose) this.roofCornerGizmo.dispose();
+        if (this.roofOverhangGizmo && this.roofOverhangGizmo.dispose) this.roofOverhangGizmo.dispose();
+        if (this.vertexSlopeGizmo && this.vertexSlopeGizmo.dispose) this.vertexSlopeGizmo.dispose();
+        if (this.cornerRadiusGizmo && this.cornerRadiusGizmo.dispose) this.cornerRadiusGizmo.dispose();
     }
 }

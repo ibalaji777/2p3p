@@ -1,4 +1,5 @@
 import { EVENTS } from '../../core/registry.js';
+import { coreEventBus } from '../../core/EventBus.js';
 import * as THREE from 'three';
 
 export class VertexSlopeGizmo extends THREE.Group {
@@ -139,8 +140,8 @@ export class VertexSlopeGizmo extends THREE.Group {
                 this.activeDragIndex = -1;
                 if (this.ctx.controls) this.ctx.controls.enabled = true;
                 
-                if (window.dispatchEvent) {
-                    window.dispatchEvent(new CustomEvent(EVENTS.VERTEX_SLOPE_GIZMO_END, { detail: { entity: this.target.userData.entity } }));
+                if (typeof window !== 'undefined') {
+                    coreEventBus.emit(EVENTS.VERTEX_SLOPE_GIZMO_END, { entity: this.target.userData.entity });
                 }
             }
         });

@@ -29,9 +29,13 @@ export class InteractionSystem {
         });
         this.transformControls.addEventListener('change', () => {
             if (this.callbacks.syncToUI) this.callbacks.syncToUI();
+            if (this.selectedObject && this.selectedObject.userData.isWallDecor) {
+                if (this.callbacks.updateWallDecorLive) this.callbacks.updateWallDecorLive(this.selectedObject.userData.entity);
+            }
         });
         this.transformControls.addEventListener('dragend', () => {
             if (this.callbacks.onRelocateStateChange) this.callbacks.onRelocateStateChange(false);
+            if (this.callbacks.syncToUI) this.callbacks.syncToUI();
         });
         this.transformControls.visible = false;
         this.scene.add(this.transformControls);
@@ -58,8 +62,8 @@ export class InteractionSystem {
     initEvents() {
         const dom = this.renderer.domElement;
         
-        dom.addEventListener('contextmenu', e => e.preventDefault());
-        dom.addEventListener('pointerdown', (e) => {
+        this._onContextMenu = e => e.preventDefault();
+        this._onPointerDown = (e) => {
             if (this.viewMode3D === 'preview') return;
             if (this.transformControls.active) return;
 
@@ -93,9 +97,9 @@ export class InteractionSystem {
                     }
                 }
             } else this.deselect();
-        });
+        };
 
-        dom.addEventListener('pointermove', (e) => {
+        this._onPointerMove = (e) => {
             if (this.viewMode3D === 'preview') return;
             if (this.mode === 'camera') return;
             this.updateMouse(e);
@@ -124,7 +128,24 @@ export class InteractionSystem {
                     this.hoveredObject = null;
                 }
             }
-        });
+        };
+
+        dom.addEventListener('contextmenu', this._onContextMenu);
+        dom.addEventListener('pointerdown', this._onPointerDown);
+        dom.addEventListener('pointermove', this._onPointerMove);
+    }
+
+    dispose() {
+        const dom = this.renderer.domElement;
+        if (this._onContextMenu) dom.removeEventListener('contextmenu', this._onContextMenu);
+        if (this._onPointerDown) dom.removeEventListener('pointerdown', this._onPointerDown);
+        if (this._onPointerMove) dom.removeEventListener('pointermove', this._onPointerMove);
+        
+        if (this.transformControls) {
+            // TransformControls logic uses its own dispose mechanism or we just let it get GCed
+            if (this.transformControls.dispose) this.transformControls.dispose();
+            this.scene.remove(this.transformControls);
+        }
     }
 
     setRelocationState(active) {
