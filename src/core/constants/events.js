@@ -1,5 +1,14 @@
 export const EVENTS = {
+    // Core Engine Events
     SELECTION_CHANGED: 'selection-changed',
+    ENTITY_CREATED: 'entity-created',
+    ENTITY_MODIFIED: 'entity-modified',
+    ENTITY_REMOVED: 'entity-removed',
+    SCENE_CHANGED: 'scene-changed',
+    HISTORY_CHANGED: 'history-changed',
+    TOOL_CHANGED: 'tool-changed',
+    
+    // Gizmo Specific Events
     OBJECT_UPDATED: 'object-updated',
     OPENING_GIZMO_CHANGE: 'opening-gizmo-change',
     ROOF_CORNER_GIZMO_CHANGE: 'roof-corner-gizmo-change',

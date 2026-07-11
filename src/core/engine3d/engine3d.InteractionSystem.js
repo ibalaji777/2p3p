@@ -277,6 +277,56 @@ export class InteractionSystem {
 
         this.transformControls = new TransformControls(this.ctx.camera, this.ctx.renderer.domElement);
         const syncUI = () => { if (this.ctx.syncToUI) this.ctx.syncToUI(); };
+        
+        let drag3DStartPos = null;
+        let drag3DStartRot = null;
+
+        this.transformControls.addEventListener('move-start', (e) => {
+            if (e.object && e.object.userData && e.object.userData.entity) {
+                const ent = e.object.userData.entity;
+                if (ent.group) drag3DStartPos = { x: ent.group.x(), y: ent.group.y() };
+            }
+        });
+
+        this.transformControls.addEventListener('move-end', (e) => {
+            if (e.object && e.object.userData && e.object.userData.entity && drag3DStartPos) {
+                const ent = e.object.userData.entity;
+                const id = ent.id || (ent.group && ent.group.id());
+                const endX = e.object.position.x;
+                const endY = -e.object.position.z;
+                
+                if (Math.abs(endX - drag3DStartPos.x) > 0.001 || Math.abs(endY - drag3DStartPos.y) > 0.001) {
+                    if (window.planner && window.planner.value) {
+                        e.object.position.set(drag3DStartPos.x, e.object.position.y, -drag3DStartPos.y);
+                        window.planner.value.move(id, endX, endY);
+                    }
+                }
+                drag3DStartPos = null;
+            }
+        });
+
+        this.transformControls.addEventListener('rotate-start', (e) => {
+            if (e.object && e.object.userData && e.object.userData.entity) {
+                drag3DStartRot = e.object.rotation.y;
+            }
+        });
+
+        this.transformControls.addEventListener('rotate-end', (e) => {
+            if (e.object && e.object.userData && e.object.userData.entity && drag3DStartRot !== null) {
+                const ent = e.object.userData.entity;
+                const id = ent.id || (ent.group && ent.group.id());
+                const endRot = e.object.rotation.y;
+                
+                if (Math.abs(endRot - drag3DStartRot) > 0.001) {
+                    if (window.planner && window.planner.value) {
+                        e.object.rotation.y = drag3DStartRot;
+                        window.planner.value.rotate(id, endRot);
+                    }
+                }
+                drag3DStartRot = null;
+            }
+        });
+
         this.transformControls.addEventListener('move-change', syncUI);
         this.transformControls.addEventListener('scale-change', syncUI);
         this.transformControls.addEventListener('spin-change', syncUI);

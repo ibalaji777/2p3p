@@ -3,8 +3,8 @@
     <TopToolbar
       :view-mode="viewMode"
       :view-mode3D="viewMode3D"
-      :history-index="historyIndex"
-      :history-length="historyStack.length"
+      :can-undo="canUndo"
+      :can-redo="canRedo"
       @switch-2d="switchTo2D"
       @switch-3d="switchTo3D"
       @toggle-preview="togglePreviewMode"
@@ -318,10 +318,9 @@ const cancelDrawing = () => {
 const renderer3D = shallowRef(null);
 const workspaceControls = shallowRef(null);
 const serverService = shallowRef(null);
-
-const historyStack = ref([]);
-const historyIndex = ref(-1);
-const isUndoRedoAction = ref(false);
+const showLeftSidebar = ref(true);
+const canUndo = ref(false);
+const canRedo = ref(false);
 
 const viewMode = ref('2d');
 const mode3D = ref('edit'); 
@@ -667,28 +666,8 @@ const removeLayerItem = (item) => {
 };
 
 const saveHistory = () => {
-    if (isUndoRedoAction.value) return;
-    
     if (planner.value) {
         levels.value[activeLevelIndex.value].data = planner.value.exportState();
-    }
-    
-    const currentState = JSON.stringify({
-        levels: levels.value,
-        activeLevelIndex: activeLevelIndex.value
-    });
-
-    if (historyIndex.value >= 0 && historyStack.value[historyIndex.value] === currentState) {
-        return; 
-    }
-
-    historyStack.value = historyStack.value.slice(0, historyIndex.value + 1);
-    historyStack.value.push(currentState);
-    
-    if (historyStack.value.length > 50) {
-        historyStack.value.shift();
-    } else {
-        historyIndex.value++;
     }
 };
 
@@ -702,23 +681,14 @@ const debouncedSaveHistory = () => {
 };
 
 const undo = () => {
-    if (historyIndex.value > 0) {
-        isUndoRedoAction.value = true;
-        historyIndex.value--;
-        restoreHistoryState(historyStack.value[historyIndex.value]);
-        setTimeout(() => { isUndoRedoAction.value = false; }, 100);
-    }
+    if (planner.value) planner.value.undo();
 };
 
 const redo = () => {
-    if (historyIndex.value < historyStack.value.length - 1) {
-        isUndoRedoAction.value = true;
-        historyIndex.value++;
-        restoreHistoryState(historyStack.value[historyIndex.value]);
-        setTimeout(() => { isUndoRedoAction.value = false; }, 100);
-    }
+    if (planner.value) planner.value.redo();
 };
 
+// Deprecated in Phase 5: Kept for reference but not used for general mutation
 const restoreHistoryState = (stateStr) => {
     const state = JSON.parse(stateStr);
 
@@ -863,6 +833,17 @@ onMounted(() => {
     window.addEventListener(EVENTS.OPENING_GIZMO_CHANGE, throttledSyncEngine);
     window.addEventListener(EVENTS.ROOF_CORNER_GIZMO_CHANGE, throttledSyncEngine);
     window.addEventListener(EVENTS.ROOF_OVERHANG_GIZMO_CHANGE, throttledSyncEngine);
+    window.addEventListener(EVENTS.SCENE_CHANGED, syncEngine);
+    window.addEventListener(EVENTS.ENTITY_REMOVED, syncEngine);
+    
+    window.addEventListener(EVENTS.HISTORY_CHANGED, () => {
+        if (planner.value && planner.value.commandManager) {
+            canUndo.value = planner.value.commandManager.undoStack.length > 0;
+            canRedo.value = planner.value.commandManager.redoStack.length > 0;
+            debouncedSaveHistory(); 
+        }
+    });
+
     window.addEventListener(EVENTS.OPENING_GIZMO_END, syncEngine);
     window.addEventListener(EVENTS.ROOF_CORNER_GIZMO_END, syncEngine);
     window.addEventListener(EVENTS.ROOF_OVERHANG_GIZMO_END, syncEngine);
@@ -1115,20 +1096,23 @@ const toggleEditDecor = (decorId) => { activeDecorId.value = activeDecorId.value
 
 const spawnWallPattern = (configId) => {
     if (renderer3D.value && selectedType.value === 'wall' && selectedEntity.value) {
-        const decor = renderer3D.value.addWallPattern(selectedEntity.value, configId, selectedWallSide.value);
-        selectedEntity.value.attachedDecor = [...selectedEntity.value.attachedDecor];
-        activeDecorId.value = decor.id; uiTrigger.value++; 
-        
-        if (selectedEntity.value.isStatic) updateStaticLevelData(selectedEntity.value);
-        debouncedSaveHistory();
+        if (planner.value) {
+            planner.value.executeWithSnapshot(() => {
+                const decor = renderer3D.value.addWallPattern(selectedEntity.value, configId, selectedWallSide.value);
+                selectedEntity.value.attachedDecor = [...selectedEntity.value.attachedDecor];
+                activeDecorId.value = decor.id; uiTrigger.value++; 
+                if (selectedEntity.value.isStatic) updateStaticLevelData(selectedEntity.value);
+            });
+            debouncedSaveHistory();
+        }
     }
 };
 
 const spawnFurniture = (configId) => {
-    const center = { x: planner.value.stage.width() / 2, y: planner.value.stage.height() / 2 };
-    const item = new PremiumFurniture(planner.value, center.x, center.y, configId);
-    planner.value.furniture.push(item); planner.value.selectEntity(item, 'furniture'); planner.value.syncAll();
-    debouncedSaveHistory();
+    if (planner.value) {
+        planner.value.create('furniture', { id: configId });
+        debouncedSaveHistory();
+    }
 };
 
 const syncEngine = () => {
@@ -1284,36 +1268,8 @@ const onDecorUpdate = (decor) => {
 
 const handleDelete = () => { 
     if (selectedEntity.value) {
-        if (selectedType.value === 'furniture') {
-            if (viewMode.value === '3d' && renderer3D.value.selectedObject?.userData.entity === selectedEntity.value) {
-                renderer3D.value.structureGroup.remove(renderer3D.value.selectedObject); 
-                renderer3D.value.deselectObject();
-            }
-            selectedEntity.value.remove(); 
-            selectedEntity.value = null; 
-            selectedType.value = null;
-            if (viewMode.value === '3d') refresh3DScene(true);
-        } else if (selectedType.value === 'roof') {
-            selectedEntity.value.remove();
-            selectedEntity.value = null;
-            selectedType.value = null;
-            if (viewMode.value === '3d') refresh3DScene(true);
-        } else if (selectedType.value === 'shape') {
-            if (viewMode.value === '3d' && renderer3D.value.selectedObject?.userData.entity === selectedEntity.value) {
-                renderer3D.value.structureGroup.remove(renderer3D.value.selectedObject);
-                renderer3D.value.deselectObject();
-            }
-            selectedEntity.value.remove();
-            selectedEntity.value = null;
-            selectedType.value = null;
-            if (viewMode.value === '3d') refresh3DScene(true);
-        } else if (selectedType.value === 'widget' || selectedType.value === 'molding' || selectedType.value === 'advance_openings' || selectedType.value === 'wall' || selectedType.value === 'arc' || selectedType.value === 'stair' ) {
-            if (typeof selectedEntity.value.remove === 'function') selectedEntity.value.remove();
-            else if (typeof selectedEntity.value.destroy === 'function') selectedEntity.value.destroy();
-            selectedEntity.value = null;
-            selectedType.value = null;
-            if (viewMode.value === '3d') refresh3DScene(true);
-        } else if (selectedType.value === 'wallDecor') {
+        if (selectedType.value === 'wallDecor') {
+            // Keep this for now since wallDecor is embedded deeply in wall arrays
             const wall = planner.value.walls.find(w => w.attachedDecor && w.attachedDecor.some(d => d.id === selectedEntity.value.id));
             if (wall) {
                 wall.attachedDecor = wall.attachedDecor.filter(d => d.id !== selectedEntity.value.id);
@@ -1328,16 +1284,13 @@ const handleDelete = () => {
             selectedType.value = null;
             if (viewMode.value === '3d') refresh3DScene(true);
             else if (planner.value) planner.value.syncAll();
-        } else if (selectedType.value === 'preset_group') {
-            selectedEntity.value.remove();
+        } else {
+            // Standard Entities now flow entirely through the Command System
             if (planner.value) {
-                planner.value.presetGroups = planner.value.presetGroups.filter(g => g !== selectedEntity.value);
+                const id = selectedEntity.value.id || (selectedEntity.value.group && selectedEntity.value.group.id());
+                planner.value.delete(id);
             }
-            selectedEntity.value = null;
-            selectedType.value = null;
-            if (viewMode.value === '3d') refresh3DScene(true);
         }
-        debouncedSaveHistory();
     }
 };
 

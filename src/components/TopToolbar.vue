@@ -24,11 +24,11 @@
        </div>
 
        <div class="right-tools">
-           <button class="tool-btn" @click="$emit('undo')" :disabled="historyIndex <= 0" title="Undo (Ctrl+Z)">
+           <button class="tool-btn" @click="$emit('undo')" :disabled="!canUndo" title="Undo (Ctrl+Z)">
                <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path></svg>
                <span class="tool-label">Undo</span>
            </button>
-           <button class="tool-btn" @click="$emit('redo')" :disabled="historyIndex >= historyLength - 1" title="Redo (Ctrl+Y)">
+           <button class="tool-btn" @click="$emit('redo')" :disabled="!canRedo" title="Redo (Ctrl+Y)">
                <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"></path><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"></path></svg>
                <span class="tool-label">Redo</span>
            </button>
@@ -40,8 +40,8 @@
 const props = defineProps({
   viewMode: String,
   viewMode3D: String,
-  historyIndex: Number,
-  historyLength: Number
+  canUndo: Boolean,
+  canRedo: Boolean
 });
 
 const emit = defineEmits(['switch-2d', 'switch-3d', 'toggle-preview', 'undo', 'redo']);

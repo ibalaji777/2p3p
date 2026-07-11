@@ -1,5 +1,6 @@
 import Konva from 'konva';
 import { SNAP_DIST } from '../registry.js';
+import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 
 export class Anchor {
     constructor(planner, x, y) {
@@ -19,6 +20,7 @@ export class Anchor {
             let attachedWalls = this.planner.walls.filter(w => w.startAnchor === this || w.endAnchor === this); 
             
             this.planner.selectEntity(this, 'anchor');
+            if (this.planner.commandManager) this._dragSnapshotCmd = new SnapshotCommand(this.planner);
             
             this.trackedObjects = [];
             this.trackedArcs = [];
@@ -234,6 +236,12 @@ export class Anchor {
             this.planner.hideInfoBadge(); 
             this.planner.hideSnapGlow(); 
             if (this.planner.smartGuides) this.planner.smartGuides.clear();
+            
+            if (this._dragSnapshotCmd && this._dragSnapshotCmd.finalize()) {
+                this.planner.commandManager.execute(this._dragSnapshotCmd);
+            }
+            this._dragSnapshotCmd = null;
+
             this.planner.syncAll(); 
         }); 
         this.planner.uiLayer.add(this.node);

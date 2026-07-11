@@ -27,10 +27,53 @@ export class PremiumFurniture {
                 this.planner.selectEntity(this, 'furniture'); 
             }
         });
-        this.group.on('dragstart', () => { this.isDragging = true; this.planner.selectEntity(this, 'furniture'); });
-        this.group.on('dragmove', (e) => { if (e.target === this.rotHandle) return; this.planner.syncAll(); });
-        this.group.on('dragend', () => { this.isDragging = false; });
-        this.rotHandle.on('dragmove', (e) => { e.cancelBubble = true; const pos = this.planner.stage.getPointerPosition(); const angleRad = Math.atan2(pos.y - this.group.y(), pos.x - this.group.x()); this.rotation = (angleRad * 180 / Math.PI) + 90; this.group.rotation(this.rotation); this.rotHandle.position({ x: this.width / 2, y: -15 }); this.planner.syncAll(); });
+        this.group.on('dragstart', () => { 
+            this.isDragging = true; 
+            this.dragStartPos = { x: this.group.x(), y: this.group.y() };
+            this.planner.selectEntity(this, 'furniture'); 
+        });
+        this.group.on('dragmove', (e) => { 
+            if (e.target === this.rotHandle) return; 
+            this.planner.syncAll(); 
+        });
+        this.group.on('dragend', () => { 
+            this.isDragging = false; 
+            if (this.dragStartPos) {
+                const endX = this.group.x();
+                const endY = this.group.y();
+                if (Math.abs(endX - this.dragStartPos.x) > 0.001 || Math.abs(endY - this.dragStartPos.y) > 0.001) {
+                    this.group.position(this.dragStartPos);
+                    if (this.planner.move) this.planner.move(this.id, endX, endY);
+                }
+                this.dragStartPos = null;
+            }
+        });
+        
+        this.rotHandle.on('dragstart', (e) => {
+            e.cancelBubble = true;
+            this.dragStartRot = this.rotation;
+        });
+        this.rotHandle.on('dragmove', (e) => { 
+            e.cancelBubble = true; 
+            const pos = this.planner.stage.getPointerPosition(); 
+            const angleRad = Math.atan2(pos.y - this.group.y(), pos.x - this.group.x()); 
+            this.rotation = (angleRad * 180 / Math.PI) + 90; 
+            this.group.rotation(this.rotation); 
+            this.rotHandle.position({ x: this.width / 2, y: -15 }); 
+            this.planner.syncAll(); 
+        });
+        this.rotHandle.on('dragend', (e) => {
+            e.cancelBubble = true;
+            if (this.dragStartRot !== undefined) {
+                const endRot = this.rotation;
+                if (Math.abs(endRot - this.dragStartRot) > 0.001) {
+                    this.rotation = this.dragStartRot;
+                    this.group.rotation(this.dragStartRot);
+                    if (this.planner.rotate) this.planner.rotate(this.id, endRot);
+                }
+                this.dragStartRot = undefined;
+            }
+        });
     }
     update() { this.group.width(this.width); this.group.height(this.depth); this.group.offsetX(this.width / 2); this.group.offsetY(this.depth / 2); this.bg.width(this.width); this.bg.height(this.depth); this.body.scaleX(this.width / 100); this.body.scaleY(this.depth / 100); this.group.rotation(this.rotation); this.rotHandle.x(this.width / 2); }
     remove() { this.group.destroy(); this.planner.furniture = this.planner.furniture.filter(f => f !== this); this.planner.selectEntity(null); this.planner.syncAll(); }
