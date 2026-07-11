@@ -1,18 +1,19 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
+import { errorTracker } from './core/errorTracker.js'
 
 const app = createApp(App)
 const pinia = createPinia()
 
 app.use(pinia)
 
+// Initialize the global error tracking service
+errorTracker.init({ environment: process.env.NODE_ENV || 'development' });
+
 // Global Error Handler for Production Readiness
 app.config.errorHandler = (err, instance, info) => {
-    // In the future, this is where we would report to Sentry or another crash reporting tool
-    console.error('[Global Error Boundary Caught Error]:', err);
-    console.error('Vue Instance:', instance);
-    console.error('Error Info:', info);
+    errorTracker.captureException(err, { vueInfo: info, component: instance?.$options?.name });
 };
 
 app.mount('#app')

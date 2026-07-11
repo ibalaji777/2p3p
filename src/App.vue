@@ -254,7 +254,10 @@ import { ServerClass } from './core/ServerClass.js';
 
 import { FileManager } from './core/io.js';
 import { WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, FLOOR_REGISTRY, RAILING_REGISTRY, EVENTS } from './core/registry.js';
-import { PRESET_REGISTRY, PRESET_CATEGORIES } from './core/engine2d/presetRegistry.js';
+import { getMenuCategories } from './core/config/menuCategories.js';
+import { useAppMaterials } from './composables/useAppMaterials.js';
+import { useAppTools } from './composables/useAppTools.js';
+import { useAppScene } from './composables/useAppScene.js';
 const wallDecorRegistry = WALL_DECOR_REGISTRY;
 const roofDecorRegistry = ROOF_DECOR_REGISTRY;
 const skyRegistry = SKY_REGISTRY;
@@ -329,150 +332,15 @@ const toggleWallTracking = () => {
 };
 
 // Menu categories
-const menuCategories = ref([
-    {
-        id: 'common', name: 'Common',
-        icon: '<path d="M4 6h16M4 12h16M4 18h16M8 6v12M16 6v12"></path>',
-        tools: [
-            { id: 'railing', name: 'Draw Railing' }
-        ]
-    },
-    {
-        id: 'tools', name: 'General',
-        icon: '<path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path><path d="M13 13l6 6"></path>',
-        tools: [
-            { id: 'select', name: 'Select & Edit' },
-            { id: 'pan', name: 'Pan / Move Canvas' }
-        ]
-    },
-    {
-        id: 'walls', name: 'Walls',
-        icon: '<path d="M4 4h16v16H4z"></path><path d="M4 12h16"></path><path d="M12 4v16"></path>',
-        tools: [
-            { id: 'outer', name: 'Outer Wall' },
-            { id: 'inner', name: 'Inner Wall' },
-            { id: 'arc', name: 'Curved Wall (Arc)' }
-        ]
-    },
-    {
-        id: 'doors_windows', name: 'Doors & Windows',
-        icon: '<path d="M4 22h16"></path><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"></path><path d="M14 12h2"></path>',
-        tools: [
-            { id: 'door', name: 'Add Door' },
-            { id: 'window', name: 'Add Window' },
-            { id: 'sunshade', name: 'Add Sunshade' },
-            { id: 'jali_panel', name: 'Add Jali Panel' }
-        ]
-    },
-    {
-        id: 'staircases', name: 'Staircases',
-        icon: '<path d="M19 3H15V7H11V11H7V15H3V21H19Z"></path>',
-        tools: [
-            { isDivider: true, name: 'Staircases' },
-            { id: 'stair_v5_straight', name: 'Straight Staircase' },
-            { id: 'stair_v5_L', name: 'L-Shape Staircase' },
-            { id: 'stair_v5_U', name: 'U-Shape Staircase' },
-            { id: 'stair_v5_T', name: 'T-Shape Staircase' },
-            { id: 'stair_v4_flight', name: 'Stair Flight (Legacy)' },
-            { id: 'stair_v4_landing', name: 'Landing (Legacy)' },
-            { id: 'stair_v4_landing_curve', name: 'U-Curve Landing (Legacy)' },
+const menuCategories = ref(getMenuCategories());
 
-            { isDivider: true, name: 'Floor Cuts' },
-            { id: 'shape_floor_cut', name: 'Floor Cut (Hole)' }
-        ]
-    },
-    {
-        id: 'roof_presets', name: 'Roof Presets',
-        icon: '<path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>',
-        tools: [
-            { isDivider: true, name: 'Custom Roofs' },
-            { id: 'roof_gable', name: 'Draw Gable Roof', roofType: 'gable' },
-            { id: 'roof_flat', name: 'Draw Flat Roof', roofType: 'flat' },
-            { id: 'roof_hip', name: 'Draw Hip Roof', roofType: 'hip' },
-            { id: 'auto_roof', name: 'Generate Auto-Roof', action: 'auto_roof' },
-            ...Object.keys(PRESET_CATEGORIES).reduce((acc, catName) => {
-                acc.push({ isDivider: true, name: catName });
-                PRESET_CATEGORIES[catName].forEach(preset => acc.push({ id: preset.id, name: preset.name, presetParams: { ...preset.defaultParams } }));
-                return acc;
-            }, [])
-        ]
-    },
-    {
-        id: 'furniture', name: 'Furniture',
-        icon: '<path d="M20 9V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v2"></path><path d="M2 13h20v5H2z"></path><path d="M4 18v2"></path><path d="M20 18v2"></path>',
-        tools: [
-            { id: 'couch_1', name: 'Couch', action: 'furniture' },
-            { id: 'chair_ekero', name: 'Chair', action: 'furniture' },
-            { id: 'table_dining', name: 'Dining Table', action: 'furniture' }
-        ]
-    },
-    {
-        id: 'shapes', name: 'Shapes',
-        icon: '<path d="M3 8l4-4 4 4v4H3V8z"></path><circle cx="17" cy="6" r="3"></circle><rect x="14" y="14" width="6" height="6" rx="1"></rect><path d="M3 14h6v6H3z"></path>',
-        tools: [
-            { id: 'shape_rect', name: 'Box (Rectangle)' },
-            { id: 'shape_circle', name: 'Cylinder (Circle)' },
-            { id: 'shape_triangle', name: 'Prism (Polygon)' }
-        ]
-    },
-    {
-        id: 'smart_wizard', name: 'Smart Wizard',
-        icon: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>',
-        tools: [
-            { id: 'smart_facing', name: 'Facing', action: 'wizard' },
-            { id: 'smart_wall_resize', name: 'Resize Plan', action: 'wizard' }
-        ]
-    },
-    {
-        id: 'advance_openings', name: 'Advanced Openings',
-        icon: '<path d="M12 2L2 22h20L12 2z"></path><circle cx="12" cy="14" r="3"></circle>',
-        tools: [
-            { id: 'arch_opening', name: 'Arch Opening' },
-            { id: 'circular_opening', name: 'Circular & Oval' },
-            { id: 'custom_shape_opening', name: 'Custom Shape Cut' },
-            { id: 'niche_recess', name: 'Niche & Recess' },
-            { id: 'pattern_opening', name: 'Pattern Opening' },
-            { id: 'boolean_cut', name: 'Boolean Cut' }
-        ]
-    },
-    {
-        id: 'architectural_details', name: 'Architectural Details',
-        icon: '<path d="M3 21h18v-2H3v2zm6-4h12v-2H9v2zm-6-4h18v-2H3v2zm6-4h12V7H9v2zM3 3v2h18V3H3z"></path>',
-        tools: [
-            { id: 'molding_band', name: 'Horizontal Band', action: 'molding' },
-            { id: 'molding_crown', name: 'Crown Molding', action: 'molding' },
-            { id: 'molding_ogee', name: 'Ogee (Cyma) Molding', action: 'molding' },
-            { id: 'molding_egg_and_dart', name: 'Egg and Dart Molding', action: 'molding' },
-            { id: 'molding_dentil', name: 'Dentil Molding', action: 'molding' },
-            { id: 'molding_craftsman', name: 'Step / Craftsman', action: 'molding' },
-            { id: 'molding_window', name: 'Window Frame', action: 'molding' },
-            { id: 'molding_door', name: 'Door Frame', action: 'molding' },
-            { id: 'molding_groove', name: 'Decorative Groove', action: 'molding' },
-            { id: 'molding_layered', name: 'Layered Projection', action: 'molding' },
-            { id: 'elevation_fascia', name: 'Elevation Fascia (C/L Shape)' }
-        ]
-    }
-]);
+
 
 const activeCategoryObj = computed(() => {
     return menuCategories.value.find(c => c.id === activeCategory.value);
 });
 
-const toggleCategory = (catId) => {
-    if (activeCategory.value === catId) {
-        activeCategory.value = null; // collapse
-    } else {
-        activeCategory.value = catId;
-        if (planner.value) {
-            planner.value.activeCategory = catId;
-            activeTool.value = 'select';
-            planner.value.tool = 'select';
-            planner.value.finishChain();
-            planner.value.updateToolStates();
-            planner.value.selectEntity(null);
-        }
-    }
-};
+
 
 const toggleAllFloors = () => {
     plannerStore.toggleAllFloors();
@@ -834,21 +702,11 @@ const togglePreviewMode = () => {
     }
 };
 
-const updateEnvironment = () => {
-    if (renderer3D.value) {
-        renderer3D.value.setEnvironment(selectedSky.value, selectedGround.value);
-    }
-};
 
-const setSky = (key) => {
-    selectedSky.value = key;
-    updateEnvironment();
-};
 
-const setGround = (key) => {
-    selectedGround.value = key;
-    updateEnvironment();
-};
+
+
+
 
 const zoomIn = () => {
     if (viewMode.value === '2d') workspaceControls.value?.zoomIn2D();
@@ -878,26 +736,7 @@ const handleDeselect = () => {
     if (renderer3D.value) renderer3D.value.deselectObject();
     selectedEntity.value = null; selectedType.value = null; selectedWallSide.value = null; activeDecorId.value = null;
 };
-const setTool = (tool) => { 
-    if (tool === 'split') {
-        const wall = planner.value.walls.find(w => w === planner.value.selectedEntity);
-        if (wall) { wall.split(); debouncedSaveHistory(); }
-        return;
-    }
-    activeTool.value = tool; 
-    
-    // Set preset params if applicable
-    if (tool.startsWith('preset_') && PRESET_REGISTRY[tool]) {
-        activePresetParams.value = JSON.parse(JSON.stringify(PRESET_REGISTRY[tool].defaultParams));
-        planner.value.activePresetParams = activePresetParams.value;
-    } else {
-        activePresetParams.value = null;
-        planner.value.activePresetParams = null;
-    }
 
-    planner.value.tool = tool; planner.value.finishChain(); planner.value.selectEntity(null); planner.value.updateToolStates(); 
-    debouncedSaveHistory();
-};
 const isAdvancedToolActive = computed(() => ['split'].includes(activeTool.value));
 const handleAdvTriggerClick = () => {
     if (isAdvancedToolActive.value) {
@@ -915,294 +754,44 @@ const setAdvancedTool = (tool) => {
         planner.value.updateToolStates();
     }
 };
-const handleToolClick = (tool) => {
-    if (tool.action === 'furniture') spawnFurniture(tool.id);
-    else if (tool.action === 'auto_roof') { if (planner.value) planner.value.addAutoRoof(); }
-    else if (tool.action === 'wizard') { wizardPopupRef.value?.open(tool.id); }
-    else if (tool.id.startsWith('roof_')) {
-        if (planner.value) planner.value.currentRoofToolType = tool.roofType;
-        setTool('roof');
-    }
-    else setTool(tool.id);
-    
-    if (isMobile.value || isTablet.value) {
-        mobileMenuOpen.value = false;
-    }
-};
 
-const toggleEditDecor = (decorId) => { activeDecorId.value = activeDecorId.value === decorId ? null : decorId; };
 
-const spawnWallPattern = (configId) => {
-    if (renderer3D.value && selectedType.value === 'wall' && selectedEntity.value) {
-        if (planner.value) {
-            planner.value.executeWithSnapshot(() => {
-                const decor = renderer3D.value.addWallPattern(selectedEntity.value, configId, selectedWallSide.value);
-                selectedEntity.value.attachedDecor = [...selectedEntity.value.attachedDecor];
-                activeDecorId.value = decor.id; uiTrigger.value++; 
-                if (selectedEntity.value.isStatic) updateStaticLevelData(selectedEntity.value);
-            });
-            debouncedSaveHistory();
-        }
-    }
-};
 
-const spawnFurniture = (configId) => {
-    if (planner.value) {
-        planner.value.create('furniture', { id: configId });
-        debouncedSaveHistory();
-    }
-};
 
-const syncEngine = () => {
-    if (planner.value) {
-        planner.value.syncAll();
-        if (selectedType.value === 'room' && selectedEntity.value) {
-            const oldCx = selectedEntity.value.cx;
-            const oldCy = selectedEntity.value.cy;
-            const newRoom = planner.value.rooms.find(r => Math.hypot(r.cx - oldCx, r.cy - oldCy) < 20);
-            if (newRoom) {
-                selectedEntity.value = newRoom;
-            }
-        }
-    }
-    
-    if (viewMode.value === '3d') {
-        if (selectedType.value === 'furniture' && selectedEntity.value) {
-            renderer3D.value.updateFurnitureLive(selectedEntity.value); 
-        } else if (selectedType.value === 'shape' && selectedEntity.value) {
-            renderer3D.value.updateShapeLive(selectedEntity.value);
-            if (selectedEntity.value.type === 'shape_floor_cut') refresh3DScene(true);
-        } else if (['roof', 'room', 'wall', 'widget', 'advance_openings', 'molding', 'wallDecor', 'stair'].includes(selectedType.value)) {
-            if (planner.value && planner.value.updateRoofAutoPlacement) planner.value.updateRoofAutoPlacement();
-            refresh3DScene(true);
-        }
-    }
-    debouncedSaveHistory();
-};
 
-let gizmoSyncTimeout = null;
-const throttledSyncEngine = () => {
-    if (gizmoSyncTimeout) return;
-    gizmoSyncTimeout = setTimeout(() => {
-        syncEngine();
-        gizmoSyncTimeout = null;
-    }, 50);
-};
 
-const setRoofMaterial = (key) => {
-    if (selectedEntity.value && selectedType.value === 'roof') {
-        selectedEntity.value.config.material = key;
-        syncEngine();
-    }
-};
 
-const setRoofFasciaMaterial = (key) => {
-    if (selectedEntity.value && selectedType.value === 'roof') {
-        selectedEntity.value.config.fasciaMaterial = key;
-        syncEngine();
-    }
-};
+
+
+
+
+
+
+
+
+
 
 // ==========================================
 // 6. HOTKEYS & MOVEMENT
 // ========================================== 
 
-const setFloorMaterial = (key) => {
-    if (selectedEntity.value && selectedType.value === 'room') {
-        selectedEntity.value.configId = key;
-        syncEngine();
-    }
-};
 
-const setOpeningMaterial = (key) => {
-    if (selectedEntity.value && selectedType.value === 'advance_openings') {
-        selectedEntity.value.decorConfigId = key;
-        if (renderer3D.value) {
-            renderer3D.value.updatePatternLive(selectedEntity.value);
-        }
-        debouncedSaveHistory();
-    }
-};
 
-const clearShapeTextures = () => {
-    if (selectedEntity.value && selectedEntity.value.params) {
-        selectedEntity.value.params.texture = '';
-        selectedEntity.value.params.textureTop = '';
-        selectedEntity.value.params.textureBottom = '';
-        selectedEntity.value.params.textureSides = '';
-        selectedEntity.value.params.textureLeft = '';
-        selectedEntity.value.params.textureRight = '';
-        selectedEntity.value.params.textureFront = '';
-        selectedEntity.value.params.textureBack = '';
-    }
-};
 
-const isShapeMaterialActive = (key) => {
-    if (!selectedEntity.value || !selectedEntity.value.params) return false;
-    const target = selectedEntity.value.params.materialTarget || 'all';
-    if (target === 'all') return selectedEntity.value.params.texture === key;
-    if (target === 'top') return selectedEntity.value.params.textureTop === key;
-    if (target === 'sides') return selectedEntity.value.params.textureSides === key;
-    if (target === 'left') return selectedEntity.value.params.textureLeft === key;
-    if (target === 'right') return selectedEntity.value.params.textureRight === key;
-    if (target === 'front') return selectedEntity.value.params.textureFront === key;
-    if (target === 'back') return selectedEntity.value.params.textureBack === key;
-    if (target === 'bottom') return selectedEntity.value.params.textureBottom === key;
-    return false;
-};
 
-const setShapeMaterial = (key) => {
-    if (selectedEntity.value) {
-        if (!selectedEntity.value.params) selectedEntity.value.params = {};
-        const target = selectedEntity.value.params.materialTarget || 'all';
-        
-        if (selectedType.value === 'wall') {
-            const side = (target === 'front' || target === 'back') ? target : selectedWallSide.value;
-            if (renderer3D.value) {
-                const decor = renderer3D.value.addWallPattern(selectedEntity.value, key, side);
-                selectedEntity.value.attachedDecor = [...selectedEntity.value.attachedDecor];
-                activeDecorId.value = decor.id; uiTrigger.value++; 
-                if (selectedEntity.value.isStatic) updateStaticLevelData(selectedEntity.value);
-                debouncedSaveHistory();
-            }
-            return;
-        } else if (selectedType.value === 'wallDecor') {
-            selectedEntity.value.configId = key;
-            syncEngine();
-            return;
-        }
-        
-        if (target === 'all') {
-            selectedEntity.value.params.texture = key;
-            selectedEntity.value.params.textureTop = key;
-            selectedEntity.value.params.textureBottom = key;
-            selectedEntity.value.params.textureSides = key;
-            selectedEntity.value.params.textureLeft = key;
-            selectedEntity.value.params.textureRight = key;
-            selectedEntity.value.params.textureFront = key;
-            selectedEntity.value.params.textureBack = key;
-        } else if (target === 'top') selectedEntity.value.params.textureTop = key;
-        else if (target === 'bottom') selectedEntity.value.params.textureBottom = key;
-        else if (target === 'sides') {
-            selectedEntity.value.params.textureSides = key;
-            selectedEntity.value.params.textureLeft = key;
-            selectedEntity.value.params.textureRight = key;
-            selectedEntity.value.params.textureFront = key;
-            selectedEntity.value.params.textureBack = key;
-        }
-        else if (target === 'left') selectedEntity.value.params.textureLeft = key;
-        else if (target === 'right') selectedEntity.value.params.textureRight = key;
-        else if (target === 'front') selectedEntity.value.params.textureFront = key;
-        else if (target === 'back') selectedEntity.value.params.textureBack = key;
-        syncEngine();
-    }
-};
 
-const onDecorUpdate = (decor) => { 
-    if (renderer3D.value) renderer3D.value.updateWallDecorLive(decor); 
-    if (selectedEntity.value?.isStatic) updateStaticLevelData(selectedEntity.value);
-    debouncedSaveHistory();
-};
 
-const handleDelete = () => { 
-    if (selectedEntity.value) {
-        if (selectedType.value === 'wallDecor') {
-            // Keep this for now since wallDecor is embedded deeply in wall arrays
-            const wall = planner.value.walls.find(w => w.attachedDecor && w.attachedDecor.some(d => d.id === selectedEntity.value.id));
-            if (wall) {
-                wall.attachedDecor = wall.attachedDecor.filter(d => d.id !== selectedEntity.value.id);
-                if (wall.isStatic) updateStaticLevelData(wall);
-            }
-            selectedEntity.value = null;
-            selectedType.value = null;
-            if (viewMode.value === '3d') refresh3DScene(true);
-        } else if (selectedType.value === 'room') {
-            selectedEntity.value.isDeleted = true;
-            selectedEntity.value = null;
-            selectedType.value = null;
-            if (viewMode.value === '3d') refresh3DScene(true);
-            else if (planner.value) planner.value.syncAll();
-        } else {
-            // Standard Entities now flow entirely through the Command System
-            if (planner.value) {
-                const id = selectedEntity.value.id || (selectedEntity.value.group && selectedEntity.value.group.id());
-                planner.value.delete(id);
-            }
-        }
-    }
-};
 
-const handleDeleteSpecificDecor = (decorObj) => {
-    const decor = decorObj || selectedEntity.value;
-    if (decor) {
-        const wall = decor.mesh3D.userData.parentWall;
-        wall.attachedDecor = wall.attachedDecor.filter(d => d !== decor); wall.mesh3D.remove(decor.mesh3D);
-        if (selectedEntity.value === wall || selectedEntity.value === decor) wall.attachedDecor = [...wall.attachedDecor]; 
-        if (renderer3D.value && renderer3D.value.selectedObject === decor.mesh3D) { renderer3D.value.deselectObject(); handleDeselect(); }
-        uiTrigger.value++;
-        
-        if (wall.isStatic) updateStaticLevelData(wall);
-        debouncedSaveHistory();
-    }
-};
 
-const refresh3DScene = (preserveCamera = true) => {
-    if (renderer3D.value) {
-        isRebuilding.value = true;
-        renderer3D.value.isRebuildingScene = true;
-        const prevSel = selectedEntity.value;
-        const prevType = selectedType.value;
-        const prevSide = selectedWallSide.value;
-        const prevMode = renderer3D.value.currentTransformMode;
-        
-        saveCurrentLevelState(); 
-        const levelsConfigArray = levels.value.map(l => ({ data: l.data, isVisible: l.isVisible !== false }));
-        
-        renderer3D.value.buildScene(
-            planner.value.walls,
-            planner.value.rooms,
-            planner.value.stairs,
-            planner.value.furniture,
-            planner.value.roofs,
-            planner.value.shapes,
-            levelsConfigArray, 
-            activeLevelIndex.value, 
-            viewMode3D.value, 
-            preserveCamera
-        ); 
 
-        layerItems.value.forEach(item => {
-            if (item.entity.isHidden && item.entity.mesh3D) {
-                item.entity.mesh3D.visible = false;
-            }
-        });
 
-        if (prevSel) {
-            const newMesh = renderer3D.value.interactables.find(m => {
-                if (prevType === 'wall' && m.userData.isWallSide && m.userData.entity === prevSel && m.userData.side === prevSide) return true;
-                if (m.userData && m.userData.entity === prevSel) return true;
-                return false;
-            });
-            if (newMesh) {
-                renderer3D.value.selectObject(newMesh);
-                if (prevMode && prevMode !== 'none') {
-                    renderer3D.value.setTransformMode(prevMode, true);
-                }
-            }
-            else {
-                renderer3D.value.isRebuildingScene = false;
-                renderer3D.value.showTransformMenu(false);
-            }
-        }
-        renderer3D.value.isRebuildingScene = false;
-        
-        if (renderer3D.value?.cameraController) {
-            renderer3D.value.cameraController.updateCameraBounds();
-        }
-        
-        isRebuilding.value = false;
-    }
-};
+
+
+
+
+
+
+
 
 const saveProject = () => {
     saveCurrentLevelState();
@@ -1264,6 +853,86 @@ const clearWorkspace = () => {
         saveHistory();
     }
 };
+
+const onDecorUpdate = (decor) => { throttledSyncEngine(); };
+
+const {
+    updateEnvironment,
+    setSky,
+    setGround,
+    refresh3DScene,
+    syncEngine,
+    throttledSyncEngine
+} = useAppScene({
+    renderer3D,
+    planner,
+    selectedSky,
+    selectedGround,
+    isRebuilding,
+    selectedEntity,
+    selectedType,
+    selectedWallSide,
+    saveCurrentLevelState: () => saveCurrentLevelState(),
+    levels,
+    activeLevelIndex,
+    viewMode3D,
+    layerItems,
+    debouncedSaveHistory: () => debouncedSaveHistory(),
+    viewMode
+});
+
+const {
+    setTool,
+    handleToolClick,
+    toggleCategory,
+    spawnWallPattern,
+    spawnFurniture,
+    toggleEditDecor,
+    handleDelete,
+    handleDeleteSpecificDecor
+} = useAppTools({
+    activeTool,
+    activePresetParams,
+    planner,
+    debouncedSaveHistory: () => debouncedSaveHistory(),
+    showAdvancedTools,
+    isMobile,
+    isTablet,
+    mobileMenuOpen,
+    wizardPopupRef,
+    activeDecorId,
+    renderer3D,
+    selectedType,
+    selectedEntity,
+    selectedWallSide,
+    uiTrigger,
+    updateStaticLevelData: (w) => updateStaticLevelData(w),
+    activeCategory,
+    viewMode,
+    refresh3DScene: (b) => refresh3DScene(b),
+    handleDeselect: () => handleDeselect()
+});
+
+const {
+    setFloorMaterial,
+    setOpeningMaterial,
+    clearShapeTextures,
+    isShapeMaterialActive,
+    setShapeMaterial,
+    setRoofMaterial,
+    setRoofFasciaMaterial
+} = useAppMaterials({
+    selectedEntity,
+    selectedType,
+    selectedWallSide,
+    renderer3D,
+    uiTrigger,
+    activeDecorId,
+    updateStaticLevelData: (w) => updateStaticLevelData(w),
+    debouncedSaveHistory: () => debouncedSaveHistory(),
+    syncEngine: () => syncEngine()
+});
+
 </script>
 
 <style src="./workspace.css"></style>
