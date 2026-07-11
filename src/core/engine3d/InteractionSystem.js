@@ -10,7 +10,7 @@ import { VertexSlopeGizmo } from '../../features/roof/VertexSlopeGizmo.js';
 import { RoofCornerGizmo } from '../../features/roof/RoofCornerGizmo.js';
 import { RoofOverhangGizmo } from '../../features/roof/RoofOverhangGizmo.js';
 import { PolygonGizmo } from './PolygonGizmo.js';
-import { SelectionManager } from './engine3d.SelectionManager.js';
+import { SelectionManager } from './SelectionManager.js';
 
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from '../../core/registry';
 
