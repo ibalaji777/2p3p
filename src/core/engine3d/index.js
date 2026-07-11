@@ -373,7 +373,23 @@ export class Preview3D {
         if (obj.geometry) obj.geometry.dispose();
         if (obj.material) {
             const disposeMat = (m) => {
-                if (m && (!m.userData || !m.userData.isShared)) m.dispose();
+                if (m && (!m.userData || !m.userData.isShared)) {
+                    // Critical: Dispose textures to prevent WebGL memory leaks
+                    if (m.map) m.map.dispose();
+                    if (m.lightMap) m.lightMap.dispose();
+                    if (m.bumpMap) m.bumpMap.dispose();
+                    if (m.normalMap) m.normalMap.dispose();
+                    if (m.specularMap) m.specularMap.dispose();
+                    if (m.envMap) m.envMap.dispose();
+                    if (m.alphaMap) m.alphaMap.dispose();
+                    if (m.aoMap) m.aoMap.dispose();
+                    if (m.displacementMap) m.displacementMap.dispose();
+                    if (m.emissiveMap) m.emissiveMap.dispose();
+                    if (m.gradientMap) m.gradientMap.dispose();
+                    if (m.metalnessMap) m.metalnessMap.dispose();
+                    if (m.roughnessMap) m.roughnessMap.dispose();
+                    m.dispose();
+                }
             };
             if (Array.isArray(obj.material)) obj.material.forEach(disposeMat);
             else disposeMat(obj.material);

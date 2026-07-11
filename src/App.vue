@@ -183,12 +183,18 @@ import SmartWizardPopup from './components/SmartWizardPopup.vue';
 import SavePopup from './components/SavePopup.vue';
 import MobileBottomNav from './components/MobileBottomNav.vue';
 
-const windowWidth = ref(window.innerWidth);
-const isMobile = computed(() => windowWidth.value < 768);
-const isTablet = computed(() => windowWidth.value >= 768 && windowWidth.value < 1200);
-const isDesktop = computed(() => windowWidth.value >= 1200);
-const mobileMenuOpen = ref(true);
-const activeMobileTab = ref('tools');
+import { storeToRefs } from 'pinia';
+import { useUIStore } from './stores/useUIStore.js';
+import { usePlannerStore } from './stores/usePlannerStore.js';
+import { useSettingsStore } from './stores/useSettingsStore.js';
+
+const uiStore = useUIStore();
+const plannerStore = usePlannerStore();
+const settingsStore = useSettingsStore();
+
+const { windowWidth, mobileMenuOpen, activeMobileTab, viewMode, viewMode3D, activeRightTab, showLeftSidebar, uiTrigger, isPlacing3D, activeDecorId, isRebuilding, isXRayMode, showGuide, showAdvancedTools, layerRefreshTrigger, isMobile, isTablet, isDesktop } = storeToRefs(uiStore);
+const { planner, renderer3D, workspaceControls, serverService, isDrawing, activeTool, activeCategory, mode3D, activePresetParams, selectedEntity, selectedType, selectedWallSide, selectedNodeIndex, levels, activeLevelIndex, canUndo, canRedo, allFloorsVisible } = storeToRefs(plannerStore);
+const { floorPlanSettings, selectedSky, selectedGround, isWallTrackingEnabled } = storeToRefs(settingsStore);
 
 const toggleMobileTab = (tabId) => {
     if (tabId === '3d') {
@@ -223,8 +229,7 @@ watch(activeMobileTab, (newVal) => {
 });
 
 const handleResize = () => {
-    windowWidth.value = window.innerWidth;
-    if (!isMobile.value && !isTablet.value) mobileMenuOpen.value = false;
+    uiStore.handleResize();
     
     if (planner.value) {
         planner.value.resize();
@@ -258,19 +263,7 @@ const wizardPopupRef = ref(null);
 const savePopupRef = ref(null);
 const wizardManager = shallowRef(null);
 
-const floorPlanSettings = ref({
-    mainEntranceFacing: 'north',
-    measurementUnit: 'feet_inches',
-    areaUnit: 'sqft',
-    showCompass: true,
-    showGrid: true,
-    showDimensionLabels: true,
-    showDiagonalDimensions: true,
-    diagonalMeasurementMode: 'inner',
-    showWorkspaceLabels: true,
-    wallTracking: true,
-    entranceWallId: null
-});
+// Removed local floorPlanSettings as it is now in SettingsStore
 
 const syncSettings = () => {
     if (planner.value) {
@@ -293,8 +286,6 @@ const setEntranceWall = () => {
 };
 
 const canvasWorkspaceRef = ref(null);
-const planner = shallowRef(null);
-const isDrawing = ref(false);
 
 const finishDrawing = () => { 
     if (planner.value) {
@@ -315,25 +306,26 @@ const cancelDrawing = () => {
         if (planner.value.onToolChange) planner.value.onToolChange('select');
     } 
 };
-const renderer3D = shallowRef(null);
-const workspaceControls = shallowRef(null);
-const serverService = shallowRef(null);
-const showLeftSidebar = ref(true);
-const canUndo = ref(false);
-const canRedo = ref(false);
 
-const viewMode = ref('2d');
-const mode3D = ref('edit'); 
-const activeTool = ref('select');
-const activePresetParams = ref(null);
-const viewMode3D = ref('full-edit'); 
+const toggleXRayMode = () => {
+    isXRayMode.value = !isXRayMode.value;
+    if (renderer3D.value) {
+        renderer3D.value.setXRayMode(isXRayMode.value);
+    }
+};
 
-const selectedEntity = shallowRef(null);
-const selectedType = ref(null);
-const selectedWallSide = ref(null); 
-const selectedNodeIndex = ref(-1);
+const onLevelVisibilityChange = () => {
+    if (viewMode.value === '3d') refresh3DScene(true);
+};
 
-const activeCategory = ref('tools');
+const toggleWallTracking = () => {
+    settingsStore.toggleWallTracking();
+    if (planner.value) {
+        planner.value.setWallTracking(isWallTrackingEnabled.value);
+    }
+};
+
+// Menu categories
 const menuCategories = ref([
     {
         id: 'common', name: 'Common',
@@ -479,49 +471,12 @@ const toggleCategory = (catId) => {
     }
 };
 
-const uiTrigger = ref(0); 
-const isPlacing3D = ref(false);
-const activeDecorId = ref(null);
-const isRebuilding = ref(false);
-const isXRayMode = ref(false);
-const showGuide = ref(false);
-
-const toggleXRayMode = () => {
-    isXRayMode.value = !isXRayMode.value;
-    if (renderer3D.value) {
-        renderer3D.value.setXRayMode(isXRayMode.value);
-    }
-};
-
-const levels = ref([{ id: 'level-' + Date.now(), name: 'Floor 1', data: null, isVisible: true }]);
-const activeLevelIndex = ref(0);
-
-const allFloorsVisible = computed(() => levels.value.every(l => l.isVisible !== false));
-
 const toggleAllFloors = () => {
-    const newState = !allFloorsVisible.value;
-    levels.value.forEach(l => { l.isVisible = newState; });
+    plannerStore.toggleAllFloors();
     if (viewMode.value === '3d') refresh3DScene(true);
 };
 
-const onLevelVisibilityChange = () => {
-    if (viewMode.value === '3d') refresh3DScene(true);
-};
-
-const selectedSky = ref('arch_viz_sunny');
-const selectedGround = ref('grass'); // Start with new Grass + Normal map terrain
-const showAdvancedTools = ref(false);
-
-const isWallTrackingEnabled = ref(false);
-const toggleWallTracking = () => {
-    isWallTrackingEnabled.value = !isWallTrackingEnabled.value;
-    if (planner.value) {
-        planner.value.setWallTracking(isWallTrackingEnabled.value);
-    }
-};
-
-const activeRightTab = ref('properties');
-const layerRefreshTrigger = ref(0);
+// Other state extracted to stores
 
 const layerItems = computed(() => {
     const trigger = layerRefreshTrigger.value;
