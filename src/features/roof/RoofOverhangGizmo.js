@@ -31,7 +31,7 @@ export class RoofOverhangGizmo extends THREE.Group {
 
         const dom = this.ctx.renderer.domElement;
         
-        dom.addEventListener('pointerdown', (e) => {
+        this._onPointerDown = (e) => {
             if (!this.visible || this.ctx.currentTransformMode !== 'roof_overhang') return;
             if (e.button !== 0) return;
             this.updateMouse(e);
@@ -74,9 +74,9 @@ export class RoofOverhangGizmo extends THREE.Group {
                 this.activeDragIndex = -1;
                 this.refreshHandleMaterials();
             }
-        }, { passive: false });
+        };
         
-        dom.addEventListener('pointermove', (e) => {
+        this._onPointerMove = (e) => {
             if (!this.visible || this.ctx.currentTransformMode !== 'roof_overhang') return;
             this.updateMouse(e);
             
@@ -144,9 +144,9 @@ export class RoofOverhangGizmo extends THREE.Group {
                     this.refreshHandleMaterials();
                 }
             }
-        }, { passive: false });
+        };
         
-        dom.addEventListener('pointerup', (e) => {
+        this._onPointerUp = (e) => {
             if (!this.visible || this.ctx.currentTransformMode !== 'roof_overhang') return;
             if (this.isDragging) {
                 this.isDragging = false;
@@ -160,7 +160,11 @@ export class RoofOverhangGizmo extends THREE.Group {
                 }
                 this.refreshHandleMaterials();
             }
-        }, { passive: false });
+        };
+
+        dom.addEventListener('pointerdown', this._onPointerDown, { passive: false });
+        dom.addEventListener('pointermove', this._onPointerMove, { passive: false });
+        dom.addEventListener('pointerup', this._onPointerUp, { passive: false });
     }
     
     updateMouse(e) {

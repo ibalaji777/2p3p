@@ -46,7 +46,7 @@ export class PolygonGizmo extends THREE.Group {
 
         const dom = this.ctx.renderer.domElement;
         
-        dom.addEventListener('pointerdown', (e) => {
+        this._onPointerDown = (e) => {
             if (!this.visible || this.ctx.currentTransformMode !== 'polygon_edges') return;
             if (e.button !== 0) return;
             this.updateMouse(e);
@@ -75,9 +75,9 @@ export class PolygonGizmo extends THREE.Group {
                 this.isDragging = true;
                 this.ctx.controls.enabled = false;
             }
-        });
+        };
 
-        dom.addEventListener('pointermove', (e) => {
+        this._onPointerMove = (e) => {
             if (!this.visible || this.ctx.currentTransformMode !== 'polygon_edges') return;
             this.updateMouse(e);
 
@@ -140,9 +140,9 @@ export class PolygonGizmo extends THREE.Group {
                 
                 dom.style.cursor = hit ? 'pointer' : 'default';
             }
-        });
+        };
 
-        dom.addEventListener('pointerup', (e) => {
+        this._onPointerUp = (e) => {
             if (this.isDragging) {
                 this.isDragging = false;
                 this.activeDragIndex = -1;
@@ -156,7 +156,11 @@ export class PolygonGizmo extends THREE.Group {
                     window.dispatchEvent(event);
                 }
             }
-        });
+        };
+
+        dom.addEventListener('pointerdown', this._onPointerDown);
+        dom.addEventListener('pointermove', this._onPointerMove);
+        dom.addEventListener('pointerup', this._onPointerUp);
     }
 
     updateMouse(e) {
@@ -230,5 +234,27 @@ export class PolygonGizmo extends THREE.Group {
                 cHandle.visible = false;
             }
         }
+    }
+
+    dispose() {
+        const dom = this.ctx.renderer.domElement;
+        if (dom) {
+            dom.removeEventListener('pointerdown', this._onPointerDown);
+            dom.removeEventListener('pointermove', this._onPointerMove);
+            dom.removeEventListener('pointerup', this._onPointerUp);
+        }
+        this.edgeMat.dispose();
+        this.edgeMatHover.dispose();
+        this.cornerMat.dispose();
+        this.cornerMatHover.dispose();
+        
+        this.edgeHandles.children.forEach(c => {
+            if (c.geometry) c.geometry.dispose();
+        });
+        this.cornerHandles.children.forEach(c => {
+            if (c.geometry) c.geometry.dispose();
+        });
+
+        if (this.parent) this.parent.remove(this);
     }
 }

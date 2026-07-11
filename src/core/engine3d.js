@@ -156,7 +156,7 @@ export class Preview3D {
         this.gizmoManager = new GizmoManager(this);
         this.gizmoManager.init();
 
-        this.interactions.transformControls.addEventListener('change', () => {
+        this._onTransformChange = () => {
             if (this.currentTransformMode === 'place' && this.gizmoManager.inputX && this.interactions.selectedObject) {
                 this.gizmoManager.inputX.value = this.interactions.selectedObject.position.x.toFixed(1);
                 this.gizmoManager.inputY.value = this.interactions.selectedObject.position.z.toFixed(1);
@@ -164,7 +164,8 @@ export class Preview3D {
                     this.gizmoManager.inputZ.value = (this.interactions.selectedObject.userData.entity.elevation || 0).toFixed(1);
                 }
             }
-        });
+        };
+        this.interactions.transformControls.addEventListener('change', this._onTransformChange);
 
         this.envBuilder.setupBaseEnvironment();
         const pmremGenerator = new THREE.PMREMGenerator(this.renderer); 
@@ -177,6 +178,9 @@ export class Preview3D {
     }
 
     dispose() {
+        if (this._onTransformChange && this.interactions && this.interactions.transformControls) {
+            this.interactions.transformControls.removeEventListener('change', this._onTransformChange);
+        }
         if (this._onResize) window.removeEventListener('resize', this._onResize);
         if (this._animateId) cancelAnimationFrame(this._animateId);
         

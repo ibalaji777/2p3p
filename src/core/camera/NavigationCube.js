@@ -161,14 +161,14 @@ export class NavigationCube {
         let hasMoved = false;
         let lastTapTime = 0;
 
-        const onPointerDown = (e) => {
+        this._onPointerDown = (e) => {
             isDragging = true;
             hasMoved = false;
             startPos = { x: e.clientX, y: e.clientY };
             this.domElement.setPointerCapture(e.pointerId);
         };
 
-        const onPointerMove = (e) => {
+        this._onPointerMove = (e) => {
             const rect = this.domElement.getBoundingClientRect();
             this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
             this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -200,7 +200,7 @@ export class NavigationCube {
             }
         };
 
-        const onPointerUp = (e) => {
+        this._onPointerUp = (e) => {
             if (!isDragging) return;
             isDragging = false;
             this.domElement.releasePointerCapture(e.pointerId);
@@ -218,14 +218,14 @@ export class NavigationCube {
             }
         };
 
-        const onPointerLeave = (e) => {
+        this._onPointerLeave = (e) => {
             this.highlightFace(-1);
         };
 
-        this.domElement.addEventListener('pointerdown', onPointerDown);
-        this.domElement.addEventListener('pointermove', onPointerMove);
-        this.domElement.addEventListener('pointerup', onPointerUp);
-        this.domElement.addEventListener('pointerleave', onPointerLeave);
+        this.domElement.addEventListener('pointerdown', this._onPointerDown);
+        this.domElement.addEventListener('pointermove', this._onPointerMove);
+        this.domElement.addEventListener('pointerup', this._onPointerUp);
+        this.domElement.addEventListener('pointerleave', this._onPointerLeave);
     }
 
     handleClick(e) {
@@ -290,8 +290,14 @@ export class NavigationCube {
     }
 
     dispose() {
-        if (this.domElement && this.domElement.parentNode) {
-            this.domElement.parentNode.removeChild(this.domElement);
+        if (this.domElement) {
+            this.domElement.removeEventListener('pointerdown', this._onPointerDown);
+            this.domElement.removeEventListener('pointermove', this._onPointerMove);
+            this.domElement.removeEventListener('pointerup', this._onPointerUp);
+            this.domElement.removeEventListener('pointerleave', this._onPointerLeave);
+            if (this.domElement.parentNode) {
+                this.domElement.parentNode.removeChild(this.domElement);
+            }
         }
         this.renderer.dispose();
     }

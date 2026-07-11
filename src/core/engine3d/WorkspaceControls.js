@@ -22,7 +22,7 @@ export class WorkspaceControls {
         const stage = this.planner.stage;
 
         // Mouse Wheel Zoom
-        stage.on('wheel', (e) => {
+        stage.on('wheel.workspace', (e) => {
             e.evt.preventDefault();
             const oldScale = stage.scaleX();
             const pointer = stage.getPointerPosition();
@@ -40,7 +40,7 @@ export class WorkspaceControls {
         });
 
         // Right Click / Middle Click Pan
-        stage.on('mousedown', (e) => {
+        stage.on('mousedown.workspace', (e) => {
             if (e.evt.button === 1 || e.evt.button === 2) {
                 e.evt.preventDefault();
                 this.isPanning2D = true;
@@ -76,7 +76,7 @@ export class WorkspaceControls {
         let lastCenter = null;
         let lastDist = 0;
 
-        stage.on('touchmove', (e) => {
+        stage.on('touchmove.workspace', (e) => {
             const touch1 = e.evt.touches[0];
             const touch2 = e.evt.touches[1];
 
@@ -125,12 +125,12 @@ export class WorkspaceControls {
             }
         });
 
-        stage.on('touchend', () => {
+        stage.on('touchend.workspace', () => {
             lastDist = 0;
             lastCenter = null;
         });
 
-        stage.on('contextmenu', (e) => e.evt.preventDefault()); // Prevent browser menu on right click
+        stage.on('contextmenu.workspace', (e) => e.evt.preventDefault()); // Prevent browser menu on right click
     }
 
 
@@ -172,5 +172,8 @@ export class WorkspaceControls {
     dispose() {
         if (this._onMouseMove) window.removeEventListener('mousemove', this._onMouseMove);
         if (this._onMouseUp) window.removeEventListener('mouseup', this._onMouseUp);
+        if (this.planner && this.planner.stage) {
+            this.planner.stage.off('wheel.workspace mousedown.workspace touchmove.workspace touchend.workspace contextmenu.workspace');
+        }
     }
 }

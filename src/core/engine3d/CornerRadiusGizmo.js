@@ -21,7 +21,7 @@ export class CornerRadiusGizmo extends THREE.Group {
 
         const dom = this.ctx.renderer.domElement;
         
-        dom.addEventListener('pointerdown', (e) => {
+        this._onPointerDown = (e) => {
             if (!this.visible || this.ctx.currentTransformMode !== 'corner') return;
             if (e.button !== 0) return;
             this.updateMouse(e);
@@ -39,9 +39,9 @@ export class CornerRadiusGizmo extends THREE.Group {
                     this.ctx.updateCornerPanel(this.target.userData.entity, this.activeHandleIndex);
                 }
             }
-        }, { passive: false });
+        };
         
-        dom.addEventListener('pointermove', (e) => {
+        this._onPointerMove = (e) => {
             if (!this.visible || this.ctx.currentTransformMode !== 'corner') return;
             this.updateMouse(e);
             
@@ -62,7 +62,10 @@ export class CornerRadiusGizmo extends THREE.Group {
             } else {
                 dom.style.cursor = 'auto';
             }
-        }, { passive: false });
+        };
+
+        dom.addEventListener('pointerdown', this._onPointerDown, { passive: false });
+        dom.addEventListener('pointermove', this._onPointerMove, { passive: false });
     }
     
     updateMouse(e) {
@@ -112,5 +115,18 @@ export class CornerRadiusGizmo extends THREE.Group {
         });
         
         this.refreshHandleMaterials();
+    }
+
+    dispose() {
+        const dom = this.ctx.renderer.domElement;
+        if (dom) {
+            dom.removeEventListener('pointerdown', this._onPointerDown, { passive: false });
+            dom.removeEventListener('pointermove', this._onPointerMove, { passive: false });
+        }
+        this.handleMat.dispose();
+        this.handleMatHover.dispose();
+        this.handleMatActive.dispose();
+        this.handleGeo.dispose();
+        if (this.parent) this.parent.remove(this);
     }
 }

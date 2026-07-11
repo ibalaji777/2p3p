@@ -44,7 +44,7 @@ export class GestureManager {
         // or we can use Konva's touch events. Konva handles e.evt.touches.
         // We'll use Konva's stage events to integrate smoothly.
         
-        this.stage.on('touchstart', (e) => {
+        this._onTouchStart = (e) => {
             const touches = e.evt.touches;
             if (!touches) return;
 
@@ -103,9 +103,9 @@ export class GestureManager {
                     this.lastCenter = { x: touches[0].clientX, y: touches[0].clientY };
                 }
             }
-        });
+        };
 
-        this.stage.on('touchmove', (e) => {
+        this._onTouchMove = (e) => {
             const touches = e.evt.touches;
             if (!touches) return;
 
@@ -151,9 +151,9 @@ export class GestureManager {
                 }
                 this.lastCenter = currentCenter;
             }
-        });
+        };
 
-        this.stage.on('touchend', (e) => {
+        this._onTouchEnd = (e) => {
             const touches = e.evt.touches;
             if (!touches) return;
 
@@ -175,10 +175,10 @@ export class GestureManager {
                     this.lastCenter = null;
                 }
             }
-        });
+        };
         
         // Desktop support for zoom/pan
-        this.stage.on('wheel', (e) => {
+        this._onWheel = (e) => {
             e.evt.preventDefault();
             
             const pointer = this.stage.getPointerPosition();
@@ -189,7 +189,12 @@ export class GestureManager {
             const newScale = e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy;
             
             this.cameraController.zoomAt(pointer, newScale, false);
-        });
+        };
+
+        this.stage.on('touchstart', this._onTouchStart);
+        this.stage.on('touchmove', this._onTouchMove);
+        this.stage.on('touchend', this._onTouchEnd);
+        this.stage.on('wheel', this._onWheel);
     }
 
     handleDoubleTap1Finger(e) {
@@ -213,5 +218,14 @@ export class GestureManager {
         const prevScale = this.cameraController.getNextZoomLevel(false);
         const center = { x: this.stage.width() / 2, y: this.stage.height() / 2 };
         this.cameraController.zoomAt(center, prevScale, true);
+    }
+
+    dispose() {
+        if (this.stage) {
+            this.stage.off('touchstart', this._onTouchStart);
+            this.stage.off('touchmove', this._onTouchMove);
+            this.stage.off('touchend', this._onTouchEnd);
+            this.stage.off('wheel', this._onWheel);
+        }
     }
 }

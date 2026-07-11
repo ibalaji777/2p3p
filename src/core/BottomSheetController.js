@@ -35,6 +35,9 @@ export class BottomSheetController {
     destroy() {
         if (this.handle) {
             this.handle.removeEventListener('pointerdown', this.onPointerDown);
+            this.handle.removeEventListener('pointermove', this.onPointerMove);
+            this.handle.removeEventListener('pointerup', this.onPointerUp);
+            this.handle.removeEventListener('pointercancel', this.onPointerUp);
         }
     }
 

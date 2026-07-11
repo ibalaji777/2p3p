@@ -157,12 +157,13 @@ export class CameraController {
             if (this.floorplanner.updateMobileDragHandle) this.floorplanner.updateMobileDragHandle();
             
             if (t < 1) {
-                requestAnimationFrame(animate);
+                this._animId = requestAnimationFrame(animate);
             } else {
                 this.isAnimating = false;
+                this._animId = null;
             }
         };
-        requestAnimationFrame(animate);
+        this._animId = requestAnimationFrame(animate);
     }
 
     animateTransform(targetScale, screenPivot, worldPivot) {
@@ -190,11 +191,20 @@ export class CameraController {
             if (this.floorplanner.updateMobileDragHandle) this.floorplanner.updateMobileDragHandle();
             
             if (t < 1) {
-                requestAnimationFrame(animate);
+                this._animId = requestAnimationFrame(animate);
             } else {
                 this.isAnimating = false;
+                this._animId = null;
             }
         };
-        requestAnimationFrame(animate);
+        this._animId = requestAnimationFrame(animate);
+    }
+
+    dispose() {
+        if (this._animId) {
+            cancelAnimationFrame(this._animId);
+            this._animId = null;
+        }
+        this.isAnimating = false;
     }
 }

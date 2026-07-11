@@ -28,7 +28,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, onBeforeUnmount } from 'vue';
 
 const props = defineProps({
   isVisible: {
@@ -105,4 +105,10 @@ const endDrag = () => {
   window.removeEventListener('mouseup', endDrag);
   window.removeEventListener('touchend', endDrag);
 };
+
+onBeforeUnmount(() => {
+  if (isDragging) {
+    endDrag();
+  }
+});
 </script>

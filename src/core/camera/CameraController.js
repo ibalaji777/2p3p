@@ -24,12 +24,13 @@ export class CameraController {
         this.defaultPosition = new THREE.Vector3(800, 600, 800);
 
         // Cancel animation if user manually interacts with the camera
-        this.controls.addEventListener('start', () => {
+        this._onControlStart = () => {
             if (this.isAnimating) {
                 this.isAnimating = false;
                 this.controls.enableDamping = true;
             }
-        });
+        };
+        this.controls.addEventListener('start', this._onControlStart);
     }
 
     getBuildingBoundingBox() {
@@ -138,5 +139,12 @@ export class CameraController {
         }
         
         this.controls.update();
+    }
+
+    dispose() {
+        if (this.controls) {
+            this.controls.removeEventListener('start', this._onControlStart);
+            this.controls.dispose();
+        }
     }
 }

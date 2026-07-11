@@ -100,7 +100,11 @@ export class PremiumWidget {
             if (this.hasEvent("prevent_overlap") && this.checkOverlap(this.wall, t, this.width)) return; 
             this.t = t; this.update(); 
         }); 
-        this.visualGroup.on('dragend', () => { setTimeout(() => { this.isDragging = false; }, 100); this.planner.syncAll(); }); 
+        this.visualGroup.on('dragend', () => { 
+            if (this.dragTimeout) clearTimeout(this.dragTimeout);
+            this.dragTimeout = setTimeout(() => { this.isDragging = false; }, 100); 
+            this.planner.syncAll(); 
+        }); 
         this.visualGroup.on('click tap', (e) => { 
             if (this.planner.tool === 'select' && !this.isDragging) { 
                 this.planner.selectEntity(this, 'widget'); 
@@ -119,7 +123,10 @@ export class PremiumWidget {
         });
     }
     
-    remove() { this.cutter.destroy(); this.visualGroup.destroy(); if (this.leftHandle) { this.leftHandle.destroy(); this.rightHandle.destroy(); } this.wall.attachedWidgets = this.wall.attachedWidgets.filter(d => d !== this); this.planner.selectEntity(null); this.planner.syncAll(); }
+    remove() { 
+        if (this.dragTimeout) clearTimeout(this.dragTimeout);
+        this.cutter.destroy(); this.visualGroup.destroy(); if (this.leftHandle) { this.leftHandle.destroy(); this.rightHandle.destroy(); } this.wall.attachedWidgets = this.wall.attachedWidgets.filter(d => d !== this); this.planner.selectEntity(null); this.planner.syncAll(); 
+    }
     
     update() {
         const p1 = this.wall.startAnchor.position(), p2 = this.wall.endAnchor.position(), dx = p2.x - p1.x, dy = p2.y - p1.y, angle = Math.atan2(dy, dx) * 180 / Math.PI, absPos = { x: p1.x + dx * this.t, y: p1.y + dy * this.t }, thick = this.wall.thickness || this.wall.config.thickness, hw = this.width / 2;

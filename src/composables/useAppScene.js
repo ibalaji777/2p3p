@@ -1,3 +1,5 @@
+import { onBeforeUnmount } from 'vue';
+
 export function useAppScene({
     renderer3D,
     planner,
@@ -124,6 +126,10 @@ export function useAppScene({
             gizmoSyncTimeout = null;
         }, 50);
     };
+
+    onBeforeUnmount(() => {
+        if (gizmoSyncTimeout) clearTimeout(gizmoSyncTimeout);
+    });
 
     return {
         updateEnvironment,

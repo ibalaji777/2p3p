@@ -15,7 +15,7 @@ export class MaterialGizmo extends THREE.Group {
         
         const dom = this.ctx.renderer.domElement;
         
-        dom.addEventListener('pointerdown', (e) => {
+        this._onPointerDown = (e) => {
             if (!this.visible || this.ctx.currentTransformMode !== 'material' || !this.target || this.isPanelOpen) return;
             if (e.button !== 0) return;
             this.updateMouse(e);
@@ -66,9 +66,9 @@ export class MaterialGizmo extends THREE.Group {
                     this.ctx.gizmoManager.onMaterialFaceSelected(this.selectedFace, subMeshIndex, this.activeObject, this.activeMatIndex);
                 }
             }
-        }, { passive: false });
+        };
         
-        dom.addEventListener('pointermove', (e) => {
+        this._onPointerMove = (e) => {
             if (!this.visible || this.ctx.currentTransformMode !== 'material' || !this.target || this.isPanelOpen) return;
             this.updateMouse(e);
             
@@ -97,7 +97,10 @@ export class MaterialGizmo extends THREE.Group {
                 dom.style.cursor = 'auto';
                 this.clearHighlight();
             }
-        });
+        };
+
+        dom.addEventListener('pointerdown', this._onPointerDown, { passive: false });
+        dom.addEventListener('pointermove', this._onPointerMove);
     }
 
     setHighlight(mesh, matIndex, active) {
@@ -158,5 +161,14 @@ export class MaterialGizmo extends THREE.Group {
 
     updateHandles() {
         // Obsolete in direct raycast mode
+    }
+
+    dispose() {
+        const dom = this.ctx.renderer.domElement;
+        if (dom) {
+            dom.removeEventListener('pointerdown', this._onPointerDown);
+            dom.removeEventListener('pointermove', this._onPointerMove);
+        }
+        if (this.parent) this.parent.remove(this);
     }
 }

@@ -52,6 +52,15 @@ export class FloorPlanner {
         this.startAnchor = null;  
         this.preview = null; 
         this.presetPreview = null;
+        this._activeTimeouts = new Set();
+        this.registerTimeout = (cb, ms) => {
+            const id = setTimeout(() => {
+                this._activeTimeouts.delete(id);
+                cb();
+            }, ms);
+            this._activeTimeouts.add(id);
+            return id;
+        };
         
         Object.defineProperty(this, 'tool', {
             get: function() {
@@ -992,7 +1001,7 @@ export class FloorPlanner {
                 const newShape = new PremiumShape(this, 'shape_floor_cut', { x: cx, y: cy, width: w, height: h, points: relPts, stroke: '#ef4444', fill: 'rgba(239, 68, 68, 0.2)' });
                 if (!this.shapes) this.shapes = []; this.shapes.push(newShape);
                 
-                setTimeout(() => {
+                this.registerTimeout(() => {
                     this.tool = 'select'; this.updateToolStates();
                     if (this.onToolChange) this.onToolChange('select');
                     this.selectEntity(newShape, 'shape');
@@ -1003,7 +1012,7 @@ export class FloorPlanner {
                 roof.config.roofType = this.currentRoofToolType || 'hip';
                 this.roofs.push(roof); 
                 
-                setTimeout(() => {
+                this.registerTimeout(() => {
                     this.tool = 'select'; this.updateToolStates();
                     if (this.onToolChange) this.onToolChange('select');
                     this.selectEntity(roof, 'roof');
@@ -1021,7 +1030,7 @@ export class FloorPlanner {
                 const snapPos = this.arcMousePos || this.drawingArc.p2;
                 const newArc = new PremiumArc(this, a1, a2, snapPos);
                 this.arcs.push(newArc);
-                setTimeout(() => {
+                this.registerTimeout(() => {
                     this.tool = 'select'; this.updateToolStates();
                     if (this.onToolChange) this.onToolChange('select');
                     this.selectEntity(newArc, 'arc');
@@ -1042,7 +1051,7 @@ export class FloorPlanner {
         this.deselectAll(); 
         
         if (!isCancel && newlyCreated.length > 0) {
-            setTimeout(() => {
+            this.registerTimeout(() => {
                 this.tool = 'select';
                 this.updateToolStates();
                 if (this.onToolChange) this.onToolChange('select');
@@ -1212,7 +1221,7 @@ export class FloorPlanner {
                 const clonedPos = this.getPointerPos(e);
                 if (!clonedPos) return;
 
-                this._touchDrawTimer = setTimeout(() => {
+                this._touchDrawTimer = this.registerTimeout(() => {
                     this._touchDrawTimer = null;
                     if (this._touchDrawCancelled) return;
                     if (this.gestureManager && this.gestureManager.isActive()) return;
@@ -2101,9 +2110,10 @@ export class FloorPlanner {
             this.uiLayer.batchDraw(); 
         }); 
 
-        window.addEventListener('keydown', (e) => {
+        this._handleGlobalKeyDown = (e) => {
             if (e.key === 'Escape') this.finishChain();
-        });
+        };
+        window.addEventListener('keydown', this._handleGlobalKeyDown);
 
         this.stage.on('mouseup touchend', (e) => {
             if (e.evt && e.evt.touches && e.evt.touches.length > 0) return;
@@ -3093,7 +3103,7 @@ export class FloorPlanner {
             }
             // Auto-solve all stairs to repair any corrupted elevations/positions from old bugs
             if (this.stairs && this.stairs.length > 0) {
-                setTimeout(() => {
+                this.registerTimeout(() => {
                     this.stairs.forEach(s => {
                         try { StaircaseV4Solver.solve(this, s.systemId, s.id); } catch(e) {}
                     });
@@ -3261,5 +3271,27 @@ export class FloorPlanner {
             }
             this.bgLayer.batchDraw();
         } catch (err) { console.error("Failed to load reference background", err); }
+    }
+
+    dispose() {
+        if (this._handleGlobalKeyDown) {
+            window.removeEventListener('keydown', this._handleGlobalKeyDown);
+        }
+        if (this._activeTimeouts) {
+            this._activeTimeouts.forEach(id => clearTimeout(id));
+            this._activeTimeouts.clear();
+        }
+
+        if (this.cameraController && this.cameraController.dispose) {
+            this.cameraController.dispose();
+        }
+        if (this.gestureManager && this.gestureManager.dispose) {
+            this.gestureManager.dispose();
+        }
+
+        if (this.stage) {
+            this.stage.destroy();
+            this.stage = null;
+        }
     }
 }

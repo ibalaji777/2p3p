@@ -74,7 +74,11 @@ export class PremiumMolding {
             t = Math.max(minT, Math.min(maxT, t)); 
             this.t = t; this.update(); 
         }); 
-        this.visualGroup.on('dragend', () => { setTimeout(() => { this.isDragging = false; }, 100); this.planner.syncAll(); }); 
+        this.visualGroup.on('dragend', () => { 
+            if (this.dragTimeout) clearTimeout(this.dragTimeout);
+            this.dragTimeout = setTimeout(() => { this.isDragging = false; }, 100); 
+            this.planner.syncAll(); 
+        });
         this.visualGroup.on('click tap', (e) => { 
             if (this.planner.tool === 'select' && !this.isDragging) { 
                 e.cancelBubble = true; 
@@ -205,6 +209,7 @@ export class PremiumMolding {
     }
 
     destroy() { 
+        if (this.dragTimeout) clearTimeout(this.dragTimeout);
         this.visualGroup.destroy(); 
         if (this.hasEvent("resize_handles_along_wall_axis")) { this.leftHandle.destroy(); this.rightHandle.destroy(); } 
     }

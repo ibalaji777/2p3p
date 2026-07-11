@@ -844,7 +844,19 @@ export class GizmoManager {
             window.removeEventListener('pointermove', onPointerMove);
             window.removeEventListener('pointerup', onPointerUp);
             window.removeEventListener('pointercancel', onPointerUp);
+            if (this._activeDragCleanups) {
+                this._activeDragCleanups = this._activeDragCleanups.filter(fn => fn !== cleanup);
+            }
         };
+        
+        const cleanup = () => {
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', onPointerUp);
+            window.removeEventListener('pointercancel', onPointerUp);
+        };
+        
+        if (!this._activeDragCleanups) this._activeDragCleanups = [];
+        this._activeDragCleanups.push(cleanup);
         
         panel.addEventListener('pointerdown', onPointerDown);
     }
@@ -1282,6 +1294,10 @@ export class GizmoManager {
     }
 
     dispose() {
+        if (this._activeDragCleanups) {
+            this._activeDragCleanups.forEach(fn => fn());
+            this._activeDragCleanups = [];
+        }
         if (this.xyPanel && this.xyPanel.parentNode) this.xyPanel.parentNode.removeChild(this.xyPanel);
         if (this.openingPanel && this.openingPanel.parentNode) this.openingPanel.parentNode.removeChild(this.openingPanel);
         if (this.materialPanel && this.materialPanel.parentNode) this.materialPanel.parentNode.removeChild(this.materialPanel);

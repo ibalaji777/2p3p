@@ -52,9 +52,17 @@ export class OpeningGizmo extends THREE.Group {
         
         this.visible = false;
         
-        const dom = this.ctx.renderer.domElement;
+        this._onPointerDown = this._onPointerDown.bind(this);
+        this._onPointerMove = this._onPointerMove.bind(this);
+        this._onPointerUp = this._onPointerUp.bind(this);
         
-        dom.addEventListener('pointerdown', (e) => {
+        const dom = this.ctx.renderer.domElement;
+        dom.addEventListener('pointerdown', this._onPointerDown, { passive: false });
+        dom.addEventListener('pointermove', this._onPointerMove, { passive: false });
+        dom.addEventListener('pointerup', this._onPointerUp, { passive: false });
+    }
+    
+    _onPointerDown(e) {
             if (!this.visible || (this.ctx.currentTransformMode !== 'opening' && this.ctx.currentTransformMode !== 'translate')) return;
             if (e.button !== 0) return;
             this.updateMouse(e);
@@ -82,9 +90,10 @@ export class OpeningGizmo extends THREE.Group {
                     this.dragOffset.copy(intersectPoint).sub(this.position);
                 }
             }
-        }, { passive: false });
-        
-        dom.addEventListener('pointermove', (e) => {
+    }
+    
+
+    _onPointerMove(e) {
             if (!this.visible || (this.ctx.currentTransformMode !== 'opening' && this.ctx.currentTransformMode !== 'translate')) return;
             if (this.activeHandle) {
                 e.preventDefault();
@@ -170,9 +179,9 @@ export class OpeningGizmo extends THREE.Group {
                     window.dispatchEvent(event);
                 }
             }
-        }, { passive: false });
-        
-        dom.addEventListener('pointerup', (e) => {
+    }
+    
+    _onPointerUp(e) {
             if (this.activeHandle) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -180,7 +189,6 @@ export class OpeningGizmo extends THREE.Group {
                 const event = new CustomEvent(EVENTS.OPENING_GIZMO_END, { detail: { entity: this.target.userData.entity }});
                 window.dispatchEvent(event);
             }
-        }, { passive: false });
     }
     
     updateMouse(e) {
@@ -255,6 +263,19 @@ export class OpeningGizmo extends THREE.Group {
         
             this.renderOrder = 999;
     }
+
+    dispose() {
+        const dom = this.ctx.renderer.domElement;
+        dom.removeEventListener('pointerdown', this._onPointerDown);
+        dom.removeEventListener('pointermove', this._onPointerMove);
+        dom.removeEventListener('pointerup', this._onPointerUp);
+        
+        this.handles.children.forEach(child => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+        });
+        if (this.parent) this.parent.remove(this);
+    }
 }
 
 export class InteractionSystem {
@@ -276,62 +297,66 @@ export class InteractionSystem {
         this.wallHighlight.visible = false;
 
         this.transformControls = new TransformControls(this.ctx.camera, this.ctx.renderer.domElement);
-        const syncUI = () => { if (this.ctx.syncToUI) this.ctx.syncToUI(); };
+        this._syncUI = () => { if (this.ctx.syncToUI) this.ctx.syncToUI(); };
         
-        let drag3DStartPos = null;
-        let drag3DStartRot = null;
+        this.drag3DStartPos = null;
+        this.drag3DStartRot = null;
 
-        this.transformControls.addEventListener('move-start', (e) => {
+        this._onMoveStart = (e) => {
             if (e.object && e.object.userData && e.object.userData.entity) {
                 const ent = e.object.userData.entity;
-                if (ent.group) drag3DStartPos = { x: ent.group.x(), y: ent.group.y() };
+                if (ent.group) this.drag3DStartPos = { x: ent.group.x(), y: ent.group.y() };
             }
-        });
+        };
 
-        this.transformControls.addEventListener('move-end', (e) => {
-            if (e.object && e.object.userData && e.object.userData.entity && drag3DStartPos) {
+        this._onMoveEnd = (e) => {
+            if (e.object && e.object.userData && e.object.userData.entity && this.drag3DStartPos) {
                 const ent = e.object.userData.entity;
                 const id = ent.id || (ent.group && ent.group.id());
                 const endX = e.object.position.x;
                 const endY = -e.object.position.z;
                 
-                if (Math.abs(endX - drag3DStartPos.x) > 0.001 || Math.abs(endY - drag3DStartPos.y) > 0.001) {
+                if (Math.abs(endX - this.drag3DStartPos.x) > 0.001 || Math.abs(endY - this.drag3DStartPos.y) > 0.001) {
                     if (window.planner && window.planner.value) {
-                        e.object.position.set(drag3DStartPos.x, e.object.position.y, -drag3DStartPos.y);
+                        e.object.position.set(this.drag3DStartPos.x, e.object.position.y, -this.drag3DStartPos.y);
                         window.planner.value.move(id, endX, endY);
                     }
                 }
-                drag3DStartPos = null;
+                this.drag3DStartPos = null;
             }
-        });
+        };
 
-        this.transformControls.addEventListener('rotate-start', (e) => {
+        this._onRotateStart = (e) => {
             if (e.object && e.object.userData && e.object.userData.entity) {
-                drag3DStartRot = e.object.rotation.y;
+                this.drag3DStartRot = e.object.rotation.y;
             }
-        });
+        };
 
-        this.transformControls.addEventListener('rotate-end', (e) => {
-            if (e.object && e.object.userData && e.object.userData.entity && drag3DStartRot !== null) {
+        this._onRotateEnd = (e) => {
+            if (e.object && e.object.userData && e.object.userData.entity && this.drag3DStartRot !== null) {
                 const ent = e.object.userData.entity;
                 const id = ent.id || (ent.group && ent.group.id());
                 const endRot = e.object.rotation.y;
                 
-                if (Math.abs(endRot - drag3DStartRot) > 0.001) {
+                if (Math.abs(endRot - this.drag3DStartRot) > 0.001) {
                     if (window.planner && window.planner.value) {
-                        e.object.rotation.y = drag3DStartRot;
+                        e.object.rotation.y = this.drag3DStartRot;
                         window.planner.value.rotate(id, endRot);
                     }
                 }
-                drag3DStartRot = null;
+                this.drag3DStartRot = null;
             }
-        });
+        };
 
-        this.transformControls.addEventListener('move-change', syncUI);
-        this.transformControls.addEventListener('scale-change', syncUI);
-        this.transformControls.addEventListener('spin-change', syncUI);
-        this.transformControls.addEventListener('tilt-change', syncUI);
-        this.transformControls.addEventListener('rotate-change', syncUI);
+        this.transformControls.addEventListener('move-start', this._onMoveStart);
+        this.transformControls.addEventListener('move-end', this._onMoveEnd);
+        this.transformControls.addEventListener('rotate-start', this._onRotateStart);
+        this.transformControls.addEventListener('rotate-end', this._onRotateEnd);
+        this.transformControls.addEventListener('move-change', this._syncUI);
+        this.transformControls.addEventListener('scale-change', this._syncUI);
+        this.transformControls.addEventListener('spin-change', this._syncUI);
+        this.transformControls.addEventListener('tilt-change', this._syncUI);
+        this.transformControls.addEventListener('rotate-change', this._syncUI);
         this.transformControls.visible = false;
         this.ctx.scene.add(this.transformControls);
 
@@ -376,7 +401,7 @@ export class InteractionSystem {
     initEvents() {
         const dom = this.ctx.renderer.domElement;
         
-        dom.addEventListener('pointerdown', (e) => {
+        this._onPointerDown = (e) => {
             if (this.ctx.viewMode3D === 'preview') return;
             if (this.transformControls && this.transformControls.active) return;
             if (this.mode === 'camera' || e.button !== 0) return;
@@ -442,9 +467,9 @@ export class InteractionSystem {
                     }
                 }
             } else this.deselect();
-        });
+        };
 
-        dom.addEventListener('pointermove', (e) => {
+        this._onPointerMove = (e) => {
             if (this.ctx.viewMode3D === 'preview') return;
             if (this.transformControls && this.transformControls.active) return;
             if (this.mode === 'camera') return;
@@ -477,8 +502,10 @@ export class InteractionSystem {
                     this.hoveredObject = null;
                 }
             }
-        });
+        };
 
+        dom.addEventListener('pointerdown', this._onPointerDown);
+        dom.addEventListener('pointermove', this._onPointerMove);
     }
 
     setTransformMode(mode) {
@@ -612,5 +639,34 @@ export class InteractionSystem {
         if (window.plannerInstance) {
             window.plannerInstance.selectEntity(null, null);
         }
+    }
+
+    dispose() {
+        if (this.transformControls) {
+            this.transformControls.removeEventListener('move-start', this._onMoveStart);
+            this.transformControls.removeEventListener('move-end', this._onMoveEnd);
+            this.transformControls.removeEventListener('rotate-start', this._onRotateStart);
+            this.transformControls.removeEventListener('rotate-end', this._onRotateEnd);
+            this.transformControls.removeEventListener('move-change', this._syncUI);
+            this.transformControls.removeEventListener('scale-change', this._syncUI);
+            this.transformControls.removeEventListener('spin-change', this._syncUI);
+            this.transformControls.removeEventListener('tilt-change', this._syncUI);
+            this.transformControls.removeEventListener('rotate-change', this._syncUI);
+            if (this.transformControls.dispose) this.transformControls.dispose();
+        }
+
+        const dom = this.ctx.renderer.domElement;
+        if (dom) {
+            if (this._onPointerDown) dom.removeEventListener('pointerdown', this._onPointerDown);
+            if (this._onPointerMove) dom.removeEventListener('pointermove', this._onPointerMove);
+        }
+
+        if (this.openingGizmo && this.openingGizmo.dispose) this.openingGizmo.dispose();
+        if (this.materialGizmo && this.materialGizmo.dispose) this.materialGizmo.dispose();
+        if (this.cornerGizmo && this.cornerGizmo.dispose) this.cornerGizmo.dispose();
+        if (this.vertexSlopeGizmo && this.vertexSlopeGizmo.dispose) this.vertexSlopeGizmo.dispose();
+        if (this.roofCornerGizmo && this.roofCornerGizmo.dispose) this.roofCornerGizmo.dispose();
+        if (this.roofOverhangGizmo && this.roofOverhangGizmo.dispose) this.roofOverhangGizmo.dispose();
+        if (this.polygonGizmo && this.polygonGizmo.dispose) this.polygonGizmo.dispose();
     }
 }

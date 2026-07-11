@@ -29,7 +29,7 @@ export class RoofCornerGizmo extends THREE.Group {
 
         const dom = this.ctx.renderer.domElement;
         
-        dom.addEventListener('pointerdown', (e) => {
+        this._onPointerDown = (e) => {
             if (!this.visible || this.ctx.currentTransformMode !== 'roof_corners') return;
             if (e.button !== 0) return;
             this.updateMouse(e);
@@ -77,9 +77,9 @@ export class RoofCornerGizmo extends THREE.Group {
                 this.selectedIndices.clear();
                 this.refreshHandleMaterials();
             }
-        }, { passive: false });
+        };
         
-        dom.addEventListener('pointermove', (e) => {
+        this._onPointerMove = (e) => {
             if (!this.visible || this.ctx.currentTransformMode !== 'roof_corners') return;
             this.updateMouse(e);
             
@@ -132,9 +132,9 @@ export class RoofCornerGizmo extends THREE.Group {
                     this.refreshHandleMaterials();
                 }
             }
-        }, { passive: false });
+        };
         
-        dom.addEventListener('pointerup', (e) => {
+        this._onPointerUp = (e) => {
             if (!this.visible || this.ctx.currentTransformMode !== 'roof_corners') return;
             if (this.isDragging) {
                 this.isDragging = false;
@@ -144,7 +144,11 @@ export class RoofCornerGizmo extends THREE.Group {
                     if (this.ctx.syncToUI) this.ctx.syncToUI();
                 }
             }
-        }, { passive: false });
+        };
+
+        dom.addEventListener('pointerdown', this._onPointerDown, { passive: false });
+        dom.addEventListener('pointermove', this._onPointerMove, { passive: false });
+        dom.addEventListener('pointerup', this._onPointerUp, { passive: false });
     }
     
     updateMouse(e) {
@@ -210,5 +214,24 @@ export class RoofCornerGizmo extends THREE.Group {
                 h.position.set(points[idx].x, h.position.y, points[idx].y);
             }
         });
+    }
+
+    dispose() {
+        const dom = this.ctx.renderer.domElement;
+        if (dom) {
+            dom.removeEventListener('pointerdown', this._onPointerDown, { passive: false });
+            dom.removeEventListener('pointermove', this._onPointerMove, { passive: false });
+            dom.removeEventListener('pointerup', this._onPointerUp, { passive: false });
+        }
+        if (this.handleMat) this.handleMat.dispose();
+        if (this.handleMatHover) this.handleMatHover.dispose();
+        if (this.handleMatActive) this.handleMatActive.dispose();
+        if (this.handleGeo) this.handleGeo.dispose();
+        
+        this.handles.children.forEach(c => {
+            if (c.geometry && c.geometry !== this.handleGeo) c.geometry.dispose();
+        });
+
+        if (this.parent) this.parent.remove(this);
     }
 }

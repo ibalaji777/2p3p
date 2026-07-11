@@ -656,6 +656,11 @@ onBeforeUnmount(() => {
     if (workspaceControls.value && workspaceControls.value.dispose) {
         workspaceControls.value.dispose();
     }
+    
+    // Clean up 2D engine
+    if (planner.value && planner.value.dispose) {
+        planner.value.dispose();
+    }
 });
 
 const { handleGlobalKeys } = useKeyboardShortcuts({ undo, redo, handleDelete: () => handleDelete(), debouncedSaveHistory, setTool: (t) => setTool(t), toggleCategory: (c) => toggleCategory(c) });

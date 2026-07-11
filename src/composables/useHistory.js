@@ -1,3 +1,4 @@
+import { onBeforeUnmount } from 'vue';
 import { storeToRefs } from 'pinia';
 import { usePlannerStore } from '../stores/usePlannerStore.js';
 import { useUIStore } from '../stores/useUIStore.js';
@@ -68,6 +69,10 @@ export function useHistory(dependencies) {
             if (planner.value) planner.value.syncAll();
         }
     };
+
+    onBeforeUnmount(() => {
+        if (historyTimeout) clearTimeout(historyTimeout);
+    });
 
     return {
         saveHistory,

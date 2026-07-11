@@ -29,7 +29,7 @@ export class VertexSlopeGizmo extends THREE.Group {
 
         const dom = this.ctx.renderer.domElement;
         
-        dom.addEventListener('pointerdown', (e) => {
+        this._onPointerDown = (e) => {
             if (!this.visible || this.ctx.currentTransformMode !== 'vertex_slope') return;
             if (e.button !== 0) return;
             this.updateMouse(e);
@@ -78,9 +78,9 @@ export class VertexSlopeGizmo extends THREE.Group {
                 this.selectedIndices.clear();
                 this.refreshHandleMaterials();
             }
-        }, { passive: false });
+        };
         
-        dom.addEventListener('pointermove', (e) => {
+        this._onPointerMove = (e) => {
             if (!this.visible || this.ctx.currentTransformMode !== 'vertex_slope') return;
             this.updateMouse(e);
             
@@ -130,9 +130,9 @@ export class VertexSlopeGizmo extends THREE.Group {
             } else {
                 dom.style.cursor = 'auto';
             }
-        });
+        };
         
-        dom.addEventListener('pointerup', (e) => {
+        this._onPointerUp = (e) => {
             if (this.isDragging) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -144,7 +144,11 @@ export class VertexSlopeGizmo extends THREE.Group {
                     coreEventBus.emit(EVENTS.VERTEX_SLOPE_GIZMO_END, { entity: this.target.userData.entity });
                 }
             }
-        });
+        };
+
+        dom.addEventListener('pointerdown', this._onPointerDown, { passive: false });
+        dom.addEventListener('pointermove', this._onPointerMove);
+        dom.addEventListener('pointerup', this._onPointerUp);
     }
     
     updateMouse(e) {
@@ -224,5 +228,24 @@ export class VertexSlopeGizmo extends THREE.Group {
         this.handles.children.forEach(c => {
             c.material = this.selectedIndices.has(c.userData.index) ? this.handleMatActive : this.handleMat;
         });
+    }
+
+    dispose() {
+        const dom = this.ctx.renderer.domElement;
+        if (dom) {
+            dom.removeEventListener('pointerdown', this._onPointerDown, { passive: false });
+            dom.removeEventListener('pointermove', this._onPointerMove);
+            dom.removeEventListener('pointerup', this._onPointerUp);
+        }
+        if (this.handleMat) this.handleMat.dispose();
+        if (this.handleMatHover) this.handleMatHover.dispose();
+        if (this.handleMatActive) this.handleMatActive.dispose();
+        if (this.handleGeo) this.handleGeo.dispose();
+        
+        this.handles.children.forEach(c => {
+            if (c.geometry && c.geometry !== this.handleGeo) c.geometry.dispose();
+        });
+
+        if (this.parent) this.parent.remove(this);
     }
 }
