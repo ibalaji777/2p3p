@@ -21,6 +21,7 @@ export class CommandManager {
 
         if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent(EVENTS.HISTORY_CHANGED));
+            window.dispatchEvent(new CustomEvent(EVENTS.SCENE_CHANGED));
         }
     }
 
@@ -33,6 +34,7 @@ export class CommandManager {
         
         if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent(EVENTS.HISTORY_CHANGED));
+            window.dispatchEvent(new CustomEvent(EVENTS.SCENE_CHANGED));
         }
     }
 
@@ -45,6 +47,7 @@ export class CommandManager {
         
         if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent(EVENTS.HISTORY_CHANGED));
+            window.dispatchEvent(new CustomEvent(EVENTS.SCENE_CHANGED));
         }
     }
 }

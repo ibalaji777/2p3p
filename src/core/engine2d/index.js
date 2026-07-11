@@ -5,6 +5,7 @@ import { CameraController } from './CameraController.js';
 import { GestureManager } from './GestureManager.js';
 import { GRID, PX_TO_FT, SNAP_DIST, WALL_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY, offsetPolygon } from '../registry.js';
 import { CommandManager } from '../commands/CommandManager.js';
+import { AutomationAPI } from '../api/AutomationAPI.js';
 import { MoveCommand } from '../commands/MoveCommand.js';
 import { RotateCommand } from '../commands/RotateCommand.js';
 import { ResizeCommand } from '../commands/ResizeCommand.js';
@@ -107,6 +108,8 @@ export class FloorPlanner {
         this.initStageEvents(); 
         this.snapManager = this.smartGuides;
         this.commandManager = new CommandManager(100);
+        // Initialize Engine Automation API
+        this.automationApi = new AutomationAPI(this);
     }
     
     

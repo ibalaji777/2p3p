@@ -703,6 +703,7 @@ const hintData = computed(() => {
 onMounted(() => {
     window.addEventListener('resize', handleResize);
     planner.value = new FloorPlanner(canvasWorkspaceRef.value.canvas2D);
+    window.planner = planner.value; // Expose for Automation API testing
     planner.value.activeCategory = activeCategory.value;
     planner.value.loadDefaultHouse();
 
