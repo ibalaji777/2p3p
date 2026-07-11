@@ -7,5 +7,17 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+  },
+  build: {
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'three': ['three'],
+          'konva': ['konva'],
+          'vue-vendor': ['vue', 'pinia']
+        }
+      }
+    }
   }
 })
