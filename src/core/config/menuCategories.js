@@ -29,10 +29,10 @@ export const getMenuCategories = () => [
         id: 'doors_windows', name: 'Doors & Windows',
         icon: '<path d="M4 22h16"></path><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"></path><path d="M14 12h2"></path>',
         tools: [
-            { id: 'door', name: 'Add Door' },
-            { id: 'window', name: 'Add Window' },
-            { id: 'sunshade', name: 'Add Sunshade' },
-            { id: 'jali_panel', name: 'Add Jali Panel' }
+            { id: 'door', name: 'Door' },
+            { id: 'window', name: 'Window' },
+            { id: 'sunshade', name: 'Sunshade' },
+            { id: 'jali_panel', name: 'Jali Panel' }
         ]
     },
     {
@@ -40,7 +40,7 @@ export const getMenuCategories = () => [
         icon: '<path d="M19 3H15V7H11V11H7V15H3V21H19Z"></path>',
         tools: [
             { isDivider: true, name: 'Staircases' },
-            { id: 'staircase', name: 'Add Staircase' },
+            { id: 'staircase', name: 'Staircase' },
 
             { isDivider: true, name: 'Floor Cuts' },
             { id: 'shape_floor_cut', name: 'Floor Cut (Hole)' }
@@ -51,9 +51,11 @@ export const getMenuCategories = () => [
         icon: '<path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>',
         tools: [
             { isDivider: true, name: 'Custom Roofs' },
-            { id: 'roof', name: 'Draw Roof' },
+            { id: 'roof', name: 'Roof' },
             { id: 'auto_roof', name: 'Generate Auto-Roof', action: 'auto_roof' },
-            ...Object.keys(PRESET_CATEGORIES).reduce((acc, catName) => {
+            { isDivider: true, name: 'Dormers' },
+            { id: 'dormer', name: 'Dormer' },
+            ...Object.keys(PRESET_CATEGORIES).filter(cat => cat !== 'Dormers').reduce((acc, catName) => {
                 acc.push({ isDivider: true, name: catName });
                 PRESET_CATEGORIES[catName].forEach(preset => acc.push({ id: preset.id, name: preset.name, presetParams: { ...preset.defaultParams } }));
                 return acc;

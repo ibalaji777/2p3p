@@ -57,6 +57,11 @@ export function useAppTools({
     };
 
     const handleToolClick = (tool) => {
+        if (activeTool.value === tool.id && ['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer'].includes(tool.id)) {
+            setTool('select');
+            return;
+        }
+        
         if (tool.action === 'furniture') spawnFurniture(tool.id);
         else if (tool.action === 'auto_roof') { if (planner.value) planner.value.addAutoRoof(); }
         else if (tool.action === 'wizard') { wizardPopupRef.value?.open(tool.id); }
@@ -66,7 +71,7 @@ export function useAppTools({
         }
         else setTool(tool.id);
         
-        if ((isMobile.value || isTablet.value) && !['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof'].includes(tool.id)) {
+        if ((isMobile.value || isTablet.value) && !['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer'].includes(tool.id)) {
             mobileMenuOpen.value = false;
         }
     };

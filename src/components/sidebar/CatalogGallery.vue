@@ -1,7 +1,7 @@
 <template>
     <div class="catalog-gallery">
         <div class="catalog-header">
-            <h3>{{ type === 'door' ? 'Door Catalog' : type === 'window' ? 'Window Catalog' : type === 'sunshade' ? 'Sunshade Catalog' : type === 'jali_panel' ? 'Jali Panel Catalog' : type === 'staircase' ? 'Staircase Catalog' : 'Roof Catalog' }}</h3>
+            <h3>{{ type === 'door' ? 'Door Catalog' : type === 'window' ? 'Window Catalog' : type === 'sunshade' ? 'Sunshade Catalog' : type === 'jali_panel' ? 'Jali Panel Catalog' : type === 'staircase' ? 'Staircase Catalog' : type === 'dormer' ? 'Dormer Catalog' : 'Roof Catalog' }}</h3>
             <div class="search-box">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 <input type="text" v-model="searchQuery" placeholder="Search models..." />
@@ -85,6 +85,13 @@ const roofCatalog = ref([
     { id: 'roof_flat', name: 'Flat Roof', image: '', params: { roofType: 'flat', thick: 15 } },
 ]);
 
+
+const dormerCatalog = ref([
+    { id: 'preset_dormer_gable', name: 'Gable Dormer', image: '', params: { type: 'preset_dormer_gable', width: 120, depth: 150, wallHeight: 120, roofType: 'gable', pitch: 35, elevation: 250 } },
+    { id: 'preset_dormer_shed', name: 'Shed Dormer', image: '', params: { type: 'preset_dormer_shed', width: 250, depth: 150, wallHeight: 120, roofType: 'flat', pitch: 15, elevation: 250 } },
+    { id: 'preset_dormer_hip', name: 'Hip Dormer', image: '', params: { type: 'preset_dormer_hip', width: 120, depth: 150, wallHeight: 120, roofType: 'hip', pitch: 35, elevation: 250 } }
+]);
+
 const items = computed(() => {
     if (props.type === 'door') return doorCatalog.value;
     if (props.type === 'window') return windowCatalog.value;
@@ -92,6 +99,7 @@ const items = computed(() => {
     if (props.type === 'jali_panel') return jaliCatalog.value;
     if (props.type === 'staircase') return staircaseCatalog.value;
     if (props.type === 'roof') return roofCatalog.value;
+    if (props.type === 'dormer') return dormerCatalog.value;
     return [];
 });
 

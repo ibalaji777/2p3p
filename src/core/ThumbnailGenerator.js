@@ -49,7 +49,7 @@ export class ThumbnailGenerator {
     }
 
     async generate(type, params) {
-        if (!WIDGET_REGISTRY[type] && type !== 'staircase' && type !== 'roof') return null;
+        if (!WIDGET_REGISTRY[type] && type !== 'staircase' && type !== 'roof' && type !== 'dormer') return null;
 
         // Create a cache key from params to avoid re-rendering
         const cacheKey = type + '_' + JSON.stringify(params);
@@ -100,7 +100,37 @@ export class ThumbnailGenerator {
                 x: 0, y: 0, elevation: 0, rotation: 0
             };
             this.ctx.envBuilder.buildRoofs([dummyRoof], 0, false, group);
+        
+        } else if (type === 'dormer') {
+            const w = params.width || 120;
+            const d = params.depth || 150;
+            const wallH = params.wallHeight || 120;
+            
+            const wallMat = new THREE.MeshStandardMaterial({color: 0xffffff});
+            
+            // Base walls
+            const baseGeo = new THREE.BoxGeometry(w, wallH, d);
+            const baseMesh = new THREE.Mesh(baseGeo, wallMat);
+            baseMesh.position.y = wallH / 2;
+            group.add(baseMesh);
+            
+            // Roof
+            const dummyRoof = {
+                points: [{x: -w/2, y: -d/2}, {x: w/2, y: -d/2}, {x: w/2, y: d/2}, {x: -w/2, y: d/2}],
+                config: { roofType: params.roofType || 'gable', pitch: params.pitch || 35, material: 'tiles_red', thick: 10, ridgeAxis: 'y' },
+                x: 0, y: 0, elevation: wallH, rotation: 0
+            };
+            try {
+                this.ctx.envBuilder.buildRoofs([dummyRoof], 0, false, group);
+            } catch(e) {
+                console.error("Error building dummy roof for dormer:", e);
+                // add a red box so we know it failed
+                const errMesh = new THREE.Mesh(new THREE.BoxGeometry(w, 20, d), new THREE.MeshBasicMaterial({color: 0xff0000}));
+                errMesh.position.y = wallH + 10;
+                group.add(errMesh);
+            }
         } else {
+
             // Render the procedural mesh for widgets
             const widgetGroup = WIDGET_REGISTRY[type].render3D(group, entity, this.ctx.helpers);
         }

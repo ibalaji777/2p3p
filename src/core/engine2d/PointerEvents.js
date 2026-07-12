@@ -1,6 +1,6 @@
 import Konva from 'konva';
 import { WALL_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY, SNAP_DIST } from '../registry.js';
-import { PRESET_REGISTRY } from './presetRegistry.js';
+import { PRESET_REGISTRY, autoAlign } from './presetRegistry.js';
 import { PremiumShape } from './PremiumShape.js';
 
 /**
@@ -208,11 +208,12 @@ export function setupPointerEvents(planner) {
                 planner.uiLayer.batchDraw(); return;
             }
 
-            if (planner.tool.startsWith('preset_') && PRESET_REGISTRY[planner.tool] && planner.activePresetParams) {
+            const presetId = planner.tool === 'dormer' ? planner.activePresetParams?.type : planner.tool;
+            if (presetId && presetId.startsWith('preset_') && PRESET_REGISTRY[presetId] && planner.activePresetParams) {
                 if (!planner.presetPreview) {
                     planner.presetPreview = new Konva.Shape({ stroke: '#4f46e5', strokeWidth: 2, fill: 'rgba(79, 70, 229, 0.2)', dash: [5, 5] });
                     planner.presetPreview.sceneFunc((ctx, shape) => {
-                        const preset = PRESET_REGISTRY[planner.tool];
+                        const preset = PRESET_REGISTRY[presetId];
                         if (preset && preset.icon2d && planner.activePresetParams) {
                             preset.icon2d(ctx, planner.activePresetParams.width || 200, planner.activePresetParams.depth || 200);
                         }
@@ -225,7 +226,7 @@ export function setupPointerEvents(planner) {
                 
                 planner.presetPreview.visible(true);
                 planner.presetPreview.sceneFunc((ctx, shape) => {
-                    const preset = PRESET_REGISTRY[planner.tool];
+                    const preset = PRESET_REGISTRY[presetId];
                     if (preset && preset.icon2d && planner.activePresetParams) {
                         preset.icon2d(ctx, planner.activePresetParams.width || 200, planner.activePresetParams.depth || 200);
                     }
