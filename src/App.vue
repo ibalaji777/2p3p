@@ -206,6 +206,10 @@ const handleCatalogSelect = (item) => {
     if (planner.value) {
         planner.value.activePresetParams = { ...item.params };
         activePresetParams.value = { ...item.params };
+        
+        if (item.toolId) {
+            setTool(item.toolId);
+        }
     }
     if (isMobile.value || isTablet.value) {
         mobileMenuOpen.value = false;

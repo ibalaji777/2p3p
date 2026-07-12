@@ -5,7 +5,7 @@ export const getMenuCategories = () => [
         id: 'common', name: 'Common',
         icon: '<path d="M4 6h16M4 12h16M4 18h16M8 6v12M16 6v12"></path>',
         tools: [
-            { id: 'railing', name: 'Draw Railing' }
+            { id: 'railing_catalog', name: 'Railing' }
         ]
     },
     {
@@ -20,9 +20,7 @@ export const getMenuCategories = () => [
         id: 'walls', name: 'Walls',
         icon: '<path d="M4 4h16v16H4z"></path><path d="M4 12h16"></path><path d="M12 4v16"></path>',
         tools: [
-            { id: 'outer', name: 'Outer Wall' },
-            { id: 'inner', name: 'Inner Wall' },
-            { id: 'arc', name: 'Curved Wall (Arc)' }
+            { id: 'wall_catalog', name: 'Walls' }
         ]
     },
     {
@@ -75,9 +73,7 @@ export const getMenuCategories = () => [
         id: 'shapes', name: 'Shapes',
         icon: '<path d="M3 8l4-4 4 4v4H3V8z"></path><circle cx="17" cy="6" r="3"></circle><rect x="14" y="14" width="6" height="6" rx="1"></rect><path d="M3 14h6v6H3z"></path>',
         tools: [
-            { id: 'shape_rect', name: 'Box (Rectangle)' },
-            { id: 'shape_circle', name: 'Cylinder (Circle)' },
-            { id: 'shape_triangle', name: 'Prism (Polygon)' }
+            { id: 'shape_catalog', name: '3D Shapes' }
         ]
     },
     {
@@ -92,12 +88,7 @@ export const getMenuCategories = () => [
         id: 'advance_openings', name: 'Advanced Openings',
         icon: '<path d="M12 2L2 22h20L12 2z"></path><circle cx="12" cy="14" r="3"></circle>',
         tools: [
-            { id: 'arch_opening', name: 'Arch Opening' },
-            { id: 'circular_opening', name: 'Circular & Oval' },
-            { id: 'custom_shape_opening', name: 'Custom Shape Cut' },
-            { id: 'niche_recess', name: 'Niche & Recess' },
-            { id: 'pattern_opening', name: 'Pattern Opening' },
-            { id: 'boolean_cut', name: 'Boolean Cut' }
+            { id: 'adv_opening_catalog', name: 'Advanced Openings' }
         ]
     },
     {

@@ -57,9 +57,20 @@ export function useAppTools({
     };
 
     const handleToolClick = (tool) => {
-        if (activeTool.value === tool.id && ['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia'].includes(tool.id)) {
-            setTool('select');
-            return;
+        const accordionTools = ['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog'];
+        if (accordionTools.includes(tool.id)) {
+            // Check if active tool belongs to this catalog
+            const mapping = {
+                'wall_catalog': ['outer', 'inner', 'arc'],
+                'shape_catalog': ['shape_rect', 'shape_circle', 'shape_triangle'],
+                'adv_opening_catalog': ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'],
+                'railing_catalog': ['railing']
+            };
+            const isChildActive = mapping[tool.id] && mapping[tool.id].includes(activeTool.value);
+            if (activeTool.value === tool.id || isChildActive) {
+                setTool('select');
+                return;
+            }
         }
         
         if (tool.action === 'furniture') spawnFurniture(tool.id);
@@ -71,7 +82,7 @@ export function useAppTools({
         }
         else setTool(tool.id);
         
-        if ((isMobile.value || isTablet.value) && !['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia'].includes(tool.id)) {
+        if ((isMobile.value || isTablet.value) && !accordionTools.includes(tool.id)) {
             mobileMenuOpen.value = false;
         }
     };

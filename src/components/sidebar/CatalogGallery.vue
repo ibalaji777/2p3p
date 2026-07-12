@@ -113,6 +113,31 @@ const elevationFasciaCatalog = ref([
     { id: 'fascia_box', name: 'Full Box Frame', image: '', params: { type: 'elevation_fascia', profileType: 'full_box' } }
 ]);
 
+const advanceOpeningsCatalog = ref([
+    { id: 'adv_arch', name: 'Arch Opening', image: '', toolId: 'arch_opening', params: { type: 'arch_opening' } },
+    { id: 'adv_circ', name: 'Circular & Oval', image: '', toolId: 'circular_opening', params: { type: 'circular_opening' } },
+    { id: 'adv_custom', name: 'Custom Shape Cut', image: '', toolId: 'custom_shape_opening', params: { type: 'custom_shape_opening' } },
+    { id: 'adv_niche', name: 'Niche & Recess', image: '', toolId: 'niche_recess', params: { type: 'niche_recess' } },
+    { id: 'adv_pattern', name: 'Pattern Opening', image: '', toolId: 'pattern_opening', params: { type: 'pattern_opening' } },
+    { id: 'adv_boolean', name: 'Boolean Cut', image: '', toolId: 'boolean_cut', params: { type: 'boolean_cut' } }
+]);
+
+const shapesCatalog = ref([
+    { id: 'shape_box', name: 'Box (Rectangle)', image: '', toolId: 'shape_rect', params: { type: 'shape_rect' } },
+    { id: 'shape_cyl', name: 'Cylinder (Circle)', image: '', toolId: 'shape_circle', params: { type: 'shape_circle' } },
+    { id: 'shape_prism', name: 'Prism (Polygon)', image: '', toolId: 'shape_triangle', params: { type: 'shape_triangle' } }
+]);
+
+const wallsCatalog = ref([
+    { id: 'wall_outer', name: 'Outer Wall', image: '', toolId: 'outer', params: { type: 'outer' } },
+    { id: 'wall_inner', name: 'Inner Wall', image: '', toolId: 'inner', params: { type: 'inner' } },
+    { id: 'wall_arc', name: 'Curved Wall (Arc)', image: '', toolId: 'arc', params: { type: 'arc' } }
+]);
+
+const railingCatalog = ref([
+    { id: 'railing_std', name: 'Standard Railing', image: '', toolId: 'railing', params: { type: 'railing' } }
+]);
+
 const items = computed(() => {
     if (props.type === 'door') return doorCatalog.value;
     if (props.type === 'window') return windowCatalog.value;
@@ -123,6 +148,10 @@ const items = computed(() => {
     if (props.type === 'dormer') return dormerCatalog.value;
     if (props.type === 'molding') return moldingCatalog.value;
     if (props.type === 'elevation_fascia') return elevationFasciaCatalog.value;
+    if (props.type === 'adv_opening_catalog') return advanceOpeningsCatalog.value;
+    if (props.type === 'shape_catalog') return shapesCatalog.value;
+    if (props.type === 'wall_catalog') return wallsCatalog.value;
+    if (props.type === 'railing_catalog') return railingCatalog.value;
     return [];
 });
 
@@ -142,7 +171,11 @@ const generateThumbnails = async () => {
             try {
                 // Yield to main thread briefly before heavy render
                 await new Promise(r => setTimeout(r, 10));
-                const dataUrl = await renderer.thumbnailGenerator.generate(props.type, item.params);
+                let genType = props.type;
+                if (['wall_catalog', 'adv_opening_catalog', 'shape_catalog', 'railing_catalog'].includes(props.type)) {
+                    genType = item.toolId || item.params.type;
+                }
+                const dataUrl = await renderer.thumbnailGenerator.generate(genType, item.params);
                 if (dataUrl) item.image = dataUrl;
             } catch (err) {
                 console.error("Failed to generate thumbnail for", item.name, err);

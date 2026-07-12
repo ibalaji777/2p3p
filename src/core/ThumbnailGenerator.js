@@ -50,7 +50,8 @@ export class ThumbnailGenerator {
     }
 
     async generate(type, params) {
-        if (!WIDGET_REGISTRY[type] && type !== 'staircase' && type !== 'roof' && type !== 'dormer' && type !== 'molding') return null;
+        const allowedNonWidgets = ['staircase', 'roof', 'dormer', 'molding', 'outer', 'inner', 'arc', 'shape_rect', 'shape_circle', 'shape_triangle', 'railing', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'];
+        if (!WIDGET_REGISTRY[type] && !allowedNonWidgets.includes(type)) return null;
 
         // Create a cache key from params to avoid re-rendering
         const cacheKey = type + '_' + JSON.stringify(params);
@@ -149,6 +150,60 @@ export class ThumbnailGenerator {
             // Rotate it slightly so we can see the profile
             moldGroup.rotation.y = Math.PI / 4;
             group.add(moldGroup);
+        } else if (['outer', 'inner', 'arc'].includes(type)) {
+            const w = 100, h = 100, d = 10;
+            let geo;
+            if (type === 'arc') {
+                geo = new THREE.CylinderGeometry(100, 100, h, 32, 1, false, 0, Math.PI / 2);
+            } else {
+                geo = new THREE.BoxGeometry(w, h, d);
+            }
+            const wallMat = new THREE.MeshStandardMaterial({ color: type === 'outer' ? 0xffffff : 0xeeeeee });
+            const mesh = new THREE.Mesh(geo, wallMat);
+            group.add(mesh);
+        } else if (['shape_rect', 'shape_circle', 'shape_triangle'].includes(type)) {
+            const size = 60, h = 60;
+            let geo;
+            if (type === 'shape_rect') geo = new THREE.BoxGeometry(size, h, size);
+            else if (type === 'shape_circle') geo = new THREE.CylinderGeometry(size/2, size/2, h, 32);
+            else geo = new THREE.CylinderGeometry(size/2, size/2, h, 3);
+            const mat = new THREE.MeshStandardMaterial({ color: 0x88ccff });
+            const mesh = new THREE.Mesh(geo, mat);
+            group.add(mesh);
+        } else if (type === 'railing') {
+            const length = 100;
+            const geo = new THREE.BoxGeometry(length, 40, 5); 
+            const mat = new THREE.MeshStandardMaterial({ color: 0x999999, transparent: true, opacity: 0.8 });
+            group.add(new THREE.Mesh(geo, mat));
+        } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(type)) {
+            // Proxy wall with a hole in it
+            const w = 100, h = 100, d = 10;
+            
+            const shape = new THREE.Shape();
+            shape.moveTo(-w/2, -h/2);
+            shape.lineTo(w/2, -h/2);
+            shape.lineTo(w/2, h/2);
+            shape.lineTo(-w/2, h/2);
+            shape.lineTo(-w/2, -h/2);
+            
+            const hole = new THREE.Path();
+            if (type === 'arch_opening') {
+                hole.moveTo(-20, -h/2); hole.lineTo(20, -h/2); hole.lineTo(20, 0);
+                hole.absarc(0, 0, 20, 0, Math.PI, false); hole.lineTo(-20, -h/2);
+            } else if (type === 'circular_opening') {
+                hole.absarc(0, 0, 20, 0, Math.PI*2, false);
+            } else {
+                hole.moveTo(-20, -20); hole.lineTo(20, -20); hole.lineTo(20, 20); hole.lineTo(-20, 20); hole.lineTo(-20, -20);
+            }
+            shape.holes.push(hole);
+            
+            const extrudeSettings = { depth: d, bevelEnabled: false };
+            const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+            geo.translate(0, 0, -d/2);
+            
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+            const mesh = new THREE.Mesh(geo, wallMat);
+            group.add(mesh);
         } else {
 
             // Render the procedural mesh for widgets
