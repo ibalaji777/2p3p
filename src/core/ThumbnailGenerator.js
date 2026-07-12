@@ -185,9 +185,23 @@ export class ThumbnailGenerator {
             } else if (MOLDING_REGISTRY && MOLDING_REGISTRY[type]) {
                 const moldBuilder = new Molding3DBuilder();
                 const moldData = MOLDING_REGISTRY[type]?.defaultConfig || { profileType: 'flat', depth: 5, t: 0.5 };
-                const length = 40;
+                const length = 30; // Shorter chunk to emphasize the profile
                 const moldGroup = moldBuilder.buildMolding({ ...moldData, width: length, depth: moldData.depth, type: type }, length, 10, this.ctx.helpers);
-                moldGroup.rotation.y = Math.PI / 4;
+                
+                // Isometric rotation to clearly show the cut profile and the face
+                moldGroup.rotation.y = Math.PI / 6; 
+                moldGroup.rotation.x = Math.PI / 12;
+
+                // Apply a glossy material so lighting highlights the subtle curves and details
+                const glossyMat = new THREE.MeshStandardMaterial({
+                    color: 0xe0e0e0,
+                    roughness: 0.3,
+                    metalness: 0.2
+                });
+                moldGroup.traverse(child => {
+                    if (child.isMesh) child.material = glossyMat;
+                });
+
                 group.add(moldGroup);
             } else if (['outer', 'inner', 'arc'].includes(type)) {
                 const w = 100, h = 100, d = 10;
