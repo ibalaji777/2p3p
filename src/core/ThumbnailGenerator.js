@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WIDGET_REGISTRY } from './registry.js';
+import { WIDGET_REGISTRY, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY } from './registry.js';
 import { Stair3DBuilder } from '../features/stairs/stairs.renderer3d.js';
 
 export class ThumbnailGenerator {
@@ -63,6 +63,14 @@ export class ThumbnailGenerator {
         }
 
         const group = new THREE.Group();
+
+        if (type === 'roof' || type === 'dormer') {
+            try {
+                if (ROOF_DECOR_REGISTRY['terracotta_tiles_roof']) await this.ctx.assets.getTexture(ROOF_DECOR_REGISTRY['terracotta_tiles_roof']);
+                if (WALL_DECOR_REGISTRY['white_plaster_wall']) await this.ctx.assets.getTexture(WALL_DECOR_REGISTRY['white_plaster_wall']);
+            } catch (e) {}
+        }
+
         
         // Dummy entity based on preset params
         const entity = { ...params };
@@ -96,7 +104,7 @@ export class ThumbnailGenerator {
         } else if (type === 'roof') {
             const dummyRoof = {
                 points: [{x: -100, y: -100}, {x: 100, y: -100}, {x: 100, y: 100}, {x: -100, y: 100}],
-                config: { ...params, roofType: params.roofType || 'gable', material: 'tiles_red' },
+                config: { ...params, roofType: params.roofType || 'gable', material: 'terracotta_tiles_roof' },
                 x: 0, y: 0, elevation: 0, rotation: 0
             };
             this.ctx.envBuilder.buildRoofs([dummyRoof], 0, false, group);
@@ -117,7 +125,7 @@ export class ThumbnailGenerator {
             // Roof
             const dummyRoof = {
                 points: [{x: -w/2, y: -d/2}, {x: w/2, y: -d/2}, {x: w/2, y: d/2}, {x: -w/2, y: d/2}],
-                config: { roofType: params.roofType || 'gable', pitch: params.pitch || 35, material: 'tiles_red', thick: 10, ridgeAxis: 'y' },
+                config: { roofType: params.roofType || 'gable', pitch: params.pitch || 35, material: 'terracotta_tiles_roof', thick: 10, ridgeAxis: 'y' },
                 x: 0, y: 0, elevation: wallH, rotation: 0
             };
             try {
@@ -164,7 +172,7 @@ export class ThumbnailGenerator {
         this.camera.lookAt(0, size.y / 2, 0); // Look at the center of the object
 
         // Give textures a tiny bit of time to load if they were fetched asynchronously in getDynamicMaterial
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         this.renderer.render(this.scene, this.camera);
         
