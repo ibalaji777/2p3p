@@ -14,6 +14,7 @@ export const usePlannerStore = defineStore('planner', () => {
     const activeCategory = ref('tools');
     const mode3D = ref('edit');
     const activePresetParams = ref(null);
+    const activePresetId = ref('');
 
     // Selection State
     const selectedEntity = shallowRef(null);
@@ -60,6 +61,7 @@ export const usePlannerStore = defineStore('planner', () => {
         activeCategory,
         mode3D,
         activePresetParams,
+        activePresetId,
         selectedEntity,
         selectedType,
         selectedWallSide,

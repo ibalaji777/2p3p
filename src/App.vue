@@ -23,6 +23,7 @@
         :active-category="activeCategory"
         :active-category-obj="activeCategoryObj"
         :active-tool="activeTool"
+        :active-preset-id="activePresetId"
         @close-mobile-menu="mobileMenuOpen = false"
         @toggle-category="toggleCategory"
         @save-project="saveProject"
@@ -31,6 +32,8 @@
         @clear-workspace="clearWorkspace"
         @file-uploaded="handleFileUpload"
         @tool-click="handleToolClick"
+        @update:activePresetId="activePresetId = $event"
+        @catalog-select="handleCatalogSelect"
       />
 
       <!-- Mobile Left Trigger -->
@@ -196,8 +199,18 @@ const plannerStore = usePlannerStore();
 const settingsStore = useSettingsStore();
 
 const { windowWidth, mobileMenuOpen, activeMobileTab, viewMode, viewMode3D, activeRightTab, showLeftSidebar, uiTrigger, isPlacing3D, activeDecorId, isRebuilding, isXRayMode, showGuide, showAdvancedTools, layerRefreshTrigger, isMobile, isTablet, isDesktop } = storeToRefs(uiStore);
-const { planner, renderer3D, workspaceControls, serverService, isDrawing, activeTool, activeCategory, mode3D, activePresetParams, selectedEntity, selectedType, selectedWallSide, selectedNodeIndex, levels, activeLevelIndex, canUndo, canRedo, allFloorsVisible } = storeToRefs(plannerStore);
+const { planner, renderer3D, workspaceControls, serverService, isDrawing, activeTool, activeCategory, mode3D, activePresetParams, activePresetId, selectedEntity, selectedType, selectedWallSide, selectedNodeIndex, levels, activeLevelIndex, canUndo, canRedo, allFloorsVisible } = storeToRefs(plannerStore);
 const { floorPlanSettings, selectedSky, selectedGround, isWallTrackingEnabled } = storeToRefs(settingsStore);
+
+const handleCatalogSelect = (item) => {
+    if (planner.value) {
+        planner.value.activePresetParams = { ...item.params };
+        activePresetParams.value = { ...item.params };
+    }
+    if (isMobile.value || isTablet.value) {
+        mobileMenuOpen.value = false;
+    }
+};
 
 const toggleMobileTab = (tabId) => {
     if (tabId === '3d') {

@@ -118,11 +118,77 @@ export function setupPointerEvents(planner) {
                     }
                 }
                 
+                let projPos = pos;
+                let wallAngle = 0;
+                
                 if (closestWall) {
                     if (closestFace === 'front' && closestWall.frontHighlight) closestWall.frontHighlight.visible(true);
                     else if (closestWall.backHighlight) closestWall.backHighlight.visible(true);
+                    
+                    const start = closestWall.startAnchor.position();
+                    const end = closestWall.endAnchor.position();
+                    projPos = planner.getClosestPointOnSegment(pos, start, end);
+                    wallAngle = Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI;
                 }
+                
+                if (!planner.widgetPreview) {
+                    planner.widgetPreview = new Konva.Group({
+                        listening: false, visible: false
+                    });
+                    planner.uiLayer.add(planner.widgetPreview);
+                }
+                
+                if (closestWall && (isWidget || isAdvancedOpening)) {
+                    planner.widgetPreview.destroyChildren();
+                    let fakeEntity = {
+                        width: 40,
+                        facing: 1,
+                        side: 1,
+                        wall: closestWall,
+                        thick: closestWall.thickness || closestWall.config.thickness
+                    };
+                    
+                    if (isAdvancedOpening) {
+                        fakeEntity.width = 100;
+                        planner.widgetPreview.add(new Konva.Rect({
+                            width: 100, height: 10,
+                            fill: 'rgba(59, 130, 246, 0.4)', stroke: '#2563eb', strokeWidth: 2,
+                            offsetX: 50, offsetY: 5
+                        }));
+                    } else if (isWidget) {
+                        if (WIDGET_REGISTRY[planner.tool].defaultConfig) {
+                            Object.assign(fakeEntity, WIDGET_REGISTRY[planner.tool].defaultConfig);
+                        }
+                        if (planner.activePresetParams) {
+                            Object.assign(fakeEntity, planner.activePresetParams);
+                        }
+                        // Render actual 2D widget
+                        if (WIDGET_REGISTRY[planner.tool].render2D) {
+                            WIDGET_REGISTRY[planner.tool].render2D(planner.widgetPreview, fakeEntity);
+                            // Add a subtle transparent highlight over the real shape
+                            planner.widgetPreview.add(new Konva.Rect({
+                                width: fakeEntity.width, height: fakeEntity.thick + 4,
+                                fill: 'rgba(59, 130, 246, 0.2)', stroke: '#2563eb', strokeWidth: 1,
+                                offsetX: fakeEntity.width / 2, offsetY: (fakeEntity.thick + 4) / 2
+                            }));
+                        } else {
+                            planner.widgetPreview.add(new Konva.Rect({
+                                width: fakeEntity.width, height: 10,
+                                fill: 'rgba(59, 130, 246, 0.4)', stroke: '#2563eb', strokeWidth: 2,
+                                offsetX: fakeEntity.width / 2, offsetY: 5
+                            }));
+                        }
+                    }
+                    
+                    planner.widgetPreview.position(projPos);
+                    planner.widgetPreview.rotation(wallAngle);
+                    planner.widgetPreview.visible(true);
+                } else if (planner.widgetPreview && planner.widgetPreview.visible()) {
+                    planner.widgetPreview.visible(false);
+                }
+                
                 planner.mainLayer.batchDraw();
+                planner.uiLayer.batchDraw();
                 return;
             }
             if (planner.drawingShapeType === 'shape_rect' && planner.shapeStartPos) {

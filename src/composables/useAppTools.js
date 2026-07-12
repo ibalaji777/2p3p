@@ -33,6 +33,15 @@ export function useAppTools({
         if (tool.startsWith('preset_') && PRESET_REGISTRY[tool]) {
             activePresetParams.value = JSON.parse(JSON.stringify(PRESET_REGISTRY[tool].defaultParams));
             planner.value.activePresetParams = activePresetParams.value;
+        } else if (tool === 'door' || tool === 'window') {
+            if (!activePresetParams.value || (tool === 'door' && !activePresetParams.value.doorType) || (tool === 'window' && !activePresetParams.value.windowType)) {
+                if (tool === 'door') {
+                    activePresetParams.value = { doorType: 'single', doorStyle: 'flat' };
+                } else {
+                    activePresetParams.value = { windowType: 'sliding_std' };
+                }
+                planner.value.activePresetParams = activePresetParams.value;
+            }
         } else {
             activePresetParams.value = null;
             planner.value.activePresetParams = null;
@@ -57,7 +66,7 @@ export function useAppTools({
         }
         else setTool(tool.id);
         
-        if (isMobile.value || isTablet.value) {
+        if ((isMobile.value || isTablet.value) && tool.id !== 'door' && tool.id !== 'window') {
             mobileMenuOpen.value = false;
         }
     };

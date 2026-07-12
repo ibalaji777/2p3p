@@ -10,33 +10,14 @@
             <button class="action-btn clear" style="flex: 1; padding: 4px;" @click="selectedEntity.side *= -1; $emit('sync-engine')">Flip L/R</button>
         </div>
         <div v-if="selectedEntity.type === 'door'">
-            <div class="control-group">
-                <label>Door Type</label>
-                <select v-model="selectedEntity.doorType" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
-                    <option value="single">Single Hinged</option>
-                    <option value="double">Double Door</option>
-                    <option value="sliding">Sliding</option>
-                    <option value="pocket">Pocket</option>
-                    <option value="french">French (Glass)</option>
-                </select>
+            <div style="height: 350px; margin-bottom: 15px; margin-top: 10px;">
+                <CatalogGallery type="door" :modelValue="getDoorPresetId()" @select="handleCatalogSelect" />
             </div>
             <div class="control-group" v-if="!['pocket', 'folding', 'sliding', 'double_sliding'].includes(selectedEntity.doorType)">
                 <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; font-weight: 500;">
                     <input type="checkbox" :checked="selectedEntity.hasSidelights" @change="(e) => { selectedEntity.hasSidelights = e.target.checked; if (e.target.checked) { selectedEntity.width = Math.max(selectedEntity.width, selectedEntity.doorType === 'single' ? 100 : 140); } $emit('sync-engine'); }" />
                     Add Sidelights (Side Windows)
                 </label>
-            </div>
-            <div class="control-group" v-if="selectedEntity.doorType !== 'french'">
-                <label>Panel Style (3D Design)</label>
-                <select v-model="selectedEntity.doorStyle" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
-                    <option value="flat">Flat Panel (Default)</option>
-                    <option value="classic_4_horizontal">Classic 4-Panel (Horiz)</option>
-                    <option value="glass_bottom_panel">Glass & Bottom Panel</option>
-                    <option value="glass_grid">Glass with Grid</option>
-                    <option value="classic_2_panel">Classic 2-Panel</option>
-                    <option value="classic_4_panel">Classic 4-Panel</option>
-                    <option value="grid_panel">Grid Panel</option>
-                </select>
             </div>
             <div class="control-group">
                 <label>Door Shape (Top)</label>
@@ -49,22 +30,8 @@
             </div>
         </div>
         <div v-else-if="selectedEntity.type === 'window'">
-            <div class="control-group">
-                <label>Window Type</label>
-                <select v-model="selectedEntity.windowType" @change="(e) => { 
-                    if (['panoramic_slider', 'modern_split'].includes(selectedEntity.windowType)) selectedEntity.grillePattern = 'none';
-                    $emit('sync-engine');
-                }" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
-                    <option value="sliding_std">Standard Sliding</option>
-                    <option value="casement_std">Casement / Hinged</option>
-                    <option value="fixed_elevation">Fixed Glass</option>
-                    <option value="modern_split">Modern Asymmetric</option>
-                    <option value="bay_box">Box Bay Window</option>
-                    <option value="window_seat">Double Picture Window</option>
-                    <option value="garden_open">Open Garden Window</option>
-                    <option value="panoramic_slider">Panoramic Slider (3-Pane)</option>
-                    <option value="shutter_double">Double Louvered Shutter</option>
-                </select>
+            <div style="height: 350px; margin-bottom: 15px; margin-top: 10px;">
+                <CatalogGallery type="window" :modelValue="getWindowPresetId()" @select="handleCatalogSelect" />
             </div>
             <div class="control-group">
                 <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; font-weight: 500;">
@@ -193,6 +160,7 @@
 
 <script setup>
 import { defineProps, defineEmits } from 'vue';
+import CatalogGallery from '../sidebar/CatalogGallery.vue';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true }
@@ -202,4 +170,33 @@ const emit = defineEmits([
     'sync-engine',
     'delete-entity'
 ]);
+
+const getDoorPresetId = () => {
+    if (!props.selectedEntity) return '';
+    const { doorType, doorStyle } = props.selectedEntity;
+    if (doorType === 'single' && doorStyle === 'flat') return 'single';
+    if (doorType === 'french' && doorStyle === 'glass_grid') return 'french';
+    if (doorType === 'sliding') return 'sliding';
+    if (doorType === 'pocket') return 'pocket';
+    if (doorType === 'single' && doorStyle === 'classic_4_panel') return 'classic_4';
+    return ''; // default/custom
+};
+
+const getWindowPresetId = () => {
+    if (!props.selectedEntity) return '';
+    const { windowType } = props.selectedEntity;
+    if (windowType === 'sliding_std') return 'sliding_std';
+    if (windowType === 'casement_std') return 'casement_std';
+    if (windowType === 'fixed_elevation') return 'fixed_elevation';
+    if (windowType === 'bay_box') return 'bay_box';
+    if (windowType === 'panoramic_slider') return 'panoramic_slider';
+    return ''; // default/custom
+};
+
+const handleCatalogSelect = (item) => {
+    if (props.selectedEntity) {
+        Object.assign(props.selectedEntity, item.params);
+        emit('sync-engine');
+    }
+};
 </script>

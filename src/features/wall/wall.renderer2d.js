@@ -180,14 +180,22 @@ export class PremiumWall {
             this.attachedMoldings.push(widget);
         } else if (isWidget) {
             widget = new PremiumWidget(this.planner, this, t, tool);
+            
+            if (this.planner.activePresetParams) {
+                Object.assign(widget, this.planner.activePresetParams);
+                widget.update();
+            }
+            
             this.planner.selectEntity(widget, 'widget');
             if (!this.attachedWidgets) this.attachedWidgets = [];
             this.attachedWidgets.push(widget);
         }
         
-        this.planner.tool = 'select';
-        if (this.planner.onToolChange) this.planner.onToolChange('select');
-        this.planner.updateToolStates();
+        if (!isWidget) {
+            this.planner.tool = 'select';
+            if (this.planner.onToolChange) this.planner.onToolChange('select');
+            this.planner.updateToolStates();
+        }
         
         this.planner.syncAll();
         console.log("Object added via snapping:", widget);
