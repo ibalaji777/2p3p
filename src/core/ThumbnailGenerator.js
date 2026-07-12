@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { WIDGET_REGISTRY, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY, MOLDING_REGISTRY } from './registry.js';
+import { WIDGET_REGISTRY, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY, MOLDING_REGISTRY, FURNITURE_REGISTRY, RAILING_REGISTRY } from './registry.js';
 import { Stair3DBuilder } from '../features/stairs/stairs.renderer3d.js';
 import { Molding3DBuilder } from './engine3d/Molding3DBuilder.js';
+import { generateRailing3D } from './engine3d/RailingGenerators.js';
 
 export class ThumbnailGenerator {
     constructor(ctx) {
@@ -50,8 +51,20 @@ export class ThumbnailGenerator {
     }
 
     async generate(type, params) {
-        const allowedNonWidgets = ['staircase', 'roof', 'dormer', 'molding', 'outer', 'inner', 'arc', 'shape_rect', 'shape_circle', 'shape_triangle', 'railing', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'];
-        if (!WIDGET_REGISTRY[type] && !allowedNonWidgets.includes(type)) return null;
+        // Normalize specific catalog IDs back to broad categories for special procedural generators
+        if (type && type.startsWith('stair_v5_')) type = 'staircase';
+        if (type && type.startsWith('preset_dormer_')) type = 'dormer';
+
+        // 1. Unified Registry Lookup
+        let registryConfig = null;
+        if (WIDGET_REGISTRY[type]) registryConfig = WIDGET_REGISTRY[type];
+        else if (RAILING_REGISTRY && RAILING_REGISTRY[type]) registryConfig = RAILING_REGISTRY[type];
+        else if (FURNITURE_REGISTRY && FURNITURE_REGISTRY[type]) registryConfig = FURNITURE_REGISTRY[type];
+        else if (MOLDING_REGISTRY && MOLDING_REGISTRY[type]) registryConfig = MOLDING_REGISTRY[type];
+
+        const allowedNonWidgets = ['staircase', 'roof', 'dormer', 'outer', 'inner', 'arc', 'shape_rect', 'shape_circle', 'shape_triangle', 'railing', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'];
+        
+        if (!registryConfig && !allowedNonWidgets.includes(type)) return null;
 
         // Create a cache key from params to avoid re-rendering
         const cacheKey = type + '_' + JSON.stringify(params);
@@ -65,149 +78,160 @@ export class ThumbnailGenerator {
         }
 
         const group = new THREE.Group();
-
-        if (type === 'roof' || type === 'dormer') {
+        const mergedConfig = { ...(registryConfig || {}), ...(params || {}) };
+        
+        let isModelLoaded = false;
+        
+        // 2. File-Based Asset Detection & Loading Strategy
+        if (mergedConfig.model) {
             try {
-                if (ROOF_DECOR_REGISTRY['terracotta_tiles_roof']) await this.ctx.assets.getTexture(ROOF_DECOR_REGISTRY['terracotta_tiles_roof']);
-                if (WALL_DECOR_REGISTRY['white_plaster_wall']) await this.ctx.assets.getTexture(WALL_DECOR_REGISTRY['white_plaster_wall']);
-            } catch (e) {}
+                const model = await this.ctx.assets.getModel(mergedConfig);
+                if (model) {
+                    const clone = model.clone();
+                    clone.updateMatrixWorld(true);
+                    
+                    // Normalize size and center for thumbnail framing
+                    const bbox = new THREE.Box3().setFromObject(clone);
+                    const size = bbox.getSize(new THREE.Vector3());
+                    if (size.x > 0 && size.y > 0 && size.z > 0) {
+                        const maxDim = Math.max(size.x, size.y, size.z);
+                        // Scale down if extremely large
+                        if (maxDim > 200) {
+                            const scale = 150 / maxDim;
+                            clone.scale.setScalar(scale);
+                        }
+                    }
+                    
+                    // Force material update for rendering
+                    clone.traverse(child => {
+                        if (child.isMesh && child.material) {
+                            if (Array.isArray(child.material)) {
+                                child.material.forEach(m => m.needsUpdate = true);
+                            } else {
+                                child.material.needsUpdate = true;
+                            }
+                        }
+                    });
+                    
+                    group.add(clone);
+                    isModelLoaded = true;
+                }
+            } catch (err) {
+                console.error(`[ThumbnailGenerator] Failed to load model for ${type}:`, err);
+                // Fallback to error box
+                const errMesh = new THREE.Mesh(new THREE.BoxGeometry(40, 40, 40), new THREE.MeshBasicMaterial({color: 0xff0000}));
+                group.add(errMesh);
+                isModelLoaded = true;
+            }
         }
 
-        
-        // Dummy entity based on preset params
-        const entity = { ...params };
-        if (!entity.width) entity.width = WIDGET_REGISTRY[type]?.defaultConfig?.width || 40;
-        if (!entity.height) entity.height = WIDGET_REGISTRY[type]?.defaultConfig?.height || (type === 'door' ? 84 : 48);
-        
-        // Provide a dummy wall context so extrusion and frames calculate correctly
-        entity.wall = {
-            thickness: 10,
-            config: { thickness: 10 }
-        };
-        entity.thick = 10;
-        
-        // Prevent position NaN errors from registry positional logic
-        entity.localX = 0;
-        entity.x = 0;
-        entity.z = 0;
-        entity.angle = 0;
-        if (entity.facing === undefined) entity.facing = WIDGET_REGISTRY[type]?.defaultConfig?.facing || 1;
-        if (entity.side === undefined) entity.side = WIDGET_REGISTRY[type]?.defaultConfig?.side || 1;
+        // 3. Procedural Assets Strategy
+        if (!isModelLoaded) {
+            if (type === 'roof' || type === 'dormer') {
+                try {
+                    if (ROOF_DECOR_REGISTRY['terracotta_tiles_roof']) await this.ctx.assets.getTexture(ROOF_DECOR_REGISTRY['terracotta_tiles_roof']);
+                    if (WALL_DECOR_REGISTRY['white_plaster_wall']) await this.ctx.assets.getTexture(WALL_DECOR_REGISTRY['white_plaster_wall']);
+                } catch (e) {}
+            }
+            
+            // Dummy entity based on preset params
+            const entity = { ...params };
+            if (!entity.width) entity.width = type.startsWith('rail') ? 150 : (registryConfig?.defaultConfig?.width || 40);
+            if (!entity.height) entity.height = type.startsWith('rail') ? 40 : (registryConfig?.defaultConfig?.height || (type === 'door' ? 84 : 48));
+            
+            entity.wall = { thickness: 10, config: { thickness: 10 } };
+            entity.thick = 10;
+            entity.localX = 0; entity.x = 0; entity.z = 0; entity.angle = 0;
+            if (entity.facing === undefined) entity.facing = registryConfig?.defaultConfig?.facing || 1;
+            if (entity.side === undefined) entity.side = registryConfig?.defaultConfig?.side || 1;
 
-        if (type === 'staircase') {
-            const stairBuilder = new Stair3DBuilder(this.ctx.assets, this.ctx.interactables);
-            const shape = params.type ? params.type.split('stair_v5_')[1] : 'straight';
-            const dummyStair = { ...params, shape, x: 0, y: 0, elevation: 0, rotation: 0 };
-            if (dummyStair.steps && !dummyStair.totalSteps) dummyStair.totalSteps = dummyStair.steps;
-            if (!dummyStair.totalSteps) dummyStair.totalSteps = 15;
-            if (!dummyStair.flight1Steps) dummyStair.flight1Steps = 8;
-            if (!dummyStair.flight2Steps) dummyStair.flight2Steps = 7;
-            stairBuilder.build([dummyStair], group, 0, false, 300);
-        } else if (type === 'roof') {
-            const dummyRoof = {
-                points: [{x: -100, y: -100}, {x: 100, y: -100}, {x: 100, y: 100}, {x: -100, y: 100}],
-                config: { ...params, roofType: params.roofType || 'gable', material: 'terracotta_tiles_roof' },
-                x: 0, y: 0, elevation: 0, rotation: 0
-            };
-            this.ctx.envBuilder.buildRoofs([dummyRoof], 0, false, group);
-        
-        } else if (type === 'dormer') {
-            const w = params.width || 120;
-            const d = params.depth || 150;
-            const wallH = params.wallHeight || 120;
-            
-            const wallMat = new THREE.MeshStandardMaterial({color: 0xffffff});
-            
-            // Base walls
-            const baseGeo = new THREE.BoxGeometry(w, wallH, d);
-            const baseMesh = new THREE.Mesh(baseGeo, wallMat);
-            baseMesh.position.y = wallH / 2;
-            group.add(baseMesh);
-            
-            // Roof
-            const dummyRoof = {
-                points: [{x: -w/2, y: -d/2}, {x: w/2, y: -d/2}, {x: w/2, y: d/2}, {x: -w/2, y: d/2}],
-                config: { roofType: params.roofType || 'gable', pitch: params.pitch || 35, material: 'terracotta_tiles_roof', thick: 10, ridgeAxis: 'y' },
-                x: 0, y: 0, elevation: wallH, rotation: 0
-            };
-            try {
+            if (type === 'staircase') {
+                const stairBuilder = new Stair3DBuilder(this.ctx.assets, this.ctx.interactables);
+                const shape = params.type ? params.type.split('stair_v5_')[1] : 'straight';
+                const dummyStair = { ...params, shape, x: 0, y: 0, elevation: 0, rotation: 0 };
+                if (dummyStair.steps && !dummyStair.totalSteps) dummyStair.totalSteps = dummyStair.steps;
+                if (!dummyStair.totalSteps) dummyStair.totalSteps = 15;
+                if (!dummyStair.flight1Steps) dummyStair.flight1Steps = 8;
+                if (!dummyStair.flight2Steps) dummyStair.flight2Steps = 7;
+                stairBuilder.build([dummyStair], group, 0, false, 300);
+            } else if (type === 'roof') {
+                const dummyRoof = {
+                    points: [{x: -100, y: -100}, {x: 100, y: -100}, {x: 100, y: 100}, {x: -100, y: 100}],
+                    config: { ...params, roofType: params.roofType || 'gable', material: 'terracotta_tiles_roof' },
+                    x: 0, y: 0, elevation: 0, rotation: 0
+                };
                 this.ctx.envBuilder.buildRoofs([dummyRoof], 0, false, group);
-            } catch(e) {
-                console.error("Error building dummy roof for dormer:", e);
-                // add a red box so we know it failed
-                const errMesh = new THREE.Mesh(new THREE.BoxGeometry(w, 20, d), new THREE.MeshBasicMaterial({color: 0xff0000}));
-                errMesh.position.y = wallH + 10;
-                group.add(errMesh);
+            } else if (type === 'dormer') {
+                const w = params.width || 120;
+                const d = params.depth || 150;
+                const wallH = params.wallHeight || 120;
+                const wallMat = new THREE.MeshStandardMaterial({color: 0xffffff});
+                const baseGeo = new THREE.BoxGeometry(w, wallH, d);
+                const baseMesh = new THREE.Mesh(baseGeo, wallMat);
+                baseMesh.position.y = wallH / 2;
+                group.add(baseMesh);
+                const dummyRoof = {
+                    points: [{x: -w/2, y: -d/2}, {x: w/2, y: -d/2}, {x: w/2, y: d/2}, {x: -w/2, y: d/2}],
+                    config: { roofType: params.roofType || 'gable', pitch: params.pitch || 35, material: 'terracotta_tiles_roof', thick: 10, ridgeAxis: 'y' },
+                    x: 0, y: 0, elevation: wallH, rotation: 0
+                };
+                try {
+                    this.ctx.envBuilder.buildRoofs([dummyRoof], 0, false, group);
+                } catch(e) {
+                    const errMesh = new THREE.Mesh(new THREE.BoxGeometry(w, 20, d), new THREE.MeshBasicMaterial({color: 0xff0000}));
+                    errMesh.position.y = wallH + 10;
+                    group.add(errMesh);
+                }
+            } else if (MOLDING_REGISTRY && MOLDING_REGISTRY[type]) {
+                const moldBuilder = new Molding3DBuilder();
+                const moldData = MOLDING_REGISTRY[type]?.defaultConfig || { profileType: 'flat', depth: 5, t: 0.5 };
+                const length = 40;
+                const moldGroup = moldBuilder.buildMolding({ ...moldData, width: length, depth: moldData.depth, type: type }, length, 10, this.ctx.helpers);
+                moldGroup.rotation.y = Math.PI / 4;
+                group.add(moldGroup);
+            } else if (['outer', 'inner', 'arc'].includes(type)) {
+                const w = 100, h = 100, d = 10;
+                let geo;
+                if (type === 'arc') geo = new THREE.CylinderGeometry(100, 100, h, 32, 1, false, 0, Math.PI / 2);
+                else geo = new THREE.BoxGeometry(w, h, d);
+                const wallMat = new THREE.MeshStandardMaterial({ color: type === 'outer' ? 0xffffff : 0xeeeeee });
+                const mesh = new THREE.Mesh(geo, wallMat);
+                group.add(mesh);
+            } else if (['shape_rect', 'shape_circle', 'shape_triangle'].includes(type)) {
+                const size = 60, h = 60;
+                let geo;
+                if (type === 'shape_rect') geo = new THREE.BoxGeometry(size, h, size);
+                else if (type === 'shape_circle') geo = new THREE.CylinderGeometry(size/2, size/2, h, 32);
+                else geo = new THREE.CylinderGeometry(size/2, size/2, h, 3);
+                const mat = new THREE.MeshStandardMaterial({ color: 0x88ccff });
+                const mesh = new THREE.Mesh(geo, mat);
+                group.add(mesh);
+            } else if (RAILING_REGISTRY && RAILING_REGISTRY[type]) {
+                generateRailing3D(type, group, entity, this.ctx.assets);
+            } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(type)) {
+                const w = 100, h = 100, d = 10;
+                const shape = new THREE.Shape();
+                shape.moveTo(-w/2, -h/2); shape.lineTo(w/2, -h/2); shape.lineTo(w/2, h/2); shape.lineTo(-w/2, h/2); shape.lineTo(-w/2, -h/2);
+                const hole = new THREE.Path();
+                if (type === 'arch_opening') {
+                    hole.moveTo(-20, -h/2); hole.lineTo(20, -h/2); hole.lineTo(20, 0);
+                    hole.absarc(0, 0, 20, 0, Math.PI, false); hole.lineTo(-20, -h/2);
+                } else if (type === 'circular_opening') {
+                    hole.absarc(0, 0, 20, 0, Math.PI*2, false);
+                } else {
+                    hole.moveTo(-20, -20); hole.lineTo(20, -20); hole.lineTo(20, 20); hole.lineTo(-20, 20); hole.lineTo(-20, -20);
+                }
+                shape.holes.push(hole);
+                const extrudeSettings = { depth: d, bevelEnabled: false };
+                const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+                geo.translate(0, 0, -d/2);
+                const wallMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+                const mesh = new THREE.Mesh(geo, wallMat);
+                group.add(mesh);
+            } else if (registryConfig && registryConfig.render3D) {
+                // Procedural widgets explicitly define their render3D function
+                const widgetGroup = registryConfig.render3D(group, entity, this.ctx.helpers);
             }
-        } else if (type === 'molding') {
-            const moldBuilder = new Molding3DBuilder();
-            const moldData = MOLDING_REGISTRY[params.type]?.defaultConfig || { profileType: 'flat', depth: 5, t: 0.5 };
-            
-            // Build a small molding piece
-            const length = 40;
-            const moldGroup = moldBuilder.buildMolding({ ...moldData, width: length, depth: moldData.depth, type: params.type }, length, 10, this.ctx.helpers);
-            
-            // Rotate it slightly so we can see the profile
-            moldGroup.rotation.y = Math.PI / 4;
-            group.add(moldGroup);
-        } else if (['outer', 'inner', 'arc'].includes(type)) {
-            const w = 100, h = 100, d = 10;
-            let geo;
-            if (type === 'arc') {
-                geo = new THREE.CylinderGeometry(100, 100, h, 32, 1, false, 0, Math.PI / 2);
-            } else {
-                geo = new THREE.BoxGeometry(w, h, d);
-            }
-            const wallMat = new THREE.MeshStandardMaterial({ color: type === 'outer' ? 0xffffff : 0xeeeeee });
-            const mesh = new THREE.Mesh(geo, wallMat);
-            group.add(mesh);
-        } else if (['shape_rect', 'shape_circle', 'shape_triangle'].includes(type)) {
-            const size = 60, h = 60;
-            let geo;
-            if (type === 'shape_rect') geo = new THREE.BoxGeometry(size, h, size);
-            else if (type === 'shape_circle') geo = new THREE.CylinderGeometry(size/2, size/2, h, 32);
-            else geo = new THREE.CylinderGeometry(size/2, size/2, h, 3);
-            const mat = new THREE.MeshStandardMaterial({ color: 0x88ccff });
-            const mesh = new THREE.Mesh(geo, mat);
-            group.add(mesh);
-        } else if (type === 'railing') {
-            const length = 100;
-            const geo = new THREE.BoxGeometry(length, 40, 5); 
-            const mat = new THREE.MeshStandardMaterial({ color: 0x999999, transparent: true, opacity: 0.8 });
-            group.add(new THREE.Mesh(geo, mat));
-        } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(type)) {
-            // Proxy wall with a hole in it
-            const w = 100, h = 100, d = 10;
-            
-            const shape = new THREE.Shape();
-            shape.moveTo(-w/2, -h/2);
-            shape.lineTo(w/2, -h/2);
-            shape.lineTo(w/2, h/2);
-            shape.lineTo(-w/2, h/2);
-            shape.lineTo(-w/2, -h/2);
-            
-            const hole = new THREE.Path();
-            if (type === 'arch_opening') {
-                hole.moveTo(-20, -h/2); hole.lineTo(20, -h/2); hole.lineTo(20, 0);
-                hole.absarc(0, 0, 20, 0, Math.PI, false); hole.lineTo(-20, -h/2);
-            } else if (type === 'circular_opening') {
-                hole.absarc(0, 0, 20, 0, Math.PI*2, false);
-            } else {
-                hole.moveTo(-20, -20); hole.lineTo(20, -20); hole.lineTo(20, 20); hole.lineTo(-20, 20); hole.lineTo(-20, -20);
-            }
-            shape.holes.push(hole);
-            
-            const extrudeSettings = { depth: d, bevelEnabled: false };
-            const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-            geo.translate(0, 0, -d/2);
-            
-            const wallMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-            const mesh = new THREE.Mesh(geo, wallMat);
-            group.add(mesh);
-        } else {
-
-            // Render the procedural mesh for widgets
-            const widgetGroup = WIDGET_REGISTRY[type].render3D(group, entity, this.ctx.helpers);
         }
         
         // Center the group

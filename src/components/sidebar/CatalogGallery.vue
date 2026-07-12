@@ -135,7 +135,7 @@ const wallsCatalog = ref([
 ]);
 
 const railingCatalog = ref([
-    { id: 'railing_std', name: 'Standard Railing', image: '', toolId: 'railing', params: { type: 'railing' } }
+    { id: 'rail_1', name: 'R-001', image: '', toolId: 'railing', params: { type: 'rail_1' } }
 ]);
 
 const items = computed(() => {
@@ -171,10 +171,8 @@ const generateThumbnails = async () => {
             try {
                 // Yield to main thread briefly before heavy render
                 await new Promise(r => setTimeout(r, 10));
-                let genType = props.type;
-                if (['wall_catalog', 'adv_opening_catalog', 'shape_catalog', 'railing_catalog'].includes(props.type)) {
-                    genType = item.toolId || item.params.type;
-                }
+                // Universally prioritize the specific item ID over the broad catalog category
+                const genType = (item.params && item.params.type) ? item.params.type : (item.toolId ? item.toolId : props.type);
                 const dataUrl = await renderer.thumbnailGenerator.generate(genType, item.params);
                 if (dataUrl) item.image = dataUrl;
             } catch (err) {

@@ -22,7 +22,7 @@ export function useAppTools({
     refresh3DScene,
     handleDeselect
 }) {
-    const setTool = (tool) => { 
+    const setTool = (tool, params = undefined) => { 
         if (tool === 'split') {
             const wall = planner.value.walls.find(w => w === planner.value.selectedEntity);
             if (wall) { wall.split(); debouncedSaveHistory(); }
@@ -30,7 +30,10 @@ export function useAppTools({
         }
         activeTool.value = tool; 
         
-        if (tool.startsWith('preset_') && PRESET_REGISTRY[tool]) {
+        if (params !== undefined) {
+            activePresetParams.value = params ? JSON.parse(JSON.stringify(params)) : null;
+            planner.value.activePresetParams = activePresetParams.value;
+        } else if (tool.startsWith('preset_') && PRESET_REGISTRY[tool]) {
             activePresetParams.value = JSON.parse(JSON.stringify(PRESET_REGISTRY[tool].defaultParams));
             planner.value.activePresetParams = activePresetParams.value;
         } else if (tool === 'door' || tool === 'window') {

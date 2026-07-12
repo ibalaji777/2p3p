@@ -208,7 +208,7 @@ const handleCatalogSelect = (item) => {
         activePresetParams.value = { ...item.params };
         
         if (item.toolId) {
-            setTool(item.toolId);
+            setTool(item.toolId, item.params);
         }
     }
     if (isMobile.value || isTablet.value) {

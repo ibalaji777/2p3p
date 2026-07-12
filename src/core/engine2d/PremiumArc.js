@@ -13,7 +13,7 @@ export class PremiumArc {
         this.walls = [];
         this.intermediateAnchors = [];
         this.hasRailing = false;
-        this.railingConfig = { configId: 'rail_1', thickness: 4, height: undefined };
+        this.railingConfig = { configId: this.planner?.activePresetParams?.type || 'rail_1', thickness: 4, height: undefined };
         
         this.group = new Konva.Group();
         this.controlHandle = new Konva.Circle({

@@ -21,30 +21,11 @@ export const JALI_MATERIALS = {
 };
 
 export const RAILING_REGISTRY = {
-    'default_basic': {
-        id: 'default_basic', name: 'Basic Glass (Default)', type: 'railing',
-        model: 'models/railing/rail_1.obj',
-        color: 0x88ccff, transparent: true, opacity: 0.5, roughness: 0.1, metalness: 0.1,
-        thumbnail: 'https://via.placeholder.com/150/88ccff/000000?text=Basic'
-    },
     'rail_1': {
-        id: 'rail_1', name: 'Railing Type 1', type: 'railing',
+        id: 'rail_1', name: 'R-001', type: 'railing',
         model: 'models/railing/rail_1.obj',
         color: 0x88ccff, transparent: true, opacity: 0.5, roughness: 0.1, metalness: 0.1,
         thumbnail: 'https://via.placeholder.com/150/88ccff/000000?text=Glass'
-    },
-    'rail_2': {
-        id: 'rail_2', name: 'Railing Type 2', type: 'railing',
-        model: 'models/railing/rail_2.obj',
-        texture: 'https://threejs.org/examples/textures/hardwood2_diffuse.jpg',
-        thumbnail: 'https://threejs.org/examples/textures/hardwood2_diffuse.jpg',
-        roughness: 0.8, repeat: 1
-    },
-    'rail_3': {
-        id: 'rail_3', name: 'Railing Type 3', type: 'railing',
-        model: 'models/railing/rail_3.obj',
-        color: 0x444444, metalness: 0.8, roughness: 0.3,
-        thumbnail: 'https://via.placeholder.com/150/444444/ffffff?text=Metal'
     }
 };
 

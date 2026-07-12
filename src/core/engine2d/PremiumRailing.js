@@ -11,7 +11,7 @@ export class PremiumRailing {
         this.config = WALL_REGISTRY['railing'];
         this.thickness = this.config.thickness || 4;
         this.height = this.config.height || 0;
-        this.configId = 'rail_1';
+        this.configId = this.planner?.activePresetParams?.type || 'rail_1';
 
         this.strokeColor = '#9ca3af'; // Match wall default appearance
         

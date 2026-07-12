@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RAILING_REGISTRY } from '../registry.js';
+import { generateRailing3D } from './RailingGenerators.js';
 
 export class RailingBuilder {
     constructor(assets, interactables, structureGroup) {
@@ -89,35 +90,16 @@ export class RailingBuilder {
             this.structureGroup.add(wallGroup);
             w.mesh3D = wallGroup;
 
-            const buildFallback = () => {
-                console.log(`[3D Engine] Using Fallback Solid Geometry for Railing.`);
-                let geo;
+            const buildProcedural = () => {
+                const generatedMeshGroup = new THREE.Group();
+                generateRailing3D(configId, generatedMeshGroup, w, this.assets);
                 if (isMitered) {
-                    const pts = w.poly.points();
-                    const shape = new THREE.Shape();
-                    shape.moveTo(pts[0], pts[1]);
-                    shape.lineTo(pts[2], pts[3]);
-                    shape.lineTo(pts[4], pts[5]);
-                    shape.lineTo(pts[6], pts[7]);
-                    shape.lineTo(pts[0], pts[1]);
-                    geo = new THREE.ExtrudeGeometry(shape, { depth: railingHeight, bevelEnabled: false });
-                    geo.rotateX(Math.PI / 2);
+                    generatedMeshGroup.position.set(0, elevation, 0);
                 } else {
-                    geo = new THREE.BoxGeometry(length, railingHeight, w.config?.thickness || 4);
-                    geo.translate(length / 2, railingHeight / 2, 0);
+                    generatedMeshGroup.position.set(p1.x, elevation, p1.y);
+                    generatedMeshGroup.rotation.y = -Math.atan2(dz, dx);
                 }
-                
-                const mat = new THREE.MeshStandardMaterial({ color: config?.color || 0xcccccc, transparent: config?.transparent || false, opacity: config?.opacity || 1 });
-                const mesh = new THREE.Mesh(geo, mat);
-                
-                if (isMitered) {
-                    mesh.position.set(0, elevation + railingHeight, 0);
-                } else {
-                    mesh.position.set(p1.x, elevation, p1.y);
-                    mesh.rotation.y = -Math.atan2(dz, dx);
-                }
-                mesh.castShadow = true; mesh.receiveShadow = true;
-                wallGroup.add(mesh);
+                wallGroup.add(generatedMeshGroup);
             };
 
             if (config && config.model) {
@@ -133,8 +115,8 @@ export class RailingBuilder {
                     const center = initialBox.getCenter(new THREE.Vector3());
 
                     if (initialSize.y === 0 || initialSize.x === 0) {
-                        console.warn(`[3D Engine] Invalid model size (X or Y is 0). Falling back to solid geometry.`);
-                        buildFallback();
+                        console.warn(`[3D Engine] Invalid model size (X or Y is 0). Falling back to procedural geometry.`);
+                        buildProcedural();
                         return;
                     }
 
@@ -184,7 +166,7 @@ export class RailingBuilder {
                         const offsetDistance = (i * segmentLength) + (segmentLength / 2);
 
                         const position = edge.start.clone().add(direction.clone().multiplyScalar(offsetDistance));
-                        position.y = elevation; // Lift railing to sit on top of underlying wall
+                        position.y = elevation; 
                         inst.position.copy(position);
 
                         const target = position.clone().add(direction);
@@ -195,10 +177,10 @@ export class RailingBuilder {
                     }
                 }).catch(e => {
                     console.error(`[3D Engine] Failed to load railing model from ${config.model}:`, e);
-                    buildFallback();
+                    buildProcedural();
                 });
             } else {
-                buildFallback();
+                buildProcedural();
             }
         });
     }
