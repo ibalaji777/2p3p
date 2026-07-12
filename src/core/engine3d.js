@@ -153,7 +153,7 @@ export class Preview3D {
         this.furnitureManager = new FurnitureManager(this);
         this.interactions = new InteractionSystem(this);
         
-        this.thumbnailGenerator = new ThumbnailGenerator(this.helpers);
+        this.thumbnailGenerator = new ThumbnailGenerator(this);
 
         this.gizmoManager = new GizmoManager(this);
         this.gizmoManager.init();

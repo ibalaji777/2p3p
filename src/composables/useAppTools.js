@@ -66,7 +66,7 @@ export function useAppTools({
         }
         else setTool(tool.id);
         
-        if ((isMobile.value || isTablet.value) && tool.id !== 'door' && tool.id !== 'window') {
+        if ((isMobile.value || isTablet.value) && !['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof'].includes(tool.id)) {
             mobileMenuOpen.value = false;
         }
     };

@@ -123,9 +123,16 @@ export function setupDrawingEvents(planner) {
                 planner.syncAll();
                 return;
             }
-            if (planner.tool.startsWith('stair_v5_')) {
-                const shape = planner.tool.split('_').pop(); // straight, L, U, T
+            if (planner.tool === 'staircase' || planner.tool.startsWith('stair_v5_')) {
+                const params = planner.tool === 'staircase' ? (planner.activePresetParams || { type: 'stair_v5_straight' }) : { type: planner.tool };
+                const shape = params.type.split('stair_v5_')[1] || 'straight';
+                const targetPos = getAlignedPointForObject(pos.x, pos.y);
                 const stair = new PremiumStaircase(planner, shape, { x: targetPos.x, y: targetPos.y });
+                
+                if (planner.tool === 'staircase' && planner.activePresetParams) {
+                    Object.assign(stair, planner.activePresetParams);
+                }
+                
                 planner.stairs.push(stair);
                 planner.tool = 'select';
                 planner.updateToolStates();
@@ -536,7 +543,8 @@ export function setupDrawingEvents(planner) {
                         planner.selectEntity(newShape, 'shape');
                     } else {
                         const roof = new PremiumHipRoof(planner, planner.drawingRoofPoints);
-                        roof.config.roofType = planner.currentRoofToolType || 'hip';
+                        roof.config.roofType = planner.activePresetParams?.roofType || planner.currentRoofToolType || 'hip';
+                        if (planner.activePresetParams) Object.assign(roof.config, planner.activePresetParams);
                         planner.roofs.push(roof);
                         if (!planner.currentSessionEntities) planner.currentSessionEntities = [];
                         planner.currentSessionEntities.push(roof);

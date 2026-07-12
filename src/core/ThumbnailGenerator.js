@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { WIDGET_REGISTRY } from './registry.js';
+import { Stair3DBuilder } from '../features/stairs/stairs.renderer3d.js';
 
 export class ThumbnailGenerator {
-    constructor(helpers) {
-        this.helpers = helpers;
+    constructor(ctx) {
+        this.ctx = ctx;
         
         // Create an offscreen renderer
         this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
@@ -48,7 +49,7 @@ export class ThumbnailGenerator {
     }
 
     async generate(type, params) {
-        if (!WIDGET_REGISTRY[type] || !WIDGET_REGISTRY[type].render3D) return null;
+        if (!WIDGET_REGISTRY[type] && type !== 'staircase' && type !== 'roof') return null;
 
         // Create a cache key from params to avoid re-rendering
         const cacheKey = type + '_' + JSON.stringify(params);
@@ -65,8 +66,8 @@ export class ThumbnailGenerator {
         
         // Dummy entity based on preset params
         const entity = { ...params };
-        if (!entity.width) entity.width = WIDGET_REGISTRY[type].defaultConfig?.width || 40;
-        if (!entity.height) entity.height = WIDGET_REGISTRY[type].defaultConfig?.height || (type === 'door' ? 84 : 48);
+        if (!entity.width) entity.width = WIDGET_REGISTRY[type]?.defaultConfig?.width || 40;
+        if (!entity.height) entity.height = WIDGET_REGISTRY[type]?.defaultConfig?.height || (type === 'door' ? 84 : 48);
         
         // Provide a dummy wall context so extrusion and frames calculate correctly
         entity.wall = {
@@ -80,9 +81,29 @@ export class ThumbnailGenerator {
         entity.x = 0;
         entity.z = 0;
         entity.angle = 0;
+        if (entity.facing === undefined) entity.facing = WIDGET_REGISTRY[type]?.defaultConfig?.facing || 1;
+        if (entity.side === undefined) entity.side = WIDGET_REGISTRY[type]?.defaultConfig?.side || 1;
 
-        // Render the procedural mesh
-        const widgetGroup = WIDGET_REGISTRY[type].render3D(group, entity, this.helpers);
+        if (type === 'staircase') {
+            const stairBuilder = new Stair3DBuilder(this.ctx.assets, this.ctx.interactables);
+            const shape = params.type ? params.type.split('stair_v5_')[1] : 'straight';
+            const dummyStair = { ...params, shape, x: 0, y: 0, elevation: 0, rotation: 0 };
+            if (dummyStair.steps && !dummyStair.totalSteps) dummyStair.totalSteps = dummyStair.steps;
+            if (!dummyStair.totalSteps) dummyStair.totalSteps = 15;
+            if (!dummyStair.flight1Steps) dummyStair.flight1Steps = 8;
+            if (!dummyStair.flight2Steps) dummyStair.flight2Steps = 7;
+            stairBuilder.build([dummyStair], group, 0, false, 300);
+        } else if (type === 'roof') {
+            const dummyRoof = {
+                points: [{x: -100, y: -100}, {x: 100, y: -100}, {x: 100, y: 100}, {x: -100, y: 100}],
+                config: { ...params, roofType: params.roofType || 'gable', material: 'tiles_red' },
+                x: 0, y: 0, elevation: 0, rotation: 0
+            };
+            this.ctx.envBuilder.buildRoofs([dummyRoof], 0, false, group);
+        } else {
+            // Render the procedural mesh for widgets
+            const widgetGroup = WIDGET_REGISTRY[type].render3D(group, entity, this.ctx.helpers);
+        }
         
         // Center the group
         const box = new THREE.Box3().setFromObject(group);

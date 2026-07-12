@@ -1,7 +1,7 @@
 <template>
     <div class="catalog-gallery">
         <div class="catalog-header">
-            <h3>{{ type === 'door' ? 'Door Catalog' : 'Window Catalog' }}</h3>
+            <h3>{{ type === 'door' ? 'Door Catalog' : type === 'window' ? 'Window Catalog' : type === 'sunshade' ? 'Sunshade Catalog' : type === 'jali_panel' ? 'Jali Panel Catalog' : type === 'staircase' ? 'Staircase Catalog' : 'Roof Catalog' }}</h3>
             <div class="search-box">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 <input type="text" v-model="searchQuery" placeholder="Search models..." />
@@ -56,7 +56,44 @@ const windowCatalog = ref([
     { id: 'panoramic_slider', name: 'Panoramic Slider', image: '', params: { windowType: 'panoramic_slider', width: 120 } },
 ]);
 
-const items = computed(() => props.type === 'door' ? doorCatalog.value : windowCatalog.value);
+const sunshadeCatalog = ref([
+    { id: 'concrete_slab', name: 'Concrete Slab', image: '', params: { chajjaType: 'concrete_slab', width: 60, depth: 40, thick: 4 } },
+    { id: 'wooden_pergola', name: 'Wooden Pergola', image: '', params: { chajjaType: 'wooden_pergola', width: 80, depth: 50, thick: 8 } },
+    { id: 'metal_louvers', name: 'Metal Louvers', image: '', params: { chajjaType: 'metal_louvers', width: 80, depth: 50, thick: 8 } },
+    { id: 'glass_canopy', name: 'Glass Canopy', image: '', params: { chajjaType: 'glass_canopy', width: 60, depth: 40, thick: 3 } },
+    { id: 'metal_canopy', name: 'Metal Canopy', image: '', params: { chajjaType: 'metal_canopy', width: 60, depth: 40, thick: 4 } },
+    { id: 'curved_rcc', name: 'Curved RCC', image: '', params: { chajjaType: 'curved_rcc', width: 60, depth: 40, thick: 4 } },
+]);
+
+const jaliCatalog = ref([
+    { id: 'square_grid', name: 'Square Grid', image: '', params: { pattern: 'square_grid', width: 40, height: 40 } },
+    { id: 'geometric_honeycomb', name: 'Honeycomb', image: '', params: { pattern: 'geometric_honeycomb', width: 40, height: 40 } },
+    { id: 'mughal_star', name: 'Mughal Star', image: '', params: { pattern: 'mughal_star', width: 40, height: 40 } },
+    { id: 'floral_vine', name: 'Floral Vine', image: '', params: { pattern: 'floral_vine', width: 40, height: 40 } },
+]);
+
+const staircaseCatalog = ref([
+    { id: 'stair_v5_straight', name: 'Straight Flight', image: '', params: { type: 'stair_v5_straight', width: 40, length: 120, height: 120, steps: 10 } },
+    { id: 'stair_v5_L', name: 'L-Shape Stair', image: '', params: { type: 'stair_v5_L', width: 40, length1: 80, length2: 80, height: 120 } },
+    { id: 'stair_v5_U', name: 'U-Shape Stair', image: '', params: { type: 'stair_v5_U', width: 40, length1: 60, length2: 60, width2: 40, height: 120 } },
+    { id: 'stair_v5_T', name: 'T-Shape Stair', image: '', params: { type: 'stair_v5_T', width: 40, length1: 60, length2: 80, height: 120 } },
+]);
+
+const roofCatalog = ref([
+    { id: 'roof_gable', name: 'Gable Roof', image: '', params: { roofType: 'gable', pitch: 30 } },
+    { id: 'roof_hip', name: 'Hip Roof', image: '', params: { roofType: 'hip', pitch: 30 } },
+    { id: 'roof_flat', name: 'Flat Roof', image: '', params: { roofType: 'flat', thick: 15 } },
+]);
+
+const items = computed(() => {
+    if (props.type === 'door') return doorCatalog.value;
+    if (props.type === 'window') return windowCatalog.value;
+    if (props.type === 'sunshade') return sunshadeCatalog.value;
+    if (props.type === 'jali_panel') return jaliCatalog.value;
+    if (props.type === 'staircase') return staircaseCatalog.value;
+    if (props.type === 'roof') return roofCatalog.value;
+    return [];
+});
 
 const filteredItems = computed(() => {
     if (!searchQuery.value) return items.value;
@@ -68,7 +105,7 @@ const generateThumbnails = async () => {
     const renderer = plannerStore.renderer3D;
     if (!renderer || !renderer.thumbnailGenerator) return;
 
-    const list = props.type === 'door' ? doorCatalog.value : windowCatalog.value;
+    const list = items.value;
     for (const item of list) {
         if (!item.image) {
             try {

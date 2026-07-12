@@ -40,13 +40,7 @@ export const getMenuCategories = () => [
         icon: '<path d="M19 3H15V7H11V11H7V15H3V21H19Z"></path>',
         tools: [
             { isDivider: true, name: 'Staircases' },
-            { id: 'stair_v5_straight', name: 'Straight Staircase' },
-            { id: 'stair_v5_L', name: 'L-Shape Staircase' },
-            { id: 'stair_v5_U', name: 'U-Shape Staircase' },
-            { id: 'stair_v5_T', name: 'T-Shape Staircase' },
-            { id: 'stair_v4_flight', name: 'Stair Flight (Legacy)' },
-            { id: 'stair_v4_landing', name: 'Landing (Legacy)' },
-            { id: 'stair_v4_landing_curve', name: 'U-Curve Landing (Legacy)' },
+            { id: 'staircase', name: 'Add Staircase' },
 
             { isDivider: true, name: 'Floor Cuts' },
             { id: 'shape_floor_cut', name: 'Floor Cut (Hole)' }
@@ -57,9 +51,7 @@ export const getMenuCategories = () => [
         icon: '<path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>',
         tools: [
             { isDivider: true, name: 'Custom Roofs' },
-            { id: 'roof_gable', name: 'Draw Gable Roof', roofType: 'gable' },
-            { id: 'roof_flat', name: 'Draw Flat Roof', roofType: 'flat' },
-            { id: 'roof_hip', name: 'Draw Hip Roof', roofType: 'hip' },
+            { id: 'roof', name: 'Draw Roof' },
             { id: 'auto_roof', name: 'Generate Auto-Roof', action: 'auto_roof' },
             ...Object.keys(PRESET_CATEGORIES).reduce((acc, catName) => {
                 acc.push({ isDivider: true, name: catName });
