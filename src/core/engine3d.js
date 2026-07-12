@@ -12,8 +12,7 @@ import { InteractionSystem  } from "./engine3d/InteractionSystem.js";
 import { GizmoManager } from "./engine3d/GizmoManager.js";
 import { CameraController } from "./camera/CameraController.js";
 import { NavigationCube } from "./camera/NavigationCube.js";
-
-
+import { ThumbnailGenerator } from "./ThumbnailGenerator.js";
 export class Preview3D {
     constructor(containerEl) {
         this.container = containerEl;
@@ -46,6 +45,7 @@ export class Preview3D {
         this.isUpdatingFromUI = false;
         
         this.assets = new AssetManager();
+
         
         this.helpers = {
             getDynamicMaterial: (matId, category) => {
@@ -152,6 +152,8 @@ export class Preview3D {
         this.decorManager = new DecorManager(this);
         this.furnitureManager = new FurnitureManager(this);
         this.interactions = new InteractionSystem(this);
+        
+        this.thumbnailGenerator = new ThumbnailGenerator(this.helpers);
 
         this.gizmoManager = new GizmoManager(this);
         this.gizmoManager.init();

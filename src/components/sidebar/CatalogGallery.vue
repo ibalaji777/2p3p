@@ -27,7 +27,8 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
+import { usePlannerStore } from '../../stores/usePlannerStore.js';
 
 const props = defineProps({
     type: { type: String, required: true },
@@ -37,29 +38,59 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'select']);
 
 const searchQuery = ref('');
+const plannerStore = usePlannerStore();
 
-const doorCatalog = [
-    { id: 'single', name: 'Single Hinged Door', image: '/assets/catalog/single_hinged_door.png', params: { doorType: 'single', doorStyle: 'flat', width: 40 } },
-    { id: 'french', name: 'Double French Door', image: '/assets/catalog/double_french_door.png', params: { doorType: 'french', doorStyle: 'glass_grid', width: 80 } },
-    { id: 'sliding', name: 'Sliding Glass Door', image: '/assets/catalog/sliding_glass_door.png', params: { doorType: 'sliding', doorStyle: 'glass_bottom_panel', width: 80 } },
-    { id: 'pocket', name: 'Pocket Door', image: '/assets/catalog/pocket_door.png', params: { doorType: 'pocket', doorStyle: 'flat', width: 40 } },
-    { id: 'classic_4', name: 'Classic 4-Panel', image: '/assets/catalog/single_hinged_door.png', params: { doorType: 'single', doorStyle: 'classic_4_panel', width: 40 } },
-];
+const doorCatalog = ref([
+    { id: 'single', name: 'Single Hinged Door', image: '', params: { doorType: 'single', doorStyle: 'flat', width: 40 } },
+    { id: 'french', name: 'Double French Door', image: '', params: { doorType: 'french', doorStyle: 'glass_grid', width: 80 } },
+    { id: 'sliding', name: 'Sliding Glass Door', image: '', params: { doorType: 'sliding', doorStyle: 'glass_bottom_panel', width: 80 } },
+    { id: 'pocket', name: 'Pocket Door', image: '', params: { doorType: 'pocket', doorStyle: 'flat', width: 40 } },
+    { id: 'classic_4', name: 'Classic 4-Panel', image: '', params: { doorType: 'single', doorStyle: 'classic_4_panel', width: 40 } },
+]);
 
-const windowCatalog = [
-    { id: 'sliding_std', name: 'Standard Sliding', image: '/assets/catalog/standard_sliding_window.png', params: { windowType: 'sliding_std', width: 60 } },
-    { id: 'casement_std', name: 'Casement Window', image: '/assets/catalog/casement_window.png', params: { windowType: 'casement_std', width: 40 } },
-    { id: 'fixed_elevation', name: 'Fixed Picture Window', image: '/assets/catalog/fixed_glass_window.png', params: { windowType: 'fixed_elevation', width: 80 } },
-    { id: 'bay_box', name: 'Bay Window', image: '/assets/catalog/bay_box_window.png', params: { windowType: 'bay_box', width: 80 } },
-    { id: 'panoramic_slider', name: 'Panoramic Slider', image: '/assets/catalog/standard_sliding_window.png', params: { windowType: 'panoramic_slider', width: 120 } },
-];
+const windowCatalog = ref([
+    { id: 'sliding_std', name: 'Standard Sliding', image: '', params: { windowType: 'sliding_std', width: 60 } },
+    { id: 'casement_std', name: 'Casement Window', image: '', params: { windowType: 'casement_std', width: 40 } },
+    { id: 'fixed_elevation', name: 'Fixed Picture Window', image: '', params: { windowType: 'fixed_elevation', width: 80 } },
+    { id: 'bay_box', name: 'Bay Window', image: '', params: { windowType: 'bay_box', width: 80 } },
+    { id: 'panoramic_slider', name: 'Panoramic Slider', image: '', params: { windowType: 'panoramic_slider', width: 120 } },
+]);
 
-const items = computed(() => props.type === 'door' ? doorCatalog : windowCatalog);
+const items = computed(() => props.type === 'door' ? doorCatalog.value : windowCatalog.value);
 
 const filteredItems = computed(() => {
     if (!searchQuery.value) return items.value;
     const q = searchQuery.value.toLowerCase();
     return items.value.filter(i => i.name.toLowerCase().includes(q));
+});
+
+const generateThumbnails = async () => {
+    const renderer = plannerStore.renderer3D;
+    if (!renderer || !renderer.thumbnailGenerator) return;
+
+    const list = props.type === 'door' ? doorCatalog.value : windowCatalog.value;
+    for (const item of list) {
+        if (!item.image) {
+            try {
+                // Yield to main thread briefly before heavy render
+                await new Promise(r => setTimeout(r, 10));
+                const dataUrl = await renderer.thumbnailGenerator.generate(props.type, item.params);
+                if (dataUrl) item.image = dataUrl;
+            } catch (err) {
+                console.error("Failed to generate thumbnail for", item.name, err);
+            }
+        }
+    }
+};
+
+watch(() => plannerStore.renderer3D, (newRenderer) => {
+    if (newRenderer) {
+        generateThumbnails();
+    }
+}, { immediate: true });
+
+watch(() => props.type, () => {
+    generateThumbnails();
 });
 
 const handleImageError = (e) => {
