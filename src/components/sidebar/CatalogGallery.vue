@@ -138,6 +138,10 @@ const railingCatalog = ref([
     { id: 'rail_1', name: 'R-001', image: '', toolId: 'railing', params: { type: 'rail_1' } }
 ]);
 
+const furnitureCatalog = ref([
+    { id: 'bench', name: 'Bench', image: '', toolId: 'furniture', params: { type: 'table_dining' } }
+]);
+
 const items = computed(() => {
     if (props.type === 'door') return doorCatalog.value;
     if (props.type === 'window') return windowCatalog.value;
@@ -152,6 +156,7 @@ const items = computed(() => {
     if (props.type === 'shape_catalog') return shapesCatalog.value;
     if (props.type === 'wall_catalog') return wallsCatalog.value;
     if (props.type === 'railing_catalog') return railingCatalog.value;
+    if (props.type === 'furniture_catalog') return furnitureCatalog.value;
     return [];
 });
 

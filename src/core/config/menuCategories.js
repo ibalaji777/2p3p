@@ -64,9 +64,7 @@ export const getMenuCategories = () => [
         id: 'furniture', name: 'Furniture',
         icon: '<path d="M20 9V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v2"></path><path d="M2 13h20v5H2z"></path><path d="M4 18v2"></path><path d="M20 18v2"></path>',
         tools: [
-            { id: 'couch_1', name: 'Couch', action: 'furniture' },
-            { id: 'chair_ekero', name: 'Chair', action: 'furniture' },
-            { id: 'table_dining', name: 'Dining Table', action: 'furniture' }
+            { id: 'furniture_catalog', name: 'Furniture Catalog' }
         ]
     },
     {
