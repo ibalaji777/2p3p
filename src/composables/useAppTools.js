@@ -57,7 +57,7 @@ export function useAppTools({
     };
 
     const handleToolClick = (tool) => {
-        if (activeTool.value === tool.id && ['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer'].includes(tool.id)) {
+        if (activeTool.value === tool.id && ['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia'].includes(tool.id)) {
             setTool('select');
             return;
         }
@@ -71,7 +71,7 @@ export function useAppTools({
         }
         else setTool(tool.id);
         
-        if ((isMobile.value || isTablet.value) && !['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer'].includes(tool.id)) {
+        if ((isMobile.value || isTablet.value) && !['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer', 'molding'].includes(tool.id)) {
             mobileMenuOpen.value = false;
         }
     };

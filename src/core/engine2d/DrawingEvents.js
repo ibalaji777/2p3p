@@ -42,7 +42,7 @@ export function setupDrawingEvents(planner) {
             
             // Handle Smart Snapping Placement for Moldings and Openings
             const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(planner.tool);
-            const isMolding = !!MOLDING_REGISTRY[planner.tool];
+            const isMolding = planner.tool === 'molding' || !!MOLDING_REGISTRY[planner.tool];
             const isWidget = !!WIDGET_REGISTRY[planner.tool];
             const isPlacementTool = isWidget || isAdvancedOpening || isMolding;
 
@@ -84,7 +84,12 @@ export function setupDrawingEvents(planner) {
                         if (w.backHighlight) w.backHighlight.visible(false);
                     });
                     planner.mainLayer.batchDraw();
-                    targetWall.placeItemFromSnapping(planner.tool, targetFace, pos);
+                    if (isMolding) {
+                        const moldType = planner.activePresetParams?.type || planner.tool;
+                        targetWall.placeItemFromSnapping(moldType, targetFace, pos);
+                    } else {
+                        targetWall.placeItemFromSnapping(planner.tool, targetFace, pos);
+                    }
                 }
                 return;
             }

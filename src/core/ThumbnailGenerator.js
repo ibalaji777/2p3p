@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { WIDGET_REGISTRY, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY } from './registry.js';
+import { WIDGET_REGISTRY, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY, MOLDING_REGISTRY } from './registry.js';
 import { Stair3DBuilder } from '../features/stairs/stairs.renderer3d.js';
+import { Molding3DBuilder } from './engine3d/Molding3DBuilder.js';
 
 export class ThumbnailGenerator {
     constructor(ctx) {
@@ -49,7 +50,7 @@ export class ThumbnailGenerator {
     }
 
     async generate(type, params) {
-        if (!WIDGET_REGISTRY[type] && type !== 'staircase' && type !== 'roof' && type !== 'dormer') return null;
+        if (!WIDGET_REGISTRY[type] && type !== 'staircase' && type !== 'roof' && type !== 'dormer' && type !== 'molding') return null;
 
         // Create a cache key from params to avoid re-rendering
         const cacheKey = type + '_' + JSON.stringify(params);
@@ -137,6 +138,17 @@ export class ThumbnailGenerator {
                 errMesh.position.y = wallH + 10;
                 group.add(errMesh);
             }
+        } else if (type === 'molding') {
+            const moldBuilder = new Molding3DBuilder();
+            const moldData = MOLDING_REGISTRY[params.type]?.defaultConfig || { profileType: 'flat', depth: 5, t: 0.5 };
+            
+            // Build a small molding piece
+            const length = 40;
+            const moldGroup = moldBuilder.buildMolding({ ...moldData, width: length, depth: moldData.depth, type: params.type }, length, 10, this.ctx.helpers);
+            
+            // Rotate it slightly so we can see the profile
+            moldGroup.rotation.y = Math.PI / 4;
+            group.add(moldGroup);
         } else {
 
             // Render the procedural mesh for widgets

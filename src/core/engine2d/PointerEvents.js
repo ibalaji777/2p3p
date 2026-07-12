@@ -87,7 +87,7 @@ export function setupPointerEvents(planner) {
             let rawPos = { x: planner.snap(pos.x), y: planner.snap(pos.y) };
             // Smart Snapping Edge-Specific Highlight for Placement Tools
             const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(planner.tool);
-            const isMolding = !!MOLDING_REGISTRY[planner.tool];
+            const isMolding = planner.tool === 'molding' || !!MOLDING_REGISTRY[planner.tool];
             const isWidget = !!WIDGET_REGISTRY[planner.tool];
             const isPlacementTool = isWidget || isAdvancedOpening || isMolding;
 
@@ -138,7 +138,7 @@ export function setupPointerEvents(planner) {
                     planner.uiLayer.add(planner.widgetPreview);
                 }
                 
-                if (closestWall && (isWidget || isAdvancedOpening)) {
+                if (closestWall && (isWidget || isAdvancedOpening || isMolding)) {
                     planner.widgetPreview.destroyChildren();
                     let fakeEntity = {
                         width: 40,
@@ -153,6 +153,13 @@ export function setupPointerEvents(planner) {
                         planner.widgetPreview.add(new Konva.Rect({
                             width: 100, height: 10,
                             fill: 'rgba(59, 130, 246, 0.4)', stroke: '#2563eb', strokeWidth: 2,
+                            offsetX: 50, offsetY: 5
+                        }));
+                    } else if (isMolding) {
+                        fakeEntity.width = 100;
+                        planner.widgetPreview.add(new Konva.Rect({
+                            width: 100, height: 10,
+                            fill: 'rgba(79, 70, 229, 0.4)', stroke: '#4f46e5', strokeWidth: 2,
                             offsetX: 50, offsetY: 5
                         }));
                     } else if (isWidget) {

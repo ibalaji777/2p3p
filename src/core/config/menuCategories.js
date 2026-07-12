@@ -104,17 +104,8 @@ export const getMenuCategories = () => [
         id: 'architectural_details', name: 'Architectural Details',
         icon: '<path d="M3 21h18v-2H3v2zm6-4h12v-2H9v2zm-6-4h18v-2H3v2zm6-4h12V7H9v2zM3 3v2h18V3H3z"></path>',
         tools: [
-            { id: 'molding_band', name: 'Horizontal Band', action: 'molding' },
-            { id: 'molding_crown', name: 'Crown Molding', action: 'molding' },
-            { id: 'molding_ogee', name: 'Ogee (Cyma) Molding', action: 'molding' },
-            { id: 'molding_egg_and_dart', name: 'Egg and Dart Molding', action: 'molding' },
-            { id: 'molding_dentil', name: 'Dentil Molding', action: 'molding' },
-            { id: 'molding_craftsman', name: 'Step / Craftsman', action: 'molding' },
-            { id: 'molding_window', name: 'Window Frame', action: 'molding' },
-            { id: 'molding_door', name: 'Door Frame', action: 'molding' },
-            { id: 'molding_groove', name: 'Decorative Groove', action: 'molding' },
-            { id: 'molding_layered', name: 'Layered Projection', action: 'molding' },
-            { id: 'elevation_fascia', name: 'Elevation Fascia (C/L Shape)' }
+            { id: 'molding', name: 'Wall Moldings' },
+            { id: 'elevation_fascia', name: 'Elevation Fascia' }
         ]
     }
 ];

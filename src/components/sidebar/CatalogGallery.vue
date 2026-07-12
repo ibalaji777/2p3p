@@ -1,7 +1,7 @@
 <template>
     <div class="catalog-gallery">
         <div class="catalog-header">
-            <h3>{{ type === 'door' ? 'Door Catalog' : type === 'window' ? 'Window Catalog' : type === 'sunshade' ? 'Sunshade Catalog' : type === 'jali_panel' ? 'Jali Panel Catalog' : type === 'staircase' ? 'Staircase Catalog' : type === 'dormer' ? 'Dormer Catalog' : 'Roof Catalog' }}</h3>
+            <h3>{{ type === 'door' ? 'Door Catalog' : type === 'window' ? 'Window Catalog' : type === 'sunshade' ? 'Sunshade Catalog' : type === 'jali_panel' ? 'Jali Panel Catalog' : type === 'staircase' ? 'Staircase Catalog' : type === 'roof' ? 'Roof Catalog' : type === 'dormer' ? 'Dormer Catalog' : type === 'molding' ? 'Molding Catalog' : type === 'elevation_fascia' ? 'Fascia Catalog' : 'Catalog' }}</h3>
             <div class="search-box">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 <input type="text" v-model="searchQuery" placeholder="Search models..." />
@@ -92,6 +92,27 @@ const dormerCatalog = ref([
     { id: 'preset_dormer_hip', name: 'Hip Dormer', image: '', params: { type: 'preset_dormer_hip', width: 120, depth: 150, wallHeight: 120, roofType: 'hip', pitch: 35, elevation: 250 } }
 ]);
 
+const moldingCatalog = ref([
+    { id: 'molding_band', name: 'Horizontal Band', image: '', params: { type: 'molding_band' } },
+    { id: 'molding_crown', name: 'Crown Molding', image: '', params: { type: 'molding_crown' } },
+    { id: 'molding_ogee', name: 'Ogee (Cyma) Molding', image: '', params: { type: 'molding_ogee' } },
+    { id: 'molding_egg_and_dart', name: 'Egg and Dart Molding', image: '', params: { type: 'molding_egg_and_dart' } },
+    { id: 'molding_dentil', name: 'Dentil Molding', image: '', params: { type: 'molding_dentil' } },
+    { id: 'molding_craftsman', name: 'Step / Craftsman', image: '', params: { type: 'molding_craftsman' } },
+    { id: 'molding_window', name: 'Window Frame', image: '', params: { type: 'molding_window' } },
+    { id: 'molding_door', name: 'Door Frame', image: '', params: { type: 'molding_door' } },
+    { id: 'molding_groove', name: 'Decorative Groove', image: '', params: { type: 'molding_groove' } },
+    { id: 'molding_layered', name: 'Layered Projection', image: '', params: { type: 'molding_layered' } }
+]);
+
+const elevationFasciaCatalog = ref([
+    { id: 'fascia_c_left', name: 'C-Shape (Left)', image: '', params: { type: 'elevation_fascia', profileType: 'c_shape_left' } },
+    { id: 'fascia_c_right', name: 'C-Shape (Right)', image: '', params: { type: 'elevation_fascia', profileType: 'c_shape_right' } },
+    { id: 'fascia_l_left', name: 'L-Shape (Left)', image: '', params: { type: 'elevation_fascia', profileType: 'l_shape_left' } },
+    { id: 'fascia_l_right', name: 'L-Shape (Right)', image: '', params: { type: 'elevation_fascia', profileType: 'l_shape_right' } },
+    { id: 'fascia_box', name: 'Full Box Frame', image: '', params: { type: 'elevation_fascia', profileType: 'full_box' } }
+]);
+
 const items = computed(() => {
     if (props.type === 'door') return doorCatalog.value;
     if (props.type === 'window') return windowCatalog.value;
@@ -100,6 +121,8 @@ const items = computed(() => {
     if (props.type === 'staircase') return staircaseCatalog.value;
     if (props.type === 'roof') return roofCatalog.value;
     if (props.type === 'dormer') return dormerCatalog.value;
+    if (props.type === 'molding') return moldingCatalog.value;
+    if (props.type === 'elevation_fascia') return elevationFasciaCatalog.value;
     return [];
 });
 
