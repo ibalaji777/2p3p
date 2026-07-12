@@ -6,6 +6,75 @@ import { Molding3DBuilder } from './Molding3DBuilder.js';
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, offsetPolygon } from '../../core/registry';
 
+let _sharedPlasterMaterial = null;
+function getPlasterMaterial() {
+    if (_sharedPlasterMaterial) return _sharedPlasterMaterial;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    
+    // Base color: Slight warm off-white
+    ctx.fillStyle = '#f8f6f0';
+    ctx.fillRect(0, 0, 512, 512);
+    
+    const imgData = ctx.getImageData(0, 0, 512, 512);
+    const data = imgData.data;
+    for (let i = 0; i < data.length; i += 4) {
+        // Very low roughness variation & tiny plaster texture
+        const noise = (Math.random() - 0.5) * 15; 
+        data[i] = Math.max(0, Math.min(255, 248 + noise));
+        data[i+1] = Math.max(0, Math.min(255, 246 + noise));
+        data[i+2] = Math.max(0, Math.min(255, 240 + noise));
+        data[i+3] = 255;
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    const plasterTex = new THREE.CanvasTexture(canvas);
+    plasterTex.wrapS = THREE.RepeatWrapping;
+    plasterTex.wrapT = THREE.RepeatWrapping;
+    plasterTex.repeat.set(0.02, 0.02);
+
+    _sharedPlasterMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: plasterTex,
+        roughness: 0.95,
+        roughnessMap: plasterTex,
+        bumpMap: plasterTex,
+        bumpScale: 0.01,
+        flatShading: true
+    });
+    
+    const obc = (shader) => {
+        shader.vertexShader = shader.vertexShader.replace(
+            '#include <common>',
+            `#include <common>\n            varying vec3 vLocalPos;`
+        );
+        shader.vertexShader = shader.vertexShader.replace(
+            '#include <begin_vertex>',
+            `#include <begin_vertex>\n            vLocalPos = position;`
+        );
+        shader.fragmentShader = shader.fragmentShader.replace(
+            '#include <common>',
+            `#include <common>\n            varying vec3 vLocalPos;`
+        );
+        shader.fragmentShader = shader.fragmentShader.replace(
+            '#include <color_fragment>',
+            `#include <color_fragment>\n            float ao = 1.0;\n            // Very subtle floor/baseboard AO\n            if (vLocalPos.y < 15.0) {\n                ao *= 0.92 + (vLocalPos.y / 15.0) * 0.08;\n            }\n            diffuseColor.rgb *= ao;`
+        );
+    };
+
+    _sharedPlasterMaterial.onBeforeCompile = obc;
+    _sharedPlasterMaterial.clone = function() {
+        const cloned = THREE.MeshStandardMaterial.prototype.clone.call(this);
+        cloned.onBeforeCompile = this.onBeforeCompile;
+        return cloned;
+    };
+
+    return _sharedPlasterMaterial;
+}
+
 export class EnvironmentBuilder {
     constructor(ctx) {
         this.ctx = ctx;
@@ -101,12 +170,7 @@ export class EnvironmentBuilder {
         }
         this.stairBuilder.build(stairs, this.ctx.structureGroup, 0, false, maxWallHeight);
 
-        const matMain = new THREE.MeshStandardMaterial({ 
-            color: 0xf3f2ec, // Warm off-white
-            roughness: 1.0, // Perfectly matte plaster, no shine
-            metalness: 0.0,
-            flatShading: true // Preserves sharp corners
-        });
+        const matMain = getPlasterMaterial();
         const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xeaeaea, roughness: 0.9 });
         const matBaseboard = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.1 });
 
@@ -869,12 +933,7 @@ export class EnvironmentBuilder {
                     this.stairBuilder.build(data.stairs, floorGroup, index, true, maxWallHeight2);
                 }
 
-                const matMain = new THREE.MeshStandardMaterial({ 
-                    color: 0xf3f2ec, // Warm off-white
-                    roughness: 1.0, // Perfectly matte plaster
-                    metalness: 0.0,
-                    flatShading: true // Preserves sharp corners
-                });
+                const matMain = getPlasterMaterial();
                 const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xeaeaea, roughness: 0.9 });
                 const matBaseboard = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.1 });
 
