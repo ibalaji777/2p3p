@@ -8,6 +8,7 @@ export * from '../features/wall/wall.registry.js';
 export * from './registries/material.registry.js';
 export * from '../features/roof/roof.registry.js';
 export * from '../features/furniture/furniture.registry.js';
+export * from '../features/railing/registry/railing.registry.js';
 
 import { DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT } from './constants/units.js';
 import { WINDOW_TYPES, WINDOW_GLASS_MATERIALS } from '../features/window/window.registry.js';

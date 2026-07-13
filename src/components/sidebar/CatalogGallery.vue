@@ -139,7 +139,11 @@ const wallsCatalog = ref([
 ]);
 
 const railingCatalog = ref([
-    { id: 'rail_1', name: 'R-001', image: '', toolId: 'railing', params: { type: 'rail_1' } }
+    { id: 'glass_stainless', name: 'Glass & Steel', image: '', toolId: 'railing', params: { type: 'glass_stainless' } },
+    { id: 'glass_frameless', name: 'Frameless', image: '', toolId: 'railing', params: { type: 'glass_frameless' } },
+    { id: 'metal_vertical', name: 'Vertical Metal', image: '', toolId: 'railing', params: { type: 'metal_vertical' } },
+    { id: 'cable_stainless', name: 'Cable', image: '', toolId: 'railing', params: { type: 'cable_stainless' } },
+    { id: 'wood_classic', name: 'Wood', image: '', toolId: 'railing', params: { type: 'wood_classic' } }
 ]);
 
 const furnitureCatalog = ref([

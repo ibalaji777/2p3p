@@ -25,7 +25,7 @@ import { PremiumFurniture } from '../../features/furniture/furniture.renderer2d.
 import { WallSerializer } from '../../features/wall/wall.serializer.js';
 
 import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
-import { PremiumRailing } from './PremiumRailing.js';
+import { Railing } from '../../features/railing/objects/Railing.js';
 import { SmartGuidesTrackingSystem } from './SmartGuidesTrackingSystem.js';
 import { advance_openings } from './advance_openings.js';
 import { PremiumArc } from './PremiumArc.js';
@@ -1596,7 +1596,7 @@ export class FloorPlanner {
 
                     let wall;
                     if (wData.type === 'railing') {
-                        wall = new PremiumRailing(this, a1, a2);
+                        wall = new Railing(this, a1, a2);
                     } else {
                         wall = new PremiumWall(this, a1, a2, wData.type);
                     }

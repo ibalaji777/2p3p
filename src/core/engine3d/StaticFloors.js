@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, WALL_DECOR_REGISTRY, offsetPolygon } from '../registry.js';
 import { Wall3DBuilder } from '../../features/wall/wall.renderer3d.js';
-import { RailingBuilder } from './RailingBuilder.js';
+import { Railing3DBuilder } from '../../features/railing/builders/Railing3DBuilder.js';
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
 
 export class StaticFloors {
@@ -200,8 +200,13 @@ export class StaticFloors {
                         if (w.attachedDecor) w.attachedDecor.forEach(decor => this.decorManager.load(w, decor));
                     });
 
-                    const railingBuilder = new RailingBuilder(this.assets, this.interactables, floorGroup);
-                    railingBuilder.build(railingWalls, standardWalls);
+                    // const railingBuilder = new RailingBuilder(this.assets, this.interactables, floorGroup);
+                    railingWalls.forEach(w => {
+                        const mesh = Railing3DBuilder.build(w);
+                        if (w.elevation) mesh.position.y += w.elevation;
+                        floorGroup.add(mesh);
+                        this.interactables.push(mesh);
+                    });
                 }
                 
                 // Build Roofs

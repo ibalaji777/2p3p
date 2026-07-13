@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { WIDGET_REGISTRY, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY, MOLDING_REGISTRY, FURNITURE_REGISTRY, RAILING_REGISTRY } from './registry.js';
 import { Stair3DBuilder } from '../features/stairs/stairs.renderer3d.js';
 import { Molding3DBuilder } from './engine3d/Molding3DBuilder.js';
-import { generateRailing3D } from './engine3d/RailingGenerators.js';
+import { Railing3DBuilder } from '../features/railing/builders/Railing3DBuilder.js';
 
 export class ThumbnailGenerator {
     constructor(ctx) {
@@ -232,8 +232,20 @@ export class ThumbnailGenerator {
                 const mat = new THREE.MeshStandardMaterial({ color: 0x88ccff });
                 const mesh = new THREE.Mesh(geo, mat);
                 group.add(mesh);
-            } else if (RAILING_REGISTRY && RAILING_REGISTRY[type]) {
-                generateRailing3D(type, group, entity, this.ctx.assets);
+            } else if (type === 'railing' || (RAILING_REGISTRY && RAILING_REGISTRY[type])) {
+                const configId = RAILING_REGISTRY && RAILING_REGISTRY[type] ? type : (params.configId || params.type || 'glass_stainless');
+                const mockRailing = {
+                    configId: configId,
+                    points: [-30, 0, 30, 0],
+                    thickness: RAILING_REGISTRY[configId]?.thickness || 2,
+                    height: RAILING_REGISTRY[configId]?.height || 40,
+                    config: RAILING_REGISTRY[configId]
+                };
+                const mesh = Railing3DBuilder.build(mockRailing);
+                // Center the generated mesh
+                mesh.position.set(0, 0, 0);
+                mesh.rotation.y = Math.PI / 6; // Isometric angle
+                group.add(mesh);
             } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(type)) {
                 const w = 100, h = 100, d = 10;
                 const shape = new THREE.Shape();
@@ -273,14 +285,30 @@ export class ThumbnailGenerator {
         // Patch highly metallic materials so they don't look like black silhouettes under studio lighting without an envMap
         group.traverse(child => {
             if (child.isMesh && child.material) {
-                const patchMat = (mat) => {
-                    if (mat.metalness > 0.4) {
-                        mat.metalness = 0.3;
-                        mat.roughness = Math.max(mat.roughness || 0, 0.6);
+                const patchMat = (mat, index) => {
+                    if (mat.metalness > 0.4 || mat.transparent) {
+                        const newMat = mat.clone();
+                        if (newMat.metalness > 0.4) {
+                            newMat.metalness = 0.3;
+                            newMat.roughness = Math.max(newMat.roughness || 0, 0.6);
+                        }
+                        // Ensure glass looks somewhat visible against white backgrounds
+                        if (newMat.transparent && newMat.transmission > 0) {
+                            newMat.color.setHex(0xe0f2fe); // Slight blue tint
+                            newMat.opacity = 0.6;
+                        }
+                        if (index !== undefined && Array.isArray(child.material)) {
+                            child.material[index] = newMat;
+                        } else {
+                            child.material = newMat;
+                        }
                     }
                 };
-                if (Array.isArray(child.material)) child.material.forEach(patchMat);
-                else patchMat(child.material);
+                if (Array.isArray(child.material)) {
+                    child.material.forEach((m, i) => patchMat(m, i));
+                } else {
+                    patchMat(child.material);
+                }
             }
         });
         
@@ -308,6 +336,22 @@ export class ThumbnailGenerator {
             
             activeCamera.position.setFromSphericalCoords(distance, phi, theta);
             activeCamera.position.y += targetY; // Offset orbit center to bounding box center
+            
+            activeCamera.lookAt(0, targetY, 0);
+            activeCamera.updateProjectionMatrix();
+        } else if (RAILING_REGISTRY && RAILING_REGISTRY[type]) {
+            const fov = 35;
+            activeCamera = new THREE.PerspectiveCamera(fov, 1, 1, 2000);
+            
+            const fitSize = maxDim * 1.5; 
+            const distance = (fitSize / 2) / Math.tan((fov / 2) * Math.PI / 180);
+            
+            // Orbit: 25° elevation, 35° azimuth (shows the front/length of the railing nicely)
+            const phi = (90 - 25) * Math.PI / 180;
+            const theta = 35 * Math.PI / 180;
+            
+            activeCamera.position.setFromSphericalCoords(distance, phi, theta);
+            activeCamera.position.y += targetY;
             
             activeCamera.lookAt(0, targetY, 0);
             activeCamera.updateProjectionMatrix();

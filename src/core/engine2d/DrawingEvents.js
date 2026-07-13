@@ -5,7 +5,7 @@ import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 import Konva from 'konva';
 import { PremiumStaircase } from '../../features/stairs/stairs.renderer2d.js';
 import { PremiumShape } from './PremiumShape.js';
-import { PremiumRailing } from './PremiumRailing.js';
+import { Railing } from '../../features/railing/objects/Railing.js';
 import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
 
 /**
@@ -351,7 +351,7 @@ export function setupDrawingEvents(planner) {
                             let curr = arcNodes[i];
                             let w;
                             if (planner.tool === 'railing') {
-                                w = new PremiumRailing(planner, prev, curr);
+                                w = new Railing(planner, prev, curr);
                                 w.parentArc = sharedArc;
                                 w.labelGroup.visible(false);
                                 w.poly.off('mousedown touchstart');
@@ -378,7 +378,7 @@ export function setupDrawingEvents(planner) {
                         }
                     } else {
                         if (planner.tool === 'railing') {
-                            const w = new PremiumRailing(planner, planner.lastAnchor, currentAnchor);
+                            const w = new Railing(planner, planner.lastAnchor, currentAnchor);
                             planner.walls.push(w);
                             planner.lastDrawnEntity = w;
                             planner.currentSessionEntities.push(w);

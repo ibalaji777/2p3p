@@ -20,14 +20,7 @@ export const JALI_MATERIALS = {
     metal_black: { label: "Matte Black Metal", color: 0x1a1a1a, roughness: 0.4, metalness: 0.8, clearcoat: 0.1, clearcoatRoughness: 0.2, texture: 'solid' }
 };
 
-export const RAILING_REGISTRY = {
-    'rail_1': {
-        id: 'rail_1', name: 'R-001', type: 'railing',
-        model: 'models/railing/rail_1.obj',
-        color: 0x88ccff, transparent: true, opacity: 0.5, roughness: 0.1, metalness: 0.1,
-        thumbnail: 'https://via.placeholder.com/150/88ccff/000000?text=Glass'
-    }
-};
+
 
 export const SKY_REGISTRY = {
     'arch_viz_sunny': {

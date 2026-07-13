@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Wall3DBuilder } from '../../features/wall/wall.renderer3d.js';
-import { RailingBuilder } from './RailingBuilder.js';
+import { Railing3DBuilder } from '../../features/railing/builders/Railing3DBuilder.js';
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
 import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, WALL_DECOR_REGISTRY, offsetPolygon } from '../registry.js';
 
@@ -12,7 +12,7 @@ export class ActiveFloor {
         this.structureGroup = structureGroup;
         this.assets = assets;
         this.wallBuilder = new Wall3DBuilder();
-        this.railingBuilder = new RailingBuilder(assets, interactables, structureGroup);
+        // this.railingBuilder removed in favor of static Railing3DBuilder
         this.stairBuilder = new Stair3DBuilder(assets, interactables);
         this.matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7, side: THREE.DoubleSide });
         this.callbacks = callbacks;
@@ -119,7 +119,13 @@ export class ActiveFloor {
             if (w.attachedDecor) w.attachedDecor.forEach(decor => this.decorManager.load(w, decor));
         });
 
-        this.railingBuilder.build(railingWalls, standardWalls, targetGroup);
+        railingWalls.forEach(w => {
+            const mesh = Railing3DBuilder.build(w);
+            if (w.elevation) mesh.position.y += w.elevation;
+            targetGroup.add(mesh);
+            this.interactables.push(mesh);
+            w.mesh3D = mesh;
+        });
     }
 
     _buildShapes(shapes, targetGroup = this.structureGroup) {

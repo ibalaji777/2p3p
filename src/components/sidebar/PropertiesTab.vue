@@ -68,6 +68,12 @@
                     </div>
                 </div>
             </div>
+            <RailingProperties
+                v-else-if="selectedType === 'railing'"
+                :entity="selectedEntity"
+                @sync-engine="$emit('sync-engine')"
+                @delete-entity="$emit('delete-entity')"
+            />
             
             <WallPanel 
                 v-else-if="selectedType === 'wall'"
@@ -213,6 +219,8 @@ import MoldingPanel from '../panels/MoldingPanel.vue';
 import ShapePanel from '../panels/ShapePanel.vue';
 import FurniturePanel from '../../features/furniture/furniture.properties.vue';
 import RoofPanel from '../../features/roof/roof.properties.vue';
+
+import RailingProperties from '../../features/railing/ui/RailingProperties.vue';
 import PresetGroupPanel from '../panels/PresetGroupPanel.vue';
 
 const props = defineProps({
@@ -263,6 +271,19 @@ const updateRoofPitchFromHeight = (e, roof) => {
     const newPitch = Math.atan(targetHeight / (maxSpan / 2)) * 180 / Math.PI;
     conf.pitch = newPitch;
     emit('sync-engine');
+};
+
+const generateThumbnail = async () => {
+    if (!props.selectedEntity || !props.renderer3D) return;
+    try {
+        const type = props.selectedEntity.type;
+        const params = props.selectedEntity.params || {};
+        if (type === 'railing' && props.selectedEntity.configId) {
+            params.configId = props.selectedEntity.configId;
+        }
+        const url = await props.renderer3D.thumbnailGenerator.generate(type, params);
+        thumbnailUrl.value = url;
+    } catch(e) {console.error(e);}
 };
 
 const isShapeMaterialActive = (key) => {
