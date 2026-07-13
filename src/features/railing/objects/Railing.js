@@ -25,10 +25,9 @@ export class Railing {
         this.wallGroup = new Konva.Group();
         
         // Mock poly for compatibility with tools that check wall.poly
-        this.poly = new Konva.Line({ hitStrokeWidth: 20 });
+        this.poly = new Konva.Line({ hitStrokeWidth: 30, opacity: 0, listening: true });
         this.poly.parentWall = this;
         this.poly.isWallPoly = true;
-        this.poly.points = () => this.points;
         this.wallGroup.add(this.poly);
         
         this.planner.widgetLayer.add(this.wallGroup);
@@ -90,7 +89,27 @@ export class Railing {
             });
         }
         
-        this.poly.points(this.points); // update hit area
+        // Update hit area to match the visual offset line
+        const pts = this.points;
+        if (pts.length >= 4) {
+            const dx = pts[2] - pts[0];
+            const dy = pts[3] - pts[1];
+            const length = Math.hypot(dx, dy);
+            if (length > 0) {
+                const nx = -dy / length;
+                const ny = dx / length;
+                const offset = 1.5;
+                const ox1 = pts[0] + nx * offset;
+                const oy1 = pts[1] + ny * offset;
+                const ox2 = pts[2] + nx * offset;
+                const oy2 = pts[3] + ny * offset;
+                this.poly.points([ox1, oy1, ox2, oy2]);
+                
+                // Keep hit width consistent regardless of zoom
+                this.poly.strokeScaleEnabled(false);
+            }
+        }
+        this.poly.moveToTop();
         
         if (this.planner && this.planner.stage) {
             this.planner.stage.batchDraw();
@@ -103,8 +122,18 @@ export class Railing {
     }
 
     initEvents() {
-        this.poly.on('mouseenter', () => { if (this.planner.tool === 'select') document.body.style.cursor = 'pointer'; });
-        this.poly.on('mouseleave', () => { document.body.style.cursor = 'default'; });
+        this.poly.on('mouseenter', () => { 
+            if (this.planner.tool === 'select') {
+                document.body.style.cursor = 'pointer';
+                this.isHovered = true;
+                this.update2D();
+            }
+        });
+        this.poly.on('mouseleave', () => { 
+            document.body.style.cursor = 'default';
+            this.isHovered = false;
+            this.update2D();
+        });
         
         this.poly.on('mousedown touchstart', (e) => {
             if (this.planner.tool !== 'select') return;

@@ -76,8 +76,8 @@
             <div class="decor-gallery">
                 <h4 class="props-subtitle">Railing Material</h4>
                 <div class="decor-grid">
-                    <div v-for="(config, key) in railingRegistry" :key="key" class="decor-item" @click="selectedEntity.configId = key; $emit('ui-trigger'); $emit('sync-engine')" :class="{ active: (selectedEntity.configId || 'rail_1') === key && uiTrigger !== -1 }">
-                        <img :src="config.thumbnail" />
+                    <div v-for="(config, key) in railingRegistry" :key="key" class="decor-item" @click="selectedEntity.configId = key; $emit('ui-trigger'); $emit('sync-engine')" :class="{ active: (selectedEntity.configId || 'glass_frameless') === key && uiTrigger !== -1 }">
+                        <img :src="railingThumbnails[key]" @error="handleImageError" />
                         <span>{{ config.name }}</span>
                     </div>
                 </div>
@@ -125,7 +125,8 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits } from 'vue';
+import { defineProps, defineEmits, ref, watch } from 'vue';
+import { usePlannerStore } from '../../stores/usePlannerStore.js';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true },
@@ -147,4 +148,40 @@ const emit = defineEmits([
     'spawn-wall-pattern',
     'delete-entity'
 ]);
+
+const plannerStore = usePlannerStore();
+const railingThumbnails = ref({});
+
+const generateThumbnails = async () => {
+    const renderer = plannerStore.renderer3D;
+    if (!renderer || !renderer.thumbnailGenerator) return;
+    
+    for (const key in props.railingRegistry) {
+        if (!railingThumbnails.value[key]) {
+            try {
+                await new Promise(r => setTimeout(r, 10));
+                const dataUrl = await renderer.thumbnailGenerator.generate(key, props.railingRegistry[key]);
+                if (dataUrl) railingThumbnails.value[key] = dataUrl;
+            } catch(e) {
+                console.error("Failed to generate railing thumbnail for", key, e);
+            }
+        }
+    }
+};
+
+const handleImageError = (e) => {
+    e.target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%23d1d5db' stroke-width='1' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Ccircle cx='8.5' cy='8.5' r='1.5'%3E%3C/circle%3E%3Cpolyline points='21 15 16 10 5 21'%3E%3C/polyline%3E%3C/svg%3E";
+};
+
+watch(() => props.selectedEntity, (newVal) => {
+    if (newVal && newVal.type === 'railing') {
+        generateThumbnails();
+    }
+}, { immediate: true });
+
+watch(() => plannerStore.renderer3D, (newRenderer) => {
+    if (newRenderer && props.selectedEntity && props.selectedEntity.type === 'railing') {
+        generateThumbnails();
+    }
+});
 </script>

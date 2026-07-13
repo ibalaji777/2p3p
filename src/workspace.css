@@ -268,6 +268,29 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
     display: none !important;
 }
 
+.input-wrap input[type="number"],
+.input-wrap input[type="text"] {
+    width: 100%;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    color: #0f172a;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 8px;
+    padding-right: 32px;
+    box-sizing: border-box;
+    height: 28px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.input-wrap input[type="number"]:focus,
+.input-wrap input[type="text"]:focus {
+    border-color: #3b82f6;
+}
+
 .control-group select,
 .control-group-inline select,
 .settings-select {

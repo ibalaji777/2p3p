@@ -1,66 +1,80 @@
 <template>
-  <div class="railing-properties p-4" v-if="entity">
-    <h3 class="text-lg font-bold mb-4 text-gray-800">Railing Properties</h3>
+  <div class="props-panel-inner" v-if="entity">
+    <h4 class="props-subtitle">Railing Properties</h4>
     
-    <div class="space-y-4">
-      <!-- Style Selection -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Style</label>
-        <select 
-          v-model="entity.configId" 
-          @change="onConfigChange"
-          class="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-        >
-          <option v-for="(config, id) in registry" :key="id" :value="id">
-            {{ config.name }}
-          </option>
-        </select>
-      </div>
+    <div class="control-group">
+      <label>Style</label>
+      <select 
+        v-model="entity.configId" 
+        @change="onConfigChange"
+        class="settings-select"
+      >
+        <option v-for="(config, id) in registry" :key="id" :value="id">
+          {{ config.name }}
+        </option>
+      </select>
+    </div>
 
-      <!-- Dimensions -->
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Height (in)</label>
-          <input 
-            type="number" 
-            v-model.number="entity.height" 
-            @change="onPropertyChange"
-            class="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Thickness (in)</label>
-          <input 
-            type="number" 
-            v-model.number="entity.thickness" 
-            @change="onPropertyChange"
-            class="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-          />
-        </div>
+    <div class="control-group">
+      <label>Height</label>
+      <div class="input-wrap">
+        <input 
+          type="range" 
+          v-model.number="entity.height" 
+          min="10" max="80" step="1" 
+          @input="onPropertyChange"
+        />
+        <input 
+          type="number" 
+          v-model.number="entity.height" 
+          @change="onPropertyChange"
+        />
       </div>
-      
-      <!-- Component Settings dynamically generated based on active config -->
-      <div v-if="entity.config && entity.config.post" class="pt-2 border-t">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Post Spacing (in)</label>
+    </div>
+
+    <div class="control-group">
+      <label>Thickness</label>
+      <div class="input-wrap">
+        <input 
+          type="range" 
+          v-model.number="entity.thickness" 
+          min="0.5" max="10" step="0.5" 
+          @input="onPropertyChange"
+        />
+        <input 
+          type="number" 
+          v-model.number="entity.thickness" 
+          @change="onPropertyChange"
+        />
+      </div>
+    </div>
+    
+    <div class="control-group" v-if="entity.config && entity.config.post">
+      <label>Post Spacing</label>
+      <div class="input-wrap">
+        <input 
+          type="range" 
+          v-model.number="entity.config.post.spacing" 
+          min="12" max="120" step="1" 
+          @input="onPropertyChange"
+        />
         <input 
           type="number" 
           v-model.number="entity.config.post.spacing" 
           @change="onPropertyChange"
-          class="w-full border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
         />
       </div>
-      
-      <div class="mt-6 flex justify-end">
-        <button 
-          @click="deleteRailing"
-          class="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700"
-        >
-          Delete Railing
-        </button>
-      </div>
     </div>
+    
+    <button 
+      @click="deleteRailing"
+      class="hud-delete"
+      style="margin-top: 15px;"
+    >
+      Delete Railing
+    </button>
   </div>
-  <div v-else class="p-4 text-gray-500">
+  <div v-else class="props-panel-inner" style="color: #64748b; padding: 20px; text-align: center;">
     Select a railing to edit its properties.
   </div>
 </template>
