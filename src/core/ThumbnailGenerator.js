@@ -148,12 +148,24 @@ export class ThumbnailGenerator {
             if (type === 'staircase') {
                 const stairBuilder = new Stair3DBuilder(this.ctx.assets, this.ctx.interactables);
                 const shape = params.type ? params.type.split('stair_v5_')[1] : 'straight';
-                const dummyStair = { ...params, shape, x: 0, y: 0, elevation: 0, rotation: 0 };
+                const dummyStair = { 
+                    ...params, 
+                    shape, 
+                    x: 0, y: 0, elevation: 0, rotation: 0,
+                    railingLayout: 'none', // Remove noisy railings for clear thumbnail
+                    hasUnderWall: false    // Remove solid underwall to show step profile clearly
+                };
                 if (dummyStair.steps && !dummyStair.totalSteps) dummyStair.totalSteps = dummyStair.steps;
-                if (!dummyStair.totalSteps) dummyStair.totalSteps = 15;
-                if (!dummyStair.flight1Steps) dummyStair.flight1Steps = 8;
-                if (!dummyStair.flight2Steps) dummyStair.flight2Steps = 7;
-                stairBuilder.build([dummyStair], group, 0, false, 300);
+                if (!dummyStair.totalSteps) dummyStair.totalSteps = 10; // Fewer steps = chunkier, more readable
+                if (!dummyStair.flight1Steps) dummyStair.flight1Steps = 5;
+                if (!dummyStair.flight2Steps) dummyStair.flight2Steps = 5;
+                
+                const stairWrapper = new THREE.Group();
+                stairBuilder.build([dummyStair], stairWrapper, 0, false, 300);
+                
+                // Keep default rotation; the PerspectiveCamera will orbit to provide the 3/4 view.
+                // Allow the actual beautiful materials and colors defined in params to be visible!
+                group.add(stairWrapper);
             } else if (type === 'roof') {
                 const dummyRoof = {
                     points: [{x: -100, y: -100}, {x: 100, y: -100}, {x: 100, y: 100}, {x: -100, y: 100}],
@@ -257,29 +269,66 @@ export class ThumbnailGenerator {
         // Float slightly above the ground plane to avoid z-fighting on shadows
         group.position.y = -box.min.y + 0.1;
         group.position.z = -center.z;
+
+        // Patch highly metallic materials so they don't look like black silhouettes under studio lighting without an envMap
+        group.traverse(child => {
+            if (child.isMesh && child.material) {
+                const patchMat = (mat) => {
+                    if (mat.metalness > 0.4) {
+                        mat.metalness = 0.3;
+                        mat.roughness = Math.max(mat.roughness || 0, 0.6);
+                    }
+                };
+                if (Array.isArray(child.material)) child.material.forEach(patchMat);
+                else patchMat(child.material);
+            }
+        });
         
         this.scene.add(group);
         this.currentObj = group;
 
-        // Frame the camera nicely using isometric perspective
+        // Determine the best camera for the thumbnail type
+        let activeCamera = this.camera;
         const size = box.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
-        const frustumSize = maxDim * 1.4; // Leave some margin
-        
-        this.camera.left = -frustumSize / 2;
-        this.camera.right = frustumSize / 2;
-        this.camera.top = frustumSize / 2;
-        this.camera.bottom = -frustumSize / 2;
-        this.camera.updateProjectionMatrix();
+        const targetY = size.y / 2;
 
-        // Position camera for an isometric view (front-right-top)
-        this.camera.position.set(maxDim, maxDim * 0.8, maxDim);
-        this.camera.lookAt(0, size.y / 2, 0); // Look at the center of the object
+        if (type === 'staircase') {
+            const fov = 32;
+            activeCamera = new THREE.PerspectiveCamera(fov, 1, 1, 2000);
+            
+            // Frame the bounding box to fill ~80% of the thumbnail (10% padding on edges -> 1.25 multiplier)
+            // For stairs, length (size.z) is usually the largest dimension. We ensure it fits within the 32° FOV.
+            const fitSize = maxDim * 1.25; 
+            const distance = (fitSize / 2) / Math.tan((fov / 2) * Math.PI / 180);
+            
+            // Apply orbital rotation: 22° elevation, -55° azimuth
+            const phi = (90 - 22) * Math.PI / 180;
+            const theta = -55 * Math.PI / 180;
+            
+            activeCamera.position.setFromSphericalCoords(distance, phi, theta);
+            activeCamera.position.y += targetY; // Offset orbit center to bounding box center
+            
+            activeCamera.lookAt(0, targetY, 0);
+            activeCamera.updateProjectionMatrix();
+        } else {
+            const frustumSize = maxDim * 1.4; // Leave some margin
+            
+            this.camera.left = -frustumSize / 2;
+            this.camera.right = frustumSize / 2;
+            this.camera.top = frustumSize / 2;
+            this.camera.bottom = -frustumSize / 2;
+            this.camera.updateProjectionMatrix();
+
+            // Position camera for an isometric view (front-right-top)
+            this.camera.position.set(maxDim, maxDim * 0.8, maxDim);
+            this.camera.lookAt(0, targetY, 0); // Look at the center of the object
+        }
 
         // Give textures a tiny bit of time to load if they were fetched asynchronously in getDynamicMaterial
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        this.renderer.render(this.scene, this.camera);
+        this.renderer.render(this.scene, activeCamera);
         
         const dataUrl = this.renderer.domElement.toDataURL('image/png');
         this.cache.set(cacheKey, dataUrl);

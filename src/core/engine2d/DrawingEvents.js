@@ -131,11 +131,17 @@ export function setupDrawingEvents(planner) {
             if (planner.tool === 'staircase' || planner.tool.startsWith('stair_v5_')) {
                 const params = planner.tool === 'staircase' ? (planner.activePresetParams || { type: 'stair_v5_straight' }) : { type: planner.tool };
                 const shape = params.type.split('stair_v5_')[1] || 'straight';
-                const targetPos = getAlignedPointForObject(pos.x, pos.y);
-                const stair = new PremiumStaircase(planner, shape, { x: targetPos.x, y: targetPos.y });
+                const targetPos = { x: pos.x, y: pos.y };
+                const stairData = { x: targetPos.x, y: targetPos.y };
+                if (planner.tool === 'staircase' && planner.activePresetParams) {
+                    Object.assign(stairData, planner.activePresetParams);
+                }
+                const stair = new PremiumStaircase(planner, shape, stairData);
                 
+                // Keep the Object.assign just in case there are missing mapped fields
                 if (planner.tool === 'staircase' && planner.activePresetParams) {
                     Object.assign(stair, planner.activePresetParams);
+                    if (stair.update) stair.update();
                 }
                 
                 planner.stairs.push(stair);

@@ -37,7 +37,7 @@ export class Stair3DBuilder {
                 if (typeId === 'glass' || typeId === 'glass_clear') return new THREE.MeshPhysicalMaterial({ color, transmission: 0.9, opacity: 1, transparent: true, roughness: 0.05, ior: 1.5, thickness: 2 });
                 
                 if (typeId === 'concrete') {
-                    const map = this.getTexture('https://threejs.org/examples/textures/terrain/backgrounddetailed6.jpg', 0.05, 0.05);
+                    const map = this.getTexture('models/wall/stone.png', 0.5, 0.5);
                     return new THREE.MeshStandardMaterial({ color, map, roughness: 0.9, metalness: 0.1 });
                 }
                 

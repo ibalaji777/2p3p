@@ -73,10 +73,14 @@ const jaliCatalog = ref([
 ]);
 
 const staircaseCatalog = ref([
-    { id: 'stair_v5_straight', name: 'Straight Flight', image: '', params: { type: 'stair_v5_straight', width: 40, length: 120, height: 120, steps: 10 } },
-    { id: 'stair_v5_L', name: 'L-Shape Stair', image: '', params: { type: 'stair_v5_L', width: 40, length1: 80, length2: 80, height: 120 } },
-    { id: 'stair_v5_U', name: 'U-Shape Stair', image: '', params: { type: 'stair_v5_U', width: 40, length1: 60, length2: 60, width2: 40, height: 120 } },
-    { id: 'stair_v5_T', name: 'T-Shape Stair', image: '', params: { type: 'stair_v5_T', width: 40, length1: 60, length2: 80, height: 120 } },
+    { id: 'stair_straight_solid', name: 'Solid Base (Wood)', image: '', toolId: 'staircase', params: { type: 'stair_v5_straight', width: 40, length: 120, height: 120, steps: 10, stringerType: 'solid', primaryColor: '#8b5a2b' } },
+    { id: 'stair_straight_mono', name: 'Mono Stringer (Steel)', image: '', toolId: 'staircase', params: { type: 'stair_v5_straight', width: 40, length: 120, height: 120, steps: 10, stringerType: 'mono', primaryMaterial: 'steel', primaryColor: '#333333' } },
+    { id: 'stair_straight_double', name: 'Double Stringer', image: '', toolId: 'staircase', params: { type: 'stair_v5_straight', width: 40, length: 120, height: 120, steps: 10, stringerType: 'double', primaryMaterial: 'wood', primaryColor: '#a67b5b' } },
+    { id: 'stair_straight_side', name: 'Side Stringers', image: '', toolId: 'staircase', params: { type: 'stair_v5_straight', width: 40, length: 120, height: 120, steps: 10, stringerType: 'side', primaryMaterial: 'white_painted', primaryColor: '#ffffff' } },
+    { id: 'stair_L_concrete', name: 'L-Shape (Solid Concrete)', image: '', toolId: 'staircase', params: { type: 'stair_v5_L', width: 40, length1: 80, length2: 80, height: 120, stringerType: 'solid', primaryMaterial: 'concrete', primaryColor: '#999999' } },
+    { id: 'stair_L_mono', name: 'L-Shape (Mono Stringer)', image: '', toolId: 'staircase', params: { type: 'stair_v5_L', width: 40, length1: 80, length2: 80, height: 120, stringerType: 'mono', primaryMaterial: 'steel', primaryColor: '#444444' } },
+    { id: 'stair_U_wood', name: 'U-Shape (Classic Box)', image: '', toolId: 'staircase', params: { type: 'stair_v5_U', width: 40, length1: 60, length2: 60, width2: 40, height: 120, stringerType: 'box', primaryColor: '#8b5a2b' } },
+    { id: 'stair_T_marble', name: 'T-Shape (Solid Marble)', image: '', toolId: 'staircase', params: { type: 'stair_v5_T', width: 40, length1: 60, length2: 80, height: 120, stringerType: 'solid', primaryMaterial: 'marble', primaryColor: '#f5f5f5' } },
 ]);
 
 const roofCatalog = ref([
