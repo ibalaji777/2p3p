@@ -14,7 +14,7 @@
             <label>Thickness</label>
             <div class="input-wrap">
                 <input type="range" v-model.number="selectedEntity.thickness" min="1" max="100" step="1" @input="$emit('sync-engine')">
-                <input type="number" v-model.number="selectedEntity.thickness" min="1" max="100" step="1" @input="$emit('sync-engine')">
+                <DimensionInput v-model="selectedEntity.thickness" min="1" max="100" step="1" @change="$emit('sync-engine')" />
             </div>
         </div>
         
@@ -37,7 +37,7 @@
             <label>Height</label>
             <div class="input-wrap">
                 <input type="range" v-model.number="selectedEntity.height" min="0" max="500" step="1" @input="$emit('sync-engine')">
-                <input type="number" v-model.number="selectedEntity.height" min="0" max="500" step="1" @input="$emit('sync-engine')">
+                <DimensionInput v-model="selectedEntity.height" min="0" max="500" step="1" @change="$emit('sync-engine')" />
             </div>
         </div>
 
@@ -46,21 +46,21 @@
                 <label>Start Height</label>
                 <div class="input-wrap">
                     <input type="range" v-model.number="selectedEntity.startHeight" min="0" max="500" step="1" @input="$emit('sync-engine')">
-                    <input type="number" v-model.number="selectedEntity.startHeight" min="0" max="500" step="1" @input="$emit('sync-engine')">
+                    <DimensionInput v-model="selectedEntity.startHeight" min="0" max="500" step="1" @change="$emit('sync-engine')" />
                 </div>
             </div>
             <div class="control-group" v-if="selectedEntity.topProfileType === 'gable'">
                 <label>Peak Height</label>
                 <div class="input-wrap">
                     <input type="range" v-model.number="selectedEntity.peakHeight" min="0" max="500" step="1" @input="$emit('sync-engine')">
-                    <input type="number" v-model.number="selectedEntity.peakHeight" min="0" max="500" step="1" @input="$emit('sync-engine')">
+                    <DimensionInput v-model="selectedEntity.peakHeight" min="0" max="500" step="1" @change="$emit('sync-engine')" />
                 </div>
             </div>
             <div class="control-group">
                 <label>End Height</label>
                 <div class="input-wrap">
                     <input type="range" v-model.number="selectedEntity.endHeight" min="0" max="500" step="1" @input="$emit('sync-engine')">
-                    <input type="number" v-model.number="selectedEntity.endHeight" min="0" max="500" step="1" @input="$emit('sync-engine')">
+                    <DimensionInput v-model="selectedEntity.endHeight" min="0" max="500" step="1" @change="$emit('sync-engine')" />
                 </div>
             </div>
             <div class="control-group">
@@ -127,6 +127,7 @@
 <script setup>
 import { defineProps, defineEmits, ref, watch } from 'vue';
 import { usePlannerStore } from '../../stores/usePlannerStore.js';
+import DimensionInput from '../../components/common/DimensionInput.vue';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true },

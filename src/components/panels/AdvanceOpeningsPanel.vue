@@ -1,10 +1,10 @@
 <template>
     <div class="props-panel-inner">
         <h4 class="props-subtitle">Advanced Opening Properties</h4>
-        <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="10" max="500" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.width" @input="$emit('sync-engine')"></div></div>
-        <div class="control-group"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="300" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.height" @input="$emit('sync-engine')"></div></div>
-        <div class="control-group" v-if="selectedEntity.type === 'niche_recess'"><label>Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.depth" min="1" max="50" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.depth" @input="$emit('sync-engine')"></div></div>
-        <div class="control-group"><label>Elevation (from floor)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.elevation" min="0" max="200" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.elevation" @input="$emit('sync-engine')"></div></div>
+        <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="10" max="500" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.width" @change="$emit('sync-engine')" /></div></div>
+        <div class="control-group"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="300" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.height" @change="$emit('sync-engine')" /></div></div>
+        <div class="control-group" v-if="selectedEntity.type === 'niche_recess'"><label>Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.depth" min="1" max="50" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.depth" @change="$emit('sync-engine')" /></div></div>
+        <div class="control-group"><label>Elevation (from floor)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.elevation" min="0" max="200" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.elevation" @change="$emit('sync-engine')" /></div></div>
         <div v-if="selectedEntity.type === 'pattern_opening'">
             <div class="control-group">
                 <label>Pattern Style</label>
@@ -22,7 +22,7 @@
             </div>
             <div class="control-group"><label>Rows</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.rows" min="1" max="20" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.rows" @input="$emit('sync-engine')"></div></div>
             <div class="control-group"><label>Columns</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.cols" min="1" max="20" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.cols" @input="$emit('sync-engine')"></div></div>
-            <div class="control-group"><label>Spacing</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.spacing" min="0" max="50" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.spacing" @input="$emit('sync-engine')"></div></div>
+            <div class="control-group"><label>Spacing</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.spacing" min="0" max="50" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.spacing" @change="$emit('sync-engine')" /></div></div>
         </div>
         
         <div class="decor-gallery" v-if="viewMode === '3d'">
@@ -41,6 +41,7 @@
 
 <script setup>
 import { defineProps, defineEmits } from 'vue';
+import DimensionInput from '../common/DimensionInput.vue';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true },

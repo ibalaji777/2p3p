@@ -130,9 +130,9 @@
             </div>
 
             <!-- Standard Geometry -->
-            <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="40" max="300" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.width" @input="$emit('sync-engine')"></div></div>
-            <div class="control-group"><label>Step Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stepDepth" min="15" max="50" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.stepDepth" @input="$emit('sync-engine')"></div></div>
-            <div class="control-group"><label>Step Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stepHeight" min="10" max="30" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.stepHeight" @input="$emit('sync-engine')"></div></div>
+            <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="40" max="300" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.width" @change="$emit('sync-engine')" /></div></div>
+            <div class="control-group"><label>Step Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stepDepth" min="15" max="50" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.stepDepth" @change="$emit('sync-engine')" /></div></div>
+            <div class="control-group"><label>Step Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stepHeight" min="10" max="30" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.stepHeight" @change="$emit('sync-engine')" /></div></div>
             
             <div class="control-group" v-if="selectedEntity.shape === 'straight'">
                 <label>Total Steps</label><div class="input-wrap"><input type="number" v-model.number="selectedEntity.totalSteps" min="2" max="50" @input="$emit('sync-engine')"></div>
@@ -147,7 +147,7 @@
                         <option value="left">Left</option>
                     </select>
                 </div>
-                <div class="control-group"><label>Landing Size</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.landingSize" min="50" max="300" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.landingSize" @input="$emit('sync-engine')"></div></div>
+                <div class="control-group"><label>Landing Size</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.landingSize" min="50" max="300" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.landingSize" @change="$emit('sync-engine')" /></div></div>
             </template>
 
             <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 15px 0;">
@@ -172,9 +172,9 @@
                 </select>
             </div>
             <template v-if="selectedEntity.stringerType !== 'solid'">
-                <div class="control-group"><label>Stringer Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stringerWidth" min="2" max="50" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.stringerWidth" @input="$emit('sync-engine')"></div></div>
-                <div class="control-group"><label>Stringer Thickness</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stringerThickness" min="5" max="100" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.stringerThickness" @input="$emit('sync-engine')"></div></div>
-                <div class="control-group" v-if="selectedEntity.stringerType === 'double'"><label>Beam Offset</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.beamOffset" min="0" max="100" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.beamOffset" @input="$emit('sync-engine')"></div></div>
+                <div class="control-group"><label>Stringer Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stringerWidth" min="2" max="50" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.stringerWidth" @change="$emit('sync-engine')" /></div></div>
+                <div class="control-group"><label>Stringer Thickness</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stringerThickness" min="5" max="100" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.stringerThickness" @change="$emit('sync-engine')" /></div></div>
+                <div class="control-group" v-if="selectedEntity.stringerType === 'double'"><label>Beam Offset</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.beamOffset" min="0" max="100" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.beamOffset" @change="$emit('sync-engine')" /></div></div>
                 <div class="control-group"><label>Landing Supports</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="selectedEntity.landingSupports" @change="$emit('sync-engine')"></div></div>
             </template>
 
@@ -223,14 +223,14 @@
                     <div class="control-group">
                         <label>Height</label>
                         <div class="input-wrap">
-                            <input type="number" v-model.number="selectedEntity[side + 'Railing'].height" @input="if(selectedEntity.linkRailings) { selectedEntity.rightRailing.height = selectedEntity.leftRailing.height; } $emit('sync-engine')">
+                            <DimensionInput v-model="selectedEntity[side + 'Railing'].height" @change="if(selectedEntity.linkRailings) { selectedEntity.rightRailing.height = selectedEntity.leftRailing.height; } $emit('sync-engine')" />
                         </div>
                     </div>
 
                     <div class="control-group">
                         <label>Offset from Edge</label>
                         <div class="input-wrap">
-                            <input type="number" v-model.number="selectedEntity[side + 'Railing'].offset" @input="if(selectedEntity.linkRailings) { selectedEntity.rightRailing.offset = selectedEntity.leftRailing.offset; } $emit('sync-engine')">
+                            <DimensionInput v-model="selectedEntity[side + 'Railing'].offset" @change="if(selectedEntity.linkRailings) { selectedEntity.rightRailing.offset = selectedEntity.leftRailing.offset; } $emit('sync-engine')" />
                         </div>
                     </div>
                     
@@ -266,7 +266,7 @@
                         <div class="control-group">
                             <label>Baluster Spacing</label>
                             <div class="input-wrap">
-                                <input type="number" v-model.number="selectedEntity[side + 'Railing'].balusterSpacing" min="5" @input="if(selectedEntity.linkRailings) { selectedEntity.rightRailing.balusterSpacing = selectedEntity.leftRailing.balusterSpacing; } $emit('sync-engine')">
+                                <DimensionInput v-model="selectedEntity[side + 'Railing'].balusterSpacing" min="5" @change="if(selectedEntity.linkRailings) { selectedEntity.rightRailing.balusterSpacing = selectedEntity.leftRailing.balusterSpacing; } $emit('sync-engine')" />
                             </div>
                         </div>
                         <div class="control-group">
@@ -294,7 +294,7 @@
                         <div class="control-group">
                             <label>Glass Thickness</label>
                             <div class="input-wrap">
-                                <input type="number" v-model.number="selectedEntity[side + 'Railing'].glassThickness" min="0.5" step="0.5" @input="if(selectedEntity.linkRailings) { selectedEntity.rightRailing.glassThickness = selectedEntity.leftRailing.glassThickness; } $emit('sync-engine')">
+                                <DimensionInput v-model="selectedEntity[side + 'Railing'].glassThickness" min="0.5" step="0.5" @change="if(selectedEntity.linkRailings) { selectedEntity.rightRailing.glassThickness = selectedEntity.leftRailing.glassThickness; } $emit('sync-engine')" />
                             </div>
                         </div>
                     </template>
@@ -328,8 +328,8 @@
             </template>
         </template>
         <template v-else>
-            <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="20" max="300" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.width" @input="$emit('sync-engine')"></div></div>
-            <div class="control-group"><label>Length</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.length" min="20" max="1000" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.length" @input="$emit('sync-engine')"></div></div>
+            <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="20" max="300" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.width" @change="$emit('sync-engine')" /></div></div>
+            <div class="control-group"><label>Length</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.length" min="20" max="1000" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.length" @change="$emit('sync-engine')" /></div></div>
         </template>
 
         <button class="hud-delete" style="margin-top: 15px;" @click="$emit('delete-entity')">Delete Staircase</button>
@@ -337,7 +337,8 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits } from 'vue';
+import { defineProps, defineEmits, ref } from 'vue';
+import DimensionInput from '../../components/common/DimensionInput.vue';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true }

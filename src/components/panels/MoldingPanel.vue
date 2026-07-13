@@ -1,9 +1,9 @@
 <template>
     <div class="props-panel-inner">
         <h4 class="props-subtitle">Molding / Cornice Properties</h4>
-        <div class="control-group"><label>Length</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="10" max="1000" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.width" @input="$emit('sync-engine')"></div></div>
-        <div class="control-group"><label>Depth (Thickness)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.depth" min="1" max="100" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.depth" @input="$emit('sync-engine')"></div></div>
-        <div class="control-group"><label>Elevation (from floor)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.heightOffset" min="0" max="500" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.heightOffset" @input="$emit('sync-engine')"></div></div>
+        <div class="control-group"><label>Length</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="10" max="1000" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.width" @change="$emit('sync-engine')" /></div></div>
+        <div class="control-group"><label>Depth (Thickness)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.depth" min="1" max="100" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.depth" @change="$emit('sync-engine')" /></div></div>
+        <div class="control-group"><label>Elevation (from floor)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.heightOffset" min="0" max="500" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.heightOffset" @change="$emit('sync-engine')" /></div></div>
         
         <div class="control-group">
             <label>Placement Side</label>
@@ -47,6 +47,7 @@
 
 <script setup>
 import { defineProps, defineEmits } from 'vue';
+import DimensionInput from '../common/DimensionInput.vue';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true }

@@ -10,7 +10,7 @@
             </div>
         </div>
         <div class="control-group" v-if="['hip', 'gable'].includes(selectedEntity.config.roofType)"><label>Pitch (°)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.pitch" min="0" max="60" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.config.pitch" @input="$emit('sync-engine')"></div></div>
-        <div class="control-group" v-if="['hip', 'gable'].includes(selectedEntity.config.roofType)"><label>Peak Height</label><div class="input-wrap"><input type="number" :value="calculateRoofPeakHeight(selectedEntity)" @change="updateRoofPitchFromHeight($event, selectedEntity)"></div></div>
+        <div class="control-group" v-if="['hip', 'gable'].includes(selectedEntity.config.roofType)"><label>Peak Height</label><div class="input-wrap"><DimensionInput :modelValue="calculateRoofPeakHeight(selectedEntity)" @change="(val) => updateRoofPitchFromHeight({ target: { value: val } }, selectedEntity)" /></div></div>
         <div class="control-group" v-if="selectedEntity.config.roofType === 'gable'">
             <label>Ridge Direction</label>
             <div style="display: flex; gap: 8px;">
@@ -28,7 +28,7 @@
             <label>Master Overhang</label>
             <div class="input-wrap">
                 <input type="range" v-model.number="selectedEntity.config.overhang" min="0" max="50" @input="selectedEntity.config.overhangs && selectedEntity.config.overhangs.fill(selectedEntity.config.overhang); $emit('sync-engine')">
-                <input type="number" v-model.number="selectedEntity.config.overhang" @input="selectedEntity.config.overhangs && selectedEntity.config.overhangs.fill(selectedEntity.config.overhang); $emit('sync-engine')">
+                <DimensionInput v-model="selectedEntity.config.overhang" @change="selectedEntity.config.overhangs && selectedEntity.config.overhangs.fill(selectedEntity.config.overhang); $emit('sync-engine')" />
             </div>
         </div>
         
@@ -37,15 +37,15 @@
                 <label style="font-size: 11px;">Side {{ index + 1 }} Overhang</label>
                 <div class="input-wrap">
                     <input type="range" v-model.number="selectedEntity.config.overhangs[index]" min="0" max="50" @input="$emit('sync-engine')">
-                    <input type="number" v-model.number="selectedEntity.config.overhangs[index]" @input="$emit('sync-engine')">
+                    <DimensionInput v-model="selectedEntity.config.overhangs[index]" @change="$emit('sync-engine')" />
                 </div>
             </div>
         </div>
 
-        <div class="control-group"><label>Elevation Gap</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.wallGap" min="-50" max="100" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.config.wallGap" @input="$emit('sync-engine')"></div></div>
+        <div class="control-group"><label>Elevation Gap</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.wallGap" min="-50" max="100" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.config.wallGap" @change="$emit('sync-engine')" /></div></div>
         
         <div class="decor-gallery" v-if="['hip', 'gable'].includes(selectedEntity.config.roofType)">
-            <div class="control-group"><label>Tile Size</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.tileSize" min="1" max="200" step="1" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.tileSize" min="1" max="200" step="1" @input="$emit('sync-engine')"></div></div>
+            <div class="control-group"><label>Tile Size</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.tileSize" min="1" max="200" step="1" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.tileSize" min="1" max="200" step="1" @change="$emit('sync-engine')" /></div></div>
             
             <h4 class="props-subtitle">Roof Material</h4>
             <div class="decor-grid">
@@ -67,7 +67,7 @@
         </div>
 
         <div class="decor-gallery" v-if="selectedEntity.config.roofType === 'flat'">
-            <div class="control-group"><label>Tile Size</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.tileSize" min="1" max="200" step="1" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.tileSize" min="1" max="200" step="1" @input="$emit('sync-engine')"></div></div>
+            <div class="control-group"><label>Tile Size</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.tileSize" min="1" max="200" step="1" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.tileSize" min="1" max="200" step="1" @change="$emit('sync-engine')" /></div></div>
             
             <h4 class="props-subtitle">Change Material (Roof Texture)</h4>
             <div class="decor-grid">
@@ -84,6 +84,7 @@
 
 <script setup>
 import { defineProps, defineEmits } from 'vue';
+import DimensionInput from '../../components/common/DimensionInput.vue';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true },

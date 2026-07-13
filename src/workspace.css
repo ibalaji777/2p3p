@@ -324,7 +324,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 }
 
 .input-wrap:has(input[type="number"])::after {
-    content: "mm";
+    content: var(--app-unit, "mm");
     position: absolute;
     right: 12px;
     top: 50%;

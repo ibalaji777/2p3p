@@ -1,10 +1,10 @@
 <template>
     <div class="props-panel-inner">
         <h4 class="props-subtitle">{{ selectedEntity.config?.label || 'DOOR/WINDOW' }} Properties</h4>
-        <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="10" max="400" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.width" @input="$emit('sync-engine')"></div></div>
-        <div class="control-group" v-if="selectedEntity.type === 'elevation_fascia'"><label>Height (Drop)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="400" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.height" @input="$emit('sync-engine')"></div></div>
-        <div class="control-group" v-if="selectedEntity.type === 'window' || selectedEntity.type === 'door'"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="400" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.height" @input="$emit('sync-engine')"></div></div>
-        <div class="control-group" v-if="selectedEntity.type === 'window'"><label>Elevation (from floor)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.elevation" min="0" max="400" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.elevation" @input="$emit('sync-engine')"></div></div>
+        <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="10" max="400" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.width" @change="$emit('sync-engine')" /></div></div>
+        <div class="control-group" v-if="selectedEntity.type === 'elevation_fascia'"><label>Height (Drop)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="400" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.height" @change="$emit('sync-engine')" /></div></div>
+        <div class="control-group" v-if="selectedEntity.type === 'window' || selectedEntity.type === 'door'"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="400" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.height" @change="$emit('sync-engine')" /></div></div>
+        <div class="control-group" v-if="selectedEntity.type === 'window'"><label>Elevation (from floor)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.elevation" min="0" max="400" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.elevation" @change="$emit('sync-engine')" /></div></div>
         <div class="faceRow" v-if="selectedEntity.type !== 'jali_panel' && selectedEntity.type !== 'elevation_fascia' && selectedEntity.type !== 'sunshade'">
             <button class="action-btn clear" style="flex: 1; padding: 4px;" @click="selectedEntity.facing *= -1; $emit('sync-engine')">Flip In/Out</button>
             <button class="action-btn clear" style="flex: 1; padding: 4px;" @click="selectedEntity.side *= -1; $emit('sync-engine')">Flip L/R</button>
@@ -45,7 +45,7 @@
                 <label>Depth (Projection)</label>
                 <div class="input-wrap">
                     <input type="range" v-model.number="selectedEntity.depth" min="5" max="100" @input="$emit('sync-engine')">
-                    <input type="number" v-model.number="selectedEntity.depth" @input="$emit('sync-engine')">
+                    <DimensionInput v-model="selectedEntity.depth" @change="$emit('sync-engine')" />
                 </div>
             </div>
             <div class="control-group">
@@ -68,7 +68,7 @@
                 <label>Frame Drop Height (For Window Wrap)</label>
                 <div class="input-wrap">
                     <input type="range" v-model.number="selectedEntity.frameHeight" min="20" max="300" @input="$emit('sync-engine')">
-                    <input type="number" v-model.number="selectedEntity.frameHeight" @input="$emit('sync-engine')">
+                    <DimensionInput v-model="selectedEntity.frameHeight" @change="$emit('sync-engine')" />
                 </div>
             </div>
         </div>
@@ -92,7 +92,7 @@
                 <label>Pattern Size</label>
                 <div class="input-wrap">
                     <input type="range" :value="selectedEntity.jaliPatternSize || 20" @input="e => { selectedEntity.jaliPatternSize = parseFloat(e.target.value); $emit('sync-engine'); }" min="5" max="100" step="1">
-                    <input type="number" :value="selectedEntity.jaliPatternSize || 20" @input="e => { selectedEntity.jaliPatternSize = parseFloat(e.target.value); $emit('sync-engine'); }" min="5" max="100" step="1">
+                    <DimensionInput :modelValue="selectedEntity.jaliPatternSize || 20" @update:modelValue="val => { selectedEntity.jaliPatternSize = val; $emit('sync-engine'); }" min="5" max="100" step="1" />
                 </div>
             </div>
             <div class="control-group">
@@ -130,19 +130,19 @@
                 <label>Top Arm Length</label>
                 <div class="input-wrap">
                     <input type="range" :value="selectedEntity.topArm !== undefined ? selectedEntity.topArm : selectedEntity.width" @input="e => { selectedEntity.topArm = parseFloat(e.target.value); $emit('sync-engine'); }" min="10" max="400">
-                    <input type="number" :value="selectedEntity.topArm !== undefined ? selectedEntity.topArm : selectedEntity.width" @input="e => { selectedEntity.topArm = parseFloat(e.target.value); $emit('sync-engine'); }">
+                    <DimensionInput :modelValue="selectedEntity.topArm !== undefined ? selectedEntity.topArm : selectedEntity.width" @update:modelValue="val => { selectedEntity.topArm = val; $emit('sync-engine'); }" />
                 </div>
             </div>
             <div class="control-group" v-if="['c_shape_left', 'c_shape_right'].includes(selectedEntity.profileType)">
                 <label>Bottom Arm Length</label>
                 <div class="input-wrap">
                     <input type="range" :value="selectedEntity.bottomArm !== undefined ? selectedEntity.bottomArm : selectedEntity.width" @input="e => { selectedEntity.bottomArm = parseFloat(e.target.value); $emit('sync-engine'); }" min="10" max="400">
-                    <input type="number" :value="selectedEntity.bottomArm !== undefined ? selectedEntity.bottomArm : selectedEntity.width" @input="e => { selectedEntity.bottomArm = parseFloat(e.target.value); $emit('sync-engine'); }">
+                    <DimensionInput :modelValue="selectedEntity.bottomArm !== undefined ? selectedEntity.bottomArm : selectedEntity.width" @update:modelValue="val => { selectedEntity.bottomArm = val; $emit('sync-engine'); }" />
                 </div>
             </div>
-            <div class="control-group"><label>Depth (Overhang)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.depth" min="5" max="150" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.depth" @input="$emit('sync-engine')"></div></div>
-            <div class="control-group"><label>Thickness</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.thick" min="2" max="50" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.thick" @input="$emit('sync-engine')"></div></div>
-            <div class="control-group"><label>Elevation (Bottom)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.elevation" min="0" max="300" @input="$emit('sync-engine')"><input type="number" v-model.number="selectedEntity.elevation" @input="$emit('sync-engine')"></div></div>
+            <div class="control-group"><label>Depth (Overhang)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.depth" min="5" max="150" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.depth" @change="$emit('sync-engine')" /></div></div>
+            <div class="control-group"><label>Thickness</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.thick" min="2" max="50" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.thick" @change="$emit('sync-engine')" /></div></div>
+            <div class="control-group"><label>Elevation (Bottom)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.elevation" min="0" max="300" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.elevation" @change="$emit('sync-engine')" /></div></div>
             <div class="control-group">
                 <label>Material</label>
                 <select v-model="selectedEntity.fasciaMat" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
@@ -160,6 +160,7 @@
 
 <script setup>
 import { defineProps, defineEmits } from 'vue';
+import DimensionInput from '../common/DimensionInput.vue';
 import CatalogGallery from '../sidebar/CatalogGallery.vue';
 
 const props = defineProps({

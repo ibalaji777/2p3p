@@ -1,5 +1,5 @@
 <template>
-  <div class="app-root">
+  <div class="app-root" :style="{ '--app-unit': `'${displayUnit}'` }">
     <TopToolbar
       :view-mode="viewMode"
       :view-mode3D="viewMode3D"
@@ -201,6 +201,17 @@ const settingsStore = useSettingsStore();
 const { windowWidth, mobileMenuOpen, activeMobileTab, viewMode, viewMode3D, activeRightTab, showLeftSidebar, uiTrigger, isPlacing3D, activeDecorId, isRebuilding, isXRayMode, showGuide, showAdvancedTools, layerRefreshTrigger, isMobile, isTablet, isDesktop } = storeToRefs(uiStore);
 const { planner, renderer3D, workspaceControls, serverService, isDrawing, activeTool, activeCategory, mode3D, activePresetParams, activePresetId, selectedEntity, selectedType, selectedWallSide, selectedNodeIndex, levels, activeLevelIndex, canUndo, canRedo, allFloorsVisible } = storeToRefs(plannerStore);
 const { floorPlanSettings, selectedSky, selectedGround, isWallTrackingEnabled } = storeToRefs(settingsStore);
+
+const displayUnit = computed(() => {
+    switch (floorPlanSettings.value.measurementUnit) {
+        case 'feet_inches': return 'in';
+        case 'ft': return 'ft';
+        case 'in': return 'in';
+        case 'm': return 'm';
+        case 'cm': return 'cm';
+        case 'mm': default: return 'mm';
+    }
+});
 
 const handleCatalogSelect = (item) => {
     if (planner.value) {

@@ -24,9 +24,8 @@
           min="10" max="80" step="1" 
           @input="onPropertyChange"
         />
-        <input 
-          type="number" 
-          v-model.number="entity.height" 
+        <DimensionInput 
+          v-model="entity.height" 
           @change="onPropertyChange"
         />
       </div>
@@ -41,9 +40,8 @@
           min="0.5" max="10" step="0.5" 
           @input="onPropertyChange"
         />
-        <input 
-          type="number" 
-          v-model.number="entity.thickness" 
+        <DimensionInput 
+          v-model="entity.thickness" 
           @change="onPropertyChange"
         />
       </div>
@@ -58,9 +56,8 @@
           min="12" max="120" step="1" 
           @input="onPropertyChange"
         />
-        <input 
-          type="number" 
-          v-model.number="entity.config.post.spacing" 
+        <DimensionInput 
+          v-model="entity.config.post.spacing" 
           @change="onPropertyChange"
         />
       </div>
@@ -82,6 +79,7 @@
 <script setup>
 import { computed } from 'vue';
 import { RAILING_REGISTRY } from '../registry/railing.registry.js';
+import DimensionInput from '../../../components/common/DimensionInput.vue';
 
 const props = defineProps({
   entity: {
