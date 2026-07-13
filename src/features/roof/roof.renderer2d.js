@@ -31,7 +31,7 @@ export class PremiumHipRoof {
         
         this.config = {
             pitch: 30,
-            overhang: 0,
+            overhang: 8,
             thickness: 10,
             ridgeOffset: 0,
             roofType: 'hip',

@@ -169,7 +169,7 @@ export class ThumbnailGenerator {
             } else if (type === 'roof') {
                 const dummyRoof = {
                     points: [{x: -100, y: -100}, {x: 100, y: -100}, {x: 100, y: 100}, {x: -100, y: 100}],
-                    config: { ...params, roofType: params.roofType || 'gable', material: 'terracotta_tiles_roof' },
+                    config: { ...params, roofType: params.roofType || 'gable', material: 'terracotta_tiles_roof', overhang: params.overhang !== undefined ? params.overhang : 8 },
                     x: 0, y: 0, elevation: 0, rotation: 0
                 };
                 this.ctx.envBuilder.buildRoofs([dummyRoof], 0, false, group);
@@ -184,9 +184,30 @@ export class ThumbnailGenerator {
                 group.add(baseMesh);
                 const dummyRoof = {
                     points: [{x: -w/2, y: -d/2}, {x: w/2, y: -d/2}, {x: w/2, y: d/2}, {x: -w/2, y: d/2}],
-                    config: { roofType: params.roofType || 'gable', pitch: params.pitch || 35, material: 'terracotta_tiles_roof', thick: 10, ridgeAxis: 'y' },
+                    config: { roofType: params.roofType || 'gable', pitch: params.pitch || 35, material: 'terracotta_tiles_roof', thick: 10, ridgeAxis: 'y', overhang: params.overhang !== undefined ? params.overhang : 8 },
                     x: 0, y: 0, elevation: wallH, rotation: 0
                 };
+                
+                if (dummyRoof.config.roofType === 'gable') {
+                    const roofH = (w / 2) * Math.tan(dummyRoof.config.pitch * Math.PI / 180);
+                    const shape = new THREE.Shape();
+                    shape.moveTo(-w/2, 0);
+                    shape.lineTo(w/2, 0);
+                    shape.lineTo(0, roofH);
+                    shape.lineTo(-w/2, 0);
+                    
+                    const gableMat = new THREE.MeshStandardMaterial({color: 0xffffff, side: THREE.DoubleSide});
+                    const gableGeo = new THREE.ShapeGeometry(shape);
+                    
+                    const frontGable = new THREE.Mesh(gableGeo, gableMat);
+                    frontGable.position.set(0, wallH, d/2);
+                    group.add(frontGable);
+                    
+                    const backGable = new THREE.Mesh(gableGeo, gableMat);
+                    backGable.position.set(0, wallH, -d/2);
+                    group.add(backGable);
+                }
+
                 try {
                     this.ctx.envBuilder.buildRoofs([dummyRoof], 0, false, group);
                 } catch(e) {

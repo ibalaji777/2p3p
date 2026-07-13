@@ -1703,7 +1703,7 @@ export class FloorPlanner {
                     }
                     if(rData.rotation) roof.rotation = rData.rotation;
                     if(rData.elevation !== undefined) roof.elevation = rData.elevation;
-                    if(roof.config) { roof.config.pitch = rData.pitch; roof.config.overhang = rData.overhang; roof.config.thickness = rData.thickness; roof.config.ridgeOffset = rData.ridgeOffset; roof.config.roofType = rData.roofType || 'hip'; roof.config.material = rData.material || 'dark_asphalt_roof'; roof.config.wallGap = rData.wallGap || 0; roof.config.ridgeAxis = rData.ridgeAxis || 'x'; roof.config.gableMaterial = rData.gableMaterial || 'white_plaster_wall'; roof.config.autoShapeWalls = !!rData.autoShapeWalls; }
+                    if(roof.config) { roof.config.pitch = rData.pitch; roof.config.overhang = rData.overhang !== undefined ? rData.overhang : 8; roof.config.thickness = rData.thickness; roof.config.ridgeOffset = rData.ridgeOffset; roof.config.roofType = rData.roofType || 'hip'; roof.config.material = rData.material || 'dark_asphalt_roof'; roof.config.wallGap = rData.wallGap || 0; roof.config.ridgeAxis = rData.ridgeAxis || 'x'; roof.config.gableMaterial = rData.gableMaterial || 'white_plaster_wall'; roof.config.autoShapeWalls = !!rData.autoShapeWalls; }
                     if (rData.id) roof.id = rData.id;
                     if (rData.configId !== undefined) roof.configId = rData.configId;
                     if (rData.description !== undefined) roof.description = rData.description;

@@ -221,7 +221,7 @@ export class StaticFloors {
                     data.roofs.forEach(roofData => {
                         const basePts = roofData.points;
                         const roofConf = roofData.config || roofData;
-                        const overhangs = roofConf.overhangs ? roofConf.overhangs : (roofConf.overhang || 0);
+                        const overhangs = roofConf.overhangs ? roofConf.overhangs : (roofConf.overhang !== undefined ? roofConf.overhang : 8);
                         const pts = offsetPolygon(basePts, overhangs);
 
                         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;

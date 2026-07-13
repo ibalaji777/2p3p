@@ -188,7 +188,7 @@ function createRectangularStructure(planner, origin, w, d, wallHeight, roofType,
         roof.elevation = elevation + wallHeight;
         // Basic heuristics for roof types (don't override manually set styles when just updating)
         if (roofType === 'gable') {
-            roof.config.ridgeAxis = 'y';
+            roof.config.ridgeAxis = (Math.abs(rotationDeg) % 180 === 90) ? 'x' : 'y';
             roof.config.autoShapeWalls = true;
         }
     } else {
@@ -198,10 +198,9 @@ function createRectangularStructure(planner, origin, w, d, wallHeight, roofType,
         roof.config.roofType = roofType;
         roof.config.pitch = pitch;
         roof.elevation = elevation + wallHeight;
-        // Basic heuristics for roof types
         if (roofType === 'gable') {
             roof.config.gableMaterial = 'white_plaster_wall';
-            roof.config.ridgeAxis = 'y'; // Since default dormer faces down, Y-axis is typically depth (ridge runs front-to-back)
+            roof.config.ridgeAxis = (Math.abs(rotationDeg) % 180 === 90) ? 'x' : 'y'; // Adjust ridge axis for 90-degree rotations
             roof.config.autoShapeWalls = true;
         }
         if (parentGroup) {
@@ -209,6 +208,7 @@ function createRectangularStructure(planner, origin, w, d, wallHeight, roofType,
             parentGroup.roofs.push(roof);
         }
         planner.roofs.push(roof);
+        if (roof.update) roof.update();
     }
 
     return { anchors, walls, roofs: [roof] };

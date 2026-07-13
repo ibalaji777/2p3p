@@ -1629,7 +1629,7 @@ export class EnvironmentBuilder {
             if (basePts.length < 3) return;
 
             const conf = roof.config || roof; 
-            const overhangs = conf.overhangs ? conf.overhangs : (conf.overhang || 0);
+            const overhangs = conf.overhangs ? conf.overhangs : (conf.overhang !== undefined ? conf.overhang : 8);
             const pts = offsetPolygon(basePts, overhangs);
 
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -1970,8 +1970,8 @@ export class EnvironmentBuilder {
                 
                 // Helper to get overhang for an edge
                 const getOverhang = (idx) => {
-                    if (Array.isArray(conf.overhangs)) return conf.overhangs[idx] || 0;
-                    return conf.overhang || 0;
+                    if (Array.isArray(conf.overhangs) && conf.overhangs[idx] !== undefined) return conf.overhangs[idx];
+                    return conf.overhang !== undefined ? conf.overhang : 8;
                 };
 
                 for (let i = 0; i < pts.length; i++) {
