@@ -1,7 +1,7 @@
 <template>
     <div class="catalog-gallery">
         <div class="catalog-header">
-            <h3>{{ type === 'door' ? 'Door Catalog' : type === 'window' ? 'Window Catalog' : type === 'sunshade' ? 'Sunshade Catalog' : type === 'jali_panel' ? 'Jali Panel Catalog' : type === 'staircase' ? 'Staircase Catalog' : type === 'roof' ? 'Roof Catalog' : type === 'dormer' ? 'Dormer Catalog' : type === 'molding' ? 'Molding Catalog' : type === 'elevation_fascia' ? 'Fascia Catalog' : 'Catalog' }}</h3>
+            <h3>{{ type === 'door' ? 'Door Catalog' : type === 'window' ? 'Window Catalog' : type === 'sunshade' ? 'Sunshade Catalog' : type === 'jali_panel' ? 'Jali Panel Catalog' : type === 'staircase' ? 'Staircase Catalog' : type === 'roof' ? 'Roof Catalog' : type === 'dormer' ? 'Dormer Catalog' : type === 'molding' ? 'Molding Catalog' : type === 'elevation_fascia' ? 'Fascia Catalog' : type === 'kitchen_catalog' ? 'Modular Kitchen' : 'Catalog' }}</h3>
             <div class="search-box">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 <input type="text" v-model="searchQuery" placeholder="Search models..." />
@@ -150,6 +150,15 @@ const furnitureCatalog = ref([
     { id: 'bench', name: 'Bench', image: '', toolId: 'furniture', params: { type: 'table_dining' } }
 ]);
 
+const kitchenCatalog = ref([
+    { id: 'kitchen_straight', name: 'Straight Kitchen', image: '', toolId: 'kitchen', params: { type: 'kitchen_straight', width: 240, height: 90, depth: 60 } },
+    { id: 'kitchen_l_shape', name: 'L-Shape Kitchen', image: '', toolId: 'kitchen', params: { type: 'kitchen_l_shape', width: 240, height: 90, depth: 240 } },
+    { id: 'kitchen_u_shape', name: 'U-Shape Kitchen', image: '', toolId: 'kitchen', params: { type: 'kitchen_u_shape', width: 240, height: 90, depth: 240 } },
+    { id: 'kitchen_straight_upper', name: 'Straight Upper Cabinets', image: '', toolId: 'kitchen', params: { type: 'kitchen_straight_upper', width: 240, height: 70, depth: 35 } },
+    { id: 'kitchen_l_shape_upper', name: 'L-Shape Upper Cabinets', image: '', toolId: 'kitchen', params: { type: 'kitchen_l_shape_upper', width: 240, height: 70, depth: 240 } },
+    { id: 'kitchen_u_shape_upper', name: 'U-Shape Upper Cabinets', image: '', toolId: 'kitchen', params: { type: 'kitchen_u_shape_upper', width: 240, height: 70, depth: 240 } }
+]);
+
 const items = computed(() => {
     if (props.type === 'door') return doorCatalog.value;
     if (props.type === 'window') return windowCatalog.value;
@@ -165,6 +174,7 @@ const items = computed(() => {
     if (props.type === 'wall_catalog') return wallsCatalog.value;
     if (props.type === 'railing_catalog') return railingCatalog.value;
     if (props.type === 'furniture_catalog') return furnitureCatalog.value;
+    if (props.type === 'kitchen_catalog') return kitchenCatalog.value;
     return [];
 });
 

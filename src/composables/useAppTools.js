@@ -60,7 +60,7 @@ export function useAppTools({
     };
 
     const handleToolClick = (tool) => {
-        const accordionTools = ['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog'];
+        const accordionTools = ['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog'];
         if (accordionTools.includes(tool.id)) {
             // Check if active tool belongs to this catalog
             const mapping = {
@@ -68,7 +68,8 @@ export function useAppTools({
                 'shape_catalog': ['shape_rect', 'shape_circle', 'shape_triangle'],
                 'adv_opening_catalog': ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'],
                 'railing_catalog': ['railing'],
-                'furniture_catalog': ['furniture']
+                'furniture_catalog': ['furniture'],
+                'kitchen_catalog': ['kitchen']
             };
             const isChildActive = mapping[tool.id] && mapping[tool.id].includes(activeTool.value);
             if (activeTool.value === tool.id || isChildActive) {

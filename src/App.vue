@@ -215,11 +215,15 @@ const displayUnit = computed(() => {
 
 const handleCatalogSelect = (item) => {
     if (planner.value) {
-        planner.value.activePresetParams = { ...item.params };
-        activePresetParams.value = { ...item.params };
-        
-        if (item.toolId) {
-            setTool(item.toolId, item.params);
+        if (item.toolId === 'furniture' || item.toolId === 'kitchen') {
+            spawnFurniture(item.params.type);
+        } else {
+            planner.value.activePresetParams = { ...item.params };
+            activePresetParams.value = { ...item.params };
+            
+            if (item.toolId) {
+                setTool(item.toolId, item.params);
+            }
         }
     }
     if (isMobile.value || isTablet.value) {

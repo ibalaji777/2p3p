@@ -75,6 +75,13 @@ export const getMenuCategories = () => [
         ]
     },
     {
+        id: 'kitchen', name: 'Modular Kitchen',
+        icon: '<path d="M4 4h16v2H4z"></path><path d="M4 8h16v12H4z"></path><path d="M8 12h2v4H8z"></path><path d="M14 12h2v4h-2z"></path>',
+        tools: [
+            { id: 'kitchen_catalog', name: 'Kitchen Catalog' }
+        ]
+    },
+    {
         id: 'smart_wizard', name: 'Smart Wizard',
         icon: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>',
         tools: [
