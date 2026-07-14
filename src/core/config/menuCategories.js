@@ -78,7 +78,10 @@ export const getMenuCategories = () => [
         id: 'kitchen', name: 'Modular Kitchen',
         icon: '<path d="M4 4h16v2H4z"></path><path d="M4 8h16v12H4z"></path><path d="M8 12h2v4H8z"></path><path d="M14 12h2v4h-2z"></path>',
         tools: [
-            { id: 'kitchen_catalog', name: 'Kitchen Catalog' }
+            { id: 'kitchen_catalog', name: 'Kitchen Catalog' },
+            { id: 'equipment_all', name: 'Equipment', isDivider: true },
+            { id: 'sink_catalog', name: 'Sink' },
+            { id: 'tap_catalog', name: 'Taps' }
         ]
     },
     {
@@ -96,6 +99,7 @@ export const getMenuCategories = () => [
             { id: 'adv_opening_catalog', name: 'Advanced Openings' }
         ]
     },
+
     {
         id: 'architectural_details', name: 'Architectural Details',
         icon: '<path d="M3 21h18v-2H3v2zm6-4h12v-2H9v2zm-6-4h18v-2H3v2zm6-4h12V7H9v2zM3 3v2h18V3H3z"></path>',

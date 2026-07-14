@@ -349,7 +349,7 @@ export class ThumbnailGenerator {
                     return row;
                 };
 
-                if (!type.endsWith('_upper')) {
+                if (!type.includes('_upper')) {
                     group.add(buildRow(w, 60, 'base'));
                     if (type.includes('l_shape') || type.includes('u_shape')) {
                         const leftBase = buildRow(d - 60, 60, 'base');
@@ -381,6 +381,123 @@ export class ThumbnailGenerator {
             } else if (registryConfig && registryConfig.render3D) {
                 // Procedural widgets explicitly define their render3D function
                 const widgetGroup = registryConfig.render3D(group, entity, this.ctx.helpers);
+            } else if (type.startsWith('sink_')) {
+                const sW = params.width || 60;
+                const sD = params.depth || 45;
+                const sH = params.height || 20;
+                
+                const buildSinkBasin = (w, d, h, isDouble = false, isFarmhouse = false) => {
+                    const grp = new THREE.Group();
+                    const mSink = new THREE.MeshStandardMaterial({ color: '#cbd5e1', metalness: 0.9, roughness: 0.2 });
+                    const mDrain = new THREE.MeshStandardMaterial({ color: '#0f172a', roughness: 0.9 });
+                    
+                    const t = 3, r = 5;
+                    const shape = new THREE.Shape();
+                    shape.moveTo(-w/2, -d/2); shape.lineTo(w/2, -d/2); shape.lineTo(w/2, d/2); shape.lineTo(-w/2, d/2); shape.lineTo(-w/2, -d/2);
+                    
+                    const makeHole = (hW, hD, offsetX) => {
+                        const hole = new THREE.Path();
+                        hole.moveTo(-hW+r+offsetX, -hD);
+                        hole.lineTo(hW-r+offsetX, -hD);
+                        hole.quadraticCurveTo(hW+offsetX, -hD, hW+offsetX, -hD+r);
+                        hole.lineTo(hW+offsetX, hD-r);
+                        hole.quadraticCurveTo(hW+offsetX, hD, hW-r+offsetX, hD);
+                        hole.lineTo(-hW+r+offsetX, hD);
+                        hole.quadraticCurveTo(-hW+offsetX, hD, -hW+offsetX, hD-r);
+                        hole.lineTo(-hW+offsetX, -hD+r);
+                        hole.quadraticCurveTo(-hW+offsetX, -hD, -hW+r+offsetX, -hD);
+                        return hole;
+                    };
+
+                    if (isDouble) {
+                        const basinW = w/2 - t*1.5;
+                        shape.holes.push(makeHole(basinW, d/2 - t, -w/4 - t/4));
+                        shape.holes.push(makeHole(basinW, d/2 - t, w/4 + t/4));
+                    } else {
+                        shape.holes.push(makeHole(w/2 - t, d/2 - t, 0));
+                    }
+
+                    const rimGeo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.8, bevelThickness: 0.8 });
+                    rimGeo.rotateX(-Math.PI/2);
+                    const rim = new THREE.Mesh(rimGeo, mSink);
+                    grp.add(rim);
+
+                    const botGeo = new THREE.BoxGeometry(w - t*1.5, 1, d - t*1.5);
+                    const bot = new THREE.Mesh(botGeo, mSink);
+                    bot.position.y = 0.5;
+                    grp.add(bot);
+
+                    const drain = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 3.5, 0.5, 32), mDrain);
+                    drain.position.set(isDouble ? w/4 : 0, 1, 0);
+                    grp.add(drain);
+                    
+                    if (isDouble) {
+                        const drain2 = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 3.5, 0.5, 32), mDrain);
+                        drain2.position.set(-w/4, 1, 0);
+                        grp.add(drain2);
+                    }
+
+                    if (isFarmhouse) {
+                        const apron = new THREE.Mesh(new THREE.BoxGeometry(w + 4, h + 2, t*4), mSink);
+                        apron.position.set(0, h/2 - 1, d/2);
+                        grp.add(apron);
+                    }
+                    return grp;
+                };
+
+                const basin = buildSinkBasin(sW, sD, sH, type === 'sink_double', type === 'sink_farmhouse');
+                group.add(basin);
+                
+            } else if (type.startsWith('tap_')) {
+                const sW = params.width || 15;
+                const sH = params.height || 35;
+                const sD = params.depth || 20;
+
+                const tapGroup = new THREE.Group();
+                const mTap = new THREE.MeshStandardMaterial({ color: '#e2e8f0', metalness: 0.9, roughness: 0.1 });
+                
+                if (type === 'tap_modern') {
+                    const path = new THREE.CatmullRomCurve3([
+                        new THREE.Vector3(0, 0, 0),
+                        new THREE.Vector3(0, 15, 0),
+                        new THREE.Vector3(0, 25, 5),
+                        new THREE.Vector3(0, 25, 15),
+                        new THREE.Vector3(0, 20, 18)
+                    ]);
+                    const tube = new THREE.Mesh(new THREE.TubeGeometry(path, 20, 1.2, 16, false), mTap);
+                    const base = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 3, 4, 32), mTap); base.position.y = 2;
+                    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 6, 16), mTap); handle.position.set(3, 8, 0); handle.rotation.z = -Math.PI/4;
+                    const hBase = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 2, 16), mTap); hBase.position.set(2, 8, 0); hBase.rotation.z = Math.PI/2;
+                    tapGroup.add(tube, base, handle, hBase);
+                } else if (type === 'tap_industrial') {
+                    const fBase = new THREE.Mesh(new THREE.CylinderGeometry(3, 3.5, 10, 32), mTap); fBase.position.set(0, 5, 0);
+                    const fPipe = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 28, 16), mTap); fPipe.position.set(0, 24, 0);
+                    const fSpring = new THREE.Mesh(new THREE.TorusGeometry(3, 0.6, 16, 32), mTap); fSpring.rotation.x = Math.PI/2; fSpring.position.set(0, 18, 0);
+                    const fSpring2 = new THREE.Mesh(new THREE.TorusGeometry(3, 0.6, 16, 32), mTap); fSpring2.rotation.x = Math.PI/2; fSpring2.position.set(0, 21, 0);
+                    const fSpout = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 2.5, 10, 16), mTap); fSpout.rotation.x = Math.PI/4; fSpout.position.set(0, 32, 10);
+                    tapGroup.add(fBase, fPipe, fSpring, fSpring2, fSpout);
+                } else if (type === 'tap_classic') {
+                    const fBase = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 3.5, 6, 32), mTap); fBase.position.set(0, 3, 0);
+                    const fPipe = new THREE.Mesh(new THREE.TorusGeometry(8, 1.2, 16, 32, Math.PI), mTap); fPipe.position.set(0, 6, 8); fPipe.rotation.y = Math.PI/2;
+                    const hL = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.5, 5, 16), mTap); hL.position.set(-6, 2.5, 0);
+                    const hLTop = new THREE.Mesh(new THREE.BoxGeometry(4, 1, 1), mTap); hLTop.position.set(-6, 5, 0);
+                    const hR = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.5, 5, 16), mTap); hR.position.set(6, 2.5, 0);
+                    const hRTop = new THREE.Mesh(new THREE.BoxGeometry(4, 1, 1), mTap); hRTop.position.set(6, 5, 0);
+                    tapGroup.add(fBase, fPipe, hL, hLTop, hR, hRTop);
+                }
+
+                // Uniform scale to prevent distortion in the thumbnail
+                const baseBox = new THREE.Box3().setFromObject(tapGroup);
+                const bSize = baseBox.getSize(new THREE.Vector3());
+                const uniformScale = Math.min(sW / bSize.x, sH / bSize.y, sD / bSize.z);
+                tapGroup.scale.setScalar(uniformScale);
+                
+                // Center and place at bottom
+                const finalBox = new THREE.Box3().setFromObject(tapGroup);
+                const fCenter = finalBox.getCenter(new THREE.Vector3());
+                tapGroup.position.set(-fCenter.x, -finalBox.min.y, -fCenter.z);
+                
+                group.add(tapGroup);
             }
         }
         

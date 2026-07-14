@@ -7,6 +7,8 @@ export const WORKSPACE_2D_SHAPES = {
     'kitchen_straight': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 0 35 L 100 35",
     'kitchen_l_shape': "M 0 0 L 100 0 L 100 30 L 30 30 L 30 100 L 0 100 Z",
     'kitchen_u_shape': "M 0 0 L 100 0 L 100 100 L 70 100 L 70 30 L 30 30 L 30 100 L 0 100 Z",
+    'sink': "M 10 10 L 90 10 L 90 90 L 10 90 Z M 20 20 L 80 20 L 80 80 L 20 80 Z M 45 45 L 55 45 L 55 55 L 45 55 Z",
+    'tap': "M 40 80 L 60 80 L 60 40 L 50 20 L 40 40 Z",
     'default': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 0 0 L 100 100 M 100 0 L 0 100"
 };
 
@@ -46,6 +48,42 @@ export const FURNITURE_REGISTRY = {
         procedural: true,
         default: { width: 240, height: 70, depth: 240 },
         shape2D: 'kitchen_u_shape'
+    },
+    'sink_standard': {
+        id: 'sink_standard', label: 'Standard Metal Sink',
+        procedural: true,
+        default: { width: 60, height: 20, depth: 45, elevation: 90 },
+        shape2D: 'sink'
+    },
+    'sink_double': {
+        id: 'sink_double', label: 'Double Basin Sink',
+        procedural: true,
+        default: { width: 80, height: 20, depth: 45, elevation: 90 },
+        shape2D: 'sink'
+    },
+    'sink_farmhouse': {
+        id: 'sink_farmhouse', label: 'Farmhouse Sink',
+        procedural: true,
+        default: { width: 75, height: 25, depth: 50, elevation: 90 },
+        shape2D: 'sink'
+    },
+    'tap_modern': {
+        id: 'tap_modern', label: 'Modern Curved Faucet',
+        procedural: true,
+        default: { width: 15, height: 35, depth: 20, elevation: 90 },
+        shape2D: 'tap'
+    },
+    'tap_industrial': {
+        id: 'tap_industrial', label: 'Industrial Pull-Down',
+        procedural: true,
+        default: { width: 15, height: 45, depth: 25, elevation: 90 },
+        shape2D: 'tap'
+    },
+    'tap_classic': {
+        id: 'tap_classic', label: 'Classic Two-Handle',
+        procedural: true,
+        default: { width: 25, height: 25, depth: 20, elevation: 90 },
+        shape2D: 'tap'
     },
     'table_dining': {
         id: 'table_dining',

@@ -1,7 +1,7 @@
 <template>
     <div class="catalog-gallery">
         <div class="catalog-header">
-            <h3>{{ type === 'door' ? 'Door Catalog' : type === 'window' ? 'Window Catalog' : type === 'sunshade' ? 'Sunshade Catalog' : type === 'jali_panel' ? 'Jali Panel Catalog' : type === 'staircase' ? 'Staircase Catalog' : type === 'roof' ? 'Roof Catalog' : type === 'dormer' ? 'Dormer Catalog' : type === 'molding' ? 'Molding Catalog' : type === 'elevation_fascia' ? 'Fascia Catalog' : type === 'kitchen_catalog' ? 'Modular Kitchen' : 'Catalog' }}</h3>
+            <h3>{{ type === 'door' ? 'Door Catalog' : type === 'window' ? 'Window Catalog' : type === 'sunshade' ? 'Sunshade Catalog' : type === 'jali_panel' ? 'Jali Panel Catalog' : type === 'staircase' ? 'Staircase Catalog' : type === 'roof' ? 'Roof Catalog' : type === 'dormer' ? 'Dormer Catalog' : type === 'molding' ? 'Molding Catalog' : type === 'elevation_fascia' ? 'Fascia Catalog' : type === 'kitchen_catalog' ? 'Modular Kitchen' : type === 'sink_catalog' ? 'Sink Catalog' : type === 'tap_catalog' ? 'Tap Catalog' : 'Catalog' }}</h3>
             <div class="search-box">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 <input type="text" v-model="searchQuery" placeholder="Search models..." />
@@ -159,6 +159,18 @@ const kitchenCatalog = ref([
     { id: 'kitchen_u_shape_upper', name: 'U-Shape Upper Cabinets', image: '', toolId: 'kitchen', params: { type: 'kitchen_u_shape_upper', width: 240, height: 70, depth: 240 } }
 ]);
 
+const sinkCatalog = ref([
+    { id: 'sink_standard', name: 'Standard Metal Sink', image: '', toolId: 'furniture', params: { type: 'sink_standard', elevation: 90 } },
+    { id: 'sink_double', name: 'Double Basin Sink', image: '', toolId: 'furniture', params: { type: 'sink_double', elevation: 90 } },
+    { id: 'sink_farmhouse', name: 'Farmhouse Sink', image: '', toolId: 'furniture', params: { type: 'sink_farmhouse', elevation: 90 } }
+]);
+
+const tapCatalog = ref([
+    { id: 'tap_modern', name: 'Modern Curved Faucet', image: '', toolId: 'furniture', params: { type: 'tap_modern', elevation: 90 } },
+    { id: 'tap_industrial', name: 'Industrial Pull-Down', image: '', toolId: 'furniture', params: { type: 'tap_industrial', elevation: 90 } },
+    { id: 'tap_classic', name: 'Classic Two-Handle', image: '', toolId: 'furniture', params: { type: 'tap_classic', elevation: 90 } }
+]);
+
 const items = computed(() => {
     if (props.type === 'door') return doorCatalog.value;
     if (props.type === 'window') return windowCatalog.value;
@@ -175,6 +187,8 @@ const items = computed(() => {
     if (props.type === 'railing_catalog') return railingCatalog.value;
     if (props.type === 'furniture_catalog') return furnitureCatalog.value;
     if (props.type === 'kitchen_catalog') return kitchenCatalog.value;
+    if (props.type === 'sink_catalog') return sinkCatalog.value;
+    if (props.type === 'tap_catalog') return tapCatalog.value;
     return [];
 });
 
