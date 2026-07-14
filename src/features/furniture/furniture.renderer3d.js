@@ -20,12 +20,16 @@ export class FurnitureManager {
                 const d = entity.depth || 60;
                 const type = config.id || 'kitchen_straight';
                 
-                const matBase = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.9 }); 
-                const matToe = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 });
-                const matTop = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.1 }); 
-                const matDoor = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.5 });
-                const matUpper = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.4 }); 
-                const matHandle = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.2, metalness: 0.8 }); 
+                const cBase = entity.colorBase || '#334155';
+                const cDoor = entity.colorDoor || '#475569';
+                const cHandle = entity.colorHandle || '#ffffff';
+
+                const matBase = new THREE.MeshStandardMaterial({ color: cBase, roughness: 0.9 }); 
+                const matToe = new THREE.MeshStandardMaterial({ color: '#0f172a', roughness: 0.9 });
+                const matTop = new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.1 }); 
+                const matDoor = new THREE.MeshStandardMaterial({ color: cDoor, roughness: 0.5 });
+                const matUpper = new THREE.MeshStandardMaterial({ color: cDoor, roughness: 0.4 }); 
+                const matHandle = new THREE.MeshStandardMaterial({ color: cHandle, roughness: 0.2, metalness: 0.8 }); 
                 
                 const buildRow = (len, dep, rowType) => {
                     const row = new THREE.Group();
