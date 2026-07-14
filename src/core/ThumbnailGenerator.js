@@ -287,6 +287,93 @@ export class ThumbnailGenerator {
                 const wallMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
                 const mesh = new THREE.Mesh(geo, wallMat);
                 group.add(mesh);
+            } else if (type.startsWith('kitchen_')) {
+                const w = params.width || 240;
+                const d = params.depth || 60;
+                
+                const matBase = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.9 }); 
+                const matToe = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 });
+                const matTop = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.1 }); 
+                const matDoor = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.5 });
+                const matUpper = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.4 }); 
+                const matHandle = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.2, metalness: 0.8 }); 
+                
+                const buildRow = (len, dep, rowType) => {
+                    const row = new THREE.Group();
+                    if (len <= 0) return row;
+                    const numMods = Math.max(1, Math.round(len / 60));
+                    const modW = len / numMods;
+                    
+                    if (rowType === 'base') {
+                        const bH = 90, tThick = 4, toeH = 10, toeRecess = 5;
+                        const toe = new THREE.Mesh(new THREE.BoxGeometry(len, toeH, dep - toeRecess), matToe);
+                        toe.position.set(len/2, toeH/2, (dep - toeRecess)/2);
+                        row.add(toe);
+                        
+                        const top = new THREE.Mesh(new THREE.BoxGeometry(len, tThick, dep + 2), matTop);
+                        top.position.set(len/2, bH - tThick/2, (dep + 2)/2);
+                        row.add(top);
+                        
+                        for(let i=0; i<numMods; i++) {
+                            const X = i * modW + modW/2;
+                            const cabH = bH - tThick - toeH;
+                            const body = new THREE.Mesh(new THREE.BoxGeometry(modW - 0.2, cabH, dep - 2), matBase);
+                            body.position.set(X, toeH + cabH/2, (dep - 2)/2);
+                            
+                            const door = new THREE.Mesh(new THREE.BoxGeometry(modW - 0.4, cabH - 0.4, 1.8), matDoor);
+                            door.position.set(X, toeH + cabH/2, dep - 2 + 0.9);
+                            
+                            const handle = new THREE.Mesh(new THREE.BoxGeometry(modW * 0.4, 1.5, 3), matHandle);
+                            handle.position.set(X, toeH + cabH - 10, dep - 2 + 1.8 + 1.5);
+                            row.add(body, door, handle);
+                        }
+                    } else {
+                        const uH = 70, yStart = 150; 
+                        for(let i=0; i<numMods; i++) {
+                            const X = i * modW + modW/2;
+                            const body = new THREE.Mesh(new THREE.BoxGeometry(modW - 0.2, uH, dep - 2), matBase);
+                            body.position.set(X, yStart + uH/2, (dep - 2)/2);
+                            
+                            const door = new THREE.Mesh(new THREE.BoxGeometry(modW - 0.4, uH - 0.4, 1.8), matUpper);
+                            door.position.set(X, yStart + uH/2, dep - 2 + 0.9);
+                            
+                            const handle = new THREE.Mesh(new THREE.BoxGeometry(modW * 0.4, 1.5, 3), matHandle);
+                            handle.position.set(X, yStart + 10, dep - 2 + 1.8 + 1.5);
+                            row.add(body, door, handle);
+                        }
+                    }
+                    return row;
+                };
+
+                if (!type.endsWith('_upper')) {
+                    group.add(buildRow(w, 60, 'base'));
+                    if (type.includes('l_shape') || type.includes('u_shape')) {
+                        const leftBase = buildRow(d - 60, 60, 'base');
+                        leftBase.rotation.y = Math.PI / 2;
+                        leftBase.position.set(0, 0, d);
+                        group.add(leftBase);
+                    }
+                    if (type.includes('u_shape')) {
+                        const rightBase = buildRow(d - 60, 60, 'base');
+                        rightBase.rotation.y = -Math.PI / 2;
+                        rightBase.position.set(w, 0, 60);
+                        group.add(rightBase);
+                    }
+                } else {
+                    group.add(buildRow(w, 35, 'upper'));
+                    if (type.includes('l_shape') || type.includes('u_shape')) {
+                        const leftUpper = buildRow(d - 35, 35, 'upper');
+                        leftUpper.rotation.y = Math.PI / 2;
+                        leftUpper.position.set(0, 0, d);
+                        group.add(leftUpper);
+                    }
+                    if (type.includes('u_shape')) {
+                        const rightUpper = buildRow(d - 35, 35, 'upper');
+                        rightUpper.rotation.y = -Math.PI / 2;
+                        rightUpper.position.set(w, 0, 35);
+                        group.add(rightUpper);
+                    }
+                }
             } else if (registryConfig && registryConfig.render3D) {
                 // Procedural widgets explicitly define their render3D function
                 const widgetGroup = registryConfig.render3D(group, entity, this.ctx.helpers);

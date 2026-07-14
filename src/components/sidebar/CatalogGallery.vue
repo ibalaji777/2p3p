@@ -184,24 +184,29 @@ const filteredItems = computed(() => {
     return items.value.filter(i => i.name.toLowerCase().includes(q));
 });
 
+let isGenerating = false;
 const generateThumbnails = async () => {
-    const renderer = plannerStore.renderer3D;
-    if (!renderer || !renderer.thumbnailGenerator) return;
+    if (isGenerating) return;
+    isGenerating = true;
+    try {
+        const renderer = plannerStore.renderer3D;
+        if (!renderer || !renderer.thumbnailGenerator) return;
 
-    const list = items.value;
-    for (const item of list) {
-        if (!item.image) {
-            try {
-                // Yield to main thread briefly before heavy render
-                await new Promise(r => setTimeout(r, 10));
-                // Universally prioritize the specific item ID over the broad catalog category
-                const genType = (item.params && item.params.type) ? item.params.type : (item.toolId ? item.toolId : props.type);
-                const dataUrl = await renderer.thumbnailGenerator.generate(genType, item.params);
-                if (dataUrl) item.image = dataUrl;
-            } catch (err) {
-                console.error("Failed to generate thumbnail for", item.name, err);
+        const list = items.value;
+        for (const item of list) {
+            if (!item.image) {
+                try {
+                    await new Promise(r => setTimeout(r, 10));
+                    const genType = (item.params && item.params.type) ? item.params.type : (item.toolId ? item.toolId : props.type);
+                    const dataUrl = await renderer.thumbnailGenerator.generate(genType, item.params);
+                    if (dataUrl) item.image = dataUrl;
+                } catch (err) {
+                    console.error("Failed to generate thumbnail for", item.name, err);
+                }
             }
         }
+    } finally {
+        isGenerating = false;
     }
 };
 

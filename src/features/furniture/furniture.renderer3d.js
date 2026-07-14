@@ -58,7 +58,7 @@ export class FurnitureManager {
                         }
                     } else {
                         const uH = 70;
-                        const yStart = 150; 
+                        const yStart = 0; 
                         for(let i=0; i<numMods; i++) {
                             const X = i * modW + modW/2;
                             const body = new THREE.Mesh(new THREE.BoxGeometry(modW - 0.2, uH, dep - 2), matBase);
