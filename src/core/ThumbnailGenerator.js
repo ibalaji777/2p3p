@@ -776,9 +776,9 @@ export class ThumbnailGenerator {
                     
                     eqGroup.add(body, toeKick, door, panel, pocket, pocketLip, led1, led2);
                 } else if (type === 'trash_pedal') {
-                    // Premium Matte Black & Steel Rounded Rectangle Bin
-                    const pBody = new THREE.MeshStandardMaterial({ color: '#111827', roughness: 0.2, metalness: 0.1 }); 
-                    const pSteel = new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.2, metalness: 0.8 }); 
+                    // Premium Stainless Steel & Black Plastic Rounded Rectangle Bin
+                    const pBody = new THREE.MeshStandardMaterial({ color: '#e2e8f0', roughness: 0.2, metalness: 0.85 }); 
+                    const pBlack = new THREE.MeshStandardMaterial({ color: '#0f172a', roughness: 0.8 }); 
                     
                     const w = 30, d = 30, r = 8, h = 55;
                     const binShape = new THREE.Shape();
@@ -794,10 +794,10 @@ export class ThumbnailGenerator {
                     
                     const lidGeo = new THREE.ExtrudeGeometry(binShape, { depth: 2, bevelEnabled: true, bevelSize: 0.5, bevelThickness: 0.5, bevelSegments: 2 });
                     lidGeo.rotateX(-Math.PI/2);
-                    const lid = new THREE.Mesh(lidGeo, pSteel);
+                    const lid = new THREE.Mesh(lidGeo, pBlack);
                     lid.position.y = h + 1;
                     
-                    const pedal = new THREE.Mesh(new THREE.BoxGeometry(14, 2, 4), pSteel); 
+                    const pedal = new THREE.Mesh(new THREE.BoxGeometry(14, 2, 4), pBlack); 
                     pedal.position.set(0, 3, d/2 + 1);
                     
                     eqGroup.add(body, lid, pedal);
@@ -829,22 +829,22 @@ export class ThumbnailGenerator {
                     eqGroup.add(body, lid1, lid2, pedal1, pedal2);
                 } else if (type === 'trash_pullout') {
                     // Premium Concealed In-Cabinet Drawer Bin System
-                    const pWood = new THREE.MeshStandardMaterial({ color: '#451a03', roughness: 0.9 }); 
+                    const pBody = new THREE.MeshStandardMaterial({ color: '#e2e8f0', roughness: 0.2, metalness: 0.85 }); 
+                    const pBlack = new THREE.MeshStandardMaterial({ color: '#0f172a', roughness: 0.8 }); 
                     const pMetal = new THREE.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.3, metalness: 0.8 }); 
-                    const pBin = new THREE.MeshStandardMaterial({ color: '#334155', roughness: 0.8 }); 
                     
                     const drawerW = 45, drawerD = 50, drawerH = 45;
                     
-                    const face = new THREE.Mesh(new THREE.BoxGeometry(drawerW, drawerH, 2), pWood);
+                    const face = new THREE.Mesh(new THREE.BoxGeometry(drawerW, drawerH, 2), pBody);
                     face.position.set(0, drawerH/2, drawerD/2);
                     
                     const frame = new THREE.Mesh(new THREE.BoxGeometry(drawerW - 4, 2, drawerD), pMetal);
                     frame.position.set(0, 2, 0);
                     
-                    const bin1 = new THREE.Mesh(new THREE.BoxGeometry(drawerW - 6, drawerH - 5, drawerD/2 - 2), pBin);
+                    const bin1 = new THREE.Mesh(new THREE.BoxGeometry(drawerW - 6, drawerH - 5, drawerD/2 - 2), pBlack);
                     bin1.position.set(0, drawerH/2 - 1, -drawerD/4);
                     
-                    const bin2 = new THREE.Mesh(new THREE.BoxGeometry(drawerW - 6, drawerH - 5, drawerD/2 - 2), pBin);
+                    const bin2 = new THREE.Mesh(new THREE.BoxGeometry(drawerW - 6, drawerH - 5, drawerD/2 - 2), pBlack);
                     bin2.position.set(0, drawerH/2 - 1, drawerD/4 - 2);
                     
                     const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 15, 16), pMetal);
