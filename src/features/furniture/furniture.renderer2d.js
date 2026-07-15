@@ -10,8 +10,36 @@ export class PremiumFurniture {
         this.bg = new Konva.Rect({ width: this.width, height: this.depth, fill: 'transparent', cornerRadius: 4 });
         
         const shapeKey = this.config.shape2D || 'default';
-        const pathData = WORKSPACE_2D_SHAPES[shapeKey] || WORKSPACE_2D_SHAPES['default'];
-        this.body = new Konva.Path({ data: pathData, fill: 'transparent', stroke: '#94a3b8', strokeWidth: 1.5, strokeScaleEnabled: false, scaleX: this.width / 100, scaleY: this.depth / 100 });
+        if (shapeKey.startsWith('kitchen_')) {
+            this.body = new Konva.Shape({
+                fill: 'transparent',
+                stroke: '#94a3b8',
+                strokeWidth: 1.5,
+                sceneFunc: (ctx, shape) => {
+                    ctx.beginPath();
+                    const w = this.width;
+                    const d = this.depth;
+                    const thick = this.config.id.includes('_upper') ? 35 : 60;
+                    
+                    if (shapeKey === 'kitchen_straight') {
+                        const yOffset = (d > thick) ? (d - thick) / 2 : 0;
+                        ctx.rect(0, yOffset, w, thick);
+                    } else if (shapeKey === 'kitchen_l_shape') {
+                        ctx.rect(0, 0, w, thick); // Back row
+                        ctx.rect(0, thick, thick, d - thick); // Left row
+                    } else if (shapeKey === 'kitchen_u_shape') {
+                        ctx.rect(0, 0, w, thick); // Back row
+                        ctx.rect(0, thick, thick, d - thick); // Left row
+                        ctx.rect(w - thick, thick, thick, d - thick); // Right row
+                    }
+                    ctx.fillStrokeShape(shape);
+                }
+            });
+        } else {
+            const pathData = WORKSPACE_2D_SHAPES[shapeKey] || WORKSPACE_2D_SHAPES['default'];
+            this.body = new Konva.Path({ data: pathData, fill: 'transparent', stroke: '#94a3b8', strokeWidth: 1.5, strokeScaleEnabled: false, scaleX: this.width / 100, scaleY: this.depth / 100 });
+        }
+        
         this.rotHandle = new Konva.Circle({ x: this.width / 2, y: -15, radius: 6, fill: '#3b82f6', stroke: 'white', strokeWidth: 2, draggable: true, visible: false });
         this.group.add(this.bg, this.body, this.rotHandle); this.planner.furnitureLayer.add(this.group);
         this.initEvents();

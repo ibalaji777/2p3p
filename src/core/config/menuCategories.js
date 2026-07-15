@@ -80,8 +80,12 @@ export const getMenuCategories = () => [
         tools: [
             { id: 'kitchen_catalog', name: 'Kitchen Catalog' },
             { id: 'equipment_all', name: 'Equipment', isDivider: true },
+            { id: 'hood_catalog', name: 'Hood' },
+            { id: 'small_appliance_catalog', name: 'Small appliance' },
+            { id: 'household_appliance_catalog', name: 'Household appliance' },
             { id: 'sink_catalog', name: 'Sink' },
-            { id: 'tap_catalog', name: 'Taps' }
+            { id: 'tap_catalog', name: 'Taps' },
+            { id: 'trash_catalog', name: 'Trash can' }
         ]
     },
     {

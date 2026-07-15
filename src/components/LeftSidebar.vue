@@ -37,11 +37,11 @@
                     <div v-if="tool.isDivider" class="submenu-divider">{{ tool.name }}</div>
                     <button v-else
                         class="child-card-btn"
-                        :class="{ active: isToolActive(tool.id) && !tool.action, 'has-accordion': ['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'sink_catalog', 'tap_catalog'].includes(tool.id) }"
+                        :class="{ active: isToolActive(tool.id) && !tool.action, 'has-accordion': ['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 'household_appliance_catalog', 'wine_cellar_catalog', 'trash_catalog'].includes(tool.id) }"
                         @click="$emit('tool-click', tool)"
                         style="display: flex; align-items: center; justify-content: space-between;">
                         <span>{{ tool.name }}</span>
-                        <svg v-if="['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'sink_catalog', 'tap_catalog'].includes(tool.id)" 
+                        <svg v-if="['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 'household_appliance_catalog', 'wine_cellar_catalog', 'trash_catalog'].includes(tool.id)" 
                              class="chevron" 
                              :style="{ transform: isToolActive(tool.id) ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)', opacity: isToolActive(tool.id) ? '1' : '0.5' }"
                              viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -49,7 +49,7 @@
                         </svg>
                     </button>
                     
-                    <div v-if="['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'sink_catalog', 'tap_catalog'].includes(tool.id) && isToolActive(tool.id)" class="catalog-accordion">
+                    <div v-if="['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 'household_appliance_catalog', 'wine_cellar_catalog', 'trash_catalog'].includes(tool.id) && isToolActive(tool.id)" class="catalog-accordion">
                         <CatalogGallery :type="tool.id" :modelValue="activePresetId" @update:modelValue="$emit('update:activePresetId', $event)" @select="$emit('catalog-select', $event)" />
                     </div>
                 </template>
@@ -96,9 +96,10 @@ const isToolActive = (toolId) => {
 
 <style scoped>
 .catalog-accordion {
-    padding: 10px 0;
-    max-height: 500px;
-    overflow-y: auto;
+    padding: 0;
+    height: 450px;
+    flex-shrink: 0;
+    overflow: hidden;
     background: #f8fafc;
     border-radius: 6px;
     margin: 5px 0 15px 0;

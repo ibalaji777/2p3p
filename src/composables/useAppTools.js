@@ -60,7 +60,7 @@ export function useAppTools({
     };
 
     const handleToolClick = (tool) => {
-        const accordionTools = ['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog'];
+        const accordionTools = ['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 'household_appliance_catalog', 'trash_catalog'];
         if (accordionTools.includes(tool.id)) {
             // Check if active tool belongs to this catalog
             const mapping = {
@@ -99,8 +99,16 @@ export function useAppTools({
             activeCategory.value = catId;
             if (planner.value) {
                 planner.value.activeCategory = catId;
-                activeTool.value = 'select';
-                planner.value.tool = 'select';
+                
+                // Auto-open the primary accordion for the category
+                if (catId === 'kitchen') activeTool.value = 'kitchen_catalog';
+                else if (catId === 'furniture') activeTool.value = 'furniture_catalog';
+                else if (catId === 'wall') activeTool.value = 'wall_catalog';
+                else if (catId === 'door') activeTool.value = 'door';
+                else if (catId === 'window') activeTool.value = 'window';
+                else activeTool.value = 'select';
+                
+                planner.value.tool = activeTool.value === 'select' ? 'select' : planner.value.tool;
                 planner.value.finishChain();
                 planner.value.updateToolStates();
                 planner.value.selectEntity(null);

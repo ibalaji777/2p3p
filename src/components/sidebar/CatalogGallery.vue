@@ -1,7 +1,7 @@
 <template>
     <div class="catalog-gallery">
         <div class="catalog-header">
-            <h3>{{ type === 'door' ? 'Door Catalog' : type === 'window' ? 'Window Catalog' : type === 'sunshade' ? 'Sunshade Catalog' : type === 'jali_panel' ? 'Jali Panel Catalog' : type === 'staircase' ? 'Staircase Catalog' : type === 'roof' ? 'Roof Catalog' : type === 'dormer' ? 'Dormer Catalog' : type === 'molding' ? 'Molding Catalog' : type === 'elevation_fascia' ? 'Fascia Catalog' : type === 'kitchen_catalog' ? 'Modular Kitchen' : type === 'sink_catalog' ? 'Sink Catalog' : type === 'tap_catalog' ? 'Tap Catalog' : 'Catalog' }}</h3>
+            <h3>{{ type === 'door' ? 'Door Catalog' : type === 'window' ? 'Window Catalog' : type === 'sunshade' ? 'Sunshade Catalog' : type === 'jali_panel' ? 'Jali Panel Catalog' : type === 'staircase' ? 'Staircase Catalog' : type === 'roof' ? 'Roof Catalog' : type === 'dormer' ? 'Dormer Catalog' : type === 'molding' ? 'Molding Catalog' : type === 'elevation_fascia' ? 'Fascia Catalog' : type === 'kitchen_catalog' ? 'Modular Kitchen' : type === 'sink_catalog' ? 'Sink Catalog' : type === 'tap_catalog' ? 'Tap Catalog' : type === 'hood_catalog' ? 'Hood Catalog' : type === 'small_appliance_catalog' ? 'Small Appliances' : type === 'household_appliance_catalog' ? 'Household Appliances' : type === 'wine_cellar_catalog' ? 'Wine Cellars' : type === 'trash_catalog' ? 'Trash Cans' : type === 'handle_catalog' ? 'Handles' : 'Catalog' }}</h3>
             <div class="search-box">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 <input type="text" v-model="searchQuery" placeholder="Search models..." />
@@ -171,6 +171,31 @@ const tapCatalog = ref([
     { id: 'tap_classic', name: 'Classic Two-Handle', image: '', toolId: 'furniture', params: { type: 'tap_classic', elevation: 90 } }
 ]);
 
+const hoodCatalog = ref([
+    { id: 'hood_chimney', name: 'Chimney Hood', image: '', toolId: 'furniture', params: { type: 'hood_chimney', elevation: 150 } }
+]);
+
+const smallApplianceCatalog = ref([
+    { id: 'app_microwave', name: 'Microwave', image: '', toolId: 'furniture', params: { type: 'app_microwave', elevation: 90 } },
+    { id: 'app_toaster', name: 'Toaster', image: '', toolId: 'furniture', params: { type: 'app_toaster', elevation: 90 } }
+]);
+
+const householdApplianceCatalog = ref([
+    { id: 'app_fridge', name: 'Double-Door Fridge', image: '', toolId: 'furniture', params: { type: 'app_fridge', elevation: 0 } },
+    { id: 'app_oven', name: 'Built-in Oven', image: '', toolId: 'furniture', params: { type: 'app_oven', elevation: 90 } },
+    { id: 'app_dishwasher', name: 'Dishwasher', image: '', toolId: 'furniture', params: { type: 'app_dishwasher', elevation: 0 } }
+]);
+
+
+
+const trashCatalog = ref([
+    { id: 'trash_pedal', name: 'Stainless Pedal Bin', image: '', toolId: 'furniture', params: { type: 'trash_pedal', elevation: 0 } },
+    { id: 'trash_recycle', name: 'Dual Recycle Bin', image: '', toolId: 'furniture', params: { type: 'trash_recycle', elevation: 0 } },
+    { id: 'trash_pullout', name: 'Cabinet Pull-out', image: '', toolId: 'furniture', params: { type: 'trash_pullout', elevation: 0 } }
+]);
+
+
+
 const items = computed(() => {
     if (props.type === 'door') return doorCatalog.value;
     if (props.type === 'window') return windowCatalog.value;
@@ -189,6 +214,10 @@ const items = computed(() => {
     if (props.type === 'kitchen_catalog') return kitchenCatalog.value;
     if (props.type === 'sink_catalog') return sinkCatalog.value;
     if (props.type === 'tap_catalog') return tapCatalog.value;
+    if (props.type === 'hood_catalog') return hoodCatalog.value;
+    if (props.type === 'small_appliance_catalog') return smallApplianceCatalog.value;
+    if (props.type === 'household_appliance_catalog') return householdApplianceCatalog.value;
+    if (props.type === 'trash_catalog') return trashCatalog.value;
     return [];
 });
 
