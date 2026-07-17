@@ -20,30 +20,67 @@ export class FurnitureManager {
                 const d = entity.depth || 60;
                 const type = config.id || 'kitchen_straight';
                 
-                const cBase = entity.colorBase || '#334155';
-                const cDoor = entity.colorDoor || '#475569';
-                const cHandle = entity.colorHandle || '#ffffff';
+                let cBase = entity.colorBase;
+                let cDoor = entity.colorDoor;
+                let cHandle = entity.colorHandle;
+                
+                let mBaseProps = { roughness: 0.9 };
+                let mDoorProps = { roughness: 0.5 };
+                let mUpperProps = { roughness: 0.4 };
+                
+                if (type === 'kitchen_straight_shaker') {
+                    cBase = cBase || '#f8fafc'; // White base
+                    cDoor = cDoor || '#f1f5f9'; // Soft Antique White doors
+                    cHandle = cHandle || '#b45309'; // Premium Brass Handles
+                } else if (type === 'kitchen_straight_floating') {
+                    cBase = cBase || '#ffffff'; // Pure White
+                    cDoor = cDoor || '#ffffff'; // Pure White
+                    cHandle = cHandle || '#ffffff'; 
+                    mDoorProps = { roughness: 0.1, metalness: 0.1 }; // High Gloss White finish
+                } else if (type === 'kitchen_upper_glass') {
+                    cBase = cBase || '#78350f'; // Warm Walnut Wood interior
+                    cDoor = cDoor || '#F4F0EC'; // Creamy Warm White frame
+                    cHandle = cHandle || '#D4AF37'; // Brushed Brass handles
+                } else if (type === 'kitchen_upper_shelves') {
+                    cBase = cBase || '#e6ccb2'; // Light Oak Wood shelves
+                    cDoor = cDoor || '#e6ccb2';
+                } else {
+                    cBase = cBase || '#334155';
+                    cDoor = cDoor || '#475569';
+                    cHandle = cHandle || '#ffffff';
+                }
 
-                const matBase = new THREE.MeshStandardMaterial({ color: cBase, roughness: 0.9 }); 
+                const matBase = new THREE.MeshStandardMaterial({ color: cBase, ...mBaseProps }); 
                 const matToe = new THREE.MeshStandardMaterial({ color: '#0f172a', roughness: 0.9 });
                 const matTop = new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.1 }); 
-                const matDoor = new THREE.MeshStandardMaterial({ color: cDoor, roughness: 0.5 });
-                const matUpper = new THREE.MeshStandardMaterial({ color: cDoor, roughness: 0.4 }); 
+                const matDoor = new THREE.MeshStandardMaterial({ color: cDoor, ...mDoorProps });
+                const matUpper = new THREE.MeshStandardMaterial({ color: cDoor, ...mUpperProps }); 
                 const matHandle = new THREE.MeshStandardMaterial({ color: cHandle, roughness: 0.2, metalness: 0.8 }); 
                 const matSink = new THREE.MeshStandardMaterial({ color: '#94a3b8', metalness: 0.8, roughness: 0.2 });
                 const matTap = new THREE.MeshStandardMaterial({ color: '#e2e8f0', metalness: 0.9, roughness: 0.1 });
                 
-                const buildRow = (len, dep, rowType) => {
+                const buildRow = (len, dep, rowType, style) => {
                     const row = new THREE.Group();
                     if (len <= 0) return row;
                     const numMods = Math.max(1, Math.round(len / 60));
                     const modW = len / numMods;
                     
                     if (rowType === 'base') {
-                        const bH = 90, tThick = 4, toeH = 10, toeRecess = 5;
-                        const toe = new THREE.Mesh(new THREE.BoxGeometry(len, toeH, dep - toeRecess), matToe);
-                        toe.position.set(len/2, toeH/2, (dep - toeRecess)/2);
-                        row.add(toe);
+                        const isFloating = style === 'kitchen_straight_floating';
+                        const isShaker = style === 'kitchen_straight_shaker';
+                        const bH = 90, toeH = isFloating ? 20 : 10, toeRecess = 5;
+                        const tThick = isFloating ? 1.5 : (isShaker ? 5 : 4);
+                        
+                        if (!isFloating) {
+                            const toe = new THREE.Mesh(new THREE.BoxGeometry(len, toeH, dep - toeRecess), matToe);
+                            toe.position.set(len/2, toeH/2, (dep - toeRecess)/2);
+                            row.add(toe);
+                        } else {
+                            // Floating LED strip
+                            const led = new THREE.Mesh(new THREE.BoxGeometry(len - 4, 1, 1), new THREE.MeshBasicMaterial({color: 0xffffff}));
+                            led.position.set(len/2, toeH - 1, dep - 10);
+                            row.add(led);
+                        }
                         
                         const top = new THREE.Mesh(new THREE.BoxGeometry(len, tThick, dep + 2), matTop);
                         top.position.set(len/2, bH - tThick/2, (dep + 2)/2);
@@ -55,27 +92,92 @@ export class FurnitureManager {
                             const body = new THREE.Mesh(new THREE.BoxGeometry(modW - 0.2, cabH, dep - 2), matBase);
                             body.position.set(X, toeH + cabH/2, (dep - 2)/2);
                             
-                            const door = new THREE.Mesh(new THREE.BoxGeometry(modW - 0.4, cabH - 0.4, 1.8), matDoor);
-                            door.position.set(X, toeH + cabH/2, dep - 2 + 0.9);
+                            const doorGroup = new THREE.Group();
+                            if (isShaker) {
+                                // Shaker door simulation
+                                const dFrame = new THREE.Mesh(new THREE.BoxGeometry(modW - 0.4, cabH - 0.4, 1.8), matDoor);
+                                const dPanel = new THREE.Mesh(new THREE.BoxGeometry(modW - 12, cabH - 12, 1.9), matBase); // Recessed visual
+                                doorGroup.add(dFrame, dPanel);
+                                
+                                // Elegant horizontal handlebar
+                                const handle = new THREE.Mesh(new THREE.BoxGeometry(modW * 0.5, 1.5, 3), matHandle);
+                                handle.position.set(0, cabH/2 - 10, 2);
+                                doorGroup.add(handle);
+                            } else if (isFloating) {
+                                // Flat minimalist, with sleek long handlebar
+                                const door = new THREE.Mesh(new THREE.BoxGeometry(modW - 0.4, cabH - 0.4, 1.8), matDoor);
+                                const handle = new THREE.Mesh(new THREE.BoxGeometry(modW * 0.7, 1.2, 2.5), matHandle);
+                                handle.position.set(0, cabH/2 - 10, 2);
+                                doorGroup.add(door, handle);
+                            } else {
+                                // Standard
+                                const door = new THREE.Mesh(new THREE.BoxGeometry(modW - 0.4, cabH - 0.4, 1.8), matDoor);
+                                const handle = new THREE.Mesh(new THREE.BoxGeometry(modW * 0.4, 1.5, 3), matHandle);
+                                handle.position.set(0, cabH/2 - 10, 2);
+                                doorGroup.add(door, handle);
+                            }
+                            doorGroup.position.set(X, toeH + cabH/2, dep - 2 + 0.9);
                             
-                            const handle = new THREE.Mesh(new THREE.BoxGeometry(modW * 0.4, 1.5, 3), matHandle);
-                            handle.position.set(X, toeH + cabH - 10, dep - 2 + 1.8 + 1.5);
-                            row.add(body, door, handle);
+                            row.add(body, doorGroup);
                         }
                     } else {
+                        const isGlass = style === 'kitchen_upper_glass';
+                        const isShelves = style === 'kitchen_upper_shelves';
                         const uH = 70;
                         const yStart = 0; 
-                        for(let i=0; i<numMods; i++) {
-                            const X = i * modW + modW/2;
-                            const body = new THREE.Mesh(new THREE.BoxGeometry(modW - 0.2, uH, dep - 2), matBase);
-                            body.position.set(X, yStart + uH/2, (dep - 2)/2);
+
+                        if (isShelves) {
+                            const shelfThick = 4;
+                            // Add Premium White Marble Backsplash
+                            const mMarble = new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.1 });
+                            const backsplash = new THREE.Mesh(new THREE.BoxGeometry(len, uH, 2), mMarble);
+                            backsplash.position.set(len/2, yStart + uH/2, 1);
+                            row.add(backsplash);
                             
-                            const door = new THREE.Mesh(new THREE.BoxGeometry(modW - 0.4, uH - 0.4, 1.8), matUpper);
-                            door.position.set(X, yStart + uH/2, dep - 2 + 0.9);
-                            
-                            const handle = new THREE.Mesh(new THREE.BoxGeometry(modW * 0.4, 1.5, 3), matHandle);
-                            handle.position.set(X, yStart + 10, dep - 2 + 1.8 + 1.5);
-                            row.add(body, door, handle);
+                            for(let s=0; s<3; s++) {
+                                const shelf = new THREE.Mesh(new THREE.BoxGeometry(len, shelfThick, dep - 2), matBase);
+                                shelf.position.set(len/2, yStart + s * 30 + shelfThick/2, (dep - 2)/2 + 2);
+                                row.add(shelf);
+                                
+                                // Under-shelf warm LED lighting
+                                const led = new THREE.Mesh(new THREE.BoxGeometry(len - 4, 0.5, 0.5), new THREE.MeshBasicMaterial({color: 0xffeedd}));
+                                led.position.set(len/2, yStart + s * 30 - 0.25, 3);
+                                row.add(led);
+                            }
+                        } else {
+                            for(let i=0; i<numMods; i++) {
+                                const X = i * modW + modW/2;
+                                const body = new THREE.Mesh(new THREE.BoxGeometry(modW - 0.2, uH, dep - 2), matBase);
+                                body.position.set(X, yStart + uH/2, (dep - 2)/2);
+                                
+                                const doorGroup = new THREE.Group();
+                                if (isGlass) {
+                                    const dFrame = new THREE.Mesh(new THREE.BoxGeometry(modW - 0.4, uH - 0.4, 1.8), matUpper);
+                                    // Simulating fluted glass (rough, highly transmissive)
+                                    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.95, opacity: 1, transparent: true, roughness: 0.4, ior: 1.5, thickness: 0.5 });
+                                    const dGlass = new THREE.Mesh(new THREE.BoxGeometry(modW - 12, uH - 12, 1.9), glassMat);
+                                    
+                                    // Interior light
+                                    const light = new THREE.PointLight(0xffeedd, 0.6, 100);
+                                    light.position.set(X, yStart + uH - 5, dep/2);
+                                    row.add(light);
+                                    
+                                    doorGroup.add(dFrame, dGlass);
+                                    
+                                    // Vertical sleek handlebar
+                                    const handle = new THREE.Mesh(new THREE.BoxGeometry(1.2, uH * 0.5, 2.5), matHandle);
+                                    handle.position.set(modW/2 - 8, -uH/2 + (uH * 0.5)/2 + 5, 2);
+                                    doorGroup.add(handle);
+                                } else {
+                                    const door = new THREE.Mesh(new THREE.BoxGeometry(modW - 0.4, uH - 0.4, 1.8), matUpper);
+                                    const handle = new THREE.Mesh(new THREE.BoxGeometry(modW * 0.4, 1.5, 3), matHandle);
+                                    handle.position.set(0, -uH/2 + 10, 2);
+                                    doorGroup.add(door, handle);
+                                }
+                                doorGroup.position.set(X, yStart + uH/2, dep - 2 + 0.9);
+                                
+                                row.add(body, doorGroup);
+                            }
                         }
                     }
                     return row;
@@ -83,38 +185,36 @@ export class FurnitureManager {
 
                 const innerGroup = new THREE.Group();
                 
-                if (!type.endsWith('_upper')) {
-                    const backBase = buildRow(w, 60, 'base');
+                if (!type.includes('_upper')) {
+                    const backBase = buildRow(w, d, 'base', type);
                     innerGroup.add(backBase);
                     
-
-                    
                     if (type === 'kitchen_l_shape' || type === 'kitchen_u_shape') {
-                        const leftBase = buildRow(d - 60, 60, 'base');
+                        const leftBase = buildRow(d - 60, 60, 'base', type);
                         leftBase.rotation.y = Math.PI / 2;
                         leftBase.position.set(0, 0, d);
                         innerGroup.add(leftBase);
                     }
                     
                     if (type === 'kitchen_u_shape') {
-                        const rightBase = buildRow(d - 60, 60, 'base');
+                        const rightBase = buildRow(d - 60, 60, 'base', type);
                         rightBase.rotation.y = -Math.PI / 2;
                         rightBase.position.set(w, 0, 60);
                         innerGroup.add(rightBase);
                     }
                 } else {
-                    const backUpper = buildRow(w, 35, 'upper');
+                    const backUpper = buildRow(w, d, 'upper', type);
                     innerGroup.add(backUpper);
                     
                     if (type.includes('l_shape') || type.includes('u_shape')) {
-                        const leftUpper = buildRow(d - 35, 35, 'upper');
+                        const leftUpper = buildRow(d - 35, 35, 'upper', type);
                         leftUpper.rotation.y = Math.PI / 2;
                         leftUpper.position.set(0, 0, d);
                         innerGroup.add(leftUpper);
                     }
                     
                     if (type.includes('u_shape')) {
-                        const rightUpper = buildRow(d - 35, 35, 'upper');
+                        const rightUpper = buildRow(d - 35, 35, 'upper', type);
                         rightUpper.rotation.y = -Math.PI / 2;
                         rightUpper.position.set(w, 0, 35);
                         innerGroup.add(rightUpper);

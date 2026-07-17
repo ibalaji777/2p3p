@@ -54,6 +54,30 @@ export const FURNITURE_REGISTRY = {
         default: { width: 240, height: 70, depth: 240 },
         shape2D: 'kitchen_l_shape'
     },
+    'kitchen_straight_shaker': {
+        id: 'kitchen_straight_shaker', label: 'Classic Shaker Kitchen',
+        procedural: true,
+        default: { width: 240, height: 90, depth: 60 },
+        shape2D: 'kitchen_straight'
+    },
+    'kitchen_straight_floating': {
+        id: 'kitchen_straight_floating', label: 'Floating Base Kitchen',
+        procedural: true,
+        default: { width: 240, height: 90, depth: 60 },
+        shape2D: 'kitchen_straight'
+    },
+    'kitchen_upper_glass': {
+        id: 'kitchen_upper_glass', label: 'Glass Display Uppers',
+        procedural: true,
+        default: { width: 240, height: 70, depth: 35 },
+        shape2D: 'kitchen_straight'
+    },
+    'kitchen_upper_shelves': {
+        id: 'kitchen_upper_shelves', label: 'Floating Wood Shelves',
+        procedural: true,
+        default: { width: 240, height: 70, depth: 35 },
+        shape2D: 'kitchen_straight'
+    },
     'kitchen_u_shape_upper': {
         id: 'kitchen_u_shape_upper', label: 'U-Shape Upper Cabinets',
         procedural: true,
