@@ -4,7 +4,7 @@ export const WORKSPACE_2D_SHAPES = {
     'bench': "M 10 20 L 90 20 L 90 80 L 10 80 Z M 10 35 L 90 35 M 20 35 L 20 80 M 80 35 L 80 80",
     'bed': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 5 25 L 95 25 M 15 10 L 40 10 L 40 20 L 15 20 Z M 60 10 L 85 10 L 85 20 L 60 20 Z M 5 35 L 95 35",
     'tv_unit': "M 10 30 L 90 30 L 90 70 L 10 70 Z M 15 35 L 85 35 L 85 65 L 15 65 Z",
-    'kitchen_straight': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 0 35 L 100 35",
+    'kitchen_straight': "M 0 0 L 100 0 L 100 100 L 0 100 Z",
     'kitchen_l_shape': "M 0 0 L 100 0 L 100 30 L 30 30 L 30 100 L 0 100 Z",
     'kitchen_u_shape': "M 0 0 L 100 0 L 100 100 L 70 100 L 70 30 L 30 30 L 30 100 L 0 100 Z",
     'sink_standard': "M 5 10 L 95 10 L 95 90 L 5 90 Z M 15 20 L 85 20 L 85 80 L 15 80 Z M 45 45 L 55 45 L 55 55 L 45 55 Z",
