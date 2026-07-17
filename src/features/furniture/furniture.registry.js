@@ -5,14 +5,16 @@ export const WORKSPACE_2D_SHAPES = {
     'bed': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 5 25 L 95 25 M 15 10 L 40 10 L 40 20 L 15 20 Z M 60 10 L 85 10 L 85 20 L 60 20 Z M 5 35 L 95 35",
     'tv_unit': "M 10 30 L 90 30 L 90 70 L 10 70 Z M 15 35 L 85 35 L 85 65 L 15 65 Z",
     'kitchen_straight': "M 0 0 L 100 0 L 100 100 L 0 100 Z",
-    'kitchen_l_shape': "M 0 0 L 100 0 L 100 30 L 30 30 L 30 100 L 0 100 Z",
-    'kitchen_u_shape': "M 0 0 L 100 0 L 100 100 L 70 100 L 70 30 L 30 30 L 30 100 L 0 100 Z",
-    'sink_standard': "M 5 10 L 95 10 L 95 90 L 5 90 Z M 15 20 L 85 20 L 85 80 L 15 80 Z M 45 45 L 55 45 L 55 55 L 45 55 Z",
-    'sink_double': "M 5 10 L 95 10 L 95 90 L 5 90 Z M 15 20 L 45 20 L 45 80 L 15 80 Z M 55 20 L 85 20 L 85 80 L 55 80 Z M 25 45 L 35 45 L 35 55 L 25 55 Z M 65 45 L 75 45 L 75 55 L 65 55 Z",
-    'sink_farmhouse': "M 0 5 L 100 5 L 100 95 L 0 95 Z M 15 20 L 85 20 L 85 80 L 15 80 Z M 45 45 L 55 45 L 55 55 L 45 55 Z",
+    'kitchen_upper_glass': "M 0 0 L 100 0 L 100 100 L 0 100 Z",
+    'kitchen_upper_shelves': "M 0 0 L 100 0 L 100 100 L 0 100 Z",
+    'kitchen_island': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 0 50 L 100 50",
+    'kitchen_tall_pantry': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 0 0 L 100 100 M 100 0 L 0 100",
+    'sink_standard': "M 10 10 L 90 10 L 90 90 L 10 90 Z M 50 40 A 10 10 0 1 0 50 60 A 10 10 0 1 0 50 40",
+    'sink_double': "M 5 10 L 45 10 L 45 90 L 5 90 Z M 55 10 L 95 10 L 95 90 L 55 90 Z",
+    'sink_farmhouse': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 10 10 L 90 10 L 90 90 L 10 90 Z",
     'tap': "M 40 80 L 60 80 L 60 40 L 50 20 L 40 40 Z",
     'hood_chimney': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 33 0 L 66 0 L 66 50 L 33 50 Z",
-    'app_microwave': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 75 0 L 75 100 M 5 90 L 70 90 L 70 10 L 5 10 Z",
+    'app_microwave': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 70 10 L 90 10 L 90 90 L 70 90 Z M 45 45 L 55 45 L 55 55 L 45 55 Z",
     'app_toaster': "M 15 5 L 85 5 Q 95 5 95 15 L 95 85 Q 95 95 85 95 L 15 95 Q 5 95 5 85 L 5 15 Q 5 5 15 5 M 30 15 L 45 15 L 45 80 L 30 80 Z M 55 15 L 70 15 L 70 80 L 55 80 Z M 25 95 L 45 95 L 45 100 L 25 100 Z M 65 95 L 75 95 L 75 100 L 65 100 Z",
     'app_fridge': "M 0 0 L 100 0 L 100 80 L 0 80 Z M 0 80 L 48 80 L 48 95 L 0 95 Z M 52 80 L 100 80 L 100 95 L 52 95 Z M 40 95 L 40 100 M 60 95 L 60 100 M 15 80 L 35 80",
     'app_oven': "M 0 0 L 100 0 L 100 80 L 0 80 Z M 0 80 L 100 80 L 100 90 L 0 90 Z M 20 90 L 80 90 L 80 100 L 20 100 Z",
@@ -182,5 +184,35 @@ export const FURNITURE_REGISTRY = {
         default: { width: 100, height: 40, depth: 60 },
         editable: { resize: true, rotation: true, move: true },
         shape2D: 'bench'
+    },
+    'kitchen_island': {
+        id: 'kitchen_island', label: 'Kitchen Island',
+        procedural: true,
+        default: { width: 240, height: 90, depth: 120, elevation: 0 },
+        shape2D: 'kitchen_island'
+    },
+    'kitchen_tall_pantry': {
+        id: 'kitchen_tall_pantry', label: 'Tall Pantry',
+        procedural: true,
+        default: { width: 60, height: 210, depth: 60, elevation: 0 },
+        shape2D: 'kitchen_tall_pantry'
+    },
+    'cooktop_induction': {
+        id: 'cooktop_induction', label: 'Induction Cooktop',
+        procedural: true,
+        default: { width: 60, height: 1, depth: 52, elevation: 90 },
+        shape2D: 'cooktop_induction'
+    },
+    'furniture_barstool': {
+        id: 'furniture_barstool', label: 'Bar Stool',
+        procedural: true,
+        default: { width: 40, height: 75, depth: 40, elevation: 0 },
+        shape2D: 'furniture'
+    },
+    'lighting_pendant': {
+        id: 'lighting_pendant', label: 'Pendant Light',
+        procedural: true,
+        default: { width: 30, height: 120, depth: 30, elevation: 180 },
+        shape2D: 'lighting'
     }
 };

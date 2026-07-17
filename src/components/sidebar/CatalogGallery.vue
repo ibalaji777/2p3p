@@ -147,7 +147,9 @@ const railingCatalog = ref([
 ]);
 
 const furnitureCatalog = ref([
-    { id: 'bench', name: 'Bench', image: '', toolId: 'furniture', params: { type: 'table_dining' } }
+    { id: 'bench', name: 'Bench', image: '', toolId: 'furniture', params: { type: 'table_dining' } },
+    { id: 'furniture_barstool', name: 'Modern Bar Stool', image: '', toolId: 'furniture', params: { type: 'furniture_barstool' } },
+    { id: 'lighting_pendant', name: 'Pendant Light', image: '', toolId: 'furniture', params: { type: 'lighting_pendant', elevation: 180 } }
 ]);
 
 const kitchenCatalog = ref([
@@ -160,7 +162,9 @@ const kitchenCatalog = ref([
     { id: 'kitchen_straight_shaker', name: 'Classic Shaker Kitchen', image: '', toolId: 'kitchen', params: { type: 'kitchen_straight_shaker', width: 240, height: 90, depth: 60 } },
     { id: 'kitchen_straight_floating', name: 'Floating Base Kitchen', image: '', toolId: 'kitchen', params: { type: 'kitchen_straight_floating', width: 240, height: 90, depth: 60 } },
     { id: 'kitchen_upper_glass', name: 'Glass Display Uppers', image: '', toolId: 'kitchen', params: { type: 'kitchen_upper_glass', width: 240, height: 70, depth: 35 } },
-    { id: 'kitchen_upper_shelves', name: 'Floating Wood Shelves', image: '', toolId: 'kitchen', params: { type: 'kitchen_upper_shelves', width: 240, height: 70, depth: 35 } }
+    { id: 'kitchen_upper_shelves', name: 'Floating Wood Shelves', image: '', toolId: 'kitchen', params: { type: 'kitchen_upper_shelves', width: 240, height: 70, depth: 35 } },
+    { id: 'kitchen_island', name: 'Kitchen Island', image: '', toolId: 'kitchen', params: { type: 'kitchen_island', width: 240, height: 90, depth: 120 } },
+    { id: 'kitchen_tall_pantry', name: 'Tall Pantry Cabinet', image: '', toolId: 'kitchen', params: { type: 'kitchen_tall_pantry', width: 60, height: 210, depth: 60 } }
 ]);
 
 const sinkCatalog = ref([
@@ -187,7 +191,8 @@ const smallApplianceCatalog = ref([
 const householdApplianceCatalog = ref([
     { id: 'app_fridge', name: 'Double-Door Fridge', image: '', toolId: 'furniture', params: { type: 'app_fridge', elevation: 0 } },
     { id: 'app_oven', name: 'Built-in Oven', image: '', toolId: 'furniture', params: { type: 'app_oven', elevation: 90 } },
-    { id: 'app_dishwasher', name: 'Dishwasher', image: '', toolId: 'furniture', params: { type: 'app_dishwasher', elevation: 0 } }
+    { id: 'app_dishwasher', name: 'Dishwasher', image: '', toolId: 'furniture', params: { type: 'app_dishwasher', elevation: 0 } },
+    { id: 'cooktop_induction', name: 'Induction Cooktop', image: '', toolId: 'furniture', params: { type: 'cooktop_induction', elevation: 90 } }
 ]);
 
 

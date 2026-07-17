@@ -65,13 +65,16 @@ export class FurnitureManager {
                     const numMods = Math.max(1, Math.round(len / 60));
                     const modW = len / numMods;
                     
-                    if (rowType === 'base') {
+                    if (rowType === 'base' || rowType === 'tall') {
                         const isFloating = style === 'kitchen_straight_floating';
                         const isShaker = style === 'kitchen_straight_shaker';
-                        const bH = 90, toeH = isFloating ? 20 : 10, toeRecess = 5;
+                        const isTall = rowType === 'tall';
+                        const bH = isTall ? 210 : 90;
+                        const toeH = (isFloating && !isTall) ? 20 : 10;
+                        const toeRecess = 5;
                         const tThick = isFloating ? 1.5 : (isShaker ? 5 : 4);
                         
-                        if (!isFloating) {
+                        if (!isFloating || isTall) {
                             const toe = new THREE.Mesh(new THREE.BoxGeometry(len, toeH, dep - toeRecess), matToe);
                             toe.position.set(len/2, toeH/2, (dep - toeRecess)/2);
                             row.add(toe);
@@ -82,18 +85,26 @@ export class FurnitureManager {
                             row.add(led);
                         }
                         
-                        const top = new THREE.Mesh(new THREE.BoxGeometry(len, tThick, dep + 2), matTop);
-                        top.position.set(len/2, bH - tThick/2, (dep + 2)/2);
-                        row.add(top);
+                        if (!isTall && style !== 'kitchen_island') {
+                            const top = new THREE.Mesh(new THREE.BoxGeometry(len, tThick, dep + 2), matTop);
+                            top.position.set(len/2, bH - tThick/2, (dep + 2)/2);
+                            row.add(top);
+                        }
                         
                         for(let i=0; i<numMods; i++) {
                             const X = i * modW + modW/2;
-                            const cabH = bH - tThick - toeH;
+                            const cabH = isTall ? bH - toeH : bH - tThick - toeH;
                             const body = new THREE.Mesh(new THREE.BoxGeometry(modW - 0.2, cabH, dep - 2), matBase);
                             body.position.set(X, toeH + cabH/2, (dep - 2)/2);
                             
                             const doorGroup = new THREE.Group();
-                            if (isShaker) {
+                            if (isTall) {
+                                // Tall continuous doors with long handles
+                                const door = new THREE.Mesh(new THREE.BoxGeometry(modW - 0.4, cabH - 0.4, 1.8), matDoor);
+                                const handle = new THREE.Mesh(new THREE.BoxGeometry(1.2, 120, 2.5), matHandle);
+                                handle.position.set((i%2===0)? modW/2 - 5 : -modW/2 + 5, 0, 2);
+                                doorGroup.add(door, handle);
+                            } else if (isShaker) {
                                 // Shaker door simulation
                                 const dFrame = new THREE.Mesh(new THREE.BoxGeometry(modW - 0.4, cabH - 0.4, 1.8), matDoor);
                                 const dPanel = new THREE.Mesh(new THREE.BoxGeometry(modW - 12, cabH - 12, 1.9), matBase); // Recessed visual
@@ -185,7 +196,82 @@ export class FurnitureManager {
 
                 const innerGroup = new THREE.Group();
                 
-                if (!type.includes('_upper')) {
+                if (type === 'kitchen_island') {
+                    // Front base cabinets
+                    const frontBase = buildRow(w, 60, 'base', type);
+                    innerGroup.add(frontBase);
+                    
+                    // Waterfall Countertop
+                    const top = new THREE.Mesh(new THREE.BoxGeometry(w, 4, d + 2), matTop);
+                    top.position.set(w/2, 90 - 2, d/2);
+                    
+                    // Left and Right waterfall legs
+                    const leftLeg = new THREE.Mesh(new THREE.BoxGeometry(4, 90 - 4, d + 2), matTop);
+                    leftLeg.position.set(2, 43, d/2);
+                    const rightLeg = new THREE.Mesh(new THREE.BoxGeometry(4, 90 - 4, d + 2), matTop);
+                    rightLeg.position.set(w - 2, 43, d/2);
+                    
+                    innerGroup.add(top, leftLeg, rightLeg);
+                    
+                    // Fluted Wood Back panel supporting the island overhang
+                    const backGroup = new THREE.Group();
+                    const slatW = 4;
+                    const slatCount = Math.floor((w - 8) / slatW);
+                    const matWood = new THREE.MeshStandardMaterial({ color: '#b45309', roughness: 0.8 }); // Rich Walnut
+                    for (let i = 0; i < slatCount; i++) {
+                        const slat = new THREE.Mesh(new THREE.CylinderGeometry(slatW/2, slatW/2, 86, 16), matWood);
+                        slat.position.set(4 + i*slatW + slatW/2, 43, 61);
+                        slat.scale.set(1, 1, 0.4); // flatten into half-ovals for fluted look
+                        backGroup.add(slat);
+                    }
+                    innerGroup.add(backGroup);
+                } else if (type === 'kitchen_tall_pantry') {
+                    // Appliance garage alcove
+                    const pW = w; const pD = d; const pH = 210;
+                    const toe = new THREE.Mesh(new THREE.BoxGeometry(pW, 10, pD - 5), matToe); toe.position.set(pW/2, 5, pD/2 - 2.5);
+                    
+                    const lowH = 80;
+                    const alcoveH = 45;
+                    const upH = pH - 10 - lowH - alcoveH;
+                    
+                    // Split body to avoid z-fighting with open alcove
+                    const bodyLower = new THREE.Mesh(new THREE.BoxGeometry(pW, lowH, pD), matBase);
+                    bodyLower.position.set(pW/2, 10 + lowH/2, pD/2);
+                    
+                    const bodyUpper = new THREE.Mesh(new THREE.BoxGeometry(pW, upH, pD), matBase);
+                    bodyUpper.position.set(pW/2, 10 + lowH + alcoveH + upH/2, pD/2);
+                    
+                    // Lower doors (Shaker)
+                    const lDoorGroup = new THREE.Group();
+                    const ldFrame = new THREE.Mesh(new THREE.BoxGeometry(pW-0.4, lowH-0.4, 1.8), matDoor);
+                    const ldPanel = new THREE.Mesh(new THREE.BoxGeometry(pW-12, lowH-12, 1.9), matBase);
+                    const lHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 30, 16), matHandle); lHandle.position.set(-pW/2 + 8, 0, 2);
+                    lDoorGroup.add(ldFrame, ldPanel, lHandle);
+                    lDoorGroup.position.set(pW/2, 10 + lowH/2, pD + 0.9);
+                    
+                    // Middle Alcove (Open shelf lined with stone)
+                    const alGroup = new THREE.Group();
+                    const alY = 10 + lowH;
+                    const alBack = new THREE.Mesh(new THREE.BoxGeometry(pW-4, alcoveH, 2), matTop); alBack.position.set(pW/2, alY + alcoveH/2, 1);
+                    const alBot = new THREE.Mesh(new THREE.BoxGeometry(pW-4, 2, pD), matTop); alBot.position.set(pW/2, alY + 1, pD/2);
+                    const alTop = new THREE.Mesh(new THREE.BoxGeometry(pW-4, 2, pD), matTop); alTop.position.set(pW/2, alY + alcoveH - 1, pD/2);
+                    const alL = new THREE.Mesh(new THREE.BoxGeometry(2, alcoveH, pD), matTop); alL.position.set(1, alY + alcoveH/2, pD/2);
+                    const alR = new THREE.Mesh(new THREE.BoxGeometry(2, alcoveH, pD), matTop); alR.position.set(pW-1, alY + alcoveH/2, pD/2);
+                    // LED Strip under alcove top
+                    const led = new THREE.Mesh(new THREE.BoxGeometry(pW-8, 0.5, 2), new THREE.MeshBasicMaterial({color: 0xffffff}));
+                    led.position.set(pW/2, alY + alcoveH - 2, pD/2);
+                    alGroup.add(alBack, alBot, alTop, alL, alR, led);
+                    
+                    // Upper Doors (Shaker)
+                    const uDoorGroup = new THREE.Group();
+                    const udFrame = new THREE.Mesh(new THREE.BoxGeometry(pW-0.4, upH-0.4, 1.8), matDoor);
+                    const udPanel = new THREE.Mesh(new THREE.BoxGeometry(pW-12, upH-12, 1.9), matBase);
+                    const uHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 40, 16), matHandle); uHandle.position.set(-pW/2 + 8, 0, 2);
+                    uDoorGroup.add(udFrame, udPanel, uHandle);
+                    uDoorGroup.position.set(pW/2, 10 + lowH + alcoveH + upH/2, pD + 0.9);
+                    
+                    innerGroup.add(toe, bodyLower, bodyUpper, lDoorGroup, alGroup, uDoorGroup);
+                } else if (!type.includes('_upper')) {
                     const backBase = buildRow(w, d, 'base', type);
                     innerGroup.add(backBase);
                     
@@ -427,7 +513,7 @@ export class FurnitureManager {
                 const box = new THREE.Box3().setFromObject(wrapper);
                 size = box.getSize(new THREE.Vector3());
                 center = box.getCenter(new THREE.Vector3());
-            } else if (config.procedural && config.id && ['hood_', 'app_', 'wine_', 'trash_', 'handle_'].some(prefix => config.id.startsWith(prefix))) {
+            } else if (config.procedural && config.id && ['hood_', 'app_', 'wine_', 'trash_', 'handle_', 'cooktop_', 'furniture_', 'lighting_'].some(prefix => config.id.startsWith(prefix))) {
                 const sW = entity.width || 60;
                 const sH = entity.height || 60;
                 const sD = entity.depth || 60;
@@ -725,6 +811,82 @@ export class FurnitureManager {
                     const outer = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 1), mSteel); outer.position.y = 2;
                     const hole = new THREE.Mesh(new THREE.BoxGeometry(8, 2, 2), mBlack); hole.position.set(0, 2, 0);
                     eqGroup.add(outer, hole);
+                } else if (config.id === 'cooktop_induction') {
+                    // Schott Ceran ultra-premium Induction cooktop
+                    const base = new THREE.Mesh(new THREE.BoxGeometry(58, 0.8, 50), mBlack); base.position.y = 0.4;
+                    const glass = new THREE.Mesh(new THREE.BoxGeometry(60, 0.2, 52), mGlass); glass.position.y = 0.9;
+                    
+                    // Chamfered metal edge frame
+                    const mFrame = new THREE.MeshStandardMaterial({ color: '#cbd5e1', metalness: 0.9, roughness: 0.1 });
+                    const frameL = new THREE.Mesh(new THREE.BoxGeometry(1, 0.4, 52.4), mFrame); frameL.position.set(-30, 0.8, 0);
+                    const frameR = new THREE.Mesh(new THREE.BoxGeometry(1, 0.4, 52.4), mFrame); frameR.position.set(30, 0.8, 0);
+                    const frameT = new THREE.Mesh(new THREE.BoxGeometry(60, 0.4, 1), mFrame); frameT.position.set(0, 0.8, -26);
+                    const frameB = new THREE.Mesh(new THREE.BoxGeometry(60, 0.4, 1), mFrame); frameB.position.set(0, 0.8, 26);
+                    
+                    const ringMat = new THREE.MeshBasicMaterial({ color: '#ef4444' }); // Red induction glow
+                    const whiteMat = new THREE.MeshBasicMaterial({ color: '#ffffff' }); // White crosshairs
+                    const ringPositions = [[-15, -10, 8], [15, -10, 8], [-15, 10, 6], [15, 10, 6]]; // x, z, radius
+                    ringPositions.forEach(pos => {
+                        // Subtle inner glowing ring
+                        const ring = new THREE.Mesh(new THREE.TorusGeometry(pos[2], 0.1, 16, 32), ringMat);
+                        ring.rotation.x = Math.PI/2; ring.position.set(pos[0], 1, pos[1]);
+                        
+                        // Crosshairs (modern minimalist UI)
+                        const crossH = new THREE.Mesh(new THREE.BoxGeometry(4, 0.05, 0.2), whiteMat); crossH.position.set(pos[0], 1.05, pos[1]);
+                        const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 4), whiteMat); crossV.position.set(pos[0], 1.05, pos[1]);
+                        eqGroup.add(ring, crossH, crossV);
+                    });
+                    
+                    // LED Slider Control panel
+                    const slider = new THREE.Mesh(new THREE.BoxGeometry(20, 0.05, 2), ringMat); slider.position.set(0, 1.05, 22);
+                    eqGroup.add(base, glass, frameL, frameR, frameT, frameB, slider);
+                } else if (config.id === 'furniture_barstool') {
+                    // Sculpted Scandinavian Bar Stool
+                    const pWood = new THREE.MeshStandardMaterial({ color: '#92400e', roughness: 0.4 }); // Walnut seat
+                    const pBrass = new THREE.MeshStandardMaterial({ color: '#d97706', metalness: 0.9, roughness: 0.2 });
+                    
+                    // Ergonomic sculpted seat (using deformed sphere to simulate curved dish)
+                    const seat = new THREE.Mesh(new THREE.SphereGeometry(18, 32, 16, 0, Math.PI*2, 0, Math.PI/2), pWood);
+                    seat.scale.set(1, 0.2, 1);
+                    seat.position.y = 73.5;
+                    seat.rotation.x = Math.PI; // flip upside down so flat is down, curve is up
+                    
+                    // Seat Base
+                    const seatBase = new THREE.Mesh(new THREE.CylinderGeometry(14, 14, 2, 32), pWood);
+                    seatBase.position.y = 72;
+                    
+                    for(let i=0; i<4; i++) {
+                        const angle = (Math.PI/2) * i + Math.PI/4;
+                        // Tapered legs (thicker at top, thin at bottom)
+                        const leg = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 0.6, 73, 16), pBrass);
+                        leg.position.set(Math.cos(angle)*12, 36.5, Math.sin(angle)*12);
+                        leg.rotation.z = Math.cos(angle) * -0.15;
+                        leg.rotation.x = Math.sin(angle) * 0.15;
+                        eqGroup.add(leg);
+                    }
+                    const footrest = new THREE.Mesh(new THREE.TorusGeometry(12, 0.6, 16, 32), pBrass);
+                    footrest.rotation.x = Math.PI/2; footrest.position.y = 25;
+                    eqGroup.add(seat, seatBase, footrest);
+                } else if (config.id === 'lighting_pendant') {
+                    // Multi-layered Ribbed Brass Fixture with Frosted Globe
+                    const pBrass = new THREE.MeshStandardMaterial({ color: '#d97706', metalness: 0.9, roughness: 0.2 });
+                    const pGlass = new THREE.MeshPhysicalMaterial({ color: '#ffffff', transmission: 0.8, opacity: 1, transparent: true, roughness: 0.3 });
+                    const pWire = new THREE.MeshStandardMaterial({ color: '#0f172a', roughness: 0.9 });
+                    
+                    // Ceiling Rose / Canopy
+                    const canopy = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 2, 32), pBrass); canopy.position.y = 100;
+                    const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 70, 8), pWire); wire.position.y = 65;
+                    
+                    // Ribbed brass housing
+                    const housing = new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 15, 32), pBrass); housing.position.y = 22.5;
+                    
+                    // Frosted Globe
+                    const globe = new THREE.Mesh(new THREE.SphereGeometry(12, 32, 32), pGlass); globe.position.y = 10;
+                    
+                    const bulb = new THREE.Mesh(new THREE.SphereGeometry(3, 16, 16), new THREE.MeshBasicMaterial({color: 0xfff5e6})); bulb.position.y = 10;
+                    const light = new THREE.PointLight(0xffeedd, 1.5, 400); light.position.y = 10;
+                    
+                    eqGroup.add(canopy, wire, housing, globe, bulb, light);
                 }
 
                 const baseBox = new THREE.Box3().setFromObject(eqGroup);
