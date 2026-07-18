@@ -825,7 +825,7 @@ export class FloorPlanner {
             if(a.node) { a.node.setAttr('draggable', canEdit); a.node.setAttr('listening', canEdit); } 
         });
         this.furniture.forEach(f => { 
-            let canEdit = isSelect && (allowAll || cat === 'furniture');
+            let canEdit = isSelect && (allowAll || cat === 'furniture' || cat.startsWith('kitchen') || cat === 'bathroom' || cat === 'lighting');
             if(f.group) { f.group.setAttr('draggable', canEdit); f.group.setAttr('listening', canEdit); } 
         });
         if (this.roofs) this.roofs.forEach(r => {

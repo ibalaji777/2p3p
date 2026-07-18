@@ -15,7 +15,8 @@
                  :class="{ active: modelValue === item.id }"
                  @click="$emit('update:modelValue', item.id); $emit('select', item)">
                 <div class="thumbnail-wrapper">
-                    <img :src="item.image" :alt="item.name" @error="handleImageError" />
+                    <img v-if="item.image" :src="item.image" :alt="item.name" @error="handleImageError" />
+                    <div v-else style="display:flex; align-items:center; justify-content:center; height:100%; width:100%; background:#f1f5f9; color:#94a3b8; font-size:0.75rem;">Loading 3D...</div>
                     <div class="active-badge" v-if="modelValue === item.id">
                         <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                     </div>
@@ -147,6 +148,13 @@ const railingCatalog = ref([
 ]);
 
 const furnitureCatalog = ref([
+    { id: 'sofa_3seater', name: 'Modern 3-Seater Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_3seater' } },
+    { id: 'sofa_l_shape', name: 'L-Shape Sectional', image: '', toolId: 'furniture', params: { type: 'sofa_l_shape' } },
+    { id: 'sofa_ph_01', name: 'Fabric Modern Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_ph_01' } },
+    { id: 'sofa_ph_chinese', name: 'Mahogany Chinese Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_ph_chinese' } },
+    { id: 'sofa_ph_painted', name: 'Distressed Wood Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_ph_painted' } },
+    { id: 'sofa_ph_02', name: 'Distressed Leather Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_ph_02' } },
+    { id: 'sofa_ph_03', name: 'Contemporary Charcoal Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_ph_03' } },
     { id: 'bench', name: 'Bench', image: '', toolId: 'furniture', params: { type: 'table_dining' } },
     { id: 'furniture_barstool', name: 'Modern Bar Stool', image: '', toolId: 'furniture', params: { type: 'furniture_barstool' } },
     { id: 'lighting_pendant', name: 'Pendant Light', image: '', toolId: 'furniture', params: { type: 'lighting_pendant', elevation: 180 } }

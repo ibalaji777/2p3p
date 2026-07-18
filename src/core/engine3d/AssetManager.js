@@ -82,6 +82,24 @@ export class AssetManager {
                     });
                 }
                 
+                if (config.forceColor) {
+                    modelScene.traverse((child) => {
+                        if (child.isMesh && child.material) {
+                            const applyColor = (mat) => {
+                                // Instead of stripping the texture, multiply it by the color!
+                                // This keeps all the baked-in fabric details, shadows, and highlights.
+                                mat.color.set(config.forceColor);
+                                mat.needsUpdate = true;
+                            };
+                            if (Array.isArray(child.material)) {
+                                child.material.forEach(applyColor);
+                            } else {
+                                applyColor(child.material);
+                            }
+                        }
+                    });
+                }
+                
                 // CRITICAL: Protect cached geometry and materials from being destroyed by deepDispose
                 modelScene.traverse((child) => {
                     if (child.isMesh) {

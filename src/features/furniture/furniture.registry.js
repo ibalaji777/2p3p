@@ -3,6 +3,7 @@ export const WORKSPACE_2D_SHAPES = {
     'chair': "M 15 15 L 85 15 L 85 85 L 15 85 Z M 25 35 L 75 35 L 75 85 L 25 85 Z M 25 35 L 25 15 M 75 35 L 75 15 M 40 15 L 40 35 M 50 15 L 50 35 M 60 15 L 60 35",
     'bench': "M 10 20 L 90 20 L 90 80 L 10 80 Z M 10 35 L 90 35 M 20 35 L 20 80 M 80 35 L 80 80",
     'bed': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 5 25 L 95 25 M 15 10 L 40 10 L 40 20 L 15 20 Z M 60 10 L 85 10 L 85 20 L 60 20 Z M 5 35 L 95 35",
+    'sofa_l_shape': "M 0 0 L 100 0 L 100 20 L 0 20 Z M 0 20 L 15 20 L 15 60 L 0 60 Z M 15 20 L 70 20 L 70 60 L 15 60 Z M 70 20 L 100 20 L 100 100 L 70 100 Z",
     'tv_unit': "M 10 30 L 90 30 L 90 70 L 10 70 Z M 15 35 L 85 35 L 85 65 L 15 65 Z",
     'kitchen_straight': "M 0 0 L 100 0 L 100 100 L 0 100 Z",
     'kitchen_upper_glass': "M 0 0 L 100 0 L 100 100 L 0 100 Z",
@@ -22,6 +23,9 @@ export const WORKSPACE_2D_SHAPES = {
     'trash_pedal': "M 20 20 L 80 20 Q 90 20 90 30 L 90 70 Q 90 80 80 80 L 20 80 Q 10 80 10 70 L 10 30 Q 10 20 20 20 Z M 40 80 L 60 80 L 60 90 L 40 90 Z M 30 30 L 70 30 L 70 70 L 30 70 Z",
     'trash_recycle': "M 10 10 L 90 10 Q 95 10 95 15 L 95 75 Q 95 80 90 80 L 10 80 Q 5 80 5 75 L 5 15 Q 5 10 10 10 Z M 15 15 L 45 15 L 45 75 L 15 75 Z M 55 15 L 85 15 L 85 75 L 55 75 Z M 20 80 L 40 80 L 40 90 L 20 90 Z M 60 80 L 80 80 L 80 90 L 60 90 Z",
     'trash_pullout': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 5 5 L 95 5 L 95 80 L 5 80 Z M 10 10 L 45 10 L 45 70 L 10 70 Z M 55 10 L 90 10 L 90 70 L 55 70 Z M 40 90 L 60 90 M 40 95 L 60 95",
+    'cooktop_induction': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 15 15 L 45 15 L 45 45 L 15 45 Z M 55 15 L 85 15 L 85 45 L 55 45 Z M 15 55 L 45 55 L 45 85 L 15 85 Z M 55 55 L 85 55 L 85 85 L 55 85 Z",
+    'furniture': "M 50 10 A 40 40 0 1 0 50 90 A 40 40 0 1 0 50 10 Z",
+    'lighting': "M 50 25 A 25 25 0 1 0 50 75 A 25 25 0 1 0 50 25 Z",
     'default': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 0 0 L 100 100 M 100 0 L 0 100"
 };
 
@@ -214,5 +218,54 @@ export const FURNITURE_REGISTRY = {
         procedural: true,
         default: { width: 30, height: 120, depth: 30, elevation: 180 },
         shape2D: 'lighting'
+    },
+    'sofa_3seater': {
+        id: 'sofa_3seater', label: 'Modern 3-Seater Sofa',
+        procedural: false,
+        model: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/SheenWoodLeatherSofa/glTF-Binary/SheenWoodLeatherSofa.glb',
+        default: { width: 200, height: 80, depth: 90, elevation: 0 },
+        shape2D: 'couch'
+    },
+    'sofa_l_shape': {
+        id: 'sofa_l_shape', label: 'Premium L-Shape Sectional',
+        procedural: false,
+        model: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/GlamVelvetSofa/glTF-Binary/GlamVelvetSofa.glb',
+        default: { width: 250, height: 80, depth: 150, elevation: 0 },
+        shape2D: 'sofa_l_shape'
+    },
+    'sofa_ph_01': {
+        id: 'sofa_ph_01', label: 'Fabric Modern Sofa',
+        procedural: false,
+        model: 'models/Sofa_01/Sofa_01_1k.gltf',
+        default: { width: 220, height: 85, depth: 95, elevation: 0 },
+        shape2D: 'couch'
+    },
+    'sofa_ph_chinese': {
+        id: 'sofa_ph_chinese', label: 'Mahogany Chinese Sofa',
+        procedural: false,
+        model: 'models/chinese_sofa/chinese_sofa_1k.gltf',
+        default: { width: 200, height: 90, depth: 85, elevation: 0 },
+        shape2D: 'couch'
+    },
+    'sofa_ph_painted': {
+        id: 'sofa_ph_painted', label: 'Distressed Wood Sofa',
+        procedural: false,
+        model: 'models/painted_wooden_sofa/painted_wooden_sofa_1k.gltf',
+        default: { width: 210, height: 95, depth: 85, elevation: 0 },
+        shape2D: 'couch'
+    },
+    'sofa_ph_02': {
+        id: 'sofa_ph_02', label: 'Distressed Leather Sofa',
+        procedural: false,
+        model: 'models/sofa_02/sofa_02_1k.gltf',
+        default: { width: 240, height: 85, depth: 100, elevation: 0 },
+        shape2D: 'couch'
+    },
+    'sofa_ph_03': {
+        id: 'sofa_ph_03', label: 'Contemporary Charcoal Sofa',
+        procedural: false,
+        model: 'models/sofa_03/sofa_03_1k.gltf',
+        default: { width: 210, height: 80, depth: 95, elevation: 0 },
+        shape2D: 'couch'
     }
 };
