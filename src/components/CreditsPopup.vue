@@ -21,7 +21,7 @@
 
 <script setup>
 import { ref, computed } from 'vue';
-import { FURNITURE_REGISTRY } from '../../features/furniture/furniture.registry.js';
+import { FURNITURE_REGISTRY } from '../features/furniture/furniture.registry.js';
 
 const isVisible = ref(false);
 
