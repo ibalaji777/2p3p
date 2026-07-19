@@ -150,11 +150,6 @@ const railingCatalog = ref([
 const furnitureCatalog = ref([
     { id: 'sofa_3seater', name: 'Modern 3-Seater Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_3seater' } },
     { id: 'sofa_l_shape', name: 'L-Shape Sectional', image: '', toolId: 'furniture', params: { type: 'sofa_l_shape' } },
-    { id: 'sofa_ph_01', name: 'Fabric Modern Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_ph_01' } },
-    { id: 'sofa_ph_chinese', name: 'Mahogany Chinese Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_ph_chinese' } },
-    { id: 'sofa_ph_painted', name: 'Distressed Wood Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_ph_painted' } },
-    { id: 'sofa_ph_02', name: 'Distressed Leather Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_ph_02' } },
-    { id: 'sofa_ph_03', name: 'Contemporary Charcoal Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_ph_03' } },
     { id: 'bench', name: 'Bench', image: '', toolId: 'furniture', params: { type: 'table_dining' } },
     { id: 'furniture_barstool', name: 'Modern Bar Stool', image: '', toolId: 'furniture', params: { type: 'furniture_barstool' } },
     { id: 'lighting_pendant', name: 'Pendant Light', image: '', toolId: 'furniture', params: { type: 'lighting_pendant', elevation: 180 } }
@@ -339,9 +334,11 @@ const handleImageError = (e) => {
 .catalog-grid {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 12px;
+    box-sizing: border-box;
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
     align-content: start;
 }

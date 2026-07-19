@@ -21,10 +21,10 @@ export class ThumbnailGenerator {
         this.scene = new THREE.Scene();
 
         // Studio Lighting Setup
-        const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+        const ambient = new THREE.AmbientLight(0xffffff, 1.2); // Increased for visibility
         this.scene.add(ambient);
         
-        const keyLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        const keyLight = new THREE.DirectionalLight(0xffffff, 1.5); // Increased for visibility
         keyLight.position.set(100, 150, 100);
         keyLight.castShadow = true;
         keyLight.shadow.mapSize.width = 1024;
@@ -32,7 +32,7 @@ export class ThumbnailGenerator {
         keyLight.shadow.bias = -0.001;
         this.scene.add(keyLight);
 
-        const fillLight = new THREE.DirectionalLight(0xccddff, 0.4);
+        const fillLight = new THREE.DirectionalLight(0xccddff, 0.8); // Increased for visibility
         fillLight.position.set(-100, 50, -100);
         this.scene.add(fillLight);
 

@@ -222,50 +222,15 @@ export const FURNITURE_REGISTRY = {
     'sofa_3seater': {
         id: 'sofa_3seater', label: 'Modern 3-Seater Sofa',
         procedural: false,
-        model: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/SheenWoodLeatherSofa/glTF-Binary/SheenWoodLeatherSofa.glb',
+        model: 'models/sofas/SheenWoodLeatherSofa.glb',
         default: { width: 200, height: 80, depth: 90, elevation: 0 },
         shape2D: 'couch'
     },
     'sofa_l_shape': {
         id: 'sofa_l_shape', label: 'Premium L-Shape Sectional',
         procedural: false,
-        model: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/GlamVelvetSofa/glTF-Binary/GlamVelvetSofa.glb',
+        model: 'models/sofas/GlamVelvetSofa.glb',
         default: { width: 250, height: 80, depth: 150, elevation: 0 },
         shape2D: 'sofa_l_shape'
-    },
-    'sofa_ph_01': {
-        id: 'sofa_ph_01', label: 'Fabric Modern Sofa',
-        procedural: false,
-        model: 'models/Sofa_01/Sofa_01_1k.gltf',
-        default: { width: 220, height: 85, depth: 95, elevation: 0 },
-        shape2D: 'couch'
-    },
-    'sofa_ph_chinese': {
-        id: 'sofa_ph_chinese', label: 'Mahogany Chinese Sofa',
-        procedural: false,
-        model: 'models/chinese_sofa/chinese_sofa_1k.gltf',
-        default: { width: 200, height: 90, depth: 85, elevation: 0 },
-        shape2D: 'couch'
-    },
-    'sofa_ph_painted': {
-        id: 'sofa_ph_painted', label: 'Distressed Wood Sofa',
-        procedural: false,
-        model: 'models/painted_wooden_sofa/painted_wooden_sofa_1k.gltf',
-        default: { width: 210, height: 95, depth: 85, elevation: 0 },
-        shape2D: 'couch'
-    },
-    'sofa_ph_02': {
-        id: 'sofa_ph_02', label: 'Distressed Leather Sofa',
-        procedural: false,
-        model: 'models/sofa_02/sofa_02_1k.gltf',
-        default: { width: 240, height: 85, depth: 100, elevation: 0 },
-        shape2D: 'couch'
-    },
-    'sofa_ph_03': {
-        id: 'sofa_ph_03', label: 'Contemporary Charcoal Sofa',
-        procedural: false,
-        model: 'models/sofa_03/sofa_03_1k.gltf',
-        default: { width: 210, height: 80, depth: 95, elevation: 0 },
-        shape2D: 'couch'
     }
 };

@@ -11,7 +11,7 @@ export class PremiumFurniture {
         
         const shapeKey = this.config.shape2D || 'default';
         const pathData = WORKSPACE_2D_SHAPES[shapeKey] || WORKSPACE_2D_SHAPES['default'];
-        this.body = new Konva.Path({ data: pathData, fill: 'transparent', stroke: '#94a3b8', strokeWidth: 1.5, strokeScaleEnabled: false, scaleX: this.width / 100, scaleY: this.depth / 100 });
+        this.body = new Konva.Path({ data: pathData, fill: this.config.color2D || 'transparent', stroke: '#94a3b8', strokeWidth: 1.5, strokeScaleEnabled: false, scaleX: this.width / 100, scaleY: this.depth / 100 });
         
         this.rotHandle = new Konva.Circle({ x: this.width / 2, y: -15, radius: 6, fill: '#3b82f6', stroke: 'white', strokeWidth: 2, draggable: true, visible: false });
         this.group.add(this.bg, this.body, this.rotHandle); this.planner.furnitureLayer.add(this.group);
