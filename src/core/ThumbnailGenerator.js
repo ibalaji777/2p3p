@@ -95,11 +95,15 @@ export class ThumbnailGenerator {
                     const size = bbox.getSize(new THREE.Vector3());
                     if (size.x > 0 && size.y > 0 && size.z > 0) {
                         const maxDim = Math.max(size.x, size.y, size.z);
-                        // Scale down if extremely large
-                        if (maxDim > 200) {
-                            const scale = 150 / maxDim;
-                            clone.scale.setScalar(scale);
-                        }
+                        // Scale to consistently fit the 150 unit frame, whether too big or too small
+                        const scale = 150 / maxDim;
+                        clone.scale.setScalar(scale);
+                        clone.updateMatrixWorld(true);
+                        
+                        // Re-center object to ensure it's in the middle of the camera frustum
+                        const centeredBbox = new THREE.Box3().setFromObject(clone);
+                        const center = centeredBbox.getCenter(new THREE.Vector3());
+                        clone.position.sub(center);
                     }
                     
                     // Force material update for rendering

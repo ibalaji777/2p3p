@@ -9,20 +9,23 @@
         </div>
 
         <div class="catalog-grid">
-            <div class="catalog-item" 
-                 v-for="item in filteredItems" 
-                 :key="item.id" 
-                 :class="{ active: modelValue === item.id }"
-                 @click="$emit('update:modelValue', item.id); $emit('select', item)">
-                <div class="thumbnail-wrapper">
-                    <img v-if="item.image" :src="item.image" :alt="item.name" @error="handleImageError" />
-                    <div v-else style="display:flex; align-items:center; justify-content:center; height:100%; width:100%; background:#f1f5f9; color:#94a3b8; font-size:0.75rem;">Loading 3D...</div>
-                    <div class="active-badge" v-if="modelValue === item.id">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    </div>
+            <template v-for="item in filteredItems" :key="item.id">
+                <div v-if="item.isDivider" class="catalog-divider">
+                    {{ item.name }}
                 </div>
-                <span class="item-name">{{ item.name }}</span>
-            </div>
+                <div v-else class="catalog-item" 
+                     :class="{ active: modelValue === item.id }"
+                     @click="$emit('update:modelValue', item.id); $emit('select', item)">
+                    <div class="thumbnail-wrapper">
+                        <img v-if="item.image" :src="item.image" :alt="item.name" @error="handleImageError" />
+                        <div v-else style="display:flex; align-items:center; justify-content:center; height:100%; width:100%; background:#f1f5f9; color:#94a3b8; font-size:0.75rem;">Loading 3D...</div>
+                        <div class="active-badge" v-if="modelValue === item.id">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </div>
+                    </div>
+                    <span class="item-name">{{ item.name }}</span>
+                </div>
+            </template>
         </div>
     </div>
 </template>
@@ -148,6 +151,7 @@ const railingCatalog = ref([
 ]);
 
 const furnitureCatalog = ref([
+    { isDivider: true, id: 'div_sofas', name: 'Sofas & Couches' },
     { id: 'sofa_3seater', name: 'Modern 3-Seater Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_3seater' } },
     { id: 'sofa_l_shape', name: 'L-Shape Sectional', image: '', toolId: 'furniture', params: { type: 'sofa_l_shape' } },
     { id: 'sofa_chesterfield', name: 'Chesterfield Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_chesterfield' } },
@@ -157,6 +161,12 @@ const furnitureCatalog = ref([
     { id: 'sofa_modern_3', name: 'Modern Sofa 3', image: '', toolId: 'furniture', params: { type: 'sofa_modern_3' } },
     { id: 'sofa_patricia', name: 'Patricia Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_patricia' } },
     { id: 'sofa_fabric', name: 'Fabric Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_fabric' } },
+    { isDivider: true, id: 'div_dining', name: 'Dining Tables & Sets' },
+    { id: 'dining_modern_1', name: 'Modern Dining Table 1', image: '', toolId: 'furniture', params: { type: 'dining_modern_1' } },
+    { id: 'dining_modern_2', name: 'Modern Dining Table 2', image: '', toolId: 'furniture', params: { type: 'dining_modern_2' } },
+    { id: 'dining_wooden_set_1', name: 'Wooden Dining Set 1', image: '', toolId: 'furniture', params: { type: 'dining_wooden_set_1' } },
+    { id: 'dining_wooden_set_2', name: 'Wooden Dining Set 2', image: '', toolId: 'furniture', params: { type: 'dining_wooden_set_2' } },
+    { isDivider: true, id: 'div_other', name: 'Other Furniture' },
     { id: 'bench', name: 'Bench', image: '', toolId: 'furniture', params: { type: 'table_dining' } },
     { id: 'furniture_barstool', name: 'Modern Bar Stool', image: '', toolId: 'furniture', params: { type: 'furniture_barstool' } },
     { id: 'lighting_pendant', name: 'Pendant Light', image: '', toolId: 'furniture', params: { type: 'lighting_pendant', elevation: 180 } }
@@ -288,6 +298,16 @@ const handleImageError = (e) => {
 </script>
 
 <style scoped>
+.catalog-divider {
+    grid-column: 1 / -1;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-top: 10px;
+    margin-bottom: 2px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #e2e8f0;
+}
 .catalog-gallery {
     display: flex;
     flex-direction: column;

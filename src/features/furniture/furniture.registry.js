@@ -299,5 +299,41 @@ export const FURNITURE_REGISTRY = {
         license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
         default: { width: 200, height: 80, depth: 90, elevation: 0 },
         shape2D: 'couch'
+    },
+    'dining_modern_1': {
+        id: 'dining_modern_1', label: 'Modern Dining Table 1',
+        procedural: false,
+        model: 'models/dining/dining_modern_1.glb',
+        author: 'Kumar Mridul (https://sketchfab.com/kmkinglucky)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 160, height: 75, depth: 90, elevation: 0 },
+        shape2D: 'furniture'
+    },
+    'dining_modern_2': {
+        id: 'dining_modern_2', label: 'Modern Dining Table 2',
+        procedural: false,
+        model: 'models/dining/dining_modern_2.glb',
+        author: 'Ravi Jangid (https://sketchfab.com/ravijangid.rv)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 160, height: 75, depth: 90, elevation: 0 },
+        shape2D: 'furniture'
+    },
+    'dining_wooden_set_1': {
+        id: 'dining_wooden_set_1', label: 'Wooden Dining Set 1',
+        procedural: false,
+        model: 'models/dining/dining_wooden_set_1.glb',
+        author: 'Karan.swami (https://sketchfab.com/Karan.swami)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 160, height: 75, depth: 90, elevation: 0 },
+        shape2D: 'furniture'
+    },
+    'dining_wooden_set_2': {
+        id: 'dining_wooden_set_2', label: 'Wooden Dining Set 2',
+        procedural: false,
+        model: 'models/dining/dining_wooden_set_2.glb',
+        author: 'aziseptian (https://sketchfab.com/aziseptian_)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 160, height: 75, depth: 90, elevation: 0 },
+        shape2D: 'furniture'
     }
 };
