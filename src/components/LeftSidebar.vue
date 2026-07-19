@@ -25,6 +25,9 @@
             <button class="dock-btn" @click="$emit('clear-workspace')" title="Clear All" style="color: #ef4444;">
                 <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
             </button>
+            <button class="dock-btn" @click="$emit('open-credits-popup')" title="About & Credits" style="color: #64748b;">
+                <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            </button>
             <input type="file" id="fileInput" @change="$emit('file-uploaded', $event)" style="display: none" accept=".json"/>
         </div>
 
@@ -75,7 +78,7 @@ const props = defineProps({
   activePresetId: String
 });
 
-const emit = defineEmits(['close-mobile-menu', 'toggle-category', 'save-project', 'open-save-popup', 'trigger-file-input', 'clear-workspace', 'file-uploaded', 'tool-click', 'catalog-select', 'update:activePresetId']);
+const emit = defineEmits(['close-mobile-menu', 'toggle-category', 'save-project', 'open-save-popup', 'trigger-file-input', 'clear-workspace', 'file-uploaded', 'tool-click', 'catalog-select', 'update:activePresetId', 'open-credits-popup']);
 
 const isToolActive = (toolId) => {
     if (props.activeTool === toolId) return true;

@@ -150,6 +150,13 @@ const railingCatalog = ref([
 const furnitureCatalog = ref([
     { id: 'sofa_3seater', name: 'Modern 3-Seater Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_3seater' } },
     { id: 'sofa_l_shape', name: 'L-Shape Sectional', image: '', toolId: 'furniture', params: { type: 'sofa_l_shape' } },
+    { id: 'sofa_chesterfield', name: 'Chesterfield Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_chesterfield' } },
+    { id: 'sofa_office', name: 'Office Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_office' } },
+    { id: 'sofa_modern_1', name: 'Modern Sofa 1', image: '', toolId: 'furniture', params: { type: 'sofa_modern_1' } },
+    { id: 'sofa_modern_2', name: 'Modern Sofa 2', image: '', toolId: 'furniture', params: { type: 'sofa_modern_2' } },
+    { id: 'sofa_modern_3', name: 'Modern Sofa 3', image: '', toolId: 'furniture', params: { type: 'sofa_modern_3' } },
+    { id: 'sofa_patricia', name: 'Patricia Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_patricia' } },
+    { id: 'sofa_fabric', name: 'Fabric Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_fabric' } },
     { id: 'bench', name: 'Bench', image: '', toolId: 'furniture', params: { type: 'table_dining' } },
     { id: 'furniture_barstool', name: 'Modern Bar Stool', image: '', toolId: 'furniture', params: { type: 'furniture_barstool' } },
     { id: 'lighting_pendant', name: 'Pendant Light', image: '', toolId: 'furniture', params: { type: 'lighting_pendant', elevation: 180 } }

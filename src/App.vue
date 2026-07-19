@@ -28,6 +28,7 @@
         @toggle-category="toggleCategory"
         @save-project="saveProject"
         @open-save-popup="savePopupRef?.open()"
+        @open-credits-popup="creditsPopupRef?.open()"
         @trigger-file-input="triggerFileInput"
         @clear-workspace="clearWorkspace"
         @file-uploaded="handleFileUpload"
@@ -172,6 +173,8 @@
         @saved="debouncedSaveHistory"
       />
 
+      <CreditsPopup ref="creditsPopupRef" />
+
     </div>
   </div>
 </template>
@@ -184,6 +187,7 @@ import TopToolbar from './components/TopToolbar.vue';
 import CanvasWorkspace from './components/CanvasWorkspace.vue';
 import SmartWizardPopup from './components/SmartWizardPopup.vue';
 import SavePopup from './components/SavePopup.vue';
+import CreditsPopup from './components/CreditsPopup.vue';
 import MobileBottomNav from './components/MobileBottomNav.vue';
 
 import { storeToRefs } from 'pinia';
@@ -300,6 +304,7 @@ const railingRegistry = RAILING_REGISTRY;
 
 const wizardPopupRef = ref(null);
 const savePopupRef = ref(null);
+const creditsPopupRef = ref(null);
 const wizardManager = shallowRef(null);
 
 // Removed local floorPlanSettings as it is now in SettingsStore

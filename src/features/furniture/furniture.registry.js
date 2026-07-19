@@ -223,6 +223,8 @@ export const FURNITURE_REGISTRY = {
         id: 'sofa_3seater', label: 'Modern 3-Seater Sofa',
         procedural: false,
         model: 'models/sofas/SheenWoodLeatherSofa.glb',
+        author: 'Unknown',
+        license: '© 2024 Darmstadt Graphics Group GmbH, CC BY 4.0 International, changes by Eric Chadwick. Original model by Fran Calvente, CC0 Polyhaven.com',
         default: { width: 200, height: 80, depth: 90, elevation: 0 },
         shape2D: 'couch'
     },
@@ -230,7 +232,72 @@ export const FURNITURE_REGISTRY = {
         id: 'sofa_l_shape', label: 'Premium L-Shape Sectional',
         procedural: false,
         model: 'models/sofas/GlamVelvetSofa.glb',
+        author: 'Unknown',
+        license: '(c) 2021 Wayfair, CC BY 4.0.',
         default: { width: 250, height: 80, depth: 150, elevation: 0 },
         shape2D: 'sofa_l_shape'
+    },
+    'sofa_chesterfield': {
+        id: 'sofa_chesterfield', label: 'Chesterfield Sofa',
+        procedural: false,
+        model: 'models/sofas/chesterfield_sofa.glb',
+        author: 'Nelesh_surve (https://sketchfab.com/Nelesh_surve)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 200, height: 80, depth: 90, elevation: 0 },
+        shape2D: 'couch'
+    },
+    'sofa_office': {
+        id: 'sofa_office', label: 'Office Sofa',
+        procedural: false,
+        model: 'models/sofas/office_sofa.glb',
+        author: 'Mehdi Shahsavan (https://sketchfab.com/ahmagh2e)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 180, height: 80, depth: 80, elevation: 0 },
+        shape2D: 'couch'
+    },
+    'sofa_modern_1': {
+        id: 'sofa_modern_1', label: 'Modern Sofa 1',
+        procedural: false,
+        model: 'models/sofas/modern_sofa_1.glb',
+        author: 'Jagguz_wrld (https://sketchfab.com/jagathkrishna148)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 200, height: 80, depth: 90, elevation: 0 },
+        shape2D: 'couch'
+    },
+    'sofa_modern_2': {
+        id: 'sofa_modern_2', label: 'Modern Sofa 2',
+        procedural: false,
+        model: 'models/sofas/modern_sofa_2.glb',
+        author: 'avmkrj (https://sketchfab.com/avmkrj)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 200, height: 80, depth: 90, elevation: 0 },
+        shape2D: 'couch'
+    },
+    'sofa_modern_3': {
+        id: 'sofa_modern_3', label: 'Modern Sofa 3',
+        procedural: false,
+        model: 'models/sofas/modern_sofa_3.glb',
+        author: 'MaX3Dd (https://sketchfab.com/MaX3Dd)',
+        license: 'SKETCHFAB Standard (https://sketchfab.com/licenses)',
+        default: { width: 200, height: 80, depth: 90, elevation: 0 },
+        shape2D: 'couch'
+    },
+    'sofa_patricia': {
+        id: 'sofa_patricia', label: 'Patricia Sofa',
+        procedural: false,
+        model: 'models/sofas/patricia_sofa.glb',
+        author: 'VirtualBG (https://sketchfab.com/undereality)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 200, height: 80, depth: 90, elevation: 0 },
+        shape2D: 'couch'
+    },
+    'sofa_fabric': {
+        id: 'sofa_fabric', label: 'Fabric Sofa',
+        procedural: false,
+        model: 'models/sofas/fabric_sofa.glb',
+        author: 'afernandezdelara (https://sketchfab.com/afernandezdelara)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 200, height: 80, depth: 90, elevation: 0 },
+        shape2D: 'couch'
     }
 };
