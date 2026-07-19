@@ -1,0 +1,14 @@
+const fs = require('fs');
+const path = require('path');
+const file = 'd:\\business\\android-planner\\public\\models\\dining\\dining_wooden_set_2.glb';
+const fd = fs.openSync(file, 'r');
+const header = Buffer.alloc(12);
+fs.readSync(fd, header, 0, 12, 0);
+const chunk0Header = Buffer.alloc(8);
+fs.readSync(fd, chunk0Header, 0, 8, 12);
+const chunk0Length = chunk0Header.readUInt32LE(0);
+const chunk0Data = Buffer.alloc(chunk0Length);
+fs.readSync(fd, chunk0Data, 0, chunk0Length, 20);
+const json = JSON.parse(chunk0Data.toString('utf8'));
+console.log(JSON.stringify(json.nodes, null, 2));
+console.log(JSON.stringify(json.accessors.slice(0,2), null, 2));

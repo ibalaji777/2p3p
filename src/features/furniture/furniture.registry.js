@@ -335,5 +335,86 @@ export const FURNITURE_REGISTRY = {
         license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
         default: { width: 160, height: 75, depth: 90, elevation: 0 },
         shape2D: 'furniture'
+    },
+    'chair_basket_swing': {
+        id: 'chair_basket_swing', label: 'Basket Swing Chair',
+        procedural: false,
+        model: 'models/chairs/chair_basket_swing.glb',
+        author: 'a.shevchuk (https://sketchfab.com/alex.shevchuk)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 80, height: 120, depth: 80, elevation: 0 },
+        shape2D: 'furniture'
+    },
+    'chair_modern_1': {
+        id: 'chair_modern_1', label: 'Modern Chair 1',
+        procedural: false,
+        model: 'models/chairs/chair_modern_1.glb',
+        author: 'vUv (https://sketchfab.com/vovaustimuk)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 50, height: 90, depth: 50, elevation: 0 },
+        shape2D: 'furniture'
+    },
+    'chair_modern_2': {
+        id: 'chair_modern_2', label: 'Modern Chair 2',
+        procedural: false,
+        model: 'models/chairs/chair_modern_2.glb',
+        author: 'shuvalov.di (https://sketchfab.com/shuvalov.di)',
+        license: 'SKETCHFAB Standard (https://sketchfab.com/licenses)',
+        default: { width: 50, height: 90, depth: 50, elevation: 0 },
+        shape2D: 'furniture'
+    },
+    'dining_old_table_set': {
+        id: 'dining_old_table_set', label: 'Old Table & Chair Set',
+        procedural: false,
+        model: 'models/dining/dining_old_table_set.glb',
+        author: 'AndreiVNK (https://sketchfab.com/AndreiVNK)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 150, height: 75, depth: 150, elevation: 0 },
+        shape2D: 'furniture'
+    },
+    'chair_piano_set': {
+        id: 'chair_piano_set', label: 'Piano With Chair',
+        procedural: false,
+        model: 'models/chairs/chair_piano_set.glb',
+        author: '3DDomino (https://sketchfab.com/3DDomino)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 140, height: 110, depth: 60, elevation: 0 },
+        shape2D: 'furniture'
+    },
+    'chair_rounded': {
+        id: 'chair_rounded', label: 'Rounded Chair',
+        procedural: false,
+        model: 'models/chairs/chair_rounded.glb',
+        author: 'Pascal T. Monette (https://sketchfab.com/baltazo)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 60, height: 80, depth: 60, elevation: 0 },
+        shape2D: 'furniture'
+    },
+    'chair_rustic': {
+        id: 'chair_rustic', label: 'Rustic Chair',
+        procedural: false,
+        model: 'models/chairs/chair_rustic.glb',
+        author: 'Araon (https://sketchfab.com/araon)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 50, height: 90, depth: 50, elevation: 0 },
+        shape2D: 'furniture'
+    },
+    'chair_sofa': {
+        id: 'chair_sofa', label: 'Sofa Chair',
+        procedural: false,
+        model: 'models/chairs/chair_sofa.glb',
+        author: 'PatelDev (https://sketchfab.com/PatelDev)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 80, height: 90, depth: 80, elevation: 0 },
+        shape2D: 'furniture'
+    },
+    'dining_tables_set': {
+        id: 'dining_tables_set', label: 'Tables And Chairs Set',
+        procedural: false,
+        model: 'models/dining/dining_tables_set.glb',
+        author: 'OfekDavid (https://sketchfab.com/OfekDavid)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 200, height: 75, depth: 150, elevation: 0 },
+        shape2D: 'furniture'
     }
 };
