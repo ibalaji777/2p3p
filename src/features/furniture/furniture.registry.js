@@ -416,5 +416,33 @@ export const FURNITURE_REGISTRY = {
         license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
         default: { width: 200, height: 75, depth: 150, elevation: 0 },
         shape2D: 'furniture'
+    },
+    'bed_modern_1': {
+        id: 'bed_modern_1', label: 'Modern Bed 1',
+        procedural: false,
+        model: 'models/beds/bed_modern_1.glb',
+        author: 'Maxmalow (https://sketchfab.com/Maxmalow)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 160, height: 100, depth: 200, elevation: 0 },
+        shape2D: 'furniture'
+    },
+
+    'bed_modern_3': {
+        id: 'bed_modern_3', label: 'Modern Bed 3',
+        procedural: false,
+        model: 'models/beds/bed_modern_3.glb',
+        author: 'saintkastiell (https://sketchfab.com/saintkastiell)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 160, height: 110, depth: 200, elevation: 0 },
+        shape2D: 'furniture'
+    },
+    'bed_traditional_wooden': {
+        id: 'bed_traditional_wooden', label: 'Traditional Wooden Cot',
+        procedural: false,
+        model: 'models/beds/bed_traditional_wooden.glb',
+        author: 'Dinesh.Jallu (https://sketchfab.com/Dinesh.Jallu)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 100, height: 60, depth: 200, elevation: 0 },
+        shape2D: 'furniture'
     }
 };

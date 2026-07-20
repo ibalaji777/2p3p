@@ -176,6 +176,11 @@ const furnitureCatalog = ref([
     { id: 'chair_rounded', name: 'Rounded Chair', image: '', toolId: 'furniture', params: { type: 'chair_rounded' } },
     { id: 'chair_rustic', name: 'Rustic Chair', image: '', toolId: 'furniture', params: { type: 'chair_rustic' } },
     { id: 'chair_sofa', name: 'Sofa Chair', image: '', toolId: 'furniture', params: { type: 'chair_sofa' } },
+    { isDivider: true, id: 'div_beds', name: 'Beds' },
+    { id: 'bed_modern_1', name: 'Modern Bed 1', image: '', toolId: 'furniture', params: { type: 'bed_modern_1' } },
+
+    { id: 'bed_modern_3', name: 'Modern Bed 3', image: '', toolId: 'furniture', params: { type: 'bed_modern_3' } },
+    { id: 'bed_traditional_wooden', name: 'Traditional Wooden Cot', image: '', toolId: 'furniture', params: { type: 'bed_traditional_wooden' } },
     { isDivider: true, id: 'div_other', name: 'Other Furniture' },
     { id: 'bench', name: 'Bench', image: '', toolId: 'furniture', params: { type: 'table_dining' } },
     { id: 'furniture_barstool', name: 'Modern Bar Stool', image: '', toolId: 'furniture', params: { type: 'furniture_barstool' } },
