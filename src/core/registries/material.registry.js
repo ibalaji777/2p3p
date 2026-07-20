@@ -20,6 +20,16 @@ export const JALI_MATERIALS = {
     metal_black: { label: "Matte Black Metal", color: 0x1a1a1a, roughness: 0.4, metalness: 0.8, clearcoat: 0.1, clearcoatRoughness: 0.2, texture: 'solid' }
 };
 
+export const FABRIC_REGISTRY = {
+    'crepe_satin': {
+        id: 'crepe_satin', name: 'Crepe Satin (Poly Haven)', type: 'fabric',
+        texture: 'textures/fabrics/crepe_satin/diffuse.jpg',
+        thumbnail: 'textures/fabrics/crepe_satin/diffuse.jpg',
+        normal: 'textures/fabrics/crepe_satin/normal.jpg',
+        roughnessMap: 'textures/fabrics/crepe_satin/roughness.jpg',
+        repeat: 4, roughness: 0.6
+    }
+};
 
 
 export const SKY_REGISTRY = {

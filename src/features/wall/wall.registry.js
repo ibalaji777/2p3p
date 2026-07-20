@@ -18,6 +18,16 @@ export const MOLDING_REGISTRY = {
 };
 
 export const WALL_DECOR_REGISTRY = {
+    'crepe_satin': {
+        id: 'crepe_satin',
+        name: 'Fabric: Crepe Satin',
+        texture: 'textures/fabrics/crepe_satin/diffuse.jpg',
+        thumbnail: 'textures/fabrics/crepe_satin/diffuse.jpg',
+        normal: 'textures/fabrics/crepe_satin/normal.jpg',
+        roughnessMap: 'textures/fabrics/crepe_satin/roughness.jpg',
+        defaultRepeat: 4,
+        roughness: 0.6
+    },
     'brick_wall': {
         id: 'brick_wall',
         name: 'Red Bricks',

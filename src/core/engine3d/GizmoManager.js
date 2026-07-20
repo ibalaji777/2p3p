@@ -1,7 +1,7 @@
 import { EVENTS } from '../registry.js';
 import { coreEventBus } from '../EventBus.js';
 import * as THREE from 'three';
-import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY } from '../registry.js';
+import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY, FABRIC_REGISTRY } from '../registry.js';
 
 export class GizmoManager {
     constructor(ctx) {
@@ -338,13 +338,13 @@ export class GizmoManager {
         this.stylePanel.addEventListener('pointerdown', e => e.stopPropagation());
         this.container.appendChild(this.stylePanel);
 
+        this.transformMenu.appendChild(this.btnMaterial);
         this.transformMenu.appendChild(this.btnMove);
         this.transformMenu.appendChild(this.btnPlace);
         this.transformMenu.appendChild(this.btnScale);
         this.transformMenu.appendChild(this.btnSpin);
         this.transformMenu.appendChild(this.btnTilt);
         this.transformMenu.appendChild(this.btnOpening);
-        this.transformMenu.appendChild(this.btnMaterial);
         this.transformMenu.appendChild(this.btnStyle);
         this.transformMenu.appendChild(this.btnCorner);
         this.transformMenu.appendChild(this.btnVertexSlope);
@@ -501,7 +501,18 @@ export class GizmoManager {
                 const currentThumbs = document.querySelectorAll('.mat-thumb');
                 currentThumbs.forEach(thumb => {
                     thumb.addEventListener('click', (e) => {
-                        const selectedObj = this.ctx.interactions.selectedObject;
+                        let realSelectedObj = this.ctx.interactions.selectedObject;
+                        if (this.activeObject) {
+                            let current = this.activeObject;
+                            while(current) {
+                                if (current.userData && current.userData.entity) {
+                                    realSelectedObj = current;
+                                    break;
+                                }
+                                current = current.parent;
+                            }
+                        }
+                        const selectedObj = realSelectedObj;
                         if (selectedObj && selectedObj.userData.entity && this.activeFace) {
                             const entity = selectedObj.userData.entity;
                             entity.params = entity.params || {};
@@ -582,6 +593,11 @@ export class GizmoManager {
                                     } else {
                                         entity.frameMat = key;
                                     }
+                                } else if (selectedObj && selectedObj.userData && selectedObj.userData.isFurniture) {
+                                    entity.params.materialOverrides = entity.params.materialOverrides || {};
+                                    if (this.activeObject && this.activeObject.name) {
+                                        entity.params.materialOverrides[this.activeObject.name] = key;
+                                    }
                                 } else {
                                     if (target === 'top') targetParams.textureTop = key;
                                     else if (target === 'bottom') targetParams.textureBottom = key;
@@ -600,6 +616,14 @@ export class GizmoManager {
                                         let registry = WALL_DECOR_REGISTRY;
                                         if (entity) {
                                             if (entity.type === 'door' || entity.type === 'window') registry = DOOR_MATERIALS_REGISTRY;
+                                        }
+                                        if (selectedObj && selectedObj.userData && selectedObj.userData.isFurniture) {
+                                            const meshName = (this.activeObject && this.activeObject.name) ? this.activeObject.name.toLowerCase() : '';
+                                            if (meshName.includes('wood') || meshName.includes('leg') || meshName.includes('frame') || meshName.includes('base') || meshName.includes('metal') || meshName.includes('plastic')) {
+                                                registry = DOOR_MATERIALS_REGISTRY;
+                                            } else {
+                                                registry = FABRIC_REGISTRY;
+                                            }
                                         }
                                         if (key && registry[key]) {
                                             const config = registry[key];
@@ -710,9 +734,20 @@ export class GizmoManager {
         }
         
         // Update highlight for the material of the newly selected face
-        const selectedObj = this.ctx.interactions.selectedObject;
-        if (selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.params) {
-            const p = selectedObj.userData.entity.params;
+        let realSelectedObj = this.ctx.interactions.selectedObject;
+        if (activeObject) {
+            let current = activeObject;
+            while(current) {
+                if (current.userData && current.userData.entity) {
+                    realSelectedObj = current;
+                    break;
+                }
+                current = current.parent;
+            }
+        }
+        const selectedObj = realSelectedObj;
+        if (selectedObj && selectedObj.userData.entity) {
+            const p = selectedObj.userData.entity.params || {};
             let targetParams = p;
             if (this.activeSubMeshIndex !== -1 && p.blocks && p.blocks[this.activeSubMeshIndex]) {
                 targetParams = p.blocks[this.activeSubMeshIndex];
@@ -731,6 +766,14 @@ export class GizmoManager {
                 else if (selectedObj.userData.entity.type === 'roof') {
                     if (this.activeObject && this.activeObject.userData && this.activeObject.userData.isGable) registry = WALL_DECOR_REGISTRY;
                     else registry = ROOF_DECOR_REGISTRY;
+                }
+            }
+            if (selectedObj.userData.isFurniture) {
+                const meshName = (activeObject && activeObject.name) ? activeObject.name.toLowerCase() : '';
+                if (meshName.includes('wood') || meshName.includes('leg') || meshName.includes('frame') || meshName.includes('base') || meshName.includes('metal') || meshName.includes('plastic')) {
+                    registry = DOOR_MATERIALS_REGISTRY;
+                } else {
+                    registry = FABRIC_REGISTRY;
                 }
             }
             
@@ -966,6 +1009,8 @@ export class GizmoManager {
                     activeGizmos = GIZMO_REGISTRY.floor_cut;
                 } else if (selectedObj.userData.isShape) {
                     activeGizmos = GIZMO_REGISTRY.shape;
+                } else if (selectedObj.userData.isFurniture) {
+                    activeGizmos = ['material', 'move', 'place', 'scale', 'spin', 'tilt'];
                 } else if (supportsFaceMaterials) {
                     activeGizmos = GIZMO_REGISTRY.face_material_obj;
                 }

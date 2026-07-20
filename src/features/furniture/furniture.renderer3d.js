@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from '../../core/registry';
+import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, FABRIC_REGISTRY, DOOR_MATERIALS_REGISTRY } from '../../core/registry';
 
 export class FurnitureManager {
     constructor(ctx) { this.ctx = ctx; }
@@ -916,9 +916,44 @@ export class FurnitureManager {
                 const model = await this.ctx.assets.getModel(config);
                 const gltfScene = model.clone();
                 
+                let overridesToLoad = [];
+                if (entity.params && entity.params.materialOverrides) {
+                    for (const [meshName, matKey] of Object.entries(entity.params.materialOverrides)) {
+                        if (FABRIC_REGISTRY && FABRIC_REGISTRY[matKey]) {
+                            overridesToLoad.push({ meshName, matKey, config: FABRIC_REGISTRY[matKey] });
+                        } else if (DOOR_MATERIALS_REGISTRY && DOOR_MATERIALS_REGISTRY[matKey]) {
+                            overridesToLoad.push({ meshName, matKey, config: DOOR_MATERIALS_REGISTRY[matKey] });
+                        }
+                    }
+                }
+                
+                const loadedOverrides = {};
+                for (const override of overridesToLoad) {
+                    const fConf = override.config;
+                    const customMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+                    if (fConf.texture) customMat.map = await this.ctx.assets.getTexture(fConf.texture);
+                    if (fConf.normal) customMat.normalMap = await this.ctx.assets.getTexture(fConf.normal);
+                    if (fConf.roughnessMap) customMat.roughnessMap = await this.ctx.assets.getTexture(fConf.roughnessMap);
+                    
+                    if (fConf.repeat) {
+                        if (customMat.map) { customMat.map.wrapS = customMat.map.wrapT = THREE.RepeatWrapping; customMat.map.repeat.set(fConf.repeat, fConf.repeat); }
+                        if (customMat.normalMap) { customMat.normalMap.wrapS = customMat.normalMap.wrapT = THREE.RepeatWrapping; customMat.normalMap.repeat.set(fConf.repeat, fConf.repeat); }
+                        if (customMat.roughnessMap) { customMat.roughnessMap.wrapS = customMat.roughnessMap.wrapT = THREE.RepeatWrapping; customMat.roughnessMap.repeat.set(fConf.repeat, fConf.repeat); }
+                    }
+                    if (fConf.roughness !== undefined) customMat.roughness = fConf.roughness;
+                    loadedOverrides[override.meshName] = customMat;
+                }
+
                 gltfScene.traverse((child) => {
                     if (child.isMesh && child.material) {
                         child.material = Array.isArray(child.material) ? child.material.map(m => m.clone()) : child.material.clone();
+                        if (loadedOverrides[child.name]) {
+                            if (Array.isArray(child.material)) {
+                                child.material[0] = loadedOverrides[child.name];
+                            } else {
+                                child.material = loadedOverrides[child.name];
+                            }
+                        }
                     }
                 });
 
