@@ -13,24 +13,47 @@ export class AssetManager {
         this.objLoader = new OBJLoader();
     }
 
-    async getTexture(config) {
-        if (this.cache.has(config.id)) return await this.cache.get(config.id);
+    async getTexture(config, options = {}) {
+        let url = typeof config === 'string' ? config : config.texture;
+        if (!url) return null;
+        
+        let id = (typeof config === 'object' && config.id) ? config.id : url;
+        const isColorData = options.isColorData !== false;
+        
+        // Include color space in cache key since we can't reuse a NoColorSpace texture as SRGB
+        const cacheKey = `${id}_${isColorData ? 'srgb' : 'linear'}`;
+        
+        if (this.cache.has(cacheKey)) return await this.cache.get(cacheKey);
         
         // Force absolute path so Vite serves from the /public folder
-        let url = config.texture;
         if (!url.startsWith('http') && !url.startsWith('data:') && !url.startsWith('/')) {
             url = '/' + url;
         }
         
         const loadPromise = this.texLoader.loadAsync(url).then(texture => {
-            if (THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
+            if (isColorData && THREE.SRGBColorSpace) {
+                texture.colorSpace = THREE.SRGBColorSpace;
+            } else {
+                texture.colorSpace = THREE.NoColorSpace;
+            }
+            
+            // Apply professional filtering
+            texture.generateMipmaps = true;
+            texture.minFilter = THREE.LinearMipmapLinearFilter;
+            
+            // Assume the renderer is available on window or somewhere, but ideally passed in context
+            // We will set anisotropy in MaterialFactory to keep AssetManager pure, but we can try here if renderer exists
+            if (window.engine3d && window.engine3d.renderer) {
+                texture.anisotropy = window.engine3d.renderer.capabilities.getMaxAnisotropy();
+            }
+            
             return texture;
         }).catch(e => {
             console.error(`[AssetManager] Failed to load texture at ${url}. Check your public/ folder!`, e);
             throw e;
         });
         
-        this.cache.set(config.id, loadPromise);
+        this.cache.set(cacheKey, loadPromise);
         return await loadPromise;
     }
 

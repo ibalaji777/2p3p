@@ -21,14 +21,18 @@ export const JALI_MATERIALS = {
 };
 
 export const FABRIC_REGISTRY = {
-    'crepe_satin': {
-        id: 'crepe_satin', name: 'Crepe Satin (Poly Haven)', type: 'fabric',
-        texture: 'textures/fabrics/crepe_satin/diffuse.jpg',
-        thumbnail: 'textures/fabrics/crepe_satin/diffuse.jpg',
-        normal: 'textures/fabrics/crepe_satin/normal.jpg',
-        roughnessMap: 'textures/fabrics/crepe_satin/roughness.jpg',
-        repeat: 4, roughness: 0.6
-    }
+    'caban': {
+        id: 'caban', name: 'Premium Caban Fabric', type: 'fabric',
+        texture: 'textures/fabrics/caban/caban_diff_1k.jpg',
+        thumbnail: 'textures/fabrics/caban/caban_diff_1k.jpg',
+        normal: 'textures/fabrics/caban/caban_nor_gl_1k.png',
+        roughnessMap: 'textures/fabrics/caban/caban_rough_1k.png',
+        metalnessMap: 'textures/fabrics/caban/caban_metal_1k.png',
+        defaultTileSize: 40,
+        normalScale: 0.35,
+        roughness: 0.85,
+        rotation: Math.PI / 2
+    },
 };
 
 

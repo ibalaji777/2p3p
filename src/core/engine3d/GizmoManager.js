@@ -2,6 +2,7 @@ import { EVENTS } from '../registry.js';
 import { coreEventBus } from '../EventBus.js';
 import * as THREE from 'three';
 import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY, FABRIC_REGISTRY } from '../registry.js';
+import { MaterialFactory } from './MaterialFactory.js';
 
 export class GizmoManager {
     constructor(ctx) {
@@ -542,15 +543,8 @@ export class GizmoManager {
                                         
                                         if (key && registry[key]) {
                                             const config = registry[key];
-                                            this.ctx.assets.getTexture(config).then(tex => {
-                                                const texClone = tex.clone();
-                                                texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                                                const dim = Math.max(entity.width || 100, entity.height || 100);
-                                                const ts = config.defaultTileSize || 40;
-                                                texClone.repeat.set(dim / ts, dim / ts);
-                                                newMat.map = texClone;
-                                                newMat.color.setHex(0xffffff);
-                                                newMat.needsUpdate = true;
+                                            MaterialFactory.applyPBRMaterial(this.activeObject, config, this.ctx, this.activeMatIndex).then(() => {
+                                                // Event if needed
                                             });
                                         } else {
                                             newMat.map = null;
@@ -612,7 +606,6 @@ export class GizmoManager {
                                 if (this.activeObject && this.activeMatIndex !== undefined && this.activeMatIndex !== -1) {
                                     const mats = Array.isArray(this.activeObject.material) ? this.activeObject.material : [this.activeObject.material];
                                     if (mats[this.activeMatIndex]) {
-                                        const newMat = mats[this.activeMatIndex].clone();
                                         let registry = WALL_DECOR_REGISTRY;
                                         if (entity) {
                                             if (entity.type === 'door' || entity.type === 'window') registry = DOOR_MATERIALS_REGISTRY;
@@ -627,29 +620,31 @@ export class GizmoManager {
                                         }
                                         if (key && registry[key]) {
                                             const config = registry[key];
-                                            this.ctx.assets.getTexture(config).then(tex => {
-                                                const texClone = tex.clone();
-                                                texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                                                const dim = Math.max(entity.width || 100, entity.height || 100);
-                                                const ts = config.defaultTileSize || 40;
-                                                texClone.repeat.set(dim / ts, dim / ts);
-                                                newMat.map = texClone;
-                                                newMat.color.setHex(0xffffff);
-                                                newMat.needsUpdate = true;
+                                            MaterialFactory.applyPBRMaterial(this.activeObject, config, this.ctx, this.activeMatIndex).then(() => {
+                                                // Update local params for persistence
+                                                if (selectedObj && selectedObj.userData.isFurniture) {
+                                                    const meshName = (this.activeObject && this.activeObject.name) ? this.activeObject.name : '';
+                                                    if (meshName) {
+                                                        const p = selectedObj.userData.entity.params || {};
+                                                        p.materialOverrides = p.materialOverrides || {};
+                                                        p.materialOverrides[meshName] = key;
+                                                    }
+                                                }
                                             });
                                         } else {
+                                            const newMat = mats[this.activeMatIndex].clone();
                                             newMat.map = null;
                                             let fColor = 0xffffff;
-                                            if (entity.fasciaMat === 'dark_grey') fColor = 0x333333;
-                                            else if (entity.fasciaMat === 'stone') fColor = 0xa8a29e;
-                                            else if (entity.fasciaMat === 'wood') fColor = 0x8b5a2b;
+                                            if (entity && entity.fasciaMat === 'dark_grey') fColor = 0x333333;
+                                            else if (entity && entity.fasciaMat === 'stone') fColor = 0xa8a29e;
+                                            else if (entity && entity.fasciaMat === 'wood') fColor = 0x8b5a2b;
                                             newMat.color.setHex(fColor);
-                                        }
-                                        
-                                        if (Array.isArray(this.activeObject.material)) {
-                                            this.activeObject.material[this.activeMatIndex] = newMat;
-                                        } else {
-                                            this.activeObject.material = newMat;
+                                            
+                                            if (Array.isArray(this.activeObject.material)) {
+                                                this.activeObject.material[this.activeMatIndex] = newMat;
+                                            } else {
+                                                this.activeObject.material = newMat;
+                                            }
                                         }
                                     }
                                 }
