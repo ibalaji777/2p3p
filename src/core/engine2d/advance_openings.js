@@ -7,6 +7,8 @@ export class advance_openings {
         this.t = t; 
         this.type = type;
         this.configId = type;
+        this.materialMode = 'MONOLITHIC';
+        this.supportsLiveMaterialPipeline = false;
         
         this.width = 100;
         this.height = 200;

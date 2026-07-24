@@ -6,6 +6,8 @@ export class PremiumHipRoof {
     constructor(planner, points) {
         this.planner = planner;
         this.type = 'roof';
+        this.materialMode = 'PROCEDURAL';
+        this.supportsLiveMaterialPipeline = true;
         this.id = 'roof_' + Date.now() + '_' + Math.floor(Math.random()*1000);
         
         // Copy node points and remove consecutive duplicates to prevent duplicate handles

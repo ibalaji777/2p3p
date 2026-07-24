@@ -17,6 +17,7 @@ export class NavigationCube {
         this.domElement.style.right = '20px';
         this.domElement.style.width = `${this.size}px`;
         this.domElement.style.height = `${this.size}px`;
+        this.domElement.id = 'nav-cube';
         this.domElement.style.zIndex = '1000';
         this.domElement.style.cursor = 'pointer';
         this.domElement.style.opacity = '1'; // Solid, not transparent

@@ -30,20 +30,30 @@ export class MaterialFactory {
 
         const [tex, normalTex, roughTex, aoTex, metalTex] = await Promise.all(fetches);
 
-        // Memory management: Dispose old maps to prevent VRAM leaks
-        if (newMat.map) newMat.map.dispose();
-        if (newMat.normalMap) newMat.normalMap.dispose();
-        if (newMat.roughnessMap) newMat.roughnessMap.dispose();
-        if (newMat.aoMap) newMat.aoMap.dispose();
-        if (newMat.metalnessMap) newMat.metalnessMap.dispose();
+        // Shared Texture Lifetime Management: Detach references instead of disposing.
+        // Disposing would destroy the texture from the global AssetManager cache.
+        if (newMat.map) newMat.map = null;
+        if (newMat.normalMap) newMat.normalMap = null;
+        if (newMat.roughnessMap) newMat.roughnessMap = null;
+        if (newMat.aoMap) newMat.aoMap = null;
+        if (newMat.metalnessMap) newMat.metalnessMap = null;
+
+        // Robust Entity Lookup for Imported GLB Models
+        let targetEntity = targetMesh.userData.entity;
+        if (!targetEntity) {
+            let current = targetMesh;
+            while (current && !current.userData.entity) {
+                current = current.parent;
+            }
+            if (current) targetEntity = current.userData.entity;
+        }
 
         // Calculate UV Density based on real-world dimensions (defaultTileSize or fixed config.repeat)
         let repeatScale = 1;
         if (config.repeat) {
             repeatScale = config.repeat;
-        } else if (targetMesh.userData.entity) {
-            const entity = targetMesh.userData.entity;
-            const dim = Math.max(entity.width || 100, entity.height || 100);
+        } else if (targetEntity) {
+            const dim = Math.max(targetEntity.width || 100, targetEntity.height || 100);
             const ts = config.defaultTileSize || 40;
             repeatScale = dim / ts;
         }

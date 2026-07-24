@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WIDGET_REGISTRY, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY, MOLDING_REGISTRY, FURNITURE_REGISTRY, RAILING_REGISTRY } from './registry.js';
+import { WIDGET_REGISTRY, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY, MOLDING_REGISTRY, FURNITURE_REGISTRY, RAILING_REGISTRY, PreviewMeshRegistry } from './registry.js';
 import { Stair3DBuilder } from '../features/stairs/stairs.renderer3d.js';
 import { Molding3DBuilder } from './engine3d/Molding3DBuilder.js';
 import { Railing3DBuilder } from '../features/railing/builders/Railing3DBuilder.js';
@@ -20,21 +20,21 @@ export class ThumbnailGenerator {
 
         this.scene = new THREE.Scene();
 
-        // Studio Lighting Setup
-        const ambient = new THREE.AmbientLight(0xffffff, 1.2); // Increased for visibility
-        this.scene.add(ambient);
+        // Photorealistic Studio Lighting for PBR
+        // Removed RoomEnvironment because it washes out the color compared to the main scene's lack of HDRI.
         
-        const keyLight = new THREE.DirectionalLight(0xffffff, 1.5); // Increased for visibility
-        keyLight.position.set(100, 150, 100);
-        keyLight.castShadow = true;
-        keyLight.shadow.mapSize.width = 1024;
-        keyLight.shadow.mapSize.height = 1024;
-        keyLight.shadow.bias = -0.001;
-        this.scene.add(keyLight);
+        // Exact Lighting Match to EnvironmentBuilder.js
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+        hemiLight.position.set(0, 500, 0);
+        this.scene.add(hemiLight);
 
-        const fillLight = new THREE.DirectionalLight(0xccddff, 0.8); // Increased for visibility
-        fillLight.position.set(-100, 50, -100);
-        this.scene.add(fillLight);
+        const sunLight = new THREE.DirectionalLight(0xfff5e6, 2.5);
+        sunLight.position.set(500, 700, 600);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 1024;
+        sunLight.shadow.mapSize.height = 1024;
+        sunLight.shadow.bias = -0.001;
+        this.scene.add(sunLight);
 
         // Ground plane to catch shadows without rendering the plane itself
         const groundGeo = new THREE.PlaneGeometry(1000, 1000);
@@ -48,6 +48,8 @@ export class ThumbnailGenerator {
         
         // Cache to prevent re-rendering the same parameters
         this.cache = new Map();
+        
+        this.isGenerating = false;
     }
 
     async generate(type, params) {
@@ -62,7 +64,7 @@ export class ThumbnailGenerator {
         else if (FURNITURE_REGISTRY && FURNITURE_REGISTRY[type]) registryConfig = FURNITURE_REGISTRY[type];
         else if (MOLDING_REGISTRY && MOLDING_REGISTRY[type]) registryConfig = MOLDING_REGISTRY[type];
 
-        const allowedNonWidgets = ['staircase', 'roof', 'dormer', 'outer', 'inner', 'arc', 'shape_rect', 'shape_circle', 'shape_triangle', 'railing', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'];
+        const allowedNonWidgets = ['staircase', 'roof', 'dormer', 'outer', 'inner', 'arc', 'shape_rect', 'shape_circle', 'shape_triangle', 'railing', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'material_preview'];
         
         if (!registryConfig && !allowedNonWidgets.includes(type)) return null;
 
@@ -72,10 +74,16 @@ export class ThumbnailGenerator {
             return this.cache.get(cacheKey);
         }
 
-        if (this.currentObj) {
-            this.scene.remove(this.currentObj);
-            this.currentObj = null;
+        while (this.isGenerating) {
+            await new Promise(r => setTimeout(r, 50));
         }
+        this.isGenerating = true;
+
+        try {
+            if (this.currentObj) {
+                this.scene.remove(this.currentObj);
+                this.currentObj = null;
+            }
 
         const group = new THREE.Group();
         const mergedConfig = { ...(registryConfig || {}), ...(params || {}) };
@@ -256,6 +264,32 @@ export class ThumbnailGenerator {
                 else geo = new THREE.CylinderGeometry(size/2, size/2, h, 3);
                 const mat = new THREE.MeshStandardMaterial({ color: 0x88ccff });
                 const mesh = new THREE.Mesh(geo, mat);
+                group.add(mesh);
+            } else if (type === 'material_preview') {
+                if (!this.previewMeshRegistry) {
+                    this.previewMeshRegistry = new PreviewMeshRegistry(this.ctx);
+                }
+                
+                const mesh = await this.previewMeshRegistry.getPreviewMesh(params.type);
+                
+                // We must import MaterialFactory dynamically to avoid circular dependencies if it wasn't already imported
+                let factory = window.MaterialFactory;
+                if (!factory) {
+                    const imported = await import('./engine3d/MaterialFactory.js');
+                    factory = imported.MaterialFactory;
+                }
+                
+                // If the preview mesh is a group (e.g. loaded from a GLB), apply the material to all child meshes
+                const materialPromises = [];
+                mesh.traverse((child) => {
+                    if (child.isMesh) {
+                        // Ensure it has a material before cloning
+                        if (!child.material) child.material = new THREE.MeshStandardMaterial({color: 0xffffff});
+                        materialPromises.push(factory.applyPBRMaterial(child, params, this.ctx));
+                    }
+                });
+                await Promise.all(materialPromises);
+                
                 group.add(mesh);
             } else if (type === 'railing' || (RAILING_REGISTRY && RAILING_REGISTRY[type])) {
                 const configId = RAILING_REGISTRY && RAILING_REGISTRY[type] ? type : (params.configId || params.type || 'glass_stainless');
@@ -1237,6 +1271,25 @@ export class ThumbnailGenerator {
             
             activeCamera.lookAt(0, targetY, 0);
             activeCamera.updateProjectionMatrix();
+        } else if (type === 'material_preview') {
+            const fov = 35;
+            activeCamera = new THREE.PerspectiveCamera(fov, 1, 1, 2000);
+            
+            const center = box.getCenter(new THREE.Vector3());
+            
+            // Widen the frame so the cloth doesn't get cut off on the edges (1.5x padding)
+            const fitSize = maxDim * 1.5; 
+            const distance = (fitSize / 2) / Math.tan((fov / 2) * Math.PI / 180);
+            
+            // Orbit: 25° elevation, 45° azimuth for a classic studio look
+            const phi = (90 - 25) * Math.PI / 180;
+            const theta = 45 * Math.PI / 180;
+            
+            activeCamera.position.setFromSphericalCoords(distance, phi, theta);
+            activeCamera.position.add(center); // perfectly center the camera around the mesh
+            
+            activeCamera.lookAt(center);
+            activeCamera.updateProjectionMatrix();
         } else {
             const frustumSize = maxDim * 1.4; // Leave some margin
             
@@ -1260,5 +1313,12 @@ export class ThumbnailGenerator {
         this.cache.set(cacheKey, dataUrl);
         
         return dataUrl;
+        } finally {
+            if (this.currentObj) {
+                this.scene.remove(this.currentObj);
+                this.currentObj = null;
+            }
+            this.isGenerating = false;
+        }
     }
 }

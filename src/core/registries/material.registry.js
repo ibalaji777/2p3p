@@ -23,8 +23,8 @@ export const JALI_MATERIALS = {
 export const FABRIC_REGISTRY = {
     'caban': {
         id: 'caban', name: 'Premium Caban Fabric', type: 'fabric',
-        texture: 'textures/fabrics/caban/caban_diff_1k.jpg',
-        thumbnail: 'textures/fabrics/caban/caban_diff_1k.jpg',
+        texture: 'textures/fabrics/caban/caban_fabric_diff.jpg',
+        thumbnail: 'textures/fabrics/caban/caban_fabric_diff.jpg',
         normal: 'textures/fabrics/caban/caban_nor_gl_1k.png',
         roughnessMap: 'textures/fabrics/caban/caban_rough_1k.png',
         metalnessMap: 'textures/fabrics/caban/caban_metal_1k.png',

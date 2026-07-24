@@ -6,6 +6,8 @@ export class PremiumShape {
         this.planner = planner;
         if (type === 'shape_triangle') type = 'shape_polygon';
         this.type = type;
+        this.materialMode = 'PROCEDURAL';
+        this.supportsLiveMaterialPipeline = true;
         this.params = params || {};
         this.rotation = params.rotation || 0;
         

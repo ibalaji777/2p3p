@@ -3,12 +3,13 @@ import * as THREE from 'three';
 export * from './constants/units.js';
 export * from './constants/events.js';
 export * from '../features/door/door.registry.js';
-export * from '../features/window/window.registry.js';
-export * from '../features/wall/wall.registry.js';
-export * from './registries/material.registry.js';
+export * from './registries/PreviewMeshRegistry.js';
 export * from '../features/roof/roof.registry.js';
 export * from '../features/furniture/furniture.registry.js';
 export * from '../features/railing/registry/railing.registry.js';
+export * from '../features/window/window.registry.js';
+export * from '../features/wall/wall.registry.js';
+export * from './registries/material.registry.js';
 
 import { DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT } from './constants/units.js';
 import { WINDOW_TYPES, WINDOW_GLASS_MATERIALS } from '../features/window/window.registry.js';

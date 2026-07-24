@@ -5,6 +5,8 @@ export class PremiumBalcony {
         this.planner = planner;
         this.type = 'balcony';
         this.shape = shape;
+        this.materialMode = 'PROCEDURAL';
+        this.supportsLiveMaterialPipeline = true;
         this.attachedWall = null;
         this.attachedEdge = null;
         this.config = { balconyType: shape };

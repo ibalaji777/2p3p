@@ -1,0 +1,11 @@
+Model Information:
+* title:	Seamless Fabric Texture I
+* source:	https://sketchfab.com/3d-models/seamless-fabric-texture-i-681ff1d168f343b491c2fb755dea0668
+* author:	Arthur.Zim (https://sketchfab.com/Arthur.Zim)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Seamless Fabric Texture I" (https://sketchfab.com/3d-models/seamless-fabric-texture-i-681ff1d168f343b491c2fb755dea0668) by Arthur.Zim (https://sketchfab.com/Arthur.Zim) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

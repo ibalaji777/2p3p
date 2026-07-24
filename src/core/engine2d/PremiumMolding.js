@@ -9,6 +9,8 @@ export class PremiumMolding {
         this.type = configId; 
         this.isDragging = false; 
         this.side = 'left';
+        this.materialMode = 'PROCEDURAL';
+        this.supportsLiveMaterialPipeline = true;
         
         this.config = MOLDING_REGISTRY[configId];
         Object.assign(this, JSON.parse(JSON.stringify(this.config.defaultConfig)));

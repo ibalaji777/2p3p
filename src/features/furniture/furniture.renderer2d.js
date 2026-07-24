@@ -4,6 +4,8 @@ import { FURNITURE_REGISTRY, WORKSPACE_2D_SHAPES } from '../../core/registry.js'
 export class PremiumFurniture {
     constructor(planner, x, y, configId) {
         this.planner = planner; this.type = 'furniture'; this.config = FURNITURE_REGISTRY[configId];
+        this.materialMode = 'MULTI_MESH';
+        this.supportsLiveMaterialPipeline = false;
         this.width = this.config.default.width; this.depth = this.config.default.depth; this.height = this.config.default.height; 
         this.rotation = 0; this.isDragging = false;
         this.group = new Konva.Group({ x: x, y: y, width: this.width, height: this.depth, draggable: true, offsetX: this.width / 2, offsetY: this.depth / 2 });

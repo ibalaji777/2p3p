@@ -4,6 +4,8 @@ import { WIDGET_REGISTRY } from '../registry.js';
 export class PremiumWidget {
     constructor(planner, wall, t, configId) {
         this.planner = planner; this.wall = wall; this.t = t; this.type = configId; this.isDragging = false; 
+        this.materialMode = 'PROCEDURAL';
+        this.supportsLiveMaterialPipeline = true;
         this.config = WIDGET_REGISTRY[configId];
         Object.assign(this, JSON.parse(JSON.stringify(this.config.defaultConfig)));
         

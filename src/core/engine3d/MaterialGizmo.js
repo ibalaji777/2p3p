@@ -15,9 +15,58 @@ export class MaterialGizmo extends THREE.Group {
         
         const dom = this.ctx.renderer.domElement;
         
+        this.pointerDownPos = new THREE.Vector2();
+        this.isDragging = false;
+
         this._onPointerDown = (e) => {
             if (!this.visible || this.ctx.currentTransformMode !== 'material' || !this.target || this.isPanelOpen) return;
-            if (e.button !== 0) return;
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            this.updateMouse(e);
+            this.pointerDownPos.copy(this.mouse);
+            this.isDragging = false;
+        };
+        
+        this._onPointerMove = (e) => {
+            if (!this.visible || this.ctx.currentTransformMode !== 'material' || !this.target || this.isPanelOpen) return;
+            this.updateMouse(e);
+            
+            if (this.pointerDownPos.distanceTo(this.mouse) > 0.02) {
+                this.isDragging = true;
+            }
+            
+            this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+            const intersects = this.raycaster.intersectObject(this.target, true);
+            
+            const validIntersects = intersects.filter(i => {
+                const mat = i.object.material;
+                if (i.object.userData.isHitbox) return false;
+                if (mat && mat.type === 'MeshBasicMaterial' && mat.opacity === 0) return false;
+                return true;
+            });
+            
+            if (validIntersects.length > 0) {
+                const intersect = validIntersects[0];
+                
+                dom.style.cursor = 'crosshair';
+                
+                if (this.highlightedObject !== intersect.object || this.highlightedMatIndex !== intersect.face.materialIndex) {
+                    this.clearHighlight();
+                    this.highlightedObject = intersect.object;
+                    this.highlightedMatIndex = intersect.face.materialIndex;
+                    this.setHighlight(this.highlightedObject, this.highlightedMatIndex, true);
+                }
+            } else {
+                dom.style.cursor = 'auto';
+                this.clearHighlight();
+            }
+        };
+
+        this._onPointerUp = (e) => {
+            if (!this.visible || this.ctx.currentTransformMode !== 'material' || !this.target || this.isPanelOpen) return;
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            
+            if (this.isDragging) return; // Ignore drag actions, only trigger on clear clicks/taps
+            
             this.updateMouse(e);
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
             const intersects = this.raycaster.intersectObject(this.target, true);
@@ -48,7 +97,10 @@ export class MaterialGizmo extends THREE.Group {
                 e.stopPropagation();
                 
                 this.isPanelOpen = true;
-                this.clearHighlight();
+                
+                if (this.highlightedObject !== intersect.object || this.highlightedMatIndex !== intersect.face.materialIndex) {
+                    this.clearHighlight();
+                }
                 
                 this.selectedFace = selectedFace;
                 
@@ -61,46 +113,20 @@ export class MaterialGizmo extends THREE.Group {
                 this.activeObject = intersect.object;
                 this.activeMatIndex = intersect.face.materialIndex;
                 
+                this.highlightedObject = this.activeObject;
+                this.highlightedMatIndex = this.activeMatIndex;
+                this.setHighlight(this.highlightedObject, this.highlightedMatIndex, true);
+                
                 // Dispatch event to Vue UI or GizmoManager
                 if (this.ctx.gizmoManager && this.ctx.gizmoManager.onMaterialFaceSelected) {
                     this.ctx.gizmoManager.onMaterialFaceSelected(this.selectedFace, subMeshIndex, this.activeObject, this.activeMatIndex);
                 }
             }
         };
-        
-        this._onPointerMove = (e) => {
-            if (!this.visible || this.ctx.currentTransformMode !== 'material' || !this.target || this.isPanelOpen) return;
-            this.updateMouse(e);
-            
-            this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-            const intersects = this.raycaster.intersectObject(this.target, true);
-            
-            const validIntersects = intersects.filter(i => {
-                const mat = i.object.material;
-                if (i.object.userData.isHitbox) return false;
-                if (mat && mat.type === 'MeshBasicMaterial' && mat.opacity === 0) return false;
-                return true;
-            });
-            
-            if (validIntersects.length > 0) {
-                const intersect = validIntersects[0];
-                
-                dom.style.cursor = 'crosshair';
-                
-                if (this.highlightedObject !== intersect.object || this.highlightedMatIndex !== intersect.face.materialIndex) {
-                    this.clearHighlight();
-                    this.highlightedObject = intersect.object;
-                    this.highlightedMatIndex = intersect.face.materialIndex;
-                    this.setHighlight(this.highlightedObject, this.highlightedMatIndex, true);
-                }
-            } else {
-                dom.style.cursor = 'auto';
-                this.clearHighlight();
-            }
-        };
 
         dom.addEventListener('pointerdown', this._onPointerDown, { passive: false });
         dom.addEventListener('pointermove', this._onPointerMove);
+        dom.addEventListener('pointerup', this._onPointerUp);
     }
 
     setHighlight(mesh, matIndex, active) {
@@ -156,7 +182,28 @@ export class MaterialGizmo extends THREE.Group {
     }
 
     updateHighlights() {
-        // Obsolete in direct raycast mode
+        if (!this.visible || this.ctx.currentTransformMode !== 'material' || !this.target) return;
+        
+        this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+        const intersects = this.raycaster.intersectObject(this.target, true);
+        
+        const validIntersects = intersects.filter(i => {
+            const mat = i.object.material;
+            if (i.object.userData.isHitbox) return false;
+            if (mat && mat.type === 'MeshBasicMaterial' && mat.opacity === 0) return false;
+            return true;
+        });
+        
+        if (validIntersects.length > 0) {
+            const intersect = validIntersects[0];
+            this.clearHighlight();
+            this.highlightedObject = intersect.object;
+            this.highlightedMatIndex = intersect.face.materialIndex;
+            this.setHighlight(this.highlightedObject, this.highlightedMatIndex, true);
+            
+            this.activeObject = intersect.object;
+            this.activeMatIndex = intersect.face.materialIndex;
+        }
     }
 
     updateHandles() {
@@ -168,6 +215,7 @@ export class MaterialGizmo extends THREE.Group {
         if (dom) {
             dom.removeEventListener('pointerdown', this._onPointerDown);
             dom.removeEventListener('pointermove', this._onPointerMove);
+            dom.removeEventListener('pointerup', this._onPointerUp);
         }
         if (this.parent) this.parent.remove(this);
     }

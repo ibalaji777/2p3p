@@ -451,7 +451,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
     width: max-content;
     max-width: 95%;
-    bottom: 40px;
+    bottom: 75px;
     left: 50%;
     transform: translateX(-50%);
 }
