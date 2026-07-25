@@ -223,23 +223,33 @@ export class GizmoManager {
                     opacity: 0; transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none;
                 }
                 .mat-lib-overlay.active {
-                    opacity: 1; pointer-events: auto;
+                    opacity: 1; pointer-events: none;
                 }
                 .mat-lib-inner {
                     width: 100%; max-width: 1550px; margin: 0 auto; height: auto;
                     display: flex; flex-direction: column; justify-content: flex-start; pointer-events: none;
                 }
                 .mat-lib-header {
-                    display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 16px;
-                    flex-shrink: 0; pointer-events: auto;
+                    display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 16px;
+                    flex-shrink: 0; pointer-events: auto; position: relative;
                 }
-                .mat-lib-header-text {
+                .mat-header-left {
+                    display: flex; flex-direction: column; justify-content: center;
+                }
+                .mat-lib-title-text {
+                    font-size: clamp(24px, 3.5vw, 32px); font-weight: 700; color: white; margin: 0 0 6px 0; letter-spacing: 0.5px;
+                    text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                }
+                .mat-lib-subtitle-text {
+                    font-size: 14px; color: #cbd5e1; font-weight: 500;
                     text-shadow: 0 2px 10px rgba(0,0,0,0.8);
                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
                 }
                 .mat-lib-grid-wrapper {
                     width: 100%; overflow-x: auto; padding: 4px 4px 16px 4px; pointer-events: auto;
                     scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.2) transparent;
+                    -webkit-overflow-scrolling: touch; scroll-behavior: smooth;
                 }
                 .mat-lib-grid-wrapper::-webkit-scrollbar {
                     height: 6px;
@@ -257,12 +267,15 @@ export class GizmoManager {
                     display: flex; flex-direction: column; align-items: center; justify-content: space-between;
                     padding: 14px 12px 16px 12px; box-sizing: border-box; cursor: pointer;
                     transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); position: relative;
-                    user-select: none; flex-shrink: 0;
+                    user-select: none; flex-shrink: 0; touch-action: pan-x;
                 }
                 .mat-card:hover {
                     transform: translateY(-6px);
                     border-color: rgba(255, 255, 255, 0.25);
                     box-shadow: 0 15px 35px rgba(0,0,0,0.7);
+                }
+                .mat-card:active {
+                    transform: scale(0.96);
                 }
                 .mat-card.active-card {
                     border: 1px solid #f97316 !important;
@@ -319,6 +332,7 @@ export class GizmoManager {
                     background: rgba(24, 24, 27, 0.85); border: 1px solid rgba(255, 255, 255, 0.12);
                     width: 40px; height: 40px; border-radius: 12px; color: #94a3b8; cursor: pointer;
                     display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+                    flex-shrink: 0;
                 }
                 .mat-filter-btn:hover {
                     background: rgba(255, 255, 255, 0.1); color: white; border-color: rgba(255, 255, 255, 0.3);
@@ -327,16 +341,37 @@ export class GizmoManager {
                     background: rgba(24, 24, 27, 0.85); border: 1px solid rgba(255, 255, 255, 0.15);
                     width: 42px; height: 42px; border-radius: 50%; color: white; cursor: pointer;
                     font-size: 20px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
-                    margin-left: 8px;
+                    margin-left: 8px; flex-shrink: 0;
                 }
                 .mat-close-btn:hover {
                     background: rgba(239, 68, 68, 0.8); border-color: #ef4444; transform: rotate(90deg);
                 }
                 @media (max-width: 768px) {
-                    .mat-card { width: 125px; min-height: 190px; padding: 10px; border-radius: 14px; }
-                    .mat-sphere { width: 80px; height: 80px; }
-                    .mat-lib-overlay { padding: 2vh 3vw; }
-                    .mat-search-pill { width: 160px; }
+                    .mat-lib-overlay { padding: 2vh 3.5vw; }
+                    .mat-lib-header { flex-direction: column; align-items: flex-start; gap: 14px; margin-bottom: 12px; }
+                    .mat-header-left { padding-right: 54px; width: 100%; box-sizing: border-box; }
+                    .mat-search-wrapper { width: 100%; justify-content: space-between; gap: 8px; }
+                    .mat-search-pill { flex: 1; width: auto; min-width: 140px; }
+                    .mat-close-btn { position: absolute; top: 0; right: 0; margin-left: 0; z-index: 10; }
+                    .mat-lib-grid { gap: 12px; }
+                    .mat-card { width: 130px; min-height: 205px; padding: 12px 10px; border-radius: 16px; }
+                    .mat-sphere { width: 84px; height: 84px; margin: 6px 0; }
+                    .mat-card-title { font-size: 13.5px; margin-top: 6px; }
+                    .mat-card-sub { font-size: 11px; }
+                }
+                @media (max-width: 480px) {
+                    .mat-lib-overlay { padding: 1.5vh 3vw; }
+                    .mat-lib-header { gap: 10px; margin-bottom: 10px; }
+                    .mat-lib-title-text { font-size: 22px; margin-bottom: 4px; }
+                    .mat-lib-subtitle-text { font-size: 12.5px; }
+                    .mat-lib-grid { gap: 10px; }
+                    .mat-card { width: 115px; min-height: 185px; padding: 10px 8px; border-radius: 14px; }
+                    .mat-sphere { width: 74px; height: 74px; margin: 5px 0; }
+                    .mat-card-title { font-size: 12.5px; margin-top: 4px; }
+                    .mat-card-sub { font-size: 10.5px; }
+                    .mat-search-pill { padding: 6px 12px; font-size: 13px; }
+                    .mat-filter-btn { width: 36px; height: 36px; }
+                    .mat-close-btn { width: 38px; height: 38px; font-size: 18px; }
                 }
             `;
             document.head.appendChild(style);
@@ -350,9 +385,9 @@ export class GizmoManager {
               <div class="mat-lib-inner">
                   <div>
                       <div class="mat-lib-header">
-                          <div>
-                              <h2 class="mat-lib-header-text" style="font-size: 32px; font-weight: 700; color: white; margin: 0 0 6px 0; letter-spacing: 0.5px;">Material Library</h2>
-                              <div class="mat-lib-header-text" style="font-size: 14px; color: #cbd5e1; font-weight: 500;">
+                          <div class="mat-header-left">
+                              <h2 class="mat-lib-title-text">Material Library</h2>
+                              <div class="mat-lib-subtitle-text">
                                   Applying to: <span id="gizmo-material-face-name" style="color: #60a5fa; font-weight: 600; cursor: pointer; text-transform: capitalize;" title="Click to view categories">Select Material Type</span>
                               </div>
                           </div>
@@ -374,7 +409,7 @@ export class GizmoManager {
           `;
         
         // Block pointer events from hitting the 3D scene below when clicking interactive UI elements
-        ['pointerdown', 'pointerup', 'wheel'].forEach(evt => {
+        ['pointerdown', 'pointerup', 'wheel', 'touchstart', 'touchend', 'touchmove'].forEach(evt => {
             this.materialPanel.addEventListener(evt, e => {
                 if (e.target.closest('.mat-lib-header, .mat-lib-grid-wrapper')) {
                     e.stopPropagation();
@@ -554,7 +589,6 @@ export class GizmoManager {
 
         this._makePanelDraggable(this.xyPanel);
         this._makePanelDraggable(this.openingPanel);
-        this._makePanelDraggable(this.materialPanel);
         this._makePanelDraggable(this.stylePanel);
         this._makePanelDraggable(this.cornerPanel);
 
@@ -989,7 +1023,11 @@ export class GizmoManager {
         }
         
         const gridPanel = document.getElementById('gizmo-material-grid');
-        if (gridPanel) gridPanel.style.display = 'flex';
+        if (gridPanel) {
+            gridPanel.style.display = 'flex';
+            const wrapper = gridPanel.closest('.mat-lib-grid-wrapper') || gridPanel.parentElement;
+            if (wrapper) wrapper.scrollLeft = 0;
+        }
         const searchEl = document.getElementById('mat-lib-search-input');
         if (searchEl) searchEl.value = '';
         
@@ -1145,6 +1183,8 @@ export class GizmoManager {
         const gridElem = this.materialPanel.querySelector('#gizmo-material-grid');
         if (gridElem) {
             gridElem.innerHTML = decorThumbnails;
+            const scrollWrap = gridElem.closest('.mat-lib-grid-wrapper') || gridElem.parentElement;
+            if (scrollWrap) scrollWrap.scrollLeft = 0;
             if (this._attachMaterialThumbListeners) this._attachMaterialThumbListeners();
             
             // Wire up item clicks to update active highlight
