@@ -3,7 +3,6 @@ import { coreEventBus } from '../EventBus.js';
 import * as THREE from 'three';
 import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY, FABRIC_REGISTRY, FLOOR_REGISTRY, WINDOW_GLASS_MATERIALS } from '../registry.js';
 import { MaterialFactory } from './MaterialFactory.js';
-import { MaterialClassifier } from './MaterialClassifier.js';
 
 const WOOD_REGISTRY = DOOR_MATERIALS_REGISTRY;
 const METAL_REGISTRY = DOOR_MATERIALS_REGISTRY;
@@ -19,7 +18,6 @@ export class GizmoManager {
         this.ctx = ctx;
         this.container = ctx.container;
         this.menuVisible = false;
-        this.materialClassifier = new MaterialClassifier();
     }
 
     init() {
@@ -108,7 +106,9 @@ export class GizmoManager {
         this.btnMaterial.className = 'transform-menu-btn';
         this.btnMaterial.innerHTML = '🎨<br>Material';
         this.btnMaterial.style.display = 'none';
-        this.btnMaterial.onclick = () => {
+        this.btnMaterial.onclick = (e) => {
+            if (!this._menuPointerDown) return;
+            this._menuPointerDown = false;
             if (this.ctx.interactions.selectedObject && this.ctx.interactions.selectedObject.userData.entity) {
                 this.ctx.interactions.selectedObject.userData.entity.params = this.ctx.interactions.selectedObject.userData.entity.params || {};
                 this.ctx.interactions.selectedObject.userData.entity.params.isEditingMaterials = true;
@@ -217,107 +217,169 @@ export class GizmoManager {
             style.innerHTML = `
                 .mat-lib-overlay {
                     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-                    background: transparent; 
-                    z-index: 99999; display: flex; flex-direction: column; padding: 5vh 5vw; box-sizing: border-box;
-                    opacity: 0; transition: opacity 0.3s ease; pointer-events: none;
+                    background: radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.35) 0%, rgba(9, 9, 11, 0.75) 100%);
+                    z-index: 99999; display: flex; flex-direction: column; justify-content: flex-start;
+                    padding: 3vh 3.5vw 4vh 3.5vw; box-sizing: border-box;
+                    opacity: 0; transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none;
                 }
                 .mat-lib-overlay.active {
                     opacity: 1; pointer-events: auto;
                 }
                 .mat-lib-inner {
-                    max-width: 1400px; margin: 0 auto; width: 100%; height: 100%; 
-                    display: flex; flex-direction: column; overflow: hidden;
+                    width: 100%; max-width: 1550px; margin: 0 auto; height: auto;
+                    display: flex; flex-direction: column; justify-content: flex-start; pointer-events: none;
                 }
-                .mat-lib-grid {
-                    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); 
-                    gap: 24px; overflow-y: auto; padding-right: 10px; padding-bottom: 80px; align-items: start; flex: 1; min-height: 0;
-                }
-                .mat-thumb-item {
-                    display: flex; flex-direction: column; align-items: center; cursor: pointer;
-                    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-                    padding: 10px; border-radius: 16px; background: rgba(255,255,255,0);
-                }
-                .mat-thumb-item:hover {
-                    transform: translateY(-5px) scale(1.05);
-                    background: rgba(255,255,255,0.05);
-                }
-                .mat-thumb-img {
-                    width: 120px; height: 120px; background-size: contain; background-position: center; background-repeat: no-repeat;
-                    filter: drop-shadow(0 15px 20px rgba(0,0,0,0.6));
-                }
-                .mat-close-btn {
-                    background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); width: 44px; height: 44px; border-radius: 50%;
-                    color: white; cursor: pointer; font-size: 24px; display: flex; align-items: center; justify-content: center;
-                    transition: background 0.2s;
-                }
-                .mat-close-btn:hover { background: rgba(0,0,0,0.6); }
-                @media (max-width: 768px) {
-                    .mat-thumb-img { width: 80px; height: 80px; }
-                    .mat-lib-overlay { padding: 2vh 3vw; }
-                    .mat-lib-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; }
-                    .mat-lib-header-title { font-size: 24px !important; }
-                    .mat-lib-header-sub { font-size: 13px !important; }
+                .mat-lib-header {
+                    display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 16px;
+                    flex-shrink: 0; pointer-events: auto;
                 }
                 .mat-lib-header-text {
                     text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
                 }
-                
+                .mat-lib-grid-wrapper {
+                    width: 100%; overflow-x: auto; padding: 4px 4px 16px 4px; pointer-events: auto;
+                    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.2) transparent;
+                }
+                .mat-lib-grid-wrapper::-webkit-scrollbar {
+                    height: 6px;
+                }
+                .mat-lib-grid-wrapper::-webkit-scrollbar-thumb {
+                    background: rgba(255,255,255,0.2); border-radius: 99px;
+                }
+                .mat-lib-grid {
+                    display: flex; flex-direction: row; gap: 16px; align-items: stretch; width: max-content; min-width: 100%;
+                }
+                .mat-card {
+                    width: 165px; min-height: 245px; border-radius: 18px;
+                    background: linear-gradient(145deg, rgba(39, 39, 42, 0.85) 0%, rgba(24, 24, 27, 0.95) 100%);
+                    border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+                    display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+                    padding: 14px 12px 16px 12px; box-sizing: border-box; cursor: pointer;
+                    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); position: relative;
+                    user-select: none; flex-shrink: 0;
+                }
+                .mat-card:hover {
+                    transform: translateY(-6px);
+                    border-color: rgba(255, 255, 255, 0.25);
+                    box-shadow: 0 15px 35px rgba(0,0,0,0.7);
+                }
+                .mat-card.active-card {
+                    border: 1px solid #f97316 !important;
+                    box-shadow: 0 0 25px rgba(249, 115, 22, 0.3), 0 10px 25px rgba(0,0,0,0.6);
+                }
+                .mat-card-icon-badge {
+                    align-self: flex-start; width: 32px; height: 32px; border-radius: 50%;
+                    display: flex; align-items: center; justify-content: center; margin-bottom: 8px;
+                    transition: transform 0.2s; flex-shrink: 0;
+                }
+                .mat-card:hover .mat-card-icon-badge {
+                    transform: scale(1.1);
+                }
+                .mat-sphere {
+                    width: 110px; height: 110px; border-radius: 50%; position: relative;
+                    margin: 8px 0;
+                    box-shadow: 
+                        0 15px 25px -5px rgba(0, 0, 0, 0.8),
+                        inset -10px -10px 25px rgba(0, 0, 0, 0.75),
+                        inset 6px 6px 15px rgba(255, 255, 255, 0.35);
+                    overflow: hidden; background-size: cover; background-position: center;
+                    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); flex-shrink: 0;
+                }
+                .mat-card:hover .mat-sphere {
+                    transform: scale(1.06) rotate(3deg);
+                }
+                .mat-sphere::after {
+                    content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 50%;
+                    background: radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.05) 45%, rgba(0, 0, 0, 0.75) 90%);
+                    pointer-events: none;
+                }
+                .mat-card-title {
+                    color: white; font-weight: 600; font-size: 15px; margin-top: 8px; text-align: center;
+                    width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+                }
+                .mat-card-sub {
+                    color: #94a3b8; font-size: 12px; margin-top: 2px; text-align: center; width: 100%;
+                }
+                .mat-card.active-card .mat-card-sub {
+                    color: #f97316; font-weight: 600;
+                }
+                .mat-search-wrapper {
+                    display: flex; gap: 12px; align-items: center; flex-shrink: 0;
+                }
+                .mat-search-pill {
+                    background: rgba(24, 24, 27, 0.85); border: 1px solid rgba(255, 255, 255, 0.12);
+                    border-radius: 99px; display: flex; align-items: center;
+                    padding: 8px 16px; width: 260px; transition: border-color 0.2s, box-shadow 0.2s;
+                }
+                .mat-search-pill:focus-within {
+                    border-color: #f97316; box-shadow: 0 0 15px rgba(249, 115, 22, 0.2);
+                }
+                .mat-filter-btn {
+                    background: rgba(24, 24, 27, 0.85); border: 1px solid rgba(255, 255, 255, 0.12);
+                    width: 40px; height: 40px; border-radius: 12px; color: #94a3b8; cursor: pointer;
+                    display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+                }
+                .mat-filter-btn:hover {
+                    background: rgba(255, 255, 255, 0.1); color: white; border-color: rgba(255, 255, 255, 0.3);
+                }
+                .mat-close-btn {
+                    background: rgba(24, 24, 27, 0.85); border: 1px solid rgba(255, 255, 255, 0.15);
+                    width: 42px; height: 42px; border-radius: 50%; color: white; cursor: pointer;
+                    font-size: 20px; display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+                    margin-left: 8px;
+                }
+                .mat-close-btn:hover {
+                    background: rgba(239, 68, 68, 0.8); border-color: #ef4444; transform: rotate(90deg);
+                }
+                @media (max-width: 768px) {
+                    .mat-card { width: 125px; min-height: 190px; padding: 10px; border-radius: 14px; }
+                    .mat-sphere { width: 80px; height: 80px; }
+                    .mat-lib-overlay { padding: 2vh 3vw; }
+                    .mat-search-pill { width: 160px; }
+                }
             `;
             document.head.appendChild(style);
         }
 
         this.materialPanel = document.createElement('div');
         this.materialPanel.className = 'mat-lib-overlay';
-        
-        let decorThumbnails = `
-            <div class="mat-thumb-item mat-thumb" data-mat="">
-                <div class="mat-thumb-img" style="background: rgba(0,0,0,0.2); border-radius: 50%; border: 1px dashed rgba(255,255,255,0.4); display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">Clear</div>
-                <span style="color: white; font-size: 13px; margin-top: 16px; font-weight: 500; text-shadow: 0 2px 4px rgba(0,0,0,0.8);">Default</span>
-            </div>
-        `;
-        for (const [key, val] of Object.entries(WALL_DECOR_REGISTRY)) {
-            const thumbUrl = val.thumbnail || val.texture;
-            decorThumbnails += `
-                <div class="mat-thumb-item mat-thumb" data-mat="${key}" title="${val.name}">
-                    <div class="mat-thumb-img" style="background-image: url('${thumbUrl}');"></div>
-                    <span style="color: white; font-size: 13px; margin-top: 16px; font-weight: 500; text-align: center; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 2px 4px rgba(0,0,0,0.8);">${val.name}</span>
-                </div>
-            `;
-        }
+        this.materialPanel.style.display = 'none';
         
         this.materialPanel.innerHTML = `
               <div class="mat-lib-inner">
-                  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; flex-shrink: 0;">
-                      <div>
-                          <h2 class="mat-lib-header-text mat-lib-header-title" style="font-size: 32px; font-weight: 300; color: white; margin: 0 0 8px 0; letter-spacing: 1px;">Material Library</h2>
-                          <div class="mat-lib-header-text mat-lib-header-sub" style="font-size: 15px; color: #e2e8f0;">Applying to: <span id="gizmo-material-face-name" style="color: #93c5fd; font-weight: 600; text-transform: capitalize;"></span> &nbsp;&bull;&nbsp; Current: <span id="gizmo-material-name" style="color: white; font-weight: 500;"></span></div>
+                  <div>
+                      <div class="mat-lib-header">
+                          <div>
+                              <h2 class="mat-lib-header-text" style="font-size: 32px; font-weight: 700; color: white; margin: 0 0 6px 0; letter-spacing: 0.5px;">Material Library</h2>
+                              <div class="mat-lib-header-text" style="font-size: 14px; color: #cbd5e1; font-weight: 500;">
+                                  Applying to: <span id="gizmo-material-face-name" style="color: #60a5fa; font-weight: 600; cursor: pointer; text-transform: capitalize;" title="Click to view categories">Select Material Type</span>
+                              </div>
+                          </div>
+                          <div class="mat-search-wrapper">
+                              <div class="mat-search-pill">
+                                  <svg style="width: 18px; height: 18px; color: #94a3b8; flex-shrink: 0; margin-right: 8px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                  <input id="mat-lib-search-input" type="text" placeholder="Search materials..." style="background: transparent; border: none; color: white; outline: none; width: 100%; font-size: 14px; font-family: inherit;">
+                              </div>
+                              <button class="mat-filter-btn" title="Filter materials"><svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg></button>
+                              <button id="close-material-lib" class="mat-close-btn">&times;</button>
+                          </div>
                       </div>
-                      <button id="close-material-lib" class="mat-close-btn">&times;</button>
-                  </div>
-                  
-                  <div id="gizmo-unknown-material" style="display: none; padding: 20px; background: rgba(255,255,255,0.05); border-radius: 8px; text-align: center; margin-bottom: 15px; flex-shrink: 0;">
-                      <div style="color: #cbd5e1; margin-bottom: 12px; font-size: 14px;">Material type couldn't be identified for this mesh.</div>
-                      <select id="gizmo-assign-category" style="padding: 6px 12px; border-radius: 4px; background: rgba(0,0,0,0.3); color: white; border: 1px solid rgba(255,255,255,0.2); cursor: pointer; outline: none; font-size: 13px;">
-                          <option value="" disabled selected>Assign Category...</option>
-                          <option value="fabric">Fabric</option>
-                          <option value="wood">Wood</option>
-                          <option value="metal">Metal</option>
-                          <option value="glass">Glass</option>
-                          <option value="stone">Stone</option>
-                          <option value="tile">Tile</option>
-                          <option value="plastic">Plastic</option>
-                      </select>
-                  </div>
-
-                  <div id="gizmo-material-grid" class="mat-lib-grid">
-                      ${decorThumbnails}
+                      
+                      <div class="mat-lib-grid-wrapper">
+                          <div id="gizmo-material-grid" class="mat-lib-grid"></div>
+                      </div>
                   </div>
               </div>
           `;
         
-        // Block pointer events from hitting the 3D scene below
+        // Block pointer events from hitting the 3D scene below when clicking interactive UI elements
         ['pointerdown', 'pointerup', 'wheel'].forEach(evt => {
-            this.materialPanel.addEventListener(evt, e => e.stopPropagation(), { passive: true });
+            this.materialPanel.addEventListener(evt, e => {
+                if (e.target.closest('.mat-lib-header, .mat-lib-grid-wrapper')) {
+                    e.stopPropagation();
+                }
+            }, { passive: true });
         });
         
         // Add close logic
@@ -331,44 +393,29 @@ export class GizmoManager {
             }, 300);
         });
 
-        // Unknown category assignment logic
-        this.materialPanel.querySelector('#gizmo-assign-category').addEventListener('change', (e) => {
-            if (!this.activeObject) return;
-            const cat = e.target.value;
-            
-            const applyToMesh = (mesh) => {
-                if (!mesh.userData) mesh.userData = {};
-                mesh.userData.materialCategory = cat;
-                if (this.materialClassifier) {
-                    this.materialClassifier.invalidateCache(mesh);
-                }
-            };
+        // Add search filtering logic
+        const searchInput = this.materialPanel.querySelector('#mat-lib-search-input');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const q = e.target.value.toLowerCase().trim();
+                const cards = this.materialPanel.querySelectorAll('.mat-card');
+                cards.forEach(card => {
+                    const titleEl = card.querySelector('.mat-card-title') || card;
+                    const text = titleEl.textContent.toLowerCase();
+                    card.style.display = text.includes(q) || q === '' ? 'flex' : 'none';
+                });
+            });
+        }
 
-            applyToMesh(this.activeObject);
-
-            // Asset Learning: propagate to other meshes with the same material UUID
-            if (this.materialClassifier && this.activeObject.material) {
-                const root = this.materialClassifier._getRoot(this.activeObject);
-                const activeMats = Array.isArray(this.activeObject.material) ? this.activeObject.material : [this.activeObject.material];
-                const activeUuids = activeMats.map(m => m.uuid).filter(Boolean);
-                
-                if (activeUuids.length > 0 && root) {
-                    root.traverse(child => {
-                        if (child.isMesh && child !== this.activeObject && child.material) {
-                            const childMats = Array.isArray(child.material) ? child.material : [child.material];
-                            if (childMats.some(m => activeUuids.includes(m.uuid))) {
-                                applyToMesh(child);
-                            }
-                        }
-                    });
+        // Hook up subtitle navigation link
+        const faceNameLink = this.materialPanel.querySelector('#gizmo-material-face-name');
+        if (faceNameLink) {
+            faceNameLink.addEventListener('click', () => {
+                if (faceNameLink.textContent.includes('Back') || faceNameLink.textContent !== 'Select Material Type') {
+                    this.onMaterialFaceSelected(this.activeFace, this.activeSubMeshIndex, this.activeObject, this.activeMatIndex, 'categories');
                 }
-            }
-            
-            // Re-trigger the selection to update grid
-            if (this.activeFace || this.activeObject) {
-                this.onMaterialFaceSelected(this.activeFace, this.activeSubMeshIndex, this.activeObject, this.activeMatIndex);
-            }
-        });
+            });
+        }
 
         document.body.appendChild(this.materialPanel);
 
@@ -494,7 +541,13 @@ export class GizmoManager {
         this.transformMenu.appendChild(this.btnCloseMenu);
         
         this.container.appendChild(this.transformMenu);
-        ['pointerdown', 'wheel'].forEach(evt => {
+        ['pointerdown', 'touchstart', 'mousedown'].forEach(evt => {
+            this.transformMenu.addEventListener(evt, e => {
+                this._menuPointerDown = true;
+                e.stopPropagation();
+            }, { passive: true });
+        });
+        ['wheel', 'pointerup', 'touchend', 'click'].forEach(evt => {
             this.transformMenu.addEventListener(evt, e => e.stopPropagation(), { passive: true });
         });
         this.container.appendChild(this.btnDone);
@@ -903,7 +956,7 @@ export class GizmoManager {
         }, 100);
     }
 
-    onMaterialFaceSelected(faceName, subMeshIndex = -1, activeObject = null, activeMatIndex = -1) {
+    onMaterialFaceSelected(faceName, subMeshIndex = -1, activeObject = null, activeMatIndex = -1, forcedCategory = null) {
         this.activeFace = faceName;
         this.activeSubMeshIndex = subMeshIndex;
         this.activeObject = activeObject;
@@ -927,53 +980,120 @@ export class GizmoManager {
         }
         const selectedObj = realSelectedObj;
         
-        let materialCategory = 'unknown';
+        let materialCategory = forcedCategory || 'categories';
         if (selectedObj && selectedObj.userData && selectedObj.userData.entity) {
             const type = selectedObj.userData.entity.type;
-            if (type === 'furniture' || selectedObj.userData.entity.isFurniture) {
-                const detected = this.materialClassifier.classify(this.activeObject, faceName);
-                materialCategory = detected.category;
-            } else {
+            if (type !== 'furniture' && !selectedObj.userData.entity.isFurniture) {
                 materialCategory = type;
             }
         }
         
-        const unknownPanel = document.getElementById('gizmo-unknown-material');
         const gridPanel = document.getElementById('gizmo-material-grid');
+        if (gridPanel) gridPanel.style.display = 'flex';
+        const searchEl = document.getElementById('mat-lib-search-input');
+        if (searchEl) searchEl.value = '';
         
-        if (materialCategory === 'unknown') {
-            if (unknownPanel) unknownPanel.style.display = 'block';
-            if (gridPanel) gridPanel.style.display = 'none';
-            if (this.matFaceNameDisplay) this.matFaceNameDisplay.innerText = 'Unknown Category';
+        if (materialCategory === 'categories') {
+            if (this.matFaceNameDisplay) {
+                this.matFaceNameDisplay.innerText = 'Select Material Type';
+                this.matFaceNameDisplay.style.textDecoration = 'none';
+            }
             
-            // Reset the select dropdown to prompt assignment
-            const selectElem = document.getElementById('gizmo-assign-category');
-            if (selectElem) selectElem.value = "";
-            return;
-        } else {
-            if (unknownPanel) unknownPanel.style.display = 'none';
-            if (gridPanel) gridPanel.style.display = 'grid';
+            const getCount = (reg) => reg ? Object.keys(reg).length : 0;
+            const getSampleBg = (reg) => {
+                if (!reg) return '';
+                const keys = Object.keys(reg);
+                if (keys.length === 0) return '';
+                const val = reg[keys[0]];
+                const thumbUrl = val.thumbnail || val.texture || val.map || val.diffuseMap;
+                if (thumbUrl) return `background-image: url('${thumbUrl}');`;
+                if (val.color) return `background-color: #${val.color.toString(16).padStart(6, '0')};`;
+                return '';
+            };
+            
+            const cats = [
+                { id: 'wood', title: 'Wood / Veneer', count: getCount(WOOD_REGISTRY) || 24, desc: 'Warm, natural timber grains and high-end polished architectural wood veneers.', iconBg: 'rgba(120, 53, 15, 0.35)', iconColor: '#f59e0b', iconSvg: '<path d="M12 2L6 12h3v8h6v-8h3L12 2z"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #d97706, #78350f 50%, #451a03 90%)', sphereColor: '#78350f', sampleBg: getSampleBg(WOOD_REGISTRY) },
+                { id: 'fabric', title: 'Fabric / Decor', count: getCount(FABRIC_REGISTRY) || 18, desc: 'Soft materials and decorative fabrics for furniture, walls and decor.', iconBg: 'rgba(249, 115, 22, 0.25)', iconColor: '#f97316', iconSvg: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15h10M7 9h10"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #fdba74, #ea580c 50%, #9a3412 85%, #431407 100%)', sphereColor: '#ea580c', sampleBg: getSampleBg(FABRIC_REGISTRY) },
+                { id: 'metal', title: 'Metals', count: getCount(METAL_REGISTRY) || 22, desc: 'Brushed aluminum, polished chrome, structural steel and luxury decorative anodized finishes.', iconBg: 'rgba(100, 116, 139, 0.35)', iconColor: '#94a3b8', iconSvg: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.72 1.05 1.33 1.28H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>', sphereGrad: 'linear-gradient(135deg, #e2e8f0 0%, #64748b 45%, #f8fafc 50%, #334155 100%)', sphereColor: '#94a3b8', sampleBg: getSampleBg(METAL_REGISTRY) },
+                { id: 'glass', title: 'Glass', count: getCount(GLASS_REGISTRY) || 12, desc: 'Clear tempered glass, architectural privacy frosting and energy-efficient tinted glazing.', iconBg: 'rgba(6, 182, 212, 0.25)', iconColor: '#06b6d4', iconSvg: '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, rgba(255,255,255,0.95) 0%, rgba(165, 243, 252, 0.6) 50%, rgba(71, 85, 105, 0.8) 100%)', sphereColor: '#06b6d4', sampleBg: getSampleBg(GLASS_REGISTRY) },
+                { id: 'stone', title: 'Stone / Marble', count: getCount(STONE_REGISTRY) || 28, desc: 'Luxurious Italian marble, rough hewn granites, modern architecture concrete and floor tiles.', iconBg: 'rgba(16, 185, 129, 0.25)', iconColor: '#10b981', iconSvg: '<polygon points="12 2 2 7 12 22 22 7 12 2"/>', sphereGrad: 'radial-gradient(circle at 40% 30%, #cbd5e1, #64748b 55%, #334155 85%, #0f172a 100%)', sphereColor: '#64748b', sampleBg: getSampleBg(STONE_REGISTRY) },
+                { id: 'plastic', title: 'Plastics', count: getCount(PLASTIC_REGISTRY) || 15, desc: 'Matte black polycarbonates, glossy PVC trims, lightweight laminates and composite plastics.', iconBg: 'rgba(168, 85, 247, 0.25)', iconColor: '#a855f7', iconSvg: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>', sphereGrad: 'radial-gradient(circle at 35% 30%, #52525b, #27272a 60%, #09090b 100%)', sphereColor: '#27272a', sampleBg: getSampleBg(PLASTIC_REGISTRY) },
+                { id: 'leather', title: 'Leather', count: 20, desc: 'Supple aniline leathers, embossed hides, and eco-friendly artificial leather upholstery.', iconBg: 'rgba(180, 83, 9, 0.25)', iconColor: '#d97706', iconSvg: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #b45309, #713f12 55%, #422006 90%, #1c0f04 100%)', sphereColor: '#713f12', sampleBg: getSampleBg(FABRIC_REGISTRY) }
+            ];
+            
+            let activeCatId = this._lastSelectedCat || 'fabric';
+            let categoryThumbnails = '';
+            for (const cat of cats) {
+                const isSelected = cat.id === activeCatId;
+                const activeClass = isSelected ? ' active-card' : '';
+                const sphereStyle = cat.sampleBg ? `${cat.sampleBg}; background-color: ${cat.sphereColor};` : `background-image: ${cat.sphereGrad}; background-color: ${cat.sphereColor};`;
+                categoryThumbnails += `
+                    <div class="mat-card mat-category-thumb${activeClass}" data-cat="${cat.id}">
+                        <div class="mat-card-icon-badge" style="background: ${cat.iconBg}; color: ${cat.iconColor};">
+                            <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${cat.iconSvg}</svg>
+                        </div>
+                        <div class="mat-sphere" style="${sphereStyle}"></div>
+                        <div style="width: 100%;">
+                            <div class="mat-card-title">${cat.title}</div>
+                            <div class="mat-card-sub">${cat.count} Materials</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (gridPanel) {
+                gridPanel.innerHTML = categoryThumbnails;
+                const catThumbs = gridPanel.querySelectorAll('.mat-category-thumb');
+                
+                const updateCategorySelection = (catId) => {
+                    this._lastSelectedCat = catId;
+                    const catObj = cats.find(c => c.id === catId) || cats[1];
+                    catThumbs.forEach(el => {
+                        el.classList.toggle('active-card', el.getAttribute('data-cat') === catId);
+                    });
+                    if (this.matNameDisplay) this.matNameDisplay.innerText = catObj ? catObj.title : 'Select Material Type';
+                };
+
+                catThumbs.forEach(t => {
+                    t.addEventListener('click', (e) => {
+                        const chosenCat = e.currentTarget.getAttribute('data-cat');
+                        this.onMaterialFaceSelected(this.activeFace, this.activeSubMeshIndex, this.activeObject, this.activeMatIndex, chosenCat);
+                    });
+                });
+
+                updateCategorySelection(activeCatId);
+            }
+            return; // Stop here, don't generate regular material thumbs
         }
 
         if (this.matFaceNameDisplay) {
-            let title = 'Materials';
-            if (materialCategory === 'wood' || materialCategory === 'door' || materialCategory === 'window' || materialCategory === 'wood_metal') title = 'Wood / Veneer';
-            else if (materialCategory === 'metal') title = 'Metals';
-            else if (materialCategory === 'glass') title = 'Glass';
-            else if (materialCategory === 'stone') title = 'Stone';
-            else if (materialCategory === 'tile') title = 'Tiles';
-            else if (materialCategory === 'fabric') title = 'Fabric / Decor';
-            else if (materialCategory === 'plastic') title = 'Plastics';
-            else if (materialCategory === 'floor' || materialCategory === 'outer' || materialCategory === 'inner' || materialCategory === 'roof') {
-                title = (materialCategory.charAt(0).toUpperCase() + materialCategory.slice(1)).replace(/_/g, ' ') + ' Materials';
-            }
-            this.matFaceNameDisplay.innerText = title;
+            this.matFaceNameDisplay.innerHTML = '← Back to Categories';
+            this.matFaceNameDisplay.style.textDecoration = 'underline';
+        }
+
+        let title = 'Materials';
+        if (materialCategory === 'wood' || materialCategory === 'door' || materialCategory === 'window' || materialCategory === 'wood_metal') title = 'Wood / Veneer';
+        else if (materialCategory === 'metal') title = 'Metals';
+        else if (materialCategory === 'glass') title = 'Glass';
+        else if (materialCategory === 'stone') title = 'Stone';
+        else if (materialCategory === 'tile') title = 'Tiles';
+        else if (materialCategory === 'fabric') title = 'Fabric / Decor';
+        else if (materialCategory === 'plastic') title = 'Plastics';
+        else if (materialCategory === 'leather') title = 'Leather';
+        else if (materialCategory === 'floor' || materialCategory === 'outer' || materialCategory === 'inner' || materialCategory === 'roof') {
+            title = (materialCategory.charAt(0).toUpperCase() + materialCategory.slice(1)).replace(/_/g, ' ') + ' Materials';
         }
 
         let decorThumbnails = `
-            <div class="mat-thumb-item mat-thumb" data-mat="">
-                <div class="mat-thumb-img" style="background: rgba(0,0,0,0.2); border-radius: 50%; border: 1px dashed rgba(255,255,255,0.4); display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; text-shadow: 0 2px 4px rgba(0,0,0,0.5);">Clear</div>
-                <span style="color: white; font-size: 13px; margin-top: 16px; font-weight: 500; text-shadow: 0 2px 4px rgba(0,0,0,0.8);">Default</span>
+            <div class="mat-card mat-thumb" data-mat="" title="Clear Material">
+                <div class="mat-card-icon-badge" style="background: rgba(255,255,255,0.1); color: #94a3b8;">
+                    <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                </div>
+                <div class="mat-sphere" style="background: rgba(0,0,0,0.3); border: 1px dashed rgba(255,255,255,0.3);"></div>
+                <div style="width: 100%;">
+                    <div class="mat-card-title">Clear Material</div>
+                    <div class="mat-card-sub">Default</div>
+                </div>
             </div>
         `;
         let registry = WALL_DECOR_REGISTRY;
@@ -992,26 +1112,31 @@ export class GizmoManager {
         const matsToRender = [];
         if (registry) {
             for (const [key, val] of Object.entries(registry)) {
-                // If the item doesn't have a thumbnail or texture, try to handle it (like WINDOW_GLASS_MATERIALS)
                 const thumbUrl = val.thumbnail || val.texture;
                 if (!thumbUrl && !val.color && !val.transparent) continue;
                 
-                let thumbContent = '';
-                if (val.type === 'fabric') {
-                    matsToRender.push({ key, val });
-                    thumbContent = `<div class="mat-thumb-img" id="mat-thumb-${key}" style="display: flex; justify-content: center; align-items: center;"><span style="color: white; font-size: 24px; text-shadow: 0 2px 4px rgba(0,0,0,0.8);" class="material-icons">hourglass_empty</span></div>`;
-                } else if (thumbUrl) {
-                    thumbContent = `<div class="mat-thumb-img" style="background-image: url('${thumbUrl}');"></div>`;
+                let sphereStyle = 'background: rgba(100,100,100,0.5);';
+                if (thumbUrl) {
+                    sphereStyle = `background-image: url('${thumbUrl}'); background-size: cover; background-position: center;`;
                 } else if (val.color) {
                     const hexColor = '#' + val.color.toString(16).padStart(6, '0');
-                    thumbContent = `<div class="mat-thumb-img" style="background-color: ${hexColor}; opacity: ${val.transparent ? (val.transmission !== undefined ? 1 - val.transmission : 0.5) : 1};"></div>`;
+                    sphereStyle = `background-color: ${hexColor}; opacity: ${val.transparent ? (val.transmission !== undefined ? 1 - val.transmission : 0.5) : 1};`;
+                }
+                if (val.type === 'fabric') {
+                    matsToRender.push({ key, val });
                 }
                 
                 const label = val.name || val.label || key;
                 decorThumbnails += `
-                    <div class="mat-thumb-item mat-thumb" data-mat="${key}" title="${label}">
-                        ${thumbContent}
-                        <span style="color: white; font-size: 13px; margin-top: 16px; font-weight: 500; text-align: center; max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 2px 4px rgba(0,0,0,0.8);">${label}</span>
+                    <div class="mat-card mat-thumb" data-mat="${key}" title="${label}">
+                        <div class="mat-card-icon-badge" style="background: rgba(249, 115, 22, 0.2); color: #f97316;">
+                            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                        </div>
+                        <div class="mat-sphere" id="mat-thumb-${key}" style="${sphereStyle}"></div>
+                        <div style="width: 100%;">
+                            <div class="mat-card-title">${label}</div>
+                            <div class="mat-card-sub">${title}</div>
+                        </div>
                     </div>
                 `;
             }
@@ -1022,6 +1147,17 @@ export class GizmoManager {
             gridElem.innerHTML = decorThumbnails;
             if (this._attachMaterialThumbListeners) this._attachMaterialThumbListeners();
             
+            // Wire up item clicks to update active highlight
+            const thumbs = gridElem.querySelectorAll('.mat-thumb');
+            thumbs.forEach(t => {
+                t.addEventListener('click', (e) => {
+                    thumbs.forEach(el => el.classList.remove('active-card'));
+                    t.classList.add('active-card');
+                    const matName = t.querySelector('.mat-card-title')?.textContent || 'Material';
+                    if (this.matNameDisplay) this.matNameDisplay.innerText = matName;
+                });
+            });
+
             // Asynchronously build beautiful 3D material preview spheres
             if (matsToRender.length > 0) {
                 setTimeout(async () => {
@@ -1031,7 +1167,6 @@ export class GizmoManager {
                             if (thumbData) {
                                 const el = document.getElementById(`mat-thumb-${item.key}`);
                                 if (el) {
-                                    el.innerHTML = '';
                                     el.style.backgroundImage = `url('${thumbData}')`;
                                 }
                             }
@@ -1059,16 +1194,20 @@ export class GizmoManager {
 
 
             const matThumbs = document.querySelectorAll('.mat-thumb');
-            matThumbs.forEach(t => t.style.borderColor = 'transparent');
+            matThumbs.forEach(t => t.classList.remove('active-card'));
             if (tex) {
                 const activeThumb = Array.from(matThumbs).find(t => t.getAttribute('data-mat') === tex);
-                if (activeThumb) activeThumb.style.borderColor = '#3b82f6';
+                if (activeThumb) {
+                    activeThumb.classList.add('active-card');
+                }
                 if (this.matNameDisplay) {
                     const config = registry ? registry[tex] : null;
                     this.matNameDisplay.innerText = config ? config.name : 'Clear Material';
                 }
             } else {
                 if (this.matNameDisplay) this.matNameDisplay.innerText = 'Clear Material';
+                const clearThumb = Array.from(matThumbs).find(t => t.getAttribute('data-mat') === '');
+                if (clearThumb) clearThumb.classList.add('active-card');
             }
         }
     }
@@ -1202,6 +1341,9 @@ export class GizmoManager {
                 this.transformMenu.style.display = 'none';
                 this.setTransformMode('none', true);
             } else {
+                if (this.transformMenu.style.display !== 'flex') {
+                    this._menuPointerDown = false;
+                }
                 this.transformMenu.style.display = 'flex';
                 this.setTransformMode('none', true);
             }
@@ -1249,6 +1391,10 @@ export class GizmoManager {
         }
         if (this.ctx.interactions.materialGizmo && mode !== 'material') {
             this.ctx.interactions.materialGizmo.detach();
+            if (this.materialPanel) {
+                this.materialPanel.classList.remove('active');
+                this.materialPanel.style.display = 'none';
+            }
             if (selectedObj && selectedObj.userData.entity && selectedObj.userData.entity.params) {
                 selectedObj.userData.entity.params.isEditingMaterials = false;
                 if (this.ctx.syncToUI) this.ctx.syncToUI();
@@ -1321,7 +1467,10 @@ export class GizmoManager {
             if (this.btnCloseMenu) this.btnCloseMenu.style.display = 'flex';
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
-            if (this.materialPanel) this.materialPanel.style.display = 'none';
+            if (this.materialPanel) {
+                this.materialPanel.classList.remove('active');
+                this.materialPanel.style.display = 'none';
+            }
             if (this.stylePanel) this.stylePanel.style.display = 'none';
             if (this.cornerPanel) this.cornerPanel.style.display = 'none';
             if (this.btnDone) this.btnDone.style.display = 'none';
@@ -1548,6 +1697,9 @@ export class GizmoManager {
         if (pos.z > 1) {
             this.transformMenu.style.display = 'none';
         } else {
+            if (this.transformMenu.style.display !== 'flex') {
+                this._menuPointerDown = false;
+            }
             this.transformMenu.style.display = 'flex';
             this.transformMenu.style.left = '';
             this.transformMenu.style.top = '';
