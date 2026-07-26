@@ -10,6 +10,7 @@
       @toggle-preview="togglePreviewMode"
       @undo="undo"
       @redo="redo"
+      @toggle-menu="handleToggleMenu"
     />
 
     <div class="main-workspace" @mouseup="debouncedSaveHistory" @touchend="debouncedSaveHistory">
@@ -961,6 +962,22 @@ const {
     refresh3DScene: (b) => refresh3DScene(b),
     handleDeselect: () => handleDeselect()
 });
+
+const handleToggleMenu = () => {
+    if (isMobile.value || isTablet.value) {
+        if (mobileMenuOpen.value && activeMobileTab.value === 'tools') {
+            mobileMenuOpen.value = false;
+        } else {
+            toggleMobileTab('tools');
+        }
+    } else {
+        if (activeCategory.value) {
+            toggleCategory('');
+        } else {
+            toggleCategory('build');
+        }
+    }
+};
 
 const {
     setFloorMaterial,
