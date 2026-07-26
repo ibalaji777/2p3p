@@ -528,7 +528,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 /* RESPONSIVE LAYOUT */
 
 @media (max-width: 1199px) {
-    .main-workspace { flex-direction: column; padding-bottom: 60px; position: relative; box-sizing: border-box !important; }
+    .main-workspace { flex-direction: column; padding-bottom: 0px; position: relative; box-sizing: border-box !important; }
     
     .mobile-left-trigger {
         position: fixed;
@@ -562,26 +562,21 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
     .left-sidebar.mobile-panel { 
         left: 0 !important; 
         top: 0 !important; 
-        bottom: 60px !important; 
+        bottom: 0 !important; 
             width: max-content !important; 
-        height: calc(100% - 60px) !important; 
+        height: 100% !important; 
         background: #ffffff !important; 
     }
     
     .right-sidebar.mobile-panel { 
         right: 0 !important; 
         top: 0 !important; 
-        bottom: 60px !important; 
+        bottom: 0 !important; 
         width: 320px !important; 
-        height: calc(100% - 60px) !important; 
+        height: 100% !important; 
         background: #f8fafc !important; 
     }
 
-    .mobile-bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; background: #ffffff; display: flex; justify-content: space-around; align-items: center; z-index: 2100; border-top: 1px solid #e5e7eb; padding: 4px; box-sizing: border-box; }
-    .mobile-bottom-nav button { flex: 1; height: 100%; background: transparent; border: none; color: #6b7280; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 10px; gap: 4px; cursor: pointer; font-weight: 600; transition: 0.2s; border-radius: 8px; }
-    .mobile-bottom-nav button:hover { background: #f8fafc; color: #111827; }
-    .mobile-bottom-nav button.active { color: #2563eb; background: #eff6ff; }
-    .bottom-nav-icon { width: 22px; height: 22px; }
     .mobile-close-btn { background: #f8fafc; padding: 15px; text-align: right; font-weight: bold; color: #ef4444; border-bottom: 1px solid #e5e7eb; cursor: pointer; font-size: 14px; display: block; }
     
     .levels-panel { flex: 1; border-bottom: none; }
@@ -595,15 +590,15 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
         width: 100% !important; 
         left: 0 !important; 
         top: 0 !important; 
-        bottom: 60px !important; 
-        height: calc(100% - 60px) !important; 
+        bottom: 0 !important; 
+        height: 100% !important; 
     }
     
     .right-sidebar.mobile-panel { 
         width: 100% !important; 
         left: 0 !important; 
         top: auto !important; 
-        bottom: 60px !important; 
+        bottom: 0 !important; 
         height: 60% !important; 
         border-top: 1px solid #e5e7eb !important;
         border-radius: 16px 16px 0 0 !important;

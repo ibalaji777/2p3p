@@ -1288,9 +1288,9 @@ const getToolTabIcon = (toolId) => {
         position: fixed !important;
         top: 0 !important;
         left: 0 !important;
-        bottom: 60px !important;
+        bottom: 0 !important;
         width: 100vw !important;
-        height: calc(100vh - 60px) !important;
+        height: 100vh !important;
         max-width: 100vw !important;
         background: #ffffff;
         z-index: 2000;
