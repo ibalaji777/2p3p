@@ -36,6 +36,9 @@
         @tool-click="handleToolClick"
         @update:activePresetId="activePresetId = $event"
         @catalog-select="handleCatalogSelect"
+        :active-right-tab="activeRightTab"
+        @toggle-tab="handleSidebarBottomNav"
+        @toggle-menu="handleToggleMenu"
       />
 
       <!-- Mobile Left Trigger -->
@@ -236,6 +239,18 @@ const handleCatalogSelect = (item) => {
     }
 };
 
+const handleSidebarBottomNav = (tabId) => {
+    if (isMobile.value || isTablet.value) {
+        toggleMobileTab(tabId);
+    } else {
+        if (activeRightTab.value === tabId) {
+            activeRightTab.value = '';
+        } else {
+            activeRightTab.value = tabId;
+        }
+    }
+};
+
 const toggleMobileTab = (tabId) => {
     if (tabId === '3d') {
         planner.value.finishChain();
@@ -258,6 +273,9 @@ const toggleMobileTab = (tabId) => {
         } else {
             activeMobileTab.value = tabId;
             mobileMenuOpen.value = true;
+            if (tabId === 'tools' && !activeCategory.value) {
+                activeCategory.value = 'walls';
+            }
         }
     }
 };

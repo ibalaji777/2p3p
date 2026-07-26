@@ -45,14 +45,15 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 
 /* DOCKED LEFT SIDEBAR */
 .left-sidebar {
-    width: auto; background: #ffffff; border-right: 1px solid #e5e7eb;
-    display: flex; flex-direction: column; height: 100%; overflow: hidden;
-    box-shadow: none; z-index: 10;
+    width: 68px; min-width: 68px; max-width: 68px; flex-shrink: 0;
+    background: #ffffff; border-right: 1px solid #e5e7eb;
+    display: flex; flex-direction: column; height: 100%; overflow: visible !important;
+    box-shadow: none; z-index: 30; position: relative;
 }
 
-.sidebar-layout { display: flex; flex: 1; height: 100%; min-height: 0; }
+.sidebar-layout { display: flex; flex: 1; height: 100%; min-height: 0; width: 68px; position: relative; overflow: visible !important; }
 .sidebar-dock {
-    width: 60px; background: #ffffff;
+    width: 68px; background: #ffffff; position: relative; z-index: 10;
     display: flex; flex-direction: column; padding: 12px 0; align-items: center; gap: 8px;
     border-right: 1px solid #e5e7eb; flex-shrink: 0; overflow-y: auto;
 }
@@ -527,7 +528,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 /* RESPONSIVE LAYOUT */
 
 @media (max-width: 1199px) {
-    .main-workspace { flex-direction: column; padding-bottom: 60px; position: relative; }
+    .main-workspace { flex-direction: column; padding-bottom: 60px; position: relative; box-sizing: border-box !important; }
     
     .mobile-left-trigger {
         position: fixed;

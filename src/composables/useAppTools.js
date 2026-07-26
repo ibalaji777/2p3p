@@ -61,22 +61,6 @@ export function useAppTools({
 
     const handleToolClick = (tool) => {
         const accordionTools = ['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 'household_appliance_catalog', 'trash_catalog'];
-        if (accordionTools.includes(tool.id)) {
-            // Check if active tool belongs to this catalog
-            const mapping = {
-                'wall_catalog': ['outer', 'inner', 'arc'],
-                'shape_catalog': ['shape_rect', 'shape_circle', 'shape_triangle'],
-                'adv_opening_catalog': ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'],
-                'railing_catalog': ['railing'],
-                'furniture_catalog': ['furniture'],
-                'kitchen_catalog': ['kitchen']
-            };
-            const isChildActive = mapping[tool.id] && mapping[tool.id].includes(activeTool.value);
-            if (activeTool.value === tool.id || isChildActive) {
-                setTool('select');
-                return;
-            }
-        }
         
         if (tool.action === 'furniture') spawnFurniture(tool.id);
         else if (tool.action === 'auto_roof') { if (planner.value) planner.value.addAutoRoof(); }
@@ -94,25 +78,32 @@ export function useAppTools({
 
     const toggleCategory = (catId) => {
         if (activeCategory.value === catId) {
+            if (isMobile.value || isTablet.value) {
+                // Prevent collapsing to an empty view on mobile/tablet; keep active category open
+                return;
+            }
             activeCategory.value = null; // collapse
         } else {
             activeCategory.value = catId;
             if (planner.value) {
                 planner.value.activeCategory = catId;
-                
-                // Auto-open the primary accordion for the category
-                if (catId === 'kitchen') activeTool.value = 'kitchen_catalog';
-                else if (catId === 'furniture') activeTool.value = 'furniture_catalog';
-                else if (catId === 'wall') activeTool.value = 'wall_catalog';
-                else if (catId === 'door') activeTool.value = 'door';
-                else if (catId === 'window') activeTool.value = 'window';
-                else activeTool.value = 'select';
-                
-                planner.value.tool = activeTool.value === 'select' ? 'select' : planner.value.tool;
-                planner.value.finishChain();
-                planner.value.updateToolStates();
-                planner.value.selectEntity(null);
             }
+            
+            // Auto-activate default tool for the category
+            let defaultTool = 'select';
+            if (catId === 'kitchen') defaultTool = 'kitchen_catalog';
+            else if (catId === 'furniture') defaultTool = 'furniture_catalog';
+            else if (catId === 'wall' || catId === 'walls') defaultTool = 'wall_catalog';
+            else if (catId === 'doors_windows' || catId === 'door') defaultTool = 'door';
+            else if (catId === 'window') defaultTool = 'window';
+            else if (catId === 'staircases') defaultTool = 'staircase';
+            else if (catId === 'roof_presets') defaultTool = 'roof';
+            else if (catId === 'shapes') defaultTool = 'shape_catalog';
+            else if (catId === 'advance_openings') defaultTool = 'adv_opening_catalog';
+            else if (catId === 'architectural_details') defaultTool = 'molding';
+            else if (catId === 'common') defaultTool = 'railing_catalog';
+            
+            setTool(defaultTool);
         }
     };
 

@@ -1,55 +1,208 @@
 <template>
     <div class="catalog-gallery">
-        <div class="catalog-header">
-            <h3>{{ type === 'door' ? 'Door Catalog' : type === 'window' ? 'Window Catalog' : type === 'sunshade' ? 'Sunshade Catalog' : type === 'jali_panel' ? 'Jali Panel Catalog' : type === 'staircase' ? 'Staircase Catalog' : type === 'roof' ? 'Roof Catalog' : type === 'dormer' ? 'Dormer Catalog' : type === 'molding' ? 'Molding Catalog' : type === 'elevation_fascia' ? 'Fascia Catalog' : type === 'kitchen_catalog' ? 'Modular Kitchen' : type === 'sink_catalog' ? 'Sink Catalog' : type === 'tap_catalog' ? 'Tap Catalog' : type === 'hood_catalog' ? 'Hood Catalog' : type === 'small_appliance_catalog' ? 'Small Appliances' : type === 'household_appliance_catalog' ? 'Household Appliances' : type === 'wine_cellar_catalog' ? 'Wine Cellars' : type === 'trash_catalog' ? 'Trash Cans' : type === 'handle_catalog' ? 'Handles' : 'Catalog' }}</h3>
-            <div class="search-box">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                <input type="text" v-model="searchQuery" placeholder="Search models..." />
+        <!-- Catalog Sub-Section Header (Title + Sort & Filter Controls) -->
+        <div class="catalog-header-strip">
+            <h3 class="section-title">{{ getCatalogHeaderTitle() }}</h3>
+            <div class="header-actions">
+                <!-- Interactive Sort Dropdown Menu -->
+                <div class="header-popover-wrapper">
+                    <button class="sort-dropdown-chip" @click.stop="sortMenuOpen = !sortMenuOpen; filterMenuOpen = false" :class="{ active: sortMenuOpen }" title="Sort Models">
+                        <span>{{ sortLabel }}</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" :style="{ transform: sortMenuOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+
+                    <div class="action-popover sort-popover" v-if="sortMenuOpen" @click.stop>
+                        <button class="popover-item" :class="{ active: sortOption === 'popular' }" @click="sortOption = 'popular'; sortMenuOpen = false">
+                            <span>Popular (Favorites)</span>
+                            <svg v-if="sortOption === 'popular'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </button>
+                        <button class="popover-item" :class="{ active: sortOption === 'name_asc' }" @click="sortOption = 'name_asc'; sortMenuOpen = false">
+                            <span>Name (A - Z)</span>
+                            <svg v-if="sortOption === 'name_asc'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </button>
+                        <button class="popover-item" :class="{ active: sortOption === 'name_desc' }" @click="sortOption = 'name_desc'; sortMenuOpen = false">
+                            <span>Name (Z - A)</span>
+                            <svg v-if="sortOption === 'name_desc'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </button>
+                        <button class="popover-item" :class="{ active: sortOption === 'recent' }" @click="sortOption = 'recent'; sortMenuOpen = false">
+                            <span>Newest First</span>
+                            <svg v-if="sortOption === 'recent'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Interactive Filter Popover Menu -->
+                <div class="header-popover-wrapper">
+                    <button class="filter-icon-btn" @click.stop="filterMenuOpen = !filterMenuOpen; sortMenuOpen = false" :class="{ active: filterMenuOpen || filterOption !== 'all' }" title="Filter Catalog">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" :stroke="(filterMenuOpen || filterOption !== 'all') ? '#2563eb' : 'currentColor'" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+                        <span v-if="filterOption !== 'all'" class="filter-active-dot"></span>
+                    </button>
+
+                    <div class="action-popover filter-popover" v-if="filterMenuOpen" @click.stop>
+                        <div class="popover-header">Filter Catalog</div>
+                        <button class="popover-item" :class="{ active: filterOption === 'all' }" @click="filterOption = 'all'; filterMenuOpen = false">
+                            <span>All Models</span>
+                            <svg v-if="filterOption === 'all'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </button>
+                        <button class="popover-item" :class="{ active: filterOption === 'favorites' }" @click="filterOption = 'favorites'; filterMenuOpen = false">
+                            <span>❤️ Favorites Only</span>
+                            <svg v-if="filterOption === 'favorites'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </button>
+                        <button class="popover-item" :class="{ active: filterOption === 'standard' }" @click="filterOption = 'standard'; filterMenuOpen = false">
+                            <span>Standard / Compact</span>
+                            <svg v-if="filterOption === 'standard'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </button>
+                        <button class="popover-item" :class="{ active: filterOption === 'wide' }" @click="filterOption = 'wide'; filterMenuOpen = false">
+                            <span>Wide / Architectural</span>
+                            <svg v-if="filterOption === 'wide'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="catalog-grid">
+        <!-- Responsive Product Cards Grid -->
+        <div class="products-grid" v-if="filteredItems && filteredItems.length > 0">
             <template v-for="item in filteredItems" :key="item.id">
                 <div v-if="item.isDivider" class="catalog-divider">
                     {{ item.name }}
                 </div>
-                <div v-else class="catalog-item" 
+                <div v-else 
+                     class="product-card" 
                      :class="{ active: modelValue === item.id }"
-                     @click="$emit('update:modelValue', item.id); $emit('select', item)">
-                    <div class="thumbnail-wrapper">
+                     @click="$emit('update:modelValue', item.id); $emit('select', { ...item, toolId: item.toolId || type })">
+                     
+                    <!-- Top Right Favorite Heart Icon -->
+                    <button class="favorite-heart-btn" @click.stop="toggleFavorite(item.id)" :title="isFavorite(item.id) ? 'Favorited' : 'Add to Favorites'">
+                        <svg width="16" height="16" viewBox="0 0 24 24" :fill="isFavorite(item.id) ? '#ef4444' : 'none'" :stroke="isFavorite(item.id) ? '#ef4444' : '#94a3b8'" stroke-width="2.2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                    </button>
+
+                    <!-- Thumbnail Image / 3D Preview -->
+                    <div class="card-thumb-wrap">
                         <img v-if="item.image" :src="item.image" :alt="item.name" @error="handleImageError" />
-                        <div v-else style="display:flex; align-items:center; justify-content:center; height:100%; width:100%; background:#f1f5f9; color:#94a3b8; font-size:0.75rem;">Loading 3D...</div>
-                        <div class="active-badge" v-if="modelValue === item.id">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        <div v-else class="fallback-thumb-box">
+                            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.4"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                        </div>
+                        
+                        <div class="active-badge-dot" v-if="modelValue === item.id">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                         </div>
                     </div>
-                    <span class="item-name">{{ item.name }}</span>
+
+                    <!-- Product Title -->
+                    <div class="card-title-wrap">
+                        <span class="product-title">{{ item.name }}</span>
+                    </div>
                 </div>
             </template>
+        </div>
+
+        <!-- No Data / Empty Result Display -->
+        <div class="empty-result-box" v-else>
+            <div class="empty-icon-circle">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.6"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+            </div>
+            <h4 class="empty-title">No Data Found</h4>
+            <p class="empty-subtext">No catalog models match your active search or selected filter option.</p>
+            <button class="reset-filter-btn" v-if="searchQuery || filterOption !== 'all'" @click="resetSearchAndFilters">
+                <span>Reset Filters</span>
+            </button>
         </div>
     </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { usePlannerStore } from '../../stores/usePlannerStore.js';
+
+const sortOption = ref('popular');
+const sortMenuOpen = ref(false);
+const filterMenuOpen = ref(false);
+const filterOption = ref('all');
+
+const sortLabel = computed(() => {
+    switch (sortOption.value) {
+        case 'name_asc': return 'Name (A-Z)';
+        case 'name_desc': return 'Name (Z-A)';
+        case 'recent': return 'Newest';
+        case 'popular':
+        default: return 'Popular';
+    }
+});
+
+const closeHeaderMenus = () => {
+    sortMenuOpen.value = false;
+    filterMenuOpen.value = false;
+};
+onMounted(() => {
+    window.addEventListener('click', closeHeaderMenus);
+});
+onUnmounted(() => {
+    window.removeEventListener('click', closeHeaderMenus);
+});
 
 const props = defineProps({
     type: { type: String, required: true },
-    modelValue: { type: String, default: '' }
+    modelValue: { type: String, default: '' },
+    searchQuery: { type: String, default: '' }
 });
 
-const emit = defineEmits(['update:modelValue', 'select']);
+const emit = defineEmits(['update:modelValue', 'select', 'reset-filters']);
 
-const searchQuery = ref('');
+const resetSearchAndFilters = () => {
+    filterOption.value = 'all';
+    emit('reset-filters');
+};
+
 const plannerStore = usePlannerStore();
+
+// Initialize all default doors as favorited to match premium design reference
+const favoritesMap = ref({
+    'single': true, 'french': true, 'sliding': true, 
+    'pocket': true, 'classic_4': true, 'modern_flush': true,
+    'sliding_std': true, 'casement_std': true, 'panoramic_slider': true
+});
+
+const isFavorite = (itemId) => !!favoritesMap.value[itemId];
+const toggleFavorite = (itemId) => {
+    favoritesMap.value[itemId] = !favoritesMap.value[itemId];
+};
+
+const getCatalogHeaderTitle = () => {
+    const map = {
+        'door': 'Door Catalog',
+        'window': 'Window Catalog',
+        'sunshade': 'Sunshade & Openings Catalog',
+        'jali_panel': 'Jali Panel Catalog',
+        'staircase': 'Staircase Catalog',
+        'roof': 'Roof Catalog',
+        'dormer': 'Dormer Catalog',
+        'molding': 'Molding Catalog',
+        'elevation_fascia': 'Fascia Catalog',
+        'kitchen_catalog': 'Modular Kitchen',
+        'sink_catalog': 'Sink Catalog',
+        'tap_catalog': 'Tap Catalog',
+        'hood_catalog': 'Hood Catalog',
+        'small_appliance_catalog': 'Small Appliances',
+        'household_appliance_catalog': 'Household Appliances',
+        'wine_cellar_catalog': 'Wine Cellars',
+        'trash_catalog': 'Trash Cans',
+        'wall_catalog': 'Walls Catalog',
+        'shape_catalog': '3D Shapes Catalog',
+        'adv_opening_catalog': 'Advanced Openings',
+        'railing_catalog': 'Railings Catalog',
+        'furniture_catalog': 'Furniture Catalog'
+    };
+    return map[props.type] || 'Product Catalog';
+};
 
 const doorCatalog = ref([
     { id: 'single', name: 'Single Hinged Door', image: '', params: { doorType: 'single', doorStyle: 'flat', width: 40 } },
     { id: 'french', name: 'Double French Door', image: '', params: { doorType: 'french', doorStyle: 'glass_grid', width: 80 } },
     { id: 'sliding', name: 'Sliding Glass Door', image: '', params: { doorType: 'sliding', doorStyle: 'glass_bottom_panel', width: 80 } },
     { id: 'pocket', name: 'Pocket Door', image: '', params: { doorType: 'pocket', doorStyle: 'flat', width: 40 } },
-    { id: 'classic_4', name: 'Classic 4-Panel', image: '', params: { doorType: 'single', doorStyle: 'classic_4_panel', width: 40 } },
+    { id: 'classic_4', name: 'Classic 4-Panel Door', image: '', params: { doorType: 'single', doorStyle: 'classic_4_panel', width: 40 } },
+    { id: 'modern_flush', name: 'Modern Flush Door', image: '', params: { doorType: 'single', doorStyle: 'modern_flush', width: 40 } },
 ]);
 
 const windowCatalog = ref([
@@ -92,7 +245,6 @@ const roofCatalog = ref([
     { id: 'roof_hip', name: 'Hip Roof', image: '', params: { roofType: 'hip', pitch: 30 } },
     { id: 'roof_flat', name: 'Flat Roof', image: '', params: { roofType: 'flat', thick: 15 } },
 ]);
-
 
 const dormerCatalog = ref([
     { id: 'preset_dormer_gable', name: 'Gable Dormer', image: '', params: { type: 'preset_dormer_gable', width: 120, depth: 150, wallHeight: 120, roofType: 'gable', pitch: 35, elevation: 250 } },
@@ -178,7 +330,6 @@ const furnitureCatalog = ref([
     { id: 'chair_sofa', name: 'Sofa Chair', image: '', toolId: 'furniture', params: { type: 'chair_sofa' } },
     { isDivider: true, id: 'div_beds', name: 'Beds' },
     { id: 'bed_modern_1', name: 'Modern Bed 1', image: '', toolId: 'furniture', params: { type: 'bed_modern_1' } },
-
     { id: 'bed_modern_3', name: 'Modern Bed 3', image: '', toolId: 'furniture', params: { type: 'bed_modern_3' } },
     { id: 'bed_traditional_wooden', name: 'Traditional Wooden Cot', image: '', toolId: 'furniture', params: { type: 'bed_traditional_wooden' } },
     { isDivider: true, id: 'div_other', name: 'Other Furniture' },
@@ -230,15 +381,11 @@ const householdApplianceCatalog = ref([
     { id: 'cooktop_induction', name: 'Induction Cooktop', image: '', toolId: 'furniture', params: { type: 'cooktop_induction', elevation: 90 } }
 ]);
 
-
-
 const trashCatalog = ref([
     { id: 'trash_pedal', name: 'Stainless Pedal Bin', image: '', toolId: 'furniture', params: { type: 'trash_pedal', elevation: 0 } },
     { id: 'trash_recycle', name: 'Dual Recycle Bin', image: '', toolId: 'furniture', params: { type: 'trash_recycle', elevation: 0 } },
     { id: 'trash_pullout', name: 'Cabinet Pull-out', image: '', toolId: 'furniture', params: { type: 'trash_pullout', elevation: 0 } }
 ]);
-
-
 
 const items = computed(() => {
     if (props.type === 'door') return doorCatalog.value;
@@ -266,9 +413,44 @@ const items = computed(() => {
 });
 
 const filteredItems = computed(() => {
-    if (!searchQuery.value) return items.value;
-    const q = searchQuery.value.toLowerCase();
-    return items.value.filter(i => i.name.toLowerCase().includes(q));
+    let list = [...items.value];
+    
+    // 1. Search Query Filter
+    if (props.searchQuery) {
+        const q = props.searchQuery.trim().toLowerCase();
+        list = list.filter(i => i.isDivider || i.name.toLowerCase().includes(q));
+    }
+    
+    // 2. Functional Category Filter
+    if (filterOption.value === 'favorites') {
+        list = list.filter(i => i.isDivider || favoritesMap.value[i.id]);
+    } else if (filterOption.value === 'standard') {
+        list = list.filter(i => i.isDivider || (i.params && (i.params.width <= 60 || i.params.doorStyle === 'flat' || i.params.windowType === 'casement_std' || i.params.doorType === 'single')));
+    } else if (filterOption.value === 'wide') {
+        list = list.filter(i => i.isDivider || (i.params && (i.params.width > 60 || i.params.doorType === 'french' || i.params.doorType === 'sliding' || i.params.windowType === 'panoramic_slider')));
+    }
+
+    // 3. Functional Sort
+    const dividers = list.filter(i => i.isDivider);
+    const nonDividers = list.filter(i => !i.isDivider);
+    
+    if (sortOption.value === 'name_asc') {
+        nonDividers.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortOption.value === 'name_desc') {
+        nonDividers.sort((a, b) => b.name.localeCompare(a.name));
+    } else if (sortOption.value === 'recent') {
+        nonDividers.reverse();
+    } else {
+        nonDividers.sort((a, b) => {
+            const favA = favoritesMap.value[a.id] ? 1 : 0;
+            const favB = favoritesMap.value[b.id] ? 1 : 0;
+            return favB - favA;
+        });
+    }
+    
+    if (nonDividers.length === 0) return [];
+    if (dividers.length === 0) return nonDividers;
+    return list.map(item => item.isDivider ? item : nonDividers.shift()).filter(Boolean);
 });
 
 let isGenerating = false;
@@ -313,120 +495,269 @@ const handleImageError = (e) => {
 </script>
 
 <style scoped>
-.catalog-divider {
-    grid-column: 1 / -1;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #64748b;
-    margin-top: 10px;
-    margin-bottom: 2px;
-    padding-bottom: 4px;
-    border-bottom: 1px solid #e2e8f0;
-}
 .catalog-gallery {
     display: flex;
     flex-direction: column;
+    flex: 1 1 0%;
     height: 100%;
+    width: 100%;
+    min-height: 0;
+    min-width: 0;
     background: #f8fafc;
-    border-radius: 8px;
     overflow: hidden;
+    font-family: 'Inter', system-ui, sans-serif;
 }
 
-.catalog-header {
-    padding: 12px;
-    background: white;
-    border-bottom: 1px solid #e2e8f0;
+/* SUB-SECTION HEADER (E.G. DOOR CATALOG + SORT / FILTER) - DESKTOP DEFAULT */
+.catalog-header-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 22px 10px;
+    background: transparent;
+    flex-shrink: 0;
 }
 
-.catalog-header h3 {
-    margin: 0 0 10px 0;
-    font-size: 14px;
+.section-title {
+    margin: 0;
+    font-size: 16px;
     color: #1e293b;
+    font-weight: 700;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.header-popover-wrapper {
+    position: relative;
+    display: inline-block;
+    z-index: 110;
+}
+
+.action-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 175px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 4px 10px -2px rgba(15, 23, 42, 0.08);
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    animation: fadeInMenu 0.15s ease-out forwards;
+}
+
+@keyframes fadeInMenu {
+    from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.popover-header {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 6px 12px 4px;
+}
+
+.popover-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    color: #334155;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.15s;
+    width: 100%;
+}
+
+.popover-item:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.popover-item.active {
+    background: #eff6ff;
+    color: #2563eb;
     font-weight: 600;
 }
 
-.search-box {
-    position: relative;
+.sort-dropdown-chip {
     display: flex;
     align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
 }
 
-.search-icon {
+.sort-dropdown-chip:hover,
+.sort-dropdown-chip.active {
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: #cbd5e1;
+}
+
+.filter-icon-btn {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filter-icon-btn:hover,
+.filter-icon-btn.active {
+    background: #eff6ff;
+    color: #2563eb;
+    border-color: #bfdbfe;
+}
+
+.filter-active-dot {
     position: absolute;
-    left: 8px;
-    width: 14px;
-    height: 14px;
-    color: #94a3b8;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background: #2563eb;
+    border-radius: 50%;
+    border: 2px solid #ffffff;
 }
 
-.search-box input {
-    width: 100%;
-    padding: 8px 8px 8px 28px;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
-    font-size: 12px;
-    outline: none;
-    transition: border-color 0.2s;
-}
-
-.search-box input:focus {
-    border-color: #3b82f6;
-}
-
-.catalog-grid {
-    flex: 1;
+/* PRODUCTS GRID (3 COLUMNS DEFAULT FOR DESKTOP) - TRIMMED BOTTOM SPACE */
+.products-grid {
+    flex: 1 1 0%;
+    min-height: 0;
+    min-width: 0;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 12px;
+    padding: 12px 22px 28px;
     box-sizing: border-box;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
     align-content: start;
+    -webkit-overflow-scrolling: touch;
 }
 
-.catalog-item {
-    cursor: pointer;
+.catalog-divider {
+    grid-column: 1 / -1;
+    font-size: 13px;
+    font-weight: 700;
+    color: #64748b;
+    margin-top: 14px;
+    margin-bottom: 4px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e2e8f0;
+    letter-spacing: -0.01em;
+}
+
+.product-card {
+    position: relative;
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 12px 10px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    transition: transform 0.2s;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.04);
+    user-select: none;
+    aspect-ratio: 0.95;
 }
 
-.catalog-item:hover .thumbnail-wrapper {
+.product-card:hover {
+    transform: translateY(-3px);
     border-color: #93c5fd;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 10px 24px -4px rgba(15, 23, 42, 0.08);
 }
 
-.thumbnail-wrapper {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 1;
-    border-radius: 8px;
-    border: 2px solid transparent;
-    background: white;
-    overflow: hidden;
+.product-card.active {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.favorite-heart-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 26px;
+    height: 26px;
+    border: none;
+    background: transparent;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 5;
     transition: all 0.2s;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.favorite-heart-btn:hover {
+    transform: scale(1.15);
+}
+
+.card-thumb-wrap {
+    width: 100%;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin: 4px 0 8px;
+    position: relative;
+}
+
+.card-thumb-wrap img {
+    max-width: 90%;
+    max-height: 85px;
+    object-fit: contain;
+}
+
+.fallback-thumb-box {
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+    background: #f8fafc;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.thumbnail-wrapper img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.catalog-item.active .thumbnail-wrapper {
-    border-color: #3b82f6;
-}
-
-.active-badge {
+.active-badge-dot {
     position: absolute;
-    top: 6px;
-    right: 6px;
+    top: 4px;
+    left: 4px;
     width: 20px;
     height: 20px;
     background: #3b82f6;
@@ -434,19 +765,194 @@ const handleImageError = (e) => {
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.4);
 }
 
-.active-badge svg {
-    width: 12px;
-    height: 12px;
-}
-
-.item-name {
-    font-size: 11px;
-    color: #475569;
+.card-title-wrap {
+    width: 100%;
     text-align: center;
-    line-height: 1.2;
-    font-weight: 500;
+    padding-top: 6px;
+    border-top: 1px solid #f1f5f9;
+}
+
+.product-title {
+    font-size: 12.5px;
+    color: #334155;
+    font-weight: 600;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* NO DATA / EMPTY RESULT DISPLAY */
+.empty-result-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    text-align: center;
+    box-sizing: border-box;
+    animation: fadeInEmpty 0.25s ease-out;
+}
+
+@keyframes fadeInEmpty {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.empty-icon-circle {
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    border: 1.5px dashed #cbd5e1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    color: #64748b;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+}
+
+.empty-title {
+    margin: 0 0 6px;
+    font-size: 16.5px;
+    font-weight: 700;
+    color: #1e293b;
+    letter-spacing: -0.01em;
+}
+
+.empty-subtext {
+    margin: 0 0 20px;
+    font-size: 13.5px;
+    color: #64748b;
+    max-width: 240px;
+    line-height: 1.45;
+}
+
+.reset-filter-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 9px 18px;
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #dbeafe;
+    border-radius: 12px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+}
+
+.reset-filter-btn:hover {
+    background: #dbeafe;
+    border-color: #bfdbfe;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.16);
+}
+
+/* =========================================================
+   TABLET VIEWPORT (< 1024px) - 2-COL GRID & SCALED FONTS
+   ========================================================= */
+@media (max-width: 1024px) {
+    .catalog-header-strip {
+        padding: 14px 16px 8px;
+    }
+    .section-title {
+        font-size: 15px;
+    }
+    .sort-dropdown-chip {
+        font-size: 12.5px;
+        padding: 5px 10px;
+    }
+    .products-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        padding: 10px 16px 24px;
+    }
+    .product-card {
+        border-radius: 14px;
+        padding: 10px 8px;
+    }
+    .product-title {
+        font-size: 12px;
+    }
+}
+
+/* =========================================================
+   MOBILE VIEWPORT (<= 640px) - COMPACT TEXT & TOUCH OPTIMIZED
+   ========================================================= */
+@media (max-width: 640px) {
+    .catalog-header-strip {
+        padding: 12px 14px 6px;
+    }
+    .section-title {
+        font-size: 14.5px;
+    }
+    .sort-dropdown-chip {
+        font-size: 11.5px;
+        padding: 4px 8px;
+    }
+    .filter-icon-btn {
+        width: 28px;
+        height: 28px;
+    }
+    .products-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        padding: 8px 14px 28px;
+    }
+    .catalog-divider {
+        font-size: 12px;
+        margin-top: 10px;
+        padding-bottom: 4px;
+    }
+    .product-card {
+        border-radius: 12px;
+        padding: 8px 6px;
+        aspect-ratio: 0.92;
+    }
+    .favorite-heart-btn {
+        width: 24px;
+        height: 24px;
+        top: 6px;
+        right: 6px;
+    }
+    .card-thumb-wrap img {
+        max-height: 70px;
+    }
+    .fallback-thumb-box {
+        width: 54px;
+        height: 54px;
+        border-radius: 10px;
+    }
+    .product-title {
+        font-size: 11.5px;
+    }
+    .empty-result-box {
+        padding: 30px 16px;
+    }
+    .empty-icon-circle {
+        width: 64px;
+        height: 64px;
+        margin-bottom: 12px;
+    }
+    .empty-title {
+        font-size: 15px;
+    }
+    .empty-subtext {
+        font-size: 12.5px;
+        margin-bottom: 16px;
+    }
+    .reset-filter-btn {
+        padding: 8px 14px;
+        font-size: 12.5px;
+    }
 }
 </style>

@@ -169,9 +169,8 @@ export class Wall3DBuilder {
                     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
                     tex.repeat.set(length / (100 * (rConf.repeat || 1)), wallHeight / (100 * (rConf.repeat || 1)));
                     railMat = new THREE.MeshStandardMaterial({ map: tex, roughness: rConf.roughness || 0.8, side: THREE.DoubleSide });
-                } else {
                     railMat = new THREE.MeshStandardMaterial({ 
-                        color: rConf.color, roughness: rConf.roughness || 0.3, 
+                        color: rConf.color || 0xffffff, roughness: rConf.roughness || 0.3, 
                         metalness: rConf.metalness || 0.1, transparent: rConf.transparent || false, 
                         opacity: rConf.opacity || 1.0, side: THREE.DoubleSide 
                     });

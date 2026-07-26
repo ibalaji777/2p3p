@@ -28,7 +28,7 @@ export class ActiveFloor {
                 
                 if (conf.transmission) {
                     return new THREE.MeshPhysicalMaterial({
-                        color: conf.color,
+                        color: conf.color || 0xffffff,
                         roughness: conf.roughness !== undefined ? conf.roughness : 0.5,
                         metalness: conf.metalness !== undefined ? conf.metalness : 0.1,
                         transmission: conf.transmission,
@@ -37,7 +37,7 @@ export class ActiveFloor {
                     });
                 }
                 return new THREE.MeshStandardMaterial({
-                    color: conf.color,
+                    color: conf.color || 0xffffff,
                     roughness: conf.roughness !== undefined ? conf.roughness : 0.5,
                     metalness: conf.metalness !== undefined ? conf.metalness : 0.1,
                     transparent: conf.transparent || false,
@@ -342,9 +342,8 @@ export class ActiveFloor {
                 const repeatScale = room.materialRepeat || floorConfig.repeat || 1;
                 // Use a default size for calculating UV repeat if not specified, 100 is typically 1 unit in 3D
                 tex.repeat.set(1 / (100 * repeatScale), 1 / (100 * repeatScale));
-                mat = new THREE.MeshStandardMaterial({ map: tex, roughness: floorConfig.roughness !== undefined ? floorConfig.roughness : 0.8, color: floorConfig.color || 0xffffff, side: THREE.DoubleSide });
-            } else if (floorConfig && floorConfig.color) {
-                mat = new THREE.MeshStandardMaterial({ color: floorConfig.color, roughness: floorConfig.roughness !== undefined ? floorConfig.roughness : 0.8, side: THREE.DoubleSide });
+            } else if (floorConfig) {
+                mat = new THREE.MeshStandardMaterial({ color: floorConfig.color || 0xffffff, roughness: floorConfig.roughness !== undefined ? floorConfig.roughness : 0.8, side: THREE.DoubleSide });
             }
 
             const floorMesh = new THREE.Mesh(floorGeo, mat);

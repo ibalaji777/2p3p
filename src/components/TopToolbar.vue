@@ -419,6 +419,8 @@ onBeforeUnmount(() => {
   user-select: none;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
   box-sizing: border-box;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .mode-switcher-chip:hover {
@@ -442,12 +444,15 @@ onBeforeUnmount(() => {
 
 .mode-label {
   letter-spacing: 0.15px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .chevron-icon {
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   stroke: #64748b;
   margin-left: 2px;
+  flex-shrink: 0;
 }
 
 .chevron-icon.open {
