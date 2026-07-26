@@ -125,7 +125,7 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { usePlannerStore } from '../../stores/usePlannerStore.js';
 import DimensionInput from '../../components/common/DimensionInput.vue';
 

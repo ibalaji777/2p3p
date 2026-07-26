@@ -337,7 +337,7 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits, ref } from 'vue';
+import { ref } from 'vue';
 import DimensionInput from '../../components/common/DimensionInput.vue';
 
 const props = defineProps({

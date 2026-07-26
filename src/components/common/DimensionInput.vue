@@ -15,8 +15,9 @@ import { useDimension } from '../../core/units/useDimension.js';
 
 const props = defineProps({
   modelValue: {
-    type: Number,
-    required: true
+    type: [Number, String],
+    required: false,
+    default: 0
   }
 });
 
@@ -28,7 +29,8 @@ const displayValue = ref(0);
 
 // Sync internal model to display value (e.g., when loaded or unit changed)
 const syncToDisplay = () => {
-    displayValue.value = toDisplay(props.modelValue);
+    const val = props.modelValue ?? 0;
+    displayValue.value = toDisplay(isNaN(Number(val)) ? 0 : Number(val));
 };
 
 watch(() => props.modelValue, syncToDisplay);

@@ -83,7 +83,6 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits } from 'vue';
 import DimensionInput from '../../components/common/DimensionInput.vue';
 
 const props = defineProps({

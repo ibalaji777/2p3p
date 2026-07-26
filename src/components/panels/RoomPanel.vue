@@ -23,8 +23,6 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits } from 'vue';
-
 const props = defineProps({
     selectedEntity: { type: Object, required: true },
     floorRegistry: { type: Object, required: true }
