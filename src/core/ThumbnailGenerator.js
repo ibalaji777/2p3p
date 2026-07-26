@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WIDGET_REGISTRY, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY, MOLDING_REGISTRY, FURNITURE_REGISTRY, RAILING_REGISTRY, PreviewMeshRegistry } from './registry.js';
+import { WIDGET_REGISTRY, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY, MOLDING_REGISTRY, FURNITURE_REGISTRY, RAILING_REGISTRY } from './registry.js';
 import { Stair3DBuilder } from '../features/stairs/stairs.renderer3d.js';
 import { Molding3DBuilder } from './engine3d/Molding3DBuilder.js';
 import { Railing3DBuilder } from '../features/railing/builders/Railing3DBuilder.js';
@@ -266,11 +266,8 @@ export class ThumbnailGenerator {
                 const mesh = new THREE.Mesh(geo, mat);
                 group.add(mesh);
             } else if (type === 'material_preview') {
-                if (!this.previewMeshRegistry) {
-                    this.previewMeshRegistry = new PreviewMeshRegistry(this.ctx);
-                }
-                
-                const mesh = await this.previewMeshRegistry.getPreviewMesh(params.type);
+                const geo = new THREE.SphereGeometry(45, 64, 64);
+                const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xffffff }));
                 
                 // We must import MaterialFactory dynamically to avoid circular dependencies if it wasn't already imported
                 let factory = window.MaterialFactory;
@@ -279,17 +276,7 @@ export class ThumbnailGenerator {
                     factory = imported.MaterialFactory;
                 }
                 
-                // If the preview mesh is a group (e.g. loaded from a GLB), apply the material to all child meshes
-                const materialPromises = [];
-                mesh.traverse((child) => {
-                    if (child.isMesh) {
-                        // Ensure it has a material before cloning
-                        if (!child.material) child.material = new THREE.MeshStandardMaterial({color: 0xffffff});
-                        materialPromises.push(factory.applyPBRMaterial(child, params, this.ctx));
-                    }
-                });
-                await Promise.all(materialPromises);
-                
+                await factory.applyPBRMaterial(mesh, params, this.ctx);
                 group.add(mesh);
             } else if (type === 'railing' || (RAILING_REGISTRY && RAILING_REGISTRY[type])) {
                 const configId = RAILING_REGISTRY && RAILING_REGISTRY[type] ? type : (params.configId || params.type || 'glass_stainless');

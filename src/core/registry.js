@@ -3,7 +3,6 @@ import * as THREE from 'three';
 export * from './constants/units.js';
 export * from './constants/events.js';
 export * from '../features/door/door.registry.js';
-export * from './registries/PreviewMeshRegistry.js';
 export * from '../features/roof/roof.registry.js';
 export * from '../features/furniture/furniture.registry.js';
 export * from '../features/railing/registry/railing.registry.js';
