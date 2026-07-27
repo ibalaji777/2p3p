@@ -1,7 +1,7 @@
 import { EVENTS } from '../registry.js';
 import { coreEventBus } from '../EventBus.js';
 import * as THREE from 'three';
-import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY, FABRIC_REGISTRY, FLOOR_REGISTRY, WINDOW_GLASS_MATERIALS, METAL_REGISTRY, STONE_REGISTRY, PLASTIC_REGISTRY, parseCompositeMaterialKey, resolveFabricConfig, getFabricBaseConfig } from '../registry.js';
+import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY, FABRIC_REGISTRY, LEATHER_REGISTRY, FLOOR_REGISTRY, WINDOW_GLASS_MATERIALS, METAL_REGISTRY, STONE_REGISTRY, PLASTIC_REGISTRY, parseCompositeMaterialKey, resolveFabricConfig, getFabricBaseConfig } from '../registry.js';
 import { MaterialFactory } from './MaterialFactory.js';
 import { patternManager } from '../services/pattern/PatternManager.js';
 import { PatternTextureBlender } from '../services/pattern/PatternTextureBlender.js';
@@ -1067,7 +1067,7 @@ export class GizmoManager {
                 { id: 'glass', title: 'Glass', count: getCount(GLASS_REGISTRY) || 12, desc: 'Clear tempered glass, architectural privacy frosting and energy-efficient tinted glazing.', iconBg: 'rgba(6, 182, 212, 0.25)', iconColor: '#06b6d4', iconSvg: '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/>', sphereGrad: 'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.6) 15%, rgba(186,230,253,0.65) 45%, rgba(56,189,248,0.4) 75%, rgba(30,41,59,0.7) 100%)', sphereColor: '#06b6d4', sampleBg: 'background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.6) 15%, rgba(186,230,253,0.65) 45%, rgba(56,189,248,0.4) 75%, rgba(30,41,59,0.7) 100%); border: 1.5px solid rgba(255, 255, 255, 0.9); box-shadow: inset -5px -7px 12px rgba(0,0,0,0.5), inset 3px 3px 8px rgba(255,255,255,0.95), 0 6px 20px rgba(56,189,248,0.35);' },
                 { id: 'stone', title: 'Stone / Marble', count: getCount(STONE_REGISTRY) || 28, desc: 'Luxurious Italian marble, rough hewn granites, modern architecture concrete and floor tiles.', iconBg: 'rgba(16, 185, 129, 0.25)', iconColor: '#10b981', iconSvg: '<polygon points="12 2 2 7 12 22 22 7 12 2"/>', sphereGrad: 'radial-gradient(circle at 40% 30%, #cbd5e1, #64748b 55%, #334155 85%, #0f172a 100%)', sphereColor: '#64748b', sampleBg: getSampleBg(STONE_REGISTRY) },
                 { id: 'plastic', title: 'Plastics', count: getCount(PLASTIC_REGISTRY) || 15, desc: 'Matte black polycarbonates, glossy PVC trims, lightweight laminates and composite plastics.', iconBg: 'rgba(168, 85, 247, 0.25)', iconColor: '#a855f7', iconSvg: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>', sphereGrad: 'radial-gradient(circle at 35% 30%, #52525b, #27272a 60%, #09090b 100%)', sphereColor: '#27272a', sampleBg: getSampleBg(PLASTIC_REGISTRY) },
-                { id: 'leather', title: 'Leather', count: 20, desc: 'Supple aniline leathers, embossed hides, and eco-friendly artificial leather upholstery.', iconBg: 'rgba(180, 83, 9, 0.25)', iconColor: '#d97706', iconSvg: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #b45309, #713f12 55%, #422006 90%, #1c0f04 100%)', sphereColor: '#713f12', sampleBg: getSampleBg(FABRIC_REGISTRY) }
+                { id: 'leather', title: 'Leather', count: getCount(LEATHER_REGISTRY) || 5, desc: 'Supple aniline leathers, embossed hides, and eco-friendly artificial leather upholstery.', iconBg: 'rgba(180, 83, 9, 0.25)', iconColor: '#d97706', iconSvg: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #b45309, #713f12 55%, #422006 90%, #1c0f04 100%)', sphereColor: '#713f12', sampleBg: getSampleBg(LEATHER_REGISTRY) }
             ];
             
             let activeCatId = this._lastSelectedCat || 'fabric';
@@ -1154,7 +1154,8 @@ export class GizmoManager {
         else if (materialCategory === 'tile') registry = TILE_REGISTRY;
         else if (materialCategory === 'plastic') registry = PLASTIC_REGISTRY;
         else if (materialCategory === 'roof') registry = ROOF_REGISTRY;
-        else if (materialCategory === 'fabric' || materialCategory === 'leather') registry = FABRIC_REGISTRY;
+        else if (materialCategory === 'fabric') registry = FABRIC_REGISTRY;
+        else if (materialCategory === 'leather') registry = LEATHER_REGISTRY;
         else if (materialCategory === 'floor') registry = FLOOR_REGISTRY;
         else if (materialCategory === 'wall' || materialCategory === 'outer' || materialCategory === 'inner') registry = WALL_REGISTRY;
 

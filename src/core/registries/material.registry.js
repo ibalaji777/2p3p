@@ -48,29 +48,6 @@ export const FABRIC_REGISTRY = {
         defaultTileSize: 35, roughness: 0.9,
         supportsPatterns: true
     },
-    'leather_brown_real': {
-        id: 'leather_brown_real', name: 'Real Brown Aniline Leather', type: 'fabric',
-        texture: 'textures/fabrics/brown_leather_1k/textures/brown_leather_albedo_1k.jpg',
-        thumbnail: 'textures/fabrics/brown_leather_1k/textures/brown_leather_albedo_1k.jpg',
-        roughnessMap: 'textures/fabrics/brown_leather_1k/textures/brown_leather_rough_1k.jpg',
-        defaultTileSize: 35, roughness: 0.45,
-        supportsPatterns: true
-    },
-    'fabric_leather_02': {
-        id: 'fabric_leather_02', name: 'Fine Grain Leather', type: 'fabric',
-        texture: 'textures/fabrics/fabric_leather_02_1k/textures/fabric_leather_02_diff_1k.jpg',
-        thumbnail: 'textures/fabrics/fabric_leather_02_1k/textures/fabric_leather_02_diff_1k.jpg',
-        roughnessMap: 'textures/fabrics/fabric_leather_02_1k/textures/fabric_leather_02_rough_1k.jpg',
-        defaultTileSize: 35, roughness: 0.5,
-        supportsPatterns: true
-    },
-    'leather_red_real': {
-        id: 'leather_red_real', name: 'Vintage Red Leather', type: 'fabric',
-        texture: 'textures/fabrics/leather_red_03_1k/textures/leather_red_03_coll1_1k.png',
-        thumbnail: 'textures/fabrics/leather_red_03_1k/textures/leather_red_03_coll1_1k.png',
-        defaultTileSize: 35, roughness: 0.4,
-        supportsPatterns: true
-    },
 
     // Backward compatibility aliases for existing default scenes (hidden from grid via isAlias)
     'caban': {
@@ -102,6 +79,32 @@ export const FABRIC_REGISTRY = {
     'velvet_soft': { id: 'velvet_soft', name: 'Plush Velvet', type: 'fabric', isAlias: true, texture: 'textures/fabrics/caban/caban_fabric_diff.jpg' },
     'boucle_woven': { id: 'boucle_woven', name: 'Woven Bouclé', type: 'fabric', isAlias: true, texture: 'textures/fabrics/curly_teddy_checkered_1k/textures/curly_teddy_checkered_diff_1k.jpg' },
     'cotton_canvas': { id: 'cotton_canvas', name: 'Cotton Canvas', type: 'fabric', isAlias: true, texture: 'textures/fabrics/caban/caban_fabric_diff.jpg' }
+};
+
+export const LEATHER_REGISTRY = {
+    'leather_brown_real': {
+        id: 'leather_brown_real', name: 'Real Brown Aniline Leather', type: 'leather',
+        texture: 'textures/fabrics/brown_leather_1k/textures/brown_leather_albedo_1k.jpg',
+        thumbnail: 'textures/fabrics/brown_leather_1k/textures/brown_leather_albedo_1k.jpg',
+        roughnessMap: 'textures/fabrics/brown_leather_1k/textures/brown_leather_rough_1k.jpg',
+        defaultTileSize: 35, roughness: 0.45,
+        supportsPatterns: true
+    },
+    'fabric_leather_02': {
+        id: 'fabric_leather_02', name: 'Fine Grain Leather', type: 'leather',
+        texture: 'textures/fabrics/fabric_leather_02_1k/textures/fabric_leather_02_diff_1k.jpg',
+        thumbnail: 'textures/fabrics/fabric_leather_02_1k/textures/fabric_leather_02_diff_1k.jpg',
+        roughnessMap: 'textures/fabrics/fabric_leather_02_1k/textures/fabric_leather_02_rough_1k.jpg',
+        defaultTileSize: 35, roughness: 0.5,
+        supportsPatterns: true
+    },
+    'leather_red_real': {
+        id: 'leather_red_real', name: 'Vintage Red Leather', type: 'leather',
+        texture: 'textures/fabrics/leather_red_03_1k/textures/leather_red_03_coll1_1k.png',
+        thumbnail: 'textures/fabrics/leather_red_03_1k/textures/leather_red_03_coll1_1k.png',
+        defaultTileSize: 35, roughness: 0.4,
+        supportsPatterns: true
+    }
 };
 
 /**
