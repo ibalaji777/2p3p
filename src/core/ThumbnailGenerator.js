@@ -74,7 +74,7 @@ export class ThumbnailGenerator {
         else if (FURNITURE_REGISTRY && FURNITURE_REGISTRY[type]) registryConfig = FURNITURE_REGISTRY[type];
         else if (MOLDING_REGISTRY && MOLDING_REGISTRY[type]) registryConfig = MOLDING_REGISTRY[type];
 
-        const allowedNonWidgets = ['staircase', 'roof', 'dormer', 'outer', 'inner', 'arc', 'shape_rect', 'shape_circle', 'shape_triangle', 'railing', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'material_preview'];
+        const allowedNonWidgets = ['staircase', 'roof', 'dormer', 'outer', 'inner', 'arc', 'shape_rect', 'shape_circle', 'shape_triangle', 'railing', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'material_preview', 'material_preview_box'];
         
         if (!registryConfig && !allowedNonWidgets.includes(type)) return null;
 
@@ -275,8 +275,9 @@ export class ThumbnailGenerator {
                 const mat = new THREE.MeshStandardMaterial({ color: 0x88ccff });
                 const mesh = new THREE.Mesh(geo, mat);
                 group.add(mesh);
-            } else if (type === 'material_preview') {
-                const geo = new THREE.SphereGeometry(45, 64, 64);
+            } else if (type === 'material_preview' || type === 'material_preview_box') {
+                const isBox = type === 'material_preview_box' || (params && params.previewShape === 'box');
+                const geo = isBox ? new THREE.PlaneGeometry(200, 200) : new THREE.SphereGeometry(45, 64, 64);
                 const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xffffff }));
                 
                 // We must import MaterialFactory dynamically to avoid circular dependencies if it wasn't already imported
@@ -1191,8 +1192,12 @@ export class ThumbnailGenerator {
         
         // Reset pivot
         group.position.x = -center.x;
-        // Float slightly above the ground plane to avoid z-fighting on shadows
-        group.position.y = -box.min.y + 0.1;
+        if (type === 'material_preview_box') {
+            group.position.y = -center.y;
+        } else {
+            // Float slightly above the ground plane to avoid z-fighting on shadows
+            group.position.y = -box.min.y + 0.1;
+        }
         group.position.z = -center.z;
 
         // Patch highly metallic materials so they don't look like black silhouettes under studio lighting without an envMap
@@ -1268,22 +1273,27 @@ export class ThumbnailGenerator {
             
             activeCamera.lookAt(0, targetY, 0);
             activeCamera.updateProjectionMatrix();
+        } else if (type === 'material_preview_box') {
+            this.camera.left = -100;
+            this.camera.right = 100;
+            this.camera.top = 100;
+            this.camera.bottom = -100;
+            this.camera.position.set(0, 0, 150);
+            this.camera.lookAt(0, 0, 0);
+            this.camera.updateProjectionMatrix();
+            activeCamera = this.camera;
         } else if (type === 'material_preview') {
             const fov = 35;
             activeCamera = new THREE.PerspectiveCamera(fov, 1, 1, 2000);
             
             const center = box.getCenter(new THREE.Vector3());
-            
-            // Widen the frame so the cloth doesn't get cut off on the edges (1.5x padding)
             const fitSize = maxDim * 1.5; 
             const distance = (fitSize / 2) / Math.tan((fov / 2) * Math.PI / 180);
             
-            // Orbit: 25° elevation, 45° azimuth for a classic studio look
             const phi = (90 - 25) * Math.PI / 180;
             const theta = 45 * Math.PI / 180;
-            
             activeCamera.position.setFromSphericalCoords(distance, phi, theta);
-            activeCamera.position.add(center); // perfectly center the camera around the mesh
+            activeCamera.position.add(center);
             
             activeCamera.lookAt(center);
             activeCamera.updateProjectionMatrix();

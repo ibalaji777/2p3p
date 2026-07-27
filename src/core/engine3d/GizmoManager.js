@@ -1047,7 +1047,7 @@ export class GizmoManager {
                 this.matFaceNameDisplay.style.textDecoration = 'none';
             }
             
-            const getCount = (reg) => reg ? Object.keys(reg).length : 0;
+            const getCount = (reg) => reg ? Object.entries(reg).filter(([k, v]) => !v.isAlias).length : 0;
             const getSampleBg = (reg) => {
                 if (!reg) return '';
                 const keys = Object.keys(reg);
@@ -1061,13 +1061,13 @@ export class GizmoManager {
             };
             
             const cats = [
-                { id: 'wood', title: 'Wood / Veneer', count: getCount(WOOD_REGISTRY) || 24, desc: 'Warm, natural timber grains and high-end polished architectural wood veneers.', iconBg: 'rgba(120, 53, 15, 0.35)', iconColor: '#f59e0b', iconSvg: '<path d="M12 2L6 12h3v8h6v-8h3L12 2z"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #d97706, #78350f 50%, #451a03 90%)', sphereColor: '#78350f', sampleBg: getSampleBg(WOOD_REGISTRY) },
-                { id: 'fabric', title: 'Fabric / Decor', count: getCount(FABRIC_REGISTRY) || 18, desc: 'Soft materials and decorative fabrics for furniture, walls and decor.', iconBg: 'rgba(249, 115, 22, 0.25)', iconColor: '#f97316', iconSvg: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15h10M7 9h10"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #fdba74, #ea580c 50%, #9a3412 85%, #431407 100%)', sphereColor: '#ea580c', sampleBg: getSampleBg(FABRIC_REGISTRY) },
-                { id: 'metal', title: 'Metals', count: getCount(METAL_REGISTRY) || 22, desc: 'Brushed aluminum, polished chrome, structural steel and luxury decorative anodized finishes.', iconBg: 'rgba(100, 116, 139, 0.35)', iconColor: '#94a3b8', iconSvg: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.72 1.05 1.33 1.28H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>', sphereGrad: 'linear-gradient(135deg, #e2e8f0 0%, #64748b 45%, #f8fafc 50%, #334155 100%)', sphereColor: '#94a3b8', sampleBg: getSampleBg(METAL_REGISTRY) },
-                { id: 'glass', title: 'Glass', count: getCount(GLASS_REGISTRY) || 12, desc: 'Clear tempered glass, architectural privacy frosting and energy-efficient tinted glazing.', iconBg: 'rgba(6, 182, 212, 0.25)', iconColor: '#06b6d4', iconSvg: '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/>', sphereGrad: 'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.6) 15%, rgba(186,230,253,0.65) 45%, rgba(56,189,248,0.4) 75%, rgba(30,41,59,0.7) 100%)', sphereColor: '#06b6d4', sampleBg: 'background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.6) 15%, rgba(186,230,253,0.65) 45%, rgba(56,189,248,0.4) 75%, rgba(30,41,59,0.7) 100%); border: 1.5px solid rgba(255, 255, 255, 0.9); box-shadow: inset -5px -7px 12px rgba(0,0,0,0.5), inset 3px 3px 8px rgba(255,255,255,0.95), 0 6px 20px rgba(56,189,248,0.35);' },
-                { id: 'stone', title: 'Stone / Marble', count: getCount(STONE_REGISTRY) || 28, desc: 'Luxurious Italian marble, rough hewn granites, modern architecture concrete and floor tiles.', iconBg: 'rgba(16, 185, 129, 0.25)', iconColor: '#10b981', iconSvg: '<polygon points="12 2 2 7 12 22 22 7 12 2"/>', sphereGrad: 'radial-gradient(circle at 40% 30%, #cbd5e1, #64748b 55%, #334155 85%, #0f172a 100%)', sphereColor: '#64748b', sampleBg: getSampleBg(STONE_REGISTRY) },
-                { id: 'plastic', title: 'Plastics', count: getCount(PLASTIC_REGISTRY) || 15, desc: 'Matte black polycarbonates, glossy PVC trims, lightweight laminates and composite plastics.', iconBg: 'rgba(168, 85, 247, 0.25)', iconColor: '#a855f7', iconSvg: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>', sphereGrad: 'radial-gradient(circle at 35% 30%, #52525b, #27272a 60%, #09090b 100%)', sphereColor: '#27272a', sampleBg: getSampleBg(PLASTIC_REGISTRY) },
-                { id: 'leather', title: 'Leather', count: getCount(LEATHER_REGISTRY) || 5, desc: 'Supple aniline leathers, embossed hides, and eco-friendly artificial leather upholstery.', iconBg: 'rgba(180, 83, 9, 0.25)', iconColor: '#d97706', iconSvg: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #b45309, #713f12 55%, #422006 90%, #1c0f04 100%)', sphereColor: '#713f12', sampleBg: getSampleBg(LEATHER_REGISTRY) }
+                { id: 'wood', title: 'Wood / Veneer', count: getCount(WOOD_REGISTRY), desc: 'Warm, natural timber grains and high-end polished architectural wood veneers.', iconBg: 'rgba(120, 53, 15, 0.35)', iconColor: '#f59e0b', iconSvg: '<path d="M12 2L6 12h3v8h6v-8h3L12 2z"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #d97706, #78350f 50%, #451a03 90%)', sphereColor: '#78350f', sampleBg: getSampleBg(WOOD_REGISTRY) },
+                { id: 'fabric', title: 'Fabric / Decor', count: getCount(FABRIC_REGISTRY), desc: 'Soft materials and decorative fabrics for furniture, walls and decor.', iconBg: 'rgba(249, 115, 22, 0.25)', iconColor: '#f97316', iconSvg: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15h10M7 9h10"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #fdba74, #ea580c 50%, #9a3412 85%, #431407 100%)', sphereColor: '#ea580c', sampleBg: getSampleBg(FABRIC_REGISTRY) },
+                { id: 'metal', title: 'Metals', count: getCount(METAL_REGISTRY), desc: 'Brushed aluminum, polished chrome, structural steel and luxury decorative anodized finishes.', iconBg: 'rgba(100, 116, 139, 0.35)', iconColor: '#94a3b8', iconSvg: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.72 1.05 1.33 1.28H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>', sphereGrad: 'linear-gradient(135deg, #e2e8f0 0%, #64748b 45%, #f8fafc 50%, #334155 100%)', sphereColor: '#94a3b8', sampleBg: getSampleBg(METAL_REGISTRY) },
+                { id: 'glass', title: 'Glass', count: getCount(GLASS_REGISTRY), desc: 'Clear tempered glass, architectural privacy frosting and energy-efficient tinted glazing.', iconBg: 'rgba(6, 182, 212, 0.25)', iconColor: '#06b6d4', iconSvg: '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/>', sphereGrad: 'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.6) 15%, rgba(186,230,253,0.65) 45%, rgba(56,189,248,0.4) 75%, rgba(30,41,59,0.7) 100%)', sphereColor: '#06b6d4', sampleBg: 'background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.6) 15%, rgba(186,230,253,0.65) 45%, rgba(56,189,248,0.4) 75%, rgba(30,41,59,0.7) 100%); border: 1.5px solid rgba(255, 255, 255, 0.9); box-shadow: inset -5px -7px 12px rgba(0,0,0,0.5), inset 3px 3px 8px rgba(255,255,255,0.95), 0 6px 20px rgba(56,189,248,0.35);' },
+                { id: 'stone', title: 'Stone / Marble', count: getCount(STONE_REGISTRY), desc: 'Luxurious Italian marble, rough hewn granites, modern architecture concrete and floor tiles.', iconBg: 'rgba(16, 185, 129, 0.25)', iconColor: '#10b981', iconSvg: '<polygon points="12 2 2 7 12 22 22 7 12 2"/>', sphereGrad: 'radial-gradient(circle at 40% 30%, #cbd5e1, #64748b 55%, #334155 85%, #0f172a 100%)', sphereColor: '#64748b', sampleBg: getSampleBg(STONE_REGISTRY) },
+                { id: 'plastic', title: 'Plastics', count: getCount(PLASTIC_REGISTRY), desc: 'Matte black polycarbonates, glossy PVC trims, lightweight laminates and composite plastics.', iconBg: 'rgba(168, 85, 247, 0.25)', iconColor: '#a855f7', iconSvg: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>', sphereGrad: 'radial-gradient(circle at 35% 30%, #52525b, #27272a 60%, #09090b 100%)', sphereColor: '#27272a', sampleBg: getSampleBg(PLASTIC_REGISTRY) },
+                { id: 'leather', title: 'Leather', count: getCount(LEATHER_REGISTRY), desc: 'Supple aniline leathers, embossed hides, and eco-friendly artificial leather upholstery.', iconBg: 'rgba(180, 83, 9, 0.25)', iconColor: '#d97706', iconSvg: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #b45309, #713f12 55%, #422006 90%, #1c0f04 100%)', sphereColor: '#713f12', sampleBg: getSampleBg(LEATHER_REGISTRY) }
             ];
             
             let activeCatId = this._lastSelectedCat || 'fabric';
@@ -1243,6 +1243,9 @@ export class GizmoManager {
                                     <button id="btn-gizmo-open-pattern-popup" ${!supportsPatterns ? 'disabled' : ''} style="flex: 1; background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%); color: white; border: none; padding: 6px 0; border-radius: 6px; font-size: 10px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 6px rgba(168, 85, 247, 0.4);">
                                         🎨 Change
                                     </button>
+                                    <button id="btn-gizmo-open-pattern-controls" style="background: rgba(168, 85, 247, 0.2); border: 1px solid rgba(168, 85, 247, 0.5); color: #c084fc; padding: 6px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;" title="Fine-Tune Pattern Controls (Scale, Rotation, Repeat, Opacity)">
+                                        ⚙️
+                                    </button>
                                     <button id="btn-gizmo-remove-pattern" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; padding: 6px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; cursor: pointer;" title="Remove Pattern Overlay">
                                         🗑️
                                     </button>
@@ -1283,6 +1286,7 @@ export class GizmoManager {
             
             if (materialCategory === 'fabric') {
                 const btnOpen = gridElem.querySelector('#btn-gizmo-open-pattern-popup');
+                const btnControls = gridElem.querySelector('#btn-gizmo-open-pattern-controls');
                 const btnRemove = gridElem.querySelector('#btn-gizmo-remove-pattern');
                 
                 if (btnOpen) {
@@ -1290,6 +1294,13 @@ export class GizmoManager {
                         e.preventDefault();
                         e.stopPropagation();
                         this._openPatternPopupModal(selectedObj);
+                    });
+                }
+                if (btnControls) {
+                    btnControls.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        this._openPatternControlsModal(selectedObj);
                     });
                 }
                 if (btnRemove) {
@@ -1535,17 +1546,20 @@ export class GizmoManager {
 
         const renderPreview = async (pat) => {
             previewWrap.style.display = 'flex';
-            previewWrap.innerHTML = `<div style="color: #a855f7; font-size: 13px; font-weight: 600;">Synthesizing fabric texture blend...</div>`;
+            previewWrap.innerHTML = `<div style="color: #a855f7; font-size: 13px; font-weight: 600;">Synthesizing 3D PBR fabric preview...</div>`;
             
             const compKey = `${state.baseFabricId}::pattern::${pat.id}`;
             const compConfig = await resolveFabricConfig(compKey, this._patternTransformState);
-            const blendedUrl = pat.thumbnail || pat.textureUrl;
+            let blendedUrl = (compConfig && compConfig.texture) ? compConfig.texture : (pat.thumbnail || pat.textureUrl);
+            if (this.ctx && this.ctx.thumbnailGenerator && compConfig) {
+                blendedUrl = await this.ctx.thumbnailGenerator.generate('material_preview_box', compConfig) || blendedUrl;
+            }
             
             previewWrap.innerHTML = `
                 <div style="display: flex; align-items: center; gap: 16px;">
-                    <div style="width: 60px; height: 60px; border-radius: 10px; border: 2px solid #c084fc; background: url('${blendedUrl}') center/cover no-repeat; box-shadow: 0 4px 12px rgba(0,0,0,0.5); flex-shrink: 0;"></div>
+                    <div style="width: 60px; height: 60px; border-radius: 10px; border: 2px solid #c084fc; background: #0f172a url('${blendedUrl}') center/cover no-repeat; box-shadow: 0 4px 12px rgba(0,0,0,0.5); flex-shrink: 0;"></div>
                     <div>
-                        <div style="font-size: 10px; font-weight: 700; color: #c084fc; letter-spacing: 0.5px; text-transform: uppercase;">Real-time Blend Preview</div>
+                        <div style="font-size: 10px; font-weight: 700; color: #4ade80; letter-spacing: 0.5px; text-transform: uppercase;">⚡ Real-time 3D PBR Preview</div>
                         <div style="font-size: 15px; font-weight: 700; color: #f8fafc;">${pat.title} on ${baseFabric.name || state.baseFabricId}</div>
                         <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">License: ${pat.license} (${pat.attribution})</div>
                     </div>
@@ -1609,6 +1623,228 @@ export class GizmoManager {
         renderGallery();
     }
 
+    _openPatternControlsModal(selectedObj) {
+        const existingModal = document.getElementById('gizmo-pattern-controls-modal');
+        if (existingModal) existingModal.remove();
+
+        this._modalTargetMesh = selectedObj || this.activeObject;
+        const state = this._getCurrentFabricState(selectedObj);
+        if (!state.patternId) return;
+
+        const baseFabric = FABRIC_REGISTRY[state.baseFabricId] || { name: 'Premium Caban Weave' };
+        const defaultPts = { scale: 120, rotation: 45, repeat: 2.0, opacity: 100, mirror: 'off', roughness: 50, sheen: 50 };
+        this._patternTransformState = Object.assign({}, defaultPts, this._patternTransformState || {});
+        const localPts = { ...this._patternTransformState };
+
+        const rawName = state.patternId.replace(/^offline_/, '').replace(/_\d+$/, '').replace(/_/g, ' ').trim();
+        const prettyPatternTitle = rawName ? rawName.replace(/\b\w/g, c => c.toUpperCase()) + ' Motif' : 'Pattern Motif';
+
+        const modal = document.createElement('div');
+        modal.id = 'gizmo-pattern-controls-modal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 999999; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; animation: fadeIn 0.2s ease-out;';
+
+        const dialog = document.createElement('div');
+        dialog.style.cssText = 'width: 100%; max-width: 720px; max-height: 90vh; background: #0f172a; border: 1px solid rgba(168, 85, 247, 0.4); border-radius: 16px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); display: flex; flex-direction: column; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; color: #f8fafc;';
+
+        // Header
+        const header = document.createElement('div');
+        header.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); background: linear-gradient(135deg, rgba(30,41,59,0.9), rgba(15,23,42,0.95));';
+        header.innerHTML = `
+            <div>
+                <div style="font-size: 16px; font-weight: 800; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                    <span>⚙️ Fabric Physical Properties & Pattern Transform Controls</span>
+                </div>
+                <div style="font-size: 11px; color: #c084fc; margin-top: 2px; font-weight: 500;">
+                    Fine-tune scale, rotation, repeat grid, roughness, sheen & opacity for <b>${prettyPatternTitle}</b> on <b>${baseFabric.name || state.baseFabricId}</b>
+                </div>
+            </div>
+            <button id="btn-close-ctrl-modal" style="background: rgba(255,255,255,0.05); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.1); width: 30px; height: 30px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">✕</button>
+        `;
+
+        const closeModal = () => { if (modal && modal.parentElement) modal.remove(); };
+        header.querySelector('#btn-close-ctrl-modal').addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+        const body = document.createElement('div');
+        body.style.cssText = 'padding: 18px 20px; display: grid; grid-template-columns: 220px 1fr; gap: 20px; overflow-y: auto; flex: 1; align-items: start;';
+
+        body.innerHTML = `
+            <!-- Left: Real-time Live Synthesis Canvas -->
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; background: rgba(30, 41, 59, 0.4); padding: 14px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08);">
+                <div id="ctrl-live-preview-box" style="width: 190px; height: 190px; border-radius: 12px; background: #0f172a center/cover no-repeat; border: 2px solid rgba(168, 85, 247, 0.6); box-shadow: 0 8px 24px rgba(0,0,0,0.5); transition: background 0.15s ease;"></div>
+                <div style="text-align: center; width: 100%;">
+                    <div style="font-size: 10px; font-weight: 700; color: #4ade80; background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3); padding: 2px 8px; border-radius: 10px; display: inline-block; margin-bottom: 4px;">⚡ Real-time Synthesis Preview</div>
+                    <div id="ctrl-status-summary" style="font-size: 11px; color: #94a3b8; line-height: 1.3;">Scale: ${localPts.scale}% | Rot: ${localPts.rotation}°</div>
+                </div>
+            </div>
+
+            <!-- Right: Physical Fabric & Pattern Controls -->
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                
+                <!-- Pattern Scale -->
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+                        <label style="font-size: 12px; font-weight: 700; color: #e2e8f0;">⤢ Pattern Scale</label>
+                        <span id="val-ctrl-scale" style="font-size: 11px; font-weight: 800; color: #c084fc; background: rgba(168,85,247,0.15); padding: 1px 6px; border-radius: 4px;">${localPts.scale}%</span>
+                    </div>
+                    <input type="range" id="slider-ctrl-scale" min="50" max="300" step="5" value="${localPts.scale}" style="width: 100%; accent-color: #a855f7; cursor: pointer;">
+                </div>
+
+                <!-- Pattern Rotation -->
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+                        <label style="font-size: 12px; font-weight: 700; color: #e2e8f0;">🔄 Pattern Rotation</label>
+                        <span id="val-ctrl-rotation" style="font-size: 11px; font-weight: 800; color: #c084fc; background: rgba(168,85,247,0.15); padding: 1px 6px; border-radius: 4px;">${localPts.rotation}°</span>
+                    </div>
+                    <input type="range" id="slider-ctrl-rotation" min="0" max="360" step="5" value="${localPts.rotation}" style="width: 100%; accent-color: #a855f7; cursor: pointer;">
+                </div>
+
+                <!-- Tile Repeat Density -->
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+                        <label style="font-size: 12px; font-weight: 700; color: #e2e8f0;">⣿ Tile Repeat Density</label>
+                        <span id="val-ctrl-repeat" style="font-size: 11px; font-weight: 800; color: #c084fc; background: rgba(168,85,247,0.15); padding: 1px 6px; border-radius: 4px;">${localPts.repeat}x</span>
+                    </div>
+                    <input type="range" id="slider-ctrl-repeat" min="0.5" max="5.0" step="0.1" value="${localPts.repeat}" style="width: 100%; accent-color: #a855f7; cursor: pointer;">
+                </div>
+
+                <!-- Fabric Micro-Roughness -->
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+                        <label style="font-size: 12px; font-weight: 700; color: #e2e8f0;">✨ Fabric Roughness (Cloth Texture)</label>
+                        <span id="val-ctrl-roughness" style="font-size: 11px; font-weight: 800; color: #c084fc; background: rgba(168,85,247,0.15); padding: 1px 6px; border-radius: 4px;">${localPts.roughness}%</span>
+                    </div>
+                    <input type="range" id="slider-ctrl-roughness" min="0" max="100" step="5" value="${localPts.roughness}" style="width: 100%; accent-color: #a855f7; cursor: pointer;">
+                </div>
+
+                <!-- Sheen & Velvet Micro-Fibers -->
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+                        <label style="font-size: 12px; font-weight: 700; color: #e2e8f0;">🪡 Sheen & Velvet Micro-Fibers</label>
+                        <span id="val-ctrl-sheen" style="font-size: 11px; font-weight: 800; color: #c084fc; background: rgba(168,85,247,0.15); padding: 1px 6px; border-radius: 4px;">${localPts.sheen}%</span>
+                    </div>
+                    <input type="range" id="slider-ctrl-sheen" min="0" max="100" step="5" value="${localPts.sheen}" style="width: 100%; accent-color: #a855f7; cursor: pointer;">
+                </div>
+
+                <!-- Mirror Alignment -->
+                <div>
+                    <label style="font-size: 12px; font-weight: 700; color: #e2e8f0; display: block; margin-bottom: 4px;">🪞 Mirror Mode</label>
+                    <div style="display: flex; gap: 6px;">
+                        <button id="btn-mirror-off" style="flex: 1; padding: 5px 0; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid ${localPts.mirror === 'off' ? '#a855f7' : 'rgba(255,255,255,0.15)'}; background: ${localPts.mirror === 'off' ? 'rgba(168,85,247,0.3)' : 'rgba(255,255,255,0.05)'}; color: white;">Off</button>
+                        <button id="btn-mirror-horiz" style="flex: 1; padding: 5px 0; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid ${localPts.mirror === 'horizontal' ? '#a855f7' : 'rgba(255,255,255,0.15)'}; background: ${localPts.mirror === 'horizontal' ? 'rgba(168,85,247,0.3)' : 'rgba(255,255,255,0.05)'}; color: white;">Horizontal</button>
+                        <button id="btn-mirror-vert" style="flex: 1; padding: 5px 0; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; border: 1px solid ${localPts.mirror === 'vertical' ? '#a855f7' : 'rgba(255,255,255,0.15)'}; background: ${localPts.mirror === 'vertical' ? 'rgba(168,85,247,0.3)' : 'rgba(255,255,255,0.05)'}; color: white;">Vertical</button>
+                    </div>
+                </div>
+
+            </div>
+        `;
+
+        // Footer Bar
+        const footer = document.createElement('div');
+        footer.style.cssText = 'display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid rgba(255,255,255,0.1); background: rgba(15, 23, 42, 0.8);';
+        footer.innerHTML = `
+            <button id="btn-apply-ctrl-now" style="background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 8px 18px; border-radius: 8px; font-weight: 700; font-size: 12px; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(16,185,129,0.3); transition: 0.2s;">
+                ✔ Apply to 3D Model
+            </button>
+            <button id="btn-cancel-ctrl" style="background: rgba(255,255,255,0.1); color: #cbd5e1; padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 12px; border: 1px solid rgba(255,255,255,0.15); cursor: pointer;">
+                Cancel
+            </button>
+        `;
+
+        dialog.appendChild(header);
+        dialog.appendChild(body);
+        dialog.appendChild(footer);
+        modal.appendChild(dialog);
+        document.body.appendChild(modal);
+
+        const updateLivePreview = async () => {
+            const compKey = `${state.baseFabricId}::pattern::${state.patternId}`;
+            const compConfig = await resolveFabricConfig(compKey, localPts);
+            const prevBox = body.querySelector('#ctrl-live-preview-box');
+            const summary = body.querySelector('#ctrl-status-summary');
+            if (prevBox && compConfig) {
+                let sphereUrl = null;
+                if (this.ctx && this.ctx.thumbnailGenerator) {
+                    sphereUrl = await this.ctx.thumbnailGenerator.generate('material_preview_box', compConfig);
+                }
+                prevBox.style.backgroundImage = `url('${sphereUrl || compConfig.texture}')`;
+                prevBox.style.backgroundSize = 'cover';
+                prevBox.style.backgroundPosition = 'center';
+            }
+            if (summary) {
+                summary.innerText = `Scale: ${localPts.scale}% | Rot: ${localPts.rotation}° | Rough: ${localPts.roughness}%`;
+            }
+        };
+
+        // Initial preview load
+        updateLivePreview();
+
+        // Event listeners for sliders
+        const sliderScale = body.querySelector('#slider-ctrl-scale');
+        const sliderRot = body.querySelector('#slider-ctrl-rotation');
+        const sliderRep = body.querySelector('#slider-ctrl-repeat');
+        const sliderRough = body.querySelector('#slider-ctrl-roughness');
+        const sliderSheen = body.querySelector('#slider-ctrl-sheen');
+
+        sliderScale.addEventListener('input', (e) => {
+            localPts.scale = parseInt(e.target.value);
+            body.querySelector('#val-ctrl-scale').innerText = `${localPts.scale}%`;
+            updateLivePreview();
+        });
+
+        sliderRot.addEventListener('input', (e) => {
+            localPts.rotation = parseInt(e.target.value);
+            body.querySelector('#val-ctrl-rotation').innerText = `${localPts.rotation}°`;
+            updateLivePreview();
+        });
+
+        sliderRep.addEventListener('input', (e) => {
+            localPts.repeat = parseFloat(e.target.value);
+            body.querySelector('#val-ctrl-repeat').innerText = `${localPts.repeat}x`;
+            updateLivePreview();
+        });
+
+        sliderRough.addEventListener('input', (e) => {
+            localPts.roughness = parseInt(e.target.value);
+            body.querySelector('#val-ctrl-roughness').innerText = `${localPts.roughness}%`;
+            updateLivePreview();
+        });
+
+        sliderSheen.addEventListener('input', (e) => {
+            localPts.sheen = parseInt(e.target.value);
+            body.querySelector('#val-ctrl-sheen').innerText = `${localPts.sheen}%`;
+            updateLivePreview();
+        });
+
+        // Mirror buttons
+        const setMirrorMode = (mode) => {
+            localPts.mirror = mode;
+            ['off', 'horiz', 'vert'].forEach(m => {
+                const btn = body.querySelector(`#btn-mirror-${m}`);
+                const isSel = (mode === 'off' && m === 'off') || (mode === 'horizontal' && m === 'horiz') || (mode === 'vertical' && m === 'vert');
+                if (btn) {
+                    btn.style.borderColor = isSel ? '#a855f7' : 'rgba(255,255,255,0.15)';
+                    btn.style.background = isSel ? 'rgba(168,85,247,0.3)' : 'rgba(255,255,255,0.05)';
+                }
+            });
+            updateLivePreview();
+        };
+
+        body.querySelector('#btn-mirror-off').addEventListener('click', () => setMirrorMode('off'));
+        body.querySelector('#btn-mirror-horiz').addEventListener('click', () => setMirrorMode('horizontal'));
+        body.querySelector('#btn-mirror-vert').addEventListener('click', () => setMirrorMode('vertical'));
+
+        // Footer buttons
+        footer.querySelector('#btn-cancel-ctrl').addEventListener('click', closeModal);
+        footer.querySelector('#btn-apply-ctrl-now').addEventListener('click', async () => {
+            this._patternTransformState = { ...localPts };
+            const compKey = `${state.baseFabricId}::pattern::${state.patternId}`;
+            await this._applyFabricCompositeMaterial(compKey, selectedObj);
+            closeModal();
+            this._renderMaterials(selectedObj);
+        });
+    }
+
     async _applyFabricCompositeMaterial(matKey, selectedObj) {
         if (!matKey) return;
         let realSelectedObj = selectedObj || this.ctx.interactions.selectedObject;
@@ -1623,7 +1859,7 @@ export class GizmoManager {
             }
         }
         
-        const config = await resolveFabricConfig(matKey);
+        const config = await resolveFabricConfig(matKey, this._patternTransformState);
         if (!config) return;
         
         if (realSelectedObj && realSelectedObj.userData.entity) {
@@ -1641,10 +1877,24 @@ export class GizmoManager {
             const isFrame = this.activeObject && this.activeObject.userData && this.activeObject.userData.isFrame;
             const isFurnitureMat = (realSelectedObj && realSelectedObj.userData && realSelectedObj.userData.isFurniture) || (entity && (entity.type === 'furniture' || entity.isFurniture));
 
-            if (typeof entity.applyMaterial === 'function') {
-                if (this.activeObject && this.activeMatIndex !== undefined && this.activeMatIndex !== -1) {
-                    MaterialFactory.applyPBRMaterial(this.activeObject, config, this.ctx, this.activeMatIndex);
+            const targetMeshToUse = this.activeObject || this._modalTargetMesh || realSelectedObj;
+            const matIndexToUse = (this.activeMatIndex !== undefined && this.activeMatIndex !== -1) ? this.activeMatIndex : -1;
+
+            const applyPBRToTarget = (obj) => {
+                if (!obj) return;
+                if (obj.isMesh) {
+                    MaterialFactory.applyPBRMaterial(obj, config, this.ctx, matIndexToUse);
+                } else if (typeof obj.traverse === 'function') {
+                    obj.traverse((child) => {
+                        if (child && child.isMesh) {
+                            MaterialFactory.applyPBRMaterial(child, config, this.ctx, -1);
+                        }
+                    });
                 }
+            };
+
+            if (typeof entity.applyMaterial === 'function') {
+                applyPBRToTarget(targetMeshToUse);
                 entity.applyMaterial({ target, key: matKey, activeMatIndex: this.activeMatIndex, activeObject: this.activeObject, ctx: this.ctx });
             } else {
                 if (entity.type === 'door') {
@@ -1673,11 +1923,7 @@ export class GizmoManager {
                     else if (target === 'back') targetParams.textureBack = matKey;
                 }
                 
-                const isValidMatIndex = this.activeMatIndex !== undefined && this.activeMatIndex !== -1;
-                if (this.activeObject && (isValidMatIndex || isFurnitureMat)) {
-                    const matIndexToUse = isValidMatIndex ? this.activeMatIndex : -1;
-                    MaterialFactory.applyPBRMaterial(this.activeObject, config, this.ctx, matIndexToUse);
-                }
+                applyPBRToTarget(targetMeshToUse);
                 
                 if (entity.supportsLiveMaterialPipeline) {
                     if (this.ctx.updateMaterialLive) {
@@ -1686,6 +1932,10 @@ export class GizmoManager {
                         this.ctx.updateShapeLive(entity);
                     }
                 }
+            }
+
+            if (this.ctx && typeof this.ctx.requestRender === 'function') {
+                this.ctx.requestRender();
             }
         }
     }

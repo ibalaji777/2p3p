@@ -23,6 +23,8 @@ export const JALI_MATERIALS = {
 import { patternManager } from '../services/pattern/PatternManager.js';
 import { PatternTextureBlender } from '../services/pattern/PatternTextureBlender.js';
 
+const COMPOSITE_VARIANT_CACHE = new Map();
+
 export const FABRIC_REGISTRY = {
     // Unique 1K PBR Physical Texture Suites
     'caban_neutral': {
@@ -130,14 +132,16 @@ export function parseCompositeMaterialKey(matKey) {
 }
 
 /**
- * Asynchronously resolves a fabric material configuration, blending textures when a composite pattern is requested.
- * Caches resolved composite configs in FABRIC_REGISTRY for fast subsequent sync lookups.
+ * Resolves or synthesizes a composite fabric configuration given a material key and optional transform options.
  * @param {string} matKey 
+ * @param {Object} [transformOptions]
  * @returns {Promise<Object>} Resolved material configuration object.
  */
 export async function resolveFabricConfig(matKey, transformOptions = {}) {
     if (!matKey) return null;
-    if (FABRIC_REGISTRY[matKey]) return FABRIC_REGISTRY[matKey];
+    const optsKey = transformOptions ? `::s${transformOptions.scale || 120}_r${transformOptions.rotation || 45}_rp${transformOptions.repeat || 2.0}_o${transformOptions.opacity || 100}_m${transformOptions.mirror || 'off'}_rg${transformOptions.roughness || 50}_sh${transformOptions.sheen || 50}` : '';
+    const fullMatKey = matKey + optsKey;
+    if (COMPOSITE_VARIANT_CACHE.has(fullMatKey)) return COMPOSITE_VARIANT_CACHE.get(fullMatKey);
 
     const { baseFabricId, patternId, isComposite } = parseCompositeMaterialKey(matKey);
     if (!isComposite) {
@@ -166,7 +170,9 @@ export async function resolveFabricConfig(matKey, transformOptions = {}) {
         name: `${baseConfig.name} + ${patternObj.title}`,
         texture: blendedTexture || baseTex || patternObj.textureUrl,
         thumbnail: blendedTexture || baseConfig.thumbnail || patternObj.thumbnail,
-        color: undefined, // Color is now baked into the synthesized diffuse texture
+        roughness: transformOptions && transformOptions.roughness !== undefined ? (transformOptions.roughness / 100) : (baseConfig.roughness !== undefined ? baseConfig.roughness : 0.5),
+        sheen: transformOptions && transformOptions.sheen !== undefined ? (transformOptions.sheen / 100) : 0.5,
+        opacity: transformOptions && transformOptions.opacity !== undefined ? (transformOptions.opacity / 100) : 1.0,
         baseFabricId,
         patternId,
         patternObj,
@@ -174,8 +180,8 @@ export async function resolveFabricConfig(matKey, transformOptions = {}) {
         supportsPatterns: true
     });
 
-    // Cache into registry for immediate synchronous reads
-    FABRIC_REGISTRY[matKey] = compositeConfig;
+    // Cache internal variant without polluting FABRIC_REGISTRY card keys
+    COMPOSITE_VARIANT_CACHE.set(fullMatKey, compositeConfig);
     return compositeConfig;
 }
 

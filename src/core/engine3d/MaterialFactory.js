@@ -96,14 +96,25 @@ export class MaterialFactory {
         newMat.metalnessMap = setupTex(metalTex);
 
         // Apply physical properties
-        if (config.color !== undefined) {
+        if (config.color !== undefined && config.color !== null) {
             newMat.color.setHex(config.color);
-        } else if (newMat.map) {
-            newMat.color.setHex(0xffffff); // Reset base color if using map
+        } else {
+            newMat.color.setHex(0xffffff); // Reset base color to white so textures render bright
         }
         
-        if (config.roughness !== undefined) newMat.roughness = config.roughness;
-        if (config.metalness !== undefined) newMat.metalness = config.metalness;
+        // Physical Roughness & Metalness
+        if (config.roughness !== undefined) {
+            newMat.roughness = config.roughness;
+        }
+        newMat.metalness = config.metalness !== undefined ? config.metalness : 0.0;
+
+        // Physical Sheen (Velvet/Satin micro-fibers)
+        if (config.sheen !== undefined) {
+            newMat.sheen = config.sheen;
+            if (!newMat.sheenColor) newMat.sheenColor = new THREE.Color(0xffffff);
+            else newMat.sheenColor.setHex(0xffffff);
+        }
+
         if (config.clearcoat !== undefined) newMat.clearcoat = config.clearcoat;
         if (config.clearcoatRoughness !== undefined) newMat.clearcoatRoughness = config.clearcoatRoughness;
         if (config.normalScale !== undefined && newMat.normalMap) {
@@ -112,10 +123,16 @@ export class MaterialFactory {
         if (config.aoIntensity !== undefined && newMat.aoMap) {
             newMat.aoMapIntensity = config.aoIntensity;
         }
-        if (config.transparent) {
-            newMat.transparent = true;
-            newMat.opacity = config.opacity !== undefined ? config.opacity : 1.0;
-        }
+
+        // Guarantee Mesh Visibility, Opaque Rendering, and Depth Writing
+        newMat.visible = true;
+        newMat.depthWrite = true;
+        newMat.depthTest = true;
+        newMat.opacity = 1.0;
+        newMat.transparent = false;
+
+        if (newMat.map) newMat.map.needsUpdate = true;
+        newMat.needsUpdate = true;
 
         if (newMat.map) newMat.map.needsUpdate = true;
         newMat.needsUpdate = true;
