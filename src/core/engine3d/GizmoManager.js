@@ -1056,6 +1056,7 @@ export class GizmoManager {
                 const keys = Object.keys(reg);
                 if (keys.length === 0) return '';
                 const val = reg[keys[0]];
+                if (val.cssSphere) return val.cssSphere;
                 const thumbUrl = val.thumbnail || val.texture || val.map || val.diffuseMap;
                 if (thumbUrl) return `background-image: url('${thumbUrl}');`;
                 if (val.color) return `background-color: #${val.color.toString(16).padStart(6, '0')};`;
@@ -1066,7 +1067,7 @@ export class GizmoManager {
                 { id: 'wood', title: 'Wood / Veneer', count: getCount(WOOD_REGISTRY) || 24, desc: 'Warm, natural timber grains and high-end polished architectural wood veneers.', iconBg: 'rgba(120, 53, 15, 0.35)', iconColor: '#f59e0b', iconSvg: '<path d="M12 2L6 12h3v8h6v-8h3L12 2z"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #d97706, #78350f 50%, #451a03 90%)', sphereColor: '#78350f', sampleBg: getSampleBg(WOOD_REGISTRY) },
                 { id: 'fabric', title: 'Fabric / Decor', count: getCount(FABRIC_REGISTRY) || 18, desc: 'Soft materials and decorative fabrics for furniture, walls and decor.', iconBg: 'rgba(249, 115, 22, 0.25)', iconColor: '#f97316', iconSvg: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15h10M7 9h10"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #fdba74, #ea580c 50%, #9a3412 85%, #431407 100%)', sphereColor: '#ea580c', sampleBg: getSampleBg(FABRIC_REGISTRY) },
                 { id: 'metal', title: 'Metals', count: getCount(METAL_REGISTRY) || 22, desc: 'Brushed aluminum, polished chrome, structural steel and luxury decorative anodized finishes.', iconBg: 'rgba(100, 116, 139, 0.35)', iconColor: '#94a3b8', iconSvg: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.72 1.05 1.33 1.28H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>', sphereGrad: 'linear-gradient(135deg, #e2e8f0 0%, #64748b 45%, #f8fafc 50%, #334155 100%)', sphereColor: '#94a3b8', sampleBg: getSampleBg(METAL_REGISTRY) },
-                { id: 'glass', title: 'Glass', count: getCount(GLASS_REGISTRY) || 12, desc: 'Clear tempered glass, architectural privacy frosting and energy-efficient tinted glazing.', iconBg: 'rgba(6, 182, 212, 0.25)', iconColor: '#06b6d4', iconSvg: '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, rgba(255,255,255,0.95) 0%, rgba(165, 243, 252, 0.6) 50%, rgba(71, 85, 105, 0.8) 100%)', sphereColor: '#06b6d4', sampleBg: getSampleBg(GLASS_REGISTRY) },
+                { id: 'glass', title: 'Glass', count: getCount(GLASS_REGISTRY) || 12, desc: 'Clear tempered glass, architectural privacy frosting and energy-efficient tinted glazing.', iconBg: 'rgba(6, 182, 212, 0.25)', iconColor: '#06b6d4', iconSvg: '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/>', sphereGrad: 'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.6) 15%, rgba(186,230,253,0.65) 45%, rgba(56,189,248,0.4) 75%, rgba(30,41,59,0.7) 100%)', sphereColor: '#06b6d4', sampleBg: 'background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.6) 15%, rgba(186,230,253,0.65) 45%, rgba(56,189,248,0.4) 75%, rgba(30,41,59,0.7) 100%); border: 1.5px solid rgba(255, 255, 255, 0.9); box-shadow: inset -5px -7px 12px rgba(0,0,0,0.5), inset 3px 3px 8px rgba(255,255,255,0.95), 0 6px 20px rgba(56,189,248,0.35);' },
                 { id: 'stone', title: 'Stone / Marble', count: getCount(STONE_REGISTRY) || 28, desc: 'Luxurious Italian marble, rough hewn granites, modern architecture concrete and floor tiles.', iconBg: 'rgba(16, 185, 129, 0.25)', iconColor: '#10b981', iconSvg: '<polygon points="12 2 2 7 12 22 22 7 12 2"/>', sphereGrad: 'radial-gradient(circle at 40% 30%, #cbd5e1, #64748b 55%, #334155 85%, #0f172a 100%)', sphereColor: '#64748b', sampleBg: getSampleBg(STONE_REGISTRY) },
                 { id: 'plastic', title: 'Plastics', count: getCount(PLASTIC_REGISTRY) || 15, desc: 'Matte black polycarbonates, glossy PVC trims, lightweight laminates and composite plastics.', iconBg: 'rgba(168, 85, 247, 0.25)', iconColor: '#a855f7', iconSvg: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>', sphereGrad: 'radial-gradient(circle at 35% 30%, #52525b, #27272a 60%, #09090b 100%)', sphereColor: '#27272a', sampleBg: getSampleBg(PLASTIC_REGISTRY) },
                 { id: 'leather', title: 'Leather', count: 20, desc: 'Supple aniline leathers, embossed hides, and eco-friendly artificial leather upholstery.', iconBg: 'rgba(180, 83, 9, 0.25)', iconColor: '#d97706', iconSvg: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #b45309, #713f12 55%, #422006 90%, #1c0f04 100%)', sphereColor: '#713f12', sampleBg: getSampleBg(FABRIC_REGISTRY) }
@@ -1156,7 +1157,7 @@ export class GizmoManager {
         else if (materialCategory === 'tile') registry = TILE_REGISTRY;
         else if (materialCategory === 'plastic') registry = PLASTIC_REGISTRY;
         else if (materialCategory === 'roof') registry = ROOF_REGISTRY;
-        else if (materialCategory === 'fabric') registry = FABRIC_REGISTRY;
+        else if (materialCategory === 'fabric' || materialCategory === 'leather') registry = FABRIC_REGISTRY;
         else if (materialCategory === 'floor') registry = FLOOR_REGISTRY;
         else if (materialCategory === 'wall' || materialCategory === 'outer' || materialCategory === 'inner') registry = WALL_REGISTRY;
 
@@ -1165,10 +1166,12 @@ export class GizmoManager {
             for (const [key, val] of Object.entries(registry)) {
                 if (val.isAlias) continue;
                 const thumbUrl = val.thumbnail || val.texture;
-                if (!thumbUrl && !val.color && !val.transparent) continue;
+                if (!thumbUrl && !val.color && !val.transparent && !val.cssSphere) continue;
                 
                 let sphereStyle = 'background: rgba(100,100,100,0.5);';
-                if (thumbUrl) {
+                if (val.cssSphere) {
+                    sphereStyle = val.cssSphere;
+                } else if (thumbUrl) {
                     sphereStyle = `background-image: url('${thumbUrl}'); background-size: cover; background-position: center;`;
                 } else if (val.color) {
                     const hexColor = '#' + val.color.toString(16).padStart(6, '0');

@@ -24,6 +24,44 @@ import { patternManager } from '../services/pattern/PatternManager.js';
 import { PatternTextureBlender } from '../services/pattern/PatternTextureBlender.js';
 
 export const FABRIC_REGISTRY = {
+    // Extracted 1K PBR Texture Suites from zip archives
+    'leather_brown_real': {
+        id: 'leather_brown_real', name: 'Real Brown Leather (1K PBR)', type: 'fabric',
+        texture: 'textures/fabrics/brown_leather_1k/textures/brown_leather_albedo_1k.jpg',
+        thumbnail: 'textures/fabrics/brown_leather_1k/textures/brown_leather_albedo_1k.jpg',
+        roughnessMap: 'textures/fabrics/brown_leather_1k/textures/brown_leather_rough_1k.jpg',
+        defaultTileSize: 35, roughness: 0.45,
+        supportsPatterns: true
+    },
+    'crepe_satin_real': {
+        id: 'crepe_satin_real', name: 'Crepe Satin Silk (1K PBR)', type: 'fabric',
+        texture: 'textures/fabrics/crepe_satin_1k/textures/crepe_satin_diff_1k.jpg',
+        thumbnail: 'textures/fabrics/crepe_satin_1k/textures/crepe_satin_diff_1k.jpg',
+        defaultTileSize: 30, roughness: 0.35, metalness: 0.1,
+        supportsPatterns: true
+    },
+    'curly_teddy_checkered': {
+        id: 'curly_teddy_checkered', name: 'Curly Teddy Checkered (1K PBR)', type: 'fabric',
+        texture: 'textures/fabrics/curly_teddy_checkered_1k/textures/curly_teddy_checkered_diff_1k.jpg',
+        thumbnail: 'textures/fabrics/curly_teddy_checkered_1k/textures/curly_teddy_checkered_diff_1k.jpg',
+        defaultTileSize: 35, roughness: 0.9,
+        supportsPatterns: true
+    },
+    'fabric_leather_02': {
+        id: 'fabric_leather_02', name: 'Fine Grain Leather (1K PBR)', type: 'fabric',
+        texture: 'textures/fabrics/fabric_leather_02_1k/textures/fabric_leather_02_diff_1k.jpg',
+        thumbnail: 'textures/fabrics/fabric_leather_02_1k/textures/fabric_leather_02_diff_1k.jpg',
+        roughnessMap: 'textures/fabrics/fabric_leather_02_1k/textures/fabric_leather_02_rough_1k.jpg',
+        defaultTileSize: 35, roughness: 0.5,
+        supportsPatterns: true
+    },
+    'leather_red_real': {
+        id: 'leather_red_real', name: 'Vintage Red Leather (1K PBR)', type: 'fabric',
+        texture: 'textures/fabrics/leather_red_03_1k/textures/leather_red_03_coll1_1k.png',
+        thumbnail: 'textures/fabrics/leather_red_03_1k/textures/leather_red_03_coll1_1k.png',
+        defaultTileSize: 35, roughness: 0.4,
+        supportsPatterns: true
+    },
     // Caban Weave (Medium textured upholstery)
     'caban_neutral': {
         id: 'caban_neutral', name: 'Premium Caban (Warm Neutral)', type: 'fabric',
@@ -42,110 +80,142 @@ export const FABRIC_REGISTRY = {
         defaultTileSize: 40, normalScale: 0.35, roughness: 0.85, rotation: Math.PI / 2,
         supportsPatterns: true
     },
-    // Belgian Linens (Natural organic woven fiber)
+    // Belgian Linens (Natural organic woven fiber with physical weave image texture)
     'linen_ivory': {
         id: 'linen_ivory', name: 'Belgian Linen (Ivory Cream)', type: 'fabric',
+        texture: 'textures/fabrics/caban/caban_fabric_diff.jpg',
+        normal: 'textures/fabrics/caban/caban_nor_gl_1k.png',
+        roughnessMap: 'textures/fabrics/caban/caban_rough_1k.png',
         color: 0xfaf5ff, defaultTileSize: 35, roughness: 0.82,
         supportsPatterns: true
     },
     'linen_oatmeal': {
         id: 'linen_oatmeal', name: 'Belgian Linen (Natural Oatmeal)', type: 'fabric',
+        texture: 'textures/fabrics/caban/caban_fabric_diff.jpg',
+        normal: 'textures/fabrics/caban/caban_nor_gl_1k.png',
+        roughnessMap: 'textures/fabrics/caban/caban_rough_1k.png',
         color: 0xd6d3d1, defaultTileSize: 35, roughness: 0.82,
         supportsPatterns: true
     },
     'linen_navy': {
         id: 'linen_navy', name: 'Belgian Linen (Royal Navy)', type: 'fabric',
+        texture: 'textures/fabrics/caban/caban_fabric_diff.jpg',
+        normal: 'textures/fabrics/caban/caban_nor_gl_1k.png',
+        roughnessMap: 'textures/fabrics/caban/caban_rough_1k.png',
         color: 0x1e3a8a, defaultTileSize: 35, roughness: 0.82,
         supportsPatterns: true
     },
     'linen_emerald': {
         id: 'linen_emerald', name: 'Belgian Linen (Forest Emerald)', type: 'fabric',
+        texture: 'textures/fabrics/caban/caban_fabric_diff.jpg',
+        normal: 'textures/fabrics/caban/caban_nor_gl_1k.png',
+        roughnessMap: 'textures/fabrics/caban/caban_rough_1k.png',
         color: 0x065f46, defaultTileSize: 35, roughness: 0.82,
         supportsPatterns: true
     },
-    // Plush Velvets (Low roughness, high visual depth & sheen)
+    // Plush Velvets (Low roughness, high visual depth & sheen with weave image texture)
     'velvet_sapphire': {
         id: 'velvet_sapphire', name: 'Plush Velvet (Sapphire Blue)', type: 'fabric',
+        texture: 'textures/fabrics/caban/caban_fabric_diff.jpg',
+        normal: 'textures/fabrics/caban/caban_nor_gl_1k.png',
         color: 0x1d4ed8, defaultTileSize: 50, roughness: 0.45,
         supportsPatterns: true
     },
     'velvet_ruby': {
         id: 'velvet_ruby', name: 'Plush Velvet (Ruby Red)', type: 'fabric',
+        texture: 'textures/fabrics/caban/caban_fabric_diff.jpg',
+        normal: 'textures/fabrics/caban/caban_nor_gl_1k.png',
         color: 0x991b1b, defaultTileSize: 50, roughness: 0.45,
         supportsPatterns: true
     },
     'velvet_gold': {
         id: 'velvet_gold', name: 'Plush Velvet (Mustard Gold)', type: 'fabric',
+        texture: 'textures/fabrics/caban/caban_fabric_diff.jpg',
+        normal: 'textures/fabrics/caban/caban_nor_gl_1k.png',
         color: 0xd97706, defaultTileSize: 50, roughness: 0.45,
         supportsPatterns: true
     },
     'velvet_slate': {
         id: 'velvet_slate', name: 'Plush Velvet (Slate Grey)', type: 'fabric',
+        texture: 'textures/fabrics/caban/caban_fabric_diff.jpg',
+        normal: 'textures/fabrics/caban/caban_nor_gl_1k.png',
         color: 0x475569, defaultTileSize: 50, roughness: 0.45,
         supportsPatterns: true
     },
-    // Heavy Duty Cotton Canvas (Sturdy, matte casual cotton)
+    // Heavy Duty Cotton Canvas (Sturdy, matte casual cotton with weave image texture)
     'cotton_olive': {
         id: 'cotton_olive', name: 'Cotton Canvas (Olive Green)', type: 'fabric',
+        texture: 'textures/fabrics/caban/caban_fabric_diff.jpg',
+        normal: 'textures/fabrics/caban/caban_nor_gl_1k.png',
         color: 0x4d7c0f, defaultTileSize: 40, roughness: 0.88,
         supportsPatterns: true
     },
     'cotton_terracotta': {
         id: 'cotton_terracotta', name: 'Cotton Canvas (Warm Terracotta)', type: 'fabric',
+        texture: 'textures/fabrics/caban/caban_fabric_diff.jpg',
+        normal: 'textures/fabrics/caban/caban_nor_gl_1k.png',
         color: 0xc2410c, defaultTileSize: 40, roughness: 0.88,
         supportsPatterns: true
     },
     'cotton_blush': {
         id: 'cotton_blush', name: 'Cotton Canvas (Soft Blush)', type: 'fabric',
+        texture: 'textures/fabrics/caban/caban_fabric_diff.jpg',
+        normal: 'textures/fabrics/caban/caban_nor_gl_1k.png',
         color: 0xf43f5e, defaultTileSize: 40, roughness: 0.88,
         supportsPatterns: true
     },
     'cotton_cream': {
         id: 'cotton_cream', name: 'Cotton Canvas (Warm Cream)', type: 'fabric',
+        texture: 'textures/fabrics/caban/caban_fabric_diff.jpg',
+        normal: 'textures/fabrics/caban/caban_nor_gl_1k.png',
         color: 0xfef9c3, defaultTileSize: 40, roughness: 0.88,
         supportsPatterns: true
     },
-    // Woven Bouclé (Knobby luxury textured upholstery)
+    // Woven Bouclé (Knobby luxury textured upholstery with real bouclé fleece image)
     'boucle_snow': {
         id: 'boucle_snow', name: 'Woven Bouclé (Snow White)', type: 'fabric',
+        texture: 'textures/fabrics/curly_teddy_checkered_1k/textures/curly_teddy_checkered_diff_1k.jpg',
         color: 0xf8fafc, defaultTileSize: 30, roughness: 0.92, normalScale: 0.5,
         supportsPatterns: true
     },
     'boucle_taupe': {
         id: 'boucle_taupe', name: 'Woven Bouclé (Warm Taupe)', type: 'fabric',
+        texture: 'textures/fabrics/curly_teddy_checkered_1k/textures/curly_teddy_checkered_diff_1k.jpg',
         color: 0x78716c, defaultTileSize: 30, roughness: 0.92, normalScale: 0.5,
         supportsPatterns: true
     },
-    // Silk Sateen (Smooth high-sheen satin)
+    // Silk Sateen (Smooth high-sheen satin with real silk image texture)
     'silk_pearl': {
         id: 'silk_pearl', name: 'Silk Sateen (Pearl White)', type: 'fabric',
+        texture: 'textures/fabrics/crepe_satin_1k/textures/crepe_satin_diff_1k.jpg',
         color: 0xfafaf9, roughness: 0.3, metalness: 0.1,
         supportsPatterns: true
     },
     'silk_emerald': {
         id: 'silk_emerald', name: 'Silk Sateen (Deep Emerald)', type: 'fabric',
+        texture: 'textures/fabrics/crepe_satin_1k/textures/crepe_satin_diff_1k.jpg',
         color: 0x047857, roughness: 0.3, metalness: 0.1,
         supportsPatterns: true
     },
-    // Suede & Leather (Specialized upholstery)
+    // Suede & Fine Leather Upholstery with real fine-grain leather PBR image maps
     'suede_camel': {
         id: 'suede_camel', name: 'Ultra Suede (Camel Brown)', type: 'fabric',
+        texture: 'textures/fabrics/fabric_leather_02_1k/textures/fabric_leather_02_diff_1k.jpg',
+        roughnessMap: 'textures/fabrics/fabric_leather_02_1k/textures/fabric_leather_02_rough_1k.jpg',
         color: 0xb45309, roughness: 0.75,
         supportsPatterns: true
     },
     'suede_espresso': {
         id: 'suede_espresso', name: 'Ultra Suede (Espresso Dark)', type: 'fabric',
+        texture: 'textures/fabrics/fabric_leather_02_1k/textures/fabric_leather_02_diff_1k.jpg',
+        roughnessMap: 'textures/fabrics/fabric_leather_02_1k/textures/fabric_leather_02_rough_1k.jpg',
         color: 0x451a03, roughness: 0.75,
         supportsPatterns: true
     },
     'sheer_voile': {
         id: 'sheer_voile', name: 'Sheer Silk Voile (Transparent)', type: 'fabric',
+        texture: 'textures/fabrics/crepe_satin_1k/textures/crepe_satin_diff_1k.jpg',
         color: 0xfafaf9, roughness: 0.35, transparent: true, opacity: 0.65,
-        supportsPatterns: false
-    },
-    'quilted_leather': {
-        id: 'quilted_leather', name: 'Aniline Quilted Leather', type: 'fabric',
-        color: 0x271712, roughness: 0.28, metalness: 0.12,
         supportsPatterns: false
     },
     // Backward compatibility aliases for existing default scenes (hidden from grid via isAlias)
