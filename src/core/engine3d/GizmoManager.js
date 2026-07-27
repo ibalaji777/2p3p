@@ -1169,10 +1169,10 @@ export class GizmoManager {
                 if (!thumbUrl && !val.color && !val.transparent && !val.cssSphere) continue;
                 
                 let sphereStyle = 'background: rgba(100,100,100,0.5);';
-                if (val.cssSphere) {
-                    sphereStyle = val.cssSphere;
-                } else if (thumbUrl) {
+                if (thumbUrl) {
                     sphereStyle = `background-image: url('${thumbUrl}'); background-size: cover; background-position: center;`;
+                } else if (val.cssSphere) {
+                    sphereStyle = val.cssSphere;
                 } else if (val.color) {
                     const hexColor = '#' + val.color.toString(16).padStart(6, '0');
                     sphereStyle = `background-color: ${hexColor}; opacity: ${val.transparent ? (val.transmission !== undefined ? 1 - val.transmission : 0.5) : 1};`;

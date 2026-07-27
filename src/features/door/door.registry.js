@@ -10,38 +10,57 @@ export const DOOR_MATERIALS = {
 };
 
 export const DOOR_MATERIALS_REGISTRY = {
+    // 🪵 5 Photorealistic Wood Species (Unique HD Texture Maps)
+    'wood_golden_teak': {
+        id: 'wood_golden_teak',
+        name: 'Natural Burmese Golden Teak',
+        texture: 'textures/wood/wood_golden_teak.png',
+        thumbnail: 'textures/wood/wood_golden_teak.png',
+        roughness: 0.55, bumpScale: 0.005,
+        defaultWidth: 100, defaultHeight: 100, defaultDepth: 0.2, defaultRepeat: 1, scaleMultiplier: 1
+    },
+    'wood_dark_walnut': {
+        id: 'wood_dark_walnut',
+        name: 'Solid Dark American Walnut',
+        texture: 'textures/wood/wood_dark_walnut.png',
+        thumbnail: 'textures/wood/wood_dark_walnut.png',
+        roughness: 0.5, bumpScale: 0.005,
+        defaultWidth: 100, defaultHeight: 100, defaultDepth: 0.2, defaultRepeat: 1, scaleMultiplier: 1
+    },
+    'wood_white_oak': {
+        id: 'wood_white_oak',
+        name: 'Natural White American Oak',
+        texture: 'textures/wood/wood_white_oak.png',
+        thumbnail: 'textures/wood/wood_white_oak.png',
+        roughness: 0.6, bumpScale: 0.005,
+        defaultWidth: 100, defaultHeight: 100, defaultDepth: 0.2, defaultRepeat: 1, scaleMultiplier: 1
+    },
+    'wood_mahogany': {
+        id: 'wood_mahogany',
+        name: 'Heritage Red Mahogany',
+        texture: 'textures/wood/wood_mahogany.png',
+        thumbnail: 'textures/wood/wood_mahogany.png',
+        roughness: 0.45, bumpScale: 0.005,
+        defaultWidth: 100, defaultHeight: 100, defaultDepth: 0.2, defaultRepeat: 1, scaleMultiplier: 1
+    },
+    'wood_wenge': {
+        id: 'wood_wenge',
+        name: 'Deep Ebony Wenge Timber',
+        texture: 'textures/wood/wood_wenge.png',
+        thumbnail: 'textures/wood/wood_wenge.png',
+        roughness: 0.4, bumpScale: 0.005,
+        defaultWidth: 100, defaultHeight: 100, defaultDepth: 0.2, defaultRepeat: 1, scaleMultiplier: 1
+    },
+
+    // Backward compatibility aliases
     'door_indian_1': {
-        id: 'door_indian_1',
-        name: 'Indian Carved Wood',
-        texture: 'models/wall/wood_1_light.png', 
-        thumbnail: 'models/wall/wood_1_light.png', 
-        defaultWidth: 100,
-        defaultHeight: 100,
-        defaultDepth: 0.2,
-        defaultRepeat: 1,
-        scaleMultiplier: 1
+        id: 'door_indian_1', name: 'Indian Carved Wood', texture: 'textures/wood/wood_golden_teak.png', thumbnail: 'textures/wood/wood_golden_teak.png', isAlias: true
     },
     'door_indian_2': {
-        id: 'door_indian_2',
-        name: 'Dark Teak Door',
-        texture: 'models/wall/wood_2_dark.png', 
-        thumbnail: 'models/wall/wood_2_dark.png', 
-        defaultWidth: 100,
-        defaultHeight: 100,
-        defaultDepth: 0.2,
-        defaultRepeat: 1,
-        scaleMultiplier: 1
+        id: 'door_indian_2', name: 'Dark Teak Door', texture: 'textures/wood/wood_dark_walnut.png', thumbnail: 'textures/wood/wood_dark_walnut.png', isAlias: true
     },
     'door_modern_1': {
-        id: 'door_modern_1',
-        name: 'Modern Panel',
-        texture: 'models/wall/marble_1_white.png', 
-        thumbnail: 'models/wall/marble_1_white.png', 
-        defaultWidth: 100,
-        defaultHeight: 100,
-        defaultDepth: 0.2,
-        defaultRepeat: 1,
-        scaleMultiplier: 1
+        id: 'door_modern_1', name: 'Modern Panel', texture: 'textures/wood/wood_white_oak.png', thumbnail: 'textures/wood/wood_white_oak.png', isAlias: true
     }
 };
 
