@@ -93,6 +93,7 @@ export const getMenuCategories = () => [
         tools: [
             { id: 'bathroom_catalog', name: 'Bathroom Catalog' },
             { id: 'tap_catalog', name: 'Taps & Faucets' },
+            { id: 'sink_catalog', name: 'Sinks & Basins' },
             { id: 'sanitary_all', name: 'Sanitary Fixtures', isDivider: true },
             { id: 'toilet_modern', name: 'Modern Toilet', action: 'furniture' },
             { id: 'toilet_compact', name: 'Compact Wall-Hung Toilet', action: 'furniture' },

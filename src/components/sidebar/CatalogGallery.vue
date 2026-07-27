@@ -363,6 +363,12 @@ const kitchenCatalog = ref([
 ]);
 
 const sinkCatalog = ref([
+    { isDivider: true, id: 'div_sinks_modern', name: 'Designer 3D Sinks & Basins' },
+    { id: 'sink_kitchen_modern', name: 'Modern Kitchen Sink', image: '', toolId: 'furniture', params: { type: 'sink_kitchen_modern', elevation: 90 } },
+    { id: 'sink_kohler_double', name: 'Kohler Double-Bowl Sink', image: '', toolId: 'furniture', params: { type: 'sink_kohler_double', elevation: 90 } },
+    { id: 'sink_steel_stainless', name: 'Stainless Steel Sink Basin', image: '', toolId: 'furniture', params: { type: 'sink_steel_stainless', elevation: 90 } },
+    { id: 'sink_compact_basin', name: 'Compact Minimalist Basin', image: '', toolId: 'furniture', params: { type: 'sink_compact_basin', elevation: 90 } },
+    { isDivider: true, id: 'div_sinks_standard', name: 'Standard Procedural Sinks' },
     { id: 'sink_standard', name: 'Standard Metal Sink', image: '', toolId: 'furniture', params: { type: 'sink_standard', elevation: 90 } },
     { id: 'sink_double', name: 'Double Basin Sink', image: '', toolId: 'furniture', params: { type: 'sink_double', elevation: 90 } },
     { id: 'sink_farmhouse', name: 'Farmhouse Sink', image: '', toolId: 'furniture', params: { type: 'sink_farmhouse', elevation: 90 } }
@@ -412,7 +418,9 @@ const bathroomCatalog = ref([
     { id: 'toilet_vaal', name: 'Vaal Premium Toilet', image: '', toolId: 'furniture', params: { type: 'toilet_vaal', elevation: 0 } },
     { isDivider: true, id: 'div_vanities', name: 'Basins & Vanity Units' },
     { id: 'vanity_unit_modern', name: 'Modern Bathroom Vanity Suite', image: '', toolId: 'furniture', params: { type: 'vanity_unit_modern', elevation: 0 } },
-    { id: 'basin_cobra', name: 'Cobra VAA Basin', image: '', toolId: 'furniture', params: { type: 'basin_cobra', elevation: 80 } }
+    { id: 'basin_cobra', name: 'Cobra VAA Basin', image: '', toolId: 'furniture', params: { type: 'basin_cobra', elevation: 80 } },
+    { id: 'sink_compact_basin', name: 'Compact Minimalist Basin', image: '', toolId: 'furniture', params: { type: 'sink_compact_basin', elevation: 90 } },
+    { id: 'sink_steel_stainless', name: 'Stainless Steel Basin', image: '', toolId: 'furniture', params: { type: 'sink_steel_stainless', elevation: 90 } }
 ]);
 
 const electronicsCatalog = ref([

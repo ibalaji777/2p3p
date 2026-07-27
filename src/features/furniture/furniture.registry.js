@@ -644,5 +644,41 @@ export const FURNITURE_REGISTRY = {
         license: 'CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/)',
         default: { width: 160, height: 60, depth: 45, elevation: 0 },
         shape2D: 'tv_unit'
+    },
+    'sink_kitchen_modern': {
+        id: 'sink_kitchen_modern', label: 'Modern Kitchen Sink',
+        procedural: false,
+        model: 'models/sinks/sink_kitchen_modern.glb',
+        author: 'HippoStance (https://sketchfab.com/hippostance)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 70, height: 22, depth: 45, elevation: 90 },
+        shape2D: 'sink_standard'
+    },
+    'sink_kohler_double': {
+        id: 'sink_kohler_double', label: 'Kohler Double-Bowl Sink',
+        procedural: false,
+        model: 'models/sinks/sink_kohler_double.glb',
+        author: 'allenbranch (https://sketchfab.com/allenbranch)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 85, height: 25, depth: 50, elevation: 90 },
+        shape2D: 'sink_double'
+    },
+    'sink_steel_stainless': {
+        id: 'sink_steel_stainless', label: 'Stainless Steel Sink Basin',
+        procedural: false,
+        model: 'models/sinks/sink_steel_stainless.glb',
+        author: '3DDomino (https://sketchfab.com/3DDomino)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 60, height: 20, depth: 45, elevation: 90 },
+        shape2D: 'sink_standard'
+    },
+    'sink_compact_basin': {
+        id: 'sink_compact_basin', label: 'Compact Minimalist Basin',
+        procedural: false,
+        model: 'models/sinks/sink_compact_basin.glb',
+        author: 'Mehdi Shahsavan (https://sketchfab.com/ahmagh2e)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 50, height: 18, depth: 40, elevation: 90 },
+        shape2D: 'sink_standard'
     }
 };
