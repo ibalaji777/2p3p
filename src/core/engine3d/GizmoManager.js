@@ -1202,25 +1202,81 @@ export class GizmoManager {
                 const state = this._getCurrentFabricState(selectedObj);
                 const fabricConf = FABRIC_REGISTRY[state.baseFabricId] || {};
                 const supportsPatterns = fabricConf.supportsPatterns !== false;
-                const patternText = state.patternId ? `✨ Active Pattern: ${state.patternId} (Applied across plain fabrics)` : 'Add decorative pattern overlay';
                 
-                patternLauncherHtml = `
-                    <div id="fabric-pattern-bar" style="width: 100%; margin-bottom: 12px; padding: 10px 14px; background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(168, 85, 247, 0.4); border-radius: 10px; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; box-shadow: 0 4px 15px rgba(0,0,0,0.35);">
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <div style="width: 34px; height: 34px; border-radius: 8px; background: linear-gradient(135deg, rgba(168,85,247,0.3), rgba(124,58,237,0.3)); display: flex; align-items: center; justify-content: center; font-size: 18px;">✨</div>
-                            <div>
-                                <div style="font-size: 13px; font-weight: 700; color: #f8fafc;">Pattern Customizer</div>
-                                <div id="fabric-pattern-status-text" style="font-size: 11px; color: ${state.patternId ? '#c084fc' : '#94a3b8'}; font-weight: ${state.patternId ? '600' : '400'};">${patternText}</div>
+                this._patternTransformState = this._patternTransformState || { scale: 120, rotation: 45, repeat: 2.0, opacity: 100, mirror: 'vertical' };
+                const pts = this._patternTransformState;
+
+                if (!state.patternId) {
+                    // Standard 165px Width Fabric Card Launcher when no pattern is applied
+                    patternLauncherHtml = `
+                        <div class="mat-card" id="card-pattern-customizer-launcher" style="border: 1.5px dashed rgba(168, 85, 247, 0.5); background: linear-gradient(145deg, rgba(26, 16, 38, 0.9) 0%, rgba(15, 11, 26, 0.95) 100%);">
+                            <div class="mat-card-icon-badge" style="background: rgba(168, 85, 247, 0.25); color: #c084fc;">
+                                ✨
+                            </div>
+                            <div class="mat-sphere" style="background: radial-gradient(circle at 35% 25%, #c084fc 0%, #7c3aed 55%, #4c1d95 100%); display: flex; align-items: center; justify-content: center; font-size: 32px; box-shadow: 0 4px 14px rgba(168, 85, 247, 0.35);">
+                                🎨
+                            </div>
+                            <div style="width: 100%; text-align: center;">
+                                <div class="mat-card-title" style="color: #c084fc; font-weight: 800;">Pattern Customizer</div>
+                                <div class="mat-card-sub" style="margin-bottom: 8px;">Add Motif Overlay</div>
+                                <button id="btn-gizmo-open-pattern-popup" ${!supportsPatterns ? 'disabled' : ''} style="width: 100%; background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%); color: white; border: none; padding: 7px 0; border-radius: 8px; font-size: 11px; font-weight: 700; cursor: ${supportsPatterns ? 'pointer' : 'not-allowed'}; box-shadow: 0 2px 8px rgba(168,85,247,0.4);">
+                                    🎨 Select Pattern
+                                </button>
                             </div>
                         </div>
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <button id="btn-gizmo-remove-pattern" style="display: ${state.patternId ? 'inline-block' : 'none'}; background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">✖ Remove</button>
-                            <button id="btn-gizmo-open-pattern-popup" ${!supportsPatterns ? 'disabled' : ''} style="background: ${supportsPatterns ? 'linear-gradient(135deg, #a855f7, #7c3aed)' : 'rgba(100,116,139,0.4)'}; color: white; border: none; padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: ${supportsPatterns ? 'pointer' : 'not-allowed'}; box-shadow: 0 2px 10px rgba(168,85,247,0.4); display: flex; align-items: center; gap: 6px;">
-                                🎨 Select Pattern
-                            </button>
+                    `;
+                } else {
+                    // Standard 165px Width Active Pattern Card when pattern is applied
+                    const rawName = state.patternId.replace(/^offline_/, '').replace(/_\d+$/, '').replace(/_/g, ' ').trim();
+                    const prettyPatternTitle = rawName ? rawName.replace(/\b\w/g, c => c.toUpperCase()) + ' Motif' : 'Damask Motif';
+
+                    patternLauncherHtml = `
+                        <div class="mat-card active-card" id="card-pattern-customizer-applied" style="border: 1.5px solid #a855f7 !important; background: linear-gradient(145deg, rgba(26, 16, 38, 0.95) 0%, rgba(15, 11, 26, 0.98) 100%); position: relative;">
+                            <div class="mat-card-icon-badge" style="background: rgba(34, 197, 94, 0.25); color: #4ade80;" title="Pattern Applied">
+                                <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <div class="mat-sphere" id="pattern-card-thumb-preview" style="background: #0f172a center/cover no-repeat; border: 2px solid rgba(168, 85, 247, 0.6); box-shadow: 0 4px 14px rgba(168, 85, 247, 0.35);"></div>
+                            <div style="width: 100%; text-align: center;">
+                                <div id="pattern-card-title-text" class="mat-card-title" style="color: #f8fafc; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${prettyPatternTitle}</div>
+                                <div id="pattern-card-sub-text" class="mat-card-sub" style="color: #c084fc; font-weight: 600; margin-bottom: 8px;">🎨 Applied Pattern</div>
+                                <div style="display: flex; gap: 4px; width: 100%;">
+                                    <button id="btn-gizmo-open-pattern-popup" ${!supportsPatterns ? 'disabled' : ''} style="flex: 1; background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%); color: white; border: none; padding: 6px 0; border-radius: 6px; font-size: 10px; font-weight: 700; cursor: pointer; box-shadow: 0 2px 6px rgba(168, 85, 247, 0.4);">
+                                        🎨 Change
+                                    </button>
+                                    <button id="btn-gizmo-remove-pattern" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; padding: 6px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; cursor: pointer;" title="Remove Pattern Overlay">
+                                        🗑️
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
+
+                    // Asynchronously resolve pattern object and composite texture to update sphere preview thumbnail live
+                    (async () => {
+                        try {
+                            const patObj = await patternManager.getPatternById(state.patternId);
+                            const compKey = `${state.baseFabricId}::pattern::${state.patternId}`;
+                            const compConfig = await resolveFabricConfig(compKey, this._patternTransformState);
+                            
+                            const cardThumb = gridElem.querySelector('#pattern-card-thumb-preview');
+                            const titleElem = gridElem.querySelector('#pattern-card-title-text');
+                            const subElem = gridElem.querySelector('#pattern-card-sub-text');
+                            
+                            const realThumb = (compConfig && compConfig.texture) ? compConfig.texture : (patObj ? (patObj.thumbnail || patObj.textureUrl) : '');
+                            if (cardThumb && realThumb) {
+                                cardThumb.style.backgroundImage = `url('${realThumb}')`;
+                            }
+                            if (titleElem && patObj && patObj.title) {
+                                titleElem.innerText = patObj.title;
+                            }
+                            if (subElem && patObj && patObj.category) {
+                                subElem.innerText = `🎨 ${patObj.category} Motif`;
+                            }
+                        } catch (e) {
+                            console.error('[GizmoManager] Error populating pattern card preview:', e);
+                        }
+                    })();
+                }
             }
             
             gridElem.innerHTML = patternLauncherHtml + decorThumbnails;
@@ -1228,6 +1284,7 @@ export class GizmoManager {
             if (materialCategory === 'fabric') {
                 const btnOpen = gridElem.querySelector('#btn-gizmo-open-pattern-popup');
                 const btnRemove = gridElem.querySelector('#btn-gizmo-remove-pattern');
+                
                 if (btnOpen) {
                     btnOpen.addEventListener('click', (e) => {
                         e.preventDefault();
@@ -1480,21 +1537,22 @@ export class GizmoManager {
             previewWrap.style.display = 'flex';
             previewWrap.innerHTML = `<div style="color: #a855f7; font-size: 13px; font-weight: 600;">Synthesizing fabric texture blend...</div>`;
             
-            const baseTex = baseFabric.texture || baseFabric.thumbnail || '';
-            const blendedUrl = await PatternTextureBlender.blend(baseTex, pat.textureUrl, { blendMode: 'multiply', patternOpacity: 0.9, size: 256 });
+            const compKey = `${state.baseFabricId}::pattern::${pat.id}`;
+            const compConfig = await resolveFabricConfig(compKey, this._patternTransformState);
+            const blendedUrl = pat.thumbnail || pat.textureUrl;
             
             previewWrap.innerHTML = `
                 <div style="display: flex; align-items: center; gap: 16px;">
-                    <div style="width: 68px; height: 68px; border-radius: 10px; border: 2px solid #c084fc; background: url('${blendedUrl}') center/cover no-repeat; box-shadow: 0 4px 12px rgba(0,0,0,0.5);"></div>
+                    <div style="width: 60px; height: 60px; border-radius: 10px; border: 2px solid #c084fc; background: url('${blendedUrl}') center/cover no-repeat; box-shadow: 0 4px 12px rgba(0,0,0,0.5); flex-shrink: 0;"></div>
                     <div>
-                        <div style="font-size: 11px; font-weight: 700; color: #c084fc; letter-spacing: 0.5px; text-transform: uppercase;">Real-time Blend Preview</div>
-                        <div style="font-size: 16px; font-weight: 700; color: #f8fafc;">${pat.title} on ${baseFabric.name || state.baseFabricId}</div>
-                        <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">License: ${pat.license} (${pat.attribution})</div>
+                        <div style="font-size: 10px; font-weight: 700; color: #c084fc; letter-spacing: 0.5px; text-transform: uppercase;">Real-time Blend Preview</div>
+                        <div style="font-size: 15px; font-weight: 700; color: #f8fafc;">${pat.title} on ${baseFabric.name || state.baseFabricId}</div>
+                        <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;">License: ${pat.license} (${pat.attribution})</div>
                     </div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <button id="btn-apply-pattern-now" style="background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 9px 18px; border-radius: 8px; font-weight: 700; font-size: 13px; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(16,185,129,0.3); transition: 0.2s;">✔ Apply to 3D Model</button>
-                    <button id="btn-dismiss-preview" style="background: rgba(255,255,255,0.1); color: #cbd5e1; padding: 9px 14px; border-radius: 8px; font-weight: 600; font-size: 13px; border: 1px solid rgba(255,255,255,0.15); cursor: pointer;">Cancel</button>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button id="btn-apply-pattern-now" style="background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 7px 14px; border-radius: 8px; font-weight: 700; font-size: 11px; border: none; cursor: pointer; white-space: nowrap; box-shadow: 0 2px 8px rgba(16,185,129,0.3); transition: 0.2s;">✔ Apply to 3D Model</button>
+                    <button id="btn-dismiss-preview" style="background: rgba(255,255,255,0.1); color: #cbd5e1; padding: 7px 12px; border-radius: 8px; font-weight: 600; font-size: 11px; border: 1px solid rgba(255,255,255,0.15); cursor: pointer; white-space: nowrap;">Cancel</button>
                 </div>
             `;
             

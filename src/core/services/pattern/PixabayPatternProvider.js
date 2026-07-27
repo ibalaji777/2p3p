@@ -4,52 +4,7 @@ import { PatternProvider } from './PatternProvider.js';
  * Provider for fetching commercial-free seamless textures and vector patterns from Pixabay API.
  * Adheres to Pixabay license guidelines with full attribution support.
  */
-const CURATED_PIXABAY_PATTERNS = [
-    {
-        id: 'offline_stylishart_damask_9947374',
-        title: 'Stylish Art Ornamental Damask',
-        category: 'Traditional',
-        tags: ['damask', 'ornamental', 'traditional', 'seamless', 'stylishart', '9947374'],
-        thumbnail: '/fabric-pattern/stylishart-seamless-pattern-9947374_1920.png',
-        textureUrl: '/fabric-pattern/stylishart-seamless-pattern-9947374_1920.png',
-        license: 'Offline Pattern Asset',
-        attribution: 'Local Fabric Pattern Asset (9947374)',
-        provider: 'pixabay'
-    },
-    {
-        id: 'offline_tanrica_flowers_9694631',
-        title: 'Tanrica Decorative Floral Pattern',
-        category: 'Floral',
-        tags: ['floral', 'flower', 'tanrica', 'damask', 'seamless', '9694631'],
-        thumbnail: '/fabric-pattern/tanrica-flowers-9694631_1920.png',
-        textureUrl: '/fabric-pattern/tanrica-flowers-9694631_1920.png',
-        license: 'Offline Pattern Asset',
-        attribution: 'Local Fabric Pattern Asset (9694631)',
-        provider: 'pixabay'
-    },
-    {
-        id: 'offline_maple_leaves_7453138',
-        title: 'Maple Leaf Botanical Pattern',
-        category: 'Botanical',
-        tags: ['maple', 'leaves', 'botanical', 'autumn', 'seamless', '7453138'],
-        thumbnail: '/fabric-pattern/panjtanpak_graphics05-maple-7453138_1920.png',
-        textureUrl: '/fabric-pattern/panjtanpak_graphics05-maple-7453138_1920.png',
-        license: 'Offline Pattern Asset',
-        attribution: 'Local Fabric Pattern Asset (7453138)',
-        provider: 'pixabay'
-    },
-    {
-        id: 'offline_yayangart_leaves_6753460',
-        title: 'Yayangart Tropical Leaf Motif',
-        category: 'Botanical',
-        tags: ['leaves', 'tropical', 'botanical', 'yayangart', 'seamless', '6753460'],
-        thumbnail: '/fabric-pattern/yayangart-leaves-6753460_1920.png',
-        textureUrl: '/fabric-pattern/yayangart-leaves-6753460_1920.png',
-        license: 'Offline Pattern Asset',
-        attribution: 'Local Fabric Pattern Asset (6753460)',
-        provider: 'pixabay'
-    }
-];
+const CURATED_PIXABAY_PATTERNS = [];
 
 export class PixabayPatternProvider extends PatternProvider {
     constructor(apiKey = '') {

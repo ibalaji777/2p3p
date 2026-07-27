@@ -71,7 +71,18 @@ export class PatternManager {
             }
         }
 
-        return { patterns: results, total: totalCount };
+        // Deduplicate pattern list by unique pattern ID & texture URL
+        const seenKeys = new Set();
+        const uniquePatterns = [];
+        for (const pat of results) {
+            const key = pat.id || pat.textureUrl || pat.title;
+            if (!seenKeys.has(key)) {
+                seenKeys.add(key);
+                uniquePatterns.push(pat);
+            }
+        }
+
+        return { patterns: uniquePatterns, total: uniquePatterns.length };
     }
 
     /**

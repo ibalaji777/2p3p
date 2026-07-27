@@ -18,6 +18,9 @@ export class AssetManager {
         if (!url) return null;
         
         let id = (typeof config === 'object' && config.id) ? config.id : url;
+        if (typeof url === 'string' && url.startsWith('data:')) {
+            id = url; // Use exact data URI content string as cache key
+        }
         const isColorData = options.isColorData !== false;
         
         // Include color space in cache key since we can't reuse a NoColorSpace texture as SRGB

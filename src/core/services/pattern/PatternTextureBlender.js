@@ -44,11 +44,15 @@ export class PatternTextureBlender {
         if (!patternTextureUrl) return fabricTextureUrl;
 
         const blendMode = options.blendMode || 'multiply';
-        const opacity = options.patternOpacity !== undefined ? options.patternOpacity : 0.95;
+        const opacity = options.patternOpacity !== undefined ? options.patternOpacity : (options.opacity !== undefined ? options.opacity / 100 : 0.95);
         const targetSize = options.size || 512;
         const color = options.color || '#ffffff';
+        const scale = options.scale !== undefined ? options.scale / 100 : 1.0;
+        const rotation = options.rotation !== undefined ? (options.rotation * Math.PI / 180) : 0;
+        const repeat = options.repeat !== undefined ? options.repeat : 1.0;
+        const mirror = options.mirror || 'off';
 
-        const cacheKey = `${(fabricTextureUrl || '').slice(0, 80)}_${patternTextureUrl.slice(0, 80)}_${color}_${blendMode}_${opacity}_${targetSize}`;
+        const cacheKey = `${(fabricTextureUrl || '').slice(0, 80)}_${patternTextureUrl.slice(0, 80)}_${color}_${blendMode}_${opacity}_${scale}_${rotation}_${repeat}_${mirror}_${targetSize}`;
         if (this._cache.has(cacheKey)) {
             return this._cache.get(cacheKey);
         }
@@ -67,13 +71,32 @@ export class PatternTextureBlender {
             canvas.height = targetSize;
             const ctx = canvas.getContext('2d');
 
-            // 1. Fill base canvas background with fabric color (e.g., Navy, Ruby, Emerald, Gold, Cream)
+            // 1. Fill base canvas background with fabric color
             ctx.fillStyle = color;
             ctx.fillRect(0, 0, targetSize, targetSize);
 
-            // 2. Draw pattern image with specified opacity
+            // 2. Create transformed pattern layer
+            ctx.save();
             ctx.globalAlpha = opacity;
-            ctx.drawImage(patternImg, 0, 0, targetSize, targetSize);
+            ctx.translate(targetSize / 2, targetSize / 2);
+            ctx.rotate(rotation);
+
+            let scaleX = scale;
+            let scaleY = scale;
+            if (mirror === 'horizontal' || mirror === 'both') scaleX *= -1;
+            if (mirror === 'vertical' || mirror === 'both') scaleY *= -1;
+            ctx.scale(scaleX, scaleY);
+
+            // Create pattern repeat tiling inside transformed space
+            const patTileSize = targetSize / Math.max(0.2, repeat);
+            const patPattern = ctx.createPattern(patternImg, 'repeat');
+            if (patPattern) {
+                ctx.fillStyle = patPattern;
+                ctx.fillRect(-targetSize * 1.5, -targetSize * 1.5, targetSize * 3, targetSize * 3);
+            } else {
+                ctx.drawImage(patternImg, -patTileSize / 2, -patTileSize / 2, patTileSize, patTileSize);
+            }
+            ctx.restore();
 
             // 3. If fabric texture image is available, multiply fabric weave texture over pattern & color
             if (fabricImg) {
@@ -89,7 +112,7 @@ export class PatternTextureBlender {
             return dataUrl;
         } catch (e) {
             console.error('[PatternTextureBlender] Synthesis failed, falling back to pattern/base texture:', e);
-            return patternTextureUrl || fabricTextureUrl;
+            return fabricTextureUrl || patternTextureUrl;
         }
     }
 }

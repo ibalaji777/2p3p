@@ -135,7 +135,7 @@ export function parseCompositeMaterialKey(matKey) {
  * @param {string} matKey 
  * @returns {Promise<Object>} Resolved material configuration object.
  */
-export async function resolveFabricConfig(matKey) {
+export async function resolveFabricConfig(matKey, transformOptions = {}) {
     if (!matKey) return null;
     if (FABRIC_REGISTRY[matKey]) return FABRIC_REGISTRY[matKey];
 
@@ -153,13 +153,13 @@ export async function resolveFabricConfig(matKey) {
     }
 
     const baseTex = baseConfig.texture || baseConfig.thumbnail || '';
-    const fabricColor = baseConfig.color !== undefined ? '#' + baseConfig.color.toString(16).padStart(6, '0') : '#ffffff';
-    const blendedTexture = await PatternTextureBlender.blend(baseTex, patternObj.textureUrl, {
+    const blendOpts = Object.assign({
         blendMode: 'multiply',
         patternOpacity: 0.9,
         size: 512,
-        color: fabricColor
-    });
+        color: '#ffffff'
+    }, transformOptions);
+    const blendedTexture = await PatternTextureBlender.blend(baseTex, patternObj.textureUrl, blendOpts);
 
     const compositeConfig = Object.assign({}, baseConfig, {
         id: matKey,

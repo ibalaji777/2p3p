@@ -117,6 +117,7 @@ export class MaterialFactory {
             newMat.opacity = config.opacity !== undefined ? config.opacity : 1.0;
         }
 
+        if (newMat.map) newMat.map.needsUpdate = true;
         newMat.needsUpdate = true;
 
         // Safely apply back to mesh
@@ -125,5 +126,10 @@ export class MaterialFactory {
         } else {
             targetMesh.material = newMat;
         }
+
+        // Trigger real-time 3D viewport re-render
+        if (ctx && typeof ctx.requestRender === 'function') ctx.requestRender();
+        else if (ctx && typeof ctx.render === 'function') ctx.render();
+        else if (window.engine3d && typeof window.engine3d.requestRender === 'function') window.engine3d.requestRender();
     }
 }
