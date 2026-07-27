@@ -223,7 +223,7 @@ const displayUnit = computed(() => {
 
 const handleCatalogSelect = (item) => {
     if (planner.value) {
-        if (item.toolId === 'furniture' || item.toolId === 'kitchen') {
+        if (item.toolId === 'furniture' || item.toolId === 'kitchen' || item.toolId === 'bathroom' || item.toolId === 'electronics') {
             spawnFurniture(item.params.type);
         } else {
             planner.value.activePresetParams = { ...item.params };

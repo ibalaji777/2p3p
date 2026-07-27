@@ -26,6 +26,8 @@ export const WORKSPACE_2D_SHAPES = {
     'cooktop_induction': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 15 15 L 45 15 L 45 45 L 15 45 Z M 55 15 L 85 15 L 85 45 L 55 45 Z M 15 55 L 45 55 L 45 85 L 15 85 Z M 55 55 L 85 55 L 85 85 L 55 85 Z",
     'furniture': "M 50 10 A 40 40 0 1 0 50 90 A 40 40 0 1 0 50 10 Z",
     'lighting': "M 50 25 A 25 25 0 1 0 50 75 A 25 25 0 1 0 50 25 Z",
+    'toilet_standard': "M 20 10 L 80 10 L 80 30 L 20 30 Z M 30 30 L 70 30 Q 85 65 50 90 Q 15 65 30 30 Z M 35 38 L 65 38 Q 75 62 50 82 Q 25 62 35 38 Z",
+    'sanitary_unit': "M 10 10 L 90 10 L 90 90 L 10 90 Z M 20 20 L 80 20 L 80 80 L 20 80 Z M 50 50 A 20 20 0 1 0 50 70 A 20 20 0 1 0 50 50 M 47 12 L 53 12 L 53 25 L 47 25 Z",
     'default': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 0 0 L 100 100 M 100 0 L 0 100"
 };
 
@@ -444,5 +446,149 @@ export const FURNITURE_REGISTRY = {
         license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
         default: { width: 100, height: 60, depth: 200, elevation: 0 },
         shape2D: 'furniture'
+    },
+    'toilet_modern': {
+        id: 'toilet_modern', label: 'Modern Ceramic Toilet',
+        procedural: false,
+        model: 'models/bathroom/toilet_modern.glb',
+        author: 'Xill (https://sketchfab.com/Xill)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 50, height: 75, depth: 70, elevation: 0 },
+        shape2D: 'toilet_standard'
+    },
+    'toilet_compact': {
+        id: 'toilet_compact', label: 'Compact Wall-Hung Toilet',
+        procedural: false,
+        model: 'models/bathroom/toilet_compact.glb',
+        author: '1239899282 (https://sketchfab.com/1239899282)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 45, height: 65, depth: 65, elevation: 0 },
+        shape2D: 'toilet_standard'
+    },
+    'toilet_vaal': {
+        id: 'toilet_vaal', label: 'Vaal Premium Toilet',
+        procedural: false,
+        model: 'models/bathroom/toilet_vaal.glb',
+        author: 'trendforward (https://sketchfab.com/trendforward)',
+        license: 'CC-BY-NC-ND-4.0 (http://creativecommons.org/licenses/by-nc-nd/4.0/)',
+        default: { width: 50, height: 78, depth: 70, elevation: 0 },
+        shape2D: 'toilet_standard'
+    },
+    'tv_modern_flat': {
+        id: 'tv_modern_flat', label: 'Modern Flat TV',
+        procedural: false,
+        model: 'models/tvs/tv_modern_flat.glb',
+        author: 'CN Entertainment (https://sketchfab.com/cn-entertainment)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 120, height: 70, depth: 15, elevation: 90 },
+        shape2D: 'tv_unit'
+    },
+    'tv_wall_mounted': {
+        id: 'tv_wall_mounted', label: 'Wall Mounted TV Screen',
+        procedural: false,
+        model: 'models/tvs/tv_wall_mounted.glb',
+        author: 'Algirdas Lalys (https://sketchfab.com/alalys)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 140, height: 80, depth: 12, elevation: 110 },
+        shape2D: 'tv_unit'
+    },
+    'monitor_tv_lowpoly': {
+        id: 'monitor_tv_lowpoly', label: 'Desktop Monitor TV',
+        procedural: false,
+        model: 'models/tvs/monitor_tv_lowpoly.glb',
+        author: 'fatihmcnn (https://sketchfab.com/fatihmcnn)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 70, height: 45, depth: 18, elevation: 75 },
+        shape2D: 'tv_unit'
+    },
+    'tv_living_room': {
+        id: 'tv_living_room', label: 'Livingroom Widescreen TV',
+        procedural: false,
+        model: 'models/tvs/tv_living_room.glb',
+        author: 'Saritasa (https://sketchfab.com/Saritasa)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 150, height: 85, depth: 20, elevation: 90 },
+        shape2D: 'tv_unit'
+    },
+    'tap_boiling_water': {
+        id: 'tap_boiling_water', label: 'Boiling Water Faucet',
+        procedural: false,
+        model: 'models/taps/tap_boiling_water.glb',
+        author: 'dm3V (https://sketchfab.com/dm3V)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 15, height: 35, depth: 22, elevation: 90 },
+        shape2D: 'tap'
+    },
+    'tap_grohe_3030': {
+        id: 'tap_grohe_3030', label: 'Grohe Designer Faucet',
+        procedural: false,
+        model: 'models/taps/tap_grohe_3030.glb',
+        author: 'trendforward (https://sketchfab.com/trendforward)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 18, height: 38, depth: 25, elevation: 90 },
+        shape2D: 'tap'
+    },
+    'tap_grohe_3283': {
+        id: 'tap_grohe_3283', label: 'Grohe Basin Tap',
+        procedural: false,
+        model: 'models/taps/tap_grohe_3283.glb',
+        author: 'trendforward (https://sketchfab.com/trendforward)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 15, height: 32, depth: 20, elevation: 90 },
+        shape2D: 'tap'
+    },
+    'tap_roubinet': {
+        id: 'tap_roubinet', label: 'Modern Roubinet Faucet',
+        procedural: false,
+        model: 'models/taps/tap_roubinet.glb',
+        author: 'moad hadi (https://sketchfab.com/MOADHADI)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 16, height: 30, depth: 22, elevation: 90 },
+        shape2D: 'tap'
+    },
+    'tap_water_modern': {
+        id: 'tap_water_modern', label: 'Sleek Modern Faucet',
+        procedural: false,
+        model: 'models/taps/tap_water_modern.glb',
+        author: 'Speed (https://sketchfab.com/Speeedd)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 15, height: 28, depth: 20, elevation: 90 },
+        shape2D: 'tap'
+    },
+    'tap_water_cg': {
+        id: 'tap_water_cg', label: 'Minimalist Basin Faucet',
+        procedural: false,
+        model: 'models/taps/tap_water_cg.glb',
+        author: 'cgmodeling (https://sketchfab.com/cgmodeling612)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 14, height: 26, depth: 18, elevation: 90 },
+        shape2D: 'tap'
+    },
+    'tap_water_greator': {
+        id: 'tap_water_greator', label: 'Classic Kitchen Water Tap',
+        procedural: false,
+        model: 'models/taps/tap_water_greator.glb',
+        author: 'Greator (https://sketchfab.com/Greator)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 15, height: 29, depth: 21, elevation: 90 },
+        shape2D: 'tap'
+    },
+    'vanity_unit_modern': {
+        id: 'vanity_unit_modern', label: 'Modern Bathroom Vanity Suite',
+        procedural: false,
+        model: 'models/bathroom/vanity_unit_modern.glb',
+        author: 'Vladyslav Holhanov (https://sketchfab.com/vladicom08)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 120, height: 85, depth: 55, elevation: 0 },
+        shape2D: 'sanitary_unit'
+    },
+    'basin_cobra': {
+        id: 'basin_cobra', label: 'Cobra VAA Basin',
+        procedural: false,
+        model: 'models/bathroom/basin_cobra.glb',
+        author: 'trendforward (https://sketchfab.com/trendforward)',
+        license: 'CC-BY-NC-ND-4.0 (http://creativecommons.org/licenses/by-nc-nd/4.0/)',
+        default: { width: 60, height: 20, depth: 45, elevation: 80 },
+        shape2D: 'sanitary_unit'
     }
 };

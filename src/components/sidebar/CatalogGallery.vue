@@ -191,7 +191,9 @@ const getCatalogHeaderTitle = () => {
         'shape_catalog': '3D Shapes Catalog',
         'adv_opening_catalog': 'Advanced Openings',
         'railing_catalog': 'Railings Catalog',
-        'furniture_catalog': 'Furniture Catalog'
+        'furniture_catalog': 'Furniture Catalog',
+        'bathroom_catalog': 'Bathroom & Sanitary Catalog',
+        'electronics_catalog': 'TVs & Electronics Catalog'
     };
     return map[props.type] || 'Product Catalog';
 };
@@ -360,6 +362,15 @@ const sinkCatalog = ref([
 ]);
 
 const tapCatalog = ref([
+    { isDivider: true, id: 'div_taps_modern', name: 'Designer 3D Taps & Faucets' },
+    { id: 'tap_boiling_water', name: 'Boiling Water Faucet', image: '', toolId: 'furniture', params: { type: 'tap_boiling_water', elevation: 90 } },
+    { id: 'tap_grohe_3030', name: 'Grohe Designer Faucet', image: '', toolId: 'furniture', params: { type: 'tap_grohe_3030', elevation: 90 } },
+    { id: 'tap_grohe_3283', name: 'Grohe Basin Tap', image: '', toolId: 'furniture', params: { type: 'tap_grohe_3283', elevation: 90 } },
+    { id: 'tap_roubinet', name: 'Modern Roubinet Faucet', image: '', toolId: 'furniture', params: { type: 'tap_roubinet', elevation: 90 } },
+    { id: 'tap_water_modern', name: 'Sleek Modern Faucet', image: '', toolId: 'furniture', params: { type: 'tap_water_modern', elevation: 90 } },
+    { id: 'tap_water_cg', name: 'Minimalist Basin Faucet', image: '', toolId: 'furniture', params: { type: 'tap_water_cg', elevation: 90 } },
+    { id: 'tap_water_greator', name: 'Classic Kitchen Water Tap', image: '', toolId: 'furniture', params: { type: 'tap_water_greator', elevation: 90 } },
+    { isDivider: true, id: 'div_taps_standard', name: 'Standard Procedural Taps' },
     { id: 'tap_modern', name: 'Modern Curved Faucet', image: '', toolId: 'furniture', params: { type: 'tap_modern', elevation: 90 } },
     { id: 'tap_industrial', name: 'Industrial Pull-Down', image: '', toolId: 'furniture', params: { type: 'tap_industrial', elevation: 90 } },
     { id: 'tap_classic', name: 'Classic Two-Handle', image: '', toolId: 'furniture', params: { type: 'tap_classic', elevation: 90 } }
@@ -387,6 +398,24 @@ const trashCatalog = ref([
     { id: 'trash_pullout', name: 'Cabinet Pull-out', image: '', toolId: 'furniture', params: { type: 'trash_pullout', elevation: 0 } }
 ]);
 
+const bathroomCatalog = ref([
+    { isDivider: true, id: 'div_toilets', name: 'Toilets & Water Closets' },
+    { id: 'toilet_modern', name: 'Modern Ceramic Toilet', image: '', toolId: 'furniture', params: { type: 'toilet_modern', elevation: 0 } },
+    { id: 'toilet_compact', name: 'Compact Wall-Hung Toilet', image: '', toolId: 'furniture', params: { type: 'toilet_compact', elevation: 0 } },
+    { id: 'toilet_vaal', name: 'Vaal Premium Toilet', image: '', toolId: 'furniture', params: { type: 'toilet_vaal', elevation: 0 } },
+    { isDivider: true, id: 'div_vanities', name: 'Basins & Vanity Units' },
+    { id: 'vanity_unit_modern', name: 'Modern Bathroom Vanity Suite', image: '', toolId: 'furniture', params: { type: 'vanity_unit_modern', elevation: 0 } },
+    { id: 'basin_cobra', name: 'Cobra VAA Basin', image: '', toolId: 'furniture', params: { type: 'basin_cobra', elevation: 80 } }
+]);
+
+const electronicsCatalog = ref([
+    { isDivider: true, id: 'div_tvs', name: 'TVs & Display Screens' },
+    { id: 'tv_modern_flat', name: 'Modern Flat TV', image: '', toolId: 'furniture', params: { type: 'tv_modern_flat', elevation: 90 } },
+    { id: 'tv_wall_mounted', name: 'Wall Mounted TV Screen', image: '', toolId: 'furniture', params: { type: 'tv_wall_mounted', elevation: 110 } },
+    { id: 'monitor_tv_lowpoly', name: 'Desktop Monitor TV', image: '', toolId: 'furniture', params: { type: 'monitor_tv_lowpoly', elevation: 75 } },
+    { id: 'tv_living_room', name: 'Livingroom Widescreen TV', image: '', toolId: 'furniture', params: { type: 'tv_living_room', elevation: 90 } }
+]);
+
 const items = computed(() => {
     if (props.type === 'door') return doorCatalog.value;
     if (props.type === 'window') return windowCatalog.value;
@@ -409,6 +438,8 @@ const items = computed(() => {
     if (props.type === 'small_appliance_catalog') return smallApplianceCatalog.value;
     if (props.type === 'household_appliance_catalog') return householdApplianceCatalog.value;
     if (props.type === 'trash_catalog') return trashCatalog.value;
+    if (props.type === 'bathroom_catalog') return bathroomCatalog.value;
+    if (props.type === 'electronics_catalog') return electronicsCatalog.value;
     return [];
 });
 

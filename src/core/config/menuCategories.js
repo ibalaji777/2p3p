@@ -88,6 +88,32 @@ export const getMenuCategories = () => [
         ]
     },
     {
+        id: 'bathroom', name: 'Bathroom & Sanitary',
+        icon: '<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><path d="M4 10h16"></path><path d="M6 10V6a2 2 0 0 1 2-2h3a1 1 0 0 1 1 1v1"></path>',
+        tools: [
+            { id: 'bathroom_catalog', name: 'Bathroom Catalog' },
+            { id: 'tap_catalog', name: 'Taps & Faucets' },
+            { id: 'sanitary_all', name: 'Sanitary Fixtures', isDivider: true },
+            { id: 'toilet_modern', name: 'Modern Toilet', action: 'furniture' },
+            { id: 'toilet_compact', name: 'Compact Wall-Hung Toilet', action: 'furniture' },
+            { id: 'toilet_vaal', name: 'Vaal Premium Toilet', action: 'furniture' },
+            { id: 'vanity_unit_modern', name: 'Modern Vanity Suite', action: 'furniture' },
+            { id: 'basin_cobra', name: 'Cobra Wall Basin', action: 'furniture' }
+        ]
+    },
+    {
+        id: 'electronics', name: 'TVs & Electronics',
+        icon: '<rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect><polyline points="17 2 12 7 7 2"></polyline>',
+        tools: [
+            { id: 'electronics_catalog', name: 'Electronics Catalog' },
+            { id: 'tv_all', name: 'Display Screens', isDivider: true },
+            { id: 'tv_modern_flat', name: 'Modern Flat TV', action: 'furniture' },
+            { id: 'tv_wall_mounted', name: 'Wall Mounted TV', action: 'furniture' },
+            { id: 'monitor_tv_lowpoly', name: 'Desktop Monitor TV', action: 'furniture' },
+            { id: 'tv_living_room', name: 'Livingroom TV', action: 'furniture' }
+        ]
+    },
+    {
         id: 'smart_wizard', name: 'Smart Wizard',
         icon: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>',
         tools: [

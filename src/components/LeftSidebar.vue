@@ -315,7 +315,7 @@ const groupedNavigation = computed(() => {
         },
         {
             groupLabel: 'FURNISH',
-            items: getByIds(['furniture', 'kitchen'])
+            items: getByIds(['furniture', 'kitchen', 'bathroom', 'electronics'])
         },
         {
             groupLabel: 'UTILITY',
@@ -390,7 +390,7 @@ const isCatalogTool = (toolId) => {
     const catalogTools = [
         'door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 
         'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 
-        'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 
+        'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'bathroom_catalog', 'electronics_catalog', 
         'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 
         'household_appliance_catalog', 'wine_cellar_catalog', 'trash_catalog'
     ];
@@ -497,6 +497,8 @@ const getShortToolName = (toolId, name) => {
     if (toolId === 'railing_catalog') return 'Railings';
     if (toolId === 'furniture_catalog') return 'Furniture';
     if (toolId === 'kitchen_catalog') return 'Kitchen';
+    if (toolId === 'bathroom_catalog') return 'Bathroom';
+    if (toolId === 'electronics_catalog') return 'Electronics';
     return name || 'Tool';
 };
 
@@ -515,6 +517,12 @@ const getToolTabIcon = (toolId) => {
     }
     if (toolId === 'furniture_catalog') {
         return '<path d="M20 9V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v2"></path><path d="M2 13h20v5H2z"></path>';
+    }
+    if (toolId === 'bathroom_catalog') {
+        return '<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><path d="M4 10h16"></path><path d="M6 10V6a2 2 0 0 1 2-2h3a1 1 0 0 1 1 1v1"></path>';
+    }
+    if (toolId === 'electronics_catalog') {
+        return '<rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect><polyline points="17 2 12 7 7 2"></polyline>';
     }
     return '<circle cx="12" cy="12" r="7"></circle><polyline points="12 9 12 12 14 14"></polyline>';
 };
