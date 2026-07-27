@@ -38,3 +38,58 @@ export const WINDOW_GLASS_MATERIALS = {
 };
 
 export const WINDOW_GRILLE_PATTERNS = { grid: { label: "Standard Grid" }, horizontal: { label: "Horizontal Bars" }, vertical: { label: "Vertical Bars" }, diamond: { label: "Diamond Pattern" }, none: { label: "No Safety Grille" } };
+
+export const METAL_REGISTRY = {
+    'metal_brushed_steel': {
+        id: 'metal_brushed_steel',
+        name: 'Brushed Stainless Steel',
+        texture: 'textures/metals/metal_brushed_steel.png',
+        thumbnail: 'textures/metals/metal_brushed_steel.png',
+        metalness: 0.9, roughness: 0.25, clearcoat: 0.1
+    },
+    'metal_brushed_gold': {
+        id: 'metal_brushed_gold',
+        name: 'Luxury Brushed Champagne Gold',
+        texture: 'textures/metals/metal_brushed_gold.png',
+        thumbnail: 'textures/metals/metal_brushed_gold.png',
+        metalness: 0.95, roughness: 0.2, clearcoat: 0.2
+    },
+    'metal_gunmetal_black': {
+        id: 'metal_gunmetal_black',
+        name: 'Anodized Gunmetal Black Steel',
+        texture: 'textures/metals/metal_gunmetal_black.png',
+        thumbnail: 'textures/metals/metal_gunmetal_black.png',
+        metalness: 0.85, roughness: 0.35
+    },
+    'metal_rose_bronze': {
+        id: 'metal_rose_bronze',
+        name: 'Polished Antique Rose Bronze',
+        texture: 'textures/metals/metal_rose_bronze.png',
+        thumbnail: 'textures/metals/metal_rose_bronze.png',
+        metalness: 0.9, roughness: 0.25, clearcoat: 0.15
+    },
+    'metal_brushed_aluminum': {
+        id: 'metal_brushed_aluminum',
+        name: 'Silver Satin Brushed Aluminum',
+        texture: 'textures/metals/metal_brushed_aluminum.png',
+        thumbnail: 'textures/metals/metal_brushed_aluminum.png',
+        metalness: 0.88, roughness: 0.3, clearcoat: 0.05
+    }
+};
+
+export const PLASTIC_REGISTRY = {
+    'plastic_speckled_terrazzo': {
+        id: 'plastic_speckled_terrazzo',
+        name: 'Eco Recycled Terrazzo Plastic',
+        texture: 'textures/plastics/plastic_speckled_terrazzo.png',
+        thumbnail: 'textures/plastics/plastic_speckled_terrazzo.png',
+        roughness: 0.4, clearcoat: 0.2
+    },
+    'plastic_white_pvc': {
+        id: 'plastic_white_pvc',
+        name: 'Glossy White PVC Panel',
+        texture: 'textures/plastics/plastic_white_pvc.png',
+        thumbnail: 'textures/plastics/plastic_white_pvc.png',
+        roughness: 0.2, clearcoat: 0.5
+    }
+};

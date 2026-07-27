@@ -104,6 +104,8 @@ export class MaterialFactory {
         
         if (config.roughness !== undefined) newMat.roughness = config.roughness;
         if (config.metalness !== undefined) newMat.metalness = config.metalness;
+        if (config.clearcoat !== undefined) newMat.clearcoat = config.clearcoat;
+        if (config.clearcoatRoughness !== undefined) newMat.clearcoatRoughness = config.clearcoatRoughness;
         if (config.normalScale !== undefined && newMat.normalMap) {
             newMat.normalScale.set(config.normalScale, config.normalScale);
         }

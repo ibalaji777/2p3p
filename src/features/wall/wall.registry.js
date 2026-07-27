@@ -18,16 +18,6 @@ export const MOLDING_REGISTRY = {
 };
 
 export const WALL_DECOR_REGISTRY = {
-    'crepe_satin': {
-        id: 'crepe_satin',
-        name: 'Fabric: Crepe Satin',
-        texture: 'textures/fabrics/crepe_satin/diffuse.jpg',
-        thumbnail: 'textures/fabrics/crepe_satin/diffuse.jpg',
-        normal: 'textures/fabrics/crepe_satin/normal.jpg',
-        roughnessMap: 'textures/fabrics/crepe_satin/roughness.jpg',
-        defaultRepeat: 4,
-        roughness: 0.6
-    },
     'brick_wall': {
         id: 'brick_wall',
         name: 'Red Bricks',
@@ -168,5 +158,36 @@ export const WALL_DECOR_REGISTRY = {
         defaultHeight: 100,
         defaultDepth: 0.2, 
         defaultRepeat: 3   
+    }
+};
+
+export const STONE_REGISTRY = {
+    'white_marble': {
+        id: 'white_marble',
+        name: 'Italian Carrara White Marble',
+        texture: 'models/wall/marble_1_white.png',
+        thumbnail: 'models/wall/marble_1_white.png',
+        roughness: 0.2, clearcoat: 0.8
+    },
+    'black_marble': {
+        id: 'black_marble',
+        name: 'Nero Marquina Black Marble',
+        texture: 'models/wall/black_marble.png',
+        thumbnail: 'models/wall/black_marble.png',
+        roughness: 0.15, clearcoat: 0.9
+    },
+    'stone_wall': {
+        id: 'stone_wall',
+        name: 'Rough Hewn Fieldstone',
+        texture: 'models/wall/stone.png',
+        thumbnail: 'models/wall/stone.png',
+        roughness: 0.8
+    },
+    'classic_marble': {
+        id: 'classic_marble',
+        name: 'Polished Calacatta Marble',
+        texture: 'models/wall/marble.png',
+        thumbnail: 'models/wall/marble.png',
+        roughness: 0.2, clearcoat: 0.7
     }
 };

@@ -1,18 +1,15 @@
 import { EVENTS } from '../registry.js';
 import { coreEventBus } from '../EventBus.js';
 import * as THREE from 'three';
-import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY, FABRIC_REGISTRY, FLOOR_REGISTRY, WINDOW_GLASS_MATERIALS, parseCompositeMaterialKey, resolveFabricConfig, getFabricBaseConfig } from '../registry.js';
+import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY, FABRIC_REGISTRY, FLOOR_REGISTRY, WINDOW_GLASS_MATERIALS, METAL_REGISTRY, STONE_REGISTRY, PLASTIC_REGISTRY, parseCompositeMaterialKey, resolveFabricConfig, getFabricBaseConfig } from '../registry.js';
 import { MaterialFactory } from './MaterialFactory.js';
 import { patternManager } from '../services/pattern/PatternManager.js';
 import { PatternTextureBlender } from '../services/pattern/PatternTextureBlender.js';
 
 const WOOD_REGISTRY = DOOR_MATERIALS_REGISTRY;
-const METAL_REGISTRY = DOOR_MATERIALS_REGISTRY;
 const GLASS_REGISTRY = WINDOW_GLASS_MATERIALS;
-const STONE_REGISTRY = WALL_DECOR_REGISTRY;
 const TILE_REGISTRY = WALL_DECOR_REGISTRY;
 const WALL_REGISTRY = WALL_DECOR_REGISTRY;
-const PLASTIC_REGISTRY = DOOR_MATERIALS_REGISTRY;
 const ROOF_REGISTRY = ROOF_DECOR_REGISTRY;
 
 export class GizmoManager {
