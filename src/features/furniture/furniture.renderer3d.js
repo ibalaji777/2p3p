@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, FABRIC_REGISTRY, DOOR_MATERIALS_REGISTRY } from '../../core/registry';
+import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, FABRIC_REGISTRY, DOOR_MATERIALS_REGISTRY, resolveFabricConfig } from '../../core/registry';
 import { MaterialFactory } from '../../core/engine3d/MaterialFactory.js';
 
 export class FurnitureManager {
@@ -925,13 +925,20 @@ export class FurnitureManager {
                         
                         if (entity.params && entity.params.materialOverrides && entity.params.materialOverrides[child.name]) {
                             const matKey = entity.params.materialOverrides[child.name];
-                            let fConf = null;
-                            if (FABRIC_REGISTRY && FABRIC_REGISTRY[matKey]) fConf = FABRIC_REGISTRY[matKey];
-                            else if (DOOR_MATERIALS_REGISTRY && DOOR_MATERIALS_REGISTRY[matKey]) fConf = DOOR_MATERIALS_REGISTRY[matKey];
-                            
-                            if (fConf) {
-                                child.userData.entity = entity; // Inject entity for UV density calculation
-                                overridePromises.push(MaterialFactory.applyPBRMaterial(child, fConf, this.ctx));
+                            if (typeof matKey === 'string' && (matKey.includes('::pattern::') || (FABRIC_REGISTRY && FABRIC_REGISTRY[matKey]))) {
+                                overridePromises.push(resolveFabricConfig(matKey).then(fConf => {
+                                    if (fConf) {
+                                        child.userData.entity = entity;
+                                        return MaterialFactory.applyPBRMaterial(child, fConf, this.ctx);
+                                    }
+                                }));
+                            } else {
+                                let fConf = null;
+                                if (DOOR_MATERIALS_REGISTRY && DOOR_MATERIALS_REGISTRY[matKey]) fConf = DOOR_MATERIALS_REGISTRY[matKey];
+                                if (fConf) {
+                                    child.userData.entity = entity; // Inject entity for UV density calculation
+                                    overridePromises.push(MaterialFactory.applyPBRMaterial(child, fConf, this.ctx));
+                                }
                             }
                         }
                     }

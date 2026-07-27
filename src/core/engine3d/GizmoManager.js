@@ -1,8 +1,10 @@
 import { EVENTS } from '../registry.js';
 import { coreEventBus } from '../EventBus.js';
 import * as THREE from 'three';
-import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY, FABRIC_REGISTRY, FLOOR_REGISTRY, WINDOW_GLASS_MATERIALS } from '../registry.js';
+import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY, FABRIC_REGISTRY, FLOOR_REGISTRY, WINDOW_GLASS_MATERIALS, parseCompositeMaterialKey, resolveFabricConfig, getFabricBaseConfig } from '../registry.js';
 import { MaterialFactory } from './MaterialFactory.js';
+import { patternManager } from '../services/pattern/PatternManager.js';
+import { PatternTextureBlender } from '../services/pattern/PatternTextureBlender.js';
 
 const WOOD_REGISTRY = DOOR_MATERIALS_REGISTRY;
 const METAL_REGISTRY = DOOR_MATERIALS_REGISTRY;
@@ -766,6 +768,17 @@ export class GizmoManager {
                             const target = this.activeFace;
                             const key = thumb.getAttribute('data-mat');
                             
+                            if (key && FABRIC_REGISTRY[key]) {
+                                const currentState = this._getCurrentFabricState(selectedObj);
+                                let effectiveKey = key;
+                                if (currentState.patternId && FABRIC_REGISTRY[key].supportsPatterns !== false) {
+                                    effectiveKey = `${key}::pattern::${currentState.patternId}`;
+                                }
+                                this._applyFabricCompositeMaterial(effectiveKey, selectedObj);
+                                highlightSelectedThumb(key);
+                                return;
+                            }
+                            
                             let targetParams = entity.params;
                             if (this.activeSubMeshIndex !== -1 && entity.materialMode !== 'PROCEDURAL' && entity.materialMode !== 'MONOLITHIC') {
                                 entity.params.blocks = entity.params.blocks || {};
@@ -990,7 +1003,7 @@ export class GizmoManager {
         }, 100);
     }
 
-    onMaterialFaceSelected(faceName, subMeshIndex = -1, activeObject = null, activeMatIndex = -1, forcedCategory = null) {
+    async onMaterialFaceSelected(faceName, subMeshIndex = -1, activeObject = null, activeMatIndex = -1, forcedCategory = null) {
         this.activeFace = faceName;
         this.activeSubMeshIndex = subMeshIndex;
         this.activeObject = activeObject;
@@ -1150,6 +1163,7 @@ export class GizmoManager {
         const matsToRender = [];
         if (registry) {
             for (const [key, val] of Object.entries(registry)) {
+                if (val.isAlias) continue;
                 const thumbUrl = val.thumbnail || val.texture;
                 if (!thumbUrl && !val.color && !val.transparent) continue;
                 
@@ -1182,7 +1196,55 @@ export class GizmoManager {
         
         const gridElem = this.materialPanel.querySelector('#gizmo-material-grid');
         if (gridElem) {
-            gridElem.innerHTML = decorThumbnails;
+            let patternLauncherHtml = '';
+            if (materialCategory === 'fabric') {
+                const state = this._getCurrentFabricState(selectedObj);
+                const fabricConf = FABRIC_REGISTRY[state.baseFabricId] || {};
+                const supportsPatterns = fabricConf.supportsPatterns !== false;
+                const patternText = state.patternId ? `✨ Active Pattern: ${state.patternId} (Applied across plain fabrics)` : 'Add decorative pattern overlay';
+                
+                patternLauncherHtml = `
+                    <div id="fabric-pattern-bar" style="width: 100%; margin-bottom: 12px; padding: 10px 14px; background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(168, 85, 247, 0.4); border-radius: 10px; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; box-shadow: 0 4px 15px rgba(0,0,0,0.35);">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 34px; height: 34px; border-radius: 8px; background: linear-gradient(135deg, rgba(168,85,247,0.3), rgba(124,58,237,0.3)); display: flex; align-items: center; justify-content: center; font-size: 18px;">✨</div>
+                            <div>
+                                <div style="font-size: 13px; font-weight: 700; color: #f8fafc;">Pattern Customizer</div>
+                                <div id="fabric-pattern-status-text" style="font-size: 11px; color: ${state.patternId ? '#c084fc' : '#94a3b8'}; font-weight: ${state.patternId ? '600' : '400'};">${patternText}</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <button id="btn-gizmo-remove-pattern" style="display: ${state.patternId ? 'inline-block' : 'none'}; background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">✖ Remove</button>
+                            <button id="btn-gizmo-open-pattern-popup" ${!supportsPatterns ? 'disabled' : ''} style="background: ${supportsPatterns ? 'linear-gradient(135deg, #a855f7, #7c3aed)' : 'rgba(100,116,139,0.4)'}; color: white; border: none; padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: ${supportsPatterns ? 'pointer' : 'not-allowed'}; box-shadow: 0 2px 10px rgba(168,85,247,0.4); display: flex; align-items: center; gap: 6px;">
+                                🎨 Select Pattern
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            gridElem.innerHTML = patternLauncherHtml + decorThumbnails;
+            
+            if (materialCategory === 'fabric') {
+                const btnOpen = gridElem.querySelector('#btn-gizmo-open-pattern-popup');
+                const btnRemove = gridElem.querySelector('#btn-gizmo-remove-pattern');
+                if (btnOpen) {
+                    btnOpen.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        this._openPatternPopupModal(selectedObj);
+                    });
+                }
+                if (btnRemove) {
+                    btnRemove.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const state = this._getCurrentFabricState(selectedObj);
+                        this._applyFabricCompositeMaterial(state.baseFabricId || 'caban_neutral', selectedObj);
+                        this._renderMaterials(selectedObj);
+                    });
+                }
+            }
+
             const scrollWrap = gridElem.closest('.mat-lib-grid-wrapper') || gridElem.parentElement;
             if (scrollWrap) scrollWrap.scrollLeft = 0;
             if (this._attachMaterialThumbListeners) this._attachMaterialThumbListeners();
@@ -1195,59 +1257,376 @@ export class GizmoManager {
                     t.classList.add('active-card');
                     const matName = t.querySelector('.mat-card-title')?.textContent || 'Material';
                     if (this.matNameDisplay) this.matNameDisplay.innerText = matName;
+                    
+                    if (materialCategory === 'fabric') {
+                        const newMatKey = t.getAttribute('data-mat');
+                        const fabConf = FABRIC_REGISTRY[newMatKey] || {};
+                        const btnOpen = gridElem.querySelector('#btn-gizmo-open-pattern-popup');
+                        const btnRemove = gridElem.querySelector('#btn-gizmo-remove-pattern');
+                        const statusText = gridElem.querySelector('#fabric-pattern-status-text');
+                        const currentState = this._getCurrentFabricState(selectedObj);
+
+                        if (btnOpen) {
+                            if (fabConf.supportsPatterns === false) {
+                                btnOpen.disabled = true;
+                                btnOpen.style.background = 'rgba(100,116,139,0.4)';
+                                btnOpen.style.cursor = 'not-allowed';
+                                if (statusText) statusText.innerText = '🔒 Pattern Not Supported for this plain fabric';
+                                if (btnRemove) btnRemove.style.display = 'none';
+                            } else {
+                                btnOpen.disabled = false;
+                                btnOpen.style.background = 'linear-gradient(135deg, #a855f7, #7c3aed)';
+                                btnOpen.style.cursor = 'pointer';
+                                if (currentState.patternId) {
+                                    if (statusText) {
+                                        statusText.innerText = `✨ Active Pattern: ${currentState.patternId} (Applied across plain fabrics)`;
+                                        statusText.style.color = '#c084fc';
+                                        statusText.style.fontWeight = '600';
+                                    }
+                                    if (btnRemove) btnRemove.style.display = 'inline-block';
+                                } else {
+                                    if (statusText) {
+                                        statusText.innerText = 'Add decorative pattern overlay';
+                                        statusText.style.color = '#94a3b8';
+                                        statusText.style.fontWeight = '400';
+                                    }
+                                    if (btnRemove) btnRemove.style.display = 'none';
+                                }
+                            }
+                        }
+                    }
                 });
             });
 
-            // Asynchronously build beautiful 3D material preview spheres
+            // Build 3D material preview thumbnails with pattern overlay for every plain fabric card
             if (matsToRender.length > 0) {
-                setTimeout(async () => {
-                    for (const item of matsToRender) {
-                        try {
-                            const thumbData = await this.ctx.thumbnailGenerator.generate('material_preview', item.val);
-                            if (thumbData) {
-                                const el = document.getElementById(`mat-thumb-${item.key}`);
-                                if (el) {
-                                    el.style.backgroundImage = `url('${thumbData}')`;
-                                }
-                            }
-                        } catch (e) {
-                            console.error('Failed to render material thumb:', e);
+                const state = materialCategory === 'fabric' ? this._getCurrentFabricState(selectedObj) : { patternId: null };
+                for (const item of matsToRender) {
+                    try {
+                        let matToUse = item.val;
+                        if (state.patternId && item.val.supportsPatterns !== false) {
+                            const compositeKey = `${item.key}::pattern::${state.patternId}`;
+                            matToUse = (await resolveFabricConfig(compositeKey)) || item.val;
                         }
+                        const el = document.getElementById(`mat-thumb-${item.key}`);
+                        if (el && (matToUse.thumbnail || matToUse.texture)) {
+                            el.style.backgroundImage = `url('${matToUse.thumbnail || matToUse.texture}')`;
+                            el.style.backgroundSize = 'cover';
+                            el.style.backgroundPosition = 'center';
+                        }
+                    } catch (e) {
+                        console.error('Failed to render material thumb:', e);
                     }
-                }, 50);
+                }
             }
         }
         
         if (selectedObj && selectedObj.userData.entity) {
-            const p = selectedObj.userData.entity.params || {};
+            const entity = selectedObj.userData.entity;
+            const p = entity.params || {};
             let targetParams = p;
-            if (this.activeSubMeshIndex !== -1 && p.blocks && p.blocks[this.activeSubMeshIndex] && selectedObj.userData.entity.materialMode !== 'PROCEDURAL' && selectedObj.userData.entity.materialMode !== 'MONOLITHIC') {
+            if (this.activeSubMeshIndex !== -1 && p.blocks && p.blocks[this.activeSubMeshIndex] && entity.materialMode !== 'PROCEDURAL' && entity.materialMode !== 'MONOLITHIC') {
                 targetParams = p.blocks[this.activeSubMeshIndex];
             }
-            let tex = targetParams.texture;
-            if (faceName === 'top') tex = targetParams.textureTop || tex;
-            else if (faceName === 'bottom') tex = targetParams.textureBottom || tex;
-            else if (faceName === 'left') tex = targetParams.textureLeft || tex;
-            else if (faceName === 'right') tex = targetParams.textureRight || tex;
-            else if (faceName === 'front') tex = targetParams.textureFront || tex;
-            else if (faceName === 'back') tex = targetParams.textureBack || tex;
+            
+            let tex = targetParams.texture || targetParams.textureFront || null;
+            const isFurnitureMat = (selectedObj.userData && selectedObj.userData.isFurniture) || entity.type === 'furniture' || entity.isFurniture;
+            if (isFurnitureMat && this.activeObject && this.activeObject.name && p.materialOverrides) {
+                tex = p.materialOverrides[this.activeObject.name] || tex;
+            }
 
-
-            const matThumbs = document.querySelectorAll('.mat-thumb');
+            const parsedTex = parseCompositeMaterialKey(tex);
+            const matThumbs = gridElem ? gridElem.querySelectorAll('.mat-thumb') : document.querySelectorAll('.mat-thumb');
             matThumbs.forEach(t => t.classList.remove('active-card'));
+
             if (tex) {
-                const activeThumb = Array.from(matThumbs).find(t => t.getAttribute('data-mat') === tex);
+                const activeThumb = Array.from(matThumbs).find(t => 
+                    t.getAttribute('data-mat') === tex || 
+                    (parsedTex.baseFabricId && t.getAttribute('data-mat') === parsedTex.baseFabricId)
+                );
                 if (activeThumb) {
                     activeThumb.classList.add('active-card');
                 }
                 if (this.matNameDisplay) {
-                    const config = registry ? registry[tex] : null;
-                    this.matNameDisplay.innerText = config ? config.name : 'Clear Material';
+                    const baseConf = FABRIC_REGISTRY[parsedTex.baseFabricId] || (registry ? registry[tex] : null);
+                    this.matNameDisplay.innerText = baseConf ? baseConf.name : 'Selected Material';
                 }
             } else {
                 if (this.matNameDisplay) this.matNameDisplay.innerText = 'Clear Material';
                 const clearThumb = Array.from(matThumbs).find(t => t.getAttribute('data-mat') === '');
-                if (clearThumb) clearThumb.classList.add('active-card');
+            }
+        }
+    }
+
+    async _renderMaterials(selectedObj) {
+        return this.onMaterialFaceSelected(this.activeFace, this.activeSubMeshIndex, this.activeObject || selectedObj, this.activeMatIndex, 'fabric');
+    }
+
+    _getCurrentFabricState(selectedObj) {
+        let currentKey = null;
+        if (selectedObj && selectedObj.userData && selectedObj.userData.entity) {
+            const entity = selectedObj.userData.entity;
+            const isFurnitureMat = (selectedObj.userData.isFurniture || entity.type === 'furniture' || entity.isFurniture);
+            if (isFurnitureMat && this.activeObject && this.activeObject.name && entity.params && entity.params.materialOverrides) {
+                currentKey = entity.params.materialOverrides[this.activeObject.name];
+            } else {
+                const p = entity.params || {};
+                let targetParams = p;
+                if (this.activeSubMeshIndex !== -1 && p.blocks && p.blocks[this.activeSubMeshIndex] && entity.materialMode !== 'PROCEDURAL' && entity.materialMode !== 'MONOLITHIC') {
+                    targetParams = p.blocks[this.activeSubMeshIndex];
+                }
+                currentKey = targetParams.texture || targetParams.textureFront || entity.doorMat || null;
+            }
+        }
+        const parsed = parseCompositeMaterialKey(currentKey || 'caban_neutral');
+        const baseFabricId = FABRIC_REGISTRY[parsed.baseFabricId] ? parsed.baseFabricId : 'caban_neutral';
+        return { baseFabricId, patternId: parsed.patternId || null };
+    }
+
+    _openPatternPopupModal(selectedObj) {
+        const existingModal = document.getElementById('gizmo-pattern-popup-modal');
+        if (existingModal) existingModal.remove();
+
+        const state = this._getCurrentFabricState(selectedObj);
+        const baseFabric = FABRIC_REGISTRY[state.baseFabricId] || { name: 'Premium Caban (Warm Neutral)', texture: '' };
+
+        let searchCategory = 'All';
+        let searchQuery = '';
+        let previewPattern = null;
+
+        const modal = document.createElement('div');
+        modal.id = 'gizmo-pattern-popup-modal';
+        modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 999999; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; animation: fadeIn 0.2s ease-out;';
+
+        const dialog = document.createElement('div');
+        dialog.style.cssText = 'width: 100%; max-width: 780px; max-height: 85vh; background: #0f172a; border: 1px solid rgba(168, 85, 247, 0.4); border-radius: 16px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); display: flex; flex-direction: column; overflow: hidden; font-family: sans-serif;';
+
+        // Header
+        const header = document.createElement('div');
+        header.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); background: linear-gradient(135deg, rgba(30,41,59,0.9), rgba(15,23,42,0.95));';
+        header.innerHTML = `
+            <div>
+                <div style="font-size: 18px; font-weight: 800; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                    <span>🎨 Open-Source Seamless Pattern Library</span>
+                </div>
+                <div style="font-size: 12px; color: #a855f7; margin-top: 3px; font-weight: 500;">Select a seamless pattern motif to overlay onto <b>${baseFabric.name || state.baseFabricId}</b> and all plain fabrics</div>
+            </div>
+            <button id="btn-close-pattern-popup" style="background: rgba(255,255,255,0.05); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.1); width: 32px; height: 32px; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">✕</button>
+        `;
+
+        const closeModal = () => { if (modal && modal.parentElement) modal.remove(); };
+        header.querySelector('#btn-close-pattern-popup').addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+        const body = document.createElement('div');
+        body.style.cssText = 'padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; flex: 1;';
+
+        const controlsDiv = document.createElement('div');
+        controlsDiv.style.cssText = 'display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px;';
+
+        const pillsWrap = document.createElement('div');
+        pillsWrap.style.cssText = 'display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none;';
+        
+        const searchWrap = document.createElement('div');
+        searchWrap.style.cssText = 'display: flex; align-items: center; gap: 12px;';
+        const searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.placeholder = 'Search full patterns by motif (e.g. botanical, plaid, damask, geometric)...';
+        searchInput.style.cssText = 'flex: 1; padding: 10px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); background: rgba(30,41,59,0.7); color: #f8fafc; font-size: 13px; outline: none; transition: 0.2s;';
+        const infoBadge = document.createElement('div');
+        infoBadge.style.cssText = 'font-size: 11px; font-weight: 600; color: #a855f7; background: rgba(168,85,247,0.15); padding: 6px 12px; border-radius: 20px; white-space: nowrap; border: 1px solid rgba(168,85,247,0.3);';
+        infoBadge.innerText = '🛡️ CC0 Commercial Free';
+        
+        searchWrap.appendChild(searchInput);
+        searchWrap.appendChild(infoBadge);
+        controlsDiv.appendChild(pillsWrap);
+        controlsDiv.appendChild(searchWrap);
+        body.appendChild(controlsDiv);
+
+        // Preview Banner in Modal
+        const previewWrap = document.createElement('div');
+        previewWrap.style.cssText = 'display: none; background: linear-gradient(135deg, rgba(30,41,59,0.9), rgba(15,23,42,0.95)); border: 1px solid #a855f7; border-radius: 12px; padding: 14px 18px; align-items: center; justify-content: space-between; box-shadow: 0 6px 20px rgba(168,85,247,0.25);';
+        body.appendChild(previewWrap);
+
+        // Grid Area
+        const gridDiv = document.createElement('div');
+        gridDiv.style.cssText = 'display: flex; flex-wrap: wrap; gap: 14px; width: 100%; min-height: 250px; align-content: flex-start;';
+        body.appendChild(gridDiv);
+        dialog.appendChild(body);
+        modal.appendChild(dialog);
+        document.body.appendChild(modal);
+
+
+        const updatePills = () => {
+            pillsWrap.innerHTML = '';
+            patternManager.getCategories().forEach(cat => {
+                const isSel = searchCategory === cat;
+                const pill = document.createElement('button');
+                pill.innerText = cat;
+                pill.style.cssText = `padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: 0.2s; border: 1px solid ${isSel ? '#c084fc' : 'rgba(255,255,255,0.1)'}; background: ${isSel ? 'rgba(168,85,247,0.25)' : 'rgba(30,41,59,0.5)'}; color: ${isSel ? '#f3e8ff' : '#94a3b8'};`;
+                pill.addEventListener('click', () => {
+                    searchCategory = cat;
+                    previewPattern = null;
+                    previewWrap.style.display = 'none';
+                    updatePills();
+                    renderGallery();
+                });
+                pillsWrap.appendChild(pill);
+            });
+        };
+
+        const renderPreview = async (pat) => {
+            previewWrap.style.display = 'flex';
+            previewWrap.innerHTML = `<div style="color: #a855f7; font-size: 13px; font-weight: 600;">Synthesizing fabric texture blend...</div>`;
+            
+            const baseTex = baseFabric.texture || baseFabric.thumbnail || '';
+            const blendedUrl = await PatternTextureBlender.blend(baseTex, pat.textureUrl, { blendMode: 'multiply', patternOpacity: 0.9, size: 256 });
+            
+            previewWrap.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <div style="width: 68px; height: 68px; border-radius: 10px; border: 2px solid #c084fc; background: url('${blendedUrl}') center/cover no-repeat; box-shadow: 0 4px 12px rgba(0,0,0,0.5);"></div>
+                    <div>
+                        <div style="font-size: 11px; font-weight: 700; color: #c084fc; letter-spacing: 0.5px; text-transform: uppercase;">Real-time Blend Preview</div>
+                        <div style="font-size: 16px; font-weight: 700; color: #f8fafc;">${pat.title} on ${baseFabric.name || state.baseFabricId}</div>
+                        <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">License: ${pat.license} (${pat.attribution})</div>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button id="btn-apply-pattern-now" style="background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 9px 18px; border-radius: 8px; font-weight: 700; font-size: 13px; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(16,185,129,0.3); transition: 0.2s;">✔ Apply to 3D Model</button>
+                    <button id="btn-dismiss-preview" style="background: rgba(255,255,255,0.1); color: #cbd5e1; padding: 9px 14px; border-radius: 8px; font-weight: 600; font-size: 13px; border: 1px solid rgba(255,255,255,0.15); cursor: pointer;">Cancel</button>
+                </div>
+            `;
+            
+            previewWrap.querySelector('#btn-apply-pattern-now').addEventListener('click', async () => {
+                const compKey = `${state.baseFabricId}::pattern::${pat.id}`;
+                await this._applyFabricCompositeMaterial(compKey, selectedObj);
+                closeModal();
+                this._renderMaterials(selectedObj);
+            });
+            previewWrap.querySelector('#btn-dismiss-preview').addEventListener('click', () => {
+                previewPattern = null;
+                previewWrap.style.display = 'none';
+            });
+        };
+
+        const renderGallery = async () => {
+            gridDiv.innerHTML = `<div style="color: #94a3b8; padding: 20px; font-size: 14px; text-align: center; width: 100%;">Loading open-source patterns...</div>`;
+            const results = await patternManager.search({ category: searchCategory, query: searchQuery });
+            gridDiv.innerHTML = '';
+            
+            if (!results.patterns || results.patterns.length === 0) {
+                gridDiv.innerHTML = `<div style="color: #64748b; font-size: 14px; font-weight: 600; padding: 30px; text-align: center; width: 100%;">No seamless decorative patterns found. Try another keyword or switch category!</div>`;
+                return;
+            }
+
+            results.patterns.forEach(pat => {
+                const card = document.createElement('div');
+                card.style.cssText = 'cursor: pointer; transition: all 0.2s; border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 14px; width: calc(50% - 7px); background: rgba(30,41,59,0.5); box-sizing: border-box;';
+                card.addEventListener('mouseenter', () => { card.style.borderColor = '#a855f7'; card.style.background = 'rgba(30,41,59,0.8)'; });
+                card.addEventListener('mouseleave', () => { card.style.borderColor = 'rgba(255,255,255,0.12)'; card.style.background = 'rgba(30,41,59,0.5)'; });
+
+                // Full Pattern display (background repeat & contain/cover so full repeating motif is visible)
+                card.innerHTML = `
+                    <div style="width: 60px; height: 60px; border-radius: 8px; background: url('${pat.thumbnail || pat.textureUrl}') center/cover no-repeat; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.25); box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>
+                    <div style="overflow: hidden; width: 100%;">
+                        <div style="font-size: 14px; font-weight: 700; color: #f8fafc; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">${pat.title}</div>
+                        <div style="color: #c084fc; font-size: 11px; margin-top: 4px; font-weight: 600;">${pat.category} &bull; <span style="color: #94a3b8; font-weight: 400;">${pat.attribution}</span></div>
+                    </div>
+                `;
+
+                card.addEventListener('click', () => {
+                    previewPattern = pat;
+                    renderPreview(pat);
+                    previewWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                });
+                gridDiv.appendChild(card);
+            });
+        };
+
+        searchInput.addEventListener('input', (e) => { searchQuery = e.target.value; });
+        searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') renderGallery(); });
+
+        updatePills();
+        renderGallery();
+    }
+
+    async _applyFabricCompositeMaterial(matKey, selectedObj) {
+        if (!matKey) return;
+        let realSelectedObj = selectedObj || this.ctx.interactions.selectedObject;
+        if (this.activeObject && !realSelectedObj) {
+            let current = this.activeObject;
+            while(current) {
+                if (current.userData && current.userData.entity) {
+                    realSelectedObj = current;
+                    break;
+                }
+                current = current.parent;
+            }
+        }
+        
+        const config = await resolveFabricConfig(matKey);
+        if (!config) return;
+        
+        if (realSelectedObj && realSelectedObj.userData.entity) {
+            const entity = realSelectedObj.userData.entity;
+            entity.params = entity.params || {};
+            const target = this.activeFace || 'front';
+            
+            let targetParams = entity.params;
+            if (this.activeSubMeshIndex !== -1 && entity.materialMode !== 'PROCEDURAL' && entity.materialMode !== 'MONOLITHIC') {
+                entity.params.blocks = entity.params.blocks || {};
+                entity.params.blocks[this.activeSubMeshIndex] = entity.params.blocks[this.activeSubMeshIndex] || {};
+                targetParams = entity.params.blocks[this.activeSubMeshIndex];
+            }
+            
+            const isFrame = this.activeObject && this.activeObject.userData && this.activeObject.userData.isFrame;
+            const isFurnitureMat = (realSelectedObj && realSelectedObj.userData && realSelectedObj.userData.isFurniture) || (entity && (entity.type === 'furniture' || entity.isFurniture));
+
+            if (typeof entity.applyMaterial === 'function') {
+                if (this.activeObject && this.activeMatIndex !== undefined && this.activeMatIndex !== -1) {
+                    MaterialFactory.applyPBRMaterial(this.activeObject, config, this.ctx, this.activeMatIndex);
+                }
+                entity.applyMaterial({ target, key: matKey, activeMatIndex: this.activeMatIndex, activeObject: this.activeObject, ctx: this.ctx });
+            } else {
+                if (entity.type === 'door') {
+                    if (isFrame) entity.frameMat = matKey;
+                    else {
+                        if (target === 'top') targetParams.textureTop = matKey;
+                        else if (target === 'bottom') targetParams.textureBottom = matKey;
+                        else if (target === 'left') targetParams.textureLeft = matKey;
+                        else if (target === 'right') targetParams.textureRight = matKey;
+                        else if (target === 'front') targetParams.textureFront = matKey;
+                        else if (target === 'back') targetParams.textureBack = matKey;
+                        else entity.doorMat = matKey;
+                    }
+                } else if (isFurnitureMat) {
+                    entity.params.materialOverrides = entity.params.materialOverrides || {};
+                    const meshName = (this.activeObject && this.activeObject.name) ? this.activeObject.name : '';
+                    if (meshName) {
+                        entity.params.materialOverrides[meshName] = matKey;
+                    }
+                } else {
+                    if (target === 'top') targetParams.textureTop = matKey;
+                    else if (target === 'bottom') targetParams.textureBottom = matKey;
+                    else if (target === 'left') targetParams.textureLeft = matKey;
+                    else if (target === 'right') targetParams.textureRight = matKey;
+                    else if (target === 'front') targetParams.textureFront = matKey;
+                    else if (target === 'back') targetParams.textureBack = matKey;
+                }
+                
+                const isValidMatIndex = this.activeMatIndex !== undefined && this.activeMatIndex !== -1;
+                if (this.activeObject && (isValidMatIndex || isFurnitureMat)) {
+                    const matIndexToUse = isValidMatIndex ? this.activeMatIndex : -1;
+                    MaterialFactory.applyPBRMaterial(this.activeObject, config, this.ctx, matIndexToUse);
+                }
+                
+                if (entity.supportsLiveMaterialPipeline) {
+                    if (this.ctx.updateMaterialLive) {
+                        this.ctx.updateMaterialLive(entity);
+                    } else if (this.ctx.updateShapeLive) {
+                        this.ctx.updateShapeLive(entity);
+                    }
+                }
             }
         }
     }

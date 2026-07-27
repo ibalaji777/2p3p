@@ -1,15 +1,25 @@
 import * as THREE from 'three';
+import { resolveFabricConfig } from '../registry.js';
 
 export class MaterialFactory {
     /**
      * Replaces or creates a PBR MeshStandardMaterial based on registry config.
      * @param {THREE.Mesh} targetMesh - The mesh to apply the material to.
-     * @param {Object} config - The material configuration from the registry.
+     * @param {Object|string} config - The material configuration from the registry or composite key.
      * @param {Object} ctx - The global context containing asset manager and renderer.
      * @param {number} materialIndex - If the mesh uses an array of materials, which index to replace.
      */
     static async applyPBRMaterial(targetMesh, config, ctx, materialIndex = -1) {
         if (!targetMesh || !config) return;
+
+        if (typeof config === 'string') {
+            const res = await resolveFabricConfig(config);
+            if (res) config = res;
+            else config = { texture: config };
+        } else if (config.id && typeof config.id === 'string' && config.id.includes('::pattern::') && !config.isComposite) {
+            const res = await resolveFabricConfig(config.id);
+            if (res) config = res;
+        }
 
         // Clone existing material to avoid shared GLTF instance corruption
         let newMat;

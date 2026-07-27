@@ -3,7 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { TransformControls } from './engine3d/TransformControls.js';
-import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY, DOOR_MATERIALS_REGISTRY } from './registry.js';
+import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY, DOOR_MATERIALS_REGISTRY, FABRIC_REGISTRY, getFabricBaseConfig, resolveFabricConfig } from './registry.js';
 import { EnvironmentBuilder } from "./engine3d/EnvironmentBuilder.js";
 import { AssetManager  } from "./engine3d/AssetManager.js";
 import { DecorManager  } from "./engine3d/DecorManager.js";
@@ -53,6 +53,7 @@ export class Preview3D {
                 if (category === 'door') conf = DOOR_MATERIALS[matId] || DOOR_MATERIALS_REGISTRY[matId] || DOOR_MATERIALS.wood;
                 else if (category === 'window_frame') conf = WINDOW_FRAME_MATERIALS[matId] || DOOR_MATERIALS_REGISTRY[matId] || WALL_DECOR_REGISTRY[matId] || WINDOW_FRAME_MATERIALS.alum_powder;
                 else if (category === 'window_glass') conf = WINDOW_GLASS_MATERIALS[matId] || WINDOW_GLASS_MATERIALS.clear;
+                else if (category === 'fabric' || (typeof matId === 'string' && (matId.includes('::pattern::') || FABRIC_REGISTRY[matId]))) conf = FABRIC_REGISTRY[matId] || getFabricBaseConfig(matId);
                 
                 if (!conf) return new THREE.MeshStandardMaterial();
                 
@@ -76,9 +77,12 @@ export class Preview3D {
                     });
                 }
                 
-                if ((category === 'door' || category === 'window_frame') && (DOOR_MATERIALS_REGISTRY[matId] || WALL_DECOR_REGISTRY[matId]) && this.assets) {
-                    const texConf = DOOR_MATERIALS_REGISTRY[matId] || WALL_DECOR_REGISTRY[matId];
-                    this.assets.getTexture(texConf).then(tex => {
+                if ((category === 'door' || category === 'window_frame' || category === 'fabric') && (DOOR_MATERIALS_REGISTRY[matId] || WALL_DECOR_REGISTRY[matId] || FABRIC_REGISTRY[matId] || (typeof matId === 'string' && matId.includes('::pattern::'))) && this.assets) {
+                    const fetchTex = (typeof matId === 'string' && matId.includes('::pattern::'))
+                        ? resolveFabricConfig(matId).then(c => c ? this.assets.getTexture(c) : null)
+                        : this.assets.getTexture(DOOR_MATERIALS_REGISTRY[matId] || WALL_DECOR_REGISTRY[matId] || FABRIC_REGISTRY[matId]);
+                    fetchTex.then(tex => {
+                        if (!tex) return;
                         const texClone = tex.clone();
                         texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
                         // For thin frames/panels, a vertical repeat works best
@@ -103,9 +107,13 @@ export class Preview3D {
                 const applyTex = (mat, texKey) => {
                     if (!texKey) return;
 
-                    const config = WALL_DECOR_REGISTRY[texKey] || DOOR_MATERIALS_REGISTRY[texKey];
+                    const config = WALL_DECOR_REGISTRY[texKey] || DOOR_MATERIALS_REGISTRY[texKey] || FABRIC_REGISTRY[texKey] || getFabricBaseConfig(texKey);
                     if (config) {
-                        this.assets.getTexture(config).then(tex => {
+                        const fetchTex = (typeof texKey === 'string' && texKey.includes('::pattern::')) 
+                            ? resolveFabricConfig(texKey).then(c => c ? this.assets.getTexture(c) : null) 
+                            : this.assets.getTexture(config);
+                        fetchTex.then(tex => {
+                            if (!tex) return;
                             const texClone = tex.clone();
                             texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
                             
