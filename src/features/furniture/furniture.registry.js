@@ -590,5 +590,59 @@ export const FURNITURE_REGISTRY = {
         license: 'CC-BY-NC-ND-4.0 (http://creativecommons.org/licenses/by-nc-nd/4.0/)',
         default: { width: 60, height: 20, depth: 45, elevation: 80 },
         shape2D: 'sanitary_unit'
+    },
+    'tv_stand_reclaimed': {
+        id: 'tv_stand_reclaimed', label: 'Reclaimed Wood TV Stand',
+        procedural: false,
+        model: 'models/tv_stands/tv_stand_reclaimed.glb',
+        author: 'maxsbond.work (https://sketchfab.com/maxsbond.work)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 160, height: 50, depth: 45, elevation: 0 },
+        shape2D: 'tv_unit'
+    },
+    'tv_stand_retro': {
+        id: 'tv_stand_retro', label: 'Retro Mid-Century TV Stand',
+        procedural: false,
+        model: 'models/tv_stands/tv_stand_retro.glb',
+        author: 'hellfa (https://sketchfab.com/hellfa)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 150, height: 55, depth: 40, elevation: 0 },
+        shape2D: 'tv_unit'
+    },
+    'tv_stand_small': {
+        id: 'tv_stand_small', label: 'Compact Small TV Stand',
+        procedural: false,
+        model: 'models/tv_stands/tv_stand_small.glb',
+        author: 'Andrej Grave (https://sketchfab.com/andrej.grave)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 100, height: 45, depth: 40, elevation: 0 },
+        shape2D: 'tv_unit'
+    },
+    'tv_stand_wooden_bench': {
+        id: 'tv_stand_wooden_bench', label: 'Wooden Media Bench Table',
+        procedural: false,
+        model: 'models/tv_stands/tv_stand_wooden_bench.glb',
+        author: 'slls666 (https://sketchfab.com/slls666)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 180, height: 45, depth: 45, elevation: 0 },
+        shape2D: 'tv_unit'
+    },
+    'tv_stand_modern_mraz': {
+        id: 'tv_stand_modern_mraz', label: 'Modern Minimalist TV Stand',
+        procedural: false,
+        model: 'models/tv_stands/tv_stand_modern_mraz.glb',
+        author: 'Blaž Mraz (https://sketchfab.com/Mraz3D)',
+        license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
+        default: { width: 150, height: 50, depth: 45, elevation: 0 },
+        shape2D: 'tv_unit'
+    },
+    'tv_stand_classic': {
+        id: 'tv_stand_classic', label: 'Classic Entertainment Unit',
+        procedural: false,
+        model: 'models/tv_stands/tv_stand_classic.glb',
+        author: 'Qu3st10n (https://sketchfab.com/Qu3st10n)',
+        license: 'CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/)',
+        default: { width: 160, height: 60, depth: 45, elevation: 0 },
+        shape2D: 'tv_unit'
     }
 };

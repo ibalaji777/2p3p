@@ -110,7 +110,14 @@ export const getMenuCategories = () => [
             { id: 'tv_modern_flat', name: 'Modern Flat TV', action: 'furniture' },
             { id: 'tv_wall_mounted', name: 'Wall Mounted TV', action: 'furniture' },
             { id: 'monitor_tv_lowpoly', name: 'Desktop Monitor TV', action: 'furniture' },
-            { id: 'tv_living_room', name: 'Livingroom TV', action: 'furniture' }
+            { id: 'tv_living_room', name: 'Livingroom TV', action: 'furniture' },
+            { id: 'tv_stands_all', name: 'TV Stands & Media Benches', isDivider: true },
+            { id: 'tv_stand_reclaimed', name: 'Reclaimed Wood TV Stand', action: 'furniture' },
+            { id: 'tv_stand_retro', name: 'Retro Mid-Century TV Stand', action: 'furniture' },
+            { id: 'tv_stand_small', name: 'Compact Small TV Stand', action: 'furniture' },
+            { id: 'tv_stand_wooden_bench', name: 'Wooden Media Bench Table', action: 'furniture' },
+            { id: 'tv_stand_modern_mraz', name: 'Modern Minimalist TV Stand', action: 'furniture' },
+            { id: 'tv_stand_classic', name: 'Classic Entertainment Unit', action: 'furniture' }
         ]
     },
     {

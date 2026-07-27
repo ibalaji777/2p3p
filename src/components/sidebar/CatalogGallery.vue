@@ -334,6 +334,13 @@ const furnitureCatalog = ref([
     { id: 'bed_modern_1', name: 'Modern Bed 1', image: '', toolId: 'furniture', params: { type: 'bed_modern_1' } },
     { id: 'bed_modern_3', name: 'Modern Bed 3', image: '', toolId: 'furniture', params: { type: 'bed_modern_3' } },
     { id: 'bed_traditional_wooden', name: 'Traditional Wooden Cot', image: '', toolId: 'furniture', params: { type: 'bed_traditional_wooden' } },
+    { isDivider: true, id: 'div_tv_stands_furn', name: 'TV Stands & Entertainment Units' },
+    { id: 'tv_stand_reclaimed_f', name: 'Reclaimed Wood TV Stand', image: '', toolId: 'furniture', params: { type: 'tv_stand_reclaimed', elevation: 0 } },
+    { id: 'tv_stand_retro_f', name: 'Retro Mid-Century TV Stand', image: '', toolId: 'furniture', params: { type: 'tv_stand_retro', elevation: 0 } },
+    { id: 'tv_stand_small_f', name: 'Compact Small TV Stand', image: '', toolId: 'furniture', params: { type: 'tv_stand_small', elevation: 0 } },
+    { id: 'tv_stand_wooden_bench_f', name: 'Wooden Media Bench Table', image: '', toolId: 'furniture', params: { type: 'tv_stand_wooden_bench', elevation: 0 } },
+    { id: 'tv_stand_modern_mraz_f', name: 'Modern Minimalist TV Stand', image: '', toolId: 'furniture', params: { type: 'tv_stand_modern_mraz', elevation: 0 } },
+    { id: 'tv_stand_classic_f', name: 'Classic Entertainment Unit', image: '', toolId: 'furniture', params: { type: 'tv_stand_classic', elevation: 0 } },
     { isDivider: true, id: 'div_other', name: 'Other Furniture' },
     { id: 'bench', name: 'Bench', image: '', toolId: 'furniture', params: { type: 'table_dining' } },
     { id: 'furniture_barstool', name: 'Modern Bar Stool', image: '', toolId: 'furniture', params: { type: 'furniture_barstool' } },
@@ -413,7 +420,14 @@ const electronicsCatalog = ref([
     { id: 'tv_modern_flat', name: 'Modern Flat TV', image: '', toolId: 'furniture', params: { type: 'tv_modern_flat', elevation: 90 } },
     { id: 'tv_wall_mounted', name: 'Wall Mounted TV Screen', image: '', toolId: 'furniture', params: { type: 'tv_wall_mounted', elevation: 110 } },
     { id: 'monitor_tv_lowpoly', name: 'Desktop Monitor TV', image: '', toolId: 'furniture', params: { type: 'monitor_tv_lowpoly', elevation: 75 } },
-    { id: 'tv_living_room', name: 'Livingroom Widescreen TV', image: '', toolId: 'furniture', params: { type: 'tv_living_room', elevation: 90 } }
+    { id: 'tv_living_room', name: 'Livingroom Widescreen TV', image: '', toolId: 'furniture', params: { type: 'tv_living_room', elevation: 90 } },
+    { isDivider: true, id: 'div_tv_stands_elec', name: 'TV Stands & Media Benches' },
+    { id: 'tv_stand_reclaimed', name: 'Reclaimed Wood TV Stand', image: '', toolId: 'furniture', params: { type: 'tv_stand_reclaimed', elevation: 0 } },
+    { id: 'tv_stand_retro', name: 'Retro Mid-Century TV Stand', image: '', toolId: 'furniture', params: { type: 'tv_stand_retro', elevation: 0 } },
+    { id: 'tv_stand_small', name: 'Compact Small TV Stand', image: '', toolId: 'furniture', params: { type: 'tv_stand_small', elevation: 0 } },
+    { id: 'tv_stand_wooden_bench', name: 'Wooden Media Bench Table', image: '', toolId: 'furniture', params: { type: 'tv_stand_wooden_bench', elevation: 0 } },
+    { id: 'tv_stand_modern_mraz', name: 'Modern Minimalist TV Stand', image: '', toolId: 'furniture', params: { type: 'tv_stand_modern_mraz', elevation: 0 } },
+    { id: 'tv_stand_classic', name: 'Classic Entertainment Unit', image: '', toolId: 'furniture', params: { type: 'tv_stand_classic', elevation: 0 } }
 ]);
 
 const items = computed(() => {
