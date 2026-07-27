@@ -16,7 +16,7 @@ export class ThumbnailGenerator {
         this.renderer.shadowMap.type = THREE.PCFShadowMap;
         if (THREE.SRGBColorSpace) this.renderer.outputColorSpace = THREE.SRGBColorSpace;
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 1.0;
+        this.renderer.toneMappingExposure = 1.25;
 
         this.scene = new THREE.Scene();
 
@@ -24,7 +24,7 @@ export class ThumbnailGenerator {
         // Removed RoomEnvironment because it washes out the color compared to the main scene's lack of HDRI.
         
         // Exact Lighting Match to EnvironmentBuilder.js
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x888888, 1.1);
         hemiLight.position.set(0, 500, 0);
         this.scene.add(hemiLight);
 
@@ -35,6 +35,16 @@ export class ThumbnailGenerator {
         sunLight.shadow.mapSize.height = 1024;
         sunLight.shadow.bias = -0.001;
         this.scene.add(sunLight);
+
+        // Fill Light: soft directional light from opposite angle to brighten shadow faces and reveal deep textures
+        const fillLight = new THREE.DirectionalLight(0xe2e8f0, 1.5);
+        fillLight.position.set(-600, 500, -500);
+        this.scene.add(fillLight);
+
+        // Front Accent Light: illuminates front cabinet facades, drawers, and espresso wood textures
+        const frontLight = new THREE.DirectionalLight(0xfffaf0, 1.2);
+        frontLight.position.set(-200, 400, 600);
+        this.scene.add(frontLight);
 
         // Ground plane to catch shadows without rendering the plane itself
         const groundGeo = new THREE.PlaneGeometry(1000, 1000);

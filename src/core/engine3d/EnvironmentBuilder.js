@@ -103,7 +103,7 @@ export class EnvironmentBuilder {
         this.ctx.scene.add(grid);
         this.grid = grid;
 
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x777777, 0.95);
         hemiLight.position.set(0, 500, 0);
         this.ctx.scene.add(hemiLight);
         this.hemiLight = hemiLight;
@@ -123,6 +123,12 @@ export class EnvironmentBuilder {
         sunLight.shadow.camera.top = d; sunLight.shadow.camera.bottom = -d;
         this.ctx.scene.add(sunLight);
         this.sunLight = sunLight;
+
+        // Fill Light (Soft sky bounce from opposite quadrant to reveal interior furniture & wall details)
+        const fillLight = new THREE.DirectionalLight(0xe2e8f0, 1.2);
+        fillLight.position.set(-600, 500, -500);
+        this.ctx.scene.add(fillLight);
+        this.fillLight = fillLight;
     }
 
     setEnvironment(skyKey, groundKey) {
