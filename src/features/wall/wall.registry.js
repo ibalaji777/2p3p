@@ -162,40 +162,75 @@ export const WALL_DECOR_REGISTRY = {
 };
 
 export const MARBLE_REGISTRY = {
+    'marble_calacatta_gold': {
+        id: 'marble_calacatta_gold',
+        name: 'Italian Calacatta',
+        texture: 'textures/marbles/marble_calacatta_gold.png',
+        thumbnail: 'textures/marbles/marble_calacatta_gold.png',
+        roughness: 0.12, clearcoat: 0.90
+    },
+    'marble_statuario_venato': {
+        id: 'marble_statuario_venato',
+        name: 'High-Contrast Statuario',
+        texture: 'textures/marbles/marble_statuario_venato.png',
+        thumbnail: 'textures/marbles/marble_statuario_venato.png',
+        roughness: 0.10, clearcoat: 0.95
+    },
+    'marble_blue_sodalite': {
+        id: 'marble_blue_sodalite',
+        name: 'Royal Sodalite Blue',
+        texture: 'textures/marbles/marble_blue_sodalite.png',
+        thumbnail: 'textures/marbles/marble_blue_sodalite.png',
+        roughness: 0.12, clearcoat: 0.90
+    },
+    'marble_onyx_amber': {
+        id: 'marble_onyx_amber',
+        name: 'Translucent Honey Onyx',
+        texture: 'textures/marbles/marble_onyx_amber.png',
+        thumbnail: 'textures/marbles/marble_onyx_amber.png',
+        roughness: 0.08, clearcoat: 0.98
+    },
+    'marble_sahara_noir': {
+        id: 'marble_sahara_noir',
+        name: 'Sahara Noir',
+        texture: 'textures/marbles/marble_sahara_noir.png',
+        thumbnail: 'textures/marbles/marble_sahara_noir.png',
+        roughness: 0.10, clearcoat: 0.92
+    },
     'marble_carrara': {
         id: 'marble_carrara',
-        name: 'Italian Carrara White Marble',
+        name: 'Italian Carrara White',
         texture: 'textures/marbles/marble_carrara.png',
         thumbnail: 'textures/marbles/marble_carrara.png',
         roughness: 0.15, clearcoat: 0.85
     },
     'marble_nero_marquina': {
         id: 'marble_nero_marquina',
-        name: 'Nero Marquina Black Marble',
+        name: 'Nero Marquina Black',
         texture: 'textures/marbles/marble_nero_marquina.png',
         thumbnail: 'textures/marbles/marble_nero_marquina.png',
-        roughness: 0.12, clearcoat: 0.9
-    },
-    'marble_calacatta_gold': {
-        id: 'marble_calacatta_gold',
-        name: 'Polished Calacatta Gold Marble',
-        texture: 'textures/marbles/marble_calacatta_gold.png',
-        thumbnail: 'textures/marbles/marble_calacatta_gold.png',
-        roughness: 0.15, clearcoat: 0.85
+        roughness: 0.12, clearcoat: 0.90
     },
     'marble_verde_guatemala': {
         id: 'marble_verde_guatemala',
-        name: 'Emerald Verde Guatemala Marble',
+        name: 'Emerald Verde Guatemala',
         texture: 'textures/marbles/marble_verde_guatemala.png',
         thumbnail: 'textures/marbles/marble_verde_guatemala.png',
-        roughness: 0.15, clearcoat: 0.8
+        roughness: 0.15, clearcoat: 0.80
     },
     'marble_emperador_dark': {
         id: 'marble_emperador_dark',
-        name: 'Dark Emperador Chocolate Marble',
+        name: 'Dark Emperador Chocolate',
         texture: 'textures/marbles/marble_emperador_dark.png',
         thumbnail: 'textures/marbles/marble_emperador_dark.png',
-        roughness: 0.18, clearcoat: 0.8
+        roughness: 0.18, clearcoat: 0.80
+    },
+    'marble_calacatta_viola': {
+        id: 'marble_calacatta_viola',
+        name: 'Italian Calacatta Viola',
+        texture: 'textures/marbles/marble_calacatta_viola.png',
+        thumbnail: 'textures/marbles/marble_calacatta_viola.png',
+        roughness: 0.14, clearcoat: 0.88
     }
 };
 

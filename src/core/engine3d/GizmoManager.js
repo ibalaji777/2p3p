@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY, FABRIC_REGISTRY, LEATHER_REGISTRY, FLOOR_REGISTRY, WINDOW_GLASS_MATERIALS, METAL_REGISTRY, STONE_REGISTRY, MARBLE_REGISTRY, PLASTIC_REGISTRY, parseCompositeMaterialKey, resolveFabricConfig, getFabricBaseConfig } from '../registry.js';
 import { MaterialFactory } from './MaterialFactory.js';
 import { glassPreviewRenderer } from './GlassPreviewRenderer.js';
+import { marblePreviewRenderer } from './MarblePreviewRenderer.js';
 import { patternManager } from '../services/pattern/PatternManager.js';
 import { PatternTextureBlender } from '../services/pattern/PatternTextureBlender.js';
 
@@ -23,8 +24,9 @@ export class GizmoManager {
     init() {
         this.ctx.showTransformMenu = this.showTransformMenu.bind(this);
         
-        // Pre-warm glass thumbnails in background idle time for 0ms instant material drawer opening
+        // Pre-warm 3D preview renderers in background idle time
         glassPreviewRenderer.prewarm(GLASS_REGISTRY);
+        marblePreviewRenderer.prewarm(MARBLE_REGISTRY);
 
         this.transformMenu = document.createElement('div');
         this.transformMenu.className = 'transform-menu-3d';
@@ -341,6 +343,40 @@ export class GizmoManager {
                 }
                 .mat-sphere.is-3d-glass::after {
                     display: none !important;
+                }
+                .mat-card.is-marble-card {
+                    border-radius: 18px !important;
+                    background: linear-gradient(145deg, #1f1f23 0%, #131316 100%) !important;
+                    border: 1px solid rgba(255, 255, 255, 0.09) !important;
+                    position: relative;
+                }
+                .mat-card.is-marble-card.active-card {
+                    border-color: #6366f1 !important;
+                    box-shadow: 0 0 20px rgba(99, 102, 241, 0.4), 0 8px 20px rgba(0,0,0,0.6) !important;
+                }
+                .mat-card.is-marble-card.active-card .mat-card-sub {
+                    color: #818cf8 !important; font-weight: 700 !important;
+                }
+                .mat-sphere.is-3d-marble {
+                    background-size: cover !important;
+                    background-position: center !important;
+                    background-color: transparent !important;
+                    border-radius: 14px !important;
+                    box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.8) !important;
+                }
+                .mat-sphere.is-3d-marble::after {
+                    display: none !important;
+                }
+                .mat-card-select-btn {
+                    margin-top: 6px; width: 100%; padding: 6px 0; border-radius: 8px;
+                    background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);
+                    color: #d97706; text-align: center; font-size: 11px; font-weight: 700;
+                    letter-spacing: 0.3px; transition: all 0.2s ease;
+                }
+                .mat-card.active-card .mat-card-select-btn {
+                    background: linear-gradient(135deg, #4f46e5, #4338ca) !important;
+                    border-color: #6366f1 !important; color: #ffffff !important;
+                    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4) !important;
                 }
                 .mat-card-selected-checkmark {
                     position: absolute; top: 10px; right: 10px; width: 22px; height: 22px; border-radius: 50%;
@@ -1238,6 +1274,18 @@ export class GizmoManager {
                             </div>
                         </div>
                     `;
+                } else if (materialCategory === 'marble') {
+                    decorThumbnails += `
+                        <div class="mat-card mat-thumb is-marble-card" data-mat="${key}" title="${label}">
+                            <div class="mat-card-selected-checkmark" style="background: #d97706; color: #ffffff; top: 12px; right: 12px;">✓</div>
+                            <div class="mat-sphere is-3d-marble" id="mat-thumb-${key}" style="background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.08) 0%, transparent 80%);"></div>
+                            <div style="width: 100%; padding: 4px 2px 2px 2px;">
+                                <div class="mat-card-title" style="font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f8fafc;">${label}</div>
+                                <div class="mat-card-sub" style="color: #94a3b8; font-size: 11px; font-weight: 500;">Marble</div>
+                                <div class="mat-card-select-btn">Selected</div>
+                            </div>
+                        </div>
+                    `;
                 } else {
                     decorThumbnails += `
                         <div class="mat-card mat-thumb" data-mat="${key}" title="${label}">
@@ -1264,8 +1312,6 @@ export class GizmoManager {
                 const supportsPatterns = fabricConf.supportsPatterns !== false;
                 
                 this._patternTransformState = this._patternTransformState || { scale: 120, rotation: 45, repeat: 2.0, opacity: 100, mirror: 'vertical' };
-                const pts = this._patternTransformState;
-
                 if (!state.patternId) {
                     // Standard 165px Width Fabric Card Launcher when no pattern is applied
                     patternLauncherHtml = `
@@ -1463,6 +1509,24 @@ export class GizmoManager {
                         }
                     } catch (e) {
                         console.error('[GizmoManager] Failed to render 3D glass thumbnail:', e);
+                    }
+                }
+            }
+
+            // Render 3D PBR marble preview thumbnails for all marble material cards
+            if (materialCategory === 'marble') {
+                for (const [key, val] of Object.entries(MARBLE_REGISTRY)) {
+                    if (val.isAlias) continue;
+                    try {
+                        const dataUrl = marblePreviewRenderer.renderMarbleThumbnail(key, val);
+                        const sphereEl = gridElem.querySelector(`#mat-thumb-${key}`);
+                        if (sphereEl) {
+                            sphereEl.style.backgroundImage = `url('${dataUrl}')`;
+                            sphereEl.style.backgroundSize = 'cover';
+                            sphereEl.style.backgroundPosition = 'center';
+                        }
+                    } catch (e) {
+                        console.error('[GizmoManager] Failed to render 3D marble thumbnail:', e);
                     }
                 }
             }
