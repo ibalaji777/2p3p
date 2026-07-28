@@ -104,31 +104,79 @@ export class Preview3D {
                 let matFront = baseMaterial.clone();
                 let matBack = baseMaterial.clone();
 
-                const applyTex = (mat, texKey) => {
+                const w = dimensions?.width || entity?.width || entity?.params?.width || 100;
+                const h = dimensions?.height || entity?.height || entity?.params?.height || 100;
+                const d = dimensions?.depth || entity?.depth || entity?.params?.depth || 30;
+
+                const applyTex = (mat, texKey, faceW, faceH) => {
                     if (!texKey) return;
 
-                    const config = WALL_DECOR_REGISTRY[texKey] || DOOR_MATERIALS_REGISTRY[texKey] || FABRIC_REGISTRY[texKey] || getFabricBaseConfig(texKey);
+                    const config = resolveMaterialConfig(texKey);
                     if (config) {
-                        const fetchTex = (typeof texKey === 'string' && texKey.includes('::pattern::')) 
-                            ? resolveFabricConfig(texKey).then(c => c ? this.assets.getTexture(c) : null) 
-                            : this.assets.getTexture(config);
-                        fetchTex.then(tex => {
-                            if (!tex) return;
-                            const texClone = tex.clone();
-                            texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                            
-                            if (DOOR_MATERIALS_REGISTRY[texKey]) {
-                                texClone.repeat.set(1, 2);
-                            } else {
-                                const tileSize = config.defaultTileSize || 40;
-                                const maxDim = Math.max(dimensions?.width || 100, dimensions?.height || 100);
-                                texClone.repeat.set(maxDim / tileSize, maxDim / tileSize);
-                            }
-                            
-                            mat.map = texClone;
-                            mat.color.setHex(0xffffff); // Revert to white once texture loads
-                            mat.needsUpdate = true;
-                        });
+                        // Apply PBR Physical Properties
+                        if (config.color !== undefined && config.color !== null) {
+                            mat.color.setHex(config.color);
+                        }
+                        if (config.roughness !== undefined) mat.roughness = config.roughness;
+                        if (config.metalness !== undefined) mat.metalness = config.metalness;
+                        if (config.clearcoat !== undefined) mat.clearcoat = config.clearcoat;
+                        if (config.clearcoatRoughness !== undefined) mat.clearcoatRoughness = config.clearcoatRoughness;
+
+                        // Physical Transmission & Glass Properties
+                        if (config.transmission !== undefined || config.transparent) {
+                            mat.transmission = config.transmission !== undefined ? config.transmission : 0.9;
+                            mat.ior = config.ior || 1.5;
+                            mat.transparent = true;
+                            mat.opacity = config.opacity !== undefined ? config.opacity : 1.0;
+                        }
+
+                        // Load and set texture map if available
+                        const texUrl = config.texture || config.thumbnail || (typeof config === 'string' ? config : null);
+                        if (texUrl || (typeof texKey === 'string' && texKey.includes('::pattern::'))) {
+                            const fetchTex = (typeof texKey === 'string' && texKey.includes('::pattern::')) 
+                                ? resolveFabricConfig(texKey).then(c => c ? this.assets.getTexture(c.texture || c) : null) 
+                                : this.assets.getTexture(config);
+                            fetchTex.then(tex => {
+                                if (!tex) return;
+                                const texClone = tex.clone();
+                                texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                                
+                                const fW = faceW || w;
+                                const fH = faceH || h;
+                                
+                                let repeatX = 1, repeatY = 1;
+                                
+                                if (typeof config.repeat === 'object') {
+                                    repeatX = config.repeat.x || 1;
+                                    repeatY = config.repeat.y || 1;
+                                } else if (typeof config.repeat === 'number') {
+                                    repeatX = repeatY = config.repeat;
+                                } else if (config.defaultRepeat !== undefined) {
+                                    repeatX = repeatY = config.defaultRepeat;
+                                } else {
+                                    let tileSize = config.defaultTileSize || config.tileSize;
+                                    if (!tileSize) {
+                                        if (MARBLE_REGISTRY[texKey] || (config.id && (config.id.startsWith('marble_') || config.id.includes('marble')))) tileSize = 160;
+                                        else if (DOOR_MATERIALS_REGISTRY[texKey] || (config.id && (config.id.startsWith('wood_') || config.id.includes('wood')))) tileSize = 150;
+                                        else if (METAL_REGISTRY[texKey] || (config.id && (config.id.startsWith('metal_') || config.id.includes('metal')))) tileSize = 120;
+                                        else if (STONE_REGISTRY[texKey] || (config.id && (config.id.startsWith('stone_') || config.id.includes('stone')))) tileSize = 60;
+                                        else tileSize = 60;
+                                    }
+                                    repeatX = fW / tileSize;
+                                    repeatY = fH / tileSize;
+                                }
+                                
+                                texClone.repeat.set(repeatX, repeatY);
+                                if (config.rotation) {
+                                    texClone.rotation = config.rotation;
+                                    texClone.center.set(0.5, 0.5);
+                                }
+                                
+                                mat.map = texClone;
+                                if (config.color === undefined) mat.color.setHex(0xffffff); // Clear base color so texture shows properly
+                                mat.needsUpdate = true;
+                            });
+                        }
                     }
                 };
 
@@ -140,13 +188,13 @@ export class Preview3D {
                         }
                         return null;
                     };
-                    applyTex(matTop, resolveTex('textureTop', 'texture'));
-                    applyTex(matBottom, resolveTex('textureBottom', 'texture'));
-                    applyTex(matSides, resolveTex('textureSides', 'texture'));
-                    applyTex(matLeft, resolveTex('textureLeft', 'textureSides', 'texture'));
-                    applyTex(matRight, resolveTex('textureRight', 'textureSides', 'texture'));
-                    applyTex(matFront, resolveTex('textureFront', 'textureSides', 'texture'));
-                    applyTex(matBack, resolveTex('textureBack', 'textureSides', 'texture'));
+                    applyTex(matTop, resolveTex('textureTop', 'texture'), w, d);
+                    applyTex(matBottom, resolveTex('textureBottom', 'texture'), w, d);
+                    applyTex(matSides, resolveTex('textureSides', 'texture'), w, h);
+                    applyTex(matLeft, resolveTex('textureLeft', 'textureSides', 'texture'), d, h);
+                    applyTex(matRight, resolveTex('textureRight', 'textureSides', 'texture'), d, h);
+                    applyTex(matFront, resolveTex('textureFront', 'textureSides', 'texture'), w, h);
+                    applyTex(matBack, resolveTex('textureBack', 'textureSides', 'texture'), w, h);
                 }
 
                 return {

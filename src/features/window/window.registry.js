@@ -101,63 +101,63 @@ export const METAL_REGISTRY = {
         name: 'Brushed Stainless Steel',
         texture: 'textures/metals/metal_brushed_steel.png',
         thumbnail: 'textures/metals/metal_brushed_steel.png',
-        metalness: 0.9, roughness: 0.25, clearcoat: 0.1
+        metalness: 0.9, roughness: 0.25, clearcoat: 0.1, defaultRepeat: 1
     },
     'metal_brushed_gold': {
         id: 'metal_brushed_gold',
         name: 'Luxury Brushed Champagne Gold',
         texture: 'textures/metals/metal_brushed_gold.png',
         thumbnail: 'textures/metals/metal_brushed_gold.png',
-        metalness: 0.95, roughness: 0.2, clearcoat: 0.2
+        metalness: 0.95, roughness: 0.2, clearcoat: 0.2, defaultRepeat: 1
     },
     'metal_gunmetal_black': {
         id: 'metal_gunmetal_black',
         name: 'Anodized Gunmetal Black Steel',
         texture: 'textures/metals/metal_gunmetal_black.png',
         thumbnail: 'textures/metals/metal_gunmetal_black.png',
-        metalness: 0.85, roughness: 0.35
+        metalness: 0.85, roughness: 0.35, defaultRepeat: 1
     },
     'metal_rose_bronze': {
         id: 'metal_rose_bronze',
         name: 'Polished Antique Rose Bronze',
         texture: 'textures/metals/metal_rose_bronze.png',
         thumbnail: 'textures/metals/metal_rose_bronze.png',
-        metalness: 0.9, roughness: 0.25, clearcoat: 0.15
+        metalness: 0.9, roughness: 0.25, clearcoat: 0.15, defaultRepeat: 1
     },
     'metal_brushed_aluminum': {
         id: 'metal_brushed_aluminum',
         name: 'Silver Satin Brushed Aluminum',
         texture: 'textures/metals/metal_brushed_aluminum.png',
         thumbnail: 'textures/metals/metal_brushed_aluminum.png',
-        metalness: 0.88, roughness: 0.3, clearcoat: 0.05
+        metalness: 0.88, roughness: 0.3, clearcoat: 0.05, defaultRepeat: 1
     },
     'metal_diamond_tread': {
         id: 'metal_diamond_tread',
         name: 'Industrial Diamond Tread Steel',
         texture: 'textures/metals/metal_diamond_tread.png',
         thumbnail: 'textures/metals/metal_diamond_tread.png',
-        metalness: 0.92, roughness: 0.2, clearcoat: 0.1
+        metalness: 0.92, roughness: 0.2, clearcoat: 0.1, defaultRepeat: 1
     },
     'metal_damascus_steel': {
         id: 'metal_damascus_steel',
         name: 'Forged Damascus Wave Steel',
         texture: 'textures/metals/metal_damascus_steel.png',
         thumbnail: 'textures/metals/metal_damascus_steel.png',
-        metalness: 0.90, roughness: 0.25, clearcoat: 0.15
+        metalness: 0.90, roughness: 0.25, clearcoat: 0.15, defaultRepeat: 1
     },
     'metal_hammered_copper': {
         id: 'metal_hammered_copper',
         name: 'Faceted Hand-Hammered Copper',
         texture: 'textures/metals/metal_hammered_copper.png',
         thumbnail: 'textures/metals/metal_hammered_copper.png',
-        metalness: 0.94, roughness: 0.22, clearcoat: 0.2
+        metalness: 0.94, roughness: 0.22, clearcoat: 0.2, defaultRepeat: 1
     },
     'metal_brass_chevrons': {
         id: 'metal_brass_chevrons',
         name: 'Chevron Geometric Brushed Brass',
         texture: 'textures/metals/metal_brass_chevrons.png',
         thumbnail: 'textures/metals/metal_brass_chevrons.png',
-        metalness: 0.92, roughness: 0.18, clearcoat: 0.15
+        metalness: 0.92, roughness: 0.18, clearcoat: 0.15, defaultRepeat: 1
     }
 };
 

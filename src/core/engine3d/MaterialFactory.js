@@ -59,17 +59,27 @@ export class MaterialFactory {
         }
 
         // Calculate UV Density based on real-world dimensions (defaultRepeat, config.repeat, or defaultTileSize)
-        let repeatScale = 1;
-        if (config.repeat !== undefined) {
-            repeatScale = config.repeat;
+        let repeatX = 1, repeatY = 1;
+        if (typeof config.repeat === 'object') {
+            repeatX = config.repeat.x || 1;
+            repeatY = config.repeat.y || 1;
+        } else if (typeof config.repeat === 'number') {
+            repeatX = repeatY = config.repeat;
         } else if (config.defaultRepeat !== undefined) {
-            repeatScale = config.defaultRepeat;
-        } else if (config.id && (config.id.startsWith('wood_') || config.id.includes('wood') || config.type === 'wood')) {
-            repeatScale = 1;
+            repeatX = repeatY = config.defaultRepeat;
         } else if (targetEntity) {
-            const dim = Math.max(targetEntity.width || 100, targetEntity.height || 100);
-            const ts = config.defaultTileSize || 40;
-            repeatScale = dim / ts;
+            const w = targetEntity.width || targetEntity.params?.width || 100;
+            const h = targetEntity.height || targetEntity.params?.height || targetEntity.depth || 100;
+            let ts = config.defaultTileSize || config.tileSize;
+            if (!ts) {
+                if (config.id && (config.id.startsWith('marble_') || config.id.includes('marble'))) ts = 160;
+                else if (config.id && (config.id.startsWith('wood_') || config.id.includes('wood'))) ts = 150;
+                else if (config.id && (config.id.startsWith('metal_') || config.id.includes('metal'))) ts = 120;
+                else if (config.id && (config.id.startsWith('stone_') || config.id.includes('stone'))) ts = 60;
+                else ts = 60;
+            }
+            repeatX = w / ts;
+            repeatY = h / ts;
         }
         
         // Setup shared texture properties (wrap, repeat, rotation, anisotropy)
@@ -77,7 +87,7 @@ export class MaterialFactory {
             if (!t) return null;
             const tClone = t.clone();
             tClone.wrapS = tClone.wrapT = THREE.RepeatWrapping;
-            tClone.repeat.set(repeatScale, repeatScale);
+            tClone.repeat.set(repeatX, repeatY);
             
             if (config.rotation) {
                 tClone.rotation = config.rotation;

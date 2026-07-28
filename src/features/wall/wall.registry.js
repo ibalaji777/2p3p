@@ -167,70 +167,70 @@ export const MARBLE_REGISTRY = {
         name: 'Italian Calacatta',
         texture: 'textures/marbles/marble_calacatta_gold.png',
         thumbnail: 'textures/marbles/marble_calacatta_gold.png',
-        roughness: 0.12, clearcoat: 0.90
+        roughness: 0.12, clearcoat: 0.90, defaultRepeat: 1
     },
     'marble_statuario_venato': {
         id: 'marble_statuario_venato',
         name: 'High-Contrast Statuario',
         texture: 'textures/marbles/marble_statuario_venato.png',
         thumbnail: 'textures/marbles/marble_statuario_venato.png',
-        roughness: 0.10, clearcoat: 0.95
+        roughness: 0.10, clearcoat: 0.95, defaultRepeat: 1
     },
     'marble_blue_sodalite': {
         id: 'marble_blue_sodalite',
         name: 'Royal Sodalite Blue',
         texture: 'textures/marbles/marble_blue_sodalite.png',
         thumbnail: 'textures/marbles/marble_blue_sodalite.png',
-        roughness: 0.12, clearcoat: 0.90
+        roughness: 0.12, clearcoat: 0.90, defaultRepeat: 1
     },
     'marble_onyx_amber': {
         id: 'marble_onyx_amber',
         name: 'Translucent Honey Onyx',
         texture: 'textures/marbles/marble_onyx_amber.png',
         thumbnail: 'textures/marbles/marble_onyx_amber.png',
-        roughness: 0.08, clearcoat: 0.98
+        roughness: 0.08, clearcoat: 0.98, defaultRepeat: 1
     },
     'marble_sahara_noir': {
         id: 'marble_sahara_noir',
         name: 'Sahara Noir',
         texture: 'textures/marbles/marble_sahara_noir.png',
         thumbnail: 'textures/marbles/marble_sahara_noir.png',
-        roughness: 0.10, clearcoat: 0.92
+        roughness: 0.10, clearcoat: 0.92, defaultRepeat: 1
     },
     'marble_carrara': {
         id: 'marble_carrara',
         name: 'Italian Carrara White',
         texture: 'textures/marbles/marble_carrara.png',
         thumbnail: 'textures/marbles/marble_carrara.png',
-        roughness: 0.15, clearcoat: 0.85
+        roughness: 0.15, clearcoat: 0.85, defaultRepeat: 1
     },
     'marble_nero_marquina': {
         id: 'marble_nero_marquina',
         name: 'Nero Marquina Black',
         texture: 'textures/marbles/marble_nero_marquina.png',
         thumbnail: 'textures/marbles/marble_nero_marquina.png',
-        roughness: 0.12, clearcoat: 0.90
+        roughness: 0.12, clearcoat: 0.90, defaultRepeat: 1
     },
     'marble_verde_guatemala': {
         id: 'marble_verde_guatemala',
         name: 'Emerald Verde Guatemala',
         texture: 'textures/marbles/marble_verde_guatemala.png',
         thumbnail: 'textures/marbles/marble_verde_guatemala.png',
-        roughness: 0.15, clearcoat: 0.80
+        roughness: 0.15, clearcoat: 0.80, defaultRepeat: 1
     },
     'marble_emperador_dark': {
         id: 'marble_emperador_dark',
         name: 'Dark Emperador Chocolate',
         texture: 'textures/marbles/marble_emperador_dark.png',
         thumbnail: 'textures/marbles/marble_emperador_dark.png',
-        roughness: 0.18, clearcoat: 0.80
+        roughness: 0.18, clearcoat: 0.80, defaultRepeat: 1
     },
     'marble_calacatta_viola': {
         id: 'marble_calacatta_viola',
         name: 'Italian Calacatta Viola',
         texture: 'textures/marbles/marble_calacatta_viola.png',
         thumbnail: 'textures/marbles/marble_calacatta_viola.png',
-        roughness: 0.14, clearcoat: 0.88
+        roughness: 0.14, clearcoat: 0.88, defaultRepeat: 1
     }
 };
 
@@ -240,56 +240,56 @@ export const STONE_REGISTRY = {
         name: 'Rustic Stacked Fieldstone',
         texture: 'textures/stones/stone_stacked_fieldstone.png',
         thumbnail: 'textures/stones/stone_stacked_fieldstone.png',
-        roughness: 0.8
+        roughness: 0.8, defaultTileSize: 60
     },
     'stone_slate_charcoal': {
         id: 'stone_slate_charcoal',
         name: 'Charcoal Black Cleft Slate',
         texture: 'textures/stones/stone_slate_charcoal.png',
         thumbnail: 'textures/stones/stone_slate_charcoal.png',
-        roughness: 0.65, clearcoat: 0.1
+        roughness: 0.65, clearcoat: 0.1, defaultTileSize: 80
     },
     'stone_travertine_beige': {
         id: 'stone_travertine_beige',
         name: 'Roman Ivory Travertine Limestone',
         texture: 'textures/stones/stone_travertine_beige.png',
         thumbnail: 'textures/stones/stone_travertine_beige.png',
-        roughness: 0.4, clearcoat: 0.2
+        roughness: 0.4, clearcoat: 0.2, defaultTileSize: 120
     },
     'stone_granite_black': {
         id: 'stone_granite_black',
         name: 'Polished Black Absolute Granite',
         texture: 'textures/stones/stone_granite_black.png',
         thumbnail: 'textures/stones/stone_granite_black.png',
-        roughness: 0.18, clearcoat: 0.75
+        roughness: 0.18, clearcoat: 0.75, defaultTileSize: 150
     },
     'stone_sandstone_golden': {
         id: 'stone_sandstone_golden',
         name: 'Desert Golden Amber Sandstone',
         texture: 'textures/stones/stone_sandstone_golden.png',
         thumbnail: 'textures/stones/stone_sandstone_golden.png',
-        roughness: 0.7, clearcoat: 0.05
+        roughness: 0.7, clearcoat: 0.05, defaultTileSize: 100
     },
     'stone_basalt_lava': {
         id: 'stone_basalt_lava',
         name: 'Volcanic Charcoal Basalt Stone',
         texture: 'textures/stones/stone_basalt_lava.png',
         thumbnail: 'textures/stones/stone_basalt_lava.png',
-        roughness: 0.6, clearcoat: 0.15
+        roughness: 0.6, clearcoat: 0.15, defaultTileSize: 80
     },
     'stone_limestone_portuguese': {
         id: 'stone_limestone_portuguese',
         name: 'Portuguese Cream Limestone',
         texture: 'textures/stones/stone_limestone_portuguese.png',
         thumbnail: 'textures/stones/stone_limestone_portuguese.png',
-        roughness: 0.35, clearcoat: 0.3
+        roughness: 0.35, clearcoat: 0.3, defaultTileSize: 120
     },
     'stone_wall': {
         id: 'stone_wall',
         name: 'Rough Hewn Fieldstone',
         texture: 'models/wall/stone.png',
         thumbnail: 'models/wall/stone.png',
-        roughness: 0.85
+        roughness: 0.85, defaultTileSize: 60
     },
     'brick_1_orange': {
         id: 'brick_1_orange',
