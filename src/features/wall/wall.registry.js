@@ -161,33 +161,71 @@ export const WALL_DECOR_REGISTRY = {
     }
 };
 
-export const STONE_REGISTRY = {
-    'white_marble': {
-        id: 'white_marble',
+export const MARBLE_REGISTRY = {
+    'marble_carrara': {
+        id: 'marble_carrara',
         name: 'Italian Carrara White Marble',
-        texture: 'models/wall/marble_1_white.png',
-        thumbnail: 'models/wall/marble_1_white.png',
-        roughness: 0.2, clearcoat: 0.8
+        texture: 'textures/marbles/marble_carrara.png',
+        thumbnail: 'textures/marbles/marble_carrara.png',
+        roughness: 0.15, clearcoat: 0.85
     },
-    'black_marble': {
-        id: 'black_marble',
+    'marble_nero_marquina': {
+        id: 'marble_nero_marquina',
         name: 'Nero Marquina Black Marble',
-        texture: 'models/wall/black_marble.png',
-        thumbnail: 'models/wall/black_marble.png',
-        roughness: 0.15, clearcoat: 0.9
+        texture: 'textures/marbles/marble_nero_marquina.png',
+        thumbnail: 'textures/marbles/marble_nero_marquina.png',
+        roughness: 0.12, clearcoat: 0.9
+    },
+    'marble_calacatta_gold': {
+        id: 'marble_calacatta_gold',
+        name: 'Polished Calacatta Gold Marble',
+        texture: 'textures/marbles/marble_calacatta_gold.png',
+        thumbnail: 'textures/marbles/marble_calacatta_gold.png',
+        roughness: 0.15, clearcoat: 0.85
+    },
+    'marble_verde_guatemala': {
+        id: 'marble_verde_guatemala',
+        name: 'Emerald Verde Guatemala Marble',
+        texture: 'textures/marbles/marble_verde_guatemala.png',
+        thumbnail: 'textures/marbles/marble_verde_guatemala.png',
+        roughness: 0.15, clearcoat: 0.8
+    },
+    'marble_emperador_dark': {
+        id: 'marble_emperador_dark',
+        name: 'Dark Emperador Chocolate Marble',
+        texture: 'textures/marbles/marble_emperador_dark.png',
+        thumbnail: 'textures/marbles/marble_emperador_dark.png',
+        roughness: 0.18, clearcoat: 0.8
+    }
+};
+
+export const STONE_REGISTRY = {
+    'stone_stacked_fieldstone': {
+        id: 'stone_stacked_fieldstone',
+        name: 'Rustic Stacked Fieldstone',
+        texture: 'textures/stones/stone_stacked_fieldstone.png',
+        thumbnail: 'textures/stones/stone_stacked_fieldstone.png',
+        roughness: 0.8
+    },
+    'stone_slate_charcoal': {
+        id: 'stone_slate_charcoal',
+        name: 'Charcoal Black Cleft Slate',
+        texture: 'textures/stones/stone_slate_charcoal.png',
+        thumbnail: 'textures/stones/stone_slate_charcoal.png',
+        roughness: 0.65, clearcoat: 0.1
+    },
+    'stone_travertine_beige': {
+        id: 'stone_travertine_beige',
+        name: 'Roman Ivory Travertine Limestone',
+        texture: 'textures/stones/stone_travertine_beige.png',
+        thumbnail: 'textures/stones/stone_travertine_beige.png',
+        roughness: 0.4, clearcoat: 0.2
     },
     'stone_wall': {
         id: 'stone_wall',
         name: 'Rough Hewn Fieldstone',
         texture: 'models/wall/stone.png',
         thumbnail: 'models/wall/stone.png',
-        roughness: 0.8
-    },
-    'classic_marble': {
-        id: 'classic_marble',
-        name: 'Polished Calacatta Marble',
-        texture: 'models/wall/marble.png',
-        thumbnail: 'models/wall/marble.png',
-        roughness: 0.2, clearcoat: 0.7
+        roughness: 0.85
     }
 };
