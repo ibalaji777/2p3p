@@ -14,6 +14,55 @@ import { DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT } from './constants/units.js';
 import { WINDOW_TYPES, WINDOW_GLASS_MATERIALS } from '../features/window/window.registry.js';
 import { JALI_MATERIALS } from './registries/material.registry.js';
 
+export const WORKSPACE_2D_SHAPES = {
+    // Default boundary
+    'default': "M 0 0 L 100 0 L 100 100 L 0 100 Z",
+    'furniture': "M 0 0 L 100 0 L 100 100 L 0 100 Z",
+
+    // Couches & Sofas
+    'couch': "M 5 5 C 5 2, 95 2, 95 5 L 95 95 C 95 98, 5 98, 5 95 Z M 5 25 L 95 25 M 20 25 L 20 95 M 80 25 L 80 95 M 50 25 L 50 95",
+    'sofa_l_shape': "M 5 5 L 95 5 L 95 40 L 40 40 L 40 95 L 5 95 Z M 5 25 L 95 25 M 25 5 L 25 95 M 40 40 L 40 25",
+
+    // Seating & Chairs
+    'chair': "M 10 10 L 90 10 L 90 90 L 10 90 Z M 10 30 L 90 30 M 25 30 L 25 90 M 75 30 L 75 90",
+    'armchair': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 5 25 L 95 25 M 20 25 L 20 95 M 80 25 L 80 95",
+    'bench': "M 5 15 L 95 15 L 95 85 L 5 85 Z M 5 35 L 95 35",
+
+    // Tables & Dining Sets
+    'table_round': "M 50 5 A 45 45 0 1 0 50 95 A 45 45 0 1 0 50 5 Z",
+    'circle': "M 50 5 A 45 45 0 1 0 50 95 A 45 45 0 1 0 50 5 Z",
+    'table_rectangular': "M 5 10 L 95 10 L 95 90 L 5 90 Z",
+    'dining_set': "M 20 20 L 80 20 L 80 80 L 20 80 Z M 30 5 L 70 5 L 70 15 L 30 15 Z M 30 85 L 70 85 L 70 95 L 30 95 Z M 5 30 L 15 30 L 15 70 L 5 70 Z M 85 30 L 95 30 L 95 70 L 85 70 Z",
+
+    // Beds
+    'bed': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 12 12 L 45 12 L 45 28 L 12 28 Z M 55 12 L 88 12 L 88 28 L 55 28 Z M 5 35 L 95 35",
+
+    // Kitchen Modules
+    'kitchen_straight': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 0 20 L 100 20",
+    'kitchen_l_shape': "M 0 0 L 100 0 L 100 35 L 35 35 L 35 100 L 0 100 Z",
+    'kitchen_u_shape': "M 0 0 L 100 0 L 100 100 L 65 100 L 65 35 L 35 35 L 35 100 L 0 100 Z",
+    'kitchen_island': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 5 20 L 95 20",
+    'kitchen_tall_pantry': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 0 0 L 100 100 M 100 0 L 0 100",
+
+    // Sinks & Appliances
+    'sink_standard': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 15 15 L 85 15 L 85 85 L 15 85 Z",
+    'sink_double': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 10 15 L 45 15 L 45 85 L 10 85 Z M 55 15 L 90 15 L 90 85 L 55 85 Z",
+    'sink_farmhouse': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 10 10 L 90 10 L 90 90 L 10 90 Z",
+    'tap': "M 45 10 L 55 10 L 55 50 L 45 50 Z M 35 50 L 65 50 L 65 90 L 35 90 Z",
+    'hood_chimney': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 25 25 L 75 25 L 75 75 L 25 75 Z",
+    'app_fridge': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 5 45 L 95 45",
+    'app_oven': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 15 15 A 35 35 0 1 0 85 15",
+    'app_microwave': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 15 15 L 70 15 L 70 85 L 15 85 Z",
+    'cooktop_induction': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 30 30 A 20 20 0 1 0 30 30.1 M 70 30 A 20 20 0 1 0 70 30.1 M 30 70 A 20 20 0 1 0 30 70.1 M 70 70 A 20 20 0 1 0 70 70.1",
+
+    // Bathroom & Sanitary
+    'toilet_standard': "M 20 5 L 80 5 L 80 35 L 20 35 Z M 30 35 A 35 45 0 1 0 70 35 Z",
+    'sanitary_unit': "M 5 10 L 95 10 L 95 90 L 5 90 Z M 25 25 A 25 25 0 1 0 75 25 Z",
+
+    // Entertainment & Storage
+    'tv_unit': "M 0 35 L 100 35 L 100 65 L 0 65 Z M 20 45 L 80 45 L 80 55 L 20 55 Z"
+};
+
 export const createDoorShape = (w, h, type = 'square') => {
     const shape = new THREE.Shape();
     const hw = w / 2;
