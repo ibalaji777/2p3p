@@ -124,12 +124,37 @@ export class MaterialFactory {
             newMat.aoMapIntensity = config.aoIntensity;
         }
 
-        // Guarantee Mesh Visibility, Opaque Rendering, and Depth Writing
-        newMat.visible = true;
-        newMat.depthWrite = true;
-        newMat.depthTest = true;
-        newMat.opacity = 1.0;
-        newMat.transparent = false;
+        // Support Physical Transmission & Glass Properties
+        if (config.transmission !== undefined || config.transparent) {
+            if (newMat.type !== 'MeshPhysicalMaterial') {
+                newMat = new THREE.MeshPhysicalMaterial({
+                    color: newMat.color ? newMat.color.clone() : new THREE.Color(0xffffff)
+                });
+            }
+            newMat.transmission = config.transmission !== undefined ? config.transmission : 0.9;
+            newMat.ior = config.ior || 1.5;
+            newMat.thickness = config.thickness || 2.0;
+            newMat.transparent = true;
+            newMat.opacity = config.opacity !== undefined ? config.opacity : 1.0;
+            newMat.depthWrite = config.depthWrite !== undefined ? config.depthWrite : false;
+            newMat.depthTest = true;
+            newMat.roughness = config.roughness !== undefined ? config.roughness : 0.02;
+            newMat.metalness = config.metalness !== undefined ? config.metalness : 0.0;
+            if (config.attenuationColor) {
+                newMat.attenuationColor = new THREE.Color(config.attenuationColor);
+                newMat.attenuationDistance = config.attenuationDistance || 15.0;
+            }
+            if (config.specularIntensity !== undefined) {
+                newMat.specularIntensity = config.specularIntensity;
+            }
+        } else {
+            // Guarantee Mesh Visibility, Opaque Rendering, and Depth Writing for opaque materials
+            newMat.visible = true;
+            newMat.depthWrite = true;
+            newMat.depthTest = true;
+            newMat.opacity = 1.0;
+            newMat.transparent = false;
+        }
 
         if (newMat.map) newMat.map.needsUpdate = true;
         newMat.needsUpdate = true;

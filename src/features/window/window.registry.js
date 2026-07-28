@@ -4,36 +4,92 @@ export const WINDOW_FRAME_MATERIALS = { upvc_white: { label: "White uPVC", color
 
 export const WINDOW_GLASS_MATERIALS = {
     clear: {
-        label: "Clear Tempered Glass", color: 0xeff6ff, transmission: 0.95, roughness: 0.0, ior: 1.5, transparent: true,
-        cssSphere: "background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.55) 15%, rgba(186,230,253,0.45) 45%, rgba(56,189,248,0.2) 75%, rgba(15,23,42,0.5) 100%); border: 1.5px solid rgba(255, 255, 255, 0.9); box-shadow: inset -5px -7px 12px rgba(0,0,0,0.5), inset 3px 3px 8px rgba(255,255,255,0.95), 0 6px 20px rgba(56,189,248,0.35);"
+        id: "clear",
+        label: "Clear Tempered Glass",
+        name: "Clear Tempered Glass",
+        color: 0xffffff,
+        transmission: 0.98,
+        ior: 1.50,
+        roughness: 0.0,
+        thickness: 24.0,
+        specularIntensity: 1.0,
+        transparent: true,
+        categoryLabel: "Glass",
+        description: "Crystal clear, nearly invisible center, high transparency, clean edge reflections, subtle refraction."
     },
     frosted: {
-        label: "Frosted Satin Privacy Glass", color: 0xffffff, transmission: 0.5, roughness: 0.5, ior: 1.4, transparent: true,
-        cssSphere: "background: radial-gradient(circle at 35% 25%, rgba(255,255,255,0.98) 0%, rgba(241,245,249,0.85) 40%, rgba(203,213,225,0.7) 75%, rgba(100,116,139,0.6) 100%); border: 1.5px solid rgba(255, 255, 255, 0.95); box-shadow: inset -4px -6px 12px rgba(100,116,139,0.35), inset 2px 2px 8px rgba(255,255,255,0.95), 0 4px 15px rgba(255,255,255,0.3);"
+        id: "frosted",
+        label: "Frosted Satin Glass",
+        name: "Frosted Satin Glass",
+        color: 0xf1f5f9,
+        transmission: 0.82,
+        ior: 1.45,
+        roughness: 0.42,
+        thickness: 20.0,
+        transparent: true,
+        categoryLabel: "Glass",
+        description: "Soft translucent appearance, blurred transparency, satin finish, smooth light diffusion."
     },
     tinted: {
-        label: "Architectural Dark Tinted Glass", color: 0x222222, transmission: 0.85, roughness: 0.0, ior: 1.5, transparent: true,
-        cssSphere: "background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.35) 12%, rgba(51,65,85,0.75) 45%, rgba(15,23,42,0.9) 85%); border: 1.5px solid rgba(255, 255, 255, 0.7); box-shadow: inset -5px -7px 14px rgba(0,0,0,0.85), inset 3px 3px 8px rgba(255,255,255,0.8), 0 4px 15px rgba(15,23,42,0.5);"
+        id: "tinted",
+        label: "Architectural Dark Glass",
+        name: "Architectural Dark Glass",
+        color: 0x111827,
+        transmission: 0.72,
+        ior: 1.52,
+        roughness: 0.0,
+        thickness: 26.0,
+        attenuationColor: 0x030712,
+        attenuationDistance: 10.0,
+        transparent: true,
+        categoryLabel: "Glass",
+        description: "Transparent charcoal tint, modern building glass, rich reflections, clear visibility through the glass."
     },
     reflective: {
-        label: "Reflective Silver Mirror", color: 0xaaaaaa, transmission: 0.3, roughness: 0.0, metalness: 1.0, ior: 2.0, transparent: true,
-        cssSphere: "background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(226,232,240,0.9) 25%, rgba(148,163,184,0.8) 45%, rgba(255,255,255,1) 50%, rgba(71,85,105,0.9) 75%, rgba(15,23,42,0.95) 100%); border: 1.5px solid rgba(255, 255, 255, 0.95); box-shadow: inset -5px -7px 12px rgba(0,0,0,0.65), inset 3px 3px 8px rgba(255,255,255,0.95), 0 4px 20px rgba(226,232,240,0.45);"
+        id: "reflective",
+        label: "Reflective Silver Glass",
+        name: "Reflective Silver Glass",
+        color: 0xffffff,
+        transmission: 0.35,
+        metalness: 0.65,
+        ior: 1.80,
+        roughness: 0.0,
+        thickness: 22.0,
+        specularIntensity: 1.0,
+        transparent: true,
+        categoryLabel: "Glass",
+        description: "Mirror-coated architectural glass, partial transparency, strong environment reflections."
     },
     bronze: {
-        label: "Bronze Warm Solar Glazing", color: 0x78350f, transmission: 0.8, roughness: 0.0, ior: 1.5, transparent: true,
-        cssSphere: "background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.95) 0%, rgba(254,215,170,0.7) 20%, rgba(180,83,9,0.5) 55%, rgba(67,20,7,0.8) 90%); border: 1.5px solid rgba(254, 215, 170, 0.8); box-shadow: inset -5px -7px 12px rgba(0,0,0,0.6), inset 3px 3px 8px rgba(255,255,255,0.85), 0 4px 15px rgba(180,83,9,0.35);"
+        id: "bronze",
+        label: "Bronze Glass",
+        name: "Bronze Glass",
+        color: 0xd97706,
+        transmission: 0.76,
+        ior: 1.50,
+        roughness: 0.0,
+        thickness: 24.0,
+        attenuationColor: 0x78350f,
+        attenuationDistance: 10.0,
+        transparent: true,
+        categoryLabel: "Glass",
+        description: "Warm bronze tint, natural transparency, soft golden reflections, luxury architectural appearance."
     },
     blue_solar: {
-        label: "Blue Reflective Solar Control", color: 0x1d4ed8, transmission: 0.82, roughness: 0.0, ior: 1.52, transparent: true,
-        cssSphere: "background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.98) 0%, rgba(191,219,254,0.75) 20%, rgba(37,99,235,0.5) 55%, rgba(30,58,138,0.85) 90%); border: 1.5px solid rgba(191, 219, 254, 0.85); box-shadow: inset -5px -7px 12px rgba(0,0,0,0.6), inset 3px 3px 8px rgba(255,255,255,0.9), 0 4px 15px rgba(37,99,235,0.35);"
-    },
-    emerald_tint: {
-        label: "Emerald Architectural Tint", color: 0x047857, transmission: 0.8, roughness: 0.0, ior: 1.5, transparent: true,
-        cssSphere: "background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.98) 0%, rgba(167,243,208,0.75) 20%, rgba(5,150,105,0.5) 55%, rgba(6,78,59,0.85) 90%); border: 1.5px solid rgba(167, 243, 208, 0.85); box-shadow: inset -5px -7px 12px rgba(0,0,0,0.6), inset 3px 3px 8px rgba(255,255,255,0.9), 0 4px 15px rgba(5,150,105,0.35);"
-    },
-    fluted: {
-        label: "Ribbed Fluted Privacy Glass", color: 0xe2e8f0, transmission: 0.65, roughness: 0.35, ior: 1.48, transparent: true,
-        cssSphere: "background: repeating-linear-gradient(90deg, rgba(255,255,255,0.7) 0px, rgba(241,245,249,0.5) 4px, rgba(203,213,225,0.8) 8px), radial-gradient(circle at 30% 25%, rgba(255,255,255,0.95) 0%, rgba(186,230,253,0.5) 50%, rgba(51,65,85,0.7) 100%); border: 1.5px solid rgba(255, 255, 255, 0.85); box-shadow: inset -4px -6px 12px rgba(0,0,0,0.4), inset 2px 2px 8px rgba(255,255,255,0.9), 0 4px 15px rgba(186,230,253,0.3);"
+        id: "blue_solar",
+        label: "Blue Reflective Glass",
+        name: "Blue Reflective Glass",
+        color: 0x2563eb,
+        transmission: 0.75,
+        metalness: 0.25,
+        ior: 1.52,
+        roughness: 0.0,
+        thickness: 24.0,
+        attenuationColor: 0x1d4ed8,
+        attenuationDistance: 12.0,
+        transparent: true,
+        categoryLabel: "Glass",
+        description: "Soft blue tint, sky reflections, high transparency, modern commercial building glass."
     }
 };
 

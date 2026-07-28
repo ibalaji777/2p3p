@@ -3,6 +3,7 @@ import { coreEventBus } from '../EventBus.js';
 import * as THREE from 'three';
 import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY, FABRIC_REGISTRY, LEATHER_REGISTRY, FLOOR_REGISTRY, WINDOW_GLASS_MATERIALS, METAL_REGISTRY, STONE_REGISTRY, PLASTIC_REGISTRY, parseCompositeMaterialKey, resolveFabricConfig, getFabricBaseConfig } from '../registry.js';
 import { MaterialFactory } from './MaterialFactory.js';
+import { glassPreviewRenderer } from './GlassPreviewRenderer.js';
 import { patternManager } from '../services/pattern/PatternManager.js';
 import { PatternTextureBlender } from '../services/pattern/PatternTextureBlender.js';
 
@@ -21,6 +22,10 @@ export class GizmoManager {
 
     init() {
         this.ctx.showTransformMenu = this.showTransformMenu.bind(this);
+        
+        // Pre-warm glass thumbnails in background idle time for 0ms instant material drawer opening
+        glassPreviewRenderer.prewarm(GLASS_REGISTRY);
+
         this.transformMenu = document.createElement('div');
         this.transformMenu.className = 'transform-menu-3d';
         this.transformMenu.style.display = 'none';
@@ -307,7 +312,7 @@ export class GizmoManager {
                     pointer-events: none;
                 }
                 .mat-card-title {
-                    color: white; font-weight: 600; font-size: 15px; margin-top: 8px; text-align: center;
+                    color: white; font-weight: 600; font-size: 14.5px; margin-top: 8px; text-align: center;
                     width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
                 }
                 .mat-card-sub {
@@ -315,6 +320,37 @@ export class GizmoManager {
                 }
                 .mat-card.active-card .mat-card-sub {
                     color: #f97316; font-weight: 600;
+                }
+                .mat-card.is-glass-card {
+                    border-radius: 20px !important;
+                    background: linear-gradient(145deg, #242426 0%, #161617 100%) !important;
+                    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+                }
+                .mat-card.is-glass-card.active-card {
+                    border-color: #38bdf8 !important;
+                    box-shadow: 0 0 25px rgba(56, 189, 248, 0.35), 0 10px 25px rgba(0,0,0,0.6) !important;
+                }
+                .mat-card.is-glass-card.active-card .mat-card-sub {
+                    color: #38bdf8 !important; font-weight: 700 !important;
+                }
+                .mat-sphere.is-3d-glass {
+                    background-size: cover !important;
+                    background-position: center !important;
+                    background-color: transparent !important;
+                    box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.75), inset 0 0 20px rgba(56, 189, 248, 0.12) !important;
+                }
+                .mat-sphere.is-3d-glass::after {
+                    display: none !important;
+                }
+                .mat-card-selected-checkmark {
+                    position: absolute; top: 10px; right: 10px; width: 22px; height: 22px; border-radius: 50%;
+                    background: #38bdf8; color: #0f172a; display: flex; align-items: center; justify-content: center;
+                    font-size: 13px; font-weight: 800; box-shadow: 0 2px 8px rgba(56, 189, 248, 0.5);
+                    opacity: 0; transform: scale(0.6); transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+                    pointer-events: none;
+                }
+                .mat-card.active-card .mat-card-selected-checkmark {
+                    opacity: 1; transform: scale(1);
                 }
                 .mat-search-wrapper {
                     display: flex; gap: 12px; align-items: center; flex-shrink: 0;
@@ -704,24 +740,30 @@ export class GizmoManager {
 
             const highlightSelectedThumb = (texKey) => {
                 const currentThumbs = document.querySelectorAll('.mat-thumb');
-                currentThumbs.forEach(t => t.style.borderColor = 'transparent');
+                currentThumbs.forEach(t => {
+                    t.classList.remove('active-card');
+                    t.style.borderColor = '';
+                });
                 if (texKey !== undefined) {
                     const activeThumb = Array.from(currentThumbs).find(t => t.getAttribute('data-mat') === (texKey || ''));
-                    if (activeThumb) activeThumb.style.borderColor = '#3b82f6';
+                    if (activeThumb) {
+                        activeThumb.classList.add('active-card');
+                    }
                     if (this.matNameDisplay) {
                         const selectedObj = this.ctx.interactions.selectedObject;
                         let registry = WALL_DECOR_REGISTRY;
                         if (selectedObj && selectedObj.userData.entity) {
-                            if (selectedObj.userData.entity.type === 'door' || selectedObj.userData.entity.type === 'window') registry = DOOR_MATERIALS_REGISTRY;
-                            else if (selectedObj.userData.entity.type === 'roof') {
+                            if (selectedObj.userData.entity.type === 'door' || selectedObj.userData.entity.type === 'window') {
+                                registry = Object.assign({}, DOOR_MATERIALS_REGISTRY, WINDOW_GLASS_MATERIALS);
+                            } else if (selectedObj.userData.entity.type === 'roof') {
                                 if (this.activeObject && this.activeObject.userData && this.activeObject.userData.isGable) registry = WALL_DECOR_REGISTRY;
                                 else registry = ROOF_DECOR_REGISTRY;
                             } else if (selectedObj.userData.isFurniture || selectedObj.userData.entity.type === 'furniture') {
-                                registry = Object.assign({}, FABRIC_REGISTRY, DOOR_MATERIALS_REGISTRY, WALL_DECOR_REGISTRY);
+                                registry = Object.assign({}, FABRIC_REGISTRY, DOOR_MATERIALS_REGISTRY, WALL_DECOR_REGISTRY, WINDOW_GLASS_MATERIALS);
                             }
                         }
-                        const config = registry[texKey];
-                        this.matNameDisplay.innerText = config ? config.name : 'Clear Material';
+                        const config = registry[texKey] || WINDOW_GLASS_MATERIALS[texKey];
+                        this.matNameDisplay.innerText = config ? (config.name || config.label) : (texKey || 'Clear Material');
                     }
                 }
             };
@@ -794,11 +836,11 @@ export class GizmoManager {
                                     if (mats[this.activeMatIndex]) {
                                         newMat = mats[this.activeMatIndex].clone();
                                         let registry = WALL_DECOR_REGISTRY;
-                                        if (entity.type === 'door' || entity.type === 'window') registry = DOOR_MATERIALS_REGISTRY;
+                                        if (entity.type === 'door' || entity.type === 'window') registry = Object.assign({}, DOOR_MATERIALS_REGISTRY, WINDOW_GLASS_MATERIALS);
                                         else if (entity.type === 'roof') registry = ROOF_DECOR_REGISTRY;
                                         
-                                        if (key && registry[key]) {
-                                            const config = registry[key];
+                                        const config = (key && registry[key]) ? registry[key] : (key ? WINDOW_GLASS_MATERIALS[key] : null);
+                                        if (config) {
                                             MaterialFactory.applyPBRMaterial(this.activeObject, config, this.ctx, this.activeMatIndex).then(() => {
                                                 // Event if needed
                                             });
@@ -869,13 +911,13 @@ export class GizmoManager {
                                     if (mats[matIndexToUse === -1 ? 0 : matIndexToUse] || isFurnitureMat) {
                                         let registry = WALL_DECOR_REGISTRY;
                                         if (entity) {
-                                            if (entity.type === 'door' || entity.type === 'window') registry = DOOR_MATERIALS_REGISTRY;
+                                            if (entity.type === 'door' || entity.type === 'window') registry = Object.assign({}, DOOR_MATERIALS_REGISTRY, WINDOW_GLASS_MATERIALS);
                                             if (isFurnitureMat) {
-                                                registry = Object.assign({}, FABRIC_REGISTRY, DOOR_MATERIALS_REGISTRY);
+                                                registry = Object.assign({}, FABRIC_REGISTRY, DOOR_MATERIALS_REGISTRY, WINDOW_GLASS_MATERIALS);
                                             }
                                         }
-                                        if (key && registry[key]) {
-                                            const config = registry[key];
+                                        const config = (key && registry[key]) ? registry[key] : (key ? WINDOW_GLASS_MATERIALS[key] : null);
+                                        if (config) {
                                             MaterialFactory.applyPBRMaterial(this.activeObject, config, this.ctx, matIndexToUse).then(() => {
                                                 // Update local params for persistence
                                                 if (isFurnitureMat) {
@@ -1060,11 +1102,13 @@ export class GizmoManager {
                 return '';
             };
             
+            const clearGlass3dThumb = glassPreviewRenderer.renderGlassThumbnail('clear', GLASS_REGISTRY.clear);
+
             const cats = [
                 { id: 'wood', title: 'Wood / Veneer', count: getCount(WOOD_REGISTRY), desc: 'Warm, natural timber grains and high-end polished architectural wood veneers.', iconBg: 'rgba(120, 53, 15, 0.35)', iconColor: '#f59e0b', iconSvg: '<path d="M12 2L6 12h3v8h6v-8h3L12 2z"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #d97706, #78350f 50%, #451a03 90%)', sphereColor: '#78350f', sampleBg: getSampleBg(WOOD_REGISTRY) },
                 { id: 'fabric', title: 'Fabric / Decor', count: getCount(FABRIC_REGISTRY), desc: 'Soft materials and decorative fabrics for furniture, walls and decor.', iconBg: 'rgba(249, 115, 22, 0.25)', iconColor: '#f97316', iconSvg: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15h10M7 9h10"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #fdba74, #ea580c 50%, #9a3412 85%, #431407 100%)', sphereColor: '#ea580c', sampleBg: getSampleBg(FABRIC_REGISTRY) },
                 { id: 'metal', title: 'Metals', count: getCount(METAL_REGISTRY), desc: 'Brushed aluminum, polished chrome, structural steel and luxury decorative anodized finishes.', iconBg: 'rgba(100, 116, 139, 0.35)', iconColor: '#94a3b8', iconSvg: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.72 1.05 1.33 1.28H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>', sphereGrad: 'linear-gradient(135deg, #e2e8f0 0%, #64748b 45%, #f8fafc 50%, #334155 100%)', sphereColor: '#94a3b8', sampleBg: getSampleBg(METAL_REGISTRY) },
-                { id: 'glass', title: 'Glass', count: getCount(GLASS_REGISTRY), desc: 'Clear tempered glass, architectural privacy frosting and energy-efficient tinted glazing.', iconBg: 'rgba(6, 182, 212, 0.25)', iconColor: '#06b6d4', iconSvg: '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/>', sphereGrad: 'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.6) 15%, rgba(186,230,253,0.65) 45%, rgba(56,189,248,0.4) 75%, rgba(30,41,59,0.7) 100%)', sphereColor: '#06b6d4', sampleBg: 'background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.6) 15%, rgba(186,230,253,0.65) 45%, rgba(56,189,248,0.4) 75%, rgba(30,41,59,0.7) 100%); border: 1.5px solid rgba(255, 255, 255, 0.9); box-shadow: inset -5px -7px 12px rgba(0,0,0,0.5), inset 3px 3px 8px rgba(255,255,255,0.95), 0 6px 20px rgba(56,189,248,0.35);' },
+                { id: 'glass', title: 'Glass', count: getCount(GLASS_REGISTRY), desc: 'Clear tempered glass, architectural privacy frosting and energy-efficient tinted glazing.', iconBg: 'rgba(6, 182, 212, 0.25)', iconColor: '#06b6d4', iconSvg: '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/>', sphereGrad: '', sphereColor: '#06b6d4', sampleBg: `background-image: url('${clearGlass3dThumb}'); background-size: cover; background-position: center;` },
                 { id: 'stone', title: 'Stone / Marble', count: getCount(STONE_REGISTRY), desc: 'Luxurious Italian marble, rough hewn granites, modern architecture concrete and floor tiles.', iconBg: 'rgba(16, 185, 129, 0.25)', iconColor: '#10b981', iconSvg: '<polygon points="12 2 2 7 12 22 22 7 12 2"/>', sphereGrad: 'radial-gradient(circle at 40% 30%, #cbd5e1, #64748b 55%, #334155 85%, #0f172a 100%)', sphereColor: '#64748b', sampleBg: getSampleBg(STONE_REGISTRY) },
                 { id: 'plastic', title: 'Plastics', count: getCount(PLASTIC_REGISTRY), desc: 'Matte black polycarbonates, glossy PVC trims, lightweight laminates and composite plastics.', iconBg: 'rgba(168, 85, 247, 0.25)', iconColor: '#a855f7', iconSvg: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>', sphereGrad: 'radial-gradient(circle at 35% 30%, #52525b, #27272a 60%, #09090b 100%)', sphereColor: '#27272a', sampleBg: getSampleBg(PLASTIC_REGISTRY) },
                 { id: 'leather', title: 'Leather', count: getCount(LEATHER_REGISTRY), desc: 'Supple aniline leathers, embossed hides, and eco-friendly artificial leather upholstery.', iconBg: 'rgba(180, 83, 9, 0.25)', iconColor: '#d97706', iconSvg: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #b45309, #713f12 55%, #422006 90%, #1c0f04 100%)', sphereColor: '#713f12', sampleBg: getSampleBg(LEATHER_REGISTRY) }
@@ -1075,13 +1119,14 @@ export class GizmoManager {
             for (const cat of cats) {
                 const isSelected = cat.id === activeCatId;
                 const activeClass = isSelected ? ' active-card' : '';
+                const is3dGlassClass = cat.id === 'glass' ? ' is-3d-glass' : '';
                 const sphereStyle = cat.sampleBg ? `${cat.sampleBg}; background-color: ${cat.sphereColor};` : `background-image: ${cat.sphereGrad}; background-color: ${cat.sphereColor};`;
                 categoryThumbnails += `
                     <div class="mat-card mat-category-thumb${activeClass}" data-cat="${cat.id}">
                         <div class="mat-card-icon-badge" style="background: ${cat.iconBg}; color: ${cat.iconColor};">
                             <svg style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${cat.iconSvg}</svg>
                         </div>
-                        <div class="mat-sphere" style="${sphereStyle}"></div>
+                        <div class="mat-sphere${is3dGlassClass}" style="${sphereStyle}"></div>
                         <div style="width: 100%;">
                             <div class="mat-card-title">${cat.title}</div>
                             <div class="mat-card-sub">${cat.count} Materials</div>
@@ -1180,18 +1225,31 @@ export class GizmoManager {
                 }
                 
                 const label = val.name || val.label || key;
-                decorThumbnails += `
-                    <div class="mat-card mat-thumb" data-mat="${key}" title="${label}">
-                        <div class="mat-card-icon-badge" style="background: rgba(249, 115, 22, 0.2); color: #f97316;">
-                            <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                if (materialCategory === 'glass') {
+                    decorThumbnails += `
+                        <div class="mat-card mat-thumb is-glass-card" data-mat="${key}" title="${label}">
+                            <div class="mat-card-selected-checkmark">✓</div>
+                            <div class="mat-sphere is-3d-glass" id="mat-thumb-${key}" style="background: radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.18) 0%, rgba(56, 189, 248, 0.04) 55%, transparent 75%);"></div>
+                            <div style="width: 100%; text-align: center;">
+                                <div class="mat-card-title">${label}</div>
+                                <div class="mat-card-sub" style="color: #38bdf8; font-weight: 600; letter-spacing: 0.5px;">Glass</div>
+                            </div>
                         </div>
-                        <div class="mat-sphere" id="mat-thumb-${key}" style="${sphereStyle}"></div>
-                        <div style="width: 100%;">
-                            <div class="mat-card-title">${label}</div>
-                            <div class="mat-card-sub">${title}</div>
+                    `;
+                } else {
+                    decorThumbnails += `
+                        <div class="mat-card mat-thumb" data-mat="${key}" title="${label}">
+                            <div class="mat-card-icon-badge" style="background: rgba(249, 115, 22, 0.2); color: #f97316;">
+                                <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                            </div>
+                            <div class="mat-sphere" id="mat-thumb-${key}" style="${sphereStyle}"></div>
+                            <div style="width: 100%;">
+                                <div class="mat-card-title">${label}</div>
+                                <div class="mat-card-sub">${title}</div>
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                }
             }
         }
         
@@ -1385,6 +1443,24 @@ export class GizmoManager {
                         }
                     } catch (e) {
                         console.error('Failed to render material thumb:', e);
+                    }
+                }
+            }
+
+            // Render 3D PBR glass preview thumbnails for all glass material cards
+            if (materialCategory === 'glass') {
+                for (const [key, val] of Object.entries(GLASS_REGISTRY)) {
+                    if (val.isAlias) continue;
+                    try {
+                        const dataUrl = glassPreviewRenderer.renderGlassThumbnail(key, val);
+                        const sphereEl = gridElem.querySelector(`#mat-thumb-${key}`);
+                        if (sphereEl) {
+                            sphereEl.style.backgroundImage = `url('${dataUrl}')`;
+                            sphereEl.style.backgroundSize = 'cover';
+                            sphereEl.style.backgroundPosition = 'center';
+                        }
+                    } catch (e) {
+                        console.error('[GizmoManager] Failed to render 3D glass thumbnail:', e);
                     }
                 }
             }
