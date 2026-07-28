@@ -132,23 +132,23 @@ export class MaterialGizmo extends THREE.Group {
     setHighlight(mesh, matIndex, active) {
         if (!mesh || !mesh.material) return;
         const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        if (mats[matIndex] && mats[matIndex].type !== 'MeshBasicMaterial') {
-            const mat = mats[matIndex];
-            if (mat.emissive !== undefined) {
+        const targetMat = (matIndex !== undefined && matIndex !== -1 && mats[matIndex]) ? mats[matIndex] : mats[0];
+        if (targetMat && targetMat.type !== 'MeshBasicMaterial') {
+            if (targetMat.emissive !== undefined) {
                 if (active) {
-                    if (mat.userData.origEmissive === undefined) { 
-                        mat.userData.origEmissive = mat.emissive.getHex(); 
-                        mat.userData.origEmissiveIntensity = mat.emissiveIntensity || 0; 
+                    if (targetMat.userData.origEmissive === undefined) { 
+                        targetMat.userData.origEmissive = targetMat.emissive.getHex(); 
+                        targetMat.userData.origEmissiveIntensity = targetMat.emissiveIntensity || 0; 
                     }
-                    mat.emissive.setHex(0x00ff00); 
-                    mat.emissiveIntensity = 0.8;
+                    targetMat.emissive.setHex(0x00ff00); 
+                    targetMat.emissiveIntensity = 0.8;
                 } else {
-                    if (mat.userData.origEmissive !== undefined) { 
-                        mat.emissive.setHex(mat.userData.origEmissive); 
-                        mat.emissiveIntensity = mat.userData.origEmissiveIntensity; 
+                    if (targetMat.userData.origEmissive !== undefined) { 
+                        targetMat.emissive.setHex(targetMat.userData.origEmissive); 
+                        targetMat.emissiveIntensity = targetMat.userData.origEmissiveIntensity; 
                     }
                 }
-                mat.needsUpdate = true;
+                targetMat.needsUpdate = true;
             }
         }
     }

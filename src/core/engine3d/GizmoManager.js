@@ -824,15 +824,18 @@ export class GizmoManager {
                         }
                         
                         // Fix stale activeObject if the mesh was rebuilt by sync-engine
-                        if (this.activeObject && this.activeObject.name && realSelectedObj) {
-                            let foundNewActive = null;
-                            realSelectedObj.traverse(child => {
-                                if (child.isMesh && child.name === this.activeObject.name) {
-                                    foundNewActive = child;
+                        if (this.activeObject && realSelectedObj) {
+                            const targetKey = this.activeObject.name || this.activeObject.userData?.subMeshKey;
+                            if (targetKey) {
+                                let foundNewActive = null;
+                                realSelectedObj.traverse(child => {
+                                    if (child.isMesh && (child.name === targetKey || child.userData?.subMeshKey === targetKey)) {
+                                        foundNewActive = child;
+                                    }
+                                });
+                                if (foundNewActive) {
+                                    this.activeObject = foundNewActive;
                                 }
-                            });
-                            if (foundNewActive) {
-                                this.activeObject = foundNewActive;
                             }
                         }
                         
@@ -877,9 +880,7 @@ export class GizmoManager {
                                         
                                         const config = (key && registry[key]) ? registry[key] : (key ? (WINDOW_GLASS_MATERIALS[key] || MARBLE_REGISTRY[key] || STONE_REGISTRY[key] || METAL_REGISTRY[key] || WALL_DECOR_REGISTRY[key]) : null);
                                         if (config) {
-                                            MaterialFactory.applyPBRMaterial(this.activeObject, config, this.ctx, this.activeMatIndex).then(() => {
-                                                // Event if needed
-                                            });
+                                            MaterialFactory.applyPBRMaterial(this.activeObject, config, this.ctx, this.activeMatIndex);
                                         } else {
                                             newMat.map = null;
                                             let fColor = 0xffffff;
@@ -899,7 +900,6 @@ export class GizmoManager {
                                 
                                 entity.applyMaterial({ target, key, newMat, activeMatIndex: this.activeMatIndex, activeObject: this.activeObject, ctx: this.ctx });
                                 highlightSelectedThumb(key);
-                                  
                             } else {
                                 // Legacy Fallback for other entities
                                 if (entity.type === 'door') {
@@ -923,8 +923,14 @@ export class GizmoManager {
                                     }
                                 } else if ((selectedObj && selectedObj.userData && selectedObj.userData.isFurniture) || (entity && (entity.type === 'furniture' || entity.isFurniture))) {
                                     entity.params.materialOverrides = entity.params.materialOverrides || {};
-                                    if (this.activeObject && this.activeObject.name) {
-                                        entity.params.materialOverrides[this.activeObject.name] = key;
+                                    if (this.activeObject) {
+                                        const meshName = this.activeObject.name || this.activeObject.userData?.subMeshKey || '';
+                                        if (meshName) {
+                                            entity.params.materialOverrides[meshName] = key;
+                                            if (this.activeMatIndex !== undefined && this.activeMatIndex !== -1 && Array.isArray(this.activeObject.material)) {
+                                                entity.params.materialOverrides[`${meshName}::mat_${this.activeMatIndex}`] = key;
+                                            }
+                                        }
                                     }
                                 } else {
                                     if (target === 'top') targetParams.textureTop = key;
@@ -936,61 +942,48 @@ export class GizmoManager {
                                 }
                                 
                                 highlightSelectedThumb(key);
-                                  
                                 
                                 const isFurnitureMat = (selectedObj && selectedObj.userData && selectedObj.userData.isFurniture) || (entity && (entity.type === 'furniture' || entity.isFurniture));
                                 const isValidMatIndex = this.activeMatIndex !== undefined && this.activeMatIndex !== -1;
                                 
                                 if (this.activeObject && (isValidMatIndex || isFurnitureMat)) {
                                     const matIndexToUse = isValidMatIndex ? this.activeMatIndex : -1;
-                                    const mats = Array.isArray(this.activeObject.material) ? this.activeObject.material : [this.activeObject.material];
-                                    if (mats[matIndexToUse === -1 ? 0 : matIndexToUse] || isFurnitureMat) {
-                                        let registry = WALL_DECOR_REGISTRY;
-                                        if (entity) {
-                                            if (entity.type === 'door' || entity.type === 'window') registry = Object.assign({}, DOOR_MATERIALS_REGISTRY, WINDOW_GLASS_MATERIALS);
+                                    const resolveMatConf = (matKey) => {
+                                        if (!matKey) return null;
+                                        return FABRIC_REGISTRY[matKey] ||
+                                               DOOR_MATERIALS_REGISTRY[matKey] ||
+                                               WINDOW_GLASS_MATERIALS[matKey] ||
+                                               MARBLE_REGISTRY[matKey] ||
+                                               STONE_REGISTRY[matKey] ||
+                                               METAL_REGISTRY[matKey] ||
+                                               PLASTIC_REGISTRY[matKey] ||
+                                               LEATHER_REGISTRY[matKey] ||
+                                               WALL_DECOR_REGISTRY[matKey] ||
+                                               ROOF_DECOR_REGISTRY[matKey] ||
+                                               FLOOR_REGISTRY[matKey] ||
+                                               (typeof matKey === 'object' ? matKey : null);
+                                    };
+                                    const config = resolveMatConf(key);
+                                    if (config) {
+                                        MaterialFactory.applyPBRMaterial(this.activeObject, config, this.ctx, matIndexToUse).then(() => {
                                             if (isFurnitureMat) {
-                                                registry = Object.assign({}, FABRIC_REGISTRY, DOOR_MATERIALS_REGISTRY, WINDOW_GLASS_MATERIALS);
-                                            }
-                                        }
-                                        const config = (key && registry[key]) ? registry[key] : (key ? (WINDOW_GLASS_MATERIALS[key] || MARBLE_REGISTRY[key] || STONE_REGISTRY[key] || METAL_REGISTRY[key] || WALL_DECOR_REGISTRY[key]) : null);
-                                        if (config) {
-                                            MaterialFactory.applyPBRMaterial(this.activeObject, config, this.ctx, matIndexToUse).then(() => {
-                                                // Update local params for persistence
-                                                if (isFurnitureMat) {
-                                                    const meshName = (this.activeObject && this.activeObject.name) ? this.activeObject.name : '';
-                                                    if (meshName) {
-                                                        const p = selectedObj.userData.entity.params || {};
-                                                        p.materialOverrides = p.materialOverrides || {};
-                                                        p.materialOverrides[meshName] = key;
-                                                        
-                                                        if (selectedObj.userData.entity) {
-                                                            selectedObj.userData.entity.params.materialOverrides = p.materialOverrides;
-                                                        }
+                                                const meshName = this.activeObject.name || this.activeObject.userData?.subMeshKey || '';
+                                                if (meshName) {
+                                                    const p = selectedObj.userData.entity.params || {};
+                                                    p.materialOverrides = p.materialOverrides || {};
+                                                    p.materialOverrides[meshName] = key;
+                                                    if (matIndexToUse !== -1 && Array.isArray(this.activeObject.material)) {
+                                                        p.materialOverrides[`${meshName}::mat_${matIndexToUse}`] = key;
                                                     }
-                                                    
-                                                    // Auto-close the UI to provide clear closure for monolithic objects
-                                                    this.setTransformMode('none');
+                                                    if (selectedObj.userData.entity) {
+                                                        selectedObj.userData.entity.params.materialOverrides = p.materialOverrides;
+                                                    }
                                                 }
-                                            });
-                                        } else {
-                                            const newMat = (mats[matIndexToUse === -1 ? 0 : matIndexToUse] || mats[0]).clone();
-                                            newMat.map = null;
-                                            let fColor = 0xffffff;
-                                            if (entity && entity.fasciaMat === 'dark_grey') fColor = 0x333333;
-                                            else if (entity && entity.fasciaMat === 'stone') fColor = 0xa8a29e;
-                                            else if (entity && entity.fasciaMat === 'wood') fColor = 0x8b5a2b;
-                                            newMat.color.setHex(fColor);
-                                            
-                                            if (Array.isArray(this.activeObject.material)) {
-                                                if (!entity.supportsLiveMaterialPipeline) {
-                                                    this.activeObject.material[matIndexToUse === -1 ? 0 : matIndexToUse] = newMat;
-                                                }
-                                            } else {
-                                                if (!entity.supportsLiveMaterialPipeline) {
-                                                    this.activeObject.material = newMat;
+                                                if (this.ctx.interactions && this.ctx.interactions.materialGizmo) {
+                                                    this.ctx.interactions.materialGizmo.setHighlight(this.activeObject, matIndexToUse, true);
                                                 }
                                             }
-                                        }
+                                        });
                                     }
                                 }
                                 
@@ -2052,9 +2045,12 @@ export class GizmoManager {
                     }
                 } else if (isFurnitureMat) {
                     entity.params.materialOverrides = entity.params.materialOverrides || {};
-                    const meshName = (this.activeObject && this.activeObject.name) ? this.activeObject.name : '';
+                    const meshName = (this.activeObject && (this.activeObject.name || this.activeObject.userData?.subMeshKey)) ? (this.activeObject.name || this.activeObject.userData?.subMeshKey) : '';
                     if (meshName) {
                         entity.params.materialOverrides[meshName] = matKey;
+                        if (this.activeMatIndex !== undefined && this.activeMatIndex !== -1 && Array.isArray(this.activeObject.material)) {
+                            entity.params.materialOverrides[`${meshName}::mat_${this.activeMatIndex}`] = matKey;
+                        }
                     }
                 } else {
                     if (target === 'top') targetParams.textureTop = matKey;

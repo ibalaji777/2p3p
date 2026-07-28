@@ -516,6 +516,7 @@ export class InteractionSystem {
             if (this.transformControls) this.transformControls.detach();
             if (this.openingGizmo) this.openingGizmo.detach();
             if (this.cornerGizmo) this.cornerGizmo.detach();
+            this.setHighlight(this.selectedObject, false);
             if (this.materialGizmo) this.materialGizmo.attach(this.selectedObject);
         } else if (mode === 'opening') {
             if (this.transformControls) this.transformControls.detach();
@@ -581,6 +582,7 @@ export class InteractionSystem {
 
     setHighlight(group, active, color = 0x3b82f6) {
         if (!group) return;
+        if (active && this.ctx.currentTransformMode === 'material') return;
         group.traverse((child) => {
             if (child.isMesh && !child.userData.isHitbox && child.material && child.material.type !== 'MeshBasicMaterial') {
                 const mats = Array.isArray(child.material) ? child.material : [child.material];

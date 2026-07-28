@@ -965,6 +965,74 @@ export class FurnitureManager {
                 if (child.isMesh && !child.userData.isHitbox) { child.castShadow = true; child.receiveShadow = true; this.ctx.interactables.push(child); } 
             });
 
+            // Ensure every mesh child has a unique, deterministic name/subMeshKey and un-shared material instance
+            let meshIdxCount = 0;
+            const usedNamesMap = new Map();
+            wrapper.traverse((child) => {
+                if (child.isMesh && !child.userData.isHitbox) {
+                    if (child.material) {
+                        child.material = Array.isArray(child.material)
+                            ? child.material.map(m => m.clone())
+                            : child.material.clone();
+                    }
+                    let base = child.name ? child.name.trim() : '';
+                    if (!base) base = `submesh_${meshIdxCount}`;
+                    let count = usedNamesMap.get(base) || 0;
+                    let finalName = base;
+                    if (count > 0) finalName = `${base}_${count}`;
+                    usedNamesMap.set(base, count + 1);
+                    usedNamesMap.set(finalName, (usedNamesMap.get(finalName) || 0) + 1);
+                    child.name = finalName;
+                    child.userData.subMeshKey = finalName;
+                    meshIdxCount++;
+                }
+            });
+
+            // Apply material overrides to specific submeshes / material slots
+            let overridePromises = [];
+            if (entity.params && entity.params.materialOverrides) {
+                wrapper.traverse((child) => {
+                    if (child.isMesh && child.material && !child.userData.isHitbox) {
+                        child.material = Array.isArray(child.material) ? child.material.map(m => m.clone()) : child.material.clone();
+                        child.userData.entity = entity;
+                        
+                        const mats = Array.isArray(child.material) ? child.material : [child.material];
+                        mats.forEach((mat, matIdx) => {
+                            const meshKey = child.name || child.userData.subMeshKey;
+                            const keyWithMatIndex = Array.isArray(child.material) ? `${meshKey}::mat_${matIdx}` : meshKey;
+                            const matKey = entity.params.materialOverrides[keyWithMatIndex] || entity.params.materialOverrides[meshKey];
+                            
+                            if (matKey) {
+                                const targetMatIndex = Array.isArray(child.material) ? matIdx : -1;
+                                if (typeof matKey === 'string' && (matKey.includes('::pattern::') || (FABRIC_REGISTRY && FABRIC_REGISTRY[matKey]))) {
+                                    overridePromises.push(resolveFabricConfig(matKey).then(fConf => {
+                                        if (fConf) {
+                                            return MaterialFactory.applyPBRMaterial(child, fConf, this.ctx, targetMatIndex);
+                                        }
+                                    }));
+                                } else {
+                                    let fConf = (DOOR_MATERIALS_REGISTRY && DOOR_MATERIALS_REGISTRY[matKey]) ||
+                                                (WALL_DECOR_REGISTRY && WALL_DECOR_REGISTRY[matKey]) ||
+                                                (WINDOW_GLASS_MATERIALS && WINDOW_GLASS_MATERIALS[matKey]) ||
+                                                (MARBLE_REGISTRY && MARBLE_REGISTRY[matKey]) ||
+                                                (STONE_REGISTRY && STONE_REGISTRY[matKey]) ||
+                                                (METAL_REGISTRY && METAL_REGISTRY[matKey]) ||
+                                                (PLASTIC_REGISTRY && PLASTIC_REGISTRY[matKey]) ||
+                                                (FABRIC_REGISTRY && FABRIC_REGISTRY[matKey]);
+                                    if (fConf) {
+                                        overridePromises.push(MaterialFactory.applyPBRMaterial(child, fConf, this.ctx, targetMatIndex));
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
+            }
+
+            if (overridePromises.length > 0) {
+                await Promise.all(overridePromises);
+            }
+
             const safeW = size.x > 0 ? size.x : 1, safeH = size.y > 0 ? size.y : 1, safeD = size.z > 0 ? size.z : 1;
             wrapper.userData = { isFurniture: true, entity: entity, originalSize: new THREE.Vector3(safeW, safeH, safeD) };
             entity.mesh3D = wrapper;

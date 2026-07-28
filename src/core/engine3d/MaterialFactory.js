@@ -58,10 +58,14 @@ export class MaterialFactory {
             if (current) targetEntity = current.userData.entity;
         }
 
-        // Calculate UV Density based on real-world dimensions (defaultTileSize or fixed config.repeat)
+        // Calculate UV Density based on real-world dimensions (defaultRepeat, config.repeat, or defaultTileSize)
         let repeatScale = 1;
-        if (config.repeat) {
+        if (config.repeat !== undefined) {
             repeatScale = config.repeat;
+        } else if (config.defaultRepeat !== undefined) {
+            repeatScale = config.defaultRepeat;
+        } else if (config.id && (config.id.startsWith('wood_') || config.id.includes('wood') || config.type === 'wood')) {
+            repeatScale = 1;
         } else if (targetEntity) {
             const dim = Math.max(targetEntity.width || 100, targetEntity.height || 100);
             const ts = config.defaultTileSize || 40;
