@@ -221,11 +221,102 @@ export const STONE_REGISTRY = {
         thumbnail: 'textures/stones/stone_travertine_beige.png',
         roughness: 0.4, clearcoat: 0.2
     },
+    'stone_granite_black': {
+        id: 'stone_granite_black',
+        name: 'Polished Black Absolute Granite',
+        texture: 'textures/stones/stone_granite_black.png',
+        thumbnail: 'textures/stones/stone_granite_black.png',
+        roughness: 0.18, clearcoat: 0.75
+    },
+    'stone_sandstone_golden': {
+        id: 'stone_sandstone_golden',
+        name: 'Desert Golden Amber Sandstone',
+        texture: 'textures/stones/stone_sandstone_golden.png',
+        thumbnail: 'textures/stones/stone_sandstone_golden.png',
+        roughness: 0.7, clearcoat: 0.05
+    },
+    'stone_basalt_lava': {
+        id: 'stone_basalt_lava',
+        name: 'Volcanic Charcoal Basalt Stone',
+        texture: 'textures/stones/stone_basalt_lava.png',
+        thumbnail: 'textures/stones/stone_basalt_lava.png',
+        roughness: 0.6, clearcoat: 0.15
+    },
+    'stone_limestone_portuguese': {
+        id: 'stone_limestone_portuguese',
+        name: 'Portuguese Cream Limestone',
+        texture: 'textures/stones/stone_limestone_portuguese.png',
+        thumbnail: 'textures/stones/stone_limestone_portuguese.png',
+        roughness: 0.35, clearcoat: 0.3
+    },
     'stone_wall': {
         id: 'stone_wall',
         name: 'Rough Hewn Fieldstone',
         texture: 'models/wall/stone.png',
         thumbnail: 'models/wall/stone.png',
         roughness: 0.85
+    },
+    'brick_1_orange': {
+        id: 'brick_1_orange',
+        name: 'Orange Textured Brick Stone',
+        texture: 'models/wall/brick_1_orange.png',
+        thumbnail: 'models/wall/brick_1_orange.png',
+        roughness: 0.75
+    },
+    'brick_2_mixed': {
+        id: 'brick_2_mixed',
+        name: 'Mixed Brown Brick Stone',
+        texture: 'models/wall/brick_2_mixed.png',
+        thumbnail: 'models/wall/brick_2_mixed.png',
+        roughness: 0.75
+    },
+    'brick_3_red': {
+        id: 'brick_3_red',
+        name: 'Classic Red Brick Stone',
+        texture: 'models/wall/brick_3_red.png',
+        thumbnail: 'models/wall/brick_3_red.png',
+        roughness: 0.75
+    },
+    'brick_4_burgundy': {
+        id: 'brick_4_burgundy',
+        name: 'Dark Burgundy Brick Stone',
+        texture: 'models/wall/brick_4_burgundy.png',
+        thumbnail: 'models/wall/brick_4_burgundy.png',
+        roughness: 0.75
+    },
+    'brick_5_cream': {
+        id: 'brick_5_cream',
+        name: 'Cream Sand Brick Stone',
+        texture: 'models/wall/brick_5_cream.png',
+        thumbnail: 'models/wall/brick_5_cream.png',
+        roughness: 0.75
+    },
+    'brick_6_beige': {
+        id: 'brick_6_beige',
+        name: 'Light Beige Brick Stone',
+        texture: 'models/wall/brick_6_beige.png',
+        thumbnail: 'models/wall/brick_6_beige.png',
+        roughness: 0.75
+    },
+    'brick_7_yellow': {
+        id: 'brick_7_yellow',
+        name: 'Yellow Ochre Brick Stone',
+        texture: 'models/wall/brick_7_yellow.png',
+        thumbnail: 'models/wall/brick_7_yellow.png',
+        roughness: 0.75
+    },
+    'brick_8_white': {
+        id: 'brick_8_white',
+        name: 'White Grey Brick Stone',
+        texture: 'models/wall/brick_8_white.png',
+        thumbnail: 'models/wall/brick_8_white.png',
+        roughness: 0.75
+    },
+    'brick_9_grey': {
+        id: 'brick_9_grey',
+        name: 'Grey Brown Brick Stone',
+        texture: 'models/wall/brick_9_grey.png',
+        thumbnail: 'models/wall/brick_9_grey.png',
+        roughness: 0.75
     }
 };
