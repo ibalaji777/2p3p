@@ -20,47 +20,49 @@ export const WORKSPACE_2D_SHAPES = {
     'furniture': "M 0 0 L 100 0 L 100 100 L 0 100 Z",
 
     // Couches & Sofas
-    'couch': "M 5 5 C 5 2, 95 2, 95 5 L 95 95 C 95 98, 5 98, 5 95 Z M 5 25 L 95 25 M 20 25 L 20 95 M 80 25 L 80 95 M 50 25 L 50 95",
-    'sofa_l_shape': "M 5 5 L 95 5 L 95 40 L 40 40 L 40 95 L 5 95 Z M 5 25 L 95 25 M 25 5 L 25 95 M 40 40 L 40 25",
+    'couch': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 0 22 L 100 22 M 15 22 L 15 100 M 85 22 L 85 100 M 50 22 L 50 100",
+    'sofa_l_shape': "M 0 0 L 100 0 L 100 38 L 38 38 L 38 100 L 0 100 Z M 0 22 L 100 22 M 22 0 L 22 100",
+    'sofa_round': "M 50 0 A 50 50 0 1 0 50 100 A 50 50 0 1 0 50 0 Z M 10 50 C 10 15, 90 15, 90 50 M 25 30 L 48 20 L 54 36 L 31 46 Z M 46 20 L 68 16 L 74 32 L 52 36 Z",
+    'curved_sectional': "M 0 75 C 0 35, 45 0, 100 20 C 100 45, 78 55, 55 45 C 38 35, 20 65, 20 85 C 10 90, 0 85, 0 75 Z M 10 65 C 8 32, 48 10, 92 25",
 
     // Seating & Chairs
-    'chair': "M 10 10 L 90 10 L 90 90 L 10 90 Z M 10 30 L 90 30 M 25 30 L 25 90 M 75 30 L 75 90",
-    'armchair': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 5 25 L 95 25 M 20 25 L 20 95 M 80 25 L 80 95",
-    'bench': "M 5 15 L 95 15 L 95 85 L 5 85 Z M 5 35 L 95 35",
+    'chair': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 0 25 L 100 25 M 18 25 L 18 100 M 82 25 L 82 100",
+    'armchair': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 0 22 L 100 22 M 18 22 L 18 100 M 82 22 L 82 100",
+    'bench': "M 0 10 L 100 10 L 100 90 L 0 90 Z M 0 30 L 100 30",
 
     // Tables & Dining Sets
-    'table_round': "M 50 5 A 45 45 0 1 0 50 95 A 45 45 0 1 0 50 5 Z",
-    'circle': "M 50 5 A 45 45 0 1 0 50 95 A 45 45 0 1 0 50 5 Z",
-    'table_rectangular': "M 5 10 L 95 10 L 95 90 L 5 90 Z",
-    'dining_set': "M 20 20 L 80 20 L 80 80 L 20 80 Z M 30 5 L 70 5 L 70 15 L 30 15 Z M 30 85 L 70 85 L 70 95 L 30 95 Z M 5 30 L 15 30 L 15 70 L 5 70 Z M 85 30 L 95 30 L 95 70 L 85 70 Z",
+    'table_round': "M 50 0 A 50 50 0 1 0 50 100 A 50 50 0 1 0 50 0 Z",
+    'circle': "M 50 0 A 50 50 0 1 0 50 100 A 50 50 0 1 0 50 0 Z",
+    'table_rectangular': "M 0 0 L 100 0 L 100 100 L 0 100 Z",
+    'dining_set': "M 15 15 L 85 15 L 85 85 L 15 85 Z M 25 0 L 75 0 L 75 12 L 25 12 Z M 25 88 L 75 88 L 75 100 L 25 100 Z M 0 25 L 12 25 L 12 75 L 0 75 Z M 88 25 L 100 25 L 100 75 L 88 75 Z",
 
     // Beds
-    'bed': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 12 12 L 45 12 L 45 28 L 12 28 Z M 55 12 L 88 12 L 88 28 L 55 28 Z M 5 35 L 95 35",
+    'bed': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 5 8 L 46 8 L 46 28 L 5 28 Z M 54 8 L 95 8 L 95 28 L 54 28 Z M 0 32 L 100 32",
 
     // Kitchen Modules
     'kitchen_straight': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 0 20 L 100 20",
     'kitchen_l_shape': "M 0 0 L 100 0 L 100 35 L 35 35 L 35 100 L 0 100 Z",
     'kitchen_u_shape': "M 0 0 L 100 0 L 100 100 L 65 100 L 65 35 L 35 35 L 35 100 L 0 100 Z",
-    'kitchen_island': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 5 20 L 95 20",
+    'kitchen_island': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 0 18 L 100 18",
     'kitchen_tall_pantry': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 0 0 L 100 100 M 100 0 L 0 100",
 
     // Sinks & Appliances
-    'sink_standard': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 15 15 L 85 15 L 85 85 L 15 85 Z",
-    'sink_double': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 10 15 L 45 15 L 45 85 L 10 85 Z M 55 15 L 90 15 L 90 85 L 55 85 Z",
-    'sink_farmhouse': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 10 10 L 90 10 L 90 90 L 10 90 Z",
-    'tap': "M 45 10 L 55 10 L 55 50 L 45 50 Z M 35 50 L 65 50 L 65 90 L 35 90 Z",
-    'hood_chimney': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 25 25 L 75 25 L 75 75 L 25 75 Z",
-    'app_fridge': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 5 45 L 95 45",
-    'app_oven': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 15 15 A 35 35 0 1 0 85 15",
-    'app_microwave': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 15 15 L 70 15 L 70 85 L 15 85 Z",
-    'cooktop_induction': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 30 30 A 20 20 0 1 0 30 30.1 M 70 30 A 20 20 0 1 0 70 30.1 M 30 70 A 20 20 0 1 0 30 70.1 M 70 70 A 20 20 0 1 0 70 70.1",
+    'sink_standard': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 10 10 L 90 10 L 90 90 L 10 90 Z",
+    'sink_double': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 8 10 L 46 10 L 46 90 L 8 90 Z M 54 10 L 92 10 L 92 90 L 54 90 Z",
+    'sink_farmhouse': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 8 8 L 92 8 L 92 92 L 8 92 Z",
+    'tap': "M 45 0 L 55 0 L 55 45 L 45 45 Z M 35 45 L 65 45 L 65 95 L 35 95 Z",
+    'hood_chimney': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 20 20 L 80 20 L 80 80 L 20 80 Z",
+    'app_fridge': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 0 42 L 100 42",
+    'app_oven': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 10 10 A 40 40 0 1 0 90 10",
+    'app_microwave': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 10 10 L 75 10 L 75 90 L 10 90 Z",
+    'cooktop_induction': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 25 25 A 20 20 0 1 0 25 25.1 M 75 25 A 20 20 0 1 0 75 25.1 M 25 75 A 20 20 0 1 0 25 75.1 M 75 75 A 20 20 0 1 0 75 75.1",
 
     // Bathroom & Sanitary
-    'toilet_standard': "M 20 5 L 80 5 L 80 35 L 20 35 Z M 30 35 A 35 45 0 1 0 70 35 Z",
-    'sanitary_unit': "M 5 10 L 95 10 L 95 90 L 5 90 Z M 25 25 A 25 25 0 1 0 75 25 Z",
+    'toilet_standard': "M 15 0 L 85 0 L 85 30 L 15 30 Z M 25 30 A 35 45 0 1 0 75 30 Z",
+    'sanitary_unit': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 20 20 A 30 30 0 1 0 80 20 Z",
 
     // Entertainment & Storage
-    'tv_unit': "M 0 35 L 100 35 L 100 65 L 0 65 Z M 20 45 L 80 45 L 80 55 L 20 55 Z"
+    'tv_unit': "M 0 30 L 100 30 L 100 70 L 0 70 Z M 15 42 L 85 42 L 85 58 L 15 58 Z"
 };
 
 export const createDoorShape = (w, h, type = 'square') => {

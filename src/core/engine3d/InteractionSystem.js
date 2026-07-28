@@ -314,11 +314,11 @@ export class InteractionSystem {
                 const ent = e.object.userData.entity;
                 const id = ent.id || (ent.group && ent.group.id());
                 const endX = e.object.position.x;
-                const endY = -e.object.position.z;
+                const endY = e.object.position.z;
                 
                 if (Math.abs(endX - this.drag3DStartPos.x) > 0.001 || Math.abs(endY - this.drag3DStartPos.y) > 0.001) {
                     if (window.planner && window.planner.value) {
-                        e.object.position.set(this.drag3DStartPos.x, e.object.position.y, -this.drag3DStartPos.y);
+                        e.object.position.set(this.drag3DStartPos.x, e.object.position.y, this.drag3DStartPos.y);
                         window.planner.value.move(id, endX, endY);
                     }
                 }
@@ -336,12 +336,13 @@ export class InteractionSystem {
             if (e.object && e.object.userData && e.object.userData.entity && this.drag3DStartRot !== null) {
                 const ent = e.object.userData.entity;
                 const id = ent.id || (ent.group && ent.group.id());
-                const endRot = e.object.rotation.y;
+                const endRotRad = e.object.rotation.y;
                 
-                if (Math.abs(endRot - this.drag3DStartRot) > 0.001) {
+                if (Math.abs(endRotRad - this.drag3DStartRot) > 0.001) {
                     if (window.planner && window.planner.value) {
+                        const endRotDegrees = -(endRotRad * 180 / Math.PI);
                         e.object.rotation.y = this.drag3DStartRot;
-                        window.planner.value.rotate(id, endRot);
+                        window.planner.value.rotate(id, endRotDegrees);
                     }
                 }
                 this.drag3DStartRot = null;

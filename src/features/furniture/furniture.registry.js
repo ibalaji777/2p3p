@@ -179,8 +179,8 @@ export const FURNITURE_REGISTRY = {
         model: 'models/sofas/modern_sofa_1.glb',
         author: 'Jagguz_wrld (https://sketchfab.com/jagathkrishna148)',
         license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
-        default: { width: 200, height: 80, depth: 90, elevation: 0 },
-        shape2D: 'couch'
+        default: { width: 110, height: 85, depth: 110, elevation: 0 },
+        shape2D: 'sofa_round'
     },
     'sofa_l_shape': {
         id: 'sofa_l_shape', label: 'Premium L-Shape Sectional',
@@ -189,7 +189,7 @@ export const FURNITURE_REGISTRY = {
         author: 'Unknown',
         license: '(c) 2021 Wayfair, CC BY 4.0.',
         default: { width: 250, height: 80, depth: 150, elevation: 0 },
-        shape2D: 'sofa_l_shape'
+        shape2D: 'curved_sectional'
     },
     'sofa_chesterfield': {
         id: 'sofa_chesterfield', label: 'Chesterfield Sofa',
