@@ -130,6 +130,34 @@ export const METAL_REGISTRY = {
         texture: 'textures/metals/metal_brushed_aluminum.png',
         thumbnail: 'textures/metals/metal_brushed_aluminum.png',
         metalness: 0.88, roughness: 0.3, clearcoat: 0.05
+    },
+    'metal_diamond_tread': {
+        id: 'metal_diamond_tread',
+        name: 'Industrial Diamond Tread Steel',
+        texture: 'textures/metals/metal_diamond_tread.png',
+        thumbnail: 'textures/metals/metal_diamond_tread.png',
+        metalness: 0.92, roughness: 0.2, clearcoat: 0.1
+    },
+    'metal_damascus_steel': {
+        id: 'metal_damascus_steel',
+        name: 'Forged Damascus Wave Steel',
+        texture: 'textures/metals/metal_damascus_steel.png',
+        thumbnail: 'textures/metals/metal_damascus_steel.png',
+        metalness: 0.90, roughness: 0.25, clearcoat: 0.15
+    },
+    'metal_hammered_copper': {
+        id: 'metal_hammered_copper',
+        name: 'Faceted Hand-Hammered Copper',
+        texture: 'textures/metals/metal_hammered_copper.png',
+        thumbnail: 'textures/metals/metal_hammered_copper.png',
+        metalness: 0.94, roughness: 0.22, clearcoat: 0.2
+    },
+    'metal_brass_chevrons': {
+        id: 'metal_brass_chevrons',
+        name: 'Chevron Geometric Brushed Brass',
+        texture: 'textures/metals/metal_brass_chevrons.png',
+        thumbnail: 'textures/metals/metal_brass_chevrons.png',
+        metalness: 0.92, roughness: 0.18, clearcoat: 0.15
     }
 };
 
