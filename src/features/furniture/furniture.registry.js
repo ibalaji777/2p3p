@@ -20,13 +20,13 @@ export const FURNITURE_REGISTRY = {
     'kitchen_straight_upper': {
         id: 'kitchen_straight_upper', label: 'Straight Upper Cabinets',
         procedural: true,
-        default: { width: 240, height: 70, depth: 35 },
+        default: { width: 240, height: 70, depth: 35, elevation: 140 },
         shape2D: 'kitchen_straight'
     },
     'kitchen_l_shape_upper': {
         id: 'kitchen_l_shape_upper', label: 'L-Shape Upper Cabinets',
         procedural: true,
-        default: { width: 240, height: 70, depth: 240 },
+        default: { width: 240, height: 70, depth: 240, elevation: 140 },
         shape2D: 'kitchen_l_shape'
     },
     'kitchen_straight_shaker': {
@@ -44,19 +44,19 @@ export const FURNITURE_REGISTRY = {
     'kitchen_upper_glass': {
         id: 'kitchen_upper_glass', label: 'Glass Display Uppers',
         procedural: true,
-        default: { width: 240, height: 70, depth: 35 },
+        default: { width: 240, height: 70, depth: 35, elevation: 140 },
         shape2D: 'kitchen_straight'
     },
     'kitchen_upper_shelves': {
         id: 'kitchen_upper_shelves', label: 'Floating Wood Shelves',
         procedural: true,
-        default: { width: 240, height: 70, depth: 35 },
+        default: { width: 240, height: 70, depth: 35, elevation: 140 },
         shape2D: 'kitchen_straight'
     },
     'kitchen_u_shape_upper': {
         id: 'kitchen_u_shape_upper', label: 'U-Shape Upper Cabinets',
         procedural: true,
-        default: { width: 240, height: 70, depth: 240 },
+        default: { width: 240, height: 70, depth: 240, elevation: 140 },
         shape2D: 'kitchen_u_shape'
     },
     'sink_standard': {

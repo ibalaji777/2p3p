@@ -8,12 +8,14 @@ export class PremiumFurniture {
         this.planner = planner; 
         this.type = 'furniture'; 
         this.id = id || 'furn_' + Math.random().toString(36).substr(2, 9);
+        this.configId = configId;
         this.config = FURNITURE_REGISTRY[configId] || { default: { width: 100, depth: 100, height: 100 } };
         this.materialMode = 'MULTI_MESH';
         this.supportsLiveMaterialPipeline = false;
         this.width = this.config.default.width; 
         this.depth = this.config.default.depth; 
         this.height = this.config.default.height; 
+        this.elevation = (this.config.default && this.config.default.elevation !== undefined) ? this.config.default.elevation : 0;
         this.rotation = 0; 
         this.isDragging = false;
         this.group = new Konva.Group({ x: x, y: y, width: this.width, height: this.depth, draggable: true, offsetX: this.width / 2, offsetY: this.depth / 2 });

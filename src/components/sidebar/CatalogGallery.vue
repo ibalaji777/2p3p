@@ -351,13 +351,13 @@ const kitchenCatalog = ref([
     { id: 'kitchen_straight', name: 'Straight Kitchen', image: '', toolId: 'kitchen', params: { type: 'kitchen_straight', width: 240, height: 90, depth: 60 } },
     { id: 'kitchen_l_shape', name: 'L-Shape Kitchen', image: '', toolId: 'kitchen', params: { type: 'kitchen_l_shape', width: 240, height: 90, depth: 240 } },
     { id: 'kitchen_u_shape', name: 'U-Shape Kitchen', image: '', toolId: 'kitchen', params: { type: 'kitchen_u_shape', width: 240, height: 90, depth: 240 } },
-    { id: 'kitchen_straight_upper', name: 'Straight Upper Cabinets', image: '', toolId: 'kitchen', params: { type: 'kitchen_straight_upper', width: 240, height: 70, depth: 35 } },
-    { id: 'kitchen_l_shape_upper', name: 'L-Shape Upper Cabinets', image: '', toolId: 'kitchen', params: { type: 'kitchen_l_shape_upper', width: 240, height: 70, depth: 240 } },
-    { id: 'kitchen_u_shape_upper', name: 'U-Shape Upper Cabinets', image: '', toolId: 'kitchen', params: { type: 'kitchen_u_shape_upper', width: 240, height: 70, depth: 240 } },
+    { id: 'kitchen_straight_upper', name: 'Straight Upper Cabinets', image: '', toolId: 'kitchen', params: { type: 'kitchen_straight_upper', width: 240, height: 70, depth: 35, elevation: 140 } },
+    { id: 'kitchen_l_shape_upper', name: 'L-Shape Upper Cabinets', image: '', toolId: 'kitchen', params: { type: 'kitchen_l_shape_upper', width: 240, height: 70, depth: 240, elevation: 140 } },
+    { id: 'kitchen_u_shape_upper', name: 'U-Shape Upper Cabinets', image: '', toolId: 'kitchen', params: { type: 'kitchen_u_shape_upper', width: 240, height: 70, depth: 240, elevation: 140 } },
     { id: 'kitchen_straight_shaker', name: 'Classic Shaker Kitchen', image: '', toolId: 'kitchen', params: { type: 'kitchen_straight_shaker', width: 240, height: 90, depth: 60 } },
     { id: 'kitchen_straight_floating', name: 'Floating Base Kitchen', image: '', toolId: 'kitchen', params: { type: 'kitchen_straight_floating', width: 240, height: 90, depth: 60 } },
-    { id: 'kitchen_upper_glass', name: 'Glass Display Uppers', image: '', toolId: 'kitchen', params: { type: 'kitchen_upper_glass', width: 240, height: 70, depth: 35 } },
-    { id: 'kitchen_upper_shelves', name: 'Floating Wood Shelves', image: '', toolId: 'kitchen', params: { type: 'kitchen_upper_shelves', width: 240, height: 70, depth: 35 } },
+    { id: 'kitchen_upper_glass', name: 'Glass Display Uppers', image: '', toolId: 'kitchen', params: { type: 'kitchen_upper_glass', width: 240, height: 70, depth: 35, elevation: 140 } },
+    { id: 'kitchen_upper_shelves', name: 'Floating Wood Shelves', image: '', toolId: 'kitchen', params: { type: 'kitchen_upper_shelves', width: 240, height: 70, depth: 35, elevation: 140 } },
     { id: 'kitchen_island', name: 'Kitchen Island', image: '', toolId: 'kitchen', params: { type: 'kitchen_island', width: 240, height: 90, depth: 120 } },
     { id: 'kitchen_tall_pantry', name: 'Tall Pantry Cabinet', image: '', toolId: 'kitchen', params: { type: 'kitchen_tall_pantry', width: 60, height: 210, depth: 60 } }
 ]);

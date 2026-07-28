@@ -273,7 +273,7 @@ export class FurnitureManager {
                     
                     innerGroup.add(toe, bodyLower, bodyUpper, lDoorGroup, alGroup, uDoorGroup);
                 } else if (!type.includes('_upper')) {
-                    const backBase = buildRow(w, d, 'base', type);
+                    const backBase = buildRow(w, 60, 'base', type);
                     innerGroup.add(backBase);
                     
                     if (type === 'kitchen_l_shape' || type === 'kitchen_u_shape') {
@@ -290,7 +290,7 @@ export class FurnitureManager {
                         innerGroup.add(rightBase);
                     }
                 } else {
-                    const backUpper = buildRow(w, d, 'upper', type);
+                    const backUpper = buildRow(w, 35, 'upper', type);
                     innerGroup.add(backUpper);
                     
                     if (type.includes('l_shape') || type.includes('u_shape')) {
@@ -1051,15 +1051,24 @@ export class FurnitureManager {
         if (!entity || !entity.mesh3D || this.ctx.isUpdatingFrom3D) return;
         this.ctx.isUpdatingFromUI = true;
         const obj = entity.mesh3D;
-        obj.position.set(entity.group ? entity.group.x() : entity.x, entity.elevation || 0, entity.group ? entity.group.y() : entity.z);
+        const elev = entity.elevation !== undefined ? entity.elevation : (entity.config?.default?.elevation || 0);
+        const posX = entity.group ? entity.group.x() : (entity.x || 0);
+        const posZ = entity.group ? entity.group.y() : (entity.z !== undefined ? entity.z : (entity.y || 0));
+        obj.position.set(posX, elev, posZ);
         obj.rotation.set(
             entity.rotationX || 0,
             -(entity.rotation || 0) * (Math.PI / 180),
             entity.rotationZ || 0,
             'YXZ'
         );
-        const origSize = obj.userData.originalSize;
-        obj.scale.set(entity.width / origSize.x, entity.height / origSize.y, entity.depth / origSize.z);
+        const origSize = obj.userData.originalSize || new THREE.Vector3(1, 1, 1);
+        const targetW = entity.width || origSize.x || 1;
+        const targetH = entity.height || origSize.y || 1;
+        const targetD = entity.depth || origSize.z || 1;
+        const scaleX = (origSize.x > 0 && !isNaN(targetW)) ? targetW / origSize.x : 1;
+        const scaleY = (origSize.y > 0 && !isNaN(targetH)) ? targetH / origSize.y : 1;
+        const scaleZ = (origSize.z > 0 && !isNaN(targetD)) ? targetD / origSize.z : 1;
+        obj.scale.set(scaleX, scaleY, scaleZ);
         obj.updateMatrixWorld();
         this.ctx.isUpdatingFromUI = false;
     }
