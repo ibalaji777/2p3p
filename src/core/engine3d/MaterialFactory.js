@@ -3,6 +3,91 @@ import { resolveFabricConfig } from '../registry.js';
 
 export class MaterialFactory {
     /**
+     * Identifies if a material configuration originates from the central Material Library.
+     * @param {Object|string} config - The material key or configuration object.
+     * @returns {boolean} True if from Material Library, false if basic/default.
+     */
+    static isLibraryMaterial(config) {
+        if (!config) return false;
+        if (typeof config === 'string') {
+            return Boolean(
+                config.includes('wood') ||
+                config.includes('marble') ||
+                config.includes('stone') ||
+                config.includes('metal') ||
+                config.includes('door_') ||
+                config.includes('::pattern::') ||
+                config.includes('/')
+            );
+        }
+        return Boolean(config.id || config.texture || config.isLibrary || config.tileSize);
+    }
+
+    /**
+     * Automatically computes texture UV repeat scaling based on object physical dimensions and material tile size.
+     * For Material Library textures, applies real-world texel density.
+     * For non-library textures or basic fallbacks, defaults to standard 1x1 behavior.
+     * @param {THREE.Mesh} targetMesh - The mesh being rendered or textured.
+     * @param {Object} config - Material configuration object containing tileSize / repeat parameters.
+     * @returns {{repeatX: number, repeatY: number}} Calculated UV repeat factors.
+     */
+    static calculateTexelDensity(targetMesh, config = {}) {
+        if (!MaterialFactory.isLibraryMaterial(config) && !config.repeat && !config.tileSize) {
+            return { repeatX: 1, repeatY: 1 };
+        }
+
+        if (typeof config.repeat === 'object') {
+            return { repeatX: config.repeat.x || 1, repeatY: config.repeat.y || 1 };
+        } else if (typeof config.repeat === 'number') {
+            return { repeatX: config.repeat, repeatY: config.repeat };
+        } else if (config.defaultRepeat !== undefined) {
+            return { repeatX: config.defaultRepeat, repeatY: config.defaultRepeat };
+        }
+
+        // Determine real-world physical tile size (in cm)
+        let ts = config.realWorldSize || config.tileSize || config.defaultTileSize;
+        if (!ts) {
+            const matId = config.id || (typeof config === 'string' ? config : '');
+            if (matId.includes('marble')) ts = 160;
+            else if (matId.includes('wood')) ts = 150;
+            else if (matId.includes('metal')) ts = 120;
+            else if (matId.includes('stone') || matId.includes('brick')) ts = 60;
+            else ts = 60;
+        }
+
+        // Determine object physical dimensions
+        let width = 100, height = 100;
+        let targetEntity = targetMesh?.userData?.entity;
+        if (!targetEntity && targetMesh) {
+            let current = targetMesh;
+            while (current && !current.userData?.entity) {
+                current = current.parent;
+            }
+            if (current) targetEntity = current.userData.entity;
+        }
+
+        if (targetEntity) {
+            width = targetEntity.width || targetEntity.params?.width || 100;
+            height = targetEntity.height || targetEntity.params?.height || targetEntity.depth || 100;
+        } else if (targetMesh && targetMesh.geometry) {
+            if (!targetMesh.geometry.boundingBox) targetMesh.geometry.computeBoundingBox();
+            const box = targetMesh.geometry.boundingBox;
+            if (box) {
+                const sizeX = Math.abs(box.max.x - box.min.x);
+                const sizeY = Math.abs(box.max.y - box.min.y);
+                const sizeZ = Math.abs(box.max.z - box.min.z);
+                width = sizeX > 0.001 ? sizeX : 100;
+                height = Math.max(sizeY, sizeZ) > 0.001 ? Math.max(sizeY, sizeZ) : 100;
+            }
+        }
+
+        return {
+            repeatX: width / ts,
+            repeatY: height / ts
+        };
+    }
+
+    /**
      * Replaces or creates a PBR MeshStandardMaterial based on registry config.
      * @param {THREE.Mesh} targetMesh - The mesh to apply the material to.
      * @param {Object|string} config - The material configuration from the registry or composite key.
@@ -41,46 +126,14 @@ export class MaterialFactory {
         const [tex, normalTex, roughTex, aoTex, metalTex] = await Promise.all(fetches);
 
         // Shared Texture Lifetime Management: Detach references instead of disposing.
-        // Disposing would destroy the texture from the global AssetManager cache.
         if (newMat.map) newMat.map = null;
         if (newMat.normalMap) newMat.normalMap = null;
         if (newMat.roughnessMap) newMat.roughnessMap = null;
         if (newMat.aoMap) newMat.aoMap = null;
         if (newMat.metalnessMap) newMat.metalnessMap = null;
 
-        // Robust Entity Lookup for Imported GLB Models
-        let targetEntity = targetMesh.userData.entity;
-        if (!targetEntity) {
-            let current = targetMesh;
-            while (current && !current.userData.entity) {
-                current = current.parent;
-            }
-            if (current) targetEntity = current.userData.entity;
-        }
-
-        // Calculate UV Density based on real-world dimensions (defaultRepeat, config.repeat, or defaultTileSize)
-        let repeatX = 1, repeatY = 1;
-        if (typeof config.repeat === 'object') {
-            repeatX = config.repeat.x || 1;
-            repeatY = config.repeat.y || 1;
-        } else if (typeof config.repeat === 'number') {
-            repeatX = repeatY = config.repeat;
-        } else if (config.defaultRepeat !== undefined) {
-            repeatX = repeatY = config.defaultRepeat;
-        } else if (targetEntity) {
-            const w = targetEntity.width || targetEntity.params?.width || 100;
-            const h = targetEntity.height || targetEntity.params?.height || targetEntity.depth || 100;
-            let ts = config.defaultTileSize || config.tileSize;
-            if (!ts) {
-                if (config.id && (config.id.startsWith('marble_') || config.id.includes('marble'))) ts = 160;
-                else if (config.id && (config.id.startsWith('wood_') || config.id.includes('wood'))) ts = 150;
-                else if (config.id && (config.id.startsWith('metal_') || config.id.includes('metal'))) ts = 120;
-                else if (config.id && (config.id.startsWith('stone_') || config.id.includes('stone'))) ts = 60;
-                else ts = 60;
-            }
-            repeatX = w / ts;
-            repeatY = h / ts;
-        }
+        // Calculate UV Density automatically based on real-world dimensions & tile size
+        const { repeatX, repeatY } = MaterialFactory.calculateTexelDensity(targetMesh, config);
         
         // Setup shared texture properties (wrap, repeat, rotation, anisotropy)
         const setupTex = (t) => {
@@ -173,12 +226,13 @@ export class MaterialFactory {
         if (newMat.map) newMat.map.needsUpdate = true;
         newMat.needsUpdate = true;
 
-        if (newMat.map) newMat.map.needsUpdate = true;
-        newMat.needsUpdate = true;
-
         // Safely apply back to mesh
         if (materialIndex !== -1 && Array.isArray(targetMesh.material)) {
-            targetMesh.material[materialIndex] = newMat;
+            let targetIdx = materialIndex;
+            if (targetIdx >= targetMesh.material.length) {
+                targetIdx = targetMesh.material.length === 2 ? 0 : (targetMesh.material.length - 1);
+            }
+            targetMesh.material[targetIdx] = newMat;
         } else {
             targetMesh.material = newMat;
         }

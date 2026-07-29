@@ -3,6 +3,8 @@ import { Wall3DBuilder } from '../../features/wall/wall.renderer3d.js';
 import { Railing3DBuilder } from '../../features/railing/builders/Railing3DBuilder.js';
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
 import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, WALL_DECOR_REGISTRY, offsetPolygon } from '../registry.js';
+import { MaterialFactory } from './MaterialFactory.js';
+import { UniversalMaterialEngine } from './UniversalMaterialEngine.js';
 
 
 export class ActiveFloor {
@@ -19,10 +21,13 @@ export class ActiveFloor {
         
         this.helpers = {
             getDynamicMaterial: (matId, category) => {
-                let conf;
-                if (category === 'door') conf = DOOR_MATERIALS[matId] || DOOR_MATERIALS.wood;
-                else if (category === 'window_frame') conf = WINDOW_FRAME_MATERIALS[matId] || WINDOW_FRAME_MATERIALS.alum_powder;
-                else if (category === 'window_glass') conf = WINDOW_GLASS_MATERIALS[matId] || WINDOW_GLASS_MATERIALS.clear;
+                const rawKey = typeof matId === 'string' ? matId : (matId?.id || matId?.key || '');
+                let conf = UniversalMaterialEngine.resolveMaterialConfig(matId) || 
+                           (category === 'door' ? (DOOR_MATERIALS[rawKey] || DOOR_MATERIALS.wood) : null) ||
+                           (category === 'window_frame' ? (WINDOW_FRAME_MATERIALS[rawKey] || WINDOW_FRAME_MATERIALS.alum_powder) : null) ||
+                           (category === 'window_glass' ? (WINDOW_GLASS_MATERIALS[rawKey] || WINDOW_GLASS_MATERIALS.clear) : null) ||
+                           DOOR_MATERIALS[rawKey] || 
+                           DOOR_MATERIALS.wood;
                 
                 if (!conf) return new THREE.MeshStandardMaterial();
                 
@@ -339,9 +344,11 @@ export class ActiveFloor {
             if (floorConfig && floorConfig.texture) {
                 const tex = new THREE.TextureLoader().load(floorConfig.texture);
                 tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-                const repeatScale = room.materialRepeat || floorConfig.repeat || 1;
-                // Use a default size for calculating UV repeat if not specified, 100 is typically 1 unit in 3D
-                tex.repeat.set(1 / (100 * repeatScale), 1 / (100 * repeatScale));
+                const dummyMesh = new THREE.Mesh(floorGeo);
+                dummyMesh.userData = { entity: room };
+                const { repeatX, repeatY } = MaterialFactory.calculateTexelDensity(dummyMesh, floorConfig);
+                tex.repeat.set(repeatX, repeatY);
+                mat = new THREE.MeshStandardMaterial({ map: tex, roughness: floorConfig.roughness !== undefined ? floorConfig.roughness : 0.8, side: THREE.DoubleSide });
             } else if (floorConfig) {
                 mat = new THREE.MeshStandardMaterial({ color: floorConfig.color || 0xffffff, roughness: floorConfig.roughness !== undefined ? floorConfig.roughness : 0.8, side: THREE.DoubleSide });
             }

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { BIMMaterialSystem } from './BIMMaterialSystem.js';
 
 export class MaterialGizmo extends THREE.Group {
     constructor(ctx) {
@@ -46,14 +47,23 @@ export class MaterialGizmo extends THREE.Group {
             
             if (validIntersects.length > 0) {
                 const intersect = validIntersects[0];
-                
                 dom.style.cursor = 'crosshair';
                 
-                if (this.highlightedObject !== intersect.object || this.highlightedMatIndex !== intersect.face.materialIndex) {
+                let localNormal = null;
+                if (intersect.face && intersect.face.normal) {
+                    const normalMatrix = new THREE.Matrix3().getNormalMatrix(intersect.object.matrixWorld);
+                    const worldNormal = intersect.face.normal.clone().applyMatrix3(normalMatrix).normalize();
+                    const rootNormalMatrix = new THREE.Matrix3().getNormalMatrix(intersect.object.matrixWorld).invert();
+                    localNormal = worldNormal.clone().applyMatrix3(rootNormalMatrix).normalize();
+                }
+
+                const descriptor = BIMMaterialSystem.resolveBIMTarget(intersect.object, intersect.face?.materialIndex, localNormal, this.target?.userData?.entity);
+                
+                if (this.highlightedObject !== descriptor.mesh || this.highlightedMatIndex !== descriptor.targetMatIndex) {
                     this.clearHighlight();
-                    this.highlightedObject = intersect.object;
-                    this.highlightedMatIndex = intersect.face.materialIndex;
-                    this.setHighlight(this.highlightedObject, this.highlightedMatIndex, true);
+                    this.highlightedObject = descriptor.mesh;
+                    this.highlightedMatIndex = descriptor.targetMatIndex;
+                    BIMMaterialSystem.setBIMHighlight(descriptor, true);
                 }
             } else {
                 dom.style.cursor = 'auto';
@@ -85,41 +95,29 @@ export class MaterialGizmo extends THREE.Group {
                 const rootNormalMatrix = new THREE.Matrix3().getNormalMatrix(intersect.object.matrixWorld).invert();
                 const localNormal = worldNormal.clone().applyMatrix3(rootNormalMatrix).normalize();
                 
-                const absX = Math.abs(localNormal.x);
-                const absY = Math.abs(localNormal.y);
-                const absZ = Math.abs(localNormal.z);
-                let selectedFace = '';
-                if (absX > absY && absX > absZ) selectedFace = localNormal.x > 0 ? 'right' : 'left';
-                else if (absY > absX && absY > absZ) selectedFace = localNormal.y > 0 ? 'top' : 'bottom';
-                else selectedFace = localNormal.z > 0 ? 'front' : 'back';
+                const descriptor = BIMMaterialSystem.resolveBIMTarget(intersect.object, intersect.face.materialIndex, localNormal, this.target?.userData?.entity);
                 
                 e.preventDefault();
                 e.stopPropagation();
                 
                 this.isPanelOpen = true;
                 
-                if (this.highlightedObject !== intersect.object || this.highlightedMatIndex !== intersect.face.materialIndex) {
+                if (this.highlightedObject !== descriptor.mesh || this.highlightedMatIndex !== descriptor.targetMatIndex) {
                     this.clearHighlight();
                 }
                 
-                this.selectedFace = selectedFace;
+                this.activeDescriptor = descriptor;
+                this.selectedFace = descriptor.faceName;
+                this.activeObject = descriptor.mesh;
+                this.activeMatIndex = descriptor.targetMatIndex;
+                this.highlightedObject = descriptor.mesh;
+                this.highlightedMatIndex = descriptor.targetMatIndex;
                 
-                let subMeshIndex = -1;
-                if (this.target && this.target.isGroup) {
-                    const validChildren = this.target.children.filter(c => !c.userData.isHitbox);
-                    subMeshIndex = validChildren.indexOf(intersect.object);
-                }
-                
-                this.activeObject = intersect.object;
-                this.activeMatIndex = intersect.face.materialIndex;
-                
-                this.highlightedObject = this.activeObject;
-                this.highlightedMatIndex = this.activeMatIndex;
-                this.setHighlight(this.highlightedObject, this.highlightedMatIndex, true);
+                BIMMaterialSystem.setBIMHighlight(descriptor, true);
                 
                 // Dispatch event to Vue UI or GizmoManager
                 if (this.ctx.gizmoManager && this.ctx.gizmoManager.onMaterialFaceSelected) {
-                    this.ctx.gizmoManager.onMaterialFaceSelected(this.selectedFace, subMeshIndex, this.activeObject, this.activeMatIndex);
+                    this.ctx.gizmoManager.onMaterialFaceSelected(this.selectedFace, descriptor.subMeshIndex, this.activeObject, this.activeMatIndex, null, descriptor);
                 }
             }
         };
@@ -130,27 +128,9 @@ export class MaterialGizmo extends THREE.Group {
     }
 
     setHighlight(mesh, matIndex, active) {
-        if (!mesh || !mesh.material) return;
-        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        const targetMat = (matIndex !== undefined && matIndex !== -1 && mats[matIndex]) ? mats[matIndex] : mats[0];
-        if (targetMat && targetMat.type !== 'MeshBasicMaterial') {
-            if (targetMat.emissive !== undefined) {
-                if (active) {
-                    if (targetMat.userData.origEmissive === undefined) { 
-                        targetMat.userData.origEmissive = targetMat.emissive.getHex(); 
-                        targetMat.userData.origEmissiveIntensity = targetMat.emissiveIntensity || 0; 
-                    }
-                    targetMat.emissive.setHex(0x00ff00); 
-                    targetMat.emissiveIntensity = 0.8;
-                } else {
-                    if (targetMat.userData.origEmissive !== undefined) { 
-                        targetMat.emissive.setHex(targetMat.userData.origEmissive); 
-                        targetMat.emissiveIntensity = targetMat.userData.origEmissiveIntensity; 
-                    }
-                }
-                targetMat.needsUpdate = true;
-            }
-        }
+        if (!mesh) return;
+        const descriptor = BIMMaterialSystem.resolveBIMTarget(mesh, matIndex, null, this.target?.userData?.entity);
+        BIMMaterialSystem.setBIMHighlight(descriptor, active);
     }
 
     clearHighlight() {

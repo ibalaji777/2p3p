@@ -13,6 +13,9 @@ import { GizmoManager } from "./engine3d/GizmoManager.js";
 import { CameraController } from "./camera/CameraController.js";
 import { NavigationCube } from "./camera/NavigationCube.js";
 import { ThumbnailGenerator } from "./ThumbnailGenerator.js";
+import { MaterialFactory } from "./engine3d/MaterialFactory.js";
+import { UniversalMaterialEngine } from "./engine3d/UniversalMaterialEngine.js";
+import { BIMMaterialSystem } from "./engine3d/BIMMaterialSystem.js";
 export class Preview3D {
     constructor(containerEl) {
         this.container = containerEl;
@@ -49,18 +52,23 @@ export class Preview3D {
         
         this.helpers = {
             getDynamicMaterial: (matId, category) => {
-                let conf;
-                if (category === 'door') conf = DOOR_MATERIALS[matId] || DOOR_MATERIALS_REGISTRY[matId] || DOOR_MATERIALS.wood;
-                else if (category === 'window_frame') conf = WINDOW_FRAME_MATERIALS[matId] || DOOR_MATERIALS_REGISTRY[matId] || WALL_DECOR_REGISTRY[matId] || WINDOW_FRAME_MATERIALS.alum_powder;
-                else if (category === 'window_glass') conf = WINDOW_GLASS_MATERIALS[matId] || WINDOW_GLASS_MATERIALS.clear;
-                else if (category === 'fabric' || (typeof matId === 'string' && (matId.includes('::pattern::') || FABRIC_REGISTRY[matId]))) conf = FABRIC_REGISTRY[matId] || getFabricBaseConfig(matId);
+                const rawKey = typeof matId === 'string' ? matId : (matId?.id || matId?.key || '');
+                let conf = (window.BIMMaterialSystem && window.BIMMaterialSystem.resolveMaterialConfig(matId)) || 
+                           UniversalMaterialEngine.resolveMaterialConfig(matId) || 
+                           (category === 'door' ? (DOOR_MATERIALS[rawKey] || DOOR_MATERIALS_REGISTRY[rawKey]) : null) ||
+                           (category === 'window_frame' ? (WINDOW_FRAME_MATERIALS[rawKey] || WINDOW_FRAME_MATERIALS.alum_powder) : null) ||
+                           (category === 'window_glass' ? (WINDOW_GLASS_MATERIALS[rawKey] || WINDOW_GLASS_MATERIALS.clear) : null) ||
+                           DOOR_MATERIALS[rawKey] || 
+                           DOOR_MATERIALS_REGISTRY[rawKey] || 
+                           WALL_DECOR_REGISTRY[rawKey] || 
+                           DOOR_MATERIALS_REGISTRY['wood_golden_teak'];
                 
                 if (!conf) return new THREE.MeshStandardMaterial();
                 
                 let mat;
                 if (conf.transmission) {
                     mat = new THREE.MeshPhysicalMaterial({
-                        color: conf.color || 0xffffff,
+                        color: conf.color !== undefined ? conf.color : 0xffffff,
                         roughness: conf.roughness !== undefined ? conf.roughness : 0.5,
                         metalness: conf.metalness !== undefined ? conf.metalness : 0.1,
                         transmission: conf.transmission,
@@ -69,7 +77,7 @@ export class Preview3D {
                     });
                 } else {
                     mat = new THREE.MeshStandardMaterial({
-                        color: conf.color || 0xffffff,
+                        color: conf.color !== undefined ? conf.color : 0xffffff,
                         roughness: conf.roughness !== undefined ? conf.roughness : 0.5,
                         metalness: conf.metalness !== undefined ? conf.metalness : 0.1,
                         transparent: conf.transparent || false,
@@ -77,32 +85,48 @@ export class Preview3D {
                     });
                 }
                 
-                if ((category === 'door' || category === 'window_frame' || category === 'fabric') && (DOOR_MATERIALS_REGISTRY[matId] || WALL_DECOR_REGISTRY[matId] || FABRIC_REGISTRY[matId] || (typeof matId === 'string' && matId.includes('::pattern::'))) && this.assets) {
+                if (this.assets && (conf.texture || conf.map || conf.url || conf.image || (typeof matId === 'string' && matId.includes('::pattern::')))) {
                     const fetchTex = (typeof matId === 'string' && matId.includes('::pattern::'))
                         ? resolveFabricConfig(matId).then(c => c ? this.assets.getTexture(c) : null)
-                        : this.assets.getTexture(DOOR_MATERIALS_REGISTRY[matId] || WALL_DECOR_REGISTRY[matId] || FABRIC_REGISTRY[matId]);
+                        : this.assets.getTexture(conf);
+                        
                     fetchTex.then(tex => {
                         if (!tex) return;
-                        const texClone = tex.clone();
-                        texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                        // For thin frames/panels, a vertical repeat works best
-                        texClone.repeat.set(1, 2); 
-                        mat.map = texClone;
-                        mat.color.setHex(0xffffff); // clear base color to let texture show
-                        mat.needsUpdate = true;
+                        const applyTexToMat = (targetMat) => {
+                            const texClone = tex.clone();
+                            texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
+                            const { repeatX, repeatY } = MaterialFactory.calculateTexelDensity(null, conf);
+                            texClone.repeat.set(repeatX, repeatY); 
+                            targetMat.map = texClone;
+                            targetMat.color.setHex(0xffffff);
+                            targetMat.needsUpdate = true;
+                        };
+                        applyTexToMat(mat);
+                        if (this.materialClonesRegistry && this.materialClonesRegistry.has(mat)) {
+                            this.materialClonesRegistry.get(mat).forEach(clone => applyTexToMat(clone));
+                        }
+                    }).catch(() => {
+                        // Graceful fallback if texture is unavailable
                     });
                 }
                 
                 return mat;
             },
             getFaceMaterials: (entity, baseMaterial, dimensions) => {
-                let matSides = baseMaterial.clone();
-                let matTop = baseMaterial.clone();
-                let matBottom = baseMaterial.clone();
-                let matLeft = baseMaterial.clone();
-                let matRight = baseMaterial.clone();
-                let matFront = baseMaterial.clone();
-                let matBack = baseMaterial.clone();
+                const cloneMat = (base) => {
+                    const c = base.clone();
+                    if (!this.materialClonesRegistry) this.materialClonesRegistry = new WeakMap();
+                    if (!this.materialClonesRegistry.has(base)) this.materialClonesRegistry.set(base, new Set());
+                    this.materialClonesRegistry.get(base).add(c);
+                    return c;
+                };
+                let matSides = cloneMat(baseMaterial);
+                let matTop = cloneMat(baseMaterial);
+                let matBottom = cloneMat(baseMaterial);
+                let matLeft = cloneMat(baseMaterial);
+                let matRight = cloneMat(baseMaterial);
+                let matFront = cloneMat(baseMaterial);
+                let matBack = cloneMat(baseMaterial);
 
                 const w = dimensions?.width || entity?.width || entity?.params?.width || 100;
                 const h = dimensions?.height || entity?.height || entity?.params?.height || 100;
@@ -349,15 +373,22 @@ export class Preview3D {
     }
 
     updateMaterialLive(entity) {
-        if (!entity || !entity.mesh3D || this.isUpdatingFrom3D) return;
+        if (!entity || !entity.mesh3D || this.isUpdatingFrom3D) return false;
         const obj = entity.mesh3D;
         const parent = obj.parent;
-        if (!parent) return;
+        if (!parent) return false;
 
         let renderFunc = null;
         if (WIDGET_REGISTRY[entity.type]) renderFunc = WIDGET_REGISTRY[entity.type].render3D;
         else if (MOLDING_REGISTRY[entity.type]) renderFunc = MOLDING_REGISTRY[entity.type].render3D;
+        else if (DOOR_TYPES && DOOR_TYPES[entity.type]) renderFunc = DOOR_TYPES[entity.type].render3D;
+        else if (WINDOW_TYPES && WINDOW_TYPES[entity.type]) renderFunc = WINDOW_TYPES[entity.type].render3D;
+        else if (WALL_DECOR_REGISTRY && WALL_DECOR_REGISTRY[entity.type]) renderFunc = WALL_DECOR_REGISTRY[entity.type].render3D;
         else if (entity.type === 'pattern' && window.PATTERN_REGISTRY && window.PATTERN_REGISTRY[entity.patternType]) renderFunc = window.PATTERN_REGISTRY[entity.patternType].render3D;
+        else if ((entity.type === 'furniture' || entity.isFurniture) && window.FURNITURE_REGISTRY) {
+            const fConf = window.FURNITURE_REGISTRY[entity.furnitureType || entity.type];
+            if (fConf) renderFunc = fConf.render3D;
+        }
 
         if (renderFunc) {
             const oldMesh = obj;
@@ -394,7 +425,9 @@ export class Preview3D {
                     interactions.materialGizmo.attach(newMesh);
                 }
             }
+            return true;
         }
+        return false;
     }
 
     updateRoofLive(roof) {

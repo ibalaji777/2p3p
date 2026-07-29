@@ -3,6 +3,8 @@ import { coreEventBus } from '../EventBus.js';
 import * as THREE from 'three';
 import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY, FABRIC_REGISTRY, LEATHER_REGISTRY, FLOOR_REGISTRY, WINDOW_GLASS_MATERIALS, METAL_REGISTRY, STONE_REGISTRY, MARBLE_REGISTRY, PLASTIC_REGISTRY, parseCompositeMaterialKey, resolveFabricConfig, getFabricBaseConfig } from '../registry.js';
 import { MaterialFactory } from './MaterialFactory.js';
+import { UniversalMaterialEngine } from './UniversalMaterialEngine.js';
+import { BIMMaterialSystem } from './BIMMaterialSystem.js';
 import { glassPreviewRenderer } from './GlassPreviewRenderer.js';
 import { marblePreviewRenderer } from './MarblePreviewRenderer.js';
 import { patternManager } from '../services/pattern/PatternManager.js';
@@ -900,108 +902,18 @@ export class GizmoManager {
                                 
                                 entity.applyMaterial({ target, key, newMat, activeMatIndex: this.activeMatIndex, activeObject: this.activeObject, ctx: this.ctx });
                                 highlightSelectedThumb(key);
-                            } else {
-                                // Legacy Fallback for other entities
-                                if (entity.type === 'door') {
-                                    if (isFrame) {
-                                        entity.frameMat = key;
-                                    } else {
-                                        if (target === 'top') targetParams.textureTop = key;
-                                        else if (target === 'bottom') targetParams.textureBottom = key;
-                                        else if (target === 'left') targetParams.textureLeft = key;
-                                        else if (target === 'right') targetParams.textureRight = key;
-                                        else if (target === 'front') targetParams.textureFront = key;
-                                        else if (target === 'back') targetParams.textureBack = key;
-                                        else entity.doorMat = key;
-                                    }
-                                } else if (entity.type === 'window') {
-                                    const isGlass = this.activeObject && this.activeObject.userData && this.activeObject.userData.isGlass;
-                                    if (isGlass) {
-                                        entity.glassMat = key;
-                                    } else {
-                                        entity.frameMat = key;
-                                    }
-                                } else if ((selectedObj && selectedObj.userData && selectedObj.userData.isFurniture) || (entity && (entity.type === 'furniture' || entity.isFurniture))) {
-                                    entity.params.materialOverrides = entity.params.materialOverrides || {};
-                                    if (this.activeObject) {
-                                        const meshName = this.activeObject.name || this.activeObject.userData?.subMeshKey || '';
-                                        if (meshName) {
-                                            entity.params.materialOverrides[meshName] = key;
-                                            if (this.activeMatIndex !== undefined && this.activeMatIndex !== -1 && Array.isArray(this.activeObject.material)) {
-                                                entity.params.materialOverrides[`${meshName}::mat_${this.activeMatIndex}`] = key;
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    if (target === 'top') targetParams.textureTop = key;
-                                    else if (target === 'bottom') targetParams.textureBottom = key;
-                                    else if (target === 'left') targetParams.textureLeft = key;
-                                    else if (target === 'right') targetParams.textureRight = key;
-                                    else if (target === 'front') targetParams.textureFront = key;
-                                    else if (target === 'back') targetParams.textureBack = key;
-                                }
-                                
-                                highlightSelectedThumb(key);
-                                
-                                const isFurnitureMat = (selectedObj && selectedObj.userData && selectedObj.userData.isFurniture) || (entity && (entity.type === 'furniture' || entity.isFurniture));
-                                const isValidMatIndex = this.activeMatIndex !== undefined && this.activeMatIndex !== -1;
-                                
-                                if (this.activeObject && (isValidMatIndex || isFurnitureMat)) {
-                                    const matIndexToUse = isValidMatIndex ? this.activeMatIndex : -1;
-                                    const resolveMatConf = (matKey) => {
-                                        if (!matKey) return null;
-                                        return FABRIC_REGISTRY[matKey] ||
-                                               DOOR_MATERIALS_REGISTRY[matKey] ||
-                                               WINDOW_GLASS_MATERIALS[matKey] ||
-                                               MARBLE_REGISTRY[matKey] ||
-                                               STONE_REGISTRY[matKey] ||
-                                               METAL_REGISTRY[matKey] ||
-                                               PLASTIC_REGISTRY[matKey] ||
-                                               LEATHER_REGISTRY[matKey] ||
-                                               WALL_DECOR_REGISTRY[matKey] ||
-                                               ROOF_DECOR_REGISTRY[matKey] ||
-                                               FLOOR_REGISTRY[matKey] ||
-                                               (typeof matKey === 'object' ? matKey : null);
-                                    };
-                                    const config = resolveMatConf(key);
-                                    if (config) {
-                                        MaterialFactory.applyPBRMaterial(this.activeObject, config, this.ctx, matIndexToUse).then(() => {
-                                            if (isFurnitureMat) {
-                                                const meshName = this.activeObject.name || this.activeObject.userData?.subMeshKey || '';
-                                                if (meshName) {
-                                                    const p = selectedObj.userData.entity.params || {};
-                                                    p.materialOverrides = p.materialOverrides || {};
-                                                    p.materialOverrides[meshName] = key;
-                                                    if (matIndexToUse !== -1 && Array.isArray(this.activeObject.material)) {
-                                                        p.materialOverrides[`${meshName}::mat_${matIndexToUse}`] = key;
-                                                    }
-                                                    if (selectedObj.userData.entity) {
-                                                        selectedObj.userData.entity.params.materialOverrides = p.materialOverrides;
-                                                    }
-                                                }
-                                                if (this.ctx.interactions && this.ctx.interactions.materialGizmo) {
-                                                    this.ctx.interactions.materialGizmo.setHighlight(this.activeObject, matIndexToUse, true);
-                                                }
-                                            }
-                                        });
-                                    }
-                                }
-                                
-                                if (!isFurnitureMat) {
-                                    // Avoid reactive reset for furniture
-                                }
-                                
-                                if (entity.supportsLiveMaterialPipeline) {
-                                    if (this.ctx.updateMaterialLive) {
-                                        this.ctx.updateMaterialLive(entity);
-                                        if (this.ctx.interactions && this.ctx.interactions.materialGizmo) {
-                                            setTimeout(() => this.ctx.interactions.materialGizmo.updateHighlights(), 10);
-                                        }
-                                    } else if (this.ctx.updateShapeLive) {
-                                        this.ctx.updateShapeLive(entity);
-                                    }
-                                }
-                            }
+                             } else {
+                                 // CAD/BIM Material System for all material types
+                                 const targetMeshToUse = this.activeObject || selectedObj;
+                                 const descriptor = this.activeDescriptor || BIMMaterialSystem.resolveBIMTarget(
+                                     targetMeshToUse,
+                                     this.activeMatIndex,
+                                     null,
+                                     entity
+                                 );
+                                 BIMMaterialSystem.applyBIMMaterial(descriptor, key, this.ctx);
+                                 highlightSelectedThumb(key);
+                             }
                         }
                     });
                 });
@@ -1076,6 +988,14 @@ export class GizmoManager {
         this.activeSubMeshIndex = subMeshIndex;
         this.activeObject = activeObject;
         this.activeMatIndex = activeMatIndex;
+        
+        if (activeObject && window.BIMMaterialSystem) {
+            try {
+                this.activeDescriptor = BIMMaterialSystem.resolveBIMTarget(activeObject, activeMatIndex, null, activeObject?.userData?.entity);
+            } catch (e) {
+                console.warn("BIM Selection Error:", e);
+            }
+        }
         if (this.materialPanel) {
             this.materialPanel.style.display = 'flex';
             setTimeout(() => this.materialPanel.classList.add('active'), 10);
@@ -2013,63 +1933,17 @@ export class GizmoManager {
             const isFurnitureMat = (realSelectedObj && realSelectedObj.userData && realSelectedObj.userData.isFurniture) || (entity && (entity.type === 'furniture' || entity.isFurniture));
 
             const targetMeshToUse = this.activeObject || this._modalTargetMesh || realSelectedObj;
-            const matIndexToUse = (this.activeMatIndex !== undefined && this.activeMatIndex !== -1) ? this.activeMatIndex : -1;
+            const descriptor = this.activeDescriptor || BIMMaterialSystem.resolveBIMTarget(
+                targetMeshToUse,
+                this.activeMatIndex,
+                null,
+                entity
+            );
 
-            const applyPBRToTarget = (obj) => {
-                if (!obj) return;
-                if (obj.isMesh) {
-                    MaterialFactory.applyPBRMaterial(obj, config, this.ctx, matIndexToUse);
-                } else if (typeof obj.traverse === 'function') {
-                    obj.traverse((child) => {
-                        if (child && child.isMesh) {
-                            MaterialFactory.applyPBRMaterial(child, config, this.ctx, -1);
-                        }
-                    });
-                }
-            };
+            BIMMaterialSystem.applyBIMMaterial(descriptor, matKey, this.ctx);
 
             if (typeof entity.applyMaterial === 'function') {
-                applyPBRToTarget(targetMeshToUse);
                 entity.applyMaterial({ target, key: matKey, activeMatIndex: this.activeMatIndex, activeObject: this.activeObject, ctx: this.ctx });
-            } else {
-                if (entity.type === 'door') {
-                    if (isFrame) entity.frameMat = matKey;
-                    else {
-                        if (target === 'top') targetParams.textureTop = matKey;
-                        else if (target === 'bottom') targetParams.textureBottom = matKey;
-                        else if (target === 'left') targetParams.textureLeft = matKey;
-                        else if (target === 'right') targetParams.textureRight = matKey;
-                        else if (target === 'front') targetParams.textureFront = matKey;
-                        else if (target === 'back') targetParams.textureBack = matKey;
-                        else entity.doorMat = matKey;
-                    }
-                } else if (isFurnitureMat) {
-                    entity.params.materialOverrides = entity.params.materialOverrides || {};
-                    const meshName = (this.activeObject && (this.activeObject.name || this.activeObject.userData?.subMeshKey)) ? (this.activeObject.name || this.activeObject.userData?.subMeshKey) : '';
-                    if (meshName) {
-                        entity.params.materialOverrides[meshName] = matKey;
-                        if (this.activeMatIndex !== undefined && this.activeMatIndex !== -1 && Array.isArray(this.activeObject.material)) {
-                            entity.params.materialOverrides[`${meshName}::mat_${this.activeMatIndex}`] = matKey;
-                        }
-                    }
-                } else {
-                    if (target === 'top') targetParams.textureTop = matKey;
-                    else if (target === 'bottom') targetParams.textureBottom = matKey;
-                    else if (target === 'left') targetParams.textureLeft = matKey;
-                    else if (target === 'right') targetParams.textureRight = matKey;
-                    else if (target === 'front') targetParams.textureFront = matKey;
-                    else if (target === 'back') targetParams.textureBack = matKey;
-                }
-                
-                applyPBRToTarget(targetMeshToUse);
-                
-                if (entity.supportsLiveMaterialPipeline) {
-                    if (this.ctx.updateMaterialLive) {
-                        this.ctx.updateMaterialLive(entity);
-                    } else if (this.ctx.updateShapeLive) {
-                        this.ctx.updateShapeLive(entity);
-                    }
-                }
             }
 
             if (this.ctx && typeof this.ctx.requestRender === 'function') {

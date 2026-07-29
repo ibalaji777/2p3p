@@ -52,8 +52,9 @@ export class AssetManager {
             
             return texture;
         }).catch(e => {
-            console.error(`[AssetManager] Failed to load texture at ${url}. Check your public/ folder!`, e);
-            throw e;
+            console.warn(`[AssetManager] Texture missing or unreadable at ${url}, falling back to null.`);
+            this.cache.delete(cacheKey);
+            return null;
         });
         
         this.cache.set(cacheKey, loadPromise);

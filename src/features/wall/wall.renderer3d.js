@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, RAILING_REGISTRY } from '../../core/registry.js';
+import { MaterialFactory } from '../../core/engine3d/MaterialFactory.js';
 
 export class Wall3DBuilder {
     constructor() {
@@ -167,7 +168,8 @@ export class Wall3DBuilder {
                 if (rConf.texture) {
                     const tex = new THREE.TextureLoader().load(rConf.texture);
                     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-                    tex.repeat.set(length / (100 * (rConf.repeat || 1)), wallHeight / (100 * (rConf.repeat || 1)));
+                    const { repeatX, repeatY } = MaterialFactory.calculateTexelDensity(null, { repeat: rConf.repeat, tileSize: 100 });
+                    tex.repeat.set(repeatX * (length / 100), repeatY * (wallHeight / 100));
                     railMat = new THREE.MeshStandardMaterial({ map: tex, roughness: rConf.roughness || 0.8, side: THREE.DoubleSide });
                     railMat = new THREE.MeshStandardMaterial({ 
                         color: rConf.color || 0xffffff, roughness: rConf.roughness || 0.3, 

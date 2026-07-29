@@ -109,7 +109,7 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         const groove1 = new THREE.Mesh(grooveGeo, mats); groove1.position.set(0, botRailH * 0.4, 0); group.add(groove1);
         const groove2 = new THREE.Mesh(grooveGeo, mats); groove2.position.set(0, botRailH * 0.7, 0); group.add(groove2);
 
-        const glassMat = helpers.getDynamicMaterial('glass', 'door'); const geoGlass = new THREE.BoxGeometry(width - frameW*2, height - topRailH - botRailH, thickness * 0.4);
+        const glassMat = helpers.getDynamicMaterial(entity.glassMat || 'clear', 'door'); const geoGlass = new THREE.BoxGeometry(width - frameW*2, height - topRailH - botRailH, thickness * 0.4);
         const glass = new THREE.Mesh(geoGlass, glassMat); glass.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(glass);
     } else if (style === 'glass_grid') {
         const frameW = 3.5; const topRailH = 3.5; const botRailH = 5;
@@ -129,7 +129,7 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
             group.add(hMullion);
         }
 
-        const glassMat = helpers.getDynamicMaterial('glass', 'door'); const geoGlass = new THREE.BoxGeometry(glassW, glassH, thickness * 0.4);
+        const glassMat = helpers.getDynamicMaterial(entity.glassMat || 'clear', 'door'); const geoGlass = new THREE.BoxGeometry(glassW, glassH, thickness * 0.4);
         const glass = new THREE.Mesh(geoGlass, glassMat); glass.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(glass);
     } else if (isGlass || type === 'french') {
         const frameW = 3.5; const topRailH = 3.5; const botRailH = 5;
@@ -137,7 +137,7 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         const stileL = new THREE.Mesh(geoStile, mats); stileL.position.set(-width/2 + frameW/2, height/2, 0); const stileR = new THREE.Mesh(geoStile, mats); stileR.position.set(width/2 - frameW/2, height/2, 0);
         const railT = new THREE.Mesh(geoRailT, mats); railT.position.set(0, height - topRailH/2, 0); const railB = new THREE.Mesh(geoRailB, mats); railB.position.set(0, botRailH/2, 0);
         [stileL, stileR, railT, railB].forEach(m => { m.castShadow = true; m.receiveShadow = true; group.add(m); });
-        const glassMat = helpers.getDynamicMaterial('glass', 'door'); const geoGlass = new THREE.BoxGeometry(width - frameW*2, height - topRailH - botRailH, thickness * 0.4);
+        const glassMat = helpers.getDynamicMaterial(entity.glassMat || 'clear', 'door'); const geoGlass = new THREE.BoxGeometry(width - frameW*2, height - topRailH - botRailH, thickness * 0.4);
         const glass = new THREE.Mesh(geoGlass, glassMat); glass.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(glass);
     } else {
         const shapeType = entity && entity.doorShape ? entity.doorShape : 'square';
@@ -145,6 +145,18 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         const coreGeo = new THREE.ExtrudeGeometry(doorOutline, { depth: Math.max(0.01, thickness - 0.1), bevelEnabled: false });
         coreGeo.translate(0, 0, -Math.max(0.01, thickness - 0.1) / 2);
         
+        // Normalize UVs for ExtrudeGeometry so texture repeat mapping scales properly [0, 1]
+        const coreUvs = coreGeo.attributes.uv;
+        const corePos = coreGeo.attributes.position;
+        if (coreUvs && corePos) {
+            for (let i = 0; i < coreUvs.count; i++) {
+                const vx = corePos.getX(i);
+                const vy = corePos.getY(i);
+                coreUvs.setXY(i, (vx + width / 2) / width, vy / height);
+            }
+            coreUvs.needsUpdate = true;
+        }
+
         const matsExtrude = Array.isArray(mats) ? [mats[4], mats[1]] : mats;
         const core = new THREE.Mesh(coreGeo, matsExtrude); core.position.set(0, 0, 0); core.castShadow = true; core.receiveShadow = true; group.add(core);
         
@@ -178,6 +190,19 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
             
             const geo = new THREE.ExtrudeGeometry(shape, { depth: Math.max(0.01, pth - bThick*2), bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: bSize, bevelThickness: bThick });
             geo.translate(0, 0, -Math.max(0.01, pth - bThick*2)/2);
+
+            // Normalize UVs for panel ExtrudeGeometry
+            const pUvs = geo.attributes.uv;
+            const pPos = geo.attributes.position;
+            if (pUvs && pPos) {
+                for (let i = 0; i < pUvs.count; i++) {
+                    const vx = pPos.getX(i);
+                    const vy = pPos.getY(i);
+                    pUvs.setXY(i, (vx + pw / 2) / pw, (vy + ph / 2) / ph);
+                }
+                pUvs.needsUpdate = true;
+            }
+
             return geo;
         };
         
@@ -416,7 +441,7 @@ export const WIDGET_REGISTRY = {
     'door': {
         widget: "door", label: "DOOR",
         events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
-        defaultConfig: { width: 40, height: DOOR_HEIGHT, doorType: 'single', doorMat: 'wood', facing: 1, side: 1 },
+        defaultConfig: { width: 40, height: DOOR_HEIGHT, doorType: 'single', doorMat: 'wood_golden_teak', facing: 1, side: 1 },
         render2D: (group, entity) => {
             const hw = entity.width / 2; const thick = entity.wall.thickness || entity.wall.config.thickness;
             const slWidth = (entity.hasSidelights && (!entity.doorShape || entity.doorShape === 'square') && !['pocket', 'sliding'].includes(entity.doorType)) ? Math.min(60, entity.width * 0.22) : 0;
@@ -506,7 +531,7 @@ export const WIDGET_REGISTRY = {
                         const slBotR = tagFrame(new THREE.Mesh(slBotGeo, matFrame)); slBotR.position.set(entity.width/2 - frameWidth - slGlassW/2, 2.5, 0);
                         [slBotL, slBotR].forEach(m => doorGroup.add(m));
                         
-                        const glassMat = helpers.getDynamicMaterial('glass', 'door');
+                        const glassMat = helpers.getDynamicMaterial(entity.glassMat || 'clear', 'door');
                         const slGlassGeo = new THREE.BoxGeometry(slGlassW, height - frameWidth - 5, 0.4);
                         const glassL = new THREE.Mesh(slGlassGeo, glassMat); glassL.position.set(-entity.width/2 + frameWidth + slGlassW/2, 5 + (height - frameWidth - 5)/2, 0);
                         const glassR = new THREE.Mesh(slGlassGeo, glassMat); glassR.position.set(entity.width/2 - frameWidth - slGlassW/2, 5 + (height - frameWidth - 5)/2, 0);

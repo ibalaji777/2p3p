@@ -1,12 +1,12 @@
 export const DOOR_TYPES = { single: { label: "Single Hinged Door" }, double: { label: "Double Door" }, sliding: { label: "Sliding Door" }, double_sliding: { label: "Double Sliding Door" }, folding: { label: "Folding / Bi-fold" }, pivot: { label: "Pivot Door" }, pocket: { label: "Pocket Door" }, french: { label: "French Door (Glass)" } };
 
 export const DOOR_MATERIALS = {
-    wood: { label: "White Oak", color: 0xc4a482, roughness: 0.6, metalness: 0.05, texture: 'wood', bumpScale: 0.005, clearcoat: 0.05 },
-    steel: { label: "Brushed Steel", color: 0xa0a5aa, roughness: 0.35, metalness: 0.8, texture: 'brushed', bumpScale: 0.005, clearcoat: 0.2 },
+    wood: { label: "White Oak", color: 0xc4a482, roughness: 0.6, metalness: 0.05, texture: 'textures/wood/wood_golden_teak.png', bumpScale: 0.005, clearcoat: 0.05 },
+    steel: { label: "Brushed Steel", color: 0xa0a5aa, roughness: 0.35, metalness: 0.8, bumpScale: 0.005, clearcoat: 0.2 },
     glass: { label: "Double-Pane Glass", color: 0xeff6ff, roughness: 0.0, metalness: 0.1, transmission: 0.98, transparent: true, ior: 1.52, thickness: 3.0, clearcoat: 1.0 },
-    aluminium: { label: "Aluminium", color: 0xc8cdd0, roughness: 0.4, metalness: 0.6, texture: 'solid' },
-    pvc: { label: "Matte White", color: 0xfdfdfd, roughness: 0.7, metalness: 0.0, texture: 'solid', clearcoat: 0.0 },
-    laminate: { label: "Charcoal Black", color: 0x2e2b2a, roughness: 0.4, metalness: 0.1, texture: 'wood', bumpScale: 0.002, clearcoat: 0.1 }
+    aluminium: { label: "Aluminium", color: 0xc8cdd0, roughness: 0.4, metalness: 0.6 },
+    pvc: { label: "Matte White", color: 0xfdfdfd, roughness: 0.7, metalness: 0.0, clearcoat: 0.0 },
+    laminate: { label: "Charcoal Black", color: 0x2e2b2a, roughness: 0.4, metalness: 0.1, texture: 'textures/wood/wood_dark_walnut.png', bumpScale: 0.002, clearcoat: 0.1 }
 };
 
 export const DOOR_MATERIALS_REGISTRY = {

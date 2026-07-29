@@ -1,7 +1,12 @@
 export const WINDOW_TYPES = { sliding_std: { label: "Standard Sliding Window", type: "sliding", hasChajja: false }, casement_std: { label: "Casement / Hinged Window", type: "casement", hasChajja: false }, casement_chajja: { label: "Window with Concrete Sunshade", type: "casement", hasChajja: true }, fixed_elevation: { label: "Fixed Elevation Glass", type: "fixed", hasChajja: false }, modern_split: { label: "Modern Asymmetric", type: "split_asymmetric", hasChajja: false }, bay_box: { label: "Box Bay Window (Villa Style)", type: "bay", hasChajja: true }, window_seat: { label: "Double Picture Window", type: "window_seat", hasChajja: false }, garden_open: { label: "Open Garden Window", type: "garden_open", hasChajja: true }, panoramic_slider: { label: "Panoramic Slider", type: "panoramic_slider", hasChajja: false }, shutter_double: { label: "Double Louvered Shutter", type: "shutter_double", hasChajja: false }, louver_vent: { label: "Vent / Louver (Bathroom)", type: "louver", hasChajja: false }, traditional_indian: { label: "Traditional Wooden Shutter", type: "traditional", hasChajja: true } };
 
-export const WINDOW_FRAME_MATERIALS = { upvc_white: { label: "White uPVC", color: 0xffffff, roughness: 0.8, metalness: 0.0, texture: 'solid' }, upvc_wood: { label: "Wood Finish uPVC", color: 0x8b5a2b, roughness: 0.7, metalness: 0.0, texture: 'wood', bumpScale: 0.005 }, alum_powder: { label: "Powder Coated Alum (Black)", color: 0x1f1f1f, roughness: 0.5, metalness: 0.6, texture: 'solid' }, wood_teak: { label: "Teak Wood", color: 0x6b4226, roughness: 0.6, metalness: 0.1, texture: 'wood', bumpScale: 0.005 }, steel_ms: { label: "MS Steel Frame", color: 0x222222, roughness: 0.4, metalness: 0.9, texture: 'solid' } };
-
+export const WINDOW_FRAME_MATERIALS = { 
+    upvc_white: { label: "White uPVC", color: 0xffffff, roughness: 0.8, metalness: 0.0 }, 
+    upvc_wood: { label: "Wood Finish uPVC", color: 0x8b5a2b, roughness: 0.7, metalness: 0.0, texture: 'textures/wood/wood_golden_teak.png', bumpScale: 0.005 }, 
+    alum_powder: { label: "Powder Coated Alum (Black)", color: 0x1f1f1f, roughness: 0.5, metalness: 0.6 }, 
+    wood_teak: { label: "Teak Wood", color: 0x6b4226, roughness: 0.6, metalness: 0.1, texture: 'textures/wood/wood_golden_teak.png', bumpScale: 0.005 }, 
+    steel_ms: { label: "MS Steel Frame", color: 0x222222, roughness: 0.4, metalness: 0.9 } 
+};
 export const WINDOW_GLASS_MATERIALS = {
     clear: {
         id: "clear",
