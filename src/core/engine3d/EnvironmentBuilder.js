@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
+import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { Molding3DBuilder } from './Molding3DBuilder.js';
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
 import { Railing3DBuilder } from '../../features/railing/builders/Railing3DBuilder.js';
@@ -10,33 +11,139 @@ import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_RE
 import { MaterialFactory } from './MaterialFactory.js';
 
 let _sharedPlasterMaterial = null;
+let _plasterUniforms = {
+    floorBounceColor: { value: new THREE.Color(0xfaf8ed) },
+    bounceIntensity: { value: 0.15 },
+    skyColor: { value: new THREE.Color(0xe0eaf5) },
+    wallHeight: { value: 300.0 }
+};
+
+window.updateFloorBounce = function(color, intensity) {
+    if (_plasterUniforms) {
+        _plasterUniforms.floorBounceColor.value.copy(color);
+        _plasterUniforms.bounceIntensity.value = intensity;
+    }
+};
+
+window.updateSkyBounce = function(color) {
+    if (_plasterUniforms) {
+        _plasterUniforms.skyColor.value.copy(color);
+    }
+};
+
 function getPlasterMaterial() {
     if (_sharedPlasterMaterial) return _sharedPlasterMaterial;
 
     _sharedPlasterMaterial = new THREE.MeshStandardMaterial({
-        color: 0xefede5, // Clean modern warm off-white
+        color: 0xfaf8ed, // Clean, bright warm white plaster
         roughness: 0.9,
         metalness: 0.0,
-        envMapIntensity: 0.08,
-        flatShading: true
+        envMapIntensity: 0.8,
+        flatShading: false
     });
     
     const obc = (shader) => {
+        shader.uniforms.floorBounceColor = _plasterUniforms.floorBounceColor;
+        shader.uniforms.bounceIntensity = _plasterUniforms.bounceIntensity;
+        shader.uniforms.skyColor = _plasterUniforms.skyColor;
+        shader.uniforms.wallHeight = _plasterUniforms.wallHeight;
+
         shader.vertexShader = shader.vertexShader.replace(
             '#include <common>',
-            `#include <common>\n            varying vec3 vLocalPos;`
+            `#include <common>
+            varying vec3 vLocalPos;
+            varying vec3 vWorldNormal;
+            varying vec3 vWorldPos;
+            attribute float aWallLength;
+            attribute float aWallHeight;
+            varying float vWallLength;
+            varying float vWallHeight;`
         );
         shader.vertexShader = shader.vertexShader.replace(
             '#include <begin_vertex>',
-            `#include <begin_vertex>\n            vLocalPos = position;`
+            `#include <begin_vertex>
+            vLocalPos = position;
+            vWorldNormal = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
+            vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+            vWallLength = aWallLength;
+            vWallHeight = aWallHeight;`
         );
         shader.fragmentShader = shader.fragmentShader.replace(
             '#include <common>',
-            `#include <common>\n            varying vec3 vLocalPos;`
+            `#include <common>
+            varying vec3 vLocalPos;
+            varying vec3 vWorldNormal;
+            varying vec3 vWorldPos;
+            varying float vWallLength;
+            varying float vWallHeight;
+            uniform vec3 floorBounceColor;
+            uniform float bounceIntensity;
+            uniform vec3 skyColor;
+            uniform float wallHeight;
+            
+            // Simple low-frequency noise (white noise variant)
+            float rand(vec3 co) {
+                return fract(sin(dot(co.xyz, vec3(12.9898, 78.233, 45.164))) * 43758.5453);
+            }`
         );
         shader.fragmentShader = shader.fragmentShader.replace(
             '#include <color_fragment>',
-            `#include <color_fragment>\n            float ao = 1.0;\n            // Very subtle floor/baseboard AO\n            if (vLocalPos.y < 15.0) {\n                ao *= 0.92 + (vLocalPos.y / 15.0) * 0.08;\n            }\n            diffuseColor.rgb *= ao;`
+            `#include <color_fragment>
+            float ao = 1.0;
+            
+            // Graceful degradation for AO (only apply if procedural wall attributes exist)
+            if (vWallLength > 0.1 && vWallHeight > 0.1) {
+                // Wall meets floor
+                if (vLocalPos.y < 20.0) {
+                    ao *= 0.75 + (vLocalPos.y / 20.0) * 0.25;
+                }
+                
+                // Wall meets ceiling
+                float distToCeiling = vWallHeight - vLocalPos.y;
+                if (distToCeiling < 20.0) {
+                    ao *= 0.85 + (distToCeiling / 20.0) * 0.15;
+                }
+
+                // Wall meets wall (vertical corners)
+                float distToCorner = min(vLocalPos.x, vWallLength - vLocalPos.x);
+                if (distToCorner < 20.0) {
+                    ao *= 0.85 + (distToCorner / 20.0) * 0.15;
+                }
+            } else {
+                // Fallback: Just simple vertical falloff if no custom geometry attributes
+                float verticalGradient = smoothstep(0.0, wallHeight, vLocalPos.y);
+                ao *= 0.85 + (verticalGradient * 0.15);
+            }
+
+            diffuseColor.rgb *= ao;
+
+            // Low frequency color variation (+/- 2%) to prevent perfectly flat CG look
+            float noiseVal = rand(floor(vWorldPos * 0.05));
+            diffuseColor.rgb *= 0.98 + (noiseVal * 0.04);
+
+            // Dynamic floor bounce (fake GI)
+            if (abs(vWorldNormal.y) < 0.1 && vLocalPos.y < 120.0) {
+                // Exponential falloff
+                float falloff = exp(-vLocalPos.y / 120.0 * 3.5);
+                
+                // Sky contribution mix
+                vec3 mixedBounce = mix(floorBounceColor, skyColor, 0.15);
+                
+                // Material response scaling (Matte absorbs more diffuse light)
+                float matResponse = 0.5 + roughness * 0.5;
+                float finalStrength = bounceIntensity * falloff * matResponse;
+                
+                diffuseColor.rgb = mix(diffuseColor.rgb, mixedBounce, finalStrength);
+            }
+            
+            // Top edge highlights (Fresnel)
+            float hRef = vWallHeight > 0.1 ? vWallHeight : wallHeight;
+            if (vLocalPos.y > hRef - 2.0 && vWorldNormal.y > 0.9) {
+                vec3 viewDirWorld = normalize(cameraPosition - vWorldPos);
+                float fresnel = pow(1.0 - max(dot(viewDirWorld, vWorldNormal), 0.0), 5.0);
+                diffuseColor.rgb += fresnel * 0.5; // Soft natural grazing highlight
+            }
+            `
         );
     };
 
@@ -59,7 +166,7 @@ export class EnvironmentBuilder {
 
     setupBaseEnvironment() {
         this.ctx.scene.background = new THREE.Color(0xf3f4f6);
-        this.ctx.scene.fog = new THREE.FogExp2(0xf3f4f6, 0.00016);
+        this.ctx.scene.fog = new THREE.Fog(0xf3f4f6, 600, 4500); // Linear fog for a seamless architectural horizon
 
         const groundGeo = new THREE.PlaneGeometry(10000, 10000);
         const groundMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0 });
@@ -77,12 +184,12 @@ export class EnvironmentBuilder {
         this.ctx.scene.add(grid);
         this.grid = grid;
 
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x777777, 0.2);
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x888888, 0.4);
         hemiLight.position.set(0, 500, 0);
         this.ctx.scene.add(hemiLight);
         this.hemiLight = hemiLight;
 
-        const sunLight = new THREE.DirectionalLight(0xfff5e6, 1.2);
+        const sunLight = new THREE.DirectionalLight(0xffeedd, 2.5);
         // Sun position matches the reference image: low angle from the left/back
         sunLight.position.set(-800, 300, -200);
         sunLight.castShadow = true;
@@ -92,18 +199,32 @@ export class EnvironmentBuilder {
         sunLight.shadow.camera.far = 2000;
         sunLight.shadow.bias = -0.0003; 
         sunLight.shadow.normalBias = 0.05; // Prevents shadow acne on flat parallel surfaces (like Craftsman steps)
-        sunLight.shadow.radius = 1.2; // Crisp, low-noise soft shadows
-        const d = 900; // Optimal shadow frustum size
+        sunLight.shadow.radius = 4; // Extra crisp, low-noise soft shadows
+        sunLight.shadow.camera.near = 10;
+        sunLight.shadow.camera.far = 3000;
+        const d = 1200; // Optimal shadow frustum size
         sunLight.shadow.camera.left = -d; sunLight.shadow.camera.right = d;
         sunLight.shadow.camera.top = d; sunLight.shadow.camera.bottom = -d;
         this.ctx.scene.add(sunLight);
         this.sunLight = sunLight;
 
-        // Fill Light (Soft sky bounce from opposite quadrant to reveal interior furniture & wall details)
-        const fillLight = new THREE.DirectionalLight(0xe2e8f0, 0.2);
-        fillLight.position.set(-600, 500, -500);
+        // Fill Light (Soft sky bounce to subtly reveal interior details without washing out shadows)
+        const fillLight = new THREE.DirectionalLight(0xe2e8f0, 0.4);
+        fillLight.position.set(400, 300, 600);
         this.ctx.scene.add(fillLight);
         this.fillLight = fillLight;
+
+        // Procedural Sky
+        this.sky = new Sky();
+        this.sky.scale.setScalar(10000);
+        this.ctx.scene.add(this.sky);
+        
+        const skyUniforms = this.sky.material.uniforms;
+        skyUniforms['turbidity'].value = 3;
+        skyUniforms['rayleigh'].value = 0.5;
+        skyUniforms['mieCoefficient'].value = 0.005;
+        skyUniforms['mieDirectionalG'].value = 0.8;
+        skyUniforms['sunPosition'].value.copy(sunLight.position);
     }
 
     setEnvironment(skyKey, groundKey) {
@@ -112,13 +233,27 @@ export class EnvironmentBuilder {
             if (skyConfig.type === 'hdri' && skyConfig.url) {
                 const loader = new RGBELoader();
                 loader.load(skyConfig.url, (texture) => {
-                    texture.mapping = THREE.EquirectangularReflectionMapping;
-                    this.ctx.scene.background = texture;
-                    this.ctx.scene.environment = texture;
+                    if (!this.pmremGenerator && this.ctx.renderer) {
+                        this.pmremGenerator = new THREE.PMREMGenerator(this.ctx.renderer);
+                        this.pmremGenerator.compileEquirectangularShader();
+                    }
+                    if (this.pmremGenerator) {
+                        const envMap = this.pmremGenerator.fromEquirectangular(texture).texture;
+                        this.ctx.scene.environment = envMap;
+                        this.ctx.scene.background = envMap; // Use filtered map for background too, or raw texture
+                        texture.dispose();
+                    } else {
+                        texture.mapping = THREE.EquirectangularReflectionMapping;
+                        this.ctx.scene.background = texture;
+                        this.ctx.scene.environment = texture;
+                    }
+                    if (this.ctx.requestRender) this.ctx.requestRender();
                 });
                 if (this.ctx.scene.fog) this.ctx.scene.fog.color.setHex(skyConfig.fogColor || 0xe0eaf5);
             } else if (skyConfig.skyColor) {
-                this.ctx.scene.background = new THREE.Color(skyConfig.skyColor);
+                if (this.sky) this.sky.visible = true; // Use procedural sky
+                // We keep background null so the sky object is visible
+                this.ctx.scene.background = null;
                 if (this.ctx.scene.fog) this.ctx.scene.fog.color.setHex(skyConfig.fogColor || skyConfig.skyColor);
                 this.ctx.scene.environment = null;
             }
@@ -130,6 +265,12 @@ export class EnvironmentBuilder {
             if (this.sunLight) {
                 this.sunLight.color.setHex(skyConfig.sunColor || 0xffffff);
                 this.sunLight.intensity = skyConfig.sun || 1.0;
+                if (this.sky) {
+                    this.sky.material.uniforms['sunPosition'].value.copy(this.sunLight.position);
+                }
+            }
+            if (window.updateSkyBounce) {
+                window.updateSkyBounce(new THREE.Color(skyConfig.hemiSky || skyConfig.skyColor || skyConfig.fogColor || 0xffffff));
             }
         }
 
@@ -138,7 +279,9 @@ export class EnvironmentBuilder {
             if (groundConfig.color) {
                 this.ground.material.color.setHex(groundConfig.color);
                 this.ground.material.map = null;
+                this.ground.material.fog = false; // Disable fog gradient for solid studio bases
                 this.ground.material.needsUpdate = true;
+                if (this.ctx.requestRender) this.ctx.requestRender();
             }
             if (groundConfig.texture) {
                 this.ctx.assets.getTexture(groundConfig).then(tex => {
@@ -147,7 +290,9 @@ export class EnvironmentBuilder {
                     texClone.repeat.set(groundConfig.repeat || 100, groundConfig.repeat || 100);
                     this.ground.material.map = texClone;
                     this.ground.material.color.setHex(0xffffff);
+                    this.ground.material.fog = true;
                     this.ground.material.needsUpdate = true;
+                    if (this.ctx.requestRender) this.ctx.requestRender();
                 });
             }
         }
@@ -527,7 +672,7 @@ export class EnvironmentBuilder {
                                 }
             });
 
-            const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: t, bevelEnabled: false });
+            const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: t, bevelEnabled: true, bevelSize: 0.2, bevelThickness: 0.2, bevelSegments: 2 });
             wallGeo.translate(0, 0, -t / 2);
             
             // ====== MITER JOINT SHEARING ======
@@ -576,6 +721,14 @@ export class EnvironmentBuilder {
             const uvs = finalWallGeo.attributes.uv;
             
             finalWallGeo.computeVertexNormals();
+
+            const aWallLength = new Float32Array(pos.count);
+            aWallLength.fill(length);
+            finalWallGeo.setAttribute('aWallLength', new THREE.BufferAttribute(aWallLength, 1));
+
+            const aWallHeight = new Float32Array(pos.count);
+            aWallHeight.fill(maxH);
+            finalWallGeo.setAttribute('aWallHeight', new THREE.BufferAttribute(aWallHeight, 1));
 
             for (let i = 0; i < pos.count; i += 3) {
                 const nx = norm.getX(i) + norm.getX(i+1) + norm.getX(i+2);

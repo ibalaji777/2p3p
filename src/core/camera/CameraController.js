@@ -125,6 +125,7 @@ export class CameraController {
     }
 
     update() {
+        let changed = false;
         if (this.isAnimating) {
             // Smoothly interpolate position and target
             this.camera.position.lerp(this.animationTargetPos, this.animationSpeed);
@@ -136,9 +137,11 @@ export class CameraController {
                 this.isAnimating = false;
                 this.controls.enableDamping = true; // Restore damping once arrived
             }
+            changed = true;
         }
         
-        this.controls.update();
+        if (this.controls.update()) changed = true;
+        return changed;
     }
 
     dispose() {

@@ -3,6 +3,10 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { TransformControls } from './engine3d/TransformControls.js';
 import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY, DOOR_MATERIALS_REGISTRY, FABRIC_REGISTRY, getFabricBaseConfig, resolveFabricConfig } from './registry.js';
 import { EnvironmentBuilder } from "./engine3d/EnvironmentBuilder.js";
@@ -40,13 +44,33 @@ export class Preview3D {
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.container.appendChild(this.renderer.domElement);
         
+        // Setup Post-Processing (Tone Mapping & SSAO)
+        this.composer = new EffectComposer(this.renderer);
+        this.renderPass = new RenderPass(this.scene, this.camera);
+        this.composer.addPass(this.renderPass);
+        
+        // Optimized SSAO for performance
+        // Render SSAO at half resolution to save huge amounts of fill-rate
+        this.ssaoPass = new SSAOPass(this.scene, this.camera, w / 2, h / 2);
+        this.ssaoPass.kernelRadius = 8; // Reduced from 16
+        this.ssaoPass.minDistance = 0.005;
+        this.ssaoPass.maxDistance = 0.1;
+        this.ssaoPass.maxProjectedRadius = 50; // Cap to prevent massive texture fetches
+        this.composer.addPass(this.ssaoPass);
+        
+        // OutputPass handles sRGB and ToneMapping natively in r152+
+        this.outputPass = new OutputPass();
+        this.composer.addPass(this.outputPass);
+        
         this.cameraController = new CameraController(this.camera, this.renderer.domElement, this);
         this.controls = this.cameraController.controls;
+        this.controls.addEventListener('change', () => this.requestRender());
 
         this.navigationCube = new NavigationCube(this.container, this.cameraController);
 
         this.interactables = [];
         this.isUpdatingFromUI = false;
+        this.needsRender = true;
         
         this.assets = new AssetManager();
 
@@ -207,14 +231,33 @@ export class Preview3D {
             this.camera.aspect = w / h; 
             this.camera.updateProjectionMatrix(); 
             this.renderer.setSize(w, h); 
+            if (this.composer) this.composer.setSize(w, h);
+            if (this.ssaoPass) this.ssaoPass.setSize(w / 2, h / 2);
+            this.requestRender();
         }
+    }
+
+    requestRender() {
+        this.needsRender = true;
     }
 
     animate() { 
         this._animateId = requestAnimationFrame(() => this.animate()); 
-        this.cameraController.update();
+        
+        // Let camera controller handle its internal damping/updates
+        const cameraChanged = this.cameraController.update(); 
         this.navigationCube.update(this.camera);
-        this.renderer.render(this.scene, this.camera); 
+        
+        // Only render if needed (dirty flag) or camera is actively moving
+        if (this.needsRender || cameraChanged || this.isUpdatingFromUI) {
+            if (this.composer) {
+                this.composer.render();
+            } else {
+                this.renderer.render(this.scene, this.camera); 
+            }
+            this.needsRender = false;
+        }
+        
         this.updateTransformMenu();
     }
 
@@ -234,7 +277,10 @@ export class Preview3D {
         this.gizmoManager.updateOpeningPanel(entity);
     }
 
-    setEnvironment(skyKey, groundKey) { this.envBuilder.setEnvironment(skyKey, groundKey); }
+    setEnvironment(skyKey, groundKey) { 
+        this.envBuilder.setEnvironment(skyKey, groundKey); 
+        this.requestRender();
+    }
     setInteractionMode(mode) { this.interactions.setMode(mode); }
     cancelRelocation() { this.interactions.cancelRelocation(); }
     selectObject(obj) { this.interactions.selectObject(obj); }

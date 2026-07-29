@@ -21,6 +21,39 @@ export class MaterialFactory {
         return Boolean(config.id || config.texture || config.isLibrary || config.tileSize);
     }
 
+    static extractAverageColor(image) {
+        if (!image) return { color: new THREE.Color(0xefede5), luminance: 0.8 };
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        const width = canvas.width = image.width || image.videoWidth || 64;
+        const height = canvas.height = image.height || image.videoHeight || 64;
+        context.drawImage(image, 0, 0, width, height);
+        
+        let data;
+        try {
+            data = context.getImageData(0, 0, width, height).data;
+        } catch(e) {
+            return { color: new THREE.Color(0xefede5), luminance: 0.8 };
+        }
+        
+        let r = 0, g = 0, b = 0, count = 0;
+        const step = 4 * 10;
+        for (let i = 0; i < data.length; i += step) {
+            r += data[i];
+            g += data[i + 1];
+            b += data[i + 2];
+            count++;
+        }
+        if (count > 0) {
+            r = r / count / 255;
+            g = g / count / 255;
+            b = b / count / 255;
+            const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+            return { color: new THREE.Color(r, g, b), luminance };
+        }
+        return { color: new THREE.Color(0xefede5), luminance: 0.8 };
+    }
+
     static calculateTexelDensity(dimensions, config = {}) {
         if (!MaterialFactory.isLibraryMaterial(config) && !config.repeat && !config.tileSize) {
             return { repeatX: 1, repeatY: 1 };
@@ -234,6 +267,43 @@ export class MaterialFactory {
 
         if (newMat.map) newMat.map.needsUpdate = true;
         newMat.needsUpdate = true;
+
+        if (faceName === 'floor') {
+            let avgColor = new THREE.Color(0xefede5);
+            let luminance = 0.8;
+            if (tex && tex.image) {
+                if (tex.userData?.averageColor && tex.userData?.luminance !== undefined) {
+                    avgColor = tex.userData.averageColor;
+                    luminance = tex.userData.luminance;
+                } else {
+                    const extracted = this.extractAverageColor(tex.image);
+                    avgColor = extracted.color;
+                    luminance = extracted.luminance;
+                    tex.userData.averageColor = avgColor;
+                    tex.userData.luminance = luminance;
+                }
+            } else if (config.color) {
+                avgColor = new THREE.Color(config.color);
+                luminance = 0.299 * avgColor.r + 0.587 * avgColor.g + 0.114 * avgColor.b;
+            }
+            
+            // Calculate reflectivity based on material
+            let reflectivity = 0.20; // Default
+            const matId = String(config.id || '').toLowerCase();
+            if (matId.includes('wood')) reflectivity = 0.30;
+            else if (matId.includes('marble')) reflectivity = 0.18;
+            else if (matId.includes('concrete')) reflectivity = 0.12;
+            else if (matId.includes('carpet') || matId.includes('fabric')) reflectivity = 0.08;
+            else if (matId.includes('tile')) {
+                reflectivity = luminance > 0.5 ? 0.25 : 0.05; 
+            }
+            
+            const bounceIntensity = luminance * reflectivity;
+
+            if (window.updateFloorBounce) {
+                window.updateFloorBounce(avgColor, bounceIntensity);
+            }
+        }
 
         if (config.id) {
             this.materialCache.set(cacheKey, newMat);

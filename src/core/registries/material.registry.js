@@ -270,6 +270,11 @@ export const GROUND_REGISTRY = {
         normal: 'https://threejs.org/examples/textures/water/Water_1_M_Normal.jpg',
         repeat: 25, roughness: 1.0, normalScale: 0.3, terrainHeight: 5
     },
+    'studio_dark': {
+        id: 'studio_dark', name: 'Dark Studio Base', type: 'terrain',
+        color: 0x333533, roughness: 0.9, metalness: 0.05,
+        thumbnail: 'https://via.placeholder.com/150/333533/fff?text=Dark+Base'
+    },
     'dark_soil': {
         id: 'dark_soil', name: 'Dark Soil', type: 'terrain',
         texture: 'assets/ground/soil.jpg',
