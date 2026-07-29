@@ -113,6 +113,11 @@ export class MaterialGizmo extends THREE.Group {
                 this.highlightedObject = descriptor.mesh;
                 this.highlightedMatIndex = descriptor.targetMatIndex;
                 
+                console.info(`%c[BIM Selected Area] %c${descriptor.entity?.type || 'Mesh'} %c-> Face: %c${descriptor.faceName} %c| Component: %c${descriptor.componentType} %c| Slot: %c${descriptor.slotName}`, 
+                    'color: #3b82f6; font-weight: bold;', 'color: #10b981;', 'color: #9ca3af;', 'color: #f59e0b; font-weight: bold;', 'color: #9ca3af;', 'color: #8b5cf6; font-weight: bold;', 'color: #9ca3af;', 'color: #ec4899; font-weight: bold;');
+                console.info(`%c[BIM Highlight] %cEmissive Green activated on %c${descriptor.componentType || 'Mesh'}`, 
+                    'color: #10b981; font-weight: bold;', 'color: #9ca3af;', 'color: #f59e0b; font-weight: bold;');
+
                 BIMMaterialSystem.setBIMHighlight(descriptor, true);
                 
                 // Dispatch event to Vue UI or GizmoManager
