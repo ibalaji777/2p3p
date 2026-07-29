@@ -95,10 +95,12 @@ export function useAppScene({
         if (planner.value) {
             planner.value.syncAll();
             if (selectedType.value === 'room' && selectedEntity.value) {
-                const oldCx = selectedEntity.value.cx;
-                const oldCy = selectedEntity.value.cy;
-                const newRoom = planner.value.rooms.find(r => Math.hypot(r.cx - oldCx, r.cy - oldCy) < 20);
+                const oldRoom = selectedEntity.value;
+                const newRoom = planner.value.rooms.find(r => Math.hypot(r.cx - oldRoom.cx, r.cy - oldRoom.cy) < 20);
                 if (newRoom) {
+                    // Preserve custom UI properties across 2D graph regenerations
+                    if (oldRoom.materialScale !== undefined) newRoom.materialScale = oldRoom.materialScale;
+                    if (oldRoom.configId !== undefined) newRoom.configId = oldRoom.configId;
                     selectedEntity.value = newRoom;
                 }
             }

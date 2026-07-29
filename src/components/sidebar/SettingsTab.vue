@@ -28,6 +28,15 @@
               <option value="mm">Millimeter (mm)</option>
           </select>
       </div>
+
+      <div class="control-group">
+          <label>Material Unit</label>
+          <select v-model="floorPlanSettings.materialUnit" @change="$emit('sync-settings')" class="settings-select">
+              <option value="cm">Centimeter (cm)</option>
+              <option value="mm">Millimeter (mm)</option>
+              <option value="in">Inches (in)</option>
+          </select>
+      </div>
       
       <div class="control-group">
           <label>Area Unit</label>

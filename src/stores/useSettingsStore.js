@@ -6,6 +6,7 @@ export const useSettingsStore = defineStore('settings', {
             mainEntranceFacing: 'north',
             measurementUnit: 'feet_inches',
             areaUnit: 'sqft',
+            materialUnit: 'cm',
             showCompass: true,
             showGrid: true,
             showDimensionLabels: true,

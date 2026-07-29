@@ -2,10 +2,10 @@
     <div class="props-panel-inner">
         <h4 class="props-subtitle">Floor Properties</h4>
         <div class="control-group">
-            <label>Material Scale</label>
+            <label>Tile Size ({{ activeMaterialUnit }})</label>
             <div class="input-wrap">
-                <input type="range" :value="selectedEntity.materialRepeat || floorRegistry[selectedEntity.configId]?.repeat || 10" @input="e => { selectedEntity.materialRepeat = parseFloat(e.target.value); $emit('sync-engine'); }" min="1" max="100" step="1">
-                <input type="number" :value="selectedEntity.materialRepeat || floorRegistry[selectedEntity.configId]?.repeat || 10" @input="e => { selectedEntity.materialRepeat = parseFloat(e.target.value); $emit('sync-engine'); }" min="1" max="100" step="1">
+                <input type="range" v-model="displayValue" min="100" max="5000" step="50">
+                <input type="number" v-model.lazy="displayValue" min="100" max="5000" step="50">
             </div>
         </div>
         <div class="decor-gallery">
@@ -23,6 +23,10 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
+import { useSettingsStore } from '../../stores/useSettingsStore.js';
+import { UnitConverter } from '../../core/units/UnitConverter.js';
+
 const props = defineProps({
     selectedEntity: { type: Object, required: true },
     floorRegistry: { type: Object, required: true }
@@ -33,4 +37,24 @@ const emit = defineEmits([
     'set-floor-material',
     'delete-entity'
 ]);
+
+const settingsStore = useSettingsStore();
+const activeMaterialUnit = computed(() => settingsStore.floorPlanSettings?.materialUnit || 'cm');
+
+// The 3D Engine strictly expects materialScale in Centimeters (cm).
+// We must convert cm -> internal inches -> display unit.
+const displayValue = computed({
+    get() {
+        const cmValue = props.selectedEntity.materialScale || props.floorRegistry[props.selectedEntity.configId]?.tileSize || 150;
+        const internalInches = cmValue / 2.54;
+        return UnitConverter.inchesToDisplay(internalInches, activeMaterialUnit.value);
+    },
+    set(newDisplayValue) {
+        if (isNaN(newDisplayValue)) return;
+        const internalInches = UnitConverter.displayToInches(newDisplayValue, activeMaterialUnit.value);
+        const cmValue = internalInches * 2.54;
+        props.selectedEntity.materialScale = Math.round(cmValue * 10) / 10;
+        emit('sync-engine');
+    }
+});
 </script>

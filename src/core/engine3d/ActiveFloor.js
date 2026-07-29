@@ -338,6 +338,25 @@ export class ActiveFloor {
             floorGeo.rotateX(Math.PI / 2);
             floorGeo.translate(0, 0.2, 0);
             
+            // UV Fix for Floor (ExtrudeGeometry) - World Space Projection
+            const uvs = floorGeo.attributes.uv;
+            const pos = floorGeo.attributes.position;
+            floorGeo.computeVertexNormals();
+            const norms = floorGeo.attributes.normal;
+            for (let i = 0; i < uvs.count; i++) {
+                const nx = Math.abs(norms.getX(i));
+                const ny = Math.abs(norms.getY(i));
+                const nz = Math.abs(norms.getZ(i));
+                const vx = pos.getX(i) / 100;
+                const vy = pos.getY(i) / 100;
+                const vz = pos.getZ(i) / 100;
+                
+                if (ny > 0.5) uvs.setXY(i, vx, vz); // Top/Bottom
+                else if (nx > nz) uvs.setXY(i, vz, vy); // Side X
+                else uvs.setXY(i, vx, vy); // Side Z
+            }
+
+            
             let mat = this.matFloor;
             const configId = room.configId || 'hardwood';
             const floorConfig = FLOOR_REGISTRY[configId];

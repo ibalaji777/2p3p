@@ -126,19 +126,41 @@ export class StaticFloors {
                         floorGeo.rotateX(Math.PI / 2);
                         floorGeo.translate(0, 0.2, 0);
                         
-                        let mat = this.matFloor;
+                        // UV Fix for Floor (ExtrudeGeometry) - World Space Projection
+                        const uvs = floorGeo.attributes.uv;
+                        const pos = floorGeo.attributes.position;
+                        floorGeo.computeVertexNormals();
+                        const norms = floorGeo.attributes.normal;
+                        for (let i = 0; i < uvs.count; i++) {
+                            const nx = Math.abs(norms.getX(i));
+                            const ny = Math.abs(norms.getY(i));
+                            const nz = Math.abs(norms.getZ(i));
+                            const vx = pos.getX(i) / 100;
+                            const vy = pos.getY(i) / 100;
+                            const vz = pos.getZ(i) / 100;
+                            
+                            if (ny > 0.5) uvs.setXY(i, vx, vz); // Top/Bottom
+                            else if (nx > nz) uvs.setXY(i, vz, vy); // Side X
+                            else uvs.setXY(i, vx, vy); // Side Z
+                        }
+
+                        
+                        let mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide });
                         const configId = room.configId || 'hardwood';
-                        const floorConfig = FLOOR_REGISTRY[configId];
-                        if (floorConfig && floorConfig.texture) {
-                            const tex = new THREE.TextureLoader().load(floorConfig.texture);
-                            tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-                            const dummyMesh = new THREE.Mesh(floorGeo);
-                            dummyMesh.userData = { entity: room };
-                            const { repeatX, repeatY } = MaterialFactory.calculateTexelDensity(dummyMesh, floorConfig);
-                            tex.repeat.set(repeatX, repeatY);
-                            mat = new THREE.MeshStandardMaterial({ map: tex, roughness: floorConfig.roughness !== undefined ? floorConfig.roughness : 0.8, side: THREE.DoubleSide });
-                        } else if (floorConfig) {
-                            mat = new THREE.MeshStandardMaterial({ color: floorConfig.color || 0xffffff, roughness: floorConfig.roughness !== undefined ? floorConfig.roughness : 0.8, side: THREE.DoubleSide });
+                        const baseConfig = FLOOR_REGISTRY[configId];
+                        
+                        if (baseConfig) {
+                            const config = { ...baseConfig };
+                            if (room.materialScale) config.tileSize = room.materialScale;
+                            MaterialFactory.buildPBRMaterial({
+                                material: mat,
+                                config: config,
+                                ctx: this.ctx,
+                                dimensions: { width: 100, height: 100 },
+                                faceName: 'floor'
+                            });
+                        } else {
+                            mat.color.setHex(0xd1d5db);
                         }
 
                         const floorMesh = new THREE.Mesh(floorGeo, mat);

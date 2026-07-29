@@ -232,13 +232,13 @@ export const FLOOR_REGISTRY = {
         id: 'hardwood', name: 'Hardwood Floor', type: 'floor',
         texture: 'https://threejs.org/examples/textures/hardwood2_diffuse.jpg',
         thumbnail: 'https://threejs.org/examples/textures/hardwood2_diffuse.jpg',
-        roughness: 0.6, repeat: 5
+        roughness: 0.6, tileSize: 150
     },
     'tiles': {
         id: 'tiles', name: 'Ceramic Tiles', type: 'floor',
         texture: 'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg', 
         thumbnail: 'https://via.placeholder.com/150/ffffff/000000?text=Tiles',
-        color: 0xcccccc, roughness: 0.2, repeat: 10
+        color: 0xcccccc, roughness: 0.2, tileSize: 60
     },
     'carpet': {
         id: 'carpet', name: 'Soft Carpet', type: 'floor',

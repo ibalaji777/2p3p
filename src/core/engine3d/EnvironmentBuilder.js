@@ -283,22 +283,25 @@ export class EnvironmentBuilder {
                 floorGeo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
 
                 const configId = room.configId || 'hardwood';
-                const config = FLOOR_REGISTRY[configId];
+                const baseConfig = FLOOR_REGISTRY[configId];
                 
-                const matFloor = new THREE.MeshStandardMaterial({ color: config?.color || 0xd1d5db, roughness: config?.roughness || 0.7 });
+                const matFloor = new THREE.MeshStandardMaterial({ color: baseConfig?.color || 0xd1d5db, roughness: baseConfig?.roughness || 0.7 });
                 const floorMesh = new THREE.Mesh(floorGeo, matFloor);
                 floorMesh.position.y = 0;
                 floorMesh.receiveShadow = true;
                 floorMesh.userData = { isFloor: true, entity: room };
 
-                if (config && config.texture) {
-                    this.ctx.assets.getTexture(config).then(tex => {
-                        const texClone = tex.clone();
-                        texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                        const { repeatX, repeatY } = MaterialFactory.calculateTexelDensity(floorMesh, config);
-                        texClone.repeat.set(repeatX, repeatY);
-                        matFloor.map = texClone;
-                        matFloor.needsUpdate = true;
+                if (baseConfig) {
+                    const config = { ...baseConfig };
+                    if (room.materialScale) {
+                        config.tileSize = room.materialScale;
+                    }
+                    MaterialFactory.buildPBRMaterial({
+                        material: matFloor,
+                        config: config,
+                        ctx: this.ctx,
+                        dimensions: { width: 100, height: 100 },
+                        faceName: 'floor'
                     });
                 }
 
