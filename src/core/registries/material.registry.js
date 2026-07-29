@@ -211,9 +211,9 @@ export const SKY_REGISTRY = {
         hemiSky: 0xffffff,
         hemiGround: 0x4ade80,
         sunColor: 0xffffee,
-        ambient: 0.3,
-        hemi: 0.8,
-        sun: 2.5
+        ambient: 1.8,
+        hemi: 1.8,
+        sun: 1.8
     },
     'cloudy_day': {
         id: 'cloudy_day',
@@ -221,9 +221,9 @@ export const SKY_REGISTRY = {
         type: 'hdri',
         url: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/cloudy_sky_1k.hdr',
         sunColor: 0xffffff,
-        ambient: 1.2,
-        hemi: 1.0,
-        sun: 1.8
+        ambient: 2.8,
+        hemi: 2.2,
+        sun: 1.2
     }
 };
 
