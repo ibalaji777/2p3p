@@ -98,7 +98,7 @@
                                 <label><input type="checkbox" v-model="decor.faces.left" @change="$emit('decor-update', decor)">L-Edge</label>
                                 <label><input type="checkbox" v-model="decor.faces.right" @change="$emit('decor-update', decor)">R-Edge</label>
                             </div>
-                            <div class="control-group"><label>Tile Size</label><div class="input-wrap"><input type="range" v-model.number="decor.tileSize" min="1" max="200" step="1" @input="$emit('decor-update', decor)"><input type="number" v-model.number="decor.tileSize" min="1" max="200" step="1" @input="$emit('decor-update', decor)"></div></div>
+                            <MaterialSizeInput v-model="decor.tileSize" :defaultMax="200" @change="$emit('decor-update', decor)" />
                             <div class="control-group"><label>Thickness</label><div class="input-wrap"><input type="range" v-model.number="decor.depth" min="0.1" max="40" step="0.1" @input="$emit('decor-update', decor)"><input type="number" v-model.number="decor.depth" min="0.1" max="40" step="0.1" @input="$emit('decor-update', decor)"></div></div>
                             <div class="control-group"><label>Width (%)</label><div class="input-wrap"><input type="range" v-model.number="decor.width" min="1" max="100" step="1" @input="$emit('decor-update', decor)"><input type="number" v-model.number="decor.width" min="1" max="100" step="1" @input="$emit('decor-update', decor)"></div></div>
                             <div class="control-group"><label>Height (%)</label><div class="input-wrap"><input type="range" v-model.number="decor.height" min="1" max="100" step="1" @input="$emit('decor-update', decor)"><input type="number" v-model.number="decor.height" min="1" max="100" step="1" @input="$emit('decor-update', decor)"></div></div>
@@ -128,6 +128,7 @@
 import { ref, watch } from 'vue';
 import { usePlannerStore } from '../../stores/usePlannerStore.js';
 import DimensionInput from '../../components/common/DimensionInput.vue';
+import MaterialSizeInput from '../../components/common/MaterialSizeInput.vue';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true },

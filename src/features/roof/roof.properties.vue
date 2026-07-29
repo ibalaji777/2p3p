@@ -45,7 +45,7 @@
         <div class="control-group"><label>Elevation Gap</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.config.wallGap" min="-50" max="100" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.config.wallGap" @change="$emit('sync-engine')" /></div></div>
         
         <div class="decor-gallery" v-if="['hip', 'gable'].includes(selectedEntity.config.roofType)">
-            <div class="control-group"><label>Tile Size</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.tileSize" min="1" max="200" step="1" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.tileSize" min="1" max="200" step="1" @change="$emit('sync-engine')" /></div></div>
+            <MaterialSizeInput v-model="selectedEntity.tileSize" :defaultMax="200" @change="$emit('sync-engine')" />
             
             <h4 class="props-subtitle">Roof Material</h4>
             <div class="decor-grid">
@@ -67,7 +67,7 @@
         </div>
 
         <div class="decor-gallery" v-if="selectedEntity.config.roofType === 'flat'">
-            <div class="control-group"><label>Tile Size</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.tileSize" min="1" max="200" step="1" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.tileSize" min="1" max="200" step="1" @change="$emit('sync-engine')" /></div></div>
+            <MaterialSizeInput v-model="selectedEntity.tileSize" :defaultMax="200" @change="$emit('sync-engine')" />
             
             <h4 class="props-subtitle">Change Material (Roof Texture)</h4>
             <div class="decor-grid">
@@ -84,6 +84,7 @@
 
 <script setup>
 import DimensionInput from '../../components/common/DimensionInput.vue';
+import MaterialSizeInput from '../../components/common/MaterialSizeInput.vue';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true },
