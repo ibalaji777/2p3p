@@ -16,7 +16,7 @@ export const useSettingsStore = defineStore('settings', {
             wallTracking: true,
             entranceWallId: null
         },
-        selectedSky: 'arch_viz_sunny',
+        selectedSky: 'venice_sunset',
         selectedGround: 'grass',
         isWallTrackingEnabled: false
     }),

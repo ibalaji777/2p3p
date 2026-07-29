@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { Molding3DBuilder } from './Molding3DBuilder.js';
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
 import { Railing3DBuilder } from '../../features/railing/builders/Railing3DBuilder.js';
@@ -12,39 +13,11 @@ let _sharedPlasterMaterial = null;
 function getPlasterMaterial() {
     if (_sharedPlasterMaterial) return _sharedPlasterMaterial;
 
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d');
-    
-    // Base color: Slight warm off-white
-    ctx.fillStyle = '#f8f6f0';
-    ctx.fillRect(0, 0, 512, 512);
-    
-    const imgData = ctx.getImageData(0, 0, 512, 512);
-    const data = imgData.data;
-    for (let i = 0; i < data.length; i += 4) {
-        // Very low roughness variation & tiny plaster texture
-        const noise = (Math.random() - 0.5) * 15; 
-        data[i] = Math.max(0, Math.min(255, 248 + noise));
-        data[i+1] = Math.max(0, Math.min(255, 246 + noise));
-        data[i+2] = Math.max(0, Math.min(255, 240 + noise));
-        data[i+3] = 255;
-    }
-    ctx.putImageData(imgData, 0, 0);
-
-    const plasterTex = new THREE.CanvasTexture(canvas);
-    plasterTex.wrapS = THREE.RepeatWrapping;
-    plasterTex.wrapT = THREE.RepeatWrapping;
-    plasterTex.repeat.set(0.02, 0.02);
-
     _sharedPlasterMaterial = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        map: plasterTex,
-        roughness: 0.95,
-        roughnessMap: plasterTex,
-        bumpMap: plasterTex,
-        bumpScale: 0.01,
+        color: 0xefede5, // Clean modern warm off-white
+        roughness: 0.9,
+        metalness: 0.0,
+        envMapIntensity: 0.08,
         flatShading: true
     });
     
@@ -104,13 +77,14 @@ export class EnvironmentBuilder {
         this.ctx.scene.add(grid);
         this.grid = grid;
 
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x777777, 0.95);
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x777777, 0.2);
         hemiLight.position.set(0, 500, 0);
         this.ctx.scene.add(hemiLight);
         this.hemiLight = hemiLight;
 
-        const sunLight = new THREE.DirectionalLight(0xfff5e6, 2.5);
-        sunLight.position.set(500, 700, 600); // Higher angle for better architectural shadows
+        const sunLight = new THREE.DirectionalLight(0xfff5e6, 1.2);
+        // Sun position matches the reference image: low angle from the left/back
+        sunLight.position.set(-800, 300, -200);
         sunLight.castShadow = true;
         sunLight.shadow.mapSize.width = 4096;
         sunLight.shadow.mapSize.height = 4096;
@@ -126,7 +100,7 @@ export class EnvironmentBuilder {
         this.sunLight = sunLight;
 
         // Fill Light (Soft sky bounce from opposite quadrant to reveal interior furniture & wall details)
-        const fillLight = new THREE.DirectionalLight(0xe2e8f0, 1.2);
+        const fillLight = new THREE.DirectionalLight(0xe2e8f0, 0.2);
         fillLight.position.set(-600, 500, -500);
         this.ctx.scene.add(fillLight);
         this.fillLight = fillLight;
@@ -135,9 +109,18 @@ export class EnvironmentBuilder {
     setEnvironment(skyKey, groundKey) {
         const skyConfig = SKY_REGISTRY[skyKey];
         if (skyConfig) {
-            if (skyConfig.skyColor) {
+            if (skyConfig.type === 'hdri' && skyConfig.url) {
+                const loader = new RGBELoader();
+                loader.load(skyConfig.url, (texture) => {
+                    texture.mapping = THREE.EquirectangularReflectionMapping;
+                    this.ctx.scene.background = texture;
+                    this.ctx.scene.environment = texture;
+                });
+                if (this.ctx.scene.fog) this.ctx.scene.fog.color.setHex(skyConfig.fogColor || 0xe0eaf5);
+            } else if (skyConfig.skyColor) {
                 this.ctx.scene.background = new THREE.Color(skyConfig.skyColor);
                 if (this.ctx.scene.fog) this.ctx.scene.fog.color.setHex(skyConfig.fogColor || skyConfig.skyColor);
+                this.ctx.scene.environment = null;
             }
             if (this.hemiLight) {
                 this.hemiLight.color.setHex(skyConfig.hemiSky || 0xffffff);

@@ -224,6 +224,17 @@ export const SKY_REGISTRY = {
         ambient: 2.8,
         hemi: 2.2,
         sun: 1.2
+    },
+    'venice_sunset': {
+        id: 'venice_sunset',
+        name: 'Venice Sunset',
+        type: 'hdri',
+        url: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/venice_sunset_1k.hdr',
+        sunColor: 0xffeebb,
+        fogColor: 0xdab7a2,
+        ambient: 2.5,
+        hemi: 2.0,
+        sun: 2.0
     }
 };
 
@@ -257,7 +268,7 @@ export const GROUND_REGISTRY = {
         texture: 'https://threejs.org/examples/textures/terrain/grasslight-big.jpg',
         thumbnail: 'https://threejs.org/examples/textures/terrain/grasslight-big.jpg',
         normal: 'https://threejs.org/examples/textures/water/Water_1_M_Normal.jpg',
-        repeat: 200, roughness: 1.0, normalScale: 1.0, terrainHeight: 15
+        repeat: 25, roughness: 1.0, normalScale: 0.3, terrainHeight: 5
     },
     'dark_soil': {
         id: 'dark_soil', name: 'Dark Soil', type: 'terrain',

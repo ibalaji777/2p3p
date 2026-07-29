@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { TransformControls } from './engine3d/TransformControls.js';
 import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY, DOOR_MATERIALS_REGISTRY, FABRIC_REGISTRY, getFabricBaseConfig, resolveFabricConfig } from './registry.js';
 import { EnvironmentBuilder } from "./engine3d/EnvironmentBuilder.js";
@@ -34,9 +35,9 @@ export class Preview3D {
         this.renderer.setPixelRatio(window.devicePixelRatio);
         if (THREE.SRGBColorSpace) this.renderer.outputColorSpace = THREE.SRGBColorSpace; 
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 1.25;
+        this.renderer.toneMappingExposure = 1.0;
         this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFShadowMap;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.container.appendChild(this.renderer.domElement);
         
         this.cameraController = new CameraController(this.camera, this.renderer.domElement, this);
@@ -171,7 +172,9 @@ export class Preview3D {
         this.envBuilder.setupBaseEnvironment();
         const pmremGenerator = new THREE.PMREMGenerator(this.renderer); 
         pmremGenerator.compileEquirectangularShader(); 
-        this.scene.environment = pmremGenerator.fromScene(new THREE.Scene()).texture;
+        const roomEnv = new RoomEnvironment();
+        this.scene.environment = pmremGenerator.fromScene(roomEnv).texture;
+        roomEnv.dispose();
 
         this._onResize = () => this.resize();
         window.addEventListener('resize', this._onResize); 

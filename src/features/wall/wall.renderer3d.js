@@ -4,51 +4,11 @@ import { MaterialFactory } from '../../core/engine3d/MaterialFactory.js';
 
 export class Wall3DBuilder {
     constructor() {
-        // Procedural photorealistic plaster bump texture for modern villa exterior/interior
-        const canvas = document.createElement('canvas');
-        canvas.width = 512; canvas.height = 512;
-        const ctx2d = canvas.getContext('2d');
-        
-        ctx2d.fillStyle = '#808080';
-        ctx2d.fillRect(0, 0, 512, 512);
-        
-        // Trowel marks and soft dirt variation (seamless)
-        for (let i = 0; i < 3000; i++) {
-            const isLight = Math.random() > 0.5;
-            ctx2d.fillStyle = isLight ? `rgba(255, 255, 255, ${Math.random() * 0.04})` : `rgba(0, 0, 0, ${Math.random() * 0.04})`;
-            ctx2d.beginPath();
-            const x = Math.random() * 512;
-            const y = Math.random() * 512;
-            const r = 5 + Math.random() * 25;
-            ctx2d.arc(x, y, r, 0, Math.PI * 2);
-            ctx2d.fill();
-            
-            if (x - r < 0) { ctx2d.beginPath(); ctx2d.arc(x + 512, y, r, 0, Math.PI * 2); ctx2d.fill(); }
-            if (x + r > 512) { ctx2d.beginPath(); ctx2d.arc(x - 512, y, r, 0, Math.PI * 2); ctx2d.fill(); }
-            if (y - r < 0) { ctx2d.beginPath(); ctx2d.arc(x, y + 512, r, 0, Math.PI * 2); ctx2d.fill(); }
-            if (y + r > 512) { ctx2d.beginPath(); ctx2d.arc(x, y - 512, r, 0, Math.PI * 2); ctx2d.fill(); }
-        }
-        
-        // Fine concrete grain
-        const imgData = ctx2d.getImageData(0, 0, 512, 512);
-        for (let i = 0; i < imgData.data.length; i += 4) {
-            const grain = (Math.random() - 0.5) * 20; 
-            imgData.data[i] = Math.max(0, Math.min(255, imgData.data[i] + grain));
-            imgData.data[i + 1] = Math.max(0, Math.min(255, imgData.data[i + 1] + grain));
-            imgData.data[i + 2] = Math.max(0, Math.min(255, imgData.data[i + 2] + grain));
-        }
-        ctx2d.putImageData(imgData, 0, 0);
-
-        this.wallBumpTex = new THREE.CanvasTexture(canvas);
-        this.wallBumpTex.wrapS = this.wallBumpTex.wrapT = THREE.RepeatWrapping;
-        this.wallBumpTex.repeat.set(0.05, 0.05);
-
         this.matMain = new THREE.MeshStandardMaterial({ 
-            color: 0xefede5, // Premium modern warm off-white
-            roughness: 0.98, // Realistic matte cement finish
-            metalness: 0.02, // Subtle sunlight response
-            bumpMap: this.wallBumpTex, 
-            bumpScale: 0.015 // Soft but visible plaster grain depth
+            color: 0xefede5, // Premium modern warm off-white (clean painted drywall)
+            roughness: 0.9, // Smooth realistic matte finish
+            metalness: 0.0,
+            envMapIntensity: 0.08
         });
         this.matMain.userData = { isShared: true };
         this.matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xdddddb, roughness: 0.9 });
