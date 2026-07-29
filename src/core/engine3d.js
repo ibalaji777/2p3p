@@ -44,23 +44,9 @@ export class Preview3D {
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.container.appendChild(this.renderer.domElement);
         
-        // Setup Post-Processing (Tone Mapping & SSAO)
-        this.composer = new EffectComposer(this.renderer);
-        this.renderPass = new RenderPass(this.scene, this.camera);
-        this.composer.addPass(this.renderPass);
-        
-        // Optimized SSAO for performance
-        // Render SSAO at half resolution to save huge amounts of fill-rate
-        this.ssaoPass = new SSAOPass(this.scene, this.camera, w / 2, h / 2);
-        this.ssaoPass.kernelRadius = 8; // Reduced from 16
-        this.ssaoPass.minDistance = 0.005;
-        this.ssaoPass.maxDistance = 0.1;
-        this.ssaoPass.maxProjectedRadius = 50; // Cap to prevent massive texture fetches
-        this.composer.addPass(this.ssaoPass);
-        
-        // OutputPass handles sRGB and ToneMapping natively in r152+
-        this.outputPass = new OutputPass();
-        this.composer.addPass(this.outputPass);
+        // We bypass EffectComposer completely to allow native WebGL hardware anti-aliasing 
+        // to work flawlessly. This removes the jagged edge issues.
+        this.renderer.outputColorSpace = THREE.SRGBColorSpace;
         
         this.cameraController = new CameraController(this.camera, this.renderer.domElement, this);
         this.controls = this.cameraController.controls;
@@ -231,8 +217,6 @@ export class Preview3D {
             this.camera.aspect = w / h; 
             this.camera.updateProjectionMatrix(); 
             this.renderer.setSize(w, h); 
-            if (this.composer) this.composer.setSize(w, h);
-            if (this.ssaoPass) this.ssaoPass.setSize(w / 2, h / 2);
             this.requestRender();
         }
     }
@@ -250,11 +234,7 @@ export class Preview3D {
         
         // Only render if needed (dirty flag) or camera is actively moving
         if (this.needsRender || cameraChanged || this.isUpdatingFromUI) {
-            if (this.composer) {
-                this.composer.render();
-            } else {
-                this.renderer.render(this.scene, this.camera); 
-            }
+            this.renderer.render(this.scene, this.camera); 
             this.needsRender = false;
         }
         
