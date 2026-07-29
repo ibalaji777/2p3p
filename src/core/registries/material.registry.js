@@ -219,10 +219,10 @@ export const SKY_REGISTRY = {
         id: 'cloudy_day',
         name: 'Realistic Cloudy',
         type: 'hdri',
-        url: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/jpg/1k/cloudy_sky_1k.jpg',
+        url: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/cloudy_sky_1k.hdr',
         sunColor: 0xffffff,
-        ambient: 0.7,
-        hemi: 0.6,
+        ambient: 1.2,
+        hemi: 1.0,
         sun: 1.8
     }
 };

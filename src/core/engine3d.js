@@ -65,50 +65,27 @@ export class Preview3D {
                 
                 if (!conf) return new THREE.MeshStandardMaterial();
                 
-                let mat;
-                if (conf.transmission) {
-                    mat = new THREE.MeshPhysicalMaterial({
-                        color: conf.color !== undefined ? conf.color : 0xffffff,
-                        roughness: conf.roughness !== undefined ? conf.roughness : 0.5,
-                        metalness: conf.metalness !== undefined ? conf.metalness : 0.1,
-                        transmission: conf.transmission,
-                        ior: conf.ior || 1.5,
-                        transparent: true
-                    });
-                } else {
-                    mat = new THREE.MeshStandardMaterial({
-                        color: conf.color !== undefined ? conf.color : 0xffffff,
-                        roughness: conf.roughness !== undefined ? conf.roughness : 0.5,
-                        metalness: conf.metalness !== undefined ? conf.metalness : 0.1,
-                        transparent: conf.transparent || false,
-                        opacity: conf.opacity !== undefined ? conf.opacity : 1
-                    });
-                }
-                
-                if (this.assets && (conf.texture || conf.map || conf.url || conf.image || (typeof matId === 'string' && matId.includes('::pattern::')))) {
-                    const fetchTex = (typeof matId === 'string' && matId.includes('::pattern::'))
-                        ? resolveFabricConfig(matId).then(c => c ? this.assets.getTexture(c) : null)
-                        : this.assets.getTexture(conf);
-                        
-                    fetchTex.then(tex => {
-                        if (!tex) return;
-                        const applyTexToMat = (targetMat) => {
-                            const texClone = tex.clone();
-                            texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                            const { repeatX, repeatY } = MaterialFactory.calculateTexelDensity(null, conf);
-                            texClone.repeat.set(repeatX, repeatY); 
-                            targetMat.map = texClone;
-                            targetMat.color.setHex(0xffffff);
-                            targetMat.needsUpdate = true;
-                        };
-                        applyTexToMat(mat);
-                        if (this.materialClonesRegistry && this.materialClonesRegistry.has(mat)) {
-                            this.materialClonesRegistry.get(mat).forEach(clone => applyTexToMat(clone));
-                        }
-                    }).catch(() => {
-                        // Graceful fallback if texture is unavailable
-                    });
-                }
+                // Determine rough fallback dimensions based on category
+                let dims = { width: 100, height: 100 };
+                if (category === 'door') dims = { width: 90, height: 210 };
+                else if (category === 'window_frame') dims = { width: 100, height: 150 };
+
+                let mat = conf.transmission ? new THREE.MeshPhysicalMaterial() : new THREE.MeshStandardMaterial();
+
+                MaterialFactory.buildPBRMaterial({
+                    material: mat,
+                    config: conf,
+                    ctx: this,
+                    dimensions: dims,
+                    faceName: category
+                }).then(() => {
+                    if (this.materialClonesRegistry && this.materialClonesRegistry.has(mat)) {
+                        this.materialClonesRegistry.get(mat).forEach(clone => {
+                            clone.copy(mat);
+                            clone.needsUpdate = true;
+                        });
+                    }
+                });
                 
                 return mat;
             },
@@ -132,75 +109,17 @@ export class Preview3D {
                 const h = dimensions?.height || entity?.height || entity?.params?.height || 100;
                 const d = dimensions?.depth || entity?.depth || entity?.params?.depth || 30;
 
-                const applyTex = (mat, texKey, faceW, faceH) => {
+                const applyTex = (mat, texKey, faceW, faceH, faceName) => {
                     if (!texKey) return;
-
                     const config = resolveMaterialConfig(texKey);
                     if (config) {
-                        // Apply PBR Physical Properties
-                        if (config.color !== undefined && config.color !== null) {
-                            mat.color.setHex(config.color);
-                        }
-                        if (config.roughness !== undefined) mat.roughness = config.roughness;
-                        if (config.metalness !== undefined) mat.metalness = config.metalness;
-                        if (config.clearcoat !== undefined) mat.clearcoat = config.clearcoat;
-                        if (config.clearcoatRoughness !== undefined) mat.clearcoatRoughness = config.clearcoatRoughness;
-
-                        // Physical Transmission & Glass Properties
-                        if (config.transmission !== undefined || config.transparent) {
-                            mat.transmission = config.transmission !== undefined ? config.transmission : 0.9;
-                            mat.ior = config.ior || 1.5;
-                            mat.transparent = true;
-                            mat.opacity = config.opacity !== undefined ? config.opacity : 1.0;
-                        }
-
-                        // Load and set texture map if available
-                        const texUrl = config.texture || config.thumbnail || (typeof config === 'string' ? config : null);
-                        if (texUrl || (typeof texKey === 'string' && texKey.includes('::pattern::'))) {
-                            const fetchTex = (typeof texKey === 'string' && texKey.includes('::pattern::')) 
-                                ? resolveFabricConfig(texKey).then(c => c ? this.assets.getTexture(c.texture || c) : null) 
-                                : this.assets.getTexture(config);
-                            fetchTex.then(tex => {
-                                if (!tex) return;
-                                const texClone = tex.clone();
-                                texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                                
-                                const fW = faceW || w;
-                                const fH = faceH || h;
-                                
-                                let repeatX = 1, repeatY = 1;
-                                
-                                if (typeof config.repeat === 'object') {
-                                    repeatX = config.repeat.x || 1;
-                                    repeatY = config.repeat.y || 1;
-                                } else if (typeof config.repeat === 'number') {
-                                    repeatX = repeatY = config.repeat;
-                                } else if (config.defaultRepeat !== undefined) {
-                                    repeatX = repeatY = config.defaultRepeat;
-                                } else {
-                                    let tileSize = config.defaultTileSize || config.tileSize;
-                                    if (!tileSize) {
-                                        if (MARBLE_REGISTRY[texKey] || (config.id && (config.id.startsWith('marble_') || config.id.includes('marble')))) tileSize = 160;
-                                        else if (DOOR_MATERIALS_REGISTRY[texKey] || (config.id && (config.id.startsWith('wood_') || config.id.includes('wood')))) tileSize = 150;
-                                        else if (METAL_REGISTRY[texKey] || (config.id && (config.id.startsWith('metal_') || config.id.includes('metal')))) tileSize = 120;
-                                        else if (STONE_REGISTRY[texKey] || (config.id && (config.id.startsWith('stone_') || config.id.includes('stone')))) tileSize = 60;
-                                        else tileSize = 60;
-                                    }
-                                    repeatX = fW / tileSize;
-                                    repeatY = fH / tileSize;
-                                }
-                                
-                                texClone.repeat.set(repeatX, repeatY);
-                                if (config.rotation) {
-                                    texClone.rotation = config.rotation;
-                                    texClone.center.set(0.5, 0.5);
-                                }
-                                
-                                mat.map = texClone;
-                                if (config.color === undefined) mat.color.setHex(0xffffff); // Clear base color so texture shows properly
-                                mat.needsUpdate = true;
-                            });
-                        }
+                        MaterialFactory.buildPBRMaterial({
+                            material: mat,
+                            config: config,
+                            ctx: this,
+                            dimensions: { width: faceW, height: faceH },
+                            faceName: faceName
+                        });
                     }
                 };
 
@@ -212,13 +131,13 @@ export class Preview3D {
                         }
                         return null;
                     };
-                    applyTex(matTop, resolveTex('textureTop', 'texture'), w, d);
-                    applyTex(matBottom, resolveTex('textureBottom', 'texture'), w, d);
-                    applyTex(matSides, resolveTex('textureSides', 'texture'), w, h);
-                    applyTex(matLeft, resolveTex('textureLeft', 'textureSides', 'texture'), d, h);
-                    applyTex(matRight, resolveTex('textureRight', 'textureSides', 'texture'), d, h);
-                    applyTex(matFront, resolveTex('textureFront', 'textureSides', 'texture'), w, h);
-                    applyTex(matBack, resolveTex('textureBack', 'textureSides', 'texture'), w, h);
+                    applyTex(matTop, resolveTex('textureTop', 'texture'), w, d, 'top');
+                    applyTex(matBottom, resolveTex('textureBottom', 'texture'), w, d, 'bottom');
+                    applyTex(matSides, resolveTex('textureSides', 'texture'), w, h, 'sides');
+                    applyTex(matLeft, resolveTex('textureLeft', 'textureSides', 'texture'), d, h, 'left');
+                    applyTex(matRight, resolveTex('textureRight', 'textureSides', 'texture'), d, h, 'right');
+                    applyTex(matFront, resolveTex('textureFront', 'textureSides', 'texture'), w, h, 'front');
+                    applyTex(matBack, resolveTex('textureBack', 'textureSides', 'texture'), w, h, 'back');
                 }
 
                 return {

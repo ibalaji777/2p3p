@@ -1,12 +1,10 @@
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { resolveFabricConfig } from '../registry.js';
 
 export class MaterialFactory {
-    /**
-     * Identifies if a material configuration originates from the central Material Library.
-     * @param {Object|string} config - The material key or configuration object.
-     * @returns {boolean} True if from Material Library, false if basic/default.
-     */
+    static materialCache = new Map();
+
     static isLibraryMaterial(config) {
         if (!config) return false;
         if (typeof config === 'string') {
@@ -23,15 +21,7 @@ export class MaterialFactory {
         return Boolean(config.id || config.texture || config.isLibrary || config.tileSize);
     }
 
-    /**
-     * Automatically computes texture UV repeat scaling based on object physical dimensions and material tile size.
-     * For Material Library textures, applies real-world texel density.
-     * For non-library textures or basic fallbacks, defaults to standard 1x1 behavior.
-     * @param {THREE.Mesh} targetMesh - The mesh being rendered or textured.
-     * @param {Object} config - Material configuration object containing tileSize / repeat parameters.
-     * @returns {{repeatX: number, repeatY: number}} Calculated UV repeat factors.
-     */
-    static calculateTexelDensity(targetMesh, config = {}) {
+    static calculateTexelDensity(dimensions, config = {}) {
         if (!MaterialFactory.isLibraryMaterial(config) && !config.repeat && !config.tileSize) {
             return { repeatX: 1, repeatY: 1 };
         }
@@ -44,7 +34,6 @@ export class MaterialFactory {
             return { repeatX: config.defaultRepeat, repeatY: config.defaultRepeat };
         }
 
-        // Determine real-world physical tile size (in cm)
         let ts = config.realWorldSize || config.tileSize || config.defaultTileSize;
         if (!ts) {
             const matId = config.id || (typeof config === 'string' ? config : '');
@@ -55,31 +44,8 @@ export class MaterialFactory {
             else ts = 60;
         }
 
-        // Determine object physical dimensions
-        let width = 100, height = 100;
-        let targetEntity = targetMesh?.userData?.entity;
-        if (!targetEntity && targetMesh) {
-            let current = targetMesh;
-            while (current && !current.userData?.entity) {
-                current = current.parent;
-            }
-            if (current) targetEntity = current.userData.entity;
-        }
-
-        if (targetEntity) {
-            width = targetEntity.width || targetEntity.params?.width || 100;
-            height = targetEntity.height || targetEntity.params?.height || targetEntity.depth || 100;
-        } else if (targetMesh && targetMesh.geometry) {
-            if (!targetMesh.geometry.boundingBox) targetMesh.geometry.computeBoundingBox();
-            const box = targetMesh.geometry.boundingBox;
-            if (box) {
-                const sizeX = Math.abs(box.max.x - box.min.x);
-                const sizeY = Math.abs(box.max.y - box.min.y);
-                const sizeZ = Math.abs(box.max.z - box.min.z);
-                width = sizeX > 0.001 ? sizeX : 100;
-                height = Math.max(sizeY, sizeZ) > 0.001 ? Math.max(sizeY, sizeZ) : 100;
-            }
-        }
+        const width = dimensions.width || 100;
+        const height = dimensions.height || 100;
 
         return {
             repeatX: width / ts,
@@ -87,34 +53,69 @@ export class MaterialFactory {
         };
     }
 
-    /**
-     * Replaces or creates a PBR MeshStandardMaterial based on registry config.
-     * @param {THREE.Mesh} targetMesh - The mesh to apply the material to.
-     * @param {Object|string} config - The material configuration from the registry or composite key.
-     * @param {Object} ctx - The global context containing asset manager and renderer.
-     * @param {number} materialIndex - If the mesh uses an array of materials, which index to replace.
-     */
-    static async applyPBRMaterial(targetMesh, config, ctx, materialIndex = -1) {
-        if (!targetMesh || !config) return;
+    static resolveOrientation(config, dimensions, faceName) {
+        let mode = config.orientation || 'AUTO';
+        
+        if (mode === 'CUSTOM' && config.rotation !== undefined) {
+            return config.rotation;
+        }
+        if (mode === 'VERTICAL') return 0;
+        if (mode === 'HORIZONTAL') return Math.PI / 2;
+        if (mode === 'UV') return 0; // Depends on UV layout entirely
+
+        // AUTO mode
+        if (config.rotation !== undefined) return config.rotation;
+        
+        const matId = config.id || (typeof config === 'string' ? config : '');
+        const isWood = typeof matId === 'string' && matId.includes('wood');
+        
+        if (isWood) {
+            const w = dimensions.width || 100;
+            const h = dimensions.height || 100;
+            // Intelligent Orientation Resolver: Wood grain usually flows along the longest axis.
+            if (w > h) {
+                return Math.PI / 2;
+            }
+        }
+        return 0;
+    }
+
+    static async buildPBRMaterial(options) {
+        let { material, config, ctx, dimensions, faceName } = options;
+        if (!config) return material || new THREE.MeshStandardMaterial();
+
+        let originalConfigId = typeof config === 'string' ? config : config.id;
 
         if (typeof config === 'string') {
             const res = await resolveFabricConfig(config);
             if (res) config = res;
-            else config = { texture: config };
+            else config = { texture: config, id: originalConfigId };
         } else if (config.id && typeof config.id === 'string' && config.id.includes('::pattern::') && !config.isComposite) {
             const res = await resolveFabricConfig(config.id);
             if (res) config = res;
         }
+        
+        if (!config.id && originalConfigId) config.id = originalConfigId;
 
-        // Clone existing material to avoid shared GLTF instance corruption
-        let newMat;
-        if (materialIndex !== -1 && Array.isArray(targetMesh.material)) {
-            newMat = targetMesh.material[materialIndex].clone();
-        } else {
-            newMat = Array.isArray(targetMesh.material) ? targetMesh.material[0].clone() : targetMesh.material.clone();
+        const dims = dimensions || { width: 100, height: 100 };
+        const { repeatX, repeatY } = this.calculateTexelDensity(dims, config);
+        const rotation = this.resolveOrientation(config, dims, faceName);
+
+        // Global Material Cache key based on config ID and UV Transform
+        const cacheKey = `${config.id}_${repeatX.toFixed(4)}_${repeatY.toFixed(4)}_${rotation.toFixed(4)}_${config.color || 'default'}`;
+        if (config.id && this.materialCache.has(cacheKey)) {
+            const cachedMat = this.materialCache.get(cacheKey);
+            // If we received an existing material object to mutate in-place, we must copy the cached material's properties
+            if (material) {
+                material.copy(cachedMat);
+                return material;
+            }
+            return cachedMat; // Otherwise we can just share the cached reference
         }
 
-        // Fetch textures concurrently
+        let newMat = material || new THREE.MeshStandardMaterial();
+
+        // Assets caching is handled internally by ctx.assets.getTexture
         const fetches = [
             config.texture ? ctx.assets.getTexture(config.texture, { isColorData: true }) : Promise.resolve(null),
             config.normal ? ctx.assets.getTexture(config.normal, { isColorData: false }) : Promise.resolve(null),
@@ -125,57 +126,64 @@ export class MaterialFactory {
 
         const [tex, normalTex, roughTex, aoTex, metalTex] = await Promise.all(fetches);
 
-        // Shared Texture Lifetime Management: Detach references instead of disposing.
-        if (newMat.map) newMat.map = null;
-        if (newMat.normalMap) newMat.normalMap = null;
-        if (newMat.roughnessMap) newMat.roughnessMap = null;
-        if (newMat.aoMap) newMat.aoMap = null;
-        if (newMat.metalnessMap) newMat.metalnessMap = null;
-
-        // Calculate UV Density automatically based on real-world dimensions & tile size
-        const { repeatX, repeatY } = MaterialFactory.calculateTexelDensity(targetMesh, config);
-        
-        // Setup shared texture properties (wrap, repeat, rotation, anisotropy)
-        const setupTex = (t) => {
+        const setupTex = (t, isColor) => {
             if (!t) return null;
             const tClone = t.clone();
             tClone.wrapS = tClone.wrapT = THREE.RepeatWrapping;
             tClone.repeat.set(repeatX, repeatY);
             
-            if (config.rotation) {
-                tClone.rotation = config.rotation;
-                tClone.center.set(0.5, 0.5);
-            }
+            tClone.rotation = rotation;
+            tClone.center.set(0.5, 0.5);
+
             if (config.flipY !== undefined) {
                 tClone.flipY = config.flipY;
             }
-            if (ctx.renderer) {
+            if (ctx && ctx.renderer) {
                 tClone.anisotropy = ctx.renderer.capabilities.getMaxAnisotropy();
             }
+            
+            // Universal Color Space assignment
+            if (isColor && THREE.SRGBColorSpace) {
+                tClone.colorSpace = THREE.SRGBColorSpace;
+            } else if (!isColor && THREE.NoColorSpace) {
+                tClone.colorSpace = THREE.NoColorSpace;
+            }
+
             tClone.needsUpdate = true;
             return tClone;
         };
 
-        newMat.map = setupTex(tex);
-        newMat.normalMap = setupTex(normalTex);
-        newMat.roughnessMap = setupTex(roughTex);
-        newMat.aoMap = setupTex(aoTex);
-        newMat.metalnessMap = setupTex(metalTex);
+        newMat.map = setupTex(tex, true);
+        newMat.normalMap = setupTex(normalTex, false);
+        newMat.roughnessMap = setupTex(roughTex, false);
+        newMat.aoMap = setupTex(aoTex, false);
+        newMat.metalnessMap = setupTex(metalTex, false);
 
-        // Apply physical properties
-        if (config.color !== undefined && config.color !== null) {
+        if (ctx && ctx.renderer && !MaterialFactory.sharedEnvMap) {
+            const pmremGenerator = new THREE.PMREMGenerator(ctx.renderer);
+            pmremGenerator.compileEquirectangularShader();
+            const roomEnv = new RoomEnvironment();
+            MaterialFactory.sharedEnvMap = pmremGenerator.fromScene(roomEnv).texture;
+            roomEnv.dispose();
+            pmremGenerator.dispose();
+        }
+
+        if (MaterialFactory.sharedEnvMap) {
+            newMat.envMap = MaterialFactory.sharedEnvMap;
+            newMat.envMapIntensity = config.envMapIntensity !== undefined ? config.envMapIntensity : 0.25; // Subtle reflection to fill in shadows
+        }
+
+        if (tex) {
+            newMat.color.setHex(0xffffff);
+        } else if (config.color !== undefined && config.color !== null) {
             newMat.color.setHex(config.color);
         } else {
-            newMat.color.setHex(0xffffff); // Reset base color to white so textures render bright
+            newMat.color.setHex(0xffffff);
         }
         
-        // Physical Roughness & Metalness
-        if (config.roughness !== undefined) {
-            newMat.roughness = config.roughness;
-        }
+        newMat.roughness = config.roughness !== undefined ? config.roughness : 0.5;
         newMat.metalness = config.metalness !== undefined ? config.metalness : 0.0;
 
-        // Physical Sheen (Velvet/Satin micro-fibers)
         if (config.sheen !== undefined) {
             newMat.sheen = config.sheen;
             if (!newMat.sheenColor) newMat.sheenColor = new THREE.Color(0xffffff);
@@ -185,18 +193,20 @@ export class MaterialFactory {
         if (config.clearcoat !== undefined) newMat.clearcoat = config.clearcoat;
         if (config.clearcoatRoughness !== undefined) newMat.clearcoatRoughness = config.clearcoatRoughness;
         if (config.normalScale !== undefined && newMat.normalMap) {
-            newMat.normalScale.set(config.normalScale, config.normalScale);
+            newMat.normalScale = new THREE.Vector2(config.normalScale, config.normalScale);
+        } else if (newMat.normalMap) {
+            newMat.normalScale = new THREE.Vector2(1, 1);
         }
         if (config.aoIntensity !== undefined && newMat.aoMap) {
             newMat.aoMapIntensity = config.aoIntensity;
         }
 
-        // Support Physical Transmission & Glass Properties
         if (config.transmission !== undefined || config.transparent) {
             if (newMat.type !== 'MeshPhysicalMaterial') {
-                newMat = new THREE.MeshPhysicalMaterial({
-                    color: newMat.color ? newMat.color.clone() : new THREE.Color(0xffffff)
-                });
+                if (!material) {
+                    const oldColor = newMat.color.clone();
+                    newMat = new THREE.MeshPhysicalMaterial({ color: oldColor });
+                }
             }
             newMat.transmission = config.transmission !== undefined ? config.transmission : 0.9;
             newMat.ior = config.ior || 1.5;
@@ -215,7 +225,6 @@ export class MaterialFactory {
                 newMat.specularIntensity = config.specularIntensity;
             }
         } else {
-            // Guarantee Mesh Visibility, Opaque Rendering, and Depth Writing for opaque materials
             newMat.visible = true;
             newMat.depthWrite = true;
             newMat.depthTest = true;
@@ -226,7 +235,56 @@ export class MaterialFactory {
         if (newMat.map) newMat.map.needsUpdate = true;
         newMat.needsUpdate = true;
 
-        // Safely apply back to mesh
+        if (config.id) {
+            this.materialCache.set(cacheKey, newMat);
+        }
+
+        return newMat;
+    }
+
+    static async applyPBRMaterial(targetMesh, config, ctx, materialIndex = -1) {
+        if (!targetMesh || !config) return;
+
+        let dimensions = { width: 100, height: 100 };
+        let targetEntity = targetMesh?.userData?.entity;
+        if (!targetEntity && targetMesh) {
+            let current = targetMesh;
+            while (current && !current.userData?.entity) {
+                current = current.parent;
+            }
+            if (current) targetEntity = current.userData.entity;
+        }
+
+        if (targetEntity) {
+            dimensions.width = targetEntity.width || targetEntity.params?.width || 100;
+            dimensions.height = targetEntity.height || targetEntity.params?.height || targetEntity.depth || 100;
+        } else if (targetMesh && targetMesh.geometry) {
+            if (!targetMesh.geometry.boundingBox) targetMesh.geometry.computeBoundingBox();
+            const box = targetMesh.geometry.boundingBox;
+            if (box) {
+                const sizeX = Math.abs(box.max.x - box.min.x);
+                const sizeY = Math.abs(box.max.y - box.min.y);
+                const sizeZ = Math.abs(box.max.z - box.min.z);
+                dimensions.width = sizeX > 0.001 ? sizeX : 100;
+                dimensions.height = Math.max(sizeY, sizeZ) > 0.001 ? Math.max(sizeY, sizeZ) : 100;
+            }
+        }
+
+        let baseMaterial;
+        if (materialIndex !== -1 && Array.isArray(targetMesh.material)) {
+            baseMaterial = targetMesh.material[materialIndex];
+        } else {
+            baseMaterial = Array.isArray(targetMesh.material) ? targetMesh.material[0] : targetMesh.material;
+        }
+
+        const newMat = await this.buildPBRMaterial({
+            material: baseMaterial,
+            config: config,
+            ctx: ctx,
+            dimensions: dimensions,
+            faceName: 'front'
+        });
+
         if (materialIndex !== -1 && Array.isArray(targetMesh.material)) {
             let targetIdx = materialIndex;
             if (targetIdx >= targetMesh.material.length) {
@@ -237,7 +295,6 @@ export class MaterialFactory {
             targetMesh.material = newMat;
         }
 
-        // Trigger real-time 3D viewport re-render
         if (ctx && typeof ctx.requestRender === 'function') ctx.requestRender();
         else if (ctx && typeof ctx.render === 'function') ctx.render();
         else if (window.engine3d && typeof window.engine3d.requestRender === 'function') window.engine3d.requestRender();

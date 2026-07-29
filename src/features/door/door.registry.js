@@ -16,7 +16,7 @@ export const DOOR_MATERIALS_REGISTRY = {
         name: 'Natural Burmese Golden Teak',
         texture: 'textures/wood/wood_golden_teak.png',
         thumbnail: 'textures/wood/wood_golden_teak.png',
-        roughness: 0.55, bumpScale: 0.005,
+        color: 0xc4a482, metalness: 0.0, envMapIntensity: 0.2, roughness: 0.55, bumpScale: 0.005,
         defaultWidth: 100, defaultHeight: 100, defaultDepth: 0.2, defaultRepeat: 1, scaleMultiplier: 1
     },
     'wood_dark_walnut': {
@@ -24,7 +24,7 @@ export const DOOR_MATERIALS_REGISTRY = {
         name: 'Solid Dark American Walnut',
         texture: 'textures/wood/wood_dark_walnut.png',
         thumbnail: 'textures/wood/wood_dark_walnut.png',
-        roughness: 0.5, bumpScale: 0.005,
+        color: 0x5c4033, metalness: 0.0, envMapIntensity: 0.2, roughness: 0.5, bumpScale: 0.005,
         defaultWidth: 100, defaultHeight: 100, defaultDepth: 0.2, defaultRepeat: 1, scaleMultiplier: 1
     },
     'wood_white_oak': {
@@ -32,7 +32,7 @@ export const DOOR_MATERIALS_REGISTRY = {
         name: 'Natural White American Oak',
         texture: 'textures/wood/wood_white_oak.png',
         thumbnail: 'textures/wood/wood_white_oak.png',
-        roughness: 0.6, bumpScale: 0.005,
+        color: 0xd8c8b8, metalness: 0.0, envMapIntensity: 0.2, roughness: 0.6, bumpScale: 0.005,
         defaultWidth: 100, defaultHeight: 100, defaultDepth: 0.2, defaultRepeat: 1, scaleMultiplier: 1
     },
     'wood_mahogany': {
@@ -40,7 +40,7 @@ export const DOOR_MATERIALS_REGISTRY = {
         name: 'Heritage Red Mahogany',
         texture: 'textures/wood/wood_mahogany.png',
         thumbnail: 'textures/wood/wood_mahogany.png',
-        roughness: 0.45, bumpScale: 0.005,
+        color: 0x8b4513, metalness: 0.0, envMapIntensity: 0.2, roughness: 0.45, bumpScale: 0.005,
         defaultWidth: 100, defaultHeight: 100, defaultDepth: 0.2, defaultRepeat: 1, scaleMultiplier: 1
     },
     'wood_wenge': {
@@ -48,7 +48,7 @@ export const DOOR_MATERIALS_REGISTRY = {
         name: 'Deep Ebony Wenge Timber',
         texture: 'textures/wood/wood_wenge.png',
         thumbnail: 'textures/wood/wood_wenge.png',
-        roughness: 0.4, bumpScale: 0.005,
+        color: 0x3d2b1f, metalness: 0.0, envMapIntensity: 0.2, roughness: 0.4, bumpScale: 0.005,
         defaultWidth: 100, defaultHeight: 100, defaultDepth: 0.2, defaultRepeat: 1, scaleMultiplier: 1
     },
 

@@ -1,10 +1,12 @@
 import * as THREE from 'three';
+import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { SKY_REGISTRY, GROUND_REGISTRY } from '../registry.js';
 
 export class BaseSceneSetup {
     constructor(scene) {
         this.scene = scene;
         this.textureLoader = new THREE.TextureLoader();
+        this.rgbeLoader = new HDRLoader();
 
         // Store references to lights and ground to update them
         this.hemiLight = null;
@@ -14,7 +16,7 @@ export class BaseSceneSetup {
         this.grid = null;
     }
 
-    setup(skyKey = 'arch_viz_sunny', groundKey = 'grass') {
+    setup(skyKey = 'cloudy_day', groundKey = 'grass') {
         // Segmented Ground for Terrain Displacement
         const groundGeo = new THREE.PlaneGeometry(10000, 10000, 150, 150);
         groundGeo.rotateX(-Math.PI / 2);
@@ -67,12 +69,13 @@ export class BaseSceneSetup {
             this.hemiLight.groundColor.setHex(config.hemiGround);
             this.scene.environment = null;
         } else if (config.type === 'hdri') {
-            this.textureLoader.load(config.url, (texture) => {
+            const loader = config.url.endsWith('.hdr') ? this.rgbeLoader : this.textureLoader;
+            loader.load(config.url, (texture) => {
                 texture.mapping = THREE.EquirectangularReflectionMapping;
                 this.scene.background = texture; this.scene.environment = texture;
                 this.scene.fog = new THREE.Fog(0xcccccc, 500, 3000);
             });
-            this.hemiLight.groundColor.setHex(0xaaaaaa);
+            this.hemiLight.groundColor.setHex(0xa08560);
         }
     }
 
