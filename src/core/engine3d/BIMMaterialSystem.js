@@ -111,7 +111,7 @@ export class BIMMaterialSystem {
             subMeshIndex = validChildren.indexOf(mesh);
         }
 
-        return {
+        const result = {
             entity: targetEntity,
             mesh: mesh,
             activeMatIndex: matIndex,
@@ -123,7 +123,7 @@ export class BIMMaterialSystem {
             subMeshIndex: subMeshIndex
         };
 
-        console.warn(`%c[BIM Selected Area] %c${targetEntity?.type || 'Mesh'} %c-> Face: %c${faceName} %c| Component: %c${componentType} %c| Slot: %c${slotName}`, 
+        console.info(`%c[BIM Selected Area] %c${targetEntity?.type || 'Mesh'} %c-> Face: %c${faceName} %c| Component: %c${componentType} %c| Slot: %c${slotName}`, 
             'color: #3b82f6; font-weight: bold;', 'color: #10b981;', 'color: #9ca3af;', 'color: #f59e0b; font-weight: bold;', 'color: #9ca3af;', 'color: #8b5cf6; font-weight: bold;', 'color: #9ca3af;', 'color: #ec4899; font-weight: bold;');
 
         return result;
@@ -151,6 +151,8 @@ export class BIMMaterialSystem {
             const targetMat = mats[matIndex] || mats[0];
             if (targetMat && targetMat.type !== 'MeshBasicMaterial' && targetMat.emissive !== undefined) {
                 if (active) {
+                    console.info(`%c[BIM Highlight] %cEmissive Green activated on %c${componentType || 'Mesh'}`, 
+                        'color: #10b981; font-weight: bold;', 'color: #9ca3af;', 'color: #f59e0b; font-weight: bold;');
                     if (targetMat.userData.origEmissive === undefined) { 
                         targetMat.userData.origEmissive = targetMat.emissive.getHex(); 
                         targetMat.userData.origEmissiveIntensity = targetMat.emissiveIntensity || 0; 

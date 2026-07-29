@@ -2165,6 +2165,10 @@ export class GizmoManager {
             supportsFaceMaterials = selectedObj.userData.isShape || selectedObj.userData.isWidget || selectedObj.userData.isMolding || selectedObj.userData.isPattern || selectedObj.userData.isWallDecor || selectedObj.userData.isRoof;
         }
 
+        console.info(`%c[GizmoManager] %cTransform Mode Changed: %c${mode} %c(Target: ${type || 'None'})`, 
+            'color: #f59e0b; font-weight: bold;', 'color: #9ca3af;', 'color: #3b82f6; font-weight: bold;', 'color: #6b7280;');
+
+
         if (mode === 'none') {
             tc.visible = false;
             tc.enabled = false;

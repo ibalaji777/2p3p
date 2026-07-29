@@ -618,6 +618,9 @@ export class InteractionSystem {
             side = result.side;
         }
 
+        console.info(`%c[InteractionSystem] %cSelected: %c${type || 'Unknown'} %c(Entity ID: ${object.userData?.entity?.id || 'N/A'})`, 
+            'color: #3b82f6; font-weight: bold;', 'color: #9ca3af;', 'color: #10b981; font-weight: bold;', 'color: #6b7280;');
+
         if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
         if (window.plannerInstance && object.userData.entity) {
             window.plannerInstance.selectEntity(object.userData.entity, type);
@@ -625,6 +628,10 @@ export class InteractionSystem {
     }
 
     deselect() {
+        if (this.selectedObject) {
+            console.info(`%c[InteractionSystem] %cDeselected: %c${this.selectedObject.userData?.entity?.type || 'Object'}`, 
+                'color: #3b82f6; font-weight: bold;', 'color: #9ca3af;', 'color: #ef4444; font-weight: bold;');
+        }
         this.cancelRelocation();
         if (this.transformControls) this.transformControls.detach();
         if (this.openingGizmo) this.openingGizmo.detach();
