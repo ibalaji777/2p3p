@@ -24,7 +24,7 @@
       <div class="header-pill">
         <!-- Left group: Mode Switcher Chip -->
         <div class="header-left">
-          <div class="mode-switcher-chip" @click.stop="isModeMenuOpen = !isModeMenuOpen" title="Switch Mode">
+          <div class="mode-switcher-chip" :class="viewMode === '3d' ? 'mode-3d' : 'mode-2d'" @click.stop="toggleMode" title="Toggle Mode">
             <svg v-if="viewMode === '3d'" class="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
               <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
@@ -36,8 +36,11 @@
               <path d="M3 21h6v-6"></path>
             </svg>
             <span class="mode-label">{{ viewMode === '3d' ? '3D Build' : '2D Plan' }}</span>
-            <svg class="chevron-icon" :class="{ 'open': isModeMenuOpen }" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"></polyline>
+            <svg class="toggle-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 3l4 4-4 4"></path>
+              <path d="M20 7H4"></path>
+              <path d="M8 21l-4-4 4-4"></path>
+              <path d="M4 17h16"></path>
             </svg>
           </div>
         </div>
@@ -74,38 +77,7 @@
       </div>
     </header>
 
-    <!-- Backdrop for Mode Switcher Popover -->
-    <div v-if="isModeMenuOpen" class="popover-backdrop" @click="isModeMenuOpen = false"></div>
 
-    <!-- Mode Switcher Popover -->
-    <div v-if="isModeMenuOpen" class="mode-popover">
-      <div class="popover-handle"></div>
-      <div class="mode-options-list">
-        <button class="mode-option-card" :class="{ 'active': viewMode === '2d' }" @click="selectMode('2d')">
-          <svg class="option-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-            <path d="M15 5l4 4"></path>
-            <path d="M3 21h6v-6"></path>
-          </svg>
-          <span class="option-title">2D Plan</span>
-          <svg v-if="viewMode === '2d'" class="check-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-        </button>
-
-        <button class="mode-option-card" :class="{ 'active': viewMode === '3d' }" @click="selectMode('3d')">
-          <svg class="option-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-            <line x1="12" y1="22.08" x2="12" y2="12"></line>
-          </svg>
-          <span class="option-title">3D Build</span>
-          <svg v-if="viewMode === '3d'" class="check-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
-        </button>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -123,15 +95,13 @@ const emit = defineEmits(['switch-2d', 'switch-3d', 'toggle-preview', 'undo', 'r
 
 // 3-state collapsible header: 'visible' | 'mini' | 'hidden'
 const headerState = ref('visible');
-const isModeMenuOpen = ref(false);
 
-const selectMode = (mode) => {
-  if (mode === '2d') {
-    emit('switch-2d');
-  } else if (mode === '3d') {
+const toggleMode = () => {
+  if (props.viewMode === '2d') {
     emit('switch-3d');
+  } else {
+    emit('switch-2d');
   }
-  isModeMenuOpen.value = false;
 };
 
 const revealHeader = () => {
@@ -140,7 +110,6 @@ const revealHeader = () => {
 
 const hideHeaderInstantly = () => {
   headerState.value = 'hidden';
-  isModeMenuOpen.value = false;
 };
 
 // Interaction detection for auto-hide in 3D and slight scroll collapse
@@ -163,7 +132,6 @@ const handlePointerMove = (e) => {
   if (props.viewMode === '3d' && (dx > 15 || dy > 15)) {
     if (headerState.value !== 'hidden' && e.clientY > 85) {
       headerState.value = 'hidden';
-      isModeMenuOpen.value = false;
     }
   }
 };
@@ -176,7 +144,6 @@ const handlePointerUp = () => {
 const handleWheel = (e) => {
   if (e.deltaY < -10 && headerState.value === 'visible') {
     headerState.value = 'mini';
-    isModeMenuOpen.value = false;
   }
 };
 
@@ -199,7 +166,6 @@ const handleTouchMove = (e) => {
     // Swipe up on header area collapses to mini
     else if (headerState.value === 'visible' && touchStartY < 85 && dy < -15) {
       headerState.value = 'mini';
-      isModeMenuOpen.value = false;
     }
   }
 };
@@ -401,45 +367,75 @@ onBeforeUnmount(() => {
   cursor: not-allowed;
 }
 
-/* MODE SWITCHER CHIP */
 .mode-switcher-chip {
-  background: rgba(241, 245, 249, 0.75);
-  border: 1px solid rgba(226, 232, 240, 0.8);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 20px;
   padding: 6px 14px;
   height: 38px;
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #0f172a;
+  color: #334155;
   font-weight: 600;
   font-size: 14.5px;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.04), 0 0 0 1px rgba(226, 232, 240, 0.5) inset;
   box-sizing: border-box;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .mode-switcher-chip:hover {
-  background: #f1f5f9;
+  background: #f8fafc;
   border-color: #cbd5e1;
   transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
 }
 
 .mode-switcher-chip:active {
-  transform: translateY(0) scale(0.98);
+  transform: translateY(0) scale(0.97);
+  background: #f1f5f9;
+}
+
+/* 3D Build mode styling (App Brand Blue) */
+.mode-switcher-chip.mode-3d {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+  box-shadow: 0 2px 5px rgba(37, 99, 235, 0.06), 0 0 0 1px rgba(191, 219, 254, 0.5) inset;
+}
+
+.mode-switcher-chip.mode-3d:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
 }
 
 .mode-icon {
   width: 19px;
   height: 19px;
-  stroke: #0f172a;
+  stroke: #475569;
   stroke-width: 2.2px;
   flex-shrink: 0;
+  transition: stroke 0.3s ease;
+}
+
+.mode-switcher-chip:hover .mode-icon,
+.mode-switcher-chip:hover .toggle-icon {
+  stroke: #0f172a;
+}
+
+.mode-switcher-chip.mode-3d .mode-icon,
+.mode-switcher-chip.mode-3d .toggle-icon {
+  stroke: #2563eb;
+}
+
+.mode-switcher-chip.mode-3d:hover .mode-icon,
+.mode-switcher-chip.mode-3d:hover .toggle-icon {
+  stroke: #1d4ed8;
 }
 
 .mode-label {
@@ -448,112 +444,16 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
-.chevron-icon {
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+.toggle-icon {
+  margin-left: 4px;
   stroke: #64748b;
-  margin-left: 2px;
   flex-shrink: 0;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), stroke 0.3s ease;
 }
 
-.chevron-icon.open {
+/* Subtle satisfying rotation on toggle */
+.mode-switcher-chip.mode-3d .toggle-icon {
   transform: rotate(180deg);
-}
-
-/* POPOVER BACKDROP */
-.popover-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1055;
-  background: transparent;
-  pointer-events: auto;
-}
-
-/* MODE SWITCHER POPOVER */
-.mode-popover {
-  position: fixed;
-  top: 76px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 280px;
-  background: #ffffff;
-  border-radius: 20px;
-  padding: 12px;
-  box-shadow: 0 20px 45px -5px rgba(15, 23, 42, 0.18), 0 8px 20px -5px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(226, 232, 240, 0.9) inset;
-  border: 1px solid #e2e8f0;
-  z-index: 1060;
-  pointer-events: auto;
-  animation: popoverSlideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@keyframes popoverSlideDown {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(-10px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0) scale(1);
-  }
-}
-
-.popover-handle {
-  width: 32px;
-  height: 4px;
-  border-radius: 2px;
-  background: #cbd5e1;
-  margin: 0 auto 10px;
-}
-
-.mode-options-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.mode-option-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 12px 16px;
-  background: transparent;
-  border: none;
-  border-radius: 14px;
-  cursor: pointer;
-  color: #475569;
-  font-family: 'Inter', sans-serif;
-  font-size: 14.5px;
-  font-weight: 500;
-  transition: all 0.2s;
-  box-sizing: border-box;
-}
-
-.mode-option-card:hover {
-  background: #f8fafc;
-  color: #0f172a;
-}
-
-.mode-option-card.active {
-  background: #eff6ff;
-  color: #2563eb;
-  font-weight: 600;
-}
-
-.option-icon {
-  width: 20px;
-  height: 20px;
-  stroke: currentColor;
-  flex-shrink: 0;
-}
-
-.option-title {
-  flex-grow: 1;
-  text-align: left;
-}
-
-.check-icon {
-  color: #2563eb;
-  flex-shrink: 0;
 }
 
 /* RESPONSIVE BREAKPOINTS (Desktop, Tablet, Mobile) */
