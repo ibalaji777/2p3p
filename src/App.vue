@@ -883,8 +883,9 @@ const loadProject = (jsonStr) => {
             }
             
             // Clear history when loading new project
-            historyStack.value = [];
-            historyIndex.value = -1;
+            if (planner.value && planner.value.commandManager) {
+                planner.value.commandManager.clear();
+            }
             setTimeout(() => saveHistory(), 200);
         } else {
             // Fallback for single floor plans or old exports

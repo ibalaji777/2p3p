@@ -26,6 +26,14 @@ export class CommandManager {
         }
     }
 
+    clear() {
+        this.undoStack = [];
+        this.redoStack = [];
+        if (typeof window !== 'undefined') {
+            coreEventBus.emit(EVENTS.HISTORY_CHANGED);
+        }
+    }
+
     undo() {
         if (this.undoStack.length === 0) return;
         
