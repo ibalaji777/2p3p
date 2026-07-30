@@ -258,7 +258,7 @@ export class BIMMaterialSystem {
         }
 
         // 2. Traversal & In-Place PBR Assembly Painting
-        const isAssembly = entity && (componentType === 'leaf' || componentType === 'frame' || componentType === 'glass' || componentType === 'furniture_part');
+        const isAssembly = entity && (componentType === 'leaf' || componentType === 'frame' || componentType === 'glass');
         let matIdxToApply = isAssembly ? -1 : targetMatIndex;
 
         const applyToMesh = (targetMesh) => {
