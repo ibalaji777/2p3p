@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { MaterialFactory } from './MaterialFactory.js';
+import { coreEventBus } from '../EventBus.js';
+import { EVENTS } from '../constants/events.js';
 import { 
     DOOR_MATERIALS_REGISTRY, 
     WALL_DECOR_REGISTRY, 
@@ -298,6 +300,11 @@ export class BIMMaterialSystem {
                     ctx.updateShapeLive(entity);
                 }
             }
+            coreEventBus.emit(EVENTS.ENTITY_MODIFIED, { entity });
+        }
+
+        if (ctx && ctx.interactions && typeof ctx.interactions.refreshSelectionHighlight === 'function') {
+            ctx.interactions.refreshSelectionHighlight();
         }
 
         if (ctx && typeof ctx.requestRender === 'function') {

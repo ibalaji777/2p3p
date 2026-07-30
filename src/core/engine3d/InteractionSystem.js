@@ -11,6 +11,7 @@ import { RoofCornerGizmo } from '../../features/roof/RoofCornerGizmo.js';
 import { RoofOverhangGizmo } from '../../features/roof/RoofOverhangGizmo.js';
 import { PolygonGizmo } from './PolygonGizmo.js';
 import { SelectionManager } from './SelectionManager.js';
+import { HighlightRenderer } from './HighlightRenderer.js';
 
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from '../../core/registry';
 
@@ -281,6 +282,7 @@ export class OpeningGizmo extends THREE.Group {
 export class InteractionSystem {
     constructor(ctx) {
         this.ctx = ctx;
+        this.highlightRenderer = new HighlightRenderer(this.ctx);
         this.selectionManager = new SelectionManager(this.ctx, this);
         this.mode = 'edit';
         this.raycaster = new THREE.Raycaster();
@@ -291,17 +293,8 @@ export class InteractionSystem {
         this.lastTapTime = 0;
         this.tapTimeout = null;
 
-        const geo = new THREE.PlaneGeometry(1, 1);
-        const mat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
-        this.wallHighlight = new THREE.Mesh(geo, mat);
-        this.wallHighlight.raycast = function() {};
-        this.wallHighlight.visible = false;
-
-        const geoHover = new THREE.PlaneGeometry(1, 1);
-        const matHover = new THREE.MeshBasicMaterial({ color: 0x93c5fd, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-        this.wallHoverHighlight = new THREE.Mesh(geoHover, matHover);
-        this.wallHoverHighlight.raycast = function() {};
-        this.wallHoverHighlight.visible = false;
+        this.wallHighlight = this.highlightRenderer.wallSelectionMesh;
+        this.wallHoverHighlight = this.highlightRenderer.wallHoverMesh;
 
         this.transformControls = new TransformControls(this.ctx.camera, this.ctx.renderer.domElement);
         this._syncUI = () => { if (this.ctx.syncToUI) this.ctx.syncToUI(); };
@@ -527,6 +520,7 @@ export class InteractionSystem {
 
     setTransformMode(mode) {
         if (!this.selectedObject) return;
+        if (this.highlightRenderer) this.highlightRenderer.setMode(mode);
         
         if (mode === 'material') {
             if (this.transformControls) this.transformControls.detach();
@@ -596,47 +590,41 @@ export class InteractionSystem {
         this.setRelocationState(false);
     }
 
+    refreshSelectionHighlight(object = null) {
+        if (this.highlightRenderer) {
+            this.highlightRenderer.refresh(object || this.selectedObject);
+        }
+    }
+
     setHighlight(group, active, color = 0x3b82f6) {
         if (!group) return;
-        if (active && this.ctx.currentTransformMode === 'material') return;
-
-        if (group.userData && group.userData.isWallSide) {
+        if (this.highlightRenderer) {
             if (active) {
-                if (this.selectionManager) this.selectionManager.hoverWall(group);
+                if (group.userData && group.userData.isWallSide) {
+                    if (this.selectionManager) this.selectionManager.hoverWall(group);
+                } else {
+                    this.highlightRenderer.setSelectionHighlight(group, this.ctx.currentTransformMode || 'normal');
+                }
             } else {
-                if (this.wallHoverHighlight.parent) this.wallHoverHighlight.parent.remove(this.wallHoverHighlight);
-                this.wallHoverHighlight.visible = false;
+                if (group.userData && group.userData.isWallSide) {
+                    this.highlightRenderer.clearHoverHighlight();
+                    this.highlightRenderer.clearSelectionHighlight();
+                } else {
+                    this.highlightRenderer.clearSelectionHighlight();
+                    this.highlightRenderer.clearHoverHighlight();
+                }
             }
             if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
             return;
         }
-
-        group.traverse((child) => {
-            if (child.isMesh && !child.userData.isHitbox && child.material && child.material.type !== 'MeshBasicMaterial') {
-                const mats = Array.isArray(child.material) ? child.material : [child.material];
-                mats.forEach(mat => {
-                    if (mat.emissive !== undefined) {
-                        if (active) {
-                            if (mat.userData.origEmissive === undefined) { mat.userData.origEmissive = mat.emissive.getHex(); mat.userData.origEmissiveIntensity = mat.emissiveIntensity || 0; }
-                            mat.emissive.setHex(color); mat.emissiveIntensity = 0.5;
-                        } else {
-                            if (mat.userData.origEmissive !== undefined) { mat.emissive.setHex(mat.userData.origEmissive); mat.emissiveIntensity = mat.userData.origEmissiveIntensity; }
-                        }
-                        mat.needsUpdate = true;
-                    }
-                });
-            }
-        });
-        if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
     }
 
     selectObject(object) {
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isMolding || this.selectedObject.userData.isRoof || this.selectedObject.userData.isPattern || this.selectedObject.userData.isStair || this.selectedObject.userData.isFloorCutProxy)) {
+        if (this.selectedObject) {
             this.setHighlight(this.selectedObject, false);
         }
         if (this.transformControls) this.transformControls.detach();
-        if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
-        if (this.wallHoverHighlight.parent) this.wallHoverHighlight.parent.remove(this.wallHoverHighlight);
+        if (this.highlightRenderer) this.highlightRenderer.clearAll();
 
         this.selectedObject = object;
         let type = null, side = null;
@@ -675,9 +663,11 @@ export class InteractionSystem {
         if (this.polygonGizmo) this.polygonGizmo.detach();
         this.ctx.currentTransformMode = 'none';
         if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
-        if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isMolding || this.selectedObject.userData.isRoof || this.selectedObject.userData.isPattern || this.selectedObject.userData.isStair || this.selectedObject.userData.isFloorCutProxy)) this.setHighlight(this.selectedObject, false);
-        if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
-        if (this.wallHoverHighlight.parent) this.wallHoverHighlight.parent.remove(this.wallHoverHighlight);
+        
+        if (this.highlightRenderer) {
+            this.highlightRenderer.clearAll();
+        }
+        
         this.selectedObject = null;
         if (this.ctx.onEntitySelect) this.ctx.onEntitySelect(null, null, null);
         if (window.plannerInstance) {
@@ -715,5 +705,6 @@ export class InteractionSystem {
         if (this.roofCornerGizmo && this.roofCornerGizmo.dispose) this.roofCornerGizmo.dispose();
         if (this.roofOverhangGizmo && this.roofOverhangGizmo.dispose) this.roofOverhangGizmo.dispose();
         if (this.polygonGizmo && this.polygonGizmo.dispose) this.polygonGizmo.dispose();
+        if (this.highlightRenderer && this.highlightRenderer.dispose) this.highlightRenderer.dispose();
     }
 }

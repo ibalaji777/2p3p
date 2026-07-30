@@ -18,16 +18,28 @@ export class SelectionManager {
     }
 
     selectWall(object) {
-        this._updateWallHighlightShape(object, this.system.wallHighlight);
+        if (this.system.highlightRenderer) {
+            this.system.highlightRenderer.setSelectionHighlight(object, this.ctx.currentTransformMode || 'normal');
+        } else {
+            this._updateWallHighlightShape(object, this.system.wallHighlight);
+        }
         if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
         return { type: 'wall', side: object.userData.side };
     }
 
     hoverWall(object) {
-        this._updateWallHighlightShape(object, this.system.wallHoverHighlight);
+        if (this.system.highlightRenderer) {
+            this.system.highlightRenderer.setHoverHighlight(object);
+        } else {
+            this._updateWallHighlightShape(object, this.system.wallHoverHighlight);
+        }
     }
 
     _updateWallHighlightShape(object, targetMesh) {
+        if (this.system.highlightRenderer) {
+            this.system.highlightRenderer.refresh(object);
+            return;
+        }
         const side = object.userData.side;
         const wallGroup = object.parent;
         const w = wallGroup.userData.entity;
