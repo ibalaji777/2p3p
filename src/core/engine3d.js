@@ -45,7 +45,7 @@ export class Preview3D {
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 1.0;
         this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.shadowMap.type = THREE.PCFShadowMap;
         this.container.appendChild(this.renderer.domElement);
         
         // We bypass EffectComposer completely to allow native WebGL hardware anti-aliasing 
@@ -385,6 +385,10 @@ export class Preview3D {
                 
                 if (this.currentTransformMode === 'material' && interactions.materialGizmo) {
                     interactions.materialGizmo.attach(newMesh);
+                }
+
+                if (interactions.refreshSelectionHighlight) {
+                    interactions.refreshSelectionHighlight(newMesh);
                 }
             }
             return true;
