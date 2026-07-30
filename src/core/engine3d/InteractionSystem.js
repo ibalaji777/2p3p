@@ -292,9 +292,16 @@ export class InteractionSystem {
         this.tapTimeout = null;
 
         const geo = new THREE.PlaneGeometry(1, 1);
-        const mat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false });
+        const mat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
         this.wallHighlight = new THREE.Mesh(geo, mat);
+        this.wallHighlight.raycast = function() {};
         this.wallHighlight.visible = false;
+
+        const geoHover = new THREE.PlaneGeometry(1, 1);
+        const matHover = new THREE.MeshBasicMaterial({ color: 0x93c5fd, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+        this.wallHoverHighlight = new THREE.Mesh(geoHover, matHover);
+        this.wallHoverHighlight.raycast = function() {};
+        this.wallHoverHighlight.visible = false;
 
         this.transformControls = new TransformControls(this.ctx.camera, this.ctx.renderer.domElement);
         this._syncUI = () => { if (this.ctx.syncToUI) this.ctx.syncToUI(); };
@@ -358,6 +365,15 @@ export class InteractionSystem {
         this.transformControls.addEventListener('spin-change', this._syncUI);
         this.transformControls.addEventListener('tilt-change', this._syncUI);
         this.transformControls.addEventListener('rotate-change', this._syncUI);
+        this.transformControls.addEventListener('dragging-changed', (event) => {
+            if (this.ctx.renderCoordinator) {
+                if (event.value) this.ctx.renderCoordinator.startContinuousRender('transform_controls');
+                else this.ctx.renderCoordinator.stopContinuousRender('transform_controls');
+            }
+        });
+        this.transformControls.addEventListener('change', () => {
+            if (this.ctx.renderCoordinator) this.ctx.renderCoordinator.notifyChange('transform_controls_change', 2);
+        });
         this.transformControls.visible = false;
         this.ctx.scene.add(this.transformControls);
 
@@ -583,6 +599,18 @@ export class InteractionSystem {
     setHighlight(group, active, color = 0x3b82f6) {
         if (!group) return;
         if (active && this.ctx.currentTransformMode === 'material') return;
+
+        if (group.userData && group.userData.isWallSide) {
+            if (active) {
+                if (this.selectionManager) this.selectionManager.hoverWall(group);
+            } else {
+                if (this.wallHoverHighlight.parent) this.wallHoverHighlight.parent.remove(this.wallHoverHighlight);
+                this.wallHoverHighlight.visible = false;
+            }
+            if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
+            return;
+        }
+
         group.traverse((child) => {
             if (child.isMesh && !child.userData.isHitbox && child.material && child.material.type !== 'MeshBasicMaterial') {
                 const mats = Array.isArray(child.material) ? child.material : [child.material];
@@ -599,6 +627,7 @@ export class InteractionSystem {
                 });
             }
         });
+        if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
     }
 
     selectObject(object) {
@@ -607,6 +636,7 @@ export class InteractionSystem {
         }
         if (this.transformControls) this.transformControls.detach();
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
+        if (this.wallHoverHighlight.parent) this.wallHoverHighlight.parent.remove(this.wallHoverHighlight);
 
         this.selectedObject = object;
         let type = null, side = null;
@@ -624,6 +654,9 @@ export class InteractionSystem {
         if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
         if (window.plannerInstance && object.userData.entity) {
             window.plannerInstance.selectEntity(object.userData.entity, type);
+        }
+        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+            this.ctx.requestRender();
         }
     }
 
@@ -644,10 +677,14 @@ export class InteractionSystem {
         if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
         if (this.selectedObject && (this.selectedObject.userData.isFurniture || this.selectedObject.userData.isWallDecor || this.selectedObject.userData.isFloor || this.selectedObject.userData.isWidget || this.selectedObject.userData.isMolding || this.selectedObject.userData.isRoof || this.selectedObject.userData.isPattern || this.selectedObject.userData.isStair || this.selectedObject.userData.isFloorCutProxy)) this.setHighlight(this.selectedObject, false);
         if (this.wallHighlight.parent) this.wallHighlight.parent.remove(this.wallHighlight);
+        if (this.wallHoverHighlight.parent) this.wallHoverHighlight.parent.remove(this.wallHoverHighlight);
         this.selectedObject = null;
         if (this.ctx.onEntitySelect) this.ctx.onEntitySelect(null, null, null);
         if (window.plannerInstance) {
             window.plannerInstance.selectEntity(null, null);
+        }
+        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+            this.ctx.requestRender();
         }
     }
 

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
+import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { Molding3DBuilder } from './Molding3DBuilder.js';
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
@@ -231,7 +231,7 @@ export class EnvironmentBuilder {
         const skyConfig = SKY_REGISTRY[skyKey];
         if (skyConfig) {
             if (skyConfig.type === 'hdri' && skyConfig.url) {
-                const loader = new RGBELoader();
+                const loader = new HDRLoader();
                 loader.load(skyConfig.url, (texture) => {
                     if (!this.pmremGenerator && this.ctx.renderer) {
                         this.pmremGenerator = new THREE.PMREMGenerator(this.ctx.renderer);

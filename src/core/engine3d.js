@@ -21,9 +21,13 @@ import { ThumbnailGenerator } from "./ThumbnailGenerator.js";
 import { MaterialFactory } from "./engine3d/MaterialFactory.js";
 import { UniversalMaterialEngine } from "./engine3d/UniversalMaterialEngine.js";
 import { BIMMaterialSystem } from "./engine3d/BIMMaterialSystem.js";
+import { RenderCoordinator } from "./engine3d/RenderCoordinator.js";
+
 export class Preview3D {
     constructor(containerEl) {
         this.container = containerEl;
+        this.renderCoordinator = new RenderCoordinator(this);
+
         this.scene = new THREE.Scene();
         this.structureGroup = new THREE.Group();
         this.staticStructureGroup = new THREE.Group();
@@ -50,7 +54,9 @@ export class Preview3D {
         
         this.cameraController = new CameraController(this.camera, this.renderer.domElement, this);
         this.controls = this.cameraController.controls;
-        this.controls.addEventListener('change', () => this.requestRender());
+        this.controls.addEventListener('start', () => this.renderCoordinator.startContinuousRender('orbit_controls'));
+        this.controls.addEventListener('end', () => this.renderCoordinator.stopContinuousRender('orbit_controls'));
+        this.controls.addEventListener('change', () => this.renderCoordinator.notifyChange('orbit_controls_change', 2));
 
         this.navigationCube = new NavigationCube(this.container, this.cameraController);
 
@@ -120,6 +126,7 @@ export class Preview3D {
                 const h = dimensions?.height || entity?.height || entity?.params?.height || 100;
                 const d = dimensions?.depth || entity?.depth || entity?.params?.depth || 30;
 
+                const isWall = entity && (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'wall' || entity.startX !== undefined);
                 const applyTex = (mat, texKey, faceW, faceH, faceName) => {
                     if (!texKey) return;
                     const config = resolveMaterialConfig(texKey);
@@ -128,7 +135,7 @@ export class Preview3D {
                             material: mat,
                             config: config,
                             ctx: this,
-                            dimensions: { width: faceW, height: faceH },
+                            dimensions: { width: faceW, height: faceH, isWorldUV: isWall },
                             faceName: faceName
                         });
                     }
@@ -185,6 +192,7 @@ export class Preview3D {
         const roomEnv = new RoomEnvironment();
         this.scene.environment = pmremGenerator.fromScene(roomEnv).texture;
         roomEnv.dispose();
+        pmremGenerator.dispose();
 
         this._onResize = () => this.resize();
         window.addEventListener('resize', this._onResize); 
@@ -198,6 +206,7 @@ export class Preview3D {
         if (this._onResize) window.removeEventListener('resize', this._onResize);
         if (this._animateId) cancelAnimationFrame(this._animateId);
         
+        if (this.renderCoordinator) this.renderCoordinator.dispose();
         if (this.interactions && this.interactions.dispose) this.interactions.dispose();
         if (this.gizmoManager && this.gizmoManager.dispose) this.gizmoManager.dispose();
         if (this.navigationCube && this.navigationCube.dispose) this.navigationCube.dispose();
@@ -217,12 +226,16 @@ export class Preview3D {
             this.camera.aspect = w / h; 
             this.camera.updateProjectionMatrix(); 
             this.renderer.setSize(w, h); 
-            this.requestRender();
+            this.requestRender('window_resize');
         }
     }
 
-    requestRender() {
-        this.needsRender = true;
+    requestRender(reason = 'legacy_request', frames = 2) {
+        if (this.renderCoordinator) {
+            this.renderCoordinator.notifyChange(reason, frames);
+        } else {
+            this.needsRender = true;
+        }
     }
 
     animate() { 
@@ -232,9 +245,10 @@ export class Preview3D {
         const cameraChanged = this.cameraController.update(); 
         this.navigationCube.update(this.camera);
         
-        // Only render if needed (dirty flag) or camera is actively moving
-        if (this.needsRender || cameraChanged || this.isUpdatingFromUI) {
+        // Render pass scheduled by RenderCoordinator or active camera movements
+        if (this.renderCoordinator.shouldRender() || cameraChanged || this.isUpdatingFromUI) {
             this.renderer.render(this.scene, this.camera); 
+            this.renderCoordinator.onFrameRendered();
             this.needsRender = false;
         }
         

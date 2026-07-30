@@ -44,7 +44,9 @@ export class BIMMaterialSystem {
         const targetEntity = entity || mesh.userData?.entity || BIMMaterialSystem._findBIMEntity(mesh);
         
         let faceName = 'front';
-        if (localNormal) {
+        if (mesh.userData && mesh.userData.side) {
+            faceName = mesh.userData.side;
+        } else if (localNormal) {
             const absX = Math.abs(localNormal.x);
             const absY = Math.abs(localNormal.y);
             const absZ = Math.abs(localNormal.z);
@@ -53,7 +55,7 @@ export class BIMMaterialSystem {
             else faceName = localNormal.z > 0 ? 'front' : 'back';
         }
 
-        const isExtrudeGeo = Boolean(mesh.geometry && mesh.geometry.type === 'ExtrudeGeometry');
+        const isExtrudeGeo = Boolean(mesh.geometry && mesh.geometry.type === 'ExtrudeGeometry' && (!Array.isArray(mesh.material) || mesh.material.length !== 6));
         let targetMatIndex = 0;
 
         if (isExtrudeGeo) {
@@ -136,14 +138,21 @@ export class BIMMaterialSystem {
         if (!mesh || !mesh.material) return;
 
         const descriptor = target?.componentType ? target : BIMMaterialSystem.resolveBIMTarget(mesh);
-        const { entity, componentType } = descriptor;
+        let { entity, componentType, targetMatIndex } = descriptor;
+        
+        if (componentType === 'wall_face' && entity && entity.mesh3D) {
+            const wallMesh = entity.mesh3D.children.find(c => !c.userData?.isHitbox && !c.userData?.isWallSide && c.isMesh);
+            if (wallMesh) {
+                mesh = wallMesh;
+                // Make sure to use the correct material index for the wall mesh (4 for front, 5 for back)
+                targetMatIndex = FACE_TO_INDEX[descriptor.faceName] !== undefined ? FACE_TO_INDEX[descriptor.faceName] : 4;
+            }
+        }
 
         const highlightSingleMesh = (m) => {
             if (!m || !m.material) return;
             const mats = Array.isArray(m.material) ? m.material : [m.material];
-            const matIndex = (descriptor?.targetMatIndex !== undefined && descriptor?.targetMatIndex !== -1) 
-                ? descriptor.targetMatIndex 
-                : 0;
+            const matIndex = (targetMatIndex !== undefined && targetMatIndex !== -1) ? targetMatIndex : 0;
 
             const targetMat = mats[matIndex] || mats[0];
             if (targetMat && targetMat.type !== 'MeshBasicMaterial' && targetMat.emissive !== undefined) {
@@ -248,7 +257,7 @@ export class BIMMaterialSystem {
 
         // 2. Traversal & In-Place PBR Assembly Painting
         const isAssembly = entity && (componentType === 'leaf' || componentType === 'frame' || componentType === 'glass' || componentType === 'furniture_part');
-        const matIdxToApply = isAssembly ? -1 : targetMatIndex;
+        let matIdxToApply = isAssembly ? -1 : targetMatIndex;
 
         const applyToMesh = (targetMesh) => {
             if (!targetMesh || !targetMesh.isMesh) return;
@@ -261,7 +270,15 @@ export class BIMMaterialSystem {
             MaterialFactory.applyPBRMaterial(targetMesh, config, ctx, matIdxToApply);
         };
 
-        if (isAssembly) {
+        if (componentType === 'wall_face' && entity && entity.mesh3D) {
+            const wallMesh = entity.mesh3D.children.find(c => !c.userData?.isHitbox && !c.userData?.isWallSide && c.isMesh);
+            if (wallMesh) {
+                matIdxToApply = FACE_TO_INDEX[faceName] !== undefined ? FACE_TO_INDEX[faceName] : 4;
+                applyToMesh(wallMesh);
+            } else {
+                applyToMesh(mesh);
+            }
+        } else if (isAssembly) {
             const rootObj = entity.mesh3D || mesh;
             if (rootObj && typeof rootObj.traverse === 'function') {
                 rootObj.traverse(child => applyToMesh(child));

@@ -41,8 +41,8 @@ export class DecorManager {
         const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), []);
         boxMesh.userData = { isPatternBox: true };
         
-
         const hitBox = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 }));
+
         hitBox.userData = { isHitbox: true };
 
         wrapper.add(boxMesh, hitBox);
@@ -200,7 +200,7 @@ export class DecorManager {
         if (boxMesh) { 
             boxMesh.geometry.dispose(); 
             boxMesh.geometry = new THREE.ExtrudeGeometry(shape, { depth: d, bevelEnabled: false }); 
-            const decorLocalZ = (t / 2 + d / 2) + 0.05 + (entity.localZ || 0);
+            const decorLocalZ = (t / 2 + d / 2) + 0.15 + (entity.localZ || 0); // Increased offset from 0.05 to 0.15
             boxMesh.position.z = decorLocalZ; 
             boxMesh.geometry.translate(0, 0, -d/2);
             
@@ -329,7 +329,7 @@ export class DecorManager {
         if (hitbox) { 
             hitbox.geometry.dispose(); 
             hitbox.geometry = new THREE.ExtrudeGeometry(shape, { depth: d, bevelEnabled: false }); 
-            const decorLocalZ = (t / 2 + d / 2) + 0.05 + (entity.localZ || 0);
+            const decorLocalZ = (t / 2 + d / 2) + 0.15 + (entity.localZ || 0);
             hitbox.position.z = decorLocalZ;
             hitbox.geometry.translate(0, 0, -d/2);
         }
@@ -342,12 +342,10 @@ export class DecorManager {
             const TILE_SIZE = entity.tileSize || 70;
             let texFront = texture.clone(); texFront.wrapS = texFront.wrapT = THREE.RepeatWrapping; if (THREE.SRGBColorSpace) texFront.colorSpace = THREE.SRGBColorSpace;
             texFront.repeat.set(1, 1); // Repeat is 1x1 because tiling is handled by the UV coordinates.
-            matFront = new THREE.MeshStandardMaterial({ map: texFront, color: 0xffffff });
-
-            // For the side faces (including inside the openings), use a solid color
-            // Using MeshBasicMaterial ensures no lighting/reflection artifacts appear on the inside surfaces.
-            // This provides a clean, solid color for the "cut" part of the decor.
-            matSide = new THREE.MeshBasicMaterial({ color: 0x888888 });
+            matFront = new THREE.MeshStandardMaterial({ map: texFront, color: 0xffffff, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+            matFront.userData = { origMap: texFront };
+            const texSide = texFront.clone();
+            matSide = new THREE.MeshStandardMaterial({ map: texSide, color: 0xffffff });
         } else {
             matFront = new THREE.MeshStandardMaterial({ color: 0xe5e7eb });
             matSide = new THREE.MeshStandardMaterial({ color: 0xcccccc });

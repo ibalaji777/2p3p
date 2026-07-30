@@ -80,6 +80,13 @@ export class MaterialFactory {
         const width = dimensions.width || 100;
         const height = dimensions.height || 100;
 
+        if (dimensions.isWorldUV) {
+            return {
+                repeatX: 1 / ts,
+                repeatY: 1 / ts
+            };
+        }
+
         return {
             repeatX: width / ts,
             repeatY: height / ts
@@ -190,8 +197,6 @@ export class MaterialFactory {
         newMat.normalMap = setupTex(normalTex, false);
         newMat.roughnessMap = setupTex(roughTex, false);
         newMat.aoMap = setupTex(aoTex, false);
-        newMat.metalnessMap = setupTex(metalTex, false);
-
         if (ctx && ctx.renderer && !MaterialFactory.sharedEnvMap) {
             const pmremGenerator = new THREE.PMREMGenerator(ctx.renderer);
             pmremGenerator.compileEquirectangularShader();
@@ -203,7 +208,7 @@ export class MaterialFactory {
 
         if (MaterialFactory.sharedEnvMap) {
             newMat.envMap = MaterialFactory.sharedEnvMap;
-            newMat.envMapIntensity = config.envMapIntensity !== undefined ? config.envMapIntensity : 0.25; // Subtle reflection to fill in shadows
+            newMat.envMapIntensity = config.envMapIntensity !== undefined ? config.envMapIntensity : 0.25;
         }
 
         if (tex) {
@@ -326,8 +331,10 @@ export class MaterialFactory {
         }
 
         if (targetEntity) {
-            dimensions.width = targetEntity.width || targetEntity.params?.width || 100;
+            dimensions.width = targetEntity.width || targetEntity.params?.width || targetEntity.length3D || 100;
             dimensions.height = targetEntity.height || targetEntity.params?.height || targetEntity.depth || 100;
+            const isWall = targetEntity.type === 'outer' || targetEntity.type === 'inner' || targetEntity.type === 'wall' || targetEntity.startX !== undefined;
+            if (isWall) dimensions.isWorldUV = true;
         } else if (targetMesh && targetMesh.geometry) {
             if (!targetMesh.geometry.boundingBox) targetMesh.geometry.computeBoundingBox();
             const box = targetMesh.geometry.boundingBox;

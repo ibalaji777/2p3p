@@ -18,12 +18,21 @@ export class SelectionManager {
     }
 
     selectWall(object) {
-        const type = 'wall'; 
+        this._updateWallHighlightShape(object, this.system.wallHighlight);
+        if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
+        return { type: 'wall', side: object.userData.side };
+    }
+
+    hoverWall(object) {
+        this._updateWallHighlightShape(object, this.system.wallHoverHighlight);
+    }
+
+    _updateWallHighlightShape(object, targetMesh) {
         const side = object.userData.side;
         const wallGroup = object.parent;
         const w = wallGroup.userData.entity;
         
-        wallGroup.add(this.system.wallHighlight);
+        wallGroup.add(targetMesh);
         
         let maxDepth = 0;
         if (w.attachedDecor) w.attachedDecor.forEach(d => { if (d.side === side && d.depth > maxDepth) maxDepth = d.depth; });
@@ -159,9 +168,9 @@ export class SelectionManager {
             }
         });
 
-        this.system.wallHighlight.geometry.dispose();
-        this.system.wallHighlight.geometry = new THREE.ShapeGeometry(shape);
-        this.system.wallHighlight.scale.set(1, 1, 1);
+        if (targetMesh.geometry) targetMesh.geometry.dispose();
+        targetMesh.geometry = new THREE.ShapeGeometry(shape);
+        targetMesh.scale.set(1, 1, 1);
 
         const zOffset = side === 'front' ? (currentT / 2 + maxDepth + 0.15) : (-currentT / 2 - maxDepth - 0.15);
         
@@ -198,7 +207,7 @@ export class SelectionManager {
                 return profile[0].x;
             };
 
-            const pos = this.system.wallHighlight.geometry.attributes.position;
+            const pos = targetMesh.geometry.attributes.position;
             for (let i = 0; i < pos.count; i++) {
                 const vx = pos.getX(i);
                 const wallX = (w.length3D / 2) + vx; 
@@ -215,9 +224,9 @@ export class SelectionManager {
                 
                 pos.setX(i, shearedWallX - w.length3D / 2);
             }
-            this.system.wallHighlight.geometry.computeVertexNormals();
-            this.system.wallHighlight.geometry.computeBoundingBox();
-            this.system.wallHighlight.geometry.computeBoundingSphere();
+            targetMesh.geometry.computeVertexNormals();
+            targetMesh.geometry.computeBoundingBox();
+            targetMesh.geometry.computeBoundingSphere();
         } else if (pts && pts.length === 8 && !isRailing) {
             const p1 = w.startAnchor ? w.startAnchor.position() : {x: w.startX, y: w.startY};
             const p2 = w.endAnchor ? w.endAnchor.position() : {x: w.endX, y: w.endY};
@@ -233,7 +242,7 @@ export class SelectionManager {
             const localER_x = toLocalX(pts[4], pts[5]);
             const localSR_x = toLocalX(pts[6], pts[7]);
             
-            const pos = this.system.wallHighlight.geometry.attributes.position;
+            const pos = targetMesh.geometry.attributes.position;
             for (let i = 0; i < pos.count; i++) {
                 const vx = pos.getX(i);
                 const wallX = (w.length3D / 2) + vx; 
@@ -250,9 +259,9 @@ export class SelectionManager {
                 
                 pos.setX(i, shearedWallX - w.length3D / 2);
             }
-            this.system.wallHighlight.geometry.computeVertexNormals();
-            this.system.wallHighlight.geometry.computeBoundingBox();
-            this.system.wallHighlight.geometry.computeBoundingSphere();
+            targetMesh.geometry.computeVertexNormals();
+            targetMesh.geometry.computeBoundingBox();
+            targetMesh.geometry.computeBoundingSphere();
         }
         
         if (isRailing) {
@@ -260,18 +269,15 @@ export class SelectionManager {
             const p2 = w.endAnchor ? w.endAnchor.position() : {x: w.endX, y: w.endY};
             const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
             
-            this.system.wallHighlight.position.set(p1.x, totalH / 2, p1.y);
-            this.system.wallHighlight.rotation.set(0, -angle, 0);
-            this.system.wallHighlight.translateX(w.length3D / 2);
-            this.system.wallHighlight.translateZ(zOffset);
+            targetMesh.position.set(p1.x, totalH / 2, p1.y);
+            targetMesh.rotation.set(0, -angle, 0);
+            targetMesh.translateX(w.length3D / 2);
+            targetMesh.translateZ(zOffset);
         } else {
-            this.system.wallHighlight.position.set(w.length3D / 2, totalH / 2, zOffset);
-            this.system.wallHighlight.rotation.set(0, 0, 0); 
+            targetMesh.position.set(w.length3D / 2, totalH / 2, zOffset);
+            targetMesh.rotation.set(0, 0, 0); 
         }
-        this.system.wallHighlight.visible = true;
-        if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
-        
-        return { type, side };
+        targetMesh.visible = true;
     }
 
     selectBasic(object) {
