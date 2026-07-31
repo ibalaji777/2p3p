@@ -14,7 +14,9 @@ export const useSettingsStore = defineStore('settings', {
             diagonalMeasurementMode: 'inner',
             showWorkspaceLabels: true,
             wallTracking: true,
-            entranceWallId: null
+            entranceWallId: null,
+            autoFocus: true,
+            autoRotate: true
         },
         selectedSky: 'venice_sunset',
         selectedGround: 'studio_dark',

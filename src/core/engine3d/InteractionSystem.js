@@ -12,6 +12,7 @@ import { RoofOverhangGizmo } from '../../features/roof/RoofOverhangGizmo.js';
 import { PolygonGizmo } from './PolygonGizmo.js';
 import { SelectionManager } from './SelectionManager.js';
 import { HighlightRenderer } from './HighlightRenderer.js';
+import { useSettingsStore } from '../../stores/useSettingsStore.js';
 
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from '../../core/registry';
 
@@ -473,7 +474,7 @@ export class InteractionSystem {
                 
                 if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isMolding || mesh.userData.isRoof || mesh.userData.isPattern || mesh.userData.isStair || mesh.userData.isFloorCutProxy)) {
                     if (this.mode === 'edit') {
-                        this.selectObject(mesh);
+                        this.selectObject(mesh, intersects[0]);
                     }
                 }
             } else this.deselect();
@@ -619,7 +620,7 @@ export class InteractionSystem {
         }
     }
 
-    selectObject(object) {
+    selectObject(object, intersect = null) {
         if (this.selectedObject) {
             this.setHighlight(this.selectedObject, false);
         }
@@ -643,6 +644,16 @@ export class InteractionSystem {
         if (window.plannerInstance && object.userData.entity) {
             window.plannerInstance.selectEntity(object.userData.entity, type);
         }
+        
+        const settings = useSettingsStore().floorPlanSettings;
+        const shouldAutoFocus = settings.autoFocus !== false; // default true
+        const shouldAutoRotate = settings.autoRotate !== false; // default true
+
+        // Auto focus the camera on the selected object
+        if (this.ctx.cameraController && object && shouldAutoFocus) {
+            this.ctx.cameraController.focusOnObject(object, intersect, shouldAutoRotate);
+        }
+
         if (this.ctx && typeof this.ctx.requestRender === 'function') {
             this.ctx.requestRender();
         }

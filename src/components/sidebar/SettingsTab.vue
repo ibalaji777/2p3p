@@ -83,6 +83,18 @@
       </div>
 
       <div class="settings-divider"></div>
+      <h4 class="props-subtitle">Camera Controls</h4>
+      
+      <div class="control-group-inline">
+          <label>Auto Focus on Select</label>
+          <input type="checkbox" v-model="floorPlanSettings.autoFocus" @change="$emit('sync-settings')" class="settings-checkbox">
+      </div>
+      <div class="control-group-inline">
+          <label>Auto Rotate on Select</label>
+          <input type="checkbox" v-model="floorPlanSettings.autoRotate" @change="$emit('sync-settings')" class="settings-checkbox">
+      </div>
+
+      <div class="settings-divider"></div>
       <h4 class="props-subtitle">Environment Settings</h4>
       
       <div class="control-group">
