@@ -7,6 +7,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { TransformControls } from './engine3d/TransformControls.js';
 import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY, DOOR_MATERIALS_REGISTRY, FABRIC_REGISTRY, getFabricBaseConfig, resolveFabricConfig } from './registry.js';
 import { EnvironmentBuilder } from "./engine3d/EnvironmentBuilder.js";
@@ -48,6 +49,14 @@ export class Preview3D {
         this.renderer.shadowMap.type = THREE.PCFShadowMap;
         this.container.appendChild(this.renderer.domElement);
         
+        // CSS2D Renderer for measurements and labels
+        this.css2DRenderer = new CSS2DRenderer();
+        this.css2DRenderer.setSize(w, h);
+        this.css2DRenderer.domElement.style.position = 'absolute';
+        this.css2DRenderer.domElement.style.top = '0px';
+        this.css2DRenderer.domElement.style.pointerEvents = 'none'; // So it doesn't block WebGL interactions
+        this.container.appendChild(this.css2DRenderer.domElement);
+
         // We bypass EffectComposer completely to allow native WebGL hardware anti-aliasing 
         // to work flawlessly. This removes the jagged edge issues.
         this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -226,6 +235,7 @@ export class Preview3D {
             this.camera.aspect = w / h; 
             this.camera.updateProjectionMatrix(); 
             this.renderer.setSize(w, h); 
+            if (this.css2DRenderer) this.css2DRenderer.setSize(w, h);
             this.requestRender('window_resize');
         }
     }
@@ -248,6 +258,10 @@ export class Preview3D {
         // Render pass scheduled by RenderCoordinator or active camera movements
         if (this.renderCoordinator.shouldRender() || cameraChanged || this.isUpdatingFromUI) {
             this.renderer.render(this.scene, this.camera); 
+            if (this.css2DRenderer) this.css2DRenderer.render(this.scene, this.camera);
+            if (this.interactions && this.interactions.dimensionManager) {
+                this.interactions.dimensionManager.onCameraUpdate(this.camera, this.renderer.domElement.clientWidth, this.renderer.domElement.clientHeight);
+            }
             this.renderCoordinator.onFrameRendered();
             this.needsRender = false;
         }

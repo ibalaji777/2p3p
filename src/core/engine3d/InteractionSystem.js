@@ -12,6 +12,7 @@ import { RoofOverhangGizmo } from '../../features/roof/RoofOverhangGizmo.js';
 import { PolygonGizmo } from './PolygonGizmo.js';
 import { SelectionManager } from './SelectionManager.js';
 import { HighlightRenderer } from './HighlightRenderer.js';
+import { DimensionManager3D } from './dimensions/DimensionManager3D.js';
 import { useSettingsStore } from '../../stores/useSettingsStore.js';
 
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from '../../core/registry';
@@ -285,6 +286,7 @@ export class InteractionSystem {
         this.ctx = ctx;
         this.highlightRenderer = new HighlightRenderer(this.ctx);
         this.selectionManager = new SelectionManager(this.ctx, this);
+        this.dimensionManager = new DimensionManager3D(this.ctx);
         this.mode = 'edit';
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
@@ -367,6 +369,7 @@ export class InteractionSystem {
         });
         this.transformControls.addEventListener('change', () => {
             if (this.ctx.renderCoordinator) this.ctx.renderCoordinator.notifyChange('transform_controls_change', 2);
+            if (this.dimensionManager) this.dimensionManager.update();
         });
         this.transformControls.visible = false;
         this.ctx.scene.add(this.transformControls);
@@ -640,6 +643,8 @@ export class InteractionSystem {
         console.info(`%c[InteractionSystem] %cSelected: %c${type || 'Unknown'} %c(Entity ID: ${object.userData?.entity?.id || 'N/A'})`, 
             'color: #3b82f6; font-weight: bold;', 'color: #9ca3af;', 'color: #10b981; font-weight: bold;', 'color: #6b7280;');
 
+        if (this.dimensionManager) this.dimensionManager.onSelect(object.userData.entity, object);
+
         if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
         if (window.plannerInstance && object.userData.entity) {
             window.plannerInstance.selectEntity(object.userData.entity, type);
@@ -680,6 +685,7 @@ export class InteractionSystem {
         }
         
         this.selectedObject = null;
+        if (this.dimensionManager) this.dimensionManager.onDeselect();
         if (this.ctx.onEntitySelect) this.ctx.onEntitySelect(null, null, null);
         if (window.plannerInstance) {
             window.plannerInstance.selectEntity(null, null);
@@ -717,5 +723,6 @@ export class InteractionSystem {
         if (this.roofOverhangGizmo && this.roofOverhangGizmo.dispose) this.roofOverhangGizmo.dispose();
         if (this.polygonGizmo && this.polygonGizmo.dispose) this.polygonGizmo.dispose();
         if (this.highlightRenderer && this.highlightRenderer.dispose) this.highlightRenderer.dispose();
+        if (this.dimensionManager && this.dimensionManager.dispose) this.dimensionManager.dispose();
     }
 }

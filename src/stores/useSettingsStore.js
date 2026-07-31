@@ -10,6 +10,7 @@ export const useSettingsStore = defineStore('settings', {
             showCompass: true,
             showGrid: true,
             showDimensionLabels: true,
+            show3DMeasurements: true,
             showDiagonalDimensions: true,
             diagonalMeasurementMode: 'inner',
             showWorkspaceLabels: true,

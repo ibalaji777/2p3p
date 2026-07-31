@@ -59,8 +59,12 @@
           <input type="checkbox" v-model="floorPlanSettings.showGrid" @change="$emit('sync-settings')" class="settings-checkbox">
       </div>
       <div class="control-group-inline">
-          <label>Dimension Labels</label>
+          <label>2D Dimension Labels</label>
           <input type="checkbox" v-model="floorPlanSettings.showDimensionLabels" @change="$emit('sync-settings')" class="settings-checkbox">
+      </div>
+      <div class="control-group-inline">
+          <label>3D Dimension Labels</label>
+          <input type="checkbox" v-model="floorPlanSettings.show3DMeasurements" @change="on3DMeasurementChange" class="settings-checkbox">
       </div>
       <div class="control-group-inline">
           <label>Diagonal Dimensions</label>
@@ -126,5 +130,12 @@ defineProps({
     selectedType: { type: String, default: null }
 });
 
-defineEmits(['sync-settings', 'update:selectedSky', 'set-sky', 'update:selectedGround', 'set-ground']);
+const emit = defineEmits(['sync-settings', 'update:selectedSky', 'set-sky', 'update:selectedGround', 'set-ground']);
+
+function on3DMeasurementChange() {
+    emit('sync-settings');
+    if (window && window.plannerInstance && window.plannerInstance.engine3d && window.plannerInstance.engine3d.interactions && window.plannerInstance.engine3d.interactions.dimensionManager) {
+        window.plannerInstance.engine3d.interactions.dimensionManager.update();
+    }
+}
 </script>
