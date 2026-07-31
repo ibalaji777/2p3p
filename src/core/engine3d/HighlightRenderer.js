@@ -3,12 +3,12 @@ import { coreEventBus } from '../EventBus.js';
 import { EVENTS } from '../constants/events.js';
 
 export const HIGHLIGHT_CONFIG = {
-    SURFACE_OFFSET: 0.05,
+    SURFACE_OFFSET: 0.2, // Increased from 0.05 to prevent z-fighting
     SELECTION_OPACITY: 0.35,
     SELECTION_OPACITY_MATERIAL_MODE: 0.15,
     HOVER_OPACITY: 0.25,
-    POLYGON_OFFSET_FACTOR: -1,
-    POLYGON_OFFSET_UNITS: -1,
+    POLYGON_OFFSET_FACTOR: -4, // Stronger pull towards camera
+    POLYGON_OFFSET_UNITS: -4, // Stronger pull towards camera
     SELECTION_COLOR: 0x3b82f6,
     HOVER_COLOR: 0x93c5fd,
     BIM_HIGHLIGHT_COLOR: 0x00ff00
