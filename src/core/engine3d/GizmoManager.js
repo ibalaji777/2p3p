@@ -1023,6 +1023,14 @@ export class GizmoManager {
             }
         }
         
+        // Dynamically override the registry category based on the exact BIM sub-component targeted
+        if (this.activeDescriptor && this.activeDescriptor.componentType) {
+            const comp = this.activeDescriptor.componentType;
+            if (comp === 'glass') materialCategory = 'glass';
+            else if (comp === 'hardware') materialCategory = 'metal';
+            // Frame and Leaf default to whatever the parent entity is (e.g., 'door' or 'window' which map to WOOD_REGISTRY mostly)
+        }
+        
         const gridPanel = document.getElementById('gizmo-material-grid');
         if (gridPanel) {
             gridPanel.style.display = 'flex';

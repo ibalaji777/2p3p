@@ -176,14 +176,19 @@ export class BIMMaterialSystem {
         };
 
         // If target is part of a BIM composite assembly (Door, Window), highlight all matching sub-component meshes
-        if (entity && (componentType === 'leaf' || componentType === 'frame' || componentType === 'glass')) {
-            const rootObj = entity.mesh3D || mesh;
+        if (entity && (componentType === 'leaf' || componentType === 'frame' || componentType === 'glass' || componentType === 'hardware')) {
+            // Traverse the local group (mesh.parent) to isolate specific leaves/panels, otherwise fallback to the root object.
+            const rootObj = (mesh && mesh.parent && mesh.parent !== entity.mesh3D && mesh.parent.type === 'Group') ? mesh.parent : (entity.mesh3D || mesh);
             if (rootObj && typeof rootObj.traverse === 'function') {
                 rootObj.traverse(child => {
-                    if (child && child.isMesh && !child.userData?.isGlass && !child.userData?.isHandle) {
-                        if (componentType === 'frame' && child.userData?.isFrame) {
+                    if (child && child.isMesh) {
+                        if (componentType === 'glass' && child.userData?.isGlass) {
                             highlightSingleMesh(child);
-                        } else if (componentType === 'leaf' && !child.userData?.isFrame) {
+                        } else if (componentType === 'hardware' && child.userData?.isHandle) {
+                            highlightSingleMesh(child);
+                        } else if (componentType === 'frame' && child.userData?.isFrame) {
+                            highlightSingleMesh(child);
+                        } else if (componentType === 'leaf' && !child.userData?.isFrame && !child.userData?.isGlass && !child.userData?.isHandle) {
                             highlightSingleMesh(child);
                         }
                     }
