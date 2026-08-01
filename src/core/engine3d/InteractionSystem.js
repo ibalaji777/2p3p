@@ -110,9 +110,9 @@ export class OpeningGizmo extends THREE.Group {
                 this.handles.children.forEach(c => c.scale.set(1, 1, 1));
                 if (intersects.length > 0) {
                     intersects[0].object.scale.set(1.2, 1.2, 1.2);
-                    dom.style.cursor = 'pointer';
+                    this.ctx.renderer.domElement.style.cursor = 'pointer';
                 } else {
-                    dom.style.cursor = 'auto';
+                    this.ctx.renderer.domElement.style.cursor = 'auto';
                 }
             }
             
