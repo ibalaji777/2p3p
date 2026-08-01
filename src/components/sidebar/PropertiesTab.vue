@@ -156,6 +156,7 @@
                 v-else-if="selectedType === 'widget'"
                 :selected-entity="selectedEntity"
                 @sync-engine="$emit('sync-engine')"
+                @sync-door-angle="$emit('sync-door-angle')"
                 @delete-entity="$emit('delete-entity')"
             />
 
@@ -243,7 +244,10 @@ const props = defineProps({
 });
 
 const emit = defineEmits([
-    'sync-engine', 'ui-trigger', 'toggle-edit-decor', 'delete-specific-decor',
+    'ui-trigger',
+    'sync-engine',
+    'sync-door-angle',
+    'delete-entity', 'toggle-edit-decor', 'delete-specific-decor',
     'decor-update', 'spawn-wall-pattern', 'delete-entity', 'set-floor-material',
     'set-opening-material', 'clear-shape-textures', 'set-roof-material', 'set-shape-material'
 ]);

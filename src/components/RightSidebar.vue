@@ -99,6 +99,7 @@
                 :floor-registry="floorRegistry"
                 :roof-decor-registry="roofDecorRegistry"
                 @sync-engine="$emit('sync-engine')"
+                @sync-door-angle="$emit('sync-door-angle')"
                 @ui-trigger="$emit('ui-trigger')"
                 @toggle-edit-decor="$emit('toggle-edit-decor', $event)"
                 @delete-specific-decor="$emit('delete-specific-decor', $event)"
@@ -193,6 +194,7 @@ const emit = defineEmits([
   'set-sky',
   'set-ground',
   'sync-engine',
+  'sync-door-angle',
   'ui-trigger',
   'toggle-edit-decor',
   'delete-specific-decor',

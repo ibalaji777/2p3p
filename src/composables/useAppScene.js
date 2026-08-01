@@ -129,6 +129,15 @@ export function useAppScene({
         }, 50);
     };
 
+    const syncDoorAngle = () => {
+        if (viewMode.value === '3d' && selectedType.value === 'widget' && selectedEntity.value && selectedEntity.value.type === 'door') {
+            if (renderer3D.value && renderer3D.value.updateDoorAnimationLive) {
+                renderer3D.value.updateDoorAnimationLive(selectedEntity.value);
+            }
+            if (debouncedSaveHistory) debouncedSaveHistory();
+        }
+    };
+
     onBeforeUnmount(() => {
         if (gizmoSyncTimeout) clearTimeout(gizmoSyncTimeout);
     });
@@ -139,6 +148,7 @@ export function useAppScene({
         setGround,
         refresh3DScene,
         syncEngine,
+        syncDoorAngle,
         throttledSyncEngine
     };
 }

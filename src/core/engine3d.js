@@ -410,6 +410,32 @@ export class Preview3D {
         return false;
     }
 
+    updateDoorAnimationLive(entity) {
+        if (!entity || !entity.mesh3D || entity.type !== 'door') return;
+        
+        const openPercent = entity.openAngle !== undefined ? entity.openAngle / 180 : 0;
+        const baseOpenAngle = (entity.openAngle !== undefined ? entity.openAngle : 0) * (Math.PI / 180);
+        
+        entity.mesh3D.traverse((child) => {
+            if (child.userData && child.userData.isMovingPart) {
+                const ud = child.userData;
+                if (ud.motionType === 'rotate' || ud.motionType === 'bifold_main' || ud.motionType === 'bifold_lead') {
+                    child.rotation.y = (ud.baseRotation || 0) + baseOpenAngle * ud.motionSign;
+                } else if (ud.motionType === 'slide') {
+                    child.position.x = ud.baseX + ud.maxSlide * openPercent;
+                }
+            }
+        });
+        
+        if (this.gizmoManager && typeof this.gizmoManager.updateTransformMenu === 'function') {
+            this.gizmoManager.updateTransformMenu();
+        }
+        
+        if (this.interactions && typeof this.interactions.refreshSelectionHighlight === 'function') {
+            this.interactions.refreshSelectionHighlight(entity.mesh3D);
+        }
+    }
+
     updateRoofLive(roof) {
         if (!roof || !roof.mesh3D || this.isUpdatingFrom3D) return;
         this.isUpdatingFromUI = true;

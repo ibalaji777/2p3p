@@ -5,6 +5,7 @@
         <div class="control-group" v-if="selectedEntity.type === 'elevation_fascia'"><label>Height (Drop)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="400" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.height" @change="$emit('sync-engine')" /></div></div>
         <div class="control-group" v-if="selectedEntity.type === 'window' || selectedEntity.type === 'door'"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="400" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.height" @change="$emit('sync-engine')" /></div></div>
         <div class="control-group" v-if="selectedEntity.type === 'window'"><label>Elevation (from floor)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.elevation" min="0" max="400" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.elevation" @change="$emit('sync-engine')" /></div></div>
+        <div class="control-group" v-if="selectedEntity.type === 'door'"><label>Opening Angle</label><div class="input-wrap"><input type="range" :value="selectedEntity.openAngle || 0" @input="e => { selectedEntity.openAngle = parseInt(e.target.value) || 0; $emit('sync-door-angle'); }" min="0" max="180"><input type="number" :value="selectedEntity.openAngle || 0" @input="e => { selectedEntity.openAngle = parseInt(e.target.value) || 0; $emit('sync-door-angle'); }" min="0" max="180"></div></div>
         <div class="faceRow" v-if="selectedEntity.type !== 'jali_panel' && selectedEntity.type !== 'elevation_fascia' && selectedEntity.type !== 'sunshade'">
             <button class="action-btn clear" style="flex: 1; padding: 4px;" @click="selectedEntity.facing *= -1; $emit('sync-engine')">Flip In/Out</button>
             <button class="action-btn clear" style="flex: 1; padding: 4px;" @click="selectedEntity.side *= -1; $emit('sync-engine')">Flip L/R</button>
@@ -168,6 +169,7 @@ const props = defineProps({
 
 const emit = defineEmits([
     'sync-engine',
+    'sync-door-angle',
     'delete-entity'
 ]);
 

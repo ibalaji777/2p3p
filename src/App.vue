@@ -126,6 +126,7 @@
         @set-sky="setSky"
         @set-ground="setGround"
         @sync-engine="syncEngine"
+        @sync-door-angle="syncDoorAngle"
         @ui-trigger="uiTrigger++"
         @toggle-edit-decor="toggleEditDecor"
         @delete-specific-decor="handleDeleteSpecificDecor"
@@ -931,6 +932,7 @@ const {
     setGround,
     refresh3DScene,
     syncEngine,
+    syncDoorAngle,
     throttledSyncEngine
 } = useAppScene({
     renderer3D,
