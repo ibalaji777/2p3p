@@ -211,6 +211,20 @@ body { margin: 0; font-family: 'Inter', sans-serif; background: #f8fafc; overflo
 .layer-dropdown-del:hover { background: #fef2f2; }
 
 /* PROPERTY CONTROLS */
+.properties-help-text {
+    margin: 15px 16px 0 16px;
+    color: #64748b;
+    font-size: 13px;
+    padding: 10px;
+    background: #f8fafc;
+    border-radius: 6px;
+}
+
+.btn-secondary.full-width {
+    width: calc(100% - 32px);
+    margin: 0 16px 15px 16px;
+}
+
 .control-group,
 .control-group-inline {
     background: #ffffff;

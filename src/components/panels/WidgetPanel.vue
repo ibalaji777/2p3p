@@ -35,9 +35,7 @@
             </div>
         </div>
         <div v-else-if="selectedEntity.type === 'window'">
-            <div style="height: 350px; margin-bottom: 15px; margin-top: 10px;">
-                <CatalogGallery type="window" :modelValue="getWindowPresetId()" @select="handleCatalogSelect" />
-            </div>
+
             <div class="control-group">
                 <label>Add Window Grill</label>
                 <div class="input-wrap" style="justify-content: flex-end;">
@@ -165,7 +163,7 @@
 
 <script setup>
 import DimensionInput from '../common/DimensionInput.vue';
-import CatalogGallery from '../sidebar/CatalogGallery.vue';
+
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true }

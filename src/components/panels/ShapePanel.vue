@@ -13,7 +13,7 @@
             </div>
             <div class="control-group"><label>Color</label><div class="input-wrap" style="justify-content: flex-end;"><input type="color" v-model="selectedEntity.params.fill" @input="e => { $emit('clear-shape-textures'); $emit('sync-engine'); }"></div></div>
 
-            <button class="hud-delete" @click="$emit('delete-entity')" style="margin-top: 10px;">Delete Shape</button>
+            <button class="hud-delete" @click="$emit('delete-entity')">Delete Shape</button>
         </div>
     </div>
 </template>

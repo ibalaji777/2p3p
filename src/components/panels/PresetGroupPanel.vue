@@ -37,7 +37,7 @@
             </div>
         </div>
         
-        <button class="hud-delete" style="margin-top: 15px;" @click="$emit('delete-entity')">Delete Group</button>
+        <button class="hud-delete" @click="$emit('delete-entity')">Delete Group</button>
     </div>
 </template>
 

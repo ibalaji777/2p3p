@@ -31,7 +31,7 @@
                         <option value="flat">Flat</option>
                     </select>
                 </div>
-                <div class="properties-help-text" style="margin-top: 15px; color: #64748b; font-size: 0.85rem; padding: 10px; background: #f8fafc; border-radius: 6px;">
+                <div class="properties-help-text">
                     Adjust dimensions before placing the preset. Once placed, individual walls and roofs can be edited separately.
                 </div>
             </div>
@@ -40,9 +40,9 @@
             
             <!-- Universal Face Material Editor -->
             <div v-if="selectedEntity.params && selectedEntity.params.isEditingMaterials">
-                <button class="btn-secondary" @click="selectedEntity.params.isEditingMaterials = false" style="width: 100%; margin-bottom: 15px;">← Back to Properties</button>
+                <button class="btn-secondary full-width" @click="selectedEntity.params.isEditingMaterials = false">← Back to Properties</button>
                 <h4 class="props-subtitle">Face Selection</h4>
-                <div class="control-group-inline" style="margin-bottom: 12px;">
+                <div class="control-group-inline">
                     <label>Apply to All Sides</label>
                     <input type="checkbox" :checked="!selectedEntity.params.materialTarget || selectedEntity.params.materialTarget === 'all'" @change="e => { selectedEntity.params.materialTarget = e.target.checked ? 'all' : 'front'; $emit('sync-engine'); }" class="settings-checkbox">
                 </div>
@@ -107,7 +107,7 @@
                 <div class="control-group"><label>X Offset (%)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.localX" min="-10" max="110" step="1" @input="$emit('decor-update', selectedEntity)"><input type="number" v-model.number="selectedEntity.localX" min="-10" max="110" step="1" @input="$emit('decor-update', selectedEntity)"></div></div>
                 <div class="control-group"><label>Y Offset (%)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.localY" min="-10" max="110" step="1" @input="$emit('decor-update', selectedEntity)"><input type="number" v-model.number="selectedEntity.localY" min="-10" max="110" step="1" @input="$emit('decor-update', selectedEntity)"></div></div>
                 
-                <div class="decor-gallery" style="margin-top: 15px;">
+                <div class="decor-gallery">
                     <h4 class="props-subtitle">Change Material</h4>
                     <div class="decor-grid">
                         <div v-for="(config, key) in wallDecorRegistry" :key="key" class="decor-item" @click="() => { selectedEntity.configId = key; $emit('sync-engine'); }" :class="{ active: selectedEntity.configId === key }">
@@ -117,7 +117,7 @@
                     </div>
                 </div>
 
-                <button class="hud-delete" style="margin-top: 10px;" @click="$emit('delete-entity')">Delete Pattern</button>
+                <button class="hud-delete" @click="$emit('delete-entity')">Delete Pattern</button>
             </div>
 
             <div v-else-if="selectedType === 'arc'">
