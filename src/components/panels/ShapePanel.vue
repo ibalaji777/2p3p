@@ -11,7 +11,7 @@
             <div v-if="selectedEntity.type === 'shape_circle'">
                 <div class="control-group"><label>Radius</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.params.radius" min="10" max="1000" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.params.radius" @change="$emit('sync-engine')" /></div></div>
             </div>
-            <div class="control-group"><label>Color</label><div class="input-wrap"><input type="color" v-model="selectedEntity.params.fill" @input="e => { $emit('clear-shape-textures'); $emit('sync-engine'); }" style="width: 100%; padding: 0;"></div></div>
+            <div class="control-group"><label>Color</label><div class="input-wrap" style="justify-content: flex-end;"><input type="color" v-model="selectedEntity.params.fill" @input="e => { $emit('clear-shape-textures'); $emit('sync-engine'); }"></div></div>
 
             <button class="hud-delete" @click="$emit('delete-entity')" style="margin-top: 10px;">Delete Shape</button>
         </div>

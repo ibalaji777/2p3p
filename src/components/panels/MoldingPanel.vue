@@ -7,14 +7,14 @@
         
         <div class="control-group">
             <label>Placement Side</label>
-            <select v-model="selectedEntity.side" @change="selectedEntity.update(); $emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+            <select v-model="selectedEntity.side" @change="selectedEntity.update(); $emit('sync-engine')">
                 <option value="left">Left (Inner)</option>
                 <option value="right">Right (Outer)</option>
             </select>
         </div>
         <div class="control-group">
             <label>Profile Type</label>
-            <select v-model="selectedEntity.profileType" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+            <select v-model="selectedEntity.profileType" @change="$emit('sync-engine')">
                 <option value="flat">Flat Band</option>
                 <option value="groove">Groove (Recessed)</option>
                 <option value="frame">Frame (Beveled Edge)</option>
@@ -33,7 +33,7 @@
 
         <div class="control-group">
             <label>Material</label>
-            <select v-model="selectedEntity.material" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+            <select v-model="selectedEntity.material" @change="$emit('sync-engine')">
                 <option value="white_paint">White Paint (Plaster)</option>
                 <option value="wall_material">Wall Match</option>
                 <option value="wood_dark">Dark Wood</option>

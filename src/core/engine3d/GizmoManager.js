@@ -38,7 +38,7 @@ export class GizmoManager {
         this.xyPanel = document.createElement('div');
         this.xyPanel.style.display = 'none';
         this.xyPanel.style.position = 'absolute';
-        this.xyPanel.style.bottom = '100px';
+        this.xyPanel.style.bottom = '145px';
         this.xyPanel.style.left = '50%';
         this.xyPanel.style.transform = 'translateX(-50%)';
         this.xyPanel.style.background = 'rgba(17, 24, 39, 0.95)';
@@ -168,7 +168,7 @@ export class GizmoManager {
         this.openingPanel = document.createElement('div');
         this.openingPanel.style.display = 'none';
         this.openingPanel.style.position = 'absolute';
-        this.openingPanel.style.bottom = '100px';
+        this.openingPanel.style.bottom = '145px';
         this.openingPanel.style.left = '50%';
         this.openingPanel.style.transform = 'translateX(-50%)';
         this.openingPanel.style.background = 'rgba(15, 23, 42, 0.9)';
@@ -530,7 +530,7 @@ export class GizmoManager {
         this.cornerPanel = document.createElement('div');
         this.cornerPanel.style.display = 'none';
         this.cornerPanel.style.position = 'absolute';
-        this.cornerPanel.style.bottom = '100px';
+        this.cornerPanel.style.bottom = '145px';
         this.cornerPanel.style.left = '50%';
         this.cornerPanel.style.transform = 'translateX(-50%)';
         this.cornerPanel.style.background = 'rgba(15, 23, 42, 0.9)';
@@ -566,7 +566,7 @@ export class GizmoManager {
         this.btnDone.className = 'done-btn';
         this.btnDone.innerHTML = '✓ Done';
         this.btnDone.style.position = 'absolute';
-        this.btnDone.style.bottom = '40px';
+        this.btnDone.style.bottom = '85px';
         this.btnDone.style.left = '50%';
         this.btnDone.style.transform = 'translateX(-50%)';
         this.btnDone.style.background = 'rgba(16, 185, 129, 0.95)';
@@ -578,7 +578,7 @@ export class GizmoManager {
         this.btnDone.style.fontSize = '15px';
         this.btnDone.style.boxShadow = '0 4px 15px rgba(0,0,0,0.4)';
         this.btnDone.style.cursor = 'pointer';
-        this.btnDone.style.zIndex = '1000';
+        this.btnDone.style.zIndex = '3000';
         this.btnDone.style.display = 'none';
         this.btnDone.style.alignItems = 'center';
         this.btnDone.style.justifyContent = 'center';
@@ -587,7 +587,7 @@ export class GizmoManager {
         this.stylePanel = document.createElement('div');
         this.stylePanel.style.display = 'none';
         this.stylePanel.style.position = 'absolute';
-        this.stylePanel.style.bottom = '100px';
+        this.stylePanel.style.bottom = '145px';
         this.stylePanel.style.left = '50%';
         this.stylePanel.style.transform = 'translateX(-50%)';
         this.stylePanel.style.background = 'rgba(15, 23, 42, 0.9)';

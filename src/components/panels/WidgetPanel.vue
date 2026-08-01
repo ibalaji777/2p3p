@@ -5,24 +5,28 @@
         <div class="control-group" v-if="selectedEntity.type === 'elevation_fascia'"><label>Height (Drop)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="400" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.height" @change="$emit('sync-engine')" /></div></div>
         <div class="control-group" v-if="selectedEntity.type === 'window' || selectedEntity.type === 'door'"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="400" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.height" @change="$emit('sync-engine')" /></div></div>
         <div class="control-group" v-if="selectedEntity.type === 'window'"><label>Elevation (from floor)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.elevation" min="0" max="400" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.elevation" @change="$emit('sync-engine')" /></div></div>
-        <div class="control-group" v-if="selectedEntity.type === 'door'"><label>Opening Angle</label><div class="input-wrap"><input type="range" :value="selectedEntity.openAngle || 0" @input="e => { selectedEntity.openAngle = parseInt(e.target.value) || 0; $emit('sync-door-angle'); }" min="0" max="180"><input type="number" :value="selectedEntity.openAngle || 0" @input="e => { selectedEntity.openAngle = parseInt(e.target.value) || 0; $emit('sync-door-angle'); }" min="0" max="180"></div></div>
+        <div class="control-group" v-if="selectedEntity.type === 'door'"><label>Opening Angle (°)</label><div class="input-wrap"><input type="range" :value="selectedEntity.openAngle || 0" @input="e => { selectedEntity.openAngle = parseInt(e.target.value) || 0; $emit('sync-door-angle'); }" min="0" max="180"><input type="number" :value="selectedEntity.openAngle || 0" @input="e => { selectedEntity.openAngle = parseInt(e.target.value) || 0; $emit('sync-door-angle'); }" min="0" max="180"></div></div>
         <div class="faceRow" v-if="selectedEntity.type !== 'jali_panel' && selectedEntity.type !== 'elevation_fascia' && selectedEntity.type !== 'sunshade'">
-            <button class="action-btn clear" style="flex: 1; padding: 4px;" @click="selectedEntity.facing *= -1; $emit('sync-engine')">Flip In/Out</button>
-            <button class="action-btn clear" style="flex: 1; padding: 4px;" @click="selectedEntity.side *= -1; $emit('sync-engine')">Flip L/R</button>
+            <button class="flip-btn" @click="selectedEntity.facing *= -1; $emit('sync-engine')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16"/><path d="M2 20h20"/><path d="M14 12v.01"/></svg>
+                Flip In/Out
+            </button>
+            <button class="flip-btn" @click="selectedEntity.side *= -1; $emit('sync-engine')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M8 8l-4 4 4 4"/><path d="M16 16l4-4-4-4"/></svg>
+                Flip L/R
+            </button>
         </div>
         <div v-if="selectedEntity.type === 'door'">
-            <div style="height: 350px; margin-bottom: 15px; margin-top: 10px;">
-                <CatalogGallery type="door" :modelValue="getDoorPresetId()" @select="handleCatalogSelect" />
-            </div>
+
             <div class="control-group" v-if="!['pocket', 'folding', 'sliding', 'double_sliding'].includes(selectedEntity.doorType)">
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; font-weight: 500;">
+                <label>Add Sidelights</label>
+                <div class="input-wrap" style="justify-content: flex-end;">
                     <input type="checkbox" :checked="selectedEntity.hasSidelights" @change="(e) => { selectedEntity.hasSidelights = e.target.checked; if (e.target.checked) { selectedEntity.width = Math.max(selectedEntity.width, selectedEntity.doorType === 'single' ? 100 : 140); } $emit('sync-engine'); }" />
-                    Add Sidelights (Side Windows)
-                </label>
+                </div>
             </div>
             <div class="control-group">
-                <label>Door Shape (Top)</label>
-                <select v-model="selectedEntity.doorShape" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                <label>Door Shape</label>
+                <select :value="selectedEntity.doorShape || 'square'" @change="e => { selectedEntity.doorShape = e.target.value; $emit('sync-engine'); }">
                     <option value="square">Square (Default)</option>
                     <option value="radius">Radius (True Arch)</option>
                     <option value="segment">Segment (Eyebrow)</option>
@@ -35,10 +39,10 @@
                 <CatalogGallery type="window" :modelValue="getWindowPresetId()" @select="handleCatalogSelect" />
             </div>
             <div class="control-group">
-                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 13px; font-weight: 500;">
+                <label>Add Window Grill</label>
+                <div class="input-wrap" style="justify-content: flex-end;">
                     <input type="checkbox" :checked="selectedEntity.grillePattern && selectedEntity.grillePattern !== 'none'" @change="(e) => { selectedEntity.grillePattern = e.target.checked ? 'grid' : 'none'; $emit('sync-engine'); }" />
-                    Add Window Grill / Bars
-                </label>
+                </div>
             </div>
         </div>
         <div v-else-if="selectedEntity.type === 'sunshade'">
@@ -50,8 +54,8 @@
                 </div>
             </div>
             <div class="control-group">
-                <label>Sunshade (Chajja) Style</label>
-                <select v-model="selectedEntity.chajjaType" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                <label>Sunshade Style</label>
+                <select v-model="selectedEntity.chajjaType" @change="$emit('sync-engine')">
                     <option value="concrete_slab">Concrete Slab (RCC)</option>
                     <option value="wooden_pergola">Wooden Pergola</option>
                     <option value="metal_louvers">Metal Louvers</option>
@@ -76,7 +80,7 @@
         <div v-else-if="selectedEntity.type === 'jali_panel'">
             <div class="control-group">
                 <label>Jali Pattern</label>
-                <select v-model="selectedEntity.jaliPattern" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                <select v-model="selectedEntity.jaliPattern" @change="$emit('sync-engine')">
                     <option value="geometric">Geometric Lattice</option>
                     <option value="islamic">Islamic Star</option>
                     <option value="modern">Modern Slats</option>
@@ -98,7 +102,7 @@
             </div>
             <div class="control-group">
                 <label>Material</label>
-                <select v-model="selectedEntity.jaliMat" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                <select v-model="selectedEntity.jaliMat" @change="$emit('sync-engine')">
                     <option value="wood">Teak Wood</option>
                     <option value="mdf">White Painted MDF</option>
                     <option value="brass">Brass Finish</option>
@@ -109,7 +113,7 @@
             </div>
             <div class="control-group">
                 <label>Mounting</label>
-                <select v-model="selectedEntity.jaliMount" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                <select v-model="selectedEntity.jaliMount" @change="$emit('sync-engine')">
                     <option value="flush">Flush (Centered)</option>
                     <option value="recessed">Recessed (Inset)</option>
                     <option value="protruding">Protruding (Surface)</option>
@@ -119,7 +123,7 @@
         <div v-else-if="selectedEntity.type === 'elevation_fascia'">
             <div class="control-group">
                 <label>Profile Type</label>
-                <select v-model="selectedEntity.profileType" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                <select v-model="selectedEntity.profileType" @change="$emit('sync-engine')">
                     <option value="c_shape_left">C-Shape (Left)</option>
                     <option value="c_shape_right">C-Shape (Right)</option>
                     <option value="l_shape_left">L-Shape (Left)</option>
@@ -146,7 +150,7 @@
             <div class="control-group"><label>Elevation (Bottom)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.elevation" min="0" max="300" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.elevation" @change="$emit('sync-engine')" /></div></div>
             <div class="control-group">
                 <label>Material</label>
-                <select v-model="selectedEntity.fasciaMat" @change="$emit('sync-engine')" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; margin-bottom: 10px;">
+                <select v-model="selectedEntity.fasciaMat" @change="$emit('sync-engine')">
                     <option value="white">White Paint</option>
                     <option value="dark_grey">Dark Grey</option>
                     <option value="stone">Stone Cladding</option>
