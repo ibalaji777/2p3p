@@ -48,7 +48,7 @@ export class ThumbnailGenerator {
 
         // Ground plane to catch shadows without rendering the plane itself
         const groundGeo = new THREE.PlaneGeometry(1000, 1000);
-        const groundMat = new THREE.ShadowMaterial({ opacity: 0.15 });
+        const groundMat = new THREE.ShadowMaterial({ opacity: 0.22 });
         const ground = new THREE.Mesh(groundGeo, groundMat);
         ground.rotation.x = -Math.PI / 2;
         ground.receiveShadow = true;
@@ -1297,6 +1297,23 @@ export class ThumbnailGenerator {
             
             activeCamera.lookAt(center);
             activeCamera.updateProjectionMatrix();
+        } else if (type === 'door' || (params && (params.doorType || type.includes('door')))) {
+            // Normalized camera framing for doors: doors stand at standardized height (~84 units).
+            // Framing based on door height (size.y) ensures Single, French, Sliding, Pocket, and Flush doors render at identical visual heights.
+            const doorH = (size.y > 10) ? size.y : 84;
+            const frustumHeight = doorH * 1.15; // Fills ~75-80% of vertical snapshot height
+            
+            this.camera.left = -frustumHeight / 2;
+            this.camera.right = frustumHeight / 2;
+            this.camera.top = frustumHeight / 2;
+            this.camera.bottom = -frustumHeight / 2;
+            this.camera.updateProjectionMatrix();
+
+            // Clean 3/4 architectural CAD angle: 18° elevation, 26° azimuth
+            const targetCenterY = doorH / 2;
+            this.camera.position.set(doorH * 0.65, doorH * 0.42, doorH * 1.1);
+            this.camera.lookAt(0, targetCenterY, 0);
+            activeCamera = this.camera;
         } else {
             const frustumSize = maxDim * 1.4; // Leave some margin
             

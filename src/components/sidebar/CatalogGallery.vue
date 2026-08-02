@@ -1,63 +1,89 @@
 <template>
     <div class="catalog-gallery">
-        <!-- Catalog Sub-Section Header (Title + Sort & Filter Controls) -->
+        <!-- Catalog Sub-Section Header (Title + Search + Sort & Filter Controls) -->
         <div class="catalog-header-strip">
-            <h3 class="section-title">{{ getCatalogHeaderTitle() }}</h3>
-            <div class="header-actions">
-                <!-- Interactive Sort Dropdown Menu -->
-                <div class="header-popover-wrapper">
-                    <button class="sort-dropdown-chip" @click.stop="sortMenuOpen = !sortMenuOpen; filterMenuOpen = false" :class="{ active: sortMenuOpen }" title="Sort Models">
-                        <span>{{ sortLabel }}</span>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" :style="{ transform: sortMenuOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                    </button>
+            <div class="header-top-row">
+                <h3 class="section-title">{{ getCatalogHeaderTitle() }}</h3>
+                <div class="header-actions">
+                    <!-- Interactive Sort Dropdown Menu -->
+                    <div class="header-popover-wrapper">
+                        <button class="sort-dropdown-chip" @click.stop="sortMenuOpen = !sortMenuOpen; filterMenuOpen = false" :class="{ active: sortMenuOpen }" title="Sort Models">
+                            <span>{{ sortLabel }}</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" :style="{ transform: sortMenuOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </button>
 
-                    <div class="action-popover sort-popover" v-if="sortMenuOpen" @click.stop>
-                        <button class="popover-item" :class="{ active: sortOption === 'popular' }" @click="sortOption = 'popular'; sortMenuOpen = false">
-                            <span>Popular (Favorites)</span>
-                            <svg v-if="sortOption === 'popular'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        <div class="action-popover sort-popover" v-if="sortMenuOpen" @click.stop>
+                            <button class="popover-item" :class="{ active: sortOption === 'popular' }" @click="sortOption = 'popular'; sortMenuOpen = false">
+                                <span>Popular (Favorites)</span>
+                                <svg v-if="sortOption === 'popular'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </button>
+                            <button class="popover-item" :class="{ active: sortOption === 'name_asc' }" @click="sortOption = 'name_asc'; sortMenuOpen = false">
+                                <span>Name (A - Z)</span>
+                                <svg v-if="sortOption === 'name_asc'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </button>
+                            <button class="popover-item" :class="{ active: sortOption === 'name_desc' }" @click="sortOption = 'name_desc'; sortMenuOpen = false">
+                                <span>Name (Z - A)</span>
+                                <svg v-if="sortOption === 'name_desc'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </button>
+                            <button class="popover-item" :class="{ active: sortOption === 'recent' }" @click="sortOption = 'recent'; sortMenuOpen = false">
+                                <span>Newest First</span>
+                                <svg v-if="sortOption === 'recent'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Filter Popover Menu -->
+                    <div class="header-popover-wrapper">
+                        <button class="filter-icon-btn" @click.stop="filterMenuOpen = !filterMenuOpen; sortMenuOpen = false" :class="{ active: filterMenuOpen || filterOption !== 'all' }" title="Filter Catalog">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" :stroke="(filterMenuOpen || filterOption !== 'all') ? '#2563eb' : 'currentColor'" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+                            <span v-if="filterOption !== 'all'" class="filter-active-dot"></span>
                         </button>
-                        <button class="popover-item" :class="{ active: sortOption === 'name_asc' }" @click="sortOption = 'name_asc'; sortMenuOpen = false">
-                            <span>Name (A - Z)</span>
-                            <svg v-if="sortOption === 'name_asc'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                        </button>
-                        <button class="popover-item" :class="{ active: sortOption === 'name_desc' }" @click="sortOption = 'name_desc'; sortMenuOpen = false">
-                            <span>Name (Z - A)</span>
-                            <svg v-if="sortOption === 'name_desc'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                        </button>
-                        <button class="popover-item" :class="{ active: sortOption === 'recent' }" @click="sortOption = 'recent'; sortMenuOpen = false">
-                            <span>Newest First</span>
-                            <svg v-if="sortOption === 'recent'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                        </button>
+
+                        <div class="action-popover filter-popover" v-if="filterMenuOpen" @click.stop>
+                            <div class="popover-header">Filter Catalog</div>
+                            <button class="popover-item" :class="{ active: filterOption === 'all' }" @click="filterOption = 'all'; filterMenuOpen = false">
+                                <span>All Models</span>
+                                <svg v-if="filterOption === 'all'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </button>
+                            <button class="popover-item" :class="{ active: filterOption === 'favorites' }" @click="filterOption = 'favorites'; filterMenuOpen = false">
+                                <span>❤️ Favorites Only</span>
+                                <svg v-if="filterOption === 'favorites'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </button>
+                            <button class="popover-item" :class="{ active: filterOption === 'standard' }" @click="filterOption = 'standard'; filterMenuOpen = false">
+                                <span>Standard / Single</span>
+                                <svg v-if="filterOption === 'standard'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </button>
+                            <button class="popover-item" :class="{ active: filterOption === 'wide' }" @click="filterOption = 'wide'; filterMenuOpen = false">
+                                <span>Wide / Double & Sliding</span>
+                                <svg v-if="filterOption === 'wide'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Interactive Filter Popover Menu -->
-                <div class="header-popover-wrapper">
-                    <button class="filter-icon-btn" @click.stop="filterMenuOpen = !filterMenuOpen; sortMenuOpen = false" :class="{ active: filterMenuOpen || filterOption !== 'all' }" title="Filter Catalog">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" :stroke="(filterMenuOpen || filterOption !== 'all') ? '#2563eb' : 'currentColor'" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
-                        <span v-if="filterOption !== 'all'" class="filter-active-dot"></span>
-                    </button>
+            <!-- Integrated Catalog Search Bar -->
+            <div class="catalog-search-wrap">
+                <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input 
+                    type="text" 
+                    v-model="localSearchQuery" 
+                    :placeholder="'🔍 Search ' + getCatalogHeaderTitle().toLowerCase() + '...'" 
+                    class="catalog-search-input"
+                />
+                <button class="clear-search-btn" v-if="localSearchQuery" @click="localSearchQuery = ''">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
 
-                    <div class="action-popover filter-popover" v-if="filterMenuOpen" @click.stop>
-                        <div class="popover-header">Filter Catalog</div>
-                        <button class="popover-item" :class="{ active: filterOption === 'all' }" @click="filterOption = 'all'; filterMenuOpen = false">
-                            <span>All Models</span>
-                            <svg v-if="filterOption === 'all'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                        </button>
-                        <button class="popover-item" :class="{ active: filterOption === 'favorites' }" @click="filterOption = 'favorites'; filterMenuOpen = false">
-                            <span>❤️ Favorites Only</span>
-                            <svg v-if="filterOption === 'favorites'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                        </button>
-                        <button class="popover-item" :class="{ active: filterOption === 'standard' }" @click="filterOption = 'standard'; filterMenuOpen = false">
-                            <span>Standard / Compact</span>
-                            <svg v-if="filterOption === 'standard'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                        </button>
-                        <button class="popover-item" :class="{ active: filterOption === 'wide' }" @click="filterOption = 'wide'; filterMenuOpen = false">
-                            <span>Wide / Architectural</span>
-                            <svg v-if="filterOption === 'wide'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.8"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                        </button>
-                    </div>
-                </div>
+            <!-- Quick Category Filter Chips (Door & Openings) -->
+            <div class="category-chips-bar" v-if="props.type === 'door'">
+                <button class="chip-btn" :class="{ active: activeCategoryChip === 'all' }" @click="activeCategoryChip = 'all'">All</button>
+                <button class="chip-btn" :class="{ active: activeCategoryChip === 'favorites' }" @click="activeCategoryChip = 'favorites'">❤️ Favorites</button>
+                <button class="chip-btn" :class="{ active: activeCategoryChip === 'wood' }" @click="activeCategoryChip = 'wood'">Wood</button>
+                <button class="chip-btn" :class="{ active: activeCategoryChip === 'glass' }" @click="activeCategoryChip = 'glass'">Glass</button>
+                <button class="chip-btn" :class="{ active: activeCategoryChip === 'single' }" @click="activeCategoryChip = 'single'">Single</button>
+                <button class="chip-btn" :class="{ active: activeCategoryChip === 'double' }" @click="activeCategoryChip = 'double'">Double</button>
             </div>
         </div>
 
@@ -72,26 +98,45 @@
                      :class="{ active: modelValue === item.id }"
                      @click="$emit('update:modelValue', item.id); $emit('select', { ...item, toolId: item.toolId || type })">
                      
-                    <!-- Top Right Favorite Heart Icon -->
-                    <button class="favorite-heart-btn" @click.stop="toggleFavorite(item.id)" :title="isFavorite(item.id) ? 'Favorited' : 'Add to Favorites'">
-                        <svg width="16" height="16" viewBox="0 0 24 24" :fill="isFavorite(item.id) ? '#ef4444' : 'none'" :stroke="isFavorite(item.id) ? '#ef4444' : '#94a3b8'" stroke-width="2.2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                    <!-- Top Left Redesigned Category Badge Pill -->
+                    <span class="card-badge" v-if="item.badge" :class="getBadgeClass(item.badge)">
+                        <template v-if="item.badge === 'BESTSELLER'">★ BESTSELLER</template>
+                        <template v-else-if="item.badge === 'POPULAR'">🔵 POPULAR</template>
+                        <template v-else-if="item.badge === 'GLASS'">🟢 GLASS</template>
+                        <template v-else-if="item.badge === 'WOOD'">🟡 WOOD</template>
+                        <template v-else-if="item.badge === 'NEW'">🔷 NEW</template>
+                        <template v-else-if="item.badge === 'COMPACT'">🟠 COMPACT</template>
+                        <template v-else>{{ item.badge }}</template>
+                    </span>
+
+                    <!-- Top Right Circular White Glass Favorite Heart Button -->
+                    <button class="favorite-heart-btn" :class="{ 'is-active': isFavorite(item.id) }" @click.stop="toggleFavorite(item.id)" :title="isFavorite(item.id) ? 'Favorited' : 'Add to Favorites'">
+                        <svg width="13" height="13" viewBox="0 0 24 24" :fill="isFavorite(item.id) ? '#ef4444' : 'none'" :stroke="isFavorite(item.id) ? '#ef4444' : '#64748b'" stroke-width="2.2">
+                            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                        </svg>
                     </button>
 
-                    <!-- Thumbnail Image / 3D Preview -->
+                    <!-- Pure White Card 3D Thumbnail Canvas Box -->
                     <div class="card-thumb-wrap">
-                        <img v-if="item.image" :src="item.image" :alt="item.name" @error="handleImageError" />
+                        <div v-if="!item.image && isGenerating" class="skeleton-shimmer"></div>
+                        <img v-else-if="item.image" :src="item.image" :alt="item.name" @error="handleImageError" />
                         <div v-else class="fallback-thumb-box">
                             <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.4"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
                         </div>
                         
                         <div class="active-badge-dot" v-if="modelValue === item.id">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                         </div>
                     </div>
 
-                    <!-- Product Title -->
+                    <!-- Product Title & CAD Specifications (6px Extra Left/Right Padding) -->
                     <div class="card-title-wrap">
                         <span class="product-title">{{ item.name }}</span>
+                        <div class="card-meta-line" v-if="item.material || item.specs">
+                            <span class="meta-mat">{{ item.material || item.category || 'CAD Model' }}</span>
+                            <span class="meta-dot" v-if="item.specs">•</span>
+                            <span class="meta-specs" v-if="item.specs">{{ item.specs }}</span>
+                        </div>
                     </div>
                 </div>
             </template>
@@ -104,7 +149,7 @@
             </div>
             <h4 class="empty-title">No Data Found</h4>
             <p class="empty-subtext">No catalog models match your active search or selected filter option.</p>
-            <button class="reset-filter-btn" v-if="searchQuery || filterOption !== 'all'" @click="resetSearchAndFilters">
+            <button class="reset-filter-btn" v-if="effectiveSearchQuery || filterOption !== 'all' || activeCategoryChip !== 'all'" @click="resetSearchAndFilters">
                 <span>Reset Filters</span>
             </button>
         </div>
@@ -119,6 +164,8 @@ const sortOption = ref('popular');
 const sortMenuOpen = ref(false);
 const filterMenuOpen = ref(false);
 const filterOption = ref('all');
+const localSearchQuery = ref('');
+const activeCategoryChip = ref('all');
 
 const sortLabel = computed(() => {
     switch (sortOption.value) {
@@ -129,6 +176,18 @@ const sortLabel = computed(() => {
         default: return 'Popular';
     }
 });
+
+const getBadgeClass = (badgeText) => {
+    if (!badgeText) return '';
+    const b = badgeText.toUpperCase();
+    if (b.includes('BESTSELLER')) return 'bestseller-gold';
+    if (b.includes('POPULAR')) return 'popular-blue';
+    if (b.includes('GLASS')) return 'glass-green';
+    if (b.includes('WOOD')) return 'wood-yellow';
+    if (b.includes('NEW')) return 'new-cyan';
+    if (b.includes('COMPACT')) return 'compact-orange';
+    return 'default-badge';
+};
 
 const closeHeaderMenus = () => {
     sortMenuOpen.value = false;
@@ -149,14 +208,20 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue', 'select', 'reset-filters']);
 
+const effectiveSearchQuery = computed(() => {
+    return (localSearchQuery.value || props.searchQuery || '').trim().toLowerCase();
+});
+
 const resetSearchAndFilters = () => {
     filterOption.value = 'all';
+    localSearchQuery.value = '';
+    activeCategoryChip.value = 'all';
     emit('reset-filters');
 };
 
 const plannerStore = usePlannerStore();
 
-// Initialize all default doors as favorited to match premium design reference
+// Initialize default door items as favorited
 const favoritesMap = ref({
     'single': true, 'french': true, 'sliding': true, 
     'pocket': true, 'classic_4': true, 'modern_flush': true,
@@ -199,243 +264,232 @@ const getCatalogHeaderTitle = () => {
 };
 
 const doorCatalog = ref([
-    { id: 'single', name: 'Single Hinged Door', image: '', params: { doorType: 'single', doorStyle: 'flat', width: 40 } },
-    { id: 'french', name: 'Double French Door', image: '', params: { doorType: 'french', doorStyle: 'glass_grid', width: 80 } },
-    { id: 'sliding', name: 'Sliding Glass Door', image: '', params: { doorType: 'sliding', doorStyle: 'glass_bottom_panel', width: 80 } },
-    { id: 'pocket', name: 'Pocket Door', image: '', params: { doorType: 'pocket', doorStyle: 'flat', width: 40 } },
-    { id: 'classic_4', name: 'Classic 4-Panel Door', image: '', params: { doorType: 'single', doorStyle: 'classic_4_panel', width: 40 } },
-    { id: 'modern_flush', name: 'Modern Flush Door', image: '', params: { doorType: 'single', doorStyle: 'modern_flush', width: 40 } },
+    { id: 'single', name: 'Single Hinged Door', badge: 'WOOD', material: 'Solid Teak Wood', specs: '900 × 2100 mm', category: 'single', image: '', params: { doorType: 'single', doorStyle: 'flat', width: 40 } },
+    { id: 'french', name: 'Double French Door', badge: 'GLASS', material: 'Glass & Solid Oak', specs: '1800 × 2100 mm', category: 'double', image: '', params: { doorType: 'french', doorStyle: 'glass_grid', width: 80 } },
+    { id: 'sliding', name: 'Sliding Glass Door', badge: 'GLASS', material: 'Aluminium & Glass', specs: '1800 × 2100 mm', category: 'glass', image: '', params: { doorType: 'sliding', doorStyle: 'glass_bottom_panel', width: 80 } },
+    { id: 'pocket', name: 'Pocket Door', badge: 'COMPACT', material: 'Natural Teak', specs: '900 × 2100 mm', category: 'single', image: '', params: { doorType: 'pocket', doorStyle: 'flat', width: 40 } },
+    { id: 'classic_4', name: 'Classic 4-Panel Door', badge: 'WOOD', material: 'White American Oak', specs: '900 × 2100 mm', category: 'wood', image: '', params: { doorType: 'single', doorStyle: 'classic_4_panel', width: 40 } },
+    { id: 'modern_flush', name: 'Modern Flush Door', badge: 'WOOD', material: 'American Walnut', specs: '900 × 2100 mm', category: 'wood', image: '', params: { doorType: 'single', doorStyle: 'modern_flush', width: 40 } },
 ]);
 
 const windowCatalog = ref([
-    { id: 'sliding_std', name: 'Standard Sliding', image: '', params: { windowType: 'sliding_std', width: 60 } },
-    { id: 'casement_std', name: 'Casement Window', image: '', params: { windowType: 'casement_std', width: 40 } },
-    { id: 'fixed_elevation', name: 'Fixed Picture Window', image: '', params: { windowType: 'fixed_elevation', width: 80 } },
-    { id: 'bay_box', name: 'Bay Window', image: '', params: { windowType: 'bay_box', width: 80 } },
-    { id: 'panoramic_slider', name: 'Panoramic Slider', image: '', params: { windowType: 'panoramic_slider', width: 120 } },
+    { id: 'sliding_std', name: 'Standard Sliding', badge: 'POPULAR', material: 'Aluminium Frame', specs: '1200 × 1200 mm', image: '', params: { windowType: 'sliding_std', width: 60 } },
+    { id: 'casement_std', name: 'Casement Window', badge: 'CLASSIC', material: 'White Vinyl', specs: '900 × 1200 mm', image: '', params: { windowType: 'casement_std', width: 40 } },
+    { id: 'fixed_elevation', name: 'Fixed Picture Window', badge: 'MODERN', material: 'Clear Glass', specs: '1800 × 1500 mm', image: '', params: { windowType: 'fixed_elevation', width: 80 } },
+    { id: 'bay_box', name: 'Bay Window', badge: 'ARCHITECTURAL', material: 'Solid Wood Frame', specs: '1800 × 1500 mm', image: '', params: { windowType: 'bay_box', width: 80 } },
+    { id: 'panoramic_slider', name: 'Panoramic Slider', badge: 'PREMIUM', material: 'Slim Steel Frame', specs: '2400 × 1800 mm', image: '', params: { windowType: 'panoramic_slider', width: 120 } },
 ]);
 
 const sunshadeCatalog = ref([
-    { id: 'concrete_slab', name: 'Concrete Slab', image: '', params: { chajjaType: 'concrete_slab', width: 60, depth: 40, thick: 4 } },
-    { id: 'wooden_pergola', name: 'Wooden Pergola', image: '', params: { chajjaType: 'wooden_pergola', width: 80, depth: 50, thick: 8 } },
-    { id: 'metal_louvers', name: 'Metal Louvers', image: '', params: { chajjaType: 'metal_louvers', width: 80, depth: 50, thick: 8 } },
-    { id: 'glass_canopy', name: 'Glass Canopy', image: '', params: { chajjaType: 'glass_canopy', width: 60, depth: 40, thick: 3 } },
-    { id: 'metal_canopy', name: 'Metal Canopy', image: '', params: { chajjaType: 'metal_canopy', width: 60, depth: 40, thick: 4 } },
-    { id: 'curved_rcc', name: 'Curved RCC', image: '', params: { chajjaType: 'curved_rcc', width: 60, depth: 40, thick: 4 } },
+    { id: 'concrete_slab', name: 'Concrete Slab', badge: 'STD', material: 'Reinforced RCC', specs: '1500 × 1000 mm', image: '', params: { chajjaType: 'concrete_slab', width: 60, depth: 40, thick: 4 } },
+    { id: 'wooden_pergola', name: 'Wooden Pergola', badge: 'WOOD', material: 'Teak Wood Rafters', specs: '2000 × 1250 mm', image: '', params: { chajjaType: 'wooden_pergola', width: 80, depth: 50, thick: 8 } },
+    { id: 'metal_louvers', name: 'Metal Louvers', badge: 'MODERN', material: 'Anodized Steel', specs: '2000 × 1250 mm', image: '', params: { chajjaType: 'metal_louvers', width: 80, depth: 50, thick: 8 } },
+    { id: 'glass_canopy', name: 'Glass Canopy', badge: 'GLASS', material: 'Tempered Glass', specs: '1500 × 1000 mm', image: '', params: { chajjaType: 'glass_canopy', width: 60, depth: 40, thick: 3 } },
+    { id: 'metal_canopy', name: 'Metal Canopy', badge: 'SLIM', material: 'Sheet Metal', specs: '1500 × 1000 mm', image: '', params: { chajjaType: 'metal_canopy', width: 60, depth: 40, thick: 4 } },
+    { id: 'curved_rcc', name: 'Curved RCC', badge: 'CLASSIC', material: 'Curved Concrete', specs: '1500 × 1000 mm', image: '', params: { chajjaType: 'curved_rcc', width: 60, depth: 40, thick: 4 } },
 ]);
 
 const jaliCatalog = ref([
-    { id: 'square_grid', name: 'Square Grid', image: '', params: { pattern: 'square_grid', width: 40, height: 40 } },
-    { id: 'geometric_honeycomb', name: 'Honeycomb', image: '', params: { pattern: 'geometric_honeycomb', width: 40, height: 40 } },
-    { id: 'mughal_star', name: 'Mughal Star', image: '', params: { pattern: 'mughal_star', width: 40, height: 40 } },
-    { id: 'floral_vine', name: 'Floral Vine', image: '', params: { pattern: 'floral_vine', width: 40, height: 40 } },
+    { id: 'square_grid', name: 'Square Grid', badge: 'GRID', material: 'MDF / PVC', specs: '1000 × 1000 mm', image: '', params: { pattern: 'square_grid', width: 40, height: 40 } },
+    { id: 'geometric_honeycomb', name: 'Honeycomb', badge: 'MODERN', material: 'CNC Cut Metal', specs: '1000 × 1000 mm', image: '', params: { pattern: 'geometric_honeycomb', width: 40, height: 40 } },
+    { id: 'mughal_star', name: 'Mughal Star', badge: 'HERITAGE', material: 'Carved Wood', specs: '1000 × 1000 mm', image: '', params: { pattern: 'mughal_star', width: 40, height: 40 } },
+    { id: 'floral_vine', name: 'Floral Vine', badge: 'DECORATIVE', material: 'Brass Finish', specs: '1000 × 1000 mm', image: '', params: { pattern: 'floral_vine', width: 40, height: 40 } },
 ]);
 
 const staircaseCatalog = ref([
-    { id: 'stair_straight_solid', name: 'Solid Base (Wood)', image: '', toolId: 'staircase', params: { type: 'stair_v5_straight', width: 40, length: 120, height: 120, steps: 10, stringerType: 'solid', primaryColor: '#8b5a2b' } },
-    { id: 'stair_straight_mono', name: 'Mono Stringer (Steel)', image: '', toolId: 'staircase', params: { type: 'stair_v5_straight', width: 40, length: 120, height: 120, steps: 10, stringerType: 'mono', primaryMaterial: 'steel', primaryColor: '#333333' } },
-    { id: 'stair_straight_double', name: 'Double Stringer', image: '', toolId: 'staircase', params: { type: 'stair_v5_straight', width: 40, length: 120, height: 120, steps: 10, stringerType: 'double', primaryMaterial: 'wood', primaryColor: '#a67b5b' } },
-    { id: 'stair_straight_side', name: 'Side Stringers', image: '', toolId: 'staircase', params: { type: 'stair_v5_straight', width: 40, length: 120, height: 120, steps: 10, stringerType: 'side', primaryMaterial: 'white_painted', primaryColor: '#ffffff' } },
-    { id: 'stair_L_concrete', name: 'L-Shape (Solid Concrete)', image: '', toolId: 'staircase', params: { type: 'stair_v5_L', width: 40, length1: 80, length2: 80, height: 120, stringerType: 'solid', primaryMaterial: 'concrete', primaryColor: '#999999' } },
-    { id: 'stair_L_mono', name: 'L-Shape (Mono Stringer)', image: '', toolId: 'staircase', params: { type: 'stair_v5_L', width: 40, length1: 80, length2: 80, height: 120, stringerType: 'mono', primaryMaterial: 'steel', primaryColor: '#444444' } },
-    { id: 'stair_U_wood', name: 'U-Shape (Classic Box)', image: '', toolId: 'staircase', params: { type: 'stair_v5_U', width: 40, length1: 60, length2: 60, width2: 40, height: 120, stringerType: 'box', primaryColor: '#8b5a2b' } },
-    { id: 'stair_T_marble', name: 'T-Shape (Solid Marble)', image: '', toolId: 'staircase', params: { type: 'stair_v5_T', width: 40, length1: 60, length2: 80, height: 120, stringerType: 'solid', primaryMaterial: 'marble', primaryColor: '#f5f5f5' } },
+    { id: 'stair_straight_solid', name: 'Solid Base (Wood)', badge: 'WOOD', material: 'Teak Wood Steps', specs: '1000 × 3000 mm', image: '', toolId: 'staircase', params: { type: 'stair_v5_straight', width: 40, length: 120, height: 120, steps: 10, stringerType: 'solid', primaryColor: '#8b5a2b' } },
+    { id: 'stair_straight_mono', name: 'Mono Stringer (Steel)', badge: 'STEEL', material: 'Black Powder Steel', specs: '1000 × 3000 mm', image: '', toolId: 'staircase', params: { type: 'stair_v5_straight', width: 40, length: 120, height: 120, steps: 10, stringerType: 'mono', primaryMaterial: 'steel', primaryColor: '#333333' } },
+    { id: 'stair_straight_double', name: 'Double Stringer', badge: 'CLASSIC', material: 'Oak & Steel', specs: '1000 × 3000 mm', image: '', toolId: 'staircase', params: { type: 'stair_v5_straight', width: 40, length: 120, height: 120, steps: 10, stringerType: 'double', primaryMaterial: 'wood', primaryColor: '#a67b5b' } },
+    { id: 'stair_straight_side', name: 'Side Stringers', badge: 'MODERN', material: 'White Painted', specs: '1000 × 3000 mm', image: '', toolId: 'staircase', params: { type: 'stair_v5_straight', width: 40, length: 120, height: 120, steps: 10, stringerType: 'side', primaryMaterial: 'white_painted', primaryColor: '#ffffff' } },
+    { id: 'stair_L_concrete', name: 'L-Shape (Concrete)', badge: 'SOLID', material: 'Cast Concrete', specs: '2000 × 2000 mm', image: '', toolId: 'staircase', params: { type: 'stair_v5_L', width: 40, length1: 80, length2: 80, height: 120, stringerType: 'solid', primaryMaterial: 'concrete', primaryColor: '#999999' } },
+    { id: 'stair_L_mono', name: 'L-Shape (Mono)', badge: 'STEEL', material: 'Industrial Steel', specs: '2000 × 2000 mm', image: '', toolId: 'staircase', params: { type: 'stair_v5_L', width: 40, length1: 80, length2: 80, height: 120, stringerType: 'mono', primaryMaterial: 'steel', primaryColor: '#444444' } },
+    { id: 'stair_U_wood', name: 'U-Shape (Box)', badge: 'WOOD', material: 'Solid Oak', specs: '1500 × 1500 mm', image: '', toolId: 'staircase', params: { type: 'stair_v5_U', width: 40, length1: 60, length2: 60, width2: 40, height: 120, stringerType: 'box', primaryColor: '#8b5a2b' } },
+    { id: 'stair_T_marble', name: 'T-Shape (Marble)', badge: 'LUXURY', material: 'White Carrara Marble', specs: '2000 × 2000 mm', image: '', toolId: 'staircase', params: { type: 'stair_v5_T', width: 40, length1: 60, length2: 80, height: 120, stringerType: 'solid', primaryMaterial: 'marble', primaryColor: '#f5f5f5' } },
 ]);
 
 const roofCatalog = ref([
-    { id: 'roof_gable', name: 'Gable Roof', image: '', params: { roofType: 'gable', pitch: 30 } },
-    { id: 'roof_hip', name: 'Hip Roof', image: '', params: { roofType: 'hip', pitch: 30 } },
-    { id: 'roof_flat', name: 'Flat Roof', image: '', params: { roofType: 'flat', thick: 15 } },
+    { id: 'roof_gable', name: 'Gable Roof', badge: 'CLASSIC', material: 'Terracotta Tiles', specs: '30° Pitch', image: '', params: { roofType: 'gable', pitch: 30 } },
+    { id: 'roof_hip', name: 'Hip Roof', badge: 'POPULAR', material: 'Asphalt Shingles', specs: '30° Pitch', image: '', params: { roofType: 'hip', pitch: 30 } },
+    { id: 'roof_flat', name: 'Flat Roof', badge: 'MODERN', material: 'Concrete Deck', specs: '150 mm Slab', image: '', params: { roofType: 'flat', thick: 15 } },
 ]);
 
 const dormerCatalog = ref([
-    { id: 'preset_dormer_gable', name: 'Gable Dormer', image: '', params: { type: 'preset_dormer_gable', width: 120, depth: 150, wallHeight: 120, roofType: 'gable', pitch: 35, elevation: 250 } },
-    { id: 'preset_dormer_shed', name: 'Shed Dormer', image: '', params: { type: 'preset_dormer_shed', width: 250, depth: 150, wallHeight: 120, roofType: 'flat', pitch: 15, elevation: 250 } },
-    { id: 'preset_dormer_hip', name: 'Hip Dormer', image: '', params: { type: 'preset_dormer_hip', width: 120, depth: 150, wallHeight: 120, roofType: 'hip', pitch: 35, elevation: 250 } }
+    { id: 'preset_dormer_gable', name: 'Gable Dormer', badge: 'CLASSIC', material: 'Wood Siding', specs: '35° Pitch', image: '', params: { type: 'preset_dormer_gable', width: 120, depth: 150, wallHeight: 120, roofType: 'gable', pitch: 35, elevation: 250 } },
+    { id: 'preset_dormer_shed', name: 'Shed Dormer', badge: 'MODERN', material: 'Metal Roof', specs: '15° Pitch', image: '', params: { type: 'preset_dormer_shed', width: 250, depth: 150, wallHeight: 120, roofType: 'flat', pitch: 15, elevation: 250 } },
+    { id: 'preset_dormer_hip', name: 'Hip Dormer', badge: 'HERITAGE', material: 'Tile Roof', specs: '35° Pitch', image: '', params: { type: 'preset_dormer_hip', width: 120, depth: 150, wallHeight: 120, roofType: 'hip', pitch: 35, elevation: 250 } }
 ]);
 
 const moldingCatalog = ref([
-    { id: 'molding_band', name: 'Horizontal Band', image: '', params: { type: 'molding_band' } },
-    { id: 'molding_crown', name: 'Crown Molding', image: '', params: { type: 'molding_crown' } },
-    { id: 'molding_ogee', name: 'Ogee (Cyma) Molding', image: '', params: { type: 'molding_ogee' } },
-    { id: 'molding_egg_and_dart', name: 'Egg and Dart Molding', image: '', params: { type: 'molding_egg_and_dart' } },
-    { id: 'molding_dentil', name: 'Dentil Molding', image: '', params: { type: 'molding_dentil' } },
-    { id: 'molding_craftsman', name: 'Step / Craftsman', image: '', params: { type: 'molding_craftsman' } },
-    { id: 'molding_window', name: 'Window Frame', image: '', params: { type: 'molding_window' } },
-    { id: 'molding_door', name: 'Door Frame', image: '', params: { type: 'molding_door' } },
-    { id: 'molding_groove', name: 'Decorative Groove', image: '', params: { type: 'molding_groove' } },
-    { id: 'molding_layered', name: 'Layered Projection', image: '', params: { type: 'molding_layered' } }
+    { id: 'molding_band', name: 'Horizontal Band', badge: 'FLAT', material: 'Painted Plaster', image: '', params: { type: 'molding_band' } },
+    { id: 'molding_crown', name: 'Crown Molding', badge: 'CLASSIC', material: 'Carved Wood', image: '', params: { type: 'molding_crown' } },
+    { id: 'molding_ogee', name: 'Ogee (Cyma)', badge: 'PROFILE', material: 'Polyurethane', image: '', params: { type: 'molding_ogee' } },
+    { id: 'molding_egg_and_dart', name: 'Egg and Dart', badge: 'DECORATIVE', material: 'Gypsum Plaster', image: '', params: { type: 'molding_egg_and_dart' } },
+    { id: 'molding_dentil', name: 'Dentil Molding', badge: 'HERITAGE', material: 'Cast Stone', image: '', params: { type: 'molding_dentil' } },
+    { id: 'molding_craftsman', name: 'Step / Craftsman', badge: 'MODERN', material: 'Hardwood', image: '', params: { type: 'molding_craftsman' } },
+    { id: 'molding_window', name: 'Window Frame', badge: 'TRIM', material: 'White Vinyl', image: '', params: { type: 'molding_window' } },
+    { id: 'molding_door', name: 'Door Frame', badge: 'TRIM', material: 'Oak Trim', image: '', params: { type: 'molding_door' } },
+    { id: 'molding_groove', name: 'Decorative Groove', badge: 'RECESSED', material: 'Grooved Panel', image: '', params: { type: 'molding_groove' } },
+    { id: 'molding_layered', name: 'Layered Projection', badge: 'LAYERED', material: 'Composite', image: '', params: { type: 'molding_layered' } }
 ]);
 
 const elevationFasciaCatalog = ref([
-    { id: 'fascia_c_left', name: 'C-Shape (Left)', image: '', params: { type: 'elevation_fascia', profileType: 'c_shape_left' } },
-    { id: 'fascia_c_right', name: 'C-Shape (Right)', image: '', params: { type: 'elevation_fascia', profileType: 'c_shape_right' } },
-    { id: 'fascia_l_left', name: 'L-Shape (Left)', image: '', params: { type: 'elevation_fascia', profileType: 'l_shape_left' } },
-    { id: 'fascia_l_right', name: 'L-Shape (Right)', image: '', params: { type: 'elevation_fascia', profileType: 'l_shape_right' } },
-    { id: 'fascia_box', name: 'Full Box Frame', image: '', params: { type: 'elevation_fascia', profileType: 'full_box' } }
+    { id: 'fascia_c_left', name: 'C-Shape (Left)', badge: 'FACADE', material: 'Aluminium Composite', image: '', params: { type: 'elevation_fascia', profileType: 'c_shape_left' } },
+    { id: 'fascia_c_right', name: 'C-Shape (Right)', badge: 'FACADE', material: 'Aluminium Composite', image: '', params: { type: 'elevation_fascia', profileType: 'c_shape_right' } },
+    { id: 'fascia_l_left', name: 'L-Shape (Left)', badge: 'CORNER', material: 'Anodized Steel', image: '', params: { type: 'elevation_fascia', profileType: 'l_shape_left' } },
+    { id: 'fascia_l_right', name: 'L-Shape (Right)', badge: 'CORNER', material: 'Anodized Steel', image: '', params: { type: 'elevation_fascia', profileType: 'l_shape_right' } },
+    { id: 'fascia_box', name: 'Full Box Frame', badge: 'BOX', material: 'Powder-Coated Metal', image: '', params: { type: 'elevation_fascia', profileType: 'full_box' } }
 ]);
 
 const advanceOpeningsCatalog = ref([
-    { id: 'adv_arch', name: 'Arch Opening', image: '', toolId: 'arch_opening', params: { type: 'arch_opening' } },
-    { id: 'adv_circ', name: 'Circular & Oval', image: '', toolId: 'circular_opening', params: { type: 'circular_opening' } },
-    { id: 'adv_custom', name: 'Custom Shape Cut', image: '', toolId: 'custom_shape_opening', params: { type: 'custom_shape_opening' } },
-    { id: 'adv_niche', name: 'Niche & Recess', image: '', toolId: 'niche_recess', params: { type: 'niche_recess' } },
-    { id: 'adv_pattern', name: 'Pattern Opening', image: '', toolId: 'pattern_opening', params: { type: 'pattern_opening' } },
-    { id: 'adv_boolean', name: 'Boolean Cut', image: '', toolId: 'boolean_cut', params: { type: 'boolean_cut' } }
+    { id: 'adv_arch', name: 'Arch Opening', badge: 'ARCH', material: 'Wall Cutout', image: '', toolId: 'arch_opening', params: { type: 'arch_opening' } },
+    { id: 'adv_circ', name: 'Circular & Oval', badge: 'CIRCULAR', material: 'Wall Cutout', image: '', toolId: 'circular_opening', params: { type: 'circular_opening' } },
+    { id: 'adv_custom', name: 'Custom Shape Cut', badge: 'FREEFORM', material: 'Wall Cutout', image: '', toolId: 'custom_shape_opening', params: { type: 'custom_shape_opening' } },
+    { id: 'adv_niche', name: 'Niche & Recess', badge: 'NICHE', material: 'Wall Recess', image: '', toolId: 'niche_recess', params: { type: 'niche_recess' } },
+    { id: 'adv_pattern', name: 'Pattern Opening', badge: 'GRID', material: 'Pattern Cutout', image: '', toolId: 'pattern_opening', params: { type: 'pattern_opening' } },
+    { id: 'adv_boolean', name: 'Boolean Cut', badge: 'BOOLEAN', material: 'CSG Cutout', image: '', toolId: 'boolean_cut', params: { type: 'boolean_cut' } }
 ]);
 
 const shapesCatalog = ref([
-    { id: 'shape_box', name: 'Box (Rectangle)', image: '', toolId: 'shape_rect', params: { type: 'shape_rect' } },
-    { id: 'shape_cyl', name: 'Cylinder (Circle)', image: '', toolId: 'shape_circle', params: { type: 'shape_circle' } },
-    { id: 'shape_prism', name: 'Prism (Polygon)', image: '', toolId: 'shape_triangle', params: { type: 'shape_triangle' } }
+    { id: 'shape_box', name: 'Box (Rectangle)', badge: '3D', material: 'Solid Box', image: '', toolId: 'shape_rect', params: { type: 'shape_rect' } },
+    { id: 'shape_cyl', name: 'Cylinder (Circle)', badge: '3D', material: 'Cylinder', image: '', toolId: 'shape_circle', params: { type: 'shape_circle' } },
+    { id: 'shape_prism', name: 'Prism (Polygon)', badge: '3D', material: 'Triangular Prism', image: '', toolId: 'shape_triangle', params: { type: 'shape_triangle' } }
 ]);
 
 const wallsCatalog = ref([
-    { id: 'wall_outer', name: 'Outer Wall', image: '', toolId: 'outer', params: { type: 'outer' } },
-    { id: 'wall_inner', name: 'Inner Wall', image: '', toolId: 'inner', params: { type: 'inner' } },
-    { id: 'wall_arc', name: 'Curved Wall (Arc)', image: '', toolId: 'arc', params: { type: 'arc' } }
+    { id: 'wall_outer', name: 'Outer Wall', badge: 'STRUCTURAL', material: 'Brick & Plaster', specs: '230 mm Thick', image: '', toolId: 'outer', params: { type: 'outer' } },
+    { id: 'wall_inner', name: 'Inner Wall', badge: 'PARTITION', material: 'Gypsum / Brick', specs: '115 mm Thick', image: '', toolId: 'inner', params: { type: 'inner' } },
+    { id: 'wall_arc', name: 'Curved Wall (Arc)', badge: 'CURVED', material: 'Reinforced Concrete', specs: '230 mm Arc', image: '', toolId: 'arc', params: { type: 'arc' } }
 ]);
 
 const railingCatalog = ref([
-    { id: 'glass_stainless', name: 'Glass & Steel', image: '', toolId: 'railing', params: { type: 'glass_stainless' } },
-    { id: 'glass_frameless', name: 'Frameless', image: '', toolId: 'railing', params: { type: 'glass_frameless' } },
-    { id: 'metal_vertical', name: 'Vertical Metal', image: '', toolId: 'railing', params: { type: 'metal_vertical' } },
-    { id: 'cable_stainless', name: 'Cable', image: '', toolId: 'railing', params: { type: 'cable_stainless' } },
-    { id: 'wood_classic', name: 'Wood', image: '', toolId: 'railing', params: { type: 'wood_classic' } }
+    { id: 'glass_stainless', name: 'Glass & Steel', badge: 'MODERN', material: 'Tempered Glass & Steel', specs: '1000 mm High', image: '', toolId: 'railing', params: { type: 'glass_stainless' } },
+    { id: 'glass_frameless', name: 'Frameless', badge: 'LUXURY', material: 'Clear Toughened Glass', specs: '1000 mm High', image: '', toolId: 'railing', params: { type: 'glass_frameless' } },
+    { id: 'metal_vertical', name: 'Vertical Metal', badge: 'MINIMAL', material: 'Black Powder Steel', specs: '1000 mm High', image: '', toolId: 'railing', params: { type: 'metal_vertical' } },
+    { id: 'cable_stainless', name: 'Cable', badge: 'SLIM', material: 'Tension Cable', specs: '1000 mm High', image: '', toolId: 'railing', params: { type: 'cable_stainless' } },
+    { id: 'wood_classic', name: 'Wood', badge: 'CLASSIC', material: 'Carved Wood Balusters', specs: '1000 mm High', image: '', toolId: 'railing', params: { type: 'wood_classic' } }
 ]);
 
 const furnitureCatalog = ref([
     { isDivider: true, id: 'div_sofas', name: 'Sofas & Couches' },
-    { id: 'sofa_3seater', name: 'Modern 3-Seater Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_3seater' } },
-    { id: 'sofa_l_shape', name: 'L-Shape Sectional', image: '', toolId: 'furniture', params: { type: 'sofa_l_shape' } },
-    { id: 'sofa_chesterfield', name: 'Chesterfield Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_chesterfield' } },
-    { id: 'sofa_office', name: 'Office Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_office' } },
-    { id: 'sofa_modern_1', name: 'Modern Sofa 1', image: '', toolId: 'furniture', params: { type: 'sofa_modern_1' } },
-    { id: 'sofa_modern_2', name: 'Modern Sofa 2', image: '', toolId: 'furniture', params: { type: 'sofa_modern_2' } },
-    { id: 'sofa_modern_3', name: 'Modern Sofa 3', image: '', toolId: 'furniture', params: { type: 'sofa_modern_3' } },
-    { id: 'sofa_patricia', name: 'Patricia Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_patricia' } },
-    { id: 'sofa_fabric', name: 'Fabric Sofa', image: '', toolId: 'furniture', params: { type: 'sofa_fabric' } },
+    { id: 'sofa_3seater', name: 'Modern 3-Seater Sofa', badge: 'POPULAR', material: 'Grey Fabric', specs: '2200 × 900 mm', image: '', toolId: 'furniture', params: { type: 'sofa_3seater' } },
+    { id: 'sofa_l_shape', name: 'L-Shape Sectional', badge: 'LARGE', material: 'Charcoal Linen', specs: '2800 × 1800 mm', image: '', toolId: 'furniture', params: { type: 'sofa_l_shape' } },
+    { id: 'sofa_chesterfield', name: 'Chesterfield Sofa', badge: 'LUXURY', material: 'Brown Tufted Leather', specs: '2400 × 950 mm', image: '', toolId: 'furniture', params: { type: 'sofa_chesterfield' } },
+    { id: 'sofa_office', name: 'Office Sofa', badge: 'COMPACT', material: 'Black Leatherette', specs: '1800 × 850 mm', image: '', toolId: 'furniture', params: { type: 'sofa_office' } },
+    { id: 'sofa_modern_1', name: 'Modern Velvet Sofa 1', badge: 'MODERN', material: 'Plush Blue Velvet', specs: '2100 × 900 mm', image: '', toolId: 'furniture', params: { type: 'sofa_modern_1' } },
+    { id: 'sofa_modern_2', name: 'Modern Fabric Sofa 2', badge: 'MINIMAL', material: 'Warm Beige Fabric', specs: '2000 × 900 mm', image: '', toolId: 'furniture', params: { type: 'sofa_modern_2' } },
+    { id: 'sofa_modern_3', name: 'Modern Studio Sofa 3', badge: 'NEW', material: 'Neutral Grey Weave', specs: '2200 × 950 mm', image: '', toolId: 'furniture', params: { type: 'sofa_modern_3' } },
+    { id: 'sofa_patricia', name: 'Patricia Designer Sofa', badge: 'DESIGNER', material: 'Bouclé Fabric', specs: '2300 × 1000 mm', image: '', toolId: 'furniture', params: { type: 'sofa_patricia' } },
+    { id: 'sofa_fabric', name: 'Comfort Fabric Sofa', badge: 'SOFT', material: 'Textured Linen', specs: '2100 × 950 mm', image: '', toolId: 'furniture', params: { type: 'sofa_fabric' } },
+    { id: 'sofa_sheen_wood', name: 'Sheen Wood Leather Sofa', badge: 'LEATHER', material: 'Walnut & Saddle Leather', specs: '2000 × 900 mm', image: '', toolId: 'furniture', params: { type: 'sofa_sheen_wood' } },
+
+    { isDivider: true, id: 'div_beds', name: 'Beds & Bedroom Furniture' },
+    { id: 'bed_modern_1', name: 'Modern Upholstered Bed 1', badge: 'QUEEN', material: 'Grey Fabric Headboard', specs: '1600 × 2000 mm', image: '', toolId: 'furniture', params: { type: 'bed_modern_1' } },
+    { id: 'bed_modern_3', name: 'Modern Luxury Bed 3', badge: 'KING', material: 'Tufted Linen Headboard', specs: '1800 × 2000 mm', image: '', toolId: 'furniture', params: { type: 'bed_modern_3' } },
+    { id: 'bed_traditional_wooden', name: 'Traditional Wooden Cot', badge: 'WOOD', material: 'Solid Teak Timber', specs: '1200 × 2000 mm', image: '', toolId: 'furniture', params: { type: 'bed_traditional_wooden' } },
+
     { isDivider: true, id: 'div_dining', name: 'Dining Tables & Sets' },
-    { id: 'dining_modern_1', name: 'Modern Dining Table 1', image: '', toolId: 'furniture', params: { type: 'dining_modern_1' } },
-    { id: 'dining_modern_2', name: 'Modern Dining Table 2', image: '', toolId: 'furniture', params: { type: 'dining_modern_2' } },
-    { id: 'dining_wooden_set_1', name: 'Wooden Dining Set 1', image: '', toolId: 'furniture', params: { type: 'dining_wooden_set_1' } },
-    { id: 'dining_wooden_set_2', name: 'Wooden Dining Set 2', image: '', toolId: 'furniture', params: { type: 'dining_wooden_set_2' } },
-    { id: 'dining_tables_set', name: 'Tables And Chairs Set', image: '', toolId: 'furniture', params: { type: 'dining_tables_set' } },
-    { id: 'dining_old_table_set', name: 'Old Table & Chair Set', image: '', toolId: 'furniture', params: { type: 'dining_old_table_set' } },
+    { id: 'dining_modern_1', name: 'Modern Dining Table 1', badge: 'WOOD', material: 'Teak & Steel Legs', specs: '1800 × 900 mm', image: '', toolId: 'furniture', params: { type: 'dining_modern_1' } },
+    { id: 'dining_modern_2', name: 'Modern Dining Table 2', badge: 'MARBLE', material: 'White Marble Top', specs: '2000 × 1000 mm', image: '', toolId: 'furniture', params: { type: 'dining_modern_2' } },
+    { id: 'dining_wooden_set_1', name: 'Wooden Dining Set 1', badge: '6 SEATER', material: 'Solid Oak & Chairs', specs: '1800 × 900 mm', image: '', toolId: 'furniture', params: { type: 'dining_wooden_set_1' } },
+    { id: 'dining_wooden_set_2', name: 'Wooden Dining Set 2', badge: '4 SEATER', material: 'Natural Walnut', specs: '1600 × 900 mm', image: '', toolId: 'furniture', params: { type: 'dining_wooden_set_2' } },
+    { id: 'dining_tables_set', name: 'Contemporary Dining Suite', badge: 'POPULAR', material: 'Smoked Glass & Leather', specs: '2000 × 1000 mm', image: '', toolId: 'furniture', params: { type: 'dining_tables_set' } },
+    { id: 'dining_old_table_set', name: 'Rustic Farmhouse Dining Set', badge: 'RUSTIC', material: 'Reclaimed Timber', specs: '1500 × 1500 mm', image: '', toolId: 'furniture', params: { type: 'dining_old_table_set' } },
+
     { isDivider: true, id: 'div_chairs', name: 'Chairs & Seating' },
-    { id: 'chair_basket_swing', name: 'Basket Swing Chair', image: '', toolId: 'furniture', params: { type: 'chair_basket_swing' } },
-    { id: 'chair_modern_1', name: 'Modern Chair 1', image: '', toolId: 'furniture', params: { type: 'chair_modern_1' } },
-    { id: 'chair_modern_2', name: 'Modern Chair 2', image: '', toolId: 'furniture', params: { type: 'chair_modern_2' } },
-    { id: 'chair_piano_set', name: 'Piano With Chair', image: '', toolId: 'furniture', params: { type: 'chair_piano_set' } },
-    { id: 'chair_rounded', name: 'Rounded Chair', image: '', toolId: 'furniture', params: { type: 'chair_rounded' } },
-    { id: 'chair_rustic', name: 'Rustic Chair', image: '', toolId: 'furniture', params: { type: 'chair_rustic' } },
-    { id: 'chair_sofa', name: 'Sofa Chair', image: '', toolId: 'furniture', params: { type: 'chair_sofa' } },
-    { isDivider: true, id: 'div_beds', name: 'Beds' },
-    { id: 'bed_modern_1', name: 'Modern Bed 1', image: '', toolId: 'furniture', params: { type: 'bed_modern_1' } },
-    { id: 'bed_modern_3', name: 'Modern Bed 3', image: '', toolId: 'furniture', params: { type: 'bed_modern_3' } },
-    { id: 'bed_traditional_wooden', name: 'Traditional Wooden Cot', image: '', toolId: 'furniture', params: { type: 'bed_traditional_wooden' } },
-    { isDivider: true, id: 'div_tv_stands_furn', name: 'TV Stands & Entertainment Units' },
-    { id: 'tv_stand_reclaimed_f', name: 'Reclaimed Wood TV Stand', image: '', toolId: 'furniture', params: { type: 'tv_stand_reclaimed', elevation: 0 } },
-    { id: 'tv_stand_retro_f', name: 'Retro Mid-Century TV Stand', image: '', toolId: 'furniture', params: { type: 'tv_stand_retro', elevation: 0 } },
-    { id: 'tv_stand_small_f', name: 'Compact Small TV Stand', image: '', toolId: 'furniture', params: { type: 'tv_stand_small', elevation: 0 } },
-    { id: 'tv_stand_wooden_bench_f', name: 'Wooden Media Bench Table', image: '', toolId: 'furniture', params: { type: 'tv_stand_wooden_bench', elevation: 0 } },
-    { id: 'tv_stand_modern_mraz_f', name: 'Modern Minimalist TV Stand', image: '', toolId: 'furniture', params: { type: 'tv_stand_modern_mraz', elevation: 0 } },
-    { id: 'tv_stand_classic_f', name: 'Classic Entertainment Unit', image: '', toolId: 'furniture', params: { type: 'tv_stand_classic', elevation: 0 } },
-    { isDivider: true, id: 'div_other', name: 'Other Furniture' },
-    { id: 'bench', name: 'Bench', image: '', toolId: 'furniture', params: { type: 'table_dining' } },
-    { id: 'furniture_barstool', name: 'Modern Bar Stool', image: '', toolId: 'furniture', params: { type: 'furniture_barstool' } },
-    { id: 'lighting_pendant', name: 'Pendant Light', image: '', toolId: 'furniture', params: { type: 'lighting_pendant', elevation: 180 } }
+    { id: 'chair_basket_swing', name: 'Basket Swing Chair', badge: 'OUTDOOR', material: 'Woven Rattan & Cushion', specs: '800 × 1200 mm', image: '', toolId: 'furniture', params: { type: 'chair_basket_swing' } },
+    { id: 'chair_modern_1', name: 'Modern Lounge Chair 1', badge: 'MINIMAL', material: 'Black Metal & Linen', specs: '500 × 900 mm', image: '', toolId: 'furniture', params: { type: 'chair_modern_1' } },
+    { id: 'chair_modern_2', name: 'Modern Dining Chair 2', badge: 'WOOD', material: 'Oak & Molded Shell', specs: '500 × 900 mm', image: '', toolId: 'furniture', params: { type: 'chair_modern_2' } },
+    { id: 'chair_piano_set', name: 'Grand Piano with Bench', badge: 'LUXURY', material: 'Black Gloss Lacquer', specs: '1400 × 1100 mm', image: '', toolId: 'furniture', params: { type: 'chair_piano_set' } },
+    { id: 'chair_rounded', name: 'Rounded Accent Chair', badge: 'SOFT', material: 'Velvet Upholstery', specs: '600 × 800 mm', image: '', toolId: 'furniture', params: { type: 'chair_rounded' } },
+    { id: 'chair_rustic', name: 'Rustic Armchair', badge: 'VINTAGE', material: 'Distressed Leather', specs: '500 × 900 mm', image: '', toolId: 'furniture', params: { type: 'chair_rustic' } },
+    { id: 'chair_sofa', name: 'Single Sofa Armchair', badge: 'COMFY', material: 'High-Density Foam', specs: '800 × 900 mm', image: '', toolId: 'furniture', params: { type: 'chair_sofa' } },
+
+    { isDivider: true, id: 'div_tv_stands_furn', name: 'TV Stands & Media Units' },
+    { id: 'tv_stand_reclaimed', name: 'Reclaimed Wood TV Stand', badge: 'RUSTIC', material: 'Solid Reclaimed Oak', specs: '1600 × 500 mm', image: '', toolId: 'furniture', params: { type: 'tv_stand_reclaimed', elevation: 0 } },
+    { id: 'tv_stand_retro', name: 'Retro Mid-Century TV Stand', badge: 'RETRO', material: 'Walnut & Tapered Legs', specs: '1500 × 550 mm', image: '', toolId: 'furniture', params: { type: 'tv_stand_retro', elevation: 0 } },
+    { id: 'tv_stand_small', name: 'Compact Small TV Stand', badge: 'COMPACT', material: 'White & Light Wood', specs: '1000 × 450 mm', image: '', toolId: 'furniture', params: { type: 'tv_stand_small', elevation: 0 } },
+    { id: 'tv_stand_wooden_bench', name: 'Wooden Media Bench Table', badge: 'WOOD', material: 'Natural Teak Bench', specs: '1800 × 450 mm', image: '', toolId: 'furniture', params: { type: 'tv_stand_wooden_bench', elevation: 0 } },
+    { id: 'tv_stand_modern_mraz', name: 'Modern Minimalist TV Stand', badge: 'SLIM', material: 'Matte Grey & Steel', specs: '1500 × 500 mm', image: '', toolId: 'furniture', params: { type: 'tv_stand_modern_mraz', elevation: 0 } },
+    { id: 'tv_stand_classic', name: 'Classic Entertainment Unit', badge: 'CLASSIC', material: 'Mahogany & Drawers', specs: '1600 × 600 mm', image: '', toolId: 'furniture', params: { type: 'tv_stand_classic', elevation: 0 } },
+
+    { isDivider: true, id: 'div_other', name: 'Other Furniture & Accents' },
+    { id: 'bench', name: 'Entryway Wooden Bench', badge: 'BENCH', material: 'Solid Wood', specs: '1200 × 45 mm', image: '', toolId: 'furniture', params: { type: 'bench' } },
+    { id: 'furniture_barstool', name: 'Scandinavian Bar Stool', badge: 'STOOL', material: 'Walnut & Brass', specs: '400 × 750 mm', image: '', toolId: 'furniture', params: { type: 'furniture_barstool' } },
+    { id: 'lighting_pendant', name: 'Ribbed Brass Pendant Light', badge: 'LIGHTING', material: 'Brass & Frosted Glass', specs: 'Pendant Lamp', image: '', toolId: 'furniture', params: { type: 'lighting_pendant', elevation: 180 } }
 ]);
 
 const kitchenCatalog = ref([
-    { id: 'kitchen_straight', name: 'Straight Kitchen', image: '', toolId: 'kitchen', params: { type: 'kitchen_straight', width: 240, height: 90, depth: 60 } },
-    { id: 'kitchen_l_shape', name: 'L-Shape Kitchen', image: '', toolId: 'kitchen', params: { type: 'kitchen_l_shape', width: 240, height: 90, depth: 240 } },
-    { id: 'kitchen_u_shape', name: 'U-Shape Kitchen', image: '', toolId: 'kitchen', params: { type: 'kitchen_u_shape', width: 240, height: 90, depth: 240 } },
-    { id: 'kitchen_straight_upper', name: 'Straight Upper Cabinets', image: '', toolId: 'kitchen', params: { type: 'kitchen_straight_upper', width: 240, height: 70, depth: 35, elevation: 140 } },
-    { id: 'kitchen_l_shape_upper', name: 'L-Shape Upper Cabinets', image: '', toolId: 'kitchen', params: { type: 'kitchen_l_shape_upper', width: 240, height: 70, depth: 240, elevation: 140 } },
-    { id: 'kitchen_u_shape_upper', name: 'U-Shape Upper Cabinets', image: '', toolId: 'kitchen', params: { type: 'kitchen_u_shape_upper', width: 240, height: 70, depth: 240, elevation: 140 } },
-    { id: 'kitchen_straight_shaker', name: 'Classic Shaker Kitchen', image: '', toolId: 'kitchen', params: { type: 'kitchen_straight_shaker', width: 240, height: 90, depth: 60 } },
-    { id: 'kitchen_straight_floating', name: 'Floating Base Kitchen', image: '', toolId: 'kitchen', params: { type: 'kitchen_straight_floating', width: 240, height: 90, depth: 60 } },
-    { id: 'kitchen_upper_glass', name: 'Glass Display Uppers', image: '', toolId: 'kitchen', params: { type: 'kitchen_upper_glass', width: 240, height: 70, depth: 35, elevation: 140 } },
-    { id: 'kitchen_upper_shelves', name: 'Floating Wood Shelves', image: '', toolId: 'kitchen', params: { type: 'kitchen_upper_shelves', width: 240, height: 70, depth: 35, elevation: 140 } },
-    { id: 'kitchen_island', name: 'Kitchen Island', image: '', toolId: 'kitchen', params: { type: 'kitchen_island', width: 240, height: 90, depth: 120 } },
-    { id: 'kitchen_tall_pantry', name: 'Tall Pantry Cabinet', image: '', toolId: 'kitchen', params: { type: 'kitchen_tall_pantry', width: 60, height: 210, depth: 60 } }
+    { id: 'kitchen_straight', name: 'Straight Kitchen', badge: 'BASE', material: 'Laminate & Quartz', specs: '2400 × 900 mm', image: '', toolId: 'kitchen', params: { type: 'kitchen_straight', width: 240, height: 90, depth: 60 } },
+    { id: 'kitchen_l_shape', name: 'L-Shape Kitchen', badge: 'CORNER', material: 'Matte Acrylic & Granite', specs: '2400 × 2400 mm', image: '', toolId: 'kitchen', params: { type: 'kitchen_l_shape', width: 240, height: 90, depth: 240 } },
+    { id: 'kitchen_u_shape', name: 'U-Shape Kitchen', badge: 'PREMIUM', material: 'Shaker Wood & Marble', specs: '2400 × 2400 mm', image: '', toolId: 'kitchen', params: { type: 'kitchen_u_shape', width: 240, height: 90, depth: 240 } },
+    { id: 'kitchen_straight_shaker', name: 'Classic Shaker Kitchen', badge: 'CLASSIC', material: 'Antique White Shaker', specs: '2400 × 900 mm', image: '', toolId: 'kitchen', params: { type: 'kitchen_straight_shaker', width: 240, height: 90, depth: 60 } },
+    { id: 'kitchen_island', name: 'Kitchen Island', badge: 'ISLAND', material: 'Waterfall Marble', specs: '2400 × 1200 mm', image: '', toolId: 'kitchen', params: { type: 'kitchen_island', width: 240, height: 90, depth: 120 } },
+    { id: 'kitchen_tall_pantry', name: 'Tall Pantry Cabinet', badge: 'TALL', material: 'Walnut & Brass Handles', specs: '600 × 2100 mm', image: '', toolId: 'kitchen', params: { type: 'kitchen_tall_pantry', width: 60, height: 210, depth: 60 } }
 ]);
 
 const sinkCatalog = ref([
     { isDivider: true, id: 'div_sinks_modern', name: 'Designer 3D Sinks & Basins' },
-    { id: 'sink_kitchen_modern', name: 'Modern Kitchen Sink', image: '', toolId: 'furniture', params: { type: 'sink_kitchen_modern', elevation: 90 } },
-    { id: 'sink_kohler_double', name: 'Kohler Double-Bowl Sink', image: '', toolId: 'furniture', params: { type: 'sink_kohler_double', elevation: 90 } },
-    { id: 'sink_steel_stainless', name: 'Stainless Steel Sink Basin', image: '', toolId: 'furniture', params: { type: 'sink_steel_stainless', elevation: 90 } },
-    { id: 'sink_compact_basin', name: 'Compact Minimalist Basin', image: '', toolId: 'furniture', params: { type: 'sink_compact_basin', elevation: 90 } },
-    { isDivider: true, id: 'div_sinks_standard', name: 'Standard Procedural Sinks' },
-    { id: 'sink_standard', name: 'Standard Metal Sink', image: '', toolId: 'furniture', params: { type: 'sink_standard', elevation: 90 } },
-    { id: 'sink_double', name: 'Double Basin Sink', image: '', toolId: 'furniture', params: { type: 'sink_double', elevation: 90 } },
-    { id: 'sink_farmhouse', name: 'Farmhouse Sink', image: '', toolId: 'furniture', params: { type: 'sink_farmhouse', elevation: 90 } }
+    { id: 'sink_kitchen_modern', name: 'Modern Kitchen Sink', badge: 'WORKSTATION', material: 'Gunmetal Stainless', specs: '600 × 450 mm', image: '', toolId: 'furniture', params: { type: 'sink_kitchen_modern', elevation: 90 } },
+    { id: 'sink_kohler_double', name: 'Kohler Double-Bowl Sink', badge: 'DOUBLE', material: 'Brushed Stainless', specs: '800 × 450 mm', image: '', toolId: 'furniture', params: { type: 'sink_kohler_double', elevation: 90 } },
+    { id: 'sink_farmhouse', name: 'Farmhouse Sink', badge: 'APRON', material: 'Matte Black Ceramic', specs: '750 × 500 mm', image: '', toolId: 'furniture', params: { type: 'sink_farmhouse', elevation: 90 } }
 ]);
 
 const tapCatalog = ref([
     { isDivider: true, id: 'div_taps_modern', name: 'Designer 3D Taps & Faucets' },
-    { id: 'tap_boiling_water', name: 'Boiling Water Faucet', image: '', toolId: 'furniture', params: { type: 'tap_boiling_water', elevation: 90 } },
-    { id: 'tap_grohe_3030', name: 'Grohe Designer Faucet', image: '', toolId: 'furniture', params: { type: 'tap_grohe_3030', elevation: 90 } },
-    { id: 'tap_grohe_3283', name: 'Grohe Basin Tap', image: '', toolId: 'furniture', params: { type: 'tap_grohe_3283', elevation: 90 } },
-    { id: 'tap_roubinet', name: 'Modern Roubinet Faucet', image: '', toolId: 'furniture', params: { type: 'tap_roubinet', elevation: 90 } },
-    { id: 'tap_water_modern', name: 'Sleek Modern Faucet', image: '', toolId: 'furniture', params: { type: 'tap_water_modern', elevation: 90 } },
-    { id: 'tap_water_cg', name: 'Minimalist Basin Faucet', image: '', toolId: 'furniture', params: { type: 'tap_water_cg', elevation: 90 } },
-    { id: 'tap_water_greator', name: 'Classic Kitchen Water Tap', image: '', toolId: 'furniture', params: { type: 'tap_water_greator', elevation: 90 } },
-    { isDivider: true, id: 'div_taps_standard', name: 'Standard Procedural Taps' },
-    { id: 'tap_modern', name: 'Modern Curved Faucet', image: '', toolId: 'furniture', params: { type: 'tap_modern', elevation: 90 } },
-    { id: 'tap_industrial', name: 'Industrial Pull-Down', image: '', toolId: 'furniture', params: { type: 'tap_industrial', elevation: 90 } },
-    { id: 'tap_classic', name: 'Classic Two-Handle', image: '', toolId: 'furniture', params: { type: 'tap_classic', elevation: 90 } }
+    { id: 'tap_modern', name: 'Modern Curved Faucet', badge: 'CHROME', material: 'Polished Chrome', specs: '350 mm High', image: '', toolId: 'furniture', params: { type: 'tap_modern', elevation: 90 } },
+    { id: 'tap_industrial', name: 'Industrial Pull-Down', badge: 'PULLOUT', material: 'Brushed Nickel', specs: '450 mm High', image: '', toolId: 'furniture', params: { type: 'tap_industrial', elevation: 90 } },
+    { id: 'tap_classic', name: 'Classic Two-Handle', badge: 'BRASS', material: 'Antique Brass', specs: '250 mm High', image: '', toolId: 'furniture', params: { type: 'tap_classic', elevation: 90 } }
 ]);
 
 const hoodCatalog = ref([
-    { id: 'hood_chimney', name: 'Chimney Hood', image: '', toolId: 'furniture', params: { type: 'hood_chimney', elevation: 150 } }
+    { id: 'hood_chimney', name: 'Chimney Hood', badge: 'STAINLESS', material: 'Stainless & Glass', specs: '900 mm Wide', image: '', toolId: 'furniture', params: { type: 'hood_chimney', elevation: 150 } }
 ]);
 
 const smallApplianceCatalog = ref([
-    { id: 'app_microwave', name: 'Microwave', image: '', toolId: 'furniture', params: { type: 'app_microwave', elevation: 90 } },
-    { id: 'app_toaster', name: 'Toaster', image: '', toolId: 'furniture', params: { type: 'app_toaster', elevation: 90 } }
+    { id: 'app_microwave', name: 'Microwave', badge: 'DIGITAL', material: 'Stainless Steel', specs: '500 × 300 mm', image: '', toolId: 'furniture', params: { type: 'app_microwave', elevation: 90 } },
+    { id: 'app_toaster', name: 'Toaster', badge: 'CREAM', material: 'Glossy Cream & Chrome', specs: '2-Slice Slot', image: '', toolId: 'furniture', params: { type: 'app_toaster', elevation: 90 } }
 ]);
 
 const householdApplianceCatalog = ref([
-    { id: 'app_fridge', name: 'Double-Door Fridge', image: '', toolId: 'furniture', params: { type: 'app_fridge', elevation: 0 } },
-    { id: 'app_oven', name: 'Built-in Oven', image: '', toolId: 'furniture', params: { type: 'app_oven', elevation: 90 } },
-    { id: 'app_dishwasher', name: 'Dishwasher', image: '', toolId: 'furniture', params: { type: 'app_dishwasher', elevation: 0 } },
-    { id: 'cooktop_induction', name: 'Induction Cooktop', image: '', toolId: 'furniture', params: { type: 'cooktop_induction', elevation: 90 } }
+    { id: 'app_fridge', name: 'Double-Door Fridge', badge: 'FRENCH DOOR', material: 'Dark Stainless Steel', specs: '900 × 1800 mm', image: '', toolId: 'furniture', params: { type: 'app_fridge', elevation: 0 } },
+    { id: 'app_oven', name: 'Built-in Oven', badge: 'BUILT-IN', material: 'Black Metal & Glass', specs: '600 × 600 mm', image: '', toolId: 'furniture', params: { type: 'app_oven', elevation: 90 } },
+    { id: 'app_dishwasher', name: 'Dishwasher', badge: 'INTEGRATED', material: 'Stainless Steel', specs: '600 × 850 mm', image: '', toolId: 'furniture', params: { type: 'app_dishwasher', elevation: 0 } },
+    { id: 'cooktop_induction', name: 'Induction Cooktop', badge: 'CERAMIC', material: 'Schott Ceran Glass', specs: '600 × 500 mm', image: '', toolId: 'furniture', params: { type: 'cooktop_induction', elevation: 90 } }
 ]);
 
 const trashCatalog = ref([
-    { id: 'trash_pedal', name: 'Stainless Pedal Bin', image: '', toolId: 'furniture', params: { type: 'trash_pedal', elevation: 0 } },
-    { id: 'trash_recycle', name: 'Dual Recycle Bin', image: '', toolId: 'furniture', params: { type: 'trash_recycle', elevation: 0 } },
-    { id: 'trash_pullout', name: 'Cabinet Pull-out', image: '', toolId: 'furniture', params: { type: 'trash_pullout', elevation: 0 } }
+    { id: 'trash_pedal', name: 'Stainless Pedal Bin', badge: 'PEDAL', material: 'Brushed Stainless', specs: '30 Liters', image: '', toolId: 'furniture', params: { type: 'trash_pedal', elevation: 0 } },
+    { id: 'trash_recycle', name: 'Dual Recycle Bin', badge: 'DUAL', material: 'Stainless & Black', specs: '50 Liters', image: '', toolId: 'trash_recycle', params: { type: 'trash_recycle', elevation: 0 } },
+    { id: 'trash_pullout', name: 'Cabinet Pull-out', badge: 'PULLOUT', material: 'In-Cabinet Bin', specs: 'Dual 20L', image: '', toolId: 'trash_pullout', params: { type: 'trash_pullout', elevation: 0 } }
 ]);
 
 const bathroomCatalog = ref([
     { isDivider: true, id: 'div_toilets', name: 'Toilets & Water Closets' },
-    { id: 'toilet_modern', name: 'Modern Ceramic Toilet', image: '', toolId: 'furniture', params: { type: 'toilet_modern', elevation: 0 } },
-    { id: 'toilet_compact', name: 'Compact Wall-Hung Toilet', image: '', toolId: 'furniture', params: { type: 'toilet_compact', elevation: 0 } },
-    { id: 'toilet_vaal', name: 'Vaal Premium Toilet', image: '', toolId: 'furniture', params: { type: 'toilet_vaal', elevation: 0 } },
+    { id: 'toilet_modern', name: 'Modern Ceramic Toilet', badge: 'CERAMIC', material: 'Vitreous China', specs: '360 × 650 mm', image: '', toolId: 'furniture', params: { type: 'toilet_modern', elevation: 0 } },
+    { id: 'toilet_compact', name: 'Compact Wall-Hung Toilet', badge: 'WALL-HUNG', material: 'White Ceramic', specs: '360 × 520 mm', image: '', toolId: 'furniture', params: { type: 'toilet_compact', elevation: 0 } },
+    { id: 'toilet_vaal', name: 'Vaal Premium Toilet', badge: 'PREMIUM', material: 'Polished Ceramic', specs: '360 × 650 mm', image: '', toolId: 'furniture', params: { type: 'toilet_vaal', elevation: 0 } },
+
     { isDivider: true, id: 'div_vanities', name: 'Basins & Vanity Units' },
-    { id: 'vanity_unit_modern', name: 'Modern Bathroom Vanity Suite', image: '', toolId: 'furniture', params: { type: 'vanity_unit_modern', elevation: 0 } },
-    { id: 'basin_cobra', name: 'Cobra VAA Basin', image: '', toolId: 'furniture', params: { type: 'basin_cobra', elevation: 80 } },
-    { id: 'sink_compact_basin', name: 'Compact Minimalist Basin', image: '', toolId: 'furniture', params: { type: 'sink_compact_basin', elevation: 90 } },
-    { id: 'sink_steel_stainless', name: 'Stainless Steel Basin', image: '', toolId: 'furniture', params: { type: 'sink_steel_stainless', elevation: 90 } }
+    { id: 'vanity_unit_modern', name: 'Modern Bathroom Vanity Suite', badge: 'VANITY', material: 'Oak & Integrated Basin', specs: '1200 × 850 mm', image: '', toolId: 'furniture', params: { type: 'vanity_unit_modern', elevation: 0 } },
+    { id: 'basin_cobra', name: 'Cobra VAA Basin', badge: 'BASIN', material: 'White Porcelain', specs: '600 × 450 mm', image: '', toolId: 'furniture', params: { type: 'basin_cobra', elevation: 80 } },
+    { id: 'sink_compact_basin', name: 'Compact Minimalist Basin', badge: 'COMPACT', material: 'Ceramic Basin', specs: '500 × 400 mm', image: '', toolId: 'furniture', params: { type: 'sink_compact_basin', elevation: 90 } },
+    { id: 'sink_steel_stainless', name: 'Stainless Steel Basin', badge: 'STEEL', material: 'Brushed Steel', specs: '600 × 450 mm', image: '', toolId: 'furniture', params: { type: 'sink_steel_stainless', elevation: 90 } }
 ]);
 
 const electronicsCatalog = ref([
     { isDivider: true, id: 'div_tvs', name: 'TVs & Display Screens' },
-    { id: 'tv_modern_flat', name: 'Modern Flat TV', image: '', toolId: 'furniture', params: { type: 'tv_modern_flat', elevation: 90 } },
-    { id: 'tv_wall_mounted', name: 'Wall Mounted TV Screen', image: '', toolId: 'furniture', params: { type: 'tv_wall_mounted', elevation: 110 } },
-    { id: 'monitor_tv_lowpoly', name: 'Desktop Monitor TV', image: '', toolId: 'furniture', params: { type: 'monitor_tv_lowpoly', elevation: 75 } },
-    { id: 'tv_living_room', name: 'Livingroom Widescreen TV', image: '', toolId: 'furniture', params: { type: 'tv_living_room', elevation: 90 } },
+    { id: 'tv_modern_flat', name: 'Modern Flat TV', badge: '4K OLED', material: 'Slim Frame Screen', specs: '55 Inch', image: '', toolId: 'furniture', params: { type: 'tv_modern_flat', elevation: 90 } },
+    { id: 'tv_wall_mounted', name: 'Wall Mounted TV Screen', badge: 'WALL MOUNT', material: 'Ultra-Thin OLED', specs: '65 Inch', image: '', toolId: 'furniture', params: { type: 'tv_wall_mounted', elevation: 110 } },
+    { id: 'monitor_tv_lowpoly', name: 'Desktop Monitor TV', badge: 'MONITOR', material: 'Matte Black Panel', specs: '32 Inch', image: '', toolId: 'furniture', params: { type: 'monitor_tv_lowpoly', elevation: 75 } },
+    { id: 'tv_living_room', name: 'Livingroom Widescreen TV', badge: '75 INCH', material: 'Smart TV Screen', specs: '75 Inch', image: '', toolId: 'furniture', params: { type: 'tv_living_room', elevation: 90 } },
+
     { isDivider: true, id: 'div_tv_stands_elec', name: 'TV Stands & Media Benches' },
-    { id: 'tv_stand_reclaimed', name: 'Reclaimed Wood TV Stand', image: '', toolId: 'furniture', params: { type: 'tv_stand_reclaimed', elevation: 0 } },
-    { id: 'tv_stand_retro', name: 'Retro Mid-Century TV Stand', image: '', toolId: 'furniture', params: { type: 'tv_stand_retro', elevation: 0 } },
-    { id: 'tv_stand_small', name: 'Compact Small TV Stand', image: '', toolId: 'furniture', params: { type: 'tv_stand_small', elevation: 0 } },
-    { id: 'tv_stand_wooden_bench', name: 'Wooden Media Bench Table', image: '', toolId: 'furniture', params: { type: 'tv_stand_wooden_bench', elevation: 0 } },
-    { id: 'tv_stand_modern_mraz', name: 'Modern Minimalist TV Stand', image: '', toolId: 'furniture', params: { type: 'tv_stand_modern_mraz', elevation: 0 } },
-    { id: 'tv_stand_classic', name: 'Classic Entertainment Unit', image: '', toolId: 'furniture', params: { type: 'tv_stand_classic', elevation: 0 } }
+    { id: 'tv_stand_reclaimed', name: 'Reclaimed Wood TV Stand', badge: 'RUSTIC', material: 'Solid Reclaimed Oak', specs: '1600 × 500 mm', image: '', toolId: 'furniture', params: { type: 'tv_stand_reclaimed', elevation: 0 } },
+    { id: 'tv_stand_retro', name: 'Retro Mid-Century TV Stand', badge: 'RETRO', material: 'Walnut & Tapered Legs', specs: '1500 × 550 mm', image: '', toolId: 'furniture', params: { type: 'tv_stand_retro', elevation: 0 } },
+    { id: 'tv_stand_small', name: 'Compact Small TV Stand', badge: 'COMPACT', material: 'White & Light Wood', specs: '1000 × 450 mm', image: '', toolId: 'furniture', params: { type: 'tv_stand_small', elevation: 0 } },
+    { id: 'tv_stand_wooden_bench', name: 'Wooden Media Bench Table', badge: 'WOOD', material: 'Natural Teak Bench', specs: '1800 × 450 mm', image: '', toolId: 'furniture', params: { type: 'tv_stand_wooden_bench', elevation: 0 } },
+    { id: 'tv_stand_modern_mraz', name: 'Modern Minimalist TV Stand', badge: 'SLIM', material: 'Matte Grey & Steel', specs: '1500 × 500 mm', image: '', toolId: 'furniture', params: { type: 'tv_stand_modern_mraz', elevation: 0 } },
+    { id: 'tv_stand_classic', name: 'Classic Entertainment Unit', badge: 'CLASSIC', material: 'Mahogany & Drawers', specs: '1600 × 600 mm', image: '', toolId: 'furniture', params: { type: 'tv_stand_classic', elevation: 0 } }
 ]);
 
 const items = computed(() => {
@@ -468,13 +522,26 @@ const items = computed(() => {
 const filteredItems = computed(() => {
     let list = [...items.value];
     
-    // 1. Search Query Filter
-    if (props.searchQuery) {
-        const q = props.searchQuery.trim().toLowerCase();
-        list = list.filter(i => i.isDivider || i.name.toLowerCase().includes(q));
+    // 1. Text Search Query Filter
+    const q = effectiveSearchQuery.value;
+    if (q) {
+        list = list.filter(i => i.isDivider || i.name.toLowerCase().includes(q) || (i.material && i.material.toLowerCase().includes(q)) || (i.specs && i.specs.toLowerCase().includes(q)));
     }
     
-    // 2. Functional Category Filter
+    // 2. Quick Category Chip Filter
+    if (activeCategoryChip.value === 'favorites') {
+        list = list.filter(i => i.isDivider || favoritesMap.value[i.id]);
+    } else if (activeCategoryChip.value === 'wood') {
+        list = list.filter(i => i.isDivider || (i.material && i.material.toLowerCase().includes('wood')) || (i.category === 'wood'));
+    } else if (activeCategoryChip.value === 'glass') {
+        list = list.filter(i => i.isDivider || (i.material && i.material.toLowerCase().includes('glass')) || (i.category === 'glass'));
+    } else if (activeCategoryChip.value === 'single') {
+        list = list.filter(i => i.isDivider || (i.params && i.params.doorType === 'single') || (i.category === 'single'));
+    } else if (activeCategoryChip.value === 'double') {
+        list = list.filter(i => i.isDivider || (i.params && (i.params.doorType === 'french' || i.params.doorType === 'double')) || (i.category === 'double'));
+    }
+
+    // 3. Functional Category Filter Popover
     if (filterOption.value === 'favorites') {
         list = list.filter(i => i.isDivider || favoritesMap.value[i.id]);
     } else if (filterOption.value === 'standard') {
@@ -483,7 +550,7 @@ const filteredItems = computed(() => {
         list = list.filter(i => i.isDivider || (i.params && (i.params.width > 60 || i.params.doorType === 'french' || i.params.doorType === 'sliding' || i.params.windowType === 'panoramic_slider')));
     }
 
-    // 3. Functional Sort
+    // 4. Functional Sort
     const dividers = list.filter(i => i.isDivider);
     const nonDividers = list.filter(i => !i.isDivider);
     
@@ -506,17 +573,17 @@ const filteredItems = computed(() => {
     return list.map(item => item.isDivider ? item : nonDividers.shift()).filter(Boolean);
 });
 
-let isGenerating = false;
+const isGenerating = ref(false);
 const generateThumbnails = async () => {
-    if (isGenerating) return;
-    isGenerating = true;
+    if (isGenerating.value) return;
+    isGenerating.value = true;
     try {
         const renderer = plannerStore.renderer3D;
         if (!renderer || !renderer.thumbnailGenerator) return;
 
         const list = items.value;
         for (const item of list) {
-            if (!item.image) {
+            if (!item.image && !item.isDivider) {
                 try {
                     await new Promise(r => setTimeout(r, 10));
                     const genType = (item.params && item.params.type) ? item.params.type : (item.toolId ? item.toolId : props.type);
@@ -528,7 +595,7 @@ const generateThumbnails = async () => {
             }
         }
     } finally {
-        isGenerating = false;
+        isGenerating.value = false;
     }
 };
 
@@ -539,6 +606,8 @@ watch(() => plannerStore.renderer3D, (newRenderer) => {
 }, { immediate: true });
 
 watch(() => props.type, () => {
+    localSearchQuery.value = '';
+    activeCategoryChip.value = 'all';
     generateThumbnails();
 });
 
@@ -561,27 +630,123 @@ const handleImageError = (e) => {
     font-family: 'Inter', system-ui, sans-serif;
 }
 
-/* SUB-SECTION HEADER (E.G. DOOR CATALOG + SORT / FILTER) - DESKTOP DEFAULT */
+/* SUB-SECTION HEADER & SEARCH BAR */
 .catalog-header-strip {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 22px 10px;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 18px 8px;
     background: transparent;
     flex-shrink: 0;
 }
 
+.header-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
 .section-title {
     margin: 0;
-    font-size: 16px;
-    color: #1e293b;
+    font-size: 15.5px;
+    color: #0f172a;
     font-weight: 700;
+    letter-spacing: -0.01em;
 }
 
 .header-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+}
+
+/* INLINE CATALOG SEARCH BAR */
+.catalog-search-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.search-icon {
+    position: absolute;
+    left: 10px;
+    pointer-events: none;
+}
+
+.catalog-search-input {
+    width: 100%;
+    height: 32px;
+    padding: 0 28px 0 30px;
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 12.5px;
+    color: #1e293b;
+    outline: none;
+    transition: all 0.2s;
+    box-sizing: border-box;
+}
+
+.catalog-search-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.clear-search-btn {
+    position: absolute;
+    right: 8px;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+}
+
+.clear-search-btn:hover {
+    color: #0f172a;
+}
+
+/* QUICK CATEGORY FILTER CHIPS */
+.category-chips-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+}
+.category-chips-bar::-webkit-scrollbar {
+    display: none;
+}
+
+.chip-btn {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.chip-btn:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: #cbd5e1;
+}
+
+.chip-btn.active {
+    background: #eff6ff;
+    color: #2563eb;
+    border-color: #bfdbfe;
+    font-weight: 600;
 }
 
 .header-popover-wrapper {
@@ -612,7 +777,7 @@ const handleImageError = (e) => {
 }
 
 .popover-header {
-    font-size: 11.5px;
+    font-size: 11px;
     font-weight: 700;
     color: #94a3b8;
     text-transform: uppercase;
@@ -629,7 +794,7 @@ const handleImageError = (e) => {
     border: none;
     border-radius: 10px;
     color: #334155;
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 500;
     text-align: left;
     cursor: pointer;
@@ -651,13 +816,13 @@ const handleImageError = (e) => {
 .sort-dropdown-chip {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
+    gap: 5px;
+    padding: 5px 10px;
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 20px;
     color: #475569;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
@@ -672,8 +837,8 @@ const handleImageError = (e) => {
 
 .filter-icon-btn {
     position: relative;
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     border: 1px solid #e2e8f0;
     background: #ffffff;
@@ -703,98 +868,176 @@ const handleImageError = (e) => {
     border: 2px solid #ffffff;
 }
 
-/* PRODUCTS GRID (3 COLUMNS DEFAULT FOR DESKTOP) - TRIMMED BOTTOM SPACE */
+/* PRODUCTS GRID (3 COLUMNS FOR DESKTOP CATALOG) */
 .products-grid {
     flex: 1 1 0%;
     min-height: 0;
     min-width: 0;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 12px 22px 28px;
+    padding: 10px 18px 24px;
     box-sizing: border-box;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
+    gap: 12px;
     align-content: start;
     -webkit-overflow-scrolling: touch;
 }
 
 .catalog-divider {
     grid-column: 1 / -1;
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 700;
     color: #64748b;
-    margin-top: 14px;
-    margin-bottom: 4px;
-    padding-bottom: 6px;
+    margin-top: 10px;
+    margin-bottom: 2px;
+    padding-bottom: 5px;
     border-bottom: 1px solid #e2e8f0;
     letter-spacing: -0.01em;
 }
 
+/* PURE WHITE PRODUCT CARD DESIGN */
 .product-card {
     position: relative;
     background: #ffffff;
     border: 1.5px solid #e2e8f0;
     border-radius: 16px;
-    padding: 12px 10px;
+    padding: 8px 6px 10px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
     cursor: pointer;
-    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.04);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
     user-select: none;
-    aspect-ratio: 0.95;
+    box-sizing: border-box;
 }
 
+/* HOVER ANIMATION: 6px LIFT + SLIGHT IMAGE ROTATION */
 .product-card:hover {
-    transform: translateY(-3px);
-    border-color: #93c5fd;
-    box-shadow: 0 10px 24px -4px rgba(15, 23, 42, 0.08);
+    transform: translateY(-6px) scale(1.02);
+    border-color: #3b82f6;
+    box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.12), 0 4px 14px -2px rgba(37, 99, 235, 0.08);
 }
 
 .product-card.active {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18), 0 8px 20px -4px rgba(37, 99, 235, 0.15);
 }
 
+/* REDESIGNED HARMONIZED CATEGORY BADGE PILLS */
+.card-badge {
+    position: absolute;
+    top: 9px;
+    left: 9px;
+    z-index: 6;
+    padding: 2.5px 7px;
+    border-radius: 6px;
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    pointer-events: none;
+}
+
+/* GOLD ★ BESTSELLER BADGE (GOLD FILL, WHITE TEXT, PILL SHAPE) */
+.card-badge.bestseller-gold {
+    background: #f59e0b;
+    color: #ffffff;
+    border: none;
+    border-radius: 999px;
+    padding: 3px 8px;
+    box-shadow: 0 2px 6px rgba(245, 158, 11, 0.35);
+}
+
+/* CONSISTENT HARMONIZED COLORS FOR OTHER BADGES */
+.card-badge.popular-blue { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+.card-badge.glass-green { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+.card-badge.wood-yellow { background: #fefce8; color: #d97706; border: 1px solid #fef08a; }
+.card-badge.new-cyan { background: #ecfeff; color: #0891b2; border: 1.5px solid #a5f3fc; }
+.card-badge.compact-orange { background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa; }
+.card-badge.default-badge { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+
+/* CIRCULAR WHITE GLASS FAVORITE HEART BUTTON (RESIZED TO 25px WITH SOFT SHADOW) */
 .favorite-heart-btn {
     position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 26px;
-    height: 26px;
-    border: none;
-    background: transparent;
+    top: 9px;
+    right: 9px;
+    width: 25px;
+    height: 25px;
     border-radius: 50%;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    z-index: 5;
-    transition: all 0.2s;
+    z-index: 6;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .favorite-heart-btn:hover {
     transform: scale(1.15);
+    background: #ffffff;
+    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);
+    border-color: #fca5a5;
 }
 
+.favorite-heart-btn.is-active {
+    animation: heartPulse 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes heartPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.28); }
+    100% { transform: scale(1); }
+}
+
+/* PURE WHITE CARD 3D THUMBNAIL CANVAS (CENTERED, TRANSPARENT) */
 .card-thumb-wrap {
     width: 100%;
-    flex: 1;
+    height: 130px;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    margin: 4px 0 8px;
+    margin-bottom: 4px;
     position: relative;
+    border-radius: 12px;
+    background: #ffffff;
 }
 
 .card-thumb-wrap img {
     max-width: 90%;
-    max-height: 85px;
+    max-height: 115px;
+    height: 100%;
     object-fit: contain;
+    margin: 0 auto;
+    display: block;
+    filter: drop-shadow(0 4px 8px rgba(15, 23, 42, 0.08));
+    transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* INTERACTIVE DOOR ROTATION 2° ON HOVER */
+.product-card:hover .card-thumb-wrap img {
+    transform: scale(1.06) rotate(2deg);
+}
+
+/* SKELETON SHIMMER PLACEHOLDER */
+.skeleton-shimmer {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, #f8fafc 0%, #e2e8f0 50%, #f8fafc 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
 }
 
 .fallback-thumb-box {
@@ -809,29 +1052,31 @@ const handleImageError = (e) => {
 
 .active-badge-dot {
     position: absolute;
-    top: 4px;
-    left: 4px;
+    bottom: 6px;
+    right: 6px;
     width: 20px;
     height: 20px;
-    background: #3b82f6;
+    background: #2563eb;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.4);
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
 }
 
+/* PRODUCT TITLE & METADATA LINE (6px EXTRA LEFT/RIGHT PADDING) */
 .card-title-wrap {
     width: 100%;
     text-align: center;
-    padding-top: 6px;
+    padding: 6px 10px 4px;
+    box-sizing: border-box;
     border-top: 1px solid #f1f5f9;
 }
 
 .product-title {
-    font-size: 12.5px;
-    color: #334155;
-    font-weight: 600;
+    font-size: 12px;
+    color: #0f172a;
+    font-weight: 700;
     line-height: 1.25;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -839,7 +1084,32 @@ const handleImageError = (e) => {
     overflow: hidden;
 }
 
-/* NO DATA / EMPTY RESULT DISPLAY */
+.card-meta-line {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 10px;
+    color: #64748b;
+    margin-top: 3px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.meta-mat {
+    font-weight: 600;
+    color: #475569;
+}
+.meta-dot {
+    color: #cbd5e1;
+}
+.meta-specs {
+    color: #64748b;
+}
+
+/* NO DATA DISPLAY */
 .empty-result-box {
     flex: 1;
     display: flex;
@@ -873,7 +1143,7 @@ const handleImageError = (e) => {
 
 .empty-title {
     margin: 0 0 6px;
-    font-size: 16.5px;
+    font-size: 16px;
     font-weight: 700;
     color: #1e293b;
     letter-spacing: -0.01em;
@@ -881,7 +1151,7 @@ const handleImageError = (e) => {
 
 .empty-subtext {
     margin: 0 0 20px;
-    font-size: 13.5px;
+    font-size: 13px;
     color: #64748b;
     max-width: 240px;
     line-height: 1.45;
@@ -896,7 +1166,7 @@ const handleImageError = (e) => {
     color: #2563eb;
     border: 1px solid #dbeafe;
     border-radius: 12px;
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
@@ -910,102 +1180,32 @@ const handleImageError = (e) => {
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.16);
 }
 
-/* =========================================================
-   TABLET VIEWPORT (< 1024px) - 2-COL GRID & SCALED FONTS
-   ========================================================= */
+/* RESPONSIVE BREAKPOINTS */
 @media (max-width: 1024px) {
     .catalog-header-strip {
-        padding: 14px 16px 8px;
-    }
-    .section-title {
-        font-size: 15px;
-    }
-    .sort-dropdown-chip {
-        font-size: 12.5px;
-        padding: 5px 10px;
-    }
-    .products-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-        padding: 10px 16px 24px;
-    }
-    .product-card {
-        border-radius: 14px;
-        padding: 10px 8px;
-    }
-    .product-title {
-        font-size: 12px;
-    }
-}
-
-/* =========================================================
-   MOBILE VIEWPORT (<= 640px) - COMPACT TEXT & TOUCH OPTIMIZED
-   ========================================================= */
-@media (max-width: 640px) {
-    .catalog-header-strip {
         padding: 12px 14px 6px;
-    }
-    .section-title {
-        font-size: 14.5px;
-    }
-    .sort-dropdown-chip {
-        font-size: 11.5px;
-        padding: 4px 8px;
-    }
-    .filter-icon-btn {
-        width: 28px;
-        height: 28px;
     }
     .products-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
-        padding: 8px 14px 28px;
+        padding: 8px 14px 20px;
     }
-    .catalog-divider {
-        font-size: 12px;
-        margin-top: 10px;
-        padding-bottom: 4px;
+    .card-thumb-wrap {
+        height: 115px;
     }
-    .product-card {
-        border-radius: 12px;
-        padding: 8px 6px;
-        aspect-ratio: 0.92;
+}
+
+@media (max-width: 640px) {
+    .products-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        padding: 6px 10px 24px;
     }
-    .favorite-heart-btn {
-        width: 24px;
-        height: 24px;
-        top: 6px;
-        right: 6px;
-    }
-    .card-thumb-wrap img {
-        max-height: 70px;
-    }
-    .fallback-thumb-box {
-        width: 54px;
-        height: 54px;
-        border-radius: 10px;
+    .card-thumb-wrap {
+        height: 100px;
     }
     .product-title {
-        font-size: 11.5px;
-    }
-    .empty-result-box {
-        padding: 30px 16px;
-    }
-    .empty-icon-circle {
-        width: 64px;
-        height: 64px;
-        margin-bottom: 12px;
-    }
-    .empty-title {
-        font-size: 15px;
-    }
-    .empty-subtext {
-        font-size: 12.5px;
-        margin-bottom: 16px;
-    }
-    .reset-filter-btn {
-        padding: 8px 14px;
-        font-size: 12.5px;
+        font-size: 11px;
     }
 }
 </style>
