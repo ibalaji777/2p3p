@@ -9,6 +9,7 @@ import { glassPreviewRenderer } from './GlassPreviewRenderer.js';
 import { marblePreviewRenderer } from './MarblePreviewRenderer.js';
 import { patternManager } from '../services/pattern/PatternManager.js';
 import { PatternTextureBlender } from '../services/pattern/PatternTextureBlender.js';
+import { useSettingsStore } from '../../stores/useSettingsStore.js';
 
 const WOOD_REGISTRY = DOOR_MATERIALS_REGISTRY;
 const GLASS_REGISTRY = WINDOW_GLASS_MATERIALS;
@@ -2240,11 +2241,37 @@ export class GizmoManager {
             if (this.cornerPanel) this.cornerPanel.style.display = 'none';
             if (this.btnDone) this.btnDone.style.display = 'none';
             
-            if (selectedObj) this.ctx.interactions.setHighlight(selectedObj, true);
+            if (selectedObj) {
+                this.ctx.interactions.setHighlight(selectedObj, true);
+                
+                // Return camera to normal state when done with gizmo
+                try {
+                    const settings = useSettingsStore().floorPlanSettings;
+                    if (settings.autoFocus !== false && this.ctx.cameraController) {
+                        this.ctx.cameraController.focusOnObject(selectedObj, null, settings.autoRotate !== false, 1.0);
+                    }
+                } catch(e) {}
+            }
             tc.detach(); // Completely detach the gizmo to avoid hidden raycast interference
             if (this.ctx.controls) this.ctx.controls.enabled = true;
             
             return;
+        }
+
+        tc.showY = true;
+        tc.showZ = true;
+        // Auto-focus and adjust zoom when entering a gizmo mode
+        if (mode !== 'none' && selectedObj) {
+            try {
+                const settings = useSettingsStore().floorPlanSettings;
+                if (settings.autoFocus !== false && this.ctx.cameraController) {
+                    // Zoom in close for materials, zoom out wider for move/opening/scale so gizmo handles fit on screen
+                    const zoomMult = mode === 'material' ? 1.0 : 1.7;
+                    this.ctx.cameraController.focusOnObject(selectedObj, null, settings.autoRotate !== false, zoomMult);
+                }
+            } catch(e) {
+                // Ignore if store not ready
+            }
         }
 
         tc.visible = true;

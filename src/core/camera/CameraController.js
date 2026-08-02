@@ -79,7 +79,7 @@ export class CameraController {
         this.animateTo(newPos, center);
     }
 
-    focusOnObject(object, intersect = null, autoRotate = true) {
+    focusOnObject(object, intersect = null, autoRotate = true, zoomMultiplier = 1.0) {
         if (!object) return;
         
         let intersectPoint = null;
@@ -120,10 +120,10 @@ export class CameraController {
             maxDim = Math.min(maxDim, 500); 
         }
 
-        let distance = maxDim * 2.5; 
-        
         // Put a cap on max distance so we don't zoom out too far for large objects like floors/ceilings
-        if (distance > 1200) distance = 1200;
+        let distance = maxDim * 2.5 * zoomMultiplier; 
+        
+        if (distance > 1200 * zoomMultiplier) distance = 1200 * zoomMultiplier;
 
         // If intersectPoint is provided, focus closer to where the user actually clicked
         if (intersectPoint) {
