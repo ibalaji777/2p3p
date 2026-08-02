@@ -460,8 +460,9 @@ export class InteractionSystem {
                 
                 const intersects = this.raycaster.intersectObjects(this.ctx.interactables, true);
                 if (intersects.length === 0) {
-                    this.ctx.setTransformMode('none', true);
-                    this.deselect();
+                    // Block clicking outside to close when a gizmo is active! User must click 'Done'
+                    // this.ctx.setTransformMode('none', true);
+                    // this.deselect();
                 }
                 return;
             }
