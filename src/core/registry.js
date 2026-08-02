@@ -210,12 +210,28 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         const matsExtrude = Array.isArray(mats) ? [mats[4], mats[1]] : mats;
         const core = new THREE.Mesh(coreGeo, matsExtrude); core.position.set(0, 0, 0); core.castShadow = true; core.receiveShadow = true; group.add(core);
 
-        // Door sweep — concealed rubber seal at door bottom edge
-        const sweepMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.85, metalness: 0.0 });
-        const sweepH = 0.25; // ~6mm rubber strip
-        const sweepGeo = new THREE.BoxGeometry(width - 0.4, sweepH, thickness * 0.7);
-        const sweep = new THREE.Mesh(sweepGeo, sweepMat);
-        sweep.position.set(0, sweepH / 2 + 0.02, 0);
+        // Door sweep — acts as an extension of the door leaf to close the clearance gap
+        const sweepH = 0.35; // Matches doorClearance (8.89mm) exactly
+        const sweepW = width - 0.4;
+        const sweepD = thickness * 0.7;
+        const shape = new THREE.Shape();
+        const sw = sweepW/2, sh = sweepH/2;
+        shape.moveTo(-sw, -sh); shape.lineTo(sw, -sh); shape.lineTo(sw, sh); shape.lineTo(-sw, sh); shape.lineTo(-sw, -sh);
+        const sweepGeo = new THREE.ExtrudeGeometry(shape, { depth: sweepD, bevelEnabled: false });
+        sweepGeo.translate(0, 0, -sweepD/2);
+        
+        const sweepUvs = sweepGeo.attributes.uv;
+        const sweepPos = sweepGeo.attributes.position;
+        if (sweepUvs && sweepPos) {
+            for (let i = 0; i < sweepUvs.count; i++) {
+                sweepUvs.setXY(i, (sweepPos.getX(i) + sw) / sweepW, (sweepPos.getY(i) + sh) / sweepH);
+            }
+            sweepUvs.needsUpdate = true;
+        }
+
+        const sweep = new THREE.Mesh(sweepGeo, matsExtrude); 
+        sweep.position.set(0, -sweepH / 2 + 0.01, 0); // Positioned extending down from Y=0 (bottom of leaf)
+        sweep.castShadow = true; sweep.receiveShadow = true;
         sweep.userData = { isSweep: true };
         group.add(sweep);
 
@@ -641,11 +657,11 @@ export const WIDGET_REGISTRY = {
             const gapBottom = tHeight + doorClearance; // door leaf Y starts here
             
             if (hasThreshold) {
-                // Threshold spans full opening width, flush with frame depth
-                const thresholdW = entity.width;
-                const tDepth = frameThick; // flush with frame — no protruding lip
+                // Threshold fits exactly between the side jambs to look like a bottom frame piece
+                const thresholdW = entity.width - jambW * 2;
+                const tDepth = frameThick; // flush with frame
                 const thresholdGeo = rotateUvs(createBeveledExtrude(thresholdW, tHeight, tDepth, 0.03));
-                const threshold = tagFrame(new THREE.Mesh(thresholdGeo, matThreshold));
+                const threshold = tagFrame(new THREE.Mesh(thresholdGeo, matFrame)); // MATCH FRAME WOOD
                 threshold.position.set(0, -bottomY + tHeight/2, 0);
                 threshold.receiveShadow = true; threshold.castShadow = true;
                 threshold.userData = { ...threshold.userData, isThreshold: true };
@@ -656,7 +672,7 @@ export const WIDGET_REGISTRY = {
             const sillHeight = 1.0; 
             const totalFrameW = entity.width + archW * 2 - jambW * 2;
             const sillGeo = rotateUvs(createBeveledExtrude(totalFrameW, sillHeight, frameThick, 0.01));
-            const sillPlate = new THREE.Mesh(sillGeo, matThreshold);
+            const sillPlate = new THREE.Mesh(sillGeo, matFrame); // MATCH FRAME WOOD
             sillPlate.position.set(0, -bottomY - sillHeight/2, 0);
             sillPlate.receiveShadow = true;
             sillPlate.userData = { isFrame: true, isSillPlate: true };
