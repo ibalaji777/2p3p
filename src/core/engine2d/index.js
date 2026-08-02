@@ -228,6 +228,9 @@ export class FloorPlanner {
         if (!entity || !entity.group) return;
         entity.group.position({ x, y });
         if (typeof entity.update3D === 'function') entity.update3D();
+        if (typeof window !== 'undefined') {
+            coreEventBus.emit('EntityTransformUpdated2D', { id: entityId, x, y, rotation: entity.rotation });
+        }
         this.syncAll();
     }
 
@@ -237,6 +240,9 @@ export class FloorPlanner {
         entity.rotation = angle;
         if (entity.group) entity.group.rotation(angle);
         if (typeof entity.update3D === 'function') entity.update3D();
+        if (typeof window !== 'undefined') {
+            coreEventBus.emit('EntityTransformUpdated2D', { id: entityId, x: entity.group?.x(), y: entity.group?.y(), rotation: angle });
+        }
         this.syncAll();
     }
 
@@ -248,6 +254,9 @@ export class FloorPlanner {
         if (values.height !== undefined) entity.height = values.height;
         if (typeof entity.update2D === 'function') entity.update2D();
         if (typeof entity.update3D === 'function') entity.update3D();
+        if (typeof window !== 'undefined') {
+            coreEventBus.emit('EntityTransformUpdated2D', { id: entityId, x: entity.group?.x(), y: entity.group?.y(), rotation: entity.rotation, width: entity.width, depth: entity.depth, height: entity.height });
+        }
         this.syncAll();
     }
 

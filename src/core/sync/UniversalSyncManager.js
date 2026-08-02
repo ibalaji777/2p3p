@@ -1,5 +1,6 @@
 import { globalShapeMirror } from './ShapeMirrorEngine.js';
 import { coreEventBus } from '../EventBus.js';
+import { usePlannerStore } from '../../stores/usePlannerStore.js';
 
 class UniversalSyncManager {
     constructor() {
@@ -13,11 +14,23 @@ class UniversalSyncManager {
         
         // Listen to 2D transform updates (drag, rotate)
         coreEventBus.on('EntityTransformUpdated2D', (data) => this.handle2DTransformUpdate(data));
+
+        // Subscribe to Central State changes
+        this.setupStateObserver();
     }
 
     init(ctx3d, ctx2d) {
         this.ctx3d = ctx3d;
         this.ctx2d = ctx2d;
+    }
+
+    setupStateObserver() {
+        // Defer to avoid initialization order issues
+        setTimeout(() => {
+            const store = usePlannerStore();
+            // We can watch for version changes to sync down to renderers
+            // But for now, we intercept the event bus and route to store.
+        }, 100);
     }
 
     /**
@@ -69,6 +82,10 @@ class UniversalSyncManager {
             }
             if (typeof entity2d.update === 'function') entity2d.update();
             if (this.ctx2d && this.ctx2d.syncAll) this.ctx2d.syncAll();
+            
+            // Route through store to maintain SSOT
+            const store = usePlannerStore();
+            store.updateEntityTransform(entity2d.id || entity, x, y, rotation, arguments[0].elevation);
         }
         
         this.isSyncing = false;
@@ -77,19 +94,12 @@ class UniversalSyncManager {
     handle2DTransformUpdate({ id, x, y, rotation }) {
         if (this.isSyncing) return;
         this.isSyncing = true;
+
+        // PHASE 1.1: Route updates through the central store first
+        const store = usePlannerStore();
+        store.updateEntityTransform(id, x, y, rotation);
         
-        if (this.ctx3d) {
-            const object3D = this.ctx3d.interactables?.find(c => c.userData?.entity?.id === id || c.userData?.entity === id)
-                || this.ctx3d.structureGroup?.children?.find(c => c.userData?.entity?.id === id || c.userData?.entity === id);
-            
-            if (object3D) {
-                if (x !== undefined) object3D.position.x = x;
-                if (y !== undefined) object3D.position.z = y;
-                if (rotation !== undefined) object3D.rotation.y = -(rotation * Math.PI / 180);
-                
-                object3D.updateMatrixWorld(true);
-            }
-        }
+        // 3D is now synced reactively via useAppScene.js watching plannerStore.sceneGraphState.version
         
         this.isSyncing = false;
     }

@@ -22,6 +22,13 @@ export const usePlannerStore = defineStore('planner', () => {
     const selectedWallSide = ref(null);
     const selectedNodeIndex = ref(-1);
 
+    // Universal Scene Graph State (Single Source of Truth)
+    const sceneGraphState = ref({
+        entities: new Map(), // Map<id, data>
+        dirtyEntities: new Set(),
+        version: 0
+    });
+
     // Levels / History State
     const levels = ref([{ id: 'level-' + Date.now(), name: 'Floor 1', data: null, isVisible: true }]);
     const activeLevelIndex = ref(0);
@@ -42,6 +49,24 @@ export const usePlannerStore = defineStore('planner', () => {
     const toggleAllFloors = () => {
         const newState = !allFloorsVisible.value;
         levels.value.forEach(l => { l.isVisible = newState; });
+    };
+
+    // Universal Update Actions
+    const updateEntityTransform = (id, x, y, rotation, elevation) => {
+        const entityData = sceneGraphState.value.entities.get(id);
+        if (entityData) {
+            if (x !== undefined) entityData.x = x;
+            if (y !== undefined) entityData.y = y;
+            if (rotation !== undefined) entityData.rotation = rotation;
+            if (elevation !== undefined) entityData.elevation = elevation;
+            sceneGraphState.value.dirtyEntities.add(id);
+            sceneGraphState.value.version++;
+        }
+    };
+
+    const registerEntity = (id, data) => {
+        sceneGraphState.value.entities.set(id, data);
+        sceneGraphState.value.version++;
     };
 
     const updateHistoryState = () => {
@@ -71,8 +96,11 @@ export const usePlannerStore = defineStore('planner', () => {
         canUndo,
         canRedo,
         allFloorsVisible,
+        sceneGraphState,
         setSelection,
         toggleAllFloors,
-        updateHistoryState
+        updateHistoryState,
+        updateEntityTransform,
+        registerEntity
     };
 });

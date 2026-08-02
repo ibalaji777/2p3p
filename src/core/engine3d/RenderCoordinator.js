@@ -89,107 +89,14 @@ export class RenderCoordinator {
     }
 
     /**
-     * Installs global monkey-patches on THREE.Object3D, THREE.Material, and THREE.Texture.
-     * Guaranteed to run only once.
+     * Legacy global hooks removed in favor of explicit requestRender() calls
+     * driven by the Dirty Flag system.
      */
     static installGlobalHooks() {
         if (RenderCoordinator.hooksInstalled) return;
         RenderCoordinator.hooksInstalled = true;
-
-        // 1. Hook Object3D scene graph mutations (add, remove, clear, attach)
-        const origAdd = THREE.Object3D.prototype.add;
-        THREE.Object3D.prototype.add = function (...objects) {
-            const res = origAdd.apply(this, objects);
-            RenderCoordinator.notifyGlobalChange('object_added');
-            return res;
-        };
-
-        const origRemove = THREE.Object3D.prototype.remove;
-        THREE.Object3D.prototype.remove = function (...objects) {
-            const res = origRemove.apply(this, objects);
-            RenderCoordinator.notifyGlobalChange('object_removed');
-            return res;
-        };
-
-        const origClear = THREE.Object3D.prototype.clear;
-        THREE.Object3D.prototype.clear = function () {
-            const res = origClear.apply(this);
-            RenderCoordinator.notifyGlobalChange('object_cleared');
-            return res;
-        };
-
-        const origAttach = THREE.Object3D.prototype.attach;
-        THREE.Object3D.prototype.attach = function (object) {
-            const res = origAttach.call(this, object);
-            RenderCoordinator.notifyGlobalChange('object_attached');
-            return res;
-        };
-
-        // 2. Hook Object3D.visible setter safely
-        const origVisibleDesc = Object.getOwnPropertyDescriptor(THREE.Object3D.prototype, 'visible');
-        let _visibleSymbol = Symbol('visible');
         
-        Object.defineProperty(THREE.Object3D.prototype, 'visible', {
-            get() {
-                if (origVisibleDesc && origVisibleDesc.get) return origVisibleDesc.get.call(this);
-                return this[_visibleSymbol] !== undefined ? this[_visibleSymbol] : true;
-            },
-            set(val) {
-                const prev = this.visible;
-                if (origVisibleDesc && origVisibleDesc.set) {
-                    origVisibleDesc.set.call(this, val);
-                } else {
-                    this[_visibleSymbol] = val;
-                }
-                if (prev !== val) {
-                    RenderCoordinator.notifyGlobalChange('visibility_changed');
-                }
-            },
-            configurable: true,
-            enumerable: true
-        });
-
-        // 3. Hook Material.needsUpdate setter PRESERVING Three.js native version++ logic
-        const matNeedsUpdateDesc = Object.getOwnPropertyDescriptor(THREE.Material.prototype, 'needsUpdate');
-        if (matNeedsUpdateDesc) {
-            Object.defineProperty(THREE.Material.prototype, 'needsUpdate', {
-                get() {
-                    return matNeedsUpdateDesc.get ? matNeedsUpdateDesc.get.call(this) : false;
-                },
-                set(val) {
-                    if (matNeedsUpdateDesc.set) {
-                        matNeedsUpdateDesc.set.call(this, val);
-                    }
-                    if (val) {
-                        RenderCoordinator.notifyGlobalChange('material_needs_update');
-                    }
-                },
-                configurable: true,
-                enumerable: true
-            });
-        }
-
-        // 4. Hook Texture.needsUpdate setter PRESERVING Three.js native version++ & source.version++ logic
-        const texNeedsUpdateDesc = Object.getOwnPropertyDescriptor(THREE.Texture.prototype, 'needsUpdate');
-        if (texNeedsUpdateDesc) {
-            Object.defineProperty(THREE.Texture.prototype, 'needsUpdate', {
-                get() {
-                    return texNeedsUpdateDesc.get ? texNeedsUpdateDesc.get.call(this) : false;
-                },
-                set(val) {
-                    if (texNeedsUpdateDesc.set) {
-                        texNeedsUpdateDesc.set.call(this, val);
-                    }
-                    if (val) {
-                        RenderCoordinator.notifyGlobalChange('texture_needs_update');
-                    }
-                },
-                configurable: true,
-                enumerable: true
-            });
-        }
-
-        console.info('%c[RenderCoordinator] %cGlobal architecture hooks installed safely.', 
+        console.info('%c[RenderCoordinator] %cGlobal architecture hooks removed. Using explicit dirty flags.', 
             'color: #10b981; font-weight: bold;', 'color: #9ca3af;');
     }
 }

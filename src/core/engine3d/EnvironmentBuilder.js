@@ -443,359 +443,364 @@ export class EnvironmentBuilder {
         const railingWalls = walls.filter(w => w.type === 'railing' && !w.hidden);
 
         standardWalls.forEach(w => {
-            const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
-            const dx = p2.x - p1.x, dz = p2.y - p1.y;
-            const length = Math.hypot(dx, dz);
-            const angle = Math.atan2(dz, dx);
-            w.length3D = length;
-
-            const h = w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT);
-            const t = w.thickness !== undefined ? w.thickness : (w.config?.thickness || 8);
-            
-            // Compute mm early so holes and patterns can inherit painted materials
-            let mm = [matMain, matMain, matMain, matMain, matMain, matMain];
-            if (this.ctx.helpers && this.ctx.helpers.getFaceMaterials) {
-                mm = this.ctx.helpers.getFaceMaterials(w, matMain, { width: length, height: h }).box;
-                
-                // Inherit painted material for newly generated hole faces and wall edges if not explicitly painted
-                const p = w.params || {};
-                const fallbackMat = p.textureFront ? mm[4] : (p.textureBack ? mm[5] : mm[4]);
-                if (!p.textureRight && !p.textureSides && !p.texture) mm[0] = fallbackMat;
-                if (!p.textureLeft && !p.textureSides && !p.texture) mm[1] = fallbackMat;
-                if (!p.textureTop && !p.textureSides && !p.texture) mm[2] = fallbackMat;
-                if (!p.textureBottom && !p.textureSides && !p.texture) mm[3] = fallbackMat;
-            }
-            const wallBottom = -1;
-            const wallShape = new THREE.Shape();
-            const type = w.topProfileType || 'normal';
-            const startH = w.startHeight !== undefined ? w.startHeight : h;
-            const endH = w.endHeight !== undefined ? w.endHeight : h;
-            const peakH = w.peakHeight !== undefined ? w.peakHeight : h;
-            const maxH = Math.max(startH, endH, peakH, h);
-
-            wallShape.moveTo(0, wallBottom);
-            wallShape.lineTo(length, wallBottom);
-            if (type === 'single') {
-                wallShape.lineTo(length, endH);
-                wallShape.lineTo(0, startH);
-            } else if (type === 'gable') {
-                wallShape.lineTo(length, endH);
-                wallShape.lineTo(length / 2, peakH);
-                wallShape.lineTo(0, startH);
-            } else {
-                wallShape.lineTo(length, h);
-                wallShape.lineTo(0, h);
-            }
-            wallShape.lineTo(0, wallBottom);
-
-            const wallGroup = new THREE.Group();
-            const elev = w.elevation || 0;
-            wallGroup.position.set(p1.x, elev, p1.y);
-            wallGroup.rotation.y = -angle;
-            wallGroup.userData = { entity: w };
-            w.mesh3D = wallGroup;
-
-            const extraMeshes = [];
-            w.attachedWidgets.forEach(widg => {
-                const hole = new THREE.Path(), wCenter = length * widg.t, halfW = widg.width / 2;
-                let hasHole = false;
-                const type = widg.type || widg.configId;
-                
-                if (type === 'door') {
-                    let dh = widg.height !== undefined ? widg.height : DOOR_HEIGHT;
-                    let elev = widg.elevation !== undefined ? widg.elevation : 0;
-                    let cutElev = (elev <= 0.1) ? wallBottom : elev;
-                    
-                    const shapeType = widg.doorShape || 'square';
-                    hole.moveTo(wCenter - halfW, cutElev);
-                    hole.lineTo(wCenter + halfW, cutElev);
-                    
-                    if (shapeType === 'radius') {
-                        const straightH = Math.max(0, dh - halfW);
-                        hole.lineTo(wCenter + halfW, elev + straightH);
-                        if (halfW > 0) hole.absarc(wCenter, elev + straightH, halfW, 0, Math.PI, false);
-                    } else if (shapeType === 'segment') {
-                        const rise = widg.width * 0.15;
-                        const straightH = Math.max(0, dh - rise);
-                        hole.lineTo(wCenter + halfW, elev + straightH);
-                        hole.quadraticCurveTo(wCenter, elev + dh + rise*0.5, wCenter - halfW, elev + straightH);
-                    } else if (shapeType === 'gothic') {
-                        const straightH = Math.max(0, dh - (widg.width * 0.7));
-                        hole.lineTo(wCenter + halfW, elev + straightH);
-                        hole.quadraticCurveTo(wCenter + halfW * 0.2, elev + dh, wCenter, elev + dh);
-                        hole.quadraticCurveTo(wCenter - halfW * 0.2, elev + dh, wCenter - halfW, elev + straightH);
-                    } else {
-                        hole.lineTo(wCenter + halfW, elev + dh);
-                        hole.lineTo(wCenter - halfW, elev + dh);
-                    }
-                    
-                    hole.lineTo(wCenter - halfW, cutElev);
-                    hasHole = true;
-                } else if (type === 'window' || type === 'jali_panel') {
-                    let dh = widg.height !== undefined ? widg.height : (type === 'window' ? WINDOW_HEIGHT : 100);
-                    let elev = widg.elevation !== undefined ? widg.elevation : (type === 'window' ? WINDOW_SILL : 0);
-                    let cutElev = (elev <= 0.1) ? wallBottom : elev;
-                    hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + dh); hole.lineTo(wCenter - halfW, elev + dh); hole.lineTo(wCenter - halfW, cutElev);
-                    hasHole = true;
-                } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type)) {
-                    let elev = widg.elevation || 0;
-                    let h_opening = widg.height || 200;
-                    elev = Math.max(0, Math.min(elev, maxH));
-                    h_opening = Math.max(0, Math.min(h_opening, maxH - elev));
-                    let cutElev = (elev <= 0.1) ? wallBottom : elev;
-                    
-                    if (type === 'arch_opening') {
-                        const radius = halfW;
-                        const straightH = Math.max(0, h_opening - radius);
-                                        hole.moveTo(wCenter - halfW, cutElev);
-                                        hole.lineTo(wCenter + halfW, cutElev);
-                        hole.lineTo(wCenter + halfW, elev + straightH);
-                        if (radius > 0) hole.absarc(wCenter, elev + straightH, radius, 0, Math.PI, false);
-                                        hole.lineTo(wCenter - halfW, cutElev);
-                        hasHole = true;
-                    } else if (type === 'circular_opening') {
-                        hole.moveTo(wCenter + halfW, elev + h_opening / 2);
-                        hole.absellipse(wCenter, elev + h_opening / 2, halfW, h_opening / 2, 0, Math.PI * 2, false, 0);
-                        hasHole = true;
-                    } else if (type === 'custom_shape_opening') {
-                                        hole.moveTo(wCenter, cutElev);
-                        hole.lineTo(wCenter + halfW, elev + h_opening / 2);
-                        hole.lineTo(wCenter, elev + h_opening);
-                        hole.lineTo(wCenter - halfW, elev + h_opening / 2);
-                                        hole.lineTo(wCenter, cutElev);
-                        hasHole = true;
-                    } else if (type === 'pattern_opening') {
-                                        hole.moveTo(wCenter - halfW, cutElev);
-                                        hole.lineTo(wCenter + halfW, cutElev);
-                        hole.lineTo(wCenter + halfW, elev + h_opening);
-                        hole.lineTo(wCenter - halfW, elev + h_opening);
-                                        hole.lineTo(wCenter - halfW, cutElev);
-                        hasHole = true;
-
-                        const patternShape = new THREE.Shape();
-                        patternShape.moveTo(wCenter - halfW, elev);
-                        patternShape.lineTo(wCenter + halfW, elev);
-                        patternShape.lineTo(wCenter + halfW, elev + h_opening);
-                        patternShape.lineTo(wCenter - halfW, elev + h_opening);
-                        patternShape.lineTo(wCenter - halfW, elev);
-
-                        const rows = widg.rows || 4, cols = widg.cols || 4, spacing = widg.spacing !== undefined ? widg.spacing : 5;
-                        const style = widg.patternStyle || 'grid';
-                        const pW = (widg.width - spacing * (cols + 1)) / cols;
-                        const pH = (h_opening - spacing * (rows + 1)) / rows;
-                        if (pW > 0 && pH > 0) {
-                            for (let r = 0; r < rows; r++) {
-                                for (let c = 0; c < cols; c++) {
-                                    const px = (wCenter - halfW) + spacing + c * (pW + spacing);
-                                    const py = elev + spacing + r * (pH + spacing);
-                                    const pPath = new THREE.Path();
-                                    const cx = px + pW/2, cy = py + pH/2;
-                                    if (style === 'diamond') {
-                                        pPath.moveTo(cx, py); pPath.lineTo(px + pW, cy); pPath.lineTo(cx, py + pH); pPath.lineTo(px, cy); pPath.lineTo(cx, py);
-                                    } else if (style === 'circle') {
-                                        pPath.moveTo(cx + Math.min(pW, pH)/2, cy); pPath.absarc(cx, cy, Math.min(pW, pH)/2, 0, Math.PI * 2, false);
-                                    } else if (style === 'cross') {
-                                        const w1 = pW*0.2, h1 = pH*0.8, w2 = pW*0.8, h2 = pH*0.2;
-                                        pPath.moveTo(cx-w1/2, cy-h1/2); pPath.lineTo(cx+w1/2, cy-h1/2); pPath.lineTo(cx+w1/2, cy-h2/2); pPath.lineTo(cx+w2/2, cy-h2/2); pPath.lineTo(cx+w2/2, cy+h2/2); pPath.lineTo(cx+w1/2, cy+h2/2); pPath.lineTo(cx+w1/2, cy+h1/2); pPath.lineTo(cx-w1/2, cy+h1/2); pPath.lineTo(cx-w1/2, cy+h2/2); pPath.lineTo(cx-w2/2, cy+h2/2); pPath.lineTo(cx-w2/2, cy-h2/2); pPath.lineTo(cx-w1/2, cy-h2/2); pPath.lineTo(cx-w1/2, cy-h1/2);
-                                    } else if (style === 'hexagon') {
-                                        const rad = Math.min(pW, pH)/2; for (let i = 0; i < 6; i++) { const a = (i*Math.PI)/3; const hx = cx + rad*Math.cos(a), hy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(hx,hy); else pPath.lineTo(hx,hy); } pPath.lineTo(cx+rad, cy);
-                                    } else if (style === 'star') {
-                                        const rOut = Math.min(pW, pH)/2, rIn = rOut*0.3; for (let i = 0; i < 8; i++) { const a = (i*Math.PI)/4; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); } pPath.lineTo(cx+rOut, cy);
-                                    } else if (style === 'slit') {
-                                        const slitW = pW*0.3, slitH = pH*0.9; pPath.moveTo(cx-slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy-slitH/2);
-                                    } else if (style === 'terracotta') {
-                                        const pr = Math.min(pW, pH) / 4; pPath.moveTo(cx + pr, cy - pr); pPath.absarc(cx + pr, cy, pr, -Math.PI/2, Math.PI/2, false); pPath.absarc(cx, cy + pr, pr, 0, Math.PI, false); pPath.absarc(cx - pr, cy, pr, Math.PI/2, 3*Math.PI/2, false); pPath.absarc(cx, cy - pr, pr, Math.PI, 2*Math.PI, false);
-                                    } else if (style === 'arabesque') {
-                                        const rOut = Math.min(pW, pH)/2, rIn = rOut*0.55; for (let i = 0; i < 16; i++) { const a = (i*Math.PI)/8; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); }
-                                    } else {
-                                        pPath.moveTo(px, py); pPath.lineTo(px + pW, py); pPath.lineTo(px + pW, py + pH); pPath.lineTo(px, py + pH); pPath.lineTo(px, py);
-                                    }
-                                    pPath.closePath();
-                                    patternShape.holes.push(pPath);
-                                }
-                            }
-                        }
-                        
-                        const patternGeo = new THREE.ExtrudeGeometry(patternShape, { depth: t, bevelEnabled: false });
-                        patternGeo.translate(0, 0, -t / 2);
-                        const patternMat = mm[4].clone(); // inherit wall material
-                        const patternMesh = new THREE.Mesh(patternGeo, patternMat);
-                        patternMesh.castShadow = true; patternMesh.receiveShadow = true;
-                        
-                        const hitBoxGeo = new THREE.BoxGeometry(widg.width, h_opening, t + 4);
-                        hitBoxGeo.translate(wCenter, elev + h_opening / 2, 0);
-                        const hitBox = new THREE.Mesh(hitBoxGeo, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
-                        hitBox.userData = { isHitbox: true };
-                        
-                        const patternGroup = new THREE.Group();
-                        patternGroup.add(patternMesh, hitBox);
-                        patternGroup.userData = { isPattern: true, entity: widg };
-                        widg.patternMesh3D = patternGroup;
-                        widg.patternMat3D = patternMat;
-                        
-                        this.ctx.updatePatternLive(widg);
-                        extraMeshes.push(patternGroup);
-                        if (this.ctx.viewMode3D !== 'preview') this.ctx.interactables.push(hitBox);
-
-                    } else {
-                    hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev + h_opening); hole.lineTo(wCenter - halfW, cutElev);
-                        hasHole = true;
-                    }
-
-                    if (type === 'niche_recess') {
-                        const depth = widg.depth || 10;
-                        const recessThickness = Math.max(0.5, t - depth);
-                        const nicheGeo = new THREE.BoxGeometry(widg.width, h_opening, recessThickness);
-                        const zOffset = (widg.facing === -1) ? (t/2 - recessThickness/2) : (-t/2 + recessThickness/2);
-                        nicheGeo.translate(wCenter, elev + h_opening/2, zOffset);
-                        const nicheMesh = new THREE.Mesh(nicheGeo, mm[4]); // inherit wall material
-                        nicheMesh.castShadow = true; nicheMesh.receiveShadow = true;
-                        extraMeshes.push(nicheMesh);
-                    }
-                }
-                if (hasHole) wallShape.holes.push(hole);
-
-                                if (WIDGET_REGISTRY[type] && WIDGET_REGISTRY[type].render3D) {
-                                    widg.x = p1.x + Math.cos(angle) * wCenter;
-                                    widg.z = p1.y + Math.sin(angle) * wCenter;
-                                    widg.angle = angle;
-                                    widg.thick = t;
-                                    widg.wall = w;
-                                    
-                                    widg.localX = wCenter;
-                                    
-                                    const widgetGroup = WIDGET_REGISTRY[type].render3D(wallGroup, widg, this.ctx.helpers);
-                                    if (widgetGroup) {
-                                        widg.mesh3D = widgetGroup;
-                                        this.ctx.interactables.push(widgetGroup);
-                                    }
-                                }
-            });
-
-            const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: t, bevelEnabled: true, bevelSize: 0.2, bevelThickness: 0.2, bevelSegments: 2 });
-            wallGeo.translate(0, 0, -t / 2);
-            
-            // ====== MITER JOINT SHEARING ======
-            const pts = typeof w.poly?.points === 'function' ? w.poly.points() : null;
-            let localSL_x = 0, localSR_x = 0, localEL_x = length, localER_x = length;
-            if (pts && pts.length === 8) {
-                const toLocalX = (ptX, ptY) => {
-                    const dx_pt = ptX - p1.x;
-                    const dy_pt = ptY - p1.y;
-                    return dx_pt * Math.cos(angle) + dy_pt * Math.sin(angle);
-                };
-                localSL_x = toLocalX(pts[0], pts[1]);
-                localEL_x = toLocalX(pts[2], pts[3]);
-                localER_x = toLocalX(pts[4], pts[5]);
-                localSR_x = toLocalX(pts[6], pts[7]);
-            }
-
-            const shearGeo = (geo) => {
-                const pos = geo.attributes.position;
-                for (let i = 0; i < pos.count; i++) {
-                    const x = pos.getX(i);
-                    const z = pos.getZ(i);
-                    const tZ = (z + t / 2) / t;
-                    const startX = localSR_x + tZ * (localSL_x - localSR_x);
-                    const endX = localER_x + tZ * (localEL_x - localER_x);
-                    
-                    if (x <= 0.1) {
-                        pos.setX(i, startX);
-                    } else if (x >= length - 0.1) {
-                        pos.setX(i, endX);
-                    } else {
-                        pos.setX(i, x);
-                    }
-                }
-                geo.computeVertexNormals();
-            };
-
-            if (pts && pts.length === 8) {
-                shearGeo(wallGeo);
-            }
-            // ====== MULTI-MATERIAL AND UV FIX FOR EXTRUDED WALLS ======
-            let finalWallGeo = wallGeo.index ? wallGeo.toNonIndexed() : wallGeo.clone();
-            finalWallGeo.clearGroups();
-            const pos = finalWallGeo.attributes.position;
-            const norm = finalWallGeo.attributes.normal;
-            const uvs = finalWallGeo.attributes.uv;
-            
-            finalWallGeo.computeVertexNormals();
-
-            const aWallLength = new Float32Array(pos.count);
-            aWallLength.fill(length);
-            finalWallGeo.setAttribute('aWallLength', new THREE.BufferAttribute(aWallLength, 1));
-
-            const aWallHeight = new Float32Array(pos.count);
-            aWallHeight.fill(maxH);
-            finalWallGeo.setAttribute('aWallHeight', new THREE.BufferAttribute(aWallHeight, 1));
-
-            for (let i = 0; i < pos.count; i += 3) {
-                const nx = norm.getX(i) + norm.getX(i+1) + norm.getX(i+2);
-                const ny = norm.getY(i) + norm.getY(i+1) + norm.getY(i+2);
-                const nz = norm.getZ(i) + norm.getZ(i+1) + norm.getZ(i+2);
-                const absX = Math.abs(nx);
-                const absY = Math.abs(ny);
-                const absZ = Math.abs(nz);
-                
-                let groupIdx = 0;
-                if (absX > absY && absX > absZ) groupIdx = nx > 0 ? 0 : 1;
-                else if (absY > absX && absY > absZ) groupIdx = ny > 0 ? 2 : 3;
-                else groupIdx = nz > 0 ? 4 : 5;
-                
-                finalWallGeo.addGroup(i, 3, groupIdx);
-                
-                for (let vIdx = i; vIdx < i + 3; vIdx++) {
-                    const vx = pos.getX(vIdx), vy = pos.getY(vIdx), vz = pos.getZ(vIdx);
-                    if (groupIdx <= 1) uvs.setXY(vIdx, vz, vy);
-                    else if (groupIdx <= 3) uvs.setXY(vIdx, vx, vz);
-                    else uvs.setXY(vIdx, vx, vy);
-                }
-            }
-
-            const wallMesh = new THREE.Mesh(finalWallGeo, mm);
-            wallMesh.castShadow = true; wallMesh.receiveShadow = true;
-            
-            // EdgesGeometry removed to prevent Z-fighting with flush door/window frames
-
-            const skinFrontGeo = new THREE.ShapeGeometry(wallShape);
-            skinFrontGeo.translate(0, 0, t / 2 + 0.1);
-            if (pts && pts.length === 8) shearGeo(skinFrontGeo);
-            const hitFront = new THREE.Mesh(skinFrontGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
-            hitFront.userData = { isWallSide: true, side: 'front', entity: w };
-
-            const skinBackGeo = new THREE.ShapeGeometry(wallShape);
-            skinBackGeo.rotateY(Math.PI);
-            skinBackGeo.translate(length, 0, -t / 2 - 0.1);
-            if (pts && pts.length === 8) shearGeo(skinBackGeo);
-            const hitBack = new THREE.Mesh(skinBackGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
-            hitBack.userData = { isWallSide: true, side: 'back', entity: w };
-
-            if (w.attachedMoldings) {
-                w.attachedMoldings.forEach((mold, idx) => {
-                    const mMesh = this.moldingBuilder.buildMolding(mold, length, t, this.ctx.helpers);
-                    mMesh.userData.entity = mold;
-                    mMesh.userData.moldData = mold;
-                    if (pts && pts.length === 8) {
-                        if (mMesh.isGroup && mMesh.children.length > 0 && mMesh.children[0].geometry) {
-                            shearGeo(mMesh.children[0].geometry);
-                        } else if (mMesh.geometry) {
-                            shearGeo(mMesh.geometry);
-                        }
-                    }
-                    extraMeshes.push(mMesh);
-                    this.ctx.interactables.push(mMesh);
-                });
-            }
-
-            wallGroup.add(wallMesh, hitFront, hitBack, ...extraMeshes);
-            this.ctx.interactables.push(hitFront, hitBack);
-            this.ctx.structureGroup.add(wallGroup);
-
-            if (w.attachedDecor) w.attachedDecor.forEach(decor => this.ctx.decorManager.load(w, decor));
+            this.buildWallGroup(w);
         });
 
         this.buildRailings(railingWalls, standardWalls, shapes);
+    }
+
+    buildWallGroup(w) {
+        const matMain = getPlasterMaterial();
+        const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
+        const dx = p2.x - p1.x, dz = p2.y - p1.y;
+        const length = Math.hypot(dx, dz);
+        const angle = Math.atan2(dz, dx);
+        w.length3D = length;
+
+        const h = w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT);
+        const t = w.thickness !== undefined ? w.thickness : (w.config?.thickness || 8);
+        
+        // Compute mm early so holes and patterns can inherit painted materials
+        let mm = [matMain, matMain, matMain, matMain, matMain, matMain];
+        if (this.ctx.helpers && this.ctx.helpers.getFaceMaterials) {
+            mm = this.ctx.helpers.getFaceMaterials(w, matMain, { width: length, height: h }).box;
+            
+            // Inherit painted material for newly generated hole faces and wall edges if not explicitly painted
+            const p = w.params || {};
+            const fallbackMat = p.textureFront ? mm[4] : (p.textureBack ? mm[5] : mm[4]);
+            if (!p.textureRight && !p.textureSides && !p.texture) mm[0] = fallbackMat;
+            if (!p.textureLeft && !p.textureSides && !p.texture) mm[1] = fallbackMat;
+            if (!p.textureTop && !p.textureSides && !p.texture) mm[2] = fallbackMat;
+            if (!p.textureBottom && !p.textureSides && !p.texture) mm[3] = fallbackMat;
+        }
+        const wallBottom = -1;
+        const wallShape = new THREE.Shape();
+        const type = w.topProfileType || 'normal';
+        const startH = w.startHeight !== undefined ? w.startHeight : h;
+        const endH = w.endHeight !== undefined ? w.endHeight : h;
+        const peakH = w.peakHeight !== undefined ? w.peakHeight : h;
+        const maxH = Math.max(startH, endH, peakH, h);
+
+        wallShape.moveTo(0, wallBottom);
+        wallShape.lineTo(length, wallBottom);
+        if (type === 'single') {
+            wallShape.lineTo(length, endH);
+            wallShape.lineTo(0, startH);
+        } else if (type === 'gable') {
+            wallShape.lineTo(length, endH);
+            wallShape.lineTo(length / 2, peakH);
+            wallShape.lineTo(0, startH);
+        } else {
+            wallShape.lineTo(length, h);
+            wallShape.lineTo(0, h);
+        }
+        wallShape.lineTo(0, wallBottom);
+
+        const wallGroup = new THREE.Group();
+        const elev = w.elevation || 0;
+        wallGroup.position.set(p1.x, elev, p1.y);
+        wallGroup.rotation.y = -angle;
+        wallGroup.userData = { entity: w };
+        w.mesh3D = wallGroup;
+
+        const extraMeshes = [];
+        w.attachedWidgets.forEach(widg => {
+            const hole = new THREE.Path(), wCenter = length * widg.t, halfW = widg.width / 2;
+            let hasHole = false;
+            const type = widg.type || widg.configId;
+            
+            if (type === 'door') {
+                let dh = widg.height !== undefined ? widg.height : DOOR_HEIGHT;
+                let elev = widg.elevation !== undefined ? widg.elevation : 0;
+                let cutElev = (elev <= 0.1) ? wallBottom : elev;
+                
+                const shapeType = widg.doorShape || 'square';
+                hole.moveTo(wCenter - halfW, cutElev);
+                hole.lineTo(wCenter + halfW, cutElev);
+                
+                if (shapeType === 'radius') {
+                    const straightH = Math.max(0, dh - halfW);
+                    hole.lineTo(wCenter + halfW, elev + straightH);
+                    if (halfW > 0) hole.absarc(wCenter, elev + straightH, halfW, 0, Math.PI, false);
+                } else if (shapeType === 'segment') {
+                    const rise = widg.width * 0.15;
+                    const straightH = Math.max(0, dh - rise);
+                    hole.lineTo(wCenter + halfW, elev + straightH);
+                    hole.quadraticCurveTo(wCenter, elev + dh + rise*0.5, wCenter - halfW, elev + straightH);
+                } else if (shapeType === 'gothic') {
+                    const straightH = Math.max(0, dh - (widg.width * 0.7));
+                    hole.lineTo(wCenter + halfW, elev + straightH);
+                    hole.quadraticCurveTo(wCenter + halfW * 0.2, elev + dh, wCenter, elev + dh);
+                    hole.quadraticCurveTo(wCenter - halfW * 0.2, elev + dh, wCenter - halfW, elev + straightH);
+                } else {
+                    hole.lineTo(wCenter + halfW, elev + dh);
+                    hole.lineTo(wCenter - halfW, elev + dh);
+                }
+                
+                hole.lineTo(wCenter - halfW, cutElev);
+                hasHole = true;
+            } else if (type === 'window' || type === 'jali_panel') {
+                let dh = widg.height !== undefined ? widg.height : (type === 'window' ? WINDOW_HEIGHT : 100);
+                let elev = widg.elevation !== undefined ? widg.elevation : (type === 'window' ? WINDOW_SILL : 0);
+                let cutElev = (elev <= 0.1) ? wallBottom : elev;
+                hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + dh); hole.lineTo(wCenter - halfW, elev + dh); hole.lineTo(wCenter - halfW, cutElev);
+                hasHole = true;
+            } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type)) {
+                let elev = widg.elevation || 0;
+                let h_opening = widg.height || 200;
+                elev = Math.max(0, Math.min(elev, maxH));
+                h_opening = Math.max(0, Math.min(h_opening, maxH - elev));
+                let cutElev = (elev <= 0.1) ? wallBottom : elev;
+                
+                if (type === 'arch_opening') {
+                    const radius = halfW;
+                    const straightH = Math.max(0, h_opening - radius);
+                                    hole.moveTo(wCenter - halfW, cutElev);
+                                    hole.lineTo(wCenter + halfW, cutElev);
+                    hole.lineTo(wCenter + halfW, elev + straightH);
+                    if (radius > 0) hole.absarc(wCenter, elev + straightH, radius, 0, Math.PI, false);
+                                    hole.lineTo(wCenter - halfW, cutElev);
+                    hasHole = true;
+                } else if (type === 'circular_opening') {
+                    hole.moveTo(wCenter + halfW, elev + h_opening / 2);
+                    hole.absellipse(wCenter, elev + h_opening / 2, halfW, h_opening / 2, 0, Math.PI * 2, false, 0);
+                    hasHole = true;
+                } else if (type === 'custom_shape_opening') {
+                                    hole.moveTo(wCenter, cutElev);
+                    hole.lineTo(wCenter + halfW, elev + h_opening / 2);
+                    hole.lineTo(wCenter, elev + h_opening);
+                    hole.lineTo(wCenter - halfW, elev + h_opening / 2);
+                                    hole.lineTo(wCenter, cutElev);
+                    hasHole = true;
+                } else if (type === 'pattern_opening') {
+                                    hole.moveTo(wCenter - halfW, cutElev);
+                                    hole.lineTo(wCenter + halfW, cutElev);
+                    hole.lineTo(wCenter + halfW, elev + h_opening);
+                    hole.lineTo(wCenter - halfW, elev + h_opening);
+                                    hole.lineTo(wCenter - halfW, cutElev);
+                    hasHole = true;
+
+                    const patternShape = new THREE.Shape();
+                    patternShape.moveTo(wCenter - halfW, elev);
+                    patternShape.lineTo(wCenter + halfW, elev);
+                    patternShape.lineTo(wCenter + halfW, elev + h_opening);
+                    patternShape.lineTo(wCenter - halfW, elev + h_opening);
+                    patternShape.lineTo(wCenter - halfW, elev);
+
+                    const rows = widg.rows || 4, cols = widg.cols || 4, spacing = widg.spacing !== undefined ? widg.spacing : 5;
+                    const style = widg.patternStyle || 'grid';
+                    const pW = (widg.width - spacing * (cols + 1)) / cols;
+                    const pH = (h_opening - spacing * (rows + 1)) / rows;
+                    if (pW > 0 && pH > 0) {
+                        for (let r = 0; r < rows; r++) {
+                            for (let c = 0; c < cols; c++) {
+                                const px = (wCenter - halfW) + spacing + c * (pW + spacing);
+                                const py = elev + spacing + r * (pH + spacing);
+                                const pPath = new THREE.Path();
+                                const cx = px + pW/2, cy = py + pH/2;
+                                if (style === 'diamond') {
+                                    pPath.moveTo(cx, py); pPath.lineTo(px + pW, cy); pPath.lineTo(cx, py + pH); pPath.lineTo(px, cy); pPath.lineTo(cx, py);
+                                } else if (style === 'circle') {
+                                    pPath.moveTo(cx + Math.min(pW, pH)/2, cy); pPath.absarc(cx, cy, Math.min(pW, pH)/2, 0, Math.PI * 2, false);
+                                } else if (style === 'cross') {
+                                    const w1 = pW*0.2, h1 = pH*0.8, w2 = pW*0.8, h2 = pH*0.2;
+                                    pPath.moveTo(cx-w1/2, cy-h1/2); pPath.lineTo(cx+w1/2, cy-h1/2); pPath.lineTo(cx+w1/2, cy-h2/2); pPath.lineTo(cx+w2/2, cy-h2/2); pPath.lineTo(cx+w2/2, cy+h2/2); pPath.lineTo(cx+w1/2, cy+h2/2); pPath.lineTo(cx+w1/2, cy+h1/2); pPath.lineTo(cx-w1/2, cy+h1/2); pPath.lineTo(cx-w1/2, cy+h2/2); pPath.lineTo(cx-w2/2, cy+h2/2); pPath.lineTo(cx-w2/2, cy-h2/2); pPath.lineTo(cx-w1/2, cy-h2/2); pPath.lineTo(cx-w1/2, cy-h1/2);
+                                } else if (style === 'hexagon') {
+                                    const rad = Math.min(pW, pH)/2; for (let i = 0; i < 6; i++) { const a = (i*Math.PI)/3; const hx = cx + rad*Math.cos(a), hy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(hx,hy); else pPath.lineTo(hx,hy); } pPath.lineTo(cx+rad, cy);
+                                } else if (style === 'star') {
+                                    const rOut = Math.min(pW, pH)/2, rIn = rOut*0.3; for (let i = 0; i < 8; i++) { const a = (i*Math.PI)/4; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); } pPath.lineTo(cx+rOut, cy);
+                                } else if (style === 'slit') {
+                                    const slitW = pW*0.3, slitH = pH*0.9; pPath.moveTo(cx-slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy-slitH/2);
+                                } else if (style === 'terracotta') {
+                                    const pr = Math.min(pW, pH) / 4; pPath.moveTo(cx + pr, cy - pr); pPath.absarc(cx + pr, cy, pr, -Math.PI/2, Math.PI/2, false); pPath.absarc(cx, cy + pr, pr, 0, Math.PI, false); pPath.absarc(cx - pr, cy, pr, Math.PI/2, 3*Math.PI/2, false); pPath.absarc(cx, cy - pr, pr, Math.PI, 2*Math.PI, false);
+                                } else if (style === 'arabesque') {
+                                    const rOut = Math.min(pW, pH)/2, rIn = rOut*0.55; for (let i = 0; i < 16; i++) { const a = (i*Math.PI)/8; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); }
+                                } else {
+                                    pPath.moveTo(px, py); pPath.lineTo(px + pW, py); pPath.lineTo(px + pW, py + pH); pPath.lineTo(px, py + pH); pPath.lineTo(px, py);
+                                }
+                                pPath.closePath();
+                                patternShape.holes.push(pPath);
+                            }
+                        }
+                    }
+                    
+                    const patternGeo = new THREE.ExtrudeGeometry(patternShape, { depth: t, bevelEnabled: false });
+                    patternGeo.translate(0, 0, -t / 2);
+                    const patternMat = mm[4].clone(); // inherit wall material
+                    const patternMesh = new THREE.Mesh(patternGeo, patternMat);
+                    patternMesh.castShadow = true; patternMesh.receiveShadow = true;
+                    
+                    const hitBoxGeo = new THREE.BoxGeometry(widg.width, h_opening, t + 4);
+                    hitBoxGeo.translate(wCenter, elev + h_opening / 2, 0);
+                    const hitBox = new THREE.Mesh(hitBoxGeo, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+                    hitBox.userData = { isHitbox: true };
+                    
+                    const patternGroup = new THREE.Group();
+                    patternGroup.add(patternMesh, hitBox);
+                    patternGroup.userData = { isPattern: true, entity: widg };
+                    widg.patternMesh3D = patternGroup;
+                    widg.patternMat3D = patternMat;
+                    
+                    this.ctx.updatePatternLive(widg);
+                    extraMeshes.push(patternGroup);
+                    if (this.ctx.viewMode3D !== 'preview') this.ctx.interactables.push(hitBox);
+
+                } else {
+                hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev + h_opening); hole.lineTo(wCenter - halfW, cutElev);
+                    hasHole = true;
+                }
+
+                if (type === 'niche_recess') {
+                    const depth = widg.depth || 10;
+                    const recessThickness = Math.max(0.5, t - depth);
+                    const nicheGeo = new THREE.BoxGeometry(widg.width, h_opening, recessThickness);
+                    const zOffset = (widg.facing === -1) ? (t/2 - recessThickness/2) : (-t/2 + recessThickness/2);
+                    nicheGeo.translate(wCenter, elev + h_opening/2, zOffset);
+                    const nicheMesh = new THREE.Mesh(nicheGeo, mm[4]); // inherit wall material
+                    nicheMesh.castShadow = true; nicheMesh.receiveShadow = true;
+                    extraMeshes.push(nicheMesh);
+                }
+            }
+            if (hasHole) wallShape.holes.push(hole);
+
+                            if (WIDGET_REGISTRY[type] && WIDGET_REGISTRY[type].render3D) {
+                                widg.x = p1.x + Math.cos(angle) * wCenter;
+                                widg.z = p1.y + Math.sin(angle) * wCenter;
+                                widg.angle = angle;
+                                widg.thick = t;
+                                widg.wall = w;
+                                
+                                widg.localX = wCenter;
+                                
+                                const widgetGroup = WIDGET_REGISTRY[type].render3D(wallGroup, widg, this.ctx.helpers);
+                                if (widgetGroup) {
+                                    widg.mesh3D = widgetGroup;
+                                    this.ctx.interactables.push(widgetGroup);
+                                }
+                            }
+        });
+
+        const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: t, bevelEnabled: true, bevelSize: 0.2, bevelThickness: 0.2, bevelSegments: 2 });
+        wallGeo.translate(0, 0, -t / 2);
+        
+        // ====== MITER JOINT SHEARING ======
+        const pts = typeof w.poly?.points === 'function' ? w.poly.points() : null;
+        let localSL_x = 0, localSR_x = 0, localEL_x = length, localER_x = length;
+        if (pts && pts.length === 8) {
+            const toLocalX = (ptX, ptY) => {
+                const dx_pt = ptX - p1.x;
+                const dy_pt = ptY - p1.y;
+                return dx_pt * Math.cos(angle) + dy_pt * Math.sin(angle);
+            };
+            localSL_x = toLocalX(pts[0], pts[1]);
+            localEL_x = toLocalX(pts[2], pts[3]);
+            localER_x = toLocalX(pts[4], pts[5]);
+            localSR_x = toLocalX(pts[6], pts[7]);
+        }
+
+        const shearGeo = (geo) => {
+            const pos = geo.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                const x = pos.getX(i);
+                const z = pos.getZ(i);
+                const tZ = (z + t / 2) / t;
+                const startX = localSR_x + tZ * (localSL_x - localSR_x);
+                const endX = localER_x + tZ * (localEL_x - localER_x);
+                
+                if (x <= 0.1) {
+                    pos.setX(i, startX);
+                } else if (x >= length - 0.1) {
+                    pos.setX(i, endX);
+                } else {
+                    pos.setX(i, x);
+                }
+            }
+            geo.computeVertexNormals();
+        };
+
+        if (pts && pts.length === 8) {
+            shearGeo(wallGeo);
+        }
+        // ====== MULTI-MATERIAL AND UV FIX FOR EXTRUDED WALLS ======
+        let finalWallGeo = wallGeo.index ? wallGeo.toNonIndexed() : wallGeo.clone();
+        finalWallGeo.clearGroups();
+        const pos = finalWallGeo.attributes.position;
+        const norm = finalWallGeo.attributes.normal;
+        const uvs = finalWallGeo.attributes.uv;
+        
+        finalWallGeo.computeVertexNormals();
+
+        const aWallLength = new Float32Array(pos.count);
+        aWallLength.fill(length);
+        finalWallGeo.setAttribute('aWallLength', new THREE.BufferAttribute(aWallLength, 1));
+
+        const aWallHeight = new Float32Array(pos.count);
+        aWallHeight.fill(maxH);
+        finalWallGeo.setAttribute('aWallHeight', new THREE.BufferAttribute(aWallHeight, 1));
+
+        for (let i = 0; i < pos.count; i += 3) {
+            const nx = norm.getX(i) + norm.getX(i+1) + norm.getX(i+2);
+            const ny = norm.getY(i) + norm.getY(i+1) + norm.getY(i+2);
+            const nz = norm.getZ(i) + norm.getZ(i+1) + norm.getZ(i+2);
+            const absX = Math.abs(nx);
+            const absY = Math.abs(ny);
+            const absZ = Math.abs(nz);
+            
+            let groupIdx = 0;
+            if (absX > absY && absX > absZ) groupIdx = nx > 0 ? 0 : 1;
+            else if (absY > absX && absY > absZ) groupIdx = ny > 0 ? 2 : 3;
+            else groupIdx = nz > 0 ? 4 : 5;
+            
+            finalWallGeo.addGroup(i, 3, groupIdx);
+            
+            for (let vIdx = i; vIdx < i + 3; vIdx++) {
+                const vx = pos.getX(vIdx), vy = pos.getY(vIdx), vz = pos.getZ(vIdx);
+                if (groupIdx <= 1) uvs.setXY(vIdx, vz, vy);
+                else if (groupIdx <= 3) uvs.setXY(vIdx, vx, vz);
+                else uvs.setXY(vIdx, vx, vy);
+            }
+        }
+
+        const wallMesh = new THREE.Mesh(finalWallGeo, mm);
+        wallMesh.castShadow = true; wallMesh.receiveShadow = true;
+        
+        // EdgesGeometry removed to prevent Z-fighting with flush door/window frames
+
+        const skinFrontGeo = new THREE.ShapeGeometry(wallShape);
+        skinFrontGeo.translate(0, 0, t / 2 + 0.1);
+        if (pts && pts.length === 8) shearGeo(skinFrontGeo);
+        const hitFront = new THREE.Mesh(skinFrontGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
+        hitFront.userData = { isWallSide: true, side: 'front', entity: w };
+
+        const skinBackGeo = new THREE.ShapeGeometry(wallShape);
+        skinBackGeo.rotateY(Math.PI);
+        skinBackGeo.translate(length, 0, -t / 2 - 0.1);
+        if (pts && pts.length === 8) shearGeo(skinBackGeo);
+        const hitBack = new THREE.Mesh(skinBackGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
+        hitBack.userData = { isWallSide: true, side: 'back', entity: w };
+
+        if (w.attachedMoldings) {
+            w.attachedMoldings.forEach((mold, idx) => {
+                const mMesh = this.moldingBuilder.buildMolding(mold, length, t, this.ctx.helpers);
+                mMesh.userData.entity = mold;
+                mMesh.userData.moldData = mold;
+                if (pts && pts.length === 8) {
+                    if (mMesh.isGroup && mMesh.children.length > 0 && mMesh.children[0].geometry) {
+                        shearGeo(mMesh.children[0].geometry);
+                    } else if (mMesh.geometry) {
+                        shearGeo(mMesh.geometry);
+                    }
+                }
+                extraMeshes.push(mMesh);
+                this.ctx.interactables.push(mMesh);
+            });
+        }
+
+        wallGroup.add(wallMesh, hitFront, hitBack, ...extraMeshes);
+        this.ctx.interactables.push(hitFront, hitBack);
+        this.ctx.structureGroup.add(wallGroup);
+
+        if (w.attachedDecor) w.attachedDecor.forEach(decor => this.ctx.decorManager.load(w, decor));
     }
 
     buildRailings(railingWalls, standardWalls, shapes) {

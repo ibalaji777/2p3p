@@ -14,6 +14,8 @@ import { SelectionManager } from './SelectionManager.js';
 import { HighlightRenderer } from './HighlightRenderer.js';
 import { DimensionManager3D } from './dimensions/DimensionManager3D.js';
 import { useSettingsStore } from '../../stores/useSettingsStore.js';
+import { usePlannerStore } from '../../stores/usePlannerStore.js';
+import { coreEventBus } from '../EventBus.js';
 
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from '../../core/registry';
 
@@ -178,8 +180,13 @@ export class OpeningGizmo extends THREE.Group {
                     this.updateHandles();
                     if (this.ctx.updateOpeningPanel) this.ctx.updateOpeningPanel(entity);
                     
-                    const event = new CustomEvent(EVENTS.OPENING_GIZMO_CHANGE, { detail: { entity: this.target.userData.entity }});
-                    window.dispatchEvent(event);
+                    if (typeof window !== 'undefined') {
+                        // Notify UI panel
+                        coreEventBus.emit(EVENTS.OPENING_GIZMO_CHANGE, { entity });
+                        // Update Store for reactive syncing
+                        const store = usePlannerStore();
+                        store.updateEntityTransform(entity.id || entity, entity.x, entity.y, entity.rotation, entity.elevation);
+                    }
                 }
             }
     }
@@ -188,9 +195,13 @@ export class OpeningGizmo extends THREE.Group {
             if (this.activeHandle) {
                 e.preventDefault();
                 e.stopPropagation();
+                
+                const entity = this.target.userData.entity;
                 this.activeHandle = null;
-                const event = new CustomEvent(EVENTS.OPENING_GIZMO_END, { detail: { entity: this.target.userData.entity }});
-                window.dispatchEvent(event);
+                if (typeof window !== 'undefined') {
+                    coreEventBus.emit(EVENTS.OPENING_GIZMO_END, { entity });
+                    if (window.plannerInstance) window.plannerInstance.syncAll();
+                }
             }
     }
     

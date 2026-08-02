@@ -694,6 +694,19 @@ export class GizmoManager {
                     obj.updateMatrixWorld(true);
                     if(this.ctx.interactions.transformControls) this.ctx.interactions.transformControls.update();
                     this.ctx.syncToUI();
+                    
+                    if (obj.userData.entity) {
+                        const entId = obj.userData.entity.id || (obj.userData.entity.group && obj.userData.entity.group.id());
+                        if (entId) {
+                            coreEventBus.emit('EntityTransformUpdated3D', { 
+                                entity: entId, 
+                                x: obj.position.x, 
+                                y: obj.position.z, 
+                                elevation: newElevation,
+                                rotation: -(obj.rotation.y * 180 / Math.PI)
+                            });
+                        }
+                    }
                 }
             };
 

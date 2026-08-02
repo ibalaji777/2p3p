@@ -112,7 +112,26 @@ export function useAppScene({
             } else if (selectedType.value === 'shape' && selectedEntity.value) {
                 renderer3D.value.updateShapeLive(selectedEntity.value);
                 if (selectedEntity.value.type === 'shape_floor_cut') refresh3DScene(true);
-            } else if (['roof', 'room', 'wall', 'widget', 'advance_openings', 'molding', 'wallDecor', 'stair'].includes(selectedType.value)) {
+            } else if (selectedType.value === 'widget' && selectedEntity.value) {
+                const wall = selectedEntity.value.wall;
+                if (wall) renderer3D.value.updateWallGeometryLive(wall);
+                else refresh3DScene(true);
+            } else if (selectedType.value === 'wall' && selectedEntity.value) {
+                renderer3D.value.updateWallGeometryLive(selectedEntity.value);
+                if (planner.value) {
+                    const selAnchorId1 = selectedEntity.value.startAnchor?.id;
+                    const selAnchorId2 = selectedEntity.value.endAnchor?.id;
+                    planner.value.walls.forEach(w => {
+                        if (w !== selectedEntity.value && !w.hidden) {
+                            if ((selAnchorId1 && (w.startAnchor?.id === selAnchorId1 || w.endAnchor?.id === selAnchorId1)) ||
+                                (selAnchorId2 && (w.startAnchor?.id === selAnchorId2 || w.endAnchor?.id === selAnchorId2))) {
+                                renderer3D.value.updateWallGeometryLive(w);
+                            }
+                        }
+                    });
+                }
+                if (planner.value && planner.value.updateRoofAutoPlacement) planner.value.updateRoofAutoPlacement();
+            } else if (['roof', 'room', 'advance_openings', 'molding', 'wallDecor', 'stair'].includes(selectedType.value)) {
                 if (planner.value && planner.value.updateRoofAutoPlacement) planner.value.updateRoofAutoPlacement();
                 refresh3DScene(true);
             }

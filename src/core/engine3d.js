@@ -354,6 +354,43 @@ export class Preview3D {
         const parent = obj.parent;
         if (!parent) return false;
 
+        if (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'wall' || entity.type === 'railing') {
+            const h = entity.height !== undefined ? entity.height : (entity.config?.height || 300);
+            const w = entity.length3D !== undefined ? entity.length3D : 100;
+            const baseMat = new THREE.MeshStandardMaterial({ color: 0xfaf8ed });
+            
+            // Re-fetch materials based on entity.params
+            const mats = this.helpers.getFaceMaterials(entity, baseMat, { width: w, height: h }).box;
+            
+            // Find the actual wall mesh (not hitboxes or widgets)
+            const wallMesh = obj.children ? obj.children.find(c => c.isMesh && !c.userData.isHitbox && !c.userData.isWallSide) : null;
+            if (wallMesh) {
+                if (Array.isArray(wallMesh.material)) {
+                    wallMesh.material.forEach((m) => { 
+                        if (m && m.dispose && !m.userData?.keepAlive) m.dispose(); 
+                    });
+                } else if (wallMesh.material) {
+                    if (wallMesh.material.dispose && !wallMesh.material.userData?.keepAlive) wallMesh.material.dispose();
+                }
+                // Assign new array reference so Three.js catches the change
+                wallMesh.material = mats;
+                
+                // Update attached holes if any
+                obj.children.forEach(c => {
+                    if (c.userData && c.userData.isPattern) {
+                        const patMesh = c.children ? c.children[0] : c;
+                        if (patMesh.material) {
+                            if (patMesh.material.dispose) patMesh.material.dispose();
+                            patMesh.material = mats[4].clone(); // front material
+                        }
+                    }
+                });
+                
+                this.requestRender('wall_material_update', 2);
+                return true;
+            }
+        }
+
         let renderFunc = null;
         if (WIDGET_REGISTRY[entity.type]) renderFunc = WIDGET_REGISTRY[entity.type].render3D;
         else if (MOLDING_REGISTRY[entity.type]) renderFunc = MOLDING_REGISTRY[entity.type].render3D;
@@ -434,6 +471,48 @@ export class Preview3D {
         if (this.interactions && typeof this.interactions.refreshSelectionHighlight === 'function') {
             this.interactions.refreshSelectionHighlight(entity.mesh3D);
         }
+    }
+
+    updateWallGeometryLive(w) {
+        if (!w || !this.envBuilder) return;
+        
+        let selectionToRestore = null;
+        if (this.interactions && this.interactions.selectedObject && this.interactions.selectedObject.userData) {
+            const selEntity = this.interactions.selectedObject.userData.entity;
+            if (selEntity && (selEntity === w || selEntity.wall === w)) {
+                selectionToRestore = selEntity.id || selEntity;
+            }
+        }
+        
+        if (w.mesh3D) {
+            this.structureGroup.remove(w.mesh3D);
+            this.interactables = this.interactables.filter(m => {
+                if (m === w.mesh3D) return false;
+                if (m.userData && m.userData.entity === w) return false;
+                if (m.userData && m.userData.isWallSide && m.userData.entity === w) return false;
+                if (m.userData && m.userData.entity && m.userData.entity.wall === w) return false;
+                if (m.userData && m.userData.moldData && m.userData.moldData.wall === w) return false;
+                return true;
+            });
+            w.mesh3D.traverse(c => {
+                if (c.geometry) c.geometry.dispose();
+            });
+        }
+        
+        this.envBuilder.buildWallGroup(w);
+        
+        if (selectionToRestore && this.interactions) {
+            const newMesh = this.interactables.find(m => m.userData && (m.userData.entity === selectionToRestore || (m.userData.entity && m.userData.entity.id === selectionToRestore)));
+            if (newMesh) {
+                this.interactions.selectedObject = newMesh;
+                if (this.interactions.openingGizmo && this.interactions.openingGizmo.visible) {
+                    this.interactions.openingGizmo.attach(newMesh, this.interactions.openingGizmo.mode);
+                }
+                this.interactions.highlightRenderer.setSelectionHighlight(newMesh);
+            }
+        }
+        
+        this.requestRender('wall_geometry_update', 2);
     }
 
     updateRoofLive(roof) {
