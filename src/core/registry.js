@@ -190,9 +190,10 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         const glass = new THREE.Mesh(geoGlass, glassMat); glass.userData.isGlass = true; glass.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(glass);
     } else {
         const shapeType = entity && entity.doorShape ? entity.doorShape : 'square';
-        const doorOutline = createDoorShape(width, height, shapeType);
-        const coreGeo = new THREE.ExtrudeGeometry(doorOutline, { depth: Math.max(0.01, thickness - 0.1), bevelEnabled: false });
-        coreGeo.translate(0, 0, -Math.max(0.01, thickness - 0.1) / 2);
+        const bSize = 0.06;
+        const doorOutline = createDoorShape(width, Math.max(0.1, height - bSize*2), shapeType);
+        const coreGeo = new THREE.ExtrudeGeometry(doorOutline, { depth: Math.max(0.01, thickness - bSize*2), bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: bSize, bevelThickness: bSize });
+        coreGeo.translate(0, bSize, -Math.max(0.01, thickness - bSize*2) / 2);
         
         // Normalize UVs for ExtrudeGeometry so texture repeat mapping scales properly [0, 1]
         const coreUvs = coreGeo.attributes.uv;
@@ -208,6 +209,16 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
 
         const matsExtrude = Array.isArray(mats) ? [mats[4], mats[1]] : mats;
         const core = new THREE.Mesh(coreGeo, matsExtrude); core.position.set(0, 0, 0); core.castShadow = true; core.receiveShadow = true; group.add(core);
+
+        // Door sweep — concealed rubber seal at door bottom edge
+        const sweepMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.85, metalness: 0.0 });
+        const sweepH = 0.25; // ~6mm rubber strip
+        const sweepGeo = new THREE.BoxGeometry(width - 0.4, sweepH, thickness * 0.7);
+        const sweep = new THREE.Mesh(sweepGeo, sweepMat);
+        sweep.position.set(0, sweepH / 2 + 0.02, 0);
+        sweep.userData = { isSweep: true };
+        group.add(sweep);
+
         
         const createBeveledPanelGeo = (pw, ph, pth, panelShape = 'square') => {
             const bSize = 0.12; const bThick = 0.06;
@@ -567,10 +578,8 @@ export const WIDGET_REGISTRY = {
         },
         render3D: (sceneGroup, entity, helpers) => {
             let baseElev = entity.elevation || 0;
-            let rawHeight = entity.height || DOOR_HEIGHT;
-            let bottomY = Math.max(0.2, baseElev); // Prevent frame from sinking into floor
-            let topY = baseElev + rawHeight;
-            let height = topY - bottomY;
+            let height = entity.height || DOOR_HEIGHT;
+            let bottomY = baseElev;
             const doorGroup = new THREE.Group(); 
             if (entity.localX !== undefined) {
                 doorGroup.position.set(entity.localX, bottomY, 0);
@@ -581,9 +590,15 @@ export const WIDGET_REGISTRY = {
             }
             const isSliding = entity.doorType === 'sliding' || entity.doorType === 'double_sliding' || entity.doorType === 'pocket';
             const fW = 4; const fThick = entity.thick + 0.2;
-            const matDoor = helpers.getDynamicMaterial(entity.doorMat, 'door'); 
+            const cloneMat = (m, r) => {
+                if (!m) return m;
+                if (Array.isArray(m)) return m.map(mat => { const c = mat.clone(); c.roughness = r; return c; });
+                const c = m.clone(); c.roughness = r; return c;
+            };
+            const matDoor = cloneMat(helpers.getDynamicMaterial(entity.doorMat, 'door'), 0.50); 
             const frameMatKey = entity.frameMat || entity.doorMat;
-            const matFrame = helpers.getDynamicMaterial(frameMatKey, 'door');
+            const matFrame = cloneMat(helpers.getDynamicMaterial(frameMatKey, 'door'), 0.42);
+            const matThreshold = cloneMat(helpers.getDynamicMaterial(entity.thresholdMat || frameMatKey, 'door'), 0.38);
             
             // Helper to tag frame meshes so GizmoManager knows it's the frame
             const metalMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8, roughness: 0.2 });
@@ -596,13 +611,15 @@ export const WIDGET_REGISTRY = {
                 return mesh;
             };
             const createBeveledExtrude = (w, h, d, b=0.05) => {
-                const shape = new THREE.Shape(); const hw = w/2, hh = h/2;
+                const wAdj = Math.max(0.01, w - b*2);
+                const hAdj = Math.max(0.01, h - b*2);
+                const shape = new THREE.Shape(); const hw = wAdj/2, hh = hAdj/2;
                 shape.moveTo(-hw, -hh); shape.lineTo(hw, -hh); shape.lineTo(hw, hh); shape.lineTo(-hw, hh); shape.lineTo(-hw, -hh);
                 const dAdj = Math.max(0.01, d - b*2);
                 const ex = new THREE.ExtrudeGeometry(shape, { depth: dAdj, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: b, bevelThickness: b });
                 ex.translate(0, 0, -dAdj/2);
                 const uvs = ex.attributes.uv, pos = ex.attributes.position;
-                if(uvs && pos) { for(let i=0; i<uvs.count; i++) { uvs.setXY(i, (pos.getX(i)+hw)/w, (pos.getY(i)+hh)/h); } uvs.needsUpdate = true; }
+                if(uvs && pos) { for(let i=0; i<uvs.count; i++) { uvs.setXY(i, (pos.getX(i)+hw)/wAdj, (pos.getY(i)+hh)/hAdj); } uvs.needsUpdate = true; }
                 return ex;
             };
             const rotateUvs = (geo) => {
@@ -614,26 +631,71 @@ export const WIDGET_REGISTRY = {
             const isGlassDoor = entity.doorMat === 'glass'; 
             const jambW = 0.75; const stopW = 1.25; const stopThick = 0.5; const archW = 2.75; const archThick = 0.6;
             const frameWidth = jambW; const frameThick = entity.thick + 0.2; const doorThick = 1.75; 
-            const gapSide = 0.12; const gapTop = 0.12; const gapBottom = 0.4; 
+            const gapSide = 0.12; const gapTop = 0.12; 
+            
+            // Threshold — separate optional piece sitting ON the floor (NOT a bottom frame)
+            // Real doors: Header + Left Jamb + Right Jamb + optional Threshold. No bottom frame member.
+            const hasThreshold = entity.hasThreshold !== false; // default: true
+            const tHeight = hasThreshold ? 0.9 : 0; // 22.86mm (~20-25mm range) when present
+            const doorClearance = 0.35; // 8.89mm gap between door bottom and threshold top (or floor)
+            const gapBottom = tHeight + doorClearance; // door leaf Y starts here
+            
+            if (hasThreshold) {
+                // Threshold spans full opening width, flush with frame depth
+                const thresholdW = entity.width;
+                const tDepth = frameThick; // flush with frame — no protruding lip
+                const thresholdGeo = rotateUvs(createBeveledExtrude(thresholdW, tHeight, tDepth, 0.03));
+                const threshold = tagFrame(new THREE.Mesh(thresholdGeo, matThreshold));
+                threshold.position.set(0, -bottomY + tHeight/2, 0);
+                threshold.receiveShadow = true; threshold.castShadow = true;
+                threshold.userData = { ...threshold.userData, isThreshold: true };
+                doorGroup.add(threshold);
+            }
+            
+            // Sill plate — fills the below-floor gap in the wall cutout (wallBottom=-1 to floor=0)
+            const sillHeight = 1.0; 
+            const totalFrameW = entity.width + archW * 2 - jambW * 2;
+            const sillGeo = rotateUvs(createBeveledExtrude(totalFrameW, sillHeight, frameThick, 0.01));
+            const sillPlate = new THREE.Mesh(sillGeo, matThreshold);
+            sillPlate.position.set(0, -bottomY - sillHeight/2, 0);
+            sillPlate.receiveShadow = true;
+            sillPlate.userData = { isFrame: true, isSillPlate: true };
+            doorGroup.add(sillPlate);
+            
             const slWidth = (entity.hasSidelights && (!entity.doorShape || entity.doorShape === 'square') && !['pocket', 'sliding'].includes(entity.doorType)) ? Math.min(60, entity.width * 0.22) : 0;
             const leafWidth = entity.width - (frameWidth * 2) - (gapSide * 2) - (slWidth * 2); const leafHeight = height - frameWidth - gapTop - gapBottom;
             const baseOpenAngle = (entity.openAngle !== undefined ? entity.openAngle : 0) * (Math.PI / 180);
             const openAngle = baseOpenAngle * (entity.facing === 1 ? 1 : -1); const pivotXOffset = -entity.width/2 + frameWidth + slWidth + gapSide/2; 
             const hingePinZ = doorThick/2; 
             
-            const thresholdGeo = new THREE.BoxGeometry(entity.width, 0.4, (entity.thick || 20) + 0.5);
-            const threshold = tagFrame(new THREE.Mesh(thresholdGeo, matFrame));
-            threshold.position.set(0, 0.2, 0);
-            threshold.receiveShadow = true; threshold.castShadow = true;
-            doorGroup.add(threshold);
+            // Contact shadow — soft AO shadow on the floor under the door
+            const cShadowCanvas = document.createElement('canvas'); cShadowCanvas.width = 256; cShadowCanvas.height = 64;
+            const cShadowCtx = cShadowCanvas.getContext('2d');
+            if (cShadowCtx) {
+                const grad = cShadowCtx.createLinearGradient(0, 0, 0, 64);
+                grad.addColorStop(0, 'rgba(0,0,0,0.35)');
+                grad.addColorStop(0.3, 'rgba(0,0,0,0.12)');
+                grad.addColorStop(1, 'rgba(0,0,0,0)');
+                cShadowCtx.fillStyle = grad; cShadowCtx.fillRect(0, 0, 256, 64);
+            }
+            const cShadowTex = new THREE.CanvasTexture(cShadowCanvas);
+            const cShadowMat = new THREE.MeshBasicMaterial({ map: cShadowTex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+            const cShadowGeo = new THREE.PlaneGeometry(leafWidth + 2, doorThick + 2);
+            const contactShadow = new THREE.Mesh(cShadowGeo, cShadowMat);
+            contactShadow.rotation.x = -Math.PI / 2;
+            contactShadow.position.set(0, -bottomY + 0.02, 0);
+            contactShadow.userData = { isShadow: true };
+            doorGroup.add(contactShadow);
             
-            if (entity.doorType !== 'pocket') { 
+            if (entity.doorType !== 'pocket') {
                 const shapeType = entity.doorShape || 'square';
                 if (shapeType === 'square') {
                     // Clean Butt Joints for Jambs (Head Jamb between Side Jambs)
-                    const jamGeo = createBeveledExtrude(jambW, height, frameThick); 
-                    const jamL = tagFrame(new THREE.Mesh(jamGeo, matFrame)); jamL.position.set(-entity.width/2 + jambW/2, height/2, 0); 
-                    const jamR = tagFrame(new THREE.Mesh(jamGeo, matFrame)); jamR.position.set(entity.width/2 - jambW/2, height/2, 0); 
+                    const jamHeight = height + bottomY;
+                    const jamY = jamHeight/2 - bottomY;
+                    const jamGeo = createBeveledExtrude(jambW, jamHeight, frameThick); 
+                    const jamL = tagFrame(new THREE.Mesh(jamGeo, matFrame)); jamL.position.set(-entity.width/2 + jambW/2, jamY, 0); 
+                    const jamR = tagFrame(new THREE.Mesh(jamGeo, matFrame)); jamR.position.set(entity.width/2 - jambW/2, jamY, 0); 
                     const jamTGeo = rotateUvs(createBeveledExtrude(entity.width - jambW*2, jambW, frameThick)); 
                     const jamT = tagFrame(new THREE.Mesh(jamTGeo, matFrame)); jamT.position.set(0, height - jambW/2, 0);
                     [jamL, jamR, jamT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); });
@@ -641,36 +703,42 @@ export const WIDGET_REGISTRY = {
                     // Stops (Rebate) & Gasket
                     const swingDir = entity.facing === 1 ? 1 : -1;
                     const stopZ = -swingDir * (doorThick/2 + stopThick/2);
-                    const stopH = height - jambW;
+                    const stopBottom = -bottomY + tHeight;
+                    const stopH = (height - jambW) - stopBottom;
+                    const stopY = stopBottom + stopH/2;
                     const stopGeoV = createBeveledExtrude(stopW, stopH, stopThick, 0.02); 
-                    const stopL = tagFrame(new THREE.Mesh(stopGeoV, matFrame)); stopL.position.set(-entity.width/2 + jambW + stopW/2, stopH/2, stopZ); 
-                    const stopR = tagFrame(new THREE.Mesh(stopGeoV, matFrame)); stopR.position.set(entity.width/2 - jambW - stopW/2, stopH/2, stopZ);
+                    const stopL = tagFrame(new THREE.Mesh(stopGeoV, matFrame)); stopL.position.set(-entity.width/2 + jambW + stopW/2, stopY, stopZ); 
+                    const stopR = tagFrame(new THREE.Mesh(stopGeoV, matFrame)); stopR.position.set(entity.width/2 - jambW - stopW/2, stopY, stopZ);
                     const stopGeoH = rotateUvs(createBeveledExtrude(entity.width - jambW*2 - stopW*2, stopW, stopThick, 0.02)); 
                     const stopT = tagFrame(new THREE.Mesh(stopGeoH, matFrame)); stopT.position.set(0, height - jambW - stopW/2, stopZ);
                     [stopL, stopR, stopT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); });
                     
                     const gasketMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 }); 
                     const gaskGeo = new THREE.BoxGeometry(0.1, stopH, 0.1); 
-                    const gaskL = tagFrame(new THREE.Mesh(gaskGeo, gasketMat)); gaskL.position.set(-entity.width/2 + jambW + stopW + 0.05, stopH/2, doorThick/2 + 0.05); 
-                    const gaskR = tagFrame(new THREE.Mesh(gaskGeo, gasketMat)); gaskR.position.set(entity.width/2 - jambW - stopW - 0.05, stopH/2, doorThick/2 + 0.05); 
+                    const gaskL = tagFrame(new THREE.Mesh(gaskGeo, gasketMat)); gaskL.position.set(-entity.width/2 + jambW + stopW + 0.05, stopY, doorThick/2 + 0.05); 
+                    const gaskR = tagFrame(new THREE.Mesh(gaskGeo, gasketMat)); gaskR.position.set(entity.width/2 - jambW - stopW - 0.05, stopY, doorThick/2 + 0.05); 
                     const gaskGeoH = new THREE.BoxGeometry(entity.width - jambW*2 - stopW*2, 0.1, 0.1); 
                     const gaskT = tagFrame(new THREE.Mesh(gaskGeoH, gasketMat)); gaskT.position.set(0, height - jambW - stopW - 0.05, doorThick/2 + 0.05);
                     [gaskL, gaskR, gaskT].forEach(m => doorGroup.add(m));
 
                     // Architraves (Clean Butt Joints)
-                    const archV = createBeveledExtrude(archW, height, archThick); 
+                    const archHeight = height + bottomY;
+                    const archY = archHeight/2 - bottomY;
+                    const archV = createBeveledExtrude(archW, archHeight, archThick); 
                     const archHgeo = rotateUvs(createBeveledExtrude(entity.width + archW*2, archW, archThick));
+                    
                     [-frameThick/2 - archThick/2 + 0.05, frameThick/2 + archThick/2 - 0.05].forEach(zOff => { 
-                        const tL = tagFrame(new THREE.Mesh(archV, matFrame)); tL.position.set(-entity.width/2 - archW/2 + jambW, height/2, zOff); 
-                        const tR = tagFrame(new THREE.Mesh(archV, matFrame)); tR.position.set(entity.width/2 + archW/2 - jambW, height/2, zOff); 
+                        const tL = tagFrame(new THREE.Mesh(archV, matFrame)); tL.position.set(-entity.width/2 - archW/2 + jambW, archY, zOff); 
+                        const tR = tagFrame(new THREE.Mesh(archV, matFrame)); tR.position.set(entity.width/2 + archW/2 - jambW, archY, zOff); 
                         const tT = tagFrame(new THREE.Mesh(archHgeo, matFrame)); tT.position.set(0, height + archW/2, zOff); 
+                        
                         [tL, tR, tT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); }); 
                     });
                     
                     if (slWidth > 0) {
-                        const innerJamGeo = createBeveledExtrude(jambW, height - jambW, frameThick);
-                        const iJamL = tagFrame(new THREE.Mesh(innerJamGeo, matFrame)); iJamL.position.set(-entity.width/2 + jambW + slWidth - jambW/2, (height - jambW)/2, 0);
-                        const iJamR = tagFrame(new THREE.Mesh(innerJamGeo, matFrame)); iJamR.position.set(entity.width/2 - jambW - slWidth + jambW/2, (height - jambW)/2, 0);
+                        const innerJamGeo = createBeveledExtrude(jambW, height - jambW + bottomY, frameThick);
+                        const iJamL = tagFrame(new THREE.Mesh(innerJamGeo, matFrame)); iJamL.position.set(-entity.width/2 + jambW + slWidth - jambW/2, (height - jambW + bottomY)/2 - bottomY, 0);
+                        const iJamR = tagFrame(new THREE.Mesh(innerJamGeo, matFrame)); iJamR.position.set(entity.width/2 - jambW - slWidth + jambW/2, (height - jambW + bottomY)/2 - bottomY, 0);
                         [iJamL, iJamR].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); });
                         
                         const slGlassW = slWidth - jambW;
@@ -691,7 +759,7 @@ export const WIDGET_REGISTRY = {
                         const hwO = wOuter / 2;
                         const hwI = wInner / 2;
                         
-                        shape.moveTo(-hwO, 0);
+                        shape.moveTo(-hwO, -bottomY);
                         if (type === 'radius') {
                             const strHO = Math.max(0, hOuter - hwO);
                             shape.lineTo(-hwO, strHO);
@@ -708,8 +776,8 @@ export const WIDGET_REGISTRY = {
                             shape.quadraticCurveTo(hwO * 0.2, hOuter, hwO, strHO);
                         }
                         
-                        shape.lineTo(hwO, 0);
-                        shape.lineTo(hwI, 0);
+                        shape.lineTo(hwO, -bottomY);
+                        shape.lineTo(hwI, -bottomY);
                         
                         if (type === 'radius') {
                             const strHI = Math.max(0, hInner - hwI);
@@ -727,8 +795,8 @@ export const WIDGET_REGISTRY = {
                             shape.quadraticCurveTo(-hwI * 0.2, hInner, -hwI, strHI);
                         }
                         
-                        shape.lineTo(-hwI, 0);
-                        shape.lineTo(-hwO, 0);
+                        shape.lineTo(-hwI, -bottomY);
+                        shape.lineTo(-hwO, -bottomY);
                         return shape;
                     };
                     
@@ -816,7 +884,7 @@ export const WIDGET_REGISTRY = {
                     doorGroup.add(pFixL, pFixR, pSlideL, pSlideR);
                 }
             } else if (entity.doorType === 'pocket') {
-                const jamL = tagFrame(new THREE.Mesh(new THREE.BoxGeometry(frameWidth, height, frameThick), matFrame)); jamL.position.set(-entity.width/2 + frameWidth/2, height/2, 0); doorGroup.add(jamL);
+                const jamL = tagFrame(new THREE.Mesh(new THREE.BoxGeometry(frameWidth, height + bottomY, frameThick), matFrame)); jamL.position.set(-entity.width/2 + frameWidth/2, (height + bottomY)/2 - bottomY, 0); doorGroup.add(jamL);
                 const p = buildDetailedDoorPanel(entity, leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); 
                 const openPercent = entity.openAngle !== undefined ? entity.openAngle / 180 : 0;
                 const baseX = pivotXOffset;

@@ -680,7 +680,7 @@ export class EnvironmentBuilder {
                             }
         });
 
-        const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: t, bevelEnabled: true, bevelSize: 0.2, bevelThickness: 0.2, bevelSegments: 2 });
+        const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: t, bevelEnabled: false });
         wallGeo.translate(0, 0, -t / 2);
         
         // ====== MITER JOINT SHEARING ======
