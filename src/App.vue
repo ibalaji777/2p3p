@@ -540,12 +540,16 @@ const toggleLayerVisibility = (item) => {
     
     if (ent.mesh3D) ent.mesh3D.visible = !ent.isHidden;
     if (viewMode.value === '3d') refresh3DScene(true);
+    layerRefreshTrigger.value++;
 };
 
 const removeLayerItem = (item) => {
     selectedEntity.value = item.entity;
     selectedType.value = item.type;
     handleDelete();
+    if (viewMode.value === '3d') {
+        refresh3DScene(true);
+    }
     layerRefreshTrigger.value++;
 };
 
@@ -667,7 +671,10 @@ onMounted(() => {
     eventBusUnsubscribers.push(coreEventBus.on(EVENTS.ROOF_CORNER_GIZMO_CHANGE, throttledSyncEngine));
     eventBusUnsubscribers.push(coreEventBus.on(EVENTS.ROOF_OVERHANG_GIZMO_CHANGE, throttledSyncEngine));
     eventBusUnsubscribers.push(coreEventBus.on(EVENTS.SCENE_CHANGED, syncEngine));
-    eventBusUnsubscribers.push(coreEventBus.on(EVENTS.ENTITY_REMOVED, syncEngine));
+    eventBusUnsubscribers.push(coreEventBus.on(EVENTS.ENTITY_REMOVED, () => {
+        if (viewMode.value === '3d') refresh3DScene(true);
+        else syncEngine();
+    }));
     
     eventBusUnsubscribers.push(coreEventBus.on(EVENTS.HISTORY_CHANGED, () => {
         if (planner.value && planner.value.commandManager) {

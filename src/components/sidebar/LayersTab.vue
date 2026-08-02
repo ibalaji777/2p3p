@@ -22,7 +22,7 @@
                 
                 <!-- Dropdown Menu -->
                 <div v-if="activeLayerDropdown === item.id" class="layer-dropdown" @click.stop>
-                    <input type="text" v-model="item.entity.description" @input="$emit('debounced-save-history')" placeholder="Add description..." class="layer-dropdown-input" />
+                    <input type="text" v-model="item.entity.description" @change="$emit('debounced-save-history')" placeholder="Add description..." class="layer-dropdown-input" />
                     <button class="layer-dropdown-del" @click.stop="$emit('remove-layer-item', item); activeLayerDropdown = null;">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                         Delete

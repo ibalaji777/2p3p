@@ -312,6 +312,7 @@ export class EnvironmentBuilder {
 
         if (rooms) {
             rooms.forEach(room => {
+                if (room.isDeleted || room.isHidden) return;
                 const path = room.path;
                 if (!path || path.length < 3) return;
 
@@ -1103,6 +1104,7 @@ export class EnvironmentBuilder {
 
                 if (data.rooms) {
                     data.rooms.forEach(room => {
+                        if (room.isDeleted || room.isHidden) return;
                         const path = room.path;
                         if (!path || path.length < 3) return;
                         const floorShape = new THREE.Shape();

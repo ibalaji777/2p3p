@@ -154,7 +154,11 @@ export function useAppTools({
             } else {
                 if (planner.value) {
                     const id = selectedEntity.value.id || (selectedEntity.value.group && selectedEntity.value.group.id());
-                    planner.value.delete(id);
+                    planner.value.delete(id || selectedEntity.value);
+                    selectedEntity.value = null;
+                    selectedType.value = null;
+                    if (viewMode.value === '3d') refresh3DScene(true);
+                    else if (typeof planner.value.syncAll === 'function') planner.value.syncAll();
                 }
             }
         }

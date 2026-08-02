@@ -212,8 +212,8 @@ export class FloorPlanner {
         this.commandManager.execute(cmd);
     }
     
-    delete(entityId) {
-        const entity = this.getEntities().find(e => e.id === entityId || (e.group && e.group.id() === entityId));
+    delete(entityOrId) {
+        const entity = typeof entityOrId === 'object' && entityOrId !== null ? entityOrId : this.getEntities().find(e => e.id === entityOrId || (e.group && e.group.id() === entityOrId));
         if (!entity) return;
         const cmd = new DeleteCommand(this, entity);
         this.commandManager.execute(cmd);
@@ -260,11 +260,38 @@ export class FloorPlanner {
         this.syncAll();
     }
 
-    _applyDelete(entityId) {
-        const entity = this.getEntities().find(e => e.id === entityId || (e.group && e.group.id() === entityId));
+    _applyDelete(entityOrId) {
+        const entity = (typeof entityOrId === 'object' && entityOrId !== null) 
+            ? entityOrId 
+            : this.getEntities().find(e => e && (e === entityOrId || e.id === entityOrId || (e.group && typeof e.group.id === 'function' && e.group.id() === entityOrId)));
+        
         if (!entity) return;
-        if (typeof entity.remove === 'function') entity.remove();
-        else if (typeof entity.destroy === 'function') entity.destroy();
+
+        if (typeof entity.remove === 'function') {
+            entity.remove();
+        } else if (typeof entity.destroy === 'function') {
+            entity.destroy();
+        }
+
+        // Always ensure entity is removed from engine2d arrays (rooms are marked isDeleted so loop detection respects deletion)
+        if (this.walls) this.walls = this.walls.filter(w => w !== entity);
+        if (this.furniture) this.furniture = this.furniture.filter(f => f !== entity);
+        if (this.stairs) this.stairs = this.stairs.filter(s => s !== entity);
+        if (this.roofs) this.roofs = this.roofs.filter(r => r !== entity);
+        if (this.arcs) this.arcs = this.arcs.filter(a => a !== entity);
+        if (this.shapes) this.shapes = this.shapes.filter(s => s !== entity);
+        if (this.presetGroups) this.presetGroups = this.presetGroups.filter(g => g !== entity);
+        if (this.rooms) {
+            if (this.rooms.includes(entity)) entity.isDeleted = true;
+            else this.rooms = this.rooms.filter(r => r !== entity);
+        }
+
+        // Clean up visual nodes if present
+        if (entity.wallGroup && typeof entity.wallGroup.destroy === 'function') entity.wallGroup.destroy();
+        if (entity.labelGroup && typeof entity.labelGroup.destroy === 'function') entity.labelGroup.destroy();
+        if (entity.line && typeof entity.line.destroy === 'function') entity.line.destroy();
+        if (entity.line2 && typeof entity.line2.destroy === 'function') entity.line2.destroy();
+        if (entity.group && typeof entity.group.destroy === 'function') entity.group.destroy();
         
         if (this.selectedEntity === entity) {
             this.selectedEntity = null;
@@ -272,7 +299,8 @@ export class FloorPlanner {
         }
         
         if (typeof window !== 'undefined') {
-            coreEventBus.emit(EVENTS.ENTITY_REMOVED, { entityId });
+            const resolvedId = entity.id || (typeof entityOrId === 'string' ? entityOrId : null);
+            coreEventBus.emit(EVENTS.ENTITY_REMOVED, { entityId: resolvedId, entity });
             coreEventBus.emit(EVENTS.SCENE_CHANGED);
         }
         this.syncAll();
@@ -1271,7 +1299,15 @@ export class FloorPlanner {
             cy /= uniquePoints.length;
 
             let existingRoom = (this.rooms || []).find(r => Math.hypot(r.cx - cx, r.cy - cy) < 20);
-            const room = { path, cx, cy, configId: existingRoom ? existingRoom.configId : 'hardwood', isDeleted: existingRoom ? existingRoom.isDeleted : false, isHidden: existingRoom ? existingRoom.isHidden : false, materialRepeat: existingRoom ? existingRoom.materialRepeat : undefined };
+            let room;
+            if (existingRoom) {
+                existingRoom.path = path;
+                existingRoom.cx = cx;
+                existingRoom.cy = cy;
+                room = existingRoom;
+            } else {
+                room = { path, cx, cy, configId: 'hardwood', isDeleted: false, isHidden: false, materialRepeat: undefined, description: undefined };
+            }
             newRooms.push(room);
             if (!room.isDeleted && !room.isHidden) {
                 this.drawRoom(room);
