@@ -1,16 +1,27 @@
-import { MaterialSlots, ComponentTypes } from '../constants/materialSlots.js';
+import { MaterialSlots, ComponentTypes, SLOT_DEFINITIONS, INTERACTION_MODES } from '../constants/materialSlots.js';
 
 /**
- * Unified Component Registry for 3D CAD/BIM Assemblies.
- * Provides O(1) slot-to-mesh lookups, semantic component metadata management,
- * slot-wide highlighting, and selection tracking across doors, windows, walls, and widgets.
+ * 3-Layer Architecture Component Registry for 3D CAD/BIM Assemblies.
+ * Layer 1: Component Registry (Selection, hover, componentId grouping, property panels, visibility, locking).
+ * Layer 2: Material Slots (Inheritance, explicit overrides, serialization).
+ * Layer 3: Mesh Registry (Efficient O(1) rendering & material application).
  */
 export class ComponentRegistry {
-    static registry = new Map(); // entityId -> Map<slotName, Set<THREE.Mesh>>
-    static meshMetadata = new WeakMap(); // THREE.Mesh -> semantic metadata object
+    static slotRegistry = new Map();      // entityId -> Map<slotName, Set<THREE.Mesh>>
+    static componentRegistry = new Map(); // entityId -> Map<componentId, Set<THREE.Mesh>>
+    static meshMetadata = new WeakMap();  // THREE.Mesh -> semantic metadata object
+    static currentMode = INTERACTION_MODES.COMPONENT;
 
     /**
-     * Registers a sub-mesh under an entity's material slot and attaches semantic metadata.
+     * Sets the active selection/interaction granularity mode.
+     * @param {string} mode - 'component', 'slot', or 'mesh'.
+     */
+    static setInteractionMode(mode) {
+        ComponentRegistry.currentMode = mode || INTERACTION_MODES.COMPONENT;
+    }
+
+    /**
+     * Registers a sub-mesh under an entity's component & slot maps and attaches semantic metadata.
      * @param {Object} entity - Parent 3D entity.
      * @param {string} slotName - Material slot name from MaterialSlots.
      * @param {THREE.Mesh} mesh - The sub-mesh instance.
@@ -21,36 +32,41 @@ export class ComponentRegistry {
 
         const entityId = String(entity.id);
         const slot = slotName || mesh.userData?.materialSlot || MaterialSlots.CUSTOM;
+        const componentId = extraMeta.componentId || `${entityId}_${slot}`;
 
-        if (!ComponentRegistry.registry.has(entityId)) {
-            ComponentRegistry.registry.set(entityId, new Map());
+        // 1. Layer 3 Mesh Registry (Slot -> Meshes)
+        if (!ComponentRegistry.slotRegistry.has(entityId)) {
+            ComponentRegistry.slotRegistry.set(entityId, new Map());
         }
-
-        const slotMap = ComponentRegistry.registry.get(entityId);
+        const slotMap = ComponentRegistry.slotRegistry.get(entityId);
         if (!slotMap.has(slot)) {
             slotMap.set(slot, new Set());
         }
         slotMap.get(slot).add(mesh);
 
+        // 2. Layer 1 Component Registry (Component -> Meshes)
+        if (!ComponentRegistry.componentRegistry.has(entityId)) {
+            ComponentRegistry.componentRegistry.set(entityId, new Map());
+        }
+        const compMap = ComponentRegistry.componentRegistry.get(entityId);
+        if (!compMap.has(componentId)) {
+            compMap.set(componentId, new Set());
+        }
+        compMap.get(componentId).add(mesh);
+
         const metadata = {
             entityId: entityId,
             entityType: entity.type || 'widget',
-            componentId: extraMeta.componentId || `${entityId}_${slot}_${slotMap.get(slot).size}`,
+            componentId: componentId,
             componentType: extraMeta.componentType || ComponentRegistry._inferComponentType(slot),
             materialSlot: slot,
+            inheritsSlot: SLOT_DEFINITIONS[slot]?.inherits || null,
             selectable: extraMeta.selectable !== undefined ? extraMeta.selectable : true,
             highlightable: extraMeta.highlightable !== undefined ? extraMeta.highlightable : true,
             materialLocked: extraMeta.materialLocked || Boolean(mesh.userData?.materialLocked),
-            isFrame: slot === MaterialSlots.FRAME,
-            isGlass: slot === MaterialSlots.GLASS,
-            isHandle: slot === MaterialSlots.HARDWARE,
-            isLeaf: slot === MaterialSlots.LEAF,
-            isSeal: slot === MaterialSlots.SEAL,
-            isTrim: slot === MaterialSlots.TRIM,
             entity: entity
         };
 
-        // Attach metadata both to WeakMap and mesh.userData
         ComponentRegistry.meshMetadata.set(mesh, metadata);
         mesh.userData = {
             ...mesh.userData,
@@ -64,7 +80,8 @@ export class ComponentRegistry {
      */
     static unregisterEntity(entityOrId) {
         const entityId = typeof entityOrId === 'object' ? String(entityOrId.id) : String(entityOrId);
-        ComponentRegistry.registry.delete(entityId);
+        ComponentRegistry.slotRegistry.delete(entityId);
+        ComponentRegistry.componentRegistry.delete(entityId);
     }
 
     /**
@@ -75,21 +92,22 @@ export class ComponentRegistry {
      */
     static getMeshesForSlot(entityOrId, slotName) {
         const entityId = typeof entityOrId === 'object' ? String(entityOrId.id) : String(entityOrId);
-        const slotMap = ComponentRegistry.registry.get(entityId);
+        const slotMap = ComponentRegistry.slotRegistry.get(entityId);
         if (!slotMap || !slotMap.has(slotName)) return [];
         return Array.from(slotMap.get(slotName)).filter(m => m && m.isMesh);
     }
 
     /**
-     * Gets all registered material slots for an entity.
+     * Gets all registered meshes for a specific componentId in O(1) time.
      * @param {string|Object} entityOrId 
-     * @returns {Array<string>}
+     * @param {string} componentId 
+     * @returns {Array<THREE.Mesh>}
      */
-    static getSlotsForEntity(entityOrId) {
+    static getMeshesForComponent(entityOrId, componentId) {
         const entityId = typeof entityOrId === 'object' ? String(entityOrId.id) : String(entityOrId);
-        const slotMap = ComponentRegistry.registry.get(entityId);
-        if (!slotMap) return [];
-        return Array.from(slotMap.keys());
+        const compMap = ComponentRegistry.componentRegistry.get(entityId);
+        if (!compMap || !compMap.has(componentId)) return [];
+        return Array.from(compMap.get(componentId)).filter(m => m && m.isMesh);
     }
 
     /**
@@ -103,15 +121,64 @@ export class ComponentRegistry {
     }
 
     /**
-     * Activates or clears slot-wide component highlighting across all sub-meshes registered to a slot in real time.
-     * @param {string|Object} entityOrId - Entity or entity ID.
-     * @param {string} slotName - Material slot name.
-     * @param {boolean} [active=true] - Highlight state.
-     * @param {number} [highlightColor=0x00ff00] - Highlight emissive hex color.
-     * @param {Object} [ctx=null] - 3D engine context to trigger real-time requestRender.
+     * Highlights sub-meshes based on active interaction mode (Component Mode, Slot Mode, or Mesh Mode).
+     * @param {THREE.Mesh} mesh 
+     * @param {boolean} [active=true] 
+     * @param {number} [highlightColor=0x93c5fd] 
+     * @param {Object} [ctx=null] 
+     */
+    static highlightMeshByInteractionMode(mesh, active = true, highlightColor = 0x93c5fd, ctx = null) {
+        if (!mesh) return;
+
+        const meta = ComponentRegistry.getMetadata(mesh);
+        if (!meta || !meta.entityId) {
+            ComponentRegistry._applyMeshHighlightDirect([mesh], active, highlightColor);
+            if (ctx && typeof ctx.requestRender === 'function') ctx.requestRender();
+            return;
+        }
+
+        let targetMeshes = [];
+
+        if (ComponentRegistry.currentMode === INTERACTION_MODES.COMPONENT && meta.componentId) {
+            targetMeshes = ComponentRegistry.getMeshesForComponent(meta.entityId, meta.componentId);
+        } else if (ComponentRegistry.currentMode === INTERACTION_MODES.SLOT && meta.materialSlot) {
+            targetMeshes = ComponentRegistry.getMeshesForSlot(meta.entityId, meta.materialSlot);
+        } else {
+            targetMeshes = [mesh];
+        }
+
+        ComponentRegistry._applyMeshHighlightDirect(targetMeshes, active, highlightColor);
+
+        if (ctx && typeof ctx.requestRender === 'function') {
+            ctx.requestRender();
+        } else if (typeof window !== 'undefined' && window.app3d && typeof window.app3d.requestRender === 'function') {
+            window.app3d.requestRender();
+        }
+    }
+
+    /**
+     * Activates or clears slot-wide component highlighting.
+     * @param {string|Object} entityOrId 
+     * @param {string} slotName 
+     * @param {boolean} [active=true] 
+     * @param {number} [highlightColor=0x00ff00] 
+     * @param {Object} [ctx=null] 
      */
     static setSlotHighlight(entityOrId, slotName, active = true, highlightColor = 0x00ff00, ctx = null) {
         const meshes = ComponentRegistry.getMeshesForSlot(entityOrId, slotName);
+        ComponentRegistry._applyMeshHighlightDirect(meshes, active, highlightColor);
+
+        if (ctx && typeof ctx.requestRender === 'function') {
+            ctx.requestRender();
+        } else if (typeof window !== 'undefined' && window.app3d && typeof window.app3d.requestRender === 'function') {
+            window.app3d.requestRender();
+        }
+    }
+
+    /**
+     * @private
+     */
+    static _applyMeshHighlightDirect(meshes, active, color) {
         for (const m of meshes) {
             if (!m || !m.material || m.userData?.highlightable === false) continue;
             const mats = Array.isArray(m.material) ? m.material : [m.material];
@@ -122,7 +189,7 @@ export class ComponentRegistry {
                         mat.userData.origEmissive = mat.emissive.getHex();
                         mat.userData.origEmissiveIntensity = mat.emissiveIntensity || 0;
                     }
-                    mat.emissive.setHex(highlightColor);
+                    mat.emissive.setHex(color);
                     mat.emissiveIntensity = 0.8;
                 } else {
                     if (mat.userData.origEmissive !== undefined) {
@@ -133,32 +200,14 @@ export class ComponentRegistry {
                 mat.needsUpdate = true;
             }
         }
-
-        if (ctx && typeof ctx.requestRender === 'function') {
-            ctx.requestRender();
-        } else if (typeof window !== 'undefined' && window.app3d && typeof window.app3d.requestRender === 'function') {
-            window.app3d.requestRender();
-        }
     }
 
     /**
-     * Clears highlights from all registered sub-meshes of an entity.
-     * @param {string|Object} entityOrId 
-     * @param {Object} [ctx=null]
-     */
-    static clearAllEntityHighlights(entityOrId, ctx = null) {
-        const slots = ComponentRegistry.getSlotsForEntity(entityOrId);
-        for (const slot of slots) {
-            ComponentRegistry.setSlotHighlight(entityOrId, slot, false, 0x00ff00, ctx);
-        }
-    }
-
-    /**
-     * Infers ComponentType from MaterialSlot.
      * @private
      */
     static _inferComponentType(slot) {
         if (slot === MaterialSlots.FRAME) return ComponentTypes.FRAME;
+        if (slot.startsWith('sash_')) return ComponentTypes.SASH;
         if (slot === MaterialSlots.LEAF) return ComponentTypes.LEAF;
         if (slot === MaterialSlots.GLASS) return ComponentTypes.GLASS;
         if (slot === MaterialSlots.HARDWARE) return ComponentTypes.HARDWARE;

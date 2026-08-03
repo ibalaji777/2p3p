@@ -13,6 +13,8 @@ export * from './registries/material.registry.js';
 import { DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT } from './constants/units.js';
 import { WINDOW_TYPES, WINDOW_GLASS_MATERIALS } from '../features/window/window.registry.js';
 import { JALI_MATERIALS } from './registries/material.registry.js';
+import { MaterialSlots } from './constants/materialSlots.js';
+import { ComponentRegistry } from './engine3d/ComponentRegistry.js';
 
 export const WORKSPACE_2D_SHAPES = {
     // Default boundary
@@ -938,6 +940,17 @@ export const WIDGET_REGISTRY = {
             hitbox.position.set(0, height/2, 0);
             doorGroup.add(hitbox);
             doorGroup.userData = { isWidget: true, entity: entity };
+            doorGroup.traverse(child => {
+                if (child && child.isMesh && !child.userData?.isHitbox) {
+                    child.userData.entity = entity;
+                    const isFrame = Boolean(child.userData?.isFrame);
+                    const isGlass = Boolean(child.userData?.isGlass);
+                    const isHandle = Boolean(child.userData?.isHandle);
+                    let slotName = child.userData?.materialSlot || (isFrame ? MaterialSlots.FRAME : (isGlass ? MaterialSlots.GLASS : (isHandle ? MaterialSlots.HARDWARE : MaterialSlots.LEAF)));
+                    child.userData.materialSlot = slotName;
+                    ComponentRegistry.registerMesh(entity, slotName, child, { componentId: `${entity.id}_${slotName}` });
+                }
+            });
             sceneGroup.add(doorGroup);
             return doorGroup;
         }
@@ -987,16 +1000,9 @@ export const WIDGET_REGISTRY = {
             const matsFrameRaw = (helpers && helpers.getFaceMaterials) ? helpers.getFaceMaterials(entity, matFrame, { width: entity.width, height: height, thick: fThick }).box : matFrame;
             const matsExtrude = Array.isArray(matsFrameRaw) ? [matsFrameRaw[4] || matsFrameRaw[0], matsFrameRaw[1] || matsFrameRaw[0]] : matsFrameRaw;
 
-            // --- Board Color Variations for Natural Timber Realism ---
+            // --- Unified Frame Material Reference ---
             const matsExtrudeStile = matsExtrude;
-            const matsExtrudeRail = Array.isArray(matsExtrude) ? 
-                [matsExtrude[0].clone(), matsExtrude[1].clone()] : 
-                (matsExtrude && matsExtrude.clone ? matsExtrude.clone() : matsExtrude);
-            if (Array.isArray(matsExtrudeRail)) {
-                matsExtrudeRail.forEach(m => { if (m && m.color) m.color.multiplyScalar(0.96); });
-            } else if (matsExtrudeRail && matsExtrudeRail.color) {
-                matsExtrudeRail.color.multiplyScalar(0.96);
-            }
+            const matsExtrudeRail = matsExtrude;
 
             // --- 3D Geometry Helper with Chamfers & UV Mapping ---
             const createBeveledRect = (w, h, depth, bSize = 0.25, bThick = 0.25) => {
@@ -1514,6 +1520,17 @@ export const WIDGET_REGISTRY = {
             hitbox.position.set(0, height / 2, 0);
             winGroup.add(hitbox);
             winGroup.userData = { isWidget: true, entity: entity };
+            winGroup.traverse(child => {
+                if (child && child.isMesh && !child.userData?.isHitbox) {
+                    child.userData.entity = entity;
+                    const isGlass = Boolean(child.userData?.isGlass);
+                    const isHandle = Boolean(child.userData?.isHandle);
+                    const isSeal = Boolean(child.userData?.isSeal);
+                    let slotName = child.userData?.materialSlot || (isGlass ? MaterialSlots.GLASS : (isHandle ? MaterialSlots.HARDWARE : (isSeal ? MaterialSlots.SEAL : MaterialSlots.FRAME)));
+                    child.userData.materialSlot = slotName;
+                    ComponentRegistry.registerMesh(entity, slotName, child, { componentId: `${entity.id}_${slotName}` });
+                }
+            });
             sceneGroup.add(winGroup);
             return winGroup;
         }

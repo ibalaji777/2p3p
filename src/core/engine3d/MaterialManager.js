@@ -26,8 +26,8 @@ import {
 export class MaterialManager {
     static activeTransaction = null;
     static assetManifests = {
-        door: [MaterialSlots.FRAME, MaterialSlots.LEAF, MaterialSlots.GLASS, MaterialSlots.HARDWARE, MaterialSlots.SEAL],
-        window: [MaterialSlots.FRAME, MaterialSlots.GLASS, MaterialSlots.SCREEN, MaterialSlots.HARDWARE],
+        door: [MaterialSlots.FRAME, MaterialSlots.LEAF, MaterialSlots.GLASS, MaterialSlots.HARDWARE, MaterialSlots.SEAL, MaterialSlots.TRIM],
+        window: [MaterialSlots.FRAME, MaterialSlots.SASH_LEFT, MaterialSlots.SASH_RIGHT, MaterialSlots.SASH_TOP, MaterialSlots.SASH_BOTTOM, MaterialSlots.GLASS, MaterialSlots.HARDWARE, MaterialSlots.SEAL, MaterialSlots.SCREEN],
         wall: [MaterialSlots.WALL_FRONT, MaterialSlots.WALL_BACK, MaterialSlots.WALL_LEFT, MaterialSlots.WALL_RIGHT, MaterialSlots.WALL_TOP, MaterialSlots.WALL_BOTTOM],
         widget: [MaterialSlots.FRAME, MaterialSlots.TRIM, MaterialSlots.CUSTOM]
     };
@@ -187,6 +187,19 @@ export class MaterialManager {
     }
 
     /**
+     * Previews a material on a slot temporarily without mutating the JSON model.
+     * @param {Object} entity 
+     * @param {string} slotName 
+     * @param {Object|string} matConfig 
+     * @param {Object} ctx 
+     */
+    static async previewMaterialSlot(entity, slotName, matConfig, ctx = null) {
+        if (!entity || !slotName || !matConfig) return;
+        const descriptor = MaterialManager.normalizeDescriptor(matConfig);
+        await MaterialManager.applySlot(entity, slotName, descriptor, ctx);
+    }
+
+    /**
      * Applies the specified slot material to all registered meshes of an entity.
      * Uses O(1) ComponentRegistry lookup first, falling back to recursive traversal.
      * @param {Object} entity 
@@ -197,7 +210,16 @@ export class MaterialManager {
     static async applySlot(entity, slotName, matInput, ctx = null) {
         if (!entity) return;
 
-        const config = MaterialManager.resolveMaterialConfig(matInput);
+        let matToUse = matInput;
+        const parentSlot = SLOT_DEFINITIONS[slotName]?.inherits;
+        if (!matToUse || (typeof matToUse === 'object' && matToUse.inherits === true)) {
+            if (parentSlot && entity.materials?.[parentSlot]) {
+                matToUse = entity.materials[parentSlot];
+            } else if (slotName.startsWith('sash_')) {
+                matToUse = entity.materials?.[MaterialSlots.FRAME] || entity.frameMat || 'wood_teak';
+            }
+        }
+        const config = MaterialManager.resolveMaterialConfig(matToUse);
         if (!config) return;
 
         let targetMeshes = ComponentRegistry.getMeshesForSlot(entity.id, slotName);

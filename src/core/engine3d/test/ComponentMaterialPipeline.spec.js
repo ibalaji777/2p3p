@@ -10,7 +10,8 @@ describe('10/10 CAD/BIM Component & Material Pipeline', () => {
     let frameMesh1, frameMesh2, leafMesh, glassMesh, lockedHardwareMesh;
 
     beforeEach(() => {
-        ComponentRegistry.registry.clear();
+        ComponentRegistry.slotRegistry.clear();
+        ComponentRegistry.componentRegistry.clear();
 
         mockEntity = {
             id: 'test_door_101',
@@ -121,5 +122,20 @@ describe('10/10 CAD/BIM Component & Material Pipeline', () => {
         expect(metrics.totalMeshes).toBe(5);
         expect(metrics.registeredMeshes).toBe(5);
         expect(metrics.slotCoverage).toBe('100.0%');
+    });
+
+    it('7. should automatically highlight and apply materials across the entire material group when any sub-mesh is selected', async () => {
+        // Selecting frameMesh1 (left jamb) should resolve slot FRAME and update all frame meshes (left jamb, right jamb)
+        const frameMeshes = ComponentRegistry.getMeshesForSlot(mockEntity.id, MaterialSlots.FRAME);
+        expect(frameMeshes.length).toBe(2);
+
+        // Highlight whole group
+        ComponentRegistry.setSlotHighlight(mockEntity.id, MaterialSlots.FRAME, true, 0x93c5fd);
+        expect(frameMesh1.material.emissive.getHex()).toBe(0x93c5fd);
+        expect(frameMesh2.material.emissive.getHex()).toBe(0x93c5fd);
+
+        // Apply material to the group
+        await MaterialManager.updateEntityMaterialSlot(mockEntity, MaterialSlots.FRAME, 'wood_golden_oak');
+        expect(mockEntity.materials[MaterialSlots.FRAME].id).toBe('wood_golden_oak');
     });
 });
