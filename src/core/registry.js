@@ -1034,8 +1034,9 @@ export const WIDGET_REGISTRY = {
             const matGlass = helpers.getDynamicMaterial(entity.glassMat, 'window_glass');
             const isTrad = wConf.type === 'traditional';
             const isBay = wConf.type === 'bay';
+            const wallThickness = entity.wall ? (entity.wall.thickness || entity.wall.config?.thickness || entity.thick || 20) : (entity.thick || 20);
             const fW = isTrad ? 4.5 : 2.7;
-            const fThick = isTrad ? entity.thick + 2 : entity.thick + 0.5;
+            const fThick = isTrad ? wallThickness + 2 : wallThickness + 0.5;
             const zOffset = isBay ? 12 : 0; 
             
             const matMetalHardware = new THREE.MeshStandardMaterial({ color: 0x2a303c, metalness: 0.90, roughness: 0.22 });
@@ -1270,7 +1271,7 @@ export const WIDGET_REGISTRY = {
 
             const iW = entity.width - fW * 2;
             const iH = height - fW * 2;
-            const sThick = entity.thick * 0.35; // 35 mm slim sash depth
+            const sThick = wallThickness * 0.35; // 35 mm slim sash depth (proportional to wall thickness)
 
             // --- 2. Window Sash Assembly (45° Miter Joints, Sash Rollers, Interlockers, Glazing Beads, PBR Glass & Hardware) ---
             const makeSash = (w, h, useGlass = true, isCasement = false, hingeSide = 1) => {
@@ -1338,14 +1339,14 @@ export const WIDGET_REGISTRY = {
                     const sealR = new THREE.Mesh(geoSealV, matRubberSeal); sealR.position.set(cutoutW / 2 - sealW / 2, sashH / 2, 0);
                     const sealT = new THREE.Mesh(geoSealH, matRubberSeal); sealT.position.set(0, sashH - sFw - sealW / 2, 0);
                     const sealB = new THREE.Mesh(geoSealH, matRubberSeal); sealB.position.set(0, sFw + sealW / 2, 0);
-                    sG.add(sealL, sealR, sealT, sealB);
+                    [sealL, sealR, sealT, sealB].forEach(m => { m.userData = { isSeal: true, materialSlot: MaterialSlots.SEAL }; sG.add(m); });
 
                     // Physical 3D Glass Pane (6-8 mm Thickness with PBR Refraction & Fresnel Reflections)
                     const glassDepth = 0.6;
                     const glassGeo = new THREE.BoxGeometry(cutoutW - beadW * 1.6, cutoutH - beadW * 1.6, glassDepth);
                     const glass = new THREE.Mesh(glassGeo, matGlass);
                     glass.position.set(0, sashH / 2, 0);
-                    glass.userData = { isGlass: true };
+                    glass.userData = { isGlass: true, materialSlot: MaterialSlots.GLASS };
                     sG.add(glass);
 
                     // Hardware 1: Cremone Lever Handle with Lock Rods or Recessed Flush Pull with Lock Button
@@ -1371,6 +1372,7 @@ export const WIDGET_REGISTRY = {
                         handleGroup.add(flushPullBack, flushPullCup, lockToggle);
                         handleGroup.position.set(sashW / 2 - sFw / 2, sashH * 0.45, 0);
                     }
+                    handleGroup.traverse(m => { if (m && m.isMesh) m.userData = { isHandle: true, materialSlot: MaterialSlots.HARDWARE }; });
                     sG.add(handleGroup);
 
                     // Hardware 2: Butt Hinges for Casement Windows
