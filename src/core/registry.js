@@ -990,7 +990,7 @@ export const WIDGET_REGISTRY = {
             const fThick = isTrad ? entity.thick + 2 : entity.thick + 0.5;
             const zOffset = isBay ? 12 : 0; 
             
-            const matMetalHardware = new THREE.MeshStandardMaterial({ color: 0x2a303c, metalness: 0.90, roughness: 0.22, clearcoat: 0.3 });
+            const matMetalHardware = new THREE.MeshStandardMaterial({ color: 0x2a303c, metalness: 0.90, roughness: 0.22 });
             const matRunnerRail = new THREE.MeshStandardMaterial({ color: 0x9ca3af, metalness: 0.95, roughness: 0.15 });
             const matRollerBrass = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.90, roughness: 0.25 });
             const matRubberSeal = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.85, metalness: 0.0 });

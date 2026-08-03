@@ -16,6 +16,18 @@ export class AssetManager {
     async getTexture(config, options = {}) {
         let url = typeof config === 'string' ? config : config.texture;
         if (!url) return null;
+
+        // Resolve material key lookup if url refers to a material key (e.g. 'wood_teak')
+        if (typeof url === 'string' && !url.includes('/') && !url.includes('.')) {
+            const matDef = (DOOR_MATERIALS && DOOR_MATERIALS[url]) || 
+                           (WINDOW_FRAME_MATERIALS && WINDOW_FRAME_MATERIALS[url]) || 
+                           (WINDOW_GLASS_MATERIALS && WINDOW_GLASS_MATERIALS[url]);
+            if (matDef && matDef.texture) {
+                url = matDef.texture;
+            } else {
+                return null;
+            }
+        }
         
         let id = (typeof config === 'object' && config.id) ? config.id : url;
         if (typeof url === 'string' && url.startsWith('data:')) {

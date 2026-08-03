@@ -228,8 +228,12 @@ export class MaterialFactory {
             else newMat.sheenColor.setHex(0xffffff);
         }
 
-        if (config.clearcoat !== undefined) newMat.clearcoat = config.clearcoat;
-        if (config.clearcoatRoughness !== undefined) newMat.clearcoatRoughness = config.clearcoatRoughness;
+        if (config.clearcoat !== undefined && ('clearcoat' in newMat || newMat.isMeshPhysicalMaterial)) {
+            newMat.clearcoat = config.clearcoat;
+        }
+        if (config.clearcoatRoughness !== undefined && ('clearcoatRoughness' in newMat || newMat.isMeshPhysicalMaterial)) {
+            newMat.clearcoatRoughness = config.clearcoatRoughness;
+        }
         if (config.normalScale !== undefined && newMat.normalMap) {
             newMat.normalScale = new THREE.Vector2(config.normalScale, config.normalScale);
         } else if (newMat.normalMap) {
