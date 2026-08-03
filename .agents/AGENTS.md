@@ -98,3 +98,30 @@ Do not attempt to manually inject legacy fallbacks for materials (like `helpers.
 ## Required Behavior
 * Always use `helpers.getDynamicMaterial(matKey, type)` to fetch materials for doors, windows, and widgets. 
 * `getDynamicMaterial` natively handles standard lookups, default fallbacks, and caching. Writing custom fallback blocks around it introduces `TypeError` crashes and circumvents the unified material pipeline.
+
+# Universal In-Place Update Rule (CAD-Style)
+
+**CRITICAL WARNING**
+
+Any property change anywhere in the project must update the existing object in place. Property changes must never recreate entities, reload the scene, reset the camera, lose selection, restart rendering, or interrupt the editing session.
+
+## Required Behavior
+* **Stable Object Identity:** Never replace `entity.mesh3D` with a new `THREE.Group` or `THREE.Mesh`. Never change `entity.id`, the selection reference, or the gizmo reference. Everything updates strictly in place.
+* **Granular Updates:** Only the minimum affected objects may be updated. If a wall thickness changes, update the wall's geometry.
+* **Batched Rendering:** Updates must be batched through a centralized `UpdateManager` queue (dirty list) and processed on the next animation frame to prevent dozens of rebuilds during slider drags.
+* **Delegated Responsibilities:** Do not hardcode rebuild functions inside `Preview3D` or `App.vue`. Each entity type (or its controller) must handle its own `updateGeometry()`, `updateTransform()`, and `updateMaterial()`.
+* **Cascading Graph:** Changes must flow through a dependency graph (e.g., `Door -> Wall Opening`). Manually calling sequential rebuilds is prohibited.
+
+# 3-Layer CAD/BIM Component, Highlight, & Material Pipeline Rule
+
+**CRITICAL MANDATE**
+
+All doors, windows, walls, moldings, sunshades, railings, furniture, and future 3D elevation assemblies MUST strictly follow the 3-Layer Architecture Model:
+`Component Registry (componentId) -> Material Slots (materialSlot) -> Mesh Registry (O(1) Set<THREE.Mesh>)`.
+
+## Required Behavior
+1. **Universal Sub-Mesh Registration**: Every sub-mesh created in `registry.js` MUST attach `userData.entity = entity`, `userData.materialSlot = slotName`, and be registered via `ComponentRegistry.registerMesh(entity, slotName, mesh)`. A `group.traverse()` pass MUST be run at the end of `render3D`.
+2. **Unified Material References (NO Material Cloning)**: All sub-meshes belonging to the same material slot MUST share the exact same material reference or array instance. NEVER create `.clone()` material arrays on horizontal rails or stiles. Procedural grain direction MUST be handled via geometry `rotateUVs(geo)`.
+3. **100% Shared Material Group Selection & Highlighting**: Selecting or hovering ANY single sub-mesh MUST highlight 100% of all sub-meshes in that material group simultaneously via `ComponentRegistry.setSlotHighlight`.
+4. **Authoritative JSON State**: Material updates MUST update `entity.materials[slotName]` in JSON first and paint all registered meshes simultaneously via `MaterialManager.updateEntityMaterialSlot`.
+
