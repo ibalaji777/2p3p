@@ -1,27 +1,9 @@
 import * as THREE from 'three';
 import { MaterialFactory } from './MaterialFactory.js';
-import { coreEventBus } from '../EventBus.js';
-import { EVENTS } from '../constants/events.js';
-import { 
-    DOOR_MATERIALS_REGISTRY, 
-    WALL_DECOR_REGISTRY, 
-    FLOOR_REGISTRY, 
-    FABRIC_REGISTRY, 
-    ROOF_DECOR_REGISTRY, 
-    WINDOW_GLASS_MATERIALS, 
-    MARBLE_REGISTRY, 
-    STONE_REGISTRY, 
-    METAL_REGISTRY, 
-    PLASTIC_REGISTRY, 
-    LEATHER_REGISTRY 
-} from '../registry.js';
+import { MaterialManager } from './MaterialManager.js';
+import { ComponentRegistry } from './ComponentRegistry.js';
+import { MaterialSlots } from '../constants/materialSlots.js';
 
-/**
- * Professional CAD/BIM Architectural Material Engine (BIMMaterialSystem).
- * Implements BIM Sub-Component Parameter Isolation, Face Material Slot Mapping,
- * Exact Target Contract Highlighting, and Real-World Texel Density Projection
- * across all 3D Elements (Walls, Doors, Windows, Widgets, Moldings, Roofs, Floors, Furniture, and GLBs).
- */
 const FACE_TO_INDEX = {
     'right': 0,
     'left': 1,
@@ -61,10 +43,8 @@ export class BIMMaterialSystem {
         let targetMatIndex = 0;
 
         if (isExtrudeGeo) {
-            // ExtrudeGeometry: 0 = front/back cap face, 1 = bevel side face
             targetMatIndex = (faceName === 'front' || faceName === 'back') ? 0 : 1;
         } else if (Array.isArray(mesh.material) && mesh.material.length === 6) {
-            // Standard 6-side BoxGeometry
             targetMatIndex = FACE_TO_INDEX[faceName] !== undefined ? FACE_TO_INDEX[faceName] : 4;
         } else if (matIndex !== undefined && matIndex !== null && matIndex !== -1) {
             targetMatIndex = matIndex;
@@ -72,40 +52,40 @@ export class BIMMaterialSystem {
             targetMatIndex = FACE_TO_INDEX[faceName] !== undefined ? FACE_TO_INDEX[faceName] : 0;
         }
 
-        // Determine BIM Sub-Component Type & Slot Name
-        let componentType = 'submesh';
-        let slotName = 'texture';
+        // Determine BIM Sub-Component Type & Material Slot
+        let slotName = mesh.userData?.materialSlot || MaterialSlots.CUSTOM;
+        let componentType = mesh.userData?.componentType || 'submesh';
 
         if (targetEntity) {
             const type = targetEntity.type;
             if (type === 'door') {
-                if (mesh.userData?.isFrame) {
+                if (mesh.userData?.isFrame || slotName === MaterialSlots.FRAME) {
                     componentType = 'frame';
-                    slotName = 'frameMat';
-                } else if (mesh.userData?.isGlass) {
+                    slotName = MaterialSlots.FRAME;
+                } else if (mesh.userData?.isGlass || slotName === MaterialSlots.GLASS) {
                     componentType = 'glass';
-                    slotName = 'glassMat';
-                } else if (mesh.userData?.isHandle) {
+                    slotName = MaterialSlots.GLASS;
+                } else if (mesh.userData?.isHandle || slotName === MaterialSlots.HARDWARE) {
                     componentType = 'hardware';
-                    slotName = 'hardwareMat';
+                    slotName = MaterialSlots.HARDWARE;
                 } else {
                     componentType = 'leaf';
-                    slotName = 'doorMat';
+                    slotName = MaterialSlots.LEAF;
                 }
             } else if (type === 'window') {
-                if (mesh.userData?.isGlass) {
+                if (mesh.userData?.isGlass || slotName === MaterialSlots.GLASS) {
                     componentType = 'glass';
-                    slotName = 'glassMat';
+                    slotName = MaterialSlots.GLASS;
                 } else {
                     componentType = 'frame';
-                    slotName = 'frameMat';
+                    slotName = MaterialSlots.FRAME;
                 }
             } else if (type === 'outer' || type === 'inner' || type === 'wall') {
                 componentType = 'wall_face';
-                slotName = `texture${faceName.charAt(0).toUpperCase() + faceName.slice(1)}`;
+                slotName = `wall_${faceName}`;
             } else if (type === 'furniture' || targetEntity.isFurniture) {
                 componentType = 'furniture_part';
-                slotName = 'materialOverrides';
+                slotName = MaterialSlots.CUSTOM;
             }
         }
 
@@ -115,7 +95,7 @@ export class BIMMaterialSystem {
             subMeshIndex = validChildren.indexOf(mesh);
         }
 
-        const result = {
+        return {
             entity: targetEntity,
             mesh: mesh,
             activeMatIndex: matIndex,
@@ -126,187 +106,74 @@ export class BIMMaterialSystem {
             isExtrudeGeo: isExtrudeGeo,
             subMeshIndex: subMeshIndex
         };
-
-        return result;
     }
 
     /**
-     * Applies an emissive green highlight overlay strictly to the targeted BIM sub-component or face slot.
+     * Applies an emissive highlight overlay across all meshes registered to the targeted component slot in real time.
      * @param {Object|THREE.Mesh} target - Target descriptor or mesh.
-     * @param {boolean} active - True to activate highlight, false to clear.
+     * @param {boolean} [active=true] - True to activate highlight, false to clear.
+     * @param {number} [color=0x00ff00] - Highlight emissive hex color.
+     * @param {Object} [ctx=null] - 3D engine context.
      */
-    static setBIMHighlight(target, active = true) {
+    static setBIMHighlight(target, active = true, color = 0x00ff00, ctx = null) {
         let mesh = target?.mesh || target;
         if (!mesh || !mesh.material) return;
 
         const descriptor = target?.componentType ? target : BIMMaterialSystem.resolveBIMTarget(mesh);
-        let { entity, componentType, targetMatIndex } = descriptor;
-        
-        if (componentType === 'wall_face' && entity && entity.mesh3D) {
-            const wallMesh = entity.mesh3D.children.find(c => !c.userData?.isHitbox && !c.userData?.isWallSide && c.isMesh);
-            if (wallMesh) {
-                mesh = wallMesh;
-                // Make sure to use the correct material index for the wall mesh (4 for front, 5 for back)
-                targetMatIndex = FACE_TO_INDEX[descriptor.faceName] !== undefined ? FACE_TO_INDEX[descriptor.faceName] : 4;
-            }
+        const { entity, slotName } = descriptor;
+
+        if (entity && entity.id && slotName) {
+            ComponentRegistry.setSlotHighlight(entity.id, slotName, active, color, ctx);
+            return;
         }
 
-        const highlightSingleMesh = (m) => {
-            if (!m || !m.material) return;
-            const mats = Array.isArray(m.material) ? m.material : [m.material];
-            const matIndex = (targetMatIndex !== undefined && targetMatIndex !== -1) ? targetMatIndex : 0;
-
-            const targetMat = mats[matIndex] || mats[0];
-            if (targetMat && targetMat.type !== 'MeshBasicMaterial' && targetMat.emissive !== undefined) {
-                if (active) {
-                    if (targetMat.userData.origEmissive === undefined) { 
-                        targetMat.userData.origEmissive = targetMat.emissive.getHex(); 
-                        targetMat.userData.origEmissiveIntensity = targetMat.emissiveIntensity || 0; 
-                    }
-                    targetMat.emissive.setHex(0x00ff00); 
-                    targetMat.emissiveIntensity = 0.8;
-                } else {
-                    if (targetMat.userData.origEmissive !== undefined) { 
-                        targetMat.emissive.setHex(targetMat.userData.origEmissive); 
-                        targetMat.emissiveIntensity = targetMat.userData.origEmissiveIntensity; 
-                    }
+        // Fallback single mesh highlight
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const mat of mats) {
+            if (!mat || mat.type === 'MeshBasicMaterial' || mat.emissive === undefined) continue;
+            if (active) {
+                if (mat.userData.origEmissive === undefined) {
+                    mat.userData.origEmissive = mat.emissive.getHex();
+                    mat.userData.origEmissiveIntensity = mat.emissiveIntensity || 0;
                 }
-                targetMat.needsUpdate = true;
+                mat.emissive.setHex(color);
+                mat.emissiveIntensity = 0.8;
+            } else {
+                if (mat.userData.origEmissive !== undefined) {
+                    mat.emissive.setHex(mat.userData.origEmissive);
+                    mat.emissiveIntensity = mat.userData.origEmissiveIntensity;
+                }
             }
-        };
-
-        // If target is part of a BIM composite assembly (Door, Window), highlight all matching sub-component meshes
-        if (entity && (componentType === 'leaf' || componentType === 'frame' || componentType === 'glass' || componentType === 'hardware')) {
-            // Traverse the local group (mesh.parent) to isolate specific leaves/panels, otherwise fallback to the root object.
-            const rootObj = (mesh && mesh.parent && mesh.parent !== entity.mesh3D && mesh.parent.type === 'Group') ? mesh.parent : (entity.mesh3D || mesh);
-            if (rootObj && typeof rootObj.traverse === 'function') {
-                rootObj.traverse(child => {
-                    if (child && child.isMesh) {
-                        if (componentType === 'glass' && child.userData?.isGlass) {
-                            highlightSingleMesh(child);
-                        } else if (componentType === 'hardware' && child.userData?.isHandle) {
-                            highlightSingleMesh(child);
-                        } else if (componentType === 'frame' && child.userData?.isFrame) {
-                            highlightSingleMesh(child);
-                        } else if (componentType === 'leaf' && !child.userData?.isFrame && !child.userData?.isGlass && !child.userData?.isHandle) {
-                            highlightSingleMesh(child);
-                        }
-                    }
-                });
-                return;
-            }
+            mat.needsUpdate = true;
         }
 
-        highlightSingleMesh(mesh);
+        if (ctx && typeof ctx.requestRender === 'function') {
+            ctx.requestRender();
+        } else if (typeof window !== 'undefined' && window.app3d && typeof window.app3d.requestRender === 'function') {
+            window.app3d.requestRender();
+        }
     }
 
     /**
-     * Clears BIM highlight from a mesh or descriptor.
+     * Clears BIM highlight.
      */
-    static clearBIMHighlight(target) {
-        BIMMaterialSystem.setBIMHighlight(target, false);
+    static clearBIMHighlight(target, ctx = null) {
+        BIMMaterialSystem.setBIMHighlight(target, false, 0x00ff00, ctx);
     }
 
     /**
-     * Applies a material strictly to the target BIM sub-component parameter slot or face slot.
-     * @param {Object} descriptor - Target descriptor resolved from BIM raycasting.
-     * @param {Object|string} matConfig - Material configuration object or key from Material Library.
-     * @param {Object} ctx - Global 3D context containing renderer, assets, updateMaterialLive.
+     * Applies a material through the central JSON-first MaterialManager pipeline.
+     * @param {Object} descriptor - Target descriptor.
+     * @param {Object|string} matConfig - Material configuration object or key.
+     * @param {Object} ctx - 3D engine context.
      */
     static async applyBIMMaterial(descriptor, matConfig, ctx) {
         if (!descriptor || !matConfig) return;
 
-        const { entity, mesh, targetMatIndex, faceName, componentType, slotName } = descriptor;
-        const config = BIMMaterialSystem.resolveMaterialConfig(matConfig);
-        const matKey = typeof matConfig === 'string' 
-            ? matConfig 
-            : (config?.id || config?.key || matConfig?.id || matConfig?.key || matConfig);
-        const keyStr = typeof matKey === 'string' ? matKey : (matKey?.id || matKey?.key || '');
+        const { entity, slotName } = descriptor;
+        if (!entity) return;
 
-        // 1. Write Strictly to Target BIM Sub-Component Parameter Slot
-        if (entity) {
-            if (componentType === 'wall_face' && entity.params) {
-                entity.params[slotName] = keyStr;
-                console.warn(`%c[BIM Applied Area] %cMapped ${faceName} -> Param Property: %c${slotName} %c= %c${keyStr}`, 
-                    'color: #10b981; font-weight: bold;', 'color: #9ca3af;', 'color: #f59e0b; font-weight: bold;', 'color: #9ca3af;', 'color: #8b5cf6; font-weight: bold;');
-            } else if (componentType === 'leaf') {
-                if (entity.type === 'door' && !entity.frameMat) {
-                    entity.frameMat = entity.doorMat || 'wood_golden_teak';
-                }
-                entity.doorMat = matKey;
-                console.warn(`%c[BIM Applied Area] %cMapped ${faceName} -> Root Property: %cdoorMat %c= %c${matKey}`, 
-                    'color: #10b981; font-weight: bold;', 'color: #9ca3af;', 'color: #f59e0b; font-weight: bold;', 'color: #9ca3af;', 'color: #8b5cf6; font-weight: bold;');
-            } else if (componentType === 'frame') {
-                entity.frameMat = matKey;
-                console.warn(`%c[BIM Applied Area] %cMapped ${faceName} -> Root Property: %cframeMat %c= %c${matKey}`, 
-                    'color: #10b981; font-weight: bold;', 'color: #9ca3af;', 'color: #f59e0b; font-weight: bold;', 'color: #9ca3af;', 'color: #8b5cf6; font-weight: bold;');
-            } else if (componentType === 'glass') {
-                entity.glassMat = matKey;
-                console.warn(`%c[BIM Applied Area] %cMapped ${faceName} -> Root Property: %cglassMat %c= %c${matKey}`, 
-                    'color: #10b981; font-weight: bold;', 'color: #9ca3af;', 'color: #f59e0b; font-weight: bold;', 'color: #9ca3af;', 'color: #8b5cf6; font-weight: bold;');
-            } else if (componentType === 'furniture_part' && entity.params) {
-                entity.params.materialOverrides = entity.params.materialOverrides || {};
-                const meshName = mesh?.name || mesh?.userData?.subMeshKey || '';
-                if (meshName) {
-                    entity.params.materialOverrides[meshName] = matKey;
-                    if (targetMatIndex !== -1) {
-                        entity.params.materialOverrides[`${meshName}::mat_${targetMatIndex}`] = matKey;
-                    }
-                    console.warn(`%c[BIM Applied Area] %cMapped ${faceName} -> Param Property: %cmaterialOverrides[${meshName}] %c= %c${matKey}`, 
-                        'color: #10b981; font-weight: bold;', 'color: #9ca3af;', 'color: #f59e0b; font-weight: bold;', 'color: #9ca3af;', 'color: #8b5cf6; font-weight: bold;');
-                }
-            } else if (entity.params) {
-                entity.params.texture = keyStr;
-                console.warn(`%c[BIM Applied Area] %cGlobal Override -> Param Property: %ctexture %c= %c${keyStr}`, 
-                    'color: #ef4444; font-weight: bold;', 'color: #9ca3af;', 'color: #f59e0b; font-weight: bold;', 'color: #9ca3af;', 'color: #8b5cf6; font-weight: bold;');
-            }
-        }
-
-        // 2. Traversal & In-Place PBR Assembly Painting
-        const isAssembly = entity && (componentType === 'leaf' || componentType === 'frame' || componentType === 'glass');
-        let matIdxToApply = isAssembly ? -1 : targetMatIndex;
-
-        const applyToMesh = (targetMesh) => {
-            if (!targetMesh || !targetMesh.isMesh) return;
-            if (targetMesh.userData?.isGlass || targetMesh.userData?.isHandle) return;
-            
-            if (entity && entity.type === 'door') {
-                if (componentType === 'frame' && !targetMesh.userData?.isFrame) return;
-                if (componentType === 'leaf' && targetMesh.userData?.isFrame) return;
-            }
-            MaterialFactory.applyPBRMaterial(targetMesh, config, ctx, matIdxToApply);
-        };
-
-        if (componentType === 'wall_face' && entity && entity.mesh3D) {
-            const wallMesh = entity.mesh3D.children.find(c => !c.userData?.isHitbox && !c.userData?.isWallSide && c.isMesh);
-            if (wallMesh) {
-                matIdxToApply = FACE_TO_INDEX[faceName] !== undefined ? FACE_TO_INDEX[faceName] : 4;
-                applyToMesh(wallMesh);
-            } else {
-                applyToMesh(mesh);
-            }
-        } else if (isAssembly) {
-            const rootObj = entity.mesh3D || mesh;
-            if (rootObj && typeof rootObj.traverse === 'function') {
-                rootObj.traverse(child => applyToMesh(child));
-            } else {
-                applyToMesh(mesh);
-            }
-        } else {
-            applyToMesh(mesh);
-        }
-
-        // 3. Trigger Live Structural Rebuild for Target Entity Only
-        if (entity) {
-            if (entity.supportsLiveMaterialPipeline || entity.type === 'door' || entity.type === 'window' || entity.isWidget || entity.type === 'outer' || entity.type === 'inner') {
-                if (ctx && typeof ctx.updateMaterialLive === 'function') {
-                    ctx.updateMaterialLive(entity);
-                } else if (ctx && typeof ctx.updateShapeLive === 'function') {
-                    ctx.updateShapeLive(entity);
-                }
-            }
-            coreEventBus.emit(EVENTS.ENTITY_MODIFIED, { entity });
-        }
+        await MaterialManager.updateEntityMaterialSlot(entity, slotName, matConfig, ctx);
 
         if (ctx && ctx.interactions && typeof ctx.interactions.refreshSelectionHighlight === 'function') {
             ctx.interactions.refreshSelectionHighlight();
@@ -318,23 +185,10 @@ export class BIMMaterialSystem {
     }
 
     /**
-     * Resolves material configuration object from key or registry across all libraries.
+     * Resolves material configuration object across registries.
      */
     static resolveMaterialConfig(matKey) {
-        if (!matKey) return null;
-        if (typeof matKey === 'object') return matKey;
-        return FABRIC_REGISTRY[matKey] ||
-               DOOR_MATERIALS_REGISTRY[matKey] ||
-               WINDOW_GLASS_MATERIALS[matKey] ||
-               MARBLE_REGISTRY[matKey] ||
-               STONE_REGISTRY[matKey] ||
-               METAL_REGISTRY[matKey] ||
-               PLASTIC_REGISTRY[matKey] ||
-               LEATHER_REGISTRY[matKey] ||
-               WALL_DECOR_REGISTRY[matKey] ||
-               ROOF_DECOR_REGISTRY[matKey] ||
-               FLOOR_REGISTRY[matKey] ||
-               { texture: matKey, id: matKey };
+        return MaterialManager.resolveMaterialConfig(matKey);
     }
 
     static _findBIMEntity(mesh) {
@@ -354,4 +208,6 @@ export class BIMMaterialSystem {
     }
 }
 
-window.BIMMaterialSystem = BIMMaterialSystem;
+if (typeof window !== 'undefined') {
+    window.BIMMaterialSystem = BIMMaterialSystem;
+}

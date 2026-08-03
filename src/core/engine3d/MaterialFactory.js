@@ -157,11 +157,11 @@ export class MaterialFactory {
 
         // Assets caching is handled internally by ctx.assets.getTexture
         const fetches = [
-            config.texture ? ctx.assets.getTexture(config.texture, { isColorData: true }) : Promise.resolve(null),
-            config.normal ? ctx.assets.getTexture(config.normal, { isColorData: false }) : Promise.resolve(null),
-            config.roughnessMap ? ctx.assets.getTexture(config.roughnessMap, { isColorData: false }) : Promise.resolve(null),
-            config.aoMap ? ctx.assets.getTexture(config.aoMap, { isColorData: false }) : Promise.resolve(null),
-            config.metalnessMap ? ctx.assets.getTexture(config.metalnessMap, { isColorData: false }) : Promise.resolve(null)
+            (config.texture && ctx && ctx.assets) ? ctx.assets.getTexture(config.texture, { isColorData: true }) : Promise.resolve(null),
+            (config.normal && ctx && ctx.assets) ? ctx.assets.getTexture(config.normal, { isColorData: false }) : Promise.resolve(null),
+            (config.roughnessMap && ctx && ctx.assets) ? ctx.assets.getTexture(config.roughnessMap, { isColorData: false }) : Promise.resolve(null),
+            (config.aoMap && ctx && ctx.assets) ? ctx.assets.getTexture(config.aoMap, { isColorData: false }) : Promise.resolve(null),
+            (config.metalnessMap && ctx && ctx.assets) ? ctx.assets.getTexture(config.metalnessMap, { isColorData: false }) : Promise.resolve(null)
         ];
 
         const [tex, normalTex, roughTex, aoTex, metalTex] = await Promise.all(fetches);

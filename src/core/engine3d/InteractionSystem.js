@@ -512,19 +512,27 @@ export class InteractionSystem {
 
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
             const intersects = this.raycaster.intersectObjects(this.ctx.interactables, true);
-            if (intersects.length > 0) {
+            const validIntersects = intersects.filter(i => i.object && !i.object.userData?.isHitbox && i.object.material && i.object.material.opacity !== 0);
+
+            if (validIntersects.length > 0) {
                 dom.style.cursor = 'pointer';
-                let mesh = intersects[0].object;
-                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isRoom && !mesh.userData.isRoof && !mesh.userData.isWidget && !mesh.userData.isMolding && !mesh.userData.isPattern && !mesh.userData.isStair && !mesh.userData.isFloorCutProxy) mesh = mesh.parent;
-                if (this.hoveredObject !== mesh) {
-                    if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isMolding || this.hoveredObject.userData.isPattern || this.hoveredObject.userData.isStair || this.hoveredObject.userData.isFloorCutProxy)) this.setHighlight(this.hoveredObject, false);
-                    this.hoveredObject = mesh;
-                    if (this.hoveredObject && this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isMolding || this.hoveredObject.userData.isPattern || this.hoveredObject.userData.isStair || this.hoveredObject.userData.isFloorCutProxy)) this.setHighlight(this.hoveredObject, true, 0x93c5fd);
+                const hitMesh = validIntersects[0].object;
+
+                if (this.hoveredObject !== hitMesh) {
+                    if (this.hoveredObject && this.hoveredObject !== this.selectedObject) {
+                        this.setHighlight(this.hoveredObject, false);
+                    }
+                    this.hoveredObject = hitMesh;
+                    if (this.hoveredObject && this.hoveredObject !== this.selectedObject) {
+                        this.setHighlight(this.hoveredObject, true, 0x93c5fd);
+                    }
                 }
             } else {
                 dom.style.cursor = 'auto';
                 if (this.hoveredObject) {
-                    if (this.hoveredObject !== this.selectedObject && (this.hoveredObject.userData.isFurniture || this.hoveredObject.userData.isWallDecor || this.hoveredObject.userData.isRoof || this.hoveredObject.userData.isRoom || this.hoveredObject.userData.isWidget || this.hoveredObject.userData.isMolding || this.hoveredObject.userData.isPattern || this.hoveredObject.userData.isStair || this.hoveredObject.userData.isFloorCutProxy)) this.setHighlight(this.hoveredObject, false);
+                    if (this.hoveredObject !== this.selectedObject) {
+                        this.setHighlight(this.hoveredObject, false);
+                    }
                     this.hoveredObject = null;
                 }
             }
@@ -612,26 +620,39 @@ export class InteractionSystem {
         }
     }
 
-    setHighlight(group, active, color = 0x3b82f6) {
+    setHighlight(group, active, color = 0x93c5fd) {
         if (!group) return;
+
+        const entity = group.userData?.entity || (group.userData?.entityId ? { id: group.userData.entityId } : null);
+        const slotName = group.userData?.materialSlot;
+
+        if (entity && entity.id && slotName) {
+            ComponentRegistry.setSlotHighlight(entity.id, slotName, active, active ? (color || 0x93c5fd) : 0, this.ctx);
+            if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
+            return;
+        }
+
+        if (group.isMesh && group.material) {
+            BIMMaterialSystem.setBIMHighlight(group, active, active ? (color || 0x93c5fd) : 0, this.ctx);
+            if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
+            return;
+        }
+
         if (this.highlightRenderer) {
             if (active) {
                 if (group.userData && group.userData.isWallSide) {
                     if (this.selectionManager) this.selectionManager.hoverWall(group);
                 } else {
-                    this.highlightRenderer.setSelectionHighlight(group, this.ctx.currentTransformMode || 'normal');
+                    this.highlightRenderer.setHoverHighlight(group);
                 }
             } else {
                 if (group.userData && group.userData.isWallSide) {
                     this.highlightRenderer.clearHoverHighlight();
-                    this.highlightRenderer.clearSelectionHighlight();
                 } else {
-                    this.highlightRenderer.clearSelectionHighlight();
                     this.highlightRenderer.clearHoverHighlight();
                 }
             }
             if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
-            return;
         }
     }
 

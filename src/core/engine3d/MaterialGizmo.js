@@ -135,7 +135,7 @@ export class MaterialGizmo extends THREE.Group {
     setHighlight(mesh, matIndex, active) {
         if (!mesh) return;
         const descriptor = BIMMaterialSystem.resolveBIMTarget(mesh, matIndex, null, this.target?.userData?.entity);
-        BIMMaterialSystem.setBIMHighlight(descriptor, active);
+        BIMMaterialSystem.setBIMHighlight(descriptor, active, 0x00ff00, this.ctx);
     }
 
     clearHighlight() {
