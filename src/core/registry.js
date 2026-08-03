@@ -945,7 +945,7 @@ export const WIDGET_REGISTRY = {
     'window': {
         widget: "window", label: "WINDOW",
         events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
-        defaultConfig: { width: 50, height: WINDOW_HEIGHT, elevation: WINDOW_SILL, windowType: 'sliding_std', frameMat: 'alum_powder', glassMat: 'clear', grillePattern: 'grid', facing: 1, side: 1 },
+        defaultConfig: { width: 50, height: WINDOW_HEIGHT, elevation: WINDOW_SILL, windowType: 'sliding_std', frameMat: 'wood_teak', glassMat: 'clear', grillePattern: 'grid', facing: 1, side: 1 },
         render2D: (group, entity) => {
             const hw = entity.width / 2; const thick = entity.wall.thickness || entity.wall.config.thickness; const wConf = WINDOW_TYPES[entity.windowType] || WINDOW_TYPES.sliding_std;
             if (wConf.type === 'fixed' || wConf.type === 'louver') { group.add(new Konva.Rect({ fill: '#bae6fd', opacity: 0.6, stroke: '#38bdf8', strokeWidth: 1, width: entity.width - 8, height: thick * 0.4, x: -hw + 4, y: -thick * 0.2 })); } 
@@ -969,87 +969,549 @@ export const WIDGET_REGISTRY = {
                 winGroup.rotation.y = -entity.angle;
             }
             const wConf = WINDOW_TYPES[entity.windowType] || WINDOW_TYPES.sliding_std;
-            const matFrame = helpers.getDynamicMaterial(entity.frameMat, 'window_frame'); const matGlass = helpers.getDynamicMaterial(entity.glassMat, 'window_glass');
-            const isTrad = wConf.type === 'traditional'; const isBay = wConf.type === 'bay'; const fW = isTrad ? 5 : 3; const fThick = isTrad ? entity.thick + 2 : entity.thick + 0.2; const zOffset = isBay ? 12 : 0; 
-            const matGrille = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8, roughness: 0.2 }); const matConcrete = new THREE.MeshStandardMaterial({ color: 0xd4d4d4, roughness: 1.0 });
+            const matFrame = helpers.getDynamicMaterial(entity.frameMat || 'wood_teak', 'window_frame');
+            const matGlass = helpers.getDynamicMaterial(entity.glassMat, 'window_glass');
+            const isTrad = wConf.type === 'traditional';
+            const isBay = wConf.type === 'bay';
+            const fW = isTrad ? 4.5 : 2.7;
+            const fThick = isTrad ? entity.thick + 2 : entity.thick + 0.5;
+            const zOffset = isBay ? 12 : 0; 
             
-            const frameShape = new THREE.Shape();
-            frameShape.moveTo(-entity.width/2, 0); frameShape.lineTo(entity.width/2, 0); frameShape.lineTo(entity.width/2, height); frameShape.lineTo(-entity.width/2, height); frameShape.lineTo(-entity.width/2, 0);
-            const frameHole = new THREE.Path();
-            frameHole.moveTo(-entity.width/2 + fW, fW); frameHole.lineTo(entity.width/2 - fW, fW); frameHole.lineTo(entity.width/2 - fW, height - fW); frameHole.lineTo(-entity.width/2 + fW, height - fW); frameHole.lineTo(-entity.width/2 + fW, fW);
-            frameShape.holes.push(frameHole);
-            const frameGeo = new THREE.ExtrudeGeometry(frameShape, { depth: fThick, bevelEnabled: false });
-            frameGeo.translate(0, 0, -fThick/2 + zOffset);
-            const mainFrame = new THREE.Mesh(frameGeo, matFrame); mainFrame.castShadow = true; mainFrame.receiveShadow = true; mainFrame.userData = { isFrame: true }; winGroup.add(mainFrame);
+            const matMetalHardware = new THREE.MeshStandardMaterial({ color: 0x2a303c, metalness: 0.90, roughness: 0.22, clearcoat: 0.3 });
+            const matRunnerRail = new THREE.MeshStandardMaterial({ color: 0x9ca3af, metalness: 0.95, roughness: 0.15 });
+            const matRollerBrass = new THREE.MeshStandardMaterial({ color: 0xd97706, metalness: 0.90, roughness: 0.25 });
+            const matRubberSeal = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.85, metalness: 0.0 });
+            const matGrille = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, metalness: 0.85, roughness: 0.35 });
+            const matConcrete = new THREE.MeshStandardMaterial({ color: 0xd4d4d4, roughness: 0.9 });
 
-            const iW = entity.width - fW*2; const iH = height - fW*2; const sThick = entity.thick * 0.6;
-            const makeSash = (w, h, useGlass=true) => {
-                const sG = new THREE.Group(); const sFw = isTrad ? 4 : 2.5; const geoS = new THREE.BoxGeometry(sFw, h, sThick); const geoR = new THREE.BoxGeometry(w - sFw*2, sFw, sThick);
-                const s1 = new THREE.Mesh(geoS, matFrame); s1.position.set(-w/2 + sFw/2, h/2, 0); const s2 = new THREE.Mesh(geoS, matFrame); s2.position.set(w/2 - sFw/2, h/2, 0);
-                const r1 = new THREE.Mesh(geoR, matFrame); r1.position.set(0, h - sFw/2, 0); const r2 = new THREE.Mesh(geoR, matFrame); r2.position.set(0, sFw/2, 0);
-                [s1, s2, r1, r2].forEach(m => { m.castShadow = true; m.receiveShadow = true; m.userData = { isFrame: true }; sG.add(m); });
-                if (useGlass) { const glass = new THREE.Mesh(new THREE.BoxGeometry(w - sFw*2, h - sFw*2, sThick*0.3), matGlass); glass.position.set(0, h/2, 0); glass.userData = { isGlass: true }; sG.add(glass); } 
-                else { const woodPanel = new THREE.Mesh(new THREE.BoxGeometry(w - sFw*2, h - sFw*2, sThick*0.5), matFrame); woodPanel.position.set(0, h/2, 0); woodPanel.userData = { isFrame: true }; sG.add(woodPanel); }
+            const matsFrameRaw = (helpers && helpers.getFaceMaterials) ? helpers.getFaceMaterials(entity, matFrame, { width: entity.width, height: height, thick: fThick }).box : matFrame;
+            const matsExtrude = Array.isArray(matsFrameRaw) ? [matsFrameRaw[4] || matsFrameRaw[0], matsFrameRaw[1] || matsFrameRaw[0]] : matsFrameRaw;
+
+            // --- Board Color Variations for Natural Timber Realism ---
+            const matsExtrudeStile = matsExtrude;
+            const matsExtrudeRail = Array.isArray(matsExtrude) ? 
+                [matsExtrude[0].clone(), matsExtrude[1].clone()] : 
+                (matsExtrude && matsExtrude.clone ? matsExtrude.clone() : matsExtrude);
+            if (Array.isArray(matsExtrudeRail)) {
+                matsExtrudeRail.forEach(m => { if (m && m.color) m.color.multiplyScalar(0.96); });
+            } else if (matsExtrudeRail && matsExtrudeRail.color) {
+                matsExtrudeRail.color.multiplyScalar(0.96);
+            }
+
+            // --- 3D Geometry Helper with Chamfers & UV Mapping ---
+            const createBeveledRect = (w, h, depth, bSize = 0.25, bThick = 0.25) => {
+                const shape = new THREE.Shape();
+                const hw = w / 2, hh = h / 2;
+                shape.moveTo(-hw, -hh); shape.lineTo(hw, -hh); shape.lineTo(hw, hh); shape.lineTo(-hw, hh); shape.lineTo(-hw, -hh);
+                const d = Math.max(0.01, depth - bThick * 2);
+                const geo = new THREE.ExtrudeGeometry(shape, {
+                    depth: d,
+                    bevelEnabled: true,
+                    bevelSegments: 3,
+                    steps: 1,
+                    bevelSize: Math.min(bSize, w * 0.15, h * 0.15),
+                    bevelThickness: Math.min(bThick, depth * 0.2)
+                });
+                geo.translate(0, 0, -d / 2);
+                const uvs = geo.attributes.uv;
+                const pos = geo.attributes.position;
+                if (uvs && pos) {
+                    for (let i = 0; i < uvs.count; i++) {
+                        uvs.setXY(i, (pos.getX(i) + hw) / w, (pos.getY(i) + hh) / h);
+                    }
+                    uvs.needsUpdate = true;
+                }
+                return geo;
+            };
+
+            const rotateUVs = (geo) => {
+                const uvs = geo.attributes.uv;
+                if (uvs) {
+                    for (let i = 0; i < uvs.count; i++) {
+                        const u = uvs.getX(i) - 0.5;
+                        const v = uvs.getY(i) - 0.5;
+                        uvs.setXY(i, -v + 0.5, u + 0.5); // 90 degree rotation for horizontal grain
+                    }
+                    uvs.needsUpdate = true;
+                }
+                return geo;
+            };
+
+            // --- 45 Degree Miter Joint Member Generators ---
+            const createMiterRailTopGeo = (length, memberW, depth, bSize = 0.15, bThick = 0.15) => {
+                const shape = new THREE.Shape();
+                const hl = length / 2, hw = memberW / 2;
+                shape.moveTo(-hl, hw);
+                shape.lineTo(hl, hw);
+                shape.lineTo(hl - memberW, -hw);
+                shape.lineTo(-hl + memberW, -hw);
+                shape.lineTo(-hl, hw);
+                const d = Math.max(0.01, depth - bThick * 2);
+                const geo = new THREE.ExtrudeGeometry(shape, {
+                    depth: d, bevelEnabled: true, bevelSegments: 3, steps: 1,
+                    bevelSize: Math.min(bSize, memberW * 0.12, length * 0.05),
+                    bevelThickness: Math.min(bThick, depth * 0.15)
+                });
+                geo.translate(0, 0, -d / 2);
+                const uvs = geo.attributes.uv, pos = geo.attributes.position;
+                if (uvs && pos) {
+                    for (let i = 0; i < uvs.count; i++) {
+                        uvs.setXY(i, (pos.getX(i) + hl) / length, (pos.getY(i) + hw) / memberW);
+                    }
+                    uvs.needsUpdate = true;
+                }
+                rotateUVs(geo);
+                return geo;
+            };
+
+            const createMiterRailBotGeo = (length, memberW, depth, bSize = 0.15, bThick = 0.15) => {
+                const shape = new THREE.Shape();
+                const hl = length / 2, hw = memberW / 2;
+                shape.moveTo(-hl, -hw);
+                shape.lineTo(hl, -hw);
+                shape.lineTo(hl - memberW, hw);
+                shape.lineTo(-hl + memberW, hw);
+                shape.lineTo(-hl, -hw);
+                const d = Math.max(0.01, depth - bThick * 2);
+                const geo = new THREE.ExtrudeGeometry(shape, {
+                    depth: d, bevelEnabled: true, bevelSegments: 3, steps: 1,
+                    bevelSize: Math.min(bSize, memberW * 0.12, length * 0.05),
+                    bevelThickness: Math.min(bThick, depth * 0.15)
+                });
+                geo.translate(0, 0, -d / 2);
+                const uvs = geo.attributes.uv, pos = geo.attributes.position;
+                if (uvs && pos) {
+                    for (let i = 0; i < uvs.count; i++) {
+                        uvs.setXY(i, (pos.getX(i) + hl) / length, (pos.getY(i) + hw) / memberW);
+                    }
+                    uvs.needsUpdate = true;
+                }
+                rotateUVs(geo);
+                return geo;
+            };
+
+            const createMiterStileLeftGeo = (length, memberW, depth, bSize = 0.15, bThick = 0.15) => {
+                const shape = new THREE.Shape();
+                const hl = length / 2, hw = memberW / 2;
+                shape.moveTo(-hw, -hl);
+                shape.lineTo(-hw, hl);
+                shape.lineTo(hw, hl - memberW);
+                shape.lineTo(hw, -hl + memberW);
+                shape.lineTo(-hw, -hl);
+                const d = Math.max(0.01, depth - bThick * 2);
+                const geo = new THREE.ExtrudeGeometry(shape, {
+                    depth: d, bevelEnabled: true, bevelSegments: 3, steps: 1,
+                    bevelSize: Math.min(bSize, memberW * 0.12, length * 0.05),
+                    bevelThickness: Math.min(bThick, depth * 0.15)
+                });
+                geo.translate(0, 0, -d / 2);
+                const uvs = geo.attributes.uv, pos = geo.attributes.position;
+                if (uvs && pos) {
+                    for (let i = 0; i < uvs.count; i++) {
+                        uvs.setXY(i, (pos.getX(i) + hw) / memberW, (pos.getY(i) + hl) / length);
+                    }
+                    uvs.needsUpdate = true;
+                }
+                return geo;
+            };
+
+            const createMiterStileRightGeo = (length, memberW, depth, bSize = 0.15, bThick = 0.15) => {
+                const shape = new THREE.Shape();
+                const hl = length / 2, hw = memberW / 2;
+                shape.moveTo(hw, -hl);
+                shape.lineTo(hw, hl);
+                shape.lineTo(-hw, hl - memberW);
+                shape.lineTo(-hw, -hl + memberW);
+                shape.lineTo(hw, -hl);
+                const d = Math.max(0.01, depth - bThick * 2);
+                const geo = new THREE.ExtrudeGeometry(shape, {
+                    depth: d, bevelEnabled: true, bevelSegments: 3, steps: 1,
+                    bevelSize: Math.min(bSize, memberW * 0.12, length * 0.05),
+                    bevelThickness: Math.min(bThick, depth * 0.15)
+                });
+                geo.translate(0, 0, -d / 2);
+                const uvs = geo.attributes.uv, pos = geo.attributes.position;
+                if (uvs && pos) {
+                    for (let i = 0; i < uvs.count; i++) {
+                        uvs.setXY(i, (pos.getX(i) + hw) / memberW, (pos.getY(i) + hl) / length);
+                    }
+                    uvs.needsUpdate = true;
+                }
+                return geo;
+            };
+
+            // --- 1. Outer Architectural Frame Assembly (45° Miter Joints, Tracks, Runner Rails & Drainage) ---
+            const buildOuterFrame = (totalW, totalH) => {
+                const frameGroup = new THREE.Group();
+
+                // 45-degree mitered outer frame members
+                const geoRailT = createMiterRailTopGeo(totalW, fW, fThick);
+                const geoRailB = createMiterRailBotGeo(totalW, fW, fThick);
+                const geoStileL = createMiterStileLeftGeo(totalH, fW, fThick);
+                const geoStileR = createMiterStileRightGeo(totalH, fW, fThick);
+
+                const stileL = new THREE.Mesh(geoStileL, matsExtrudeStile); stileL.position.set(-totalW / 2 + fW / 2, totalH / 2, 0);
+                const stileR = new THREE.Mesh(geoStileR, matsExtrudeStile); stileR.position.set(totalW / 2 - fW / 2, totalH / 2, 0);
+                const railT = new THREE.Mesh(geoRailT, matsExtrudeRail); railT.position.set(0, totalH - fW / 2, 0);
+                const railB = new THREE.Mesh(geoRailB, matsExtrudeRail); railB.position.set(0, fW / 2, 0);
+
+                [stileL, stileR, railT, railB].forEach(m => {
+                    m.castShadow = true; m.receiveShadow = true; m.userData = { isFrame: true };
+                    frameGroup.add(m);
+                });
+
+                // Stepped Sash Seating Rebate (Decorative inner step)
+                const rebateW = 0.5, rebateD = fThick * 0.15;
+                const geoRebateV = createBeveledRect(rebateW, totalH - fW * 2, rebateD, 0.08, 0.08);
+                const geoRebateH = rotateUVs(createBeveledRect(totalW - fW * 2, rebateW, rebateD, 0.08, 0.08));
+
+                const rebL = new THREE.Mesh(geoRebateV, matsExtrudeStile); rebL.position.set(-totalW / 2 + fW + rebateW / 2, totalH / 2, fThick / 2 - rebateD / 2);
+                const rebR = new THREE.Mesh(geoRebateV, matsExtrudeStile); rebR.position.set(totalW / 2 - fW - rebateW / 2, totalH / 2, fThick / 2 - rebateD / 2);
+                const rebT = new THREE.Mesh(geoRebateH, matsExtrudeRail); rebT.position.set(0, totalH - fW - rebateW / 2, fThick / 2 - rebateD / 2);
+                const rebB = new THREE.Mesh(geoRebateH, matsExtrudeRail); rebB.position.set(0, fW + rebateW / 2, fThick / 2 - rebateD / 2);
+                [rebL, rebR, rebT, rebB].forEach(m => { m.castShadow = true; m.userData = { isFrame: true }; frameGroup.add(m); });
+
+                // Architectural Sliding Track Channels & Dual Runner Rails with Micro Guide Grooves
+                const trackW = totalW - fW * 2;
+                const sThick = entity.thick * 0.35; // 35 mm slim sash depth (30% reduction for lightweight engineered look)
+
+                // Upper Header Track Channel with Guide Grooves
+                const headerTrackGeo = new THREE.BoxGeometry(trackW, 0.5, sThick * 2.2);
+                const headerTrack = new THREE.Mesh(headerTrackGeo, matMetalHardware);
+                headerTrack.position.set(0, totalH - fW - 0.25, 0);
+                frameGroup.add(headerTrack);
+
+                // Lower Sill Track Bed & Raised Metallic Runner Rails with Center Grooves
+                const sillBedGeo = new THREE.BoxGeometry(trackW, 0.4, sThick * 2.2);
+                const sillBed = new THREE.Mesh(sillBedGeo, matMetalHardware);
+                sillBed.position.set(0, fW + 0.2, 0);
+                frameGroup.add(sillBed);
+
+                const runnerRailGeo = new THREE.BoxGeometry(trackW, 0.35, 0.3);
+                const runner1 = new THREE.Mesh(runnerRailGeo, matRunnerRail);
+                runner1.position.set(0, fW + 0.55, sThick / 2 + 0.2);
+                const runner2 = new THREE.Mesh(runnerRailGeo, matRunnerRail);
+                runner2.position.set(0, fW + 0.55, -sThick / 2 - 0.2);
+                frameGroup.add(runner1, runner2);
+
+                // Frame Drain Caps & Recessed Weep Slots with Sloped Drip Covers (Bottom Outer Rail)
+                [-totalW * 0.35, 0, totalW * 0.35].forEach(xWeep => {
+                    const weepGroup = new THREE.Group();
+                    const capGeo = createBeveledRect(1.8, 0.5, 0.6, 0.08, 0.08);
+                    const cap = new THREE.Mesh(capGeo, matMetalHardware);
+                    cap.position.set(0, 0, 0);
+                    const slotGeo = new THREE.BoxGeometry(1.2, 0.25, 0.4);
+                    const slot = new THREE.Mesh(slotGeo, new THREE.MeshBasicMaterial({ color: 0x050505 }));
+                    slot.position.set(0, -0.1, -0.15);
+                    weepGroup.add(cap, slot);
+                    weepGroup.position.set(xWeep, fW * 0.4, fThick / 2 + 0.3);
+                    frameGroup.add(weepGroup);
+                });
+
+                frameGroup.position.set(0, 0, zOffset);
+                return frameGroup;
+            };
+
+            winGroup.add(buildOuterFrame(entity.width, height));
+
+            const iW = entity.width - fW * 2;
+            const iH = height - fW * 2;
+            const sThick = entity.thick * 0.35; // 35 mm slim sash depth
+
+            // --- 2. Window Sash Assembly (45° Miter Joints, Sash Rollers, Interlockers, Glazing Beads, PBR Glass & Hardware) ---
+            const makeSash = (w, h, useGlass = true, isCasement = false, hingeSide = 1) => {
+                const sG = new THREE.Group();
+                const shadowGap = 0.25; // 2.5 mm shadow gap
+                const sashW = w - shadowGap * 2;
+                const sashH = h - shadowGap * 2;
+                const sFw = isTrad ? 3.0 : 1.9;
+
+                // 45-degree Mitered Sash Stiles & Rails with Directional Grain & Board Variation
+                const geoStileL = createMiterStileLeftGeo(sashH, sFw, sThick);
+                const geoStileR = createMiterStileRightGeo(sashH, sFw, sThick);
+                const geoRailT = createMiterRailTopGeo(sashW, sFw, sThick);
+                const geoRailB = createMiterRailBotGeo(sashW, sFw, sThick);
+
+                const s1 = new THREE.Mesh(geoStileL, matsExtrudeStile); s1.position.set(-sashW / 2 + sFw / 2, sashH / 2, 0);
+                const s2 = new THREE.Mesh(geoStileR, matsExtrudeStile); s2.position.set(sashW / 2 - sFw / 2, sashH / 2, 0);
+                const r1 = new THREE.Mesh(geoRailT, matsExtrudeRail); r1.position.set(0, sashH - sFw / 2, 0);
+                const r2 = new THREE.Mesh(geoRailB, matsExtrudeRail); r2.position.set(0, sFw / 2, 0);
+
+                [s1, s2, r1, r2].forEach(m => {
+                    m.castShadow = true; m.receiveShadow = true; m.userData = { isFrame: true };
+                    sG.add(m);
+                });
+
+                // Sash Roller Wheel Assemblies (Bottom Edge Sitting on Runner Rails with Axle Pins)
+                [ -sashW * 0.35, sashW * 0.35 ].forEach(xWheel => {
+                    const rollerGroup = new THREE.Group();
+                    const housing = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.7, sThick * 0.85), matMetalHardware);
+                    housing.position.set(0, -0.35, 0);
+                    const wheelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.25, 16);
+                    wheelGeo.rotateZ(Math.PI / 2);
+                    const wheel = new THREE.Mesh(wheelGeo, matRollerBrass);
+                    wheel.position.set(0, -0.6, 0);
+                    const axlePin = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.5, 8), matMetalHardware);
+                    axlePin.rotation.x = Math.PI / 2; axlePin.position.set(0, -0.6, 0);
+                    rollerGroup.add(housing, wheel, axlePin);
+                    rollerGroup.position.set(xWheel, 0, 0);
+                    sG.add(rollerGroup);
+                });
+
+                const cutoutW = sashW - sFw * 2;
+                const cutoutH = sashH - sFw * 2;
+
+                if (useGlass) {
+                    // 45° Mitered Glazing Beads (Inner Beveled Wood/uPVC Trim)
+                    const beadW = 0.5, beadDepth = sThick * 0.5;
+                    const bGeoStileL = createMiterStileLeftGeo(cutoutH + beadW * 2, beadW, beadDepth, 0.08, 0.08);
+                    const bGeoStileR = createMiterStileRightGeo(cutoutH + beadW * 2, beadW, beadDepth, 0.08, 0.08);
+                    const bGeoRailT = createMiterRailTopGeo(cutoutW + beadW * 2, beadW, beadDepth, 0.08, 0.08);
+                    const bGeoRailB = createMiterRailBotGeo(cutoutW + beadW * 2, beadW, beadDepth, 0.08, 0.08);
+
+                    const bL = new THREE.Mesh(bGeoStileL, matsExtrudeStile); bL.position.set(-cutoutW / 2 + beadW / 2, sashH / 2, 0);
+                    const bR = new THREE.Mesh(bGeoStileR, matsExtrudeStile); bR.position.set(cutoutW / 2 - beadW / 2, sashH / 2, 0);
+                    const bT = new THREE.Mesh(bGeoRailT, matsExtrudeRail); bT.position.set(0, sashH - sFw - beadW / 2, 0);
+                    const bB = new THREE.Mesh(bGeoRailB, matsExtrudeRail); bB.position.set(0, sFw + beadW / 2, 0);
+                    [bL, bR, bT, bB].forEach(m => { m.castShadow = true; m.userData = { isFrame: true }; sG.add(m); });
+
+                    // Rubber Weather Seal Gaskets
+                    const sealW = 0.2;
+                    const geoSealV = new THREE.BoxGeometry(sealW, cutoutH, sThick * 0.35);
+                    const geoSealH = new THREE.BoxGeometry(cutoutW, sealW, sThick * 0.35);
+
+                    const sealL = new THREE.Mesh(geoSealV, matRubberSeal); sealL.position.set(-cutoutW / 2 + sealW / 2, sashH / 2, 0);
+                    const sealR = new THREE.Mesh(geoSealV, matRubberSeal); sealR.position.set(cutoutW / 2 - sealW / 2, sashH / 2, 0);
+                    const sealT = new THREE.Mesh(geoSealH, matRubberSeal); sealT.position.set(0, sashH - sFw - sealW / 2, 0);
+                    const sealB = new THREE.Mesh(geoSealH, matRubberSeal); sealB.position.set(0, sFw + sealW / 2, 0);
+                    sG.add(sealL, sealR, sealT, sealB);
+
+                    // Physical 3D Glass Pane (6-8 mm Thickness with PBR Refraction & Fresnel Reflections)
+                    const glassDepth = 0.6;
+                    const glassGeo = new THREE.BoxGeometry(cutoutW - beadW * 1.6, cutoutH - beadW * 1.6, glassDepth);
+                    const glass = new THREE.Mesh(glassGeo, matGlass);
+                    glass.position.set(0, sashH / 2, 0);
+                    glass.userData = { isGlass: true };
+                    sG.add(glass);
+
+                    // Hardware 1: Cremone Lever Handle with Lock Rods or Recessed Flush Pull with Lock Button
+                    const handleGroup = new THREE.Group();
+                    if (isCasement) {
+                        const backplate = new THREE.Mesh(createBeveledRect(1.4, 6.5, 0.4, 0.05, 0.05), matMetalHardware); backplate.position.set(0, 0, sThick / 2 + 0.2);
+                        const leverNeck = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.8, 12), matMetalHardware); leverNeck.rotation.x = Math.PI / 2; leverNeck.position.set(0, 0, sThick / 2 + 0.6);
+                        const leverHandle = new THREE.Mesh(createBeveledRect(1.0, 9.5, 0.4, 0.08, 0.08), matMetalHardware); leverHandle.position.set(0, -4.0, sThick / 2 + 1.0);
+                        
+                        // Top and Bottom Vertical Cremone Lock Rods
+                        const lockRodGeo = new THREE.CylinderGeometry(0.2, 0.2, sashH * 0.4, 8);
+                        const rodTop = new THREE.Mesh(lockRodGeo, matMetalHardware); rodTop.position.set(0, sashH * 0.25, sThick / 2 + 0.2);
+                        const rodBot = new THREE.Mesh(lockRodGeo, matMetalHardware); rodBot.position.set(0, -sashH * 0.25, sThick / 2 + 0.2);
+                        
+                        handleGroup.add(backplate, leverNeck, leverHandle, rodTop, rodBot);
+                        const handleX = hingeSide === 1 ? sashW / 2 - sFw / 2 : -sashW / 2 + sFw / 2;
+                        handleGroup.position.set(handleX, sashH * 0.45, 0);
+                    } else {
+                        // Recessed Metal Flush Pull for Sliding Windows with Integrated Lock Button
+                        const flushPullBack = new THREE.Mesh(createBeveledRect(2.2, 9.0, 0.5, 0.08, 0.08), matMetalHardware); flushPullBack.position.set(0, 0, sThick / 2 + 0.1);
+                        const flushPullCup = new THREE.Mesh(new THREE.BoxGeometry(1.2, 6.0, 0.4), new THREE.MeshBasicMaterial({ color: 0x0a0a0a })); flushPullCup.position.set(0, 0, sThick / 2 + 0.2);
+                        const lockToggle = new THREE.Mesh(createBeveledRect(0.6, 1.2, 0.3, 0.04, 0.04), matRollerBrass); lockToggle.position.set(0, 3.2, sThick / 2 + 0.3);
+                        handleGroup.add(flushPullBack, flushPullCup, lockToggle);
+                        handleGroup.position.set(sashW / 2 - sFw / 2, sashH * 0.45, 0);
+                    }
+                    sG.add(handleGroup);
+
+                    // Hardware 2: Butt Hinges for Casement Windows
+                    if (isCasement) {
+                        const hingeX = hingeSide === 1 ? -sashW / 2 : sashW / 2;
+                        [sashH * 0.8, sashH * 0.2].forEach(yPos => {
+                            const hingeGroup = new THREE.Group();
+                            const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 3.8, 12), matMetalHardware);
+                            const leafL = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.8, 0.2), matMetalHardware); leafL.position.set(-0.6, 0, 0);
+                            const leafR = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.8, 0.2), matMetalHardware); leafR.position.set(0.6, 0, 0);
+                            hingeGroup.add(pin, leafL, leafR);
+                            hingeGroup.position.set(hingeX, yPos, sThick / 2);
+                            sG.add(hingeGroup);
+                        });
+                    }
+                } else {
+                    // Solid Wooden Raised Panel (For Traditional Shutters)
+                    const panelGeo = createBeveledRect(cutoutW, cutoutH, sThick * 0.5, 0.3, 0.3);
+                    const woodPanel = new THREE.Mesh(panelGeo, matsExtrudeStile);
+                    woodPanel.position.set(0, sashH / 2, 0);
+                    woodPanel.userData = { isFrame: true };
+                    sG.add(woodPanel);
+                }
+
+                sG.position.set(0, shadowGap, 0);
                 return sG;
             };
-            if (wConf.type === 'fixed') { const sash = makeSash(iW, iH); sash.position.set(0, fW, zOffset); winGroup.add(sash); } 
-            else if (wConf.type === 'casement' || wConf.type === 'traditional') {
-                const hw = iW / 2; const useGlass = wConf.type !== 'traditional';
-                const sL = makeSash(hw, iH, useGlass); const pL = new THREE.Group(); pL.position.set(-iW/2, fW, zOffset); sL.position.set(hw/2, 0, 0); pL.rotation.y = (Math.PI / 4) * entity.facing; pL.add(sL);
-                const sR = makeSash(hw, iH, useGlass); const pR = new THREE.Group(); pR.position.set(iW/2, fW, zOffset); sR.position.set(-hw/2, 0, 0); pR.rotation.y = -(Math.PI / 4) * entity.facing; pR.add(sR); winGroup.add(pL, pR);
+
+            // --- 3. Window Type Specific Layouts ---
+            if (wConf.type === 'fixed') {
+                const sash = makeSash(iW, iH);
+                sash.position.set(0, fW, zOffset);
+                winGroup.add(sash);
+            } else if (wConf.type === 'casement' || wConf.type === 'traditional') {
+                const hw = iW / 2;
+                const useGlass = wConf.type !== 'traditional';
+
+                const sL = makeSash(hw, iH, useGlass, true, -1);
+                const pL = new THREE.Group(); pL.position.set(-iW / 2, fW, zOffset); sL.position.set(hw / 2, 0, 0); pL.rotation.y = (Math.PI / 4) * entity.facing; pL.add(sL);
+
+                const sR = makeSash(hw, iH, useGlass, true, 1);
+                const pR = new THREE.Group(); pR.position.set(iW / 2, fW, zOffset); sR.position.set(-hw / 2, 0, 0); pR.rotation.y = -(Math.PI / 4) * entity.facing; pR.add(sR);
+
+                winGroup.add(pL, pR);
             } else if (wConf.type === 'sliding') {
-                const overlap = 2; const panes = 2; const hw = (iW / panes) + (overlap/2);
-                for(let i=0; i<panes; i++) { const sash = makeSash(hw, iH); const zOff = (i % 2 === 0) ? sThick/2 + 0.1 : -sThick/2 - 0.1; let xPos = -iW/2 + hw/2 + (i * (hw - overlap)); if (i === panes - 1) xPos -= hw * 0.3 * entity.facing; sash.position.set(xPos, fW, zOffset + zOff); winGroup.add(sash); }
-            } else if (wConf.type === 'louver') { const slatH = 5; const count = Math.floor(iH / (slatH - 0.5)); for(let i=0; i<count; i++) { const slat = new THREE.Mesh(new THREE.BoxGeometry(iW - 1, slatH, 0.5), matGlass); slat.position.set(0, fW + (i * (slatH - 0.5)) + slatH/2, 0); slat.rotation.x = Math.PI / 6; winGroup.add(slat); } }
-            else if (wConf.type === 'bay') {
+                const overlap = 2.5;
+                const panes = 2;
+                const hw = (iW / panes) + (overlap / 2);
+                for (let i = 0; i < panes; i++) {
+                    const sash = makeSash(hw, iH);
+                    const zOff = (i % 2 === 0) ? sThick / 2 + 0.15 : -sThick / 2 - 0.15;
+                    let xPos = -iW / 2 + hw / 2 + (i * (hw - overlap));
+                    if (i === panes - 1) xPos -= hw * 0.25 * entity.facing;
+
+                    // Vertical Interlocker Seal Strip on Meeting Stile
+                    const interlockerGeo = new THREE.BoxGeometry(0.4, iH - 0.5, sThick * 0.8);
+                    const interlocker = new THREE.Mesh(interlockerGeo, matMetalHardware);
+                    interlocker.position.set(i === 0 ? hw / 2 - 0.4 : -hw / 2 + 0.4, iH / 2, 0);
+                    sash.add(interlocker);
+
+                    sash.position.set(xPos, fW, zOffset + zOff);
+                    winGroup.add(sash);
+                }
+            } else if (wConf.type === 'louver') {
+                const slatH = 5.5;
+                const count = Math.floor(iH / (slatH - 0.6));
+                for (let i = 0; i < count; i++) {
+                    const slatGeo = createBeveledRect(iW - 1.2, slatH, 0.6, 0.08, 0.08);
+                    const slat = new THREE.Mesh(slatGeo, matGlass);
+                    slat.position.set(0, fW + (i * (slatH - 0.6)) + slatH / 2, zOffset);
+                    slat.rotation.x = Math.PI / 5;
+                    winGroup.add(slat);
+                }
+            } else if (wConf.type === 'bay') {
                 const frontW = iW * 0.6; const frontSash = makeSash(frontW, iH); frontSash.position.set(0, fW, zOffset); winGroup.add(frontSash);
-                const sideW = Math.hypot(iW*0.2, zOffset); const sideAng = Math.atan2(zOffset, iW*0.2);
-                const sL = makeSash(sideW, iH); sL.position.set(-iW/2 + (iW*0.2)/2, fW, zOffset/2); sL.rotation.y = -sideAng; winGroup.add(sL); const sR = makeSash(sideW, iH); sR.position.set(iW/2 - (iW*0.2)/2, fW, zOffset/2); sR.rotation.y = sideAng; winGroup.add(sR);
-                const capShape = new THREE.Shape(); capShape.moveTo(-iW/2 - fW, 0); capShape.lineTo(iW/2 + fW, 0); capShape.lineTo(frontW/2 + fW, zOffset + fThick/2); capShape.lineTo(-frontW/2 - fW, zOffset + fThick/2);
-                const capGeo = new THREE.ExtrudeGeometry(capShape, {depth: fW, bevelEnabled:false}); capGeo.rotateX(Math.PI/2); const capT = new THREE.Mesh(capGeo, matFrame); capT.position.set(0, height, 0); const capB = new THREE.Mesh(capGeo, matFrame); capB.position.set(0, fW, 0); [capT, capB].forEach(m => m.userData = { isFrame: true }); winGroup.add(capT, capB);
+                const sideW = Math.hypot(iW * 0.2, zOffset); const sideAng = Math.atan2(zOffset, iW * 0.2);
+                const sL = makeSash(sideW, iH); sL.position.set(-iW / 2 + (iW * 0.2) / 2, fW, zOffset / 2); sL.rotation.y = -sideAng;
+                const sR = makeSash(sideW, iH); sR.position.set(iW / 2 - (iW * 0.2) / 2, fW, zOffset / 2); sR.rotation.y = sideAng;
+                winGroup.add(sL, sR);
+
+                const capShape = new THREE.Shape(); capShape.moveTo(-iW / 2 - fW, 0); capShape.lineTo(iW / 2 + fW, 0); capShape.lineTo(frontW / 2 + fW, zOffset + fThick / 2); capShape.lineTo(-frontW / 2 - fW, zOffset + fThick / 2);
+                const capGeo = new THREE.ExtrudeGeometry(capShape, { depth: fW, bevelEnabled: true, bevelSize: 0.2, bevelThickness: 0.2 }); capGeo.rotateX(Math.PI / 2);
+                const capT = new THREE.Mesh(capGeo, matsExtrudeRail); capT.position.set(0, height, 0);
+                const capB = new THREE.Mesh(capGeo, matsExtrudeRail); capB.position.set(0, fW, 0);
+                [capT, capB].forEach(m => m.userData = { isFrame: true });
+                winGroup.add(capT, capB);
             } else if (wConf.type === 'split_asymmetric') {
                 const leftW = iW * 0.45; const rightW = iW - leftW;
-                const rightSash = makeSash(rightW, iH); rightSash.position.set(iW/2 - rightW/2, fW, zOffset); winGroup.add(rightSash);
+                const rightSash = makeSash(rightW, iH); rightSash.position.set(iW / 2 - rightW / 2, fW, zOffset); winGroup.add(rightSash);
                 const botH = iH * 0.4; const topH = iH - botH;
-                const botSash = makeSash(leftW, botH); botSash.position.set(-iW/2 + leftW/2, fW, zOffset); winGroup.add(botSash);
-                const topSash = makeSash(leftW, topH); topSash.position.set(-iW/2 + leftW/2, fW + botH, zOffset); winGroup.add(topSash);
+                const botSash = makeSash(leftW, botH); botSash.position.set(-iW / 2 + leftW / 2, fW, zOffset);
+                const topSash = makeSash(leftW, topH); topSash.position.set(-iW / 2 + leftW / 2, fW + botH, zOffset);
+                winGroup.add(botSash, topSash);
             } else if (wConf.type === 'window_seat') {
                 const hw = iW / 2;
-                const sL = makeSash(hw, iH); sL.position.set(-hw/2, fW, 0); winGroup.add(sL);
-                const sR = makeSash(hw, iH); sR.position.set(hw/2, fW, 0); winGroup.add(sR);
+                const sL = makeSash(hw, iH); sL.position.set(-hw / 2, fW, zOffset);
+                const sR = makeSash(hw, iH); sR.position.set(hw / 2, fW, zOffset);
+                winGroup.add(sL, sR);
             } else if (wConf.type === 'garden_open') {
                 const frontW = iW * 0.6; const frontSash = makeSash(frontW, iH); frontSash.position.set(0, fW, zOffset); winGroup.add(frontSash);
-                const sideW = Math.hypot(iW*0.2, zOffset);
-                const sL = makeSash(sideW, iH, true); const pL = new THREE.Group(); pL.position.set(-frontW/2, fW, zOffset); sL.position.set(-sideW/2, 0, 0); pL.rotation.y = -Math.PI/3; pL.add(sL); winGroup.add(pL);
-                const sR = makeSash(sideW, iH, true); const pR = new THREE.Group(); pR.position.set(frontW/2, fW, zOffset); sR.position.set(sideW/2, 0, 0); pR.rotation.y = Math.PI/3; pR.add(sR); winGroup.add(pR);
-                const capShape = new THREE.Shape(); capShape.moveTo(-iW/2 - fW, 0); capShape.lineTo(iW/2 + fW, 0); capShape.lineTo(frontW/2 + fW, zOffset + fThick/2); capShape.lineTo(-frontW/2 - fW, zOffset + fThick/2);
-                const capGeo = new THREE.ExtrudeGeometry(capShape, {depth: fW, bevelEnabled:false}); capGeo.rotateX(Math.PI/2); const capT = new THREE.Mesh(capGeo, matFrame); capT.position.set(0, height, 0); const capB = new THREE.Mesh(capGeo, matFrame); capB.position.set(0, fW, 0); [capT, capB].forEach(m => m.userData = { isFrame: true }); winGroup.add(capT, capB);
+                const sideW = Math.hypot(iW * 0.2, zOffset);
+                const sL = makeSash(sideW, iH, true); const pL = new THREE.Group(); pL.position.set(-frontW / 2, fW, zOffset); sL.position.set(-sideW / 2, 0, 0); pL.rotation.y = -Math.PI / 3; pL.add(sL); winGroup.add(pL);
+                const sR = makeSash(sideW, iH, true); const pR = new THREE.Group(); pR.position.set(frontW / 2, fW, zOffset); sR.position.set(sideW / 2, 0, 0); pR.rotation.y = Math.PI / 3; pR.add(sR); winGroup.add(pR);
             } else if (wConf.type === 'panoramic_slider') {
-                const overlap = 2; const panes = 3; const hw = (iW / panes) + (overlap/2);
-                for(let i=0; i<panes; i++) { 
-                    const pG = new THREE.Group(); const thinFw = 1.0;
-                    const tGeoS = new THREE.BoxGeometry(thinFw, iH, sThick); const tGeoR = new THREE.BoxGeometry(hw - thinFw*2, thinFw, sThick);
-                    const s1 = new THREE.Mesh(tGeoS, matFrame); s1.position.set(-hw/2 + thinFw/2, iH/2, 0); const s2 = new THREE.Mesh(tGeoS, matFrame); s2.position.set(hw/2 - thinFw/2, iH/2, 0);
-                    const r1 = new THREE.Mesh(tGeoR, matFrame); r1.position.set(0, iH - thinFw/2, 0); const r2 = new THREE.Mesh(tGeoR, matFrame); r2.position.set(0, thinFw/2, 0);
-                    const glass = new THREE.Mesh(new THREE.BoxGeometry(hw - thinFw*2, iH - thinFw*2, sThick*0.3), matGlass); glass.position.set(0, iH/2, 0);
-                    [s1, s2, r1, r2, glass].forEach(m => { m.castShadow = true; m.receiveShadow = true; pG.add(m); });
-                    const zOff = (i % 2 === 0) ? sThick/2 + 0.1 : -sThick/2 - 0.1; 
-                    let xPos = -iW/2 + hw/2 + (i * (hw - overlap)); 
-                    pG.position.set(xPos, fW, zOffset + zOff); winGroup.add(pG); 
+                const overlap = 2.0; const panes = 3; const hw = (iW / panes) + (overlap / 2);
+                for (let i = 0; i < panes; i++) {
+                    const sash = makeSash(hw, iH);
+                    const zOff = (i % 2 === 0) ? sThick / 2 + 0.15 : -sThick / 2 - 0.15;
+                    let xPos = -iW / 2 + hw / 2 + (i * (hw - overlap));
+                    sash.position.set(xPos, fW, zOffset + zOff);
+                    winGroup.add(sash);
                 }
             }
+
+            // --- 4. Architectural 3D Grill Bars (8mm Profile & 4x4 Grid Lines) ---
             if (entity.grillePattern && entity.grillePattern !== 'none') {
-                const grilleGroup = new THREE.Group(); const grilleZ = entity.facing === 1 ? fThick/2 - 0.5 : -fThick/2 + 0.5; grilleGroup.position.set(0, 0, grilleZ); const barRadius = 0.3;
-                const makeVBar = (x) => { const b = new THREE.Mesh(new THREE.CylinderGeometry(barRadius, barRadius, iH + 2, 8), matGrille); b.position.set(x, height/2, 0); return b; }; const makeHBar = (y) => { const b = new THREE.Mesh(new THREE.CylinderGeometry(barRadius, barRadius, iW + 2, 8), matGrille); b.rotation.z = Math.PI/2; b.position.set(0, y, 0); return b; };
-                if (entity.grillePattern === 'vertical' || entity.grillePattern === 'grid') { for (let i = -iW/2 + 5; i < iW/2; i += 5) { grilleGroup.add(makeVBar(i)); } }
-                if (entity.grillePattern === 'horizontal' || entity.grillePattern === 'grid') { for (let j = fW + 6; j < height - fW; j += 6) { grilleGroup.add(makeHBar(j)); } }
-                if (entity.grillePattern === 'diamond') { const dGroup = new THREE.Group(); const maxDim = Math.max(iW, iH) * 1.5; for (let i = -maxDim/2; i <= maxDim/2; i += 6) { const v = new THREE.Mesh(new THREE.CylinderGeometry(barRadius, barRadius, maxDim, 8), matGrille); v.position.set(i, 0, 0); dGroup.add(v); const h = new THREE.Mesh(new THREE.CylinderGeometry(barRadius, barRadius, maxDim, 8), matGrille); h.rotation.z = Math.PI/2; h.position.set(0, i, 0); dGroup.add(h); } dGroup.rotation.z = Math.PI / 4; dGroup.position.set(0, height/2, 0); grilleGroup.add(dGroup); }
+                const grilleGroup = new THREE.Group();
+                const grilleZ = entity.facing === 1 ? fThick / 2 - 1.0 : -fThick / 2 + 1.0; // 10 mm clearance gap from glass
+                grilleGroup.position.set(0, 0, zOffset + grilleZ);
+
+                const barWidth = 0.8, barDepth = 0.5; // 8 mm face width x 5 mm depth
+                const createThinBarGeo = (w, h, depth, isRotated = false) => {
+                    const shape = new THREE.Shape();
+                    const hw = w / 2, hh = h / 2;
+                    shape.moveTo(-hw, -hh); shape.lineTo(hw, -hh); shape.lineTo(hw, hh); shape.lineTo(-hw, hh); shape.lineTo(-hw, -hh);
+                    const geo = new THREE.ExtrudeGeometry(shape, { depth: depth, bevelEnabled: false, steps: 1 });
+                    geo.translate(0, 0, -depth / 2);
+                    if (isRotated) rotateUVs(geo);
+                    return geo;
+                };
+
+                const makeVBar = (x) => {
+                    const barGroup = new THREE.Group();
+                    const geo = createThinBarGeo(barWidth, iH, barDepth, false);
+                    const mesh = new THREE.Mesh(geo, matGrille);
+                    mesh.position.set(0, height / 2, 0);
+                    mesh.castShadow = true;
+                    barGroup.add(mesh);
+
+                    // Top/Bottom Mounting Bracket Clips
+                    const clipGeo = createBeveledRect(1.0, 0.5, 1.0, 0.05, 0.05);
+                    const clipT = new THREE.Mesh(clipGeo, matMetalHardware); clipT.position.set(0, height - fW / 2, 0);
+                    const clipB = new THREE.Mesh(clipGeo, matMetalHardware); clipB.position.set(0, fW / 2, 0);
+                    barGroup.add(clipT, clipB);
+                    barGroup.position.set(x, 0, 0);
+                    return barGroup;
+                };
+
+                const makeHBar = (y) => {
+                    const barGroup = new THREE.Group();
+                    const geo = createThinBarGeo(iW, barWidth, barDepth, true);
+                    const mesh = new THREE.Mesh(geo, matGrille);
+                    mesh.position.set(0, y, 0);
+                    mesh.castShadow = true;
+                    barGroup.add(mesh);
+                    return barGroup;
+                };
+
+                const numCols = 5; // 5 columns (4 vertical grid lines)
+                const numRows = 5; // 5 rows (4 horizontal grid lines)
+                if (entity.grillePattern === 'vertical' || entity.grillePattern === 'grid') {
+                    for (let k = 1; k < numCols; k++) {
+                        const x = -iW / 2 + (k * iW / numCols);
+                        grilleGroup.add(makeVBar(x));
+                    }
+                }
+                if (entity.grillePattern === 'horizontal' || entity.grillePattern === 'grid') {
+                    for (let k = 1; k < numRows; k++) {
+                        const y = fW + (k * iH / numRows);
+                        grilleGroup.add(makeHBar(y));
+                    }
+                }
+                if (entity.grillePattern === 'diamond') {
+                    const dGroup = new THREE.Group();
+                    const maxDim = Math.max(iW, iH) * 1.4;
+                    const stepD = maxDim / 6;
+                    for (let i = -maxDim / 2 + stepD; i < maxDim / 2; i += stepD) {
+                        const vMesh = new THREE.Mesh(createThinBarGeo(barWidth, maxDim, barDepth, false), matGrille);
+                        vMesh.position.set(i, 0, 0);
+                        dGroup.add(vMesh);
+                        const hMesh = new THREE.Mesh(createThinBarGeo(maxDim, barWidth, barDepth, true), matGrille);
+                        hMesh.position.set(0, i, 0);
+                        dGroup.add(hMesh);
+                    }
+                    dGroup.rotation.z = Math.PI / 4;
+                    dGroup.position.set(0, height / 2, 0);
+                    grilleGroup.add(dGroup);
+                }
                 winGroup.add(grilleGroup);
             }
-            // Chajja logic moved to standalone sunshade widget
+
+            // Hitbox for selection & gizmo interactions
             const hitboxGeo = new THREE.BoxGeometry(entity.width + 10, height + 10, (entity.thick || 20) + 10);
-            const hitbox = new THREE.Mesh(hitboxGeo, new THREE.MeshBasicMaterial({transparent: true, opacity: 0, depthWrite: false}));
-            hitbox.position.set(0, height/2, 0);
+            const hitbox = new THREE.Mesh(hitboxGeo, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+            hitbox.position.set(0, height / 2, 0);
             winGroup.add(hitbox);
             winGroup.userData = { isWidget: true, entity: entity };
             sceneGroup.add(winGroup);
