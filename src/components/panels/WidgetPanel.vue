@@ -35,12 +35,57 @@
             </div>
         </div>
         <div v-else-if="selectedEntity.type === 'window'">
-
             <div class="control-group">
-                <label>Add Window Grill</label>
-                <div class="input-wrap" style="justify-content: flex-end;">
-                    <input type="checkbox" :checked="selectedEntity.grillePattern && selectedEntity.grillePattern !== 'none'" @change="(e) => { selectedEntity.grillePattern = e.target.checked ? 'grid' : 'none'; $emit('sync-engine'); }" />
-                </div>
+                <label>Window Style</label>
+                <select :value="selectedEntity.windowType || 'sliding_std'" @change="e => { selectedEntity.windowType = e.target.value; $emit('sync-engine'); }">
+                    <option value="sliding_std">Sliding Window</option>
+                    <option value="casement_std">Casement Window</option>
+                    <option value="fixed">Fixed Glass Window</option>
+                    <option value="traditional">Traditional Paneled Window</option>
+                    <option value="louver">Louver / Jalousie Window</option>
+                    <option value="bay">Bay Window</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Window Shape</label>
+                <select :value="selectedEntity.windowShape || selectedEntity.doorShape || 'square'" @change="e => { selectedEntity.windowShape = e.target.value; selectedEntity.doorShape = e.target.value; $emit('sync-engine'); }">
+                    <option value="square">Square / Rectangular (Default)</option>
+                    <option value="radius">Radius (Arch Top)</option>
+                    <option value="segment">Eyebrow Segment</option>
+                    <option value="gothic">Gothic Pointed</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Frame Material</label>
+                <select :value="selectedEntity.frameMat || 'wood_teak'" @change="e => { selectedEntity.frameMat = e.target.value; $emit('sync-engine'); }">
+                    <option value="wood_teak">Teak Wood</option>
+                    <option value="upvc_white">White uPVC</option>
+                    <option value="aluminium_black">Matte Black Aluminium</option>
+                    <option value="oak">Natural Oak</option>
+                    <option value="walnut">Dark Walnut</option>
+                    <option value="mahogany">Rich Mahogany</option>
+                    <option value="pine">Light Pine</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Glass Material</label>
+                <select :value="selectedEntity.glassMat || 'clear'" @change="e => { selectedEntity.glassMat = e.target.value; $emit('sync-engine'); }">
+                    <option value="clear">Clear High-Clarity Glass</option>
+                    <option value="frosted">Frosted Privacy Glass</option>
+                    <option value="tinted">Solar Tinted Glass</option>
+                    <option value="tinted_bronze">Bronze Tinted Glass</option>
+                    <option value="low_e">Low-E Energy Glass</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Grill Pattern</label>
+                <select :value="selectedEntity.grillePattern || 'none'" @change="e => { selectedEntity.grillePattern = e.target.value; $emit('sync-engine'); }">
+                    <option value="none">No Grill (Clean View)</option>
+                    <option value="grid">Standard Grid</option>
+                    <option value="diamond">Diamond Lattice</option>
+                    <option value="horizontal">Horizontal Security Bars</option>
+                    <option value="vertical">Vertical Security Bars</option>
+                </select>
             </div>
         </div>
         <div v-else-if="selectedEntity.type === 'sunshade'">

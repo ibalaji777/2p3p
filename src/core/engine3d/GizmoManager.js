@@ -2202,6 +2202,8 @@ export class GizmoManager {
                     activeGizmos = GIZMO_REGISTRY.roof;
                 } else if (type === 'door') {
                     activeGizmos = entity.doorType === 'french' ? GIZMO_REGISTRY.door_french : GIZMO_REGISTRY.door;
+                } else if (type === 'window') {
+                    activeGizmos = GIZMO_REGISTRY.window || GIZMO_REGISTRY.door;
                 } else if (isOpening) {
                     activeGizmos = GIZMO_REGISTRY.opening;
                 } else if (type === 'elevation_fascia') {

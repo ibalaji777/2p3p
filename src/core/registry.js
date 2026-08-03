@@ -960,12 +960,60 @@ export const WIDGET_REGISTRY = {
         events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
         defaultConfig: { width: 50, height: WINDOW_HEIGHT, elevation: WINDOW_SILL, windowType: 'sliding_std', frameMat: 'wood_teak', glassMat: 'clear', grillePattern: 'grid', facing: 1, side: 1 },
         render2D: (group, entity) => {
-            const hw = entity.width / 2; const thick = entity.wall.thickness || entity.wall.config.thickness; const wConf = WINDOW_TYPES[entity.windowType] || WINDOW_TYPES.sliding_std;
-            if (wConf.type === 'fixed' || wConf.type === 'louver') { group.add(new Konva.Rect({ fill: '#bae6fd', opacity: 0.6, stroke: '#38bdf8', strokeWidth: 1, width: entity.width - 8, height: thick * 0.4, x: -hw + 4, y: -thick * 0.2 })); } 
-            else if (wConf.type === 'sliding') { const off = thick * 0.2; group.add(new Konva.Line({ points: [-hw, -off, 0, -off], stroke: '#38bdf8', strokeWidth: 2 }), new Konva.Line({ points: [0, off, hw, off], stroke: '#38bdf8', strokeWidth: 2 })); } 
-            else if (wConf.type === 'casement' || wConf.type === 'traditional') { const hingeX = (entity.side === 1) ? hw : -hw, arcRot = (entity.side === 1) ? ((entity.facing === 1) ? 180 : 90) : ((entity.facing === 1) ? 270 : 0); group.add(new Konva.Arc({ x: hingeX, y: 0, innerRadius: entity.width, outerRadius: entity.width, angle: 60, stroke: '#9ca3af', dash: [4, 4], rotation: arcRot }), new Konva.Line({ points: [hingeX, 0, hingeX, -entity.width * 0.8 * entity.facing], stroke: '#38bdf8', strokeWidth: 2 })); }
-            else if (wConf.type === 'bay') { group.add(new Konva.Line({ points: [-hw, 0, -hw+10, -20*entity.facing, hw-10, -20*entity.facing, hw, 0], stroke: '#38bdf8', strokeWidth: 2 })); }
-            if (entity.grillePattern !== 'none') { group.add(new Konva.Line({ points: [-hw, thick*0.4, hw, thick*0.4], stroke: '#ef4444', dash: [2,2] })); }
+            const hw = entity.width / 2;
+            const thick = entity.wall ? (entity.wall.thickness || entity.wall.config?.thickness || 20) : 20;
+            const halfThick = thick / 2;
+            const wConf = WINDOW_TYPES[entity.windowType] || WINDOW_TYPES.sliding_std;
+
+            // 1. Wall Cutout End Cap Lines (Left & Right Jamb Termination Caps)
+            group.add(new Konva.Line({ points: [-hw, -halfThick, -hw, halfThick], stroke: '#374151', strokeWidth: 2.5 }));
+            group.add(new Konva.Line({ points: [hw, -halfThick, hw, halfThick], stroke: '#374151', strokeWidth: 2.5 }));
+
+            // 2. Wall Sill Edge Boundary Lines (Outer & Inner Sill Limits)
+            group.add(new Konva.Line({ points: [-hw, -halfThick, hw, -halfThick], stroke: '#6b7280', strokeWidth: 1.5 }));
+            group.add(new Konva.Line({ points: [-hw, halfThick, hw, halfThick], stroke: '#6b7280', strokeWidth: 1.5 }));
+
+            // 3. Glass Pane Body (Soft Architectural Blue Fill)
+            group.add(new Konva.Rect({
+                x: -hw + 3,
+                y: -thick * 0.2,
+                width: entity.width - 6,
+                height: thick * 0.4,
+                fill: '#e0f2fe',
+                opacity: 0.45,
+                stroke: '#38bdf8',
+                strokeWidth: 1
+            }));
+
+            // 4. Window Type Specific Architectural Symbols
+            if (wConf.type === 'sliding') {
+                const off = thick * 0.16;
+                // Overlapping dual sliding sash lines matching CAD standards
+                group.add(new Konva.Line({ points: [-hw + 4, -off, 2, -off], stroke: '#1f2937', strokeWidth: 3, lineCap: 'round' }));
+                group.add(new Konva.Line({ points: [-2, off, hw - 4, off], stroke: '#1f2937', strokeWidth: 3, lineCap: 'round' }));
+            } else if (wConf.type === 'casement' || wConf.type === 'traditional') {
+                const hingeX = (entity.side === 1) ? hw : -hw;
+                const arcRot = (entity.side === 1) ? ((entity.facing === 1) ? 180 : 90) : ((entity.facing === 1) ? 270 : 0);
+                group.add(new Konva.Arc({ x: hingeX, y: 0, innerRadius: entity.width * 0.8, outerRadius: entity.width * 0.8, angle: 60, stroke: '#9ca3af', dash: [4, 4], rotation: arcRot }));
+                group.add(new Konva.Line({ points: [hingeX, 0, hingeX, -entity.width * 0.7 * entity.facing], stroke: '#1f2937', strokeWidth: 3, lineCap: 'round' }));
+            } else if (wConf.type === 'louver') {
+                const numSlats = 4;
+                const step = (entity.width - 8) / numSlats;
+                for (let i = 0; i < numSlats; i++) {
+                    const x = -hw + 4 + i * step;
+                    group.add(new Konva.Line({ points: [x, -thick * 0.25, x + step * 0.8, thick * 0.25], stroke: '#374151', strokeWidth: 2 }));
+                }
+            } else if (wConf.type === 'bay') {
+                const offset = 14 * (entity.facing === 1 ? 1 : -1);
+                group.add(new Konva.Line({ points: [-hw, 0, -hw + 10, offset, hw - 10, offset, hw, 0], stroke: '#1f2937', strokeWidth: 3, lineCap: 'round' }));
+            } else { // Fixed
+                group.add(new Konva.Line({ points: [-hw + 4, 0, hw - 4, 0], stroke: '#1f2937', strokeWidth: 3 }));
+            }
+
+            // 5. Grill Pattern Line Indicator
+            if (entity.grillePattern && entity.grillePattern !== 'none') {
+                group.add(new Konva.Line({ points: [-hw + 4, 0, hw - 4, 0], stroke: '#ef4444', strokeWidth: 1.5, dash: [3, 3] }));
+            }
         },
         render3D: (sceneGroup, entity, helpers) => {
             let baseElev = entity.elevation !== undefined ? entity.elevation : WINDOW_SILL;
@@ -2190,6 +2238,7 @@ export const GIZMO_REGISTRY = {
     'roof': ['material', 'roofCorners'],
     'door': ['move', 'opening', 'material', 'style'],
     'door_french': ['move', 'opening', 'material'],
+    'window': ['move', 'opening', 'material', 'style'],
     'opening': ['move', 'opening', 'material'],
     'elevation_fascia': ['move', 'place', 'scale', 'spin', 'tilt', 'material', 'corner'],
     'shape': ['move', 'place', 'scale', 'spin', 'tilt', 'material', 'vertexSlope'],
