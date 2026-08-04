@@ -147,7 +147,23 @@ export class MaterialFactory {
             const cachedMat = this.materialCache.get(cacheKey);
             // If we received an existing material object to mutate in-place, we must copy the cached material's properties
             if (material) {
-                material.copy(cachedMat);
+                if (cachedMat) {
+                    try {
+                        if (!cachedMat.color) cachedMat.color = new THREE.Color(0xffffff);
+                        if (!cachedMat.emissive) cachedMat.emissive = new THREE.Color(0x000000);
+                        if (!cachedMat.normalScale) cachedMat.normalScale = new THREE.Vector2(1,1);
+                        material.copy(cachedMat);
+                    } catch (e) {
+                        console.error("[MaterialFactory] Copy failed!", e);
+                        // Fallback: manually copy safe properties
+                        material.color = cachedMat.color ? cachedMat.color.clone() : new THREE.Color(0xffffff);
+                        material.roughness = cachedMat.roughness || 0.5;
+                        material.metalness = cachedMat.metalness || 0;
+                        material.map = cachedMat.map;
+                        material.normalMap = cachedMat.normalMap;
+                        material.needsUpdate = true;
+                    }
+                }
                 return material;
             }
             return cachedMat; // Otherwise we can just share the cached reference
