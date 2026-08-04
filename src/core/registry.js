@@ -327,7 +327,37 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         const handleGeo = new THREE.CylinderGeometry(0.35, 0.35, 30, 16); const standoffGeo = new THREE.CylinderGeometry(0.2, 0.2, 1.5, 8);
         [-1, 1].forEach(side => { const zPos = side === 1 ? thickness/2 + 1.2 : -thickness/2 - 1.2; const pull = new THREE.Mesh(handleGeo, silverMat); pull.position.set((width/2 - 3) * signX, handleY, zPos); const so1 = new THREE.Mesh(standoffGeo, silverMat); so1.rotation.x = Math.PI/2; so1.position.set((width/2 - 3) * signX, handleY + 12, zPos - side*0.6); const so2 = new THREE.Mesh(standoffGeo, silverMat); so2.rotation.x = Math.PI/2; so2.position.set((width/2 - 3) * signX, handleY - 12, zPos - side*0.6); [pull, so1, so2].forEach(m => { m.userData.isHandle = true; m.castShadow = true; group.add(m); }); });
     } else if (['sliding', 'double_sliding', 'pocket'].includes(type)) {
-        const flushGeo = new THREE.BoxGeometry(2, 10, 0.4); const pullF = new THREE.Mesh(flushGeo, metalMat); pullF.position.set((width/2 - 4) * signX, handleY, thickness/2 + 0.1); const pullB = new THREE.Mesh(flushGeo, metalMat); pullB.position.set((width/2 - 4) * signX, handleY, -thickness/2 - 0.1); [pullF, pullB].forEach(m => { m.userData.isHandle = true; group.add(m); });
+        const isPocket = type === 'pocket';
+        const hW = isPocket ? 2.5 : 2;
+        const hH = isPocket ? 16 : 10;
+        const hY = isPocket ? height * 0.5 : handleY;
+        
+        // Premium brushed matte black metal
+        const pocketHandleMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, metalness: 0.8, roughness: 0.45 });
+        
+        const makeHandleGeo = (w, h, d, b=0.04) => {
+            const wAdj = Math.max(0.01, w - b*2);
+            const hAdj = Math.max(0.01, h - b*2);
+            const shape = new THREE.Shape(); const hw = wAdj/2, hh = hAdj/2;
+            shape.moveTo(-hw, -hh); shape.lineTo(hw, -hh); shape.lineTo(hw, hh); shape.lineTo(-hw, hh); shape.lineTo(-hw, -hh);
+            const dAdj = Math.max(0.01, d - b*2);
+            const ex = new THREE.ExtrudeGeometry(shape, { depth: dAdj, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: b, bevelThickness: b });
+            ex.translate(0, 0, -dAdj/2);
+            return ex;
+        };
+
+        // Use makeHandleGeo to add subtle edge bevel (0.04 = 1mm)
+        const flushGeo = makeHandleGeo(hW, hH, 0.4, 0.04);
+        const pullF = new THREE.Mesh(flushGeo, isPocket ? pocketHandleMat : metalMat); pullF.position.set((width/2 - 4) * signX, hY, thickness/2 + 0.1);
+        const pullB = new THREE.Mesh(flushGeo, isPocket ? pocketHandleMat : metalMat); pullB.position.set((width/2 - 4) * signX, hY, -thickness/2 - 0.1);
+        
+        // Inner recessed cavity for realistic depth
+        const innerGeo = makeHandleGeo(hW * 0.6, hH * 0.8, 0.5, 0.02);
+        const innerMat = new THREE.MeshStandardMaterial({ color: 0x050505, metalness: 0.9, roughness: 0.6 });
+        const innerF = new THREE.Mesh(innerGeo, innerMat); innerF.position.set((width/2 - 4) * signX, hY, thickness/2 + 0.05);
+        const innerB = new THREE.Mesh(innerGeo, innerMat); innerB.position.set((width/2 - 4) * signX, hY, -thickness/2 - 0.05);
+        
+        [pullF, pullB, innerF, innerB].forEach(m => { m.userData.isHandle = true; m.castShadow = true; group.add(m); });
     } else if (type === 'pivot') {
         const barGeo = new THREE.CylinderGeometry(0.5, 0.5, 24, 16); const standoffGeo = new THREE.CylinderGeometry(0.3, 0.3, 2, 8);
         [-1, 1].forEach(side => { const zPos = side === 1 ? thickness/2 + 1.5 : -thickness/2 - 1.5; const bar = new THREE.Mesh(barGeo, metalMat); bar.position.set((width/2 - 4) * signX, handleY, zPos); const so1 = new THREE.Mesh(standoffGeo, metalMat); so1.rotation.x = Math.PI/2; so1.position.set((width/2 - 4) * signX, handleY + 10, zPos - side); const so2 = new THREE.Mesh(standoffGeo, metalMat); so2.rotation.x = Math.PI/2; so2.position.set((width/2 - 4) * signX, handleY - 10, zPos - side); [bar, so1, so2].forEach(m => { m.userData.isHandle = true; m.castShadow = true; group.add(m); }); });
@@ -587,7 +617,11 @@ export const WIDGET_REGISTRY = {
             } else if (entity.doorType === 'sliding' || entity.doorType === 'double_sliding') { 
                 const off = thick * 0.2; group.add(new Konva.Line({ points: [-doorHW, -off, 0, -off], stroke: '#374151', strokeWidth: 3 }), new Konva.Line({ points: [0, off, doorHW, off], stroke: '#374151', strokeWidth: 3 })); 
             } else if (entity.doorType === 'pocket') { 
-                group.add(new Konva.Line({ points: [-doorHW, 0, 0, 0], stroke: '#374151', strokeWidth: 3 }), new Konva.Line({ points: [0, 0, doorHW, 0], stroke: '#374151', strokeWidth: 3, dash: [4,4] })); 
+                const slideDir = entity.facing === 1 ? 1 : -1;
+                group.add(new Konva.Line({ points: [-doorHW, 0, doorHW, 0], stroke: '#374151', strokeWidth: 3 }));
+                const trackStart = slideDir === 1 ? doorHW : -doorHW;
+                const trackEnd = trackStart + (doorW * slideDir);
+                group.add(new Konva.Line({ points: [trackStart, 0, trackEnd, 0], stroke: '#374151', strokeWidth: 3, dash: [4,4] })); 
             } else if (entity.doorType === 'pivot') { 
                 const pivotX = entity.side === 1 ? pivotBase - 10 : -pivotBase + 10, arcRot = entity.side === 1 ? (entity.facing===1?180:90) : (entity.facing===1?270:0); group.add(new Konva.Line({ points: [pivotX, doorW*0.2*entity.facing, pivotX, -doorW*0.8*entity.facing], stroke: '#374151', strokeWidth: 3 }), new Konva.Arc({ x: pivotX, y: 0, innerRadius: doorW*0.8, outerRadius: doorW*0.8, angle: 90, rotation: arcRot, stroke: '#9ca3af', dash: [4, 4] })); 
             } else if (entity.doorType === 'folding') { 
@@ -618,6 +652,10 @@ export const WIDGET_REGISTRY = {
             const matFrame = cloneMat(helpers.getDynamicMaterial(frameMatKey, 'door'), 0.42);
             const matThreshold = cloneMat(helpers.getDynamicMaterial(entity.thresholdMat || frameMatKey, 'door'), 0.38);
             
+            // Apply a slight bevel to standard wood materials for realism (1mm edge bevel)
+            // Handled via createBeveledExtrude default parameter
+
+            
             // Helper to tag frame meshes so GizmoManager knows it's the frame
             const metalMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8, roughness: 0.2 });
             const tagFrame = (mesh) => {
@@ -628,13 +666,13 @@ export const WIDGET_REGISTRY = {
                 }
                 return mesh;
             };
-            const createBeveledExtrude = (w, h, d, b=0.05) => {
+            const createBeveledExtrude = (w, h, d, b=0.04) => { // 0.04 units ~ 1mm bevel for realism
                 const wAdj = Math.max(0.01, w - b*2);
                 const hAdj = Math.max(0.01, h - b*2);
                 const shape = new THREE.Shape(); const hw = wAdj/2, hh = hAdj/2;
                 shape.moveTo(-hw, -hh); shape.lineTo(hw, -hh); shape.lineTo(hw, hh); shape.lineTo(-hw, hh); shape.lineTo(-hw, -hh);
                 const dAdj = Math.max(0.01, d - b*2);
-                const ex = new THREE.ExtrudeGeometry(shape, { depth: dAdj, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: b, bevelThickness: b });
+                const ex = new THREE.ExtrudeGeometry(shape, { depth: dAdj, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: b, bevelThickness: b });
                 ex.translate(0, 0, -dAdj/2);
                 const uvs = ex.attributes.uv, pos = ex.attributes.position;
                 if(uvs && pos) { for(let i=0; i<uvs.count; i++) { uvs.setXY(i, (pos.getX(i)+hw)/wAdj, (pos.getY(i)+hh)/hAdj); } uvs.needsUpdate = true; }
@@ -653,7 +691,8 @@ export const WIDGET_REGISTRY = {
             
             // Threshold — separate optional piece sitting ON the floor (NOT a bottom frame)
             // Real doors: Header + Left Jamb + Right Jamb + optional Threshold. No bottom frame member.
-            const hasThreshold = entity.hasThreshold !== false; // default: true
+            const isPocket = entity.doorType === 'pocket';
+            const hasThreshold = !isPocket && entity.hasThreshold !== false; // default: true, but false for pocket
             const tHeight = hasThreshold ? 0.9 : 0; // 22.86mm (~20-25mm range) when present
             const doorClearance = 0.35; // 8.89mm gap between door bottom and threshold top (or floor)
             const gapBottom = tHeight + doorClearance; // door leaf Y starts here
@@ -902,11 +941,57 @@ export const WIDGET_REGISTRY = {
                     doorGroup.add(pFixL, pFixR, pSlideL, pSlideR);
                 }
             } else if (entity.doorType === 'pocket') {
-                const jamL = tagFrame(new THREE.Mesh(new THREE.BoxGeometry(frameWidth, height + bottomY, frameThick), matFrame)); jamL.position.set(-entity.width/2 + frameWidth/2, (height + bottomY)/2 - bottomY, 0); doorGroup.add(jamL);
-                const p = buildDetailedDoorPanel(entity, leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); 
+                const passageW = entity.width;
+                const pocketDoorThick = 1.75; // Premium 44.5mm thickness
+                const widthBetweenJambs = passageW - frameWidth*2;
+                const overlap = 1.0; // Extend 1 unit into pocket so it's fully captive
+                const pLeafW = widthBetweenJambs + overlap; 
+                const pLeafH = height - frameWidth - gapTop - gapBottom;
+                const slideDir = entity.facing === 1 ? 1 : -1; // 1 = slide right, -1 = slide left
+                
+                const strikeX = -slideDir * (passageW/2 - frameWidth/2);
+                const pocketX = slideDir * (passageW/2 - frameWidth/2);
+                
+                // 1. Strike Jamb (opposite of pocket)
+                const jamGeoStrike = createBeveledExtrude(frameWidth, height + bottomY, frameThick);
+                const jamStrike = tagFrame(new THREE.Mesh(jamGeoStrike, matFrame));
+                jamStrike.position.set(strikeX, (height + bottomY)/2 - bottomY, 0);
+                
+                // 2. Split Jamb (Pocket Entrance)
+                const splitJambThick = (frameThick - pocketDoorThick - 0.24) / 2; // ~3mm reveal clearance each side
+                const splitGeo = createBeveledExtrude(frameWidth, height + bottomY, splitJambThick);
+                const jamR_front = tagFrame(new THREE.Mesh(splitGeo, matFrame));
+                jamR_front.position.set(pocketX, (height + bottomY)/2 - bottomY, frameThick/2 - splitJambThick/2);
+                const jamR_back = tagFrame(new THREE.Mesh(splitGeo, matFrame));
+                jamR_back.position.set(pocketX, (height + bottomY)/2 - bottomY, -frameThick/2 + splitJambThick/2);
+                
+                // 3. Head Track (Spans across the passage)
+                const headGeo = rotateUvs(createBeveledExtrude(passageW - frameWidth*2, frameWidth, frameThick));
+                const head = tagFrame(new THREE.Mesh(headGeo, matFrame));
+                head.position.set(0, height - frameWidth/2, 0);
+                
+                // 4. Internal AO Contact Shadow plane inside pocket
+                const pocketShadowCanvas = document.createElement('canvas'); pocketShadowCanvas.width = 32; pocketShadowCanvas.height = 256;
+                const pCtx = pocketShadowCanvas.getContext('2d');
+                if (pCtx) {
+                    const grad = pCtx.createLinearGradient(0, 0, 32, 0);
+                    grad.addColorStop(slideDir === 1 ? 0 : 1, 'rgba(0,0,0,0.6)'); grad.addColorStop(slideDir === 1 ? 1 : 0, 'rgba(0,0,0,0)');
+                    pCtx.fillStyle = grad; pCtx.fillRect(0, 0, 32, 256);
+                }
+                const pTex = new THREE.CanvasTexture(pocketShadowCanvas);
+                const pShadowPlane = new THREE.Mesh(new THREE.PlaneGeometry(8, height), new THREE.MeshBasicMaterial({ map: pTex, transparent: true, depthWrite: false }));
+                pShadowPlane.position.set(pocketX + (slideDir * 3), height/2, 0);
+                
+                doorGroup.add(jamStrike, jamR_front, jamR_back, head, pShadowPlane);
+                
+                // 5. Pocket Door Panel
+                // When closed, edge touches strike jamb perfectly
+                const strikeInnerX = -slideDir * (passageW/2 - frameWidth);
+                const p = buildDetailedDoorPanel(entity, pLeafW, pLeafH, pocketDoorThick, matDoor, entity.doorType, isGlassDoor, -slideDir, helpers); 
                 const openPercent = entity.openAngle !== undefined ? entity.openAngle / 180 : 0;
-                const baseX = pivotXOffset;
-                const maxSlide = -(leafWidth - 2);
+                const baseX = strikeInnerX + slideDir * (pLeafW / 2);
+                const maxSlide = slideDir * widthBetweenJambs;
+                
                 p.position.set(baseX + maxSlide * openPercent, gapBottom, 0);
                 p.userData = { isMovingPart: true, motionType: 'slide', baseX: baseX, maxSlide: maxSlide };
                 doorGroup.add(p);

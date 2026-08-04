@@ -3,6 +3,7 @@ import { WIDGET_REGISTRY, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY, MOLDING_REGI
 import { Stair3DBuilder } from '../features/stairs/stairs.renderer3d.js';
 import { Molding3DBuilder } from './engine3d/Molding3DBuilder.js';
 import { Railing3DBuilder } from '../features/railing/builders/Railing3DBuilder.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 export class ThumbnailGenerator {
     constructor(ctx) {
@@ -22,7 +23,10 @@ export class ThumbnailGenerator {
         this.scene.background = new THREE.Color(0xf8fafc); // Clean neutral catalog background
 
         // Photorealistic Studio Lighting for PBR
-        // Removed RoomEnvironment because it washes out the color compared to the main scene's lack of HDRI.
+        // We use a blended RoomEnvironment for subtle reflections, and strong directional for contrast
+        const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
+        this.scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+        this.scene.environmentIntensity = 0.8; // Lower intensity to prevent washout while keeping reflections
         
         // Exact Lighting Match to EnvironmentBuilder.js
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x888888, 1.1);
@@ -32,9 +36,9 @@ export class ThumbnailGenerator {
         const sunLight = new THREE.DirectionalLight(0xfff5e6, 2.5);
         sunLight.position.set(500, 700, 600);
         sunLight.castShadow = true;
-        sunLight.shadow.mapSize.width = 1024;
-        sunLight.shadow.mapSize.height = 1024;
-        sunLight.shadow.bias = -0.001;
+        sunLight.shadow.mapSize.width = 2048; // Upgraded shadow resolution
+        sunLight.shadow.mapSize.height = 2048;
+        sunLight.shadow.bias = -0.0005; // Tighter bias for crisp contact shadows
         this.scene.add(sunLight);
 
         // Fill Light: soft directional light from opposite angle to brighten shadow faces and reveal deep textures
