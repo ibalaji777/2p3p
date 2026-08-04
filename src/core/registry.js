@@ -647,8 +647,8 @@ export const WIDGET_REGISTRY = {
             };
 
             const isGlassDoor = entity.doorMat === 'glass'; 
-            const jambW = 0.75; const stopW = 1.25; const stopThick = 0.5; const archW = 2.75; const archThick = 0.6;
-            const frameWidth = jambW; const frameThick = entity.thick + 0.2; const doorThick = 1.75; 
+            const jambW = 0.75; const stopW = 1.25; const stopThick = 0.4; const archW = 2.75; const archThick = 0.5;
+            const frameWidth = jambW; const frameThick = entity.thick + 0.2; const doorThick = 1.4; // Frame lines wall cutout; door leaf is 35 mm slim real-world BIM depth 
             const gapSide = 0.12; const gapTop = 0.12; 
             
             // Threshold — separate optional piece sitting ON the floor (NOT a bottom frame)
@@ -1010,9 +1010,15 @@ export const WIDGET_REGISTRY = {
                 group.add(new Konva.Line({ points: [-hw + 4, 0, hw - 4, 0], stroke: '#1f2937', strokeWidth: 3 }));
             }
 
-            // 5. Grill Pattern Line Indicator
-            if (entity.grillePattern && entity.grillePattern !== 'none') {
-                group.add(new Konva.Line({ points: [-hw + 4, 0, hw - 4, 0], stroke: '#ef4444', strokeWidth: 1.5, dash: [3, 3] }));
+            // 5. Grill Pattern Line Indicator (4-Column Iron Grid Indicators)
+            const grillePattern = entity.grillePattern || 'grid';
+            if (grillePattern && grillePattern !== 'none') {
+                const numCols = 4;
+                const colStep = (entity.width - 8) / numCols;
+                for (let k = 1; k < numCols; k++) {
+                    const xTick = -hw + 4 + k * colStep;
+                    group.add(new Konva.Line({ points: [xTick, -halfThick * 0.6, xTick, halfThick * 0.6], stroke: '#1c1c1c', strokeWidth: 2, dash: [2, 2] }));
+                }
             }
         },
         render3D: (sceneGroup, entity, helpers) => {
@@ -1032,11 +1038,12 @@ export const WIDGET_REGISTRY = {
             const wConf = WINDOW_TYPES[entity.windowType] || WINDOW_TYPES.sliding_std;
             const matFrame = helpers.getDynamicMaterial(entity.frameMat || 'wood_teak', 'window_frame');
             const matGlass = helpers.getDynamicMaterial(entity.glassMat, 'window_glass');
+            if (matGlass) matGlass.envMapIntensity = 2.5;
             const isTrad = wConf.type === 'traditional';
             const isBay = wConf.type === 'bay';
             const wallThickness = entity.wall ? (entity.wall.thickness || entity.wall.config?.thickness || entity.thick || 20) : (entity.thick || 20);
-            const fW = isTrad ? 4.5 : 2.7;
-            const fThick = isTrad ? wallThickness + 2 : wallThickness + 0.5;
+            const fW = isTrad ? 3.5 : 1.8;
+            const fThick = isTrad ? wallThickness + 2 : wallThickness + 0.5; // Spans full wall cutout
             const zOffset = isBay ? 12 : 0; 
             
             const matMetalHardware = new THREE.MeshStandardMaterial({ color: 0x2a303c, metalness: 0.90, roughness: 0.22 });
@@ -1115,7 +1122,6 @@ export const WIDGET_REGISTRY = {
                     }
                     uvs.needsUpdate = true;
                 }
-                rotateUVs(geo);
                 return geo;
             };
 
@@ -1141,7 +1147,6 @@ export const WIDGET_REGISTRY = {
                     }
                     uvs.needsUpdate = true;
                 }
-                rotateUVs(geo);
                 return geo;
             };
 
@@ -1236,33 +1241,6 @@ export const WIDGET_REGISTRY = {
                 headerTrack.position.set(0, totalH - fW - 0.25, 0);
                 frameGroup.add(headerTrack);
 
-                // Lower Sill Track Bed & Raised Metallic Runner Rails with Center Grooves
-                const sillBedGeo = new THREE.BoxGeometry(trackW, 0.4, sThick * 2.2);
-                const sillBed = new THREE.Mesh(sillBedGeo, matMetalHardware);
-                sillBed.position.set(0, fW + 0.2, 0);
-                frameGroup.add(sillBed);
-
-                const runnerRailGeo = new THREE.BoxGeometry(trackW, 0.35, 0.3);
-                const runner1 = new THREE.Mesh(runnerRailGeo, matRunnerRail);
-                runner1.position.set(0, fW + 0.55, sThick / 2 + 0.2);
-                const runner2 = new THREE.Mesh(runnerRailGeo, matRunnerRail);
-                runner2.position.set(0, fW + 0.55, -sThick / 2 - 0.2);
-                frameGroup.add(runner1, runner2);
-
-                // Frame Drain Caps & Recessed Weep Slots with Sloped Drip Covers (Bottom Outer Rail)
-                [-totalW * 0.35, 0, totalW * 0.35].forEach(xWeep => {
-                    const weepGroup = new THREE.Group();
-                    const capGeo = createBeveledRect(1.8, 0.5, 0.6, 0.08, 0.08);
-                    const cap = new THREE.Mesh(capGeo, matMetalHardware);
-                    cap.position.set(0, 0, 0);
-                    const slotGeo = new THREE.BoxGeometry(1.2, 0.25, 0.4);
-                    const slot = new THREE.Mesh(slotGeo, new THREE.MeshBasicMaterial({ color: 0x050505 }));
-                    slot.position.set(0, -0.1, -0.15);
-                    weepGroup.add(cap, slot);
-                    weepGroup.position.set(xWeep, fW * 0.4, fThick / 2 + 0.3);
-                    frameGroup.add(weepGroup);
-                });
-
                 frameGroup.position.set(0, 0, zOffset);
                 return frameGroup;
             };
@@ -1271,15 +1249,15 @@ export const WIDGET_REGISTRY = {
 
             const iW = entity.width - fW * 2;
             const iH = height - fW * 2;
-            const sThick = wallThickness * 0.35; // 35 mm slim sash depth (proportional to wall thickness)
+            const sThick = 1.35; // 34 mm slim engineered sash depth (real-world BIM standard)
 
             // --- 2. Window Sash Assembly (45° Miter Joints, Sash Rollers, Interlockers, Glazing Beads, PBR Glass & Hardware) ---
-            const makeSash = (w, h, useGlass = true, isCasement = false, hingeSide = 1) => {
+            const makeSash = (w, h, useGlass = true, isCasement = false, hingeSide = 1, slotName = MaterialSlots.FRAME) => {
                 const sG = new THREE.Group();
-                const shadowGap = 0.25; // 2.5 mm shadow gap
+                const shadowGap = 0.2; // 2 mm shadow gap
                 const sashW = w - shadowGap * 2;
                 const sashH = h - shadowGap * 2;
-                const sFw = isTrad ? 3.0 : 1.9;
+                const sFw = isTrad ? 2.2 : 1.25; // 32 mm slim architectural sash profile width
 
                 // 45-degree Mitered Sash Stiles & Rails with Directional Grain & Board Variation
                 const geoStileL = createMiterStileLeftGeo(sashH, sFw, sThick);
@@ -1292,22 +1270,25 @@ export const WIDGET_REGISTRY = {
                 const r1 = new THREE.Mesh(geoRailT, matsExtrudeRail); r1.position.set(0, sashH - sFw / 2, 0);
                 const r2 = new THREE.Mesh(geoRailB, matsExtrudeRail); r2.position.set(0, sFw / 2, 0);
 
+                const sashCompId = `${entity.id}_${slotName}`;
                 [s1, s2, r1, r2].forEach(m => {
-                    m.castShadow = true; m.receiveShadow = true; m.userData = { isFrame: true };
+                    m.castShadow = true; m.receiveShadow = true;
+                    m.userData = { isFrame: true, materialSlot: slotName, componentId: sashCompId };
+                    ComponentRegistry.registerMesh(entity, slotName, m, { componentId: sashCompId, componentType: ComponentTypes.SASH });
                     sG.add(m);
                 });
 
                 // Sash Roller Wheel Assemblies (Bottom Edge Sitting on Runner Rails with Axle Pins)
                 [ -sashW * 0.35, sashW * 0.35 ].forEach(xWheel => {
                     const rollerGroup = new THREE.Group();
-                    const housing = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.7, sThick * 0.85), matMetalHardware);
-                    housing.position.set(0, -0.35, 0);
-                    const wheelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.25, 16);
+                    const housing = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.5, sThick * 0.8), matMetalHardware);
+                    housing.position.set(0, -0.25, 0);
+                    const wheelGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.2, 16);
                     wheelGeo.rotateZ(Math.PI / 2);
                     const wheel = new THREE.Mesh(wheelGeo, matRollerBrass);
-                    wheel.position.set(0, -0.6, 0);
-                    const axlePin = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.5, 8), matMetalHardware);
-                    axlePin.rotation.x = Math.PI / 2; axlePin.position.set(0, -0.6, 0);
+                    wheel.position.set(0, -0.45, 0);
+                    const axlePin = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.4, 8), matMetalHardware);
+                    axlePin.rotation.x = Math.PI / 2; axlePin.position.set(0, -0.45, 0);
                     rollerGroup.add(housing, wheel, axlePin);
                     rollerGroup.position.set(xWheel, 0, 0);
                     sG.add(rollerGroup);
@@ -1317,12 +1298,12 @@ export const WIDGET_REGISTRY = {
                 const cutoutH = sashH - sFw * 2;
 
                 if (useGlass) {
-                    // 45° Mitered Glazing Beads (Inner Beveled Wood/uPVC Trim)
-                    const beadW = 0.5, beadDepth = sThick * 0.5;
-                    const bGeoStileL = createMiterStileLeftGeo(cutoutH + beadW * 2, beadW, beadDepth, 0.08, 0.08);
-                    const bGeoStileR = createMiterStileRightGeo(cutoutH + beadW * 2, beadW, beadDepth, 0.08, 0.08);
-                    const bGeoRailT = createMiterRailTopGeo(cutoutW + beadW * 2, beadW, beadDepth, 0.08, 0.08);
-                    const bGeoRailB = createMiterRailBotGeo(cutoutW + beadW * 2, beadW, beadDepth, 0.08, 0.08);
+                    // 45° Mitered Glazing Beads (Inner Beveled Trim with Glass Recess Depth)
+                    const beadW = 0.35, beadDepth = sThick * 0.4;
+                    const bGeoStileL = createMiterStileLeftGeo(cutoutH + beadW * 2, beadW, beadDepth, 0.06, 0.06);
+                    const bGeoStileR = createMiterStileRightGeo(cutoutH + beadW * 2, beadW, beadDepth, 0.06, 0.06);
+                    const bGeoRailT = createMiterRailTopGeo(cutoutW + beadW * 2, beadW, beadDepth, 0.06, 0.06);
+                    const bGeoRailB = createMiterRailBotGeo(cutoutW + beadW * 2, beadW, beadDepth, 0.06, 0.06);
 
                     const bL = new THREE.Mesh(bGeoStileL, matsExtrudeStile); bL.position.set(-cutoutW / 2 + beadW / 2, sashH / 2, 0);
                     const bR = new THREE.Mesh(bGeoStileR, matsExtrudeStile); bR.position.set(cutoutW / 2 - beadW / 2, sashH / 2, 0);
@@ -1330,10 +1311,10 @@ export const WIDGET_REGISTRY = {
                     const bB = new THREE.Mesh(bGeoRailB, matsExtrudeRail); bB.position.set(0, sFw + beadW / 2, 0);
                     [bL, bR, bT, bB].forEach(m => { m.castShadow = true; m.userData = { isFrame: true }; sG.add(m); });
 
-                    // Rubber Weather Seal Gaskets
-                    const sealW = 0.2;
-                    const geoSealV = new THREE.BoxGeometry(sealW, cutoutH, sThick * 0.35);
-                    const geoSealH = new THREE.BoxGeometry(cutoutW, sealW, sThick * 0.35);
+                    // Rubber Weather Seal Gaskets (EPDM Black Gasket Reveal)
+                    const sealW = 0.15;
+                    const geoSealV = new THREE.BoxGeometry(sealW, cutoutH, sThick * 0.3);
+                    const geoSealH = new THREE.BoxGeometry(cutoutW, sealW, sThick * 0.3);
 
                     const sealL = new THREE.Mesh(geoSealV, matRubberSeal); sealL.position.set(-cutoutW / 2 + sealW / 2, sashH / 2, 0);
                     const sealR = new THREE.Mesh(geoSealV, matRubberSeal); sealR.position.set(cutoutW / 2 - sealW / 2, sashH / 2, 0);
@@ -1341,36 +1322,36 @@ export const WIDGET_REGISTRY = {
                     const sealB = new THREE.Mesh(geoSealH, matRubberSeal); sealB.position.set(0, sFw + sealW / 2, 0);
                     [sealL, sealR, sealT, sealB].forEach(m => { m.userData = { isSeal: true, materialSlot: MaterialSlots.SEAL }; sG.add(m); });
 
-                    // Physical 3D Glass Pane (6-8 mm Thickness with PBR Refraction & Fresnel Reflections)
+                    // Recessed Physical 3D Glass Pane (6-8 mm Thickness with PBR Refraction & Fresnel Reflections)
                     const glassDepth = 0.6;
-                    const glassGeo = new THREE.BoxGeometry(cutoutW - beadW * 1.6, cutoutH - beadW * 1.6, glassDepth);
+                    const glassGeo = new THREE.BoxGeometry(cutoutW - beadW * 1.4, cutoutH - beadW * 1.4, glassDepth);
                     const glass = new THREE.Mesh(glassGeo, matGlass);
-                    glass.position.set(0, sashH / 2, 0);
+                    glass.position.set(0, sashH / 2, -beadDepth * 0.2);
                     glass.userData = { isGlass: true, materialSlot: MaterialSlots.GLASS };
                     sG.add(glass);
 
-                    // Hardware 1: Cremone Lever Handle with Lock Rods or Recessed Flush Pull with Lock Button
+                    // Hardware 1: Sleek Architectural Lever Handle with Lock Rods or Recessed Flush Pull
                     const handleGroup = new THREE.Group();
                     if (isCasement) {
-                        const backplate = new THREE.Mesh(createBeveledRect(1.4, 6.5, 0.4, 0.05, 0.05), matMetalHardware); backplate.position.set(0, 0, sThick / 2 + 0.2);
-                        const leverNeck = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.8, 12), matMetalHardware); leverNeck.rotation.x = Math.PI / 2; leverNeck.position.set(0, 0, sThick / 2 + 0.6);
-                        const leverHandle = new THREE.Mesh(createBeveledRect(1.0, 9.5, 0.4, 0.08, 0.08), matMetalHardware); leverHandle.position.set(0, -4.0, sThick / 2 + 1.0);
+                        const backplate = new THREE.Mesh(createBeveledRect(0.8, 3.5, 0.2, 0.04, 0.04), matMetalHardware); backplate.position.set(0, 0, sThick / 2 + 0.1);
+                        const leverNeck = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.4, 12), matMetalHardware); leverNeck.rotation.x = Math.PI / 2; leverNeck.position.set(0, 0, sThick / 2 + 0.3);
+                        const leverHandle = new THREE.Mesh(createBeveledRect(0.5, 4.2, 0.2, 0.05, 0.05), matMetalHardware); leverHandle.position.set(0, -1.8, sThick / 2 + 0.5);
                         
                         // Top and Bottom Vertical Cremone Lock Rods
-                        const lockRodGeo = new THREE.CylinderGeometry(0.2, 0.2, sashH * 0.4, 8);
-                        const rodTop = new THREE.Mesh(lockRodGeo, matMetalHardware); rodTop.position.set(0, sashH * 0.25, sThick / 2 + 0.2);
-                        const rodBot = new THREE.Mesh(lockRodGeo, matMetalHardware); rodBot.position.set(0, -sashH * 0.25, sThick / 2 + 0.2);
+                        const lockRodGeo = new THREE.CylinderGeometry(0.12, 0.12, sashH * 0.35, 8);
+                        const rodTop = new THREE.Mesh(lockRodGeo, matMetalHardware); rodTop.position.set(0, sashH * 0.22, sThick / 2 + 0.1);
+                        const rodBot = new THREE.Mesh(lockRodGeo, matMetalHardware); rodBot.position.set(0, -sashH * 0.22, sThick / 2 + 0.1);
                         
                         handleGroup.add(backplate, leverNeck, leverHandle, rodTop, rodBot);
                         const handleX = hingeSide === 1 ? sashW / 2 - sFw / 2 : -sashW / 2 + sFw / 2;
-                        handleGroup.position.set(handleX, sashH * 0.45, 0);
+                        handleGroup.position.set(handleX, sashH * 0.42, 0);
                     } else {
-                        // Recessed Metal Flush Pull for Sliding Windows with Integrated Lock Button
-                        const flushPullBack = new THREE.Mesh(createBeveledRect(2.2, 9.0, 0.5, 0.08, 0.08), matMetalHardware); flushPullBack.position.set(0, 0, sThick / 2 + 0.1);
-                        const flushPullCup = new THREE.Mesh(new THREE.BoxGeometry(1.2, 6.0, 0.4), new THREE.MeshBasicMaterial({ color: 0x0a0a0a })); flushPullCup.position.set(0, 0, sThick / 2 + 0.2);
-                        const lockToggle = new THREE.Mesh(createBeveledRect(0.6, 1.2, 0.3, 0.04, 0.04), matRollerBrass); lockToggle.position.set(0, 3.2, sThick / 2 + 0.3);
+                        // Recessed Metal Flush Pull for Sliding Windows
+                        const flushPullBack = new THREE.Mesh(createBeveledRect(1.4, 5.5, 0.3, 0.05, 0.05), matMetalHardware); flushPullBack.position.set(0, 0, sThick / 2 + 0.08);
+                        const flushPullCup = new THREE.Mesh(new THREE.BoxGeometry(0.8, 3.8, 0.25), new THREE.MeshBasicMaterial({ color: 0x0a0a0a })); flushPullCup.position.set(0, 0, sThick / 2 + 0.15);
+                        const lockToggle = new THREE.Mesh(createBeveledRect(0.4, 0.8, 0.2, 0.03, 0.03), matRollerBrass); lockToggle.position.set(0, 2.0, sThick / 2 + 0.2);
                         handleGroup.add(flushPullBack, flushPullCup, lockToggle);
-                        handleGroup.position.set(sashW / 2 - sFw / 2, sashH * 0.45, 0);
+                        handleGroup.position.set(sashW / 2 - sFw / 2, sashH * 0.42, 0);
                     }
                     handleGroup.traverse(m => { if (m && m.isMesh) m.userData = { isHandle: true, materialSlot: MaterialSlots.HARDWARE }; });
                     sG.add(handleGroup);
@@ -1380,9 +1361,9 @@ export const WIDGET_REGISTRY = {
                         const hingeX = hingeSide === 1 ? -sashW / 2 : sashW / 2;
                         [sashH * 0.8, sashH * 0.2].forEach(yPos => {
                             const hingeGroup = new THREE.Group();
-                            const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 3.8, 12), matMetalHardware);
-                            const leafL = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.8, 0.2), matMetalHardware); leafL.position.set(-0.6, 0, 0);
-                            const leafR = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.8, 0.2), matMetalHardware); leafR.position.set(0.6, 0, 0);
+                            const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 2.5, 12), matMetalHardware);
+                            const leafL = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.8, 0.15), matMetalHardware); leafL.position.set(-0.4, 0, 0);
+                            const leafR = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.8, 0.15), matMetalHardware); leafR.position.set(0.4, 0, 0);
                             hingeGroup.add(pin, leafL, leafR);
                             hingeGroup.position.set(hingeX, yPos, sThick / 2);
                             sG.add(hingeGroup);
@@ -1409,12 +1390,13 @@ export const WIDGET_REGISTRY = {
             } else if (wConf.type === 'casement' || wConf.type === 'traditional') {
                 const hw = iW / 2;
                 const useGlass = wConf.type !== 'traditional';
+                const openAngle = Math.PI / 6; // Moderate natural 30° preview opening angle
 
-                const sL = makeSash(hw, iH, useGlass, true, -1);
-                const pL = new THREE.Group(); pL.position.set(-iW / 2, fW, zOffset); sL.position.set(hw / 2, 0, 0); pL.rotation.y = (Math.PI / 4) * entity.facing; pL.add(sL);
+                const sL = makeSash(hw, iH, useGlass, true, 1, MaterialSlots.SASH_LEFT);
+                const pL = new THREE.Group(); pL.position.set(-iW / 2, fW, zOffset); sL.position.set(hw / 2, 0, 0); pL.rotation.y = openAngle * entity.facing; pL.add(sL);
 
-                const sR = makeSash(hw, iH, useGlass, true, 1);
-                const pR = new THREE.Group(); pR.position.set(iW / 2, fW, zOffset); sR.position.set(-hw / 2, 0, 0); pR.rotation.y = -(Math.PI / 4) * entity.facing; pR.add(sR);
+                const sR = makeSash(hw, iH, useGlass, true, -1, MaterialSlots.SASH_RIGHT);
+                const pR = new THREE.Group(); pR.position.set(iW / 2, fW, zOffset); sR.position.set(-hw / 2, 0, 0); pR.rotation.y = -openAngle * entity.facing; pR.add(sR);
 
                 winGroup.add(pL, pR);
             } else if (wConf.type === 'sliding') {
@@ -1488,7 +1470,8 @@ export const WIDGET_REGISTRY = {
             }
 
             // --- 4. Architectural 3D Grill Bars (8mm Profile & 4x4 Grid Lines) ---
-            if (entity.grillePattern && entity.grillePattern !== 'none') {
+            const activePattern = entity.grillePattern || 'grid';
+            if (activePattern && activePattern !== 'none') {
                 const grilleGroup = new THREE.Group();
                 const grilleZ = entity.facing === 1 ? fThick / 2 - 1.0 : -fThick / 2 + 1.0; // 10 mm clearance gap from glass
                 grilleGroup.position.set(0, 0, zOffset + grilleZ);
@@ -1511,12 +1494,6 @@ export const WIDGET_REGISTRY = {
                     mesh.position.set(0, height / 2, 0);
                     mesh.castShadow = true;
                     barGroup.add(mesh);
-
-                    // Top/Bottom Mounting Bracket Clips
-                    const clipGeo = createBeveledRect(1.0, 0.5, 1.0, 0.05, 0.05);
-                    const clipT = new THREE.Mesh(clipGeo, matMetalHardware); clipT.position.set(0, height - fW / 2, 0);
-                    const clipB = new THREE.Mesh(clipGeo, matMetalHardware); clipB.position.set(0, fW / 2, 0);
-                    barGroup.add(clipT, clipB);
                     barGroup.position.set(x, 0, 0);
                     return barGroup;
                 };
@@ -1531,21 +1508,21 @@ export const WIDGET_REGISTRY = {
                     return barGroup;
                 };
 
-                const numCols = 5; // 5 columns (4 vertical grid lines)
-                const numRows = 5; // 5 rows (4 horizontal grid lines)
-                if (entity.grillePattern === 'vertical' || entity.grillePattern === 'grid') {
+                const numCols = entity.grilleCols || 4; // 4 columns (3 vertical muntin bars)
+                const numRows = entity.grilleRows || 4; // 4 rows (3 horizontal muntin bars)
+                if (activePattern === 'vertical' || activePattern === 'grid' || activePattern === 'grid_4') {
                     for (let k = 1; k < numCols; k++) {
                         const x = -iW / 2 + (k * iW / numCols);
                         grilleGroup.add(makeVBar(x));
                     }
                 }
-                if (entity.grillePattern === 'horizontal' || entity.grillePattern === 'grid') {
+                if (activePattern === 'horizontal' || activePattern === 'grid' || activePattern === 'grid_4') {
                     for (let k = 1; k < numRows; k++) {
                         const y = fW + (k * iH / numRows);
                         grilleGroup.add(makeHBar(y));
                     }
                 }
-                if (entity.grillePattern === 'diamond') {
+                if (activePattern === 'diamond') {
                     const dGroup = new THREE.Group();
                     const maxDim = Math.max(iW, iH) * 1.4;
                     const stepD = maxDim / 6;

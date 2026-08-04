@@ -190,7 +190,7 @@ export class ComponentRegistry {
                         mat.userData.origEmissiveIntensity = mat.emissiveIntensity || 0;
                     }
                     mat.emissive.setHex(color);
-                    mat.emissiveIntensity = 0.8;
+                    mat.emissiveIntensity = 0.25;
                 } else {
                     if (mat.userData.origEmissive !== undefined) {
                         mat.emissive.setHex(mat.userData.origEmissive);
