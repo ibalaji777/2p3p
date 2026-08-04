@@ -574,8 +574,9 @@ const filteredItems = computed(() => {
 });
 
 const isGenerating = ref(false);
+let currentGenerationId = 0;
 const generateThumbnails = async () => {
-    if (isGenerating.value) return;
+    const genId = ++currentGenerationId;
     isGenerating.value = true;
     try {
         const renderer = plannerStore.renderer3D;
@@ -583,11 +584,14 @@ const generateThumbnails = async () => {
 
         const list = items.value;
         for (const item of list) {
+            if (genId !== currentGenerationId) break;
             if (!item.image && !item.isDivider) {
                 try {
                     await new Promise(r => setTimeout(r, 10));
+                    if (genId !== currentGenerationId) break;
                     const genType = (item.params && item.params.type) ? item.params.type : (item.toolId ? item.toolId : props.type);
                     const dataUrl = await renderer.thumbnailGenerator.generate(genType, item.params);
+                    if (genId !== currentGenerationId) break;
                     if (dataUrl) item.image = dataUrl;
                 } catch (err) {
                     console.error("Failed to generate thumbnail for", item.name, err);
@@ -595,7 +599,9 @@ const generateThumbnails = async () => {
             }
         }
     } finally {
-        isGenerating.value = false;
+        if (genId === currentGenerationId) {
+            isGenerating.value = false;
+        }
     }
 };
 

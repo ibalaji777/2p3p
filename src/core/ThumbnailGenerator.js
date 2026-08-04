@@ -1314,6 +1314,18 @@ export class ThumbnailGenerator {
             this.camera.position.set(doorH * 0.65, doorH * 0.42, doorH * 1.1);
             this.camera.lookAt(0, targetCenterY, 0);
             activeCamera = this.camera;
+        } else if (type === 'window' || (params && (params.windowType || type.includes('window')))) {
+            const frustumSize = maxDim * 1.4; // Leave some margin
+            
+            this.camera.left = -frustumSize / 2;
+            this.camera.right = frustumSize / 2;
+            this.camera.top = frustumSize / 2;
+            this.camera.bottom = -frustumSize / 2;
+            this.camera.updateProjectionMatrix();
+
+            // Position camera for an isometric view from the exterior (-Z side) to show the opposite face
+            this.camera.position.set(-maxDim, maxDim * 0.8, -maxDim);
+            this.camera.lookAt(0, targetY, 0);
         } else {
             const frustumSize = maxDim * 1.4; // Leave some margin
             
