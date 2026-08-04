@@ -131,11 +131,21 @@
 
                     <!-- Product Title & CAD Specifications (6px Extra Left/Right Padding) -->
                     <div class="card-title-wrap">
+                        <div class="product-rating" v-if="props.type === 'window' || props.type === 'door'">
+                            <span class="star-icon">★★★★☆</span>
+                        </div>
                         <span class="product-title">{{ item.name }}</span>
+                        
                         <div class="card-meta-line" v-if="item.material || item.specs">
                             <span class="meta-mat">{{ item.material || item.category || 'CAD Model' }}</span>
                             <span class="meta-dot" v-if="item.specs">•</span>
                             <span class="meta-specs" v-if="item.specs">{{ item.specs }}</span>
+                        </div>
+                        
+                        <div class="card-extra-meta" v-if="props.type === 'window' || props.type === 'door'">
+                            <span class="meta-tag">{{ props.type === 'window' ? 'Double Glass' : 'Solid Core' }}</span>
+                            <span class="meta-tag">{{ props.type === 'window' ? '2 Panel' : 'Prehung' }}</span>
+                            <span class="meta-tag text-green">Available</span>
                         </div>
                     </div>
                 </div>
@@ -676,18 +686,20 @@ const handleImageError = (e) => {
 
 .search-icon {
     position: absolute;
-    left: 10px;
+    left: 12px;
     pointer-events: none;
+    display: flex;
+    align-items: center;
 }
 
 .catalog-search-input {
     width: 100%;
-    height: 32px;
-    padding: 0 28px 0 30px;
+    height: 38px;
+    padding: 0 32px 0 36px;
     background: #ffffff;
     border: 1.5px solid #e2e8f0;
-    border-radius: 10px;
-    font-size: 12.5px;
+    border-radius: 12px;
+    font-size: 13px;
     color: #1e293b;
     outline: none;
     transition: all 0.2s;
@@ -881,11 +893,11 @@ const handleImageError = (e) => {
     min-width: 0;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 10px 18px 24px;
+    padding: 16px 18px 32px;
     box-sizing: border-box;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
+    gap: 24px;
     align-content: start;
     -webkit-overflow-scrolling: touch;
 }
@@ -938,12 +950,12 @@ const handleImageError = (e) => {
     top: 9px;
     left: 9px;
     z-index: 6;
-    padding: 2.5px 7px;
-    border-radius: 6px;
-    font-size: 9px;
-    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 8.5px;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.4px;
+    letter-spacing: 0.5px;
     pointer-events: none;
 }
 
@@ -957,43 +969,56 @@ const handleImageError = (e) => {
     box-shadow: 0 2px 6px rgba(245, 158, 11, 0.35);
 }
 
-/* CONSISTENT HARMONIZED COLORS FOR OTHER BADGES */
-.card-badge.popular-blue { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
-.card-badge.glass-green { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
-.card-badge.wood-yellow { background: #fefce8; color: #d97706; border: 1px solid #fef08a; }
-.card-badge.new-cyan { background: #ecfeff; color: #0891b2; border: 1.5px solid #a5f3fc; }
-.card-badge.compact-orange { background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa; }
-.card-badge.default-badge { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+/* CONSISTENT HARMONIZED COLORS FOR OTHER BADGES (SOFT NO-BORDER) */
+.card-badge.popular-blue { background: #eff6ff; color: #3b82f6; border: none; }
+.card-badge.glass-green { background: #f0fdf4; color: #22c55e; border: none; }
+.card-badge.wood-yellow { background: #fefce8; color: #eab308; border: none; }
+.card-badge.new-cyan { background: #ecfeff; color: #06b6d4; border: none; }
+.card-badge.compact-orange { background: #fff7ed; color: #f97316; border: none; }
+.card-badge.default-badge { background: #f8fafc; color: #64748b; border: none; }
 
-/* CIRCULAR WHITE GLASS FAVORITE HEART BUTTON (RESIZED TO 25px WITH SOFT SHADOW) */
+/* CIRCULAR WHITE GLASS FAVORITE HEART BUTTON */
 .favorite-heart-btn {
     position: absolute;
     top: 9px;
     right: 9px;
-    width: 25px;
-    height: 25px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(8px);
-    border: 1px solid rgba(226, 232, 240, 0.9);
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+    border: 1px solid rgba(226, 232, 240, 0.6);
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     z-index: 6;
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.favorite-heart-btn svg {
+    transition: all 0.2s;
 }
 
 .favorite-heart-btn:hover {
-    transform: scale(1.15);
+    transform: scale(1.1);
     background: #ffffff;
-    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);
+    box-shadow: 0 3px 8px rgba(239, 68, 68, 0.15);
     border-color: #fca5a5;
+}
+
+.favorite-heart-btn:hover svg {
+    fill: #fecaca;
+    stroke: #ef4444;
 }
 
 .favorite-heart-btn.is-active {
     animation: heartPulse 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.favorite-heart-btn.is-active svg {
+    fill: #ef4444;
 }
 
 @keyframes heartPulse {
@@ -1027,9 +1052,9 @@ const handleImageError = (e) => {
     transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* INTERACTIVE DOOR ROTATION 2° ON HOVER */
+/* INTERACTIVE THUMBNAIL ZOOM ON HOVER */
 .product-card:hover .card-thumb-wrap img {
-    transform: scale(1.06) rotate(2deg);
+    transform: scale(1.08);
 }
 
 /* SKELETON SHIMMER PLACEHOLDER */
@@ -1073,17 +1098,24 @@ const handleImageError = (e) => {
 /* PRODUCT TITLE & METADATA LINE (6px EXTRA LEFT/RIGHT PADDING) */
 .card-title-wrap {
     width: 100%;
-    text-align: center;
-    padding: 6px 10px 4px;
+    text-align: left;
+    padding: 8px 6px 4px;
     box-sizing: border-box;
     border-top: 1px solid #f1f5f9;
 }
 
+.product-rating {
+    font-size: 11px;
+    color: #fbbf24;
+    margin-bottom: 3px;
+    letter-spacing: 1px;
+}
+
 .product-title {
-    font-size: 12px;
+    font-size: 13px;
     color: #0f172a;
     font-weight: 700;
-    line-height: 1.25;
+    line-height: 1.3;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -1093,15 +1125,37 @@ const handleImageError = (e) => {
 .card-meta-line {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 4px;
-    font-size: 10px;
+    font-size: 11px;
     color: #64748b;
-    margin-top: 3px;
+    margin-top: 5px;
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.card-extra-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.meta-tag {
+    font-size: 9.5px;
+    font-weight: 600;
+    color: #475569;
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.meta-tag.text-green {
+    color: #16a34a;
+    background: #f0fdf4;
 }
 
 .meta-mat {

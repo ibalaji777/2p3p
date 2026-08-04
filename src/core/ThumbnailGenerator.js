@@ -10,15 +10,16 @@ export class ThumbnailGenerator {
         
         // Create an offscreen renderer
         this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-        this.renderer.setSize(256, 256); // Size of the thumbnail
+        this.renderer.setSize(512, 512); // High resolution for sharp downscaling
         this.renderer.setPixelRatio(2); // High DPI for crispness
         this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFShadowMap;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer, photorealistic shadows
         if (THREE.SRGBColorSpace) this.renderer.outputColorSpace = THREE.SRGBColorSpace;
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 1.25;
 
         this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0xf8fafc); // Clean neutral catalog background
 
         // Photorealistic Studio Lighting for PBR
         // Removed RoomEnvironment because it washes out the color compared to the main scene's lack of HDRI.
@@ -1315,7 +1316,7 @@ export class ThumbnailGenerator {
             this.camera.lookAt(0, targetCenterY, 0);
             activeCamera = this.camera;
         } else if (type === 'window' || (params && (params.windowType || type.includes('window')))) {
-            const frustumSize = maxDim * 1.4; // Leave some margin
+            const frustumSize = maxDim * 1.05; // 60-70% scale (tighter framing)
             
             this.camera.left = -frustumSize / 2;
             this.camera.right = frustumSize / 2;
@@ -1323,8 +1324,18 @@ export class ThumbnailGenerator {
             this.camera.bottom = -frustumSize / 2;
             this.camera.updateProjectionMatrix();
 
-            // Position camera for an isometric view from the exterior (-Z side) to show the opposite face
-            this.camera.position.set(-maxDim, maxDim * 0.8, -maxDim);
+            const winType = params?.windowType || 'sliding_std';
+            const radius = maxDim * 1.2;
+            
+            // Dynamic angles based on window type
+            if (winType.includes('casement') || winType.includes('bay') || winType.includes('fixed') || winType.includes('picture') || winType.includes('panoramic')) {
+                // Straight view (front elevation) for casement, bay, fixed, and panoramic slider
+                this.camera.position.set(0, maxDim * 0.5, -radius);
+            } else {
+                // Sliding & others: ~30 degree slight angle
+                this.camera.position.set(-radius * 0.5, maxDim * 0.4, -radius * 0.866);
+            }
+            
             this.camera.lookAt(0, targetY, 0);
         } else {
             const frustumSize = maxDim * 1.4; // Leave some margin
