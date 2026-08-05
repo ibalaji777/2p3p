@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, FABRIC_REGISTRY, DOOR_MATERIALS_REGISTRY, MARBLE_REGISTRY, STONE_REGISTRY, METAL_REGISTRY, PLASTIC_REGISTRY, resolveFabricConfig } from '../../core/registry';
+import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY, FABRIC_REGISTRY, DOOR_MATERIALS_REGISTRY, MARBLE_REGISTRY, STONE_REGISTRY, METAL_REGISTRY, PLASTIC_REGISTRY, resolveFabricConfig } from '../../core/registry';
 import { MaterialFactory } from '../../core/engine3d/MaterialFactory.js';
 
 export class FurnitureManager {
@@ -1013,7 +1013,7 @@ export class FurnitureManager {
                                 } else {
                                     let fConf = (DOOR_MATERIALS_REGISTRY && DOOR_MATERIALS_REGISTRY[matKey]) ||
                                                 (WALL_DECOR_REGISTRY && WALL_DECOR_REGISTRY[matKey]) ||
-                                                (WINDOW_GLASS_MATERIALS && WINDOW_GLASS_MATERIALS[matKey]) ||
+                                                (GLASS_REGISTRY && GLASS_REGISTRY[matKey]) ||
                                                 (MARBLE_REGISTRY && MARBLE_REGISTRY[matKey]) ||
                                                 (STONE_REGISTRY && STONE_REGISTRY[matKey]) ||
                                                 (METAL_REGISTRY && METAL_REGISTRY[matKey]) ||

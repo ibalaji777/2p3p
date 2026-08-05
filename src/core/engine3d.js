@@ -9,7 +9,7 @@ import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { TransformControls } from './engine3d/TransformControls.js';
-import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY, DOOR_MATERIALS_REGISTRY, FABRIC_REGISTRY, getFabricBaseConfig, resolveFabricConfig } from './registry.js';
+import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY, DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY, DOOR_MATERIALS_REGISTRY, FABRIC_REGISTRY, getFabricBaseConfig, resolveFabricConfig } from './registry.js';
 import { EnvironmentBuilder } from "./engine3d/EnvironmentBuilder.js";
 import { AssetManager  } from "./engine3d/AssetManager.js";
 import { DecorManager  } from "./engine3d/DecorManager.js";
@@ -20,8 +20,7 @@ import { CameraController } from "./camera/CameraController.js";
 import { NavigationCube } from "./camera/NavigationCube.js";
 import { ThumbnailGenerator } from "./ThumbnailGenerator.js";
 import { MaterialFactory } from "./engine3d/MaterialFactory.js";
-import { UniversalMaterialEngine } from "./engine3d/UniversalMaterialEngine.js";
-import { BIMMaterialSystem } from "./engine3d/BIMMaterialSystem.js";
+import { UniversalMaterialManager } from "./engine3d/UniversalMaterialManager.js";
 import { RenderCoordinator } from "./engine3d/RenderCoordinator.js";
 
 export class Preview3D {
@@ -78,17 +77,7 @@ export class Preview3D {
         
         this.helpers = {
             getDynamicMaterial: (matId, category) => {
-                const rawKey = typeof matId === 'string' ? matId : (matId?.id || matId?.key || '');
-                let conf = (window.BIMMaterialSystem && window.BIMMaterialSystem.resolveMaterialConfig(matId)) || 
-                           UniversalMaterialEngine.resolveMaterialConfig(matId) || 
-                           (category === 'door' ? (DOOR_MATERIALS[rawKey] || DOOR_MATERIALS_REGISTRY[rawKey]) : null) ||
-                           (category === 'window_frame' ? (WINDOW_FRAME_MATERIALS[rawKey] || WINDOW_FRAME_MATERIALS.alum_powder) : null) ||
-                           (category === 'window_glass' ? (WINDOW_GLASS_MATERIALS[rawKey] || WINDOW_GLASS_MATERIALS.clear) : null) ||
-                           DOOR_MATERIALS[rawKey] || 
-                           DOOR_MATERIALS_REGISTRY[rawKey] || 
-                           WALL_DECOR_REGISTRY[rawKey] || 
-                           DOOR_MATERIALS_REGISTRY['wood_golden_teak'];
-                
+                let conf = UniversalMaterialManager.getMaterial(matId);
                 if (!conf) return new THREE.MeshStandardMaterial();
                 
                 // Determine rough fallback dimensions based on category

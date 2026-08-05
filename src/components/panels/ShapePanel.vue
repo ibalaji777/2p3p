@@ -12,6 +12,8 @@
                 <div class="control-group"><label>Radius</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.params.radius" min="10" max="1000" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.params.radius" @change="$emit('sync-engine')" /></div></div>
             </div>
             <div class="control-group"><label>Color</label><div class="input-wrap" style="justify-content: flex-end;"><input type="color" v-model="selectedEntity.params.fill" @input="e => { $emit('clear-shape-textures'); $emit('sync-engine'); }"></div></div>
+            
+            <MaterialCategorySelector :selected-entity="selectedEntity" @sync-engine="$emit('sync-engine')" />
 
             <button class="hud-delete" @click="$emit('delete-entity')">Delete Shape</button>
         </div>
@@ -20,6 +22,7 @@
 
 <script setup>
 import DimensionInput from '../common/DimensionInput.vue';
+import MaterialCategorySelector from '../common/MaterialCategorySelector.vue';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true }

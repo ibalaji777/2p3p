@@ -41,12 +41,22 @@
             </select>
         </div>
 
-        <button class="hud-delete" @click="$emit('delete-entity')">Delete Molding</button>
+        <div class="control-group">
+            <label>Color</label>
+            <div class="input-wrap" style="justify-content: flex-end;">
+                <input type="color" v-model="selectedEntity.color" @input="$emit('sync-engine')">
+            </div>
+        </div>
+
+        <MaterialCategorySelector :selected-entity="selectedEntity" @sync-engine="$emit('sync-engine')" />
+
+        <button class="hud-delete" @click="$emit('delete-entity')">Delete Component</button>
     </div>
 </template>
 
 <script setup>
 import DimensionInput from '../common/DimensionInput.vue';
+import MaterialCategorySelector from '../common/MaterialCategorySelector.vue';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true }

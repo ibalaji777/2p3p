@@ -7,7 +7,7 @@ import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { Molding3DBuilder } from './Molding3DBuilder.js';
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
 import { Railing3DBuilder } from '../../features/railing/builders/Railing3DBuilder.js';
-import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, offsetPolygon } from '../../core/registry';
+import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY, offsetPolygon } from '../../core/registry';
 import { MaterialFactory } from './MaterialFactory.js';
 
 let _sharedPlasterMaterial = null;

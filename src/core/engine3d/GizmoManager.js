@@ -1,9 +1,9 @@
 import { EVENTS } from '../registry.js';
 import { coreEventBus } from '../EventBus.js';
 import * as THREE from 'three';
-import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, DOOR_MATERIALS_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY, FABRIC_REGISTRY, LEATHER_REGISTRY, FLOOR_REGISTRY, WINDOW_GLASS_MATERIALS, METAL_REGISTRY, STONE_REGISTRY, MARBLE_REGISTRY, PLASTIC_REGISTRY, parseCompositeMaterialKey, resolveFabricConfig, getFabricBaseConfig } from '../registry.js';
+import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, WOOD_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY, FABRIC_REGISTRY, LEATHER_REGISTRY, FLOOR_REGISTRY, GLASS_REGISTRY, METAL_REGISTRY, STONE_REGISTRY, MARBLE_REGISTRY, PLASTIC_REGISTRY, parseCompositeMaterialKey, resolveFabricConfig, getFabricBaseConfig } from '../registry.js';
 import { MaterialFactory } from './MaterialFactory.js';
-import { UniversalMaterialEngine } from './UniversalMaterialEngine.js';
+import { UniversalMaterialManager } from './UniversalMaterialManager.js';
 import { BIMMaterialSystem } from './BIMMaterialSystem.js';
 import { glassPreviewRenderer } from './GlassPreviewRenderer.js';
 import { marblePreviewRenderer } from './MarblePreviewRenderer.js';
@@ -11,8 +11,8 @@ import { patternManager } from '../services/pattern/PatternManager.js';
 import { PatternTextureBlender } from '../services/pattern/PatternTextureBlender.js';
 import { useSettingsStore } from '../../stores/useSettingsStore.js';
 
-const WOOD_REGISTRY = DOOR_MATERIALS_REGISTRY;
-const GLASS_REGISTRY = WINDOW_GLASS_MATERIALS;
+
+
 const TILE_REGISTRY = WALL_DECOR_REGISTRY;
 const WALL_REGISTRY = WALL_DECOR_REGISTRY;
 const ROOF_REGISTRY = ROOF_DECOR_REGISTRY;
@@ -806,15 +806,15 @@ export class GizmoManager {
                         let registry = WALL_DECOR_REGISTRY;
                         if (selectedObj && selectedObj.userData.entity) {
                             if (selectedObj.userData.entity.type === 'door' || selectedObj.userData.entity.type === 'window') {
-                                registry = Object.assign({}, DOOR_MATERIALS_REGISTRY, WINDOW_GLASS_MATERIALS);
+                                registry = Object.assign({}, WOOD_REGISTRY, GLASS_REGISTRY);
                             } else if (selectedObj.userData.entity.type === 'roof') {
                                 if (this.activeObject && this.activeObject.userData && this.activeObject.userData.isGable) registry = WALL_DECOR_REGISTRY;
                                 else registry = ROOF_DECOR_REGISTRY;
                             } else if (selectedObj.userData.isFurniture || selectedObj.userData.entity.type === 'furniture') {
-                                registry = Object.assign({}, FABRIC_REGISTRY, DOOR_MATERIALS_REGISTRY, WALL_DECOR_REGISTRY, WINDOW_GLASS_MATERIALS);
+                                registry = Object.assign({}, FABRIC_REGISTRY, WOOD_REGISTRY, WALL_DECOR_REGISTRY, GLASS_REGISTRY);
                             }
                         }
-                        const config = registry[texKey] || WINDOW_GLASS_MATERIALS[texKey];
+                        const config = registry[texKey] || GLASS_REGISTRY[texKey];
                         this.matNameDisplay.innerText = config ? (config.name || config.label) : (texKey || 'Clear Material');
                     }
                 }
@@ -891,10 +891,10 @@ export class GizmoManager {
                                     if (mats[this.activeMatIndex]) {
                                         newMat = mats[this.activeMatIndex].clone();
                                         let registry = WALL_DECOR_REGISTRY;
-                                        if (entity.type === 'door' || entity.type === 'window') registry = Object.assign({}, DOOR_MATERIALS_REGISTRY, WINDOW_GLASS_MATERIALS);
+                                        if (entity.type === 'door' || entity.type === 'window') registry = Object.assign({}, WOOD_REGISTRY, GLASS_REGISTRY);
                                         else if (entity.type === 'roof') registry = ROOF_DECOR_REGISTRY;
                                         
-                                        const config = (key && registry[key]) ? registry[key] : (key ? (WINDOW_GLASS_MATERIALS[key] || MARBLE_REGISTRY[key] || STONE_REGISTRY[key] || METAL_REGISTRY[key] || WALL_DECOR_REGISTRY[key]) : null);
+                                        const config = (key && registry[key]) ? registry[key] : (key ? (GLASS_REGISTRY[key] || MARBLE_REGISTRY[key] || STONE_REGISTRY[key] || METAL_REGISTRY[key] || WALL_DECOR_REGISTRY[key]) : null);
                                         if (config) {
                                             MaterialFactory.applyPBRMaterial(this.activeObject, config, this.ctx, this.activeMatIndex);
                                         } else {
@@ -1030,10 +1030,14 @@ export class GizmoManager {
         const selectedObj = realSelectedObj;
         
         let materialCategory = forcedCategory || 'categories';
-        if (selectedObj && selectedObj.userData && selectedObj.userData.entity) {
-            const type = selectedObj.userData.entity.type;
-            if (type !== 'furniture' && !selectedObj.userData.entity.isFurniture) {
-                materialCategory = type;
+        if (!forcedCategory && selectedObj && selectedObj.userData && selectedObj.userData.entity) {
+            if (selectedObj.userData.entity.params && selectedObj.userData.entity.params.materialCategory) {
+                materialCategory = selectedObj.userData.entity.params.materialCategory;
+            } else {
+                const type = selectedObj.userData.entity.type;
+                if (type !== 'furniture' && !selectedObj.userData.entity.isFurniture) {
+                    materialCategory = type;
+                }
             }
         }
         
@@ -1164,16 +1168,18 @@ export class GizmoManager {
         `;
         let registry = WALL_DECOR_REGISTRY;
         
-        if (materialCategory === 'wood' || materialCategory === 'door' || materialCategory === 'window' || materialCategory === 'wood_metal') registry = WOOD_REGISTRY;
-        else if (materialCategory === 'metal') registry = METAL_REGISTRY;
+        if (materialCategory === 'wood' || materialCategory === 'door' || materialCategory === 'window' || materialCategory === 'wood_metal') {
+            registry = WOOD_REGISTRY;
+        }
+        else if (materialCategory === 'metal' || materialCategory === 'steel' || materialCategory === 'aluminium') registry = METAL_REGISTRY;
         else if (materialCategory === 'glass') registry = GLASS_REGISTRY;
         else if (materialCategory === 'marble') registry = MARBLE_REGISTRY;
         else if (materialCategory === 'stone') registry = STONE_REGISTRY;
         else if (materialCategory === 'tile') registry = TILE_REGISTRY;
-        else if (materialCategory === 'plastic') registry = PLASTIC_REGISTRY;
-        else if (materialCategory === 'roof') registry = ROOF_REGISTRY;
         else if (materialCategory === 'fabric') registry = FABRIC_REGISTRY;
         else if (materialCategory === 'leather') registry = LEATHER_REGISTRY;
+        else if (materialCategory === 'plastic' || materialCategory === 'upvc' || materialCategory === 'pvc' || materialCategory === 'wpc' || materialCategory === 'frp' || materialCategory === 'composite') registry = PLASTIC_REGISTRY;
+        else if (materialCategory === 'roof') registry = ROOF_REGISTRY;
         else if (materialCategory === 'floor') registry = FLOOR_REGISTRY;
         else if (materialCategory === 'wall' || materialCategory === 'outer' || materialCategory === 'inner') registry = WALL_REGISTRY;
 

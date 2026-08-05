@@ -5,17 +5,20 @@ import { MaterialFactory } from './MaterialFactory.js';
 import { coreEventBus } from '../EventBus.js';
 import { EVENTS } from '../constants/events.js';
 import { 
-    DOOR_MATERIALS_REGISTRY, 
     WALL_DECOR_REGISTRY, 
+    WOOD_REGISTRY, 
     FLOOR_REGISTRY, 
     FABRIC_REGISTRY, 
     ROOF_DECOR_REGISTRY, 
-    WINDOW_GLASS_MATERIALS, 
+    GLASS_REGISTRY, 
     MARBLE_REGISTRY, 
     STONE_REGISTRY, 
     METAL_REGISTRY, 
+    DOOR_MATERIALS,
+    WINDOW_FRAME_MATERIALS,
     PLASTIC_REGISTRY, 
-    LEATHER_REGISTRY 
+    LEATHER_REGISTRY,
+    COMMON_MATERIALS
 } from '../registry.js';
 
 /**
@@ -76,8 +79,11 @@ export class MaterialManager {
             resolved = { id: matKey, name: 'Custom Color', color: hexVal, roughness: 0.5, metalness: 0.0 };
         } else {
             resolved = FABRIC_REGISTRY[matKey] ||
-                             DOOR_MATERIALS_REGISTRY[matKey] ||
-                             WINDOW_GLASS_MATERIALS[matKey] ||
+                             COMMON_MATERIALS[matKey] ||
+                             DOOR_MATERIALS[matKey] ||
+                             WINDOW_FRAME_MATERIALS[matKey] ||
+                             WOOD_REGISTRY[matKey] ||
+                             GLASS_REGISTRY[matKey] ||
                              MARBLE_REGISTRY[matKey] ||
                              STONE_REGISTRY[matKey] ||
                              METAL_REGISTRY[matKey] ||
@@ -85,8 +91,11 @@ export class MaterialManager {
                              LEATHER_REGISTRY[matKey] ||
                              WALL_DECOR_REGISTRY[matKey] ||
                              ROOF_DECOR_REGISTRY[matKey] ||
-                             FLOOR_REGISTRY[matKey] ||
-                             { texture: matKey, id: matKey };
+                             FLOOR_REGISTRY[matKey];
+            
+            if (!resolved) {
+                resolved = { texture: matKey, id: matKey };
+            }
         }
 
         return {
@@ -111,8 +120,8 @@ export class MaterialManager {
                 entity.materials[MaterialSlots.LEAF] = MaterialManager.normalizeDescriptor(entity.doorMat);
             }
             if (!entity.materials[MaterialSlots.FRAME]) {
-                const frameMatKey = entity.frameMat || entity.doorMat || 'wood_golden_teak';
-                entity.materials[MaterialSlots.FRAME] = MaterialManager.normalizeDescriptor(frameMatKey);
+                const frameMatKey = entity.frameMat || entity.doorMat;
+                if (frameMatKey) entity.materials[MaterialSlots.FRAME] = MaterialManager.normalizeDescriptor(frameMatKey);
             }
             if (!entity.materials[MaterialSlots.GLASS] && entity.glassMat) {
                 entity.materials[MaterialSlots.GLASS] = MaterialManager.normalizeDescriptor(entity.glassMat);

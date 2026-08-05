@@ -1,67 +1,18 @@
-export const DOOR_TYPES = { single: { label: "Single Hinged Door" }, double: { label: "Double Door" }, sliding: { label: "Sliding Door" }, double_sliding: { label: "Double Sliding Door" }, folding: { label: "Folding / Bi-fold" }, pivot: { label: "Pivot Door" }, pocket: { label: "Pocket Door" }, french: { label: "French Door (Glass)" } };
-
-export const DOOR_MATERIALS = {
-    wood: { label: "White Oak", color: 0xc4a482, roughness: 0.6, metalness: 0.05, texture: 'textures/wood/wood_golden_teak.png', bumpScale: 0.005, clearcoat: 0.05 },
-    steel: { label: "Brushed Steel", color: 0xa0a5aa, roughness: 0.35, metalness: 0.8, bumpScale: 0.005, clearcoat: 0.2 },
-    glass: { label: "Double-Pane Glass", color: 0xeff6ff, roughness: 0.0, metalness: 0.1, transmission: 0.98, transparent: true, ior: 1.52, thickness: 3.0, clearcoat: 1.0 },
-    aluminium: { label: "Aluminium", color: 0xc8cdd0, roughness: 0.4, metalness: 0.6 },
-    pvc: { label: "Matte White", color: 0xfdfdfd, roughness: 0.7, metalness: 0.0, clearcoat: 0.0 },
-    laminate: { label: "Charcoal Black", color: 0x2e2b2a, roughness: 0.4, metalness: 0.1, texture: 'textures/wood/wood_dark_walnut.png', bumpScale: 0.002, clearcoat: 0.1 }
+export const DOOR_TYPES = { 
+    single: { label: "Single Hinged Door" }, 
+    double: { label: "Double Door" }, 
+    sliding: { label: "Sliding Door" }, 
+    double_sliding: { label: "Double Sliding Door" }, 
+    folding: { label: "Folding / Bi-fold" }, 
+    pivot: { label: "Pivot Door" }, 
+    pocket: { label: "Pocket Door" }, 
+    french: { label: "French Door (Glass)" } 
 };
 
-export const DOOR_MATERIALS_REGISTRY = {
-    // 🪵 5 Photorealistic Wood Species (Unique HD Texture Maps)
-    'wood_golden_teak': {
-        id: 'wood_golden_teak',
-        name: 'Natural Burmese Golden Teak',
-        texture: 'textures/wood/wood_golden_teak.png',
-        thumbnail: 'textures/wood/wood_golden_teak.png',
-        color: 0xc4a482, metalness: 0.0, envMapIntensity: 0.2, roughness: 0.55, bumpScale: 0.005,
-        defaultWidth: 100, defaultHeight: 100, defaultDepth: 0.2, defaultRepeat: 1, scaleMultiplier: 1
-    },
-    'wood_dark_walnut': {
-        id: 'wood_dark_walnut',
-        name: 'Solid Dark American Walnut',
-        texture: 'textures/wood/wood_dark_walnut.png',
-        thumbnail: 'textures/wood/wood_dark_walnut.png',
-        color: 0x5c4033, metalness: 0.0, envMapIntensity: 0.2, roughness: 0.5, bumpScale: 0.005,
-        defaultWidth: 100, defaultHeight: 100, defaultDepth: 0.2, defaultRepeat: 1, scaleMultiplier: 1
-    },
-    'wood_white_oak': {
-        id: 'wood_white_oak',
-        name: 'Natural White American Oak',
-        texture: 'textures/wood/wood_white_oak.png',
-        thumbnail: 'textures/wood/wood_white_oak.png',
-        color: 0xd8c8b8, metalness: 0.0, envMapIntensity: 0.2, roughness: 0.6, bumpScale: 0.005,
-        defaultWidth: 100, defaultHeight: 100, defaultDepth: 0.2, defaultRepeat: 1, scaleMultiplier: 1
-    },
-    'wood_mahogany': {
-        id: 'wood_mahogany',
-        name: 'Heritage Red Mahogany',
-        texture: 'textures/wood/wood_mahogany.png',
-        thumbnail: 'textures/wood/wood_mahogany.png',
-        color: 0x8b4513, metalness: 0.0, envMapIntensity: 0.2, roughness: 0.45, bumpScale: 0.005,
-        defaultWidth: 100, defaultHeight: 100, defaultDepth: 0.2, defaultRepeat: 1, scaleMultiplier: 1
-    },
-    'wood_wenge': {
-        id: 'wood_wenge',
-        name: 'Deep Ebony Wenge Timber',
-        texture: 'textures/wood/wood_wenge.png',
-        thumbnail: 'textures/wood/wood_wenge.png',
-        color: 0x3d2b1f, metalness: 0.0, envMapIntensity: 0.2, roughness: 0.4, bumpScale: 0.005,
-        defaultWidth: 100, defaultHeight: 100, defaultDepth: 0.2, defaultRepeat: 1, scaleMultiplier: 1
-    },
+export const DOOR_MATERIALS = {};
 
-    // Backward compatibility aliases
-    'door_indian_1': {
-        id: 'door_indian_1', name: 'Indian Carved Wood', texture: 'textures/wood/wood_golden_teak.png', thumbnail: 'textures/wood/wood_golden_teak.png', isAlias: true
-    },
-    'door_indian_2': {
-        id: 'door_indian_2', name: 'Dark Teak Door', texture: 'textures/wood/wood_dark_walnut.png', thumbnail: 'textures/wood/wood_dark_walnut.png', isAlias: true
-    },
-    'door_modern_1': {
-        id: 'door_modern_1', name: 'Modern Panel', texture: 'textures/wood/wood_white_oak.png', thumbnail: 'textures/wood/wood_white_oak.png', isAlias: true
-    }
+export const DOOR_MATERIALS_REGISTRY = {
+    // Moved to UNIVERSAL_SURFACE_REGISTRY in material.registry.js
 };
 
 export const DOOR_STYLES_REGISTRY = {

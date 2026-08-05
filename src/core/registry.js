@@ -11,7 +11,7 @@ export * from '../features/wall/wall.registry.js';
 export * from './registries/material.registry.js';
 
 import { DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT } from './constants/units.js';
-import { WINDOW_TYPES, WINDOW_GLASS_MATERIALS } from '../features/window/window.registry.js';
+import { WINDOW_TYPES } from '../features/window/window.registry.js';
 import { JALI_MATERIALS } from './registries/material.registry.js';
 import { MaterialSlots } from './constants/materialSlots.js';
 import { ComponentRegistry } from './engine3d/ComponentRegistry.js';
@@ -143,7 +143,7 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         const groove1 = new THREE.Mesh(grooveGeo, matsExtrude); groove1.position.set(0, botRailH * 0.4, 0); group.add(groove1);
         const groove2 = new THREE.Mesh(grooveGeo, matsExtrude); groove2.position.set(0, botRailH * 0.7, 0); group.add(groove2);
 
-        const glassMat = helpers.getDynamicMaterial(entity.glassMat || 'clear', 'door');
+        const glassMat = helpers.getDynamicMaterial(entity.glassMat, 'door');
         const geoGlass = new THREE.BoxGeometry(width - frameW*2, height - topRailH - botRailH, thickness * 0.25);
         const glass = new THREE.Mesh(geoGlass, glassMat); glass.userData.isGlass = true; glass.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(glass);
     } else if (style === 'glass_grid') {
@@ -164,7 +164,7 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
             group.add(hMullion);
         }
 
-        const glassMat = helpers.getDynamicMaterial(entity.glassMat || 'clear', 'door'); const geoGlass = new THREE.BoxGeometry(glassW, glassH, thickness * 0.4);
+        const glassMat = helpers.getDynamicMaterial(entity.glassMat, 'door'); const geoGlass = new THREE.BoxGeometry(glassW, glassH, thickness * 0.4);
         const glass = new THREE.Mesh(geoGlass, glassMat); glass.userData.isGlass = true; glass.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(glass);
     } else if (isGlass || type === 'french') {
         const frameW = 3.5; const topRailH = 3.5; const botRailH = 5;
@@ -187,7 +187,7 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         const gR = new THREE.Mesh(new THREE.BoxGeometry(0.1, height-topRailH-botRailH-beadW*2, thickness*0.28), gMat); gR.position.set(width/2 - frameW - beadW - 0.05, height/2 + (botRailH - topRailH)/2, 0);
         [gL, gR].forEach(m => group.add(m));
 
-        const glassMat = helpers.getDynamicMaterial(entity.glassMat || 'clear', 'door');
+        const glassMat = helpers.getDynamicMaterial(entity.glassMat, 'door');
         const geoGlass = new THREE.BoxGeometry(width - frameW*2 - beadW*2, height - topRailH - botRailH - beadW*2, thickness * 0.25);
         const glass = new THREE.Mesh(geoGlass, glassMat); glass.userData.isGlass = true; glass.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(glass);
     } else {
@@ -799,7 +799,7 @@ export const WIDGET_REGISTRY = {
                         const slBotR = tagFrame(new THREE.Mesh(slBotGeo, matFrame)); slBotR.position.set(entity.width/2 - jambW - slGlassW/2, 2.5, 0);
                         [slBotL, slBotR].forEach(m => doorGroup.add(m));
                         
-                        const glassMat = helpers.getDynamicMaterial(entity.glassMat || 'clear', 'door');
+                        const glassMat = helpers.getDynamicMaterial(entity.glassMat, 'door');
                         const slGlassGeo = new THREE.BoxGeometry(slGlassW, height - jambW - 5, 0.4);
                         const glassL = new THREE.Mesh(slGlassGeo, glassMat); glassL.position.set(-entity.width/2 + jambW + slGlassW/2, 5 + (height - jambW - 5)/2, 0);
                         const glassR = new THREE.Mesh(slGlassGeo, glassMat); glassR.position.set(entity.width/2 - jambW - slGlassW/2, 5 + (height - jambW - 5)/2, 0);
@@ -1116,7 +1116,7 @@ export const WIDGET_REGISTRY = {
                 winGroup.rotation.y = -entity.angle;
             }
             const wConf = WINDOW_TYPES[entity.windowType] || WINDOW_TYPES.sliding_std;
-            const matFrame = helpers.getDynamicMaterial(entity.frameMat || 'wood_teak', 'window_frame');
+            const matFrame = helpers.getDynamicMaterial(entity.frameMat, 'window_frame');
             const matGlass = helpers.getDynamicMaterial(entity.glassMat, 'window_glass');
             if (matGlass) matGlass.envMapIntensity = 2.5;
             const isTrad = wConf.type === 'traditional';
@@ -1768,7 +1768,7 @@ export const WIDGET_REGISTRY = {
             } else if (chajjaStyle === 'glass_canopy' || chajjaStyle === 'polycarbonate_canopy') {
                 const isPoly = chajjaStyle === 'polycarbonate_canopy';
                 const cWidth = entity.width; const glassThick = 0.5;
-                const matGlassConf = WINDOW_GLASS_MATERIALS['clear'];
+                const matGlassConf = GLASS_REGISTRY['clear'];
                 
                 let matCanopyPanel;
                 if (isPoly) {

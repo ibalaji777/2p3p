@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS, WALL_DECOR_REGISTRY, offsetPolygon } from '../registry.js';
+import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY, WALL_DECOR_REGISTRY, offsetPolygon } from '../registry.js';
 import { MaterialFactory } from './MaterialFactory.js';
-import { UniversalMaterialEngine } from './UniversalMaterialEngine.js';
+import { UniversalMaterialManager } from './UniversalMaterialManager.js';
 import { Wall3DBuilder } from '../../features/wall/wall.renderer3d.js';
 import { Railing3DBuilder } from '../../features/railing/builders/Railing3DBuilder.js';
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
@@ -18,14 +18,8 @@ export class StaticFloors {
         this.callbacks = callbacks;
         
         this.helpers = {
-            getDynamicMaterial: (matId, category) => {
-                const rawKey = typeof matId === 'string' ? matId : (matId?.id || matId?.key || '');
-                let conf = UniversalMaterialEngine.resolveMaterialConfig(matId) || 
-                           (category === 'door' ? (DOOR_MATERIALS[rawKey] || DOOR_MATERIALS.wood) : null) ||
-                           (category === 'window_frame' ? (WINDOW_FRAME_MATERIALS[rawKey] || WINDOW_FRAME_MATERIALS.alum_powder) : null) ||
-                           (category === 'window_glass' ? (WINDOW_GLASS_MATERIALS[rawKey] || WINDOW_GLASS_MATERIALS.clear) : null) ||
-                           DOOR_MATERIALS[rawKey] || 
-                           DOOR_MATERIALS.wood;
+            getDynamicMaterial: (matId) => {
+                let conf = UniversalMaterialManager.getMaterial(matId);
                 
                 if (!conf) return new THREE.MeshStandardMaterial();
                 

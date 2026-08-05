@@ -1,4 +1,6 @@
 import { MaterialSlots, ComponentTypes, SLOT_DEFINITIONS, INTERACTION_MODES } from '../constants/materialSlots.js';
+import { UniversalMaterialComponent } from './UniversalMaterialManager.js';
+
 
 /**
  * 3-Layer Architecture Component Registry for 3D CAD/BIM Assemblies.
@@ -72,6 +74,10 @@ export class ComponentRegistry {
             ...mesh.userData,
             ...metadata
         };
+
+        if (!mesh.userData.materialComponent) {
+            new UniversalMaterialComponent(entity, mesh, slot);
+        }
     }
 
     /**

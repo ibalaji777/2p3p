@@ -5,6 +5,11 @@
         <div class="control-group"><label>Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="10" max="300" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.height" @change="$emit('sync-engine')" /></div></div>
         <div class="control-group" v-if="selectedEntity.type === 'niche_recess'"><label>Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.depth" min="1" max="50" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.depth" @change="$emit('sync-engine')" /></div></div>
         <div class="control-group"><label>Elevation (from floor)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.elevation" min="0" max="200" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.elevation" @change="$emit('sync-engine')" /></div></div>
+
+        <div v-if="selectedEntity.type === 'door' || selectedEntity.type === 'window'">
+            <MaterialCategorySelector :selected-entity="selectedEntity" @sync-engine="$emit('sync-engine')" />
+        </div>
+
         <div v-if="selectedEntity.type === 'pattern_opening'">
             <div class="control-group">
                 <label>Pattern Style</label>
@@ -41,6 +46,7 @@
 
 <script setup>
 import DimensionInput from '../common/DimensionInput.vue';
+import MaterialCategorySelector from '../common/MaterialCategorySelector.vue';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true },

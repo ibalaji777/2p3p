@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
-import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, WINDOW_GLASS_MATERIALS } from '../../core/registry';
+import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY } from '../../core/registry';
 
 
 export class AssetManager {
@@ -21,7 +21,7 @@ export class AssetManager {
         if (typeof url === 'string' && !url.includes('/') && !url.includes('.')) {
             const matDef = (DOOR_MATERIALS && DOOR_MATERIALS[url]) || 
                            (WINDOW_FRAME_MATERIALS && WINDOW_FRAME_MATERIALS[url]) || 
-                           (WINDOW_GLASS_MATERIALS && WINDOW_GLASS_MATERIALS[url]);
+                           (GLASS_REGISTRY && GLASS_REGISTRY[url]);
             if (matDef && matDef.texture) {
                 url = matDef.texture;
             } else {
