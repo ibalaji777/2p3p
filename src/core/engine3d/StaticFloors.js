@@ -158,6 +158,8 @@ export class StaticFloors {
                                 ctx: this.ctx,
                                 dimensions: { width: 100, height: 100 },
                                 faceName: 'floor'
+                            }).then(() => {
+                                if (this.ctx && this.ctx.requestRender) this.ctx.requestRender('material_loaded', 2);
                             });
                         } else {
                             mat.color.setHex(0xd1d5db);

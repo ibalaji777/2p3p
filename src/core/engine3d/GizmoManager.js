@@ -1322,8 +1322,52 @@ export class GizmoManager {
                     })();
                 }
             }
+
+            let woodCustomizerHtml = '';
+            if (materialCategory === 'wood' || materialCategory === 'door' || materialCategory === 'window' || materialCategory === 'wood_metal') {
+                const woodColors = [
+                    { name: 'Light Maple', hex: '#E8D5B7' },
+                    { name: 'Natural Oak', hex: '#D6B07A' },
+                    { name: 'Golden Oak', hex: '#C8904A' },
+                    { name: 'Pine', hex: '#D8B56C' },
+                    { name: 'Teak', hex: '#A66A3F' },
+                    { name: 'Cherry', hex: '#A24F38' },
+                    { name: 'Walnut', hex: '#6B4A2E' },
+                    { name: 'Mahogany', hex: '#7B3F27' },
+                    { name: 'Ash', hex: '#C7B79A' },
+                    { name: 'Ebony', hex: '#2C211A' },
+                    { name: 'Whitewashed Oak', hex: '#E9E4D8' },
+                    { name: 'Espresso', hex: '#3B2A20' }
+                ];
+                
+                let swatchesHtml = '';
+                woodColors.forEach(c => {
+                    swatchesHtml += `<div class="mat-thumb wood-swatch" data-mat="color_${c.hex}" title="${c.name}" style="background-color: ${c.hex}; width: 28px; height: 28px; border-radius: 6px; cursor: pointer; border: 1px solid rgba(255,255,255,0.2); transition: transform 0.15s, border-color 0.15s; flex-shrink: 0;" onmouseover="this.style.transform='scale(1.15)'; this.style.borderColor='#fff';" onmouseout="this.style.transform='scale(1)'; this.style.borderColor='rgba(255,255,255,0.2)';"></div>`;
+                });
+
+                woodCustomizerHtml = `
+                    <div class="mat-card" id="card-wood-customizer" style="width: 220px; border: 1.5px solid rgba(245, 158, 11, 0.5); background: linear-gradient(145deg, rgba(39, 26, 16, 0.9) 0%, rgba(26, 16, 11, 0.95) 100%); padding: 12px; display: flex; flex-direction: column; gap: 10px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class="mat-card-icon-badge" style="background: rgba(245, 158, 11, 0.25); color: #fbbf24; margin-bottom: 0;">🎨</div>
+                            <div>
+                                <div class="mat-card-title" style="color: #fbbf24; font-weight: 800; margin-top: 0; text-align: left;">Custom Color</div>
+                                <div class="mat-card-sub" style="text-align: left;">Solid Wood Finish</div>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-start; margin-top: 4px;">
+                            ${swatchesHtml}
+                        </div>
+                        
+                        <div style="margin-top: auto; display: flex; align-items: center; gap: 8px; width: 100%; background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); box-sizing: border-box;">
+                            <span style="font-size: 11px; color: #cbd5e1; font-weight: 600;">Custom Hex</span>
+                            <input type="color" id="gizmo-wood-color-picker" value="#C8904A" style="width: 100%; height: 24px; border: none; outline: none; background: transparent; cursor: pointer; border-radius: 4px;">
+                        </div>
+                    </div>
+                `;
+            }
             
-            gridElem.innerHTML = patternLauncherHtml + decorThumbnails;
+            gridElem.innerHTML = patternLauncherHtml + woodCustomizerHtml + decorThumbnails;
             
             if (materialCategory === 'fabric') {
                 const btnOpen = gridElem.querySelector('#btn-gizmo-open-pattern-popup');
@@ -1407,6 +1451,27 @@ export class GizmoManager {
                     }
                 });
             });
+
+            const woodColorPicker = gridElem.querySelector('#gizmo-wood-color-picker');
+            if (woodColorPicker) {
+                woodColorPicker.addEventListener('input', (e) => {
+                    const hexColor = e.target.value.toUpperCase();
+                    const key = 'color_' + hexColor;
+                    if (this.matNameDisplay) this.matNameDisplay.innerText = 'Custom ' + hexColor;
+                    
+                    let targetMeshToUse = this.activeObject || selectedObj;
+                    let descriptor = this.activeDescriptor || (window.BIMMaterialSystem ? BIMMaterialSystem.resolveBIMTarget(
+                        targetMeshToUse,
+                        this.activeMatIndex,
+                        null,
+                        selectedObj?.userData?.entity
+                    ) : null);
+                    
+                    if (descriptor && window.BIMMaterialSystem) {
+                        BIMMaterialSystem.applyBIMMaterial(descriptor, key, this.ctx);
+                    }
+                });
+            }
 
             // Build 3D material preview thumbnails with pattern overlay for every plain fabric card
             if (matsToRender.length > 0) {

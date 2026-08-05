@@ -642,15 +642,10 @@ export const WIDGET_REGISTRY = {
             }
             const isSliding = entity.doorType === 'sliding' || entity.doorType === 'double_sliding' || entity.doorType === 'pocket';
             const fW = 4; const fThick = entity.thick + 0.2;
-            const cloneMat = (m, r) => {
-                if (!m) return m;
-                if (Array.isArray(m)) return m.map(mat => { const c = mat.clone(); c.roughness = r; return c; });
-                const c = m.clone(); c.roughness = r; return c;
-            };
-            const matDoor = cloneMat(helpers.getDynamicMaterial(entity.doorMat, 'door'), 0.50); 
+            const matDoor = helpers.getDynamicMaterial(entity.doorMat, 'door'); 
             const frameMatKey = entity.frameMat || entity.doorMat;
-            const matFrame = cloneMat(helpers.getDynamicMaterial(frameMatKey, 'door'), 0.42);
-            const matThreshold = cloneMat(helpers.getDynamicMaterial(entity.thresholdMat || frameMatKey, 'door'), 0.38);
+            const matFrame = helpers.getDynamicMaterial(frameMatKey, 'door');
+            const matThreshold = helpers.getDynamicMaterial(entity.thresholdMat || frameMatKey, 'door');
             
             // Apply a slight bevel to standard wood materials for realism (1mm edge bevel)
             // Handled via createBeveledExtrude default parameter

@@ -69,18 +69,25 @@ export class MaterialManager {
         const descriptor = MaterialManager.normalizeDescriptor(matInput);
         const matKey = descriptor.id;
 
-        const resolved = FABRIC_REGISTRY[matKey] ||
-                         DOOR_MATERIALS_REGISTRY[matKey] ||
-                         WINDOW_GLASS_MATERIALS[matKey] ||
-                         MARBLE_REGISTRY[matKey] ||
-                         STONE_REGISTRY[matKey] ||
-                         METAL_REGISTRY[matKey] ||
-                         PLASTIC_REGISTRY[matKey] ||
-                         LEATHER_REGISTRY[matKey] ||
-                         WALL_DECOR_REGISTRY[matKey] ||
-                         ROOF_DECOR_REGISTRY[matKey] ||
-                         FLOOR_REGISTRY[matKey] ||
-                         { texture: matKey, id: matKey };
+        let resolved = null;
+        if (matKey.startsWith('color_')) {
+            const hexStr = matKey.replace('color_#', '').replace('color_', '').replace('#', '');
+            const hexVal = parseInt(hexStr, 16);
+            resolved = { id: matKey, name: 'Custom Color', color: hexVal, roughness: 0.5, metalness: 0.0 };
+        } else {
+            resolved = FABRIC_REGISTRY[matKey] ||
+                             DOOR_MATERIALS_REGISTRY[matKey] ||
+                             WINDOW_GLASS_MATERIALS[matKey] ||
+                             MARBLE_REGISTRY[matKey] ||
+                             STONE_REGISTRY[matKey] ||
+                             METAL_REGISTRY[matKey] ||
+                             PLASTIC_REGISTRY[matKey] ||
+                             LEATHER_REGISTRY[matKey] ||
+                             WALL_DECOR_REGISTRY[matKey] ||
+                             ROOF_DECOR_REGISTRY[matKey] ||
+                             FLOOR_REGISTRY[matKey] ||
+                             { texture: matKey, id: matKey };
+        }
 
         return {
             ...resolved,

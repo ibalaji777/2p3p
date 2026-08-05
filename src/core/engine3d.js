@@ -111,6 +111,7 @@ export class Preview3D {
                             clone.needsUpdate = true;
                         });
                     }
+                    // if (this.requestRender) this.requestRender('material_loaded', 2);
                 });
                 
                 return mat;
@@ -146,6 +147,8 @@ export class Preview3D {
                             ctx: this,
                             dimensions: { width: faceW, height: faceH, isWorldUV: isWall },
                             faceName: faceName
+                        }).then(() => {
+                            if (this.requestRender) this.requestRender('material_loaded', 2);
                         });
                     }
                 };
