@@ -33,6 +33,8 @@
                     <option value="gothic">Gothic (Pointed)</option>
                 </select>
             </div>
+            
+            <MaterialCategorySelector :selected-entity="selectedEntity" @sync-engine="$emit('sync-engine')" />
         </div>
         <div v-else-if="selectedEntity.type === 'window'">
             <div class="control-group">
@@ -55,18 +57,7 @@
                     <option value="gothic">Gothic Pointed</option>
                 </select>
             </div>
-            <div class="control-group">
-                <label>Frame Material</label>
-                <select :value="selectedEntity.frameMat || 'wood_teak'" @change="e => { selectedEntity.frameMat = e.target.value; $emit('sync-engine'); }">
-                    <option value="wood_teak">Teak Wood</option>
-                    <option value="upvc_white">White uPVC</option>
-                    <option value="aluminium_black">Matte Black Aluminium</option>
-                    <option value="oak">Natural Oak</option>
-                    <option value="walnut">Dark Walnut</option>
-                    <option value="mahogany">Rich Mahogany</option>
-                    <option value="pine">Light Pine</option>
-                </select>
-            </div>
+            <MaterialCategorySelector :selected-entity="selectedEntity" @sync-engine="$emit('sync-engine')" />
             <div class="control-group">
                 <label>Glass Material</label>
                 <select :value="selectedEntity.glassMat || 'clear'" @change="e => { selectedEntity.glassMat = e.target.value; $emit('sync-engine'); }">
@@ -208,6 +199,7 @@
 
 <script setup>
 import DimensionInput from '../common/DimensionInput.vue';
+import MaterialCategorySelector from '../common/MaterialCategorySelector.vue';
 
 
 const props = defineProps({

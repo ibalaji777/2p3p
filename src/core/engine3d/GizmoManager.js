@@ -1041,13 +1041,7 @@ export class GizmoManager {
             }
         }
         
-        // Dynamically override the registry category based on the exact BIM sub-component targeted
-        if (this.activeDescriptor && this.activeDescriptor.componentType) {
-            const comp = this.activeDescriptor.componentType;
-            if (comp === 'glass') materialCategory = 'glass';
-            else if (comp === 'hardware') materialCategory = 'metal';
-            // Frame and Leaf default to whatever the parent entity is (e.g., 'door' or 'window' which map to WOOD_REGISTRY mostly)
-        }
+        // Legacy hardcoded component overrides removed in favor of pure universal inference below.
         
         const gridPanel = document.getElementById('gizmo-material-grid');
         if (gridPanel) {
@@ -1166,22 +1160,105 @@ export class GizmoManager {
                 </div>
             </div>
         `;
-        let registry = WALL_DECOR_REGISTRY;
-        
-        if (materialCategory === 'wood' || materialCategory === 'door' || materialCategory === 'window' || materialCategory === 'wood_metal') {
-            registry = WOOD_REGISTRY;
+        let registry = null;
+        let activeGroup = null;
+        const ALL_REGISTRY = Object.assign({}, WOOD_REGISTRY, METAL_REGISTRY, PLASTIC_REGISTRY, GLASS_REGISTRY, STONE_REGISTRY, MARBLE_REGISTRY, FABRIC_REGISTRY, LEATHER_REGISTRY, TILE_REGISTRY, ROOF_REGISTRY, FLOOR_REGISTRY, WALL_REGISTRY);
+
+        // 1. Precise Universal Sub-Component Resolution (Takes absolute precedence)
+        let texKey = null;
+        if (this.activeDescriptor) {
+            const slotName = this.activeDescriptor.slotName; 
+            const entity = this.activeDescriptor.entity;
+            if (entity && entity.materials && entity.materials[slotName]) {
+                texKey = typeof entity.materials[slotName] === 'string' ? entity.materials[slotName] : entity.materials[slotName].id;
+            }
         }
-        else if (materialCategory === 'metal' || materialCategory === 'steel' || materialCategory === 'aluminium') registry = METAL_REGISTRY;
-        else if (materialCategory === 'glass') registry = GLASS_REGISTRY;
-        else if (materialCategory === 'marble') registry = MARBLE_REGISTRY;
-        else if (materialCategory === 'stone') registry = STONE_REGISTRY;
-        else if (materialCategory === 'tile') registry = TILE_REGISTRY;
-        else if (materialCategory === 'fabric') registry = FABRIC_REGISTRY;
-        else if (materialCategory === 'leather') registry = LEATHER_REGISTRY;
-        else if (materialCategory === 'plastic' || materialCategory === 'upvc' || materialCategory === 'pvc' || materialCategory === 'wpc' || materialCategory === 'frp' || materialCategory === 'composite') registry = PLASTIC_REGISTRY;
-        else if (materialCategory === 'roof') registry = ROOF_REGISTRY;
-        else if (materialCategory === 'floor') registry = FLOOR_REGISTRY;
-        else if (materialCategory === 'wall' || materialCategory === 'outer' || materialCategory === 'inner') registry = WALL_REGISTRY;
+
+        // Support legacy objects if descriptor failed
+        if (!texKey && selectedObj && selectedObj.userData && selectedObj.userData.entity) {
+            const entity = selectedObj.userData.entity;
+            const p = entity.params || {};
+            let targetParams = p;
+            if (this.activeSubMeshIndex !== -1 && p.blocks && p.blocks[this.activeSubMeshIndex]) {
+                targetParams = p.blocks[this.activeSubMeshIndex];
+            }
+            texKey = targetParams.texture || targetParams.textureFront || entity.doorMat || entity.frameMat || null;
+        }
+
+        // 2. If we found a specific material applied to this sub-component, use its registry and group
+        if (texKey && ALL_REGISTRY[texKey]) {
+            if (WOOD_REGISTRY[texKey]) registry = WOOD_REGISTRY;
+            else if (METAL_REGISTRY[texKey]) registry = METAL_REGISTRY;
+            else if (PLASTIC_REGISTRY[texKey]) registry = PLASTIC_REGISTRY;
+            else if (GLASS_REGISTRY[texKey]) registry = GLASS_REGISTRY;
+            else if (STONE_REGISTRY[texKey]) registry = STONE_REGISTRY;
+            else if (MARBLE_REGISTRY[texKey]) registry = MARBLE_REGISTRY;
+            else if (FABRIC_REGISTRY[texKey]) registry = FABRIC_REGISTRY;
+            else if (LEATHER_REGISTRY[texKey]) registry = LEATHER_REGISTRY;
+            else if (TILE_REGISTRY[texKey]) registry = TILE_REGISTRY;
+            else if (ROOF_REGISTRY[texKey]) registry = ROOF_REGISTRY;
+            else if (FLOOR_REGISTRY[texKey]) registry = FLOOR_REGISTRY;
+            else if (WALL_REGISTRY[texKey]) registry = WALL_REGISTRY;
+            
+            activeGroup = ALL_REGISTRY[texKey].group || null;
+        }
+
+        // 3. If no material is applied (or not found), fall back to the generic category of the parent object
+        if (!registry) {
+            switch (materialCategory) {
+                case 'wood':
+                case 'door':
+                case 'window':
+                case 'wood_metal':
+                    registry = WOOD_REGISTRY;
+                    activeGroup = null;
+                    break;
+                case 'steel':
+                case 'aluminium':
+                    registry = METAL_REGISTRY;
+                    activeGroup = materialCategory;
+                    break;
+                case 'metal':
+                    registry = METAL_REGISTRY;
+                    activeGroup = null;
+                    break;
+                case 'wpc':
+                case 'pvc':
+                case 'upvc':
+                case 'frp':
+                    registry = PLASTIC_REGISTRY;
+                    activeGroup = materialCategory;
+                    break;
+                case 'fiberglass':
+                    registry = PLASTIC_REGISTRY;
+                    activeGroup = 'frp';
+                    break;
+                case 'composite':
+                case 'plastic':
+                    registry = PLASTIC_REGISTRY;
+                    activeGroup = null;
+                    break;
+                case 'glass': registry = GLASS_REGISTRY; break;
+                case 'marble': registry = MARBLE_REGISTRY; break;
+                case 'stone': registry = STONE_REGISTRY; break;
+                case 'tile': registry = TILE_REGISTRY; break;
+                case 'fabric': registry = FABRIC_REGISTRY; break;
+                case 'leather': registry = LEATHER_REGISTRY; break;
+                case 'roof': registry = ROOF_REGISTRY; break;
+                case 'floor': registry = FLOOR_REGISTRY; break;
+                case 'wall':
+                case 'outer':
+                case 'inner':
+                    registry = WALL_REGISTRY;
+                    break;
+            }
+        }
+
+        // 4. Ultimate generic fallback
+        if (!registry) {
+            registry = ALL_REGISTRY;
+            activeGroup = null;
+        }
 
         const matsToRender = [];
         if (registry) {
@@ -1204,9 +1281,11 @@ export class GizmoManager {
                 }
                 
                 const label = val.name || val.label || key;
+                const groupAttr = val.group ? `data-group="${val.group}"` : '';
+                
                 if (materialCategory === 'glass') {
                     decorThumbnails += `
-                        <div class="mat-card mat-thumb is-glass-card" data-mat="${key}" title="${label}">
+                        <div class="mat-card mat-thumb is-glass-card" data-mat="${key}" ${groupAttr} title="${label}">
                             <div class="mat-card-selected-checkmark">✓</div>
                             <div class="mat-sphere is-3d-glass" id="mat-thumb-${key}" style="background: radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.18) 0%, rgba(56, 189, 248, 0.04) 55%, transparent 75%);"></div>
                             <div style="width: 100%; text-align: center;">
@@ -1217,7 +1296,7 @@ export class GizmoManager {
                     `;
                 } else if (materialCategory === 'marble') {
                     decorThumbnails += `
-                        <div class="mat-card mat-thumb is-marble-card" data-mat="${key}" title="${label}">
+                        <div class="mat-card mat-thumb is-marble-card" data-mat="${key}" ${groupAttr} title="${label}">
                             <div class="mat-card-selected-checkmark" style="background: #d97706; color: #ffffff; top: 12px; right: 12px;">✓</div>
                             <div class="mat-sphere is-3d-marble" id="mat-thumb-${key}" style="background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.08) 0%, transparent 80%);"></div>
                             <div style="width: 100%; padding: 4px 2px 2px 2px;">
@@ -1229,7 +1308,7 @@ export class GizmoManager {
                     `;
                 } else {
                     decorThumbnails += `
-                        <div class="mat-card mat-thumb" data-mat="${key}" title="${label}">
+                        <div class="mat-card mat-thumb" data-mat="${key}" ${groupAttr} title="${label}">
                             <div class="mat-card-icon-badge" style="background: rgba(249, 115, 22, 0.2); color: #f97316;">
                                 <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
                             </div>
@@ -1373,7 +1452,86 @@ export class GizmoManager {
                 `;
             }
             
-            gridElem.innerHTML = patternLauncherHtml + woodCustomizerHtml + decorThumbnails;
+            // Build Subgroup Tabs HTML
+            let tabsHtml = '';
+            if (registry) {
+                const uniqueGroups = new Set();
+                for (const val of Object.values(registry)) {
+                    if (val.group) uniqueGroups.add(val.group);
+                }
+                
+                if (uniqueGroups.size > 0) {
+                    const groupsArray = Array.from(uniqueGroups).sort();
+                    let tabsButtons = `<button class="gizmo-subgroup-tab ${!activeGroup ? 'active' : ''}" data-target-group="all" style="padding: 6px 12px; margin-right: 8px; border: none; border-radius: 4px; background: ${!activeGroup ? 'rgba(249,115,22,0.2)' : 'rgba(255,255,255,0.05)'}; color: ${!activeGroup ? '#f97316' : '#94a3b8'}; cursor: pointer; font-weight: 600; font-size: 12px; border: 1px solid ${!activeGroup ? 'rgba(249,115,22,0.5)' : 'transparent'};">All</button>`;
+                    
+                    for (const g of groupsArray) {
+                        const isActive = activeGroup === g;
+                        tabsButtons += `<button class="gizmo-subgroup-tab ${isActive ? 'active' : ''}" data-target-group="${g}" style="padding: 6px 12px; margin-right: 8px; border: none; border-radius: 4px; background: ${isActive ? 'rgba(249,115,22,0.2)' : 'rgba(255,255,255,0.05)'}; color: ${isActive ? '#f97316' : '#94a3b8'}; cursor: pointer; font-weight: 600; font-size: 12px; border: 1px solid ${isActive ? 'rgba(249,115,22,0.5)' : 'transparent'};">${g.toUpperCase()}</button>`;
+                    }
+                    
+                    tabsHtml = `
+                        <div class="gizmo-subgroup-tabs-container" style="width: 100%; display: flex; align-items: center; padding: 12px; padding-bottom: 0px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px; overflow-x: auto;">
+                            ${tabsButtons}
+                        </div>
+                    `;
+                }
+            }
+            
+            gridElem.innerHTML = tabsHtml + patternLauncherHtml + woodCustomizerHtml + decorThumbnails;
+
+            // Bind Subgroup Tab Events
+            const tabsContainer = gridElem.querySelector('.gizmo-subgroup-tabs-container');
+            if (tabsContainer) {
+                const tabs = tabsContainer.querySelectorAll('.gizmo-subgroup-tab');
+                tabs.forEach(tab => {
+                    tab.addEventListener('click', (e) => {
+                        const targetGroup = e.currentTarget.getAttribute('data-target-group');
+                        
+                        // Update active visual state on tabs
+                        tabs.forEach(t => {
+                            t.classList.remove('active');
+                            t.style.background = 'rgba(255,255,255,0.05)';
+                            t.style.color = '#94a3b8';
+                            t.style.borderColor = 'transparent';
+                        });
+                        e.currentTarget.classList.add('active');
+                        e.currentTarget.style.background = 'rgba(249,115,22,0.2)';
+                        e.currentTarget.style.color = '#f97316';
+                        e.currentTarget.style.borderColor = 'rgba(249,115,22,0.5)';
+                        
+                        // Filter thumbnails
+                        const allThumbs = gridElem.querySelectorAll('.mat-thumb');
+                        allThumbs.forEach(thumb => {
+                            const matKey = thumb.getAttribute('data-mat');
+                            if (!matKey) return; // Always show Clear Material or customizer blocks? Actually Clear Material doesn't have a group, it shows if 'all'. But let's just ignore it or show it.
+                            const thumbGroup = thumb.getAttribute('data-group');
+                            
+                            if (targetGroup === 'all') {
+                                thumb.style.display = '';
+                            } else {
+                                if (thumbGroup === targetGroup) {
+                                    thumb.style.display = '';
+                                } else {
+                                    thumb.style.display = 'none';
+                                }
+                            }
+                        });
+                    });
+                });
+                
+                // Trigger initial filter immediately if there's an active group
+                if (activeGroup) {
+                    const allThumbs = gridElem.querySelectorAll('.mat-thumb');
+                    allThumbs.forEach(thumb => {
+                        const matKey = thumb.getAttribute('data-mat');
+                        if (!matKey) return; // Leave Clear Material visible
+                        const thumbGroup = thumb.getAttribute('data-group');
+                        if (thumbGroup !== activeGroup) {
+                            thumb.style.display = 'none';
+                        }
+                    });
+                }
+            }
             
             if (materialCategory === 'fabric') {
                 const btnOpen = gridElem.querySelector('#btn-gizmo-open-pattern-popup');

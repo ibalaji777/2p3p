@@ -471,13 +471,23 @@ export const GLASS_REGISTRY = {
 export const METAL_REGISTRY = {
     'metal_brushed_steel': {
         id: 'metal_brushed_steel',
+        group: 'steel',
         name: 'Brushed Stainless Steel',
         texture: 'textures/metals/metal_brushed_steel.png',
         thumbnail: 'textures/metals/metal_brushed_steel.png',
         metalness: 0.9, roughness: 0.25, clearcoat: 0.1, defaultRepeat: 1
     },
+    'steel_ms': {
+        id: 'steel_ms',
+        group: 'steel',
+        name: 'MS Steel Frame',
+        color: 0x222222,
+        roughness: 0.35, metalness: 0.9,
+        thumbnail: 'https://via.placeholder.com/150/222222/ffffff?text=Steel'
+    },
     'metal_brushed_gold': {
         id: 'metal_brushed_gold',
+        group: 'steel',
         name: 'Luxury Brushed Champagne Gold',
         texture: 'textures/metals/metal_brushed_gold.png',
         thumbnail: 'textures/metals/metal_brushed_gold.png',
@@ -485,6 +495,7 @@ export const METAL_REGISTRY = {
     },
     'metal_gunmetal_black': {
         id: 'metal_gunmetal_black',
+        group: 'steel',
         name: 'Anodized Gunmetal Black Steel',
         texture: 'textures/metals/metal_gunmetal_black.png',
         thumbnail: 'textures/metals/metal_gunmetal_black.png',
@@ -492,6 +503,7 @@ export const METAL_REGISTRY = {
     },
     'metal_rose_bronze': {
         id: 'metal_rose_bronze',
+        group: 'steel',
         name: 'Polished Antique Rose Bronze',
         texture: 'textures/metals/metal_rose_bronze.png',
         thumbnail: 'textures/metals/metal_rose_bronze.png',
@@ -499,13 +511,23 @@ export const METAL_REGISTRY = {
     },
     'metal_brushed_aluminum': {
         id: 'metal_brushed_aluminum',
+        group: 'aluminium',
         name: 'Silver Satin Brushed Aluminum',
         texture: 'textures/metals/metal_brushed_aluminum.png',
         thumbnail: 'textures/metals/metal_brushed_aluminum.png',
         metalness: 0.88, roughness: 0.3, clearcoat: 0.05, defaultRepeat: 1
     },
+    'alum_silver': {
+        id: 'alum_silver',
+        group: 'aluminium',
+        name: 'Silver Aluminium',
+        color: 0xc8cdd0,
+        roughness: 0.4, metalness: 0.6,
+        thumbnail: 'https://via.placeholder.com/150/c8cdd0/ffffff?text=Alum'
+    },
     'metal_diamond_tread': {
         id: 'metal_diamond_tread',
+        group: 'steel',
         name: 'Industrial Diamond Tread Steel',
         texture: 'textures/metals/metal_diamond_tread.png',
         thumbnail: 'textures/metals/metal_diamond_tread.png',
@@ -513,6 +535,7 @@ export const METAL_REGISTRY = {
     },
     'metal_damascus_steel': {
         id: 'metal_damascus_steel',
+        group: 'steel',
         name: 'Forged Damascus Wave Steel',
         texture: 'textures/metals/metal_damascus_steel.png',
         thumbnail: 'textures/metals/metal_damascus_steel.png',
@@ -520,6 +543,7 @@ export const METAL_REGISTRY = {
     },
     'metal_hammered_copper': {
         id: 'metal_hammered_copper',
+        group: 'steel',
         name: 'Faceted Hand-Hammered Copper',
         texture: 'textures/metals/metal_hammered_copper.png',
         thumbnail: 'textures/metals/metal_hammered_copper.png',
@@ -527,6 +551,7 @@ export const METAL_REGISTRY = {
     },
     'metal_brass_chevrons': {
         id: 'metal_brass_chevrons',
+        group: 'steel',
         name: 'Chevron Geometric Brushed Brass',
         texture: 'textures/metals/metal_brass_chevrons.png',
         thumbnail: 'textures/metals/metal_brass_chevrons.png',
@@ -535,19 +560,49 @@ export const METAL_REGISTRY = {
 };
 
 export const PLASTIC_REGISTRY = {
-    'plastic_speckled_terrazzo': {
-        id: 'plastic_speckled_terrazzo',
-        name: 'Eco Recycled Terrazzo Plastic',
-        texture: 'textures/plastics/plastic_speckled_terrazzo.png',
-        thumbnail: 'textures/plastics/plastic_speckled_terrazzo.png',
-        roughness: 0.4, clearcoat: 0.2
-    },
     'plastic_white_pvc': {
         id: 'plastic_white_pvc',
+        group: 'pvc',
         name: 'Glossy White PVC Panel',
         texture: 'textures/plastics/plastic_white_pvc.png',
         thumbnail: 'textures/plastics/plastic_white_pvc.png',
         roughness: 0.2, clearcoat: 0.5
+    },
+    'pvc_matte': {
+        id: 'pvc_matte',
+        group: 'pvc',
+        name: 'Matte White PVC',
+        color: 0xfdfdfd, roughness: 0.7, metalness: 0.0,
+        thumbnail: 'https://via.placeholder.com/150/fdfdfd/000000?text=PVC'
+    },
+    'upvc_white': {
+        id: 'upvc_white',
+        group: 'upvc',
+        name: 'White uPVC',
+        color: 0xfafafa, roughness: 0.3, metalness: 0.05, clearcoat: 0.2,
+        thumbnail: 'https://via.placeholder.com/150/fafafa/000000?text=uPVC'
+    },
+    'wpc': {
+        id: 'wpc',
+        group: 'wpc',
+        name: 'Wood Plastic Composite',
+        color: 0x8a6b4e, roughness: 0.7, metalness: 0.0, clearcoat: 0.05,
+        thumbnail: 'https://via.placeholder.com/150/8a6b4e/ffffff?text=WPC'
+    },
+    'frp': {
+        id: 'frp',
+        group: 'frp',
+        name: 'Fiber Reinforced Plastic',
+        color: 0xe6e6e6, roughness: 0.8, metalness: 0.0, bumpScale: 0.015,
+        thumbnail: 'https://via.placeholder.com/150/e6e6e6/000000?text=FRP'
+    },
+    'plastic_speckled_terrazzo': {
+        id: 'plastic_speckled_terrazzo',
+        group: 'composite',
+        name: 'Eco Recycled Terrazzo Plastic',
+        texture: 'textures/plastics/plastic_speckled_terrazzo.png',
+        thumbnail: 'textures/plastics/plastic_speckled_terrazzo.png',
+        roughness: 0.4, clearcoat: 0.2
     }
 };
 
