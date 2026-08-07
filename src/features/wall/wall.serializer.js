@@ -35,9 +35,10 @@ export const WallSerializer = {
                 t: wid.t, type: wid.type, configId: wid.type, width: wid.width, height: wid.height, depth: wid.depth, elevation: wid.elevation,
                 facing: wid.facing, side: wid.side, 
                 rows: wid.rows, cols: wid.cols, spacing: wid.spacing, patternStyle: wid.patternStyle, decorConfigId: wid.decorConfigId,
-                doorType: wid.doorType, doorMat: wid.doorMat, 
-                windowType: wid.windowType, frameMat: wid.frameMat, glassMat: wid.glassMat, grillePattern: wid.grillePattern,
+                doorType: wid.doorType, 
+                windowType: wid.windowType, grillePattern: wid.grillePattern,
                 description: wid.description,
+                materials: wid.materials || {},
                 params: wid.params || {}
             })) : [],
             decors: w.attachedDecor ? w.attachedDecor.map(d => ({ 

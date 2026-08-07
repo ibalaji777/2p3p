@@ -16,9 +16,11 @@ describe('10/10 CAD/BIM Component & Material Pipeline', () => {
         mockEntity = {
             id: 'test_door_101',
             type: 'door',
-            doorMat: 'wood_golden_teak',
-            frameMat: 'wood_golden_teak',
-            glassMat: 'glass_clear'
+            materials: {
+                [MaterialSlots.LEAF]: { id: 'wood_golden_teak' },
+                [MaterialSlots.FRAME]: { id: 'wood_golden_teak' },
+                [MaterialSlots.GLASS]: { id: 'glass_clear' }
+            }
         };
 
         mockDoorGroup = new THREE.Group();
@@ -85,7 +87,6 @@ describe('10/10 CAD/BIM Component & Material Pipeline', () => {
 
         expect(mockEntity.materials[MaterialSlots.FRAME]).toBeDefined();
         expect(mockEntity.materials[MaterialSlots.FRAME].id).toBe('wood_oak_dark');
-        expect(mockEntity.frameMat).toBe('wood_oak_dark');
     });
 
     it('4. should support transaction batching (beginTransaction -> commit)', async () => {

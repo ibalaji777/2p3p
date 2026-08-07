@@ -942,7 +942,7 @@ export class PremiumWall {
             widgets: this.attachedWidgets.map(w => {
                 if (w.serialize) return w.serialize();
                 return { 
-                    t: w.t, type: w.type || w.configId, width: w.width, height: w.height, depth: w.depth, elevation: w.elevation, rows: w.rows, cols: w.cols, spacing: w.spacing, patternStyle: w.patternStyle, decorConfigId: w.decorConfigId, description: w.description, facing: w.facing, side: w.side, doorType: w.doorType, doorMat: w.doorMat, windowType: w.windowType, frameMat: w.frameMat, glassMat: w.glassMat, grillePattern: w.grillePattern 
+                    t: w.t, type: w.type || w.configId, width: w.width, height: w.height, depth: w.depth, elevation: w.elevation, rows: w.rows, cols: w.cols, spacing: w.spacing, patternStyle: w.patternStyle, decorConfigId: w.decorConfigId, description: w.description, facing: w.facing, side: w.side, doorType: w.doorType, windowType: w.windowType, grillePattern: w.grillePattern, materials: w.materials 
                 };
             }), 
             moldings: (this.attachedMoldings || []).map(m => m.serialize()),

@@ -168,24 +168,6 @@ export class MaterialManager {
             [slotName]: descriptor
         };
 
-        // Sync legacy entity properties for backward compatibility
-        if (entity.type === 'door') {
-            if (slotName === MaterialSlots.LEAF) entity.doorMat = descriptor.id;
-            else if (slotName === MaterialSlots.FRAME) entity.frameMat = descriptor.id;
-            else if (slotName === MaterialSlots.GLASS) entity.glassMat = descriptor.id;
-        } else if (entity.type === 'window') {
-            if (slotName === MaterialSlots.FRAME) entity.frameMat = descriptor.id;
-            else if (slotName === MaterialSlots.GLASS) entity.glassMat = descriptor.id;
-        } else if (entity.params) {
-            if (slotName === MaterialSlots.WALL_FRONT) entity.params.textureFront = descriptor.id;
-            else if (slotName === MaterialSlots.WALL_BACK) entity.params.textureBack = descriptor.id;
-            else if (slotName === MaterialSlots.WALL_LEFT) entity.params.textureLeft = descriptor.id;
-            else if (slotName === MaterialSlots.WALL_RIGHT) entity.params.textureRight = descriptor.id;
-            else if (slotName === MaterialSlots.WALL_TOP) entity.params.textureTop = descriptor.id;
-            else if (slotName === MaterialSlots.WALL_BOTTOM) entity.params.textureBottom = descriptor.id;
-            else if (slotName === MaterialSlots.CUSTOM) entity.params.texture = descriptor.id;
-        }
-
         entity.materialDirty = true;
 
         if (MaterialManager.activeTransaction) {

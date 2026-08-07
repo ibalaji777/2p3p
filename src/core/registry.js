@@ -143,7 +143,8 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         const groove1 = new THREE.Mesh(grooveGeo, matsExtrude); groove1.position.set(0, botRailH * 0.4, 0); group.add(groove1);
         const groove2 = new THREE.Mesh(grooveGeo, matsExtrude); groove2.position.set(0, botRailH * 0.7, 0); group.add(groove2);
 
-        const glassMat = helpers.getDynamicMaterial(entity.glassMat, 'door');
+        const glassMatKey = entity.materials?.[MaterialSlots.GLASS]?.id || 'glass_clear';
+        const glassMat = helpers.getDynamicMaterial(glassMatKey, 'door');
         const geoGlass = new THREE.BoxGeometry(width - frameW*2, height - topRailH - botRailH, thickness * 0.25);
         const glass = new THREE.Mesh(geoGlass, glassMat); glass.userData.isGlass = true; glass.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(glass);
     } else if (style === 'glass_grid') {
@@ -164,7 +165,8 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
             group.add(hMullion);
         }
 
-        const glassMat = helpers.getDynamicMaterial(entity.glassMat, 'door'); const geoGlass = new THREE.BoxGeometry(glassW, glassH, thickness * 0.4);
+        const glassMatKey = entity.materials?.[MaterialSlots.GLASS]?.id || 'glass_clear';
+        const glassMat = helpers.getDynamicMaterial(glassMatKey, 'door'); const geoGlass = new THREE.BoxGeometry(glassW, glassH, thickness * 0.4);
         const glass = new THREE.Mesh(geoGlass, glassMat); glass.userData.isGlass = true; glass.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(glass);
     } else if (isGlass || type === 'french') {
         const frameW = 3.5; const topRailH = 3.5; const botRailH = 5;
@@ -187,7 +189,8 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         const gR = new THREE.Mesh(new THREE.BoxGeometry(0.1, height-topRailH-botRailH-beadW*2, thickness*0.28), gMat); gR.position.set(width/2 - frameW - beadW - 0.05, height/2 + (botRailH - topRailH)/2, 0);
         [gL, gR].forEach(m => group.add(m));
 
-        const glassMat = helpers.getDynamicMaterial(entity.glassMat, 'door');
+        const glassMatKey = entity.materials?.[MaterialSlots.GLASS]?.id || 'glass_clear';
+        const glassMat = helpers.getDynamicMaterial(glassMatKey, 'door');
         const geoGlass = new THREE.BoxGeometry(width - frameW*2 - beadW*2, height - topRailH - botRailH - beadW*2, thickness * 0.25);
         const glass = new THREE.Mesh(geoGlass, glassMat); glass.userData.isGlass = true; glass.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(glass);
     } else {
@@ -595,7 +598,7 @@ export const WIDGET_REGISTRY = {
     'door': {
         widget: "door", label: "DOOR",
         events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
-        defaultConfig: { width: 40, height: DOOR_HEIGHT, doorType: 'single', doorMat: 'wood_golden_teak', facing: 1, side: 1 },
+        defaultConfig: { width: 40, height: DOOR_HEIGHT, doorType: 'single', materials: { leaf: { id: 'wood_golden_teak' }, frame: { id: 'wood_golden_teak' } }, facing: 1, side: 1 },
         render2D: (group, entity) => {
             const hw = entity.width / 2; const thick = entity.wall.thickness || entity.wall.config.thickness;
             const slWidth = (entity.hasSidelights && (!entity.doorShape || entity.doorShape === 'square') && !['pocket', 'sliding'].includes(entity.doorType)) ? Math.min(60, entity.width * 0.22) : 0;
@@ -642,10 +645,13 @@ export const WIDGET_REGISTRY = {
             }
             const isSliding = entity.doorType === 'sliding' || entity.doorType === 'double_sliding' || entity.doorType === 'pocket';
             const fW = 4; const fThick = entity.thick + 0.2;
-            const matDoor = helpers.getDynamicMaterial(entity.doorMat, 'door'); 
-            const frameMatKey = entity.frameMat || entity.doorMat;
+            MaterialManager.initEntityMaterials(entity);
+            const matLeafKey = entity.materials?.[MaterialSlots.LEAF]?.id || 'wood_golden_teak';
+            const frameMatKey = entity.materials?.[MaterialSlots.FRAME]?.id || matLeafKey;
+            
+            const matDoor = helpers.getDynamicMaterial(matLeafKey, 'door'); 
             const matFrame = helpers.getDynamicMaterial(frameMatKey, 'door');
-            const matThreshold = helpers.getDynamicMaterial(entity.thresholdMat || frameMatKey, 'door');
+            const matThreshold = helpers.getDynamicMaterial(entity.materials?.[MaterialSlots.TRIM]?.id || frameMatKey, 'door');
             
             // Apply a slight bevel to standard wood materials for realism (1mm edge bevel)
             // Handled via createBeveledExtrude default parameter
@@ -679,7 +685,7 @@ export const WIDGET_REGISTRY = {
                 return geo;
             };
 
-            const isGlassDoor = entity.doorMat === 'glass'; 
+            const isGlassDoor = matLeafKey === 'glass'; 
             const jambW = 0.75; const stopW = 1.25; const stopThick = 0.4; const archW = 2.75; const archThick = 0.5;
             const frameWidth = jambW; const frameThick = entity.thick + 0.2; const doorThick = 1.4; // Frame lines wall cutout; door leaf is 35 mm slim real-world BIM depth 
             const gapSide = 0.12; const gapTop = 0.12; 
@@ -799,7 +805,8 @@ export const WIDGET_REGISTRY = {
                         const slBotR = tagFrame(new THREE.Mesh(slBotGeo, matFrame)); slBotR.position.set(entity.width/2 - jambW - slGlassW/2, 2.5, 0);
                         [slBotL, slBotR].forEach(m => doorGroup.add(m));
                         
-                        const glassMat = helpers.getDynamicMaterial(entity.glassMat, 'door');
+                        const glassMatKey = entity.materials?.[MaterialSlots.GLASS]?.id || 'glass_clear';
+                        const glassMat = helpers.getDynamicMaterial(glassMatKey, 'door');
                         const slGlassGeo = new THREE.BoxGeometry(slGlassW, height - jambW - 5, 0.4);
                         const glassL = new THREE.Mesh(slGlassGeo, glassMat); glassL.position.set(-entity.width/2 + jambW + slGlassW/2, 5 + (height - jambW - 5)/2, 0);
                         const glassR = new THREE.Mesh(slGlassGeo, glassMat); glassR.position.set(entity.width/2 - jambW - slGlassW/2, 5 + (height - jambW - 5)/2, 0);
@@ -1038,7 +1045,7 @@ export const WIDGET_REGISTRY = {
     'window': {
         widget: "window", label: "WINDOW",
         events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
-        defaultConfig: { width: 50, height: WINDOW_HEIGHT, elevation: WINDOW_SILL, windowType: 'sliding_std', frameMat: 'wood_teak', glassMat: 'clear', grillePattern: 'grid', facing: 1, side: 1 },
+        defaultConfig: { width: 50, height: WINDOW_HEIGHT, elevation: WINDOW_SILL, windowType: 'sliding_std', materials: { frame: { id: 'wood_teak' }, glass: { id: 'clear' } }, grillePattern: 'grid', facing: 1, side: 1 },
         render2D: (group, entity) => {
             const hw = entity.width / 2;
             const thick = entity.wall ? (entity.wall.thickness || entity.wall.config?.thickness || 20) : 20;
@@ -1116,8 +1123,9 @@ export const WIDGET_REGISTRY = {
                 winGroup.rotation.y = -entity.angle;
             }
             const wConf = WINDOW_TYPES[entity.windowType] || WINDOW_TYPES.sliding_std;
-            const matFrame = helpers.getDynamicMaterial(entity.frameMat, 'window_frame');
-            const matGlass = helpers.getDynamicMaterial(entity.glassMat, 'window_glass');
+            MaterialManager.initEntityMaterials(entity);
+            const matFrame = helpers.getDynamicMaterial(entity.materials?.[MaterialSlots.FRAME]?.id || 'wood_teak', 'window_frame');
+            const matGlass = helpers.getDynamicMaterial(entity.materials?.[MaterialSlots.GLASS]?.id || 'clear', 'window_glass');
             if (matGlass) matGlass.envMapIntensity = 2.5;
             const isTrad = wConf.type === 'traditional';
             const isBay = wConf.type === 'bay';

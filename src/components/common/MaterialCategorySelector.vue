@@ -1,7 +1,7 @@
 <template>
     <div class="control-group">
         <label>Material Category</label>
-        <select v-model="selectedEntity.params.materialCategory" @change="onMaterialCategoryChange" class="settings-select">
+        <select v-model="materialCategory" class="settings-select">
             <option v-for="opt in availableOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
         </select>
     </div>
@@ -15,6 +15,17 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['sync-engine']);
+
+const materialCategory = computed({
+    get: () => props.selectedEntity?.params?.materialCategory || 'wood',
+    set: (val) => {
+        if (!props.selectedEntity.params) {
+            props.selectedEntity.params = {};
+        }
+        props.selectedEntity.params.materialCategory = val;
+        onMaterialCategoryChange();
+    }
+});
 
 const availableOptions = computed(() => {
     const type = props.selectedEntity?.type;
@@ -83,15 +94,18 @@ const onMaterialCategoryChange = () => {
     const cat = props.selectedEntity.params.materialCategory;
     const defaultMat = categoryDefaults[cat] || 'wood_golden_teak';
     
+    if (!props.selectedEntity.materials) {
+        props.selectedEntity.materials = {};
+    }
+
     if (props.selectedEntity.type === 'door') {
-        props.selectedEntity.doorMat = defaultMat;
-        props.selectedEntity.params.doorMat = defaultMat;
+        props.selectedEntity.materials['leaf'] = { id: defaultMat };
+        props.selectedEntity.materials['frame'] = { id: defaultMat };
     } else if (props.selectedEntity.type === 'window') {
-        props.selectedEntity.frameMat = defaultMat;
-        props.selectedEntity.params.frameMat = defaultMat;
+        props.selectedEntity.materials['frame'] = { id: defaultMat };
+        props.selectedEntity.materials['glass'] = { id: 'glass_clear' };
     } else {
-        props.selectedEntity.texture = defaultMat;
-        props.selectedEntity.params.texture = defaultMat;
+        props.selectedEntity.materials['custom'] = { id: defaultMat };
     }
     
     emit('sync-engine');

@@ -60,7 +60,7 @@
             <MaterialCategorySelector :selected-entity="selectedEntity" @sync-engine="$emit('sync-engine')" />
             <div class="control-group">
                 <label>Glass Material</label>
-                <select :value="selectedEntity.glassMat || 'clear'" @change="e => { selectedEntity.glassMat = e.target.value; $emit('sync-engine'); }">
+                <select :value="selectedEntity.materials?.['glass']?.id || 'glass_clear'" @change="e => { if (!selectedEntity.materials) selectedEntity.materials = {}; selectedEntity.materials['glass'] = { id: e.target.value }; $emit('sync-engine'); }">
                     <option value="clear">Clear High-Clarity Glass</option>
                     <option value="frosted">Frosted Privacy Glass</option>
                     <option value="tinted">Solar Tinted Glass</option>

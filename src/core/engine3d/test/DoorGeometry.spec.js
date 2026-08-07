@@ -31,7 +31,7 @@ describe('Door Architecture Audit', () => {
     it('should match architectural door specification: no bottom frame, separate threshold, 8-10mm clearance', () => {
         const entity = {
             id: 'test_door_1', type: 'door', width: 36, height: 80, thick: 4,
-            doorType: 'single', doorStyle: 'flat', doorMat: 'wood_golden_teak',
+            doorType: 'single', doorStyle: 'flat', materials: { leaf: { id: 'wood_golden_teak' } },
             facing: 1, side: 1, elevation: 0, x: 0, z: 0, angle: 0
         };
 
@@ -113,7 +113,7 @@ describe('Door Architecture Audit', () => {
     it('should support no-threshold interior door (hasThreshold=false)', () => {
         const entity = {
             id: 'test_door_2', type: 'door', width: 36, height: 80, thick: 4,
-            doorType: 'single', doorStyle: 'flat', doorMat: 'wood_golden_teak',
+            doorType: 'single', doorStyle: 'flat', materials: { leaf: { id: 'wood_golden_teak' } },
             facing: 1, side: 1, elevation: 0, x: 0, z: 0, angle: 0,
             hasThreshold: false
         };
