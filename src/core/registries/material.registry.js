@@ -373,6 +373,20 @@ export const GROUND_REGISTRY = {
 
 
 export const GLASS_REGISTRY = {
+    fluted: {
+        id: "fluted",
+        label: "Fluted / Ribbed Glass",
+        name: "Fluted / Ribbed Glass",
+        color: 0xffffff,
+        transmission: 0.90,
+        ior: 1.5,
+        roughness: 0.4,
+        thickness: 6.0,
+        bumpScale: 0.05,
+        transparent: true,
+        categoryLabel: "Glass",
+        description: "Vertical ribbed fluted texture for privacy while allowing maximum light transmission."
+    },
     clear: {
         id: "clear",
         label: "Clear Tempered Glass",
@@ -525,6 +539,14 @@ export const METAL_REGISTRY = {
         roughness: 0.4, metalness: 0.6,
         thumbnail: 'https://via.placeholder.com/150/c8cdd0/ffffff?text=Alum'
     },
+    'alum_powder': {
+        id: 'alum_powder',
+        group: 'aluminium',
+        name: 'Black Powder Aluminium',
+        color: 0x1a1a1a,
+        roughness: 0.45, metalness: 0.7,
+        thumbnail: 'https://via.placeholder.com/150/1a1a1a/ffffff?text=Black+Alum'
+    },
     'metal_diamond_tread': {
         id: 'metal_diamond_tread',
         group: 'steel',
@@ -567,6 +589,30 @@ export const PLASTIC_REGISTRY = {
         texture: 'textures/plastics/plastic_white_pvc.png',
         thumbnail: 'textures/plastics/plastic_white_pvc.png',
         roughness: 0.2, clearcoat: 0.5
+    },
+    'seal_black': {
+        id: 'seal_black',
+        group: 'rubber',
+        name: 'Black EPDM Rubber',
+        color: 0x111111,
+        roughness: 0.9, metalness: 0.0,
+        thumbnail: 'https://via.placeholder.com/150/111111/ffffff?text=Black+Rubber'
+    },
+    'seal_grey': {
+        id: 'seal_grey',
+        group: 'rubber',
+        name: 'Grey Silicone',
+        color: 0x666666,
+        roughness: 0.8, metalness: 0.0,
+        thumbnail: 'https://via.placeholder.com/150/666666/ffffff?text=Grey+Silicone'
+    },
+    'seal_white': {
+        id: 'seal_white',
+        group: 'rubber',
+        name: 'White Silicone',
+        color: 0xeeeeee,
+        roughness: 0.8, metalness: 0.0,
+        thumbnail: 'https://via.placeholder.com/150/eeeeee/000000?text=White+Silicone'
     },
     'pvc_matte': {
         id: 'pvc_matte',

@@ -473,6 +473,8 @@ export class GizmoManager {
                           </div>
                       </div>
                       
+                      <div id="gizmo-subgroup-tabs-container"></div>
+                      
                       <div class="mat-lib-grid-wrapper">
                           <div id="gizmo-material-grid" class="mat-lib-grid"></div>
                       </div>
@@ -1481,10 +1483,15 @@ export class GizmoManager {
                 }
             }
             
-            gridElem.innerHTML = tabsHtml + patternLauncherHtml + woodCustomizerHtml + decorThumbnails;
+            gridElem.innerHTML = patternLauncherHtml + woodCustomizerHtml + decorThumbnails;
+            
+            const tabsContainerWrapper = this.materialPanel.querySelector('#gizmo-subgroup-tabs-container');
+            if (tabsContainerWrapper) {
+                tabsContainerWrapper.innerHTML = tabsHtml;
+            }
 
             // Bind Subgroup Tab Events
-            const tabsContainer = gridElem.querySelector('.gizmo-subgroup-tabs-container');
+            const tabsContainer = tabsContainerWrapper ? tabsContainerWrapper.querySelector('.gizmo-subgroup-tabs-container') : null;
             if (tabsContainer) {
                 const tabs = tabsContainer.querySelectorAll('.gizmo-subgroup-tab');
                 tabs.forEach(tab => {

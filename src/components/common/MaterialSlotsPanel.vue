@@ -30,40 +30,34 @@ const props = defineProps({
 
 const emit = defineEmits(['sync-engine']);
 
-// Predefined dropdown options for different slot types
-const STRUCTURAL_OPTIONS = [
-    { id: 'wood_golden_teak', label: 'Golden Teak Wood' },
-    { id: 'wood_dark_walnut', label: 'Dark Walnut Wood' },
-    { id: 'wood_white_oak', label: 'White Oak Wood' },
-    { id: 'wood_mahogany', label: 'Red Mahogany' },
-    { id: 'upvc_white', label: 'White uPVC' },
-    { id: 'pvc_matte', label: 'Matte White PVC' },
-    { id: 'alum_silver', label: 'Silver Aluminium' },
-    { id: 'alum_powder', label: 'Black Powder Aluminium' },
-    { id: 'steel_ms', label: 'MS Steel' },
-    { id: 'wpc', label: 'Wood Plastic Composite' }
-];
+import { WOOD_REGISTRY, GLASS_REGISTRY, METAL_REGISTRY, PLASTIC_REGISTRY } from '../../core/registry.js';
 
-const GLASS_OPTIONS = [
-    { id: 'clear', label: 'Clear Tempered Glass' },
-    { id: 'frosted', label: 'Frosted Satin Glass' },
-    { id: 'tinted', label: 'Architectural Dark Glass' },
-    { id: 'bronze', label: 'Bronze Glass' },
-    { id: 'blue_solar', label: 'Blue Reflective Glass' }
-];
+const formatRegistry = (registry) => {
+    if (!registry) return [];
+    return Object.values(registry)
+        .filter(mat => !mat.isAlias)
+        .map(mat => ({ id: mat.id, label: mat.name || mat.label || mat.id }));
+};
 
-const HARDWARE_OPTIONS = [
-    { id: 'metal_gunmetal_black', label: 'Matte Black' },
-    { id: 'metal_brushed_steel', label: 'Brushed Steel' },
-    { id: 'metal_brushed_gold', label: 'Brass / Gold' },
-    { id: 'metal_rose_bronze', label: 'Antique Bronze' }
-];
-
-const SEAL_OPTIONS = [
-    { id: 'seal_black', label: 'Black EPDM Rubber' },
-    { id: 'seal_grey', label: 'Grey Silicone' },
-    { id: 'seal_white', label: 'White Silicone' }
-];
+const getOptionsForSlot = (slotId) => {
+    const category = SLOT_DEFINITIONS[slotId]?.defaultCategory || 'categories';
+    
+    if (category === 'glass') return formatRegistry(GLASS_REGISTRY);
+    if (category === 'metal') return formatRegistry(METAL_REGISTRY);
+    if (category === 'plastic') return formatRegistry(PLASTIC_REGISTRY);
+    
+    // For structural slots like Frame and Leaf (defaultCategory: 'wood'), 
+    // we want to allow Wood, PVC, and Metal frames.
+    if (category === 'wood') {
+        return [
+            ...formatRegistry(WOOD_REGISTRY),
+            ...formatRegistry(PLASTIC_REGISTRY),
+            ...formatRegistry(METAL_REGISTRY)
+        ];
+    }
+    
+    return [];
+};
 
 const hasGlass = (entity) => {
     if (!entity) return false;
@@ -78,14 +72,6 @@ const hasGlass = (entity) => {
                mat === 'glass_clear' || mat === 'glass';
     }
     return false;
-};
-
-// Map slot IDs to their appropriate options
-const getOptionsForSlot = (slotId) => {
-    if (slotId === MaterialSlots.GLASS) return GLASS_OPTIONS;
-    if (slotId === MaterialSlots.HARDWARE) return HARDWARE_OPTIONS;
-    if (slotId === MaterialSlots.SEAL) return SEAL_OPTIONS;
-    return STRUCTURAL_OPTIONS; // Frame, Leaf, Sashes, Trim, etc.
 };
 
 const activeSlots = computed(() => {
