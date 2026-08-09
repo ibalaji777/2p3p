@@ -5,15 +5,12 @@
 
 export const MaterialSlots = {
     FRAME: 'frame',
-    SASH_LEFT: 'sash_left',
-    SASH_RIGHT: 'sash_right',
-    SASH_TOP: 'sash_top',
-    SASH_BOTTOM: 'sash_bottom',
     LEAF: 'leaf',
     GLASS: 'glass',
     HARDWARE: 'hardware',
     SEAL: 'seal',
     SCREEN: 'screen',
+    GRILLE: 'grille',
     TRIM: 'trim',
     WALL_FRONT: 'wall_front',
     WALL_BACK: 'wall_back',
@@ -38,18 +35,14 @@ export const ComponentTypes = {
 };
 
 export const SLOT_DEFINITIONS = {
-    [MaterialSlots.FRAME]: { id: MaterialSlots.FRAME, label: 'Outer Frame', inherits: null },
-    [MaterialSlots.SASH_LEFT]: { id: MaterialSlots.SASH_LEFT, label: 'Left Sash', inherits: MaterialSlots.FRAME },
-    [MaterialSlots.SASH_RIGHT]: { id: MaterialSlots.SASH_RIGHT, label: 'Right Sash', inherits: MaterialSlots.FRAME },
-    [MaterialSlots.SASH_TOP]: { id: MaterialSlots.SASH_TOP, label: 'Top Sash', inherits: MaterialSlots.FRAME },
-    [MaterialSlots.SASH_BOTTOM]: { id: MaterialSlots.SASH_BOTTOM, label: 'Bottom Sash', inherits: MaterialSlots.FRAME },
-    [MaterialSlots.LEAF]: { id: MaterialSlots.LEAF, label: 'Door Leaf', inherits: null },
-    [MaterialSlots.GLASS]: { id: MaterialSlots.GLASS, label: 'Glass Panes', inherits: null },
-    [MaterialSlots.HARDWARE]: { id: MaterialSlots.HARDWARE, label: 'Hardware', inherits: null },
-    [MaterialSlots.SEAL]: { id: MaterialSlots.SEAL, label: 'Seals & Gaskets', inherits: null },
-    [MaterialSlots.SCREEN]: { id: MaterialSlots.SCREEN, label: 'Insect Screen', inherits: null },
-    [MaterialSlots.TRIM]: { id: MaterialSlots.TRIM, label: 'Trim & Architrave', inherits: MaterialSlots.FRAME },
-    [MaterialSlots.CUSTOM]: { id: MaterialSlots.CUSTOM, label: 'Custom Accent', inherits: null }
+    [MaterialSlots.FRAME]: { id: MaterialSlots.FRAME, label: 'Outer Frame', inherits: null, paintable: true },
+    [MaterialSlots.LEAF]: { id: MaterialSlots.LEAF, label: 'Leaf / Sash', inherits: null, paintable: true },
+    [MaterialSlots.GLASS]: { id: MaterialSlots.GLASS, label: 'Glass Panes', inherits: null, paintable: true },
+    [MaterialSlots.HARDWARE]: { id: MaterialSlots.HARDWARE, label: 'Hardware', inherits: null, paintable: false },
+    [MaterialSlots.SEAL]: { id: MaterialSlots.SEAL, label: 'Seals & Gaskets', inherits: null, paintable: false },
+    [MaterialSlots.SCREEN]: { id: MaterialSlots.SCREEN, label: 'Insect Screen', inherits: null, paintable: false },
+    [MaterialSlots.TRIM]: { id: MaterialSlots.TRIM, label: 'Trim & Architrave', inherits: MaterialSlots.FRAME, paintable: false },
+    [MaterialSlots.CUSTOM]: { id: MaterialSlots.CUSTOM, label: 'Custom Accent', inherits: null, paintable: true }
 };
 
 export const INTERACTION_MODES = {

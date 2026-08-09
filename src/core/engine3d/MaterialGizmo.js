@@ -175,6 +175,7 @@ export class MaterialGizmo extends THREE.Group {
         const validIntersects = intersects.filter(i => {
             const mat = i.object.material;
             if (i.object.userData.isHitbox) return false;
+            if (i.object.userData.paintable === false) return false;
             if (mat && mat.type === 'MeshBasicMaterial' && mat.opacity === 0) return false;
             return true;
         });

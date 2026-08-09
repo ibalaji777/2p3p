@@ -36,6 +36,12 @@ export class ComponentRegistry {
         const slot = slotName || mesh.userData?.materialSlot || MaterialSlots.CUSTOM;
         const componentId = extraMeta.componentId || `${entityId}_${slot}`;
 
+        // Universal Architectural Flag Injection
+        const def = SLOT_DEFINITIONS[slot];
+        if (mesh.userData.paintable === undefined && def && def.paintable !== undefined) {
+            mesh.userData.paintable = def.paintable;
+        }
+
         // 1. Layer 3 Mesh Registry (Slot -> Meshes)
         if (!ComponentRegistry.slotRegistry.has(entityId)) {
             ComponentRegistry.slotRegistry.set(entityId, new Map());

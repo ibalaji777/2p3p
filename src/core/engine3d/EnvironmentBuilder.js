@@ -33,11 +33,12 @@ window.updateSkyBounce = function(color) {
 
 function getPlasterMaterial() {
     if (_sharedPlasterMaterial) return _sharedPlasterMaterial;
-
+    
     _sharedPlasterMaterial = new THREE.MeshStandardMaterial({
-        color: 0xfaf8ed, // Clean, bright warm white plaster
-        roughness: 0.9,
-        metalness: 0.0,
+        color: 0xffffff,
+        roughness: 0.85,
+        metalness: 0.05,
+        side: THREE.DoubleSide,
         envMapIntensity: 0.8,
         flatShading: false
     });

@@ -1688,6 +1688,7 @@ export class FloorPlanner {
                                 if (wd.frameMat) widget.frameMat = wd.frameMat;
                                 if (wd.glassMat) widget.glassMat = wd.glassMat;
                                 if (wd.grillePattern) widget.grillePattern = wd.grillePattern;
+                                if (wd.grilleProfile) widget.grilleProfile = wd.grilleProfile;
                                 wall.attachedWidgets.push(widget); 
                             }
                         }); 

@@ -1,6 +1,6 @@
 <template>
     <div class="control-group">
-        <label>Material Category</label>
+        <label>Base Theme (Preset)</label>
         <select v-model="materialCategory" class="settings-select">
             <option v-for="opt in availableOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
         </select>
@@ -10,6 +10,8 @@
 <script setup>
 import { computed } from 'vue';
 
+import { WOOD_REGISTRY, METAL_REGISTRY, PLASTIC_REGISTRY, GLASS_REGISTRY } from '../../core/registries/material.registry.js';
+
 const props = defineProps({
     selectedEntity: { type: Object, required: true }
 });
@@ -17,7 +19,33 @@ const props = defineProps({
 const emit = defineEmits(['sync-engine']);
 
 const materialCategory = computed({
-    get: () => props.selectedEntity?.params?.materialCategory || 'wood',
+    get: () => {
+        if (props.selectedEntity?.params?.materialCategory) {
+            return props.selectedEntity.params.materialCategory;
+        }
+        
+        // Robust lookup using the central material registries
+        const e = props.selectedEntity;
+        const matId = e?.materials?.['leaf']?.id || e?.materials?.['frame']?.id || e?.doorMat || e?.frameMat;
+        
+        if (matId) {
+            if (WOOD_REGISTRY[matId]) return WOOD_REGISTRY[matId].category || 'wood';
+            if (METAL_REGISTRY[matId]) return METAL_REGISTRY[matId].group || 'steel';
+            if (PLASTIC_REGISTRY[matId]) return PLASTIC_REGISTRY[matId].group || 'pvc';
+            if (GLASS_REGISTRY[matId]) return 'glass';
+            
+            // Fallback for custom/legacy materials that aren't properly registered
+            const m = matId.toLowerCase();
+            if (m.includes('wood') || m.includes('oak') || m.includes('teak') || m.includes('walnut')) return 'wood';
+            if (m.includes('upvc')) return 'upvc';
+            if (m.includes('pvc')) return 'pvc';
+            if (m.includes('alum')) return 'aluminium';
+            if (m.includes('steel') || m.includes('metal')) return 'steel';
+            if (m.includes('frp')) return 'frp';
+            if (m.includes('wpc')) return 'wpc';
+        }
+        return 'wood';
+    },
     set: (val) => {
         if (!props.selectedEntity.params) {
             props.selectedEntity.params = {};
@@ -91,7 +119,7 @@ const onMaterialCategoryChange = () => {
         props.selectedEntity.params = {};
     }
     
-    const cat = props.selectedEntity.params.materialCategory;
+    const cat = props.selectedEntity?.params?.materialCategory;
     const defaultMat = categoryDefaults[cat] || 'wood_golden_teak';
     
     if (!props.selectedEntity.materials) {

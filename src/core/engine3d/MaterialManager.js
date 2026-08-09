@@ -30,7 +30,7 @@ export class MaterialManager {
     static activeTransaction = null;
     static assetManifests = {
         door: [MaterialSlots.FRAME, MaterialSlots.LEAF, MaterialSlots.GLASS, MaterialSlots.HARDWARE, MaterialSlots.SEAL, MaterialSlots.TRIM],
-        window: [MaterialSlots.FRAME, MaterialSlots.SASH_LEFT, MaterialSlots.SASH_RIGHT, MaterialSlots.SASH_TOP, MaterialSlots.SASH_BOTTOM, MaterialSlots.GLASS, MaterialSlots.HARDWARE, MaterialSlots.SEAL, MaterialSlots.SCREEN],
+        window: [MaterialSlots.FRAME, MaterialSlots.LEAF, MaterialSlots.GLASS, MaterialSlots.HARDWARE, MaterialSlots.SEAL, MaterialSlots.SCREEN],
         wall: [MaterialSlots.WALL_FRONT, MaterialSlots.WALL_BACK, MaterialSlots.WALL_LEFT, MaterialSlots.WALL_RIGHT, MaterialSlots.WALL_TOP, MaterialSlots.WALL_BOTTOM],
         widget: [MaterialSlots.FRAME, MaterialSlots.TRIM, MaterialSlots.CUSTOM]
     };

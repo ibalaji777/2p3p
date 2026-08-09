@@ -25,6 +25,18 @@
                 </div>
             </div>
             <div class="control-group">
+                <label>Door Type</label>
+                <select :value="selectedEntity.doorType || 'single'" @change="e => { selectedEntity.doorType = e.target.value; $emit('sync-engine'); }">
+                    <option value="single">Single Hinged</option>
+                    <option value="double">Double Hinged</option>
+                    <option value="french">Double French Glass</option>
+                    <option value="sliding">Sliding (1 Panel)</option>
+                    <option value="double_sliding">Sliding (2 Panels)</option>
+                    <option value="pocket">Pocket Door</option>
+                    <option value="folding">Bi-fold</option>
+                </select>
+            </div>
+            <div class="control-group">
                 <label>Door Shape</label>
                 <select :value="selectedEntity.doorShape || 'square'" @change="e => { selectedEntity.doorShape = e.target.value; $emit('sync-engine'); }">
                     <option value="square">Square (Default)</option>
@@ -34,7 +46,7 @@
                 </select>
             </div>
             
-            <MaterialCategorySelector :selected-entity="selectedEntity" @sync-engine="$emit('sync-engine')" />
+            <MaterialSlotsPanel :entity="selectedEntity" @sync-engine="$emit('sync-engine')" />
         </div>
         <div v-else-if="selectedEntity.type === 'window'">
             <div class="control-group">
@@ -57,25 +69,24 @@
                     <option value="gothic">Gothic Pointed</option>
                 </select>
             </div>
-            <MaterialCategorySelector :selected-entity="selectedEntity" @sync-engine="$emit('sync-engine')" />
-            <div class="control-group">
-                <label>Glass Material</label>
-                <select :value="selectedEntity.materials?.['glass']?.id || 'glass_clear'" @change="e => { if (!selectedEntity.materials) selectedEntity.materials = {}; selectedEntity.materials['glass'] = { id: e.target.value }; $emit('sync-engine'); }">
-                    <option value="clear">Clear High-Clarity Glass</option>
-                    <option value="frosted">Frosted Privacy Glass</option>
-                    <option value="tinted">Solar Tinted Glass</option>
-                    <option value="tinted_bronze">Bronze Tinted Glass</option>
-                    <option value="low_e">Low-E Energy Glass</option>
-                </select>
-            </div>
+            <MaterialSlotsPanel :entity="selectedEntity" @sync-engine="$emit('sync-engine')" />
+
             <div class="control-group">
                 <label>Grill Pattern</label>
-                <select :value="selectedEntity.grillePattern || 'none'" @change="e => { selectedEntity.grillePattern = e.target.value; $emit('sync-engine'); }">
+                <select :value="selectedEntity.grillePattern || 'grid'" @change="e => { selectedEntity.grillePattern = e.target.value; $emit('sync-engine'); }">
                     <option value="none">No Grill (Clean View)</option>
                     <option value="grid">Standard Grid</option>
                     <option value="diamond">Diamond Lattice</option>
                     <option value="horizontal">Horizontal Security Bars</option>
                     <option value="vertical">Vertical Security Bars</option>
+                </select>
+            </div>
+            
+            <div class="control-group" v-if="(selectedEntity.grillePattern || 'none') !== 'none'">
+                <label>Grill Profile</label>
+                <select :value="selectedEntity.grilleProfile || 'flat'" @change="e => { selectedEntity.grilleProfile = e.target.value; $emit('sync-engine'); }">
+                    <option value="flat">Flat / Box (Rectangular)</option>
+                    <option value="round">Round (Steel Rods)</option>
                 </select>
             </div>
         </div>
@@ -200,6 +211,7 @@
 <script setup>
 import DimensionInput from '../common/DimensionInput.vue';
 import MaterialCategorySelector from '../common/MaterialCategorySelector.vue';
+import MaterialSlotsPanel from '../common/MaterialSlotsPanel.vue';
 
 
 const props = defineProps({

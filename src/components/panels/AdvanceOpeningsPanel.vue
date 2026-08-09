@@ -10,6 +10,26 @@
             <MaterialCategorySelector :selected-entity="selectedEntity" @sync-engine="$emit('sync-engine')" />
         </div>
 
+        <div v-if="selectedEntity.type === 'window'">
+            <div class="control-group">
+                <label>Grille Pattern</label>
+                <select :value="selectedEntity.grillePattern || 'grid'" @change="e => { selectedEntity.grillePattern = e.target.value; $emit('sync-engine'); }" class="settings-select">
+                    <option value="none">None</option>
+                    <option value="grid">Standard Grid</option>
+                    <option value="diamond">Diamond Lattice</option>
+                    <option value="horizontal">Horizontal Lines</option>
+                    <option value="vertical">Vertical Lines</option>
+                </select>
+            </div>
+            <div class="control-group" v-if="(selectedEntity.grillePattern || 'grid') !== 'none'">
+                <label>Grille Profile</label>
+                <select :value="selectedEntity.grilleProfile || 'flat'" @change="e => { selectedEntity.grilleProfile = e.target.value; $emit('sync-engine'); }" class="settings-select">
+                    <option value="flat">Flat / Box (Rectangular)</option>
+                    <option value="round">Round (Steel Rods)</option>
+                </select>
+            </div>
+        </div>
+
         <div v-if="selectedEntity.type === 'pattern_opening'">
             <div class="control-group">
                 <label>Pattern Style</label>
