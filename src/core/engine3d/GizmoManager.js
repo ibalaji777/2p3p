@@ -10,9 +10,7 @@ import { marblePreviewRenderer } from './MarblePreviewRenderer.js';
 import { patternManager } from '../services/pattern/PatternManager.js';
 import { PatternTextureBlender } from '../services/pattern/PatternTextureBlender.js';
 import { useSettingsStore } from '../../stores/useSettingsStore.js';
-
-
-
+import { SLOT_DEFINITIONS } from '../constants/materialSlots.js';
 const TILE_REGISTRY = WALL_DECOR_REGISTRY;
 const WALL_REGISTRY = WALL_DECOR_REGISTRY;
 const ROOF_REGISTRY = ROOF_DECOR_REGISTRY;
@@ -1003,7 +1001,7 @@ export class GizmoManager {
         this.activeObject = activeObject;
         this.activeMatIndex = activeMatIndex;
         
-        if (activeObject && window.BIMMaterialSystem) {
+        if (activeObject && BIMMaterialSystem) {
             try {
                 this.activeDescriptor = BIMMaterialSystem.resolveBIMTarget(activeObject, activeMatIndex, null, activeObject?.userData?.entity);
             } catch (e) {
@@ -1030,13 +1028,19 @@ export class GizmoManager {
         const selectedObj = realSelectedObj;
         
         let materialCategory = forcedCategory || 'categories';
-        if (!forcedCategory && selectedObj && selectedObj.userData && selectedObj.userData.entity) {
-            if (selectedObj.userData.entity.params && selectedObj.userData.entity.params.materialCategory) {
-                materialCategory = selectedObj.userData.entity.params.materialCategory;
-            } else {
-                const type = selectedObj.userData.entity.type;
-                if (type !== 'furniture' && !selectedObj.userData.entity.isFurniture) {
-                    materialCategory = type;
+        
+        if (!forcedCategory) {
+            if (this.activeDescriptor && this.activeDescriptor.slotName) {
+                const slot = this.activeDescriptor.slotName;
+                materialCategory = SLOT_DEFINITIONS[slot]?.defaultCategory || 'categories';
+            } else if (selectedObj && selectedObj.userData && selectedObj.userData.entity) {
+                if (selectedObj.userData.entity.params && selectedObj.userData.entity.params.materialCategory) {
+                    materialCategory = selectedObj.userData.entity.params.materialCategory;
+                } else {
+                    const type = selectedObj.userData.entity.type;
+                    if (type !== 'furniture' && !selectedObj.userData.entity.isFurniture) {
+                        materialCategory = type;
+                    }
                 }
             }
         }
@@ -1624,14 +1628,14 @@ export class GizmoManager {
                     if (this.matNameDisplay) this.matNameDisplay.innerText = 'Custom ' + hexColor;
                     
                     let targetMeshToUse = this.activeObject || selectedObj;
-                    let descriptor = this.activeDescriptor || (window.BIMMaterialSystem ? BIMMaterialSystem.resolveBIMTarget(
+                    let descriptor = this.activeDescriptor || (BIMMaterialSystem ? BIMMaterialSystem.resolveBIMTarget(
                         targetMeshToUse,
                         this.activeMatIndex,
                         null,
                         selectedObj?.userData?.entity
                     ) : null);
                     
-                    if (descriptor && window.BIMMaterialSystem) {
+                    if (descriptor && BIMMaterialSystem) {
                         BIMMaterialSystem.applyBIMMaterial(descriptor, key, this.ctx);
                     }
                 });

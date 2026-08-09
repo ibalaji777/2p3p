@@ -35,14 +35,14 @@ export const ComponentTypes = {
 };
 
 export const SLOT_DEFINITIONS = {
-    [MaterialSlots.FRAME]: { id: MaterialSlots.FRAME, label: 'Outer Frame', inherits: null, paintable: true },
-    [MaterialSlots.LEAF]: { id: MaterialSlots.LEAF, label: 'Leaf / Sash', inherits: null, paintable: true },
-    [MaterialSlots.GLASS]: { id: MaterialSlots.GLASS, label: 'Glass Panes', inherits: null, paintable: true },
-    [MaterialSlots.HARDWARE]: { id: MaterialSlots.HARDWARE, label: 'Hardware', inherits: null, paintable: false },
-    [MaterialSlots.SEAL]: { id: MaterialSlots.SEAL, label: 'Seals & Gaskets', inherits: null, paintable: false },
-    [MaterialSlots.SCREEN]: { id: MaterialSlots.SCREEN, label: 'Insect Screen', inherits: null, paintable: false },
-    [MaterialSlots.TRIM]: { id: MaterialSlots.TRIM, label: 'Trim & Architrave', inherits: MaterialSlots.FRAME, paintable: false },
-    [MaterialSlots.CUSTOM]: { id: MaterialSlots.CUSTOM, label: 'Custom Accent', inherits: null, paintable: true }
+    [MaterialSlots.FRAME]: { id: MaterialSlots.FRAME, label: 'Outer Frame', inherits: null, paintable: true, defaultCategory: 'wood' },
+    [MaterialSlots.LEAF]: { id: MaterialSlots.LEAF, label: 'Leaf / Sash', inherits: null, paintable: true, defaultCategory: 'wood' },
+    [MaterialSlots.GLASS]: { id: MaterialSlots.GLASS, label: 'Glass Panes', inherits: null, paintable: true, defaultCategory: 'glass' },
+    [MaterialSlots.HARDWARE]: { id: MaterialSlots.HARDWARE, label: 'Hardware', inherits: null, paintable: false, defaultCategory: 'metal' },
+    [MaterialSlots.SEAL]: { id: MaterialSlots.SEAL, label: 'Seals & Gaskets', inherits: null, paintable: false, defaultCategory: 'plastic' },
+    [MaterialSlots.SCREEN]: { id: MaterialSlots.SCREEN, label: 'Insect Screen', inherits: null, paintable: false, defaultCategory: 'fabric' },
+    [MaterialSlots.TRIM]: { id: MaterialSlots.TRIM, label: 'Trim & Architrave', inherits: MaterialSlots.FRAME, paintable: false, defaultCategory: 'wood' },
+    [MaterialSlots.CUSTOM]: { id: MaterialSlots.CUSTOM, label: 'Custom Accent', inherits: null, paintable: true, defaultCategory: 'categories' }
 };
 
 export const INTERACTION_MODES = {

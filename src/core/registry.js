@@ -15,6 +15,7 @@ import { WINDOW_TYPES } from '../features/window/window.registry.js';
 import { JALI_MATERIALS } from './registries/material.registry.js';
 import { MaterialSlots } from './constants/materialSlots.js';
 import { ComponentRegistry } from './engine3d/ComponentRegistry.js';
+import { BIMComponentBuilder } from './engine3d/BIMComponentBuilder.js';
 
 export const WORKSPACE_2D_SHAPES = {
     // Default boundary
@@ -95,7 +96,7 @@ export const createDoorShape = (w, h, type = 'square') => {
     return shape;
 };
 
-function buildDetailedDoorPanel(entity, width, height, thickness, material, type, isGlass, signX = 1, helpers) {
+function buildDetailedDoorPanel(entity, width, height, thickness, material, type, isGlass, signX = 1, helpers, builder) {
     const mats = (helpers && helpers.getFaceMaterials) ? helpers.getFaceMaterials(entity, material, { width, height, thick: thickness }).box : material;
     const group = new THREE.Group(); const gap = 0.2; 
     const style = entity && entity.doorStyle ? entity.doorStyle : 'flat';
@@ -135,64 +136,67 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
     if (style === 'glass_bottom_panel') {
         const frameW = 3.5; const topRailH = 3.5; const botRailH = height * 0.28;
         const geoStile = createBeveledRect(frameW, height, thickness); const geoRailT = rotateUVs(createBeveledRect(width - frameW*2, topRailH, thickness)); const geoRailB = rotateUVs(createBeveledRect(width - frameW*2, botRailH, thickness));
-        const stileL = new THREE.Mesh(geoStile, matsExtrude); stileL.position.set(-width/2 + frameW/2, height/2, 0); const stileR = new THREE.Mesh(geoStile, matsExtrude); stileR.position.set(width/2 - frameW/2, height/2, 0);
-        const railT = new THREE.Mesh(geoRailT, matsExtrude); railT.position.set(0, height - topRailH/2, 0); const railB = new THREE.Mesh(geoRailB, matsExtrude); railB.position.set(0, botRailH/2, 0);
-        [stileL, stileR, railT, railB].forEach(m => { m.castShadow = true; m.receiveShadow = true; group.add(m); });
+        
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailT, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - topRailH/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailB, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH/2, 0), castShadow: true, receiveShadow: true });
         
         const grooveGeo = rotateUVs(createBeveledRect(width - frameW*2, 0.4, thickness + 0.1));
-        const groove1 = new THREE.Mesh(grooveGeo, matsExtrude); groove1.position.set(0, botRailH * 0.4, 0); group.add(groove1);
-        const groove2 = new THREE.Mesh(grooveGeo, matsExtrude); groove2.position.set(0, botRailH * 0.7, 0); group.add(groove2);
+        builder.addNode({ geometry: grooveGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH * 0.4, 0) });
+        builder.addNode({ geometry: grooveGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH * 0.7, 0) });
 
         const glassMatKey = entity.materials?.[MaterialSlots.GLASS]?.id || 'glass_clear';
         const glassMat = helpers.getDynamicMaterial(glassMatKey, 'door');
         const geoGlass = new THREE.BoxGeometry(width - frameW*2, height - topRailH - botRailH, thickness * 0.25);
-        const glass = new THREE.Mesh(geoGlass, glassMat); glass.userData.isGlass = true; glass.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(glass);
+        builder.addNode({ geometry: geoGlass, materialOverride: glassMat, parent: group, position: new THREE.Vector3(0, height/2 + (botRailH - topRailH)/2, 0), userData: { isGlass: true } });
     } else if (style === 'glass_grid') {
         const frameW = 3.5; const topRailH = 3.5; const botRailH = 5;
         const geoStile = createBeveledRect(frameW, height, thickness); const geoRailT = rotateUVs(createBeveledRect(width - frameW*2, topRailH, thickness)); const geoRailB = rotateUVs(createBeveledRect(width - frameW*2, botRailH, thickness));
-        const stileL = new THREE.Mesh(geoStile, matsExtrude); stileL.position.set(-width/2 + frameW/2, height/2, 0); const stileR = new THREE.Mesh(geoStile, matsExtrude); stileR.position.set(width/2 - frameW/2, height/2, 0);
-        const railT = new THREE.Mesh(geoRailT, matsExtrude); railT.position.set(0, height - topRailH/2, 0); const railB = new THREE.Mesh(geoRailB, matsExtrude); railB.position.set(0, botRailH/2, 0);
-        [stileL, stileR, railT, railB].forEach(m => { m.castShadow = true; m.receiveShadow = true; group.add(m); });
+        
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailT, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - topRailH/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailB, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH/2, 0), castShadow: true, receiveShadow: true });
         
         const mullionW = 1.5; const glassH = height - topRailH - botRailH; const glassW = width - frameW*2;
         const vMullionGeo = createBeveledRect(mullionW, glassH, thickness);
-        const vMullion = new THREE.Mesh(vMullionGeo, matsExtrude); vMullion.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(vMullion);
+        builder.addNode({ geometry: vMullionGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height/2 + (botRailH - topRailH)/2, 0) });
         
         const hMullionGeo = rotateUVs(createBeveledRect(glassW, mullionW, thickness));
         for (let i = 1; i <= 3; i++) {
-            const hMullion = new THREE.Mesh(hMullionGeo, matsExtrude);
-            hMullion.position.set(0, botRailH + (glassH / 4) * i, 0);
-            group.add(hMullion);
+            builder.addNode({ geometry: hMullionGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH + (glassH / 4) * i, 0) });
         }
 
         const glassMatKey = entity.materials?.[MaterialSlots.GLASS]?.id || 'glass_clear';
         const glassMat = helpers.getDynamicMaterial(glassMatKey, 'door'); const geoGlass = new THREE.BoxGeometry(glassW, glassH, thickness * 0.4);
-        const glass = new THREE.Mesh(geoGlass, glassMat); glass.userData.isGlass = true; glass.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(glass);
+        builder.addNode({ geometry: geoGlass, materialOverride: glassMat, parent: group, position: new THREE.Vector3(0, height/2 + (botRailH - topRailH)/2, 0), userData: { isGlass: true } });
     } else if (isGlass || type === 'french') {
         const frameW = 3.5; const topRailH = 3.5; const botRailH = 5;
         const geoStile = createBeveledRect(frameW, height, thickness); const geoRailT = rotateUVs(createBeveledRect(width - frameW*2, topRailH, thickness)); const geoRailB = rotateUVs(createBeveledRect(width - frameW*2, botRailH, thickness));
-        const stileL = new THREE.Mesh(geoStile, matsExtrude); stileL.position.set(-width/2 + frameW/2, height/2, 0); const stileR = new THREE.Mesh(geoStile, matsExtrude); stileR.position.set(width/2 - frameW/2, height/2, 0);
-        const railT = new THREE.Mesh(geoRailT, matsExtrude); railT.position.set(0, height - topRailH/2, 0); const railB = new THREE.Mesh(geoRailB, matsExtrude); railB.position.set(0, botRailH/2, 0);
-        [stileL, stileR, railT, railB].forEach(m => { m.castShadow = true; m.receiveShadow = true; group.add(m); });
+        
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailT, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - topRailH/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailB, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH/2, 0), castShadow: true, receiveShadow: true });
         
         const beadW = 0.8;
         const beadGeoV = createBeveledRect(beadW, height - topRailH - botRailH, thickness * 0.65);
         const beadGeoH = rotateUVs(createBeveledRect(width - frameW*2 - beadW*2, beadW, thickness * 0.65));
-        const beadL = new THREE.Mesh(beadGeoV, matsExtrude); beadL.position.set(-width/2 + frameW + beadW/2, height/2 + (botRailH - topRailH)/2, 0);
-        const beadR = new THREE.Mesh(beadGeoV, matsExtrude); beadR.position.set(width/2 - frameW - beadW/2, height/2 + (botRailH - topRailH)/2, 0);
-        const beadT = new THREE.Mesh(beadGeoH, matsExtrude); beadT.position.set(0, height - topRailH - beadW/2, 0);
-        const beadB = new THREE.Mesh(beadGeoH, matsExtrude); beadB.position.set(0, botRailH + beadW/2, 0);
-        [beadL, beadR, beadT, beadB].forEach(m => { m.castShadow = true; m.receiveShadow = true; group.add(m); });
+        
+        builder.addNode({ geometry: beadGeoV, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW + beadW/2, height/2 + (botRailH - topRailH)/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: beadGeoV, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW - beadW/2, height/2 + (botRailH - topRailH)/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: beadGeoH, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - topRailH - beadW/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: beadGeoH, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH + beadW/2, 0), castShadow: true, receiveShadow: true });
         
         const gMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.9 });
-        const gL = new THREE.Mesh(new THREE.BoxGeometry(0.1, height-topRailH-botRailH-beadW*2, thickness*0.28), gMat); gL.position.set(-width/2 + frameW + beadW + 0.05, height/2 + (botRailH - topRailH)/2, 0);
-        const gR = new THREE.Mesh(new THREE.BoxGeometry(0.1, height-topRailH-botRailH-beadW*2, thickness*0.28), gMat); gR.position.set(width/2 - frameW - beadW - 0.05, height/2 + (botRailH - topRailH)/2, 0);
-        [gL, gR].forEach(m => group.add(m));
+        builder.addNode({ geometry: new THREE.BoxGeometry(0.1, height-topRailH-botRailH-beadW*2, thickness*0.28), materialOverride: gMat, parent: group, position: new THREE.Vector3(-width/2 + frameW + beadW + 0.05, height/2 + (botRailH - topRailH)/2, 0) });
+        builder.addNode({ geometry: new THREE.BoxGeometry(0.1, height-topRailH-botRailH-beadW*2, thickness*0.28), materialOverride: gMat, parent: group, position: new THREE.Vector3(width/2 - frameW - beadW - 0.05, height/2 + (botRailH - topRailH)/2, 0) });
 
         const glassMatKey = entity.materials?.[MaterialSlots.GLASS]?.id || 'glass_clear';
         const glassMat = helpers.getDynamicMaterial(glassMatKey, 'door');
         const geoGlass = new THREE.BoxGeometry(width - frameW*2 - beadW*2, height - topRailH - botRailH - beadW*2, thickness * 0.25);
-        const glass = new THREE.Mesh(geoGlass, glassMat); glass.userData.isGlass = true; glass.position.set(0, height/2 + (botRailH - topRailH)/2, 0); group.add(glass);
+        builder.addNode({ geometry: geoGlass, materialOverride: glassMat, parent: group, position: new THREE.Vector3(0, height/2 + (botRailH - topRailH)/2, 0), userData: { isGlass: true } });
     } else {
         const shapeType = entity && entity.doorShape ? entity.doorShape : 'square';
         const bSize = 0.06;
@@ -213,7 +217,7 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         }
 
         const matsExtrude = Array.isArray(mats) ? [mats[4], mats[1]] : mats;
-        const core = new THREE.Mesh(coreGeo, matsExtrude); core.position.set(0, 0, 0); core.castShadow = true; core.receiveShadow = true; group.add(core);
+        builder.addNode({ geometry: coreGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, 0, 0), castShadow: true, receiveShadow: true });
 
         // Door sweep — acts as an extension of the door leaf to close the clearance gap
         const sweepH = 0.35; // Matches doorClearance (8.89mm) exactly
@@ -234,11 +238,7 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
             sweepUvs.needsUpdate = true;
         }
 
-        const sweep = new THREE.Mesh(sweepGeo, matsExtrude); 
-        sweep.position.set(0, -sweepH / 2 + 0.01, 0); // Positioned extending down from Y=0 (bottom of leaf)
-        sweep.castShadow = true; sweep.receiveShadow = true;
-        sweep.userData = { isSweep: true };
-        group.add(sweep);
+        builder.addNode({ geometry: sweepGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, -sweepH / 2 + 0.01, 0), castShadow: true, receiveShadow: true, userData: { isSweep: true } });
 
         
         const createBeveledPanelGeo = (pw, ph, pth, panelShape = 'square') => {
@@ -294,22 +294,21 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
             for (let i = 0; i < numPanels; i++) { 
                 const isTop = (i === numPanels - 1);
                 const geoPanel = createBeveledPanelGeo(width - 0.6, panelHeight, thickness + 0.05, isTop ? shapeType : 'square'); 
-                const p = new THREE.Mesh(geoPanel, matsExtrude); 
                 const yPos = (panelHeight / 2) + i * (panelHeight + gap); 
-                p.position.set(0, yPos, 0); p.castShadow = true; p.receiveShadow = true; group.add(p); 
+                builder.addNode({ geometry: geoPanel, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, yPos, 0), castShadow: true, receiveShadow: true });
             }
         } else if (style === 'classic_2_panel') {
             const topH = height * 0.65; const botH = height * 0.25; 
             const geoTop = createBeveledPanelGeo(width - 0.8, topH, thickness + 0.05, shapeType); const geoBot = createBeveledPanelGeo(width - 0.8, botH, thickness + 0.05, 'square');
-            const pTop = new THREE.Mesh(geoTop, matsExtrude); pTop.position.set(0, height - topH/2 - gap, 0); pTop.castShadow = true; group.add(pTop);
-            const pBot = new THREE.Mesh(geoBot, matsExtrude); pBot.position.set(0, botH/2 + gap*2, 0); pBot.castShadow = true; group.add(pBot);
+            builder.addNode({ geometry: geoTop, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - topH/2 - gap, 0), castShadow: true });
+            builder.addNode({ geometry: geoBot, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botH/2 + gap*2, 0), castShadow: true });
         } else if (style === 'classic_4_panel') {
             const topH = height * 0.55; const botH = height * 0.3; const pw = width/2 - 0.4;
             const geoTop = createBeveledPanelGeo(pw, topH, thickness + 0.05, shapeType); const geoBot = createBeveledPanelGeo(pw, botH, thickness + 0.05, 'square');
             [-1, 1].forEach(side => {
                 const xOff = (pw/2 + 0.15) * side;
-                const pTop = new THREE.Mesh(geoTop, matsExtrude); pTop.position.set(xOff, height - topH/2 - gap, 0); pTop.castShadow = true; group.add(pTop);
-                const pBot = new THREE.Mesh(geoBot, matsExtrude); pBot.position.set(xOff, botH/2 + gap*2, 0); pBot.castShadow = true; group.add(pBot);
+                builder.addNode({ geometry: geoTop, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(xOff, height - topH/2 - gap, 0), castShadow: true });
+                builder.addNode({ geometry: geoBot, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(xOff, botH/2 + gap*2, 0), castShadow: true });
             });
         } else if (style === 'grid_panel') {
             const rows = 5; const cols = 3; const pW = (width - gap*(cols+1))/cols; const pH = (height - gap*(rows+1))/rows;
@@ -317,10 +316,9 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
                 const isTop = (r === rows - 1);
                 for (let c=0; c<cols; c++) {
                     const geoGrid = createBeveledPanelGeo(pW - 0.1, pH - 0.1, thickness + 0.05, isTop ? shapeType : 'square');
-                    const p = new THREE.Mesh(geoGrid, matsExtrude);
                     const xPos = -width/2 + gap + pW/2 + c*(pW + gap);
                     const yPos = gap + pH/2 + r*(pH + gap);
-                    p.position.set(xPos, yPos, 0); p.castShadow = true; group.add(p);
+                    builder.addNode({ geometry: geoGrid, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(xPos, yPos, 0), castShadow: true });
                 }
             }
         }
@@ -328,7 +326,11 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
     const metalMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8, roughness: 0.2 }); const silverMat = new THREE.MeshStandardMaterial({ color: 0xe5e7eb, metalness: 0.9, roughness: 0.15 }); const handleY = height * 0.45; 
     if (['sliding', 'double_sliding'].includes(type) && isGlass) {
         const handleGeo = new THREE.CylinderGeometry(0.35, 0.35, 30, 16); const standoffGeo = new THREE.CylinderGeometry(0.2, 0.2, 1.5, 8);
-        [-1, 1].forEach(side => { const zPos = side === 1 ? thickness/2 + 1.2 : -thickness/2 - 1.2; const pull = new THREE.Mesh(handleGeo, silverMat); pull.position.set((width/2 - 3) * signX, handleY, zPos); const so1 = new THREE.Mesh(standoffGeo, silverMat); so1.rotation.x = Math.PI/2; so1.position.set((width/2 - 3) * signX, handleY + 12, zPos - side*0.6); const so2 = new THREE.Mesh(standoffGeo, silverMat); so2.rotation.x = Math.PI/2; so2.position.set((width/2 - 3) * signX, handleY - 12, zPos - side*0.6); [pull, so1, so2].forEach(m => { m.userData.isHandle = true; m.castShadow = true; group.add(m); }); });
+        [-1, 1].forEach(side => { const zPos = side === 1 ? thickness/2 + 1.2 : -thickness/2 - 1.2; 
+            builder.addNode({ geometry: handleGeo, materialOverride: silverMat, parent: group, position: new THREE.Vector3((width/2 - 3) * signX, handleY, zPos), castShadow: true, userData: { isHandle: true } });
+            builder.addNode({ geometry: standoffGeo, materialOverride: silverMat, parent: group, position: new THREE.Vector3((width/2 - 3) * signX, handleY + 12, zPos - side*0.6), rotation: new THREE.Euler(Math.PI/2, 0, 0), castShadow: true, userData: { isHandle: true } });
+            builder.addNode({ geometry: standoffGeo, materialOverride: silverMat, parent: group, position: new THREE.Vector3((width/2 - 3) * signX, handleY - 12, zPos - side*0.6), rotation: new THREE.Euler(Math.PI/2, 0, 0), castShadow: true, userData: { isHandle: true } });
+        });
     } else if (['sliding', 'double_sliding', 'pocket'].includes(type)) {
         const isPocket = type === 'pocket';
         const hW = isPocket ? 2.5 : 2;
@@ -351,47 +353,50 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
 
         // Use makeHandleGeo to add subtle edge bevel (0.04 = 1mm)
         const flushGeo = makeHandleGeo(hW, hH, 0.4, 0.04);
-        const pullF = new THREE.Mesh(flushGeo, isPocket ? pocketHandleMat : metalMat); pullF.position.set((width/2 - 4) * signX, hY, thickness/2 + 0.1);
-        const pullB = new THREE.Mesh(flushGeo, isPocket ? pocketHandleMat : metalMat); pullB.position.set((width/2 - 4) * signX, hY, -thickness/2 - 0.1);
+        builder.addNode({ geometry: flushGeo, materialOverride: isPocket ? pocketHandleMat : metalMat, parent: group, position: new THREE.Vector3((width/2 - 4) * signX, hY, thickness/2 + 0.1), castShadow: true, userData: { isHandle: true } });
+        builder.addNode({ geometry: flushGeo, materialOverride: isPocket ? pocketHandleMat : metalMat, parent: group, position: new THREE.Vector3((width/2 - 4) * signX, hY, -thickness/2 - 0.1), castShadow: true, userData: { isHandle: true } });
         
         // Inner recessed cavity for realistic depth
         const innerGeo = makeHandleGeo(hW * 0.6, hH * 0.8, 0.5, 0.02);
         const innerMat = new THREE.MeshStandardMaterial({ color: 0x050505, metalness: 0.9, roughness: 0.6 });
-        const innerF = new THREE.Mesh(innerGeo, innerMat); innerF.position.set((width/2 - 4) * signX, hY, thickness/2 + 0.05);
-        const innerB = new THREE.Mesh(innerGeo, innerMat); innerB.position.set((width/2 - 4) * signX, hY, -thickness/2 - 0.05);
-        
-        [pullF, pullB, innerF, innerB].forEach(m => { m.userData.isHandle = true; m.castShadow = true; group.add(m); });
+        builder.addNode({ geometry: innerGeo, materialOverride: innerMat, parent: group, position: new THREE.Vector3((width/2 - 4) * signX, hY, thickness/2 + 0.05), castShadow: true, userData: { isHandle: true } });
+        builder.addNode({ geometry: innerGeo, materialOverride: innerMat, parent: group, position: new THREE.Vector3((width/2 - 4) * signX, hY, -thickness/2 - 0.05), castShadow: true, userData: { isHandle: true } });
     } else if (type === 'pivot') {
         const barGeo = new THREE.CylinderGeometry(0.5, 0.5, 24, 16); const standoffGeo = new THREE.CylinderGeometry(0.3, 0.3, 2, 8);
-        [-1, 1].forEach(side => { const zPos = side === 1 ? thickness/2 + 1.5 : -thickness/2 - 1.5; const bar = new THREE.Mesh(barGeo, metalMat); bar.position.set((width/2 - 4) * signX, handleY, zPos); const so1 = new THREE.Mesh(standoffGeo, metalMat); so1.rotation.x = Math.PI/2; so1.position.set((width/2 - 4) * signX, handleY + 10, zPos - side); const so2 = new THREE.Mesh(standoffGeo, metalMat); so2.rotation.x = Math.PI/2; so2.position.set((width/2 - 4) * signX, handleY - 10, zPos - side); [bar, so1, so2].forEach(m => { m.userData.isHandle = true; m.castShadow = true; group.add(m); }); });
-    } else if (type === 'folding_lead') { const pullGeo = new THREE.BoxGeometry(0.8, 14, thickness + 1.2); const pull = new THREE.Mesh(pullGeo, metalMat); pull.position.set((width/2 - 1.5) * -signX, handleY, 0); pull.castShadow = true; pull.userData.isHandle = true; group.add(pull);
+        [-1, 1].forEach(side => { const zPos = side === 1 ? thickness/2 + 1.5 : -thickness/2 - 1.5; 
+            builder.addNode({ geometry: barGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3((width/2 - 4) * signX, handleY, zPos), castShadow: true, userData: { isHandle: true } });
+            builder.addNode({ geometry: standoffGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3((width/2 - 4) * signX, handleY + 10, zPos - side), rotation: new THREE.Euler(Math.PI/2, 0, 0), castShadow: true, userData: { isHandle: true } });
+            builder.addNode({ geometry: standoffGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3((width/2 - 4) * signX, handleY - 10, zPos - side), rotation: new THREE.Euler(Math.PI/2, 0, 0), castShadow: true, userData: { isHandle: true } });
+        });
+    } else if (type === 'folding_lead') { 
+        const pullGeo = new THREE.BoxGeometry(0.8, 14, thickness + 1.2); 
+        builder.addNode({ geometry: pullGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3((width/2 - 1.5) * -signX, handleY, 0), castShadow: true, userData: { isHandle: true } });
     } else if (['single', 'double', 'french'].includes(type)) {
         const hZF = thickness/2; const hZB = -thickness/2;
         const leverX = (width/2 - 3.5) * signX;
         
         const roseGeo = new THREE.CylinderGeometry(1.2, 1.2, 0.2, 24); roseGeo.rotateX(Math.PI/2);
-        const roseF = new THREE.Mesh(roseGeo, metalMat); roseF.position.set(leverX, handleY, hZF + 0.1);
-        const roseB = new THREE.Mesh(roseGeo, metalMat); roseB.position.set(leverX, handleY, hZB - 0.1);
+        builder.addNode({ geometry: roseGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(leverX, handleY, hZF + 0.1), castShadow: true, userData: { isHandle: true } });
+        builder.addNode({ geometry: roseGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(leverX, handleY, hZB - 0.1), castShadow: true, userData: { isHandle: true } });
         
         const stemGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.5, 16); stemGeo.rotateX(Math.PI/2);
-        const stemF = new THREE.Mesh(stemGeo, metalMat); stemF.position.set(leverX, handleY, hZF + 0.75);
-        const stemB = new THREE.Mesh(stemGeo, metalMat); stemB.position.set(leverX, handleY, hZB - 0.75);
+        builder.addNode({ geometry: stemGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(leverX, handleY, hZF + 0.75), castShadow: true, userData: { isHandle: true } });
+        builder.addNode({ geometry: stemGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(leverX, handleY, hZB - 0.75), castShadow: true, userData: { isHandle: true } });
         
         const handleLGeo = new THREE.CylinderGeometry(0.3, 0.4, 5, 16); handleLGeo.rotateZ(Math.PI/2);
         const handleDir = -signX; 
-        const handleF = new THREE.Mesh(handleLGeo, metalMat); handleF.position.set(leverX + 2.5*handleDir, handleY, hZF + 1.25);
-        const handleB = new THREE.Mesh(handleLGeo, metalMat); handleB.position.set(leverX + 2.5*handleDir, handleY, hZB - 1.25);
+        builder.addNode({ geometry: handleLGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(leverX + 2.5*handleDir, handleY, hZF + 1.25), castShadow: true, userData: { isHandle: true } });
+        builder.addNode({ geometry: handleLGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(leverX + 2.5*handleDir, handleY, hZB - 1.25), castShadow: true, userData: { isHandle: true } });
 
         const keyGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.25, 16); keyGeo.rotateX(Math.PI/2);
-        const keyF = new THREE.Mesh(keyGeo, metalMat); keyF.position.set(leverX, handleY - 2.5, hZF + 0.125);
-        const keyB = new THREE.Mesh(keyGeo, metalMat); keyB.position.set(leverX, handleY - 2.5, hZB - 0.125);
+        builder.addNode({ geometry: keyGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(leverX, handleY - 2.5, hZF + 0.125), castShadow: true, userData: { isHandle: true } });
+        builder.addNode({ geometry: keyGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(leverX, handleY - 2.5, hZB - 0.125), castShadow: true, userData: { isHandle: true } });
         
         const latchGeo = new THREE.BoxGeometry(0.8, 1.2, 0.8);
-        const latch = new THREE.Mesh(latchGeo, silverMat); latch.position.set((width/2 + 0.2) * signX, handleY, 0);
+        builder.addNode({ geometry: latchGeo, materialOverride: silverMat, parent: group, position: new THREE.Vector3((width/2 + 0.2) * signX, handleY, 0), castShadow: true, userData: { isHandle: true } });
         const faceplateGeo = new THREE.BoxGeometry(0.1, 4, 1.2);
-        const faceplate = new THREE.Mesh(faceplateGeo, metalMat); faceplate.position.set((width/2 + 0.05) * signX, handleY, 0);
+        builder.addNode({ geometry: faceplateGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3((width/2 + 0.05) * signX, handleY, 0), castShadow: true, userData: { isHandle: true } });
 
-        [roseF, roseB, stemF, stemB, handleF, handleB, keyF, keyB, latch, faceplate].forEach(m => { m.userData.isHandle = true; m.castShadow = true; group.add(m); });
     }
     if (['single', 'double', 'french', 'folding_main'].includes(type) && signX !== 0) { 
         const hingeW = 0.8, hingeD = 4.2;
@@ -399,25 +404,17 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         const barrelGeo = new THREE.CylinderGeometry(0.3, 0.3, hingeD, 16);
         [height * 0.88, height * 0.5, height * 0.12].forEach(y => { 
             const hG = new THREE.Group();
-            const plate = new THREE.Mesh(hingeGeo, metalMat);
-            plate.position.set((width/2 - 0.05) * -signX, 0, 0); 
-            plate.rotation.y = signX === 1 ? Math.PI/2 : -Math.PI/2;
-            const barrel = new THREE.Mesh(barrelGeo, metalMat);
-            barrel.position.set((width/2 + 0.15) * -signX, 0, thickness/2 + 0.1);
-            [plate, barrel].forEach(m => m.userData.isHandle = true);
-            hG.add(plate, barrel); hG.position.set(0, y, 0);
+            builder.addNode({ geometry: hingeGeo, materialOverride: metalMat, parent: hG, position: new THREE.Vector3((width/2 - 0.05) * -signX, 0, 0), rotation: new THREE.Euler(0, signX === 1 ? Math.PI/2 : -Math.PI/2, 0), userData: { isHandle: true } });
+            builder.addNode({ geometry: barrelGeo, materialOverride: metalMat, parent: hG, position: new THREE.Vector3((width/2 + 0.15) * -signX, 0, thickness/2 + 0.1), userData: { isHandle: true } });
+            hG.position.set(0, y, 0);
             hG.castShadow = true; group.add(hG); 
         }); 
         
         const strikeGeo = new THREE.BoxGeometry(0.1, 6, 2.5);
-        const strikePlate = new THREE.Mesh(strikeGeo, metalMat);
-        strikePlate.position.set((width/2 - 0.01) * signX, height * 0.5, 0);
-        strikePlate.userData.isHandle = true;
-        group.add(strikePlate);
+        builder.addNode({ geometry: strikeGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3((width/2 - 0.01) * signX, height * 0.5, 0), userData: { isHandle: true } });
     }
     return group;
 }
-
 export const WIDGET_REGISTRY = {
 
     'jali_panel': {
@@ -434,7 +431,8 @@ export const WIDGET_REGISTRY = {
         render3D: (sceneGroup, entity, helpers) => {
             let baseElev = entity.elevation || 0; let rawHeight = entity.height || 100;
             let bottomY = Math.max(0.2, baseElev); let topY = baseElev + rawHeight; let height = topY - bottomY;
-            const jaliGroup = new THREE.Group(); jaliGroup.position.set(entity.x, bottomY, entity.z); jaliGroup.rotation.y = -entity.angle;
+            const builder = new BIMComponentBuilder(entity, helpers);
+            const jaliGroup = builder.group; jaliGroup.position.set(entity.x, bottomY, entity.z); jaliGroup.rotation.y = -entity.angle;
             
             const mount = entity.jaliMount || 'flush';
             if (mount === 'recessed') jaliGroup.translateZ(-4);
@@ -456,19 +454,18 @@ export const WIDGET_REGISTRY = {
                 matBox = mm.box;
             }
             const frameW = 2; const fThick = entity.thick || 2;
-            const createBeveledFramePiece = (w, h) => {
+            const createBeveledFramePiece = (w, h, x, y, z) => {
                 const shape = new THREE.Shape();
                 shape.moveTo(-w/2, -h/2); shape.lineTo(w/2, -h/2); shape.lineTo(w/2, h/2); shape.lineTo(-w/2, h/2); shape.lineTo(-w/2, -h/2);
                 const extrudeSettings = { depth: fThick, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.1, bevelThickness: 0.1 };
                 const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
                 geo.translate(0, 0, -fThick/2);
-                return new THREE.Mesh(geo, matExtrude);
+                builder.addNode({ geometry: geo, materialOverride: matExtrude, parent: jaliGroup, position: new THREE.Vector3(x, y, z), castShadow: true, receiveShadow: true });
             };
-            const sl = createBeveledFramePiece(frameW, height); sl.position.set(-entity.width/2 + frameW/2, height/2, 0);
-            const sr = createBeveledFramePiece(frameW, height); sr.position.set(entity.width/2 - frameW/2, height/2, 0);
-            const rt = createBeveledFramePiece(entity.width - frameW*2, frameW); rt.position.set(0, height - frameW/2, 0);
-            const rb = createBeveledFramePiece(entity.width - frameW*2, frameW); rb.position.set(0, frameW/2, 0);
-            [sl, sr, rt, rb].forEach(m => { m.castShadow = true; m.receiveShadow = true; jaliGroup.add(m); });
+            createBeveledFramePiece(frameW, height, -entity.width/2 + frameW/2, height/2, 0);
+            createBeveledFramePiece(frameW, height, entity.width/2 - frameW/2, height/2, 0);
+            createBeveledFramePiece(entity.width - frameW*2, frameW, 0, height - frameW/2, 0);
+            createBeveledFramePiece(entity.width - frameW*2, frameW, 0, frameW/2, 0);
             const iW = entity.width - frameW*2; const iH = height - frameW*2; const lThick = fThick * 0.5;
             const latticeGroup = new THREE.Group(); latticeGroup.position.set(0, height/2, 0);
             
@@ -552,8 +549,7 @@ export const WIDGET_REGISTRY = {
                 const cols = Math.max(1, Math.round(iW / targetStep));
                 const stepX = iW / cols;
                 for (let c = 1; c < cols; c++) {
-                    const slat = new THREE.Mesh(new THREE.BoxGeometry(1.5, iH, lThick), matFrame);
-                    slat.position.set(-iW/2 + c * stepX, 0, 0); slat.castShadow = true; latticeGroup.add(slat);
+                    builder.addNode({ geometry: new THREE.BoxGeometry(1.5, iH, lThick), materialOverride: matFrame, parent: latticeGroup, position: new THREE.Vector3(-iW/2 + c * stepX, 0, 0), castShadow: true });
                 }
             } else {
                 const defaultStep = entity.jaliPattern === 'geometric' ? 6 : 8;
@@ -564,12 +560,10 @@ export const WIDGET_REGISTRY = {
                 const stepY = iH / rows;
                 
                 for (let c = 0; c < cols; c++) {
-                    const vBar = new THREE.Mesh(new THREE.BoxGeometry(1, iH, lThick), matBox);
-                    vBar.position.set(-iW/2 + (c + 0.5) * stepX, 0, 0); vBar.castShadow = true; latticeGroup.add(vBar);
+                    builder.addNode({ geometry: new THREE.BoxGeometry(1, iH, lThick), materialOverride: matBox, parent: latticeGroup, position: new THREE.Vector3(-iW/2 + (c + 0.5) * stepX, 0, 0), castShadow: true });
                 }
                 for (let r = 0; r < rows; r++) {
-                    const hBar = new THREE.Mesh(new THREE.BoxGeometry(iW, 1, lThick), matBox);
-                    hBar.position.set(0, -iH/2 + (r + 0.5) * stepY, 0); hBar.castShadow = true; latticeGroup.add(hBar);
+                    builder.addNode({ geometry: new THREE.BoxGeometry(iW, 1, lThick), materialOverride: matBox, parent: latticeGroup, position: new THREE.Vector3(0, -iH/2 + (r + 0.5) * stepY, 0), castShadow: true });
                 }
                 
                 if (entity.jaliPattern === 'islamic') {
@@ -579,20 +573,19 @@ export const WIDGET_REGISTRY = {
                         for (let r = 0; r < rows; r++) {
                             const cx = -iW/2 + (c + 0.5) * stepX;
                             const cy = -iH/2 + (r + 0.5) * stepY;
-                            const c1 = new THREE.Mesh(new THREE.BoxGeometry(diagLen, 0.5, lThick), matBox);
-                            c1.position.set(cx, cy, 0); c1.rotation.z = angle; c1.castShadow = true; latticeGroup.add(c1);
-                            const c2 = new THREE.Mesh(new THREE.BoxGeometry(diagLen, 0.5, lThick), matBox);
-                            c2.position.set(cx, cy, 0); c2.rotation.z = -angle; c2.castShadow = true; latticeGroup.add(c2);
+                            builder.addNode({ geometry: new THREE.BoxGeometry(diagLen, 0.5, lThick), materialOverride: matBox, parent: latticeGroup, position: new THREE.Vector3(cx, cy, 0), rotation: new THREE.Euler(0, 0, angle), castShadow: true });
+                            builder.addNode({ geometry: new THREE.BoxGeometry(diagLen, 0.5, lThick), materialOverride: matBox, parent: latticeGroup, position: new THREE.Vector3(cx, cy, 0), rotation: new THREE.Euler(0, 0, -angle), castShadow: true });
                         }
                     }
                 }
             }
             jaliGroup.add(latticeGroup);
             const hitboxGeo = new THREE.BoxGeometry(entity.width + 10, height + 10, (entity.thick || 20) + 10);
-            const hitbox = new THREE.Mesh(hitboxGeo, new THREE.MeshBasicMaterial({transparent: true, opacity: 0, depthWrite: false}));
-            hitbox.position.set(0, height/2, 0); jaliGroup.add(hitbox);
-            jaliGroup.userData = { isWidget: true, entity: entity }; sceneGroup.add(jaliGroup);
-            return jaliGroup;
+            builder.addNode({ geometry: hitboxGeo, parent: jaliGroup, position: new THREE.Vector3(0, height/2, 0), isHitbox: true });
+            jaliGroup.userData = { isWidget: true, entity: entity };
+            const finalGroup = builder.build();
+            sceneGroup.add(finalGroup);
+            return finalGroup;
         }
     },
     'door': {
@@ -635,7 +628,8 @@ export const WIDGET_REGISTRY = {
             let baseElev = entity.elevation || 0;
             let height = entity.height || DOOR_HEIGHT;
             let bottomY = baseElev;
-            const doorGroup = new THREE.Group(); 
+            const builder = new BIMComponentBuilder(entity, helpers);
+            const doorGroup = builder.group; 
             if (entity.localX !== undefined) {
                 doorGroup.position.set(entity.localX, bottomY, 0);
                 doorGroup.rotation.y = 0;
@@ -663,14 +657,6 @@ export const WIDGET_REGISTRY = {
             
             // Helper to tag frame meshes so GizmoManager knows it's the frame
             const metalMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8, roughness: 0.2 });
-            const tagFrame = (mesh) => {
-                if (Array.isArray(mesh)) {
-                    mesh.forEach(m => m.userData = { ...m.userData, isFrame: true });
-                } else {
-                    mesh.userData = { ...mesh.userData, isFrame: true };
-                }
-                return mesh;
-            };
             const createBeveledExtrude = (w, h, d, b=0.04) => { // 0.04 units ~ 1mm bevel for realism
                 const wAdj = Math.max(0.01, w - b*2);
                 const hAdj = Math.max(0.01, h - b*2);
@@ -707,22 +693,14 @@ export const WIDGET_REGISTRY = {
                 const thresholdW = entity.width - jambW * 2;
                 const tDepth = frameThick; // flush with frame
                 const thresholdGeo = rotateUvs(createBeveledExtrude(thresholdW, tHeight, tDepth, 0.03));
-                const threshold = tagFrame(new THREE.Mesh(thresholdGeo, matFrame)); // MATCH FRAME WOOD
-                threshold.position.set(0, -bottomY + tHeight/2, 0);
-                threshold.receiveShadow = true; threshold.castShadow = true;
-                threshold.userData = { ...threshold.userData, isThreshold: true };
-                doorGroup.add(threshold);
+                builder.addNode({ geometry: thresholdGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, position: new THREE.Vector3(0, -bottomY + tHeight/2, 0), castShadow: true, receiveShadow: true, userData: { isThreshold: true, isFrame: true } });
             }
             
             // Sill plate — fills the below-floor gap in the wall cutout (wallBottom=-1 to floor=0)
             const sillHeight = 1.0; 
             const totalFrameW = entity.width + archW * 2 - jambW * 2;
             const sillGeo = rotateUvs(createBeveledExtrude(totalFrameW, sillHeight, frameThick, 0.01));
-            const sillPlate = new THREE.Mesh(sillGeo, matFrame); // MATCH FRAME WOOD
-            sillPlate.position.set(0, -bottomY - sillHeight/2, 0);
-            sillPlate.receiveShadow = true;
-            sillPlate.userData = { isFrame: true, isSillPlate: true };
-            doorGroup.add(sillPlate);
+            builder.addNode({ geometry: sillGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, position: new THREE.Vector3(0, -bottomY - sillHeight/2, 0), receiveShadow: true, userData: { isSillPlate: true, isFrame: true } });
             
             const slWidth = (entity.hasSidelights && (!entity.doorShape || entity.doorShape === 'square') && !['pocket', 'sliding'].includes(entity.doorType)) ? Math.min(60, entity.width * 0.22) : 0;
             const leafWidth = entity.width - (frameWidth * 2) - (gapSide * 2) - (slWidth * 2); const leafHeight = height - frameWidth - gapTop - gapBottom;
@@ -743,11 +721,9 @@ export const WIDGET_REGISTRY = {
             const cShadowTex = new THREE.CanvasTexture(cShadowCanvas);
             const cShadowMat = new THREE.MeshBasicMaterial({ map: cShadowTex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
             const cShadowGeo = new THREE.PlaneGeometry(leafWidth + 2, doorThick + 2);
-            const contactShadow = new THREE.Mesh(cShadowGeo, cShadowMat);
+            const contactShadow = builder.addNode({ geometry: cShadowGeo, materialOverride: cShadowMat, parent: doorGroup, isHitbox: false, castShadow: false, receiveShadow: false, userData: { isShadow: true } });
             contactShadow.rotation.x = -Math.PI / 2;
             contactShadow.position.set(0, -bottomY + 0.02, 0);
-            contactShadow.userData = { isShadow: true };
-            doorGroup.add(contactShadow);
             
             if (entity.doorType !== 'pocket') {
                 const shapeType = entity.doorShape || 'square';
@@ -756,11 +732,10 @@ export const WIDGET_REGISTRY = {
                     const jamHeight = height + bottomY;
                     const jamY = jamHeight/2 - bottomY;
                     const jamGeo = createBeveledExtrude(jambW, jamHeight, frameThick); 
-                    const jamL = tagFrame(new THREE.Mesh(jamGeo, matFrame)); jamL.position.set(-entity.width/2 + jambW/2, jamY, 0); 
-                    const jamR = tagFrame(new THREE.Mesh(jamGeo, matFrame)); jamR.position.set(entity.width/2 - jambW/2, jamY, 0); 
+                    const jamL = builder.addNode({ geometry: jamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); jamL.position.set(-entity.width/2 + jambW/2, jamY, 0); 
+                    const jamR = builder.addNode({ geometry: jamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); jamR.position.set(entity.width/2 - jambW/2, jamY, 0); 
                     const jamTGeo = rotateUvs(createBeveledExtrude(entity.width - jambW*2, jambW, frameThick)); 
-                    const jamT = tagFrame(new THREE.Mesh(jamTGeo, matFrame)); jamT.position.set(0, height - jambW/2, 0);
-                    [jamL, jamR, jamT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); });
+                    const jamT = builder.addNode({ geometry: jamTGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); jamT.position.set(0, height - jambW/2, 0);
                     
                     // Stops (Rebate) & Gasket
                     const swingDir = entity.facing === 1 ? 1 : -1;
@@ -769,20 +744,18 @@ export const WIDGET_REGISTRY = {
                     const stopH = (height - jambW) - stopBottom;
                     const stopY = stopBottom + stopH/2;
                     const stopGeoV = createBeveledExtrude(stopW, stopH, stopThick, 0.02); 
-                    const stopL = tagFrame(new THREE.Mesh(stopGeoV, matFrame)); stopL.position.set(-entity.width/2 + jambW + stopW/2, stopY, stopZ); 
-                    const stopR = tagFrame(new THREE.Mesh(stopGeoV, matFrame)); stopR.position.set(entity.width/2 - jambW - stopW/2, stopY, stopZ);
+                    const stopL = builder.addNode({ geometry: stopGeoV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); stopL.position.set(-entity.width/2 + jambW + stopW/2, stopY, stopZ); 
+                    const stopR = builder.addNode({ geometry: stopGeoV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); stopR.position.set(entity.width/2 - jambW - stopW/2, stopY, stopZ);
                     const stopGeoH = rotateUvs(createBeveledExtrude(entity.width - jambW*2 - stopW*2, stopW, stopThick, 0.02)); 
-                    const stopT = tagFrame(new THREE.Mesh(stopGeoH, matFrame)); stopT.position.set(0, height - jambW - stopW/2, stopZ);
-                    [stopL, stopR, stopT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); });
+                    const stopT = builder.addNode({ geometry: stopGeoH, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); stopT.position.set(0, height - jambW - stopW/2, stopZ);
                     
                     const gasketMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 }); 
                     const gaskGeo = new THREE.BoxGeometry(0.1, stopH, 0.1); 
-                    const gaskL = tagFrame(new THREE.Mesh(gaskGeo, gasketMat)); gaskL.position.set(-entity.width/2 + jambW + stopW + 0.05, stopY, doorThick/2 + 0.05); 
-                    const gaskR = tagFrame(new THREE.Mesh(gaskGeo, gasketMat)); gaskR.position.set(entity.width/2 - jambW - stopW - 0.05, stopY, doorThick/2 + 0.05); 
+                    const gaskL = builder.addNode({ geometry: gaskGeo, materialOverride: gasketMat, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } }); gaskL.position.set(-entity.width/2 + jambW + stopW + 0.05, stopY, doorThick/2 + 0.05); 
+                    const gaskR = builder.addNode({ geometry: gaskGeo, materialOverride: gasketMat, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } }); gaskR.position.set(entity.width/2 - jambW - stopW - 0.05, stopY, doorThick/2 + 0.05); 
                     const gaskGeoH = new THREE.BoxGeometry(entity.width - jambW*2 - stopW*2, 0.1, 0.1); 
-                    const gaskT = tagFrame(new THREE.Mesh(gaskGeoH, gasketMat)); gaskT.position.set(0, height - jambW - stopW - 0.05, doorThick/2 + 0.05);
-                    [gaskL, gaskR, gaskT].forEach(m => doorGroup.add(m));
-
+                    const gaskT = builder.addNode({ geometry: gaskGeoH, materialOverride: gasketMat, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } }); gaskT.position.set(0, height - jambW - stopW - 0.05, doorThick/2 + 0.05);
+                    
                     // Architraves (Clean Butt Joints)
                     const archHeight = height + bottomY;
                     const archY = archHeight/2 - bottomY;
@@ -790,31 +763,26 @@ export const WIDGET_REGISTRY = {
                     const archHgeo = rotateUvs(createBeveledExtrude(entity.width + archW*2, archW, archThick));
                     
                     [-frameThick/2 - archThick/2 + 0.05, frameThick/2 + archThick/2 - 0.05].forEach(zOff => { 
-                        const tL = tagFrame(new THREE.Mesh(archV, matFrame)); tL.position.set(-entity.width/2 - archW/2 + jambW, archY, zOff); 
-                        const tR = tagFrame(new THREE.Mesh(archV, matFrame)); tR.position.set(entity.width/2 + archW/2 - jambW, archY, zOff); 
-                        const tT = tagFrame(new THREE.Mesh(archHgeo, matFrame)); tT.position.set(0, height + archW/2, zOff); 
-                        
-                        [tL, tR, tT].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); }); 
+                        const tL = builder.addNode({ geometry: archV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); tL.position.set(-entity.width/2 - archW/2 + jambW, archY, zOff); 
+                        const tR = builder.addNode({ geometry: archV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); tR.position.set(entity.width/2 + archW/2 - jambW, archY, zOff); 
+                        const tT = builder.addNode({ geometry: archHgeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); tT.position.set(0, height + archW/2, zOff); 
                     });
                     
                     if (slWidth > 0) {
                         const innerJamGeo = createBeveledExtrude(jambW, height - jambW + bottomY, frameThick);
-                        const iJamL = tagFrame(new THREE.Mesh(innerJamGeo, matFrame)); iJamL.position.set(-entity.width/2 + jambW + slWidth - jambW/2, (height - jambW + bottomY)/2 - bottomY, 0);
-                        const iJamR = tagFrame(new THREE.Mesh(innerJamGeo, matFrame)); iJamR.position.set(entity.width/2 - jambW - slWidth + jambW/2, (height - jambW + bottomY)/2 - bottomY, 0);
-                        [iJamL, iJamR].forEach(m => { m.castShadow = true; m.receiveShadow = true; doorGroup.add(m); });
+                        const iJamL = builder.addNode({ geometry: innerJamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); iJamL.position.set(-entity.width/2 + jambW + slWidth - jambW/2, (height - jambW + bottomY)/2 - bottomY, 0);
+                        const iJamR = builder.addNode({ geometry: innerJamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); iJamR.position.set(entity.width/2 - jambW - slWidth + jambW/2, (height - jambW + bottomY)/2 - bottomY, 0);
                         
                         const slGlassW = slWidth - jambW;
                         const slBotGeo = createBeveledExtrude(slGlassW, 5, frameThick);
-                        const slBotL = tagFrame(new THREE.Mesh(slBotGeo, matFrame)); slBotL.position.set(-entity.width/2 + jambW + slGlassW/2, 2.5, 0);
-                        const slBotR = tagFrame(new THREE.Mesh(slBotGeo, matFrame)); slBotR.position.set(entity.width/2 - jambW - slGlassW/2, 2.5, 0);
-                        [slBotL, slBotR].forEach(m => doorGroup.add(m));
+                        const slBotL = builder.addNode({ geometry: slBotGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } }); slBotL.position.set(-entity.width/2 + jambW + slGlassW/2, 2.5, 0);
+                        const slBotR = builder.addNode({ geometry: slBotGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } }); slBotR.position.set(entity.width/2 - jambW - slGlassW/2, 2.5, 0);
                         
                         const glassMatKey = entity.materials?.[MaterialSlots.GLASS]?.id || 'glass_clear';
                         const glassMat = helpers.getDynamicMaterial(glassMatKey, 'door');
                         const slGlassGeo = new THREE.BoxGeometry(slGlassW, height - jambW - 5, 0.4);
-                        const glassL = new THREE.Mesh(slGlassGeo, glassMat); glassL.position.set(-entity.width/2 + jambW + slGlassW/2, 5 + (height - jambW - 5)/2, 0);
-                        const glassR = new THREE.Mesh(slGlassGeo, glassMat); glassR.position.set(entity.width/2 - jambW - slGlassW/2, 5 + (height - jambW - 5)/2, 0);
-                        doorGroup.add(glassL, glassR);
+                        const glassL = builder.addNode({ geometry: slGlassGeo, materialOverride: glassMat, slot: MaterialSlots.GLASS, parent: doorGroup, userData: { isGlass: true } }); glassL.position.set(-entity.width/2 + jambW + slGlassW/2, 5 + (height - jambW - 5)/2, 0);
+                        const glassR = builder.addNode({ geometry: slGlassGeo, materialOverride: glassMat, slot: MaterialSlots.GLASS, parent: doorGroup, userData: { isGlass: true } }); glassR.position.set(entity.width/2 - jambW - slGlassW/2, 5 + (height - jambW - 5)/2, 0);
                     }
                 } else {
                     const createArchedFrameShape = (wOuter, hOuter, wInner, hInner, type) => {
@@ -866,31 +834,29 @@ export const WIDGET_REGISTRY = {
                     const frameShape = createArchedFrameShape(entity.width, height, entity.width - (frameWidth * 2), height - frameWidth, shapeType);
                     const jamGeo = new THREE.ExtrudeGeometry(frameShape, { depth: frameThick, bevelEnabled: false });
                     jamGeo.translate(0, 0, -frameThick/2);
-                    const jam = tagFrame(new THREE.Mesh(jamGeo, matFrame));
+                    const jam = builder.addNode({ geometry: jamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } });
                     jam.position.set(0, 0, 0);
-                    jam.castShadow = true; jam.receiveShadow = true; doorGroup.add(jam);
                     
                     [-frameThick/2 - 0.25, frameThick/2 + 0.25].forEach(zOff => {
                         const trimShape = createArchedFrameShape(entity.width + 8, height + 4, entity.width - (frameWidth * 2), height - frameWidth, shapeType);
                         const trimGeo = new THREE.ExtrudeGeometry(trimShape, { depth: 0.5, bevelEnabled: false });
                         trimGeo.translate(0, 0, -0.25);
-                        const trim = tagFrame(new THREE.Mesh(trimGeo, matFrame));
+                        const trim = builder.addNode({ geometry: trimGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } });
                         trim.position.set(0, 0, zOff);
-                        trim.castShadow = true; trim.receiveShadow = true; doorGroup.add(trim);
                     });
                 }
             }
             if (entity.doorType === 'single') {
                 const hingeHolder = new THREE.Group(); 
                 if (entity.side === 1) { 
-                    const panel = buildDetailedDoorPanel(entity, leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, -1, helpers); 
+                    const panel = buildDetailedDoorPanel(entity, leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, -1, helpers, builder); 
                     hingeHolder.position.set(-(pivotXOffset + gapSide/2), gapBottom, hingePinZ); 
                     panel.position.set(-leafWidth/2, 0, -hingePinZ); 
                     hingeHolder.rotation.y = -openAngle; 
                     hingeHolder.userData = { isMovingPart: true, motionType: 'rotate', baseRotation: 0, motionSign: -(entity.facing === 1 ? 1 : -1) };
                     hingeHolder.add(panel);
                 } else { 
-                    const panel = buildDetailedDoorPanel(entity, leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); 
+                    const panel = buildDetailedDoorPanel(entity, leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers, builder); 
                     hingeHolder.position.set(pivotXOffset + gapSide/2, gapBottom, hingePinZ); 
                     panel.position.set(leafWidth/2, 0, -hingePinZ); 
                     hingeHolder.rotation.y = openAngle; 
@@ -902,35 +868,34 @@ export const WIDGET_REGISTRY = {
                 const hw = leafWidth / 2 - gapSide/2; 
                 const hL = new THREE.Group(); hL.position.set(pivotXOffset + gapSide/2, gapBottom, hingePinZ); hL.rotation.y = openAngle; 
                 hL.userData = { isMovingPart: true, motionType: 'rotate', baseRotation: 0, motionSign: (entity.facing === 1 ? 1 : -1) };
-                const panelL = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); 
+                const panelL = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers, builder); 
                 panelL.position.set(hw/2, 0, -hingePinZ); hL.add(panelL);
                 
                 const hR = new THREE.Group(); hR.position.set(-(pivotXOffset + gapSide/2), gapBottom, hingePinZ); hR.rotation.y = -openAngle;
                 hR.userData = { isMovingPart: true, motionType: 'rotate', baseRotation: 0, motionSign: -(entity.facing === 1 ? 1 : -1) };
-                const panelR = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, -1, helpers); 
+                const panelR = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, -1, helpers, builder); 
                 panelR.position.set(-hw/2, 0, -hingePinZ); hR.add(panelR);
                 
                 const isLeftActive = entity.side === -1;
                 const inactivePanel = isLeftActive ? panelR : panelL;
                 const astragalW = 1.0; const astragalThick = 0.5;
                 const astragalGeo = createBeveledExtrude(astragalW, leafHeight, astragalThick, 0.04);
-                const astragal = new THREE.Mesh(astragalGeo, matFrame);
+                const astragal = builder.addNode({ geometry: astragalGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: inactivePanel, castShadow: true, userData: { isFrame: true } });
                 const astX = isLeftActive ? -hw/2 : hw/2;
                 astragal.position.set(astX, leafHeight/2, doorThick/2 + astragalThick/2);
-                astragal.castShadow = true; inactivePanel.add(astragal);
                 
                 doorGroup.add(hL, hR);
             } else if (entity.doorType === 'sliding' || entity.doorType === 'double_sliding') {
                 const trackMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.6, roughness: 0.5 }); const trackW = doorThick * 2.5; const trackGeo = new THREE.BoxGeometry(leafWidth, 0.5, trackW); 
-                const trackT = new THREE.Mesh(trackGeo, trackMat); trackT.position.set(0, height - frameWidth - 0.25, 0); const trackB = new THREE.Mesh(trackGeo, trackMat); trackB.position.set(0, gapBottom - 0.25, 0); doorGroup.add(trackT, trackB);
+                const trackT = builder.addNode({ geometry: trackGeo, materialOverride: trackMat, slot: MaterialSlots.HARDWARE, parent: doorGroup }); trackT.position.set(0, height - frameWidth - 0.25, 0); const trackB = builder.addNode({ geometry: trackGeo, materialOverride: trackMat, slot: MaterialSlots.HARDWARE, parent: doorGroup }); trackB.position.set(0, gapBottom - 0.25, 0); 
                 const overlap = 2; 
                 if (entity.doorType === 'sliding') {
                     const hw = (leafWidth / 2) + (overlap / 2);
                     const maxSlide = hw - overlap;
                     const openPercent = entity.openAngle !== undefined ? entity.openAngle / 180 : 0;
                     const slideAmount = maxSlide * openPercent;
-                    const pFixed = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); pFixed.position.set(hw/2 - overlap/2, gapBottom, -doorThick/2 - 0.1); doorGroup.add(pFixed);
-                    const pSlide = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, -1, helpers); pSlide.position.set(-hw/2 + overlap/2 + slideAmount, gapBottom, doorThick/2 + 0.1); 
+                    const pFixed = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers, builder); pFixed.position.set(hw/2 - overlap/2, gapBottom, -doorThick/2 - 0.1); doorGroup.add(pFixed);
+                    const pSlide = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, -1, helpers, builder); pSlide.position.set(-hw/2 + overlap/2 + slideAmount, gapBottom, doorThick/2 + 0.1); 
                     pSlide.userData = { isMovingPart: true, motionType: 'slide', baseX: -hw/2 + overlap/2, maxSlide: maxSlide };
                     doorGroup.add(pSlide);
                 } else {
@@ -938,11 +903,11 @@ export const WIDGET_REGISTRY = {
                     const maxSlide = hw - overlap;
                     const openPercent = entity.openAngle !== undefined ? entity.openAngle / 180 : 0;
                     const slideAmount = maxSlide * openPercent;
-                    const pFixL = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 0, helpers); pFixL.position.set(-leafWidth/2 + hw/2, gapBottom, -doorThick/2 - 0.1);
-                    const pFixR = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 0, helpers); pFixR.position.set(leafWidth/2 - hw/2, gapBottom, -doorThick/2 - 0.1);
-                    const pSlideL = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, -1, helpers); pSlideL.position.set(-leafWidth/4 + overlap/2 + slideAmount, gapBottom, doorThick/2 + 0.1); 
+                    const pFixL = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 0, helpers, builder); pFixL.position.set(-leafWidth/2 + hw/2, gapBottom, -doorThick/2 - 0.1);
+                    const pFixR = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 0, helpers, builder); pFixR.position.set(leafWidth/2 - hw/2, gapBottom, -doorThick/2 - 0.1);
+                    const pSlideL = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, -1, helpers, builder); pSlideL.position.set(-leafWidth/4 + overlap/2 + slideAmount, gapBottom, doorThick/2 + 0.1); 
                     pSlideL.userData = { isMovingPart: true, motionType: 'slide', baseX: -leafWidth/4 + overlap/2, maxSlide: -(hw - overlap) };
-                    const pSlideR = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); pSlideR.position.set(leafWidth/4 - overlap/2 - slideAmount, gapBottom, doorThick/2 + 0.1);
+                    const pSlideR = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers, builder); pSlideR.position.set(leafWidth/4 - overlap/2 - slideAmount, gapBottom, doorThick/2 + 0.1);
                     pSlideR.userData = { isMovingPart: true, motionType: 'slide', baseX: leafWidth/4 - overlap/2, maxSlide: (hw - overlap) };
                     doorGroup.add(pFixL, pFixR, pSlideL, pSlideR);
                 }
@@ -960,20 +925,20 @@ export const WIDGET_REGISTRY = {
                 
                 // 1. Strike Jamb (opposite of pocket)
                 const jamGeoStrike = createBeveledExtrude(frameWidth, height + bottomY, frameThick);
-                const jamStrike = tagFrame(new THREE.Mesh(jamGeoStrike, matFrame));
+                const jamStrike = builder.addNode({ geometry: jamGeoStrike, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } });
                 jamStrike.position.set(strikeX, (height + bottomY)/2 - bottomY, 0);
                 
                 // 2. Split Jamb (Pocket Entrance)
                 const splitJambThick = (frameThick - pocketDoorThick - 0.24) / 2; // ~3mm reveal clearance each side
                 const splitGeo = createBeveledExtrude(frameWidth, height + bottomY, splitJambThick);
-                const jamR_front = tagFrame(new THREE.Mesh(splitGeo, matFrame));
+                const jamR_front = builder.addNode({ geometry: splitGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } });
                 jamR_front.position.set(pocketX, (height + bottomY)/2 - bottomY, frameThick/2 - splitJambThick/2);
-                const jamR_back = tagFrame(new THREE.Mesh(splitGeo, matFrame));
+                const jamR_back = builder.addNode({ geometry: splitGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } });
                 jamR_back.position.set(pocketX, (height + bottomY)/2 - bottomY, -frameThick/2 + splitJambThick/2);
                 
                 // 3. Head Track (Spans across the passage)
                 const headGeo = rotateUvs(createBeveledExtrude(passageW - frameWidth*2, frameWidth, frameThick));
-                const head = tagFrame(new THREE.Mesh(headGeo, matFrame));
+                const head = builder.addNode({ geometry: headGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } });
                 head.position.set(0, height - frameWidth/2, 0);
                 
                 // 4. Internal AO Contact Shadow plane inside pocket
@@ -985,15 +950,13 @@ export const WIDGET_REGISTRY = {
                     pCtx.fillStyle = grad; pCtx.fillRect(0, 0, 32, 256);
                 }
                 const pTex = new THREE.CanvasTexture(pocketShadowCanvas);
-                const pShadowPlane = new THREE.Mesh(new THREE.PlaneGeometry(8, height), new THREE.MeshBasicMaterial({ map: pTex, transparent: true, depthWrite: false }));
+                const pShadowPlane = builder.addNode({ geometry: new THREE.PlaneGeometry(8, height), materialOverride: new THREE.MeshBasicMaterial({ map: pTex, transparent: true, depthWrite: false }), parent: doorGroup, castShadow: false, receiveShadow: false, isHitbox: false, userData: { isShadow: true } });
                 pShadowPlane.position.set(pocketX + (slideDir * 3), height/2, 0);
-                
-                doorGroup.add(jamStrike, jamR_front, jamR_back, head, pShadowPlane);
                 
                 // 5. Pocket Door Panel
                 // When closed, edge touches strike jamb perfectly
                 const strikeInnerX = -slideDir * (passageW/2 - frameWidth);
-                const p = buildDetailedDoorPanel(entity, pLeafW, pLeafH, pocketDoorThick, matDoor, entity.doorType, isGlassDoor, -slideDir, helpers); 
+                const p = buildDetailedDoorPanel(entity, pLeafW, pLeafH, pocketDoorThick, matDoor, entity.doorType, isGlassDoor, -slideDir, helpers, builder); 
                 const openPercent = entity.openAngle !== undefined ? entity.openAngle / 180 : 0;
                 const baseX = strikeInnerX + slideDir * (pLeafW / 2);
                 const maxSlide = slideDir * widthBetweenJambs;
@@ -1002,49 +965,37 @@ export const WIDGET_REGISTRY = {
                 p.userData = { isMovingPart: true, motionType: 'slide', baseX: baseX, maxSlide: maxSlide };
                 doorGroup.add(p);
             } else if (entity.doorType === 'pivot') {
-                const p = buildDetailedDoorPanel(entity, leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers); const off = leafWidth * 0.15; p.position.set(leafWidth/2 - off, gapBottom, 0);
+                const p = buildDetailedDoorPanel(entity, leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers, builder); const off = leafWidth * 0.15; p.position.set(leafWidth/2 - off, gapBottom, 0);
                 const pivot = new THREE.Group(); const signX = entity.side === 1 ? 1 : -1; pivot.position.set(pivotXOffset + off, 0, 0); pivot.rotation.y = -openAngle * signX; pivot.add(p);
                 pivot.userData = { isMovingPart: true, motionType: 'rotate', baseRotation: 0, motionSign: -signX * (entity.facing === 1 ? 1 : -1) };
                 doorGroup.add(pivot);
-                const plateGeo = new THREE.CylinderGeometry(1.5, 1.5, 0.5, 16); const floorPlate = new THREE.Mesh(plateGeo, metalMat); floorPlate.position.set(pivotXOffset + off, 0.2, 0); const topPlate = new THREE.Mesh(plateGeo, metalMat); topPlate.position.set(pivotXOffset + off, height - 0.2, 0); doorGroup.add(floorPlate, topPlate);
+                const plateGeo = new THREE.CylinderGeometry(1.5, 1.5, 0.5, 16); const floorPlate = builder.addNode({ geometry: plateGeo, materialOverride: metalMat, slot: MaterialSlots.HARDWARE, parent: doorGroup }); floorPlate.position.set(pivotXOffset + off, 0.2, 0); const topPlate = builder.addNode({ geometry: plateGeo, materialOverride: metalMat, slot: MaterialSlots.HARDWARE, parent: doorGroup }); topPlate.position.set(pivotXOffset + off, height - 0.2, 0); 
             } else if (entity.doorType === 'folding') {
                 const numPanels = 2;
-                const trackGeo = new THREE.BoxGeometry(entity.width - frameWidth*2, 1.5, doorThick + 1); const track = new THREE.Mesh(trackGeo, metalMat); track.position.set(0, height - frameWidth/2 - 0.75, 0); doorGroup.add(track);
+                const trackGeo = new THREE.BoxGeometry(entity.width - frameWidth*2, 1.5, doorThick + 1); const track = builder.addNode({ geometry: trackGeo, materialOverride: metalMat, slot: MaterialSlots.HARDWARE, parent: doorGroup }); track.position.set(0, height - frameWidth/2 - 0.75, 0); 
                 const panelW = (leafWidth - (gapSide * (numPanels - 1))) / numPanels; const swingDir = entity.facing === 1 ? 1 : -1; const isRightHinge = entity.side === 1; const signX = isRightHinge ? 1 : -1;
                 
                 const pivot1 = new THREE.Group(); pivot1.position.set(pivotXOffset * -signX, gapBottom, hingePinZ); 
                 pivot1.rotation.y = baseOpenAngle * (entity.facing === 1 ? 1 : -1); 
                 pivot1.userData = { isMovingPart: true, motionType: 'bifold_main', motionSign: (entity.facing === 1 ? 1 : -1) };
                 doorGroup.add(pivot1);
-                const p1HingeSide = isRightHinge ? -1 : 1; const p1 = buildDetailedDoorPanel(entity, panelW, leafHeight, doorThick, matDoor, 'folding_main', isGlassDoor, p1HingeSide, helpers); p1.position.set((panelW/2 + gapSide/2) * -signX, 0, -hingePinZ * swingDir); pivot1.add(p1);
+                const p1HingeSide = isRightHinge ? -1 : 1; const p1 = buildDetailedDoorPanel(entity, panelW, leafHeight, doorThick, matDoor, 'folding_main', isGlassDoor, p1HingeSide, helpers, builder); p1.position.set((panelW/2 + gapSide/2) * -signX, 0, -hingePinZ * swingDir); pivot1.add(p1);
                 
                 const pivot2 = new THREE.Group(); pivot2.position.set((panelW + gapSide) * -signX, 0, 0); 
                 pivot2.rotation.y = -baseOpenAngle * 2 * (entity.facing === 1 ? 1 : -1); 
                 pivot2.userData = { isMovingPart: true, motionType: 'bifold_lead', motionSign: -2 * (entity.facing === 1 ? 1 : -1) };
                 pivot1.add(pivot2);
-                const p2 = buildDetailedDoorPanel(entity, panelW, leafHeight, doorThick, matDoor, 'folding_lead', isGlassDoor, p1HingeSide, helpers); p2.position.set((panelW/2 + gapSide/2) * -signX, 0, 0); pivot2.add(p2);
-                const jointHingeGeo = new THREE.CylinderGeometry(0.3, 0.3, 3, 12); [leafHeight * 0.85, leafHeight * 0.5, leafHeight * 0.15].forEach(yPos => { const hingeMesh = new THREE.Mesh(jointHingeGeo, metalMat); hingeMesh.position.set(0, yPos, (doorThick/2 + 0.1) * swingDir); pivot2.add(hingeMesh); });
-                const guidePin = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 3, 8), metalMat); guidePin.position.set((panelW - 2) * -signX, leafHeight, 0); p2.add(guidePin); p1.add(pivot2);
+                const p2 = buildDetailedDoorPanel(entity, panelW, leafHeight, doorThick, matDoor, 'folding_lead', isGlassDoor, p1HingeSide, helpers, builder); p2.position.set((panelW/2 + gapSide/2) * -signX, 0, 0); pivot2.add(p2);
+                const jointHingeGeo = new THREE.CylinderGeometry(0.3, 0.3, 3, 12); [leafHeight * 0.85, leafHeight * 0.5, leafHeight * 0.15].forEach(yPos => { const hingeMesh = builder.addNode({ geometry: jointHingeGeo, materialOverride: metalMat, slot: MaterialSlots.HARDWARE, parent: pivot2 }); hingeMesh.position.set(0, yPos, (doorThick/2 + 0.1) * swingDir); });
+                const guidePin = builder.addNode({ geometry: new THREE.CylinderGeometry(0.4, 0.4, 3, 8), materialOverride: metalMat, slot: MaterialSlots.HARDWARE, parent: p2 }); guidePin.position.set((panelW - 2) * -signX, leafHeight, 0); p1.add(pivot2);
             }
             const hitboxGeo = new THREE.BoxGeometry(entity.width + 10, height + 10, (entity.thick || 20) + 10);
-            const hitbox = new THREE.Mesh(hitboxGeo, new THREE.MeshBasicMaterial({transparent: true, opacity: 0, depthWrite: false}));
+            const hitbox = builder.addNode({ geometry: hitboxGeo, materialOverride: new THREE.MeshBasicMaterial({transparent: true, opacity: 0, depthWrite: false}), parent: doorGroup, isHitbox: true, castShadow: false, receiveShadow: false });
             hitbox.position.set(0, height/2, 0);
-            doorGroup.add(hitbox);
             doorGroup.userData = { isWidget: true, entity: entity };
-            doorGroup.traverse(child => {
-                if (child && child.isMesh && !child.userData?.isHitbox) {
-                    child.userData.entity = entity;
-                    const isFrame = Boolean(child.userData?.isFrame);
-                    const isGlass = Boolean(child.userData?.isGlass);
-                    const isHandle = Boolean(child.userData?.isHandle);
-                    let slotName = child.userData?.materialSlot || (isFrame ? MaterialSlots.FRAME : (isGlass ? MaterialSlots.GLASS : (isHandle ? MaterialSlots.HARDWARE : MaterialSlots.LEAF)));
-                    child.userData.materialSlot = slotName;
-                    
-                    ComponentRegistry.registerMesh(entity, slotName, child, { componentId: `${entity.id}_${slotName}` });
-                }
-            });
-            sceneGroup.add(doorGroup);
-            return doorGroup;
+            const finalGroup = builder.build();
+            sceneGroup.add(finalGroup);
+            return finalGroup;
         }
     },
     'window': {
@@ -1119,7 +1070,8 @@ export const WIDGET_REGISTRY = {
             let bottomY = Math.max(0.2, baseElev);
             let topY = baseElev + rawHeight;
             let height = topY - bottomY;
-            const winGroup = new THREE.Group(); 
+            const builder = new BIMComponentBuilder(entity, helpers);
+            const winGroup = builder.group;
             if (entity.localX !== undefined) {
                 winGroup.position.set(entity.localX, bottomY, 0);
                 winGroup.rotation.y = 0;
@@ -1315,33 +1267,24 @@ export const WIDGET_REGISTRY = {
                 const geoStileL = createMiterStileLeftGeo(totalH, fW, fThick);
                 const geoStileR = createMiterStileRightGeo(totalH, fW, fThick);
 
-                const stileL = new THREE.Mesh(geoStileL, matsExtrude); stileL.position.set(-totalW / 2 + fW / 2, totalH / 2, 0);
-                const stileR = new THREE.Mesh(geoStileR, matsExtrude); stileR.position.set(totalW / 2 - fW / 2, totalH / 2, 0);
-                const railT = new THREE.Mesh(geoRailT, matsExtrude); railT.position.set(0, totalH - fW / 2, 0);
-                const railB = new THREE.Mesh(geoRailB, matsExtrude); railB.position.set(0, fW / 2, 0);
-
-                [stileL, stileR, railT, railB].forEach(m => {
-                    m.castShadow = true; m.receiveShadow = true; m.userData = { isFrame: true };
-                    frameGroup.add(m);
-                });
+                const stileL = builder.addNode({ geometry: geoStileL, materialOverride: matsExtrude, parent: frameGroup, slot: MaterialSlots.FRAME, position: [-totalW / 2 + fW / 2, totalH / 2, 0], userData: { isFrame: true }, castShadow: true, receiveShadow: true });
+                const stileR = builder.addNode({ geometry: geoStileR, materialOverride: matsExtrude, parent: frameGroup, slot: MaterialSlots.FRAME, position: [totalW / 2 - fW / 2, totalH / 2, 0], userData: { isFrame: true }, castShadow: true, receiveShadow: true });
+                const railT = builder.addNode({ geometry: geoRailT, materialOverride: matsExtrude, parent: frameGroup, slot: MaterialSlots.FRAME, position: [0, totalH - fW / 2, 0], userData: { isFrame: true }, castShadow: true, receiveShadow: true });
+                const railB = builder.addNode({ geometry: geoRailB, materialOverride: matsExtrude, parent: frameGroup, slot: MaterialSlots.FRAME, position: [0, fW / 2, 0], userData: { isFrame: true }, castShadow: true, receiveShadow: true });
 
                 // Stepped Sash Seating Rebate (Decorative inner step)
                 const rebateW = 0.5, rebateD = fThick * 0.15;
                 const geoRebateV = createBeveledRect(rebateW, totalH - fW * 2, rebateD, 0.08, 0.08);
                 const geoRebateH = rotateUVs(createBeveledRect(totalW - fW * 2, rebateW, rebateD, 0.08, 0.08));
 
-                const rebL = new THREE.Mesh(geoRebateV, matsExtrude); rebL.position.set(-totalW / 2 + fW + rebateW / 2, totalH / 2, fThick / 2 - rebateD / 2);
-                const rebR = new THREE.Mesh(geoRebateV, matsExtrude); rebR.position.set(totalW / 2 - fW - rebateW / 2, totalH / 2, fThick / 2 - rebateD / 2);
-                const rebT = new THREE.Mesh(geoRebateH, matsExtrude); rebT.position.set(0, totalH - fW - rebateW / 2, fThick / 2 - rebateD / 2);
-                const rebB = new THREE.Mesh(geoRebateH, matsExtrude); rebB.position.set(0, fW + rebateW / 2, fThick / 2 - rebateD / 2);
-                [rebL, rebR, rebT, rebB].forEach(m => { m.castShadow = true; m.userData = { isFrame: true }; frameGroup.add(m); });
+                builder.addNode({ geometry: geoRebateV, materialOverride: matsExtrude, parent: frameGroup, slot: MaterialSlots.FRAME, position: [-totalW / 2 + fW + rebateW / 2, totalH / 2, fThick / 2 - rebateD / 2], userData: { isFrame: true }, castShadow: true });
+                builder.addNode({ geometry: geoRebateV, materialOverride: matsExtrude, parent: frameGroup, slot: MaterialSlots.FRAME, position: [totalW / 2 - fW - rebateW / 2, totalH / 2, fThick / 2 - rebateD / 2], userData: { isFrame: true }, castShadow: true });
+                builder.addNode({ geometry: geoRebateH, materialOverride: matsExtrude, parent: frameGroup, slot: MaterialSlots.FRAME, position: [0, totalH - fW - rebateW / 2, fThick / 2 - rebateD / 2], userData: { isFrame: true }, castShadow: true });
+                builder.addNode({ geometry: geoRebateH, materialOverride: matsExtrude, parent: frameGroup, slot: MaterialSlots.FRAME, position: [0, fW + rebateW / 2, fThick / 2 - rebateD / 2], userData: { isFrame: true }, castShadow: true });
 
                 const sThick = entity.thick * 0.35;
                 const headerTrackGeo = new THREE.BoxGeometry(totalW - fW * 2, 0.5, sThick * 2.2);
-                const headerTrack = new THREE.Mesh(headerTrackGeo, matMetalHardware);
-                headerTrack.position.set(0, totalH - fW - 0.25, 0);
-                headerTrack.userData = { isHandle: true, materialSlot: MaterialSlots.HARDWARE, paintable: false };
-                frameGroup.add(headerTrack);
+                builder.addNode({ geometry: headerTrackGeo, materialOverride: matMetalHardware, parent: frameGroup, slot: MaterialSlots.HARDWARE, position: [0, totalH - fW - 0.25, 0], userData: { isHandle: true }, paintable: false });
 
                 frameGroup.position.set(0, 0, zOffset);
                 return frameGroup;
@@ -1366,33 +1309,23 @@ export const WIDGET_REGISTRY = {
                 const geoRailT = createMiterRailTopGeo(sashW, sFw, sThick);
                 const geoRailB = createMiterRailBotGeo(sashW, sFw, sThick);
 
-                const s1 = new THREE.Mesh(geoStileL, matsExtrudeSash); s1.position.set(-sashW / 2 + sFw / 2, sashH / 2, 0);
-                const s2 = new THREE.Mesh(geoStileR, matsExtrudeSash); s2.position.set(sashW / 2 - sFw / 2, sashH / 2, 0);
-                const r1 = new THREE.Mesh(geoRailT, matsExtrudeSash); r1.position.set(0, sashH - sFw / 2, 0);
-                const r2 = new THREE.Mesh(geoRailB, matsExtrudeSash); r2.position.set(0, sFw / 2, 0);
-
                 const sashCompId = `${entity.id}_${slotName}`;
-                [s1, s2, r1, r2].forEach(m => {
-                    m.castShadow = true; m.receiveShadow = true;
-                    m.userData = { isFrame: true, materialSlot: slotName, componentId: sashCompId };
-                    ComponentRegistry.registerMesh(entity, slotName, m, { componentId: sashCompId, componentType: ComponentTypes.SASH });
-                    sG.add(m);
-                });
+                builder.addNode({ geometry: geoStileL, materialOverride: matsExtrudeSash, parent: sG, slot: slotName, position: [-sashW / 2 + sFw / 2, sashH / 2, 0], userData: { isFrame: true, componentId: sashCompId, componentType: ComponentTypes.SASH }, castShadow: true, receiveShadow: true });
+                builder.addNode({ geometry: geoStileR, materialOverride: matsExtrudeSash, parent: sG, slot: slotName, position: [sashW / 2 - sFw / 2, sashH / 2, 0], userData: { isFrame: true, componentId: sashCompId, componentType: ComponentTypes.SASH }, castShadow: true, receiveShadow: true });
+                builder.addNode({ geometry: geoRailT, materialOverride: matsExtrudeSash, parent: sG, slot: slotName, position: [0, sashH - sFw / 2, 0], userData: { isFrame: true, componentId: sashCompId, componentType: ComponentTypes.SASH }, castShadow: true, receiveShadow: true });
+                builder.addNode({ geometry: geoRailB, materialOverride: matsExtrudeSash, parent: sG, slot: slotName, position: [0, sFw / 2, 0], userData: { isFrame: true, componentId: sashCompId, componentType: ComponentTypes.SASH }, castShadow: true, receiveShadow: true });
 
                 [ -sashW * 0.35, sashW * 0.35 ].forEach(xWheel => {
                     const rollerGroup = new THREE.Group();
-                    const housing = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.5, sThick * 0.8), matMetalHardware);
-                    housing.position.set(0, -0.25, 0);
+                    rollerGroup.position.set(xWheel, 0, 0);
+                    sG.add(rollerGroup);
+                    
+                    builder.addNode({ geometry: new THREE.BoxGeometry(1.0, 0.5, sThick * 0.8), materialOverride: matMetalHardware, parent: rollerGroup, slot: MaterialSlots.HARDWARE, position: [0, -0.25, 0], userData: { isHandle: true }, paintable: false });
                     const wheelGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.2, 16);
                     wheelGeo.rotateZ(Math.PI / 2);
-                    const wheel = new THREE.Mesh(wheelGeo, matMetalHardware);
-                    wheel.position.set(0, -0.45, 0);
-                    const axlePin = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.4, 8), matMetalHardware);
-                    axlePin.rotation.x = Math.PI / 2; axlePin.position.set(0, -0.45, 0);
-                    rollerGroup.add(housing, wheel, axlePin);
-                    rollerGroup.position.set(xWheel, 0, 0);
-                    rollerGroup.traverse(m => { if (m && m.isMesh) m.userData = { isHandle: true, materialSlot: MaterialSlots.HARDWARE, paintable: false }; });
-                    sG.add(rollerGroup);
+                    builder.addNode({ geometry: wheelGeo, materialOverride: matMetalHardware, parent: rollerGroup, slot: MaterialSlots.HARDWARE, position: [0, -0.45, 0], userData: { isHandle: true }, paintable: false });
+                    const axleGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.4, 8);
+                    builder.addNode({ geometry: axleGeo, materialOverride: matMetalHardware, parent: rollerGroup, slot: MaterialSlots.HARDWARE, position: [0, -0.45, 0], rotation: [Math.PI / 2, 0, 0], userData: { isHandle: true }, paintable: false });
                 });
 
                 const cutoutW = sashW - sFw * 2;
@@ -1405,57 +1338,44 @@ export const WIDGET_REGISTRY = {
                     const bGeoRailT = createMiterRailTopGeo(cutoutW + beadW * 2, beadW, beadDepth, 0.06, 0.06);
                     const bGeoRailB = createMiterRailBotGeo(cutoutW + beadW * 2, beadW, beadDepth, 0.06, 0.06);
 
-                    const bL = new THREE.Mesh(bGeoStileL, matsExtrudeSash); bL.position.set(-cutoutW / 2 + beadW / 2, sashH / 2, 0);
-                    const bR = new THREE.Mesh(bGeoStileR, matsExtrudeSash); bR.position.set(cutoutW / 2 - beadW / 2, sashH / 2, 0);
-                    const bT = new THREE.Mesh(bGeoRailT, matsExtrudeSash); bT.position.set(0, sashH - sFw - beadW / 2, 0);
-                    const bB = new THREE.Mesh(bGeoRailB, matsExtrudeSash); bB.position.set(0, sFw + beadW / 2, 0);
-                    [bL, bR, bT, bB].forEach(m => { 
-                        m.castShadow = true; 
-                        m.userData = { isFrame: true, materialSlot: slotName, componentId: sashCompId }; 
-                        ComponentRegistry.registerMesh(entity, slotName, m, { componentId: sashCompId, componentType: ComponentTypes.SASH });
-                        sG.add(m); 
-                    });
+                    builder.addNode({ geometry: bGeoStileL, materialOverride: matsExtrudeSash, parent: sG, slot: slotName, position: [-cutoutW / 2 + beadW / 2, sashH / 2, 0], userData: { isFrame: true, componentId: sashCompId, componentType: ComponentTypes.SASH }, castShadow: true });
+                    builder.addNode({ geometry: bGeoStileR, materialOverride: matsExtrudeSash, parent: sG, slot: slotName, position: [cutoutW / 2 - beadW / 2, sashH / 2, 0], userData: { isFrame: true, componentId: sashCompId, componentType: ComponentTypes.SASH }, castShadow: true });
+                    builder.addNode({ geometry: bGeoRailT, materialOverride: matsExtrudeSash, parent: sG, slot: slotName, position: [0, sashH - sFw - beadW / 2, 0], userData: { isFrame: true, componentId: sashCompId, componentType: ComponentTypes.SASH }, castShadow: true });
+                    builder.addNode({ geometry: bGeoRailB, materialOverride: matsExtrudeSash, parent: sG, slot: slotName, position: [0, sFw + beadW / 2, 0], userData: { isFrame: true, componentId: sashCompId, componentType: ComponentTypes.SASH }, castShadow: true });
 
                     const sealW = 0.15;
                     const geoSealV = new THREE.BoxGeometry(sealW, cutoutH, sThick * 0.3);
                     const geoSealH = new THREE.BoxGeometry(cutoutW, sealW, sThick * 0.3);
 
-                    const sealL = new THREE.Mesh(geoSealV, matRubberSeal); sealL.position.set(-cutoutW / 2 + sealW / 2, sashH / 2, 0);
-                    const sealR = new THREE.Mesh(geoSealV, matRubberSeal); sealR.position.set(cutoutW / 2 - sealW / 2, sashH / 2, 0);
-                    const sealT = new THREE.Mesh(geoSealH, matRubberSeal); sealT.position.set(0, sashH - sFw - sealW / 2, 0);
-                    const sealB = new THREE.Mesh(geoSealH, matRubberSeal); sealB.position.set(0, sFw + sealW / 2, 0);
-                    [sealL, sealR, sealT, sealB].forEach(m => { m.userData = { isSeal: true, materialSlot: MaterialSlots.SEAL, paintable: false }; sG.add(m); });
+                    builder.addNode({ geometry: geoSealV, materialOverride: matRubberSeal, parent: sG, slot: MaterialSlots.SEAL, position: [-cutoutW / 2 + sealW / 2, sashH / 2, 0], userData: { isSeal: true }, paintable: false });
+                    builder.addNode({ geometry: geoSealV, materialOverride: matRubberSeal, parent: sG, slot: MaterialSlots.SEAL, position: [cutoutW / 2 - sealW / 2, sashH / 2, 0], userData: { isSeal: true }, paintable: false });
+                    builder.addNode({ geometry: geoSealH, materialOverride: matRubberSeal, parent: sG, slot: MaterialSlots.SEAL, position: [0, sashH - sFw - sealW / 2, 0], userData: { isSeal: true }, paintable: false });
+                    builder.addNode({ geometry: geoSealH, materialOverride: matRubberSeal, parent: sG, slot: MaterialSlots.SEAL, position: [0, sFw + sealW / 2, 0], userData: { isSeal: true }, paintable: false });
 
                     const glassDepth = 0.6;
                     const glassGeo = new THREE.BoxGeometry(cutoutW - beadW * 1.4, cutoutH - beadW * 1.4, glassDepth);
-                    const glass = new THREE.Mesh(glassGeo, matGlass);
-                    glass.position.set(0, sashH / 2, -beadDepth * 0.2);
-                    glass.userData = { isGlass: true, materialSlot: MaterialSlots.GLASS };
-                    sG.add(glass);
+                    builder.addNode({ geometry: glassGeo, materialOverride: matGlass, parent: sG, slot: MaterialSlots.GLASS, position: [0, sashH / 2, -beadDepth * 0.2], userData: { isGlass: true }, isGlass: true });
 
                     const handleGroup = new THREE.Group();
                     if (isCasement) {
-                        const backplate = new THREE.Mesh(createBeveledRect(0.8, 3.5, 0.2, 0.04, 0.04), matMetalHardware); backplate.position.set(0, 0, sThick / 2 + 0.1);
-                        const leverNeck = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.4, 12), matMetalHardware); leverNeck.rotation.x = Math.PI / 2; leverNeck.position.set(0, 0, sThick / 2 + 0.3);
-                        const leverHandle = new THREE.Mesh(createBeveledRect(0.5, 4.2, 0.2, 0.05, 0.05), matMetalHardware); leverHandle.position.set(0, -1.8, sThick / 2 + 0.5);
+                        builder.addNode({ geometry: createBeveledRect(0.8, 3.5, 0.2, 0.04, 0.04), materialOverride: matMetalHardware, parent: handleGroup, slot: MaterialSlots.HARDWARE, position: [0, 0, sThick / 2 + 0.1], userData: { isHandle: true }, paintable: false });
+                        builder.addNode({ geometry: new THREE.CylinderGeometry(0.2, 0.2, 0.4, 12), materialOverride: matMetalHardware, parent: handleGroup, slot: MaterialSlots.HARDWARE, position: [0, 0, sThick / 2 + 0.3], rotation: [Math.PI / 2, 0, 0], userData: { isHandle: true }, paintable: false });
+                        builder.addNode({ geometry: createBeveledRect(0.5, 4.2, 0.2, 0.05, 0.05), materialOverride: matMetalHardware, parent: handleGroup, slot: MaterialSlots.HARDWARE, position: [0, -1.8, sThick / 2 + 0.5], userData: { isHandle: true }, paintable: false });
                         
                         // Top and Bottom Vertical Cremone Lock Rods
                         const lockRodGeo = new THREE.CylinderGeometry(0.12, 0.12, sashH * 0.35, 8);
-                        const rodTop = new THREE.Mesh(lockRodGeo, matMetalHardware); rodTop.position.set(0, sashH * 0.22, sThick / 2 + 0.1);
-                        const rodBot = new THREE.Mesh(lockRodGeo, matMetalHardware); rodBot.position.set(0, -sashH * 0.22, sThick / 2 + 0.1);
+                        builder.addNode({ geometry: lockRodGeo, materialOverride: matMetalHardware, parent: handleGroup, slot: MaterialSlots.HARDWARE, position: [0, sashH * 0.22, sThick / 2 + 0.1], userData: { isHandle: true }, paintable: false });
+                        builder.addNode({ geometry: lockRodGeo, materialOverride: matMetalHardware, parent: handleGroup, slot: MaterialSlots.HARDWARE, position: [0, -sashH * 0.22, sThick / 2 + 0.1], userData: { isHandle: true }, paintable: false });
                         
-                        handleGroup.add(backplate, leverNeck, leverHandle, rodTop, rodBot);
                         const handleX = hingeSide === 1 ? sashW / 2 - sFw / 2 : -sashW / 2 + sFw / 2;
                         handleGroup.position.set(handleX, sashH * 0.42, 0);
                     } else {
                         // Recessed Metal Flush Pull for Sliding Windows
-                        const flushPullBack = new THREE.Mesh(createBeveledRect(1.4, 5.5, 0.3, 0.05, 0.05), matMetalHardware); flushPullBack.position.set(0, 0, sThick / 2 + 0.08);
-                        const flushPullCup = new THREE.Mesh(new THREE.BoxGeometry(0.8, 3.8, 0.25), new THREE.MeshBasicMaterial({ color: 0x0a0a0a })); flushPullCup.position.set(0, 0, sThick / 2 + 0.15);
-                        const lockToggle = new THREE.Mesh(createBeveledRect(0.4, 0.8, 0.2, 0.03, 0.03), matMetalHardware); lockToggle.position.set(0, 2.0, sThick / 2 + 0.2);
-                        handleGroup.add(flushPullBack, flushPullCup, lockToggle);
+                        builder.addNode({ geometry: createBeveledRect(1.4, 5.5, 0.3, 0.05, 0.05), materialOverride: matMetalHardware, parent: handleGroup, slot: MaterialSlots.HARDWARE, position: [0, 0, sThick / 2 + 0.08], userData: { isHandle: true }, paintable: false });
+                        builder.addNode({ geometry: new THREE.BoxGeometry(0.8, 3.8, 0.25), materialOverride: new THREE.MeshBasicMaterial({ color: 0x0a0a0a }), parent: handleGroup, slot: MaterialSlots.HARDWARE, position: [0, 0, sThick / 2 + 0.15], userData: { isHandle: true }, paintable: false });
+                        builder.addNode({ geometry: createBeveledRect(0.4, 0.8, 0.2, 0.03, 0.03), materialOverride: matMetalHardware, parent: handleGroup, slot: MaterialSlots.HARDWARE, position: [0, 2.0, sThick / 2 + 0.2], userData: { isHandle: true }, paintable: false });
                         handleGroup.position.set(sashW / 2 - sFw / 2, sashH * 0.42, 0);
                     }
-                    handleGroup.traverse(m => { if (m && m.isMesh) m.userData = { isHandle: true, materialSlot: MaterialSlots.HARDWARE, paintable: false }; });
                     sG.add(handleGroup);
 
                     // Hardware 2: Butt Hinges for Casement Windows
@@ -1463,23 +1383,17 @@ export const WIDGET_REGISTRY = {
                         const hingeX = hingeSide === 1 ? -sashW / 2 : sashW / 2;
                         [sashH * 0.8, sashH * 0.2].forEach(yPos => {
                             const hingeGroup = new THREE.Group();
-                            const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 2.5, 12), matMetalHardware);
-                            const leafL = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.8, 0.15), matMetalHardware); leafL.position.set(-0.4, 0, 0);
-                            const leafR = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.8, 0.15), matMetalHardware); leafR.position.set(0.4, 0, 0);
-                            hingeGroup.add(pin, leafL, leafR);
                             hingeGroup.position.set(hingeX, yPos, sThick / 2);
-                            hingeGroup.traverse(m => { if (m && m.isMesh) m.userData = { isHandle: true, materialSlot: MaterialSlots.HARDWARE, paintable: false }; });
                             sG.add(hingeGroup);
+                            builder.addNode({ geometry: new THREE.CylinderGeometry(0.2, 0.2, 2.5, 12), materialOverride: matMetalHardware, parent: hingeGroup, slot: MaterialSlots.HARDWARE, position: [0, 0, 0], userData: { isHandle: true }, paintable: false });
+                            builder.addNode({ geometry: new THREE.BoxGeometry(0.8, 1.8, 0.15), materialOverride: matMetalHardware, parent: hingeGroup, slot: MaterialSlots.HARDWARE, position: [-0.4, 0, 0], userData: { isHandle: true }, paintable: false });
+                            builder.addNode({ geometry: new THREE.BoxGeometry(0.8, 1.8, 0.15), materialOverride: matMetalHardware, parent: hingeGroup, slot: MaterialSlots.HARDWARE, position: [0.4, 0, 0], userData: { isHandle: true }, paintable: false });
                         });
                     }
                 } else {
                     // Solid Wooden Raised Panel (For Traditional Shutters)
                     const panelGeo = createBeveledRect(cutoutW, cutoutH, sThick * 0.5, 0.3, 0.3);
-                    const woodPanel = new THREE.Mesh(panelGeo, matsExtrudeSash);
-                    woodPanel.position.set(0, sashH / 2, 0);
-                    woodPanel.userData = { isFrame: true, materialSlot: slotName, componentId: sashCompId };
-                    ComponentRegistry.registerMesh(entity, slotName, woodPanel, { componentId: sashCompId, componentType: ComponentTypes.SASH });
-                    sG.add(woodPanel);
+                    builder.addNode({ geometry: panelGeo, materialOverride: matsExtrudeSash, parent: sG, slot: slotName, position: [0, sashH / 2, 0], userData: { isFrame: true, componentId: sashCompId, componentType: ComponentTypes.SASH } });
                 }
 
                 sG.position.set(0, shadowGap, 0);
@@ -1515,10 +1429,7 @@ export const WIDGET_REGISTRY = {
 
                     // Vertical Interlocker Seal Strip on Meeting Stile
                     const interlockerGeo = new THREE.BoxGeometry(0.4, iH - 0.5, sThick * 0.8);
-                    const interlocker = new THREE.Mesh(interlockerGeo, matMetalHardware);
-                    interlocker.position.set(i === 0 ? hw / 2 - 0.4 : -hw / 2 + 0.4, iH / 2, 0);
-                    interlocker.userData = { isHandle: true, materialSlot: MaterialSlots.HARDWARE, paintable: false };
-                    sash.add(interlocker);
+                    builder.addNode({ geometry: interlockerGeo, materialOverride: matMetalHardware, parent: sash, slot: MaterialSlots.HARDWARE, position: [i === 0 ? hw / 2 - 0.4 : -hw / 2 + 0.4, iH / 2, 0], userData: { isHandle: true }, paintable: false });
 
                     sash.position.set(xPos, fW, zOffset + zOff);
                     winGroup.add(sash);
@@ -1528,11 +1439,7 @@ export const WIDGET_REGISTRY = {
                 const count = Math.floor(iH / (slatH - 0.6));
                 for (let i = 0; i < count; i++) {
                     const slatGeo = createBeveledRect(iW - 1.2, slatH, 0.6, 0.08, 0.08);
-                    const slat = new THREE.Mesh(slatGeo, matGlass);
-                    slat.position.set(0, fW + (i * (slatH - 0.6)) + slatH / 2, zOffset);
-                    slat.rotation.x = Math.PI / 5;
-                    slat.userData = { isGlass: true, materialSlot: MaterialSlots.GLASS };
-                    winGroup.add(slat);
+                    builder.addNode({ geometry: slatGeo, materialOverride: matGlass, parent: winGroup, slot: MaterialSlots.GLASS, position: [0, fW + (i * (slatH - 0.6)) + slatH / 2, zOffset], rotation: [Math.PI / 5, 0, 0], userData: { isGlass: true }, isGlass: true });
                 }
             } else if (wConf.type === 'bay') {
                 const frontW = iW * 0.6; const frontSash = makeSash(frontW, iH); frontSash.position.set(0, fW, zOffset); winGroup.add(frontSash);
@@ -1543,10 +1450,8 @@ export const WIDGET_REGISTRY = {
 
                 const capShape = new THREE.Shape(); capShape.moveTo(-iW / 2 - fW, 0); capShape.lineTo(iW / 2 + fW, 0); capShape.lineTo(frontW / 2 + fW, zOffset + fThick / 2); capShape.lineTo(-frontW / 2 - fW, zOffset + fThick / 2);
                 const capGeo = new THREE.ExtrudeGeometry(capShape, { depth: fW, bevelEnabled: true, bevelSize: 0.2, bevelThickness: 0.2 }); capGeo.rotateX(Math.PI / 2);
-                const capT = new THREE.Mesh(capGeo, matsExtrude); capT.position.set(0, height, 0);
-                const capB = new THREE.Mesh(capGeo, matsExtrude); capB.position.set(0, fW, 0);
-                [capT, capB].forEach(m => m.userData = { isFrame: true });
-                winGroup.add(capT, capB);
+                builder.addNode({ geometry: capGeo, materialOverride: matsExtrude, parent: winGroup, slot: MaterialSlots.FRAME, position: [0, height, 0], userData: { isFrame: true } });
+                builder.addNode({ geometry: capGeo, materialOverride: matsExtrude, parent: winGroup, slot: MaterialSlots.FRAME, position: [0, fW, 0], userData: { isFrame: true } });
             } else if (wConf.type === 'split_asymmetric') {
                 const leftW = iW * 0.45; const rightW = iW - leftW;
                 const rightSash = makeSash(rightW, iH); rightSash.position.set(iW / 2 - rightW / 2, fW, zOffset); winGroup.add(rightSash);
@@ -1604,12 +1509,7 @@ export const WIDGET_REGISTRY = {
                 const makeVBar = (x) => {
                     const barGroup = new THREE.Group();
                     const geo = createThinBarGeo(barWidth, iH, barDepth, false);
-                    const mesh = new THREE.Mesh(geo, matGrille);
-                    mesh.userData.materialSlot = MaterialSlots.GRILLE;
-                    mesh.userData.isGrille = true;
-                    mesh.position.set(0, height / 2, 0);
-                    mesh.castShadow = true;
-                    barGroup.add(mesh);
+                    builder.addNode({ geometry: geo, materialOverride: matGrille, parent: barGroup, slot: MaterialSlots.GRILLE, position: [0, height / 2, 0], userData: { isGrille: true }, castShadow: true });
                     barGroup.position.set(x, 0, 0);
                     return barGroup;
                 };
@@ -1617,12 +1517,7 @@ export const WIDGET_REGISTRY = {
                 const makeHBar = (y) => {
                     const barGroup = new THREE.Group();
                     const geo = createThinBarGeo(iW, barWidth, barDepth, true);
-                    const mesh = new THREE.Mesh(geo, matGrille);
-                    mesh.userData.materialSlot = MaterialSlots.GRILLE;
-                    mesh.userData.isGrille = true;
-                    mesh.position.set(0, y, 0);
-                    mesh.castShadow = true;
-                    barGroup.add(mesh);
+                    builder.addNode({ geometry: geo, materialOverride: matGrille, parent: barGroup, slot: MaterialSlots.GRILLE, position: [0, y, 0], userData: { isGrille: true }, castShadow: true });
                     return barGroup;
                 };
 
@@ -1645,16 +1540,8 @@ export const WIDGET_REGISTRY = {
                     const maxDim = Math.max(iW, iH) * 1.4;
                     const stepD = maxDim / 6;
                     for (let i = -maxDim / 2 + stepD; i < maxDim / 2; i += stepD) {
-                        const vMesh = new THREE.Mesh(createThinBarGeo(barWidth, maxDim, barDepth, false), matGrille);
-                        vMesh.userData.materialSlot = MaterialSlots.GRILLE;
-                        vMesh.userData.isGrille = true;
-                        vMesh.position.set(i, 0, 0);
-                        dGroup.add(vMesh);
-                        const hMesh = new THREE.Mesh(createThinBarGeo(maxDim, barWidth, barDepth, true), matGrille);
-                        hMesh.userData.materialSlot = MaterialSlots.GRILLE;
-                        hMesh.userData.isGrille = true;
-                        hMesh.position.set(0, i, 0);
-                        dGroup.add(hMesh);
+                        builder.addNode({ geometry: createThinBarGeo(barWidth, maxDim, barDepth, false), materialOverride: matGrille, parent: dGroup, slot: MaterialSlots.GRILLE, position: [i, 0, 0], userData: { isGrille: true } });
+                        builder.addNode({ geometry: createThinBarGeo(maxDim, barWidth, barDepth, true), materialOverride: matGrille, parent: dGroup, slot: MaterialSlots.GRILLE, position: [0, i, 0], userData: { isGrille: true } });
                     }
                     dGroup.rotation.z = Math.PI / 4;
                     dGroup.position.set(0, height / 2, 0);
@@ -1665,24 +1552,11 @@ export const WIDGET_REGISTRY = {
 
             // Hitbox for selection & gizmo interactions
             const hitboxGeo = new THREE.BoxGeometry(entity.width + 10, height + 10, (entity.thick || 20) + 10);
-            const hitbox = new THREE.Mesh(hitboxGeo, new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
-            hitbox.position.set(0, height / 2, 0);
-            winGroup.add(hitbox);
+            builder.addNode({ geometry: hitboxGeo, isHitbox: true, parent: winGroup, position: [0, height / 2, 0] });
             winGroup.userData = { isWidget: true, entity: entity };
-            winGroup.traverse(child => {
-                if (child && child.isMesh && !child.userData?.isHitbox) {
-                    child.userData.entity = entity;
-                    const isGlass = Boolean(child.userData?.isGlass);
-                    const isHandle = Boolean(child.userData?.isHandle);
-                    const isSeal = Boolean(child.userData?.isSeal);
-                    let slotName = child.userData?.materialSlot || (isGlass ? MaterialSlots.GLASS : (isHandle ? MaterialSlots.HARDWARE : (isSeal ? MaterialSlots.SEAL : MaterialSlots.FRAME)));
-                    child.userData.materialSlot = slotName;
-                    
-                    ComponentRegistry.registerMesh(entity, slotName, child, { componentId: `${entity.id}_${slotName}` });
-                }
-            });
-            sceneGroup.add(winGroup);
-            return winGroup;
+            const finalGroup = builder.build();
+            sceneGroup.add(finalGroup);
+            return finalGroup;
         }
     },
     'sunshade': {
@@ -1706,7 +1580,8 @@ export const WIDGET_REGISTRY = {
             group.add(rect);
         },
         render3D: (sceneGroup, entity, helpers) => {
-            const sunshadeGroup = new THREE.Group();
+            const builder = new BIMComponentBuilder(entity, helpers);
+            const sunshadeGroup = builder.group;
             let baseElev = entity.elevation || 90;
             sunshadeGroup.position.set(entity.x, baseElev, entity.z);
             sunshadeGroup.rotation.y = -entity.angle;
@@ -1753,10 +1628,7 @@ export const WIDGET_REGISTRY = {
             if (chajjaStyle === 'concrete_slab') {
                 const cH = 2; 
                 const cGeo = new THREE.BoxGeometry(entity.width, cH, cDepth); 
-                const cMesh = new THREE.Mesh(cGeo, mmBox); 
-                cMesh.position.set(0, cH/2, (cDepth/2) * signZ); 
-                cMesh.castShadow = true; 
-                contentGroup.add(cMesh);
+                builder.addNode({ geometry: cGeo, materialOverride: mmBox, parent: contentGroup, position: new THREE.Vector3(0, cH/2, (cDepth/2) * signZ), castShadow: true });
             } else if (chajjaStyle === 'wooden_pergola' || chajjaStyle === 'metal_louvers') {
                 const isWood = chajjaStyle === 'wooden_pergola';
                 const cMat = isWood ? JALI_MATERIALS['wood'] : JALI_MATERIALS['metal_black'];
@@ -1769,30 +1641,17 @@ export const WIDGET_REGISTRY = {
                 const joistHeight = isWood ? 8 : 8;
                 const joistGeo = new THREE.BoxGeometry(joistWidth, joistHeight, cDepth);
                 
-                const jL = new THREE.Mesh(joistGeo, matLouver);
-                jL.position.set(-cWidth/2 + joistWidth/2, joistHeight/2, (cDepth/2) * signZ);
-                jL.castShadow = true;
-                
-                const jR = new THREE.Mesh(joistGeo, matLouver);
-                jR.position.set(cWidth/2 - joistWidth/2, joistHeight/2, (cDepth/2) * signZ);
-                jR.castShadow = true;
-                
-                contentGroup.add(jL, jR);
+                builder.addNode({ geometry: joistGeo, materialOverride: matLouver, parent: contentGroup, position: new THREE.Vector3(-cWidth/2 + joistWidth/2, joistHeight/2, (cDepth/2) * signZ), castShadow: true });
+                builder.addNode({ geometry: joistGeo, materialOverride: matLouver, parent: contentGroup, position: new THREE.Vector3(cWidth/2 - joistWidth/2, joistHeight/2, (cDepth/2) * signZ), castShadow: true });
                 
                 const fasciaGeo = new THREE.BoxGeometry(cWidth, joistHeight, joistWidth);
-                const fascia = new THREE.Mesh(fasciaGeo, matLouver);
-                fascia.position.set(0, joistHeight/2, (cDepth - joistWidth/2) * signZ);
-                fascia.castShadow = true;
-                contentGroup.add(fascia);
+                builder.addNode({ geometry: fasciaGeo, materialOverride: matLouver, parent: contentGroup, position: new THREE.Vector3(0, joistHeight/2, (cDepth - joistWidth/2) * signZ), castShadow: true });
                 
                 const numJoists = Math.max(3, Math.floor(cWidth / 40));
                 if (numJoists > 2) {
                     const joistSpacing = (cWidth - joistWidth) / (numJoists - 1);
                     for (let i = 1; i < numJoists - 1; i++) {
-                        const jM = new THREE.Mesh(joistGeo, matLouver);
-                        jM.position.set(-cWidth/2 + joistWidth/2 + i * joistSpacing, joistHeight/2, (cDepth/2) * signZ);
-                        jM.castShadow = true;
-                        contentGroup.add(jM);
+                        builder.addNode({ geometry: joistGeo, materialOverride: matLouver, parent: contentGroup, position: new THREE.Vector3(-cWidth/2 + joistWidth/2 + i * joistSpacing, joistHeight/2, (cDepth/2) * signZ), castShadow: true });
                     }
                 }
                 
@@ -1804,11 +1663,7 @@ export const WIDGET_REGISTRY = {
                 const lGeo = new THREE.BoxGeometry(cWidth, louverHeight, louverThick);
                 
                 for(let i=1; i<=numLouvers; i++) {
-                    const l = new THREE.Mesh(lGeo, matLouver);
-                    l.position.set(0, joistHeight + louverHeight/2 - (isWood ? 2 : 0), (i * spacing - louverThick/2) * signZ);
-                    l.rotation.x = isWood ? 0 : (Math.PI / 4) * signZ;
-                    l.castShadow = true;
-                    contentGroup.add(l);
+                    builder.addNode({ geometry: lGeo, materialOverride: matLouver, parent: contentGroup, position: new THREE.Vector3(0, joistHeight + louverHeight/2 - (isWood ? 2 : 0), (i * spacing - louverThick/2) * signZ), rotation: new THREE.Euler(isWood ? 0 : (Math.PI / 4) * signZ, 0, 0), castShadow: true });
                 }
             } else if (chajjaStyle === 'glass_canopy' || chajjaStyle === 'polycarbonate_canopy') {
                 const isPoly = chajjaStyle === 'polycarbonate_canopy';
@@ -1830,24 +1685,18 @@ export const WIDGET_REGISTRY = {
                 const frameThick = 1.5;
                 const fSideGeo = new THREE.BoxGeometry(frameThick, frameThick, cDepth);
                 const fFrontGeo = new THREE.BoxGeometry(cWidth, frameThick, frameThick);
-                const fL = new THREE.Mesh(fSideGeo, matMetal); fL.position.set(-cWidth/2 + frameThick/2, frameThick/2, (cDepth/2)*signZ); fL.castShadow = true;
-                const fR = new THREE.Mesh(fSideGeo, matMetal); fR.position.set(cWidth/2 - frameThick/2, frameThick/2, (cDepth/2)*signZ); fR.castShadow = true;
-                const fF = new THREE.Mesh(fFrontGeo, matMetal); fF.position.set(0, frameThick/2, (cDepth - frameThick/2)*signZ); fF.castShadow = true;
-                contentGroup.add(fL, fR, fF);
+                builder.addNode({ geometry: fSideGeo, materialOverride: matMetal, parent: contentGroup, position: new THREE.Vector3(-cWidth/2 + frameThick/2, frameThick/2, (cDepth/2)*signZ), castShadow: true });
+                builder.addNode({ geometry: fSideGeo, materialOverride: matMetal, parent: contentGroup, position: new THREE.Vector3(cWidth/2 - frameThick/2, frameThick/2, (cDepth/2)*signZ), castShadow: true });
+                builder.addNode({ geometry: fFrontGeo, materialOverride: matMetal, parent: contentGroup, position: new THREE.Vector3(0, frameThick/2, (cDepth - frameThick/2)*signZ), castShadow: true });
                 
                 const numPanes = Math.max(1, Math.floor(cWidth / 40));
                 const paneWidth = (cWidth - frameThick * 2) / numPanes;
                 for (let i = 1; i < numPanes; i++) {
-                    const m = new THREE.Mesh(fSideGeo, matMetal);
-                    m.position.set(-cWidth/2 + frameThick + i * paneWidth, frameThick/2, (cDepth/2)*signZ);
-                    m.castShadow = true;
-                    contentGroup.add(m);
+                    builder.addNode({ geometry: fSideGeo, materialOverride: matMetal, parent: contentGroup, position: new THREE.Vector3(-cWidth/2 + frameThick + i * paneWidth, frameThick/2, (cDepth/2)*signZ), castShadow: true });
                 }
 
                 const gGeo = new THREE.BoxGeometry(cWidth - frameThick*2, glassThick, cDepth - frameThick);
-                const gMesh = new THREE.Mesh(gGeo, matCanopyPanel);
-                gMesh.position.set(0, frameThick/2, (cDepth/2)*signZ);
-                contentGroup.add(gMesh);
+                builder.addNode({ geometry: gGeo, materialOverride: matCanopyPanel, parent: contentGroup, position: new THREE.Vector3(0, frameThick/2, (cDepth/2)*signZ) });
                 
                 const tieHeight = Math.max(15, cDepth * 0.6);
                 const tieZ = cDepth * 0.8;
@@ -1872,22 +1721,10 @@ export const WIDGET_REGISTRY = {
                 
                 rodPositions.forEach(x => {
                     const tieGroup = new THREE.Group();
-                    const tie = new THREE.Mesh(tieGeo, matMetal);
-                    tie.position.set(0, spiderY + dy/2, ((bracketZ + tieZ)/2) * signZ);
-                    tie.rotation.x = -angle * signZ;
-                    tie.castShadow = true;
-                    tieGroup.add(tie);
-                    
-                    const wBracket = new THREE.Mesh(bracketGeo, matMetal);
-                    wBracket.position.set(0, tieHeight, bracketZ * signZ);
-                    wBracket.castShadow = true;
-                    tieGroup.add(wBracket);
-                    
+                    builder.addNode({ geometry: tieGeo, materialOverride: matMetal, parent: tieGroup, position: new THREE.Vector3(0, spiderY + dy/2, ((bracketZ + tieZ)/2) * signZ), rotation: new THREE.Euler(-angle * signZ, 0, 0), castShadow: true });
+                    builder.addNode({ geometry: bracketGeo, materialOverride: matMetal, parent: tieGroup, position: new THREE.Vector3(0, tieHeight, bracketZ * signZ), castShadow: true });
                     const spiderGeo = new THREE.CylinderGeometry(0.8, 0.8, 1, 8);
-                    const spider = new THREE.Mesh(spiderGeo, matMetal);
-                    spider.position.set(0, spiderY, tieZ * signZ);
-                    spider.castShadow = true;
-                    tieGroup.add(spider);
+                    builder.addNode({ geometry: spiderGeo, materialOverride: matMetal, parent: tieGroup, position: new THREE.Vector3(0, spiderY, tieZ * signZ), castShadow: true });
                     
                     tieGroup.position.x = x;
                     contentGroup.add(tieGroup);
@@ -1902,25 +1739,14 @@ export const WIDGET_REGISTRY = {
                 const roofThick = 2;
                 
                 const roofGeo = new THREE.BoxGeometry(cWidth, roofThick, cDepth);
-                const roof = new THREE.Mesh(roofGeo, matMetalRoof);
-                roof.position.set(0, lipDrop - roofThick/2, (cDepth/2)*signZ);
-                roof.castShadow = true;
-                contentGroup.add(roof);
+                builder.addNode({ geometry: roofGeo, materialOverride: matMetalRoof, parent: contentGroup, position: new THREE.Vector3(0, lipDrop - roofThick/2, (cDepth/2)*signZ), castShadow: true });
                 
                 const fLipGeo = new THREE.BoxGeometry(cWidth, lipDrop, lipThick);
-                const fLip = new THREE.Mesh(fLipGeo, matMetalDark);
-                fLip.position.set(0, lipDrop/2, (cDepth - lipThick/2)*signZ);
-                fLip.castShadow = true;
-                contentGroup.add(fLip);
+                builder.addNode({ geometry: fLipGeo, materialOverride: matMetalDark, parent: contentGroup, position: new THREE.Vector3(0, lipDrop/2, (cDepth - lipThick/2)*signZ), castShadow: true });
                 
                 const sLipGeo = new THREE.BoxGeometry(lipThick, lipDrop, cDepth - lipThick);
-                const sL = new THREE.Mesh(sLipGeo, matMetalDark);
-                sL.position.set(-cWidth/2 + lipThick/2, lipDrop/2, ((cDepth - lipThick)/2)*signZ);
-                sL.castShadow = true;
-                const sR = new THREE.Mesh(sLipGeo, matMetalDark);
-                sR.position.set(cWidth/2 - lipThick/2, lipDrop/2, ((cDepth - lipThick)/2)*signZ);
-                sR.castShadow = true;
-                contentGroup.add(sL, sR);
+                builder.addNode({ geometry: sLipGeo, materialOverride: matMetalDark, parent: contentGroup, position: new THREE.Vector3(-cWidth/2 + lipThick/2, lipDrop/2, ((cDepth - lipThick)/2)*signZ), castShadow: true });
+                builder.addNode({ geometry: sLipGeo, materialOverride: matMetalDark, parent: contentGroup, position: new THREE.Vector3(cWidth/2 - lipThick/2, lipDrop/2, ((cDepth - lipThick)/2)*signZ), castShadow: true });
             } else if (chajjaStyle === 'curved_rcc') {
                 const cH = 4;
                 const radius = Math.min(20, cDepth/2, entity.width/4);
@@ -1935,19 +1761,11 @@ export const WIDGET_REGISTRY = {
                 shape.lineTo(-halfW, 0);
                 
                 const cGeo = new THREE.ExtrudeGeometry(shape, { depth: cH, bevelEnabled: false });
-                const cMesh = new THREE.Mesh(cGeo, mmExtrude);
-                cMesh.rotation.x = -Math.PI / 2; 
-                if (signZ === 1) cMesh.rotation.y = Math.PI; 
-                cMesh.position.set(0, 0, 0);
-                cMesh.castShadow = true;
-                contentGroup.add(cMesh);
+                builder.addNode({ geometry: cGeo, materialOverride: mmExtrude, parent: contentGroup, position: new THREE.Vector3(0, 0, 0), rotation: new THREE.Euler(-Math.PI / 2, signZ === 1 ? Math.PI : 0, 0), castShadow: true });
             } else if (chajjaStyle === 'cantilever_rcc') {
                 const cH = 2; 
                 const cGeo = new THREE.BoxGeometry(entity.width, cH, cDepth);
-                const cMesh = new THREE.Mesh(cGeo, mmBox);
-                cMesh.position.set(0, cH/2, (cDepth/2) * signZ);
-                cMesh.castShadow = true;
-                contentGroup.add(cMesh);
+                builder.addNode({ geometry: cGeo, materialOverride: mmBox, parent: contentGroup, position: new THREE.Vector3(0, cH/2, (cDepth/2) * signZ), castShadow: true });
             } else if (chajjaStyle === 'jali_canopy') {
                 const cWidth = entity.width;
                 const roofThick = 2;
@@ -1955,10 +1773,7 @@ export const WIDGET_REGISTRY = {
                 const matSolid = new THREE.MeshStandardMaterial({color: 0xf5f5f5, roughness: 0.9});
                 
                 const roofGeo = new THREE.BoxGeometry(cWidth, roofThick, cDepth);
-                const roof = new THREE.Mesh(roofGeo, matSolid);
-                roof.position.set(0, dropH - roofThick/2, (cDepth/2)*signZ);
-                roof.castShadow = true;
-                contentGroup.add(roof);
+                builder.addNode({ geometry: roofGeo, materialOverride: matSolid, parent: contentGroup, position: new THREE.Vector3(0, dropH - roofThick/2, (cDepth/2)*signZ), castShadow: true });
                 
                 const buildGrid = (w, h, mat) => {
                     const group = new THREE.Group();
@@ -1967,19 +1782,15 @@ export const WIDGET_REGISTRY = {
                     const hGeo = new THREE.BoxGeometry(w, thick, thick);
                     const vGeo = new THREE.BoxGeometry(thick, h, thick);
                     for (let y = -h/2 + step/2; y < h/2; y += step) {
-                        const m = new THREE.Mesh(hGeo, mat);
-                        m.position.y = y; m.castShadow = true;
-                        group.add(m);
+                        builder.addNode({ geometry: hGeo, materialOverride: mat, parent: group, position: new THREE.Vector3(0, y, 0), castShadow: true });
                     }
                     for (let x = -w/2 + step/2; x < w/2; x += step) {
-                        const m = new THREE.Mesh(vGeo, mat);
-                        m.position.x = x; m.castShadow = true;
-                        group.add(m);
+                        builder.addNode({ geometry: vGeo, materialOverride: mat, parent: group, position: new THREE.Vector3(x, 0, 0), castShadow: true });
                     }
-                    const t = new THREE.Mesh(new THREE.BoxGeometry(w, 2, 2), mat); t.position.y = h/2; t.castShadow = true; group.add(t);
-                    const b = new THREE.Mesh(new THREE.BoxGeometry(w, 2, 2), mat); b.position.y = -h/2; b.castShadow = true; group.add(b);
-                    const l = new THREE.Mesh(new THREE.BoxGeometry(2, h, 2), mat); l.position.x = -w/2; l.castShadow = true; group.add(l);
-                    const r = new THREE.Mesh(new THREE.BoxGeometry(2, h, 2), mat); r.position.x = w/2; r.castShadow = true; group.add(r);
+                    builder.addNode({ geometry: new THREE.BoxGeometry(w, 2, 2), materialOverride: mat, parent: group, position: new THREE.Vector3(0, h/2, 0), castShadow: true });
+                    builder.addNode({ geometry: new THREE.BoxGeometry(w, 2, 2), materialOverride: mat, parent: group, position: new THREE.Vector3(0, -h/2, 0), castShadow: true });
+                    builder.addNode({ geometry: new THREE.BoxGeometry(2, h, 2), materialOverride: mat, parent: group, position: new THREE.Vector3(-w/2, 0, 0), castShadow: true });
+                    builder.addNode({ geometry: new THREE.BoxGeometry(2, h, 2), materialOverride: mat, parent: group, position: new THREE.Vector3(w/2, 0, 0), castShadow: true });
                     return group;
                 };
                 
@@ -2003,38 +1814,24 @@ export const WIDGET_REGISTRY = {
                 const frameThick = 6;
                 
                 const topGeo = new THREE.BoxGeometry(cWidth, frameThick, cDepth);
-                const topM = new THREE.Mesh(topGeo, mmBox);
-                topM.position.set(0, frameThick/2, (cDepth/2)*signZ);
-                topM.castShadow = true;
-                contentGroup.add(topM);
+                builder.addNode({ geometry: topGeo, materialOverride: mmBox, parent: contentGroup, position: new THREE.Vector3(0, frameThick/2, (cDepth/2)*signZ), castShadow: true });
                 
                 const sideGeo = new THREE.BoxGeometry(frameThick, frameDrop, cDepth);
-                const sL = new THREE.Mesh(sideGeo, mmBox);
-                sL.position.set(-cWidth/2 + frameThick/2, -frameDrop/2 + frameThick, (cDepth/2)*signZ);
-                sL.castShadow = true;
-                
-                const sR = new THREE.Mesh(sideGeo, mmBox);
-                sR.position.set(cWidth/2 - frameThick/2, -frameDrop/2 + frameThick, (cDepth/2)*signZ);
-                sR.castShadow = true;
+                builder.addNode({ geometry: sideGeo, materialOverride: mmBox, parent: contentGroup, position: new THREE.Vector3(-cWidth/2 + frameThick/2, -frameDrop/2 + frameThick, (cDepth/2)*signZ), castShadow: true });
+                builder.addNode({ geometry: sideGeo, materialOverride: mmBox, parent: contentGroup, position: new THREE.Vector3(cWidth/2 - frameThick/2, -frameDrop/2 + frameThick, (cDepth/2)*signZ), castShadow: true });
                 
                 const botGeo = new THREE.BoxGeometry(cWidth, frameThick, cDepth);
-                const botM = new THREE.Mesh(botGeo, mmBox);
-                botM.position.set(0, -frameDrop + frameThick/2, (cDepth/2)*signZ);
-                botM.castShadow = true;
-                
-                contentGroup.add(sL, sR, botM);
+                builder.addNode({ geometry: botGeo, materialOverride: mmBox, parent: contentGroup, position: new THREE.Vector3(0, -frameDrop + frameThick/2, (cDepth/2)*signZ), castShadow: true });
             }
 
             const hbHeight = chajjaStyle === 'box_frame' ? (entity.frameHeight || 150) : 10;
             const hbY = chajjaStyle === 'box_frame' ? -hbHeight/2 + 6 : 5;
             const hitboxGeo = new THREE.BoxGeometry(entity.width, hbHeight, cDepth);
-            const hitbox = new THREE.Mesh(hitboxGeo, new THREE.MeshBasicMaterial({transparent: true, opacity: 0, depthWrite: false}));
-            hitbox.position.set(0, hbY, (cDepth/2)*signZ);
-            hitbox.userData = { isHitbox: true };
-            contentGroup.add(hitbox);
+            builder.addNode({ geometry: hitboxGeo, parent: contentGroup, position: new THREE.Vector3(0, hbY, (cDepth/2)*signZ), isHitbox: true });
             sunshadeGroup.userData = { isWidget: true, entity: entity };
-            sceneGroup.add(sunshadeGroup);
-            return sunshadeGroup;
+            const finalGroup = builder.build();
+            sceneGroup.add(finalGroup);
+            return finalGroup;
         }
     },
     'elevation_fascia': {
@@ -2053,9 +1850,11 @@ export const WIDGET_REGISTRY = {
             group.add(projRect);
         },
         render3D: (sceneGroup, entity, helpers) => {
+            const builder = new BIMComponentBuilder(entity, helpers);
+            const fasciaGroup = builder.group;
             let baseElev = entity.elevation || 0; let height = entity.height || 120;
             let width = entity.width || 100; let depth = entity.depth || 40; let thick = entity.thick || 10;
-            const fasciaGroup = new THREE.Group(); fasciaGroup.position.set(entity.x, baseElev, entity.z); fasciaGroup.rotation.y = -entity.angle;
+            fasciaGroup.position.set(entity.x, baseElev, entity.z); fasciaGroup.rotation.y = -entity.angle;
             
             let fColor = 0xffffff;
             if (entity.fasciaMat === 'dark_grey') fColor = 0x333333;
@@ -2145,10 +1944,8 @@ export const WIDGET_REGISTRY = {
                     const multiMat = helpers.getFaceMaterials(blockEntity, matFascia, { width: w, height: h });
                     materials = [ multiMat.box[0], multiMat.box[1], multiMat.box[2], multiMat.box[3], multiMat.box[4], multiMat.box[5] ];
                 }
-                const mesh = new THREE.Mesh(geo, materials);
-                mesh.position.set(x, y + h/2, z);
-                mesh.castShadow = true; mesh.receiveShadow = true;
-                return mesh;
+                const node = builder.addNode({ geometry: geo, materialOverride: materials, parent: fasciaGroup, position: new THREE.Vector3(x, y + h/2, z), castShadow: true, receiveShadow: true });
+                return node;
             };
 
             const createInnerFillet = (r, d, x, y, z, quad) => {
@@ -2201,10 +1998,7 @@ export const WIDGET_REGISTRY = {
                     const multiMat = helpers.getFaceMaterials(entity, matFascia, { width: r, height: r });
                     materials = [multiMat.box[0], multiMat.box[1], multiMat.box[2], multiMat.box[3], multiMat.box[4], multiMat.box[5]];
                 }
-                const mesh = new THREE.Mesh(geo, materials);
-                mesh.position.set(x, y, z);
-                mesh.castShadow = true; mesh.receiveShadow = true;
-                fasciaGroup.add(mesh);
+                builder.addNode({ geometry: geo, materialOverride: materials, parent: fasciaGroup, position: new THREE.Vector3(x, y, z), castShadow: true, receiveShadow: true });
             };
             
             const wallThick = entity.wall ? (entity.wall.thickness || entity.wall.config?.thickness || 16) : 16;
@@ -2217,34 +2011,34 @@ export const WIDGET_REGISTRY = {
             const getR = (idx) => Math.max(0, radii[idx] || 0);
 
             if (entity.profileType === 'c_shape_left') {
-                fasciaGroup.add(createBlock(topArm, thick, depth, -width/2 + topArm/2, height - thick, zOffset, { bottom: false }, [0, getR(5), getR(6), getR(7)])); 
-                fasciaGroup.add(createBlock(thick, height - 2*thick, depth, -width/2 + thick/2, thick, zOffset, { top: false, bottom: false, right: false })); 
-                fasciaGroup.add(createBlock(bottomArm, thick, depth, -width/2 + bottomArm/2, 0, zOffset, { top: false }, [getR(0), getR(1), getR(2), 0])); 
+                createBlock(topArm, thick, depth, -width/2 + topArm/2, height - thick, zOffset, { bottom: false }, [0, getR(5), getR(6), getR(7)]); 
+                createBlock(thick, height - 2*thick, depth, -width/2 + thick/2, thick, zOffset, { top: false, bottom: false, right: false }); 
+                createBlock(bottomArm, thick, depth, -width/2 + bottomArm/2, 0, zOffset, { top: false }, [getR(0), getR(1), getR(2), 0]); 
                 createInnerFillet(getR(3), depth, -width/2 + thick, thick, zOffset, 1);
                 createInnerFillet(getR(4), depth, -width/2 + thick, height - thick, zOffset, 4);
                 entity.computedPts = [ new THREE.Vector2(-width/2, 0), new THREE.Vector2(-width/2 + bottomArm, 0), new THREE.Vector2(-width/2 + bottomArm, thick), new THREE.Vector2(-width/2 + thick, thick), new THREE.Vector2(-width/2 + thick, height - thick), new THREE.Vector2(-width/2 + topArm, height - thick), new THREE.Vector2(-width/2 + topArm, height), new THREE.Vector2(-width/2, height) ];
             } else if (entity.profileType === 'c_shape_right') {
-                fasciaGroup.add(createBlock(topArm, thick, depth, width/2 - topArm/2, height - thick, zOffset, { bottom: false }, [getR(4), 0, getR(2), getR(3)])); 
-                fasciaGroup.add(createBlock(thick, height - 2*thick, depth, width/2 - thick/2, thick, zOffset, { top: false, bottom: false, left: false })); 
-                fasciaGroup.add(createBlock(bottomArm, thick, depth, width/2 - bottomArm/2, 0, zOffset, { top: false }, [getR(0), getR(1), 0, getR(7)])); 
+                createBlock(topArm, thick, depth, width/2 - topArm/2, height - thick, zOffset, { bottom: false }, [getR(4), 0, getR(2), getR(3)]); 
+                createBlock(thick, height - 2*thick, depth, width/2 - thick/2, thick, zOffset, { top: false, bottom: false, left: false }); 
+                createBlock(bottomArm, thick, depth, width/2 - bottomArm/2, 0, zOffset, { top: false }, [getR(0), getR(1), 0, getR(7)]); 
                 createInnerFillet(getR(5), depth, width/2 - thick, height - thick, zOffset, 3);
                 createInnerFillet(getR(6), depth, width/2 - thick, thick, zOffset, 2);
                 entity.computedPts = [ new THREE.Vector2(width/2 - bottomArm, 0), new THREE.Vector2(width/2, 0), new THREE.Vector2(width/2, height), new THREE.Vector2(width/2 - topArm, height), new THREE.Vector2(width/2 - topArm, height - thick), new THREE.Vector2(width/2 - thick, height - thick), new THREE.Vector2(width/2 - thick, thick), new THREE.Vector2(width/2 - bottomArm, thick) ];
             } else if (entity.profileType === 'l_shape_left') {
-                fasciaGroup.add(createBlock(topArm, thick, depth, -width/2 + topArm/2, height - thick, zOffset, { bottom: false }, [0, getR(3), getR(4), getR(5)])); 
-                fasciaGroup.add(createBlock(thick, height - thick, depth, -width/2 + thick/2, 0, zOffset, { top: false, right: false }, [getR(0), getR(1), 0, 0])); 
+                createBlock(topArm, thick, depth, -width/2 + topArm/2, height - thick, zOffset, { bottom: false }, [0, getR(3), getR(4), getR(5)]); 
+                createBlock(thick, height - thick, depth, -width/2 + thick/2, 0, zOffset, { top: false, right: false }, [getR(0), getR(1), 0, 0]); 
                 createInnerFillet(getR(2), depth, -width/2 + thick, height - thick, zOffset, 4);
                 entity.computedPts = [ new THREE.Vector2(-width/2, 0), new THREE.Vector2(-width/2 + thick, 0), new THREE.Vector2(-width/2 + thick, height - thick), new THREE.Vector2(-width/2 + topArm, height - thick), new THREE.Vector2(-width/2 + topArm, height), new THREE.Vector2(-width/2, height) ];
             } else if (entity.profileType === 'l_shape_right') {
-                fasciaGroup.add(createBlock(topArm, thick, depth, width/2 - topArm/2, height - thick, zOffset, { bottom: false }, [getR(4), 0, 0, getR(3)])); 
-                fasciaGroup.add(createBlock(thick, height - thick, depth, width/2 - thick/2, 0, zOffset, { top: false, left: false }, [0, getR(1), getR(2), 0])); 
+                createBlock(topArm, thick, depth, width/2 - topArm/2, height - thick, zOffset, { bottom: false }, [getR(4), 0, 0, getR(3)]); 
+                createBlock(thick, height - thick, depth, width/2 - thick/2, 0, zOffset, { top: false, left: false }, [0, getR(1), getR(2), 0]); 
                 createInnerFillet(getR(5), depth, width/2 - thick, height - thick, zOffset, 3);
                 entity.computedPts = [ new THREE.Vector2(width/2 - thick, 0), new THREE.Vector2(width/2, 0), new THREE.Vector2(width/2, height), new THREE.Vector2(width/2 - topArm, height), new THREE.Vector2(width/2 - topArm, height - thick), new THREE.Vector2(width/2 - thick, height - thick) ];
             } else if (entity.profileType === 'full_box') {
-                fasciaGroup.add(createBlock(width, thick, depth, 0, height - thick, zOffset, { bottom: false }, [0, 0, getR(2), getR(3)])); 
-                fasciaGroup.add(createBlock(width, thick, depth, 0, 0, zOffset, { top: false }, [getR(0), getR(1), 0, 0])); 
-                fasciaGroup.add(createBlock(thick, height - 2*thick, depth, -width/2 + thick/2, thick, zOffset, { top: false, bottom: false, right: false })); 
-                fasciaGroup.add(createBlock(thick, height - 2*thick, depth, width/2 - thick/2, thick, zOffset, { top: false, bottom: false, left: false })); 
+                createBlock(width, thick, depth, 0, height - thick, zOffset, { bottom: false }, [0, 0, getR(2), getR(3)]); 
+                createBlock(width, thick, depth, 0, 0, zOffset, { top: false }, [getR(0), getR(1), 0, 0]); 
+                createBlock(thick, height - 2*thick, depth, -width/2 + thick/2, thick, zOffset, { top: false, bottom: false, right: false }); 
+                createBlock(thick, height - 2*thick, depth, width/2 - thick/2, thick, zOffset, { top: false, bottom: false, left: false }); 
                 createInnerFillet(getR(4), depth, -width/2 + thick, thick, zOffset, 1);
                 createInnerFillet(getR(5), depth, -width/2 + thick, height - thick, zOffset, 4);
                 createInnerFillet(getR(6), depth, width/2 - thick, height - thick, zOffset, 3);
@@ -2255,11 +2049,12 @@ export const WIDGET_REGISTRY = {
             entity.computedZOffset = zOffset;
 
             const hitboxGeo = new THREE.BoxGeometry(width + 10, height + 10, depth + 20);
-            const hitbox = new THREE.Mesh(hitboxGeo, new THREE.MeshBasicMaterial({transparent: true, opacity: 0, depthWrite: false}));
-            hitbox.position.set(0, height/2, zOffset); fasciaGroup.add(hitbox);
+            builder.addNode({ geometry: hitboxGeo, parent: fasciaGroup, position: new THREE.Vector3(0, height/2, zOffset), isHitbox: true });
             
-            fasciaGroup.userData = { isWidget: true, entity: entity }; sceneGroup.add(fasciaGroup);
-            return fasciaGroup;
+            fasciaGroup.userData = { isWidget: true, entity: entity };
+            const finalGroup = builder.build();
+            sceneGroup.add(finalGroup);
+            return finalGroup;
         }
     }
 };

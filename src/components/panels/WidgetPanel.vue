@@ -82,7 +82,7 @@
                 </select>
             </div>
             
-            <div class="control-group" v-if="(selectedEntity.grillePattern || 'none') !== 'none'">
+            <div class="control-group" v-if="(selectedEntity.grillePattern || 'grid') !== 'none'">
                 <label>Grill Profile</label>
                 <select :value="selectedEntity.grilleProfile || 'flat'" @change="e => { selectedEntity.grilleProfile = e.target.value; $emit('sync-engine'); }">
                     <option value="flat">Flat / Box (Rectangular)</option>
