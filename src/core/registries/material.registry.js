@@ -328,20 +328,17 @@ export const FLOOR_REGISTRY = {
     'tiles': {
         id: 'tiles', name: 'Ceramic Tiles', type: 'floor',
         texture: 'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg', 
-        thumbnail: 'https://via.placeholder.com/150/ffffff/000000?text=Tiles',
         color: 0xcccccc, roughness: 0.2, tileSize: 60
     },
     'carpet': {
         id: 'carpet', name: 'Soft Carpet', type: 'floor',
-        color: 0x8b5a2b, roughness: 0.9,
-        thumbnail: 'https://via.placeholder.com/150/8b5a2b/fff?text=Carpet'
+        color: 0x8b5a2b, roughness: 0.9
     }
 };
 
 export const GROUND_REGISTRY = {
     'grid': {
-        id: 'grid', name: 'Blueprint Grid', type: 'grid', color: 0x9aa297,
-        thumbnail: 'https://via.placeholder.com/150/9aa297/fff?text=Grid'
+        id: 'grid', name: 'Blueprint Grid', type: 'grid', color: 0x9aa297
     },
     'grass': {
         id: 'grass', name: 'Lush Grass', type: 'terrain',
@@ -352,8 +349,7 @@ export const GROUND_REGISTRY = {
     },
     'studio_dark': {
         id: 'studio_dark', name: 'Dark Studio Base', type: 'terrain',
-        color: 0x333533, roughness: 0.9, metalness: 0.05,
-        thumbnail: 'https://via.placeholder.com/150/333533/fff?text=Dark+Base'
+        color: 0x333533, roughness: 0.9, metalness: 0.05
     },
     'dark_soil': {
         id: 'dark_soil', name: 'Dark Soil', type: 'terrain',
@@ -496,8 +492,7 @@ export const METAL_REGISTRY = {
         group: 'steel',
         name: 'MS Steel Frame',
         color: 0x222222,
-        roughness: 0.35, metalness: 0.9,
-        thumbnail: 'https://via.placeholder.com/150/222222/ffffff?text=Steel'
+        roughness: 0.6, metalness: 0.8
     },
     'metal_brushed_gold': {
         id: 'metal_brushed_gold',
@@ -536,16 +531,14 @@ export const METAL_REGISTRY = {
         group: 'aluminium',
         name: 'Silver Aluminium',
         color: 0xc8cdd0,
-        roughness: 0.4, metalness: 0.6,
-        thumbnail: 'https://via.placeholder.com/150/c8cdd0/ffffff?text=Alum'
+        roughness: 0.3, metalness: 0.9, clearcoat: 0.1
     },
     'alum_powder': {
         id: 'alum_powder',
         group: 'aluminium',
         name: 'Black Powder Aluminium',
         color: 0x1a1a1a,
-        roughness: 0.45, metalness: 0.7,
-        thumbnail: 'https://via.placeholder.com/150/1a1a1a/ffffff?text=Black+Alum'
+        roughness: 0.4, metalness: 0.8, clearcoat: 0.1
     },
     'metal_diamond_tread': {
         id: 'metal_diamond_tread',
@@ -594,53 +587,47 @@ export const PLASTIC_REGISTRY = {
         id: 'seal_black',
         group: 'rubber',
         name: 'Black EPDM Rubber',
-        color: 0x111111,
-        roughness: 0.9, metalness: 0.0,
-        thumbnail: 'https://via.placeholder.com/150/111111/ffffff?text=Black+Rubber'
+        color: 0x111111, roughness: 0.9, metalness: 0.0, bumpScale: 0.02
     },
     'seal_grey': {
         id: 'seal_grey',
         group: 'rubber',
         name: 'Grey Silicone',
-        color: 0x666666,
-        roughness: 0.8, metalness: 0.0,
-        thumbnail: 'https://via.placeholder.com/150/666666/ffffff?text=Grey+Silicone'
+        color: 0x666666, roughness: 0.8, metalness: 0.0, bumpScale: 0.01
     },
     'seal_white': {
         id: 'seal_white',
         group: 'rubber',
         name: 'White Silicone',
-        color: 0xeeeeee,
-        roughness: 0.8, metalness: 0.0,
-        thumbnail: 'https://via.placeholder.com/150/eeeeee/000000?text=White+Silicone'
+        color: 0xeeeeee, roughness: 0.8, metalness: 0.0, bumpScale: 0.01
     },
     'pvc_matte': {
         id: 'pvc_matte',
         group: 'pvc',
         name: 'Matte White PVC',
-        color: 0xfdfdfd, roughness: 0.7, metalness: 0.0,
-        thumbnail: 'https://via.placeholder.com/150/fdfdfd/000000?text=PVC'
+        color: 0xfdfdfd, roughness: 0.7, metalness: 0.0
+
     },
     'upvc_white': {
         id: 'upvc_white',
         group: 'upvc',
         name: 'White uPVC',
-        color: 0xfafafa, roughness: 0.3, metalness: 0.05, clearcoat: 0.2,
-        thumbnail: 'https://via.placeholder.com/150/fafafa/000000?text=uPVC'
+        color: 0xfafafa, roughness: 0.3, metalness: 0.05, clearcoat: 0.2
+
     },
     'wpc': {
         id: 'wpc',
         group: 'wpc',
         name: 'Wood Plastic Composite',
-        color: 0x8a6b4e, roughness: 0.7, metalness: 0.0, clearcoat: 0.05,
-        thumbnail: 'https://via.placeholder.com/150/8a6b4e/ffffff?text=WPC'
+        color: 0x8a6b4e, roughness: 0.7, metalness: 0.0, clearcoat: 0.05
+
     },
     'frp': {
         id: 'frp',
         group: 'frp',
         name: 'Fiber Reinforced Plastic',
-        color: 0xe6e6e6, roughness: 0.8, metalness: 0.0, bumpScale: 0.015,
-        thumbnail: 'https://via.placeholder.com/150/e6e6e6/000000?text=FRP'
+        color: 0xe6e6e6, roughness: 0.8, metalness: 0.0, bumpScale: 0.015
+
     },
     'plastic_speckled_terrazzo': {
         id: 'plastic_speckled_terrazzo',

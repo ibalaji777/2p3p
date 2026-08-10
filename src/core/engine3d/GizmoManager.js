@@ -306,6 +306,16 @@ export class GizmoManager {
                     overflow: hidden; background-size: cover; background-position: center;
                     transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); flex-shrink: 0;
                 }
+                .mat-clear-circle {
+                    width: 110px; height: 110px; border-radius: 50%; margin: 8px 0;
+                    border: 3px dashed rgba(255,255,255,0.7);
+                    display: flex; align-items: center; justify-content: center;
+                    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+                    flex-shrink: 0;
+                }
+                .mat-card:hover .mat-clear-circle {
+                    transform: scale(1.06) rotate(-45deg);
+                }
                 .mat-card:hover .mat-sphere {
                     transform: scale(1.06) rotate(3deg);
                 }
@@ -1141,28 +1151,18 @@ export class GizmoManager {
             this.matFaceNameDisplay.style.textDecoration = 'underline';
         }
 
-        let title = 'Materials';
-        if (materialCategory === 'wood' || materialCategory === 'door' || materialCategory === 'window' || materialCategory === 'wood_metal') title = 'Wood / Veneer';
-        else if (materialCategory === 'metal') title = 'Metals';
-        else if (materialCategory === 'glass') title = 'Glass';
-        else if (materialCategory === 'stone') title = 'Stone';
-        else if (materialCategory === 'tile') title = 'Tiles';
-        else if (materialCategory === 'fabric') title = 'Fabric / Decor';
-        else if (materialCategory === 'plastic') title = 'Plastics';
-        else if (materialCategory === 'leather') title = 'Leather';
-        else if (materialCategory === 'floor' || materialCategory === 'outer' || materialCategory === 'inner' || materialCategory === 'roof') {
-            title = (materialCategory.charAt(0).toUpperCase() + materialCategory.slice(1)).replace(/_/g, ' ') + ' Materials';
-        }
-
         let decorThumbnails = `
-            <div class="mat-card mat-thumb" data-mat="" title="Clear Material">
-                <div class="mat-card-icon-badge" style="background: rgba(255,255,255,0.1); color: #94a3b8;">
-                    <svg style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+            <div class="mat-card mat-thumb" data-mat="" title="Revert to Default Material">
+                <div style="height: 40px; flex-shrink: 0;"></div>
+                <div class="mat-clear-circle">
+                    <svg style="width: 44px; height: 44px; color: rgba(255, 255, 255, 0.9); margin-right: 2px; margin-top: 2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                        <path d="M3 3v5h5" />
+                    </svg>
                 </div>
-                <div class="mat-sphere" style="background: rgba(0,0,0,0.3); border: 1px dashed rgba(255,255,255,0.3);"></div>
                 <div style="width: 100%;">
                     <div class="mat-card-title">Clear Material</div>
-                    <div class="mat-card-sub">Default</div>
+                    <div class="mat-card-sub" style="color: #94a3b8;">Revert to Default</div>
                 </div>
             </div>
         `;
@@ -1264,6 +1264,22 @@ export class GizmoManager {
         if (!registry) {
             registry = ALL_REGISTRY;
             activeGroup = null;
+        }
+        let title = 'Materials';
+        if (registry === WOOD_REGISTRY) title = 'Wood / Veneer';
+        else if (registry === METAL_REGISTRY) title = 'Metals';
+        else if (registry === GLASS_REGISTRY) title = 'Glass';
+        else if (registry === STONE_REGISTRY) title = 'Stone';
+        else if (registry === MARBLE_REGISTRY) title = 'Marble';
+        else if (registry === TILE_REGISTRY) title = 'Tiles';
+        else if (registry === FABRIC_REGISTRY) title = 'Fabric / Decor';
+        else if (registry === PLASTIC_REGISTRY) title = 'Plastics';
+        else if (registry === LEATHER_REGISTRY) title = 'Leather';
+        else if (registry === FLOOR_REGISTRY) title = 'Floor Materials';
+        else if (registry === ROOF_REGISTRY) title = 'Roof Materials';
+        else if (registry === WALL_REGISTRY) title = 'Wall Materials';
+        else if (materialCategory) {
+            title = (materialCategory.charAt(0).toUpperCase() + materialCategory.slice(1)).replace(/_/g, ' ') + ' Materials';
         }
 
         const matsToRender = [];
