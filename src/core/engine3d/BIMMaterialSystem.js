@@ -168,11 +168,12 @@ export class BIMMaterialSystem {
      * @param {Object} ctx - 3D engine context.
      */
     static async applyBIMMaterial(descriptor, matConfig, ctx) {
-        if (!descriptor || !matConfig) return;
+        if (!descriptor) return;
 
         const { entity, slotName } = descriptor;
         if (!entity) return;
 
+        // matConfig may be falsy (empty string) for "Clear Material" — updateEntityMaterialSlot handles that
         await MaterialManager.updateEntityMaterialSlot(entity, slotName, matConfig, ctx);
 
         if (ctx && ctx.interactions && typeof ctx.interactions.refreshSelectionHighlight === 'function') {

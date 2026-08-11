@@ -383,6 +383,10 @@ export const GLASS_REGISTRY = {
         categoryLabel: "Glass",
         description: "Vertical ribbed fluted texture for privacy while allowing maximum light transmission."
     },
+    glass_clear: {
+        isAlias: true,
+        targetId: 'clear'
+    },
     clear: {
         id: "clear",
         label: "Clear Tempered Glass",

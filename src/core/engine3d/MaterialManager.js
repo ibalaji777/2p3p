@@ -93,6 +93,11 @@ export class MaterialManager {
                              ROOF_DECOR_REGISTRY[matKey] ||
                              FLOOR_REGISTRY[matKey];
             
+            // Handle aliases (e.g. glass_clear -> clear)
+            if (resolved && resolved.isAlias && resolved.targetId) {
+                return MaterialManager.resolveMaterialConfig({ ...matInput, id: resolved.targetId });
+            }
+            
             if (!resolved) {
                 resolved = { texture: matKey, id: matKey };
             }
@@ -156,9 +161,27 @@ export class MaterialManager {
      * @param {Object} [ctx=null] - 3D engine context.
      */
     static async updateEntityMaterialSlot(entity, slotName, matConfig, ctx = null) {
-        if (!entity || !slotName || !matConfig) return;
+        if (!entity || !slotName) return;
 
         MaterialManager.initEntityMaterials(entity);
+
+        // Clear Material: when matConfig is falsy (empty string from Clear button),
+        // delete the user override so applySlot falls back to factory default
+        if (!matConfig) {
+            if (entity.materials && entity.materials[slotName]) {
+                delete entity.materials[slotName];
+            }
+            entity.materialDirty = true;
+
+            // applySlot with null triggers the factory-default fallback chain
+            await MaterialManager.applySlot(entity, slotName, null, ctx);
+
+            if (coreEventBus) {
+                coreEventBus.emit(EVENTS.MATERIAL_CHANGED || 'MATERIAL_CHANGED', { entity, slotName, descriptor: null });
+                coreEventBus.emit(EVENTS.ENTITY_MODIFIED || 'ENTITY_MODIFIED', { entity });
+            }
+            return;
+        }
 
         const descriptor = MaterialManager.normalizeDescriptor(matConfig);
 
@@ -214,7 +237,18 @@ export class MaterialManager {
             if (parentSlot && entity.materials?.[parentSlot]) {
                 matToUse = entity.materials[parentSlot];
             } else if (slotName.startsWith('sash_')) {
-                matToUse = entity.materials?.[MaterialSlots.FRAME] || entity.frameMat || 'wood_teak';
+                matToUse = entity.materials?.[MaterialSlots.FRAME] || entity.params?.materials?.[MaterialSlots.FRAME] || entity.frameMat || 'wood_teak';
+            } else {
+                matToUse = entity.params?.materials?.[slotName];
+                if (!matToUse) {
+                    if (slotName === MaterialSlots.FRAME) {
+                        matToUse = entity.frameMat || entity.doorMat || (entity.type === 'window' ? 'upvc_white' : 'wood_teak');
+                    } else if (slotName === MaterialSlots.GLASS) {
+                        matToUse = entity.glassMat || 'clear';
+                    } else if (slotName === MaterialSlots.LEAF) {
+                        matToUse = entity.doorMat || 'wood_teak';
+                    }
+                }
             }
         }
         const config = MaterialManager.resolveMaterialConfig(matToUse);

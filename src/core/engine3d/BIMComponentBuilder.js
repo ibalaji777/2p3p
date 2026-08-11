@@ -29,9 +29,11 @@ export class BIMComponentBuilder {
             category = 'grille';
         }
 
-        const matInfo = this.entity.materials && this.entity.materials[slot] 
+        const matInfo = (this.entity.materials && this.entity.materials[slot])
                         ? this.entity.materials[slot] 
-                        : null;
+                        : (this.entity.params?.materials && this.entity.params.materials[slot])
+                            ? this.entity.params.materials[slot]
+                            : null;
         
         const matKey = matInfo ? matInfo.id : null;
         
