@@ -103,7 +103,7 @@ const onMaterialCategoryChange = () => {
         'wpc': 'wpc',
         'pvc': 'pvc_matte',
         'upvc': 'upvc_white',
-        'steel': 'steel_ms',
+        'steel': 'metal_light_steel',
         'aluminium': 'alum_silver',
         'frp': 'frp',
         'glass': 'glass_clear',

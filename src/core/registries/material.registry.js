@@ -491,6 +491,13 @@ export const METAL_REGISTRY = {
         thumbnail: 'textures/metals/metal_brushed_steel.png',
         metalness: 0.9, roughness: 0.25, clearcoat: 0.1, defaultRepeat: 1
     },
+    'metal_light_steel': {
+        id: 'metal_light_steel',
+        group: 'steel',
+        name: 'Light Smooth Steel',
+        color: 0xa0a5aa,
+        metalness: 0.85, roughness: 0.3, clearcoat: 0.1
+    },
     'steel_ms': {
         id: 'steel_ms',
         group: 'steel',
