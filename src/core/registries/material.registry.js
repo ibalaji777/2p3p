@@ -67,7 +67,7 @@ export const COMMON_MATERIALS = {
     steel: { label: "Brushed Steel", color: 0xa0a5aa, roughness: 0.35, metalness: 0.8, bumpScale: 0.005, clearcoat: 0.2 },
     glass: { label: "Double-Pane Glass", color: 0xeff6ff, roughness: 0.0, metalness: 0.1, transmission: 0.98, transparent: true, ior: 1.52, thickness: 3.0, clearcoat: 1.0 },
     frp: { label: "Fiber Reinforced Plastic", color: 0xe6e6e6, roughness: 0.8, metalness: 0.0, bumpScale: 0.015 },
-    composite: { label: "Composite Panel", color: 0x3d4144, roughness: 0.4, metalness: 0.3, clearcoat: 0.1 },
+    composite: { label: "Slate Blue Composite", color: 0x3b82f6, roughness: 0.35, metalness: 0.2, clearcoat: 0.15 },
     laminate: { label: "Charcoal Black", color: 0x2e2b2a, roughness: 0.4, metalness: 0.1, texture: 'textures/wood/wood_dark_walnut.png', bumpScale: 0.002, clearcoat: 0.1 },
     upvc_white: { label: "White uPVC", color: 0xfafafa, roughness: 0.3, metalness: 0.05, clearcoat: 0.2 }, 
     upvc_wood: { label: "Wood Finish uPVC", color: 0x8b5a2b, roughness: 0.65, metalness: 0.0, texture: 'textures/wood/wood_golden_teak.png', bumpScale: 0.008 }, 

@@ -199,56 +199,16 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         builder.addNode({ geometry: geoGlass, materialOverride: glassMat, parent: group, position: new THREE.Vector3(0, height/2 + (botRailH - topRailH)/2, 0), userData: { isGlass: true } });
     } else {
         const shapeType = entity && entity.doorShape ? entity.doorShape : 'square';
-        const bSize = 0.06;
-        const doorOutline = createDoorShape(width, Math.max(0.1, height - bSize*2), shapeType);
-        const coreGeo = new THREE.ExtrudeGeometry(doorOutline, { depth: Math.max(0.01, thickness - bSize*2), bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: bSize, bevelThickness: bSize });
-        coreGeo.translate(0, bSize, -Math.max(0.01, thickness - bSize*2) / 2);
-        
-        // Normalize UVs for ExtrudeGeometry so texture repeat mapping scales properly [0, 1]
-        const coreUvs = coreGeo.attributes.uv;
-        const corePos = coreGeo.attributes.position;
-        if (coreUvs && corePos) {
-            for (let i = 0; i < coreUvs.count; i++) {
-                const vx = corePos.getX(i);
-                const vy = corePos.getY(i);
-                coreUvs.setXY(i, (vx + width / 2) / width, vy / height);
-            }
-            coreUvs.needsUpdate = true;
-        }
-
+        const isSquare = (shapeType === 'square');
+        const isClassicOrGrid = style.startsWith('classic') || style === 'grid_panel';
         const matsExtrude = Array.isArray(mats) ? [mats[4], mats[1]] : mats;
-        builder.addNode({ geometry: coreGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, 0, 0), castShadow: true, receiveShadow: true });
 
-        // Door sweep — acts as an extension of the door leaf to close the clearance gap
-        const sweepH = 0.35; // Matches doorClearance (8.89mm) exactly
-        const sweepW = width - 0.4;
-        const sweepD = thickness * 0.7;
-        const shape = new THREE.Shape();
-        const sw = sweepW/2, sh = sweepH/2;
-        shape.moveTo(-sw, -sh); shape.lineTo(sw, -sh); shape.lineTo(sw, sh); shape.lineTo(-sw, sh); shape.lineTo(-sw, -sh);
-        const sweepGeo = new THREE.ExtrudeGeometry(shape, { depth: sweepD, bevelEnabled: false });
-        sweepGeo.translate(0, 0, -sweepD/2);
-        
-        const sweepUvs = sweepGeo.attributes.uv;
-        const sweepPos = sweepGeo.attributes.position;
-        if (sweepUvs && sweepPos) {
-            for (let i = 0; i < sweepUvs.count; i++) {
-                sweepUvs.setXY(i, (sweepPos.getX(i) + sw) / sweepW, (sweepPos.getY(i) + sh) / sweepH);
-            }
-            sweepUvs.needsUpdate = true;
-        }
-
-        builder.addNode({ geometry: sweepGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, -sweepH / 2 + 0.01, 0), castShadow: true, receiveShadow: true, userData: { isSweep: true } });
-
-        
         const createBeveledPanelGeo = (pw, ph, pth, panelShape = 'square') => {
             const bSize = 0.12; const bThick = 0.06;
             const sw = Math.max(0.1, pw - bSize*2); const sh = Math.max(0.1, ph - bSize*2);
-            
             const shape = new THREE.Shape();
             const hw = sw / 2;
             shape.moveTo(-hw, -sh/2); shape.lineTo(hw, -sh/2);
-            
             if (panelShape === 'radius') {
                 const straightH = (sh/2) - hw;
                 shape.lineTo(hw, straightH);
@@ -268,11 +228,8 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
                 shape.lineTo(-hw, sh/2);
             }
             shape.lineTo(-hw, -sh/2);
-            
             const geo = new THREE.ExtrudeGeometry(shape, { depth: Math.max(0.01, pth - bThick*2), bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: bSize, bevelThickness: bThick });
             geo.translate(0, 0, -Math.max(0.01, pth - bThick*2)/2);
-
-            // Normalize UVs for panel ExtrudeGeometry
             const pUvs = geo.attributes.uv;
             const pPos = geo.attributes.position;
             if (pUvs && pPos) {
@@ -283,45 +240,164 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
                 }
                 pUvs.needsUpdate = true;
             }
-
             return geo;
         };
-        
 
+        if (isSquare && isClassicOrGrid) {
+            const stileW = Math.max(3.0, width * 0.12);
+            const railTopH = stileW;
+            const railBotH = stileW * 2.0;
+            const railMidH = stileW * 0.9;
+            const mullionW = stileW * 0.9;
+            const handleY = height * 0.45;
 
-        if (style === 'classic_4_horizontal') {
-            const numPanels = 4; const panelHeight = (height - (gap * (numPanels - 1))) / numPanels; 
-            for (let i = 0; i < numPanels; i++) { 
-                const isTop = (i === numPanels - 1);
-                const geoPanel = createBeveledPanelGeo(width - 0.6, panelHeight, thickness + 0.05, isTop ? shapeType : 'square'); 
-                const yPos = (panelHeight / 2) + i * (panelHeight + gap); 
-                builder.addNode({ geometry: geoPanel, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, yPos, 0), castShadow: true, receiveShadow: true });
+            const geoStile = createBeveledRect(stileW, height, thickness); 
+            const geoRailT = rotateUVs(createBeveledRect(width - stileW*2, railTopH, thickness)); 
+            const geoRailB = rotateUVs(createBeveledRect(width - stileW*2, railBotH, thickness));
+
+            builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + stileW/2, height/2, 0), castShadow: true, receiveShadow: true });
+            builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - stileW/2, height/2, 0), castShadow: true, receiveShadow: true });
+            builder.addNode({ geometry: geoRailT, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - railTopH/2, 0), castShadow: true, receiveShadow: true });
+            builder.addNode({ geometry: geoRailB, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, railBotH/2, 0), castShadow: true, receiveShadow: true });
+
+            if (style === 'classic_4_panel') {
+                const geoRailM = rotateUVs(createBeveledRect(width - stileW*2, railMidH, thickness));
+                builder.addNode({ geometry: geoRailM, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, handleY, 0), castShadow: true, receiveShadow: true });
+                const botPanelH = (handleY - railMidH/2) - railBotH;
+                const topPanelH = (height - railTopH) - (handleY + railMidH/2);
+                const panelW = (width - stileW*2 - mullionW) / 2;
+                const geoMullionBot = createBeveledRect(mullionW, botPanelH, thickness);
+                const geoMullionTop = createBeveledRect(mullionW, topPanelH, thickness);
+                builder.addNode({ geometry: geoMullionBot, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, railBotH + botPanelH/2, 0), castShadow: true, receiveShadow: true });
+                builder.addNode({ geometry: geoMullionTop, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, handleY + railMidH/2 + topPanelH/2, 0), castShadow: true, receiveShadow: true });
+                const geoBotPanel = createBeveledPanelGeo(panelW, botPanelH, thickness * 0.6, 'square');
+                const geoTopPanel = createBeveledPanelGeo(panelW, topPanelH, thickness * 0.6, 'square');
+                [-1, 1].forEach(side => {
+                    const xOff = (mullionW/2 + panelW/2) * side;
+                    builder.addNode({ geometry: geoBotPanel, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(xOff, railBotH + botPanelH/2, 0), castShadow: true, receiveShadow: true });
+                    builder.addNode({ geometry: geoTopPanel, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(xOff, handleY + railMidH/2 + topPanelH/2, 0), castShadow: true, receiveShadow: true });
+                });
+            } else if (style === 'classic_2_panel') {
+                const geoRailM = rotateUVs(createBeveledRect(width - stileW*2, railMidH, thickness));
+                builder.addNode({ geometry: geoRailM, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, handleY, 0), castShadow: true, receiveShadow: true });
+                const botPanelH = (handleY - railMidH/2) - railBotH;
+                const topPanelH = (height - railTopH) - (handleY + railMidH/2);
+                const panelW = width - stileW*2;
+                const geoBotPanel = createBeveledPanelGeo(panelW, botPanelH, thickness * 0.6, 'square');
+                const geoTopPanel = createBeveledPanelGeo(panelW, topPanelH, thickness * 0.6, 'square');
+                builder.addNode({ geometry: geoBotPanel, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, railBotH + botPanelH/2, 0), castShadow: true, receiveShadow: true });
+                builder.addNode({ geometry: geoTopPanel, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, handleY + railMidH/2 + topPanelH/2, 0), castShadow: true, receiveShadow: true });
+            } else if (style === 'classic_4_horizontal') {
+                const numPanels = 4;
+                const totalRailSpace = railMidH * (numPanels - 1);
+                const panelHeight = (height - railTopH - railBotH - totalRailSpace) / numPanels;
+                const panelW = width - stileW*2;
+                for (let i = 0; i < numPanels; i++) {
+                    const geoPanel = createBeveledPanelGeo(panelW, panelHeight, thickness * 0.6, 'square');
+                    const yPos = railBotH + panelHeight/2 + i * (panelHeight + railMidH);
+                    builder.addNode({ geometry: geoPanel, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, yPos, 0), castShadow: true, receiveShadow: true });
+                    if (i < numPanels - 1) {
+                        const geoRail = rotateUVs(createBeveledRect(panelW, railMidH, thickness));
+                        const railY = yPos + panelHeight/2 + railMidH/2;
+                        builder.addNode({ geometry: geoRail, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, railY, 0), castShadow: true, receiveShadow: true });
+                    }
+                }
+            } else if (style === 'grid_panel') {
+                const rows = 5; const cols = 3; 
+                const pW = (width - stileW*2 - mullionW*(cols-1))/cols; 
+                const pH = (height - railTopH - railBotH - railMidH*(rows-1))/rows;
+                for (let r=0; r<rows; r++) {
+                    for (let c=0; c<cols; c++) {
+                        const geoGrid = createBeveledPanelGeo(pW, pH, thickness * 0.6, 'square');
+                        const xPos = -width/2 + stileW + pW/2 + c*(pW + mullionW);
+                        const yPos = railBotH + pH/2 + r*(pH + railMidH);
+                        builder.addNode({ geometry: geoGrid, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(xPos, yPos, 0), castShadow: true, receiveShadow: true });
+                    }
+                }
+                const geoRailInt = rotateUVs(createBeveledRect(width - stileW*2, railMidH, thickness));
+                for (let r=1; r<rows; r++) {
+                    const yPos = railBotH + r*pH + (r-1)*railMidH + railMidH/2;
+                    builder.addNode({ geometry: geoRailInt, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, yPos, 0), castShadow: true, receiveShadow: true });
+                }
+                const geoMullionInt = createBeveledRect(mullionW, pH, thickness);
+                for (let r=0; r<rows; r++) {
+                    const yPos = railBotH + pH/2 + r*(pH + railMidH);
+                    for (let c=1; c<cols; c++) {
+                        const xPos = -width/2 + stileW + c*pW + (c-1)*mullionW + mullionW/2;
+                        builder.addNode({ geometry: geoMullionInt, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(xPos, yPos, 0), castShadow: true, receiveShadow: true });
+                    }
+                }
             }
-        } else if (style === 'classic_2_panel') {
-            const topH = height * 0.65; const botH = height * 0.25; 
-            const geoTop = createBeveledPanelGeo(width - 0.8, topH, thickness + 0.05, shapeType); const geoBot = createBeveledPanelGeo(width - 0.8, botH, thickness + 0.05, 'square');
-            builder.addNode({ geometry: geoTop, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - topH/2 - gap, 0), castShadow: true });
-            builder.addNode({ geometry: geoBot, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botH/2 + gap*2, 0), castShadow: true });
-        } else if (style === 'classic_4_panel') {
-            const topH = height * 0.55; const botH = height * 0.3; const pw = width/2 - 0.4;
-            const geoTop = createBeveledPanelGeo(pw, topH, thickness + 0.05, shapeType); const geoBot = createBeveledPanelGeo(pw, botH, thickness + 0.05, 'square');
-            [-1, 1].forEach(side => {
-                const xOff = (pw/2 + 0.15) * side;
-                builder.addNode({ geometry: geoTop, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(xOff, height - topH/2 - gap, 0), castShadow: true });
-                builder.addNode({ geometry: geoBot, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(xOff, botH/2 + gap*2, 0), castShadow: true });
-            });
-        } else if (style === 'grid_panel') {
-            const rows = 5; const cols = 3; const pW = (width - gap*(cols+1))/cols; const pH = (height - gap*(rows+1))/rows;
-            for (let r=0; r<rows; r++) {
-                const isTop = (r === rows - 1);
-                for (let c=0; c<cols; c++) {
-                    const geoGrid = createBeveledPanelGeo(pW - 0.1, pH - 0.1, thickness + 0.05, isTop ? shapeType : 'square');
-                    const xPos = -width/2 + gap + pW/2 + c*(pW + gap);
-                    const yPos = gap + pH/2 + r*(pH + gap);
-                    builder.addNode({ geometry: geoGrid, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(xPos, yPos, 0), castShadow: true });
+        } else {
+            const bSize = 0.06;
+            const doorOutline = createDoorShape(width, Math.max(0.1, height - bSize*2), shapeType);
+            const coreGeo = new THREE.ExtrudeGeometry(doorOutline, { depth: Math.max(0.01, thickness - bSize*2), bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: bSize, bevelThickness: bSize });
+            coreGeo.translate(0, bSize, -Math.max(0.01, thickness - bSize*2) / 2);
+            const coreUvs = coreGeo.attributes.uv;
+            const corePos = coreGeo.attributes.position;
+            if (coreUvs && corePos) {
+                for (let i = 0; i < coreUvs.count; i++) {
+                    const vx = corePos.getX(i);
+                    const vy = corePos.getY(i);
+                    coreUvs.setXY(i, (vx + width / 2) / width, vy / height);
+                }
+                coreUvs.needsUpdate = true;
+            }
+            builder.addNode({ geometry: coreGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, 0, 0), castShadow: true, receiveShadow: true });
+
+            const gap = 0.2;
+            if (style === 'classic_4_horizontal') {
+                const numPanels = 4; const panelHeight = (height - (gap * (numPanels - 1))) / numPanels; 
+                for (let i = 0; i < numPanels; i++) { 
+                    const isTop = (i === numPanels - 1);
+                    const geoPanel = createBeveledPanelGeo(width - 0.6, panelHeight, thickness + 0.05, isTop ? shapeType : 'square'); 
+                    const yPos = (panelHeight / 2) + i * (panelHeight + gap); 
+                    builder.addNode({ geometry: geoPanel, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, yPos, 0), castShadow: true, receiveShadow: true });
+                }
+            } else if (style === 'classic_2_panel') {
+                const topH = height * 0.65; const botH = height * 0.25; 
+                const geoTop = createBeveledPanelGeo(width - 0.8, topH, thickness + 0.05, shapeType); const geoBot = createBeveledPanelGeo(width - 0.8, botH, thickness + 0.05, 'square');
+                builder.addNode({ geometry: geoTop, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - topH/2 - gap, 0), castShadow: true });
+                builder.addNode({ geometry: geoBot, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botH/2 + gap*2, 0), castShadow: true });
+            } else if (style === 'classic_4_panel') {
+                const topH = height * 0.55; const botH = height * 0.3; const pw = width/2 - 0.4;
+                const geoTop = createBeveledPanelGeo(pw, topH, thickness + 0.05, shapeType); const geoBot = createBeveledPanelGeo(pw, botH, thickness + 0.05, 'square');
+                [-1, 1].forEach(side => {
+                    const xOff = (pw/2 + 0.15) * side;
+                    builder.addNode({ geometry: geoTop, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(xOff, height - topH/2 - gap, 0), castShadow: true });
+                    builder.addNode({ geometry: geoBot, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(xOff, botH/2 + gap*2, 0), castShadow: true });
+                });
+            } else if (style === 'grid_panel') {
+                const rows = 5; const cols = 3; const pW = (width - gap*(cols+1))/cols; const pH = (height - gap*(rows+1))/rows;
+                for (let r=0; r<rows; r++) {
+                    const isTop = (r === rows - 1);
+                    for (let c=0; c<cols; c++) {
+                        const geoGrid = createBeveledPanelGeo(pW - 0.1, pH - 0.1, thickness + 0.05, isTop ? shapeType : 'square');
+                        const xPos = -width/2 + gap + pW/2 + c*(pW + gap);
+                        const yPos = gap + pH/2 + r*(pH + gap);
+                        builder.addNode({ geometry: geoGrid, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(xPos, yPos, 0), castShadow: true });
+                    }
                 }
             }
         }
+
+        const sweepH = 0.35;
+        const sweepW = width - 0.4;
+        const sweepD = thickness * 0.7;
+        const shapeSweep = new THREE.Shape();
+        const sw = sweepW/2, shSweep = sweepH/2;
+        shapeSweep.moveTo(-sw, -shSweep); shapeSweep.lineTo(sw, -shSweep); shapeSweep.lineTo(sw, shSweep); shapeSweep.lineTo(-sw, shSweep); shapeSweep.lineTo(-sw, -shSweep);
+        const sweepGeo = new THREE.ExtrudeGeometry(shapeSweep, { depth: sweepD, bevelEnabled: false });
+        sweepGeo.translate(0, 0, -sweepD/2);
+        const sweepUvs = sweepGeo.attributes.uv;
+        const sweepPos = sweepGeo.attributes.position;
+        if (sweepUvs && sweepPos) {
+            for (let i = 0; i < sweepUvs.count; i++) {
+                sweepUvs.setXY(i, (sweepPos.getX(i) + sw) / sweepW, (sweepPos.getY(i) + shSweep) / sweepH);
+            }
+            sweepUvs.needsUpdate = true;
+        }
+        builder.addNode({ geometry: sweepGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, -sweepH / 2 + 0.01, 0), castShadow: true, receiveShadow: true, userData: { isSweep: true } });
     }
     const metalMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8, roughness: 0.2 }); const silverMat = new THREE.MeshStandardMaterial({ color: 0xe5e7eb, metalness: 0.9, roughness: 0.15 }); const handleY = height * 0.45; 
     if (['sliding', 'double_sliding'].includes(type) && isGlass) {
