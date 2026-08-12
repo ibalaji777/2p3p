@@ -964,14 +964,14 @@ export const MARBLE_REGISTRY = {
         name: 'Italian Carrara White',
         texture: 'textures/marbles/marble_carrara.png',
         thumbnail: 'textures/marbles/marble_carrara.png',
-        roughness: 0.15, clearcoat: 0.85, defaultRepeat: 1
+        color: 0xeeeeee, roughness: 0.15, clearcoat: 0.85, defaultRepeat: 1
     },
     'marble_nero_marquina': {
         id: 'marble_nero_marquina',
         name: 'Nero Marquina Black',
         texture: 'textures/marbles/marble_nero_marquina.png',
         thumbnail: 'textures/marbles/marble_nero_marquina.png',
-        roughness: 0.12, clearcoat: 0.90, defaultRepeat: 1
+        color: 0x222222, roughness: 0.12, clearcoat: 0.90, defaultRepeat: 1
     },
     'marble_verde_guatemala': {
         id: 'marble_verde_guatemala',

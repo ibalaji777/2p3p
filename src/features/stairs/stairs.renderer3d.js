@@ -3,12 +3,14 @@ import { WALL_HEIGHT } from '../../core/registry.js';
 import { MaterialManager } from '../railing/materials/MaterialManager.js';
 import { Railing3DBuilder } from '../railing/builders/Railing3DBuilder.js';
 import { getRailingConfig } from '../railing/registry/railing.registry.js';
+import { ComponentRegistry } from '../../core/engine3d/ComponentRegistry.js';
 
 export class Stair3DBuilder {
-    constructor(assets, interactables) {
+    constructor(assets, interactables, helpers) {
         this.assets = assets;
         this.interactables = interactables;
-        this.defaultMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.8 }); // Wood-like color
+        this.helpers = helpers;
+        this.defaultMat = new THREE.MeshStandardMaterial({ color: 0xff00ff, roughness: 0.8 }); // Magenta error material
     }
 
     getTexture(url, repeatX = 1, repeatY = 1) {
@@ -32,67 +34,27 @@ export class Stair3DBuilder {
             if (!stair.type) return;
             const group = new THREE.Group();
             
-            // --- Material Manager ---
-            const useUnified = stair.useUnifiedMaterial !== false;
+            const getMat = (slotId) => {
+                const matId = stair.materials?.[slotId]?.id;
+                if (!matId) {
+                    console.warn(`[STAIRCASE] Missing material ID for slot '${slotId}' in entity ${stair.id}`);
+                    return this.defaultMat;
+                }
+                
+                if (this.helpers && this.helpers.getDynamicMaterial) {
+                    return this.helpers.getDynamicMaterial(matId, 'staircase');
+                }
+                
+                return this.defaultMat;
+            };
+
+            const treadMat = getMat('treads');
+            const riserMat = getMat('risers');
+            const landingMat = getMat('landings');
+            const structureMat = getMat('stringers');
             
-            const createMat = (typeId, colorHex) => {
-                const color = new THREE.Color(colorHex || '#8b5a2b');
-                if (typeId === 'glass' || typeId === 'glass_clear') return new THREE.MeshPhysicalMaterial({ color, transmission: 0.9, opacity: 1, transparent: true, roughness: 0.05, ior: 1.5, thickness: 2 });
-                
-                if (typeId === 'concrete') {
-                    const map = this.getTexture('models/wall/stone.png', 0.5, 0.5);
-                    return new THREE.MeshStandardMaterial({ color, map, roughness: 0.9, metalness: 0.1 });
-                }
-                
-                if (typeId === 'steel' || typeId === 'stainless_steel') return new THREE.MeshStandardMaterial({ color, roughness: 0.2, metalness: 0.8 });
-                
-                if (typeId === 'marble') {
-                    const map = this.getTexture('models/wall/marble_1_white.png', 1, 1);
-                    return new THREE.MeshPhysicalMaterial({ 
-                        color: 0xffffff, 
-                        map: map,
-                        bumpMap: map,
-                        bumpScale: 0.5,
-                        roughness: 0.1, 
-                        metalness: 0.05, 
-                        clearcoat: 1.0, 
-                        clearcoatRoughness: 0.1
-                    });
-                }
-                
-                if (typeId === 'granite') {
-                    const map = this.getTexture('models/wall/black_marble.png', 1, 1);
-                    return new THREE.MeshPhysicalMaterial({ 
-                        color: 0xffffff, 
-                        map: map,
-                        bumpMap: map,
-                        bumpScale: 0.5,
-                        roughness: 0.1, 
-                        metalness: 0.05, 
-                        clearcoat: 1.0, 
-                        clearcoatRoughness: 0.1
-                    });
-                }
-                
-                if (typeId === 'white_painted') return new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
-                
-                // Wood Materials (Default)
-                const map = this.getTexture('https://threejs.org/examples/textures/hardwood2_diffuse.jpg', 0.02, 0.02);
-                return new THREE.MeshStandardMaterial({ color, map, roughness: 0.6 });
-            };
-
-            const primaryMat = createMat(stair.primaryMaterial, stair.primaryColor);
-            const stairMat = primaryMat; // Fallback for v4 and legacy
-
-            const getComponentMat = (compMatType, compColor) => {
-                if (useUnified || compMatType === 'default' || !compMatType) return primaryMat;
-                return createMat(compMatType, compColor);
-            };
-
-            const treadMat = getComponentMat(stair.treadMaterial, stair.treadColor);
-            const riserMat = stair.riserMaterial === 'none' ? null : getComponentMat(stair.riserMaterial, stair.riserColor);
-            const landingMat = getComponentMat(stair.landingMaterial, stair.landingColor);
-            const structureMat = getComponentMat(stair.structureMaterial, stair.structureColor);
+            // Fallback for v4 and legacy geometries that don't distinguish parts well
+            const stairMat = treadMat; 
             
             // Apply global positioning
             const sx = Number(stair.x) || 0;
@@ -498,6 +460,20 @@ export class Stair3DBuilder {
                     }
                 }
             }
+
+            // Ensure unified component highlighting and material registry
+            group.traverse(child => {
+                if (child.isMesh) {
+                    let slot = 'treads';
+                    if (child.material === riserMat) slot = 'risers';
+                    else if (child.material === landingMat) slot = 'landings';
+                    else if (child.material === structureMat) slot = 'stringers';
+                    
+                    child.userData.entity = stair;
+                    child.userData.materialSlot = slot;
+                    ComponentRegistry.registerMesh(stair, slot, child);
+                }
+            });
 
             // Assign user data to be able to identify or select it if needed
             group.userData = { entity: stair, isStair: true, isStatic: isStatic };

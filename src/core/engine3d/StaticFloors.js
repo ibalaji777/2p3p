@@ -12,7 +12,7 @@ export class StaticFloors {
         this.decorManager = decorManager;
         this.interactables = interactables;
         this.wallBuilder = new Wall3DBuilder();
-        this.stairBuilder = new Stair3DBuilder(assets, interactables);
+
         this.matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7, side: THREE.DoubleSide });
         this.matFloor.userData = { isShared: true };
         this.callbacks = callbacks;
@@ -43,6 +43,7 @@ export class StaticFloors {
                 });
             }
         };
+        this.stairBuilder = new Stair3DBuilder(assets, interactables, this.helpers);
     }
 
     build(levelsConfigArray, activeIndex, viewMode3D, stairs = [], staticStructureGroup) {

@@ -15,7 +15,7 @@ export class ActiveFloor {
         this.assets = assets;
         this.wallBuilder = new Wall3DBuilder();
         // this.railingBuilder removed in favor of static Railing3DBuilder
-        this.stairBuilder = new Stair3DBuilder(assets, interactables);
+
         this.matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7, side: THREE.DoubleSide });
         this.callbacks = callbacks;
         
@@ -44,6 +44,7 @@ export class ActiveFloor {
                 });
             }
         };
+        this.stairBuilder = new Stair3DBuilder(assets, interactables, this.helpers);
     }
 
     build(walls, rooms, roofs, shapes, stairs = [], activeIndex = 0, targetGroup = this.structureGroup, stairsBelow = []) {

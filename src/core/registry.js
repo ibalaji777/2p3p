@@ -4,6 +4,9 @@ export * from './constants/units.js';
 export * from './constants/events.js';
 export * from '../features/door/door.registry.js';
 export * from '../features/roof/roof.registry.js';
+export { STAIRCASE_REGISTRY } from '../features/stairs/stairs.registry.js';
+export { ROOF_REGISTRY } from '../features/roof/roof.components.registry.js';
+
 export * from '../features/furniture/furniture.registry.js';
 export * from '../features/railing/registry/railing.registry.js';
 export * from '../features/window/window.registry.js';
@@ -16,6 +19,7 @@ import { JALI_MATERIALS } from './registries/material.registry.js';
 import { MaterialSlots } from './constants/materialSlots.js';
 import { ComponentRegistry } from './engine3d/ComponentRegistry.js';
 import { BIMComponentBuilder } from './engine3d/BIMComponentBuilder.js';
+import { MaterialManager } from './engine3d/MaterialManager.js';
 
 export const WORKSPACE_2D_SHAPES = {
     // Default boundary
@@ -2221,3 +2225,63 @@ export const GIZMO_REGISTRY = {
     'face_material_obj': ['move', 'place', 'scale', 'spin', 'tilt', 'material'],
     'default': ['move', 'place', 'scale', 'spin', 'tilt']
 };
+// Thumbnail generation extensions
+['shape_rect', 'shape_circle', 'shape_triangle'].forEach(type => {
+    if (!WIDGET_REGISTRY[type]) WIDGET_REGISTRY[type] = { type };
+    WIDGET_REGISTRY[type].render3D = (sceneGroup, entity, helpers) => {
+        const size = 60, h = 60;
+        let geo;
+        if (type === 'shape_rect') geo = new THREE.BoxGeometry(size, h, size);
+        else if (type === 'shape_circle') geo = new THREE.CylinderGeometry(size/2, size/2, h, 32);
+        else geo = new THREE.CylinderGeometry(size/2, size/2, h, 3);
+        const mat = new THREE.MeshStandardMaterial({ color: 0x88ccff });
+        const mesh = new THREE.Mesh(geo, mat);
+        sceneGroup.add(mesh);
+        return mesh;
+    };
+});
+
+['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].forEach(type => {
+    if (!WIDGET_REGISTRY[type]) WIDGET_REGISTRY[type] = { type };
+    WIDGET_REGISTRY[type].render3D = (sceneGroup, entity, helpers) => {
+        const w = 100, h = 100, d = 10;
+        const shape = new THREE.Shape();
+        shape.moveTo(-w/2, -h/2); shape.lineTo(w/2, -h/2); shape.lineTo(w/2, h/2); shape.lineTo(-w/2, h/2); shape.lineTo(-w/2, -h/2);
+        const hole = new THREE.Path();
+        if (type === 'arch_opening') {
+            hole.moveTo(-20, -h/2); hole.lineTo(20, -h/2); hole.lineTo(20, 0);
+            hole.absarc(0, 0, 20, 0, Math.PI, false); hole.lineTo(-20, -h/2);
+        } else if (type === 'circular_opening') {
+            hole.absarc(0, 0, 20, 0, Math.PI*2, false);
+        } else {
+            hole.moveTo(-20, -20); hole.lineTo(20, -20); hole.lineTo(20, 20); hole.lineTo(-20, 20); hole.lineTo(-20, -20);
+        }
+        shape.holes.push(hole);
+        const extrudeSettings = { depth: d, bevelEnabled: false };
+        const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        geo.translate(0, 0, -d/2);
+        const wallMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        const mesh = new THREE.Mesh(geo, wallMat);
+        sceneGroup.add(mesh);
+        return mesh;
+    };
+});
+
+['material_preview', 'material_preview_box'].forEach(type => {
+    if (!WIDGET_REGISTRY[type]) WIDGET_REGISTRY[type] = { type };
+    WIDGET_REGISTRY[type].render3D = async (sceneGroup, entity, helpers) => {
+        const isBox = type === 'material_preview_box' || (entity && entity.previewShape === 'box');
+        const geo = isBox ? new THREE.PlaneGeometry(200, 200) : new THREE.SphereGeometry(45, 64, 64);
+        const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xffffff }));
+        
+        let factory = window.MaterialFactory;
+        if (!factory) {
+            const imported = await import('./engine3d/MaterialFactory.js');
+            factory = imported.MaterialFactory;
+        }
+        
+        await factory.applyPBRMaterial(mesh, entity, helpers.ctx);
+        sceneGroup.add(mesh);
+        return mesh;
+    };
+});

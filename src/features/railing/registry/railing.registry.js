@@ -1,3 +1,4 @@
+import { Railing3DBuilder } from '../builders/Railing3DBuilder.js';
 // src/features/railing/registry/railing.registry.js
 
 /**
@@ -184,3 +185,20 @@ export const RAILING_REGISTRY = {
 export function getRailingConfig(id) {
     return RAILING_REGISTRY[id] || RAILING_REGISTRY['glass_stainless'];
 }
+
+Object.keys(RAILING_REGISTRY).forEach(key => {
+    RAILING_REGISTRY[key].render3D = (sceneGroup, entity, helpers) => {
+        const mockRailing = {
+            configId: key,
+            points: [-30, 0, 30, 0],
+            thickness: RAILING_REGISTRY[key]?.thickness || 2,
+            height: RAILING_REGISTRY[key]?.height || 40,
+            config: RAILING_REGISTRY[key]
+        };
+        const mesh = Railing3DBuilder.build(mockRailing);
+        mesh.position.set(0, 0, 0);
+        mesh.rotation.y = Math.PI / 6; 
+        sceneGroup.add(mesh);
+        return mesh;
+    };
+});

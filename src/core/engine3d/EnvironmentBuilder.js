@@ -162,7 +162,7 @@ export class EnvironmentBuilder {
     constructor(ctx) {
         this.ctx = ctx;
         this.moldingBuilder = new Molding3DBuilder();
-        this.stairBuilder = new Stair3DBuilder(ctx.assets, ctx.interactables);
+        this.stairBuilder = new Stair3DBuilder(ctx.assets, ctx.interactables, ctx.helpers);
     }
 
     setupBaseEnvironment() {

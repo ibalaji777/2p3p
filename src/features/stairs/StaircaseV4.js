@@ -1,4 +1,5 @@
 import Konva from 'konva';
+import { STAIRCASE_REGISTRY } from './stairs.registry.js';
 
 export class StairV4Node {
     constructor(planner, data) {
@@ -11,10 +12,29 @@ export class StairV4Node {
         this.elevation = data.elevation || 0;
         this.systemId = data.systemId || this.id;
         
+        const regConfig = STAIRCASE_REGISTRY['staircase'].defaultConfig || {};
+        
+        if (!data.primaryColor) {
+            console.warn(`[STAIRCASE] Missing 'primaryColor' in JSON config for entity ${this.id}.`);
+        }
+        this.primaryColor = data.primaryColor;
+        
+        if (!data.materials) {
+            console.warn(`[STAIRCASE] Missing 'materials' in JSON config for entity ${this.id}.`);
+        }
+        this.materials = data.materials;
+        
+        // Expose regConfig so children can use it easily
+        this._regConfig = regConfig;
+        
         this.connections = data.connections || [];
         
         this.group = new Konva.Group({ x: this.x, y: this.y, rotation: this.rotation, draggable: true });
-        this.poly = new Konva.Line({ stroke: '#3b82f6', strokeWidth: 2, closed: true, fill: 'rgba(59, 130, 246, 0.2)' });
+        // Use primaryColor for the background fill, but keep it slightly translucent
+        const fillAlpha = this.primaryColor === '#ffffff' || this.primaryColor === '#f5f5f5' ? 0.6 : 0.8;
+        this.poly = new Konva.Line({ stroke: '#3b82f6', strokeWidth: 2, closed: true, fill: this.primaryColor });
+        this.poly.opacity(fillAlpha);
+        
         this.contentGroup = new Konva.Group();
         this.handlesGroup = new Konva.Group({ visible: false });
         this.snapPointsGroup = new Konva.Group({ listening: false });
@@ -459,12 +479,23 @@ export class StairV4Flight extends StairV4Node {
     constructor(planner, data) {
         super(planner, data);
         this.type = 'stair_v4_flight';
-        this.stepCount = data.stepCount || 10;
-        this.stepDepth = data.stepDepth || 28;
-        this.stepHeight = data.stepHeight || 17.5;
-        this.width = data.width || 100;
+        
+        if (!data.stepCount && !this._regConfig.steps) console.warn(`[STAIRCASE] Missing 'stepCount' in JSON and Registry for ${this.id}`);
+        this.stepCount = data.stepCount || this._regConfig.steps || 10;
+        
+        if (!data.stepDepth && !this._regConfig.stepDepth) console.warn(`[STAIRCASE] Missing 'stepDepth' in JSON and Registry for ${this.id}`);
+        this.stepDepth = data.stepDepth || this._regConfig.stepDepth || 28;
+        
+        if (!data.stepHeight && !this._regConfig.stepHeight) console.warn(`[STAIRCASE] Missing 'stepHeight' in JSON and Registry for ${this.id}`);
+        this.stepHeight = data.stepHeight || this._regConfig.stepHeight || 17.5;
+        
+        if (!data.width && !this._regConfig.width) console.warn(`[STAIRCASE] Missing 'width' in JSON and Registry for ${this.id}`);
+        this.width = data.width || this._regConfig.width || 100;
+        
         this.length = this.stepCount * this.stepDepth;
-        this.direction = data.direction || 'up';
+        
+        if (!data.direction && !this._regConfig.direction) console.warn(`[STAIRCASE] Missing 'direction' in JSON and Registry for ${this.id}`);
+        this.direction = data.direction || this._regConfig.direction || 'up';
 
         this.initFlightHandles();
         this.update();
@@ -680,11 +711,21 @@ export class StairV4Landing extends StairV4Node {
     constructor(planner, data) {
         super(planner, data);
         this.type = 'stair_v4_landing';
-        this.shape = data.shape || 'rectangular'; // 'rectangular' or 'u_curve'
-        this.width = data.width || 100;
-        this.length = data.length || 100;
-        this.innerRadius = data.innerRadius || 20;
-        this.arrowDirection = data.arrowDirection || 'forward';
+        
+        if (!data.shape && !this._regConfig.shape) console.warn(`[STAIRCASE] Missing 'shape' in JSON and Registry for ${this.id}`);
+        this.shape = data.shape || this._regConfig.shape || 'rectangular'; // 'rectangular' or 'u_curve'
+        
+        if (!data.width && !this._regConfig.width) console.warn(`[STAIRCASE] Missing 'width' in JSON and Registry for ${this.id}`);
+        this.width = data.width || this._regConfig.width || 100;
+        
+        if (!data.length && !this._regConfig.length) console.warn(`[STAIRCASE] Missing 'length' in JSON and Registry for ${this.id}`);
+        this.length = data.length || this._regConfig.length || 100;
+        
+        if (!data.innerRadius && !this._regConfig.innerRadius) console.warn(`[STAIRCASE] Missing 'innerRadius' in JSON and Registry for ${this.id}`);
+        this.innerRadius = data.innerRadius || this._regConfig.innerRadius || 20;
+        
+        if (!data.arrowDirection && !this._regConfig.arrowDirection) console.warn(`[STAIRCASE] Missing 'arrowDirection' in JSON and Registry for ${this.id}`);
+        this.arrowDirection = data.arrowDirection || this._regConfig.arrowDirection || 'forward';
         
         this.initLandingHandles();
         this.update();

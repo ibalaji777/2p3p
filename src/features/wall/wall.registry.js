@@ -1,6 +1,9 @@
+import * as THREE from 'three';
+import { Molding3DBuilder } from '../../core/engine3d/Molding3DBuilder.js';
 export const WALL_REGISTRY = {
     'outer': { type: "outer", label: "OUTER WALL", thickness: 16, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
     'inner': { type: "inner", label: "INNER WALL", thickness: 8, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
+    'arc': { type: "arc", label: "CURVED WALL", thickness: 10, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall"] },
     'railing': { type: "railing", label: "RAILING", thickness: 4, height: 0, events: ["proximity_highlight", "snap_preview", "snap_to_wall"] }
 };
 
@@ -17,3 +20,42 @@ export const MOLDING_REGISTRY = {
     'molding_layered': { type: 'molding_layered', label: 'Layered Projection', events: ['snap_to_wall', 'drag_along_wall', 'resize_handles_along_wall_axis'], defaultConfig: { width: 50, depth: 5, heightOffset: 50, profileType: 'layered', material: 'white_paint', color: '#ffffff', layers: 3, layerGap: 1 } }
 };
 
+
+Object.keys(MOLDING_REGISTRY).forEach(key => {
+    MOLDING_REGISTRY[key].render3D = (sceneGroup, entity, helpers) => {
+        const moldBuilder = new Molding3DBuilder();
+        const moldData = MOLDING_REGISTRY[key]?.defaultConfig || { profileType: 'flat', depth: 5, t: 0.5 };
+        const length = 30; // Shorter chunk to emphasize the profile
+        const moldGroup = moldBuilder.buildMolding({ ...moldData, width: length, depth: moldData.depth, type: key }, length, 10, helpers);
+        
+        moldGroup.rotation.y = Math.PI / 6; 
+        moldGroup.rotation.x = Math.PI / 12;
+
+        const glossyMat = new THREE.MeshStandardMaterial({
+            color: 0xe0e0e0,
+            roughness: 0.3,
+            metalness: 0.2
+        });
+        moldGroup.traverse(child => {
+            if (child.isMesh) child.material = glossyMat;
+        });
+
+        sceneGroup.add(moldGroup);
+        return moldGroup;
+    };
+});
+
+['outer', 'inner', 'arc'].forEach(key => {
+    if (WALL_REGISTRY[key]) {
+        WALL_REGISTRY[key].render3D = (sceneGroup, entity, helpers) => {
+            const w = 100, h = 100, d = 10;
+            let geo;
+            if (key === 'arc') geo = new THREE.CylinderGeometry(100, 100, h, 32, 1, false, 0, Math.PI / 2);
+            else geo = new THREE.BoxGeometry(w, h, d);
+            const wallMat = new THREE.MeshStandardMaterial({ color: key === 'outer' ? 0xffffff : 0xeeeeee });
+            const mesh = new THREE.Mesh(geo, wallMat);
+            sceneGroup.add(mesh);
+            return mesh;
+        };
+    }
+});
