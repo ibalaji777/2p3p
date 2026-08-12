@@ -393,7 +393,10 @@ const railingCatalog = ref([
     { id: 'glass_frameless', name: 'Frameless', badge: 'LUXURY', material: 'Clear Toughened Glass', specs: '1000 mm High', image: '', toolId: 'railing', params: { type: 'glass_frameless' } },
     { id: 'metal_vertical', name: 'Vertical Metal', badge: 'MINIMAL', material: 'Black Powder Steel', specs: '1000 mm High', image: '', toolId: 'railing', params: { type: 'metal_vertical' } },
     { id: 'cable_stainless', name: 'Cable', badge: 'SLIM', material: 'Tension Cable', specs: '1000 mm High', image: '', toolId: 'railing', params: { type: 'cable_stainless' } },
-    { id: 'wood_classic', name: 'Wood', badge: 'CLASSIC', material: 'Carved Wood Balusters', specs: '1000 mm High', image: '', toolId: 'railing', params: { type: 'wood_classic' } }
+    { id: 'wood_classic', name: 'Wood', badge: 'CLASSIC', material: 'Carved Wood Balusters', specs: '1000 mm High', image: '', toolId: 'railing', params: { type: 'wood_classic' } },
+    { id: 'stair_baluster_default', name: 'Block Balusters', badge: 'ROBUST', material: 'Solid Wood & Metal', specs: '1000 mm High', image: '', toolId: 'railing', params: { type: 'stair_baluster_default' } },
+    { id: 'stair_glass_default', name: 'Glass Wedge', badge: 'CLEAN', material: 'Thick Glass Panel', specs: '1000 mm High', image: '', toolId: 'railing', params: { type: 'stair_glass_default' } },
+    { id: 'stair_cable_default', name: 'Heavy Cable', badge: 'INDUSTRIAL', material: 'Tension Steel Cables', specs: '1000 mm High', image: '', toolId: 'railing', params: { type: 'stair_cable_default' } }
 ]);
 
 const furnitureCatalog = ref([

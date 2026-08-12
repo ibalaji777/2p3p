@@ -125,6 +125,59 @@ export const RAILING_REGISTRY = {
             spacing: 4, // Horizontal cables every 4 inches vertically
             material: 'metal_stainless'
         }
+    },
+    'stair_baluster_default': {
+        name: 'Staircase Block Balusters',
+        height: 40,
+        thickness: 3.33,
+        handrail: {
+            width: 3.33,
+            height: 3.33,
+            shape: 'rectangle',
+            material: 'metal_black'
+        },
+        baluster: {
+            width: 4,
+            depth: 4,
+            spacing: 15,
+            material: 'metal_black'
+        },
+        isStairStyle: true
+    },
+    'stair_glass_default': {
+        name: 'Staircase Glass Wedge',
+        height: 40,
+        thickness: 3.33,
+        handrail: {
+            width: 3.33,
+            height: 3.33,
+            shape: 'rectangle',
+            material: 'metal_black'
+        },
+        glass: {
+            thickness: 1.5,
+            material: 'glass_clear',
+            bottomGap: 5,
+            maxWidth: 100
+        },
+        isStairStyle: true
+    },
+    'stair_cable_default': {
+        name: 'Staircase Cable Block',
+        height: 40,
+        thickness: 3.33,
+        handrail: {
+            width: 3.33,
+            height: 3.33,
+            shape: 'rectangle',
+            material: 'metal_black'
+        },
+        cable: {
+            diameter: 0.8,
+            spacing: 5,
+            material: 'metal_stainless'
+        },
+        isStairStyle: true
     }
 };
 

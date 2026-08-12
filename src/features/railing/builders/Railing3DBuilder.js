@@ -6,6 +6,7 @@ import { PostGenerator } from '../generators/PostGenerator.js';
 import { GlassGenerator } from '../generators/GlassGenerator.js';
 import { BalusterGenerator } from '../generators/BalusterGenerator.js';
 import { CableGenerator } from '../generators/CableGenerator.js';
+import { UniversalStairGenerator } from '../generators/UniversalStairGenerator.js';
 import { MaterialManager } from '../materials/MaterialManager.js';
 
 /**
@@ -23,12 +24,22 @@ export class Railing3DBuilder {
         const start = new THREE.Vector3(pts[0], 0, pts[1]);
         const end = new THREE.Vector3(pts[2], 0, pts[3]);
 
+        return this.build3D(start, end, entity.config);
+    }
+
+    /**
+     * Builds a railing strictly along a 3D path.
+     * @param {THREE.Vector3} start 
+     * @param {THREE.Vector3} end 
+     * @param {Object} config 
+     */
+    static build3D(start, end, config) {
+        const group = new THREE.Group();
+        
         // 1. Normalize Path
         const path = PathGenerator.normalizeLinear(start, end);
 
-        // 2. Fetch Config & Materials
-        const config = entity.config;
-        
+        // 2. Fetch Materials
         const getMat = (subConfig, defaultMat) => {
             return MaterialManager.getMaterial(subConfig?.material || defaultMat);
         };
@@ -38,6 +49,16 @@ export class Railing3DBuilder {
         const glassMat = getMat(config.glass, 'glass_clear');
         const balusterMat = getMat(config.baluster, 'metal_black');
         const cableMat = getMat(config.cable, 'metal_stainless');
+
+        if (config.isStairStyle) {
+            return UniversalStairGenerator.generate(path, config, {
+                handrail: handrailMat,
+                baluster: balusterMat,
+                glass: glassMat,
+                cable: cableMat,
+                post: postMat
+            });
+        }
 
         // 3. Generate Components
         const handrail = HandrailGenerator.generate(path, config, handrailMat);

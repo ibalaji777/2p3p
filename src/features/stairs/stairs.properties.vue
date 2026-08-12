@@ -206,17 +206,11 @@
                     </h5>
                     
                     <div class="control-group">
-                        <label>Railing Type</label>
-                        <select :value="selectedEntity[side + 'Railing'].useGlassPanels ? 'glass' : (selectedEntity[side + 'Railing'].useCableRails ? 'cable' : 'baluster')" @change="e => { 
-                            const v = e.target.value; 
-                            selectedEntity[side + 'Railing'].useGlassPanels = (v === 'glass');
-                            selectedEntity[side + 'Railing'].useCableRails = (v === 'cable');
-                            if(selectedEntity.linkRailings) { selectedEntity.rightRailing = JSON.parse(JSON.stringify(selectedEntity.leftRailing)); }
-                            $emit('sync-engine'); 
-                        }" class="settings-select">
-                            <option value="baluster">Balusters (Spindles)</option>
-                            <option value="glass">Glass Panels</option>
-                            <option value="cable">Cable Railings</option>
+                        <label>Style</label>
+                        <select v-model="selectedEntity[side + 'Railing'].configId" @change="if(selectedEntity.linkRailings) { selectedEntity.rightRailing.configId = selectedEntity.leftRailing.configId; } $emit('sync-engine')" class="settings-select">
+                            <option v-for="(config, id) in RAILING_REGISTRY" :key="id" :value="id">
+                                {{ config.name }}
+                            </option>
                         </select>
                     </div>
 
@@ -234,88 +228,7 @@
                         </div>
                     </div>
                     
-                    <!-- Handrail Settings -->
-                    <div class="control-group">
-                        <label>Handrail Profile</label>
-                        <select v-model="selectedEntity[side + 'Railing'].handrailProfile" @change="if(selectedEntity.linkRailings) { selectedEntity.rightRailing.handrailProfile = selectedEntity.leftRailing.handrailProfile; } $emit('sync-engine')" class="settings-select">
-                            <option value="rectangular">Rectangular</option>
-                            <option value="round">Round</option>
-                        </select>
-                    </div>
-                    <div class="control-group">
-                        <label>Handrail Material</label>
-                        <select v-model="selectedEntity[side + 'Railing'].handrailMaterial" @change="if(selectedEntity.linkRailings) { selectedEntity.rightRailing.handrailMaterial = selectedEntity.leftRailing.handrailMaterial; } $emit('sync-engine')" class="settings-select">
-                            <option value="default">Use Stair Material</option>
-                            <option value="wood">Wood</option>
-                            <option value="steel">Steel</option>
-                            <option value="aluminum">Aluminum</option>
-                            <option value="black_metal">Black Metal</option>
-                        </select>
-                    </div>
-
-                    <!-- Context Sensitive Settings -->
-                    <template v-if="!selectedEntity[side + 'Railing'].useGlassPanels && !selectedEntity[side + 'Railing'].useCableRails">
-                        <!-- Balusters -->
-                        <div class="control-group">
-                            <label>Baluster Shape</label>
-                            <select v-model="selectedEntity[side + 'Railing'].balusterShape" @change="if(selectedEntity.linkRailings) { selectedEntity.rightRailing.balusterShape = selectedEntity.leftRailing.balusterShape; } $emit('sync-engine')" class="settings-select">
-                                <option value="square">Square</option>
-                                <option value="round">Round</option>
-                            </select>
-                        </div>
-                        <div class="control-group">
-                            <label>Baluster Spacing</label>
-                            <div class="input-wrap">
-                                <DimensionInput v-model="selectedEntity[side + 'Railing'].balusterSpacing" min="5" @change="if(selectedEntity.linkRailings) { selectedEntity.rightRailing.balusterSpacing = selectedEntity.leftRailing.balusterSpacing; } $emit('sync-engine')" />
-                            </div>
-                        </div>
-                        <div class="control-group">
-                            <label>Baluster Material</label>
-                            <select v-model="selectedEntity[side + 'Railing'].balusterMaterial" @change="if(selectedEntity.linkRailings) { selectedEntity.rightRailing.balusterMaterial = selectedEntity.leftRailing.balusterMaterial; } $emit('sync-engine')" class="settings-select">
-                                <option value="default">Use Stair Material</option>
-                                <option value="steel">Steel</option>
-                                <option value="wood">Wood</option>
-                                <option value="aluminum">Aluminum</option>
-                                <option value="black_metal">Black Metal</option>
-                            </select>
-                        </div>
-                    </template>
-                    
-                    <template v-if="selectedEntity[side + 'Railing'].useGlassPanels">
-                        <!-- Glass Panels -->
-                        <div class="control-group">
-                            <label>Glass Material</label>
-                            <select v-model="selectedEntity[side + 'Railing'].panelMaterial" @change="if(selectedEntity.linkRailings) { selectedEntity.rightRailing.panelMaterial = selectedEntity.leftRailing.panelMaterial; } $emit('sync-engine')" class="settings-select">
-                                <option value="glass_clear">Clear Glass</option>
-                                <option value="glass_frosted">Frosted Glass</option>
-                                <option value="glass_tinted">Tinted Glass</option>
-                            </select>
-                        </div>
-                        <div class="control-group">
-                            <label>Glass Thickness</label>
-                            <div class="input-wrap">
-                                <DimensionInput v-model="selectedEntity[side + 'Railing'].glassThickness" min="0.5" step="0.5" @change="if(selectedEntity.linkRailings) { selectedEntity.rightRailing.glassThickness = selectedEntity.leftRailing.glassThickness; } $emit('sync-engine')" />
-                            </div>
-                        </div>
-                    </template>
-
-                    <template v-if="selectedEntity[side + 'Railing'].useCableRails">
-                        <!-- Cable Rails -->
-                        <div class="control-group">
-                            <label>Cable Material</label>
-                            <select v-model="selectedEntity[side + 'Railing'].cableMaterial" @change="if(selectedEntity.linkRailings) { selectedEntity.rightRailing.cableMaterial = selectedEntity.leftRailing.cableMaterial; } $emit('sync-engine')" class="settings-select">
-                                <option value="stainless_steel">Stainless Steel</option>
-                                <option value="black_steel">Black Steel</option>
-                                <option value="aluminum">Aluminum</option>
-                            </select>
-                        </div>
-                        <div class="control-group">
-                            <label>Number of Cables</label>
-                            <div class="input-wrap">
-                                <input type="number" v-model.number="selectedEntity[side + 'Railing'].cableCount" min="1" max="15" @input="if(selectedEntity.linkRailings) { selectedEntity.rightRailing.cableCount = selectedEntity.leftRailing.cableCount; } $emit('sync-engine')">
-                            </div>
-                        </div>
-                    </template>
+                    <!-- Custom overrides removed. The chosen Style dictates materials and shapes perfectly. -->
                     
                     <!-- Posts Toggles -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 10px;">
@@ -337,7 +250,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { computed } from 'vue';
+import { RAILING_REGISTRY } from '../railing/registry/railing.registry.js';
 import DimensionInput from '../../components/common/DimensionInput.vue';
 
 const props = defineProps({

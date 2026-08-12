@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { WALL_HEIGHT } from '../../core/registry.js';
+import { MaterialManager } from '../railing/materials/MaterialManager.js';
+import { Railing3DBuilder } from '../railing/builders/Railing3DBuilder.js';
+import { getRailingConfig } from '../railing/registry/railing.registry.js';
 
 export class Stair3DBuilder {
     constructor(assets, interactables) {
@@ -207,14 +210,18 @@ export class Stair3DBuilder {
 
                 const getRailingMaterial = (matId) => {
                     if (matId === 'default' || !matId) return stairMat;
-                    if (matId === 'wood') return new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.8 });
-                    if (matId === 'steel' || matId === 'stainless_steel') return new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8, roughness: 0.2 });
-                    if (matId === 'aluminum') return new THREE.MeshStandardMaterial({ color: 0xe0e0e0, metalness: 0.5, roughness: 0.4 });
-                    if (matId === 'black_metal' || matId === 'black_steel') return new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8, roughness: 0.3 });
-                    if (matId === 'glass_clear') return new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.9, opacity: 1, transparent: true, roughness: 0.05, ior: 1.5, thickness: 2 });
-                    if (matId === 'glass_frosted') return new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.6, opacity: 1, transparent: true, roughness: 0.5, ior: 1.5, thickness: 2 });
-                    if (matId === 'glass_tinted') return new THREE.MeshPhysicalMaterial({ color: 0x000000, transmission: 0.8, opacity: 1, transparent: true, roughness: 0.05, ior: 1.5, thickness: 2 });
-                    return stairMat;
+                    
+                    let globalMatId = 'metal_black';
+                    if (matId === 'wood') globalMatId = 'wood_oak';
+                    else if (matId === 'steel' || matId === 'stainless_steel') globalMatId = 'metal_stainless';
+                    else if (matId === 'aluminum') globalMatId = 'metal_aluminum';
+                    else if (matId === 'black_metal' || matId === 'black_steel') globalMatId = 'metal_black';
+                    else if (matId === 'glass_clear') globalMatId = 'glass_clear';
+                    else if (matId === 'glass_frosted') globalMatId = 'glass_frosted';
+                    else if (matId === 'glass_tinted') globalMatId = 'glass_tinted';
+                    else return stairMat;
+
+                    return MaterialManager.getMaterial(globalMatId);
                 };
 
                 const buildTread = (x, y, z, rotY) => {
@@ -336,115 +343,38 @@ export class Stair3DBuilder {
                             const conf = sideStr === 'left' ? leftRailing : rightRailing;
                             if (!conf) return;
 
-                            const rMat = getRailingMaterial(conf.handrailMaterial);
-                            const bMat = getRailingMaterial(conf.balusterMaterial);
-                            const pMat = getRailingMaterial(conf.panelMaterial);
-                            const cMat = getRailingMaterial(conf.cableMaterial);
-
                             const rOffset = Number(conf.offset) || 5;
                             const rHeight = Number(conf.height) || 60;
-                            const hSize = Number(conf.handrailSize) || 3.33;
                             
                             // Determine X offset relative to center of the flight
                             const railX = sideStr === 'left' ? -(width/2 - rOffset) : (width/2 - rOffset);
+
+                            // Load the universal config
+                            const baseConfigId = conf.configId || (conf.useGlassPanels ? 'stair_glass_default' : (conf.useCableRails ? 'stair_cable_default' : 'stair_baluster_default'));
+                            const baseConfig = getRailingConfig(baseConfigId);
+                            
+                            // Clone and inject stair logic
+                            const standardConfig = JSON.parse(JSON.stringify(baseConfig));
+                            standardConfig.isStairStyle = true; // Forces routing through UniversalStairGenerator
+                            standardConfig.height = rHeight;
+
+                            if (conf.hasNewelPosts) {
+                                const nSize = Number(conf.newelSize) || 8;
+                                // Add posts if they were missing, or override size
+                                standardConfig.post = { spacing: flightLength, width: nSize, depth: nSize, material: 'metal_black' };
+                            } else {
+                                standardConfig.post = null; // Explicitly remove posts if toggled off
+                            }
 
                             const railGroup = new THREE.Group();
                             railGroup.position.set(startX, 0, startZ);
                             railGroup.rotation.y = rotY;
 
-                            // Draw handrail (Shape X-Y plane mapped)
-                            const hShape = new THREE.Shape();
-                            const vThick = hSize;
-                            hShape.moveTo(0, startH + rHeight);
-                            hShape.lineTo(flightLength, endH + rHeight);
-                            hShape.lineTo(flightLength, endH + rHeight - vThick);
-                            hShape.lineTo(0, startH + rHeight - vThick);
-                            hShape.closePath();
+                            const railStart = new THREE.Vector3(railX, startH, 0);
+                            const railEnd = new THREE.Vector3(railX, endH, flightLength);
 
-                            let extrudeSettings = { depth: hSize, bevelEnabled: false };
-                            const hGeo = new THREE.ExtrudeGeometry(hShape, extrudeSettings);
-                            const hMesh = new THREE.Mesh(hGeo, rMat);
-                            hMesh.rotation.y = -Math.PI / 2;
-                            hMesh.position.set(railX + hSize/2, 0, 0);
-                            hMesh.castShadow = true; hMesh.receiveShadow = true;
-                            railGroup.add(hMesh);
-
-                            if (conf.useGlassPanels) {
-                                const gThick = Number(conf.glassThickness) || 1.5;
-                                const gShape = new THREE.Shape();
-                                // Glass sits between treads and handrail
-                                gShape.moveTo(0, startH + 5);
-                                gShape.lineTo(flightLength, endH + 5);
-                                gShape.lineTo(flightLength, endH + rHeight - hSize - 2);
-                                gShape.lineTo(0, startH + rHeight - hSize - 2);
-                                gShape.closePath();
-                                
-                                const gGeo = new THREE.ExtrudeGeometry(gShape, { depth: gThick, bevelEnabled: false });
-                                const gMesh = new THREE.Mesh(gGeo, pMat);
-                                gMesh.rotation.y = -Math.PI / 2;
-                                gMesh.position.set(railX + gThick/2, 0, 0);
-                                gMesh.castShadow = true; gMesh.receiveShadow = true;
-                                railGroup.add(gMesh);
-                            } else if (conf.useCableRails) {
-                                const cables = Number(conf.cableCount) || 5;
-                                const cDiam = Number(conf.cableDiameter) || 0.8;
-                                const span = rHeight - hSize - 10;
-                                const gap = span / (cables + 1);
-                                
-                                for(let k=1; k<=cables; k++) {
-                                    const cShape = new THREE.Shape();
-                                    const cHeight = 5 + k*gap;
-                                    cShape.moveTo(0, startH + cHeight);
-                                    cShape.lineTo(flightLength, endH + cHeight);
-                                    cShape.lineTo(flightLength, endH + cHeight - cDiam);
-                                    cShape.lineTo(0, startH + cHeight - cDiam);
-                                    cShape.closePath();
-                                    
-                                    const cGeo = new THREE.ExtrudeGeometry(cShape, { depth: cDiam, bevelEnabled: false });
-                                    const cMesh = new THREE.Mesh(cGeo, cMat);
-                                    cMesh.rotation.y = -Math.PI / 2;
-                                    cMesh.position.set(railX + cDiam/2, 0, 0);
-                                    cMesh.castShadow = true; cMesh.receiveShadow = true;
-                                    railGroup.add(cMesh);
-                                }
-                            } else {
-                                // Balusters
-                                const bSpacing = Number(conf.balusterSpacing) || 15;
-                                const bSize = Number(conf.balusterSize) || 4;
-                                const bShape = conf.balusterShape || 'square';
-                                const numBalusters = Math.floor(flightLength / bSpacing);
-                                
-                                const bGeo = bShape === 'round' ? new THREE.CylinderGeometry(bSize/2, bSize/2, 1, 8) : new THREE.BoxGeometry(bSize, 1, bSize);
-                                
-                                // We'll instanced mesh them or just add meshes
-                                for(let k=0; k<=numBalusters; k++) {
-                                    const bZ = k * bSpacing;
-                                    const t = bZ / flightLength;
-                                    const bH = startH * (1 - t) + endH * t;
-                                    const balHeight = rHeight - hSize;
-                                    
-                                    const bm = new THREE.Mesh(bGeo, bMat);
-                                    bm.scale.set(1, balHeight, 1);
-                                    bm.position.set(railX, bH + balHeight/2, bZ);
-                                    bm.castShadow = true; bm.receiveShadow = true;
-                                    railGroup.add(bm);
-                                }
-                            }
-
-                            // Posts
-                            if (conf.hasNewelPosts) {
-                                const nSize = Number(conf.newelSize) || 8;
-                                const nGeo = new THREE.BoxGeometry(nSize, rHeight + 5, nSize);
-                                const nMeshStart = new THREE.Mesh(nGeo, bMat);
-                                nMeshStart.position.set(railX, startH + (rHeight+5)/2, 0);
-                                nMeshStart.castShadow = true; nMeshStart.receiveShadow = true;
-                                railGroup.add(nMeshStart);
-                                
-                                const nMeshEnd = new THREE.Mesh(nGeo, bMat);
-                                nMeshEnd.position.set(railX, endH + (rHeight+5)/2, flightLength);
-                                nMeshEnd.castShadow = true; nMeshEnd.receiveShadow = true;
-                                railGroup.add(nMeshEnd);
-                            }
+                            const railing3D = Railing3DBuilder.build3D(railStart, railEnd, standardConfig);
+                            railGroup.add(railing3D);
 
                             group.add(railGroup);
                         };

@@ -32,6 +32,19 @@ export const RAILING_MATERIAL_DEFS = {
             transparent: true
         }
     },
+    'glass_tinted': {
+        type: 'MeshPhysicalMaterial',
+        params: {
+            color: 0x000000,
+            transmission: 0.8,
+            opacity: 1,
+            metalness: 0,
+            roughness: 0.05,
+            ior: 1.5,
+            thickness: 0.5,
+            transparent: true
+        }
+    },
     'metal_stainless': {
         type: 'MeshStandardMaterial',
         params: {
