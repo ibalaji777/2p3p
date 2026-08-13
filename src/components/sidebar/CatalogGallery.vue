@@ -335,9 +335,9 @@ const staircaseCatalog = ref([
 ]);
 
 const roofCatalog = ref([
-    { id: 'roof_gable', name: 'Gable Roof', badge: 'CLASSIC', material: 'Terracotta Tiles', specs: '30° Pitch', image: '', params: { roofType: 'gable', pitch: 30 } },
-    { id: 'roof_hip', name: 'Hip Roof', badge: 'POPULAR', material: 'Asphalt Shingles', specs: '30° Pitch', image: '', params: { roofType: 'hip', pitch: 30 } },
-    { id: 'roof_flat', name: 'Flat Roof', badge: 'MODERN', material: 'Concrete Deck', specs: '150 mm Slab', image: '', params: { roofType: 'flat', thick: 15 } },
+    { id: 'roof_gable', name: 'Gable Roof', badge: 'CLASSIC', material: 'Terracotta Tiles', specs: '30° Pitch', image: '', params: { roofType: 'gable', pitch: 30, material: 'terracotta_tiles_roof' } },
+    { id: 'roof_hip', name: 'Hip Roof', badge: 'POPULAR', material: 'Asphalt Shingles', specs: '30° Pitch', image: '', params: { roofType: 'hip', pitch: 30, material: 'dark_asphalt_roof' } },
+    { id: 'roof_flat', name: 'Flat Roof', badge: 'MODERN', material: 'Concrete Deck', specs: '150 mm Slab', image: '', params: { roofType: 'flat', thick: 15, material: 'white_gravel_roof' } },
 ]);
 
 const dormerCatalog = ref([

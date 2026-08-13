@@ -76,6 +76,7 @@ export class Preview3D {
 
         
         this.helpers = {
+            ctx: this,
             getDynamicMaterial: (matId, category) => {
                 let conf = UniversalMaterialManager.getMaterial(matId);
                 if (!conf) return new THREE.MeshStandardMaterial();

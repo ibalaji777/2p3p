@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { WIDGET_REGISTRY, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY, MOLDING_REGISTRY, FURNITURE_REGISTRY, RAILING_REGISTRY, WALL_REGISTRY, STAIRCASE_REGISTRY } from './registry.js';
+import { ROOF_REGISTRY } from '../features/roof/roof.components.registry.js';
 import { Stair3DBuilder } from '../features/stairs/stairs.renderer3d.js';
 import { Molding3DBuilder } from './engine3d/Molding3DBuilder.js';
 import { Railing3DBuilder } from '../features/railing/builders/Railing3DBuilder.js';
@@ -81,6 +82,8 @@ export class ThumbnailGenerator {
         else if (MOLDING_REGISTRY && MOLDING_REGISTRY[type]) registryConfig = MOLDING_REGISTRY[type];
         else if (WALL_REGISTRY && WALL_REGISTRY[type]) registryConfig = WALL_REGISTRY[type];
         else if (STAIRCASE_REGISTRY && STAIRCASE_REGISTRY[type]) registryConfig = STAIRCASE_REGISTRY[type];
+        else if (ROOF_REGISTRY && type.startsWith('roof')) registryConfig = ROOF_REGISTRY['roof'];
+        else if (ROOF_REGISTRY && type === 'dormer') registryConfig = ROOF_REGISTRY['dormer'];
 
         const allowedNonWidgets = ['staircase', 'roof', 'dormer', 'outer', 'inner', 'arc', 'shape_rect', 'shape_circle', 'shape_triangle', 'railing', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'material_preview', 'material_preview_box'];
         
@@ -157,7 +160,7 @@ export class ThumbnailGenerator {
 
         // 3. Procedural Assets Strategy
         if (!isModelLoaded) {
-            if (type === 'roof' || type === 'dormer') {
+            if (type.startsWith('roof') || type === 'dormer') {
                 try {
                     if (ROOF_DECOR_REGISTRY['terracotta_tiles_roof']) await this.ctx.assets.getTexture(ROOF_DECOR_REGISTRY['terracotta_tiles_roof']);
                     if (WALL_DECOR_REGISTRY['white_plaster_wall']) await this.ctx.assets.getTexture(WALL_DECOR_REGISTRY['white_plaster_wall']);
