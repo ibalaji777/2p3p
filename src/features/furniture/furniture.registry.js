@@ -2,61 +2,61 @@ export const FURNITURE_REGISTRY = {
     'kitchen_straight': {
         id: 'kitchen_straight', label: 'Straight Kitchen',
         procedural: true,
-        default: { width: 240, height: 90, depth: 60 },
+        default: { width: 240, height: 90, depth: 60 , materials: { base: { id: 'wood_white_oak' }, doors: { id: 'wood_white_oak' }, hardware: { id: 'metal_brass' }, countertop: { id: 'marble_carrara' }, sink: { id: 'metal_chrome' }, toe_kick: { id: 'metal_black' } }},
         shape2D: 'kitchen_straight'
     },
     'kitchen_l_shape': {
         id: 'kitchen_l_shape', label: 'L-Shape Kitchen',
         procedural: true,
-        default: { width: 240, height: 90, depth: 240 },
+        default: { width: 240, height: 90, depth: 240 , materials: { base: { id: 'wood_white_oak' }, doors: { id: 'wood_white_oak' }, hardware: { id: 'metal_brass' }, countertop: { id: 'marble_carrara' }, sink: { id: 'metal_chrome' }, toe_kick: { id: 'metal_black' } }},
         shape2D: 'kitchen_l_shape'
     },
     'kitchen_u_shape': {
         id: 'kitchen_u_shape', label: 'U-Shape Kitchen',
         procedural: true,
-        default: { width: 240, height: 90, depth: 240 },
+        default: { width: 240, height: 90, depth: 240 , materials: { base: { id: 'wood_white_oak' }, doors: { id: 'wood_white_oak' }, hardware: { id: 'metal_brass' }, countertop: { id: 'marble_carrara' }, sink: { id: 'metal_chrome' }, toe_kick: { id: 'metal_black' } }},
         shape2D: 'kitchen_u_shape'
     },
     'kitchen_straight_upper': {
         id: 'kitchen_straight_upper', label: 'Straight Upper Cabinets',
         procedural: true,
-        default: { width: 240, height: 70, depth: 35, elevation: 140 },
+        default: { width: 240, height: 70, depth: 35, elevation: 140 , materials: { base: { id: 'wood_white_oak' }, doors: { id: 'wood_white_oak' }, hardware: { id: 'metal_brass' }, countertop: { id: 'marble_carrara' }, sink: { id: 'metal_chrome' }, toe_kick: { id: 'metal_black' } }},
         shape2D: 'kitchen_straight'
     },
     'kitchen_l_shape_upper': {
         id: 'kitchen_l_shape_upper', label: 'L-Shape Upper Cabinets',
         procedural: true,
-        default: { width: 240, height: 70, depth: 240, elevation: 140 },
+        default: { width: 240, height: 70, depth: 240, elevation: 140 , materials: { base: { id: 'wood_white_oak' }, doors: { id: 'wood_white_oak' }, hardware: { id: 'metal_brass' }, countertop: { id: 'marble_carrara' }, sink: { id: 'metal_chrome' }, toe_kick: { id: 'metal_black' } }},
         shape2D: 'kitchen_l_shape'
     },
     'kitchen_straight_shaker': {
         id: 'kitchen_straight_shaker', label: 'Classic Shaker Kitchen',
         procedural: true,
-        default: { width: 240, height: 90, depth: 60 },
+        default: { width: 240, height: 90, depth: 60 , materials: { base: { id: 'wood_white_oak' }, doors: { id: 'wood_white_oak' }, hardware: { id: 'metal_brass' }, countertop: { id: 'marble_carrara' }, sink: { id: 'metal_chrome' }, toe_kick: { id: 'metal_black' } }},
         shape2D: 'kitchen_straight'
     },
     'kitchen_straight_floating': {
         id: 'kitchen_straight_floating', label: 'Floating Base Kitchen',
         procedural: true,
-        default: { width: 240, height: 90, depth: 60 },
+        default: { width: 240, height: 90, depth: 60 , materials: { base: { id: 'wood_white_oak' }, doors: { id: 'wood_white_oak' }, hardware: { id: 'metal_brass' }, countertop: { id: 'marble_carrara' }, sink: { id: 'metal_chrome' }, toe_kick: { id: 'metal_black' } }},
         shape2D: 'kitchen_straight'
     },
     'kitchen_upper_glass': {
         id: 'kitchen_upper_glass', label: 'Glass Display Uppers',
         procedural: true,
-        default: { width: 240, height: 70, depth: 35, elevation: 140 },
+        default: { width: 240, height: 70, depth: 35, elevation: 140 , materials: { base: { id: 'wood_white_oak' }, doors: { id: 'wood_white_oak' }, hardware: { id: 'metal_brass' }, countertop: { id: 'marble_carrara' }, sink: { id: 'metal_chrome' }, toe_kick: { id: 'metal_black' } }},
         shape2D: 'kitchen_straight'
     },
     'kitchen_upper_shelves': {
         id: 'kitchen_upper_shelves', label: 'Floating Wood Shelves',
         procedural: true,
-        default: { width: 240, height: 70, depth: 35, elevation: 140 },
+        default: { width: 240, height: 70, depth: 35, elevation: 140 , materials: { base: { id: 'wood_white_oak' }, doors: { id: 'wood_white_oak' }, hardware: { id: 'metal_brass' }, countertop: { id: 'marble_carrara' }, sink: { id: 'metal_chrome' }, toe_kick: { id: 'metal_black' } }},
         shape2D: 'kitchen_straight'
     },
     'kitchen_u_shape_upper': {
         id: 'kitchen_u_shape_upper', label: 'U-Shape Upper Cabinets',
         procedural: true,
-        default: { width: 240, height: 70, depth: 240, elevation: 140 },
+        default: { width: 240, height: 70, depth: 240, elevation: 140 , materials: { base: { id: 'wood_white_oak' }, doors: { id: 'wood_white_oak' }, hardware: { id: 'metal_brass' }, countertop: { id: 'marble_carrara' }, sink: { id: 'metal_chrome' }, toe_kick: { id: 'metal_black' } }},
         shape2D: 'kitchen_u_shape'
     },
     'sink_standard': {
@@ -158,13 +158,13 @@ export const FURNITURE_REGISTRY = {
     'kitchen_island': {
         id: 'kitchen_island', label: 'Freestanding Kitchen Island',
         procedural: true,
-        default: { width: 180, height: 90, depth: 90 },
+        default: { width: 180, height: 90, depth: 90 , materials: { base: { id: 'wood_white_oak' }, doors: { id: 'wood_white_oak' }, hardware: { id: 'metal_brass' }, countertop: { id: 'marble_carrara' }, sink: { id: 'metal_chrome' }, toe_kick: { id: 'metal_black' } }},
         shape2D: 'kitchen_island'
     },
     'kitchen_tall_pantry': {
         id: 'kitchen_tall_pantry', label: 'Tall Pantry Cabinet',
         procedural: true,
-        default: { width: 60, height: 210, depth: 60 },
+        default: { width: 60, height: 210, depth: 60 , materials: { base: { id: 'wood_white_oak' }, doors: { id: 'wood_white_oak' }, hardware: { id: 'metal_brass' }, countertop: { id: 'marble_carrara' }, sink: { id: 'metal_chrome' }, toe_kick: { id: 'metal_black' } }},
         shape2D: 'kitchen_tall_pantry'
     },
     'cooktop_induction': {
@@ -172,6 +172,13 @@ export const FURNITURE_REGISTRY = {
         procedural: true,
         default: { width: 80, height: 5, depth: 52 },
         shape2D: 'cooktop_induction'
+    },
+    'sofa_3seater': {
+        id: 'sofa_3seater', label: 'Modern 3-Seater Sofa',
+        procedural: false,
+        model: 'models/sofas/modern_sofa_3.glb',
+        default: { width: 220, height: 90, depth: 90, elevation: 0 },
+        shape2D: 'sofa_round'
     },
     'sofa_modern_1': {
         id: 'sofa_modern_1', label: 'Modern Sofa 1',
@@ -586,6 +593,18 @@ export const FURNITURE_REGISTRY = {
         license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
         default: { width: 150, height: 50, depth: 45, elevation: 0 },
         shape2D: 'tv_unit'
+    },
+    'lighting_pendant': {
+        id: 'lighting_pendant', label: 'Ribbed Brass Pendant Light',
+        procedural: true,
+        default: { width: 40, height: 40, depth: 40, elevation: 180 },
+        shape2D: 'lamp'
+    },
+    'furniture_barstool': {
+        id: 'furniture_barstool', label: 'Scandinavian Bar Stool',
+        procedural: true,
+        default: { width: 40, height: 75, depth: 40 },
+        shape2D: 'chair'
     },
     'tv_stand_classic': {
         id: 'tv_stand_classic', label: 'Classic Entertainment Unit',

@@ -4,12 +4,18 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY } from '../../core/registry';
 
+class DummySpecularGlossinessExtension {
+    constructor() {
+        this.name = 'KHR_materials_pbrSpecularGlossiness';
+    }
+}
 
 export class AssetManager {
     constructor() {
         this.cache = new Map();
         this.texLoader = new THREE.TextureLoader();
         this.gltfLoader = new GLTFLoader();
+        this.gltfLoader.register(parser => new DummySpecularGlossinessExtension());
         this.objLoader = new OBJLoader();
     }
 

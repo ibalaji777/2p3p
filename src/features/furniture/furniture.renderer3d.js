@@ -514,7 +514,7 @@ export class FurnitureManager {
                 const box = new THREE.Box3().setFromObject(wrapper);
                 size = box.getSize(new THREE.Vector3());
                 center = box.getCenter(new THREE.Vector3());
-            } else if (config.procedural && config.id && ['hood_', 'app_', 'wine_', 'trash_', 'handle_', 'cooktop_', 'furniture_', 'lighting_'].some(prefix => config.id.startsWith(prefix))) {
+            } else if (config.procedural && config.id && ['bench', 'hood_', 'app_', 'wine_', 'trash_', 'handle_', 'cooktop_', 'furniture_', 'lighting_'].some(prefix => config.id.startsWith(prefix))) {
                 const sW = entity.width || 60;
                 const sH = entity.height || 60;
                 const sD = entity.depth || 60;
@@ -841,6 +841,28 @@ export class FurnitureManager {
                     // LED Slider Control panel
                     const slider = new THREE.Mesh(new THREE.BoxGeometry(20, 0.05, 2), ringMat); slider.position.set(0, 1.05, 22);
                     eqGroup.add(base, glass, frameL, frameR, frameT, frameB, slider);
+                } else if (config.id === 'bench') {
+                    const sW = entity.width || 120;
+                    const sH = entity.height || 45;
+                    const sD = entity.depth || 40;
+                    
+                    const woodMat = new THREE.MeshStandardMaterial({ color: '#8b5a2b', roughness: 0.8 });
+                    
+                    // Top
+                    const top = new THREE.Mesh(new THREE.BoxGeometry(sW, 4, sD), woodMat);
+                    top.position.set(0, sH - 2, 0);
+                    
+                    // Legs
+                    const legGeo = new THREE.BoxGeometry(4, sH - 4, 4);
+                    const leg1 = new THREE.Mesh(legGeo, woodMat); leg1.position.set(-sW/2 + 4, (sH-4)/2, -sD/2 + 4);
+                    const leg2 = new THREE.Mesh(legGeo, woodMat); leg2.position.set(sW/2 - 4, (sH-4)/2, -sD/2 + 4);
+                    const leg3 = new THREE.Mesh(legGeo, woodMat); leg3.position.set(-sW/2 + 4, (sH-4)/2, sD/2 - 4);
+                    const leg4 = new THREE.Mesh(legGeo, woodMat); leg4.position.set(sW/2 - 4, (sH-4)/2, sD/2 - 4);
+                    
+                    wrapper.add(top, leg1, leg2, leg3, leg4);
+                    
+                    size = new THREE.Vector3(sW, sH, sD);
+                    center = new THREE.Vector3(0, sH/2, 0);
                 } else if (config.id === 'furniture_barstool') {
                     // Sculpted Scandinavian Bar Stool
                     const pWood = new THREE.MeshStandardMaterial({ color: '#92400e', roughness: 0.4 }); // Walnut seat
@@ -914,6 +936,19 @@ export class FurnitureManager {
                 size = box.getSize(new THREE.Vector3());
                 center = box.getCenter(new THREE.Vector3());
             } else {
+                if (!config.model) {
+                    console.error('[FurnitureManager] Missing model for non-procedural or unhandled procedural item:', config.id);
+                    const fw = entity.width || config.default?.width || 50;
+                    const fh = entity.height || config.default?.height || 50;
+                    const fd = entity.depth || config.default?.depth || 50;
+                    const fallbackMat = new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true });
+                    const fallbackMesh = new THREE.Mesh(new THREE.BoxGeometry(fw, fh, fd), fallbackMat);
+                    fallbackMesh.position.set(0, fh/2, 0);
+                    wrapper.add(fallbackMesh);
+                    size = new THREE.Vector3(fw, fh, fd);
+                    center = new THREE.Vector3(0, fh/2, 0);
+                    return wrapper;
+                }
                 const model = await this.ctx.assets.getModel(config);
                 const gltfScene = model.clone();
                 
@@ -1044,7 +1079,11 @@ export class FurnitureManager {
             if (this.ctx.interactions.selectedObject && this.ctx.interactions.selectedObject.userData.entity === entity) {
                 this.ctx.interactions.selectObject(wrapper);
             }
-        } catch (e) { console.error(e); }
+            return wrapper;
+        } catch (e) { 
+            console.error(e);
+            return null;
+        }
     }
 
     updateLive(entity) {
