@@ -227,6 +227,9 @@ export class ComponentRegistry {
         if (slot === MaterialSlots.SCREEN) return ComponentTypes.SCREEN;
         if (slot === MaterialSlots.TRIM) return ComponentTypes.TRIM;
         if (slot.startsWith('wall_')) return ComponentTypes.WALL;
+        if (['treads', 'risers', 'stringers', 'landings'].includes(slot)) return ComponentTypes.STAIRCASE;
+        if (['handrail', 'balusters', 'posts', 'bottom_rail'].includes(slot)) return ComponentTypes.RAILING;
+        
         return ComponentTypes.WIDGET;
     }
 }

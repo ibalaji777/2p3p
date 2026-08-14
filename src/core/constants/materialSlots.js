@@ -18,7 +18,19 @@ export const MaterialSlots = {
     WALL_RIGHT: 'wall_right',
     WALL_TOP: 'wall_top',
     WALL_BOTTOM: 'wall_bottom',
-    CUSTOM: 'custom'
+    CUSTOM: 'custom',
+    
+    // Stairs
+    TREADS: 'treads',
+    RISERS: 'risers',
+    STRINGERS: 'stringers',
+    LANDINGS: 'landings',
+    
+    // Railings
+    HANDRAIL: 'handrail',
+    BALUSTERS: 'balusters',
+    POSTS: 'posts',
+    BOTTOM_RAIL: 'bottom_rail'
 };
 
 export const ComponentTypes = {
@@ -31,7 +43,9 @@ export const ComponentTypes = {
     SCREEN: 'screen',
     TRIM: 'trim',
     WALL: 'wall',
-    WIDGET: 'widget'
+    WIDGET: 'widget',
+    STAIRCASE: 'staircase',
+    RAILING: 'railing'
 };
 
 export const SLOT_DEFINITIONS = {
@@ -42,7 +56,19 @@ export const SLOT_DEFINITIONS = {
     [MaterialSlots.SEAL]: { id: MaterialSlots.SEAL, label: 'Seals & Gaskets', inherits: null, paintable: false, defaultCategory: 'plastic' },
     [MaterialSlots.SCREEN]: { id: MaterialSlots.SCREEN, label: 'Insect Screen', inherits: null, paintable: false, defaultCategory: 'fabric' },
     [MaterialSlots.TRIM]: { id: MaterialSlots.TRIM, label: 'Trim & Architrave', inherits: MaterialSlots.FRAME, paintable: false, defaultCategory: 'wood' },
-    [MaterialSlots.CUSTOM]: { id: MaterialSlots.CUSTOM, label: 'Custom Accent', inherits: null, paintable: true, defaultCategory: 'categories' }
+    [MaterialSlots.CUSTOM]: { id: MaterialSlots.CUSTOM, label: 'Custom Accent', inherits: null, paintable: true, defaultCategory: 'categories' },
+    
+    // Stairs
+    [MaterialSlots.TREADS]: { id: MaterialSlots.TREADS, label: 'Treads', inherits: null, paintable: true, defaultCategory: 'wood' },
+    [MaterialSlots.RISERS]: { id: MaterialSlots.RISERS, label: 'Risers', inherits: null, paintable: true, defaultCategory: 'wood' },
+    [MaterialSlots.STRINGERS]: { id: MaterialSlots.STRINGERS, label: 'Stringers', inherits: null, paintable: true, defaultCategory: 'metal' },
+    [MaterialSlots.LANDINGS]: { id: MaterialSlots.LANDINGS, label: 'Landings', inherits: MaterialSlots.TREADS, paintable: true, defaultCategory: 'wood' },
+    
+    // Railings
+    [MaterialSlots.HANDRAIL]: { id: MaterialSlots.HANDRAIL, label: 'Handrail', inherits: null, paintable: true, defaultCategory: 'wood' },
+    [MaterialSlots.BALUSTERS]: { id: MaterialSlots.BALUSTERS, label: 'Balusters', inherits: null, paintable: true, defaultCategory: 'metal' },
+    [MaterialSlots.POSTS]: { id: MaterialSlots.POSTS, label: 'Posts', inherits: null, paintable: true, defaultCategory: 'metal' },
+    [MaterialSlots.BOTTOM_RAIL]: { id: MaterialSlots.BOTTOM_RAIL, label: 'Bottom Rail', inherits: null, paintable: true, defaultCategory: 'metal' }
 };
 
 export const INTERACTION_MODES = {

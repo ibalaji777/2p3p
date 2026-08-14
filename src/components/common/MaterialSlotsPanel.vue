@@ -77,8 +77,27 @@ const hasGlass = (entity) => {
 const activeSlots = computed(() => {
     if (!props.entity || !props.entity.type) return [];
     
+    let baseType = props.entity.type;
+    
+    // Normalize derived component types back to their architectural base types
+    if (baseType) {
+        if (baseType.startsWith('stair_') || baseType === 'staircase') {
+            baseType = 'staircase';
+        } else if (
+            baseType.startsWith('glass_') || 
+            baseType.startsWith('metal_') || 
+            baseType.startsWith('cable_') || 
+            baseType.startsWith('wood_') || 
+            ['stair_baluster_default', 'stair_glass_default', 'stair_cable_default'].includes(baseType)
+        ) {
+            baseType = 'railing';
+        } else if (baseType === 'inner' || baseType === 'outer') {
+            baseType = 'wall';
+        }
+    }
+    
     // Get the base list of slots for this entity type (e.g. door, window)
-    const baseSlots = MaterialManager.assetManifests[props.entity.type] || [];
+    const baseSlots = MaterialManager.assetManifests[baseType] || [];
     
     let filtered = [...baseSlots];
     

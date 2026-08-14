@@ -32,7 +32,9 @@ export class MaterialManager {
         door: [MaterialSlots.FRAME, MaterialSlots.LEAF, MaterialSlots.GLASS, MaterialSlots.HARDWARE, MaterialSlots.SEAL, MaterialSlots.TRIM],
         window: [MaterialSlots.FRAME, MaterialSlots.LEAF, MaterialSlots.GLASS, MaterialSlots.HARDWARE, MaterialSlots.SEAL, MaterialSlots.SCREEN],
         wall: [MaterialSlots.WALL_FRONT, MaterialSlots.WALL_BACK, MaterialSlots.WALL_LEFT, MaterialSlots.WALL_RIGHT, MaterialSlots.WALL_TOP, MaterialSlots.WALL_BOTTOM],
-        widget: [MaterialSlots.FRAME, MaterialSlots.TRIM, MaterialSlots.CUSTOM]
+        widget: [MaterialSlots.FRAME, MaterialSlots.TRIM, MaterialSlots.CUSTOM],
+        staircase: [MaterialSlots.TREADS, MaterialSlots.RISERS, MaterialSlots.STRINGERS, MaterialSlots.LANDINGS],
+        railing: [MaterialSlots.HANDRAIL, MaterialSlots.POSTS, MaterialSlots.GLASS, MaterialSlots.BALUSTERS, MaterialSlots.BOTTOM_RAIL]
     };
 
     /**

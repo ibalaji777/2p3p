@@ -63,6 +63,8 @@
       </div>
     </div>
     
+    <MaterialSlotsPanel :entity="entity" @sync-engine="onPropertyChange" />
+
     <button 
       @click="deleteRailing"
       class="hud-delete"
@@ -77,7 +79,8 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import MaterialSlotsPanel from '../../../components/common/MaterialSlotsPanel.vue';
+import { defineProps, defineEmits, onMounted, onUnmounted, ref } from 'vue';
 import { RAILING_REGISTRY } from '../registry/railing.registry.js';
 import DimensionInput from '../../../components/common/DimensionInput.vue';
 

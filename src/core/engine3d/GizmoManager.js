@@ -2440,7 +2440,9 @@ export class GizmoManager {
             entity = selectedObj.userData.entity || {};
             type = entity.type || '';
             isOpening = selectedObj.userData.isWidget || selectedObj.userData.isPattern || ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type);
-            supportsFaceMaterials = selectedObj.userData.isShape || selectedObj.userData.isWidget || selectedObj.userData.isMolding || selectedObj.userData.isPattern || selectedObj.userData.isWallDecor || selectedObj.userData.isRoof;
+            const compType = selectedObj?.userData?.entity?.type || '';
+            const isStaircaseOrRailing = compType.startsWith('stair_') || compType.startsWith('glass_') || compType.startsWith('metal_') || compType.startsWith('wood_') || compType.startsWith('cable_') || compType === 'staircase' || compType === 'railing';
+            supportsFaceMaterials = selectedObj.userData.isShape || selectedObj.userData.isWidget || selectedObj.userData.isMolding || selectedObj.userData.isPattern || selectedObj.userData.isWallDecor || selectedObj.userData.isRoof || selectedObj.userData.isStair || isStaircaseOrRailing;
         }
 
         console.info(`%c[GizmoManager] %cTransform Mode Changed: %c${mode} %c(Target: ${type || 'None'})`, 

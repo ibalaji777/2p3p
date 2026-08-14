@@ -198,7 +198,7 @@ export class BIMMaterialSystem {
         while (current) {
             if (current.userData?.entity) {
                 const ent = current.userData.entity;
-                if (ent.type === 'door' || ent.type === 'window' || ent.isWidget || ent.isFurniture || ent.type === 'furniture') {
+                if (ent.type === 'door' || ent.type === 'window' || ent.isWidget || ent.isFurniture || ent.type === 'furniture' || ent.isStair || (ent.type && ent.type.startsWith('stair'))) {
                     return ent;
                 }
                 if (!foundEntity) foundEntity = ent;

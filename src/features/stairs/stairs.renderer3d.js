@@ -77,6 +77,7 @@ export class Stair3DBuilder {
 
                 for (let i = 0; i < stepCount; i++) {
                     const stepMesh = new THREE.Mesh(stepGeo, stairMat);
+                    stepMesh.name = 'tread_riser_step';
                     // If direction is up, lowest step (i=0) is at Z = length (bottom of 2d rect).
                     // If direction is down, lowest step is at Z = 0 (top of 2d rect).
                     const localZIndex = direction === 'up' ? (stepCount - 1 - i) : i;
@@ -85,6 +86,7 @@ export class Stair3DBuilder {
                     // Solid block from 0 to curHeight
                     const solidGeo = new THREE.BoxGeometry(width, curHeight, stepDepth);
                     const solidMesh = new THREE.Mesh(solidGeo, stairMat);
+                    solidMesh.name = 'tread_riser_solid';
 
                     solidMesh.position.set(
                         0,
@@ -118,6 +120,7 @@ export class Stair3DBuilder {
                     landingGeo.translate(0, stepHeight, 0);
 
                     const landingMesh = new THREE.Mesh(landingGeo, stairMat);
+                    landingMesh.name = 'landing';
                     landingMesh.castShadow = true;
                     landingMesh.receiveShadow = true;
                     group.add(landingMesh);
@@ -128,6 +131,7 @@ export class Stair3DBuilder {
                     
                     const landingGeo = new THREE.BoxGeometry(width, stepHeight, length);
                     const landingMesh = new THREE.Mesh(landingGeo, stairMat);
+                    landingMesh.name = 'landing';
                     landingMesh.position.set(0, stepHeight / 2, length / 2);
                     landingMesh.castShadow = true;
                     landingMesh.receiveShadow = true;
@@ -190,6 +194,7 @@ export class Stair3DBuilder {
                     const treadThick = 5;
                     const treadGeo = new THREE.BoxGeometry(width, treadThick, stepDepth);
                     const treadMesh = new THREE.Mesh(treadGeo, treadMat);
+                    treadMesh.name = 'tread';
                     treadMesh.position.set(x, y - treadThick / 2, z);
                     treadMesh.rotation.y = rotY;
                     treadMesh.castShadow = true; treadMesh.receiveShadow = true;
@@ -200,6 +205,7 @@ export class Stair3DBuilder {
                         const riserHeight = stepHeight - treadThick;
                         const riserGeo = new THREE.BoxGeometry(width, riserHeight, riserThick);
                         const riserMesh = new THREE.Mesh(riserGeo, riserMat);
+                        riserMesh.name = 'riser';
                         
                         const zDir = direction === 'up' ? -1 : 1;
                         const zOffset = (stepDepth / 2 - riserThick / 2) * zDir;
@@ -222,6 +228,7 @@ export class Stair3DBuilder {
                     } else {
                         mesh = new THREE.Mesh(solidGeo, treadMat);
                     }
+                    mesh.name = 'tread_riser_solid';
                     mesh.position.set(x, y / 2, z);
                     mesh.rotation.y = rotY;
                     mesh.castShadow = true; mesh.receiveShadow = true;
@@ -275,6 +282,7 @@ export class Stair3DBuilder {
                             
                             const beamGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
                             const beamMesh = new THREE.Mesh(beamGeo, structureMat);
+                            beamMesh.name = 'stringer';
                             
                             // Rotate to map Shape X to Flight Z, and Shape Extrude Z to Flight X
                             beamMesh.rotation.y = -Math.PI / 2;
@@ -327,6 +335,18 @@ export class Stair3DBuilder {
                             } else {
                                 standardConfig.post = null; // Explicitly remove posts if toggled off
                             }
+                            
+                            // Inject material overrides from the stair entity
+                            if (stair.materials) {
+                                if (stair.materials.handrail && standardConfig.handrail) standardConfig.handrail.material = stair.materials.handrail.id;
+                                if (stair.materials.balusters) {
+                                    if (standardConfig.baluster) standardConfig.baluster.material = stair.materials.balusters.id;
+                                    if (standardConfig.cable) standardConfig.cable.material = stair.materials.balusters.id;
+                                }
+                                if (stair.materials.posts && standardConfig.post) standardConfig.post.material = stair.materials.posts.id;
+                                if (stair.materials.glass && standardConfig.glass) standardConfig.glass.material = stair.materials.glass.id;
+                                if (stair.materials.bottom_rail && standardConfig.bottomRail) standardConfig.bottomRail.material = stair.materials.bottom_rail.id;
+                            }
 
                             const railGroup = new THREE.Group();
                             railGroup.position.set(startX, 0, startZ);
@@ -335,7 +355,7 @@ export class Stair3DBuilder {
                             const railStart = new THREE.Vector3(railX, startH, 0);
                             const railEnd = new THREE.Vector3(railX, endH, flightLength);
 
-                            const railing3D = Railing3DBuilder.build3D(railStart, railEnd, standardConfig);
+                            const railing3D = Railing3DBuilder.build3D(railStart, railEnd, standardConfig, stair);
                             railGroup.add(railing3D);
 
                             group.add(railGroup);
@@ -352,6 +372,7 @@ export class Stair3DBuilder {
                     if (stringerType === 'solid') {
                         const landingGeo = new THREE.BoxGeometry(lw, topHeight, lh);
                         const landingMesh = new THREE.Mesh(landingGeo, landingMat);
+                        landingMesh.name = 'landing';
                         landingMesh.position.set(x, topHeight / 2, z);
                         landingMesh.castShadow = true; landingMesh.receiveShadow = true;
                         group.add(landingMesh);
@@ -359,12 +380,14 @@ export class Stair3DBuilder {
                         const plateThick = 5;
                         const landingGeo = new THREE.BoxGeometry(lw, plateThick, lh);
                         const landingMesh = new THREE.Mesh(landingGeo, landingMat);
+                        landingMesh.name = 'landing';
                         landingMesh.position.set(x, topHeight - plateThick/2, z);
                         landingMesh.castShadow = true; landingMesh.receiveShadow = true;
                         group.add(landingMesh);
                         
                         const frameGeo = new THREE.BoxGeometry(lw, sThick, lh);
                         const frameMesh = new THREE.Mesh(frameGeo, structureMat);
+                        frameMesh.name = 'stringer_frame';
                         frameMesh.position.set(x, topHeight - plateThick - sThick/2, z);
                         frameMesh.castShadow = true; frameMesh.receiveShadow = true;
                         group.add(frameMesh);
@@ -379,6 +402,7 @@ export class Stair3DBuilder {
                                     for (let cj of cz) {
                                         const colGeo = new THREE.BoxGeometry(colSize, colHeight, colSize);
                                         const colMesh = new THREE.Mesh(colGeo, structureMat);
+                                        colMesh.name = 'stringer_col';
                                         colMesh.position.set(ci, colHeight/2, cj);
                                         colMesh.castShadow = true; colMesh.receiveShadow = true;
                                         group.add(colMesh);
@@ -464,10 +488,15 @@ export class Stair3DBuilder {
             // Ensure unified component highlighting and material registry
             group.traverse(child => {
                 if (child.isMesh) {
-                    let slot = 'treads';
-                    if (child.material === riserMat) slot = 'risers';
-                    else if (child.material === landingMat) slot = 'landings';
-                    else if (child.material === structureMat) slot = 'stringers';
+                    // If slot is already assigned (e.g. by railing builder), preserve it
+                    let slot = child.userData.materialSlot;
+                    
+                    if (!slot) {
+                        slot = 'treads';
+                        if (child.material === riserMat) slot = 'risers';
+                        else if (child.material === landingMat) slot = 'landings';
+                        else if (child.material === structureMat) slot = 'stringers';
+                    }
                     
                     child.userData.entity = stair;
                     child.userData.materialSlot = slot;
