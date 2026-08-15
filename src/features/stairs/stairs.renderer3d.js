@@ -144,23 +144,33 @@ export class Stair3DBuilder {
                     landingMesh.receiveShadow = true;
                     group.add(landingMesh);
                 }
-            } else if (stair.type && stair.type.startsWith('stair_v5_')) {
-                const shape = stair.shape;
+            } else if (stair.type && (stair.type.startsWith('stair_v5_') || stair.type.startsWith('stair_v4_') || stair.type === 'staircase')) {
+                let shape = stair.shape;
+                if (!shape || shape.startsWith('stair_v5_') || shape.startsWith('stair_v4_') || shape === 'staircase') {
+                    const raw = (stair.shape || stair.type || 'straight').toString();
+                    if (raw.endsWith('_straight') || raw === 'straight' || raw === 'staircase') shape = 'straight';
+                    else if (raw.endsWith('_L') || raw === 'L') shape = 'L';
+                    else if (raw.endsWith('_U') || raw === 'U') shape = 'U';
+                    else if (raw.endsWith('_T') || raw === 'T') shape = 'T';
+                    else shape = 'straight';
+                }
+
                 const width = Number(stair.width) || 60;
                 const stepDepth = Number(stair.stepDepth) || 18.33;
                 const direction = stair.direction || 'up';
                 const turnDir = stair.turnDirection || 'right';
-                const f1Steps = Number(stair.flight1Steps) || 0;
-                const f2Steps = Number(stair.flight2Steps) || 0;
-                
-                let totalRisers = 15;
+                let f1Steps = Number(stair.flight1Steps) || 0;
+                let f2Steps = Number(stair.flight2Steps) || 0;
+
                 if (shape === 'straight') {
-                    totalRisers = Number(stair.totalSteps) || 15;
+                    if (!f1Steps) f1Steps = Number(stair.totalSteps) || Number(stair.steps) || 10;
+                    f2Steps = 0;
                 } else if (shape === 'L' || shape === 'U' || shape === 'T') {
-                    const f1 = Number(stair.flight1Steps) || 8;
-                    const f2 = Number(stair.flight2Steps) || 7;
-                    totalRisers = f1 + f2;
+                    if (!f1Steps) f1Steps = Number(stair.flight1Steps) || 8;
+                    if (!f2Steps) f2Steps = Number(stair.flight2Steps) || 7;
                 }
+
+                const totalRisers = shape === 'straight' ? f1Steps : (f1Steps + f2Steps);
                 
                 // AUTO-FIT HEIGHT: Enforce perfect fit to next floor height
                 const stepHeight = maxWallHeight / totalRisers;

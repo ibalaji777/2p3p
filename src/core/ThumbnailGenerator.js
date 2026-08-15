@@ -71,7 +71,6 @@ export class ThumbnailGenerator {
 
     async generate(type, params) {
         // Normalize specific catalog IDs back to broad categories for special procedural generators
-        if (type && type.startsWith('stair_v5_')) type = 'staircase';
         if (type && type.startsWith('preset_dormer_')) type = 'dormer';
 
         // 1. Unified Registry Lookup
@@ -81,7 +80,7 @@ export class ThumbnailGenerator {
         else if (FURNITURE_REGISTRY && FURNITURE_REGISTRY[type]) registryConfig = FURNITURE_REGISTRY[type];
         else if (MOLDING_REGISTRY && MOLDING_REGISTRY[type]) registryConfig = MOLDING_REGISTRY[type];
         else if (WALL_REGISTRY && WALL_REGISTRY[type]) registryConfig = WALL_REGISTRY[type];
-        else if (STAIRCASE_REGISTRY && STAIRCASE_REGISTRY[type]) registryConfig = STAIRCASE_REGISTRY[type];
+        else if (STAIRCASE_REGISTRY && (STAIRCASE_REGISTRY[type] || (type && (type.startsWith('stair_v5_') || type.startsWith('stair_v4_') || type === 'staircase')))) registryConfig = STAIRCASE_REGISTRY['staircase'];
         else if (ROOF_REGISTRY && type.startsWith('roof')) registryConfig = ROOF_REGISTRY['roof'];
         else if (ROOF_REGISTRY && type === 'dormer') registryConfig = ROOF_REGISTRY['dormer'];
 
@@ -260,7 +259,7 @@ export class ThumbnailGenerator {
         const maxDim = Math.max(size.x, size.y, size.z);
         const targetY = size.y / 2;
 
-        if (type === 'staircase') {
+        if (type === 'staircase' || (type && (type.startsWith('stair_v5_') || type.startsWith('stair_v4_')))) {
             const fov = 32;
             activeCamera = new THREE.PerspectiveCamera(fov, 1, 1, 2000);
             
@@ -371,8 +370,37 @@ export class ThumbnailGenerator {
             this.camera.lookAt(0, targetY, 0); // Look at the center of the object
         }
 
-        // Give textures a tiny bit of time to load if they were fetched asynchronously in getDynamicMaterial
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Ensure all pending texture images and PBR material promises finish loading over HTTP before capturing the snapshot
+        const pendingTextureProms = [];
+        group.traverse(child => {
+            if (child.isMesh && child.material) {
+                const mats = Array.isArray(child.material) ? child.material : [child.material];
+                mats.forEach(mat => {
+                    if (mat.userData && mat.userData.readyPromise) {
+                        pendingTextureProms.push(mat.userData.readyPromise);
+                    }
+                    ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'bumpMap'].forEach(slot => {
+                        const tex = mat[slot];
+                        if (tex && tex.image) {
+                            if (!tex.image.complete) {
+                                pendingTextureProms.push(new Promise(resolve => {
+                                    tex.image.addEventListener('load', resolve, { once: true });
+                                    tex.image.addEventListener('error', resolve, { once: true });
+                                    setTimeout(resolve, 1500);
+                                }));
+                            }
+                        }
+                    });
+                });
+            }
+        });
+
+        if (pendingTextureProms.length > 0) {
+            await Promise.all(pendingTextureProms);
+            await new Promise(resolve => setTimeout(resolve, 50));
+        } else {
+            await new Promise(resolve => setTimeout(resolve, 50));
+        }
 
         this.renderer.render(this.scene, activeCamera);
         

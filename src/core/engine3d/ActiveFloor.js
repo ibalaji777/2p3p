@@ -19,29 +19,60 @@ export class ActiveFloor {
         this.matFloor = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7, side: THREE.DoubleSide });
         this.callbacks = callbacks;
         
+        this.materialClonesRegistry = new Map();
         this.helpers = {
-            getDynamicMaterial: (matId) => {
+            ctx: this,
+            getDynamicMaterial: (matId, category) => {
                 let conf = UniversalMaterialManager.getMaterial(matId);
-                
                 if (!conf) return new THREE.MeshStandardMaterial();
                 
-                if (conf.transmission) {
-                    return new THREE.MeshPhysicalMaterial({
-                        color: conf.color || 0xffffff,
-                        roughness: conf.roughness !== undefined ? conf.roughness : 0.5,
-                        metalness: conf.metalness !== undefined ? conf.metalness : 0.1,
-                        transmission: conf.transmission,
-                        ior: conf.ior || 1.5,
-                        transparent: true
-                    });
+                let dims = { width: 100, height: 100 };
+                let mat = conf.transmission ? new THREE.MeshPhysicalMaterial() : new THREE.MeshStandardMaterial();
+                if (conf.color !== undefined) {
+                    try { mat.color = new THREE.Color(conf.color); } catch (e) {}
                 }
-                return new THREE.MeshStandardMaterial({
-                    color: conf.color || 0xffffff,
-                    roughness: conf.roughness !== undefined ? conf.roughness : 0.5,
-                    metalness: conf.metalness !== undefined ? conf.metalness : 0.1,
-                    transparent: conf.transparent || false,
-                    opacity: conf.opacity !== undefined ? conf.opacity : 1
+                if (conf.roughness !== undefined) mat.roughness = conf.roughness;
+                if (conf.metalness !== undefined) mat.metalness = conf.metalness;
+
+                const registerClone = (baseMat, clonedMat) => {
+                    if (!this.materialClonesRegistry) this.materialClonesRegistry = new Map();
+                    let list = this.materialClonesRegistry.get(baseMat);
+                    if (!list) {
+                        list = [];
+                        this.materialClonesRegistry.set(baseMat, list);
+                    }
+                    if (Array.isArray(list)) list.push(clonedMat);
+                    else if (list && typeof list.add === 'function') list.add(clonedMat);
+                };
+
+                const origClone = mat.clone.bind(mat);
+                mat.clone = () => {
+                    const cloned = origClone();
+                    registerClone(mat, cloned);
+                    return cloned;
+                };
+
+                const pbrPromise = MaterialFactory.buildPBRMaterial({
+                    material: mat,
+                    config: conf,
+                    ctx: this,
+                    dimensions: dims,
+                    faceName: category
+                }).then(() => {
+                    if (this.materialClonesRegistry && this.materialClonesRegistry.has(mat)) {
+                        this.materialClonesRegistry.get(mat).forEach(clone => {
+                            try {
+                                clone.copy(mat);
+                                clone.needsUpdate = true;
+                            } catch (e) {}
+                        });
+                    }
                 });
+
+                if (!mat.userData) mat.userData = {};
+                mat.userData.readyPromise = pbrPromise;
+                
+                return mat;
             }
         };
         this.stairBuilder = new Stair3DBuilder(assets, interactables, this.helpers);

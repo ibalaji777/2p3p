@@ -511,6 +511,7 @@ export const METAL_REGISTRY = {
         name: 'Luxury Brushed Champagne Gold',
         texture: 'textures/metals/metal_brushed_gold.png',
         thumbnail: 'textures/metals/metal_brushed_gold.png',
+        color: 0xd4af37,
         metalness: 0.95, roughness: 0.2, clearcoat: 0.2, defaultRepeat: 1
     },
     'metal_gunmetal_black': {
@@ -519,6 +520,7 @@ export const METAL_REGISTRY = {
         name: 'Anodized Gunmetal Black Steel',
         texture: 'textures/metals/metal_gunmetal_black.png',
         thumbnail: 'textures/metals/metal_gunmetal_black.png',
+        color: 0x22252a,
         metalness: 0.85, roughness: 0.35, defaultRepeat: 1
     },
     'metal_rose_bronze': {
@@ -527,6 +529,7 @@ export const METAL_REGISTRY = {
         name: 'Polished Antique Rose Bronze',
         texture: 'textures/metals/metal_rose_bronze.png',
         thumbnail: 'textures/metals/metal_rose_bronze.png',
+        color: 0xb76e79,
         metalness: 0.9, roughness: 0.25, clearcoat: 0.15, defaultRepeat: 1
     },
     'metal_brushed_aluminum': {
@@ -535,6 +538,7 @@ export const METAL_REGISTRY = {
         name: 'Silver Satin Brushed Aluminum',
         texture: 'textures/metals/metal_brushed_aluminum.png',
         thumbnail: 'textures/metals/metal_brushed_aluminum.png',
+        color: 0xc8cdd0,
         metalness: 0.88, roughness: 0.3, clearcoat: 0.05, defaultRepeat: 1
     },
     'alum_silver': {
@@ -557,6 +561,7 @@ export const METAL_REGISTRY = {
         name: 'Industrial Diamond Tread Steel',
         texture: 'textures/metals/metal_diamond_tread.png',
         thumbnail: 'textures/metals/metal_diamond_tread.png',
+        color: 0x444850,
         metalness: 0.92, roughness: 0.2, clearcoat: 0.1, defaultRepeat: 1
     },
     'metal_damascus_steel': {

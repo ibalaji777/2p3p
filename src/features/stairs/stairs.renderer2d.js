@@ -1,10 +1,16 @@
 import Konva from 'konva';
 
 export class PremiumStaircase {
-    constructor(planner, type = 'L', data = {}) {
+    constructor(planner, type = 'straight', data = {}) {
         this.planner = planner;
-        this.type = `stair_v5_${type}`; 
-        this.shape = type; // 'straight', 'L', 'U', 'T'
+        
+        let cleanShape = (data.shape || type || 'straight').toString();
+        if (cleanShape.startsWith('stair_v5_')) cleanShape = cleanShape.replace('stair_v5_', '');
+        if (cleanShape.startsWith('stair_v4_')) cleanShape = cleanShape.replace('stair_v4_', '');
+        if (cleanShape === 'staircase') cleanShape = 'straight';
+
+        this.shape = cleanShape; // 'straight', 'L', 'U', 'T'
+        this.type = data.type || `stair_v5_${cleanShape}`;
         this.id = data.id || 'stairv5_' + Math.random().toString(36).substr(2, 9);
         
         // Global transforms
@@ -210,26 +216,224 @@ export class PremiumStaircase {
         else if (this.shape === 'U') this.drawUShape();
         else if (this.shape === 'T') this.drawTShape();
 
+        this.drawRailings();
         this.drawArrow();
         this.updateHandles();
     }
 
+    drawRailings() {
+        if (!this.railingLayout || this.railingLayout === 'none') return;
+
+        const railingGroup = new Konva.Group();
+        const hasLeft = this.railingLayout === 'left' || this.railingLayout === 'both';
+        const hasRight = this.railingLayout === 'right' || this.railingLayout === 'both';
+
+        const offsetLeft = Number(this.leftRailing?.offset) || 5;
+        const offsetRight = Number(this.rightRailing?.offset) || 5;
+
+        const drawRailingLine = (points) => {
+            if (!points || points.length < 4) return;
+
+            // Sleek architectural handrail line
+            railingGroup.add(new Konva.Line({
+                points,
+                stroke: '#1e293b',
+                strokeWidth: 2.2,
+                lineCap: 'round',
+                lineJoin: 'round'
+            }));
+
+            // Subtle inner handrail highlight line
+            railingGroup.add(new Konva.Line({
+                points,
+                stroke: '#94a3b8',
+                strokeWidth: 1.0,
+                lineCap: 'round',
+                lineJoin: 'round'
+            }));
+
+            // Draw newel post circles at start, turn vertices, and end
+            for (let i = 0; i < points.length; i += 2) {
+                const px = points[i];
+                const py = points[i + 1];
+                railingGroup.add(new Konva.Circle({
+                    x: px, y: py, radius: 3.2, fill: '#1e293b', stroke: '#ffffff', strokeWidth: 1.0
+                }));
+            }
+        };
+
+        if (this.shape === 'straight') {
+            const length = this.flight1Steps * this.stepDepth;
+            const startY = this.hasTopLanding ? -this.landingSize : 0;
+            const endY = this.hasBottomLanding ? length + this.landingSize : length;
+
+            if (hasLeft) {
+                const lx = -this.width / 2 + offsetLeft;
+                drawRailingLine([lx, startY, lx, endY]);
+            }
+            if (hasRight) {
+                const rx = this.width / 2 - offsetRight;
+                drawRailingLine([rx, startY, rx, endY]);
+            }
+        } else if (this.shape === 'L') {
+            const l1 = this.flight1Steps * this.stepDepth;
+            const l2 = this.flight2Steps * this.stepDepth;
+            const startY = this.hasTopLanding ? -this.landingSize : 0;
+
+            if (this.turnDirection === 'right') {
+                const f2EndX = this.width / 2 + l2 + (this.hasBottomLanding ? this.landingSize : 0);
+                if (hasLeft) {
+                    const lx = -this.width / 2 + offsetLeft;
+                    const ly = l1 + this.landingSize - offsetLeft;
+                    drawRailingLine([lx, startY, lx, ly, f2EndX, ly]);
+                }
+                if (hasRight) {
+                    const rx = this.width / 2 - offsetRight;
+                    const ry = l1 + offsetRight;
+                    drawRailingLine([rx, startY, rx, ry, f2EndX, ry]);
+                }
+            } else { // Left turn
+                const f2StartX = -this.width / 2 - l2 - (this.hasBottomLanding ? this.landingSize : 0);
+                if (hasLeft) {
+                    const lx = -this.width / 2 + offsetLeft;
+                    const ly = l1 + offsetLeft;
+                    drawRailingLine([lx, startY, lx, ly, f2StartX, ly]);
+                }
+                if (hasRight) {
+                    const rx = this.width / 2 - offsetRight;
+                    const ry = l1 + this.landingSize - offsetRight;
+                    drawRailingLine([rx, startY, rx, ry, f2StartX, ry]);
+                }
+            }
+        } else if (this.shape === 'U') {
+            const l1 = this.flight1Steps * this.stepDepth;
+            const l2 = this.flight2Steps * this.stepDepth;
+            const startY = this.hasTopLanding ? -this.landingSize : 0;
+            const endY2 = l1 - l2 - (this.hasBottomLanding ? this.landingSize : 0);
+
+            if (this.turnDirection === 'right') {
+                const f2X = this.width / 2 + this.gapWidth;
+                if (hasLeft) {
+                    const lx = -this.width / 2 + offsetLeft;
+                    const ly = l1 + this.landingSize - offsetLeft;
+                    const rx = f2X + this.width - offsetLeft;
+                    drawRailingLine([lx, startY, lx, ly, rx, ly, rx, endY2]);
+                }
+                if (hasRight) {
+                    const rx = this.width / 2 - offsetRight;
+                    const ry = l1 + offsetRight;
+                    const lx = f2X + offsetRight;
+                    drawRailingLine([rx, startY, rx, ry, lx, ry, lx, endY2]);
+                }
+            } else { // Left turn
+                const f2X = -this.width / 2 - this.width - this.gapWidth;
+                if (hasRight) {
+                    const rx = this.width / 2 - offsetRight;
+                    const ry = l1 + this.landingSize - offsetRight;
+                    const lx = f2X + offsetRight;
+                    drawRailingLine([rx, startY, rx, ry, lx, ry, lx, endY2]);
+                }
+                if (hasLeft) {
+                    const lx = -this.width / 2 + offsetLeft;
+                    const ly = l1 + offsetLeft;
+                    const rx = f2X + this.width - offsetLeft;
+                    drawRailingLine([lx, startY, lx, ly, rx, ly, rx, endY2]);
+                }
+            }
+        } else if (this.shape === 'T') {
+            const l1 = this.flight1Steps * this.stepDepth;
+            const l2 = this.flight2Steps * this.stepDepth;
+            const startY = this.hasTopLanding ? -this.landingSize : 0;
+            const leftEndX = -this.width / 2 - l2 - (this.hasBottomLanding ? this.landingSize : 0);
+            const rightEndX = this.width / 2 + l2 + (this.hasBottomLanding ? this.landingSize : 0);
+
+            if (hasLeft) {
+                const lx = -this.width / 2 + offsetLeft;
+                const ly = l1 + offsetLeft;
+                drawRailingLine([lx, startY, lx, ly, leftEndX, ly]);
+            }
+            if (hasRight) {
+                const rx = this.width / 2 - offsetRight;
+                const ry = l1 + offsetRight;
+                drawRailingLine([rx, startY, rx, ry, rightEndX, ry]);
+            }
+        }
+
+        this.contentGroup.add(railingGroup);
+    }
+
     drawFlightSteps(x, y, width, length, stepCount, isVertical) {
-        // Draw frame representing the flight boundaries
-        this.contentGroup.add(new Konva.Rect({ x, y, width: isVertical ? width : length, height: isVertical ? length : width, stroke: '#3b82f6', strokeWidth: 2, fill: '#1e3a8a', opacity: 0.2 }));
-        
+        const stringerType = this.stringerType || 'solid';
+        const sWidth = Math.max(6, Number(this.stringerWidth) || 10);
+        const fillColor = (this.primaryColor && this.primaryColor !== '#ffffff') ? this.primaryColor : '#8b5a2b';
+        const strokeColor = 'rgba(30, 41, 59, 0.45)';
+        const stepStrokeColor = 'rgba(30, 41, 59, 0.3)';
+
+        // 1. Base footprint fill & outline according to stringerType
+        if (stringerType === 'solid' || stringerType === 'box') {
+            this.contentGroup.add(new Konva.Rect({
+                x, y,
+                width: isVertical ? width : length,
+                height: isVertical ? length : width,
+                stroke: strokeColor,
+                strokeWidth: 1.5,
+                fill: fillColor,
+                opacity: 0.75
+            }));
+        } else {
+            this.contentGroup.add(new Konva.Rect({
+                x, y,
+                width: isVertical ? width : length,
+                height: isVertical ? length : width,
+                stroke: strokeColor,
+                strokeWidth: 1.2,
+                fill: '#f8fafc',
+                opacity: 0.4
+            }));
+        }
+
+        // 2. Render Stringer Beams in 2D
+        if (stringerType === 'mono') {
+            if (isVertical) {
+                const bx = x + width / 2 - sWidth / 2;
+                this.contentGroup.add(new Konva.Rect({ x: bx, y, width: sWidth, height: length, fill: '#334155', opacity: 0.85 }));
+            } else {
+                const by = y + width / 2 - sWidth / 2;
+                this.contentGroup.add(new Konva.Rect({ x, y: by, width: length, height: sWidth, fill: '#334155', opacity: 0.85 }));
+            }
+        } else if (stringerType === 'double') {
+            const offset = Math.min(width * 0.25, Number(this.beamOffset) || 12);
+            if (isVertical) {
+                this.contentGroup.add(new Konva.Rect({ x: x + offset, y, width: sWidth, height: length, fill: '#334155', opacity: 0.85 }));
+                this.contentGroup.add(new Konva.Rect({ x: x + width - offset - sWidth, y, width: sWidth, height: length, fill: '#334155', opacity: 0.85 }));
+            } else {
+                this.contentGroup.add(new Konva.Rect({ x, y: y + offset, width: length, height: sWidth, fill: '#334155', opacity: 0.85 }));
+                this.contentGroup.add(new Konva.Rect({ x, y: y + width - offset - sWidth, width: length, height: sWidth, fill: '#334155', opacity: 0.85 }));
+            }
+        } else if (stringerType === 'side') {
+            if (isVertical) {
+                this.contentGroup.add(new Konva.Rect({ x, y, width: sWidth, height: length, fill: '#334155', opacity: 0.85 }));
+                this.contentGroup.add(new Konva.Rect({ x: x + width - sWidth, y, width: sWidth, height: length, fill: '#334155', opacity: 0.85 }));
+            } else {
+                this.contentGroup.add(new Konva.Rect({ x, y, width: length, height: sWidth, fill: '#334155', opacity: 0.85 }));
+                this.contentGroup.add(new Konva.Rect({ x, y: y + width - sWidth, width: length, height: sWidth, fill: '#334155', opacity: 0.85 }));
+            }
+        }
+
+        // 3. Step divider lines across the flight
         const stepSize = length / stepCount;
         for (let i = 1; i < stepCount; i++) {
             if (isVertical) {
-                this.contentGroup.add(new Konva.Line({ points: [x, y + i * stepSize, x + width, y + i * stepSize], stroke: '#3b82f6', strokeWidth: 1 }));
+                this.contentGroup.add(new Konva.Line({ points: [x, y + i * stepSize, x + width, y + i * stepSize], stroke: stepStrokeColor, strokeWidth: 1.0 }));
             } else {
-                this.contentGroup.add(new Konva.Line({ points: [x + i * stepSize, y, x + i * stepSize, y + width], stroke: '#3b82f6', strokeWidth: 1 }));
+                this.contentGroup.add(new Konva.Line({ points: [x + i * stepSize, y, x + i * stepSize, y + width], stroke: stepStrokeColor, strokeWidth: 1.0 }));
             }
         }
     }
 
     drawEndLanding(x, y, width, length) {
-        this.contentGroup.add(new Konva.Rect({ x, y, width, height: length, stroke: '#f59e0b', strokeWidth: 2, fill: '#b45309', opacity: 0.3 }));
+        const fillColor = (this.primaryColor && this.primaryColor !== '#ffffff') ? this.primaryColor : '#8b5a2b';
+        this.contentGroup.add(new Konva.Rect({ x, y, width, height: length, stroke: '#0f172a', strokeWidth: 2, fill: fillColor, opacity: 0.55 }));
     }
 
     drawStraight() {

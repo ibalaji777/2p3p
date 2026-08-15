@@ -31,22 +31,21 @@ export const STAIRCASE_REGISTRY = {
             
             const stairBuilder = new Stair3DBuilder(assets, interactables, helpers);
             
-            const shape = entity.type ? entity.type.split('stair_v5_')[1] : 'straight';
-            const dummyStair = { 
+            const rawType = entity.type || 'stair_v5_straight';
+            const extractedShape = (rawType && rawType.includes('stair_v5_')) ? rawType.split('stair_v5_')[1] : (entity.shape || 'straight');
+            const shape = extractedShape || 'straight';
+            
+            // Pure payload pass-through: preserve all exact parameters from the input payload
+            const stairPayload = { 
                 ...entity,
-                shape, 
+                type: (rawType && rawType.startsWith('stair_v5_')) ? rawType : `stair_v5_${shape}`,
+                shape: shape, 
                 x: 0, y: 0, elevation: 0, rotation: 0,
-                railingLayout: 'none', 
                 hasUnderWall: false    
             };
             
-            if (dummyStair.steps && !dummyStair.totalSteps) dummyStair.totalSteps = dummyStair.steps;
-            if (!dummyStair.totalSteps) dummyStair.totalSteps = 10; 
-            if (!dummyStair.flight1Steps) dummyStair.flight1Steps = 5;
-            if (!dummyStair.flight2Steps) dummyStair.flight2Steps = 5;
-            
             const stairWrapper = new THREE.Group();
-            stairBuilder.build([dummyStair], stairWrapper, 0, false, 300);
+            stairBuilder.build([stairPayload], stairWrapper, 0, false, 300);
             
             sceneGroup.add(stairWrapper);
             

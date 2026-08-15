@@ -87,8 +87,32 @@ export class Preview3D {
                 else if (category === 'window_frame') dims = { width: 100, height: 150 };
 
                 let mat = conf.transmission ? new THREE.MeshPhysicalMaterial() : new THREE.MeshStandardMaterial();
+                if (conf.color !== undefined) {
+                    try { mat.color = new THREE.Color(conf.color); } catch (e) {}
+                }
+                if (conf.roughness !== undefined) mat.roughness = conf.roughness;
+                if (conf.metalness !== undefined) mat.metalness = conf.metalness;
 
-                MaterialFactory.buildPBRMaterial({
+                const registerClone = (baseMat, clonedMat) => {
+                    if (!this.materialClonesRegistry) this.materialClonesRegistry = new Map();
+                    let list = this.materialClonesRegistry.get(baseMat);
+                    if (!list) {
+                        list = [];
+                        this.materialClonesRegistry.set(baseMat, list);
+                    }
+                    if (Array.isArray(list)) list.push(clonedMat);
+                    else if (list && typeof list.add === 'function') list.add(clonedMat);
+                };
+
+                // Intercept clone() so builder-created material clones stay registered for async PBR updates
+                const origClone = mat.clone.bind(mat);
+                mat.clone = () => {
+                    const cloned = origClone();
+                    registerClone(mat, cloned);
+                    return cloned;
+                };
+
+                const pbrPromise = MaterialFactory.buildPBRMaterial({
                     material: mat,
                     config: conf,
                     ctx: this,
@@ -97,21 +121,31 @@ export class Preview3D {
                 }).then(() => {
                     if (this.materialClonesRegistry && this.materialClonesRegistry.has(mat)) {
                         this.materialClonesRegistry.get(mat).forEach(clone => {
-                            clone.copy(mat);
-                            clone.needsUpdate = true;
+                            try {
+                                clone.copy(mat);
+                                clone.needsUpdate = true;
+                            } catch (e) {}
                         });
                     }
-                    // if (this.requestRender) this.requestRender('material_loaded', 2);
+                    if (this.requestRender) this.requestRender('material_loaded', 2);
                 });
+
+                if (!mat.userData) mat.userData = {};
+                mat.userData.readyPromise = pbrPromise;
                 
                 return mat;
             },
             getFaceMaterials: (entity, baseMaterial, dimensions) => {
                 const cloneMat = (base) => {
                     const c = base.clone();
-                    if (!this.materialClonesRegistry) this.materialClonesRegistry = new WeakMap();
-                    if (!this.materialClonesRegistry.has(base)) this.materialClonesRegistry.set(base, new Set());
-                    this.materialClonesRegistry.get(base).add(c);
+                    if (!this.materialClonesRegistry) this.materialClonesRegistry = new Map();
+                    let list = this.materialClonesRegistry.get(base);
+                    if (!list) {
+                        list = [];
+                        this.materialClonesRegistry.set(base, list);
+                    }
+                    if (Array.isArray(list)) list.push(c);
+                    else if (list && typeof list.add === 'function') list.add(c);
                     return c;
                 };
                 let matSides = cloneMat(baseMaterial);
