@@ -8,7 +8,7 @@ import { MaterialFactory } from '../../core/engine3d/MaterialFactory.js';
 export class FurnitureManager {
     constructor(ctx) { this.ctx = ctx; }
 
-    async load(entity) {
+    async load(entity, targetGroup = null) {
         const config = FURNITURE_REGISTRY[entity.configId || (entity.config && entity.config.id)];
         if (!config) return;
 
@@ -1073,7 +1073,8 @@ export class FurnitureManager {
             entity.mesh3D = wrapper;
             
             this.ctx.interactables.push(hitBox);
-            this.ctx.structureGroup.add(wrapper);
+            if (targetGroup) targetGroup.add(wrapper);
+            else this.ctx.structureGroup.add(wrapper);
             this.updateLive(entity);
 
             if (this.ctx.interactions.selectedObject && this.ctx.interactions.selectedObject.userData.entity === entity) {

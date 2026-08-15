@@ -1587,6 +1587,14 @@ export class EnvironmentBuilder {
                     this.buildRoofs(data.roofs, index, data.walls, floorGroup);
                 }
 
+                if (data.furniture) {
+                    data.furniture.forEach(furn => {
+                        if (this.ctx.furnitureManager) {
+                            this.ctx.furnitureManager.load(furn, floorGroup);
+                        }
+                    });
+                }
+
                 this.ctx.staticStructureGroup.add(floorGroup);
             } catch (e) { console.error("Error parsing static floor", e); }
         });

@@ -16,22 +16,35 @@ export class WallProvider extends MeasurementProvider {
         const p2 = this.entity.endAnchor ? this.entity.endAnchor.position() : { x: this.entity.endX, y: this.entity.endY };
         const h = this.entity.height !== undefined ? this.entity.height : (this.entity.config?.height || WALL_HEIGHT);
         
-        const baseStart = new THREE.Vector3(p1.x, 0, p1.y);
-        const baseEnd = new THREE.Vector3(p2.x, 0, p2.y);
+        const length = this.entity.length3D || Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        
+        if (this.mesh) this.mesh.updateMatrixWorld();
+        
+        // Wall meshes are built locally along the positive X-axis
+        const baseStart = new THREE.Vector3(0, 0, 0);
+        const baseEnd = new THREE.Vector3(length, 0, 0);
+        if (this.mesh) {
+            baseStart.applyMatrix4(this.mesh.matrixWorld);
+            baseEnd.applyMatrix4(this.mesh.matrixWorld);
+        }
         
         const dir = new THREE.Vector3().subVectors(baseEnd, baseStart).normalize();
         const normal = new THREE.Vector3(-dir.z, 0, dir.x); // Perpendicular outward
         const offsetDist = 30; // 30cm offset for dimension lines
 
         // 1. Length (Top edge)
-        const topStart = new THREE.Vector3(p1.x, h, p1.y);
-        const topEnd = new THREE.Vector3(p2.x, h, p2.y);
+        const topStart = new THREE.Vector3(0, h, 0);
+        const topEnd = new THREE.Vector3(length, h, 0);
+        if (this.mesh) {
+            topStart.applyMatrix4(this.mesh.matrixWorld);
+            topEnd.applyMatrix4(this.mesh.matrixWorld);
+        }
         measurements.push(this.createOffsetMeasurement(
             topStart, 
             topEnd, 
             new THREE.Vector3(0, 1, 0), // offset upwards
             15, 
-            UnitConverter.formatLabel(this.entity.length3D || baseStart.distanceTo(baseEnd), unit), 
+            UnitConverter.formatLabel(length, unit), 
             'wall-length'
         ));
 
