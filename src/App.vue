@@ -670,7 +670,6 @@ onMounted(() => {
     eventBusUnsubscribers.push(coreEventBus.on(EVENTS.OPENING_GIZMO_CHANGE, throttledSyncEngine));
     eventBusUnsubscribers.push(coreEventBus.on(EVENTS.ROOF_CORNER_GIZMO_CHANGE, throttledSyncEngine));
     eventBusUnsubscribers.push(coreEventBus.on(EVENTS.ROOF_OVERHANG_GIZMO_CHANGE, throttledSyncEngine));
-    eventBusUnsubscribers.push(coreEventBus.on(EVENTS.SCENE_CHANGED, syncEngine));
     eventBusUnsubscribers.push(coreEventBus.on(EVENTS.ENTITY_REMOVED, () => {
         if (viewMode.value === '3d') refresh3DScene(true);
         else syncEngine();

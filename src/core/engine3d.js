@@ -22,6 +22,11 @@ import { ThumbnailGenerator } from "./ThumbnailGenerator.js";
 import { MaterialFactory } from "./engine3d/MaterialFactory.js";
 import { UniversalMaterialManager } from "./engine3d/UniversalMaterialManager.js";
 import { RenderCoordinator } from "./engine3d/RenderCoordinator.js";
+import { coreEventBus } from './EventBus.js';
+import { Stair3DBuilder } from '../features/stairs/stairs.renderer3d.js';
+import { Railing3DBuilder } from '../features/railing/builders/Railing3DBuilder.js';
+import { STAIRCASE_REGISTRY } from '../features/stairs/stairs.registry.js';
+import { UniversalRealtimeUpdate } from './sync/UniversalRealtimeUpdate.js';
 
 export class Preview3D {
     constructor(containerEl) {
@@ -210,6 +215,8 @@ export class Preview3D {
 
         this.gizmoManager = new GizmoManager(this);
         this.gizmoManager.init();
+
+        this.realtimeUpdate = new UniversalRealtimeUpdate(this);
 
         this._onTransformChange = () => {
             if (this.currentTransformMode === 'place' && this.gizmoManager.inputX && this.interactions.selectedObject) {
@@ -474,6 +481,22 @@ export class Preview3D {
         return false;
     }
 
+    updateEntity(entity, updateType = 'geometry') {
+        return this.realtimeUpdate.updateEntity(entity, updateType);
+    }
+
+    rebuildEntityMeshInPlace(entity) {
+        return this.realtimeUpdate.rebuildMeshInPlace(entity);
+    }
+
+    updateProperty(entity, key, value) {
+        return this.realtimeUpdate.updateProperty(entity, key, value);
+    }
+
+    updateTransform(entity, x, y, z, rotation) {
+        return this.realtimeUpdate.updateTransform(entity, x, y, z, rotation);
+    }
+
     updateDoorAnimationLive(entity) {
         if (!entity || !entity.mesh3D || entity.type !== 'door') return;
         
@@ -701,19 +724,27 @@ export class Preview3D {
     }
 
     syncToUI() {
-        if (!this.isUpdatingFromUI && this.interactions.selectedObject && (this.interactions.selectedObject.userData.isFurniture || this.interactions.selectedObject.userData.isShape || this.interactions.selectedObject.userData.isRoof)) {
+        if (!this.isUpdatingFromUI && this.interactions.selectedObject && this.interactions.selectedObject.userData && this.interactions.selectedObject.userData.entity) {
             const obj3D = this.interactions.selectedObject;
             const ent2D = obj3D.userData.entity;
-            if (ent2D && ent2D.group) { 
+            ent2D.x = obj3D.position.x;
+            ent2D.y = obj3D.position.z;
+            if (ent2D.group && typeof ent2D.group.x === 'function') { 
                 ent2D.group.x(obj3D.position.x); 
                 ent2D.group.y(obj3D.position.z); 
-                ent2D.rotation = -obj3D.rotation.y * (180 / Math.PI);
-                ent2D.rotationX = obj3D.rotation.x;
-                ent2D.rotationZ = obj3D.rotation.z;
-                ent2D.update(); 
+                if (typeof ent2D.group.rotation === 'function') {
+                    ent2D.group.rotation(-obj3D.rotation.y * (180 / Math.PI));
+                }
             }
+            if (typeof ent2D.update2D === 'function') ent2D.update2D();
+            else if (typeof ent2D.update === 'function') ent2D.update();
         }
-        if (this.onEntityTransform) this.onEntityTransform();
+        
+        if (this._syncUiRaf) return;
+        this._syncUiRaf = requestAnimationFrame(() => {
+            if (this.onEntityTransform) this.onEntityTransform();
+            this._syncUiRaf = null;
+        });
     }
 
     rebuildActiveFloors() {

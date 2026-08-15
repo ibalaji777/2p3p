@@ -177,6 +177,10 @@ export class OpeningGizmo extends THREE.Group {
                     
                     if (this.ctx.syncToUI) this.ctx.syncToUI();
                     
+                    if (this.ctx.realtimeUpdate) {
+                        this.ctx.realtimeUpdate.markDirty(entity, 'geometry');
+                    }
+                    
                     this.updateHandles();
                     if (this.ctx.updateOpeningPanel) this.ctx.updateOpeningPanel(entity);
                     
@@ -311,7 +315,27 @@ export class InteractionSystem {
         this.wallHoverHighlight = this.highlightRenderer.wallHoverMesh;
 
         this.transformControls = new TransformControls(this.ctx.camera, this.ctx.renderer.domElement);
-        this._syncUI = () => { if (this.ctx.syncToUI) this.ctx.syncToUI(); };
+        this._syncUI = () => { 
+            if (this.selectedObject && this.selectedObject.userData && this.selectedObject.userData.entity) {
+                const ent = this.selectedObject.userData.entity;
+                ent.x = this.selectedObject.position.x;
+                ent.y = this.selectedObject.position.z;
+                if (ent.group && typeof ent.group.x === 'function') {
+                    ent.group.x(ent.x);
+                    ent.group.y(ent.y);
+                }
+                if (typeof ent.update2D === 'function') ent.update2D();
+                
+                if (this.ctx.realtimeUpdate) {
+                    if (ent.wall) {
+                        this.ctx.realtimeUpdate.markDirty(ent, 'geometry');
+                    } else {
+                        this.ctx.realtimeUpdate.markDirty(ent, 'transform');
+                    }
+                }
+            }
+            if (this.ctx.syncToUI) this.ctx.syncToUI(); 
+        };
         
         this.drag3DStartPos = null;
         this.drag3DStartRot = null;
@@ -319,21 +343,30 @@ export class InteractionSystem {
         this._onMoveStart = (e) => {
             if (e.object && e.object.userData && e.object.userData.entity) {
                 const ent = e.object.userData.entity;
-                if (ent.group) this.drag3DStartPos = { x: ent.group.x(), y: ent.group.y() };
+                const posX = ent.x !== undefined ? ent.x : (ent.group ? ent.group.x() : e.object.position.x);
+                const posY = ent.y !== undefined ? ent.y : (ent.group ? ent.group.y() : e.object.position.z);
+                this.drag3DStartPos = { x: posX, y: posY };
             }
         };
 
         this._onMoveEnd = (e) => {
             if (e.object && e.object.userData && e.object.userData.entity && this.drag3DStartPos) {
                 const ent = e.object.userData.entity;
-                const id = ent.id || (ent.group && ent.group.id());
+                const id = ent.id || (ent.group && typeof ent.group.id === 'function' ? ent.group.id() : null);
                 const endX = e.object.position.x;
                 const endY = e.object.position.z;
                 
                 if (Math.abs(endX - this.drag3DStartPos.x) > 0.001 || Math.abs(endY - this.drag3DStartPos.y) > 0.001) {
-                    if (window.planner && window.planner.value) {
-                        e.object.position.set(this.drag3DStartPos.x, e.object.position.y, this.drag3DStartPos.y);
-                        window.planner.value.move(id, endX, endY);
+                    const plannerInst = window.planner?.value || window.planner;
+                    if (plannerInst && typeof plannerInst.move === 'function' && id) {
+                        plannerInst.move(id, endX, endY);
+                    } else if (ent) {
+                        ent.x = endX;
+                        ent.y = endY;
+                        if (ent.group && typeof ent.group.x === 'function') {
+                            ent.group.x(endX);
+                            ent.group.y(endY);
+                        }
                     }
                 }
                 this.drag3DStartPos = null;
@@ -349,14 +382,19 @@ export class InteractionSystem {
         this._onRotateEnd = (e) => {
             if (e.object && e.object.userData && e.object.userData.entity && this.drag3DStartRot !== null) {
                 const ent = e.object.userData.entity;
-                const id = ent.id || (ent.group && ent.group.id());
+                const id = ent.id || (ent.group && typeof ent.group.id === 'function' ? ent.group.id() : null);
                 const endRotRad = e.object.rotation.y;
                 
                 if (Math.abs(endRotRad - this.drag3DStartRot) > 0.001) {
-                    if (window.planner && window.planner.value) {
-                        const endRotDegrees = -(endRotRad * 180 / Math.PI);
-                        e.object.rotation.y = this.drag3DStartRot;
-                        window.planner.value.rotate(id, endRotDegrees);
+                    const endRotDegrees = -(endRotRad * 180 / Math.PI);
+                    const plannerInst = window.planner?.value || window.planner;
+                    if (plannerInst && typeof plannerInst.rotate === 'function' && id) {
+                        plannerInst.rotate(id, endRotDegrees);
+                    } else if (ent) {
+                        ent.rotation = endRotDegrees;
+                        if (ent.group && typeof ent.group.rotation === 'function') {
+                            ent.group.rotation(endRotDegrees);
+                        }
                     }
                 }
                 this.drag3DStartRot = null;

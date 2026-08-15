@@ -91,34 +91,31 @@ export function useAppScene({
         }
     };
 
-    const syncEngine = () => {
-        if (planner.value) {
-            planner.value.syncAll();
-            if (selectedType.value === 'room' && selectedEntity.value) {
-                const oldRoom = selectedEntity.value;
-                const newRoom = planner.value.rooms.find(r => Math.hypot(r.cx - oldRoom.cx, r.cy - oldRoom.cy) < 20);
-                if (newRoom) {
-                    // Preserve custom UI properties across 2D graph regenerations
-                    if (oldRoom.materialScale !== undefined) newRoom.materialScale = oldRoom.materialScale;
-                    if (oldRoom.configId !== undefined) newRoom.configId = oldRoom.configId;
-                    selectedEntity.value = newRoom;
+    let isSyncingEngine = false;
+    const syncEngine = (updateType = 'geometry', forceRebuild = false) => {
+        if (isSyncingEngine) return;
+        isSyncingEngine = true;
+        try {
+            if (planner.value) {
+                if (selectedEntity.value && typeof selectedEntity.value.update2D === 'function') {
+                    selectedEntity.value.update2D();
+                }
+                planner.value.syncAll();
+                if (selectedType.value === 'room' && selectedEntity.value) {
+                    const oldRoom = selectedEntity.value;
+                    const newRoom = planner.value.rooms.find(r => Math.hypot(r.cx - oldRoom.cx, r.cy - oldRoom.cy) < 20);
+                    if (newRoom) {
+                        // Preserve custom UI properties across 2D graph regenerations
+                        if (oldRoom.materialScale !== undefined) newRoom.materialScale = oldRoom.materialScale;
+                        if (oldRoom.configId !== undefined) newRoom.configId = oldRoom.configId;
+                        selectedEntity.value = newRoom;
+                    }
                 }
             }
-        }
-        
-        if (viewMode.value === '3d') {
-            if (selectedType.value === 'furniture' && selectedEntity.value) {
-                renderer3D.value.updateFurnitureLive(selectedEntity.value); 
-            } else if (selectedType.value === 'shape' && selectedEntity.value) {
-                renderer3D.value.updateShapeLive(selectedEntity.value);
-                if (selectedEntity.value.type === 'shape_floor_cut') refresh3DScene(true);
-            } else if (selectedType.value === 'widget' && selectedEntity.value) {
-                const wall = selectedEntity.value.wall;
-                if (wall) renderer3D.value.updateWallGeometryLive(wall);
-                else refresh3DScene(true);
-            } else if (selectedType.value === 'wall' && selectedEntity.value) {
-                renderer3D.value.updateWallGeometryLive(selectedEntity.value);
-                if (planner.value) {
+            
+            if (renderer3D.value && selectedEntity.value) {
+                renderer3D.value.updateEntity(selectedEntity.value, updateType);
+                if (selectedType.value === 'wall' && planner.value) {
                     const selAnchorId1 = selectedEntity.value.startAnchor?.id;
                     const selAnchorId2 = selectedEntity.value.endAnchor?.id;
                     planner.value.walls.forEach(w => {
@@ -130,13 +127,14 @@ export function useAppScene({
                         }
                     });
                 }
-                if (planner.value && planner.value.updateRoofAutoPlacement) planner.value.updateRoofAutoPlacement();
-            } else if (['roof', 'room', 'advance_openings', 'molding', 'wallDecor', 'stair'].includes(selectedType.value)) {
-                if (planner.value && planner.value.updateRoofAutoPlacement) planner.value.updateRoofAutoPlacement();
-                refresh3DScene(true);
+                if (['wall', 'roof', 'room', 'stair'].includes(selectedType.value) && planner.value?.updateRoofAutoPlacement) {
+                    planner.value.updateRoofAutoPlacement();
+                }
             }
+            if (debouncedSaveHistory) debouncedSaveHistory();
+        } finally {
+            isSyncingEngine = false;
         }
-        if (debouncedSaveHistory) debouncedSaveHistory();
     };
 
     let gizmoSyncTimeout = null;

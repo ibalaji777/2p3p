@@ -208,6 +208,10 @@ export class PremiumStaircase {
         }
     }
 
+    update2D() {
+        this.update();
+    }
+
     update() {
         this.contentGroup.destroyChildren();
         

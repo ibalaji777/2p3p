@@ -747,6 +747,10 @@ export class GizmoManager {
                     if (prop === 'height') entity.height = val;
                     if (prop === 'elevation') entity.elevation = val;
                     
+                    if (this.ctx.realtimeUpdate) {
+                        this.ctx.realtimeUpdate.markDirty(entity, 'geometry');
+                    }
+                    
                     if (window.plannerInstance && window.plannerInstance.syncAll) window.plannerInstance.syncAll();
                     if (this.ctx.interactions.openingGizmo) this.ctx.interactions.openingGizmo.updateHandles();
                     this.updateOpeningPanel(entity);
@@ -766,6 +770,7 @@ export class GizmoManager {
                     if (this.ctx.interactions.selectedObject && this.ctx.interactions.selectedObject.userData.entity) {
                         const entity = this.ctx.interactions.selectedObject.userData.entity;
                         entity.facing = (entity.facing === 1) ? -1 : 1;
+                        if (this.ctx.realtimeUpdate) this.ctx.realtimeUpdate.markDirty(entity, 'geometry');
                         if (window.plannerInstance && window.plannerInstance.syncAll) window.plannerInstance.syncAll();
                         if (this.ctx.interactions.openingGizmo) this.ctx.interactions.openingGizmo.updateHandles();
                         coreEventBus.emit(EVENTS.OPENING_GIZMO_CHANGE, { entity });
@@ -777,6 +782,7 @@ export class GizmoManager {
                     if (this.ctx.interactions.selectedObject && this.ctx.interactions.selectedObject.userData.entity) {
                         const entity = this.ctx.interactions.selectedObject.userData.entity;
                         entity.side = (entity.side === 1) ? -1 : 1;
+                        if (this.ctx.realtimeUpdate) this.ctx.realtimeUpdate.markDirty(entity, 'geometry');
                         if (window.plannerInstance && window.plannerInstance.syncAll) window.plannerInstance.syncAll();
                         if (this.ctx.interactions.openingGizmo) this.ctx.interactions.openingGizmo.updateHandles();
                         coreEventBus.emit(EVENTS.OPENING_GIZMO_CHANGE, { entity });
@@ -789,6 +795,7 @@ export class GizmoManager {
                         const entity = this.ctx.interactions.selectedObject.userData.entity;
                         if (entity.type === 'door') entity.doorType = e.target.value;
                         else if (entity.type === 'window') entity.windowType = e.target.value;
+                        if (this.ctx.realtimeUpdate) this.ctx.realtimeUpdate.markDirty(entity, 'geometry');
                         if (window.plannerInstance && window.plannerInstance.syncAll) window.plannerInstance.syncAll();
                         if (this.ctx.interactions.openingGizmo) this.ctx.interactions.openingGizmo.updateHandles();
                         coreEventBus.emit(EVENTS.OPENING_GIZMO_CHANGE, { entity });
@@ -2363,7 +2370,7 @@ export class GizmoManager {
                     this._menuPointerDown = false;
                 }
                 this.transformMenu.style.display = 'flex';
-                this.setTransformMode('none', true);
+                this.setTransformMode('translate', true);
             }
         }
     }
