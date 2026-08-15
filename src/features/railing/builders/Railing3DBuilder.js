@@ -59,7 +59,7 @@ export class Railing3DBuilder {
                 glass: glassMat,
                 cable: cableMat,
                 post: postMat
-            });
+            }, entity);
         } else {
             group = new THREE.Group();
             

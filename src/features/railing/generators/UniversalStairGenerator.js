@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 export class UniversalStairGenerator {
-    static generate(path, config, materials) {
+    static generate(path, config, materials, entity = null) {
         const group = new THREE.Group();
         if (!path || path.type !== 'linear') return group;
 
@@ -12,6 +12,13 @@ export class UniversalStairGenerator {
 
         const rHeight = config.height || 40;
         const hSize = config.handrail?.height || 3.33;
+
+        const totalSteps = Number(entity?.totalSteps) || Number(entity?.stepCount) || Number(entity?.flight1Steps) || 10;
+        const stepCount = Math.max(1, totalSteps);
+        const totalH = Math.abs(endH - startH);
+        const stepHeight = totalH > 0 ? (totalH / stepCount) : 15;
+        const stepDepth = flightLength > 0 ? (flightLength / stepCount) : 25;
+        const minH = Math.min(startH, endH);
 
         const rMat = materials.handrail;
         const bMat = materials.baluster || materials.post;
@@ -91,45 +98,65 @@ export class UniversalStairGenerator {
                 group.add(cMesh);
             }
         } else if (config.baluster) {
-            // Balusters
-            const bSpacing = config.baluster.spacing || 15;
+            // Balusters - Tread-aligned placement (uniform count per step tread)
             const bSize = config.baluster.width || 4;
             const bShape = config.baluster.shape || 'square';
-            const numBalusters = Math.floor(flightLength / bSpacing);
-            
+            const nSize = config.post ? (config.post.width || 8) : 0;
+
+            const bSpacing = config.baluster.spacing || 15;
+            const balustersPerTread = config.baluster.perTread || (bSpacing < stepDepth / 1.5 ? 2 : 1);
+
             const bGeo = bShape === 'round' ? new THREE.CylinderGeometry(bSize/2, bSize/2, 1, 8) : new THREE.BoxGeometry(bSize, 1, bSize);
-            
-            for(let k=0; k<=numBalusters; k++) {
-                const bZ = k * bSpacing;
-                const t = flightLength > 0 ? bZ / flightLength : 0;
-                const bH = startH * (1 - t) + endH * t;
-                const balHeight = rHeight - hSize;
-                
-                // If no handrail, extend baluster to top
-                const actualBalHeight = config.handrail ? balHeight : rHeight;
-                
-                const bm = new THREE.Mesh(bGeo, bMat);
-                bm.scale.set(1, actualBalHeight, 1);
-                // bZ was the length coordinate, which is now local X. railX is local Z.
-                bm.position.set(bZ, bH + actualBalHeight/2, railX + hSize/2);
-                bm.castShadow = true; 
-                bm.receiveShadow = true;
-                group.add(bm);
+
+            for (let i = 0; i < stepCount; i++) {
+                // When config.post (Big Newel Posts) is active, step 0 (entrance) and step (stepCount - 1) (end)
+                // ALREADY have the Big Newel Posts resting on them. Skip small balusters on step 0 and step (stepCount - 1).
+                if (config.post && (i === 0 || i === stepCount - 1)) {
+                    continue;
+                }
+
+                const treadTopY = minH + (i + 1) * stepHeight;
+
+                for (let j = 0; j < balustersPerTread; j++) {
+                    const offsetFraction = balustersPerTread === 1 ? 0.5 : (j + 1) / (balustersPerTread + 1);
+                    const bZ = (i + offsetFraction) * stepDepth;
+                    const t = flightLength > 0 ? bZ / flightLength : 0;
+
+                    // Handrail bottom height at bZ
+                    const handrailBotY = (startH * (1 - t) + endH * t) + rHeight - (config.handrail ? hSize : 0);
+
+                    // Calculate exact baluster height from tread top to handrail bottom
+                    const actualBalHeight = Math.max(5, handrailBotY - treadTopY);
+
+                    const bm = new THREE.Mesh(bGeo, bMat);
+                    bm.scale.set(1, actualBalHeight, 1);
+                    // Position baluster so its bottom face rests 100% flush on top of the tread board
+                    bm.position.set(bZ, treadTopY + actualBalHeight / 2, railX + hSize / 2);
+                    bm.castShadow = true;
+                    bm.receiveShadow = true;
+                    group.add(bm);
+                }
             }
         }
 
-        // Posts
+        // Posts (Newel Posts at start and end of flight)
         if (config.post) {
             const nSize = config.post.width || 8;
-            const nGeo = new THREE.BoxGeometry(nSize, rHeight + 5, nSize);
+            const nHeight = rHeight + 5;
+            const nGeo = new THREE.BoxGeometry(nSize, nHeight, nSize);
+
+            // Start Newel Post: rests 100% flush on top of Step 0 tread
+            const startPostY = startH + stepHeight + nHeight / 2;
             const nMeshStart = new THREE.Mesh(nGeo, bMat);
-            nMeshStart.position.set(0, startH + (rHeight+5)/2, railX + hSize/2);
+            nMeshStart.position.set(nSize / 2, startPostY, railX + hSize / 2);
             nMeshStart.castShadow = true; 
             nMeshStart.receiveShadow = true;
             group.add(nMeshStart);
             
+            // End Newel Post: rests 100% flush on top of top step tread / floor
+            const endPostY = endH + nHeight / 2;
             const nMeshEnd = new THREE.Mesh(nGeo, bMat);
-            nMeshEnd.position.set(flightLength, endH + (rHeight+5)/2, railX + hSize/2);
+            nMeshEnd.position.set(flightLength - nSize / 2, endPostY, railX + hSize / 2);
             nMeshEnd.castShadow = true; 
             nMeshEnd.receiveShadow = true;
             group.add(nMeshEnd);
