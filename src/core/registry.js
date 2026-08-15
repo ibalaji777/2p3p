@@ -2226,9 +2226,10 @@ export const GIZMO_REGISTRY = {
     'default': ['move', 'place', 'scale', 'spin', 'tilt']
 };
 // Thumbnail generation extensions
+export const THUMBNAIL_EXTENSIONS = {};
 ['shape_rect', 'shape_circle', 'shape_triangle'].forEach(type => {
-    if (!WIDGET_REGISTRY[type]) WIDGET_REGISTRY[type] = { type };
-    WIDGET_REGISTRY[type].render3D = (sceneGroup, entity, helpers) => {
+    if (!THUMBNAIL_EXTENSIONS[type]) THUMBNAIL_EXTENSIONS[type] = { type };
+    THUMBNAIL_EXTENSIONS[type].render3D = (sceneGroup, entity, helpers) => {
         const size = 60, h = 60;
         let geo;
         if (type === 'shape_rect') geo = new THREE.BoxGeometry(size, h, size);
@@ -2242,8 +2243,8 @@ export const GIZMO_REGISTRY = {
 });
 
 ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].forEach(type => {
-    if (!WIDGET_REGISTRY[type]) WIDGET_REGISTRY[type] = { type };
-    WIDGET_REGISTRY[type].render3D = (sceneGroup, entity, helpers) => {
+    if (!THUMBNAIL_EXTENSIONS[type]) THUMBNAIL_EXTENSIONS[type] = { type };
+    THUMBNAIL_EXTENSIONS[type].render3D = (sceneGroup, entity, helpers) => {
         const w = 100, h = 100, d = 10;
         const shape = new THREE.Shape();
         shape.moveTo(-w/2, -h/2); shape.lineTo(w/2, -h/2); shape.lineTo(w/2, h/2); shape.lineTo(-w/2, h/2); shape.lineTo(-w/2, -h/2);
@@ -2268,8 +2269,8 @@ export const GIZMO_REGISTRY = {
 });
 
 ['material_preview', 'material_preview_box'].forEach(type => {
-    if (!WIDGET_REGISTRY[type]) WIDGET_REGISTRY[type] = { type };
-    WIDGET_REGISTRY[type].render3D = async (sceneGroup, entity, helpers) => {
+    if (!THUMBNAIL_EXTENSIONS[type]) THUMBNAIL_EXTENSIONS[type] = { type };
+    THUMBNAIL_EXTENSIONS[type].render3D = async (sceneGroup, entity, helpers) => {
         const isBox = type === 'material_preview_box' || (entity && entity.previewShape === 'box');
         const geo = isBox ? new THREE.PlaneGeometry(200, 200) : new THREE.SphereGeometry(45, 64, 64);
         const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xffffff }));

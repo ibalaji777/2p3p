@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WIDGET_REGISTRY, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY, MOLDING_REGISTRY, FURNITURE_REGISTRY, RAILING_REGISTRY, WALL_REGISTRY, STAIRCASE_REGISTRY } from './registry.js';
+import { WIDGET_REGISTRY, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY, MOLDING_REGISTRY, FURNITURE_REGISTRY, RAILING_REGISTRY, WALL_REGISTRY, STAIRCASE_REGISTRY, THUMBNAIL_EXTENSIONS } from './registry.js';
 import { ROOF_REGISTRY } from '../features/roof/roof.components.registry.js';
 import { Stair3DBuilder } from '../features/stairs/stairs.renderer3d.js';
 import { Molding3DBuilder } from './engine3d/Molding3DBuilder.js';
@@ -76,6 +76,7 @@ export class ThumbnailGenerator {
         // 1. Unified Registry Lookup
         let registryConfig = null;
         if (WIDGET_REGISTRY[type]) registryConfig = WIDGET_REGISTRY[type];
+        else if (THUMBNAIL_EXTENSIONS && THUMBNAIL_EXTENSIONS[type]) registryConfig = THUMBNAIL_EXTENSIONS[type];
         else if (RAILING_REGISTRY && RAILING_REGISTRY[type]) registryConfig = RAILING_REGISTRY[type];
         else if (FURNITURE_REGISTRY && FURNITURE_REGISTRY[type]) registryConfig = FURNITURE_REGISTRY[type];
         else if (MOLDING_REGISTRY && MOLDING_REGISTRY[type]) registryConfig = MOLDING_REGISTRY[type];
