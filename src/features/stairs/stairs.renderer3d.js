@@ -36,16 +36,15 @@ export class Stair3DBuilder {
             
             const getMat = (slotId) => {
                 const matId = stair.materials?.[slotId]?.id;
-                if (!matId) {
-                    console.warn(`[STAIRCASE] Missing material ID for slot '${slotId}' in entity ${stair.id}`);
-                    return this.defaultMat;
+                let mat = this.defaultMat;
+                if (matId && this.helpers && this.helpers.getDynamicMaterial) {
+                    mat = this.helpers.getDynamicMaterial(matId, 'staircase') || this.defaultMat;
                 }
-                
-                if (this.helpers && this.helpers.getDynamicMaterial) {
-                    return this.helpers.getDynamicMaterial(matId, 'staircase');
+                // Clone to ensure each slot has a unique material instance to prevent cross-highlighting
+                if (Array.isArray(mat)) {
+                    return mat.map(m => m.clone ? m.clone() : m);
                 }
-                
-                return this.defaultMat;
+                return mat.clone ? mat.clone() : mat;
             };
 
             const treadMat = getMat('treads');
@@ -73,29 +72,37 @@ export class Stair3DBuilder {
                 const width = Number(stair.width) || 60;
                 const direction = stair.direction || 'up'; // Defaults to up
 
-                const stepGeo = new THREE.BoxGeometry(width, stepHeight, stepDepth);
+                const treadThick = 1.5;
+                const riserThick = 3;
+                const riserHeight = Math.max(1, stepHeight - treadThick);
+
+                const treadGeo = new THREE.BoxGeometry(width, treadThick, stepDepth);
+                const riserGeo = new THREE.BoxGeometry(width, riserHeight, riserThick);
 
                 for (let i = 0; i < stepCount; i++) {
-                    const stepMesh = new THREE.Mesh(stepGeo, stairMat);
-                    stepMesh.name = 'tread_riser_step';
-                    // If direction is up, lowest step (i=0) is at Z = length (bottom of 2d rect).
-                    // If direction is down, lowest step is at Z = 0 (top of 2d rect).
                     const localZIndex = direction === 'up' ? (stepCount - 1 - i) : i;
-                    const curHeight = (i + 1) * stepHeight;
+                    const stepTopY = (i + 1) * stepHeight;
+                    const stepBottomY = i * stepHeight;
+                    const meshZ = localZIndex * stepDepth + stepDepth / 2;
 
-                    // Solid block from 0 to curHeight
-                    const solidGeo = new THREE.BoxGeometry(width, curHeight, stepDepth);
-                    const solidMesh = new THREE.Mesh(solidGeo, stairMat);
-                    solidMesh.name = 'tread_riser_solid';
+                    // Tread
+                    const treadMesh = new THREE.Mesh(treadGeo, treadMat);
+                    treadMesh.name = 'tread';
+                    treadMesh.position.set(0, stepTopY - treadThick / 2, meshZ);
+                    treadMesh.castShadow = true;
+                    treadMesh.receiveShadow = true;
+                    group.add(treadMesh);
 
-                    solidMesh.position.set(
-                        0,
-                        curHeight / 2,
-                        localZIndex * stepDepth + stepDepth / 2
-                    );
-                    solidMesh.castShadow = true;
-                    solidMesh.receiveShadow = true;
-                    group.add(solidMesh);
+                    // Riser
+                    if (riserMat !== null) {
+                        const riserMesh = new THREE.Mesh(riserGeo, riserMat);
+                        riserMesh.name = 'riser';
+                        const riserZ = localZIndex * stepDepth + riserThick / 2;
+                        riserMesh.position.set(0, stepBottomY + riserHeight / 2, riserZ);
+                        riserMesh.castShadow = true;
+                        riserMesh.receiveShadow = true;
+                        group.add(riserMesh);
+                    }
                 }
 
             } else if (stair.type === 'stair_v4_landing') {
@@ -190,49 +197,49 @@ export class Stair3DBuilder {
                     return MaterialManager.getMaterial(globalMatId);
                 };
 
-                const buildTread = (x, y, z, rotY) => {
-                    const treadThick = 5;
-                    const treadGeo = new THREE.BoxGeometry(width, treadThick, stepDepth);
+                const treadThick = 1.5;
+                const riserThick = 1.5;
+                const nosing = 2.0; // Architectural front nosing overhang (2 cm)
+                const riserHeight = Math.max(1, stepHeight - treadThick);
+
+                const buildStep = (startX, startZ, rotY, stepIdx, logicalElevIdx) => {
+                    const stepTopY = (logicalElevIdx + 1) * stepHeight;
+                    const stepBottomY = logicalElevIdx * stepHeight;
+
+                    // Tread front nosing overhang (2cm) & back extension under upper riser (1.5cm)
+                    const sideNosing = (stringerType === 'side') ? 0 : 1.5;
+                    const actualTreadWidth = width + sideNosing * 2;
+                    const actualTreadDepth = stepDepth + nosing + riserThick;
+
+                    // Tread local coordinates along flight Z (front lip overhanging, back extending under upper riser):
+                    const treadZ_local = stepIdx * stepDepth + stepDepth / 2 - nosing / 2 + riserThick / 2;
+                    const treadX = startX + Math.sin(rotY) * treadZ_local;
+                    const treadZ = startZ + Math.cos(rotY) * treadZ_local;
+                    const treadY = stepTopY - treadThick / 2;
+
+                    const treadGeo = new THREE.BoxGeometry(actualTreadWidth, treadThick, actualTreadDepth);
                     const treadMesh = new THREE.Mesh(treadGeo, treadMat);
                     treadMesh.name = 'tread';
-                    treadMesh.position.set(x, y - treadThick / 2, z);
+                    treadMesh.position.set(treadX, treadY, treadZ);
                     treadMesh.rotation.y = rotY;
                     treadMesh.castShadow = true; treadMesh.receiveShadow = true;
                     group.add(treadMesh);
 
+                    // Riser panel resting directly on top of the bottom tread plank:
                     if (riserMat !== null) {
-                        const riserThick = 3;
-                        const riserHeight = stepHeight - treadThick;
+                        const riserZ_local = stepIdx * stepDepth + riserThick / 2;
+                        const riserX = startX + Math.sin(rotY) * riserZ_local;
+                        const riserZ = startZ + Math.cos(rotY) * riserZ_local;
+                        const riserY = stepBottomY + riserHeight / 2;
+
                         const riserGeo = new THREE.BoxGeometry(width, riserHeight, riserThick);
                         const riserMesh = new THREE.Mesh(riserGeo, riserMat);
                         riserMesh.name = 'riser';
-                        
-                        const zDir = direction === 'up' ? -1 : 1;
-                        const zOffset = (stepDepth / 2 - riserThick / 2) * zDir;
-                        const riserX = x + Math.sin(rotY) * zOffset;
-                        const riserZ = z + Math.cos(rotY) * zOffset;
-                        
-                        riserMesh.position.set(riserX, y - treadThick - riserHeight / 2, riserZ);
+                        riserMesh.position.set(riserX, riserY, riserZ);
                         riserMesh.rotation.y = rotY;
                         riserMesh.castShadow = true; riserMesh.receiveShadow = true;
                         group.add(riserMesh);
                     }
-                };
-
-                const buildSolidStep = (x, y, z, rotY) => {
-                    const solidGeo = new THREE.BoxGeometry(width, y, stepDepth);
-                    let mesh;
-                    if (riserMat !== null) {
-                        const mats = [riserMat, riserMat, treadMat, treadMat, riserMat, riserMat];
-                        mesh = new THREE.Mesh(solidGeo, mats);
-                    } else {
-                        mesh = new THREE.Mesh(solidGeo, treadMat);
-                    }
-                    mesh.name = 'tread_riser_solid';
-                    mesh.position.set(x, y / 2, z);
-                    mesh.rotation.y = rotY;
-                    mesh.castShadow = true; mesh.receiveShadow = true;
-                    group.add(mesh);
                 };
 
                 const buildFlight = (startX, startZ, rotY, stepCount, startElevIdx) => {
@@ -241,61 +248,112 @@ export class Stair3DBuilder {
                     const startH = direction === 'up' ? (startElevIdx) * stepHeight : (startElevIdx + stepCount) * stepHeight;
                     const endH = direction === 'up' ? (startElevIdx + stepCount) * stepHeight : (startElevIdx) * stepHeight;
 
-                    
                     for (let i = 0; i < stepCount; i++) {
                         const logicalIdx = direction === 'up' ? (startElevIdx + i) : (startElevIdx + stepCount - 1 - i);
-                        const curHeight = (logicalIdx + 1) * stepHeight;
-                        const meshZ = i * stepDepth + stepDepth / 2;
-                        const treadX = startX + Math.sin(rotY) * meshZ;
-                        const treadZ = startZ + Math.cos(rotY) * meshZ;
-                        
-                        if (stringerType === 'solid') buildSolidStep(treadX, curHeight, treadZ, rotY);
-                        else buildTread(treadX, curHeight, treadZ, rotY);
+                        buildStep(startX, startZ, rotY, i, logicalIdx);
                     }
 
-                    if (stringerType !== 'solid') {
+                    if (stringerType === 'solid') {
+                        // Build continuous stepped solid sub-base underneath the steps (100% orthogonal tread seats & riser backings)
+                        const shape = new THREE.Shape();
+                        const baseFlightH = startElevIdx * stepHeight;
+                        const topFlightH = (startElevIdx + stepCount) * stepHeight;
+
+                        shape.moveTo(0, 0);
+                        shape.lineTo(flightLength, 0);
+                        shape.lineTo(flightLength, topFlightH - treadThick);
+
+                        // Sawtooth contour: 100% horizontal under treads and 100% vertical behind risers
+                        for (let i = stepCount - 1; i >= 0; i--) {
+                            const stepTopY = (startElevIdx + i + 1) * stepHeight;
+                            const stepBottomY = (startElevIdx + i) * stepHeight;
+                            const treadBottomY = stepTopY - treadThick;
+                            const zStart = i * stepDepth;
+                            const riserBackZ = zStart + riserThick;
+
+                            // 1. Horizontal line under tread i (at treadBottomY back to riserBackZ)
+                            shape.lineTo(riserBackZ, treadBottomY);
+                            // 2. Vertical line down behind riser i (at riserBackZ from treadBottomY down to stepBottomY)
+                            shape.lineTo(riserBackZ, stepBottomY);
+                            // 3. Horizontal line under riser i bottom (at stepBottomY from riserBackZ to zStart)
+                            shape.lineTo(zStart, stepBottomY);
+                            // 4. Vertical step down to previous tread level (stepBottomY - treadThick)
+                            shape.lineTo(zStart, Math.max(0, stepBottomY - treadThick));
+                        }
+
+                        if (baseFlightH > 0) {
+                            shape.lineTo(0, baseFlightH);
+                        } else {
+                            shape.lineTo(0, 0);
+                        }
+                        shape.closePath();
+
+                        const extrudeSettings = { depth: width, bevelEnabled: false };
+                        const wedgeGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+                        const wedgeMesh = new THREE.Mesh(wedgeGeo, structureMat);
+                        wedgeMesh.name = 'stringer_solid';
+
+                        wedgeMesh.rotation.y = -Math.PI / 2;
+
+                        const beamGroup = new THREE.Group();
+                        beamGroup.position.set(startX, 0, startZ);
+                        beamGroup.rotation.y = rotY;
+
+                        wedgeMesh.position.set(width / 2, 0, 0);
+                        beamGroup.add(wedgeMesh);
+
+                        wedgeMesh.castShadow = true; wedgeMesh.receiveShadow = true;
+                        group.add(beamGroup);
+                    } else {
                         const buildBeam = (offsetX, customWidth = sWidth) => {
-                            const startH = direction === 'up' ? (startElevIdx) * stepHeight : (startElevIdx + stepCount) * stepHeight;
-                            const endH = direction === 'up' ? (startElevIdx + stepCount) * stepHeight : (startElevIdx) * stepHeight;
-                            
+                            const baseFlightH = startElevIdx * stepHeight;
+                            const topFlightH = (startElevIdx + stepCount) * stepHeight;
                             const shape = new THREE.Shape();
                             
-                            const pitch = Math.atan(stepHeight / stepDepth);
+                            const pitch = Math.atan2((topFlightH - baseFlightH), flightLength);
                             const vThick = sThick / Math.cos(pitch);
                             
-                            let yTopOffset = -2.5; // Under the floating tread
                             if (stringerType === 'side') {
-                                yTopOffset = stepHeight; // Side curb sticking above
+                                const curbHeight = 8;
+                                // Parallel skirtboard of uniform thickness (vThick) framing the flight
+                                const topY0 = baseFlightH + curbHeight;
+                                const topY1 = topFlightH + curbHeight;
+                                const botY0 = baseFlightH + curbHeight - vThick;
+                                const botY1 = topFlightH + curbHeight - vThick;
+
+                                shape.moveTo(0, botY0);
+                                shape.lineTo(flightLength, botY1);
+                                shape.lineTo(flightLength, topY1);
+                                shape.lineTo(0, topY0);
+                                shape.closePath();
+                            } else {
+                                // Parallel beam of uniform thickness (vThick) running under the steps
+                                const topY0 = baseFlightH;
+                                const topY1 = topFlightH;
+                                const botY0 = baseFlightH - vThick;
+                                const botY1 = topFlightH - vThick;
+
+                                shape.moveTo(0, botY0);
+                                shape.lineTo(flightLength, botY1);
+                                shape.lineTo(flightLength, topY1);
+                                shape.lineTo(0, topY0);
+                                shape.closePath();
                             }
                             
-                            // Draw in Shape X-Y plane (X = flight Z, Y = flight Y)
-                            shape.moveTo(0, startH + yTopOffset);
-                            shape.lineTo(flightLength, endH + yTopOffset);
-                            shape.lineTo(flightLength, endH + yTopOffset - vThick);
-                            shape.lineTo(0, startH + yTopOffset - vThick);
-                            shape.closePath();
-                            
-                            const extrudeSettings = {
-                                depth: customWidth,
-                                bevelEnabled: false
-                            };
-                            
+                            const extrudeSettings = { depth: customWidth, bevelEnabled: false };
                             const beamGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
                             const beamMesh = new THREE.Mesh(beamGeo, structureMat);
                             beamMesh.name = 'stringer';
                             
-                            // Rotate to map Shape X to Flight Z, and Shape Extrude Z to Flight X
                             beamMesh.rotation.y = -Math.PI / 2;
                             
                             const meshX = offsetX + customWidth / 2;
-                            const meshY = 0;
-                            const meshZ = 0;
                             
                             const beamGroup = new THREE.Group();
                             beamGroup.position.set(startX, 0, startZ);
                             beamGroup.rotation.y = rotY;
                             
-                            beamMesh.position.set(meshX, meshY, meshZ);
+                            beamMesh.position.set(meshX, 0, 0);
                             beamGroup.add(beamMesh);
                             
                             beamMesh.castShadow = true; beamMesh.receiveShadow = true;
@@ -492,10 +550,11 @@ export class Stair3DBuilder {
                     let slot = child.userData.materialSlot;
                     
                     if (!slot) {
-                        slot = 'treads';
-                        if (child.material === riserMat) slot = 'risers';
-                        else if (child.material === landingMat) slot = 'landings';
-                        else if (child.material === structureMat) slot = 'stringers';
+                        if (child.name.includes('tread')) slot = 'treads';
+                        else if (child.name.includes('riser')) slot = 'risers';
+                        else if (child.name.includes('stringer')) slot = 'stringers';
+                        else if (child.name.includes('landing')) slot = 'landings';
+                        else slot = 'treads';
                     }
                     
                     child.userData.entity = stair;
