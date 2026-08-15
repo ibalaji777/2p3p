@@ -2370,7 +2370,7 @@ export class GizmoManager {
                     this._menuPointerDown = false;
                 }
                 this.transformMenu.style.display = 'flex';
-                this.setTransformMode('translate', true);
+                this.setTransformMode('none', true);
             }
         }
     }
