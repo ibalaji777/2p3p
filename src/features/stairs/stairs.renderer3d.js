@@ -558,6 +558,7 @@ export class Stair3DBuilder {
             group.updateMatrixWorld(true);
 
             // Ensure unified component highlighting, material registry, and continuous 1:1 physical UVs
+            const worldPos = new THREE.Vector3();
             group.traverse(child => {
                 if (child.isMesh && child.geometry && child.geometry.attributes.position) {
                     const geo = child.geometry;
@@ -565,49 +566,31 @@ export class Stair3DBuilder {
                     const pos = geo.attributes.position;
                     const norms = geo.attributes.normal;
                     
-                    if (uvs && norms) {
-                        geo.computeBoundingBox();
-                        const bbox = geo.boundingBox;
-                        const minX = bbox.min.x;
-                        const minY = bbox.min.y;
-                        const minZ = bbox.min.z;
+                    child.getWorldPosition(worldPos);
 
-                        // Uniform physical metric scale (150 cm = 1.5m per tile repeat) preserving 1:1 aspect ratio without stretching
+                    if (uvs && norms) {
+                        // Uniform physical metric scale (150 cm = 1.5m per tile repeat)
                         const scale = 150;
-                        const isExtrude = geo.type === 'ExtrudeGeometry' || (child.name && child.name.includes('stringer'));
                         
                         for (let k = 0; k < pos.count; k++) {
-                            // Uniformly scaled physical UV coordinates
-                            const px = (pos.getX(k) - minX) / scale;
-                            const py = (pos.getY(k) - minY) / scale;
-                            const pz = (pos.getZ(k) - minZ) / scale;
+                            // Absolute world-space UV coordinates (100% continuous across flights & landings, zero glitch, zero seam)
+                            const wx = (pos.getX(k) + worldPos.x) / scale;
+                            const wy = (pos.getY(k) + worldPos.y) / scale;
+                            const wz = (pos.getZ(k) + worldPos.z) / scale;
 
                             const nx = Math.abs(norms.getX(k));
                             const ny = Math.abs(norms.getY(k));
                             const nz = Math.abs(norms.getZ(k));
 
-                            if (isExtrude) {
-                                if (nz > 0.5) {
-                                    // Side cap faces of stringer extrusions (continuous 1:1 physical aspect ratio, no stretching, no seam lines)
-                                    uvs.setXY(k, px, py);
-                                } else if (ny >= nx) {
-                                    // Top/bottom step seat faces
-                                    uvs.setXY(k, pz, px);
-                                } else {
-                                    // Vertical step riser backing faces
-                                    uvs.setXY(k, pz, py);
-                                }
+                            if (ny >= 0.5) {
+                                // Top/Bottom horizontal faces
+                                uvs.setXY(k, wx, wz);
+                            } else if (nx >= nz) {
+                                // Side X faces
+                                uvs.setXY(k, wz, wy);
                             } else {
-                                if (ny >= 0.5) {
-                                    // Top/Bottom horizontal faces (Treads, Landings)
-                                    uvs.setXY(k, px, pz);
-                                } else if (nx >= nz) {
-                                    // Side X faces
-                                    uvs.setXY(k, pz, py);
-                                } else {
-                                    // Side Z faces (Risers, Front/Back faces)
-                                    uvs.setXY(k, px, py);
-                                }
+                                // Side Z faces (Risers, Front/Back faces)
+                                uvs.setXY(k, wx, wy);
                             }
                         }
                         uvs.needsUpdate = true;
@@ -632,15 +615,19 @@ export class Stair3DBuilder {
                         applyMirroredWrapping(child.material);
                     }
 
-                    // If slot is already assigned (e.g. by railing builder), preserve it
+                    // Determine material slot
                     let slot = child.userData.materialSlot;
                     
                     if (!slot) {
                         if (child.name.includes('tread')) slot = 'treads';
                         else if (child.name.includes('riser')) slot = 'risers';
-                        else if (child.name.includes('stringer')) slot = 'stringers';
-                        else if (child.name.includes('landing')) slot = 'landings';
-                        else slot = 'treads';
+                        else if (child.name.includes('stringer') || child.name.includes('base') || child.name.includes('frame') || child.name.includes('col') || child.name.includes('landing')) slot = 'stringers';
+                        else slot = 'stringers';
+                    }
+                    
+                    // Unify material for stringer structural sub-meshes so 100% of stringer is single material
+                    if (slot === 'stringers' && structureMat) {
+                        child.material = structureMat;
                     }
                     
                     child.userData.entity = stair;
