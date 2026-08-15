@@ -72,26 +72,66 @@ export const WORKSPACE_2D_SHAPES = {
     'tv_unit': "M 0 30 L 100 30 L 100 70 L 0 70 Z M 15 42 L 85 42 L 85 58 L 15 58 Z"
 };
 
-export const createDoorShape = (w, h, type = 'square') => {
+export const createDoorShape = (w, h, type = 'square', halfSide = 0) => {
     const shape = new THREE.Shape();
     const hw = w / 2;
     shape.moveTo(-hw, 0);
     shape.lineTo(hw, 0);
     
     if (type === 'radius') {
-        const straightH = Math.max(0, h - hw);
-        shape.lineTo(hw, straightH);
-        if (hw > 0) shape.absarc(0, straightH, hw, 0, Math.PI, false);
+        if (halfSide === 0) {
+            const straightH = Math.max(0, h - hw);
+            shape.lineTo(hw, straightH);
+            if (hw > 0) shape.absarc(0, straightH, hw, 0, Math.PI, false);
+        } else if (halfSide === -1) {
+            const r = w;
+            const straightH = Math.max(0, h - r);
+            shape.lineTo(hw, h);
+            if (r > 0) shape.absarc(hw, straightH, r, Math.PI/2, Math.PI, false);
+        } else if (halfSide === 1) {
+            const r = w;
+            const straightH = Math.max(0, h - r);
+            shape.lineTo(hw, straightH);
+            if (r > 0) shape.absarc(-hw, straightH, r, 0, Math.PI/2, false);
+        }
     } else if (type === 'segment') {
-        const rise = w * 0.15;
-        const straightH = Math.max(0, h - rise);
-        shape.lineTo(hw, straightH);
-        shape.quadraticCurveTo(0, h + rise*0.5, -hw, straightH);
+        if (halfSide === 0) {
+            const rise = w * 0.15;
+            const straightH = Math.max(0, h - rise);
+            shape.lineTo(hw, straightH);
+            shape.quadraticCurveTo(0, h + rise*0.5, -hw, straightH);
+        } else if (halfSide === -1) {
+            const fullW = w * 2;
+            const rise = fullW * 0.15;
+            const straightH = Math.max(0, h - rise);
+            const peakY = h - 0.25 * rise;
+            const ctrlY = (straightH + h + rise*0.5) / 2;
+            shape.lineTo(hw, peakY);
+            shape.quadraticCurveTo(0, ctrlY, -hw, straightH);
+        } else if (halfSide === 1) {
+            const fullW = w * 2;
+            const rise = fullW * 0.15;
+            const straightH = Math.max(0, h - rise);
+            const peakY = h - 0.25 * rise;
+            const ctrlY = (straightH + h + rise*0.5) / 2;
+            shape.lineTo(hw, straightH);
+            shape.quadraticCurveTo(0, ctrlY, -hw, peakY);
+        }
     } else if (type === 'gothic') {
-        const straightH = Math.max(0, h - (w * 0.7));
-        shape.lineTo(hw, straightH);
-        shape.quadraticCurveTo(hw * 0.2, h, 0, h);
-        shape.quadraticCurveTo(-hw * 0.2, h, -hw, straightH);
+        if (halfSide === 0) {
+            const straightH = Math.max(0, h - (w * 0.7));
+            shape.lineTo(hw, straightH);
+            shape.quadraticCurveTo(hw * 0.2, h, 0, h);
+            shape.quadraticCurveTo(-hw * 0.2, h, -hw, straightH);
+        } else if (halfSide === -1) {
+            const straightH = Math.max(0, h - (w * 1.4));
+            shape.lineTo(hw, h);
+            shape.quadraticCurveTo(w * 0.1, h, -hw, straightH);
+        } else if (halfSide === 1) {
+            const straightH = Math.max(0, h - (w * 1.4));
+            shape.lineTo(hw, straightH);
+            shape.quadraticCurveTo(-w * 0.1, h, -hw, h);
+        }
     } else {
         shape.lineTo(hw, h);
         shape.lineTo(-hw, h);
@@ -137,7 +177,239 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
 
     const matsExtrude = Array.isArray(mats) ? [mats[4], mats[1]] : mats;
 
-    if (style === 'glass_bottom_panel') {
+    if (style === 'modern_grooved') {
+        const numPanels = 5;
+        const grooveSize = 0.4;
+        const panelH = (height - (grooveSize * (numPanels - 1))) / numPanels;
+        for (let i = 0; i < numPanels; i++) {
+            const geoPanel = createBeveledRect(width, panelH, thickness);
+            const yPos = panelH/2 + i * (panelH + grooveSize);
+            builder.addNode({ geometry: geoPanel, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, yPos, 0), castShadow: true, receiveShadow: true });
+        }
+        const coreGeo = new THREE.BoxGeometry(width - 1, height - 1, thickness - 0.4);
+        builder.addNode({ geometry: coreGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height/2, 0) });
+    } else if (style === 'louvered_half') {
+        const frameW = 4; const topRailH = 4; const midRailH = 4; const botRailH = 6;
+        const geoStile = createBeveledRect(frameW, height, thickness); 
+        const geoRailT = rotateUVs(createBeveledRect(width - frameW*2, topRailH, thickness)); 
+        const geoRailB = rotateUVs(createBeveledRect(width - frameW*2, botRailH, thickness));
+        const geoRailM = rotateUVs(createBeveledRect(width - frameW*2, midRailH, thickness));
+        
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailT, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - topRailH/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailB, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailM, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height/2, 0), castShadow: true, receiveShadow: true });
+        
+        const botPanelH = (height/2 - midRailH/2) - botRailH;
+        const panelGeo = createBeveledRect(width - frameW*2, botPanelH, thickness * 0.6);
+        builder.addNode({ geometry: panelGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH + botPanelH/2, 0), castShadow: true, receiveShadow: true });
+        
+        const topOpeningH = (height - topRailH) - (height/2 + midRailH/2);
+        const louverW = width - frameW*2 + 0.5;
+        const louverGeo = rotateUVs(createBeveledRect(louverW, 0.4, thickness * 0.5));
+        const numLouvers = Math.floor(topOpeningH / 1.2);
+        const louverSpacing = topOpeningH / numLouvers;
+        const louverStartY = height/2 + midRailH/2 + louverSpacing/2;
+        
+        for (let i = 0; i < numLouvers; i++) {
+            builder.addNode({ geometry: louverGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, louverStartY + i * louverSpacing, 0), rotation: new THREE.Euler(Math.PI/6, 0, 0), castShadow: true, receiveShadow: true });
+        }
+    } else if (style === 'office_glass_lite') {
+        const frameW = 4.5; const topRailH = 4.5; const botRailH = 6; const mullionH = 2; const numLites = 4;
+        const geoStile = createBeveledRect(frameW, height, thickness); 
+        const geoRailT = rotateUVs(createBeveledRect(width - frameW*2, topRailH, thickness)); 
+        const geoRailB = rotateUVs(createBeveledRect(width - frameW*2, botRailH, thickness));
+        const geoMullion = rotateUVs(createBeveledRect(width - frameW*2, mullionH, thickness));
+        
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailT, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - topRailH/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailB, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH/2, 0), castShadow: true, receiveShadow: true });
+        
+        const totalGlassH = height - topRailH - botRailH - mullionH*(numLites-1);
+        const liteH = totalGlassH / numLites;
+        const glassMatKey = entity.materials?.[MaterialSlots.GLASS]?.id || 'glass_frosted';
+        const glassMat = helpers.getDynamicMaterial(glassMatKey, 'door');
+        const geoGlass = new THREE.BoxGeometry(width - frameW*2, liteH, thickness * 0.25);
+        
+        let curY = botRailH;
+        for (let i = 0; i < numLites; i++) {
+            builder.addNode({ geometry: geoGlass, materialOverride: glassMat, parent: group, position: new THREE.Vector3(0, curY + liteH/2, 0), userData: { isGlass: true } });
+            curY += liteH;
+            if (i < numLites - 1) {
+                builder.addNode({ geometry: geoMullion, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, curY + mullionH/2, 0), castShadow: true, receiveShadow: true });
+                curY += mullionH;
+            }
+        }
+    } else if (style === 'entry_grand_panel') {
+        const frameW = 6.5; const topRailH = 6.5; const botRailH = 10;
+        const midRailH = 6.5;
+        const geoStile = createBeveledRect(frameW, height, thickness); 
+        const geoRailT = rotateUVs(createBeveledRect(width - frameW*2, topRailH, thickness)); 
+        const geoRailB = rotateUVs(createBeveledRect(width - frameW*2, botRailH, thickness));
+        const geoRailM = rotateUVs(createBeveledRect(width - frameW*2, midRailH, thickness));
+        
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailT, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - topRailH/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailB, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH/2, 0), castShadow: true, receiveShadow: true });
+        
+        const totalInnerH = height - topRailH - botRailH - midRailH;
+        const botPanelH = totalInnerH * 0.7;
+        const topPanelH = totalInnerH * 0.3;
+        
+        builder.addNode({ geometry: geoRailM, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH + botPanelH + midRailH/2, 0), castShadow: true, receiveShadow: true });
+        
+        const botPanelGeo = createBeveledRect(width - frameW*2 + 1, botPanelH + 1, thickness * 0.55);
+        const topPanelGeo = createBeveledRect(width - frameW*2 + 1, topPanelH + 1, thickness * 0.55);
+        
+        builder.addNode({ geometry: botPanelGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH + botPanelH/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: topPanelGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - topRailH - topPanelH/2, 0), castShadow: true, receiveShadow: true });
+    } else if (style === 'entry_modern_slit') {
+        const slitW = 6;
+        const slitH = height * 0.7;
+        const slitX = width / 2 - 12; // towards the handle side
+        
+        const shape = new THREE.Shape();
+        const hw = width / 2;
+        shape.moveTo(-hw, 0); shape.lineTo(hw, 0); shape.lineTo(hw, height); shape.lineTo(-hw, height); shape.lineTo(-hw, 0);
+        
+        const liteHW = slitW/2, liteHH = slitH/2;
+        const liteY = height / 2;
+        
+        const hole = new THREE.Path();
+        hole.moveTo(slitX - liteHW, liteY - liteHH); hole.lineTo(slitX + liteHW, liteY - liteHH);
+        hole.lineTo(slitX + liteHW, liteY + liteHH); hole.lineTo(slitX - liteHW, liteY + liteHH);
+        hole.lineTo(slitX - liteHW, liteY - liteHH);
+        shape.holes.push(hole);
+        
+        const coreGeo = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.2, bevelThickness: 0.2 });
+        coreGeo.translate(0, 0, -thickness/2);
+        
+        const coreUvs = coreGeo.attributes.uv; const corePos = coreGeo.attributes.position;
+        if (coreUvs && corePos) {
+            for (let i = 0; i < coreUvs.count; i++) {
+                coreUvs.setXY(i, (corePos.getX(i) + hw) / width, corePos.getY(i) / height);
+            }
+            coreUvs.needsUpdate = true;
+        }
+        builder.addNode({ geometry: coreGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, 0, 0), castShadow: true, receiveShadow: true });
+        
+        const glassMatKey = entity.materials?.[MaterialSlots.GLASS]?.id || 'glass_frosted';
+        const glassMat = helpers.getDynamicMaterial(glassMatKey, 'door');
+        const geoGlass = new THREE.BoxGeometry(slitW, slitH, thickness * 0.25);
+        builder.addNode({ geometry: geoGlass, materialOverride: glassMat, parent: group, position: new THREE.Vector3(slitX, liteY, 0), userData: { isGlass: true } });
+    } else if (style === 'entry_craftsman') {
+        const frameW = 6.5; const topRailH = 6.5; const botRailH = 10; const midRailH = 8;
+        const mullionW = 2; const midStileW = 4;
+        
+        const geoStile = createBeveledRect(frameW, height, thickness); 
+        const geoRailT = rotateUVs(createBeveledRect(width - frameW*2, topRailH, thickness)); 
+        const geoRailB = rotateUVs(createBeveledRect(width - frameW*2, botRailH, thickness));
+        const geoRailM = rotateUVs(createBeveledRect(width - frameW*2, midRailH, thickness));
+        
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailT, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - topRailH/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailB, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH/2, 0), castShadow: true, receiveShadow: true });
+        
+        const totalInnerH = height - topRailH - botRailH - midRailH;
+        const topH = totalInnerH * 0.25;
+        const botH = totalInnerH * 0.75;
+        
+        builder.addNode({ geometry: geoRailM, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH + botH + midRailH/2, 0), castShadow: true, receiveShadow: true });
+        
+        // 3 glass lites on top
+        const glassW = (width - frameW*2 - mullionW*2) / 3;
+        const geoGlass = new THREE.BoxGeometry(glassW, topH, thickness * 0.25);
+        const geoMullion = createBeveledRect(mullionW, topH, thickness);
+        const glassMatKey = entity.materials?.[MaterialSlots.GLASS]?.id || 'glass_clear';
+        const glassMat = helpers.getDynamicMaterial(glassMatKey, 'door');
+        
+        let cx = -width/2 + frameW + glassW/2;
+        let cy = height - topRailH - topH/2;
+        for (let i = 0; i < 3; i++) {
+            builder.addNode({ geometry: geoGlass, materialOverride: glassMat, parent: group, position: new THREE.Vector3(cx, cy, 0), userData: { isGlass: true } });
+            if (i < 2) {
+                builder.addNode({ geometry: geoMullion, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(cx + glassW/2 + mullionW/2, cy, 0), castShadow: true, receiveShadow: true });
+            }
+            cx += glassW + mullionW;
+        }
+        
+        // 2 solid panels on bottom
+        const panelW = (width - frameW*2 - midStileW) / 2;
+        const panelGeo = createBeveledRect(panelW + 1, botH + 1, thickness * 0.55);
+        const geoMidStile = createBeveledRect(midStileW, botH, thickness);
+        
+        builder.addNode({ geometry: panelGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW + panelW/2, botRailH + botH/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoMidStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH + botH/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: panelGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW - panelW/2, botRailH + botH/2, 0), castShadow: true, receiveShadow: true });
+    } else if (style === 'shaker_multi_panel') {
+        const frameW = 4.5; const topRailH = 4.5; const botRailH = 6; const midRailH = 3; const numPanels = 5;
+        const geoStile = createBeveledRect(frameW, height, thickness); 
+        const geoRailT = rotateUVs(createBeveledRect(width - frameW*2, topRailH, thickness)); 
+        const geoRailB = rotateUVs(createBeveledRect(width - frameW*2, botRailH, thickness));
+        const geoRailM = rotateUVs(createBeveledRect(width - frameW*2, midRailH, thickness));
+        
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailT, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - topRailH/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailB, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH/2, 0), castShadow: true, receiveShadow: true });
+        
+        const totalPanelH = height - topRailH - botRailH - midRailH*(numPanels-1);
+        const panelH = totalPanelH / numPanels;
+        const panelGeo = createBeveledRect(width - frameW*2 + 0.5, panelH + 0.5, thickness * 0.4);
+        
+        let curY = botRailH;
+        for (let i = 0; i < numPanels; i++) {
+            builder.addNode({ geometry: panelGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, curY + panelH/2, 0), castShadow: true, receiveShadow: true });
+            curY += panelH;
+            if (i < numPanels - 1) {
+                builder.addNode({ geometry: geoRailM, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, curY + midRailH/2, 0), castShadow: true, receiveShadow: true });
+                curY += midRailH;
+            }
+        }
+    } else if (style === 'utility_vision') {
+        const bSize = 0.06;
+        const shape = new THREE.Shape();
+        const hw = width / 2;
+        shape.moveTo(-hw, 0); shape.lineTo(hw, 0); shape.lineTo(hw, height); shape.lineTo(-hw, height); shape.lineTo(-hw, 0);
+        
+        const liteW = 5; const liteH = 24; const liteY = height - 6 - liteH/2; const liteX = width/2 - 7;
+        const liteHW = liteW/2, liteHH = liteH/2;
+        const hole = new THREE.Path();
+        hole.moveTo(liteX - liteHW, liteY - liteHH); hole.lineTo(liteX + liteHW, liteY - liteHH);
+        hole.lineTo(liteX + liteHW, liteY + liteHH); hole.lineTo(liteX - liteHW, liteY + liteHH);
+        hole.lineTo(liteX - liteHW, liteY - liteHH);
+        shape.holes.push(hole);
+        
+        const coreGeo = new THREE.ExtrudeGeometry(shape, { depth: Math.max(0.01, thickness - bSize*2), bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: bSize, bevelThickness: bSize });
+        coreGeo.translate(0, 0, -Math.max(0.01, thickness - bSize*2) / 2);
+        
+        const coreUvs = coreGeo.attributes.uv; const corePos = coreGeo.attributes.position;
+        if (coreUvs && corePos) {
+            for (let i = 0; i < coreUvs.count; i++) {
+                coreUvs.setXY(i, (corePos.getX(i) + hw) / width, corePos.getY(i) / height);
+            }
+            coreUvs.needsUpdate = true;
+        }
+        builder.addNode({ geometry: coreGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, 0, 0), castShadow: true, receiveShadow: true });
+        
+        const glassMatKey = entity.materials?.[MaterialSlots.GLASS]?.id || 'glass_clear';
+        const glassMat = helpers.getDynamicMaterial(glassMatKey, 'door');
+        const geoGlass = new THREE.BoxGeometry(liteW, liteH, thickness * 0.25);
+        builder.addNode({ geometry: geoGlass, materialOverride: glassMat, parent: group, position: new THREE.Vector3(liteX, liteY, 0), userData: { isGlass: true } });
+        
+        const beadW = 0.5;
+        const geoBeadV = createBeveledRect(beadW, liteH, thickness * 0.7);
+        const geoBeadH = rotateUVs(createBeveledRect(liteW + beadW*2, beadW, thickness * 0.7));
+        
+        builder.addNode({ geometry: geoBeadV, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(liteX - liteW/2 - beadW/2, liteY, 0), castShadow: true });
+        builder.addNode({ geometry: geoBeadV, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(liteX + liteW/2 + beadW/2, liteY, 0), castShadow: true });
+        builder.addNode({ geometry: geoBeadH, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(liteX, liteY + liteH/2 + beadW/2, 0), castShadow: true });
+        builder.addNode({ geometry: geoBeadH, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(liteX, liteY - liteH/2 - beadW/2, 0), castShadow: true });
+    } else if (style === 'glass_bottom_panel') {
         const frameW = 3.5; const topRailH = 3.5; const botRailH = height * 0.28;
         const geoStile = createBeveledRect(frameW, height, thickness); const geoRailT = rotateUVs(createBeveledRect(width - frameW*2, topRailH, thickness)); const geoRailB = rotateUVs(createBeveledRect(width - frameW*2, botRailH, thickness));
         
@@ -203,30 +475,73 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         builder.addNode({ geometry: geoGlass, materialOverride: glassMat, parent: group, position: new THREE.Vector3(0, height/2 + (botRailH - topRailH)/2, 0), userData: { isGlass: true } });
     } else {
         const shapeType = entity && entity.doorShape ? entity.doorShape : 'square';
+        const halfSide = (entity.doorType === 'double' || entity.doorType === 'french') ? -signX : 0;
         const isSquare = (shapeType === 'square');
         const isClassicOrGrid = style.startsWith('classic') || style === 'grid_panel';
         const matsExtrude = Array.isArray(mats) ? [mats[4], mats[1]] : mats;
 
-        const createBeveledPanelGeo = (pw, ph, pth, panelShape = 'square') => {
+        const createBeveledPanelGeo = (pw, ph, pth, panelShape = 'square', panelHalfSide = 0) => {
             const bSize = 0.12; const bThick = 0.06;
             const sw = Math.max(0.1, pw - bSize*2); const sh = Math.max(0.1, ph - bSize*2);
             const shape = new THREE.Shape();
             const hw = sw / 2;
             shape.moveTo(-hw, -sh/2); shape.lineTo(hw, -sh/2);
             if (panelShape === 'radius') {
-                const straightH = (sh/2) - hw;
-                shape.lineTo(hw, straightH);
-                if (hw > 0) shape.absarc(0, straightH, hw, 0, Math.PI, false);
+                if (panelHalfSide === 0) {
+                    const straightH = (sh/2) - hw;
+                    shape.lineTo(hw, straightH);
+                    if (hw > 0) shape.absarc(0, straightH, hw, 0, Math.PI, false);
+                } else if (panelHalfSide === -1) {
+                    // Peak on right, curve down on left
+                    const r = sw;
+                    const straightH = (sh/2) - r;
+                    shape.lineTo(hw, sh/2);
+                    if (r > 0) shape.absarc(hw, straightH, r, Math.PI/2, Math.PI, false);
+                } else if (panelHalfSide === 1) {
+                    // Peak on left, curve down on right
+                    const r = sw;
+                    const straightH = (sh/2) - r;
+                    shape.lineTo(hw, straightH);
+                    if (r > 0) shape.absarc(-hw, straightH, r, 0, Math.PI/2, false);
+                }
             } else if (panelShape === 'segment') {
-                const rise = sw * 0.15;
-                const straightH = (sh/2) - rise;
-                shape.lineTo(hw, straightH);
-                shape.quadraticCurveTo(0, sh/2 + rise*0.5, -hw, straightH);
+                if (panelHalfSide === 0) {
+                    const rise = sw * 0.15;
+                    const straightH = (sh/2) - rise;
+                    shape.lineTo(hw, straightH);
+                    shape.quadraticCurveTo(0, sh/2 + rise*0.5, -hw, straightH);
+                } else if (panelHalfSide === -1) {
+                    const fullW = sw * 2;
+                    const rise = fullW * 0.15;
+                    const straightH = (sh/2) - rise;
+                    const peakY = sh/2 - 0.25 * rise;
+                    const ctrlY = (straightH + sh/2 + rise*0.5) / 2;
+                    shape.lineTo(hw, peakY);
+                    shape.quadraticCurveTo(0, ctrlY, -hw, straightH);
+                } else if (panelHalfSide === 1) {
+                    const fullW = sw * 2;
+                    const rise = fullW * 0.15;
+                    const straightH = (sh/2) - rise;
+                    const peakY = sh/2 - 0.25 * rise;
+                    const ctrlY = (straightH + sh/2 + rise*0.5) / 2;
+                    shape.lineTo(hw, straightH);
+                    shape.quadraticCurveTo(0, ctrlY, -hw, peakY);
+                }
             } else if (panelShape === 'gothic') {
-                const straightH = (sh/2) - (sw * 0.7);
-                shape.lineTo(hw, straightH);
-                shape.quadraticCurveTo(hw * 0.2, sh/2, 0, sh/2);
-                shape.quadraticCurveTo(-hw * 0.2, sh/2, -hw, straightH);
+                if (panelHalfSide === 0) {
+                    const straightH = (sh/2) - (sw * 0.7);
+                    shape.lineTo(hw, straightH);
+                    shape.quadraticCurveTo(hw * 0.2, sh/2, 0, sh/2);
+                    shape.quadraticCurveTo(-hw * 0.2, sh/2, -hw, straightH);
+                } else if (panelHalfSide === -1) {
+                    const straightH = (sh/2) - (sw * 1.4);
+                    shape.lineTo(hw, sh/2);
+                    shape.quadraticCurveTo(sw * 0.1, sh/2, -hw, straightH);
+                } else if (panelHalfSide === 1) {
+                    const straightH = (sh/2) - (sw * 1.4);
+                    shape.lineTo(hw, straightH);
+                    shape.quadraticCurveTo(-sw * 0.1, sh/2, -hw, sh/2);
+                }
             } else {
                 shape.lineTo(hw, sh/2);
                 shape.lineTo(-hw, sh/2);
@@ -333,10 +648,19 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
                 }
             }
         } else {
-            const bSize = 0.06;
-            const doorOutline = createDoorShape(width, Math.max(0.1, height - bSize*2), shapeType);
-            const coreGeo = new THREE.ExtrudeGeometry(doorOutline, { depth: Math.max(0.01, thickness - bSize*2), bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: bSize, bevelThickness: bSize });
-            coreGeo.translate(0, bSize, -Math.max(0.01, thickness - bSize*2) / 2);
+            const isArched = shapeType !== 'square';
+            const bSize = isArched ? 0 : 0.06;
+            const hAdjust = isArched ? 0 : bSize*2;
+            const doorOutline = createDoorShape(width, Math.max(0.1, height - hAdjust), shapeType, halfSide);
+            const coreGeo = new THREE.ExtrudeGeometry(doorOutline, { 
+                depth: Math.max(0.01, thickness - hAdjust), 
+                bevelEnabled: !isArched, 
+                bevelSegments: 3, 
+                steps: 1, 
+                bevelSize: bSize, 
+                bevelThickness: bSize 
+            });
+            coreGeo.translate(0, bSize, -Math.max(0.01, thickness - hAdjust) / 2);
             const coreUvs = coreGeo.attributes.uv;
             const corePos = coreGeo.attributes.position;
             if (coreUvs && corePos) {
@@ -354,18 +678,18 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
                 const numPanels = 4; const panelHeight = (height - (gap * (numPanels - 1))) / numPanels; 
                 for (let i = 0; i < numPanels; i++) { 
                     const isTop = (i === numPanels - 1);
-                    const geoPanel = createBeveledPanelGeo(width - 0.6, panelHeight, thickness + 0.05, isTop ? shapeType : 'square'); 
+                    const geoPanel = createBeveledPanelGeo(width - 0.6, panelHeight, thickness + 0.05, isTop ? shapeType : 'square', isTop ? halfSide : 0); 
                     const yPos = (panelHeight / 2) + i * (panelHeight + gap); 
                     builder.addNode({ geometry: geoPanel, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, yPos, 0), castShadow: true, receiveShadow: true });
                 }
             } else if (style === 'classic_2_panel') {
                 const topH = height * 0.65; const botH = height * 0.25; 
-                const geoTop = createBeveledPanelGeo(width - 0.8, topH, thickness + 0.05, shapeType); const geoBot = createBeveledPanelGeo(width - 0.8, botH, thickness + 0.05, 'square');
+                const geoTop = createBeveledPanelGeo(width - 0.8, topH, thickness + 0.05, shapeType, halfSide); const geoBot = createBeveledPanelGeo(width - 0.8, botH, thickness + 0.05, 'square');
                 builder.addNode({ geometry: geoTop, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - topH/2 - gap, 0), castShadow: true });
                 builder.addNode({ geometry: geoBot, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botH/2 + gap*2, 0), castShadow: true });
             } else if (style === 'classic_4_panel') {
                 const topH = height * 0.55; const botH = height * 0.3; const pw = width/2 - 0.4;
-                const geoTop = createBeveledPanelGeo(pw, topH, thickness + 0.05, shapeType); const geoBot = createBeveledPanelGeo(pw, botH, thickness + 0.05, 'square');
+                const geoTop = createBeveledPanelGeo(pw, topH, thickness + 0.05, shapeType, halfSide); const geoBot = createBeveledPanelGeo(pw, botH, thickness + 0.05, 'square');
                 [-1, 1].forEach(side => {
                     const xOff = (pw/2 + 0.15) * side;
                     builder.addNode({ geometry: geoTop, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(xOff, height - topH/2 - gap, 0), castShadow: true });
@@ -376,7 +700,7 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
                 for (let r=0; r<rows; r++) {
                     const isTop = (r === rows - 1);
                     for (let c=0; c<cols; c++) {
-                        const geoGrid = createBeveledPanelGeo(pW - 0.1, pH - 0.1, thickness + 0.05, isTop ? shapeType : 'square');
+                        const geoGrid = createBeveledPanelGeo(pW - 0.1, pH - 0.1, thickness + 0.05, isTop ? shapeType : 'square', isTop ? halfSide : 0);
                         const xPos = -width/2 + gap + pW/2 + c*(pW + gap);
                         const yPos = gap + pH/2 + r*(pH + gap);
                         builder.addNode({ geometry: geoGrid, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(xPos, yPos, 0), castShadow: true });
@@ -926,19 +1250,26 @@ export const WIDGET_REGISTRY = {
                     });
                 }
             }
+            const shapeType = entity.doorShape || 'square';
+            const isArched = (shapeType !== 'square');
+            
+            // Arched doors must be mounted flush with the wall face (Z=0 relative to hinge) 
+            // so their tall peaks do not clip through the thick curved wall barrel when swinging.
+            const panelZOffset = isArched ? 0 : -hingePinZ;
+
             if (entity.doorType === 'single') {
                 const hingeHolder = new THREE.Group(); 
                 if (entity.side === 1) { 
                     const panel = buildDetailedDoorPanel(entity, leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, -1, helpers, builder); 
                     hingeHolder.position.set(-(pivotXOffset + gapSide/2), gapBottom, hingePinZ); 
-                    panel.position.set(-leafWidth/2, 0, -hingePinZ); 
+                    panel.position.set(-leafWidth/2, 0, panelZOffset); 
                     hingeHolder.rotation.y = -openAngle; 
                     hingeHolder.userData = { isMovingPart: true, motionType: 'rotate', baseRotation: 0, motionSign: -(entity.facing === 1 ? 1 : -1) };
                     hingeHolder.add(panel);
                 } else { 
                     const panel = buildDetailedDoorPanel(entity, leafWidth, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers, builder); 
                     hingeHolder.position.set(pivotXOffset + gapSide/2, gapBottom, hingePinZ); 
-                    panel.position.set(leafWidth/2, 0, -hingePinZ); 
+                    panel.position.set(leafWidth/2, 0, panelZOffset); 
                     hingeHolder.rotation.y = openAngle; 
                     hingeHolder.userData = { isMovingPart: true, motionType: 'rotate', baseRotation: 0, motionSign: (entity.facing === 1 ? 1 : -1) };
                     hingeHolder.add(panel);
@@ -949,20 +1280,23 @@ export const WIDGET_REGISTRY = {
                 const hL = new THREE.Group(); hL.position.set(pivotXOffset + gapSide/2, gapBottom, hingePinZ); hL.rotation.y = openAngle; 
                 hL.userData = { isMovingPart: true, motionType: 'rotate', baseRotation: 0, motionSign: (entity.facing === 1 ? 1 : -1) };
                 const panelL = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, 1, helpers, builder); 
-                panelL.position.set(hw/2, 0, -hingePinZ); hL.add(panelL);
+                panelL.position.set(hw/2, 0, panelZOffset); hL.add(panelL);
                 
                 const hR = new THREE.Group(); hR.position.set(-(pivotXOffset + gapSide/2), gapBottom, hingePinZ); hR.rotation.y = -openAngle;
                 hR.userData = { isMovingPart: true, motionType: 'rotate', baseRotation: 0, motionSign: -(entity.facing === 1 ? 1 : -1) };
                 const panelR = buildDetailedDoorPanel(entity, hw, leafHeight, doorThick, matDoor, entity.doorType, isGlassDoor, -1, helpers, builder); 
-                panelR.position.set(-hw/2, 0, -hingePinZ); hR.add(panelR);
+                panelR.position.set(-hw/2, 0, panelZOffset); hR.add(panelR);
                 
                 const isLeftActive = entity.side === -1;
                 const inactivePanel = isLeftActive ? panelR : panelL;
-                const astragalW = 1.0; const astragalThick = 0.5;
-                const astragalGeo = createBeveledExtrude(astragalW, leafHeight, astragalThick, 0.04);
-                const astragal = builder.addNode({ geometry: astragalGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: inactivePanel, castShadow: true, userData: { isFrame: true } });
-                const astX = isLeftActive ? -hw/2 : hw/2;
-                astragal.position.set(astX, leafHeight/2, doorThick/2 + astragalThick/2);
+                
+                if (shapeType === 'square') {
+                    const astragalW = 1.0; const astragalThick = 0.5;
+                    const astragalGeo = createBeveledExtrude(astragalW, leafHeight, astragalThick, 0.04);
+                    const astragal = builder.addNode({ geometry: astragalGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: inactivePanel, castShadow: true, userData: { isFrame: true } });
+                    const astX = isLeftActive ? -hw/2 : hw/2;
+                    astragal.position.set(astX, leafHeight/2, doorThick/2 + astragalThick/2);
+                }
                 
                 doorGroup.add(hL, hR);
             } else if (entity.doorType === 'sliding' || entity.doorType === 'double_sliding') {

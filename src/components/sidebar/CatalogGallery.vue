@@ -76,15 +76,17 @@
                 </button>
             </div>
 
-            <!-- Quick Category Filter Chips (Door & Openings) -->
-            <div class="category-chips-bar" v-if="props.type === 'door'">
-                <button class="chip-btn" :class="{ active: activeCategoryChip === 'all' }" @click="activeCategoryChip = 'all'">All</button>
-                <button class="chip-btn" :class="{ active: activeCategoryChip === 'favorites' }" @click="activeCategoryChip = 'favorites'">❤️ Favorites</button>
-                <button class="chip-btn" :class="{ active: activeCategoryChip === 'wood' }" @click="activeCategoryChip = 'wood'">Wood</button>
-                <button class="chip-btn" :class="{ active: activeCategoryChip === 'glass' }" @click="activeCategoryChip = 'glass'">Glass</button>
-                <button class="chip-btn" :class="{ active: activeCategoryChip === 'single' }" @click="activeCategoryChip = 'single'">Single</button>
-                <button class="chip-btn" :class="{ active: activeCategoryChip === 'double' }" @click="activeCategoryChip = 'double'">Double</button>
-            </div>
+        </div>
+
+        <!-- Quick Category Filter Chips (Door & Openings) -->
+        <div class="category-chips-bar" v-if="props.type === 'door'">
+            <button class="chip-btn" :class="{ active: activeCategoryChip === 'all' }" @click="activeCategoryChip = 'all'">All Rooms</button>
+            <button class="chip-btn" :class="{ active: activeCategoryChip === 'main' }" @click="activeCategoryChip = 'main'">Main Entry</button>
+            <button class="chip-btn" :class="{ active: activeCategoryChip === 'bedroom' }" @click="activeCategoryChip = 'bedroom'">Bedroom & Living</button>
+            <button class="chip-btn" :class="{ active: activeCategoryChip === 'bathroom' }" @click="activeCategoryChip = 'bathroom'">Bathroom & Privacy</button>
+            <button class="chip-btn" :class="{ active: activeCategoryChip === 'office' }" @click="activeCategoryChip = 'office'">Office & Study</button>
+            <button class="chip-btn" :class="{ active: activeCategoryChip === 'closet' }" @click="activeCategoryChip = 'closet'">Closets</button>
+            <button class="chip-btn" :class="{ active: activeCategoryChip === 'utility' }" @click="activeCategoryChip = 'utility'">Utility & Storage</button>
         </div>
 
         <!-- Responsive Product Cards Grid -->
@@ -274,20 +276,41 @@ const getCatalogHeaderTitle = () => {
 };
 
 const doorCatalog = ref([
-    { id: 'single', name: 'Single Hinged Door', badge: 'WOOD', material: 'Solid Teak Wood', specs: '900 × 2100 mm', category: 'single', image: '', params: { doorType: 'single', doorStyle: 'flat', width: 40, materialCategory: 'wood', materials: { leaf: { id: 'wood_golden_teak' }, frame: { id: 'wood_golden_teak' } } } },
-    { id: 'french', name: 'Double French Door', badge: 'GLASS', material: 'Glass & Solid Oak', specs: '1800 × 2100 mm', category: 'double', image: '', params: { doorType: 'french', doorStyle: 'glass_grid', width: 80, materialCategory: 'wood', materials: { leaf: { id: 'wood_golden_teak' }, frame: { id: 'wood_golden_teak' }, glass: { id: 'clear' } } } },
-    { id: 'sliding', name: 'Sliding Glass Door', badge: 'GLASS', material: 'Aluminium & Glass', specs: '1800 × 2100 mm', category: 'glass', image: '', params: { doorType: 'sliding', doorStyle: 'glass_bottom_panel', width: 80, materialCategory: 'aluminium', materials: { leaf: { id: 'alum_silver' }, frame: { id: 'alum_silver' }, glass: { id: 'clear' } } } },
-    { id: 'pocket', name: 'Pocket Door', badge: 'COMPACT', material: 'Natural Teak', specs: '900 × 2100 mm', category: 'single', image: '', params: { doorType: 'pocket', doorStyle: 'flat', width: 40, materialCategory: 'wood', materials: { leaf: { id: 'wood_golden_teak' }, frame: { id: 'wood_golden_teak' } } } },
-    { id: 'classic_4', name: 'Classic 4-Panel Door', badge: 'WOOD', material: 'White American Oak', specs: '900 × 2100 mm', category: 'wood', image: '', params: { doorType: 'single', doorStyle: 'classic_4_panel', width: 40, materialCategory: 'wood', materials: { leaf: { id: 'wood_white_oak' }, frame: { id: 'wood_white_oak' } } } },
-    { id: 'modern_flush', name: 'Modern Flush Door', badge: 'WOOD', material: 'American Walnut', specs: '900 × 2100 mm', category: 'wood', image: '', params: { doorType: 'single', doorStyle: 'modern_flush', width: 40, materialCategory: 'wood', materials: { leaf: { id: 'wood_dark_walnut' }, frame: { id: 'wood_dark_walnut' } } } },
-    { id: 'door_wpc', name: 'WPC Door', badge: 'WPC', material: 'Wood Plastic Composite', specs: '900 × 2100 mm', category: 'single', image: '', params: { doorType: 'single', doorStyle: 'classic_4_horizontal', width: 40, materialCategory: 'wpc', materials: { leaf: { id: 'wood_golden_teak' }, frame: { id: 'wood_golden_teak' } } } },
-    { id: 'door_upvc', name: 'uPVC Door', badge: 'uPVC', material: 'Rigid uPVC', specs: '900 × 2100 mm', category: 'single', image: '', params: { doorType: 'single', doorStyle: 'glass_bottom_panel', width: 40, materialCategory: 'upvc', materials: { leaf: { id: 'upvc_white' }, frame: { id: 'upvc_white' } } } },
-    { id: 'door_pvc', name: 'PVC Door', badge: 'PVC', material: 'Matte White PVC', specs: '900 × 2100 mm', category: 'single', image: '', params: { doorType: 'single', doorStyle: 'classic_2_panel', width: 40, materialCategory: 'pvc', materials: { leaf: { id: 'pvc_matte' }, frame: { id: 'pvc_matte' } } } },
-    { id: 'door_aluminium', name: 'Aluminium Door', badge: 'ALUMINIUM', material: 'Silver Aluminium', specs: '900 × 2100 mm', category: 'single', image: '', params: { doorType: 'single', doorStyle: 'glass_grid', width: 40, materialCategory: 'aluminium', materials: { leaf: { id: 'alum_silver' }, frame: { id: 'alum_silver' } } } },
-    { id: 'door_steel', name: 'Steel Door', badge: 'STEEL', material: 'Light Smooth Steel', specs: '900 × 2100 mm', category: 'single', image: '', params: { doorType: 'single', doorStyle: 'grid_panel', width: 40, materialCategory: 'steel', materials: { leaf: { id: 'metal_light_steel' }, frame: { id: 'metal_light_steel' } } } },
-    { id: 'door_glass', name: 'Frameless Glass Door', badge: 'GLASS', material: 'Tempered Glass', specs: '900 × 2100 mm', category: 'single', image: '', params: { doorType: 'single', doorStyle: 'flat', width: 40, materialCategory: 'glass', materials: { leaf: { id: 'glass_clear' }, frame: { id: 'glass_clear' } } } },
-    { id: 'door_frp', name: 'FRP Door', badge: 'FRP', material: 'Fiber Reinforced Plastic', specs: '900 × 2100 mm', category: 'single', image: '', params: { doorType: 'single', doorStyle: 'classic_4_panel', width: 40, materialCategory: 'frp', materials: { leaf: { id: 'frp' }, frame: { id: 'frp' } } } },
-    { id: 'door_composite', name: 'Composite Door', badge: 'COMPOSITE', material: 'Composite Panel', specs: '900 × 2100 mm', category: 'single', image: '', params: { doorType: 'single', doorStyle: 'classic_4_horizontal', width: 40, materialCategory: 'composite', materials: { leaf: { id: 'composite' }, frame: { id: 'composite' } } } },
+    { isDivider: true, id: 'div_main', name: 'Main & Entry Doors' },
+    { id: 'entry_grand_panel', name: 'Grand Entry Door', badge: 'NEW', material: 'Solid Teak Wood', specs: '1200 × 2400 mm', roomCategory: 'main', image: '', params: { doorType: 'single', doorStyle: 'entry_grand_panel', width: 50, materialCategory: 'wood', materials: { leaf: { id: 'wood_dark_walnut' }, frame: { id: 'wood_dark_walnut' } } } },
+    { id: 'entry_modern_slit', name: 'Modern Pivot Entry', badge: 'PIVOT', material: 'Matte Black & Glass', specs: '1200 × 2400 mm', roomCategory: 'main', image: '', params: { doorType: 'pivot', doorStyle: 'entry_modern_slit', width: 50, materialCategory: 'wood', materials: { leaf: { id: 'wood_dark_walnut' }, frame: { id: 'wood_dark_walnut' }, glass: { id: 'glass_frosted' } } } },
+    { id: 'entry_craftsman', name: 'Craftsman Front Door', badge: 'WOOD', material: 'White Oak Wood', specs: '1000 × 2100 mm', roomCategory: 'main', image: '', params: { doorType: 'single', doorStyle: 'entry_craftsman', width: 40, materialCategory: 'wood', materials: { leaf: { id: 'wood_white_oak' }, frame: { id: 'wood_white_oak' }, glass: { id: 'glass_clear' } } } },
+    { id: 'entry_arched_double', name: 'Arched Double Doors', badge: 'ARCHED', material: 'Golden Teak Wood', specs: '1800 × 2400 mm', roomCategory: 'main', image: '', params: { doorType: 'double', doorStyle: 'classic_2_panel', doorShape: 'radius', width: 80, materialCategory: 'wood', materials: { leaf: { id: 'wood_golden_teak' }, frame: { id: 'wood_golden_teak' } } } },
+    { id: 'entry_classic_double', name: 'Classic Double Entry', badge: 'WOOD', material: 'Mahogany Wood', specs: '1800 × 2100 mm', roomCategory: 'main', image: '', params: { doorType: 'double', doorStyle: 'classic_4_panel', width: 80, materialCategory: 'wood', materials: { leaf: { id: 'wood_dark_walnut' }, frame: { id: 'wood_dark_walnut' } } } },
+
+    { isDivider: true, id: 'div_bedroom', name: 'Bedroom & Living Spaces' },
+    { id: 'modern_grooved', name: 'Modern Grooved Door', badge: 'NEW', material: 'Flush Wood', specs: '900 × 2100 mm', roomCategory: 'bedroom', image: '', params: { doorType: 'single', doorStyle: 'modern_grooved', width: 40, materialCategory: 'wood', materials: { leaf: { id: 'wood_white_oak' }, frame: { id: 'wood_white_oak' } } } },
+    { id: 'single', name: 'Single Hinged Door', badge: 'WOOD', material: 'Solid Teak Wood', specs: '900 × 2100 mm', roomCategory: 'bedroom', image: '', params: { doorType: 'single', doorStyle: 'flat', width: 40, materialCategory: 'wood', materials: { leaf: { id: 'wood_golden_teak' }, frame: { id: 'wood_golden_teak' } } } },
+    { id: 'french', name: 'Double French Door', badge: 'GLASS', material: 'Glass & Solid Oak', specs: '1800 × 2100 mm', roomCategory: 'bedroom', image: '', params: { doorType: 'french', doorStyle: 'glass_grid', width: 80, materialCategory: 'wood', materials: { leaf: { id: 'wood_golden_teak' }, frame: { id: 'wood_golden_teak' }, glass: { id: 'clear' } } } },
+    { id: 'classic_4', name: 'Classic 4-Panel Door', badge: 'WOOD', material: 'White American Oak', specs: '900 × 2100 mm', roomCategory: 'bedroom', image: '', params: { doorType: 'single', doorStyle: 'classic_4_panel', width: 40, materialCategory: 'wood', materials: { leaf: { id: 'wood_white_oak' }, frame: { id: 'wood_white_oak' } } } },
+    { id: 'modern_flush', name: 'Modern Flush Door', badge: 'WOOD', material: 'American Walnut', specs: '900 × 2100 mm', roomCategory: 'bedroom', image: '', params: { doorType: 'single', doorStyle: 'modern_flush', width: 40, materialCategory: 'wood', materials: { leaf: { id: 'wood_dark_walnut' }, frame: { id: 'wood_dark_walnut' } } } },
+
+    { isDivider: true, id: 'div_bathroom', name: 'Bathroom & Privacy' },
+    { id: 'louvered_half', name: 'Half Louvered Door', badge: 'NEW', material: 'Wood & Slats', specs: '800 × 2100 mm', roomCategory: 'bathroom', image: '', params: { doorType: 'single', doorStyle: 'louvered_half', width: 36, materialCategory: 'wood', materials: { leaf: { id: 'wood_white_oak' }, frame: { id: 'wood_white_oak' } } } },
+    { id: 'door_pvc', name: 'PVC Door', badge: 'PVC', material: 'Matte White PVC', specs: '800 × 2100 mm', roomCategory: 'bathroom', image: '', params: { doorType: 'single', doorStyle: 'classic_2_panel', width: 36, materialCategory: 'pvc', materials: { leaf: { id: 'pvc_matte' }, frame: { id: 'pvc_matte' } } } },
+    { id: 'door_frp', name: 'FRP Door', badge: 'FRP', material: 'Fiber Reinforced Plastic', specs: '800 × 2100 mm', roomCategory: 'bathroom', image: '', params: { doorType: 'single', doorStyle: 'classic_4_panel', width: 36, materialCategory: 'frp', materials: { leaf: { id: 'frp' }, frame: { id: 'frp' } } } },
+    { id: 'door_upvc', name: 'uPVC Door', badge: 'uPVC', material: 'Rigid uPVC', specs: '800 × 2100 mm', roomCategory: 'bathroom', image: '', params: { doorType: 'single', doorStyle: 'glass_bottom_panel', width: 36, materialCategory: 'upvc', materials: { leaf: { id: 'upvc_white' }, frame: { id: 'upvc_white' }, glass: { id: 'glass_frosted' } } } },
+
+    { isDivider: true, id: 'div_office', name: 'Office & Study' },
+    { id: 'office_glass_lite', name: 'Glass Lite Door', badge: 'NEW', material: 'Modern Stile & Rail', specs: '900 × 2100 mm', roomCategory: 'office', image: '', params: { doorType: 'single', doorStyle: 'office_glass_lite', width: 40, materialCategory: 'wood', materials: { leaf: { id: 'wood_dark_walnut' }, frame: { id: 'wood_dark_walnut' }, glass: { id: 'glass_frosted' } } } },
+    { id: 'sliding', name: 'Sliding Glass Door', badge: 'GLASS', material: 'Aluminium & Glass', specs: '1800 × 2100 mm', roomCategory: 'office', image: '', params: { doorType: 'sliding', doorStyle: 'glass_bottom_panel', width: 80, materialCategory: 'aluminium', materials: { leaf: { id: 'alum_silver' }, frame: { id: 'alum_silver' }, glass: { id: 'clear' } } } },
+    { id: 'door_aluminium', name: 'Aluminium Door', badge: 'ALUMINIUM', material: 'Silver Aluminium', specs: '900 × 2100 mm', roomCategory: 'office', image: '', params: { doorType: 'single', doorStyle: 'glass_grid', width: 40, materialCategory: 'aluminium', materials: { leaf: { id: 'alum_silver' }, frame: { id: 'alum_silver' } } } },
+    { id: 'door_glass', name: 'Frameless Glass Door', badge: 'GLASS', material: 'Tempered Glass', specs: '900 × 2100 mm', roomCategory: 'office', image: '', params: { doorType: 'single', doorStyle: 'flat', width: 40, materialCategory: 'glass', materials: { leaf: { id: 'glass_clear' }, frame: { id: 'glass_clear' } } } },
+
+    { isDivider: true, id: 'div_closet', name: 'Closets & Wardrobes' },
+    { id: 'shaker_multi_panel', name: 'Shaker 5-Panel Door', badge: 'NEW', material: 'Painted Wood', specs: '900 × 2100 mm', roomCategory: 'closet', image: '', params: { doorType: 'single', doorStyle: 'shaker_multi_panel', width: 40, materialCategory: 'wood', materials: { leaf: { id: 'white_paint' }, frame: { id: 'white_paint' } } } },
+    { id: 'pocket', name: 'Pocket Door', badge: 'COMPACT', material: 'Natural Teak', specs: '900 × 2100 mm', roomCategory: 'closet', image: '', params: { doorType: 'pocket', doorStyle: 'flat', width: 40, materialCategory: 'wood', materials: { leaf: { id: 'wood_golden_teak' }, frame: { id: 'wood_golden_teak' } } } },
+
+    { isDivider: true, id: 'div_utility', name: 'Utility & Storage' },
+    { id: 'utility_vision', name: 'Utility Vision Panel', badge: 'NEW', material: 'Flush Commercial', specs: '900 × 2100 mm', roomCategory: 'utility', image: '', params: { doorType: 'single', doorStyle: 'utility_vision', width: 40, materialCategory: 'wood', materials: { leaf: { id: 'grey_paint' }, frame: { id: 'grey_paint' }, glass: { id: 'glass_clear' } } } },
+    { id: 'door_wpc', name: 'WPC Door', badge: 'WPC', material: 'Wood Plastic Composite', specs: '900 × 2100 mm', roomCategory: 'utility', image: '', params: { doorType: 'single', doorStyle: 'classic_4_horizontal', width: 40, materialCategory: 'wpc', materials: { leaf: { id: 'wood_golden_teak' }, frame: { id: 'wood_golden_teak' } } } },
+    { id: 'door_steel', name: 'Steel Door', badge: 'STEEL', material: 'Light Smooth Steel', specs: '900 × 2100 mm', roomCategory: 'utility', image: '', params: { doorType: 'single', doorStyle: 'grid_panel', width: 40, materialCategory: 'steel', materials: { leaf: { id: 'metal_light_steel' }, frame: { id: 'metal_light_steel' } } } },
+    { id: 'door_composite', name: 'Composite Door', badge: 'COMPOSITE', material: 'Composite Panel', specs: '900 × 2100 mm', roomCategory: 'utility', image: '', params: { doorType: 'single', doorStyle: 'classic_4_horizontal', width: 40, materialCategory: 'composite', materials: { leaf: { id: 'composite' }, frame: { id: 'composite' } } } }
 ]);
 
 const windowCatalog = ref([
@@ -561,14 +584,22 @@ const filteredItems = computed(() => {
     // 2. Quick Category Chip Filter
     if (activeCategoryChip.value === 'favorites') {
         list = list.filter(i => i.isDivider || favoritesMap.value[i.id]);
-    } else if (activeCategoryChip.value === 'wood') {
-        list = list.filter(i => i.isDivider || (i.material && i.material.toLowerCase().includes('wood')) || (i.category === 'wood'));
-    } else if (activeCategoryChip.value === 'glass') {
-        list = list.filter(i => i.isDivider || (i.material && i.material.toLowerCase().includes('glass')) || (i.category === 'glass'));
-    } else if (activeCategoryChip.value === 'single') {
-        list = list.filter(i => i.isDivider || (i.params && i.params.doorType === 'single') || (i.category === 'single'));
-    } else if (activeCategoryChip.value === 'double') {
-        list = list.filter(i => i.isDivider || (i.params && (i.params.doorType === 'french' || i.params.doorType === 'double')) || (i.category === 'double'));
+    } else if (activeCategoryChip.value !== 'all') {
+        // If it's a room category (main, bedroom, bathroom, office, closet, utility)
+        if (['main', 'bedroom', 'bathroom', 'office', 'closet', 'utility'].includes(activeCategoryChip.value)) {
+            list = list.filter(i => i.isDivider || i.roomCategory === activeCategoryChip.value);
+        } else {
+            // Legacy fallbacks just in case
+            if (activeCategoryChip.value === 'wood') {
+                list = list.filter(i => i.isDivider || (i.material && i.material.toLowerCase().includes('wood')) || (i.category === 'wood'));
+            } else if (activeCategoryChip.value === 'glass') {
+                list = list.filter(i => i.isDivider || (i.material && i.material.toLowerCase().includes('glass')) || (i.category === 'glass'));
+            } else if (activeCategoryChip.value === 'single') {
+                list = list.filter(i => i.isDivider || (i.params && i.params.doorType === 'single') || (i.category === 'single'));
+            } else if (activeCategoryChip.value === 'double') {
+                list = list.filter(i => i.isDivider || (i.params && (i.params.doorType === 'french' || i.params.doorType === 'double')) || (i.category === 'double'));
+            }
+        }
     }
 
     // 3. Functional Category Filter Popover
@@ -580,27 +611,47 @@ const filteredItems = computed(() => {
         list = list.filter(i => i.isDivider || (i.params && (i.params.width > 60 || i.params.doorType === 'french' || i.params.doorType === 'sliding' || i.params.windowType === 'panoramic_slider')));
     }
 
-    // 4. Functional Sort
-    const dividers = list.filter(i => i.isDivider);
-    const nonDividers = list.filter(i => !i.isDivider);
+    // 4. Functional Sort & Divider Cleanup
+    let dividers = list.filter(i => i.isDivider);
+    let nonDividers = list.filter(i => !i.isDivider);
     
     if (sortOption.value === 'name_asc') {
         nonDividers.sort((a, b) => a.name.localeCompare(b.name));
+        dividers = []; // Hide dividers on sorted views
     } else if (sortOption.value === 'name_desc') {
         nonDividers.sort((a, b) => b.name.localeCompare(a.name));
+        dividers = [];
     } else if (sortOption.value === 'recent') {
         nonDividers.reverse();
+        dividers = [];
     } else {
+        // Popular sort
         nonDividers.sort((a, b) => {
             const favA = favoritesMap.value[a.id] ? 1 : 0;
             const favB = favoritesMap.value[b.id] ? 1 : 0;
             return favB - favA;
         });
+        
+        // Clean up empty dividers
+        if (dividers.length > 0) {
+            const finalList = [];
+            for (let i = 0; i < list.length; i++) {
+                if (list[i].isDivider) {
+                    let hasItems = false;
+                    for (let j = i + 1; j < list.length; j++) {
+                        if (list[j].isDivider) break;
+                        hasItems = true; break;
+                    }
+                    if (hasItems) finalList.push(list[i]);
+                } else {
+                    finalList.push(list[i]);
+                }
+            }
+            return finalList;
+        }
     }
     
-    if (nonDividers.length === 0) return [];
-    if (dividers.length === 0) return nonDividers;
-    return list.map(item => item.isDivider ? item : nonDividers.shift()).filter(Boolean);
+    return nonDividers;
 });
 
 const isGenerating = ref(false);
@@ -904,6 +955,17 @@ const handleImageError = (e) => {
     background: #2563eb;
     border-radius: 50%;
     border: 2px solid #ffffff;
+}
+
+/* CATALOG DIVIDERS */
+.catalog-divider {
+    grid-column: 1 / -1;
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    padding: 24px 0 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #e2e8f0;
 }
 
 /* PRODUCTS GRID (3 COLUMNS FOR DESKTOP CATALOG) */
