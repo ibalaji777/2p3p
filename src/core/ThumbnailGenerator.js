@@ -268,9 +268,9 @@ export class ThumbnailGenerator {
             const fitSize = maxDim * 1.25; 
             const distance = (fitSize / 2) / Math.tan((fov / 2) * Math.PI / 180);
             
-            // Apply orbital rotation: 22° elevation, -55° azimuth
-            const phi = (90 - 22) * Math.PI / 180;
-            const theta = -55 * Math.PI / 180;
+            // Apply orbital rotation: 25° elevation, 125° azimuth (shows front steps and treads clearly)
+          const phi = 65 * Math.PI / 180;
+const theta = 145 * Math.PI / 180;
             
             activeCamera.position.setFromSphericalCoords(distance, phi, theta);
             activeCamera.position.y += targetY; // Offset orbit center to bounding box center

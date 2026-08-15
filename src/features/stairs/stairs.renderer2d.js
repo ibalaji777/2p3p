@@ -22,7 +22,7 @@ export class PremiumStaircase {
         this.description = data.description || '';
 
         // Standard metrics
-        this.width = data.width || 60;
+        this.width = data.width || 90;
         this.stepDepth = data.stepDepth || 18.33;
         this.stepHeight = data.stepHeight || 11.67;
         this.isStatic = data.isStatic || false;
