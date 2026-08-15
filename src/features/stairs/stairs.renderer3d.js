@@ -290,6 +290,7 @@ export class Stair3DBuilder {
 
                         const extrudeSettings = { depth: width, bevelEnabled: false };
                         const wedgeGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+                        
                         const wedgeMesh = new THREE.Mesh(wedgeGeo, structureMat);
                         wedgeMesh.name = 'stringer_solid';
 
@@ -342,6 +343,7 @@ export class Stair3DBuilder {
                             
                             const extrudeSettings = { depth: customWidth, bevelEnabled: false };
                             const beamGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+                            
                             const beamMesh = new THREE.Mesh(beamGeo, structureMat);
                             beamMesh.name = 'stringer';
                             
@@ -543,9 +545,83 @@ export class Stair3DBuilder {
                 }
             }
 
-            // Ensure unified component highlighting and material registry
+            group.updateMatrixWorld(true);
+
+            // Ensure unified component highlighting, material registry, and continuous 1:1 physical UVs
             group.traverse(child => {
-                if (child.isMesh) {
+                if (child.isMesh && child.geometry && child.geometry.attributes.position) {
+                    const geo = child.geometry;
+                    const uvs = geo.attributes.uv;
+                    const pos = geo.attributes.position;
+                    const norms = geo.attributes.normal;
+                    
+                    if (uvs && norms) {
+                        geo.computeBoundingBox();
+                        const bbox = geo.boundingBox;
+                        const minX = bbox.min.x;
+                        const minY = bbox.min.y;
+                        const minZ = bbox.min.z;
+
+                        // Uniform physical metric scale (150 cm = 1.5m per tile repeat) preserving 1:1 aspect ratio without stretching
+                        const scale = 150;
+                        const isExtrude = geo.type === 'ExtrudeGeometry' || (child.name && child.name.includes('stringer'));
+                        
+                        for (let k = 0; k < pos.count; k++) {
+                            // Uniformly scaled physical UV coordinates
+                            const px = (pos.getX(k) - minX) / scale;
+                            const py = (pos.getY(k) - minY) / scale;
+                            const pz = (pos.getZ(k) - minZ) / scale;
+
+                            const nx = Math.abs(norms.getX(k));
+                            const ny = Math.abs(norms.getY(k));
+                            const nz = Math.abs(norms.getZ(k));
+
+                            if (isExtrude) {
+                                if (nz > 0.5) {
+                                    // Side cap faces of stringer extrusions (continuous 1:1 physical aspect ratio, no stretching, no seam lines)
+                                    uvs.setXY(k, px, py);
+                                } else if (ny >= nx) {
+                                    // Top/bottom step seat faces
+                                    uvs.setXY(k, pz, px);
+                                } else {
+                                    // Vertical step riser backing faces
+                                    uvs.setXY(k, pz, py);
+                                }
+                            } else {
+                                if (ny >= 0.5) {
+                                    // Top/Bottom horizontal faces (Treads, Landings)
+                                    uvs.setXY(k, px, pz);
+                                } else if (nx >= nz) {
+                                    // Side X faces
+                                    uvs.setXY(k, pz, py);
+                                } else {
+                                    // Side Z faces (Risers, Front/Back faces)
+                                    uvs.setXY(k, px, py);
+                                }
+                            }
+                        }
+                        uvs.needsUpdate = true;
+                    }
+
+                    // Apply MirroredRepeatWrapping to eliminate texture boundary seam lines seamlessly
+                    const applyMirroredWrapping = (m) => {
+                        if (!m) return;
+                        const maps = [m.map, m.bumpMap, m.normalMap, m.roughnessMap];
+                        maps.forEach(t => {
+                            if (t) {
+                                t.wrapS = THREE.MirroredRepeatWrapping;
+                                t.wrapT = THREE.MirroredRepeatWrapping;
+                                t.needsUpdate = true;
+                            }
+                        });
+                    };
+
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(applyMirroredWrapping);
+                    } else if (child.material) {
+                        applyMirroredWrapping(child.material);
+                    }
+
                     // If slot is already assigned (e.g. by railing builder), preserve it
                     let slot = child.userData.materialSlot;
                     
