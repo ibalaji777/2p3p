@@ -6,7 +6,7 @@ import { PostGenerator } from '../generators/PostGenerator.js';
 import { GlassGenerator } from '../generators/GlassGenerator.js';
 import { BalusterGenerator } from '../generators/BalusterGenerator.js';
 import { CableGenerator } from '../generators/CableGenerator.js';
-import { UniversalStairGenerator } from '../generators/UniversalStairGenerator.js';
+import { UniversalRailingGenerator } from '../generators/UniversalRailingGenerator.js';
 import { MaterialManager } from '../materials/MaterialManager.js';
 import { ComponentRegistry } from '../../../core/engine3d/ComponentRegistry.js';
 
@@ -52,44 +52,14 @@ export class Railing3DBuilder {
         const balusterMat = getMat(config.baluster, 'metal_black');
         const cableMat = getMat(config.cable, 'metal_stainless');
 
-        if (config.isStairStyle) {
-            group = UniversalStairGenerator.generate(path, config, {
-                handrail: handrailMat,
-                baluster: balusterMat,
-                glass: glassMat,
-                cable: cableMat,
-                post: postMat
-            }, entity);
-        } else {
-            group = new THREE.Group();
-            
-            // 3. Generate Components
-            const handrail = HandrailGenerator.generate(path, config, handrailMat);
-            if (handrail) group.add(handrail);
-
-            const posts = PostGenerator.generate(path, config, postMat);
-            if (posts) group.add(posts);
-
-            const glass = GlassGenerator.generate(path, config, glassMat);
-            if (glass) group.add(glass);
-
-            const balusters = BalusterGenerator.generate(path, config, balusterMat);
-            if (balusters) group.add(balusters);
-
-            const cables = CableGenerator.generate(path, config, cableMat);
-            if (cables) group.add(cables);
-
-            // Optional bottom rail
-            if (config.bottomRail) {
-                const bottomRailMat = getMat(config.bottomRail, 'metal_black');
-                const bConfig = { handrail: config.bottomRail, height: config.bottomRail.elevation || 2 };
-                const bottomRail = HandrailGenerator.generate(path, bConfig, bottomRailMat);
-                if (bottomRail) group.add(bottomRail);
-                
-                // Expose bottom rail mat for tagging
-                config._bottomRailMat = bottomRailMat;
-            }
-        }
+        // Delegate to dedicated UniversalRailingGenerator
+        group = UniversalRailingGenerator.generate(path, config, {
+            handrail: handrailMat,
+            baluster: balusterMat,
+            glass: glassMat,
+            cable: cableMat,
+            post: postMat
+        }, entity);
 
         // 4. Component Registration (3-Layer BIM Architecture)
         group.traverse(child => {
