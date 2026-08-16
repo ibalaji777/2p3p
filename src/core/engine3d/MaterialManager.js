@@ -195,6 +195,14 @@ export class MaterialManager {
             [slotName]: descriptor
         };
 
+        if (descriptor && descriptor.id) {
+            if (slotName === MaterialSlots.LEAF) entity.doorMat = descriptor.id;
+            else if (slotName === MaterialSlots.FRAME) entity.frameMat = descriptor.id;
+            else if (slotName === MaterialSlots.GLASS) entity.glassMat = descriptor.id;
+            else if (slotName === MaterialSlots.HARDWARE) entity.hardwareMat = descriptor.id;
+            else if (slotName === MaterialSlots.TRIM) entity.trimMat = descriptor.id;
+        }
+
         entity.materialDirty = true;
 
         if (MaterialManager.activeTransaction) {
@@ -317,8 +325,8 @@ export class MaterialManager {
 
         entity.materialDirty = false;
 
-        // Widget / ExtrudeGeometry UV Scaling Rebuild Safety Check
-        if (entity.isWidget || entity.supportsLiveMaterialPipeline) {
+        // Widget / Door / Window / ExtrudeGeometry UV Scaling Rebuild Safety Check
+        if (entity.isWidget || entity.supportsLiveMaterialPipeline || entity.type === 'door' || entity.type === 'window') {
             if (ctx && typeof ctx.updateMaterialLive === 'function') {
                 ctx.updateMaterialLive(entity);
             }

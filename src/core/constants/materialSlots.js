@@ -49,8 +49,8 @@ export const ComponentTypes = {
 };
 
 export const SLOT_DEFINITIONS = {
-    [MaterialSlots.FRAME]: { id: MaterialSlots.FRAME, label: 'Outer Frame', inherits: null, paintable: true, defaultCategory: 'wood' },
-    [MaterialSlots.LEAF]: { id: MaterialSlots.LEAF, label: 'Leaf / Sash', inherits: null, paintable: true, defaultCategory: 'wood' },
+    [MaterialSlots.FRAME]: { id: MaterialSlots.FRAME, label: 'Outer Frame', inherits: null, paintable: true, defaultCategory: 'categories' },
+    [MaterialSlots.LEAF]: { id: MaterialSlots.LEAF, label: 'Leaf / Sash', inherits: null, paintable: true, defaultCategory: 'categories' },
     [MaterialSlots.GLASS]: { id: MaterialSlots.GLASS, label: 'Glass Panes', inherits: null, paintable: true, defaultCategory: 'glass' },
     [MaterialSlots.HARDWARE]: { id: MaterialSlots.HARDWARE, label: 'Hardware', inherits: null, paintable: false, defaultCategory: 'metal' },
     [MaterialSlots.SEAL]: { id: MaterialSlots.SEAL, label: 'Seals & Gaskets', inherits: null, paintable: false, defaultCategory: 'plastic' },
