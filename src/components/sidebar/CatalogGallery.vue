@@ -253,7 +253,7 @@ const getCatalogHeaderTitle = () => {
     const map = {
         'door': 'Door Catalog',
         'window': 'Window Catalog',
-        'sunshade': 'Sunshade & Openings Catalog',
+        'sunshade': 'Sunshade Catalog',
         'jali_panel': 'Jali Panel Catalog',
         'staircase': 'Staircase Catalog',
         'roof': 'Roof Catalog',

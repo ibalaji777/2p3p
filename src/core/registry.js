@@ -1400,7 +1400,14 @@ export const WIDGET_REGISTRY = {
             let baseElev = entity.elevation || 0; let rawHeight = entity.height || 100;
             let bottomY = Math.max(0.2, baseElev); let topY = baseElev + rawHeight; let height = topY - bottomY;
             const builder = new BIMComponentBuilder(entity, helpers);
-            const jaliGroup = builder.group; jaliGroup.position.set(entity.x, bottomY, entity.z); jaliGroup.rotation.y = -entity.angle;
+            const jaliGroup = builder.group;
+            if (entity.localX !== undefined) {
+                jaliGroup.position.set(entity.localX, bottomY, 0);
+                jaliGroup.rotation.y = 0;
+            } else {
+                jaliGroup.position.set(entity.x, bottomY, entity.z);
+                jaliGroup.rotation.y = -entity.angle;
+            }
             
             const mount = entity.jaliMount || 'flush';
             if (mount === 'recessed') jaliGroup.translateZ(-4);
@@ -2701,8 +2708,13 @@ export const WIDGET_REGISTRY = {
             const builder = new BIMComponentBuilder(entity, helpers);
             const sunshadeGroup = builder.group;
             let baseElev = entity.elevation || 90;
-            sunshadeGroup.position.set(entity.x, baseElev, entity.z);
-            sunshadeGroup.rotation.y = -entity.angle;
+            if (entity.localX !== undefined) {
+                sunshadeGroup.position.set(entity.localX, baseElev, 0);
+                sunshadeGroup.rotation.y = 0;
+            } else {
+                sunshadeGroup.position.set(entity.x, baseElev, entity.z);
+                sunshadeGroup.rotation.y = -entity.angle;
+            }
 
             const thick = entity.thick || 20;
             const wallOffset = thick / 2; 
@@ -2974,7 +2986,13 @@ export const WIDGET_REGISTRY = {
             const fasciaGroup = builder.group;
             let baseElev = entity.elevation || 0; let height = entity.height || 120;
             let width = entity.width || 100; let depth = entity.depth || 40; let thick = entity.thick || 10;
-            fasciaGroup.position.set(entity.x, baseElev, entity.z); fasciaGroup.rotation.y = -entity.angle;
+            if (entity.localX !== undefined) {
+                fasciaGroup.position.set(entity.localX, baseElev, 0);
+                fasciaGroup.rotation.y = 0;
+            } else {
+                fasciaGroup.position.set(entity.x, baseElev, entity.z);
+                fasciaGroup.rotation.y = -entity.angle;
+            }
             
             let fColor = 0xffffff;
             if (entity.fasciaMat === 'dark_grey') fColor = 0x333333;

@@ -491,7 +491,14 @@ const getToolDetails = (toolId, toolName) => {
 const getShortToolName = (toolId, name) => {
     if (toolId === 'door') return 'Door';
     if (toolId === 'window') return 'Window';
-    if (toolId === 'sunshade' || toolId === 'jali_panel') return 'Opening';
+    if (toolId === 'sunshade') return 'Sunshade';
+    if (toolId === 'jali_panel') return 'Jali';
+    if (toolId === 'adv_opening_catalog') return 'Openings';
+    if (toolId === 'elevation_fascia') return 'Fascia';
+    if (toolId === 'molding') return 'Molding';
+    if (toolId === 'staircase') return 'Staircase';
+    if (toolId === 'roof') return 'Roof';
+    if (toolId === 'dormer') return 'Dormer';
     if (toolId === 'wall_catalog') return 'Walls';
     if (toolId === 'shape_catalog') return '3D Shapes';
     if (toolId === 'railing_catalog') return 'Railings';
@@ -509,7 +516,13 @@ const getToolTabIcon = (toolId) => {
     if (toolId === 'window') {
         return '<rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="12" x2="21" y2="12"></line><line x1="12" y1="3" x2="12" y2="21"></line>';
     }
-    if (toolId === 'sunshade' || toolId === 'jali_panel' || toolId === 'adv_opening_catalog') {
+    if (toolId === 'sunshade') {
+        return '<path d="M3 10h18l-2-6H5l-2 6z"></path><path d="M6 10v6"></path><path d="M18 10v6"></path><path d="M3 10a3 3 0 0 0 6 0"></path><path d="M9 10a3 3 0 0 0 6 0"></path><path d="M15 10a3 3 0 0 0 6 0"></path>';
+    }
+    if (toolId === 'jali_panel') {
+        return '<rect x="3" y="3" width="18" height="18" rx="1"></rect><path d="M3 9h18M3 15h18M9 3v18M15 3v18"></path>';
+    }
+    if (toolId === 'adv_opening_catalog') {
         return '<path d="M4 4h16v16H4V4z"></path><path d="M4 12h16"></path><path d="M8 12V4"></path><path d="M16 12V4"></path>';
     }
     if (toolId === 'wall_catalog') {
