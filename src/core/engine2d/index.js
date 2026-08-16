@@ -159,7 +159,25 @@ export class FloorPlanner {
      * @returns {Array<Object>} All physical entities in the scene
      */
     getEntities() {
-        return [...this.walls, ...this.roofs, ...this.furniture, ...this.stairs, ...this.shapes, ...this.arcs, ...this.presetGroups];
+        const attached = [];
+        if (this.walls) {
+            this.walls.forEach(w => {
+                if (w.attachedWidgets) attached.push(...w.attachedWidgets);
+                if (w.attachedDecor) attached.push(...w.attachedDecor);
+                if (w.attachedMoldings) attached.push(...w.attachedMoldings);
+            });
+        }
+        return [
+            ...(this.walls || []),
+            ...(this.roofs || []),
+            ...(this.furniture || []),
+            ...(this.stairs || []),
+            ...(this.shapes || []),
+            ...(this.arcs || []),
+            ...(this.presetGroups || []),
+            ...(this.rooms || []),
+            ...attached
+        ];
     }
     
     getSceneState() {
@@ -189,15 +207,18 @@ export class FloorPlanner {
     }
     
     move(entityId, x, y) {
-        const entity = this.getEntities().find(e => e.id === entityId || (e.group && e.group.id() === entityId));
+        const entity = this.getEntities().find(e => e.id === entityId || (e.group && typeof e.group.id === 'function' && e.group.id() === entityId));
         if (!entity) return;
-        const startPos = { x: entity.group.x(), y: entity.group.y() };
+        const startPos = { 
+            x: entity.group && typeof entity.group.x === 'function' ? entity.group.x() : (entity.x || 0), 
+            y: entity.group && typeof entity.group.y === 'function' ? entity.group.y() : (entity.y || 0) 
+        };
         const cmd = new MoveCommand(this, entityId, startPos, { x, y });
         this.commandManager.execute(cmd);
     }
     
     rotate(entityId, angle) {
-        const entity = this.getEntities().find(e => e.id === entityId || (e.group && e.group.id() === entityId));
+        const entity = this.getEntities().find(e => e.id === entityId || (e.group && typeof e.group.id === 'function' && e.group.id() === entityId));
         if (!entity) return;
         const startRot = entity.rotation || 0;
         const cmd = new RotateCommand(this, entityId, startRot, angle);
@@ -205,7 +226,7 @@ export class FloorPlanner {
     }
     
     resize(entityId, values) {
-        const entity = this.getEntities().find(e => e.id === entityId || (e.group && e.group.id() === entityId));
+        const entity = this.getEntities().find(e => e.id === entityId || (e.group && typeof e.group.id === 'function' && e.group.id() === entityId));
         if (!entity) return;
         const startValues = { width: entity.width, depth: entity.depth, height: entity.height };
         const cmd = new ResizeCommand(this, entityId, startValues, values);
@@ -213,7 +234,7 @@ export class FloorPlanner {
     }
     
     delete(entityOrId) {
-        const entity = typeof entityOrId === 'object' && entityOrId !== null ? entityOrId : this.getEntities().find(e => e.id === entityOrId || (e.group && e.group.id() === entityOrId));
+        const entity = typeof entityOrId === 'object' && entityOrId !== null ? entityOrId : this.getEntities().find(e => e.id === entityOrId || (e.group && typeof e.group.id === 'function' && e.group.id() === entityOrId));
         if (!entity) return;
         const cmd = new DeleteCommand(this, entity);
         this.commandManager.execute(cmd);
@@ -224,9 +245,14 @@ export class FloorPlanner {
     // ==========================================
 
     _applyMove(entityId, x, y) {
-        const entity = this.getEntities().find(e => e.id === entityId || (e.group && e.group.id() === entityId));
-        if (!entity || !entity.group) return;
-        entity.group.position({ x, y });
+        const entity = this.getEntities().find(e => e.id === entityId || (e.group && typeof e.group.id === 'function' && e.group.id() === entityId));
+        if (!entity) return;
+        if (entity.group && typeof entity.group.position === 'function') {
+            entity.group.position({ x, y });
+        } else {
+            entity.x = x;
+            entity.y = y;
+        }
         if (typeof entity.update3D === 'function') entity.update3D();
         if (typeof window !== 'undefined') {
             coreEventBus.emit('EntityTransformUpdated2D', { id: entityId, x, y, rotation: entity.rotation });
@@ -235,19 +261,21 @@ export class FloorPlanner {
     }
 
     _applyRotate(entityId, angle) {
-        const entity = this.getEntities().find(e => e.id === entityId || (e.group && e.group.id() === entityId));
+        const entity = this.getEntities().find(e => e.id === entityId || (e.group && typeof e.group.id === 'function' && e.group.id() === entityId));
         if (!entity) return;
         entity.rotation = angle;
-        if (entity.group) entity.group.rotation(angle);
+        if (entity.group && typeof entity.group.rotation === 'function') entity.group.rotation(angle);
         if (typeof entity.update3D === 'function') entity.update3D();
         if (typeof window !== 'undefined') {
-            coreEventBus.emit('EntityTransformUpdated2D', { id: entityId, x: entity.group?.x(), y: entity.group?.y(), rotation: angle });
+            const curX = entity.group && typeof entity.group.x === 'function' ? entity.group.x() : entity.x;
+            const curY = entity.group && typeof entity.group.y === 'function' ? entity.group.y() : entity.y;
+            coreEventBus.emit('EntityTransformUpdated2D', { id: entityId, x: curX, y: curY, rotation: angle });
         }
         this.syncAll();
     }
 
     _applyResize(entityId, values) {
-        const entity = this.getEntities().find(e => e.id === entityId || (e.group && e.group.id() === entityId));
+        const entity = this.getEntities().find(e => e.id === entityId || (e.group && typeof e.group.id === 'function' && e.group.id() === entityId));
         if (!entity) return;
         if (values.width !== undefined) entity.width = values.width;
         if (values.depth !== undefined) entity.depth = values.depth;
@@ -255,7 +283,9 @@ export class FloorPlanner {
         if (typeof entity.update2D === 'function') entity.update2D();
         if (typeof entity.update3D === 'function') entity.update3D();
         if (typeof window !== 'undefined') {
-            coreEventBus.emit('EntityTransformUpdated2D', { id: entityId, x: entity.group?.x(), y: entity.group?.y(), rotation: entity.rotation, width: entity.width, depth: entity.depth, height: entity.height });
+            const curX = entity.group && typeof entity.group.x === 'function' ? entity.group.x() : entity.x;
+            const curY = entity.group && typeof entity.group.y === 'function' ? entity.group.y() : entity.y;
+            coreEventBus.emit('EntityTransformUpdated2D', { id: entityId, x: curX, y: curY, rotation: entity.rotation, width: entity.width, depth: entity.depth, height: entity.height });
         }
         this.syncAll();
     }
@@ -274,7 +304,14 @@ export class FloorPlanner {
         }
 
         // Always ensure entity is removed from engine2d arrays (rooms are marked isDeleted so loop detection respects deletion)
-        if (this.walls) this.walls = this.walls.filter(w => w !== entity);
+        if (this.walls) {
+            this.walls = this.walls.filter(w => w !== entity);
+            this.walls.forEach(w => {
+                if (w.attachedWidgets) w.attachedWidgets = w.attachedWidgets.filter(item => item !== entity && item.id !== (entity.id || entityOrId));
+                if (w.attachedDecor) w.attachedDecor = w.attachedDecor.filter(item => item !== entity && item.id !== (entity.id || entityOrId));
+                if (w.attachedMoldings) w.attachedMoldings = w.attachedMoldings.filter(item => item !== entity && item.id !== (entity.id || entityOrId));
+            });
+        }
         if (this.furniture) this.furniture = this.furniture.filter(f => f !== entity);
         if (this.stairs) this.stairs = this.stairs.filter(s => s !== entity);
         if (this.roofs) this.roofs = this.roofs.filter(r => r !== entity);
@@ -291,6 +328,8 @@ export class FloorPlanner {
         if (entity.labelGroup && typeof entity.labelGroup.destroy === 'function') entity.labelGroup.destroy();
         if (entity.line && typeof entity.line.destroy === 'function') entity.line.destroy();
         if (entity.line2 && typeof entity.line2.destroy === 'function') entity.line2.destroy();
+        if (entity.visualGroup && typeof entity.visualGroup.destroy === 'function') entity.visualGroup.destroy();
+        if (entity.cutter && typeof entity.cutter.destroy === 'function') entity.cutter.destroy();
         if (entity.group && typeof entity.group.destroy === 'function') entity.group.destroy();
         
         if (this.selectedEntity === entity) {
@@ -307,9 +346,56 @@ export class FloorPlanner {
     }
 
     exportEntityState(entity) {
-        if (entity.type === 'furniture') return { x: entity.group.x(), y: entity.group.y(), rotation: entity.rotation, width: entity.width, depth: entity.depth, height: entity.height, configId: entity.config.id, description: entity.description };
-        // Basic fallback for now
-        return { x: entity.group.x(), y: entity.group.y(), rotation: entity.rotation };
+        if (!entity) return null;
+        const getCoord = (field) => {
+            if (entity.group && typeof entity.group[field] === 'function') {
+                return entity.group[field]();
+            }
+            return entity[field] ?? 0;
+        };
+
+        if (entity.type === 'furniture') {
+            return {
+                id: entity.id || (entity.group && typeof entity.group.id === 'function' ? entity.group.id() : undefined),
+                type: 'furniture',
+                x: getCoord('x'),
+                y: getCoord('y'),
+                rotation: entity.rotation ?? (entity.group && typeof entity.group.rotation === 'function' ? entity.group.rotation() : 0),
+                width: entity.width,
+                depth: entity.depth,
+                height: entity.height,
+                configId: entity.config ? entity.config.id : undefined,
+                description: entity.description
+            };
+        }
+
+        const state = {
+            id: entity.id || (entity.group && typeof entity.group.id === 'function' ? entity.group.id() : undefined),
+            type: entity.type || 'generic',
+            x: getCoord('x'),
+            y: getCoord('y'),
+            rotation: entity.rotation ?? (entity.group && typeof entity.group.rotation === 'function' ? entity.group.rotation() : 0),
+            width: entity.width,
+            depth: entity.depth,
+            height: entity.height,
+            thickness: entity.thickness,
+            x1: entity.x1,
+            y1: entity.y1,
+            x2: entity.x2,
+            y2: entity.y2,
+            wallId: entity.wall ? entity.wall.id : entity.wallId,
+            offset: entity.offset,
+            elevation: entity.elevation,
+            doorStyle: entity.doorStyle,
+            windowStyle: entity.windowStyle,
+            configId: entity.config ? entity.config.id : entity.configId,
+            description: entity.description,
+            params: entity.params ? JSON.parse(JSON.stringify(entity.params)) : undefined,
+            materials: entity.materials ? JSON.parse(JSON.stringify(entity.materials)) : undefined
+        };
+
+        Object.keys(state).forEach(k => state[k] === undefined && delete state[k]);
+        return state;
     }
 
     _applyCreate(type, config) {
@@ -325,6 +411,7 @@ export class FloorPlanner {
     }
 
     _applyRestore(type, state) {
+        if (!state) return null;
         // Mocking restore for furniture specifically since it's commonly tested
         if (type === 'furniture') {
             const item = new PremiumFurniture(this, state.x, state.y, state.configId);

@@ -901,19 +901,28 @@ export class GizmoManager {
                             
                             // Refactored: Delegate to entity.applyMaterial if available (SOLID: OCP)
                             if (typeof entity.applyMaterial === 'function') {
-                                // For generic materials that GizmoManager builds (like textures)
+                                const isWallEntity = entity.type === 'outer' || entity.type === 'inner' || entity.type === 'wall' || entity.type === 'railing';
+                                const targetWallMesh = isWallEntity ? (entity.wallMesh3D || (entity.mesh3D && (entity.mesh3D.userData?.wallMesh || (entity.mesh3D.children ? entity.mesh3D.children.find(c => c.userData?.isWallMesh || (c.isMesh && !c.userData?.isHitbox && !c.userData?.isWallSide && !c.userData?.isDoor && !c.userData?.isWindow && !c.userData?.isFrame && !c.userData?.isGlass && !c.userData?.isHandle)) : null)))) : null;
+                                const meshToApply = targetWallMesh || this.activeObject;
+                                
                                 let newMat = null;
-                                if (this.activeObject && this.activeMatIndex !== undefined && this.activeMatIndex !== -1) {
-                                    const mats = Array.isArray(this.activeObject.material) ? this.activeObject.material : [this.activeObject.material];
-                                    if (mats[this.activeMatIndex]) {
-                                        newMat = mats[this.activeMatIndex].clone();
+                                let effectiveMatIndex = this.activeMatIndex;
+                                if (isWallEntity) {
+                                    const FACE_MAP = { right: 0, left: 1, top: 2, bottom: 3, front: 4, back: 5 };
+                                    effectiveMatIndex = FACE_MAP[target] !== undefined ? FACE_MAP[target] : (this.activeObject?.userData?.side === 'back' ? 5 : 4);
+                                }
+
+                                if (meshToApply && effectiveMatIndex !== undefined && effectiveMatIndex !== -1) {
+                                    const mats = Array.isArray(meshToApply.material) ? meshToApply.material : [meshToApply.material];
+                                    if (mats[effectiveMatIndex]) {
+                                        newMat = mats[effectiveMatIndex].clone();
                                         let registry = WALL_DECOR_REGISTRY;
                                         if (entity.type === 'door' || entity.type === 'window') registry = Object.assign({}, WOOD_REGISTRY, GLASS_REGISTRY);
                                         else if (entity.type === 'roof') registry = ROOF_DECOR_REGISTRY;
                                         
                                         const config = (key && registry[key]) ? registry[key] : (key ? (GLASS_REGISTRY[key] || MARBLE_REGISTRY[key] || STONE_REGISTRY[key] || METAL_REGISTRY[key] || WALL_DECOR_REGISTRY[key]) : null);
                                         if (config) {
-                                            MaterialFactory.applyPBRMaterial(this.activeObject, config, this.ctx, this.activeMatIndex);
+                                            MaterialFactory.applyPBRMaterial(meshToApply, config, this.ctx, effectiveMatIndex);
                                         } else {
                                             newMat.map = null;
                                             let fColor = 0xffffff;
@@ -921,17 +930,16 @@ export class GizmoManager {
                                             else if (entity.fasciaMat === 'stone') fColor = 0xa8a29e;
                                             else if (entity.fasciaMat === 'wood') fColor = 0x8b5a2b;
                                             newMat.color.setHex(fColor);
-                                        }
-                                        
-                                        if (Array.isArray(this.activeObject.material)) {
-                                            this.activeObject.material[this.activeMatIndex] = newMat;
-                                        } else {
-                                            this.activeObject.material = newMat;
+                                            if (Array.isArray(meshToApply.material)) {
+                                                meshToApply.material[effectiveMatIndex] = newMat;
+                                            } else {
+                                                meshToApply.material = newMat;
+                                            }
                                         }
                                     }
                                 }
                                 
-                                entity.applyMaterial({ target, key, newMat, activeMatIndex: this.activeMatIndex, activeObject: this.activeObject, ctx: this.ctx });
+                                entity.applyMaterial({ target, key, newMat, activeMatIndex: effectiveMatIndex, activeObject: meshToApply, ctx: this.ctx });
                                 highlightSelectedThumb(key);
                              } else {
                                  // CAD/BIM Material System for all material types

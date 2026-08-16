@@ -907,23 +907,29 @@ export class PremiumWall {
         else if (target === 'front') this.params.textureFront = key;
         else if (target === 'back') this.params.textureBack = key;
         
-        if (activeObject && activeObject.parent) {
-            const wallGroup = activeObject.parent;
-            if (wallGroup && wallGroup.children.length > 0) {
-                const wallMesh = wallGroup.children[0];
-                if (wallMesh.isMesh && Array.isArray(wallMesh.material)) {
-                    let wIndex = 0;
-                    if (target === 'right') wIndex = 0;
-                    else if (target === 'left') wIndex = 1;
-                    else if (target === 'top') wIndex = 2;
-                    else if (target === 'bottom') wIndex = 3;
-                    else if (target === 'front') wIndex = 4;
-                    else if (target === 'back') wIndex = 5;
-                    wallMesh.material[wIndex] = newMat;
-                }
+        let wallGroup = null;
+        if (activeObject) {
+            wallGroup = (activeObject.userData?.isWallMesh || activeObject.userData?.isWallSide) ? activeObject.parent : (activeObject.parent?.userData?.isWallGroup ? activeObject.parent : activeObject.parent);
+        } else if (this.mesh3D) {
+            wallGroup = this.mesh3D;
+        }
+
+        const wallMesh = this.wallMesh3D || (wallGroup && (wallGroup.userData?.wallMesh || (wallGroup.children ? wallGroup.children.find(c => c.userData?.isWallMesh || (c.isMesh && !c.userData?.isHitbox && !c.userData?.isWallSide && !c.userData?.isDoor && !c.userData?.isWindow && !c.userData?.isFrame && !c.userData?.isGlass && !c.userData?.isHandle)) : null)));
+        
+        if (wallMesh && wallMesh.isMesh && Array.isArray(wallMesh.material)) {
+            let wIndex = 4;
+            if (target === 'right') wIndex = 0;
+            else if (target === 'left') wIndex = 1;
+            else if (target === 'top') wIndex = 2;
+            else if (target === 'bottom') wIndex = 3;
+            else if (target === 'front') wIndex = 4;
+            else if (target === 'back') wIndex = 5;
+
+            if (newMat) {
+                wallMesh.material[wIndex] = newMat;
             }
         }
-        if (ctx.updateMaterialLive) ctx.updateMaterialLive(this);
+        if (ctx && ctx.updateMaterialLive) ctx.updateMaterialLive(this);
     }
 
     serialize() { 

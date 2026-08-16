@@ -405,29 +405,23 @@ export class Preview3D {
                 if (!p.textureBottom && !p.textureSides && !p.texture) mats[3] = fallbackMat;
             }
 
-            // Find the actual wall mesh (not hitboxes or widgets)
-            const wallMesh = obj.children ? obj.children.find(c => c.isMesh && !c.userData.isHitbox && !c.userData.isWallSide) : null;
-            if (wallMesh) {
-                if (Array.isArray(wallMesh.material)) {
-                    wallMesh.material.forEach((m) => { 
-                        if (m && m.dispose && !m.userData?.keepAlive) m.dispose(); 
-                    });
-                } else if (wallMesh.material) {
-                    if (wallMesh.material.dispose && !wallMesh.material.userData?.keepAlive) wallMesh.material.dispose();
-                }
-                // Assign new array reference so Three.js catches the change
+            // Find the actual wall mesh (strictly avoid doors, windows, widgets, or hitboxes)
+            const wallMesh = entity.wallMesh3D || (obj.userData && obj.userData.wallMesh) || (obj.children ? obj.children.find(c => c.userData?.isWallMesh || (c.isMesh && !c.userData?.isHitbox && !c.userData?.isWallSide && !c.userData?.isDoor && !c.userData?.isWindow && !c.userData?.isFrame && !c.userData?.isGlass && !c.userData?.isHandle && !c.userData?.isPattern && !c.userData?.isMolding && !c.userData?.isWidget && !c.userData?.isSweep)) : null);
+            if (wallMesh && wallMesh.isMesh) {
+                // Assign new array reference so Three.js catches the change smoothly without disposing shared textures
                 wallMesh.material = mats;
                 
                 // Update attached holes if any
-                obj.children.forEach(c => {
-                    if (c.userData && c.userData.isPattern) {
-                        const patMesh = c.children ? c.children[0] : c;
-                        if (patMesh.material) {
-                            if (patMesh.material.dispose) patMesh.material.dispose();
-                            patMesh.material = mats[4].clone(); // front material
+                if (obj.children) {
+                    obj.children.forEach(c => {
+                        if (c.userData && c.userData.isPattern) {
+                            const patMesh = c.children ? c.children[0] : c;
+                            if (patMesh && patMesh.isMesh && mats[4]) {
+                                patMesh.material = mats[4].clone(); // front material
+                            }
                         }
-                    }
-                });
+                    });
+                }
                 
                 this.requestRender('wall_material_update', 2);
                 return true;

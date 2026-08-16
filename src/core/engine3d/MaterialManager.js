@@ -273,15 +273,12 @@ export class MaterialManager {
             entity.params[pKey] = config.id || (typeof matToUse === 'string' ? matToUse : config.texture);
 
             if (entity.mesh3D) {
-                const wallMesh = entity.mesh3D.children ? entity.mesh3D.children.find(c => c.isMesh && !c.userData?.isHitbox && !c.userData?.isWallSide) : (entity.mesh3D.isMesh ? entity.mesh3D : null);
-                if (wallMesh) {
+                const wallMesh = entity.wallMesh3D || entity.mesh3D.userData?.wallMesh || (entity.mesh3D.children ? entity.mesh3D.children.find(c => c.userData?.isWallMesh || (c.isMesh && !c.userData?.isHitbox && !c.userData?.isWallSide && !c.userData?.isDoor && !c.userData?.isWindow && !c.userData?.isFrame && !c.userData?.isGlass && !c.userData?.isHandle)) : (entity.mesh3D.isMesh ? entity.mesh3D : null));
+                if (wallMesh && wallMesh.isMesh) {
                     const FACE_MAP = { wall_right: 0, wall_left: 1, wall_top: 2, wall_bottom: 3, wall_front: 4, wall_back: 5, front: 4, back: 5, right: 0, left: 1, top: 2, bottom: 3 };
                     const targetIdx = FACE_MAP[slotName] !== undefined ? FACE_MAP[slotName] : 4;
                     await MaterialFactory.applyPBRMaterial(wallMesh, config, ctx, targetIdx);
                 }
-            }
-            if (ctx && typeof ctx.updateMaterialLive === 'function') {
-                ctx.updateMaterialLive(entity);
             }
             if (ctx && typeof ctx.requestRender === 'function') {
                 ctx.requestRender();

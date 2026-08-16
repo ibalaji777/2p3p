@@ -679,6 +679,9 @@ export class EnvironmentBuilder {
 
         const wallMesh = new THREE.Mesh(finalWallGeo, mm);
         wallMesh.castShadow = true; wallMesh.receiveShadow = true;
+        wallMesh.userData = { isWallMesh: true, entity: w };
+        w.wallMesh3D = wallMesh;
+        wallGroup.userData = { entity: w, isWallGroup: true, wallMesh: wallMesh };
         
         // EdgesGeometry removed to prevent Z-fighting with flush door/window frames
 
@@ -1567,6 +1570,9 @@ export class EnvironmentBuilder {
 
                         const wallMesh = new THREE.Mesh(finalWallGeo, mm);
                         wallMesh.castShadow = true; wallMesh.receiveShadow = true;
+                        wallMesh.userData = { isWallMesh: true, entity: w };
+                        w.wallMesh3D = wallMesh;
+                        wallGroup.userData = { entity: w, isWallGroup: true, wallMesh: wallMesh };
                         
                         // EdgesGeometry removed to prevent Z-fighting
 
