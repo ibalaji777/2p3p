@@ -25,24 +25,31 @@
                 </div>
             </div>
             <div class="control-group">
+                <label>Door Shape</label>
+                <select :value="selectedEntity.doorShape || 'square'" @change="e => { 
+                    selectedEntity.doorShape = e.target.value; 
+                    if (e.target.value !== 'square' && ['sliding', 'double_sliding', 'pocket', 'folding'].includes(selectedEntity.doorType)) {
+                        selectedEntity.doorType = 'double';
+                    }
+                    $emit('sync-engine'); 
+                }">
+                    <option value="square">Square (Default)</option>
+                    <option value="radius">Radius (True Arch)</option>
+                    <option value="segment">Segment (Eyebrow)</option>
+                </select>
+            </div>
+            <div class="control-group">
                 <label>Door Type</label>
                 <select :value="selectedEntity.doorType || 'single'" @change="e => { selectedEntity.doorType = e.target.value; $emit('sync-engine'); }">
                     <option value="single">Single Hinged</option>
                     <option value="double">Double Hinged</option>
                     <option value="french">Double French Glass</option>
-                    <option value="sliding">Sliding (1 Panel)</option>
-                    <option value="double_sliding">Sliding (2 Panels)</option>
-                    <option value="pocket">Pocket Door</option>
-                    <option value="folding">Bi-fold</option>
-                </select>
-            </div>
-            <div class="control-group">
-                <label>Door Shape</label>
-                <select :value="selectedEntity.doorShape || 'square'" @change="e => { selectedEntity.doorShape = e.target.value; $emit('sync-engine'); }">
-                    <option value="square">Square (Default)</option>
-                    <option value="radius">Radius (True Arch)</option>
-                    <option value="segment">Segment (Eyebrow)</option>
-                    <option value="gothic">Gothic (Pointed)</option>
+                    <template v-if="!selectedEntity.doorShape || selectedEntity.doorShape === 'square'">
+                        <option value="sliding">Sliding (1 Panel)</option>
+                        <option value="double_sliding">Sliding (2 Panels)</option>
+                        <option value="pocket">Pocket Door</option>
+                        <option value="folding">Bi-fold</option>
+                    </template>
                 </select>
             </div>
             

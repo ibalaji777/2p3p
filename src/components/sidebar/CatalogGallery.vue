@@ -80,8 +80,12 @@
 
         <!-- Quick Category Filter Chips (Door & Openings) -->
         <div class="category-chips-bar" v-if="props.type === 'door'">
-            <button class="chip-btn" :class="{ active: activeCategoryChip === 'all' }" @click="activeCategoryChip = 'all'">All Rooms</button>
+            <button class="chip-btn" :class="{ active: activeCategoryChip === 'all' }" @click="activeCategoryChip = 'all'">All Doors</button>
             <button class="chip-btn" :class="{ active: activeCategoryChip === 'main' }" @click="activeCategoryChip = 'main'">Main Entry</button>
+            <button class="chip-btn" :class="{ active: activeCategoryChip === 'back_service' }" @click="activeCategoryChip = 'back_service'">Back & Service</button>
+            <button class="chip-btn" :class="{ active: activeCategoryChip === 'patio' }" @click="activeCategoryChip = 'patio'">Balcony & Patio</button>
+            <button class="chip-btn" :class="{ active: activeCategoryChip === 'garage' }" @click="activeCategoryChip = 'garage'">Garage Doors</button>
+            <button class="chip-btn" :class="{ active: activeCategoryChip === 'gates' }" @click="activeCategoryChip = 'gates'">Gates</button>
             <button class="chip-btn" :class="{ active: activeCategoryChip === 'bedroom' }" @click="activeCategoryChip = 'bedroom'">Bedroom & Living</button>
             <button class="chip-btn" :class="{ active: activeCategoryChip === 'bathroom' }" @click="activeCategoryChip = 'bathroom'">Bathroom & Privacy</button>
             <button class="chip-btn" :class="{ active: activeCategoryChip === 'office' }" @click="activeCategoryChip = 'office'">Office & Study</button>
@@ -192,12 +196,12 @@ const sortLabel = computed(() => {
 const getBadgeClass = (badgeText) => {
     if (!badgeText) return '';
     const b = badgeText.toUpperCase();
-    if (b.includes('BESTSELLER')) return 'bestseller-gold';
-    if (b.includes('POPULAR')) return 'popular-blue';
-    if (b.includes('GLASS')) return 'glass-green';
-    if (b.includes('WOOD')) return 'wood-yellow';
-    if (b.includes('NEW')) return 'new-cyan';
-    if (b.includes('COMPACT')) return 'compact-orange';
+    if (b.includes('BESTSELLER') || b.includes('ORNATE')) return 'bestseller-gold';
+    if (b.includes('POPULAR') || b.includes('SECURITY')) return 'popular-blue';
+    if (b.includes('GLASS') || b.includes('PATIO') || b.includes('BI-FOLD') || b.includes('GARDEN')) return 'glass-green';
+    if (b.includes('WOOD') || b.includes('SPLIT')) return 'wood-yellow';
+    if (b.includes('NEW') || b.includes('EXTERIOR') || b.includes('VENTILATION')) return 'new-cyan';
+    if (b.includes('COMPACT') || b.includes('GARAGE') || b.includes('GATE') || b.includes('SLIDING')) return 'compact-orange';
     return 'default-badge';
 };
 
@@ -282,6 +286,29 @@ const doorCatalog = ref([
     { id: 'entry_craftsman', name: 'Craftsman Front Door', badge: 'WOOD', material: 'White Oak Wood', specs: '1000 × 2100 mm', roomCategory: 'main', image: '', params: { doorType: 'single', doorStyle: 'entry_craftsman', width: 40, materialCategory: 'wood', materials: { leaf: { id: 'wood_white_oak' }, frame: { id: 'wood_white_oak' }, glass: { id: 'glass_clear' } } } },
     { id: 'entry_arched_double', name: 'Arched Double Doors', badge: 'ARCHED', material: 'Golden Teak Wood', specs: '1800 × 2400 mm', roomCategory: 'main', image: '', params: { doorType: 'double', doorStyle: 'classic_2_panel', doorShape: 'radius', width: 80, materialCategory: 'wood', materials: { leaf: { id: 'wood_golden_teak' }, frame: { id: 'wood_golden_teak' } } } },
     { id: 'entry_classic_double', name: 'Classic Double Entry', badge: 'WOOD', material: 'Mahogany Wood', specs: '1800 × 2100 mm', roomCategory: 'main', image: '', params: { doorType: 'double', doorStyle: 'classic_4_panel', width: 80, materialCategory: 'wood', materials: { leaf: { id: 'wood_dark_walnut' }, frame: { id: 'wood_dark_walnut' } } } },
+
+    { isDivider: true, id: 'div_back_service', name: 'Back & Service Doors' },
+    { id: 'back_half_lite', name: 'Half-Lite Back Door', badge: 'EXTERIOR', material: 'Insulated Wood & Glass', specs: '900 × 2100 mm', roomCategory: 'back_service', image: '', params: { doorType: 'single', doorStyle: 'back_half_lite', width: 40, materialCategory: 'wood', materials: { leaf: { id: 'wood_dark_walnut' }, frame: { id: 'wood_dark_walnut' }, glass: { id: 'glass_clear' } } } },
+    { id: 'back_dutch', name: 'Dutch Stable Door', badge: 'SPLIT', material: 'Cedar / Teak Wood', specs: '900 × 2100 mm', roomCategory: 'back_service', image: '', params: { doorType: 'single', doorStyle: 'back_dutch', width: 40, materialCategory: 'wood', materials: { leaf: { id: 'wood_golden_teak' }, frame: { id: 'wood_golden_teak' } } } },
+    { id: 'service_steel_flush', name: 'Steel Service / Fire Door', badge: 'STEEL', material: 'Galvanized Steel Plate', specs: '900 × 2100 mm', roomCategory: 'back_service', image: '', params: { doorType: 'single', doorStyle: 'service_steel_flush', width: 40, materialCategory: 'steel', materials: { leaf: { id: 'metal_light_steel' }, frame: { id: 'metal_light_steel' } } } },
+    { id: 'service_louvered', name: 'Full Louver Service Door', badge: 'VENTILATION', material: 'Aluminium Louvers', specs: '900 × 2100 mm', roomCategory: 'back_service', image: '', params: { doorType: 'single', doorStyle: 'service_louvered', width: 40, materialCategory: 'aluminium', materials: { leaf: { id: 'alum_silver' }, frame: { id: 'alum_silver' } } } },
+
+    { isDivider: true, id: 'div_patio', name: 'Balcony & Patio Doors' },
+    { id: 'patio_multi_slide', name: 'Panoramic Multi-Slide Door', badge: 'PATIO', material: 'Slim Aluminium & Glass', specs: '2400 × 2400 mm', roomCategory: 'patio', image: '', params: { doorType: 'double_sliding', doorStyle: 'patio_multi_slide', width: 100, materialCategory: 'aluminium', materials: { leaf: { id: 'alum_silver' }, frame: { id: 'alum_silver' }, glass: { id: 'glass_clear' } } } },
+    { id: 'patio_bifold', name: 'Bi-Fold Accordion Door', badge: 'BI-FOLD', material: 'Thermally-Broken Aluminium', specs: '2400 × 2400 mm', roomCategory: 'patio', image: '', params: { doorType: 'folding', doorStyle: 'patio_bifold', width: 100, materialCategory: 'aluminium', materials: { leaf: { id: 'alum_silver' }, frame: { id: 'alum_silver' }, glass: { id: 'glass_clear' } } } },
+    { id: 'patio_french_glass', name: 'French Double Patio Door', badge: 'CLASSIC', material: 'White Wood & Glass', specs: '1800 × 2400 mm', roomCategory: 'patio', image: '', params: { doorType: 'french', doorStyle: 'glass_grid', width: 80, materialCategory: 'wood', materials: { leaf: { id: 'white_paint' }, frame: { id: 'white_paint' }, glass: { id: 'glass_clear' } } } },
+
+    { isDivider: true, id: 'div_garage', name: 'Garage Doors' },
+    { id: 'garage_sectional_std', name: 'Sectional Overhead Garage Door', badge: 'GARAGE', material: 'Embossed Insulated Steel', specs: '2400 × 2200 mm', roomCategory: 'garage', image: '', params: { doorType: 'single', doorStyle: 'garage_sectional', width: 100, materialCategory: 'steel', materials: { leaf: { id: 'metal_light_steel' }, frame: { id: 'metal_light_steel' } } } },
+    { id: 'garage_modern_glass_std', name: 'Modern Glass Grid Garage Door', badge: 'MODERN', material: 'Black Aluminium & Glass', specs: '2400 × 2200 mm', roomCategory: 'garage', image: '', params: { doorType: 'single', doorStyle: 'garage_modern_glass', width: 100, materialCategory: 'aluminium', materials: { leaf: { id: 'metal_dark_steel' }, frame: { id: 'metal_dark_steel' }, glass: { id: 'glass_frosted' } } } },
+    { id: 'garage_carriage_house', name: 'Carriage House Garage Door', badge: 'WOOD', material: 'Rustic Solid Timber X-Brace', specs: '2400 × 2200 mm', roomCategory: 'garage', image: '', params: { doorType: 'double', doorStyle: 'garage_carriage', width: 100, materialCategory: 'wood', materials: { leaf: { id: 'wood_dark_walnut' }, frame: { id: 'wood_dark_walnut' } } } },
+
+    { isDivider: true, id: 'div_gates', name: 'Gates & Compound Access' },
+    { id: 'gate_slat_modern_main', name: 'Modern Slat Main Gate', badge: 'GATE', material: 'Black Steel & Teak Infill', specs: '3600 × 2100 mm', roomCategory: 'gates', image: '', params: { doorType: 'double', doorStyle: 'gate_slat_modern', width: 140, materialCategory: 'steel', materials: { leaf: { id: 'metal_dark_steel' }, frame: { id: 'metal_dark_steel' } } } },
+    { id: 'gate_wrought_iron_main', name: 'Wrought Iron Main Gate', badge: 'ORNATE', material: 'Handcrafted Wrought Iron', specs: '3600 × 2400 mm', roomCategory: 'gates', params: { doorType: 'double', doorStyle: 'gate_wrought_iron', width: 140, materialCategory: 'steel', materials: { leaf: { id: 'metal_dark_steel' }, frame: { id: 'metal_dark_steel' } } } },
+    { id: 'gate_pedestrian_wicket_std', name: 'Pedestrian Wicket Gate', badge: 'SECURITY', material: 'Welded Tubular Security Pickets', specs: '1000 × 2100 mm', roomCategory: 'gates', image: '', params: { doorType: 'single', doorStyle: 'gate_pedestrian_wicket', width: 40, materialCategory: 'steel', materials: { leaf: { id: 'metal_dark_steel' }, frame: { id: 'metal_dark_steel' } } } },
+    { id: 'gate_driveway_sliding_std', name: 'Sliding Driveway Gate', badge: 'SLIDING', material: 'Structural Steel Track Frame', specs: '4200 × 2100 mm', roomCategory: 'gates', image: '', params: { doorType: 'sliding', doorStyle: 'gate_driveway_sliding', width: 160, materialCategory: 'steel', materials: { leaf: { id: 'metal_light_steel' }, frame: { id: 'metal_light_steel' } } } },
+    { id: 'gate_garden_picket_std', name: 'Garden Picket Gate', badge: 'GARDEN', material: 'Painted Wood Pickets', specs: '1000 × 1200 mm', roomCategory: 'gates', image: '', params: { doorType: 'single', doorStyle: 'gate_garden_picket', width: 40, materialCategory: 'wood', materials: { leaf: { id: 'white_paint' }, frame: { id: 'white_paint' } } } },
 
     { isDivider: true, id: 'div_bedroom', name: 'Bedroom & Living Spaces' },
     { id: 'modern_grooved', name: 'Modern Grooved Door', badge: 'NEW', material: 'Flush Wood', specs: '900 × 2100 mm', roomCategory: 'bedroom', image: '', params: { doorType: 'single', doorStyle: 'modern_grooved', width: 40, materialCategory: 'wood', materials: { leaf: { id: 'wood_white_oak' }, frame: { id: 'wood_white_oak' } } } },
@@ -585,8 +612,8 @@ const filteredItems = computed(() => {
     if (activeCategoryChip.value === 'favorites') {
         list = list.filter(i => i.isDivider || favoritesMap.value[i.id]);
     } else if (activeCategoryChip.value !== 'all') {
-        // If it's a room category (main, bedroom, bathroom, office, closet, utility)
-        if (['main', 'bedroom', 'bathroom', 'office', 'closet', 'utility'].includes(activeCategoryChip.value)) {
+        // If it's a door/room category
+        if (['main', 'back_service', 'patio', 'garage', 'gates', 'bedroom', 'bathroom', 'office', 'closet', 'utility'].includes(activeCategoryChip.value)) {
             list = list.filter(i => i.isDivider || i.roomCategory === activeCategoryChip.value);
         } else {
             // Legacy fallbacks just in case

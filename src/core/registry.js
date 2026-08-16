@@ -409,13 +409,354 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         builder.addNode({ geometry: geoBeadV, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(liteX + liteW/2 + beadW/2, liteY, 0), castShadow: true });
         builder.addNode({ geometry: geoBeadH, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(liteX, liteY + liteH/2 + beadW/2, 0), castShadow: true });
         builder.addNode({ geometry: geoBeadH, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(liteX, liteY - liteH/2 - beadW/2, 0), castShadow: true });
-    } else if (isGlass || type === 'french' || style === 'french' || style === 'glass_grid' || style === 'glass_bottom_panel') {
+    } else if (style === 'back_half_lite') {
+        const frameW = 4.5; const topRailH = 4.5; const midRailH = 5; const botRailH = 8;
+        const geoStile = createBeveledRect(frameW, height, thickness);
+        const geoRailT = rotateUVs(createBeveledRect(width - frameW*2, topRailH, thickness));
+        const geoRailB = rotateUVs(createBeveledRect(width - frameW*2, botRailH, thickness));
+        const geoRailM = rotateUVs(createBeveledRect(width - frameW*2, midRailH, thickness));
+
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailT, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - topRailH/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailB, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH/2, 0), castShadow: true, receiveShadow: true });
+
+        const midY = height * 0.45;
+        builder.addNode({ geometry: geoRailM, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, midY, 0), castShadow: true, receiveShadow: true });
+
+        // Glass on top
+        const glassMatKey = entity.materials?.[MaterialSlots.GLASS]?.id || 'glass_clear';
+        const glassMat = helpers.getDynamicMaterial(glassMatKey, 'door');
+        const glassH = (height - topRailH) - (midY + midRailH/2);
+        const geoGlass = new THREE.BoxGeometry(width - frameW*2, glassH, thickness * 0.25);
+        builder.addNode({ geometry: geoGlass, materialOverride: glassMat, parent: group, position: new THREE.Vector3(0, midY + midRailH/2 + glassH/2, 0), userData: { isGlass: true } });
+
+        // Solid raised panel on bottom
+        const botPanelH = (midY - midRailH/2) - botRailH;
+        const panelGeo = createBeveledRect(width - frameW*2 + 0.5, botPanelH + 0.5, thickness * 0.55);
+        builder.addNode({ geometry: panelGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH + botPanelH/2, 0), castShadow: true, receiveShadow: true });
+    } else if (style === 'back_dutch') {
+        const frameW = 4.5; const railH = 4.5; const splitY = height * 0.48; const shelfH = 2.0; const shelfDepth = thickness + 2.0;
+        
+        // Lower leaf stiles & rails
+        const lowerH = splitY - 0.2;
+        const geoStileL = createBeveledRect(frameW, lowerH, thickness);
+        const geoRailBot = rotateUVs(createBeveledRect(width - frameW*2, 6, thickness));
+        const geoRailSplitL = rotateUVs(createBeveledRect(width - frameW*2, railH, thickness));
+        
+        builder.addNode({ geometry: geoStileL, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW/2, lowerH/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStileL, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW/2, lowerH/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailBot, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, 3, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailSplitL, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, lowerH - railH/2, 0), castShadow: true, receiveShadow: true });
+        
+        const botPanelH = lowerH - 6 - railH;
+        const botPanelGeo = createBeveledRect(width - frameW*2 + 0.5, botPanelH + 0.5, thickness * 0.5);
+        builder.addNode({ geometry: botPanelGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, 6 + botPanelH/2, 0), castShadow: true, receiveShadow: true });
+
+        // Dutch shelf astragal
+        const geoShelf = rotateUVs(createBeveledRect(width + 1.0, shelfH, shelfDepth));
+        builder.addNode({ geometry: geoShelf, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, splitY, 0), castShadow: true, receiveShadow: true });
+
+        // Upper leaf stiles & rails
+        const upperH = height - (splitY + 0.2);
+        const geoStileU = createBeveledRect(frameW, upperH, thickness);
+        const geoRailTop = rotateUVs(createBeveledRect(width - frameW*2, railH, thickness));
+        const geoRailSplitU = rotateUVs(createBeveledRect(width - frameW*2, railH, thickness));
+        const upperCenterY = splitY + 0.2 + upperH/2;
+
+        builder.addNode({ geometry: geoStileU, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW/2, upperCenterY, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStileU, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW/2, upperCenterY, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailTop, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - railH/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailSplitU, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, splitY + 0.2 + railH/2, 0), castShadow: true, receiveShadow: true });
+
+        const topPanelH = upperH - railH*2;
+        const topPanelGeo = createBeveledRect(width - frameW*2 + 0.5, topPanelH + 0.5, thickness * 0.5);
+        builder.addNode({ geometry: topPanelGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, splitY + 0.2 + railH + topPanelH/2, 0), castShadow: true, receiveShadow: true });
+    } else if (style === 'service_steel_flush') {
+        const geoCore = createBeveledRect(width, height, thickness);
+        builder.addNode({ geometry: geoCore, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height/2, 0), castShadow: true, receiveShadow: true });
+
+        // Stainless kick plate on bottom
+        const kickH = 10;
+        const kickMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.9, roughness: 0.2 });
+        const kickGeo = new THREE.BoxGeometry(width - 1.0, kickH, thickness + 0.15);
+        builder.addNode({ geometry: kickGeo, materialOverride: kickMat, parent: group, position: new THREE.Vector3(0, kickH/2 + 0.5, 0), castShadow: true, userData: { isHandle: true } });
+
+        // Push / Armor plate in the center
+        const plateGeo = new THREE.BoxGeometry(8, 16, thickness + 0.15);
+        builder.addNode({ geometry: plateGeo, materialOverride: kickMat, parent: group, position: new THREE.Vector3((width/2 - 6) * signX, height * 0.48, 0), castShadow: true, userData: { isHandle: true } });
+    } else if (style === 'service_louvered') {
+        const frameW = 4.5; const topRailH = 5.0; const botRailH = 8.0;
+        const geoStile = createBeveledRect(frameW, height, thickness);
+        const geoRailT = rotateUVs(createBeveledRect(width - frameW*2, topRailH, thickness));
+        const geoRailB = rotateUVs(createBeveledRect(width - frameW*2, botRailH, thickness));
+
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailT, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - topRailH/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailB, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH/2, 0), castShadow: true, receiveShadow: true });
+
+        const openH = height - topRailH - botRailH;
+        const louverW = width - frameW*2 + 0.4;
+        const louverGeo = rotateUVs(createBeveledRect(louverW, 0.45, thickness * 0.5));
+        const numLouvers = Math.max(10, Math.floor(openH / 1.1));
+        const spacing = openH / numLouvers;
+        const startY = botRailH + spacing/2;
+
+        for (let i = 0; i < numLouvers; i++) {
+            builder.addNode({ geometry: louverGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, startY + i * spacing, 0), rotation: new THREE.Euler(Math.PI/6, 0, 0), castShadow: true, receiveShadow: true });
+        }
+    } else if (style === 'garage_sectional') {
+        const numSections = 4;
+        const grooveW = 0.5;
+        const secH = (height - grooveW * (numSections - 1)) / numSections;
+        const stilesPerSec = 4;
+
+        for (let s = 0; s < numSections; s++) {
+            const secY = secH/2 + s * (secH + grooveW);
+            const secGeo = createBeveledRect(width, secH, thickness);
+            builder.addNode({ geometry: secGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, secY, 0), castShadow: true, receiveShadow: true });
+
+            // Embossed cassettes across width
+            const cassW = (width - 4 * (stilesPerSec + 1)) / stilesPerSec;
+            const cassH = secH - 4;
+            if (cassW > 4 && cassH > 4) {
+                const cassGeo = createBeveledRect(cassW, cassH, thickness * 0.4);
+                let cx = -width/2 + 4 + cassW/2;
+                for (let c = 0; c < stilesPerSec; c++) {
+                    builder.addNode({ geometry: cassGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(cx, secY, 0), castShadow: true, receiveShadow: true });
+                    cx += cassW + 4;
+                }
+            }
+        }
+    } else if (style === 'garage_modern_glass') {
+        const frameW = 4.0; const numRows = 4; const numCols = 3;
+        const geoStileL = createBeveledRect(frameW, height, thickness);
+        const geoStileR = createBeveledRect(frameW, height, thickness);
+        const geoRailT = rotateUVs(createBeveledRect(width, frameW, thickness));
+        const geoRailB = rotateUVs(createBeveledRect(width, frameW, thickness));
+
+        builder.addNode({ geometry: geoStileL, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStileR, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailT, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - frameW/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailB, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, frameW/2, 0), castShadow: true, receiveShadow: true });
+
+        const mullionW = 2.5;
+        const innerW = width - frameW*2;
+        const innerH = height - frameW*2;
+        const cellW = (innerW - mullionW * (numCols - 1)) / numCols;
+        const cellH = (innerH - mullionW * (numRows - 1)) / numRows;
+
+        const glassMatKey = entity.materials?.[MaterialSlots.GLASS]?.id || 'glass_frosted';
+        const glassMat = helpers.getDynamicMaterial(glassMatKey, 'door');
+        const glassGeo = new THREE.BoxGeometry(cellW, cellH, thickness * 0.25);
+
+        for (let r = 0; r < numRows; r++) {
+            const cy = frameW + cellH/2 + r * (cellH + mullionW);
+            for (let c = 0; c < numCols; c++) {
+                const cx = -width/2 + frameW + cellW/2 + c * (cellW + mullionW);
+                builder.addNode({ geometry: glassGeo, materialOverride: glassMat, parent: group, position: new THREE.Vector3(cx, cy, 0), userData: { isGlass: true } });
+            }
+            if (r < numRows - 1) {
+                const hMullionGeo = rotateUVs(createBeveledRect(innerW, mullionW, thickness));
+                builder.addNode({ geometry: hMullionGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, frameW + (r + 1) * cellH + (r + 0.5) * mullionW, 0), castShadow: true, receiveShadow: true });
+            }
+        }
+        for (let c = 0; c < numCols - 1; c++) {
+            const vMullionGeo = createBeveledRect(mullionW, innerH, thickness);
+            const mx = -width/2 + frameW + (c + 1) * cellW + (c + 0.5) * mullionW;
+            builder.addNode({ geometry: vMullionGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(mx, height/2, 0), castShadow: true, receiveShadow: true });
+        }
+    } else if (style === 'garage_carriage') {
+        const frameW = 5.0; const topRailH = 6.0; const botRailH = 8.0; const midRailH = 5.0;
+        const geoStileL = createBeveledRect(frameW, height, thickness);
+        const geoStileR = createBeveledRect(frameW, height, thickness);
+        const geoRailT = rotateUVs(createBeveledRect(width - frameW*2, topRailH, thickness));
+        const geoRailB = rotateUVs(createBeveledRect(width - frameW*2, botRailH, thickness));
+        const geoRailM = rotateUVs(createBeveledRect(width - frameW*2, midRailH, thickness));
+
+        builder.addNode({ geometry: geoStileL, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStileR, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailT, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - topRailH/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailB, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, botRailH/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailM, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height/2, 0), castShadow: true, receiveShadow: true });
+
+        // T&G background backing
+        const backingGeo = createBeveledRect(width - frameW*2 + 0.5, height - topRailH - botRailH, thickness * 0.4);
+        builder.addNode({ geometry: backingGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height/2, 0), castShadow: true, receiveShadow: true });
+
+        // X-Braces on top and bottom sections
+        const secH = (height - topRailH - botRailH - midRailH) / 2;
+        const braceW = 3.5;
+        const braceLen = Math.sqrt(Math.pow(width - frameW*2, 2) + Math.pow(secH, 2));
+        const braceAngle = Math.atan2(secH, width - frameW*2);
+
+        [botRailH + secH/2, height/2 + midRailH/2 + secH/2].forEach(secCenterY => {
+            const braceGeo1 = rotateUVs(createBeveledRect(braceLen, braceW, thickness * 0.6));
+            const braceGeo2 = rotateUVs(createBeveledRect(braceLen, braceW, thickness * 0.6));
+            builder.addNode({ geometry: braceGeo1, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, secCenterY, 0), rotation: new THREE.Euler(0, 0, braceAngle), castShadow: true, receiveShadow: true });
+            builder.addNode({ geometry: braceGeo2, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, secCenterY, 0), rotation: new THREE.Euler(0, 0, -braceAngle), castShadow: true, receiveShadow: true });
+        });
+    } else if (style === 'gate_slat_modern') {
+        const frameW = 4.5;
+        const geoStileL = createBeveledRect(frameW, height, thickness);
+        const geoStileR = createBeveledRect(frameW, height, thickness);
+        const geoRailT = rotateUVs(createBeveledRect(width, frameW, thickness));
+        const geoRailB = rotateUVs(createBeveledRect(width, frameW, thickness));
+
+        builder.addNode({ geometry: geoStileL, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStileR, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailT, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - frameW/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailB, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, frameW/2, 0), castShadow: true, receiveShadow: true });
+
+        // Horizontal slats with gaps
+        const slatW = width - frameW*2;
+        const slatH = 5.0;
+        const gapH = 1.8;
+        const innerH = height - frameW*2;
+        const numSlats = Math.floor(innerH / (slatH + gapH));
+        const totalSlatsH = numSlats * slatH + (numSlats - 1) * gapH;
+        const startY = frameW + (innerH - totalSlatsH)/2 + slatH/2;
+
+        const slatGeo = rotateUVs(createBeveledRect(slatW + 0.4, slatH, thickness * 0.7));
+        for (let i = 0; i < numSlats; i++) {
+            builder.addNode({ geometry: slatGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, startY + i * (slatH + gapH), 0), castShadow: true, receiveShadow: true });
+        }
+    } else if (style === 'gate_wrought_iron') {
+        const frameW = 3.5;
+        const geoStileL = createBeveledRect(frameW, height, thickness);
+        const geoStileR = createBeveledRect(frameW, height, thickness);
+        const geoRailT = rotateUVs(createBeveledRect(width, frameW, thickness));
+        const geoRailB = rotateUVs(createBeveledRect(width, frameW, thickness));
+        const geoRailM = rotateUVs(createBeveledRect(width, frameW * 0.8, thickness));
+
+        builder.addNode({ geometry: geoStileL, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStileR, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailT, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - frameW/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailB, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, frameW/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailM, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height * 0.38, 0), castShadow: true, receiveShadow: true });
+
+        // Vertical iron spindles
+        const spindleRadius = 0.45;
+        const spindleGeo = new THREE.CylinderGeometry(spindleRadius, spindleRadius, height - frameW*2, 12);
+        const numSpindles = Math.max(3, Math.floor((width - frameW*2) / 6.0));
+        const spacing = (width - frameW*2) / (numSpindles + 1);
+
+        for (let i = 1; i <= numSpindles; i++) {
+            const sx = -width/2 + frameW + i * spacing;
+            builder.addNode({ geometry: spindleGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(sx, height/2, 0), castShadow: true, receiveShadow: true });
+            
+            // Decorative ring/finial rosette at mid rail
+            const ringGeo = new THREE.TorusGeometry(1.2, 0.25, 8, 16);
+            builder.addNode({ geometry: ringGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(sx, height * 0.38, 0), castShadow: true });
+            
+            // Spear top finial
+            const spearGeo = new THREE.ConeGeometry(0.8, 2.5, 8);
+            builder.addNode({ geometry: spearGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(sx, height + 1.25, 0), castShadow: true });
+        }
+    } else if (style === 'gate_pedestrian_wicket') {
+        const frameW = 3.5;
+        const geoStileL = createBeveledRect(frameW, height, thickness);
+        const geoStileR = createBeveledRect(frameW, height, thickness);
+        const geoRailT = rotateUVs(createBeveledRect(width, frameW, thickness));
+        const geoRailB = rotateUVs(createBeveledRect(width, frameW, thickness));
+        const geoRailM = rotateUVs(createBeveledRect(width, frameW, thickness));
+
+        builder.addNode({ geometry: geoStileL, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStileR, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailT, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - frameW/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailB, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, frameW/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailM, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height * 0.45, 0), castShadow: true, receiveShadow: true });
+
+        // Integrated lockbox plate
+        const lockBoxW = 8; const lockBoxH = 12;
+        const lockGeo = createBeveledRect(lockBoxW, lockBoxH, thickness + 0.2);
+        builder.addNode({ geometry: lockGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3((width/2 - frameW - lockBoxW/2) * signX, height * 0.45, 0), castShadow: true });
+
+        // Vertical bars
+        const numBars = Math.max(3, Math.floor((width - frameW*2) / 5.0));
+        const spacing = (width - frameW*2) / (numBars + 1);
+        const barGeoTop = new THREE.CylinderGeometry(0.35, 0.35, height * 0.55 - frameW, 12);
+        const barGeoBot = new THREE.CylinderGeometry(0.35, 0.35, height * 0.45 - frameW, 12);
+
+        for (let i = 1; i <= numBars; i++) {
+            const bx = -width/2 + frameW + i * spacing;
+            builder.addNode({ geometry: barGeoTop, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(bx, height * 0.45 + (height * 0.55 - frameW)/2, 0), castShadow: true });
+            builder.addNode({ geometry: barGeoBot, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(bx, (height * 0.45)/2, 0), castShadow: true });
+        }
+    } else if (style === 'gate_driveway_sliding') {
+        const frameW = 5.0; const bottomTrackH = 8.0;
+        const geoStileL = createBeveledRect(frameW, height, thickness);
+        const geoStileR = createBeveledRect(frameW, height, thickness);
+        const geoRailT = rotateUVs(createBeveledRect(width, frameW, thickness));
+        const geoRailB = rotateUVs(createBeveledRect(width, bottomTrackH, thickness * 1.2));
+
+        builder.addNode({ geometry: geoStileL, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width/2 + frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStileR, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width/2 - frameW/2, height/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailT, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - frameW/2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailB, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, bottomTrackH/2, 0), castShadow: true, receiveShadow: true });
+
+        // Vertical pickets
+        const picketW = 2.0;
+        const innerW = width - frameW*2;
+        const numPickets = Math.max(5, Math.floor(innerW / 8.0));
+        const spacing = innerW / (numPickets + 1);
+        const picketH = height - frameW - bottomTrackH;
+        const picketGeo = createBeveledRect(picketW, picketH, thickness * 0.7);
+
+        for (let i = 1; i <= numPickets; i++) {
+            const px = -width/2 + frameW + i * spacing;
+            builder.addNode({ geometry: picketGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(px, bottomTrackH + picketH/2, 0), castShadow: true, receiveShadow: true });
+        }
+
+        // Roller track wheel housings on bottom
+        const wheelGeo = new THREE.CylinderGeometry(2.0, 2.0, thickness * 1.4, 16);
+        wheelGeo.rotateX(Math.PI/2);
+        const metalHardwareMat = new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.9, roughness: 0.2 });
+        [-width/3, width/3].forEach(wx => {
+            builder.addNode({ geometry: wheelGeo, materialOverride: metalHardwareMat, parent: group, position: new THREE.Vector3(wx, 1.5, 0), userData: { isHandle: true } });
+        });
+    } else if (style === 'gate_garden_picket') {
+        const picketW = 4.0; const picketThick = thickness * 0.7;
+        const numPickets = Math.max(4, Math.floor(width / 6.0));
+        const spacing = width / numPickets;
+        const topPointH = 3.0;
+
+        // Custom pointed picket geometry
+        const shape = new THREE.Shape();
+        const pw = picketW/2;
+        shape.moveTo(-pw, 0);
+        shape.lineTo(pw, 0);
+        shape.lineTo(pw, height - topPointH);
+        shape.lineTo(0, height);
+        shape.lineTo(-pw, height - topPointH);
+        shape.lineTo(-pw, 0);
+
+        const picketGeo = new THREE.ExtrudeGeometry(shape, { depth: picketThick, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.06, bevelThickness: 0.06 });
+        picketGeo.translate(0, 0, -picketThick/2);
+
+        for (let i = 0; i < numPickets; i++) {
+            const px = -width/2 + spacing/2 + i * spacing;
+            builder.addNode({ geometry: picketGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(px, 0, 0), castShadow: true, receiveShadow: true });
+        }
+
+        // Rear horizontal rails & diagonal Z-brace
+        const railH = 3.5;
+        const railGeo = rotateUVs(createBeveledRect(width, railH, thickness * 0.6));
+        builder.addNode({ geometry: railGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height * 0.25, -picketThick/2 - thickness * 0.3), castShadow: true });
+        builder.addNode({ geometry: railGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height * 0.75, -picketThick/2 - thickness * 0.3), castShadow: true });
+
+        const zLen = Math.sqrt(Math.pow(width, 2) + Math.pow(height * 0.5, 2));
+        const zAngle = Math.atan2(height * 0.5, width);
+        const zGeo = rotateUVs(createBeveledRect(zLen, railH, thickness * 0.6));
+        builder.addNode({ geometry: zGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height * 0.5, -picketThick/2 - thickness * 0.3), rotation: new THREE.Euler(0, 0, zAngle), castShadow: true });
+    } else if (isGlass || type === 'french' || style === 'french' || style === 'glass_grid' || style === 'glass_bottom_panel' || style === 'patio_multi_slide' || style === 'patio_bifold') {
         const shapeType = entity && entity.doorShape ? entity.doorShape : 'square';
         const halfSide = (entity.doorType === 'double' || entity.doorType === 'french' || entity.doorType === 'double_french') ? -signX : 0;
         const isArched = (shapeType !== 'square');
-        const frameW = 3.5;
-        const topRailH = 3.5;
-        const botRailH = (style === 'glass_bottom_panel') ? height * 0.28 : 5;
+        const frameW = style === 'patio_multi_slide' ? 2.2 : (style === 'patio_bifold' ? 2.8 : 3.5);
+        const topRailH = style === 'patio_multi_slide' ? 2.2 : (style === 'patio_bifold' ? 2.8 : 3.5);
+        const botRailH = (style === 'glass_bottom_panel') ? height * 0.28 : (style === 'patio_multi_slide' ? 3.0 : 5);
 
         if (isArched) {
             // Build unified arched stile & rail frame with inner glass cutout
@@ -975,7 +1316,7 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
     } else if (type === 'folding_lead') { 
         const pullGeo = new THREE.BoxGeometry(0.8, 14, thickness + 1.2); 
         builder.addNode({ geometry: pullGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3((width/2 - 1.5) * -signX, handleY, 0), castShadow: true, userData: { isHandle: true } });
-    } else if (['single', 'double', 'french'].includes(type)) {
+    } else if (['single', 'double', 'french'].includes(type) && !Boolean(style && style.startsWith('gate_'))) {
         const hZF = thickness/2; const hZB = -thickness/2;
         const leverX = (width/2 - 3.5) * signX;
         
@@ -1001,8 +1342,31 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         const faceplateGeo = new THREE.BoxGeometry(0.1, 4, 1.2);
         builder.addNode({ geometry: faceplateGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3((width/2 + 0.05) * signX, handleY, 0), castShadow: true, userData: { isHandle: true } });
 
+    } else if (Boolean(style && style.startsWith('gate_')) && ['single', 'double', 'french'].includes(type)) {
+        // Heavy-duty sliding bolt latch on gate
+        const latchX = (width/2 - 4.5) * signX;
+        const latchBackplateGeo = new THREE.BoxGeometry(3.0, 10.0, 0.4);
+        const boltRodGeo = new THREE.CylinderGeometry(0.35, 0.35, 12.0, 16);
+        boltRodGeo.rotateZ(Math.PI / 2);
+        const boltKnobGeo = new THREE.CylinderGeometry(0.3, 0.3, 1.8, 12);
+        boltKnobGeo.rotateX(Math.PI / 2);
+
+        [-thickness/2 - 0.2, thickness/2 + 0.2].forEach(zPos => {
+            builder.addNode({ geometry: latchBackplateGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(latchX, handleY, zPos), castShadow: true, userData: { isHandle: true } });
+            builder.addNode({ geometry: boltRodGeo, materialOverride: silverMat, parent: group, position: new THREE.Vector3(latchX + 1.5 * signX, handleY, zPos + (zPos > 0 ? 0.3 : -0.3)), castShadow: true, userData: { isHandle: true } });
+            builder.addNode({ geometry: boltKnobGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(latchX, handleY, zPos + (zPos > 0 ? 0.9 : -0.9)), castShadow: true, userData: { isHandle: true } });
+        });
+
+        // Vertical ground drop-bolt on double gates
+        if (type === 'double' && signX === 1) {
+            const dropRodGeo = new THREE.CylinderGeometry(0.35, 0.35, 20.0, 16);
+            const dropGuideGeo = new THREE.BoxGeometry(2.0, 3.0, 1.5);
+            builder.addNode({ geometry: dropRodGeo, materialOverride: silverMat, parent: group, position: new THREE.Vector3(width/2 - 2, 8, thickness/2 + 0.3), castShadow: true, userData: { isHandle: true } });
+            builder.addNode({ geometry: dropGuideGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(width/2 - 2, 5, thickness/2 + 0.3), castShadow: true, userData: { isHandle: true } });
+            builder.addNode({ geometry: dropGuideGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(width/2 - 2, 14, thickness/2 + 0.3), castShadow: true, userData: { isHandle: true } });
+        }
     }
-    if (['single', 'double', 'french', 'folding_main'].includes(type) && signX !== 0) { 
+    if (['single', 'double', 'french', 'folding_main'].includes(type) && signX !== 0 && !Boolean(style && style.startsWith('gate_'))) { 
         const hingeW = 0.8, hingeD = 4.2;
         const hingeGeo = new THREE.BoxGeometry(hingeW, hingeD, 0.15);
         const barrelGeo = new THREE.CylinderGeometry(0.3, 0.3, hingeD, 16);
@@ -1279,17 +1643,21 @@ export const WIDGET_REGISTRY = {
                 return geo;
             };
 
+            const isGate = Boolean((entity.doorStyle && entity.doorStyle.startsWith('gate_')) || entity.doorType === 'gate');
             const isGlassDoor = matLeafKey === 'glass'; 
             const jambW = 0.75; const stopW = 1.25; const stopThick = 0.4; const archW = 2.75; const archThick = 0.5;
-            const frameWidth = jambW; const frameThick = entity.thick + 0.2; const doorThick = 1.4; // Frame lines wall cutout; door leaf is 35 mm slim real-world BIM depth 
-            const gapSide = 0.12; const gapTop = 0.12; 
+            const frameWidth = isGate ? 0 : jambW; 
+            const frameThick = entity.thick + 0.2; 
+            const doorThick = isGate ? 2.0 : 1.4; // Gates use sturdy 50mm structural hollow section depth
+            const gapSide = isGate ? 1.0 : 0.12; 
+            const gapTop = isGate ? 0.5 : 0.12; 
             
             // Threshold — separate optional piece sitting ON the floor (NOT a bottom frame)
             // Real doors: Header + Left Jamb + Right Jamb + optional Threshold. No bottom frame member.
             const isPocket = entity.doorType === 'pocket';
-            const hasThreshold = !isPocket && entity.hasThreshold !== false; // default: true, but false for pocket
-            const tHeight = hasThreshold ? 0.9 : 0; // 22.86mm (~20-25mm range) when present
-            const doorClearance = 0.35; // 8.89mm gap between door bottom and threshold top (or floor)
+            const hasThreshold = !isPocket && !isGate && entity.hasThreshold !== false; // Gates have no threshold
+            const tHeight = hasThreshold ? 0.9 : 0; 
+            const doorClearance = isGate ? 2.0 : 0.35; // 50mm bottom clearance for gates
             const gapBottom = tHeight + doorClearance; // door leaf Y starts here
             
             if (hasThreshold) {
@@ -1300,11 +1668,13 @@ export const WIDGET_REGISTRY = {
                 builder.addNode({ geometry: thresholdGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, position: new THREE.Vector3(0, -bottomY + tHeight/2, 0), castShadow: true, receiveShadow: true, userData: { isThreshold: true, isFrame: true } });
             }
             
-            // Sill plate — fills the below-floor gap in the wall cutout (wallBottom=-1 to floor=0)
-            const sillHeight = 1.0; 
-            const totalFrameW = entity.width + archW * 2 - jambW * 2;
-            const sillGeo = rotateUvs(createBeveledExtrude(totalFrameW, sillHeight, frameThick, 0.01));
-            builder.addNode({ geometry: sillGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, position: new THREE.Vector3(0, -bottomY - sillHeight/2, 0), receiveShadow: true, userData: { isSillPlate: true, isFrame: true } });
+            if (!isGate) {
+                // Sill plate — fills the below-floor gap in the wall cutout (wallBottom=-1 to floor=0)
+                const sillHeight = 1.0; 
+                const totalFrameW = entity.width + archW * 2 - jambW * 2;
+                const sillGeo = rotateUvs(createBeveledExtrude(totalFrameW, sillHeight, frameThick, 0.01));
+                builder.addNode({ geometry: sillGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, position: new THREE.Vector3(0, -bottomY - sillHeight/2, 0), receiveShadow: true, userData: { isSillPlate: true, isFrame: true } });
+            }
             
             const slWidth = (entity.hasSidelights && (!entity.doorShape || entity.doorShape === 'square') && !['pocket', 'sliding'].includes(entity.doorType)) ? Math.min(60, entity.width * 0.22) : 0;
             const leafWidth = entity.width - (frameWidth * 2) - (gapSide * 2) - (slWidth * 2); const leafHeight = height - frameWidth - gapTop - gapBottom;
@@ -1330,150 +1700,215 @@ export const WIDGET_REGISTRY = {
             contactShadow.position.set(0, -bottomY + 0.02, 0);
             
             const shapeType = entity.doorShape || 'square';
-            if (entity.doorType !== 'pocket' || shapeType !== 'square') {
-                if (shapeType === 'square') {
-                    if (entity.doorType !== 'pocket') {
-                        // Clean Butt Joints for Jambs (Head Jamb between Side Jambs)
-                    const jamHeight = height + bottomY;
-                    const jamY = jamHeight/2 - bottomY;
-                    const jamGeo = createBeveledExtrude(jambW, jamHeight, frameThick); 
-                    const jamL = builder.addNode({ geometry: jamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); jamL.position.set(-entity.width/2 + jambW/2, jamY, 0); 
-                    const jamR = builder.addNode({ geometry: jamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); jamR.position.set(entity.width/2 - jambW/2, jamY, 0); 
-                    const jamTGeo = rotateUvs(createBeveledExtrude(entity.width - jambW*2, jambW, frameThick)); 
-                    const jamT = builder.addNode({ geometry: jamTGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); jamT.position.set(0, height - jambW/2, 0);
-                    
-                    // Stops (Rebate) & Gasket
-                    const swingDir = entity.facing === 1 ? 1 : -1;
-                    const stopZ = -swingDir * (doorThick/2 + stopThick/2);
-                    const stopBottom = -bottomY + tHeight;
-                    const stopH = (height - jambW) - stopBottom;
-                    const stopY = stopBottom + stopH/2;
-                    const stopGeoV = createBeveledExtrude(stopW, stopH, stopThick, 0.02); 
-                    const stopL = builder.addNode({ geometry: stopGeoV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); stopL.position.set(-entity.width/2 + jambW + stopW/2, stopY, stopZ); 
-                    const stopR = builder.addNode({ geometry: stopGeoV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); stopR.position.set(entity.width/2 - jambW - stopW/2, stopY, stopZ);
-                    const stopGeoH = rotateUvs(createBeveledExtrude(entity.width - jambW*2 - stopW*2, stopW, stopThick, 0.02)); 
-                    const stopT = builder.addNode({ geometry: stopGeoH, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); stopT.position.set(0, height - jambW - stopW/2, stopZ);
-                    
-                    const gasketMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 }); 
-                    const gaskGeo = new THREE.BoxGeometry(0.1, stopH, 0.1); 
-                    const gaskL = builder.addNode({ geometry: gaskGeo, materialOverride: gasketMat, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } }); gaskL.position.set(-entity.width/2 + jambW + stopW + 0.05, stopY, doorThick/2 + 0.05); 
-                    const gaskR = builder.addNode({ geometry: gaskGeo, materialOverride: gasketMat, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } }); gaskR.position.set(entity.width/2 - jambW - stopW - 0.05, stopY, doorThick/2 + 0.05); 
-                    const gaskGeoH = new THREE.BoxGeometry(entity.width - jambW*2 - stopW*2, 0.1, 0.1); 
-                    const gaskT = builder.addNode({ geometry: gaskGeoH, materialOverride: gasketMat, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } }); gaskT.position.set(0, height - jambW - stopW - 0.05, doorThick/2 + 0.05);
-                    
-                    // Architraves (Clean Butt Joints)
-                    const archHeight = height + bottomY;
-                    const archY = archHeight/2 - bottomY;
-                    const archV = createBeveledExtrude(archW, archHeight, archThick); 
-                    const archHgeo = rotateUvs(createBeveledExtrude(entity.width + archW*2, archW, archThick));
-                    
-                    [-frameThick/2 - archThick/2 + 0.05, frameThick/2 + archThick/2 - 0.05].forEach(zOff => { 
-                        const tL = builder.addNode({ geometry: archV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); tL.position.set(-entity.width/2 - archW/2 + jambW, archY, zOff); 
-                        const tR = builder.addNode({ geometry: archV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); tR.position.set(entity.width/2 + archW/2 - jambW, archY, zOff); 
-                        const tT = builder.addNode({ geometry: archHgeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); tT.position.set(0, height + archW/2, zOff); 
-                    });
-                    
-                    if (slWidth > 0) {
-                        const innerJamGeo = createBeveledExtrude(jambW, height - jambW + bottomY, frameThick);
-                        const iJamL = builder.addNode({ geometry: innerJamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); iJamL.position.set(-entity.width/2 + jambW + slWidth - jambW/2, (height - jambW + bottomY)/2 - bottomY, 0);
-                        const iJamR = builder.addNode({ geometry: innerJamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); iJamR.position.set(entity.width/2 - jambW - slWidth + jambW/2, (height - jambW + bottomY)/2 - bottomY, 0);
-                        
-                        const slGlassW = slWidth - jambW;
-                        const slBotGeo = createBeveledExtrude(slGlassW, 5, frameThick);
-                        const slBotL = builder.addNode({ geometry: slBotGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } }); slBotL.position.set(-entity.width/2 + jambW + slGlassW/2, 2.5, 0);
-                        const slBotR = builder.addNode({ geometry: slBotGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } }); slBotR.position.set(entity.width/2 - jambW - slGlassW/2, 2.5, 0);
-                        
-                        const glassMatKey = entity.materials?.[MaterialSlots.GLASS]?.id || 'glass_clear';
-                        const glassMat = helpers.getDynamicMaterial(glassMatKey, 'door');
-                        const slGlassGeo = new THREE.BoxGeometry(slGlassW, height - jambW - 5, 0.4);
-                        const glassL = builder.addNode({ geometry: slGlassGeo, materialOverride: glassMat, slot: MaterialSlots.GLASS, parent: doorGroup, userData: { isGlass: true } }); glassL.position.set(-entity.width/2 + jambW + slGlassW/2, 5 + (height - jambW - 5)/2, 0);
-                        const glassR = builder.addNode({ geometry: slGlassGeo, materialOverride: glassMat, slot: MaterialSlots.GLASS, parent: doorGroup, userData: { isGlass: true } }); glassR.position.set(entity.width/2 - jambW - slGlassW/2, 5 + (height - jambW - 5)/2, 0);
-                    }
-                    }
-                } else {
-                    const createArchedFrameShape = (wOuter, hOuter, wInner, hInner, type) => {
-                        const shape = new THREE.Shape();
-                        const hwO = wOuter / 2;
-                        const hwI = wInner / 2;
-                        
-                        shape.moveTo(-hwO, -bottomY);
-                        if (type === 'radius') {
-                            const strHO = Math.max(0, hOuter - hwO);
-                            shape.lineTo(-hwO, strHO);
-                            if (hwO > 0) shape.absarc(0, strHO, hwO, Math.PI, 0, true);
-                        } else if (type === 'segment') {
-                            const riseO = wOuter * 0.15;
-                            const strHO = Math.max(0, hOuter - riseO);
-                            shape.lineTo(-hwO, strHO);
-                            shape.quadraticCurveTo(0, hOuter + riseO*0.5, hwO, strHO);
-                        } else if (type === 'gothic') {
-                            const strHO = Math.max(0, hOuter - (wOuter * 0.7));
-                            shape.lineTo(-hwO, strHO);
-                            shape.quadraticCurveTo(-hwO * 0.2, hOuter, 0, hOuter);
-                            shape.quadraticCurveTo(hwO * 0.2, hOuter, hwO, strHO);
-                        }
-                        
-                        shape.lineTo(hwO, -bottomY);
-                        shape.lineTo(hwI, -bottomY);
-                        
-                        if (type === 'radius') {
-                            const strHI = Math.max(0, hInner - hwI);
-                            shape.lineTo(hwI, strHI);
-                            if (hwI > 0) shape.absarc(0, strHI, hwI, 0, Math.PI, false);
-                        } else if (type === 'segment') {
-                            const riseI = wInner * 0.15;
-                            const strHI = Math.max(0, hInner - riseI);
-                            shape.lineTo(hwI, strHI);
-                            shape.quadraticCurveTo(0, hInner + riseI*0.5, -hwI, strHI);
-                        } else if (type === 'gothic') {
-                            const strHI = Math.max(0, hInner - (wInner * 0.7));
-                            shape.lineTo(hwI, strHI);
-                            shape.quadraticCurveTo(hwI * 0.2, hInner, 0, hInner);
-                            shape.quadraticCurveTo(-hwI * 0.2, hInner, -hwI, strHI);
-                        }
-                        
-                        shape.lineTo(-hwI, -bottomY);
-                        shape.lineTo(-hwO, -bottomY);
-                        return shape;
-                    };
-                    const normalizeArchedFrameUVs = (geo, w, h, depth) => {
-                        const uvs = geo.attributes.uv;
-                        const pos = geo.attributes.position;
-                        const norm = geo.attributes.normal;
-                        if (!uvs || !pos) return geo;
-                        const hw = w / 2;
-                        const totalH = h + bottomY;
-                        const d = depth || 15;
-                        for (let i = 0; i < uvs.count; i++) {
-                            const vx = pos.getX(i);
-                            const vy = pos.getY(i);
-                            const vz = pos.getZ(i);
-                            const nz = norm ? norm.getZ(i) : 1;
-                            if (Math.abs(nz) > 0.5) {
-                                uvs.setXY(i, (vx + hw) / w, (vy + bottomY) / totalH);
-                            } else {
-                                uvs.setXY(i, (vz + d / 2) / d, (vy + bottomY) / totalH);
+            if (!isGate) {
+                if (entity.doorType !== 'pocket' || shapeType !== 'square') {
+                    if (shapeType === 'square') {
+                        if (entity.doorType !== 'pocket') {
+                            // Clean Butt Joints for Jambs (Head Jamb between Side Jambs)
+                            const jamHeight = height + bottomY;
+                            const jamY = jamHeight/2 - bottomY;
+                            const jamGeo = createBeveledExtrude(jambW, jamHeight, frameThick); 
+                            const jamL = builder.addNode({ geometry: jamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); jamL.position.set(-entity.width/2 + jambW/2, jamY, 0); 
+                            const jamR = builder.addNode({ geometry: jamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); jamR.position.set(entity.width/2 - jambW/2, jamY, 0); 
+                            const jamTGeo = rotateUvs(createBeveledExtrude(entity.width - jambW*2, jambW, frameThick)); 
+                            const jamT = builder.addNode({ geometry: jamTGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); jamT.position.set(0, height - jambW/2, 0);
+                            
+                            // Stops (Rebate) & Gasket
+                            const swingDir = entity.facing === 1 ? 1 : -1;
+                            const stopZ = -swingDir * (doorThick/2 + stopThick/2);
+                            const stopBottom = -bottomY + tHeight;
+                            const stopH = (height - jambW) - stopBottom;
+                            const stopY = stopBottom + stopH/2;
+                            const stopGeoV = createBeveledExtrude(stopW, stopH, stopThick, 0.02); 
+                            const stopL = builder.addNode({ geometry: stopGeoV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); stopL.position.set(-entity.width/2 + jambW + stopW/2, stopY, stopZ); 
+                            const stopR = builder.addNode({ geometry: stopGeoV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); stopR.position.set(entity.width/2 - jambW - stopW/2, stopY, stopZ);
+                            const stopGeoH = rotateUvs(createBeveledExtrude(entity.width - jambW*2 - stopW*2, stopW, stopThick, 0.02)); 
+                            const stopT = builder.addNode({ geometry: stopGeoH, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); stopT.position.set(0, height - jambW - stopW/2, stopZ);
+                            
+                            const gasketMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 }); 
+                            const gaskGeo = new THREE.BoxGeometry(0.1, stopH, 0.1); 
+                            const gaskL = builder.addNode({ geometry: gaskGeo, materialOverride: gasketMat, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } }); gaskL.position.set(-entity.width/2 + jambW + stopW + 0.05, stopY, doorThick/2 + 0.05); 
+                            const gaskR = builder.addNode({ geometry: gaskGeo, materialOverride: gasketMat, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } }); gaskR.position.set(entity.width/2 - jambW - stopW - 0.05, stopY, doorThick/2 + 0.05); 
+                            const gaskGeoH = new THREE.BoxGeometry(entity.width - jambW*2 - stopW*2, 0.1, 0.1); 
+                            const gaskT = builder.addNode({ geometry: gaskGeoH, materialOverride: gasketMat, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } }); gaskT.position.set(0, height - jambW - stopW - 0.05, doorThick/2 + 0.05);
+                            
+                            // Architraves (Clean Butt Joints)
+                            const archHeight = height + bottomY;
+                            const archY = archHeight/2 - bottomY;
+                            const archV = createBeveledExtrude(archW, archHeight, archThick); 
+                            const archHgeo = rotateUvs(createBeveledExtrude(entity.width + archW*2, archW, archThick));
+                            
+                            [-frameThick/2 - archThick/2 + 0.05, frameThick/2 + archThick/2 - 0.05].forEach(zOff => { 
+                                const tL = builder.addNode({ geometry: archV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); tL.position.set(-entity.width/2 - archW/2 + jambW, archY, zOff); 
+                                const tR = builder.addNode({ geometry: archV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); tR.position.set(entity.width/2 + archW/2 - jambW, archY, zOff); 
+                                const tT = builder.addNode({ geometry: archHgeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); tT.position.set(0, height + archW/2, zOff); 
+                            });
+                            
+                            if (slWidth > 0) {
+                                const innerJamGeo = createBeveledExtrude(jambW, height - jambW + bottomY, frameThick);
+                                const iJamL = builder.addNode({ geometry: innerJamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); iJamL.position.set(-entity.width/2 + jambW + slWidth - jambW/2, (height - jambW + bottomY)/2 - bottomY, 0);
+                                const iJamR = builder.addNode({ geometry: innerJamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); iJamR.position.set(entity.width/2 - jambW - slWidth + jambW/2, (height - jambW + bottomY)/2 - bottomY, 0);
+                                
+                                const slGlassW = slWidth - jambW;
+                                const slBotGeo = createBeveledExtrude(slGlassW, 5, frameThick);
+                                const slBotL = builder.addNode({ geometry: slBotGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } }); slBotL.position.set(-entity.width/2 + jambW + slGlassW/2, 2.5, 0);
+                                const slBotR = builder.addNode({ geometry: slBotGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } }); slBotR.position.set(entity.width/2 - jambW - slGlassW/2, 2.5, 0);
+                                
+                                const glassMatKey = entity.materials?.[MaterialSlots.GLASS]?.id || 'glass_clear';
+                                const glassMat = helpers.getDynamicMaterial(glassMatKey, 'door');
+                                const slGlassGeo = new THREE.BoxGeometry(slGlassW, height - jambW - 5, 0.4);
+                                const glassL = builder.addNode({ geometry: slGlassGeo, materialOverride: glassMat, slot: MaterialSlots.GLASS, parent: doorGroup, userData: { isGlass: true } }); glassL.position.set(-entity.width/2 + jambW + slGlassW/2, 5 + (height - jambW - 5)/2, 0);
+                                const glassR = builder.addNode({ geometry: slGlassGeo, materialOverride: glassMat, slot: MaterialSlots.GLASS, parent: doorGroup, userData: { isGlass: true } }); glassR.position.set(entity.width/2 - jambW - slGlassW/2, 5 + (height - jambW - 5)/2, 0);
                             }
                         }
-                        uvs.needsUpdate = true;
-                        return geo;
-                    };
+                    } else {
+                        const createArchedFrameShape = (wOuter, hOuter, wInner, hInner, type) => {
+                            const shape = new THREE.Shape();
+                            const hwO = wOuter / 2;
+                            const hwI = wInner / 2;
+                            
+                            shape.moveTo(-hwO, -bottomY);
+                            if (type === 'radius') {
+                                const strHO = Math.max(0, hOuter - hwO);
+                                shape.lineTo(-hwO, strHO);
+                                if (hwO > 0) shape.absarc(0, strHO, hwO, Math.PI, 0, true);
+                            } else if (type === 'segment') {
+                                const riseO = wOuter * 0.15;
+                                const strHO = Math.max(0, hOuter - riseO);
+                                shape.lineTo(-hwO, strHO);
+                                shape.quadraticCurveTo(0, hOuter + riseO*0.5, hwO, strHO);
+                            } else if (type === 'gothic') {
+                                const strHO = Math.max(0, hOuter - (wOuter * 0.7));
+                                shape.lineTo(-hwO, strHO);
+                                shape.quadraticCurveTo(-hwO * 0.2, hOuter, 0, hOuter);
+                                shape.quadraticCurveTo(hwO * 0.2, hOuter, hwO, strHO);
+                            }
+                            
+                            shape.lineTo(hwO, -bottomY);
+                            shape.lineTo(hwI, -bottomY);
+                            
+                            if (type === 'radius') {
+                                const strHI = Math.max(0, hInner - hwI);
+                                shape.lineTo(hwI, strHI);
+                                if (hwI > 0) shape.absarc(0, strHI, hwI, 0, Math.PI, false);
+                            } else if (type === 'segment') {
+                                const riseI = wInner * 0.15;
+                                const strHI = Math.max(0, hInner - riseI);
+                                shape.lineTo(hwI, strHI);
+                                shape.quadraticCurveTo(0, hInner + riseI*0.5, -hwI, strHI);
+                            } else if (type === 'gothic') {
+                                const strHI = Math.max(0, hInner - (wInner * 0.7));
+                                shape.lineTo(hwI, strHI);
+                                shape.quadraticCurveTo(hwI * 0.2, hInner, 0, hInner);
+                                shape.quadraticCurveTo(-hwI * 0.2, hInner, -hwI, strHI);
+                            }
+                            
+                            shape.lineTo(-hwI, -bottomY);
+                            shape.lineTo(-hwO, -bottomY);
+                            return shape;
+                        };
+                        const normalizeArchedFrameUVs = (geo, w, h, depth) => {
+                            const uvs = geo.attributes.uv;
+                            const pos = geo.attributes.position;
+                            const norm = geo.attributes.normal;
+                            if (!uvs || !pos) return geo;
+                            const hw = w / 2;
+                            const totalH = h + bottomY;
+                            const d = depth || 15;
+                            for (let i = 0; i < uvs.count; i++) {
+                                const vx = pos.getX(i);
+                                const vy = pos.getY(i);
+                                const vz = pos.getZ(i);
+                                const nz = norm ? norm.getZ(i) : 1;
+                                if (Math.abs(nz) > 0.5) {
+                                    uvs.setXY(i, (vx + hw) / w, (vy + bottomY) / totalH);
+                                } else {
+                                    uvs.setXY(i, (vz + d / 2) / d, (vy + bottomY) / totalH);
+                                }
+                            }
+                            uvs.needsUpdate = true;
+                            return geo;
+                        };
+                        
+                        const frameShape = createArchedFrameShape(entity.width, height, entity.width - (frameWidth * 2), height - frameWidth, shapeType);
+                        const jamGeo = new THREE.ExtrudeGeometry(frameShape, { depth: frameThick, bevelEnabled: false });
+                        jamGeo.translate(0, 0, -frameThick/2);
+                        normalizeArchedFrameUVs(jamGeo, entity.width, height, frameThick);
+                        const jam = builder.addNode({ geometry: jamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } });
+                        jam.position.set(0, 0, 0);
+                        
+                        [-frameThick/2 - 0.25, frameThick/2 + 0.25].forEach(zOff => {
+                            const trimShape = createArchedFrameShape(entity.width + 8, height + 4, entity.width - (frameWidth * 2), height - frameWidth, shapeType);
+                            const trimGeo = new THREE.ExtrudeGeometry(trimShape, { depth: 0.5, bevelEnabled: false });
+                            trimGeo.translate(0, 0, -0.25);
+                            normalizeArchedFrameUVs(trimGeo, entity.width + 8, height + 4, 0.5);
+                            const trim = builder.addNode({ geometry: trimGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } });
+                            trim.position.set(0, 0, zOff);
+                        });
+                    }
+                }
+            } else {
+                // Compound Gates have NO door frame; instead they use heavy wall mounting clamps & pintles
+                const clampMat = helpers.getDynamicMaterial(frameMatKey || 'metal_dark_steel', 'door');
+                const clampMatMetal = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.85, roughness: 0.25 });
+                const isDoubleGate = ['double', 'french'].includes(entity.doorType);
+                const isSlidingGate = entity.doorType === 'sliding' || entity.doorType === 'double_sliding' || entity.doorStyle === 'gate_driveway_sliding';
+
+                if (isSlidingGate) {
+                    // Wall-mounted guide roller brackets at top and bottom track stops
+                    const rollerBracketGeo = createBeveledExtrude(4, 5, 2.5, 0.05);
+                    const rollerWheelGeo = new THREE.CylinderGeometry(1.2, 1.2, 2.0, 16);
+                    rollerWheelGeo.rotateX(Math.PI / 2);
                     
-                    const frameShape = createArchedFrameShape(entity.width, height, entity.width - (frameWidth * 2), height - frameWidth, shapeType);
-                    const jamGeo = new THREE.ExtrudeGeometry(frameShape, { depth: frameThick, bevelEnabled: false });
-                    jamGeo.translate(0, 0, -frameThick/2);
-                    normalizeArchedFrameUVs(jamGeo, entity.width, height, frameThick);
-                    const jam = builder.addNode({ geometry: jamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } });
-                    jam.position.set(0, 0, 0);
-                    
-                    [-frameThick/2 - 0.25, frameThick/2 + 0.25].forEach(zOff => {
-                        const trimShape = createArchedFrameShape(entity.width + 8, height + 4, entity.width - (frameWidth * 2), height - frameWidth, shapeType);
-                        const trimGeo = new THREE.ExtrudeGeometry(trimShape, { depth: 0.5, bevelEnabled: false });
-                        trimGeo.translate(0, 0, -0.25);
-                        normalizeArchedFrameUVs(trimGeo, entity.width + 8, height + 4, 0.5);
-                        const trim = builder.addNode({ geometry: trimGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } });
-                        trim.position.set(0, 0, zOff);
+                    [-entity.width / 2 + 1, entity.width / 2 - 1].forEach(gx => {
+                        builder.addNode({ geometry: rollerBracketGeo, materialOverride: clampMat, slot: MaterialSlots.FRAME, parent: doorGroup, position: new THREE.Vector3(gx, height - 3, 0), castShadow: true, receiveShadow: true, userData: { isFrame: true } });
+                        builder.addNode({ geometry: rollerWheelGeo, materialOverride: clampMatMetal, slot: MaterialSlots.HARDWARE, parent: doorGroup, position: new THREE.Vector3(gx, height - 3, doorThick / 2 + 1.2), castShadow: true, userData: { isHandle: true } });
+                        builder.addNode({ geometry: rollerWheelGeo, materialOverride: clampMatMetal, slot: MaterialSlots.HARDWARE, parent: doorGroup, position: new THREE.Vector3(gx, height - 3, -doorThick / 2 - 1.2), castShadow: true, userData: { isHandle: true } });
                     });
+                    const catchGeo = createBeveledExtrude(3.5, 12, 4, 0.05);
+                    builder.addNode({ geometry: catchGeo, materialOverride: clampMat, slot: MaterialSlots.FRAME, parent: doorGroup, position: new THREE.Vector3(entity.width / 2 - 1.5, 6, 0), castShadow: true, receiveShadow: true, userData: { isFrame: true } });
+                } else {
+                    // Swing Gate Hinge Clamp Assemblies
+                    const clampH = 6; const clampW = 3.5; const clampThick = 1.0;
+                    const hingePinRadius = 0.55; const hingePinH = 5.5;
+                    const clampFlangeGeo = createBeveledExtrude(clampW, clampH, clampThick, 0.04);
+                    const pintleGeo = new THREE.CylinderGeometry(hingePinRadius, hingePinRadius, hingePinH, 16);
+                    const strapClampGeo = createBeveledExtrude(4.0, 2.2, doorThick + 0.6, 0.04);
+                    const boltGeo = new THREE.CylinderGeometry(0.25, 0.25, doorThick + 1.2, 12);
+                    boltGeo.rotateX(Math.PI / 2);
+
+                    const clampHeights = height > 160 ? [height * 0.18, height * 0.5, height * 0.82] : [height * 0.25, height * 0.75];
+                    
+                    const renderClampSide = (sign) => {
+                        const wallEdgeX = (entity.width / 2 - clampW / 2) * sign;
+                        const pinX = (entity.width / 2 - clampW - hingePinRadius) * sign;
+                        const strapX = (entity.width / 2 - clampW - hingePinRadius - 1.5) * sign;
+
+                        clampHeights.forEach(cy => {
+                            builder.addNode({ geometry: clampFlangeGeo, materialOverride: clampMat, slot: MaterialSlots.FRAME, parent: doorGroup, position: new THREE.Vector3(wallEdgeX, cy, 0), castShadow: true, receiveShadow: true, userData: { isFrame: true } });
+                            builder.addNode({ geometry: pintleGeo, materialOverride: clampMatMetal, slot: MaterialSlots.HARDWARE, parent: doorGroup, position: new THREE.Vector3(pinX, cy, 0), castShadow: true, userData: { isHandle: true } });
+                            builder.addNode({ geometry: strapClampGeo, materialOverride: clampMat, slot: MaterialSlots.FRAME, parent: doorGroup, position: new THREE.Vector3(strapX, cy, 0), castShadow: true, receiveShadow: true, userData: { isFrame: true } });
+                            builder.addNode({ geometry: boltGeo, materialOverride: clampMatMetal, slot: MaterialSlots.HARDWARE, parent: doorGroup, position: new THREE.Vector3(strapX, cy, 0), castShadow: true, userData: { isHandle: true } });
+                        });
+                    };
+
+                    if (isDoubleGate) {
+                        renderClampSide(-1);
+                        renderClampSide(1);
+
+                        const dropStopGeo = createBeveledExtrude(3.0, 1.2, 5.0, 0.04);
+                        builder.addNode({ geometry: dropStopGeo, materialOverride: clampMatMetal, slot: MaterialSlots.HARDWARE, parent: doorGroup, position: new THREE.Vector3(0, 0.6, 0), castShadow: true, userData: { isHandle: true } });
+                    } else {
+                        const hingeSign = entity.side === 1 ? 1 : -1;
+                        renderClampSide(hingeSign);
+
+                        const strikeClampSign = -hingeSign;
+                        const strikeX = (entity.width / 2 - clampW / 2) * strikeClampSign;
+                        const strikePlateGeo = createBeveledExtrude(clampW, 14, clampThick, 0.04);
+                        const strikeCatchGeo = createBeveledExtrude(2.5, 6, 2.5, 0.04);
+                        builder.addNode({ geometry: strikePlateGeo, materialOverride: clampMat, slot: MaterialSlots.FRAME, parent: doorGroup, position: new THREE.Vector3(strikeX, height * 0.45, 0), castShadow: true, receiveShadow: true, userData: { isFrame: true } });
+                        builder.addNode({ geometry: strikeCatchGeo, materialOverride: clampMatMetal, slot: MaterialSlots.HARDWARE, parent: doorGroup, position: new THREE.Vector3(strikeX - 1.2 * strikeClampSign, height * 0.45, 0), castShadow: true, userData: { isHandle: true } });
+                    }
                 }
             }
             const isArched = (shapeType !== 'square');
