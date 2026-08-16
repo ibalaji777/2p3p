@@ -20,6 +20,7 @@ import { CameraController } from "./camera/CameraController.js";
 import { NavigationCube } from "./camera/NavigationCube.js";
 import { ThumbnailGenerator } from "./ThumbnailGenerator.js";
 import { MaterialFactory } from "./engine3d/MaterialFactory.js";
+import { MaterialManager } from "./engine3d/MaterialManager.js";
 import { UniversalMaterialManager } from "./engine3d/UniversalMaterialManager.js";
 import { RenderCoordinator } from "./engine3d/RenderCoordinator.js";
 import { coreEventBus } from './EventBus.js';
@@ -168,7 +169,7 @@ export class Preview3D {
                 const isWall = entity && (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'wall' || entity.startX !== undefined);
                 const applyTex = (mat, texKey, faceW, faceH, faceName) => {
                     if (!texKey) return;
-                    const config = resolveMaterialConfig(texKey);
+                    const config = MaterialManager.resolveMaterialConfig(texKey);
                     if (config) {
                         MaterialFactory.buildPBRMaterial({
                             material: mat,

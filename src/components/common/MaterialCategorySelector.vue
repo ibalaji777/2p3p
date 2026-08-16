@@ -78,20 +78,23 @@ const availableOptions = computed(() => {
             { value: 'steel', label: 'Steel' },
             { value: 'glass', label: 'Glass' }
         ];
-    } else if (type === 'wall' || type === 'wallDecor' || type === 'floor') {
+    } else if (type === 'wall' || type === 'wallDecor' || type === 'inner' || type === 'outer' || type === 'floor') {
         return [
-            { value: 'stone', label: 'Stone' },
-            { value: 'glass', label: 'Glass' },
+            { value: 'stone', label: 'Natural Stone' },
+            { value: 'brick', label: 'Brick & Masonry' },
+            { value: 'marble', label: 'Marble & Granite' },
+            { value: 'wall_decor', label: 'Wall Finishes' },
             { value: 'wood', label: 'Wood' }
         ];
     } else {
         // Generic components: Furniture, Shapes, Widgets, etc.
         return [
+            { value: 'stone', label: 'Natural Stone' },
+            { value: 'brick', label: 'Brick & Masonry' },
             { value: 'wood', label: 'Wood' },
             { value: 'metal', label: 'Metal' },
             { value: 'plastic', label: 'Plastic' },
             { value: 'glass', label: 'Glass' },
-            { value: 'stone', label: 'Stone' },
             { value: 'fabric', label: 'Fabric' }
         ];
     }
@@ -99,6 +102,10 @@ const availableOptions = computed(() => {
 
 const onMaterialCategoryChange = () => {
     const categoryDefaults = {
+        'stone': 'stone_stacked_fieldstone',
+        'brick': 'brick_3_red',
+        'marble': 'marble_carrara',
+        'wall_decor': 'brick_wall',
         'wood': 'wood_golden_teak',
         'wpc': 'wpc',
         'pvc': 'pvc_matte',
@@ -111,7 +118,6 @@ const onMaterialCategoryChange = () => {
         // Legacy fallback support for previously assigned categories
         'metal': 'metal_brushed_aluminum',
         'plastic': 'upvc_white',
-        'stone': 'marble_calacatta_gold',
         'fabric': 'caban_neutral'
     };
     

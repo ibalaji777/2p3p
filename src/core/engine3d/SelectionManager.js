@@ -23,7 +23,7 @@ export class SelectionManager {
         } else {
             this._updateWallHighlightShape(object, this.system.wallHighlight);
         }
-        if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
+        if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
         return { type: 'wall', side: object.userData.side };
     }
 

@@ -13,6 +13,7 @@ import {
     GLASS_REGISTRY, 
     MARBLE_REGISTRY, 
     STONE_REGISTRY, 
+    BRICK_REGISTRY,
     METAL_REGISTRY, 
     DOOR_MATERIALS,
     WINDOW_FRAME_MATERIALS,
@@ -88,6 +89,7 @@ export class MaterialManager {
                              GLASS_REGISTRY[matKey] ||
                              MARBLE_REGISTRY[matKey] ||
                              STONE_REGISTRY[matKey] ||
+                             BRICK_REGISTRY[matKey] ||
                              METAL_REGISTRY[matKey] ||
                              PLASTIC_REGISTRY[matKey] ||
                              LEATHER_REGISTRY[matKey] ||

@@ -1,7 +1,7 @@
 import { EVENTS } from '../registry.js';
 import { coreEventBus } from '../EventBus.js';
 import * as THREE from 'three';
-import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, WOOD_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY, FABRIC_REGISTRY, LEATHER_REGISTRY, FLOOR_REGISTRY, GLASS_REGISTRY, METAL_REGISTRY, STONE_REGISTRY, MARBLE_REGISTRY, PLASTIC_REGISTRY, parseCompositeMaterialKey, resolveFabricConfig, getFabricBaseConfig } from '../registry.js';
+import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, WOOD_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY, FABRIC_REGISTRY, LEATHER_REGISTRY, FLOOR_REGISTRY, GLASS_REGISTRY, METAL_REGISTRY, STONE_REGISTRY, BRICK_REGISTRY, MARBLE_REGISTRY, PLASTIC_REGISTRY, parseCompositeMaterialKey, resolveFabricConfig, getFabricBaseConfig } from '../registry.js';
 import { MaterialFactory } from './MaterialFactory.js';
 import { UniversalMaterialManager } from './UniversalMaterialManager.js';
 import { BIMMaterialSystem } from './BIMMaterialSystem.js';
@@ -920,7 +920,7 @@ export class GizmoManager {
                                         if (entity.type === 'door' || entity.type === 'window') registry = Object.assign({}, WOOD_REGISTRY, GLASS_REGISTRY);
                                         else if (entity.type === 'roof') registry = ROOF_DECOR_REGISTRY;
                                         
-                                        const config = (key && registry[key]) ? registry[key] : (key ? (GLASS_REGISTRY[key] || MARBLE_REGISTRY[key] || STONE_REGISTRY[key] || METAL_REGISTRY[key] || WALL_DECOR_REGISTRY[key]) : null);
+                                        const config = (key && registry[key]) ? registry[key] : (key ? (GLASS_REGISTRY[key] || MARBLE_REGISTRY[key] || STONE_REGISTRY[key] || BRICK_REGISTRY[key] || METAL_REGISTRY[key] || WALL_DECOR_REGISTRY[key]) : null);
                                         if (config) {
                                             MaterialFactory.applyPBRMaterial(meshToApply, config, this.ctx, effectiveMatIndex);
                                         } else {
@@ -1105,17 +1105,19 @@ export class GizmoManager {
             const clearGlass3dThumb = glassPreviewRenderer.renderGlassThumbnail('clear', GLASS_REGISTRY.clear);
 
             const cats = [
+                { id: 'stone', title: 'Natural Stone', count: getCount(STONE_REGISTRY), desc: 'Rustic stacked fieldstone, charcoal cleft slate, and Roman travertine limestone.', iconBg: 'rgba(16, 185, 129, 0.25)', iconColor: '#10b981', iconSvg: '<polygon points="12 2 2 7 12 22 22 7 12 2"/>', sphereGrad: 'radial-gradient(circle at 40% 30%, #cbd5e1, #64748b 55%, #334155 85%, #0f172a 100%)', sphereColor: '#64748b', sampleBg: getSampleBg(STONE_REGISTRY) },
+                { id: 'brick', title: 'Bricks & Masonry', count: getCount(BRICK_REGISTRY), desc: 'Classic red brick, orange textured, dark burgundy, and rustic masonry.', iconBg: 'rgba(239, 68, 68, 0.25)', iconColor: '#ef4444', iconSvg: '<rect x="2" y="4" width="20" height="16" rx="1"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="4" x2="12" y2="12"/><line x1="7" y1="12" x2="7" y2="20"/><line x1="17" y1="12" x2="17" y2="20"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #f87171, #b91c1c 50%, #7f1d1d 85%, #450a0a 100%)', sphereColor: '#b91c1c', sampleBg: getSampleBg(BRICK_REGISTRY) },
+                { id: 'marble', title: 'Marble & Granite', count: getCount(MARBLE_REGISTRY), desc: 'Luxurious Italian Carrara, Nero Marquina black, and polished Calacatta gold marble slabs.', iconBg: 'rgba(236, 72, 153, 0.25)', iconColor: '#ec4899', iconSvg: '<polygon points="12 2 2 7 12 22 22 7 12 2"/>', sphereGrad: 'radial-gradient(circle at 40% 30%, #f1f5f9, #94a3b8 55%, #475569 85%, #0f172a 100%)', sphereColor: '#94a3b8', sampleBg: getSampleBg(MARBLE_REGISTRY) },
                 { id: 'wood', title: 'Wood / Veneer', count: getCount(WOOD_REGISTRY), desc: 'Warm, natural timber grains and high-end polished architectural wood veneers.', iconBg: 'rgba(120, 53, 15, 0.35)', iconColor: '#f59e0b', iconSvg: '<path d="M12 2L6 12h3v8h6v-8h3L12 2z"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #d97706, #78350f 50%, #451a03 90%)', sphereColor: '#78350f', sampleBg: getSampleBg(WOOD_REGISTRY) },
+                { id: 'wall_decor', title: 'Wall Decor', count: getCount(WALL_DECOR_REGISTRY), desc: 'Exterior plaster, interior paints, and decorative wall textures.', iconBg: 'rgba(59, 130, 246, 0.25)', iconColor: '#3b82f6', iconSvg: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #93c5fd, #2563eb 50%, #1e40af 85%)', sphereColor: '#2563eb', sampleBg: getSampleBg(WALL_DECOR_REGISTRY) },
                 { id: 'fabric', title: 'Fabric / Decor', count: getCount(FABRIC_REGISTRY), desc: 'Soft materials and decorative fabrics for furniture, walls and decor.', iconBg: 'rgba(249, 115, 22, 0.25)', iconColor: '#f97316', iconSvg: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 15h10M7 9h10"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #fdba74, #ea580c 50%, #9a3412 85%, #431407 100%)', sphereColor: '#ea580c', sampleBg: getSampleBg(FABRIC_REGISTRY) },
                 { id: 'metal', title: 'Metals', count: getCount(METAL_REGISTRY), desc: 'Brushed aluminum, polished chrome, structural steel and luxury decorative anodized finishes.', iconBg: 'rgba(100, 116, 139, 0.35)', iconColor: '#94a3b8', iconSvg: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.72 1.05 1.33 1.28H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>', sphereGrad: 'linear-gradient(135deg, #e2e8f0 0%, #64748b 45%, #f8fafc 50%, #334155 100%)', sphereColor: '#94a3b8', sampleBg: getSampleBg(METAL_REGISTRY) },
                 { id: 'glass', title: 'Glass', count: getCount(GLASS_REGISTRY), desc: 'Clear tempered glass, architectural privacy frosting and energy-efficient tinted glazing.', iconBg: 'rgba(6, 182, 212, 0.25)', iconColor: '#06b6d4', iconSvg: '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/>', sphereGrad: '', sphereColor: '#06b6d4', sampleBg: `background-image: url('${clearGlass3dThumb}'); background-size: cover; background-position: center;` },
-                { id: 'marble', title: 'Marble', count: getCount(MARBLE_REGISTRY), desc: 'Luxurious Italian Carrara, Nero Marquina black, and polished Calacatta gold marble slabs.', iconBg: 'rgba(236, 72, 153, 0.25)', iconColor: '#ec4899', iconSvg: '<polygon points="12 2 2 7 12 22 22 7 12 2"/>', sphereGrad: 'radial-gradient(circle at 40% 30%, #f1f5f9, #94a3b8 55%, #475569 85%, #0f172a 100%)', sphereColor: '#94a3b8', sampleBg: getSampleBg(MARBLE_REGISTRY) },
-                { id: 'stone', title: 'Natural Stone', count: getCount(STONE_REGISTRY), desc: 'Rustic stacked fieldstone, charcoal cleft slate, and Roman travertine limestone.', iconBg: 'rgba(16, 185, 129, 0.25)', iconColor: '#10b981', iconSvg: '<polygon points="12 2 2 7 12 22 22 7 12 2"/>', sphereGrad: 'radial-gradient(circle at 40% 30%, #cbd5e1, #64748b 55%, #334155 85%, #0f172a 100%)', sphereColor: '#64748b', sampleBg: getSampleBg(STONE_REGISTRY) },
                 { id: 'plastic', title: 'Plastics', count: getCount(PLASTIC_REGISTRY), desc: 'Matte black polycarbonates, glossy PVC trims, lightweight laminates and composite plastics.', iconBg: 'rgba(168, 85, 247, 0.25)', iconColor: '#a855f7', iconSvg: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>', sphereGrad: 'radial-gradient(circle at 35% 30%, #52525b, #27272a 60%, #09090b 100%)', sphereColor: '#27272a', sampleBg: getSampleBg(PLASTIC_REGISTRY) },
                 { id: 'leather', title: 'Leather', count: getCount(LEATHER_REGISTRY), desc: 'Supple aniline leathers, embossed hides, and eco-friendly artificial leather upholstery.', iconBg: 'rgba(180, 83, 9, 0.25)', iconColor: '#d97706', iconSvg: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #b45309, #713f12 55%, #422006 90%, #1c0f04 100%)', sphereColor: '#713f12', sampleBg: getSampleBg(LEATHER_REGISTRY) }
             ];
             
-            let activeCatId = this._lastSelectedCat || 'fabric';
+            let activeCatId = this._lastSelectedCat || 'stone';
             let categoryThumbnails = '';
             for (const cat of cats) {
                 const isSelected = cat.id === activeCatId;
@@ -1142,7 +1144,7 @@ export class GizmoManager {
                 
                 const updateCategorySelection = (catId) => {
                     this._lastSelectedCat = catId;
-                    const catObj = cats.find(c => c.id === catId) || cats[1];
+                    const catObj = cats.find(c => c.id === catId) || cats[0];
                     catThumbs.forEach(el => {
                         el.classList.toggle('active-card', el.getAttribute('data-cat') === catId);
                     });
@@ -1183,7 +1185,7 @@ export class GizmoManager {
         `;
         let registry = null;
         let activeGroup = null;
-        const ALL_REGISTRY = Object.assign({}, WOOD_REGISTRY, METAL_REGISTRY, PLASTIC_REGISTRY, GLASS_REGISTRY, STONE_REGISTRY, MARBLE_REGISTRY, FABRIC_REGISTRY, LEATHER_REGISTRY, TILE_REGISTRY, ROOF_REGISTRY, FLOOR_REGISTRY, WALL_REGISTRY);
+        const ALL_REGISTRY = Object.assign({}, WOOD_REGISTRY, METAL_REGISTRY, PLASTIC_REGISTRY, GLASS_REGISTRY, STONE_REGISTRY, BRICK_REGISTRY, MARBLE_REGISTRY, FABRIC_REGISTRY, LEATHER_REGISTRY, TILE_REGISTRY, ROOF_REGISTRY, FLOOR_REGISTRY, WALL_REGISTRY);
 
         // 1. Precise Universal Sub-Component Resolution (Takes absolute precedence)
         let texKey = null;
@@ -1213,6 +1215,7 @@ export class GizmoManager {
             else if (PLASTIC_REGISTRY[texKey]) registry = PLASTIC_REGISTRY;
             else if (GLASS_REGISTRY[texKey]) registry = GLASS_REGISTRY;
             else if (STONE_REGISTRY[texKey]) registry = STONE_REGISTRY;
+            else if (BRICK_REGISTRY[texKey]) registry = BRICK_REGISTRY;
             else if (MARBLE_REGISTRY[texKey]) registry = MARBLE_REGISTRY;
             else if (FABRIC_REGISTRY[texKey]) registry = FABRIC_REGISTRY;
             else if (LEATHER_REGISTRY[texKey]) registry = LEATHER_REGISTRY;
@@ -1261,7 +1264,16 @@ export class GizmoManager {
                     break;
                 case 'glass': registry = GLASS_REGISTRY; break;
                 case 'marble': registry = MARBLE_REGISTRY; break;
-                case 'stone': registry = STONE_REGISTRY; break;
+                case 'stone':
+                case 'stones':
+                    registry = STONE_REGISTRY;
+                    activeGroup = null;
+                    break;
+                case 'brick':
+                case 'bricks':
+                    registry = BRICK_REGISTRY;
+                    activeGroup = null;
+                    break;
                 case 'tile': registry = TILE_REGISTRY; break;
                 case 'fabric': registry = FABRIC_REGISTRY; break;
                 case 'leather': registry = LEATHER_REGISTRY; break;
@@ -1270,6 +1282,7 @@ export class GizmoManager {
                 case 'wall':
                 case 'outer':
                 case 'inner':
+                case 'wall_decor':
                     registry = WALL_REGISTRY;
                     break;
             }
@@ -1284,7 +1297,8 @@ export class GizmoManager {
         if (registry === WOOD_REGISTRY) title = 'Wood / Veneer';
         else if (registry === METAL_REGISTRY) title = 'Metals';
         else if (registry === GLASS_REGISTRY) title = 'Glass';
-        else if (registry === STONE_REGISTRY) title = 'Stone';
+        else if (registry === STONE_REGISTRY) title = 'Natural Stone';
+        else if (registry === BRICK_REGISTRY) title = 'Bricks & Masonry';
         else if (registry === MARBLE_REGISTRY) title = 'Marble';
         else if (registry === TILE_REGISTRY) title = 'Tiles';
         else if (registry === FABRIC_REGISTRY) title = 'Fabric / Decor';
@@ -1340,6 +1354,28 @@ export class GizmoManager {
                                 <div class="mat-card-title" style="font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f8fafc;">${label}</div>
                                 <div class="mat-card-sub" style="color: #94a3b8; font-size: 11px; font-weight: 500;">Marble</div>
                                 <div class="mat-card-select-btn">Selected</div>
+                            </div>
+                        </div>
+                    `;
+                } else if (materialCategory === 'stone' || materialCategory === 'stones' || registry === STONE_REGISTRY) {
+                    decorThumbnails += `
+                        <div class="mat-card mat-thumb is-stone-card" data-mat="${key}" ${groupAttr} title="${label}">
+                            <div class="mat-card-selected-checkmark" style="background: #10b981; color: #ffffff; top: 12px; right: 12px;">✓</div>
+                            <div class="mat-sphere" id="mat-thumb-${key}" style="${sphereStyle}"></div>
+                            <div style="width: 100%; padding: 4px 2px 2px 2px;">
+                                <div class="mat-card-title" style="font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f8fafc;">${label}</div>
+                                <div class="mat-card-sub" style="color: #10b981; font-weight: 600; letter-spacing: 0.5px;">Natural Stone</div>
+                            </div>
+                        </div>
+                    `;
+                } else if (materialCategory === 'brick' || materialCategory === 'bricks' || registry === BRICK_REGISTRY) {
+                    decorThumbnails += `
+                        <div class="mat-card mat-thumb is-brick-card" data-mat="${key}" ${groupAttr} title="${label}">
+                            <div class="mat-card-selected-checkmark" style="background: #ef4444; color: #ffffff; top: 12px; right: 12px;">✓</div>
+                            <div class="mat-sphere" id="mat-thumb-${key}" style="${sphereStyle}"></div>
+                            <div style="width: 100%; padding: 4px 2px 2px 2px;">
+                                <div class="mat-card-title" style="font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f8fafc;">${label}</div>
+                                <div class="mat-card-sub" style="color: #f87171; font-weight: 600; letter-spacing: 0.5px;">Brick & Masonry</div>
                             </div>
                         </div>
                     `;
@@ -2487,6 +2523,8 @@ export class GizmoManager {
                     activeGizmos = GIZMO_REGISTRY.shape;
                 } else if (selectedObj.userData.isFurniture || (selectedObj.userData.entity && (selectedObj.userData.entity.type === 'furniture' || selectedObj.userData.entity.isFurniture))) {
                     activeGizmos = ['material', 'move', 'place', 'scale', 'spin', 'tilt'];
+                } else if (selectedObj.userData.isWallSide || selectedObj.userData.isWallMesh || type === 'outer' || type === 'inner' || type === 'wall') {
+                    activeGizmos = GIZMO_REGISTRY.wall || ['material'];
                 } else if (supportsFaceMaterials) {
                     activeGizmos = GIZMO_REGISTRY.face_material_obj;
                 }
@@ -2592,10 +2630,22 @@ export class GizmoManager {
             if (this.btnMaterial) this.btnMaterial.classList.add('active');
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
-            if (this.materialPanel) this.materialPanel.style.display = 'none'; // HIDDEN initially, waits for face click
             if (this.cornerPanel) this.cornerPanel.style.display = 'none';
-            if (this.ctx.interactions.materialGizmo && selectedObj) {
-                this.ctx.interactions.materialGizmo.attach(selectedObj);
+
+            const isWall = selectedObj && (selectedObj.userData.isWallSide || selectedObj.userData.isWallMesh || entity.type === 'outer' || entity.type === 'inner' || entity.type === 'wall');
+            const targetToAttach = (isWall && selectedObj.parent) ? selectedObj.parent : selectedObj;
+
+            if (this.ctx.interactions.materialGizmo && targetToAttach) {
+                this.ctx.interactions.materialGizmo.attach(targetToAttach);
+            }
+
+            if (isWall) {
+                const side = selectedObj.userData?.side || 'front';
+                const matIdx = side === 'back' ? 5 : 4;
+                const wallMesh = entity.wallMesh3D || (selectedObj.parent && selectedObj.parent.userData?.wallMesh) || selectedObj;
+                this.onMaterialFaceSelected(side, -1, wallMesh, matIdx, 'categories');
+            } else if (this.materialPanel) {
+                this.materialPanel.style.display = 'none'; // HIDDEN initially for multi-face objects, waits for face click
             }
             return;
         }

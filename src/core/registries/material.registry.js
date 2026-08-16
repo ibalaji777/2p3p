@@ -713,70 +713,80 @@ export const STONE_REGISTRY = {
         name: 'Rough Hewn Fieldstone',
         texture: 'models/wall/stone.png',
         thumbnail: 'models/wall/stone.png',
-        roughness: 0.85, defaultTileSize: 60
+        roughness: 0.85, defaultTileSize: 60, realWorldSize: 60
+    }
+};
+
+export const BRICK_REGISTRY = {
+    'brick_3_red': {
+        id: 'brick_3_red',
+        name: 'Classic Red Brick',
+        texture: 'models/wall/brick_3_red.png',
+        thumbnail: 'models/wall/brick_3_red.png',
+        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
     },
     'brick_1_orange': {
         id: 'brick_1_orange',
-        name: 'Orange Textured Brick Stone',
+        name: 'Orange Textured Brick',
         texture: 'models/wall/brick_1_orange.png',
         thumbnail: 'models/wall/brick_1_orange.png',
-        roughness: 0.75
+        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
     },
     'brick_2_mixed': {
         id: 'brick_2_mixed',
-        name: 'Mixed Brown Brick Stone',
+        name: 'Mixed Brown Brick',
         texture: 'models/wall/brick_2_mixed.png',
         thumbnail: 'models/wall/brick_2_mixed.png',
-        roughness: 0.75
-    },
-    'brick_3_red': {
-        id: 'brick_3_red',
-        name: 'Classic Red Brick Stone',
-        texture: 'models/wall/brick_3_red.png',
-        thumbnail: 'models/wall/brick_3_red.png',
-        roughness: 0.75
+        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
     },
     'brick_4_burgundy': {
         id: 'brick_4_burgundy',
-        name: 'Dark Burgundy Brick Stone',
+        name: 'Dark Burgundy Brick',
         texture: 'models/wall/brick_4_burgundy.png',
         thumbnail: 'models/wall/brick_4_burgundy.png',
-        roughness: 0.75
+        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
     },
     'brick_5_cream': {
         id: 'brick_5_cream',
-        name: 'Cream Sand Brick Stone',
+        name: 'Cream Sand Brick',
         texture: 'models/wall/brick_5_cream.png',
         thumbnail: 'models/wall/brick_5_cream.png',
-        roughness: 0.75
+        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
     },
     'brick_6_beige': {
         id: 'brick_6_beige',
-        name: 'Light Beige Brick Stone',
+        name: 'Light Beige Brick',
         texture: 'models/wall/brick_6_beige.png',
         thumbnail: 'models/wall/brick_6_beige.png',
-        roughness: 0.75
+        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
     },
     'brick_7_yellow': {
         id: 'brick_7_yellow',
-        name: 'Yellow Ochre Brick Stone',
+        name: 'Yellow Ochre Brick',
         texture: 'models/wall/brick_7_yellow.png',
         thumbnail: 'models/wall/brick_7_yellow.png',
-        roughness: 0.75
+        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
     },
     'brick_8_white': {
         id: 'brick_8_white',
-        name: 'White Grey Brick Stone',
+        name: 'White Grey Brick',
         texture: 'models/wall/brick_8_white.png',
         thumbnail: 'models/wall/brick_8_white.png',
-        roughness: 0.75
+        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
     },
     'brick_9_grey': {
         id: 'brick_9_grey',
-        name: 'Grey Brown Brick Stone',
+        name: 'Grey Brown Brick',
         texture: 'models/wall/brick_9_grey.png',
         thumbnail: 'models/wall/brick_9_grey.png',
-        roughness: 0.75
+        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
+    },
+    'brick_wall': {
+        id: 'brick_wall',
+        name: 'Red Bricks',
+        texture: 'models/wall/redbrick.png',
+        thumbnail: 'models/wall/redbrick.png',
+        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
     }
 };
 
@@ -934,69 +944,69 @@ export const MARBLE_REGISTRY = {
         name: 'Italian Calacatta',
         texture: 'textures/marbles/marble_calacatta_gold.png',
         thumbnail: 'textures/marbles/marble_calacatta_gold.png',
-        roughness: 0.12, clearcoat: 0.90, defaultRepeat: 1
+        roughness: 0.12, clearcoat: 0.90, defaultTileSize: 160, realWorldSize: 160
     },
     'marble_statuario_venato': {
         id: 'marble_statuario_venato',
         name: 'High-Contrast Statuario',
         texture: 'textures/marbles/marble_statuario_venato.png',
         thumbnail: 'textures/marbles/marble_statuario_venato.png',
-        roughness: 0.10, clearcoat: 0.95, defaultRepeat: 1
+        roughness: 0.10, clearcoat: 0.95, defaultTileSize: 160, realWorldSize: 160
     },
     'marble_blue_sodalite': {
         id: 'marble_blue_sodalite',
         name: 'Royal Sodalite Blue',
         texture: 'textures/marbles/marble_blue_sodalite.png',
         thumbnail: 'textures/marbles/marble_blue_sodalite.png',
-        roughness: 0.12, clearcoat: 0.90, defaultRepeat: 1
+        roughness: 0.12, clearcoat: 0.90, defaultTileSize: 160, realWorldSize: 160
     },
     'marble_onyx_amber': {
         id: 'marble_onyx_amber',
         name: 'Translucent Honey Onyx',
         texture: 'textures/marbles/marble_onyx_amber.png',
         thumbnail: 'textures/marbles/marble_onyx_amber.png',
-        roughness: 0.08, clearcoat: 0.98, defaultRepeat: 1
+        roughness: 0.08, clearcoat: 0.98, defaultTileSize: 160, realWorldSize: 160
     },
     'marble_sahara_noir': {
         id: 'marble_sahara_noir',
         name: 'Sahara Noir',
         texture: 'textures/marbles/marble_sahara_noir.png',
         thumbnail: 'textures/marbles/marble_sahara_noir.png',
-        roughness: 0.10, clearcoat: 0.92, defaultRepeat: 1
+        roughness: 0.10, clearcoat: 0.92, defaultTileSize: 160, realWorldSize: 160
     },
     'marble_carrara': {
         id: 'marble_carrara',
         name: 'Italian Carrara White',
         texture: 'textures/marbles/marble_carrara.png',
         thumbnail: 'textures/marbles/marble_carrara.png',
-        color: 0xeeeeee, roughness: 0.15, clearcoat: 0.85, defaultRepeat: 1
+        color: 0xeeeeee, roughness: 0.15, clearcoat: 0.85, defaultTileSize: 160, realWorldSize: 160
     },
     'marble_nero_marquina': {
         id: 'marble_nero_marquina',
         name: 'Nero Marquina Black',
         texture: 'textures/marbles/marble_nero_marquina.png',
         thumbnail: 'textures/marbles/marble_nero_marquina.png',
-        color: 0x222222, roughness: 0.12, clearcoat: 0.90, defaultRepeat: 1
+        color: 0x222222, roughness: 0.12, clearcoat: 0.90, defaultTileSize: 160, realWorldSize: 160
     },
     'marble_verde_guatemala': {
         id: 'marble_verde_guatemala',
         name: 'Emerald Verde Guatemala',
         texture: 'textures/marbles/marble_verde_guatemala.png',
         thumbnail: 'textures/marbles/marble_verde_guatemala.png',
-        roughness: 0.15, clearcoat: 0.80, defaultRepeat: 1
+        roughness: 0.15, clearcoat: 0.80, defaultTileSize: 160, realWorldSize: 160
     },
     'marble_emperador_dark': {
         id: 'marble_emperador_dark',
         name: 'Dark Emperador Chocolate',
         texture: 'textures/marbles/marble_emperador_dark.png',
         thumbnail: 'textures/marbles/marble_emperador_dark.png',
-        roughness: 0.18, clearcoat: 0.80, defaultRepeat: 1
+        roughness: 0.18, clearcoat: 0.80, defaultTileSize: 160, realWorldSize: 160
     },
     'marble_calacatta_viola': {
         id: 'marble_calacatta_viola',
         name: 'Italian Calacatta Viola',
         texture: 'textures/marbles/marble_calacatta_viola.png',
         thumbnail: 'textures/marbles/marble_calacatta_viola.png',
-        roughness: 0.14, clearcoat: 0.88, defaultRepeat: 1
+        roughness: 0.14, clearcoat: 0.88, defaultTileSize: 160, realWorldSize: 160
     }
 };
