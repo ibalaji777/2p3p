@@ -36,7 +36,11 @@ export const WallSerializer = {
                 facing: wid.facing, side: wid.side, 
                 rows: wid.rows, cols: wid.cols, spacing: wid.spacing, patternStyle: wid.patternStyle, decorConfigId: wid.decorConfigId,
                 doorType: wid.doorType, 
-                windowType: wid.windowType, grillePattern: wid.grillePattern,
+                doorShape: wid.doorShape || wid.params?.doorShape,
+                doorStyle: wid.doorStyle || wid.params?.doorStyle,
+                windowType: wid.windowType,
+                windowShape: wid.windowShape || wid.params?.windowShape,
+                grillePattern: wid.grillePattern,
                 description: wid.description,
                 materials: wid.materials || {},
                 params: wid.params || {}

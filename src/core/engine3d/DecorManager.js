@@ -168,7 +168,9 @@ export class DecorManager {
             const hole_h = yMax - cut_iy_min;
             const yMid = cut_iy_min + hole_h / 2;
 
-            if (type === 'arch_opening') {
+            const shapeType = widg.doorShape || widg.windowShape || widg.params?.doorShape || widg.params?.windowShape || widg.config?.doorShape || widg.config?.windowShape || widg.shape || (widg.configId === 'entry_arched_double' || type === 'arch_opening' ? 'radius' : 'square');
+
+            if (shapeType === 'radius' || shapeType === 'arch' || shapeType === 'arched' || type === 'arch_opening') {
                 const radius = halfW_hole;
                 const straightH = Math.max(0, hole_h - radius);
                 hole.moveTo(local_wx_min, cut_iy_min);
@@ -176,6 +178,22 @@ export class DecorManager {
                 hole.lineTo(local_wx_max, cut_iy_min + straightH);
                 if (radius > 0) hole.absarc(hCenter, cut_iy_min + straightH, radius, 0, Math.PI, false);
                 else hole.lineTo(local_wx_min, cut_iy_min + straightH);
+                hole.lineTo(local_wx_min, cut_iy_min);
+            } else if (shapeType === 'segment') {
+                const rise = (local_wx_max - local_wx_min) * 0.15;
+                const straightH = Math.max(0, hole_h - rise);
+                hole.moveTo(local_wx_min, cut_iy_min);
+                hole.lineTo(local_wx_max, cut_iy_min);
+                hole.lineTo(local_wx_max, cut_iy_min + straightH);
+                hole.quadraticCurveTo(hCenter, cut_iy_min + hole_h + rise*0.5, local_wx_min, cut_iy_min + straightH);
+                hole.lineTo(local_wx_min, cut_iy_min);
+            } else if (shapeType === 'gothic') {
+                const straightH = Math.max(0, hole_h - ((local_wx_max - local_wx_min) * 0.7));
+                hole.moveTo(local_wx_min, cut_iy_min);
+                hole.lineTo(local_wx_max, cut_iy_min);
+                hole.lineTo(local_wx_max, cut_iy_min + straightH);
+                hole.quadraticCurveTo(hCenter + halfW_hole * 0.2, yMax, hCenter, yMax);
+                hole.quadraticCurveTo(hCenter - halfW_hole * 0.2, yMax, local_wx_min, cut_iy_min + straightH);
                 hole.lineTo(local_wx_min, cut_iy_min);
             } else if (type === 'circular_opening') {
                 hole.moveTo(local_wx_max, yMid);

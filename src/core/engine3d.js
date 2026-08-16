@@ -396,6 +396,15 @@ export class Preview3D {
             // Re-fetch materials based on entity.params
             const mats = this.helpers.getFaceMaterials(entity, baseMat, { width: w, height: h }).box;
             
+            const p = entity.params || {};
+            const fallbackMat = p.textureFront ? mats[4] : (p.textureBack ? mats[5] : (p.texture ? mats[4] : null));
+            if (fallbackMat) {
+                if (!p.textureRight && !p.textureSides && !p.texture) mats[0] = fallbackMat;
+                if (!p.textureLeft && !p.textureSides && !p.texture) mats[1] = fallbackMat;
+                if (!p.textureTop && !p.textureSides && !p.texture) mats[2] = fallbackMat;
+                if (!p.textureBottom && !p.textureSides && !p.texture) mats[3] = fallbackMat;
+            }
+
             // Find the actual wall mesh (not hitboxes or widgets)
             const wallMesh = obj.children ? obj.children.find(c => c.isMesh && !c.userData.isHitbox && !c.userData.isWallSide) : null;
             if (wallMesh) {

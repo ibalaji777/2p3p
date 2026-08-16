@@ -1683,12 +1683,21 @@ export class FloorPlanner {
                                 if (wd.facing !== undefined) widget.facing = wd.facing;
                                 if (wd.side !== undefined) widget.side = wd.side;
                                 if (wd.doorType) widget.doorType = wd.doorType;
+                                if (wd.doorShape) widget.doorShape = wd.doorShape;
+                                if (wd.doorStyle) widget.doorStyle = wd.doorStyle;
                                 if (wd.doorMat) widget.doorMat = wd.doorMat;
                                 if (wd.windowType) widget.windowType = wd.windowType;
+                                if (wd.windowShape) widget.windowShape = wd.windowShape;
                                 if (wd.frameMat) widget.frameMat = wd.frameMat;
                                 if (wd.glassMat) widget.glassMat = wd.glassMat;
                                 if (wd.grillePattern) widget.grillePattern = wd.grillePattern;
                                 if (wd.grilleProfile) widget.grilleProfile = wd.grilleProfile;
+                                if (wd.params) {
+                                    if (wd.params.doorShape) widget.doorShape = wd.params.doorShape;
+                                    if (wd.params.doorStyle) widget.doorStyle = wd.params.doorStyle;
+                                    if (wd.params.windowShape) widget.windowShape = wd.params.windowShape;
+                                    widget.params = { ...(widget.params || {}), ...wd.params };
+                                }
                                 wall.attachedWidgets.push(widget); 
                             }
                         }); 

@@ -388,6 +388,16 @@ export class MaterialFactory {
                 targetIdx = targetMesh.material.length === 2 ? 0 : (targetMesh.material.length - 1);
             }
             targetMesh.material[targetIdx] = newMat;
+
+            // For 6-sided base walls, keep cutout edges and unpainted sides in sync with the primary painted face
+            const isWall = targetEntity && (targetEntity.type === 'outer' || targetEntity.type === 'inner' || targetEntity.type === 'wall' || targetEntity.startX !== undefined);
+            if (isWall && targetMesh.material.length === 6 && (targetIdx === 4 || targetIdx === 5)) {
+                const p = targetEntity.params || {};
+                if (!p.textureRight && !p.textureSides && !p.texture) targetMesh.material[0] = newMat;
+                if (!p.textureLeft && !p.textureSides && !p.texture) targetMesh.material[1] = newMat;
+                if (!p.textureTop && !p.textureSides && !p.texture) targetMesh.material[2] = newMat;
+                if (!p.textureBottom && !p.textureSides && !p.texture) targetMesh.material[3] = newMat;
+            }
         } else {
             targetMesh.material = newMat;
         }

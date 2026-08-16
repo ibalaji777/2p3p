@@ -294,13 +294,34 @@ export class HighlightRenderer {
                     const hole = new THREE.Path();
                     const hCenter = wCenter - cx;
 
-                    if (type === 'arch_opening') {
+                    const shapeType = widg.doorShape || widg.windowShape || widg.params?.doorShape || widg.params?.windowShape || widg.config?.doorShape || widg.config?.windowShape || widg.shape || (type === 'arch_opening' || widg.configId === 'entry_arched_double' ? 'radius' : 'square');
+
+                    if (shapeType === 'radius' || shapeType === 'arch' || shapeType === 'arched' || type === 'arch_opening') {
                         const radius = halfOpeningW;
                         const straightH = Math.max(0, (hy_max - hy_min) - radius);
                         hole.moveTo(hx_min, hy_min);
                         hole.lineTo(hx_max, hy_min);
                         hole.lineTo(hx_max, hy_min + straightH);
                         if (radius > 0) hole.absarc(hCenter, hy_min + straightH, radius, 0, Math.PI, false);
+                        else hole.lineTo(hx_min, hy_min + straightH);
+                        hole.lineTo(hx_min, hy_min);
+                        shape.holes.push(hole);
+                    } else if (shapeType === 'segment') {
+                        const rise = widg.width * 0.15;
+                        const straightH = Math.max(0, (hy_max - hy_min) - rise);
+                        hole.moveTo(hx_min, hy_min);
+                        hole.lineTo(hx_max, hy_min);
+                        hole.lineTo(hx_max, hy_min + straightH);
+                        hole.quadraticCurveTo(hCenter, hy_min + (hy_max - hy_min) + rise*0.5, hx_min, hy_min + straightH);
+                        hole.lineTo(hx_min, hy_min);
+                        shape.holes.push(hole);
+                    } else if (shapeType === 'gothic') {
+                        const straightH = Math.max(0, (hy_max - hy_min) - (widg.width * 0.7));
+                        hole.moveTo(hx_min, hy_min);
+                        hole.lineTo(hx_max, hy_min);
+                        hole.lineTo(hx_max, hy_min + straightH);
+                        hole.quadraticCurveTo(hCenter + halfOpeningW * 0.2, hy_max, hCenter, hy_max);
+                        hole.quadraticCurveTo(hCenter - halfOpeningW * 0.2, hy_max, hx_min, hy_min + straightH);
                         hole.lineTo(hx_min, hy_min);
                         shape.holes.push(hole);
                     } else if (type === 'circular_opening') {

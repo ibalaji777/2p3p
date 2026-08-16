@@ -100,25 +100,42 @@ export class Wall3DBuilder {
             shearGeo(wallGeo);
         }
 
-        // Manually generate UVs to prevent texture stretching across openings.
-        // This applies a planar mapping based on the wall's local coordinates,
-        // ensuring the texture tiles correctly regardless of holes.
-        const positions = wallGeo.attributes.position;
-        const normals = wallGeo.attributes.normal;
-        if (wallGeo.attributes.uv) {
-            const uvs = wallGeo.attributes.uv;
-            const TILE_SIZE = 100; // Represents the world-space size of one texture tile (e.g., 1m).
+        // ====== MULTI-MATERIAL AND UV FIX FOR EXTRUDED WALLS ======
+        let finalWallGeo = wallGeo.index ? wallGeo.toNonIndexed() : wallGeo.clone();
+        finalWallGeo.clearGroups();
+        const pos = finalWallGeo.attributes.position;
+        const norm = finalWallGeo.attributes.normal;
+        const uvs = finalWallGeo.attributes.uv;
+        
+        finalWallGeo.computeVertexNormals();
 
-            for (let i = 0; i < positions.count; i++) {
-                // Only apply to front and back faces (where normal is along the local Z-axis).
-                if (Math.abs(normals.getZ(i)) > 0.99) {
-                    uvs.setXY(i, positions.getX(i) / TILE_SIZE, positions.getY(i) / TILE_SIZE);
+        for (let i = 0; i < pos.count; i += 3) {
+            const nx = norm.getX(i) + norm.getX(i+1) + norm.getX(i+2);
+            const ny = norm.getY(i) + norm.getY(i+1) + norm.getY(i+2);
+            const nz = norm.getZ(i) + norm.getZ(i+1) + norm.getZ(i+2);
+            const absX = Math.abs(nx);
+            const absY = Math.abs(ny);
+            const absZ = Math.abs(nz);
+            
+            let groupIdx = 0;
+            if (absX > absY && absX > absZ) groupIdx = nx > 0 ? 0 : 1;
+            else if (absY > absX && absY > absZ) groupIdx = ny > 0 ? 2 : 3;
+            else groupIdx = nz > 0 ? 4 : 5;
+            
+            finalWallGeo.addGroup(i, 3, groupIdx);
+            
+            if (uvs) {
+                for (let vIdx = i; vIdx < i + 3; vIdx++) {
+                    const vx = pos.getX(vIdx), vy = pos.getY(vIdx), vz = pos.getZ(vIdx);
+                    if (groupIdx <= 1) uvs.setXY(vIdx, vz, vy);
+                    else if (groupIdx <= 3) uvs.setXY(vIdx, vx, vz);
+                    else uvs.setXY(vIdx, vx, vy);
                 }
             }
-            uvs.needsUpdate = true;
         }
+        if (uvs) uvs.needsUpdate = true;
 
-        let materials = [this.matMain, this.matEdgeDark];
+        let materials = [this.matMain, this.matMain, this.matMain, this.matMain, this.matMain, this.matMain];
         
         if (wallData.type === 'railing') {
             const configId = wallData.configId || 'glass';
@@ -137,11 +154,11 @@ export class Wall3DBuilder {
                         opacity: rConf.opacity || 1.0, side: THREE.DoubleSide 
                     });
                 }
-                materials = [railMat, railMat];
+                materials = [railMat, railMat, railMat, railMat, railMat, railMat];
             }
         }
         
-        const wallMesh = new THREE.Mesh(wallGeo, materials);
+        const wallMesh = new THREE.Mesh(finalWallGeo, materials);
         wallMesh.castShadow = true; 
         wallMesh.receiveShadow = true;
 
@@ -151,7 +168,7 @@ export class Wall3DBuilder {
         
         wallGroup.add(wallMesh, ...extraMeshes);
 
-        return { wallGroup, wallGeo, extraInteractables };
+        return { wallGroup, wallGeo: finalWallGeo, extraInteractables };
     }
 
     createHitboxes(length, thickness, wallData, isStatic = false, levelIndex = 0, wallIndex = 0, wallHeight = WALL_HEIGHT, startX = 0, startY = 0, angle = 0) {
@@ -312,7 +329,9 @@ export class Wall3DBuilder {
             const yMax = elev + h_opening;
             const yMid = elev + h_opening / 2;
 
-            if (type === 'arch_opening') {
+            const shapeType = widg.doorShape || widg.windowShape || widg.params?.doorShape || widg.params?.windowShape || widg.config?.doorShape || widg.config?.windowShape || widg.shape || (widg.configId === 'entry_arched_double' || type === 'arch_opening' ? 'radius' : 'square');
+
+            if (shapeType === 'radius' || shapeType === 'arch' || shapeType === 'arched' || type === 'arch_opening') {
                 const radius = halfW;
                 const straightH = Math.max(0, h_opening - radius);
                 hole.moveTo(xMin, cutElev);
@@ -320,6 +339,22 @@ export class Wall3DBuilder {
                 hole.lineTo(xMax, elev + straightH);
                 if (radius > 0) hole.absarc(wCenter, elev + straightH, radius, 0, Math.PI, false);
                 else hole.lineTo(xMin, elev + straightH);
+                hole.lineTo(xMin, cutElev);
+            } else if (shapeType === 'segment') {
+                const rise = widg.width * 0.15;
+                const straightH = Math.max(0, h_opening - rise);
+                hole.moveTo(xMin, cutElev);
+                hole.lineTo(xMax, cutElev);
+                hole.lineTo(xMax, elev + straightH);
+                hole.quadraticCurveTo(wCenter, elev + h_opening + rise*0.5, xMin, elev + straightH);
+                hole.lineTo(xMin, cutElev);
+            } else if (shapeType === 'gothic') {
+                const straightH = Math.max(0, h_opening - (widg.width * 0.7));
+                hole.moveTo(xMin, cutElev);
+                hole.lineTo(xMax, cutElev);
+                hole.lineTo(xMax, elev + straightH);
+                hole.quadraticCurveTo(wCenter + halfW * 0.2, elev + h_opening, wCenter, elev + h_opening);
+                hole.quadraticCurveTo(wCenter - halfW * 0.2, elev + h_opening, xMin, elev + straightH);
                 hole.lineTo(xMin, cutElev);
             } else if (type === 'circular_opening') {
                 hole.moveTo(xMax, yMid);
