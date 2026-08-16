@@ -367,10 +367,16 @@ const sunshadeCatalog = ref([
 ]);
 
 const jaliCatalog = ref([
-    { id: 'square_grid', name: 'Square Grid', badge: 'GRID', material: 'MDF / PVC', specs: '1000 × 1000 mm', image: '', params: { pattern: 'square_grid', materials: { frame: { id: 'wood_teak' } }, width: 40, height: 40 } },
-    { id: 'geometric_honeycomb', name: 'Honeycomb', badge: 'MODERN', material: 'CNC Cut Metal', specs: '1000 × 1000 mm', image: '', params: { pattern: 'geometric_honeycomb', materials: { frame: { id: 'wood_teak' } }, width: 40, height: 40 } },
-    { id: 'mughal_star', name: 'Mughal Star', badge: 'HERITAGE', material: 'Carved Wood', specs: '1000 × 1000 mm', image: '', params: { pattern: 'mughal_star', materials: { frame: { id: 'wood_teak' } }, width: 40, height: 40 } },
-    { id: 'floral_vine', name: 'Floral Vine', badge: 'DECORATIVE', material: 'Brass Finish', specs: '1000 × 1000 mm', image: '', params: { pattern: 'floral_vine', materials: { frame: { id: 'wood_teak' } }, width: 40, height: 40 } },
+    { id: 'square_grid', name: 'Geometric Lattice', badge: 'LATTICE', material: 'Teak Wood', specs: '1000 × 1000 mm', image: '', params: { jaliPattern: 'geometric', jaliMat: 'wood', width: 60, height: 80 } },
+    { id: 'mughal_star', name: 'Islamic Star', badge: 'HERITAGE', material: 'Brass Finish', specs: '1000 × 1000 mm', image: '', params: { jaliPattern: 'islamic', jaliMat: 'brass', width: 60, height: 80 } },
+    { id: 'chettinad_jali', name: 'Chettinad Carved', badge: 'CARVED', material: 'Carved Teak', specs: '1000 × 1000 mm', image: '', params: { jaliPattern: 'chettinad', jaliMat: 'wood', width: 60, height: 80 } },
+    { id: 'lotus_motif', name: 'Lotus Motif', badge: 'FLORAL', material: 'White MDF', specs: '1000 × 1000 mm', image: '', params: { jaliPattern: 'lotus', jaliMat: 'mdf', width: 60, height: 80 } },
+    { id: 'peacock_motif', name: 'Peacock Motif', badge: 'ROYAL', material: 'Matte Black Metal', specs: '1000 × 1000 mm', image: '', params: { jaliPattern: 'peacock', jaliMat: 'metal_black', width: 60, height: 80 } },
+    { id: 'gopuram_motif', name: 'Temple Gopuram', badge: 'TEMPLE', material: 'Sandstone', specs: '1000 × 1000 mm', image: '', params: { jaliPattern: 'gopuram', jaliMat: 'stone', width: 60, height: 80 } },
+    { id: 'mango_paisley', name: 'Mango Paisley', badge: 'VINE', material: 'WPC Wood Plastic', specs: '1000 × 1000 mm', image: '', params: { jaliPattern: 'mango', jaliMat: 'wpc', width: 60, height: 80 } },
+    { id: 'kolam_rangoli', name: 'Kolam Rangoli', badge: 'KOLAM', material: 'Brass Finish', specs: '1000 × 1000 mm', image: '', params: { jaliPattern: 'kolam', jaliMat: 'brass', width: 60, height: 80 } },
+    { id: 'modern_slats', name: 'Modern Slats', badge: 'MINIMAL', material: 'Dark Walnut Wood', specs: '1000 × 1000 mm', image: '', params: { jaliPattern: 'modern', jaliMat: 'wood', width: 60, height: 80 } },
+    { id: 'vent_block', name: 'Vent Block', badge: 'VENT', material: 'Sandstone', specs: '1000 × 1000 mm', image: '', params: { jaliPattern: 'ventilation', jaliMat: 'stone', width: 60, height: 80 } },
 ]);
 
 const staircaseCatalog = ref([

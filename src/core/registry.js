@@ -1409,25 +1409,34 @@ export const WIDGET_REGISTRY = {
                 jaliGroup.rotation.y = -entity.angle;
             }
             
-            const mount = entity.jaliMount || 'flush';
+            const mount = entity.jaliMount || entity.params?.jaliMount || 'flush';
             if (mount === 'recessed') jaliGroup.translateZ(-4);
             if (mount === 'protruding') jaliGroup.translateZ(4);
             
-            const matConfig = JALI_MATERIALS[entity.jaliMat || 'wood'];
-            const matFrame = new THREE.MeshPhysicalMaterial({ 
-                color: matConfig.color, 
-                roughness: matConfig.roughness, 
-                metalness: matConfig.metalness,
-                clearcoat: matConfig.clearcoat || 0,
-                clearcoatRoughness: matConfig.clearcoatRoughness || 0
-            });
-            let matExtrude = matFrame;
-            let matBox = matFrame;
-            if (helpers && helpers.getFaceMaterials) {
-                const mm = helpers.getFaceMaterials(entity, matFrame, { width: entity.width, height: height });
-                matExtrude = mm.extrude;
-                matBox = mm.box;
-            }
+            const rawPattern = entity.jaliPattern || entity.pattern || entity.params?.jaliPattern || entity.params?.pattern || (entity.id?.includes('star') ? 'islamic' : (entity.id?.includes('chettinad') ? 'chettinad' : (entity.id?.includes('lotus') ? 'lotus' : (entity.id?.includes('peacock') ? 'peacock' : (entity.id?.includes('gopuram') ? 'gopuram' : (entity.id?.includes('kolam') ? 'kolam' : (entity.id?.includes('honeycomb') ? 'ventilation' : 'geometric')))))));
+            let jaliPattern = rawPattern;
+            if (jaliPattern === 'square_grid') jaliPattern = 'geometric';
+            else if (jaliPattern === 'geometric_honeycomb' || jaliPattern === 'honeycomb') jaliPattern = 'ventilation';
+            else if (jaliPattern === 'mughal_star' || jaliPattern === 'star') jaliPattern = 'islamic';
+            else if (jaliPattern === 'floral_vine' || jaliPattern === 'floral') jaliPattern = 'lotus';
+
+            MaterialManager.initEntityMaterials(entity);
+            const leafSlot = entity.materials?.[MaterialSlots.LEAF];
+            const frameSlot = entity.materials?.[MaterialSlots.FRAME];
+            const customSlot = entity.materials?.[MaterialSlots.CUSTOM];
+            let matKey = leafSlot?.id || frameSlot?.id || customSlot?.id || (typeof entity.materials === 'string' ? entity.materials : null) || entity.jaliMat || entity.params?.jaliMat || 'wood_golden_teak';
+            
+            const matMain = (helpers && typeof helpers.getDynamicMaterial === 'function') 
+                ? helpers.getDynamicMaterial(matKey, 'widget') 
+                : new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.5 });
+            
+            const mm = (helpers && typeof helpers.getFaceMaterials === 'function')
+                ? helpers.getFaceMaterials(entity, matMain, { width: entity.width, height: height })
+                : { box: [matMain, matMain, matMain, matMain, matMain, matMain], extrude: [matMain, matMain] };
+            
+            const matsExtrude = Array.isArray(mm.box) ? [mm.box[4] || matMain, mm.box[1] || matMain] : [matMain, matMain];
+            const matsBox = Array.isArray(mm.box) ? mm.box : matMain;
+
             const frameW = 2; const fThick = entity.thick || 2;
             const createBeveledFramePiece = (w, h, x, y, z) => {
                 const shape = new THREE.Shape();
@@ -1435,7 +1444,14 @@ export const WIDGET_REGISTRY = {
                 const extrudeSettings = { depth: fThick, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.1, bevelThickness: 0.1 };
                 const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
                 geo.translate(0, 0, -fThick/2);
-                builder.addNode({ geometry: geo, materialOverride: matExtrude, parent: jaliGroup, position: new THREE.Vector3(x, y, z), castShadow: true, receiveShadow: true });
+                const uvs = geo.attributes.uv, pos = geo.attributes.position;
+                if (uvs && pos) {
+                    for (let i = 0; i < uvs.count; i++) {
+                        uvs.setXY(i, (pos.getX(i) + w/2) / w, (pos.getY(i) + h/2) / h);
+                    }
+                    uvs.needsUpdate = true;
+                }
+                builder.addNode({ geometry: geo, slot: MaterialSlots.FRAME, materialOverride: matsExtrude, parent: jaliGroup, position: new THREE.Vector3(x, y, z), castShadow: true, receiveShadow: true });
             };
             createBeveledFramePiece(frameW, height, -entity.width/2 + frameW/2, height/2, 0);
             createBeveledFramePiece(frameW, height, entity.width/2 - frameW/2, height/2, 0);
@@ -1444,8 +1460,8 @@ export const WIDGET_REGISTRY = {
             const iW = entity.width - frameW*2; const iH = height - frameW*2; const lThick = fThick * 0.5;
             const latticeGroup = new THREE.Group(); latticeGroup.position.set(0, height/2, 0);
             
-            if (['kolam', 'lotus', 'peacock', 'gopuram', 'ventilation', 'mango', 'chettinad'].includes(entity.jaliPattern)) {
-                const targetStep = entity.jaliPatternSize || 20;
+            if (['kolam', 'lotus', 'peacock', 'gopuram', 'ventilation', 'mango', 'chettinad'].includes(jaliPattern)) {
+                const targetStep = entity.jaliPatternSize || entity.params?.jaliPatternSize || 20;
                 const cols = Math.max(1, Math.round(iW / targetStep));
                 const rows = Math.max(1, Math.round(iH / targetStep));
                 const stepX = iW / cols; const stepY = iH / rows;
@@ -1456,28 +1472,28 @@ export const WIDGET_REGISTRY = {
                 const maxSize = Math.min(stepX, stepY);
                 const hw = maxSize * 0.45; const hh = maxSize * 0.45;
                 
-                if (entity.jaliPattern === 'ventilation') {
+                if (jaliPattern === 'ventilation') {
                     const hole = new THREE.Path();
                     hole.absellipse(0, 0, hw*0.8, hh*0.8, 0, Math.PI * 2, false);
                     shape.holes.push(hole);
-                } else if (entity.jaliPattern === 'lotus') {
+                } else if (jaliPattern === 'lotus') {
                     const h1 = new THREE.Path(); h1.moveTo(0, hh*0.8); h1.quadraticCurveTo(hw*0.4, 0, 0, -hh*0.8); h1.quadraticCurveTo(-hw*0.4, 0, 0, hh*0.8);
                     const h2 = new THREE.Path(); h2.moveTo(hw*0.1, -hh*0.6); h2.quadraticCurveTo(hw*0.8, -hh*0.2, hw*0.9, hh*0.4); h2.quadraticCurveTo(hw*0.5, hh*0.1, hw*0.1, -hh*0.6);
                     const h3 = new THREE.Path(); h3.moveTo(-hw*0.1, -hh*0.6); h3.quadraticCurveTo(-hw*0.8, -hh*0.2, -hw*0.9, hh*0.4); h3.quadraticCurveTo(-hw*0.5, hh*0.1, -hw*0.1, -hh*0.6);
                     shape.holes.push(h1, h2, h3);
-                } else if (entity.jaliPattern === 'peacock') {
+                } else if (jaliPattern === 'peacock') {
                     const p = new THREE.Path();
                     p.moveTo(0, -hh); p.quadraticCurveTo(hw, -hh, hw, -hh*0.2);
                     p.quadraticCurveTo(hw*0.8, hh*0.6, 0, hh*0.8);
                     p.quadraticCurveTo(-hw*0.6, hh*0.6, -hw*0.6, 0); p.quadraticCurveTo(-hw, hh*0.2, -hw*0.8, 0);
                     p.quadraticCurveTo(-hw*0.2, -0.4, 0, -hh);
                     shape.holes.push(p);
-                } else if (entity.jaliPattern === 'gopuram') {
+                } else if (jaliPattern === 'gopuram') {
                     const t1 = new THREE.Path(); t1.moveTo(-hw*0.8, -hh*0.8); t1.lineTo(hw*0.8, -hh*0.8); t1.lineTo(hw*0.6, -hh*0.2); t1.lineTo(-hw*0.6, -hh*0.2); t1.lineTo(-hw*0.8, -hh*0.8);
                     const t2 = new THREE.Path(); t2.moveTo(-hw*0.5, -hh*0.1); t2.lineTo(hw*0.5, -hh*0.1); t2.lineTo(hw*0.3, hh*0.4); t2.lineTo(-hw*0.3, hh*0.4); t2.lineTo(-hw*0.5, -hh*0.1);
                     const t3 = new THREE.Path(); t3.moveTo(-hw*0.2, hh*0.5); t3.lineTo(hw*0.2, hh*0.5); t3.lineTo(0, hh*0.9); t3.lineTo(-hw*0.2, hh*0.5);
                     shape.holes.push(t1, t2, t3);
-                } else if (entity.jaliPattern === 'mango') {
+                } else if (jaliPattern === 'mango') {
                     const m = new THREE.Path();
                     m.moveTo(0, -hh*0.8);
                     m.bezierCurveTo(hw, -hh*0.8, hw, hh*0.6, 0, hh*0.8);
@@ -1485,7 +1501,7 @@ export const WIDGET_REGISTRY = {
                     m.bezierCurveTo(-hw*0.2, hh*0.2, -hw*0.2, hh*0.4, 0, hh*0.4);
                     m.bezierCurveTo(-hw*0.8, hh*0.4, -hw*0.8, -hh*0.6, 0, -hh*0.8);
                     shape.holes.push(m);
-                } else if (entity.jaliPattern === 'chettinad' || entity.jaliPattern === 'kolam') {
+                } else if (jaliPattern === 'chettinad' || jaliPattern === 'kolam') {
                     const d = new THREE.Path();
                     d.moveTo(0, hh*0.8); d.lineTo(hw*0.8, 0); d.lineTo(0, -hh*0.8); d.lineTo(-hw*0.8, 0); d.lineTo(0, hh*0.8);
                     shape.holes.push(d);
@@ -1499,15 +1515,25 @@ export const WIDGET_REGISTRY = {
                 const extrudeSettings = { 
                     depth: lThick, 
                     bevelEnabled: true, 
-                    bevelSegments: 5, 
-                    curveSegments: 64,
+                    bevelSegments: 3, 
+                    curveSegments: 32,
                     steps: 1, 
                     bevelSize: lThick * 0.02, 
                     bevelThickness: lThick * 0.015 
                 };
                 const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-                const iMesh = new THREE.InstancedMesh(geo, matFrame, cols * rows);
+                const uvs = geo.attributes.uv, pos = geo.attributes.position;
+                if (uvs && pos) {
+                    for (let i = 0; i < uvs.count; i++) {
+                        uvs.setXY(i, (pos.getX(i) + stepX/2) / stepX, (pos.getY(i) + stepY/2) / stepY);
+                    }
+                    uvs.needsUpdate = true;
+                }
+                const latticeMat = matsExtrude[0] || matMain;
+                const iMesh = new THREE.InstancedMesh(geo, latticeMat, cols * rows);
                 iMesh.castShadow = true; iMesh.receiveShadow = true;
+                iMesh.userData = { entity: entity, materialSlot: MaterialSlots.LEAF, componentId: `${entity.id}_${MaterialSlots.LEAF}` };
+                ComponentRegistry.registerMesh(entity, MaterialSlots.LEAF, iMesh);
                 
                 const dummy = new THREE.Object3D();
                 let idx = 0;
@@ -1519,37 +1545,37 @@ export const WIDGET_REGISTRY = {
                     }
                 }
                 latticeGroup.add(iMesh);
-            } else if (entity.jaliPattern === 'modern') {
-                const targetStep = entity.jaliPatternSize || 4;
+            } else if (jaliPattern === 'modern') {
+                const targetStep = entity.jaliPatternSize || entity.params?.jaliPatternSize || 4;
                 const cols = Math.max(1, Math.round(iW / targetStep));
                 const stepX = iW / cols;
                 for (let c = 1; c < cols; c++) {
-                    builder.addNode({ geometry: new THREE.BoxGeometry(1.5, iH, lThick), materialOverride: matFrame, parent: latticeGroup, position: new THREE.Vector3(-iW/2 + c * stepX, 0, 0), castShadow: true });
+                    builder.addNode({ geometry: new THREE.BoxGeometry(1.5, iH, lThick), slot: MaterialSlots.LEAF, materialOverride: matsBox, parent: latticeGroup, position: new THREE.Vector3(-iW/2 + c * stepX, 0, 0), castShadow: true });
                 }
             } else {
-                const defaultStep = entity.jaliPattern === 'geometric' ? 6 : 8;
-                const targetStep = entity.jaliPatternSize || defaultStep;
+                const defaultStep = jaliPattern === 'geometric' ? 6 : 8;
+                const targetStep = entity.jaliPatternSize || entity.params?.jaliPatternSize || defaultStep;
                 const cols = Math.max(1, Math.round(iW / targetStep));
                 const rows = Math.max(1, Math.round(iH / targetStep));
                 const stepX = iW / cols;
                 const stepY = iH / rows;
                 
                 for (let c = 0; c < cols; c++) {
-                    builder.addNode({ geometry: new THREE.BoxGeometry(1, iH, lThick), materialOverride: matBox, parent: latticeGroup, position: new THREE.Vector3(-iW/2 + (c + 0.5) * stepX, 0, 0), castShadow: true });
+                    builder.addNode({ geometry: new THREE.BoxGeometry(1, iH, lThick), slot: MaterialSlots.LEAF, materialOverride: matsBox, parent: latticeGroup, position: new THREE.Vector3(-iW/2 + (c + 0.5) * stepX, 0, 0), castShadow: true });
                 }
                 for (let r = 0; r < rows; r++) {
-                    builder.addNode({ geometry: new THREE.BoxGeometry(iW, 1, lThick), materialOverride: matBox, parent: latticeGroup, position: new THREE.Vector3(0, -iH/2 + (r + 0.5) * stepY, 0), castShadow: true });
+                    builder.addNode({ geometry: new THREE.BoxGeometry(iW, 1, lThick), slot: MaterialSlots.LEAF, materialOverride: matsBox, parent: latticeGroup, position: new THREE.Vector3(0, -iH/2 + (r + 0.5) * stepY, 0), castShadow: true });
                 }
                 
-                if (entity.jaliPattern === 'islamic') {
+                if (jaliPattern === 'islamic') {
                     const diagLen = Math.hypot(stepX, stepY);
                     const angle = Math.atan2(stepY, stepX);
                     for (let c = 0; c < cols; c++) {
                         for (let r = 0; r < rows; r++) {
                             const cx = -iW/2 + (c + 0.5) * stepX;
                             const cy = -iH/2 + (r + 0.5) * stepY;
-                            builder.addNode({ geometry: new THREE.BoxGeometry(diagLen, 0.5, lThick), materialOverride: matBox, parent: latticeGroup, position: new THREE.Vector3(cx, cy, 0), rotation: new THREE.Euler(0, 0, angle), castShadow: true });
-                            builder.addNode({ geometry: new THREE.BoxGeometry(diagLen, 0.5, lThick), materialOverride: matBox, parent: latticeGroup, position: new THREE.Vector3(cx, cy, 0), rotation: new THREE.Euler(0, 0, -angle), castShadow: true });
+                            builder.addNode({ geometry: new THREE.BoxGeometry(diagLen, 0.5, lThick), slot: MaterialSlots.LEAF, materialOverride: matsBox, parent: latticeGroup, position: new THREE.Vector3(cx, cy, 0), rotation: new THREE.Euler(0, 0, angle), castShadow: true });
+                            builder.addNode({ geometry: new THREE.BoxGeometry(diagLen, 0.5, lThick), slot: MaterialSlots.LEAF, materialOverride: matsBox, parent: latticeGroup, position: new THREE.Vector3(cx, cy, 0), rotation: new THREE.Euler(0, 0, -angle), castShadow: true });
                         }
                     }
                 }
@@ -3278,6 +3304,8 @@ export const GIZMO_REGISTRY = {
     'door_french': ['move', 'opening', 'material'],
     'window': ['move', 'opening', 'material', 'style'],
     'opening': ['move', 'opening', 'material'],
+    'jali_panel': ['move', 'opening', 'material', 'style'],
+    'sunshade': ['move', 'place', 'scale', 'spin', 'tilt', 'material'],
     'elevation_fascia': ['move', 'place', 'scale', 'spin', 'tilt', 'material', 'corner'],
     'shape': ['move', 'place', 'scale', 'spin', 'tilt', 'material', 'vertexSlope'],
     'floor_cut': ['polygonEdges'],

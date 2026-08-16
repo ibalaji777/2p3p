@@ -196,11 +196,18 @@ export class MaterialManager {
         };
 
         if (descriptor && descriptor.id) {
-            if (slotName === MaterialSlots.LEAF) entity.doorMat = descriptor.id;
-            else if (slotName === MaterialSlots.FRAME) entity.frameMat = descriptor.id;
+            if (slotName === MaterialSlots.LEAF) {
+                entity.doorMat = descriptor.id;
+                if (entity.type === 'jali_panel') entity.jaliMat = descriptor.id;
+            }
+            else if (slotName === MaterialSlots.FRAME) {
+                entity.frameMat = descriptor.id;
+                if (entity.type === 'jali_panel') entity.jaliMat = descriptor.id;
+            }
             else if (slotName === MaterialSlots.GLASS) entity.glassMat = descriptor.id;
             else if (slotName === MaterialSlots.HARDWARE) entity.hardwareMat = descriptor.id;
             else if (slotName === MaterialSlots.TRIM) entity.trimMat = descriptor.id;
+            else if (slotName === MaterialSlots.CUSTOM && entity.type === 'jali_panel') entity.jaliMat = descriptor.id;
         }
 
         entity.materialDirty = true;
@@ -325,8 +332,8 @@ export class MaterialManager {
 
         entity.materialDirty = false;
 
-        // Widget / Door / Window / ExtrudeGeometry UV Scaling Rebuild Safety Check
-        if (entity.isWidget || entity.supportsLiveMaterialPipeline || entity.type === 'door' || entity.type === 'window') {
+        // Widget / Door / Window / Jali / Sunshade / ExtrudeGeometry UV Scaling Rebuild Safety Check
+        if (entity.isWidget || entity.supportsLiveMaterialPipeline || entity.type === 'door' || entity.type === 'window' || entity.type === 'jali_panel' || entity.type === 'sunshade') {
             if (ctx && typeof ctx.updateMaterialLive === 'function') {
                 ctx.updateMaterialLive(entity);
             }
