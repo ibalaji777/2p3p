@@ -15,7 +15,7 @@ export * from './registries/material.registry.js';
 
 import { DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT } from './constants/units.js';
 import { WINDOW_TYPES } from '../features/window/window.registry.js';
-import { JALI_MATERIALS } from './registries/material.registry.js';
+import { JALI_MATERIALS, GLASS_REGISTRY } from './registries/material.registry.js';
 import { MaterialSlots } from './constants/materialSlots.js';
 import { ComponentRegistry } from './engine3d/ComponentRegistry.js';
 import { BIMComponentBuilder } from './engine3d/BIMComponentBuilder.js';
@@ -2786,7 +2786,7 @@ export const WIDGET_REGISTRY = {
             } else if (chajjaStyle === 'glass_canopy' || chajjaStyle === 'polycarbonate_canopy') {
                 const isPoly = chajjaStyle === 'polycarbonate_canopy';
                 const cWidth = entity.width; const glassThick = 0.5;
-                const matGlassConf = GLASS_REGISTRY['clear'];
+                const matGlassConf = GLASS_REGISTRY?.['clear'] || { color: 0xffffff, transmission: 0.95, roughness: 0.05, ior: 1.5 };
                 
                 let matCanopyPanel;
                 if (isPoly) {
@@ -2794,9 +2794,11 @@ export const WIDGET_REGISTRY = {
                         color: 0xffffff, transmission: 0.4, roughness: 0.6, transparent: true, ior: 1.2, thickness: 0.5
                     });
                 } else {
-                    matCanopyPanel = new THREE.MeshPhysicalMaterial({
-                        color: matGlassConf.color, transmission: matGlassConf.transmission, roughness: matGlassConf.roughness, transparent: true, ior: matGlassConf.ior, thickness: 0.5
-                    });
+                    matCanopyPanel = (helpers && typeof helpers.getDynamicMaterial === 'function') 
+                        ? helpers.getDynamicMaterial('clear', 'glass') 
+                        : new THREE.MeshPhysicalMaterial({
+                            color: matGlassConf.color, transmission: matGlassConf.transmission, roughness: matGlassConf.roughness, transparent: true, ior: matGlassConf.ior, thickness: 0.5
+                        });
                 }
                 const matMetal = new THREE.MeshStandardMaterial({color: 0xe0e0e0, metalness: 0.9, roughness: 0.2});
                 
