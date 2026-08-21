@@ -429,17 +429,13 @@ export class Preview3D {
             }
         }
 
-        let renderFunc = null;
-        if (WIDGET_REGISTRY[entity.type]) renderFunc = WIDGET_REGISTRY[entity.type].render3D;
-        else if (MOLDING_REGISTRY[entity.type]) renderFunc = MOLDING_REGISTRY[entity.type].render3D;
-        else if (DOOR_TYPES && DOOR_TYPES[entity.type]) renderFunc = DOOR_TYPES[entity.type].render3D;
-        else if (WINDOW_TYPES && WINDOW_TYPES[entity.type]) renderFunc = WINDOW_TYPES[entity.type].render3D;
-        else if (WALL_DECOR_REGISTRY && WALL_DECOR_REGISTRY[entity.type]) renderFunc = WALL_DECOR_REGISTRY[entity.type].render3D;
-        else if (entity.type === 'pattern' && window.PATTERN_REGISTRY && window.PATTERN_REGISTRY[entity.patternType]) renderFunc = window.PATTERN_REGISTRY[entity.patternType].render3D;
-        else if ((entity.type === 'furniture' || entity.isFurniture) && window.FURNITURE_REGISTRY) {
-            const fConf = window.FURNITURE_REGISTRY[entity.furnitureType || entity.type];
-            if (fConf) renderFunc = fConf.render3D;
+        if ((entity.type === 'furniture' || entity.isFurniture || (entity.configId && ['curtain_', 'rug_', 'decor_'].some(p => entity.configId.startsWith(p)))) && this.furnitureManager) {
+            this.furnitureManager.load(entity);
+            this.requestRender('furniture_material_update', 2);
+            return true;
         }
+
+        let renderFunc = null;
 
         if (renderFunc) {
             const oldMesh = obj;

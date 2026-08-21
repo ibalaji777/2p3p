@@ -182,20 +182,27 @@ export class ThumbnailGenerator {
                 const widgetGroup = await registryConfig.render3D(group, entity, this.ctx.helpers);
             } else if (FURNITURE_REGISTRY && FURNITURE_REGISTRY[type]) {
                 const furnitureManager = new FurnitureManager(this.ctx);
-                const mesh = await furnitureManager.load({ ...entity, configId: type, width: params.width, height: params.height, depth: params.depth });
+                const defaultW = FURNITURE_REGISTRY[type]?.default?.width || 60;
+                const defaultH = FURNITURE_REGISTRY[type]?.default?.height || 60;
+                const defaultD = FURNITURE_REGISTRY[type]?.default?.depth || 60;
+
+                const sW = params?.width || defaultW;
+                const sH = params?.height || defaultH;
+                const sD = params?.depth || defaultD;
+
+                const mesh = await furnitureManager.load({
+                    ...entity,
+                    configId: type,
+                    width: sW,
+                    height: sH,
+                    depth: sD
+                });
                 if (mesh) {
                     const baseBox = new THREE.Box3().setFromObject(mesh);
                     const bSize = baseBox.getSize(new THREE.Vector3());
-                    const defaultW = FURNITURE_REGISTRY[type]?.default?.width || bSize.x;
-                    const defaultH = FURNITURE_REGISTRY[type]?.default?.height || bSize.y;
-                    const defaultD = FURNITURE_REGISTRY[type]?.default?.depth || bSize.z;
-                    
-                    const sW = params.width || defaultW;
-                    const sH = params.height || defaultH;
-                    const sD = params.depth || defaultD;
 
-                    const uniformScale = Math.min(sW / defaultW, sH / defaultH, sD / defaultD);
-                    mesh.scale.setScalar(uniformScale);
+                    const uniformScale = Math.min(sW / (bSize.x || sW), sH / (bSize.y || sH), sD / (bSize.z || sD));
+                    mesh.scale.setScalar(uniformScale > 0 ? uniformScale : 1);
                     
                     const finalBox = new THREE.Box3().setFromObject(mesh);
                     const fCenter = finalBox.getCenter(new THREE.Vector3());
@@ -357,6 +364,21 @@ const theta = 145 * Math.PI / 180;
             }
             
             this.camera.lookAt(0, targetY, 0);
+        } else if (type && type.startsWith('rug_')) {
+            // High-angled top-down studio shot for floor rugs to showcase full carpet surface pattern, borders, and fringes
+            const rugDim = Math.max(size.x, size.z);
+            const frustumSize = rugDim * 1.35;
+            
+            this.camera.left = -frustumSize / 2;
+            this.camera.right = frustumSize / 2;
+            this.camera.top = frustumSize / 2;
+            this.camera.bottom = -frustumSize / 2;
+            this.camera.updateProjectionMatrix();
+
+            // Studio 55° elevated architectural 3/4 perspective
+            this.camera.position.set(rugDim * 0.75, rugDim * 1.25, rugDim * 0.75);
+            this.camera.lookAt(0, 0, 0);
+            activeCamera = this.camera;
         } else {
             const frustumSize = maxDim * 1.4; // Leave some margin
             

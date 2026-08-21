@@ -60,7 +60,7 @@ export function useAppTools({
     };
 
     const handleToolClick = (tool) => {
-        const accordionTools = ['door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'bathroom_catalog', 'electronics_catalog', 'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 'household_appliance_catalog', 'trash_catalog'];
+        const accordionTools = ['door', 'window', 'sunshade', 'jali_panel', 'curtain', 'wall_art', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'bathroom_catalog', 'electronics_catalog', 'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 'household_appliance_catalog', 'trash_catalog'];
         
         if (tool.action === 'furniture') spawnFurniture(tool.id);
         else if (tool.action === 'auto_roof') { if (planner.value) planner.value.addAutoRoof(); }

@@ -650,5 +650,115 @@ export const FURNITURE_REGISTRY = {
         license: 'CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)',
         default: { width: 50, height: 18, depth: 40, elevation: 90 },
         shape2D: 'sink_standard'
+    },
+
+    // ==========================================
+    // 🪟 WINDOW DRESSINGS & CURTAINS
+    // ==========================================
+    'curtain_drapes_sheer': {
+        id: 'curtain_drapes_sheer', label: 'Sheer Wave Curtains & Rod',
+        procedural: true,
+        default: { width: 80, height: 95, depth: 10, elevation: 0, materials: { fabric: { id: 'crepe_satin_real' }, rod: { id: 'metal_brass' }, rings: { id: 'metal_brass' } } },
+        shape2D: 'curtain_drapes'
+    },
+    'curtain_drapes_blackout': {
+        id: 'curtain_drapes_blackout', label: 'Blackout Pinch-Pleat Drapes',
+        procedural: true,
+        default: { width: 90, height: 95, depth: 12, elevation: 0, materials: { fabric: { id: 'caban_neutral' }, rod: { id: 'metal_matte_black' }, finials: { id: 'metal_matte_black' } } },
+        shape2D: 'curtain_drapes'
+    },
+    'curtain_roller_blind': {
+        id: 'curtain_roller_blind', label: 'Modern Roller Blind',
+        procedural: true,
+        default: { width: 50, height: 50, depth: 6, elevation: 35, materials: { fabric: { id: 'caban_neutral' }, cassette: { id: 'alum_silver' }, chain: { id: 'metal_chrome' } } },
+        shape2D: 'curtain_blind'
+    },
+    'curtain_roman_shade': {
+        id: 'curtain_roman_shade', label: 'Segmented Roman Shade',
+        procedural: true,
+        default: { width: 50, height: 50, depth: 8, elevation: 35, materials: { fabric: { id: 'curly_teddy_checkered' }, headrail: { id: 'wood_white_oak' } } },
+        shape2D: 'curtain_blind'
+    },
+
+    // ==========================================
+    // 🧶 AREA RUGS & FLOOR CARPETS
+    // ==========================================
+    'rug_rectangular_modern': {
+        id: 'rug_rectangular_modern', label: 'Modern Geometric Floor Rug',
+        procedural: true,
+        default: { width: 100, height: 1.5, depth: 70, elevation: 0.2, materials: { carpet: { id: 'curly_teddy_checkered' }, border: { id: 'caban_neutral' } } },
+        shape2D: 'rug_rect'
+    },
+    'rug_rectangular_persian': {
+        id: 'rug_rectangular_persian', label: 'Heritage Persian Rug with Fringes',
+        procedural: true,
+        default: { width: 120, height: 1.5, depth: 80, elevation: 0.2, materials: { carpet: { id: 'caban_neutral' }, fringes: { id: 'crepe_satin_real' } } },
+        shape2D: 'rug_rect'
+    },
+    'rug_rectangular_jute': {
+        id: 'rug_rectangular_jute', label: 'Natural Braided Jute Rug',
+        procedural: true,
+        default: { width: 90, height: 2.0, depth: 60, elevation: 0.2, materials: { carpet: { id: 'wood_golden_teak' } } },
+        shape2D: 'rug_rect'
+    },
+    'rug_circular_boho': {
+        id: 'rug_circular_boho', label: 'Bohemian Mandala Round Rug',
+        procedural: true,
+        default: { width: 80, height: 1.5, depth: 80, elevation: 0.2, materials: { carpet: { id: 'caban_neutral' } } },
+        shape2D: 'rug_circle'
+    },
+    'rug_circular_plush': {
+        id: 'rug_circular_plush', label: 'Plush Velvet Round Rug',
+        procedural: true,
+        default: { width: 90, height: 2.5, depth: 90, elevation: 0.2, materials: { carpet: { id: 'curly_teddy_checkered' } } },
+        shape2D: 'rug_circle'
+    },
+
+    // ==========================================
+    // 🖼️ WALL DECOR & LIGHTED MIRRORS
+    // ==========================================
+    'decor_wall_art_canvas': {
+        id: 'decor_wall_art_canvas', label: 'Framed Canvas Wall Art',
+        procedural: true,
+        default: { width: 50, height: 35, depth: 3, elevation: 45, materials: { frame: { id: 'wood_dark_walnut' }, canvas: { id: 'caban_neutral' } } },
+        shape2D: 'decor_art'
+    },
+    'decor_photo_gallery': {
+        id: 'decor_photo_gallery', label: 'Triptych 3-Frame Photo Gallery',
+        procedural: true,
+        default: { width: 60, height: 25, depth: 3, elevation: 50, materials: { frame: { id: 'metal_matte_black' }, photo: { id: 'crepe_satin_real' }, matting: { id: 'upvc_white' } } },
+        shape2D: 'decor_art'
+    },
+
+    // ==========================================
+    // 🌿 INDOOR PLANTS & PLANTERS
+    // ==========================================
+    'decor_plant_monstera': {
+        id: 'decor_plant_monstera', label: 'Potted Monstera Deliciosa',
+        procedural: true,
+        default: { width: 30, height: 40, depth: 30, elevation: 0, materials: { pot: { id: 'stone_terrazzo_white' }, foliage: { id: 'plant_foliage_green' } } },
+        shape2D: 'decor_plant'
+    },
+    'decor_plant_snake': {
+        id: 'decor_plant_snake', label: 'Architectural Snake Plant',
+        procedural: true,
+        default: { width: 20, height: 45, depth: 20, elevation: 0, materials: { pot: { id: 'metal_matte_black' }, foliage: { id: 'plant_foliage_green' } } },
+        shape2D: 'decor_plant'
+    },
+    'decor_plant_fiddle': {
+        id: 'decor_plant_fiddle', label: 'Fiddle Leaf Fig in Basket',
+        procedural: true,
+        default: { width: 25, height: 50, depth: 25, elevation: 0, materials: { pot: { id: 'wood_golden_teak' }, foliage: { id: 'plant_foliage_green' } } },
+        shape2D: 'decor_plant'
+    },
+
+    // ==========================================
+    // 🏺 TABLE, SHELF & STAGE STYLING PROPS
+    // ==========================================
+    'decor_vases_ceramic': {
+        id: 'decor_vases_ceramic', label: 'Set of Ceramic Fluted Vases',
+        procedural: true,
+        default: { width: 20, height: 16, depth: 12, elevation: 40, materials: { vaseA: { id: 'stone_terrazzo_white' }, vaseB: { id: 'metal_brass' } } },
+        shape2D: 'decor_vases'
     }
 };

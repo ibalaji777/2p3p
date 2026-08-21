@@ -2863,7 +2863,7 @@ export class GizmoManager {
         if (opE && document.activeElement !== opE) opE.value = e.toFixed(1); if (opER && document.activeElement !== opER) opER.value = e.toFixed(1);
 
         if (flipContainer) {
-            flipContainer.style.display = (entity.type === 'door' || entity.type === 'window' || entity.type === 'jali_panel') ? 'flex' : 'none';
+            flipContainer.style.display = (entity.type === 'door' || entity.type === 'window' || entity.type === 'jali_panel' || entity.type === 'sunshade' || entity.type === 'curtain' || entity.type.startsWith('curtain') || entity.type === 'wall_art' || entity.type.startsWith('decor_wall_')) ? 'flex' : 'none';
         }
         if (typeContainer && typeSelect) {
             if (entity.type === 'door') {

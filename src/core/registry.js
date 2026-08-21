@@ -69,7 +69,26 @@ export const WORKSPACE_2D_SHAPES = {
     'sanitary_unit': "M 0 0 L 100 0 L 100 100 L 0 100 Z M 20 20 A 30 30 0 1 0 80 20 Z",
 
     // Entertainment & Storage
-    'tv_unit': "M 0 30 L 100 30 L 100 70 L 0 70 Z M 15 42 L 85 42 L 85 58 L 15 58 Z"
+    'tv_unit': "M 0 30 L 100 30 L 100 70 L 0 70 Z M 15 42 L 85 42 L 85 58 L 15 58 Z",
+
+    // Soft Furnishings & Window Dressings
+    'curtain_drapes': "M 0 40 C 15 20, 20 60, 35 40 C 50 20, 55 60, 70 40 C 85 20, 90 60, 100 40 L 100 60 C 90 80, 85 40, 70 60 C 55 80, 50 40, 35 60 C 20 80, 15 40, 0 60 Z M -5 30 L 105 30",
+    'curtain_blind': "M 0 25 L 100 25 L 100 75 L 0 75 Z M 0 40 L 100 40 M 0 55 L 100 55 M 92 25 L 92 85",
+    'curtain_pelmet': "M 0 15 L 100 15 L 100 85 L 0 85 Z M 5 25 L 95 25 M 5 75 L 95 75",
+
+    // Rugs & Carpets
+    'rug_rect': "M 5 5 L 95 5 L 95 95 L 5 95 Z M 12 12 L 88 12 L 88 88 L 12 88 Z M 0 10 L 5 10 M 0 30 L 5 30 M 0 50 L 5 50 M 0 70 L 5 70 M 0 90 L 5 90 M 95 10 L 100 10 M 95 30 L 100 30 M 95 50 L 100 50 M 95 70 L 100 70 M 95 90 L 100 90",
+    'rug_circle': "M 50 0 A 50 50 0 1 0 50 100 A 50 50 0 1 0 50 0 Z M 50 12 A 38 38 0 1 0 50 88 A 38 38 0 1 0 50 12 Z M 50 28 A 22 22 0 1 0 50 72 A 22 22 0 1 0 50 28 Z",
+
+    // Wall Decor, Greenery & Styling Props
+    'decor_art': "M 0 35 L 100 35 L 100 65 L 0 65 Z M 8 42 L 92 42 L 92 58 L 8 58 Z",
+    'decor_clock': "M 50 0 A 50 50 0 1 0 50 100 A 50 50 0 1 0 50 0 Z M 50 50 L 50 20 M 50 50 L 72 50",
+    'decor_mirror': "M 20 0 L 80 0 A 20 20 0 0 1 100 20 L 100 80 A 20 20 0 0 1 80 100 L 20 100 A 20 20 0 0 1 0 80 L 0 20 A 20 20 0 0 1 20 0 Z M 25 10 L 75 10 A 15 15 0 0 1 90 25 L 90 75 A 15 15 0 0 1 75 90 L 25 90 A 15 15 0 0 1 10 75 L 10 25 A 15 15 0 0 1 25 10 Z",
+    'decor_plant': "M 50 20 A 30 30 0 1 0 50 80 A 30 30 0 1 0 50 20 Z M 50 0 C 40 25, 40 40, 50 50 C 60 40, 60 25, 50 0 Z M 100 50 C 75 40, 60 40, 50 50 C 60 60, 75 60, 100 50 Z M 50 100 C 40 75, 40 60, 50 50 C 60 60, 60 75, 50 100 Z M 0 50 C 25 40, 40 40, 50 50 C 40 60, 25 60, 0 50 Z",
+    'decor_books': "M 15 10 L 85 10 L 85 90 L 15 90 Z M 25 5 L 95 5 L 95 85 L 25 85 Z M 10 18 L 80 18 L 80 98 L 10 98 Z",
+    'decor_vases': "M 35 20 A 20 20 0 1 0 35 60 A 20 20 0 1 0 35 20 Z M 70 45 A 25 25 0 1 0 70 95 A 25 25 0 1 0 70 45 Z",
+    'decor_cushions': "M 10 10 Q 50 0 90 10 Q 100 50 90 90 Q 50 100 10 90 Q 0 50 10 10 Z M 50 42 L 50 58 M 42 50 L 58 50",
+    'decor_tableware': "M 50 5 A 45 45 0 1 0 50 95 A 45 45 0 1 0 50 5 Z M 50 22 A 28 28 0 1 0 50 78 A 28 28 0 1 0 50 22 Z M 10 10 L 10 90 M 90 10 L 90 90"
 };
 
 export const createDoorShape = (w, h, type = 'square', halfSide = 0) => {
@@ -3220,6 +3239,401 @@ export const WIDGET_REGISTRY = {
             sceneGroup.add(finalGroup);
             return finalGroup;
         }
+    },
+    'curtain': {
+        widget: "curtain", label: "CURTAINS & BLINDS", cutsWall: false,
+        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
+        defaultConfig: { width: 80, height: 95, elevation: 5, thick: 4, facing: 1, curtainType: 'curtain_drapes_sheer' },
+        render2D: (group, entity) => {
+            const hw = (entity.width || 80) / 2;
+            const w = entity.width || 80;
+            const thick = entity.wall ? (entity.wall.thickness || entity.wall.config?.thickness || 20) : (entity.thick || 20);
+            const signY = (entity.facing === -1) ? -1 : 1;
+            const yPos = signY * (thick / 2 + 4);
+
+            const rod = new Konva.Line({
+                points: [-hw - 5, yPos, hw + 5, yPos],
+                stroke: '#0284c7', strokeWidth: 3, lineCap: 'round'
+            });
+            const finialL = new Konva.Circle({ x: -hw - 5, y: yPos, radius: 3, fill: '#0284c7' });
+            const finialR = new Konva.Circle({ x: hw + 5, y: yPos, radius: 3, fill: '#0284c7' });
+            
+            const wavePoints = [];
+            const waves = 8;
+            for (let i = 0; i <= waves; i++) {
+                const wx = -hw + (i / waves) * w;
+                const wy = yPos + (i % 2 === 0 ? signY * 4 : 0);
+                wavePoints.push(wx, wy);
+            }
+            const pleats = new Konva.Line({
+                points: wavePoints,
+                stroke: '#38bdf8', strokeWidth: 2, tension: 0.4
+            });
+            group.add(rod, finialL, finialR, pleats);
+        },
+        render3D: (sceneGroup, entity, helpers) => {
+            const builder = new BIMComponentBuilder(entity, helpers);
+            const curtainGroup = builder.group;
+            let baseElev = entity.elevation !== undefined ? entity.elevation : 5;
+            if (entity.localX !== undefined) {
+                curtainGroup.position.set(entity.localX, baseElev, 0);
+                curtainGroup.rotation.y = 0;
+            } else {
+                curtainGroup.position.set(entity.x || 0, baseElev, entity.z || 0);
+                curtainGroup.rotation.y = -(entity.angle || 0);
+            }
+
+            const thick = entity.wall?.thickness || entity.wall?.config?.thickness || entity.thick || 20;
+            const wallOffset = thick / 2;
+            const signZ = (entity.facing === -1) ? -1 : 1;
+
+            const cType = entity.curtainType || entity.type || 'curtain_drapes_sheer';
+            const cW = entity.width || 80;
+            const cH = entity.height || 95;
+            const cD = entity.depth || 10;
+
+            const isBlind = cType === 'curtain_roller_blind' || cType === 'curtain_roman_shade';
+            const standOff = isBlind ? 3.0 : 5.0;
+
+            const contentGroup = new THREE.Group();
+            contentGroup.position.z = (wallOffset + standOff) * signZ;
+            if (signZ === -1) {
+                contentGroup.rotation.y = Math.PI;
+            }
+            curtainGroup.add(contentGroup);
+
+            const registerSlotMesh = (mesh, slotName) => {
+                mesh.userData.entity = entity;
+                mesh.userData.materialSlot = slotName;
+                mesh.userData.componentId = `${entity.id || 'curtain'}_${slotName}`;
+                ComponentRegistry.registerMesh(entity, slotName, mesh, { componentId: mesh.userData.componentId, componentType: cType });
+                contentGroup.add(mesh);
+                return mesh;
+            };
+
+            const getDynamicMat = (slotName, defaultKey, defaultProps = {}) => {
+                const slotId = entity.materials?.[slotName]?.id || defaultKey;
+                if (helpers?.getDynamicMaterial) {
+                    return helpers.getDynamicMaterial(slotId, slotName);
+                }
+                return new THREE.MeshStandardMaterial({ ...defaultProps });
+            };
+
+            const buildContinuousFabricDrapeGeo = (w, h, waveCount = 8, waveAmp = 2.8) => {
+                const segX = Math.max(60, Math.floor(w * 1.5));
+                const segY = Math.max(30, Math.floor(h * 0.5));
+                const geo = new THREE.PlaneGeometry(w, h, segX, segY);
+                geo.translate(0, h / 2, 0);
+
+                const pos = geo.attributes.position;
+                const uv = geo.attributes.uv;
+
+                for (let i = 0; i < pos.count; i++) {
+                    const x = pos.getX(i);
+                    const y = pos.getY(i);
+                    const u = (x + w / 2) / w;
+                    const v = y / h;
+
+                    const primaryWave = Math.sin(u * Math.PI * 2 * waveCount) * waveAmp;
+                    const organicSag = Math.sin(u * Math.PI * 6 + v * 2.5) * (waveAmp * 0.2) * (1 - v * 0.5);
+                    const foldDepth = (primaryWave + organicSag) * (0.85 + 0.15 * (1 - v));
+
+                    pos.setZ(i, foldDepth);
+                    uv.setXY(i, (x + w / 2) / 50, y / 50);
+                }
+
+                pos.needsUpdate = true;
+                uv.needsUpdate = true;
+                geo.computeVertexNormals();
+                return geo;
+            };
+
+            if (cType === 'curtain_drapes_sheer') {
+                const mFabric = getDynamicMat('fabric', 'crepe_satin_real', { color: '#f8fafc', roughness: 0.6, transparent: true, opacity: 0.88, side: THREE.DoubleSide });
+                mFabric.side = THREE.DoubleSide;
+                const mRod = getDynamicMat('rod', 'metal_brass', { color: '#d97706', metalness: 0.9, roughness: 0.2 });
+                const mRings = getDynamicMat('rings', 'metal_brass', { color: '#d97706', metalness: 0.9, roughness: 0.2 });
+
+                const rodGeo = new THREE.CylinderGeometry(1.0, 1.0, cW + 10, 24);
+                rodGeo.rotateZ(Math.PI / 2);
+                const rod = new THREE.Mesh(rodGeo, mRod);
+                rod.position.set(0, cH - 1.5, 0);
+                registerSlotMesh(rod, 'rod');
+
+                const finialL = new THREE.Mesh(new THREE.SphereGeometry(2.2, 24, 24), mRod);
+                finialL.position.set(-cW / 2 - 5, cH - 1.5, 0);
+                const finialR = new THREE.Mesh(new THREE.SphereGeometry(2.2, 24, 24), mRod);
+                finialR.position.set(cW / 2 + 5, cH - 1.5, 0);
+                registerSlotMesh(finialL, 'rod');
+                registerSlotMesh(finialR, 'rod');
+
+                [-cW / 2 + 8, 0, cW / 2 - 8].forEach(bx => {
+                    const brk = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.5, standOff), mRod);
+                    brk.position.set(bx, cH - 1.5, -standOff / 2);
+                    registerSlotMesh(brk, 'rod');
+                });
+
+                const ringSpacing = 10;
+                const numRings = Math.floor(cW / ringSpacing);
+                for (let i = 0; i <= numRings; i++) {
+                    const rx = -cW / 2 + i * ringSpacing;
+                    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.25, 12, 24), mRings);
+                    ring.position.set(rx, cH - 1.5, 0);
+                    registerSlotMesh(ring, 'rings');
+                }
+
+                // Full continuous sheer drape across entire curtain width
+                const drapeGeo = buildContinuousFabricDrapeGeo(cW, cH - 4.5, 7.5, 2.5);
+                const drape = new THREE.Mesh(drapeGeo, mFabric);
+                drape.position.set(0, 0, 0);
+                registerSlotMesh(drape, 'fabric');
+
+            } else if (cType === 'curtain_drapes_blackout') {
+                const mFabric = getDynamicMat('fabric', 'caban_neutral', { color: '#334155', roughness: 0.9, side: THREE.DoubleSide });
+                mFabric.side = THREE.DoubleSide;
+                const mRod = getDynamicMat('rod', 'metal_matte_black', { color: '#0f172a', roughness: 0.6 });
+
+                const rodGeo = new THREE.CylinderGeometry(1.2, 1.2, cW + 12, 24);
+                rodGeo.rotateZ(Math.PI / 2);
+                const rod = new THREE.Mesh(rodGeo, mRod);
+                rod.position.set(0, cH - 1.5, 0);
+                registerSlotMesh(rod, 'rod');
+
+                const finialL = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 3, 16), mRod);
+                finialL.rotateZ(Math.PI / 2);
+                finialL.position.set(-cW / 2 - 6, cH - 1.5, 0);
+                const finialR = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 3, 16), mRod);
+                finialR.rotateZ(Math.PI / 2);
+                finialR.position.set(cW / 2 + 6, cH - 1.5, 0);
+                registerSlotMesh(finialL, 'rod');
+                registerSlotMesh(finialR, 'rod');
+
+                [-cW / 2 + 8, 0, cW / 2 - 8].forEach(bx => {
+                    const brk = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.5, standOff), mRod);
+                    brk.position.set(bx, cH - 1.5, -standOff / 2);
+                    registerSlotMesh(brk, 'rod');
+                });
+
+                // Full continuous blackout pinch-pleat drape across entire curtain width
+                const drapeGeo = buildContinuousFabricDrapeGeo(cW, cH - 4.5, 9.0, 3.5);
+                const drape = new THREE.Mesh(drapeGeo, mFabric);
+                drape.position.set(0, 0, 0);
+                registerSlotMesh(drape, 'fabric');
+
+            } else if (cType === 'curtain_roller_blind') {
+                const mFabric = getDynamicMat('fabric', 'caban_neutral', { color: '#f1f5f9', roughness: 0.7 });
+                const mCassette = getDynamicMat('cassette', 'upvc_white', { color: '#ffffff', roughness: 0.3 });
+                const mBottomBar = getDynamicMat('bottomBar', 'upvc_white', { color: '#e2e8f0', roughness: 0.4 });
+
+                const cassette = new THREE.Mesh(new THREE.BoxGeometry(cW + 4, 6, 6), mCassette);
+                cassette.position.set(0, cH - 3, 0);
+                registerSlotMesh(cassette, 'cassette');
+
+                const blindGeo = new THREE.BoxGeometry(cW, cH - 8, 0.4);
+                const blind = new THREE.Mesh(blindGeo, mFabric);
+                blind.position.set(0, (cH - 8) / 2 + 2, 0);
+                registerSlotMesh(blind, 'fabric');
+
+                const bottomBar = new THREE.Mesh(new THREE.BoxGeometry(cW + 2, 2.5, 1.2), mBottomBar);
+                bottomBar.position.set(0, 2 + 1.25, 0);
+                registerSlotMesh(bottomBar, 'bottomBar');
+
+                const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, cH * 0.7, 8), new THREE.MeshStandardMaterial({ color: '#cbd5e1', metalness: 0.8, roughness: 0.2 }));
+                chain.position.set(cW / 2 + 2.5, cH - 3 - (cH * 0.35), 0);
+                contentGroup.add(chain);
+
+            } else if (cType === 'curtain_roman_shade') {
+                const mFabric = getDynamicMat('fabric', 'curly_teddy_checkered', { color: '#e2e8f0', roughness: 0.85 });
+                const mHeadrail = getDynamicMat('headrail', 'upvc_white', { color: '#ffffff', roughness: 0.4 });
+
+                const headrail = new THREE.Mesh(new THREE.BoxGeometry(cW + 2, 4, 3), mHeadrail);
+                headrail.position.set(0, cH - 2, 0);
+                registerSlotMesh(headrail, 'headrail');
+
+                const numFolds = 5;
+                const foldH = (cH - 4) / numFolds;
+                for (let i = 0; i < numFolds; i++) {
+                    const yPos = i * foldH + foldH / 2;
+                    const foldGeo = new THREE.CylinderGeometry(cW / 2, cW / 2, foldH, 32, 1, false, 0, Math.PI);
+                    foldGeo.scale(1, 1, 0.12);
+                    foldGeo.rotateX(Math.PI / 2);
+                    foldGeo.rotateY(Math.PI / 2);
+
+                    const fold = new THREE.Mesh(foldGeo, mFabric);
+                    fold.position.set(0, yPos, 0.5 + i * 0.15);
+                    registerSlotMesh(fold, 'fabric');
+                }
+            }
+
+            const hitboxGeo = new THREE.BoxGeometry(cW + 10, cH + 10, 15);
+            builder.addNode({ geometry: hitboxGeo, parent: curtainGroup, position: new THREE.Vector3(0, cH / 2, 0), isHitbox: true });
+
+            curtainGroup.userData = { isWidget: true, entity: entity };
+            const finalGroup = builder.build();
+            sceneGroup.add(finalGroup);
+            return finalGroup;
+        }
+    },
+    'curtain_drapes_sheer': {
+        widget: "curtain_drapes_sheer", label: "SHEER WAVE CURTAINS", cutsWall: false,
+        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
+        defaultConfig: { width: 80, height: 95, elevation: 0, thick: 4, facing: 1, curtainType: 'curtain_drapes_sheer' },
+        render2D: (group, entity) => WIDGET_REGISTRY['curtain'].render2D(group, { ...entity, curtainType: 'curtain_drapes_sheer' }),
+        render3D: (sceneGroup, entity, helpers) => WIDGET_REGISTRY['curtain'].render3D(sceneGroup, { ...entity, curtainType: 'curtain_drapes_sheer' }, helpers)
+    },
+    'curtain_drapes_blackout': {
+        widget: "curtain_drapes_blackout", label: "BLACKOUT PINCH-PLEAT DRAPES", cutsWall: false,
+        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
+        defaultConfig: { width: 90, height: 95, elevation: 0, thick: 4, facing: 1, curtainType: 'curtain_drapes_blackout' },
+        render2D: (group, entity) => WIDGET_REGISTRY['curtain'].render2D(group, { ...entity, curtainType: 'curtain_drapes_blackout' }),
+        render3D: (sceneGroup, entity, helpers) => WIDGET_REGISTRY['curtain'].render3D(sceneGroup, { ...entity, curtainType: 'curtain_drapes_blackout' }, helpers)
+    },
+    'curtain_roller_blind': {
+        widget: "curtain_roller_blind", label: "MODERN ROLLER BLIND", cutsWall: false,
+        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
+        defaultConfig: { width: 50, height: 50, elevation: 35, thick: 4, facing: 1, curtainType: 'curtain_roller_blind' },
+        render2D: (group, entity) => WIDGET_REGISTRY['curtain'].render2D(group, { ...entity, curtainType: 'curtain_roller_blind' }),
+        render3D: (sceneGroup, entity, helpers) => WIDGET_REGISTRY['curtain'].render3D(sceneGroup, { ...entity, curtainType: 'curtain_roller_blind' }, helpers)
+    },
+    'curtain_roman_shade': {
+        widget: "curtain_roman_shade", label: "SEGMENTED ROMAN SHADE", cutsWall: false,
+        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
+        defaultConfig: { width: 50, height: 50, elevation: 35, thick: 4, facing: 1, curtainType: 'curtain_roman_shade' },
+        render2D: (group, entity) => WIDGET_REGISTRY['curtain'].render2D(group, { ...entity, curtainType: 'curtain_roman_shade' }),
+        render3D: (sceneGroup, entity, helpers) => WIDGET_REGISTRY['curtain'].render3D(sceneGroup, { ...entity, curtainType: 'curtain_roman_shade' }, helpers)
+    },
+    'wall_art': {
+        widget: "wall_art", label: "WALL ART & FRAMES", cutsWall: false,
+        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
+        defaultConfig: { width: 50, height: 35, depth: 3, elevation: 45, thick: 2, facing: 1, artType: 'decor_wall_art_canvas' },
+        render2D: (group, entity) => {
+            const hw = (entity.width || 50) / 2;
+            const w = entity.width || 50;
+            const thick = entity.wall ? (entity.wall.thickness || entity.wall.config?.thickness || 20) : (entity.thick || 20);
+            const signY = (entity.facing === -1) ? -1 : 1;
+            const yPos = signY * (thick / 2 + 2);
+
+            const rect = new Konva.Rect({
+                x: -hw, y: yPos - 1.5, width: w, height: 3,
+                fill: '#6366f1', stroke: '#4338ca', strokeWidth: 1.5
+            });
+            const cross = new Konva.Line({
+                points: [-hw + 2, yPos, hw - 2, yPos],
+                stroke: '#a5b4fc', strokeWidth: 1
+            });
+            group.add(rect, cross);
+        },
+        render3D: (sceneGroup, entity, helpers) => {
+            const builder = new BIMComponentBuilder(entity, helpers);
+            const artGroup = builder.group;
+            let baseElev = entity.elevation !== undefined ? entity.elevation : 45;
+            if (entity.localX !== undefined) {
+                artGroup.position.set(entity.localX, baseElev, 0);
+                artGroup.rotation.y = 0;
+            } else {
+                artGroup.position.set(entity.x || 0, baseElev, entity.z || 0);
+                artGroup.rotation.y = -(entity.angle || 0);
+            }
+
+            const thick = entity.wall?.thickness || entity.wall?.config?.thickness || entity.thick || 20;
+            const wallOffset = thick / 2;
+            const signZ = (entity.facing === -1) ? -1 : 1;
+
+            const contentGroup = new THREE.Group();
+            contentGroup.position.z = wallOffset * signZ;
+            if (signZ === -1) {
+                contentGroup.rotation.y = Math.PI;
+            }
+            artGroup.add(contentGroup);
+
+            const aType = entity.artType || entity.type || 'decor_wall_art_canvas';
+            const aW = entity.width || 50;
+            const aH = entity.height || 35;
+            const aD = entity.depth || 3;
+
+            const registerSlotMesh = (mesh, slotName) => {
+                mesh.userData.entity = entity;
+                mesh.userData.materialSlot = slotName;
+                mesh.userData.componentId = `${entity.id || 'art'}_${slotName}`;
+                ComponentRegistry.registerMesh(entity, slotName, mesh, { componentId: mesh.userData.componentId, componentType: aType });
+                contentGroup.add(mesh);
+                return mesh;
+            };
+
+            const getDynamicMat = (slotName, defaultKey, defaultProps = {}) => {
+                const slotId = entity.materials?.[slotName]?.id || defaultKey;
+                if (helpers?.getDynamicMaterial) {
+                    return helpers.getDynamicMaterial(slotId, slotName);
+                }
+                return new THREE.MeshStandardMaterial({ ...defaultProps });
+            };
+
+            if (aType === 'decor_photo_gallery') {
+                const mFrame = getDynamicMat('frame', 'metal_matte_black', { color: '#0f172a', roughness: 0.6 });
+                const mMatting = getDynamicMat('matting', 'upvc_white', { color: '#f8fafc', roughness: 0.9 });
+                const mPhoto = getDynamicMat('photo', 'crepe_satin_real', { color: '#e2e8f0', roughness: 0.5 });
+                const mGlass = new THREE.MeshPhysicalMaterial({ color: '#ffffff', transmission: 0.9, opacity: 1, transparent: true, roughness: 0.1 });
+
+                const fW = (aW - 10) / 3;
+                const fH = aH;
+                const fD = aD;
+                const baseZ = fD / 2 + 0.2;
+
+                [-fW - 4, 0, fW + 4].forEach((ox, idx) => {
+                    const frame = new THREE.Mesh(new THREE.BoxGeometry(fW, fH, fD), mFrame);
+                    frame.position.set(ox, fH / 2, baseZ);
+
+                    const matting = new THREE.Mesh(new THREE.BoxGeometry(fW - 2, fH - 2, 0.4), mMatting);
+                    matting.position.set(ox, fH / 2, baseZ + fD / 2 - 0.2);
+
+                    const photo = new THREE.Mesh(new THREE.BoxGeometry(fW - 6, fH - 8, 0.2), mPhoto);
+                    photo.position.set(ox, fH / 2, baseZ + fD / 2);
+
+                    const glass = new THREE.Mesh(new THREE.BoxGeometry(fW - 1.5, fH - 1.5, 0.2), mGlass);
+                    glass.position.set(ox, fH / 2, baseZ + fD / 2 + 0.2);
+
+                    registerSlotMesh(frame, 'frame');
+                    registerSlotMesh(matting, 'matting');
+                    registerSlotMesh(photo, 'photo');
+                    contentGroup.add(glass);
+                });
+            } else {
+                // decor_wall_art_canvas
+                const mFrame = getDynamicMat('frame', 'wood_dark_walnut', { color: '#3e2723', roughness: 0.7 });
+                const mCanvas = getDynamicMat('canvas', 'caban_neutral', { color: '#f8fafc', roughness: 0.9 });
+                const baseZ = aD / 2 + 0.2;
+
+                const frame = new THREE.Mesh(new THREE.BoxGeometry(aW, aH, aD), mFrame);
+                frame.position.set(0, aH / 2, baseZ);
+                registerSlotMesh(frame, 'frame');
+
+                const canvas = new THREE.Mesh(new THREE.BoxGeometry(aW - 2, aH - 2, aD + 0.2), mCanvas);
+                canvas.position.set(0, aH / 2, baseZ + 0.1);
+                registerSlotMesh(canvas, 'canvas');
+            }
+
+            const hitboxGeo = new THREE.BoxGeometry(aW + 5, aH + 5, 8);
+            builder.addNode({ geometry: hitboxGeo, parent: artGroup, position: new THREE.Vector3(0, aH / 2, 0), isHitbox: true });
+
+            artGroup.userData = { isWidget: true, entity: entity };
+            const finalGroup = builder.build();
+            sceneGroup.add(finalGroup);
+            return finalGroup;
+        }
+    },
+    'decor_wall_art_canvas': {
+        widget: "decor_wall_art_canvas", label: "CANVAS WALL ART", cutsWall: false,
+        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
+        defaultConfig: { width: 50, height: 35, depth: 3, elevation: 45, thick: 2, facing: 1, artType: 'decor_wall_art_canvas' },
+        render2D: (group, entity) => WIDGET_REGISTRY['wall_art'].render2D(group, { ...entity, artType: 'decor_wall_art_canvas' }),
+        render3D: (sceneGroup, entity, helpers) => WIDGET_REGISTRY['wall_art'].render3D(sceneGroup, { ...entity, artType: 'decor_wall_art_canvas' }, helpers)
+    },
+    'decor_photo_gallery': {
+        widget: "decor_photo_gallery", label: "PHOTO GALLERY 3-FRAME", cutsWall: false,
+        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
+        defaultConfig: { width: 60, height: 25, depth: 3, elevation: 50, thick: 2, facing: 1, artType: 'decor_photo_gallery' },
+        render2D: (group, entity) => WIDGET_REGISTRY['wall_art'].render2D(group, { ...entity, artType: 'decor_photo_gallery' }),
+        render3D: (sceneGroup, entity, helpers) => WIDGET_REGISTRY['wall_art'].render3D(sceneGroup, { ...entity, artType: 'decor_photo_gallery' }, helpers)
     }
 };
 

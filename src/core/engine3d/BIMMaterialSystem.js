@@ -84,8 +84,8 @@ export class BIMMaterialSystem {
                 componentType = 'wall_face';
                 slotName = `wall_${faceName}`;
             } else if (type === 'furniture' || targetEntity.isFurniture) {
-                componentType = 'furniture_part';
-                slotName = MaterialSlots.CUSTOM;
+                componentType = mesh.userData?.componentType || (mesh.userData?.materialSlot ? String(mesh.userData.materialSlot) : 'furniture_part');
+                slotName = mesh.userData?.materialSlot || MaterialSlots.CUSTOM;
             }
         }
 

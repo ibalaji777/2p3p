@@ -4,6 +4,8 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY, FABRIC_REGISTRY, DOOR_MATERIALS_REGISTRY, MARBLE_REGISTRY, STONE_REGISTRY, METAL_REGISTRY, PLASTIC_REGISTRY, resolveFabricConfig } from '../../core/registry';
 import { MaterialFactory } from '../../core/engine3d/MaterialFactory.js';
+import { ComponentRegistry } from '../../core/engine3d/ComponentRegistry.js';
+import { MaterialSlots } from '../../core/constants/materialSlots.js';
 
 export class FurnitureManager {
     constructor(ctx) { this.ctx = ctx; }
@@ -514,10 +516,10 @@ export class FurnitureManager {
                 const box = new THREE.Box3().setFromObject(wrapper);
                 size = box.getSize(new THREE.Vector3());
                 center = box.getCenter(new THREE.Vector3());
-            } else if (config.procedural && config.id && ['bench', 'hood_', 'app_', 'wine_', 'trash_', 'handle_', 'cooktop_', 'furniture_', 'lighting_'].some(prefix => config.id.startsWith(prefix))) {
-                const sW = entity.width || 60;
-                const sH = entity.height || 60;
-                const sD = entity.depth || 60;
+            } else if (config.procedural && config.id && ['bench', 'hood_', 'app_', 'wine_', 'trash_', 'handle_', 'cooktop_', 'furniture_', 'lighting_', 'curtain_', 'rug_', 'decor_'].some(prefix => config.id.startsWith(prefix))) {
+                const sW = entity.width || config.default?.width || 60;
+                const sH = entity.height || config.default?.height || 60;
+                const sD = entity.depth || config.default?.depth || 60;
                 
                 const eqGroup = new THREE.Group();
                 const mSteel = new THREE.MeshStandardMaterial({ color: '#e2e8f0', metalness: 0.8, roughness: 0.3 });
@@ -910,6 +912,647 @@ export class FurnitureManager {
                     const light = new THREE.PointLight(0xffeedd, 1.5, 400); light.position.y = 10;
                     
                     eqGroup.add(canopy, wire, housing, globe, bulb, light);
+                } else if (config.id.startsWith('curtain_')) {
+                    const registerSlotMesh = (mesh, slotName) => {
+                        mesh.userData.entity = entity;
+                        mesh.userData.materialSlot = slotName;
+                        mesh.userData.componentId = `${entity.id || 'decor'}_${slotName}`;
+                        ComponentRegistry.registerMesh(entity, slotName, mesh, { componentId: mesh.userData.componentId, componentType: config.id });
+                        eqGroup.add(mesh);
+                        return mesh;
+                    };
+
+                    const getDynamicMat = (slotName, defaultKey, defaultProps = {}) => {
+                        const slotId = entity.materials?.[slotName]?.id || config.default?.materials?.[slotName]?.id || defaultKey;
+                        if (this.ctx?.helpers?.getDynamicMaterial) {
+                            return this.ctx.helpers.getDynamicMaterial(slotId, slotName);
+                        }
+                        return new THREE.MeshStandardMaterial({ ...defaultProps });
+                    };
+
+                    const cW = sW;
+                    const cH = sH;
+                    const cD = sD;
+
+                    // Helper to build high-fidelity continuous full fabric drape geometry
+                    const buildContinuousFabricDrapeGeo = (w, h, waveCount = 8, waveAmp = 2.8) => {
+                        const segX = Math.max(60, Math.floor(w * 1.5));
+                        const segY = Math.max(30, Math.floor(h * 0.5));
+                        const geo = new THREE.PlaneGeometry(w, h, segX, segY);
+                        geo.translate(0, h / 2, 0);
+
+                        const pos = geo.attributes.position;
+                        const uv = geo.attributes.uv;
+
+                        for (let i = 0; i < pos.count; i++) {
+                            const x = pos.getX(i);
+                            const y = pos.getY(i);
+                            const u = (x + w / 2) / w;
+                            const v = y / h;
+
+                            const primaryWave = Math.sin(u * Math.PI * 2 * waveCount) * waveAmp;
+                            const organicSag = Math.sin(u * Math.PI * 6 + v * 2.5) * (waveAmp * 0.2) * (1 - v * 0.5);
+                            const foldDepth = (primaryWave + organicSag) * (0.85 + 0.15 * (1 - v));
+
+                            pos.setZ(i, foldDepth);
+                            uv.setXY(i, (x + w / 2) / 50, y / 50);
+                        }
+
+                        pos.needsUpdate = true;
+                        uv.needsUpdate = true;
+                        geo.computeVertexNormals();
+                        return geo;
+                    };
+
+                    if (config.id === 'curtain_drapes_sheer') {
+                        const mFabric = getDynamicMat('fabric', 'crepe_satin_real', { color: '#f8fafc', roughness: 0.6, transparent: true, opacity: 0.88, side: THREE.DoubleSide });
+                        mFabric.side = THREE.DoubleSide;
+                        const mRod = getDynamicMat('rod', 'metal_brass', { color: '#d97706', metalness: 0.9, roughness: 0.2 });
+                        const mRings = getDynamicMat('rings', 'metal_brass', { color: '#d97706', metalness: 0.9, roughness: 0.2 });
+
+                        // Top curtain rod
+                        const rodGeo = new THREE.CylinderGeometry(1.0, 1.0, cW + 10, 24);
+                        rodGeo.rotateZ(Math.PI / 2);
+                        const rod = new THREE.Mesh(rodGeo, mRod);
+                        rod.position.set(0, cH - 1.5, 0);
+                        registerSlotMesh(rod, 'rod');
+
+                        // End finials (spherical brass)
+                        const finialL = new THREE.Mesh(new THREE.SphereGeometry(2.2, 24, 24), mRod);
+                        finialL.position.set(-cW / 2 - 5, cH - 1.5, 0);
+                        const finialR = new THREE.Mesh(new THREE.SphereGeometry(2.2, 24, 24), mRod);
+                        finialR.position.set(cW / 2 + 5, cH - 1.5, 0);
+                        registerSlotMesh(finialL, 'rod');
+                        registerSlotMesh(finialR, 'rod');
+
+                        // Wall mounting brackets
+                        [-cW / 2 + 8, 0, cW / 2 - 8].forEach(bx => {
+                            const brk = new THREE.Mesh(new THREE.BoxGeometry(1.0, 2.5, 4.5), mRod);
+                            brk.position.set(bx, cH - 1.5, -2.25);
+                            registerSlotMesh(brk, 'rod');
+                        });
+
+                        // Rings along the rod
+                        const ringCount = 14;
+                        for (let i = 0; i < ringCount; i++) {
+                            const rx = -cW / 2 + (cW / (ringCount - 1)) * i;
+                            const ring = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.2, 12, 24), mRings);
+                            ring.rotation.y = Math.PI / 2;
+                            ring.position.set(rx, cH - 1.5, 0);
+                            registerSlotMesh(ring, 'rings');
+                        }
+
+                        // Full continuous sheer drape across entire curtain width
+                        const drapeGeo = buildContinuousFabricDrapeGeo(cW, cH - 4.5, 7.5, 2.5);
+                        const drape = new THREE.Mesh(drapeGeo, mFabric);
+                        drape.position.set(0, 0, 0);
+                        registerSlotMesh(drape, 'fabric');
+
+                    } else if (config.id === 'curtain_drapes_blackout') {
+                        const mFabric = getDynamicMat('fabric', 'caban_neutral', { color: '#334155', roughness: 0.9, side: THREE.DoubleSide });
+                        mFabric.side = THREE.DoubleSide;
+                        const mRod = getDynamicMat('rod', 'metal_matte_black', { color: '#1e293b', roughness: 0.5, metalness: 0.8 });
+                        const mFinials = getDynamicMat('finials', 'metal_matte_black', { color: '#1e293b', roughness: 0.5, metalness: 0.8 });
+
+                        // Sleek black curtain rod
+                        const rodGeo = new THREE.CylinderGeometry(1.2, 1.2, cW + 12, 24);
+                        rodGeo.rotateZ(Math.PI / 2);
+                        const rod = new THREE.Mesh(rodGeo, mRod);
+                        rod.position.set(0, cH - 1.5, 0);
+                        registerSlotMesh(rod, 'rod');
+
+                        // Architectural cube finials
+                        const finialL = new THREE.Mesh(new THREE.BoxGeometry(3.5, 3.5, 3.5), mFinials);
+                        finialL.position.set(-cW / 2 - 6, cH - 1.5, 0);
+                        const finialR = new THREE.Mesh(new THREE.BoxGeometry(3.5, 3.5, 3.5), mFinials);
+                        finialR.position.set(cW / 2 + 6, cH - 1.5, 0);
+                        registerSlotMesh(finialL, 'finials');
+                        registerSlotMesh(finialR, 'finials');
+
+                        // Full continuous blackout pinch-pleat drape across entire curtain width
+                        const drapeGeo = buildContinuousFabricDrapeGeo(cW, cH - 4.5, 9.0, 3.5);
+                        const drape = new THREE.Mesh(drapeGeo, mFabric);
+                        drape.position.set(0, 0, 0);
+                        registerSlotMesh(drape, 'fabric');
+
+                    } else if (config.id === 'curtain_roller_blind') {
+                        const mFabric = getDynamicMat('fabric', 'caban_neutral', { color: '#e2e8f0', roughness: 0.7, side: THREE.DoubleSide });
+                        const mCassette = getDynamicMat('cassette', 'alum_silver', { color: '#94a3b8', metalness: 0.8, roughness: 0.2 });
+                        const mChain = getDynamicMat('chain', 'metal_chrome', { color: '#cbd5e1', metalness: 0.9, roughness: 0.1 });
+
+                        // Top cassette housing
+                        const cassette = new THREE.Mesh(new THREE.BoxGeometry(cW, 6, 6), mCassette);
+                        cassette.position.set(0, cH - 3, 0);
+                        registerSlotMesh(cassette, 'cassette');
+
+                        // Fabric sheet with mapped metric UVs
+                        const sheetGeo = new THREE.PlaneGeometry(cW - 2, cH - 8);
+                        const sPos = sheetGeo.attributes.position;
+                        const sUv = sheetGeo.attributes.uv;
+                        for (let i = 0; i < sPos.count; i++) {
+                            sUv.setXY(i, (sPos.getX(i) + cW / 2) / 60, (sPos.getY(i) + (cH - 8) / 2) / 60);
+                        }
+                        sUv.needsUpdate = true;
+                        sheetGeo.computeVertexNormals();
+
+                        const sheet = new THREE.Mesh(sheetGeo, mFabric);
+                        sheet.position.set(0, (cH - 8) / 2 + 2, 0);
+                        registerSlotMesh(sheet, 'fabric');
+
+                        // Bottom weighted teardrop hem bar
+                        const hemGeo = new THREE.CylinderGeometry(0.7, 0.7, cW - 2, 16);
+                        hemGeo.rotateZ(Math.PI / 2);
+                        const hem = new THREE.Mesh(hemGeo, mCassette);
+                        hem.position.set(0, 2, 0);
+                        registerSlotMesh(hem, 'cassette');
+
+                        // Beaded pull chain
+                        const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, cH * 0.65, 8), mChain);
+                        chain.position.set(cW / 2 - 1.5, cH - 3 - (cH * 0.65) / 2, 2.5);
+                        registerSlotMesh(chain, 'chain');
+
+                    } else if (config.id === 'curtain_roman_shade') {
+                        const mFabric = getDynamicMat('fabric', 'curly_teddy_checkered', { color: '#f1f5f9', roughness: 0.85, side: THREE.DoubleSide });
+                        const mHeadrail = getDynamicMat('headrail', 'wood_white_oak', { color: '#ffffff', roughness: 0.5 });
+
+                        // Top headrail
+                        const headrail = new THREE.Mesh(new THREE.BoxGeometry(cW, 4.5, 3.5), mHeadrail);
+                        headrail.position.set(0, cH - 2.25, 0);
+                        registerSlotMesh(headrail, 'headrail');
+
+                        // 5 horizontal tiered cascading soft fabric folds with continuous UVs
+                        const foldCount = 5;
+                        const foldH = (cH - 5) / foldCount;
+                        for (let i = 0; i < foldCount; i++) {
+                            const yPos = (foldCount - 1 - i) * foldH + foldH / 2;
+                            const foldGeo = new THREE.BoxGeometry(cW - 1, foldH + 1, 1.2);
+                            const fPos = foldGeo.attributes.position;
+                            const fUv = foldGeo.attributes.uv;
+                            for (let j = 0; j < fPos.count; j++) {
+                                fUv.setXY(j, (fPos.getX(j) + cW / 2) / 60, (fPos.getY(j) + yPos) / 60);
+                            }
+                            fUv.needsUpdate = true;
+                            foldGeo.computeVertexNormals();
+
+                            const fold = new THREE.Mesh(foldGeo, mFabric);
+                            fold.position.set(0, yPos, 0.5 + i * 0.15);
+                            registerSlotMesh(fold, 'fabric');
+                        }
+                    }
+
+                } else if (config.id.startsWith('rug_')) {
+                    const registerSlotMesh = (mesh, slotName) => {
+                        mesh.userData.entity = entity;
+                        mesh.userData.materialSlot = slotName;
+                        mesh.userData.componentId = `${entity.id || 'rug'}_${slotName}`;
+                        ComponentRegistry.registerMesh(entity, slotName, mesh, { componentId: mesh.userData.componentId, componentType: config.id });
+                        eqGroup.add(mesh);
+                        return mesh;
+                    };
+
+                    const getDynamicMat = (slotName, defaultKey, defaultProps = {}) => {
+                        const slotId = entity.materials?.[slotName]?.id || config.default?.materials?.[slotName]?.id || defaultKey;
+                        if (this.ctx?.helpers?.getDynamicMaterial) {
+                            return this.ctx.helpers.getDynamicMaterial(slotId, slotName);
+                        }
+                        return new THREE.MeshStandardMaterial({ ...defaultProps });
+                    };
+
+                    const rW = sW;
+                    const rH = Math.max(1.0, sH);
+                    const rD = sD;
+
+                    if (config.id === 'rug_rectangular_modern' || config.id === 'rug_rectangular_jute') {
+                        const mCarpet = getDynamicMat('carpet', config.id === 'rug_rectangular_jute' ? 'wood_golden_teak' : 'curly_teddy_checkered', { color: '#e2e8f0', roughness: 0.9 });
+                        const mBorder = getDynamicMat('border', 'caban_neutral', { color: '#64748b', roughness: 0.8 });
+
+                        const base = new THREE.Mesh(new THREE.BoxGeometry(rW, rH, rD), mCarpet);
+                        base.position.set(0, rH / 2, 0);
+                        registerSlotMesh(base, 'carpet');
+
+                        if (config.id === 'rug_rectangular_modern') {
+                            const borderThick = 6;
+                            const border = new THREE.Mesh(new THREE.BoxGeometry(rW, rH + 0.1, borderThick), mBorder);
+                            border.position.set(0, rH / 2, -rD / 2 + borderThick / 2);
+                            const border2 = new THREE.Mesh(new THREE.BoxGeometry(rW, rH + 0.1, borderThick), mBorder);
+                            border2.position.set(0, rH / 2, rD / 2 - borderThick / 2);
+                            registerSlotMesh(border, 'border');
+                            registerSlotMesh(border2, 'border');
+                        }
+
+                    } else if (config.id === 'rug_rectangular_persian') {
+                        const mCarpet = getDynamicMat('carpet', 'caban_neutral', { color: '#881337', roughness: 0.85 });
+                        const mFringes = getDynamicMat('fringes', 'crepe_satin_real', { color: '#fef3c7', roughness: 0.6 });
+
+                        const base = new THREE.Mesh(new THREE.BoxGeometry(rW - 12, rH, rD), mCarpet);
+                        base.position.set(0, rH / 2, 0);
+                        registerSlotMesh(base, 'carpet');
+
+                        // Fringe tassels on left and right ends
+                        const fringeL = new THREE.Mesh(new THREE.BoxGeometry(6, rH * 0.6, rD - 2), mFringes);
+                        fringeL.position.set(-rW / 2 + 3, rH * 0.3, 0);
+                        const fringeR = new THREE.Mesh(new THREE.BoxGeometry(6, rH * 0.6, rD - 2), mFringes);
+                        fringeR.position.set(rW / 2 - 3, rH * 0.3, 0);
+                        registerSlotMesh(fringeL, 'fringes');
+                        registerSlotMesh(fringeR, 'fringes');
+
+                    } else if (config.id === 'rug_circular_boho' || config.id === 'rug_circular_plush') {
+                        const mCarpet = getDynamicMat('carpet', config.id === 'rug_circular_plush' ? 'curly_teddy_checkered' : 'caban_neutral', { color: '#f8fafc', roughness: 0.9 });
+                        const radius = rW / 2;
+
+                        const disk = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, rH, 48), mCarpet);
+                        disk.position.set(0, rH / 2, 0);
+                        registerSlotMesh(disk, 'carpet');
+
+                        if (config.id === 'rug_circular_boho') {
+                            const ring = new THREE.Mesh(new THREE.TorusGeometry(radius - 2, 0.4, 8, 48), mCarpet);
+                            ring.rotation.x = Math.PI / 2;
+                            ring.position.set(0, rH, 0);
+                            registerSlotMesh(ring, 'carpet');
+                        }
+                    }
+
+                } else if (config.id.startsWith('decor_')) {
+                    const registerSlotMesh = (mesh, slotName) => {
+                        mesh.userData.entity = entity;
+                        mesh.userData.materialSlot = slotName;
+                        mesh.userData.componentId = `${entity.id || 'decor'}_${slotName}`;
+                        ComponentRegistry.registerMesh(entity, slotName, mesh, { componentId: mesh.userData.componentId, componentType: config.id });
+                        eqGroup.add(mesh);
+                        return mesh;
+                    };
+
+                    const getDynamicMat = (slotName, defaultKey, defaultProps = {}) => {
+                        const slotId = entity.materials?.[slotName]?.id || config.default?.materials?.[slotName]?.id || defaultKey;
+                        if (this.ctx?.helpers?.getDynamicMaterial) {
+                            return this.ctx.helpers.getDynamicMaterial(slotId, slotName);
+                        }
+                        return new THREE.MeshStandardMaterial({ ...defaultProps });
+                    };
+
+                    // Procedural high-resolution artwork & clock dial texture synthesizer
+                    const createProceduralArtTexture = (type) => {
+                        if (typeof document === 'undefined') return null;
+                        try {
+                            const cvs = document.createElement('canvas');
+                            cvs.width = 512;
+                            cvs.height = 512;
+                            let pCtx = null;
+                            try {
+                                pCtx = cvs.getContext('2d');
+                            } catch (e) {
+                                return null;
+                            }
+                            if (!pCtx) return null;
+
+                            if (type === 'canvas_abstract') {
+                                pCtx.fillStyle = '#f6f1eb';
+                                pCtx.fillRect(0, 0, 512, 512);
+
+                                // Linen weave canvas grain
+                                pCtx.fillStyle = 'rgba(0,0,0,0.025)';
+                                for (let i = 0; i < 240; i++) {
+                                    pCtx.fillRect(Math.random() * 512, Math.random() * 512, Math.random() * 60 + 20, 1.2);
+                                    pCtx.fillRect(Math.random() * 512, Math.random() * 512, 1.2, Math.random() * 60 + 20);
+                                }
+
+                                // Terracotta arched geometric form
+                                pCtx.fillStyle = '#c2410c';
+                                pCtx.beginPath();
+                                pCtx.arc(220, 260, 140, Math.PI, 0, false);
+                                pCtx.lineTo(360, 440);
+                                pCtx.lineTo(80, 440);
+                                pCtx.closePath();
+                                pCtx.fill();
+
+                                // Sage olive disk
+                                pCtx.fillStyle = '#4d5d43';
+                                pCtx.beginPath();
+                                pCtx.arc(340, 160, 75, 0, Math.PI * 2);
+                                pCtx.fill();
+
+                                // Minimalist charcoal curve
+                                pCtx.strokeStyle = '#0f172a';
+                                pCtx.lineWidth = 4;
+                                pCtx.beginPath();
+                                pCtx.moveTo(70, 100);
+                                pCtx.bezierCurveTo(180, 60, 290, 310, 440, 370);
+                                pCtx.stroke();
+
+                                // Gold leaf accent foil arc
+                                pCtx.strokeStyle = '#d97706';
+                                pCtx.lineWidth = 6;
+                                pCtx.beginPath();
+                                pCtx.arc(220, 260, 155, Math.PI * 1.1, Math.PI * 1.8);
+                                pCtx.stroke();
+
+                                // Artist signature
+                                pCtx.fillStyle = '#64748b';
+                                pCtx.font = 'italic 15px serif';
+                                pCtx.fillText('A. Moreau', 380, 480);
+
+                            } else if (type === 'photo_1') {
+                                // Architectural arches photograph with sunlight casting shadows
+                                const grad = pCtx.createLinearGradient(0, 0, 512, 512);
+                                grad.addColorStop(0, '#f8fafc');
+                                grad.addColorStop(1, '#64748b');
+                                pCtx.fillStyle = grad;
+                                pCtx.fillRect(0, 0, 512, 512);
+
+                                pCtx.fillStyle = '#1e293b';
+                                pCtx.beginPath();
+                                pCtx.moveTo(80, 0); pCtx.lineTo(220, 0); pCtx.lineTo(380, 512); pCtx.lineTo(240, 512);
+                                pCtx.closePath();
+                                pCtx.fill();
+
+                                pCtx.fillStyle = '#f1f5f9';
+                                pCtx.beginPath();
+                                pCtx.arc(256, 210, 100, Math.PI, 0);
+                                pCtx.lineTo(356, 512); pCtx.lineTo(156, 512);
+                                pCtx.closePath();
+                                pCtx.fill();
+
+                                pCtx.fillStyle = 'rgba(251, 191, 36, 0.28)';
+                                pCtx.beginPath();
+                                pCtx.moveTo(0, 80); pCtx.lineTo(512, 340); pCtx.lineTo(512, 512); pCtx.lineTo(0, 260);
+                                pCtx.closePath();
+                                pCtx.fill();
+
+                            } else if (type === 'photo_2') {
+                                // Golden hour botanical silhouette
+                                const sky = pCtx.createLinearGradient(0, 0, 0, 512);
+                                sky.addColorStop(0, '#fef08a');
+                                sky.addColorStop(0.5, '#f87171');
+                                sky.addColorStop(1, '#818cf8');
+                                pCtx.fillStyle = sky;
+                                pCtx.fillRect(0, 0, 512, 512);
+
+                                pCtx.fillStyle = '#0f172a';
+                                pCtx.beginPath();
+                                pCtx.moveTo(0, 512);
+                                pCtx.quadraticCurveTo(200, 320, 480, 130);
+                                pCtx.lineWidth = 6;
+                                pCtx.strokeStyle = '#0f172a';
+                                pCtx.stroke();
+
+                                for (let i = 0; i < 16; i++) {
+                                    const t = i / 16;
+                                    const px = 50 + t * 390;
+                                    const py = 450 - t * 290;
+                                    pCtx.beginPath();
+                                    pCtx.moveTo(px, py);
+                                    pCtx.quadraticCurveTo(px - 35, py - 55, px - 85, py - 25);
+                                    pCtx.lineWidth = 3.5;
+                                    pCtx.stroke();
+                                }
+
+                            } else if (type === 'photo_3') {
+                                // Serene misty mountains & lake
+                                const mist = pCtx.createLinearGradient(0, 0, 0, 512);
+                                mist.addColorStop(0, '#bae6fd');
+                                mist.addColorStop(0.45, '#e0f2fe');
+                                mist.addColorStop(0.75, '#f8fafc');
+                                mist.addColorStop(1, '#0369a1');
+                                pCtx.fillStyle = mist;
+                                pCtx.fillRect(0, 0, 512, 512);
+
+                                pCtx.fillStyle = 'rgba(71, 85, 105, 0.45)';
+                                pCtx.beginPath();
+                                pCtx.moveTo(0, 320); pCtx.lineTo(130, 230); pCtx.lineTo(270, 290); pCtx.lineTo(410, 210); pCtx.lineTo(512, 270); pCtx.lineTo(512, 512); pCtx.lineTo(0, 512);
+                                pCtx.closePath();
+                                pCtx.fill();
+
+                                pCtx.fillStyle = '#0f172a';
+                                pCtx.beginPath();
+                                pCtx.moveTo(0, 380); pCtx.lineTo(170, 330); pCtx.lineTo(330, 370); pCtx.lineTo(512, 320); pCtx.lineTo(512, 512); pCtx.lineTo(0, 512);
+                                pCtx.closePath();
+                                pCtx.fill();
+                            }
+
+                            const tex = new THREE.CanvasTexture(cvs);
+                            tex.colorSpace = THREE.SRGBColorSpace;
+                            tex.needsUpdate = true;
+                            return tex;
+                        } catch (e) {
+                            return null;
+                        }
+                    };
+
+                    const dW = sW;
+                    const dH = sH;
+                    const dD = sD;
+
+                    if (config.id === 'decor_wall_art_canvas') {
+                        const mFrame = getDynamicMat('frame', 'wood_dark_walnut', { color: '#3d2b1f', roughness: 0.5 });
+                        const mCanvas = getDynamicMat('canvas', 'caban_neutral', { color: '#f8fafc', roughness: 0.7 });
+
+                        // Apply procedural gallery abstract painting if no custom user texture was uploaded
+                        if (!entity.materials?.canvas?.id) {
+                            const artTex = createProceduralArtTexture('canvas_abstract');
+                            if (artTex) {
+                                mCanvas.map = artTex;
+                                mCanvas.color.setHex(0xffffff);
+                                mCanvas.needsUpdate = true;
+                            }
+                        }
+
+                        // Outer 4-piece floating shadow box frame
+                        const frameThick = 2.0;
+                        const frameDepth = 3.5;
+                        const topBar = new THREE.Mesh(new THREE.BoxGeometry(dW, frameThick, frameDepth), mFrame);
+                        topBar.position.set(0, dH / 2 - frameThick / 2, 0);
+                        const botBar = new THREE.Mesh(new THREE.BoxGeometry(dW, frameThick, frameDepth), mFrame);
+                        botBar.position.set(0, -dH / 2 + frameThick / 2, 0);
+                        const leftBar = new THREE.Mesh(new THREE.BoxGeometry(frameThick, dH - frameThick * 2, frameDepth), mFrame);
+                        leftBar.position.set(-dW / 2 + frameThick / 2, 0, 0);
+                        const rightBar = new THREE.Mesh(new THREE.BoxGeometry(frameThick, dH - frameThick * 2, frameDepth), mFrame);
+                        rightBar.position.set(dW / 2 - frameThick / 2, 0, 0);
+
+                        registerSlotMesh(topBar, 'frame');
+                        registerSlotMesh(botBar, 'frame');
+                        registerSlotMesh(leftBar, 'frame');
+                        registerSlotMesh(rightBar, 'frame');
+
+                        // Recessed stretched canvas board with 0.8cm floating shadow reveal
+                        const canvasW = dW - 5.6;
+                        const canvasH = dH - 5.6;
+                        const canvasGeo = new THREE.BoxGeometry(canvasW, canvasH, 2.0);
+                        
+                        // Map front face UV coordinates for high-res painting projection
+                        const cPos = canvasGeo.attributes.position;
+                        const cUv = canvasGeo.attributes.uv;
+                        for (let i = 0; i < cPos.count; i++) {
+                            cUv.setXY(i, (cPos.getX(i) + canvasW / 2) / canvasW, (cPos.getY(i) + canvasH / 2) / canvasH);
+                        }
+                        cUv.needsUpdate = true;
+
+                        const canvas = new THREE.Mesh(canvasGeo, mCanvas);
+                        canvas.position.set(0, 0, -0.4);
+                        registerSlotMesh(canvas, 'canvas');
+
+                    } else if (config.id === 'decor_photo_gallery') {
+                        const mFrame = getDynamicMat('frame', 'metal_matte_black', { color: '#1e293b', metalness: 0.8, roughness: 0.3 });
+                        const mMatting = getDynamicMat('matting', 'upvc_white', { color: '#f8fafc', roughness: 0.9 });
+                        const mGlass = getDynamicMat('glass', 'glass_clear', { color: '#ffffff', transmission: 0.95, roughness: 0.05, transparent: true, opacity: 0.4 });
+
+                        const singleW = (dW - 12) / 3;
+                        const offsets = [-singleW - 5, 0, singleW + 5];
+                        const photoTypes = ['photo_1', 'photo_2', 'photo_3'];
+
+                        offsets.forEach((ox, pIdx) => {
+                            const mPhoto = getDynamicMat('photo', 'crepe_satin_real', { color: '#f8fafc', roughness: 0.2 });
+                            if (!entity.materials?.photo?.id) {
+                                const photoTex = createProceduralArtTexture(photoTypes[pIdx]);
+                                if (photoTex) {
+                                    mPhoto.map = photoTex;
+                                    mPhoto.color.setHex(0xffffff);
+                                    mPhoto.needsUpdate = true;
+                                }
+                            }
+
+                            // Outer frame molding
+                            const frame = new THREE.Mesh(new THREE.BoxGeometry(singleW, dH, 2.2), mFrame);
+                            frame.position.set(ox, 0, 0);
+
+                            // Matting board
+                            const matting = new THREE.Mesh(new THREE.BoxGeometry(singleW - 2.5, dH - 2.5, 2.3), mMatting);
+                            matting.position.set(ox, 0, 0.05);
+
+                            // Proportional high-res photo window (1:1.41 aspect ratio)
+                            const pw = singleW * 0.72;
+                            const ph = dH * 0.72;
+                            const photoGeo = new THREE.BoxGeometry(pw, ph, 2.4);
+                            const pPos = photoGeo.attributes.position;
+                            const pUv = photoGeo.attributes.uv;
+                            for (let i = 0; i < pPos.count; i++) {
+                                pUv.setXY(i, (pPos.getX(i) + pw / 2) / pw, (pPos.getY(i) + ph / 2) / ph);
+                            }
+                            pUv.needsUpdate = true;
+
+                            const photo = new THREE.Mesh(photoGeo, mPhoto);
+                            photo.position.set(ox, 0, 0.1);
+
+                            // Protective crystal glass pane
+                            const glass = new THREE.Mesh(new THREE.BoxGeometry(singleW - 2.5, dH - 2.5, 0.2), mGlass);
+                            glass.position.set(ox, 0, 1.2);
+
+                            registerSlotMesh(frame, 'frame');
+                            registerSlotMesh(matting, 'matting');
+                            registerSlotMesh(photo, 'photo');
+                            eqGroup.add(glass);
+                        });
+
+                    } else if (config.id === 'decor_plant_monstera' || config.id === 'decor_plant_snake' || config.id === 'decor_plant_fiddle') {
+                        const mPot = getDynamicMat('pot', config.id === 'decor_plant_fiddle' ? 'wood_golden_teak' : 'stone_terrazzo_white', { color: '#f8fafc', roughness: 0.5 });
+                        const mFoliage = getDynamicMat('foliage', 'plant_foliage_green', { color: '#2e5e24', roughness: 0.5, metalness: 0.05 });
+                        const mSoil = new THREE.MeshStandardMaterial({ color: '#271c19', roughness: 0.95 });
+                        const mBark = new THREE.MeshStandardMaterial({ color: '#5c4033', roughness: 0.9 });
+
+                        if (config.id === 'decor_plant_monstera') {
+                            // Pot with gold accent saucer
+                            const pot = new THREE.Mesh(new THREE.CylinderGeometry(14, 11, 26, 32), mPot);
+                            pot.position.y = 13;
+                            const saucer = new THREE.Mesh(new THREE.CylinderGeometry(13, 13, 1.5, 32), new THREE.MeshStandardMaterial({ color: '#d97706', metalness: 0.8, roughness: 0.2 }));
+                            saucer.position.y = 0.75;
+                            const soil = new THREE.Mesh(new THREE.CylinderGeometry(13.5, 13.5, 1, 32), mSoil);
+                            soil.position.y = 25;
+                            registerSlotMesh(pot, 'pot');
+                            eqGroup.add(saucer, soil);
+
+                            // 8 Monstera leaves with arching stems and varied organic orientations
+                            const leafAngles = [0, 0.8, 1.6, 2.4, 3.2, 4.0, 4.8, 5.6];
+                            leafAngles.forEach((ang, idx) => {
+                                const stemH = 30 + (idx % 4) * 8;
+                                const stemCurve = new THREE.CatmullRomCurve3([
+                                    new THREE.Vector3(0, 25, 0),
+                                    new THREE.Vector3(Math.sin(ang) * 8, 25 + stemH * 0.5, Math.cos(ang) * 8),
+                                    new THREE.Vector3(Math.sin(ang) * 22, 25 + stemH, Math.cos(ang) * 22)
+                                ]);
+                                const stem = new THREE.Mesh(new THREE.TubeGeometry(stemCurve, 12, 0.6, 8, false), mFoliage);
+                                
+                                const blade = new THREE.Mesh(new THREE.SphereGeometry(11, 16, 8), mFoliage);
+                                blade.scale.set(1.4, 0.08, 0.9);
+                                blade.rotation.set(0.4, ang, 0.4);
+                                blade.position.set(Math.sin(ang) * 22, 25 + stemH, Math.cos(ang) * 22);
+
+                                registerSlotMesh(stem, 'foliage');
+                                registerSlotMesh(blade, 'foliage');
+                            });
+
+                        } else if (config.id === 'decor_plant_snake') {
+                            const pot = new THREE.Mesh(new THREE.CylinderGeometry(10, 8, 30, 24), mPot);
+                            pot.position.y = 15;
+                            const soil = new THREE.Mesh(new THREE.CylinderGeometry(9.5, 9.5, 1, 24), mSoil);
+                            soil.position.y = 29;
+                            registerSlotMesh(pot, 'pot');
+                            eqGroup.add(soil);
+
+                            // 14 upright sword blades
+                            for (let i = 0; i < 14; i++) {
+                                const ang = (i / 14) * Math.PI * 2;
+                                const bladeH = 42 + (i % 4) * 16;
+                                const blade = new THREE.Mesh(new THREE.ConeGeometry(3, bladeH, 4), mFoliage);
+                                blade.scale.set(1.2, 1, 0.2);
+                                blade.position.set(Math.sin(ang) * 5.5, 29 + bladeH / 2, Math.cos(ang) * 5.5);
+                                blade.rotation.set(0.1 * Math.cos(ang), ang, 0.1 * Math.sin(ang));
+                                registerSlotMesh(blade, 'foliage');
+                            }
+
+                        } else if (config.id === 'decor_plant_fiddle') {
+                            const pot = new THREE.Mesh(new THREE.CylinderGeometry(15, 13, 28, 24), mPot);
+                            pot.position.y = 14;
+                            const soil = new THREE.Mesh(new THREE.CylinderGeometry(14.5, 14.5, 1, 24), mSoil);
+                            soil.position.y = 27;
+                            registerSlotMesh(pot, 'pot');
+                            eqGroup.add(soil);
+
+                            // Central trunk
+                            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 2.5, 75, 12), mBark);
+                            trunk.position.y = 27 + 37.5;
+                            eqGroup.add(trunk);
+
+                            // Canopy leaves
+                            for (let i = 0; i < 16; i++) {
+                                const ang = (i / 16) * Math.PI * 4;
+                                const yLvl = 55 + i * 4.5;
+                                const leaf = new THREE.Mesh(new THREE.SphereGeometry(9.5, 16, 8), mFoliage);
+                                leaf.scale.set(1.5, 0.08, 1.0);
+                                leaf.position.set(Math.sin(ang) * 14, yLvl, Math.cos(ang) * 14);
+                                leaf.rotation.set(0.3, ang, 0.3);
+                                registerSlotMesh(leaf, 'foliage');
+                            }
+                        }
+
+                    } else if (config.id === 'decor_vases_ceramic') {
+                        const mVaseA = getDynamicMat('vaseA', 'stone_terrazzo_white', { color: '#f8fafc', roughness: 0.3 });
+                        const mVaseB = getDynamicMat('vaseB', 'metal_brass', { color: '#d97706', metalness: 0.9, roughness: 0.2 });
+
+                        // Tall fluted vase
+                        const vaseA = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 6.5, 28, 24), mVaseA);
+                        vaseA.position.set(-6.5, 14, 0);
+                        const neckA = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 3.5, 6, 24), mVaseA);
+                        neckA.position.set(-6.5, 31, 0);
+                        registerSlotMesh(vaseA, 'vaseA');
+                        registerSlotMesh(neckA, 'vaseA');
+
+                        // Squat round brass vase
+                        const vaseB = new THREE.Mesh(new THREE.SphereGeometry(7.5, 24, 24), mVaseB);
+                        vaseB.scale.set(1, 0.8, 1);
+                        vaseB.position.set(7.5, 6.0, 0);
+                        const neckB = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 3, 24), mVaseB);
+                        neckB.position.set(7.5, 12.5, 0);
+                        registerSlotMesh(vaseB, 'vaseB');
+                        registerSlotMesh(neckB, 'vaseB');
+
+                        // Dried pampas grass sprigs
+                        const stemMat = new THREE.MeshStandardMaterial({ color: '#a16207', roughness: 0.9 });
+                        [-2, 0, 2].forEach(off => {
+                            const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 22, 8), stemMat);
+                            stem.position.set(-6.5 + off, 40, off * 0.8);
+                            stem.rotation.z = off * 0.08;
+                            eqGroup.add(stem);
+                        });
+                    }
                 }
 
                 const baseBox = new THREE.Box3().setFromObject(eqGroup);
@@ -997,15 +1640,22 @@ export class FurnitureManager {
             wrapper.add(hitBox);
 
             wrapper.traverse((child) => { 
-                if (child.isMesh && !child.userData.isHitbox) { child.castShadow = true; child.receiveShadow = true; this.ctx.interactables.push(child); } 
+                if (child.isMesh && !child.userData.isHitbox) { 
+                    child.castShadow = true; 
+                    child.receiveShadow = true; 
+                    if (this.ctx && Array.isArray(this.ctx.interactables)) {
+                        this.ctx.interactables.push(child);
+                    }
+                } 
             });
 
-            // Ensure every mesh child has a unique, deterministic name/subMeshKey and un-shared material instance
+            // Ensure every mesh child has a unique deterministic name, and register CAD/BIM material slots
             let meshIdxCount = 0;
             const usedNamesMap = new Map();
             wrapper.traverse((child) => {
                 if (child.isMesh && !child.userData.isHitbox) {
-                    if (child.material) {
+                    // Only clone materials for generic imported assets without explicit material slots
+                    if (!child.userData.materialSlot && child.material) {
                         child.material = Array.isArray(child.material)
                             ? child.material.map(m => m.clone())
                             : child.material.clone();
@@ -1020,6 +1670,16 @@ export class FurnitureManager {
                     child.name = finalName;
                     child.userData.subMeshKey = finalName;
                     meshIdxCount++;
+
+                    // Re-affirm CAD/BIM Material System metadata and ComponentRegistry registration
+                    if (child.userData.materialSlot) {
+                        child.userData.entity = entity;
+                        child.userData.componentId = child.userData.componentId || `${entity.id || 'furn'}_${child.userData.materialSlot}`;
+                        ComponentRegistry.registerMesh(entity, child.userData.materialSlot, child, {
+                            componentId: child.userData.componentId,
+                            componentType: child.userData.componentType || config.id || 'furniture'
+                        });
+                    }
                 }
             });
 
@@ -1072,12 +1732,14 @@ export class FurnitureManager {
             wrapper.userData = { isFurniture: true, entity: entity, originalSize: new THREE.Vector3(safeW, safeH, safeD) };
             entity.mesh3D = wrapper;
             
-            this.ctx.interactables.push(hitBox);
+            if (this.ctx && Array.isArray(this.ctx.interactables)) {
+                this.ctx.interactables.push(hitBox);
+            }
             if (targetGroup) targetGroup.add(wrapper);
-            else this.ctx.structureGroup.add(wrapper);
+            else if (this.ctx && this.ctx.structureGroup) this.ctx.structureGroup.add(wrapper);
             this.updateLive(entity);
 
-            if (this.ctx.interactions.selectedObject && this.ctx.interactions.selectedObject.userData.entity === entity) {
+            if (this.ctx && this.ctx.interactions && this.ctx.interactions.selectedObject && this.ctx.interactions.selectedObject.userData.entity === entity) {
                 this.ctx.interactions.selectObject(wrapper);
             }
             return wrapper;

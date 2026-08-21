@@ -255,6 +255,8 @@ const getCatalogHeaderTitle = () => {
         'window': 'Window Catalog',
         'sunshade': 'Sunshade Catalog',
         'jali_panel': 'Jali Panel Catalog',
+        'curtain': 'Curtains & Blinds Catalog',
+        'wall_art': 'Wall Art & Frames Catalog',
         'staircase': 'Staircase Catalog',
         'roof': 'Roof Catalog',
         'dormer': 'Dormer Catalog',
@@ -274,7 +276,10 @@ const getCatalogHeaderTitle = () => {
         'railing_catalog': 'Railings Catalog',
         'furniture_catalog': 'Furniture Catalog',
         'bathroom_catalog': 'Bathroom & Sanitary Catalog',
-        'electronics_catalog': 'TVs & Electronics Catalog'
+        'electronics_catalog': 'TVs & Electronics Catalog',
+        'window_dressings_catalog': 'Window Dressings & Curtains',
+        'rugs_catalog': 'Area Rugs & Floor Carpets',
+        'decor_props_catalog': 'Wall Decor & Styling Props'
     };
     return map[props.type] || 'Product Catalog';
 };
@@ -501,7 +506,28 @@ const furnitureCatalog = ref([
     { isDivider: true, id: 'div_other', name: 'Other Furniture & Accents' },
     { id: 'bench', name: 'Entryway Wooden Bench', badge: 'BENCH', material: 'Solid Wood', specs: '1200 × 45 mm', image: '', toolId: 'furniture', params: { type: 'bench' } },
     { id: 'furniture_barstool', name: 'Scandinavian Bar Stool', badge: 'STOOL', material: 'Walnut & Brass', specs: '400 × 750 mm', image: '', toolId: 'furniture', params: { type: 'furniture_barstool' } },
-    { id: 'lighting_pendant', name: 'Ribbed Brass Pendant Light', badge: 'LIGHTING', material: 'Brass & Frosted Glass', specs: 'Pendant Lamp', image: '', toolId: 'furniture', params: { type: 'lighting_pendant', elevation: 180 } }
+    { id: 'lighting_pendant', name: 'Ribbed Brass Pendant Light', badge: 'LIGHTING', material: 'Brass & Frosted Glass', specs: 'Pendant Lamp', image: '', toolId: 'furniture', params: { type: 'lighting_pendant', elevation: 180 } },
+
+    { isDivider: true, id: 'div_curtains_furn', name: 'Window Dressings & Curtains' },
+    { id: 'curtain_drapes_sheer', name: 'Sheer Wave Curtains & Rod', badge: 'SHEER', material: 'Silk Voile & Brass', specs: '800 × 950 mm', image: '', toolId: 'curtain', params: { type: 'curtain_drapes_sheer', curtainType: 'curtain_drapes_sheer', elevation: 0 } },
+    { id: 'curtain_drapes_blackout', name: 'Blackout Pinch-Pleat Drapes', badge: 'BLACKOUT', material: 'Heavy Linen & Steel', specs: '900 × 950 mm', image: '', toolId: 'curtain', params: { type: 'curtain_drapes_blackout', curtainType: 'curtain_drapes_blackout', elevation: 0 } },
+    { id: 'curtain_roller_blind', name: 'Modern Roller Blind', badge: 'ROLLER', material: 'Woven Fabric & Aluminium', specs: '500 × 500 mm', image: '', toolId: 'curtain', params: { type: 'curtain_roller_blind', curtainType: 'curtain_roller_blind', elevation: 35 } },
+    { id: 'curtain_roman_shade', name: 'Segmented Roman Shade', badge: 'ROMAN', material: 'Bouclé Tiered Folds', specs: '500 × 500 mm', image: '', toolId: 'curtain', params: { type: 'curtain_roman_shade', curtainType: 'curtain_roman_shade', elevation: 35 } },
+
+    { isDivider: true, id: 'div_rugs_furn', name: 'Area Rugs & Carpets' },
+    { id: 'rug_rectangular_modern', name: 'Modern Geometric Floor Rug', badge: 'MODERN', material: 'Bouclé & Fabric Border', specs: '1000 × 700 mm', image: '', toolId: 'furniture', params: { type: 'rug_rectangular_modern', elevation: 0.2 } },
+    { id: 'rug_rectangular_persian', name: 'Heritage Persian Rug with Fringes', badge: 'HERITAGE', material: 'Patterned Wool & Tassels', specs: '1200 × 800 mm', image: '', toolId: 'furniture', params: { type: 'rug_rectangular_persian', elevation: 0.2 } },
+    { id: 'rug_rectangular_jute', name: 'Natural Braided Jute Rug', badge: 'NATURAL', material: 'Braided Jute / Sisal', specs: '900 × 600 mm', image: '', toolId: 'furniture', params: { type: 'rug_rectangular_jute', elevation: 0.2 } },
+    { id: 'rug_circular_boho', name: 'Bohemian Mandala Round Rug', badge: 'BOHO', material: 'Woven Cotton Mandala', specs: '800 mm Dia', image: '', toolId: 'furniture', params: { type: 'rug_circular_boho', elevation: 0.2 } },
+    { id: 'rug_circular_plush', name: 'Plush Velvet Round Rug', badge: 'PLUSH', material: 'High-Pile Soft Velvet', specs: '900 mm Dia', image: '', toolId: 'furniture', params: { type: 'rug_circular_plush', elevation: 0.2 } },
+
+    { isDivider: true, id: 'div_decor_furn', name: 'Wall Decor & Styling Props' },
+    { id: 'decor_wall_art_canvas', name: 'Framed Canvas Wall Art', badge: 'WALL ART', material: 'Walnut Frame & Canvas', specs: '500 × 350 mm', image: '', toolId: 'wall_art', params: { type: 'decor_wall_art_canvas', artType: 'decor_wall_art_canvas', elevation: 45 } },
+    { id: 'decor_photo_gallery', name: 'Triptych 3-Frame Photo Gallery', badge: 'GALLERY', material: 'Matte Black & Matte Board', specs: '600 × 250 mm', image: '', toolId: 'wall_art', params: { type: 'decor_photo_gallery', artType: 'decor_photo_gallery', elevation: 50 } },
+    { id: 'decor_plant_monstera', name: 'Potted Monstera Deliciosa', badge: 'PLANT', material: 'Botanical Foliage & Terrazzo', specs: '300 × 400 mm', image: '', toolId: 'furniture', params: { type: 'decor_plant_monstera', elevation: 0 } },
+    { id: 'decor_plant_snake', name: 'Architectural Snake Plant', badge: 'PLANT', material: 'Variegated Foliage & Pot', specs: '200 × 450 mm', image: '', toolId: 'furniture', params: { type: 'decor_plant_snake', elevation: 0 } },
+    { id: 'decor_plant_fiddle', name: 'Fiddle Leaf Fig in Basket', badge: 'PLANT', material: 'Fiddle Leaves & Basket Pot', specs: '250 × 500 mm', image: '', toolId: 'furniture', params: { type: 'decor_plant_fiddle', elevation: 0 } },
+    { id: 'decor_vases_ceramic', name: 'Set of Ceramic Fluted Vases', badge: 'VASES', material: 'Fluted Ceramic & Brass', specs: '200 × 160 mm', image: '', toolId: 'furniture', params: { type: 'decor_vases_ceramic', elevation: 40 } }
 ]);
 
 const kitchenCatalog = ref([
@@ -545,8 +571,7 @@ const householdApplianceCatalog = ref([
 
 const trashCatalog = ref([
     { id: 'trash_pedal', name: 'Stainless Pedal Bin', badge: 'PEDAL', material: 'Brushed Stainless', specs: '30 Liters', image: '', toolId: 'furniture', params: { type: 'trash_pedal', elevation: 0 } },
-    { id: 'trash_recycle', name: 'Dual Recycle Bin', badge: 'DUAL', material: 'Stainless & Black', specs: '50 Liters', image: '', toolId: 'trash_recycle', params: { type: 'trash_recycle', elevation: 0 } },
-    { id: 'trash_pullout', name: 'Cabinet Pull-out', badge: 'PULLOUT', material: 'In-Cabinet Bin', specs: 'Dual 20L', image: '', toolId: 'trash_pullout', params: { type: 'trash_pullout', elevation: 0 } }
+    { id: 'trash_recycling', name: 'Recycling Dual Bin', badge: 'DUAL', material: 'Matte Anthracite', specs: '45 Liters', image: '', toolId: 'furniture', params: { type: 'trash_recycling', elevation: 0 } }
 ]);
 
 const bathroomCatalog = ref([
@@ -578,11 +603,54 @@ const electronicsCatalog = ref([
     { id: 'tv_stand_classic', name: 'Classic Entertainment Unit', badge: 'CLASSIC', material: 'Mahogany & Drawers', specs: '1600 × 600 mm', image: '', toolId: 'furniture', params: { type: 'tv_stand_classic', elevation: 0 } }
 ]);
 
+const windowDressingsCatalog = ref([
+    { isDivider: true, id: 'div_drapes', name: 'Curtains & Drapes' },
+    { id: 'curtain_drapes_sheer', name: 'Sheer Wave Curtains & Rod', badge: 'SHEER', material: 'Silk Voile & Brass', specs: '800 × 950 mm', image: '', toolId: 'curtain', params: { type: 'curtain_drapes_sheer', curtainType: 'curtain_drapes_sheer', elevation: 0 } },
+    { id: 'curtain_drapes_blackout', name: 'Blackout Pinch-Pleat Drapes', badge: 'BLACKOUT', material: 'Heavy Linen & Steel', specs: '900 × 950 mm', image: '', toolId: 'curtain', params: { type: 'curtain_drapes_blackout', curtainType: 'curtain_drapes_blackout', elevation: 0 } },
+
+    { isDivider: true, id: 'div_blinds', name: 'Blinds & Shades' },
+    { id: 'curtain_roller_blind', name: 'Modern Roller Blind', badge: 'ROLLER', material: 'Woven Fabric & Aluminium', specs: '500 × 500 mm', image: '', toolId: 'curtain', params: { type: 'curtain_roller_blind', curtainType: 'curtain_roller_blind', elevation: 35 } },
+    { id: 'curtain_roman_shade', name: 'Segmented Roman Shade', badge: 'ROMAN', material: 'Bouclé Tiered Folds', specs: '500 × 500 mm', image: '', toolId: 'curtain', params: { type: 'curtain_roman_shade', curtainType: 'curtain_roman_shade', elevation: 35 } }
+]);
+
+const wallArtCatalog = ref([
+    { isDivider: true, id: 'div_wall_art_props', name: 'Wall Art & Frames' },
+    { id: 'decor_wall_art_canvas', name: 'Framed Canvas Wall Art', badge: 'WALL ART', material: 'Walnut Frame & Canvas', specs: '500 × 350 mm', image: '', toolId: 'wall_art', params: { type: 'decor_wall_art_canvas', artType: 'decor_wall_art_canvas', elevation: 45 } },
+    { id: 'decor_photo_gallery', name: 'Triptych 3-Frame Photo Gallery', badge: 'GALLERY', material: 'Matte Black & Matte Board', specs: '600 × 250 mm', image: '', toolId: 'wall_art', params: { type: 'decor_photo_gallery', artType: 'decor_photo_gallery', elevation: 50 } }
+]);
+
+const rugsCatalog = ref([
+    { isDivider: true, id: 'div_rect_rugs', name: 'Rectangular Rugs' },
+    { id: 'rug_rectangular_modern', name: 'Modern Geometric Floor Rug', badge: 'MODERN', material: 'Bouclé & Fabric Border', specs: '1000 × 700 mm', image: '', toolId: 'furniture', params: { type: 'rug_rectangular_modern', elevation: 0.2 } },
+    { id: 'rug_rectangular_persian', name: 'Heritage Persian Rug with Fringes', badge: 'HERITAGE', material: 'Patterned Wool & Tassels', specs: '1200 × 800 mm', image: '', toolId: 'furniture', params: { type: 'rug_rectangular_persian', elevation: 0.2 } },
+    { id: 'rug_rectangular_jute', name: 'Natural Braided Jute Rug', badge: 'NATURAL', material: 'Braided Jute / Sisal', specs: '900 × 600 mm', image: '', toolId: 'furniture', params: { type: 'rug_rectangular_jute', elevation: 0.2 } },
+
+    { isDivider: true, id: 'div_round_rugs', name: 'Circular & Accent Rugs' },
+    { id: 'rug_circular_boho', name: 'Bohemian Mandala Round Rug', badge: 'BOHO', material: 'Woven Cotton Mandala', specs: '800 mm Dia', image: '', toolId: 'furniture', params: { type: 'rug_circular_boho', elevation: 0.2 } },
+    { id: 'rug_circular_plush', name: 'Plush Velvet Round Rug', badge: 'PLUSH', material: 'High-Pile Soft Velvet', specs: '900 mm Dia', image: '', toolId: 'furniture', params: { type: 'rug_circular_plush', elevation: 0.2 } }
+]);
+
+const decorPropsCatalog = ref([
+    { isDivider: true, id: 'div_wall_art_props', name: 'Wall Decor & Art' },
+    { id: 'decor_wall_art_canvas', name: 'Framed Canvas Wall Art', badge: 'WALL ART', material: 'Walnut Frame & Canvas', specs: '500 × 350 mm', image: '', toolId: 'wall_art', params: { type: 'decor_wall_art_canvas', artType: 'decor_wall_art_canvas', elevation: 45 } },
+    { id: 'decor_photo_gallery', name: 'Triptych 3-Frame Photo Gallery', badge: 'GALLERY', material: 'Matte Black & Matte Board', specs: '600 × 250 mm', image: '', toolId: 'wall_art', params: { type: 'decor_photo_gallery', artType: 'decor_photo_gallery', elevation: 50 } },
+
+    { isDivider: true, id: 'div_indoor_plants', name: 'Indoor Plants & Planters' },
+    { id: 'decor_plant_monstera', name: 'Potted Monstera Deliciosa', badge: 'PLANT', material: 'Botanical Foliage & Terrazzo', specs: '300 × 400 mm', image: '', toolId: 'furniture', params: { type: 'decor_plant_monstera', elevation: 0 } },
+    { id: 'decor_plant_snake', name: 'Architectural Snake Plant', badge: 'PLANT', material: 'Variegated Foliage & Pot', specs: '200 × 450 mm', image: '', toolId: 'furniture', params: { type: 'decor_plant_snake', elevation: 0 } },
+    { id: 'decor_plant_fiddle', name: 'Fiddle Leaf Fig in Basket', badge: 'PLANT', material: 'Fiddle Leaves & Basket Pot', specs: '250 × 500 mm', image: '', toolId: 'furniture', params: { type: 'decor_plant_fiddle', elevation: 0 } },
+
+    { isDivider: true, id: 'div_styling_props', name: 'Table & Shelf Styling Props' },
+    { id: 'decor_vases_ceramic', name: 'Set of Ceramic Fluted Vases', badge: 'VASES', material: 'Fluted Ceramic & Brass', specs: '200 × 160 mm', image: '', toolId: 'furniture', params: { type: 'decor_vases_ceramic', elevation: 40 } }
+]);
+
 const items = computed(() => {
     if (props.type === 'door') return doorCatalog.value;
     if (props.type === 'window') return windowCatalog.value;
     if (props.type === 'sunshade') return sunshadeCatalog.value;
     if (props.type === 'jali_panel') return jaliCatalog.value;
+    if (props.type === 'curtain' || props.type === 'window_dressings_catalog') return windowDressingsCatalog.value;
+    if (props.type === 'wall_art') return wallArtCatalog.value;
     if (props.type === 'staircase') return staircaseCatalog.value;
     if (props.type === 'roof') return roofCatalog.value;
     if (props.type === 'dormer') return dormerCatalog.value;
@@ -602,6 +670,8 @@ const items = computed(() => {
     if (props.type === 'trash_catalog') return trashCatalog.value;
     if (props.type === 'bathroom_catalog') return bathroomCatalog.value;
     if (props.type === 'electronics_catalog') return electronicsCatalog.value;
+    if (props.type === 'rugs_catalog') return rugsCatalog.value;
+    if (props.type === 'decor_props_catalog') return decorPropsCatalog.value;
     return [];
 });
 

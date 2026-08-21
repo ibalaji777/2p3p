@@ -75,7 +75,8 @@ export const COMMON_MATERIALS = {
     wood_teak: { label: "Teak Wood", color: 0x6b4226, roughness: 0.55, metalness: 0.05, texture: 'textures/wood/wood_golden_teak.png', bumpScale: 0.010 }, 
     wood_oak: { label: "Natural Oak Wood", color: 0x8b6544, roughness: 0.5, metalness: 0.05, texture: 'textures/wood/wood_golden_teak.png', bumpScale: 0.010 }, 
     wood_walnut: { label: "Dark Walnut Wood", color: 0x3d2314, roughness: 0.45, metalness: 0.05, texture: 'textures/wood/wood_golden_teak.png', bumpScale: 0.010 }, 
-    steel_ms: { label: "MS Steel Frame", color: 0x222222, roughness: 0.35, metalness: 0.9 } 
+    steel_ms: { label: "MS Steel Frame", color: 0x222222, roughness: 0.35, metalness: 0.9 },
+    plant_foliage_green: { label: "Lush Botanical Green", color: 0x2e5e24, roughness: 0.5, metalness: 0.05, clearcoat: 0.15 }
 };
 
 export const JALI_PATTERNS = {
@@ -479,6 +480,22 @@ export const GLASS_REGISTRY = {
         transparent: true,
         categoryLabel: "Glass",
         description: "Soft blue tint, sky reflections, high transparency, modern commercial building glass."
+    },
+    glass_mirror: {
+        id: "glass_mirror",
+        label: "Silver Mirror Glass",
+        name: "Silver Mirror Glass",
+        color: 0xffffff,
+        metalness: 0.98,
+        roughness: 0.02,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.0,
+        categoryLabel: "Glass",
+        description: "High-specularity silvered vanity mirror glass with crystal clear reflections."
+    },
+    mirror: {
+        isAlias: true,
+        targetId: 'glass_mirror'
     }
 };
 

@@ -29,7 +29,10 @@ export const getMenuCategories = () => [
             { id: 'door', name: 'Door' },
             { id: 'window', name: 'Window' },
             { id: 'sunshade', name: 'Sunshade' },
-            { id: 'jali_panel', name: 'Jali Panel' }
+            { id: 'jali_panel', name: 'Jali Panel' },
+            { isDivider: true, name: 'Wall Attachments' },
+            { id: 'curtain', name: 'Curtains & Blinds' },
+            { id: 'wall_art', name: 'Wall Frames & Art' }
         ]
     },
     {
@@ -143,6 +146,38 @@ export const getMenuCategories = () => [
         tools: [
             { id: 'molding', name: 'Wall Moldings' },
             { id: 'elevation_fascia', name: 'Elevation Fascia' }
+        ]
+    },
+    {
+        id: 'soft_furnishings', name: 'Curtains & Rugs',
+        icon: '<path d="M3 3h18v2H3zM4 5v16h6V5zm10 0v16h6V5z"></path>',
+        tools: [
+            { id: 'window_dressings_catalog', name: 'Window Dressings' },
+            { id: 'rugs_catalog', name: 'Area Rugs & Carpets' },
+            { isDivider: true, name: 'Quick Curtains' },
+            { id: 'curtain_drapes_sheer', name: 'Sheer Curtains', action: 'furniture' },
+            { id: 'curtain_drapes_blackout', name: 'Blackout Drapes', action: 'furniture' },
+            { id: 'curtain_roller_blind', name: 'Roller Blind', action: 'furniture' },
+            { isDivider: true, name: 'Quick Rugs' },
+            { id: 'rug_rectangular_modern', name: 'Modern Geometric Rug', action: 'furniture' },
+            { id: 'rug_rectangular_persian', name: 'Persian Heritage Rug', action: 'furniture' },
+            { id: 'rug_circular_plush', name: 'Plush Velvet Round Rug', action: 'furniture' }
+        ]
+    },
+    {
+        id: 'decor_props', name: 'Decor & Plants',
+        icon: '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline>',
+        tools: [
+            { id: 'decor_props_catalog', name: 'Wall Decor & Styling Props' },
+            { isDivider: true, name: 'Wall Decor' },
+            { id: 'decor_wall_art_canvas', name: 'Canvas Wall Art', action: 'furniture' },
+            { id: 'decor_photo_gallery', name: 'Photo Gallery 3-Frame', action: 'furniture' },
+            { isDivider: true, name: 'Indoor Plants' },
+            { id: 'decor_plant_monstera', name: 'Potted Monstera', action: 'furniture' },
+            { id: 'decor_plant_snake', name: 'Snake Plant', action: 'furniture' },
+            { id: 'decor_plant_fiddle', name: 'Fiddle Leaf Fig', action: 'furniture' },
+            { isDivider: true, name: 'Styling Props' },
+            { id: 'decor_vases_ceramic', name: 'Ceramic Vases Set', action: 'furniture' }
         ]
     }
 ];

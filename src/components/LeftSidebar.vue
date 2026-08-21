@@ -388,7 +388,7 @@ const selectSubTool = (tool) => {
 
 const isCatalogTool = (toolId) => {
     const catalogTools = [
-        'door', 'window', 'sunshade', 'jali_panel', 'staircase', 'roof', 
+        'door', 'window', 'sunshade', 'jali_panel', 'curtain', 'wall_art', 'staircase', 'roof', 
         'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 
         'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'bathroom_catalog', 'electronics_catalog', 
         'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 
@@ -493,6 +493,8 @@ const getShortToolName = (toolId, name) => {
     if (toolId === 'window') return 'Window';
     if (toolId === 'sunshade') return 'Sunshade';
     if (toolId === 'jali_panel') return 'Jali';
+    if (toolId === 'curtain') return 'Curtains';
+    if (toolId === 'wall_art') return 'Wall Art';
     if (toolId === 'adv_opening_catalog') return 'Openings';
     if (toolId === 'elevation_fascia') return 'Fascia';
     if (toolId === 'molding') return 'Molding';
@@ -521,6 +523,12 @@ const getToolTabIcon = (toolId) => {
     }
     if (toolId === 'jali_panel') {
         return '<rect x="3" y="3" width="18" height="18" rx="1"></rect><path d="M3 9h18M3 15h18M9 3v18M15 3v18"></path>';
+    }
+    if (toolId === 'curtain') {
+        return '<path d="M3 3h18v2H3zM4 5v16h6V5zm10 0v16h6V5z"></path>';
+    }
+    if (toolId === 'wall_art') {
+        return '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline>';
     }
     if (toolId === 'adv_opening_catalog') {
         return '<path d="M4 4h16v16H4V4z"></path><path d="M4 12h16"></path><path d="M8 12V4"></path><path d="M16 12V4"></path>';

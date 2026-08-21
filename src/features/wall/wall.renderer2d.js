@@ -180,6 +180,7 @@ export class PremiumWall {
             this.attachedMoldings.push(widget);
         } else if (isWidget) {
             widget = new PremiumWidget(this.planner, this, t, tool);
+            widget.facing = (face === 'back') ? -1 : 1;
             
             if (this.planner.activePresetParams) {
                 Object.assign(widget, this.planner.activePresetParams);

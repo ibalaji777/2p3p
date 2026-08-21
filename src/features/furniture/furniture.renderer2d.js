@@ -23,12 +23,17 @@ export class PremiumFurniture {
         
         const shapeKey = this.config.shape2D || 'default';
         const pathData = (WORKSPACE_2D_SHAPES && WORKSPACE_2D_SHAPES[shapeKey]) ? WORKSPACE_2D_SHAPES[shapeKey] : "M 0 0 L 100 0 L 100 100 L 0 100 Z";
-        this.body = new Konva.Path({ data: pathData, fill: this.config.color2D || 'transparent', stroke: '#94a3b8', strokeWidth: 1.5, strokeScaleEnabled: false, scaleX: this.width / 100, scaleY: this.depth / 100 });
+        const isRug = this.configId && this.configId.startsWith('rug_');
+        const shapeFill = this.config.color2D || (isRug ? 'rgba(241, 245, 249, 0.55)' : 'transparent');
+        this.body = new Konva.Path({ data: pathData, fill: shapeFill, stroke: '#94a3b8', strokeWidth: 1.5, strokeScaleEnabled: false, scaleX: this.width / 100, scaleY: this.depth / 100 });
         
         this.rotHandle = new Konva.Circle({ x: this.width / 2, y: -15, radius: 6, fill: '#3b82f6', stroke: 'white', strokeWidth: 2, draggable: true, visible: false });
         this.group.add(this.bg, this.body, this.rotHandle); 
         if (this.planner && this.planner.furnitureLayer) {
             this.planner.furnitureLayer.add(this.group);
+            if (isRug) {
+                this.group.moveToBottom();
+            }
         }
         this.initEvents();
 
