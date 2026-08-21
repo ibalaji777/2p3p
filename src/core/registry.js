@@ -3293,7 +3293,7 @@ export const WIDGET_REGISTRY = {
             const cD = entity.depth || 10;
 
             const isBlind = cType === 'curtain_roller_blind' || cType === 'curtain_roman_shade';
-            const standOff = isBlind ? 3.0 : 5.0;
+            const standOff = isBlind ? 2.2 : 5.0;
 
             const contentGroup = new THREE.Group();
             contentGroup.position.z = (wallOffset + standOff) * signZ;
@@ -3421,48 +3421,135 @@ export const WIDGET_REGISTRY = {
                 registerSlotMesh(drape, 'fabric');
 
             } else if (cType === 'curtain_roller_blind') {
-                const mFabric = getDynamicMat('fabric', 'caban_neutral', { color: '#f1f5f9', roughness: 0.7 });
+                const mFabric = getDynamicMat('fabric', 'caban_neutral', { color: '#f1f5f9', roughness: 0.7, side: THREE.DoubleSide });
+                mFabric.side = THREE.DoubleSide;
                 const mCassette = getDynamicMat('cassette', 'upvc_white', { color: '#ffffff', roughness: 0.3 });
                 const mBottomBar = getDynamicMat('bottomBar', 'upvc_white', { color: '#e2e8f0', roughness: 0.4 });
+                const mChain = getDynamicMat('chain', 'metal_chrome', { color: '#cbd5e1', metalness: 0.9, roughness: 0.1 });
 
-                const cassette = new THREE.Mesh(new THREE.BoxGeometry(cW + 4, 6, 6), mCassette);
-                cassette.position.set(0, cH - 3, 0);
+                // Sleek low-profile compact top cassette (height: 2.8 cm, depth: 2.6 cm)
+                const cassetteH = 2.8;
+                const cassetteD = 2.6;
+                const cassette = new THREE.Mesh(new THREE.BoxGeometry(cW + 0.8, cassetteH, cassetteD), mCassette);
+                cassette.position.set(0, cH - cassetteH / 2, 0);
                 registerSlotMesh(cassette, 'cassette');
 
-                const blindGeo = new THREE.BoxGeometry(cW, cH - 8, 0.4);
-                const blind = new THREE.Mesh(blindGeo, mFabric);
-                blind.position.set(0, (cH - 8) / 2 + 2, 0);
+                // End mounting brackets
+                const bracketL = new THREE.Mesh(new THREE.BoxGeometry(0.4, cassetteH + 0.2, cassetteD + 0.2), mCassette);
+                bracketL.position.set(-cW / 2 - 0.4, cH - cassetteH / 2, 0);
+                const bracketR = new THREE.Mesh(new THREE.BoxGeometry(0.4, cassetteH + 0.2, cassetteD + 0.2), mCassette);
+                bracketR.position.set(cW / 2 + 0.4, cH - cassetteH / 2, 0);
+                registerSlotMesh(bracketL, 'cassette');
+                registerSlotMesh(bracketR, 'cassette');
+
+                // Fabric sheet
+                const bottomBarH = 1.6;
+                const sheetH = cH - cassetteH - bottomBarH - 0.4;
+                const sheetGeo = new THREE.PlaneGeometry(cW, sheetH);
+                sheetGeo.translate(0, sheetH / 2 + bottomBarH + 0.2, 0.4);
+                const sPos = sheetGeo.attributes.position;
+                const sUv = sheetGeo.attributes.uv;
+                for (let i = 0; i < sPos.count; i++) {
+                    sUv.setXY(i, (sPos.getX(i) + cW / 2) / 50, (sPos.getY(i)) / 50);
+                }
+                sUv.needsUpdate = true;
+                sheetGeo.computeVertexNormals();
+
+                const blind = new THREE.Mesh(sheetGeo, mFabric);
                 registerSlotMesh(blind, 'fabric');
 
-                const bottomBar = new THREE.Mesh(new THREE.BoxGeometry(cW + 2, 2.5, 1.2), mBottomBar);
-                bottomBar.position.set(0, 2 + 1.25, 0);
+                // Slim weighted bottom hem bar
+                const bottomBar = new THREE.Mesh(new THREE.BoxGeometry(cW, bottomBarH, 0.8), mBottomBar);
+                bottomBar.position.set(0, bottomBarH / 2 + 0.2, 0.4);
                 registerSlotMesh(bottomBar, 'bottomBar');
 
-                const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, cH * 0.7, 8), new THREE.MeshStandardMaterial({ color: '#cbd5e1', metalness: 0.8, roughness: 0.2 }));
-                chain.position.set(cW / 2 + 2.5, cH - 3 - (cH * 0.35), 0);
-                contentGroup.add(chain);
+                // Delicate side beaded chain & drop weight
+                const chainLen = cH * 0.65;
+                const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, chainLen, 8), mChain);
+                chain.position.set(cW / 2 + 1.2, cH - cassetteH - chainLen / 2, 0.6);
+                registerSlotMesh(chain, 'chain');
+
+                const dropWeight = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.15, 1.8, 12), mChain);
+                dropWeight.position.set(cW / 2 + 1.2, cH - cassetteH - chainLen, 0.6);
+                registerSlotMesh(dropWeight, 'chain');
 
             } else if (cType === 'curtain_roman_shade') {
-                const mFabric = getDynamicMat('fabric', 'curly_teddy_checkered', { color: '#e2e8f0', roughness: 0.85 });
+                const mFabric = getDynamicMat('fabric', 'curly_teddy_checkered', { color: '#e2e8f0', roughness: 0.85, side: THREE.DoubleSide });
+                mFabric.side = THREE.DoubleSide;
                 const mHeadrail = getDynamicMat('headrail', 'upvc_white', { color: '#ffffff', roughness: 0.4 });
+                const mBottomBar = getDynamicMat('bottomBar', 'upvc_white', { color: '#e2e8f0', roughness: 0.4 });
+                const mChain = getDynamicMat('chain', 'metal_chrome', { color: '#cbd5e1', metalness: 0.9, roughness: 0.1 });
 
-                const headrail = new THREE.Mesh(new THREE.BoxGeometry(cW + 2, 4, 3), mHeadrail);
-                headrail.position.set(0, cH - 2, 0);
+                // 1. Top Decorative Pelmet / Headrail
+                const headrail = new THREE.Mesh(new THREE.BoxGeometry(cW + 1.5, 4.0, 3.2), mHeadrail);
+                headrail.position.set(0, cH - 2.0, 0);
                 registerSlotMesh(headrail, 'headrail');
 
-                const numFolds = 5;
-                const foldH = (cH - 4) / numFolds;
-                for (let i = 0; i < numFolds; i++) {
-                    const yPos = i * foldH + foldH / 2;
-                    const foldGeo = new THREE.CylinderGeometry(cW / 2, cW / 2, foldH, 32, 1, false, 0, Math.PI);
-                    foldGeo.scale(1, 1, 0.12);
-                    foldGeo.rotateX(Math.PI / 2);
-                    foldGeo.rotateY(Math.PI / 2);
+                // 2. Continuous Backing Fabric Liner
+                const linerGeo = new THREE.PlaneGeometry(cW, cH - 5.0);
+                linerGeo.translate(0, (cH - 5.0) / 2 + 1.0, 0.2);
+                const liner = new THREE.Mesh(linerGeo, mFabric);
+                registerSlotMesh(liner, 'fabric');
 
-                    const fold = new THREE.Mesh(foldGeo, mFabric);
-                    fold.position.set(0, yPos, 0.5 + i * 0.15);
-                    registerSlotMesh(fold, 'fabric');
+                // 3. Segmented Cascading Soft Loops (Waterfall Roman Shade Folds)
+                const numTiers = Math.max(3, Math.min(6, Math.floor(cH / 18)));
+                const tierNetH = (cH - 6.0) / numTiers;
+                const tierOverlap = 1.8;
+
+                for (let i = 0; i < numTiers; i++) {
+                    const tierH = tierNetH + tierOverlap;
+                    const yBase = i * tierNetH + 1.0;
+                    const segGeo = new THREE.PlaneGeometry(cW, tierH, 32, 12);
+                    segGeo.translate(0, tierH / 2, 0);
+
+                    const pos = segGeo.attributes.position;
+                    const uv = segGeo.attributes.uv;
+
+                    for (let j = 0; j < pos.count; j++) {
+                        const px = pos.getX(j);
+                        const py = pos.getY(j);
+                        const u = (px + cW / 2) / cW;
+                        const v = py / tierH;
+
+                        const bulge = Math.sin(v * Math.PI) * 2.2 + (1 - v) * 0.9;
+                        const softSag = Math.sin(u * Math.PI) * 0.3;
+                        pos.setZ(j, bulge + softSag);
+
+                        uv.setXY(j, (px + cW / 2) / 45, (yBase + py) / 45);
+                    }
+
+                    pos.needsUpdate = true;
+                    uv.needsUpdate = true;
+                    segGeo.computeVertexNormals();
+
+                    const tierMesh = new THREE.Mesh(segGeo, mFabric);
+                    tierMesh.position.set(0, yBase, 0.3);
+                    registerSlotMesh(tierMesh, 'fabric');
+
+                    // Horizontal stitched seam / batten rod at tier top
+                    if (i < numTiers - 1) {
+                        const seamGeo = new THREE.CylinderGeometry(0.3, 0.3, cW, 12);
+                        seamGeo.rotateZ(Math.PI / 2);
+                        const seamMesh = new THREE.Mesh(seamGeo, mHeadrail);
+                        seamMesh.position.set(0, yBase + tierNetH, 0.8);
+                        registerSlotMesh(seamMesh, 'headrail');
+                    }
                 }
+
+                // 4. Tailored Bottom Weight Hem Bar
+                const bottomBar = new THREE.Mesh(new THREE.BoxGeometry(cW, 2.5, 1.2), mBottomBar);
+                bottomBar.position.set(0, 1.25, 1.0);
+                registerSlotMesh(bottomBar, 'bottomBar');
+
+                // 5. Beaded Metal Side Pull Chain & Teardrop Weight
+                const chainLen = cH * 0.65;
+                const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, chainLen, 8), mChain);
+                chain.position.set(cW / 2 + 1.8, cH - 4.0 - chainLen / 2, 1.5);
+                registerSlotMesh(chain, 'chain');
+
+                const dropWeight = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.2, 2.2, 12), mChain);
+                dropWeight.position.set(cW / 2 + 1.8, cH - 4.0 - chainLen, 1.5);
+                registerSlotMesh(dropWeight, 'chain');
             }
 
             const hitboxGeo = new THREE.BoxGeometry(cW + 10, cH + 10, 15);
