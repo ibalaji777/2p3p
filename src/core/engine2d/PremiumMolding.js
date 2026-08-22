@@ -230,6 +230,7 @@ export class PremiumMolding {
             width: this.width, 
             depth: this.depth, 
             heightOffset: this.heightOffset, 
+            moldingHeight: this.moldingHeight || 10,
             side: this.side,
             profileType: this.profileType, 
             material: this.material, 

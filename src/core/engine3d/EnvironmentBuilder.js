@@ -528,7 +528,47 @@ export class EnvironmentBuilder {
                                 } else if (style === 'slit') {
                                     const slitW = pW*0.3, slitH = pH*0.9; pPath.moveTo(cx-slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy-slitH/2);
                                 } else if (style === 'terracotta') {
-                                    const pr = Math.min(pW, pH) / 4; pPath.moveTo(cx + pr, cy - pr); pPath.absarc(cx + pr, cy, pr, -Math.PI/2, Math.PI/2, false); pPath.absarc(cx, cy + pr, pr, 0, Math.PI, false); pPath.absarc(cx - pr, cy, pr, Math.PI/2, 3*Math.PI/2, false); pPath.absarc(cx, cy - pr, pr, Math.PI, 2*Math.PI, false);
+                                    const hw = pW * 0.495, hh = pH * 0.495;
+                                    const ch = new THREE.Path();
+                                    ch.absellipse(cx, cy, hw * 0.44, hh * 0.44, 0, Math.PI * 2, false);
+                                    patternShape.holes.push(ch);
+
+                                    [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2].forEach(a => {
+                                         const cos = Math.cos(a), sin = Math.sin(a);
+                                         const rot = (x, y) => ({ x: cx + (x * cos - y * sin), y: cy + (x * sin + y * cos) });
+                                         const p = new THREE.Path();
+                                         const tip = rot(0, hh * 0.95);
+                                         const cr = rot(hw * 0.18, hh * 0.72);
+                                         const br = rot(hw * 0.22, hw * 0.51);
+                                         const bl = rot(-hw * 0.22, hw * 0.51);
+                                         const cl = rot(-hw * 0.18, hh * 0.72);
+                                         const midRing = rot(0, hw * 0.49);
+
+                                         p.moveTo(tip.x, tip.y);
+                                         p.quadraticCurveTo(cr.x, cr.y, br.x, br.y);
+                                         p.quadraticCurveTo(midRing.x, midRing.y, bl.x, bl.y);
+                                         p.quadraticCurveTo(cl.x, cl.y, tip.x, tip.y);
+                                         p.closePath();
+                                         patternShape.holes.push(p);
+                                    });
+
+                                    [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2].forEach(a => {
+                                         const cos = Math.cos(a), sin = Math.sin(a);
+                                         const rot = (x, y) => ({ x: cx + (x * cos - y * sin), y: cy + (x * sin + y * cos) });
+                                         const p = new THREE.Path();
+                                         const p1 = rot(hw * 0.12, hh * 0.95);
+                                         const p2 = rot(hw * 0.95, hh * 0.95);
+                                         const p3 = rot(hw * 0.95, hh * 0.12);
+                                         const pCtrl = rot(hw * 0.42, hh * 0.42);
+
+                                         p.moveTo(p1.x, p1.y);
+                                         p.lineTo(p2.x, p2.y);
+                                         p.lineTo(p3.x, p3.y);
+                                         p.quadraticCurveTo(pCtrl.x, pCtrl.y, p1.x, p1.y);
+                                         p.closePath();
+                                         patternShape.holes.push(p);
+                                    });
+                                    continue;
                                 } else if (style === 'arabesque') {
                                     const rOut = Math.min(pW, pH)/2, rIn = rOut*0.55; for (let i = 0; i < 16; i++) { const a = (i*Math.PI)/8; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); }
                                 } else {
@@ -1429,8 +1469,48 @@ export class EnvironmentBuilder {
                                                             const rOut = Math.min(pW, pH)/2, rIn = rOut*0.3; for (let i = 0; i < 8; i++) { const a = (i*Math.PI)/4; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); } pPath.lineTo(cx+rOut, cy);
                                                         } else if (style === 'slit') {
                                                             const slitW = pW*0.3, slitH = pH*0.9; pPath.moveTo(cx-slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy-slitH/2); pPath.lineTo(cx+slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy+slitH/2); pPath.lineTo(cx-slitW/2, cy-slitH/2);
-                                                    } else if (style === 'terracotta') {
-                                                        const pr = Math.min(pW, pH) / 4; pPath.moveTo(cx + pr, cy - pr); pPath.absarc(cx + pr, cy, pr, -Math.PI/2, Math.PI/2, false); pPath.absarc(cx, cy + pr, pr, 0, Math.PI, false); pPath.absarc(cx - pr, cy, pr, Math.PI/2, 3*Math.PI/2, false); pPath.absarc(cx, cy - pr, pr, Math.PI, 2*Math.PI, false);
+                                                        } else if (style === 'terracotta') {
+                                                         const hw = pW * 0.495, hh = pH * 0.495;
+                                                         const ch = new THREE.Path();
+                                                         ch.absellipse(cx, cy, hw * 0.44, hh * 0.44, 0, Math.PI * 2, false);
+                                                         patternShape.holes.push(ch);
+
+                                                         [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2].forEach(a => {
+                                                             const cos = Math.cos(a), sin = Math.sin(a);
+                                                             const rot = (x, y) => ({ x: cx + (x * cos - y * sin), y: cy + (x * sin + y * cos) });
+                                                             const p = new THREE.Path();
+                                                             const tip = rot(0, hh * 0.95);
+                                                             const cr = rot(hw * 0.18, hh * 0.72);
+                                                             const br = rot(hw * 0.22, hw * 0.51);
+                                                             const bl = rot(-hw * 0.22, hw * 0.51);
+                                                             const cl = rot(-hw * 0.18, hh * 0.72);
+                                                             const midRing = rot(0, hw * 0.49);
+
+                                                             p.moveTo(tip.x, tip.y);
+                                                             p.quadraticCurveTo(cr.x, cr.y, br.x, br.y);
+                                                             p.quadraticCurveTo(midRing.x, midRing.y, bl.x, bl.y);
+                                                             p.quadraticCurveTo(cl.x, cl.y, tip.x, tip.y);
+                                                             p.closePath();
+                                                             patternShape.holes.push(p);
+                                                         });
+
+                                                         [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2].forEach(a => {
+                                                             const cos = Math.cos(a), sin = Math.sin(a);
+                                                             const rot = (x, y) => ({ x: cx + (x * cos - y * sin), y: cy + (x * sin + y * cos) });
+                                                             const p = new THREE.Path();
+                                                             const p1 = rot(hw * 0.12, hh * 0.95);
+                                                             const p2 = rot(hw * 0.95, hh * 0.95);
+                                                             const p3 = rot(hw * 0.95, hh * 0.12);
+                                                             const pCtrl = rot(hw * 0.42, hh * 0.42);
+
+                                                             p.moveTo(p1.x, p1.y);
+                                                             p.lineTo(p2.x, p2.y);
+                                                             p.lineTo(p3.x, p3.y);
+                                                             p.quadraticCurveTo(pCtrl.x, pCtrl.y, p1.x, p1.y);
+                                                             p.closePath();
+                                                             patternShape.holes.push(p);
+                                                         });
+                                                         continue;
                                                         } else if (style === 'arabesque') {
                                                             const rOut = Math.min(pW, pH)/2, rIn = rOut*0.55; for (let i = 0; i < 16; i++) { const a = (i*Math.PI)/8; const rad = i%2===0 ? rOut : rIn; const sx = cx + rad*Math.cos(a), sy = cy + rad*Math.sin(a); if (i===0) pPath.moveTo(sx,sy); else pPath.lineTo(sx,sy); }
                                                         } else {

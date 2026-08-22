@@ -19,7 +19,8 @@ export const getMenuCategories = () => [
         id: 'walls', name: 'Walls',
         icon: '<path d="M4 4h16v16H4z"></path><path d="M4 12h16"></path><path d="M12 4v16"></path>',
         tools: [
-            { id: 'wall_catalog', name: 'Walls' }
+            { id: 'wall_catalog', name: 'Walls' },
+            { id: 'skirting', name: 'Baseboards & Skirting' }
         ]
     },
     {
@@ -28,6 +29,8 @@ export const getMenuCategories = () => [
         tools: [
             { id: 'door', name: 'Door' },
             { id: 'window', name: 'Window' },
+            { id: 'skirting', name: 'Baseboards & Skirting' },
+            { id: 'molding', name: 'Wall Moldings' },
             { id: 'sunshade', name: 'Sunshade' },
             { id: 'jali_panel', name: 'Jali Panel' },
             { isDivider: true, name: 'Wall Attachments' },
@@ -144,6 +147,7 @@ export const getMenuCategories = () => [
         id: 'architectural_details', name: 'Architectural Details',
         icon: '<path d="M3 21h18v-2H3v2zm6-4h12v-2H9v2zm-6-4h18v-2H3v2zm6-4h12V7H9v2zM3 3v2h18V3H3z"></path>',
         tools: [
+            { id: 'skirting', name: 'Baseboards & Skirting' },
             { id: 'molding', name: 'Wall Moldings' },
             { id: 'elevation_fascia', name: 'Elevation Fascia' }
         ]

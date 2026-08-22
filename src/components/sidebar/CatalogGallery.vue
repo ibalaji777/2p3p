@@ -260,7 +260,8 @@ const getCatalogHeaderTitle = () => {
         'staircase': 'Staircase Catalog',
         'roof': 'Roof Catalog',
         'dormer': 'Dormer Catalog',
-        'molding': 'Molding Catalog',
+        'skirting': 'Baseboards & Skirting Catalog',
+        'molding': 'Molding & Cornice Catalog',
         'elevation_fascia': 'Fascia Catalog',
         'kitchen_catalog': 'Modular Kitchen',
         'sink_catalog': 'Sink Catalog',
@@ -372,6 +373,7 @@ const sunshadeCatalog = ref([
 ]);
 
 const jaliCatalog = ref([
+    { id: 'terracotta_breeze', name: 'Terracotta Breeze Block', badge: 'TERRACOTTA', material: 'Terracotta Clay', specs: '1000 × 1000 mm', image: '', params: { jaliPattern: 'terracotta_breeze', jaliMat: 'terracotta', width: 60, height: 80 } },
     { id: 'square_grid', name: 'Geometric Lattice', badge: 'LATTICE', material: 'Teak Wood', specs: '1000 × 1000 mm', image: '', params: { jaliPattern: 'geometric', jaliMat: 'wood', width: 60, height: 80 } },
     { id: 'mughal_star', name: 'Islamic Star', badge: 'HERITAGE', material: 'Brass Finish', specs: '1000 × 1000 mm', image: '', params: { jaliPattern: 'islamic', jaliMat: 'brass', width: 60, height: 80 } },
     { id: 'chettinad_jali', name: 'Chettinad Carved', badge: 'CARVED', material: 'Carved Teak', specs: '1000 × 1000 mm', image: '', params: { jaliPattern: 'chettinad', jaliMat: 'wood', width: 60, height: 80 } },
@@ -407,17 +409,36 @@ const dormerCatalog = ref([
     { id: 'preset_dormer_hip', name: 'Hip Dormer', badge: 'HERITAGE', material: 'Tile Roof', specs: '35° Pitch', image: '', params: { type: 'preset_dormer_hip', width: 120, depth: 150, wallHeight: 120, roofType: 'hip', pitch: 35, elevation: 250 } }
 ]);
 
+const skirtingCatalog = ref([
+    { isDivider: true, id: 'div_modern_skirting', name: 'Modern & Minimalist Baseboards' },
+    { id: 'molding_skirting_flat', name: 'Modern Flat Baseboard', badge: 'POPULAR', material: 'White Plaster / Paint', specs: '120 × 20 mm', image: '', toolId: 'skirting', params: { type: 'molding_skirting_flat', profileType: 'skirting_flat', heightOffset: 0, moldingHeight: 12, depth: 2, material: 'white_paint' } },
+    { id: 'molding_skirting_beveled', name: 'Chamfered Baseboard', badge: 'MODERN', material: 'Solid White Oak', specs: '120 × 20 mm', image: '', toolId: 'skirting', params: { type: 'molding_skirting_beveled', profileType: 'skirting_beveled', heightOffset: 0, moldingHeight: 12, depth: 2, material: 'wood_white_oak' } },
+    { id: 'molding_skirting_shadow', name: 'Shadow Gap / Reglet Skirting', badge: 'LUXURY', material: 'Matte Black Metal Reveal', specs: '100 × 20 mm', image: '', toolId: 'skirting', params: { type: 'molding_skirting_shadow', profileType: 'skirting_shadow', heightOffset: 0, moldingHeight: 10, depth: 2, material: 'black_metal' } },
+    
+    { isDivider: true, id: 'div_classic_skirting', name: 'Classic & Heritage Baseboards' },
+    { id: 'molding_skirting_torus', name: 'Torus / Bullnose Skirting', badge: 'CLASSIC', material: 'Golden Teak Wood', specs: '140 × 22 mm', image: '', toolId: 'skirting', params: { type: 'molding_skirting_torus', profileType: 'skirting_torus', heightOffset: 0, moldingHeight: 14, depth: 2.2, material: 'wood_golden_teak' } },
+    { id: 'molding_skirting_ogee', name: 'Classic Ogee Victorian', badge: 'VICTORIAN', material: 'Dark Walnut Timber', specs: '150 × 25 mm', image: '', toolId: 'skirting', params: { type: 'molding_skirting_ogee', profileType: 'skirting_ogee', heightOffset: 0, moldingHeight: 15, depth: 2.5, material: 'wood_dark' } },
+    { id: 'molding_skirting_craftsman', name: 'Stepped Craftsman Skirting', badge: 'STEPPED', material: 'Hardwood Trim', specs: '140 × 22 mm', image: '', toolId: 'skirting', params: { type: 'molding_skirting_craftsman', profileType: 'skirting_craftsman', heightOffset: 0, moldingHeight: 14, depth: 2.2, material: 'wood_dark' } },
+    
+    { isDivider: true, id: 'div_shoe_cove_skirting', name: 'Coves & Shoe Trims' },
+    { id: 'molding_skirting_scotia', name: 'Scotia Cove Baseboard', badge: 'COVE', material: 'Painted Gypsum Plaster', specs: '100 × 20 mm', image: '', toolId: 'skirting', params: { type: 'molding_skirting_scotia', profileType: 'skirting_scotia', heightOffset: 0, moldingHeight: 10, depth: 2, material: 'white_paint' } },
+    { id: 'molding_skirting_shoe', name: 'Quarter Round Shoe Trim', badge: 'SHOE TRIM', material: 'White Pine Trim', specs: '30 × 18 mm', image: '', toolId: 'skirting', params: { type: 'molding_skirting_shoe', profileType: 'skirting_shoe', heightOffset: 0, moldingHeight: 3, depth: 1.8, material: 'white_paint' } }
+]);
+
 const moldingCatalog = ref([
-    { id: 'molding_band', name: 'Horizontal Band', badge: 'FLAT', material: 'Painted Plaster', image: '', params: { type: 'molding_band', materials: { frame: { id: 'white_paint' } } } },
-    { id: 'molding_crown', name: 'Crown Molding', badge: 'CLASSIC', material: 'Carved Wood', image: '', params: { type: 'molding_crown', materials: { frame: { id: 'white_paint' } } } },
-    { id: 'molding_ogee', name: 'Ogee (Cyma)', badge: 'PROFILE', material: 'Polyurethane', image: '', params: { type: 'molding_ogee', materials: { frame: { id: 'white_paint' } } } },
-    { id: 'molding_egg_and_dart', name: 'Egg and Dart', badge: 'DECORATIVE', material: 'Gypsum Plaster', image: '', params: { type: 'molding_egg_and_dart', materials: { frame: { id: 'white_paint' } } } },
-    { id: 'molding_dentil', name: 'Dentil Molding', badge: 'HERITAGE', material: 'Cast Stone', image: '', params: { type: 'molding_dentil', materials: { frame: { id: 'white_paint' } } } },
-    { id: 'molding_craftsman', name: 'Step / Craftsman', badge: 'MODERN', material: 'Hardwood', image: '', params: { type: 'molding_craftsman', materials: { frame: { id: 'white_paint' } } } },
-    { id: 'molding_window', name: 'Window Frame', badge: 'TRIM', material: 'White Vinyl', image: '', params: { type: 'molding_window', materials: { frame: { id: 'white_paint' } } } },
-    { id: 'molding_door', name: 'Door Frame', badge: 'TRIM', material: 'Oak Trim', image: '', params: { type: 'molding_door', materials: { frame: { id: 'white_paint' } } } },
-    { id: 'molding_groove', name: 'Decorative Groove', badge: 'RECESSED', material: 'Grooved Panel', image: '', params: { type: 'molding_groove', materials: { frame: { id: 'white_paint' } } } },
-    { id: 'molding_layered', name: 'Layered Projection', badge: 'LAYERED', material: 'Composite', image: '', params: { type: 'molding_layered', materials: { frame: { id: 'white_paint' } } } }
+    { isDivider: true, id: 'div_crowns', name: 'Crown Moldings & Cornices' },
+    { id: 'molding_crown', name: 'Crown Molding', badge: 'CLASSIC', material: 'Carved Wood', image: '', toolId: 'molding', params: { type: 'molding_crown', materials: { frame: { id: 'white_paint' } } } },
+    { id: 'molding_ogee', name: 'Ogee (Cyma)', badge: 'PROFILE', material: 'Polyurethane', image: '', toolId: 'molding', params: { type: 'molding_ogee', materials: { frame: { id: 'white_paint' } } } },
+    { id: 'molding_egg_and_dart', name: 'Egg and Dart', badge: 'DECORATIVE', material: 'Gypsum Plaster', image: '', toolId: 'molding', params: { type: 'molding_egg_and_dart', materials: { frame: { id: 'white_paint' } } } },
+    { id: 'molding_dentil', name: 'Dentil Molding', badge: 'HERITAGE', material: 'Cast Stone', image: '', toolId: 'molding', params: { type: 'molding_dentil', materials: { frame: { id: 'white_paint' } } } },
+    { id: 'molding_craftsman', name: 'Step / Craftsman', badge: 'MODERN', material: 'Hardwood', image: '', toolId: 'molding', params: { type: 'molding_craftsman', materials: { frame: { id: 'white_paint' } } } },
+    
+    { isDivider: true, id: 'div_trims', name: 'Wall Bands & Framing Trims' },
+    { id: 'molding_band', name: 'Horizontal Band', badge: 'FLAT', material: 'Painted Plaster', image: '', toolId: 'molding', params: { type: 'molding_band', materials: { frame: { id: 'white_paint' } } } },
+    { id: 'molding_window', name: 'Window Frame', badge: 'TRIM', material: 'White Vinyl', image: '', toolId: 'molding', params: { type: 'molding_window', materials: { frame: { id: 'white_paint' } } } },
+    { id: 'molding_door', name: 'Door Frame', badge: 'TRIM', material: 'Oak Trim', image: '', toolId: 'molding', params: { type: 'molding_door', materials: { frame: { id: 'white_paint' } } } },
+    { id: 'molding_groove', name: 'Decorative Groove', badge: 'RECESSED', material: 'Grooved Panel', image: '', toolId: 'molding', params: { type: 'molding_groove', materials: { frame: { id: 'white_paint' } } } },
+    { id: 'molding_layered', name: 'Layered Projection', badge: 'LAYERED', material: 'Composite', image: '', toolId: 'molding', params: { type: 'molding_layered', materials: { frame: { id: 'white_paint' } } } }
 ]);
 
 const elevationFasciaCatalog = ref([
@@ -654,6 +675,7 @@ const items = computed(() => {
     if (props.type === 'staircase') return staircaseCatalog.value;
     if (props.type === 'roof') return roofCatalog.value;
     if (props.type === 'dormer') return dormerCatalog.value;
+    if (props.type === 'skirting') return skirtingCatalog.value;
     if (props.type === 'molding') return moldingCatalog.value;
     if (props.type === 'elevation_fascia') return elevationFasciaCatalog.value;
     if (props.type === 'adv_opening_catalog') return advanceOpeningsCatalog.value;

@@ -388,7 +388,7 @@ const selectSubTool = (tool) => {
 
 const isCatalogTool = (toolId) => {
     const catalogTools = [
-        'door', 'window', 'sunshade', 'jali_panel', 'curtain', 'wall_art', 'staircase', 'roof', 
+        'door', 'window', 'skirting', 'sunshade', 'jali_panel', 'curtain', 'wall_art', 'staircase', 'roof', 
         'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 
         'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'bathroom_catalog', 'electronics_catalog', 
         'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 
@@ -491,6 +491,7 @@ const getToolDetails = (toolId, toolName) => {
 const getShortToolName = (toolId, name) => {
     if (toolId === 'door') return 'Door';
     if (toolId === 'window') return 'Window';
+    if (toolId === 'skirting') return 'Skirting';
     if (toolId === 'sunshade') return 'Sunshade';
     if (toolId === 'jali_panel') return 'Jali';
     if (toolId === 'curtain') return 'Curtains';
@@ -517,6 +518,9 @@ const getToolTabIcon = (toolId) => {
     }
     if (toolId === 'window') {
         return '<rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="12" x2="21" y2="12"></line><line x1="12" y1="3" x2="12" y2="21"></line>';
+    }
+    if (toolId === 'skirting') {
+        return '<path d="M3 21h18M3 17h18M3 7v14M21 7v14M3 7c2 0 3-3 6-3h12v3"></path>';
     }
     if (toolId === 'sunshade') {
         return '<path d="M3 10h18l-2-6H5l-2 6z"></path><path d="M6 10v6"></path><path d="M18 10v6"></path><path d="M3 10a3 3 0 0 0 6 0"></path><path d="M9 10a3 3 0 0 0 6 0"></path><path d="M15 10a3 3 0 0 0 6 0"></path>';

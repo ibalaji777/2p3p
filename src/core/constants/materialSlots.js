@@ -20,6 +20,11 @@ export const MaterialSlots = {
     WALL_BOTTOM: 'wall_bottom',
     CUSTOM: 'custom',
     
+    // Architectural Moldings & Skirting
+    SKIRTING: 'skirting',
+    BASEBOARD: 'baseboard',
+    MOLDING: 'molding',
+
     // Soft Furnishings & Fabrics
     FABRIC: 'fabric',
     SHEER: 'sheer',
@@ -79,7 +84,10 @@ export const ComponentTypes = {
     RAILING: 'railing',
     CURTAIN: 'curtain',
     RUG: 'rug',
-    DECOR: 'decor'
+    DECOR: 'decor',
+    SKIRTING: 'skirting',
+    BASEBOARD: 'baseboard',
+    MOLDING: 'molding'
 };
 
 export const SLOT_DEFINITIONS = {
@@ -90,6 +98,9 @@ export const SLOT_DEFINITIONS = {
     [MaterialSlots.SEAL]: { id: MaterialSlots.SEAL, label: 'Seals & Gaskets', inherits: null, paintable: false, defaultCategory: 'plastic' },
     [MaterialSlots.SCREEN]: { id: MaterialSlots.SCREEN, label: 'Insect Screen', inherits: null, paintable: false, defaultCategory: 'fabric' },
     [MaterialSlots.TRIM]: { id: MaterialSlots.TRIM, label: 'Trim & Architrave', inherits: MaterialSlots.FRAME, paintable: false, defaultCategory: 'wood' },
+    [MaterialSlots.SKIRTING]: { id: MaterialSlots.SKIRTING, label: 'Skirting / Baseboard', inherits: null, paintable: true, defaultCategory: 'categories' },
+    [MaterialSlots.BASEBOARD]: { id: MaterialSlots.BASEBOARD, label: 'Baseboard', inherits: null, paintable: true, defaultCategory: 'categories' },
+    [MaterialSlots.MOLDING]: { id: MaterialSlots.MOLDING, label: 'Molding Profile', inherits: null, paintable: true, defaultCategory: 'categories' },
     [MaterialSlots.WALL_FRONT]: { id: MaterialSlots.WALL_FRONT, label: 'Front Wall Face', inherits: null, paintable: true, defaultCategory: 'categories' },
     [MaterialSlots.WALL_BACK]: { id: MaterialSlots.WALL_BACK, label: 'Back Wall Face', inherits: null, paintable: true, defaultCategory: 'categories' },
     [MaterialSlots.WALL_LEFT]: { id: MaterialSlots.WALL_LEFT, label: 'Left Wall Face', inherits: null, paintable: true, defaultCategory: 'categories' },

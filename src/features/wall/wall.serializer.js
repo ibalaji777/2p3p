@@ -52,6 +52,7 @@ export const WallSerializer = {
             })) : [],
             moldings: w.attachedMoldings ? w.attachedMoldings.map(m => ({ 
                 t: m.t, type: m.type, configId: m.type, width: m.width, depth: m.depth, heightOffset: m.heightOffset, 
+                moldingHeight: m.moldingHeight || m.height || 10,
                 side: m.side, profileType: m.profileType, material: m.material, color: m.color, layers: m.layers, 
                 layerGap: m.layerGap, grooveWidth: m.grooveWidth, frameWidth: m.frameWidth 
             })) : [],

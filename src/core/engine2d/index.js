@@ -1795,6 +1795,7 @@ export class FloorPlanner {
                             if (md.width !== undefined) molding.width = md.width;
                             if (md.depth !== undefined) molding.depth = md.depth;
                             if (md.heightOffset !== undefined) molding.heightOffset = md.heightOffset;
+                            if (md.moldingHeight !== undefined) molding.moldingHeight = md.moldingHeight;
                             if (md.side !== undefined) molding.side = md.side;
                             if (md.profileType !== undefined) molding.profileType = md.profileType;
                             molding.material = md.material;

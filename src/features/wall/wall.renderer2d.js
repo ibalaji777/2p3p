@@ -167,13 +167,19 @@ export class PremiumWall {
             if (!this.attachedWidgets) this.attachedWidgets = [];
             this.attachedWidgets.push(widget);
         } else if (isMolding) {
-            widget = new PremiumMolding(this.planner, this, 0.5, tool);
+            const moldType = MOLDING_REGISTRY[tool] ? tool : (this.planner.activePresetParams?.type || 'molding_skirting_flat');
+            widget = new PremiumMolding(this.planner, this, 0.5, moldType);
             const start = this.startAnchor.position();
             const end = this.endAnchor.position();
             const dx = end.x - start.x;
             const dy = end.y - start.y;
             widget.side = face === 'front' ? 'left' : 'right';
             widget.width = Math.hypot(dx, dy);
+            if (this.planner.activePresetParams) {
+                Object.assign(widget, this.planner.activePresetParams);
+                widget.side = face === 'front' ? 'left' : 'right';
+                widget.width = Math.hypot(dx, dy);
+            }
             widget.update();
             this.planner.selectEntity(widget, 'molding');
             if (!this.attachedMoldings) this.attachedMoldings = [];

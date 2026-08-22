@@ -45,6 +45,15 @@ export function useAppTools({
                 }
                 planner.value.activePresetParams = activePresetParams.value;
             }
+        } else if (tool === 'skirting' || tool === 'molding') {
+            if (!activePresetParams.value) {
+                if (tool === 'skirting') {
+                    activePresetParams.value = { type: 'molding_skirting_flat', profileType: 'skirting_flat', heightOffset: 0, moldingHeight: 12, depth: 2, material: 'white_paint' };
+                } else {
+                    activePresetParams.value = { type: 'molding_crown', profileType: 'crown', heightOffset: 110, moldingHeight: 10, depth: 5, material: 'white_paint' };
+                }
+                planner.value.activePresetParams = activePresetParams.value;
+            }
         } else {
             activePresetParams.value = null;
             planner.value.activePresetParams = null;
@@ -60,7 +69,7 @@ export function useAppTools({
     };
 
     const handleToolClick = (tool) => {
-        const accordionTools = ['door', 'window', 'sunshade', 'jali_panel', 'curtain', 'wall_art', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'bathroom_catalog', 'electronics_catalog', 'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 'household_appliance_catalog', 'trash_catalog'];
+        const accordionTools = ['door', 'window', 'skirting', 'sunshade', 'jali_panel', 'curtain', 'wall_art', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'bathroom_catalog', 'electronics_catalog', 'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 'household_appliance_catalog', 'trash_catalog'];
         
         if (tool.action === 'furniture') spawnFurniture(tool.id);
         else if (tool.action === 'auto_roof') { if (planner.value) planner.value.addAutoRoof(); }
@@ -102,7 +111,7 @@ export function useAppTools({
             else if (catId === 'roof_presets') defaultTool = 'roof';
             else if (catId === 'shapes') defaultTool = 'shape_catalog';
             else if (catId === 'advance_openings') defaultTool = 'adv_opening_catalog';
-            else if (catId === 'architectural_details') defaultTool = 'molding';
+            else if (catId === 'architectural_details') defaultTool = 'skirting';
             else if (catId === 'common') defaultTool = 'railing_catalog';
             
             setTool(defaultTool);

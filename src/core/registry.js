@@ -1432,18 +1432,19 @@ export const WIDGET_REGISTRY = {
             if (mount === 'recessed') jaliGroup.translateZ(-4);
             if (mount === 'protruding') jaliGroup.translateZ(4);
             
-            const rawPattern = entity.jaliPattern || entity.pattern || entity.params?.jaliPattern || entity.params?.pattern || (entity.id?.includes('star') ? 'islamic' : (entity.id?.includes('chettinad') ? 'chettinad' : (entity.id?.includes('lotus') ? 'lotus' : (entity.id?.includes('peacock') ? 'peacock' : (entity.id?.includes('gopuram') ? 'gopuram' : (entity.id?.includes('kolam') ? 'kolam' : (entity.id?.includes('honeycomb') ? 'ventilation' : 'geometric')))))));
+            const rawPattern = entity.jaliPattern || entity.pattern || entity.params?.jaliPattern || entity.params?.pattern || (entity.id?.includes('breeze') || entity.id?.includes('terracotta') ? 'terracotta_breeze' : (entity.id?.includes('star') ? 'islamic' : (entity.id?.includes('chettinad') ? 'chettinad' : (entity.id?.includes('lotus') ? 'lotus' : (entity.id?.includes('peacock') ? 'peacock' : (entity.id?.includes('gopuram') ? 'gopuram' : (entity.id?.includes('kolam') ? 'kolam' : (entity.id?.includes('honeycomb') ? 'ventilation' : 'geometric'))))))));
             let jaliPattern = rawPattern;
             if (jaliPattern === 'square_grid') jaliPattern = 'geometric';
             else if (jaliPattern === 'geometric_honeycomb' || jaliPattern === 'honeycomb') jaliPattern = 'ventilation';
             else if (jaliPattern === 'mughal_star' || jaliPattern === 'star') jaliPattern = 'islamic';
             else if (jaliPattern === 'floral_vine' || jaliPattern === 'floral') jaliPattern = 'lotus';
+            else if (jaliPattern === 'terracotta' || jaliPattern === 'breeze_block' || jaliPattern === 'terracotta_star') jaliPattern = 'terracotta_breeze';
 
             MaterialManager.initEntityMaterials(entity);
             const leafSlot = entity.materials?.[MaterialSlots.LEAF];
             const frameSlot = entity.materials?.[MaterialSlots.FRAME];
             const customSlot = entity.materials?.[MaterialSlots.CUSTOM];
-            let matKey = leafSlot?.id || frameSlot?.id || customSlot?.id || (typeof entity.materials === 'string' ? entity.materials : null) || entity.jaliMat || entity.params?.jaliMat || 'wood_golden_teak';
+            let matKey = leafSlot?.id || frameSlot?.id || customSlot?.id || (typeof entity.materials === 'string' ? entity.materials : null) || entity.jaliMat || entity.params?.jaliMat || (jaliPattern === 'terracotta_breeze' ? 'terracotta' : 'wood_golden_teak');
             
             const matMain = (helpers && typeof helpers.getDynamicMaterial === 'function') 
                 ? helpers.getDynamicMaterial(matKey, 'widget') 
@@ -1456,11 +1457,12 @@ export const WIDGET_REGISTRY = {
             const matsExtrude = Array.isArray(mm.box) ? [mm.box[4] || matMain, mm.box[1] || matMain] : [matMain, matMain];
             const matsBox = Array.isArray(mm.box) ? mm.box : matMain;
 
-            const frameW = 2; const fThick = entity.thick || 2;
+            const frameW = jaliPattern === 'terracotta_breeze' ? 0.6 : 2; 
+            const fThick = entity.thick || 2;
             const createBeveledFramePiece = (w, h, x, y, z) => {
                 const shape = new THREE.Shape();
                 shape.moveTo(-w/2, -h/2); shape.lineTo(w/2, -h/2); shape.lineTo(w/2, h/2); shape.lineTo(-w/2, h/2); shape.lineTo(-w/2, -h/2);
-                const extrudeSettings = { depth: fThick, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.1, bevelThickness: 0.1 };
+                const extrudeSettings = { depth: fThick, bevelEnabled: true, bevelSegments: 3, steps: 1, bevelSize: 0.02, bevelThickness: 0.02 };
                 const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
                 geo.translate(0, 0, -fThick/2);
                 const uvs = geo.attributes.uv, pos = geo.attributes.position;
@@ -1479,7 +1481,7 @@ export const WIDGET_REGISTRY = {
             const iW = entity.width - frameW*2; const iH = height - frameW*2; const lThick = fThick * 0.5;
             const latticeGroup = new THREE.Group(); latticeGroup.position.set(0, height/2, 0);
             
-            if (['kolam', 'lotus', 'peacock', 'gopuram', 'ventilation', 'mango', 'chettinad'].includes(jaliPattern)) {
+            if (['kolam', 'lotus', 'peacock', 'gopuram', 'ventilation', 'mango', 'chettinad', 'terracotta_breeze'].includes(jaliPattern)) {
                 const targetStep = entity.jaliPatternSize || entity.params?.jaliPatternSize || 20;
                 const cols = Math.max(1, Math.round(iW / targetStep));
                 const rows = Math.max(1, Math.round(iH / targetStep));
@@ -1489,9 +1491,50 @@ export const WIDGET_REGISTRY = {
                 shape.moveTo(-stepX/2, -stepY/2); shape.lineTo(stepX/2, -stepY/2); shape.lineTo(stepX/2, stepY/2); shape.lineTo(-stepX/2, stepY/2); shape.lineTo(-stepX/2, -stepY/2);
                 
                 const maxSize = Math.min(stepX, stepY);
-                const hw = maxSize * 0.45; const hh = maxSize * 0.45;
+                const hw = maxSize * 0.495; const hh = maxSize * 0.495;
                 
-                if (jaliPattern === 'ventilation') {
+                if (jaliPattern === 'terracotta_breeze') {
+                    // 1. Ultra-slender Center circular opening
+                    const centerHole = new THREE.Path();
+                    centerHole.absellipse(0, 0, hw * 0.44, hh * 0.44, 0, Math.PI * 2, false);
+                    shape.holes.push(centerHole);
+
+                    // 2. 4 Ultra-slender Cardinal Petals radiating from the central ring
+                    [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2].forEach(a => {
+                        const cos = Math.cos(a), sin = Math.sin(a);
+                        const rot = (x, y) => ({ x: x * cos - y * sin, y: x * sin + y * cos });
+                        const p = new THREE.Path();
+                        const tip = rot(0, hh * 0.95);
+                        const cr = rot(hw * 0.18, hh * 0.72);
+                        const br = rot(hw * 0.22, hw * 0.51);
+                        const bl = rot(-hw * 0.22, hw * 0.51);
+                        const cl = rot(-hw * 0.18, hh * 0.72);
+                        const midRing = rot(0, hw * 0.49);
+
+                        p.moveTo(tip.x, tip.y);
+                        p.quadraticCurveTo(cr.x, cr.y, br.x, br.y);
+                        p.quadraticCurveTo(midRing.x, midRing.y, bl.x, bl.y);
+                        p.quadraticCurveTo(cl.x, cl.y, tip.x, tip.y);
+                        shape.holes.push(p);
+                    });
+
+                    // 3. 4 Ultra-slender Corner Arcs
+                    [0, Math.PI / 2, Math.PI, 3 * Math.PI / 2].forEach(a => {
+                        const cos = Math.cos(a), sin = Math.sin(a);
+                        const rot = (x, y) => ({ x: x * cos - y * sin, y: x * sin + y * cos });
+                        const p = new THREE.Path();
+                        const p1 = rot(hw * 0.12, hh * 0.95);
+                        const p2 = rot(hw * 0.95, hh * 0.95);
+                        const p3 = rot(hw * 0.95, hh * 0.12);
+                        const pCtrl = rot(hw * 0.42, hh * 0.42);
+
+                        p.moveTo(p1.x, p1.y);
+                        p.lineTo(p2.x, p2.y);
+                        p.lineTo(p3.x, p3.y);
+                        p.quadraticCurveTo(pCtrl.x, pCtrl.y, p1.x, p1.y);
+                        shape.holes.push(p);
+                    });
+                } else if (jaliPattern === 'ventilation') {
                     const hole = new THREE.Path();
                     hole.absellipse(0, 0, hw*0.8, hh*0.8, 0, Math.PI * 2, false);
                     shape.holes.push(hole);

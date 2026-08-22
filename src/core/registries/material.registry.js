@@ -60,6 +60,7 @@ export const WOOD_REGISTRY = {
 
 export const COMMON_MATERIALS = {
     wood: { label: "White Oak", color: 0xc4a482, roughness: 0.6, metalness: 0.05, texture: 'textures/wood/wood_golden_teak.png', bumpScale: 0.005, clearcoat: 0.05 },
+    terracotta: { label: "Terracotta Clay", color: 0xca5c32, roughness: 0.85, metalness: 0.0, clearcoat: 0.05, clearcoatRoughness: 0.2 },
     wpc: { label: "Wood Plastic Composite", color: 0x8a6b4e, roughness: 0.7, metalness: 0.0, clearcoat: 0.05 },
     upvc: { label: "Rigid uPVC", color: 0xffffff, roughness: 0.4, metalness: 0.05, clearcoat: 0.2 },
     pvc: { label: "Matte White PVC", color: 0xfdfdfd, roughness: 0.7, metalness: 0.0, clearcoat: 0.0 },
@@ -80,6 +81,7 @@ export const COMMON_MATERIALS = {
 };
 
 export const JALI_PATTERNS = {
+    terracotta_breeze: { label: "Terracotta Breeze Block", texture: 'textures/jali/terracotta_breeze.png' },
     geometric: { label: "Geometric Lattice" },
     islamic: { label: "Islamic Star" },
     modern: { label: "Modern Slats" },
@@ -93,6 +95,7 @@ export const JALI_PATTERNS = {
 };
 
 export const JALI_MATERIALS = {
+    terracotta: { label: "Terracotta Clay", color: 0xca5c32, roughness: 0.85, metalness: 0.0, clearcoat: 0.05, clearcoatRoughness: 0.2 },
     wood: { label: "Teak Wood", color: 0x6b4226, roughness: 0.4, metalness: 0, clearcoat: 0.2, clearcoatRoughness: 0.1, texture: 'textures/wood/wood_golden_teak.png' },
     mdf: { label: "White Painted MDF", color: 0xfdfdfd, roughness: 0.3, metalness: 0, clearcoat: 0.4, clearcoatRoughness: 0.1 },
     brass: { label: "Brass Finish", color: 0xb5a642, roughness: 0.2, metalness: 0.9, clearcoat: 0.5, clearcoatRoughness: 0.1 },

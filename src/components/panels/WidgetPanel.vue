@@ -133,6 +133,7 @@
             <div class="control-group">
                 <label>Jali Pattern</label>
                 <select v-model="selectedEntity.jaliPattern" @change="$emit('sync-engine')">
+                    <option value="terracotta_breeze">Terracotta Breeze Block</option>
                     <option value="geometric">Geometric Lattice</option>
                     <option value="islamic">Islamic Star</option>
                     <option value="modern">Modern Slats</option>
@@ -155,6 +156,7 @@
             <div class="control-group">
                 <label>Material</label>
                 <select v-model="selectedEntity.jaliMat" @change="$emit('sync-engine')">
+                    <option value="terracotta">Terracotta Clay</option>
                     <option value="wood">Teak Wood</option>
                     <option value="mdf">White Painted MDF</option>
                     <option value="brass">Brass Finish</option>
@@ -170,6 +172,13 @@
                     <option value="recessed">Recessed (Inset)</option>
                     <option value="protruding">Protruding (Surface)</option>
                 </select>
+            </div>
+            <div class="control-group">
+                <label>Thickness</label>
+                <div class="input-wrap">
+                    <input type="range" :value="selectedEntity.thick || 2" @input="e => { selectedEntity.thick = parseFloat(e.target.value); $emit('sync-engine'); }" min="0.5" max="20" step="0.5">
+                    <DimensionInput :modelValue="selectedEntity.thick || 2" @update:modelValue="val => { selectedEntity.thick = val; $emit('sync-engine'); }" min="0.5" max="20" step="0.5" />
+                </div>
             </div>
         </div>
         <div v-else-if="selectedEntity.type === 'elevation_fascia'">

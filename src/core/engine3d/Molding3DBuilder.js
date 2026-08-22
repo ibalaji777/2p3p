@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { ComponentRegistry } from './ComponentRegistry.js';
+import { MaterialSlots, ComponentTypes } from '../constants/materialSlots.js';
 
 export class Molding3DBuilder {
     constructor() {
@@ -6,6 +8,8 @@ export class Molding3DBuilder {
             white_paint: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 }),
             wall_material: new THREE.MeshStandardMaterial({ color: 0xe5e7eb, roughness: 0.8 }),
             wood_dark: new THREE.MeshStandardMaterial({ color: 0x4a3b32, roughness: 0.6 }),
+            wood_white_oak: new THREE.MeshStandardMaterial({ color: 0xc8b293, roughness: 0.6 }),
+            wood_golden_teak: new THREE.MeshStandardMaterial({ color: 0x9b6b38, roughness: 0.6 }),
             black_metal: new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3, metalness: 0.8 })
         };
         Object.values(this.materials).forEach(m => m.userData = { isShared: true });
@@ -18,20 +22,95 @@ export class Molding3DBuilder {
     buildMolding(moldData, wallLength, wallThickness, helpers = null) {
         const t = moldData.t || 0.5;
         const width = moldData.width || 50; // This is the length along the wall
-        const depth = moldData.depth || 5;  // Projection from the wall
-        const heightOffset = moldData.heightOffset || 50;
-        const profileType = moldData.profileType || 'flat';
+        const depth = moldData.depth || 2;  // Projection from the wall
+        const heightOffset = moldData.heightOffset !== undefined ? moldData.heightOffset : 0;
+        const profileType = moldData.profileType || 'skirting_flat';
         const isGroove = moldData.type === 'molding_groove' || profileType === 'groove';
         
         const actualLength = width; 
         
         const finalShape = new THREE.Shape();
         const d = depth;
-        const moldingHeight = 10; // Default height of the molding profile band
+        const moldingHeight = moldData.moldingHeight || moldData.height || 10; // Dynamic height of the profile
         
         // Shape is drawn in X,Y where X = depth (Z axis), Y = height (Y axis).
         let hasOrnaments = false;
-        if (profileType === 'egg_and_dart') {
+        
+        // ====== BASEBOARD & SKIRTING PROFILES ======
+        if (profileType === 'skirting_flat' || profileType === 'flat_baseboard') {
+            // Modern Flat Baseboard: Crisp rectangular profile
+            finalShape.moveTo(0, 0);
+            finalShape.lineTo(d, 0);
+            finalShape.lineTo(d, moldingHeight);
+            finalShape.lineTo(0, moldingHeight);
+            finalShape.lineTo(0, 0);
+        } else if (profileType === 'skirting_beveled' || profileType === 'skirting_chamfer' || profileType === 'chamfered_baseboard') {
+            // Modern Chamfered / Beveled Top Baseboard
+            const chamferH = Math.min(moldingHeight * 0.25, d * 0.85);
+            finalShape.moveTo(0, 0);
+            finalShape.lineTo(d, 0);
+            finalShape.lineTo(d, moldingHeight - chamferH);
+            finalShape.lineTo(d * 0.2, moldingHeight);
+            finalShape.lineTo(0, moldingHeight);
+            finalShape.lineTo(0, 0);
+        } else if (profileType === 'skirting_torus' || profileType === 'skirting_bullnose' || profileType === 'torus_baseboard') {
+            // Torus / Bullnose Skirting: Flat base with semi-convex bullnose upper section
+            const torusH = Math.min(moldingHeight * 0.35, d * 1.2);
+            const flatH = moldingHeight - torusH;
+            finalShape.moveTo(0, 0);
+            finalShape.lineTo(d, 0);
+            finalShape.lineTo(d, flatH);
+            finalShape.bezierCurveTo(d * 1.05, flatH + torusH * 0.4, d * 0.7, moldingHeight, 0, moldingHeight);
+            finalShape.lineTo(0, 0);
+        } else if (profileType === 'skirting_ogee' || profileType === 'ogee_baseboard') {
+            // Classic Victorian / Colonial Ogee Skirting: Plinth base, step quirk, then cyma reversa S-curve
+            const plinthH = moldingHeight * 0.45;
+            const ogeeH = moldingHeight - plinthH;
+            finalShape.moveTo(0, 0);
+            finalShape.lineTo(d, 0);
+            finalShape.lineTo(d, plinthH);
+            finalShape.lineTo(d * 0.9, plinthH + ogeeH * 0.1); // subtle step quirk
+            finalShape.bezierCurveTo(d * 0.95, plinthH + ogeeH * 0.35, d * 0.55, plinthH + ogeeH * 0.65, d * 0.35, moldingHeight * 0.9);
+            finalShape.bezierCurveTo(d * 0.25, moldingHeight * 0.98, d * 0.1, moldingHeight, 0, moldingHeight);
+            finalShape.lineTo(0, 0);
+        } else if (profileType === 'skirting_craftsman' || profileType === 'skirting_step' || profileType === 'craftsman_baseboard') {
+            // Stepped Craftsman Skirting: Multi-tier architectural relief tiers
+            finalShape.moveTo(0, 0);
+            finalShape.lineTo(d, 0);
+            finalShape.lineTo(d, moldingHeight * 0.55);
+            finalShape.lineTo(d * 0.7, moldingHeight * 0.55);
+            finalShape.lineTo(d * 0.7, moldingHeight * 0.82);
+            finalShape.lineTo(d * 0.4, moldingHeight * 0.82);
+            finalShape.lineTo(d * 0.4, moldingHeight);
+            finalShape.lineTo(0, moldingHeight);
+            finalShape.lineTo(0, 0);
+        } else if (profileType === 'skirting_shadow' || profileType === 'skirting_recess' || profileType === 'shadow_gap_baseboard') {
+            // Modern Minimalist Shadow Gap / Recessed Reglet Skirting
+            const revealH = Math.min(moldingHeight * 0.2, 2);
+            finalShape.moveTo(0, 0);
+            finalShape.lineTo(d, 0);
+            finalShape.lineTo(d, moldingHeight - revealH);
+            finalShape.lineTo(d * 0.2, moldingHeight - revealH);
+            finalShape.lineTo(d * 0.2, moldingHeight);
+            finalShape.lineTo(0, moldingHeight);
+            finalShape.lineTo(0, 0);
+        } else if (profileType === 'skirting_scotia' || profileType === 'skirting_cove' || profileType === 'scotia_baseboard') {
+            // Scotia / Cove Baseboard: Flat base with concave upper scoop
+            const coveH = moldingHeight * 0.45;
+            finalShape.moveTo(0, 0);
+            finalShape.lineTo(d, 0);
+            finalShape.lineTo(d, moldingHeight - coveH);
+            finalShape.bezierCurveTo(d * 0.4, moldingHeight - coveH * 0.6, d * 0.2, moldingHeight - coveH * 0.2, 0, moldingHeight);
+            finalShape.lineTo(0, 0);
+        } else if (profileType === 'skirting_shoe' || profileType === 'skirting_quarter_round' || profileType === 'quarter_round_shoe') {
+            // Quarter Round Floor Shoe Trim
+            finalShape.moveTo(0, 0);
+            finalShape.lineTo(d, 0);
+            finalShape.bezierCurveTo(d, moldingHeight * 0.55, d * 0.55, moldingHeight, 0, moldingHeight);
+            finalShape.lineTo(0, 0);
+            
+        // ====== CROWN, CORNICE, AND WALL MOLDINGS ======
+        } else if (profileType === 'egg_and_dart') {
             hasOrnaments = true;
             // Background is a recessed slant
             finalShape.moveTo(0, 0);
@@ -55,36 +134,23 @@ export class Molding3DBuilder {
             finalShape.lineTo(0, moldingHeight);
             finalShape.lineTo(0, 0);
         } else if (profileType === 'craftsman') {
-            // "Step molding favors sharp, parallel geometric tiers. 
-            // We add micro-bevels to the edges to catch specular light and give a highly precise, milled appearance."
-            const mb = Math.min(d * 0.05, moldingHeight * 0.02); // 5% depth or 2% height micro-bevel
-            
+            const mb = Math.min(d * 0.05, moldingHeight * 0.02);
             finalShape.moveTo(0, 0);
-            
-            // Tier 1 (Lowest parallel block against wall)
             finalShape.lineTo(d * 0.2 - mb, 0);
-            finalShape.lineTo(d * 0.2, mb); // Outer corner bevel
+            finalShape.lineTo(d * 0.2, mb);
             finalShape.lineTo(d * 0.2, moldingHeight * 0.35 - mb); 
-            
-            // Tier 2 (Middle-lower block)
-            finalShape.lineTo(d * 0.45 - mb, moldingHeight * 0.35); // Inner corner bevel
+            finalShape.lineTo(d * 0.45 - mb, moldingHeight * 0.35);
             finalShape.lineTo(d * 0.45, moldingHeight * 0.35 + mb);
             finalShape.lineTo(d * 0.45, moldingHeight * 0.6 - mb);
-            
-            // Tier 3 (Middle-upper block)
-            finalShape.lineTo(d * 0.75 - mb, moldingHeight * 0.6); // Inner corner bevel
+            finalShape.lineTo(d * 0.75 - mb, moldingHeight * 0.6);
             finalShape.lineTo(d * 0.75, moldingHeight * 0.6 + mb);
             finalShape.lineTo(d * 0.75, moldingHeight * 0.8 - mb);
-            
-            // Tier 4 (Top Cap block against ceiling)
-            finalShape.lineTo(d - mb, moldingHeight * 0.8); // Inner corner bevel
+            finalShape.lineTo(d - mb, moldingHeight * 0.8);
             finalShape.lineTo(d, moldingHeight * 0.8 + mb);
             finalShape.lineTo(d, moldingHeight);
-            
             finalShape.lineTo(0, moldingHeight);
             finalShape.lineTo(0, 0);
         } else if (profileType === 'ogee') {
-            // Elegant Ogee (Cyma Recta)
             finalShape.moveTo(0, 0);
             finalShape.lineTo(d * 0.15, 0); 
             finalShape.lineTo(d * 0.15, moldingHeight * 0.1);
@@ -95,7 +161,6 @@ export class Molding3DBuilder {
             finalShape.lineTo(0, moldingHeight);
             finalShape.lineTo(0, 0);
         } else if (profileType === 'crown') {
-            // Standard Cove Crown
             finalShape.moveTo(0, 0);
             finalShape.lineTo(d * 0.2, 0);
             finalShape.lineTo(d * 0.2, moldingHeight * 0.1);
@@ -139,9 +204,7 @@ export class Molding3DBuilder {
             finalShape.lineTo(0, 0);
         }
 
-        // CRITICAL FIX: Subdivide the extrusion along its length to prevent massive stretched triangles.
-        // Massive triangles that get twisted by shearGeo will break flatShading (dFdx/dFdy precision errors)
-        // and cause severe shadow acne or wavy rendering artifacts.
+        // Subdivide extrusion along its length to prevent stretched triangles with shearGeo
         const extrudeSteps = Math.max(1, Math.floor(actualLength / 10));
         const finalGeo = new THREE.ExtrudeGeometry(finalShape, { 
             depth: actualLength, 
@@ -186,9 +249,8 @@ export class Molding3DBuilder {
             finalMat = this.materials.black_metal;
         }
 
-        // CRITICAL RENDERING FIX: Sharp geometric profiles MUST use flatShading 
-        // otherwise Three.js averages normals across 90-degree corners, making them look muddy and low-poly!
-        const sharpProfiles = ['craftsman', 'dentil', 'layered', 'frame', 'flat', 'groove'];
+        // Sharp geometric profiles MUST use flatShading for crisp edges
+        const sharpProfiles = ['skirting_flat', 'flat_baseboard', 'skirting_craftsman', 'craftsman_baseboard', 'skirting_shadow', 'craftsman', 'dentil', 'layered', 'frame', 'flat', 'groove'];
         if (sharpProfiles.includes(profileType)) {
             finalMat = finalMat.clone();
             finalMat.flatShading = true;
@@ -248,9 +310,8 @@ export class Molding3DBuilder {
                 }
                 ornamentGroup.add(eggInst, dartInst);
             } else if (profileType === 'dentil') {
-                // Dentils are small rectangular blocks
-                const blockHeight = moldingHeight * 0.5; // fits inside the recess (0.2h to 0.8h)
-                const blockDepth = d * 0.4; // Projects from 0.3d out to 0.7d
+                const blockHeight = moldingHeight * 0.5;
+                const blockDepth = d * 0.4;
                 const blockWidth = moldingHeight * 0.4;
                 const gap = moldingHeight * 0.25;
                 const spacing = blockWidth + gap;
@@ -262,8 +323,6 @@ export class Molding3DBuilder {
                 
                 for (let i = 0; i < count; i++) {
                     const zPos = (i + 0.5) * spacing;
-                    // Position inside the recessed track. Recess is at X=0.3d, Y from 0.2h to 0.8h.
-                    // Block center Y is 0.5h. Block center X is 0.3d + blockDepth/2 = 0.5d.
                     dummy.position.set(d * 0.3 + blockDepth / 2, moldingHeight * 0.5, zPos);
                     dummy.rotation.set(0, 0, 0);
                     dummy.updateMatrix();
@@ -272,19 +331,41 @@ export class Molding3DBuilder {
                 ornamentGroup.add(dentilInst);
             }
             
-            // Apply the exact same wall local space transformations to the ornament group
             ornamentGroup.rotation.y = rotY;
             ornamentGroup.position.set(xPos + xOff, heightOffset, zOffset);
-            
             group.add(ornamentGroup);
         }
         
-        // Ensure InteractionSystem can select the molding by tagging the group and all children
-        group.userData = { isMolding: true, type: profileType, moldData, entity: moldData };
-        group.children.forEach(c => {
-            c.userData = group.userData;
-            if (c.isGroup) {
-                c.children.forEach(cc => cc.userData = group.userData);
+        // Semantic CAD/BIM Component Registration
+        const isSkirting = (moldData.type && moldData.type.includes('skirting')) || (profileType && profileType.includes('skirting'));
+        const slotName = isSkirting ? (MaterialSlots.SKIRTING || 'skirting') : (MaterialSlots.MOLDING || 'molding');
+        const entityId = moldData.id || `molding_${Date.now()}`;
+        const componentType = isSkirting ? (ComponentTypes.SKIRTING || 'skirting') : (ComponentTypes.MOLDING || 'molding');
+
+        group.userData = { 
+            isMolding: true, 
+            isSkirting,
+            type: profileType, 
+            moldData, 
+            entity: moldData,
+            materialSlot: slotName,
+            componentId: `${entityId}_${slotName}`,
+            componentType
+        };
+
+        mesh.userData = { ...group.userData };
+        ComponentRegistry.registerMesh(moldData, slotName, mesh, {
+            componentId: `${entityId}_${slotName}`,
+            componentType
+        });
+
+        group.traverse(child => {
+            if (child.isMesh && child !== mesh) {
+                child.userData = { ...group.userData };
+                ComponentRegistry.registerMesh(moldData, slotName, child, {
+                    componentId: `${entityId}_${slotName}`,
+                    componentType
+                });
             }
         });
         

@@ -42,7 +42,7 @@ export function setupDrawingEvents(planner) {
             
             // Handle Smart Snapping Placement for Moldings and Openings
             const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(planner.tool);
-            const isMolding = planner.tool === 'molding' || !!MOLDING_REGISTRY[planner.tool];
+            const isMolding = planner.tool === 'molding' || planner.tool === 'skirting' || !!MOLDING_REGISTRY[planner.tool];
             const isWidget = !!WIDGET_REGISTRY[planner.tool];
             const isPlacementTool = isWidget || isAdvancedOpening || isMolding;
 
