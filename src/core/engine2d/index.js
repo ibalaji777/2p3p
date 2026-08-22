@@ -924,7 +924,7 @@ export class FloorPlanner {
             w.attachedWidgets.forEach(widg => {
                 let group = widg.visualGroup || widg.group;
                 if(group) {
-                    let canEditWidget = isSelect || cat === 'doors_windows' || cat === 'advance_openings' || cat === 'architectural_details';
+                    let canEditWidget = isSelect || cat === 'doors_windows' || cat === 'advance_openings' || cat === 'walls';
                     group.setAttr('draggable', canEditWidget);
                     group.setAttr('listening', canEditWidget);
                 }
@@ -932,7 +932,7 @@ export class FloorPlanner {
             if (w.attachedMoldings) {
                 w.attachedMoldings.forEach(mold => {
                     if(mold.visualGroup) {
-                        let canEditMolding = isSelect || cat === 'architectural_details';
+                        let canEditMolding = isSelect || cat === 'doors_windows' || cat === 'walls';
                         mold.visualGroup.setAttr('draggable', canEditMolding);
                         mold.visualGroup.setAttr('listening', canEditMolding);
                     }
@@ -971,8 +971,8 @@ export class FloorPlanner {
 
         // FORCE LAYER LISTENING OFF DURING DRAWING OR RESTRICT BY CATEGORY
         if (this.baseLayer) { this.baseLayer.listening(allowAll || cat === "shapes" || cat === "structures" || isSplit); }
-        if (this.wallLayer) { this.wallLayer.listening(allowAll || cat === "common" || cat === "walls" || cat === "doors_windows" || cat === "advance_openings" || cat === "structures" || cat === "architectural_details" || isWidget || isSplit || isAdvancedOpening || isMolding); }
-        if (this.widgetLayer) { this.widgetLayer.listening(allowAll || cat === "doors_windows" || cat === "advance_openings" || cat === "structures" || cat === "architectural_details"); }
+        if (this.wallLayer) { this.wallLayer.listening(allowAll || cat === "common" || cat === "walls" || cat === "doors_windows" || cat === "advance_openings" || cat === "structures" || isWidget || isSplit || isAdvancedOpening || isMolding); }
+        if (this.widgetLayer) { this.widgetLayer.listening(allowAll || cat === "doors_windows" || cat === "advance_openings" || cat === "walls" || cat === "structures"); }
         if (this.furnitureLayer) { this.furnitureLayer.listening(allowAll || cat === "furniture" || cat === "shapes" || isSplit); }
         if (this.roofLayer) { this.roofLayer.listening(isSelect); }
         if (this.roomLayer) { this.roomLayer.listening(isSelect); }
@@ -1765,7 +1765,18 @@ export class FloorPlanner {
                                 wall.attachedWidgets.push(advOp);
                             } else {
                                 const widget = new PremiumWidget(this, wall, wd.t, wd.configId || wd.type); 
-                                widget.width = wd.width; 
+                                if (wd.width !== undefined) widget.width = wd.width;
+                                if (wd.height !== undefined) widget.height = wd.height;
+                                if (wd.depth !== undefined) widget.depth = wd.depth;
+                                if (wd.elevation !== undefined) widget.elevation = wd.elevation;
+                                if (wd.thick !== undefined) widget.thick = wd.thick;
+                                if (wd.profileType !== undefined) widget.profileType = wd.profileType;
+                                if (wd.fasciaMat !== undefined) widget.fasciaMat = wd.fasciaMat;
+                                if (wd.topArm !== undefined) widget.topArm = wd.topArm;
+                                if (wd.bottomArm !== undefined) widget.bottomArm = wd.bottomArm;
+                                if (wd.sunshadeType !== undefined) widget.sunshadeType = wd.sunshadeType;
+                                if (wd.pattern !== undefined) widget.pattern = wd.pattern;
+                                if (wd.jaliMount !== undefined) widget.jaliMount = wd.jaliMount;
                                 if (wd.description !== undefined) widget.description = wd.description;
                                 if (wd.facing !== undefined) widget.facing = wd.facing;
                                 if (wd.side !== undefined) widget.side = wd.side;
@@ -1779,12 +1790,14 @@ export class FloorPlanner {
                                 if (wd.glassMat) widget.glassMat = wd.glassMat;
                                 if (wd.grillePattern) widget.grillePattern = wd.grillePattern;
                                 if (wd.grilleProfile) widget.grilleProfile = wd.grilleProfile;
+                                if (wd.materials) widget.materials = JSON.parse(JSON.stringify(wd.materials));
                                 if (wd.params) {
                                     if (wd.params.doorShape) widget.doorShape = wd.params.doorShape;
                                     if (wd.params.doorStyle) widget.doorStyle = wd.params.doorStyle;
                                     if (wd.params.windowShape) widget.windowShape = wd.params.windowShape;
                                     widget.params = { ...(widget.params || {}), ...wd.params };
                                 }
+                                widget.update();
                                 wall.attachedWidgets.push(widget); 
                             }
                         }); 

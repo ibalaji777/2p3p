@@ -29,6 +29,7 @@ export const getMenuCategories = () => [
         tools: [
             { id: 'door', name: 'Door' },
             { id: 'window', name: 'Window' },
+            { id: 'elevation_fascia', name: 'Fascia' },
             { id: 'skirting', name: 'Baseboards & Skirting' },
             { id: 'molding', name: 'Wall Moldings' },
             { id: 'sunshade', name: 'Sunshade' },
@@ -143,15 +144,7 @@ export const getMenuCategories = () => [
         ]
     },
 
-    {
-        id: 'architectural_details', name: 'Architectural Details',
-        icon: '<path d="M3 21h18v-2H3v2zm6-4h12v-2H9v2zm-6-4h18v-2H3v2zm6-4h12V7H9v2zM3 3v2h18V3H3z"></path>',
-        tools: [
-            { id: 'skirting', name: 'Baseboards & Skirting' },
-            { id: 'molding', name: 'Wall Moldings' },
-            { id: 'elevation_fascia', name: 'Elevation Fascia' }
-        ]
-    },
+
     {
         id: 'soft_furnishings', name: 'Curtains & Rugs',
         icon: '<path d="M3 3h18v2H3zM4 5v16h6V5zm10 0v16h6V5z"></path>',

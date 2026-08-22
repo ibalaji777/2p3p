@@ -139,4 +139,44 @@ export class PremiumWidget {
         this.innerParts.destroyChildren(); this.config.render2D(this.innerParts, this);
         if (this.leftHandle && this.rightHandle) { const rad = angle * Math.PI / 180, cosA = Math.cos(rad), sinA = Math.sin(rad); this.leftHandle.position({ x: absPos.x - hw * cosA, y: absPos.y - hw * sinA }); this.rightHandle.position({ x: absPos.x + hw * cosA, y: absPos.y + hw * sinA }); }
     }
+
+    serialize() {
+        return {
+            t: this.t,
+            type: this.type || this.configId,
+            configId: this.type || this.configId,
+            width: this.width,
+            height: this.height,
+            depth: this.depth,
+            elevation: this.elevation,
+            thick: this.thick,
+            facing: this.facing,
+            side: this.side,
+            profileType: this.profileType,
+            fasciaMat: this.fasciaMat,
+            topArm: this.topArm,
+            bottomArm: this.bottomArm,
+            sunshadeType: this.sunshadeType,
+            pattern: this.pattern,
+            jaliMount: this.jaliMount,
+            doorType: this.doorType,
+            doorShape: this.doorShape || this.params?.doorShape,
+            doorStyle: this.doorStyle || this.params?.doorStyle,
+            doorMat: this.doorMat,
+            windowType: this.windowType,
+            windowShape: this.windowShape || this.params?.windowShape,
+            frameMat: this.frameMat,
+            glassMat: this.glassMat,
+            grillePattern: this.grillePattern,
+            grilleProfile: this.grilleProfile,
+            patternStyle: this.patternStyle,
+            rows: this.rows,
+            cols: this.cols,
+            spacing: this.spacing,
+            decorConfigId: this.decorConfigId,
+            description: this.description,
+            materials: this.materials ? JSON.parse(JSON.stringify(this.materials)) : undefined,
+            params: this.params ? JSON.parse(JSON.stringify(this.params)) : undefined
+        };
+    }
 }

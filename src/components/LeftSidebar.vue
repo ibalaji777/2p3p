@@ -311,7 +311,7 @@ const groupedNavigation = computed(() => {
         },
         {
             groupLabel: 'BUILD',
-            items: getByIds(['doors_windows', 'staircases', 'roof_presets', 'shapes', 'advance_openings', 'architectural_details'])
+            items: getByIds(['doors_windows', 'staircases', 'roof_presets', 'shapes', 'advance_openings'])
         },
         {
             groupLabel: 'FURNISH',
@@ -527,6 +527,9 @@ const getToolTabIcon = (toolId) => {
     }
     if (toolId === 'jali_panel') {
         return '<rect x="3" y="3" width="18" height="18" rx="1"></rect><path d="M3 9h18M3 15h18M9 3v18M15 3v18"></path>';
+    }
+    if (toolId === 'elevation_fascia') {
+        return '<rect x="3" y="3" width="18" height="18" rx="2" fill="none"></rect><path d="M7 3v18M17 3v18M3 7h18"></path>';
     }
     if (toolId === 'curtain') {
         return '<path d="M3 3h18v2H3zM4 5v16h6V5zm10 0v16h6V5z"></path>';

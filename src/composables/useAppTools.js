@@ -54,6 +54,21 @@ export function useAppTools({
                 }
                 planner.value.activePresetParams = activePresetParams.value;
             }
+        } else if (tool === 'elevation_fascia') {
+            if (!activePresetParams.value || activePresetParams.value.type !== 'elevation_fascia') {
+                activePresetParams.value = { type: 'elevation_fascia', profileType: 'c_shape_left', width: 100, height: 120, depth: 40, thick: 10, elevation: 0, fasciaMat: 'white' };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
+        } else if (tool === 'sunshade') {
+            if (!activePresetParams.value || activePresetParams.value.type !== 'sunshade') {
+                activePresetParams.value = { type: 'sunshade', sunshadeType: 'box', width: 60, depth: 20, thick: 4, elevation: 80 };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
+        } else if (tool === 'jali_panel') {
+            if (!activePresetParams.value || activePresetParams.value.type !== 'jali_panel') {
+                activePresetParams.value = { type: 'jali_panel', pattern: 'geometric_islamic', width: 40, height: 80, depth: 2, elevation: 10 };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
         } else {
             activePresetParams.value = null;
             planner.value.activePresetParams = null;
@@ -111,7 +126,6 @@ export function useAppTools({
             else if (catId === 'roof_presets') defaultTool = 'roof';
             else if (catId === 'shapes') defaultTool = 'shape_catalog';
             else if (catId === 'advance_openings') defaultTool = 'adv_opening_catalog';
-            else if (catId === 'architectural_details') defaultTool = 'skirting';
             else if (catId === 'common') defaultTool = 'railing_catalog';
             
             setTool(defaultTool);

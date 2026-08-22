@@ -31,20 +31,29 @@ export const WallSerializer = {
             pts: typeof w.getExactPolygonPoints === 'function' ? w.getExactPolygonPoints() : (w.poly ? w.poly.points() : null),
             bevels: w.wallShapeData ? { start: w.wallShapeData.startData, end: w.wallShapeData.endData } : null,
             elevationLayers: w.elevationLayers,
-            widgets: w.attachedWidgets ? w.attachedWidgets.map(wid => ({ 
-                t: wid.t, type: wid.type, configId: wid.type, width: wid.width, height: wid.height, depth: wid.depth, elevation: wid.elevation,
-                facing: wid.facing, side: wid.side, 
-                rows: wid.rows, cols: wid.cols, spacing: wid.spacing, patternStyle: wid.patternStyle, decorConfigId: wid.decorConfigId,
-                doorType: wid.doorType, 
-                doorShape: wid.doorShape || wid.params?.doorShape,
-                doorStyle: wid.doorStyle || wid.params?.doorStyle,
-                windowType: wid.windowType,
-                windowShape: wid.windowShape || wid.params?.windowShape,
-                grillePattern: wid.grillePattern,
-                description: wid.description,
-                materials: wid.materials || {},
-                params: wid.params || {}
-            })) : [],
+            widgets: w.attachedWidgets ? w.attachedWidgets.map(wid => {
+                if (typeof wid.serialize === 'function') return wid.serialize();
+                return { 
+                    t: wid.t, type: wid.type, configId: wid.type, width: wid.width, height: wid.height, depth: wid.depth, elevation: wid.elevation,
+                    thick: wid.thick, facing: wid.facing, side: wid.side, 
+                    profileType: wid.profileType, fasciaMat: wid.fasciaMat, topArm: wid.topArm, bottomArm: wid.bottomArm,
+                    sunshadeType: wid.sunshadeType, pattern: wid.pattern, jaliMount: wid.jaliMount,
+                    rows: wid.rows, cols: wid.cols, spacing: wid.spacing, patternStyle: wid.patternStyle, decorConfigId: wid.decorConfigId,
+                    doorType: wid.doorType, 
+                    doorShape: wid.doorShape || wid.params?.doorShape,
+                    doorStyle: wid.doorStyle || wid.params?.doorStyle,
+                    doorMat: wid.doorMat,
+                    windowType: wid.windowType,
+                    windowShape: wid.windowShape || wid.params?.windowShape,
+                    frameMat: wid.frameMat,
+                    glassMat: wid.glassMat,
+                    grillePattern: wid.grillePattern,
+                    grilleProfile: wid.grilleProfile,
+                    description: wid.description,
+                    materials: wid.materials ? JSON.parse(JSON.stringify(wid.materials)) : {},
+                    params: wid.params ? JSON.parse(JSON.stringify(wid.params)) : {}
+                };
+            }) : [],
             decors: w.attachedDecor ? w.attachedDecor.map(d => ({ 
                 id: d.id, configId: d.configId, side: d.side, localX: d.localX, localY: d.localY, localZ: d.localZ, 
                 width: d.width, height: d.height, depth: d.depth, tileSize: d.tileSize, 
