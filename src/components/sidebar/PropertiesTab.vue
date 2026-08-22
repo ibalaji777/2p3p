@@ -299,3 +299,27 @@ const isShapeMaterialActive = (key) => {
     return props.selectedEntity.params.faces?.[target] === key;
 };
 </script>
+
+<style scoped>
+.properties-tab-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.props-content {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    max-height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: #ffffff;
+    box-sizing: border-box;
+    -webkit-overflow-scrolling: touch;
+}
+</style>
