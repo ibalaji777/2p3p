@@ -268,28 +268,23 @@ export class MaterialFactory {
             newMat.aoMapIntensity = config.aoIntensity;
         }
 
-        if (config.transmission !== undefined || config.transparent) {
-            if (newMat.type !== 'MeshPhysicalMaterial') {
-                if (!material) {
-                    const oldColor = newMat.color.clone();
-                    newMat = new THREE.MeshPhysicalMaterial({ color: oldColor });
-                }
-            }
-            newMat.transmission = config.transmission !== undefined ? config.transmission : 0.9;
+        if (config.transmission !== undefined || config.transparent || config.categoryLabel === 'Glass') {
+            newMat.transmission = config.transmission !== undefined ? config.transmission : 0.92;
             newMat.ior = config.ior || 1.5;
-            newMat.thickness = config.thickness || 2.0;
+            newMat.thickness = config.thickness || 10.0;
             newMat.transparent = true;
             newMat.opacity = config.opacity !== undefined ? config.opacity : 1.0;
-            newMat.depthWrite = config.depthWrite !== undefined ? config.depthWrite : false;
+            newMat.depthWrite = true;
             newMat.depthTest = true;
             newMat.roughness = config.roughness !== undefined ? config.roughness : 0.02;
-            newMat.metalness = config.metalness !== undefined ? config.metalness : 0.0;
+            newMat.metalness = config.metalness !== undefined ? config.metalness : 0.05;
+            newMat.clearcoat = 1.0;
+            newMat.clearcoatRoughness = 0.02;
+            newMat.specularIntensity = 2.5;
+            newMat.envMapIntensity = 2.5;
             if (config.attenuationColor) {
                 newMat.attenuationColor = new THREE.Color(config.attenuationColor);
                 newMat.attenuationDistance = config.attenuationDistance || 15.0;
-            }
-            if (config.specularIntensity !== undefined) {
-                newMat.specularIntensity = config.specularIntensity;
             }
         } else {
             newMat.visible = true;

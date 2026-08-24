@@ -139,4 +139,48 @@ describe('10/10 CAD/BIM Component & Material Pipeline', () => {
         await MaterialManager.updateEntityMaterialSlot(mockEntity, MaterialSlots.FRAME, 'wood_golden_oak');
         expect(mockEntity.materials[MaterialSlots.FRAME].id).toBe('wood_golden_oak');
     });
+
+    it('8. should support multiple material pattern layers on a wall matching properties behavior', async () => {
+        const wallEntity = {
+            id: 'test_wall_decor_1',
+            type: 'outer',
+            attachedDecor: [],
+            thickness: 10,
+            mesh3D: new THREE.Group()
+        };
+
+        const mockDecorManager = {
+            add(wall, configId, side) {
+                const decor = {
+                    id: 'decor_' + Math.random().toString(36).substr(2, 9),
+                    type: 'wallDecor',
+                    configId: configId,
+                    side: side,
+                    localX: 50, localY: 50, localZ: 0,
+                    width: 100, height: 100,
+                    depth: 0.2, tileSize: 70
+                };
+                wall.attachedDecor.push(decor);
+                return decor;
+            },
+            updateLive(decor) {
+                // updates 3D mesh
+            }
+        };
+
+        // 1. Add first pattern layer (brick) to front side
+        const decor1 = mockDecorManager.add(wallEntity, 'brick_red', 'front');
+        expect(wallEntity.attachedDecor.length).toBe(1);
+        expect(wallEntity.attachedDecor[0].configId).toBe('brick_red');
+        expect(wallEntity.attachedDecor[0].side).toBe('front');
+
+        // 2. Add second pattern layer (wood) to front side (allowing multiple materials on the wall)
+        const decor2 = mockDecorManager.add(wallEntity, 'wood_golden_oak', 'front');
+        expect(wallEntity.attachedDecor.length).toBe(2);
+        expect(wallEntity.attachedDecor[1].configId).toBe('wood_golden_oak');
+
+        // 3. Update existing pattern layer material
+        decor1.configId = 'stone_slate';
+        expect(wallEntity.attachedDecor[0].configId).toBe('stone_slate');
+    });
 });

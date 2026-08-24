@@ -527,6 +527,21 @@ export class InteractionSystem {
                 
                 if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isMolding || mesh.userData.isRoof || mesh.userData.isPattern || mesh.userData.isStair || mesh.userData.isFloorCutProxy)) {
                     if (this.mode === 'edit') {
+                        if (mesh.userData.isWallDecor) {
+                            const decor = mesh.userData.entity;
+                            const wall = mesh.userData.parentWall || mesh.parent?.userData?.entity;
+                            const side = decor?.side || mesh.userData.side || 'front';
+                            if (wall && wall.mesh3D) {
+                                const wallSideMesh = wall.mesh3D.children.find(c => c.userData.isWallSide && c.userData.side === side);
+                                if (wallSideMesh) {
+                                    if (this.materialGizmo && decor && decor.id) {
+                                        this.materialGizmo.activeDecorId = decor.id;
+                                    }
+                                    this.selectObject(wallSideMesh, intersects[0]);
+                                    return;
+                                }
+                            }
+                        }
                         this.selectObject(mesh, intersects[0]);
                     }
                 }
@@ -677,14 +692,24 @@ export class InteractionSystem {
         }
 
         if (this.highlightRenderer) {
+            let targetGroup = group;
+            if (targetGroup.userData && targetGroup.userData.isWallDecor) {
+                const wall = targetGroup.userData.parentWall || targetGroup.parent?.userData?.entity;
+                const side = targetGroup.userData.entity?.side || targetGroup.userData.side || 'front';
+                if (wall && wall.mesh3D) {
+                    const wallSideMesh = wall.mesh3D.children.find(c => c.userData.isWallSide && c.userData.side === side);
+                    if (wallSideMesh) targetGroup = wallSideMesh;
+                }
+            }
+
             if (active) {
-                if (group.userData && group.userData.isWallSide) {
-                    if (this.selectionManager) this.selectionManager.hoverWall(group);
+                if (targetGroup.userData && targetGroup.userData.isWallSide) {
+                    if (this.selectionManager) this.selectionManager.hoverWall(targetGroup);
                 } else {
-                    this.highlightRenderer.setHoverHighlight(group);
+                    this.highlightRenderer.setHoverHighlight(targetGroup);
                 }
             } else {
-                if (group.userData && group.userData.isWallSide) {
+                if (targetGroup.userData && targetGroup.userData.isWallSide) {
                     this.highlightRenderer.clearHoverHighlight();
                 } else {
                     this.highlightRenderer.clearHoverHighlight();

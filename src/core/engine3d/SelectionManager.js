@@ -9,7 +9,17 @@ export class SelectionManager {
     select(object) {
         if (object.userData.isWallSide) {
             return this.selectWall(object);
-        } else if (object.userData.isFurniture || object.userData.isWallDecor || object.userData.isFloor || object.userData.isWidget || object.userData.isMolding || object.userData.isRoof || object.userData.isPattern || object.userData.isStair || object.userData.isFloorCutProxy) {
+        } else if (object.userData.isWallDecor) {
+            const wall = object.userData.parentWall || object.parent?.userData?.entity;
+            const side = object.userData.entity?.side || object.userData.side || 'front';
+            if (wall && wall.mesh3D) {
+                const wallSideMesh = wall.mesh3D.children.find(c => c.userData.isWallSide && c.userData.side === side);
+                if (wallSideMesh) {
+                    return this.selectWall(wallSideMesh);
+                }
+            }
+            return this.selectWall(object);
+        } else if (object.userData.isFurniture || object.userData.isFloor || object.userData.isWidget || object.userData.isMolding || object.userData.isRoof || object.userData.isPattern || object.userData.isStair || object.userData.isFloorCutProxy) {
             return this.selectBasic(object);
         } else {
             if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
@@ -296,7 +306,6 @@ export class SelectionManager {
         let type = null;
         if (object.userData.isShape || object.userData.isFloorCutProxy) type = 'shape';
         else if (object.userData.isFurniture) type = 'furniture';
-        else if (object.userData.isWallDecor) type = 'wallDecor';
         else if (object.userData.isFloor) type = 'room';
         else if (object.userData.isWidget) type = 'widget';
         else if (object.userData.isMolding) type = 'molding';
@@ -306,7 +315,7 @@ export class SelectionManager {
         
         this.system.setHighlight(object, true);
             
-        if (['furniture', 'shape', 'widget', 'molding', 'advance_openings', 'wallDecor', 'roof', 'stair'].includes(type)) {
+        if (['furniture', 'shape', 'widget', 'molding', 'advance_openings', 'roof', 'stair'].includes(type)) {
             if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
             if (object.userData.isFloorCutProxy && this.ctx.setTransformMode) {
                 this.ctx.setTransformMode('polygon_edges', true);

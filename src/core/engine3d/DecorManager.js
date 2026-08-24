@@ -3,12 +3,13 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY } from '../../core/registry';
+import { MaterialManager } from './MaterialManager.js';
 
 export class DecorManager {
     constructor(ctx) { this.ctx = ctx; }
 
     add(wallEntity, configId, side) {
-        const config = WALL_DECOR_REGISTRY[configId];
+        const config = MaterialManager.resolveMaterialConfig(configId);
         if (!config) return null;
         if (!wallEntity.attachedDecor) wallEntity.attachedDecor = [];
         
@@ -20,46 +21,49 @@ export class DecorManager {
             localX: 50, localY: 50, localZ: 0,
             width: 100, height: 100,
             depth: config.defaultDepth || 0.2,
-            tileSize: config.defaultTileSize || 70,
+            tileSize: config.defaultTileSize || config.realWorldSize || 70,
             faces: { front: true, back: false, left: true, right: true } 
         };
-        
+
         wallEntity.attachedDecor.push(decor);
         this.load(wallEntity, decor);
         return decor;
     }
 
     async load(wallEntity, decor) {
-        const config = WALL_DECOR_REGISTRY[decor.configId];
+        if (!wallEntity || !decor || !wallEntity.mesh3D) return;
+        const config = MaterialManager.resolveMaterialConfig(decor.configId);
         if (!config) return;
 
+        // Ensure decor.mesh3D is created and attached to the current wallEntity.mesh3D
+        if (!decor.mesh3D || decor.mesh3D.parent !== wallEntity.mesh3D) {
+            const wrapper = new THREE.Group();
+            const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), []);
+            boxMesh.userData = { isPatternBox: true };
+            const hitBox = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 }));
+            hitBox.userData = { isHitbox: true, isWallDecor: true, entity: decor, parentWall: wallEntity, side: decor.side };
+            wrapper.add(boxMesh, hitBox);
+            wrapper.userData = { isWallDecor: true, entity: decor, parentWall: wallEntity, side: decor.side };
+            decor.mesh3D = wrapper;
+
+            if (this.ctx.viewMode3D !== 'preview') this.ctx.interactables.push(hitBox);
+            wallEntity.mesh3D.add(wrapper);
+            this.updateLive(decor);
+        }
+
         const texture = await this.ctx.assets.getTexture(config);
+        if (!texture) return;
         const clonedTexture = texture.clone();
         clonedTexture.needsUpdate = true;
 
-        const wrapper = new THREE.Group();
-        const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), []);
-        boxMesh.userData = { isPatternBox: true };
-        
-        const hitBox = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 }));
-
-        hitBox.userData = { isHitbox: true };
-
-        wrapper.add(boxMesh, hitBox);
-        wrapper.traverse(c => { 
-            if (c.isMesh && !c.userData.isHitbox) { 
-                c.castShadow = true; c.receiveShadow = true; 
-                if (this.ctx.viewMode3D !== 'preview' && !c.userData.isWallDecor) this.ctx.interactables.push(c); 
+        if (decor.mesh3D) {
+            decor.mesh3D.userData.texture = clonedTexture;
+            decor.mesh3D.userData.currentConfigId = decor.configId;
+            this.updateLive(decor);
+            if (this.ctx && typeof this.ctx.requestRender === 'function') {
+                this.ctx.requestRender();
             }
-        });
-        
-        wrapper.userData = { isWallDecor: true, entity: decor, parentWall: wallEntity, texture: clonedTexture };
-        decor.mesh3D = wrapper;
-        
-        if (this.ctx.viewMode3D !== 'preview') this.ctx.interactables.push(hitBox);
-        
-        wallEntity.mesh3D.add(wrapper);
-        this.updateLive(decor);
+        }
     }
 
     updateLive(entity) {
@@ -214,11 +218,15 @@ export class DecorManager {
             shape.holes.push(hole);
         });
 
+        const sideLayers = (wallEntity.attachedDecor || []).filter(d => (d.side || 'front') === (entity.side || 'front'));
+        const layerIndex = Math.max(0, sideLayers.indexOf(entity));
+        const stackOffset = layerIndex * 0.08; // 0.8mm physical offset per stacked layer
+        const decorLocalZ = (t / 2 + d / 2) + 0.15 + stackOffset + (entity.localZ || 0);
+
         const boxMesh = object.children.find(c => c.userData.isPatternBox);
         if (boxMesh) { 
             boxMesh.geometry.dispose(); 
             boxMesh.geometry = new THREE.ExtrudeGeometry(shape, { depth: d, bevelEnabled: false }); 
-            const decorLocalZ = (t / 2 + d / 2) + 0.15 + (entity.localZ || 0); // Increased offset from 0.05 to 0.15
             boxMesh.position.z = decorLocalZ; 
             boxMesh.geometry.translate(0, 0, -d/2);
             
@@ -320,23 +328,34 @@ export class DecorManager {
             }
             // ===============================================
 
-            // Manually generate UVs for the main decor face to respect openings and ensure continuous texture.
-            // This applies a planar mapping based on the wall's absolute coordinate system.
+            // Triplanar World-Space UV projection across all faces (Front, Back, Left, Right, Top, Bottom)
             const positions = boxMesh.geometry.attributes.position;
             const normals = boxMesh.geometry.attributes.normal;
             const uvs = boxMesh.geometry.attributes.uv;
-            const config = WALL_DECOR_REGISTRY[entity.configId] || {};
+            const config = MaterialManager.resolveMaterialConfig(entity.configId) || {};
             const scaleMult = config.scaleMultiplier || 1;
             const TILE_SIZE = (entity.tileSize || 70) * scaleMult;
 
             for (let i = 0; i < positions.count; i++) {
-                // Only apply to front and back faces of the decor mesh (where normal is along the local Z-axis).
-                if (Math.abs(normals.getZ(i)) > 0.99) {
-                    // The decor mesh geometry is created relative to its own center.
-                    // We offset by the decor's position on the wall (posX, posY) to get absolute coordinates for seamless mapping.
+                const nx = Math.abs(normals.getX(i));
+                const ny = Math.abs(normals.getY(i));
+                const nz = Math.abs(normals.getZ(i));
+
+                if (nz >= nx && nz >= ny) {
+                    // Front & Back faces (normal along Z)
                     const worldX = isFront ? (posX + positions.getX(i)) : (posX - positions.getX(i));
                     const worldY = posY + positions.getY(i);
                     uvs.setXY(i, worldX / TILE_SIZE, worldY / TILE_SIZE);
+                } else if (nx >= ny && nx >= nz) {
+                    // Left & Right sides (normal along X)
+                    const worldZ = positions.getZ(i);
+                    const worldY = posY + positions.getY(i);
+                    uvs.setXY(i, worldZ / TILE_SIZE, worldY / TILE_SIZE);
+                } else {
+                    // Top & Bottom sides (normal along Y)
+                    const worldX = isFront ? (posX + positions.getX(i)) : (posX - positions.getX(i));
+                    const worldZ = positions.getZ(i);
+                    uvs.setXY(i, worldX / TILE_SIZE, worldZ / TILE_SIZE);
                 }
             }
             uvs.needsUpdate = true;
@@ -347,26 +366,122 @@ export class DecorManager {
         if (hitbox) { 
             hitbox.geometry.dispose(); 
             hitbox.geometry = new THREE.ExtrudeGeometry(shape, { depth: d, bevelEnabled: false }); 
-            const decorLocalZ = (t / 2 + d / 2) + 0.15 + (entity.localZ || 0);
             hitbox.position.z = decorLocalZ;
             hitbox.geometry.translate(0, 0, -d/2);
+        }
+
+        const config = MaterialManager.resolveMaterialConfig(entity.configId);
+        if (config && object.userData.currentConfigId !== entity.configId) {
+            object.userData.currentConfigId = entity.configId;
+            if (this.ctx.assets && typeof this.ctx.assets.getTexture === 'function' && config.texture) {
+                this.ctx.assets.getTexture(config).then(tex => {
+                    if (tex) {
+                        const cloned = tex.clone();
+                        cloned.needsUpdate = true;
+                        object.userData.texture = cloned;
+                        this.updateLive(entity);
+                    }
+                });
+            }
         }
 
         const texture = object.userData.texture;
         let matFront = new THREE.MeshBasicMaterial({ visible: false });
         let matSide = new THREE.MeshBasicMaterial({ visible: false });
 
-        if (texture) {
+        const baseColor = (config && config.color !== undefined) ? config.color : 0xffffff;
+        const roughness = (config && config.roughness !== undefined) ? config.roughness : 0.6;
+        const metalness = (config && config.metalness !== undefined) ? config.metalness : 0.0;
+
+        const isGlass = config && (config.transmission !== undefined || config.transparent || config.categoryLabel === 'Glass');
+
+        if (isGlass) {
+            const transmission = config.transmission !== undefined ? config.transmission : 0.90;
+            const ior = config.ior || 1.5;
+            const glassRoughness = config.roughness !== undefined ? config.roughness : 0.05;
+            const glassThickness = config.thickness || 10.0;
+            const envIntensity = 2.5;
+
+            matFront = new THREE.MeshPhysicalMaterial({
+                color: baseColor,
+                transmission: transmission,
+                ior: ior,
+                thickness: glassThickness,
+                roughness: glassRoughness,
+                metalness: config.metalness !== undefined ? config.metalness : 0.1,
+                specularIntensity: 2.5,
+                specularColor: new THREE.Color(0xffffff),
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.02,
+                transparent: true,
+                opacity: 1.0,
+                depthWrite: true,
+                depthTest: true,
+                envMapIntensity: envIntensity,
+                polygonOffset: true,
+                polygonOffsetFactor: -1 - (layerIndex * 2),
+                polygonOffsetUnits: -1 - (layerIndex * 2)
+            });
+            if (config.attenuationColor) {
+                matFront.attenuationColor = new THREE.Color(config.attenuationColor);
+                matFront.attenuationDistance = config.attenuationDistance || 15.0;
+            }
+            if (texture) {
+                let texFront = texture.clone();
+                texFront.wrapS = texFront.wrapT = THREE.RepeatWrapping;
+                if (THREE.SRGBColorSpace) texFront.colorSpace = THREE.SRGBColorSpace;
+                matFront.map = texFront;
+                matFront.roughnessMap = texFront;
+            }
+
+            matSide = new THREE.MeshPhysicalMaterial({
+                color: config.attenuationColor ? new THREE.Color(config.attenuationColor) : new THREE.Color(0x94a3b8),
+                transmission: 0.5,
+                ior: ior,
+                thickness: glassThickness,
+                roughness: 0.1,
+                metalness: 0.1,
+                specularIntensity: 2.0,
+                clearcoat: 1.0,
+                transparent: true,
+                opacity: 0.9,
+                depthWrite: true,
+                depthTest: true
+            });
+            if (boxMesh) boxMesh.renderOrder = 10 + layerIndex;
+        } else if (texture) {
             const TILE_SIZE = entity.tileSize || 70;
             let texFront = texture.clone(); texFront.wrapS = texFront.wrapT = THREE.RepeatWrapping; if (THREE.SRGBColorSpace) texFront.colorSpace = THREE.SRGBColorSpace;
             texFront.repeat.set(1, 1); // Repeat is 1x1 because tiling is handled by the UV coordinates.
-            matFront = new THREE.MeshStandardMaterial({ map: texFront, color: 0xffffff, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+            matFront = new THREE.MeshStandardMaterial({ 
+                map: texFront, 
+                color: baseColor, 
+                roughness: roughness, 
+                metalness: metalness,
+                polygonOffset: true, 
+                polygonOffsetFactor: -1 - (layerIndex * 2), 
+                polygonOffsetUnits: -1 - (layerIndex * 2) 
+            });
             matFront.userData = { origMap: texFront };
             const texSide = texFront.clone();
-            matSide = new THREE.MeshStandardMaterial({ map: texSide, color: 0xffffff });
+            matSide = new THREE.MeshStandardMaterial({ 
+                map: texSide, 
+                color: baseColor,
+                roughness: roughness,
+                metalness: metalness
+            });
+            if (boxMesh) boxMesh.renderOrder = 1 + layerIndex;
         } else {
-            matFront = new THREE.MeshStandardMaterial({ color: 0xe5e7eb });
-            matSide = new THREE.MeshStandardMaterial({ color: 0xcccccc });
+            matFront = new THREE.MeshStandardMaterial({ 
+                color: baseColor, 
+                roughness: roughness, 
+                metalness: metalness,
+                polygonOffset: true,
+                polygonOffsetFactor: -1 - (layerIndex * 2),
+                polygonOffsetUnits: -1 - (layerIndex * 2)
+            });
+            matSide = new THREE.MeshStandardMaterial({ color: baseColor, roughness: roughness, metalness: metalness });
+            if (boxMesh) boxMesh.renderOrder = 1 + layerIndex;
         }
 
         if (boxMesh) { 

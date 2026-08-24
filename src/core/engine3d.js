@@ -392,7 +392,7 @@ export class Preview3D {
         if (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'wall' || entity.type === 'railing') {
             const h = entity.height !== undefined ? entity.height : (entity.config?.height || 300);
             const w = entity.length3D !== undefined ? entity.length3D : 100;
-            const baseMat = new THREE.MeshStandardMaterial({ color: 0xfaf8ed });
+            const baseMat = new THREE.MeshPhysicalMaterial({ color: 0xfaf8ed, roughness: 0.6, metalness: 0.0 });
             
             // Re-fetch materials based on entity.params
             const mats = this.helpers.getFaceMaterials(entity, baseMat, { width: w, height: h }).box;
