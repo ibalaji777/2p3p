@@ -3,8 +3,9 @@
         <h4 class="props-subtitle">Floor Properties</h4>
         <MaterialSizeInput 
             v-model="selectedEntity.materialScale" 
-            :fallbackValue="floorRegistry[selectedEntity.configId]?.tileSize || 150"
-            @change="$emit('sync-engine')" 
+            :fallbackValue="floorRegistry[selectedEntity.configId]?.tileSize || 280"
+            @change="$emit('sync-engine', 'material')" 
+            @update:modelValue="$emit('sync-engine', 'material')"
         />
         <div class="decor-gallery">
             <h4 class="props-subtitle">Floor Material</h4>

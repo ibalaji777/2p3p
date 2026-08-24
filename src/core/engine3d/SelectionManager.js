@@ -315,7 +315,7 @@ export class SelectionManager {
         
         this.system.setHighlight(object, true);
             
-        if (['furniture', 'shape', 'widget', 'molding', 'advance_openings', 'roof', 'stair'].includes(type)) {
+        if (['furniture', 'shape', 'widget', 'molding', 'advance_openings', 'roof', 'stair', 'room'].includes(type)) {
             if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
             if (object.userData.isFloorCutProxy && this.ctx.setTransformMode) {
                 this.ctx.setTransformMode('polygon_edges', true);

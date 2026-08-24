@@ -384,8 +384,13 @@ export class Preview3D {
     }
 
     updateMaterialLive(entity) {
-        if (!entity || !entity.mesh3D || this.isUpdatingFrom3D) return false;
-        const obj = entity.mesh3D;
+        if (!entity || this.isUpdatingFrom3D) return false;
+        let obj = entity.mesh3D;
+        if (!obj && (entity.type === 'room' || entity.isRoom || entity.path || entity.isFloor)) {
+            obj = (this.interactables && this.interactables.find(m => m.userData && (m.userData.entity === entity || (m.userData.isFloor && entity.cx !== undefined && Math.hypot((m.userData.entity?.cx || 0) - entity.cx, (m.userData.entity?.cy || 0) - entity.cy) < 50)))) || null;
+            if (obj) entity.mesh3D = obj;
+        }
+        if (!obj) return false;
         const parent = obj.parent;
         if (!parent) return false;
 
@@ -429,6 +434,29 @@ export class Preview3D {
 
             if (anyUpdated) {
                 this.requestRender('wall_material_update', 2);
+                return true;
+            }
+        }
+
+        if (entity.type === 'room' || entity.isRoom || entity.path || entity.isFloor) {
+            const configId = entity.configId || entity.params?.texture || entity.params?.material || 'hardwood';
+            const baseConfig = FLOOR_REGISTRY[configId] || MaterialManager.resolveMaterialConfig(configId);
+            const floorMesh = entity.mesh3D || (obj && obj.userData?.isFloor ? obj : null);
+            if (floorMesh && floorMesh.material) {
+                const config = { ...(baseConfig || { color: 0xd1d5db, roughness: 0.7 }) };
+                if (entity.materialScale) {
+                    config.tileSize = entity.materialScale;
+                }
+                MaterialFactory.buildPBRMaterial({
+                    material: floorMesh.material,
+                    config: config,
+                    ctx: this,
+                    dimensions: { width: 100, height: 100 },
+                    faceName: 'floor'
+                }).then(() => {
+                    if (this.requestRender) this.requestRender('floor_material_updated', 2);
+                });
+                this.requestRender('floor_material_update', 2);
                 return true;
             }
         }

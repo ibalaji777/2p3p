@@ -966,6 +966,27 @@ export class GizmoManager {
                                 }
                             }
 
+                            if (entity.type === 'room' || selectedObj.userData?.isFloor || entity.type === 'floor') {
+                                entity.configId = key;
+                                entity.params = entity.params || {};
+                                entity.params.texture = key;
+                                entity.params.material = key;
+                                if (this.ctx && typeof this.ctx.updateMaterialLive === 'function') {
+                                    this.ctx.updateMaterialLive(entity);
+                                }
+                                if (typeof this.ctx.requestRender === 'function') {
+                                    this.ctx.requestRender();
+                                }
+                                if (window.plannerInstance && typeof window.plannerInstance.syncAll === 'function') {
+                                    window.plannerInstance.syncAll();
+                                }
+                                if (window.plannerInstance && typeof window.plannerInstance.saveHistory === 'function') {
+                                    window.plannerInstance.saveHistory();
+                                }
+                                highlightSelectedThumb(key);
+                                return;
+                            }
+
                             // 2. Door / Window / Furniture Entire Object Scope Handling
                             if (this.materialScope === 'entireObject') {
                                 if (entity.type === 'door') {
@@ -1222,7 +1243,9 @@ export class GizmoManager {
                     materialCategory = selectedObj.userData.entity.params.materialCategory;
                 } else {
                     const type = selectedObj.userData.entity.type;
-                    if (type !== 'furniture' && !selectedObj.userData.entity.isFurniture) {
+                    if (type === 'room' || selectedObj.userData.isFloor || type === 'floor') {
+                        materialCategory = 'floor';
+                    } else if (type !== 'furniture' && !selectedObj.userData.entity.isFurniture) {
                         materialCategory = type;
                     }
                 }
@@ -1262,7 +1285,8 @@ export class GizmoManager {
             const clearGlass3dThumb = glassPreviewRenderer.renderGlassThumbnail('clear', GLASS_REGISTRY.clear);
 
             const cats = [
-                { id: 'stone', title: 'Natural Stone', count: getCount(STONE_REGISTRY), desc: 'Rustic stacked fieldstone, charcoal cleft slate, and Roman travertine limestone.', iconBg: 'rgba(16, 185, 129, 0.25)', iconColor: '#10b981', iconSvg: '<polygon points="12 2 2 7 12 22 22 7 12 2"/>', sphereGrad: 'radial-gradient(circle at 40% 30%, #cbd5e1, #64748b 55%, #334155 85%, #0f172a 100%)', sphereColor: '#64748b', sampleBg: getSampleBg(STONE_REGISTRY) },
+                { id: 'floor', title: 'Floor Materials', count: getCount(FLOOR_REGISTRY), desc: 'Hardwood planks, polished tiles, modern vinyl and architectural floor materials.', iconBg: 'rgba(234, 179, 8, 0.25)', iconColor: '#eab308', iconSvg: '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="9" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="15"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #fef08a, #ca8a04 50%, #854d0e 85%)', sphereColor: '#ca8a04', sampleBg: getSampleBg(FLOOR_REGISTRY) },
+                { id: 'stone', title: 'Natural Stone', count: getCount(STONE_REGISTRY), desc: 'Rustic stacked fieldstone, charcoal cleft slate, and Roman travertine limestone.', iconBg: 'rgba(168, 185, 129, 0.25)', iconColor: '#10b981', iconSvg: '<polygon points="12 2 2 7 12 22 22 7 12 2"/>', sphereGrad: 'radial-gradient(circle at 40% 30%, #cbd5e1, #64748b 55%, #334155 85%, #0f172a 100%)', sphereColor: '#64748b', sampleBg: getSampleBg(STONE_REGISTRY) },
                 { id: 'brick', title: 'Bricks & Masonry', count: getCount(BRICK_REGISTRY), desc: 'Classic red brick, orange textured, dark burgundy, and rustic masonry.', iconBg: 'rgba(239, 68, 68, 0.25)', iconColor: '#ef4444', iconSvg: '<rect x="2" y="4" width="20" height="16" rx="1"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="4" x2="12" y2="12"/><line x1="7" y1="12" x2="7" y2="20"/><line x1="17" y1="12" x2="17" y2="20"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #f87171, #b91c1c 50%, #7f1d1d 85%, #450a0a 100%)', sphereColor: '#b91c1c', sampleBg: getSampleBg(BRICK_REGISTRY) },
                 { id: 'marble', title: 'Marble & Granite', count: getCount(MARBLE_REGISTRY), desc: 'Luxurious Italian Carrara, Nero Marquina black, and polished Calacatta gold marble slabs.', iconBg: 'rgba(236, 72, 153, 0.25)', iconColor: '#ec4899', iconSvg: '<polygon points="12 2 2 7 12 22 22 7 12 2"/>', sphereGrad: 'radial-gradient(circle at 40% 30%, #f1f5f9, #94a3b8 55%, #475569 85%, #0f172a 100%)', sphereColor: '#94a3b8', sampleBg: getSampleBg(MARBLE_REGISTRY) },
                 { id: 'wood', title: 'Wood / Veneer', count: getCount(WOOD_REGISTRY), desc: 'Warm, natural timber grains and high-end polished architectural wood veneers.', iconBg: 'rgba(120, 53, 15, 0.35)', iconColor: '#f59e0b', iconSvg: '<path d="M12 2L6 12h3v8h6v-8h3L12 2z"/>', sphereGrad: 'radial-gradient(circle at 35% 25%, #d97706, #78350f 50%, #451a03 90%)', sphereColor: '#78350f', sampleBg: getSampleBg(WOOD_REGISTRY) },
@@ -2994,6 +3018,8 @@ export class GizmoManager {
                     activeGizmos = ['material', 'move', 'place', 'scale', 'spin', 'tilt'];
                 } else if (selectedObj.userData.isWallSide || selectedObj.userData.isWallMesh || selectedObj.userData.isWallDecor || type === 'outer' || type === 'inner' || type === 'wall' || type === 'wallDecor') {
                     activeGizmos = GIZMO_REGISTRY.wall || ['material'];
+                } else if (selectedObj.userData.isFloor || type === 'room' || type === 'floor') {
+                    activeGizmos = GIZMO_REGISTRY.floor || GIZMO_REGISTRY.room || ['material'];
                 } else if (supportsFaceMaterials) {
                     activeGizmos = GIZMO_REGISTRY.face_material_obj;
                 }

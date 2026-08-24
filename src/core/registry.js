@@ -3842,6 +3842,8 @@ export function offsetPolygon(points, offsetAmount) {
 }
 
 export const GIZMO_REGISTRY = {
+    'floor': ['material'],
+    'room': ['material'],
     'wall': ['material'],
     'roof': ['material', 'roofCorners'],
     'door': ['move', 'opening', 'material', 'style'],

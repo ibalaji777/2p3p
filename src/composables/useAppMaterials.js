@@ -10,9 +10,13 @@ export function useAppMaterials({
     syncEngine 
 }) {
     const setFloorMaterial = (key) => {
-        if (selectedEntity.value && selectedType.value === 'room') {
+        if (selectedEntity.value && (selectedType.value === 'room' || selectedEntity.value.isRoom || selectedEntity.value.path)) {
             selectedEntity.value.configId = key;
-            syncEngine();
+            if (renderer3D.value && typeof renderer3D.value.updateMaterialLive === 'function') {
+                renderer3D.value.updateMaterialLive(selectedEntity.value);
+            }
+            syncEngine('material');
+            debouncedSaveHistory();
         }
     };
 

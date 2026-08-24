@@ -323,20 +323,50 @@ export const SKY_REGISTRY = {
 };
 
 export const FLOOR_REGISTRY = {
+    'tile_calacatta_gold': {
+        id: 'tile_calacatta_gold', name: 'Calacatta Gold Marble Tile', type: 'floor',
+        texture: '/assets/tiles/tile_calacatta_gold.jpg',
+        thumbnail: '/assets/tiles/tile_calacatta_gold.jpg',
+        roughness: 0.22, metalness: 0.02, tileSize: 280, category: 'floor'
+    },
+    'tile_nero_marquina': {
+        id: 'tile_nero_marquina', name: 'Nero Marquina Black Tile', type: 'floor',
+        texture: '/assets/tiles/tile_nero_marquina.jpg',
+        thumbnail: '/assets/tiles/tile_nero_marquina.jpg',
+        roughness: 0.20, metalness: 0.02, tileSize: 280, category: 'floor'
+    },
+    'tile_travertine_beige': {
+        id: 'tile_travertine_beige', name: 'Travertine Limestone Tile', type: 'floor',
+        texture: '/assets/tiles/tile_travertine_beige.jpg',
+        thumbnail: '/assets/tiles/tile_travertine_beige.jpg',
+        roughness: 0.45, metalness: 0.0, tileSize: 280, category: 'floor'
+    },
+    'tile_terrazzo_modern': {
+        id: 'tile_terrazzo_modern', name: 'Modern Venetian Terrazzo Tile', type: 'floor',
+        texture: '/assets/tiles/tile_terrazzo_modern.jpg',
+        thumbnail: '/assets/tiles/tile_terrazzo_modern.jpg',
+        roughness: 0.35, metalness: 0.0, tileSize: 260, category: 'floor'
+    },
+    'tile_charcoal_slate': {
+        id: 'tile_charcoal_slate', name: 'Charcoal Slate Stone Tile', type: 'floor',
+        texture: '/assets/tiles/tile_charcoal_slate.jpg',
+        thumbnail: '/assets/tiles/tile_charcoal_slate.jpg',
+        roughness: 0.45, metalness: 0.0, tileSize: 280, category: 'floor'
+    },
     'hardwood': {
         id: 'hardwood', name: 'Hardwood Floor', type: 'floor',
         texture: 'https://threejs.org/examples/textures/hardwood2_diffuse.jpg',
         thumbnail: 'https://threejs.org/examples/textures/hardwood2_diffuse.jpg',
-        roughness: 0.6, tileSize: 150
+        roughness: 0.6, tileSize: 200, category: 'floor'
     },
     'tiles': {
         id: 'tiles', name: 'Ceramic Tiles', type: 'floor',
         texture: 'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg', 
-        color: 0xcccccc, roughness: 0.2, tileSize: 60
+        color: 0xcccccc, roughness: 0.2, tileSize: 120, category: 'floor'
     },
     'carpet': {
         id: 'carpet', name: 'Soft Carpet', type: 'floor',
-        color: 0x8b5a2b, roughness: 0.9
+        color: 0x8b5a2b, roughness: 0.9, category: 'floor'
     }
 };
 

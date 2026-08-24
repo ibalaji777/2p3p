@@ -105,15 +105,19 @@ export function useAppScene({
                     const oldRoom = selectedEntity.value;
                     const newRoom = planner.value.rooms.find(r => Math.hypot(r.cx - oldRoom.cx, r.cy - oldRoom.cy) < 20);
                     if (newRoom) {
-                        // Preserve custom UI properties across 2D graph regenerations
+                        // Preserve custom UI properties and 3D mesh across 2D graph regenerations
                         if (oldRoom.materialScale !== undefined) newRoom.materialScale = oldRoom.materialScale;
                         if (oldRoom.configId !== undefined) newRoom.configId = oldRoom.configId;
+                        if (oldRoom.mesh3D) newRoom.mesh3D = oldRoom.mesh3D;
                         selectedEntity.value = newRoom;
                     }
                 }
             }
             
             if (renderer3D.value && selectedEntity.value) {
+                if (selectedType.value === 'room' || updateType === 'material') {
+                    if (renderer3D.value.updateMaterialLive) renderer3D.value.updateMaterialLive(selectedEntity.value);
+                }
                 renderer3D.value.updateEntity(selectedEntity.value, updateType);
                 if (selectedEntity.value.parentArc) {
                     const arc = selectedEntity.value.parentArc;
