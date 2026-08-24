@@ -886,6 +886,44 @@ export class GizmoManager {
                                 const wall = isWallDecor ? (entity.mesh3D?.userData?.parentWall || selectedObj?.parent?.userData?.entity || entity) : entity;
                                 const side = (this.activeFace === 'back' || selectedObj.userData?.side === 'back' || this.activeObject?.userData?.side === 'back') ? 'back' : 'front';
                                 
+                                if (wall.parentArc && wall.parentArc.walls) {
+                                    const paramKey = side === 'back' ? 'textureBack' : 'textureFront';
+                                    wall.parentArc.params = wall.parentArc.params || {};
+                                    wall.parentArc.params[paramKey] = key;
+                                    if (this.materialScope === 'entireObject') {
+                                        wall.parentArc.params.texture = key;
+                                        wall.parentArc.params.textureFront = key;
+                                        wall.parentArc.params.textureBack = key;
+                                        wall.parentArc.params.textureSides = key;
+                                        wall.parentArc.params.textureTop = key;
+                                        wall.parentArc.params.textureBottom = key;
+                                    }
+                                    wall.parentArc.walls.forEach(w => {
+                                        w.params = w.params || {};
+                                        w.params[paramKey] = key;
+                                        if (this.materialScope === 'entireObject') {
+                                            w.params.texture = key;
+                                            w.params.textureFront = key;
+                                            w.params.textureBack = key;
+                                            w.params.textureSides = key;
+                                            w.params.textureTop = key;
+                                            w.params.textureBottom = key;
+                                        }
+                                    });
+                                    if (this.ctx && typeof this.ctx.updateMaterialLive === 'function') {
+                                        this.ctx.updateMaterialLive(wall);
+                                    }
+                                    if (typeof this.ctx.requestRender === 'function') {
+                                        this.ctx.requestRender();
+                                    }
+                                    if (window.plannerInstance && typeof window.plannerInstance.saveHistory === 'function') {
+                                        window.plannerInstance.saveHistory();
+                                    }
+                                    this._renderWallMultiMaterialTabs(wall, selectedObj);
+                                    highlightSelectedThumb(key);
+                                    return;
+                                }
+
                                 if (this.materialScope === 'entireObject') {
                                     // Entire Object: The whole wall structure itself becomes this material (no layers needed)
                                     wall.params = wall.params || {};
@@ -1036,8 +1074,29 @@ export class GizmoManager {
                                         }
                                     }
                                 }
+
+                                if (isWallEntity && entity.parentArc && entity.parentArc.walls) {
+                                    const registry = WALL_DECOR_REGISTRY;
+                                    const config = (key && registry[key]) ? registry[key] : (key ? (GLASS_REGISTRY[key] || MARBLE_REGISTRY[key] || STONE_REGISTRY[key] || BRICK_REGISTRY[key] || METAL_REGISTRY[key] || WALL_DECOR_REGISTRY[key]) : null);
+                                    entity.parentArc.walls.forEach(siblingWall => {
+                                        if (siblingWall === entity) return;
+                                        const siblingWallMesh = siblingWall.wallMesh3D || (siblingWall.mesh3D && (siblingWall.mesh3D.userData?.wallMesh || (siblingWall.mesh3D.children ? siblingWall.mesh3D.children.find(c => c.userData?.isWallMesh || (c.isMesh && !c.userData?.isHitbox && !c.userData?.isWallSide && !c.userData?.isDoor && !c.userData?.isWindow && !c.userData?.isFrame && !c.userData?.isGlass && !c.userData?.isHandle)) : null)));
+                                        if (siblingWallMesh && effectiveMatIndex !== undefined && effectiveMatIndex !== -1) {
+                                            if (config) {
+                                                MaterialFactory.applyPBRMaterial(siblingWallMesh, config, this.ctx, effectiveMatIndex);
+                                            } else if (newMat) {
+                                                if (Array.isArray(siblingWallMesh.material)) {
+                                                    siblingWallMesh.material[effectiveMatIndex] = newMat.clone();
+                                                } else {
+                                                    siblingWallMesh.material = newMat.clone();
+                                                }
+                                            }
+                                        }
+                                    });
+                                }
                                 
                                 entity.applyMaterial({ target, key, newMat, activeMatIndex: effectiveMatIndex, activeObject: meshToApply, ctx: this.ctx });
+                                if (this.ctx.updateMaterialLive) this.ctx.updateMaterialLive(entity);
                                 highlightSelectedThumb(key);
                              } else {
                                  // CAD/BIM Material System for all material types

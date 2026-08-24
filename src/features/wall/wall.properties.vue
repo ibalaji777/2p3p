@@ -1,6 +1,7 @@
 <template>
     <div class="props-panel-inner">
         <h4 class="props-subtitle" v-if="selectedEntity.type === 'railing'">Railing Properties</h4>
+        <h4 class="props-subtitle" v-else-if="selectedEntity.parentArc || selectedEntity.type === 'arc'">Curved Wall Properties</h4>
         <h4 class="props-subtitle" v-else>Wall Properties</h4>
         
         <div class="control-group">
@@ -120,7 +121,7 @@
             </div>
         </div>
 
-        <button class="hud-delete" @click="$emit('delete-entity')">Delete {{ selectedEntity.type === 'railing' ? 'Railing' : 'Wall' }}</button>
+        <button class="hud-delete" @click="$emit('delete-entity')">Delete {{ selectedEntity.type === 'railing' ? 'Railing' : ((selectedEntity.parentArc || selectedEntity.type === 'arc') ? 'Curved Wall' : 'Wall') }}</button>
     </div>
 </template>
 

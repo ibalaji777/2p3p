@@ -273,7 +273,7 @@ export class MaterialManager {
         const config = MaterialManager.resolveMaterialConfig(matToUse);
         if (!config) return;
 
-        const isWall = entity && (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'wall' || entity.startX !== undefined);
+        const isWall = entity && (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'wall' || entity.startX !== undefined || (entity.type === 'arc' && entity.walls));
         if (isWall) {
             entity.params = entity.params || {};
             const paramKeyMap = {
@@ -284,18 +284,44 @@ export class MaterialManager {
                 wall_top: 'textureTop',
                 wall_bottom: 'textureBottom',
                 front: 'textureFront',
-                back: 'textureBack'
+                back: 'textureBack',
+                left: 'textureLeft',
+                right: 'textureRight',
+                top: 'textureTop',
+                bottom: 'textureBottom'
             };
             const pKey = paramKeyMap[slotName] || 'textureFront';
-            entity.params[pKey] = config.id || (typeof matToUse === 'string' ? matToUse : config.texture);
+            const matValue = config ? (config.id || (typeof matToUse === 'string' ? matToUse : config.texture)) : (typeof matToUse === 'string' ? matToUse : null);
+            if (matValue !== null && matValue !== undefined) {
+                entity.params[pKey] = matValue;
+            }
 
-            if (entity.mesh3D) {
-                const wallMesh = entity.wallMesh3D || entity.mesh3D.userData?.wallMesh || (entity.mesh3D.children ? entity.mesh3D.children.find(c => c.userData?.isWallMesh || (c.isMesh && !c.userData?.isHitbox && !c.userData?.isWallSide && !c.userData?.isDoor && !c.userData?.isWindow && !c.userData?.isFrame && !c.userData?.isGlass && !c.userData?.isHandle)) : (entity.mesh3D.isMesh ? entity.mesh3D : null));
-                if (wallMesh && wallMesh.isMesh) {
-                    const FACE_MAP = { wall_right: 0, wall_left: 1, wall_top: 2, wall_bottom: 3, wall_front: 4, wall_back: 5, front: 4, back: 5, right: 0, left: 1, top: 2, bottom: 3 };
-                    const targetIdx = FACE_MAP[slotName] !== undefined ? FACE_MAP[slotName] : 4;
-                    await MaterialFactory.applyPBRMaterial(wallMesh, config, ctx, targetIdx);
+            const wallsToUpdate = (entity.parentArc && entity.parentArc.walls) 
+                ? entity.parentArc.walls 
+                : (entity.walls ? entity.walls : [entity]);
+
+            if (entity.parentArc && matValue !== null && matValue !== undefined) {
+                entity.parentArc.params = { ...(entity.parentArc.params || {}), [pKey]: matValue };
+            }
+
+            for (const targetWall of wallsToUpdate) {
+                targetWall.params = targetWall.params || {};
+                if (matValue !== null && matValue !== undefined) {
+                    targetWall.params[pKey] = matValue;
                 }
+
+                if (targetWall.mesh3D) {
+                    const wallMesh = targetWall.wallMesh3D || targetWall.mesh3D.userData?.wallMesh || (targetWall.mesh3D.children ? targetWall.mesh3D.children.find(c => c.userData?.isWallMesh || (c.isMesh && !c.userData?.isHitbox && !c.userData?.isWallSide && !c.userData?.isDoor && !c.userData?.isWindow && !c.userData?.isFrame && !c.userData?.isGlass && !c.userData?.isHandle)) : (targetWall.mesh3D.isMesh ? targetWall.mesh3D : null));
+                    if (wallMesh && wallMesh.isMesh && config) {
+                        const FACE_MAP = { wall_right: 0, wall_left: 1, wall_top: 2, wall_bottom: 3, wall_front: 4, wall_back: 5, front: 4, back: 5, right: 0, left: 1, top: 2, bottom: 3 };
+                        const targetIdx = FACE_MAP[slotName] !== undefined ? FACE_MAP[slotName] : 4;
+                        await MaterialFactory.applyPBRMaterial(wallMesh, config, ctx, targetIdx);
+                    }
+                }
+            }
+
+            if (ctx && typeof ctx.updateMaterialLive === 'function') {
+                ctx.updateMaterialLive(entity);
             }
             if (ctx && typeof ctx.requestRender === 'function') {
                 ctx.requestRender();

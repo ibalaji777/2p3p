@@ -28,7 +28,7 @@ export class HighlightRenderer {
 
         // Shared editor-only highlight meshes for walls
         const geoSelect = new THREE.PlaneGeometry(1, 1);
-        const matSelect = new THREE.MeshBasicMaterial({
+        this.matSelect = new THREE.MeshBasicMaterial({
             color: HIGHLIGHT_CONFIG.SELECTION_COLOR,
             transparent: true,
             opacity: HIGHLIGHT_CONFIG.SELECTION_OPACITY,
@@ -39,13 +39,13 @@ export class HighlightRenderer {
             polygonOffsetFactor: HIGHLIGHT_CONFIG.POLYGON_OFFSET_FACTOR,
             polygonOffsetUnits: HIGHLIGHT_CONFIG.POLYGON_OFFSET_UNITS
         });
-        this.wallSelectionMesh = new THREE.Mesh(geoSelect, matSelect);
+        this.wallSelectionMesh = new THREE.Mesh(geoSelect, this.matSelect);
         this.wallSelectionMesh.raycast = function() {};
         this.wallSelectionMesh.visible = false;
         this.wallSelectionMesh.renderOrder = 998;
 
         const geoHover = new THREE.PlaneGeometry(1, 1);
-        const matHover = new THREE.MeshBasicMaterial({
+        this.matHover = new THREE.MeshBasicMaterial({
             color: HIGHLIGHT_CONFIG.HOVER_COLOR,
             transparent: true,
             opacity: HIGHLIGHT_CONFIG.HOVER_OPACITY,
@@ -56,10 +56,14 @@ export class HighlightRenderer {
             polygonOffsetFactor: HIGHLIGHT_CONFIG.POLYGON_OFFSET_FACTOR,
             polygonOffsetUnits: HIGHLIGHT_CONFIG.POLYGON_OFFSET_UNITS
         });
-        this.wallHoverMesh = new THREE.Mesh(geoHover, matHover);
+        this.wallHoverMesh = new THREE.Mesh(geoHover, this.matHover);
         this.wallHoverMesh.raycast = function() {};
         this.wallHoverMesh.visible = false;
         this.wallHoverMesh.renderOrder = 997;
+
+        // Pools for curved wall multi-segment highlighting
+        this.arcSelectionMeshes = [];
+        this.arcHoverMeshes = [];
 
         // Active emissive tracking map to prevent material pollution
         this._activeEmissiveTargets = new Set();
@@ -84,6 +88,28 @@ export class HighlightRenderer {
         this._unsubSceneChanged = coreEventBus.on(EVENTS.SCENE_CHANGED, this._onSceneChanged);
     }
 
+    _getOrCreateArcSelectionMesh(index) {
+        if (!this.arcSelectionMeshes[index]) {
+            const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.matSelect);
+            mesh.raycast = function() {};
+            mesh.renderOrder = 998;
+            mesh.visible = false;
+            this.arcSelectionMeshes[index] = mesh;
+        }
+        return this.arcSelectionMeshes[index];
+    }
+
+    _getOrCreateArcHoverMesh(index) {
+        if (!this.arcHoverMeshes[index]) {
+            const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.matHover);
+            mesh.raycast = function() {};
+            mesh.renderOrder = 997;
+            mesh.visible = false;
+            this.arcHoverMeshes[index] = mesh;
+        }
+        return this.arcHoverMeshes[index];
+    }
+
     setMode(mode) {
         this.currentMode = mode || 'normal';
         if (this.selectedObject) {
@@ -97,7 +123,6 @@ export class HighlightRenderer {
             return;
         }
 
-        // If switching to material mode, update opacity or hide depending on selection state
         if (this.selectedObject && this.selectedObject !== object) {
             this.clearSelectionHighlight();
         }
@@ -109,12 +134,30 @@ export class HighlightRenderer {
             // In material mode, hide standard wall selection highlight so face highlights operate cleanly
             if (object.userData && object.userData.isWallSide) {
                 this._detachMesh(this.wallSelectionMesh);
+                if (this.arcSelectionMeshes) this.arcSelectionMeshes.forEach(m => this._detachMesh(m));
                 return;
             }
         }
 
         if (object.userData && object.userData.isWallSide) {
-            this._buildWallHighlight(object, this.wallSelectionMesh, mode);
+            const wallEntity = object.userData?.entity || object.parent?.userData?.entity;
+            const side = object.userData.side || 'front';
+            
+            if (wallEntity?.parentArc && wallEntity.parentArc.walls && wallEntity.parentArc.walls.length > 0) {
+                this._detachMesh(this.wallSelectionMesh);
+                wallEntity.parentArc.walls.forEach((siblingWall, idx) => {
+                    const sideMesh = siblingWall.mesh3D?.children?.find(c => c.userData?.isWallSide && c.userData?.side === side)
+                        || siblingWall.mesh3D?.children?.find(c => c.userData?.isWallSide)
+                        || (siblingWall.mesh3D ? { userData: { side, entity: siblingWall }, parent: siblingWall.mesh3D } : null);
+                    
+                    if (sideMesh && sideMesh.parent) {
+                        const hMesh = this._getOrCreateArcSelectionMesh(idx);
+                        this._buildWallHighlight(sideMesh, hMesh, mode);
+                    }
+                });
+            } else {
+                this._buildWallHighlight(object, this.wallSelectionMesh, mode);
+            }
         } else {
             this._applyEmissiveHighlight(object, true, HIGHLIGHT_CONFIG.SELECTION_COLOR, mode);
         }
@@ -137,7 +180,24 @@ export class HighlightRenderer {
         this.hoveredObject = object;
 
         if (object.userData && object.userData.isWallSide) {
-            this._buildWallHighlight(object, this.wallHoverMesh, 'hover');
+            const wallEntity = object.userData?.entity || object.parent?.userData?.entity;
+            const side = object.userData.side || 'front';
+            
+            if (wallEntity?.parentArc && wallEntity.parentArc.walls && wallEntity.parentArc.walls.length > 0) {
+                this._detachMesh(this.wallHoverMesh);
+                wallEntity.parentArc.walls.forEach((siblingWall, idx) => {
+                    const sideMesh = siblingWall.mesh3D?.children?.find(c => c.userData?.isWallSide && c.userData?.side === side)
+                        || siblingWall.mesh3D?.children?.find(c => c.userData?.isWallSide)
+                        || (siblingWall.mesh3D ? { userData: { side, entity: siblingWall }, parent: siblingWall.mesh3D } : null);
+                    
+                    if (sideMesh && sideMesh.parent) {
+                        const hMesh = this._getOrCreateArcHoverMesh(idx);
+                        this._buildWallHighlight(sideMesh, hMesh, 'hover');
+                    }
+                });
+            } else {
+                this._buildWallHighlight(object, this.wallHoverMesh, 'hover');
+            }
         } else {
             this._applyEmissiveHighlight(object, true, HIGHLIGHT_CONFIG.HOVER_COLOR, 'hover');
         }
@@ -152,7 +212,24 @@ export class HighlightRenderer {
         if (!objToRefresh) return;
 
         if (objToRefresh.userData && objToRefresh.userData.isWallSide) {
-            this._buildWallHighlight(objToRefresh, this.wallSelectionMesh, this.currentMode);
+            const wallEntity = objToRefresh.userData?.entity || objToRefresh.parent?.userData?.entity;
+            const side = objToRefresh.userData.side || 'front';
+            
+            if (wallEntity?.parentArc && wallEntity.parentArc.walls && wallEntity.parentArc.walls.length > 0) {
+                this._detachMesh(this.wallSelectionMesh);
+                wallEntity.parentArc.walls.forEach((siblingWall, idx) => {
+                    const sideMesh = siblingWall.mesh3D?.children?.find(c => c.userData?.isWallSide && c.userData?.side === side)
+                        || siblingWall.mesh3D?.children?.find(c => c.userData?.isWallSide)
+                        || (siblingWall.mesh3D ? { userData: { side, entity: siblingWall }, parent: siblingWall.mesh3D } : null);
+                    
+                    if (sideMesh && sideMesh.parent) {
+                        const hMesh = this._getOrCreateArcSelectionMesh(idx);
+                        this._buildWallHighlight(sideMesh, hMesh, this.currentMode);
+                    }
+                });
+            } else {
+                this._buildWallHighlight(objToRefresh, this.wallSelectionMesh, this.currentMode);
+            }
         } else {
             this._applyEmissiveHighlight(objToRefresh, true, HIGHLIGHT_CONFIG.SELECTION_COLOR, this.currentMode);
         }
@@ -167,6 +244,12 @@ export class HighlightRenderer {
             this.wallSelectionMesh.parent.remove(this.wallSelectionMesh);
         }
         this.wallSelectionMesh.visible = false;
+
+        if (this.arcSelectionMeshes && this.arcSelectionMeshes.length > 0) {
+            this.arcSelectionMeshes.forEach(mesh => {
+                this._detachMesh(mesh);
+            });
+        }
 
         if (this.selectedObject && (!this.selectedObject.userData || !this.selectedObject.userData.isWallSide)) {
             this._applyEmissiveHighlight(this.selectedObject, false);
@@ -184,6 +267,12 @@ export class HighlightRenderer {
             this.wallHoverMesh.parent.remove(this.wallHoverMesh);
         }
         this.wallHoverMesh.visible = false;
+
+        if (this.arcHoverMeshes && this.arcHoverMeshes.length > 0) {
+            this.arcHoverMeshes.forEach(mesh => {
+                this._detachMesh(mesh);
+            });
+        }
 
         if (this.hoveredObject && (!this.hoveredObject.userData || !this.hoveredObject.userData.isWallSide)) {
             this._applyEmissiveHighlight(this.hoveredObject, false);

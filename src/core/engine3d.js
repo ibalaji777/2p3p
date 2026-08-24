@@ -389,41 +389,45 @@ export class Preview3D {
         const parent = obj.parent;
         if (!parent) return false;
 
-        if (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'wall' || entity.type === 'railing') {
-            const h = entity.height !== undefined ? entity.height : (entity.config?.height || 300);
-            const w = entity.length3D !== undefined ? entity.length3D : 100;
-            const baseMat = new THREE.MeshPhysicalMaterial({ color: 0xfaf8ed, roughness: 0.6, metalness: 0.0 });
-            
-            // Re-fetch materials based on entity.params
-            const mats = this.helpers.getFaceMaterials(entity, baseMat, { width: w, height: h }).box;
-            
-            const p = entity.params || {};
-            const fallbackMat = p.textureFront ? mats[4] : (p.textureBack ? mats[5] : (p.texture ? mats[4] : null));
-            if (fallbackMat) {
-                if (!p.textureRight && !p.textureSides && !p.texture) mats[0] = fallbackMat;
-                if (!p.textureLeft && !p.textureSides && !p.texture) mats[1] = fallbackMat;
-                if (!p.textureTop && !p.textureSides && !p.texture) mats[2] = fallbackMat;
-                if (!p.textureBottom && !p.textureSides && !p.texture) mats[3] = fallbackMat;
-            }
+        if (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'wall' || entity.type === 'railing' || (entity.type === 'arc' && entity.walls)) {
+            const wallsToUpdate = (entity.parentArc && entity.parentArc.walls) 
+                ? entity.parentArc.walls 
+                : (entity.walls ? entity.walls : [entity]);
+            let anyUpdated = false;
 
-            // Find the actual wall mesh (strictly avoid doors, windows, widgets, or hitboxes)
-            const wallMesh = entity.wallMesh3D || (obj.userData && obj.userData.wallMesh) || (obj.children ? obj.children.find(c => c.userData?.isWallMesh || (c.isMesh && !c.userData?.isHitbox && !c.userData?.isWallSide && !c.userData?.isDoor && !c.userData?.isWindow && !c.userData?.isFrame && !c.userData?.isGlass && !c.userData?.isHandle && !c.userData?.isPattern && !c.userData?.isMolding && !c.userData?.isWidget && !c.userData?.isSweep)) : null);
-            if (wallMesh && wallMesh.isMesh) {
-                // Assign new array reference so Three.js catches the change smoothly without disposing shared textures
-                wallMesh.material = mats;
+            wallsToUpdate.forEach(w => {
+                const h = w.height !== undefined ? w.height : (w.config?.height || 300);
+                const len = w.length3D !== undefined ? w.length3D : 100;
+                const baseMat = new THREE.MeshPhysicalMaterial({ color: 0xfaf8ed, roughness: 0.6, metalness: 0.0 });
                 
-                // Update attached holes if any
-                if (obj.children) {
-                    obj.children.forEach(c => {
-                        if (c.userData && c.userData.isPattern) {
-                            const patMesh = c.children ? c.children[0] : c;
-                            if (patMesh && patMesh.isMesh && mats[4]) {
-                                patMesh.material = mats[4].clone(); // front material
+                // Re-fetch materials based on w.params
+                const mats = this.helpers.getFaceMaterials(w, baseMat, { width: len, height: h }).box;
+
+                const wObj = w.mesh3D;
+                if (!wObj) return;
+
+                // Find the actual wall mesh (strictly avoid doors, windows, widgets, or hitboxes)
+                const wallMesh = w.wallMesh3D || (wObj.userData && wObj.userData.wallMesh) || (wObj.children ? wObj.children.find(c => c.userData?.isWallMesh || (c.isMesh && !c.userData?.isHitbox && !c.userData?.isWallSide && !c.userData?.isDoor && !c.userData?.isWindow && !c.userData?.isFrame && !c.userData?.isGlass && !c.userData?.isHandle && !c.userData?.isPattern && !c.userData?.isMolding && !c.userData?.isWidget && !c.userData?.isSweep)) : null);
+                if (wallMesh && wallMesh.isMesh) {
+                    // Assign new array reference so Three.js catches the change smoothly without disposing shared textures
+                    wallMesh.material = mats;
+                    
+                    // Update attached holes if any
+                    if (wObj.children) {
+                        wObj.children.forEach(c => {
+                            if (c.userData && c.userData.isPattern) {
+                                const patMesh = c.children ? c.children[0] : c;
+                                if (patMesh && patMesh.isMesh && mats[4]) {
+                                    patMesh.material = mats[4].clone(); // front material
+                                }
                             }
-                        }
-                    });
+                        });
+                    }
+                    anyUpdated = true;
                 }
-                
+            });
+
+            if (anyUpdated) {
                 this.requestRender('wall_material_update', 2);
                 return true;
             }

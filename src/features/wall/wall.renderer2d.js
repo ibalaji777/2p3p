@@ -913,6 +913,16 @@ export class PremiumWall {
         else if (target === 'right') this.params.textureRight = key;
         else if (target === 'front') this.params.textureFront = key;
         else if (target === 'back') this.params.textureBack = key;
+        else if (target === 'all' || target === 'sides') {
+            this.params.texture = key;
+            this.params.textureSides = key;
+            this.params.textureFront = key;
+            this.params.textureBack = key;
+            this.params.textureLeft = key;
+            this.params.textureRight = key;
+            this.params.textureTop = key;
+            this.params.textureBottom = key;
+        }
         
         let wallGroup = null;
         if (activeObject) {
@@ -936,6 +946,20 @@ export class PremiumWall {
                 wallMesh.material[wIndex] = newMat;
             }
         }
+
+        // Propagate material to all segments if part of an arc
+        if (this.parentArc && this.parentArc.walls && !this._propagatingArcMaterial) {
+            this.parentArc.params = this.parentArc.params || {};
+            this.parentArc.params = { ...this.parentArc.params, ...this.params };
+            
+            this.parentArc.walls.forEach(siblingWall => {
+                if (siblingWall === this) return;
+                siblingWall._propagatingArcMaterial = true;
+                siblingWall.applyMaterial({ target, key, newMat: newMat ? newMat.clone() : null, activeMatIndex, activeObject: null, ctx });
+                siblingWall._propagatingArcMaterial = false;
+            });
+        }
+
         if (ctx && ctx.updateMaterialLive) ctx.updateMaterialLive(this);
     }
 

@@ -166,8 +166,8 @@ export class PresetGroup {
         if (this.isDeleted) return;
         this.isDeleted = true;
         this.uiGroup.destroy();
-        this.walls.forEach(w => this.planner.deleteEntity(w, false));
-        this.roofs.forEach(r => this.planner.deleteEntity(r, false));
+        this.walls.forEach(w => this.planner.delete(w));
+        this.roofs.forEach(r => this.planner.delete(r));
         this.anchors.forEach(a => {
             this.planner.anchors = this.planner.anchors.filter(anchor => anchor !== a);
             if (a.node) a.node.destroy();

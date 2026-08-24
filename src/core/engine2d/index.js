@@ -297,6 +297,11 @@ export class FloorPlanner {
         
         if (!entity) return;
 
+        if (entity.parentArc && typeof entity.parentArc.remove === 'function') {
+            entity.parentArc.remove();
+            return;
+        }
+
         if (typeof entity.remove === 'function') {
             entity.remove();
         } else if (typeof entity.destroy === 'function') {
@@ -1676,7 +1681,24 @@ export class FloorPlanner {
                 }
             }),
             roofs: this.roofs.map(r => ({ id: r.id, x: r.group.x(), y: r.group.y(), rotation: r.rotation, elevation: r.elevation, width: r.config?.width, depth: r.config?.depth, pitch: r.config?.pitch, overhang: r.config?.overhang, thickness: r.config?.thickness, ridgeOffset: r.config?.ridgeOffset, points: r.points, isHip: !!r.points, roofType: r.config?.roofType, material: r.config?.material, configId: r.configId, wallGap: r.config?.wallGap, ridgeAxis: r.config?.ridgeAxis, gableMaterial: r.config?.gableMaterial, autoShapeWalls: r.config?.autoShapeWalls, description: r.description })),
-            arcs: this.arcs ? this.arcs.map(a => ({ p1: {x: a.p1.x, y: a.p1.y}, p2: {x: a.p2.x, y: a.p2.y}, pos: a.pos, hasRailing: a.hasRailing, railingConfig: a.railingConfig, hidden: a.hidden, description: a.description })) : [],
+            arcs: this.arcs ? this.arcs.map(a => ({ 
+                p1: {x: a.p1.x, y: a.p1.y}, 
+                p2: {x: a.p2.x, y: a.p2.y}, 
+                pos: a.pos, 
+                hasRailing: a.hasRailing, 
+                railingConfig: a.railingConfig, 
+                hidden: a.hidden, 
+                description: a.description,
+                thickness: a.thickness !== undefined ? a.thickness : (a.walls[0]?.thickness),
+                height: a.height !== undefined ? a.height : (a.walls[0]?.height),
+                topProfileType: a.topProfileType !== undefined ? a.topProfileType : (a.walls[0]?.topProfileType),
+                startHeight: a.startHeight !== undefined ? a.startHeight : (a.walls[0]?.startHeight),
+                endHeight: a.endHeight !== undefined ? a.endHeight : (a.walls[0]?.endHeight),
+                peakHeight: a.peakHeight !== undefined ? a.peakHeight : (a.walls[0]?.peakHeight),
+                flipSlope: a.flipSlope !== undefined ? a.flipSlope : (a.walls[0]?.flipSlope),
+                elevation: a.elevation !== undefined ? a.elevation : (a.walls[0]?.elevation),
+                params: a.params || (a.walls && a.walls[0] ? a.walls[0].params : null) 
+            })) : [],
             shapes: this.shapes ? this.shapes.map(s => ({ type: s.type, x: s.group.x(), y: s.group.y(), rotation: s.rotation, scaleX: s.group.scaleX(), scaleY: s.group.scaleY(), params: s.params, description: s.description })) : [],
             rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, configId: r.configId, isHidden: r.isHidden, isDeleted: r.isDeleted, materialRepeat: r.materialRepeat, description: r.description })) : [],
             roomPaths: this.roomPaths ? this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y }))) : [],
@@ -1762,6 +1784,7 @@ export class FloorPlanner {
                                 if (wd.spacing !== undefined) advOp.spacing = wd.spacing;
                                 if (wd.patternStyle !== undefined) advOp.patternStyle = wd.patternStyle;
                                 if (wd.decorConfigId !== undefined) advOp.decorConfigId = wd.decorConfigId;
+                                if (wd.description !== undefined) advOp.description = wd.description;
                                 wall.attachedWidgets.push(advOp);
                             } else {
                                 const widget = new PremiumWidget(this, wall, wd.t, wd.configId || wd.type); 
@@ -1882,6 +1905,17 @@ export class FloorPlanner {
                     }
                     if (aData.description !== undefined) {
                         arc.description = aData.description;
+                    }
+                    if (aData.thickness !== undefined) arc.thickness = aData.thickness;
+                    if (aData.height !== undefined) arc.height = aData.height;
+                    if (aData.topProfileType !== undefined) arc.topProfileType = aData.topProfileType;
+                    if (aData.startHeight !== undefined) arc.startHeight = aData.startHeight;
+                    if (aData.endHeight !== undefined) arc.endHeight = aData.endHeight;
+                    if (aData.peakHeight !== undefined) arc.peakHeight = aData.peakHeight;
+                    if (aData.flipSlope !== undefined) arc.flipSlope = aData.flipSlope;
+                    if (aData.elevation !== undefined) arc.elevation = aData.elevation;
+                    if (aData.params) {
+                        arc.params = JSON.parse(JSON.stringify(aData.params));
                     }
                     arc.rebuild();
                     if (arc.hidden) {

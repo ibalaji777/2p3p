@@ -60,10 +60,55 @@ export function useLevelManager(dependencies) {
         saveHistory();
     };
 
+    const deleteLevel = (index) => {
+        if (levels.value.length <= 1) return;
+        
+        saveCurrentLevelState();
+        const currentActive = activeLevelIndex.value;
+        
+        // Remove level from array
+        levels.value.splice(index, 1);
+        
+        // Determine new active index
+        let newActive = currentActive;
+        if (currentActive === index) {
+            newActive = Math.min(index, levels.value.length - 1);
+        } else if (currentActive > index) {
+            newActive = currentActive - 1;
+        }
+        
+        activeLevelIndex.value = newActive;
+        
+        if (planner.value) {
+            planner.value.clearReferenceBackground();
+            handleDeselect();
+            const targetData = levels.value[newActive].data;
+            if (targetData) planner.value.importState(targetData); else planner.value.clearAll();
+            
+            if (newActive > 0) {
+                const referenceData = levels.value[newActive - 1].data;
+                if (referenceData) planner.value.loadReferenceBackground(referenceData);
+            }
+        }
+        
+        if (viewMode.value === '3d') refresh3DScene(true);
+        saveHistory();
+    };
+
+    const updateLevelDetails = ({ index, name, description }) => {
+        if (levels.value[index]) {
+            if (name !== undefined) levels.value[index].name = name;
+            levels.value[index].description = description;
+            saveHistory();
+        }
+    };
+
     return {
         saveCurrentLevelState,
         updateStaticLevelData,
         switchLevel,
-        addLevel
+        addLevel,
+        deleteLevel,
+        updateLevelDetails
     };
 }

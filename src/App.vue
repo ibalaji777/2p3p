@@ -121,6 +121,8 @@
         @level-visibility-change="onLevelVisibilityChange"
         @switch-level="switchLevel"
         @add-level="addLevel"
+        @delete-level="deleteLevel"
+        @update-level-details="updateLevelDetails"
         @sync-settings="syncSettings"
         @set-entrance-wall="setEntranceWall"
         @set-sky="setSky"
@@ -728,7 +730,7 @@ onBeforeUnmount(() => {
 
 const { handleGlobalKeys } = useKeyboardShortcuts({ undo, redo, handleDelete: () => handleDelete(), debouncedSaveHistory, setTool: (t) => setTool(t), toggleCategory: (c) => toggleCategory(c) });
 
-const { saveCurrentLevelState, updateStaticLevelData, switchLevel, addLevel } = useLevelManager({ handleDeselect: () => handleDeselect(), refresh3DScene: (b) => refresh3DScene(b), saveHistory });
+const { saveCurrentLevelState, updateStaticLevelData, switchLevel, addLevel, deleteLevel, updateLevelDetails } = useLevelManager({ handleDeselect: () => handleDeselect(), refresh3DScene: (b) => refresh3DScene(b), saveHistory });
 
 watch(() => selectedEntity.value?.params?.isEditingMaterials, (newVal) => {
     if (renderer3D.value) {

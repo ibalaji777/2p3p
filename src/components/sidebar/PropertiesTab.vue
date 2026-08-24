@@ -76,8 +76,8 @@
             />
             
             <WallPanel 
-                v-else-if="selectedType === 'wall'"
-                :selected-entity="selectedEntity"
+                v-else-if="selectedType === 'wall' || selectedType === 'arc'"
+                :selected-entity="selectedEntity.type === 'arc' ? (selectedEntity.walls && selectedEntity.walls[0] ? selectedEntity.walls[0] : selectedEntity) : selectedEntity"
                 :selected-wall-side="selectedWallSide"
                 :current-face-decors="currentFaceDecors"
                 :active-decor-id="activeDecorId"
@@ -118,12 +118,6 @@
                 </div>
 
                 <button class="hud-delete" @click="$emit('delete-entity')">Delete Pattern</button>
-            </div>
-
-            <div v-else-if="selectedType === 'arc'">
-                <h4 class="props-subtitle">Curved Wall Properties</h4>
-                <div class="control-group"><label>Hidden Wall</label><div class="input-wrap" style="justify-content: flex-end;"><input type="checkbox" v-model="selectedEntity.hidden" @change="() => { selectedEntity.walls.forEach(w => w.hidden = selectedEntity.hidden); $emit('sync-engine'); }"></div></div>
-                <button class="hud-delete" @click="$emit('delete-entity')">Delete Curved Wall</button>
             </div>
 
             <RoomPanel 

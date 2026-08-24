@@ -358,14 +358,6 @@ export class EnvironmentBuilder {
         let mm = [matMain, matMain, matMain, matMain, matMain, matMain];
         if (this.ctx.helpers && this.ctx.helpers.getFaceMaterials) {
             mm = this.ctx.helpers.getFaceMaterials(w, matMain, { width: length, height: h }).box;
-            
-            // Inherit painted material for newly generated hole faces and wall edges if not explicitly painted
-            const p = w.params || {};
-            const fallbackMat = p.textureFront ? mm[4] : (p.textureBack ? mm[5] : mm[4]);
-            if (!p.textureRight && !p.textureSides && !p.texture) mm[0] = fallbackMat;
-            if (!p.textureLeft && !p.textureSides && !p.texture) mm[1] = fallbackMat;
-            if (!p.textureTop && !p.textureSides && !p.texture) mm[2] = fallbackMat;
-            if (!p.textureBottom && !p.textureSides && !p.texture) mm[3] = fallbackMat;
         }
         const wallBottom = -1;
         const wallShape = new THREE.Shape();
@@ -1299,14 +1291,6 @@ export class EnvironmentBuilder {
                         let mm = [matMain, matMain, matMain, matMain, matMain, matMain];
                         if (this.ctx.helpers && this.ctx.helpers.getFaceMaterials) {
                             mm = this.ctx.helpers.getFaceMaterials(w, matMain, { width: length, height: totalH }).box;
-                            
-                            // Inherit painted material for newly generated hole faces and wall edges if not explicitly painted
-                            const p = w.params || {};
-                            const fallbackMat = p.textureFront ? mm[4] : (p.textureBack ? mm[5] : mm[4]);
-                            if (!p.textureRight && !p.textureSides && !p.texture) mm[0] = fallbackMat;
-                            if (!p.textureLeft && !p.textureSides && !p.texture) mm[1] = fallbackMat;
-                            if (!p.textureTop && !p.textureSides && !p.texture) mm[2] = fallbackMat;
-                            if (!p.textureBottom && !p.textureSides && !p.texture) mm[3] = fallbackMat;
                         }
                         const wallShape = new THREE.Shape();
                         const type = w.topProfileType || 'normal';

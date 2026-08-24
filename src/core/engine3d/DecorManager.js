@@ -11,6 +11,24 @@ export class DecorManager {
     add(wallEntity, configId, side) {
         const config = MaterialManager.resolveMaterialConfig(configId);
         if (!config) return null;
+
+        if (wallEntity.parentArc && wallEntity.parentArc.walls) {
+            const paramKey = side === 'back' ? 'textureBack' : 'textureFront';
+            wallEntity.parentArc.params = wallEntity.parentArc.params || {};
+            wallEntity.parentArc.params[paramKey] = configId;
+            wallEntity.parentArc.walls.forEach(w => {
+                w.params = w.params || {};
+                w.params[paramKey] = configId;
+            });
+            if (this.ctx && typeof this.ctx.updateMaterialLive === 'function') {
+                this.ctx.updateMaterialLive(wallEntity);
+            }
+            if (this.ctx && typeof this.ctx.requestRender === 'function') {
+                this.ctx.requestRender();
+            }
+            return { id: 'arc_mat_' + Date.now(), configId, side };
+        }
+
         if (!wallEntity.attachedDecor) wallEntity.attachedDecor = [];
         
         const decor = {

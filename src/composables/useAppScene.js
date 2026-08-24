@@ -115,7 +115,58 @@ export function useAppScene({
             
             if (renderer3D.value && selectedEntity.value) {
                 renderer3D.value.updateEntity(selectedEntity.value, updateType);
-                if (selectedType.value === 'wall' && planner.value) {
+                if (selectedEntity.value.parentArc) {
+                    const arc = selectedEntity.value.parentArc;
+                    arc.height = selectedEntity.value.height;
+                    arc.thickness = selectedEntity.value.thickness;
+                    arc.topProfileType = selectedEntity.value.topProfileType;
+                    arc.startHeight = selectedEntity.value.startHeight;
+                    arc.endHeight = selectedEntity.value.endHeight;
+                    arc.peakHeight = selectedEntity.value.peakHeight;
+                    arc.flipSlope = selectedEntity.value.flipSlope;
+                    arc.hidden = selectedEntity.value.hidden;
+                    arc.elevation = selectedEntity.value.elevation;
+                    if (selectedEntity.value.configId) arc.configId = selectedEntity.value.configId;
+
+                    arc.walls.forEach(siblingWall => {
+                        siblingWall.thickness = selectedEntity.value.thickness;
+                        siblingWall.height = selectedEntity.value.height;
+                        siblingWall.topProfileType = selectedEntity.value.topProfileType;
+                        siblingWall.startHeight = selectedEntity.value.startHeight;
+                        siblingWall.endHeight = selectedEntity.value.endHeight;
+                        siblingWall.peakHeight = selectedEntity.value.peakHeight;
+                        siblingWall.flipSlope = selectedEntity.value.flipSlope;
+                        siblingWall.hidden = selectedEntity.value.hidden;
+                        siblingWall.elevation = selectedEntity.value.elevation;
+                        if (selectedEntity.value.configId) siblingWall.configId = selectedEntity.value.configId;
+
+                        if (renderer3D.value.updateWallGeometryLive) {
+                            renderer3D.value.updateWallGeometryLive(siblingWall);
+                        } else {
+                            renderer3D.value.updateEntity(siblingWall, updateType);
+                        }
+                    });
+                } else if (selectedType.value === 'arc' && selectedEntity.value.walls) {
+                    const arc = selectedEntity.value;
+                    arc.walls.forEach(siblingWall => {
+                        if (arc.thickness !== undefined) siblingWall.thickness = arc.thickness;
+                        if (arc.height !== undefined) siblingWall.height = arc.height;
+                        if (arc.topProfileType !== undefined) siblingWall.topProfileType = arc.topProfileType;
+                        if (arc.startHeight !== undefined) siblingWall.startHeight = arc.startHeight;
+                        if (arc.endHeight !== undefined) siblingWall.endHeight = arc.endHeight;
+                        if (arc.peakHeight !== undefined) siblingWall.peakHeight = arc.peakHeight;
+                        if (arc.flipSlope !== undefined) siblingWall.flipSlope = arc.flipSlope;
+                        if (arc.hidden !== undefined) siblingWall.hidden = arc.hidden;
+                        if (arc.elevation !== undefined) siblingWall.elevation = arc.elevation;
+                        if (arc.configId !== undefined) siblingWall.configId = arc.configId;
+
+                        if (renderer3D.value.updateWallGeometryLive) {
+                            renderer3D.value.updateWallGeometryLive(siblingWall);
+                        } else {
+                            renderer3D.value.updateEntity(siblingWall, updateType);
+                        }
+                    });
+                } else if (selectedType.value === 'wall' && planner.value) {
                     const selAnchorId1 = selectedEntity.value.startAnchor?.id;
                     const selAnchorId2 = selectedEntity.value.endAnchor?.id;
                     planner.value.walls.forEach(w => {
@@ -127,7 +178,7 @@ export function useAppScene({
                         }
                     });
                 }
-                if (['wall', 'roof', 'room', 'stair'].includes(selectedType.value) && planner.value?.updateRoofAutoPlacement) {
+                if (['wall', 'arc', 'roof', 'room', 'stair'].includes(selectedType.value) && planner.value?.updateRoofAutoPlacement) {
                     planner.value.updateRoofAutoPlacement();
                 }
             }

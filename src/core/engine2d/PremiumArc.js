@@ -14,6 +14,7 @@ export class PremiumArc {
         this.intermediateAnchors = [];
         this.hasRailing = false;
         this.railingConfig = { configId: this.planner?.activePresetParams?.type || 'rail_1', thickness: 4, height: undefined };
+        this.params = {};
         
         this.group = new Konva.Group();
         this.controlHandle = new Konva.Circle({
@@ -60,6 +61,30 @@ export class PremiumArc {
         this.planner.stage.batchDraw();
     }
 
+    applyMaterial({ target, key, newMat, activeMatIndex, activeObject, ctx }) {
+        this.params = this.params || {};
+        if (target === 'top') this.params.textureTop = key;
+        else if (target === 'bottom') this.params.textureBottom = key;
+        else if (target === 'left') this.params.textureLeft = key;
+        else if (target === 'right') this.params.textureRight = key;
+        else if (target === 'front') this.params.textureFront = key;
+        else if (target === 'back') this.params.textureBack = key;
+        else if (target === 'all' || target === 'sides') {
+            this.params.texture = key;
+            this.params.textureSides = key;
+            this.params.textureFront = key;
+            this.params.textureBack = key;
+            this.params.textureLeft = key;
+            this.params.textureRight = key;
+            this.params.textureTop = key;
+            this.params.textureBottom = key;
+        }
+
+        this.walls.forEach(w => {
+            w.applyMaterial({ target, key, newMat: newMat ? newMat.clone() : null, activeMatIndex, activeObject: null, ctx });
+        });
+    }
+
     rebuild() {
         this.walls.forEach(w => { w.wallGroup.destroy(); w.labelGroup.destroy(); this.planner.walls = this.planner.walls.filter(existing => existing !== w); });
         this.intermediateAnchors.forEach(a => { a.node.destroy(); this.planner.anchors = this.planner.anchors.filter(existing => existing !== a); });
@@ -99,6 +124,18 @@ export class PremiumArc {
                 if (Math.hypot(currentAnchor.x - prevAnchor.x, currentAnchor.y - prevAnchor.y) > 1.0) {
                     const newWall = new PremiumWall(this.planner, prevAnchor, currentAnchor, 'outer');
                     newWall.parentArc = this; newWall.labelGroup.visible(false);
+                    if (this.thickness !== undefined) newWall.thickness = this.thickness;
+                    if (this.height !== undefined) newWall.height = this.height;
+                    if (this.topProfileType !== undefined) newWall.topProfileType = this.topProfileType;
+                    if (this.startHeight !== undefined) newWall.startHeight = this.startHeight;
+                    if (this.endHeight !== undefined) newWall.endHeight = this.endHeight;
+                    if (this.peakHeight !== undefined) newWall.peakHeight = this.peakHeight;
+                    if (this.flipSlope !== undefined) newWall.flipSlope = this.flipSlope;
+                    if (this.hidden !== undefined) newWall.hidden = this.hidden;
+                    if (this.elevation !== undefined) newWall.elevation = this.elevation;
+                    if (this.params && Object.keys(this.params).length > 0) {
+                        newWall.params = JSON.parse(JSON.stringify(this.params));
+                    }
                     newWall.poly.off('mousedown touchstart');
                     newWall.poly.on('mousedown touchstart', (e) => { if (this.planner.tool === 'select') { e.cancelBubble = true; this.planner.selectEntity(this, 'arc'); } });
                     newWall.poly.draggable(false); newWall.poly.on('dragstart dragmove dragend', (e) => e.cancelBubble = true);
@@ -111,6 +148,7 @@ export class PremiumArc {
                         r.configId = this.railingConfig.configId;
                         if (this.railingConfig.thickness) r.thickness = this.railingConfig.thickness;
                         if (this.railingConfig.height !== undefined) r.height = this.railingConfig.height;
+                        if (this.hidden !== undefined) r.hidden = this.hidden;
                         r.poly.off('mousedown touchstart');
                         r.poly.on('mousedown touchstart', (e) => { 
                             if (this.planner.tool === 'select') { 

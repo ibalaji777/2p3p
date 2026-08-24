@@ -58,8 +58,32 @@ export function useAppMaterials({
             if (!selectedEntity.value.params) selectedEntity.value.params = {};
             const target = selectedEntity.value.params.materialTarget || 'all';
             
-            if (selectedType.value === 'wall') {
+            if (selectedType.value === 'wall' || selectedType.value === 'arc' || selectedEntity.value?.parentArc) {
                 const side = (target === 'front' || target === 'back') ? target : selectedWallSide.value;
+                const arc = selectedEntity.value.parentArc || (selectedType.value === 'arc' ? selectedEntity.value : null);
+                if (arc && arc.walls) {
+                    const paramKey = side === 'back' ? 'textureBack' : 'textureFront';
+                    arc.params = arc.params || {};
+                    arc.params[paramKey] = key;
+                    if (target === 'all') {
+                        arc.params.texture = key;
+                        arc.params.textureFront = key;
+                        arc.params.textureBack = key;
+                        arc.params.textureSides = key;
+                    }
+                    arc.walls.forEach(w => {
+                        w.params = w.params || {};
+                        w.params[paramKey] = key;
+                        if (target === 'all') {
+                            w.params.texture = key;
+                            w.params.textureFront = key;
+                            w.params.textureBack = key;
+                            w.params.textureSides = key;
+                        }
+                    });
+                    syncEngine('material');
+                    return;
+                }
                 if (renderer3D.value) {
                     const decor = renderer3D.value.addWallPattern(selectedEntity.value, key, side);
                     selectedEntity.value.attachedDecor = [...selectedEntity.value.attachedDecor];
@@ -97,6 +121,21 @@ export function useAppMaterials({
             else if (target === 'right') selectedEntity.value.params.textureRight = key;
             else if (target === 'front') selectedEntity.value.params.textureFront = key;
             else if (target === 'back') selectedEntity.value.params.textureBack = key;
+
+            if (selectedEntity.value.parentArc) {
+                selectedEntity.value.parentArc.params = { ...(selectedEntity.value.parentArc.params || {}), ...selectedEntity.value.params };
+                if (selectedEntity.value.parentArc.walls) {
+                    selectedEntity.value.parentArc.walls.forEach(w => {
+                        w.params = { ...(w.params || {}), ...selectedEntity.value.params };
+                    });
+                }
+            } else if (selectedEntity.value.type === 'arc' && selectedEntity.value.walls) {
+                selectedEntity.value.params = { ...(selectedEntity.value.params || {}) };
+                selectedEntity.value.walls.forEach(w => {
+                    w.params = { ...(w.params || {}), ...selectedEntity.value.params };
+                });
+            }
+
             syncEngine();
         }
     };

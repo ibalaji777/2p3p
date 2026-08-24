@@ -76,8 +76,19 @@ export class ApplyMaterialCommand extends Command {
             entity.params.texture = matId;
             entity.params.material = matId;
             if (entity.config) entity.config.material = matId;
-            console.warn(`%c[BIM Applied Area] %cGlobal Override -> Param Property: %ctexture %c= %c${matId}`, 
-                'color: #ef4444; font-weight: bold;', 'color: #9ca3af;', 'color: #f59e0b; font-weight: bold;', 'color: #9ca3af;', 'color: #8b5cf6; font-weight: bold;');
+        }
+
+        if (entity.parentArc && entity.parentArc.walls) {
+            entity.parentArc.params = { ...(entity.parentArc.params || {}), ...entity.params };
+            entity.parentArc.walls.forEach(w => {
+                w.params = { ...(w.params || {}), ...entity.params };
+                w.materials = { ...(w.materials || {}), ...entity.materials };
+                if (this.face === 'front' && w.elevationLayers && w.elevationLayers.front) {
+                    w.elevationLayers.front.forEach(layer => layer.texture = matId);
+                } else if (this.face === 'back' && w.elevationLayers && w.elevationLayers.back) {
+                    w.elevationLayers.back.forEach(layer => layer.texture = matId);
+                }
+            });
         }
 
         // Live update the 3D view if it's active

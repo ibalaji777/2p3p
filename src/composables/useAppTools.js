@@ -133,13 +133,25 @@ export function useAppTools({
     };
 
     const spawnWallPattern = (configId) => {
-        if (renderer3D.value && selectedType.value === 'wall' && selectedEntity.value) {
+        if (renderer3D.value && (selectedType.value === 'wall' || selectedType.value === 'arc' || selectedEntity.value?.parentArc) && selectedEntity.value) {
             if (planner.value) {
                 planner.value.executeWithSnapshot(() => {
-                    const decor = renderer3D.value.addWallPattern(selectedEntity.value, configId, selectedWallSide.value);
-                    selectedEntity.value.attachedDecor = [...selectedEntity.value.attachedDecor];
-                    activeDecorId.value = decor.id; uiTrigger.value++; 
-                    if (selectedEntity.value.isStatic) updateStaticLevelData(selectedEntity.value);
+                    const arc = selectedEntity.value.parentArc || (selectedType.value === 'arc' ? selectedEntity.value : null);
+                    if (arc && arc.walls) {
+                        const paramKey = selectedWallSide.value === 'back' ? 'textureBack' : 'textureFront';
+                        arc.params = arc.params || {};
+                        arc.params[paramKey] = configId;
+                        arc.walls.forEach(w => {
+                            w.params = w.params || {};
+                            w.params[paramKey] = configId;
+                        });
+                        syncEngine('material');
+                    } else {
+                        const decor = renderer3D.value.addWallPattern(selectedEntity.value, configId, selectedWallSide.value);
+                        selectedEntity.value.attachedDecor = [...selectedEntity.value.attachedDecor];
+                        activeDecorId.value = decor.id; uiTrigger.value++; 
+                        if (selectedEntity.value.isStatic) updateStaticLevelData(selectedEntity.value);
+                    }
                 });
                 debouncedSaveHistory();
             }
@@ -176,8 +188,9 @@ export function useAppTools({
                 else if (planner.value) planner.value.syncAll();
             } else {
                 if (planner.value) {
-                    const id = selectedEntity.value.id || (selectedEntity.value.group && selectedEntity.value.group.id());
-                    planner.value.delete(id || selectedEntity.value);
+                    const targetEntity = selectedEntity.value.parentArc || selectedEntity.value;
+                    const id = targetEntity.id || (targetEntity.group && typeof targetEntity.group.id === 'function' && targetEntity.group.id());
+                    planner.value.delete(id || targetEntity);
                     selectedEntity.value = null;
                     selectedType.value = null;
                     if (viewMode.value === '3d') refresh3DScene(true);
