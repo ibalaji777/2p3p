@@ -878,7 +878,7 @@ export class GizmoManager {
                             const key = thumb.getAttribute('data-mat');
                             if (!key) return;
 
-                            const isWallEntity = entity.type === 'outer' || entity.type === 'inner' || entity.type === 'wall' || entity.startX !== undefined;
+                            const isWallEntity = entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.startX !== undefined;
                             const isWallDecor = entity.type === 'wallDecor';
 
                             // 1. Wall and WallDecor Material Management (Material Scope: Selected Face vs Entire Object)
@@ -1058,7 +1058,7 @@ export class GizmoManager {
                             
                             // Refactored: Delegate to entity.applyMaterial if available (SOLID: OCP)
                             if (typeof entity.applyMaterial === 'function') {
-                                const isWallEntity = entity.type === 'outer' || entity.type === 'inner' || entity.type === 'wall' || entity.type === 'railing';
+                                const isWallEntity = entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'railing';
                                 const targetWallMesh = isWallEntity ? (entity.wallMesh3D || (entity.mesh3D && (entity.mesh3D.userData?.wallMesh || (entity.mesh3D.children ? entity.mesh3D.children.find(c => c.userData?.isWallMesh || (c.isMesh && !c.userData?.isHitbox && !c.userData?.isWallSide && !c.userData?.isDoor && !c.userData?.isWindow && !c.userData?.isFrame && !c.userData?.isGlass && !c.userData?.isHandle)) : null)))) : null;
                                 const meshToApply = targetWallMesh || this.activeObject;
                                 
@@ -1752,7 +1752,7 @@ export class GizmoManager {
             }
 
             if (selectedObj?.userData?.entity) {
-                const isWall = selectedObj.userData.entity.type === 'outer' || selectedObj.userData.entity.type === 'inner' || selectedObj.userData.entity.type === 'wall' || selectedObj.userData.entity.type === 'wallDecor' || selectedObj.userData.entity.startX !== undefined;
+                const isWall = selectedObj.userData.entity.type === 'outer' || selectedObj.userData.entity.type === 'inner' || selectedObj.userData.entity.type === 'compound' || selectedObj.userData.entity.type === 'wall' || selectedObj.userData.entity.type === 'wallDecor' || selectedObj.userData.entity.startX !== undefined;
                 if (isWall) {
                     this._renderWallMultiMaterialTabs(selectedObj.userData.entity, selectedObj);
                     if (tabsHtml && tabsContainerWrapper) {
@@ -1971,7 +1971,7 @@ export class GizmoManager {
             }
             
             let tex = null;
-            const isWall = entity.type === 'outer' || entity.type === 'inner' || entity.type === 'wall' || entity.type === 'wallDecor' || entity.startX !== undefined;
+            const isWall = entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'wallDecor' || entity.startX !== undefined;
             if (isWall && this.materialScope === 'selectedFace') {
                 const side = (this.activeFace === 'back' || selectedObj?.userData?.side === 'back' || this.activeObject?.userData?.side === 'back') ? 'back' : 'front';
                 const wall = entity.type === 'wallDecor' ? (entity.mesh3D?.userData?.parentWall || selectedObj?.parent?.userData?.entity || entity) : entity;
@@ -2485,7 +2485,7 @@ export class GizmoManager {
         const tabsContainerWrapper = this.materialPanel.querySelector('#gizmo-subgroup-tabs-container');
         if (!tabsContainerWrapper) return;
         
-        const isWall = entity && (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'wall' || entity.startX !== undefined);
+        const isWall = entity && (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.startX !== undefined);
         const isWallDecor = entity && entity.type === 'wallDecor';
         
         if (!isWall && !isWallDecor) {
@@ -3032,7 +3032,7 @@ export class GizmoManager {
                     activeGizmos = GIZMO_REGISTRY.shape;
                 } else if (selectedObj.userData.isFurniture || (selectedObj.userData.entity && (selectedObj.userData.entity.type === 'furniture' || selectedObj.userData.entity.isFurniture))) {
                     activeGizmos = ['material', 'move', 'place', 'scale', 'spin', 'tilt'];
-                } else if (selectedObj.userData.isWallSide || selectedObj.userData.isWallMesh || selectedObj.userData.isWallDecor || type === 'outer' || type === 'inner' || type === 'wall' || type === 'wallDecor') {
+                } else if (selectedObj.userData.isWallSide || selectedObj.userData.isWallMesh || selectedObj.userData.isWallDecor || type === 'outer' || type === 'inner' || type === 'compound' || type === 'wall' || type === 'wallDecor') {
                     activeGizmos = GIZMO_REGISTRY.wall || ['material'];
                 } else if (selectedObj.userData.isFloor || type === 'room' || type === 'floor') {
                     activeGizmos = GIZMO_REGISTRY.floor || GIZMO_REGISTRY.room || ['material'];
@@ -3143,7 +3143,7 @@ export class GizmoManager {
             if (this.openingPanel) this.openingPanel.style.display = 'none';
             if (this.cornerPanel) this.cornerPanel.style.display = 'none';
 
-            const isWall = selectedObj && (selectedObj.userData.isWallSide || selectedObj.userData.isWallMesh || selectedObj.userData.isWallDecor || entity.type === 'outer' || entity.type === 'inner' || entity.type === 'wall' || entity.type === 'wallDecor');
+            const isWall = selectedObj && (selectedObj.userData.isWallSide || selectedObj.userData.isWallMesh || selectedObj.userData.isWallDecor || entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'wallDecor');
             const targetToAttach = (isWall && selectedObj.parent) ? selectedObj.parent : selectedObj;
 
             if (this.ctx.interactions.materialGizmo && targetToAttach) {

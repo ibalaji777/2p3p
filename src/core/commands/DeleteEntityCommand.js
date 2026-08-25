@@ -43,7 +43,7 @@ export class DeleteEntityCommand extends Command {
         // Real undo would re-add it to the planner arrays and show the group.
         // For walls, we do `this.planner.walls.push(this.deletedEntity)` and `this.deletedEntity.poly.show()`.
         if (this.deletedEntity) {
-            if (this.deletedEntity.type === 'outer' || this.deletedEntity.type === 'inner') {
+            if (this.deletedEntity.type === 'outer' || this.deletedEntity.type === 'inner' || this.deletedEntity.type === 'compound') {
                 this.planner.walls.push(this.deletedEntity);
                 // Rebuild visuals
             } else if (this.deletedEntity.constructor.name === 'PremiumFurniture') {

@@ -273,7 +273,7 @@ export class MaterialManager {
         const config = MaterialManager.resolveMaterialConfig(matToUse);
         if (!config) return;
 
-        const isWall = entity && (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'wall' || entity.startX !== undefined || (entity.type === 'arc' && entity.walls));
+        const isWall = entity && (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.startX !== undefined || (entity.type === 'arc' && entity.walls));
         if (isWall) {
             entity.params = entity.params || {};
             const paramKeyMap = {

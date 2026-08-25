@@ -1,8 +1,16 @@
 <template>
     <div class="props-panel-inner">
         <h4 class="props-subtitle" v-if="selectedEntity.type === 'railing'">Railing Properties</h4>
+        <h4 class="props-subtitle" v-else-if="selectedEntity.type === 'compound'">Compound Wall Properties</h4>
         <h4 class="props-subtitle" v-else-if="selectedEntity.parentArc || selectedEntity.type === 'arc'">Curved Wall Properties</h4>
         <h4 class="props-subtitle" v-else>Wall Properties</h4>
+        
+        <div class="control-group" v-if="selectedEntity.type === 'compound'">
+            <label>Include Floor Slab</label>
+            <div class="input-wrap" style="justify-content: flex-end;">
+                <input type="checkbox" v-model="selectedEntity.hasFloor" @change="onCompoundFloorToggle">
+            </div>
+        </div>
         
         <div class="control-group">
             <label>Hidden Wall</label>
@@ -154,6 +162,19 @@ const emit = defineEmits([
 
 const plannerStore = usePlannerStore();
 const railingThumbnails = ref({});
+
+const onCompoundFloorToggle = () => {
+    const val = !!props.selectedEntity.hasFloor;
+    const planner = plannerStore.planner;
+    if (planner && planner.walls) {
+        planner.walls.forEach(w => {
+            if (w.type === 'compound') {
+                w.hasFloor = val;
+            }
+        });
+    }
+    emit('sync-engine');
+};
 
 const generateThumbnails = async () => {
     const renderer = plannerStore.renderer3D;

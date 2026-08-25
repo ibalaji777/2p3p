@@ -522,7 +522,7 @@ export function setupPointerEvents(planner) {
             let drawColor = (isColliding && wallConfig && wallConfig.events.includes("stop_collision")) ? "#ef4444" : (isClosing ? "#10b981" : "#3b82f6"); 
             
             let previewPoints = [planner.lastAnchor.x, planner.lastAnchor.y, snapPos.x, snapPos.y];
-            if (!isColliding && planner.drawing && (planner.tool === 'railing' || planner.tool === 'outer' || planner.tool === 'inner')) {
+            if (!isColliding && planner.drawing && (planner.tool === 'railing' || planner.tool === 'outer' || planner.tool === 'inner' || planner.tool === 'compound')) {
                 let a2 = planner.anchors.find(a => Math.hypot(a.x - snapPos.x, a.y - snapPos.y) < 1);
                 if (a2) {
                     let sharedArc = (planner.arcs || []).find(arc => {

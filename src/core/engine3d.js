@@ -43,15 +43,20 @@ export class Preview3D {
         const w = this.container.clientWidth > 0 ? this.container.clientWidth : window.innerWidth;
         const h = this.container.clientHeight > 0 ? this.container.clientHeight : window.innerHeight;
         
-        this.camera = new THREE.PerspectiveCamera(45, w / h, 1, 10000);
-        this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance", alpha: true });
+        this.camera = new THREE.PerspectiveCamera(45, w / h, 2, 20000);
+        this.renderer = new THREE.WebGLRenderer({ 
+            antialias: true, 
+            powerPreference: "high-performance", 
+            alpha: true,
+            logarithmicDepthBuffer: true
+        });
         this.renderer.setSize(w, h);
         this.renderer.setPixelRatio(window.devicePixelRatio);
         if (THREE.SRGBColorSpace) this.renderer.outputColorSpace = THREE.SRGBColorSpace; 
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 1.0;
         this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFShadowMap;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.container.appendChild(this.renderer.domElement);
         
         // CSS2D Renderer for measurements and labels
@@ -166,7 +171,7 @@ export class Preview3D {
                 const h = dimensions?.height || entity?.height || entity?.params?.height || 100;
                 const d = dimensions?.depth || entity?.depth || entity?.params?.depth || 30;
 
-                const isWall = entity && (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'wall' || entity.startX !== undefined);
+                const isWall = entity && (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.startX !== undefined);
                 const applyTex = (mat, texKey, faceW, faceH, faceName) => {
                     if (!texKey) return;
                     const config = MaterialManager.resolveMaterialConfig(texKey);
@@ -394,7 +399,7 @@ export class Preview3D {
         const parent = obj.parent;
         if (!parent) return false;
 
-        if (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'wall' || entity.type === 'railing' || (entity.type === 'arc' && entity.walls)) {
+        if (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'railing' || (entity.type === 'arc' && entity.walls)) {
             const wallsToUpdate = (entity.parentArc && entity.parentArc.walls) 
                 ? entity.parentArc.walls 
                 : (entity.walls ? entity.walls : [entity]);
@@ -787,15 +792,88 @@ export class Preview3D {
     rebuildActiveFloors() {
         if (!this.envBuilder) return;
         const floorMeshes = this.interactables.filter(m => m.userData && m.userData.isFloor);
-        const floorCuts = this.interactables.filter(m => m.userData && m.userData.isFloorCutProxy).map(m => m.userData.entity);
+        const cleanPolygonPts = (p) => {
+            if (!p || p.length < 3) return [];
+            const res = [];
+            for (let i = 0; i < p.length; i++) {
+                const pt = { x: p[i].x, y: p[i].y };
+                if (res.length === 0 || Math.hypot(pt.x - res[res.length - 1].x, pt.y - res[res.length - 1].y) > 0.5) {
+                    res.push(pt);
+                }
+            }
+            if (res.length > 2 && Math.hypot(res[res.length - 1].x - res[0].x, res[res.length - 1].y - res[0].y) < 0.5) {
+                res.pop();
+            }
+            return res;
+        };
+
+        const getPolyArea = (p) => {
+            if (!p || p.length < 3) return 0;
+            let a = 0;
+            for (let i = 0; i < p.length; i++) {
+                const next = p[(i + 1) % p.length];
+                a += (p[i].x * next.y - next.x * p[i].y);
+            }
+            return Math.abs(a / 2);
+        };
+
+        const pointInPoly = (p, poly) => {
+            let inside = false;
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const xi = poly[i].x, yi = poly[i].y;
+                const xj = poly[j].x, yj = poly[j].y;
+                const intersect = ((yi > p.y) !== (yj > p.y)) && (p.x < (xj - xi) * (p.y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        };
 
         floorMeshes.forEach(floorMesh => {
             const room = floorMesh.userData.entity;
             if (!room || !room.path || room.path.length < 3) return;
             
+            const cleanPath = cleanPolygonPts(room.path);
+            if (cleanPath.length < 3) return;
+
+            const isOuterCW = THREE.ShapeUtils.isClockWise(cleanPath);
+            const outerPts = isOuterCW ? [...cleanPath].reverse() : cleanPath;
+
             const floorShape = new THREE.Shape();
-            floorShape.moveTo(room.path[0].x, room.path[0].y);
-            for (let i = 1; i < room.path.length; i++) floorShape.lineTo(room.path[i].x, room.path[i].y);
+            floorShape.moveTo(outerPts[0].x, outerPts[0].y);
+            for (let i = 1; i < outerPts.length; i++) floorShape.lineTo(outerPts[i].x, outerPts[i].y);
+            floorShape.closePath();
+
+            const areaSelf = getPolyArea(cleanPath);
+            let isContainerRoom = false;
+
+            floorMeshes.forEach(otherMesh => {
+                const otherRoom = otherMesh.userData?.entity;
+                if (!otherRoom || otherRoom === room || otherRoom.isDeleted || otherRoom.isHidden) return;
+                const otherClean = cleanPolygonPts(otherRoom.path);
+                if (otherClean.length < 3) return;
+
+                const areaOther = getPolyArea(otherClean);
+                if (areaOther < areaSelf * 0.98) {
+                    let cx = 0, cy = 0;
+                    otherClean.forEach(p => { cx += p.x; cy += p.y; });
+                    cx /= otherClean.length;
+                    cy /= otherClean.length;
+
+                    if (pointInPoly({ x: cx, y: cy }, cleanPath)) {
+                        isContainerRoom = true;
+                        const isHoleCW = THREE.ShapeUtils.isClockWise(otherClean);
+                        const holePts = isHoleCW ? otherClean : [...otherClean].reverse();
+
+                        const hole = new THREE.Path();
+                        hole.moveTo(holePts[0].x, holePts[0].y);
+                        for (let i = 1; i < holePts.length; i++) {
+                            hole.lineTo(holePts[i].x, holePts[i].y);
+                        }
+                        hole.closePath();
+                        floorShape.holes.push(hole);
+                    }
+                }
+            });
             
             floorCuts.forEach(shape => {
                 const rot = (shape.group ? shape.group.rotation() : (shape.rotation || 0)) * Math.PI / 180;
@@ -813,16 +891,20 @@ export class Preview3D {
                         y: sy + (c.x * Math.sin(rot) + c.y * Math.cos(rot))
                     };
                 });
+                const isHoleCW = THREE.ShapeUtils.isClockWise(rotC);
+                const holePts = isHoleCW ? rotC : [...rotC].reverse();
+
                 const hole = new THREE.Path();
-                hole.moveTo(rotC[0].x, rotC[0].y);
-                for (let i = 1; i < rotC.length; i++) hole.lineTo(rotC[i].x, rotC[i].y);
-                hole.lineTo(rotC[0].x, rotC[0].y);
+                hole.moveTo(holePts[0].x, holePts[0].y);
+                for (let i = 1; i < holePts.length; i++) hole.lineTo(holePts[i].x, holePts[i].y);
+                hole.closePath();
                 floorShape.holes.push(hole);
             });
             
             if (floorMesh.geometry && !floorMesh.geometry.userData?.keepAlive) floorMesh.geometry.dispose();
-            floorMesh.geometry = new THREE.ExtrudeGeometry(floorShape, { depth: 10, bevelEnabled: false });
+            floorMesh.geometry = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
             floorMesh.geometry.rotateX(Math.PI / 2);
+            floorMesh.position.y = 0.05;
             
             const pos = floorMesh.geometry.attributes.position;
             const uvs = new Float32Array(pos.count * 2);
@@ -902,15 +984,44 @@ export class Preview3D {
         }
 
         if (isActiveVisible) {
-            this.envBuilder.buildActiveFloor(walls, rooms, shapes, stairs, stairsBelow);
-            if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn));
+            try {
+                this.envBuilder.buildActiveFloor(walls, rooms, shapes, stairs, stairsBelow);
+            } catch(e) {
+                console.error("Error building active floor:", e);
+            }
+            
+            if (furnitureList) {
+                furnitureList.forEach(furn => {
+                    try {
+                        this.furnitureManager.load(furn);
+                    } catch(e) {
+                        console.error("Error loading furniture:", e);
+                    }
+                });
+            }
 
-            if (roofs && roofs.length > 0) this.envBuilder.buildRoofs(roofs, activeIndex, walls, this.structureGroup, shapes);
-            if (shapes && shapes.length > 0) this.envBuilder.buildShapes(shapes);
+            if (roofs && roofs.length > 0) {
+                try {
+                    this.envBuilder.buildRoofs(roofs, activeIndex, walls, this.structureGroup, shapes);
+                } catch(e) {
+                    console.error("Error building roofs:", e);
+                }
+            }
+            if (shapes && shapes.length > 0) {
+                try {
+                    this.envBuilder.buildShapes(shapes);
+                } catch(e) {
+                    console.error("Error building shapes:", e);
+                }
+            }
         }
 
         if (levelsConfigArray && levelsConfigArray.length > 0) {
-            this.envBuilder.buildStaticFloors(levelsConfigArray, activeIndex, viewMode3D, stairs);
+            try {
+                this.envBuilder.buildStaticFloors(levelsConfigArray, activeIndex, viewMode3D, stairs);
+            } catch(e) {
+                console.error("Error building static floors:", e);
+            }
         }
 
         if (this.previousTargetY === undefined) this.previousTargetY = targetY;
@@ -924,17 +1035,33 @@ export class Preview3D {
             }
         } else {
             let centerX = 0, centerZ = 0;
-            if (walls.length > 0) {
-                walls.forEach(w => { const p = w.startAnchor ? w.startAnchor.position() : w; centerX += p.x || w.startX; centerZ += p.y || w.startY; });
-                centerX /= walls.length; centerZ /= walls.length;
+            if (walls && walls.length > 0) {
+                let validCount = 0;
+                walls.forEach(w => {
+                    const p = (w.startAnchor && typeof w.startAnchor.position === 'function') 
+                        ? w.startAnchor.position() 
+                        : (w.startAnchor || { x: w.startX || 0, y: w.startY || 0 });
+                    const px = Number(p.x !== undefined ? p.x : (w.startX || 0));
+                    const py = Number(p.y !== undefined ? p.y : (w.startY || 0));
+                    if (!isNaN(px) && !isNaN(py)) {
+                        centerX += px;
+                        centerZ += py;
+                        validCount++;
+                    }
+                });
+                if (validCount > 0) {
+                    centerX /= validCount;
+                    centerZ /= validCount;
+                }
             }
+            if (isNaN(centerX)) centerX = 0;
+            if (isNaN(centerZ)) centerZ = 0;
             this.controls.target.set(centerX, targetY, centerZ); 
             
             const baseDir = new THREE.Vector3(1, 1, 1).normalize();
-            const angle = this.cameraController.entranceAngle || 0;
+            const angle = (this.cameraController && this.cameraController.entranceAngle) || 0;
             const dir = baseDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
             
-            // Using 1000 for distance to loosely match the previous +800,+600,+800
             this.camera.position.set(centerX + dir.x * 1280, targetY + Math.abs(dir.y) * 960, centerZ + dir.z * 1280); 
             this.controls.update(); 
         }
@@ -942,6 +1069,10 @@ export class Preview3D {
 
         if (this.isXRayMode) {
             this.setXRayMode(true);
+        }
+
+        if (this.requestRender) {
+            this.requestRender('buildScene', 5);
         }
     }
     

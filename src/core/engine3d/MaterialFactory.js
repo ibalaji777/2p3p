@@ -330,7 +330,10 @@ export class MaterialFactory {
             const bounceIntensity = luminance * reflectivity;
 
             if (window.updateFloorBounce) {
-                window.updateFloorBounce(avgColor, bounceIntensity);
+                if (MaterialFactory._floorBounceTimer) clearTimeout(MaterialFactory._floorBounceTimer);
+                MaterialFactory._floorBounceTimer = setTimeout(() => {
+                    if (window.updateFloorBounce) window.updateFloorBounce(avgColor, bounceIntensity);
+                }, 100);
             }
         }
 
@@ -357,7 +360,7 @@ export class MaterialFactory {
         if (targetEntity) {
             dimensions.width = targetEntity.width || targetEntity.params?.width || targetEntity.length3D || 100;
             dimensions.height = targetEntity.height || targetEntity.params?.height || targetEntity.depth || 100;
-            const isWall = targetEntity.type === 'outer' || targetEntity.type === 'inner' || targetEntity.type === 'wall' || targetEntity.startX !== undefined;
+            const isWall = targetEntity.type === 'outer' || targetEntity.type === 'inner' || targetEntity.type === 'compound' || targetEntity.type === 'wall' || targetEntity.startX !== undefined;
             if (isWall) dimensions.isWorldUV = true;
         } else if (targetMesh && targetMesh.geometry) {
             if (!targetMesh.geometry.boundingBox) targetMesh.geometry.computeBoundingBox();
@@ -394,7 +397,7 @@ export class MaterialFactory {
             targetMesh.material[targetIdx] = newMat;
 
             // For 6-sided base walls, keep cutout edges and unpainted sides in sync with the primary painted face
-            const isWall = targetEntity && (targetEntity.type === 'outer' || targetEntity.type === 'inner' || targetEntity.type === 'wall' || targetEntity.startX !== undefined);
+            const isWall = targetEntity && (targetEntity.type === 'outer' || targetEntity.type === 'inner' || targetEntity.type === 'compound' || targetEntity.type === 'wall' || targetEntity.startX !== undefined);
             if (isWall && targetMesh.material.length === 6 && (targetIdx === 4 || targetIdx === 5)) {
                 const p = targetEntity.params || {};
                 if (!p.textureRight && !p.textureSides && !p.texture) targetMesh.material[0] = newMat;

@@ -1089,7 +1089,7 @@ export class FloorPlanner {
         if (!pointer) return null;
         let pos = { x: pointer.x, y: pointer.y };
 
-        const isDrawingTool = this.tool === 'outer' || this.tool === 'inner' || this.tool === 'railing' || this.drawing;
+        const isDrawingTool = this.tool === 'outer' || this.tool === 'inner' || this.tool === 'compound' || this.tool === 'railing' || this.drawing;
         const isTouch = e && e.type && (e.type.startsWith('touch') || e.pointerType === 'touch');
 
         // Jitter Reduction
@@ -1266,11 +1266,19 @@ export class FloorPlanner {
             return true;
         };
 
-        this.walls.forEach(w => {
+        const anyCompoundHasFloor = (this.walls || []).some(w => w.type === 'compound' && w.hasFloor);
+        const roomWalls = (this.walls || []).filter(w => (w.type !== 'compound' || anyCompoundHasFloor || w.hasFloor) && !w.hidden && w.type !== 'railing');
+        const roomAnchors = new Set();
+        roomWalls.forEach(w => {
+            if (w.startAnchor) roomAnchors.add(w.startAnchor);
+            if (w.endAnchor) roomAnchors.add(w.endAnchor);
+        });
+
+        roomWalls.forEach(w => {
             const p1 = w.startAnchor;
             const p2 = w.endAnchor;
             const pointsOnWall = [];
-            this.anchors.forEach(a => {
+            roomAnchors.forEach(a => {
                 if (a === p1 || a === p2) return;
                 if (isPointOnSegment(a.position(), p1.position(), p2.position())) {
                     pointsOnWall.push(a);
@@ -1390,7 +1398,18 @@ export class FloorPlanner {
             cx /= uniquePoints.length;
             cy /= uniquePoints.length;
 
-            let existingRoom = (this.rooms || []).find(r => Math.hypot(r.cx - cx, r.cy - cy) < 20);
+            let existingRoom = (this.rooms || []).find(r => {
+                if (Math.hypot(r.cx - cx, r.cy - cy) >= 30) return false;
+                if (!r.path || r.path.length < 3) return false;
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                r.path.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
+                let newMinX = Infinity, newMaxX = -Infinity, newMinY = Infinity, newMaxY = -Infinity;
+                path.forEach(p => { newMinX = Math.min(newMinX, p.x); newMaxX = Math.max(newMaxX, p.x); newMinY = Math.min(newMinY, p.y); newMaxY = Math.max(newMaxY, p.y); });
+                const oldW = maxX - minX, oldH = maxY - minY;
+                const newW = newMaxX - newMinX, newH = newMaxY - newMinY;
+                if (Math.abs(oldW - newW) > 40 || Math.abs(oldH - newH) > 40) return false;
+                return true;
+            });
             let room;
             if (existingRoom) {
                 existingRoom.path = path;
@@ -1401,6 +1420,24 @@ export class FloorPlanner {
                 room = { path, cx, cy, configId: 'hardwood', isDeleted: false, isHidden: false, materialRepeat: undefined, description: undefined };
             }
             newRooms.push(room);
+        });
+
+        // Sort rooms so larger container/courtyard rooms are drawn at the bottom layer
+        newRooms.sort((a, b) => {
+            const getArea = (path) => {
+                if (!path || path.length < 3) return 0;
+                let sum = 0;
+                for (let i = 0; i < path.length; i++) {
+                    const p1 = path[i];
+                    const p2 = path[(i + 1) % path.length];
+                    sum += (p2.x - p1.x) * (p2.y + p1.y);
+                }
+                return Math.abs(sum);
+            };
+            return getArea(b.path) - getArea(a.path);
+        });
+
+        newRooms.forEach(room => {
             if (!room.isDeleted && !room.isHidden) {
                 this.drawRoom(room);
             }
@@ -1414,55 +1451,58 @@ export class FloorPlanner {
 
     updateRoofAutoPlacement() {
         if (!this.roofs || this.roofs.length === 0) return;
-        
-        let globalPerimeter = null;
-        if (this.roomPaths && this.roomPaths.length > 0) {
-            const edgeCounts = new Map();
-            const getEdgeKey = (p1, p2) => `${Math.round(p1.x)},${Math.round(p1.y)}->${Math.round(p2.x)},${Math.round(p2.y)}`;
-            
-            this.roomPaths.forEach(path => {
-                for (let i = 0; i < path.length; i++) {
-                    const p1 = path[i];
-                    const p2 = path[(i + 1) % path.length];
-                    const key = getEdgeKey(p1, p2);
-                    edgeCounts.set(key, (edgeCounts.get(key) || 0) + 1);
-                }
-            });
-            
-            const boundaryEdges = [];
-            this.roomPaths.forEach(path => {
-                for (let i = 0; i < path.length; i++) {
-                    const p1 = path[i];
-                    const p2 = path[(i + 1) % path.length];
-                    const reverseKey = getEdgeKey(p2, p1);
-                    if (!edgeCounts.has(reverseKey)) {
-                        boundaryEdges.push({ p1, p2 });
-                    }
-                }
-            });
-            
-            if (boundaryEdges.length > 0) {
-                const polygon = [];
-                let currentEdge = boundaryEdges[0];
-                polygon.push(currentEdge.p1);
+        try {
+            let globalPerimeter = null;
+            if (this.roomPaths && this.roomPaths.length > 0) {
+                const edgeCounts = new Map();
+                const getEdgeKey = (p1, p2) => `${Math.round(p1.x)},${Math.round(p1.y)}->${Math.round(p2.x)},${Math.round(p2.y)}`;
                 
-                let safety = 0;
-                while (safety < boundaryEdges.length * 2) {
-                    polygon.push(currentEdge.p2);
-                    boundaryEdges.splice(boundaryEdges.indexOf(currentEdge), 1);
-                    
-                    const nextEdge = boundaryEdges.find(e => Math.hypot(e.p1.x - currentEdge.p2.x, e.p1.y - currentEdge.p2.y) < 2);
-                    if (!nextEdge) break;
-                    
-                    currentEdge = nextEdge;
-                    if (Math.hypot(currentEdge.p2.x - polygon[0].x, currentEdge.p2.y - polygon[0].y) < 2) {
-                        break;
+                this.roomPaths.forEach(path => {
+                    for (let i = 0; i < path.length; i++) {
+                        const p1 = path[i];
+                        const p2 = path[(i + 1) % path.length];
+                        const key = getEdgeKey(p1, p2);
+                        edgeCounts.set(key, (edgeCounts.get(key) || 0) + 1);
                     }
-                    safety++;
+                });
+                
+                const boundaryEdges = [];
+                this.roomPaths.forEach(path => {
+                    for (let i = 0; i < path.length; i++) {
+                        const p1 = path[i];
+                        const p2 = path[(i + 1) % path.length];
+                        const reverseKey = getEdgeKey(p2, p1);
+                        if (!edgeCounts.has(reverseKey)) {
+                            boundaryEdges.push({ p1, p2 });
+                        }
+                    }
+                });
+                
+                if (boundaryEdges.length > 0) {
+                    const polygon = [];
+                    let currentEdge = boundaryEdges[0];
+                    polygon.push(currentEdge.p1);
+                    
+                    let safety = 0;
+                    const visited = new Set();
+                    while (safety < boundaryEdges.length * 2) {
+                        polygon.push(currentEdge.p2);
+                        visited.add(currentEdge);
+                        const curr = currentEdge;
+                        const nextEdge = boundaryEdges.find(e => !visited.has(e) && Math.hypot(e.p1.x - curr.p2.x, e.p1.y - curr.p2.y) < 5);
+                        if (!nextEdge) break;
+                        
+                        currentEdge = nextEdge;
+                        if (Math.hypot(currentEdge.p2.x - polygon[0].x, currentEdge.p2.y - polygon[0].y) < 5) {
+                            break;
+                        }
+                        safety++;
+                    }
+                    if (polygon.length >= 3) {
+                        globalPerimeter = polygon;
+                    }
                 }
-                globalPerimeter = polygon;
             }
-        }
         
         if (!globalPerimeter || globalPerimeter.length < 3) return;
         
@@ -1486,6 +1526,9 @@ export class FloorPlanner {
                 if (roof.updateGeometry) roof.updateGeometry();
             }
         });
+        } catch (err) {
+            console.warn("Auto roof placement error:", err);
+        }
     }
 
     drawRoom(room) { 

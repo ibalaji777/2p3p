@@ -571,7 +571,6 @@ export class HighlightRenderer {
                             }
                             mat.emissive.setHex(color);
                             mat.emissiveIntensity = targetIntensity;
-                            mat.needsUpdate = true;
                             this._activeEmissiveTargets.add(mat);
                         } else {
                             if (mat.userData.origEmissive !== undefined) {
@@ -579,7 +578,6 @@ export class HighlightRenderer {
                                 mat.emissiveIntensity = mat.userData.origEmissiveIntensity;
                                 delete mat.userData.origEmissive;
                                 delete mat.userData.origEmissiveIntensity;
-                                mat.needsUpdate = true;
                             }
                             this._activeEmissiveTargets.delete(mat);
                         }

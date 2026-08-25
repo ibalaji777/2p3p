@@ -78,7 +78,7 @@ const availableOptions = computed(() => {
             { value: 'steel', label: 'Steel' },
             { value: 'glass', label: 'Glass' }
         ];
-    } else if (type === 'wall' || type === 'wallDecor' || type === 'inner' || type === 'outer' || type === 'floor') {
+    } else if (type === 'wall' || type === 'wallDecor' || type === 'inner' || type === 'outer' || type === 'compound' || type === 'floor') {
         return [
             { value: 'stone', label: 'Natural Stone' },
             { value: 'brick', label: 'Brick & Masonry' },

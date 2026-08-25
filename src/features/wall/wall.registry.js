@@ -3,6 +3,7 @@ import { Molding3DBuilder } from '../../core/engine3d/Molding3DBuilder.js';
 export const WALL_REGISTRY = {
     'outer': { type: "outer", label: "OUTER WALL", thickness: 16, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
     'inner': { type: "inner", label: "INNER WALL", thickness: 8, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
+    'compound': { type: "compound", label: "COMPOUND WALL", thickness: 12, height: 80, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
     'arc': { type: "arc", label: "CURVED WALL", thickness: 10, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall"] },
     'railing': { type: "railing", label: "RAILING", thickness: 4, height: 0, events: ["proximity_highlight", "snap_preview", "snap_to_wall"] }
 };
@@ -64,14 +65,15 @@ Object.keys(MOLDING_REGISTRY).forEach(key => {
     };
 });
 
-['outer', 'inner', 'arc'].forEach(key => {
+['outer', 'inner', 'compound', 'arc'].forEach(key => {
     if (WALL_REGISTRY[key]) {
         WALL_REGISTRY[key].render3D = (sceneGroup, entity, helpers) => {
             const w = 100, h = 100, d = 10;
             let geo;
             if (key === 'arc') geo = new THREE.CylinderGeometry(100, 100, h, 32, 1, false, 0, Math.PI / 2);
             else geo = new THREE.BoxGeometry(w, h, d);
-            const wallMat = new THREE.MeshStandardMaterial({ color: key === 'outer' ? 0xffffff : 0xeeeeee });
+            const wallColor = key === 'outer' ? 0xffffff : (key === 'compound' ? 0xe2e8f0 : 0xeeeeee);
+            const wallMat = new THREE.MeshStandardMaterial({ color: wallColor });
             const mesh = new THREE.Mesh(geo, wallMat);
             sceneGroup.add(mesh);
             return mesh;

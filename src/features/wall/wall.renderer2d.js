@@ -17,8 +17,8 @@ export class PremiumWall {
         this.miterFoldLimit = this.config.miterFoldLimit || 20; // Intersection distance multiplier fallback
         
         this.elevationLayers = { front: [{ id: Date.now(), texture: 'none', color: '#e2e8f0', x: 0, y: 0, w: '100%', h: '100%' }], back: [{ id: Date.now()+1, texture: 'none', color: '#f8fafc', x: 0, y: 0, w: '100%', h: '100%' }] };
-        this.fillColor = this.type === 'outer' ? '#e5e5e5' : '#f3f4f6'; 
-        this.strokeColor = this.type === 'outer' ? '#9ca3af' : '#d1d5db';
+        this.fillColor = this.type === 'outer' ? '#e5e5e5' : (this.type === 'compound' ? '#e2e8f0' : '#f3f4f6'); 
+        this.strokeColor = this.type === 'outer' ? '#9ca3af' : (this.type === 'compound' ? '#64748b' : '#d1d5db');
         this.isAutoGable = false;
         this.parentWallId = null;
         this.parentRoofId = null;

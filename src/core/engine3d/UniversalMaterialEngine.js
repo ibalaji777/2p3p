@@ -52,7 +52,7 @@ export class UniversalMaterialEngine {
             } else if (targetEntity.type === 'window') {
                 if (mesh.userData?.isGlass) slotName = MaterialSlots.GLASS;
                 else slotName = MaterialSlots.FRAME;
-            } else if (targetEntity.type === 'outer' || targetEntity.type === 'inner' || targetEntity.type === 'wall') {
+            } else if (targetEntity.type === 'outer' || targetEntity.type === 'inner' || targetEntity.type === 'compound' || targetEntity.type === 'wall') {
                 slotName = `wall_${faceName}`;
             }
         }

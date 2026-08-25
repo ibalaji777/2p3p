@@ -63,13 +63,13 @@ export class EnvironmentBuilder {
         const groundMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0 });
         const ground = new THREE.Mesh(groundGeo, groundMat);
         ground.rotation.x = -Math.PI / 2;
-        ground.position.y = -0.5; // Prevent Z-fighting with room floors
+        ground.position.y = -0.5; // Sit cleanly below room floors
         ground.receiveShadow = true;
         this.ctx.scene.add(ground);
         this.ground = ground;
 
         const grid = new THREE.GridHelper(5000, 250, 0x000000, 0x000000);
-        grid.position.y = -0.4; // Prevent Z-fighting with room floors
+        grid.position.y = -0.05; // Positioned below room floor surface (y = 0.05) to eliminate z-fighting
         grid.material.opacity = 0.05;
         grid.material.transparent = true;
         this.ctx.scene.add(grid);
@@ -81,19 +81,16 @@ export class EnvironmentBuilder {
         this.hemiLight = hemiLight;
 
         const sunLight = new THREE.DirectionalLight(0xffeedd, 2.5);
-        // Sun position matches the reference image: low angle from the left/back
-        sunLight.position.set(-800, 300, -200);
+        sunLight.position.set(-600, 800, -300);
         sunLight.castShadow = true;
         sunLight.shadow.mapSize.width = 4096;
         sunLight.shadow.mapSize.height = 4096;
-        sunLight.shadow.camera.near = 10;
-        sunLight.shadow.camera.far = 2000;
-        sunLight.shadow.bias = -0.001; 
-        sunLight.shadow.normalBias = 0.02; // Prevents shadow acne without detaching shadows
-        sunLight.shadow.radius = 4; // Extra crisp, low-noise soft shadows
+        sunLight.shadow.bias = -0.00005; 
+        sunLight.shadow.normalBias = 0.05; // Prevents shadow acne without detaching shadows
+        sunLight.shadow.radius = 2; // Extra crisp, low-noise soft shadows
         sunLight.shadow.camera.near = 10;
         sunLight.shadow.camera.far = 3000;
-        const d = 1200; // Optimal shadow frustum size
+        const d = 1500; // Optimal shadow frustum size
         sunLight.shadow.camera.left = -d; sunLight.shadow.camera.right = d;
         sunLight.shadow.camera.top = d; sunLight.shadow.camera.bottom = -d;
         this.ctx.scene.add(sunLight);
@@ -203,14 +200,91 @@ export class EnvironmentBuilder {
 
         if (rooms) {
             rooms.forEach(room => {
-                if (room.isDeleted || room.isHidden) return;
-                const path = room.path;
-                if (!path || path.length < 3) return;
+                try {
+                    if (room.isDeleted || room.isHidden) return;
+                    const cleanPolygonPts = (p) => {
+                        if (!p || p.length < 3) return [];
+                        const res = [];
+                        for (let i = 0; i < p.length; i++) {
+                            const pt = { x: p[i].x, y: p[i].y };
+                            if (res.length === 0 || Math.hypot(pt.x - res[res.length - 1].x, pt.y - res[res.length - 1].y) > 0.5) {
+                                res.push(pt);
+                            }
+                        }
+                        if (res.length > 2 && Math.hypot(res[res.length - 1].x - res[0].x, res[res.length - 1].y - res[0].y) < 0.5) {
+                            res.pop();
+                        }
+                        return res;
+                    };
 
-                const floorShape = new THREE.Shape();
-                floorShape.moveTo(path[0].x, path[0].y);
-                for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
-                
+                    const cleanPath = cleanPolygonPts(room.path);
+                    if (cleanPath.length < 3) return;
+
+                    // THREE.Shape outer contour MUST be Counter-Clockwise (CCW)
+                    const isOuterCW = THREE.ShapeUtils.isClockWise(cleanPath);
+                    const outerPts = isOuterCW ? [...cleanPath].reverse() : cleanPath;
+
+                    const floorShape = new THREE.Shape();
+                    floorShape.moveTo(outerPts[0].x, outerPts[0].y);
+                    for (let i = 1; i < outerPts.length; i++) floorShape.lineTo(outerPts[i].x, outerPts[i].y);
+                    floorShape.closePath();
+                    
+                    // Auto-hole carving for interior rooms contained inside an outer courtyard / compound floor
+                    const getPolyArea = (p) => {
+                        if (!p || p.length < 3) return 0;
+                        let a = 0;
+                        for (let i = 0; i < p.length; i++) {
+                            const next = p[(i + 1) % p.length];
+                            a += (p[i].x * next.y - next.x * p[i].y);
+                        }
+                        return Math.abs(a / 2);
+                    };
+
+                    const pointInPoly = (p, poly) => {
+                        let inside = false;
+                        for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                            const xi = poly[i].x, yi = poly[i].y;
+                            const xj = poly[j].x, yj = poly[j].y;
+                            const intersect = ((yi > p.y) !== (yj > p.y)) && (p.x < (xj - xi) * (p.y - yi) / (yj - yi) + xi);
+                            if (intersect) inside = !inside;
+                        }
+                        return inside;
+                    };
+
+                    const areaSelf = getPolyArea(cleanPath);
+                    let isContainerRoom = false;
+
+                    rooms.forEach(otherRoom => {
+                        if (otherRoom === room || otherRoom.isDeleted || otherRoom.isHidden) return;
+                        const otherClean = cleanPolygonPts(otherRoom.path);
+                        if (otherClean.length < 3) return;
+
+                        const areaOther = getPolyArea(otherClean);
+
+                        // If other room is smaller and its center is inside our polygon, it is an enclosed room
+                        if (areaOther < areaSelf * 0.98) {
+                            let cx = 0, cy = 0;
+                            otherClean.forEach(p => { cx += p.x; cy += p.y; });
+                            cx /= otherClean.length;
+                            cy /= otherClean.length;
+
+                            if (pointInPoly({ x: cx, y: cy }, cleanPath)) {
+                                isContainerRoom = true;
+                                // THREE.Shape holes MUST be Clockwise (CW)
+                                const isHoleCW = THREE.ShapeUtils.isClockWise(otherClean);
+                                const holePts = isHoleCW ? otherClean : [...otherClean].reverse();
+
+                                const hole = new THREE.Path();
+                                hole.moveTo(holePts[0].x, holePts[0].y);
+                                for (let i = 1; i < holePts.length; i++) {
+                                    hole.lineTo(holePts[i].x, holePts[i].y);
+                                }
+                                hole.closePath();
+                                floorShape.holes.push(hole);
+                            }
+                        }
+                    });
+
                 // Auto-cutting for stairs removed as per user request (User relies on manual polygon floor cuts)
                 if (shapes) {
                     shapes.forEach(shape => {
@@ -248,9 +322,8 @@ export class EnvironmentBuilder {
                             });
 
                             if (!(maxRx < minHx || minRx > maxHx || maxRy < minHy || minRy > maxHy)) {
-                                const roomIsCW = THREE.ShapeUtils.isClockWise(path);
                                 const holeIsCW = THREE.ShapeUtils.isClockWise(rotC);
-                                const finalHolePts = (roomIsCW === holeIsCW) ? [...rotC].reverse() : rotC;
+                                const finalHolePts = holeIsCW ? rotC : [...rotC].reverse();
 
                                 const hole = new THREE.Path();
                                 hole.moveTo(finalHolePts[0].x, finalHolePts[0].y);
@@ -264,7 +337,7 @@ export class EnvironmentBuilder {
                     });
                 }
                 
-                const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 10, bevelEnabled: false });
+                const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
                 floorGeo.rotateX(Math.PI / 2);
                 
                 const pos = floorGeo.attributes.position;
@@ -278,9 +351,12 @@ export class EnvironmentBuilder {
                 const configId = room.configId || 'hardwood';
                 const baseConfig = FLOOR_REGISTRY[configId];
                 
-                const matFloor = new THREE.MeshStandardMaterial({ color: baseConfig?.color || 0xd1d5db, roughness: baseConfig?.roughness || 0.7 });
+                const matFloor = new THREE.MeshStandardMaterial({ 
+                    color: baseConfig?.color || 0xd1d5db, 
+                    roughness: baseConfig?.roughness || 0.7
+                });
                 const floorMesh = new THREE.Mesh(floorGeo, matFloor);
-                floorMesh.position.y = 0;
+                floorMesh.position.y = 0.05;
                 floorMesh.receiveShadow = true;
                 floorMesh.userData = { isFloor: true, entity: room };
 
@@ -303,87 +379,103 @@ export class EnvironmentBuilder {
                 this.ctx.interactables.push(floorMesh);
                 this.ctx.structureGroup.add(floorMesh);
                 room.mesh3D = floorMesh;
+                } catch(err) {
+                    console.error("Error building individual room 3D floor:", err);
+                }
             });
         }
 
         if (shapes) {
             shapes.forEach(shape => {
-                if (shape.type === 'shape_floor_cut') {
-                    const rot = (shape.group ? shape.group.rotation() : (shape.rotation || 0)) * Math.PI / 180;
-                    const sx = shape.group ? shape.group.x() : (shape.x || shape.params?.x || 0);
-                    const sy = shape.group ? shape.group.y() : (shape.y || shape.params?.y || 0);
-                    let pts;
-                    if (shape.params?.points && shape.params.points.length >= 3) {
-                        pts = shape.params.points;
-                    } else {
+                try {
+                    if (shape.type === 'shape_floor_cut') {
+                        const rot = (shape.group ? shape.group.rotation() : (shape.rotation || 0)) * Math.PI / 180;
+                        const sx = shape.group ? shape.group.x() : (shape.x || shape.params?.x || 0);
+                        const sy = shape.group ? shape.group.y() : (shape.y || shape.params?.y || 0);
+                        let pts;
+                        if (shape.params?.points && shape.params.points.length >= 3) {
+                            pts = shape.params.points;
+                        } else {
+                            const w = shape.params?.width || shape.width || 100;
+                            const h = shape.params?.height || shape.height || 100;
+                            pts = [
+                                { x: -w/2, y: -h/2 }, { x: w/2, y: -h/2 },
+                                { x: w/2, y: h/2 }, { x: -w/2, y: h/2 }
+                            ];
+                        }
+
+                        const proxyShape = new THREE.Shape();
+                        proxyShape.moveTo(pts[0].x, pts[0].y);
+                        for (let i = 1; i < pts.length; i++) {
+                            proxyShape.lineTo(pts[i].x, pts[i].y);
+                        }
+                        proxyShape.lineTo(pts[0].x, pts[0].y);
+                        
+                        const proxyGeo = new THREE.ShapeGeometry(proxyShape);
+                        proxyGeo.rotateX(Math.PI / 2);
+                        
+                        const proxyMat = new THREE.MeshBasicMaterial({
+                            color: 0xef4444,
+                            side: THREE.DoubleSide,
+                            transparent: true,
+                            opacity: 0.2,
+                            depthWrite: false
+                        });
+                        const proxyMesh = new THREE.Mesh(proxyGeo, proxyMat);
+                        
+                        const edgesGeo = new THREE.EdgesGeometry(proxyGeo);
+                        const edgesMat = new THREE.LineBasicMaterial({ color: 0xef4444 });
+                        const edgesMesh = new THREE.LineSegments(edgesGeo, edgesMat);
+                        proxyMesh.add(edgesMesh);
+                        
+                        proxyMesh.position.set(sx, 0.5, sy);
+                        proxyMesh.rotation.y = -rot;
                         const w = shape.params?.width || shape.width || 100;
                         const h = shape.params?.height || shape.height || 100;
-                        pts = [
-                            { x: -w/2, y: -h/2 }, { x: w/2, y: -h/2 },
-                            { x: w/2, y: h/2 }, { x: -w/2, y: h/2 }
-                        ];
+                        proxyMesh.userData = { 
+                            entity: shape,
+                            originalSize: new THREE.Vector3(w, 10, h),
+                            isFloorCutProxy: true
+                        };
+                        this.ctx.interactables.push(proxyMesh);
+                        this.ctx.structureGroup.add(proxyMesh);
+                        shape.mesh3D = proxyMesh;
                     }
-
-                    const proxyShape = new THREE.Shape();
-                    proxyShape.moveTo(pts[0].x, pts[0].y);
-                    for (let i = 1; i < pts.length; i++) {
-                        proxyShape.lineTo(pts[i].x, pts[i].y);
-                    }
-                    proxyShape.lineTo(pts[0].x, pts[0].y);
-                    
-                    const proxyGeo = new THREE.ShapeGeometry(proxyShape);
-                    proxyGeo.rotateX(Math.PI / 2);
-                    
-                    const proxyMat = new THREE.MeshBasicMaterial({
-                        color: 0xef4444,
-                        side: THREE.DoubleSide,
-                        transparent: true,
-                        opacity: 0.2,
-                        depthWrite: false
-                    });
-                    const proxyMesh = new THREE.Mesh(proxyGeo, proxyMat);
-                    
-                    const edgesGeo = new THREE.EdgesGeometry(proxyGeo);
-                    const edgesMat = new THREE.LineBasicMaterial({ color: 0xef4444 });
-                    const edgesMesh = new THREE.LineSegments(edgesGeo, edgesMat);
-                    proxyMesh.add(edgesMesh);
-                    
-                    proxyMesh.position.set(sx, 0.5, sy);
-                    proxyMesh.rotation.y = -rot;
-                    const w = shape.params?.width || shape.width || 100;
-                    const h = shape.params?.height || shape.height || 100;
-                    proxyMesh.userData = { 
-                        entity: shape,
-                        originalSize: new THREE.Vector3(w, 10, h),
-                        isFloorCutProxy: true
-                    };
-                    this.ctx.interactables.push(proxyMesh);
-                    this.ctx.structureGroup.add(proxyMesh);
-                    shape.mesh3D = proxyMesh;
+                } catch(err) {
+                    console.error("Error building shape floor cut:", err);
                 }
             });
         }
 
-        const standardWalls = walls.filter(w => w.type !== 'railing' && !w.hidden);
-        const railingWalls = walls.filter(w => w.type === 'railing' && !w.hidden);
+        const standardWalls = (walls || []).filter(w => w.type !== 'railing' && !w.hidden);
+        const railingWalls = (walls || []).filter(w => w.type === 'railing' && !w.hidden);
 
         standardWalls.forEach(w => {
-            this.buildWallGroup(w);
+            try {
+                this.buildWallGroup(w);
+            } catch(e) {
+                console.error("Error building standard wall 3D:", e);
+            }
         });
 
-        this.buildRailings(railingWalls, standardWalls, shapes);
+        try {
+            this.buildRailings(railingWalls, standardWalls, shapes);
+        } catch(e) {
+            console.error("Error building railings 3D:", e);
+        }
     }
 
     buildWallGroup(w) {
         const matMain = getPlasterMaterial();
-        const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
+        const p1 = (w.startAnchor && typeof w.startAnchor.position === 'function') ? w.startAnchor.position() : (w.startAnchor || { x: w.startX || 0, y: w.startY || 0 });
+        const p2 = (w.endAnchor && typeof w.endAnchor.position === 'function') ? w.endAnchor.position() : (w.endAnchor || { x: w.endX || 0, y: w.endY || 0 });
         const dx = p2.x - p1.x, dz = p2.y - p1.y;
         const length = Math.hypot(dx, dz);
         const angle = Math.atan2(dz, dx);
         w.length3D = length;
 
-        const h = w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT);
-        const t = w.thickness !== undefined ? w.thickness : (w.config?.thickness || 8);
+        const h = w.height !== undefined ? w.height : (w.config?.height || (w.type === 'compound' ? 80 : WALL_HEIGHT));
+        const t = w.thickness !== undefined ? w.thickness : (w.config?.thickness || (w.type === 'compound' ? 12 : (w.type === 'outer' ? 16 : 8)));
         
         // Compute mm early so holes and patterns can inherit painted materials
         let mm = [matMain, matMain, matMain, matMain, matMain, matMain];
@@ -421,7 +513,7 @@ export class EnvironmentBuilder {
         w.mesh3D = wallGroup;
 
         const extraMeshes = [];
-        w.attachedWidgets.forEach(widg => {
+        (w.attachedWidgets || []).forEach(widg => {
             const hole = new THREE.Path(), wCenter = length * widg.t, halfW = widg.width / 2;
             let hasHole = false;
             const type = widg.type || widg.configId;
@@ -706,7 +798,11 @@ export class EnvironmentBuilder {
         finalWallGeo.clearGroups();
         const pos = finalWallGeo.attributes.position;
         const norm = finalWallGeo.attributes.normal;
-        const uvs = finalWallGeo.attributes.uv;
+        let uvs = finalWallGeo.attributes.uv;
+        if (!uvs || uvs.count !== pos.count) {
+            uvs = new THREE.BufferAttribute(new Float32Array(pos.count * 2), 2);
+            finalWallGeo.setAttribute('uv', uvs);
+        }
         
         finalWallGeo.computeVertexNormals();
 
@@ -1197,7 +1293,7 @@ export class EnvironmentBuilder {
                             });
                         }
 
-                        const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 10, bevelEnabled: false });
+                        const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
                         floorGeo.rotateX(Math.PI / 2);
                         
                         const pos = floorGeo.attributes.position;
@@ -1213,14 +1309,14 @@ export class EnvironmentBuilder {
                         
                         const matFloor = new THREE.MeshStandardMaterial({ color: config?.color || 0xd1d5db, roughness: config?.roughness || 0.7 });
                         const floorMesh = new THREE.Mesh(floorGeo, matFloor);
-                        floorMesh.position.y = 0;
+                        floorMesh.position.y = 0.05;
                         floorMesh.receiveShadow = true;
                         
                         if (config && config.texture) {
                             this.ctx.assets.getTexture(config).then(tex => {
                                 const texClone = tex.clone();
                                 texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                                const { repeatX, repeatY } = MaterialFactory.calculateTexelDensity(floorMesh, config);
+                                const { repeatX, repeatY } = MaterialFactory.calculateTexelDensity({ width: 100, height: 100 }, config);
                                 texClone.repeat.set(repeatX, repeatY);
                                 matFloor.map = texClone;
                                 matFloor.needsUpdate = true;
@@ -1239,10 +1335,10 @@ export class EnvironmentBuilder {
                         floorShape.moveTo(path[0].x, path[0].y);
                         for (let i = 1; i < path.length; i++) floorShape.lineTo(path[i].x, path[i].y);
                         
-                        const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 10, bevelEnabled: false });
+                        const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
                         floorGeo.rotateX(Math.PI / 2);
                         const floorMesh = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.7 }));
-                        floorMesh.position.y = 0;
+                        floorMesh.position.y = 0.05;
                         floorMesh.receiveShadow = true;
                         
                         if (!isPreview) {

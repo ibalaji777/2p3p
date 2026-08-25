@@ -40,8 +40,8 @@ export class BaseSceneSetup {
         this.sunLight.position.set(-400, 800, 300);
         this.sunLight.castShadow = true;
         this.sunLight.shadow.mapSize.width = 4096;
-        this.sunLight.shadow.mapSize.height = 4096;
-        this.sunLight.shadow.bias = -0.0005;
+        this.sunLight.shadow.bias = -0.00005;
+        this.sunLight.shadow.normalBias = 0.05;
         this.sunLight.shadow.intensity = 0.15;
         const d = 1200;
         this.sunLight.shadow.camera.left = -d; this.sunLight.shadow.camera.right = d;

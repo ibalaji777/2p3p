@@ -182,6 +182,9 @@ export function useAppScene({
                         }
                     });
                 }
+                if (selectedEntity.value && selectedEntity.value.type === 'compound') {
+                    refresh3DScene(true);
+                }
                 if (['wall', 'arc', 'roof', 'room', 'stair'].includes(selectedType.value) && planner.value?.updateRoofAutoPlacement) {
                     planner.value.updateRoofAutoPlacement();
                 }

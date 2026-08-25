@@ -34,7 +34,7 @@ export class DimensionManager3D {
         if (settings.show3DMeasurements === false) return;
 
         // Factory for providers
-        if (entity.type === 'outer' || entity.type === 'inner') {
+        if (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound') {
             this.activeProvider = new WallProvider(entity, mesh);
         } else if (entity.type === 'door' || entity.type === 'window') {
             this.activeProvider = new OpeningProvider(entity, mesh);

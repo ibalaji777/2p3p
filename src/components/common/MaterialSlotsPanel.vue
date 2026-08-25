@@ -91,7 +91,7 @@ const activeSlots = computed(() => {
             ['stair_baluster_default', 'stair_glass_default', 'stair_cable_default'].includes(baseType)
         ) {
             baseType = 'railing';
-        } else if (baseType === 'inner' || baseType === 'outer') {
+        } else if (baseType === 'inner' || baseType === 'outer' || baseType === 'compound') {
             baseType = 'wall';
         }
     }

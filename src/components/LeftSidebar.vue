@@ -503,6 +503,7 @@ const getShortToolName = (toolId, name) => {
     if (toolId === 'roof') return 'Roof';
     if (toolId === 'dormer') return 'Dormer';
     if (toolId === 'wall_catalog') return 'Walls';
+    if (toolId === 'compound') return 'Compound';
     if (toolId === 'shape_catalog') return '3D Shapes';
     if (toolId === 'railing_catalog') return 'Railings';
     if (toolId === 'furniture_catalog') return 'Furniture';
@@ -540,7 +541,7 @@ const getToolTabIcon = (toolId) => {
     if (toolId === 'adv_opening_catalog') {
         return '<path d="M4 4h16v16H4V4z"></path><path d="M4 12h16"></path><path d="M8 12V4"></path><path d="M16 12V4"></path>';
     }
-    if (toolId === 'wall_catalog') {
+    if (toolId === 'wall_catalog' || toolId === 'compound') {
         return '<path d="M4 4h16v16H4z"></path><path d="M4 12h16"></path><path d="M12 4v16"></path>';
     }
     if (toolId === 'furniture_catalog') {

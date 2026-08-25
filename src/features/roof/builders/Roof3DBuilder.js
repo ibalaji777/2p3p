@@ -87,8 +87,9 @@ export class Roof3DBuilder {
         };
 
         roofs.forEach(roof => {
-            const basePts = roof.points || [];
-            if (basePts.length < 3) return;
+            try {
+                const basePts = roof.points || [];
+                if (basePts.length < 3) return;
 
             const conf = roof.config || roof; 
             const overhangs = conf.overhangs ? conf.overhangs : (conf.overhang !== undefined ? conf.overhang : 8);
@@ -557,7 +558,10 @@ export class Roof3DBuilder {
             if (targetGroup === this.ctx.structureGroup) {
                 roof.mesh3D = roofGroup;
             }
-        });
+        } catch(err) {
+            console.error("Error building individual roof 3D mesh:", err);
+        }
+    });
     }
 
 

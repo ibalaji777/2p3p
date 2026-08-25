@@ -80,7 +80,7 @@ export class BIMMaterialSystem {
                     componentType = 'frame';
                     slotName = MaterialSlots.FRAME;
                 }
-            } else if (type === 'outer' || type === 'inner' || type === 'wall') {
+            } else if (type === 'outer' || type === 'inner' || type === 'compound' || type === 'wall') {
                 componentType = 'wall_face';
                 slotName = `wall_${faceName}`;
             } else if (type === 'furniture' || targetEntity.isFurniture) {
@@ -144,7 +144,6 @@ export class BIMMaterialSystem {
                     mat.emissiveIntensity = mat.userData.origEmissiveIntensity;
                 }
             }
-            mat.needsUpdate = true;
         }
 
         if (ctx && typeof ctx.requestRender === 'function') {
