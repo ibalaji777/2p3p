@@ -353,6 +353,72 @@ export const FLOOR_REGISTRY = {
         thumbnail: '/assets/tiles/tile_charcoal_slate.jpg',
         roughness: 0.45, metalness: 0.0, tileSize: 280, category: 'floor'
     },
+    'tile_yellow_hexagon': {
+        id: 'tile_yellow_hexagon', name: 'Yellow Honey Hexagon Tile', type: 'floor',
+        texture: '/assets/tiles/tile_yellow_hexagon.jpg',
+        thumbnail: '/assets/tiles/tile_yellow_hexagon.jpg',
+        roughness: 0.55, metalness: 0.0, tileSize: 120, category: 'floor'
+    },
+    'tile_yellow_octagram': {
+        id: 'tile_yellow_octagram', name: 'Yellow Octagram & Diamond Paver', type: 'floor',
+        texture: '/assets/tiles/tile_yellow_octagram.jpg',
+        thumbnail: '/assets/tiles/tile_yellow_octagram.jpg',
+        roughness: 0.55, metalness: 0.0, tileSize: 140, category: 'floor'
+    },
+    'tile_moroccan_star_yellow': {
+        id: 'tile_moroccan_star_yellow', name: 'Moroccan Star Ochre Tile', type: 'floor',
+        texture: '/assets/tiles/tile_moroccan_star_yellow.jpg',
+        thumbnail: '/assets/tiles/tile_moroccan_star_yellow.jpg',
+        roughness: 0.50, metalness: 0.0, tileSize: 120, category: 'floor'
+    },
+    'tile_yellow_cotto_squares': {
+        id: 'tile_yellow_cotto_squares', name: 'Yellow Cotto Rustic Squares', type: 'floor',
+        texture: '/assets/tiles/tile_yellow_cotto_squares.jpg',
+        thumbnail: '/assets/tiles/tile_yellow_cotto_squares.jpg',
+        roughness: 0.65, metalness: 0.0, tileSize: 110, category: 'floor'
+    },
+    'tile_porcelain_white': {
+        id: 'tile_porcelain_white', name: 'Pure White Porcelain Tile', type: 'floor',
+        texture: '/assets/tiles/tile_porcelain_white.jpg',
+        thumbnail: '/assets/tiles/tile_porcelain_white.jpg',
+        roughness: 0.25, metalness: 0.02, tileSize: 180, category: 'floor'
+    },
+    'tile_beige_limestone': {
+        id: 'tile_beige_limestone', name: 'Beige Limestone Porcelain Tile', type: 'floor',
+        texture: '/assets/tiles/tile_beige_limestone.jpg',
+        thumbnail: '/assets/tiles/tile_beige_limestone.jpg',
+        roughness: 0.40, metalness: 0.0, tileSize: 180, category: 'floor'
+    },
+    'tile_anthracite_slate': {
+        id: 'tile_anthracite_slate', name: 'Anthracite Slate Matte Tile', type: 'floor',
+        texture: '/assets/tiles/tile_anthracite_slate.jpg',
+        thumbnail: '/assets/tiles/tile_anthracite_slate.jpg',
+        roughness: 0.50, metalness: 0.02, tileSize: 180, category: 'floor'
+    },
+    'tile_terracotta_cotto': {
+        id: 'tile_terracotta_cotto', name: 'Mediterranean Terracotta Cotto', type: 'floor',
+        texture: '/assets/tiles/tile_terracotta_cotto.jpg',
+        thumbnail: '/assets/tiles/tile_terracotta_cotto.jpg',
+        roughness: 0.70, metalness: 0.0, tileSize: 110, category: 'floor'
+    },
+    'tile_terracotta_rustic_red': {
+        id: 'tile_terracotta_rustic_red', name: 'Rustic Red Clay Paver', type: 'floor',
+        texture: '/assets/tiles/tile_terracotta_rustic_red.jpg',
+        thumbnail: '/assets/tiles/tile_terracotta_rustic_red.jpg',
+        roughness: 0.70, metalness: 0.0, tileSize: 110, category: 'floor'
+    },
+    'tile_encaustic_star_vintage': {
+        id: 'tile_encaustic_star_vintage', name: 'Vintage Encaustic Star Tile', type: 'floor',
+        texture: '/assets/tiles/tile_encaustic_star_vintage.jpg',
+        thumbnail: '/assets/tiles/tile_encaustic_star_vintage.jpg',
+        roughness: 0.35, metalness: 0.0, tileSize: 130, category: 'floor'
+    },
+    'tile_encaustic_black_white_star': {
+        id: 'tile_encaustic_black_white_star', name: 'Victorian Black & White Star Tile', type: 'floor',
+        texture: '/assets/tiles/tile_encaustic_black_white_star.jpg',
+        thumbnail: '/assets/tiles/tile_encaustic_black_white_star.jpg',
+        roughness: 0.30, metalness: 0.0, tileSize: 130, category: 'floor'
+    },
     'hardwood': {
         id: 'hardwood', name: 'Hardwood Floor', type: 'floor',
         texture: 'https://threejs.org/examples/textures/hardwood2_diffuse.jpg',
