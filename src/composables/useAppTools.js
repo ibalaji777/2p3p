@@ -84,7 +84,7 @@ export function useAppTools({
     };
 
     const handleToolClick = (tool) => {
-        const accordionTools = ['door', 'window', 'skirting', 'sunshade', 'jali_panel', 'curtain', 'wall_art', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'bathroom_catalog', 'electronics_catalog', 'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 'household_appliance_catalog', 'trash_catalog'];
+        const accordionTools = ['door', 'window', 'skirting', 'sunshade', 'jali_panel', 'curtain', 'wall_art', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'bathroom_catalog', 'electronics_catalog', 'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 'household_appliance_catalog', 'trash_catalog', 'floors', 'outdoor_spaces', 'outdoor_pavement', 'outdoor_patio', 'outdoor_softscape', 'outdoor_other'];
         
         if (tool.action === 'furniture') spawnFurniture(tool.id);
         else if (tool.action === 'auto_roof') { if (planner.value) planner.value.addAutoRoof(); }
@@ -126,6 +126,7 @@ export function useAppTools({
             else if (catId === 'roof_presets') defaultTool = 'roof';
             else if (catId === 'shapes') defaultTool = 'shape_catalog';
             else if (catId === 'advance_openings') defaultTool = 'adv_opening_catalog';
+            else if (catId === 'floors' || catId === 'floor' || catId === 'outdoor_spaces') defaultTool = 'outdoor_pavement';
             else if (catId === 'common') defaultTool = 'railing_catalog';
             
             setTool(defaultTool);

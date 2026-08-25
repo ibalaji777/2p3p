@@ -55,7 +55,8 @@ export function useAppScene({
                 levelsConfigArray, 
                 activeLevelIndex.value, 
                 viewMode3D.value, 
-                preserveCamera
+                preserveCamera,
+                planner.value.outdoorZones || []
             ); 
 
             layerItems.value.forEach(item => {

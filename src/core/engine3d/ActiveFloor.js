@@ -79,8 +79,11 @@ export class ActiveFloor {
         this.stairBuilder = new Stair3DBuilder(assets, interactables, this.helpers);
     }
 
-    build(walls, rooms, roofs, shapes, stairs = [], activeIndex = 0, targetGroup = this.structureGroup, stairsBelow = []) {
+    build(walls, rooms, roofs, shapes, stairs = [], activeIndex = 0, targetGroup = this.structureGroup, stairsBelow = [], outdoorZones = []) {
         this._buildSlabs(rooms, stairs, targetGroup, stairsBelow);
+        if (outdoorZones && outdoorZones.length > 0) {
+            this._buildOutdoorZones(outdoorZones, targetGroup);
+        }
 
 
         const hasWalls = walls && walls.length > 0;
@@ -413,5 +416,95 @@ export class ActiveFloor {
 
     _buildRoofs(roofs, activeIndex, walls, targetGroup = this.structureGroup, shapes = null) {
         new Roof3DBuilder(this.helpers.ctx).buildRoofs(roofs, activeIndex, walls, targetGroup, shapes);
+    }
+
+    _buildOutdoorZones(outdoorZones, targetGroup = this.structureGroup) {
+        if (!outdoorZones) return;
+
+        outdoorZones.forEach(zone => {
+            try {
+                if (!zone || zone.isDeleted || zone.isHidden) return;
+                const pts = zone.points || [];
+                if (!pts || pts.length < 3) return;
+
+                let cleanPts = [];
+                if (typeof pts[0] === 'number') {
+                    for (let i = 0; i < pts.length; i += 2) {
+                        cleanPts.push({ x: Number(pts[i]) || 0, y: Number(pts[i+1]) || 0 });
+                    }
+                } else {
+                    cleanPts = pts.map(p => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 }));
+                }
+                if (cleanPts.length < 3) return;
+
+                const posX = zone.group && typeof zone.group.x === 'function' ? zone.group.x() : (Number(zone.x) || 0);
+                const posZ = zone.group && typeof zone.group.y === 'function' ? zone.group.y() : (Number(zone.y) || 0);
+                const rotY = zone.group && typeof zone.group.rotation === 'function' ? -(zone.group.rotation() || 0) * Math.PI / 180 : -(Number(zone.rotation) || 0) * Math.PI / 180;
+                const elevation = Number(zone.elevation) || 0;
+                const height3D = Math.max(0.5, Number(zone.height3D) || 2);
+
+                const zoneShape = new THREE.Shape();
+                zoneShape.moveTo(cleanPts[0].x, cleanPts[0].y);
+                for (let i = 1; i < cleanPts.length; i++) {
+                    zoneShape.lineTo(cleanPts[i].x, cleanPts[i].y);
+                }
+                zoneShape.closePath();
+
+                const zoneGeo = new THREE.ExtrudeGeometry(zoneShape, { depth: height3D, bevelEnabled: false });
+                zoneGeo.rotateX(Math.PI / 2);
+                zoneGeo.translate(0, height3D, 0);
+
+                // UV World Space Projection
+                const uvs = zoneGeo.attributes.uv;
+                const pos = zoneGeo.attributes.position;
+                zoneGeo.computeVertexNormals();
+                const norms = zoneGeo.attributes.normal;
+                for (let i = 0; i < uvs.count; i++) {
+                    const nx = Math.abs(norms.getX(i));
+                    const ny = Math.abs(norms.getY(i));
+                    const nz = Math.abs(norms.getZ(i));
+                    const vx = pos.getX(i) / 100;
+                    const vy = pos.getY(i) / 100;
+                    const vz = pos.getZ(i) / 100;
+
+                    if (ny > 0.5) uvs.setXY(i, vx, vz);
+                    else if (nx > nz) uvs.setXY(i, vz, vy);
+                    else uvs.setXY(i, vx, vy);
+                }
+
+                let mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.7 });
+                const configId = zone.configId || (zone.subType === 'softscape' ? 'grass' : (zone.subType === 'patio' ? 'tile_yellow_cotto_squares' : 'tile_yellow_hexagon'));
+                
+                const floorConfig = FLOOR_REGISTRY[configId] || UniversalMaterialManager.getMaterial(configId);
+                if (floorConfig) {
+                    const config = { ...floorConfig };
+                    if (zone.materialScale) config.tileSize = zone.materialScale;
+                    MaterialFactory.buildPBRMaterial({
+                        material: mat,
+                        config: config,
+                        ctx: this.ctx || this,
+                        dimensions: { width: 100, height: 100 },
+                        faceName: 'floor'
+                    }).then(() => {
+                        if (this.ctx && this.ctx.requestRender) this.ctx.requestRender('material_loaded', 2);
+                    });
+                } else {
+                    mat.color.setHex(0x94a3b8);
+                }
+
+                const zoneMesh = new THREE.Mesh(zoneGeo, mat);
+                zoneMesh.position.set(posX, 0.05 + elevation, posZ);
+                zoneMesh.rotation.y = rotY;
+                zoneMesh.receiveShadow = true;
+                zoneMesh.castShadow = true;
+                zoneMesh.userData = { entity: zone, isOutdoorZone: true, isFloor: true, isGroundSurface: true };
+                zone.mesh3D = zoneMesh;
+
+                if (this.interactables) this.interactables.push(zoneMesh);
+                targetGroup.add(zoneMesh);
+            } catch (err) {
+                console.error("Error building outdoor zone in ActiveFloor:", err);
+            }
+        });
     }
 }

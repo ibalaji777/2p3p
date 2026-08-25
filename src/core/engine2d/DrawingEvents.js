@@ -7,6 +7,7 @@ import { PremiumStaircase, getStairCutoutPolygon } from '../../features/stairs/s
 import { PremiumShape } from './PremiumShape.js';
 import { Railing } from '../../features/railing/objects/Railing.js';
 import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
+import { PremiumOutdoorZone, OUTDOOR_ZONE_TYPES } from './PremiumOutdoorZone.js';
 
 /**
  * Handles drawing-specific logic and complex placement algorithms.
@@ -26,6 +27,10 @@ export function setupDrawingEvents(planner) {
         planner.__executePointerDownLogic = (e, pos, isTouch) => {
             if (planner.gestureManager && planner.gestureManager.isActive()) return;
  
+            if (planner.tool && (planner.tool.startsWith('outdoor_') || planner.tool.startsWith('floor_'))) {
+                planner._executeOutdoorPointerDownLogic(pos);
+                return;
+            }
             if (planner.tool === 'roof' || planner.tool === 'shape_floor_cut') {
                 planner._executeRoofPointerDownLogic(pos);
                 return;
@@ -445,7 +450,7 @@ export function setupDrawingEvents(planner) {
         };
 
         planner._executeRoofPointerDownLogic = (pos) => {
-            if (planner.tool !== 'roof' && planner.tool !== 'shape_floor_cut') return;
+            if (planner.tool !== 'roof' && planner.tool !== 'shape_floor_cut' && !(planner.tool && planner.tool.startsWith('outdoor_'))) return;
             planner.drawing = true;
             
             let snap = pos;
@@ -521,7 +526,7 @@ export function setupDrawingEvents(planner) {
                         planner.finishChain();
                         return;
                     }
-                    planner.drawing = false; // Prevent drawing state from getting stuck
+                    planner.drawing = false;
                     planner.updateInfoBadge(pos.x, pos.y + 40, "Tap the green tick or Finish button", "", false);
                     return;
                 }
@@ -529,28 +534,33 @@ export function setupDrawingEvents(planner) {
                     planner.drawing = false;
                     return;
                 }
+
                 planner.currentSessionEntities = [];
                 planner.drawingRoofPoints = [snap];
                 planner.startAnchor = { x: snap.x, y: snap.y, position: () => ({ x: snap.x, y: snap.y }) };
                 planner.lastAnchor = { x: snap.x, y: snap.y, position: () => ({ x: snap.x, y: snap.y }) };
                 if (planner.onDrawingChange) planner.onDrawingChange(true);
                 planner.roofPreviewGroup = new Konva.Group();
+                
+                let previewStroke = planner.tool === 'shape_floor_cut' ? '#ef4444' : 'rgba(148, 163, 184, 0.5)';
+                let previewFill = planner.tool === 'shape_floor_cut' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(226, 232, 240, 0.4)';
+                let previewStrokeWidth = planner.tool === 'shape_floor_cut' ? 4 : 2;
+
                 planner.roofPreview = new Konva.Line({ 
                     points: [snap.x, snap.y, snap.x, snap.y], 
-                    stroke: planner.tool === 'shape_floor_cut' ? '#ef4444' : 'rgba(148, 163, 184, 0.5)', 
-                    strokeWidth: planner.tool === 'shape_floor_cut' ? 4 : 2, 
-                    fill: planner.tool === 'shape_floor_cut' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(226, 232, 240, 0.4)',
+                    stroke: previewStroke, 
+                    strokeWidth: previewStrokeWidth, 
+                    fill: previewFill,
                     closed: true
                 });
                 planner.roofPreviewGroup.add(planner.roofPreview);
-                const startCircle = new Konva.Circle({ x: snap.x, y: snap.y, radius: 6, fill: '#334155', stroke: 'white', strokeWidth: 1.5 });
+                const startCircle = new Konva.Circle({ x: snap.x, y: snap.y, radius: 6, fill: '#06b6d4', stroke: 'white', strokeWidth: 1.5 });
                 planner.roofPreviewGroup.add(startCircle);
                 planner.uiLayer.add(planner.roofPreviewGroup);
                 planner.uiLayer.batchDraw();
             } else {
                 const startP = planner.drawingRoofPoints[0];
                 if (Math.hypot(snap.x - startP.x, snap.y - startP.y) < SNAP_DIST && planner.drawingRoofPoints.length > 2) {
-                    
                     if (planner.tool === 'shape_floor_cut') {
                         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
                         planner.drawingRoofPoints.forEach(p => {
@@ -583,14 +593,12 @@ export function setupDrawingEvents(planner) {
                     planner.drawingRoofPoints = null; 
                     planner.startAnchor = null;
                     planner.lastAnchor = null;
-                    planner.drawing = false; // Set to false to prevent mousemove crash, but do NOT call onDrawingChange(false) yet!
-                    // Do NOT call onDrawingChange(false) or set tool = 'select'. Wait for explicit Finish/Cancel!
+                    planner.drawing = false;
                     if (planner.roofPreviewGroup) { planner.roofPreviewGroup.destroy(); planner.roofPreviewGroup = null; }
                     else if (planner.roofPreview) { planner.roofPreview.destroy(); }
                     planner.roofPreview = null;
                     planner.hideSnapGlow();
                     if (planner.smartGuides) planner.smartGuides.clear();
-                    // Do NOT destroy roofCloseTick here, keep it visible as a finish button!
                     planner.uiLayer.batchDraw();
                 } else {
                     if (planner.tool === 'roof' && !isValidPlacement) return;
@@ -611,6 +619,123 @@ export function setupDrawingEvents(planner) {
             }
         };
 
+        planner._executeOutdoorPointerDownLogic = (pos) => {
+            planner.drawing = true;
+            let snap = pos;
+            let closestDist = SNAP_DIST * 2.0;
+
+            for (let w of planner.walls) {
+                if (typeof w.getExactPolygonPoints === 'function') {
+                    const pts = w.getExactPolygonPoints();
+                    if (pts && pts.length >= 4) {
+                        for (let i = 0; i < pts.length; i += 2) {
+                            let cx = pts[i], cy = pts[i+1];
+                            let distCorner = Math.hypot(pos.x - cx, pos.y - cy);
+                            if (distCorner < closestDist) { closestDist = distCorner; snap = {x: cx, y: cy}; }
+                            let nx = pts[(i+2)%pts.length], ny = pts[(i+3)%pts.length];
+                            let proj = planner.getClosestPointOnSegment(pos, {x: cx, y: cy}, {x: nx, y: ny});
+                            let distSeg = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                            if (distSeg < closestDist) { closestDist = distSeg; snap = proj; }
+                        }
+                    }
+                } else {
+                    const p1 = w.startAnchor.position(), p2 = w.endAnchor.position();
+                    let d1 = Math.hypot(pos.x - p1.x, pos.y - p1.y); let d2 = Math.hypot(pos.x - p2.x, pos.y - p2.y);
+                    if (d1 < closestDist) { closestDist = d1; snap = p1; }
+                    if (d2 < closestDist) { closestDist = d2; snap = p2; }
+                    let proj = planner.getClosestPointOnSegment(pos, p1, p2); let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                    if (dist < closestDist) { closestDist = dist; snap = proj; }
+                }
+            }
+            if (planner.outdoorZones) {
+                planner.outdoorZones.forEach(z => {
+                    const gx = z.x || 0, gy = z.y || 0;
+                    if (z.points) {
+                        z.points.forEach(p => {
+                            const wx = gx + p.x, wy = gy + p.y;
+                            const d = Math.hypot(pos.x - wx, pos.y - wy);
+                            if (d < closestDist) { closestDist = d; snap = { x: wx, y: wy }; }
+                        });
+                    }
+                });
+            }
+
+            const subType = planner.tool === 'outdoor_other' ? 'other_space' : (planner.tool && planner.tool.startsWith('outdoor_') ? planner.tool.replace('outdoor_', '') : 'pavement');
+            const zoneDefaults = OUTDOOR_ZONE_TYPES[subType] || OUTDOOR_ZONE_TYPES.pavement;
+
+            if (!planner.drawingOutdoorPoints) {
+                planner.currentSessionEntities = [];
+                planner.drawingOutdoorPoints = [snap];
+                planner.startAnchor = { x: snap.x, y: snap.y, position: () => ({ x: snap.x, y: snap.y }) };
+                planner.lastAnchor = { x: snap.x, y: snap.y, position: () => ({ x: snap.x, y: snap.y }) };
+                if (planner.onDrawingChange) planner.onDrawingChange(true);
+                planner.outdoorPreviewGroup = new Konva.Group();
+
+                planner.outdoorPreview = new Konva.Line({
+                    points: [snap.x, snap.y, snap.x, snap.y],
+                    stroke: zoneDefaults.stroke || '#ca8a04',
+                    strokeWidth: 3,
+                    fill: zoneDefaults.fill || 'rgba(234, 179, 8, 0.30)',
+                    closed: true
+                });
+                planner.outdoorPreviewGroup.add(planner.outdoorPreview);
+                const startCircle = new Konva.Circle({ x: snap.x, y: snap.y, radius: 6, fill: '#06b6d4', stroke: 'white', strokeWidth: 1.5 });
+                planner.outdoorPreviewGroup.add(startCircle);
+                planner.uiLayer.add(planner.outdoorPreviewGroup);
+                planner.uiLayer.batchDraw();
+            } else {
+                const startP = planner.drawingOutdoorPoints[0];
+                if (Math.hypot(snap.x - startP.x, snap.y - startP.y) < SNAP_DIST && planner.drawingOutdoorPoints.length > 2) {
+                    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                    planner.drawingOutdoorPoints.forEach(p => {
+                        minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+                        minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+                    });
+                    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+                    const relPts = planner.drawingOutdoorPoints.map(p => ({ x: p.x - cx, y: p.y - cy }));
+
+                    const newZone = new PremiumOutdoorZone(planner, 'outdoor_zone', {
+                        x: cx, y: cy, points: relPts, subType: subType, material: zoneDefaults.defaultMaterial, height3D: 2
+                    });
+                    if (!planner.outdoorZones) planner.outdoorZones = [];
+                    planner.outdoorZones.push(newZone);
+                    if (!planner.currentSessionEntities) planner.currentSessionEntities = [];
+                    planner.currentSessionEntities.push(newZone);
+
+                    planner.drawingOutdoorPoints = null;
+                    planner.startAnchor = null;
+                    planner.lastAnchor = null;
+                    planner.drawing = false;
+                    if (planner.outdoorPreviewGroup) { planner.outdoorPreviewGroup.destroy(); planner.outdoorPreviewGroup = null; }
+                    planner.outdoorPreview = null;
+                    planner.hideSnapGlow();
+                    if (planner.smartGuides) planner.smartGuides.clear();
+                    planner.uiLayer.batchDraw();
+
+                    planner.registerTimeout(() => {
+                        planner.tool = 'select';
+                        planner.updateToolStates();
+                        if (planner.onToolChange) planner.onToolChange('select');
+                        planner.selectEntity(newZone, 'outdoor_zone');
+                        planner.syncAll();
+                    }, 10);
+                } else {
+                    const lastP = planner.drawingOutdoorPoints[planner.drawingOutdoorPoints.length - 1];
+                    if (lastP && lastP.x === snap.x && lastP.y === snap.y) return;
+
+                    planner.drawingOutdoorPoints.push(snap);
+                    planner.lastAnchor = { x: snap.x, y: snap.y, position: () => ({ x: snap.x, y: snap.y }) };
+                    if (planner.outdoorPreviewGroup) {
+                        const newCircle = new Konva.Circle({ x: snap.x, y: snap.y, radius: 4, fill: zoneDefaults.stroke || '#ca8a04' });
+                        planner.outdoorPreviewGroup.add(newCircle);
+                    }
+                    const pts = planner.drawingOutdoorPoints.flatMap(p => [p.x, p.y]); pts.push(snap.x, snap.y);
+                    planner.outdoorPreview.points(pts);
+                    planner.uiLayer.batchDraw();
+                }
+            }
+        };
+
         planner.stage.on("mousemove.roof touchmove.roof", (e) => {
             if (e && e.evt && e.evt.touches && e.evt.touches.length > 1) return;
 
@@ -622,9 +747,8 @@ export function setupDrawingEvents(planner) {
                 if (!pos) return;
                 
                 let snap = pos; 
-                let closestDist = SNAP_DIST * 2.5; // Stronger snapping for roof outer edges
+                let closestDist = SNAP_DIST * 2.5;
                 let snappedObj = false;
-                let targetSnapWall = null;
 
                 let allReferenceWalls = planner.referenceGroup ? planner.referenceGroup.getChildren() : [];
                 if (planner.tool === 'shape_floor_cut') {
@@ -643,7 +767,6 @@ export function setupDrawingEvents(planner) {
                         }
                     }
                     
-                    // Snap directly to staircase cutout references during mousemove
                     let allStairsToSnap = [
                         ...(planner.stairs || []),
                         ...(planner.referenceFloorData?.stairs || [])
@@ -712,25 +835,77 @@ export function setupDrawingEvents(planner) {
                     planner.roofCloseTick.moveToTop();
                     planner.hideSnapGlow();
                 } else if (!planner.drawingRoofPoints && planner.currentSessionEntities && planner.currentSessionEntities.length > 0) {
-                    // They closed the loop. Keep the tick mark visible!
                     if (planner.roofCloseTick) planner.roofCloseTick.visible(true);
                     planner.hideSnapGlow();
                 } else {
                     if (planner.roofCloseTick) planner.roofCloseTick.visible(false);
                     if (snappedObj) { planner.showSnapGlow(snap.x, snap.y); } else { planner.hideSnapGlow(); }
                 }
-
                 if (planner.drawingRoofPoints && planner.roofPreview) {
-                    const pts = planner.drawingRoofPoints.flatMap(p => [p.x, p.y]); pts.push(snap.x, snap.y);
+                    const pts = planner.drawingRoofPoints.flatMap(p => [p.x, p.y]);
+                    pts.push(snap.x, snap.y);
                     planner.roofPreview.points(pts);
+                    planner.uiLayer.batchDraw();
                 }
-                
-                document.body.style.cursor = 'crosshair'; planner.mainLayer.batchDraw(); planner.uiLayer.batchDraw();
-            } else {
-                if (planner.drawingRoofPoints) { planner.drawingRoofPoints = null; if (planner.roofPreviewGroup) { planner.roofPreviewGroup.destroy(); planner.roofPreviewGroup = null; } else if (planner.roofPreview) { planner.roofPreview.destroy(); } planner.roofPreview = null; }
-                if (planner.roofCloseTick) { planner.roofCloseTick.destroy(); planner.roofCloseTick = null; }
-                if (document.body.style.cursor === 'crosshair') { document.body.style.cursor = 'default'; }
             }
         });
-    
+
+        planner.stage.on("mousemove.outdoor touchmove.outdoor", (e) => {
+            if (e && e.evt && e.evt.touches && e.evt.touches.length > 1) return;
+
+            if (planner.tool && (planner.tool.startsWith('outdoor_') || planner.tool.startsWith('floor_'))) {
+                const _isTouchMove = e && e.evt && (e.evt.touches || e.evt.pointerType === 'touch');
+                if (_isTouchMove && (planner.mobileDrawState === 'ChainWaiting' || planner.mobileIsPanning)) return;
+
+                const pos = planner.getPointerPos(e);
+                if (!pos) return;
+
+                let snap = pos;
+                let closestDist = SNAP_DIST * 2.0;
+                let snappedObj = false;
+
+                for (let w of planner.walls) {
+                    if (typeof w.getExactPolygonPoints === 'function') {
+                        const pts = w.getExactPolygonPoints();
+                        if (pts && pts.length >= 4) {
+                            for (let i = 0; i < pts.length; i += 2) {
+                                let cx = pts[i], cy = pts[i+1];
+                                if (Math.hypot(pos.x - cx, pos.y - cy) < closestDist) { closestDist = Math.hypot(pos.x - cx, pos.y - cy); snap = {x: cx, y: cy}; snappedObj = true; }
+                                let nx = pts[(i+2)%pts.length], ny = pts[(i+3)%pts.length];
+                                let proj = planner.getClosestPointOnSegment(pos, {x: cx, y: cy}, {x: nx, y: ny});
+                                if (Math.hypot(pos.x - proj.x, pos.y - proj.y) < closestDist) { closestDist = Math.hypot(pos.x - proj.x, pos.y - proj.y); snap = proj; snappedObj = true; }
+                            }
+                        }
+                    }
+                }
+                if (planner.outdoorZones) {
+                    planner.outdoorZones.forEach(z => {
+                        const gx = z.x || 0, gy = z.y || 0;
+                        if (z.points) {
+                            z.points.forEach(p => {
+                                const wx = gx + p.x, wy = gy + p.y;
+                                if (Math.hypot(pos.x - wx, pos.y - wy) < closestDist) { closestDist = Math.hypot(pos.x - wx, pos.y - wy); snap = { x: wx, y: wy }; snappedObj = true; }
+                            });
+                        }
+                    });
+                }
+
+                if (planner.drawingOutdoorPoints && planner.drawingOutdoorPoints.length > 2) {
+                    const startP = planner.drawingOutdoorPoints[0];
+                    if (Math.hypot(pos.x - startP.x, pos.y - startP.y) < SNAP_DIST) {
+                        snap = { x: startP.x, y: startP.y };
+                        snappedObj = true;
+                    }
+                }
+
+                if (snappedObj) { planner.showSnapGlow(snap.x, snap.y); } else { planner.hideSnapGlow(); }
+
+                if (planner.drawingOutdoorPoints && planner.outdoorPreview) {
+                    const pts = planner.drawingOutdoorPoints.flatMap(p => [p.x, p.y]);
+                    pts.push(snap.x, snap.y);
+                    planner.outdoorPreview.points(pts);
+                    planner.uiLayer.batchDraw();
+                }
+            }
+        });
 }

@@ -10,6 +10,7 @@ import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
 import { Railing3DBuilder } from '../../features/railing/builders/Railing3DBuilder.js';
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY, offsetPolygon } from '../../core/registry';
 import { MaterialFactory } from './MaterialFactory.js';
+import { UniversalMaterialManager } from './UniversalMaterialManager.js';
 
 let _sharedPlasterMaterial = null;
 let _plasterUniforms = {
@@ -186,13 +187,16 @@ export class EnvironmentBuilder {
         }
     }
 
-    buildActiveFloor(walls, rooms, shapes, stairs = [], stairsBelow = []) {
+    buildActiveFloor(walls, rooms, shapes, stairs = [], stairsBelow = [], outdoorZones = []) {
         let maxWallHeight = WALL_HEIGHT;
         if (walls && walls.length > 0) {
             const mainWalls = walls.filter(w => !w.parentGroup);
             if (mainWalls.length > 0) maxWallHeight = Math.max(...mainWalls.map(w => w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT)));
         }
         this.stairBuilder.build(stairs, this.ctx.structureGroup, 0, false, maxWallHeight);
+        if (outdoorZones && outdoorZones.length > 0) {
+            this.buildOutdoorZones(outdoorZones, this.ctx.structureGroup);
+        }
 
         const matMain = getPlasterMaterial();
         const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xeaeaea, roughness: 0.9 });
@@ -463,6 +467,96 @@ export class EnvironmentBuilder {
         } catch(e) {
             console.error("Error building railings 3D:", e);
         }
+    }
+
+    buildOutdoorZones(outdoorZones, targetGroup = this.ctx.structureGroup) {
+        if (!outdoorZones) return;
+
+        outdoorZones.forEach(zone => {
+            try {
+                if (!zone || zone.isDeleted || zone.isHidden) return;
+                const pts = zone.points || [];
+                if (!pts || pts.length < 3) return;
+
+                let cleanPts = [];
+                if (typeof pts[0] === 'number') {
+                    for (let i = 0; i < pts.length; i += 2) {
+                        cleanPts.push({ x: Number(pts[i]) || 0, y: Number(pts[i+1]) || 0 });
+                    }
+                } else {
+                    cleanPts = pts.map(p => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 }));
+                }
+                if (cleanPts.length < 3) return;
+
+                const posX = zone.group && typeof zone.group.x === 'function' ? zone.group.x() : (Number(zone.x) || 0);
+                const posZ = zone.group && typeof zone.group.y === 'function' ? zone.group.y() : (Number(zone.y) || 0);
+                const rotY = zone.group && typeof zone.group.rotation === 'function' ? -(zone.group.rotation() || 0) * Math.PI / 180 : -(Number(zone.rotation) || 0) * Math.PI / 180;
+                const elevation = Number(zone.elevation) || 0;
+                const height3D = Math.max(0.5, Number(zone.height3D) || 2);
+
+                const zoneShape = new THREE.Shape();
+                zoneShape.moveTo(cleanPts[0].x, cleanPts[0].y);
+                for (let i = 1; i < cleanPts.length; i++) {
+                    zoneShape.lineTo(cleanPts[i].x, cleanPts[i].y);
+                }
+                zoneShape.closePath();
+
+                const zoneGeo = new THREE.ExtrudeGeometry(zoneShape, { depth: height3D, bevelEnabled: false });
+                zoneGeo.rotateX(Math.PI / 2);
+                zoneGeo.translate(0, height3D, 0);
+
+                // UV World Space Projection
+                const uvs = zoneGeo.attributes.uv;
+                const pos = zoneGeo.attributes.position;
+                zoneGeo.computeVertexNormals();
+                const norms = zoneGeo.attributes.normal;
+                for (let i = 0; i < uvs.count; i++) {
+                    const nx = Math.abs(norms.getX(i));
+                    const ny = Math.abs(norms.getY(i));
+                    const nz = Math.abs(norms.getZ(i));
+                    const vx = pos.getX(i) / 100;
+                    const vy = pos.getY(i) / 100;
+                    const vz = pos.getZ(i) / 100;
+
+                    if (ny > 0.5) uvs.setXY(i, vx, vz);
+                    else if (nx > nz) uvs.setXY(i, vz, vy);
+                    else uvs.setXY(i, vx, vy);
+                }
+
+                let mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.7 });
+                const configId = zone.configId || (zone.subType === 'softscape' ? 'grass' : (zone.subType === 'patio' ? 'tile_yellow_cotto_squares' : 'tile_yellow_hexagon'));
+                
+                const floorConfig = FLOOR_REGISTRY[configId] || UniversalMaterialManager.getMaterial(configId);
+                if (floorConfig) {
+                    const config = { ...floorConfig };
+                    if (zone.materialScale) config.tileSize = zone.materialScale;
+                    MaterialFactory.buildPBRMaterial({
+                        material: mat,
+                        config: config,
+                        ctx: this.ctx,
+                        dimensions: { width: 100, height: 100 },
+                        faceName: 'floor'
+                    }).then(() => {
+                        if (this.ctx && this.ctx.requestRender) this.ctx.requestRender('material_loaded', 2);
+                    });
+                } else {
+                    mat.color.setHex(0x94a3b8);
+                }
+
+                const zoneMesh = new THREE.Mesh(zoneGeo, mat);
+                zoneMesh.position.set(posX, 0.05 + elevation, posZ);
+                zoneMesh.rotation.y = rotY;
+                zoneMesh.receiveShadow = true;
+                zoneMesh.castShadow = true;
+                zoneMesh.userData = { entity: zone, isOutdoorZone: true, isFloor: true, isGroundSurface: true };
+                zone.mesh3D = zoneMesh;
+
+                if (this.ctx && this.ctx.interactables) this.ctx.interactables.push(zoneMesh);
+                targetGroup.add(zoneMesh);
+            } catch (err) {
+                console.error("Error building outdoor zone in 3D:", err);
+            }
+        });
     }
 
     buildWallGroup(w) {

@@ -93,6 +93,122 @@
             <button class="chip-btn" :class="{ active: activeCategoryChip === 'utility' }" @click="activeCategoryChip = 'utility'">Utility & Storage</button>
         </div>
 
+        <!-- Dedicated Outdoor Spaces / Floor Surfaces Toolbar Strip (Matching User Screenshot) -->
+        <div class="outdoor-toolbar-strip" v-if="props.type === 'floors' || props.type === 'floor' || props.type === 'outdoor_spaces' || props.type.startsWith('outdoor_')">
+            <button 
+                class="outdoor-tool-tab" 
+                :class="{ active: (modelValue === 'outdoor_pavement' || props.type === 'outdoor_pavement' || props.type === 'floors' || props.type === 'floor') }" 
+                @click="selectOutdoorTool('outdoor_pavement')"
+                title="Pavement Zone"
+            >
+                <div class="tab-icon-wrap">
+                    <svg viewBox="0 0 100 100" class="outdoor-svg-icon" fill="none" stroke="currentColor">
+                        <!-- 5-Point Polygon outline with vertex dots -->
+                        <polygon points="50 14, 88 42, 74 86, 26 86, 12 42" stroke-width="3" stroke-linejoin="round" />
+                        <circle cx="50" cy="14" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                        <circle cx="88" cy="42" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                        <circle cx="74" cy="86" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                        <circle cx="26" cy="86" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                        <circle cx="12" cy="42" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                        <!-- Car Symbol Inside -->
+                        <g stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M35 62 h30 v-8 a3 3 0 0 0 -3 -3 h-24 a3 3 0 0 0 -3 3 z" />
+                            <path d="M40 51 l3 -7 h14 l3 7" />
+                            <circle cx="41" cy="67" r="3.5" stroke-width="2" />
+                            <circle cx="59" cy="67" r="3.5" stroke-width="2" />
+                            <circle cx="39" cy="57" r="1" fill="currentColor" />
+                            <circle cx="61" cy="57" r="1" fill="currentColor" />
+                        </g>
+                    </svg>
+                </div>
+                <span class="tab-title">Pavement</span>
+            </button>
+
+            <div class="outdoor-tool-divider"></div>
+
+            <button 
+                class="outdoor-tool-tab" 
+                :class="{ active: (modelValue === 'outdoor_patio' || props.type === 'outdoor_patio') }" 
+                @click="selectOutdoorTool('outdoor_patio')"
+                title="Patio Zone"
+            >
+                <div class="tab-icon-wrap">
+                    <svg viewBox="0 0 100 100" class="outdoor-svg-icon" fill="none" stroke="currentColor">
+                        <!-- 5-Point Polygon outline with vertex dots -->
+                        <polygon points="50 14, 88 42, 74 86, 26 86, 12 42" stroke-width="3" stroke-linejoin="round" />
+                        <circle cx="50" cy="14" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                        <circle cx="88" cy="42" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                        <circle cx="74" cy="86" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                        <circle cx="26" cy="86" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                        <circle cx="12" cy="42" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                        <!-- Patio Umbrella & Table/Chairs Symbol Inside -->
+                        <g stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M37 51 a13 13 0 0 1 26 0 z" />
+                            <path d="M50 38 v26" />
+                            <path d="M43 64 h14" />
+                            <path d="M36 58 v8 M32 66 h8" />
+                            <path d="M64 58 v8 M60 66 h8" />
+                        </g>
+                    </svg>
+                </div>
+                <span class="tab-title">Patio</span>
+            </button>
+
+            <div class="outdoor-tool-divider"></div>
+
+            <button 
+                class="outdoor-tool-tab" 
+                :class="{ active: (modelValue === 'outdoor_softscape' || props.type === 'outdoor_softscape') }" 
+                @click="selectOutdoorTool('outdoor_softscape')"
+                title="Softscape Zone"
+            >
+                <div class="tab-icon-wrap">
+                    <svg viewBox="0 0 100 100" class="outdoor-svg-icon" fill="none" stroke="currentColor">
+                        <!-- 5-Point Polygon outline with vertex dots -->
+                        <polygon points="50 14, 88 42, 74 86, 26 86, 12 42" stroke-width="3" stroke-linejoin="round" />
+                        <circle cx="50" cy="14" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                        <circle cx="88" cy="42" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                        <circle cx="74" cy="86" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                        <circle cx="26" cy="86" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                        <circle cx="12" cy="42" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                        <!-- Flower Symbol Inside -->
+                        <g stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="50" cy="48" r="4" fill="none" />
+                            <circle cx="50" cy="41" r="3" />
+                            <circle cx="50" cy="55" r="3" />
+                            <circle cx="43" cy="48" r="3" />
+                            <circle cx="57" cy="48" r="3" />
+                            <path d="M50 58 v14" />
+                            <path d="M50 65 q7 -2 7 -7 q-5 0 -7 7" />
+                        </g>
+                    </svg>
+                </div>
+                <span class="tab-title">Softscape</span>
+            </button>
+
+            <div class="outdoor-tool-divider"></div>
+
+            <button 
+                class="outdoor-tool-tab" 
+                :class="{ active: (modelValue === 'outdoor_other' || props.type === 'outdoor_other') }" 
+                @click="selectOutdoorTool('outdoor_other')"
+                title="Other Space Zone"
+            >
+                <div class="tab-icon-wrap">
+                    <svg viewBox="0 0 100 100" class="outdoor-svg-icon" fill="none" stroke="currentColor">
+                        <!-- 5-Point Polygon outline with vertex dots -->
+                        <polygon points="50 14, 88 42, 74 86, 26 86, 12 42" stroke-width="3" stroke-linejoin="round" />
+                        <circle cx="50" cy="14" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                        <circle cx="88" cy="42" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                        <circle cx="74" cy="86" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                        <circle cx="26" cy="86" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                        <circle cx="12" cy="42" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
+                    </svg>
+                </div>
+                <span class="tab-title">Other space</span>
+            </button>
+        </div>
+
         <!-- Responsive Product Cards Grid -->
         <div class="products-grid" v-if="filteredItems && filteredItems.length > 0">
             <template v-for="item in filteredItems" :key="item.id">
@@ -280,7 +396,12 @@ const getCatalogHeaderTitle = () => {
         'electronics_catalog': 'TVs & Electronics Catalog',
         'window_dressings_catalog': 'Window Dressings & Curtains',
         'rugs_catalog': 'Area Rugs & Floor Carpets',
-        'decor_props_catalog': 'Wall Decor & Styling Props'
+        'decor_props_catalog': 'Wall Decor & Styling Props',
+        'outdoor_spaces': 'Outdoor Spaces & Landscaping',
+        'outdoor_pavement': 'Pavement Zone',
+        'outdoor_patio': 'Patio Zone',
+        'outdoor_softscape': 'Softscape Zone',
+        'outdoor_other': 'Other Space Zone'
     };
     return map[props.type] || 'Product Catalog';
 };
@@ -666,6 +787,86 @@ const decorPropsCatalog = ref([
     { id: 'decor_vases_ceramic', name: 'Set of Ceramic Fluted Vases', badge: 'VASES', material: 'Fluted Ceramic & Brass', specs: '200 × 160 mm', image: '', toolId: 'furniture', params: { type: 'decor_vases_ceramic', elevation: 40 } }
 ]);
 
+const outdoorCatalog = ref([
+    { isDivider: true, id: 'div_outdoor_draw', name: 'Draw Floor Surfaces & Pavements' },
+    { 
+        id: 'outdoor_pavement', 
+        name: 'Pavement', 
+        badge: 'PAVEMENT', 
+        material: 'Yellow Honeycomb Hexagon Pavers', 
+        specs: 'Floor Surface', 
+        image: '/assets/tiles/tile_yellow_hexagon.jpg', 
+        toolId: 'outdoor_pavement', 
+        params: { subType: 'pavement', material: 'tile_yellow_hexagon', height3D: 2 } 
+    },
+    { 
+        id: 'outdoor_patio', 
+        name: 'Patio', 
+        badge: 'PATIO', 
+        material: 'Yellow Cotto Rustic Squares', 
+        specs: 'Floor Surface', 
+        image: '/assets/tiles/tile_yellow_cotto_squares.jpg', 
+        toolId: 'outdoor_patio', 
+        params: { subType: 'patio', material: 'tile_yellow_cotto_squares', height3D: 2 } 
+    },
+    { 
+        id: 'outdoor_softscape', 
+        name: 'Softscape', 
+        badge: 'SOFTSCAPE', 
+        material: 'Lush Botanical Grass Turf', 
+        specs: 'Floor Surface', 
+        image: '', 
+        toolId: 'outdoor_softscape', 
+        params: { subType: 'softscape', material: 'grass', height3D: 2 } 
+    },
+    { 
+        id: 'outdoor_other', 
+        name: 'Other Space', 
+        badge: 'OTHER', 
+        material: 'Beige Limestone Porcelain Tile', 
+        specs: 'Floor Surface', 
+        image: '/assets/tiles/tile_beige_limestone.jpg', 
+        toolId: 'outdoor_other', 
+        params: { subType: 'other_space', material: 'tile_beige_limestone', height3D: 2 } 
+    },
+    { isDivider: true, id: 'div_outdoor_presets', name: 'Quick-Drop Floor Templates' },
+    { 
+        id: 'preset_patio_dining', 
+        name: 'Rectangular Dining Patio', 
+        badge: 'PRESET', 
+        material: 'Yellow Cotto Paver Squares', 
+        specs: '4000 × 3000 mm', 
+        image: '/assets/tiles/tile_yellow_cotto_squares.jpg', 
+        toolId: 'outdoor_patio', 
+        params: { subType: 'patio', material: 'tile_yellow_cotto_squares', height3D: 2, points: [{x:-200,y:-150},{x:200,y:-150},{x:200,y:150},{x:-200,y:150}] } 
+    },
+    { 
+        id: 'preset_driveway_paved', 
+        name: 'Front Car Driveway', 
+        badge: 'PRESET', 
+        material: 'Yellow Honeycomb Paver Tile', 
+        specs: '3000 × 6000 mm', 
+        image: '/assets/tiles/tile_yellow_hexagon.jpg', 
+        toolId: 'outdoor_pavement', 
+        params: { subType: 'pavement', material: 'tile_yellow_hexagon', height3D: 2, points: [{x:-150,y:-300},{x:150,y:-300},{x:150,y:300},{x:-150,y:300}] } 
+    },
+    { 
+        id: 'preset_lawn_backyard', 
+        name: 'Backyard Grass Lawn', 
+        badge: 'PRESET', 
+        material: 'Lush Turf Grass', 
+        specs: '5000 × 4000 mm', 
+        image: '', 
+        toolId: 'outdoor_softscape', 
+        params: { subType: 'softscape', material: 'grass', height3D: 2, points: [{x:-250,y:-200},{x:250,y:-200},{x:250,y:200},{x:-250,y:200}] } 
+    }
+]);
+
+const selectOutdoorTool = (toolId) => {
+    emit('update:modelValue', toolId);
+    emit('select', { id: toolId, toolId: toolId, params: { subType: toolId.replace('outdoor_', '') } });
+};
+
 const items = computed(() => {
     if (props.type === 'door') return doorCatalog.value;
     if (props.type === 'window') return windowCatalog.value;
@@ -695,6 +896,7 @@ const items = computed(() => {
     if (props.type === 'electronics_catalog') return electronicsCatalog.value;
     if (props.type === 'rugs_catalog') return rugsCatalog.value;
     if (props.type === 'decor_props_catalog') return decorPropsCatalog.value;
+    if (props.type === 'floors' || props.type === 'floor' || props.type === 'outdoor_spaces' || props.type.startsWith('outdoor_')) return outdoorCatalog.value;
     return [];
 });
 
@@ -1475,5 +1677,84 @@ const handleImageError = (e) => {
     .product-title {
         font-size: 11px;
     }
+}
+
+/* DEDICATED OUTDOOR SPACES TOOLBAR STRIP (MATCHING SCREENSHOT) */
+.outdoor-toolbar-strip {
+    display: flex;
+    align-items: stretch;
+    background: #1e293b;
+    border-radius: 12px;
+    margin: 4px 18px 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    border: 1px solid #334155;
+    flex-shrink: 0;
+}
+
+.outdoor-tool-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 6px 8px;
+    background: transparent;
+    border: none;
+    border-top: 3px solid transparent;
+    cursor: pointer;
+    color: #e2e8f0;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    min-width: 0;
+}
+
+.outdoor-tool-tab:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: #38bdf8;
+}
+
+.outdoor-tool-tab.active {
+    background: rgba(6, 182, 212, 0.08);
+    border-top-color: #06b6d4;
+    color: #ffffff;
+}
+
+.tab-icon-wrap {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+    transition: transform 0.2s ease;
+}
+
+.outdoor-tool-tab:hover .tab-icon-wrap {
+    transform: translateY(-2px);
+}
+
+.outdoor-svg-icon {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.tab-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+.outdoor-tool-divider {
+    width: 1px;
+    background: #334155;
+    align-self: stretch;
+    flex-shrink: 0;
 }
 </style>

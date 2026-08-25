@@ -194,6 +194,13 @@
                 @sync-engine="$emit('sync-engine')"
                 @delete-entity="$emit('delete-entity')"
             />
+
+            <OutdoorZonePanel
+                v-else-if="selectedType === 'outdoor_zone' || (selectedEntity && selectedEntity.type === 'outdoor_zone')"
+                :selected-entity="selectedEntity"
+                @sync-engine="$emit('sync-engine', $event)"
+                @delete-entity="$emit('delete-entity')"
+            />
         </div>
 
         <div class="props-empty" v-else-if="!activeTool || !activeTool.startsWith('preset_')">
@@ -207,6 +214,7 @@
 <script setup>
 import WallPanel from '../../features/wall/wall.properties.vue';
 import RoomPanel from '../panels/RoomPanel.vue';
+import OutdoorZonePanel from '../panels/OutdoorZonePanel.vue';
 import AdvanceOpeningsPanel from '../panels/AdvanceOpeningsPanel.vue';
 import StairPanel from '../../features/stairs/stairs.properties.vue';
 import WidgetPanel from '../panels/WidgetPanel.vue';

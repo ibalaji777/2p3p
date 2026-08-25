@@ -228,6 +228,22 @@ const handleCatalogSelect = (item) => {
     if (planner.value) {
         if (item.toolId === 'furniture' || item.toolId === 'kitchen' || item.toolId === 'bathroom' || item.toolId === 'electronics') {
             spawnFurniture(item.params.type);
+        } else if (item.params && item.params.points && item.toolId && item.toolId.startsWith('outdoor_')) {
+            const cx = planner.value.stage.width() / 2;
+            const cy = planner.value.stage.height() / 2;
+            const newZone = new PremiumOutdoorZone(planner.value, 'outdoor_zone', {
+                x: cx,
+                y: cy,
+                points: item.params.points,
+                subType: item.params.subType || 'pavement',
+                material: item.params.material,
+                height3D: item.params.height3D
+            });
+            if (!planner.value.outdoorZones) planner.value.outdoorZones = [];
+            planner.value.outdoorZones.push(newZone);
+            planner.value.selectEntity(newZone, 'outdoor_zone');
+            planner.value.syncAll();
+            setTool('select');
         } else {
             planner.value.activePresetParams = { ...item.params };
             activePresetParams.value = { ...item.params };
@@ -305,7 +321,7 @@ import { SmartWizardManager } from './core/plugins/SmartWizardManager.js';
 import { SmartFacingPlugin } from './core/plugins/SmartFacingPlugin.js';
 import { SmartWallResizePlugin } from './core/plugins/SmartWallResizePlugin.js';
 
-import { FloorPlanner, PremiumFurniture } from './core/engine2d/index.js';
+import { FloorPlanner, PremiumFurniture, PremiumOutdoorZone } from './core/engine2d/index.js';
 import { Preview3D } from './core/engine3d.js'; 
 import { WorkspaceControls } from '/src/core/engine3d/WorkspaceControls.js';
 import { ServerClass } from './core/ServerClass.js';

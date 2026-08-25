@@ -307,7 +307,7 @@ const groupedNavigation = computed(() => {
     return [
         {
             groupLabel: 'CREATE',
-            items: getByIds(['tools', 'walls', 'common'])
+            items: getByIds(['tools', 'walls', 'floors', 'outdoor_spaces', 'common'])
         },
         {
             groupLabel: 'BUILD',
@@ -390,11 +390,12 @@ const isCatalogTool = (toolId) => {
     const catalogTools = [
         'door', 'window', 'skirting', 'sunshade', 'jali_panel', 'curtain', 'wall_art', 'staircase', 'roof', 
         'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 
+        'outdoor_spaces', 'outdoor_pavement', 'outdoor_patio', 'outdoor_softscape', 'outdoor_other',
         'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'bathroom_catalog', 'electronics_catalog', 
         'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 
         'household_appliance_catalog', 'wine_cellar_catalog', 'trash_catalog'
     ];
-    return catalogTools.includes(toolId) || toolId.includes('catalog');
+    return catalogTools.includes(toolId) || toolId.includes('catalog') || toolId.startsWith('outdoor_');
 };
 
 const getToolDetails = (toolId, toolName) => {
@@ -449,13 +450,29 @@ const getToolDetails = (toolId, toolName) => {
             subtitle: 'Automated Layout Calibration',
             badge: '✨ Automated Wizard',
             icon: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>',
-            description: 'Streamline repetitive drafting tasks with automated alignment and spatial measurement calibration.',
+            description: 'Intelligent multi-step wizards to automatically align, balance, and resize room configurations.',
             features: [
-                'Automated directional facing & alignment calibration',
-                'Precision metric & imperial scaling without manual math',
-                'Instant synchronization across 2D blueprints & 3D renders'
+                'Facing direction alignment analysis',
+                'Proportional wall resizing across connected rooms',
+                'Non-destructive architectural recalibration'
             ],
-            btnText: `Launch ${toolName || 'Wizard'}`
+            btnText: 'Launch Wizard'
+        };
+    }
+    if (toolId && toolId.startsWith('outdoor_')) {
+        const title = toolName || (toolId === 'outdoor_pavement' ? 'Pavement' : toolId === 'outdoor_patio' ? 'Patio' : toolId === 'outdoor_softscape' ? 'Softscape' : 'Other space');
+        return {
+            title: `Draw ${title}`,
+            subtitle: 'Outdoor Landscape Zone',
+            badge: '🌿 Outdoor Zone',
+            icon: '<polygon points="12 2 2 8.5 5.8 19 18.2 19 22 8.5 12 2"></polygon><circle cx="12" cy="11" r="2.5"></circle>',
+            description: `Draw custom multi-point polygonal ${title.toLowerCase()} areas for pathways, driveways, garden beds, and outdoor living.`,
+            features: [
+                'Click canvas to place polygon corner vertices',
+                'Snap to exterior walls, corners, and property boundaries',
+                'Seamless PBR textures (grass, slate, pavers, teak wood)'
+            ],
+            btnText: `Start Drawing ${title}`
         };
     }
     if (toolId === 'shape_floor_cut') {
@@ -474,29 +491,28 @@ const getToolDetails = (toolId, toolName) => {
         };
     }
     return {
-        title: toolName || 'Interactive Tool',
-        subtitle: 'Workspace Control',
-        badge: '🔧 Workspace Action',
-        icon: '<circle cx="12" cy="12" r="10"></circle><polyline points="12 16 16 12 12 8"></polyline><line x1="8" y1="12" x2="16" y2="12"></line>',
-        description: 'Click below to enable this interactive design tool on your active architectural workspace plan.',
+        title: toolName || 'Architectural Component',
+        subtitle: 'Structural CAD Object',
+        badge: '🔧 Tool',
+        icon: '<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>',
+        description: 'Interactive structural object ready to place and customize.',
         features: [
-            'Click directly onto the canvas to place or modify items',
-            'Adjust exact dimensions using responsive parameter gizmos',
-            'Switch back to Select Mode anytime using the top toolbar'
+            'CAD-accurate dimensional precision',
+            'Full 2D & 3D real-time synchronicity',
+            'Customizable materials and heights'
         ],
-        btnText: `Activate ${toolName || 'Tool'}`
+        btnText: `Select ${toolName || 'Tool'}`
     };
 };
 
 const getShortToolName = (toolId, name) => {
-    if (toolId === 'door') return 'Door';
-    if (toolId === 'window') return 'Window';
-    if (toolId === 'skirting') return 'Skirting';
-    if (toolId === 'sunshade') return 'Sunshade';
-    if (toolId === 'jali_panel') return 'Jali';
+    if (toolId === 'door') return 'Doors';
+    if (toolId === 'window') return 'Windows';
     if (toolId === 'curtain') return 'Curtains';
     if (toolId === 'wall_art') return 'Wall Art';
-    if (toolId === 'adv_opening_catalog') return 'Openings';
+    if (toolId === 'skirting') return 'Baseboards';
+    if (toolId === 'sunshade') return 'Sunshade';
+    if (toolId === 'jali_panel') return 'Jali';
     if (toolId === 'elevation_fascia') return 'Fascia';
     if (toolId === 'molding') return 'Molding';
     if (toolId === 'staircase') return 'Staircase';
@@ -510,10 +526,26 @@ const getShortToolName = (toolId, name) => {
     if (toolId === 'kitchen_catalog') return 'Kitchen';
     if (toolId === 'bathroom_catalog') return 'Bathroom';
     if (toolId === 'electronics_catalog') return 'Electronics';
+    if (toolId === 'outdoor_pavement') return 'Pavement';
+    if (toolId === 'outdoor_patio') return 'Patio';
+    if (toolId === 'outdoor_softscape') return 'Softscape';
+    if (toolId === 'outdoor_other') return 'Other space';
     return name || 'Tool';
 };
 
 const getToolTabIcon = (toolId) => {
+    if (toolId === 'outdoor_pavement') {
+        return '<polygon points="12 2 2 9 6 20 18 20 22 9 12 2" stroke-width="1.8"></polygon><rect x="9" y="11" width="6" height="5" rx="1"></rect><circle cx="10" cy="16" r="1"></circle><circle cx="14" cy="16" r="1"></circle>';
+    }
+    if (toolId === 'outdoor_patio') {
+        return '<polygon points="12 2 2 9 6 20 18 20 22 9 12 2" stroke-width="1.8"></polygon><path d="M12 7v7M9 10h6M8 14h8"></path>';
+    }
+    if (toolId === 'outdoor_softscape') {
+        return '<polygon points="12 2 2 9 6 20 18 20 22 9 12 2" stroke-width="1.8"></polygon><circle cx="12" cy="10" r="2"></circle><path d="M12 12v4M10 14c2 0 2-2 2-2"></path>';
+    }
+    if (toolId === 'outdoor_other') {
+        return '<polygon points="12 2 2 9 6 20 18 20 22 9 12 2" stroke-width="1.8"></polygon>';
+    }
     if (toolId === 'door') {
         return '<path d="M18 20V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14"></path><path d="M2 20h20"></path><path d="M14 12v.01"></path>';
     }

@@ -22,6 +22,7 @@ import { Anchor } from './Anchor.js';
 import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 import { PremiumWidget } from './PremiumWidget.js';
 import { PremiumFurniture } from '../../features/furniture/furniture.renderer2d.js';
+import { PremiumOutdoorZone } from './PremiumOutdoorZone.js';
 import { WallSerializer } from '../../features/wall/wall.serializer.js';
 
 import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
@@ -36,7 +37,7 @@ import { PRESET_REGISTRY, autoAlign } from './presetRegistry.js';
 import { PresetGroup } from './PresetGroup.js';
 
 // Export the specific classes that App.vue needs to spawn items
-export { PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding };
+export { PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding, PremiumOutdoorZone };
 
 /**
  * The core orchestrator for the 2D layout engine. Manages application state, entities, rendering layers, and integrations with input sub-systems.
@@ -115,7 +116,7 @@ export class FloorPlanner {
         this.autoAlign = autoAlign;
         
         /** @deprecated Use getter APIs (e.g. getRooms, getStairs) instead of direct array access */
-        this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.arcs = []; this.shapes = []; this.moldings = []; this.presetGroups = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
+        this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.arcs = []; this.shapes = []; this.outdoorZones = []; this.moldings = []; this.presetGroups = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
         this.onSelectionChange = null; 
         this.initKonva(); this.gridSystem = new GridSystem(this); this.gridSystem.setupGrid(); this.initHUD(); 
         this.cameraController = new CameraController(this);
@@ -154,6 +155,7 @@ export class FloorPlanner {
     getRoofs() { return this.roofs; }
     getFurniture() { return this.furniture; }
     getStairs() { return this.stairs; }
+    getOutdoorZones() { return this.outdoorZones || []; }
     
     /**
      * @returns {Array<Object>} All physical entities in the scene
@@ -173,6 +175,7 @@ export class FloorPlanner {
             ...(this.furniture || []),
             ...(this.stairs || []),
             ...(this.shapes || []),
+            ...(this.outdoorZones || []),
             ...(this.arcs || []),
             ...(this.presetGroups || []),
             ...(this.rooms || []),
@@ -192,7 +195,8 @@ export class FloorPlanner {
             walls: this.walls.length,
             furniture: this.furniture.length,
             stairs: this.stairs.length,
-            roofs: this.roofs.length
+            roofs: this.roofs.length,
+            outdoorZones: (this.outdoorZones || []).length
         };
     }
 
@@ -322,6 +326,7 @@ export class FloorPlanner {
         if (this.roofs) this.roofs = this.roofs.filter(r => r !== entity);
         if (this.arcs) this.arcs = this.arcs.filter(a => a !== entity);
         if (this.shapes) this.shapes = this.shapes.filter(s => s !== entity);
+        if (this.outdoorZones) this.outdoorZones = this.outdoorZones.filter(z => z !== entity);
         if (this.presetGroups) this.presetGroups = this.presetGroups.filter(g => g !== entity);
         if (this.rooms) {
             if (this.rooms.includes(entity)) entity.isDeleted = true;
@@ -793,6 +798,7 @@ export class FloorPlanner {
         this.roofs.forEach(r => { if(r.setHighlight) r.setHighlight(false); });
         if (this.balconies) this.balconies.forEach(b => { if(b.setHighlight) b.setHighlight(false); });
         if (this.shapes) this.shapes.forEach(s => { if(s.setHighlight) s.setHighlight(false); });
+        if (this.outdoorZones) this.outdoorZones.forEach(z => { if(z.setHighlight) z.setHighlight(false); });
         if (this.arcs) this.arcs.forEach(a => { if(a.setHighlight) a.setHighlight(false); });
         if (this.presetGroups) this.presetGroups.forEach(pg => { if(pg.setHighlight) pg.setHighlight(false); });
         
@@ -973,9 +979,16 @@ export class FloorPlanner {
                 s.group.setAttr('listening', canEdit || canSplit); 
             } 
         });
+        if (this.outdoorZones) this.outdoorZones.forEach(z => {
+            let canEdit = isSelect || cat === 'floors' || cat === 'floor' || cat === 'outdoor_spaces';
+            if(z.group) {
+                z.group.setAttr('draggable', canEdit);
+                z.group.setAttr('listening', canEdit);
+            }
+        });
 
         // FORCE LAYER LISTENING OFF DURING DRAWING OR RESTRICT BY CATEGORY
-        if (this.baseLayer) { this.baseLayer.listening(allowAll || cat === "shapes" || cat === "structures" || isSplit); }
+        if (this.baseLayer) { this.baseLayer.listening(allowAll || cat === "shapes" || cat === "structures" || cat === "floors" || cat === "floor" || cat === "outdoor_spaces" || isSplit); }
         if (this.wallLayer) { this.wallLayer.listening(allowAll || cat === "common" || cat === "walls" || cat === "doors_windows" || cat === "advance_openings" || cat === "structures" || isWidget || isSplit || isAdvancedOpening || isMolding); }
         if (this.widgetLayer) { this.widgetLayer.listening(allowAll || cat === "doors_windows" || cat === "advance_openings" || cat === "walls" || cat === "structures"); }
         if (this.furnitureLayer) { this.furnitureLayer.listening(allowAll || cat === "furniture" || cat === "shapes" || isSplit); }
@@ -1006,7 +1019,7 @@ export class FloorPlanner {
     }
 
     getOrCreateAnchor(x, y) { let a = this.anchors.find(a => Math.hypot(a.x - x, a.y - y) < SNAP_DIST); if (a) return a; const newAnchor = new Anchor(this, x, y); this.anchors.push(newAnchor); return newAnchor; }
-    deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.roofs.forEach(r => r.setHighlight(false)); if(this.balconies) this.balconies.forEach(b => b.setHighlight(false)); if(this.shapes) this.shapes.forEach(s => s.setHighlight(false)); if(this.presetGroups) this.presetGroups.forEach(pg => { if(pg.setHighlight) pg.setHighlight(false); }); this.selectEntity(null); this.syncAll(); }
+    deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.roofs.forEach(r => r.setHighlight(false)); if(this.balconies) this.balconies.forEach(b => b.setHighlight(false)); if(this.shapes) this.shapes.forEach(s => s.setHighlight(false)); if(this.outdoorZones) this.outdoorZones.forEach(z => { if(z.setHighlight) z.setHighlight(false); }); if(this.presetGroups) this.presetGroups.forEach(pg => { if(pg.setHighlight) pg.setHighlight(false); }); this.selectEntity(null); this.syncAll(); }
     syncAll() {
         this.buildingCenter = null;
         if (this.gridLayer) {
@@ -1134,6 +1147,22 @@ export class FloorPlanner {
                     this.selectEntity(newShape, 'shape');
                     this.syncAll();
                 }, 10);
+            } else if (this.tool && (this.tool.startsWith('outdoor_') || this.tool.startsWith('floor_'))) {
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                this.drawingRoofPoints.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
+                const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+                const relPts = this.drawingRoofPoints.map(p => ({ x: p.x - cx, y: p.y - cy }));
+                const subType = this.tool === 'outdoor_other' ? 'other_space' : this.tool.replace('outdoor_', '');
+                const newZone = new PremiumOutdoorZone(this, 'outdoor_zone', { x: cx, y: cy, points: relPts, subType, height3D: 2 });
+                if (!this.outdoorZones) this.outdoorZones = [];
+                this.outdoorZones.push(newZone);
+
+                this.registerTimeout(() => {
+                    this.tool = 'select'; this.updateToolStates();
+                    if (this.onToolChange) this.onToolChange('select');
+                    this.selectEntity(newZone, 'outdoor_zone');
+                    this.syncAll();
+                }, 10);
             } else {
                 const roof = new PremiumHipRoof(this, this.drawingRoofPoints);
                 roof.config.roofType = this.currentRoofToolType || 'hip';
@@ -1147,6 +1176,24 @@ export class FloorPlanner {
                 }, 10);
             }
         }
+        if (this.drawingOutdoorPoints && !isCancel && this.drawingOutdoorPoints.length > 2) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            this.drawingOutdoorPoints.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
+            const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+            const relPts = this.drawingOutdoorPoints.map(p => ({ x: p.x - cx, y: p.y - cy }));
+            const subType = this.tool === 'outdoor_other' ? 'other_space' : (this.tool && this.tool.startsWith('outdoor_') ? this.tool.replace('outdoor_', '') : 'pavement');
+            const newZone = new PremiumOutdoorZone(this, 'outdoor_zone', { x: cx, y: cy, points: relPts, subType, height3D: 2 });
+            if (!this.outdoorZones) this.outdoorZones = [];
+            this.outdoorZones.push(newZone);
+
+            this.registerTimeout(() => {
+                this.tool = 'select'; this.updateToolStates();
+                if (this.onToolChange) this.onToolChange('select');
+                this.selectEntity(newZone, 'outdoor_zone');
+                this.syncAll();
+            }, 10);
+        }
+        if (this.drawingOutdoorPoints) { this.drawingOutdoorPoints = null; if (this.outdoorPreviewGroup) { this.outdoorPreviewGroup.destroy(); this.outdoorPreviewGroup = null; } else if (this.outdoorPreview) { this.outdoorPreview.destroy(); } this.outdoorPreview = null; }
         if (this.drawingRoofPoints) { this.drawingRoofPoints = null; if (this.roofPreviewGroup) { this.roofPreviewGroup.destroy(); this.roofPreviewGroup = null; } else if (this.roofPreview) { this.roofPreview.destroy(); } this.roofPreview = null; }
         if (this.roofCloseTick) { this.roofCloseTick.destroy(); this.roofCloseTick = null; }
         if (this.drawingArc) { 
@@ -1675,8 +1722,9 @@ export class FloorPlanner {
         if (this.balconies) [...this.balconies].forEach(safeRemove);
         if (this.arcs) [...this.arcs].forEach(safeRemove);
         if (this.shapes) [...this.shapes].forEach(safeRemove);
+        if (this.outdoorZones) [...this.outdoorZones].forEach(safeRemove);
         if (this.shapeTransformer) this.shapeTransformer.nodes([]);
-        this.walls = []; this.furniture = []; this.stairs = []; this.roofs = []; this.balconies = []; this.arcs = []; this.shapes = []; this.roomPaths = [];
+        this.walls = []; this.furniture = []; this.stairs = []; this.roofs = []; this.balconies = []; this.arcs = []; this.shapes = []; this.outdoorZones = []; this.roomPaths = [];
         this.anchors.forEach(a => { if(a.node) a.node.destroy(); }); this.anchors = [];
         if (this.baseLayer) this.baseLayer.destroyChildren();
         if (this.wallLayer) this.wallLayer.destroyChildren(); if (this.furnitureLayer) this.furnitureLayer.destroyChildren(); if (this.widgetLayer) this.widgetLayer.destroyChildren(); if (this.roofLayer) this.roofLayer.destroyChildren();
@@ -1743,6 +1791,7 @@ export class FloorPlanner {
                 params: a.params || (a.walls && a.walls[0] ? a.walls[0].params : null) 
             })) : [],
             shapes: this.shapes ? this.shapes.map(s => ({ type: s.type, x: s.group.x(), y: s.group.y(), rotation: s.rotation, scaleX: s.group.scaleX(), scaleY: s.group.scaleY(), params: s.params, description: s.description })) : [],
+            outdoorZones: this.outdoorZones ? this.outdoorZones.map(z => (typeof z.export === 'function' ? z.export() : (typeof z.toJSON === 'function' ? z.toJSON() : (typeof z.exportState === 'function' ? z.exportState() : z)))) : [],
             rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, configId: r.configId, isHidden: r.isHidden, isDeleted: r.isDeleted, materialRepeat: r.materialRepeat, description: r.description })) : [],
             roomPaths: this.roomPaths ? this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y }))) : [],
             presetGroups: this.presetGroups ? this.presetGroups.map(g => g.export()) : []
@@ -1976,6 +2025,13 @@ export class FloorPlanner {
                     shape.group.scale({ x: sData.scaleX || 1, y: sData.scaleY || 1 });
                     if (sData.description !== undefined) shape.description = sData.description;
                     shape.update(); this.shapes.push(shape);
+                });
+            }
+            if (state.outdoorZones) {
+                if (!this.outdoorZones) this.outdoorZones = [];
+                state.outdoorZones.forEach(zData => {
+                    const zone = new PremiumOutdoorZone(this, 'outdoor_zone', zData);
+                    this.outdoorZones.push(zone);
                 });
             }
             if (state.presetGroups) {

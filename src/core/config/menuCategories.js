@@ -25,6 +25,16 @@ export const getMenuCategories = () => [
         ]
     },
     {
+        id: 'floors', name: 'Floors',
+        icon: '<rect x="3" y="3" width="18" height="18" rx="2" stroke-width="1.8"></rect><path d="M3 9h18M9 21V9" stroke-width="1.8"></path>',
+        tools: [
+            { id: 'outdoor_pavement', name: 'Pavement' },
+            { id: 'outdoor_patio', name: 'Patio' },
+            { id: 'outdoor_softscape', name: 'Softscape' },
+            { id: 'outdoor_other', name: 'Other space' }
+        ]
+    },
+    {
         id: 'doors_windows', name: 'Doors & Windows',
         icon: '<path d="M4 22h16"></path><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"></path><path d="M14 12h2"></path>',
         tools: [

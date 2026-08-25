@@ -443,10 +443,10 @@ export class Preview3D {
             }
         }
 
-        if (entity.type === 'room' || entity.isRoom || entity.path || entity.isFloor) {
-            const configId = entity.configId || entity.params?.texture || entity.params?.material || 'hardwood';
-            const baseConfig = FLOOR_REGISTRY[configId] || MaterialManager.resolveMaterialConfig(configId);
-            const floorMesh = entity.mesh3D || (obj && obj.userData?.isFloor ? obj : null);
+        if (entity.type === 'room' || entity.isRoom || entity.type === 'outdoor_zone' || entity.isOutdoorZone || entity.path || entity.isFloor) {
+            const configId = entity.configId || entity.params?.texture || entity.params?.material || (entity.subType === 'softscape' ? 'grass' : (entity.subType === 'patio' ? 'tile_terracotta_cotto' : 'hardwood'));
+            const baseConfig = FLOOR_REGISTRY[configId] || UniversalMaterialManager.getMaterial(configId) || MaterialManager.resolveMaterialConfig(configId);
+            const floorMesh = entity.mesh3D || (obj && (obj.userData?.isFloor || obj.userData?.isOutdoorZone) ? obj : null);
             if (floorMesh && floorMesh.material) {
                 const config = { ...(baseConfig || { color: 0xd1d5db, roughness: 0.7 }) };
                 if (entity.materialScale) {
@@ -930,7 +930,7 @@ export class Preview3D {
         if (obj.children) [...obj.children].forEach(c => this.deepDispose(c));
     }
 
-    buildScene(walls, rooms, stairs = [], furnitureList = [], roofs = [], shapes = [], levelsConfigArray = [], activeIndex = 0, viewMode3D = 'full-edit', preserveCamera = false) {
+    buildScene(walls, rooms, stairs = [], furnitureList = [], roofs = [], shapes = [], levelsConfigArray = [], activeIndex = 0, viewMode3D = 'full-edit', preserveCamera = false, outdoorZones = []) {
         this.deselectObject();
         this.interactables.length = 0;
         this.viewMode3D = viewMode3D;
@@ -939,6 +939,7 @@ export class Preview3D {
         this.stairs = stairs;
         this.roofs = roofs;
         this.shapes = shapes;
+        this.outdoorZones = outdoorZones;
         this.activeIndex = activeIndex;
         
         while(this.structureGroup.children.length > 0) { 
@@ -985,7 +986,7 @@ export class Preview3D {
 
         if (isActiveVisible) {
             try {
-                this.envBuilder.buildActiveFloor(walls, rooms, shapes, stairs, stairsBelow);
+                this.envBuilder.buildActiveFloor(walls, rooms, shapes, stairs, stairsBelow, outdoorZones || this.outdoorZones || []);
             } catch(e) {
                 console.error("Error building active floor:", e);
             }
