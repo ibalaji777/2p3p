@@ -912,7 +912,15 @@ export class PremiumWall {
         else if (target === 'left') this.params.textureLeft = key;
         else if (target === 'right') this.params.textureRight = key;
         else if (target === 'front') this.params.textureFront = key;
-        else if (target === 'back') this.params.textureBack = key;
+        else if (target === 'back') {
+            this.params.textureBack = key;
+            if (!this.params.textureLeft || this.params.textureLeft === this.params.texture || this.params.textureLeft === this.params.textureSides) {
+                this.params.textureLeft = key;
+            }
+            if (!this.params.textureRight || this.params.textureRight === this.params.texture || this.params.textureRight === this.params.textureSides) {
+                this.params.textureRight = key;
+            }
+        }
         else if (target === 'all' || target === 'sides') {
             this.params.texture = key;
             this.params.textureSides = key;
@@ -934,16 +942,27 @@ export class PremiumWall {
         const wallMesh = this.wallMesh3D || (wallGroup && (wallGroup.userData?.wallMesh || (wallGroup.children ? wallGroup.children.find(c => c.userData?.isWallMesh || (c.isMesh && !c.userData?.isHitbox && !c.userData?.isWallSide && !c.userData?.isDoor && !c.userData?.isWindow && !c.userData?.isFrame && !c.userData?.isGlass && !c.userData?.isHandle)) : null)));
         
         if (wallMesh && wallMesh.isMesh && Array.isArray(wallMesh.material)) {
-            let wIndex = 4;
-            if (target === 'right') wIndex = 0;
-            else if (target === 'left') wIndex = 1;
-            else if (target === 'top') wIndex = 2;
-            else if (target === 'bottom') wIndex = 3;
-            else if (target === 'front') wIndex = 4;
-            else if (target === 'back') wIndex = 5;
+            if (target === 'all' || target === 'sides') {
+                for (let idx = 0; idx < 6; idx++) {
+                    if (newMat) wallMesh.material[idx] = newMat.clone ? newMat.clone() : newMat;
+                }
+            } else if (target === 'back') {
+                if (newMat) {
+                    wallMesh.material[5] = newMat;
+                    wallMesh.material[0] = newMat.clone ? newMat.clone() : newMat;
+                    wallMesh.material[1] = newMat.clone ? newMat.clone() : newMat;
+                }
+            } else {
+                let wIndex = 4;
+                if (target === 'right') wIndex = 0;
+                else if (target === 'left') wIndex = 1;
+                else if (target === 'top') wIndex = 2;
+                else if (target === 'bottom') wIndex = 3;
+                else if (target === 'front') wIndex = 4;
 
-            if (newMat) {
-                wallMesh.material[wIndex] = newMat;
+                if (newMat) {
+                    wallMesh.material[wIndex] = newMat;
+                }
             }
         }
 

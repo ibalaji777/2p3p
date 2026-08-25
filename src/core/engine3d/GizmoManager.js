@@ -1079,7 +1079,15 @@ export class GizmoManager {
                                         
                                         const config = (key && registry[key]) ? registry[key] : (key ? (GLASS_REGISTRY[key] || MARBLE_REGISTRY[key] || STONE_REGISTRY[key] || BRICK_REGISTRY[key] || METAL_REGISTRY[key] || WALL_DECOR_REGISTRY[key]) : null);
                                         if (config) {
-                                            MaterialFactory.applyPBRMaterial(meshToApply, config, this.ctx, effectiveMatIndex);
+                                            if (target === 'all' || target === 'sides') {
+                                                for (let i = 0; i < 6; i++) MaterialFactory.applyPBRMaterial(meshToApply, config, this.ctx, i);
+                                            } else if (target === 'back' && isWallEntity) {
+                                                MaterialFactory.applyPBRMaterial(meshToApply, config, this.ctx, 5);
+                                                MaterialFactory.applyPBRMaterial(meshToApply, config, this.ctx, 0);
+                                                MaterialFactory.applyPBRMaterial(meshToApply, config, this.ctx, 1);
+                                            } else {
+                                                MaterialFactory.applyPBRMaterial(meshToApply, config, this.ctx, effectiveMatIndex);
+                                            }
                                         } else {
                                             newMat.map = null;
                                             let fColor = 0xffffff;
@@ -1088,7 +1096,15 @@ export class GizmoManager {
                                             else if (entity.fasciaMat === 'wood') fColor = 0x8b5a2b;
                                             newMat.color.setHex(fColor);
                                             if (Array.isArray(meshToApply.material)) {
-                                                meshToApply.material[effectiveMatIndex] = newMat;
+                                                if (target === 'all' || target === 'sides') {
+                                                    for (let i = 0; i < 6; i++) meshToApply.material[i] = newMat.clone();
+                                                } else if (target === 'back' && isWallEntity) {
+                                                    meshToApply.material[5] = newMat;
+                                                    meshToApply.material[0] = newMat.clone();
+                                                    meshToApply.material[1] = newMat.clone();
+                                                } else {
+                                                    meshToApply.material[effectiveMatIndex] = newMat;
+                                                }
                                             } else {
                                                 meshToApply.material = newMat;
                                             }

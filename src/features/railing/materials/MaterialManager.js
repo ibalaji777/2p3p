@@ -33,7 +33,7 @@ class RailingMaterialManager {
         } else if (def.type === 'MeshStandardMaterial') {
             material = new THREE.MeshStandardMaterial(def.params);
         } else {
-            material = new THREE.MeshBasicMaterial({ color: 0xff00ff }); // Magenta error fallback
+            material = this.getDefaultMaterial();
         }
 
         this.cache.set(materialId, material);

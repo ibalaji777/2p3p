@@ -41,7 +41,7 @@ export class BIMComponentBuilder {
         
         if (!mat) {
             console.warn(`BIMComponentBuilder: Failed to resolve material for slot '${slot}' on entity ${this.entity.id}.`);
-            mat = new THREE.MeshStandardMaterial({ color: 0xff00ff }); // Magenta error fallback
+            mat = this.helpers?.getDynamicMaterial?.('wood_oak', category) || new THREE.MeshStandardMaterial({ color: 0x8b5a2b });
         }
 
         this.materialCache[slot] = mat;

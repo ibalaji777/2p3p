@@ -719,9 +719,20 @@ export class EnvironmentBuilder {
         finalWallGeo.setAttribute('aWallHeight', new THREE.BufferAttribute(aWallHeight, 1));
 
         for (let i = 0; i < pos.count; i += 3) {
-            const nx = norm.getX(i) + norm.getX(i+1) + norm.getX(i+2);
-            const ny = norm.getY(i) + norm.getY(i+1) + norm.getY(i+2);
-            const nz = norm.getZ(i) + norm.getZ(i+1) + norm.getZ(i+2);
+            const vAx = pos.getX(i), vAy = pos.getY(i), vAz = pos.getZ(i);
+            const vBx = pos.getX(i+1), vBy = pos.getY(i+1), vBz = pos.getZ(i+1);
+            const vCx = pos.getX(i+2), vCy = pos.getY(i+2), vCz = pos.getZ(i+2);
+
+            const abX = vBx - vAx, abY = vBy - vAy, abZ = vBz - vAz;
+            const acX = vCx - vAx, acY = vCy - vAy, acZ = vCz - vAz;
+            const crX = abY * acZ - abZ * acY;
+            const crY = abZ * acX - abX * acZ;
+            const crZ = abX * acY - abY * acX;
+            const len = Math.hypot(crX, crY, crZ);
+            
+            const nx = len > 1e-6 ? crX / len : 0;
+            const ny = len > 1e-6 ? crY / len : 0;
+            const nz = len > 1e-6 ? crZ / len : 0;
             const absX = Math.abs(nx);
             const absY = Math.abs(ny);
             const absZ = Math.abs(nz);
@@ -1642,9 +1653,20 @@ export class EnvironmentBuilder {
                         finalWallGeo.computeVertexNormals();
 
                         for (let i = 0; i < finalPos.count; i += 3) {
-                            const nx = finalNorm.getX(i) + finalNorm.getX(i+1) + finalNorm.getX(i+2);
-                            const ny = finalNorm.getY(i) + finalNorm.getY(i+1) + finalNorm.getY(i+2);
-                            const nz = finalNorm.getZ(i) + finalNorm.getZ(i+1) + finalNorm.getZ(i+2);
+                            const vAx = finalPos.getX(i), vAy = finalPos.getY(i), vAz = finalPos.getZ(i);
+                            const vBx = finalPos.getX(i+1), vBy = finalPos.getY(i+1), vBz = finalPos.getZ(i+1);
+                            const vCx = finalPos.getX(i+2), vCy = finalPos.getY(i+2), vCz = finalPos.getZ(i+2);
+
+                            const abX = vBx - vAx, abY = vBy - vAy, abZ = vBz - vAz;
+                            const acX = vCx - vAx, acY = vCy - vAy, acZ = vCz - vAz;
+                            const crX = abY * acZ - abZ * acY;
+                            const crY = abZ * acX - abX * acZ;
+                            const crZ = abX * acY - abY * acX;
+                            const len = Math.hypot(crX, crY, crZ);
+                            
+                            const nx = len > 1e-6 ? crX / len : 0;
+                            const ny = len > 1e-6 ? crY / len : 0;
+                            const nz = len > 1e-6 ? crZ / len : 0;
                             const absX = Math.abs(nx);
                             const absY = Math.abs(ny);
                             const absZ = Math.abs(nz);
