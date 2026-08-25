@@ -1,5 +1,6 @@
 import { EVENTS, offsetPolygon } from '../../core/registry.js';
 import { coreEventBus } from '../../core/EventBus.js';
+import { getStairCutoutPolygon } from '../stairs/stairs.renderer2d.js';
 import Konva from 'konva';
 
 export class PremiumHipRoof {
@@ -117,8 +118,8 @@ export class PremiumHipRoof {
         this.group.on('mouseleave', () => document.body.style.cursor = 'default');
         
         this.group.on('mousedown touchstart', (e) => { 
-            this.group.moveToTop(); 
             if (this.planner.tool !== 'select') return; 
+            this.group.moveToTop(); 
             e.cancelBubble = true; 
             if (e.evt) e.evt.stopPropagation();
             if (this.parentGroup) {
@@ -334,7 +335,54 @@ export class PremiumHipRoof {
         const ridgeStroke = '#334155'; // Dark slate for ridges and diagonals
         const hatchStroke = 'rgba(51, 65, 85, 0.2)'; // Subtle slate for hatching
 
-        if (this.config.roofType === 'gable') {
+        if (this.config.roofType === 'flat') {
+            // Flat Roof: Render stair cut references directly on the flat roof slab
+            const allStairs = [
+                ...(this.planner.stairs || []),
+                ...(this.planner.referenceFloorData?.stairs || [])
+            ];
+            
+            allStairs.forEach(stair => {
+                const worldPts = getStairCutoutPolygon(stair);
+                if (worldPts && worldPts.length > 0) {
+                    const gx = this.group.x() || 0;
+                    const gy = this.group.y() || 0;
+
+                    const rotatedPts = worldPts.map(p => ({
+                        x: p.x - gx,
+                        y: p.y - gy
+                    }));
+                    const flatStairPts = rotatedPts.flatMap(p => [p.x, p.y]);
+
+                    // Render high-contrast red dashed stair cut opening directly on the flat roof
+                    this.hipLinesGroup.add(new Konva.Line({
+                        points: flatStairPts,
+                        fill: 'rgba(239, 68, 68, 0.25)',
+                        stroke: '#ef4444',
+                        strokeWidth: 3,
+                        dash: [8, 4],
+                        closed: true,
+                        lineJoin: 'round'
+                    }));
+
+                    // Add diagonal cross void indicator inside the stair cutout
+                    if (rotatedPts.length >= 4) {
+                        this.hipLinesGroup.add(new Konva.Line({
+                            points: [rotatedPts[0].x, rotatedPts[0].y, rotatedPts[2].x, rotatedPts[2].y],
+                            stroke: '#ef4444',
+                            strokeWidth: 1.5,
+                            dash: [4, 4]
+                        }));
+                        this.hipLinesGroup.add(new Konva.Line({
+                            points: [rotatedPts[1].x, rotatedPts[1].y, rotatedPts[3].x, rotatedPts[3].y],
+                            stroke: '#ef4444',
+                            strokeWidth: 1.5,
+                            dash: [4, 4]
+                        }));
+                    }
+                }
+            });
+        } else if (this.config.roofType === 'gable') {
             const width = (this.config.ridgeAxis === 'y') ? (maxX - minX) : (maxY - minY);
             const H = (width / 2) * Math.tan((this.config.pitch || 30) * Math.PI / 180);
 
@@ -361,13 +409,12 @@ export class PremiumHipRoof {
                     this.hipLinesGroup.add(new Konva.Line({ points: [cx + offset, minY, cx + offset, maxY], stroke: hatchStroke, strokeWidth: 1 }));
                 }
 
-                this.hipLinesGroup.add(new Konva.Line({ points: [topPeakX, minY, botPeakX, maxY], stroke: ridgeStroke, strokeWidth: 2 })); 
+                this.hipLinesGroup.add(new Konva.Line({ points: [topPeakX, minY, botPeakX, maxY], stroke: ridgeStroke, strokeWidth: 2 }));
                 
                 // Top Slope Wall Profile (Inward)
                 this.addHatchedTriangle({x: minX, y: minY}, {x: topPeakX, y: minY + H}, {x: maxX, y: minY});
                 // Bottom Slope Wall Profile (Inward)
                 this.addHatchedTriangle({x: minX, y: maxY}, {x: botPeakX, y: maxY - H}, {x: maxX, y: maxY});
-
             } else {
                 const leftPts = pts.filter(p => p.x < cx);
                 const rightPts = pts.filter(p => p.x >= cx);

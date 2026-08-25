@@ -91,7 +91,10 @@ export class PremiumShape {
         this.group.add(this.shape);
         this.group.add(this.sealHighlight);
         this.group.add(this.rotHandle);
-        if (this.planner.baseLayer) {
+        if (this.type === 'shape_floor_cut' && this.planner.roofLayer) {
+            this.planner.roofLayer.add(this.group);
+            this.group.moveToTop();
+        } else if (this.planner.baseLayer) {
             this.planner.baseLayer.add(this.group);
         } else {
             this.planner.furnitureLayer.add(this.group);

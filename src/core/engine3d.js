@@ -641,6 +641,11 @@ export class Preview3D {
                         edgesMesh.geometry = new THREE.EdgesGeometry(obj.geometry);
                     }
                     this.rebuildActiveFloors();
+                    if (this.envBuilder && this.roofs && this.roofs.length > 0) {
+                        const currentRoofMeshes = this.structureGroup.children.filter(c => c.userData && c.userData.isRoof);
+                        currentRoofMeshes.forEach(m => { this.deepDispose(m); this.structureGroup.remove(m); });
+                        this.envBuilder.buildRoofs(this.roofs, this.activeIndex || 0, this.walls || [], this.structureGroup, this.shapes || this.planner?.shapes || []);
+                    }
                 } else {
                     obj.geometry = new THREE.ExtrudeGeometry(shape2d, { depth: h, bevelEnabled: false });
                     obj.geometry.rotateX(Math.PI / 2);
@@ -847,6 +852,12 @@ export class Preview3D {
         this.deselectObject();
         this.interactables.length = 0;
         this.viewMode3D = viewMode3D;
+        this.walls = walls;
+        this.rooms = rooms;
+        this.stairs = stairs;
+        this.roofs = roofs;
+        this.shapes = shapes;
+        this.activeIndex = activeIndex;
         
         while(this.structureGroup.children.length > 0) { 
             const c = this.structureGroup.children[0]; 
@@ -894,7 +905,7 @@ export class Preview3D {
             this.envBuilder.buildActiveFloor(walls, rooms, shapes, stairs, stairsBelow);
             if (furnitureList) furnitureList.forEach(furn => this.furnitureManager.load(furn));
 
-            if (roofs && roofs.length > 0) this.envBuilder.buildRoofs(roofs, activeIndex, walls, this.structureGroup);
+            if (roofs && roofs.length > 0) this.envBuilder.buildRoofs(roofs, activeIndex, walls, this.structureGroup, shapes);
             if (shapes && shapes.length > 0) this.envBuilder.buildShapes(shapes);
         }
 

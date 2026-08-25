@@ -3,7 +3,7 @@ import { WALL_REGISTRY, MOLDING_REGISTRY, WIDGET_REGISTRY, SNAP_DIST } from '../
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 import Konva from 'konva';
-import { PremiumStaircase } from '../../features/stairs/stairs.renderer2d.js';
+import { PremiumStaircase, getStairCutoutPolygon } from '../../features/stairs/stairs.renderer2d.js';
 import { PremiumShape } from './PremiumShape.js';
 import { Railing } from '../../features/railing/objects/Railing.js';
 import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
@@ -26,7 +26,7 @@ export function setupDrawingEvents(planner) {
         planner.__executePointerDownLogic = (e, pos, isTouch) => {
             if (planner.gestureManager && planner.gestureManager.isActive()) return;
  
-            if (planner.tool === 'roof') {
+            if (planner.tool === 'roof' || planner.tool === 'shape_floor_cut') {
                 planner._executeRoofPointerDownLogic(pos);
                 return;
             }
@@ -466,6 +466,24 @@ export function setupDrawingEvents(planner) {
                         }
                     }
                 }
+                
+                // Snap directly to staircase cutout references
+                let allStairsToSnap = [
+                    ...(planner.stairs || []),
+                    ...(planner.referenceFloorData?.stairs || [])
+                ];
+                if (allStairsToSnap.length > 0) {
+                    for (let stair of allStairsToSnap) {
+                        let pts = getStairCutoutPolygon(stair);
+                        for (let i = 0; i < pts.length; i++) {
+                            let p1 = pts[i], p2 = pts[(i+1)%pts.length];
+                            if (Math.hypot(pos.x - p1.x, pos.y - p1.y) < closestDist) { closestDist = Math.hypot(pos.x - p1.x, pos.y - p1.y); snap = {x: p1.x, y: p1.y}; }
+                            let proj = planner.getClosestPointOnSegment(pos, p1, p2);
+                            let distSeg = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                            if (distSeg < closestDist) { closestDist = distSeg; snap = proj; }
+                        }
+                    }
+                }
             }
 
             // ADD WALL SNAPPING TO MOUSEDOWN
@@ -619,6 +637,24 @@ export function setupDrawingEvents(planner) {
                                 
                                 let nx = pts[(i+2)%pts.length], ny = pts[(i+3)%pts.length];
                                 let proj = planner.getClosestPointOnSegment(pos, {x: cx, y: cy}, {x: nx, y: ny});
+                                let distSeg = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                                if (distSeg < closestDist) { closestDist = distSeg; snap = proj; snappedObj = true; }
+                            }
+                        }
+                    }
+                    
+                    // Snap directly to staircase cutout references during mousemove
+                    let allStairsToSnap = [
+                        ...(planner.stairs || []),
+                        ...(planner.referenceFloorData?.stairs || [])
+                    ];
+                    if (allStairsToSnap.length > 0) {
+                        for (let stair of allStairsToSnap) {
+                            let pts = getStairCutoutPolygon(stair);
+                            for (let i = 0; i < pts.length; i++) {
+                                let p1 = pts[i], p2 = pts[(i+1)%pts.length];
+                                if (Math.hypot(pos.x - p1.x, pos.y - p1.y) < closestDist) { closestDist = Math.hypot(pos.x - p1.x, pos.y - p1.y); snap = {x: p1.x, y: p1.y}; snappedObj = true; }
+                                let proj = planner.getClosestPointOnSegment(pos, p1, p2);
                                 let distSeg = Math.hypot(pos.x - proj.x, pos.y - proj.y);
                                 if (distSeg < closestDist) { closestDist = distSeg; snap = proj; snappedObj = true; }
                             }

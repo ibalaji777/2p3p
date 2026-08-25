@@ -7,9 +7,10 @@ export class Roof3DBuilder {
         this.ctx = ctx;
     }
 
-    buildRoofs(roofs, activeIndex, walls, targetGroup) {
+    buildRoofs(roofs, activeIndex, walls, targetGroup, shapes = null) {
         if (!roofs || roofs.length === 0) return;
         
+        const shapeList = shapes || (this.ctx && this.ctx.shapes) || (this.ctx && this.ctx.planner && this.ctx.planner.shapes) || [];
         const hasWalls = walls && walls.length > 0;
         let maxWallHeight = WALL_HEIGHT;
         if (hasWalls) {
@@ -128,6 +129,48 @@ export class Roof3DBuilder {
                 shape.moveTo(pts[0].x, pts[0].y);
                 for (let i = 1; i < pts.length; i++) shape.lineTo(pts[i].x, pts[i].y);
                 shape.lineTo(pts[0].x, pts[0].y);
+
+                if (shapeList && shapeList.length > 0) {
+                    const floorCuts = shapeList.filter(s => s.type === 'shape_floor_cut');
+                    floorCuts.forEach(s => {
+                        const rot = (s.group ? s.group.rotation() : (s.rotation || 0)) * Math.PI / 180;
+                        const sx = s.group ? s.group.x() : (s.x || s.params?.x || 0);
+                        const sy = s.group ? s.group.y() : (s.y || s.params?.y || 0);
+                        let sPts = s.params?.points;
+                        if (!sPts || sPts.length < 3) {
+                            const w = s.params?.width || s.width || 100;
+                            const h = s.params?.height || s.height || 100;
+                            sPts = [ { x: -w/2, y: -h/2 }, { x: w/2, y: -h/2 }, { x: w/2, y: h/2 }, { x: -w/2, y: h/2 } ];
+                        }
+                        const rotC = sPts.map(c => ({
+                            x: sx + (c.x * Math.cos(rot) - c.y * Math.sin(rot)),
+                            y: sy + (c.x * Math.sin(rot) + c.y * Math.cos(rot))
+                        }));
+
+                        let minRx = Infinity, maxRx = -Infinity, minRy = Infinity, maxRy = -Infinity;
+                        pts.forEach(p => {
+                            if (p.x < minRx) minRx = p.x; if (p.x > maxRx) maxRx = p.x;
+                            if (p.y < minRy) minRy = p.y; if (p.y > maxRy) maxRy = p.y;
+                        });
+                        let minHx = Infinity, maxHx = -Infinity, minHy = Infinity, maxHy = -Infinity;
+                        rotC.forEach(p => {
+                            if (p.x < minHx) minHx = p.x; if (p.x > maxHx) maxHx = p.x;
+                            if (p.y < minHy) minHy = p.y; if (p.y > maxHy) maxHy = p.y;
+                        });
+
+                        if (!(maxRx <= minHx || minRx >= maxHx || maxRy <= minHy || minRy >= maxHy)) {
+                            const roofIsCW = THREE.ShapeUtils.isClockWise(pts);
+                            const holeIsCW = THREE.ShapeUtils.isClockWise(rotC);
+                            const finalHolePts = (roofIsCW === holeIsCW) ? [...rotC].reverse() : rotC;
+
+                            const hole = new THREE.Path();
+                            hole.moveTo(finalHolePts[0].x, finalHolePts[0].y);
+                            for (let i = 1; i < finalHolePts.length; i++) hole.lineTo(finalHolePts[i].x, finalHolePts[i].y);
+                            hole.lineTo(finalHolePts[0].x, finalHolePts[0].y);
+                            shape.holes.push(hole);
+                        }
+                    });
+                }
                 
                 const geo = new THREE.ExtrudeGeometry(shape, { depth: conf.thickness || 2, bevelEnabled: false });
                 geo.rotateX(Math.PI / 2);

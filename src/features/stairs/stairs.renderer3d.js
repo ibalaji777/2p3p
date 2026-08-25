@@ -10,7 +10,7 @@ export class Stair3DBuilder {
         this.assets = assets;
         this.interactables = interactables;
         this.helpers = helpers;
-        this.defaultMat = new THREE.MeshStandardMaterial({ color: 0xff00ff, roughness: 0.8 }); // Magenta error material
+        this.defaultMat = (helpers && helpers.getDynamicMaterial) ? helpers.getDynamicMaterial('wood_oak', 'staircase') : new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.7 });
     }
 
     getTexture(url, repeatX = 1, repeatY = 1) {
@@ -35,10 +35,26 @@ export class Stair3DBuilder {
             const group = new THREE.Group();
             
             const getMat = (slotId) => {
-                const matId = stair.materials?.[slotId]?.id;
-                let mat = this.defaultMat;
-                if (matId && this.helpers && this.helpers.getDynamicMaterial) {
-                    mat = this.helpers.getDynamicMaterial(matId, 'staircase') || this.defaultMat;
+                let matId = stair.materials?.[slotId]?.id;
+                if (!matId && typeof stair.materials?.[slotId] === 'string') {
+                    matId = stair.materials[slotId];
+                }
+                if (!matId) {
+                    if (slotId === 'treads') matId = stair.treadMaterial || stair.primaryMaterial || 'wood_oak';
+                    else if (slotId === 'risers') matId = stair.riserMaterial || stair.primaryMaterial || 'wood_oak';
+                    else if (slotId === 'landings') matId = stair.landingMaterial || stair.primaryMaterial || 'wood_oak';
+                    else if (slotId === 'stringers') matId = stair.structureMaterial || stair.primaryMaterial || 'wood_oak';
+                }
+                if (!matId || matId === 'default') {
+                    matId = stair.primaryMaterial || 'wood_oak';
+                }
+
+                let mat = null;
+                if (this.helpers && this.helpers.getDynamicMaterial) {
+                    mat = this.helpers.getDynamicMaterial(matId, 'staircase');
+                }
+                if (!mat) {
+                    mat = this.helpers?.getDynamicMaterial?.('wood_oak', 'staircase') || this.defaultMat;
                 }
                 // Clone to ensure each slot has a unique material instance to prevent cross-highlighting
                 if (Array.isArray(mat)) {
@@ -374,7 +390,7 @@ export class Stair3DBuilder {
 
                         if (stringerType === 'mono') buildBeam(0);
                         else if (stringerType === 'double') { buildBeam(width/2 - bOffset); buildBeam(-width/2 + bOffset); }
-                        else if (stringerType === 'side') { buildBeam(width/2 + sWidth/2); buildBeam(-width/2 - sWidth/2); }
+                        else if (stringerType === 'side') { buildBeam(width/2 - sWidth/2); buildBeam(-width/2 + sWidth/2); }
                         else if (stringerType === 'box') { buildBeam(0, width); }
                     }
 
@@ -455,6 +471,7 @@ export class Stair3DBuilder {
                         landingMesh.castShadow = true; landingMesh.receiveShadow = true;
                         group.add(landingMesh);
                         
+                        const frameThick = 5;
                         const frameGeo = new THREE.BoxGeometry(lw, sThick, lh);
                         const frameMesh = new THREE.Mesh(frameGeo, structureMat);
                         frameMesh.name = 'stringer_frame';
@@ -463,11 +480,11 @@ export class Stair3DBuilder {
                         group.add(frameMesh);
                         
                         if (hasLandingSupports) {
-                            const colSize = 10;
+                            const colSize = 8;
                             const colHeight = topHeight - plateThick - sThick;
                             if (colHeight > 0) {
-                                const cx = [x - lw/2 + colSize, x + lw/2 - colSize];
-                                const cz = [z - lh/2 + colSize, z + lh/2 - colSize];
+                                const cx = [x - lw/2 + colSize * 1.5, x + lw/2 - colSize * 1.5];
+                                const cz = [z - lh/2 + colSize * 1.5, z + lh/2 - colSize * 1.5];
                                 for (let ci of cx) {
                                     for (let cj of cz) {
                                         const colGeo = new THREE.BoxGeometry(colSize, colHeight, colSize);

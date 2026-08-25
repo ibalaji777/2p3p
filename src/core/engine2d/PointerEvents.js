@@ -13,7 +13,7 @@ export function setupPointerEvents(planner) {
             const isTouch = e.evt && (e.evt.touches || e.evt.pointerType === 'touch');
             
             if (isTouch && e.type === 'touchstart') {
-                const isWallTool = ['outer', 'inner', 'railing', 'roof'].includes(planner.tool);
+                const isWallTool = ['outer', 'inner', 'railing', 'roof', 'shape_floor_cut'].includes(planner.tool);
                 if (isWallTool) {
                     if (planner.gestureManager && planner.gestureManager.isActive()) return;
                     const clonedPos = planner.getPointerPos(e);
@@ -74,7 +74,7 @@ export function setupPointerEvents(planner) {
             if (e.evt && e.evt.touches && e.evt.touches.length > 1) return;
             if (planner.gestureManager && planner.gestureManager.isActive()) return;
             
-            const isWallTool = ['outer', 'inner', 'railing', 'roof'].includes(planner.tool);
+            const isWallTool = ['outer', 'inner', 'railing', 'roof', 'shape_floor_cut'].includes(planner.tool);
             if (_isTouchMove && isWallTool && (planner.mobileDrawState === 'ChainWaiting' || planner.mobileIsPanning)) return;
 
             if (e.target === planner.stage || e.target === planner.bgLayer || e.target === planner.mainLayer) {
@@ -84,6 +84,7 @@ export function setupPointerEvents(planner) {
 
             let pos = planner.getPointerPos(e);
             if (!pos) return;
+            if (planner.tool === 'roof' || planner.tool === 'shape_floor_cut') return;
             let rawPos = { x: planner.snap(pos.x), y: planner.snap(pos.y) };
             // Smart Snapping Edge-Specific Highlight for Placement Tools
             const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(planner.tool);
