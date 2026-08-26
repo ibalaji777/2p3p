@@ -18,6 +18,8 @@ export const EVENTS = {
     ROOF_OVERHANG_GIZMO_END: 'roof-overhang-gizmo-end',
     VERTEX_SLOPE_GIZMO_END: 'vertex-slope-gizmo-end',
     POLYGON_GIZMO_END: 'polygon-gizmo-end',
+    WALL_PUSH_PULL_CHANGE: 'wall-push-pull-change',
+    WALL_PUSH_PULL_END: 'wall-push-pull-end',
     MATERIAL_GIZMO_APPLY: 'material-gizmo-apply',
     MATERIAL_GIZMO_SELECT: 'material-gizmo-select'
 };

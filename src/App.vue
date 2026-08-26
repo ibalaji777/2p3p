@@ -603,6 +603,7 @@ onMounted(() => {
     window.addEventListener('resize', handleResize);
     planner.value = new FloorPlanner(canvasWorkspaceRef.value.canvas2D);
     window.planner = planner.value; // Expose for Automation API testing
+    window.plannerInstance = planner.value;
     planner.value.activeCategory = activeCategory.value;
     planner.value.loadDefaultHouse();
 
@@ -617,10 +618,18 @@ onMounted(() => {
     wizardManager.value.enablePlugins(['smart_facing', 'smart_wall_resize']);
     
     planner.value.onSelectionChange = (entity, type, nodeIdx = -1) => {
-        selectedEntity.value = entity; selectedType.value = type; selectedNodeIndex.value = nodeIdx;
+        if (selectedEntity.value !== entity) selectedEntity.value = entity;
+        if (selectedType.value !== type) selectedType.value = type;
+        selectedNodeIndex.value = nodeIdx;
+
         if (viewMode.value === '3d' && renderer3D.value) {
-            if (type === 'furniture' && entity && entity.mesh3D) renderer3D.value.selectObject(entity.mesh3D);
-            else renderer3D.value.deselectObject();
+            if (type === 'furniture' && entity && entity.mesh3D) {
+                if (renderer3D.value.interactions?.selectedObject !== entity.mesh3D) {
+                    renderer3D.value.selectObject(entity.mesh3D);
+                }
+            } else if (!entity && renderer3D.value.interactions?.selectedObject) {
+                renderer3D.value.deselectObject();
+            }
         }
 
         if (entity) {
@@ -662,7 +671,9 @@ onMounted(() => {
     };
     
     renderer3D.value.onEntityTransform = () => { uiTrigger.value++; };
-    renderer3D.value.onRelocateStateChange = (state) => { isPlacing3D.value = state; };
+    renderer3D.value.onRelocateStateChange = (state) => {
+        if (isPlacing3D.value !== state) isPlacing3D.value = state;
+    };
     
     renderer3D.value.onLevelSwitchRequest = (targetIndex, entityIndex, entityType) => { 
         if (viewMode3D.value === 'full-edit') return;
@@ -706,6 +717,9 @@ onMounted(() => {
     eventBusUnsubscribers.push(coreEventBus.on(EVENTS.ROOF_OVERHANG_GIZMO_END, syncEngine));
     eventBusUnsubscribers.push(coreEventBus.on(EVENTS.VERTEX_SLOPE_GIZMO_END, syncEngine));
     eventBusUnsubscribers.push(coreEventBus.on(EVENTS.POLYGON_GIZMO_END, syncEngine));
+    eventBusUnsubscribers.push(coreEventBus.on(EVENTS.WALL_PUSH_PULL_END, () => {
+        refresh3DScene(true);
+    }));
     eventBusUnsubscribers.push(coreEventBus.on(EVENTS.MATERIAL_GIZMO_APPLY, syncEngine));
     
     eventBusUnsubscribers.push(coreEventBus.on(EVENTS.MATERIAL_GIZMO_SELECT, (data) => {

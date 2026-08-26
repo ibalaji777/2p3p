@@ -163,6 +163,13 @@ export class GizmoManager {
         this.btnPolygonEdges.title = 'Adjust Shape Cut';
         this.btnPolygonEdges.style.display = 'none';
         this.btnPolygonEdges.onclick = () => this.setTransformMode('polygon_edges');
+
+        this.btnPushPull = document.createElement('button');
+        this.btnPushPull.innerHTML = '↔<br>Push/Pull';
+        this.btnPushPull.className = 'transform-menu-btn';
+        this.btnPushPull.title = 'Push / Pull Wall (Resize Room)';
+        this.btnPushPull.style.display = 'none';
+        this.btnPushPull.onclick = () => this.setTransformMode('wall_push_pull');
         
         this.openingPanel = document.createElement('div');
         this.openingPanel.style.display = 'none';
@@ -647,6 +654,7 @@ export class GizmoManager {
         this.transformMenu.appendChild(this.btnRoofCorners);
         this.transformMenu.appendChild(this.btnRoofOverhang);
         this.transformMenu.appendChild(this.btnPolygonEdges);
+        this.transformMenu.appendChild(this.btnPushPull);
         
         this.btnCloseMenu = document.createElement('button');
         this.btnCloseMenu.className = 'transform-menu-btn';
@@ -2948,6 +2956,7 @@ export class GizmoManager {
         if (this.btnStyle) this.btnStyle.classList.remove('active');
         if (this.btnCorner) this.btnCorner.classList.remove('active');
         if (this.btnPolygonEdges) this.btnPolygonEdges.classList.remove('active');
+        if (this.btnPushPull) this.btnPushPull.classList.remove('active');
 
         if (this.ctx.interactions.openingGizmo) {
             this.ctx.interactions.openingGizmo.detach();
@@ -2966,6 +2975,9 @@ export class GizmoManager {
         }
         if (this.ctx.interactions.polygonGizmo) {
             this.ctx.interactions.polygonGizmo.detach();
+        }
+        if (this.ctx.interactions.wallPushPullGizmo) {
+            this.ctx.interactions.wallPushPullGizmo.detach();
         }
         if (this.ctx.interactions.materialGizmo && mode !== 'material') {
             this.ctx.interactions.materialGizmo.detach();
@@ -3054,6 +3066,7 @@ export class GizmoManager {
             if (this.btnRoofCorners) this.btnRoofCorners.style.display = activeGizmos.includes('roofCorners') ? 'flex' : 'none';
             if (this.btnRoofOverhang) this.btnRoofOverhang.style.display = activeGizmos.includes('roofCorners') ? 'flex' : 'none';
             if (this.btnPolygonEdges) this.btnPolygonEdges.style.display = activeGizmos.includes('polygonEdges') ? 'flex' : 'none';
+            if (this.btnPushPull) this.btnPushPull.style.display = activeGizmos.includes('pushPull') ? 'flex' : 'none';
             if (this.btnCloseMenu) this.btnCloseMenu.style.display = 'flex';
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
@@ -3117,6 +3130,7 @@ export class GizmoManager {
         if (this.btnRoofCorners) this.btnRoofCorners.style.display = 'none';
         if (this.btnRoofOverhang) this.btnRoofOverhang.style.display = 'none';
         if (this.btnPolygonEdges) this.btnPolygonEdges.style.display = 'none';
+        if (this.btnPushPull) this.btnPushPull.style.display = 'none';
         if (this.btnCloseMenu) this.btnCloseMenu.style.display = 'none';
         if (this.btnDone) this.btnDone.style.display = 'flex';
 
@@ -3257,6 +3271,21 @@ export class GizmoManager {
             if (this.stylePanel) this.stylePanel.style.display = 'none';
             if (this.ctx.interactions.polygonGizmo && selectedObj) {
                 this.ctx.interactions.polygonGizmo.attach(selectedObj);
+            }
+            return;
+        }
+
+        if (mode === 'wall_push_pull' || mode === 'pushPull') {
+            tc.visible = false;
+            tc.enabled = false;
+            if (this.btnPushPull) this.btnPushPull.classList.add('active');
+            if (this.xyPanel) this.xyPanel.style.display = 'none';
+            if (this.openingPanel) this.openingPanel.style.display = 'none';
+            if (this.materialPanel) this.materialPanel.style.display = 'none';
+            if (this.cornerPanel) this.cornerPanel.style.display = 'none';
+            if (this.stylePanel) this.stylePanel.style.display = 'none';
+            if (this.ctx.interactions.wallPushPullGizmo && selectedObj) {
+                this.ctx.interactions.wallPushPullGizmo.attach(selectedObj);
             }
             return;
         }

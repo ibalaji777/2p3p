@@ -10,6 +10,7 @@ import { VertexSlopeGizmo } from '../../features/roof/VertexSlopeGizmo.js';
 import { RoofCornerGizmo } from '../../features/roof/RoofCornerGizmo.js';
 import { RoofOverhangGizmo } from '../../features/roof/RoofOverhangGizmo.js';
 import { PolygonGizmo } from './PolygonGizmo.js';
+import { WallPushPullGizmo } from './WallPushPullGizmo.js';
 import { SelectionManager } from './SelectionManager.js';
 import { HighlightRenderer } from './HighlightRenderer.js';
 import { DimensionManager3D } from './dimensions/DimensionManager3D.js';
@@ -444,6 +445,9 @@ export class InteractionSystem {
         this.polygonGizmo = new PolygonGizmo(ctx);
         this.ctx.scene.add(this.polygonGizmo);
 
+        this.wallPushPullGizmo = new WallPushPullGizmo(ctx);
+        this.ctx.scene.add(this.wallPushPullGizmo);
+
         this.initEvents();
     }
 
@@ -494,6 +498,9 @@ export class InteractionSystem {
                 if (this.polygonGizmo && this.polygonGizmo.visible) {
                     if (this.raycaster.intersectObjects(this.polygonGizmo.edgeHandles.children, true).length > 0) return;
                     if (this.raycaster.intersectObjects(this.polygonGizmo.cornerHandles.children, true).length > 0) return;
+                }
+                if (this.wallPushPullGizmo && this.wallPushPullGizmo.visible) {
+                    if (this.raycaster.intersectObjects(this.wallPushPullGizmo.handles.children, true).length > 0) return;
                 }
                 
                 const intersects = this.raycaster.intersectObjects(this.ctx.interactables, true);
@@ -720,74 +727,95 @@ export class InteractionSystem {
     }
 
     selectObject(object, intersect = null) {
-        if (this.selectedObject) {
-            this.setHighlight(this.selectedObject, false);
+        if (!object) {
+            this.deselect();
+            return;
         }
-        if (this.transformControls) this.transformControls.detach();
-        if (this.highlightRenderer) this.highlightRenderer.clearAll();
+        if (this.selectedObject === object) return;
+        if (this._isSelecting) return;
+        this._isSelecting = true;
 
-        this.selectedObject = object;
-        let type = null, side = null;
+        try {
+            if (this.selectedObject) {
+                this.setHighlight(this.selectedObject, false);
+            }
+            if (this.transformControls) this.transformControls.detach();
+            if (this.highlightRenderer) this.highlightRenderer.clearAll();
 
-        // SOLID OCP: Delegate to the centralized Selection Manager
-        const result = this.selectionManager.select(object);
-        if (result) {
-            type = result.type;
-            side = result.side;
-        }
+            this.selectedObject = object;
+            let type = null, side = null;
 
-        console.info(`%c[InteractionSystem] %cSelected: %c${type || 'Unknown'} %c(Entity ID: ${object.userData?.entity?.id || 'N/A'})`, 
-            'color: #3b82f6; font-weight: bold;', 'color: #9ca3af;', 'color: #10b981; font-weight: bold;', 'color: #6b7280;');
+            // SOLID OCP: Delegate to the centralized Selection Manager
+            const result = this.selectionManager.select(object);
+            if (result) {
+                type = result.type;
+                side = result.side;
+            }
 
-        if (this.dimensionManager) this.dimensionManager.onSelect(object.userData.entity, object);
+            console.info(`%c[InteractionSystem] %cSelected: %c${type || 'Unknown'} %c(Entity ID: ${object.userData?.entity?.id || 'N/A'})`, 
+                'color: #3b82f6; font-weight: bold;', 'color: #9ca3af;', 'color: #10b981; font-weight: bold;', 'color: #6b7280;');
 
-        if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
-        if (window.plannerInstance && object.userData.entity) {
-            window.plannerInstance.selectEntity(object.userData.entity, type);
-        }
-        
-        const settings = useSettingsStore().floorPlanSettings;
-        const shouldAutoFocus = settings.autoFocus !== false; // default true
-        const shouldAutoRotate = settings.autoRotate !== false; // default true
+            if (this.dimensionManager) this.dimensionManager.onSelect(object.userData.entity, object);
 
-        // Auto focus the camera on the selected object
-        if (this.ctx.cameraController && object && shouldAutoFocus) {
-            this.ctx.cameraController.focusOnObject(object, intersect, shouldAutoRotate);
-        }
+            if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
+            if (window.plannerInstance && object.userData.entity && window.plannerInstance.selectedEntity !== object.userData.entity) {
+                window.plannerInstance.selectEntity(object.userData.entity, type);
+            }
+            
+            const settings = useSettingsStore().floorPlanSettings;
+            const shouldAutoFocus = settings.autoFocus !== false; // default true
+            const shouldAutoRotate = settings.autoRotate !== false; // default true
 
-        if (this.ctx && typeof this.ctx.requestRender === 'function') {
-            this.ctx.requestRender();
+            // Auto focus the camera on the selected object
+            if (this.ctx.cameraController && object && shouldAutoFocus) {
+                this.ctx.cameraController.focusOnObject(object, intersect, shouldAutoRotate);
+            }
+
+            if (this.ctx && typeof this.ctx.requestRender === 'function') {
+                this.ctx.requestRender();
+            }
+        } finally {
+            this._isSelecting = false;
         }
     }
 
     deselect() {
-        if (this.selectedObject) {
-            console.info(`%c[InteractionSystem] %cDeselected: %c${this.selectedObject.userData?.entity?.type || 'Object'}`, 
-                'color: #3b82f6; font-weight: bold;', 'color: #9ca3af;', 'color: #ef4444; font-weight: bold;');
-        }
-        this.cancelRelocation();
-        if (this.transformControls) this.transformControls.detach();
-        if (this.openingGizmo) this.openingGizmo.detach();
-        if (this.materialGizmo) this.materialGizmo.detach();
-        if (this.cornerGizmo) this.cornerGizmo.detach();
-        if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
-        if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
-        if (this.polygonGizmo) this.polygonGizmo.detach();
-        this.ctx.currentTransformMode = 'none';
-        if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
-        
-        if (this.highlightRenderer) {
-            this.highlightRenderer.clearAll();
-        }
-        
-        this.selectedObject = null;
-        if (this.dimensionManager) this.dimensionManager.onDeselect();
-        if (this.ctx.onEntitySelect) this.ctx.onEntitySelect(null, null, null);
-        if (window.plannerInstance) {
-            window.plannerInstance.selectEntity(null, null);
-        }
-        if (this.ctx && typeof this.ctx.requestRender === 'function') {
-            this.ctx.requestRender();
+        if (!this.selectedObject && this.ctx.currentTransformMode === 'none') return;
+        if (this._isDeselecting) return;
+        this._isDeselecting = true;
+
+        try {
+            if (this.selectedObject) {
+                console.info(`%c[InteractionSystem] %cDeselected: %c${this.selectedObject.userData?.entity?.type || 'Object'}`, 
+                    'color: #3b82f6; font-weight: bold;', 'color: #9ca3af;', 'color: #ef4444; font-weight: bold;');
+            }
+            this.cancelRelocation();
+            if (this.transformControls) this.transformControls.detach();
+            if (this.openingGizmo) this.openingGizmo.detach();
+            if (this.materialGizmo) this.materialGizmo.detach();
+            if (this.cornerGizmo) this.cornerGizmo.detach();
+            if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
+            if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
+            if (this.polygonGizmo) this.polygonGizmo.detach();
+            if (this.wallPushPullGizmo) this.wallPushPullGizmo.detach();
+            this.ctx.currentTransformMode = 'none';
+            if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
+            
+            if (this.highlightRenderer) {
+                this.highlightRenderer.clearAll();
+            }
+            
+            this.selectedObject = null;
+            if (this.dimensionManager) this.dimensionManager.onDeselect();
+            if (this.ctx.onEntitySelect) this.ctx.onEntitySelect(null, null, null);
+            if (window.plannerInstance && window.plannerInstance.selectedEntity !== null) {
+                window.plannerInstance.selectEntity(null, null);
+            }
+            if (this.ctx && typeof this.ctx.requestRender === 'function') {
+                this.ctx.requestRender();
+            }
+        } finally {
+            this._isDeselecting = false;
         }
     }
 
@@ -818,6 +846,7 @@ export class InteractionSystem {
         if (this.roofCornerGizmo && this.roofCornerGizmo.dispose) this.roofCornerGizmo.dispose();
         if (this.roofOverhangGizmo && this.roofOverhangGizmo.dispose) this.roofOverhangGizmo.dispose();
         if (this.polygonGizmo && this.polygonGizmo.dispose) this.polygonGizmo.dispose();
+        if (this.wallPushPullGizmo && this.wallPushPullGizmo.dispose) this.wallPushPullGizmo.dispose();
         if (this.highlightRenderer && this.highlightRenderer.dispose) this.highlightRenderer.dispose();
         if (this.dimensionManager && this.dimensionManager.dispose) this.dimensionManager.dispose();
     }
