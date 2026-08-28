@@ -722,47 +722,6 @@ const outdoorCatalog = ref([
         image: '', 
         toolId: 'outdoor_softscape', 
         params: { subType: 'softscape', material: 'grass', height3D: 0.3 } 
-    },
-    { isDivider: true, id: 'div_outdoor_presets', name: 'Quick-Drop Floor Templates' },
-    { 
-        id: 'preset_driveway_paved', 
-        name: 'Front Car Driveway', 
-        badge: 'PRESET', 
-        material: 'Yellow Honeycomb Paver Tile', 
-        specs: '8ft × 20ft (2.44 × 6.1m)', 
-        image: '/assets/tiles/tile_yellow_hexagon.jpg', 
-        toolId: 'outdoor_driveway', 
-        params: { subType: 'driveway', material: 'tile_yellow_hexagon', height3D: 0.3, width: 160, points: [{x:-80,y:-200},{x:80,y:-200},{x:80,y:200},{x:-80,y:200}] } 
-    },
-    { 
-        id: 'preset_walkway_entrance', 
-        name: 'Front Entrance Walkway', 
-        badge: 'PRESET', 
-        material: 'Yellow Octagram & Diamond Paver', 
-        specs: '3ft × 12ft (0.91 × 3.6m)', 
-        image: '/assets/tiles/tile_yellow_octagram.jpg', 
-        toolId: 'outdoor_walkway', 
-        params: { subType: 'walkway', material: 'tile_yellow_octagram', height3D: 0.3, width: 60, points: [{x:-30,y:-120},{x:30,y:-120},{x:30,y:120},{x:-30,y:120}] } 
-    },
-    { 
-        id: 'preset_patio_dining', 
-        name: 'Rectangular Dining Patio', 
-        badge: 'PRESET', 
-        material: 'Yellow Cotto Paver Squares', 
-        specs: '4000 × 3000 mm', 
-        image: '/assets/tiles/tile_yellow_cotto_squares.jpg', 
-        toolId: 'outdoor_patio', 
-        params: { subType: 'patio', material: 'tile_yellow_cotto_squares', height3D: 0.3, points: [{x:-200,y:-150},{x:200,y:-150},{x:200,y:150},{x:-200,y:150}] } 
-    },
-    { 
-        id: 'preset_lawn_backyard', 
-        name: 'Backyard Grass Lawn', 
-        badge: 'PRESET', 
-        material: 'Lush Turf Grass', 
-        specs: '5000 × 4000 mm', 
-        image: '', 
-        toolId: 'outdoor_softscape', 
-        params: { subType: 'softscape', material: 'grass', height3D: 0.3, points: [{x:-250,y:-200},{x:250,y:-200},{x:250,y:200},{x:-250,y:200}] } 
     }
 ]);
 

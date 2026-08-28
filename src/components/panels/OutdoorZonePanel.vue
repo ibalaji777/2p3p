@@ -104,6 +104,8 @@ const availableMaterials = computed(() => {
 
 const getZoneTitle = (subType) => {
     const titles = {
+        driveway: 'Driveway Zone',
+        walkway: 'Walkway Path',
         pavement: 'Pavement Zone',
         patio: 'Patio & Deck',
         softscape: 'Softscape & Garden',
@@ -114,7 +116,9 @@ const getZoneTitle = (subType) => {
 
 const getZoneIcon = (subType) => {
     const icons = {
-        pavement: '🚗',
+        driveway: '🚗',
+        walkway: '🚶',
+        pavement: '🛣️',
         patio: '⛱️',
         softscape: '🌸',
         other_space: '⬟'

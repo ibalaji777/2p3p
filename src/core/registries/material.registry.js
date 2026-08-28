@@ -365,6 +365,36 @@ export const FLOOR_REGISTRY = {
         thumbnail: '/assets/tiles/tile_yellow_octagram.jpg',
         roughness: 0.55, metalness: 0.0, tileSize: 140, category: 'floor'
     },
+    'driveway_charcoal_cobblestone': {
+        id: 'driveway_charcoal_cobblestone', name: 'Charcoal Cobblestone Pavers', type: 'floor',
+        texture: '/assets/tiles/driveway_charcoal_cobblestone.jpg',
+        thumbnail: '/assets/tiles/driveway_charcoal_cobblestone.jpg',
+        roughness: 0.65, metalness: 0.0, tileSize: 120, category: 'floor'
+    },
+    'driveway_herringbone_redbrick': {
+        id: 'driveway_herringbone_redbrick', name: 'Terracotta Herringbone Brick', type: 'floor',
+        texture: '/assets/tiles/driveway_herringbone_redbrick.jpg',
+        thumbnail: '/assets/tiles/driveway_herringbone_redbrick.jpg',
+        roughness: 0.70, metalness: 0.0, tileSize: 140, category: 'floor'
+    },
+    'driveway_ashlar_slate_grey': {
+        id: 'driveway_ashlar_slate_grey', name: 'Ashlar Slate Stone Pavers', type: 'floor',
+        texture: '/assets/tiles/driveway_ashlar_slate_grey.jpg',
+        thumbnail: '/assets/tiles/driveway_ashlar_slate_grey.jpg',
+        roughness: 0.60, metalness: 0.0, tileSize: 150, category: 'floor'
+    },
+    'driveway_interlocking_chevron': {
+        id: 'driveway_interlocking_chevron', name: 'Dual-Tone Chevron Paver Blocks', type: 'floor',
+        texture: '/assets/tiles/driveway_interlocking_chevron.jpg',
+        thumbnail: '/assets/tiles/driveway_interlocking_chevron.jpg',
+        roughness: 0.65, metalness: 0.0, tileSize: 130, category: 'floor'
+    },
+    'driveway_exposed_aggregate_pebble': {
+        id: 'driveway_exposed_aggregate_pebble', name: 'Exposed Aggregate River Pebble', type: 'floor',
+        texture: '/assets/tiles/driveway_exposed_aggregate_pebble.jpg',
+        thumbnail: '/assets/tiles/driveway_exposed_aggregate_pebble.jpg',
+        roughness: 0.60, metalness: 0.0, tileSize: 100, category: 'floor'
+    },
     'tile_moroccan_star_yellow': {
         id: 'tile_moroccan_star_yellow', name: 'Moroccan Star Ochre Tile', type: 'floor',
         texture: '/assets/tiles/tile_moroccan_star_yellow.jpg',
