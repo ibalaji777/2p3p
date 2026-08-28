@@ -125,3 +125,25 @@ All doors, windows, walls, moldings, sunshades, railings, furniture, and future 
 3. **100% Shared Material Group Selection & Highlighting**: Selecting or hovering ANY single sub-mesh MUST highlight 100% of all sub-meshes in that material group simultaneously via `ComponentRegistry.setSlotHighlight`.
 4. **Authoritative JSON State**: Material updates MUST update `entity.materials[slotName]` in JSON first and paint all registered meshes simultaneously via `MaterialManager.updateEntityMaterialSlot`.
 
+# Universal 3D Wall Plugin Placement, Looking Logic & Aperture Highlighting Rule
+
+**CRITICAL MANDATE**
+
+All doors, windows, openings, baseboards, moldings, sunshades, fascias, curtains, wall art, and future wall plugins MUST strictly adhere to the unified 3D placement architecture (`WallPlugin3DPlacementSystem.js` and `wall_plugin_3d_placement` skill):
+
+## Required Behavior
+1. **Camera Line-of-Sight Face Detection ("Looking Logic")**:
+   Always compute wall face classification using the vector from hit point to camera position `(camPos - hitPt) · wallNormal`.
+   `facing = 1` for FRONT face ($+Z$, $+\text{thickness}/2$), `facing = -1` for BACK face ($-Z$, $-\text{thickness}/2$).
+2. **Shape-Accurate 3D Aperture Void Highlights**:
+   - Wall cutouts (doors, windows, jali): Render aperture void box `thick + 4` centered at $Z=0$.
+   - Surface attachments (sunshades, curtains, wall art, fascias): Render protruding footprint / extruded profile shape at $Z = ((\text{wallThick} / 2) + (\text{depth} / 2)) \times \text{facing}$.
+   - Trims & Baseboards: Hug mitered wall points `localSL_x` to `localEL_x` from `wall.poly.points()`.
+3. **Real-Time 60 FPS On-Demand Rendering**:
+   Always invoke `ctx.requestRender()` in `onPointerMove` and `hideGhost()`.
+4. **Zero-Occlusion Raycasting**:
+   Set `raycast = () => {}` on all ghost containers and child meshes to prevent cursor flicker.
+5. **In-Place CAD Rebuild & Stable Camera**:
+   Rebuild wall groups in place via `envBuilder.buildWallGroup(wall)` and preserve camera position with `preventAutoFocus = true`.
+
+

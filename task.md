@@ -1,0 +1,8 @@
+- [x] Refactor `WIDGET_REGISTRY.window` render3D method in `src/core/registry.js` to use `BIMComponentBuilder`
+- [x] Refactor `WIDGET_REGISTRY.door` render3D method in `src/core/registry.js` to use `BIMComponentBuilder`
+- [x] Refactor `buildDetailedDoorPanel` function to use `BIMComponentBuilder`
+- [x] Import `BIMComponentBuilder` in `src/core/registry.js`
+- [x] Fix method signatures and replace `new THREE.Mesh` with `builder.addNode` where applicable
+- [x] Refactor `WIDGET_REGISTRY.jali_panel` to use `BIMComponentBuilder`
+- [x] Refactor `WIDGET_REGISTRY.sunshade` to use `BIMComponentBuilder`
+- [x] Refactor `WIDGET_REGISTRY.elevation_fascia` to use `BIMComponentBuilder`

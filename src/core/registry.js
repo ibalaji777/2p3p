@@ -3228,7 +3228,7 @@ export const WIDGET_REGISTRY = {
             };
             
             const wallThick = entity.wall ? (entity.wall.thickness || entity.wall.config?.thickness || 16) : 16;
-            const zOffset = (entity.facing === -1) ? (wallThick/2 + depth/2) : -(wallThick/2 + depth/2);
+            const zOffset = (entity.facing === -1) ? -(wallThick/2 + depth/2) : (wallThick/2 + depth/2);
 
             let topArm = entity.topArm !== undefined ? entity.topArm : width;
             let bottomArm = entity.bottomArm !== undefined ? entity.bottomArm : width;
