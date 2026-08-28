@@ -34,7 +34,7 @@
         <div class="control-group">
             <label>Slab Thickness (Height)</label>
             <div class="input-wrap">
-                <input type="range" v-model.number="selectedEntity.height3D" min="1" max="50" @input="handleUpdate">
+                <input type="range" v-model.number="selectedEntity.height3D" min="0.1" max="20" step="0.1" @input="handleUpdate">
                 <DimensionInput v-model="selectedEntity.height3D" @change="handleUpdate" />
             </div>
         </div>

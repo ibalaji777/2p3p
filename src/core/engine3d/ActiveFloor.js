@@ -441,7 +441,7 @@ export class ActiveFloor {
                 const posZ = zone.group && typeof zone.group.y === 'function' ? zone.group.y() : (Number(zone.y) || 0);
                 const rotY = zone.group && typeof zone.group.rotation === 'function' ? -(zone.group.rotation() || 0) * Math.PI / 180 : -(Number(zone.rotation) || 0) * Math.PI / 180;
                 const elevation = Number(zone.elevation) || 0;
-                const height3D = Math.max(0.5, Number(zone.height3D) || 2);
+                const height3D = Math.max(0.1, Number(zone.height3D) || 0.3);
 
                 const zoneShape = new THREE.Shape();
                 zoneShape.moveTo(cleanPts[0].x, cleanPts[0].y);

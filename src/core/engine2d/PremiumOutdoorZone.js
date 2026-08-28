@@ -11,7 +11,7 @@ export const OUTDOOR_ZONE_TYPES = {
         stroke: '#ca8a04',
         badgeColor: '#854d0e',
         badgeIcon: 'car',
-        defaultHeight3D: 2
+        defaultHeight3D: 0.3
     },
     patio: {
         id: 'patio',
@@ -22,7 +22,7 @@ export const OUTDOOR_ZONE_TYPES = {
         stroke: '#b45309',
         badgeColor: '#92400e',
         badgeIcon: 'patio',
-        defaultHeight3D: 2
+        defaultHeight3D: 0.3
     },
     softscape: {
         id: 'softscape',
@@ -33,7 +33,7 @@ export const OUTDOOR_ZONE_TYPES = {
         stroke: '#16a34a',
         badgeColor: '#15803d',
         badgeIcon: 'flower',
-        defaultHeight3D: 2
+        defaultHeight3D: 0.3
     },
     other_space: {
         id: 'other_space',
@@ -44,7 +44,7 @@ export const OUTDOOR_ZONE_TYPES = {
         stroke: '#64748b',
         badgeColor: '#475569',
         badgeIcon: 'polygon',
-        defaultHeight3D: 2
+        defaultHeight3D: 0.3
     }
 };
 

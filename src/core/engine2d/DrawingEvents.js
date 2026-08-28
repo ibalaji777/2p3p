@@ -695,7 +695,7 @@ export function setupDrawingEvents(planner) {
                     const relPts = planner.drawingOutdoorPoints.map(p => ({ x: p.x - cx, y: p.y - cy }));
 
                     const newZone = new PremiumOutdoorZone(planner, 'outdoor_zone', {
-                        x: cx, y: cy, points: relPts, subType: subType, material: zoneDefaults.defaultMaterial, height3D: 2
+                        x: cx, y: cy, points: relPts, subType: subType, material: zoneDefaults.defaultMaterial, height3D: 0.3
                     });
                     if (!planner.outdoorZones) planner.outdoorZones = [];
                     planner.outdoorZones.push(newZone);
@@ -836,11 +836,33 @@ export function setupDrawingEvents(planner) {
                     planner.hideSnapGlow();
                 } else if (!planner.drawingRoofPoints && planner.currentSessionEntities && planner.currentSessionEntities.length > 0) {
                     if (planner.roofCloseTick) planner.roofCloseTick.visible(true);
-                    planner.hideSnapGlow();
-                } else {
                     if (planner.roofCloseTick) planner.roofCloseTick.visible(false);
                     if (snappedObj) { planner.showSnapGlow(snap.x, snap.y); } else { planner.hideSnapGlow(); }
                 }
+                if (planner.drawingRoofPoints && planner.drawingRoofPoints.length > 0) {
+                    const lastP = planner.drawingRoofPoints[planner.drawingRoofPoints.length - 1];
+                    let refAngle = 0;
+                    if (planner.drawingRoofPoints.length > 1) {
+                        const prevP = planner.drawingRoofPoints[planner.drawingRoofPoints.length - 2];
+                        refAngle = Math.atan2(lastP.y - prevP.y, lastP.x - prevP.x) * 180 / Math.PI;
+                    }
+                    if (!snappedObj && planner.smartGuides && planner.smartGuides.calculateAngleSnap) {
+                        snap = planner.smartGuides.calculateAngleSnap(lastP, snap, refAngle);
+                    }
+
+                    let dxBadge = snap.x - lastP.x, dyBadge = snap.y - lastP.y;
+                    let lenBadge = planner.formatLength(Math.hypot(dxBadge, dyBadge));
+                    let angBadge = Math.abs(Math.atan2(dyBadge, dxBadge) * 180 / Math.PI).toFixed(1);
+                    planner.updateInfoBadge(snap.x, snap.y, lenBadge, angBadge, snappedObj);
+
+                    if (planner.smartGuides && planner.smartGuides.drawAngleGuide) {
+                        planner.smartGuides.drawAngleGuide(lastP, snap, refAngle, true);
+                    }
+                } else {
+                    planner.hideInfoBadge();
+                    if (planner.smartGuides && planner.smartGuides.clear) planner.smartGuides.clear();
+                }
+
                 if (planner.drawingRoofPoints && planner.roofPreview) {
                     const pts = planner.drawingRoofPoints.flatMap(p => [p.x, p.y]);
                     pts.push(snap.x, snap.y);
@@ -884,7 +906,8 @@ export function setupDrawingEvents(planner) {
                         if (z.points) {
                             z.points.forEach(p => {
                                 const wx = gx + p.x, wy = gy + p.y;
-                                if (Math.hypot(pos.x - wx, pos.y - wy) < closestDist) { closestDist = Math.hypot(pos.x - wx, pos.y - wy); snap = { x: wx, y: wy }; snappedObj = true; }
+                                const d = Math.hypot(pos.x - wx, pos.y - wy);
+                                if (d < closestDist) { closestDist = d; snap = { x: wx, y: wy }; snappedObj = true; }
                             });
                         }
                     });
@@ -899,6 +922,30 @@ export function setupDrawingEvents(planner) {
                 }
 
                 if (snappedObj) { planner.showSnapGlow(snap.x, snap.y); } else { planner.hideSnapGlow(); }
+
+                if (planner.drawingOutdoorPoints && planner.drawingOutdoorPoints.length > 0) {
+                    const lastP = planner.drawingOutdoorPoints[planner.drawingOutdoorPoints.length - 1];
+                    let refAngle = 0;
+                    if (planner.drawingOutdoorPoints.length > 1) {
+                        const prevP = planner.drawingOutdoorPoints[planner.drawingOutdoorPoints.length - 2];
+                        refAngle = Math.atan2(lastP.y - prevP.y, lastP.x - prevP.x) * 180 / Math.PI;
+                    }
+                    if (!snappedObj && planner.smartGuides && planner.smartGuides.calculateAngleSnap) {
+                        snap = planner.smartGuides.calculateAngleSnap(lastP, snap, refAngle);
+                    }
+
+                    let dxBadge = snap.x - lastP.x, dyBadge = snap.y - lastP.y;
+                    let lenBadge = planner.formatLength(Math.hypot(dxBadge, dyBadge));
+                    let angBadge = Math.abs(Math.atan2(dyBadge, dxBadge) * 180 / Math.PI).toFixed(1);
+                    planner.updateInfoBadge(snap.x, snap.y, lenBadge, angBadge, snappedObj);
+
+                    if (planner.smartGuides && planner.smartGuides.drawAngleGuide) {
+                        planner.smartGuides.drawAngleGuide(lastP, snap, refAngle, true);
+                    }
+                } else {
+                    planner.hideInfoBadge();
+                    if (planner.smartGuides && planner.smartGuides.clear) planner.smartGuides.clear();
+                }
 
                 if (planner.drawingOutdoorPoints && planner.outdoorPreview) {
                     const pts = planner.drawingOutdoorPoints.flatMap(p => [p.x, p.y]);

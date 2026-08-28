@@ -1153,7 +1153,7 @@ export class FloorPlanner {
                 const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
                 const relPts = this.drawingRoofPoints.map(p => ({ x: p.x - cx, y: p.y - cy }));
                 const subType = this.tool === 'outdoor_other' ? 'other_space' : this.tool.replace('outdoor_', '');
-                const newZone = new PremiumOutdoorZone(this, 'outdoor_zone', { x: cx, y: cy, points: relPts, subType, height3D: 2 });
+                const newZone = new PremiumOutdoorZone(this, 'outdoor_zone', { x: cx, y: cy, points: relPts, subType, height3D: 0.3 });
                 if (!this.outdoorZones) this.outdoorZones = [];
                 this.outdoorZones.push(newZone);
 
@@ -1182,7 +1182,7 @@ export class FloorPlanner {
             const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
             const relPts = this.drawingOutdoorPoints.map(p => ({ x: p.x - cx, y: p.y - cy }));
             const subType = this.tool === 'outdoor_other' ? 'other_space' : (this.tool && this.tool.startsWith('outdoor_') ? this.tool.replace('outdoor_', '') : 'pavement');
-            const newZone = new PremiumOutdoorZone(this, 'outdoor_zone', { x: cx, y: cy, points: relPts, subType, height3D: 2 });
+            const newZone = new PremiumOutdoorZone(this, 'outdoor_zone', { x: cx, y: cy, points: relPts, subType, height3D: 0.3 });
             if (!this.outdoorZones) this.outdoorZones = [];
             this.outdoorZones.push(newZone);
 

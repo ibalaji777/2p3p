@@ -93,122 +93,6 @@
             <button class="chip-btn" :class="{ active: activeCategoryChip === 'utility' }" @click="activeCategoryChip = 'utility'">Utility & Storage</button>
         </div>
 
-        <!-- Dedicated Outdoor Spaces / Floor Surfaces Toolbar Strip (Matching User Screenshot) -->
-        <div class="outdoor-toolbar-strip" v-if="props.type === 'floors' || props.type === 'floor' || props.type === 'outdoor_spaces' || props.type.startsWith('outdoor_')">
-            <button 
-                class="outdoor-tool-tab" 
-                :class="{ active: (modelValue === 'outdoor_pavement' || props.type === 'outdoor_pavement' || props.type === 'floors' || props.type === 'floor') }" 
-                @click="selectOutdoorTool('outdoor_pavement')"
-                title="Pavement Zone"
-            >
-                <div class="tab-icon-wrap">
-                    <svg viewBox="0 0 100 100" class="outdoor-svg-icon" fill="none" stroke="currentColor">
-                        <!-- 5-Point Polygon outline with vertex dots -->
-                        <polygon points="50 14, 88 42, 74 86, 26 86, 12 42" stroke-width="3" stroke-linejoin="round" />
-                        <circle cx="50" cy="14" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                        <circle cx="88" cy="42" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                        <circle cx="74" cy="86" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                        <circle cx="26" cy="86" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                        <circle cx="12" cy="42" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                        <!-- Car Symbol Inside -->
-                        <g stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M35 62 h30 v-8 a3 3 0 0 0 -3 -3 h-24 a3 3 0 0 0 -3 3 z" />
-                            <path d="M40 51 l3 -7 h14 l3 7" />
-                            <circle cx="41" cy="67" r="3.5" stroke-width="2" />
-                            <circle cx="59" cy="67" r="3.5" stroke-width="2" />
-                            <circle cx="39" cy="57" r="1" fill="currentColor" />
-                            <circle cx="61" cy="57" r="1" fill="currentColor" />
-                        </g>
-                    </svg>
-                </div>
-                <span class="tab-title">Pavement</span>
-            </button>
-
-            <div class="outdoor-tool-divider"></div>
-
-            <button 
-                class="outdoor-tool-tab" 
-                :class="{ active: (modelValue === 'outdoor_patio' || props.type === 'outdoor_patio') }" 
-                @click="selectOutdoorTool('outdoor_patio')"
-                title="Patio Zone"
-            >
-                <div class="tab-icon-wrap">
-                    <svg viewBox="0 0 100 100" class="outdoor-svg-icon" fill="none" stroke="currentColor">
-                        <!-- 5-Point Polygon outline with vertex dots -->
-                        <polygon points="50 14, 88 42, 74 86, 26 86, 12 42" stroke-width="3" stroke-linejoin="round" />
-                        <circle cx="50" cy="14" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                        <circle cx="88" cy="42" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                        <circle cx="74" cy="86" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                        <circle cx="26" cy="86" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                        <circle cx="12" cy="42" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                        <!-- Patio Umbrella & Table/Chairs Symbol Inside -->
-                        <g stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M37 51 a13 13 0 0 1 26 0 z" />
-                            <path d="M50 38 v26" />
-                            <path d="M43 64 h14" />
-                            <path d="M36 58 v8 M32 66 h8" />
-                            <path d="M64 58 v8 M60 66 h8" />
-                        </g>
-                    </svg>
-                </div>
-                <span class="tab-title">Patio</span>
-            </button>
-
-            <div class="outdoor-tool-divider"></div>
-
-            <button 
-                class="outdoor-tool-tab" 
-                :class="{ active: (modelValue === 'outdoor_softscape' || props.type === 'outdoor_softscape') }" 
-                @click="selectOutdoorTool('outdoor_softscape')"
-                title="Softscape Zone"
-            >
-                <div class="tab-icon-wrap">
-                    <svg viewBox="0 0 100 100" class="outdoor-svg-icon" fill="none" stroke="currentColor">
-                        <!-- 5-Point Polygon outline with vertex dots -->
-                        <polygon points="50 14, 88 42, 74 86, 26 86, 12 42" stroke-width="3" stroke-linejoin="round" />
-                        <circle cx="50" cy="14" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                        <circle cx="88" cy="42" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                        <circle cx="74" cy="86" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                        <circle cx="26" cy="86" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                        <circle cx="12" cy="42" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                        <!-- Flower Symbol Inside -->
-                        <g stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="50" cy="48" r="4" fill="none" />
-                            <circle cx="50" cy="41" r="3" />
-                            <circle cx="50" cy="55" r="3" />
-                            <circle cx="43" cy="48" r="3" />
-                            <circle cx="57" cy="48" r="3" />
-                            <path d="M50 58 v14" />
-                            <path d="M50 65 q7 -2 7 -7 q-5 0 -7 7" />
-                        </g>
-                    </svg>
-                </div>
-                <span class="tab-title">Softscape</span>
-            </button>
-
-            <div class="outdoor-tool-divider"></div>
-
-            <button 
-                class="outdoor-tool-tab" 
-                :class="{ active: (modelValue === 'outdoor_other' || props.type === 'outdoor_other') }" 
-                @click="selectOutdoorTool('outdoor_other')"
-                title="Other Space Zone"
-            >
-                <div class="tab-icon-wrap">
-                    <svg viewBox="0 0 100 100" class="outdoor-svg-icon" fill="none" stroke="currentColor">
-                        <!-- 5-Point Polygon outline with vertex dots -->
-                        <polygon points="50 14, 88 42, 74 86, 26 86, 12 42" stroke-width="3" stroke-linejoin="round" />
-                        <circle cx="50" cy="14" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                        <circle cx="88" cy="42" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                        <circle cx="74" cy="86" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                        <circle cx="26" cy="86" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                        <circle cx="12" cy="42" r="4" fill="#1e293b" stroke="currentColor" stroke-width="2.5" />
-                    </svg>
-                </div>
-                <span class="tab-title">Other space</span>
-            </button>
-        </div>
-
         <!-- Responsive Product Cards Grid -->
         <div class="products-grid" v-if="filteredItems && filteredItems.length > 0">
             <template v-for="item in filteredItems" :key="item.id">
@@ -797,7 +681,7 @@ const outdoorCatalog = ref([
         specs: 'Floor Surface', 
         image: '/assets/tiles/tile_yellow_hexagon.jpg', 
         toolId: 'outdoor_pavement', 
-        params: { subType: 'pavement', material: 'tile_yellow_hexagon', height3D: 2 } 
+        params: { subType: 'pavement', material: 'tile_yellow_hexagon', height3D: 0.3 } 
     },
     { 
         id: 'outdoor_patio', 
@@ -807,7 +691,7 @@ const outdoorCatalog = ref([
         specs: 'Floor Surface', 
         image: '/assets/tiles/tile_yellow_cotto_squares.jpg', 
         toolId: 'outdoor_patio', 
-        params: { subType: 'patio', material: 'tile_yellow_cotto_squares', height3D: 2 } 
+        params: { subType: 'patio', material: 'tile_yellow_cotto_squares', height3D: 0.3 } 
     },
     { 
         id: 'outdoor_softscape', 
@@ -817,7 +701,7 @@ const outdoorCatalog = ref([
         specs: 'Floor Surface', 
         image: '', 
         toolId: 'outdoor_softscape', 
-        params: { subType: 'softscape', material: 'grass', height3D: 2 } 
+        params: { subType: 'softscape', material: 'grass', height3D: 0.3 } 
     },
     { 
         id: 'outdoor_other', 
@@ -827,7 +711,7 @@ const outdoorCatalog = ref([
         specs: 'Floor Surface', 
         image: '/assets/tiles/tile_beige_limestone.jpg', 
         toolId: 'outdoor_other', 
-        params: { subType: 'other_space', material: 'tile_beige_limestone', height3D: 2 } 
+        params: { subType: 'other_space', material: 'tile_beige_limestone', height3D: 0.3 } 
     },
     { isDivider: true, id: 'div_outdoor_presets', name: 'Quick-Drop Floor Templates' },
     { 
@@ -838,7 +722,7 @@ const outdoorCatalog = ref([
         specs: '4000 × 3000 mm', 
         image: '/assets/tiles/tile_yellow_cotto_squares.jpg', 
         toolId: 'outdoor_patio', 
-        params: { subType: 'patio', material: 'tile_yellow_cotto_squares', height3D: 2, points: [{x:-200,y:-150},{x:200,y:-150},{x:200,y:150},{x:-200,y:150}] } 
+        params: { subType: 'patio', material: 'tile_yellow_cotto_squares', height3D: 0.3, points: [{x:-200,y:-150},{x:200,y:-150},{x:200,y:150},{x:-200,y:150}] } 
     },
     { 
         id: 'preset_driveway_paved', 
@@ -848,7 +732,7 @@ const outdoorCatalog = ref([
         specs: '3000 × 6000 mm', 
         image: '/assets/tiles/tile_yellow_hexagon.jpg', 
         toolId: 'outdoor_pavement', 
-        params: { subType: 'pavement', material: 'tile_yellow_hexagon', height3D: 2, points: [{x:-150,y:-300},{x:150,y:-300},{x:150,y:300},{x:-150,y:300}] } 
+        params: { subType: 'pavement', material: 'tile_yellow_hexagon', height3D: 0.3, points: [{x:-150,y:-300},{x:150,y:-300},{x:150,y:300},{x:-150,y:300}] } 
     },
     { 
         id: 'preset_lawn_backyard', 
@@ -858,7 +742,7 @@ const outdoorCatalog = ref([
         specs: '5000 × 4000 mm', 
         image: '', 
         toolId: 'outdoor_softscape', 
-        params: { subType: 'softscape', material: 'grass', height3D: 2, points: [{x:-250,y:-200},{x:250,y:-200},{x:250,y:200},{x:-250,y:200}] } 
+        params: { subType: 'softscape', material: 'grass', height3D: 0.3, points: [{x:-250,y:-200},{x:250,y:-200},{x:250,y:200},{x:-250,y:200}] } 
     }
 ]);
 

@@ -209,6 +209,15 @@ export function setupPointerEvents(planner) {
                 planner.uiLayer.batchDraw(); return;
             }
 
+            if (planner.tool && (planner.tool.startsWith('outdoor_') || planner.tool.startsWith('floor_') || planner.tool === 'roof' || planner.tool === 'shape_floor_cut')) {
+                // Handled exclusively by DrawingEvents.js to prevent conflicting previews and dual blue/dark lines
+                if (planner.preview) {
+                    planner.preview.destroy();
+                    planner.preview = null;
+                }
+                return;
+            }
+
             const presetId = planner.tool === 'dormer' ? planner.activePresetParams?.type : planner.tool;
             if (presetId && presetId.startsWith('preset_') && PRESET_REGISTRY[presetId] && planner.activePresetParams) {
                 if (!planner.presetPreview) {
