@@ -13,10 +13,11 @@ export class OpeningProvider extends MeasurementProvider {
         
         const w = this.entity.width || 100;
         const h = this.entity.height || (this.entity.type === 'door' ? 210 : 120);
-        const elev = this.entity.elevation || (this.entity.type === 'window' ? 90 : 0);
-        
-        // Ensure mesh is updated so we can get its world matrix
-        this.mesh.updateMatrixWorld();
+        // Ensure full parent hierarchy world matrix is updated
+        if (this.mesh.parent) {
+            this.mesh.parent.updateWorldMatrix(true, true);
+        }
+        this.mesh.updateWorldMatrix(true, true);
         
         // Opening dimensions (Width and Height)
         const topLeft = new THREE.Vector3(-w/2, h, 0).applyMatrix4(this.mesh.matrixWorld);

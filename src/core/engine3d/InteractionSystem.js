@@ -12,6 +12,7 @@ import { RoofOverhangGizmo } from '../../features/roof/RoofOverhangGizmo.js';
 import { PolygonGizmo } from './PolygonGizmo.js';
 import { WallPushPullGizmo } from './WallPushPullGizmo.js';
 import { Wall3DDrawSystem } from './Wall3DDrawSystem.js';
+import { WallPlugin3DPlacementSystem } from './WallPlugin3DPlacementSystem.js';
 import { SelectionManager } from './SelectionManager.js';
 import { HighlightRenderer } from './HighlightRenderer.js';
 import { DimensionManager3D } from './dimensions/DimensionManager3D.js';
@@ -450,6 +451,7 @@ export class InteractionSystem {
         this.ctx.scene.add(this.wallPushPullGizmo);
 
         this.wall3DDrawSystem = new Wall3DDrawSystem(ctx, this);
+        this.wallPluginPlacementSystem = new WallPlugin3DPlacementSystem(ctx, this);
 
         this.initEvents();
     }
@@ -479,6 +481,11 @@ export class InteractionSystem {
             // Direct 3D Wall / Room Drawing System
             if (this.wall3DDrawSystem && this.wall3DDrawSystem.isWallDrawingTool()) {
                 if (this.wall3DDrawSystem.onPointerDown(e)) return;
+            }
+
+            // Direct 3D Door / Window / Wall Plugin Placement System
+            if (this.wallPluginPlacementSystem && this.wallPluginPlacementSystem.isPlacementTool()) {
+                if (this.wallPluginPlacementSystem.onPointerDown(e)) return;
             }
 
             if (this.transformControls && this.transformControls.active) return;
@@ -574,6 +581,11 @@ export class InteractionSystem {
             if (this.wall3DDrawSystem && this.wall3DDrawSystem.isWallDrawingTool()) {
                 this.wall3DDrawSystem.onPointerMove(e);
                 return;
+            }
+
+            // Direct 3D Door / Window / Wall Plugin Placement System
+            if (this.wallPluginPlacementSystem && this.wallPluginPlacementSystem.isPlacementTool()) {
+                if (this.wallPluginPlacementSystem.onPointerMove(e)) return;
             }
 
             if (this.transformControls && this.transformControls.active) return;
@@ -743,7 +755,7 @@ export class InteractionSystem {
         }
     }
 
-    selectObject(object, intersect = null) {
+    selectObject(object, intersect = null, preventAutoFocus = false) {
         if (!object) {
             this.deselect();
             return;
@@ -783,8 +795,8 @@ export class InteractionSystem {
             const shouldAutoFocus = settings.autoFocus !== false; // default true
             const shouldAutoRotate = settings.autoRotate !== false; // default true
 
-            // Auto focus the camera on the selected object
-            if (this.ctx.cameraController && object && shouldAutoFocus) {
+            // Auto focus the camera on the selected object only when not explicitly prevented
+            if (this.ctx.cameraController && object && shouldAutoFocus && !preventAutoFocus) {
                 this.ctx.cameraController.focusOnObject(object, intersect, shouldAutoRotate);
             }
 
@@ -865,6 +877,7 @@ export class InteractionSystem {
         if (this.polygonGizmo && this.polygonGizmo.dispose) this.polygonGizmo.dispose();
         if (this.wallPushPullGizmo && this.wallPushPullGizmo.dispose) this.wallPushPullGizmo.dispose();
         if (this.wall3DDrawSystem && this.wall3DDrawSystem.dispose) this.wall3DDrawSystem.dispose();
+        if (this.wallPluginPlacementSystem && this.wallPluginPlacementSystem.dispose) this.wallPluginPlacementSystem.dispose();
         if (this.highlightRenderer && this.highlightRenderer.dispose) this.highlightRenderer.dispose();
         if (this.dimensionManager && this.dimensionManager.dispose) this.dimensionManager.dispose();
     }
