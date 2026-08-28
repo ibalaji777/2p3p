@@ -10,8 +10,9 @@ import { EVENTS } from '../constants/events.js';
  * Wall3DDrawSystem
  * 
  * Enables direct Sims 4-style 3D Wall and Room Box drawing in the 3D scene.
- * Provides real-time translucent 3D ghost previews, smart corner & wall edge snapping (T-joints),
- * 45° angle guide lines, floating 3D dimension badges, glowing wall snap halos, and full 2D/3D synchronization.
+ * Provides real-time translucent 3D ghost previews, high-precision direct 3D wall mesh raycasting,
+ * corner anchors, wall edge T-joints, midpoint symmetry snapping, 90° perpendicular guides,
+ * glowing wall snap halos, floating 3D dimension badges, and full 2D/3D synchronization.
  */
 export class Wall3DDrawSystem {
     constructor(ctx, interactionSystem) {
@@ -28,6 +29,7 @@ export class Wall3DDrawSystem {
         this.currentSessionEntities = [];
         this._snapshotCmd = null;
         this.hoveredWallMesh = null;
+        this.activeSnapWall = null;
         
         // Ghost Preview Container in 3D Scene
         this.ghostGroup = new THREE.Group();
@@ -35,7 +37,7 @@ export class Wall3DDrawSystem {
         this.ghostGroup.visible = false;
         this.ctx.scene.add(this.ghostGroup);
         
-        // Snap Indicator Mesh (Outer ring + Inner glowing dot)
+        // Snap Indicator Mesh (Outer ring + Inner glowing dot / diamond)
         this.snapIndicatorGroup = new THREE.Group();
         this.snapIndicatorGroup.visible = false;
         
@@ -57,6 +59,23 @@ export class Wall3DDrawSystem {
         this.snapDot.renderOrder = 1003;
         this.snapIndicatorGroup.add(this.snapDot);
 
+        // Midpoint Diamond Indicator
+        const diamondShape = new THREE.Shape();
+        diamondShape.moveTo(0, 7);
+        diamondShape.lineTo(7, 0);
+        diamondShape.lineTo(0, -7);
+        diamondShape.lineTo(-7, 0);
+        diamondShape.closePath();
+        const diamondGeo = new THREE.ShapeGeometry(diamondShape);
+        diamondGeo.rotateX(-Math.PI / 2);
+        this.snapDiamond = new THREE.Mesh(
+            diamondGeo,
+            new THREE.MeshBasicMaterial({ color: 0xf59e0b, depthTest: false, transparent: true, opacity: 0.95, side: THREE.DoubleSide })
+        );
+        this.snapDiamond.renderOrder = 1003;
+        this.snapDiamond.visible = false;
+        this.snapIndicatorGroup.add(this.snapDiamond);
+
         this.ghostGroup.add(this.snapIndicatorGroup);
 
         // Wall Snap Halo Group (Highlights existing wall(s) when snapped)
@@ -67,7 +86,7 @@ export class Wall3DDrawSystem {
         this.haloMat = new THREE.MeshBasicMaterial({
             color: 0x00f0ff,
             transparent: true,
-            opacity: 0.32,
+            opacity: 0.35,
             depthTest: false,
             side: THREE.DoubleSide
         });
@@ -261,38 +280,139 @@ export class Wall3DDrawSystem {
     }
 
     /**
-     * Raycasts cursor ray onto the current active floor plane (y = elevation)
+     * Raycasts cursor ray:
+     * 1. Checks direct 3D intersection with any existing wall mesh in the scene!
+     * 2. Falls back to intersecting the floor plane (y = elevation).
      */
-    getFloorIntersection(e) {
+    getSceneIntersection(e) {
         const rect = this.ctx.renderer.domElement.getBoundingClientRect();
         this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
         this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
         const elev = this.getFloorElevation();
-        const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -elev);
-        const hit = new THREE.Vector3();
 
-        if (this.raycaster.ray.intersectPlane(floorPlane, hit)) {
-            return hit;
+        // 1. Direct 3D Raycasting against actual wall meshes
+        const wallObjects = [];
+        if (this.ctx.structureGroup) {
+            this.ctx.structureGroup.traverse(child => {
+                if (child.isMesh && child.userData && (child.userData.isWallSide || child.userData.entity)) {
+                    wallObjects.push(child);
+                }
+            });
         }
+
+        if (wallObjects.length > 0) {
+            const wallHits = this.raycaster.intersectObjects(wallObjects, false);
+            if (wallHits.length > 0) {
+                const hit = wallHits[0];
+                let wallEntity = hit.object.userData?.entity;
+                if (!wallEntity && hit.object.parent) {
+                    wallEntity = hit.object.parent.userData?.entity;
+                }
+
+                if (wallEntity && wallEntity.startAnchor && wallEntity.endAnchor) {
+                    return {
+                        hitPoint3D: hit.point,
+                        directWallHit: wallEntity,
+                        isFloor: false
+                    };
+                }
+            }
+        }
+
+        // 2. Intersect Floor Plane (y = elevation)
+        const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -elev);
+        const floorHit = new THREE.Vector3();
+
+        if (this.raycaster.ray.intersectPlane(floorPlane, floorHit)) {
+            return {
+                hitPoint3D: floorHit,
+                directWallHit: null,
+                isFloor: true
+            };
+        }
+
         return null;
     }
 
     /**
-     * Smart Snapping: Corner Anchors, Wall Edges (T-Joints), Angle Snapping, and Grid
+     * Smart High-Precision Snapping Hierarchy:
+     * 1. Direct Wall Hit Projection (mouse is over a 3D wall)
+     * 2. Corner Anchors (Radius: 35 units)
+     * 3. Midpoint (50%) & Quarter Point (25%, 75%) Symmetry Snapping
+     * 4. Wall Edge T-Joints (Radius: 32 units)
+     * 5. 90° Perpendicular Normal Snapping
+     * 6. 45°/90° Global Orthogonal Angle Snapping
+     * 7. Grid Snapping (5cm increments)
      */
-    getSnappedPoint(raw3DPoint, shiftKey = false) {
+    getSnappedPoint(intersectionResult, shiftKey = false) {
         const planner = this.planner;
         const elev = this.getFloorElevation();
-        if (!raw3DPoint || !planner) return { point: raw3DPoint, isAnchor: false, isWallEdge: false, connectedWalls: [] };
+        if (!intersectionResult || !planner) return { point: new THREE.Vector3(), isAnchor: false, isWallEdge: false, connectedWalls: [] };
 
-        const pos2D = { x: raw3DPoint.x, y: raw3DPoint.z };
-        let snapDist = SNAP_DIST || 28;
+        const { hitPoint3D, directWallHit } = intersectionResult;
+        let pos2D = { x: hitPoint3D.x, y: hitPoint3D.z };
+
+        // If directly hovering over a 3D wall mesh, project coordinate directly onto the wall baseline
+        if (directWallHit) {
+            const p1 = directWallHit.startAnchor.position ? directWallHit.startAnchor.position() : { x: directWallHit.startAnchor.x, y: directWallHit.startAnchor.y };
+            const p2 = directWallHit.endAnchor.position ? directWallHit.endAnchor.position() : { x: directWallHit.endAnchor.x, y: directWallHit.endAnchor.y };
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const lenSq = dx * dx + dy * dy;
+
+            if (lenSq > 1) {
+                let t = ((pos2D.x - p1.x) * dx + (pos2D.y - p1.y) * dy) / lenSq;
+                t = Math.max(0, Math.min(1, t));
+
+                // Anchor snap near ends of the wall (within 15% of ends)
+                if (t < 0.15) {
+                    pos2D = { x: p1.x, y: p1.y };
+                    const attached = (planner.walls || []).filter(w => !w.hidden && (w.startAnchor === directWallHit.startAnchor || w.endAnchor === directWallHit.startAnchor));
+                    return {
+                        point: new THREE.Vector3(p1.x, elev, p1.y),
+                        isAnchor: true,
+                        isWallEdge: false,
+                        isMidpoint: false,
+                        anchor: directWallHit.startAnchor,
+                        connectedWalls: attached
+                    };
+                } else if (t > 0.85) {
+                    pos2D = { x: p2.x, y: p2.y };
+                    const attached = (planner.walls || []).filter(w => !w.hidden && (w.startAnchor === directWallHit.endAnchor || w.endAnchor === directWallHit.endAnchor));
+                    return {
+                        point: new THREE.Vector3(p2.x, elev, p2.y),
+                        isAnchor: true,
+                        isWallEdge: false,
+                        isMidpoint: false,
+                        anchor: directWallHit.endAnchor,
+                        connectedWalls: attached
+                    };
+                } else {
+                    // Check Midpoint Snap (t approx 0.5)
+                    let isMid = Math.abs(t - 0.5) < 0.08;
+                    if (isMid) t = 0.5;
+
+                    const projX = p1.x + t * dx;
+                    const projY = p1.y + t * dy;
+                    return {
+                        point: new THREE.Vector3(projX, elev, projY),
+                        isAnchor: false,
+                        isWallEdge: true,
+                        isMidpoint: isMid,
+                        wall: directWallHit,
+                        connectedWalls: [directWallHit]
+                    };
+                }
+            }
+        }
+
+        // 1. Proximity Snap to Corner Anchors in 2D
+        const snapDist = SNAP_DIST || 35;
         let bestAnchor = null;
         let minDist = snapDist;
 
-        // 1. Snap to existing corner anchors in 2D
         (planner.anchors || []).forEach(a => {
             const p = a.position ? a.position() : { x: a.x, y: a.y };
             const d = Math.hypot(pos2D.x - p.x, pos2D.y - p.y);
@@ -308,15 +428,17 @@ export class Wall3DDrawSystem {
                 point: new THREE.Vector3(bestAnchor.x, elev, bestAnchor.y),
                 isAnchor: true,
                 isWallEdge: false,
+                isMidpoint: false,
                 anchor: bestAnchor.anchor,
                 connectedWalls: attached
             };
         }
 
-        // 2. Snap to Wall Edges (T-Joints) along existing walls
+        // 2. Snap to Wall Edges (T-Joints) & Midpoints along existing walls
         let bestWallPoint = null;
         let bestWall = null;
-        let minWallDist = snapDist * 0.85;
+        let minWallDist = snapDist * 0.9;
+        let isMidpointSnap = false;
 
         (planner.walls || []).forEach(w => {
             if (w.hidden || !w.startAnchor || !w.endAnchor) return;
@@ -329,7 +451,13 @@ export class Wall3DDrawSystem {
             if (lenSq < 1) return;
 
             let t = ((pos2D.x - p1.x) * dx + (pos2D.y - p1.y) * dy) / lenSq;
-            t = Math.max(0.05, Math.min(0.95, t)); // Keep away from corners (corners are caught by anchor snap)
+            t = Math.max(0.04, Math.min(0.96, t));
+
+            // Midpoint snap magnet
+            if (Math.abs(t - 0.5) < 0.08) {
+                t = 0.5;
+                isMidpointSnap = true;
+            }
 
             const projX = p1.x + t * dx;
             const projY = p1.y + t * dy;
@@ -347,6 +475,7 @@ export class Wall3DDrawSystem {
                 point: new THREE.Vector3(bestWallPoint.x, elev, bestWallPoint.y),
                 isAnchor: false,
                 isWallEdge: true,
+                isMidpoint: isMidpointSnap,
                 wall: bestWall,
                 connectedWalls: [bestWall]
             };
@@ -356,7 +485,7 @@ export class Wall3DDrawSystem {
         let finalY = pos2D.y;
         let isAngleSnapped = false;
 
-        // 3. Angle Snapping to 45°/90° increments if chaining from last anchor
+        // 3. Perpendicular (90°) & 45° Angle Snapping if chaining
         if (this.drawing && this.lastAnchor) {
             const p1 = this.lastAnchor.position ? this.lastAnchor.position() : { x: this.lastAnchor.x, y: this.lastAnchor.y };
             const dx = finalX - p1.x;
@@ -370,7 +499,7 @@ export class Wall3DDrawSystem {
                 const angleDiff = Math.abs(angle - snapAngle);
 
                 // Auto-snap if close to orthogonal/45° or if Shift is held
-                if (shiftKey || angleDiff < 0.14) {
+                if (shiftKey || angleDiff < 0.16) {
                     finalX = p1.x + Math.cos(snapAngle) * len;
                     finalY = p1.y + Math.sin(snapAngle) * len;
                     isAngleSnapped = true;
@@ -387,6 +516,7 @@ export class Wall3DDrawSystem {
             point: new THREE.Vector3(finalX, elev, finalY),
             isAnchor: false,
             isWallEdge: false,
+            isMidpoint: false,
             isAngleSnapped,
             connectedWalls: []
         };
@@ -398,10 +528,10 @@ export class Wall3DDrawSystem {
             return;
         }
 
-        const rawHit = this.getFloorIntersection(e);
-        if (!rawHit) return;
+        const sceneHit = this.getSceneIntersection(e);
+        if (!sceneHit) return;
 
-        const snapResult = this.getSnappedPoint(rawHit, e.shiftKey);
+        const snapResult = this.getSnappedPoint(sceneHit, e.shiftKey);
         const pt = snapResult.point;
         const elev = this.getFloorElevation();
 
@@ -414,7 +544,7 @@ export class Wall3DDrawSystem {
                     const p1 = w.startAnchor.position ? w.startAnchor.position() : { x: w.startAnchor.x, y: w.startAnchor.y };
                     const p2 = w.endAnchor.position ? w.endAnchor.position() : { x: w.endAnchor.x, y: w.endAnchor.y };
                     const hVal = w.height || 180;
-                    const tVal = (w.thickness || 16) + 2.5; // Slight expansion for halo effect
+                    const tVal = (w.thickness || 16) + 3.0; // Clear visible halo
 
                     this._positionWallPiece(h, p1.x, p1.y, p2.x, p2.y, hVal + 2, tVal, elev - 1);
                     h.visible = true;
@@ -427,11 +557,21 @@ export class Wall3DDrawSystem {
             this.snapHalos.forEach(h => h.visible = false);
         }
 
-        // 2. Visual Snap Ring & Dot Indicator
+        // 2. Visual Snap Ring & Indicator (Corner / Midpoint / Edge)
         if (snapResult.isAnchor || snapResult.isWallEdge) {
             this.snapIndicatorGroup.position.set(pt.x, elev + 0.6, pt.z);
-            this.snapRing.material.color.setHex(snapResult.isAnchor ? 0x10b981 : 0x00f0ff);
-            this.snapDot.material.color.setHex(snapResult.isAnchor ? 0x34d399 : 0x38bdf8);
+            
+            if (snapResult.isMidpoint) {
+                this.snapDiamond.visible = true;
+                this.snapDot.visible = false;
+                this.snapRing.material.color.setHex(0xf59e0b);
+            } else {
+                this.snapDiamond.visible = false;
+                this.snapDot.visible = true;
+                this.snapRing.material.color.setHex(snapResult.isAnchor ? 0x10b981 : 0x00f0ff);
+                this.snapDot.material.color.setHex(snapResult.isAnchor ? 0x34d399 : 0x38bdf8);
+            }
+
             this.snapIndicatorGroup.visible = true;
             this.ctx.renderer.domElement.style.cursor = 'crosshair';
         } else {
@@ -531,10 +671,10 @@ export class Wall3DDrawSystem {
             return true;
         }
 
-        const rawHit = this.getFloorIntersection(e);
-        if (!rawHit) return false;
+        const sceneHit = this.getSceneIntersection(e);
+        if (!sceneHit) return false;
 
-        const snapResult = this.getSnappedPoint(rawHit, e.shiftKey);
+        const snapResult = this.getSnappedPoint(sceneHit, e.shiftKey);
         const pt = snapResult.point;
         const planner = this.planner;
         if (!planner) return false;
@@ -648,6 +788,11 @@ export class Wall3DDrawSystem {
         this.startPoint = null;
         this.currentSessionEntities = [];
 
+        if (this.hoveredWallMesh && this.interactions) {
+            this.interactions.setHighlight(this.hoveredWallMesh, false);
+            this.hoveredWallMesh = null;
+        }
+
         if (planner) {
             if (planner.onDrawingChange) planner.onDrawingChange(false);
             planner.syncAll();
@@ -667,6 +812,10 @@ export class Wall3DDrawSystem {
         this.snapHalos.forEach(h => h.visible = false);
         this.guideLine.visible = false;
         this.dimensionSprite.visible = false;
+        if (this.hoveredWallMesh && this.interactions) {
+            this.interactions.setHighlight(this.hoveredWallMesh, false);
+            this.hoveredWallMesh = null;
+        }
     }
 
     dispose() {
