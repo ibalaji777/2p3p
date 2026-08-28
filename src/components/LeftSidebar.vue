@@ -1,7 +1,7 @@
 <template>
   <aside
     class="left-sidebar"
-    v-show="viewMode === '2d' && (!(isMobile || isTablet) || ((isMobile || isTablet) && mobileMenuOpen && activeMobileTab === 'tools'))"
+    v-show="(!(isMobile || isTablet) || ((isMobile || isTablet) && mobileMenuOpen && activeMobileTab === 'tools'))"
     :class="{'mobile-panel': isMobile || isTablet}"
   >
     <div class="sidebar-layout">

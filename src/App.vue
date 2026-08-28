@@ -42,7 +42,7 @@
       />
 
       <!-- Mobile Left Trigger -->
-      <div class="mobile-left-trigger" v-if="(isMobile || isTablet) && viewMode === '2d' && !(mobileMenuOpen && activeMobileTab === 'tools')" @click="toggleMobileTab('tools')" title="Open Tools">
+      <div class="mobile-left-trigger" v-if="(isMobile || isTablet) && !(mobileMenuOpen && activeMobileTab === 'tools')" @click="toggleMobileTab('tools')" title="Open Tools">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="9 18 15 12 9 6"></polyline>
         </svg>
@@ -82,6 +82,8 @@
         @zoom-out="zoomOut"
         @reset-zoom="resetZoom"
         @reset-camera="resetCamera"
+        @set-sims4-view="setSims4View"
+        @set-topdown-view="setTopDownView"
       />
 
       <RightSidebar
@@ -593,7 +595,14 @@ const hintData = computed(() => {
     if (activeTool.value.startsWith('molding_')) return { text: isTouch ? 'MOLDING mode: Tap near any wall edge to place molding precisely.' : 'MOLDING mode: Hover near any wall edge (glows blue), then click to place.', color: '#0ea5e9' };
     if (activeTool.value.startsWith('door') || activeTool.value.startsWith('window') || activeTool.value === 'arch_opening' || activeTool.value === 'sunshade') return { text: isTouch ? 'OPENING mode: Tap near any wall edge to place.' : 'OPENING mode: Hover near any wall edge (glows blue), then click to place.', color: '#0ea5e9' };
     
-    if (activeTool.value === 'wall' || activeTool.value === 'outer' || activeTool.value === 'inner' || activeTool.value === 'compound') return { text: 'WALL mode: Click to start drawing a wall. Click again to place corners. Press ESC to finish.', color: '#3b82f6' };
+    if (activeTool.value === 'wall' || activeTool.value === 'outer' || activeTool.value === 'inner' || activeTool.value === 'compound' || activeTool.value === 'room_box') {
+        return { 
+            text: viewMode.value === '3d' 
+                ? '3D WALL BUILD: Click floor to place corner. Move mouse to stretch wall. Click to chain. Press ESC / Right-Click to finish.' 
+                : 'WALL mode: Click to start drawing a wall. Click again to place corners. Press ESC to finish.', 
+            color: '#0ea5e9' 
+        };
+    }
     
     return { text: 'SELECT mode: Click elements to edit. Trace Faded Fills from lower floors perfectly.', color: 'rgba(17, 24, 39, 0.9)' };
 });
@@ -833,6 +842,18 @@ const resetZoom = () => {
 const resetCamera = () => {
     if (viewMode.value === '3d' && renderer3D.value?.cameraController) {
         renderer3D.value.cameraController.resetCamera();
+    }
+};
+
+const setSims4View = () => {
+    if (viewMode.value === '3d' && renderer3D.value?.cameraController) {
+        renderer3D.value.cameraController.setSims4IsometricView();
+    }
+};
+
+const setTopDownView = () => {
+    if (viewMode.value === '3d' && renderer3D.value?.cameraController) {
+        renderer3D.value.cameraController.setTopDownView();
     }
 };
 

@@ -11,6 +11,7 @@ import { RoofCornerGizmo } from '../../features/roof/RoofCornerGizmo.js';
 import { RoofOverhangGizmo } from '../../features/roof/RoofOverhangGizmo.js';
 import { PolygonGizmo } from './PolygonGizmo.js';
 import { WallPushPullGizmo } from './WallPushPullGizmo.js';
+import { Wall3DDrawSystem } from './Wall3DDrawSystem.js';
 import { SelectionManager } from './SelectionManager.js';
 import { HighlightRenderer } from './HighlightRenderer.js';
 import { DimensionManager3D } from './dimensions/DimensionManager3D.js';
@@ -448,6 +449,8 @@ export class InteractionSystem {
         this.wallPushPullGizmo = new WallPushPullGizmo(ctx);
         this.ctx.scene.add(this.wallPushPullGizmo);
 
+        this.wall3DDrawSystem = new Wall3DDrawSystem(ctx, this);
+
         this.initEvents();
     }
 
@@ -470,9 +473,16 @@ export class InteractionSystem {
         
         this._onPointerDown = (e) => {
             if (this.ctx.viewMode3D === 'preview') return;
-            if (this.transformControls && this.transformControls.active) return;
-            if (this.mode === 'camera' || e.button !== 0) return;
+            if (this.mode === 'camera') return;
             this.updateMouse(e);
+
+            // Direct 3D Wall / Room Drawing System
+            if (this.wall3DDrawSystem && this.wall3DDrawSystem.isWallDrawingTool()) {
+                if (this.wall3DDrawSystem.onPointerDown(e)) return;
+            }
+
+            if (this.transformControls && this.transformControls.active) return;
+            if (e.button !== 0) return;
             
             const now = Date.now();
             if (now - this.lastTapTime < 350) {
@@ -557,9 +567,16 @@ export class InteractionSystem {
 
         this._onPointerMove = (e) => {
             if (this.ctx.viewMode3D === 'preview') return;
-            if (this.transformControls && this.transformControls.active) return;
             if (this.mode === 'camera') return;
             this.updateMouse(e);
+
+            // Direct 3D Wall / Room Drawing System
+            if (this.wall3DDrawSystem && this.wall3DDrawSystem.isWallDrawingTool()) {
+                this.wall3DDrawSystem.onPointerMove(e);
+                return;
+            }
+
+            if (this.transformControls && this.transformControls.active) return;
             
             if (this.ctx.currentTransformMode && this.ctx.currentTransformMode !== 'none') {
                 // Clear hover highlights while using transform gizmos
@@ -847,6 +864,7 @@ export class InteractionSystem {
         if (this.roofOverhangGizmo && this.roofOverhangGizmo.dispose) this.roofOverhangGizmo.dispose();
         if (this.polygonGizmo && this.polygonGizmo.dispose) this.polygonGizmo.dispose();
         if (this.wallPushPullGizmo && this.wallPushPullGizmo.dispose) this.wallPushPullGizmo.dispose();
+        if (this.wall3DDrawSystem && this.wall3DDrawSystem.dispose) this.wall3DDrawSystem.dispose();
         if (this.highlightRenderer && this.highlightRenderer.dispose) this.highlightRenderer.dispose();
         if (this.dimensionManager && this.dimensionManager.dispose) this.dimensionManager.dispose();
     }

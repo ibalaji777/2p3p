@@ -161,24 +161,56 @@ export class CameraController {
         this.entranceAngle = angle;
     }
 
-    resetCamera() {
+    setSims4IsometricView() {
         const box = this.getBuildingBoundingBox();
         const center = new THREE.Vector3();
         box.getCenter(center);
-        
+
         const size = new THREE.Vector3();
         box.getSize(size);
         const maxDim = Math.max(size.x, size.y, size.z, 500);
-        const distance = maxDim * 1.5;
+        const distance = maxDim * 1.6;
 
-        const baseDir = new THREE.Vector3(1, 1, 1).normalize();
-        const angle = this.entranceAngle || 0;
-        
-        // Apply entrance rotation (Y-axis) to the direction vector
-        const dir = baseDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
-        
+        // 45 degree isometric angle (Sims 4 default angle)
+        const dir = new THREE.Vector3(1, 0.95, 1).normalize();
         const newPos = center.clone().add(dir.multiplyScalar(distance));
         this.animateTo(newPos, center);
+    }
+
+    setTopDownView() {
+        const box = this.getBuildingBoundingBox();
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const maxDim = Math.max(size.x, size.z, 500);
+        const distance = maxDim * 1.5;
+
+        // Direct 90 degree top-down view
+        const dir = new THREE.Vector3(0.001, 1, 0.001).normalize();
+        const newPos = center.clone().add(dir.multiplyScalar(distance));
+        this.animateTo(newPos, center);
+    }
+
+    setFrontElevationView() {
+        const box = this.getBuildingBoundingBox();
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+
+        const size = new THREE.Vector3();
+        box.getSize(size);
+        const maxDim = Math.max(size.x, size.y, size.z, 500);
+        const distance = maxDim * 1.6;
+
+        // Front view looking along Z axis
+        const dir = new THREE.Vector3(0, 0.25, 1).normalize();
+        const newPos = center.clone().add(dir.multiplyScalar(distance));
+        this.animateTo(newPos, center);
+    }
+
+    resetCamera() {
+        this.setSims4IsometricView();
     }
 
     animateTo(position, target) {
