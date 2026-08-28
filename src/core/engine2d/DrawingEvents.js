@@ -9,6 +9,83 @@ import { Railing } from '../../features/railing/objects/Railing.js';
 import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
 import { PremiumOutdoorZone, OUTDOOR_ZONE_TYPES } from './PremiumOutdoorZone.js';
 
+export function computeCorridorPolygon(points, width) {
+    if (!points || points.length < 2) return null;
+    const halfW = width / 2;
+    const n = points.length;
+    
+    const segNormals = [];
+    for (let i = 0; i < n - 1; i++) {
+        const dx = points[i+1].x - points[i].x;
+        const dy = points[i+1].y - points[i].y;
+        const len = Math.hypot(dx, dy) || 1;
+        const ux = dx / len;
+        const uy = dy / len;
+        segNormals.push({ nx: -uy, ny: ux });
+    }
+
+    const leftPts = [];
+    const rightPts = [];
+
+    // Start point
+    leftPts.push({
+        x: points[0].x + segNormals[0].nx * halfW,
+        y: points[0].y + segNormals[0].ny * halfW
+    });
+    rightPts.push({
+        x: points[0].x - segNormals[0].nx * halfW,
+        y: points[0].y - segNormals[0].ny * halfW
+    });
+
+    // Intermediate points with miter joint calculation
+    for (let i = 1; i < n - 1; i++) {
+        const n1 = segNormals[i - 1];
+        const n2 = segNormals[i];
+        
+        let bisectorX = n1.nx + n2.nx;
+        let bisectorY = n1.ny + n2.ny;
+        const bisectorLen = Math.hypot(bisectorX, bisectorY);
+        
+        if (bisectorLen < 0.001) {
+            bisectorX = n1.nx;
+            bisectorY = n1.ny;
+        } else {
+            bisectorX /= bisectorLen;
+            bisectorY /= bisectorLen;
+        }
+
+        const dot = bisectorX * n1.nx + bisectorY * n1.ny;
+        const miterLength = Math.min(halfW / Math.max(0.15, dot), halfW * 2.5);
+
+        leftPts.push({
+            x: points[i].x + bisectorX * miterLength,
+            y: points[i].y + bisectorY * miterLength
+        });
+        rightPts.push({
+            x: points[i].x - bisectorX * miterLength,
+            y: points[i].y - bisectorY * miterLength
+        });
+    }
+
+    // End point
+    const lastN = segNormals[segNormals.length - 1];
+    leftPts.push({
+        x: points[n - 1].x + lastN.nx * halfW,
+        y: points[n - 1].y + lastN.ny * halfW
+    });
+    rightPts.push({
+        x: points[n - 1].x - lastN.nx * halfW,
+        y: points[n - 1].y - lastN.ny * halfW
+    });
+
+    // Combined closed polygon (Left forward, Right backward)
+    const polygon = [...leftPts];
+    for (let i = rightPts.length - 1; i >= 0; i--) {
+        polygon.push(rightPts[i]);
+    }
+    return polygon;
+}
+
 /**
  * Handles drawing-specific logic and complex placement algorithms.
  * @param {Object} planner - The FloorPlanner instance.
@@ -27,7 +104,7 @@ export function setupDrawingEvents(planner) {
         planner.__executePointerDownLogic = (e, pos, isTouch) => {
             if (planner.gestureManager && planner.gestureManager.isActive()) return;
  
-            if (planner.tool && (planner.tool.startsWith('outdoor_') || planner.tool.startsWith('floor_'))) {
+            if (planner.tool && (planner.tool.startsWith('outdoor_') || planner.tool.startsWith('floor_') || planner.tool === 'driveway' || planner.tool === 'walkway')) {
                 planner._executeOutdoorPointerDownLogic(pos);
                 return;
             }
@@ -619,6 +696,52 @@ export function setupDrawingEvents(planner) {
             }
         };
 
+        planner._finishOutdoorCorridor = () => {
+            if (!planner.drawingOutdoorPoints || planner.drawingOutdoorPoints.length < 2) return;
+            const subType = planner.tool === 'outdoor_walkway' ? 'walkway' : 'driveway';
+            const corridorWidth = subType === 'walkway' ? 60 : 160; // 3ft for walkway, 8ft for driveway
+            const zoneDefaults = OUTDOOR_ZONE_TYPES[subType] || OUTDOOR_ZONE_TYPES.pavement;
+            const corridorPoly = computeCorridorPolygon(planner.drawingOutdoorPoints, corridorWidth);
+            if (!corridorPoly || corridorPoly.length < 3) return;
+
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            corridorPoly.forEach(p => {
+                minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+                minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+            });
+            const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+            const relPts = corridorPoly.map(p => ({ x: p.x - cx, y: p.y - cy }));
+
+            const newZone = new PremiumOutdoorZone(planner, 'outdoor_zone', {
+                x: cx, y: cy, points: relPts, subType: subType, material: zoneDefaults.defaultMaterial, height3D: 0.3,
+                width: corridorWidth,
+                centerline: planner.drawingOutdoorPoints.map(p => ({ x: p.x - cx, y: p.y - cy }))
+            });
+            if (!planner.outdoorZones) planner.outdoorZones = [];
+            planner.outdoorZones.push(newZone);
+            if (!planner.currentSessionEntities) planner.currentSessionEntities = [];
+            planner.currentSessionEntities.push(newZone);
+
+            planner.drawingOutdoorPoints = null;
+            planner.startAnchor = null;
+            planner.lastAnchor = null;
+            planner.drawing = false;
+            if (planner.outdoorPreviewGroup) { planner.outdoorPreviewGroup.destroy(); planner.outdoorPreviewGroup = null; }
+            planner.outdoorPreview = null;
+            planner.outdoorCheckmarkGroup = null;
+            planner.hideSnapGlow();
+            if (planner.smartGuides) planner.smartGuides.clear();
+            planner.uiLayer.batchDraw();
+
+            planner.registerTimeout(() => {
+                planner.tool = 'select';
+                planner.updateToolStates();
+                if (planner.onToolChange) planner.onToolChange('select');
+                planner.selectEntity(newZone, 'outdoor_zone');
+                planner.syncAll();
+            }, 10);
+        };
+
         planner._executeOutdoorPointerDownLogic = (pos) => {
             planner.drawing = true;
             let snap = pos;
@@ -660,7 +783,9 @@ export function setupDrawingEvents(planner) {
                 });
             }
 
-            const subType = planner.tool === 'outdoor_other' ? 'other_space' : (planner.tool && planner.tool.startsWith('outdoor_') ? planner.tool.replace('outdoor_', '') : 'pavement');
+            const isCorridor = planner.tool === 'outdoor_driveway' || planner.tool === 'outdoor_walkway' || planner.tool === 'driveway' || planner.tool === 'walkway';
+            const subType = planner.tool === 'outdoor_walkway' || planner.tool === 'walkway' ? 'walkway' : (planner.tool === 'outdoor_driveway' || planner.tool === 'driveway' ? 'driveway' : (planner.tool === 'outdoor_other' ? 'other_space' : (planner.tool && planner.tool.startsWith('outdoor_') ? planner.tool.replace('outdoor_', '') : 'pavement')));
+            const corridorWidth = subType === 'walkway' ? 60 : 160; // 3ft for walkway, 8ft for driveway
             const zoneDefaults = OUTDOOR_ZONE_TYPES[subType] || OUTDOOR_ZONE_TYPES.pavement;
 
             if (!planner.drawingOutdoorPoints) {
@@ -673,19 +798,52 @@ export function setupDrawingEvents(planner) {
 
                 planner.outdoorPreview = new Konva.Line({
                     points: [snap.x, snap.y, snap.x, snap.y],
-                    stroke: zoneDefaults.stroke || '#ca8a04',
-                    strokeWidth: 3,
-                    fill: zoneDefaults.fill || 'rgba(234, 179, 8, 0.30)',
+                    stroke: zoneDefaults.stroke || '#854d0e',
+                    strokeWidth: 2.5,
+                    fill: zoneDefaults.fill || 'rgba(234, 179, 8, 0.28)',
                     closed: true
                 });
                 planner.outdoorPreviewGroup.add(planner.outdoorPreview);
-                const startCircle = new Konva.Circle({ x: snap.x, y: snap.y, radius: 6, fill: '#06b6d4', stroke: 'white', strokeWidth: 1.5 });
-                planner.outdoorPreviewGroup.add(startCircle);
+
+                planner.outdoorCenterline = new Konva.Line({
+                    points: [snap.x, snap.y, snap.x, snap.y],
+                    stroke: '#854d0e',
+                    strokeWidth: 1.5,
+                    dash: [4, 3],
+                    opacity: 0.85
+                });
+                planner.outdoorPreviewGroup.add(planner.outdoorCenterline);
+
+                planner.outdoorActiveSegment = new Konva.Line({
+                    points: [snap.x, snap.y, snap.x, snap.y],
+                    stroke: '#0284c7',
+                    strokeWidth: 2.5
+                });
+                planner.outdoorPreviewGroup.add(planner.outdoorActiveSegment);
+
+                planner.outdoorNodeGroup = new Konva.Group();
+                planner.outdoorPreviewGroup.add(planner.outdoorNodeGroup);
+
+                const startCircle = new Konva.Circle({ x: snap.x, y: snap.y, radius: 5, fill: '#854d0e', stroke: 'white', strokeWidth: 1.5 });
+                planner.outdoorNodeGroup.add(startCircle);
+
+                planner.outdoorDimensionGroup = new Konva.Group();
+                planner.outdoorPreviewGroup.add(planner.outdoorDimensionGroup);
+
                 planner.uiLayer.add(planner.outdoorPreviewGroup);
                 planner.uiLayer.batchDraw();
             } else {
+                const lastP = planner.drawingOutdoorPoints[planner.drawingOutdoorPoints.length - 1];
                 const startP = planner.drawingOutdoorPoints[0];
-                if (Math.hypot(snap.x - startP.x, snap.y - startP.y) < SNAP_DIST && planner.drawingOutdoorPoints.length > 2) {
+
+                // Check finish condition for corridor: clicking the last point or checkmark badge
+                if (isCorridor && (Math.hypot(snap.x - lastP.x, snap.y - lastP.y) < SNAP_DIST * 1.5 || Math.hypot(snap.x - startP.x, snap.y - startP.y) < SNAP_DIST * 1.5 && planner.drawingOutdoorPoints.length >= 2)) {
+                    planner._finishOutdoorCorridor();
+                    return;
+                }
+
+                // Check finish condition for standard polygon: closing back to start node
+                if (!isCorridor && Math.hypot(snap.x - startP.x, snap.y - startP.y) < SNAP_DIST && planner.drawingOutdoorPoints.length > 2) {
                     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
                     planner.drawingOutdoorPoints.forEach(p => {
                         minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
@@ -720,21 +878,34 @@ export function setupDrawingEvents(planner) {
                         planner.syncAll();
                     }, 10);
                 } else {
-                    const lastP = planner.drawingOutdoorPoints[planner.drawingOutdoorPoints.length - 1];
                     if (lastP && lastP.x === snap.x && lastP.y === snap.y) return;
 
                     planner.drawingOutdoorPoints.push(snap);
                     planner.lastAnchor = { x: snap.x, y: snap.y, position: () => ({ x: snap.x, y: snap.y }) };
-                    if (planner.outdoorPreviewGroup) {
-                        const newCircle = new Konva.Circle({ x: snap.x, y: snap.y, radius: 4, fill: zoneDefaults.stroke || '#ca8a04' });
-                        planner.outdoorPreviewGroup.add(newCircle);
+
+                    if (planner.outdoorNodeGroup) {
+                        const newCircle = new Konva.Circle({ x: snap.x, y: snap.y, radius: 5, fill: '#854d0e', stroke: 'white', strokeWidth: 1.5 });
+                        planner.outdoorNodeGroup.add(newCircle);
                     }
-                    const pts = planner.drawingOutdoorPoints.flatMap(p => [p.x, p.y]); pts.push(snap.x, snap.y);
-                    planner.outdoorPreview.points(pts);
+
+                    if (isCorridor) {
+                        const poly = computeCorridorPolygon(planner.drawingOutdoorPoints, corridorWidth);
+                        if (poly) planner.outdoorPreview.points(poly.flatMap(p => [p.x, p.y]));
+                        planner.outdoorCenterline.points(planner.drawingOutdoorPoints.flatMap(p => [p.x, p.y]));
+                    } else {
+                        const pts = planner.drawingOutdoorPoints.flatMap(p => [p.x, p.y]); pts.push(snap.x, snap.y);
+                        planner.outdoorPreview.points(pts);
+                    }
                     planner.uiLayer.batchDraw();
                 }
             }
         };
+
+        planner.stage.on("dblclick.outdoor dbltap.outdoor", () => {
+            if (planner.drawingOutdoorPoints && (planner.tool === 'outdoor_driveway' || planner.tool === 'outdoor_walkway')) {
+                planner._finishOutdoorCorridor();
+            }
+        });
 
         planner.stage.on("mousemove.roof touchmove.roof", (e) => {
             if (e && e.evt && e.evt.touches && e.evt.touches.length > 1) return;
@@ -913,7 +1084,10 @@ export function setupDrawingEvents(planner) {
                     });
                 }
 
-                if (planner.drawingOutdoorPoints && planner.drawingOutdoorPoints.length > 2) {
+                const isCorridor = planner.tool === 'outdoor_driveway' || planner.tool === 'outdoor_walkway' || planner.tool === 'driveway' || planner.tool === 'walkway';
+                const corridorWidth = (planner.tool === 'outdoor_walkway' || planner.tool === 'walkway') ? 60 : 160; // 3ft for walkway, 8ft for driveway
+
+                if (planner.drawingOutdoorPoints && planner.drawingOutdoorPoints.length > 2 && !isCorridor) {
                     const startP = planner.drawingOutdoorPoints[0];
                     if (Math.hypot(pos.x - startP.x, pos.y - startP.y) < SNAP_DIST) {
                         snap = { x: startP.x, y: startP.y };
@@ -942,16 +1116,159 @@ export function setupDrawingEvents(planner) {
                     if (planner.smartGuides && planner.smartGuides.drawAngleGuide) {
                         planner.smartGuides.drawAngleGuide(lastP, snap, refAngle, true);
                     }
+
+                    if (isCorridor && planner.outdoorPreviewGroup) {
+                        const candidatePts = [...planner.drawingOutdoorPoints, snap];
+                        const poly = computeCorridorPolygon(candidatePts, corridorWidth);
+                        if (poly && planner.outdoorPreview) {
+                            planner.outdoorPreview.points(poly.flatMap(p => [p.x, p.y]));
+                        }
+                        if (planner.outdoorCenterline) {
+                            planner.outdoorCenterline.points(planner.drawingOutdoorPoints.flatMap(p => [p.x, p.y]));
+                        }
+                        if (planner.outdoorActiveSegment) {
+                            planner.outdoorActiveSegment.points([lastP.x, lastP.y, snap.x, snap.y]);
+                        }
+
+                        // Cyan checkmark badge on active bend node
+                        if (!planner.outdoorCheckmarkGroup) {
+                            planner.outdoorCheckmarkGroup = new Konva.Group();
+                            planner.outdoorCheckmarkGroup.add(new Konva.Circle({
+                                radius: 11,
+                                fill: '#06b6d4',
+                                stroke: 'white',
+                                strokeWidth: 2,
+                                shadowColor: 'black',
+                                shadowBlur: 4,
+                                shadowOpacity: 0.3
+                            }));
+                            planner.outdoorCheckmarkGroup.add(new Konva.Path({
+                                data: 'M-4,1 L-1,4 L5,-3',
+                                stroke: 'white',
+                                strokeWidth: 2.2,
+                                lineCap: 'round',
+                                lineJoin: 'round'
+                            }));
+                            planner.outdoorCheckmarkGroup.on('click tap', (e) => {
+                                if (e && e.cancelBubble !== undefined) e.cancelBubble = true;
+                                planner._finishOutdoorCorridor();
+                            });
+                            planner.outdoorPreviewGroup.add(planner.outdoorCheckmarkGroup);
+                        }
+                        planner.outdoorCheckmarkGroup.position({ x: lastP.x, y: lastP.y });
+                        planner.outdoorCheckmarkGroup.visible(planner.drawingOutdoorPoints.length >= 2);
+                        planner.outdoorCheckmarkGroup.moveToTop();
+
+                        // Render segment dimension lines along the corridor
+                        if (planner.outdoorDimensionGroup) {
+                            planner.outdoorDimensionGroup.destroyChildren();
+                            const allPts = [...planner.drawingOutdoorPoints, snap];
+                            for (let i = 0; i < allPts.length - 1; i++) {
+                                const pA = allPts[i], pB = allPts[i + 1];
+                                const segDx = pB.x - pA.x, segDy = pB.y - pA.y;
+                                const segLen = Math.hypot(segDx, segDy);
+                                if (segLen > 25) {
+                                    const uX = segDx / segLen, uY = segDy / segLen;
+                                    const normX = -uY, normY = uX;
+                                    const offsetDist = (corridorWidth / 2) + 24;
+
+                                    const dimA = { x: pA.x + normX * offsetDist, y: pA.y + normY * offsetDist };
+                                    const dimB = { x: pB.x + normX * offsetDist, y: pB.y + normY * offsetDist };
+                                    const midX = (dimA.x + dimB.x) / 2, midY = (dimA.y + dimB.y) / 2;
+
+                                    // Dimension guide line
+                                    const dimLine = new Konva.Line({
+                                        points: [dimA.x, dimA.y, dimB.x, dimB.y],
+                                        stroke: '#64748b',
+                                        strokeWidth: 1.2,
+                                        dash: [4, 4],
+                                        opacity: 0.85
+                                    });
+                                    planner.outdoorDimensionGroup.add(dimLine);
+
+                                    // Dimension tick marks at ends
+                                    const tickA = new Konva.Line({
+                                        points: [dimA.x - normX * 4, dimA.y - normY * 4, dimA.x + normX * 4, dimA.y + normY * 4],
+                                        stroke: '#64748b',
+                                        strokeWidth: 1.2
+                                    });
+                                    const tickB = new Konva.Line({
+                                        points: [dimB.x - normX * 4, dimB.y - normY * 4, dimB.x + normX * 4, dimB.y + normY * 4],
+                                        stroke: '#64748b',
+                                        strokeWidth: 1.2
+                                    });
+                                    planner.outdoorDimensionGroup.add(tickA);
+                                    planner.outdoorDimensionGroup.add(tickB);
+
+                                    // Dimension badge text
+                                    const segAngle = Math.atan2(segDy, segDx) * 180 / Math.PI;
+                                    const adjustedAngle = (segAngle > 90 || segAngle < -90) ? segAngle + 180 : segAngle;
+                                    const dimText = new Konva.Text({
+                                        x: midX,
+                                        y: midY,
+                                        text: planner.formatLength(segLen),
+                                        fontSize: 11,
+                                        fontStyle: 'bold',
+                                        fill: '#1e293b',
+                                        align: 'center',
+                                        verticalAlign: 'middle',
+                                        rotation: adjustedAngle,
+                                        offset: { x: 18, y: 14 }
+                                    });
+                                    planner.outdoorDimensionGroup.add(dimText);
+                                }
+                            }
+
+                            // Add width dimension across the end cap
+                            if (allPts.length >= 2) {
+                                const lastA = allPts[allPts.length - 2], lastB = allPts[allPts.length - 1];
+                                const segDx = lastB.x - lastA.x, segDy = lastB.y - lastA.y;
+                                const segLen = Math.hypot(segDx, segDy);
+                                if (segLen > 15) {
+                                    const uX = segDx / segLen, uY = segDy / segLen;
+                                    const normX = -uY, normY = uX;
+                                    const halfW = corridorWidth / 2;
+                                    const capL = { x: lastB.x + normX * halfW, y: lastB.y + normY * halfW };
+                                    const capR = { x: lastB.x - normX * halfW, y: lastB.y - normY * halfW };
+                                    const capMidX = (capL.x + capR.x) / 2 + uX * 16;
+                                    const capMidY = (capL.y + capR.y) / 2 + uY * 16;
+
+                                    const capLine = new Konva.Line({
+                                        points: [capL.x + uX * 12, capL.y + uY * 12, capR.x + uX * 12, capR.y + uY * 12],
+                                        stroke: '#0284c7',
+                                        strokeWidth: 1.2,
+                                        dash: [3, 3]
+                                    });
+                                    planner.outdoorDimensionGroup.add(capLine);
+
+                                    const capAngle = Math.atan2(capR.y - capL.y, capR.x - capL.x) * 180 / Math.PI;
+                                    const adjustedCapAngle = (capAngle > 90 || capAngle < -90) ? capAngle + 180 : capAngle;
+                                    const widthText = new Konva.Text({
+                                        x: capMidX,
+                                        y: capMidY,
+                                        text: `W: ${planner.formatLength(corridorWidth)}`,
+                                        fontSize: 10,
+                                        fontStyle: 'bold',
+                                        fill: '#0369a1',
+                                        align: 'center',
+                                        verticalAlign: 'middle',
+                                        rotation: adjustedCapAngle,
+                                        offset: { x: 18, y: 12 }
+                                    });
+                                    planner.outdoorDimensionGroup.add(widthText);
+                                }
+                            }
+                        }
+                        planner.uiLayer.batchDraw();
+                    } else if (planner.drawingOutdoorPoints && planner.outdoorPreview) {
+                        const pts = planner.drawingOutdoorPoints.flatMap(p => [p.x, p.y]);
+                        pts.push(snap.x, snap.y);
+                        planner.outdoorPreview.points(pts);
+                        planner.uiLayer.batchDraw();
+                    }
                 } else {
                     planner.hideInfoBadge();
                     if (planner.smartGuides && planner.smartGuides.clear) planner.smartGuides.clear();
-                }
-
-                if (planner.drawingOutdoorPoints && planner.outdoorPreview) {
-                    const pts = planner.drawingOutdoorPoints.flatMap(p => [p.x, p.y]);
-                    pts.push(snap.x, snap.y);
-                    planner.outdoorPreview.points(pts);
-                    planner.uiLayer.batchDraw();
                 }
             }
         });

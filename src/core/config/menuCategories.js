@@ -25,13 +25,14 @@ export const getMenuCategories = () => [
         ]
     },
     {
-        id: 'floors', name: 'Floors',
+        id: 'floors', name: 'Floors & Pavements',
         icon: '<rect x="3" y="3" width="18" height="18" rx="2" stroke-width="1.8"></rect><path d="M3 9h18M9 21V9" stroke-width="1.8"></path>',
         tools: [
-            { id: 'outdoor_pavement', name: 'Pavement' },
+            { id: 'outdoor_driveway', name: 'Driveway' },
+            { id: 'outdoor_walkway', name: 'Walkway' },
+            { id: 'outdoor_pavement', name: 'Free shape path' },
             { id: 'outdoor_patio', name: 'Patio' },
-            { id: 'outdoor_softscape', name: 'Softscape' },
-            { id: 'outdoor_other', name: 'Other space' }
+            { id: 'outdoor_softscape', name: 'Softscape' }
         ]
     },
     {

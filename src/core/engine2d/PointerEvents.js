@@ -209,7 +209,7 @@ export function setupPointerEvents(planner) {
                 planner.uiLayer.batchDraw(); return;
             }
 
-            if (planner.tool && (planner.tool.startsWith('outdoor_') || planner.tool.startsWith('floor_') || planner.tool === 'roof' || planner.tool === 'shape_floor_cut')) {
+            if (planner.tool && (planner.tool.startsWith('outdoor_') || planner.tool.startsWith('floor_') || planner.tool === 'roof' || planner.tool === 'shape_floor_cut' || planner.tool === 'driveway' || planner.tool === 'walkway')) {
                 // Handled exclusively by DrawingEvents.js to prevent conflicting previews and dual blue/dark lines
                 if (planner.preview) {
                     planner.preview.destroy();

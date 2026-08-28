@@ -2,15 +2,37 @@ import Konva from 'konva';
 import { SNAP_DIST } from '../registry.js';
 
 export const OUTDOOR_ZONE_TYPES = {
-    pavement: {
-        id: 'pavement',
-        label: 'Pavement',
-        description: 'Hard-surface areas such as driveways, walkways, parking areas, paved paths, etc.',
+    driveway: {
+        id: 'driveway',
+        label: 'Driveway',
+        description: 'Vehicular driveway with heavy-duty interlocking pavers or asphalt.',
         defaultMaterial: 'tile_yellow_hexagon',
         fill: 'rgba(234, 179, 8, 0.30)',
         stroke: '#ca8a04',
         badgeColor: '#854d0e',
         badgeIcon: 'car',
+        defaultHeight3D: 0.3
+    },
+    walkway: {
+        id: 'walkway',
+        label: 'Walkway',
+        description: 'Pedestrian walkway with smooth stone pavers or stepping stones.',
+        defaultMaterial: 'tile_yellow_octagram',
+        fill: 'rgba(217, 119, 6, 0.28)',
+        stroke: '#b45309',
+        badgeColor: '#92400e',
+        badgeIcon: 'walkway',
+        defaultHeight3D: 0.3
+    },
+    pavement: {
+        id: 'pavement',
+        label: 'Free shape path',
+        description: 'Custom multi-point polygonal paved paths and hardscape areas.',
+        defaultMaterial: 'tile_yellow_hexagon',
+        fill: 'rgba(234, 179, 8, 0.30)',
+        stroke: '#ca8a04',
+        badgeColor: '#854d0e',
+        badgeIcon: 'polygon',
         defaultHeight3D: 0.3
     },
     patio: {
@@ -130,6 +152,11 @@ export class PremiumOutdoorZone {
         });
         this.createBadgeContent();
 
+        // 3.5 Dimensions Group (Length & Width according to settings)
+        this.dimensionGroup = new Konva.Group({
+            listening: false
+        });
+
         // 4. Rotation handle
         this.rotHandle = new Konva.Circle({
             radius: 6,
@@ -143,6 +170,7 @@ export class PremiumOutdoorZone {
 
         this.group.add(this.polygonShape);
         this.group.add(this.sealHighlight);
+        this.group.add(this.dimensionGroup);
         this.group.add(this.badgeGroup);
         this.group.add(this.rotHandle);
 
@@ -150,6 +178,7 @@ export class PremiumOutdoorZone {
         this.createVertexHandles();
         this.updateBadgePosition();
         this.updateRotHandlePosition();
+        this.updateDimensions();
 
         if (this.planner.baseLayer) {
             this.planner.baseLayer.add(this.group);
@@ -289,6 +318,88 @@ export class PremiumOutdoorZone {
         });
     }
 
+    updateDimensions() {
+        if (!this.dimensionGroup) return;
+        this.dimensionGroup.destroyChildren();
+
+        const showDims = this.planner?.settings?.showDimensionLabels !== false && 
+                         this.planner?.floorPlanSettings?.showDimensionLabels !== false;
+        if (!showDims || !this.points || this.points.length < 2) {
+            this.dimensionGroup.visible(false);
+            return;
+        }
+        this.dimensionGroup.visible(true);
+
+        const pts = this.points;
+        const n = pts.length;
+        const isCorridor = this.subType === 'driveway' || this.subType === 'walkway' || Boolean(this.params?.width);
+
+        for (let i = 0; i < n; i++) {
+            const pA = pts[i];
+            const pB = pts[(i + 1) % n];
+            const dx = pB.x - pA.x;
+            const dy = pB.y - pA.y;
+            const len = Math.hypot(dx, dy);
+            if (len < 15) continue;
+
+            const ux = dx / len, uy = dy / len;
+            const nx = -uy, ny = ux;
+            const offset = 14;
+
+            const dimA = { x: pA.x + nx * offset, y: pA.y + ny * offset };
+            const dimB = { x: pB.x + nx * offset, y: pB.y + ny * offset };
+            const midX = (dimA.x + dimB.x) / 2;
+            const midY = (dimA.y + dimB.y) / 2;
+
+            // Is this edge a cross width cap?
+            const isWidthEdge = isCorridor && (i === 0 || i === Math.floor(n / 2) || i === n - 1) && len < (this.params?.width ? this.params.width * 1.5 : 300);
+
+            // Dimension Line
+            const dimLine = new Konva.Line({
+                points: [dimA.x, dimA.y, dimB.x, dimB.y],
+                stroke: '#64748b',
+                strokeWidth: 1,
+                dash: [3, 3],
+                opacity: 0.85
+            });
+            this.dimensionGroup.add(dimLine);
+
+            // Tick marks
+            const tickA = new Konva.Line({
+                points: [dimA.x - nx * 3, dimA.y - ny * 3, dimA.x + nx * 3, dimA.y + ny * 3],
+                stroke: '#64748b',
+                strokeWidth: 1
+            });
+            const tickB = new Konva.Line({
+                points: [dimB.x - nx * 3, dimB.y - ny * 3, dimB.x + nx * 3, dimB.y + ny * 3],
+                stroke: '#64748b',
+                strokeWidth: 1
+            });
+            this.dimensionGroup.add(tickA);
+            this.dimensionGroup.add(tickB);
+
+            // Text Label
+            const segAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+            const adjustedAngle = (segAngle > 90 || segAngle < -90) ? segAngle + 180 : segAngle;
+            const labelStr = (isWidthEdge ? 'W: ' : '') + (this.planner?.formatLength ? this.planner.formatLength(len) : `${(len / 100).toFixed(2)}m`);
+
+            const dimText = new Konva.Text({
+                x: midX,
+                y: midY,
+                text: labelStr,
+                fontSize: 10,
+                fontFamily: 'Inter, sans-serif',
+                fontStyle: 'bold',
+                fill: '#334155',
+                align: 'center',
+                verticalAlign: 'middle',
+                rotation: adjustedAngle,
+                offset: { x: 14, y: 12 }
+            });
+            this.dimensionGroup.add(dimText);
+        }
+    }
+
     updateGeometry() {
         const flatPts = this.getFlatPoints();
         this.polygonShape.points(flatPts);
@@ -296,6 +407,7 @@ export class PremiumOutdoorZone {
         this.createBadgeContent();
         this.updateBadgePosition();
         this.updateRotHandlePosition();
+        this.updateDimensions();
 
         if (this.planner.mainLayer) this.planner.mainLayer.batchDraw();
         if (this.planner.syncAll) this.planner.syncAll();

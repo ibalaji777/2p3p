@@ -35,6 +35,7 @@ import { PremiumStaircase } from '../../features/stairs/stairs.renderer2d.js';
 import { PremiumMolding } from './PremiumMolding.js';
 import { PRESET_REGISTRY, autoAlign } from './presetRegistry.js';
 import { PresetGroup } from './PresetGroup.js';
+import { computeCorridorPolygon } from './DrawingEvents.js';
 
 // Export the specific classes that App.vue needs to spawn items
 export { PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding, PremiumOutdoorZone };
@@ -1176,22 +1177,38 @@ export class FloorPlanner {
                 }, 10);
             }
         }
-        if (this.drawingOutdoorPoints && !isCancel && this.drawingOutdoorPoints.length > 2) {
-            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-            this.drawingOutdoorPoints.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
-            const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
-            const relPts = this.drawingOutdoorPoints.map(p => ({ x: p.x - cx, y: p.y - cy }));
-            const subType = this.tool === 'outdoor_other' ? 'other_space' : (this.tool && this.tool.startsWith('outdoor_') ? this.tool.replace('outdoor_', '') : 'pavement');
-            const newZone = new PremiumOutdoorZone(this, 'outdoor_zone', { x: cx, y: cy, points: relPts, subType, height3D: 0.3 });
-            if (!this.outdoorZones) this.outdoorZones = [];
-            this.outdoorZones.push(newZone);
+        if (this.drawingOutdoorPoints && !isCancel && this.drawingOutdoorPoints.length >= 2) {
+            const isCorridor = this.tool === 'outdoor_driveway' || this.tool === 'outdoor_walkway' || this.tool === 'driveway' || this.tool === 'walkway';
+            const subType = this.tool === 'outdoor_walkway' || this.tool === 'walkway' ? 'walkway' : (this.tool === 'outdoor_driveway' || this.tool === 'driveway' ? 'driveway' : (this.tool === 'outdoor_other' ? 'other_space' : (this.tool && this.tool.startsWith('outdoor_') ? this.tool.replace('outdoor_', '') : 'pavement')));
+            const corridorWidth = subType === 'walkway' ? 60 : 160; // 3ft for walkway, 8ft for driveway
 
-            this.registerTimeout(() => {
-                this.tool = 'select'; this.updateToolStates();
-                if (this.onToolChange) this.onToolChange('select');
-                this.selectEntity(newZone, 'outdoor_zone');
-                this.syncAll();
-            }, 10);
+            let finalPoly = this.drawingOutdoorPoints;
+            if (isCorridor) {
+                finalPoly = computeCorridorPolygon(this.drawingOutdoorPoints, corridorWidth) || this.drawingOutdoorPoints;
+            } else if (this.drawingOutdoorPoints.length < 3) {
+                finalPoly = null;
+            }
+
+            if (finalPoly && finalPoly.length >= 3) {
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                finalPoly.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
+                const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+                const relPts = finalPoly.map(p => ({ x: p.x - cx, y: p.y - cy }));
+                const newZone = new PremiumOutdoorZone(this, 'outdoor_zone', {
+                    x: cx, y: cy, points: relPts, subType, height3D: 0.3,
+                    width: isCorridor ? corridorWidth : undefined,
+                    centerline: isCorridor ? this.drawingOutdoorPoints.map(p => ({ x: p.x - cx, y: p.y - cy })) : undefined
+                });
+                if (!this.outdoorZones) this.outdoorZones = [];
+                this.outdoorZones.push(newZone);
+
+                this.registerTimeout(() => {
+                    this.tool = 'select'; this.updateToolStates();
+                    if (this.onToolChange) this.onToolChange('select');
+                    this.selectEntity(newZone, 'outdoor_zone');
+                    this.syncAll();
+                }, 10);
+            }
         }
         if (this.drawingOutdoorPoints) { this.drawingOutdoorPoints = null; if (this.outdoorPreviewGroup) { this.outdoorPreviewGroup.destroy(); this.outdoorPreviewGroup = null; } else if (this.outdoorPreview) { this.outdoorPreview.destroy(); } this.outdoorPreview = null; }
         if (this.drawingRoofPoints) { this.drawingRoofPoints = null; if (this.roofPreviewGroup) { this.roofPreviewGroup.destroy(); this.roofPreviewGroup = null; } else if (this.roofPreview) { this.roofPreview.destroy(); } this.roofPreview = null; }

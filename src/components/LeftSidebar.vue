@@ -526,7 +526,9 @@ const getShortToolName = (toolId, name) => {
     if (toolId === 'kitchen_catalog') return 'Kitchen';
     if (toolId === 'bathroom_catalog') return 'Bathroom';
     if (toolId === 'electronics_catalog') return 'Electronics';
-    if (toolId === 'outdoor_pavement') return 'Pavement';
+    if (toolId === 'outdoor_driveway') return 'Driveway';
+    if (toolId === 'outdoor_walkway') return 'Walkway';
+    if (toolId === 'outdoor_pavement') return 'Free shape path';
     if (toolId === 'outdoor_patio') return 'Patio';
     if (toolId === 'outdoor_softscape') return 'Softscape';
     if (toolId === 'outdoor_other') return 'Other space';
@@ -534,8 +536,14 @@ const getShortToolName = (toolId, name) => {
 };
 
 const getToolTabIcon = (toolId) => {
+    if (toolId === 'outdoor_driveway') {
+        return '<path d="M4 17 C7 11 11 7 19 4" stroke-dasharray="2 2"></path><path d="M11 20 C14 15 17 12 21 10" stroke-dasharray="2 2"></path><path d="M6 19 C10 13 13 10 19 7"></path><circle cx="6" cy="19" r="1.5" fill="currentColor"></circle><circle cx="19" cy="7" r="1.5" fill="currentColor"></circle><rect x="9.5" y="8" width="5" height="4" rx="1"></rect><circle cx="10.5" cy="12" r="0.7"></circle><circle cx="13.5" cy="12" r="0.7"></circle>';
+    }
+    if (toolId === 'outdoor_walkway') {
+        return '<path d="M4 17 C7 11 11 7 19 4" stroke-dasharray="2 2"></path><path d="M11 20 C14 15 17 12 21 10" stroke-dasharray="2 2"></path><path d="M6 19 C10 13 13 10 19 7"></path><circle cx="6" cy="19" r="1.5" fill="currentColor"></circle><circle cx="19" cy="7" r="1.5" fill="currentColor"></circle><circle cx="12" cy="7" r="1.2" fill="currentColor"></circle><path d="M10 15 l2 -3 l-1 -2 l2 -2 l2 2 l1 2"></path><path d="M12 12 l2 3"></path>';
+    }
     if (toolId === 'outdoor_pavement') {
-        return '<polygon points="12 2 2 9 6 20 18 20 22 9 12 2" stroke-width="1.8"></polygon><rect x="9" y="11" width="6" height="5" rx="1"></rect><circle cx="10" cy="16" r="1"></circle><circle cx="14" cy="16" r="1"></circle>';
+        return '<path d="M5 6 H18 L16 18 H9 V13 H5 Z"></path><circle cx="5" cy="6" r="1.5" fill="currentColor"></circle><circle cx="18" cy="6" r="1.5" fill="currentColor"></circle><circle cx="16" cy="18" r="1.5" fill="currentColor"></circle><circle cx="9" cy="18" r="1.5" fill="currentColor"></circle><circle cx="9" cy="13" r="1.5" fill="currentColor"></circle><circle cx="5" cy="13" r="1.5" fill="currentColor"></circle>';
     }
     if (toolId === 'outdoor_patio') {
         return '<polygon points="12 2 2 9 6 20 18 20 22 9 12 2" stroke-width="1.8"></polygon><path d="M12 7v7M9 10h6M8 14h8"></path>';

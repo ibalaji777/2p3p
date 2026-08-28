@@ -672,11 +672,31 @@ const decorPropsCatalog = ref([
 ]);
 
 const outdoorCatalog = ref([
-    { isDivider: true, id: 'div_outdoor_draw', name: 'Draw Floor Surfaces & Pavements' },
+    { isDivider: true, id: 'div_outdoor_draw', name: 'Draw Floor Surfaces & Paths' },
+    { 
+        id: 'outdoor_driveway', 
+        name: 'Driveway', 
+        badge: 'DRIVEWAY', 
+        material: 'Yellow Honeycomb Hexagon Pavers', 
+        specs: 'Floor Surface', 
+        image: '/assets/tiles/tile_yellow_hexagon.jpg', 
+        toolId: 'outdoor_driveway', 
+        params: { subType: 'driveway', material: 'tile_yellow_hexagon', height3D: 0.3 } 
+    },
+    { 
+        id: 'outdoor_walkway', 
+        name: 'Walkway', 
+        badge: 'WALKWAY', 
+        material: 'Yellow Octagram & Diamond Paver', 
+        specs: 'Floor Surface', 
+        image: '/assets/tiles/tile_yellow_octagram.jpg', 
+        toolId: 'outdoor_walkway', 
+        params: { subType: 'walkway', material: 'tile_yellow_octagram', height3D: 0.3 } 
+    },
     { 
         id: 'outdoor_pavement', 
-        name: 'Pavement', 
-        badge: 'PAVEMENT', 
+        name: 'Free shape path', 
+        badge: 'FREE PATH', 
         material: 'Yellow Honeycomb Hexagon Pavers', 
         specs: 'Floor Surface', 
         image: '/assets/tiles/tile_yellow_hexagon.jpg', 
@@ -703,17 +723,27 @@ const outdoorCatalog = ref([
         toolId: 'outdoor_softscape', 
         params: { subType: 'softscape', material: 'grass', height3D: 0.3 } 
     },
-    { 
-        id: 'outdoor_other', 
-        name: 'Other Space', 
-        badge: 'OTHER', 
-        material: 'Beige Limestone Porcelain Tile', 
-        specs: 'Floor Surface', 
-        image: '/assets/tiles/tile_beige_limestone.jpg', 
-        toolId: 'outdoor_other', 
-        params: { subType: 'other_space', material: 'tile_beige_limestone', height3D: 0.3 } 
-    },
     { isDivider: true, id: 'div_outdoor_presets', name: 'Quick-Drop Floor Templates' },
+    { 
+        id: 'preset_driveway_paved', 
+        name: 'Front Car Driveway', 
+        badge: 'PRESET', 
+        material: 'Yellow Honeycomb Paver Tile', 
+        specs: '8ft × 20ft (2.44 × 6.1m)', 
+        image: '/assets/tiles/tile_yellow_hexagon.jpg', 
+        toolId: 'outdoor_driveway', 
+        params: { subType: 'driveway', material: 'tile_yellow_hexagon', height3D: 0.3, width: 160, points: [{x:-80,y:-200},{x:80,y:-200},{x:80,y:200},{x:-80,y:200}] } 
+    },
+    { 
+        id: 'preset_walkway_entrance', 
+        name: 'Front Entrance Walkway', 
+        badge: 'PRESET', 
+        material: 'Yellow Octagram & Diamond Paver', 
+        specs: '3ft × 12ft (0.91 × 3.6m)', 
+        image: '/assets/tiles/tile_yellow_octagram.jpg', 
+        toolId: 'outdoor_walkway', 
+        params: { subType: 'walkway', material: 'tile_yellow_octagram', height3D: 0.3, width: 60, points: [{x:-30,y:-120},{x:30,y:-120},{x:30,y:120},{x:-30,y:120}] } 
+    },
     { 
         id: 'preset_patio_dining', 
         name: 'Rectangular Dining Patio', 
@@ -723,16 +753,6 @@ const outdoorCatalog = ref([
         image: '/assets/tiles/tile_yellow_cotto_squares.jpg', 
         toolId: 'outdoor_patio', 
         params: { subType: 'patio', material: 'tile_yellow_cotto_squares', height3D: 0.3, points: [{x:-200,y:-150},{x:200,y:-150},{x:200,y:150},{x:-200,y:150}] } 
-    },
-    { 
-        id: 'preset_driveway_paved', 
-        name: 'Front Car Driveway', 
-        badge: 'PRESET', 
-        material: 'Yellow Honeycomb Paver Tile', 
-        specs: '3000 × 6000 mm', 
-        image: '/assets/tiles/tile_yellow_hexagon.jpg', 
-        toolId: 'outdoor_pavement', 
-        params: { subType: 'pavement', material: 'tile_yellow_hexagon', height3D: 0.3, points: [{x:-150,y:-300},{x:150,y:-300},{x:150,y:300},{x:-150,y:300}] } 
     },
     { 
         id: 'preset_lawn_backyard', 
