@@ -89,6 +89,8 @@ export class PremiumOutdoorZone {
         this.height3D = params.height3D !== undefined ? Number(params.height3D) : typeDefaults.defaultHeight3D;
         this.fill = params.fill || typeDefaults.fill;
         this.stroke = params.stroke || typeDefaults.stroke;
+        this.width = params.width || (this.subType === 'walkway' ? 60 : (this.subType === 'driveway' ? 160 : undefined));
+        this.centerline = params.centerline || null;
 
         // Points array: [{x, y}, ...]
         let rawPoints = params.points || [];
@@ -487,6 +489,8 @@ export class PremiumOutdoorZone {
             y: this.group ? this.group.y() : this.y,
             rotation: this.group ? this.group.rotation() : this.rotation,
             points: this.points,
+            width: this.width,
+            centerline: this.centerline,
             configId: this.configId,
             materialScale: this.materialScale,
             elevation: this.elevation,

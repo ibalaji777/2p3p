@@ -672,40 +672,102 @@ const decorPropsCatalog = ref([
 ]);
 
 const outdoorCatalog = ref([
-    { isDivider: true, id: 'div_outdoor_draw', name: 'Draw Floor Surfaces & Paths' },
+    { isDivider: true, id: 'div_driveway_styles', name: 'Driveway & Road Styles (8 ft Standard)' },
     { 
-        id: 'outdoor_driveway', 
-        name: 'Driveway', 
-        badge: 'DRIVEWAY', 
-        material: 'Yellow Honeycomb Hexagon Pavers', 
-        specs: 'Floor Surface', 
-        image: '/assets/tiles/tile_yellow_hexagon.jpg', 
+        id: 'outdoor_driveway_black_road', 
+        name: 'Black Asphalt Road Driveway', 
+        badge: 'ASPHALT', 
+        material: 'Black Bitumen with White Center Line', 
+        specs: '8 ft (2.44 m)', 
+        image: '/assets/tiles/driveway_black_road.jpg', 
         toolId: 'outdoor_driveway', 
-        params: { subType: 'driveway', material: 'tile_yellow_hexagon', height3D: 0.3 } 
+        params: { subType: 'driveway', material: 'driveway_black_road', width: 160, height3D: 0.3 } 
     },
     { 
+        id: 'outdoor_driveway_charcoal_cobblestone', 
+        name: 'Charcoal Cobblestone Driveway', 
+        badge: 'COBBLESTONE', 
+        material: 'Charcoal Cobblestone Pavers', 
+        specs: '8 ft (2.44 m)', 
+        image: '/assets/tiles/driveway_charcoal_cobblestone.jpg', 
+        toolId: 'outdoor_driveway', 
+        params: { subType: 'driveway', material: 'driveway_charcoal_cobblestone', width: 160, height3D: 0.3 } 
+    },
+    { 
+        id: 'outdoor_driveway_herringbone_redbrick', 
+        name: 'Terracotta Herringbone Driveway', 
+        badge: 'HERRINGBONE', 
+        material: 'Terracotta Herringbone Brick', 
+        specs: '8 ft (2.44 m)', 
+        image: '/assets/tiles/driveway_herringbone_redbrick.jpg', 
+        toolId: 'outdoor_driveway', 
+        params: { subType: 'driveway', material: 'driveway_herringbone_redbrick', width: 160, height3D: 0.3 } 
+    },
+    { 
+        id: 'outdoor_driveway_ashlar_slate_grey', 
+        name: 'Ashlar Slate Stone Driveway', 
+        badge: 'SLATE STONE', 
+        material: 'Ashlar Slate Stone Pavers', 
+        specs: '8 ft (2.44 m)', 
+        image: '/assets/tiles/driveway_ashlar_slate_grey.jpg', 
+        toolId: 'outdoor_driveway', 
+        params: { subType: 'driveway', material: 'driveway_ashlar_slate_grey', width: 160, height3D: 0.3 } 
+    },
+    { 
+        id: 'outdoor_driveway_interlocking_chevron', 
+        name: 'Dual-Tone Chevron Driveway', 
+        badge: 'CHEVRON', 
+        material: 'Dual-Tone Chevron Paver Blocks', 
+        specs: '8 ft (2.44 m)', 
+        image: '/assets/tiles/driveway_interlocking_chevron.jpg', 
+        toolId: 'outdoor_driveway', 
+        params: { subType: 'driveway', material: 'driveway_interlocking_chevron', width: 160, height3D: 0.3 } 
+    },
+    { 
+        id: 'outdoor_driveway_exposed_aggregate_pebble', 
+        name: 'Exposed Aggregate Pebble Driveway', 
+        badge: 'AGGREGATE', 
+        material: 'Exposed River Pebble Pavers', 
+        specs: '8 ft (2.44 m)', 
+        image: '/assets/tiles/driveway_exposed_aggregate_pebble.jpg', 
+        toolId: 'outdoor_driveway', 
+        params: { subType: 'driveway', material: 'driveway_exposed_aggregate_pebble', width: 160, height3D: 0.3 } 
+    },
+    { 
+        id: 'outdoor_driveway_hexagon', 
+        name: 'Honeycomb Hexagon Driveway', 
+        badge: 'HEXAGON', 
+        material: 'Yellow Honeycomb Hexagon Pavers', 
+        specs: '8 ft (2.44 m)', 
+        image: '/assets/tiles/tile_yellow_hexagon.jpg', 
+        toolId: 'outdoor_driveway', 
+        params: { subType: 'driveway', material: 'tile_yellow_hexagon', width: 160, height3D: 0.3 } 
+    },
+
+    { isDivider: true, id: 'div_walkway_styles', name: 'Walkways & Outdoor Surfaces' },
+    { 
         id: 'outdoor_walkway', 
-        name: 'Walkway', 
+        name: 'Walkway Path', 
         badge: 'WALKWAY', 
         material: 'Yellow Octagram & Diamond Paver', 
-        specs: 'Floor Surface', 
+        specs: '3 ft (0.91 m)', 
         image: '/assets/tiles/tile_yellow_octagram.jpg', 
         toolId: 'outdoor_walkway', 
-        params: { subType: 'walkway', material: 'tile_yellow_octagram', height3D: 0.3 } 
+        params: { subType: 'walkway', material: 'tile_yellow_octagram', width: 60, height3D: 0.3 } 
     },
     { 
         id: 'outdoor_pavement', 
-        name: 'Free shape path', 
+        name: 'Free Shape Pavement', 
         badge: 'FREE PATH', 
         material: 'Yellow Honeycomb Hexagon Pavers', 
-        specs: 'Floor Surface', 
+        specs: 'Custom Boundary', 
         image: '/assets/tiles/tile_yellow_hexagon.jpg', 
         toolId: 'outdoor_pavement', 
         params: { subType: 'pavement', material: 'tile_yellow_hexagon', height3D: 0.3 } 
     },
     { 
         id: 'outdoor_patio', 
-        name: 'Patio', 
+        name: 'Patio & Deck', 
         badge: 'PATIO', 
         material: 'Yellow Cotto Rustic Squares', 
         specs: 'Floor Surface', 
@@ -715,7 +777,7 @@ const outdoorCatalog = ref([
     },
     { 
         id: 'outdoor_softscape', 
-        name: 'Softscape', 
+        name: 'Lawn & Softscape Turf', 
         badge: 'SOFTSCAPE', 
         material: 'Lush Botanical Grass Turf', 
         specs: 'Floor Surface', 

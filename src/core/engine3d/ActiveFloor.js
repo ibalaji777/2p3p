@@ -443,33 +443,45 @@ export class ActiveFloor {
                 const elevation = Number(zone.elevation) || 0;
                 const height3D = Math.max(0.1, Number(zone.height3D) || 0.3);
 
-                const zoneShape = new THREE.Shape();
-                zoneShape.moveTo(cleanPts[0].x, cleanPts[0].y);
-                for (let i = 1; i < cleanPts.length; i++) {
-                    zoneShape.lineTo(cleanPts[i].x, cleanPts[i].y);
+                const isCorridor = zone.subType === 'driveway' || zone.subType === 'walkway' || Boolean(zone.centerline || zone.params?.centerline);
+                const corridorWidth = Number(zone.width || zone.params?.width) || (zone.subType === 'walkway' ? 60 : 160);
+                const centerline = zone.centerline || zone.params?.centerline;
+
+                let zoneGeo = null;
+                if (isCorridor && centerline && centerline.length >= 2) {
+                    // Build mathematically perfect quad-strip ribbon geometry
+                    zoneGeo = this._buildCorridorRibbonGeometry(centerline, corridorWidth, height3D);
                 }
-                zoneShape.closePath();
 
-                const zoneGeo = new THREE.ExtrudeGeometry(zoneShape, { depth: height3D, bevelEnabled: false });
-                zoneGeo.rotateX(Math.PI / 2);
-                zoneGeo.translate(0, height3D, 0);
+                if (!zoneGeo) {
+                    const zoneShape = new THREE.Shape();
+                    zoneShape.moveTo(cleanPts[0].x, cleanPts[0].y);
+                    for (let i = 1; i < cleanPts.length; i++) {
+                        zoneShape.lineTo(cleanPts[i].x, cleanPts[i].y);
+                    }
+                    zoneShape.closePath();
 
-                // UV World Space Projection
-                const uvs = zoneGeo.attributes.uv;
-                const pos = zoneGeo.attributes.position;
-                zoneGeo.computeVertexNormals();
-                const norms = zoneGeo.attributes.normal;
-                for (let i = 0; i < uvs.count; i++) {
-                    const nx = Math.abs(norms.getX(i));
-                    const ny = Math.abs(norms.getY(i));
-                    const nz = Math.abs(norms.getZ(i));
-                    const vx = pos.getX(i) / 100;
-                    const vy = pos.getY(i) / 100;
-                    const vz = pos.getZ(i) / 100;
+                    zoneGeo = new THREE.ExtrudeGeometry(zoneShape, { depth: height3D, bevelEnabled: false });
+                    zoneGeo.rotateX(Math.PI / 2);
+                    zoneGeo.translate(0, height3D, 0);
 
-                    if (ny > 0.5) uvs.setXY(i, vx, vz);
-                    else if (nx > nz) uvs.setXY(i, vz, vy);
-                    else uvs.setXY(i, vx, vy);
+                    // Standard planar UV projection for non-corridor polygon slabs
+                    const uvs = zoneGeo.attributes.uv;
+                    const pos = zoneGeo.attributes.position;
+                    zoneGeo.computeVertexNormals();
+                    const norms = zoneGeo.attributes.normal;
+                    for (let i = 0; i < uvs.count; i++) {
+                        const nx = Math.abs(norms.getX(i));
+                        const ny = Math.abs(norms.getY(i));
+                        const nz = Math.abs(norms.getZ(i));
+                        const vx = pos.getX(i) / 100;
+                        const vy = pos.getY(i) / 100;
+                        const vz = pos.getZ(i) / 100;
+
+                        if (ny > 0.5) uvs.setXY(i, vx, vz);
+                        else if (nx > nz) uvs.setXY(i, vz, vy);
+                        else uvs.setXY(i, vx, vy);
+                    }
                 }
 
                 let mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.7 });
@@ -479,6 +491,9 @@ export class ActiveFloor {
                 if (floorConfig) {
                     const config = { ...floorConfig };
                     if (zone.materialScale) config.tileSize = zone.materialScale;
+                    if (isCorridor && centerline && centerline.length >= 2) {
+                        config.tileSize = 100; // Exact 1:1 spline UV mapping
+                    }
                     MaterialFactory.buildPBRMaterial({
                         material: mat,
                         config: config,
@@ -486,6 +501,14 @@ export class ActiveFloor {
                         dimensions: { width: 100, height: 100 },
                         faceName: 'floor'
                     }).then(() => {
+                        if (isCorridor && mat.map) {
+                            mat.map = mat.map.clone();
+                            mat.map.wrapS = mat.map.wrapT = THREE.RepeatWrapping;
+                            mat.map.repeat.set(1.0, 1.0);
+                            mat.map.offset.set(0.0, 0.0);
+                            mat.map.rotation = 0;
+                            mat.map.needsUpdate = true;
+                        }
                         if (this.ctx && this.ctx.requestRender) this.ctx.requestRender('material_loaded', 2);
                     });
                 } else {
@@ -506,5 +529,223 @@ export class ActiveFloor {
                 console.error("Error building outdoor zone in ActiveFloor:", err);
             }
         });
+    }
+
+    _buildCorridorRibbonGeometry(centerline, width, height3D = 0.3) {
+        const halfW = width / 2;
+        const n = centerline.length;
+        if (n < 2) return null;
+
+        const segNormals = [];
+        for (let i = 0; i < n - 1; i++) {
+            const dx = centerline[i+1].x - centerline[i].x;
+            const dy = centerline[i+1].y - centerline[i].y;
+            const len = Math.hypot(dx, dy) || 1;
+            const ux = dx / len;
+            const uy = dy / len;
+            segNormals.push({ nx: -uy, ny: ux, ux, uy, len });
+        }
+
+        const leftPts = [];
+        const rightPts = [];
+
+        // Start point
+        leftPts.push({
+            x: centerline[0].x + segNormals[0].nx * halfW,
+            y: centerline[0].y + segNormals[0].ny * halfW
+        });
+        rightPts.push({
+            x: centerline[0].x - segNormals[0].nx * halfW,
+            y: centerline[0].y - segNormals[0].ny * halfW
+        });
+
+        // Intermediate points with miter joint calculation
+        for (let i = 1; i < n - 1; i++) {
+            const n1 = segNormals[i - 1];
+            const n2 = segNormals[i];
+            
+            let bisectorX = n1.nx + n2.nx;
+            let bisectorY = n1.ny + n2.ny;
+            const bisectorLen = Math.hypot(bisectorX, bisectorY);
+            
+            if (bisectorLen < 0.001) {
+                bisectorX = n1.nx;
+                bisectorY = n1.ny;
+            } else {
+                bisectorX /= bisectorLen;
+                bisectorY /= bisectorLen;
+            }
+
+            const dot = bisectorX * n1.nx + bisectorY * n1.ny;
+            const miterLength = Math.min(halfW / Math.max(0.15, dot), halfW * 2.5);
+
+            leftPts.push({
+                x: centerline[i].x + bisectorX * miterLength,
+                y: centerline[i].y + bisectorY * miterLength
+            });
+            rightPts.push({
+                x: centerline[i].x - bisectorX * miterLength,
+                y: centerline[i].y - bisectorY * miterLength
+            });
+        }
+
+        // End point
+        const lastN = segNormals[segNormals.length - 1];
+        leftPts.push({
+            x: centerline[n - 1].x + lastN.nx * halfW,
+            y: centerline[n - 1].y + lastN.ny * halfW
+        });
+        rightPts.push({
+            x: centerline[n - 1].x - lastN.nx * halfW,
+            y: centerline[n - 1].y - lastN.ny * halfW
+        });
+
+        const positions = [];
+        const normals = [];
+        const uvs = [];
+        const indices = [];
+
+        // Calculate cumulative V distances
+        const vDists = [0];
+        let totalDist = 0;
+        for (let i = 0; i < n - 1; i++) {
+            const dx = centerline[i+1].x - centerline[i].x;
+            const dy = centerline[i+1].y - centerline[i].y;
+            totalDist += Math.hypot(dx, dy);
+            vDists.push(totalDist / width);
+        }
+
+        // 1. TOP SURFACE (Y = height3D)
+        const topStartIndex = positions.length / 3;
+        for (let i = 0; i < n; i++) {
+            const v = vDists[i];
+            positions.push(leftPts[i].x, height3D, leftPts[i].y);
+            normals.push(0, 1, 0);
+            uvs.push(0.0, v);
+
+            positions.push(rightPts[i].x, height3D, rightPts[i].y);
+            normals.push(0, 1, 0);
+            uvs.push(1.0, v);
+        }
+
+        for (let i = 0; i < n - 1; i++) {
+            const i0 = topStartIndex + i * 2;
+            const i1 = topStartIndex + i * 2 + 1;
+            const i2 = topStartIndex + (i + 1) * 2;
+            const i3 = topStartIndex + (i + 1) * 2 + 1;
+
+            indices.push(i0, i1, i2);
+            indices.push(i1, i3, i2);
+        }
+
+        // 2. BOTTOM SURFACE (Y = 0)
+        const botStartIndex = positions.length / 3;
+        for (let i = 0; i < n; i++) {
+            const v = vDists[i];
+            positions.push(leftPts[i].x, 0, leftPts[i].y);
+            normals.push(0, -1, 0);
+            uvs.push(0.0, v);
+
+            positions.push(rightPts[i].x, 0, rightPts[i].y);
+            normals.push(0, -1, 0);
+            uvs.push(1.0, v);
+        }
+
+        for (let i = 0; i < n - 1; i++) {
+            const i0 = botStartIndex + i * 2;
+            const i1 = botStartIndex + i * 2 + 1;
+            const i2 = botStartIndex + (i + 1) * 2;
+            const i3 = botStartIndex + (i + 1) * 2 + 1;
+
+            indices.push(i0, i2, i1);
+            indices.push(i1, i2, i3);
+        }
+
+        // 3. LEFT SIDE WALLS
+        for (let i = 0; i < n - 1; i++) {
+            const pA = leftPts[i], pB = leftPts[i+1];
+            const dx = pB.x - pA.x, dy = pB.y - pA.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const nx = -dy / len, nz = dx / len;
+
+            const idx = positions.length / 3;
+            positions.push(pA.x, 0, pA.y);
+            positions.push(pB.x, 0, pB.y);
+            positions.push(pA.x, height3D, pA.y);
+            positions.push(pB.x, height3D, pB.y);
+
+            for (let k = 0; k < 4; k++) normals.push(nx, 0, nz);
+            uvs.push(0, 0, len / 100, 0, 0, height3D / 100, len / 100, height3D / 100);
+
+            indices.push(idx, idx + 1, idx + 2);
+            indices.push(idx + 1, idx + 3, idx + 2);
+        }
+
+        // 4. RIGHT SIDE WALLS
+        for (let i = 0; i < n - 1; i++) {
+            const pA = rightPts[i], pB = rightPts[i+1];
+            const dx = pB.x - pA.x, dy = pB.y - pA.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const nx = dy / len, nz = -dx / len;
+
+            const idx = positions.length / 3;
+            positions.push(pA.x, 0, pA.y);
+            positions.push(pB.x, 0, pB.y);
+            positions.push(pA.x, height3D, pA.y);
+            positions.push(pB.x, height3D, pB.y);
+
+            for (let k = 0; k < 4; k++) normals.push(nx, 0, nz);
+            uvs.push(0, 0, len / 100, 0, 0, height3D / 100, len / 100, height3D / 100);
+
+            indices.push(idx, idx + 2, idx + 1);
+            indices.push(idx + 1, idx + 2, idx + 3);
+        }
+
+        // 5. START CAP
+        {
+            const pL = leftPts[0], pR = rightPts[0];
+            const dx = pR.x - pL.x, dy = pR.y - pL.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const nx = dy / len, nz = -dx / len;
+
+            const idx = positions.length / 3;
+            positions.push(pL.x, 0, pL.y);
+            positions.push(pR.x, 0, pR.y);
+            positions.push(pL.x, height3D, pL.y);
+            positions.push(pR.x, height3D, pR.y);
+
+            for (let k = 0; k < 4; k++) normals.push(nx, 0, nz);
+            uvs.push(0, 0, len / 100, 0, 0, height3D / 100, len / 100, height3D / 100);
+
+            indices.push(idx, idx + 2, idx + 1);
+            indices.push(idx + 1, idx + 2, idx + 3);
+        }
+
+        // 6. END CAP
+        {
+            const pL = leftPts[n - 1], pR = rightPts[n - 1];
+            const dx = pR.x - pL.x, dy = pR.y - pL.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const nx = -dy / len, nz = dx / len;
+
+            const idx = positions.length / 3;
+            positions.push(pL.x, 0, pL.y);
+            positions.push(pR.x, 0, pR.y);
+            positions.push(pL.x, height3D, pL.y);
+            positions.push(pR.x, height3D, pR.y);
+
+            for (let k = 0; k < 4; k++) normals.push(nx, 0, nz);
+            uvs.push(0, 0, len / 100, 0, 0, height3D / 100, len / 100, height3D / 100);
+
+            indices.push(idx, idx + 1, idx + 2);
+            indices.push(idx + 1, idx + 3, idx + 2);
+        }
+
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+        geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+        geo.setIndex(indices);
+        return geo;
     }
 }

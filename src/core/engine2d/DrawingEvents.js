@@ -9,7 +9,7 @@ import { Railing } from '../../features/railing/objects/Railing.js';
 import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
 import { PremiumOutdoorZone, OUTDOOR_ZONE_TYPES } from './PremiumOutdoorZone.js';
 
-export function computeCorridorPolygon(points, width) {
+export function computeCorridorOffsets(points, width) {
     if (!points || points.length < 2) return null;
     const halfW = width / 2;
     const n = points.length;
@@ -21,7 +21,7 @@ export function computeCorridorPolygon(points, width) {
         const len = Math.hypot(dx, dy) || 1;
         const ux = dx / len;
         const uy = dy / len;
-        segNormals.push({ nx: -uy, ny: ux });
+        segNormals.push({ nx: -uy, ny: ux, ux, uy, len });
     }
 
     const leftPts = [];
@@ -78,7 +78,13 @@ export function computeCorridorPolygon(points, width) {
         y: points[n - 1].y - lastN.ny * halfW
     });
 
-    // Combined closed polygon (Left forward, Right backward)
+    return { leftPts, rightPts, segNormals };
+}
+
+export function computeCorridorPolygon(points, width) {
+    const offsets = computeCorridorOffsets(points, width);
+    if (!offsets) return null;
+    const { leftPts, rightPts } = offsets;
     const polygon = [...leftPts];
     for (let i = rightPts.length - 1; i >= 0; i--) {
         polygon.push(rightPts[i]);
@@ -713,7 +719,7 @@ export function setupDrawingEvents(planner) {
             const relPts = corridorPoly.map(p => ({ x: p.x - cx, y: p.y - cy }));
 
             const newZone = new PremiumOutdoorZone(planner, 'outdoor_zone', {
-                x: cx, y: cy, points: relPts, subType: subType, material: zoneDefaults.defaultMaterial, height3D: 0.3,
+                x: cx, y: cy, points: relPts, subType: subType, material: (planner.activePresetParams?.material || zoneDefaults.defaultMaterial), height3D: 0.3,
                 width: corridorWidth,
                 centerline: planner.drawingOutdoorPoints.map(p => ({ x: p.x - cx, y: p.y - cy }))
             });
@@ -853,7 +859,7 @@ export function setupDrawingEvents(planner) {
                     const relPts = planner.drawingOutdoorPoints.map(p => ({ x: p.x - cx, y: p.y - cy }));
 
                     const newZone = new PremiumOutdoorZone(planner, 'outdoor_zone', {
-                        x: cx, y: cy, points: relPts, subType: subType, material: zoneDefaults.defaultMaterial, height3D: 0.3
+                        x: cx, y: cy, points: relPts, subType: subType, material: (planner.activePresetParams?.material || zoneDefaults.defaultMaterial), height3D: 0.3
                     });
                     if (!planner.outdoorZones) planner.outdoorZones = [];
                     planner.outdoorZones.push(newZone);

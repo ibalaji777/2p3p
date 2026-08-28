@@ -395,6 +395,12 @@ export const FLOOR_REGISTRY = {
         thumbnail: '/assets/tiles/driveway_exposed_aggregate_pebble.jpg',
         roughness: 0.60, metalness: 0.0, tileSize: 100, category: 'floor'
     },
+    'driveway_black_road': {
+        id: 'driveway_black_road', name: 'Black Asphalt Road (White Center Line)', type: 'floor',
+        texture: '/assets/tiles/driveway_black_road.jpg',
+        thumbnail: '/assets/tiles/driveway_black_road.jpg',
+        roughness: 0.75, metalness: 0.0, tileSize: 244, category: 'floor'
+    },
     'tile_moroccan_star_yellow': {
         id: 'tile_moroccan_star_yellow', name: 'Moroccan Star Ochre Tile', type: 'floor',
         texture: '/assets/tiles/tile_moroccan_star_yellow.jpg',

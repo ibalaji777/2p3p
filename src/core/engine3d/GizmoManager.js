@@ -1003,7 +1003,7 @@ export class GizmoManager {
                                 }
                             }
 
-                            if (entity.type === 'room' || selectedObj.userData?.isFloor || entity.type === 'floor') {
+                            if (entity.type === 'room' || selectedObj.userData?.isFloor || entity.type === 'floor' || entity.type === 'outdoor_zone' || selectedObj.userData?.isOutdoorZone) {
                                 entity.configId = key;
                                 entity.params = entity.params || {};
                                 entity.params.texture = key;

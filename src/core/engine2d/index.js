@@ -1196,6 +1196,7 @@ export class FloorPlanner {
                 const relPts = finalPoly.map(p => ({ x: p.x - cx, y: p.y - cy }));
                 const newZone = new PremiumOutdoorZone(this, 'outdoor_zone', {
                     x: cx, y: cy, points: relPts, subType, height3D: 0.3,
+                    material: this.activePresetParams?.material,
                     width: isCorridor ? corridorWidth : undefined,
                     centerline: isCorridor ? this.drawingOutdoorPoints.map(p => ({ x: p.x - cx, y: p.y - cy })) : undefined
                 });
