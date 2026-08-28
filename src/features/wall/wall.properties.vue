@@ -94,6 +94,37 @@
         </div>
         <div v-else>
             <h4 class="props-subtitle">{{ selectedWallSide === 'front' ? 'Inner Wall Face' : 'Outer Wall Face' }}</h4>
+
+            <!-- Sims 4 Paint Scope Selector (3D View) -->
+            <div class="paint-scope-box" v-if="viewMode === '3d'">
+                <div class="paint-scope-title">Paint Application Mode:</div>
+                <div class="paint-scope-btn-group">
+                    <button 
+                        class="paint-scope-btn" 
+                        :class="{ active: paintScope === 'single' }" 
+                        @click="paintScope = 'single'"
+                        title="Paint clicked face only"
+                    >
+                        🧱 Single
+                    </button>
+                    <button 
+                        class="paint-scope-btn" 
+                        :class="{ active: paintScope === 'room' }" 
+                        @click="paintScope = 'room'"
+                        title="Paint all interior walls of this room (Shortcut: Hold Shift)"
+                    >
+                        🔄 Room (Shift)
+                    </button>
+                    <button 
+                        class="paint-scope-btn" 
+                        :class="{ active: paintScope === 'exterior' }" 
+                        @click="paintScope = 'exterior'"
+                        title="Paint entire exterior facade (Shortcut: Hold Alt)"
+                    >
+                        🌐 Exterior (Alt)
+                    </button>
+                </div>
+            </div>
             
             <div v-if="currentFaceDecors.length > 0">
                 <div class="applied-list">
@@ -134,7 +165,8 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { storeToRefs } from 'pinia';
 import { usePlannerStore } from '../../stores/usePlannerStore.js';
 import DimensionInput from '../../components/common/DimensionInput.vue';
 import MaterialSizeInput from '../../components/common/MaterialSizeInput.vue';
@@ -161,7 +193,38 @@ const emit = defineEmits([
 ]);
 
 const plannerStore = usePlannerStore();
+const { paintScope } = storeToRefs(plannerStore);
 const railingThumbnails = ref({});
+
+let previousScope = 'single';
+
+const handleKeyDown = (e) => {
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+    if (e.key === 'Shift' && paintScope.value !== 'room') {
+        previousScope = paintScope.value;
+        paintScope.value = 'room';
+    } else if (e.key === 'Alt' && paintScope.value !== 'exterior') {
+        previousScope = paintScope.value;
+        paintScope.value = 'exterior';
+    }
+};
+
+const handleKeyUp = (e) => {
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+    if (e.key === 'Shift' || e.key === 'Alt') {
+        paintScope.value = previousScope || 'single';
+    }
+};
+
+onMounted(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+});
+
+onUnmounted(() => {
+    window.removeEventListener('keydown', handleKeyDown);
+    window.removeEventListener('keyup', handleKeyUp);
+});
 
 const onCompoundFloorToggle = () => {
     const val = !!props.selectedEntity.hasFloor;
@@ -209,3 +272,55 @@ watch(() => plannerStore.renderer3D, (newRenderer) => {
     }
 });
 </script>
+
+<style scoped>
+.paint-scope-box {
+    margin: 12px 0 16px 0;
+    padding: 10px 12px;
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+}
+
+.paint-scope-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #94a3b8;
+    margin-bottom: 8px;
+}
+
+.paint-scope-btn-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+}
+
+.paint-scope-btn {
+    padding: 6px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #cbd5e1;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    text-align: center;
+}
+
+.paint-scope-btn:hover {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: #3b82f6;
+    color: #ffffff;
+}
+
+.paint-scope-btn.active {
+    background: #0ea5e9;
+    border-color: #38bdf8;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(14, 165, 233, 0.45);
+}
+</style>

@@ -1,7 +1,11 @@
+import { applyWallPaintWithScope } from '../core/engine3d/WallPaintSystem.js';
+
 export function useAppMaterials({ 
     selectedEntity, 
     selectedType, 
     selectedWallSide, 
+    paintScope,
+    planner,
     renderer3D, 
     uiTrigger, 
     activeDecorId,
@@ -89,11 +93,27 @@ export function useAppMaterials({
                     return;
                 }
                 if (renderer3D.value) {
-                    const decor = renderer3D.value.addWallPattern(selectedEntity.value, key, side);
-                    selectedEntity.value.attachedDecor = [...selectedEntity.value.attachedDecor];
-                    activeDecorId.value = decor.id; 
-                    uiTrigger.value++; 
-                    if (selectedEntity.value.isStatic) updateStaticLevelData(selectedEntity.value);
+                    const currentScope = paintScope?.value || 'single';
+                    if (currentScope === 'room' || currentScope === 'exterior') {
+                        const results = applyWallPaintWithScope({
+                            wall: selectedEntity.value,
+                            side,
+                            configId: key,
+                            scope: currentScope,
+                            planner: planner?.value || planner,
+                            renderer3D: renderer3D.value
+                        });
+                        if (results.length > 0) {
+                            activeDecorId.value = results[0].decor.id;
+                        }
+                        uiTrigger.value++;
+                    } else {
+                        const decor = renderer3D.value.addWallPattern(selectedEntity.value, key, side);
+                        selectedEntity.value.attachedDecor = [...selectedEntity.value.attachedDecor];
+                        activeDecorId.value = decor.id; 
+                        uiTrigger.value++; 
+                        if (selectedEntity.value.isStatic) updateStaticLevelData(selectedEntity.value);
+                    }
                     debouncedSaveHistory();
                 }
                 return;

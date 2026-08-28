@@ -21,6 +21,7 @@ export const usePlannerStore = defineStore('planner', () => {
     const selectedType = ref(null);
     const selectedWallSide = ref(null);
     const selectedNodeIndex = ref(-1);
+    const paintScope = ref('single'); // 'single' | 'room' | 'exterior'
 
     // Universal Scene Graph State (Single Source of Truth)
     const sceneGraphState = ref({
@@ -91,6 +92,7 @@ export const usePlannerStore = defineStore('planner', () => {
         selectedType,
         selectedWallSide,
         selectedNodeIndex,
+        paintScope,
         levels,
         activeLevelIndex,
         canUndo,

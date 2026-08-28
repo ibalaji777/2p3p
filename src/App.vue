@@ -214,7 +214,7 @@ const plannerStore = usePlannerStore();
 const settingsStore = useSettingsStore();
 
 const { windowWidth, mobileMenuOpen, activeMobileTab, viewMode, viewMode3D, activeRightTab, showLeftSidebar, uiTrigger, isPlacing3D, activeDecorId, isRebuilding, isXRayMode, showGuide, showAdvancedTools, layerRefreshTrigger, isMobile, isTablet, isDesktop } = storeToRefs(uiStore);
-const { planner, renderer3D, workspaceControls, serverService, isDrawing, activeTool, activeCategory, mode3D, activePresetParams, activePresetId, selectedEntity, selectedType, selectedWallSide, selectedNodeIndex, levels, activeLevelIndex, canUndo, canRedo, allFloorsVisible } = storeToRefs(plannerStore);
+const { planner, renderer3D, workspaceControls, serverService, isDrawing, activeTool, activeCategory, mode3D, activePresetParams, activePresetId, selectedEntity, selectedType, selectedWallSide, selectedNodeIndex, paintScope, levels, activeLevelIndex, canUndo, canRedo, allFloorsVisible } = storeToRefs(plannerStore);
 const { floorPlanSettings, selectedSky, selectedGround, isWallTrackingEnabled } = storeToRefs(settingsStore);
 
 const displayUnit = computed(() => {
@@ -1049,6 +1049,7 @@ const {
     selectedType,
     selectedEntity,
     selectedWallSide,
+    paintScope,
     uiTrigger,
     updateStaticLevelData: (w) => updateStaticLevelData(w),
     activeCategory,
@@ -1085,6 +1086,8 @@ const {
     selectedEntity,
     selectedType,
     selectedWallSide,
+    paintScope,
+    planner,
     renderer3D,
     uiTrigger,
     activeDecorId,

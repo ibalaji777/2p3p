@@ -1,4 +1,5 @@
 import { PRESET_REGISTRY } from '../core/engine2d/presetRegistry.js';
+import { applyWallPaintWithScope } from '../core/engine3d/WallPaintSystem.js';
 
 export function useAppTools({
     activeTool,
@@ -15,6 +16,7 @@ export function useAppTools({
     selectedType,
     selectedEntity,
     selectedWallSide,
+    paintScope,
     uiTrigger,
     updateStaticLevelData,
     activeCategory,
@@ -133,11 +135,13 @@ export function useAppTools({
         }
     };
 
-    const spawnWallPattern = (configId) => {
+    const spawnWallPattern = (configId, scopeOverride = null) => {
         if (renderer3D.value && (selectedType.value === 'wall' || selectedType.value === 'arc' || selectedEntity.value?.parentArc) && selectedEntity.value) {
             if (planner.value) {
                 planner.value.executeWithSnapshot(() => {
+                    const currentScope = scopeOverride || paintScope?.value || 'single';
                     const arc = selectedEntity.value.parentArc || (selectedType.value === 'arc' ? selectedEntity.value : null);
+                    
                     if (arc && arc.walls) {
                         const paramKey = selectedWallSide.value === 'back' ? 'textureBack' : 'textureFront';
                         arc.params = arc.params || {};
@@ -147,10 +151,24 @@ export function useAppTools({
                             w.params[paramKey] = configId;
                         });
                         syncEngine('material');
+                    } else if (currentScope === 'room' || currentScope === 'exterior') {
+                        const results = applyWallPaintWithScope({
+                            wall: selectedEntity.value,
+                            side: selectedWallSide.value,
+                            configId,
+                            scope: currentScope,
+                            planner: planner.value,
+                            renderer3D: renderer3D.value
+                        });
+                        if (results.length > 0) {
+                            activeDecorId.value = results[0].decor.id;
+                        }
+                        uiTrigger.value++;
                     } else {
                         const decor = renderer3D.value.addWallPattern(selectedEntity.value, configId, selectedWallSide.value);
                         selectedEntity.value.attachedDecor = [...selectedEntity.value.attachedDecor];
-                        activeDecorId.value = decor.id; uiTrigger.value++; 
+                        activeDecorId.value = decor.id;
+                        uiTrigger.value++; 
                         if (selectedEntity.value.isStatic) updateStaticLevelData(selectedEntity.value);
                     }
                 });

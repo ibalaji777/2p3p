@@ -11,6 +11,7 @@ import { patternManager } from '../services/pattern/PatternManager.js';
 import { PatternTextureBlender } from '../services/pattern/PatternTextureBlender.js';
 import { useSettingsStore } from '../../stores/useSettingsStore.js';
 import { SLOT_DEFINITIONS } from '../constants/materialSlots.js';
+import { applyWallPaintWithScope } from './WallPaintSystem.js';
 const TILE_REGISTRY = WALL_DECOR_REGISTRY;
 const WALL_REGISTRY = WALL_DECOR_REGISTRY;
 const ROOF_REGISTRY = ROOF_DECOR_REGISTRY;
@@ -926,6 +927,34 @@ export class GizmoManager {
                                     }
                                     if (window.plannerInstance && typeof window.plannerInstance.saveHistory === 'function') {
                                         window.plannerInstance.saveHistory();
+                                    }
+                                    this._renderWallMultiMaterialTabs(wall, selectedObj);
+                                    highlightSelectedThumb(key);
+                                    return;
+                                }
+
+                                const isRoomScope = e.shiftKey || this.materialScope === 'room';
+                                const isExteriorScope = e.altKey || this.materialScope === 'exterior';
+
+                                if (isRoomScope || isExteriorScope) {
+                                    const planner = window.plannerInstance || this.ctx?.planner;
+                                    const targetScope = isRoomScope ? 'room' : 'exterior';
+                                    const results = applyWallPaintWithScope({
+                                        wall,
+                                        side,
+                                        configId: key,
+                                        scope: targetScope,
+                                        planner,
+                                        renderer3D: this.ctx
+                                    });
+                                    if (results.length > 0) {
+                                        this.activeDecorId = results[0].decor.id;
+                                    }
+                                    if (typeof this.ctx.requestRender === 'function') {
+                                        this.ctx.requestRender();
+                                    }
+                                    if (planner && typeof planner.saveHistory === 'function') {
+                                        planner.saveHistory();
                                     }
                                     this._renderWallMultiMaterialTabs(wall, selectedObj);
                                     highlightSelectedThumb(key);
@@ -2526,42 +2555,69 @@ export class GizmoManager {
         // Selected decor object
         const selectedDecor = attachedDecors.find(d => d.id === this.activeDecorId) || null;
 
-        // 0. Material Scope Selector (Universal CAD/BIM Standard: Selected Face vs Entire Object)
+        // 0. Material Scope Selector (Sims 4 Paint Scope Standard)
+        const isSelectedFace = this.materialScope === 'selectedFace' || !this.materialScope;
+        const isRoomLoop = this.materialScope === 'room';
+        const isExteriorLoop = this.materialScope === 'exterior';
         const isEntireObject = this.materialScope === 'entireObject';
+
         const scopeHtml = `
             <div style="display: flex; flex-direction: column; gap: 6px; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
                 <div style="font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">
-                    Material Scope
+                    Paint Application Mode
                 </div>
-                <div style="display: flex; gap: 6px; background: rgba(0,0,0,0.5); padding: 3px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);">
-                    <button class="gizmo-scope-btn ${!isEntireObject ? 'active' : ''}" data-scope="selectedFace" style="flex: 1; padding: 6px 8px; border-radius: 6px; border: none; background: ${!isEntireObject ? '#3b82f6' : 'transparent'}; color: ${!isEntireObject ? 'white' : '#94a3b8'}; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 5px;">
-                        <span>${!isEntireObject ? '◉' : '○'}</span> Selected Face
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: rgba(0,0,0,0.5); padding: 3px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12);">
+                    <button class="gizmo-scope-btn ${isSelectedFace ? 'active' : ''}" data-scope="selectedFace" style="padding: 5px 2px; border-radius: 5px; border: none; background: ${isSelectedFace ? '#3b82f6' : 'transparent'}; color: ${isSelectedFace ? 'white' : '#94a3b8'}; cursor: pointer; font-size: 10px; font-weight: 600; transition: all 0.15s; text-align: center;" title="Paint clicked face only">
+                        🧱 Single
                     </button>
-                    <button class="gizmo-scope-btn ${isEntireObject ? 'active' : ''}" data-scope="entireObject" style="flex: 1; padding: 6px 8px; border-radius: 6px; border: none; background: ${isEntireObject ? '#3b82f6' : 'transparent'}; color: ${isEntireObject ? 'white' : '#94a3b8'}; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 5px;">
-                        <span>${isEntireObject ? '◉' : '○'}</span> Entire Object
+                    <button class="gizmo-scope-btn ${isRoomLoop ? 'active' : ''}" data-scope="room" style="padding: 5px 2px; border-radius: 5px; border: none; background: ${isRoomLoop ? '#3b82f6' : 'transparent'}; color: ${isRoomLoop ? 'white' : '#94a3b8'}; cursor: pointer; font-size: 10px; font-weight: 600; transition: all 0.15s; text-align: center;" title="Paint all interior walls of this room (Shortcut: Hold Shift)">
+                        🔄 Room (Shift)
+                    </button>
+                    <button class="gizmo-scope-btn ${isExteriorLoop ? 'active' : ''}" data-scope="exterior" style="padding: 5px 2px; border-radius: 5px; border: none; background: ${isExteriorLoop ? '#3b82f6' : 'transparent'}; color: ${isExteriorLoop ? 'white' : '#94a3b8'}; cursor: pointer; font-size: 10px; font-weight: 600; transition: all 0.15s; text-align: center;" title="Paint entire exterior facade (Shortcut: Hold Alt)">
+                        🌐 Exterior (Alt)
+                    </button>
+                    <button class="gizmo-scope-btn ${isEntireObject ? 'active' : ''}" data-scope="entireObject" style="padding: 5px 2px; border-radius: 5px; border: none; background: ${isEntireObject ? '#3b82f6' : 'transparent'}; color: ${isEntireObject ? 'white' : '#94a3b8'}; cursor: pointer; font-size: 10px; font-weight: 600; transition: all 0.15s; text-align: center;" title="Paint both front & back faces simultaneously">
+                        📦 Both
                     </button>
                 </div>
             </div>
         `;
 
-        // 1. Top Header: Face Selector + Layer Count
-        const headerHtml = isEntireObject ? `
-            <div style="padding: 6px 10px; background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.25); border-radius: 6px; font-size: 10.5px; color: #93c5fd; line-height: 1.4;">
-                🌐 <strong>Entire Object Mode:</strong> Material applies to all sides of the wall simultaneously.
-            </div>
-        ` : `
-            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Face:</span>
-                    <div style="display: inline-flex; background: rgba(0,0,0,0.5); padding: 2px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12);">
-                        <button class="gizmo-wall-face-toggle ${side === 'front' ? 'active' : ''}" data-side="front" style="padding: 4px 10px; border-radius: 4px; border: none; background: ${side === 'front' ? '#3b82f6' : 'transparent'}; color: ${side === 'front' ? 'white' : '#94a3b8'}; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s;">Inner Face</button>
-                        <button class="gizmo-wall-face-toggle ${side === 'back' ? 'active' : ''}" data-side="back" style="padding: 4px 10px; border-radius: 4px; border: none; background: ${side === 'back' ? '#3b82f6' : 'transparent'}; color: ${side === 'back' ? 'white' : '#94a3b8'}; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s;">Outer Face</button>
+        // 1. Top Header: Face Selector + Layer Count + Mode Hint
+        let headerHtml = '';
+        if (isRoomLoop) {
+            headerHtml = `
+                <div style="padding: 6px 10px; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); border-radius: 6px; font-size: 10.5px; color: #6ee7b7; line-height: 1.4;">
+                    🔄 <strong>Room Loop:</strong> Click any pattern to paint all interior walls in this room at once.
+                </div>
+            `;
+        } else if (isExteriorLoop) {
+            headerHtml = `
+                <div style="padding: 6px 10px; background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3); border-radius: 6px; font-size: 10.5px; color: #fde68a; line-height: 1.4;">
+                    🌐 <strong>Exterior Loop:</strong> Click any pattern to paint the entire outer facade perimeter.
+                </div>
+            `;
+        } else if (isEntireObject) {
+            headerHtml = `
+                <div style="padding: 6px 10px; background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.25); border-radius: 6px; font-size: 10.5px; color: #93c5fd; line-height: 1.4;">
+                    📦 <strong>Both Sides:</strong> Material applies to inner and outer faces simultaneously.
+                </div>
+            `;
+        } else {
+            headerHtml = `
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Face:</span>
+                        <div style="display: inline-flex; background: rgba(0,0,0,0.5); padding: 2px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12);">
+                            <button class="gizmo-wall-face-toggle ${side === 'front' ? 'active' : ''}" data-side="front" style="padding: 4px 10px; border-radius: 4px; border: none; background: ${side === 'front' ? '#3b82f6' : 'transparent'}; color: ${side === 'front' ? 'white' : '#94a3b8'}; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s;">Inner Face</button>
+                            <button class="gizmo-wall-face-toggle ${side === 'back' ? 'active' : ''}" data-side="back" style="padding: 4px 10px; border-radius: 4px; border: none; background: ${side === 'back' ? '#3b82f6' : 'transparent'}; color: ${side === 'back' ? 'white' : '#94a3b8'}; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s;">Outer Face</button>
+                        </div>
                     </div>
-                </div>
 
-                <span style="font-size: 11px; color: #cbd5e1; font-weight: 600;">${attachedDecors.length} Layer${attachedDecors.length === 1 ? '' : 's'}</span>
-            </div>
-        `;
+                    <span style="font-size: 11px; color: #cbd5e1; font-weight: 600;">${attachedDecors.length} Layer${attachedDecors.length === 1 ? '' : 's'}</span>
+                </div>
+            `;
+        }
 
         // 2. Applied Materials Cards Vertical List
         let layersCardsHtml = '';
