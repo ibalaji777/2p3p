@@ -31,6 +31,23 @@ export class CameraController {
             }
         };
         this.controls.addEventListener('start', this._onControlStart);
+
+        // Sims 4 Build Mode Keyboard Shortcuts (< / > / , / . / T / Home)
+        this._onKeyDown = (e) => {
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+            if (this.preview3D && this.preview3D.viewMode3D === 'preview') return;
+
+            if (e.key === '<' || e.key === ',' || (e.key === 'q' && !e.ctrlKey && !e.metaKey && !this.preview3D?.interactions?.drawing)) {
+                this.rotateSims4Isometric(-1);
+            } else if (e.key === '>' || e.key === '.' || (e.key === 'e' && !e.ctrlKey && !e.metaKey && !this.preview3D?.interactions?.drawing)) {
+                this.rotateSims4Isometric(1);
+            } else if (e.key === 't' || e.key === 'T') {
+                this.toggleSims4TopDown();
+            } else if (e.key === 'Home') {
+                this.resetCamera();
+            }
+        };
+        window.addEventListener('keydown', this._onKeyDown);
     }
 
     getBuildingBoundingBox() {
@@ -161,7 +178,13 @@ export class CameraController {
         this.entranceAngle = angle;
     }
 
-    setSims4IsometricView() {
+    setSims4IsometricView(quadrantIndex = null) {
+        if (quadrantIndex !== null) {
+            this.sims4IsoIndex = (quadrantIndex % 4 + 4) % 4;
+        } else if (this.sims4IsoIndex === undefined) {
+            this.sims4IsoIndex = 0;
+        }
+
         const box = this.getBuildingBoundingBox();
         const center = new THREE.Vector3();
         box.getCenter(center);
@@ -171,10 +194,17 @@ export class CameraController {
         const maxDim = Math.max(size.x, size.y, size.z, 500);
         const distance = maxDim * 1.6;
 
-        // 45 degree isometric angle (Sims 4 default angle)
-        const dir = new THREE.Vector3(1, 0.95, 1).normalize();
+        // 4 quadrants for Sims 4 Isometric View (45°, 135°, 225°, 315°)
+        const angle = this.sims4IsoIndex * (Math.PI / 2) + Math.PI / 4;
+        const dir = new THREE.Vector3(Math.cos(angle), 0.85, Math.sin(angle)).normalize();
         const newPos = center.clone().add(dir.multiplyScalar(distance));
         this.animateTo(newPos, center);
+    }
+
+    rotateSims4Isometric(direction = 1) {
+        if (this.sims4IsoIndex === undefined) this.sims4IsoIndex = 0;
+        this.sims4IsoIndex = (this.sims4IsoIndex + direction + 4) % 4;
+        this.setSims4IsometricView(this.sims4IsoIndex);
     }
 
     setTopDownView() {
@@ -191,6 +221,17 @@ export class CameraController {
         const dir = new THREE.Vector3(0.001, 1, 0.001).normalize();
         const newPos = center.clone().add(dir.multiplyScalar(distance));
         this.animateTo(newPos, center);
+    }
+
+    toggleSims4TopDown() {
+        const dir = new THREE.Vector3().subVectors(this.camera.position, this.controls.target).normalize();
+        if (dir.y > 0.95) {
+            // Already top down, switch to 45 degree isometric
+            this.setSims4IsometricView();
+        } else {
+            // Switch to top down
+            this.setTopDownView();
+        }
     }
 
     setFrontElevationView() {
@@ -210,7 +251,7 @@ export class CameraController {
     }
 
     resetCamera() {
-        this.setSims4IsometricView();
+        this.setSims4IsometricView(0);
     }
 
     animateTo(position, target) {
@@ -255,6 +296,7 @@ export class CameraController {
     }
 
     dispose() {
+        if (this._onKeyDown) window.removeEventListener('keydown', this._onKeyDown);
         if (this.controls) {
             this.controls.removeEventListener('start', this._onControlStart);
             this.controls.dispose();

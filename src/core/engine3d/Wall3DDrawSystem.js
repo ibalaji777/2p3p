@@ -10,9 +10,14 @@ import { EVENTS } from '../constants/events.js';
  * Wall3DDrawSystem
  * 
  * Enables direct Sims 4-style 3D Wall and Room Box drawing in the 3D scene.
- * Provides real-time translucent 3D ghost previews, high-precision direct 3D wall mesh raycasting,
- * corner anchors, wall edge T-joints, midpoint symmetry snapping, 90° perpendicular guides,
- * glowing wall snap halos, floating 3D dimension badges, and full 2D/3D synchronization.
+ * Features:
+ * - Direct 3D wall mesh raycasting
+ * - Midpoint (50%) & Quarter-point Snap with Amber Diamond indicator
+ * - Smart Orthogonal & Parallel Corner Alignment Guides (Inference Lines to form perfect squares/rectangles)
+ * - Native DOM Floating Vector Badge (100% Crisp, zero blurriness at any zoom distance)
+ * - Dynamic Camera-Distance-Aware 3D Sprite
+ * - 45° / Orthogonal Alignment Guide Lines
+ * - Real-time 3D Snap Halos & Dimension Badges
  */
 export class Wall3DDrawSystem {
     constructor(ctx, interactionSystem) {
@@ -59,12 +64,12 @@ export class Wall3DDrawSystem {
         this.snapDot.renderOrder = 1003;
         this.snapIndicatorGroup.add(this.snapDot);
 
-        // Midpoint Diamond Indicator
+        // Midpoint Amber Diamond Indicator
         const diamondShape = new THREE.Shape();
-        diamondShape.moveTo(0, 7);
-        diamondShape.lineTo(7, 0);
-        diamondShape.lineTo(0, -7);
-        diamondShape.lineTo(-7, 0);
+        diamondShape.moveTo(0, 8);
+        diamondShape.lineTo(8, 0);
+        diamondShape.lineTo(0, -8);
+        diamondShape.lineTo(-8, 0);
         diamondShape.closePath();
         const diamondGeo = new THREE.ShapeGeometry(diamondShape);
         diamondGeo.rotateX(-Math.PI / 2);
@@ -105,7 +110,7 @@ export class Wall3DDrawSystem {
         }
         this.snapHalos.forEach(h => this.snapHaloGroup.add(h));
 
-        // 45° / Orthogonal Alignment Guide Line
+        // 45° / 90° Wall Direction Guide Line
         const guideGeo = new THREE.BufferGeometry().setFromPoints([
             new THREE.Vector3(0, 0, 0),
             new THREE.Vector3(0, 0, 0)
@@ -126,6 +131,39 @@ export class Wall3DDrawSystem {
         this.guideLine.renderOrder = 997;
         this.guideLine.visible = false;
         this.ghostGroup.add(this.guideLine);
+
+        // Smart Parallel & Perpendicular Corner Alignment Inference Guide Line (Dashed Emerald)
+        const alignGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0, 0, 0)
+        ]);
+        this.alignmentLine = new THREE.Line(
+            alignGeo,
+            new THREE.LineDashedMaterial({
+                color: 0x10b981,
+                dashSize: 10,
+                gapSize: 8,
+                depthTest: false,
+                transparent: true,
+                opacity: 1.0,
+                linewidth: 3
+            })
+        );
+        this.alignmentLine.computeLineDistances();
+        this.alignmentLine.renderOrder = 1008;
+        this.alignmentLine.visible = false;
+        this.ghostGroup.add(this.alignmentLine);
+
+        // Alignment Reference Corner Target Ring
+        const alignMarkerGeo = new THREE.RingGeometry(6, 12, 32);
+        alignMarkerGeo.rotateX(-Math.PI / 2);
+        this.alignmentMarker = new THREE.Mesh(
+            alignMarkerGeo,
+            new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 0.95, side: THREE.DoubleSide })
+        );
+        this.alignmentMarker.renderOrder = 1009;
+        this.alignmentMarker.visible = false;
+        this.ghostGroup.add(this.alignmentMarker);
 
         // Ghost Wall Mesh Material
         this.ghostMat = new THREE.MeshBasicMaterial({
@@ -179,13 +217,41 @@ export class Wall3DDrawSystem {
         this.ghostRoomFloor.visible = false;
         this.ghostGroup.add(this.ghostRoomFloor);
 
-        // Floating 3D Dimension Badge Sprite
-        this.dimensionSprite = this._createDimensionSprite();
-        this.dimensionSprite.visible = false;
-        this.ghostGroup.add(this.dimensionSprite);
+        // Floating Vector DOM Badge (100% Crisp Screen-Space HTML Overlay)
+        this._createDOMBadge();
 
         this._onKeyDown = this._onKeyDown.bind(this);
         window.addEventListener('keydown', this._onKeyDown);
+    }
+
+    _createDOMBadge() {
+        if (typeof document === 'undefined') return;
+        this.domBadge = document.createElement('div');
+        this.domBadge.className = 'wall3d-live-dimension-badge';
+        this.domBadge.style.cssText = `
+            position: absolute;
+            display: none;
+            pointer-events: none;
+            transform: translate(-50%, -100%);
+            padding: 8px 18px;
+            border-radius: 24px;
+            background: rgba(15, 23, 42, 0.94);
+            border: 2.5px solid #00f0ff;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6), 0 0 18px rgba(0, 240, 255, 0.35);
+            color: #ffffff;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            z-index: 9999;
+            backdrop-filter: blur(10px);
+            user-select: none;
+            transition: border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+        `;
+        
+        const container = this.ctx.renderer?.domElement?.parentElement || document.body;
+        container.appendChild(this.domBadge);
     }
 
     _createSnapHaloMesh() {
@@ -210,45 +276,26 @@ export class Wall3DDrawSystem {
         return mesh;
     }
 
-    _createDimensionSprite() {
-        const canvas = document.createElement('canvas');
-        canvas.width = 256;
-        canvas.height = 64;
-        const texture = new THREE.CanvasTexture(canvas);
-        const mat = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
-        const sprite = new THREE.Sprite(mat);
-        sprite.scale.set(60, 15, 1);
-        sprite.renderOrder = 1004;
-        sprite.userData = { canvas, texture };
-        return sprite;
-    }
+    _updateDimensionBadge(text, worldPosition, isSpecial = false, specialColor = '#00f0ff') {
+        // Update Native Crisp Screen-Space DOM Badge
+        if (this.domBadge && this.ctx.renderer && this.ctx.camera) {
+            const screenPos = worldPosition.clone().project(this.ctx.camera);
+            const rect = this.ctx.renderer.domElement.getBoundingClientRect();
+            const screenX = ((screenPos.x + 1) / 2) * rect.width;
+            const screenY = ((-screenPos.y + 1) / 2) * rect.height;
 
-    _updateDimensionBadge(text, position) {
-        if (!this.dimensionSprite) return;
-        const { canvas, texture } = this.dimensionSprite.userData;
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Draw badge background (Sims 4 sleek dark blue CAD badge)
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-        ctx.beginPath();
-        ctx.roundRect(8, 8, canvas.width - 16, canvas.height - 16, 12);
-        ctx.fill();
-
-        ctx.strokeStyle = '#00f0ff';
-        ctx.lineWidth = 3;
-        ctx.stroke();
-
-        // Text
-        ctx.font = 'bold 22px Inter, sans-serif';
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(text, canvas.width / 2, canvas.height / 2);
-
-        texture.needsUpdate = true;
-        this.dimensionSprite.position.copy(position);
-        this.dimensionSprite.visible = true;
+            if (screenPos.z > 1) {
+                this.domBadge.style.display = 'none';
+            } else {
+                this.domBadge.style.display = 'block';
+                this.domBadge.style.left = `${screenX}px`;
+                this.domBadge.style.top = `${screenY - 14}px`;
+                this.domBadge.textContent = text;
+                this.domBadge.style.borderColor = specialColor;
+                this.domBadge.style.color = isSpecial ? specialColor : '#ffffff';
+                this.domBadge.style.boxShadow = `0 6px 24px rgba(0, 0, 0, 0.6), 0 0 20px ${specialColor}55`;
+            }
+        }
     }
 
     get planner() {
@@ -281,8 +328,8 @@ export class Wall3DDrawSystem {
 
     /**
      * Raycasts cursor ray:
-     * 1. Checks direct 3D intersection with any existing wall mesh in the scene!
-     * 2. Falls back to intersecting the floor plane (y = elevation).
+     * 1. Direct 3D intersection with any existing wall mesh in the scene
+     * 2. Floor plane intersection (y = elevation)
      */
     getSceneIntersection(e) {
         const rect = this.ctx.renderer.domElement.getBoundingClientRect();
@@ -340,10 +387,10 @@ export class Wall3DDrawSystem {
      * Smart High-Precision Snapping Hierarchy:
      * 1. Direct Wall Hit Projection (mouse is over a 3D wall)
      * 2. Corner Anchors (Radius: 35 units)
-     * 3. Midpoint (50%) & Quarter Point (25%, 75%) Symmetry Snapping
+     * 3. Midpoint (50%) & Quarter Point (25%, 75%) Symmetry Magnet
      * 4. Wall Edge T-Joints (Radius: 32 units)
-     * 5. 90° Perpendicular Normal Snapping
-     * 6. 45°/90° Global Orthogonal Angle Snapping
+     * 5. Smart Parallel / Orthogonal Alignment to Start Corner & Room Anchors (Inference Guides)
+     * 6. 45°/90° Global Angle Snapping
      * 7. Grid Snapping (5cm increments)
      */
     getSnappedPoint(intersectionResult, shiftKey = false) {
@@ -366,8 +413,8 @@ export class Wall3DDrawSystem {
                 let t = ((pos2D.x - p1.x) * dx + (pos2D.y - p1.y) * dy) / lenSq;
                 t = Math.max(0, Math.min(1, t));
 
-                // Anchor snap near ends of the wall (within 15% of ends)
-                if (t < 0.15) {
+                // Corner snap near ends of the wall (within 12% of ends)
+                if (t < 0.12) {
                     pos2D = { x: p1.x, y: p1.y };
                     const attached = (planner.walls || []).filter(w => !w.hidden && (w.startAnchor === directWallHit.startAnchor || w.endAnchor === directWallHit.startAnchor));
                     return {
@@ -378,7 +425,7 @@ export class Wall3DDrawSystem {
                         anchor: directWallHit.startAnchor,
                         connectedWalls: attached
                     };
-                } else if (t > 0.85) {
+                } else if (t > 0.88) {
                     pos2D = { x: p2.x, y: p2.y };
                     const attached = (planner.walls || []).filter(w => !w.hidden && (w.startAnchor === directWallHit.endAnchor || w.endAnchor === directWallHit.endAnchor));
                     return {
@@ -390,8 +437,8 @@ export class Wall3DDrawSystem {
                         connectedWalls: attached
                     };
                 } else {
-                    // Check Midpoint Snap (t approx 0.5)
-                    let isMid = Math.abs(t - 0.5) < 0.08;
+                    // Midpoint Snap Magnet (t approx 0.5)
+                    let isMid = Math.abs(t - 0.5) < 0.09;
                     if (isMid) t = 0.5;
 
                     const projX = p1.x + t * dx;
@@ -437,7 +484,7 @@ export class Wall3DDrawSystem {
         // 2. Snap to Wall Edges (T-Joints) & Midpoints along existing walls
         let bestWallPoint = null;
         let bestWall = null;
-        let minWallDist = snapDist * 0.9;
+        let minWallDist = snapDist * 0.95;
         let isMidpointSnap = false;
 
         (planner.walls || []).forEach(w => {
@@ -453,10 +500,10 @@ export class Wall3DDrawSystem {
             let t = ((pos2D.x - p1.x) * dx + (pos2D.y - p1.y) * dy) / lenSq;
             t = Math.max(0.04, Math.min(0.96, t));
 
-            // Midpoint snap magnet
-            if (Math.abs(t - 0.5) < 0.08) {
+            // Midpoint snap magnet (50%)
+            let isMid = Math.abs(t - 0.5) < 0.09;
+            if (isMid) {
                 t = 0.5;
-                isMidpointSnap = true;
             }
 
             const projX = p1.x + t * dx;
@@ -467,6 +514,7 @@ export class Wall3DDrawSystem {
                 minWallDist = dist;
                 bestWallPoint = { x: projX, y: projY };
                 bestWall = w;
+                isMidpointSnap = isMid;
             }
         });
 
@@ -484,14 +532,16 @@ export class Wall3DDrawSystem {
         let finalX = pos2D.x;
         let finalY = pos2D.y;
         let isAngleSnapped = false;
+        let isAlignedWithCorner = false;
+        let alignedCornerPos = null;
 
-        // 3. Perpendicular (90°) & 45° Angle Snapping if chaining
+        // 3. Smart Parallel & Perpendicular Alignment (Inference Guides) to form perfect squares/rectangles
         if (this.drawing && this.lastAnchor) {
             const p1 = this.lastAnchor.position ? this.lastAnchor.position() : { x: this.lastAnchor.x, y: this.lastAnchor.y };
             const dx = finalX - p1.x;
             const dy = finalY - p1.y;
             const len = Math.hypot(dx, dy);
-            
+
             if (len > 10) {
                 let angle = Math.atan2(dy, dx);
                 const step = Math.PI / 4; // 45 degrees
@@ -499,18 +549,63 @@ export class Wall3DDrawSystem {
                 const angleDiff = Math.abs(angle - snapAngle);
 
                 // Auto-snap if close to orthogonal/45° or if Shift is held
-                if (shiftKey || angleDiff < 0.16) {
+                if (shiftKey || angleDiff < 0.22) {
                     finalX = p1.x + Math.cos(snapAngle) * len;
                     finalY = p1.y + Math.sin(snapAngle) * len;
                     isAngleSnapped = true;
                 }
+
+                // Check Alignment to Start Anchor or any Existing Room Corner
+                const candidates = [];
+                if (this.startAnchor && this.startAnchor !== this.lastAnchor) {
+                    const sp = this.startAnchor.position ? this.startAnchor.position() : { x: this.startAnchor.x, y: this.startAnchor.y };
+                    candidates.push(sp);
+                }
+                (planner.anchors || []).forEach(a => {
+                    if (a !== this.lastAnchor && a !== this.startAnchor) {
+                        const ap = a.position ? a.position() : { x: a.x, y: a.y };
+                        candidates.push(ap);
+                    }
+                });
+
+                // Classify movement direction:
+                // isHoriz: moving left/right along X axis (angle is near 0 or PI / -PI)
+                // isVert: moving up/down along Y axis (angle is near PI/2 or -PI/2)
+                const sinVal = Math.abs(Math.sin(snapAngle));
+                const cosVal = Math.abs(Math.cos(snapAngle));
+                const isHoriz = sinVal < 0.25; // Mostly moving along X
+                const isVert = cosVal < 0.25;  // Mostly moving along Y
+
+                const alignTolerance = 35; // Generous snap tolerance to lock alignment cleanly
+
+                for (const cand of candidates) {
+                    if (isHoriz) {
+                        // Moving horizontally along X: lock X when it aligns with reference corner cand.x!
+                        if (Math.abs(finalX - cand.x) < alignTolerance) {
+                            finalX = cand.x;
+                            isAlignedWithCorner = true;
+                            alignedCornerPos = cand;
+                            break;
+                        }
+                    } else if (isVert) {
+                        // Moving vertically along Y: lock Y when it aligns with reference corner cand.y!
+                        if (Math.abs(finalY - cand.y) < alignTolerance) {
+                            finalY = cand.y;
+                            isAlignedWithCorner = true;
+                            alignedCornerPos = cand;
+                            break;
+                        }
+                    }
+                }
             }
         }
 
-        // 4. Grid Snapping (5cm increments)
-        const gridStep = 5;
-        finalX = Math.round(finalX / gridStep) * gridStep;
-        finalY = Math.round(finalY / gridStep) * gridStep;
+        // 4. Grid Snapping (5cm increments) if not already aligned
+        if (!isAlignedWithCorner) {
+            const gridStep = 5;
+            finalX = Math.round(finalX / gridStep) * gridStep;
+            finalY = Math.round(finalY / gridStep) * gridStep;
+        }
 
         return {
             point: new THREE.Vector3(finalX, elev, finalY),
@@ -518,6 +613,8 @@ export class Wall3DDrawSystem {
             isWallEdge: false,
             isMidpoint: false,
             isAngleSnapped,
+            isAlignedWithCorner,
+            alignedCornerPos,
             connectedWalls: []
         };
     }
@@ -544,7 +641,7 @@ export class Wall3DDrawSystem {
                     const p1 = w.startAnchor.position ? w.startAnchor.position() : { x: w.startAnchor.x, y: w.startAnchor.y };
                     const p2 = w.endAnchor.position ? w.endAnchor.position() : { x: w.endAnchor.x, y: w.endAnchor.y };
                     const hVal = w.height || 180;
-                    const tVal = (w.thickness || 16) + 3.0; // Clear visible halo
+                    const tVal = (w.thickness || 16) + 3.0;
 
                     this._positionWallPiece(h, p1.x, p1.y, p2.x, p2.y, hVal + 2, tVal, elev - 1);
                     h.visible = true;
@@ -557,7 +654,7 @@ export class Wall3DDrawSystem {
             this.snapHalos.forEach(h => h.visible = false);
         }
 
-        // 2. Visual Snap Ring & Indicator (Corner / Midpoint / Edge)
+        // 2. Visual Snap Ring & Indicator (Corner / Midpoint Diamond / Edge)
         if (snapResult.isAnchor || snapResult.isWallEdge) {
             this.snapIndicatorGroup.position.set(pt.x, elev + 0.6, pt.z);
             
@@ -613,7 +710,7 @@ export class Wall3DDrawSystem {
 
                     // Dimension Badge
                     const label = `${(width / 100).toFixed(2)}m × ${(depth / 100).toFixed(2)}m`;
-                    this._updateDimensionBadge(label, new THREE.Vector3((minX + maxX) / 2, elev + h + 20, (minY + maxY) / 2));
+                    this._updateDimensionBadge(label, new THREE.Vector3((minX + maxX) / 2, elev + h + 24, (minY + maxY) / 2));
                 }
             } else {
                 // Ghost Single Wall Preview
@@ -627,7 +724,7 @@ export class Wall3DDrawSystem {
                     this._positionWallPiece(this.ghostWallMesh, p1.x, p1.y, p2.x, p2.y, h, t, elev);
                     this.ghostWallMesh.visible = true;
 
-                    // Angle Alignment Guide Line
+                    // Direction Alignment Guide Line
                     const guidePositions = new Float32Array([
                         p1.x, elev + 1, p1.y,
                         p2.x + dx * 0.5, elev + 1, p2.y + dy * 0.5
@@ -637,13 +734,47 @@ export class Wall3DDrawSystem {
                     this.guideLine.computeLineDistances();
                     this.guideLine.visible = true;
 
-                    // Dimension Badge
-                    const label = `${(len / 100).toFixed(2)} m`;
-                    this._updateDimensionBadge(label, new THREE.Vector3((p1.x + p2.x) / 2, elev + h + 20, (p1.y + p2.y) / 2));
+                    // Smart Parallel & Perpendicular Alignment Guide Line to Reference Corner
+                    if (snapResult.isAlignedWithCorner && snapResult.alignedCornerPos) {
+                        const refP = snapResult.alignedCornerPos;
+                        const alignPositions = new Float32Array([
+                            refP.x, elev + 1.2, refP.y,
+                            p2.x, elev + 1.2, p2.y
+                        ]);
+                        this.alignmentLine.geometry.setAttribute('position', new THREE.BufferAttribute(alignPositions, 3));
+                        this.alignmentLine.geometry.attributes.position.needsUpdate = true;
+                        this.alignmentLine.computeLineDistances();
+                        this.alignmentLine.visible = true;
+
+                        this.alignmentMarker.position.set(refP.x, elev + 1.3, refP.y);
+                        this.alignmentMarker.visible = true;
+                    } else {
+                        this.alignmentLine.visible = false;
+                        this.alignmentMarker.visible = false;
+                    }
+
+                    // Dimension Badge: Special Midpoint / Alignment indicator or length readout
+                    let label = `${(len / 100).toFixed(2)} m`;
+                    let isSpecial = false;
+                    let badgeColor = '#00f0ff';
+
+                    if (snapResult.isAlignedWithCorner) {
+                        label = `📐 ALIGNED WITH CORNER • ${(len / 100).toFixed(2)}m`;
+                        isSpecial = true;
+                        badgeColor = '#10b981';
+                    } else if (snapResult.isMidpoint) {
+                        label = `🔶 MIDPOINT (50%) • ${(len / 100).toFixed(2)}m`;
+                        isSpecial = true;
+                        badgeColor = '#f59e0b';
+                    }
+
+                    this._updateDimensionBadge(label, new THREE.Vector3((p1.x + p2.x) / 2, elev + h + 24, (p1.y + p2.y) / 2), isSpecial, badgeColor);
                 } else {
                     this.ghostWallMesh.visible = false;
                     this.guideLine.visible = false;
-                    this.dimensionSprite.visible = false;
+                    this.alignmentLine.visible = false;
+                    this.alignmentMarker.visible = false;
+                    if (this.domBadge) this.domBadge.style.display = 'none';
                 }
             }
         }
@@ -701,7 +832,7 @@ export class Wall3DDrawSystem {
 
             if (planner.onDrawingChange) planner.onDrawingChange(true);
         } else {
-            // Continue Drawing Session / Place Corner
+            // Continue Drawing Session / Place Corner / Partition Finish
             const rawTool = this.activeTool;
             const wallType = rawTool === 'wall' ? 'outer' : rawTool;
 
@@ -733,6 +864,7 @@ export class Wall3DDrawSystem {
             } else {
                 // Wall Chain Mode
                 const currentAnchor = planner.getOrCreateAnchor(pt.x, pt.z);
+                const isWallEdgeHit = snapResult.isWallEdge && snapResult.wall;
 
                 if (this.lastAnchor && this.lastAnchor !== currentAnchor) {
                     let w;
@@ -746,8 +878,8 @@ export class Wall3DDrawSystem {
                     planner.lastDrawnEntity = w;
                     this.currentSessionEntities.push(w);
 
-                    // Check if closed back on startAnchor (Completed Room Loop!)
-                    if (currentAnchor === this.startAnchor) {
+                    // Check if closed back on startAnchor (Room loop) or hit opposite wall T-joint (Partition complete)
+                    if (currentAnchor === this.startAnchor || isWallEdgeHit) {
                         this.finishDrawing();
                         return true;
                     }
@@ -811,7 +943,9 @@ export class Wall3DDrawSystem {
         this.snapHaloGroup.visible = false;
         this.snapHalos.forEach(h => h.visible = false);
         this.guideLine.visible = false;
-        this.dimensionSprite.visible = false;
+        this.alignmentLine.visible = false;
+        this.alignmentMarker.visible = false;
+        if (this.domBadge) this.domBadge.style.display = 'none';
         if (this.hoveredWallMesh && this.interactions) {
             this.interactions.setHighlight(this.hoveredWallMesh, false);
             this.hoveredWallMesh = null;
@@ -821,6 +955,9 @@ export class Wall3DDrawSystem {
     dispose() {
         window.removeEventListener('keydown', this._onKeyDown);
         this.hideGhostMeshes();
+        if (this.domBadge && this.domBadge.parentElement) {
+            this.domBadge.parentElement.removeChild(this.domBadge);
+        }
         if (this.ghostGroup.parent) this.ghostGroup.parent.remove(this.ghostGroup);
     }
 }

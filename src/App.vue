@@ -84,6 +84,8 @@
         @reset-camera="resetCamera"
         @set-sims4-view="setSims4View"
         @set-topdown-view="setTopDownView"
+        @rotate-camera-left="rotateCameraLeft"
+        @rotate-camera-right="rotateCameraRight"
       />
 
       <RightSidebar
@@ -854,6 +856,18 @@ const setSims4View = () => {
 const setTopDownView = () => {
     if (viewMode.value === '3d' && renderer3D.value?.cameraController) {
         renderer3D.value.cameraController.setTopDownView();
+    }
+};
+
+const rotateCameraLeft = () => {
+    if (viewMode.value === '3d' && renderer3D.value?.cameraController) {
+        renderer3D.value.cameraController.rotateSims4Isometric(-1);
+    }
+};
+
+const rotateCameraRight = () => {
+    if (viewMode.value === '3d' && renderer3D.value?.cameraController) {
+        renderer3D.value.cameraController.rotateSims4Isometric(1);
     }
 };
 
