@@ -471,6 +471,18 @@ export const FLOOR_REGISTRY = {
     'carpet': {
         id: 'carpet', name: 'Soft Carpet', type: 'floor',
         color: 0x8b5a2b, roughness: 0.9, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
+    },
+    'grass': {
+        id: 'grass', name: 'Lush Botanical Grass Turf', type: 'floor',
+        texture: '/assets/tiles/grass_turf_green.jpg',
+        thumbnail: '/assets/tiles/grass_turf_green.jpg',
+        color: 0x22c55e, roughness: 0.95, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
+    },
+    'grass_turf': {
+        id: 'grass_turf', name: 'Botanical Grass Turf', type: 'floor',
+        texture: '/assets/tiles/grass_turf_green.jpg',
+        thumbnail: '/assets/tiles/grass_turf_green.jpg',
+        color: 0x22c55e, roughness: 0.95, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     }
 };
 
@@ -480,10 +492,9 @@ export const GROUND_REGISTRY = {
     },
     'grass': {
         id: 'grass', name: 'Lush Grass', type: 'terrain',
-        texture: 'https://threejs.org/examples/textures/terrain/grasslight-big.jpg',
-        thumbnail: 'https://threejs.org/examples/textures/terrain/grasslight-big.jpg',
-        normal: 'https://threejs.org/examples/textures/water/Water_1_M_Normal.jpg',
-        repeat: 25, roughness: 1.0, normalScale: 0.3, terrainHeight: 5
+        texture: '/assets/tiles/grass_turf_green.jpg',
+        thumbnail: '/assets/tiles/grass_turf_green.jpg',
+        repeat: 25, roughness: 0.95, metalness: 0.0, terrainHeight: 5
     },
     'studio_dark': {
         id: 'studio_dark', name: 'Dark Studio Base', type: 'terrain',

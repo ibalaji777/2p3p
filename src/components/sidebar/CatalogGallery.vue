@@ -917,7 +917,7 @@ const outdoorSoftscapeCatalog = ref([
         badge: 'TURF', 
         material: 'Natural Green Lawn Grass', 
         specs: 'Floor Surface', 
-        image: '', 
+        image: '/assets/tiles/grass_turf_green.jpg', 
         toolId: 'outdoor_softscape', 
         params: { subType: 'softscape', material: 'grass', height3D: 0.3 } 
     },
