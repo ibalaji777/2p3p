@@ -144,17 +144,18 @@ export class PremiumOutdoorZone {
             visible: false
         });
 
-        // 2. Selection / Highlight outline
+        // 2. Selection / Highlight outline (Solid, clean modern CAD border)
         this.sealHighlight = new Konva.Line({
             points: this.getFlatPoints(),
-            stroke: '#06b6d4',
-            strokeWidth: 4,
-            dash: [10, 6],
-            lineCap: 'square',
-            lineJoin: 'miter',
-            opacity: 0.95,
-            shadowColor: '#06b6d4',
-            shadowBlur: 8,
+            stroke: '#0284c7',
+            strokeWidth: 2.5,
+            lineCap: 'round',
+            lineJoin: 'round',
+            opacity: 1,
+            shadowColor: '#0ea5e9',
+            shadowBlur: 6,
+            shadowOpacity: 0.5,
+            shadowOffset: { x: 0, y: 0 },
             listening: false,
             visible: false,
             closed: true
@@ -327,7 +328,7 @@ export class PremiumOutdoorZone {
                 handle.on('dragmove', (e) => {
                     e.cancelBubble = true;
                     this.centerline[idx] = { x: handle.x(), y: handle.y() };
-                    this.rebuildFromCenterline(false);
+                    this.rebuildFromCenterline(false, idx);
                 });
 
                 handle.on('dragend', (e) => {
@@ -384,7 +385,7 @@ export class PremiumOutdoorZone {
                     e.cancelBubble = true;
                     if (insertedIdx !== -1) {
                         this.centerline[insertedIdx] = { x: midHandle.x(), y: midHandle.y() };
-                        this.rebuildFromCenterline(false);
+                        this.rebuildFromCenterline(false, insertedIdx);
                     }
                 });
 
@@ -436,7 +437,7 @@ export class PremiumOutdoorZone {
         }
     }
 
-    rebuildFromCenterline(fullSync = true) {
+    rebuildFromCenterline(fullSync = true, activeDragIdx = -1) {
         if (!this.centerline || this.centerline.length < 2) return;
         const w = this.width || (this.subType === 'walkway' ? 60 : 160);
         const newPoly = computeCorridorPolygon(this.centerline, w);
@@ -449,6 +450,32 @@ export class PremiumOutdoorZone {
         this.sealHighlight.points(flatPts);
         if (this.centerlineGuide) {
             this.centerlineGuide.points(this.centerline.flatMap(p => [p.x, p.y]));
+        }
+
+        // Live track all node handles
+        if (this.vertexHandles && this.centerline) {
+            for (let i = 0; i < this.centerline.length; i++) {
+                if (i !== activeDragIdx && this.vertexHandles[i]) {
+                    this.vertexHandles[i].position({
+                        x: this.centerline[i].x,
+                        y: this.centerline[i].y
+                    });
+                }
+            }
+        }
+
+        // Live track all midpoint handles
+        if (this.midpointHandles && this.centerline) {
+            for (let i = 0; i < this.centerline.length - 1; i++) {
+                if (this.midpointHandles[i]) {
+                    const p1 = this.centerline[i];
+                    const p2 = this.centerline[i + 1];
+                    this.midpointHandles[i].position({
+                        x: (p1.x + p2.x) / 2,
+                        y: (p1.y + p2.y) / 2
+                    });
+                }
+            }
         }
 
         this.createBadgeContent();
