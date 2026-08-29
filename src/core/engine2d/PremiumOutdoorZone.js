@@ -1,5 +1,6 @@
 import Konva from 'konva';
 import { SNAP_DIST } from '../registry.js';
+import { computeCorridorPolygon } from './corridorUtils.js';
 
 export const OUTDOOR_ZONE_TYPES = {
     driveway: {
@@ -132,6 +133,17 @@ export class PremiumOutdoorZone {
             dash: this.subType === 'pavement' ? [8, 4] : undefined
         });
 
+        // 1.5 Centerline Path Visualizer (for corridors)
+        this.centerlineGuide = new Konva.Line({
+            points: this.centerline ? this.centerline.flatMap(p => [p.x, p.y]) : [],
+            stroke: '#0284c7',
+            strokeWidth: 2.5,
+            dash: [6, 4],
+            opacity: 0.9,
+            listening: false,
+            visible: false
+        });
+
         // 2. Selection / Highlight outline
         this.sealHighlight = new Konva.Line({
             points: this.getFlatPoints(),
@@ -171,6 +183,7 @@ export class PremiumOutdoorZone {
         });
 
         this.group.add(this.polygonShape);
+        this.group.add(this.centerlineGuide);
         this.group.add(this.sealHighlight);
         this.group.add(this.dimensionGroup);
         this.group.add(this.badgeGroup);
@@ -285,39 +298,195 @@ export class PremiumOutdoorZone {
     createVertexHandles() {
         this.vertexHandles.forEach(h => h.destroy());
         this.vertexHandles = [];
+        if (this.midpointHandles) {
+            this.midpointHandles.forEach(h => h.destroy());
+        }
+        this.midpointHandles = [];
 
-        this.points.forEach((pt, idx) => {
-            const handle = new Konva.Circle({
-                x: pt.x,
-                y: pt.y,
-                radius: 5,
-                fill: '#06b6d4',
-                stroke: '#ffffff',
-                strokeWidth: 2,
-                draggable: true,
-                visible: false,
-                name: `vertex-handle-${idx}`
+        const isCorridor = (this.subType === 'driveway' || this.subType === 'walkway' || Boolean(this.params?.width)) && this.centerline && this.centerline.length >= 2;
+
+        if (isCorridor) {
+            // === CORRIDOR CENTERLINE HANDLES ===
+            this.centerline.forEach((pt, idx) => {
+                const isEndNode = (idx === 0 || idx === this.centerline.length - 1);
+                const handle = new Konva.Circle({
+                    x: pt.x,
+                    y: pt.y,
+                    radius: isEndNode ? 7.5 : 7,
+                    fill: isEndNode ? '#0284c7' : '#38bdf8',
+                    stroke: '#ffffff',
+                    strokeWidth: 2.5,
+                    shadowColor: 'black',
+                    shadowBlur: 4,
+                    shadowOpacity: 0.3,
+                    draggable: true,
+                    visible: Boolean(this.isSelected),
+                    name: `centerline-handle-${idx}`
+                });
+
+                handle.on('dragmove', (e) => {
+                    e.cancelBubble = true;
+                    this.centerline[idx] = { x: handle.x(), y: handle.y() };
+                    this.rebuildFromCenterline(false);
+                });
+
+                handle.on('dragend', (e) => {
+                    e.cancelBubble = true;
+                    this.rebuildFromCenterline(true);
+                    this.createVertexHandles();
+                    if (this.planner?.saveState) this.planner.saveState();
+                    if (this.planner?.onSelectionChange) this.planner.onSelectionChange(this, 'outdoor_zone');
+                });
+
+                // Double click / double tap to delete corner node and straighten bend
+                handle.on('dblclick dbltap', (e) => {
+                    e.cancelBubble = true;
+                    if (this.centerline.length > 2 && idx > 0 && idx < this.centerline.length - 1) {
+                        this.centerline.splice(idx, 1);
+                        this.rebuildFromCenterline(true);
+                        this.createVertexHandles();
+                        if (this.planner?.saveState) this.planner.saveState();
+                        if (this.planner?.onSelectionChange) this.planner.onSelectionChange(this, 'outdoor_zone');
+                    }
+                });
+
+                this.group.add(handle);
+                this.vertexHandles.push(handle);
             });
 
-            handle.on('dragmove', (e) => {
-                e.cancelBubble = true;
-                this.points[idx] = { x: handle.x(), y: handle.y() };
-                this.updateGeometry();
-            });
+            // Midpoint (+) Handles to add new bends
+            for (let i = 0; i < this.centerline.length - 1; i++) {
+                const p1 = this.centerline[i];
+                const p2 = this.centerline[i + 1];
+                const midX = (p1.x + p2.x) / 2;
+                const midY = (p1.y + p2.y) / 2;
 
-            handle.on('dragend', (e) => {
-                e.cancelBubble = true;
-                if (this.planner && this.planner.saveState) {
-                    this.planner.saveState();
-                }
-                if (this.planner && this.planner.onSelectionChange) {
-                    this.planner.onSelectionChange(this, 'outdoor_zone');
-                }
-            });
+                const midHandle = new Konva.Circle({
+                    x: midX,
+                    y: midY,
+                    radius: 5,
+                    fill: '#ffffff',
+                    stroke: '#0284c7',
+                    strokeWidth: 2,
+                    draggable: true,
+                    visible: Boolean(this.isSelected),
+                    name: `midpoint-handle-${i}`
+                });
 
-            this.group.add(handle);
-            this.vertexHandles.push(handle);
-        });
+                let insertedIdx = -1;
+                midHandle.on('dragstart', (e) => {
+                    e.cancelBubble = true;
+                    insertedIdx = i + 1;
+                    this.centerline.splice(insertedIdx, 0, { x: midHandle.x(), y: midHandle.y() });
+                });
+
+                midHandle.on('dragmove', (e) => {
+                    e.cancelBubble = true;
+                    if (insertedIdx !== -1) {
+                        this.centerline[insertedIdx] = { x: midHandle.x(), y: midHandle.y() };
+                        this.rebuildFromCenterline(false);
+                    }
+                });
+
+                midHandle.on('dragend', (e) => {
+                    e.cancelBubble = true;
+                    this.rebuildFromCenterline(true);
+                    this.createVertexHandles();
+                    if (this.planner?.saveState) this.planner.saveState();
+                    if (this.planner?.onSelectionChange) this.planner.onSelectionChange(this, 'outdoor_zone');
+                });
+
+                this.group.add(midHandle);
+                this.midpointHandles.push(midHandle);
+            }
+        } else {
+            // === GENERIC POLYGON VERTEX HANDLES ===
+            this.points.forEach((pt, idx) => {
+                const handle = new Konva.Circle({
+                    x: pt.x,
+                    y: pt.y,
+                    radius: 5,
+                    fill: '#06b6d4',
+                    stroke: '#ffffff',
+                    strokeWidth: 2,
+                    draggable: true,
+                    visible: Boolean(this.isSelected),
+                    name: `vertex-handle-${idx}`
+                });
+
+                handle.on('dragmove', (e) => {
+                    e.cancelBubble = true;
+                    this.points[idx] = { x: handle.x(), y: handle.y() };
+                    this.updateGeometry();
+                });
+
+                handle.on('dragend', (e) => {
+                    e.cancelBubble = true;
+                    if (this.planner && this.planner.saveState) {
+                        this.planner.saveState();
+                    }
+                    if (this.planner && this.planner.onSelectionChange) {
+                        this.planner.onSelectionChange(this, 'outdoor_zone');
+                    }
+                });
+
+                this.group.add(handle);
+                this.vertexHandles.push(handle);
+            });
+        }
+    }
+
+    rebuildFromCenterline(fullSync = true) {
+        if (!this.centerline || this.centerline.length < 2) return;
+        const w = this.width || (this.subType === 'walkway' ? 60 : 160);
+        const newPoly = computeCorridorPolygon(this.centerline, w);
+        if (newPoly && newPoly.length >= 3) {
+            this.points = newPoly;
+        }
+
+        const flatPts = this.getFlatPoints();
+        this.polygonShape.points(flatPts);
+        this.sealHighlight.points(flatPts);
+        if (this.centerlineGuide) {
+            this.centerlineGuide.points(this.centerline.flatMap(p => [p.x, p.y]));
+        }
+
+        this.createBadgeContent();
+        this.updateBadgePosition();
+        this.updateRotHandlePosition();
+        this.updateDimensions();
+
+        if (this.planner?.mainLayer) this.planner.mainLayer.batchDraw();
+        if (fullSync && this.planner?.syncAll) this.planner.syncAll();
+    }
+
+    straightenPath() {
+        if (!this.centerline || this.centerline.length < 2) return;
+        this.centerline = [this.centerline[0], this.centerline[this.centerline.length - 1]];
+        this.rebuildFromCenterline(true);
+        this.createVertexHandles();
+        if (this.planner?.saveState) this.planner.saveState();
+        if (this.planner?.onSelectionChange) this.planner.onSelectionChange(this, 'outdoor_zone');
+    }
+
+    reversePath() {
+        if (!this.centerline || this.centerline.length < 2) return;
+        this.centerline.reverse();
+        this.rebuildFromCenterline(true);
+        this.createVertexHandles();
+        if (this.planner?.saveState) this.planner.saveState();
+        if (this.planner?.onSelectionChange) this.planner.onSelectionChange(this, 'outdoor_zone');
+    }
+
+    setWidth(newWidth) {
+        this.width = Number(newWidth);
+        if (this.params) this.params.width = Number(newWidth);
+        if (this.centerline && this.centerline.length >= 2) {
+            this.rebuildFromCenterline(true);
+        }
+        this.createVertexHandles();
+        if (this.planner?.saveState) this.planner.saveState();
+        if (this.planner?.syncAll) this.planner.syncAll();
     }
 
     updateDimensions() {
@@ -416,9 +585,16 @@ export class PremiumOutdoorZone {
     }
 
     setHighlight(val) {
+        this.isSelected = Boolean(val);
         this.sealHighlight.visible(val);
         this.rotHandle.visible(val);
+        if (this.centerlineGuide && this.centerline && this.centerline.length >= 2) {
+            this.centerlineGuide.visible(val);
+        }
         this.vertexHandles.forEach(h => h.visible(val));
+        if (this.midpointHandles) {
+            this.midpointHandles.forEach(h => h.visible(val));
+        }
         if (val) {
             this.createBadgeContent();
             this.updateBadgePosition();
