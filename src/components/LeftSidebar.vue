@@ -528,7 +528,7 @@ const getShortToolName = (toolId, name) => {
     if (toolId === 'electronics_catalog') return 'Electronics';
     if (toolId === 'outdoor_driveway') return 'Driveway';
     if (toolId === 'outdoor_walkway') return 'Walkway';
-    if (toolId === 'outdoor_pavement') return 'Free shape path';
+    if (toolId === 'outdoor_pavement') return 'Pavement';
     if (toolId === 'outdoor_patio') return 'Patio';
     if (toolId === 'outdoor_softscape') return 'Softscape';
     if (toolId === 'outdoor_other') return 'Other space';

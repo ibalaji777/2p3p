@@ -282,10 +282,12 @@ const getCatalogHeaderTitle = () => {
         'rugs_catalog': 'Area Rugs & Floor Carpets',
         'decor_props_catalog': 'Wall Decor & Styling Props',
         'outdoor_spaces': 'Outdoor Spaces & Landscaping',
-        'outdoor_pavement': 'Pavement Zone',
-        'outdoor_patio': 'Patio Zone',
-        'outdoor_softscape': 'Softscape Zone',
-        'outdoor_other': 'Other Space Zone'
+        'outdoor_driveway': 'Driveways & Access Roads',
+        'outdoor_walkway': 'Walkways & Pathways',
+        'outdoor_pavement': 'Pavements & Hardscapes',
+        'outdoor_patio': 'Patios & Sun Decks',
+        'outdoor_softscape': 'Lawns & Softscapes',
+        'outdoor_other': 'Outdoor Spaces'
     };
     return map[props.type] || 'Product Catalog';
 };
@@ -671,8 +673,8 @@ const decorPropsCatalog = ref([
     { id: 'decor_vases_ceramic', name: 'Set of Ceramic Fluted Vases', badge: 'VASES', material: 'Fluted Ceramic & Brass', specs: '200 × 160 mm', image: '', toolId: 'furniture', params: { type: 'decor_vases_ceramic', elevation: 40 } }
 ]);
 
-const outdoorCatalog = ref([
-    { isDivider: true, id: 'div_driveway_styles', name: 'Driveway & Road Styles (8 ft Standard)' },
+const outdoorDrivewayCatalog = ref([
+    { isDivider: true, id: 'div_driveway_styles', name: 'Driveway & Access Road Styles (8 ft Standard)' },
     { 
         id: 'outdoor_driveway_black_road', 
         name: 'Black Asphalt Road Driveway', 
@@ -742,13 +744,15 @@ const outdoorCatalog = ref([
         image: '/assets/tiles/tile_yellow_hexagon.jpg', 
         toolId: 'outdoor_driveway', 
         params: { subType: 'driveway', material: 'tile_yellow_hexagon', width: 160, height3D: 0.3 } 
-    },
+    }
+]);
 
-    { isDivider: true, id: 'div_walkway_styles', name: 'Walkways & Outdoor Surfaces' },
+const outdoorWalkwayCatalog = ref([
+    { isDivider: true, id: 'div_walkway_styles', name: 'Walkway & Pathway Styles (3 ft Standard)' },
     { 
-        id: 'outdoor_walkway', 
-        name: 'Walkway Path', 
-        badge: 'WALKWAY', 
+        id: 'outdoor_walkway_octagram', 
+        name: 'Yellow Octagram & Diamond Walkway', 
+        badge: 'OCTAGRAM', 
         material: 'Yellow Octagram & Diamond Paver', 
         specs: '3 ft (0.91 m)', 
         image: '/assets/tiles/tile_yellow_octagram.jpg', 
@@ -756,19 +760,117 @@ const outdoorCatalog = ref([
         params: { subType: 'walkway', material: 'tile_yellow_octagram', width: 60, height3D: 0.3 } 
     },
     { 
-        id: 'outdoor_pavement', 
-        name: 'Free Shape Pavement', 
-        badge: 'FREE PATH', 
+        id: 'outdoor_walkway_moroccan_mosaic', 
+        name: 'Moroccan Zellige Mosaic Walkway', 
+        badge: 'ZELLIGE', 
+        material: 'Handcrafted Moroccan Mosaic Tile', 
+        specs: '3 ft (0.91 m)', 
+        image: '/assets/tiles/tile_encaustic_star_vintage.jpg', 
+        toolId: 'outdoor_walkway', 
+        params: { subType: 'walkway', material: 'tile_encaustic_star_vintage', width: 60, height3D: 0.3 } 
+    },
+    { 
+        id: 'outdoor_walkway_travertine', 
+        name: 'Travertine Flagstone Walkway', 
+        badge: 'FLAGSTONE', 
+        material: 'Natural Travertine Paver Stones', 
+        specs: '3 ft (0.91 m)', 
+        image: '/assets/tiles/driveway_ashlar_slate_grey.jpg', 
+        toolId: 'outdoor_walkway', 
+        params: { subType: 'walkway', material: 'driveway_ashlar_slate_grey', width: 60, height3D: 0.3 } 
+    },
+    { 
+        id: 'outdoor_walkway_charcoal', 
+        name: 'Charcoal Cobblestone Walkway', 
+        badge: 'COBBLESTONE', 
+        material: 'Charcoal Paver Blocks', 
+        specs: '3 ft (0.91 m)', 
+        image: '/assets/tiles/driveway_charcoal_cobblestone.jpg', 
+        toolId: 'outdoor_walkway', 
+        params: { subType: 'walkway', material: 'driveway_charcoal_cobblestone', width: 60, height3D: 0.3 } 
+    },
+    { 
+        id: 'outdoor_walkway_herringbone', 
+        name: 'Terracotta Herringbone Walkway', 
+        badge: 'BRICK', 
+        material: 'Rustic Terracotta Herringbone', 
+        specs: '3 ft (0.91 m)', 
+        image: '/assets/tiles/driveway_herringbone_redbrick.jpg', 
+        toolId: 'outdoor_walkway', 
+        params: { subType: 'walkway', material: 'driveway_herringbone_redbrick', width: 60, height3D: 0.3 } 
+    }
+]);
+
+const outdoorPavementCatalog = ref([
+    { isDivider: true, id: 'div_pavement_styles', name: 'Polygonal Pavement Styles (Draw Any Shape)' },
+    { 
+        id: 'outdoor_pavement_hexagon', 
+        name: 'Honeycomb Hexagon Pavement', 
+        badge: 'POPULAR', 
         material: 'Yellow Honeycomb Hexagon Pavers', 
-        specs: 'Custom Boundary', 
+        specs: 'Custom Polygon Boundary', 
         image: '/assets/tiles/tile_yellow_hexagon.jpg', 
         toolId: 'outdoor_pavement', 
         params: { subType: 'pavement', material: 'tile_yellow_hexagon', height3D: 0.3 } 
     },
     { 
-        id: 'outdoor_patio', 
-        name: 'Patio & Deck', 
-        badge: 'PATIO', 
+        id: 'outdoor_pavement_charcoal', 
+        name: 'Charcoal Cobblestone Pavement', 
+        badge: 'COBBLESTONE', 
+        material: 'Charcoal Paver Blocks', 
+        specs: 'Custom Polygon Boundary', 
+        image: '/assets/tiles/driveway_charcoal_cobblestone.jpg', 
+        toolId: 'outdoor_pavement', 
+        params: { subType: 'pavement', material: 'driveway_charcoal_cobblestone', height3D: 0.3 } 
+    },
+    { 
+        id: 'outdoor_pavement_herringbone', 
+        name: 'Terracotta Herringbone Pavement', 
+        badge: 'HERRINGBONE', 
+        material: 'Terracotta Brick Hardscape', 
+        specs: 'Custom Polygon Boundary', 
+        image: '/assets/tiles/driveway_herringbone_redbrick.jpg', 
+        toolId: 'outdoor_pavement', 
+        params: { subType: 'pavement', material: 'driveway_herringbone_redbrick', height3D: 0.3 } 
+    },
+    { 
+        id: 'outdoor_pavement_slate', 
+        name: 'Ashlar Slate Stone Pavement', 
+        badge: 'NATURAL STONE', 
+        material: 'Grey Slate Pavers', 
+        specs: 'Custom Polygon Boundary', 
+        image: '/assets/tiles/driveway_ashlar_slate_grey.jpg', 
+        toolId: 'outdoor_pavement', 
+        params: { subType: 'pavement', material: 'driveway_ashlar_slate_grey', height3D: 0.3 } 
+    },
+    { 
+        id: 'outdoor_pavement_octagram', 
+        name: 'Yellow Octagram Pavement', 
+        badge: 'OCTAGRAM', 
+        material: 'Yellow Octagram & Diamond Paver', 
+        specs: 'Custom Polygon Boundary', 
+        image: '/assets/tiles/tile_yellow_octagram.jpg', 
+        toolId: 'outdoor_pavement', 
+        params: { subType: 'pavement', material: 'tile_yellow_octagram', height3D: 0.3 } 
+    },
+    { 
+        id: 'outdoor_pavement_vintage', 
+        name: 'Vintage Encaustic Star Pavement', 
+        badge: 'VINTAGE', 
+        material: 'Encaustic Star Paver Tile', 
+        specs: 'Custom Polygon Boundary', 
+        image: '/assets/tiles/tile_encaustic_star_vintage.jpg', 
+        toolId: 'outdoor_pavement', 
+        params: { subType: 'pavement', material: 'tile_encaustic_star_vintage', height3D: 0.3 } 
+    }
+]);
+
+const outdoorPatioCatalog = ref([
+    { isDivider: true, id: 'div_patio_styles', name: 'Patio & Outdoor Deck Styles' },
+    { 
+        id: 'outdoor_patio_cotto', 
+        name: 'Rustic Cotto Squares Patio', 
+        badge: 'COTTO', 
         material: 'Yellow Cotto Rustic Squares', 
         specs: 'Floor Surface', 
         image: '/assets/tiles/tile_yellow_cotto_squares.jpg', 
@@ -776,15 +878,67 @@ const outdoorCatalog = ref([
         params: { subType: 'patio', material: 'tile_yellow_cotto_squares', height3D: 0.3 } 
     },
     { 
-        id: 'outdoor_softscape', 
-        name: 'Lawn & Softscape Turf', 
-        badge: 'SOFTSCAPE', 
-        material: 'Lush Botanical Grass Turf', 
+        id: 'outdoor_patio_slate', 
+        name: 'Natural Ashlar Slate Patio', 
+        badge: 'SLATE', 
+        material: 'Ashlar Slate Stone Pavers', 
+        specs: 'Floor Surface', 
+        image: '/assets/tiles/driveway_ashlar_slate_grey.jpg', 
+        toolId: 'outdoor_patio', 
+        params: { subType: 'patio', material: 'driveway_ashlar_slate_grey', height3D: 0.3 } 
+    },
+    { 
+        id: 'outdoor_patio_hexagon', 
+        name: 'Honeycomb Hexagon Patio', 
+        badge: 'HEXAGON', 
+        material: 'Yellow Honeycomb Hexagon Pavers', 
+        specs: 'Floor Surface', 
+        image: '/assets/tiles/tile_yellow_hexagon.jpg', 
+        toolId: 'outdoor_patio', 
+        params: { subType: 'patio', material: 'tile_yellow_hexagon', height3D: 0.3 } 
+    },
+    { 
+        id: 'outdoor_patio_vintage', 
+        name: 'Vintage Mediterranean Patio', 
+        badge: 'MEDITERRANEAN', 
+        material: 'Encaustic Star Patterned Tile', 
+        specs: 'Floor Surface', 
+        image: '/assets/tiles/tile_encaustic_star_vintage.jpg', 
+        toolId: 'outdoor_patio', 
+        params: { subType: 'patio', material: 'tile_encaustic_star_vintage', height3D: 0.3 } 
+    }
+]);
+
+const outdoorSoftscapeCatalog = ref([
+    { isDivider: true, id: 'div_softscape_styles', name: 'Lawns, Gardens & Softscape Surfaces' },
+    { 
+        id: 'outdoor_softscape_grass', 
+        name: 'Lush Botanical Grass Turf', 
+        badge: 'TURF', 
+        material: 'Natural Green Lawn Grass', 
         specs: 'Floor Surface', 
         image: '', 
         toolId: 'outdoor_softscape', 
         params: { subType: 'softscape', material: 'grass', height3D: 0.3 } 
+    },
+    { 
+        id: 'outdoor_softscape_pebble', 
+        name: 'River Pebble Rockery Bed', 
+        badge: 'PEBBLE', 
+        material: 'Natural River Gravel & Pebbles', 
+        specs: 'Floor Surface', 
+        image: '/assets/tiles/driveway_exposed_aggregate_pebble.jpg', 
+        toolId: 'outdoor_softscape', 
+        params: { subType: 'softscape', material: 'driveway_exposed_aggregate_pebble', height3D: 0.3 } 
     }
+]);
+
+const outdoorCatalog = computed(() => [
+    ...outdoorPavementCatalog.value,
+    ...outdoorPatioCatalog.value,
+    ...outdoorWalkwayCatalog.value,
+    ...outdoorDrivewayCatalog.value,
+    ...outdoorSoftscapeCatalog.value
 ]);
 
 const selectOutdoorTool = (toolId) => {
@@ -821,7 +975,12 @@ const items = computed(() => {
     if (props.type === 'electronics_catalog') return electronicsCatalog.value;
     if (props.type === 'rugs_catalog') return rugsCatalog.value;
     if (props.type === 'decor_props_catalog') return decorPropsCatalog.value;
-    if (props.type === 'floors' || props.type === 'floor' || props.type === 'outdoor_spaces' || props.type.startsWith('outdoor_')) return outdoorCatalog.value;
+    if (props.type === 'outdoor_driveway') return outdoorDrivewayCatalog.value;
+    if (props.type === 'outdoor_walkway') return outdoorWalkwayCatalog.value;
+    if (props.type === 'outdoor_pavement' || props.type === 'pavement') return outdoorPavementCatalog.value;
+    if (props.type === 'outdoor_patio' || props.type === 'patio') return outdoorPatioCatalog.value;
+    if (props.type === 'outdoor_softscape' || props.type === 'outdoor_lawn') return outdoorSoftscapeCatalog.value;
+    if (props.type === 'floors' || props.type === 'floor' || props.type === 'outdoor_spaces') return outdoorCatalog.value;
     return [];
 });
 

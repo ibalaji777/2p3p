@@ -28,11 +28,11 @@ export const getMenuCategories = () => [
         id: 'floors', name: 'Floors & Pavements',
         icon: '<rect x="3" y="3" width="18" height="18" rx="2" stroke-width="1.8"></rect><path d="M3 9h18M9 21V9" stroke-width="1.8"></path>',
         tools: [
-            { id: 'outdoor_driveway', name: 'Driveway' },
+            { id: 'outdoor_pavement', name: 'Pavement (Polygon)' },
+            { id: 'outdoor_patio', name: 'Patio (Polygon)' },
             { id: 'outdoor_walkway', name: 'Walkway' },
-            { id: 'outdoor_pavement', name: 'Free shape path' },
-            { id: 'outdoor_patio', name: 'Patio' },
-            { id: 'outdoor_softscape', name: 'Softscape' }
+            { id: 'outdoor_driveway', name: 'Driveway' },
+            { id: 'outdoor_softscape', name: 'Softscape / Lawn' }
         ]
     },
     {
@@ -86,10 +86,13 @@ export const getMenuCategories = () => [
         ]
     },
     {
-        id: 'shapes', name: 'Shapes',
+        id: 'shapes', name: 'Shapes & Polygons',
         icon: '<path d="M3 8l4-4 4 4v4H3V8z"></path><circle cx="17" cy="6" r="3"></circle><rect x="14" y="14" width="6" height="6" rx="1"></rect><path d="M3 14h6v6H3z"></path>',
         tools: [
-            { id: 'shape_catalog', name: '3D Shapes' }
+            { id: 'shape_catalog', name: '3D Shapes' },
+            { isDivider: true, name: 'Polygons & Hardscapes' },
+            { id: 'outdoor_pavement', name: 'Pavement (Polygon)' },
+            { id: 'outdoor_patio', name: 'Patio (Polygon)' }
         ]
     },
     {
