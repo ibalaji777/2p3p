@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY } from '../../core/registry';
+import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js';
 import { MaterialManager } from './MaterialManager.js';
 
 export class DecorManager {
@@ -39,7 +40,7 @@ export class DecorManager {
             localX: 50, localY: 50, localZ: 0,
             width: 100, height: 100,
             depth: config.defaultDepth || 0.2,
-            tileSize: config.defaultTileSize || config.realWorldSize || 70,
+            tileSize: DEFAULT_UNIVERSAL_TILE_SIZE,
             faces: { front: true, back: false, left: true, right: true } 
         };
 
@@ -352,7 +353,7 @@ export class DecorManager {
             const uvs = boxMesh.geometry.attributes.uv;
             const config = MaterialManager.resolveMaterialConfig(entity.configId) || {};
             const scaleMult = config.scaleMultiplier || 1;
-            const TILE_SIZE = (entity.tileSize || 70) * scaleMult;
+            const TILE_SIZE = (entity.tileSize || config.tileSize || config.defaultTileSize || DEFAULT_UNIVERSAL_TILE_SIZE) * scaleMult;
 
             for (let i = 0; i < positions.count; i++) {
                 const nx = Math.abs(normals.getX(i));
@@ -468,7 +469,7 @@ export class DecorManager {
             });
             if (boxMesh) boxMesh.renderOrder = 10 + layerIndex;
         } else if (texture) {
-            const TILE_SIZE = entity.tileSize || 70;
+            const TILE_SIZE = entity.tileSize || config?.tileSize || DEFAULT_UNIVERSAL_TILE_SIZE;
             let texFront = texture.clone(); texFront.wrapS = texFront.wrapT = THREE.RepeatWrapping; if (THREE.SRGBColorSpace) texFront.colorSpace = THREE.SRGBColorSpace;
             texFront.repeat.set(1, 1); // Repeat is 1x1 because tiling is handled by the UV coordinates.
             matFront = new THREE.MeshStandardMaterial({ 

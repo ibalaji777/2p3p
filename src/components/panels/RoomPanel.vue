@@ -3,7 +3,7 @@
         <h4 class="props-subtitle">Floor Properties</h4>
         <MaterialSizeInput 
             v-model="selectedEntity.materialScale" 
-            :fallbackValue="floorRegistry[selectedEntity.configId]?.tileSize || 280"
+            :fallbackValue="floorRegistry[selectedEntity.configId]?.tileSize || DEFAULT_UNIVERSAL_TILE_SIZE"
             @change="$emit('sync-engine', 'material')" 
             @update:modelValue="$emit('sync-engine', 'material')"
         />
@@ -25,6 +25,7 @@
 import { computed } from 'vue';
 import { useSettingsStore } from '../../stores/useSettingsStore.js';
 import { UnitConverter } from '../../core/units/UnitConverter.js';
+import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../../core/registries/material.registry.js';
 import MaterialSizeInput from '../common/MaterialSizeInput.vue';
 
 const props = defineProps({

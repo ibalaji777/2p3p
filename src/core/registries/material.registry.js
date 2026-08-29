@@ -322,78 +322,80 @@ export const SKY_REGISTRY = {
     }
 };
 
+export const DEFAULT_UNIVERSAL_TILE_SIZE = 70;
+
 export const FLOOR_REGISTRY = {
     'tile_calacatta_gold': {
         id: 'tile_calacatta_gold', name: 'Calacatta Gold Marble Tile', type: 'floor',
         texture: '/assets/tiles/tile_calacatta_gold.jpg',
         thumbnail: '/assets/tiles/tile_calacatta_gold.jpg',
-        roughness: 0.48, metalness: 0.0, tileSize: 280, category: 'floor'
+        roughness: 0.48, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'tile_nero_marquina': {
         id: 'tile_nero_marquina', name: 'Nero Marquina Black Tile', type: 'floor',
         texture: '/assets/tiles/tile_nero_marquina.jpg',
         thumbnail: '/assets/tiles/tile_nero_marquina.jpg',
-        roughness: 0.45, metalness: 0.0, tileSize: 280, category: 'floor'
+        roughness: 0.45, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'tile_travertine_beige': {
         id: 'tile_travertine_beige', name: 'Travertine Limestone Tile', type: 'floor',
         texture: '/assets/tiles/tile_travertine_beige.jpg',
         thumbnail: '/assets/tiles/tile_travertine_beige.jpg',
-        roughness: 0.45, metalness: 0.0, tileSize: 280, category: 'floor'
+        roughness: 0.45, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'tile_terrazzo_modern': {
         id: 'tile_terrazzo_modern', name: 'Modern Venetian Terrazzo Tile', type: 'floor',
         texture: '/assets/tiles/tile_terrazzo_modern.jpg',
         thumbnail: '/assets/tiles/tile_terrazzo_modern.jpg',
-        roughness: 0.35, metalness: 0.0, tileSize: 260, category: 'floor'
+        roughness: 0.35, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'tile_charcoal_slate': {
         id: 'tile_charcoal_slate', name: 'Charcoal Slate Stone Tile', type: 'floor',
         texture: '/assets/tiles/tile_charcoal_slate.jpg',
         thumbnail: '/assets/tiles/tile_charcoal_slate.jpg',
-        roughness: 0.45, metalness: 0.0, tileSize: 280, category: 'floor'
+        roughness: 0.45, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'tile_yellow_hexagon': {
         id: 'tile_yellow_hexagon', name: 'Yellow Honey Hexagon Tile', type: 'floor',
         texture: '/assets/tiles/tile_yellow_hexagon.jpg',
         thumbnail: '/assets/tiles/tile_yellow_hexagon.jpg',
-        roughness: 0.55, metalness: 0.0, tileSize: 120, category: 'floor'
+        roughness: 0.55, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'tile_yellow_octagram': {
         id: 'tile_yellow_octagram', name: 'Yellow Octagram & Diamond Paver', type: 'floor',
         texture: '/assets/tiles/tile_yellow_octagram.jpg',
         thumbnail: '/assets/tiles/tile_yellow_octagram.jpg',
-        roughness: 0.55, metalness: 0.0, tileSize: 140, category: 'floor'
+        roughness: 0.55, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'driveway_charcoal_cobblestone': {
         id: 'driveway_charcoal_cobblestone', name: 'Charcoal Cobblestone Pavers', type: 'floor',
         texture: '/assets/tiles/driveway_charcoal_cobblestone.jpg',
         thumbnail: '/assets/tiles/driveway_charcoal_cobblestone.jpg',
-        roughness: 0.65, metalness: 0.0, tileSize: 120, category: 'floor'
+        roughness: 0.65, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'driveway_herringbone_redbrick': {
         id: 'driveway_herringbone_redbrick', name: 'Terracotta Herringbone Brick', type: 'floor',
         texture: '/assets/tiles/driveway_herringbone_redbrick.jpg',
         thumbnail: '/assets/tiles/driveway_herringbone_redbrick.jpg',
-        roughness: 0.70, metalness: 0.0, tileSize: 140, category: 'floor'
+        roughness: 0.70, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'driveway_ashlar_slate_grey': {
         id: 'driveway_ashlar_slate_grey', name: 'Ashlar Slate Stone Pavers', type: 'floor',
         texture: '/assets/tiles/driveway_ashlar_slate_grey.jpg',
         thumbnail: '/assets/tiles/driveway_ashlar_slate_grey.jpg',
-        roughness: 0.60, metalness: 0.0, tileSize: 150, category: 'floor'
+        roughness: 0.60, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'driveway_interlocking_chevron': {
         id: 'driveway_interlocking_chevron', name: 'Dual-Tone Chevron Paver Blocks', type: 'floor',
         texture: '/assets/tiles/driveway_interlocking_chevron.jpg',
         thumbnail: '/assets/tiles/driveway_interlocking_chevron.jpg',
-        roughness: 0.65, metalness: 0.0, tileSize: 130, category: 'floor'
+        roughness: 0.65, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'driveway_exposed_aggregate_pebble': {
         id: 'driveway_exposed_aggregate_pebble', name: 'Exposed Aggregate River Pebble', type: 'floor',
         texture: '/assets/tiles/driveway_exposed_aggregate_pebble.jpg',
         thumbnail: '/assets/tiles/driveway_exposed_aggregate_pebble.jpg',
-        roughness: 0.60, metalness: 0.0, tileSize: 100, category: 'floor'
+        roughness: 0.60, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'driveway_black_road': {
         id: 'driveway_black_road', name: 'Black Asphalt Road (White Center Line)', type: 'floor',
@@ -405,70 +407,70 @@ export const FLOOR_REGISTRY = {
         id: 'tile_moroccan_star_yellow', name: 'Moroccan Star Ochre Tile', type: 'floor',
         texture: '/assets/tiles/tile_moroccan_star_yellow.jpg',
         thumbnail: '/assets/tiles/tile_moroccan_star_yellow.jpg',
-        roughness: 0.50, metalness: 0.0, tileSize: 120, category: 'floor'
+        roughness: 0.50, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'tile_yellow_cotto_squares': {
         id: 'tile_yellow_cotto_squares', name: 'Yellow Cotto Rustic Squares', type: 'floor',
         texture: '/assets/tiles/tile_yellow_cotto_squares.jpg',
         thumbnail: '/assets/tiles/tile_yellow_cotto_squares.jpg',
-        roughness: 0.65, metalness: 0.0, tileSize: 110, category: 'floor'
+        roughness: 0.65, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'tile_porcelain_white': {
         id: 'tile_porcelain_white', name: 'Pure White Porcelain Tile', type: 'floor',
         texture: '/assets/tiles/tile_porcelain_white.jpg',
         thumbnail: '/assets/tiles/tile_porcelain_white.jpg',
-        roughness: 0.45, metalness: 0.0, tileSize: 180, category: 'floor'
+        roughness: 0.45, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'tile_beige_limestone': {
         id: 'tile_beige_limestone', name: 'Beige Limestone Porcelain Tile', type: 'floor',
         texture: '/assets/tiles/tile_beige_limestone.jpg',
         thumbnail: '/assets/tiles/tile_beige_limestone.jpg',
-        roughness: 0.40, metalness: 0.0, tileSize: 180, category: 'floor'
+        roughness: 0.40, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'tile_anthracite_slate': {
         id: 'tile_anthracite_slate', name: 'Anthracite Slate Matte Tile', type: 'floor',
         texture: '/assets/tiles/tile_anthracite_slate.jpg',
         thumbnail: '/assets/tiles/tile_anthracite_slate.jpg',
-        roughness: 0.50, metalness: 0.02, tileSize: 180, category: 'floor'
+        roughness: 0.50, metalness: 0.02, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'tile_terracotta_cotto': {
         id: 'tile_terracotta_cotto', name: 'Mediterranean Terracotta Cotto', type: 'floor',
         texture: '/assets/tiles/tile_terracotta_cotto.jpg',
         thumbnail: '/assets/tiles/tile_terracotta_cotto.jpg',
-        roughness: 0.70, metalness: 0.0, tileSize: 110, category: 'floor'
+        roughness: 0.70, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'tile_terracotta_rustic_red': {
         id: 'tile_terracotta_rustic_red', name: 'Rustic Red Clay Paver', type: 'floor',
         texture: '/assets/tiles/tile_terracotta_rustic_red.jpg',
         thumbnail: '/assets/tiles/tile_terracotta_rustic_red.jpg',
-        roughness: 0.70, metalness: 0.0, tileSize: 110, category: 'floor'
+        roughness: 0.70, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'tile_encaustic_star_vintage': {
         id: 'tile_encaustic_star_vintage', name: 'Vintage Encaustic Star Tile', type: 'floor',
         texture: '/assets/tiles/tile_encaustic_star_vintage.jpg',
         thumbnail: '/assets/tiles/tile_encaustic_star_vintage.jpg',
-        roughness: 0.35, metalness: 0.0, tileSize: 130, category: 'floor'
+        roughness: 0.35, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'tile_encaustic_black_white_star': {
         id: 'tile_encaustic_black_white_star', name: 'Victorian Black & White Star Tile', type: 'floor',
         texture: '/assets/tiles/tile_encaustic_black_white_star.jpg',
         thumbnail: '/assets/tiles/tile_encaustic_black_white_star.jpg',
-        roughness: 0.30, metalness: 0.0, tileSize: 130, category: 'floor'
+        roughness: 0.35, metalness: 0.0, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
+    },
+    'tiles': {
+        id: 'tiles', name: 'Ceramic Tiles', type: 'floor',
+        texture: 'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg', 
+        color: 0xcccccc, roughness: 0.2, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'hardwood': {
         id: 'hardwood', name: 'Hardwood Floor', type: 'floor',
         texture: 'https://threejs.org/examples/textures/hardwood2_diffuse.jpg',
         thumbnail: 'https://threejs.org/examples/textures/hardwood2_diffuse.jpg',
-        roughness: 0.6, tileSize: 200, category: 'floor'
-    },
-    'tiles': {
-        id: 'tiles', name: 'Ceramic Tiles', type: 'floor',
-        texture: 'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg', 
-        color: 0xcccccc, roughness: 0.2, tileSize: 120, category: 'floor'
+        roughness: 0.6, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     },
     'carpet': {
         id: 'carpet', name: 'Soft Carpet', type: 'floor',
-        color: 0x8b5a2b, roughness: 0.9, category: 'floor'
+        color: 0x8b5a2b, roughness: 0.9, tileSize: DEFAULT_UNIVERSAL_TILE_SIZE, category: 'floor'
     }
 };
 
@@ -816,56 +818,56 @@ export const STONE_REGISTRY = {
         name: 'Rustic Stacked Fieldstone',
         texture: 'textures/stones/stone_stacked_fieldstone.png',
         thumbnail: 'textures/stones/stone_stacked_fieldstone.png',
-        roughness: 0.8, defaultTileSize: 60
+        roughness: 0.8, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'stone_slate_charcoal': {
         id: 'stone_slate_charcoal',
         name: 'Charcoal Black Cleft Slate',
         texture: 'textures/stones/stone_slate_charcoal.png',
         thumbnail: 'textures/stones/stone_slate_charcoal.png',
-        roughness: 0.65, clearcoat: 0.1, defaultTileSize: 80
+        roughness: 0.65, clearcoat: 0.1, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'stone_travertine_beige': {
         id: 'stone_travertine_beige',
         name: 'Roman Ivory Travertine Limestone',
         texture: 'textures/stones/stone_travertine_beige.png',
         thumbnail: 'textures/stones/stone_travertine_beige.png',
-        roughness: 0.4, clearcoat: 0.2, defaultTileSize: 120
+        roughness: 0.4, clearcoat: 0.2, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'stone_granite_black': {
         id: 'stone_granite_black',
         name: 'Polished Black Absolute Granite',
         texture: 'textures/stones/stone_granite_black.png',
         thumbnail: 'textures/stones/stone_granite_black.png',
-        roughness: 0.18, clearcoat: 0.75, defaultTileSize: 150
+        roughness: 0.18, clearcoat: 0.75, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'stone_sandstone_golden': {
         id: 'stone_sandstone_golden',
         name: 'Desert Golden Amber Sandstone',
         texture: 'textures/stones/stone_sandstone_golden.png',
         thumbnail: 'textures/stones/stone_sandstone_golden.png',
-        roughness: 0.7, clearcoat: 0.05, defaultTileSize: 100
+        roughness: 0.7, clearcoat: 0.05, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'stone_basalt_lava': {
         id: 'stone_basalt_lava',
         name: 'Volcanic Charcoal Basalt Stone',
         texture: 'textures/stones/stone_basalt_lava.png',
         thumbnail: 'textures/stones/stone_basalt_lava.png',
-        roughness: 0.6, clearcoat: 0.15, defaultTileSize: 80
+        roughness: 0.6, clearcoat: 0.15, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'stone_limestone_portuguese': {
         id: 'stone_limestone_portuguese',
         name: 'Portuguese Cream Limestone',
         texture: 'textures/stones/stone_limestone_portuguese.png',
         thumbnail: 'textures/stones/stone_limestone_portuguese.png',
-        roughness: 0.35, clearcoat: 0.3, defaultTileSize: 120
+        roughness: 0.35, clearcoat: 0.3, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'stone_wall': {
         id: 'stone_wall',
         name: 'Rough Hewn Fieldstone',
         texture: 'models/wall/stone.png',
         thumbnail: 'models/wall/stone.png',
-        roughness: 0.85, defaultTileSize: 60, realWorldSize: 60
+        roughness: 0.85, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     }
 };
 
@@ -875,70 +877,70 @@ export const BRICK_REGISTRY = {
         name: 'Classic Red Brick',
         texture: 'models/wall/brick_3_red.png',
         thumbnail: 'models/wall/brick_3_red.png',
-        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
+        roughness: 0.8, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'brick_1_orange': {
         id: 'brick_1_orange',
         name: 'Orange Textured Brick',
         texture: 'models/wall/brick_1_orange.png',
         thumbnail: 'models/wall/brick_1_orange.png',
-        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
+        roughness: 0.8, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'brick_2_mixed': {
         id: 'brick_2_mixed',
         name: 'Mixed Brown Brick',
         texture: 'models/wall/brick_2_mixed.png',
         thumbnail: 'models/wall/brick_2_mixed.png',
-        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
+        roughness: 0.8, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'brick_4_burgundy': {
         id: 'brick_4_burgundy',
         name: 'Dark Burgundy Brick',
         texture: 'models/wall/brick_4_burgundy.png',
         thumbnail: 'models/wall/brick_4_burgundy.png',
-        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
+        roughness: 0.8, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'brick_5_cream': {
         id: 'brick_5_cream',
         name: 'Cream Sand Brick',
         texture: 'models/wall/brick_5_cream.png',
         thumbnail: 'models/wall/brick_5_cream.png',
-        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
+        roughness: 0.8, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'brick_6_beige': {
         id: 'brick_6_beige',
         name: 'Light Beige Brick',
         texture: 'models/wall/brick_6_beige.png',
         thumbnail: 'models/wall/brick_6_beige.png',
-        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
+        roughness: 0.8, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'brick_7_yellow': {
         id: 'brick_7_yellow',
         name: 'Yellow Ochre Brick',
         texture: 'models/wall/brick_7_yellow.png',
         thumbnail: 'models/wall/brick_7_yellow.png',
-        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
+        roughness: 0.8, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'brick_8_white': {
         id: 'brick_8_white',
         name: 'White Grey Brick',
         texture: 'models/wall/brick_8_white.png',
         thumbnail: 'models/wall/brick_8_white.png',
-        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
+        roughness: 0.8, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'brick_9_grey': {
         id: 'brick_9_grey',
         name: 'Grey Brown Brick',
         texture: 'models/wall/brick_9_grey.png',
         thumbnail: 'models/wall/brick_9_grey.png',
-        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
+        roughness: 0.8, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'brick_wall': {
         id: 'brick_wall',
         name: 'Red Bricks',
         texture: 'models/wall/redbrick.png',
         thumbnail: 'models/wall/redbrick.png',
-        roughness: 0.8, defaultTileSize: 60, realWorldSize: 60
+        roughness: 0.8, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     }
 };
 
@@ -1096,69 +1098,69 @@ export const MARBLE_REGISTRY = {
         name: 'Italian Calacatta',
         texture: 'textures/marbles/marble_calacatta_gold.png',
         thumbnail: 'textures/marbles/marble_calacatta_gold.png',
-        roughness: 0.12, clearcoat: 0.90, defaultTileSize: 160, realWorldSize: 160
+        roughness: 0.12, clearcoat: 0.90, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'marble_statuario_venato': {
         id: 'marble_statuario_venato',
         name: 'High-Contrast Statuario',
         texture: 'textures/marbles/marble_statuario_venato.png',
         thumbnail: 'textures/marbles/marble_statuario_venato.png',
-        roughness: 0.10, clearcoat: 0.95, defaultTileSize: 160, realWorldSize: 160
+        roughness: 0.10, clearcoat: 0.95, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'marble_blue_sodalite': {
         id: 'marble_blue_sodalite',
         name: 'Royal Sodalite Blue',
         texture: 'textures/marbles/marble_blue_sodalite.png',
         thumbnail: 'textures/marbles/marble_blue_sodalite.png',
-        roughness: 0.12, clearcoat: 0.90, defaultTileSize: 160, realWorldSize: 160
+        roughness: 0.12, clearcoat: 0.90, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'marble_onyx_amber': {
         id: 'marble_onyx_amber',
         name: 'Translucent Honey Onyx',
         texture: 'textures/marbles/marble_onyx_amber.png',
         thumbnail: 'textures/marbles/marble_onyx_amber.png',
-        roughness: 0.08, clearcoat: 0.98, defaultTileSize: 160, realWorldSize: 160
+        roughness: 0.08, clearcoat: 0.98, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'marble_sahara_noir': {
         id: 'marble_sahara_noir',
         name: 'Sahara Noir',
         texture: 'textures/marbles/marble_sahara_noir.png',
         thumbnail: 'textures/marbles/marble_sahara_noir.png',
-        roughness: 0.10, clearcoat: 0.92, defaultTileSize: 160, realWorldSize: 160
+        roughness: 0.10, clearcoat: 0.92, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'marble_carrara': {
         id: 'marble_carrara',
         name: 'Italian Carrara White',
         texture: 'textures/marbles/marble_carrara.png',
         thumbnail: 'textures/marbles/marble_carrara.png',
-        color: 0xeeeeee, roughness: 0.15, clearcoat: 0.85, defaultTileSize: 160, realWorldSize: 160
+        color: 0xeeeeee, roughness: 0.15, clearcoat: 0.85, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'marble_nero_marquina': {
         id: 'marble_nero_marquina',
         name: 'Nero Marquina Black',
         texture: 'textures/marbles/marble_nero_marquina.png',
         thumbnail: 'textures/marbles/marble_nero_marquina.png',
-        color: 0x222222, roughness: 0.12, clearcoat: 0.90, defaultTileSize: 160, realWorldSize: 160
+        color: 0x222222, roughness: 0.12, clearcoat: 0.90, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'marble_verde_guatemala': {
         id: 'marble_verde_guatemala',
         name: 'Emerald Verde Guatemala',
         texture: 'textures/marbles/marble_verde_guatemala.png',
         thumbnail: 'textures/marbles/marble_verde_guatemala.png',
-        roughness: 0.15, clearcoat: 0.80, defaultTileSize: 160, realWorldSize: 160
+        roughness: 0.15, clearcoat: 0.80, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'marble_emperador_dark': {
         id: 'marble_emperador_dark',
         name: 'Dark Emperador Chocolate',
         texture: 'textures/marbles/marble_emperador_dark.png',
         thumbnail: 'textures/marbles/marble_emperador_dark.png',
-        roughness: 0.18, clearcoat: 0.80, defaultTileSize: 160, realWorldSize: 160
+        roughness: 0.18, clearcoat: 0.80, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     },
     'marble_calacatta_viola': {
         id: 'marble_calacatta_viola',
         name: 'Italian Calacatta Viola',
         texture: 'textures/marbles/marble_calacatta_viola.png',
         thumbnail: 'textures/marbles/marble_calacatta_viola.png',
-        roughness: 0.14, clearcoat: 0.88, defaultTileSize: 160, realWorldSize: 160
+        roughness: 0.14, clearcoat: 0.88, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE, realWorldSize: DEFAULT_UNIVERSAL_TILE_SIZE
     }
 };

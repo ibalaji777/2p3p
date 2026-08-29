@@ -100,7 +100,7 @@
                     <label><input type="checkbox" v-model="selectedEntity.faces.left" @change="$emit('decor-update', selectedEntity)">L-Edge</label>
                     <label><input type="checkbox" v-model="selectedEntity.faces.right" @change="$emit('decor-update', selectedEntity)">R-Edge</label>
                 </div>
-                <MaterialSizeInput v-model="selectedEntity.tileSize" :defaultMax="200" @change="$emit('decor-update', selectedEntity)" />
+                <MaterialSizeInput v-model="selectedEntity.tileSize" :fallbackValue="DEFAULT_UNIVERSAL_TILE_SIZE" :defaultMax="500" @change="$emit('decor-update', selectedEntity)" />
                 <div class="control-group"><label>Thickness</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.depth" min="0.1" max="40" step="0.1" @input="$emit('decor-update', selectedEntity)"><DimensionInput v-model="selectedEntity.depth" min="0.1" max="40" step="0.1" @change="$emit('decor-update', selectedEntity)" /></div></div>
                 <div class="control-group"><label>Width (%)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="1" max="100" step="1" @input="$emit('decor-update', selectedEntity)"><input type="number" v-model.number="selectedEntity.width" min="1" max="100" step="1" @input="$emit('decor-update', selectedEntity)"></div></div>
                 <div class="control-group"><label>Height (%)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="1" max="100" step="1" @input="$emit('decor-update', selectedEntity)"><input type="number" v-model.number="selectedEntity.height" min="1" max="100" step="1" @input="$emit('decor-update', selectedEntity)"></div></div>
@@ -224,6 +224,7 @@ import FurniturePanel from '../../features/furniture/furniture.properties.vue';
 import RoofPanel from '../../features/roof/roof.properties.vue';
 import DimensionInput from '../common/DimensionInput.vue';
 import MaterialSizeInput from '../common/MaterialSizeInput.vue';
+import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../../core/registries/material.registry.js';
 
 import RailingProperties from '../../features/railing/ui/RailingProperties.vue';
 import PresetGroupPanel from '../panels/PresetGroupPanel.vue';

@@ -1,5 +1,6 @@
 import Konva from 'konva';
 import { SNAP_DIST } from '../registry.js';
+import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js';
 import { computeCorridorPolygon } from './corridorUtils.js';
 
 export const OUTDOOR_ZONE_TYPES = {
@@ -85,7 +86,7 @@ export class PremiumOutdoorZone {
 
         const typeDefaults = OUTDOOR_ZONE_TYPES[this.subType] || OUTDOOR_ZONE_TYPES.pavement;
         this.configId = params.configId || params.material || typeDefaults.defaultMaterial;
-        this.materialScale = params.materialScale || 200;
+        this.materialScale = params.materialScale !== undefined ? params.materialScale : DEFAULT_UNIVERSAL_TILE_SIZE;
         this.elevation = params.elevation !== undefined ? Number(params.elevation) : 0;
         this.height3D = params.height3D !== undefined ? Number(params.height3D) : typeDefaults.defaultHeight3D;
         this.fill = params.fill || typeDefaults.fill;

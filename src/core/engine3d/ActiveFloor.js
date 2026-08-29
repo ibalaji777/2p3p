@@ -4,6 +4,7 @@ import { Railing3DBuilder } from '../../features/railing/builders/Railing3DBuild
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
 import { Roof3DBuilder } from '../../features/roof/builders/Roof3DBuilder.js';
 import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY, WALL_DECOR_REGISTRY, offsetPolygon } from '../registry.js';
+import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js';
 import { MaterialFactory } from './MaterialFactory.js';
 import { UniversalMaterialManager } from './UniversalMaterialManager.js';
 
@@ -207,7 +208,7 @@ export class ActiveFloor {
                     this.assets.getTexture(config).then(tex => {
                         const texClone = tex.clone();
                         texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                        const tileSize = config.defaultTileSize || 40;
+                        const tileSize = config.defaultTileSize || config.tileSize || DEFAULT_UNIVERSAL_TILE_SIZE;
                         const maxDim = Math.max(shapeData.params.width || shapeData.params.radius || 100, h);
                         texClone.repeat.set(maxDim / tileSize, maxDim / tileSize);
                         mat.map = texClone;
@@ -447,10 +448,15 @@ export class ActiveFloor {
                 const corridorWidth = Number(zone.width || zone.params?.width) || (zone.subType === 'walkway' ? 60 : 160);
                 const centerline = zone.centerline || zone.params?.centerline;
 
+                const configId = zone.configId || (zone.subType === 'softscape' ? 'grass' : (zone.subType === 'patio' ? 'tile_yellow_cotto_squares' : 'tile_yellow_hexagon'));
+                const floorConfig = FLOOR_REGISTRY[configId] || UniversalMaterialManager.getMaterial(configId);
+                const ts = Number(zone.materialScale || floorConfig?.tileSize || floorConfig?.defaultTileSize) || DEFAULT_UNIVERSAL_TILE_SIZE;
+                const isRoadCenterline = (configId === 'driveway_black_road');
+
                 let zoneGeo = null;
                 if (isCorridor && centerline && centerline.length >= 2) {
-                    // Build mathematically perfect quad-strip ribbon geometry
-                    zoneGeo = this._buildCorridorRibbonGeometry(centerline, corridorWidth, height3D);
+                    // Build mathematically perfect quad-strip ribbon geometry with accurate physical texel density
+                    zoneGeo = this._buildCorridorRibbonGeometry(centerline, corridorWidth, height3D, ts, isRoadCenterline);
                 }
 
                 if (!zoneGeo) {
@@ -465,7 +471,7 @@ export class ActiveFloor {
                     zoneGeo.rotateX(Math.PI / 2);
                     zoneGeo.translate(0, height3D, 0);
 
-                    // Standard planar UV projection for non-corridor polygon slabs
+                    // Standard planar UV projection with true physical scale
                     const uvs = zoneGeo.attributes.uv;
                     const pos = zoneGeo.attributes.position;
                     zoneGeo.computeVertexNormals();
@@ -474,9 +480,9 @@ export class ActiveFloor {
                         const nx = Math.abs(norms.getX(i));
                         const ny = Math.abs(norms.getY(i));
                         const nz = Math.abs(norms.getZ(i));
-                        const vx = pos.getX(i) / 100;
-                        const vy = pos.getY(i) / 100;
-                        const vz = pos.getZ(i) / 100;
+                        const vx = pos.getX(i) / ts;
+                        const vy = pos.getY(i) / ts;
+                        const vz = pos.getZ(i) / ts;
 
                         if (ny > 0.5) uvs.setXY(i, vx, vz);
                         else if (nx > nz) uvs.setXY(i, vz, vy);
@@ -485,15 +491,10 @@ export class ActiveFloor {
                 }
 
                 let mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.7 });
-                const configId = zone.configId || (zone.subType === 'softscape' ? 'grass' : (zone.subType === 'patio' ? 'tile_yellow_cotto_squares' : 'tile_yellow_hexagon'));
                 
-                const floorConfig = FLOOR_REGISTRY[configId] || UniversalMaterialManager.getMaterial(configId);
                 if (floorConfig) {
                     const config = { ...floorConfig };
-                    if (zone.materialScale) config.tileSize = zone.materialScale;
-                    if (isCorridor && centerline && centerline.length >= 2) {
-                        config.tileSize = 100; // Exact 1:1 spline UV mapping
-                    }
+                    config.tileSize = 100; // Geometry already has 1/ts world UVs baked in
                     MaterialFactory.buildPBRMaterial({
                         material: mat,
                         config: config,
@@ -501,7 +502,7 @@ export class ActiveFloor {
                         dimensions: { width: 100, height: 100 },
                         faceName: 'floor'
                     }).then(() => {
-                        if (isCorridor && mat.map) {
+                        if (mat.map) {
                             mat.map = mat.map.clone();
                             mat.map.wrapS = mat.map.wrapT = THREE.RepeatWrapping;
                             mat.map.repeat.set(1.0, 1.0);
@@ -531,10 +532,13 @@ export class ActiveFloor {
         });
     }
 
-    _buildCorridorRibbonGeometry(centerline, width, height3D = 0.3) {
+    _buildCorridorRibbonGeometry(centerline, width, height3D = 0.3, tileSize = DEFAULT_UNIVERSAL_TILE_SIZE, isRoadCenterline = false) {
         const halfW = width / 2;
         const n = centerline.length;
         if (n < 2) return null;
+
+        const uScale = isRoadCenterline ? 1.0 : (width / tileSize);
+        const vStep = isRoadCenterline ? width : tileSize;
 
         const segNormals = [];
         for (let i = 0; i < n - 1; i++) {
@@ -612,7 +616,7 @@ export class ActiveFloor {
             const dx = centerline[i+1].x - centerline[i].x;
             const dy = centerline[i+1].y - centerline[i].y;
             totalDist += Math.hypot(dx, dy);
-            vDists.push(totalDist / width);
+            vDists.push(totalDist / vStep);
         }
 
         // 1. TOP SURFACE (Y = height3D)
@@ -625,7 +629,7 @@ export class ActiveFloor {
 
             positions.push(rightPts[i].x, height3D, rightPts[i].y);
             normals.push(0, 1, 0);
-            uvs.push(1.0, v);
+            uvs.push(uScale, v);
         }
 
         for (let i = 0; i < n - 1; i++) {
@@ -649,7 +653,7 @@ export class ActiveFloor {
 
             positions.push(rightPts[i].x, 0, rightPts[i].y);
             normals.push(0, -1, 0);
-            uvs.push(1.0, v);
+            uvs.push(uScale, v);
         }
 
         for (let i = 0; i < n - 1; i++) {
@@ -677,7 +681,7 @@ export class ActiveFloor {
             positions.push(pB.x, height3D, pB.y);
 
             for (let k = 0; k < 4; k++) normals.push(nx, 0, nz);
-            uvs.push(0, 0, len / 100, 0, 0, height3D / 100, len / 100, height3D / 100);
+            uvs.push(0, 0, len / tileSize, 0, 0, height3D / tileSize, len / tileSize, height3D / tileSize);
 
             indices.push(idx, idx + 1, idx + 2);
             indices.push(idx + 1, idx + 3, idx + 2);
@@ -697,7 +701,7 @@ export class ActiveFloor {
             positions.push(pB.x, height3D, pB.y);
 
             for (let k = 0; k < 4; k++) normals.push(nx, 0, nz);
-            uvs.push(0, 0, len / 100, 0, 0, height3D / 100, len / 100, height3D / 100);
+            uvs.push(0, 0, len / tileSize, 0, 0, height3D / tileSize, len / tileSize, height3D / tileSize);
 
             indices.push(idx, idx + 2, idx + 1);
             indices.push(idx + 1, idx + 2, idx + 3);

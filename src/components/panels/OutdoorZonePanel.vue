@@ -89,7 +89,7 @@
         <h4 class="props-subtitle">Surface Material</h4>
         <MaterialSizeInput 
             v-model="selectedEntity.materialScale" 
-            :fallbackValue="200"
+            :fallbackValue="DEFAULT_UNIVERSAL_TILE_SIZE"
             @change="$emit('sync-engine', 'material')" 
             @update:modelValue="$emit('sync-engine', 'material')"
         />
@@ -117,7 +117,7 @@
 import { computed } from 'vue';
 import DimensionInput from '../common/DimensionInput.vue';
 import MaterialSizeInput from '../common/MaterialSizeInput.vue';
-import { FLOOR_REGISTRY, STONE_REGISTRY, WOOD_REGISTRY, GROUND_REGISTRY } from '../../core/registries/material.registry.js';
+import { FLOOR_REGISTRY, STONE_REGISTRY, WOOD_REGISTRY, GROUND_REGISTRY, DEFAULT_UNIVERSAL_TILE_SIZE } from '../../core/registries/material.registry.js';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true }

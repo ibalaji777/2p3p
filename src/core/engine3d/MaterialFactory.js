@@ -55,16 +55,9 @@ export class MaterialFactory {
     }
 
     static calculateTexelDensity(dimensions, config = {}) {
+        let ts = config.realWorldSize || config.tileSize || config.defaultTileSize || 70;
+
         if (dimensions && dimensions.isWorldUV) {
-            let ts = config.realWorldSize || config.tileSize || config.defaultTileSize;
-            if (!ts) {
-                const matId = config.id || (typeof config === 'string' ? config : '');
-                if (matId.includes('marble')) ts = 160;
-                else if (matId.includes('wood')) ts = 150;
-                else if (matId.includes('metal')) ts = 120;
-                else if (matId.includes('stone') || matId.includes('brick')) ts = 60;
-                else ts = 100;
-            }
             return {
                 repeatX: 1 / ts,
                 repeatY: 1 / ts
@@ -81,16 +74,6 @@ export class MaterialFactory {
             return { repeatX: config.repeat, repeatY: config.repeat };
         } else if (config.defaultRepeat !== undefined && !config.defaultTileSize && !config.realWorldSize && !config.tileSize) {
             return { repeatX: config.defaultRepeat, repeatY: config.defaultRepeat };
-        }
-
-        let ts = config.realWorldSize || config.tileSize || config.defaultTileSize;
-        if (!ts) {
-            const matId = config.id || (typeof config === 'string' ? config : '');
-            if (matId.includes('marble')) ts = 160;
-            else if (matId.includes('wood')) ts = 150;
-            else if (matId.includes('metal')) ts = 120;
-            else if (matId.includes('stone') || matId.includes('brick')) ts = 60;
-            else ts = 60;
         }
 
         const width = dimensions?.width || 100;

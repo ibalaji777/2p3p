@@ -2,6 +2,7 @@ import { EVENTS } from '../registry.js';
 import { coreEventBus } from '../EventBus.js';
 import * as THREE from 'three';
 import { DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, WOOD_REGISTRY, DOOR_STYLES_REGISTRY, ROOF_DECOR_REGISTRY, GIZMO_REGISTRY, FABRIC_REGISTRY, LEATHER_REGISTRY, FLOOR_REGISTRY, GLASS_REGISTRY, METAL_REGISTRY, STONE_REGISTRY, BRICK_REGISTRY, MARBLE_REGISTRY, PLASTIC_REGISTRY, parseCompositeMaterialKey, resolveFabricConfig, getFabricBaseConfig } from '../registry.js';
+import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js';
 import { MaterialFactory } from './MaterialFactory.js';
 import { UniversalMaterialManager } from './UniversalMaterialManager.js';
 import { BIMMaterialSystem } from './BIMMaterialSystem.js';
@@ -2687,11 +2688,11 @@ export class GizmoManager {
                         <div class="gizmo-wall-target-bar" style="display: flex; flex-direction: column; gap: 3px;">
                             <div style="display: flex; justify-content: space-between; font-size: 10.5px; color: #cbd5e1; font-weight: 600;">
                                 <span>Tile Scale</span>
-                                <span>${selectedDecor.tileSize || 70}</span>
+                                <span>${selectedDecor.tileSize || DEFAULT_UNIVERSAL_TILE_SIZE}</span>
                             </div>
                             <div style="display: flex; align-items: center; gap: 6px;">
-                                <input type="range" class="gizmo-slider" data-prop="tileSize" data-decor-id="${selectedDecor.id}" min="10" max="300" step="5" value="${selectedDecor.tileSize || 70}" style="flex: 1; accent-color: #3b82f6; cursor: pointer;" />
-                                <input type="number" class="gizmo-input-num" data-prop="tileSize" data-decor-id="${selectedDecor.id}" min="10" max="300" step="5" value="${selectedDecor.tileSize || 70}" style="width: 48px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; color: white; padding: 2px 4px; font-size: 10.5px;" />
+                                <input type="range" class="gizmo-slider" data-prop="tileSize" data-decor-id="${selectedDecor.id}" min="10" max="300" step="5" value="${selectedDecor.tileSize || DEFAULT_UNIVERSAL_TILE_SIZE}" style="flex: 1; accent-color: #3b82f6; cursor: pointer;" />
+                                <input type="number" class="gizmo-input-num" data-prop="tileSize" data-decor-id="${selectedDecor.id}" min="10" max="300" step="5" value="${selectedDecor.tileSize || DEFAULT_UNIVERSAL_TILE_SIZE}" style="width: 48px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; color: white; padding: 2px 4px; font-size: 10.5px;" />
                             </div>
                         </div>
                     </div>

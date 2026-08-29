@@ -11,6 +11,7 @@
 <script setup>
 import { computed } from 'vue';
 import { useSettingsStore } from '../../stores/useSettingsStore.js';
+import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../../core/registries/material.registry.js';
 
 const props = defineProps({
     modelValue: { type: Number, required: false },
@@ -18,7 +19,7 @@ const props = defineProps({
     defaultMin: { type: Number, default: 1 },
     defaultMax: { type: Number, default: 500 },
     defaultStep: { type: Number, default: 1 },
-    fallbackValue: { type: Number, default: 150 }
+    fallbackValue: { type: Number, default: DEFAULT_UNIVERSAL_TILE_SIZE }
 });
 
 const emit = defineEmits(['update:modelValue', 'change']);

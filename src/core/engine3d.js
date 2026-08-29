@@ -10,6 +10,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { TransformControls } from './engine3d/TransformControls.js';
 import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY, DOOR_TYPES, WINDOW_TYPES, WALL_DECOR_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY, DOOR_MATERIALS_REGISTRY, FABRIC_REGISTRY, getFabricBaseConfig, resolveFabricConfig } from './registry.js';
+import { DEFAULT_UNIVERSAL_TILE_SIZE } from './registries/material.registry.js';
 import { EnvironmentBuilder } from "./engine3d/EnvironmentBuilder.js";
 import { AssetManager  } from "./engine3d/AssetManager.js";
 import { DecorManager  } from "./engine3d/DecorManager.js";
@@ -349,7 +350,7 @@ export class Preview3D {
                 this.assets.getTexture({ id: 'pat_tex_' + (layer.texture.replace(/[^a-z0-9]/gi, '')), texture: layer.texture }).then(tex => {
                     const texClone = tex.clone();
                     texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                    const tileSize = layer.tileSize || 40;
+                    const tileSize = layer.tileSize || DEFAULT_UNIVERSAL_TILE_SIZE;
                     texClone.repeat.set(1 / tileSize, 1 / tileSize);
                     if (layer.rotation) texClone.rotation = (layer.rotation * Math.PI) / 180;
                     if (layer.offsetX || layer.offsetY) texClone.offset.set(layer.offsetX || 0, layer.offsetY || 0);
@@ -375,7 +376,7 @@ export class Preview3D {
             this.assets.getTexture(config).then(tex => {
                 const texClone = tex.clone();
                 texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                const tileSize = config.defaultTileSize || 40;
+                const tileSize = config.defaultTileSize || config.tileSize || DEFAULT_UNIVERSAL_TILE_SIZE;
                 texClone.repeat.set(1 / tileSize, 1 / tileSize);
                 mat.map = texClone;
                 mat.color.setHex(0xffffff);
@@ -731,7 +732,7 @@ export class Preview3D {
                 this.assets.getTexture(config).then(tex => {
                     const texClone = tex.clone();
                     texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;
-                    const tileSize = config.defaultTileSize || 40;
+                    const tileSize = config.defaultTileSize || config.tileSize || DEFAULT_UNIVERSAL_TILE_SIZE;
                     const maxDim = Math.max(entity.params.width || entity.params.radius || 100, h);
                     texClone.repeat.set(maxDim / tileSize, maxDim / tileSize);
                     mat.map = texClone;
