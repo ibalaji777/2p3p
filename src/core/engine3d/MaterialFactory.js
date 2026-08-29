@@ -247,6 +247,18 @@ export class MaterialFactory {
         newMat.roughness = config.roughness !== undefined ? config.roughness : 0.5;
         newMat.metalness = config.metalness !== undefined ? config.metalness : 0.0;
 
+        // Architectural Floor Finish Safeguard:
+        // Floors and outdoor zones must have balanced diffuse roughness to eliminate dark glassy sky reflections
+        if (faceName === 'floor' || faceName === 'ground' || faceName === 'ceiling') {
+            newMat.metalness = 0.0;
+            if (newMat.roughness < 0.45 && !config.isMirror && !config.transparent && config.categoryLabel !== 'Glass') {
+                newMat.roughness = 0.48; // Crisp architectural diffuse finish
+            }
+            if (newMat.envMapIntensity !== undefined) {
+                newMat.envMapIntensity = Math.min(newMat.envMapIntensity, 0.12);
+            }
+        }
+
         if (config.sheen !== undefined) {
             newMat.sheen = config.sheen;
             if (!newMat.sheenColor) newMat.sheenColor = new THREE.Color(0xffffff);

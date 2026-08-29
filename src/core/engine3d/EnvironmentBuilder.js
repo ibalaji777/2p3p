@@ -685,8 +685,9 @@ export class EnvironmentBuilder {
             const i2 = topStartIndex + (i + 1) * 2;
             const i3 = topStartIndex + (i + 1) * 2 + 1;
 
-            indices.push(i0, i1, i2);
-            indices.push(i1, i3, i2);
+            // Correct CCW winding for upward facing (+Y) normal towards the sun
+            indices.push(i0, i2, i1);
+            indices.push(i1, i2, i3);
         }
 
         // 2. BOTTOM SURFACE (Y = 0)
@@ -708,8 +709,9 @@ export class EnvironmentBuilder {
             const i2 = botStartIndex + (i + 1) * 2;
             const i3 = botStartIndex + (i + 1) * 2 + 1;
 
-            indices.push(i0, i2, i1);
-            indices.push(i1, i2, i3);
+            // Correct CW winding for downward facing (-Y) normal
+            indices.push(i0, i1, i2);
+            indices.push(i1, i3, i2);
         }
 
         // 3. LEFT SIDE WALLS
@@ -797,6 +799,7 @@ export class EnvironmentBuilder {
         geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
         geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
         geo.setIndex(indices);
+        geo.computeVertexNormals();
         return geo;
     }
 

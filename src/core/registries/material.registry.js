@@ -327,13 +327,13 @@ export const FLOOR_REGISTRY = {
         id: 'tile_calacatta_gold', name: 'Calacatta Gold Marble Tile', type: 'floor',
         texture: '/assets/tiles/tile_calacatta_gold.jpg',
         thumbnail: '/assets/tiles/tile_calacatta_gold.jpg',
-        roughness: 0.22, metalness: 0.02, tileSize: 280, category: 'floor'
+        roughness: 0.48, metalness: 0.0, tileSize: 280, category: 'floor'
     },
     'tile_nero_marquina': {
         id: 'tile_nero_marquina', name: 'Nero Marquina Black Tile', type: 'floor',
         texture: '/assets/tiles/tile_nero_marquina.jpg',
         thumbnail: '/assets/tiles/tile_nero_marquina.jpg',
-        roughness: 0.20, metalness: 0.02, tileSize: 280, category: 'floor'
+        roughness: 0.45, metalness: 0.0, tileSize: 280, category: 'floor'
     },
     'tile_travertine_beige': {
         id: 'tile_travertine_beige', name: 'Travertine Limestone Tile', type: 'floor',
@@ -417,7 +417,7 @@ export const FLOOR_REGISTRY = {
         id: 'tile_porcelain_white', name: 'Pure White Porcelain Tile', type: 'floor',
         texture: '/assets/tiles/tile_porcelain_white.jpg',
         thumbnail: '/assets/tiles/tile_porcelain_white.jpg',
-        roughness: 0.25, metalness: 0.02, tileSize: 180, category: 'floor'
+        roughness: 0.45, metalness: 0.0, tileSize: 180, category: 'floor'
     },
     'tile_beige_limestone': {
         id: 'tile_beige_limestone', name: 'Beige Limestone Porcelain Tile', type: 'floor',
