@@ -3,6 +3,9 @@ import { WALL_REGISTRY, SNAP_DIST } from '../registry.js';
 import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 import { Railing } from '../../features/railing/objects/Railing.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
+import { PremiumOutdoorZone, OUTDOOR_ZONE_TYPES } from '../engine2d/PremiumOutdoorZone.js';
+import { computeCorridorPolygon } from '../engine2d/corridorUtils.js';
+import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js';
 import { coreEventBus } from '../EventBus.js';
 import { EVENTS } from '../constants/events.js';
 
@@ -217,6 +220,28 @@ export class Wall3DDrawSystem {
         this.ghostRoomFloor.visible = false;
         this.ghostGroup.add(this.ghostRoomFloor);
 
+        // 3D Ghost Polygon Mesh & Edges for Pavements / Outdoor Zones
+        this.ghostPolygonMesh = new THREE.Mesh(new THREE.BufferGeometry(), this.ghostFloorMat);
+        this.ghostPolygonMesh.renderOrder = 998;
+        this.ghostPolygonMesh.visible = false;
+        this.ghostGroup.add(this.ghostPolygonMesh);
+
+        this.ghostPolygonLine = new THREE.Line(new THREE.BufferGeometry(), this.ghostEdgeMat);
+        this.ghostPolygonLine.renderOrder = 999;
+        this.ghostPolygonLine.visible = false;
+        this.ghostGroup.add(this.ghostPolygonLine);
+
+        this.ghostCenterline = new THREE.Line(
+            new THREE.BufferGeometry(),
+            new THREE.LineDashedMaterial({ color: 0x0284c7, dashSize: 10, gapSize: 6, depthTest: false, transparent: true, opacity: 0.9, linewidth: 2 })
+        );
+        this.ghostCenterline.renderOrder = 1000;
+        this.ghostCenterline.visible = false;
+        this.ghostGroup.add(this.ghostCenterline);
+
+        this.outdoorNodeMarkers = [];
+        this.drawingOutdoorPoints = null;
+
         // Floating Vector DOM Badge (100% Crisp Screen-Space HTML Overlay)
         this._createDOMBadge();
 
@@ -298,6 +323,21 @@ export class Wall3DDrawSystem {
         }
     }
 
+    _getOrCreateNodeMarker(idx) {
+        if (!this.outdoorNodeMarkers[idx]) {
+            const sphereGeo = new THREE.SphereGeometry(3.5, 16, 16);
+            const m = new THREE.Mesh(
+                sphereGeo,
+                new THREE.MeshBasicMaterial({ color: 0x0284c7, depthTest: false, transparent: true, opacity: 0.95 })
+            );
+            m.renderOrder = 1004;
+            m.visible = false;
+            this.ghostGroup.add(m);
+            this.outdoorNodeMarkers[idx] = m;
+        }
+        return this.outdoorNodeMarkers[idx];
+    }
+
     get planner() {
         return this.ctx.planner || window.planner?.value || window.plannerInstance || window.planner;
     }
@@ -306,9 +346,14 @@ export class Wall3DDrawSystem {
         return this.planner?.tool || 'select';
     }
 
+    isOutdoorZoneDrawingTool() {
+        const t = this.activeTool;
+        return ['outdoor_pavement', 'pavement', 'outdoor_walkway', 'walkway', 'outdoor_driveway', 'driveway', 'outdoor_patio', 'outdoor_pool', 'outdoor_lawn', 'outdoor_deck', 'outdoor_other', 'outdoor_zone'].some(k => t === k || (typeof t === 'string' && t.startsWith('outdoor_')));
+    }
+
     isWallDrawingTool() {
         const t = this.activeTool;
-        return ['wall', 'outer', 'inner', 'compound', 'railing', 'room_box'].includes(t);
+        return ['wall', 'outer', 'inner', 'compound', 'railing', 'room_box'].includes(t) || this.isOutdoorZoneDrawingTool();
     }
 
     getFloorElevation() {
@@ -678,6 +723,91 @@ export class Wall3DDrawSystem {
 
         this.ghostGroup.visible = true;
 
+        if (this.isOutdoorZoneDrawingTool()) {
+            const isCorridor = (this.activeTool === 'outdoor_driveway' || this.activeTool === 'outdoor_walkway' || this.activeTool === 'driveway' || this.activeTool === 'walkway');
+            const subType = (this.activeTool === 'outdoor_walkway' || this.activeTool === 'walkway') ? 'walkway' : ((this.activeTool === 'outdoor_driveway' || this.activeTool === 'driveway') ? 'driveway' : 'pavement');
+            const corridorWidth = subType === 'walkway' ? 60 : 160;
+
+            if (this.drawing && this.drawingOutdoorPoints && this.drawingOutdoorPoints.length > 0) {
+                const currentPts = [...this.drawingOutdoorPoints, { x: pt.x, y: pt.z }];
+
+                // 1. Update node markers
+                this.outdoorNodeMarkers.forEach(m => m.visible = false);
+                currentPts.forEach((p, idx) => {
+                    const m = this._getOrCreateNodeMarker(idx);
+                    m.position.set(p.x, elev + 0.3, p.y);
+                    m.visible = true;
+                });
+
+                if (isCorridor) {
+                    const polyPts = computeCorridorPolygon(currentPts, corridorWidth);
+                    if (polyPts && polyPts.length >= 3) {
+                        const shape = new THREE.Shape();
+                        shape.moveTo(polyPts[0].x, polyPts[0].y);
+                        for (let i = 1; i < polyPts.length; i++) {
+                            shape.lineTo(polyPts[i].x, polyPts[i].y);
+                        }
+                        shape.closePath();
+
+                        if (this.ghostPolygonMesh.geometry) this.ghostPolygonMesh.geometry.dispose();
+                        const geo = new THREE.ShapeGeometry(shape);
+                        geo.rotateX(-Math.PI / 2);
+                        this.ghostPolygonMesh.geometry = geo;
+                        this.ghostPolygonMesh.position.set(0, elev + 0.15, 0);
+                        this.ghostPolygonMesh.visible = true;
+
+                        const linePositions = new Float32Array(polyPts.flatMap(p => [p.x, elev + 0.2, p.y]));
+                        this.ghostPolygonLine.geometry.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+                        this.ghostPolygonLine.geometry.attributes.position.needsUpdate = true;
+                        this.ghostPolygonLine.visible = true;
+                    }
+                } else {
+                    if (currentPts.length >= 3) {
+                        const shape = new THREE.Shape();
+                        shape.moveTo(currentPts[0].x, currentPts[0].y);
+                        for (let i = 1; i < currentPts.length; i++) {
+                            shape.lineTo(currentPts[i].x, currentPts[i].y);
+                        }
+                        shape.closePath();
+
+                        if (this.ghostPolygonMesh.geometry) this.ghostPolygonMesh.geometry.dispose();
+                        const geo = new THREE.ShapeGeometry(shape);
+                        geo.rotateX(-Math.PI / 2);
+                        this.ghostPolygonMesh.geometry = geo;
+                        this.ghostPolygonMesh.position.set(0, elev + 0.15, 0);
+                        this.ghostPolygonMesh.visible = true;
+                    }
+
+                    const linePositions = new Float32Array(currentPts.flatMap(p => [p.x, elev + 0.2, p.y]));
+                    this.ghostPolygonLine.geometry.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+                    this.ghostPolygonLine.geometry.attributes.position.needsUpdate = true;
+                    this.ghostPolygonLine.visible = true;
+                }
+
+                // Dimension readout for current segment & finish hint
+                const lastP = this.drawingOutdoorPoints[this.drawingOutdoorPoints.length - 1];
+                const segLen = Math.hypot(pt.x - lastP.x, pt.z - lastP.y);
+                const startP = this.drawingOutdoorPoints[0];
+                const distToStart = Math.hypot(pt.x - startP.x, pt.z - startP.y);
+
+                let label = `${(segLen / 100).toFixed(2)} m`;
+                let isSpecial = false;
+                let badgeColor = '#00f0ff';
+
+                if (!isCorridor && this.drawingOutdoorPoints.length >= 3 && distToStart < SNAP_DIST * 2) {
+                    label = `✓ CLICK TO CLOSE POLYGON • ${(segLen / 100).toFixed(2)}m`;
+                    isSpecial = true;
+                    badgeColor = '#10b981';
+                } else if (isCorridor && this.drawingOutdoorPoints.length >= 2) {
+                    label = `✓ CLICK LAST NODE TO FINISH • ${(segLen / 100).toFixed(2)}m`;
+                }
+
+                this._updateDimensionBadge(label, new THREE.Vector3((lastP.x + pt.x) / 2, elev + 24, (lastP.y + pt.z) / 2), isSpecial, badgeColor);
+            }
+            if (this.ctx.requestRender) this.ctx.requestRender('outdoor3d_move', 2);
+            return;
+        }
+
         if (this.drawing && (this.lastAnchor || this.startPoint)) {
             const config = this.getWallConfig();
             const h = config.height || 180;
@@ -794,10 +924,103 @@ export class Wall3DDrawSystem {
         mesh.visible = true;
     }
 
+    _finish3DOutdoorCorridor() {
+        const planner = this.planner;
+        if (!planner || !this.drawingOutdoorPoints || this.drawingOutdoorPoints.length < 2) {
+            this.finishDrawing();
+            return;
+        }
+        const tool = this.activeTool;
+        const subType = (tool === 'outdoor_walkway' || tool === 'walkway') ? 'walkway' : 'driveway';
+        const corridorWidth = subType === 'walkway' ? 60 : 160;
+        const zoneDefaults = OUTDOOR_ZONE_TYPES[subType] || OUTDOOR_ZONE_TYPES.pavement;
+        const corridorPoly = computeCorridorPolygon(this.drawingOutdoorPoints, corridorWidth);
+        if (!corridorPoly || corridorPoly.length < 3) {
+            this.finishDrawing();
+            return;
+        }
+
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        corridorPoly.forEach(p => {
+            minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+            minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+        });
+        const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+        const relPts = corridorPoly.map(p => ({ x: p.x - cx, y: p.y - cy }));
+
+        const newZone = new PremiumOutdoorZone(planner, 'outdoor_zone', {
+            x: cx, y: cy, points: relPts, subType: subType,
+            material: (planner.activePresetParams?.material || zoneDefaults.defaultMaterial),
+            height3D: 0.3,
+            width: corridorWidth,
+            materialScale: DEFAULT_UNIVERSAL_TILE_SIZE,
+            centerline: this.drawingOutdoorPoints.map(p => ({ x: p.x - cx, y: p.y - cy }))
+        });
+
+        if (!planner.outdoorZones) planner.outdoorZones = [];
+        planner.outdoorZones.push(newZone);
+        if (!planner.currentSessionEntities) planner.currentSessionEntities = [];
+        planner.currentSessionEntities.push(newZone);
+
+        this.finishDrawing();
+
+        planner.tool = 'select';
+        if (planner.updateToolStates) planner.updateToolStates();
+        if (planner.onToolChange) planner.onToolChange('select');
+        planner.syncAll();
+        planner.selectEntity(newZone, 'outdoor_zone');
+    }
+
+    _finish3DOutdoorPolygon() {
+        const planner = this.planner;
+        if (!planner || !this.drawingOutdoorPoints || this.drawingOutdoorPoints.length < 3) {
+            this.finishDrawing();
+            return;
+        }
+        const tool = this.activeTool;
+        const subType = tool === 'outdoor_other' ? 'other_space' : (typeof tool === 'string' && tool.startsWith('outdoor_') ? tool.replace('outdoor_', '') : (tool || 'pavement'));
+        const zoneDefaults = OUTDOOR_ZONE_TYPES[subType] || OUTDOOR_ZONE_TYPES.pavement;
+
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        this.drawingOutdoorPoints.forEach(p => {
+            minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+            minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+        });
+        const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+        const relPts = this.drawingOutdoorPoints.map(p => ({ x: p.x - cx, y: p.y - cy }));
+
+        const newZone = new PremiumOutdoorZone(planner, 'outdoor_zone', {
+            x: cx, y: cy, points: relPts, subType: subType,
+            material: (planner.activePresetParams?.material || zoneDefaults.defaultMaterial),
+            height3D: 0.3,
+            materialScale: DEFAULT_UNIVERSAL_TILE_SIZE
+        });
+
+        if (!planner.outdoorZones) planner.outdoorZones = [];
+        planner.outdoorZones.push(newZone);
+        if (!planner.currentSessionEntities) planner.currentSessionEntities = [];
+        planner.currentSessionEntities.push(newZone);
+
+        this.finishDrawing();
+
+        planner.tool = 'select';
+        if (planner.updateToolStates) planner.updateToolStates();
+        if (planner.onToolChange) planner.onToolChange('select');
+        planner.syncAll();
+        planner.selectEntity(newZone, 'outdoor_zone');
+    }
+
     onPointerDown(e) {
         if (!this.isWallDrawingTool()) return false;
         if (e.button !== 0) {
             // Right click finishes drawing
+            if (this.isOutdoorZoneDrawingTool() && this.drawingOutdoorPoints) {
+                const isCorridor = (this.activeTool === 'outdoor_driveway' || this.activeTool === 'outdoor_walkway' || this.activeTool === 'driveway' || this.activeTool === 'walkway');
+                if (isCorridor && this.drawingOutdoorPoints.length >= 2) this._finish3DOutdoorCorridor();
+                else if (!isCorridor && this.drawingOutdoorPoints.length >= 3) this._finish3DOutdoorPolygon();
+                else this.finishDrawing();
+                return true;
+            }
             this.finishDrawing();
             return true;
         }
@@ -812,6 +1035,32 @@ export class Wall3DDrawSystem {
 
         e.preventDefault();
         e.stopPropagation();
+
+        if (this.isOutdoorZoneDrawingTool()) {
+            const isCorridor = (this.activeTool === 'outdoor_driveway' || this.activeTool === 'outdoor_walkway' || this.activeTool === 'driveway' || this.activeTool === 'walkway');
+            if (!this.drawing) {
+                this.drawing = true;
+                this.drawingOutdoorPoints = [{ x: pt.x, y: pt.z }];
+                if (planner.commandManager) this._snapshotCmd = new SnapshotCommand(planner);
+                if (planner.onDrawingChange) planner.onDrawingChange(true);
+            } else {
+                const lastP = this.drawingOutdoorPoints[this.drawingOutdoorPoints.length - 1];
+                const startP = this.drawingOutdoorPoints[0];
+
+                if (isCorridor && (Math.hypot(pt.x - lastP.x, pt.z - lastP.y) < SNAP_DIST * 1.5 || (Math.hypot(pt.x - startP.x, pt.z - startP.y) < SNAP_DIST * 1.5 && this.drawingOutdoorPoints.length >= 2))) {
+                    this._finish3DOutdoorCorridor();
+                    return true;
+                }
+
+                if (!isCorridor && Math.hypot(pt.x - startP.x, pt.z - startP.y) < SNAP_DIST * 2 && this.drawingOutdoorPoints.length >= 3) {
+                    this._finish3DOutdoorPolygon();
+                    return true;
+                }
+
+                this.drawingOutdoorPoints.push({ x: pt.x, y: pt.z });
+            }
+            return true;
+        }
 
         if (!this.drawing) {
             // Start Drawing Session
@@ -900,6 +1149,17 @@ export class Wall3DDrawSystem {
     _onKeyDown(e) {
         if (e.key === 'Escape' || e.key === 'Enter') {
             if (this.drawing) {
+                if (this.isOutdoorZoneDrawingTool() && this.drawingOutdoorPoints) {
+                    const isCorridor = (this.activeTool === 'outdoor_driveway' || this.activeTool === 'outdoor_walkway' || this.activeTool === 'driveway' || this.activeTool === 'walkway');
+                    if (isCorridor && this.drawingOutdoorPoints.length >= 2) {
+                        this._finish3DOutdoorCorridor();
+                        return;
+                    }
+                    if (!isCorridor && this.drawingOutdoorPoints.length >= 3) {
+                        this._finish3DOutdoorPolygon();
+                        return;
+                    }
+                }
                 this.finishDrawing();
             }
         }
@@ -918,6 +1178,7 @@ export class Wall3DDrawSystem {
         this.startAnchor = null;
         this.lastAnchor = null;
         this.startPoint = null;
+        this.drawingOutdoorPoints = null;
         this.currentSessionEntities = [];
 
         if (this.hoveredWallMesh && this.interactions) {
@@ -939,6 +1200,10 @@ export class Wall3DDrawSystem {
         this.ghostWallMesh.visible = false;
         this.ghostRoomWalls.forEach(w => w.visible = false);
         this.ghostRoomFloor.visible = false;
+        if (this.ghostPolygonMesh) this.ghostPolygonMesh.visible = false;
+        if (this.ghostPolygonLine) this.ghostPolygonLine.visible = false;
+        if (this.ghostCenterline) this.ghostCenterline.visible = false;
+        if (this.outdoorNodeMarkers) this.outdoorNodeMarkers.forEach(m => m.visible = false);
         this.snapIndicatorGroup.visible = false;
         this.snapHaloGroup.visible = false;
         this.snapHalos.forEach(h => h.visible = false);
