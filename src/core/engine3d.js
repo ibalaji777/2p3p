@@ -23,6 +23,7 @@ import { ThumbnailGenerator } from "./ThumbnailGenerator.js";
 import { MaterialFactory } from "./engine3d/MaterialFactory.js";
 import { MaterialManager } from "./engine3d/MaterialManager.js";
 import { UniversalMaterialManager } from "./engine3d/UniversalMaterialManager.js";
+import { computeLevelElevations } from "./engine3d/helpers/levelElevations.js";
 import { RenderCoordinator } from "./engine3d/RenderCoordinator.js";
 import { coreEventBus } from './EventBus.js';
 import { Stair3DBuilder } from '../features/stairs/stairs.renderer3d.js';
@@ -954,24 +955,8 @@ export class Preview3D {
             this.staticStructureGroup.remove(c); 
         }
 
-        let cumulativeHeight = 0;
-        for (let i = 0; i < activeIndex; i++) {
-            if (levelsConfigArray[i] && levelsConfigArray[i].data) {
-                try {
-                    const data = JSON.parse(levelsConfigArray[i].data);
-                    let maxH = WALL_HEIGHT;
-                    if (data.walls && data.walls.length > 0) {
-                        maxH = Math.max(...data.walls.map(w => w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT)));
-                    }
-                    cumulativeHeight += maxH;
-                } catch(e) {
-                    cumulativeHeight += WALL_HEIGHT;
-                }
-            } else {
-                cumulativeHeight += WALL_HEIGHT;
-            }
-        }
-        const targetY = cumulativeHeight;
+        const levelElevations = computeLevelElevations(levelsConfigArray);
+        const targetY = levelElevations[activeIndex] !== undefined ? levelElevations[activeIndex] : (activeIndex * WALL_HEIGHT);
         this.structureGroup.position.y = targetY;
 
         const activeLevelConfig = levelsConfigArray[activeIndex];
@@ -987,6 +972,8 @@ export class Preview3D {
 
         if (isActiveVisible) {
             try {
+                this.envBuilder.activeLevelConfig = activeLevelConfig;
+                this.envBuilder.activeLevelHeight = Number(activeLevelConfig?.height) || (activeLevelConfig?.type === 'plinth' ? 18 : (activeLevelConfig?.type === 'foundation' ? 40 : 120));
                 this.envBuilder.buildActiveFloor(walls, rooms, shapes, stairs, stairsBelow, outdoorZones || this.outdoorZones || []);
             } catch(e) {
                 console.error("Error building active floor:", e);

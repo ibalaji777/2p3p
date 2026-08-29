@@ -12,12 +12,74 @@
             @close="$emit('update:mobileMenuOpen', false)"
             v-show="(isMobile || isTablet) ? (mobileMenuOpen && activeMobileTab === 'levels') : true"
         >
-        <div class="panel-header" v-if="!(isMobile || isTablet)"><h3>Floor Levels</h3></div>
+        <div class="panel-header" v-if="!(isMobile || isTablet)"><h3>Floor Levels & Sub-Structure</h3></div>
+        
+        <!-- Underlay Reference Controls (2D Mode Only) -->
+        <div v-if="viewMode === '2d' && levels.length > 1" class="underlay-controls-card">
+            <div class="underlay-header">
+                <div class="underlay-title-wrap">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="underlay-icon">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    <span class="underlay-title">Reference Underlay</span>
+                </div>
+                <span class="underlay-badge">{{ referenceLevelIndex === 'none' ? 'Hidden' : (referenceLevelIndex === 'auto' ? 'Auto' : 'Selected') }}</span>
+            </div>
+            
+            <div class="underlay-row">
+                <label class="underlay-label">Underlay</label>
+                <select 
+                    class="underlay-select" 
+                    :value="referenceLevelIndex" 
+                    @change="$emit('set-reference-level', $event.target.value === 'auto' || $event.target.value === 'none' ? $event.target.value : Number($event.target.value))"
+                >
+                    <option value="auto">Auto (Adjacent Floor)</option>
+                    <option value="none">None (Hidden)</option>
+                    <option 
+                        v-for="(lvl, idx) in levels" 
+                        :key="lvl.id" 
+                        :value="idx"
+                        :disabled="idx === activeLevelIndex"
+                    >
+                        {{ lvl.name || ('Floor ' + (idx + 1)) }} {{ idx === activeLevelIndex ? '(Current)' : '' }}
+                    </option>
+                </select>
+            </div>
+
+            <div class="underlay-row" v-if="referenceLevelIndex !== 'none'">
+                <label class="underlay-label">Opacity ({{ Math.round((referenceOpacity || 0.5) * 100) }}%)</label>
+                <input 
+                    type="range" 
+                    min="0.1" 
+                    max="1" 
+                    step="0.05" 
+                    :value="referenceOpacity || 0.5" 
+                    @input="$emit('set-reference-opacity', Number($event.target.value))"
+                    class="underlay-slider"
+                >
+            </div>
+
+            <!-- 1-Click Project / Copy Walls Action Button -->
+            <div class="underlay-actions" v-if="referenceLevelIndex !== 'none'">
+                <button 
+                    class="btn-project-walls" 
+                    @click="openProjectWallsModal"
+                    title="Generate walls into active level using reference underlay geometry"
+                >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                    <span>Project Walls from Reference</span>
+                </button>
+            </div>
+        </div>
+
         <div class="levels-list">
-            <div v-if="viewMode === '3d'" class="level-item" @click="$emit('toggle-all-floors')" style="background: #fafafa; border-bottom: 1px solid #f1f5f9;">
-                <div style="display:flex; align-items:center; gap: 8px;">
+            <div v-if="viewMode === '3d'" class="level-item level-show-all-item" @click="$emit('toggle-all-floors')">
+                <div class="level-left-col">
                     <input type="checkbox" :checked="allFloorsVisible" @change="$emit('toggle-all-floors')" @click.stop title="Toggle All">
-                    <span style="font-weight: 600; font-size: 12px;">Show All Floors</span>
+                    <span class="level-name-text font-semibold">Show All Floors</span>
                 </div>
             </div>
             
@@ -35,32 +97,34 @@
                             @change="(e) => { level.isVisible = e.target.checked; $emit('level-visibility-change'); }" 
                             @click.stop 
                             title="Toggle Visibility in 3D"
+                            class="level-checkbox"
                         >
                         <div class="level-info-col">
                             <div class="level-title-row">
                                 <span class="level-name-text">{{ level.name || ('Floor ' + (index + 1)) }}</span>
-                                <span class="level-indicator" v-if="activeLevelIndex === index && viewMode === '2d'">Active</span>
+                                <span class="level-tag" v-if="level.type && level.type !== 'floor'">{{ getLevelTypeName(level.type) }}</span>
+                                <span class="level-active-pill" v-if="activeLevelIndex === index && viewMode === '2d'">Active</span>
                             </div>
-                            <div 
-                                v-if="level.description && editingLevelId !== level.id" 
-                                class="level-desc-text" 
-                                :title="'Description: ' + level.description + ' (Click to edit)'"
-                                @click.stop="startEditLevel(level, index)"
-                            >
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                                </svg>
-                                <span>{{ level.description }}</span>
+                            <div class="level-sub-info">
+                                <span class="level-dim-info">H: {{ formatLabel(level.height !== undefined ? level.height : 120) }} &nbsp;•&nbsp; Thk: {{ formatLabel(level.defaultWallThickness !== undefined ? level.defaultWallThickness : 9) }}</span>
+                                <div 
+                                    v-if="level.description && editingLevelId !== level.id" 
+                                    class="level-desc-text" 
+                                    :title="'Description: ' + level.description + ' (Click to edit)'"
+                                    @click.stop="startEditLevel(level, index)"
+                                >
+                                    <span>{{ level.description }}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                     
                     <div class="level-actions-col">
-                        <!-- Edit Floor Name / Description -->
+                        <!-- Edit Floor Details Button -->
                         <button 
-                            class="level-action-btn level-desc-btn" 
-                            :class="{ 'has-desc': !!level.description, 'is-editing': editingLevelId === level.id }"
-                            :title="level.description ? 'Edit floor name & description: ' + level.description : 'Add floor description'"
+                            class="level-action-btn" 
+                            :class="{ 'is-editing': editingLevelId === level.id }"
+                            :title="level.description ? 'Edit floor: ' + level.description : 'Edit floor details'"
                             @click.stop="toggleEditLevel(level, index)"
                         >
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -73,60 +137,166 @@
                         <button 
                             class="level-action-btn level-del-btn" 
                             :disabled="levels.length <= 1"
-                            :title="levels.length <= 1 ? 'Cannot delete the only remaining floor' : 'Delete this floor level'"
+                            :title="levels.length <= 1 ? 'Cannot delete the only floor' : 'Delete floor level'"
                             @click.stop="onDeleteLevel(index)"
                         >
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <polyline points="3 6 5 6 21 6"></polyline>
                                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                <line x1="10" y1="11" x2="10" y2="17"></line>
-                                <line x1="14" y1="11" x2="14" y2="17"></line>
                             </svg>
                         </button>
                     </div>
                 </div>
 
-                <!-- Inline Floor Editor -->
-                <div v-if="editingLevelId === level.id" class="level-desc-editor" @click.stop>
-                    <div class="level-desc-inputs">
-                        <input 
-                            type="text" 
-                            v-model="editLevelName" 
-                            placeholder="Floor name (e.g. Ground Floor)" 
-                            class="level-edit-input level-name-input"
-                            @keydown.enter="saveLevelEdit(index)"
-                            @keydown.esc="cancelLevelEdit"
-                        />
-                        <input 
-                            type="text" 
-                            v-model="editLevelDesc" 
-                            placeholder="Description (e.g. Living, Dining & Kitchen)..." 
-                            class="level-edit-input level-desc-input-field"
-                            @keydown.enter="saveLevelEdit(index)"
-                            @keydown.esc="cancelLevelEdit"
-                        />
+                <!-- Clean Inline Floor Details Editor -->
+                <div v-if="editingLevelId === level.id" class="level-editor-card" @click.stop>
+                    <div class="level-editor-header">
+                        <span class="level-editor-title">Edit Level Details</span>
                     </div>
-                    <div class="level-desc-actions">
-                        <button class="level-save-btn" title="Save changes (Enter)" @click.stop="saveLevelEdit(index)">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                            <span>Save</span>
-                        </button>
-                        <button class="level-cancel-btn" title="Cancel (Esc)" @click.stop="cancelLevelEdit">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                            </svg>
-                            <span>Cancel</span>
-                        </button>
+                    
+                    <div class="level-editor-body">
+                        <div class="level-form-group">
+                            <label class="level-form-label">Floor Name</label>
+                            <input 
+                                type="text" 
+                                v-model="editLevelName" 
+                                placeholder="Floor Name (e.g. Ground Floor)" 
+                                class="level-form-input"
+                                @keydown.enter="saveLevelEdit(index)"
+                                @keydown.esc="cancelLevelEdit"
+                            />
+                        </div>
+
+                        <div class="level-form-group">
+                            <label class="level-form-label">Floor Type</label>
+                            <select v-model="editLevelType" class="level-form-select">
+                                <option value="foundation">Foundation / Footing</option>
+                                <option value="plinth">Plinth Beam</option>
+                                <option value="basement">Basement</option>
+                                <option value="ground">Ground Floor</option>
+                                <option value="floor">Standard Upper Floor</option>
+                                <option value="terrace">Terrace / Roof</option>
+                            </select>
+                        </div>
+
+                        <div class="level-form-row">
+                            <div class="level-form-col">
+                                <label class="level-form-label">Height ({{ unitSuffix }})</label>
+                                <DimensionInput 
+                                    v-model="editLevelHeight" 
+                                    class="level-form-input"
+                                />
+                            </div>
+                            <div class="level-form-col">
+                                <label class="level-form-label">Wall Thk ({{ unitSuffix }})</label>
+                                <DimensionInput 
+                                    v-model="editLevelWallThickness" 
+                                    class="level-form-input"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="level-form-group">
+                            <label class="level-form-label">Description / Notes</label>
+                            <input 
+                                type="text" 
+                                v-model="editLevelDesc" 
+                                placeholder="e.g. Reinforcement, Grade..." 
+                                class="level-form-input"
+                                @keydown.enter="saveLevelEdit(index)"
+                                @keydown.esc="cancelLevelEdit"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="level-editor-actions">
+                        <button class="btn-editor-cancel" @click.stop="cancelLevelEdit">Cancel</button>
+                        <button class="btn-editor-save" @click.stop="saveLevelEdit(index)">Save</button>
                     </div>
                 </div>
             </div>
         </div>
+        
+        <!-- Clean Sub-Structure & Floor Action Buttons -->
         <div class="levels-actions">
-            <button class="btn-duplicate" @click="$emit('add-level', 'duplicate')">+ Duplicate Current</button>
-            <button class="btn-empty" @click="$emit('add-level', 'empty')">+ Add Empty Floor</button>
+            <div class="levels-add-grid">
+                <button class="btn-add-level" @click="$emit('add-level', 'empty', 'floor')" title="Add upper floor level above">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="level-btn-icon">
+                        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                        <polyline points="2 12 12 17 22 12"></polyline>
+                        <polyline points="2 17 12 22 22 17"></polyline>
+                    </svg>
+                    <span>Upper Floor</span>
+                </button>
+                <button class="btn-add-level" @click="$emit('add-level', 'empty', 'plinth')" title="Add grade-level structural plinth tie beam">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="level-btn-icon">
+                        <rect x="2" y="9" width="20" height="6" rx="1"></rect>
+                        <path d="M6 9V5"></path>
+                        <path d="M18 9V5"></path>
+                        <line x1="2" y1="19" x2="22" y2="19" stroke-dasharray="3 3"></line>
+                    </svg>
+                    <span>Plinth Beam</span>
+                </button>
+                <button class="btn-add-level" @click="$emit('add-level', 'empty', 'basement')" title="Add habitable underground basement room floor">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="level-btn-icon">
+                        <line x1="2" y1="5" x2="22" y2="5"></line>
+                        <path d="M5 5v14h14V5"></path>
+                        <path d="M8 8h3v3h3v3h3"></path>
+                    </svg>
+                    <span>Basement</span>
+                </button>
+                <button class="btn-add-level" @click="$emit('add-level', 'empty', 'foundation')" title="Add deep structural spread footing foundation">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="level-btn-icon">
+                        <path d="M10 3v8H4v8h16v-8h-6V3h-4z"></path>
+                        <line x1="2" y1="21" x2="22" y2="21"></line>
+                    </svg>
+                    <span>Foundation</span>
+                </button>
+            </div>
+            <button class="btn-duplicate-level" @click="$emit('add-level', 'duplicate', 'floor')" title="Duplicate current active floor walls and rooms">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="level-btn-icon">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span>Duplicate Active Floor</span>
+            </button>
+        </div>
+
+        <!-- Professional Project Walls Modal Dialog -->
+        <div v-if="showProjectModal" class="project-modal-backdrop" @click="showProjectModal = false">
+            <div class="project-modal-card" @click.stop>
+                <div class="project-modal-header">
+                    <div class="project-modal-title-wrap">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                        </svg>
+                        <h4>Project Walls from Reference</h4>
+                    </div>
+                    <button class="project-modal-close" @click="showProjectModal = false">✕</button>
+                </div>
+                
+                <p class="project-modal-desc">
+                    Instantly copy load-bearing walls from the reference underlay into your active level with custom thickness.
+                </p>
+
+                <div class="project-modal-fields">
+                    <div class="project-modal-field">
+                        <label>Target Wall Thickness ({{ unitSuffix }})</label>
+                        <DimensionInput v-model="projectThickness" class="project-input" />
+                    </div>
+                    <div class="project-modal-checkbox">
+                        <label>
+                            <input type="checkbox" v-model="projectOnlyOuter" />
+                            <span>Copy only exterior / perimeter walls (Recommended for Foundation & Plinth)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="project-modal-actions">
+                    <button class="btn-project-cancel" @click="showProjectModal = false">Cancel</button>
+                    <button class="btn-project-confirm" @click="confirmProjectWalls">Generate Walls</button>
+                </div>
+            </div>
         </div>
         </component>
     </Teleport>
@@ -241,6 +411,8 @@ import SmartWizardPopup from './SmartWizardPopup.vue';
 import SettingsTab from './sidebar/SettingsTab.vue';
 import LayersTab from './sidebar/LayersTab.vue';
 import PropertiesTab from './sidebar/PropertiesTab.vue';
+import DimensionInput from './common/DimensionInput.vue';
+import { useDimension } from '../core/units/useDimension.js';
 
 const props = defineProps({
   isMobile: Boolean,
@@ -251,6 +423,8 @@ const props = defineProps({
   viewMode3D: String,
   levels: Array,
   activeLevelIndex: Number,
+  referenceLevelIndex: [String, Number],
+  referenceOpacity: Number,
   allFloorsVisible: Boolean,
   activeRightTab: String,
   floorPlanSettings: Object,
@@ -284,6 +458,9 @@ const emit = defineEmits([
   'add-level',
   'delete-level',
   'update-level-details',
+  'set-reference-level',
+  'set-reference-opacity',
+  'project-walls',
   'sync-settings',
   'set-entrance-wall',
   'set-sky',
@@ -308,14 +485,72 @@ const emit = defineEmits([
   'debounced-save-history'
 ]);
 
+const { formatLabel, unitSuffix } = useDimension();
+
 const editingLevelId = ref(null);
 const editLevelName = ref('');
 const editLevelDesc = ref('');
+const editLevelType = ref('floor');
+const editLevelHeight = ref(120);
+const editLevelWallThickness = ref(9);
+
+// Project Walls Modal State
+const showProjectModal = ref(false);
+const projectThickness = ref(18);
+const projectOnlyOuter = ref(true);
+
+const getLevelTypeName = (type) => {
+    switch (type) {
+        case 'foundation': return 'Foundation';
+        case 'plinth': return 'Plinth Beam';
+        case 'basement': return 'Basement';
+        case 'ground': return 'Ground Floor';
+        case 'terrace': return 'Terrace';
+        default: return 'Upper Floor';
+    }
+};
+
+const getLevelTypeIcon = (type) => {
+    switch (type) {
+        case 'foundation': return '🏗️';
+        case 'plinth': return '🧱';
+        case 'basement': return '🏬';
+        case 'ground': return '🏠';
+        case 'terrace': return '⛺';
+        default: return '🏢';
+    }
+};
+
+const openProjectWallsModal = () => {
+    const activeLvl = props.levels?.[props.activeLevelIndex];
+    if (activeLvl?.type === 'foundation') {
+        projectThickness.value = 18; // ~45.7 cm
+        projectOnlyOuter.value = true;
+    } else if (activeLvl?.type === 'plinth') {
+        projectThickness.value = 9; // ~23 cm
+        projectOnlyOuter.value = true;
+    } else {
+        projectThickness.value = activeLvl?.defaultWallThickness || 9;
+        projectOnlyOuter.value = false;
+    }
+    showProjectModal.value = true;
+};
+
+const confirmProjectWalls = () => {
+    showProjectModal.value = false;
+    emit('project-walls', {
+        thickness: Number(projectThickness.value) || 9,
+        onlyOuter: projectOnlyOuter.value
+    });
+};
 
 const startEditLevel = (level, index) => {
     editingLevelId.value = level.id;
     editLevelName.value = level.name || ('Floor ' + (index + 1));
     editLevelDesc.value = level.description || '';
+    editLevelType.value = level.type || 'floor';
+    editLevelHeight.value = level.height !== undefined ? level.height : 120;
+    editLevelWallThickness.value = level.defaultWallThickness !== undefined ? level.defaultWallThickness : 9;
 };
 
 const toggleEditLevel = (level, index) => {
@@ -330,7 +565,10 @@ const saveLevelEdit = (index) => {
     emit('update-level-details', {
         index,
         name: editLevelName.value.trim() || ('Floor ' + (index + 1)),
-        description: editLevelDesc.value.trim() || undefined
+        description: editLevelDesc.value.trim() || undefined,
+        type: editLevelType.value,
+        height: Number(editLevelHeight.value) || 120,
+        defaultWallThickness: Number(editLevelWallThickness.value) || 9
     });
     editingLevelId.value = null;
     emit('debounced-save-history');

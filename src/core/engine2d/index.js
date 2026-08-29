@@ -1865,8 +1865,19 @@ export class FloorPlanner {
                         wall = new PremiumWall(this, a1, a2, wData.type);
                     }
                     if (wData.id) wall.id = wData.id;
-                    if (wData.thickness) wall.thickness = wData.thickness;
-                    if (wData.height) wall.height = wData.height;
+                    const activeLvl = this.activeLevel || this.activeLevelConfig;
+                    if (activeLvl?.type === 'plinth' || activeLvl?.type === 'foundation') {
+                        wall.height = Number(activeLvl.height) || (activeLvl.type === 'plinth' ? 18 : 40);
+                    } else if (wData.height) {
+                        wall.height = wData.height;
+                    } else if (activeLvl?.height !== undefined) {
+                        wall.height = Number(activeLvl.height);
+                    }
+                    if (wData.thickness) {
+                        wall.thickness = wData.thickness;
+                    } else if (activeLvl?.defaultWallThickness !== undefined) {
+                        wall.thickness = Number(activeLvl.defaultWallThickness);
+                    }
                     if (wData.configId) wall.configId = wData.configId;
                     if (wData.hidden !== undefined) wall.hidden = wData.hidden;
                     if (wData.description !== undefined) wall.description = wData.description;
@@ -2082,10 +2093,22 @@ export class FloorPlanner {
     }
 
     clearReferenceBackground() { if (this.referenceGroup) { this.referenceGroup.destroy(); this.referenceGroup = null; if (this.bgLayer) this.bgLayer.batchDraw(); } }
-    loadReferenceBackground(jsonStr) {
+    
+    setReferenceOpacity(opacity = 0.5) {
+        if (this.referenceGroup) {
+            this.referenceGroup.opacity(Number(opacity) || 0.5);
+            if (this.bgLayer) this.bgLayer.batchDraw();
+        }
+    }
+
+    loadReferenceBackground(jsonStr, options = {}) {
         this.clearReferenceBackground();
         if (!jsonStr) return;
-        this.referenceGroup = new Konva.Group({ opacity: 0.6, listening: false });
+        const opacityVal = typeof options === 'number' ? options : (options?.opacity !== undefined ? Number(options.opacity) : 0.5);
+        const strokeCol = options?.strokeColor || '#64748b';
+        const fillCol = options?.fillColor || '#cbd5e1';
+
+        this.referenceGroup = new Konva.Group({ opacity: opacityVal, listening: false });
         this.referenceLayer.add(this.referenceGroup);
         try {
             const state = JSON.parse(jsonStr);
@@ -2093,13 +2116,40 @@ export class FloorPlanner {
                 state.walls.forEach(wData => {
                     let shape;
                     if (wData.pts && wData.pts.length > 4) {
-                        shape = new Konva.Line({ points: wData.pts, fill: '#cbd5e1', stroke: '#94a3b8', strokeWidth: 1, closed: true, lineJoin: 'miter', lineCap: 'square' });
+                        shape = new Konva.Line({ points: wData.pts, fill: fillCol, stroke: strokeCol, strokeWidth: 1.5, closed: true, lineJoin: 'miter', lineCap: 'square' });
                     } else {
-                        shape = new Konva.Line({ points: [wData.startX, wData.startY, wData.endX, wData.endY], stroke: '#94a3b8', strokeWidth: wData.thickness || 20, lineCap: 'round', lineJoin: 'round', dash: [] });
+                        shape = new Konva.Line({ points: [wData.startX, wData.startY, wData.endX, wData.endY], stroke: strokeCol, strokeWidth: wData.thickness || 20, lineCap: 'round', lineJoin: 'round', dash: [] });
                     }
                     shape.setAttr('refPts', [wData.startX, wData.startY, wData.endX, wData.endY]);
                     if (wData.bevels) shape.setAttr('bevels', wData.bevels);
                     this.referenceGroup.add(shape);
+                });
+            }
+            if (state && state.shapes) {
+                state.shapes.forEach(sh => {
+                    const sx = sh.x || sh.params?.x || 0;
+                    const sy = sh.y || sh.params?.y || 0;
+                    const w = sh.params?.width || sh.width || 40;
+                    const h = sh.params?.height || sh.height || 40;
+                    const rot = (sh.rotation || 0) * Math.PI / 180;
+                    const halfW = w / 2, halfH = h / 2;
+                    const pts = [
+                        { x: -halfW, y: -halfH }, { x: halfW, y: -halfH },
+                        { x: halfW, y: halfH }, { x: -halfW, y: halfH }
+                    ].map(p => ({
+                        x: sx + (p.x * Math.cos(rot) - p.y * Math.sin(rot)),
+                        y: sy + (p.x * Math.sin(rot) + p.y * Math.cos(rot))
+                    }));
+                    const flatPts = pts.flatMap(p => [p.x, p.y]);
+                    const shapeLine = new Konva.Line({
+                        points: flatPts,
+                        stroke: strokeCol,
+                        strokeWidth: 1.5,
+                        dash: [4, 4],
+                        closed: true,
+                        fill: fillCol
+                    });
+                    this.referenceGroup.add(shapeLine);
                 });
             }
             if (state && state.stairs) {

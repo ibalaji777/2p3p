@@ -51,8 +51,9 @@ export function useHistory(dependencies) {
                 planner.value.clearAll();
             }
             
-            if (activeLevelIndex.value > 0 && levels.value[activeLevelIndex.value - 1].data) {
-                planner.value.loadReferenceBackground(levels.value[activeLevelIndex.value - 1].data);
+            const refIdx = activeLevelIndex.value > 0 ? activeLevelIndex.value - 1 : (levels.value.length > 1 ? 1 : -1);
+            if (refIdx >= 0 && levels.value[refIdx] && levels.value[refIdx].data) {
+                planner.value.loadReferenceBackground(levels.value[refIdx].data);
             } else {
                 planner.value.clearReferenceBackground();
             }

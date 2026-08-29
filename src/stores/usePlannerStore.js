@@ -31,8 +31,10 @@ export const usePlannerStore = defineStore('planner', () => {
     });
 
     // Levels / History State
-    const levels = ref([{ id: 'level-' + Date.now(), name: 'Floor 1', data: null, isVisible: true }]);
+    const levels = ref([{ id: 'level-' + Date.now(), name: 'Ground Floor', type: 'ground', height: 120, defaultWallThickness: 9, data: null, isVisible: true }]);
     const activeLevelIndex = ref(0);
+    const referenceLevelIndex = ref('auto'); // 'auto' | 'none' | number (index)
+    const referenceOpacity = ref(0.5); // 0.1 to 1.0
     const canUndo = ref(false);
     const canRedo = ref(false);
 
@@ -95,6 +97,8 @@ export const usePlannerStore = defineStore('planner', () => {
         paintScope,
         levels,
         activeLevelIndex,
+        referenceLevelIndex,
+        referenceOpacity,
         canUndo,
         canRedo,
         allFloorsVisible,

@@ -8,8 +8,9 @@ export class PremiumWall {
     constructor(planner, startAnchor, endAnchor, type = "outer") {
         this.planner = planner; this.startAnchor = startAnchor; this.endAnchor = endAnchor; this.attachedWidgets = []; this.attachedMoldings = []; this.type = type; this.config = WALL_REGISTRY[type] || WALL_REGISTRY['outer'];
         this.id = 'wall_' + Date.now() + '_' + Math.floor(Math.random()*1000);
-        this.thickness = this.config.thickness;
-        this.height = this.config.height || 180;
+        const activeLevel = planner?.activeLevel || planner?.activeLevelConfig;
+        this.thickness = activeLevel?.defaultWallThickness || this.config.thickness || (type === 'outer' ? 20 : 10);
+        this.height = activeLevel?.height !== undefined ? Number(activeLevel.height) : (this.config.height || 180);
         
         // Parametric constraints to prevent joint folding on acute angles
         this.miterLimitRatio = this.config.miterLimitRatio || 3;

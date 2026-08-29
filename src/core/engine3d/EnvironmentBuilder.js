@@ -12,6 +12,7 @@ import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_RE
 import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js';
 import { MaterialFactory } from './MaterialFactory.js';
 import { UniversalMaterialManager } from './UniversalMaterialManager.js';
+import { computeLevelElevations } from './helpers/levelElevations.js';
 
 let _sharedPlasterMaterial = null;
 let _plasterUniforms = {
@@ -203,6 +204,9 @@ export class EnvironmentBuilder {
         const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xeaeaea, roughness: 0.9 });
         const matBaseboard = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.1 });
 
+        const isSubStructure = this.activeLevelConfig?.type === 'plinth' || this.activeLevelConfig?.type === 'foundation';
+        const subH = this.activeLevelHeight || (this.activeLevelConfig?.type === 'plinth' ? 18 : 40);
+
         if (rooms) {
             rooms.forEach(room => {
                 try {
@@ -342,7 +346,8 @@ export class EnvironmentBuilder {
                     });
                 }
                 
-                const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
+                const slabDepth = isSubStructure ? subH : 2;
+                const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: slabDepth, bevelEnabled: false });
                 floorGeo.rotateX(Math.PI / 2);
                 
                 const pos = floorGeo.attributes.position;
@@ -356,16 +361,16 @@ export class EnvironmentBuilder {
                 const configId = room.configId || 'hardwood';
                 const baseConfig = FLOOR_REGISTRY[configId];
                 
-                const matFloor = new THREE.MeshStandardMaterial({ 
+                const matFloor = isSubStructure ? getPlasterMaterial() : new THREE.MeshStandardMaterial({ 
                     color: baseConfig?.color || 0xd1d5db, 
                     roughness: baseConfig?.roughness || 0.7
                 });
                 const floorMesh = new THREE.Mesh(floorGeo, matFloor);
-                floorMesh.position.y = 0.05;
+                floorMesh.position.y = isSubStructure ? (subH - 0.01) : 0.05;
                 floorMesh.receiveShadow = true;
                 floorMesh.userData = { isFloor: true, entity: room };
 
-                if (baseConfig) {
+                if (baseConfig && !isSubStructure) {
                     const config = { ...baseConfig };
                     if (room.materialScale) {
                         config.tileSize = room.materialScale;
@@ -816,8 +821,20 @@ export class EnvironmentBuilder {
         const angle = Math.atan2(dz, dx);
         w.length3D = length;
 
-        const h = w.height !== undefined ? w.height : (w.config?.height || (w.type === 'compound' ? 80 : WALL_HEIGHT));
-        const t = w.thickness !== undefined ? w.thickness : (w.config?.thickness || (w.type === 'compound' ? 12 : (w.type === 'outer' ? 16 : 8)));
+        const defaultH = this.activeLevelHeight || Number(this.activeLevelConfig?.height) || WALL_HEIGHT;
+        const defaultThk = Number(this.activeLevelConfig?.defaultWallThickness) || (w.type === 'compound' ? 12 : (w.type === 'outer' ? 20 : 10));
+        let h = w.height !== undefined ? w.height : (w.config?.height || (w.type === 'compound' ? 80 : defaultH));
+        if (this.activeLevelConfig?.type === 'plinth' || this.activeLevelConfig?.type === 'foundation') {
+            h = defaultH;
+            w.height = h;
+            if (w.config) w.config.height = h;
+        }
+        let t = w.thickness !== undefined ? w.thickness : (w.config?.thickness || defaultThk);
+        if ((this.activeLevelConfig?.type === 'plinth' || this.activeLevelConfig?.type === 'foundation') && !w.thickness) {
+            t = defaultThk;
+            w.thickness = t;
+            if (w.config) w.config.thickness = t;
+        }
         
         // Compute mm early so holes and patterns can inherit painted materials
         let mm = [matMain, matMain, matMain, matMain, matMain, matMain];
@@ -1491,6 +1508,7 @@ export class EnvironmentBuilder {
 
     buildStaticFloors(levelsConfigArray, activeIndex, viewMode3D, stairs = []) {
         const isPreview = viewMode3D === 'preview';
+        const levelElevations = computeLevelElevations(levelsConfigArray);
 
         levelsConfigArray.forEach((levelConfig, index) => {
             if (index === activeIndex) return; 
@@ -1500,25 +1518,7 @@ export class EnvironmentBuilder {
             try {
                 const data = JSON.parse(levelConfig.data);
                 const floorGroup = new THREE.Group();
-                
-                let cumulativeHeight = 0;
-                for (let i = 0; i < index; i++) {
-                    if (levelsConfigArray[i] && levelsConfigArray[i].data) {
-                        try {
-                            const prevData = JSON.parse(levelsConfigArray[i].data);
-                            let maxH = WALL_HEIGHT;
-                            if (prevData.walls && prevData.walls.length > 0) {
-                                maxH = Math.max(...prevData.walls.map(w => w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT)));
-                            }
-                            cumulativeHeight += maxH;
-                        } catch(e) {
-                            cumulativeHeight += WALL_HEIGHT;
-                        }
-                    } else {
-                        cumulativeHeight += WALL_HEIGHT;
-                    }
-                }
-                floorGroup.position.y = cumulativeHeight;
+                floorGroup.position.y = levelElevations[index] !== undefined ? levelElevations[index] : (index * WALL_HEIGHT);
 
                 if (data.stairs) {
                     let maxWallHeight2 = WALL_HEIGHT;
@@ -1533,6 +1533,8 @@ export class EnvironmentBuilder {
                 const matEdgeDark = new THREE.MeshStandardMaterial({ color: 0xeaeaea, roughness: 0.9 });
                 const matBaseboard = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.1 });
 
+                const isStaticSub = levelConfig?.type === 'plinth' || levelConfig?.type === 'foundation';
+                const subH = Number(levelConfig?.height) || (levelConfig?.type === 'plinth' ? 18 : 40);
                 if (data.rooms) {
                     data.rooms.forEach(room => {
                         if (room.isDeleted || room.isHidden) return;
@@ -1587,42 +1589,86 @@ export class EnvironmentBuilder {
                                     } else if (stair.shape === 'U') {
                                         let y = 0; let f1Len = l1;
                                         if (stair.hasBottomLanding) { y -= ls; f1Len += ls; }
-                                        rects.push({ x: -width/2, y: y, w: width, h: f1Len });
-                                        
-                                        const totalW = width * 2 + gw;
-                                        const landingX = turn === 'right' ? -width/2 : -width/2 - width - gw;
-                                        rects.push({ x: landingX, y: l1, w: totalW, h: ls });
-                                        
-                                        const f2X = turn === 'right' ? width/2 + gw : -width/2 - width - gw;
-                                        let f2Y = l1 - l2; let f2Len = l2;
-                                        if (stair.hasTopLanding) { f2Y -= ls; f2Len += ls; }
-                                        rects.push({ x: f2X, y: f2Y, w: width, h: f2Len });
+                                        rects.push({ x: -width - gw/2, y: y, w: width, h: f1Len });
+
+                                        const midY = l1;
+                                        rects.push({ x: -width - gw/2, y: midY, w: width * 2 + gw, h: ls });
+
+                                        const f2Len = l2;
+                                        rects.push({ x: gw/2, y: midY - f2Len, w: width, h: f2Len });
                                     }
                                     
-                                    const rot = (stair.rotation || 0) * Math.PI / 180;
-                                    const sx = stair.x;
-                                    const sy = stair.y;
-                                    const pad = -2; 
+                                    const sAngle = (stair.rotation || 0) * Math.PI / 180;
+                                    const sX = stair.x || 0;
+                                    const sY = stair.y || 0;
                                     
                                     rects.forEach(r => {
-                                        const cx1 = r.x + pad;
-                                        const cy1 = r.y + pad;
-                                        const cx2 = r.x + r.w - pad;
-                                        const cy2 = r.y + r.h - pad;
-                                        if (cx2 <= cx1 || cy2 <= cy1) return; 
-                                        
                                         const corners = [
-                                            { x: cx1, y: cy1 }, { x: cx2, y: cy1 },
-                                            { x: cx2, y: cy2 }, { x: cx1, y: cy2 }
+                                            { x: r.x, y: r.y },
+                                            { x: r.x + r.w, y: r.y },
+                                            { x: r.x + r.w, y: r.y + r.h },
+                                            { x: r.x, y: r.y + r.h }
                                         ];
                                         
-                                        const rotC = corners.map(c => {
-                                            return {
-                                                x: sx + (c.x * Math.cos(rot) - c.y * Math.sin(rot)),
-                                                y: sy + (c.x * Math.sin(rot) + c.y * Math.cos(rot))
-                                            };
+                                        const rotC = corners.map(c => ({
+                                            x: sX + (c.x * Math.cos(sAngle) - c.y * Math.sin(sAngle)),
+                                            y: sY + (c.x * Math.sin(sAngle) + c.y * Math.cos(sAngle))
+                                        }));
+
+                                        let minRx = Infinity, maxRx = -Infinity, minRy = Infinity, maxRy = -Infinity;
+                                        path.forEach(p => {
+                                            minRx = Math.min(minRx, p.x); maxRx = Math.max(maxRx, p.x);
+                                            minRy = Math.min(minRy, p.y); maxRy = Math.max(maxRy, p.y);
                                         });
-                                        
+
+                                        const overlaps = rotC.some(c => c.x >= minRx && c.x <= maxRx && c.y >= minRy && c.y <= maxRy);
+
+                                        if (overlaps) {
+                                            const hole = new THREE.Path();
+                                            hole.moveTo(rotC[0].x, rotC[0].y);
+                                            hole.lineTo(rotC[1].x, rotC[1].y);
+                                            hole.lineTo(rotC[2].x, rotC[2].y);
+                                            hole.lineTo(rotC[3].x, rotC[3].y);
+                                            hole.lineTo(rotC[0].x, rotC[0].y);
+                                            floorShape.holes.push(hole);
+                                        }
+                                    });
+                                }
+                            });
+                        }
+
+                        if (data.shapes) {
+                            data.shapes.forEach(shape => {
+                                if (shape.type === 'shape_floor_cut') {
+                                    const rot = (shape.rotation || 0) * Math.PI / 180;
+                                    const sx = shape.x || shape.params?.x || 0;
+                                    const sy = shape.y || shape.params?.y || 0;
+                                    let pts;
+                                    if (shape.params?.points && shape.params.points.length >= 3) {
+                                        pts = shape.params.points;
+                                    } else {
+                                        const w = shape.params?.width || shape.width || 100;
+                                        const h = shape.params?.height || shape.height || 100;
+                                        pts = [
+                                            { x: -w/2, y: -h/2 }, { x: w/2, y: -h/2 },
+                                            { x: w/2, y: h/2 }, { x: -w/2, y: h/2 }
+                                        ];
+                                    }
+                                    
+                                    const rotC = pts.map(c => ({
+                                        x: sx + (c.x * Math.cos(rot) - c.y * Math.sin(rot)),
+                                        y: sy + (c.x * Math.sin(rot) + c.y * Math.cos(rot))
+                                    }));
+
+                                    let minRx = Infinity, maxRx = -Infinity, minRy = Infinity, maxRy = -Infinity;
+                                    path.forEach(p => {
+                                        minRx = Math.min(minRx, p.x); maxRx = Math.max(maxRx, p.x);
+                                        minRy = Math.min(minRy, p.y); maxRy = Math.max(maxRy, p.y);
+                                    });
+
+                                    const overlaps = rotC.some(c => c.x >= minRx && c.x <= maxRx && c.y >= minRy && c.y <= maxRy);
+
+                                    if (overlaps) {
                                         const hole = new THREE.Path();
                                         hole.moveTo(rotC[0].x, rotC[0].y);
                                         hole.lineTo(rotC[1].x, rotC[1].y);
@@ -1630,12 +1676,13 @@ export class EnvironmentBuilder {
                                         hole.lineTo(rotC[3].x, rotC[3].y);
                                         hole.lineTo(rotC[0].x, rotC[0].y);
                                         floorShape.holes.push(hole);
-                                    });
+                                    }
                                 }
                             });
                         }
 
-                        const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
+                        const slabDepth = isStaticSub ? subH : 2;
+                        const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: slabDepth, bevelEnabled: false });
                         floorGeo.rotateX(Math.PI / 2);
                         
                         const pos = floorGeo.attributes.position;
@@ -1649,12 +1696,15 @@ export class EnvironmentBuilder {
                         const configId = room.configId || 'hardwood';
                         const config = FLOOR_REGISTRY[configId];
                         
-                        const matFloor = new THREE.MeshStandardMaterial({ color: config?.color || 0xd1d5db, roughness: config?.roughness || 0.7 });
+                        const matFloor = isStaticSub ? getPlasterMaterial() : new THREE.MeshStandardMaterial({ 
+                            color: config?.color || 0xd1d5db, 
+                            roughness: config?.roughness || 0.7 
+                        });
                         const floorMesh = new THREE.Mesh(floorGeo, matFloor);
-                        floorMesh.position.y = 0.05;
+                        floorMesh.position.y = isStaticSub ? (subH - 0.01) : 0.05;
                         floorMesh.receiveShadow = true;
                         
-                        if (config && config.texture) {
+                        if (config && config.texture && !isStaticSub) {
                             this.ctx.assets.getTexture(config).then(tex => {
                                 const texClone = tex.clone();
                                 texClone.wrapS = texClone.wrapT = THREE.RepeatWrapping;

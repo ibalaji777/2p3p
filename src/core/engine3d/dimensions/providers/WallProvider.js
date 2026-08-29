@@ -65,6 +65,7 @@ export class WallProvider extends MeasurementProvider {
         }
         
         // Wall meshes are built locally along the positive X-axis
+        const length = this.entity.length3D || Math.hypot(p2.x - p1.x, p2.y - p1.y);
         const baseStart = new THREE.Vector3(0, 0, 0);
         const baseEnd = new THREE.Vector3(length, 0, 0);
         if (this.mesh) {

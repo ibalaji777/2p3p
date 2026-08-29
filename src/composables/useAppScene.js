@@ -43,7 +43,15 @@ export function useAppScene({
             const prevMode = renderer3D.value.currentTransformMode;
             
             if (saveCurrentLevelState) saveCurrentLevelState(); 
-            const levelsConfigArray = levels.value.map(l => ({ data: l.data, isVisible: l.isVisible !== false }));
+            const levelsConfigArray = levels.value.map(l => ({
+                id: l.id,
+                name: l.name,
+                type: l.type,
+                height: l.height,
+                defaultWallThickness: l.defaultWallThickness,
+                data: l.data,
+                isVisible: l.isVisible !== false
+            }));
             
             renderer3D.value.buildScene(
                 planner.value.walls,

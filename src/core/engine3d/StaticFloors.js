@@ -5,6 +5,7 @@ import { UniversalMaterialManager } from './UniversalMaterialManager.js';
 import { Wall3DBuilder } from '../../features/wall/wall.renderer3d.js';
 import { Railing3DBuilder } from '../../features/railing/builders/Railing3DBuilder.js';
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
+import { computeLevelElevations } from './helpers/levelElevations.js';
 
 export class StaticFloors {
     constructor(assets, decorManager, interactables, callbacks = {}) {
@@ -78,6 +79,7 @@ export class StaticFloors {
 
     build(levelsConfigArray, activeIndex, viewMode3D, stairs = [], staticStructureGroup) {
         const isPreview = viewMode3D === 'preview';
+        const levelElevations = computeLevelElevations(levelsConfigArray);
 
         levelsConfigArray.forEach((levelConfig, index) => {
             if (index === activeIndex || !levelConfig || !levelConfig.data) return;
@@ -86,7 +88,7 @@ export class StaticFloors {
             try {
                 const data = JSON.parse(levelConfig.data);
                 const floorGroup = new THREE.Group();
-                floorGroup.position.y = index * WALL_HEIGHT;
+                floorGroup.position.y = levelElevations[index] !== undefined ? levelElevations[index] : (index * WALL_HEIGHT);
 
                 if (data.stairs) {
                     const maxWallHeight2 = (data.walls && data.walls.length > 0) ? Math.max(...data.walls.map(w => w.height || w.config?.height || WALL_HEIGHT)) : WALL_HEIGHT;
@@ -94,6 +96,8 @@ export class StaticFloors {
                 }
 
                 // Build Slabs
+                const isSub = levelConfig?.type === 'plinth' || levelConfig?.type === 'foundation';
+                const subH = Number(levelConfig?.height) || (levelConfig?.type === 'plinth' ? 18 : 40);
                 if (data.rooms) {
                     data.rooms.forEach(room => {
                         if (room.isDeleted || room.isHidden) return;
@@ -147,9 +151,10 @@ export class StaticFloors {
                             });
                         }
                         
-                        const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
+                        const slabDepth = isSub ? subH : 2;
+                        const floorGeo = new THREE.ExtrudeGeometry(floorShape, { depth: slabDepth, bevelEnabled: false });
                         floorGeo.rotateX(Math.PI / 2);
-                        floorGeo.translate(0, 0.2, 0);
+                        floorGeo.translate(0, isSub ? (subH - 0.01) : 0.2, 0);
                         
                         // UV Fix for Floor (ExtrudeGeometry) - World Space Projection
                         const uvs = floorGeo.attributes.uv;
@@ -169,12 +174,16 @@ export class StaticFloors {
                             else uvs.setXY(i, vx, vy); // Side Z
                         }
 
-                        
-                        let mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide });
+                        let mat = new THREE.MeshStandardMaterial({ 
+                            color: isSub ? 0xffffff : 0xffffff, 
+                            roughness: isSub ? 0.85 : 0.7, 
+                            metalness: isSub ? 0.05 : 0, 
+                            side: THREE.DoubleSide 
+                        });
                         const configId = room.configId || 'hardwood';
                         const baseConfig = FLOOR_REGISTRY[configId];
                         
-                        if (baseConfig) {
+                        if (baseConfig && !isSub) {
                             const config = { ...baseConfig };
                             if (room.materialScale) config.tileSize = room.materialScale;
                             MaterialFactory.buildPBRMaterial({
@@ -211,10 +220,13 @@ export class StaticFloors {
                         const dx = w.endX - w.startX; const dz = w.endY - w.startY;
                         const length = Math.hypot(dx, dz); const angle = Math.atan2(dz, dx);
                         
-                        const wallHeight = w.height || w.config?.height || WALL_HEIGHT;
+                        const defaultLevelH = levelConfig?.height || WALL_HEIGHT;
+                        const defaultLevelThk = levelConfig?.defaultWallThickness || (w.type === 'compound' ? 12 : (w.type === 'outer' ? 20 : 10));
+                        const wallHeight = w.height || w.config?.height || defaultLevelH;
+                        const wallThk = w.thickness || w.config?.thickness || defaultLevelThk;
                         // Mock Data for Managers
-                        w.config = { thickness: w.thickness, height: wallHeight }; w.length3D = length; w.attachedWidgets = w.widgets || []; w.attachedDecor = w.decors || []; w.isStatic = true; w.levelIndex = index; w.wallIndex = wallIndex;
-                        const { wallGroup, extraInteractables } = this.wallBuilder.buildWallGroup(length, w.thickness, w, w.startX, w.startY, angle, wallHeight);
+                        w.config = { thickness: wallThk, height: wallHeight }; w.length3D = length; w.attachedWidgets = w.widgets || []; w.attachedDecor = w.decors || []; w.isStatic = true; w.levelIndex = index; w.wallIndex = wallIndex;
+                        const { wallGroup, extraInteractables } = this.wallBuilder.buildWallGroup(length, wallThk, w, w.startX, w.startY, angle, wallHeight);
                         wallGroup.userData = { entity: w };
                         w.mesh3D = wallGroup;
 

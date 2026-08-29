@@ -101,6 +101,8 @@
         :view-mode3D="viewMode3D"
         :levels="levels"
         :active-level-index="activeLevelIndex"
+        :reference-level-index="referenceLevelIndex"
+        :reference-opacity="referenceOpacity"
         :all-floors-visible="allFloorsVisible"
         :active-right-tab="activeRightTab"
         :floor-plan-settings="floorPlanSettings"
@@ -127,6 +129,9 @@
         @add-level="addLevel"
         @delete-level="deleteLevel"
         @update-level-details="updateLevelDetails"
+        @set-reference-level="setReferenceLevelIndex"
+        @set-reference-opacity="setReferenceOpacity"
+        @project-walls="projectWallsFromReference"
         @sync-settings="syncSettings"
         @set-entrance-wall="setEntranceWall"
         @set-sky="setSky"
@@ -214,7 +219,7 @@ const plannerStore = usePlannerStore();
 const settingsStore = useSettingsStore();
 
 const { windowWidth, mobileMenuOpen, activeMobileTab, viewMode, viewMode3D, activeRightTab, showLeftSidebar, uiTrigger, isPlacing3D, activeDecorId, isRebuilding, isXRayMode, showGuide, showAdvancedTools, layerRefreshTrigger, isMobile, isTablet, isDesktop } = storeToRefs(uiStore);
-const { planner, renderer3D, workspaceControls, serverService, isDrawing, activeTool, activeCategory, mode3D, activePresetParams, activePresetId, selectedEntity, selectedType, selectedWallSide, selectedNodeIndex, paintScope, levels, activeLevelIndex, canUndo, canRedo, allFloorsVisible } = storeToRefs(plannerStore);
+const { planner, renderer3D, workspaceControls, serverService, isDrawing, activeTool, activeCategory, mode3D, activePresetParams, activePresetId, selectedEntity, selectedType, selectedWallSide, selectedNodeIndex, paintScope, levels, activeLevelIndex, referenceLevelIndex, referenceOpacity, canUndo, canRedo, allFloorsVisible } = storeToRefs(plannerStore);
 const { floorPlanSettings, selectedSky, selectedGround, isWallTrackingEnabled } = storeToRefs(settingsStore);
 
 const displayUnit = computed(() => {
@@ -361,6 +366,9 @@ const syncSettings = () => {
     }
     if (renderer3D.value?.navigationCube) {
         renderer3D.value.navigationCube.setEntranceFacing(floorPlanSettings.value.mainEntranceFacing);
+    }
+    if (renderer3D.value?.interactionSystem?.dimensionManager) {
+        renderer3D.value.interactionSystem.dimensionManager.update();
     }
 };
 
@@ -771,7 +779,7 @@ onBeforeUnmount(() => {
 
 const { handleGlobalKeys } = useKeyboardShortcuts({ undo, redo, handleDelete: () => handleDelete(), debouncedSaveHistory, setTool: (t) => setTool(t), toggleCategory: (c) => toggleCategory(c) });
 
-const { saveCurrentLevelState, updateStaticLevelData, switchLevel, addLevel, deleteLevel, updateLevelDetails } = useLevelManager({ handleDeselect: () => handleDeselect(), refresh3DScene: (b) => refresh3DScene(b), saveHistory });
+const { saveCurrentLevelState, updateStaticLevelData, switchLevel, addLevel, deleteLevel, updateLevelDetails, setReferenceLevelIndex, setReferenceOpacity, projectWallsFromReference } = useLevelManager({ handleDeselect: () => handleDeselect(), refresh3DScene: (b) => refresh3DScene(b), saveHistory });
 
 watch(() => selectedEntity.value?.params?.isEditingMaterials, (newVal) => {
     if (renderer3D.value) {
