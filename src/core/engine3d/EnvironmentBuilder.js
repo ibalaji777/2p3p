@@ -320,7 +320,7 @@ export class EnvironmentBuilder {
 
                             // Bounding overlap check with room
                             let minRx = Infinity, maxRx = -Infinity, minRy = Infinity, maxRy = -Infinity;
-                            path.forEach(p => {
+                            cleanPath.forEach(p => {
                                 if (p.x < minRx) minRx = p.x; if (p.x > maxRx) maxRx = p.x;
                                 if (p.y < minRy) minRy = p.y; if (p.y > maxRy) maxRy = p.y;
                             });

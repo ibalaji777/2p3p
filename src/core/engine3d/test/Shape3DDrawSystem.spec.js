@@ -233,7 +233,54 @@ describe('Shape3DDrawSystem - Direct 3D Shape Drawing Pipeline', () => {
         expect(createdShape.params.stroke).toBe('#ef4444');
     });
 
-    it('6. should cancel drawing on Escape key and reset ghost preview', () => {
+    it('6. should complete 3D Polygon on Double-Click / Double-Tap', () => {
+        mockPlanner.tool = 'shape_polygon';
+
+        // Point 1 (0, 0)
+        drawSystem.getRaycastHit = vi.fn(() => ({ point: new THREE.Vector3(0, 0, 0), screenX: 400, screenY: 300 }));
+        drawSystem.onPointerDown({ button: 0 });
+
+        // Point 2 (100, 0)
+        drawSystem.getRaycastHit = vi.fn(() => ({ point: new THREE.Vector3(100, 0, 0), screenX: 500, screenY: 300 }));
+        drawSystem.onPointerDown({ button: 0 });
+
+        // Point 3 (80, 80)
+        drawSystem.getRaycastHit = vi.fn(() => ({ point: new THREE.Vector3(80, 0, 80), screenX: 480, screenY: 380 }));
+        drawSystem.onPointerDown({ button: 0 });
+
+        // Point 4 (10, 80) with double click (e.detail = 2)
+        drawSystem.getRaycastHit = vi.fn(() => ({ point: new THREE.Vector3(10, 0, 80), screenX: 410, screenY: 380 }));
+        drawSystem.onPointerDown({ button: 0, detail: 2 });
+
+        expect(drawSystem.drawing).toBe(false);
+        expect(mockPlanner.shapes.length).toBe(1);
+        expect(mockPlanner.shapes[0].type).toBe('shape_polygon');
+    });
+
+    it('7. should complete 3D Polygon on clicking start point', () => {
+        mockPlanner.tool = 'shape_polygon';
+
+        // Point 1 (0, 0)
+        drawSystem.getRaycastHit = vi.fn(() => ({ point: new THREE.Vector3(0, 0, 0), screenX: 400, screenY: 300 }));
+        drawSystem.onPointerDown({ button: 0 });
+
+        // Point 2 (100, 0)
+        drawSystem.getRaycastHit = vi.fn(() => ({ point: new THREE.Vector3(100, 0, 0), screenX: 500, screenY: 300 }));
+        drawSystem.onPointerDown({ button: 0 });
+
+        // Point 3 (80, 80)
+        drawSystem.getRaycastHit = vi.fn(() => ({ point: new THREE.Vector3(80, 0, 80), screenX: 480, screenY: 380 }));
+        drawSystem.onPointerDown({ button: 0 });
+
+        // Click back near Point 1 (0, 0) -> closes polygon!
+        drawSystem.getRaycastHit = vi.fn(() => ({ point: new THREE.Vector3(2, 0, 1), screenX: 402, screenY: 301 }));
+        drawSystem.onPointerDown({ button: 0 });
+
+        expect(drawSystem.drawing).toBe(false);
+        expect(mockPlanner.shapes.length).toBe(1);
+    });
+
+    it('8. should cancel drawing on Escape key and reset ghost preview', () => {
         mockPlanner.tool = 'shape_rect';
 
         drawSystem.getRaycastHit = vi.fn(() => ({

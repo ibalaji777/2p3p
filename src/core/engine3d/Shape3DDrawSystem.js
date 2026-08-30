@@ -299,6 +299,7 @@ export class Shape3DDrawSystem {
         const planner = this.getPlanner();
         const isFloorCut = tool === 'shape_floor_cut';
         const height3D = planner?.activePresetParams?.height3D || 100;
+        const cy = this.getElevation();
 
         if (this.drawing && this.startPoint) {
             if (tool === 'shape_rect' || (isFloorCut && this.drawingPoints.length === 0)) {
@@ -312,7 +313,6 @@ export class Shape3DDrawSystem {
                 const d = Math.max(1, maxZ - minZ);
                 const cx = (minX + maxX) / 2;
                 const cz = (minZ + maxZ) / 2;
-                const cy = this.getElevation();
 
                 this.ghostBoxMesh.material = isFloorCut ? this.ghostFloorCutMat : this.ghostMat;
                 this.ghostBoxEdges.material = isFloorCut ? this.ghostFloorCutEdgeMat : this.ghostEdgeMat;
@@ -334,7 +334,6 @@ export class Shape3DDrawSystem {
                 const dx = pt.x - this.startPoint.x;
                 const dz = pt.z - this.startPoint.z;
                 const r = Math.max(1, Math.hypot(dx, dz));
-                const cy = this.getElevation();
 
                 this.ghostCylMesh.scale.set(r, height3D, r);
                 this.ghostCylMesh.position.set(this.startPoint.x, cy + height3D / 2, this.startPoint.z);
@@ -349,20 +348,35 @@ export class Shape3DDrawSystem {
 
             } else if (tool === 'shape_triangle' || tool === 'shape_polygon' || (isFloorCut && this.drawingPoints.length > 0)) {
                 // Point chain preview
-                const allPts = [...this.drawingPoints, pt];
+                const startP = this.drawingPoints[0];
+                const distToStartWorld = startP ? Math.hypot(pt.x - startP.x, pt.z - startP.z) : Infinity;
+                const startScreen = startP ? this.toScreenSpace(new THREE.Vector3(startP.x, cy, startP.z)) : { x: -999, y: -999 };
+                const distToStartScreen = Math.hypot(hit.screenX - startScreen.x, hit.screenY - startScreen.y);
+                const isNearStart = this.drawingPoints.length >= 3 && (distToStartWorld < 35 || distToStartScreen < 35);
+                const targetPt = isNearStart ? startP.clone() : pt;
+
+                const allPts = [...this.drawingPoints, targetPt];
                 this._updatePolygonGhost(allPts, height3D, isFloorCut);
 
-                const centerScreen = this.toScreenSpace(new THREE.Vector3(pt.x, this.getElevation() + height3D, pt.z));
-                const count = allPts.length;
+                if (isNearStart) {
+                    this.vertexMarker.position.set(startP.x, cy + 0.3, startP.z);
+                    this.vertexMarker.material.color.setHex(0x10b981); // Emerald green for close snap
+                } else {
+                    this.vertexMarker.material.color.setHex(0x00f0ff);
+                }
+
+                const centerScreen = this.toScreenSpace(new THREE.Vector3(targetPt.x, cy + height3D, targetPt.z));
+                const count = this.drawingPoints.length;
                 const label = tool === 'shape_triangle' ? `Prism (Point ${count}/3)` : `Polygon (${count} points)`;
-                this._updateDOMBadge(`<strong>${label}</strong>: Click to add vertex`, centerScreen, isFloorCut);
+                const actionHint = isNearStart ? 'Click to close shape' : 'Click next point • <em>Double-click</em> to finish';
+                this._updateDOMBadge(`<strong>${label}</strong>: ${actionHint}`, centerScreen, isFloorCut);
             }
         } else {
             // Hovering before first click
             const label = tool === 'shape_rect' ? 'Box: Click to start drawing' :
                           tool === 'shape_circle' ? 'Cylinder: Click center' :
                           tool === 'shape_triangle' ? 'Prism: Click point 1' :
-                          tool === 'shape_floor_cut' ? 'Floor Cut: Click to draw hole' : 'Shape: Click to draw';
+                          tool === 'shape_floor_cut' ? 'Floor Cut: Click to draw hole' : 'Polygon: Click to start points';
             const screenPos = this.toScreenSpace(pt);
             this._updateDOMBadge(label, screenPos, isFloorCut);
         }
@@ -414,6 +428,54 @@ export class Shape3DDrawSystem {
         this.ghostPrismEdges.visible = true;
     }
 
+    _finishPolygon(planner, height3D, isFloorCut, currentElev) {
+        if (!this.drawingPoints || this.drawingPoints.length < 3) return;
+
+        // Clean up duplicate or near-collinear closing points
+        const rawPts = this.drawingPoints.map(p => ({ x: p.x, y: p.z }));
+        const pts = [];
+        for (let i = 0; i < rawPts.length; i++) {
+            if (pts.length === 0 || Math.hypot(rawPts[i].x - pts[pts.length - 1].x, rawPts[i].y - pts[pts.length - 1].y) > 0.5) {
+                pts.push(rawPts[i]);
+            }
+        }
+        if (pts.length > 2 && Math.hypot(pts[pts.length - 1].x - pts[0].x, pts[pts.length - 1].y - pts[0].y) < 1.0) {
+            pts.pop();
+        }
+        if (pts.length < 3) return;
+
+        let cx = 0, cz = 0;
+        pts.forEach(p => { cx += p.x; cz += p.y; });
+        cx /= pts.length; cz /= pts.length;
+        const relPts = pts.map(p => ({ x: p.x - cx, y: p.y - cz }));
+
+        if (isFloorCut) {
+            const newShape = new PremiumShape(planner, 'shape_floor_cut', {
+                x: cx,
+                y: cz,
+                points: relPts,
+                stroke: '#ef4444',
+                fill: 'rgba(239, 68, 68, 0.2)'
+            });
+            newShape.elevation = currentElev;
+            if (!planner.shapes) planner.shapes = [];
+            planner.shapes.push(newShape);
+            planner.selectEntity(newShape, 'shape');
+        } else {
+            const newShape = new PremiumShape(planner, 'shape_polygon', {
+                x: cx,
+                y: cz,
+                points: relPts,
+                height3D: height3D
+            });
+            newShape.elevation = currentElev;
+            if (!planner.shapes) planner.shapes = [];
+            planner.shapes.push(newShape);
+            planner.selectEntity(newShape, 'shape');
+        }
+        this._commitAndFinish(planner);
+    }
+
     onPointerDown(e) {
         if (!this.isShapeDrawingTool()) return false;
         if (e.button !== 0) return false;
@@ -434,6 +496,10 @@ export class Shape3DDrawSystem {
         const isFloorCut = tool === 'shape_floor_cut';
         const currentElev = this.getElevation();
 
+        const now = Date.now();
+        const isDblClick = (this.lastTapTime && now - this.lastTapTime < 450) || (e.detail && e.detail >= 2);
+        this.lastTapTime = now;
+
         if (!this.drawing) {
             // First Click
             this.drawing = true;
@@ -448,6 +514,14 @@ export class Shape3DDrawSystem {
             if (this.ctx.requestRender) this.ctx.requestRender();
             return true;
         } else {
+            // Check double click completion for polygon or polygon floor cut
+            if (isDblClick && (tool === 'shape_polygon' || (isFloorCut && this.drawingPoints.length >= 2))) {
+                if (this.drawingPoints.length >= 3) {
+                    this._finishPolygon(planner, height3D, isFloorCut, currentElev);
+                    return true;
+                }
+            }
+
             // Second / Subsequent Click
             if (tool === 'shape_rect' || (isFloorCut && this.drawingPoints.length === 0)) {
                 const minX = Math.min(this.startPoint.x, pt.x);
@@ -535,29 +609,15 @@ export class Shape3DDrawSystem {
                 }
                 return true;
 
-            } else if (tool === 'shape_polygon') {
+            } else if (tool === 'shape_polygon' || (isFloorCut && this.drawingPoints.length > 0)) {
                 const startP = this.drawingPoints[0];
-                const distToStart = Math.hypot(pt.x - startP.x, pt.z - startP.z);
+                const distToStartWorld = Math.hypot(pt.x - startP.x, pt.z - startP.z);
+                const startScreen = this.toScreenSpace(new THREE.Vector3(startP.x, currentElev, startP.z));
+                const distToStartScreen = Math.hypot(hit.screenX - startScreen.x, hit.screenY - startScreen.y);
 
-                if (distToStart < SNAP_DIST && this.drawingPoints.length >= 3) {
-                    // Close polygon
-                    const pts = this.drawingPoints.map(p => ({ x: p.x, y: p.z }));
-                    let cx = 0, cz = 0;
-                    pts.forEach(p => { cx += p.x; cz += p.y; });
-                    cx /= pts.length; cz /= pts.length;
-                    const relPts = pts.map(p => ({ x: p.x - cx, y: p.y - cz }));
-
-                    const newShape = new PremiumShape(planner, 'shape_polygon', {
-                        x: cx,
-                        y: cz,
-                        points: relPts,
-                        height3D: height3D
-                    });
-                    newShape.elevation = currentElev;
-                    if (!planner.shapes) planner.shapes = [];
-                    planner.shapes.push(newShape);
-                    planner.selectEntity(newShape, 'shape');
-                    this._commitAndFinish(planner);
+                if (this.drawingPoints.length >= 3 && (distToStartWorld < 35 || distToStartScreen < 35)) {
+                    // Close polygon at start vertex
+                    this._finishPolygon(planner, height3D, isFloorCut, currentElev);
                 } else {
                     this.drawingPoints.push(pt.clone());
                 }
@@ -688,6 +748,14 @@ export class Shape3DDrawSystem {
     _onKeyDown(e) {
         if (e.key === 'Escape' && this.drawing) {
             this.cancelDrawing();
+        } else if ((e.key === 'Enter' || e.key === ' ') && this.drawing && this.drawingPoints.length >= 3) {
+            const planner = this.getPlanner();
+            if (planner) {
+                const height3D = planner.activePresetParams?.height3D || 100;
+                const isFloorCut = this.getNormalizedTool() === 'shape_floor_cut';
+                const currentElev = this.getElevation();
+                this._finishPolygon(planner, height3D, isFloorCut, currentElev);
+            }
         }
     }
 
