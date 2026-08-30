@@ -468,7 +468,9 @@ const advanceOpeningsCatalog = ref([
 const shapesCatalog = ref([
     { id: 'shape_box', name: 'Box (Rectangle)', badge: '3D', material: 'Solid Box', image: '', toolId: 'shape_rect', params: { type: 'shape_rect' } },
     { id: 'shape_cyl', name: 'Cylinder (Circle)', badge: '3D', material: 'Cylinder', image: '', toolId: 'shape_circle', params: { type: 'shape_circle' } },
-    { id: 'shape_prism', name: 'Prism (Polygon)', badge: '3D', material: 'Triangular Prism', image: '', toolId: 'shape_triangle', params: { type: 'shape_triangle' } }
+    { id: 'shape_prism', name: 'Prism (Triangle)', badge: '3D', material: 'Triangular Prism', image: '', toolId: 'shape_triangle', params: { type: 'shape_triangle' } },
+    { id: 'shape_polygon', name: 'Polygon (Freeform)', badge: '3D', material: 'Extruded Polygon', image: '', toolId: 'shape_polygon', params: { type: 'shape_polygon' } },
+    { id: 'shape_floor_cut', name: 'Floor Cut (Void)', badge: 'VOID', material: 'Floor Cutout Hole', image: '', toolId: 'shape_floor_cut', params: { type: 'shape_floor_cut' } }
 ]);
 
 const wallsCatalog = ref([

@@ -12,6 +12,7 @@ import { RoofOverhangGizmo } from '../../features/roof/RoofOverhangGizmo.js';
 import { PolygonGizmo } from './PolygonGizmo.js';
 import { WallPushPullGizmo } from './WallPushPullGizmo.js';
 import { Wall3DDrawSystem } from './Wall3DDrawSystem.js';
+import { Shape3DDrawSystem } from './Shape3DDrawSystem.js';
 import { WallPlugin3DPlacementSystem } from './WallPlugin3DPlacementSystem.js';
 import { Stair3DPlacementSystem } from './Stair3DPlacementSystem.js';
 import { Furniture3DPlacementSystem } from './Furniture3DPlacementSystem.js';
@@ -453,6 +454,7 @@ export class InteractionSystem {
         this.ctx.scene.add(this.wallPushPullGizmo);
 
         this.wall3DDrawSystem = new Wall3DDrawSystem(ctx, this);
+        this.shape3DDrawSystem = new Shape3DDrawSystem(ctx, this);
         this.wallPluginPlacementSystem = new WallPlugin3DPlacementSystem(ctx, this);
         this.stairPlacementSystem = new Stair3DPlacementSystem(ctx, this);
         this.furniturePlacementSystem = new Furniture3DPlacementSystem(ctx, this);
@@ -484,6 +486,11 @@ export class InteractionSystem {
             // Direct 3D Wall / Room Drawing System
             if (this.wall3DDrawSystem && this.wall3DDrawSystem.isWallDrawingTool()) {
                 if (this.wall3DDrawSystem.onPointerDown(e)) return;
+            }
+
+            // Direct 3D Shape & Floor Cut Drawing System
+            if (this.shape3DDrawSystem && this.shape3DDrawSystem.isShapeDrawingTool()) {
+                if (this.shape3DDrawSystem.onPointerDown(e)) return;
             }
 
             // Direct 3D Door / Window / Wall Plugin Placement System
@@ -597,6 +604,11 @@ export class InteractionSystem {
                 return;
             }
 
+            // Direct 3D Shape & Floor Cut Drawing System
+            if (this.shape3DDrawSystem && this.shape3DDrawSystem.isShapeDrawingTool()) {
+                if (this.shape3DDrawSystem.onPointerMove(e)) return;
+            }
+
             // Direct 3D Door / Window / Wall Plugin Placement System
             if (this.wallPluginPlacementSystem && this.wallPluginPlacementSystem.isPlacementTool()) {
                 if (this.wallPluginPlacementSystem.onPointerMove(e)) return;
@@ -653,8 +665,16 @@ export class InteractionSystem {
             }
         };
 
+        this._onPointerUp = (e) => {
+            if (this.ctx.viewMode3D === 'preview') return;
+            if (this.shape3DDrawSystem && this.shape3DDrawSystem.isShapeDrawingTool()) {
+                if (this.shape3DDrawSystem.onPointerUp(e)) return;
+            }
+        };
+
         dom.addEventListener('pointerdown', this._onPointerDown);
         dom.addEventListener('pointermove', this._onPointerMove);
+        dom.addEventListener('pointerup', this._onPointerUp);
     }
 
     setTransformMode(mode) {
@@ -901,6 +921,7 @@ export class InteractionSystem {
         if (dom) {
             if (this._onPointerDown) dom.removeEventListener('pointerdown', this._onPointerDown);
             if (this._onPointerMove) dom.removeEventListener('pointermove', this._onPointerMove);
+            if (this._onPointerUp) dom.removeEventListener('pointerup', this._onPointerUp);
         }
 
         if (this.openingGizmo && this.openingGizmo.dispose) this.openingGizmo.dispose();
@@ -912,6 +933,7 @@ export class InteractionSystem {
         if (this.polygonGizmo && this.polygonGizmo.dispose) this.polygonGizmo.dispose();
         if (this.wallPushPullGizmo && this.wallPushPullGizmo.dispose) this.wallPushPullGizmo.dispose();
         if (this.wall3DDrawSystem && this.wall3DDrawSystem.dispose) this.wall3DDrawSystem.dispose();
+        if (this.shape3DDrawSystem && this.shape3DDrawSystem.destroy) this.shape3DDrawSystem.destroy();
         if (this.wallPluginPlacementSystem && this.wallPluginPlacementSystem.dispose) this.wallPluginPlacementSystem.dispose();
         if (this.stairPlacementSystem && this.stairPlacementSystem.dispose) this.stairPlacementSystem.dispose();
         if (this.furniturePlacementSystem && this.furniturePlacementSystem.dispose) this.furniturePlacementSystem.dispose();

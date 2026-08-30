@@ -119,6 +119,16 @@ export function useAppTools({
                 };
                 planner.value.activePresetParams = activePresetParams.value;
             }
+        } else if (tool && (tool.startsWith('shape_') || tool === 'shape_catalog')) {
+            if (!activePresetParams.value || activePresetParams.value.type !== tool) {
+                activePresetParams.value = {
+                    type: tool,
+                    height3D: 100,
+                    fill: '#f0f4f8',
+                    stroke: '#9ca3af'
+                };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
         } else {
             activePresetParams.value = null;
             planner.value.activePresetParams = null;
