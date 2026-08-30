@@ -479,7 +479,6 @@ export class InteractionSystem {
         
         this._onPointerDown = (e) => {
             if (this.ctx.viewMode3D === 'preview') return;
-            if (this.mode === 'camera') return;
             this.updateMouse(e);
 
             // Direct 3D Wall / Room Drawing System
@@ -501,6 +500,8 @@ export class InteractionSystem {
             if (this.furniturePlacementSystem && this.furniturePlacementSystem.isPlacementTool()) {
                 if (this.furniturePlacementSystem.onPointerDown(e)) return;
             }
+
+            if (this.mode === 'camera') return;
 
             if (this.transformControls && this.transformControls.active) return;
             if (e.button !== 0) return;
@@ -588,7 +589,6 @@ export class InteractionSystem {
 
         this._onPointerMove = (e) => {
             if (this.ctx.viewMode3D === 'preview') return;
-            if (this.mode === 'camera') return;
             this.updateMouse(e);
 
             // Direct 3D Wall / Room Drawing System
@@ -611,6 +611,8 @@ export class InteractionSystem {
             if (this.furniturePlacementSystem && this.furniturePlacementSystem.isPlacementTool()) {
                 if (this.furniturePlacementSystem.onPointerMove(e)) return;
             }
+
+            if (this.mode === 'camera') return;
 
             if (this.transformControls && this.transformControls.active) return;
             

@@ -11,7 +11,7 @@ import { ComponentRegistry } from './ComponentRegistry.js';
  * WallPlugin3DPlacementSystem
  * 
  * Direct Sims 4-Style 3D Wall Placement & Real-Time Wall Aperture Highlighting.
- * Supports:
+ * Supports Mobile & Desktop:
  * - Doors, Windows, Jali Panels, and Custom Openings
  * - Curtains, Drapes, Roman & Roller Blinds
  * - Framed Canvas Wall Art & Photo Galleries
@@ -83,32 +83,113 @@ export class WallPlugin3DPlacementSystem {
         this.modelPreviewGroup.raycast = () => {};
         this.placementGroup.add(this.modelPreviewGroup);
 
-        // Floating DOM HUD Badge
+        // 4. Create Stable Static DOM HUD Action Bar
+        this.createBadgeDOM();
+
+        this._lastToolKey = null;
+    }
+
+    createBadgeDOM() {
         this.badgeDom = document.createElement('div');
         this.badgeDom.id = 'sims4-wall-plugin-badge';
         this.badgeDom.style.cssText = `
             position: fixed;
             display: none;
-            pointer-events: none;
-            background: rgba(15, 23, 42, 0.92);
-            backdrop-filter: blur(10px);
-            border: 1.5px solid rgba(56, 189, 248, 0.8);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-            border-radius: 8px;
-            padding: 6px 14px;
+            pointer-events: auto;
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(16px);
+            border: 1.5px solid rgba(56, 189, 248, 0.85);
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65);
+            border-radius: 12px;
+            padding: 9px 13px;
             color: #f8fafc;
-            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             font-size: 12px;
             font-weight: 600;
             letter-spacing: 0.3px;
-            z-index: 9999;
-            transform: translate(-50%, -135%);
-            white-space: nowrap;
-            transition: border-color 0.15s ease, background 0.15s ease;
+            z-index: 100000;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            transition: opacity 0.15s ease, transform 0.1s ease;
+        `;
+
+        this.badgeDom.innerHTML = `
+            <div style="display: flex; flex-direction: column; gap: 6px; min-width: 250px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 7px;">
+                        <span id="wall-ui-dot" style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #00f0ff; box-shadow: 0 0 10px #00f0ff;"></span>
+                        <span id="wall-ui-title" style="color: #38bdf8; font-weight: 700; font-size: 12px;">Door / Window</span>
+                    </div>
+                    <span id="wall-ui-side" style="color: #94a3b8; font-size: 11px;">Face: <strong id="wall-ui-facetxt" style="color: #38bdf8;">FRONT</strong></span>
+                </div>
+                
+                <div id="wall-ui-specs" style="color: #cbd5e1; font-size: 11px; font-weight: 500;">
+                    120 cm ← → 180 cm
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 6px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.12); margin-top: 2px;">
+                    <button id="wall-ui-btn-flip" type="button" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; background: rgba(56, 189, 248, 0.22); border: 1.5px solid rgba(56, 189, 248, 0.6); color: #38bdf8; border-radius: 7px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; touch-action: manipulation;">
+                        ⇄ Flip Face
+                    </button>
+                    <button id="wall-ui-btn-place" type="button" style="flex: 1.3; display: flex; align-items: center; justify-content: center; gap: 4px; background: rgba(16, 185, 129, 0.3); border: 1.5px solid rgba(16, 185, 129, 0.8); color: #34d399; border-radius: 7px; padding: 6px 12px; font-size: 12px; font-weight: 700; cursor: pointer; touch-action: manipulation;">
+                        ✓ Place
+                    </button>
+                    <button id="wall-ui-btn-cancel" type="button" style="display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.22); border: 1.5px solid rgba(239, 68, 68, 0.6); color: #f87171; border-radius: 7px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; touch-action: manipulation;">
+                        ✕
+                    </button>
+                </div>
+            </div>
         `;
         document.body.appendChild(this.badgeDom);
 
-        this._lastToolKey = null;
+        // Cache stable DOM references
+        this.elDot = this.badgeDom.querySelector('#wall-ui-dot');
+        this.elTitle = this.badgeDom.querySelector('#wall-ui-title');
+        this.elFaceTxt = this.badgeDom.querySelector('#wall-ui-facetxt');
+        this.elSpecs = this.badgeDom.querySelector('#wall-ui-specs');
+        this.btnFlip = this.badgeDom.querySelector('#wall-ui-btn-flip');
+        this.btnPlace = this.badgeDom.querySelector('#wall-ui-btn-place');
+        this.btnCancel = this.badgeDom.querySelector('#wall-ui-btn-cancel');
+
+        // Wire handlers
+        this.btnFlip.addEventListener('pointerdown', (e) => e.stopPropagation());
+        this.btnFlip.addEventListener('click', (ev) => {
+            ev.preventDefault(); ev.stopPropagation();
+            this.flipFace();
+        });
+
+        this.btnPlace.addEventListener('pointerdown', (e) => e.stopPropagation());
+        this.btnPlace.addEventListener('click', (ev) => {
+            ev.preventDefault(); ev.stopPropagation();
+            this.placePlugin();
+        });
+
+        this.btnCancel.addEventListener('pointerdown', (e) => e.stopPropagation());
+        this.btnCancel.addEventListener('click', (ev) => {
+            ev.preventDefault(); ev.stopPropagation();
+            const pl = this.getPlanner();
+            if (pl) {
+                pl.tool = 'select';
+                if (typeof pl.updateToolStates === 'function') pl.updateToolStates();
+                pl.syncAll();
+            }
+            this.hideGhost();
+        });
+    }
+
+    isTouchDevice() {
+        return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.innerWidth <= 768;
+    }
+
+    flipFace() {
+        if (!this.activeWall) return;
+        this.activeSide = (this.activeSide === 'front') ? 'back' : 'front';
+        if (this.elFaceTxt) this.elFaceTxt.textContent = this.activeSide.toUpperCase();
+        this._lastToolKey = null; // force preview rebuild
+        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+            this.ctx.requestRender();
+        }
     }
 
     isPlacementTool() {
@@ -127,7 +208,7 @@ export class WallPlugin3DPlacementSystem {
     }
 
     getPlanner() {
-        return this.ctx.planner || window.planner || (this.ctx.appState && this.ctx.appState.planner);
+        return this.ctx.planner || window.planner?.value || window.planner || (this.ctx.appState && this.ctx.appState.planner);
     }
 
     /**
@@ -142,7 +223,39 @@ export class WallPlugin3DPlacementSystem {
 
         const shape = new THREE.Shape();
 
-        if (profileType === 'c_shape_left') {
+        if (profileType === 'l_shape_left') {
+            shape.moveTo(-w/2, 0);
+            shape.lineTo(w/2, 0);
+            shape.lineTo(w/2, t);
+            shape.lineTo(-w/2 + t, t);
+            shape.lineTo(-w/2 + t, h);
+            shape.lineTo(-w/2, h);
+            shape.closePath();
+        } else if (profileType === 'l_shape_right') {
+            shape.moveTo(-w/2, 0);
+            shape.lineTo(w/2, 0);
+            shape.lineTo(w/2, h);
+            shape.lineTo(w/2 - t, h);
+            shape.lineTo(w/2 - t, t);
+            shape.lineTo(-w/2, t);
+            shape.closePath();
+        } else if (profileType === 'l_shape_top_left') {
+            shape.moveTo(-w/2, 0);
+            shape.lineTo(-w/2 + t, 0);
+            shape.lineTo(-w/2 + t, h - t);
+            shape.lineTo(w/2, h - t);
+            shape.lineTo(w/2, h);
+            shape.lineTo(-w/2, h);
+            shape.closePath();
+        } else if (profileType === 'l_shape_top_right') {
+            shape.moveTo(w/2 - t, 0);
+            shape.lineTo(w/2, 0);
+            shape.lineTo(w/2, h);
+            shape.lineTo(-w/2, h);
+            shape.lineTo(-w/2, h - t);
+            shape.lineTo(w/2 - t, h - t);
+            shape.closePath();
+        } else if (profileType === 'c_shape_left') {
             shape.moveTo(-w/2, 0);
             shape.lineTo(-w/2 + bArm, 0);
             shape.lineTo(-w/2 + bArm, t);
@@ -162,24 +275,7 @@ export class WallPlugin3DPlacementSystem {
             shape.lineTo(w/2 - t, t);
             shape.lineTo(w/2 - bArm, t);
             shape.closePath();
-        } else if (profileType === 'l_shape_left') {
-            shape.moveTo(-w/2, 0);
-            shape.lineTo(-w/2 + t, 0);
-            shape.lineTo(-w/2 + t, h - t);
-            shape.lineTo(-w/2 + tArm, h - t);
-            shape.lineTo(-w/2 + tArm, h);
-            shape.lineTo(-w/2, h);
-            shape.closePath();
-        } else if (profileType === 'l_shape_right') {
-            shape.moveTo(w/2 - t, 0);
-            shape.lineTo(w/2, 0);
-            shape.lineTo(w/2, h);
-            shape.lineTo(w/2 - tArm, h);
-            shape.lineTo(w/2 - tArm, h - t);
-            shape.lineTo(w/2 - t, h - t);
-            shape.closePath();
-        } else {
-            // full_box or default
+        } else if (profileType === 'box') {
             shape.moveTo(-w/2, 0);
             shape.lineTo(w/2, 0);
             shape.lineTo(w/2, h);
@@ -193,9 +289,24 @@ export class WallPlugin3DPlacementSystem {
             hole.lineTo(-w/2 + t, h - t);
             hole.closePath();
             shape.holes.push(hole);
+        } else {
+            shape.moveTo(-w/2, 0);
+            shape.lineTo(-w/2 + bArm, 0);
+            shape.lineTo(-w/2 + bArm, t);
+            shape.lineTo(-w/2 + t, t);
+            shape.lineTo(-w/2 + t, h - t);
+            shape.lineTo(-w/2 + tArm, h - t);
+            shape.lineTo(-w/2 + tArm, h);
+            shape.lineTo(-w/2, h);
+            shape.closePath();
         }
 
-        const geo = new THREE.ExtrudeGeometry(shape, { depth: depth, bevelEnabled: false });
+        const extrudeSettings = {
+            depth: depth,
+            bevelEnabled: false
+        };
+
+        const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
         geo.translate(0, 0, -depth / 2);
         return geo;
     }
@@ -210,6 +321,12 @@ export class WallPlugin3DPlacementSystem {
         const tool = planner.tool;
         const dom = this.ctx.renderer.domElement;
         const rect = dom.getBoundingClientRect();
+
+        // Canvas boundary validation
+        if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+            return false;
+        }
+
         this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
@@ -228,6 +345,10 @@ export class WallPlugin3DPlacementSystem {
         if (!wallHit) {
             this.hideGhost();
             return false;
+        }
+
+        if (this.ctx && this.ctx.controls) {
+            this.ctx.controls.enableRotate = false;
         }
 
         const hitMesh = wallHit.object;
@@ -384,20 +505,32 @@ export class WallPlugin3DPlacementSystem {
         const distFromEnd = Math.round((1 - t) * wallLen);
         const statusColor = isValid ? '#00f0ff' : '#ef4444';
         const statusText = (isMolding || isElevationTrim) 
-            ? `Side: ${side.toUpperCase()} (Full Length ${Math.round(wallLen)}cm)` 
-            : (isValid ? `${distFromStart}cm ← → ${distFromEnd}cm` : 'Space Occupied');
+            ? `Full Length ${Math.round(wallLen)} cm` 
+            : (isValid ? `${distFromStart} cm ← → ${distFromEnd} cm` : 'Space Occupied');
+
+        if (this.elDot) {
+            this.elDot.style.background = statusColor;
+            this.elDot.style.boxShadow = `0 0 10px ${statusColor}`;
+        }
+        if (this.elTitle) this.elTitle.textContent = toolLabel;
+        if (this.elFaceTxt) this.elFaceTxt.textContent = side.toUpperCase();
+        if (this.elSpecs) this.elSpecs.textContent = statusText;
+
+        const isMobileScreen = this.isTouchDevice();
+
+        if (isMobileScreen) {
+            this.badgeDom.style.left = '50%';
+            this.badgeDom.style.top = 'auto';
+            this.badgeDom.style.bottom = '90px';
+            this.badgeDom.style.transform = 'translateX(-50%)';
+        } else {
+            this.badgeDom.style.bottom = 'auto';
+            this.badgeDom.style.transform = 'translate(-50%, -135%)';
+            this.badgeDom.style.left = `${e.clientX}px`;
+            this.badgeDom.style.top = `${e.clientY}px`;
+        }
 
         this.badgeDom.style.borderColor = statusColor;
-        this.badgeDom.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: ${statusColor}; box-shadow: 0 0 10px ${statusColor};"></span>
-                <span style="color: ${statusColor}; font-weight: 700;">${toolLabel}</span>
-                <span style="color: #64748b;">|</span>
-                <span style="color: #e2e8f0;">${statusText}</span>
-            </div>
-        `;
-        this.badgeDom.style.left = `${e.clientX}px`;
-        this.badgeDom.style.top = `${e.clientY}px`;
         this.badgeDom.style.display = 'block';
 
         dom.style.cursor = isValid ? 'crosshair' : 'not-allowed';
@@ -439,12 +572,21 @@ export class WallPlugin3DPlacementSystem {
         }
 
         if (isMoldingOrTrim) {
-            const mDepth = 2.5;
-            const wallOffset = ((thick / 2) + (mDepth / 2)) * facing;
-            const cutoutY = elev + itemH / 2;
+            // For Baseboards & Moldings: shape-accurate ribbon hugging mitered wall face
+            const isCrown = tool === 'molding' || tool.includes('crown') || tool === 'elevation_frieze' || (preset?.profileType && preset?.profileType.includes('crown')) || (preset?.type && preset?.type.includes('crown'));
+            const zOffset = ((thick / 2) + 0.3) * facing;
+            const ribbonGeo = new THREE.PlaneGeometry(wallLen, itemH);
 
-            const ribbonGeo = new THREE.BoxGeometry(wallLen, itemH, mDepth);
-            ribbonGeo.translate(wallLen / 2, cutoutY, wallOffset);
+            if (isCrown) {
+                ribbonGeo.translate(wallLen / 2, wallH - itemH / 2, zOffset);
+            } else {
+                ribbonGeo.translate(wallLen / 2, elev + itemH / 2, zOffset);
+            }
+
+            if (facing === -1) {
+                ribbonGeo.rotateY(Math.PI);
+                ribbonGeo.translate(wallLen, 0, 0);
+            }
 
             if (pts && pts.length === 8) {
                 const pos = ribbonGeo.attributes.position;
@@ -639,8 +781,27 @@ export class WallPlugin3DPlacementSystem {
     }
 
     onPointerDown(e) {
+        if (!this.isPlacementTool()) return false;
+
+        const isTouch = e.pointerType === 'touch' || this.isTouchDevice();
+
+        if (!this.activeWall) {
+            this.onPointerMove(e);
+        }
+
+        // On desktop mouse: Left-click places directly
+        if (!isTouch && e.button === 0) {
+            if (this.activeWall && this.isValidPlacement) {
+                return this.placePlugin();
+            }
+        }
+
+        // On touch device: touch drags smoothly; user taps "Place" button to confirm
+        return true;
+    }
+
+    placePlugin() {
         if (!this.isPlacementTool() || !this.activeWall || this.activeT === null) return false;
-        if (e.button !== 0) return false;
         if (!this.isValidPlacement) return false;
 
         const planner = this.getPlanner();
@@ -692,34 +853,37 @@ export class WallPlugin3DPlacementSystem {
             wall.attachedMoldings.push(createdEntity);
             planner.selectEntity(createdEntity, 'molding');
         } else if (isWidget) {
-            const widgetType = isFascia ? 'elevation_fascia' : (isCurtain ? 'curtain' : (isWallArt ? 'wall_art' : tool));
+            const isDoor = tool.startsWith('door') || (preset && (preset.doorType !== undefined || preset.doorStyle !== undefined));
+            const isWindow = tool.startsWith('window') || (preset && preset.windowType !== undefined);
+            const widgetType = isDoor ? 'door' : (isWindow ? 'window' : (isFascia ? 'elevation_fascia' : (isCurtain ? 'curtain' : (isWallArt ? 'wall_art' : tool))));
+            
             createdEntity = new PremiumWidget(planner, wall, t, widgetType);
             createdEntity.facing = (side === 'back') ? -1 : 1;
             createdEntity.elevation = elev;
+            
             if (planner.activePresetParams) {
                 Object.assign(createdEntity, JSON.parse(JSON.stringify(planner.activePresetParams)));
-                createdEntity.facing = (side === 'back') ? -1 : 1;
-                createdEntity.elevation = elev;
-                createdEntity.update();
             }
+            createdEntity.type = widgetType;
+            createdEntity.configId = widgetType;
+            createdEntity.config = WIDGET_REGISTRY[widgetType];
+            createdEntity.facing = (side === 'back') ? -1 : 1;
+            createdEntity.elevation = elev;
+            
+            if (createdEntity.update) createdEntity.update();
             if (!wall.attachedWidgets) wall.attachedWidgets = [];
             if (!wall.attachedWidgets.includes(createdEntity)) {
                 wall.attachedWidgets.push(createdEntity);
             }
-            planner.selectEntity(createdEntity, 'widget');
+            planner.selectEntity(createdEntity, isDoor ? 'door' : (isWindow ? 'window' : 'widget'));
         }
 
         // Save history
         if (coreEventBus) {
             coreEventBus.emit(EVENTS.SAVE_HISTORY, { action: `Place ${tool} in 3D` });
         }
-        planner.syncAll();
 
         // 3D In-Place CAD Rebuild
-        if (this.ctx.envBuilder && this.ctx.envBuilder.buildWallGroup) {
-            this.ctx.envBuilder.buildWallGroup(wall);
-        }
-
         if (this.ctx.buildScene && planner) {
             const levelsConfigArray = (planner.levels || []).map(l => ({ data: l.data, isVisible: l.isVisible !== false }));
             this.ctx.buildScene(
@@ -736,6 +900,10 @@ export class WallPlugin3DPlacementSystem {
                 planner.outdoorZones || []
             );
         }
+
+        planner.tool = 'select';
+        if (typeof planner.updateToolStates === 'function') planner.updateToolStates();
+        planner.syncAll();
 
         if (this.ctx.requestRender) {
             this.ctx.requestRender('3D Placement Complete', 5);
@@ -761,6 +929,9 @@ export class WallPlugin3DPlacementSystem {
         this.activeWall = null;
         this.activeT = null;
         this._lastToolKey = null;
+        if (this.ctx && this.ctx.controls) {
+            this.ctx.controls.enableRotate = (this.interactions?.mode === 'camera');
+        }
         if (changed && this.ctx && typeof this.ctx.requestRender === 'function') {
             this.ctx.requestRender();
         }

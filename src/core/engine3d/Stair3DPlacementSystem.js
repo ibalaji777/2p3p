@@ -364,6 +364,10 @@ export class Stair3DPlacementSystem {
             return false;
         }
 
+        if (this.ctx && this.ctx.controls) {
+            this.ctx.controls.enableRotate = false;
+        }
+
         const preset = planner.activePresetParams || {};
 
         // Smooth Grid Snapping
@@ -701,6 +705,9 @@ export class Stair3DPlacementSystem {
         if (this.badgeDom) this.badgeDom.style.display = 'none';
         this._grabOffset.set(0, 0, 0);
         this._isGrabbing = false;
+        if (this.ctx && this.ctx.controls) {
+            this.ctx.controls.enableRotate = (this.interactions?.mode === 'camera');
+        }
         if (this.ctx && typeof this.ctx.requestRender === 'function') {
             this.ctx.requestRender();
         }

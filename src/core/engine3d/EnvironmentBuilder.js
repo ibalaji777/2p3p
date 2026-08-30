@@ -813,6 +813,19 @@ export class EnvironmentBuilder {
     }
 
     buildWallGroup(w) {
+        // Cleanly remove previous 3D wall mesh and its children before rebuilding with cutouts
+        if (w.mesh3D) {
+            if (w.mesh3D.parent) {
+                w.mesh3D.parent.remove(w.mesh3D);
+            } else if (this.ctx && this.ctx.structureGroup) {
+                this.ctx.structureGroup.remove(w.mesh3D);
+            }
+            w.mesh3D.traverse(c => {
+                if (c.geometry) c.geometry.dispose();
+            });
+            w.mesh3D = null;
+        }
+
         const matMain = getPlasterMaterial();
         const p1 = (w.startAnchor && typeof w.startAnchor.position === 'function') ? w.startAnchor.position() : (w.startAnchor || { x: w.startX || 0, y: w.startY || 0 });
         const p2 = (w.endAnchor && typeof w.endAnchor.position === 'function') ? w.endAnchor.position() : (w.endAnchor || { x: w.endX || 0, y: w.endY || 0 });
@@ -875,7 +888,9 @@ export class EnvironmentBuilder {
         (w.attachedWidgets || []).forEach(widg => {
             const hole = new THREE.Path(), wCenter = length * widg.t, halfW = widg.width / 2;
             let hasHole = false;
-            const type = widg.type || widg.configId;
+            const type = (widg.type === 'window' || widg.windowType || (widg.config && widg.config.widget === 'window') || widg.configId === 'window') ? 'window' :
+                         (widg.type === 'door' || widg.doorType || (widg.config && widg.config.widget === 'door') || widg.configId === 'door') ? 'door' :
+                         (widg.type || widg.configId);
             
             if (type === 'door') {
                 let dh = widg.height !== undefined ? widg.height : DOOR_HEIGHT;

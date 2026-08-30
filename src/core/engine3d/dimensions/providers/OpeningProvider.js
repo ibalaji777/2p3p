@@ -13,6 +13,7 @@ export class OpeningProvider extends MeasurementProvider {
         
         const w = this.entity.width || 100;
         const h = this.entity.height || (this.entity.type === 'door' ? 210 : 120);
+        const elev = this.entity.elevation !== undefined ? this.entity.elevation : (this.entity.type === 'window' ? 80 : 0);
         // Ensure full parent hierarchy world matrix is updated
         if (this.mesh.parent) {
             this.mesh.parent.updateWorldMatrix(true, true);

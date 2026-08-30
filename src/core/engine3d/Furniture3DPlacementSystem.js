@@ -270,6 +270,10 @@ export class Furniture3DPlacementSystem {
             return false;
         }
 
+        if (this.ctx && this.ctx.controls) {
+            this.ctx.controls.enableRotate = false;
+        }
+
         const preset = planner.activePresetParams || {};
 
         // Apply grab offset: preserves relative distance so the model does not jump
@@ -577,6 +581,9 @@ export class Furniture3DPlacementSystem {
         if (this.badgeDom) this.badgeDom.style.display = 'none';
         this._grabOffset.set(0, 0, 0);
         this._isGrabbing = false;
+        if (this.ctx && this.ctx.controls) {
+            this.ctx.controls.enableRotate = (this.interactions?.mode === 'camera');
+        }
         if (this.ctx && typeof this.ctx.requestRender === 'function') {
             this.ctx.requestRender();
         }
