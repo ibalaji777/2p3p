@@ -1,16 +1,16 @@
 <template>
   <aside
     class="left-sidebar"
-    v-show="(!(isMobile || isTablet) || ((isMobile || isTablet) && mobileMenuOpen && activeMobileTab === 'tools'))"
-    :class="{'mobile-panel': isMobile || isTablet}"
+    v-show="(!isMobile || (isMobile && mobileMenuOpen && activeMobileTab === 'tools'))"
+    :class="{'mobile-panel': isMobile}"
   >
     <div class="sidebar-layout">
         <!-- Far-left Icon / Expanded Navigation Dock -->
-        <div class="sidebar-dock" :class="{ 'dock-expanded': isDockExpanded && !(isMobile && !isTablet) }">
+        <div class="sidebar-dock" :class="{ 'dock-expanded': isDockExpanded && !isMobile }">
             <!-- Top Header Row: Expand/Collapse Toggle & Mobile Close -->
             <div class="dock-top-bar">
-                <!-- Close Button only on Mobile / Tablet overlays -->
-                <button v-if="isMobile || isTablet" class="dock-btn menu-toggle-btn" @click="handleDockToggle" title="Close Menu">
+                <!-- Close Button only on Mobile overlays -->
+                <button v-if="isMobile" class="dock-btn menu-toggle-btn" @click="handleDockToggle" title="Close Menu">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
                         <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -18,10 +18,10 @@
                 </button>
 
                 <!-- Header Text in Expanded Mode -->
-                <span v-if="isDockExpanded && !(isMobile && !isTablet)" class="dock-main-title">TOOLS</span>
+                <span v-if="isDockExpanded && !isMobile" class="dock-main-title">TOOLS</span>
 
                 <!-- Expand / Collapse Toggle Button (Desktop & Tablet) -->
-                <button v-if="!(isMobile && !isTablet)" class="expand-toggle-btn" @click="toggleDockExpand" :title="isDockExpanded ? 'Collapse to icons-only' : 'Expand labels'">
+                <button v-if="!isMobile" class="expand-toggle-btn" @click="toggleDockExpand" :title="isDockExpanded ? 'Collapse to icons-only' : 'Expand labels'">
                     <svg v-if="isDockExpanded" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
                     <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
                 </button>
@@ -34,7 +34,7 @@
                     <div v-if="gIdx > 0 && !isDockExpanded" class="dock-group-separator"></div>
                     
                     <!-- Group Header text in expanded mode -->
-                    <div v-if="isDockExpanded && !(isMobile && !isTablet)" class="dock-group-header">{{ group.groupLabel }}</div>
+                    <div v-if="isDockExpanded && !isMobile" class="dock-group-header">{{ group.groupLabel }}</div>
                     
                     <!-- Category Buttons with Active State & Hover Tooltips -->
                     <button v-for="cat in group.items" :key="cat.id" 
@@ -51,10 +51,10 @@
                         </div>
                         
                         <!-- Full Label (Expanded Mode) -->
-                        <span v-if="isDockExpanded && !(isMobile && !isTablet)" class="dock-item-label">{{ cat.name }}</span>
+                        <span v-if="isDockExpanded && !isMobile" class="dock-item-label">{{ cat.name }}</span>
                         
                         <!-- 4. Dark Tooltip on Hover (Collapsed Icons-Only Mode) -->
-                        <span v-if="!isDockExpanded && !(isMobile || isTablet)" class="dock-tooltip">{{ cat.name }}</span>
+                        <span v-if="!isDockExpanded && !isMobile" class="dock-tooltip">{{ cat.name }}</span>
                     </button>
                 </template>
             </div>
@@ -64,15 +64,15 @@
             <!-- Bottom Project Management & Settings Actions (MORE / SYSTEM) -->
             <div class="dock-bottom-actions">
                 <div v-if="!isDockExpanded" class="dock-group-separator"></div>
-                <div v-if="isDockExpanded && !(isMobile && !isTablet)" class="dock-group-header">MORE</div>
+                <div v-if="isDockExpanded && !isMobile" class="dock-group-header">MORE</div>
 
                 <!-- Export Project -->
                 <button class="dock-btn nav-item-btn" @click="$emit('save-project')">
                     <div class="dock-icon-wrapper">
                         <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                     </div>
-                    <span v-if="isDockExpanded && !(isMobile && !isTablet)" class="dock-item-label">Export Project</span>
-                    <span v-if="!isDockExpanded && !(isMobile || isTablet)" class="dock-tooltip">Export Project</span>
+                    <span v-if="isDockExpanded && !isMobile" class="dock-item-label">Export Project</span>
+                    <span v-if="!isDockExpanded && !isMobile" class="dock-tooltip">Export Project</span>
                 </button>
 
                 <!-- Save to Cloud -->
@@ -80,8 +80,8 @@
                     <div class="dock-icon-wrapper">
                         <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
                     </div>
-                    <span v-if="isDockExpanded && !(isMobile && !isTablet)" class="dock-item-label">Save to Cloud</span>
-                    <span v-if="!isDockExpanded && !(isMobile || isTablet)" class="dock-tooltip">Save to Cloud</span>
+                    <span v-if="isDockExpanded && !isMobile" class="dock-item-label">Save to Cloud</span>
+                    <span v-if="!isDockExpanded && !isMobile" class="dock-tooltip">Save to Cloud</span>
                 </button>
 
                 <!-- Import Project -->
@@ -89,8 +89,8 @@
                     <div class="dock-icon-wrapper">
                         <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                     </div>
-                    <span v-if="isDockExpanded && !(isMobile && !isTablet)" class="dock-item-label">Import Project</span>
-                    <span v-if="!isDockExpanded && !(isMobile || isTablet)" class="dock-tooltip">Import Project</span>
+                    <span v-if="isDockExpanded && !isMobile" class="dock-item-label">Import Project</span>
+                    <span v-if="!isDockExpanded && !isMobile" class="dock-tooltip">Import Project</span>
                 </button>
 
                 <!-- Clear Workspace -->
@@ -98,8 +98,8 @@
                     <div class="dock-icon-wrapper">
                         <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                     </div>
-                    <span v-if="isDockExpanded && !(isMobile && !isTablet)" class="dock-item-label">Clear All</span>
-                    <span v-if="!isDockExpanded && !(isMobile || isTablet)" class="dock-tooltip">Clear All</span>
+                    <span v-if="isDockExpanded && !isMobile" class="dock-item-label">Clear All</span>
+                    <span v-if="!isDockExpanded && !isMobile" class="dock-tooltip">Clear All</span>
                 </button>
 
                 <!-- About & Credits -->
@@ -107,15 +107,15 @@
                     <div class="dock-icon-wrapper">
                         <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                     </div>
-                    <span v-if="isDockExpanded && !(isMobile && !isTablet)" class="dock-item-label">About & Credits</span>
-                    <span v-if="!isDockExpanded && !(isMobile || isTablet)" class="dock-tooltip">About & Credits</span>
+                    <span v-if="isDockExpanded && !isMobile" class="dock-item-label">About & Credits</span>
+                    <span v-if="!isDockExpanded && !isMobile" class="dock-tooltip">About & Credits</span>
                 </button>
             </div>
             <input type="file" id="fileInput" @change="$emit('file-uploaded', $event)" style="display: none" accept=".json"/>
         </div>
 
         <!-- Main Modern Catalog Submenu Drawer Panel -->
-        <div class="sidebar-submenu modern-panel" :class="{ 'with-expanded-dock': isDockExpanded && !(isMobile && !isTablet) }" v-if="activeCategoryObj">
+        <div class="sidebar-submenu modern-panel" :class="{ 'with-expanded-dock': isDockExpanded && !isMobile }" v-if="activeCategoryObj">
             <!-- Header with Title & Close button -->
             <div class="drawer-header">
                 <h2 class="drawer-title">{{ activeCategoryObj.name }}</h2>
@@ -223,8 +223,8 @@
             </div>
         </div>
 
-        <!-- Fallback Quick-Select Dashboard for Mobile/Tablet when No Category is Active -->
-        <div class="sidebar-submenu modern-panel fallback-panel" v-else-if="isMobile || isTablet">
+        <!-- Fallback Quick-Select Dashboard for Mobile when No Category is Active -->
+        <div class="sidebar-submenu modern-panel fallback-panel" v-else-if="isMobile">
             <div class="drawer-header">
                 <h2 class="drawer-title">Tools & Catalogs</h2>
                 <button class="drawer-close-btn" @click="$emit('close-mobile-menu')" title="Close Panel">
@@ -339,14 +339,14 @@ onUnmounted(() => {
 });
 
 const handleClosePanel = () => {
-    if (props.isMobile || props.isTablet) {
+    if (props.isMobile) {
         emit('close-mobile-menu');
     }
     emit('toggle-category', props.activeCategory);
 };
 
 const handleDockToggle = () => {
-    if (props.isMobile || props.isTablet) {
+    if (props.isMobile) {
         emit('close-mobile-menu');
     } else {
         emit('toggle-menu');

@@ -11,24 +11,37 @@ export class ThumbnailGenerator {
     constructor(ctx) {
         this.ctx = ctx;
         
-        // Create an offscreen renderer
-        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-        this.renderer.setSize(512, 512); // High resolution for sharp downscaling
-        this.renderer.setPixelRatio(2); // High DPI for crispness
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer, photorealistic shadows
-        if (THREE.SRGBColorSpace) this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 1.25;
+        // Create an offscreen renderer with headless fallback
+        try {
+            this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+            this.renderer.setSize(512, 512); // High resolution for sharp downscaling
+            this.renderer.setPixelRatio(2); // High DPI for crispness
+            this.renderer.shadowMap.enabled = true;
+            this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer, photorealistic shadows
+            if (THREE.SRGBColorSpace) this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+            this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            this.renderer.toneMappingExposure = 1.25;
+        } catch (e) {
+            this.renderer = {
+                setSize: () => {},
+                setPixelRatio: () => {},
+                shadowMap: {},
+                render: () => {},
+                domElement: { toDataURL: () => 'data:image/png;base64,mock' }
+            };
+        }
 
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0xf8fafc); // Clean neutral catalog background
 
         // Photorealistic Studio Lighting for PBR
-        // We use a blended RoomEnvironment for subtle reflections, and strong directional for contrast
-        const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
-        this.scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
-        this.scene.environmentIntensity = 0.8; // Lower intensity to prevent washout while keeping reflections
+        if (this.renderer.capabilities) {
+            try {
+                const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
+                this.scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+                this.scene.environmentIntensity = 0.8; // Lower intensity to prevent washout while keeping reflections
+            } catch (e) {}
+        }
         
         // Exact Lighting Match to EnvironmentBuilder.js
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x888888, 1.1);
@@ -85,7 +98,7 @@ export class ThumbnailGenerator {
         else if (ROOF_REGISTRY && type.startsWith('roof')) registryConfig = ROOF_REGISTRY['roof'];
         else if (ROOF_REGISTRY && type === 'dormer') registryConfig = ROOF_REGISTRY['dormer'];
 
-        const allowedNonWidgets = ['staircase', 'roof', 'dormer', 'outer', 'inner', 'arc', 'shape_rect', 'shape_circle', 'shape_triangle', 'railing', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'material_preview', 'material_preview_box'];
+        const allowedNonWidgets = ['staircase', 'roof', 'dormer', 'outer', 'inner', 'compound', 'arc', 'shape_rect', 'shape_circle', 'shape_triangle', 'shape_polygon', 'shape_floor_cut', 'shape_box', 'shape_cyl', 'shape_prism', 'railing', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'opening', 'material_preview', 'material_preview_box'];
         
         if (!registryConfig && !allowedNonWidgets.includes(type)) return null;
 
@@ -167,48 +180,229 @@ export class ThumbnailGenerator {
                 } catch (e) {}
             }
             
-            // Dummy entity based on preset params
-            const entity = { ...params };
-            if (!entity.width) entity.width = type.startsWith('rail') ? 150 : (registryConfig?.defaultConfig?.width || 40);
-            if (!entity.height) entity.height = type.startsWith('rail') ? 40 : (registryConfig?.defaultConfig?.height || (type === 'door' ? 84 : 48));
-            
-            entity.wall = { thickness: 10, config: { thickness: 10 } };
-            entity.thick = 10;
-            entity.localX = 0; entity.x = 0; entity.z = 0; entity.angle = 0;
-            if (entity.facing === undefined) entity.facing = registryConfig?.defaultConfig?.facing || 1;
-            if (entity.side === undefined) entity.side = registryConfig?.defaultConfig?.side || 1;
+            // Dedicated 3D Wall Openings Procedural Section
+            if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'opening'].includes(type)) {
+                const wallW = 80;
+                const wallH = 90;
+                const wallThick = 12;
+                const wallShape = new THREE.Shape();
+                wallShape.moveTo(-wallW / 2, 0);
+                wallShape.lineTo(wallW / 2, 0);
+                wallShape.lineTo(wallW / 2, wallH);
+                wallShape.lineTo(-wallW / 2, wallH);
+                wallShape.closePath();
 
-            if (registryConfig && registryConfig.render3D) {
-                const widgetGroup = await registryConfig.render3D(group, entity, this.ctx.helpers);
-            } else if (FURNITURE_REGISTRY && FURNITURE_REGISTRY[type]) {
-                const furnitureManager = new FurnitureManager(this.ctx);
-                const defaultW = FURNITURE_REGISTRY[type]?.default?.width || 60;
-                const defaultH = FURNITURE_REGISTRY[type]?.default?.height || 60;
-                const defaultD = FURNITURE_REGISTRY[type]?.default?.depth || 60;
+                if (type === 'arch_opening') {
+                    const hw = 22;
+                    const straightH = 45;
+                    const hole = new THREE.Path();
+                    hole.moveTo(-hw, 0);
+                    hole.lineTo(hw, 0);
+                    hole.lineTo(hw, straightH);
+                    hole.absarc(0, straightH, hw, 0, Math.PI, false);
+                    hole.lineTo(-hw, 0);
+                    wallShape.holes.push(hole);
+                } else if (type === 'circular_opening') {
+                    const hole = new THREE.Path();
+                    hole.absellipse(0, 45, 22, 22, 0, Math.PI * 2, false, 0);
+                    wallShape.holes.push(hole);
+                } else if (type === 'custom_shape_opening') {
+                    const hole = new THREE.Path();
+                    hole.moveTo(0, 22);
+                    hole.lineTo(24, 45);
+                    hole.lineTo(0, 68);
+                    hole.lineTo(-24, 45);
+                    hole.closePath();
+                    wallShape.holes.push(hole);
+                } else if (type === 'pattern_opening') {
+                    for (let r = 0; r < 3; r++) {
+                        for (let c = 0; c < 3; c++) {
+                            const cellHole = new THREE.Path();
+                            const cx = -16 + c * 16;
+                            const cy = 29 + r * 16;
+                            const sz = 6;
+                            cellHole.moveTo(cx - sz, cy - sz);
+                            cellHole.lineTo(cx + sz, cy - sz);
+                            cellHole.lineTo(cx + sz, cy + sz);
+                            cellHole.lineTo(cx - sz, cy + sz);
+                            cellHole.closePath();
+                            wallShape.holes.push(cellHole);
+                        }
+                    }
+                } else if (type === 'niche_recess') {
+                    const recessW = 42, recessH = 52, recessD = 6;
+                    const nicheGeo = new THREE.BoxGeometry(recessW, recessH, recessD);
+                    const nicheMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.35, metalness: 0.1 });
+                    const nicheMesh = new THREE.Mesh(nicheGeo, nicheMat);
+                    nicheMesh.position.set(0, 45, (wallThick / 2) - (recessD / 2) + 0.1);
+                    group.add(nicheMesh);
+                } else {
+                    const hw = 24, oh = 58;
+                    const hole = new THREE.Path();
+                    hole.moveTo(-hw, 0);
+                    hole.lineTo(hw, 0);
+                    hole.lineTo(hw, oh);
+                    hole.lineTo(-hw, oh);
+                    hole.closePath();
+                    wallShape.holes.push(hole);
+                }
 
-                const sW = params?.width || defaultW;
-                const sH = params?.height || defaultH;
-                const sD = params?.depth || defaultD;
+                const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: wallThick, bevelEnabled: true, bevelThickness: 0.8, bevelSize: 0.8, bevelSegments: 2 });
+                wallGeo.translate(0, 0, -wallThick / 2);
 
-                const mesh = await furnitureManager.load({
-                    ...entity,
-                    configId: type,
-                    width: sW,
-                    height: sH,
-                    depth: sD
+                const wallMat = new THREE.MeshStandardMaterial({
+                    color: 0xf1f5f9,
+                    roughness: 0.5,
+                    metalness: 0.05
                 });
-                if (mesh) {
-                    const baseBox = new THREE.Box3().setFromObject(mesh);
-                    const bSize = baseBox.getSize(new THREE.Vector3());
 
-                    const uniformScale = Math.min(sW / (bSize.x || sW), sH / (bSize.y || sH), sD / (bSize.z || sD));
-                    mesh.scale.setScalar(uniformScale > 0 ? uniformScale : 1);
-                    
-                    const finalBox = new THREE.Box3().setFromObject(mesh);
-                    const fCenter = finalBox.getCenter(new THREE.Vector3());
-                    mesh.position.set(-fCenter.x, -finalBox.min.y, -fCenter.z);
-                    
+                const wallMesh = new THREE.Mesh(wallGeo, wallMat);
+                wallMesh.castShadow = true;
+                wallMesh.receiveShadow = true;
+                group.add(wallMesh);
+            } else if (type.startsWith('shape_') || ['shape_rect', 'shape_circle', 'shape_triangle', 'shape_polygon', 'shape_floor_cut', 'shape_box', 'shape_cyl', 'shape_prism'].includes(type)) {
+                const shapeMat = new THREE.MeshStandardMaterial({
+                    color: type === 'shape_floor_cut' ? 0xef4444 : 0x38bdf8,
+                    roughness: 0.3,
+                    metalness: 0.15
+                });
+
+                if (type === 'shape_rect' || type === 'shape_box') {
+                    const geo = new THREE.BoxGeometry(50, 50, 50);
+                    const mesh = new THREE.Mesh(geo, shapeMat);
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
                     group.add(mesh);
+                } else if (type === 'shape_circle' || type === 'shape_cyl') {
+                    const geo = new THREE.CylinderGeometry(25, 25, 50, 32);
+                    const mesh = new THREE.Mesh(geo, shapeMat);
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    group.add(mesh);
+                } else if (type === 'shape_triangle' || type === 'shape_prism') {
+                    const shape = new THREE.Shape();
+                    shape.moveTo(-25, -25);
+                    shape.lineTo(25, -25);
+                    shape.lineTo(0, 25);
+                    shape.closePath();
+                    const geo = new THREE.ExtrudeGeometry(shape, { depth: 50, bevelEnabled: false });
+                    geo.translate(0, 0, -25);
+                    const mesh = new THREE.Mesh(geo, shapeMat);
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    group.add(mesh);
+                } else if (type === 'shape_polygon') {
+                    const shape = new THREE.Shape();
+                    const sides = 6, r = 26;
+                    for (let i = 0; i < sides; i++) {
+                        const a = (i / sides) * Math.PI * 2;
+                        const x = Math.cos(a) * r;
+                        const y = Math.sin(a) * r;
+                        if (i === 0) shape.moveTo(x, y);
+                        else shape.lineTo(x, y);
+                    }
+                    shape.closePath();
+                    const geo = new THREE.ExtrudeGeometry(shape, { depth: 50, bevelEnabled: false });
+                    geo.translate(0, 0, -25);
+                    const mesh = new THREE.Mesh(geo, shapeMat);
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    group.add(mesh);
+                } else if (type === 'shape_floor_cut') {
+                    const slabShape = new THREE.Shape();
+                    slabShape.moveTo(-35, -35);
+                    slabShape.lineTo(35, -35);
+                    slabShape.lineTo(35, 35);
+                    slabShape.lineTo(-35, 35);
+                    slabShape.closePath();
+
+                    const voidHole = new THREE.Path();
+                    voidHole.moveTo(-18, -18);
+                    voidHole.lineTo(18, -18);
+                    voidHole.lineTo(18, 18);
+                    voidHole.lineTo(-18, 18);
+                    voidHole.closePath();
+                    slabShape.holes.push(voidHole);
+
+                    const geo = new THREE.ExtrudeGeometry(slabShape, { depth: 10, bevelEnabled: false });
+                    geo.rotateX(-Math.PI / 2);
+                    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.4 }));
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    group.add(mesh);
+                }
+            } else if (['outer', 'inner', 'compound', 'arc'].includes(type)) {
+                const wallThick = type === 'outer' ? 14 : (type === 'inner' ? 8 : 10);
+                const wallH = type === 'compound' ? 35 : 55;
+                const wallLen = 75;
+
+                const wallMat = new THREE.MeshStandardMaterial({
+                    color: type === 'outer' ? 0xe2e8f0 : (type === 'inner' ? 0xf8fafc : 0xd1d5db),
+                    roughness: 0.5
+                });
+
+                if (type === 'arc') {
+                    const shape = new THREE.Shape();
+                    const r1 = 40, r2 = 40 + wallThick;
+                    shape.absarc(0, 0, r2, 0, Math.PI / 2, false);
+                    shape.lineTo(0, r1);
+                    shape.absarc(0, 0, r1, Math.PI / 2, 0, true);
+                    shape.closePath();
+                    const geo = new THREE.ExtrudeGeometry(shape, { depth: wallH, bevelEnabled: false });
+                    geo.rotateX(-Math.PI / 2);
+                    const mesh = new THREE.Mesh(geo, wallMat);
+                    mesh.castShadow = true;
+                    group.add(mesh);
+                } else {
+                    const geo = new THREE.BoxGeometry(wallLen, wallH, wallThick);
+                    const mesh = new THREE.Mesh(geo, wallMat);
+                    mesh.castShadow = true;
+                    group.add(mesh);
+                }
+            } else {
+                // Dummy entity based on preset params
+                const entity = { ...params };
+                if (!entity.width) entity.width = type.startsWith('rail') ? 150 : (registryConfig?.defaultConfig?.width || 40);
+                if (!entity.height) entity.height = type.startsWith('rail') ? 40 : (registryConfig?.defaultConfig?.height || (type === 'door' ? 84 : 48));
+                
+                entity.wall = { thickness: 10, config: { thickness: 10 } };
+                entity.thick = 10;
+                entity.localX = 0; entity.x = 0; entity.z = 0; entity.angle = 0;
+                if (entity.facing === undefined) entity.facing = registryConfig?.defaultConfig?.facing || 1;
+                if (entity.side === undefined) entity.side = registryConfig?.defaultConfig?.side || 1;
+
+                if (registryConfig && registryConfig.render3D) {
+                    const widgetGroup = await registryConfig.render3D(group, entity, this.ctx.helpers);
+                } else if (FURNITURE_REGISTRY && FURNITURE_REGISTRY[type]) {
+                    const furnitureManager = new FurnitureManager(this.ctx);
+                    const defaultW = FURNITURE_REGISTRY[type]?.default?.width || 60;
+                    const defaultH = FURNITURE_REGISTRY[type]?.default?.height || 60;
+                    const defaultD = FURNITURE_REGISTRY[type]?.default?.depth || 60;
+
+                    const sW = params?.width || defaultW;
+                    const sH = params?.height || defaultH;
+                    const sD = params?.depth || defaultD;
+
+                    const mesh = await furnitureManager.load({
+                        ...entity,
+                        configId: type,
+                        width: sW,
+                        height: sH,
+                        depth: sD
+                    });
+                    if (mesh) {
+                        const baseBox = new THREE.Box3().setFromObject(mesh);
+                        const bSize = baseBox.getSize(new THREE.Vector3());
+
+                        const uniformScale = Math.min(sW / (bSize.x || sW), sH / (bSize.y || sH), sD / (bSize.z || sD));
+                        mesh.scale.setScalar(uniformScale > 0 ? uniformScale : 1);
+                        
+                        const finalBox = new THREE.Box3().setFromObject(mesh);
+                        const fCenter = finalBox.getCenter(new THREE.Vector3());
+                        mesh.position.set(-fCenter.x, -finalBox.min.y, -fCenter.z);
+                        
+                        group.add(mesh);
+                    }
                 }
             }
         }
@@ -378,6 +572,40 @@ const theta = 145 * Math.PI / 180;
             // Studio 55° elevated architectural 3/4 perspective
             this.camera.position.set(rugDim * 0.75, rugDim * 1.25, rugDim * 0.75);
             this.camera.lookAt(0, 0, 0);
+            activeCamera = this.camera;
+        } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'opening'].includes(type)) {
+            const frustumSize = 105;
+            this.camera.left = -frustumSize / 2;
+            this.camera.right = frustumSize / 2;
+            this.camera.top = frustumSize / 2;
+            this.camera.bottom = -frustumSize / 2;
+            this.camera.updateProjectionMatrix();
+
+            // 3/4 architectural angle showing wall depth and aperture
+            this.camera.position.set(60, 50, 95);
+            this.camera.lookAt(0, 45, 0);
+            activeCamera = this.camera;
+        } else if (type.startsWith('shape_') || ['shape_rect', 'shape_circle', 'shape_triangle', 'shape_polygon', 'shape_floor_cut', 'shape_box', 'shape_cyl', 'shape_prism'].includes(type)) {
+            const frustumSize = 85;
+            this.camera.left = -frustumSize / 2;
+            this.camera.right = frustumSize / 2;
+            this.camera.top = frustumSize / 2;
+            this.camera.bottom = -frustumSize / 2;
+            this.camera.updateProjectionMatrix();
+
+            this.camera.position.set(55, 45, 75);
+            this.camera.lookAt(0, 25, 0);
+            activeCamera = this.camera;
+        } else if (['outer', 'inner', 'compound', 'arc'].includes(type)) {
+            const frustumSize = 100;
+            this.camera.left = -frustumSize / 2;
+            this.camera.right = frustumSize / 2;
+            this.camera.top = frustumSize / 2;
+            this.camera.bottom = -frustumSize / 2;
+            this.camera.updateProjectionMatrix();
+
+            this.camera.position.set(65, 45, 75);
+            this.camera.lookAt(0, 25, 0);
             activeCamera = this.camera;
         } else {
             const frustumSize = maxDim * 1.4; // Leave some margin

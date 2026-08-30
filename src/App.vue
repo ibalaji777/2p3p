@@ -42,7 +42,7 @@
       />
 
       <!-- Mobile Left Trigger -->
-      <div class="mobile-left-trigger" v-if="(isMobile || isTablet) && !(mobileMenuOpen && activeMobileTab === 'tools')" @click="toggleMobileTab('tools')" title="Open Tools">
+      <div class="mobile-left-trigger" v-if="isMobile && !(mobileMenuOpen && activeMobileTab === 'tools')" @click="toggleMobileTab('tools')" title="Open Tools">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="9 18 15 12 9 6"></polyline>
         </svg>

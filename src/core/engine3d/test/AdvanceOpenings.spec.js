@@ -128,4 +128,26 @@ describe('Advanced Wall Openings Pipeline', () => {
         expect(placementSystem.apertureVoidMesh.geometry).toBeInstanceOf(THREE.CylinderGeometry);
         expect(placementSystem.apertureVoidMesh.position.y).toBe(60); // 40 + 40/2
     });
+
+    it('5. should build 3D mesh with cutout hole for opening thumbnails', async () => {
+        const { ThumbnailGenerator } = await import('../../ThumbnailGenerator.js');
+        const mockCtx = {
+            helpers: {},
+            assets: { getModel: vi.fn(), getTexture: vi.fn() }
+        };
+
+        const generator = new ThumbnailGenerator(mockCtx);
+        const archThumb = await generator.generate('arch_opening', { type: 'arch_opening' });
+        expect(archThumb).toBeDefined();
+        expect(typeof archThumb).toBe('string');
+        expect(archThumb.startsWith('data:image/')).toBe(true);
+
+        const circThumb = await generator.generate('circular_opening', { type: 'circular_opening' });
+        expect(circThumb).toBeDefined();
+        expect(typeof circThumb).toBe('string');
+
+        const nicheThumb = await generator.generate('niche_recess', { type: 'niche_recess' });
+        expect(nicheThumb).toBeDefined();
+        expect(typeof nicheThumb).toBe('string');
+    });
 });
