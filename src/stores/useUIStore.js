@@ -20,13 +20,13 @@ export const useUIStore = defineStore('ui', {
     }),
     getters: {
         isMobile: (state) => state.windowWidth < 768,
-        isTablet: (state) => state.windowWidth >= 768 && state.windowWidth < 1200,
-        isDesktop: (state) => state.windowWidth >= 1200
+        isTablet: (state) => state.windowWidth >= 768 && state.windowWidth < 1024,
+        isDesktop: (state) => state.windowWidth >= 1024
     },
     actions: {
         handleResize() {
             this.windowWidth = window.innerWidth;
-            if (!this.isMobile && !this.isTablet) this.mobileMenuOpen = false;
+            if (!this.isMobile) this.mobileMenuOpen = false;
         },
         toggleMobileTab(tabId) {
             if (this.activeMobileTab === tabId && this.mobileMenuOpen) {
