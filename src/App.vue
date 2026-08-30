@@ -235,7 +235,14 @@ const displayUnit = computed(() => {
 
 const handleCatalogSelect = (item) => {
     if (planner.value) {
-        if (item.toolId === 'furniture' || item.toolId === 'kitchen' || item.toolId === 'bathroom' || item.toolId === 'electronics') {
+        if (viewMode.value === '3d' && (item.toolId === 'furniture' || item.toolId === 'kitchen' || item.toolId === 'bathroom' || item.toolId === 'electronics' || (item.params && (item.params.type || item.params.id)))) {
+            // In 3D mode: activate real-time Sims 4 3D placement system
+            const fType = item.params?.type || item.params?.id || item.toolId;
+            const params = { type: fType, id: fType, toolId: item.toolId, ...item.params };
+            planner.value.activePresetParams = params;
+            activePresetParams.value = params;
+            setTool(fType, params);
+        } else if (item.toolId === 'furniture' || item.toolId === 'kitchen' || item.toolId === 'bathroom' || item.toolId === 'electronics') {
             spawnFurniture(item.params.type);
         } else if (item.params && item.params.points && item.toolId && item.toolId.startsWith('outdoor_')) {
             const cx = planner.value.stage.width() / 2;

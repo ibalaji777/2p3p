@@ -1,4 +1,5 @@
 import { PRESET_REGISTRY } from '../core/engine2d/presetRegistry.js';
+import { FURNITURE_REGISTRY } from '../features/furniture/furniture.registry.js';
 import { applyWallPaintWithScope } from '../core/engine3d/WallPaintSystem.js';
 
 export function useAppTools({
@@ -93,6 +94,20 @@ export function useAppTools({
                 };
                 planner.value.activePresetParams = activePresetParams.value;
             }
+        } else if (FURNITURE_REGISTRY && (FURNITURE_REGISTRY[tool] || tool === 'furniture' || tool === 'kitchen' || tool === 'bathroom' || tool === 'electronics' || tool.startsWith('furniture_') || tool.startsWith('kitchen_') || tool.startsWith('bathroom_') || tool.startsWith('sanitary_') || tool.startsWith('electronics_'))) {
+            const config = (FURNITURE_REGISTRY && FURNITURE_REGISTRY[tool]) ? FURNITURE_REGISTRY[tool] : {};
+            if (!activePresetParams.value) {
+                activePresetParams.value = {
+                    type: tool,
+                    id: tool,
+                    width: config.default?.width || 100,
+                    depth: config.default?.depth || 100,
+                    height: config.default?.height || 80,
+                    elevation: config.default?.elevation || 0,
+                    materials: config.default?.materials || null
+                };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
         } else {
             activePresetParams.value = null;
             planner.value.activePresetParams = null;
@@ -110,7 +125,23 @@ export function useAppTools({
     const handleToolClick = (tool) => {
         const accordionTools = ['door', 'window', 'skirting', 'sunshade', 'jali_panel', 'curtain', 'wall_art', 'staircase', 'roof', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'bathroom_catalog', 'electronics_catalog', 'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 'household_appliance_catalog', 'trash_catalog', 'floors', 'outdoor_spaces', 'outdoor_pavement', 'outdoor_patio', 'outdoor_softscape', 'outdoor_other'];
         
-        if (tool.action === 'furniture') spawnFurniture(tool.id);
+        if (tool.action === 'furniture') {
+            if (viewMode.value === '3d') {
+                const config = (FURNITURE_REGISTRY && FURNITURE_REGISTRY[tool.id]) || {};
+                const params = {
+                    type: tool.id,
+                    id: tool.id,
+                    width: config.default?.width || 100,
+                    depth: config.default?.depth || 100,
+                    height: config.default?.height || 80,
+                    elevation: config.default?.elevation || 0,
+                    materials: config.default?.materials || null
+                };
+                setTool(tool.id, params);
+            } else {
+                spawnFurniture(tool.id);
+            }
+        }
         else if (tool.action === 'auto_roof') { if (planner.value) planner.value.addAutoRoof(); }
         else if (tool.action === 'wizard') { wizardPopupRef.value?.open(tool.id); }
         else if (tool.id.startsWith('roof_')) {
