@@ -49,12 +49,12 @@ describe('Door Architecture Audit', () => {
             if (child.userData?.isShadow) { contactShadowMesh = child; return; }
             if (child.userData?.isSweep) { sweepMesh = child; return; }
             if (child.userData?.isThreshold) { thresholdMesh = child; return; }
-            if (child.userData?.isFrame && child.geometry?.type === 'ExtrudeGeometry') {
+            if ((child.userData?.isJamb || (child.userData?.isFrame && !child.userData?.isStop && !child.userData?.isHeadJamb)) && child.geometry?.type === 'ExtrudeGeometry') {
                 const box = new THREE.Box3().setFromObject(child);
                 const h = box.max.y - box.min.y;
                 const w = box.max.x - box.min.x;
-                // Actual side jambs: ~0.75 wide, full height
-                if (w < 1.0 && w > 0.5 && h > 70) {
+                // Actual side jambs: 0.5 to 2.0 wide, full height
+                if (w < 2.0 && w > 0.5 && h > 70) {
                     jambMeshes.push({ box, h, w });
                 }
             }

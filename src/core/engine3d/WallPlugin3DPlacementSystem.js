@@ -685,29 +685,50 @@ export class WallPlugin3DPlacementSystem {
         }
 
         if (isMoldingOrTrim) {
-            // For Baseboards & Moldings: shape-accurate ribbon hugging mitered wall face
+            // For Baseboards & Moldings: shape-accurate ribbons hugging mitered wall face around openings
             const isCrown = tool === 'molding' || tool.includes('crown') || tool === 'elevation_frieze' || (preset?.profileType && preset?.profileType.includes('crown')) || (preset?.type && preset?.type.includes('crown'));
             const zOffset = ((thick / 2) + 0.3) * facing;
             const yBottom = isCrown ? Math.max(0, wallH - itemH) : elev;
             const yTop = yBottom + itemH;
 
-            const startX = (facing === 1) ? localSL_x : localSR_x;
-            const endX = (facing === 1) ? localEL_x : localER_x;
+            const segments = this.molding3DBuilder.getMoldingSegments(wallLen, yBottom, itemH, wallEntity);
 
             const ribbonGeo = new THREE.BufferGeometry();
-            const positions = new Float32Array([
-                startX, yBottom, zOffset,
-                endX,   yBottom, zOffset,
-                endX,   yTop,    zOffset,
-                startX, yTop,    zOffset
-            ]);
+            const posList = [];
+            const indexList = [];
+            let vertOffset = 0;
 
-            const indices = (facing === 1) 
-                ? [0, 1, 2,  0, 2, 3] 
-                : [0, 2, 1,  0, 3, 2];
+            for (const seg of segments) {
+                const startX = (seg.start <= 0.1) 
+                    ? ((facing === 1) ? localSL_x : localSR_x)
+                    : seg.start;
+                const endX = (seg.end >= wallLen - 0.1)
+                    ? ((facing === 1) ? localEL_x : localER_x)
+                    : seg.end;
 
-            ribbonGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            ribbonGeo.setIndex(indices);
+                posList.push(
+                    startX, yBottom, zOffset,
+                    endX,   yBottom, zOffset,
+                    endX,   yTop,    zOffset,
+                    startX, yTop,    zOffset
+                );
+
+                if (facing === 1) {
+                    indexList.push(
+                        vertOffset, vertOffset + 1, vertOffset + 2,
+                        vertOffset, vertOffset + 2, vertOffset + 3
+                    );
+                } else {
+                    indexList.push(
+                        vertOffset, vertOffset + 2, vertOffset + 1,
+                        vertOffset, vertOffset + 3, vertOffset + 2
+                    );
+                }
+                vertOffset += 4;
+            }
+
+            ribbonGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(posList), 3));
+            ribbonGeo.setIndex(indexList);
             ribbonGeo.computeVertexNormals();
 
             this.apertureVoidMesh.geometry.dispose();
@@ -809,7 +830,7 @@ export class WallPlugin3DPlacementSystem {
                 heightOffset: elev,
                 profileType: preset.profileType || (tool === 'molding' || tool.includes('crown') ? 'crown' : 'skirting_flat'),
                 material: preset.material || 'white_paint'
-            }, itemW, thick, this.ctx.helpers);
+            }, itemW, thick, this.ctx.helpers, wallEntity);
 
             if (moldMesh) {
                 // Apply miter shear to preview mesh so corners match wall perfectly
@@ -830,10 +851,13 @@ export class WallPlugin3DPlacementSystem {
                         }
                     }
                     geo.computeVertexNormals();
+                    pos.needsUpdate = true;
                 };
 
-                if (moldMesh.isGroup && moldMesh.children.length > 0 && moldMesh.children[0].geometry) {
-                    shearMoldingGeo(moldMesh.children[0].geometry);
+                if (moldMesh.isGroup && moldMesh.children.length > 0) {
+                    moldMesh.children.forEach(c => {
+                        if (c.geometry) shearMoldingGeo(c.geometry);
+                    });
                 } else if (moldMesh.geometry) {
                     shearMoldingGeo(moldMesh.geometry);
                 }

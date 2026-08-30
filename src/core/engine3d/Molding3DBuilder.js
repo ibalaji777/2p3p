@@ -19,7 +19,76 @@ export class Molding3DBuilder {
         return this.materials[matName] || this.materials.white_paint;
     }
 
-    buildMolding(moldData, wallLength, wallThickness, helpers = null) {
+    getMoldingSegments(wallLength, heightOffset, moldingHeight, wallEntity) {
+        const mElev = heightOffset !== undefined ? heightOffset : 0;
+        const mH = moldingHeight || 10;
+        const mTop = mElev + mH;
+        const cuts = [];
+
+        const widgets = wallEntity?.attachedWidgets || wallEntity?.widgets || [];
+        for (const widg of widgets) {
+            const type = (widg.type === 'window' || widg.windowType || (widg.config && widg.config.widget === 'window') || widg.configId === 'window') ? 'window' :
+                         (widg.type === 'door' || widg.doorType || (widg.config && widg.config.widget === 'door') || widg.configId === 'door') ? 'door' :
+                         (widg.type === 'opening' || widg.configId === 'opening') ? 'opening' :
+                         (widg.type === 'jali_panel' || widg.configId === 'jali_panel') ? 'jali_panel' :
+                         (widg.type || widg.configId);
+
+            const isCutout = type === 'door' || type === 'window' || type === 'opening' || type === 'jali_panel' || type === 'arch_opening';
+            if (!isCutout) continue;
+
+            const wCenter = (widg.localX !== undefined ? widg.localX : (widg.t !== undefined ? widg.t : 0.5) * wallLength);
+            const isDoor = type === 'door' || widg.doorType || (widg.config && widg.config.widget === 'door') || widg.configId === 'door';
+            const casingExt = isDoor ? (3.8 - 1.25) : 0; // archW (3.8) - jambW (1.25) = 2.55 units outer casing trim
+            const halfW = ((widg.width || 60) / 2) + casingExt;
+            const wElev = widg.elevation !== undefined ? widg.elevation : (type === 'window' ? 80 : 0);
+            const wH = widg.height !== undefined ? widg.height : (type === 'door' ? 210 : (type === 'window' ? 120 : 100));
+            const wTop = wElev + wH;
+
+            // Check if cutout overlaps with molding height range
+            if (Math.max(mElev, wElev) < Math.min(mTop, wTop)) {
+                const cutStart = Math.max(0, wCenter - halfW);
+                const cutEnd = Math.min(wallLength, wCenter + halfW);
+                if (cutEnd > cutStart) {
+                    cuts.push({ start: cutStart, end: cutEnd });
+                }
+            }
+        }
+
+        if (cuts.length === 0) {
+            return [{ start: 0, end: wallLength }];
+        }
+
+        cuts.sort((a, b) => a.start - b.start);
+        const mergedCuts = [];
+        for (const c of cuts) {
+            if (mergedCuts.length === 0) {
+                mergedCuts.push({ start: c.start, end: c.end });
+            } else {
+                const last = mergedCuts[mergedCuts.length - 1];
+                if (c.start <= last.end + 0.1) {
+                    last.end = Math.max(last.end, c.end);
+                } else {
+                    mergedCuts.push({ start: c.start, end: c.end });
+                }
+            }
+        }
+
+        const segments = [];
+        let currentX = 0;
+        for (const cut of mergedCuts) {
+            if (cut.start > currentX + 0.5) {
+                segments.push({ start: currentX, end: cut.start });
+            }
+            currentX = Math.max(currentX, cut.end);
+        }
+        if (currentX < wallLength - 0.5) {
+            segments.push({ start: currentX, end: wallLength });
+        }
+
+        return segments.length > 0 ? segments : [{ start: 0, end: wallLength }];
+    }
+
+    buildMolding(moldData, wallLength, wallThickness, helpers = null, wallEntity = null) {
         const t = moldData.t || 0.5;
         const width = moldData.width || 50; // This is the length along the wall
         const depth = moldData.depth || 2;  // Projection from the wall
@@ -204,50 +273,14 @@ export class Molding3DBuilder {
             finalShape.lineTo(0, 0);
         }
 
-        // Subdivide extrusion along its length to prevent stretched triangles with shearGeo
-        const extrudeSteps = Math.max(1, Math.floor(actualLength / 10));
-        const finalGeo = new THREE.ExtrudeGeometry(finalShape, { 
-            depth: actualLength, 
-            bevelEnabled: false, 
-            curveSegments: 12, 
-            steps: extrudeSteps 
-        });
-        
-        // Correct UVs BEFORE transformations
-        const posAttr = finalGeo.attributes.position;
-        const uvs = new Float32Array(posAttr.count * 2);
-        for (let i = 0; i < posAttr.count; i++) {
-            uvs[i*2] = posAttr.getZ(i) / 100; // Z is length along wall
-            uvs[i*2+1] = posAttr.getY(i) / 100; // Y is height
-        }
-        finalGeo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+        // Calculate solid segments around doors and floor-level openings
+        const segments = this.getMoldingSegments(actualLength, heightOffset, moldingHeight, wallEntity || moldData.wall);
 
-        let zOffset = (wallThickness / 2);
-        let xOff = 0;
-        let rotY = 0;
-        
-        if (moldData.side === 'right') {
-            rotY = Math.PI / 2;
-            xOff = -actualLength / 2;
-            zOffset = -zOffset;
-        } else {
-            rotY = -Math.PI / 2;
-            xOff = actualLength / 2;
-        }
-        
-        const xPos = t * wallLength;
-        
-        // Mutate base geometry so it is in Wall Local Space (required for shearGeo)
-        finalGeo.rotateY(rotY);
-        finalGeo.translate(xPos + xOff, heightOffset, zOffset);
-        
+        const group = new THREE.Group();
+        const zOffset = (wallThickness / 2) * (moldData.side === 'right' ? -1 : 1);
+        const rotY = (moldData.side === 'right') ? Math.PI / 2 : -Math.PI / 2;
+
         let finalMat = this.getMaterial(moldData.material);
-
-        if (isGroove || depth < 0) {
-            // World Z translation in Wall Local Space
-            finalGeo.translate(0, 0, moldData.side === 'right' ? depth : -depth);
-            finalMat = this.materials.black_metal;
-        }
 
         // Sharp geometric profiles MUST use flatShading for crisp edges
         const sharpProfiles = ['skirting_flat', 'flat_baseboard', 'skirting_craftsman', 'craftsman_baseboard', 'skirting_shadow', 'craftsman', 'dentil', 'layered', 'frame', 'flat', 'groove'];
@@ -257,86 +290,6 @@ export class Molding3DBuilder {
             finalMat.needsUpdate = true;
         }
 
-        let materials = finalMat;
-        if (helpers && helpers.getFaceMaterials) {
-            const multiMat = helpers.getFaceMaterials(moldData, finalMat, { width: actualLength, height: moldingHeight });
-            materials = multiMat.extrude;
-        }
-
-        const mesh = new THREE.Mesh(finalGeo, materials);
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        
-        const group = new THREE.Group();
-        group.add(mesh);
-
-        // Procedural Ornaments
-        if (hasOrnaments) {
-            const ornamentGroup = new THREE.Group();
-            const dummy = new THREE.Object3D();
-            
-            if (profileType === 'egg_and_dart') {
-                const radius = moldingHeight * 0.22;
-                const spacing = radius * 3.5;
-                const count = Math.max(1, Math.floor(actualLength / spacing));
-                
-                const eggGeo = new THREE.SphereGeometry(radius, 16, 16);
-                eggGeo.scale(0.8, 1.2, 0.4); 
-                const dartGeo = new THREE.ConeGeometry(radius * 0.3, radius * 1.6, 4);
-                dartGeo.rotateX(Math.PI);
-                dartGeo.scale(1, 1, 0.4);
-
-                const eggInst = new THREE.InstancedMesh(eggGeo, finalMat, count);
-                const dartInst = new THREE.InstancedMesh(dartGeo, finalMat, count);
-                eggInst.castShadow = true; eggInst.receiveShadow = true;
-                dartInst.castShadow = true; dartInst.receiveShadow = true;
-
-                const slantAngle = Math.atan2(moldingHeight * 0.7, d * 0.3);
-                
-                for (let i = 0; i < count; i++) {
-                    const zPos = (i + 0.5) * spacing;
-                    dummy.position.set(d * 0.45, moldingHeight * 0.45, zPos);
-                    dummy.rotation.set(0, 0, -(Math.PI / 2 - slantAngle));
-                    dummy.updateMatrix();
-                    eggInst.setMatrixAt(i, dummy.matrix);
-                    
-                    if (i < count - 1) {
-                        const dartZ = zPos + spacing / 2;
-                        dummy.position.set(d * 0.45, moldingHeight * 0.45, dartZ);
-                        dummy.rotation.set(0, 0, -(Math.PI / 2 - slantAngle));
-                        dummy.updateMatrix();
-                        dartInst.setMatrixAt(i, dummy.matrix);
-                    }
-                }
-                ornamentGroup.add(eggInst, dartInst);
-            } else if (profileType === 'dentil') {
-                const blockHeight = moldingHeight * 0.5;
-                const blockDepth = d * 0.4;
-                const blockWidth = moldingHeight * 0.4;
-                const gap = moldingHeight * 0.25;
-                const spacing = blockWidth + gap;
-                const count = Math.max(1, Math.floor(actualLength / spacing));
-                
-                const dentilGeo = new THREE.BoxGeometry(blockDepth, blockHeight, blockWidth);
-                const dentilInst = new THREE.InstancedMesh(dentilGeo, finalMat, count);
-                dentilInst.castShadow = true; dentilInst.receiveShadow = true;
-                
-                for (let i = 0; i < count; i++) {
-                    const zPos = (i + 0.5) * spacing;
-                    dummy.position.set(d * 0.3 + blockDepth / 2, moldingHeight * 0.5, zPos);
-                    dummy.rotation.set(0, 0, 0);
-                    dummy.updateMatrix();
-                    dentilInst.setMatrixAt(i, dummy.matrix);
-                }
-                ornamentGroup.add(dentilInst);
-            }
-            
-            ornamentGroup.rotation.y = rotY;
-            ornamentGroup.position.set(xPos + xOff, heightOffset, zOffset);
-            group.add(ornamentGroup);
-        }
-        
-        // Semantic CAD/BIM Component Registration
         const isSkirting = (moldData.type && moldData.type.includes('skirting')) || (profileType && profileType.includes('skirting'));
         const slotName = isSkirting ? (MaterialSlots.SKIRTING || 'skirting') : (MaterialSlots.MOLDING || 'molding');
         const entityId = moldData.id || `molding_${Date.now()}`;
@@ -353,14 +306,58 @@ export class Molding3DBuilder {
             componentType
         };
 
-        mesh.userData = { ...group.userData };
-        ComponentRegistry.registerMesh(moldData, slotName, mesh, {
-            componentId: `${entityId}_${slotName}`,
-            componentType
-        });
+        for (const seg of segments) {
+            const segLen = seg.end - seg.start;
+            if (segLen < 0.5) continue;
+
+            const extrudeSteps = Math.max(1, Math.floor(segLen / 10));
+            const segGeo = new THREE.ExtrudeGeometry(finalShape, { 
+                depth: segLen, 
+                bevelEnabled: false, 
+                curveSegments: 12, 
+                steps: extrudeSteps 
+            });
+
+            // Correct UVs across continuous wall length
+            const posAttr = segGeo.attributes.position;
+            const uvs = new Float32Array(posAttr.count * 2);
+            for (let i = 0; i < posAttr.count; i++) {
+                uvs[i*2] = (posAttr.getZ(i) + seg.start) / 100;
+                uvs[i*2+1] = posAttr.getY(i) / 100;
+            }
+            segGeo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+
+            // Mutate base geometry so it is in Wall Local Space (required for shearGeo)
+            segGeo.rotateY(rotY);
+            if (moldData.side === 'right') {
+                segGeo.translate(seg.start, heightOffset, zOffset);
+            } else {
+                segGeo.translate(seg.end, heightOffset, zOffset);
+            }
+
+            if (isGroove || depth < 0) {
+                segGeo.translate(0, 0, moldData.side === 'right' ? depth : -depth);
+            }
+
+            let materials = finalMat;
+            if (helpers && helpers.getFaceMaterials) {
+                const multiMat = helpers.getFaceMaterials(moldData, finalMat, { width: segLen, height: moldingHeight });
+                materials = multiMat.extrude;
+            }
+
+            const segMesh = new THREE.Mesh(segGeo, materials);
+            segMesh.castShadow = true;
+            segMesh.receiveShadow = true;
+            segMesh.userData = { ...group.userData };
+            ComponentRegistry.registerMesh(moldData, slotName, segMesh, {
+                componentId: `${entityId}_${slotName}`,
+                componentType
+            });
+            group.add(segMesh);
+        }
 
         group.traverse(child => {
-            if (child.isMesh && child !== mesh) {
+            if (child.isMesh) {
                 child.userData = { ...group.userData };
                 ComponentRegistry.registerMesh(moldData, slotName, child, {
                     componentId: `${entityId}_${slotName}`,

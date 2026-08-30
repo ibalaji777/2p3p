@@ -1245,12 +1245,14 @@ export class EnvironmentBuilder {
 
         if (w.attachedMoldings) {
             w.attachedMoldings.forEach((mold, idx) => {
-                const mMesh = this.moldingBuilder.buildMolding(mold, length, t, this.ctx.helpers);
+                const mMesh = this.moldingBuilder.buildMolding(mold, length, t, this.ctx.helpers, w);
                 mMesh.userData.entity = mold;
                 mMesh.userData.moldData = mold;
                 if (pts && pts.length === 8) {
-                    if (mMesh.isGroup && mMesh.children.length > 0 && mMesh.children[0].geometry) {
-                        shearGeo(mMesh.children[0].geometry);
+                    if (mMesh.isGroup && mMesh.children.length > 0) {
+                        mMesh.children.forEach(c => {
+                            if (c.geometry) shearGeo(c.geometry);
+                        });
                     } else if (mMesh.geometry) {
                         shearGeo(mMesh.geometry);
                     }

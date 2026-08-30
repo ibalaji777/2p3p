@@ -1337,29 +1337,40 @@ function buildDetailedDoorPanel(entity, width, height, thickness, material, type
         builder.addNode({ geometry: pullGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3((width/2 - 1.5) * -signX, handleY, 0), castShadow: true, userData: { isHandle: true } });
     } else if (['single', 'double', 'french'].includes(type) && !Boolean(style && style.startsWith('gate_'))) {
         const hZF = thickness/2; const hZB = -thickness/2;
-        const leverX = (width/2 - 3.5) * signX;
+        const leverX = (width/2 - 3.2) * signX;
+        const hwMat = new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.85, roughness: 0.25 });
         
-        const roseGeo = new THREE.CylinderGeometry(1.2, 1.2, 0.2, 24); roseGeo.rotateX(Math.PI/2);
-        builder.addNode({ geometry: roseGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(leverX, handleY, hZF + 0.1), castShadow: true, userData: { isHandle: true } });
-        builder.addNode({ geometry: roseGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(leverX, handleY, hZB - 0.1), castShadow: true, userData: { isHandle: true } });
+        // Rose (Round Escutcheon behind lever)
+        const roseGeo = new THREE.CylinderGeometry(1.4, 1.4, 0.2, 24); roseGeo.rotateX(Math.PI/2);
+        builder.addNode({ geometry: roseGeo, materialOverride: hwMat, parent: group, slot: MaterialSlots.HARDWARE, position: new THREE.Vector3(leverX, handleY, hZF + 0.1), castShadow: true, userData: { isHandle: true }, paintable: false });
+        builder.addNode({ geometry: roseGeo, materialOverride: hwMat, parent: group, slot: MaterialSlots.HARDWARE, position: new THREE.Vector3(leverX, handleY, hZB - 0.1), castShadow: true, userData: { isHandle: true }, paintable: false });
         
-        const stemGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.5, 16); stemGeo.rotateX(Math.PI/2);
-        builder.addNode({ geometry: stemGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(leverX, handleY, hZF + 0.75), castShadow: true, userData: { isHandle: true } });
-        builder.addNode({ geometry: stemGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(leverX, handleY, hZB - 0.75), castShadow: true, userData: { isHandle: true } });
+        // Stem
+        const stemGeo = new THREE.CylinderGeometry(0.35, 0.35, 1.4, 16); stemGeo.rotateX(Math.PI/2);
+        builder.addNode({ geometry: stemGeo, materialOverride: hwMat, parent: group, slot: MaterialSlots.HARDWARE, position: new THREE.Vector3(leverX, handleY, hZF + 0.7), castShadow: true, userData: { isHandle: true }, paintable: false });
+        builder.addNode({ geometry: stemGeo, materialOverride: hwMat, parent: group, slot: MaterialSlots.HARDWARE, position: new THREE.Vector3(leverX, handleY, hZB - 0.7), castShadow: true, userData: { isHandle: true }, paintable: false });
         
-        const handleLGeo = new THREE.CylinderGeometry(0.3, 0.4, 5, 16); handleLGeo.rotateZ(Math.PI/2);
+        // Lever Handle Bar (7.5 units = 4.5 inches architectural lever)
+        const handleLGeo = new THREE.CylinderGeometry(0.32, 0.38, 7.5, 16); handleLGeo.rotateZ(Math.PI/2);
         const handleDir = -signX; 
-        builder.addNode({ geometry: handleLGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(leverX + 2.5*handleDir, handleY, hZF + 1.25), castShadow: true, userData: { isHandle: true } });
-        builder.addNode({ geometry: handleLGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(leverX + 2.5*handleDir, handleY, hZB - 1.25), castShadow: true, userData: { isHandle: true } });
+        builder.addNode({ geometry: handleLGeo, materialOverride: hwMat, parent: group, slot: MaterialSlots.HARDWARE, position: new THREE.Vector3(leverX + 3.4*handleDir, handleY, hZF + 1.25), castShadow: true, userData: { isHandle: true }, paintable: false });
+        builder.addNode({ geometry: handleLGeo, materialOverride: hwMat, parent: group, slot: MaterialSlots.HARDWARE, position: new THREE.Vector3(leverX + 3.4*handleDir, handleY, hZB - 1.25), castShadow: true, userData: { isHandle: true }, paintable: false });
 
-        const keyGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.25, 16); keyGeo.rotateX(Math.PI/2);
-        builder.addNode({ geometry: keyGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(leverX, handleY - 2.5, hZF + 0.125), castShadow: true, userData: { isHandle: true } });
-        builder.addNode({ geometry: keyGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3(leverX, handleY - 2.5, hZB - 0.125), castShadow: true, userData: { isHandle: true } });
+        // Keyhole Escutcheon Rosette
+        const keyRoseGeo = new THREE.CylinderGeometry(1.0, 1.0, 0.2, 24); keyRoseGeo.rotateX(Math.PI/2);
+        builder.addNode({ geometry: keyRoseGeo, materialOverride: hwMat, parent: group, slot: MaterialSlots.HARDWARE, position: new THREE.Vector3(leverX, handleY - 4.2, hZF + 0.1), castShadow: true, userData: { isHandle: true }, paintable: false });
+        builder.addNode({ geometry: keyRoseGeo, materialOverride: hwMat, parent: group, slot: MaterialSlots.HARDWARE, position: new THREE.Vector3(leverX, handleY - 4.2, hZB - 0.1), castShadow: true, userData: { isHandle: true }, paintable: false });
+
+        // Keyhole Slot
+        const keyHoleMat = new THREE.MeshBasicMaterial({ color: 0x050505 });
+        const keyHoleGeo = new THREE.BoxGeometry(0.22, 0.9, 0.22);
+        builder.addNode({ geometry: keyHoleGeo, materialOverride: keyHoleMat, parent: group, slot: MaterialSlots.HARDWARE, position: new THREE.Vector3(leverX, handleY - 4.2, hZF + 0.11), userData: { isHandle: true }, paintable: false });
+        builder.addNode({ geometry: keyHoleGeo, materialOverride: keyHoleMat, parent: group, slot: MaterialSlots.HARDWARE, position: new THREE.Vector3(leverX, handleY - 4.2, hZB - 0.11), userData: { isHandle: true }, paintable: false });
         
-        const latchGeo = new THREE.BoxGeometry(0.8, 1.2, 0.8);
-        builder.addNode({ geometry: latchGeo, materialOverride: silverMat, parent: group, position: new THREE.Vector3((width/2 + 0.2) * signX, handleY, 0), castShadow: true, userData: { isHandle: true } });
-        const faceplateGeo = new THREE.BoxGeometry(0.1, 4, 1.2);
-        builder.addNode({ geometry: faceplateGeo, materialOverride: metalMat, parent: group, position: new THREE.Vector3((width/2 + 0.05) * signX, handleY, 0), castShadow: true, userData: { isHandle: true } });
+        const latchGeo = new THREE.BoxGeometry(0.6, 1.0, 0.6);
+        builder.addNode({ geometry: latchGeo, materialOverride: silverMat, parent: group, slot: MaterialSlots.HARDWARE, position: new THREE.Vector3((width/2 + 0.15) * signX, handleY, 0), castShadow: true, userData: { isHandle: true }, paintable: false });
+        const faceplateGeo = new THREE.BoxGeometry(0.1, 3.5, 1.0);
+        builder.addNode({ geometry: faceplateGeo, materialOverride: hwMat, parent: group, slot: MaterialSlots.HARDWARE, position: new THREE.Vector3((width/2 + 0.05) * signX, handleY, 0), castShadow: true, userData: { isHandle: true }, paintable: false });
 
     } else if (Boolean(style && style.startsWith('gate_')) && ['single', 'double', 'french'].includes(type)) {
         // Heavy-duty sliding bolt latch on gate
@@ -1655,7 +1666,7 @@ export const WIDGET_REGISTRY = {
     'door': {
         widget: "door", label: "DOOR",
         events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
-        defaultConfig: { width: 40, height: DOOR_HEIGHT, doorType: 'single', materials: { leaf: { id: 'wood_golden_teak' }, frame: { id: 'wood_golden_teak' } }, facing: 1, side: 1 },
+        defaultConfig: { width: 60, height: DOOR_HEIGHT, doorType: 'single', materials: { leaf: { id: 'wood_golden_teak' }, frame: { id: 'wood_golden_teak' } }, facing: 1, side: 1 },
         render2D: (group, entity) => {
             const hw = entity.width / 2; const thick = entity.wall?.thickness || entity.wall?.config?.thickness || 20;
             const slWidth = (entity.hasSidelights && (!entity.doorShape || entity.doorShape === 'square') && !['pocket', 'sliding'].includes(entity.doorType)) ? Math.min(60, entity.width * 0.22) : 0;
@@ -1741,10 +1752,10 @@ export const WIDGET_REGISTRY = {
 
             const isGate = Boolean((entity.doorStyle && entity.doorStyle.startsWith('gate_')) || entity.doorType === 'gate');
             const isGlassDoor = matLeafKey === 'glass'; 
-            const jambW = 0.75; const stopW = 1.25; const stopThick = 0.4; const archW = 2.75; const archThick = 0.5;
+            const jambW = 1.25; const stopW = 1.25; const stopThick = 0.6; const archW = 3.8; const archThick = 1.2;
             const frameWidth = isGate ? 0 : jambW; 
             const frameThick = entity.thick + 0.2; 
-            const doorThick = isGate ? 2.0 : 1.4; // Gates use sturdy 50mm structural hollow section depth
+            const doorThick = isGate ? 2.0 : 2.4; // Realistic architectural door slab
             const gapSide = isGate ? 1.0 : 0.12; 
             const gapTop = isGate ? 0.5 : 0.12; 
             
@@ -1752,7 +1763,7 @@ export const WIDGET_REGISTRY = {
             // Real doors: Header + Left Jamb + Right Jamb + optional Threshold. No bottom frame member.
             const isPocket = entity.doorType === 'pocket';
             const hasThreshold = !isPocket && !isGate && entity.hasThreshold !== false; // Gates have no threshold
-            const tHeight = hasThreshold ? 0.9 : 0; 
+            const tHeight = hasThreshold ? 0.8 : 0; 
             const doorClearance = isGate ? 2.0 : 0.35; // 50mm bottom clearance for gates
             const gapBottom = tHeight + doorClearance; // door leaf Y starts here
             
@@ -1760,14 +1771,14 @@ export const WIDGET_REGISTRY = {
                 // Threshold fits exactly between the side jambs to look like a bottom frame piece
                 const thresholdW = entity.width - jambW * 2;
                 const tDepth = frameThick; // flush with frame
-                const thresholdGeo = rotateUvs(createBeveledExtrude(thresholdW, tHeight, tDepth, 0.03));
+                const thresholdGeo = rotateUvs(createBeveledExtrude(thresholdW, tHeight, tDepth, 0.02));
                 builder.addNode({ geometry: thresholdGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, position: new THREE.Vector3(0, tHeight/2, 0), castShadow: true, receiveShadow: true, userData: { isThreshold: true, isFrame: true } });
             }
             
             if (!isGate) {
                 // Sill plate — fills the below-floor gap in the wall cutout (wallBottom=-1 to floor=0)
                 const sillHeight = 1.0; 
-                const totalFrameW = entity.width + archW * 2 - jambW * 2;
+                const totalFrameW = entity.width - jambW * 2 + archW * 2;
                 const sillGeo = rotateUvs(createBeveledExtrude(totalFrameW, sillHeight, frameThick, 0.01));
                 builder.addNode({ geometry: sillGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, position: new THREE.Vector3(0, -sillHeight/2, 0), receiveShadow: true, userData: { isSillPlate: true, isFrame: true } });
             }
@@ -1779,17 +1790,23 @@ export const WIDGET_REGISTRY = {
             const hingePinZ = doorThick/2; 
             
             // Contact shadow — soft AO shadow on the floor under the door
-            const cShadowCanvas = document.createElement('canvas'); cShadowCanvas.width = 256; cShadowCanvas.height = 64;
-            const cShadowCtx = cShadowCanvas.getContext('2d');
-            if (cShadowCtx) {
-                const grad = cShadowCtx.createLinearGradient(0, 0, 0, 64);
-                grad.addColorStop(0, 'rgba(0,0,0,0.35)');
-                grad.addColorStop(0.3, 'rgba(0,0,0,0.12)');
-                grad.addColorStop(1, 'rgba(0,0,0,0)');
-                cShadowCtx.fillStyle = grad; cShadowCtx.fillRect(0, 0, 256, 64);
+            let cShadowMat = null;
+            try {
+                const cShadowCanvas = document.createElement('canvas'); cShadowCanvas.width = 256; cShadowCanvas.height = 64;
+                const cShadowCtx = cShadowCanvas.getContext ? cShadowCanvas.getContext('2d') : null;
+                if (cShadowCtx) {
+                    const grad = cShadowCtx.createLinearGradient(0, 0, 0, 64);
+                    grad.addColorStop(0, 'rgba(0,0,0,0.35)');
+                    grad.addColorStop(0.3, 'rgba(0,0,0,0.12)');
+                    grad.addColorStop(1, 'rgba(0,0,0,0)');
+                    cShadowCtx.fillStyle = grad; cShadowCtx.fillRect(0, 0, 256, 64);
+                    const cShadowTex = new THREE.CanvasTexture(cShadowCanvas);
+                    cShadowMat = new THREE.MeshBasicMaterial({ map: cShadowTex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+                }
+            } catch(e) {}
+            if (!cShadowMat) {
+                cShadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, opacity: 0.15, transparent: true, depthWrite: false, side: THREE.DoubleSide });
             }
-            const cShadowTex = new THREE.CanvasTexture(cShadowCanvas);
-            const cShadowMat = new THREE.MeshBasicMaterial({ map: cShadowTex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
             const cShadowGeo = new THREE.PlaneGeometry(leafWidth + 2, doorThick + 2);
             const contactShadow = builder.addNode({ geometry: cShadowGeo, materialOverride: cShadowMat, parent: doorGroup, isHitbox: false, castShadow: false, receiveShadow: false, userData: { isShadow: true } });
             contactShadow.rotation.x = -Math.PI / 2;
@@ -1803,11 +1820,11 @@ export const WIDGET_REGISTRY = {
                             // Clean Butt Joints for Jambs (Head Jamb between Side Jambs)
                             const jamHeight = height;
                             const jamY = jamHeight/2;
-                            const jamGeo = createBeveledExtrude(jambW, jamHeight, frameThick); 
-                            const jamL = builder.addNode({ geometry: jamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); jamL.position.set(-entity.width/2 + jambW/2, jamY, 0); 
-                            const jamR = builder.addNode({ geometry: jamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); jamR.position.set(entity.width/2 - jambW/2, jamY, 0); 
-                            const jamTGeo = rotateUvs(createBeveledExtrude(entity.width - jambW*2, jambW, frameThick)); 
-                            const jamT = builder.addNode({ geometry: jamTGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); jamT.position.set(0, height - jambW/2, 0);
+                            const jamGeo = createBeveledExtrude(jambW, jamHeight, frameThick, 0.03); 
+                            const jamL = builder.addNode({ geometry: jamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true, isJamb: true } }); jamL.position.set(-entity.width/2 + jambW/2, jamY, 0); 
+                            const jamR = builder.addNode({ geometry: jamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true, isJamb: true } }); jamR.position.set(entity.width/2 - jambW/2, jamY, 0); 
+                            const jamTGeo = rotateUvs(createBeveledExtrude(entity.width - jambW*2, jambW, frameThick, 0.03)); 
+                            const jamT = builder.addNode({ geometry: jamTGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true, isHeadJamb: true } }); jamT.position.set(0, height - jambW/2, 0);
                             
                             // Stops (Rebate) & Gasket
                             const swingDir = entity.facing === 1 ? 1 : -1;
@@ -1816,10 +1833,10 @@ export const WIDGET_REGISTRY = {
                             const stopH = (height - jambW) - stopBottom;
                             const stopY = stopBottom + stopH/2;
                             const stopGeoV = createBeveledExtrude(stopW, stopH, stopThick, 0.02); 
-                            const stopL = builder.addNode({ geometry: stopGeoV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); stopL.position.set(-entity.width/2 + jambW + stopW/2, stopY, stopZ); 
-                            const stopR = builder.addNode({ geometry: stopGeoV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); stopR.position.set(entity.width/2 - jambW - stopW/2, stopY, stopZ);
+                            const stopL = builder.addNode({ geometry: stopGeoV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true, isStop: true } }); stopL.position.set(-entity.width/2 + jambW + stopW/2, stopY, stopZ); 
+                            const stopR = builder.addNode({ geometry: stopGeoV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true, isStop: true } }); stopR.position.set(entity.width/2 - jambW - stopW/2, stopY, stopZ);
                             const stopGeoH = rotateUvs(createBeveledExtrude(entity.width - jambW*2 - stopW*2, stopW, stopThick, 0.02)); 
-                            const stopT = builder.addNode({ geometry: stopGeoH, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); stopT.position.set(0, height - jambW - stopW/2, stopZ);
+                            const stopT = builder.addNode({ geometry: stopGeoH, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true, isStop: true } }); stopT.position.set(0, height - jambW - stopW/2, stopZ);
                             
                             const gasketMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 }); 
                             const gaskGeo = new THREE.BoxGeometry(0.1, stopH, 0.1); 
@@ -1828,15 +1845,18 @@ export const WIDGET_REGISTRY = {
                             const gaskGeoH = new THREE.BoxGeometry(entity.width - jambW*2 - stopW*2, 0.1, 0.1); 
                             const gaskT = builder.addNode({ geometry: gaskGeoH, materialOverride: gasketMat, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } }); gaskT.position.set(0, height - jambW - stopW - 0.05, doorThick/2 + 0.05);
                             
-                            // Architraves (Clean Butt Joints)
+                            // Architraves & Casing (Header spans across Side Casings)
+                            const totalArchW = entity.width - jambW * 2 + archW * 2;
                             const archHeight = height;
                             const archY = archHeight/2;
-                            const archV = createBeveledExtrude(archW, archHeight, archThick); 
-                            const archHgeo = rotateUvs(createBeveledExtrude(entity.width + archW*2, archW, archThick));
+                            const archV = createBeveledExtrude(archW, archHeight, archThick, 0.04); 
+                            const archHgeo = rotateUvs(createBeveledExtrude(totalArchW, archW, archThick, 0.04));
+                            const archXLeft = -entity.width/2 + jambW - archW/2;
+                            const archXRight = entity.width/2 - jambW + archW/2;
                             
-                            [-frameThick/2 - archThick/2 + 0.05, frameThick/2 + archThick/2 - 0.05].forEach(zOff => { 
-                                const tL = builder.addNode({ geometry: archV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); tL.position.set(-entity.width/2 - archW/2 + jambW, archY, zOff); 
-                                const tR = builder.addNode({ geometry: archV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); tR.position.set(entity.width/2 + archW/2 - jambW, archY, zOff); 
+                            [-frameThick/2 - archThick/2, frameThick/2 + archThick/2].forEach(zOff => { 
+                                const tL = builder.addNode({ geometry: archV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); tL.position.set(archXLeft, archY, zOff); 
+                                const tR = builder.addNode({ geometry: archV, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); tR.position.set(archXRight, archY, zOff); 
                                 const tT = builder.addNode({ geometry: archHgeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); tT.position.set(0, height + archW/2, zOff); 
                             });
                             

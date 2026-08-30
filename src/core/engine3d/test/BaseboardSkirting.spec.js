@@ -153,4 +153,43 @@ describe('Baseboards & Skirting 3D Architecture & Catalog Pipeline', () => {
             expect(sceneGroup.children.length).toBeGreaterThan(0);
         });
     });
+
+    it('6. should automatically cut baseboard geometry around door openings', () => {
+        const mockWall = {
+            id: 'wall_door_cutout',
+            attachedWidgets: [
+                {
+                    type: 'door',
+                    width: 90,
+                    height: 210,
+                    elevation: 0,
+                    t: 0.5 // Centered at X = 250 on a 500cm wall -> cutout [205, 295]
+                }
+            ]
+        };
+
+        const moldData = {
+            id: 'skirt_door_test',
+            type: 'molding_skirting_flat',
+            profileType: 'skirting_flat',
+            width: 500,
+            depth: 2,
+            moldingHeight: 12,
+            heightOffset: 0,
+            side: 'left'
+        };
+
+        const segments = builder.getMoldingSegments(500, 0, 12, mockWall);
+        expect(segments.length).toBe(2);
+        expect(segments[0].start).toBeCloseTo(0);
+        expect(segments[0].end).toBeCloseTo(202.45);
+        expect(segments[1].start).toBeCloseTo(297.55);
+        expect(segments[1].end).toBeCloseTo(500);
+
+        const group = builder.buildMolding(moldData, 500, 20, null, mockWall);
+        expect(group.children.length).toBe(2);
+        expect(group.children[0].isMesh).toBe(true);
+        expect(group.children[1].isMesh).toBe(true);
+    });
 });
+
