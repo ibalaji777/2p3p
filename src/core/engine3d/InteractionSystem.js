@@ -16,6 +16,7 @@ import { Shape3DDrawSystem } from './Shape3DDrawSystem.js';
 import { WallPlugin3DPlacementSystem } from './WallPlugin3DPlacementSystem.js';
 import { Stair3DPlacementSystem } from './Stair3DPlacementSystem.js';
 import { Furniture3DPlacementSystem } from './Furniture3DPlacementSystem.js';
+import { Roof3DPlacementSystem } from './Roof3DPlacementSystem.js';
 import { SelectionManager } from './SelectionManager.js';
 import { HighlightRenderer } from './HighlightRenderer.js';
 import { DimensionManager3D } from './dimensions/DimensionManager3D.js';
@@ -458,6 +459,7 @@ export class InteractionSystem {
         this.wallPluginPlacementSystem = new WallPlugin3DPlacementSystem(ctx, this);
         this.stairPlacementSystem = new Stair3DPlacementSystem(ctx, this);
         this.furniturePlacementSystem = new Furniture3DPlacementSystem(ctx, this);
+        this.roofPlacementSystem = new Roof3DPlacementSystem(ctx, this);
 
         this.initEvents();
     }
@@ -506,6 +508,11 @@ export class InteractionSystem {
             // Direct 3D Furniture / Kitchen / Bathroom / Sanitary / Model Placement System
             if (this.furniturePlacementSystem && this.furniturePlacementSystem.isPlacementTool()) {
                 if (this.furniturePlacementSystem.onPointerDown(e)) return;
+            }
+
+            // Direct 3D Roof Placement & Drawing System
+            if (this.roofPlacementSystem && this.roofPlacementSystem.isPlacementTool()) {
+                if (this.roofPlacementSystem.onPointerDown(e)) return;
             }
 
             if (this.mode === 'camera') return;
@@ -624,6 +631,11 @@ export class InteractionSystem {
                 if (this.furniturePlacementSystem.onPointerMove(e)) return;
             }
 
+            // Direct 3D Roof Placement & Drawing System
+            if (this.roofPlacementSystem && this.roofPlacementSystem.isPlacementTool()) {
+                if (this.roofPlacementSystem.onPointerMove(e)) return;
+            }
+
             if (this.mode === 'camera') return;
 
             if (this.transformControls && this.transformControls.active) return;
@@ -670,6 +682,9 @@ export class InteractionSystem {
             if (this.shape3DDrawSystem && this.shape3DDrawSystem.isShapeDrawingTool()) {
                 if (this.shape3DDrawSystem.onPointerUp(e)) return;
             }
+            if (this.roofPlacementSystem && this.roofPlacementSystem.isPlacementTool()) {
+                if (this.roofPlacementSystem.onPointerUp(e)) return;
+            }
         };
 
         dom.addEventListener('pointerdown', this._onPointerDown);
@@ -691,7 +706,7 @@ export class InteractionSystem {
             if (this.transformControls) this.transformControls.detach();
             if (this.materialGizmo) this.materialGizmo.detach();
             if (this.cornerGizmo) this.cornerGizmo.detach();
-            if (this.roofCornerGizmo) this.roofCornerGizmo.attach(this.selectedObject);
+            if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
             if (this.polygonGizmo) this.polygonGizmo.detach();
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
             if (this.openingGizmo) this.openingGizmo.attach(this.selectedObject);
@@ -755,6 +770,9 @@ export class InteractionSystem {
         }
         if (this.furniturePlacementSystem && this.furniturePlacementSystem.hideGhost) {
             this.furniturePlacementSystem.hideGhost();
+        }
+        if (this.roofPlacementSystem && this.roofPlacementSystem.hideGhost) {
+            this.roofPlacementSystem.hideGhost();
         }
     }
 

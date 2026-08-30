@@ -67,7 +67,7 @@ export class PremiumHipRoof {
         this.hipLinesGroup = new Konva.Group();
         
         this.group.add(this.boundary, this.hipLinesGroup);
-        this.planner.roofLayer.add(this.group);
+        if (this.planner && this.planner.roofLayer) this.planner.roofLayer.add(this.group);
         
         this.handles = [];
         this.initHandles();

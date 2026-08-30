@@ -235,7 +235,21 @@ const displayUnit = computed(() => {
 
 const handleCatalogSelect = (item) => {
     if (planner.value) {
-        if (viewMode.value === '3d' && (item.toolId === 'furniture' || item.toolId === 'kitchen' || item.toolId === 'bathroom' || item.toolId === 'electronics' || (item.params && (item.params.type || item.params.id)))) {
+        if (item.toolId === 'roof' || (item.params && item.params.roofType)) {
+            const rType = item.params?.roofType || item.params?.id || 'gable';
+            const params = { toolId: 'roof', roofType: rType, pitch: item.params?.pitch || 30, material: item.params?.material || 'terracotta_tiles_roof', ...item.params };
+            
+            // If a roof is currently selected, update its style live
+            if (planner.value.selectedEntity && planner.value.selectedType === 'roof') {
+                planner.value.addAutoRoof(params);
+                if (viewMode.value === '3d') refresh3DScene(true);
+            } else {
+                // Otherwise activate Sims 4 interactive 3D placement/drawing tool
+                planner.value.activePresetParams = params;
+                activePresetParams.value = params;
+                setTool('roof', params);
+            }
+        } else if (viewMode.value === '3d' && (item.toolId === 'furniture' || item.toolId === 'kitchen' || item.toolId === 'bathroom' || item.toolId === 'electronics' || (item.params && (item.params.type || item.params.id)))) {
             // In 3D mode: activate real-time Sims 4 3D placement system
             const fType = item.params?.type || item.params?.id || item.toolId;
             const params = { type: fType, id: fType, toolId: item.toolId, ...item.params };

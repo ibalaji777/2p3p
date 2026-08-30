@@ -932,15 +932,24 @@ export class Preview3D {
         if (obj.children) [...obj.children].forEach(c => this.deepDispose(c));
     }
 
-    buildScene(walls, rooms, stairs = [], furnitureList = [], roofs = [], shapes = [], levelsConfigArray = [], activeIndex = 0, viewMode3D = 'full-edit', preserveCamera = false, outdoorZones = []) {
+    buildScene(walls = this.walls, rooms = this.rooms, stairs = this.stairs || [], furnitureList = this.furnitureList || [], roofs = this.roofs || [], shapes = this.shapes || [], levelsConfigArray = this.levelsConfigArray || [], activeIndex = this.activeIndex || 0, viewMode3D = this.viewMode3D || 'full-edit', preserveCamera = false, outdoorZones = this.outdoorZones || []) {
+        if (!walls && this.walls) walls = this.walls;
+        if (!rooms && this.rooms) rooms = this.rooms;
+        if ((!roofs || roofs.length === 0) && this.roofs && this.roofs.length > 0) roofs = this.roofs;
+        if ((!shapes || shapes.length === 0) && this.shapes && this.shapes.length > 0) shapes = this.shapes;
+        if ((!furnitureList || furnitureList.length === 0) && this.furnitureList && this.furnitureList.length > 0) furnitureList = this.furnitureList;
+        if ((!levelsConfigArray || levelsConfigArray.length === 0) && this.levelsConfigArray && this.levelsConfigArray.length > 0) levelsConfigArray = this.levelsConfigArray;
+        
         this.deselectObject();
         this.interactables.length = 0;
         this.viewMode3D = viewMode3D;
         this.walls = walls;
         this.rooms = rooms;
         this.stairs = stairs;
+        this.furnitureList = furnitureList;
         this.roofs = roofs;
         this.shapes = shapes;
+        this.levelsConfigArray = levelsConfigArray;
         this.outdoorZones = outdoorZones;
         this.activeIndex = activeIndex;
         

@@ -589,9 +589,39 @@ export class FloorPlanner {
         this.stage.add(this.bgLayer, this.mainLayer, this.uiLayer); 
     }
 
-    addAutoRoof() {
+    addAutoRoof(params = {}) {
         this.executeWithSnapshot(() => {
             if (!this.roofs) this.roofs = [];
+
+            // If a roof is currently selected and user clicks another roof style (e.g. flat, gable, hip) in catalog:
+            if (this.selectedEntity && this.selectedType === 'roof' && this.selectedEntity.config) {
+                if (params.roofType) this.selectedEntity.config.roofType = params.roofType;
+                if (params.pitch !== undefined) this.selectedEntity.config.pitch = params.pitch;
+                if (params.material) {
+                    this.selectedEntity.config.material = params.material;
+                    this.selectedEntity.configId = params.material;
+                }
+                if (params.overhang !== undefined) this.selectedEntity.config.overhang = params.overhang;
+                if (params.thick !== undefined) this.selectedEntity.config.thickness = params.thick;
+                if (this.selectedEntity.update) this.selectedEntity.update();
+                this.syncAll();
+                this.selectEntity(this.selectedEntity, 'roof');
+                return;
+            }
+
+            const applyConfig = (roof) => {
+                if (params.roofType) roof.config.roofType = params.roofType;
+                if (params.pitch !== undefined) roof.config.pitch = params.pitch;
+                if (params.material) {
+                    roof.config.material = params.material;
+                    roof.configId = params.material;
+                }
+                if (params.overhang !== undefined) roof.config.overhang = params.overhang;
+                if (params.thick !== undefined) roof.config.thickness = params.thick;
+                if (roof.update) roof.update();
+            };
+
+            let createdRoof = null;
             
             // COMPLEX SHAPE DETECTION: Generate intersecting roofs based on closed rooms
             if (this.roomPaths && this.roomPaths.length > 0) {
@@ -602,14 +632,12 @@ export class FloorPlanner {
                         minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
                     });
                     
-                    let w = maxX - minX; let d = maxY - minY;
-                    let cx = minX + w / 2; let cy = minY + d / 2;
-                    
                     const points = [{x: minX, y: minY}, {x: maxX, y: minY}, {x: maxX, y: maxY}, {x: minX, y: maxY}];
 
                     const newRoof = new PremiumHipRoof(this, points);
+                    applyConfig(newRoof);
                     this.roofs.push(newRoof);
-                    this.selectEntity(newRoof, 'roof');
+                    createdRoof = newRoof;
                 });
             } 
             // SINGLE SHAPE FALLBACK: Wrap all walls in one bounding box
@@ -620,23 +648,26 @@ export class FloorPlanner {
                     minX = Math.min(minX, p1.x, p2.x); maxX = Math.max(maxX, p1.x, p2.x);
                     minY = Math.min(minY, p1.y, p2.y); maxY = Math.max(maxY, p1.y, p2.y);
                 });
-                let w = maxX - minX; let d = maxY - minY;
-                let cx = minX + w / 2; let cy = minY + d / 2;
 
                 const points = [{x: minX, y: minY}, {x: maxX, y: minY}, {x: maxX, y: maxY}, {x: minX, y: maxY}];
 
                 const newRoof = new PremiumHipRoof(this, points);
+                applyConfig(newRoof);
                 this.roofs.push(newRoof);
-                this.selectEntity(newRoof, 'roof');
+                createdRoof = newRoof;
             } else {
                 // EMPTY CANVAS FALLBACK
                 const cx = this.stage.width()/2; const cy = this.stage.height()/2;
                 const points = [{x: cx - 200, y: cy - 150}, {x: cx + 200, y: cy - 150}, {x: cx + 200, y: cy + 150}, {x: cx - 200, y: cy + 150}];
                 const newRoof = new PremiumHipRoof(this, points);
+                applyConfig(newRoof);
                 this.roofs.push(newRoof);
-                this.selectEntity(newRoof, 'roof');
+                createdRoof = newRoof;
             }
             
+            if (createdRoof) {
+                this.selectEntity(createdRoof, 'roof');
+            }
             this.syncAll();
             this.tool = 'select';
             this.updateToolStates();
@@ -893,7 +924,7 @@ export class FloorPlanner {
                 this.shapeTransformer.nodes([]);
             }
         }
-        this.syncAll();
+        if (this.stage) this.stage.batchDraw();
 
         if (this.onSelectionChange) this.onSelectionChange(entity, type, nodeIndex);
         if (typeof window !== 'undefined') {
@@ -1020,7 +1051,7 @@ export class FloorPlanner {
     }
 
     getOrCreateAnchor(x, y) { let a = this.anchors.find(a => Math.hypot(a.x - x, a.y - y) < SNAP_DIST); if (a) return a; const newAnchor = new Anchor(this, x, y); this.anchors.push(newAnchor); return newAnchor; }
-    deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.roofs.forEach(r => r.setHighlight(false)); if(this.balconies) this.balconies.forEach(b => b.setHighlight(false)); if(this.shapes) this.shapes.forEach(s => s.setHighlight(false)); if(this.outdoorZones) this.outdoorZones.forEach(z => { if(z.setHighlight) z.setHighlight(false); }); if(this.presetGroups) this.presetGroups.forEach(pg => { if(pg.setHighlight) pg.setHighlight(false); }); this.selectEntity(null); this.syncAll(); }
+    deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.roofs.forEach(r => r.setHighlight(false)); if(this.balconies) this.balconies.forEach(b => b.setHighlight(false)); if(this.shapes) this.shapes.forEach(s => s.setHighlight(false)); if(this.outdoorZones) this.outdoorZones.forEach(z => { if(z.setHighlight) z.setHighlight(false); }); if(this.presetGroups) this.presetGroups.forEach(pg => { if(pg.setHighlight) pg.setHighlight(false); }); this.selectEntity(null); }
     syncAll() {
         this.buildingCenter = null;
         if (this.gridLayer) {

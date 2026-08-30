@@ -439,13 +439,15 @@ export class Roof3DBuilder {
                             });
                         }
                         const gableMesh = new THREE.Mesh(gGeo, gableMat);
+                        gableMesh.userData = { isRoof: true, isGable: true, entity: roof, materialSlot: 'gable', componentType: 'gable_wall' };
                         mesh.add(gableMesh);
+                        ComponentRegistry.registerMesh(roof, "gable", gableMesh);
                     }
                 }
                 
             } else {
                 let bMinX = Infinity, bMaxX = -Infinity, bMinY = Infinity, bMaxY = -Infinity;
-                basePts.forEach(p => {
+                pts.forEach(p => {
                     bMinX = Math.min(bMinX, p.x); bMaxX = Math.max(bMaxX, p.x);
                     bMinY = Math.min(bMinY, p.y); bMaxY = Math.max(bMaxY, p.y);
                 });
@@ -455,50 +457,77 @@ export class Roof3DBuilder {
                 const pitch = conf.pitch || 30;
                 const maxSpan = Math.min(bW, bD);
                 const rh = Math.tan(pitch * Math.PI / 180) * (maxSpan / 2);
-                
-                let cx = 0, cy = 0, signedArea = 0;
-                for (let i = 0; i < basePts.length; i++) {
-                    let p0 = basePts[i], p1 = basePts[(i + 1) % basePts.length];
-                    let a = p0.x * p1.y - p1.x * p0.y;
-                    signedArea += a;
-                    cx += (p0.x + p1.x) * a;
-                    cy += (p0.y + p1.y) * a;
-                }
-                signedArea *= 0.5;
-                if (Math.abs(signedArea) > 0.1) { cx /= (6.0 * signedArea); cy /= (6.0 * signedArea); } 
-                else { cx = bMinX + bW/2; cy = bMinY + bD/2; }
+                const isHorizontal = bW >= bD;
+                const ridgeOffset = conf.ridgeOffset || 0;
 
-                const top = [cx, rh, cy];
                 const v = [], uv = [];
-                
-                const dropFactor = Math.tan(pitch * Math.PI / 180);
-                
+                const addTri = (p1, p2, p3) => {
+                    let dx1 = p2.x - p1.x, dz1 = p2.z - p1.z;
+                    let dx2 = p3.x - p1.x, dz2 = p3.z - p1.z;
+                    let ny = dz1 * dx2 - dx1 * dz2;
+                    if (ny < 0) {
+                        v.push(p1.x, p1.y, p1.z, p3.x, p3.y, p3.z, p2.x, p2.y, p2.z);
+                        uv.push(p1.x / 100, p1.z / 100, p3.x / 100, p3.z / 100, p2.x / 100, p2.z / 100);
+                    } else {
+                        v.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z, p3.x, p3.y, p3.z);
+                        uv.push(p1.x / 100, p1.z / 100, p2.x / 100, p2.z / 100, p3.x / 100, p3.z / 100);
+                    }
+                };
+
                 // Helper to get overhang for an edge
+                const dropFactor = Math.tan(pitch * Math.PI / 180);
                 const getOverhang = (idx) => {
                     if (Array.isArray(conf.overhangs) && conf.overhangs[idx] !== undefined) return conf.overhangs[idx];
                     return conf.overhang !== undefined ? conf.overhang : 8;
                 };
 
-                for (let i = 0; i < pts.length; i++) {
-                    let p0 = pts[i], p1 = pts[(i + 1) % pts.length];
-                    let dx1 = p1.x - p0.x, dz1 = p1.y - p0.y;
-                    let dx2 = top[0] - p0.x, dz2 = top[2] - p0.y;
-                    let ny = dx1 * dz2 - dz1 * dx2; 
-                    
-                    let prevIdx = (i - 1 + pts.length) % pts.length;
-                    let nextIdx = (i + 1) % pts.length;
-                    
-                    let drop0 = -Math.max(getOverhang(prevIdx), getOverhang(i)) * dropFactor;
-                    let drop1 = -Math.max(getOverhang(i), getOverhang(nextIdx)) * dropFactor;
-                    
-                    if (ny < 0) { 
-                        v.push(p1.x, drop1, p1.y, p0.x, drop0, p0.y, ...top); 
-                        uv.push(p1.x / 100, p1.y / 100, p0.x / 100, p0.y / 100, top[0] / 100, top[2] / 100);
-                    } 
-                    else { 
-                        v.push(p0.x, drop0, p0.y, p1.x, drop1, p1.y, ...top); 
-                        uv.push(p0.x / 100, p0.y / 100, p1.x / 100, p1.y / 100, top[0] / 100, top[2] / 100);
-                    }
+                if (isHorizontal) {
+                    const r1 = { x: bMinX + bD / 2, y: rh, z: bMinY + bD / 2 + ridgeOffset };
+                    const r2 = { x: bMaxX - bD / 2, y: rh, z: bMinY + bD / 2 + ridgeOffset };
+
+                    // Compute eave heights
+                    const drop = -getOverhang(0) * dropFactor;
+                    const cNW = { x: bMinX, y: drop, z: bMinY };
+                    const cNE = { x: bMaxX, y: drop, z: bMinY };
+                    const cSE = { x: bMaxX, y: drop, z: bMaxY };
+                    const cSW = { x: bMinX, y: drop, z: bMaxY };
+
+                    // 1. North Slope (Trapezoid)
+                    addTri(cNW, cNE, r2);
+                    addTri(cNW, r2, r1);
+
+                    // 2. East Hip End (Triangle)
+                    addTri(cNE, cSE, r2);
+
+                    // 3. South Slope (Trapezoid)
+                    addTri(cSE, cSW, r1);
+                    addTri(cSE, r1, r2);
+
+                    // 4. West Hip End (Triangle)
+                    addTri(cSW, cNW, r1);
+                } else {
+                    const r1 = { x: bMinX + bW / 2 + ridgeOffset, y: rh, z: bMinY + bW / 2 };
+                    const r2 = { x: bMinX + bW / 2 + ridgeOffset, y: rh, z: bMaxY - bW / 2 };
+
+                    const drop = -getOverhang(0) * dropFactor;
+                    const cNW = { x: bMinX, y: drop, z: bMinY };
+                    const cNE = { x: bMaxX, y: drop, z: bMinY };
+                    const cSE = { x: bMaxX, y: drop, z: bMaxY };
+                    const cSW = { x: bMinX, y: drop, z: bMaxY };
+
+                    // 1. North Hip End (Triangle)
+                    addTri(cNE, cNW, r1);
+
+                    // 2. West Slope (Trapezoid)
+                    addTri(cNW, cSW, r2);
+                    addTri(cNW, r2, r1);
+
+                    // 3. South Hip End (Triangle)
+                    addTri(cSW, cSE, r2);
+
+                    // 4. East Slope (Trapezoid)
+                    addTri(cSE, cNE, r1);
+                    addTri(cSE, r1, r2);
                 }
 
                 const T = conf.thickness || 8;
@@ -546,7 +575,7 @@ export class Roof3DBuilder {
             mesh.castShadow = true;
             mesh.receiveShadow = true;
             
-            mesh.userData = { isRoof: true, entity: roof }; 
+            mesh.userData = { isRoof: true, entity: roof, materialSlot: 'top', componentType: 'roof_top' }; 
             if (this.ctx.viewMode3D !== 'preview' && targetGroup === this.ctx.structureGroup) {
                 this.ctx.interactables.push(mesh);
             }

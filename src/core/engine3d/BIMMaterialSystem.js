@@ -83,6 +83,9 @@ export class BIMMaterialSystem {
             } else if (type === 'outer' || type === 'inner' || type === 'compound' || type === 'wall') {
                 componentType = 'wall_face';
                 slotName = `wall_${faceName}`;
+            } else if (type === 'roof') {
+                componentType = mesh.userData?.componentType || 'roof_top';
+                slotName = mesh.userData?.materialSlot || 'top';
             } else if (type === 'furniture' || targetEntity.isFurniture) {
                 componentType = mesh.userData?.componentType || (mesh.userData?.materialSlot ? String(mesh.userData.materialSlot) : 'furniture_part');
                 slotName = mesh.userData?.materialSlot || MaterialSlots.CUSTOM;

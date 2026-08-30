@@ -179,8 +179,14 @@ export function useAppTools({
         else if (tool.action === 'auto_roof') { if (planner.value) planner.value.addAutoRoof(); }
         else if (tool.action === 'wizard') { wizardPopupRef.value?.open(tool.id); }
         else if (tool.id.startsWith('roof_')) {
-            if (planner.value) planner.value.currentRoofToolType = tool.roofType;
-            setTool('roof');
+            const roofType = tool.roofType || tool.id.replace('roof_', '');
+            const params = { toolId: 'roof', roofType, pitch: 30, material: 'terracotta_tiles_roof' };
+            if (planner.value) {
+                planner.value.currentRoofToolType = roofType;
+                planner.value.activePresetParams = params;
+            }
+            activePresetParams.value = params;
+            setTool('roof', params);
         }
         else setTool(tool.id);
         
