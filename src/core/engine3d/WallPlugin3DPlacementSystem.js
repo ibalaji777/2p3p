@@ -446,25 +446,26 @@ export class WallPlugin3DPlacementSystem {
 
         const isMolding = tool === 'molding' || tool === 'skirting' || tool.startsWith('molding_') || tool.startsWith('skirting_') || !!MOLDING_REGISTRY[tool];
         const isElevationTrim = tool === 'elevation_frieze' || tool === 'elevation_foundation_trim';
-        const isDoor = !isMolding && !isElevationTrim && (tool.startsWith('door') || (!tool.startsWith('window') && !tool.startsWith('sunshade') && !tool.startsWith('jali_') && !tool.startsWith('curtain') && !tool.startsWith('decor_') && preset.doorType !== undefined));
-        const isWindow = !isMolding && !isElevationTrim && (tool.startsWith('window') || (!tool.startsWith('door') && !tool.startsWith('sunshade') && !tool.startsWith('jali_') && !tool.startsWith('curtain') && !tool.startsWith('decor_') && preset.windowType !== undefined));
-        const isJali = !isMolding && !isElevationTrim && (tool === 'jali_panel' || tool.startsWith('jali_') || (!tool.startsWith('door') && !tool.startsWith('window') && (preset.patternStyle !== undefined || preset.jaliPattern !== undefined)));
-        const isSunshade = !isMolding && !isElevationTrim && (tool === 'sunshade' || tool.startsWith('sunshade_') || tool === 'chajja' || (!tool.startsWith('door') && !tool.startsWith('window') && preset.chajjaType !== undefined));
-        const isCurtain = !isMolding && !isElevationTrim && (tool === 'curtain' || tool.startsWith('curtain_'));
-        const isWallArt = !isMolding && !isElevationTrim && (tool === 'wall_art' || tool.startsWith('decor_wall_') || tool.startsWith('decor_photo_'));
-        const isFascia = !isMolding && !isElevationTrim && (tool === 'elevation_fascia' || tool.startsWith('fascia_'));
+        const isAdvOpening = !isMolding && !isElevationTrim && (tool === 'arch_opening' || tool === 'circular_opening' || tool === 'custom_shape_opening' || tool === 'niche_recess' || tool === 'pattern_opening' || tool === 'boolean_cut' || tool === 'opening' || (preset && ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'opening'].includes(preset.type)));
+        const isDoor = !isMolding && !isElevationTrim && !isAdvOpening && (tool.startsWith('door') || (!tool.startsWith('window') && !tool.startsWith('sunshade') && !tool.startsWith('jali_') && !tool.startsWith('curtain') && !tool.startsWith('decor_') && preset.doorType !== undefined));
+        const isWindow = !isMolding && !isElevationTrim && !isAdvOpening && (tool.startsWith('window') || (!tool.startsWith('door') && !tool.startsWith('sunshade') && !tool.startsWith('jali_') && !tool.startsWith('curtain') && !tool.startsWith('decor_') && preset.windowType !== undefined));
+        const isJali = !isMolding && !isElevationTrim && !isAdvOpening && (tool === 'jali_panel' || tool.startsWith('jali_') || (!tool.startsWith('door') && !tool.startsWith('window') && (preset.patternStyle !== undefined || preset.jaliPattern !== undefined)));
+        const isSunshade = !isMolding && !isElevationTrim && !isAdvOpening && (tool === 'sunshade' || tool.startsWith('sunshade_') || tool === 'chajja' || (!tool.startsWith('door') && !tool.startsWith('window') && preset.chajjaType !== undefined));
+        const isCurtain = !isMolding && !isElevationTrim && !isAdvOpening && (tool === 'curtain' || tool.startsWith('curtain_'));
+        const isWallArt = !isMolding && !isElevationTrim && !isAdvOpening && (tool === 'wall_art' || tool.startsWith('decor_wall_') || tool.startsWith('decor_photo_'));
+        const isFascia = !isMolding && !isElevationTrim && !isAdvOpening && (tool === 'elevation_fascia' || tool.startsWith('fascia_'));
 
         const isDrapes = isCurtain && (!preset.curtainType || preset.curtainType.includes('drapes'));
 
         let itemW = isMolding || isElevationTrim
             ? wallLen
-            : (preset.width || (isDoor ? 40 : (isWindow ? 60 : (isJali ? 60 : (isSunshade ? 60 : (isFascia ? 100 : (isCurtain ? (isDrapes ? 80 : 50) : (isWallArt ? (tool.includes('gallery') || preset.artType?.includes('gallery') ? 60 : 50) : (tool === 'elevation_corner_element' ? 26 : 80)))))))));
+            : (preset.width || (isDoor ? 40 : (isWindow ? 60 : (isJali ? 60 : (isSunshade ? 60 : (isFascia ? 100 : (isCurtain ? (isDrapes ? 80 : 50) : (isWallArt ? (tool.includes('gallery') || preset.artType?.includes('gallery') ? 60 : 50) : (isAdvOpening ? (tool === 'circular_opening' || preset.type === 'circular_opening' ? 40 : (tool === 'niche_recess' || preset.type === 'niche_recess' ? 40 : 50)) : (tool === 'elevation_corner_element' ? 26 : 80))))))))));
         
         let itemH = (isMolding || isElevationTrim)
             ? (preset.moldingHeight || (preset.height && preset.height <= 30 ? preset.height : 12))
-            : (preset.height || (isDoor ? DOOR_HEIGHT : (isWindow ? WINDOW_HEIGHT : (isJali ? 80 : (isSunshade ? 10 : (isFascia ? 120 : (isCurtain ? (isDrapes ? 95 : 50) : (isWallArt ? 35 : (tool === 'elevation_corner_element' ? wallH : (tool === 'elevation_frieze' ? 18 : (tool === 'elevation_foundation_trim' ? 45 : 20)))))))))));
+            : (preset.height || (isDoor ? DOOR_HEIGHT : (isWindow ? WINDOW_HEIGHT : (isJali ? 80 : (isSunshade ? 10 : (isFascia ? 120 : (isCurtain ? (isDrapes ? 95 : 50) : (isWallArt ? 35 : (isAdvOpening ? (tool === 'circular_opening' || preset.type === 'circular_opening' ? 40 : (tool === 'arch_opening' || preset.type === 'arch_opening' || tool === 'opening' || preset.type === 'opening' ? DOOR_HEIGHT : 60)) : (tool === 'elevation_corner_element' ? wallH : (tool === 'elevation_frieze' ? 18 : (tool === 'elevation_foundation_trim' ? 45 : 20))))))))))));
 
-        let depth = preset.depth || (isSunshade ? 40 : (isFascia ? 40 : (isCurtain ? (isDrapes ? 8 : 4) : (isWallArt ? 3 : 2))));
+        let depth = preset.depth || (isSunshade ? 40 : (isFascia ? 40 : (isCurtain ? (isDrapes ? 8 : 4) : (isWallArt ? 3 : (tool === 'niche_recess' || preset.type === 'niche_recess' ? 6 : 10)))));
         let elev = 0;
 
         let t = projDist / wallLen;
@@ -506,6 +507,15 @@ export class WallPlugin3DPlacementSystem {
             // Allow placing anywhere vertically on the wall (follows cursor height)
             let jaliElev = Math.max(0, Math.min(wallH - itemH, Math.round(localHitY - itemH / 2)));
             elev = (preset.isFixedElevation && preset.elevation !== undefined) ? preset.elevation : jaliElev;
+        } else if (isAdvOpening) {
+            t = Math.max(0, Math.min(1, t));
+            projDist = t * wallLen;
+            const isArch = tool === 'arch_opening' || preset.type === 'arch_opening';
+            if (isArch && (localHitY <= 30 || preset.elevation === 0)) {
+                elev = 0;
+            } else {
+                elev = (preset.isFixedElevation && preset.elevation !== undefined) ? preset.elevation : Math.max(0, Math.min(wallH - itemH, Math.round(localHitY - itemH / 2)));
+            }
         } else if (isSunshade) {
             // Allow placing anywhere along the wall length
             t = Math.max(0, Math.min(1, t));
@@ -777,14 +787,43 @@ export class WallPlugin3DPlacementSystem {
             this.apertureEdges.position.copy(this.apertureVoidMesh.position);
             this.apertureEdges.material = this.apertureEdgeMat;
         } else {
-            // For doors, windows, and jali panels: render a cutout void box cutting through the wall at localX = projDist
+            // For doors, windows, jali panels, and advanced wall openings:
             const cutoutThick = thick + 4;
-            const cutoutH = itemH;
-            const cutoutY = elev + cutoutH / 2;
+            const opType = preset?.type || tool;
 
             this.apertureVoidMesh.geometry.dispose();
-            this.apertureVoidMesh.geometry = new THREE.BoxGeometry(itemW, cutoutH, cutoutThick);
-            this.apertureVoidMesh.position.set(projDist, cutoutY, 0);
+
+            if (opType === 'arch_opening') {
+                const shape = new THREE.Shape();
+                const hw = itemW / 2;
+                const radius = hw;
+                const straightH = Math.max(0, itemH - radius);
+                shape.moveTo(-hw, 0);
+                shape.lineTo(hw, 0);
+                shape.lineTo(hw, straightH);
+                if (radius > 0) shape.absarc(0, straightH, radius, 0, Math.PI, false);
+                shape.lineTo(-hw, 0);
+
+                const geo = new THREE.ExtrudeGeometry(shape, { depth: cutoutThick, bevelEnabled: false });
+                geo.translate(0, 0, -cutoutThick / 2);
+                this.apertureVoidMesh.geometry = geo;
+                this.apertureVoidMesh.position.set(projDist, elev, 0);
+            } else if (opType === 'circular_opening') {
+                const geo = new THREE.CylinderGeometry(itemW / 2, itemW / 2, cutoutThick, 32);
+                geo.rotateX(Math.PI / 2);
+                this.apertureVoidMesh.geometry = geo;
+                this.apertureVoidMesh.position.set(projDist, elev + itemH / 2, 0);
+            } else if (opType === 'niche_recess') {
+                const recessDepth = Math.min(depth, thick - 2);
+                const wallOffset = ((thick / 2) - (recessDepth / 2)) * facing;
+                this.apertureVoidMesh.geometry = new THREE.BoxGeometry(itemW, itemH, recessDepth);
+                this.apertureVoidMesh.position.set(projDist, elev + itemH / 2, wallOffset);
+            } else {
+                const cutoutH = itemH;
+                const cutoutY = elev + cutoutH / 2;
+                this.apertureVoidMesh.geometry = new THREE.BoxGeometry(itemW, cutoutH, cutoutThick);
+                this.apertureVoidMesh.position.set(projDist, cutoutY, 0);
+            }
 
             this.apertureVoidMat.color.setHex(isValid ? 0x00f0ff : 0xef4444);
             this.apertureVoidMat.opacity = isValid ? 0.25 : 0.45;
@@ -818,7 +857,7 @@ export class WallPlugin3DPlacementSystem {
         }
 
         const planner = this.getPlanner();
-        const preset = planner.activePresetParams || {};
+        const preset = planner?.activePresetParams || {};
 
         if (isMoldingOrTrim) {
             const moldMesh = this.molding3DBuilder.buildMolding({
@@ -998,19 +1037,20 @@ export class WallPlugin3DPlacementSystem {
             wall.attachedMoldings.push(createdEntity);
             planner.selectEntity(createdEntity, 'molding');
         } else if (isWidget) {
-            const isDoor = tool.startsWith('door') || (preset && (preset.doorType !== undefined || preset.doorStyle !== undefined));
-            const isWindow = tool.startsWith('window') || (preset && preset.windowType !== undefined);
-            const isSunshade = tool === 'sunshade' || tool.startsWith('sunshade_') || tool === 'chajja' || (preset && preset.chajjaType !== undefined);
-            const isJali = tool === 'jali_panel' || tool.startsWith('jali_') || (preset && (preset.patternStyle !== undefined || preset.jaliPattern !== undefined));
-            const isCurtain = tool === 'curtain' || tool.startsWith('curtain_');
-            const isWallArt = tool === 'wall_art' || tool.startsWith('decor_wall_') || tool.startsWith('decor_photo_');
-            const isFascia = tool === 'elevation_fascia' || tool.startsWith('fascia_');
+            const isAdvOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'opening'].includes(tool) || (preset && ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'opening'].includes(preset.type));
+            const isDoor = !isAdvOpening && (tool.startsWith('door') || (preset && (preset.doorType !== undefined || preset.doorStyle !== undefined)));
+            const isWindow = !isAdvOpening && (tool.startsWith('window') || (preset && preset.windowType !== undefined));
+            const isSunshade = !isAdvOpening && (tool === 'sunshade' || tool.startsWith('sunshade_') || tool === 'chajja' || (preset && preset.chajjaType !== undefined));
+            const isJali = !isAdvOpening && (tool === 'jali_panel' || tool.startsWith('jali_') || (preset && (preset.patternStyle !== undefined || preset.jaliPattern !== undefined)));
+            const isCurtain = !isAdvOpening && (tool === 'curtain' || tool.startsWith('curtain_'));
+            const isWallArt = !isAdvOpening && (tool === 'wall_art' || tool.startsWith('decor_wall_') || tool.startsWith('decor_photo_'));
+            const isFascia = !isAdvOpening && (tool === 'elevation_fascia' || tool.startsWith('fascia_'));
 
-            const widgetType = isDoor ? 'door' : (isWindow ? 'window' : (isSunshade ? 'sunshade' : (isJali ? 'jali_panel' : (isFascia ? 'elevation_fascia' : (isCurtain ? 'curtain' : (isWallArt ? 'wall_art' : tool))))));
+            const widgetType = isDoor ? 'door' : (isWindow ? 'window' : (isSunshade ? 'sunshade' : (isJali ? 'jali_panel' : (isFascia ? 'elevation_fascia' : (isCurtain ? 'curtain' : (isWallArt ? 'wall_art' : (isAdvOpening ? (preset?.type || tool) : tool)))))));
             
-            const itemW = preset.width || (isDoor ? 40 : (isWindow ? 60 : (isJali ? 60 : (isSunshade ? 60 : (isFascia ? 100 : (isCurtain ? 80 : 50))))));
-            const itemH = preset.height || (isDoor ? DOOR_HEIGHT : (isWindow ? WINDOW_HEIGHT : (isJali ? 100 : (isSunshade ? 12 : (isFascia ? 120 : (isCurtain ? 95 : 35))))));
-            const depth = preset.depth || (isSunshade ? 40 : (isFascia ? 40 : (isCurtain ? 8 : (isWallArt ? 3 : 2))));
+            const itemW = preset.width || (isDoor ? 40 : (isWindow ? 60 : (isJali ? 60 : (isSunshade ? 60 : (isFascia ? 100 : (isCurtain ? 80 : (isAdvOpening ? (widgetType === 'circular_opening' ? 40 : 50) : 50)))))));
+            const itemH = preset.height || (isDoor ? DOOR_HEIGHT : (isWindow ? WINDOW_HEIGHT : (isJali ? 80 : (isSunshade ? 12 : (isFascia ? 120 : (isCurtain ? 95 : (isAdvOpening ? (widgetType === 'circular_opening' ? 40 : (widgetType === 'arch_opening' || widgetType === 'opening' ? DOOR_HEIGHT : 60)) : 35)))))));
+            const depth = preset.depth || (isSunshade ? 40 : (isFascia ? 40 : (isCurtain ? 8 : (isWallArt ? 3 : (widgetType === 'niche_recess' ? 6 : 10)))));
 
             createdEntity = new PremiumWidget(planner, wall, t, widgetType);
             const wallThick = wall.thickness || wall.config?.thickness || 20;
@@ -1038,7 +1078,7 @@ export class WallPlugin3DPlacementSystem {
             if (!wall.attachedWidgets.includes(createdEntity)) {
                 wall.attachedWidgets.push(createdEntity);
             }
-            planner.selectEntity(createdEntity, isDoor ? 'door' : (isWindow ? 'window' : (isSunshade ? 'sunshade' : (isJali ? 'jali_panel' : 'widget'))));
+            planner.selectEntity(createdEntity, isDoor ? 'door' : (isWindow ? 'window' : (isSunshade ? 'sunshade' : (isJali ? 'jali_panel' : (isAdvOpening ? 'advance_openings' : 'widget')))));
         }
 
         // Save history

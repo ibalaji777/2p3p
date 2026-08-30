@@ -3785,6 +3785,163 @@ export const WIDGET_REGISTRY = {
         defaultConfig: { width: 60, height: 25, depth: 3, elevation: 50, thick: 2, facing: 1, artType: 'decor_photo_gallery' },
         render2D: (group, entity) => WIDGET_REGISTRY['wall_art'].render2D(group, { ...entity, artType: 'decor_photo_gallery' }),
         render3D: (sceneGroup, entity, helpers) => WIDGET_REGISTRY['wall_art'].render3D(sceneGroup, { ...entity, artType: 'decor_photo_gallery' }, helpers)
+    },
+    'arch_opening': {
+        widget: "arch_opening", label: "ARCH OPENING", cutsWall: true,
+        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
+        defaultConfig: { width: 50, height: DOOR_HEIGHT, depth: 20, elevation: 0, thick: 20, facing: 1 },
+        render2D: (group, entity) => {
+            const hw = (entity.width || 50) / 2; const thick = entity.wall ? (entity.wall.thickness || 20) : 20;
+            group.add(new Konva.Rect({ x: -hw, y: -thick/2, width: entity.width || 50, height: thick, stroke: '#38bdf8', strokeWidth: 2, fill: 'rgba(56, 189, 248, 0.15)' }));
+            group.add(new Konva.Arc({ x: 0, y: 0, innerRadius: hw, outerRadius: hw, angle: 180, rotation: 180, stroke: '#38bdf8', dash: [4, 4] }));
+        },
+        render3D: (sceneGroup, entity, helpers) => {
+            const baseElev = entity.elevation || 0; const h = entity.height || DOOR_HEIGHT; const w = entity.width || 50; const thick = entity.wall ? (entity.wall.thickness || 20) : (entity.thick || 20);
+            const builder = new BIMComponentBuilder(entity, helpers);
+            const opGroup = builder.group;
+            if (entity.localX !== undefined) opGroup.position.set(entity.localX, baseElev, 0);
+            else opGroup.position.set(entity.x || 0, baseElev, entity.z || 0);
+            const hitGeo = new THREE.BoxGeometry(w, h, thick + 4);
+            builder.addNode({ geometry: hitGeo, parent: opGroup, position: new THREE.Vector3(0, h/2, 0), isHitbox: true });
+            opGroup.userData = { isWidget: true, isOpening: true, entity: entity };
+            const finalGroup = builder.build();
+            sceneGroup.add(finalGroup);
+            return finalGroup;
+        }
+    },
+    'circular_opening': {
+        widget: "circular_opening", label: "CIRCULAR OPENING", cutsWall: true,
+        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
+        defaultConfig: { width: 40, height: 40, depth: 20, elevation: 40, thick: 20, facing: 1 },
+        render2D: (group, entity) => {
+            const hw = (entity.width || 40) / 2; const thick = entity.wall ? (entity.wall.thickness || 20) : 20;
+            group.add(new Konva.Ellipse({ x: 0, y: 0, radiusX: hw, radiusY: thick/2, stroke: '#38bdf8', strokeWidth: 2, fill: 'rgba(56, 189, 248, 0.15)' }));
+        },
+        render3D: (sceneGroup, entity, helpers) => {
+            const baseElev = entity.elevation !== undefined ? entity.elevation : 40; const h = entity.height || 40; const w = entity.width || 40; const thick = entity.wall ? (entity.wall.thickness || 20) : (entity.thick || 20);
+            const builder = new BIMComponentBuilder(entity, helpers);
+            const opGroup = builder.group;
+            if (entity.localX !== undefined) opGroup.position.set(entity.localX, baseElev, 0);
+            else opGroup.position.set(entity.x || 0, baseElev, entity.z || 0);
+            const hitGeo = new THREE.BoxGeometry(w, h, thick + 4);
+            builder.addNode({ geometry: hitGeo, parent: opGroup, position: new THREE.Vector3(0, h/2, 0), isHitbox: true });
+            opGroup.userData = { isWidget: true, isOpening: true, entity: entity };
+            const finalGroup = builder.build();
+            sceneGroup.add(finalGroup);
+            return finalGroup;
+        }
+    },
+    'custom_shape_opening': {
+        widget: "custom_shape_opening", label: "CUSTOM SHAPE OPENING", cutsWall: true,
+        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
+        defaultConfig: { width: 50, height: 60, depth: 20, elevation: 40, thick: 20, facing: 1 },
+        render2D: (group, entity) => {
+            const hw = (entity.width || 50) / 2; const thick = entity.wall ? (entity.wall.thickness || 20) : 20;
+            group.add(new Konva.Rect({ x: -hw, y: -thick/2, width: entity.width || 50, height: thick, stroke: '#38bdf8', strokeWidth: 2, fill: 'rgba(56, 189, 248, 0.15)' }));
+        },
+        render3D: (sceneGroup, entity, helpers) => {
+            const baseElev = entity.elevation !== undefined ? entity.elevation : 40; const h = entity.height || 60; const w = entity.width || 50; const thick = entity.wall ? (entity.wall.thickness || 20) : (entity.thick || 20);
+            const builder = new BIMComponentBuilder(entity, helpers);
+            const opGroup = builder.group;
+            if (entity.localX !== undefined) opGroup.position.set(entity.localX, baseElev, 0);
+            else opGroup.position.set(entity.x || 0, baseElev, entity.z || 0);
+            const hitGeo = new THREE.BoxGeometry(w, h, thick + 4);
+            builder.addNode({ geometry: hitGeo, parent: opGroup, position: new THREE.Vector3(0, h/2, 0), isHitbox: true });
+            opGroup.userData = { isWidget: true, isOpening: true, entity: entity };
+            const finalGroup = builder.build();
+            sceneGroup.add(finalGroup);
+            return finalGroup;
+        }
+    },
+    'niche_recess': {
+        widget: "niche_recess", label: "NICHE & RECESS", cutsWall: false,
+        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
+        defaultConfig: { width: 40, height: 50, depth: 6, elevation: 40, thick: 20, facing: 1 },
+        render2D: (group, entity) => {
+            const hw = (entity.width || 40) / 2; const thick = entity.wall ? (entity.wall.thickness || 20) : 20;
+            const recessDepth = Math.min(entity.depth || 6, thick - 2);
+            group.add(new Konva.Rect({ x: -hw, y: -thick/2, width: entity.width || 40, height: thick - recessDepth, stroke: '#38bdf8', strokeWidth: 2, fill: 'rgba(56, 189, 248, 0.15)' }));
+            group.add(new Konva.Rect({ x: -hw, y: thick/2 - recessDepth, width: entity.width || 40, height: recessDepth, fill: 'rgba(56, 189, 248, 0.4)' }));
+        },
+        render3D: (sceneGroup, entity, helpers) => {
+            const baseElev = entity.elevation !== undefined ? entity.elevation : 40; const h = entity.height || 50; const w = entity.width || 40; const thick = entity.wall ? (entity.wall.thickness || 20) : (entity.thick || 20);
+            const builder = new BIMComponentBuilder(entity, helpers);
+            const opGroup = builder.group;
+            if (entity.localX !== undefined) opGroup.position.set(entity.localX, baseElev, 0);
+            else opGroup.position.set(entity.x || 0, baseElev, entity.z || 0);
+            const hitGeo = new THREE.BoxGeometry(w, h, thick + 4);
+            builder.addNode({ geometry: hitGeo, parent: opGroup, position: new THREE.Vector3(0, h/2, 0), isHitbox: true });
+            opGroup.userData = { isWidget: true, isOpening: true, entity: entity };
+            const finalGroup = builder.build();
+            sceneGroup.add(finalGroup);
+            return finalGroup;
+        }
+    },
+    'pattern_opening': {
+        widget: "pattern_opening", label: "PATTERN OPENING", cutsWall: true,
+        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
+        defaultConfig: { width: 50, height: 60, depth: 20, elevation: 40, thick: 20, facing: 1, rows: 4, cols: 4, spacing: 5, patternStyle: 'grid' },
+        render2D: (group, entity) => {
+            const hw = (entity.width || 50) / 2; const thick = entity.wall ? (entity.wall.thickness || 20) : 20;
+            group.add(new Konva.Rect({ x: -hw, y: -thick/2, width: entity.width || 50, height: thick, stroke: '#38bdf8', strokeWidth: 2, fill: 'rgba(56, 189, 248, 0.15)' }));
+        },
+        render3D: (sceneGroup, entity, helpers) => {
+            const baseElev = entity.elevation !== undefined ? entity.elevation : 40; const h = entity.height || 60; const w = entity.width || 50; const thick = entity.wall ? (entity.wall.thickness || 20) : (entity.thick || 20);
+            const builder = new BIMComponentBuilder(entity, helpers);
+            const opGroup = builder.group;
+            if (entity.localX !== undefined) opGroup.position.set(entity.localX, baseElev, 0);
+            else opGroup.position.set(entity.x || 0, baseElev, entity.z || 0);
+            const hitGeo = new THREE.BoxGeometry(w, h, thick + 4);
+            builder.addNode({ geometry: hitGeo, parent: opGroup, position: new THREE.Vector3(0, h/2, 0), isHitbox: true });
+            opGroup.userData = { isWidget: true, isOpening: true, entity: entity };
+            const finalGroup = builder.build();
+            sceneGroup.add(finalGroup);
+            return finalGroup;
+        }
+    },
+    'boolean_cut': {
+        widget: "boolean_cut", label: "BOOLEAN CUT", cutsWall: true,
+        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
+        defaultConfig: { width: 50, height: 60, depth: 20, elevation: 40, thick: 20, facing: 1 },
+        render2D: (group, entity) => {
+            const hw = (entity.width || 50) / 2; const thick = entity.wall ? (entity.wall.thickness || 20) : 20;
+            group.add(new Konva.Rect({ x: -hw, y: -thick/2, width: entity.width || 50, height: thick, stroke: '#38bdf8', strokeWidth: 2, dash: [6, 4], fill: 'rgba(56, 189, 248, 0.15)' }));
+        },
+        render3D: (sceneGroup, entity, helpers) => {
+            const baseElev = entity.elevation !== undefined ? entity.elevation : 40; const h = entity.height || 60; const w = entity.width || 50; const thick = entity.wall ? (entity.wall.thickness || 20) : (entity.thick || 20);
+            const builder = new BIMComponentBuilder(entity, helpers);
+            const opGroup = builder.group;
+            if (entity.localX !== undefined) opGroup.position.set(entity.localX, baseElev, 0);
+            else opGroup.position.set(entity.x || 0, baseElev, entity.z || 0);
+            const hitGeo = new THREE.BoxGeometry(w, h, thick + 4);
+            builder.addNode({ geometry: hitGeo, parent: opGroup, position: new THREE.Vector3(0, h/2, 0), isHitbox: true });
+            opGroup.userData = { isWidget: true, isOpening: true, entity: entity };
+            const finalGroup = builder.build();
+            sceneGroup.add(finalGroup);
+            return finalGroup;
+        }
+    },
+    'opening': {
+        widget: "opening", label: "WALL OPENING", cutsWall: true,
+        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
+        defaultConfig: { width: 50, height: DOOR_HEIGHT, depth: 20, elevation: 0, thick: 20, facing: 1 },
+        render2D: (group, entity) => {
+            const hw = (entity.width || 50) / 2; const thick = entity.wall ? (entity.wall.thickness || 20) : 20;
+            group.add(new Konva.Rect({ x: -hw, y: -thick/2, width: entity.width || 50, height: thick, stroke: '#38bdf8', strokeWidth: 2, fill: 'rgba(56, 189, 248, 0.15)' }));
+        },
+        render3D: (sceneGroup, entity, helpers) => {
+            const baseElev = entity.elevation || 0; const h = entity.height || DOOR_HEIGHT; const w = entity.width || 50; const thick = entity.wall ? (entity.wall.thickness || 20) : (entity.thick || 20);
+            const builder = new BIMComponentBuilder(entity, helpers);
+            const opGroup = builder.group;
+            if (entity.localX !== undefined) opGroup.position.set(entity.localX, baseElev, 0);
+            else opGroup.position.set(entity.x || 0, baseElev, entity.z || 0);
+            const hitGeo = new THREE.BoxGeometry(w, h, thick + 4);
+            builder.addNode({ geometry: hitGeo, parent: opGroup, position: new THREE.Vector3(0, h/2, 0), isHitbox: true });
+            opGroup.userData = { isWidget: true, isOpening: true, entity: entity };
+            const finalGroup = builder.build();
+            sceneGroup.add(finalGroup);
+            return finalGroup;
+        }
     }
 };
 

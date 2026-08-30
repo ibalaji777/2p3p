@@ -129,6 +129,19 @@ export function useAppTools({
                 };
                 planner.value.activePresetParams = activePresetParams.value;
             }
+        } else if (tool === 'adv_opening_catalog' || ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'opening'].includes(tool)) {
+            const opType = (tool === 'adv_opening_catalog') ? 'arch_opening' : tool;
+            if (!activePresetParams.value || activePresetParams.value.type !== opType) {
+                const isPassage = opType === 'arch_opening' || opType === 'opening';
+                activePresetParams.value = {
+                    type: opType,
+                    width: opType === 'circular_opening' ? 40 : 50,
+                    height: isPassage ? 80 : (opType === 'circular_opening' ? 40 : 60),
+                    depth: opType === 'niche_recess' ? 6 : 10,
+                    elevation: isPassage ? 0 : 40
+                };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
         } else {
             activePresetParams.value = null;
             planner.value.activePresetParams = null;

@@ -10,10 +10,11 @@ export class advance_openings {
         this.materialMode = 'MONOLITHIC';
         this.supportsLiveMaterialPipeline = false;
         
-        this.width = 100;
-        this.height = 200;
-        this.depth = 15; 
-        this.elevation = 0; 
+        const isPassage = type === 'arch_opening' || type === 'opening';
+        this.width = type === 'circular_opening' ? 40 : 50;
+        this.height = isPassage ? 80 : (type === 'circular_opening' ? 40 : 60);
+        this.depth = type === 'niche_recess' ? 6 : 10; 
+        this.elevation = isPassage ? 0 : 40; 
         this.facing = 1;
         this.side = 1;
         

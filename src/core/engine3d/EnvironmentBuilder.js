@@ -950,9 +950,9 @@ export class EnvironmentBuilder {
                 }
                 hole.lineTo(wCenter - halfW, cutElev);
                 hasHole = true;
-            } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type)) {
+            } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess', 'opening'].includes(type)) {
                 let elev = widg.elevation || 0;
-                let h_opening = widg.height || 200;
+                let h_opening = widg.height || (type === 'arch_opening' || type === 'opening' ? DOOR_HEIGHT : 60);
                 elev = Math.max(0, Math.min(elev, maxH));
                 h_opening = Math.max(0, Math.min(h_opening, maxH - elev));
                 let cutElev = (elev <= 0.1) ? wallBottom : elev;
@@ -1936,9 +1936,9 @@ export class EnvironmentBuilder {
                                     }
                                     hole.lineTo(wCenter - halfW, cutElev);
                                     hasHole = true;
-                                } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type)) {
+                                } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess', 'opening'].includes(type)) {
                                     let elev = widg.elevation || 0;
-                                    let h_opening = widg.height || 200;
+                                    let h_opening = widg.height || (type === 'arch_opening' || type === 'opening' ? DOOR_HEIGHT : 60);
                                     elev = Math.max(0, Math.min(elev, maxH));
                                     h_opening = Math.max(0, Math.min(h_opening, maxH - elev));
                                     let cutElev = (elev <= 0.1) ? wallBottom : elev;    if (h_opening > 0) {

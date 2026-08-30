@@ -158,7 +158,7 @@ export class DecorManager {
             if (type === 'elevation_fascia' || type === 'niche_recess' || type === 'sunshade') return;
             
             let h_opening = widg.height;
-            if (h_opening === undefined) h_opening = (type === 'door') ? DOOR_HEIGHT : ((type === 'window') ? WINDOW_HEIGHT : 200);
+            if (h_opening === undefined) h_opening = (type === 'door' || type === 'arch_opening' || type === 'opening') ? DOOR_HEIGHT : ((type === 'window') ? WINDOW_HEIGHT : 60);
             let elev = widg.elevation;
             if (elev === undefined) elev = (type === 'window') ? WINDOW_SILL : 0;
             
