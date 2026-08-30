@@ -1,6 +1,6 @@
 ---
 name: Wall Plugin 3D Placement & Aperture Highlighting Expert
-description: Universal CAD/BIM standard for Sims 4-style direct 3D wall placement, camera line-of-sight face detection, shape-accurate aperture void highlighting, and live ghost preview rendering for all doors, windows, baseboards, moldings, jali panels, sunshades, fascias, curtains, and wall art.
+description: Universal CAD/BIM standard for Sims 4-style direct 3D wall placement, camera line-of-sight face detection, shape-accurate aperture void highlighting, 4-vertex mitered ribbon generation, tool preset state isolation, and live ghost preview rendering for all doors, windows, baseboards, moldings, jali panels, sunshades, fascias, curtains, and wall art.
 ---
 
 # Universal 3D Wall Plugin Placement & Aperture Highlighting Expert
@@ -9,7 +9,35 @@ When modifying, adding, or debugging 3D wall-attached elements (doors, windows, 
 
 ---
 
-## 1. Camera Line-of-Sight Face Detection ("Looking Logic")
+## 1. Tool Preset State Isolation (`useAppTools.js`)
+
+Never allow `activePresetParams` from one tool category to contaminate another when switching tools in the sidebar.
+
+```javascript
+// Strict validation and reset when switching tools:
+if (tool === 'door' || tool.startsWith('door_')) {
+    if (!activePresetParams.value || !activePresetParams.value.doorType) {
+        activePresetParams.value = { doorType: 'single', doorStyle: 'flat' };
+        planner.value.activePresetParams = activePresetParams.value;
+    }
+} else if (tool === 'window' || tool.startsWith('window_')) {
+    if (!activePresetParams.value || !activePresetParams.value.windowType) {
+        activePresetParams.value = { windowType: 'sliding_std' };
+        planner.value.activePresetParams = activePresetParams.value;
+    }
+} else if (tool === 'skirting' || tool === 'molding' || tool.startsWith('molding_') || tool.startsWith('skirting_')) {
+    if (!activePresetParams.value || (!activePresetParams.value.profileType && !activePresetParams.value.type?.startsWith('molding_'))) {
+        activePresetParams.value = (tool === 'skirting' || tool.startsWith('skirting_'))
+            ? { type: 'molding_skirting_flat', profileType: 'skirting_flat', heightOffset: 0, moldingHeight: 12, depth: 2, material: 'white_paint' }
+            : { type: 'molding_crown', profileType: 'crown', heightOffset: 110, moldingHeight: 10, depth: 5, material: 'white_paint' };
+        planner.value.activePresetParams = activePresetParams.value;
+    }
+}
+```
+
+---
+
+## 2. Camera Line-of-Sight Face Detection ("Looking Logic")
 
 Never rely solely on static raycast face normals or geometric dot products, which misclassify faces at oblique angles. 
 
@@ -33,11 +61,22 @@ const facing = (side === 'back') ? -1 : 1;
 
 ---
 
-## 2. Shape-Accurate 3D Aperture Void & Ribbon Highlighting
+## 3. Placement Freedom & Floor Anchoring Standards
+
+1. **Free 2D ($X, Y$) Wall Placement (Windows, Curtains, Wall Art, Jali, Sunshades, Fascias)**:
+   - **Horizontal ($X$)**: Can be placed anywhere along the wall span ($t \in [0, 1]$, `projDist = t * wallLen`).
+   - **Vertical ($Y$)**: Follows cursor / touch height across the full wall span (`localHitY - itemH/2`), with smart sill (`80cm`) and window top lintel snapping.
+2. **Floor-Anchored Placement (Doors)**:
+   - Doors are strictly floor-anchored at `elev = 0` across the full horizontal span ($t \in [0, 1]$).
+   - In `registry.js` door renderer, side jambs, architraves, stops, threshold, and contact shadows MUST use local group heights directly (`jamHeight = height`, `jamY = height / 2`), never adding/subtracting artificial `bottomY`.
+
+---
+
+## 4. Shape-Accurate 3D Aperture Void & Ribbon Highlighting
 
 Every 3D wall tool must render a glowing aperture void volume (`#00f0ff` cyan when valid, `#ef4444` red when invalid) with sharp outline boundary edges (`THREE.EdgesGeometry`):
 
-### Category A: Wall-Cutting Openings (Doors, Windows, Jali Panels, Niches)
+### Category A: Wall-Cutting Openings (Doors, Windows, Jali Panels)
 * **Geometry**: `new THREE.BoxGeometry(itemW, itemH, wallThick + 4)`
 * **Position**: `(projDist, elev + itemH / 2, 0)` (centered through the wall thickness).
 
@@ -47,35 +86,41 @@ Every 3D wall tool must render a glowing aperture void volume (`#00f0ff` cyan wh
   - Fascias must NOT use simple bounding boxes.
   - Dynamically construct `THREE.Shape` and `THREE.ExtrudeGeometry` matching the exact profile (`c_shape_left`, `c_shape_right`, `l_shape_left`, `l_shape_right`, `full_box`) via `createFasciaShapeGeometry` so the glowing highlight hugs the wall profile shape.
 
-### Category C: Miter-Sheared Full-Wall Trims (Baseboards / Skirting, Crown Moldings, Friezes)
+### Category C: Miter-Sheared Quad Ribbon (Baseboards / Skirting, Crown Moldings, Friezes)
 * **Isolated Height Calculation**:
   - Never allow stale `preset.height` from large objects (e.g. 120cm fascias) to contaminate moldings.
-  - Baseboards/skirting must strictly use `mH = 10cm - 14cm` starting at floor level $Y = 0$.
-* **Corner Miter Snapping & Shearing**:
-  - Read `wallEntity.poly.points()` (supporting both array and function formats) to extract `localSL_x`, `localSR_x`, `localEL_x`, `localER_x`.
-  - Span ribbon from $x = 0$ to $x = \text{wallLen}$ translated to `wallOffset = ((thick / 2) + (mDepth / 2)) * facing`.
-  - Apply vertex displacement to the highlight ribbon geometry so corner vertices match connecting wall miters:
+  - Baseboards/skirting must strictly use `itemH = 10cm - 14cm`.
+* **Explicit 4-Vertex Quad Construction (NO PlaneGeometry Rotation)**:
+  - NEVER rotate `PlaneGeometry` with `rotateY(Math.PI)` because it inverts the $Z$-axis and breaks miter offsets on the back wall face.
+  - Construct a direct 4-vertex `BufferGeometry` quad using wall polygon miter coordinates:
     ```javascript
-    const pos = ribbonGeo.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-        const x = pos.getX(i);
-        const z = pos.getZ(i);
-        const tZ = (z + thick / 2) / thick;
-        const startX = localSR_x + tZ * (localSL_x - localSR_x);
-        const endX = localER_x + tZ * (localEL_x - localER_x);
+    const zOffset = ((thick / 2) + 0.3) * facing;
+    const yBottom = isCrown ? Math.max(0, wallH - itemH) : elev;
+    const yTop = yBottom + itemH;
 
-        if (x <= 0.1) {
-            pos.setX(i, startX);
-        } else if (x >= wallLen - 0.1) {
-            pos.setX(i, endX);
-        }
-    }
+    const startX = (facing === 1) ? localSL_x : localSR_x;
+    const endX = (facing === 1) ? localEL_x : localER_x;
+
+    const ribbonGeo = new THREE.BufferGeometry();
+    const positions = new Float32Array([
+        startX, yBottom, zOffset,
+        endX,   yBottom, zOffset,
+        endX,   yTop,    zOffset,
+        startX, yTop,    zOffset
+    ]);
+
+    const indices = (facing === 1) ? [0, 1, 2, 0, 2, 3] : [0, 2, 1, 0, 3, 2];
+    ribbonGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    ribbonGeo.setIndex(indices);
     ribbonGeo.computeVertexNormals();
+
+    this.apertureVoidMat.side = THREE.DoubleSide;
+    this.apertureVoidMat.opacity = 0.35;
     ```
 
 ---
 
-## 3. Real-Time 60 FPS Tracking & Raycast Occlusion Bypass
+## 5. Real-Time 60 FPS Tracking & Raycast Occlusion Bypass
 
 1. **Raycast Bypass**:
    Every ghost container mesh (`placementGroup`, `modelPreviewGroup`, `apertureVoidMesh`, `apertureEdges`) and its children MUST define:
@@ -97,19 +142,38 @@ Every 3D wall tool must render a glowing aperture void volume (`#00f0ff` cyan wh
 
 ---
 
-## 4. 1-Click Placement, Stability & CAD Synchronization
+## 6. 2-Step Pinned Confirmation Workflow & HUD Popup
 
-When `onPointerDown` fires:
-1. **Entity Creation**: Instantiate `PremiumWidget` (or `PremiumMolding`), assign `facing`, `elevation`, `width`, `height`, `depth`.
-2. **Wall Attachment**: Push into `wall.attachedWidgets` or `wall.attachedMoldings`.
-3. **In-Place CAD Rebuild**:
-   ```javascript
-   if (this.ctx.envBuilder?.buildWallGroup) this.ctx.envBuilder.buildWallGroup(wall);
-   if (this.ctx.buildScene) this.ctx.buildScene(...);
-   if (this.ctx.requestRender) this.ctx.requestRender('3D Placement Complete', 5);
-   ```
-4. **Stable Selection**: Prevent camera jump by passing `preventAutoFocus = true` and updating world matrices recursively:
-   ```javascript
-   createdEntity.mesh3D.updateWorldMatrix(true, true);
-   this.interactions.selectObject(createdEntity.mesh3D, null, true);
-   ```
+All 3D wall plugins MUST follow the 2-step CAD / Sims-4 placement and review workflow:
+
+1. **Step 1: Real-Time Preview & Hover**:
+   - As the pointer moves across walls, `onPointerMove(e)` dynamically updates the glowing aperture highlight and 3D preview model.
+   - The HUD badge popup follows the cursor and displays real-time measurements and active face (`FRONT` / `BACK`).
+
+2. **Step 2: Click to Pin & Inspect (`this.isPinned = true`)**:
+   - When the user clicks or taps on the wall (`onPointerDown`), the system **pins the preview and highlight** at that exact location.
+   - While pinned, hovering does not displace the preview (`if (this.isPinned && e.buttons === 0) return true;`).
+   - The floating HUD popup badge remains anchored above the pinned element with 3 active controls:
+     - **`⇄ Flip Face`**: Calls `this.flipFace()`, flipping between $+Z$ and $-Z$ wall faces in-place.
+     - **`✓ Place`**: Calls `this.placePlugin()`, applying the element to the actual wall in the design.
+     - **`✕`**: Cancels and closes the tool.
+   - Clicking elsewhere on the wall updates and re-pins the preview to the new position.
+   - Dragging with mouse down unpins dynamically until released.
+
+3. **Step 3: Commit to Original Design (`placePlugin()`)**:
+   When the user clicks **`✓ Place`**:
+   - **Entity Creation**: Instantiate `PremiumWidget` (or `PremiumMolding`), assign `facing`, `elevation`, `width`, `height`, `depth`.
+   - **Wall Attachment**: Push into `wall.attachedWidgets` or `wall.attachedMoldings`.
+   - **In-Place CAD Rebuild**:
+     ```javascript
+     if (this.ctx.envBuilder?.buildWallGroup) this.ctx.envBuilder.buildWallGroup(wall);
+     if (this.ctx.buildScene) this.ctx.buildScene(...);
+     if (this.ctx.requestRender) this.ctx.requestRender('3D Placement Complete', 5);
+     ```
+   - **Stable Selection**: Prevent camera jump by passing `preventAutoFocus = true` and updating world matrices recursively:
+     ```javascript
+     createdEntity.mesh3D.updateWorldMatrix(true, true);
+     this.interactions.selectObject(createdEntity.mesh3D, null, true);
+     ```
+   - **Cleanup**: Call `this.hideGhost()` which resets `this.isPinned = false` and hides the HUD badge.
+

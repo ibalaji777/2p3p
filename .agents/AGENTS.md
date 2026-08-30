@@ -132,18 +132,26 @@ All doors, windows, walls, moldings, sunshades, railings, furniture, and future 
 All doors, windows, openings, baseboards, moldings, sunshades, fascias, curtains, wall art, and future wall plugins MUST strictly adhere to the unified 3D placement architecture (`WallPlugin3DPlacementSystem.js` and `wall_plugin_3d_placement` skill):
 
 ## Required Behavior
-1. **Camera Line-of-Sight Face Detection ("Looking Logic")**:
+1. **Tool Preset State Isolation (`useAppTools.js`)**:
+   Never allow active tool preset parameters to leak across tool switches. When switching between doors, windows, moldings, sunshades, and jali panels, `activePresetParams` must be verified and cleanly reset to that tool's specific defaults.
+2. **Camera Line-of-Sight Face Detection ("Looking Logic")**:
    Always compute wall face classification using the vector from hit point to camera position `(camPos - hitPt) · wallNormal`.
    `facing = 1` for FRONT face ($+Z$, $+\text{thickness}/2$), `facing = -1` for BACK face ($-Z$, $-\text{thickness}/2$).
-2. **Shape-Accurate 3D Aperture Void Highlights**:
+3. **Placement Freedom & Floor-Anchored Doors**:
+   - Windows, sunshades, jali, curtains, wall art, and fascias can be positioned freely anywhere across wall length ($t \in [0, 1]$) and height (`localHitY - itemH/2`).
+   - Doors are strictly floor-anchored at `elev = 0`. Side jambs and architraves in `registry.js` must compute from local group height directly (`jamHeight = height`, `jamY = height / 2`).
+4. **Shape-Accurate 3D Aperture Void & Miter Quad Ribbons**:
    - Wall cutouts (doors, windows, jali): Render aperture void box `thick + 4` centered at $Z=0$.
    - Surface attachments (sunshades, curtains, wall art, fascias): Render protruding footprint / extruded profile shape at $Z = ((\text{wallThick} / 2) + (\text{depth} / 2)) \times \text{facing}$.
-   - Trims & Baseboards: Hug mitered wall points `localSL_x` to `localEL_x` from `wall.poly.points()`.
-3. **Real-Time 60 FPS On-Demand Rendering**:
+   - Trims & Baseboards: Construct explicit 4-vertex quad (`BufferGeometry`) connecting `localSL_x` to `localEL_x` (for $+Z$ front) or `localSR_x` to `localER_x` (for $-Z$ back). NEVER rotate `PlaneGeometry` with `rotateY(Math.PI)`. Use `side: THREE.DoubleSide`.
+5. **Real-Time 60 FPS On-Demand Rendering**:
    Always invoke `ctx.requestRender()` in `onPointerMove` and `hideGhost()`.
-4. **Zero-Occlusion Raycasting**:
+6. **Zero-Occlusion Raycasting**:
    Set `raycast = () => {}` on all ghost containers and child meshes to prevent cursor flicker.
-5. **In-Place CAD Rebuild & Stable Camera**:
+7. **In-Place CAD Rebuild & Stable Camera**:
    Rebuild wall groups in place via `envBuilder.buildWallGroup(wall)` and preserve camera position with `preventAutoFocus = true`.
+8. **2-Step Pinned Placement & HUD Confirmation**:
+   Clicking on a wall MUST pin the preview highlight and display the floating HUD popup (`⇄ Flip Face`, `✓ Place`, `✕`). Only clicking `✓ Place` commits and applies the element to the actual wall design.
+
 
 

@@ -3,6 +3,8 @@ import { MeasurementRenderer } from './MeasurementRenderer.js';
 import { WallProvider } from './providers/WallProvider.js';
 import { OpeningProvider } from './providers/OpeningProvider.js';
 import { FurnitureProvider } from './providers/FurnitureProvider.js';
+import { MoldingProvider } from './providers/MoldingProvider.js';
+import { WidgetProvider } from './providers/WidgetProvider.js';
 import { useSettingsStore } from '../../../stores/useSettingsStore.js';
 
 export class DimensionManager3D {
@@ -33,12 +35,23 @@ export class DimensionManager3D {
         const settings = useSettingsStore().floorPlanSettings;
         if (settings.show3DMeasurements === false) return;
 
+        const type = entity.type || entity.configId || '';
+        const isWall = type === 'outer' || type === 'inner' || type === 'compound';
+        const isOpening = type === 'door' || type === 'window' || type === 'jali_panel' || type.includes('opening') || type === 'niche_recess' || type === 'boolean_cut';
+        const isMolding = type.startsWith('molding') || type.startsWith('skirting') || type.includes('baseboard') || entity.isMolding || mesh.userData.moldData || mesh.userData.isMolding;
+        const isWidget = type === 'sunshade' || type.startsWith('fascia') || type === 'elevation_fascia' || type.startsWith('curtain') || type.startsWith('decor_') || type === 'wall_art' || !!mesh.userData.isWidget || entity.supportsLiveMaterialPipeline;
+        const isFurniture = mesh.userData.isFurniture || type.startsWith('furn_') || type.startsWith('kit_') || type.startsWith('bath_') || type.startsWith('elec_');
+
         // Factory for providers
-        if (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound') {
+        if (isWall) {
             this.activeProvider = new WallProvider(entity, mesh);
-        } else if (entity.type === 'door' || entity.type === 'window') {
+        } else if (isOpening) {
             this.activeProvider = new OpeningProvider(entity, mesh);
-        } else if (mesh.userData.isFurniture) {
+        } else if (isMolding) {
+            this.activeProvider = new MoldingProvider(entity, mesh);
+        } else if (isWidget) {
+            this.activeProvider = new WidgetProvider(entity, mesh);
+        } else if (isFurniture) {
             this.activeProvider = new FurnitureProvider(entity, mesh);
         }
 

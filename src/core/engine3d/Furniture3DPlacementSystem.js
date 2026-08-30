@@ -197,7 +197,7 @@ export class Furniture3DPlacementSystem {
     }
 
     isTouchDevice() {
-        return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.innerWidth <= 768;
+        return window.innerWidth <= 768 || (('ontouchstart' in window) && (navigator.maxTouchPoints > 1) && window.innerWidth <= 1024);
     }
 
     rotateStep(deltaDeg) {
@@ -452,7 +452,7 @@ export class Furniture3DPlacementSystem {
     onPointerDown(e) {
         if (!this.isPlacementTool()) return false;
 
-        const isTouch = e.pointerType === 'touch' || this.isTouchDevice();
+        const isTouch = e.pointerType === 'touch' || (e.pointerType !== 'mouse' && this.isTouchDevice());
 
         if (this.ghostGroup.visible) {
             // Ghost is already visible.

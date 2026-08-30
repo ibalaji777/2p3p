@@ -5,15 +5,16 @@ import { useSettingsStore } from '../../../../stores/useSettingsStore.js';
 
 export class OpeningProvider extends MeasurementProvider {
     getMeasurements() {
-        if (!this.entity || (this.entity.type !== 'door' && this.entity.type !== 'window')) return [];
+        if (!this.entity) return [];
         
         const settings = useSettingsStore().floorPlanSettings;
         const unit = settings.measurementUnit;
         const measurements = [];
         
+        const type = this.entity.type || this.entity.configId || '';
         const w = this.entity.width || 100;
-        const h = this.entity.height || (this.entity.type === 'door' ? 210 : 120);
-        const elev = this.entity.elevation !== undefined ? this.entity.elevation : (this.entity.type === 'window' ? 80 : 0);
+        const h = this.entity.height || (type === 'door' ? 210 : (type === 'window' ? 120 : 100));
+        const elev = this.entity.elevation !== undefined ? this.entity.elevation : (type === 'window' ? 80 : 0);
         // Ensure full parent hierarchy world matrix is updated
         if (this.mesh.parent) {
             this.mesh.parent.updateWorldMatrix(true, true);

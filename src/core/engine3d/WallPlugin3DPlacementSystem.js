@@ -87,6 +87,7 @@ export class WallPlugin3DPlacementSystem {
         this.createBadgeDOM();
 
         this._lastToolKey = null;
+        this.isPinned = false;
     }
 
     createBadgeDOM() {
@@ -115,7 +116,7 @@ export class WallPlugin3DPlacementSystem {
         `;
 
         this.badgeDom.innerHTML = `
-            <div style="display: flex; flex-direction: column; gap: 6px; min-width: 250px;">
+            <div style="display: flex; flex-direction: column; gap: 6px; min-width: 260px;">
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
                     <div style="display: flex; align-items: center; gap: 7px;">
                         <span id="wall-ui-dot" style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #00f0ff; box-shadow: 0 0 10px #00f0ff;"></span>
@@ -129,10 +130,10 @@ export class WallPlugin3DPlacementSystem {
                 </div>
 
                 <div style="display: flex; align-items: center; gap: 6px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.12); margin-top: 2px;">
-                    <button id="wall-ui-btn-flip" type="button" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; background: rgba(56, 189, 248, 0.22); border: 1.5px solid rgba(56, 189, 248, 0.6); color: #38bdf8; border-radius: 7px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; touch-action: manipulation;">
+                    <button id="wall-ui-btn-flip" type="button" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; background: rgba(56, 189, 248, 0.25); border: 1.5px solid #38bdf8; color: #38bdf8; border-radius: 7px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; touch-action: manipulation;">
                         ⇄ Flip Face
                     </button>
-                    <button id="wall-ui-btn-place" type="button" style="flex: 1.3; display: flex; align-items: center; justify-content: center; gap: 4px; background: rgba(16, 185, 129, 0.3); border: 1.5px solid rgba(16, 185, 129, 0.8); color: #34d399; border-radius: 7px; padding: 6px 12px; font-size: 12px; font-weight: 700; cursor: pointer; touch-action: manipulation;">
+                    <button id="wall-ui-btn-place" type="button" style="flex: 1.3; display: flex; align-items: center; justify-content: center; gap: 4px; background: #059669; border: 1.5px solid #10b981; color: #ffffff; border-radius: 7px; padding: 6px 12px; font-size: 12px; font-weight: 700; cursor: pointer; touch-action: manipulation; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);">
                         ✓ Place
                     </button>
                     <button id="wall-ui-btn-cancel" type="button" style="display: flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.22); border: 1.5px solid rgba(239, 68, 68, 0.6); color: #f87171; border-radius: 7px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; touch-action: manipulation;">
@@ -152,22 +153,23 @@ export class WallPlugin3DPlacementSystem {
         this.btnPlace = this.badgeDom.querySelector('#wall-ui-btn-place');
         this.btnCancel = this.badgeDom.querySelector('#wall-ui-btn-cancel');
 
-        // Wire handlers
-        this.btnFlip.addEventListener('pointerdown', (e) => e.stopPropagation());
-        this.btnFlip.addEventListener('click', (ev) => {
-            ev.preventDefault(); ev.stopPropagation();
+        // Wire handlers with pointer & click support
+        const onFlip = (ev) => {
+            if (ev) { ev.preventDefault(); ev.stopPropagation(); }
             this.flipFace();
-        });
+        };
+        this.btnFlip.addEventListener('pointerdown', (e) => e.stopPropagation());
+        this.btnFlip.addEventListener('click', onFlip);
 
-        this.btnPlace.addEventListener('pointerdown', (e) => e.stopPropagation());
-        this.btnPlace.addEventListener('click', (ev) => {
-            ev.preventDefault(); ev.stopPropagation();
+        const onPlace = (ev) => {
+            if (ev) { ev.preventDefault(); ev.stopPropagation(); }
             this.placePlugin();
-        });
+        };
+        this.btnPlace.addEventListener('pointerdown', (e) => e.stopPropagation());
+        this.btnPlace.addEventListener('click', onPlace);
 
-        this.btnCancel.addEventListener('pointerdown', (e) => e.stopPropagation());
-        this.btnCancel.addEventListener('click', (ev) => {
-            ev.preventDefault(); ev.stopPropagation();
+        const onCancel = (ev) => {
+            if (ev) { ev.preventDefault(); ev.stopPropagation(); }
             const pl = this.getPlanner();
             if (pl) {
                 pl.tool = 'select';
@@ -175,11 +177,13 @@ export class WallPlugin3DPlacementSystem {
                 pl.syncAll();
             }
             this.hideGhost();
-        });
+        };
+        this.btnCancel.addEventListener('pointerdown', (e) => e.stopPropagation());
+        this.btnCancel.addEventListener('click', onCancel);
     }
 
     isTouchDevice() {
-        return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.innerWidth <= 768;
+        return window.innerWidth <= 768 || (('ontouchstart' in window) && (navigator.maxTouchPoints > 1) && window.innerWidth <= 1024);
     }
 
     flipFace() {
@@ -187,6 +191,46 @@ export class WallPlugin3DPlacementSystem {
         this.activeSide = (this.activeSide === 'front') ? 'back' : 'front';
         if (this.elFaceTxt) this.elFaceTxt.textContent = this.activeSide.toUpperCase();
         this._lastToolKey = null; // force preview rebuild
+
+        if (this.activeWall && this.activeT !== null) {
+            const planner = this.getPlanner();
+            const tool = planner?.tool;
+            const wallEntity = this.activeWall;
+            const t = this.activeT;
+            const elev = this.activeElevation || 0;
+            const facing = (this.activeSide === 'back') ? -1 : 1;
+            const p1 = wallEntity.startAnchor.position();
+            const p2 = wallEntity.endAnchor.position();
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const wallLen = Math.hypot(dx, dy);
+            const thick = wallEntity.thickness || wallEntity.config?.thickness || 20;
+            const wallH = wallEntity.height || wallEntity.config?.height || 180;
+            const preset = planner?.activePresetParams || {};
+
+            const isMolding = tool === 'molding' || tool === 'skirting' || tool.startsWith('molding_') || tool.startsWith('skirting_') || !!MOLDING_REGISTRY[tool];
+            const isElevationTrim = tool === 'elevation_frieze' || tool === 'elevation_foundation_trim';
+            const isDoor = !isMolding && !isElevationTrim && (tool.startsWith('door') || preset.doorType !== undefined);
+            const isWindow = !isMolding && !isElevationTrim && (tool.startsWith('window') || preset.windowType !== undefined);
+            const isJali = !isMolding && !isElevationTrim && (tool === 'jali_panel' || tool.startsWith('jali_'));
+            const isSunshade = !isMolding && !isElevationTrim && (tool === 'sunshade' || tool.startsWith('sunshade_') || tool === 'chajja');
+            const isCurtain = !isMolding && !isElevationTrim && (tool === 'curtain' || tool.startsWith('curtain_'));
+            const isWallArt = !isMolding && !isElevationTrim && (tool === 'wall_art' || tool.startsWith('decor_wall_') || tool.startsWith('decor_photo_'));
+            const isFascia = !isMolding && !isElevationTrim && (tool === 'elevation_fascia' || tool.startsWith('fascia_'));
+            const isDrapes = isCurtain && (!preset.curtainType || preset.curtainType.includes('drapes'));
+
+            let itemW = (isMolding || isElevationTrim)
+                ? wallLen
+                : (preset.width || (isDoor ? 40 : (isWindow ? 60 : (isJali ? 60 : (isSunshade ? 60 : (isFascia ? 100 : (isCurtain ? (isDrapes ? 80 : 50) : (isWallArt ? 50 : 80))))))));
+            let itemH = (isMolding || isElevationTrim)
+                ? (preset.moldingHeight || (preset.height && preset.height <= 30 ? preset.height : 12))
+                : (preset.height || (isDoor ? DOOR_HEIGHT : (isWindow ? WINDOW_HEIGHT : (isJali ? 80 : (isSunshade ? 10 : (isFascia ? 120 : (isCurtain ? (isDrapes ? 95 : 50) : 35)))))));
+            let depth = preset.depth || (isSunshade ? 30 : (isFascia ? 40 : (isCurtain ? 8 : 3)));
+            const projDist = t * wallLen;
+
+            this.updateApertureAndModel(tool, wallEntity, t, elev, facing, wallLen, dx, dy, p1, p2, thick, wallH, itemW, itemH, depth, this.isValidPlacement, isMolding || isElevationTrim, !isDoor && !isWindow && !isJali, isFascia, projDist, preset);
+        }
+
         if (this.ctx && typeof this.ctx.requestRender === 'function') {
             this.ctx.requestRender();
         }
@@ -317,6 +361,16 @@ export class WallPlugin3DPlacementSystem {
             return false;
         }
 
+        // If position is pinned and user is not dragging, preserve the pinned preview
+        if (this.isPinned && e.buttons === 0) {
+            return true;
+        }
+
+        // If user drags, unpin and follow pointer dynamically
+        if (this.isPinned && e.buttons !== 0) {
+            this.isPinned = false;
+        }
+
         const planner = this.getPlanner();
         const tool = planner.tool;
         const dom = this.ctx.renderer.domElement;
@@ -390,30 +444,33 @@ export class WallPlugin3DPlacementSystem {
         const thick = wallEntity.thickness || wallEntity.config?.thickness || 20;
         const wallH = wallEntity.height || wallEntity.config?.height || 180;
 
-        const isMolding = tool === 'molding' || tool === 'skirting' || tool.startsWith('molding_') || tool.startsWith('skirting_') || !!MOLDING_REGISTRY[tool] || (preset && (preset.type?.startsWith('molding_') || preset.profileType?.startsWith('skirting_')));
+        const isMolding = tool === 'molding' || tool === 'skirting' || tool.startsWith('molding_') || tool.startsWith('skirting_') || !!MOLDING_REGISTRY[tool];
         const isElevationTrim = tool === 'elevation_frieze' || tool === 'elevation_foundation_trim';
-        const isDoor = tool.startsWith('door');
-        const isWindow = tool.startsWith('window');
-        const isJali = tool === 'jali_panel' || tool.startsWith('jali_');
-        const isSunshade = tool === 'sunshade' || tool.startsWith('sunshade_') || tool === 'chajja';
-        const isCurtain = tool === 'curtain' || tool.startsWith('curtain_');
-        const isWallArt = tool === 'wall_art' || tool.startsWith('decor_wall_') || tool.startsWith('decor_photo_');
-        const isFascia = tool === 'elevation_fascia' || tool.startsWith('fascia_');
+        const isDoor = !isMolding && !isElevationTrim && (tool.startsWith('door') || (!tool.startsWith('window') && !tool.startsWith('sunshade') && !tool.startsWith('jali_') && !tool.startsWith('curtain') && !tool.startsWith('decor_') && preset.doorType !== undefined));
+        const isWindow = !isMolding && !isElevationTrim && (tool.startsWith('window') || (!tool.startsWith('door') && !tool.startsWith('sunshade') && !tool.startsWith('jali_') && !tool.startsWith('curtain') && !tool.startsWith('decor_') && preset.windowType !== undefined));
+        const isJali = !isMolding && !isElevationTrim && (tool === 'jali_panel' || tool.startsWith('jali_') || (!tool.startsWith('door') && !tool.startsWith('window') && (preset.patternStyle !== undefined || preset.jaliPattern !== undefined)));
+        const isSunshade = !isMolding && !isElevationTrim && (tool === 'sunshade' || tool.startsWith('sunshade_') || tool === 'chajja' || (!tool.startsWith('door') && !tool.startsWith('window') && preset.chajjaType !== undefined));
+        const isCurtain = !isMolding && !isElevationTrim && (tool === 'curtain' || tool.startsWith('curtain_'));
+        const isWallArt = !isMolding && !isElevationTrim && (tool === 'wall_art' || tool.startsWith('decor_wall_') || tool.startsWith('decor_photo_'));
+        const isFascia = !isMolding && !isElevationTrim && (tool === 'elevation_fascia' || tool.startsWith('fascia_'));
 
         const isDrapes = isCurtain && (!preset.curtainType || preset.curtainType.includes('drapes'));
 
         let itemW = isMolding || isElevationTrim
             ? wallLen
-            : (preset.width || (isDoor ? 40 : (isWindow ? 60 : (isJali ? 40 : (isSunshade ? 60 : (isFascia ? 100 : (isCurtain ? (isDrapes ? 80 : 50) : (isWallArt ? (tool.includes('gallery') || preset.artType?.includes('gallery') ? 60 : 50) : (tool === 'elevation_corner_element' ? 26 : 80)))))))));
+            : (preset.width || (isDoor ? 40 : (isWindow ? 60 : (isJali ? 60 : (isSunshade ? 60 : (isFascia ? 100 : (isCurtain ? (isDrapes ? 80 : 50) : (isWallArt ? (tool.includes('gallery') || preset.artType?.includes('gallery') ? 60 : 50) : (tool === 'elevation_corner_element' ? 26 : 80)))))))));
         
-        let itemH = isMolding 
+        let itemH = (isMolding || isElevationTrim)
             ? (preset.moldingHeight || (preset.height && preset.height <= 30 ? preset.height : 12))
-            : (isDoor ? DOOR_HEIGHT : (isWindow ? WINDOW_HEIGHT : (isJali ? 100 : (isSunshade ? 6 : (isFascia ? 120 : (isCurtain ? (isDrapes ? 95 : 50) : (isWallArt ? (tool.includes('gallery') || preset.artType?.includes('gallery') ? 25 : 35) : (tool === 'elevation_corner_element' ? wallH : (tool === 'elevation_frieze' ? 18 : (tool === 'elevation_foundation_trim' ? 45 : (preset.height || 20)))))))))));
+            : (preset.height || (isDoor ? DOOR_HEIGHT : (isWindow ? WINDOW_HEIGHT : (isJali ? 80 : (isSunshade ? 10 : (isFascia ? 120 : (isCurtain ? (isDrapes ? 95 : 50) : (isWallArt ? 35 : (tool === 'elevation_corner_element' ? wallH : (tool === 'elevation_frieze' ? 18 : (tool === 'elevation_foundation_trim' ? 45 : 20)))))))))));
 
         let depth = preset.depth || (isSunshade ? 40 : (isFascia ? 40 : (isCurtain ? (isDrapes ? 8 : 4) : (isWallArt ? 3 : 2))));
         let elev = 0;
 
         let t = projDist / wallLen;
+
+        const wallBaseY = wallEntity.elevation || (wallEntity.level && wallEntity.level.elevation) || 0;
+        const localHitY = Math.max(0, hitPt.y - wallBaseY);
 
         if (isMolding || isElevationTrim) {
             // Baseboards, Moldings & Wall Trims span the entire wall length
@@ -428,43 +485,86 @@ export class WallPlugin3DPlacementSystem {
             elev = preset.elevation !== undefined ? preset.elevation : 0;
             itemH = wallH;
         } else if (isDoor) {
+            // Doors are strictly floor-anchored: elevation is ALWAYS 0
             elev = 0;
-            const halfWT = (itemW / 2) / wallLen;
-            t = Math.max(halfWT, Math.min(1 - halfWT, t));
+            t = Math.max(0, Math.min(1, t));
             projDist = t * wallLen;
         } else if (isWindow) {
-            elev = preset.elevation !== undefined ? preset.elevation : (preset.sillHeight || WINDOW_SILL || 80);
-            const halfWT = (itemW / 2) / wallLen;
-            t = Math.max(halfWT, Math.min(1 - halfWT, t));
+            // Allow placing anywhere along wall length
+            t = Math.max(0, Math.min(1, t));
             projDist = t * wallLen;
+
+            // Follow cursor height with smart snap to standard sill (80cm)
+            let winElev = Math.max(0, Math.min(wallH - itemH, Math.round(localHitY - itemH / 2)));
+            if (Math.abs(winElev - 80) < 15) winElev = 80;
+            elev = (preset.isFixedElevation && preset.elevation !== undefined) ? preset.elevation : winElev;
         } else if (isJali) {
-            elev = preset.elevation !== undefined ? preset.elevation : 40;
-            const halfWT = (itemW / 2) / wallLen;
-            t = Math.max(halfWT, Math.min(1 - halfWT, t));
+            // Allow placing anywhere along the wall length
+            t = Math.max(0, Math.min(1, t));
             projDist = t * wallLen;
+            
+            // Allow placing anywhere vertically on the wall (follows cursor height)
+            let jaliElev = Math.max(0, Math.min(wallH - itemH, Math.round(localHitY - itemH / 2)));
+            elev = (preset.isFixedElevation && preset.elevation !== undefined) ? preset.elevation : jaliElev;
         } else if (isSunshade) {
-            elev = preset.elevation !== undefined ? preset.elevation : 120;
-            const halfWT = (itemW / 2) / wallLen;
-            t = Math.max(halfWT, Math.min(1 - halfWT, t));
+            // Allow placing anywhere along the wall length
+            t = Math.max(0, Math.min(1, t));
             projDist = t * wallLen;
+            
+            // Allow placing anywhere vertically on the wall (follows cursor height) with smart lintel snap
+            let sunshadeElev = Math.max(0, Math.min(wallH, Math.round(localHitY)));
+            
+            // Smart window/door lintel snap if pointing near an aperture
+            if (wallEntity.attachedWidgets && wallEntity.attachedWidgets.length > 0) {
+                for (let w of wallEntity.attachedWidgets) {
+                    const wCenter = (w.t !== undefined ? w.t : 0.5) * wallLen;
+                    const halfW = (w.width || 60) / 2;
+                    if (Math.abs(projDist - wCenter) <= halfW + 15) {
+                        const lintelY = (w.elevation !== undefined ? w.elevation : (w.type === 'window' ? 80 : 0)) + (w.height !== undefined ? w.height : (w.type === 'window' ? 120 : 210));
+                        if (Math.abs(localHitY - lintelY) < 25) {
+                            sunshadeElev = lintelY;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            elev = (preset.isFixedElevation && preset.elevation !== undefined) ? preset.elevation : sunshadeElev;
         } else if (isFascia) {
-            elev = preset.elevation !== undefined ? preset.elevation : 0;
-            const halfWT = (itemW / 2) / wallLen;
-            t = Math.max(halfWT, Math.min(1 - halfWT, t));
+            t = Math.max(0, Math.min(1, t));
             projDist = t * wallLen;
+            let fasciaElev = Math.max(0, Math.min(wallH - itemH, Math.round(localHitY - itemH / 2)));
+            elev = (preset.isFixedElevation && preset.elevation !== undefined) ? preset.elevation : fasciaElev;
         } else if (isCurtain) {
-            elev = preset.elevation !== undefined ? preset.elevation : (isDrapes ? 5 : 45);
-            const halfWT = (itemW / 2) / wallLen;
-            t = Math.max(halfWT, Math.min(1 - halfWT, t));
+            t = Math.max(0, Math.min(1, t));
             projDist = t * wallLen;
+            
+            let curtainElev = Math.max(0, Math.min(wallH - itemH, Math.round(localHitY - itemH / 2)));
+            // Smart snap to attached window top if pointing near a window
+            if (wallEntity.attachedWidgets && wallEntity.attachedWidgets.length > 0) {
+                for (let w of wallEntity.attachedWidgets) {
+                    if (w.type === 'window') {
+                        const wCenter = (w.t !== undefined ? w.t : 0.5) * wallLen;
+                        const halfW = (w.width || 60) / 2;
+                        if (Math.abs(projDist - wCenter) <= halfW + 15) {
+                            const winTop = (w.elevation !== undefined ? w.elevation : 80) + (w.height || 120);
+                            if (Math.abs(localHitY - winTop) < 25) {
+                                curtainElev = Math.max(0, winTop - itemH + 10);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            elev = (preset.isFixedElevation && preset.elevation !== undefined) ? preset.elevation : curtainElev;
         } else if (isWallArt) {
-            elev = preset.elevation !== undefined ? preset.elevation : 45;
-            const halfWT = (itemW / 2) / wallLen;
-            t = Math.max(halfWT, Math.min(1 - halfWT, t));
+            t = Math.max(0, Math.min(1, t));
             projDist = t * wallLen;
+            let artElev = Math.max(0, Math.min(wallH - itemH, Math.round(localHitY - itemH / 2)));
+            elev = (preset.isFixedElevation && preset.elevation !== undefined) ? preset.elevation : artElev;
         } else {
-            elev = preset.elevation !== undefined ? preset.elevation : Math.max(0, hitPt.y);
-            t = Math.max(0.02, Math.min(0.98, t));
+            elev = preset.elevation !== undefined ? preset.elevation : Math.max(0, localHitY);
+            t = Math.max(0, Math.min(1, t));
             projDist = t * wallLen;
         }
 
@@ -474,13 +574,26 @@ export class WallPlugin3DPlacementSystem {
         if (cutsWall && wallEntity.attachedWidgets && wallEntity.attachedWidgets.length > 0) {
             const pMin = projDist - itemW / 2;
             const pMax = projDist + itemW / 2;
+            const pElevMin = elev;
+            const pElevMax = elev + itemH;
+
             for (let w of wallEntity.attachedWidgets) {
-                if (w.config?.cutsWall === false || w.cutsWall === false) continue;
+                if (w.config?.cutsWall === false || w.cutsWall === false || w.type === 'sunshade' || w.type === 'curtain' || w.type === 'wall_art' || w.type === 'elevation_fascia' || w.configId === 'sunshade') continue;
+                
                 const wW = w.width || 40;
+                const wH = w.height || (w.type === 'window' ? 120 : (w.type === 'door' ? 210 : 100));
+                const wElev = w.elevation !== undefined ? w.elevation : (w.type === 'window' ? 80 : 0);
+                const wElevMin = wElev;
+                const wElevMax = wElev + wH;
+                
                 const wT = w.t !== undefined ? w.t : 0.5;
                 const wMin = wT * wallLen - wW / 2;
                 const wMax = wT * wallLen + wW / 2;
-                if (pMax > wMin + 1 && pMin < wMax - 1) {
+                
+                // Only invalid if both horizontal AND vertical intervals overlap
+                const xOverlap = (pMax > wMin + 1 && pMin < wMax - 1);
+                const yOverlap = (pElevMax > wElevMin + 1 && pElevMin < wElevMax - 1);
+                if (xOverlap && yOverlap) {
                     isValid = false;
                     break;
                 }
@@ -575,43 +688,35 @@ export class WallPlugin3DPlacementSystem {
             // For Baseboards & Moldings: shape-accurate ribbon hugging mitered wall face
             const isCrown = tool === 'molding' || tool.includes('crown') || tool === 'elevation_frieze' || (preset?.profileType && preset?.profileType.includes('crown')) || (preset?.type && preset?.type.includes('crown'));
             const zOffset = ((thick / 2) + 0.3) * facing;
-            const ribbonGeo = new THREE.PlaneGeometry(wallLen, itemH);
+            const yBottom = isCrown ? Math.max(0, wallH - itemH) : elev;
+            const yTop = yBottom + itemH;
 
-            if (isCrown) {
-                ribbonGeo.translate(wallLen / 2, wallH - itemH / 2, zOffset);
-            } else {
-                ribbonGeo.translate(wallLen / 2, elev + itemH / 2, zOffset);
-            }
+            const startX = (facing === 1) ? localSL_x : localSR_x;
+            const endX = (facing === 1) ? localEL_x : localER_x;
 
-            if (facing === -1) {
-                ribbonGeo.rotateY(Math.PI);
-                ribbonGeo.translate(wallLen, 0, 0);
-            }
+            const ribbonGeo = new THREE.BufferGeometry();
+            const positions = new Float32Array([
+                startX, yBottom, zOffset,
+                endX,   yBottom, zOffset,
+                endX,   yTop,    zOffset,
+                startX, yTop,    zOffset
+            ]);
 
-            if (pts && pts.length === 8) {
-                const pos = ribbonGeo.attributes.position;
-                for (let i = 0; i < pos.count; i++) {
-                    const x = pos.getX(i);
-                    const z = pos.getZ(i);
-                    const tZ = (z + thick / 2) / thick;
-                    const startX = localSR_x + tZ * (localSL_x - localSR_x);
-                    const endX = localER_x + tZ * (localEL_x - localER_x);
+            const indices = (facing === 1) 
+                ? [0, 1, 2,  0, 2, 3] 
+                : [0, 2, 1,  0, 3, 2];
 
-                    if (x <= 0.1) {
-                        pos.setX(i, startX);
-                    } else if (x >= wallLen - 0.1) {
-                        pos.setX(i, endX);
-                    }
-                }
-                ribbonGeo.computeVertexNormals();
-            }
+            ribbonGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            ribbonGeo.setIndex(indices);
+            ribbonGeo.computeVertexNormals();
 
             this.apertureVoidMesh.geometry.dispose();
             this.apertureVoidMesh.geometry = ribbonGeo;
             this.apertureVoidMesh.position.set(0, 0, 0);
 
             this.apertureVoidMat.color.setHex(0x00f0ff);
-            this.apertureVoidMat.opacity = 0.3;
+            this.apertureVoidMat.opacity = 0.35;
+            this.apertureVoidMat.side = THREE.DoubleSide;
 
             this.apertureEdges.geometry.dispose();
             this.apertureEdges.geometry = new THREE.EdgesGeometry(ribbonGeo);
@@ -739,10 +844,15 @@ export class WallPlugin3DPlacementSystem {
             return;
         }
 
+        const isDoor = tool.startsWith('door') || (preset && (preset.doorType !== undefined || preset.doorStyle !== undefined));
+        const isWindow = tool.startsWith('window') || (preset && preset.windowType !== undefined);
+        const isSunshade = tool === 'sunshade' || tool.startsWith('sunshade_') || tool === 'chajja' || (preset && preset.chajjaType !== undefined);
+        const isJali = tool === 'jali_panel' || tool.startsWith('jali_') || (preset && (preset.patternStyle !== undefined || preset.jaliPattern !== undefined));
         const isCurtain = tool === 'curtain' || tool.startsWith('curtain_');
         const isWallArt = tool === 'wall_art' || tool.startsWith('decor_wall_') || tool.startsWith('decor_photo_');
         const isFascia = tool === 'elevation_fascia' || tool.startsWith('fascia_');
-        const widgetConfigId = isFascia ? 'elevation_fascia' : (isCurtain ? 'curtain' : (isWallArt ? 'wall_art' : tool));
+        
+        const widgetConfigId = isDoor ? 'door' : (isWindow ? 'window' : (isSunshade ? 'sunshade' : (isJali ? 'jali_panel' : (isFascia ? 'elevation_fascia' : (isCurtain ? 'curtain' : (isWallArt ? 'wall_art' : tool))))));
 
         const fakeEntity = {
             id: 'ghost_preview',
@@ -751,7 +861,7 @@ export class WallPlugin3DPlacementSystem {
             width: itemW,
             height: itemH,
             depth: depth,
-            thick: preset.thick || 10,
+            thick: thick,
             elevation: elev,
             facing: facing,
             side: 1,
@@ -759,6 +869,17 @@ export class WallPlugin3DPlacementSystem {
             localX: projDist,
             ...JSON.parse(JSON.stringify(preset))
         };
+        fakeEntity.type = widgetConfigId;
+        fakeEntity.configId = widgetConfigId;
+        fakeEntity.width = itemW;
+        fakeEntity.height = itemH;
+        fakeEntity.depth = depth;
+        fakeEntity.wall = wallEntity;
+        fakeEntity.wallThick = thick;
+        fakeEntity.thick = preset.thick || thick;
+        fakeEntity.facing = facing;
+        fakeEntity.elevation = elev;
+        fakeEntity.localX = projDist;
 
         const config = WIDGET_REGISTRY[widgetConfigId] || WIDGET_REGISTRY[tool] || MOLDING_REGISTRY[tool];
         if (config && config.render3D) {
@@ -783,26 +904,26 @@ export class WallPlugin3DPlacementSystem {
     onPointerDown(e) {
         if (!this.isPlacementTool()) return false;
 
-        const isTouch = e.pointerType === 'touch' || this.isTouchDevice();
+        this.isPinned = false;
+        this.onPointerMove(e);
 
-        if (!this.activeWall) {
-            this.onPointerMove(e);
-        }
-
-        // On desktop mouse: Left-click places directly
-        if (!isTouch && e.button === 0) {
-            if (this.activeWall && this.isValidPlacement) {
-                return this.placePlugin();
+        if (this.activeWall && this.isValidPlacement) {
+            this.isPinned = true;
+            if (this.elSpecs) this.elSpecs.textContent = `📍 Position Locked · Click "✓ Place" to apply`;
+            if (this.ctx && typeof this.ctx.requestRender === 'function') {
+                this.ctx.requestRender();
             }
+            return true;
         }
 
-        // On touch device: touch drags smoothly; user taps "Place" button to confirm
         return true;
     }
 
     placePlugin() {
         if (!this.isPlacementTool() || !this.activeWall || this.activeT === null) return false;
         if (!this.isValidPlacement) return false;
+
+        this.isPinned = false;
 
         const planner = this.getPlanner();
         if (!planner) return false;
@@ -855,9 +976,21 @@ export class WallPlugin3DPlacementSystem {
         } else if (isWidget) {
             const isDoor = tool.startsWith('door') || (preset && (preset.doorType !== undefined || preset.doorStyle !== undefined));
             const isWindow = tool.startsWith('window') || (preset && preset.windowType !== undefined);
-            const widgetType = isDoor ? 'door' : (isWindow ? 'window' : (isFascia ? 'elevation_fascia' : (isCurtain ? 'curtain' : (isWallArt ? 'wall_art' : tool))));
+            const isSunshade = tool === 'sunshade' || tool.startsWith('sunshade_') || tool === 'chajja' || (preset && preset.chajjaType !== undefined);
+            const isJali = tool === 'jali_panel' || tool.startsWith('jali_') || (preset && (preset.patternStyle !== undefined || preset.jaliPattern !== undefined));
+            const isCurtain = tool === 'curtain' || tool.startsWith('curtain_');
+            const isWallArt = tool === 'wall_art' || tool.startsWith('decor_wall_') || tool.startsWith('decor_photo_');
+            const isFascia = tool === 'elevation_fascia' || tool.startsWith('fascia_');
+
+            const widgetType = isDoor ? 'door' : (isWindow ? 'window' : (isSunshade ? 'sunshade' : (isJali ? 'jali_panel' : (isFascia ? 'elevation_fascia' : (isCurtain ? 'curtain' : (isWallArt ? 'wall_art' : tool))))));
             
+            const itemW = preset.width || (isDoor ? 40 : (isWindow ? 60 : (isJali ? 60 : (isSunshade ? 60 : (isFascia ? 100 : (isCurtain ? 80 : 50))))));
+            const itemH = preset.height || (isDoor ? DOOR_HEIGHT : (isWindow ? WINDOW_HEIGHT : (isJali ? 100 : (isSunshade ? 12 : (isFascia ? 120 : (isCurtain ? 95 : 35))))));
+            const depth = preset.depth || (isSunshade ? 40 : (isFascia ? 40 : (isCurtain ? 8 : (isWallArt ? 3 : 2))));
+
             createdEntity = new PremiumWidget(planner, wall, t, widgetType);
+            const wallThick = wall.thickness || wall.config?.thickness || 20;
+            createdEntity.thick = wallThick;
             createdEntity.facing = (side === 'back') ? -1 : 1;
             createdEntity.elevation = elev;
             
@@ -867,15 +1000,21 @@ export class WallPlugin3DPlacementSystem {
             createdEntity.type = widgetType;
             createdEntity.configId = widgetType;
             createdEntity.config = WIDGET_REGISTRY[widgetType];
+            createdEntity.wall = wall;
+            createdEntity.wallThick = wallThick;
+            createdEntity.thick = wallThick;
             createdEntity.facing = (side === 'back') ? -1 : 1;
             createdEntity.elevation = elev;
+            if (itemW) createdEntity.width = itemW;
+            if (itemH) createdEntity.height = itemH;
+            if (depth) createdEntity.depth = depth;
             
             if (createdEntity.update) createdEntity.update();
             if (!wall.attachedWidgets) wall.attachedWidgets = [];
             if (!wall.attachedWidgets.includes(createdEntity)) {
                 wall.attachedWidgets.push(createdEntity);
             }
-            planner.selectEntity(createdEntity, isDoor ? 'door' : (isWindow ? 'window' : 'widget'));
+            planner.selectEntity(createdEntity, isDoor ? 'door' : (isWindow ? 'window' : (isSunshade ? 'sunshade' : (isJali ? 'jali_panel' : 'widget'))));
         }
 
         // Save history
@@ -920,6 +1059,7 @@ export class WallPlugin3DPlacementSystem {
     }
 
     hideGhost() {
+        this.isPinned = false;
         let changed = false;
         if (this.placementGroup && this.placementGroup.visible) {
             this.placementGroup.visible = false;

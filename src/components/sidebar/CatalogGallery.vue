@@ -371,12 +371,12 @@ const windowCatalog = ref([
 ]);
 
 const sunshadeCatalog = ref([
-    { id: 'concrete_slab', name: 'Concrete Slab', badge: 'STD', material: 'Reinforced RCC', specs: '1500 × 1000 mm', image: '', params: { chajjaType: 'concrete_slab', materials: { frame: { id: 'concrete' } }, width: 60, depth: 40, thick: 4 } },
-    { id: 'wooden_pergola', name: 'Wooden Pergola', badge: 'WOOD', material: 'Teak Wood Rafters', specs: '2000 × 1250 mm', image: '', params: { chajjaType: 'wooden_pergola', materials: { frame: { id: 'concrete' } }, width: 80, depth: 50, thick: 8 } },
-    { id: 'metal_louvers', name: 'Metal Louvers', badge: 'MODERN', material: 'Anodized Steel', specs: '2000 × 1250 mm', image: '', params: { chajjaType: 'metal_louvers', materials: { frame: { id: 'concrete' } }, width: 80, depth: 50, thick: 8 } },
-    { id: 'glass_canopy', name: 'Glass Canopy', badge: 'GLASS', material: 'Tempered Glass', specs: '1500 × 1000 mm', image: '', params: { chajjaType: 'glass_canopy', materials: { frame: { id: 'concrete' } }, width: 60, depth: 40, thick: 3 } },
-    { id: 'metal_canopy', name: 'Metal Canopy', badge: 'SLIM', material: 'Sheet Metal', specs: '1500 × 1000 mm', image: '', params: { chajjaType: 'metal_canopy', materials: { frame: { id: 'concrete' } }, width: 60, depth: 40, thick: 4 } },
-    { id: 'curved_rcc', name: 'Curved RCC', badge: 'CLASSIC', material: 'Curved Concrete', specs: '1500 × 1000 mm', image: '', params: { chajjaType: 'curved_rcc', materials: { frame: { id: 'concrete' } }, width: 60, depth: 40, thick: 4 } },
+    { id: 'concrete_slab', name: 'Concrete Slab', badge: 'STD', material: 'Reinforced RCC', specs: '1200 × 300 mm', image: '', params: { chajjaType: 'concrete_slab', materials: { frame: { id: 'concrete' } }, width: 60, depth: 30, thick: 3 } },
+    { id: 'wooden_pergola', name: 'Wooden Pergola', badge: 'WOOD', material: 'Teak Wood Rafters', specs: '1200 × 300 mm', image: '', params: { chajjaType: 'wooden_pergola', materials: { frame: { id: 'concrete' } }, width: 60, depth: 30, thick: 4 } },
+    { id: 'metal_louvers', name: 'Metal Louvers', badge: 'MODERN', material: 'Anodized Steel', specs: '1200 × 300 mm', image: '', params: { chajjaType: 'metal_louvers', materials: { frame: { id: 'concrete' } }, width: 60, depth: 30, thick: 4 } },
+    { id: 'glass_canopy', name: 'Glass Canopy', badge: 'GLASS', material: 'Tempered Glass', specs: '1200 × 300 mm', image: '', params: { chajjaType: 'glass_canopy', materials: { frame: { id: 'concrete' } }, width: 60, depth: 30, thick: 2.5 } },
+    { id: 'metal_canopy', name: 'Metal Canopy', badge: 'SLIM', material: 'Sheet Metal', specs: '1200 × 300 mm', image: '', params: { chajjaType: 'metal_canopy', materials: { frame: { id: 'concrete' } }, width: 60, depth: 30, thick: 3 } },
+    { id: 'curved_rcc', name: 'Curved RCC', badge: 'CLASSIC', material: 'Curved Concrete', specs: '1200 × 300 mm', image: '', params: { chajjaType: 'curved_rcc', materials: { frame: { id: 'concrete' } }, width: 60, depth: 30, thick: 3 } },
 ]);
 
 const jaliCatalog = ref([

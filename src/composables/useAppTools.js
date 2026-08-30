@@ -39,37 +39,48 @@ export function useAppTools({
         } else if (tool.startsWith('preset_') && PRESET_REGISTRY[tool]) {
             activePresetParams.value = JSON.parse(JSON.stringify(PRESET_REGISTRY[tool].defaultParams));
             planner.value.activePresetParams = activePresetParams.value;
-        } else if (tool === 'door' || tool === 'window') {
-            if (!activePresetParams.value || (tool === 'door' && !activePresetParams.value.doorType) || (tool === 'window' && !activePresetParams.value.windowType)) {
-                if (tool === 'door') {
-                    activePresetParams.value = { doorType: 'single', doorStyle: 'flat' };
-                } else {
-                    activePresetParams.value = { windowType: 'sliding_std' };
-                }
+        } else if (tool === 'door' || tool.startsWith('door_')) {
+            if (!activePresetParams.value || !activePresetParams.value.doorType) {
+                activePresetParams.value = { doorType: 'single', doorStyle: 'flat' };
                 planner.value.activePresetParams = activePresetParams.value;
             }
-        } else if (tool === 'skirting' || tool === 'molding') {
-            if (!activePresetParams.value) {
-                if (tool === 'skirting') {
+        } else if (tool === 'window' || tool.startsWith('window_')) {
+            if (!activePresetParams.value || !activePresetParams.value.windowType) {
+                activePresetParams.value = { windowType: 'sliding_std' };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
+        } else if (tool === 'skirting' || tool === 'molding' || tool.startsWith('molding_') || tool.startsWith('skirting_')) {
+            if (!activePresetParams.value || (!activePresetParams.value.profileType && !activePresetParams.value.type?.startsWith('molding_'))) {
+                if (tool === 'skirting' || tool.startsWith('skirting_')) {
                     activePresetParams.value = { type: 'molding_skirting_flat', profileType: 'skirting_flat', heightOffset: 0, moldingHeight: 12, depth: 2, material: 'white_paint' };
                 } else {
                     activePresetParams.value = { type: 'molding_crown', profileType: 'crown', heightOffset: 110, moldingHeight: 10, depth: 5, material: 'white_paint' };
                 }
                 planner.value.activePresetParams = activePresetParams.value;
             }
-        } else if (tool === 'elevation_fascia') {
+        } else if (tool === 'elevation_fascia' || tool.startsWith('fascia_')) {
             if (!activePresetParams.value || activePresetParams.value.type !== 'elevation_fascia') {
                 activePresetParams.value = { type: 'elevation_fascia', profileType: 'c_shape_left', width: 100, height: 120, depth: 40, thick: 10, elevation: 0, fasciaMat: 'white' };
                 planner.value.activePresetParams = activePresetParams.value;
             }
-        } else if (tool === 'sunshade') {
-            if (!activePresetParams.value || activePresetParams.value.type !== 'sunshade') {
-                activePresetParams.value = { type: 'sunshade', sunshadeType: 'box', width: 60, depth: 20, thick: 4, elevation: 80 };
+        } else if (tool === 'sunshade' || tool.startsWith('sunshade_') || tool === 'chajja') {
+            if (!activePresetParams.value || (activePresetParams.value.type !== 'sunshade' && !activePresetParams.value.chajjaType)) {
+                activePresetParams.value = { type: 'sunshade', chajjaType: 'concrete_slab', width: 60, depth: 30, thick: 4, elevation: 80 };
                 planner.value.activePresetParams = activePresetParams.value;
             }
-        } else if (tool === 'jali_panel') {
-            if (!activePresetParams.value || activePresetParams.value.type !== 'jali_panel') {
-                activePresetParams.value = { type: 'jali_panel', pattern: 'geometric_islamic', width: 40, height: 80, depth: 2, elevation: 10 };
+        } else if (tool === 'jali_panel' || tool.startsWith('jali_')) {
+            if (!activePresetParams.value || (activePresetParams.value.type !== 'jali_panel' && !activePresetParams.value.jaliPattern)) {
+                activePresetParams.value = { type: 'jali_panel', pattern: 'geometric_islamic', width: 60, height: 80, depth: 2, elevation: 40 };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
+        } else if (tool === 'curtain' || tool.startsWith('curtain_')) {
+            if (!activePresetParams.value || (activePresetParams.value.type !== 'curtain' && !activePresetParams.value.curtainType)) {
+                activePresetParams.value = { type: 'curtain', curtainType: 'drapes_double', width: 80, height: 95, depth: 8, elevation: 45 };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
+        } else if (tool === 'wall_art' || tool.startsWith('decor_wall_') || tool.startsWith('decor_photo_')) {
+            if (!activePresetParams.value || (activePresetParams.value.type !== 'wall_art' && !activePresetParams.value.artType)) {
+                activePresetParams.value = { type: 'wall_art', artType: 'modern_canvas', width: 50, height: 35, depth: 3, elevation: 45 };
                 planner.value.activePresetParams = activePresetParams.value;
             }
         } else if (tool === 'staircase' || tool.startsWith('stair_')) {

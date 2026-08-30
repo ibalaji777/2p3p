@@ -1606,6 +1606,7 @@ export const WIDGET_REGISTRY = {
                         iMesh.setMatrixAt(idx++, dummy.matrix);
                     }
                 }
+                iMesh.instanceMatrix.needsUpdate = true;
                 latticeGroup.add(iMesh);
             } else if (jaliPattern === 'modern') {
                 const targetStep = entity.jaliPatternSize || entity.params?.jaliPatternSize || 4;
@@ -1760,7 +1761,7 @@ export const WIDGET_REGISTRY = {
                 const thresholdW = entity.width - jambW * 2;
                 const tDepth = frameThick; // flush with frame
                 const thresholdGeo = rotateUvs(createBeveledExtrude(thresholdW, tHeight, tDepth, 0.03));
-                builder.addNode({ geometry: thresholdGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, position: new THREE.Vector3(0, -bottomY + tHeight/2, 0), castShadow: true, receiveShadow: true, userData: { isThreshold: true, isFrame: true } });
+                builder.addNode({ geometry: thresholdGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, position: new THREE.Vector3(0, tHeight/2, 0), castShadow: true, receiveShadow: true, userData: { isThreshold: true, isFrame: true } });
             }
             
             if (!isGate) {
@@ -1768,7 +1769,7 @@ export const WIDGET_REGISTRY = {
                 const sillHeight = 1.0; 
                 const totalFrameW = entity.width + archW * 2 - jambW * 2;
                 const sillGeo = rotateUvs(createBeveledExtrude(totalFrameW, sillHeight, frameThick, 0.01));
-                builder.addNode({ geometry: sillGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, position: new THREE.Vector3(0, -bottomY - sillHeight/2, 0), receiveShadow: true, userData: { isSillPlate: true, isFrame: true } });
+                builder.addNode({ geometry: sillGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, position: new THREE.Vector3(0, -sillHeight/2, 0), receiveShadow: true, userData: { isSillPlate: true, isFrame: true } });
             }
             
             const slWidth = (entity.hasSidelights && (!entity.doorShape || entity.doorShape === 'square') && !['pocket', 'sliding'].includes(entity.doorType)) ? Math.min(60, entity.width * 0.22) : 0;
@@ -1792,7 +1793,7 @@ export const WIDGET_REGISTRY = {
             const cShadowGeo = new THREE.PlaneGeometry(leafWidth + 2, doorThick + 2);
             const contactShadow = builder.addNode({ geometry: cShadowGeo, materialOverride: cShadowMat, parent: doorGroup, isHitbox: false, castShadow: false, receiveShadow: false, userData: { isShadow: true } });
             contactShadow.rotation.x = -Math.PI / 2;
-            contactShadow.position.set(0, -bottomY + 0.02, 0);
+            contactShadow.position.set(0, 0.02, 0);
             
             const shapeType = entity.doorShape || 'square';
             if (!isGate) {
@@ -1800,8 +1801,8 @@ export const WIDGET_REGISTRY = {
                     if (shapeType === 'square') {
                         if (entity.doorType !== 'pocket') {
                             // Clean Butt Joints for Jambs (Head Jamb between Side Jambs)
-                            const jamHeight = height + bottomY;
-                            const jamY = jamHeight/2 - bottomY;
+                            const jamHeight = height;
+                            const jamY = jamHeight/2;
                             const jamGeo = createBeveledExtrude(jambW, jamHeight, frameThick); 
                             const jamL = builder.addNode({ geometry: jamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); jamL.position.set(-entity.width/2 + jambW/2, jamY, 0); 
                             const jamR = builder.addNode({ geometry: jamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); jamR.position.set(entity.width/2 - jambW/2, jamY, 0); 
@@ -1811,7 +1812,7 @@ export const WIDGET_REGISTRY = {
                             // Stops (Rebate) & Gasket
                             const swingDir = entity.facing === 1 ? 1 : -1;
                             const stopZ = -swingDir * (doorThick/2 + stopThick/2);
-                            const stopBottom = -bottomY + tHeight;
+                            const stopBottom = tHeight;
                             const stopH = (height - jambW) - stopBottom;
                             const stopY = stopBottom + stopH/2;
                             const stopGeoV = createBeveledExtrude(stopW, stopH, stopThick, 0.02); 
@@ -1828,8 +1829,8 @@ export const WIDGET_REGISTRY = {
                             const gaskT = builder.addNode({ geometry: gaskGeoH, materialOverride: gasketMat, slot: MaterialSlots.FRAME, parent: doorGroup, userData: { isFrame: true } }); gaskT.position.set(0, height - jambW - stopW - 0.05, doorThick/2 + 0.05);
                             
                             // Architraves (Clean Butt Joints)
-                            const archHeight = height + bottomY;
-                            const archY = archHeight/2 - bottomY;
+                            const archHeight = height;
+                            const archY = archHeight/2;
                             const archV = createBeveledExtrude(archW, archHeight, archThick); 
                             const archHgeo = rotateUvs(createBeveledExtrude(entity.width + archW*2, archW, archThick));
                             
@@ -1840,9 +1841,9 @@ export const WIDGET_REGISTRY = {
                             });
                             
                             if (slWidth > 0) {
-                                const innerJamGeo = createBeveledExtrude(jambW, height - jambW + bottomY, frameThick);
-                                const iJamL = builder.addNode({ geometry: innerJamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); iJamL.position.set(-entity.width/2 + jambW + slWidth - jambW/2, (height - jambW + bottomY)/2 - bottomY, 0);
-                                const iJamR = builder.addNode({ geometry: innerJamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); iJamR.position.set(entity.width/2 - jambW - slWidth + jambW/2, (height - jambW + bottomY)/2 - bottomY, 0);
+                                const innerJamGeo = createBeveledExtrude(jambW, height - jambW, frameThick);
+                                const iJamL = builder.addNode({ geometry: innerJamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); iJamL.position.set(-entity.width/2 + jambW + slWidth - jambW/2, (height - jambW)/2, 0);
+                                const iJamR = builder.addNode({ geometry: innerJamGeo, materialOverride: matFrame, slot: MaterialSlots.FRAME, parent: doorGroup, castShadow: true, receiveShadow: true, userData: { isFrame: true } }); iJamR.position.set(entity.width/2 - jambW - slWidth + jambW/2, (height - jambW)/2, 0);
                                 
                                 const slGlassW = slWidth - jambW;
                                 const slBotGeo = createBeveledExtrude(slGlassW, 5, frameThick);
@@ -2795,7 +2796,7 @@ export const WIDGET_REGISTRY = {
         render3D: (sceneGroup, entity, helpers) => {
             const builder = new BIMComponentBuilder(entity, helpers);
             const sunshadeGroup = builder.group;
-            let baseElev = entity.elevation || 90;
+            let baseElev = entity.elevation !== undefined ? entity.elevation : 90;
             if (entity.localX !== undefined) {
                 sunshadeGroup.position.set(entity.localX, baseElev, 0);
                 sunshadeGroup.rotation.y = 0;
@@ -2804,8 +2805,8 @@ export const WIDGET_REGISTRY = {
                 sunshadeGroup.rotation.y = -entity.angle;
             }
 
-            const thick = entity.thick || 20;
-            const wallOffset = thick / 2; 
+            const wallThick = (entity.wall && (entity.wall.thickness || entity.wall.config?.thickness)) ? (entity.wall.thickness || entity.wall.config?.thickness) : (entity.wallThick || 20);
+            const wallOffset = wallThick / 2; 
             // Default to pointing OUTSIDE (negative Z) for clockwise rooms
             const signZ = (entity.facing === -1) ? -1 : 1;
             
@@ -2855,8 +2856,8 @@ export const WIDGET_REGISTRY = {
                 });
                 
                 const cWidth = entity.width;
-                const joistWidth = isWood ? 2 : 2;
-                const joistHeight = isWood ? 8 : 8;
+                const joistWidth = isWood ? 1.5 : 1.2;
+                const joistHeight = isWood ? 4 : 3.5;
                 const joistGeo = new THREE.BoxGeometry(joistWidth, joistHeight, cDepth);
                 
                 builder.addNode({ geometry: joistGeo, materialOverride: matLouver, parent: contentGroup, position: new THREE.Vector3(-cWidth/2 + joistWidth/2, joistHeight/2, (cDepth/2) * signZ), castShadow: true });
@@ -2865,7 +2866,7 @@ export const WIDGET_REGISTRY = {
                 const fasciaGeo = new THREE.BoxGeometry(cWidth, joistHeight, joistWidth);
                 builder.addNode({ geometry: fasciaGeo, materialOverride: matLouver, parent: contentGroup, position: new THREE.Vector3(0, joistHeight/2, (cDepth - joistWidth/2) * signZ), castShadow: true });
                 
-                const numJoists = Math.max(3, Math.floor(cWidth / 40));
+                const numJoists = Math.max(3, Math.floor(cWidth / 30));
                 if (numJoists > 2) {
                     const joistSpacing = (cWidth - joistWidth) / (numJoists - 1);
                     for (let i = 1; i < numJoists - 1; i++) {
@@ -2873,15 +2874,15 @@ export const WIDGET_REGISTRY = {
                     }
                 }
                 
-                const louverThick = isWood ? 2 : 1; 
-                const louverHeight = isWood ? 4 : 4;
-                const spacing = isWood ? 8 : 8; 
+                const louverThick = isWood ? 1.5 : 1; 
+                const louverHeight = isWood ? 2 : 1.8;
+                const spacing = isWood ? 6 : 5; 
                 const numLouvers = Math.floor(cDepth / spacing);
                 
                 const lGeo = new THREE.BoxGeometry(cWidth, louverHeight, louverThick);
                 
                 for(let i=1; i<=numLouvers; i++) {
-                    builder.addNode({ geometry: lGeo, materialOverride: matLouver, parent: contentGroup, position: new THREE.Vector3(0, joistHeight + louverHeight/2 - (isWood ? 2 : 0), (i * spacing - louverThick/2) * signZ), rotation: new THREE.Euler(isWood ? 0 : (Math.PI / 4) * signZ, 0, 0), castShadow: true });
+                    builder.addNode({ geometry: lGeo, materialOverride: matLouver, parent: contentGroup, position: new THREE.Vector3(0, joistHeight + louverHeight/2 - (isWood ? 1 : 0), (i * spacing - louverThick/2) * signZ), rotation: new THREE.Euler(isWood ? 0 : (Math.PI / 4) * signZ, 0, 0), castShadow: true });
                 }
             } else if (chajjaStyle === 'glass_canopy' || chajjaStyle === 'polycarbonate_canopy') {
                 const isPoly = chajjaStyle === 'polycarbonate_canopy';
