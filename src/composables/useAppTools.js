@@ -71,6 +71,28 @@ export function useAppTools({
                 activePresetParams.value = { type: 'jali_panel', pattern: 'geometric_islamic', width: 40, height: 80, depth: 2, elevation: 10 };
                 planner.value.activePresetParams = activePresetParams.value;
             }
+        } else if (tool === 'staircase' || tool.startsWith('stair_')) {
+            if (!activePresetParams.value) {
+                activePresetParams.value = {
+                    type: 'stair_v5_straight',
+                    shape: 'straight',
+                    width: 100,
+                    length: 330,
+                    height: 300,
+                    totalSteps: 12,
+                    stepDepth: 28,
+                    stepHeight: 17.5,
+                    stringerType: 'solid',
+                    primaryColor: '#8b5a2b',
+                    materials: {
+                        treads: { id: 'wood_golden_teak' },
+                        risers: { id: 'wood_golden_teak' },
+                        stringers: { id: 'wood_white_oak' },
+                        landings: { id: 'wood_golden_teak' }
+                    }
+                };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
         } else {
             activePresetParams.value = null;
             planner.value.activePresetParams = null;

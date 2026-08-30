@@ -13,6 +13,7 @@ import { PolygonGizmo } from './PolygonGizmo.js';
 import { WallPushPullGizmo } from './WallPushPullGizmo.js';
 import { Wall3DDrawSystem } from './Wall3DDrawSystem.js';
 import { WallPlugin3DPlacementSystem } from './WallPlugin3DPlacementSystem.js';
+import { Stair3DPlacementSystem } from './Stair3DPlacementSystem.js';
 import { SelectionManager } from './SelectionManager.js';
 import { HighlightRenderer } from './HighlightRenderer.js';
 import { DimensionManager3D } from './dimensions/DimensionManager3D.js';
@@ -452,6 +453,7 @@ export class InteractionSystem {
 
         this.wall3DDrawSystem = new Wall3DDrawSystem(ctx, this);
         this.wallPluginPlacementSystem = new WallPlugin3DPlacementSystem(ctx, this);
+        this.stairPlacementSystem = new Stair3DPlacementSystem(ctx, this);
 
         this.initEvents();
     }
@@ -486,6 +488,11 @@ export class InteractionSystem {
             // Direct 3D Door / Window / Wall Plugin Placement System
             if (this.wallPluginPlacementSystem && this.wallPluginPlacementSystem.isPlacementTool()) {
                 if (this.wallPluginPlacementSystem.onPointerDown(e)) return;
+            }
+
+            // Direct 3D Staircase Placement System
+            if (this.stairPlacementSystem && this.stairPlacementSystem.isPlacementTool()) {
+                if (this.stairPlacementSystem.onPointerDown(e)) return;
             }
 
             if (this.transformControls && this.transformControls.active) return;
@@ -586,6 +593,11 @@ export class InteractionSystem {
             // Direct 3D Door / Window / Wall Plugin Placement System
             if (this.wallPluginPlacementSystem && this.wallPluginPlacementSystem.isPlacementTool()) {
                 if (this.wallPluginPlacementSystem.onPointerMove(e)) return;
+            }
+
+            // Direct 3D Staircase Placement System
+            if (this.stairPlacementSystem && this.stairPlacementSystem.isPlacementTool()) {
+                if (this.stairPlacementSystem.onPointerMove(e)) return;
             }
 
             if (this.transformControls && this.transformControls.active) return;
@@ -701,6 +713,12 @@ export class InteractionSystem {
 
     cancelRelocation() {
         this.setRelocationState(false);
+        if (this.stairPlacementSystem && this.stairPlacementSystem.hideGhost) {
+            this.stairPlacementSystem.hideGhost();
+        }
+        if (this.wallPluginPlacementSystem && this.wallPluginPlacementSystem.hideGhost) {
+            this.wallPluginPlacementSystem.hideGhost();
+        }
     }
 
     refreshSelectionHighlight(object = null) {
@@ -878,6 +896,7 @@ export class InteractionSystem {
         if (this.wallPushPullGizmo && this.wallPushPullGizmo.dispose) this.wallPushPullGizmo.dispose();
         if (this.wall3DDrawSystem && this.wall3DDrawSystem.dispose) this.wall3DDrawSystem.dispose();
         if (this.wallPluginPlacementSystem && this.wallPluginPlacementSystem.dispose) this.wallPluginPlacementSystem.dispose();
+        if (this.stairPlacementSystem && this.stairPlacementSystem.dispose) this.stairPlacementSystem.dispose();
         if (this.highlightRenderer && this.highlightRenderer.dispose) this.highlightRenderer.dispose();
         if (this.dimensionManager && this.dimensionManager.dispose) this.dimensionManager.dispose();
     }

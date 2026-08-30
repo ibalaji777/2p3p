@@ -655,6 +655,7 @@ export class Stair3DBuilder {
 
             // Assign user data to be able to identify or select it if needed
             group.userData = { entity: stair, isStair: true, isStatic: isStatic };
+            stair.mesh3D = group;
             this.interactables.push(group);
             
             parentGroup.add(group);
