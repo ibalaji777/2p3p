@@ -538,6 +538,7 @@ const shapesCatalog = ref([
 const wallsCatalog = ref([
     { id: 'wall_outer', name: 'Outer Wall', badge: 'STRUCTURAL', material: 'Brick & Plaster', specs: '230 mm Thick', image: '', toolId: 'outer', params: { type: 'outer' } },
     { id: 'wall_inner', name: 'Inner Wall', badge: 'PARTITION', material: 'Gypsum / Brick', specs: '115 mm Thick', image: '', toolId: 'inner', params: { type: 'inner' } },
+    { id: 'wall_room_box', name: 'Wall Room (Rectangle)', badge: 'SIMS 4', material: 'Brick & Plaster', specs: '4-Wall Enclosed Room', image: '', toolId: 'room_box', params: { type: 'room_box' } },
     { id: 'wall_compound', name: 'Compound Wall', badge: 'BOUNDARY', material: 'Stone / Boundary Brick', specs: '150 mm Thick • 1500 mm (5 ft) High', image: '', toolId: 'compound', params: { type: 'compound', height: 80, thickness: 12 } },
     { id: 'wall_arc', name: 'Curved Wall (Arc)', badge: 'CURVED', material: 'Reinforced Concrete', specs: '230 mm Arc', image: '', toolId: 'arc', params: { type: 'arc' } }
 ]);

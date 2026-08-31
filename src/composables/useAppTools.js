@@ -39,6 +39,11 @@ export function useAppTools({
         } else if (tool.startsWith('preset_') && PRESET_REGISTRY[tool]) {
             activePresetParams.value = JSON.parse(JSON.stringify(PRESET_REGISTRY[tool].defaultParams));
             planner.value.activePresetParams = activePresetParams.value;
+        } else if (tool === 'room_box') {
+            if (!activePresetParams.value || activePresetParams.value.type !== 'room_box') {
+                activePresetParams.value = { type: 'room_box', thickness: 16, height: 120 };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
         } else if (tool === 'door' || tool.startsWith('door_')) {
             if (!activePresetParams.value || !activePresetParams.value.doorType) {
                 activePresetParams.value = { doorType: 'single', doorStyle: 'flat' };

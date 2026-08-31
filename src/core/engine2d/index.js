@@ -89,6 +89,15 @@ export class FloorPlanner {
                     this.preview = null;
                 }
                 this.mobileDrawState = 'Idle';
+                if (this.drawingRoomBox) {
+                    this.drawingRoomBox = false;
+                    this.roomBoxStartPos = null;
+                    this.roomBoxEndPos = null;
+                }
+                if (this.roomBoxPreviewGroup) {
+                    this.roomBoxPreviewGroup.destroy();
+                    this.roomBoxPreviewGroup = null;
+                }
                 if (this.hideSnapGlow) this.hideSnapGlow();
                 if (this.hideInfoBadge) this.hideInfoBadge();
                 if (this.smartGuides) this.smartGuides.clear();
@@ -1306,6 +1315,15 @@ export class FloorPlanner {
         if (this.drawingArc) {
             this.drawingArc = null;
             if (this.arcPreview) { this.arcPreview.destroy(); this.arcPreview = null; }
+        }
+        if (this.drawingRoomBox) {
+            this.drawingRoomBox = false;
+            this.roomBoxStartPos = null;
+            this.roomBoxEndPos = null;
+            if (this.roomBoxPreviewGroup) {
+                this.roomBoxPreviewGroup.destroy();
+                this.roomBoxPreviewGroup = null;
+            }
         }
         this.finishChain(true);
         this.syncAll();

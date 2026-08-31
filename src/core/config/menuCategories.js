@@ -20,6 +20,7 @@ export const getMenuCategories = () => [
         icon: '<path d="M4 4h16v16H4z"></path><path d="M4 12h16"></path><path d="M12 4v16"></path>',
         tools: [
             { id: 'wall_catalog', name: 'Walls' },
+            { id: 'room_box', name: 'Room Box (Rectangle)' },
             { id: 'compound', name: 'Compound Wall' },
             { id: 'skirting', name: 'Baseboards & Skirting' }
         ]

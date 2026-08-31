@@ -641,7 +641,15 @@ const hintData = computed(() => {
     if (activeTool.value.startsWith('molding_')) return { text: isTouch ? 'MOLDING mode: Tap near any wall edge to place molding precisely.' : 'MOLDING mode: Hover near any wall edge (glows blue), then click to place.', color: '#0ea5e9' };
     if (activeTool.value.startsWith('door') || activeTool.value.startsWith('window') || activeTool.value === 'arch_opening' || activeTool.value === 'sunshade') return { text: isTouch ? 'OPENING mode: Tap near any wall edge to place.' : 'OPENING mode: Hover near any wall edge (glows blue), then click to place.', color: '#0ea5e9' };
     
-    if (activeTool.value === 'wall' || activeTool.value === 'outer' || activeTool.value === 'inner' || activeTool.value === 'compound' || activeTool.value === 'room_box') {
+    if (activeTool.value === 'room_box') {
+        return {
+            text: viewMode.value === '3d'
+                ? 'SIMS 4 ROOM BOX: Click & drag (or click two opposite corners) to draw a 4-wall rectangular room in 3D.'
+                : 'SIMS 4 ROOM BOX: Click & drag (or click two opposite corners) to draw a 4-wall rectangular room in 2D.',
+            color: '#0ea5e9'
+        };
+    }
+    if (activeTool.value === 'wall' || activeTool.value === 'outer' || activeTool.value === 'inner' || activeTool.value === 'compound') {
         return { 
             text: viewMode.value === '3d' 
                 ? '3D WALL BUILD: Click floor to place corner. Move mouse to stretch wall. Click to chain. Press ESC / Right-Click to finish.' 

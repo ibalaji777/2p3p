@@ -5,7 +5,8 @@ export const WALL_REGISTRY = {
     'inner': { type: "inner", label: "INNER WALL", thickness: 8, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
     'compound': { type: "compound", label: "COMPOUND WALL", thickness: 12, height: 80, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
     'arc': { type: "arc", label: "CURVED WALL", thickness: 10, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall"] },
-    'railing': { type: "railing", label: "RAILING", thickness: 4, height: 0, events: ["proximity_highlight", "snap_preview", "snap_to_wall"] }
+    'railing': { type: "railing", label: "RAILING", thickness: 4, height: 0, events: ["proximity_highlight", "snap_preview", "snap_to_wall"] },
+    'room_box': { type: "room_box", label: "WALL ROOM (RECTANGLE)", thickness: 16, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] }
 };
 
 export const MOLDING_REGISTRY = {
@@ -65,9 +66,31 @@ Object.keys(MOLDING_REGISTRY).forEach(key => {
     };
 });
 
-['outer', 'inner', 'compound', 'arc'].forEach(key => {
+['outer', 'inner', 'compound', 'arc', 'room_box'].forEach(key => {
     if (WALL_REGISTRY[key]) {
         WALL_REGISTRY[key].render3D = (sceneGroup, entity, helpers) => {
+            if (key === 'room_box') {
+                const group = new THREE.Group();
+                const w = 80, d = 80, h = 60, t = 8;
+                const mat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+                // 4 walls
+                const w1 = new THREE.Mesh(new THREE.BoxGeometry(w, h, t), mat);
+                w1.position.set(0, h / 2, -d / 2);
+                const w2 = new THREE.Mesh(new THREE.BoxGeometry(w, h, t), mat);
+                w2.position.set(0, h / 2, d / 2);
+                const w3 = new THREE.Mesh(new THREE.BoxGeometry(t, h, d), mat);
+                w3.position.set(-w / 2, h / 2, 0);
+                const w4 = new THREE.Mesh(new THREE.BoxGeometry(t, h, d), mat);
+                w4.position.set(w / 2, h / 2, 0);
+                const floor = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({ color: 0xe2e8f0, side: THREE.DoubleSide }));
+                floor.rotation.x = -Math.PI / 2;
+                floor.position.y = 0.5;
+                group.add(w1, w2, w3, w4, floor);
+                group.rotation.y = Math.PI / 4;
+                group.rotation.x = Math.PI / 12;
+                sceneGroup.add(group);
+                return group;
+            }
             const w = 100, h = 100, d = 10;
             let geo;
             if (key === 'arc') geo = new THREE.CylinderGeometry(100, 100, h, 32, 1, false, 0, Math.PI / 2);

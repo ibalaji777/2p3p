@@ -38,6 +38,10 @@ export function setupDrawingEvents(planner) {
                 planner._executeRoofPointerDownLogic(pos);
                 return;
             }
+            if (planner.tool === 'room_box') {
+                planner._executeRoomBoxPointerDownLogic(pos, isTouch);
+                return;
+            }
             if (planner.lastPlacementTime && Date.now() - planner.lastPlacementTime < 500) {
                 return;
             }
@@ -620,6 +624,179 @@ export function setupDrawingEvents(planner) {
                     planner.uiLayer.batchDraw();
                 }
             }
+        };
+
+        planner._executeRoomBoxPointerDownLogic = (pos, isTouch = false) => {
+            let snapPos = { x: planner.snap(pos.x), y: planner.snap(pos.y) };
+            const scale = planner.stage.scaleX() || 1;
+            const activeSnapDist = isTouch ? 24 / scale : SNAP_DIST / scale;
+            let closestDist = activeSnapDist;
+
+            // 1. Anchor snapping
+            let a = planner.anchors.find(anc => Math.hypot(anc.x - pos.x, anc.y - pos.y) < activeSnapDist * 1.4);
+            if (a) {
+                snapPos = { x: a.x, y: a.y };
+                closestDist = Math.hypot(a.x - pos.x, a.y - pos.y);
+            } else {
+                // 2. Reference walls snapping
+                let allReferenceWalls = planner.referenceGroup ? planner.referenceGroup.getChildren() : [];
+                for (let line of allReferenceWalls) {
+                    let pts = line.getAttr('refPts') || line.points();
+                    if (pts && pts.length === 4) {
+                        let proj = planner.getClosestPointOnSegment(pos, { x: pts[0], y: pts[1] }, { x: pts[2], y: pts[3] });
+                        let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                        if (dist < closestDist) {
+                            closestDist = dist;
+                            snapPos = proj;
+                        }
+                    }
+                }
+                // 3. Wall edge snapping
+                for (let w of planner.walls) {
+                    let proj = planner.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position());
+                    let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        snapPos = proj;
+                    }
+                }
+            }
+
+            if (!planner.drawingRoomBox) {
+                planner.drawing = true;
+                planner.drawingRoomBox = true;
+                planner.roomBoxStartPos = { x: snapPos.x, y: snapPos.y };
+                planner.roomBoxEndPos = { x: snapPos.x, y: snapPos.y };
+                planner.startAnchor = { x: snapPos.x, y: snapPos.y, position: () => ({ x: snapPos.x, y: snapPos.y }) };
+                planner.lastAnchor = { x: snapPos.x, y: snapPos.y, position: () => ({ x: snapPos.x, y: snapPos.y }) };
+
+                if (planner.onDrawingChange) planner.onDrawingChange(true);
+
+                // Build Konva Preview Group for 2D room box
+                if (planner.roomBoxPreviewGroup) {
+                    planner.roomBoxPreviewGroup.destroy();
+                }
+                planner.roomBoxPreviewGroup = new Konva.Group({ listening: false });
+
+                // Semi-transparent floor fill
+                planner.roomBoxFloorPreview = new Konva.Rect({
+                    x: snapPos.x,
+                    y: snapPos.y,
+                    width: 0,
+                    height: 0,
+                    fill: 'rgba(14, 165, 233, 0.16)',
+                    stroke: '#0284c7',
+                    strokeWidth: 1.5,
+                    dash: [4, 4],
+                    listening: false
+                });
+
+                const wallThick = planner.activePresetParams?.thickness || 16;
+                const wallOpts = {
+                    points: [snapPos.x, snapPos.y, snapPos.x, snapPos.y],
+                    stroke: '#0ea5e9',
+                    strokeWidth: wallThick,
+                    opacity: 0.75,
+                    lineCap: 'square',
+                    listening: false
+                };
+
+                planner.roomBoxWallTop = new Konva.Line(wallOpts);
+                planner.roomBoxWallRight = new Konva.Line(wallOpts);
+                planner.roomBoxWallBottom = new Konva.Line(wallOpts);
+                planner.roomBoxWallLeft = new Konva.Line(wallOpts);
+
+                planner.roomBoxCorners = [
+                    new Konva.Circle({ x: snapPos.x, y: snapPos.y, radius: 5, fill: '#0284c7', stroke: '#ffffff', strokeWidth: 1.5, listening: false }),
+                    new Konva.Circle({ x: snapPos.x, y: snapPos.y, radius: 5, fill: '#0284c7', stroke: '#ffffff', strokeWidth: 1.5, listening: false }),
+                    new Konva.Circle({ x: snapPos.x, y: snapPos.y, radius: 5, fill: '#0284c7', stroke: '#ffffff', strokeWidth: 1.5, listening: false }),
+                    new Konva.Circle({ x: snapPos.x, y: snapPos.y, radius: 5, fill: '#0284c7', stroke: '#ffffff', strokeWidth: 1.5, listening: false })
+                ];
+
+                planner.roomBoxPreviewGroup.add(planner.roomBoxFloorPreview);
+                planner.roomBoxPreviewGroup.add(planner.roomBoxWallTop);
+                planner.roomBoxPreviewGroup.add(planner.roomBoxWallRight);
+                planner.roomBoxPreviewGroup.add(planner.roomBoxWallBottom);
+                planner.roomBoxPreviewGroup.add(planner.roomBoxWallLeft);
+                planner.roomBoxCorners.forEach(c => planner.roomBoxPreviewGroup.add(c));
+
+                planner.uiLayer.add(planner.roomBoxPreviewGroup);
+                planner.uiLayer.batchDraw();
+            } else {
+                // Second click commits the room box if dragged / separated enough
+                const p1 = planner.roomBoxStartPos;
+                const dx = Math.abs(snapPos.x - p1.x);
+                const dy = Math.abs(snapPos.y - p1.y);
+                if (dx > 20 && dy > 20) {
+                    planner._finishRoomBox(snapPos);
+                }
+            }
+        };
+
+        planner._finishRoomBox = (endPos) => {
+            if (!planner.roomBoxStartPos) return;
+            const p1 = planner.roomBoxStartPos;
+            const p2 = endPos || planner.roomBoxEndPos || p1;
+            const minX = Math.min(p1.x, p2.x);
+            const maxX = Math.max(p1.x, p2.x);
+            const minY = Math.min(p1.y, p2.y);
+            const maxY = Math.max(p1.y, p2.y);
+            const width = maxX - minX;
+            const depth = maxY - minY;
+
+            if (width > 20 && depth > 20) {
+                let cmd = null;
+                if (planner.commandManager) cmd = new SnapshotCommand(planner);
+
+                const wallType = 'outer';
+                const wallHeight = planner.activePresetParams?.height || 120;
+                const wallThick = planner.activePresetParams?.thickness || 16;
+
+                // Create or reuse 4 corner anchors
+                const a1 = planner.getOrCreateAnchor(minX, minY);
+                const a2 = planner.getOrCreateAnchor(maxX, minY);
+                const a3 = planner.getOrCreateAnchor(maxX, maxY);
+                const a4 = planner.getOrCreateAnchor(minX, maxY);
+
+                // Create 4 walls in clockwise loop
+                const w1 = new PremiumWall(planner, a1, a2, wallType);
+                const w2 = new PremiumWall(planner, a2, a3, wallType);
+                const w3 = new PremiumWall(planner, a3, a4, wallType);
+                const w4 = new PremiumWall(planner, a4, a1, wallType);
+
+                [w1, w2, w3, w4].forEach(w => {
+                    w.height = wallHeight;
+                    w.thickness = wallThick;
+                    planner.walls.push(w);
+                });
+
+                if (!planner.currentSessionEntities) planner.currentSessionEntities = [];
+                planner.currentSessionEntities.push(w1, w2, w3, w4);
+                planner.lastDrawnEntity = w4;
+
+                if (cmd && cmd.finalize()) {
+                    planner.commandManager.execute(cmd);
+                }
+            }
+
+            // Reset drawing state
+            planner.drawing = false;
+            planner.drawingRoomBox = false;
+            planner.roomBoxStartPos = null;
+            planner.roomBoxEndPos = null;
+            planner.startAnchor = null;
+            planner.lastAnchor = null;
+
+            if (planner.roomBoxPreviewGroup) {
+                planner.roomBoxPreviewGroup.destroy();
+                planner.roomBoxPreviewGroup = null;
+            }
+            planner.hideSnapGlow();
+            planner.hideInfoBadge();
+            if (planner.smartGuides) planner.smartGuides.clear();
+            if (planner.onDrawingChange) planner.onDrawingChange(false);
+            planner.uiLayer.batchDraw();
+            planner.syncAll();
         };
 
         planner._finishOutdoorCorridor = () => {

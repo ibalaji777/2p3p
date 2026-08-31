@@ -839,7 +839,8 @@ export class Wall3DDrawSystem {
                     this.ghostRoomFloor.visible = true;
 
                     // Dimension Badge
-                    const label = `${(width / 100).toFixed(2)}m × ${(depth / 100).toFixed(2)}m`;
+                    const areaSqm = ((width * depth) / 10000).toFixed(2);
+                    const label = `📐 ${(width / 100).toFixed(2)}m × ${(depth / 100).toFixed(2)}m  •  ${areaSqm} m²`;
                     this._updateDimensionBadge(label, new THREE.Vector3((minX + maxX) / 2, elev + h + 24, (minY + maxY) / 2));
                 }
             } else {
@@ -1010,6 +1011,65 @@ export class Wall3DDrawSystem {
         planner.selectEntity(newZone, 'outdoor_zone');
     }
 
+    _finish3DRoomBox(pt) {
+        if (!this.drawing || !this.startPoint) return;
+        const planner = this.planner;
+        if (!planner) return;
+
+        const p1 = this.startPoint;
+        const p2 = { x: pt.x, y: pt.z };
+        const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
+        const minY = Math.min(p1.y, p2.y), maxY = Math.max(p1.y, p2.y);
+        const width = maxX - minX;
+        const depth = maxY - minY;
+
+        if (width > 20 && depth > 20) {
+            const wallConfig = this.getWallConfig();
+            const wallHeight = wallConfig.height || 120;
+            const wallThick = wallConfig.thickness || 16;
+
+            const a1 = planner.getOrCreateAnchor(minX, minY);
+            const a2 = planner.getOrCreateAnchor(maxX, minY);
+            const a3 = planner.getOrCreateAnchor(maxX, maxY);
+            const a4 = planner.getOrCreateAnchor(minX, maxY);
+
+            const w1 = new PremiumWall(planner, a1, a2, 'outer');
+            const w2 = new PremiumWall(planner, a2, a3, 'outer');
+            const w3 = new PremiumWall(planner, a3, a4, 'outer');
+            const w4 = new PremiumWall(planner, a4, a1, 'outer');
+
+            [w1, w2, w3, w4].forEach(w => {
+                w.height = wallHeight;
+                w.thickness = wallThick;
+                planner.walls.push(w);
+            });
+
+            planner.lastDrawnEntity = w4;
+            this.currentSessionEntities.push(w1, w2, w3, w4);
+        }
+
+        this.finishDrawing();
+    }
+
+    onPointerUp(e) {
+        if (!this.isWallDrawingTool()) return false;
+        if (this.activeTool === 'room_box' && this.drawing && this.startPoint) {
+            const sceneHit = this.getSceneIntersection(e);
+            if (sceneHit) {
+                const snapResult = this.getSnappedPoint(sceneHit, e.shiftKey);
+                const pt = snapResult.point;
+                const p1 = this.startPoint;
+                const minX = Math.min(p1.x, pt.x), maxX = Math.max(p1.x, pt.x);
+                const minY = Math.min(p1.y, pt.z), maxY = Math.max(p1.y, pt.z);
+                if (maxX - minX > 20 && maxY - minY > 20) {
+                    this._finish3DRoomBox(pt);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     onPointerDown(e) {
         if (!this.isWallDrawingTool()) return false;
         if (e.button !== 0) {
@@ -1086,30 +1146,7 @@ export class Wall3DDrawSystem {
             const wallType = rawTool === 'wall' ? 'outer' : rawTool;
 
             if (rawTool === 'room_box') {
-                // Create 4-Wall Rectangular Room
-                const p1 = this.startPoint;
-                const p2 = { x: pt.x, y: pt.z };
-
-                const minX = Math.min(p1.x, p2.x), maxX = Math.max(p1.x, p2.x);
-                const minY = Math.min(p1.y, p2.y), maxY = Math.max(p1.y, p2.y);
-
-                if (maxX - minX > 20 && maxY - minY > 20) {
-                    const a1 = planner.getOrCreateAnchor(minX, minY);
-                    const a2 = planner.getOrCreateAnchor(maxX, minY);
-                    const a3 = planner.getOrCreateAnchor(maxX, maxY);
-                    const a4 = planner.getOrCreateAnchor(minX, maxY);
-
-                    const w1 = new PremiumWall(planner, a1, a2, 'outer');
-                    const w2 = new PremiumWall(planner, a2, a3, 'outer');
-                    const w3 = new PremiumWall(planner, a3, a4, 'outer');
-                    const w4 = new PremiumWall(planner, a4, a1, 'outer');
-
-                    planner.walls.push(w1, w2, w3, w4);
-                    planner.lastDrawnEntity = w4;
-                    this.currentSessionEntities.push(w1, w2, w3, w4);
-                }
-
-                this.finishDrawing();
+                this._finish3DRoomBox(pt);
             } else {
                 // Wall Chain Mode
                 const currentAnchor = planner.getOrCreateAnchor(pt.x, pt.z);

@@ -704,6 +704,9 @@ export class InteractionSystem {
 
         this._onPointerUp = (e) => {
             if (this.ctx.viewMode3D === 'preview') return;
+            if (this.wall3DDrawSystem && this.wall3DDrawSystem.isWallDrawingTool()) {
+                if (this.wall3DDrawSystem.onPointerUp && this.wall3DDrawSystem.onPointerUp(e)) return;
+            }
             if (this.shape3DDrawSystem && this.shape3DDrawSystem.isShapeDrawingTool()) {
                 if (this.shape3DDrawSystem.onPointerUp(e)) return;
             }

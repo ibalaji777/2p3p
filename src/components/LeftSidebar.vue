@@ -569,6 +569,7 @@ const getShortToolName = (toolId, name) => {
     if (toolId === 'roof_chimney') return 'Chimneys';
     if (toolId === 'dormer') return 'Dormers';
     if (toolId === 'wall_catalog') return 'Walls';
+    if (toolId === 'room_box') return 'Room Box';
     if (toolId === 'compound') return 'Compound';
     if (toolId === 'shape_catalog') return '3D Shapes';
     if (toolId === 'railing_catalog') return 'Railings';
@@ -633,6 +634,9 @@ const getToolTabIcon = (toolId) => {
     }
     if (toolId === 'adv_opening_catalog') {
         return '<path d="M4 4h16v16H4V4z"></path><path d="M4 12h16"></path><path d="M8 12V4"></path><path d="M16 12V4"></path>';
+    }
+    if (toolId === 'room_box') {
+        return '<rect x="3" y="3" width="18" height="18" rx="2" stroke-width="2"></rect><line x1="3" y1="3" x2="21" y2="21" stroke-dasharray="2 2" stroke-width="1.2"></line>';
     }
     if (toolId === 'wall_catalog' || toolId === 'compound') {
         return '<path d="M4 4h16v16H4z"></path><path d="M4 12h16"></path><path d="M12 4v16"></path>';

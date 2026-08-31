@@ -13,7 +13,7 @@ export function setupPointerEvents(planner) {
             const isTouch = e.evt && (e.evt.touches || e.evt.pointerType === 'touch');
             
             if (isTouch && e.type === 'touchstart') {
-                const isWallTool = ['outer', 'inner', 'railing', 'roof', 'shape_floor_cut'].includes(planner.tool);
+                const isWallTool = ['outer', 'inner', 'railing', 'roof', 'shape_floor_cut', 'room_box'].includes(planner.tool);
                 if (isWallTool) {
                     if (planner.gestureManager && planner.gestureManager.isActive()) return;
                     const clonedPos = planner.getPointerPos(e);
@@ -74,7 +74,7 @@ export function setupPointerEvents(planner) {
             if (e.evt && e.evt.touches && e.evt.touches.length > 1) return;
             if (planner.gestureManager && planner.gestureManager.isActive()) return;
             
-            const isWallTool = ['outer', 'inner', 'railing', 'roof', 'shape_floor_cut'].includes(planner.tool);
+            const isWallTool = ['outer', 'inner', 'railing', 'roof', 'shape_floor_cut', 'room_box'].includes(planner.tool);
             if (_isTouchMove && isWallTool && (planner.mobileDrawState === 'ChainWaiting' || planner.mobileIsPanning)) return;
 
             if (e.target === planner.stage || e.target === planner.bgLayer || e.target === planner.mainLayer) {
@@ -86,6 +86,95 @@ export function setupPointerEvents(planner) {
             if (!pos) return;
             if (planner.tool === 'roof' || planner.tool === 'shape_floor_cut') return;
             let rawPos = { x: planner.snap(pos.x), y: planner.snap(pos.y) };
+
+            // Real-time Sims 4 Room Box 2D Live Preview
+            if (planner.tool === 'room_box' || planner.drawingRoomBox) {
+                let snapPos = rawPos;
+                let snappedObj = false;
+                const scale = planner.stage.scaleX() || 1;
+                const isTouch = e && e.type && (e.type.startsWith('touch') || e.pointerType === 'touch');
+                const activeSnapDist = isTouch ? 24 / scale : SNAP_DIST / scale;
+                let closestDist = activeSnapDist;
+
+                let a = planner.anchors.find(anc => Math.hypot(anc.x - pos.x, anc.y - pos.y) < activeSnapDist * 1.4);
+                if (a) {
+                    snapPos = { x: a.x, y: a.y };
+                    snappedObj = true;
+                } else {
+                    let allReferenceWalls = planner.referenceGroup ? planner.referenceGroup.getChildren() : [];
+                    for (let line of allReferenceWalls) {
+                        let pts = line.getAttr('refPts') || line.points();
+                        if (pts && pts.length === 4) {
+                            let proj = planner.getClosestPointOnSegment(pos, { x: pts[0], y: pts[1] }, { x: pts[2], y: pts[3] });
+                            let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                            if (dist < closestDist) {
+                                closestDist = dist;
+                                snapPos = proj;
+                                snappedObj = true;
+                            }
+                        }
+                    }
+                    for (let w of planner.walls) {
+                        let proj = planner.getClosestPointOnSegment(pos, w.startAnchor.position(), w.endAnchor.position());
+                        let dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
+                        if (dist < closestDist) {
+                            closestDist = dist;
+                            snapPos = proj;
+                            snappedObj = true;
+                        }
+                    }
+                }
+
+                if (snappedObj) {
+                    planner.showSnapGlow(snapPos.x, snapPos.y, isTouch);
+                } else {
+                    planner.hideSnapGlow();
+                }
+
+                if (planner.drawingRoomBox && planner.roomBoxStartPos && planner.roomBoxPreviewGroup) {
+                    planner.roomBoxEndPos = snapPos;
+                    const p1 = planner.roomBoxStartPos;
+                    const minX = Math.min(p1.x, snapPos.x);
+                    const maxX = Math.max(p1.x, snapPos.x);
+                    const minY = Math.min(p1.y, snapPos.y);
+                    const maxY = Math.max(p1.y, snapPos.y);
+                    const width = maxX - minX;
+                    const depth = maxY - minY;
+
+                    planner.roomBoxWallTop.points([minX, minY, maxX, minY]);
+                    planner.roomBoxWallRight.points([maxX, minY, maxX, maxY]);
+                    planner.roomBoxWallBottom.points([maxX, maxY, minX, maxY]);
+                    planner.roomBoxWallLeft.points([minX, maxY, minX, minY]);
+
+                    planner.roomBoxFloorPreview.setAttrs({
+                        x: minX,
+                        y: minY,
+                        width: width,
+                        height: depth
+                    });
+
+                    if (planner.roomBoxCorners && planner.roomBoxCorners.length === 4) {
+                        planner.roomBoxCorners[0].position({ x: minX, y: minY });
+                        planner.roomBoxCorners[1].position({ x: maxX, y: minY });
+                        planner.roomBoxCorners[2].position({ x: maxX, y: maxY });
+                        planner.roomBoxCorners[3].position({ x: minX, y: maxY });
+                    }
+
+                    let lenBadge = `${planner.formatLength(width)} × ${planner.formatLength(depth)}`;
+                    let areaVal = planner.calculateArea([minX, minY, maxX, minY, maxX, maxY, minX, maxY]);
+                    let areaText = `${Math.round(areaVal)} sqft`;
+                    if (planner.settings && planner.settings.areaUnit === 'sqm') {
+                        areaText = `${(areaVal * 0.092903).toFixed(2)} m²`;
+                    }
+                    planner.updateInfoBadge((minX + maxX) / 2, (minY + maxY) / 2, lenBadge, areaText, snappedObj);
+                    planner.uiLayer.batchDraw();
+                } else {
+                    planner.hideInfoBadge();
+                }
+
+                document.body.style.cursor = 'crosshair';
+                return;
+            }
             // Smart Snapping Edge-Specific Highlight for Placement Tools
             const isAdvancedOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(planner.tool);
             const isMolding = planner.tool === 'molding' || planner.tool === 'skirting' || !!MOLDING_REGISTRY[planner.tool];
@@ -579,9 +668,22 @@ export function setupPointerEvents(planner) {
             planner.mobileIsPanning = false;
             
             const isTouchRelease = e.evt && (e.evt.changedTouches || e.evt.pointerType === 'touch');
-            const isWallTool = ['outer', 'inner', 'railing', 'roof'].includes(planner.tool);
+            const isWallTool = ['outer', 'inner', 'railing', 'roof', 'room_box'].includes(planner.tool);
 
             const pos = planner.getPointerPos(e) || planner.lastRawTouchPos;
+
+            // Commit 2D Room Box if dragged and released
+            if (planner.drawingRoomBox && planner.roomBoxStartPos) {
+                const endPos = pos || planner.getPointerPos(e);
+                if (endPos) {
+                    const dx = Math.abs(endPos.x - planner.roomBoxStartPos.x);
+                    const dy = Math.abs(endPos.y - planner.roomBoxStartPos.y);
+                    if (dx > 20 && dy > 20) {
+                        planner._finishRoomBox(endPos);
+                        return;
+                    }
+                }
+            }
 
             if (isTouchRelease && isWallTool && planner.mobileDrawState === 'PreviewDrawing') {
                 if (pos && planner.lastAnchor) {
