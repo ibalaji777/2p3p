@@ -449,143 +449,151 @@ export class Roof3DBuilder {
                 }
             } else if (conf.roofType === 'gable' || conf.roofType === 'curved') {
                 let bMinX = Infinity, bMaxX = -Infinity, bMinY = Infinity, bMaxY = -Infinity;
-                basePts.forEach(p => {
+                pts.forEach(p => {
                     bMinX = Math.min(bMinX, p.x); bMaxX = Math.max(bMaxX, p.x);
                     bMinY = Math.min(bMinY, p.y); bMaxY = Math.max(bMaxY, p.y);
                 });
                 const bW = bMaxX - bMinX;
                 const bD = bMaxY - bMinY;
 
-                const pitch = conf.pitch || 30;
+                const pitch = conf.pitch !== undefined ? conf.pitch : 30;
                 const axis = conf.ridgeAxis || 'x';
                 const maxSpan = axis === 'x' ? bD : bW;
                 const rh = Math.tan(pitch * Math.PI / 180) * (maxSpan / 2);
-                let cx = bMinX + bW/2;
-                let cy = bMinY + bD/2;
+                let cx = bMinX + bW / 2;
+                let cy = bMinY + bD / 2;
+                const curve = conf.curve || (conf.roofType === 'curved' ? -20 : 0);
 
                 const v = [], uv = [];
-                
-                const shape = new THREE.Shape();
-                shape.moveTo(pts[0].x, pts[0].y);
-                for (let i = 1; i < pts.length; i++) shape.lineTo(pts[i].x, pts[i].y);
-                const shapeGeo = new THREE.ShapeGeometry(shape);
-                const pos = shapeGeo.attributes.position;
-                
-                let rawTriangles = [];
-                if (shapeGeo.index) {
-                    const idx = shapeGeo.index.array;
-                    for (let i = 0; i < idx.length; i += 3) {
-                        const a = idx[i], b = idx[i+1], c = idx[i+2];
-                        rawTriangles.push([
-                            {x: pos.getX(a), y: pos.getY(a)},
-                            {x: pos.getX(b), y: pos.getY(b)},
-                            {x: pos.getX(c), y: pos.getY(c)}
-                        ]);
+                const numSubdivs = 16;
+
+                const addQuad = (p0, p1, p2, p3) => {
+                    let dx1 = p1.x - p0.x, dz1 = p1.z - p0.z;
+                    let dx2 = p2.x - p0.x, dz2 = p2.z - p0.z;
+                    let ny = dz1 * dx2 - dx1 * dz2;
+                    if (ny < 0) {
+                        v.push(p0.x, p0.y, p0.z, p2.x, p2.y, p2.z, p1.x, p1.y, p1.z);
+                        uv.push(p0.x / 100, p0.z / 100, p2.x / 100, p2.z / 100, p1.x / 100, p1.z / 100);
+                        v.push(p0.x, p0.y, p0.z, p3.x, p3.y, p3.z, p2.x, p2.y, p2.z);
+                        uv.push(p0.x / 100, p0.z / 100, p3.x / 100, p3.z / 100, p2.x / 100, p2.z / 100);
+                    } else {
+                        v.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+                        uv.push(p0.x / 100, p0.z / 100, p1.x / 100, p1.z / 100, p2.x / 100, p2.z / 100);
+                        v.push(p0.x, p0.y, p0.z, p2.x, p2.y, p2.z, p3.x, p3.y, p3.z);
+                        uv.push(p0.x / 100, p0.z / 100, p2.x / 100, p2.z / 100, p3.x / 100, p3.z / 100);
+                    }
+                };
+
+                const gv = [], guv = [];
+
+                if (axis === 'x') {
+                    // Slope 1: North (bMinY -> cy)
+                    for (let i = 0; i < numSubdivs; i++) {
+                        const t0 = i / numSubdivs;
+                        const t1 = (i + 1) / numSubdivs;
+                        const z0 = bMinY + t0 * (cy - bMinY);
+                        const z1 = bMinY + t1 * (cy - bMinY);
+                        let y0 = t0 * rh + curve * Math.sin(Math.PI * t0);
+                        let y1 = t1 * rh + curve * Math.sin(Math.PI * t1);
+
+                        const p0 = { x: bMinX, y: y0, z: z0 };
+                        const p1 = { x: bMaxX, y: y0, z: z0 };
+                        const p2 = { x: bMaxX, y: y1, z: z1 };
+                        const p3 = { x: bMinX, y: y1, z: z1 };
+                        addQuad(p0, p1, p2, p3);
+
+                        // Gable End Walls (West at bMinX and East at bMaxX)
+                        gv.push(bMinX, 0, z0, bMinX, y0, z0, bMinX, y1, z1);
+                        guv.push(z0/100, 0, z0/100, y0/100, z1/100, y1/100);
+                        gv.push(bMinX, 0, z0, bMinX, y1, z1, bMinX, 0, z1);
+                        guv.push(z0/100, 0, z1/100, y1/100, z1/100, 0);
+
+                        gv.push(bMaxX, 0, z0, bMaxX, y1, z1, bMaxX, y0, z0);
+                        guv.push(z0/100, 0, z1/100, y1/100, z0/100, y0/100);
+                        gv.push(bMaxX, 0, z0, bMaxX, 0, z1, bMaxX, y1, z1);
+                        guv.push(z0/100, 0, z1/100, 0, z1/100, y1/100);
+                    }
+
+                    // Slope 2: South (cy -> bMaxY)
+                    for (let i = 0; i < numSubdivs; i++) {
+                        const t0 = i / numSubdivs;
+                        const t1 = (i + 1) / numSubdivs;
+                        const z0 = cy + t0 * (bMaxY - cy);
+                        const z1 = cy + t1 * (bMaxY - cy);
+                        let y0 = (1 - t0) * rh + curve * Math.sin(Math.PI * (1 - t0));
+                        let y1 = (1 - t1) * rh + curve * Math.sin(Math.PI * (1 - t1));
+
+                        const p0 = { x: bMinX, y: y0, z: z0 };
+                        const p1 = { x: bMaxX, y: y0, z: z0 };
+                        const p2 = { x: bMaxX, y: y1, z: z1 };
+                        const p3 = { x: bMinX, y: y1, z: z1 };
+                        addQuad(p0, p1, p2, p3);
+
+                        // Gable End Walls (West at bMinX and East at bMaxX)
+                        gv.push(bMinX, 0, z0, bMinX, y0, z0, bMinX, y1, z1);
+                        guv.push(z0/100, 0, z0/100, y0/100, z1/100, y1/100);
+                        gv.push(bMinX, 0, z0, bMinX, y1, z1, bMinX, 0, z1);
+                        guv.push(z0/100, 0, z1/100, y1/100, z1/100, 0);
+
+                        gv.push(bMaxX, 0, z0, bMaxX, y1, z1, bMaxX, y0, z0);
+                        guv.push(z0/100, 0, z1/100, y1/100, z0/100, y0/100);
+                        gv.push(bMaxX, 0, z0, bMaxX, 0, z1, bMaxX, y1, z1);
+                        guv.push(z0/100, 0, z1/100, 0, z1/100, y1/100);
                     }
                 } else {
-                    for (let i = 0; i < pos.count; i += 3) {
-                        rawTriangles.push([
-                            {x: pos.getX(i), y: pos.getY(i)},
-                            {x: pos.getX(i+1), y: pos.getY(i+1)},
-                            {x: pos.getX(i+2), y: pos.getY(i+2)}
-                        ]);
-                    }
-                }
-                
-                function splitTriangle(p1, p2, p3, lineVal, isAxisX) {
-                    const tPts = [p1, p2, p3];
-                    const val = p => isAxisX ? p.y : p.x;
-                    const above = tPts.filter(p => val(p) < lineVal);
-                    const below = tPts.filter(p => val(p) > lineVal);
-                    const on = tPts.filter(p => val(p) === lineVal);
+                    // Axis Y (Ridge along Y axis, slopes East/West)
+                    // Slope 1: West (bMinX -> cx)
+                    for (let i = 0; i < numSubdivs; i++) {
+                        const t0 = i / numSubdivs;
+                        const t1 = (i + 1) / numSubdivs;
+                        const x0 = bMinX + t0 * (cx - bMinX);
+                        const x1 = bMinX + t1 * (cx - bMinX);
+                        let y0 = t0 * rh + curve * Math.sin(Math.PI * t0);
+                        let y1 = t1 * rh + curve * Math.sin(Math.PI * t1);
 
-                    if (above.length === 3 || below.length === 3) return [tPts];
-                    if (above.length === 2 && on.length === 1) return [tPts];
-                    if (below.length === 2 && on.length === 1) return [tPts];
-                    if (above.length === 1 && on.length === 2) return [tPts];
-                    if (below.length === 1 && on.length === 2) return [tPts];
-                    if (on.length === 3) return [tPts];
+                        const p0 = { x: x0, y: y0, z: bMinY };
+                        const p1 = { x: x0, y: y0, z: bMaxY };
+                        const p2 = { x: x1, y: y1, z: bMaxY };
+                        const p3 = { x: x1, y: y1, z: bMinY };
+                        addQuad(p0, p1, p2, p3);
 
-                    if (on.length === 1) {
-                        const pAbove = above[0], pBelow = below[0], pOn = on[0];
-                        const t = (lineVal - val(pAbove)) / (val(pBelow) - val(pAbove));
-                        const pIntersect = isAxisX ? 
-                            { x: pAbove.x + t * (pBelow.x - pAbove.x), y: lineVal } :
-                            { x: lineVal, y: pAbove.y + t * (pBelow.y - pAbove.y) };
-                        return [
-                            [pAbove, pOn, pIntersect],
-                            [pBelow, pOn, pIntersect]
-                        ];
-                    } else {
-                        const lone = above.length === 1 ? above[0] : below[0];
-                        const pair = above.length === 2 ? above : below;
-                        
-                        const t1 = (lineVal - val(lone)) / (val(pair[0]) - val(lone));
-                        const pI1 = isAxisX ?
-                            { x: lone.x + t1 * (pair[0].x - lone.x), y: lineVal } :
-                            { x: lineVal, y: lone.y + t1 * (pair[0].y - lone.y) };
-                        
-                        const t2 = (lineVal - val(lone)) / (val(pair[1]) - val(lone));
-                        const pI2 = isAxisX ?
-                            { x: lone.x + t2 * (pair[1].x - lone.x), y: lineVal } :
-                            { x: lineVal, y: lone.y + t2 * (pair[1].y - lone.y) };
-                        
-                        return [
-                            [lone, pI1, pI2],
-                            [pair[0], pI1, pI2],
-                            [pair[0], pI2, pair[1]]
-                        ];
-                    }
-                }
-                
-                let refinedTriangles = [];
-                rawTriangles.forEach(tri => {
-                    const split = splitTriangle(tri[0], tri[1], tri[2], axis === 'x' ? cy : cx, axis === 'x');
-                    refinedTriangles.push(...split);
-                });
-                
-                const curve = conf.curve || (conf.roofType === 'curved' ? -20 : 0);
-                refinedTriangles.forEach(tri => {
-                    for (let i = 0; i < 3; i++) {
-                        const pt = tri[i];
-                        let rv = 0;
-                        let t = 0;
-                        if (axis === 'x') {
-                            if (pt.y <= cy) {
-                                t = (pt.y - bMinY) / (cy - bMinY || 1);
-                                rv = (pt.y - bMinY) * Math.tan(pitch * Math.PI / 180);
-                            } else {
-                                t = (bMaxY - pt.y) / (bMaxY - cy || 1);
-                                rv = (bMaxY - pt.y) * Math.tan(pitch * Math.PI / 180);
-                            }
-                        } else {
-                            if (pt.x <= cx) {
-                                t = (pt.x - bMinX) / (cx - bMinX || 1);
-                                rv = (pt.x - bMinX) * Math.tan(pitch * Math.PI / 180);
-                            } else {
-                                t = (bMaxX - pt.x) / (bMaxX - cx || 1);
-                                rv = (bMaxX - pt.x) * Math.tan(pitch * Math.PI / 180);
-                            }
-                        }
-                        if (curve !== 0) {
-                            rv += curve * Math.sin(Math.PI * Math.max(0, Math.min(1, t)));
-                        }
-                        v.push(pt.x, rv, pt.y);
-                        uv.push(pt.x / 100, pt.y / 100);
-                    }
-                });
+                        // Gable End Walls (North at bMinY and South at bMaxY)
+                        gv.push(x0, 0, bMinY, x1, y1, bMinY, x0, y0, bMinY);
+                        guv.push(x0/100, 0, x1/100, y1/100, x0/100, y0/100);
+                        gv.push(x0, 0, bMinY, x1, 0, bMinY, x1, y1, bMinY);
+                        guv.push(x0/100, 0, x1/100, 0, x1/100, y1/100);
 
-                for (let i = 0; i < v.length; i += 9) {
-                    const dx1 = v[i+3] - v[i], dz1 = v[i+5] - v[i+2];
-                    const dx2 = v[i+6] - v[i], dz2 = v[i+8] - v[i+2];
-                    const ny_true = dz1 * dx2 - dx1 * dz2;
-                    if (ny_true < 0) { 
-                        const tX = v[i+3], tY = v[i+4], tZ = v[i+5];
-                        const tU = uv[i/3*2+2], tV = uv[i/3*2+3];
-                        v[i+3] = v[i+6]; v[i+4] = v[i+7]; v[i+5] = v[i+8];
-                        uv[i/3*2+2] = uv[i/3*2+4]; uv[i/3*2+3] = uv[i/3*2+5];
-                        v[i+6] = tX; v[i+7] = tY; v[i+8] = tZ;
-                        uv[i/3*2+4] = tU; uv[i/3*2+5] = tV;
+                        gv.push(x0, 0, bMaxY, x0, y0, bMaxY, x1, y1, bMaxY);
+                        guv.push(x0/100, 0, x0/100, y0/100, x1/100, y1/100);
+                        gv.push(x0, 0, bMaxY, x1, y1, bMaxY, x1, 0, bMaxY);
+                        guv.push(x0/100, 0, x1/100, y1/100, x1/100, 0);
+                    }
+
+                    // Slope 2: East (cx -> bMaxX)
+                    for (let i = 0; i < numSubdivs; i++) {
+                        const t0 = i / numSubdivs;
+                        const t1 = (i + 1) / numSubdivs;
+                        const x0 = cx + t0 * (bMaxX - cx);
+                        const x1 = cx + t1 * (bMaxX - cx);
+                        let y0 = (1 - t0) * rh + curve * Math.sin(Math.PI * (1 - t0));
+                        let y1 = (1 - t1) * rh + curve * Math.sin(Math.PI * (1 - t1));
+
+                        const p0 = { x: x0, y: y0, z: bMinY };
+                        const p1 = { x: x0, y: y0, z: bMaxY };
+                        const p2 = { x: x1, y: y1, z: bMaxY };
+                        const p3 = { x: x1, y: y1, z: bMinY };
+                        addQuad(p0, p1, p2, p3);
+
+                        // Gable End Walls (North at bMinY and South at bMaxY)
+                        gv.push(x0, 0, bMinY, x1, y1, bMinY, x0, y0, bMinY);
+                        guv.push(x0/100, 0, x1/100, y1/100, x0/100, y0/100);
+                        gv.push(x0, 0, bMinY, x1, 0, bMinY, x1, y1, bMinY);
+                        guv.push(x0/100, 0, x1/100, 0, x1/100, y1/100);
+
+                        gv.push(x0, 0, bMaxY, x0, y0, bMaxY, x1, y1, bMaxY);
+                        guv.push(x0/100, 0, x0/100, y0/100, x1/100, y1/100);
+                        gv.push(x0, 0, bMaxY, x1, y1, bMaxY, x1, 0, bMaxY);
+                        guv.push(x0/100, 0, x1/100, y1/100, x1/100, 0);
                     }
                 }
 
@@ -605,92 +613,32 @@ export class Roof3DBuilder {
                 const fasciaMat = this.ctx.helpers.getDynamicMaterial('white_plaster_wall', 'wall') || new THREE.MeshStandardMaterial({color: 0xF5F5F5});
                 mesh = new THREE.Mesh(geo, [mat, fasciaMat]);
                 
-                const gv = [], guv = [];
-                const addGableQuad = (p1, p2, h1, h2) => {
-                    gv.push(p1.x, 0, p1.y, p2.x, 0, p2.y, p1.x, h1, p1.y);
-                    gv.push(p1.x, h1, p1.y, p2.x, 0, p2.y, p2.x, h2, p2.y);
-                    let sc = 1/100;
-                    if (axis === 'x') {
-                        guv.push(p1.y*sc, 0, p2.y*sc, 0, p1.y*sc, h1*sc);
-                        guv.push(p1.y*sc, h1*sc, p2.y*sc, 0, p2.y*sc, h2*sc);
-                    } else {
-                        guv.push(p1.x*sc, 0, p2.x*sc, 0, p1.x*sc, h1*sc);
-                        guv.push(p1.x*sc, h1*sc, p2.x*sc, 0, p2.x*sc, h2*sc);
+                if (gv.length > 0) {
+                    const gGeo = new THREE.BufferGeometry();
+                    gGeo.setAttribute("position", new THREE.Float32BufferAttribute(gv, 3));
+                    gGeo.setAttribute("uv", new THREE.Float32BufferAttribute(guv, 2));
+                    gGeo.computeVertexNormals();
+
+                    const gableMatId = conf.gableMaterial || 'white_plaster_wall';
+                    const wallDecor = WALL_DECOR_REGISTRY[gableMatId] || WALL_DECOR_REGISTRY['white_plaster_wall'];
+                    let gableMat = this.ctx.helpers.getDynamicMaterial('white_plaster_wall', 'wall') || new THREE.MeshStandardMaterial({color: 0xefede5}); gableMat.side = THREE.DoubleSide;
+                    
+                    if (wallDecor && wallDecor.texture) {
+                        this.ctx.assets.getTexture(wallDecor).then(tex => {
+                            const gTex = tex.clone();
+                            gTex.wrapS = gTex.wrapT = THREE.RepeatWrapping;
+                            gTex.repeat.set(100/(wallDecor.scaleRatio || 100), 100/(wallDecor.scaleRatio || 100));
+                            gableMat.map = gTex;
+                            gableMat.bumpMap = gTex;
+                            gableMat.bumpScale = 0.015;
+                            gableMat.side = THREE.DoubleSide;
+                            gableMat.needsUpdate = true;
+                        });
                     }
-                };
-
-                if (conf.autoShapeWalls) {
-                    let perimPts = [];
-                    for(let i=0; i<basePts.length; i++) {
-                        const p1 = basePts[i];
-                        const p2 = basePts[(i+1)%basePts.length];
-                        perimPts.push(p1);
-                        const lineVal = axis === 'x' ? cy : cx;
-                        const val1 = axis === 'x' ? p1.y : p1.x;
-                        const val2 = axis === 'x' ? p2.y : p2.x;
-                        if ((val1 < lineVal && val2 > lineVal) || (val1 > lineVal && val2 < lineVal)) {
-                            const t = (lineVal - val1) / (val2 - val1);
-                            perimPts.push({
-                                x: p1.x + t * (p2.x - p1.x),
-                                y: p1.y + t * (p2.y - p1.y)
-                            });
-                        }
-                    }
-
-                    for(let i=0; i<perimPts.length; i++) {
-                        const p1 = perimPts[i];
-                        const p2 = perimPts[(i+1)%perimPts.length];
-                        let h1 = 0, h2 = 0;
-                        if (axis === 'x') {
-                            h1 = p1.y <= cy ? (p1.y - bMinY) * Math.tan(pitch * Math.PI / 180) : (bMaxY - p1.y) * Math.tan(pitch * Math.PI / 180);
-                            h2 = p2.y <= cy ? (p2.y - bMinY) * Math.tan(pitch * Math.PI / 180) : (bMaxY - p2.y) * Math.tan(pitch * Math.PI / 180);
-                        } else {
-                            h1 = p1.x <= cx ? (p1.x - bMinX) * Math.tan(pitch * Math.PI / 180) : (bMaxX - p1.x) * Math.tan(pitch * Math.PI / 180);
-                            h2 = p2.x <= cx ? (p2.x - bMinX) * Math.tan(pitch * Math.PI / 180) : (bMaxX - p2.x) * Math.tan(pitch * Math.PI / 180);
-                        }
-                        if (h1 > 0.01 || h2 > 0.01) {
-                            let isOuter = false;
-                            if (axis === 'x') {
-                                isOuter = Math.abs(p1.x - bMinX) < 1 || Math.abs(p1.x - bMaxX) < 1 || Math.abs(p2.x - bMinX) < 1 || Math.abs(p2.x - bMaxX) < 1;
-                            } else {
-                                isOuter = Math.abs(p1.y - bMinY) < 1 || Math.abs(p1.y - bMaxY) < 1 || Math.abs(p2.y - bMinY) < 1 || Math.abs(p2.y - bMaxY) < 1;
-                            }
-
-                            if (isOuter) {
-                                // Skip outer walls because Wall3DBuilder already generates thick PremiumWalls for them!
-                            } else {
-                                addGableQuad(p1, p2, h1, h2);
-                            }
-                        }
-                    }
-
-                    if (gv.length > 0) {
-                        const gGeo = new THREE.BufferGeometry();
-                        gGeo.setAttribute("position", new THREE.Float32BufferAttribute(gv, 3));
-                        gGeo.setAttribute("uv", new THREE.Float32BufferAttribute(guv, 2));
-                        gGeo.computeVertexNormals();
-
-                        const gableMatId = conf.gableMaterial || 'white_plaster_wall';
-                        const wallDecor = WALL_DECOR_REGISTRY[gableMatId] || WALL_DECOR_REGISTRY['white_plaster_wall'];
-                        let gableMat = this.ctx.helpers.getDynamicMaterial('white_plaster_wall', 'wall') || new THREE.MeshStandardMaterial({color: 0xefede5}); gableMat.side = THREE.DoubleSide;
-                        
-                        if (wallDecor && wallDecor.texture) {
-                            this.ctx.assets.getTexture(wallDecor).then(tex => {
-                                const gTex = tex.clone();
-                                gTex.wrapS = gTex.wrapT = THREE.RepeatWrapping;
-                                gTex.repeat.set(100/(wallDecor.scaleRatio || 100), 100/(wallDecor.scaleRatio || 100));
-                                gableMat.map = gTex;
-                                gableMat.bumpMap = gTex;
-                                gableMat.bumpScale = 0.015;
-                                gableMat.side = THREE.DoubleSide;
-                                gableMat.needsUpdate = true;
-                            });
-                        }
-                        const gableMesh = new THREE.Mesh(gGeo, gableMat);
-                        gableMesh.userData = { isRoof: true, isGable: true, entity: roof, materialSlot: 'gable', componentType: 'gable_wall' };
-                        mesh.add(gableMesh);
-                        ComponentRegistry.registerMesh(roof, "gable", gableMesh);
-                    }
+                    const gableMesh = new THREE.Mesh(gGeo, gableMat);
+                    gableMesh.userData = { isRoof: true, isGable: true, entity: roof, materialSlot: 'gable', componentType: 'gable_wall' };
+                    mesh.add(gableMesh);
+                    ComponentRegistry.registerMesh(roof, "gable", gableMesh);
                 }
                 
             } else {
@@ -729,53 +677,89 @@ export class Roof3DBuilder {
                     return conf.overhang !== undefined ? conf.overhang : 8;
                 };
 
+                const curve = conf.curve || 0;
+                const numSubdivs = curve !== 0 ? 12 : 1;
+
                 if (isHorizontal) {
                     const r1 = { x: bMinX + bD / 2, y: rh, z: bMinY + bD / 2 + ridgeOffset };
                     const r2 = { x: bMaxX - bD / 2, y: rh, z: bMinY + bD / 2 + ridgeOffset };
 
-                    // Compute eave heights
-                    const drop = -getOverhang(0) * dropFactor;
-                    const cNW = { x: bMinX, y: drop, z: bMinY };
-                    const cNE = { x: bMaxX, y: drop, z: bMinY };
-                    const cSE = { x: bMaxX, y: drop, z: bMaxY };
-                    const cSW = { x: bMinX, y: drop, z: bMaxY };
+                    for (let i = 0; i < numSubdivs; i++) {
+                        const t0 = i / numSubdivs;
+                        const t1 = (i + 1) / numSubdivs;
+                        let y0 = t0 * rh + (curve !== 0 ? curve * Math.sin(Math.PI * t0) : 0);
+                        let y1 = t1 * rh + (curve !== 0 ? curve * Math.sin(Math.PI * t1) : 0);
 
-                    // 1. North Slope (Trapezoid)
-                    addTri(cNW, cNE, r2);
-                    addTri(cNW, r2, r1);
+                        const xL0 = bMinX + t0 * bD / 2, xR0 = bMaxX - t0 * bD / 2;
+                        const xL1 = bMinX + t1 * bD / 2, xR1 = bMaxX - t1 * bD / 2;
 
-                    // 2. East Hip End (Triangle)
-                    addTri(cNE, cSE, r2);
+                        const zN0 = bMinY + t0 * bD / 2, zN1 = bMinY + t1 * bD / 2;
+                        const zS0 = bMaxY - t0 * bD / 2, zS1 = bMaxY - t1 * bD / 2;
 
-                    // 3. South Slope (Trapezoid)
-                    addTri(cSE, cSW, r1);
-                    addTri(cSE, r1, r2);
+                        // 1. North Slope Strip
+                        addTri({ x: xL0, y: y0, z: zN0 }, { x: xR0, y: y0, z: zN0 }, { x: xR1, y: y1, z: zN1 });
+                        addTri({ x: xL0, y: y0, z: zN0 }, { x: xR1, y: y1, z: zN1 }, { x: xL1, y: y1, z: zN1 });
 
-                    // 4. West Hip End (Triangle)
-                    addTri(cSW, cNW, r1);
+                        // 2. South Slope Strip
+                        addTri({ x: xR0, y: y0, z: zS0 }, { x: xL0, y: y0, z: zS0 }, { x: xL1, y: y1, z: zS1 });
+                        addTri({ x: xR0, y: y0, z: zS0 }, { x: xL1, y: y1, z: zS1 }, { x: xR1, y: y1, z: zS1 });
+
+                        // 3. West Hip Strip
+                        if (i === numSubdivs - 1) {
+                            addTri({ x: xL0, y: y0, z: zS0 }, { x: xL0, y: y0, z: zN0 }, { x: r1.x, y: rh, z: r1.z });
+                        } else {
+                            addTri({ x: xL0, y: y0, z: zS0 }, { x: xL0, y: y0, z: zN0 }, { x: xL1, y: y1, z: zN1 });
+                            addTri({ x: xL0, y: y0, z: zS0 }, { x: xL1, y: y1, z: zN1 }, { x: xL1, y: y1, z: zS1 });
+                        }
+
+                        // 4. East Hip Strip
+                        if (i === numSubdivs - 1) {
+                            addTri({ x: xR0, y: y0, z: zN0 }, { x: xR0, y: y0, z: zS0 }, { x: r2.x, y: rh, z: r2.z });
+                        } else {
+                            addTri({ x: xR0, y: y0, z: zN0 }, { x: xR0, y: y0, z: zS0 }, { x: xR1, y: y1, z: zS1 });
+                            addTri({ x: xR0, y: y0, z: zN0 }, { x: xR1, y: y1, z: zS1 }, { x: xR1, y: y1, z: zN1 });
+                        }
+                    }
                 } else {
                     const r1 = { x: bMinX + bW / 2 + ridgeOffset, y: rh, z: bMinY + bW / 2 };
                     const r2 = { x: bMinX + bW / 2 + ridgeOffset, y: rh, z: bMaxY - bW / 2 };
 
-                    const drop = -getOverhang(0) * dropFactor;
-                    const cNW = { x: bMinX, y: drop, z: bMinY };
-                    const cNE = { x: bMaxX, y: drop, z: bMinY };
-                    const cSE = { x: bMaxX, y: drop, z: bMaxY };
-                    const cSW = { x: bMinX, y: drop, z: bMaxY };
+                    for (let i = 0; i < numSubdivs; i++) {
+                        const t0 = i / numSubdivs;
+                        const t1 = (i + 1) / numSubdivs;
+                        let y0 = t0 * rh + (curve !== 0 ? curve * Math.sin(Math.PI * t0) : 0);
+                        let y1 = t1 * rh + (curve !== 0 ? curve * Math.sin(Math.PI * t1) : 0);
 
-                    // 1. North Hip End (Triangle)
-                    addTri(cNE, cNW, r1);
+                        const zT0 = bMinY + t0 * bW / 2, zB0 = bMaxY - t0 * bW / 2;
+                        const zT1 = bMinY + t1 * bW / 2, zB1 = bMaxY - t1 * bW / 2;
 
-                    // 2. West Slope (Trapezoid)
-                    addTri(cNW, cSW, r2);
-                    addTri(cNW, r2, r1);
+                        const xW0 = bMinX + t0 * bW / 2, xW1 = bMinX + t1 * bW / 2;
+                        const xE0 = bMaxX - t0 * bW / 2, xE1 = bMaxX - t1 * bW / 2;
 
-                    // 3. South Hip End (Triangle)
-                    addTri(cSW, cSE, r2);
+                        // 1. West Slope Strip
+                        addTri({ x: xW0, y: y0, z: zB0 }, { x: xW0, y: y0, z: zT0 }, { x: xW1, y: y1, z: zT1 });
+                        addTri({ x: xW0, y: y0, z: zB0 }, { x: xW1, y: y1, z: zT1 }, { x: xW1, y: y1, z: zB1 });
 
-                    // 4. East Slope (Trapezoid)
-                    addTri(cSE, cNE, r1);
-                    addTri(cSE, r1, r2);
+                        // 2. East Slope Strip
+                        addTri({ x: xE0, y: y0, z: zT0 }, { x: xE0, y: y0, z: zB0 }, { x: xE1, y: y1, z: zB1 });
+                        addTri({ x: xE0, y: y0, z: zT0 }, { x: xE1, y: y1, z: zB1 }, { x: xE1, y: y1, z: zT1 });
+
+                        // 3. North Hip Strip
+                        if (i === numSubdivs - 1) {
+                            addTri({ x: xE0, y: y0, z: zT0 }, { x: xW0, y: y0, z: zT0 }, { x: r1.x, y: rh, z: r1.z });
+                        } else {
+                            addTri({ x: xE0, y: y0, z: zT0 }, { x: xW0, y: y0, z: zT0 }, { x: xW1, y: y1, z: zT1 });
+                            addTri({ x: xE0, y: y0, z: zT0 }, { x: xW1, y: y1, z: zT1 }, { x: xE1, y: y1, z: zT1 });
+                        }
+
+                        // 4. South Hip Strip
+                        if (i === numSubdivs - 1) {
+                            addTri({ x: xW0, y: y0, z: zB0 }, { x: xE0, y: y0, z: zB0 }, { x: r2.x, y: rh, z: r2.z });
+                        } else {
+                            addTri({ x: xW0, y: y0, z: zB0 }, { x: xE0, y: y0, z: zB0 }, { x: xE1, y: y1, z: zB1 });
+                            addTri({ x: xW0, y: y0, z: zB0 }, { x: xE1, y: y1, z: zB1 }, { x: xW1, y: y1, z: zB1 });
+                        }
+                    }
                 }
 
                 const T = conf.thickness || 8;
