@@ -9,10 +9,10 @@
                 <button style="flex: 1; padding: 6px; display: flex; align-items: center; justify-content: center; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; transition: all 0.2s;" :style="{ background: roofConfig.autoPlacementMode === 'outer' ? '#e5e7eb' : 'white', borderColor: roofConfig.autoPlacementMode === 'outer' ? '#9ca3af' : '#d1d5db' }" @click="roofConfig.autoPlacementMode = 'outer'; $emit('sync-engine')" title="Outer Edge Detection"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg></button>
             </div>
         </div>
-        <div class="control-group" v-if="roofConfig && ['hip', 'gable', 'shed', 'half_hip', 'curved'].includes(roofConfig.roofType)"><label>Pitch (°)</label><div class="input-wrap"><input type="range" v-model.number="roofConfig.pitch" min="0" max="60" @input="$emit('sync-engine')"><input type="number" v-model.number="roofConfig.pitch" @input="$emit('sync-engine')"></div></div>
-        <div class="control-group" v-if="roofConfig && ['hip', 'gable', 'shed', 'half_hip', 'curved'].includes(roofConfig.roofType)"><label>Peak Height</label><div class="input-wrap"><DimensionInput :modelValue="calculateRoofPeakHeight(selectedEntity)" @change="(val) => updateRoofPitchFromHeight({ target: { value: val } }, selectedEntity)" /></div></div>
+        <div class="control-group" v-if="roofConfig && roofConfig.roofType !== 'flat'"><label>Pitch (°)</label><div class="input-wrap"><input type="range" v-model.number="roofConfig.pitch" min="0" max="75" @input="$emit('sync-engine')"><input type="number" v-model.number="roofConfig.pitch" @input="$emit('sync-engine')"></div></div>
+        <div class="control-group" v-if="roofConfig && roofConfig.roofType !== 'flat'"><label>Peak Height</label><div class="input-wrap"><DimensionInput :modelValue="calculateRoofPeakHeight(selectedEntity)" @change="(val) => updateRoofPitchFromHeight({ target: { value: val } }, selectedEntity)" /></div></div>
         
-        <div class="control-group" v-if="roofConfig && ['gable', 'shed', 'curved'].includes(roofConfig.roofType)">
+        <div class="control-group" v-if="roofConfig && ['gable', 'shed', 'curved', 'gambrel', 'mansard', 'turret_round', 'turret_octagonal', 'turret_hexagonal'].includes(roofConfig.roofType)">
             <label>Curvature / Arch</label>
             <div class="input-wrap">
                 <input type="range" v-model.number="roofConfig.curve" min="-50" max="50" @input="$emit('sync-engine')">
@@ -20,7 +20,7 @@
             </div>
         </div>
 
-        <div class="control-group" v-if="roofConfig && ['gable', 'shed'].includes(roofConfig.roofType)">
+        <div class="control-group" v-if="roofConfig && ['gable', 'shed', 'gambrel'].includes(roofConfig.roofType)">
             <label>Slope / Ridge Axis</label>
             <div style="display: flex; gap: 8px;">
                 <button style="flex: 1; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer;" :style="{ background: (roofConfig.ridgeAxis === 'x' || !roofConfig.ridgeAxis) ? '#e5e7eb' : 'white', borderColor: (roofConfig.ridgeAxis === 'x' || !roofConfig.ridgeAxis) ? '#9ca3af' : '#d1d5db' }" @click="roofConfig.ridgeAxis = 'x'; roofConfig.manualRidge = true; $emit('sync-engine')">Horizontal</button>
@@ -59,7 +59,7 @@
 
         <div class="control-group" v-if="roofConfig"><label>Elevation Gap</label><div class="input-wrap"><input type="range" v-model.number="roofConfig.wallGap" min="-50" max="100" @input="$emit('sync-engine')"><DimensionInput v-model="roofConfig.wallGap" @change="$emit('sync-engine')" /></div></div>
         
-        <div class="decor-gallery" v-if="roofConfig && ['hip', 'gable', 'shed', 'half_hip', 'curved'].includes(roofConfig.roofType)">
+        <div class="decor-gallery" v-if="roofConfig && roofConfig.roofType !== 'flat'">
             <MaterialSizeInput v-model="selectedEntity.tileSize" :defaultMax="200" @change="$emit('sync-engine')" />
             
             <h4 class="props-subtitle">Roof Material</h4>
@@ -70,7 +70,7 @@
                 </div>
             </div>
 
-            <div v-if="['gable', 'shed', 'half_hip', 'curved'].includes(roofConfig.roofType)">
+            <div v-if="['gable', 'shed', 'half_hip', 'curved', 'gambrel', 'dutch_gable', 'jerkinhead'].includes(roofConfig.roofType)">
                 <h4 class="props-subtitle" style="margin-top: 15px;">Gable Wall Material</h4>
                 <div class="decor-grid">
                     <div v-for="(config, key) in wallDecorRegistry" :key="'g'+key" class="decor-item" @click="roofConfig.gableMaterial = key; $emit('sync-engine')" :class="{ active: roofConfig.gableMaterial === key }">

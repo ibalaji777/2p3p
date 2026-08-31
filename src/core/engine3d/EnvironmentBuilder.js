@@ -2281,7 +2281,8 @@ export class EnvironmentBuilder {
     updateRoofLive(roof) {
         if (!roof || !roof.mesh3D) return;
         
-        const oldMesh = roof.mesh3D.children.find(c => c.userData && c.userData.isRoof);
+        const realRoofGroup = roof.mesh3D;
+        const oldMesh = realRoofGroup.children.find(c => c.userData && c.userData.isRoof);
         if (!oldMesh) return;
         
         // Generate a new temporary roof group using the existing buildRoofs logic
@@ -2289,14 +2290,20 @@ export class EnvironmentBuilder {
         const wallList = (this.ctx.walls && this.ctx.walls.length > 0) ? this.ctx.walls : (this.ctx.planner?.walls || []);
         this.buildRoofs([roof], this.ctx.activeIndex || 0, wallList, tempTarget, this.ctx.shapes || this.ctx.planner?.shapes || []);
         
+        // Restore real roofGroup reference so roof.mesh3D is never lost to tempTarget!
+        roof.mesh3D = realRoofGroup;
+        
         if (tempTarget.children.length === 0) return;
         const tempRoofGroup = tempTarget.children[0];
         const newMesh = tempRoofGroup.children.find(c => c.userData && c.userData.isRoof);
         
         if (newMesh) {
-            // Update roof group position & rotation in case points or elevation changed
-            roof.mesh3D.position.copy(tempRoofGroup.position);
-            roof.mesh3D.rotation.copy(tempRoofGroup.rotation);
+            // Update real roof group position & rotation
+            realRoofGroup.position.copy(tempRoofGroup.position);
+            realRoofGroup.rotation.copy(tempRoofGroup.rotation);
+
+            // Update local mesh offset (-cx, 0, -cz)
+            oldMesh.position.copy(newMesh.position);
 
             // Swap geometry
             if (oldMesh.geometry) oldMesh.geometry.dispose();
@@ -2310,7 +2317,9 @@ export class EnvironmentBuilder {
             }
             
             while(newMesh.children.length > 0) {
-                oldMesh.add(newMesh.children[0]);
+                const child = newMesh.children[0];
+                newMesh.remove(child);
+                oldMesh.add(child);
             }
         }
         if (this.ctx && typeof this.ctx.requestRender === 'function') {

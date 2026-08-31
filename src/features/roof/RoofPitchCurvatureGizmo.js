@@ -259,13 +259,20 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
                     const curveLabel = newCurve > 0 ? `Convex (+${newCurve})` : (newCurve < 0 ? `Pagoda (${newCurve})` : 'Flat (0)');
                     this._updateDOMBadge(`CURVATURE: ${curveLabel}`, { x: e.clientX, y: e.clientY });
                 } else if (type === 'overhang') {
-                    // Eave Overhang adjustment
+                    // Eave Overhang adjustment in local roof space
+                    const rot = (entity.group && typeof entity.group.rotation === 'function') ? entity.group.rotation() : (entity.rotation || 0);
+                    const rad = rot * Math.PI / 180;
+                    const worldDeltaX = this.planeIntersect.x - this.dragStartPos.x;
+                    const worldDeltaZ = this.planeIntersect.z - this.dragStartPos.z;
+                    const localDeltaX = worldDeltaX * Math.cos(rad) - worldDeltaZ * Math.sin(rad);
+                    const localDeltaZ = worldDeltaX * Math.sin(rad) + worldDeltaZ * Math.cos(rad);
+
                     const edgeIdx = this.activeHandle.userData?.edgeIndex;
                     let delta = 0;
-                    if (edgeIdx === 0) delta = this.dragStartPos.z - this.planeIntersect.z; // North
-                    else if (edgeIdx === 1) delta = this.planeIntersect.x - this.dragStartPos.x; // East
-                    else if (edgeIdx === 2) delta = this.planeIntersect.z - this.dragStartPos.z; // South
-                    else if (edgeIdx === 3) delta = this.dragStartPos.x - this.planeIntersect.x; // West
+                    if (edgeIdx === 0) delta = -localDeltaZ; // North
+                    else if (edgeIdx === 1) delta = localDeltaX;  // East
+                    else if (edgeIdx === 2) delta = localDeltaZ;  // South
+                    else if (edgeIdx === 3) delta = -localDeltaX; // West
 
                     const newOverhang = Math.max(0, Math.min(60, Math.round(this.initialOverhang + delta)));
                     conf.overhang = newOverhang;
@@ -273,10 +280,15 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
 
                     this._updateDOMBadge(`OVERHANG: ${this._formatFeetInches(newOverhang)}`, { x: e.clientX, y: e.clientY });
                 } else if (type === 'stretch') {
-                    // Corner Footprint Stretch in 3D
+                    // Corner Footprint Stretch in local roof space
+                    const rot = (entity.group && typeof entity.group.rotation === 'function') ? entity.group.rotation() : (entity.rotation || 0);
+                    const rad = rot * Math.PI / 180;
+                    const worldDeltaX = this.planeIntersect.x - this.dragStartPos.x;
+                    const worldDeltaZ = this.planeIntersect.z - this.dragStartPos.z;
+                    const deltaX = worldDeltaX * Math.cos(rad) - worldDeltaZ * Math.sin(rad);
+                    const deltaZ = worldDeltaX * Math.sin(rad) + worldDeltaZ * Math.cos(rad);
+
                     const corner = this.activeHandle.userData?.corner;
-                    const deltaX = this.planeIntersect.x - this.dragStartPos.x;
-                    const deltaZ = this.planeIntersect.z - this.dragStartPos.z;
 
                     let minX = this.initialMinX, maxX = this.initialMaxX;
                     let minY = this.initialMinY, maxY = this.initialMaxY;

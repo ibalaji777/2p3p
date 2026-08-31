@@ -293,4 +293,108 @@ describe('Roof Pipeline & 3D Addition', () => {
 
         gizmo.dispose();
     });
+
+    it('8. should build 3D geometry for Round, Octagonal, and Hexagonal Turret roofs', async () => {
+        const { Roof3DBuilder } = await import('../builders/Roof3DBuilder.js');
+        const sceneGroup = new THREE.Group();
+        const mockCtx = {
+            helpers: {
+                getDynamicMaterial: (key, type) => new THREE.MeshStandardMaterial({ color: 0x888888 })
+            },
+            assets: {
+                getTexture: vi.fn().mockResolvedValue(new THREE.Texture())
+            },
+            structureGroup: sceneGroup
+        };
+
+        const builder = new Roof3DBuilder(mockCtx);
+        const points = [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 200 }, { x: 0, y: 200 }];
+
+        // 1. Round Turret
+        const roundTurret = {
+            points,
+            config: { roofType: 'turret_round', pitch: 40, curve: -15, material: 'blue_ceramic_tiles_roof', overhang: 8 },
+            elevation: 120
+        };
+        builder.buildRoofs([roundTurret], 0, false, sceneGroup);
+        expect(sceneGroup.children.length).toBe(1);
+        expect(roundTurret.mesh3D).toBeDefined();
+
+        // 2. Octagonal Turret
+        const octTurret = {
+            points,
+            config: { roofType: 'turret_octagonal', pitch: 45, material: 'grey_slate_roof', overhang: 8 },
+            elevation: 120
+        };
+        builder.buildRoofs([octTurret], 0, false, sceneGroup);
+        expect(sceneGroup.children.length).toBe(2);
+        expect(octTurret.mesh3D).toBeDefined();
+
+        // 3. Hexagonal Turret
+        const hexTurret = {
+            points,
+            config: { roofType: 'turret_hexagonal', pitch: 40, material: 'terracotta_green_roof', overhang: 8 },
+            elevation: 120
+        };
+        builder.buildRoofs([hexTurret], 0, false, sceneGroup);
+        expect(sceneGroup.children.length).toBe(3);
+        expect(hexTurret.mesh3D).toBeDefined();
+    });
+
+    it('9. should build 3D geometry for Gambrel, Mansard, Dutch Gable, and Jerkinhead roofs', async () => {
+        const { Roof3DBuilder } = await import('../builders/Roof3DBuilder.js');
+        const sceneGroup = new THREE.Group();
+        const mockCtx = {
+            helpers: {
+                getDynamicMaterial: (key, type) => new THREE.MeshStandardMaterial({ color: 0x888888 })
+            },
+            assets: {
+                getTexture: vi.fn().mockResolvedValue(new THREE.Texture())
+            },
+            structureGroup: sceneGroup
+        };
+
+        const builder = new Roof3DBuilder(mockCtx);
+        const points = [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 150 }, { x: 0, y: 150 }];
+
+        // 1. Gambrel (Barn) Roof
+        const gambrelRoof = {
+            points,
+            config: { roofType: 'gambrel', pitch: 45, material: 'dark_asphalt_roof', gableMaterial: 'white_plaster_wall' },
+            elevation: 120
+        };
+        builder.buildRoofs([gambrelRoof], 0, false, sceneGroup);
+        expect(sceneGroup.children.length).toBe(1);
+        expect(gambrelRoof.mesh3D).toBeDefined();
+
+        // 2. Mansard (French) Roof
+        const mansardRoof = {
+            points,
+            config: { roofType: 'mansard', pitch: 60, material: 'grey_slate_roof' },
+            elevation: 120
+        };
+        builder.buildRoofs([mansardRoof], 0, false, sceneGroup);
+        expect(sceneGroup.children.length).toBe(2);
+        expect(mansardRoof.mesh3D).toBeDefined();
+
+        // 3. Dutch Gable Roof
+        const dutchGableRoof = {
+            points,
+            config: { roofType: 'dutch_gable', pitch: 30, material: 'terracotta_tiles_roof', gableMaterial: 'white_plaster_wall' },
+            elevation: 120
+        };
+        builder.buildRoofs([dutchGableRoof], 0, false, sceneGroup);
+        expect(sceneGroup.children.length).toBe(3);
+        expect(dutchGableRoof.mesh3D).toBeDefined();
+
+        // 4. Jerkinhead (Clipped Gable) Roof
+        const jerkinheadRoof = {
+            points,
+            config: { roofType: 'jerkinhead', pitch: 30, material: 'terracotta_red_roof', gableMaterial: 'white_plaster_wall' },
+            elevation: 120
+        };
+        builder.buildRoofs([jerkinheadRoof], 0, false, sceneGroup);
+        expect(sceneGroup.children.length).toBe(4);
+        expect(jerkinheadRoof.mesh3D).toBeDefined();
+    });
 });

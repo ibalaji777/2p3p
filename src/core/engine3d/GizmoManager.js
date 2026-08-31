@@ -3205,7 +3205,7 @@ export class GizmoManager {
 
             let activeGizmos = GIZMO_REGISTRY.default;
             if (selectedObj) {
-                if (selectedObj.userData.isRoof) {
+                if (selectedObj.userData.isRoof || (selectedObj.userData?.entity && selectedObj.userData.entity.type === 'roof')) {
                     activeGizmos = GIZMO_REGISTRY.roof;
                 } else if (type === 'door') {
                     activeGizmos = entity.doorType === 'french' ? GIZMO_REGISTRY.door_french : GIZMO_REGISTRY.door;
