@@ -6,6 +6,7 @@ import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { PremiumOutdoorZone, OUTDOOR_ZONE_TYPES } from '../engine2d/PremiumOutdoorZone.js';
 import { computeCorridorPolygon } from '../engine2d/corridorUtils.js';
 import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js';
+import { WallReformer } from '../engine2d/WallReformer.js';
 import { coreEventBus } from '../EventBus.js';
 import { EVENTS } from '../constants/events.js';
 
@@ -1028,24 +1029,22 @@ export class Wall3DDrawSystem {
             const wallHeight = wallConfig.height || 120;
             const wallThick = wallConfig.thickness || 16;
 
-            const a1 = planner.getOrCreateAnchor(minX, minY);
-            const a2 = planner.getOrCreateAnchor(maxX, minY);
-            const a3 = planner.getOrCreateAnchor(maxX, maxY);
-            const a4 = planner.getOrCreateAnchor(minX, maxY);
+            const roomSegments = [
+                { p1: { x: minX, y: minY }, p2: { x: maxX, y: minY } }, // Top
+                { p1: { x: maxX, y: minY }, p2: { x: maxX, y: maxY } }, // Right
+                { p1: { x: maxX, y: maxY }, p2: { x: minX, y: maxY } }, // Bottom
+                { p1: { x: minX, y: maxY }, p2: { x: minX, y: minY } }  // Left
+            ];
 
-            const w1 = new PremiumWall(planner, a1, a2, 'outer');
-            const w2 = new PremiumWall(planner, a2, a3, 'outer');
-            const w3 = new PremiumWall(planner, a3, a4, 'outer');
-            const w4 = new PremiumWall(planner, a4, a1, 'outer');
-
-            [w1, w2, w3, w4].forEach(w => {
-                w.height = wallHeight;
-                w.thickness = wallThick;
-                planner.walls.push(w);
+            const created = WallReformer.reformAndAddWallSegments(planner, roomSegments, 'outer', {
+                height: wallHeight,
+                thickness: wallThick,
+                params: planner.activePresetParams
             });
 
-            planner.lastDrawnEntity = w4;
-            this.currentSessionEntities.push(w1, w2, w3, w4);
+            if (created && created.length > 0) {
+                this.currentSessionEntities.push(...created);
+            }
         }
 
         this.finishDrawing();

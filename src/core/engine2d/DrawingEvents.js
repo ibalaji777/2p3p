@@ -8,6 +8,7 @@ import { PremiumShape } from './PremiumShape.js';
 import { Railing } from '../../features/railing/objects/Railing.js';
 import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
 import { PremiumOutdoorZone, OUTDOOR_ZONE_TYPES } from './PremiumOutdoorZone.js';
+import { WallReformer } from './WallReformer.js';
 
 export { computeCorridorOffsets, computeCorridorPolygon } from './corridorUtils.js';
 import { computeCorridorOffsets, computeCorridorPolygon } from './corridorUtils.js';
@@ -752,27 +753,19 @@ export function setupDrawingEvents(planner) {
                 const wallHeight = planner.activePresetParams?.height || 120;
                 const wallThick = planner.activePresetParams?.thickness || 16;
 
-                // Create or reuse 4 corner anchors
-                const a1 = planner.getOrCreateAnchor(minX, minY);
-                const a2 = planner.getOrCreateAnchor(maxX, minY);
-                const a3 = planner.getOrCreateAnchor(maxX, maxY);
-                const a4 = planner.getOrCreateAnchor(minX, maxY);
+                // 4 rectangular room box segments in clockwise order
+                const roomSegments = [
+                    { p1: { x: minX, y: minY }, p2: { x: maxX, y: minY } }, // Top
+                    { p1: { x: maxX, y: minY }, p2: { x: maxX, y: maxY } }, // Right
+                    { p1: { x: maxX, y: maxY }, p2: { x: minX, y: maxY } }, // Bottom
+                    { p1: { x: minX, y: maxY }, p2: { x: minX, y: minY } }  // Left
+                ];
 
-                // Create 4 walls in clockwise loop
-                const w1 = new PremiumWall(planner, a1, a2, wallType);
-                const w2 = new PremiumWall(planner, a2, a3, wallType);
-                const w3 = new PremiumWall(planner, a3, a4, wallType);
-                const w4 = new PremiumWall(planner, a4, a1, wallType);
-
-                [w1, w2, w3, w4].forEach(w => {
-                    w.height = wallHeight;
-                    w.thickness = wallThick;
-                    planner.walls.push(w);
+                WallReformer.reformAndAddWallSegments(planner, roomSegments, wallType, {
+                    height: wallHeight,
+                    thickness: wallThick,
+                    params: planner.activePresetParams
                 });
-
-                if (!planner.currentSessionEntities) planner.currentSessionEntities = [];
-                planner.currentSessionEntities.push(w1, w2, w3, w4);
-                planner.lastDrawnEntity = w4;
 
                 if (cmd && cmd.finalize()) {
                     planner.commandManager.execute(cmd);

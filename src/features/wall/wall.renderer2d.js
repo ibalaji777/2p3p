@@ -678,7 +678,7 @@ export class PremiumWall {
 
             // Cross products to determine if the wedge is an inner corner (<180 deg) or outer corner (>180 deg)
             const cpL = myRay.dir.x * rightNeighbor.dir.y - myRay.dir.y * rightNeighbor.dir.x;
-            let leftSideCorner = myRay.L_pt, leftSideBevel = rightNeighbor.R_pt;
+            let leftSideCorner = myRay.L_pt, leftSideBevel = null;
             let trueL = myRay.L_pt;
             const iL = intersectLines(myRay.L_pt, myRay.dir, rightNeighbor.R_pt, rightNeighbor.dir);
             if (iL) {
@@ -688,14 +688,22 @@ export class PremiumWall {
                     leftSideCorner = iL;
                     leftSideBevel = null;
                 } else if (Math.hypot(iL.x - P.x, iL.y - P.y) <= maxMiterLength) { 
-                    // Outer corner: Apply miter limit, fallback to bevel if exceeded
+                    // Outer corner within miter limit
                     leftSideCorner = iL;
                     leftSideBevel = null;
+                } else {
+                    // Outer corner exceeding miter limit: bevel cutoff
+                    leftSideCorner = myRay.L_pt;
+                    leftSideBevel = rightNeighbor.R_pt;
                 }
+            } else {
+                // Straight continuous wall pass-through (collinear opposite vectors): flush straight joint
+                leftSideCorner = myRay.L_pt;
+                leftSideBevel = null;
             }
 
             const cpR = leftNeighbor.dir.x * myRay.dir.y - leftNeighbor.dir.y * myRay.dir.x;
-            let rightSideCorner = myRay.R_pt, rightSideBevel = leftNeighbor.L_pt;
+            let rightSideCorner = myRay.R_pt, rightSideBevel = null;
             let trueR = myRay.R_pt;
             const iR = intersectLines(myRay.R_pt, myRay.dir, leftNeighbor.L_pt, leftNeighbor.dir);
             if (iR) {
@@ -705,10 +713,18 @@ export class PremiumWall {
                     rightSideCorner = iR;
                     rightSideBevel = null;
                 } else if (Math.hypot(iR.x - P.x, iR.y - P.y) <= maxMiterLength) {
-                    // Outer corner
+                    // Outer corner within miter limit
                     rightSideCorner = iR;
                     rightSideBevel = null;
+                } else {
+                    // Outer corner exceeding miter limit
+                    rightSideCorner = myRay.R_pt;
+                    rightSideBevel = leftNeighbor.L_pt;
                 }
+            } else {
+                // Straight continuous wall pass-through: flush straight joint
+                rightSideCorner = myRay.R_pt;
+                rightSideBevel = null;
             }
 
             let finalL, finalR, bevelL, bevelR, trueFinalL, trueFinalR;
