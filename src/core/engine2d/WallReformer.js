@@ -123,6 +123,7 @@ export class WallReformer {
 
         const wallHeight = wallConfig.height !== undefined ? wallConfig.height : 120;
         const wallThick = wallConfig.thickness !== undefined ? wallConfig.thickness : 16;
+        const wallElev = wallConfig.elevation !== undefined ? wallConfig.elevation : 0;
         const wallParams = wallConfig.params ? JSON.parse(JSON.stringify(wallConfig.params)) : null;
 
         const createdWalls = [];
@@ -241,6 +242,7 @@ export class WallReformer {
                     const newSubWall = new PremiumWall(planner, seg.start, seg.end, w.type);
                     newSubWall.height = w.height;
                     newSubWall.thickness = w.thickness;
+                    newSubWall.elevation = w.elevation || 0;
                     if (w.params) newSubWall.params = JSON.parse(JSON.stringify(w.params));
 
                     planner.walls.push(newSubWall);
@@ -395,6 +397,7 @@ export class WallReformer {
                 const newWall = new PremiumWall(planner, ancA, ancB, wallType);
                 newWall.height = wallHeight;
                 newWall.thickness = wallThick;
+                newWall.elevation = wallElev;
                 if (wallParams) newWall.params = JSON.parse(JSON.stringify(wallParams));
 
                 planner.walls.push(newWall);

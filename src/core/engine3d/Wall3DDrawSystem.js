@@ -385,30 +385,49 @@ export class Wall3DDrawSystem {
         this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
         const elev = this.getFloorElevation();
 
-        // 1. Direct 3D Raycasting against actual wall meshes
-        const wallObjects = [];
+        // 1. Direct 3D Raycasting against actual wall and roof meshes (Sims 4 Roof & Upper Wall placement)
+        const structureObjects = [];
         if (this.ctx.structureGroup) {
             this.ctx.structureGroup.traverse(child => {
-                if (child.isMesh && child.userData && (child.userData.isWallSide || child.userData.entity)) {
-                    wallObjects.push(child);
+                if (child.isMesh && child.userData && (child.userData.isWallSide || child.userData.entity || child.userData.isRoof || child.userData.isGable || child.userData.componentType === 'roof_top')) {
+                    structureObjects.push(child);
                 }
             });
         }
 
-        if (wallObjects.length > 0) {
-            const wallHits = this.raycaster.intersectObjects(wallObjects, false);
-            if (wallHits.length > 0) {
-                const hit = wallHits[0];
-                let wallEntity = hit.object.userData?.entity;
-                if (!wallEntity && hit.object.parent) {
-                    wallEntity = hit.object.parent.userData?.entity;
+        if (structureObjects.length > 0) {
+            const hits = this.raycaster.intersectObjects(structureObjects, false);
+            if (hits.length > 0) {
+                const hit = hits[0];
+                const isRoofHit = hit.object.userData?.isRoof || hit.object.userData?.isGable || hit.object.userData?.componentType === 'roof_top';
+                let entity = hit.object.userData?.entity;
+                if (!entity && hit.object.parent) {
+                    entity = hit.object.parent.userData?.entity;
                 }
 
-                if (wallEntity && wallEntity.startAnchor && wallEntity.endAnchor) {
+                if (isRoofHit) {
                     return {
                         hitPoint3D: hit.point,
-                        directWallHit: wallEntity,
-                        isFloor: false
+                        directWallHit: null,
+                        directRoofHit: entity,
+                        elevation: Math.round(hit.point.y * 10) / 10,
+                        isFloor: false,
+                        isRoof: true
+                    };
+                }
+
+                if (entity && entity.startAnchor && entity.endAnchor) {
+                    const wallBaseY = entity.elevation || 0;
+                    const wallHeight = entity.height || 120;
+                    const isNearTop = hit.point.y >= (wallBaseY + wallHeight * 0.75);
+                    const wallElev = isNearTop ? (wallBaseY + wallHeight) : wallBaseY;
+
+                    return {
+                        hitPoint3D: hit.point,
+                        directWallHit: entity,
+                        elevation: wallElev,
+                        isFloor: false,
+                        isRoof: false
                     };
                 }
             }
@@ -422,6 +441,7 @@ export class Wall3DDrawSystem {
             return {
                 hitPoint3D: floorHit,
                 directWallHit: null,
+                elevation: elev,
                 isFloor: true
             };
         }
@@ -441,8 +461,8 @@ export class Wall3DDrawSystem {
      */
     getSnappedPoint(intersectionResult, shiftKey = false) {
         const planner = this.planner;
-        const elev = this.getFloorElevation();
-        if (!intersectionResult || !planner) return { point: new THREE.Vector3(), isAnchor: false, isWallEdge: false, connectedWalls: [] };
+        const elev = intersectionResult?.elevation !== undefined ? intersectionResult.elevation : this.getFloorElevation();
+        if (!intersectionResult || !planner) return { point: new THREE.Vector3(0, elev, 0), isAnchor: false, isWallEdge: false, connectedWalls: [] };
 
         const { hitPoint3D, directWallHit } = intersectionResult;
         let pos2D = { x: hitPoint3D.x, y: hitPoint3D.z };
@@ -676,7 +696,7 @@ export class Wall3DDrawSystem {
 
         const snapResult = this.getSnappedPoint(sceneHit, e.shiftKey);
         const pt = snapResult.point;
-        const elev = this.getFloorElevation();
+        const elev = this.drawing ? (this.drawingElevation !== undefined ? this.drawingElevation : pt.y) : pt.y;
 
         // 1. Render Sims 4-Style Glowing Snap Halo around Snapped Wall(s)
         if (snapResult.connectedWalls && snapResult.connectedWalls.length > 0) {
@@ -1033,12 +1053,13 @@ export class Wall3DDrawSystem {
                 { p1: { x: minX, y: minY }, p2: { x: maxX, y: minY } }, // Top
                 { p1: { x: maxX, y: minY }, p2: { x: maxX, y: maxY } }, // Right
                 { p1: { x: maxX, y: maxY }, p2: { x: minX, y: maxY } }, // Bottom
-                { p1: { x: minX, y: maxY }, p2: { x: minX, y: minY } }  // Left
+                { p1: { x: minX, y: maxY }, p2: { x: minX, y: minY } }
             ];
 
             const created = WallReformer.reformAndAddWallSegments(planner, roomSegments, 'outer', {
                 height: wallHeight,
                 thickness: wallThick,
+                elevation: this.drawingElevation !== undefined ? this.drawingElevation : pt.y,
                 params: planner.activePresetParams
             });
 
@@ -1124,6 +1145,7 @@ export class Wall3DDrawSystem {
         if (!this.drawing) {
             // Start Drawing Session
             this.drawing = true;
+            this.drawingElevation = pt.y;
             this.startPoint = { x: pt.x, y: pt.z };
             this.currentSessionEntities = [];
 
@@ -1159,6 +1181,7 @@ export class Wall3DDrawSystem {
                         w = new PremiumWall(planner, this.lastAnchor, currentAnchor, wallType);
                     }
 
+                    w.elevation = this.drawingElevation !== undefined ? this.drawingElevation : pt.y;
                     planner.walls.push(w);
                     planner.lastDrawnEntity = w;
                     this.currentSessionEntities.push(w);
@@ -1190,8 +1213,7 @@ export class Wall3DDrawSystem {
                     if (isCorridor && this.drawingOutdoorPoints.length >= 2) {
                         this._finish3DOutdoorCorridor();
                         return;
-                    }
-                    if (!isCorridor && this.drawingOutdoorPoints.length >= 3) {
+                    } else if (!isCorridor && this.drawingOutdoorPoints.length >= 3) {
                         this._finish3DOutdoorPolygon();
                         return;
                     }
@@ -1211,6 +1233,7 @@ export class Wall3DDrawSystem {
         this._snapshotCmd = null;
 
         this.drawing = false;
+        this.drawingElevation = null;
         this.startAnchor = null;
         this.lastAnchor = null;
         this.startPoint = null;
