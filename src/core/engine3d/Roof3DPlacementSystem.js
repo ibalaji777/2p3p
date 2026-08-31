@@ -140,8 +140,8 @@ export class Roof3DPlacementSystem {
         let maxH = 120;
         if (planner && planner.walls && planner.walls.length > 0) {
             planner.walls.forEach(w => {
-                const h = Number(w.height !== undefined ? w.height : (w.config?.height || 120));
-                if (h > maxH) maxH = h;
+                const top = Number((w.elevation || 0) + (w.height !== undefined ? w.height : (w.config?.height || 120)));
+                if (top > maxH) maxH = top;
             });
         }
         return maxH;
@@ -168,18 +168,84 @@ export class Roof3DPlacementSystem {
         this.updateMouse(e);
         this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
 
-        const roofH = this.getBaseRoofElevation();
-        this.placementPlane.constant = -roofH;
+        const planner = this.getPlanner();
+        let targetElevation = this.getBaseRoofElevation();
 
+        // 1. Direct 3D Raycasting against actual wall and roof meshes (Sims 4 Roof-on-Wall Placement)
+        const structureObjects = [];
+        if (this.ctx.structureGroup) {
+            this.ctx.structureGroup.traverse(child => {
+                if (child.isMesh && child.userData && (child.userData.isWallSide || child.userData.entity || child.userData.isRoof || child.userData.componentType === 'roof_top')) {
+                    structureObjects.push(child);
+                }
+            });
+        }
+
+        if (structureObjects.length > 0) {
+            const hits = this.raycaster.intersectObjects(structureObjects, false);
+            if (hits.length > 0) {
+                const hit = hits[0];
+                let entity = hit.object.userData?.entity;
+                if (!entity && hit.object.parent) entity = hit.object.parent.userData?.entity;
+
+                if (entity && entity.startAnchor && entity.endAnchor) {
+                    const wallBaseY = entity.elevation || 0;
+                    const wallH = entity.height !== undefined ? entity.height : (entity.config?.height || 120);
+                    targetElevation = wallBaseY + wallH;
+                } else if (hit.point && hit.point.y) {
+                    targetElevation = Math.round(hit.point.y * 10) / 10;
+                }
+
+                // Project hit point onto horizontal plane at targetElevation
+                this.placementPlane.constant = -targetElevation;
+                const planePt = new THREE.Vector3();
+                if (this.raycaster.ray.intersectPlane(this.placementPlane, planePt)) {
+                    // Check for wall anchor snap
+                    let finalX = planePt.x;
+                    let finalZ = planePt.z;
+                    if (planner && planner.anchors) {
+                        for (const anc of planner.anchors) {
+                            const apos = typeof anc.position === 'function' ? anc.position() : anc;
+                            if (Math.hypot(apos.x - planePt.x, apos.y - planePt.z) < 25) {
+                                finalX = apos.x;
+                                finalZ = apos.y;
+                                break;
+                            }
+                        }
+                    } else {
+                        const snap = 10;
+                        finalX = Math.round(planePt.x / snap) * snap;
+                        finalZ = Math.round(planePt.z / snap) * snap;
+                    }
+
+                    return { x: finalX, y: targetElevation, z: finalZ, rawPoint: planePt, hitEntity: entity };
+                }
+            }
+        }
+
+        // 2. Fallback to active level elevation plane
+        this.placementPlane.constant = -targetElevation;
         const planePt = new THREE.Vector3();
         const hitPlane = this.raycaster.ray.intersectPlane(this.placementPlane, planePt);
 
         if (hitPlane) {
-            // Snap to 10px architectural grid
-            const snap = 10;
-            const sx = Math.round(planePt.x / snap) * snap;
-            const sz = Math.round(planePt.z / snap) * snap;
-            return { x: sx, y: roofH, z: sz, rawPoint: planePt };
+            let finalX = planePt.x;
+            let finalZ = planePt.z;
+            if (planner && planner.anchors) {
+                for (const anc of planner.anchors) {
+                    const apos = typeof anc.position === 'function' ? anc.position() : anc;
+                    if (Math.hypot(apos.x - planePt.x, apos.y - planePt.z) < 25) {
+                        finalX = apos.x;
+                        finalZ = apos.y;
+                        break;
+                    }
+                }
+            } else {
+                const snap = 10;
+                finalX = Math.round(planePt.x / snap) * snap;
+                finalZ = Math.round(planePt.z / snap) * snap;
+            }
+            return { x: finalX, y: targetElevation, z: finalZ, rawPoint: planePt };
         }
 
         return null;
@@ -237,29 +303,43 @@ export class Roof3DPlacementSystem {
     _getAutoRoofShape(hit) {
         const planner = this.getPlanner();
         const pt = { x: hit.x, y: hit.z };
+        const cursorElev = hit.y !== undefined ? hit.y : this.getBaseRoofElevation();
 
-        // 1. Check if hovering inside any closed room path
-        if (planner && planner.roomPaths && planner.roomPaths.length > 0) {
-            for (const path of planner.roomPaths) {
-                if (path && path.length >= 3) {
-                    if (this._pointInPolygon(pt, path)) {
-                        let rMinX = Infinity, rMaxX = -Infinity, rMinY = Infinity, rMaxY = -Infinity;
-                        path.forEach(p => {
-                            rMinX = Math.min(rMinX, p.x); rMaxX = Math.max(rMaxX, p.x);
-                            rMinY = Math.min(rMinY, p.y); rMaxY = Math.max(rMaxY, p.y);
-                        });
-                        return {
-                            points: path.map(p => ({ x: p.x, y: p.y })),
-                            type: 'room',
-                            width: rMaxX - rMinX,
-                            depth: rMaxY - rMinY
-                        };
-                    }
+        // Helper to compute polygon area
+        const getPolyArea = (poly) => {
+            let area = 0;
+            for (let i = 0; i < poly.length; i++) {
+                const j = (i + 1) % poly.length;
+                area += poly[i].x * poly[j].y - poly[j].x * poly[i].y;
+            }
+            return Math.abs(area / 2);
+        };
+
+        // Helper to compute top elevation of a room polygon from planner walls
+        const getRoomTopElevation = (poly) => {
+            let rMinX = Infinity, rMaxX = -Infinity, rMinY = Infinity, rMaxY = -Infinity;
+            poly.forEach(p => {
+                rMinX = Math.min(rMinX, p.x); rMaxX = Math.max(rMaxX, p.x);
+                rMinY = Math.min(rMinY, p.y); rMaxY = Math.max(rMaxY, p.y);
+            });
+
+            let topY = 120;
+            if (planner.walls && planner.walls.length > 0) {
+                const boundaryWalls = planner.walls.filter(w => {
+                    const p1 = w.startAnchor?.position ? w.startAnchor.position() : { x: w.x1 || 0, y: w.y1 || 0 };
+                    const p2 = w.endAnchor?.position ? w.endAnchor.position() : { x: w.x2 || 0, y: w.y2 || 0 };
+                    return (p1.x >= rMinX - 15 && p1.x <= rMaxX + 15 && p1.y >= rMinY - 15 && p1.y <= rMaxY + 15) ||
+                           (p2.x >= rMinX - 15 && p2.x <= rMaxX + 15 && p2.y >= rMinY - 15 && p2.y <= rMaxY + 15);
+                });
+                if (boundaryWalls.length > 0) {
+                    topY = Math.max(...boundaryWalls.map(w => (w.elevation || 0) + (w.height !== undefined ? w.height : (w.config?.height || 120))));
                 }
             }
-        }
+            return topY;
+        };
 
-        // 2. Check if near any room's bounding box
+        // 1. Collect all matching candidate rooms (from roomPaths or planner.rooms)
+        const candidates = [];
         if (planner && planner.roomPaths && planner.roomPaths.length > 0) {
             for (const path of planner.roomPaths) {
                 if (path && path.length >= 3) {
@@ -268,24 +348,94 @@ export class Roof3DPlacementSystem {
                         rMinX = Math.min(rMinX, p.x); rMaxX = Math.max(rMaxX, p.x);
                         rMinY = Math.min(rMinY, p.y); rMaxY = Math.max(rMaxY, p.y);
                     });
-                    if (pt.x >= rMinX - 30 && pt.x <= rMaxX + 30 && pt.y >= rMinY - 30 && pt.y <= rMaxY + 30) {
-                        return {
+
+                    const isInside = this._pointInPolygon(pt, path);
+                    const isNear = (pt.x >= rMinX - 25 && pt.x <= rMaxX + 25 && pt.y >= rMinY - 25 && pt.y <= rMaxY + 25);
+
+                    if (isInside || isNear) {
+                        const topElevation = getRoomTopElevation(path);
+                        const area = getPolyArea(path);
+                        candidates.push({
                             points: path.map(p => ({ x: p.x, y: p.y })),
                             type: 'room',
                             width: rMaxX - rMinX,
-                            depth: rMaxY - rMinY
-                        };
+                            depth: rMaxY - rMinY,
+                            elevation: topElevation,
+                            area: area,
+                            isDirectInside: isInside,
+                            elevDiff: Math.abs(topElevation - cursorElev)
+                        });
                     }
                 }
             }
         }
 
-        // 3. Check if near the whole building (all walls bounding box)
+        // 2. Check if hovering over a specific wall or upper-level connected wall loop
+        if (hit.hitEntity && planner.walls) {
+            const hitW = hit.hitEntity;
+            const hitWallElev = (hitW.elevation || 0);
+            const hitWallTop = hitWallElev + (hitW.height || 120);
+
+            // Find all walls at the same elevation level connected to this wall
+            const levelWalls = planner.walls.filter(w => Math.abs((w.elevation || 0) - hitWallElev) < 10);
+            if (levelWalls.length >= 3) {
+                let wMinX = Infinity, wMaxX = -Infinity, wMinY = Infinity, wMaxY = -Infinity;
+                levelWalls.forEach(w => {
+                    const p1 = w.startAnchor?.position ? w.startAnchor.position() : { x: w.x1 || 0, y: w.y1 || 0 };
+                    const p2 = w.endAnchor?.position ? w.endAnchor.position() : { x: w.x2 || 0, y: w.y2 || 0 };
+                    wMinX = Math.min(wMinX, p1.x, p2.x); wMaxX = Math.max(wMaxX, p1.x, p2.x);
+                    wMinY = Math.min(wMinY, p1.y, p2.y); wMaxY = Math.max(wMaxY, p1.y, p2.y);
+                });
+
+                if (pt.x >= wMinX - 30 && pt.x <= wMaxX + 30 && pt.y >= wMinY - 30 && pt.y <= wMaxY + 30) {
+                    const width = wMaxX - wMinX;
+                    const depth = wMaxY - wMinY;
+                    candidates.push({
+                        points: [
+                            { x: wMinX, y: wMinY },
+                            { x: wMaxX, y: wMinY },
+                            { x: wMaxX, y: wMaxY },
+                            { x: wMinX, y: wMaxY }
+                        ],
+                        type: 'room',
+                        width: width,
+                        depth: depth,
+                        elevation: hitWallTop,
+                        area: width * depth,
+                        isDirectInside: true,
+                        elevDiff: Math.abs(hitWallTop - cursorElev)
+                    });
+                }
+            }
+        }
+
+        // If we found candidates, sort by:
+        // A) Elevation closeness (matching cursor height in 3D)
+        // B) Direct inside vs near
+        // C) Smallest area (most specific room, preventing parent room from stealing 2nd floor dormer)
+        if (candidates.length > 0) {
+            candidates.sort((a, b) => {
+                if (Math.abs(a.elevDiff - b.elevDiff) > 20) {
+                    return a.elevDiff - b.elevDiff;
+                }
+                if (a.isDirectInside !== b.isDirectInside) {
+                    return a.isDirectInside ? -1 : 1;
+                }
+                return a.area - b.area;
+            });
+
+            return candidates[0];
+        }
+
+        // 3. Fallback: Whole building bounding box (only if no room matches)
         if (planner && planner.walls && planner.walls.length > 0) {
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            let maxTopY = 120;
             planner.walls.forEach(w => {
                 const p1 = w.startAnchor?.position ? w.startAnchor.position() : (w.p1 || { x: w.x1 || 0, y: w.y1 || 0 });
                 const p2 = w.endAnchor?.position ? w.endAnchor.position() : (w.p2 || { x: w.x2 || 0, y: w.y2 || 0 });
+                const topY = (w.elevation || 0) + (w.height !== undefined ? w.height : (w.config?.height || 120));
+                if (topY > maxTopY) maxTopY = topY;
                 minX = Math.min(minX, p1.x, p2.x); maxX = Math.max(maxX, p1.x, p2.x);
                 minY = Math.min(minY, p1.y, p2.y); maxY = Math.max(maxY, p1.y, p2.y);
             });
@@ -300,7 +450,8 @@ export class Roof3DPlacementSystem {
                         ],
                         type: 'building',
                         width: maxX - minX,
-                        depth: maxY - minY
+                        depth: maxY - minY,
+                        elevation: maxTopY
                     };
                 }
             }
@@ -317,7 +468,8 @@ export class Roof3DPlacementSystem {
             ],
             type: 'custom',
             width: 200,
-            depth: 150
+            depth: 150,
+            elevation: hit.y
         };
     }
 
@@ -343,9 +495,11 @@ export class Roof3DPlacementSystem {
         const d = maxZ - minZ;
 
         let roofPoints = [];
+        let roofElevation = p1.y;
         if (w < 40 || d < 40) {
-            const autoShape = this._getAutoRoofShape({ x: p1.x, z: p1.z });
+            const autoShape = this._getAutoRoofShape({ x: p1.x, z: p1.z, y: p1.y });
             roofPoints = autoShape.points;
+            if (autoShape.elevation !== undefined) roofElevation = autoShape.elevation;
         } else {
             roofPoints = [
                 { x: minX, y: minZ },
@@ -355,21 +509,23 @@ export class Roof3DPlacementSystem {
             ];
         }
 
-        this._commitRoof(roofPoints);
+        this._commitRoof(roofPoints, roofElevation);
         this.hideGhost();
         return true;
     }
 
-    _commitRoof(points) {
+    _commitRoof(points, elevation) {
         const planner = this.getPlanner();
         if (!planner) return;
 
         const params = this.getActiveRoofParams();
+        const roofElev = elevation !== undefined ? elevation : this.getBaseRoofElevation();
+
         planner.executeWithSnapshot(() => {
             if (!planner.roofs) planner.roofs = [];
 
             const newRoof = new PremiumHipRoof(planner, points);
-            newRoof.elevation = this.getBaseRoofElevation();
+            newRoof.elevation = roofElev;
             if (params.roofType) newRoof.config.roofType = params.roofType;
             if (params.pitch !== undefined) newRoof.config.pitch = params.pitch;
             if (params.curve !== undefined) newRoof.config.curve = params.curve;
@@ -453,7 +609,8 @@ export class Roof3DPlacementSystem {
             return;
         }
 
-        this._buildGhost3DMesh(autoShape.points, hit.y);
+        const roofElev = autoShape.elevation !== undefined ? autoShape.elevation : hit.y;
+        this._buildGhost3DMesh(autoShape.points, roofElev, true);
 
         const params = this.getActiveRoofParams();
         const typeLabel = params.roofType.toUpperCase();
@@ -461,7 +618,7 @@ export class Roof3DPlacementSystem {
         const dimStr = `${this._formatFeetInches(autoShape.width)} \u00d7 ${this._formatFeetInches(autoShape.depth)}`;
 
         this._updateDOMBadge(
-            `Click to snap ${typeLabel} Roof to ${targetLabel} (${dimStr}) | Drag to draw custom area`,
+            `<span style="color: #34d399;">🏠 SNAP TO ${targetLabel.toUpperCase()}</span> &bull; ${typeLabel} ROOF (${params.pitch}&deg;) &bull; ${dimStr}`,
             { x: this.lastClientX || 0, y: this.lastClientY || 0 }
         );
 
@@ -470,13 +627,82 @@ export class Roof3DPlacementSystem {
         }
     }
 
-    _buildGhost3DMesh(points, elevation) {
+    _buildGhost3DMesh(points, elevation, isRoomSnap = false) {
         while (this.ghostGroup.children.length > 0) {
             const child = this.ghostGroup.children[0];
             this.ghostGroup.remove(child);
             if (child.geometry) child.geometry.dispose();
         }
 
+        if (!points || points.length < 3) return;
+
+        const glowColor = isRoomSnap ? 0x10b981 : 0x00f0ff;
+        const fillColor = isRoomSnap ? 0x059669 : 0x0284c7;
+
+        // 1. Glowing Footprint Perimeter Outline
+        const outlinePoints = points.map(p => new THREE.Vector3(p.x, elevation + 0.6, p.y));
+        outlinePoints.push(outlinePoints[0].clone()); // Close loop
+        const outlineGeo = new THREE.BufferGeometry().setFromPoints(outlinePoints);
+        const outlineMat = new THREE.LineBasicMaterial({
+            color: glowColor,
+            linewidth: 3,
+            transparent: true,
+            opacity: 0.95,
+            depthTest: false
+        });
+        const outlineLine = new THREE.Line(outlineGeo, outlineMat);
+        outlineLine.raycast = () => {};
+        outlineLine.renderOrder = 999;
+        this.ghostGroup.add(outlineLine);
+
+        // 2. Translucent Glowing Ceiling / Footprint Plane (Direct 3D triangulation matching outline)
+        try {
+            const flatPoints = points.map(p => new THREE.Vector2(p.x, p.y));
+            const triangles = THREE.ShapeUtils.triangulateShape(flatPoints, []);
+
+            const positions = [];
+            for (const tri of triangles) {
+                for (const idx of tri) {
+                    const p = points[idx];
+                    positions.push(p.x, elevation + 0.4, p.y);
+                }
+            }
+
+            if (positions.length >= 9) {
+                const fillGeo = new THREE.BufferGeometry();
+                fillGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                fillGeo.computeVertexNormals();
+
+                const fillMat = new THREE.MeshBasicMaterial({
+                    color: fillColor,
+                    transparent: true,
+                    opacity: 0.28,
+                    side: THREE.DoubleSide,
+                    depthWrite: false,
+                    depthTest: false
+                });
+                const fillMesh = new THREE.Mesh(fillGeo, fillMat);
+                fillMesh.raycast = () => {};
+                fillMesh.renderOrder = 998;
+                this.ghostGroup.add(fillMesh);
+            }
+        } catch (err) {}
+
+        // 3. Corner Snap Diamond Indicators
+        const diamondGeo = new THREE.OctahedronGeometry(2.4);
+        const diamondMat = new THREE.MeshBasicMaterial({
+            color: isRoomSnap ? 0x34d399 : 0xfbbf24,
+            depthTest: false
+        });
+        points.forEach(p => {
+            const diamond = new THREE.Mesh(diamondGeo, diamondMat);
+            diamond.position.set(p.x, elevation + 1.2, p.y);
+            diamond.raycast = () => {};
+            diamond.renderOrder = 1000;
+            this.ghostGroup.add(diamond);
+        });
+
+        // 4. Ghost 3D Extruded Roof Mesh
         const params = this.getActiveRoofParams();
         const dummyRoof = {
             points,
@@ -496,13 +722,13 @@ export class Roof3DPlacementSystem {
             builder.buildRoofs([dummyRoof], 0, false, this.ghostGroup);
 
             this.ghostGroup.traverse(child => {
-                if (child.isMesh) {
+                if (child.isMesh && child !== outlineLine) {
                     child.raycast = () => {};
                     if (child.material) {
                         const mats = Array.isArray(child.material) ? child.material : [child.material];
                         mats.forEach(m => {
                             m.transparent = true;
-                            m.opacity = 0.7;
+                            m.opacity = 0.72;
                         });
                     }
                 }
