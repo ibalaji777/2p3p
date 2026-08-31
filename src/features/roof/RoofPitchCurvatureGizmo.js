@@ -6,11 +6,12 @@ import { offsetPolygon } from '../../core/registry.js';
 /**
  * RoofPitchCurvatureGizmo
  * 
- * Complete Sims 4 In-Viewport 3D Interactive Roof Gizmo:
- * 1. Apex Pitch / Height Dual-Cone (Gold ↕ Arrow): Drag up/down to adjust pitch & ridge height.
- * 2. Slope Curvature Sphere (Cyan ◯): Drag on slope face to curve concave (Pagoda) or convex (Barrel Arch).
- * 3. Eave Overhang Pull-Tabs (Blue ↔ Arrows): Drag in/out to scale physical eave overhangs.
- * 4. Boundary Stretch Handles (Pink ⬌ Arrows): Drag to stretch/shrink roof footprint across rooms/porches in 3D.
+ * Complete Sims 4 In-Viewport 3D Interactive Roof Gizmo with Dedicated, Non-Overlapping Icons:
+ * 
+ * 1. Apex Pitch Dual-Arrow (Gold ↕): Dedicated at the Ridge Apex Top.
+ * 2. Slope Curvature Orb (Cyan ◯): Dedicated in the middle of the Roof Slope Face.
+ * 3. Eave Overhang Pull-Tabs (Blue ↔): Dedicated at the 4 Eave Center Trim Edges.
+ * 4. Boundary Corner Stretch Crystals (Pink ⬡): Dedicated at the 4 Outer Footprint Corners.
  */
 export class RoofPitchCurvatureGizmo extends THREE.Group {
     constructor(ctx) {
@@ -44,6 +45,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
         this.stretchMatActive = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 1.0 });
 
         this.ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true, opacity: 0.9 });
+        this.darkMat = new THREE.MeshBasicMaterial({ color: 0x1e293b, depthTest: false, transparent: true, opacity: 0.9 });
 
         this.activeHandle = null;
         this.isDragging = false;
@@ -174,15 +176,27 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
 
                     this._updateDOMBadge(`OVERHANG: ${this._formatFeetInches(newOverhang)}`, { x: e.clientX, y: e.clientY });
                 } else if (type === 'stretch') {
-                    // Footprint Stretch / Scale in 3D
-                    const dir = this.activeHandle.userData?.direction;
+                    // Corner Footprint Stretch in 3D
+                    const corner = this.activeHandle.userData?.corner;
+                    const deltaX = this.planeIntersect.x - this.dragStartPos.x;
+                    const deltaZ = this.planeIntersect.z - this.dragStartPos.z;
+
                     let minX = this.initialMinX, maxX = this.initialMaxX;
                     let minY = this.initialMinY, maxY = this.initialMaxY;
 
-                    if (dir === 'north') minY = Math.min(maxY - 40, this.initialMinY + (this.planeIntersect.z - this.dragStartPos.z));
-                    else if (dir === 'south') maxY = Math.max(minY + 40, this.initialMaxY + (this.planeIntersect.z - this.dragStartPos.z));
-                    else if (dir === 'east') maxX = Math.max(minX + 40, this.initialMaxX + (this.planeIntersect.x - this.dragStartPos.x));
-                    else if (dir === 'west') minX = Math.min(maxX - 40, this.initialMinX + (this.planeIntersect.x - this.dragStartPos.x));
+                    if (corner === 'nw') {
+                        minX = Math.min(maxX - 40, this.initialMinX + deltaX);
+                        minY = Math.min(maxY - 40, this.initialMinY + deltaZ);
+                    } else if (corner === 'ne') {
+                        maxX = Math.max(minX + 40, this.initialMaxX + deltaX);
+                        minY = Math.min(maxY - 40, this.initialMinY + deltaZ);
+                    } else if (corner === 'se') {
+                        maxX = Math.max(minX + 40, this.initialMaxX + deltaX);
+                        maxY = Math.max(minY + 40, this.initialMaxY + deltaZ);
+                    } else if (corner === 'sw') {
+                        minX = Math.min(maxX - 40, this.initialMinX + deltaX);
+                        maxY = Math.max(minY + 40, this.initialMaxY + deltaZ);
+                    }
 
                     entity.points = [
                         { x: minX, y: minY },
@@ -192,8 +206,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
                     ];
 
                     const curW = maxX - minX, curD = maxY - minY;
-                    const dimLabel = (dir === 'east' || dir === 'west') ? `WIDTH: ${this._formatFeetInches(curW)}` : `DEPTH: ${this._formatFeetInches(curD)}`;
-                    this._updateDOMBadge(dimLabel, { x: e.clientX, y: e.clientY });
+                    this._updateDOMBadge(`FOOTPRINT: ${this._formatFeetInches(curW)} &times; ${this._formatFeetInches(curD)}`, { x: e.clientX, y: e.clientY });
                 }
 
                 // Granular In-Place CAD Rebuild via EnvironmentBuilder
@@ -358,36 +371,39 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
         if (!entity) return;
         const conf = entity.config || entity;
 
-        // 1. Vertical Ridge Peak Cone Handle (Dual Cone / Arrow with Center Ring)
+        // 1. Vertical Ridge Peak Cone Handle (Dedicated Gold ↕ Dual-Cone & Ring at Apex)
         const peakGroup = new THREE.Group();
         peakGroup.userData = { type: 'pitch' };
         
-        const topCone = new THREE.Mesh(new THREE.ConeGeometry(14, 26, 16), this.pitchMat);
-        topCone.position.y = 13;
+        const topCone = new THREE.Mesh(new THREE.ConeGeometry(13, 24, 16), this.pitchMat);
+        topCone.position.y = 12;
         topCone.renderOrder = 9999;
         
-        const botCone = new THREE.Mesh(new THREE.ConeGeometry(14, 26, 16), this.pitchMat);
-        botCone.position.y = -13;
+        const botCone = new THREE.Mesh(new THREE.ConeGeometry(13, 24, 16), this.pitchMat);
+        botCone.position.y = -12;
         botCone.rotation.x = Math.PI;
         botCone.renderOrder = 9999;
         
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(16, 2.5, 8, 24), this.ringMat);
+        const centerRod = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 16, 12), this.pitchMat);
+        centerRod.renderOrder = 9999;
+
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(15, 2.2, 8, 24), this.ringMat);
         ring.rotation.x = Math.PI / 2;
         ring.renderOrder = 9999;
 
-        peakGroup.add(topCone, botCone, ring);
+        peakGroup.add(topCone, botCone, centerRod, ring);
         this.handles.add(peakGroup);
         this.peakHandle = peakGroup;
 
-        // 2. Slope Curvature Handle (Sphere with Glowing Arc Ring)
-        if (['gable', 'shed', 'curved'].includes(conf.roofType)) {
+        // 2. Slope Curvature Handle (Dedicated Cyan ◯ Orbital Sphere resting on Slope Face)
+        if (['gable', 'shed', 'curved', 'hip'].includes(conf.roofType)) {
             const curveGroup = new THREE.Group();
             curveGroup.userData = { type: 'curve' };
 
-            const sphere = new THREE.Mesh(new THREE.SphereGeometry(12, 16, 16), this.curveMat);
+            const sphere = new THREE.Mesh(new THREE.SphereGeometry(11, 16, 16), this.curveMat);
             sphere.renderOrder = 9999;
 
-            const cRing = new THREE.Mesh(new THREE.TorusGeometry(15, 2.5, 8, 24), this.ringMat);
+            const cRing = new THREE.Mesh(new THREE.TorusGeometry(14, 2, 8, 24), this.ringMat);
             cRing.rotation.x = Math.PI / 4;
             cRing.renderOrder = 9999;
 
@@ -396,48 +412,46 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
             this.curveHandle = curveGroup;
         }
 
-        // 3. Eave Overhang Pull-Tabs (4 Directional Arrows pointing outward on eaves)
+        // 3. Eave Overhang Pull-Tabs (Dedicated Blue ↔ Pull-Tabs at 4 Eave Edges)
         this.overhangHandles = [];
         for (let i = 0; i < 4; i++) {
             const tabGroup = new THREE.Group();
             tabGroup.userData = { type: 'overhang', edgeIndex: i };
 
-            const box = new THREE.Mesh(new THREE.BoxGeometry(24, 6, 14), this.overhangMat);
-            box.renderOrder = 9999;
+            const badge = new THREE.Mesh(new THREE.BoxGeometry(22, 6, 12), this.overhangMat);
+            badge.renderOrder = 9999;
 
-            const arrow = new THREE.Mesh(new THREE.ConeGeometry(10, 16, 12), this.overhangMat);
-            arrow.rotation.x = Math.PI / 2;
-            arrow.position.z = 12;
-            arrow.renderOrder = 9999;
+            const outArrow = new THREE.Mesh(new THREE.ConeGeometry(9, 14, 12), this.overhangMat);
+            outArrow.rotation.x = Math.PI / 2;
+            outArrow.position.z = 11;
+            outArrow.renderOrder = 9999;
 
-            tabGroup.add(box, arrow);
+            tabGroup.add(badge, outArrow);
 
-            if (i === 0) tabGroup.rotation.y = Math.PI;       // North
+            if (i === 0) tabGroup.rotation.y = Math.PI;          // North
             else if (i === 1) tabGroup.rotation.y = Math.PI / 2; // East
-            else if (i === 2) tabGroup.rotation.y = 0;           // South
-            else if (i === 3) tabGroup.rotation.y = -Math.PI / 2;// West
+            else if (i === 2) tabGroup.rotation.y = 0;              // South
+            else if (i === 3) tabGroup.rotation.y = -Math.PI / 2;   // West
 
             this.handles.add(tabGroup);
             this.overhangHandles.push(tabGroup);
         }
 
-        // 4. Boundary Stretch Handles (Pink/Magenta Horizontal Arrow Tabs to resize footprint in 3D)
+        // 4. Boundary Corner Stretch Crystals (Dedicated Pink ⬡ Octahedron Diamonds at 4 Footprint Corners)
         this.stretchHandles = [];
-        const directions = ['north', 'east', 'south', 'west'];
+        const corners = ['nw', 'ne', 'se', 'sw'];
         for (let i = 0; i < 4; i++) {
             const stretchGroup = new THREE.Group();
-            stretchGroup.userData = { type: 'stretch', direction: directions[i] };
+            stretchGroup.userData = { type: 'stretch', corner: corners[i] };
 
-            const sCone = new THREE.Mesh(new THREE.ConeGeometry(12, 20, 12), this.stretchMat);
-            sCone.rotation.x = Math.PI / 2;
-            sCone.renderOrder = 9999;
+            const diamond = new THREE.Mesh(new THREE.OctahedronGeometry(11, 0), this.stretchMat);
+            diamond.renderOrder = 9999;
 
-            stretchGroup.add(sCone);
+            const dRing = new THREE.Mesh(new THREE.TorusGeometry(13, 1.8, 6, 16), this.ringMat);
+            dRing.rotation.x = Math.PI / 2;
+            dRing.renderOrder = 9999;
 
-            if (i === 0) stretchGroup.rotation.y = Math.PI;       // North
-            else if (i === 1) stretchGroup.rotation.y = Math.PI / 2; // East
-            else if (i === 2) stretchGroup.rotation.y = 0;           // South
-            else if (i === 3) stretchGroup.rotation.y = -Math.PI / 2;// West
+            stretchGroup.add(diamond, dRing);
 
             this.handles.add(stretchGroup);
             this.stretchHandles.push(stretchGroup);
@@ -477,32 +491,36 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
 
         const overhang = conf.overhang !== undefined ? conf.overhang : 8;
 
-        // 1. Peak Cone Position (Apex Ridge)
+        // 1. Apex Pitch Cone (Dedicated at the highest point of the ridge)
         if (this.peakHandle) {
             this.peakHandle.position.set(cx, baseY + rh + 16, cz);
         }
 
-        // 2. Curvature Sphere Position (Slope face)
+        // 2. Slope Curvature Orb (Dedicated on the middle of the North roof slope face)
         if (this.curveHandle) {
             const curveOffset = (conf.curve || 0);
-            this.curveHandle.position.set(cx, baseY + (rh / 2) + curveOffset + 6, cz - (d / 4));
+            const slopeFaceY = baseY + (rh * 0.45) + curveOffset + 8;
+            const slopeFaceZ = cz - (d * 0.28);
+            this.curveHandle.position.set(cx, slopeFaceY, slopeFaceZ);
         }
 
-        // 3. Overhang Tabs Position (Eaves)
+        // 3. Eave Overhang Pull-Tabs (Dedicated at the 4 center eave edges)
         if (this.overhangHandles && this.overhangHandles.length >= 4) {
             const eaveY = baseY + 4;
-            this.overhangHandles[0].position.set(cx, eaveY, minY - overhang - 6); // North
-            this.overhangHandles[1].position.set(maxX + overhang + 6, eaveY, cz);  // East
-            this.overhangHandles[2].position.set(cx, eaveY, maxY + overhang + 6); // South
-            this.overhangHandles[3].position.set(minX - overhang - 6, eaveY, cz);  // West
+            this.overhangHandles[0].position.set(cx, eaveY, minY - overhang - 4); // North Eave
+            this.overhangHandles[1].position.set(maxX + overhang + 4, eaveY, cz);  // East Eave
+            this.overhangHandles[2].position.set(cx, eaveY, maxY + overhang + 4); // South Eave
+            this.overhangHandles[3].position.set(minX - overhang - 4, eaveY, cz);  // West Eave
         }
 
-        // 4. Boundary Stretch Handles Position (Wall footprint boundary)
+        // 4. Boundary Corner Stretch Crystals (Dedicated at the 4 outer footprint corners)
         if (this.stretchHandles && this.stretchHandles.length >= 4) {
-            this.stretchHandles[0].position.set(cx, baseY, minY - 28); // North
-            this.stretchHandles[1].position.set(maxX + 28, baseY, cz);  // East
-            this.stretchHandles[2].position.set(cx, baseY, maxY + 28); // South
-            this.stretchHandles[3].position.set(minX - 28, baseY, cz);  // West
+            const cornerY = baseY + 4;
+            const cornerOffset = overhang + 6;
+            this.stretchHandles[0].position.set(minX - cornerOffset, cornerY, minY - cornerOffset); // NW Corner
+            this.stretchHandles[1].position.set(maxX + cornerOffset, cornerY, minY - cornerOffset); // NE Corner
+            this.stretchHandles[2].position.set(maxX + cornerOffset, cornerY, maxY + cornerOffset); // SE Corner
+            this.stretchHandles[3].position.set(minX - cornerOffset, cornerY, maxY + cornerOffset); // SW Corner
         }
     }
 
@@ -535,7 +553,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
                 const isActive = this.activeHandle === h;
                 const isHover = this.hoveredHandle === h;
                 const m = isActive ? this.stretchMatActive : (isHover ? this.stretchMatHover : this.stretchMat);
-                h.children.forEach(c => { c.material = m; });
+                h.children.forEach(c => { if (c.material !== this.ringMat) c.material = m; });
             });
         }
     }

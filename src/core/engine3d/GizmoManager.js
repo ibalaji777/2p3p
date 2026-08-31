@@ -3287,32 +3287,20 @@ export class GizmoManager {
             return;
         }
 
-        if (mode === 'roof_corners') {
+        if (mode === 'roof_corners' || mode === 'roof_overhang') {
             tc.visible = false;
             tc.enabled = false;
-            if (this.btnRoofCorners) this.btnRoofCorners.classList.add('active');
+            if (this.btnRoofCorners) this.btnRoofCorners.classList.toggle('active', mode === 'roof_corners');
+            if (this.btnRoofOverhang) this.btnRoofOverhang.classList.toggle('active', mode === 'roof_overhang');
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
             if (this.materialPanel) this.materialPanel.style.display = 'none';
             if (this.cornerPanel) this.cornerPanel.style.display = 'none';
             if (this.stylePanel) this.stylePanel.style.display = 'none';
-            if (this.ctx.interactions.roofCornerGizmo && selectedObj) {
-                this.ctx.interactions.roofCornerGizmo.attach(selectedObj);
-            }
-            return;
-        }
-
-        if (mode === 'roof_overhang') {
-            tc.visible = false;
-            tc.enabled = false;
-            if (this.btnRoofOverhang) this.btnRoofOverhang.classList.add('active');
-            if (this.xyPanel) this.xyPanel.style.display = 'none';
-            if (this.openingPanel) this.openingPanel.style.display = 'none';
-            if (this.materialPanel) this.materialPanel.style.display = 'none';
-            if (this.cornerPanel) this.cornerPanel.style.display = 'none';
-            if (this.stylePanel) this.stylePanel.style.display = 'none';
-            if (this.ctx.interactions.roofOverhangGizmo && selectedObj) {
-                this.ctx.interactions.roofOverhangGizmo.attach(selectedObj);
+            if (this.ctx.interactions.roofCornerGizmo) this.ctx.interactions.roofCornerGizmo.detach();
+            if (this.ctx.interactions.roofOverhangGizmo) this.ctx.interactions.roofOverhangGizmo.detach();
+            if (this.ctx.interactions.roofPitchGizmo && selectedObj) {
+                this.ctx.interactions.roofPitchGizmo.attach(selectedObj);
             }
             return;
         }

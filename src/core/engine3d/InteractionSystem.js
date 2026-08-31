@@ -713,6 +713,7 @@ export class InteractionSystem {
             if (this.openingGizmo) this.openingGizmo.detach();
             if (this.cornerGizmo) this.cornerGizmo.detach();
             this.setHighlight(this.selectedObject, false);
+            if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
             if (this.materialGizmo) this.materialGizmo.attach(this.selectedObject);
         } else if (mode === 'opening') {
             if (this.transformControls) this.transformControls.detach();
@@ -721,6 +722,7 @@ export class InteractionSystem {
             if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
             if (this.polygonGizmo) this.polygonGizmo.detach();
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
+            if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
             if (this.openingGizmo) this.openingGizmo.attach(this.selectedObject);
         } else if (mode === 'corner') {
             if (this.transformControls) this.transformControls.detach();
@@ -729,23 +731,17 @@ export class InteractionSystem {
             if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
             if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
+            if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
             if (this.cornerGizmo) this.cornerGizmo.attach(this.selectedObject);
-        } else if (mode === 'roof_corners') {
-            if (this.transformControls) this.transformControls.detach();
-            if (this.openingGizmo) this.openingGizmo.detach();
-            if (this.materialGizmo) this.materialGizmo.detach();
-            if (this.cornerGizmo) this.cornerGizmo.detach();
-            if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
-            if (this.roofCornerGizmo) this.roofCornerGizmo.attach(this.selectedObject);
-            if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
-        } else if (mode === 'roof_overhang') {
+        } else if (mode === 'roof_corners' || mode === 'roof_overhang') {
             if (this.transformControls) this.transformControls.detach();
             if (this.openingGizmo) this.openingGizmo.detach();
             if (this.materialGizmo) this.materialGizmo.detach();
             if (this.cornerGizmo) this.cornerGizmo.detach();
             if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
             if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
-            if (this.roofOverhangGizmo) this.roofOverhangGizmo.attach(this.selectedObject);
+            if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
+            if (this.roofPitchGizmo && this.selectedObject) this.roofPitchGizmo.attach(this.selectedObject);
         } else if (mode === 'none') {
             if (this.transformControls) this.transformControls.detach();
             if (this.openingGizmo) this.openingGizmo.detach();
@@ -754,6 +750,9 @@ export class InteractionSystem {
             if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
             if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
+            if (this.roofPitchGizmo && (!this.selectedObject || (!this.selectedObject.userData?.isRoof && this.selectedObject.userData?.entity?.type !== 'roof'))) {
+                this.roofPitchGizmo.detach();
+            }
         } else {
             if (this.openingGizmo) this.openingGizmo.detach();
             if (this.materialGizmo) this.materialGizmo.detach();
@@ -761,6 +760,7 @@ export class InteractionSystem {
             if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
             if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
+            if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
             if (this.transformControls) {
                 this.transformControls.mode = mode;
                 this.transformControls.attach(this.selectedObject);
