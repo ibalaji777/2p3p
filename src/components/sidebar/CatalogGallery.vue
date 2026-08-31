@@ -407,7 +407,10 @@ const staircaseCatalog = ref([
 const roofCatalog = ref([
     { id: 'roof_gable', name: 'Gable Roof', badge: 'CLASSIC', material: 'Terracotta Tiles', specs: '30° Pitch', image: '', toolId: 'roof', params: { roofType: 'gable', pitch: 30, material: 'terracotta_tiles_roof', type: 'roof' } },
     { id: 'roof_hip', name: 'Hip Roof', badge: 'POPULAR', material: 'Asphalt Shingles', specs: '30° Pitch', image: '', toolId: 'roof', params: { roofType: 'hip', pitch: 30, material: 'dark_asphalt_roof', type: 'roof' } },
-    { id: 'roof_flat', name: 'Flat Roof', badge: 'MODERN', material: 'Concrete Deck', specs: '150 mm Slab', image: '', toolId: 'roof', params: { roofType: 'flat', thick: 15, material: 'white_gravel_roof', type: 'roof' } },
+    { id: 'roof_shed', name: 'Half-Gable (Shed)', badge: 'SKILLION', material: 'Grey Slate Tiles', specs: '20° Pitch (Single Slope)', image: '', toolId: 'roof', params: { roofType: 'shed', pitch: 20, material: 'grey_slate_roof', type: 'roof' } },
+    { id: 'roof_half_hip', name: 'Half-Hip Roof', badge: 'HERITAGE', material: 'Terracotta Red', specs: '30° Pitch (3-Sided)', image: '', toolId: 'roof', params: { roofType: 'half_hip', pitch: 30, material: 'terracotta_red_roof', type: 'roof' } },
+    { id: 'roof_curved', name: 'Curved / Pagoda Roof', badge: 'CURVED', material: 'Blue Ceramic Tiles', specs: '30° Pitch (Curved Arch)', image: '', toolId: 'roof', params: { roofType: 'curved', pitch: 30, curve: -20, material: 'blue_ceramic_tiles_roof', type: 'roof' } },
+    { id: 'roof_flat', name: 'Flat Roof / Terrace', badge: 'MODERN', material: 'Concrete Deck', specs: '150 mm Slab', image: '', toolId: 'roof', params: { roofType: 'flat', thick: 15, material: 'white_gravel_roof', type: 'roof' } },
 ]);
 
 const dormerCatalog = ref([

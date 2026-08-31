@@ -204,4 +204,93 @@ describe('Roof Pipeline & 3D Addition', () => {
 
         placementSystem.dispose();
     });
+
+    it('6. should build 3D mesh for Shed (Half-Gable), Half-Hip, and Curved Pagoda roofs with gable infill', async () => {
+        const { Roof3DBuilder } = await import('../builders/Roof3DBuilder.js');
+        const mockCtx = {
+            helpers: {
+                getDynamicMaterial: (key, type) => new THREE.MeshStandardMaterial({ color: 0x888888 })
+            },
+            assets: {
+                getTexture: vi.fn().mockResolvedValue(new THREE.Texture())
+            },
+            structureGroup: new THREE.Group()
+        };
+
+        const builder = new Roof3DBuilder(mockCtx);
+        const sceneGroup = new THREE.Group();
+
+        // 1. Build Shed (Half-Gable / Mono-pitch) roof
+        const shedRoof = {
+            points: [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 150 }, { x: 0, y: 150 }],
+            config: { roofType: 'shed', pitch: 25, material: 'grey_slate_roof', overhang: 8, gableMaterial: 'white_plaster_wall' },
+            elevation: 120
+        };
+        builder.buildRoofs([shedRoof], 0, false, sceneGroup);
+        expect(sceneGroup.children.length).toBe(1);
+        const shedMeshGroup = sceneGroup.children[0];
+        expect(shedMeshGroup.children.length).toBeGreaterThanOrEqual(1);
+
+        // 2. Build Half-Hip roof
+        const halfHipRoof = {
+            points: [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 150 }, { x: 0, y: 150 }],
+            config: { roofType: 'half_hip', pitch: 30, material: 'terracotta_red_roof', overhang: 8 },
+            elevation: 120
+        };
+        builder.buildRoofs([halfHipRoof], 0, false, sceneGroup);
+        expect(sceneGroup.children.length).toBe(2);
+
+        // 3. Build Curved Pagoda roof
+        const curvedRoof = {
+            points: [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 150 }, { x: 0, y: 150 }],
+            config: { roofType: 'curved', pitch: 30, curve: -25, material: 'blue_ceramic_tiles_roof', overhang: 8 },
+            elevation: 120
+        };
+        builder.buildRoofs([curvedRoof], 0, false, sceneGroup);
+        expect(sceneGroup.children.length).toBe(3);
+    });
+
+    it('7. should attach and update RoofPitchCurvatureGizmo on selected roofs', async () => {
+        const { RoofPitchCurvatureGizmo } = await import('../RoofPitchCurvatureGizmo.js');
+        const mockCtx = {
+            renderer: { domElement: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }), parentElement: null } },
+            camera: new THREE.PerspectiveCamera(45, 1, 1, 1000),
+            scene: new THREE.Group(),
+            controls: { enabled: true },
+            requestRender: vi.fn()
+        };
+
+        const gizmo = new RoofPitchCurvatureGizmo(mockCtx);
+        expect(gizmo.visible).toBe(false);
+
+        const mockRoofEntity = {
+            type: 'roof',
+            id: 'roof_test_gizmo',
+            points: [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 150 }, { x: 0, y: 150 }],
+            config: { roofType: 'gable', pitch: 30, curve: -15, overhang: 8 },
+            elevation: 120,
+            updateGeometry: vi.fn()
+        };
+
+        const mockTargetMesh = new THREE.Mesh();
+        mockTargetMesh.userData = { isRoof: true, entity: mockRoofEntity };
+
+        // Attach to selected roof
+        gizmo.attach(mockTargetMesh);
+        expect(gizmo.visible).toBe(true);
+        expect(gizmo.handles.children.length).toBeGreaterThanOrEqual(2); // Pitch cone + curve sphere + overhang tabs
+
+        // Check handle types
+        const types = gizmo.handles.children.map(h => h.userData.type);
+        expect(types).toContain('pitch');
+        expect(types).toContain('curve');
+        expect(types).toContain('overhang');
+
+        // Detach
+        gizmo.detach();
+        expect(gizmo.visible).toBe(false);
+        expect(gizmo.handles.children.length).toBe(0);
+
+        gizmo.dispose();
+    });
 });

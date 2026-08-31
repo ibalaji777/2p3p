@@ -2286,13 +2286,18 @@ export class EnvironmentBuilder {
         
         // Generate a new temporary roof group using the existing buildRoofs logic
         const tempTarget = new THREE.Group();
-        this.buildRoofs([roof], this.ctx.activeIndex || 0, this.ctx.walls || [], tempTarget, this.ctx.shapes || this.ctx.planner?.shapes || []);
+        const wallList = (this.ctx.walls && this.ctx.walls.length > 0) ? this.ctx.walls : (this.ctx.planner?.walls || []);
+        this.buildRoofs([roof], this.ctx.activeIndex || 0, wallList, tempTarget, this.ctx.shapes || this.ctx.planner?.shapes || []);
         
         if (tempTarget.children.length === 0) return;
         const tempRoofGroup = tempTarget.children[0];
         const newMesh = tempRoofGroup.children.find(c => c.userData && c.userData.isRoof);
         
         if (newMesh) {
+            // Update roof group position & rotation in case points or elevation changed
+            roof.mesh3D.position.copy(tempRoofGroup.position);
+            roof.mesh3D.rotation.copy(tempRoofGroup.rotation);
+
             // Swap geometry
             if (oldMesh.geometry) oldMesh.geometry.dispose();
             oldMesh.geometry = newMesh.geometry;
@@ -2307,6 +2312,9 @@ export class EnvironmentBuilder {
             while(newMesh.children.length > 0) {
                 oldMesh.add(newMesh.children[0]);
             }
+        }
+        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+            this.ctx.requestRender();
         }
     }
 

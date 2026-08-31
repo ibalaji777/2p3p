@@ -11,11 +11,12 @@ export class Roof3DBuilder {
         if (!roofs || roofs.length === 0) return;
         
         const shapeList = shapes || (this.ctx && this.ctx.shapes) || (this.ctx && this.ctx.planner && this.ctx.planner.shapes) || [];
-        const hasWalls = walls && walls.length > 0;
-        let maxWallHeight = WALL_HEIGHT;
+        const wallList = (walls && Array.isArray(walls) && walls.length > 0) ? walls : (this.ctx?.walls || this.ctx?.planner?.walls || []);
+        const hasWalls = wallList && wallList.length > 0;
+        let maxWallHeight = 120;
         if (hasWalls) {
-            const mainWalls = walls.filter(w => !w.parentGroup);
-            if (mainWalls.length > 0) maxWallHeight = Math.max(...mainWalls.map(w => w.height !== undefined ? w.height : (w.config?.height || WALL_HEIGHT)));
+            const mainWalls = wallList.filter(w => !w.parentGroup);
+            if (mainWalls.length > 0) maxWallHeight = Math.max(...mainWalls.map(w => w.height !== undefined ? w.height : (w.config?.height || 120)));
         }
 
         const thickenGeometry = (v, uv, T) => {
@@ -106,8 +107,23 @@ export class Roof3DBuilder {
             const W = maxX - minX;
             const D = maxY - minY;
             
-            const baseHeight = roof.elevation !== undefined ? roof.elevation : ((hasWalls || activeIndex === 0) ? maxWallHeight : 0);
-            const h = baseHeight + wallGap + 0.5;
+            // Find walls that intersect or are near this roof
+            let localWallHeight = maxWallHeight;
+            if (hasWalls) {
+                const wallsUnderRoof = wallList.filter(w => {
+                    const p1 = (w.startAnchor && typeof w.startAnchor.position === 'function') ? w.startAnchor.position() : (w.startAnchor || { x: w.startX || 0, y: w.startY || 0 });
+                    const p2 = (w.endAnchor && typeof w.endAnchor.position === 'function') ? w.endAnchor.position() : (w.endAnchor || { x: w.endX || 0, y: w.endY || 0 });
+                    const midX = (p1.x + p2.x) / 2;
+                    const midY = (p1.y + p2.y) / 2;
+                    return midX >= minX - 40 && midX <= maxX + 40 && midY >= minY - 40 && midY <= maxY + 40;
+                });
+                if (wallsUnderRoof.length > 0) {
+                    localWallHeight = Math.max(...wallsUnderRoof.map(w => w.height !== undefined ? w.height : (w.config?.height || 120)));
+                }
+            }
+
+            const baseHeight = roof.elevation !== undefined ? roof.elevation : (hasWalls ? localWallHeight : 0);
+            const h = baseHeight + wallGap;
 
             const decor = ROOF_DECOR_REGISTRY[conf.material] || ROOF_DECOR_REGISTRY['concrete_flat'];
             const mat = this.ctx.helpers.getDynamicMaterial(roof.config?.material || 'terracotta_tiles_roof', 'roof') || new THREE.MeshStandardMaterial({color: 0x888888}); mat.side = THREE.DoubleSide;
@@ -214,7 +230,224 @@ export class Roof3DBuilder {
                 }
 
                 mesh = new THREE.Mesh(geo, flatMat);
-            } else if (conf.roofType === 'gable') {
+            } else if (conf.roofType === 'shed') {
+                let bMinX = Infinity, bMaxX = -Infinity, bMinY = Infinity, bMaxY = -Infinity;
+                pts.forEach(p => {
+                    bMinX = Math.min(bMinX, p.x); bMaxX = Math.max(bMaxX, p.x);
+                    bMinY = Math.min(bMinY, p.y); bMaxY = Math.max(bMaxY, p.y);
+                });
+                const bW = bMaxX - bMinX;
+                const bD = bMaxY - bMinY;
+
+                const pitch = conf.pitch || 20;
+                const axis = conf.ridgeAxis || 'x';
+                const span = axis === 'x' ? bD : bW;
+                const rh = Math.tan(pitch * Math.PI / 180) * span;
+                const curve = conf.curve || 0;
+                const flip = !!conf.flipSlope;
+
+                const v = [], uv = [];
+                const numSubdivs = curve !== 0 ? 12 : 1;
+                for (let i = 0; i < numSubdivs; i++) {
+                    const t0 = i / numSubdivs;
+                    const t1 = (i + 1) / numSubdivs;
+                    
+                    let y0 = t0 * rh;
+                    let y1 = t1 * rh;
+                    if (curve !== 0) {
+                        y0 += curve * Math.sin(Math.PI * t0);
+                        y1 += curve * Math.sin(Math.PI * t1);
+                    }
+
+                    if (axis === 'x') {
+                        const z0 = flip ? (bMaxY - t0 * bD) : (bMinY + t0 * bD);
+                        const z1 = flip ? (bMaxY - t1 * bD) : (bMinY + t1 * bD);
+                        
+                        const pNW = { x: bMinX, y: y0, z: z0 };
+                        const pNE = { x: bMaxX, y: y0, z: z0 };
+                        const pSE = { x: bMaxX, y: y1, z: z1 };
+                        const pSW = { x: bMinX, y: y1, z: z1 };
+
+                        v.push(pNW.x, pNW.y, pNW.z, pNE.x, pNE.y, pNE.z, pSE.x, pSE.y, pSE.z);
+                        uv.push(pNW.x/100, pNW.z/100, pNE.x/100, pNE.z/100, pSE.x/100, pSE.z/100);
+
+                        v.push(pNW.x, pNW.y, pNW.z, pSE.x, pSE.y, pSE.z, pSW.x, pSW.y, pSW.z);
+                        uv.push(pNW.x/100, pNW.z/100, pSE.x/100, pSE.z/100, pSW.x/100, pSW.z/100);
+                    } else {
+                        const x0 = flip ? (bMaxX - t0 * bW) : (bMinX + t0 * bW);
+                        const x1 = flip ? (bMaxX - t1 * bW) : (bMinX + t1 * bW);
+                        
+                        const pNW = { x: x0, y: y0, z: bMinY };
+                        const pSW = { x: x0, y: y0, z: bMaxY };
+                        const pSE = { x: x1, y: y1, z: bMaxY };
+                        const pNE = { x: x1, y: y1, z: bMinY };
+
+                        v.push(pNW.x, pNW.y, pNW.z, pSW.x, pSW.y, pSW.z, pSE.x, pSE.y, pSE.z);
+                        uv.push(pNW.x/100, pNW.z/100, pSW.x/100, pSW.z/100, pSE.x/100, pSE.z/100);
+
+                        v.push(pNW.x, pNW.y, pNW.z, pSE.x, pSE.y, pSE.z, pNE.x, pNE.y, pNE.z);
+                        uv.push(pNW.x/100, pNW.z/100, pSE.x/100, pSE.z/100, pNE.x/100, pNE.z/100);
+                    }
+                }
+
+                // Side gable walls and rear high wall for Shed roof
+                const gv = [], guv = [];
+                if (axis === 'x') {
+                    const zLow = flip ? bMaxY : bMinY;
+                    const zHigh = flip ? bMinY : bMaxY;
+                    gv.push(bMinX, 0, zLow, bMinX, rh, zHigh, bMinX, 0, zHigh);
+                    guv.push(0, 0, 1, 1, 1, 0);
+                    gv.push(bMaxX, 0, zLow, bMaxX, 0, zHigh, bMaxX, rh, zHigh);
+                    guv.push(0, 0, 1, 0, 1, 1);
+                    gv.push(bMinX, 0, zHigh, bMaxX, 0, zHigh, bMaxX, rh, zHigh);
+                    guv.push(0, 0, 1, 0, 1, 1);
+                    gv.push(bMinX, 0, zHigh, bMaxX, rh, zHigh, bMinX, rh, zHigh);
+                    guv.push(0, 0, 1, 1, 0, 1);
+                } else {
+                    const xLow = flip ? bMaxX : bMinX;
+                    const xHigh = flip ? bMinX : bMaxX;
+                    gv.push(xLow, 0, bMinY, xHigh, rh, bMinY, xHigh, 0, bMinY);
+                    guv.push(0, 0, 1, 1, 1, 0);
+                    gv.push(xLow, 0, bMaxY, xHigh, 0, bMaxY, xHigh, rh, bMaxY);
+                    guv.push(0, 0, 1, 0, 1, 1);
+                    gv.push(xHigh, 0, bMinY, xHigh, rh, bMinY, xHigh, 0, bMaxY);
+                    guv.push(0, 0, 0, 1, 1, 0);
+                    gv.push(xHigh, rh, bMinY, xHigh, rh, bMaxY, xHigh, 0, bMaxY);
+                    guv.push(0, 1, 1, 1, 1, 0);
+                }
+
+                const T = conf.thickness || 8;
+                const {v: vThick, uv: uvThick} = thickenGeometry(v, uv, T);
+
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute("position", new THREE.Float32BufferAttribute(vThick, 3));
+                geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvThick, 2));
+                geo.computeVertexNormals();
+                
+                geo.addGroup(0, v.length / 3, 0); 
+                geo.addGroup(v.length / 3, (vThick.length - v.length) / 3, 1);
+
+                const fasciaMat = this.ctx.helpers.getDynamicMaterial('white_plaster_wall', 'wall') || new THREE.MeshStandardMaterial({color: 0xF5F5F5});
+                mesh = new THREE.Mesh(geo, [mat, fasciaMat]);
+
+                if (gv.length > 0) {
+                    const gGeo = new THREE.BufferGeometry();
+                    gGeo.setAttribute("position", new THREE.Float32BufferAttribute(gv, 3));
+                    gGeo.setAttribute("uv", new THREE.Float32BufferAttribute(guv, 2));
+                    gGeo.computeVertexNormals();
+
+                    let gableMat = this.ctx.helpers.getDynamicMaterial(conf.gableMaterial || 'white_plaster_wall', 'wall') || new THREE.MeshStandardMaterial({color: 0xefede5});
+                    gableMat.side = THREE.DoubleSide;
+                    const gableMesh = new THREE.Mesh(gGeo, gableMat);
+                    gableMesh.userData = { isRoof: true, isGable: true, entity: roof, materialSlot: 'gable', componentType: 'gable_wall' };
+                    mesh.add(gableMesh);
+                    ComponentRegistry.registerMesh(roof, "gable", gableMesh);
+                }
+            } else if (conf.roofType === 'half_hip') {
+                let bMinX = Infinity, bMaxX = -Infinity, bMinY = Infinity, bMaxY = -Infinity;
+                pts.forEach(p => {
+                    bMinX = Math.min(bMinX, p.x); bMaxX = Math.max(bMaxX, p.x);
+                    bMinY = Math.min(bMinY, p.y); bMaxY = Math.max(bMaxY, p.y);
+                });
+                const bW = bMaxX - bMinX;
+                const bD = bMaxY - bMinY;
+
+                const pitch = conf.pitch || 30;
+                const maxSpan = Math.min(bW, bD);
+                const rh = Math.tan(pitch * Math.PI / 180) * (maxSpan / 2);
+                const isHorizontal = bW >= bD;
+
+                const v = [], uv = [];
+                const addTri = (p1, p2, p3) => {
+                    let dx1 = p2.x - p1.x, dz1 = p2.z - p1.z;
+                    let dx2 = p3.x - p1.x, dz2 = p3.z - p1.z;
+                    let ny = dz1 * dx2 - dx1 * dz2;
+                    if (ny < 0) {
+                        v.push(p1.x, p1.y, p1.z, p3.x, p3.y, p3.z, p2.x, p2.y, p2.z);
+                        uv.push(p1.x / 100, p1.z / 100, p3.x / 100, p3.z / 100, p2.x / 100, p2.z / 100);
+                    } else {
+                        v.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z, p3.x, p3.y, p3.z);
+                        uv.push(p1.x / 100, p1.z / 100, p2.x / 100, p2.z / 100, p3.x / 100, p3.z / 100);
+                    }
+                };
+
+                const dropFactor = Math.tan(pitch * Math.PI / 180);
+                const drop = -8 * dropFactor;
+                const cNW = { x: bMinX, y: drop, z: bMinY };
+                const cNE = { x: bMaxX, y: drop, z: bMinY };
+                const cSE = { x: bMaxX, y: drop, z: bMaxY };
+                const cSW = { x: bMinX, y: drop, z: bMaxY };
+
+                const gv = [], guv = [];
+
+                if (isHorizontal) {
+                    const r1 = { x: bMinX + bD / 2, y: rh, z: bMinY + bD / 2 };
+                    const r2 = { x: bMaxX, y: rh, z: bMinY + bD / 2 }; // Extended to East gable wall
+
+                    // 1. North Slope (Trapezoid)
+                    addTri(cNW, cNE, r2);
+                    addTri(cNW, r2, r1);
+
+                    // 2. West Hip End (Triangle)
+                    addTri(cSW, cNW, r1);
+
+                    // 3. South Slope (Trapezoid)
+                    addTri(cSE, cSW, r1);
+                    addTri(cSE, r1, r2);
+
+                    // 4. East Vertical Gable Wall
+                    gv.push(bMaxX, 0, bMinY, bMaxX, rh, bMinY + bD / 2, bMaxX, 0, bMaxY);
+                    guv.push(0, 0, 0.5, 1, 1, 0);
+                    gv.push(bMaxX, 0, bMinY, bMaxX, rh, bMinY + bD / 2, bMaxX, 0, bMinY + bD / 2);
+                    guv.push(0, 0, 0.5, 1, 0.5, 0);
+                } else {
+                    const r1 = { x: bMinX + bW / 2, y: rh, z: bMinY + bW / 2 };
+                    const r2 = { x: bMinX + bW / 2, y: rh, z: bMaxY };
+
+                    // 1. North Hip End (Triangle)
+                    addTri(cNE, cNW, r1);
+
+                    // 2. West Slope (Trapezoid)
+                    addTri(cNW, cSW, r2);
+                    addTri(cNW, r2, r1);
+
+                    // 3. East Slope (Trapezoid)
+                    addTri(cSE, cNE, r1);
+                    addTri(cSE, r1, r2);
+
+                    // 4. South Vertical Gable Wall
+                    gv.push(bMinX, 0, bMaxY, bMaxX, 0, bMaxY, bMinX + bW / 2, rh, bMaxY);
+                    guv.push(0, 0, 1, 0, 0.5, 1);
+                }
+
+                const T = conf.thickness || 8;
+                const {v: vThick, uv: uvThick} = thickenGeometry(v, uv, T);
+
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute("position", new THREE.Float32BufferAttribute(vThick, 3));
+                geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvThick, 2));
+                geo.computeVertexNormals();
+                
+                geo.addGroup(0, v.length / 3, 0); 
+                geo.addGroup(v.length / 3, (vThick.length - v.length) / 3, 1);
+
+                const fasciaMat = this.ctx.helpers.getDynamicMaterial('white_plaster_wall', 'wall') || new THREE.MeshStandardMaterial({color: 0xF5F5F5});
+                mesh = new THREE.Mesh(geo, [mat, fasciaMat]);
+
+                if (gv.length > 0) {
+                    const gGeo = new THREE.BufferGeometry();
+                    gGeo.setAttribute("position", new THREE.Float32BufferAttribute(gv, 3));
+                    gGeo.setAttribute("uv", new THREE.Float32BufferAttribute(guv, 2));
+                    gGeo.computeVertexNormals();
+
+                    let gableMat = this.ctx.helpers.getDynamicMaterial(conf.gableMaterial || 'white_plaster_wall', 'wall') || new THREE.MeshStandardMaterial({color: 0xefede5});
+                    gableMat.side = THREE.DoubleSide;
+                    const gableMesh = new THREE.Mesh(gGeo, gableMat);
+                    gableMesh.userData = { isRoof: true, isGable: true, entity: roof, materialSlot: 'gable', componentType: 'gable_wall' };
+                    mesh.add(gableMesh);
+                    ComponentRegistry.registerMesh(roof, "gable", gableMesh);
+                }
+            } else if (conf.roofType === 'gable' || conf.roofType === 'curved') {
                 let bMinX = Infinity, bMaxX = -Infinity, bMinY = Infinity, bMaxY = -Infinity;
                 basePts.forEach(p => {
                     bMinX = Math.min(bMinX, p.x); bMaxX = Math.max(bMaxX, p.x);
@@ -311,16 +544,31 @@ export class Roof3DBuilder {
                     refinedTriangles.push(...split);
                 });
                 
+                const curve = conf.curve || (conf.roofType === 'curved' ? -20 : 0);
                 refinedTriangles.forEach(tri => {
                     for (let i = 0; i < 3; i++) {
                         const pt = tri[i];
                         let rv = 0;
+                        let t = 0;
                         if (axis === 'x') {
-                            if (pt.y <= cy) rv = (pt.y - bMinY) * Math.tan(pitch * Math.PI / 180);
-                            else rv = (bMaxY - pt.y) * Math.tan(pitch * Math.PI / 180);
+                            if (pt.y <= cy) {
+                                t = (pt.y - bMinY) / (cy - bMinY || 1);
+                                rv = (pt.y - bMinY) * Math.tan(pitch * Math.PI / 180);
+                            } else {
+                                t = (bMaxY - pt.y) / (bMaxY - cy || 1);
+                                rv = (bMaxY - pt.y) * Math.tan(pitch * Math.PI / 180);
+                            }
                         } else {
-                            if (pt.x <= cx) rv = (pt.x - bMinX) * Math.tan(pitch * Math.PI / 180);
-                            else rv = (bMaxX - pt.x) * Math.tan(pitch * Math.PI / 180);
+                            if (pt.x <= cx) {
+                                t = (pt.x - bMinX) / (cx - bMinX || 1);
+                                rv = (pt.x - bMinX) * Math.tan(pitch * Math.PI / 180);
+                            } else {
+                                t = (bMaxX - pt.x) / (bMaxX - cx || 1);
+                                rv = (bMaxX - pt.x) * Math.tan(pitch * Math.PI / 180);
+                            }
+                        }
+                        if (curve !== 0) {
+                            rv += curve * Math.sin(Math.PI * Math.max(0, Math.min(1, t)));
                         }
                         v.push(pt.x, rv, pt.y);
                         uv.push(pt.x / 100, pt.y / 100);

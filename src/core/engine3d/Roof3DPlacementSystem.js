@@ -105,6 +105,7 @@ export class Roof3DPlacementSystem {
         return {
             roofType: presetParams.roofType || 'gable',
             pitch: presetParams.pitch !== undefined ? presetParams.pitch : 30,
+            curve: presetParams.curve !== undefined ? presetParams.curve : (presetParams.roofType === 'curved' ? -20 : 0),
             material: presetParams.material || 'terracotta_tiles_roof',
             overhang: presetParams.overhang !== undefined ? presetParams.overhang : 8,
             thick: presetParams.thick || 15
@@ -345,8 +346,10 @@ export class Roof3DPlacementSystem {
             if (!planner.roofs) planner.roofs = [];
 
             const newRoof = new PremiumHipRoof(planner, points);
+            newRoof.elevation = this.getBaseRoofElevation();
             if (params.roofType) newRoof.config.roofType = params.roofType;
             if (params.pitch !== undefined) newRoof.config.pitch = params.pitch;
+            if (params.curve !== undefined) newRoof.config.curve = params.curve;
             if (params.material) {
                 newRoof.config.material = params.material;
                 newRoof.configId = params.material;
@@ -422,20 +425,22 @@ export class Roof3DPlacementSystem {
 
     _renderGhostStamp(hit) {
         const autoShape = this._getAutoRoofShape(hit);
+        if (!autoShape || !autoShape.points || autoShape.points.length < 3) {
+            this.hideGhost();
+            return;
+        }
+
         this._buildGhost3DMesh(autoShape.points, hit.y);
 
         const params = this.getActiveRoofParams();
-        const roofTypeName = params.roofType.toUpperCase();
-        const dimStr = `${this._formatFeetInches(autoShape.width)} × ${this._formatFeetInches(autoShape.depth)}`;
-        
-        let label = `Click to place ${roofTypeName} Roof (${dimStr}) | Drag to draw custom area`;
-        if (autoShape.type === 'room') {
-            label = `Click to snap ${roofTypeName} Roof to Room (${dimStr}) | Drag to draw custom area`;
-        } else if (autoShape.type === 'building') {
-            label = `Click to snap ${roofTypeName} Roof to Building (${dimStr}) | Drag to draw custom area`;
-        }
+        const typeLabel = params.roofType.toUpperCase();
+        const targetLabel = autoShape.type === 'room' ? 'Room' : (autoShape.type === 'building' ? 'Building' : 'Custom');
+        const dimStr = `${this._formatFeetInches(autoShape.width)} \u00d7 ${this._formatFeetInches(autoShape.depth)}`;
 
-        this._updateDOMBadge(label, { x: this.lastClientX || 0, y: this.lastClientY || 0 });
+        this._updateDOMBadge(
+            `Click to snap ${typeLabel} Roof to ${targetLabel} (${dimStr}) | Drag to draw custom area`,
+            { x: this.lastClientX || 0, y: this.lastClientY || 0 }
+        );
 
         if (this.ctx && typeof this.ctx.requestRender === 'function') {
             this.ctx.requestRender();
@@ -444,9 +449,9 @@ export class Roof3DPlacementSystem {
 
     _buildGhost3DMesh(points, elevation) {
         while (this.ghostGroup.children.length > 0) {
-            const c = this.ghostGroup.children[0];
-            if (c.geometry) c.geometry.dispose();
-            this.ghostGroup.remove(c);
+            const child = this.ghostGroup.children[0];
+            this.ghostGroup.remove(child);
+            if (child.geometry) child.geometry.dispose();
         }
 
         const params = this.getActiveRoofParams();
@@ -455,6 +460,7 @@ export class Roof3DPlacementSystem {
             config: {
                 roofType: params.roofType,
                 pitch: params.pitch,
+                curve: params.curve,
                 material: params.material,
                 overhang: params.overhang,
                 thickness: params.thick

@@ -445,11 +445,63 @@ export class PremiumHipRoof {
                 // Right Slope Wall Profile (Inward)
                 this.addHatchedTriangle({x: maxX, y: minY}, {x: maxX - H, y: rightPeakY}, {x: maxX, y: maxY});
             }
+        } else if (this.config.roofType === 'shed') {
+            const axis = this.config.ridgeAxis || 'x';
+            const flip = !!this.config.flipSlope;
+            if (axis === 'x') {
+                const yHigh = flip ? minY : maxY;
+                this.hipLinesGroup.add(new Konva.Line({ points: [minX, yHigh, maxX, yHigh], stroke: ridgeStroke, strokeWidth: 3 }));
+                for (let i = 1; i <= 5; i++) {
+                    const y = minY + (maxY - minY) * (i / 6);
+                    this.hipLinesGroup.add(new Konva.Line({ points: [minX, y, maxX, y], stroke: hatchStroke, strokeWidth: 1, dash: [4, 4] }));
+                }
+            } else {
+                const xHigh = flip ? minX : maxX;
+                this.hipLinesGroup.add(new Konva.Line({ points: [xHigh, minY, xHigh, maxY], stroke: ridgeStroke, strokeWidth: 3 }));
+                for (let i = 1; i <= 5; i++) {
+                    const x = minX + (maxX - minX) * (i / 6);
+                    this.hipLinesGroup.add(new Konva.Line({ points: [x, minY, x, maxY], stroke: hatchStroke, strokeWidth: 1, dash: [4, 4] }));
+                }
+            }
+        } else if (this.config.roofType === 'half_hip') {
+            const bW = maxX - minX;
+            const bD = maxY - minY;
+            const isHorizontal = bW >= bD;
+            if (isHorizontal) {
+                const r1x = minX + bD / 2, r1y = minY + bD / 2;
+                const r2x = maxX, r2y = minY + bD / 2;
+                this.hipLinesGroup.add(new Konva.Line({ points: [r1x, r1y, r2x, r2y], stroke: ridgeStroke, strokeWidth: 2 }));
+                this.hipLinesGroup.add(new Konva.Line({ points: [minX, minY, r1x, r1y], stroke: ridgeStroke, strokeWidth: 1.5 }));
+                this.hipLinesGroup.add(new Konva.Line({ points: [minX, maxY, r1x, r1y], stroke: ridgeStroke, strokeWidth: 1.5 }));
+            } else {
+                const r1x = minX + bW / 2, r1y = minY + bW / 2;
+                const r2x = minX + bW / 2, r2y = maxY;
+                this.hipLinesGroup.add(new Konva.Line({ points: [r1x, r1y, r2x, r2y], stroke: ridgeStroke, strokeWidth: 2 }));
+                this.hipLinesGroup.add(new Konva.Line({ points: [minX, minY, r1x, r1y], stroke: ridgeStroke, strokeWidth: 1.5 }));
+                this.hipLinesGroup.add(new Konva.Line({ points: [maxX, minY, r1x, r1y], stroke: ridgeStroke, strokeWidth: 1.5 }));
+            }
         } else {
-            // Hip Roof Diagonals (Solid Lines)
-            pts.forEach(p => { 
-                this.hipLinesGroup.add(new Konva.Line({ points: [p.x, p.y, cx, cy], stroke: ridgeStroke, strokeWidth: 1.5 })); 
-            });
+            // Hip Roof Ridge Line and 4 Hip Rafters
+            const bW = maxX - minX;
+            const bD = maxY - minY;
+            const isHorizontal = bW >= bD;
+            if (isHorizontal) {
+                const r1x = minX + bD / 2, r1y = minY + bD / 2;
+                const r2x = maxX - bD / 2, r2y = minY + bD / 2;
+                this.hipLinesGroup.add(new Konva.Line({ points: [r1x, r1y, r2x, r2y], stroke: ridgeStroke, strokeWidth: 2 }));
+                this.hipLinesGroup.add(new Konva.Line({ points: [minX, minY, r1x, r1y], stroke: ridgeStroke, strokeWidth: 1.5 }));
+                this.hipLinesGroup.add(new Konva.Line({ points: [minX, maxY, r1x, r1y], stroke: ridgeStroke, strokeWidth: 1.5 }));
+                this.hipLinesGroup.add(new Konva.Line({ points: [maxX, minY, r2x, r2y], stroke: ridgeStroke, strokeWidth: 1.5 }));
+                this.hipLinesGroup.add(new Konva.Line({ points: [maxX, maxY, r2x, r2y], stroke: ridgeStroke, strokeWidth: 1.5 }));
+            } else {
+                const r1x = minX + bW / 2, r1y = minY + bW / 2;
+                const r2x = minX + bW / 2, r2y = maxY - bW / 2;
+                this.hipLinesGroup.add(new Konva.Line({ points: [r1x, r1y, r2x, r2y], stroke: ridgeStroke, strokeWidth: 2 }));
+                this.hipLinesGroup.add(new Konva.Line({ points: [minX, minY, r1x, r1y], stroke: ridgeStroke, strokeWidth: 1.5 }));
+                this.hipLinesGroup.add(new Konva.Line({ points: [maxX, minY, r1x, r1y], stroke: ridgeStroke, strokeWidth: 1.5 }));
+                this.hipLinesGroup.add(new Konva.Line({ points: [minX, maxY, r2x, r2y], stroke: ridgeStroke, strokeWidth: 1.5 }));
+                this.hipLinesGroup.add(new Konva.Line({ points: [maxX, maxY, r2x, r2y], stroke: ridgeStroke, strokeWidth: 1.5 }));
+            }
         }
     }
 
