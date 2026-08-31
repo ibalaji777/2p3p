@@ -171,11 +171,18 @@ export class Roof3DPlacementSystem {
         const planner = this.getPlanner();
         let targetElevation = this.getBaseRoofElevation();
 
-        // 1. Direct 3D Raycasting against actual wall and roof meshes (Sims 4 Roof-on-Wall Placement)
+        // 1. Direct 3D Raycasting against actual wall, floor slab, terrain, and roof meshes (Sims 4 Placement)
         const structureObjects = [];
         if (this.ctx.structureGroup) {
             this.ctx.structureGroup.traverse(child => {
-                if (child.isMesh && child.userData && (child.userData.isWallSide || child.userData.entity || child.userData.isRoof || child.userData.componentType === 'roof_top')) {
+                if (child.isMesh && child.userData && (
+                    child.userData.isWallSide || 
+                    child.userData.entity || 
+                    child.userData.isRoof || 
+                    child.userData.componentType === 'roof_top' ||
+                    child.userData.isFloor ||
+                    child.userData.isTerrain
+                )) {
                     structureObjects.push(child);
                 }
             });
@@ -192,7 +199,7 @@ export class Roof3DPlacementSystem {
                     const wallBaseY = entity.elevation || 0;
                     const wallH = entity.height !== undefined ? entity.height : (entity.config?.height || 120);
                     targetElevation = wallBaseY + wallH;
-                } else if (hit.point && hit.point.y) {
+                } else if (hit.point && hit.point.y !== undefined) {
                     targetElevation = Math.round(hit.point.y * 10) / 10;
                 }
 
@@ -223,8 +230,9 @@ export class Roof3DPlacementSystem {
             }
         }
 
-        // 2. Fallback to active level elevation plane
-        this.placementPlane.constant = -targetElevation;
+        // 2. Fallback to Ground / Active Level Elevation Plane (y = 0 for flat ground roof)
+        const groundElev = this.ctx?.activeLevelElevation || 0;
+        this.placementPlane.constant = -groundElev;
         const planePt = new THREE.Vector3();
         const hitPlane = this.raycaster.ray.intersectPlane(this.placementPlane, planePt);
 
@@ -245,7 +253,7 @@ export class Roof3DPlacementSystem {
                 finalX = Math.round(planePt.x / snap) * snap;
                 finalZ = Math.round(planePt.z / snap) * snap;
             }
-            return { x: finalX, y: targetElevation, z: finalZ, rawPoint: planePt };
+            return { x: finalX, y: groundElev, z: finalZ, rawPoint: planePt };
         }
 
         return null;
@@ -614,11 +622,14 @@ export class Roof3DPlacementSystem {
 
         const params = this.getActiveRoofParams();
         const typeLabel = params.roofType.toUpperCase();
-        const targetLabel = autoShape.type === 'room' ? 'Room' : (autoShape.type === 'building' ? 'Building' : 'Custom');
+        const isGround = (roofElev <= 5);
+        const targetLabel = isGround ? 'FLAT GROUND' : (autoShape.type === 'room' ? 'ROOM' : (autoShape.type === 'building' ? 'BUILDING' : 'CUSTOM'));
         const dimStr = `${this._formatFeetInches(autoShape.width)} \u00d7 ${this._formatFeetInches(autoShape.depth)}`;
+        const icon = isGround ? '🏕️' : '🏠';
+        const color = isGround ? '#38bdf8' : '#34d399';
 
         this._updateDOMBadge(
-            `<span style="color: #34d399;">🏠 SNAP TO ${targetLabel.toUpperCase()}</span> &bull; ${typeLabel} ROOF (${params.pitch}&deg;) &bull; ${dimStr}`,
+            `<span style="color: ${color};">${icon} ${targetLabel}</span> &bull; ${typeLabel} ROOF (${params.pitch}&deg;) &bull; ${dimStr}`,
             { x: this.lastClientX || 0, y: this.lastClientY || 0 }
         );
 

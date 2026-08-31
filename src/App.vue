@@ -239,16 +239,11 @@ const handleCatalogSelect = (item) => {
             const rType = item.params?.roofType || item.params?.id || 'gable';
             const params = { toolId: 'roof', roofType: rType, pitch: item.params?.pitch || 30, material: item.params?.material || 'terracotta_tiles_roof', ...item.params };
             
-            // If a roof is currently selected, update its style live
-            if (planner.value.selectedEntity && planner.value.selectedType === 'roof') {
-                planner.value.addAutoRoof(params);
-                if (viewMode.value === '3d') refresh3DScene(true);
-            } else {
-                // Otherwise activate Sims 4 interactive 3D placement/drawing tool
-                planner.value.activePresetParams = params;
-                activePresetParams.value = params;
-                setTool('roof', params);
-            }
+            // Always activate Sims 4 interactive placement tool so the user places the roof where they choose
+            if (planner.value.deselectAll) planner.value.deselectAll();
+            planner.value.activePresetParams = params;
+            activePresetParams.value = params;
+            setTool('roof', params);
         } else if (item.toolId === 'skylight' || item.type === 'skylight' || (item.id && item.id.startsWith('skylight_'))) {
             const params = { toolId: 'skylight', ...item.params, name: item.name };
             planner.value.activePresetParams = params;
