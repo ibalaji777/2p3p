@@ -474,19 +474,29 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
             minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
         });
 
-        const cx = (minX + maxX) / 2;
-        const cz = (minY + maxY) / 2;
-        const w = maxX - minX;
-        const d = maxY - minY;
+        const groupX = (entity.group && typeof entity.group.x === 'function') ? entity.group.x() : 0;
+        const groupZ = (entity.group && typeof entity.group.y === 'function') ? entity.group.y() : 0;
+
+        const worldMinX = groupX + minX;
+        const worldMaxX = groupX + maxX;
+        const worldMinY = groupZ + minY;
+        const worldMaxY = groupZ + maxY;
+
+        const cx = (worldMinX + worldMaxX) / 2;
+        const cz = (worldMinY + worldMaxY) / 2;
+        const w = worldMaxX - worldMinX;
+        const d = worldMaxY - worldMinY;
         const span = Math.min(w, d);
 
         const pitch = conf.pitch !== undefined ? conf.pitch : 30;
         const rh = Math.tan(pitch * Math.PI / 180) * (span / 2);
 
         // Find actual world elevation of the roof
-        let baseY = entity.elevation !== undefined ? entity.elevation : 120;
-        if (this.target.parent && this.target.parent.position) {
+        let baseY = 120;
+        if (this.target.parent && this.target.parent.position && this.target.parent.position.y > 0) {
             baseY = this.target.parent.position.y;
+        } else if (entity.elevation !== undefined) {
+            baseY = entity.elevation;
         }
 
         const overhang = conf.overhang !== undefined ? conf.overhang : 8;
@@ -507,20 +517,20 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
         // 3. Eave Overhang Pull-Tabs (Dedicated at the 4 center eave edges)
         if (this.overhangHandles && this.overhangHandles.length >= 4) {
             const eaveY = baseY + 4;
-            this.overhangHandles[0].position.set(cx, eaveY, minY - overhang - 4); // North Eave
-            this.overhangHandles[1].position.set(maxX + overhang + 4, eaveY, cz);  // East Eave
-            this.overhangHandles[2].position.set(cx, eaveY, maxY + overhang + 4); // South Eave
-            this.overhangHandles[3].position.set(minX - overhang - 4, eaveY, cz);  // West Eave
+            this.overhangHandles[0].position.set(cx, eaveY, worldMinY - overhang - 4); // North Eave
+            this.overhangHandles[1].position.set(worldMaxX + overhang + 4, eaveY, cz);  // East Eave
+            this.overhangHandles[2].position.set(cx, eaveY, worldMaxY + overhang + 4); // South Eave
+            this.overhangHandles[3].position.set(worldMinX - overhang - 4, eaveY, cz);  // West Eave
         }
 
         // 4. Boundary Corner Stretch Crystals (Dedicated at the 4 outer footprint corners)
         if (this.stretchHandles && this.stretchHandles.length >= 4) {
             const cornerY = baseY + 4;
             const cornerOffset = overhang + 6;
-            this.stretchHandles[0].position.set(minX - cornerOffset, cornerY, minY - cornerOffset); // NW Corner
-            this.stretchHandles[1].position.set(maxX + cornerOffset, cornerY, minY - cornerOffset); // NE Corner
-            this.stretchHandles[2].position.set(maxX + cornerOffset, cornerY, maxY + cornerOffset); // SE Corner
-            this.stretchHandles[3].position.set(minX - cornerOffset, cornerY, maxY + cornerOffset); // SW Corner
+            this.stretchHandles[0].position.set(worldMinX - cornerOffset, cornerY, worldMinY - cornerOffset); // NW Corner
+            this.stretchHandles[1].position.set(worldMaxX + cornerOffset, cornerY, worldMinY - cornerOffset); // NE Corner
+            this.stretchHandles[2].position.set(worldMaxX + cornerOffset, cornerY, worldMaxY + cornerOffset); // SE Corner
+            this.stretchHandles[3].position.set(worldMinX - cornerOffset, cornerY, worldMaxY + cornerOffset); // SW Corner
         }
     }
 
