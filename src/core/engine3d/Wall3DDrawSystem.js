@@ -406,11 +406,12 @@ export class Wall3DDrawSystem {
                 }
 
                 if (isRoofHit) {
+                    const roofBaseElev = entity?.elevation !== undefined ? entity.elevation : (this.getFloorElevation() + 120);
                     return {
                         hitPoint3D: hit.point,
                         directWallHit: null,
                         directRoofHit: entity,
-                        elevation: Math.round(hit.point.y * 10) / 10,
+                        elevation: roofBaseElev,
                         isFloor: false,
                         isRoof: true
                     };
@@ -419,7 +420,7 @@ export class Wall3DDrawSystem {
                 if (entity && entity.startAnchor && entity.endAnchor) {
                     const wallBaseY = entity.elevation || 0;
                     const wallHeight = entity.height || 120;
-                    const isNearTop = hit.point.y >= (wallBaseY + wallHeight * 0.75);
+                    const isNearTop = hit.point.y >= (wallBaseY + wallHeight * 0.5);
                     const wallElev = isNearTop ? (wallBaseY + wallHeight) : wallBaseY;
 
                     return {

@@ -617,7 +617,45 @@ export class Roof3DBuilder {
                     };
                 });
 
-                const slopeCutouts = [...skylightCutouts, ...dormerCutouts];
+                // Calculate aperture cutouts for any upper-level walls/rooms intersecting this roof (Sims 4 Dormer/Room roof void clipping)
+                const wallCutouts = [];
+                if (wallList && wallList.length > 0) {
+                    const roofElev = roof.elevation !== undefined ? roof.elevation : 120;
+                    const upperWalls = wallList.filter(w => !w.hidden && (w.elevation || 0) >= (roofElev - 5));
+
+                    if (upperWalls.length > 0) {
+                        let uMinX = Infinity, uMaxX = -Infinity, uMinZ = Infinity, uMaxZ = -Infinity;
+                        let hasUpperWallInRoof = false;
+
+                        upperWalls.forEach(w => {
+                            const p1 = (w.startAnchor && typeof w.startAnchor.position === 'function') ? w.startAnchor.position() : (w.startAnchor || { x: w.startX || 0, y: w.startY || 0 });
+                            const p2 = (w.endAnchor && typeof w.endAnchor.position === 'function') ? w.endAnchor.position() : (w.endAnchor || { x: w.endX || 0, y: w.endY || 0 });
+                            const wMinX = Math.min(p1.x, p2.x);
+                            const wMaxX = Math.max(p1.x, p2.x);
+                            const wMinZ = Math.min(p1.y, p2.y);
+                            const wMaxZ = Math.max(p1.y, p2.y);
+
+                            if (wMaxX >= bMinX && wMinX <= bMaxX && wMaxZ >= bMinY && wMinZ <= bMaxY) {
+                                hasUpperWallInRoof = true;
+                                uMinX = Math.min(uMinX, wMinX);
+                                uMaxX = Math.max(uMaxX, wMaxX);
+                                uMinZ = Math.min(uMinZ, wMinZ);
+                                uMaxZ = Math.max(uMaxZ, wMaxZ);
+                            }
+                        });
+
+                        if (hasUpperWallInRoof && uMinX !== Infinity) {
+                            wallCutouts.push({
+                                x0: uMinX,
+                                x1: uMaxX,
+                                z0: uMinZ,
+                                z1: uMaxZ
+                            });
+                        }
+                    }
+                }
+
+                const slopeCutouts = [...skylightCutouts, ...dormerCutouts, ...wallCutouts];
 
                 const addSegmentedSlopeStripX = (targetV, targetUV, z0, z1, y0, y1) => {
                     const minZ = Math.min(z0, z1);
