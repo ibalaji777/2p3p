@@ -4023,7 +4023,7 @@ export const GIZMO_REGISTRY = {
     'floor': ['material'],
     'room': ['material'],
     'wall': ['pushPull', 'material'],
-    'roof': ['material', 'roofCorners'],
+    'roof': ['material', 'roofCorners', 'move', 'spin'],
     'door': ['move', 'opening', 'material', 'style'],
     'door_french': ['move', 'opening', 'material'],
     'window': ['move', 'opening', 'material', 'style'],

@@ -790,6 +790,14 @@ export class Roof3DBuilder {
                 mesh = new THREE.Mesh(geo, [mat, fasciaMat]);
             }
 
+            let ptsMinX = Infinity, ptsMaxX = -Infinity, ptsMinY = Infinity, ptsMaxY = -Infinity;
+            (roof.points || []).forEach(p => {
+                ptsMinX = Math.min(ptsMinX, p.x); ptsMaxX = Math.max(ptsMaxX, p.x);
+                ptsMinY = Math.min(ptsMinY, p.y); ptsMaxY = Math.max(ptsMaxY, p.y);
+            });
+            const cx = (ptsMinX !== Infinity) ? (ptsMinX + ptsMaxX) / 2 : 0;
+            const cz = (ptsMinY !== Infinity) ? (ptsMinY + ptsMaxY) / 2 : 0;
+
             const roofGroup = new THREE.Group();
             let groupX = 0, groupZ = 0;
             if (roof.group && typeof roof.group.x === 'function') {
@@ -799,10 +807,13 @@ export class Roof3DBuilder {
                 groupX = roof.x;
                 groupZ = roof.y;
             }
-            roofGroup.position.set(groupX, h, groupZ);
+            roofGroup.position.set(groupX + cx, h, groupZ + cz);
             
             let rot = roof.rotation || 0;
+            if (roof.group && typeof roof.group.rotation === 'function') rot = roof.group.rotation();
             roofGroup.rotation.y = -rot * Math.PI / 180;
+
+            mesh.position.set(-cx, 0, -cz);
 
             mesh.castShadow = true;
             mesh.receiveShadow = true;

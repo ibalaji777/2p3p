@@ -741,7 +741,7 @@ export class InteractionSystem {
             if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
             if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
-            if (this.roofPitchGizmo && this.selectedObject) this.roofPitchGizmo.attach(this.selectedObject);
+            if (this.roofPitchGizmo && this.selectedObject) this.roofPitchGizmo.attach(this.selectedObject, 'corners');
         } else if (mode === 'none') {
             if (this.transformControls) this.transformControls.detach();
             if (this.openingGizmo) this.openingGizmo.detach();
@@ -750,8 +750,12 @@ export class InteractionSystem {
             if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
             if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
-            if (this.roofPitchGizmo && (!this.selectedObject || (!this.selectedObject.userData?.isRoof && this.selectedObject.userData?.entity?.type !== 'roof'))) {
-                this.roofPitchGizmo.detach();
+            if (this.roofPitchGizmo) {
+                if (this.selectedObject && (this.selectedObject.userData?.isRoof || this.selectedObject.userData?.entity?.type === 'roof')) {
+                    this.roofPitchGizmo.attach(this.selectedObject, 'corners');
+                } else {
+                    this.roofPitchGizmo.detach();
+                }
             }
         } else {
             if (this.openingGizmo) this.openingGizmo.detach();
@@ -760,10 +764,19 @@ export class InteractionSystem {
             if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
             if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
-            if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
-            if (this.transformControls) {
-                this.transformControls.mode = mode;
-                this.transformControls.attach(this.selectedObject);
+            const isRoofObj = this.selectedObject && (this.selectedObject.userData?.isRoof || this.selectedObject.userData?.entity?.type === 'roof');
+            if (isRoofObj && (mode === 'translate' || mode === 'move')) {
+                if (this.transformControls) this.transformControls.detach();
+                if (this.roofPitchGizmo) this.roofPitchGizmo.attach(this.selectedObject, 'move');
+            } else if (isRoofObj && (mode === 'rotateY' || mode === 'spin')) {
+                if (this.transformControls) this.transformControls.detach();
+                if (this.roofPitchGizmo) this.roofPitchGizmo.attach(this.selectedObject, 'spin');
+            } else {
+                if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
+                if (this.transformControls) {
+                    this.transformControls.mode = mode;
+                    this.transformControls.attach(this.selectedObject);
+                }
             }
         }
     }
@@ -872,7 +885,7 @@ export class InteractionSystem {
             if (this.dimensionManager) this.dimensionManager.onSelect(object.userData.entity, object);
 
             if (object.userData?.isRoof || object.userData?.entity?.type === 'roof') {
-                if (this.roofPitchGizmo) this.roofPitchGizmo.attach(object);
+                if (this.roofPitchGizmo) this.roofPitchGizmo.attach(object, 'corners');
             } else {
                 if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
             }

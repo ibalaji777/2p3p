@@ -225,6 +225,49 @@ export class GizmoManager {
         this.openingPanel.addEventListener('pointerdown', e => e.stopPropagation());
         this.container.appendChild(this.openingPanel);
         this.transformMenu.appendChild(this.btnOpening);
+
+        // Dedicated Roof Spin & Orientation Floating Panel
+        this.roofSpinPanel = document.createElement('div');
+        this.roofSpinPanel.className = 'roof-spin-panel';
+        this.roofSpinPanel.style.cssText = `
+            display: none; position: absolute; bottom: 130px; left: 50%;
+            transform: translateX(-50%); background: rgba(15, 23, 42, 0.95);
+            padding: 12px 18px; border-radius: 14px; color: white;
+            pointer-events: auto; box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            border: 1px solid rgba(99, 102, 241, 0.4); backdrop-filter: blur(12px);
+            z-index: 1000; flex-direction: column; gap: 10px; min-width: 280px;
+        `;
+        this.roofSpinPanel.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px;">
+                <span style="font-size: 11px; font-weight: 800; color: #818cf8; letter-spacing: 0.8px; display: flex; align-items: center; gap: 6px;">
+                    ⭮ ROOF SPIN & ORIENTATION
+                </span>
+                <span id="gizmo-roof-angle-display" style="font-size: 12px; font-weight: 700; color: #fde047;">0°</span>
+            </div>
+            
+            <div style="display: flex; gap: 8px;">
+                <button id="gizmo-roof-spin-ccw90" style="flex: 1; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.5); color: white; border-radius: 6px; padding: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;">↺ -90°</button>
+                <button id="gizmo-roof-spin-cw90" style="flex: 1; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.5); color: white; border-radius: 6px; padding: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;">↻ +90°</button>
+                <button id="gizmo-roof-flip-ridge" style="flex: 1.2; background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.5); color: #fde047; border-radius: 6px; padding: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s;">↔ Flip Axis</button>
+            </div>
+
+            <div style="display: flex; gap: 4px; justify-content: space-between;">
+                <button class="gizmo-roof-angle-preset" data-angle="0" style="flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: white; border-radius: 4px; padding: 4px; font-size: 11px; cursor: pointer;">0°</button>
+                <button class="gizmo-roof-angle-preset" data-angle="45" style="flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: white; border-radius: 4px; padding: 4px; font-size: 11px; cursor: pointer;">45°</button>
+                <button class="gizmo-roof-angle-preset" data-angle="90" style="flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: white; border-radius: 4px; padding: 4px; font-size: 11px; cursor: pointer;">90°</button>
+                <button class="gizmo-roof-angle-preset" data-angle="180" style="flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: white; border-radius: 4px; padding: 4px; font-size: 11px; cursor: pointer;">180°</button>
+                <button class="gizmo-roof-angle-preset" data-angle="270" style="flex: 1; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: white; border-radius: 4px; padding: 4px; font-size: 11px; cursor: pointer;">270°</button>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 11px; color: #94a3b8; width: 32px;">Angle</span>
+                <input type="range" id="gizmo-roof-angle-slider" min="0" max="360" step="1" style="flex: 1; accent-color: #6366f1; cursor: pointer;">
+                <input type="number" id="gizmo-roof-angle-input" min="0" max="360" step="1" style="width: 42px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 4px; padding: 2px 4px; font-size: 11px; text-align: right;">
+            </div>
+        `;
+        this.roofSpinPanel.addEventListener('pointerdown', e => e.stopPropagation());
+        this.container.appendChild(this.roofSpinPanel);
+        this._initRoofSpinPanelEvents();
         
         // Add custom styles for the new Material Library
         if (!document.getElementById('gizmo-material-styles')) {
@@ -3078,6 +3121,83 @@ export class GizmoManager {
             'color: #f59e0b; font-weight: bold;', 'color: #9ca3af;', 'color: #3b82f6; font-weight: bold;', 'color: #6b7280;');
 
 
+        const isRoof = selectedObj && (selectedObj.userData?.isRoof || (entity && entity.type === 'roof'));
+        if (isRoof) {
+            tc.visible = false;
+            tc.enabled = false;
+            tc.detach();
+            if (this.ctx.controls) this.ctx.controls.enabled = true;
+
+            // Keep all roof menu buttons visible in toolbar
+            if (this.btnMaterial) this.btnMaterial.style.display = 'flex';
+            if (this.btnRoofCorners) this.btnRoofCorners.style.display = 'flex';
+            if (this.btnMove) this.btnMove.style.display = 'flex';
+            if (this.btnSpin) this.btnSpin.style.display = 'flex';
+            if (this.btnRoofOverhang) this.btnRoofOverhang.style.display = 'none';
+            if (this.btnPlace) this.btnPlace.style.display = 'none';
+            if (this.btnScale) this.btnScale.style.display = 'none';
+            if (this.btnTilt) this.btnTilt.style.display = 'none';
+            if (this.btnOpening) this.btnOpening.style.display = 'none';
+            if (this.btnStyle) this.btnStyle.style.display = 'none';
+            if (this.btnCorner) this.btnCorner.style.display = 'none';
+            if (this.btnVertexSlope) this.btnVertexSlope.style.display = 'none';
+            if (this.btnPolygonEdges) this.btnPolygonEdges.style.display = 'none';
+            if (this.btnPushPull) this.btnPushPull.style.display = 'none';
+            if (this.btnCloseMenu) this.btnCloseMenu.style.display = 'flex';
+            if (this.btnDone) this.btnDone.style.display = 'none';
+
+            // Active button indicators
+            if (this.btnMaterial) this.btnMaterial.classList.toggle('active', mode === 'material');
+            if (this.btnRoofCorners) this.btnRoofCorners.classList.toggle('active', mode === 'roof_corners' || mode === 'corners' || mode === 'none');
+            if (this.btnMove) this.btnMove.classList.toggle('active', mode === 'translate' || mode === 'move');
+            if (this.btnSpin) this.btnSpin.classList.toggle('active', mode === 'rotateY' || mode === 'spin');
+
+            if (this.xyPanel) this.xyPanel.style.display = 'none';
+            if (this.openingPanel) this.openingPanel.style.display = 'none';
+            if (this.cornerPanel) this.cornerPanel.style.display = 'none';
+            if (this.stylePanel) this.stylePanel.style.display = 'none';
+            if (this.roofSpinPanel && (mode !== 'rotateY' && mode !== 'spin')) {
+                this.roofSpinPanel.style.display = 'none';
+            }
+
+            if (mode === 'material') {
+                if (this.ctx.interactions.roofPitchGizmo) {
+                    this.ctx.interactions.roofPitchGizmo.detach();
+                }
+                this.onMaterialFaceSelected('top', -1, selectedObj, 0, 'roof');
+                return;
+            }
+
+            if (this.materialPanel) {
+                this.materialPanel.classList.remove('active');
+                this.materialPanel.style.display = 'none';
+            }
+
+            if (mode === 'translate' || mode === 'move') {
+                if (this.ctx.interactions.roofPitchGizmo) {
+                    this.ctx.interactions.roofPitchGizmo.attach(selectedObj, 'move');
+                }
+                return;
+            }
+
+            if (mode === 'rotateY' || mode === 'spin') {
+                if (this.roofSpinPanel && selectedObj) {
+                    this.roofSpinPanel.style.display = 'flex';
+                    this.syncRoofSpinPanel(selectedObj.userData.entity);
+                }
+                if (this.ctx.interactions.roofPitchGizmo) {
+                    this.ctx.interactions.roofPitchGizmo.attach(selectedObj, 'spin');
+                }
+                return;
+            }
+
+            // Default 'corners' / 'none' mode
+            if (this.ctx.interactions.roofPitchGizmo) {
+                this.ctx.interactions.roofPitchGizmo.attach(selectedObj, 'corners');
+            }
+            return;
+        }
+
         if (mode === 'none') {
             tc.visible = false;
             tc.enabled = false;
@@ -3121,7 +3241,7 @@ export class GizmoManager {
             if (this.btnCorner) this.btnCorner.style.display = activeGizmos.includes('corner') ? 'flex' : 'none';
             if (this.btnVertexSlope) this.btnVertexSlope.style.display = activeGizmos.includes('vertexSlope') ? 'flex' : 'none';
             if (this.btnRoofCorners) this.btnRoofCorners.style.display = activeGizmos.includes('roofCorners') ? 'flex' : 'none';
-            if (this.btnRoofOverhang) this.btnRoofOverhang.style.display = activeGizmos.includes('roofCorners') ? 'flex' : 'none';
+            if (this.btnRoofOverhang) this.btnRoofOverhang.style.display = 'none';
             if (this.btnPolygonEdges) this.btnPolygonEdges.style.display = activeGizmos.includes('polygonEdges') ? 'flex' : 'none';
             if (this.btnPushPull) this.btnPushPull.style.display = activeGizmos.includes('pushPull') ? 'flex' : 'none';
             if (this.btnCloseMenu) this.btnCloseMenu.style.display = 'flex';
@@ -3140,8 +3260,9 @@ export class GizmoManager {
                 
                 // Return camera to normal state when done with gizmo
                 try {
+                    const isRoofObj = selectedObj.userData?.isRoof || (selectedObj.userData?.entity && selectedObj.userData.entity.type === 'roof');
                     const settings = useSettingsStore().floorPlanSettings;
-                    if (settings.autoFocus !== false && this.ctx.cameraController) {
+                    if (!isRoofObj && settings.autoFocus !== false && this.ctx.cameraController) {
                         this.ctx.cameraController.focusOnObject(selectedObj, null, settings.autoRotate !== false, 1.0);
                     }
                 } catch(e) {}
@@ -3154,11 +3275,12 @@ export class GizmoManager {
 
         tc.showY = true;
         tc.showZ = true;
-        // Auto-focus and adjust zoom when entering a gizmo mode
+        // Auto-focus and adjust zoom when entering a gizmo mode (skip for roof to keep camera stable)
         if (mode !== 'none' && selectedObj) {
             try {
+                const isRoofObj = selectedObj.userData?.isRoof || (selectedObj.userData?.entity && selectedObj.userData.entity.type === 'roof');
                 const settings = useSettingsStore().floorPlanSettings;
-                if (settings.autoFocus !== false && this.ctx.cameraController) {
+                if (!isRoofObj && settings.autoFocus !== false && this.ctx.cameraController) {
                     // Zoom in close for materials, zoom out wider for move/opening/scale so gizmo handles fit on screen
                     const zoomMult = mode === 'material' ? 1.0 : 1.7;
                     this.ctx.cameraController.focusOnObject(selectedObj, null, settings.autoRotate !== false, zoomMult);
@@ -3213,6 +3335,12 @@ export class GizmoManager {
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
             if (this.cornerPanel) this.cornerPanel.style.display = 'none';
+
+            const isRoof = selectedObj && (selectedObj.userData.isRoof || (entity && entity.type === 'roof'));
+            if (isRoof) {
+                this.onMaterialFaceSelected('top', -1, selectedObj, 0, 'roof');
+                return;
+            }
 
             const isWall = selectedObj && (selectedObj.userData.isWallSide || selectedObj.userData.isWallMesh || selectedObj.userData.isWallDecor || entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'wallDecor');
             const targetToAttach = (isWall && selectedObj.parent) ? selectedObj.parent : selectedObj;
@@ -3290,8 +3418,7 @@ export class GizmoManager {
         if (mode === 'roof_corners' || mode === 'roof_overhang') {
             tc.visible = false;
             tc.enabled = false;
-            if (this.btnRoofCorners) this.btnRoofCorners.classList.toggle('active', mode === 'roof_corners');
-            if (this.btnRoofOverhang) this.btnRoofOverhang.classList.toggle('active', mode === 'roof_overhang');
+            if (this.btnRoofCorners) this.btnRoofCorners.classList.add('active');
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
             if (this.materialPanel) this.materialPanel.style.display = 'none';
@@ -3300,7 +3427,7 @@ export class GizmoManager {
             if (this.ctx.interactions.roofCornerGizmo) this.ctx.interactions.roofCornerGizmo.detach();
             if (this.ctx.interactions.roofOverhangGizmo) this.ctx.interactions.roofOverhangGizmo.detach();
             if (this.ctx.interactions.roofPitchGizmo && selectedObj) {
-                this.ctx.interactions.roofPitchGizmo.attach(selectedObj);
+                this.ctx.interactions.roofPitchGizmo.attach(selectedObj, 'corners');
             }
             return;
         }
@@ -3346,6 +3473,17 @@ export class GizmoManager {
                 }
                 return;
             }
+            const isRoof = selectedObj && (selectedObj.userData.isRoof || (entity && entity.type === 'roof'));
+            if (isRoof) {
+                tc.visible = false;
+                tc.enabled = false;
+                this.btnMove.classList.add('active');
+                if (this.xyPanel) this.xyPanel.style.display = 'none';
+                if (this.ctx.interactions.roofPitchGizmo && selectedObj) {
+                    this.ctx.interactions.roofPitchGizmo.attach(selectedObj);
+                }
+                return;
+            }
             tc.mode = 'translate';
             tc.showTranslate = true; tc.showRotate = false; tc.showScale = false;
             tc.showX = true; tc.showY = false; tc.showZ = true;
@@ -3377,6 +3515,17 @@ export class GizmoManager {
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             this.btnTilt.classList.add('active'); // Tilt
         } else if (mode === 'rotateY') {
+            const isRoof = selectedObj && (selectedObj.userData.isRoof || (entity && entity.type === 'roof'));
+            if (isRoof) {
+                tc.visible = false;
+                tc.enabled = false;
+                this.btnSpin.classList.add('active');
+                if (this.xyPanel) this.xyPanel.style.display = 'none';
+                if (this.ctx.interactions.roofPitchGizmo && selectedObj) {
+                    this.ctx.interactions.roofPitchGizmo.attach(selectedObj);
+                }
+                return;
+            }
             tc.mode = 'rotate';
             tc.showTranslate = false; tc.showRotate = true; tc.showScale = false;
             tc.showX = false; tc.showY = true; tc.showZ = false;
@@ -3484,6 +3633,111 @@ export class GizmoManager {
         }
     }
 
+    _initRoofSpinPanelEvents() {
+        if (!this.roofSpinPanel) return;
+        const ccwBtn = document.getElementById('gizmo-roof-spin-ccw90');
+        const cwBtn = document.getElementById('gizmo-roof-spin-cw90');
+        const flipBtn = document.getElementById('gizmo-roof-flip-ridge');
+        const slider = document.getElementById('gizmo-roof-angle-slider');
+        const input = document.getElementById('gizmo-roof-angle-input');
+        const presets = this.roofSpinPanel.querySelectorAll('.gizmo-roof-angle-preset');
+
+        const getActiveRoof = () => {
+            const obj = this.ctx.interactions?.selectedObject;
+            return obj?.userData?.entity;
+        };
+
+        if (ccwBtn) {
+            ccwBtn.onclick = () => {
+                const roof = getActiveRoof();
+                if (roof) {
+                    const current = roof.rotation || 0;
+                    this.updateRoofRotation(roof, current - 90);
+                }
+            };
+        }
+
+        if (cwBtn) {
+            cwBtn.onclick = () => {
+                const roof = getActiveRoof();
+                if (roof) {
+                    const current = roof.rotation || 0;
+                    this.updateRoofRotation(roof, current + 90);
+                }
+            };
+        }
+
+        if (flipBtn) {
+            flipBtn.onclick = () => {
+                const roof = getActiveRoof();
+                if (roof) {
+                    const conf = roof.config || roof;
+                    conf.ridgeAxis = (conf.ridgeAxis === 'y') ? 'x' : 'y';
+                    conf.manualRidge = true;
+                    if (this.ctx.envBuilder?.updateRoofLive) this.ctx.envBuilder.updateRoofLive(roof);
+                    if (roof.update) roof.update();
+                    if (this.ctx.planner?.stage?.batchDraw) this.ctx.planner.stage.batchDraw();
+                    if (this.ctx.interactions.roofPitchGizmo) this.ctx.interactions.roofPitchGizmo.updateHandlePositions();
+                    if (this.ctx.requestRender) this.ctx.requestRender();
+                }
+            };
+        }
+
+        presets.forEach(p => {
+            p.onclick = () => {
+                const angle = parseInt(p.getAttribute('data-angle'), 10) || 0;
+                const roof = getActiveRoof();
+                if (roof) this.updateRoofRotation(roof, angle);
+            };
+        });
+
+        if (slider) {
+            slider.oninput = (e) => {
+                const angle = parseInt(e.target.value, 10) || 0;
+                const roof = getActiveRoof();
+                if (roof) this.updateRoofRotation(roof, angle);
+            };
+        }
+
+        if (input) {
+            input.onchange = (e) => {
+                const angle = parseInt(e.target.value, 10) || 0;
+                const roof = getActiveRoof();
+                if (roof) this.updateRoofRotation(roof, angle);
+            };
+        }
+    }
+
+    updateRoofRotation(roof, newAngle) {
+        if (!roof) return;
+        const normAngle = ((Math.round(newAngle) % 360) + 360) % 360;
+        roof.rotation = normAngle;
+        if (roof.group && typeof roof.group.rotation === 'function') {
+            roof.group.rotation(normAngle);
+        }
+        if (this.ctx.envBuilder?.updateRoofLive) {
+            this.ctx.envBuilder.updateRoofLive(roof);
+        }
+        if (roof.update) roof.update();
+        if (this.ctx.planner?.stage?.batchDraw) this.ctx.planner.stage.batchDraw();
+        if (this.ctx.interactions.roofPitchGizmo) {
+            this.ctx.interactions.roofPitchGizmo.updateHandlePositions();
+        }
+        if (this.ctx.requestRender) this.ctx.requestRender();
+        this.syncRoofSpinPanel(roof);
+    }
+
+    syncRoofSpinPanel(roof) {
+        if (!this.roofSpinPanel || !roof) return;
+        const angle = ((Math.round(roof.rotation || 0) % 360) + 360) % 360;
+        const display = document.getElementById('gizmo-roof-angle-display');
+        const slider = document.getElementById('gizmo-roof-angle-slider');
+        const input = document.getElementById('gizmo-roof-angle-input');
+        if (display) display.innerText = `${angle}°`;
+        if (slider && document.activeElement !== slider) slider.value = angle;
+        if (input && document.activeElement !== input) input.value = angle;
+    }
+
     dispose() {
         if (this._activeDragCleanups) {
             this._activeDragCleanups.forEach(fn => fn());
@@ -3491,6 +3745,7 @@ export class GizmoManager {
         }
         if (this.xyPanel && this.xyPanel.parentNode) this.xyPanel.parentNode.removeChild(this.xyPanel);
         if (this.openingPanel && this.openingPanel.parentNode) this.openingPanel.parentNode.removeChild(this.openingPanel);
+        if (this.roofSpinPanel && this.roofSpinPanel.parentNode) this.roofSpinPanel.parentNode.removeChild(this.roofSpinPanel);
         if (this.materialPanel && this.materialPanel.parentNode) this.materialPanel.parentNode.removeChild(this.materialPanel);
         if (this.cornerPanel && this.cornerPanel.parentNode) this.cornerPanel.parentNode.removeChild(this.cornerPanel);
         if (this.stylePanel && this.stylePanel.parentNode) this.stylePanel.parentNode.removeChild(this.stylePanel);
