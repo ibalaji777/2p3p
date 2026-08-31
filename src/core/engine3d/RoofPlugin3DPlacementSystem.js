@@ -1,15 +1,16 @@
 import * as THREE from 'three';
 import { Skylight3DBuilder } from '../../features/roof/builders/Skylight3DBuilder.js';
 import { Roof3DBuilder } from '../../features/roof/builders/Roof3DBuilder.js';
+import { RoofSculpture3DBuilder } from '../../features/roof/builders/RoofSculpture3DBuilder.js';
 
 /**
  * RoofPlugin3DPlacementSystem
  * 
- * Direct Sims 4-Style 3D Roof Glass & Skylight Placement:
- * 1. Select Glass Addon / Skylight from Side Nav.
- * 2. Hover over any 3D Roof -> Real-time glowing cyan rectangular aperture ghost preview aligns with roof slope and pitch angle.
- * 3. Click Roof -> Instantly drops rectangular glass area / skylight onto the roof slope.
- * 4. Interactive in-place CAD selection with Full Width, Full Slope, and Custom Width coverage controls.
+ * Direct Sims 4-Style 3D Roof Plugin & Sculpture Placement:
+ * 1. Glass & Skylight Addons: Snap onto roof slopes with rectangular aperture void ghost preview.
+ * 2. Wrought Iron Ridge Cresting: Snaps along the roof's top ridge lines (Victorian lace, gothic spikes, modern metal caps).
+ * 3. Apex Finials & Weather Vanes: Snaps directly to roof apex points, peak ends, and turret pinnacles.
+ * 4. Chimney Stacks: Snaps onto roof slopes with slope pitch compensation and vertical alignment.
  */
 export class RoofPlugin3DPlacementSystem {
     constructor(ctx, interactionSystem) {
@@ -20,6 +21,7 @@ export class RoofPlugin3DPlacementSystem {
         this.mouse = new THREE.Vector2();
 
         this.skylight3DBuilder = new Skylight3DBuilder(ctx);
+        this.sculpture3DBuilder = new RoofSculpture3DBuilder(ctx);
 
         // Container for Ghost Preview in 3D Scene
         this.ghostGroup = new THREE.Group();
@@ -115,7 +117,27 @@ export class RoofPlugin3DPlacementSystem {
         const tool = planner?.tool || planner?.activeTool || this.ctx?.activeTool;
         const preset = planner?.activePresetParams || this.ctx?.activePresetParams;
         if (!tool && !preset) return false;
-        return tool === 'skylight' || tool === 'roof_skylight' || (typeof tool === 'string' && tool.startsWith('skylight')) || preset?.type?.startsWith('skylight') || preset?.toolId === 'skylight';
+
+        const isSkylight = tool === 'skylight' || tool === 'roof_skylight' || (typeof tool === 'string' && tool.startsWith('skylight')) || preset?.type?.startsWith('skylight') || preset?.toolId === 'skylight';
+        const isCresting = tool === 'roof_cresting' || (typeof tool === 'string' && tool.startsWith('ridge_cresting')) || preset?.type?.startsWith('ridge_cresting') || preset?.toolId === 'roof_cresting';
+        const isFinial = tool === 'roof_finial' || (typeof tool === 'string' && tool.startsWith('finial_')) || preset?.type?.startsWith('finial_') || preset?.toolId === 'roof_finial';
+        const isChimney = tool === 'roof_chimney' || (typeof tool === 'string' && tool.startsWith('chimney_')) || preset?.type?.startsWith('chimney_') || preset?.toolId === 'roof_chimney';
+        const isSculpture = tool === 'roof_sculptures' || tool === 'roof_sculpture' || preset?.toolId === 'roof_sculptures';
+
+        return isSkylight || isCresting || isFinial || isChimney || isSculpture;
+    }
+
+    getToolCategory() {
+        const planner = this.getPlanner();
+        const tool = planner?.tool || planner?.activeTool || this.ctx?.activeTool;
+        const preset = planner?.activePresetParams || this.ctx?.activePresetParams;
+        const type = preset?.type || '';
+
+        if (tool === 'roof_cresting' || type.startsWith('ridge_cresting') || preset?.sculptureCategory === 'cresting') return 'cresting';
+        if (tool === 'roof_finial' || type.startsWith('finial_') || preset?.sculptureCategory === 'finial') return 'finial';
+        if (tool === 'roof_chimney' || type.startsWith('chimney_') || preset?.sculptureCategory === 'chimney') return 'chimney';
+        if (tool === 'skylight' || tool === 'roof_skylight' || type.startsWith('skylight') || preset?.toolId === 'skylight') return 'skylight';
+        return 'skylight';
     }
 
     updateMouse(e) {
@@ -159,7 +181,7 @@ export class RoofPlugin3DPlacementSystem {
         const res = this._raycastRoof(e);
         if (!res) {
             this.hideGhost();
-            return false;
+            return true;
         }
 
         const { hit, roof } = res;
@@ -178,6 +200,9 @@ export class RoofPlugin3DPlacementSystem {
         const { hit, roof } = res;
         const planner = this.getPlanner();
         const preset = planner?.activePresetParams || {};
+        const cat = this.getToolCategory();
+
+        roof.config = roof.config || {};
 
         const pts = roof.points || [];
         let ptsMinX = Infinity, ptsMaxX = -Infinity, ptsMinY = Infinity, ptsMaxY = -Infinity;
@@ -188,44 +213,107 @@ export class RoofPlugin3DPlacementSystem {
         const bW = ptsMaxX - ptsMinX;
         const bD = ptsMaxY - ptsMinY;
 
-        const hitWorld = hit.point;
-        let skX = (ptsMinX + ptsMaxX) / 2;
-        let skZ = (ptsMinY + ptsMaxY) / 2;
+        let localHitX = (ptsMinX + ptsMaxX) / 2;
+        let localHitZ = (ptsMinY + ptsMaxY) / 2;
 
         if (roof.mesh3D) {
             const localPt = hit.point.clone();
             roof.mesh3D.worldToLocal(localPt);
-            skX = localPt.x + (ptsMinX + ptsMaxX) / 2;
-            skZ = localPt.z + (ptsMinY + ptsMaxY) / 2;
+            localHitX = localPt.x + (ptsMinX + ptsMaxX) / 2;
+            localHitZ = localPt.z + (ptsMinY + ptsMaxY) / 2;
         } else {
             let groupX = roof.x || 0, groupZ = roof.y || 0;
             if (roof.group && typeof roof.group.x === 'function') {
                 groupX = roof.group.x();
                 groupZ = roof.group.y();
             }
-            skX = hitWorld.x - groupX;
-            skZ = hitWorld.z - groupZ;
+            localHitX = hit.point.x - groupX;
+            localHitZ = hit.point.z - groupZ;
         }
 
-        const u = bW > 0 ? Math.max(0.05, Math.min(0.95, (skX - ptsMinX) / bW)) : 0.5;
-        const v = bD > 0 ? Math.max(0.05, Math.min(0.95, (skZ - ptsMinY) / bD)) : 0.5;
+        const u = bW > 0 ? Math.max(0.05, Math.min(0.95, (localHitX - ptsMinX) / bW)) : 0.5;
+        const v = bD > 0 ? Math.max(0.05, Math.min(0.95, (localHitZ - ptsMinY) / bD)) : 0.5;
 
-        const newSkylight = {
-            id: `sky_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-            type: preset.type || 'skylight_flush_flat',
-            material: preset.material || 'glass_roof_square_grid',
-            frameMaterial: preset.frameMaterial || 'metal_dark_steel',
-            width: preset.width || 120,
-            length: preset.length || 180,
-            depth: preset.depth || 10,
-            u: Number(u.toFixed(3)),
-            v: Number(v.toFixed(3)),
-            coverage: preset.coverage || 'custom'
-        };
+        if (cat === 'cresting') {
+            // WROUGHT IRON RIDGE CRESTING
+            const newCresting = {
+                id: `crest_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                type: preset.type || 'ridge_cresting_victorian_lace',
+                material: preset.material || 'metal_wrought_iron',
+                height: preset.height || (preset.type === 'ridge_cresting_metal_cap' ? 8 : 18),
+                spacing: preset.spacing || (preset.type === 'ridge_cresting_gothic_spikes' ? 16 : 22),
+                segmentIndex: 0
+            };
+            roof.config.crestings = roof.config.crestings || [];
+            roof.config.crestings.push(newCresting);
+        } else if (cat === 'finial') {
+            // APEX FINIAL / WEATHER VANE
+            const roofBuilder = new Roof3DBuilder(this.ctx);
+            const apexes = roofBuilder.getRoofApexPoints(roof);
+            let closestPos = 'both_apexes';
 
-        roof.config = roof.config || {};
-        roof.config.skylights = roof.config.skylights || [];
-        roof.config.skylights.push(newSkylight);
+            if (apexes.length > 0) {
+                const cx = (ptsMinX + ptsMaxX) / 2;
+                const cz = (ptsMinY + ptsMaxY) / 2;
+                const hitRoofLocal = new THREE.Vector3(localHitX - cx, 0, localHitZ - cz);
+
+                let minD = Infinity;
+                let closestApex = apexes[0];
+                apexes.forEach(ap => {
+                    const d = hitRoofLocal.distanceTo(new THREE.Vector3(ap.x, 0, ap.z));
+                    if (d < minD) {
+                        minD = d;
+                        closestApex = ap;
+                    }
+                });
+
+                if (closestApex.id === 'center') closestPos = 'center_apex';
+                else if (closestApex.id === 'start') closestPos = 'start_apex';
+                else if (closestApex.id === 'end') closestPos = 'end_apex';
+                else closestPos = 'both_apexes';
+            }
+
+            const newFinial = {
+                id: `fin_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                type: preset.type || 'finial_victorian_spire',
+                material: preset.material || (preset.type === 'finial_copper_spire' ? 'copper' : 'metal_wrought_iron'),
+                height: preset.height || 45,
+                scale: preset.scale || 1.0,
+                position: closestPos
+            };
+            roof.config.finials = roof.config.finials || [];
+            roof.config.finials.push(newFinial);
+        } else if (cat === 'chimney') {
+            // CHIMNEY STACK
+            const newChimney = {
+                id: `chim_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                type: preset.type || 'chimney_brick_traditional',
+                material: preset.material || (preset.type === 'chimney_stone_tudor' ? 'rough_stone' : (preset.type === 'chimney_metal_flue' ? 'metal_dark_steel' : 'red_brick')),
+                width: preset.width || (preset.type === 'chimney_metal_flue' ? 24 : 45),
+                depth: preset.depth || (preset.type === 'chimney_metal_flue' ? 24 : 45),
+                height: preset.height || (preset.type === 'chimney_metal_flue' ? 110 : 90),
+                u: Number(u.toFixed(3)),
+                v: Number(v.toFixed(3))
+            };
+            roof.config.chimneys = roof.config.chimneys || [];
+            roof.config.chimneys.push(newChimney);
+        } else {
+            // SKYLIGHT / GLASS ADDON
+            const newSkylight = {
+                id: `sky_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                type: preset.type || 'skylight_flush_flat',
+                material: preset.material || 'glass_roof_square_grid',
+                frameMaterial: preset.frameMaterial || 'metal_dark_steel',
+                width: preset.width || 120,
+                length: preset.length || 180,
+                depth: preset.depth || 10,
+                u: Number(u.toFixed(3)),
+                v: Number(v.toFixed(3)),
+                coverage: preset.coverage || 'custom'
+            };
+            roof.config.skylights = roof.config.skylights || [];
+            roof.config.skylights.push(newSkylight);
+        }
 
         // In-place CAD rebuild
         if (this.ctx.envBuilder && typeof this.ctx.envBuilder.updateRoofLive === 'function') {
@@ -252,10 +340,7 @@ export class RoofPlugin3DPlacementSystem {
     _renderGhostPreview(hit, roof) {
         const planner = this.getPlanner();
         const preset = planner?.activePresetParams || {};
-
-        const width = preset.width || 120;
-        const length = preset.length || 180;
-        const depth = preset.depth || 10;
+        const cat = this.getToolCategory();
 
         const conf = roof.config || roof;
         const pts = roof.points || [];
@@ -266,18 +351,141 @@ export class RoofPlugin3DPlacementSystem {
         });
         const bW = ptsMaxX - ptsMinX;
         const bD = ptsMaxY - ptsMinY;
+        const cx = (ptsMinX + ptsMaxX) / 2;
+        const cz = (ptsMinY + ptsMaxY) / 2;
 
         const pitchRad = (conf.pitch || 30) * Math.PI / 180;
-        let tiltX = 0, tiltZ = 0;
+        const roofBuilder = new Roof3DBuilder(this.ctx);
 
+        if (cat === 'cresting') {
+            // RIDGE CRESTING GHOST PREVIEW
+            const segments = roofBuilder.getRoofRidgeSegments(roof);
+            if (segments.length > 0) {
+                const targetSeg = segments[0];
+                const height = preset.height || (preset.type === 'ridge_cresting_metal_cap' ? 8 : 18);
+                const len = targetSeg.length;
+
+                this.voidMesh.geometry.dispose();
+                this.voidMesh.geometry = new THREE.BoxGeometry(6, height, len);
+                this.voidMesh.position.set(0, height / 2, 0);
+
+                this.edgeBox.geometry.dispose();
+                this.edgeBox.geometry = new THREE.EdgesGeometry(this.voidMesh.geometry);
+                this.edgeBox.position.copy(this.voidMesh.position);
+
+                let roofWorldPos = new THREE.Vector3(0, 0, 0);
+                if (roof.mesh3D) {
+                    roofWorldPos.copy(roof.mesh3D.position);
+                } else {
+                    let groupX = roof.x || 0, groupZ = roof.y || 0;
+                    roofWorldPos.set(groupX + cx, 120, groupZ + cz);
+                }
+
+                // Place along the top ridge line
+                const segCenterLocal = new THREE.Vector3(targetSeg.center.x, targetSeg.center.y, targetSeg.center.z);
+                const rotY = -(roof.rotation || 0) * Math.PI / 180;
+                segCenterLocal.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+
+                this.ghostGroup.position.copy(roofWorldPos).add(segCenterLocal);
+                this.ghostGroup.rotation.set(0, rotY + targetSeg.angleY, 0);
+                this.ghostGroup.visible = true;
+
+                if (this.lastClientX && this.lastClientY) {
+                    this._updateDOMBadge(`🏷️ ${preset.name || 'Ridge Cresting'}: ${Math.round(len)} cm (Ridge)`, { x: this.lastClientX, y: this.lastClientY });
+                }
+                return;
+            }
+        } else if (cat === 'finial') {
+            // APEX FINIAL GHOST PREVIEW
+            const apexes = roofBuilder.getRoofApexPoints(roof);
+            if (apexes.length > 0) {
+                let localHitX = (ptsMinX + ptsMaxX) / 2;
+                let localHitZ = (ptsMinY + ptsMaxY) / 2;
+                if (roof.mesh3D) {
+                    const localPt = hit.point.clone();
+                    roof.mesh3D.worldToLocal(localPt);
+                    localHitX = localPt.x + cx;
+                    localHitZ = localPt.z + cz;
+                }
+                const hitRoofLocal = new THREE.Vector3(localHitX - cx, 0, localHitZ - cz);
+
+                let closestApex = apexes[0];
+                let minD = Infinity;
+                apexes.forEach(ap => {
+                    const d = hitRoofLocal.distanceTo(new THREE.Vector3(ap.x, 0, ap.z));
+                    if (d < minD) {
+                        minD = d;
+                        closestApex = ap;
+                    }
+                });
+
+                const finH = preset.height || 45;
+                this.voidMesh.geometry.dispose();
+                this.voidMesh.geometry = new THREE.CylinderGeometry(1.5, 4, finH, 12);
+                this.voidMesh.position.set(0, finH / 2, 0);
+
+                this.edgeBox.geometry.dispose();
+                this.edgeBox.geometry = new THREE.EdgesGeometry(this.voidMesh.geometry);
+                this.edgeBox.position.copy(this.voidMesh.position);
+
+                let roofWorldPos = new THREE.Vector3(0, 0, 0);
+                if (roof.mesh3D) {
+                    roofWorldPos.copy(roof.mesh3D.position);
+                } else {
+                    let groupX = roof.x || 0, groupZ = roof.y || 0;
+                    roofWorldPos.set(groupX + cx, 120, groupZ + cz);
+                }
+
+                const apLocal = new THREE.Vector3(closestApex.x, closestApex.y, closestApex.z);
+                const rotY = -(roof.rotation || 0) * Math.PI / 180;
+                apLocal.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+
+                this.ghostGroup.position.copy(roofWorldPos).add(apLocal);
+                this.ghostGroup.rotation.set(0, rotY, 0);
+                this.ghostGroup.visible = true;
+
+                if (this.lastClientX && this.lastClientY) {
+                    this._updateDOMBadge(`🧭 ${preset.name || 'Apex Finial'} @ ${closestApex.label || 'Peak'}`, { x: this.lastClientX, y: this.lastClientY });
+                }
+                return;
+            }
+        } else if (cat === 'chimney') {
+            // CHIMNEY STACK GHOST PREVIEW
+            const width = preset.width || 45;
+            const depth = preset.depth || 45;
+            const height = preset.height || 90;
+
+            this.voidMesh.geometry.dispose();
+            this.voidMesh.geometry = new THREE.BoxGeometry(width, height, depth);
+            this.voidMesh.position.set(0, height / 2 - 15, 0);
+
+            this.edgeBox.geometry.dispose();
+            this.edgeBox.geometry = new THREE.EdgesGeometry(this.voidMesh.geometry);
+            this.edgeBox.position.copy(this.voidMesh.position);
+
+            this.ghostGroup.position.copy(hit.point);
+            this.ghostGroup.rotation.set(0, -(roof.rotation || 0) * Math.PI / 180, 0);
+            this.ghostGroup.visible = true;
+
+            if (this.lastClientX && this.lastClientY) {
+                this._updateDOMBadge(`🧱 ${preset.name || 'Chimney Stack'}: ${width} × ${depth} cm`, { x: this.lastClientX, y: this.lastClientY });
+            }
+            return;
+        }
+
+        // SKYLIGHT GHOST PREVIEW
+        const width = preset.width || 120;
+        const length = preset.length || 180;
+
+        let tiltX = 0, tiltZ = 0;
         if (conf.roofType === 'gable' || conf.roofType === 'curved') {
             const axis = conf.ridgeAxis || 'x';
             if (axis === 'x') {
-                const cy = (ptsMinY + ptsMaxY) / 2;
-                tiltX = hit.point.z >= (roof.y || 0) + cy ? pitchRad : -pitchRad;
+                const cyVal = (ptsMinY + ptsMaxY) / 2;
+                tiltX = hit.point.z >= (roof.y || 0) + cyVal ? pitchRad : -pitchRad;
             } else {
-                const cx = (ptsMinX + ptsMaxX) / 2;
-                tiltZ = hit.point.x >= (roof.x || 0) + cx ? -pitchRad : pitchRad;
+                const cxVal = (ptsMinX + ptsMaxX) / 2;
+                tiltZ = hit.point.x >= (roof.x || 0) + cxVal ? -pitchRad : pitchRad;
             }
         } else if (conf.roofType === 'shed') {
             const axis = conf.ridgeAxis || 'x';

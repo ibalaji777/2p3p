@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY, offsetPolygon } from '../../../core/registry.js';
 import { ComponentRegistry } from '../../../core/engine3d/ComponentRegistry.js';
 import { Skylight3DBuilder } from './Skylight3DBuilder.js';
+import { RoofSculpture3DBuilder } from './RoofSculpture3DBuilder.js';
 
 export class Roof3DBuilder {
     constructor(ctx) {
@@ -1660,6 +1661,138 @@ export class Roof3DBuilder {
                 });
             }
 
+            // Render Attached Sims 4 Roof Sculptures (Ridge Cresting, Apex Finials, Chimney Stacks)
+            const sculptureBuilder = new RoofSculpture3DBuilder(this.ctx);
+            const ridgeSegments = this.getRoofRidgeSegments(roof);
+            const apexPoints = this.getRoofApexPoints(roof);
+
+            // 1. Ridge Crestings (Wrought iron lace, gothic spikes, modern metal cap)
+            const crestingList = Array.isArray(conf.crestings) ? conf.crestings : (Array.isArray(roof.crestings) ? roof.crestings : []);
+            if (crestingList.length > 0 && ridgeSegments.length > 0) {
+                crestingList.forEach(cr => {
+                    const targetSeg = (cr.segmentIndex !== undefined && ridgeSegments[cr.segmentIndex]) ? ridgeSegments[cr.segmentIndex] : ridgeSegments[0];
+                    if (!targetSeg) return;
+
+                    const crestMesh = sculptureBuilder.buildRidgeCresting(cr, targetSeg.length, roof);
+                    crestMesh.position.set(
+                        targetSeg.center.x + (cr.offsetX || 0),
+                        targetSeg.center.y + (cr.elevationOffset || 0),
+                        targetSeg.center.z + (cr.offsetZ || 0)
+                    );
+                    crestMesh.rotation.y = targetSeg.angleY + ((cr.rotation || 0) * Math.PI / 180);
+                    roofGroup.add(crestMesh);
+                });
+            }
+
+            // 2. Apex Finials & Weather Vanes (Victorian spires, copper spires, globe orbs, weather roosters)
+            const finialList = Array.isArray(conf.finials) ? conf.finials : (Array.isArray(roof.finials) ? roof.finials : []);
+            if (finialList.length > 0 && apexPoints.length > 0) {
+                finialList.forEach(fin => {
+                    let targets = [];
+                    const pos = fin.position || (apexPoints.length === 1 ? 'center_apex' : 'both_apexes');
+
+                    if (pos === 'start_apex') {
+                        targets = [apexPoints[0]];
+                    } else if (pos === 'end_apex') {
+                        targets = [apexPoints[apexPoints.length - 1]];
+                    } else if (pos === 'both_apexes') {
+                        targets = apexPoints.length > 1 ? [apexPoints[0], apexPoints[apexPoints.length - 1]] : [apexPoints[0]];
+                    } else if (pos === 'all_apexes') {
+                        targets = apexPoints;
+                    } else if (pos === 'center_apex' || pos === 'turret_peak') {
+                        targets = [apexPoints[0]];
+                    } else if (pos === 'custom' && fin.x !== undefined && fin.z !== undefined) {
+                        targets = [{ x: fin.x, y: fin.y || apexPoints[0].y, z: fin.z }];
+                    } else {
+                        targets = [apexPoints[0]];
+                    }
+
+                    targets.forEach(pt => {
+                        const finMesh = sculptureBuilder.buildApexFinial(fin, roof);
+                        finMesh.position.set(
+                            pt.x + (fin.offsetX || 0),
+                            pt.y + (fin.elevationOffset || 0),
+                            pt.z + (fin.offsetZ || 0)
+                        );
+                        roofGroup.add(finMesh);
+                    });
+                });
+            }
+
+            // 3. Chimney Stacks (Traditional red brick, Tudor stone, modern flue pipes, double brick)
+            const chimneyList = Array.isArray(conf.chimneys) ? conf.chimneys : (Array.isArray(roof.chimneys) ? roof.chimneys : []);
+            if (chimneyList.length > 0) {
+                const bW = ptsMaxX - ptsMinX;
+                const bD = ptsMaxY - ptsMinY;
+                const cy = (ptsMinY + ptsMaxY) / 2;
+                const cx = (ptsMinX + ptsMaxX) / 2;
+                const pitchRad = ((conf.pitch !== undefined ? conf.pitch : 30)) * Math.PI / 180;
+                const axis = conf.ridgeAxis || 'x';
+                const rh = Math.tan(pitchRad) * ((axis === 'x' ? bD : bW) / 2);
+
+                chimneyList.forEach(ch => {
+                    const chMesh = sculptureBuilder.buildChimneyStack(ch, roof);
+
+                    let chX = ch.x !== undefined ? ch.x : (ch.u !== undefined ? (ptsMinX + ch.u * bW) : (ptsMinX + bW * 0.75));
+                    let chZ = ch.z !== undefined ? ch.z : (ch.v !== undefined ? (ptsMinY + ch.v * bD) : (ptsMinY + bD * 0.75));
+                    let chY = 0;
+
+                    if (conf.roofType === 'gable' || conf.roofType === 'curved') {
+                        if (axis === 'x') {
+                            const distFromRidge = Math.abs(chZ - cy);
+                            chY = rh * Math.max(0, 1 - distFromRidge / (bD / 2));
+                        } else {
+                            const distFromRidge = Math.abs(chX - cx);
+                            chY = rh * Math.max(0, 1 - distFromRidge / (bW / 2));
+                        }
+                    } else if (conf.roofType === 'shed') {
+                        const shedRh = Math.tan(pitchRad) * (axis === 'x' ? bD : bW);
+                        if (axis === 'x') {
+                            const t = conf.flipSlope ? (ptsMaxY - chZ) / bD : (chZ - ptsMinY) / bD;
+                            chY = Math.max(0, t) * shedRh;
+                        } else {
+                            const t = conf.flipSlope ? (ptsMaxX - chX) / bW : (chX - ptsMinX) / bW;
+                            chY = Math.max(0, t) * shedRh;
+                        }
+                    } else {
+                        const distFromEdge = Math.min(chX - ptsMinX, ptsMaxX - chX, chZ - ptsMinY, ptsMaxY - chZ);
+                        chY = Math.tan(pitchRad) * Math.max(0, distFromEdge);
+                    }
+
+                    // Chimney rises vertically through the roof slope
+                    chMesh.position.set(chX - cx, (ch.elevationOffset || 0) + chY, chZ - cz);
+                    roofGroup.add(chMesh);
+                });
+            }
+
+            // 4. Unified sculptures array if present
+            const unifiedSculptures = Array.isArray(conf.sculptures) ? conf.sculptures : (Array.isArray(roof.sculptures) ? roof.sculptures : []);
+            if (unifiedSculptures.length > 0) {
+                unifiedSculptures.forEach(sc => {
+                    if (sc.sculptureCategory === 'cresting' || sc.type?.startsWith('ridge_cresting')) {
+                        const targetSeg = ridgeSegments[0];
+                        if (targetSeg) {
+                            const m = sculptureBuilder.buildRidgeCresting(sc, targetSeg.length, roof);
+                            m.position.set(targetSeg.center.x, targetSeg.center.y, targetSeg.center.z);
+                            m.rotation.y = targetSeg.angleY;
+                            roofGroup.add(m);
+                        }
+                    } else if (sc.sculptureCategory === 'finial' || sc.type?.startsWith('finial_')) {
+                        if (apexPoints.length > 0) {
+                            apexPoints.forEach(pt => {
+                                const m = sculptureBuilder.buildApexFinial(sc, roof);
+                                m.position.set(pt.x, pt.y, pt.z);
+                                roofGroup.add(m);
+                            });
+                        }
+                    } else if (sc.sculptureCategory === 'chimney' || sc.type?.startsWith('chimney_')) {
+                        const m = sculptureBuilder.buildChimneyStack(sc, roof);
+                        m.position.set(sc.x || 0, sc.y || 0, sc.z || 0);
+                        roofGroup.add(m);
+                    }
+                });
+            }
+
             targetGroup.add(roofGroup);
             if (targetGroup === this.ctx.structureGroup) {
                 roof.mesh3D = roofGroup;
@@ -1670,7 +1803,218 @@ export class Roof3DBuilder {
     });
     }
 
+    /**
+     * Calculates 3D ridge segments in local roofGroup coordinate space (centered at X=0, Z=0)
+     * @param {Object} roof - Roof configuration
+     * @returns {Array<Object>} Array of ridge segments with start, end, length, center, and angleY
+     */
+    getRoofRidgeSegments(roof) {
+        const conf = roof.config || roof;
+        const basePts = roof.points || [];
+        if (basePts.length < 3) return [];
 
+        const overhangs = conf.overhangs ? conf.overhangs : (conf.overhang !== undefined ? conf.overhang : 8);
+        const pts = offsetPolygon(basePts, overhangs);
 
+        let ptsMinX = Infinity, ptsMaxX = -Infinity, ptsMinY = Infinity, ptsMaxY = -Infinity;
+        pts.forEach(p => {
+            ptsMinX = Math.min(ptsMinX, p.x); ptsMaxX = Math.max(ptsMaxX, p.x);
+            ptsMinY = Math.min(ptsMinY, p.y); ptsMaxY = Math.max(ptsMaxY, p.y);
+        });
+        const bW = ptsMaxX - ptsMinX;
+        const bD = ptsMaxY - ptsMinY;
+        const cx = (ptsMinX + ptsMaxX) / 2;
+        const cz = (ptsMinY + ptsMaxY) / 2;
 
+        const pitch = conf.pitch !== undefined ? conf.pitch : 30;
+        const pitchRad = pitch * Math.PI / 180;
+        const roofType = conf.roofType || 'gable';
+        const axis = conf.ridgeAxis || 'x';
+        const ridgeOffset = conf.ridgeOffset || 0;
+
+        const segments = [];
+
+        if (roofType === 'gable' || roofType === 'curved' || roofType === 'gambrel') {
+            const maxSpan = axis === 'x' ? bD : bW;
+            const rh = Math.tan(pitchRad) * (maxSpan / 2);
+            if (axis === 'x') {
+                segments.push({
+                    id: 'main_ridge',
+                    start: { x: ptsMinX - cx, y: rh, z: 0 },
+                    end: { x: ptsMaxX - cx, y: rh, z: 0 },
+                    length: bW,
+                    center: { x: 0, y: rh, z: 0 },
+                    angleY: Math.PI / 2,
+                    axis: 'x'
+                });
+            } else {
+                segments.push({
+                    id: 'main_ridge',
+                    start: { x: 0, y: rh, z: ptsMinY - cz },
+                    end: { x: 0, y: rh, z: ptsMaxY - cz },
+                    length: bD,
+                    center: { x: 0, y: rh, z: 0 },
+                    angleY: 0,
+                    axis: 'y'
+                });
+            }
+        } else if (roofType === 'hip' || roofType === 'half_hip' || roofType === 'dutch_gable' || roofType === 'jerkinhead') {
+            const maxSpan = Math.min(bW, bD);
+            const rh = Math.tan(pitchRad) * (maxSpan / 2);
+            const isHorizontal = bW >= bD;
+            if (isHorizontal) {
+                const x0 = ptsMinX + bD / 2 - cx;
+                const x1 = ptsMaxX - bD / 2 - cx;
+                const len = Math.max(1, x1 - x0);
+                segments.push({
+                    id: 'main_ridge',
+                    start: { x: x0, y: rh, z: ridgeOffset },
+                    end: { x: x1, y: rh, z: ridgeOffset },
+                    length: len,
+                    center: { x: (x0 + x1) / 2, y: rh, z: ridgeOffset },
+                    angleY: Math.PI / 2,
+                    axis: 'x'
+                });
+            } else {
+                const z0 = ptsMinY + bW / 2 - cz;
+                const z1 = ptsMaxY - bW / 2 - cz;
+                const len = Math.max(1, z1 - z0);
+                segments.push({
+                    id: 'main_ridge',
+                    start: { x: ridgeOffset, y: rh, z: z0 },
+                    end: { x: ridgeOffset, y: rh, z: z1 },
+                    length: len,
+                    center: { x: ridgeOffset, y: rh, z: (z0 + z1) / 2 },
+                    angleY: 0,
+                    axis: 'y'
+                });
+            }
+        } else if (roofType === 'mansard') {
+            const rh = Math.tan(pitchRad) * (Math.min(bW, bD) / 3);
+            const wTop = bW * 0.5, dTop = bD * 0.5;
+            segments.push({
+                id: 'north_ridge',
+                start: { x: -wTop / 2, y: rh, z: -dTop / 2 },
+                end: { x: wTop / 2, y: rh, z: -dTop / 2 },
+                length: wTop,
+                center: { x: 0, y: rh, z: -dTop / 2 },
+                angleY: Math.PI / 2,
+                axis: 'x'
+            });
+            segments.push({
+                id: 'south_ridge',
+                start: { x: -wTop / 2, y: rh, z: dTop / 2 },
+                end: { x: wTop / 2, y: rh, z: dTop / 2 },
+                length: wTop,
+                center: { x: 0, y: rh, z: dTop / 2 },
+                angleY: Math.PI / 2,
+                axis: 'x'
+            });
+        } else if (roofType === 'shed') {
+            const shedRh = Math.tan(pitchRad) * (axis === 'x' ? bD : bW);
+            if (axis === 'x') {
+                const zPos = conf.flipSlope ? (ptsMinY - cz) : (ptsMaxY - cz);
+                segments.push({
+                    id: 'main_ridge',
+                    start: { x: ptsMinX - cx, y: shedRh, z: zPos },
+                    end: { x: ptsMaxX - cx, y: shedRh, z: zPos },
+                    length: bW,
+                    center: { x: 0, y: shedRh, z: zPos },
+                    angleY: Math.PI / 2,
+                    axis: 'x'
+                });
+            } else {
+                const xPos = conf.flipSlope ? (ptsMaxX - cx) : (ptsMinX - cx);
+                segments.push({
+                    id: 'main_ridge',
+                    start: { x: xPos, y: shedRh, z: ptsMinY - cz },
+                    end: { x: xPos, y: shedRh, z: ptsMaxY - cz },
+                    length: bD,
+                    center: { x: xPos, y: shedRh, z: 0 },
+                    angleY: 0,
+                    axis: 'y'
+                });
+            }
+        }
+
+        return segments;
+    }
+
+    /**
+     * Calculates 3D apex / peak points in local roofGroup coordinate space
+     * @param {Object} roof - Roof configuration
+     * @returns {Array<Object>} Array of apex points with id, x, y, z, and label
+     */
+    getRoofApexPoints(roof) {
+        const conf = roof.config || roof;
+        const basePts = roof.points || [];
+        if (basePts.length < 3) return [];
+
+        const overhangs = conf.overhangs ? conf.overhangs : (conf.overhang !== undefined ? conf.overhang : 8);
+        const pts = offsetPolygon(basePts, overhangs);
+
+        let ptsMinX = Infinity, ptsMaxX = -Infinity, ptsMinY = Infinity, ptsMaxY = -Infinity;
+        pts.forEach(p => {
+            ptsMinX = Math.min(ptsMinX, p.x); ptsMaxX = Math.max(ptsMaxX, p.x);
+            ptsMinY = Math.min(ptsMinY, p.y); ptsMaxY = Math.max(ptsMaxY, p.y);
+        });
+        const bW = ptsMaxX - ptsMinX;
+        const bD = ptsMaxY - ptsMinY;
+        const cx = (ptsMinX + ptsMaxX) / 2;
+        const cz = (ptsMinY + ptsMaxY) / 2;
+
+        const pitch = conf.pitch !== undefined ? conf.pitch : 30;
+        const pitchRad = pitch * Math.PI / 180;
+        const roofType = conf.roofType || 'gable';
+        const axis = conf.ridgeAxis || 'x';
+        const ridgeOffset = conf.ridgeOffset || 0;
+
+        const apexes = [];
+
+        if (roofType.startsWith('turret')) {
+            const rh = Math.tan(pitchRad) * (Math.min(bW, bD) / 2);
+            apexes.push({ id: 'center', x: 0, y: rh, z: 0, label: 'Turret Peak' });
+        } else if (roofType === 'gable' || roofType === 'curved' || roofType === 'gambrel') {
+            const maxSpan = axis === 'x' ? bD : bW;
+            const rh = Math.tan(pitchRad) * (maxSpan / 2);
+            if (axis === 'x') {
+                apexes.push({ id: 'start', x: ptsMinX - cx, y: rh, z: 0, label: 'West Apex' });
+                apexes.push({ id: 'end', x: ptsMaxX - cx, y: rh, z: 0, label: 'East Apex' });
+            } else {
+                apexes.push({ id: 'start', x: 0, y: rh, z: ptsMinY - cz, label: 'North Apex' });
+                apexes.push({ id: 'end', x: 0, y: rh, z: ptsMaxY - cz, label: 'South Apex' });
+            }
+        } else if (roofType === 'hip' || roofType === 'half_hip' || roofType === 'dutch_gable' || roofType === 'jerkinhead') {
+            const maxSpan = Math.min(bW, bD);
+            const rh = Math.tan(pitchRad) * (maxSpan / 2);
+            const isHorizontal = bW >= bD;
+            if (isHorizontal) {
+                apexes.push({ id: 'start', x: ptsMinX + bD / 2 - cx, y: rh, z: ridgeOffset, label: 'West Hip Peak' });
+                apexes.push({ id: 'end', x: ptsMaxX - bD / 2 - cx, y: rh, z: ridgeOffset, label: 'East Hip Peak' });
+            } else {
+                apexes.push({ id: 'start', x: ridgeOffset, y: rh, z: ptsMinY + bW / 2 - cz, label: 'North Hip Peak' });
+                apexes.push({ id: 'end', x: ridgeOffset, y: rh, z: ptsMaxY - bW / 2 - cz, label: 'South Hip Peak' });
+            }
+        } else if (roofType === 'mansard') {
+            const rh = Math.tan(pitchRad) * (Math.min(bW, bD) / 3);
+            const wTop = bW * 0.5, dTop = bD * 0.5;
+            apexes.push({ id: 'nw', x: -wTop / 2, y: rh, z: -dTop / 2, label: 'NW Corner' });
+            apexes.push({ id: 'ne', x: wTop / 2, y: rh, z: -dTop / 2, label: 'NE Corner' });
+            apexes.push({ id: 'sw', x: -wTop / 2, y: rh, z: dTop / 2, label: 'SW Corner' });
+            apexes.push({ id: 'se', x: wTop / 2, y: rh, z: dTop / 2, label: 'SE Corner' });
+        } else if (roofType === 'shed') {
+            const shedRh = Math.tan(pitchRad) * (axis === 'x' ? bD : bW);
+            if (axis === 'x') {
+                const zPos = conf.flipSlope ? (ptsMinY - cz) : (ptsMaxY - cz);
+                apexes.push({ id: 'start', x: ptsMinX - cx, y: shedRh, z: zPos, label: 'Start Peak' });
+                apexes.push({ id: 'end', x: ptsMaxX - cx, y: shedRh, z: zPos, label: 'End Peak' });
+            } else {
+                const xPos = conf.flipSlope ? (ptsMaxX - cx) : (ptsMinX - cx);
+                apexes.push({ id: 'start', x: xPos, y: shedRh, z: ptsMinY - cz, label: 'Start Peak' });
+                apexes.push({ id: 'end', x: xPos, y: shedRh, z: ptsMaxY - cz, label: 'End Peak' });
+            }
+        }
+
+        return apexes;
+    }
 }

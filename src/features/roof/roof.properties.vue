@@ -242,6 +242,196 @@
                 </div>
             </div>
 
+            <!-- Sims 4 Roof Sculptures & Ridge Decor Manager -->
+            <div style="margin-top: 18px; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+                <h4 class="props-subtitle" style="margin: 0 0 10px 0; display: flex; align-items: center; justify-content: space-between;">
+                    <span style="display: flex; align-items: center; gap: 6px;">
+                        <span>🏷️ Roof Sculptures & Ridge Decor</span>
+                    </span>
+                </h4>
+
+                <!-- 1. WROUGHT IRON RIDGE CRESTING -->
+                <div style="background: rgba(15, 23, 42, 0.02); border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #1e293b;">⚡ Ridge Cresting (Ironwork / Caps)</span>
+                        <button class="add-skylight-btn" @click="addCresting">+ Add Cresting</button>
+                    </div>
+
+                    <div v-if="attachedCrestings.length === 0" style="font-size: 11px; color: #94a3b8; font-style: italic; padding: 4px 0;">
+                        No ridge cresting attached. Click "+ Add Cresting" to run iron lace or metal caps along the ridge.
+                    </div>
+
+                    <div v-for="(cr, idx) in attachedCrestings" :key="cr.id || idx" class="skylight-card" style="margin-bottom: 6px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #0f172a;">Ridge Strip #{{ idx + 1 }}</span>
+                            <button class="delete-skylight-btn" @click="removeCresting(idx)" title="Remove Cresting">✕ Remove</button>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+                            <div>
+                                <label class="skylight-label">Style</label>
+                                <select v-model="cr.type" class="skylight-select" @change="$emit('sync-engine')">
+                                    <option value="ridge_cresting_victorian_lace">Victorian Lace Iron</option>
+                                    <option value="ridge_cresting_gothic_spikes">Gothic Spikes Iron</option>
+                                    <option value="ridge_cresting_metal_cap">Modern Standing Seam</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="skylight-label">Material / Finish</label>
+                                <select v-model="cr.material" class="skylight-select" @change="$emit('sync-engine')">
+                                    <option value="metal_wrought_iron">Wrought Iron Black</option>
+                                    <option value="metal_dark_steel">Charcoal Steel</option>
+                                    <option value="metal_bronze">Victorian Bronze</option>
+                                    <option value="galvanized_steel">Galvanized Zinc</option>
+                                    <option value="copper">Aged Copper</option>
+                                    <option value="white_paint">Painted White</option>
+                                    <option value="antique_gold">Antique Gold</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                            <div>
+                                <label class="skylight-label">Height: {{ cr.height || (cr.type === 'ridge_cresting_metal_cap' ? 8 : 18) }} cm</label>
+                                <input type="range" v-model.number="cr.height" min="6" max="35" step="1" style="width: 100%;" @input="$emit('sync-engine')">
+                            </div>
+                            <div v-if="cr.type !== 'ridge_cresting_metal_cap'">
+                                <label class="skylight-label">Spacing: {{ cr.spacing || 22 }} cm</label>
+                                <input type="range" v-model.number="cr.spacing" min="10" max="40" step="2" style="width: 100%;" @input="$emit('sync-engine')">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. APEX FINIALS & WEATHER VANES -->
+                <div style="background: rgba(15, 23, 42, 0.02); border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #1e293b;">🧭 Apex Finials & Weather Vanes</span>
+                        <button class="add-skylight-btn" @click="addFinial">+ Add Finial</button>
+                    </div>
+
+                    <div v-if="attachedFinials.length === 0" style="font-size: 11px; color: #94a3b8; font-style: italic; padding: 4px 0;">
+                        No finials attached. Click "+ Add Finial" to mount spires, globes, or rooster vanes on roof peaks.
+                    </div>
+
+                    <div v-for="(fin, idx) in attachedFinials" :key="fin.id || idx" class="skylight-card" style="margin-bottom: 6px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #0f172a;">Apex Ornament #{{ idx + 1 }}</span>
+                            <button class="delete-skylight-btn" @click="removeFinial(idx)" title="Remove Finial">✕ Remove</button>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+                            <div>
+                                <label class="skylight-label">Style</label>
+                                <select v-model="fin.type" class="skylight-select" @change="$emit('sync-engine')">
+                                    <option value="finial_victorian_spire">Victorian Iron Spire</option>
+                                    <option value="finial_copper_spire">Copper Turret Spire</option>
+                                    <option value="finial_globe_orb">Classical Globe Orb</option>
+                                    <option value="finial_weather_rooster">Weather Rooster Vane</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="skylight-label">Peak Location</label>
+                                <select v-model="fin.position" class="skylight-select" @change="$emit('sync-engine')">
+                                    <option value="both_apexes">Both Peak Ends</option>
+                                    <option value="start_apex">West / North Peak</option>
+                                    <option value="end_apex">East / South Peak</option>
+                                    <option value="center_apex">Center / Turret Peak</option>
+                                    <option value="all_apexes">All Apex Corners</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+                            <div>
+                                <label class="skylight-label">Finish</label>
+                                <select v-model="fin.material" class="skylight-select" @change="$emit('sync-engine')">
+                                    <option value="metal_wrought_iron">Wrought Iron Black</option>
+                                    <option value="copper">Aged Patina Copper</option>
+                                    <option value="limestone">Carved Limestone</option>
+                                    <option value="metal_bronze">Victorian Bronze</option>
+                                    <option value="galvanized_steel">Galvanized Steel</option>
+                                    <option value="antique_gold">Antique Gold</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="skylight-label">Scale: {{ Math.round((fin.scale || 1.0) * 100) }}%</label>
+                                <input type="range" v-model.number="fin.scale" min="0.5" max="2.2" step="0.1" style="width: 100%;" @input="$emit('sync-engine')">
+                            </div>
+                        </div>
+
+                        <div v-if="fin.type === 'finial_weather_rooster'">
+                            <label class="skylight-label">Rooster Direction: {{ Math.round(fin.rotation || 35) }}°</label>
+                            <input type="range" v-model.number="fin.rotation" min="0" max="360" step="5" style="width: 100%;" @input="$emit('sync-engine')">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. CHIMNEY STACKS -->
+                <div style="background: rgba(15, 23, 42, 0.02); border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #1e293b;">🧱 Chimney Stacks (Slope Snap)</span>
+                        <button class="add-skylight-btn" @click="addChimney">+ Add Chimney</button>
+                    </div>
+
+                    <div v-if="attachedChimneys.length === 0" style="font-size: 11px; color: #94a3b8; font-style: italic; padding: 4px 0;">
+                        No chimney stacks on this roof. Click "+ Add Chimney" to place brick/stone stacks or metal flues.
+                    </div>
+
+                    <div v-for="(ch, idx) in attachedChimneys" :key="ch.id || idx" class="skylight-card" style="margin-bottom: 6px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #0f172a;">Chimney Stack #{{ idx + 1 }}</span>
+                            <button class="delete-skylight-btn" @click="removeChimney(idx)" title="Remove Chimney">✕ Remove</button>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+                            <div>
+                                <label class="skylight-label">Style</label>
+                                <select v-model="ch.type" class="skylight-select" @change="$emit('sync-engine')">
+                                    <option value="chimney_brick_traditional">Traditional Brick Stack</option>
+                                    <option value="chimney_stone_tudor">Tudor Ashlar Stone</option>
+                                    <option value="chimney_metal_flue">Modern Metal Flue Pipe</option>
+                                    <option value="chimney_double_brick">Double Flue Classical</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="skylight-label">Shaft Material</label>
+                                <select v-model="ch.material" class="skylight-select" @change="$emit('sync-engine')">
+                                    <option value="red_brick">Red Brick</option>
+                                    <option value="rough_stone">Rustic Stone</option>
+                                    <option value="white_brick">White Brick</option>
+                                    <option value="metal_dark_steel">Matte Dark Steel</option>
+                                    <option value="dark_slate">Dark Slate</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+                            <div>
+                                <label class="skylight-label">Width (cm)</label>
+                                <input type="number" v-model.number="ch.width" min="20" max="150" step="5" class="skylight-number" @input="$emit('sync-engine')">
+                            </div>
+                            <div>
+                                <label class="skylight-label">Depth (cm)</label>
+                                <input type="number" v-model.number="ch.depth" min="20" max="150" step="5" class="skylight-number" @input="$emit('sync-engine')">
+                            </div>
+                            <div>
+                                <label class="skylight-label">Height (cm)</label>
+                                <input type="number" v-model.number="ch.height" min="40" max="250" step="5" class="skylight-number" @input="$emit('sync-engine')">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="skylight-label">Slope Position (U: Horizontal / V: Pitch)</label>
+                            <div style="display: flex; gap: 6px; align-items: center;">
+                                <input type="range" v-model.number="ch.u" min="0.05" max="0.95" step="0.02" style="flex: 1;" title="Horizontal position along roof width" @input="$emit('sync-engine')">
+                                <input type="range" v-model.number="ch.v" min="0.05" max="0.95" step="0.02" style="flex: 1;" title="Position along roof slope" @input="$emit('sync-engine')">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div v-if="['gable', 'shed', 'half_hip', 'curved', 'gambrel', 'dutch_gable', 'jerkinhead'].includes(roofConfig.roofType)">
                 <h4 class="props-subtitle" style="margin-top: 15px;">Gable Wall Material</h4>
                 <div class="decor-grid">
@@ -308,6 +498,94 @@ const attachedSkylights = computed(() => {
     }
     return roofConfig.value.skylights;
 });
+
+const attachedCrestings = computed(() => {
+    if (!roofConfig.value) return [];
+    if (!Array.isArray(roofConfig.value.crestings)) {
+        roofConfig.value.crestings = [];
+    }
+    return roofConfig.value.crestings;
+});
+
+const attachedFinials = computed(() => {
+    if (!roofConfig.value) return [];
+    if (!Array.isArray(roofConfig.value.finials)) {
+        roofConfig.value.finials = [];
+    }
+    return roofConfig.value.finials;
+});
+
+const attachedChimneys = computed(() => {
+    if (!roofConfig.value) return [];
+    if (!Array.isArray(roofConfig.value.chimneys)) {
+        roofConfig.value.chimneys = [];
+    }
+    return roofConfig.value.chimneys;
+});
+
+const addCresting = () => {
+    if (!roofConfig.value) return;
+    roofConfig.value.crestings = roofConfig.value.crestings || [];
+    roofConfig.value.crestings.push({
+        id: `crest_${Date.now()}_${Math.floor(Math.random()*1000)}`,
+        type: 'ridge_cresting_victorian_lace',
+        material: 'metal_wrought_iron',
+        height: 18,
+        spacing: 22,
+        segmentIndex: 0
+    });
+    emit('sync-engine');
+};
+
+const removeCresting = (idx) => {
+    if (!roofConfig.value || !roofConfig.value.crestings) return;
+    roofConfig.value.crestings.splice(idx, 1);
+    emit('sync-engine');
+};
+
+const addFinial = () => {
+    if (!roofConfig.value) return;
+    roofConfig.value.finials = roofConfig.value.finials || [];
+    roofConfig.value.finials.push({
+        id: `fin_${Date.now()}_${Math.floor(Math.random()*1000)}`,
+        type: 'finial_victorian_spire',
+        material: 'metal_wrought_iron',
+        height: 45,
+        scale: 1.0,
+        position: 'both_apexes'
+    });
+    emit('sync-engine');
+};
+
+const removeFinial = (idx) => {
+    if (!roofConfig.value || !roofConfig.value.finials) return;
+    roofConfig.value.finials.splice(idx, 1);
+    emit('sync-engine');
+};
+
+const addChimney = () => {
+    if (!roofConfig.value) return;
+    roofConfig.value.chimneys = roofConfig.value.chimneys || [];
+    roofConfig.value.chimneys.push({
+        id: `chim_${Date.now()}_${Math.floor(Math.random()*1000)}`,
+        type: 'chimney_brick_traditional',
+        material: 'red_brick',
+        capMaterial: 'limestone',
+        potMaterial: 'terracotta_clay',
+        width: 45,
+        depth: 45,
+        height: 90,
+        u: 0.75,
+        v: 0.75
+    });
+    emit('sync-engine');
+};
+
+const removeChimney = (idx) => {
+    if (!roofConfig.value || !roofConfig.value.chimneys) return;
+    roofConfig.value.chimneys.splice(idx, 1);
+    emit('sync-engine');
+};
 
 const activeSlopeLabel = computed(() => {
     if (['gable', 'curved', 'shed'].includes(roofConfig.value?.roofType)) {

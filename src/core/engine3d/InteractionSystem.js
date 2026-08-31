@@ -516,14 +516,14 @@ export class InteractionSystem {
                 if (this.furniturePlacementSystem.onPointerDown(e)) return;
             }
 
+            // Direct 3D Roof Glass Addon & Sculpture Placement System
+            if (this.roofPluginPlacementSystem && this.roofPluginPlacementSystem.isPlacementTool()) {
+                if (this.roofPluginPlacementSystem.onPointerDown(e)) return;
+            }
+
             // Direct 3D Roof Placement & Drawing System
             if (this.roofPlacementSystem && this.roofPlacementSystem.isPlacementTool()) {
                 if (this.roofPlacementSystem.onPointerDown(e)) return;
-            }
-
-            // Direct 3D Roof Glass Addon & Skylight Placement System
-            if (this.roofPluginPlacementSystem && this.roofPluginPlacementSystem.isPlacementTool()) {
-                if (this.roofPluginPlacementSystem.onPointerDown(e)) return;
             }
 
             if (this.mode === 'camera') return;
@@ -650,14 +650,15 @@ export class InteractionSystem {
                 if (this.furniturePlacementSystem.onPointerMove(e)) return;
             }
 
+            // Direct 3D Roof Glass Addon & Sculpture Placement System
+            if (this.roofPluginPlacementSystem && this.roofPluginPlacementSystem.isPlacementTool()) {
+                this.roofPluginPlacementSystem.onPointerMove(e);
+                return;
+            }
+
             // Direct 3D Roof Placement & Drawing System
             if (this.roofPlacementSystem && this.roofPlacementSystem.isPlacementTool()) {
                 if (this.roofPlacementSystem.onPointerMove(e)) return;
-            }
-
-            // Direct 3D Roof Glass Addon & Skylight Placement System
-            if (this.roofPluginPlacementSystem && this.roofPluginPlacementSystem.isPlacementTool()) {
-                if (this.roofPluginPlacementSystem.onPointerMove(e)) return;
             }
 
             if (this.mode === 'camera') return;
@@ -705,6 +706,9 @@ export class InteractionSystem {
             if (this.ctx.viewMode3D === 'preview') return;
             if (this.shape3DDrawSystem && this.shape3DDrawSystem.isShapeDrawingTool()) {
                 if (this.shape3DDrawSystem.onPointerUp(e)) return;
+            }
+            if (this.roofPluginPlacementSystem && this.roofPluginPlacementSystem.isPlacementTool()) {
+                if (this.roofPluginPlacementSystem.onPointerUp && this.roofPluginPlacementSystem.onPointerUp(e)) return;
             }
             if (this.roofPlacementSystem && this.roofPlacementSystem.isPlacementTool()) {
                 if (this.roofPlacementSystem.onPointerUp(e)) return;
@@ -810,6 +814,9 @@ export class InteractionSystem {
         }
         if (this.roofPlacementSystem && this.roofPlacementSystem.hideGhost) {
             this.roofPlacementSystem.hideGhost();
+        }
+        if (this.roofPluginPlacementSystem && this.roofPluginPlacementSystem.hideGhost) {
+            this.roofPluginPlacementSystem.hideGhost();
         }
     }
 

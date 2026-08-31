@@ -71,6 +71,11 @@ export const getMenuCategories = () => [
             { id: 'auto_roof', name: 'Generate Auto-Roof', action: 'auto_roof' },
             { isDivider: true, name: 'Glass & Skylight Addons' },
             { id: 'skylight', name: 'Glass & Skylights' },
+            { isDivider: true, name: 'Roof Sculptures & Cresting' },
+            { id: 'roof_sculptures', name: 'Roof Sculptures Catalog' },
+            { id: 'roof_cresting', name: 'Ridge Cresting' },
+            { id: 'roof_finial', name: 'Apex Finials & Vanes' },
+            { id: 'roof_chimney', name: 'Chimney Stacks' },
             { isDivider: true, name: 'Dormers' },
             { id: 'dormer', name: 'Dormer' },
             ...Object.keys(PRESET_CATEGORIES).filter(cat => cat !== 'Dormers').reduce((acc, catName) => {

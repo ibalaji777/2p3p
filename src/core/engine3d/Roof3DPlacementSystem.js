@@ -96,7 +96,30 @@ export class Roof3DPlacementSystem {
         const planner = this.getPlanner();
         const tool = planner?.tool;
         if (!tool) return false;
-        return tool === 'roof' || tool.startsWith('roof_') || tool === 'roof_presets';
+
+        // Explicitly exclude any roof attachment / plugin / sculpture / skylight tools
+        if (tool === 'roof_cresting' || tool === 'roof_finial' || tool === 'roof_chimney' || 
+            tool === 'roof_sculptures' || tool === 'roof_sculpture' || tool === 'skylight' ||
+            (typeof tool === 'string' && (
+                tool.startsWith('ridge_cresting') || 
+                tool.startsWith('finial_') || 
+                tool.startsWith('chimney_') || 
+                tool.startsWith('skylight_')
+            ))) {
+            return false;
+        }
+
+        const preset = planner?.activePresetParams;
+        if (preset?.sculptureCategory || 
+            ['roof_cresting', 'roof_finial', 'roof_chimney', 'roof_sculptures', 'skylight'].includes(preset?.toolId) ||
+            preset?.type?.startsWith('ridge_cresting') || 
+            preset?.type?.startsWith('finial_') || 
+            preset?.type?.startsWith('chimney_') || 
+            preset?.type?.startsWith('skylight_')) {
+            return false;
+        }
+
+        return tool === 'roof' || tool === 'roof_presets' || tool.startsWith('roof_type_') || tool.startsWith('preset_roof_');
     }
 
     getActiveRoofParams() {

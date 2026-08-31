@@ -2322,16 +2322,16 @@ export class EnvironmentBuilder {
                 oldMesh.add(child);
             }
 
-            // Sync all skylight groups from tempRoofGroup to realRoofGroup
-            const oldSkylights = realRoofGroup.children.filter(c => c.userData && c.userData.isSkylight);
-            oldSkylights.forEach(sk => {
-                realRoofGroup.remove(sk);
+            // Sync all skylight & sculpture groups from tempRoofGroup to realRoofGroup
+            const oldAttached = realRoofGroup.children.filter(c => c.userData && (c.userData.isSkylight || c.userData.isRoofSculpture));
+            oldAttached.forEach(item => {
+                realRoofGroup.remove(item);
             });
 
-            const newSkylights = tempRoofGroup.children.filter(c => c.userData && c.userData.isSkylight);
-            newSkylights.forEach(sk => {
-                tempRoofGroup.remove(sk);
-                realRoofGroup.add(sk);
+            const newAttached = tempRoofGroup.children.filter(c => c.userData && (c.userData.isSkylight || c.userData.isRoofSculpture));
+            newAttached.forEach(item => {
+                tempRoofGroup.remove(item);
+                realRoofGroup.add(item);
             });
         }
         if (this.ctx && typeof this.ctx.requestRender === 'function') {

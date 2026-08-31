@@ -96,6 +96,53 @@ export function useAppTools({
                 };
                 planner.value.activePresetParams = activePresetParams.value;
             }
+        } else if (tool === 'roof_cresting' || tool.startsWith('ridge_cresting_')) {
+            if (!activePresetParams.value || !activePresetParams.value.type?.startsWith('ridge_cresting_')) {
+                activePresetParams.value = {
+                    type: 'ridge_cresting_victorian_lace',
+                    sculptureCategory: 'cresting',
+                    material: 'metal_wrought_iron',
+                    height: 18,
+                    spacing: 22
+                };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
+        } else if (tool === 'roof_finial' || tool.startsWith('finial_')) {
+            if (!activePresetParams.value || !activePresetParams.value.type?.startsWith('finial_')) {
+                activePresetParams.value = {
+                    type: 'finial_victorian_spire',
+                    sculptureCategory: 'finial',
+                    material: 'metal_wrought_iron',
+                    height: 45,
+                    scale: 1.0
+                };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
+        } else if (tool === 'roof_chimney' || tool.startsWith('chimney_')) {
+            if (!activePresetParams.value || !activePresetParams.value.type?.startsWith('chimney_')) {
+                activePresetParams.value = {
+                    type: 'chimney_brick_traditional',
+                    sculptureCategory: 'chimney',
+                    material: 'red_brick',
+                    capMaterial: 'limestone',
+                    potMaterial: 'terracotta_clay',
+                    width: 45,
+                    depth: 45,
+                    height: 90
+                };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
+        } else if (tool === 'roof_sculptures' || tool === 'roof_sculpture') {
+            if (!activePresetParams.value) {
+                activePresetParams.value = {
+                    type: 'ridge_cresting_victorian_lace',
+                    sculptureCategory: 'cresting',
+                    material: 'metal_wrought_iron',
+                    height: 18,
+                    spacing: 22
+                };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
         } else if (tool === 'staircase' || tool.startsWith('stair_')) {
             if (!activePresetParams.value) {
                 activePresetParams.value = {

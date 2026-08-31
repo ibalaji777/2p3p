@@ -389,7 +389,7 @@ const selectSubTool = (tool) => {
 const isCatalogTool = (toolId) => {
     const catalogTools = [
         'door', 'window', 'skirting', 'sunshade', 'jali_panel', 'curtain', 'wall_art', 'staircase', 'roof', 
-        'skylight', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 
+        'skylight', 'roof_sculptures', 'roof_cresting', 'roof_finial', 'roof_chimney', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 
         'outdoor_spaces', 'outdoor_pavement', 'outdoor_patio', 'outdoor_softscape', 'outdoor_other',
         'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'bathroom_catalog', 'electronics_catalog', 
         'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 
@@ -412,6 +412,21 @@ const getToolDetails = (toolId, toolName) => {
                 'Independent material overrides without altering geometry'
             ],
             btnText: 'Activate Select Mode'
+        };
+    }
+    if (toolId === 'roof_sculptures' || toolId === 'roof_cresting' || toolId === 'roof_finial' || toolId === 'roof_chimney') {
+        return {
+            title: 'Roof Sculptures & Cresting',
+            subtitle: 'Sims 4 Architectural Decor',
+            badge: '🏷️ Roof Sculptures',
+            icon: '<path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path>',
+            description: 'Snap wrought iron cresting along roof ridges, place spires and weather vanes at peak apexes, and mount chimney stacks on roof slopes.',
+            features: [
+                'Victorian lace, gothic spikes, and modern metal cap ridge cresting',
+                'Decorative copper spires, globe orbs, and weather rooster vanes',
+                'Traditional brick, stone, and modern metal flue chimney stacks'
+            ],
+            btnText: 'Place Roof Sculpture'
         };
     }
     if (toolId === 'skylight') {
@@ -533,6 +548,10 @@ const getShortToolName = (toolId, name) => {
     if (toolId === 'staircase') return 'Staircase';
     if (toolId === 'roof') return 'Roofs';
     if (toolId === 'skylight') return 'Glass Addons';
+    if (toolId === 'roof_sculptures') return 'Roof Decor';
+    if (toolId === 'roof_cresting') return 'Cresting';
+    if (toolId === 'roof_finial') return 'Finials';
+    if (toolId === 'roof_chimney') return 'Chimneys';
     if (toolId === 'dormer') return 'Dormers';
     if (toolId === 'wall_catalog') return 'Walls';
     if (toolId === 'compound') return 'Compound';

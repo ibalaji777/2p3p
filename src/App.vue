@@ -254,6 +254,12 @@ const handleCatalogSelect = (item) => {
             planner.value.activePresetParams = params;
             activePresetParams.value = params;
             setTool('skylight', params);
+        } else if (item.toolId === 'roof_cresting' || item.toolId === 'roof_finial' || item.toolId === 'roof_chimney' || item.toolId === 'roof_sculptures' || item.params?.sculptureCategory) {
+            const toolKey = item.toolId || (item.params?.sculptureCategory ? `roof_${item.params.sculptureCategory}` : 'roof_sculptures');
+            const params = { toolId: toolKey, ...item.params, name: item.name };
+            planner.value.activePresetParams = params;
+            activePresetParams.value = params;
+            setTool(toolKey, params);
         } else if (viewMode.value === '3d' && (item.toolId === 'furniture' || item.toolId === 'kitchen' || item.toolId === 'bathroom' || item.toolId === 'electronics' || (item.params && (item.params.type || item.params.id)))) {
             // In 3D mode: activate real-time Sims 4 3D placement system
             const fType = item.params?.type || item.params?.id || item.toolId;
