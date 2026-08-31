@@ -140,10 +140,10 @@ All doors, windows, openings, baseboards, moldings, sunshades, fascias, curtains
 3. **Placement Freedom & Floor-Anchored Doors**:
    - Windows, sunshades, jali, curtains, wall art, and fascias can be positioned freely anywhere across wall length ($t \in [0, 1]$) and height (`localHitY - itemH/2`).
    - Doors are strictly floor-anchored at `elev = 0`. Side jambs and architraves in `registry.js` must compute from local group height directly (`jamHeight = height`, `jamY = height / 2`).
-4. **Shape-Accurate 3D Aperture Void & Miter Quad Ribbons**:
+4. **Shape-Accurate 3D Aperture Void, Miter Quad Ribbons & Door Cutouts**:
    - Wall cutouts (doors, windows, jali): Render aperture void box `thick + 4` centered at $Z=0$.
    - Surface attachments (sunshades, curtains, wall art, fascias): Render protruding footprint / extruded profile shape at $Z = ((\text{wallThick} / 2) + (\text{depth} / 2)) \times \text{facing}$.
-   - Trims & Baseboards: Construct explicit 4-vertex quad (`BufferGeometry`) connecting `localSL_x` to `localEL_x` (for $+Z$ front) or `localSR_x` to `localER_x` (for $-Z$ back). NEVER rotate `PlaneGeometry` with `rotateY(Math.PI)`. Use `side: THREE.DoubleSide`.
+   - Trims & Baseboards: Construct explicit 4-vertex quad (`BufferGeometry`) connecting `localSL_x` to `localEL_x` (for $+Z$ front) or `localSR_x` to `localER_x` (for $-Z$ back). NEVER rotate `PlaneGeometry` with `rotateY(Math.PI)`. Use `side: THREE.DoubleSide`. Automatically segment baseboard geometry and highlight quads around door openings and floor cutouts via `getMoldingSegments()`.
 5. **Real-Time 60 FPS On-Demand Rendering**:
    Always invoke `ctx.requestRender()` in `onPointerMove` and `hideGhost()`.
 6. **Zero-Occlusion Raycasting**:

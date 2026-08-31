@@ -86,36 +86,23 @@ Every 3D wall tool must render a glowing aperture void volume (`#00f0ff` cyan wh
   - Fascias must NOT use simple bounding boxes.
   - Dynamically construct `THREE.Shape` and `THREE.ExtrudeGeometry` matching the exact profile (`c_shape_left`, `c_shape_right`, `l_shape_left`, `l_shape_right`, `full_box`) via `createFasciaShapeGeometry` so the glowing highlight hugs the wall profile shape.
 
-### Category C: Miter-Sheared Quad Ribbon (Baseboards / Skirting, Crown Moldings, Friezes)
+### Category C: Miter-Sheared Quad Ribbon & Door Cutouts (Baseboards / Skirting, Crown Moldings, Friezes)
 * **Isolated Height Calculation**:
   - Never allow stale `preset.height` from large objects (e.g. 120cm fascias) to contaminate moldings.
   - Baseboards/skirting must strictly use `itemH = 10cm - 14cm`.
+* **Automatic Opening & Door Interruption**:
+  - Baseboards and moldings must NEVER pass continuously through door openings or floor-level cutouts.
+  - Intersecting vertical height spans (`[elev, elev + height]` vs `[wElev, wElev + wH]`) automatically split the molding into segments via `getMoldingSegments()`, leaving doorways completely open and clear.
 * **Explicit 4-Vertex Quad Construction (NO PlaneGeometry Rotation)**:
   - NEVER rotate `PlaneGeometry` with `rotateY(Math.PI)` because it inverts the $Z$-axis and breaks miter offsets on the back wall face.
-  - Construct a direct 4-vertex `BufferGeometry` quad using wall polygon miter coordinates:
+  - Construct direct 4-vertex `BufferGeometry` quads for each solid segment using wall polygon miter coordinates:
     ```javascript
     const zOffset = ((thick / 2) + 0.3) * facing;
     const yBottom = isCrown ? Math.max(0, wallH - itemH) : elev;
     const yTop = yBottom + itemH;
 
-    const startX = (facing === 1) ? localSL_x : localSR_x;
-    const endX = (facing === 1) ? localEL_x : localER_x;
-
-    const ribbonGeo = new THREE.BufferGeometry();
-    const positions = new Float32Array([
-        startX, yBottom, zOffset,
-        endX,   yBottom, zOffset,
-        endX,   yTop,    zOffset,
-        startX, yTop,    zOffset
-    ]);
-
-    const indices = (facing === 1) ? [0, 1, 2, 0, 2, 3] : [0, 2, 1, 0, 3, 2];
-    ribbonGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    ribbonGeo.setIndex(indices);
-    ribbonGeo.computeVertexNormals();
-
-    this.apertureVoidMat.side = THREE.DoubleSide;
-    this.apertureVoidMat.opacity = 0.35;
+    const segments = this.molding3DBuilder.getMoldingSegments(wallLen, yBottom, itemH, wallEntity);
+    // Extrude and build ribbon quads across each segment [seg.start, seg.end]
     ```
 
 ---
