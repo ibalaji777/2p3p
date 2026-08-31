@@ -188,6 +188,14 @@
                 @delete-entity="$emit('delete-entity')"
             />
 
+            <RoofAddonPanel
+                v-else-if="selectedType === 'roof_addon'"
+                :selected-entity="selectedEntity"
+                :parent-roof="selectedEntity.parentRoof"
+                @sync-engine="$emit('sync-engine')"
+                @delete-entity="$emit('delete-entity')"
+            />
+
             <PresetGroupPanel
                 v-else-if="selectedType === 'preset_group'"
                 :selected-entity="selectedEntity"
@@ -222,6 +230,7 @@ import MoldingPanel from '../panels/MoldingPanel.vue';
 import ShapePanel from '../panels/ShapePanel.vue';
 import FurniturePanel from '../../features/furniture/furniture.properties.vue';
 import RoofPanel from '../../features/roof/roof.properties.vue';
+import RoofAddonPanel from '../../features/roof/RoofAddonProperties.vue';
 import DimensionInput from '../common/DimensionInput.vue';
 import MaterialSizeInput from '../common/MaterialSizeInput.vue';
 import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../../core/registries/material.registry.js';

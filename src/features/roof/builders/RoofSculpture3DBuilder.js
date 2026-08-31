@@ -68,7 +68,7 @@ export class RoofSculpture3DBuilder {
     buildRidgeCresting(item, ridgeLength = 300, roof = null) {
         const group = new THREE.Group();
         group.name = `cresting_${item.id || 'ridge'}`;
-        group.userData = { isRoofSculpture: true, sculptureType: 'cresting', entity: roof, sculptureData: item };
+        group.userData = { isRoofSculpture: true, isRoofAddon: true, sculptureType: 'cresting', addonType: 'cresting', entity: item, parentRoof: roof, sculptureData: item };
 
         const type = item.type || 'ridge_cresting_victorian_lace';
         const height = Number(item.height) || (type === 'ridge_cresting_metal_cap' ? 8 : 18);
@@ -298,7 +298,10 @@ export class RoofSculpture3DBuilder {
             if (child.isMesh) {
                 child.userData = {
                     isRoofSculpture: true,
-                    entity: roof,
+                    isRoofAddon: true,
+                    addonType: 'cresting',
+                    entity: item,
+                    parentRoof: roof,
                     materialSlot: 'sculpture',
                     componentType: 'roof_cresting',
                     sculptureId: item.id
@@ -323,7 +326,7 @@ export class RoofSculpture3DBuilder {
     buildApexFinial(item, roof = null) {
         const group = new THREE.Group();
         group.name = `finial_${item.id || 'apex'}`;
-        group.userData = { isRoofSculpture: true, sculptureType: 'finial', entity: roof, sculptureData: item };
+        group.userData = { isRoofSculpture: true, isRoofAddon: true, sculptureType: 'finial', addonType: 'finial', entity: item, parentRoof: roof, sculptureData: item };
 
         const type = item.type || 'finial_victorian_spire';
         const height = Number(item.height) || 45;
@@ -591,7 +594,10 @@ export class RoofSculpture3DBuilder {
             if (child.isMesh) {
                 child.userData = {
                     isRoofSculpture: true,
-                    entity: roof,
+                    isRoofAddon: true,
+                    addonType: 'finial',
+                    entity: item,
+                    parentRoof: roof,
                     materialSlot: 'sculpture',
                     componentType: 'roof_finial',
                     sculptureId: item.id
@@ -616,7 +622,7 @@ export class RoofSculpture3DBuilder {
     buildChimneyStack(item, roof = null) {
         const group = new THREE.Group();
         group.name = `chimney_${item.id || 'stack'}`;
-        group.userData = { isRoofSculpture: true, sculptureType: 'chimney', entity: roof, sculptureData: item };
+        group.userData = { isRoofSculpture: true, isRoofAddon: true, sculptureType: 'chimney', addonType: 'chimney', entity: item, parentRoof: roof, sculptureData: item };
 
         const type = item.type || 'chimney_brick_traditional';
         const width = Number(item.width) || (type === 'chimney_double_brick' ? 70 : (type === 'chimney_metal_flue' ? 24 : 45));
@@ -849,7 +855,10 @@ export class RoofSculpture3DBuilder {
             if (child.isMesh) {
                 child.userData = {
                     isRoofSculpture: true,
-                    entity: roof,
+                    isRoofAddon: true,
+                    addonType: 'chimney',
+                    entity: item,
+                    parentRoof: roof,
                     materialSlot: 'sculpture',
                     componentType: 'roof_chimney',
                     sculptureId: item.id

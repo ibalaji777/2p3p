@@ -1,5 +1,7 @@
 import { Roof3DBuilder } from './builders/Roof3DBuilder.js';
 import { RoofSculpture3DBuilder } from './builders/RoofSculpture3DBuilder.js';
+import { RoofDormer3DBuilder } from './builders/RoofDormer3DBuilder.js';
+import { Skylight3DBuilder } from './builders/Skylight3DBuilder.js';
 import * as THREE from 'three';
 
 export const ROOF_REGISTRY = {
@@ -29,18 +31,29 @@ export const ROOF_REGISTRY = {
     'dormer': {
         widget: "dormer",
         label: "DORMER",
-        defaultConfig: { type: 'gable', width: 60, height: 60, depth: 80 },
+        defaultConfig: { type: 'dormer_gable', width: 100, height: 85, depth: 120, roofType: 'gable', pitch: 35 },
         render3D: (sceneGroup, entity, helpers) => {
             try {
-                const builder = new Roof3DBuilder(helpers.ctx);
-                const group = builder.buildDormerModel({
-                    id: 'dummy',
-                    x: 0, y: 0, z: 0, rotation: 0,
-                    config: { ...entity }
-                });
-                sceneGroup.add(group);
+                const builder = new RoofDormer3DBuilder(helpers.ctx);
+                const dormerMesh = builder.buildDormer(entity, null, 35);
+                sceneGroup.add(dormerMesh);
             } catch(e) {
                 console.error("Dormer preview error", e);
+            }
+        }
+    },
+    'skylight': {
+        widget: "skylight",
+        label: "SKYLIGHT",
+        defaultConfig: { type: 'skylight_velux_frame', width: 80, length: 120, material: 'glass_roof_square_grid', frameMaterial: 'metal_dark_steel' },
+        render3D: (sceneGroup, entity, helpers) => {
+            try {
+                const builder = new Skylight3DBuilder(helpers.ctx);
+                const dummyRoof = { config: { pitch: 35 } };
+                const skGroup = builder.buildSkylight(entity, dummyRoof);
+                sceneGroup.add(skGroup);
+            } catch(e) {
+                console.error("Skylight preview error", e);
             }
         }
     },
@@ -55,45 +68,13 @@ export const ROOF_REGISTRY = {
                 
                 if (type.startsWith('ridge_cresting') || entity.sculptureCategory === 'cresting' || entity.toolId === 'roof_cresting') {
                     const crestGroup = builder.buildRidgeCresting(entity, 120);
-                    
-                    // Add a small pitched mini roof section base
-                    const roofMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.6 });
-                    const baseGeo = new THREE.ConeGeometry(45, 20, 4);
-                    baseGeo.rotateY(Math.PI / 4);
-                    baseGeo.scale(0.8, 1, 2.6);
-                    const baseMesh = new THREE.Mesh(baseGeo, roofMat);
-                    baseMesh.position.y = -10;
-                    
-                    const wrapper = new THREE.Group();
-                    wrapper.add(baseMesh);
-                    wrapper.add(crestGroup);
-                    sceneGroup.add(wrapper);
+                    sceneGroup.add(crestGroup);
                 } else if (type.startsWith('finial_') || entity.sculptureCategory === 'finial' || entity.toolId === 'roof_finial') {
                     const finialGroup = builder.buildApexFinial(entity);
-                    
-                    const roofMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.6 });
-                    const baseGeo = new THREE.ConeGeometry(24, 18, 4);
-                    baseGeo.rotateY(Math.PI / 4);
-                    const baseMesh = new THREE.Mesh(baseGeo, roofMat);
-                    baseMesh.position.y = -9;
-                    
-                    const wrapper = new THREE.Group();
-                    wrapper.add(baseMesh);
-                    wrapper.add(finialGroup);
-                    sceneGroup.add(wrapper);
+                    sceneGroup.add(finialGroup);
                 } else if (type.startsWith('chimney_') || entity.sculptureCategory === 'chimney' || entity.toolId === 'roof_chimney') {
                     const chimneyGroup = builder.buildChimneyStack(entity);
-                    
-                    const roofMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.6 });
-                    const slopeGeo = new THREE.BoxGeometry(90, 6, 75);
-                    slopeGeo.rotateZ(25 * Math.PI / 180);
-                    const slopeMesh = new THREE.Mesh(slopeGeo, roofMat);
-                    slopeMesh.position.set(0, -6, 0);
-                    
-                    const wrapper = new THREE.Group();
-                    wrapper.add(slopeMesh);
-                    wrapper.add(chimneyGroup);
-                    sceneGroup.add(wrapper);
+                    sceneGroup.add(chimneyGroup);
                 } else {
                     const crestGroup = builder.buildRidgeCresting(entity, 120);
                     sceneGroup.add(crestGroup);
@@ -120,3 +101,17 @@ ROOF_REGISTRY['chimney_brick_traditional'] = ROOF_REGISTRY['roof_sculptures'];
 ROOF_REGISTRY['chimney_stone_tudor'] = ROOF_REGISTRY['roof_sculptures'];
 ROOF_REGISTRY['chimney_metal_flue'] = ROOF_REGISTRY['roof_sculptures'];
 ROOF_REGISTRY['chimney_double_brick'] = ROOF_REGISTRY['roof_sculptures'];
+
+ROOF_REGISTRY['dormer_gable'] = ROOF_REGISTRY['dormer'];
+ROOF_REGISTRY['dormer_shed'] = ROOF_REGISTRY['dormer'];
+ROOF_REGISTRY['dormer_eyebrow'] = ROOF_REGISTRY['dormer'];
+ROOF_REGISTRY['dormer_hip'] = ROOF_REGISTRY['dormer'];
+ROOF_REGISTRY['dormer_barrel'] = ROOF_REGISTRY['dormer'];
+
+ROOF_REGISTRY['skylight_square_grid_inset'] = ROOF_REGISTRY['skylight'];
+ROOF_REGISTRY['skylight_diamond_lattice_inset'] = ROOF_REGISTRY['skylight'];
+ROOF_REGISTRY['skylight_hexagonal_inset'] = ROOF_REGISTRY['skylight'];
+ROOF_REGISTRY['skylight_solid_clear_inset'] = ROOF_REGISTRY['skylight'];
+ROOF_REGISTRY['skylight_velux_frame'] = ROOF_REGISTRY['skylight'];
+ROOF_REGISTRY['skylight_pyramid_dome'] = ROOF_REGISTRY['skylight'];
+ROOF_REGISTRY['skylight_flush_flat'] = ROOF_REGISTRY['skylight'];

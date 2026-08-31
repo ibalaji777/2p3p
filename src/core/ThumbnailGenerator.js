@@ -84,7 +84,8 @@ export class ThumbnailGenerator {
 
     async generate(type, params) {
         // Normalize specific catalog IDs back to broad categories for special procedural generators
-        if (type && type.startsWith('preset_dormer_')) type = 'dormer';
+        if (type && (type.startsWith('preset_dormer_') || type.startsWith('dormer_') || type === 'dormer')) type = 'dormer';
+        if (type && (type.startsWith('skylight_') || type === 'skylight')) type = 'skylight';
 
         // 1. Unified Registry Lookup
         let registryConfig = null;
@@ -96,11 +97,12 @@ export class ThumbnailGenerator {
         else if (WALL_REGISTRY && WALL_REGISTRY[type]) registryConfig = WALL_REGISTRY[type];
         else if (STAIRCASE_REGISTRY && (STAIRCASE_REGISTRY[type] || (type && (type.startsWith('stair_v5_') || type.startsWith('stair_v4_') || type === 'staircase')))) registryConfig = STAIRCASE_REGISTRY['staircase'];
         else if (ROOF_REGISTRY && ROOF_REGISTRY[type]) registryConfig = ROOF_REGISTRY[type];
-        else if (ROOF_REGISTRY && (type.startsWith('ridge_cresting_') || type.startsWith('finial_') || type.startsWith('chimney_') || type.startsWith('roof_sculpture') || type.startsWith('roof_cresting') || type.startsWith('roof_finial') || type.startsWith('roof_chimney'))) registryConfig = ROOF_REGISTRY['roof_sculptures'];
+        else if (ROOF_REGISTRY && (type.startsWith('ridge_cresting') || type.startsWith('finial_') || type.startsWith('chimney_') || type.startsWith('roof_sculpture') || type.startsWith('roof_cresting') || type.startsWith('roof_finial') || type.startsWith('roof_chimney'))) registryConfig = ROOF_REGISTRY['roof_sculptures'];
+        else if (ROOF_REGISTRY && (type.startsWith('dormer') || type.startsWith('preset_dormer'))) registryConfig = ROOF_REGISTRY['dormer'];
+        else if (ROOF_REGISTRY && (type.startsWith('skylight'))) registryConfig = ROOF_REGISTRY['skylight'];
         else if (ROOF_REGISTRY && type.startsWith('roof')) registryConfig = ROOF_REGISTRY['roof'];
-        else if (ROOF_REGISTRY && type === 'dormer') registryConfig = ROOF_REGISTRY['dormer'];
 
-        const allowedNonWidgets = ['staircase', 'roof', 'dormer', 'roof_sculptures', 'roof_cresting', 'roof_finial', 'roof_chimney', 'outer', 'inner', 'compound', 'arc', 'shape_rect', 'shape_circle', 'shape_triangle', 'shape_polygon', 'shape_floor_cut', 'shape_box', 'shape_cyl', 'shape_prism', 'railing', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'opening', 'material_preview', 'material_preview_box'];
+        const allowedNonWidgets = ['staircase', 'roof', 'dormer', 'skylight', 'roof_sculptures', 'roof_cresting', 'roof_finial', 'roof_chimney', 'outer', 'inner', 'compound', 'arc', 'shape_rect', 'shape_circle', 'shape_triangle', 'shape_polygon', 'shape_floor_cut', 'shape_box', 'shape_cyl', 'shape_prism', 'railing', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'opening', 'material_preview', 'material_preview_box'];
         
         if (!registryConfig && !allowedNonWidgets.includes(type) && !type.startsWith('ridge_cresting_') && !type.startsWith('finial_') && !type.startsWith('chimney_')) return null;
 
@@ -609,15 +611,15 @@ const theta = 145 * Math.PI / 180;
             this.camera.position.set(65, 45, 75);
             this.camera.lookAt(0, 25, 0);
             activeCamera = this.camera;
-        } else if (type.startsWith('ridge_cresting') || type.startsWith('finial_') || type.startsWith('chimney_') || type.startsWith('roof_sculpture') || type.startsWith('roof_cresting') || type.startsWith('roof_finial') || type.startsWith('roof_chimney')) {
-            const frustumSize = Math.max(75, maxDim * 1.35);
+        } else if (type.startsWith('ridge_cresting') || type.startsWith('finial_') || type.startsWith('chimney_') || type.startsWith('roof_sculpture') || type.startsWith('roof_cresting') || type.startsWith('roof_finial') || type.startsWith('roof_chimney') || type.startsWith('dormer') || type === 'dormer' || type === 'skylight' || type.startsWith('skylight_')) {
+            const frustumSize = Math.max(70, maxDim * 1.25);
             this.camera.left = -frustumSize / 2;
             this.camera.right = frustumSize / 2;
             this.camera.top = frustumSize / 2;
             this.camera.bottom = -frustumSize / 2;
             this.camera.updateProjectionMatrix();
 
-            this.camera.position.set(maxDim * 0.9, maxDim * 0.75 + 15, maxDim * 1.15);
+            this.camera.position.set(maxDim * 0.95, maxDim * 0.75, maxDim * 1.15);
             this.camera.lookAt(0, targetY, 0);
             activeCamera = this.camera;
         } else {

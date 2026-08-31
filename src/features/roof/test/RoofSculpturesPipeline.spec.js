@@ -357,5 +357,55 @@ describe('Sims 4 Roof Ridge Cresting, Apex Finials & Chimney Stacks Pipeline', (
             expect(registeredSculptures.length).toBeGreaterThan(0);
             expect(registeredSculptures.includes(roofMesh)).toBe(false);
         });
+
+        it('places single finials at specific apex targets (start_apex, end_apex, center_apex)', () => {
+            const { mockCtx, targetGroup } = createMockCtx();
+            const builder = new Roof3DBuilder(mockCtx);
+
+            const roofEntity = {
+                id: 'roof_single_finial',
+                points: [{x: 0, y: 0}, {x: 400, y: 0}, {x: 400, y: 300}, {x: 0, y: 300}],
+                config: {
+                    roofType: 'gable',
+                    pitch: 30,
+                    material: 'grey_slate_roof',
+                    finials: [
+                        {
+                            id: 'fin_west',
+                            type: 'finial_victorian_spire',
+                            position: 'start_apex',
+                            height: 45
+                        },
+                        {
+                            id: 'fin_east',
+                            type: 'finial_copper_spire',
+                            position: 'end_apex',
+                            height: 50
+                        }
+                    ]
+                }
+            };
+
+            builder.buildRoofs([roofEntity], targetGroup);
+            const roofGroup = targetGroup.children[0];
+            const finials = roofGroup.children.filter(c => c.name?.startsWith('finial_'));
+            expect(finials.length).toBe(2);
+            expect(finials[0].position.x).toBeLessThan(finials[1].position.x); // West apex < East apex
+        });
+
+        it('renders procedural 3D thumbnail for dormers in ROOF_REGISTRY', async () => {
+            const { ROOF_REGISTRY } = await import('../roof.components.registry.js');
+            expect(ROOF_REGISTRY['dormer']).toBeDefined();
+            const group = new THREE.Group();
+            const { mockCtx } = createMockCtx();
+
+            ROOF_REGISTRY['dormer'].render3D(group, { type: 'preset_dormer_gable' }, { ctx: mockCtx });
+            expect(group.children.length).toBe(1);
+            const dormerGroup = group.children[0];
+            expect(dormerGroup.userData.isRoofDormer).toBe(true);
+            let meshCount = 0;
+            dormerGroup.traverse(c => { if (c.isMesh) meshCount++; });
+            expect(meshCount).toBeGreaterThanOrEqual(4); // front wall + cheeks + window + roof
+        });
     });
 });

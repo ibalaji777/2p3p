@@ -430,6 +430,72 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 4. ATTACHED 3D ROOF DORMERS -->
+                <div style="background: rgba(15, 23, 42, 0.02); border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #1e293b;">🏠 Roof Dormers (Sims 4 Style)</span>
+                        <button class="add-skylight-btn" @click="addDormer">+ Add Dormer</button>
+                    </div>
+
+                    <div v-if="attachedDormers.length === 0" style="font-size: 11px; color: #94a3b8; font-style: italic; padding: 4px 0;">
+                        No dormers on this roof. Click "+ Add Dormer" or use the left sidebar Dormer tool to snap dormers onto roof slopes.
+                    </div>
+
+                    <div v-for="(dor, idx) in attachedDormers" :key="dor.id || idx" class="skylight-card" style="margin-bottom: 6px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+                            <span style="font-size: 11px; font-weight: 700; color: #0f172a;">Dormer #{{ idx + 1 }}</span>
+                            <button class="delete-skylight-btn" @click="removeDormer(idx)" title="Remove Dormer">✕ Remove</button>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+                            <div>
+                                <label class="skylight-label">Dormer Type</label>
+                                <select v-model="dor.type" class="skylight-select" @change="$emit('sync-engine')">
+                                    <option value="dormer_gable">Gable (A-Frame)</option>
+                                    <option value="dormer_shed">Shed (Slanted)</option>
+                                    <option value="dormer_eyebrow">Eyebrow (Wave Arch)</option>
+                                    <option value="dormer_hip">Hip (3-Sided)</option>
+                                    <option value="dormer_barrel">Barrel Vault</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="skylight-label">Cheek / Siding Material</label>
+                                <select v-model="dor.sidingMaterial" class="skylight-select" @change="$emit('sync-engine')">
+                                    <option value="wood_siding">Wood Siding (White)</option>
+                                    <option value="white_paint">Clean White Plaster</option>
+                                    <option value="cream_siding">Cream Siding</option>
+                                    <option value="red_brick">Red Brick</option>
+                                    <option value="rough_stone">Rustic Stone</option>
+                                    <option value="dark_wood">Dark Wood</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+                            <div>
+                                <label class="skylight-label">Width (cm)</label>
+                                <input type="number" v-model.number="dor.width" min="50" max="250" step="5" class="skylight-number" @input="$emit('sync-engine')">
+                            </div>
+                            <div>
+                                <label class="skylight-label">Height (cm)</label>
+                                <input type="number" v-model.number="dor.height" min="40" max="180" step="5" class="skylight-number" @input="$emit('sync-engine')">
+                            </div>
+                            <div>
+                                <label class="skylight-label">Depth (cm)</label>
+                                <input type="number" v-model.number="dor.depth" min="50" max="250" step="5" class="skylight-number" @input="$emit('sync-engine')">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="skylight-label">Slope Position (U: Along Width / V: Up/Down Slope)</label>
+                            <div style="display: flex; gap: 6px; align-items: center;">
+                                <input type="range" v-model.number="dor.u" min="0.05" max="0.95" step="0.02" style="flex: 1;" title="Position along roof width" @input="$emit('sync-engine')">
+                                <input type="range" v-model.number="dor.v" min="0.05" max="0.95" step="0.02" style="flex: 1;" title="Position up/down roof slope" @input="$emit('sync-engine')">
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div v-if="['gable', 'shed', 'half_hip', 'curved', 'gambrel', 'dutch_gable', 'jerkinhead'].includes(roofConfig.roofType)">
@@ -523,6 +589,14 @@ const attachedChimneys = computed(() => {
     return roofConfig.value.chimneys;
 });
 
+const attachedDormers = computed(() => {
+    if (!roofConfig.value) return [];
+    if (!Array.isArray(roofConfig.value.dormers)) {
+        roofConfig.value.dormers = [];
+    }
+    return roofConfig.value.dormers;
+});
+
 const addCresting = () => {
     if (!roofConfig.value) return;
     roofConfig.value.crestings = roofConfig.value.crestings || [];
@@ -584,6 +658,31 @@ const addChimney = () => {
 const removeChimney = (idx) => {
     if (!roofConfig.value || !roofConfig.value.chimneys) return;
     roofConfig.value.chimneys.splice(idx, 1);
+    emit('sync-engine');
+};
+
+const addDormer = () => {
+    if (!roofConfig.value) return;
+    roofConfig.value.dormers = roofConfig.value.dormers || [];
+    roofConfig.value.dormers.push({
+        id: `dor_${Date.now()}_${Math.floor(Math.random()*1000)}`,
+        type: 'dormer_gable',
+        sidingMaterial: 'wood_siding',
+        trimMaterial: 'white_paint',
+        roofMaterial: roofConfig.value.material || 'dark_slate',
+        width: 100,
+        height: 85,
+        depth: 120,
+        pitch: 35,
+        u: 0.5,
+        v: 0.35
+    });
+    emit('sync-engine');
+};
+
+const removeDormer = (idx) => {
+    if (!roofConfig.value || !roofConfig.value.dormers) return;
+    roofConfig.value.dormers.splice(idx, 1);
     emit('sync-engine');
 };
 

@@ -123,8 +123,9 @@ export class RoofPlugin3DPlacementSystem {
         const isFinial = tool === 'roof_finial' || (typeof tool === 'string' && tool.startsWith('finial_')) || preset?.type?.startsWith('finial_') || preset?.toolId === 'roof_finial';
         const isChimney = tool === 'roof_chimney' || (typeof tool === 'string' && tool.startsWith('chimney_')) || preset?.type?.startsWith('chimney_') || preset?.toolId === 'roof_chimney';
         const isSculpture = tool === 'roof_sculptures' || tool === 'roof_sculpture' || preset?.toolId === 'roof_sculptures';
+        const isDormer = tool === 'dormer' || tool === 'roof_dormer' || (typeof tool === 'string' && (tool.startsWith('dormer_') || tool.startsWith('preset_dormer_'))) || preset?.type?.startsWith('preset_dormer_') || preset?.type?.startsWith('dormer_') || preset?.toolId === 'dormer';
 
-        return isSkylight || isCresting || isFinial || isChimney || isSculpture;
+        return isSkylight || isCresting || isFinial || isChimney || isSculpture || isDormer;
     }
 
     getToolCategory() {
@@ -133,6 +134,7 @@ export class RoofPlugin3DPlacementSystem {
         const preset = planner?.activePresetParams || this.ctx?.activePresetParams;
         const type = preset?.type || '';
 
+        if (tool === 'dormer' || tool === 'roof_dormer' || type.startsWith('dormer_') || type.startsWith('preset_dormer_') || preset?.toolId === 'dormer') return 'dormer';
         if (tool === 'roof_cresting' || type.startsWith('ridge_cresting') || preset?.sculptureCategory === 'cresting') return 'cresting';
         if (tool === 'roof_finial' || type.startsWith('finial_') || preset?.sculptureCategory === 'finial') return 'finial';
         if (tool === 'roof_chimney' || type.startsWith('chimney_') || preset?.sculptureCategory === 'chimney') return 'chimney';
@@ -154,19 +156,25 @@ export class RoofPlugin3DPlacementSystem {
         this.updateMouse(e);
         this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
 
-        const interactables = this.ctx.interactables || [];
-        const intersects = this.raycaster.intersectObjects(interactables, true);
+        const interactables = (this.ctx.interactables && this.ctx.interactables.length > 0)
+            ? this.ctx.interactables
+            : (this.ctx.structureGroup ? this.ctx.structureGroup.children : []);
+        let intersects = this.raycaster.intersectObjects(interactables, true);
+
+        if (intersects.length === 0 && this.ctx.structureGroup) {
+            intersects = this.raycaster.intersectObjects(this.ctx.structureGroup.children, true);
+        }
         
         for (const hit of intersects) {
             let obj = hit.object;
-            while (obj && !obj.userData?.isRoof && obj.parent) {
-                obj = obj.parent;
-            }
-            if (obj && obj.userData?.isRoof) {
-                const roof = obj.userData.entity;
-                if (roof) {
-                    return { hit, roof, roofMesh: obj };
+            while (obj) {
+                if (obj.userData?.isRoof || (obj.userData?.entity && (obj.userData.entity.type === 'roof' || obj.userData.entity.roofType))) {
+                    const roof = obj.userData.entity;
+                    if (roof) {
+                        return { hit, roof, roofMesh: obj };
+                    }
                 }
+                obj = obj.parent;
             }
         }
         return null;
@@ -244,8 +252,9 @@ export class RoofPlugin3DPlacementSystem {
                 spacing: preset.spacing || (preset.type === 'ridge_cresting_gothic_spikes' ? 16 : 22),
                 segmentIndex: 0
             };
-            roof.config.crestings = roof.config.crestings || [];
+            roof.config.crestings = roof.config.crestings || roof.crestings || [];
             roof.config.crestings.push(newCresting);
+            roof.crestings = roof.config.crestings;
         } else if (cat === 'finial') {
             // APEX FINIAL / WEATHER VANE
             const roofBuilder = new Roof3DBuilder(this.ctx);
@@ -270,7 +279,7 @@ export class RoofPlugin3DPlacementSystem {
                 if (closestApex.id === 'center') closestPos = 'center_apex';
                 else if (closestApex.id === 'start') closestPos = 'start_apex';
                 else if (closestApex.id === 'end') closestPos = 'end_apex';
-                else closestPos = 'both_apexes';
+                else closestPos = closestApex.id || 'both_apexes';
             }
 
             const newFinial = {
@@ -281,8 +290,9 @@ export class RoofPlugin3DPlacementSystem {
                 scale: preset.scale || 1.0,
                 position: closestPos
             };
-            roof.config.finials = roof.config.finials || [];
+            roof.config.finials = roof.config.finials || roof.finials || [];
             roof.config.finials.push(newFinial);
+            roof.finials = roof.config.finials;
         } else if (cat === 'chimney') {
             // CHIMNEY STACK
             const newChimney = {
@@ -295,8 +305,31 @@ export class RoofPlugin3DPlacementSystem {
                 u: Number(u.toFixed(3)),
                 v: Number(v.toFixed(3))
             };
-            roof.config.chimneys = roof.config.chimneys || [];
+            roof.config.chimneys = roof.config.chimneys || roof.chimneys || [];
             roof.config.chimneys.push(newChimney);
+            roof.chimneys = roof.config.chimneys;
+        } else if (cat === 'dormer') {
+            // 3D ROOF DORMER (Gable, Shed, Eyebrow, Hip, Barrel)
+            let dType = preset.type || preset.roofType || 'dormer_gable';
+            if (dType.startsWith('preset_')) dType = dType.replace('preset_', '');
+            if (!dType.startsWith('dormer_')) dType = `dormer_${dType}`;
+
+            const newDormer = {
+                id: `dor_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                type: dType,
+                sidingMaterial: preset.sidingMaterial || preset.material || 'wood_siding',
+                trimMaterial: preset.trimMaterial || 'white_paint',
+                roofMaterial: preset.roofMaterial || roof.material || 'dark_slate',
+                width: Number(preset.width) || (dType === 'dormer_shed' ? 140 : 100),
+                height: Number(preset.height) || (dType === 'dormer_eyebrow' ? 55 : 85),
+                depth: Number(preset.depth) || 120,
+                pitch: Number(preset.pitch) || 35,
+                u: Number(u.toFixed(3)),
+                v: Number(v.toFixed(3))
+            };
+            roof.config.dormers = roof.config.dormers || roof.dormers || [];
+            roof.config.dormers.push(newDormer);
+            roof.dormers = roof.config.dormers;
         } else {
             // SKYLIGHT / GLASS ADDON
             const newSkylight = {
@@ -311,8 +344,9 @@ export class RoofPlugin3DPlacementSystem {
                 v: Number(v.toFixed(3)),
                 coverage: preset.coverage || 'custom'
             };
-            roof.config.skylights = roof.config.skylights || [];
+            roof.config.skylights = roof.config.skylights || roof.skylights || [];
             roof.config.skylights.push(newSkylight);
+            roof.skylights = roof.config.skylights;
         }
 
         // In-place CAD rebuild
@@ -323,13 +357,13 @@ export class RoofPlugin3DPlacementSystem {
             if (roof.mesh3D && roof.mesh3D.parent) {
                 roof.mesh3D.parent.remove(roof.mesh3D);
             }
-            builder.buildRoofs([roof], 0, false, this.ctx.structureGroup);
+            const wallList = (this.ctx.walls && this.ctx.walls.length > 0) ? this.ctx.walls : (this.ctx.planner?.walls || []);
+            builder.buildRoofs([roof], 0, wallList, this.ctx.structureGroup);
         }
 
-        // Select the roof & trigger properties panel update
-        if (this.interactions && this.interactions.selectObject && roof.mesh3D) {
-            const roofTop = roof.mesh3D.children.find(c => c.userData && c.userData.isRoof);
-            if (roofTop) this.interactions.selectObject(roofTop, hit);
+        // Save history if available
+        if (planner?.debouncedSaveHistory) {
+            planner.debouncedSaveHistory();
         }
 
         this.hideGhost();
@@ -469,6 +503,45 @@ export class RoofPlugin3DPlacementSystem {
 
             if (this.lastClientX && this.lastClientY) {
                 this._updateDOMBadge(`🧱 ${preset.name || 'Chimney Stack'}: ${width} × ${depth} cm`, { x: this.lastClientX, y: this.lastClientY });
+            }
+            return;
+        } else if (cat === 'dormer') {
+            // DORMER GHOST PREVIEW
+            let dType = preset.type || preset.roofType || 'dormer_gable';
+            if (dType.startsWith('preset_')) dType = dType.replace('preset_', '');
+            if (!dType.startsWith('dormer_')) dType = `dormer_${dType}`;
+
+            const width = Number(preset.width) || (dType === 'dormer_shed' ? 140 : 100);
+            const height = Number(preset.height) || (dType === 'dormer_eyebrow' ? 55 : 85);
+            const depth = Number(preset.depth) || 120;
+
+            this.voidMesh.geometry.dispose();
+            this.voidMesh.geometry = new THREE.BoxGeometry(width, height, depth);
+            this.voidMesh.position.set(0, height / 2, -depth / 2);
+
+            this.edgeBox.geometry.dispose();
+            this.edgeBox.geometry = new THREE.EdgesGeometry(this.voidMesh.geometry);
+            this.edgeBox.position.copy(this.voidMesh.position);
+
+            let rotY = -(roof.rotation || 0) * Math.PI / 180;
+            if (conf.roofType === 'gable' || conf.roofType === 'curved') {
+                const axis = conf.ridgeAxis || 'x';
+                if (axis === 'x') {
+                    const cyVal = (ptsMinY + ptsMaxY) / 2;
+                    if (hit.point.z < (roof.y || 0) + cyVal) rotY += Math.PI;
+                } else {
+                    const cxVal = (ptsMinX + ptsMaxX) / 2;
+                    rotY += hit.point.x >= (roof.x || 0) + cxVal ? Math.PI / 2 : -Math.PI / 2;
+                }
+            }
+
+            this.ghostGroup.position.copy(hit.point);
+            this.ghostGroup.rotation.set(0, rotY, 0);
+            this.ghostGroup.visible = true;
+
+            const dormerTitle = dType.replace('dormer_', '').toUpperCase();
+            if (this.lastClientX && this.lastClientY) {
+                this._updateDOMBadge(`🏠 ${preset.name || dormerTitle + ' Dormer'}: ${width} × ${height} cm`, { x: this.lastClientX, y: this.lastClientY });
             }
             return;
         }

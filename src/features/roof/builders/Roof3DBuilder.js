@@ -3,6 +3,7 @@ import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY, offsetPolygon } 
 import { ComponentRegistry } from '../../../core/engine3d/ComponentRegistry.js';
 import { Skylight3DBuilder } from './Skylight3DBuilder.js';
 import { RoofSculpture3DBuilder } from './RoofSculpture3DBuilder.js';
+import { RoofDormer3DBuilder } from './RoofDormer3DBuilder.js';
 
 export class Roof3DBuilder {
     constructor(ctx) {
@@ -552,8 +553,10 @@ export class Roof3DBuilder {
                     }
                 };
 
-                // Precalculate 2D bounding boxes of all skylight aperture cutouts
+                // Precalculate 2D bounding boxes of all skylight & dormer aperture cutouts
                 const skylightsList = (conf.skylights || roof.skylights || []);
+                const dormersList = (conf.dormers || roof.dormers || []);
+
                 const skylightCutouts = skylightsList.map(sk => {
                     const skX = sk.x !== undefined ? sk.x : (sk.u !== undefined ? (bMinX + sk.u * bW) : (bMinX + bW / 2));
                     const skZ = sk.z !== undefined ? sk.z : (sk.v !== undefined ? (bMinY + sk.v * bD) : (bMinY + bD / 2));
@@ -574,10 +577,52 @@ export class Roof3DBuilder {
                     };
                 });
 
+                const dormerCutouts = dormersList.map(dor => {
+                    const dorX = dor.x !== undefined ? dor.x : (dor.u !== undefined ? (bMinX + dor.u * bW) : (bMinX + bW * 0.5));
+                    const dorZ = dor.z !== undefined ? dor.z : (dor.v !== undefined ? (bMinY + dor.v * bD) : (bMinY + bD * 0.3));
+                    const dorW = Number(dor.width) || 100;
+                    const dorH = Number(dor.height) || 85;
+                    const dorDepth = Number(dor.depth) || (dorH / Math.max(0.15, Math.tan(pitchRad)));
+
+                    const halfCutW = (dorW / 2) - 4; // Stay slightly inside the cheek walls
+                    let z0, z1, x0, x1;
+
+                    if (axis === 'x') {
+                        x0 = dorX - halfCutW;
+                        x1 = dorX + halfCutW;
+                        if (dorZ < cy) {
+                            z0 = dorZ;
+                            z1 = dorZ + dorDepth;
+                        } else {
+                            z0 = dorZ - dorDepth;
+                            z1 = dorZ;
+                        }
+                    } else {
+                        z0 = dorZ - halfCutW;
+                        z1 = dorZ + halfCutW;
+                        if (dorX < cx) {
+                            x0 = dorX;
+                            x1 = dorX + dorDepth;
+                        } else {
+                            x0 = dorX - dorDepth;
+                            x1 = dorX;
+                        }
+                    }
+
+                    return {
+                        x0: Math.min(x0, x1),
+                        x1: Math.max(x0, x1),
+                        z0: Math.min(z0, z1),
+                        z1: Math.max(z0, z1)
+                    };
+                });
+
+                const slopeCutouts = [...skylightCutouts, ...dormerCutouts];
+
                 const addSegmentedSlopeStripX = (targetV, targetUV, z0, z1, y0, y1) => {
                     const minZ = Math.min(z0, z1);
                     const maxZ = Math.max(z0, z1);
-                    const hits = skylightCutouts.filter(cut => maxZ >= cut.z0 && minZ <= cut.z1);
+                    const hits = slopeCutouts.filter(cut => maxZ >= cut.z0 && minZ <= cut.z1);
                     if (hits.length === 0) {
                         addQuadTo(targetV, targetUV, { x: bMinX, y: y0, z: z0 }, { x: bMaxX, y: y0, z: z0 }, { x: bMaxX, y: y1, z: z1 }, { x: bMinX, y: y1, z: z1 });
                         return;
@@ -591,7 +636,7 @@ export class Roof3DBuilder {
                         if (h0 > curX + 1) {
                             addQuadTo(targetV, targetUV, { x: curX, y: y0, z: z0 }, { x: h0, y: y0, z: z0 }, { x: h0, y: y1, z: z1 }, { x: curX, y: y1, z: z1 });
                         }
-                        curX = Math.max(curX, h1); // Skip cutout region (creates aperture opening in tiles!)
+                        curX = Math.max(curX, h1); // Skip cutout region (creates aperture opening under dormer/skylight!)
                     });
                     if (curX < bMaxX - 1) {
                         addQuadTo(targetV, targetUV, { x: curX, y: y0, z: z0 }, { x: bMaxX, y: y0, z: z0 }, { x: bMaxX, y: y1, z: z1 }, { x: curX, y: y1, z: z1 });
@@ -601,7 +646,7 @@ export class Roof3DBuilder {
                 const addSegmentedSlopeStripY = (targetV, targetUV, x0, x1, y0, y1) => {
                     const minX = Math.min(x0, x1);
                     const maxX = Math.max(x0, x1);
-                    const hits = skylightCutouts.filter(cut => maxX >= cut.x0 && minX <= cut.x1);
+                    const hits = slopeCutouts.filter(cut => maxX >= cut.x0 && minX <= cut.x1);
                     if (hits.length === 0) {
                         addQuadTo(targetV, targetUV, { x: x0, y: y0, z: bMinY }, { x: x0, y: y0, z: bMaxY }, { x: x1, y: y1, z: bMaxY }, { x: x1, y: y1, z: bMinY });
                         return;
@@ -1656,8 +1701,12 @@ export class Roof3DBuilder {
                     skGroup.position.set(skX - cx, (sk.elevationOffset || 0) + skY, skZ - cz);
                     skGroup.rotation.x = tiltX;
                     skGroup.rotation.z = tiltZ;
+                    skGroup.userData = { isRoofAddon: true, isSkylight: true, addonType: 'skylight', entity: sk, parentRoof: roof };
 
                     roofGroup.add(skGroup);
+                    if (Array.isArray(this.ctx.interactables) && this.ctx.viewMode3D !== 'preview' && targetGroup === this.ctx.structureGroup) {
+                        this.ctx.interactables.push(skGroup);
+                    }
                 });
             }
 
@@ -1681,6 +1730,9 @@ export class Roof3DBuilder {
                     );
                     crestMesh.rotation.y = targetSeg.angleY + ((cr.rotation || 0) * Math.PI / 180);
                     roofGroup.add(crestMesh);
+                    if (Array.isArray(this.ctx.interactables) && this.ctx.viewMode3D !== 'preview' && targetGroup === this.ctx.structureGroup) {
+                        this.ctx.interactables.push(crestMesh);
+                    }
                 });
             }
 
@@ -1691,20 +1743,23 @@ export class Roof3DBuilder {
                     let targets = [];
                     const pos = fin.position || (apexPoints.length === 1 ? 'center_apex' : 'both_apexes');
 
-                    if (pos === 'start_apex') {
+                    if (pos === 'start_apex' || pos === 'start') {
                         targets = [apexPoints[0]];
-                    } else if (pos === 'end_apex') {
+                    } else if (pos === 'end_apex' || pos === 'end') {
                         targets = [apexPoints[apexPoints.length - 1]];
                     } else if (pos === 'both_apexes') {
                         targets = apexPoints.length > 1 ? [apexPoints[0], apexPoints[apexPoints.length - 1]] : [apexPoints[0]];
                     } else if (pos === 'all_apexes') {
                         targets = apexPoints;
-                    } else if (pos === 'center_apex' || pos === 'turret_peak') {
-                        targets = [apexPoints[0]];
+                    } else if (pos === 'center_apex' || pos === 'center' || pos === 'turret_peak') {
+                        const centerPt = apexPoints.find(ap => ap.id === 'center') || apexPoints[0];
+                        targets = [centerPt];
                     } else if (pos === 'custom' && fin.x !== undefined && fin.z !== undefined) {
                         targets = [{ x: fin.x, y: fin.y || apexPoints[0].y, z: fin.z }];
                     } else {
-                        targets = [apexPoints[0]];
+                        const matched = apexPoints.find(ap => ap.id === pos);
+                        if (matched) targets = [matched];
+                        else targets = [apexPoints[0]];
                     }
 
                     targets.forEach(pt => {
@@ -1715,6 +1770,9 @@ export class Roof3DBuilder {
                             pt.z + (fin.offsetZ || 0)
                         );
                         roofGroup.add(finMesh);
+                        if (Array.isArray(this.ctx.interactables) && this.ctx.viewMode3D !== 'preview' && targetGroup === this.ctx.structureGroup) {
+                            this.ctx.interactables.push(finMesh);
+                        }
                     });
                 });
             }
@@ -1762,6 +1820,78 @@ export class Roof3DBuilder {
                     // Chimney rises vertically through the roof slope
                     chMesh.position.set(chX - cx, (ch.elevationOffset || 0) + chY, chZ - cz);
                     roofGroup.add(chMesh);
+                    if (Array.isArray(this.ctx.interactables) && this.ctx.viewMode3D !== 'preview' && targetGroup === this.ctx.structureGroup) {
+                        this.ctx.interactables.push(chMesh);
+                    }
+                });
+            }
+
+            // 4. Attached 3D Roof Dormers (Gable, Shed, Eyebrow, Hip, Barrel)
+            const dormerBuilder = new RoofDormer3DBuilder(this.ctx);
+            const dormerList = Array.isArray(conf.dormers) ? conf.dormers : (Array.isArray(roof.dormers) ? roof.dormers : []);
+            if (dormerList.length > 0) {
+                const bW = ptsMaxX - ptsMinX;
+                const bD = ptsMaxY - ptsMinY;
+                const cy = (ptsMinY + ptsMaxY) / 2;
+                const cx = (ptsMinX + ptsMaxX) / 2;
+                const pitchRad = ((conf.pitch !== undefined ? conf.pitch : 30)) * Math.PI / 180;
+                const axis = conf.ridgeAxis || 'x';
+                const rh = Math.tan(pitchRad) * ((axis === 'x' ? bD : bW) / 2);
+                const roofPitchDeg = conf.pitch !== undefined ? Number(conf.pitch) : 30;
+
+                dormerList.forEach(dor => {
+                    const dorMesh = dormerBuilder.buildDormer(dor, roof, roofPitchDeg);
+
+                    let dorX = dor.x !== undefined ? dor.x : (dor.u !== undefined ? (ptsMinX + dor.u * bW) : (ptsMinX + bW * 0.5));
+                    let dorZ = dor.z !== undefined ? dor.z : (dor.v !== undefined ? (ptsMinY + dor.v * bD) : (ptsMinY + bD * 0.3));
+                    let dorY = 0;
+                    let dorRotY = 0;
+
+                    if (conf.roofType === 'gable' || conf.roofType === 'curved') {
+                        if (axis === 'x') {
+                            const distFromRidge = Math.abs(dorZ - cy);
+                            dorY = rh * Math.max(0, 1 - distFromRidge / (bD / 2));
+                            dorRotY = dorZ >= cy ? 0 : Math.PI;
+                        } else {
+                            const distFromRidge = Math.abs(dorX - cx);
+                            dorY = rh * Math.max(0, 1 - distFromRidge / (bW / 2));
+                            dorRotY = dorX >= cx ? Math.PI / 2 : -Math.PI / 2;
+                        }
+                    } else if (conf.roofType === 'shed') {
+                        const shedRh = Math.tan(pitchRad) * (axis === 'x' ? bD : bW);
+                        if (axis === 'x') {
+                            const t = conf.flipSlope ? (ptsMaxY - dorZ) / bD : (dorZ - ptsMinY) / bD;
+                            dorY = Math.max(0, t) * shedRh;
+                            dorRotY = conf.flipSlope ? Math.PI : 0;
+                        } else {
+                            const t = conf.flipSlope ? (ptsMaxX - dorX) / bW : (dorX - ptsMinX) / bW;
+                            dorY = Math.max(0, t) * shedRh;
+                            dorRotY = conf.flipSlope ? -Math.PI / 2 : Math.PI / 2;
+                        }
+                    } else {
+                        const distFromEdge = Math.min(dorX - ptsMinX, ptsMaxX - dorX, dorZ - ptsMinY, ptsMaxY - dorZ);
+                        dorY = Math.tan(pitchRad) * Math.max(0, distFromEdge);
+                        const dN = dorZ - ptsMinY;
+                        const dS = ptsMaxY - dorZ;
+                        const dW = dorX - ptsMinX;
+                        const dE = ptsMaxX - dorX;
+                        const minD = Math.min(dN, dS, dW, dE);
+                        if (minD === dS) dorRotY = 0;
+                        else if (minD === dN) dorRotY = Math.PI;
+                        else if (minD === dE) dorRotY = Math.PI / 2;
+                        else dorRotY = -Math.PI / 2;
+                    }
+
+                    if (dor.rotation !== undefined) {
+                        dorRotY = (dor.rotation * Math.PI) / 180;
+                    }
+
+                    dorMesh.position.set(dorX - cx, (dor.elevationOffset || 0) + dorY, dorZ - cz);
+                    dorMesh.rotation.y = dorRotY;
+                    roofGroup.add(dorMesh);
+                    if (Array.isArray(this.ctx.interactables) && this.ctx.viewMode3D !== 'preview' && targetGroup === this.ctx.structureGroup) {
+                        this.ctx.interactables.push(dorMesh);
+                    }
                 });
             }
 

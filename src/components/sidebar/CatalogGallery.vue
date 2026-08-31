@@ -145,7 +145,7 @@
 
                     <!-- Product Title & CAD Specifications (6px Extra Left/Right Padding) -->
                     <div class="card-title-wrap">
-                        <div class="product-rating" v-if="props.type === 'window' || props.type === 'door'">
+                        <div class="product-rating" v-if="props.type === 'window' || props.type === 'door' || props.type === 'dormer' || props.type.startsWith('roof') || props.type === 'skylight'">
                             <span class="star-icon">★★★★☆</span>
                         </div>
                         <span class="product-title">{{ item.name }}</span>
@@ -156,9 +156,9 @@
                             <span class="meta-specs" v-if="item.specs">{{ item.specs }}</span>
                         </div>
                         
-                        <div class="card-extra-meta" v-if="props.type === 'window' || props.type === 'door'">
-                            <span class="meta-tag">{{ props.type === 'window' ? 'Double Glass' : 'Solid Core' }}</span>
-                            <span class="meta-tag">{{ props.type === 'window' ? '2 Panel' : 'Prehung' }}</span>
+                        <div class="card-extra-meta" v-if="props.type === 'window' || props.type === 'door' || props.type === 'dormer' || props.type.startsWith('roof') || props.type === 'skylight'">
+                            <span class="meta-tag" v-if="item.badge">{{ item.badge }}</span>
+                            <span class="meta-tag" v-else>{{ props.type === 'window' ? 'Double Glass' : (props.type === 'door' ? 'Solid Core' : 'Sims 4 CAD') }}</span>
                             <span class="meta-tag text-green">Available</span>
                         </div>
                     </div>
@@ -269,6 +269,12 @@ const getCatalogHeaderTitle = () => {
         'staircase': 'Staircase Catalog',
         'roof': 'Roof Catalog',
         'dormer': 'Dormer Catalog',
+        'skylight': 'Skylights & Glass Addons',
+        'roof_sculptures': 'Roof Sculptures & Decor',
+        'roof_sculpture': 'Roof Sculptures & Decor',
+        'roof_cresting': 'Ridge Cresting Catalog',
+        'roof_finial': 'Apex Finials & Spires',
+        'roof_chimney': 'Chimney Stacks Catalog',
         'skirting': 'Baseboards & Skirting Catalog',
         'molding': 'Molding & Cornice Catalog',
         'elevation_fascia': 'Fascia Catalog',
@@ -434,242 +440,42 @@ const roofCatalog = ref([
 ]);
 
 const dormerCatalog = ref([
-    { id: 'preset_dormer_gable', name: 'Gable Dormer', badge: 'CLASSIC', material: 'Wood Siding', specs: '35° Pitch', image: '', params: { type: 'preset_dormer_gable', width: 120, depth: 150, wallHeight: 120, roofType: 'gable', pitch: 35, elevation: 250 } },
-    { id: 'preset_dormer_shed', name: 'Shed Dormer', badge: 'MODERN', material: 'Metal Roof', specs: '15° Pitch', image: '', params: { type: 'preset_dormer_shed', width: 250, depth: 150, wallHeight: 120, roofType: 'flat', pitch: 15, elevation: 250 } },
-    { id: 'preset_dormer_hip', name: 'Hip Dormer', badge: 'HERITAGE', material: 'Tile Roof', specs: '35° Pitch', image: '', params: { type: 'preset_dormer_hip', width: 120, depth: 150, wallHeight: 120, roofType: 'hip', pitch: 35, elevation: 250 } }
+    { id: 'preset_dormer_gable', name: 'Gable Dormer', badge: 'CLASSIC', material: 'Wood Siding & Shingles', specs: 'A-Frame Peaked Roof (Sims 4)', image: '', toolId: 'dormer', params: { type: 'dormer_gable', width: 100, height: 85, depth: 120, roofType: 'gable', pitch: 35, sidingMaterial: 'wood_siding', trimMaterial: 'white_paint' } },
+    { id: 'preset_dormer_shed', name: 'Shed Dormer', badge: 'MODERN', material: 'Slanted Metal Roof', specs: 'Single Slope Overhang (Sims 4)', image: '', toolId: 'dormer', params: { type: 'dormer_shed', width: 140, height: 85, depth: 120, roofType: 'shed', pitch: 15, sidingMaterial: 'wood_siding', trimMaterial: 'white_paint' } },
+    { id: 'preset_dormer_eyebrow', name: 'Eyebrow Dormer', badge: 'ELEGANT', material: 'Curved Wave Roof', specs: 'Arched Fanlight Window (Sims 4)', image: '', toolId: 'dormer', params: { type: 'dormer_eyebrow', width: 110, height: 55, depth: 110, roofType: 'eyebrow', pitch: 30, sidingMaterial: 'wood_siding', trimMaterial: 'white_paint' } },
+    { id: 'preset_dormer_hip', name: 'Hip Dormer', badge: 'HERITAGE', material: '3-Sided Tile Roof', specs: 'Hipped Roof Cap (Sims 4)', image: '', toolId: 'dormer', params: { type: 'dormer_hip', width: 100, height: 85, depth: 120, roofType: 'hip', pitch: 35, sidingMaterial: 'wood_siding', trimMaterial: 'white_paint' } },
+    { id: 'preset_dormer_barrel', name: 'Barrel Vault Dormer', badge: 'ARCHED', material: 'Semicircular Canopy', specs: 'Barrel Arch Roof (Sims 4)', image: '', toolId: 'dormer', params: { type: 'dormer_barrel', width: 100, height: 80, depth: 120, roofType: 'barrel', pitch: 35, sidingMaterial: 'wood_siding', trimMaterial: 'white_paint' } }
 ]);
 
 const skylightCatalog = ref([
     { isDivider: true, id: 'div_glass_insets', name: 'Sims 4 Architectural Glass Insets' },
-    { id: 'skylight_square_grid_inset', name: 'Modern Square Grid Glass Inset', badge: 'ATRIUM', material: 'Charcoal Steel Grid & Glass', specs: 'Customizable Rectangle', image: GLASS_ROOF_TEXTURE_DATA.glass_roof_square_grid?.dataUri || '', toolId: 'skylight', params: { type: 'skylight_square_grid_inset', width: 120, length: 180, material: 'glass_roof_square_grid', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
-    { id: 'skylight_diamond_lattice_inset', name: 'Victorian Diamond Lattice Inset', badge: 'CONSERVATORY', material: 'Leaded Bronze 45° Lattice', specs: 'Customizable Rectangle', image: GLASS_ROOF_TEXTURE_DATA.glass_roof_diamond_lattice?.dataUri || '', toolId: 'skylight', params: { type: 'skylight_diamond_lattice', width: 120, length: 180, material: 'glass_roof_diamond_lattice', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
-    { id: 'skylight_hexagonal_inset', name: 'Futuristic Hex Solarium Inset', badge: 'SOLARIUM', material: 'Titanium Hex Grid & Glass', specs: 'Customizable Rectangle', image: GLASS_ROOF_TEXTURE_DATA.glass_roof_hexagonal_honeycomb?.dataUri || '', toolId: 'skylight', params: { type: 'skylight_flush_flat', width: 140, length: 200, material: 'glass_roof_hexagonal_honeycomb', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
-    { id: 'skylight_solid_clear_inset', name: 'Frameless Clear Float Glass Inset', badge: 'FRAMELESS', material: 'Ultra-Clear Float Glass', specs: 'Customizable Rectangle', image: GLASS_ROOF_TEXTURE_DATA.glass_roof_solid_clear?.dataUri || '', toolId: 'skylight', params: { type: 'skylight_flush_flat', width: 100, length: 150, material: 'glass_roof_solid_clear', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
+    { id: 'skylight_square_grid_inset', name: 'Modern Square Grid Glass Inset', badge: 'ATRIUM', material: 'Charcoal Steel Grid & Glass', specs: 'Customizable Rectangle', image: '', toolId: 'skylight', params: { type: 'skylight_square_grid_inset', width: 120, length: 180, material: 'glass_roof_square_grid', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
+    { id: 'skylight_diamond_lattice_inset', name: 'Victorian Diamond Lattice Inset', badge: 'CONSERVATORY', material: 'Leaded Bronze 45° Lattice', specs: 'Customizable Rectangle', image: '', toolId: 'skylight', params: { type: 'skylight_diamond_lattice', width: 120, length: 180, material: 'glass_roof_diamond_lattice', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
+    { id: 'skylight_hexagonal_inset', name: 'Futuristic Hex Solarium Inset', badge: 'SOLARIUM', material: 'Titanium Hex Grid & Glass', specs: 'Customizable Rectangle', image: '', toolId: 'skylight', params: { type: 'skylight_flush_flat', width: 140, length: 200, material: 'glass_roof_hexagonal_honeycomb', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
+    { id: 'skylight_solid_clear_inset', name: 'Frameless Clear Float Glass Inset', badge: 'FRAMELESS', material: 'Ultra-Clear Float Glass', specs: 'Customizable Rectangle', image: '', toolId: 'skylight', params: { type: 'skylight_flush_flat', width: 100, length: 150, material: 'glass_roof_solid_clear', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
 
     { isDivider: true, id: 'div_roof_windows', name: 'Framed Roof Windows & Lanterns' },
-    { id: 'skylight_velux_frame', name: 'Velux Pivot Roof Window', badge: 'PIVOT', material: 'Dark Steel & Clear Glass', specs: '800 × 1200 mm', image: GLASS_ROOF_TEXTURE_DATA.skylight_velux_frame?.dataUri || '', toolId: 'skylight', params: { type: 'skylight_velux_frame', width: 80, length: 120, material: 'glass_roof_square_grid', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
-    { id: 'skylight_pyramid_dome', name: 'Architectural Pyramid Lantern', badge: 'LANTERN', material: '4-Sided Pyramid Solarium', specs: '1200 × 1200 mm', image: GLASS_ROOF_TEXTURE_DATA.skylight_pyramid_dome?.dataUri || '', toolId: 'skylight', params: { type: 'skylight_pyramid_dome', width: 120, length: 120, depth: 25, material: 'glass_roof_hexagonal_honeycomb', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
+    { id: 'skylight_velux_frame', name: 'Velux Pivot Roof Window', badge: 'PIVOT', material: 'Dark Steel & Clear Glass', specs: '800 × 1200 mm', image: '', toolId: 'skylight', params: { type: 'skylight_velux_frame', width: 80, length: 120, material: 'glass_roof_square_grid', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
+    { id: 'skylight_pyramid_dome', name: 'Architectural Pyramid Lantern', badge: 'LANTERN', material: '4-Sided Pyramid Solarium', specs: '1200 × 1200 mm', image: '', toolId: 'skylight', params: { type: 'skylight_pyramid_dome', width: 120, length: 120, depth: 25, material: 'glass_roof_hexagonal_honeycomb', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
 ]);
-
-const makeSculptureSvgUri = (svgStr) => `data:image/svg+xml;utf8,${encodeURIComponent(svgStr.trim())}`;
-
-const ROOF_SCULPTURE_SVGS = {
-    ridge_cresting_victorian_lace: makeSculptureSvgUri(`
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
-            <rect width="160" height="120" fill="#0f172a" rx="8"/>
-            <polygon points="0,110 80,75 160,110" fill="#1e293b"/>
-            <line x1="0" y1="110" x2="80" y2="75" stroke="#334155" stroke-width="2"/>
-            <line x1="80" y1="75" x2="160" y2="110" stroke="#334155" stroke-width="2"/>
-            <rect x="15" y="72" width="130" height="4" fill="#64748b" rx="1"/>
-            <line x1="15" y1="50" x2="145" y2="50" stroke="#94a3b8" stroke-width="2"/>
-            <path d="M25,72 Q35,52 45,72 M45,72 Q55,52 65,72 M65,72 Q75,52 85,72 M85,72 Q95,52 105,72 M105,72 Q115,52 125,72 M125,72 Q135,52 145,72" fill="none" stroke="#38bdf8" stroke-width="2"/>
-            <line x1="35" y1="72" x2="35" y2="50" stroke="#94a3b8" stroke-width="1.5"/>
-            <line x1="55" y1="72" x2="55" y2="50" stroke="#94a3b8" stroke-width="1.5"/>
-            <line x1="75" y1="72" x2="75" y2="50" stroke="#94a3b8" stroke-width="1.5"/>
-            <line x1="95" y1="72" x2="95" y2="50" stroke="#94a3b8" stroke-width="1.5"/>
-            <line x1="115" y1="72" x2="115" y2="50" stroke="#94a3b8" stroke-width="1.5"/>
-            <line x1="135" y1="72" x2="135" y2="50" stroke="#94a3b8" stroke-width="1.5"/>
-            <polygon points="35,40 33,50 37,50" fill="#38bdf8"/>
-            <polygon points="55,40 53,50 57,50" fill="#38bdf8"/>
-            <polygon points="75,40 73,50 77,50" fill="#38bdf8"/>
-            <polygon points="95,40 93,50 97,50" fill="#38bdf8"/>
-            <polygon points="115,40 113,50 117,50" fill="#38bdf8"/>
-            <polygon points="135,40 133,50 137,50" fill="#38bdf8"/>
-            <rect x="13" y="42" width="4" height="32" fill="#e2e8f0" rx="1"/>
-            <circle cx="15" cy="39" r="3" fill="#38bdf8"/>
-            <rect x="143" y="42" width="4" height="32" fill="#e2e8f0" rx="1"/>
-            <circle cx="145" cy="39" r="3" fill="#38bdf8"/>
-        </svg>
-    `),
-    ridge_cresting_gothic_spikes: makeSculptureSvgUri(`
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
-            <rect width="160" height="120" fill="#0f172a" rx="8"/>
-            <polygon points="0,110 80,75 160,110" fill="#1e293b"/>
-            <rect x="15" y="73" width="130" height="3" fill="#475569"/>
-            <line x1="15" y1="56" x2="145" y2="56" stroke="#64748b" stroke-width="1.5"/>
-            <g stroke="#94a3b8" stroke-width="1.5">
-                <line x1="30" y1="73" x2="30" y2="44"/>
-                <line x1="45" y1="73" x2="45" y2="48"/>
-                <line x1="60" y1="73" x2="60" y2="44"/>
-                <line x1="75" y1="73" x2="75" y2="48"/>
-                <line x1="90" y1="73" x2="90" y2="44"/>
-                <line x1="105" y1="73" x2="105" y2="48"/>
-                <line x1="120" y1="73" x2="120" y2="44"/>
-                <line x1="135" y1="73" x2="135" y2="48"/>
-            </g>
-            <polygon points="30,34 27,44 33,44" fill="#38bdf8"/>
-            <polygon points="45,40 43,48 47,48" fill="#e2e8f0"/>
-            <polygon points="60,34 57,44 63,44" fill="#38bdf8"/>
-            <polygon points="75,40 73,48 77,48" fill="#e2e8f0"/>
-            <polygon points="90,34 87,44 93,44" fill="#38bdf8"/>
-            <polygon points="105,40 103,48 107,48" fill="#e2e8f0"/>
-            <polygon points="120,34 117,44 123,44" fill="#38bdf8"/>
-            <polygon points="135,40 133,48 137,48" fill="#e2e8f0"/>
-            <circle cx="30" cy="50" r="3" fill="none" stroke="#38bdf8" stroke-width="1"/>
-            <circle cx="60" cy="50" r="3" fill="none" stroke="#38bdf8" stroke-width="1"/>
-            <circle cx="90" cy="50" r="3" fill="none" stroke="#38bdf8" stroke-width="1"/>
-            <circle cx="120" cy="50" r="3" fill="none" stroke="#38bdf8" stroke-width="1"/>
-            <rect x="15" y="40" width="3" height="34" fill="#e2e8f0"/>
-            <circle cx="16.5" cy="37" r="2.5" fill="#38bdf8"/>
-            <rect x="142" y="40" width="3" height="34" fill="#e2e8f0"/>
-            <circle cx="143.5" cy="37" r="2.5" fill="#38bdf8"/>
-        </svg>
-    `),
-    ridge_cresting_metal_cap: makeSculptureSvgUri(`
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
-            <rect width="160" height="120" fill="#0f172a" rx="8"/>
-            <polygon points="0,105 80,68 160,105" fill="#1e293b"/>
-            <polygon points="15,75 80,64 145,75 145,69 80,58 15,69" fill="#94a3b8"/>
-            <polygon points="15,69 80,58 145,69 145,64 80,53 15,64" fill="#cbd5e1"/>
-            <line x1="15" y1="59" x2="145" y2="59" stroke="#38bdf8" stroke-width="3"/>
-            <rect x="35" y="55" width="4" height="12" fill="#38bdf8" rx="1"/>
-            <rect x="65" y="52" width="4" height="12" fill="#38bdf8" rx="1"/>
-            <rect x="95" y="52" width="4" height="12" fill="#38bdf8" rx="1"/>
-            <rect x="125" y="55" width="4" height="12" fill="#38bdf8" rx="1"/>
-        </svg>
-    `),
-    finial_victorian_spire: makeSculptureSvgUri(`
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
-            <rect width="160" height="120" fill="#0f172a" rx="8"/>
-            <polygon points="10,110 80,82 150,110" fill="#1e293b"/>
-            <path d="M72,82 L88,82 L85,75 L75,75 Z" fill="#64748b"/>
-            <circle cx="80" cy="70" r="6" fill="#38bdf8"/>
-            <line x1="80" y1="64" x2="80" y2="48" stroke="#cbd5e1" stroke-width="3"/>
-            <circle cx="80" cy="46" r="4.5" fill="#38bdf8"/>
-            <polygon points="80,14 77,42 83,42" fill="#e2e8f0"/>
-            <circle cx="80" cy="12" r="2" fill="#38bdf8"/>
-        </svg>
-    `),
-    finial_copper_spire: makeSculptureSvgUri(`
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
-            <rect width="160" height="120" fill="#0f172a" rx="8"/>
-            <polygon points="10,110 80,82 150,110" fill="#1e293b"/>
-            <polygon points="70,82 90,82 86,74 74,74" fill="#b45309"/>
-            <ellipse cx="80" cy="67" rx="7.5" ry="6" fill="#f59e0b"/>
-            <rect x="74" y="58" width="12" height="2" fill="#2dd4bf" rx="1"/>
-            <circle cx="80" cy="52" r="4" fill="#f59e0b"/>
-            <polygon points="80,12 77,47 83,47" fill="#2dd4bf"/>
-            <line x1="80" y1="12" x2="80" y2="6" stroke="#f59e0b" stroke-width="1.5"/>
-        </svg>
-    `),
-    finial_globe_orb: makeSculptureSvgUri(`
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
-            <rect width="160" height="120" fill="#0f172a" rx="8"/>
-            <polygon points="10,110 80,82 150,110" fill="#1e293b"/>
-            <rect x="68" y="78" width="24" height="5" fill="#94a3b8" rx="1"/>
-            <path d="M72,78 L88,78 L85,68 L75,68 Z" fill="#cbd5e1"/>
-            <rect x="74" y="65" width="12" height="3" fill="#e2e8f0" rx="1"/>
-            <circle cx="80" cy="46" r="16" fill="#38bdf8"/>
-            <circle cx="75" cy="40" r="4" fill="#ffffff" opacity="0.4"/>
-            <polygon points="80,24 77,30 83,30" fill="#e2e8f0"/>
-            <circle cx="80" cy="22" r="1.5" fill="#f59e0b"/>
-        </svg>
-    `),
-    finial_weather_rooster: makeSculptureSvgUri(`
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
-            <rect width="160" height="120" fill="#0f172a" rx="8"/>
-            <polygon points="10,110 80,82 150,110" fill="#1e293b"/>
-            <line x1="80" y1="82" x2="80" y2="28" stroke="#cbd5e1" stroke-width="2.5"/>
-            <circle cx="80" cy="74" r="4" fill="#f59e0b"/>
-            <line x1="56" y1="62" x2="104" y2="62" stroke="#94a3b8" stroke-width="2"/>
-            <text x="48" y="65" fill="#38bdf8" font-size="9" font-weight="bold" font-family="sans-serif">W</text>
-            <text x="106" y="65" fill="#38bdf8" font-size="9" font-weight="bold" font-family="sans-serif">E</text>
-            <circle cx="80" cy="62" r="3" fill="#f59e0b"/>
-            <line x1="56" y1="42" x2="104" y2="42" stroke="#e2e8f0" stroke-width="2"/>
-            <polygon points="110,42 102,38 102,46" fill="#f59e0b"/>
-            <polygon points="56,42 50,37 46,42 50,47" fill="#94a3b8"/>
-            <path d="M74,42 Q70,36 71,28 Q74,23 80,24 Q84,20 86,22 Q88,25 86,28 Q90,32 87,37 Q85,42 74,42 Z" fill="#f59e0b"/>
-            <polygon points="86,22 88,18 90,23" fill="#ef4444"/>
-            <path d="M71,28 Q62,22 66,35 Q68,40 73,42 Z" fill="#38bdf8"/>
-        </svg>
-    `),
-    chimney_brick_traditional: makeSculptureSvgUri(`
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
-            <rect width="160" height="120" fill="#0f172a" rx="8"/>
-            <polygon points="0,115 160,65 160,120 0,120" fill="#334155"/>
-            <rect x="62" y="38" width="36" height="52" fill="#b91c1c" rx="1"/>
-            <line x1="62" y1="48" x2="98" y2="48" stroke="#7f1d1d" stroke-width="1"/>
-            <line x1="62" y1="58" x2="98" y2="58" stroke="#7f1d1d" stroke-width="1"/>
-            <line x1="62" y1="68" x2="98" y2="68" stroke="#7f1d1d" stroke-width="1"/>
-            <line x1="62" y1="78" x2="98" y2="78" stroke="#7f1d1d" stroke-width="1"/>
-            <line x1="74" y1="38" x2="74" y2="48" stroke="#7f1d1d" stroke-width="1"/>
-            <line x1="86" y1="48" x2="86" y2="58" stroke="#7f1d1d" stroke-width="1"/>
-            <line x1="74" y1="58" x2="74" y2="68" stroke="#7f1d1d" stroke-width="1"/>
-            <rect x="58" y="34" width="44" height="4" fill="#e2e8f0" rx="1"/>
-            <rect x="55" y="31" width="50" height="3" fill="#cbd5e1" rx="1"/>
-            <rect x="63" y="16" width="14" height="15" fill="#ea580c" rx="1"/>
-            <ellipse cx="70" cy="16" rx="7" ry="2" fill="#c2410c"/>
-            <ellipse cx="70" cy="16" rx="4.5" ry="1.2" fill="#18181b"/>
-            <rect x="83" y="16" width="14" height="15" fill="#ea580c" rx="1"/>
-            <ellipse cx="90" cy="16" rx="7" ry="2" fill="#c2410c"/>
-            <ellipse cx="90" cy="16" rx="4.5" ry="1.2" fill="#18181b"/>
-        </svg>
-    `),
-    chimney_stone_tudor: makeSculptureSvgUri(`
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
-            <rect width="160" height="120" fill="#0f172a" rx="8"/>
-            <polygon points="0,115 160,65 160,120 0,120" fill="#334155"/>
-            <rect x="60" y="36" width="40" height="54" fill="#64748b" rx="1"/>
-            <line x1="60" y1="52" x2="100" y2="52" stroke="#475569" stroke-width="1"/>
-            <line x1="60" y1="68" x2="100" y2="68" stroke="#475569" stroke-width="1"/>
-            <line x1="78" y1="36" x2="78" y2="52" stroke="#475569" stroke-width="1"/>
-            <line x1="84" y1="52" x2="84" y2="68" stroke="#475569" stroke-width="1"/>
-            <rect x="56" y="32" width="48" height="4" fill="#cbd5e1" rx="1"/>
-            <rect x="53" y="29" width="54" height="3" fill="#e2e8f0" rx="1"/>
-            <polygon points="63,29 65,14 77,14 79,29" fill="#94a3b8"/>
-            <polygon points="64,14 66,11 76,11 78,14" fill="#e2e8f0"/>
-            <polygon points="81,29 83,14 95,14 97,29" fill="#94a3b8"/>
-            <polygon points="82,14 84,11 94,11 96,14" fill="#e2e8f0"/>
-        </svg>
-    `),
-    chimney_metal_flue: makeSculptureSvgUri(`
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
-            <rect width="160" height="120" fill="#0f172a" rx="8"/>
-            <polygon points="0,115 160,65 160,120 0,120" fill="#334155"/>
-            <polygon points="62,88 98,78 86,70 74,74" fill="#475569"/>
-            <ellipse cx="80" cy="70" rx="13" ry="3.5" fill="#38bdf8"/>
-            <rect x="71" y="24" width="18" height="46" fill="#18181b" rx="1"/>
-            <rect x="72" y="24" width="6" height="46" fill="#334155"/>
-            <rect x="70" y="44" width="20" height="2" fill="#38bdf8" rx="1"/>
-            <rect x="69" y="19" width="22" height="5" fill="#64748b"/>
-            <polygon points="80,8 64,19 96,19" fill="#38bdf8"/>
-        </svg>
-    `),
-    chimney_double_brick: makeSculptureSvgUri(`
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
-            <rect width="160" height="120" fill="#0f172a" rx="8"/>
-            <polygon points="0,115 160,65 160,120 0,120" fill="#334155"/>
-            <rect x="52" y="38" width="56" height="52" fill="#991b1b" rx="1"/>
-            <rect x="50" y="56" width="60" height="4" fill="#e2e8f0" rx="1"/>
-            <rect x="48" y="34" width="64" height="4" fill="#e2e8f0" rx="1"/>
-            <rect x="45" y="31" width="70" height="3" fill="#cbd5e1" rx="1"/>
-            <rect x="55" y="15" width="18" height="16" fill="#c2410c" rx="1"/>
-            <ellipse cx="64" cy="15" rx="10" ry="2.5" fill="#ea580c"/>
-            <ellipse cx="64" cy="15" rx="6" ry="1.5" fill="#18181b"/>
-            <rect x="87" y="15" width="18" height="16" fill="#c2410c" rx="1"/>
-            <ellipse cx="96" cy="15" rx="10" ry="2.5" fill="#ea580c"/>
-            <ellipse cx="96" cy="15" rx="6" ry="1.5" fill="#18181b"/>
-        </svg>
-    `)
-};
 
 const roofSculptureCatalog = ref([
     { isDivider: true, id: 'div_ridge_cresting', name: 'Wrought Iron Ridge Cresting' },
-    { id: 'ridge_cresting_victorian_lace', name: 'Victorian Lace Iron Cresting', badge: 'VICTORIAN', material: 'Forged Wrought Iron', specs: 'Ornate Filigree Scrolls & Fleur-de-lis', image: ROOF_SCULPTURE_SVGS.ridge_cresting_victorian_lace, toolId: 'roof_cresting', params: { type: 'ridge_cresting_victorian_lace', sculptureCategory: 'cresting', height: 18, spacing: 22, material: 'metal_wrought_iron' } },
-    { id: 'ridge_cresting_gothic_spikes', name: 'Gothic Spikes Ridge Cresting', badge: 'GOTHIC', material: 'Blackened Forged Iron', specs: 'Pointed Spiked Pickets & Trefoils', image: ROOF_SCULPTURE_SVGS.ridge_cresting_gothic_spikes, toolId: 'roof_cresting', params: { type: 'ridge_cresting_gothic_spikes', sculptureCategory: 'cresting', height: 18, spacing: 16, material: 'metal_wrought_iron' } },
-    { id: 'ridge_cresting_metal_cap', name: 'Modern Standing Seam Cap Strip', badge: 'MODERN', material: 'Galvanized Zinc / Steel', specs: 'Sleek Standing Seam Cap Strip', image: ROOF_SCULPTURE_SVGS.ridge_cresting_metal_cap, toolId: 'roof_cresting', params: { type: 'ridge_cresting_metal_cap', sculptureCategory: 'cresting', height: 8, material: 'galvanized_steel' } },
+    { id: 'ridge_cresting_victorian_lace', name: 'Victorian Lace Iron Cresting', badge: 'VICTORIAN', material: 'Forged Wrought Iron', specs: 'Ornate Filigree Scrolls & Fleur-de-lis', image: '', toolId: 'roof_cresting', params: { type: 'ridge_cresting_victorian_lace', sculptureCategory: 'cresting', height: 18, spacing: 22, material: 'metal_wrought_iron' } },
+    { id: 'ridge_cresting_gothic_spikes', name: 'Gothic Spikes Ridge Cresting', badge: 'GOTHIC', material: 'Blackened Forged Iron', specs: 'Pointed Spiked Pickets & Trefoils', image: '', toolId: 'roof_cresting', params: { type: 'ridge_cresting_gothic_spikes', sculptureCategory: 'cresting', height: 18, spacing: 16, material: 'metal_wrought_iron' } },
+    { id: 'ridge_cresting_metal_cap', name: 'Modern Standing Seam Cap Strip', badge: 'MODERN', material: 'Galvanized Zinc / Steel', specs: 'Sleek Standing Seam Cap Strip', image: '', toolId: 'roof_cresting', params: { type: 'ridge_cresting_metal_cap', sculptureCategory: 'cresting', height: 8, material: 'galvanized_steel' } },
 
     { isDivider: true, id: 'div_apex_finials', name: 'Apex Finials & Weather Vanes' },
-    { id: 'finial_victorian_spire', name: 'Victorian Iron Spire Finial', badge: 'SPIRE', material: 'Cast Iron Black', specs: 'Tiered Spheres & Tapering Needle', image: ROOF_SCULPTURE_SVGS.finial_victorian_spire, toolId: 'roof_finial', params: { type: 'finial_victorian_spire', sculptureCategory: 'finial', height: 45, scale: 1.0, material: 'metal_wrought_iron' } },
-    { id: 'finial_copper_spire', name: 'Copper Turret Spire Finial', badge: 'TURRET', material: 'Aged Patina Copper', specs: 'Classical Flared Turret Pinnacle', image: ROOF_SCULPTURE_SVGS.finial_copper_spire, toolId: 'roof_finial', params: { type: 'finial_copper_spire', sculptureCategory: 'finial', height: 50, scale: 1.0, material: 'copper' } },
-    { id: 'finial_globe_orb', name: 'Classical Globe Orb Finial', badge: 'CLASSICAL', material: 'Carved Limestone & Bronze', specs: 'Pedestal & Spherical Finial Orb', image: ROOF_SCULPTURE_SVGS.finial_globe_orb, toolId: 'roof_finial', params: { type: 'finial_globe_orb', sculptureCategory: 'finial', height: 40, scale: 1.0, material: 'limestone' } },
-    { id: 'finial_weather_rooster', name: 'Weather Rooster Vane & Compass', badge: 'WEATHER VANE', material: 'Wrought Iron & Bronze', specs: 'N/S/E/W Compass & Silhouette Rooster', image: ROOF_SCULPTURE_SVGS.finial_weather_rooster, toolId: 'roof_finial', params: { type: 'finial_weather_rooster', sculptureCategory: 'finial', height: 55, scale: 1.0, material: 'metal_wrought_iron', rotation: 35 } },
+    { id: 'finial_victorian_spire', name: 'Victorian Iron Spire Finial', badge: 'SPIRE', material: 'Cast Iron Black', specs: 'Tiered Spheres & Tapering Needle', image: '', toolId: 'roof_finial', params: { type: 'finial_victorian_spire', sculptureCategory: 'finial', height: 45, scale: 1.0, material: 'metal_wrought_iron' } },
+    { id: 'finial_copper_spire', name: 'Copper Turret Spire Finial', badge: 'TURRET', material: 'Aged Patina Copper', specs: 'Classical Flared Turret Pinnacle', image: '', toolId: 'roof_finial', params: { type: 'finial_copper_spire', sculptureCategory: 'finial', height: 50, scale: 1.0, material: 'copper' } },
+    { id: 'finial_globe_orb', name: 'Classical Globe Orb Finial', badge: 'CLASSICAL', material: 'Carved Limestone & Bronze', specs: 'Pedestal & Spherical Finial Orb', image: '', toolId: 'roof_finial', params: { type: 'finial_globe_orb', sculptureCategory: 'finial', height: 40, scale: 1.0, material: 'limestone' } },
+    { id: 'finial_weather_rooster', name: 'Weather Rooster Vane & Compass', badge: 'WEATHER VANE', material: 'Wrought Iron & Bronze', specs: 'N/S/E/W Compass & Silhouette Rooster', image: '', toolId: 'roof_finial', params: { type: 'finial_weather_rooster', sculptureCategory: 'finial', height: 55, scale: 1.0, material: 'metal_wrought_iron', rotation: 35 } },
 
     { isDivider: true, id: 'div_chimney_stacks', name: 'Chimney Stacks (Slope Snap)' },
-    { id: 'chimney_brick_traditional', name: 'Traditional Brick Chimney Stack', badge: 'TRADITIONAL', material: 'Red Brick & Terracotta', specs: 'Corbelled Coping & Dual Flues', image: ROOF_SCULPTURE_SVGS.chimney_brick_traditional, toolId: 'roof_chimney', params: { type: 'chimney_brick_traditional', sculptureCategory: 'chimney', width: 45, depth: 45, height: 90, material: 'red_brick', capMaterial: 'limestone', potMaterial: 'terracotta_clay' } },
-    { id: 'chimney_stone_tudor', name: 'Tudor Ashlar Stone Chimney', badge: 'HERITAGE', material: 'Rustic Stone & Octagonal Flues', specs: 'Molded Stone Cornice & Dual Shafts', image: ROOF_SCULPTURE_SVGS.chimney_stone_tudor, toolId: 'roof_chimney', params: { type: 'chimney_stone_tudor', sculptureCategory: 'chimney', width: 50, depth: 45, height: 95, material: 'rough_stone', capMaterial: 'limestone' } },
-    { id: 'chimney_metal_flue', name: 'Modern Stove Metal Flue Pipe', badge: 'MODERN', material: 'Matte Black Steel / Inox', specs: 'Insulated Pipe, Flashing & Rain Cap', image: ROOF_SCULPTURE_SVGS.chimney_metal_flue, toolId: 'roof_chimney', params: { type: 'chimney_metal_flue', sculptureCategory: 'chimney', width: 24, depth: 24, height: 110, material: 'metal_dark_steel' } },
-    { id: 'chimney_double_brick', name: 'Classical Double Flue Brick Chimney', badge: 'MANOR', material: 'Aged Red Brick & Stone Banding', specs: 'Wide Double Flue Stack & Lip Pots', image: ROOF_SCULPTURE_SVGS.chimney_double_brick, toolId: 'roof_chimney', params: { type: 'chimney_double_brick', sculptureCategory: 'chimney', width: 70, depth: 45, height: 90, material: 'red_brick', capMaterial: 'limestone', potMaterial: 'terracotta_clay' } }
+    { id: 'chimney_brick_traditional', name: 'Traditional Brick Chimney Stack', badge: 'TRADITIONAL', material: 'Red Brick & Terracotta', specs: 'Corbelled Coping & Dual Flues', image: '', toolId: 'roof_chimney', params: { type: 'chimney_brick_traditional', sculptureCategory: 'chimney', width: 45, depth: 45, height: 90, material: 'red_brick', capMaterial: 'limestone', potMaterial: 'terracotta_clay' } },
+    { id: 'chimney_stone_tudor', name: 'Tudor Ashlar Stone Chimney', badge: 'HERITAGE', material: 'Rustic Stone & Octagonal Flues', specs: 'Molded Stone Cornice & Dual Shafts', image: '', toolId: 'roof_chimney', params: { type: 'chimney_stone_tudor', sculptureCategory: 'chimney', width: 50, depth: 45, height: 95, material: 'rough_stone', capMaterial: 'limestone' } },
+    { id: 'chimney_metal_flue', name: 'Modern Stove Metal Flue Pipe', badge: 'MODERN', material: 'Matte Black Steel / Inox', specs: 'Insulated Pipe, Flashing & Rain Cap', image: '', toolId: 'roof_chimney', params: { type: 'chimney_metal_flue', sculptureCategory: 'chimney', width: 24, depth: 24, height: 110, material: 'metal_dark_steel' } },
+    { id: 'chimney_double_brick', name: 'Classical Double Flue Brick Chimney', badge: 'MANOR', material: 'Aged Red Brick & Stone Banding', specs: 'Wide Double Flue Stack & Lip Pots', image: '', toolId: 'roof_chimney', params: { type: 'chimney_double_brick', sculptureCategory: 'chimney', width: 70, depth: 45, height: 90, material: 'red_brick', capMaterial: 'limestone', potMaterial: 'terracotta_clay' } }
 ]);
 
 const skirtingCatalog = ref([

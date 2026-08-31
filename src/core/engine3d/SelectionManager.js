@@ -19,7 +19,7 @@ export class SelectionManager {
                 }
             }
             return this.selectWall(object);
-        } else if (object.userData.isFurniture || object.userData.isFloor || object.userData.isWidget || object.userData.isMolding || object.userData.isRoof || object.userData.isPattern || object.userData.isStair || object.userData.isFloorCutProxy) {
+        } else if (object.userData.isFurniture || object.userData.isFloor || object.userData.isWidget || object.userData.isMolding || object.userData.isRoof || object.userData.isPattern || object.userData.isStair || object.userData.isFloorCutProxy || object.userData.isRoofAddon || object.userData.isRoofDormer || object.userData.isRoofSculpture || object.userData.isSkylight) {
             return this.selectBasic(object);
         } else {
             if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
@@ -98,13 +98,14 @@ export class SelectionManager {
                     const transform = s.group.getTransform();
                     for (let i = 0; i < pts.length; i++) {
                         const sp1 = transform.point(pts[i]); 
-                        const sp2 = transform.point(pts[(i + 1) % pts.length]);
+                        const nextIdx = (i + 1) % pts.length;
+                        const sp2 = transform.point(pts[nextIdx]);
                         const C = sp2.x - sp1.x, D = sp2.y - sp1.y;
                         const lenSq = C * C + D * D;
                         if (lenSq !== 0) {
-                            const param = Math.max(0, Math.min(1, ((midX - sp1.x) * C + (midY - sp1.y) * D) / lenSq));
+                            const param = Math.max(0, Math.min(1, ((midX - sp1.x)*C + (midY - sp1.y)*D)/lenSq));
                             if (Math.hypot(midX - (sp1.x + param*C), midY - (sp1.y + param*D)) < 5) {
-                                currentH = s.params.height3D !== undefined ? s.params.height3D : 100;
+                                currentH = s.elevation || 0;
                                 foundSupport = true;
                                 break;
                             }
@@ -115,12 +116,6 @@ export class SelectionManager {
             }
         }
 
-        const currentT = w.thickness !== undefined ? w.thickness : (w.config?.thickness || (isRailing ? 4 : 8));
-        const totalH = isRailing ? currentH + 40 : currentH;
-        
-        const profileType = w.topProfileType || 'normal';
-        const startH = w.startHeight !== undefined ? w.startHeight : totalH;
-        const endH = w.endHeight !== undefined ? w.endHeight : totalH;
         const peakH = w.peakHeight !== undefined ? w.peakHeight : totalH;
 
         const hlWidth = w.length3D + (maxDepth * 2) + 0.5;
@@ -310,12 +305,13 @@ export class SelectionManager {
         else if (object.userData.isWidget) type = 'widget';
         else if (object.userData.isMolding) type = 'molding';
         else if (object.userData.isRoof) type = 'roof';
+        else if (object.userData.isRoofAddon || object.userData.isRoofDormer || object.userData.isRoofSculpture || object.userData.isSkylight) type = 'roof_addon';
         else if (object.userData.isPattern) type = 'advance_openings';
         else if (object.userData.isStair) type = 'stair';
         
         this.system.setHighlight(object, true);
             
-        if (['furniture', 'shape', 'widget', 'molding', 'advance_openings', 'roof', 'stair', 'room'].includes(type)) {
+        if (['furniture', 'shape', 'widget', 'molding', 'advance_openings', 'roof', 'stair', 'room', 'roof_addon'].includes(type)) {
             if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
             if (object.userData.isFloorCutProxy && this.ctx.setTransformMode) {
                 this.ctx.setTransformMode('polygon_edges', true);

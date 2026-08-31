@@ -595,9 +595,9 @@ export class InteractionSystem {
                     return;
                 }
 
-                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isMolding && !mesh.userData.isRoof && !mesh.userData.isPattern && !mesh.userData.isStair && !mesh.userData.isFloorCutProxy) mesh = mesh.parent;
+                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isMolding && !mesh.userData.isRoof && !mesh.userData.isPattern && !mesh.userData.isStair && !mesh.userData.isFloorCutProxy && !mesh.userData.isRoofAddon && !mesh.userData.isRoofDormer && !mesh.userData.isRoofSculpture && !mesh.userData.isSkylight) mesh = mesh.parent;
                 
-                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isMolding || mesh.userData.isRoof || mesh.userData.isPattern || mesh.userData.isStair || mesh.userData.isFloorCutProxy)) {
+                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isMolding || mesh.userData.isRoof || mesh.userData.isPattern || mesh.userData.isStair || mesh.userData.isFloorCutProxy || mesh.userData.isRoofAddon || mesh.userData.isRoofDormer || mesh.userData.isRoofSculpture || mesh.userData.isSkylight)) {
                     if (this.mode === 'edit') {
                         if (mesh.userData.isWallDecor) {
                             const decor = mesh.userData.entity;

@@ -86,6 +86,12 @@ export class BIMMaterialSystem {
             } else if (type === 'roof') {
                 componentType = mesh.userData?.componentType || 'roof_top';
                 slotName = mesh.userData?.materialSlot || 'top';
+            } else if (type === 'dormer' || type?.startsWith('dormer_') || targetEntity.addonType === 'dormer' || mesh.userData?.isRoofDormer) {
+                componentType = mesh.userData?.componentType || 'roof_dormer';
+                slotName = mesh.userData?.materialSlot || 'dormer_siding';
+            } else if (type === 'chimney' || type?.startsWith('chimney_') || targetEntity.addonType === 'chimney' || mesh.userData?.isRoofSculpture) {
+                componentType = mesh.userData?.componentType || 'roof_sculpture';
+                slotName = mesh.userData?.materialSlot || 'sculpture';
             } else if (type === 'furniture' || targetEntity.isFurniture) {
                 componentType = mesh.userData?.componentType || (mesh.userData?.materialSlot ? String(mesh.userData.materialSlot) : 'furniture_part');
                 slotName = mesh.userData?.materialSlot || MaterialSlots.CUSTOM;
@@ -200,7 +206,7 @@ export class BIMMaterialSystem {
         while (current) {
             if (current.userData?.entity) {
                 const ent = current.userData.entity;
-                if (ent.type === 'door' || ent.type === 'window' || ent.isWidget || ent.isFurniture || ent.type === 'furniture' || ent.isStair || (ent.type && ent.type.startsWith('stair'))) {
+                if (ent.type === 'door' || ent.type === 'window' || ent.isWidget || ent.isFurniture || ent.type === 'furniture' || ent.isStair || (ent.type && ent.type.startsWith('stair')) || ent.isRoofDormer || (ent.type && ent.type.startsWith('dormer')) || ent.isRoofAddon || ent.isRoofSculpture || ent.type === 'roof') {
                     return ent;
                 }
                 if (!foundEntity) foundEntity = ent;

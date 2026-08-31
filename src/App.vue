@@ -253,7 +253,11 @@ const handleCatalogSelect = (item) => {
             const params = { toolId: 'skylight', ...item.params, name: item.name };
             planner.value.activePresetParams = params;
             activePresetParams.value = params;
-            setTool('skylight', params);
+        } else if (item.toolId === 'dormer' || item.type === 'dormer' || (item.id && item.id.startsWith('preset_dormer_')) || (item.params && item.params.type && item.params.type.startsWith('dormer_'))) {
+            const params = { toolId: 'dormer', ...item.params, name: item.name };
+            planner.value.activePresetParams = params;
+            activePresetParams.value = params;
+            setTool('dormer', params);
         } else if (item.toolId === 'roof_cresting' || item.toolId === 'roof_finial' || item.toolId === 'roof_chimney' || item.toolId === 'roof_sculptures' || item.params?.sculptureCategory) {
             const toolKey = item.toolId || (item.params?.sculptureCategory ? `roof_${item.params.sculptureCategory}` : 'roof_sculptures');
             const params = { toolId: toolKey, ...item.params, name: item.name };

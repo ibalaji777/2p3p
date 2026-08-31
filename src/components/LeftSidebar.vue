@@ -429,6 +429,21 @@ const getToolDetails = (toolId, toolName) => {
             btnText: 'Place Roof Sculpture'
         };
     }
+    if (toolId === 'dormer') {
+        return {
+            title: 'Roof Dormers Catalog',
+            subtitle: 'Sims 4 Architectural Dormers',
+            badge: '🏠 Roof Dormers',
+            icon: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline>',
+            description: 'Snap Gable, Shed, Eyebrow, Hip, and Barrel dormers directly onto sloped roof surfaces.',
+            features: [
+                'Sims 4 Gable, Shed, Eyebrow, Hip, and Barrel styles',
+                'Automatic roof pitch alignment & slope integration',
+                'Independent cheek siding, window frame, and roof materials'
+            ],
+            btnText: 'Place Roof Dormer'
+        };
+    }
     if (toolId === 'skylight') {
         return {
             title: 'Roof Glass & Skylight Addons',
