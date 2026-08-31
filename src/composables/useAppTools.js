@@ -83,6 +83,19 @@ export function useAppTools({
                 activePresetParams.value = { type: 'wall_art', artType: 'modern_canvas', width: 50, height: 35, depth: 3, elevation: 45 };
                 planner.value.activePresetParams = activePresetParams.value;
             }
+        } else if (tool === 'skylight' || tool.startsWith('skylight_')) {
+            if (!activePresetParams.value || !activePresetParams.value.type?.startsWith('skylight_')) {
+                activePresetParams.value = {
+                    type: 'skylight_flush_flat',
+                    material: 'glass_roof_square_grid',
+                    frameMaterial: 'metal_dark_steel',
+                    width: 120,
+                    length: 180,
+                    depth: 10,
+                    coverage: 'custom'
+                };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
         } else if (tool === 'staircase' || tool.startsWith('stair_')) {
             if (!activePresetParams.value) {
                 activePresetParams.value = {

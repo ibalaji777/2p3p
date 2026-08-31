@@ -175,6 +175,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { usePlannerStore } from '../../stores/usePlannerStore.js';
+import { GLASS_ROOF_TEXTURE_DATA } from '../../features/roof/generators/generate_glass_roof_textures.js';
 
 const sortOption = ref('popular');
 const sortMenuOpen = ref(false);
@@ -405,6 +406,10 @@ const staircaseCatalog = ref([
 ]);
 
 const roofCatalog = ref([
+    { id: 'roof_glass_atrium', name: 'Modern Glass Atrium', badge: 'GLASS ATRIUM', material: 'Square Grid Glass & Steel', specs: '25° Square Mullions', image: '', toolId: 'roof', params: { roofType: 'gable', pitch: 25, material: 'glass_roof_square_grid', type: 'roof' } },
+    { id: 'roof_glass_conservatory', name: 'Victorian Conservatory', badge: 'CONSERVATORY', material: 'Diamond Lattice Glass', specs: '30° Leaded Bronze Lattice', image: '', toolId: 'roof', params: { roofType: 'hip', pitch: 30, material: 'glass_roof_diamond_lattice', type: 'roof' } },
+    { id: 'roof_glass_solarium', name: 'Futuristic Solarium Dome', badge: 'SOLARIUM', material: 'Hexagonal Honeycomb Glass', specs: '35° Titanium Hex Grid', image: '', toolId: 'roof', params: { roofType: 'turret_round', pitch: 35, curve: -10, material: 'glass_roof_hexagonal_honeycomb', type: 'roof' } },
+    { id: 'roof_glass_skylight', name: 'Frameless Glass Skylight', badge: 'SKYLIGHT', material: 'Solid Clear Float Glass', specs: '15° Pure Clear Glazing', image: '', toolId: 'roof', params: { roofType: 'shed', pitch: 15, material: 'glass_roof_solid_clear', type: 'roof' } },
     { id: 'roof_gable', name: 'Gable Roof', badge: 'CLASSIC', material: 'Terracotta Tiles', specs: '30° Pitch', image: '', toolId: 'roof', params: { roofType: 'gable', pitch: 30, material: 'terracotta_tiles_roof', type: 'roof' } },
     { id: 'roof_hip', name: 'Hip Roof', badge: 'POPULAR', material: 'Asphalt Shingles', specs: '30° Pitch', image: '', toolId: 'roof', params: { roofType: 'hip', pitch: 30, material: 'dark_asphalt_roof', type: 'roof' } },
     { id: 'roof_shed', name: 'Half-Gable (Shed)', badge: 'SKILLION', material: 'Grey Slate Tiles', specs: '20° Pitch (Single Slope)', image: '', toolId: 'roof', params: { roofType: 'shed', pitch: 20, material: 'grey_slate_roof', type: 'roof' } },
@@ -424,6 +429,18 @@ const dormerCatalog = ref([
     { id: 'preset_dormer_gable', name: 'Gable Dormer', badge: 'CLASSIC', material: 'Wood Siding', specs: '35° Pitch', image: '', params: { type: 'preset_dormer_gable', width: 120, depth: 150, wallHeight: 120, roofType: 'gable', pitch: 35, elevation: 250 } },
     { id: 'preset_dormer_shed', name: 'Shed Dormer', badge: 'MODERN', material: 'Metal Roof', specs: '15° Pitch', image: '', params: { type: 'preset_dormer_shed', width: 250, depth: 150, wallHeight: 120, roofType: 'flat', pitch: 15, elevation: 250 } },
     { id: 'preset_dormer_hip', name: 'Hip Dormer', badge: 'HERITAGE', material: 'Tile Roof', specs: '35° Pitch', image: '', params: { type: 'preset_dormer_hip', width: 120, depth: 150, wallHeight: 120, roofType: 'hip', pitch: 35, elevation: 250 } }
+]);
+
+const skylightCatalog = ref([
+    { isDivider: true, id: 'div_glass_insets', name: 'Sims 4 Architectural Glass Insets' },
+    { id: 'skylight_square_grid_inset', name: 'Modern Square Grid Glass Inset', badge: 'ATRIUM', material: 'Charcoal Steel Grid & Glass', specs: 'Customizable Rectangle', image: GLASS_ROOF_TEXTURE_DATA.glass_roof_square_grid?.dataUri || '', toolId: 'skylight', params: { type: 'skylight_square_grid_inset', width: 120, length: 180, material: 'glass_roof_square_grid', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
+    { id: 'skylight_diamond_lattice_inset', name: 'Victorian Diamond Lattice Inset', badge: 'CONSERVATORY', material: 'Leaded Bronze 45° Lattice', specs: 'Customizable Rectangle', image: GLASS_ROOF_TEXTURE_DATA.glass_roof_diamond_lattice?.dataUri || '', toolId: 'skylight', params: { type: 'skylight_diamond_lattice', width: 120, length: 180, material: 'glass_roof_diamond_lattice', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
+    { id: 'skylight_hexagonal_inset', name: 'Futuristic Hex Solarium Inset', badge: 'SOLARIUM', material: 'Titanium Hex Grid & Glass', specs: 'Customizable Rectangle', image: GLASS_ROOF_TEXTURE_DATA.glass_roof_hexagonal_honeycomb?.dataUri || '', toolId: 'skylight', params: { type: 'skylight_flush_flat', width: 140, length: 200, material: 'glass_roof_hexagonal_honeycomb', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
+    { id: 'skylight_solid_clear_inset', name: 'Frameless Clear Float Glass Inset', badge: 'FRAMELESS', material: 'Ultra-Clear Float Glass', specs: 'Customizable Rectangle', image: GLASS_ROOF_TEXTURE_DATA.glass_roof_solid_clear?.dataUri || '', toolId: 'skylight', params: { type: 'skylight_flush_flat', width: 100, length: 150, material: 'glass_roof_solid_clear', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
+
+    { isDivider: true, id: 'div_roof_windows', name: 'Framed Roof Windows & Lanterns' },
+    { id: 'skylight_velux_frame', name: 'Velux Pivot Roof Window', badge: 'PIVOT', material: 'Dark Steel & Clear Glass', specs: '800 × 1200 mm', image: GLASS_ROOF_TEXTURE_DATA.skylight_velux_frame?.dataUri || '', toolId: 'skylight', params: { type: 'skylight_velux_frame', width: 80, length: 120, material: 'glass_roof_square_grid', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
+    { id: 'skylight_pyramid_dome', name: 'Architectural Pyramid Lantern', badge: 'LANTERN', material: '4-Sided Pyramid Solarium', specs: '1200 × 1200 mm', image: GLASS_ROOF_TEXTURE_DATA.skylight_pyramid_dome?.dataUri || '', toolId: 'skylight', params: { type: 'skylight_pyramid_dome', width: 120, length: 120, depth: 25, material: 'glass_roof_hexagonal_honeycomb', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
 ]);
 
 const skirtingCatalog = ref([
@@ -968,6 +985,7 @@ const items = computed(() => {
     if (props.type === 'staircase') return staircaseCatalog.value;
     if (props.type === 'roof') return roofCatalog.value;
     if (props.type === 'dormer') return dormerCatalog.value;
+    if (props.type === 'skylight') return skylightCatalog.value;
     if (props.type === 'skirting') return skirtingCatalog.value;
     if (props.type === 'molding') return moldingCatalog.value;
     if (props.type === 'elevation_fascia') return elevationFasciaCatalog.value;

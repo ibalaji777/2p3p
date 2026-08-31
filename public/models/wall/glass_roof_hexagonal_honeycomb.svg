@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <!-- Futuristic Solarium Cyan/Blue Tint -->
+    <linearGradient id="futuristicGlass" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.24" />
+      <stop offset="50%" stop-color="#0891b2" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#0e7490" stop-opacity="0.28" />
+    </linearGradient>
+    <!-- Sleek Titanium/Dark Frame -->
+    <linearGradient id="titaniumFrame" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="35%" stop-color="#334155" />
+      <stop offset="50%" stop-color="#64748b" />
+      <stop offset="65%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+    <linearGradient id="hexSpecular" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.38" />
+      <stop offset="45%" stop-color="#ffffff" stop-opacity="0.06" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.0" />
+    </linearGradient>
+  </defs>
+
+  <!-- Glass Background -->
+  <rect x="0" y="0" width="512" height="512" fill="url(#futuristicGlass)" />
+
+  <!-- Center Hexagon: R=140 -->
+  <!-- Points: (256, 116), (377, 186), (377, 326), (256, 396), (135, 326), (135, 186) -->
+  <polygon points="256,116 377,186 377,326 256,396 135,326 135,186" fill="url(#futuristicGlass)" stroke="#22d3ee" stroke-width="2" stroke-opacity="0.4"/>
+  <polygon points="256,116 377,186 256,256 135,186" fill="url(#hexSpecular)" />
+
+  <!-- Top Hexagon (Center-X=256, Center-Y=-124) -->
+  <polygon points="256,-264 377,-194 377,-54 256,16 135,-54 135,-194" fill="url(#futuristicGlass)" />
+  <!-- Bottom Hexagon (Center-X=256, Center-Y=636) -->
+  <polygon points="256,496 377,566 377,706 256,776 135,706 135,566" fill="url(#futuristicGlass)" />
+
+  <!-- Left-Top Hexagon (Center-X=46, Center-Y=66) -->
+  <polygon points="46,-74 167,-4 167,136 46,206 -75,136 -75,-4" fill="url(#futuristicGlass)" />
+  <!-- Right-Top Hexagon (Center-X=466, Center-Y=66) -->
+  <polygon points="466,-74 587,-4 587,136 466,206 345,136 345,-4" fill="url(#futuristicGlass)" />
+
+  <!-- Left-Bottom Hexagon (Center-X=46, Center-Y=446) -->
+  <polygon points="46,306 167,376 167,516 46,586 -75,516 -75,376" fill="url(#futuristicGlass)" />
+  <!-- Right-Bottom Hexagon (Center-X=466, Center-Y=446) -->
+  <polygon points="466,306 587,376 587,516 466,586 345,516 345,376" fill="url(#futuristicGlass)" />
+
+  <!-- Structural Honeycomb Hexagonal Mullion Grid -->
+  <g stroke="url(#titaniumFrame)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- Center Hexagon Perimeter -->
+    <polygon points="256,116 377,186 377,326 256,396 135,326 135,186" />
+
+    <!-- Radiating Spokes / Connecting Struts -->
+    <line x1="256" y1="116" x2="256" y2="16" />
+    <line x1="256" y1="396" x2="256" y2="496" />
+
+    <line x1="377" y1="186" x2="466" y2="136" />
+    <line x1="377" y1="326" x2="466" y2="376" />
+
+    <line x1="135" y1="186" x2="46" y2="136" />
+    <line x1="135" y1="326" x2="46" y2="376" />
+
+    <!-- Corner Hexagon Edges for Seamless Tiling -->
+    <polyline points="135,-54 256,16 377,-54" />
+    <polyline points="135,566 256,496 377,566" />
+    <polyline points="466,-74 466,136 512,162" />
+    <polyline points="466,586 466,376 512,350" />
+    <polyline points="46,-74 46,136 0,162" />
+    <polyline points="46,586 46,376 0,350" />
+  </g>
+
+  <!-- Fine Inner Metallic Highlights -->
+  <g stroke="#94a3b8" stroke-width="2" opacity="0.9" fill="none">
+    <polygon points="256,116 377,186 377,326 256,396 135,326 135,186" />
+    <line x1="256" y1="116" x2="256" y2="16" />
+    <line x1="256" y1="396" x2="256" y2="496" />
+    <line x1="377" y1="186" x2="466" y2="136" />
+    <line x1="377" y1="326" x2="466" y2="376" />
+    <line x1="135" y1="186" x2="46" y2="136" />
+    <line x1="135" y1="326" x2="46" y2="376" />
+  </g>
+
+  <!-- Structural Nodes / Hex Joints -->
+  <circle cx="256" cy="116" r="8" fill="#0f172a" stroke="#cbd5e1" stroke-width="2" />
+  <circle cx="377" cy="186" r="8" fill="#0f172a" stroke="#cbd5e1" stroke-width="2" />
+  <circle cx="377" cy="326" r="8" fill="#0f172a" stroke="#cbd5e1" stroke-width="2" />
+  <circle cx="256" cy="396" r="8" fill="#0f172a" stroke="#cbd5e1" stroke-width="2" />
+  <circle cx="135" cy="326" r="8" fill="#0f172a" stroke="#cbd5e1" stroke-width="2" />
+  <circle cx="135" cy="186" r="8" fill="#0f172a" stroke="#cbd5e1" stroke-width="2" />
+</svg>

@@ -372,7 +372,7 @@
                 @set-floor-material="$emit('set-floor-material', $event)"
                 @set-opening-material="$emit('set-opening-material', $event)"
                 @clear-shape-textures="$emit('clear-shape-textures')"
-                @set-roof-material="$emit('set-roof-material', $event)"
+                @set-roof-material="(...args) => $emit('set-roof-material', ...args)"
                 @set-shape-material="$emit('set-shape-material', $event)"
             />
             </component>

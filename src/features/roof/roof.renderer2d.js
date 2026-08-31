@@ -503,6 +503,70 @@ export class PremiumHipRoof {
                 this.hipLinesGroup.add(new Konva.Line({ points: [maxX, maxY, r2x, r2y], stroke: ridgeStroke, strokeWidth: 1.5 }));
             }
         }
+
+        // Render 2D Skylight Windows & Glass Insets
+        const skylights = this.config.skylights || this.skylights;
+        if (Array.isArray(skylights) && skylights.length > 0) {
+            const bW = maxX - minX;
+            const bD = maxY - minY;
+            const pitchRad = (this.config.pitch || 30) * Math.PI / 180;
+            const axis = this.config.ridgeAxis || 'x';
+
+            skylights.forEach(sk => {
+                const skX = sk.x !== undefined ? sk.x : (sk.u !== undefined ? (minX + sk.u * bW) : (minX + bW / 2));
+                const skY = sk.z !== undefined ? sk.z : (sk.v !== undefined ? (minY + sk.v * bD) : (minY + bD / 2));
+                
+                let effW = Number(sk.width) || 120;
+                let effL = Number(sk.length) || 180;
+                if (sk.coverage === 'full_width' || sk.coverage === 'full_both') effW = (axis === 'x' ? bW : bD);
+                if (sk.coverage === 'full_slope' || sk.coverage === 'full_both') effL = ((axis === 'x' ? bD : bW) / 2) / Math.cos(pitchRad);
+
+                const projL = effL * Math.cos(pitchRad);
+                const rectX = skX - effW / 2;
+                const rectY = skY - projL / 2;
+
+                // Glass Area (Transparent Blue Aperture)
+                this.hipLinesGroup.add(new Konva.Rect({
+                    x: rectX,
+                    y: rectY,
+                    width: effW,
+                    height: projL,
+                    fill: 'rgba(56, 189, 248, 0.4)',
+                    stroke: '#0284c7',
+                    strokeWidth: 2,
+                    lineJoin: 'round',
+                    shadowColor: '#0369a1',
+                    shadowBlur: 6,
+                    shadowOpacity: 0.25
+                }));
+
+                // Center cross / diamond mullion indicators in 2D
+                if (sk.type === 'skylight_diamond_lattice' || sk.material === 'glass_roof_diamond_lattice') {
+                    this.hipLinesGroup.add(new Konva.Line({
+                        points: [
+                            rectX + effW / 2, rectY,
+                            rectX + effW, rectY + projL / 2,
+                            rectX + effW / 2, rectY + projL,
+                            rectX, rectY + projL / 2
+                        ],
+                        stroke: '#0369a1',
+                        strokeWidth: 1.5,
+                        closed: true
+                    }));
+                } else {
+                    this.hipLinesGroup.add(new Konva.Line({
+                        points: [rectX, rectY + projL / 2, rectX + effW, rectY + projL / 2],
+                        stroke: '#0369a1',
+                        strokeWidth: 1.5
+                    }));
+                    this.hipLinesGroup.add(new Konva.Line({
+                        points: [rectX + effW / 2, rectY, rectX + effW / 2, rectY + projL],
+                        stroke: '#0369a1',
+                        strokeWidth: 1.5
+                    }));
+                }
+            });
+        }
     }
 
     addHatchedTriangle(p1, p2, p3) {

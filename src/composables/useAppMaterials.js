@@ -164,17 +164,40 @@ export function useAppMaterials({
         }
     };
 
-    const setRoofMaterial = (key) => {
-        if (selectedEntity.value && selectedType.value === 'roof') {
-            selectedEntity.value.config.material = key;
-            syncEngine();
+    const setRoofMaterial = (key, scope = 'single', slopeKey = null) => {
+        const currentScope = scope || paintScope?.value || 'single';
+        
+        if (currentScope === 'all') {
+            const plannerInstance = planner?.value || planner || window.planner?.value || window.planner;
+            const roofs = plannerInstance?.roofs || [];
+            roofs.forEach(r => {
+                if (r.config) {
+                    r.config.material = key;
+                    if (r.config.slopes) delete r.config.slopes;
+                } else {
+                    r.material = key;
+                }
+            });
+        } else if (selectedEntity.value && (selectedType.value === 'roof' || selectedEntity.value.type === 'roof' || selectedEntity.value.config?.roofType)) {
+            const r = selectedEntity.value;
+            r.config = r.config || {};
+            if (slopeKey) {
+                r.config.slopes = r.config.slopes || {};
+                r.config.slopes[slopeKey] = key;
+            } else {
+                r.config.material = key;
+            }
         }
+        syncEngine('material');
+        debouncedSaveHistory();
     };
 
     const setRoofFasciaMaterial = (key) => {
-        if (selectedEntity.value && selectedType.value === 'roof') {
+        if (selectedEntity.value && (selectedType.value === 'roof' || selectedEntity.value.type === 'roof' || selectedEntity.value.config?.roofType)) {
+            selectedEntity.value.config = selectedEntity.value.config || {};
             selectedEntity.value.config.fasciaMaterial = key;
-            syncEngine();
+            syncEngine('material');
+            debouncedSaveHistory();
         }
     };
 

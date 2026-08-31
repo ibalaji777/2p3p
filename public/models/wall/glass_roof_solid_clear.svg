@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <!-- Ultra-Clear Float Glass with Sky Reflection -->
+    <linearGradient id="clearSkyGlass" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e0f2fe" stop-opacity="0.25" />
+      <stop offset="30%" stop-color="#bae6fd" stop-opacity="0.10" />
+      <stop offset="70%" stop-color="#38bdf8" stop-opacity="0.05" />
+      <stop offset="100%" stop-color="#0284c7" stop-opacity="0.22" />
+    </linearGradient>
+    <linearGradient id="edgeGleam" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.5" />
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.05" />
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.3" />
+    </linearGradient>
+    <linearGradient id="pureSpecular" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45" />
+      <stop offset="25%" stop-color="#ffffff" stop-opacity="0.12" />
+      <stop offset="60%" stop-color="#ffffff" stop-opacity="0.0" />
+    </linearGradient>
+  </defs>
+
+  <!-- Clear Glass Body -->
+  <rect x="0" y="0" width="512" height="512" fill="url(#clearSkyGlass)" />
+
+  <!-- Diagonal Panoramic Sunlight Sheen -->
+  <polygon points="0,0 280,0 0,280" fill="url(#pureSpecular)" />
+  <polygon points="120,0 512,0 512,180 0,460 0,380" fill="url(#pureSpecular)" opacity="0.4"/>
+
+  <!-- Subtle Micro-Seam Edge (Frameless Architectural Glass Butt-Joint) -->
+  <rect x="0" y="0" width="512" height="512" fill="none" stroke="#7dd3fc" stroke-width="1.5" stroke-opacity="0.3" />
+  <line x1="0" y1="0" x2="512" y2="0" stroke="url(#edgeGleam)" stroke-width="2" />
+</svg>

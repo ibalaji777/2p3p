@@ -2321,6 +2321,18 @@ export class EnvironmentBuilder {
                 newMesh.remove(child);
                 oldMesh.add(child);
             }
+
+            // Sync all skylight groups from tempRoofGroup to realRoofGroup
+            const oldSkylights = realRoofGroup.children.filter(c => c.userData && c.userData.isSkylight);
+            oldSkylights.forEach(sk => {
+                realRoofGroup.remove(sk);
+            });
+
+            const newSkylights = tempRoofGroup.children.filter(c => c.userData && c.userData.isSkylight);
+            newSkylights.forEach(sk => {
+                tempRoofGroup.remove(sk);
+                realRoofGroup.add(sk);
+            });
         }
         if (this.ctx && typeof this.ctx.requestRender === 'function') {
             this.ctx.requestRender();

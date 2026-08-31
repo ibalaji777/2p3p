@@ -249,6 +249,11 @@ const handleCatalogSelect = (item) => {
                 activePresetParams.value = params;
                 setTool('roof', params);
             }
+        } else if (item.toolId === 'skylight' || item.type === 'skylight' || (item.id && item.id.startsWith('skylight_'))) {
+            const params = { toolId: 'skylight', ...item.params, name: item.name };
+            planner.value.activePresetParams = params;
+            activePresetParams.value = params;
+            setTool('skylight', params);
         } else if (viewMode.value === '3d' && (item.toolId === 'furniture' || item.toolId === 'kitchen' || item.toolId === 'bathroom' || item.toolId === 'electronics' || (item.params && (item.params.type || item.params.id)))) {
             // In 3D mode: activate real-time Sims 4 3D placement system
             const fType = item.params?.type || item.params?.id || item.toolId;

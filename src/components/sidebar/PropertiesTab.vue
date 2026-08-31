@@ -184,7 +184,7 @@
                 :calculate-roof-peak-height="calculateRoofPeakHeight"
                 :update-roof-pitch-from-height="updateRoofPitchFromHeight"
                 @sync-engine="$emit('sync-engine')"
-                @set-roof-material="$emit('set-roof-material', $event)"
+                @set-roof-material="(...args) => $emit('set-roof-material', ...args)"
                 @delete-entity="$emit('delete-entity')"
             />
 

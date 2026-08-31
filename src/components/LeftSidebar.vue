@@ -389,7 +389,7 @@ const selectSubTool = (tool) => {
 const isCatalogTool = (toolId) => {
     const catalogTools = [
         'door', 'window', 'skirting', 'sunshade', 'jali_panel', 'curtain', 'wall_art', 'staircase', 'roof', 
-        'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 
+        'skylight', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 
         'outdoor_spaces', 'outdoor_pavement', 'outdoor_patio', 'outdoor_softscape', 'outdoor_other',
         'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'bathroom_catalog', 'electronics_catalog', 
         'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 
@@ -412,6 +412,21 @@ const getToolDetails = (toolId, toolName) => {
                 'Independent material overrides without altering geometry'
             ],
             btnText: 'Activate Select Mode'
+        };
+    }
+    if (toolId === 'skylight') {
+        return {
+            title: 'Roof Glass & Skylight Addons',
+            subtitle: 'Architectural Glazing Insets',
+            badge: '🪟 Roof Addon',
+            icon: '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="12" x2="21" y2="12"></line><line x1="12" y1="3" x2="12" y2="21"></line>',
+            description: 'Click any roof slope to place a glass inset or Velux window, with Full Width and Full Slope coverage controls.',
+            features: [
+                'Click-to-place rectangular glass areas directly onto any roof',
+                '1-click Full Width, Full Slope, and Custom coverage modes',
+                'PBR transparent glass with steel, bronze, and titanium mullions'
+            ],
+            btnText: 'Place Glass Addon'
         };
     }
     if (toolId === 'pan') {
@@ -516,8 +531,9 @@ const getShortToolName = (toolId, name) => {
     if (toolId === 'elevation_fascia') return 'Fascia';
     if (toolId === 'molding') return 'Molding';
     if (toolId === 'staircase') return 'Staircase';
-    if (toolId === 'roof') return 'Roof';
-    if (toolId === 'dormer') return 'Dormer';
+    if (toolId === 'roof') return 'Roofs';
+    if (toolId === 'skylight') return 'Glass Addons';
+    if (toolId === 'dormer') return 'Dormers';
     if (toolId === 'wall_catalog') return 'Walls';
     if (toolId === 'compound') return 'Compound';
     if (toolId === 'shape_catalog') return '3D Shapes';
@@ -536,6 +552,9 @@ const getShortToolName = (toolId, name) => {
 };
 
 const getToolTabIcon = (toolId) => {
+    if (toolId === 'skylight') {
+        return '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="12" x2="21" y2="12"></line><line x1="12" y1="3" x2="12" y2="21"></line>';
+    }
     if (toolId === 'outdoor_driveway') {
         return '<path d="M4 17 C7 11 11 7 19 4" stroke-dasharray="2 2"></path><path d="M11 20 C14 15 17 12 21 10" stroke-dasharray="2 2"></path><path d="M6 19 C10 13 13 10 19 7"></path><circle cx="6" cy="19" r="1.5" fill="currentColor"></circle><circle cx="19" cy="7" r="1.5" fill="currentColor"></circle><rect x="9.5" y="8" width="5" height="4" rx="1"></rect><circle cx="10.5" cy="12" r="0.7"></circle><circle cx="13.5" cy="12" r="0.7"></circle>';
     }

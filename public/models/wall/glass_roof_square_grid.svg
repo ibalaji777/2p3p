@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <!-- Background Glass Tint -->
+    <linearGradient id="glassGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.22" />
+      <stop offset="50%" stop-color="#0284c7" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#0369a1" stop-opacity="0.26" />
+    </linearGradient>
+    <!-- Metal Mullion Gradient -->
+    <linearGradient id="mullionGradV" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="35%" stop-color="#475569" />
+      <stop offset="50%" stop-color="#94a3b8" />
+      <stop offset="65%" stop-color="#334155" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <linearGradient id="mullionGradH" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="35%" stop-color="#475569" />
+      <stop offset="50%" stop-color="#94a3b8" />
+      <stop offset="65%" stop-color="#334155" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <!-- Glass Pane Inner Specular Reflection -->
+    <linearGradient id="specularGlint" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35" />
+      <stop offset="30%" stop-color="#ffffff" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.0" />
+    </linearGradient>
+  </defs>
+
+  <!-- 4 Square Glass Panes -->
+  <!-- Pane Top-Left -->
+  <rect x="14" y="14" width="228" height="228" rx="2" fill="url(#glassGrad)" stroke="#64748b" stroke-width="1.5" stroke-opacity="0.4"/>
+  <polygon points="14,14 242,14 14,242" fill="url(#specularGlint)" />
+
+  <!-- Pane Top-Right -->
+  <rect x="270" y="14" width="228" height="228" rx="2" fill="url(#glassGrad)" stroke="#64748b" stroke-width="1.5" stroke-opacity="0.4"/>
+  <polygon points="270,14 498,14 270,242" fill="url(#specularGlint)" />
+
+  <!-- Pane Bottom-Left -->
+  <rect x="14" y="270" width="228" height="228" rx="2" fill="url(#glassGrad)" stroke="#64748b" stroke-width="1.5" stroke-opacity="0.4"/>
+  <polygon points="14,270 242,270 14,498" fill="url(#specularGlint)" />
+
+  <!-- Pane Bottom-Right -->
+  <rect x="270" y="270" width="228" height="228" rx="2" fill="url(#glassGrad)" stroke="#64748b" stroke-width="1.5" stroke-opacity="0.4"/>
+  <polygon points="270,270 498,270 270,498" fill="url(#specularGlint)" />
+
+  <!-- Outer Border Structural Mullions -->
+  <rect x="0" y="0" width="14" height="512" fill="url(#mullionGradV)" />
+  <rect x="498" y="0" width="14" height="512" fill="url(#mullionGradV)" />
+  <rect x="0" y="0" width="512" height="14" fill="url(#mullionGradH)" />
+  <rect x="0" y="498" width="512" height="14" fill="url(#mullionGradH)" />
+
+  <!-- Center Cross Structural T-Mullions -->
+  <rect x="242" y="0" width="28" height="512" fill="url(#mullionGradV)" />
+  <line x1="256" y1="0" x2="256" y2="512" stroke="#cbd5e1" stroke-width="1.5" />
+  
+  <rect x="0" y="242" width="512" height="28" fill="url(#mullionGradH)" />
+  <line x1="0" y1="256" x2="512" y2="256" stroke="#cbd5e1" stroke-width="1.5" />
+
+  <!-- Center Intersection Boss / Rivet -->
+  <rect x="238" y="238" width="36" height="36" rx="4" fill="#1e293b" stroke="#94a3b8" stroke-width="2" />
+  <circle cx="256" cy="256" r="6" fill="#cbd5e1" />
+</svg>

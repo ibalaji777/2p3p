@@ -18,6 +18,7 @@ import { WallPlugin3DPlacementSystem } from './WallPlugin3DPlacementSystem.js';
 import { Stair3DPlacementSystem } from './Stair3DPlacementSystem.js';
 import { Furniture3DPlacementSystem } from './Furniture3DPlacementSystem.js';
 import { Roof3DPlacementSystem } from './Roof3DPlacementSystem.js';
+import { RoofPlugin3DPlacementSystem } from './RoofPlugin3DPlacementSystem.js';
 import { SelectionManager } from './SelectionManager.js';
 import { HighlightRenderer } from './HighlightRenderer.js';
 import { DimensionManager3D } from './dimensions/DimensionManager3D.js';
@@ -464,6 +465,7 @@ export class InteractionSystem {
         this.stairPlacementSystem = new Stair3DPlacementSystem(ctx, this);
         this.furniturePlacementSystem = new Furniture3DPlacementSystem(ctx, this);
         this.roofPlacementSystem = new Roof3DPlacementSystem(ctx, this);
+        this.roofPluginPlacementSystem = new RoofPlugin3DPlacementSystem(ctx, this);
 
         this.initEvents();
     }
@@ -517,6 +519,11 @@ export class InteractionSystem {
             // Direct 3D Roof Placement & Drawing System
             if (this.roofPlacementSystem && this.roofPlacementSystem.isPlacementTool()) {
                 if (this.roofPlacementSystem.onPointerDown(e)) return;
+            }
+
+            // Direct 3D Roof Glass Addon & Skylight Placement System
+            if (this.roofPluginPlacementSystem && this.roofPluginPlacementSystem.isPlacementTool()) {
+                if (this.roofPluginPlacementSystem.onPointerDown(e)) return;
             }
 
             if (this.mode === 'camera') return;
@@ -646,6 +653,11 @@ export class InteractionSystem {
             // Direct 3D Roof Placement & Drawing System
             if (this.roofPlacementSystem && this.roofPlacementSystem.isPlacementTool()) {
                 if (this.roofPlacementSystem.onPointerMove(e)) return;
+            }
+
+            // Direct 3D Roof Glass Addon & Skylight Placement System
+            if (this.roofPluginPlacementSystem && this.roofPluginPlacementSystem.isPlacementTool()) {
+                if (this.roofPluginPlacementSystem.onPointerMove(e)) return;
             }
 
             if (this.mode === 'camera') return;

@@ -263,7 +263,7 @@ export class MaterialFactory {
             newMat.aoMapIntensity = config.aoIntensity;
         }
 
-        if (config.transmission !== undefined || config.transparent || config.categoryLabel === 'Glass') {
+        if (config.transmission !== undefined || config.transparent || config.categoryLabel === 'Glass' || config.isGlass || config.category === 'glass') {
             newMat.transmission = config.transmission !== undefined ? config.transmission : 0.92;
             newMat.ior = config.ior || 1.5;
             newMat.thickness = config.thickness || 10.0;

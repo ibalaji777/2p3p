@@ -62,11 +62,183 @@
         <div class="decor-gallery" v-if="roofConfig && roofConfig.roofType !== 'flat'">
             <MaterialSizeInput v-model="selectedEntity.tileSize" :defaultMax="200" @change="$emit('sync-engine')" />
             
-            <h4 class="props-subtitle">Roof Material</h4>
+            <!-- Sims 4 Paint Scope & Per-Slope Toggle -->
+            <div style="background: rgba(15, 23, 42, 0.04); border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin-top: 12px; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="font-size: 12px; font-weight: 700; color: #1e293b;">Painting Mode</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="scope-chip" :class="{ active: paintScopeMode === 'single' }" @click="paintScopeMode = 'single'" title="Paint only this selected roof">Single Roof</button>
+                        <button class="scope-chip" :class="{ active: paintScopeMode === 'all' }" @click="paintScopeMode = 'all'" title="Paint all roofs on the building (Sims 4 Shift+Click)">All Roofs ⚡</button>
+                    </div>
+                </div>
+
+                <div v-if="['gable', 'curved', 'shed', 'hip', 'half_hip', 'dutch_gable', 'jerkinhead', 'gambrel', 'mansard'].includes(roofConfig.roofType)" style="border-top: 1px dashed #cbd5e1; padding-top: 8px; margin-top: 6px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <label style="font-size: 11px; font-weight: 600; color: #475569; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                            <input type="checkbox" v-model="enablePerSlope" @change="handlePerSlopeToggle">
+                            Customize Individual Slopes
+                        </label>
+                        <span v-if="enablePerSlope" style="font-size: 10px; font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 2px 6px; border-radius: 10px;">Per-Slope Active</span>
+                    </div>
+
+                    <div v-if="enablePerSlope" style="display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap;">
+                        <template v-if="['gable', 'curved', 'shed'].includes(roofConfig.roofType)">
+                            <button class="slope-select-btn" :class="{ active: activeSlopeKey === 'slope1' }" @click="activeSlopeKey = 'slope1'">
+                                Slope 1 ({{ (roofConfig.ridgeAxis === 'y') ? 'West' : 'North' }})
+                                <span class="slope-mat-indicator" :title="getSlopeMatName('slope1')">{{ getSlopeMatName('slope1') }}</span>
+                            </button>
+                            <button class="slope-select-btn" :class="{ active: activeSlopeKey === 'slope2' }" @click="activeSlopeKey = 'slope2'">
+                                Slope 2 ({{ (roofConfig.ridgeAxis === 'y') ? 'East' : 'South' }})
+                                <span class="slope-mat-indicator" :title="getSlopeMatName('slope2')">{{ getSlopeMatName('slope2') }}</span>
+                            </button>
+                        </template>
+                        <template v-else>
+                            <button class="slope-select-btn" :class="{ active: activeSlopeKey === 'north' }" @click="activeSlopeKey = 'north'">North</button>
+                            <button class="slope-select-btn" :class="{ active: activeSlopeKey === 'south' }" @click="activeSlopeKey = 'south'">South</button>
+                            <button class="slope-select-btn" :class="{ active: activeSlopeKey === 'west' }" @click="activeSlopeKey = 'west'">West</button>
+                            <button class="slope-select-btn" :class="{ active: activeSlopeKey === 'east' }" @click="activeSlopeKey = 'east'">East</button>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; margin-bottom: 6px;">
+                <h4 class="props-subtitle" style="margin: 0;">
+                    {{ enablePerSlope ? `Select Material for ${activeSlopeLabel}` : 'Roof Material' }}
+                </h4>
+                <div class="material-filter-chips" style="display: flex; gap: 4px;">
+                    <button class="filter-chip" :class="{ active: materialFilter === 'all' }" @click="materialFilter = 'all'">All</button>
+                    <button class="filter-chip" :class="{ active: materialFilter === 'tiles' }" @click="materialFilter = 'tiles'">Tiles</button>
+                    <button class="filter-chip" :class="{ active: materialFilter === 'glass' }" @click="materialFilter = 'glass'">🪟 Glass</button>
+                </div>
+            </div>
             <div class="decor-grid">
-                <div v-for="(config, key) in roofDecorRegistry" :key="key" class="decor-item" @click="$emit('set-roof-material', key)" :class="{ active: roofConfig.material === key }">
-                    <img :src="config.thumbnail" />
+                <div v-for="(config, key) in filteredRoofDecor" :key="key" class="decor-item" @click="handleMaterialClick(key)" :class="{ active: isMaterialActive(key) }">
+                    <img :src="config.thumbnail || config.texture" />
                     <span>{{ config.name }}</span>
+                    <span v-if="config.isGlass" class="glass-pill-tag">Glass</span>
+                </div>
+            </div>
+
+            <!-- Attached Skylights Manager -->
+            <div style="margin-top: 18px; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                    <h4 class="props-subtitle" style="margin: 0; display: flex; align-items: center; gap: 6px;">
+                        <span>🪟 Embedded 3D Skylights</span>
+                        <span v-if="attachedSkylights.length" class="skylight-count-badge">{{ attachedSkylights.length }}</span>
+                    </h4>
+                    <button class="add-skylight-btn" @click="addSkylight">+ Add Skylight</button>
+                </div>
+
+                <div v-if="attachedSkylights.length === 0" style="font-size: 11px; color: #94a3b8; font-style: italic; padding: 6px 0;">
+                    No skylights on this roof. Click "+ Add Skylight" to insert framed glass roof windows.
+                </div>
+
+                <div v-for="(sk, idx) in attachedSkylights" :key="sk.id || idx" class="skylight-card">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #0f172a;">Glass Inset #{{ idx + 1 }}</span>
+                        <button class="delete-skylight-btn" @click="removeSkylight(idx)" title="Remove Skylight">✕ Remove</button>
+                    </div>
+
+                    <!-- Coverage Quick Selector matching user request -->
+                    <div style="margin-bottom: 8px;">
+                        <label class="skylight-label">Coverage Mode</label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+                            <button class="coverage-btn" :class="{ active: (sk.coverage || 'custom') === 'full_width' }" @click="sk.coverage = 'full_width'; $emit('sync-engine')" title="Span horizontally across the entire roof width">
+                                ↔ Full Width
+                            </button>
+                            <button class="coverage-btn" :class="{ active: (sk.coverage || 'custom') === 'custom' }" @click="sk.coverage = 'custom'; $emit('sync-engine')" title="Custom width and height dimensions">
+                                ⤢ Custom Width
+                            </button>
+                            <button class="coverage-btn" :class="{ active: (sk.coverage || 'custom') === 'full_slope' }" @click="sk.coverage = 'full_slope'; $emit('sync-engine')" title="Span vertically from roof ridge to eave">
+                                ↕ Full Slope
+                            </button>
+                            <button class="coverage-btn" :class="{ active: (sk.coverage || 'custom') === 'full_both' }" @click="sk.coverage = 'full_both'; $emit('sync-engine')" title="Fully glaze entire roof slope with glass">
+                                ⛶ Full Slope & Width
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+                        <div>
+                            <label class="skylight-label">Style</label>
+                            <select v-model="sk.type" class="skylight-select" @change="$emit('sync-engine')">
+                                <option value="skylight_flush_flat">Flush Glass Inset</option>
+                                <option value="skylight_velux_frame">Velux Pivot Frame</option>
+                                <option value="skylight_pyramid_dome">Pyramid Glass Lantern</option>
+                                <option value="skylight_diamond_lattice">Victorian Diamond</option>
+                                <option value="skylight_square_grid_inset">Square Atrium Grid</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="skylight-label">Glass Finish</label>
+                            <select v-model="sk.material" class="skylight-select" @change="$emit('sync-engine')">
+                                <option value="glass_roof_square_grid">Square Grid Glass</option>
+                                <option value="glass_roof_diamond_lattice">Diamond Lattice</option>
+                                <option value="glass_roof_hexagonal_honeycomb">Hex Honeycomb</option>
+                                <option value="glass_roof_solid_clear">Clear Float Glass</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Glass Transparency Slider -->
+                    <div style="margin-top: 4px; margin-bottom: 6px; background: rgba(2, 132, 199, 0.04); border: 1px solid #e0f2fe; border-radius: 6px; padding: 6px 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+                            <label class="skylight-label" style="margin: 0; color: #0369a1; font-weight: 700;">Glass Transparency</label>
+                            <span style="font-size: 11px; font-weight: 700; color: #0284c7;">{{ Math.round((sk.transparency !== undefined ? sk.transparency : (sk.transmission !== undefined ? sk.transmission : 0.92)) * 100) }}%</span>
+                        </div>
+                        <input type="range" v-model.number="sk.transparency" min="0.10" max="0.99" step="0.02" style="width: 100%;" @input="sk.transmission = sk.transparency; $emit('sync-engine')">
+                    </div>
+
+                    <!-- Glass Tint Selector -->
+                    <div style="margin-bottom: 6px;">
+                        <label class="skylight-label">Glass Tint</label>
+                        <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                            <button class="tint-chip" :class="{ active: (sk.tint || '#88ccee') === '#88ccee' }" @click="sk.tint = '#88ccee'; $emit('sync-engine')" style="background: #bae6fd; color: #0369a1; border: 1px solid #7dd3fc;" title="Architectural Sky Blue">Sky Blue</button>
+                            <button class="tint-chip" :class="{ active: sk.tint === '#ffffff' || sk.tint === '#dbeafe' }" @click="sk.tint = '#dbeafe'; $emit('sync-engine')" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1;" title="Ultra-Clear Float">Clear</button>
+                            <button class="tint-chip" :class="{ active: sk.tint === '#64748b' }" @click="sk.tint = '#64748b'; $emit('sync-engine')" style="background: #64748b; color: #ffffff; border: 1px solid #475569;" title="Smoked Charcoal">Smoked</button>
+                            <button class="tint-chip" :class="{ active: sk.tint === '#b45309' }" @click="sk.tint = '#b45309'; $emit('sync-engine')" style="background: #fef3c7; color: #92400e; border: 1px solid #fcd34d;" title="Solar Bronze">Bronze</button>
+                            <button class="tint-chip" :class="{ active: sk.tint === '#047857' }" @click="sk.tint = '#047857'; $emit('sync-engine')" style="background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7;" title="Emerald Green">Emerald</button>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+                        <div>
+                            <label class="skylight-label">Frame Finish</label>
+                            <select v-model="sk.frameMaterial" class="skylight-select" @change="$emit('sync-engine')">
+                                <option value="metal_dark_steel">Charcoal Steel (#18181b)</option>
+                                <option value="bronze">Architectural Bronze</option>
+                                <option value="white">Pure White Sash</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="skylight-label">Glass Finish</label>
+                            <select v-model="sk.glassRoughness" class="skylight-select" @change="$emit('sync-engine')">
+                                <option :value="0.02">Glossy Clear</option>
+                                <option :value="0.25">Satin Reflective</option>
+                                <option :value="0.55">Frosted Privacy</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div v-if="(sk.coverage || 'custom') !== 'full_both'" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px;">
+                        <div v-if="sk.coverage !== 'full_width'">
+                            <label class="skylight-label">Width (cm)</label>
+                            <input type="number" v-model.number="sk.width" min="30" max="600" step="5" class="skylight-number" @input="$emit('sync-engine')">
+                        </div>
+                        <div v-if="sk.coverage !== 'full_slope'">
+                            <label class="skylight-label">Length (cm)</label>
+                            <input type="number" v-model.number="sk.length" min="30" max="600" step="5" class="skylight-number" @input="$emit('sync-engine')">
+                        </div>
+                    </div>
+
+                    <div v-if="(sk.coverage || 'custom') !== 'full_both'">
+                        <label class="skylight-label">Position Along Slope (U: Width / V: Height)</label>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <input v-if="sk.coverage !== 'full_width'" type="range" v-model.number="sk.u" min="0.05" max="0.95" step="0.02" style="flex: 1;" title="Horizontal position along roof width" @input="$emit('sync-engine')">
+                            <input v-if="sk.coverage !== 'full_slope'" type="range" v-model.number="sk.v" min="0.05" max="0.95" step="0.02" style="flex: 1;" title="Vertical position from ridge to eave" @input="$emit('sync-engine')">
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -84,11 +256,19 @@
         <div class="decor-gallery" v-if="roofConfig && roofConfig.roofType === 'flat'">
             <MaterialSizeInput v-model="selectedEntity.tileSize" :defaultMax="200" @change="$emit('sync-engine')" />
             
-            <h4 class="props-subtitle">Change Material (Roof Texture)</h4>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; margin-bottom: 6px;">
+                <h4 class="props-subtitle" style="margin: 0;">Change Material (Roof Texture)</h4>
+                <div class="material-filter-chips" style="display: flex; gap: 4px;">
+                    <button class="filter-chip" :class="{ active: materialFilter === 'all' }" @click="materialFilter = 'all'">All</button>
+                    <button class="filter-chip" :class="{ active: materialFilter === 'tiles' }" @click="materialFilter = 'tiles'">Tiles</button>
+                    <button class="filter-chip" :class="{ active: materialFilter === 'glass' }" @click="materialFilter = 'glass'">🪟 Glass</button>
+                </div>
+            </div>
             <div class="decor-grid">
-                <div v-for="(config, key) in roofDecorRegistry" :key="key" class="decor-item" @click="() => { selectedEntity.configId = key; if (roofConfig) roofConfig.material = key; $emit('sync-engine'); }" :class="{ active: (selectedEntity.configId === key || roofConfig.material === key) }">
+                <div v-for="(config, key) in filteredRoofDecor" :key="key" class="decor-item" @click="() => { selectedEntity.configId = key; if (roofConfig) roofConfig.material = key; $emit('sync-engine'); }" :class="{ active: (selectedEntity.configId === key || roofConfig.material === key) }">
                     <img :src="config.thumbnail || config.texture" />
                     <span>{{ config.name }}</span>
+                    <span v-if="config.isGlass" class="glass-pill-tag">Glass</span>
                 </div>
             </div>
         </div>
@@ -98,7 +278,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import DimensionInput from '../../components/common/DimensionInput.vue';
 import MaterialSizeInput from '../../components/common/MaterialSizeInput.vue';
 
@@ -110,10 +290,111 @@ const props = defineProps({
     updateRoofPitchFromHeight: { type: Function, required: true }
 });
 
+const materialFilter = ref('all');
+const paintScopeMode = ref('single');
+const enablePerSlope = ref(Boolean(props.selectedEntity?.config?.slopes && Object.keys(props.selectedEntity.config.slopes).length > 0));
+const activeSlopeKey = ref('slope1');
+
 const roofConfig = computed(() => {
     if (!props.selectedEntity) return null;
     if (props.selectedEntity.config) return props.selectedEntity.config;
     return props.selectedEntity;
+});
+
+const attachedSkylights = computed(() => {
+    if (!roofConfig.value) return [];
+    if (!Array.isArray(roofConfig.value.skylights)) {
+        roofConfig.value.skylights = [];
+    }
+    return roofConfig.value.skylights;
+});
+
+const activeSlopeLabel = computed(() => {
+    if (['gable', 'curved', 'shed'].includes(roofConfig.value?.roofType)) {
+        return activeSlopeKey.value === 'slope1' ? 'Slope 1' : 'Slope 2';
+    }
+    return activeSlopeKey.value.toUpperCase();
+});
+
+const getSlopeMatName = (slope) => {
+    const sl = roofConfig.value?.slopes;
+    const key = sl?.[slope] || roofConfig.value?.material || 'Default';
+    return props.roofDecorRegistry?.[key]?.name || key;
+};
+
+const handlePerSlopeToggle = () => {
+    if (!roofConfig.value) return;
+    if (enablePerSlope.value) {
+        roofConfig.value.slopes = roofConfig.value.slopes || {
+            slope1: roofConfig.value.material || 'terracotta_tiles_roof',
+            slope2: roofConfig.value.material || 'terracotta_tiles_roof'
+        };
+    } else {
+        delete roofConfig.value.slopes;
+    }
+    emit('sync-engine');
+};
+
+const isMaterialActive = (key) => {
+    if (!roofConfig.value) return false;
+    if (enablePerSlope.value && roofConfig.value.slopes) {
+        return roofConfig.value.slopes[activeSlopeKey.value] === key;
+    }
+    return roofConfig.value.material === key;
+};
+
+const handleMaterialClick = (key) => {
+    if (enablePerSlope.value && paintScopeMode.value !== 'all') {
+        emit('set-roof-material', key, 'single', activeSlopeKey.value);
+    } else {
+        emit('set-roof-material', key, paintScopeMode.value);
+    }
+};
+
+const addSkylight = () => {
+    if (!roofConfig.value) return;
+    roofConfig.value.skylights = roofConfig.value.skylights || [];
+    roofConfig.value.skylights.push({
+        id: `sky_${Date.now()}_${Math.floor(Math.random()*1000)}`,
+        type: 'skylight_velux_frame',
+        material: 'glass_roof_square_grid',
+        frameMaterial: 'metal_dark_steel',
+        width: 80,
+        length: 120,
+        depth: 10,
+        u: 0.5,
+        v: 0.5
+    });
+    emit('sync-engine');
+};
+
+const removeSkylight = (idx) => {
+    if (!roofConfig.value || !roofConfig.value.skylights) return;
+    roofConfig.value.skylights.splice(idx, 1);
+    emit('sync-engine');
+};
+
+const filteredRoofDecor = computed(() => {
+    if (!props.roofDecorRegistry) return {};
+    if (materialFilter.value === 'glass') {
+        const out = {};
+        for (const [k, v] of Object.entries(props.roofDecorRegistry)) {
+            if (v.isGlass || v.category === 'glass' || k.startsWith('glass_roof_')) {
+                out[k] = v;
+            }
+        }
+        return out;
+    }
+    if (materialFilter.value === 'tiles') {
+        const out = {};
+        for (const [k, v] of Object.entries(props.roofDecorRegistry)) {
+            if (!v.isGlass && v.category !== 'glass' && !k.startsWith('glass_roof_')) {
+                out[k] = v;
+            }
+        }
+        return out;
+    }
+    return props.roofDecorRegistry;
 });
 
 const emit = defineEmits([
@@ -122,3 +403,192 @@ const emit = defineEmits([
     'delete-entity'
 ]);
 </script>
+
+<style scoped>
+.scope-chip {
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.scope-chip:hover {
+    background: #f1f5f9;
+}
+.scope-chip.active {
+    background: #6366f1;
+    color: #ffffff;
+    border-color: #6366f1;
+    box-shadow: 0 1px 3px rgba(99, 102, 241, 0.3);
+}
+.slope-select-btn {
+    flex: 1;
+    padding: 5px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    color: #334155;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    transition: all 0.15s ease;
+}
+.slope-select-btn:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+.slope-select-btn.active {
+    background: #eff6ff;
+    border-color: #3b82f6;
+    color: #1d4ed8;
+    box-shadow: 0 0 0 1px #3b82f6;
+}
+.slope-mat-indicator {
+    font-size: 9px;
+    color: #64748b;
+    font-weight: 500;
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.add-skylight-btn {
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 6px;
+    background: #0284c7;
+    color: #ffffff;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.add-skylight-btn:hover {
+    background: #0369a1;
+}
+.skylight-count-badge {
+    background: #0284c7;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 10px;
+}
+.skylight-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px;
+    margin-bottom: 8px;
+}
+.skylight-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #64748b;
+    display: block;
+    margin-bottom: 2px;
+}
+.skylight-select, .skylight-number {
+    width: 100%;
+    padding: 3px 6px;
+    font-size: 11px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background: #ffffff;
+    color: #1e293b;
+}
+.coverage-btn {
+    padding: 5px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 5px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #475569;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.coverage-btn:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+}
+.coverage-btn.active {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #0284c7;
+    box-shadow: 0 1px 3px rgba(2, 132, 199, 0.35);
+}
+.delete-skylight-btn {
+    background: transparent;
+    border: none;
+    color: #ef4444;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+.delete-skylight-btn:hover {
+    background: #fee2e2;
+}
+.filter-chip {
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 500;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.filter-chip:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+.filter-chip.active {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #0284c7;
+}
+.glass-pill-tag {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    font-size: 9px;
+    font-weight: 700;
+    background: rgba(14, 165, 233, 0.85);
+    color: #ffffff;
+    padding: 1px 4px;
+    border-radius: 4px;
+    letter-spacing: 0.3px;
+    pointer-events: none;
+}
+.decor-item {
+    position: relative;
+}
+.tint-chip {
+    padding: 3px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.tint-chip.active {
+    box-shadow: 0 0 0 2px #0284c7;
+    font-weight: 700;
+}
+</style>

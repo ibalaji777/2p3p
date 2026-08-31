@@ -1,3 +1,5 @@
+import { GLASS_ROOF_TEXTURE_DATA } from '../../features/roof/generators/generate_glass_roof_textures.js';
+
 export const WOOD_REGISTRY = {
     // 🪵 Photorealistic Wood Species
     'wood_golden_teak': {
@@ -644,6 +646,86 @@ export const GLASS_REGISTRY = {
     mirror: {
         isAlias: true,
         targetId: 'glass_mirror'
+    },
+    glass_roof_square_grid: {
+        id: "glass_roof_square_grid",
+        label: "Modern Square Grid Glass",
+        name: "Square Grid Glass (Modern Atrium)",
+        color: 0x88ccee,
+        transmission: 0.92,
+        ior: 1.52,
+        roughness: 0.02,
+        thickness: 2.0,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.04,
+        reflectivity: 0.6,
+        transparent: true,
+        categoryLabel: "Glass",
+        isGlass: true,
+        texture: 'models/wall/glass_roof_square_grid.svg',
+        thumbnail: GLASS_ROOF_TEXTURE_DATA?.glass_roof_square_grid?.dataUri || '',
+        dataUri: GLASS_ROOF_TEXTURE_DATA?.glass_roof_square_grid?.dataUri || '',
+        description: "Modern architectural glass atrium with dark steel structural mullion grid."
+    },
+    glass_roof_diamond_lattice: {
+        id: "glass_roof_diamond_lattice",
+        label: "Victorian Diamond Lattice Glass",
+        name: "Diamond Lattice Glass (Victorian Conservatory)",
+        color: 0x88ccee,
+        transmission: 0.90,
+        ior: 1.52,
+        roughness: 0.02,
+        thickness: 2.0,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.04,
+        reflectivity: 0.6,
+        transparent: true,
+        categoryLabel: "Glass",
+        isGlass: true,
+        texture: 'models/wall/glass_roof_diamond_lattice.svg',
+        thumbnail: GLASS_ROOF_TEXTURE_DATA?.glass_roof_diamond_lattice?.dataUri || '',
+        dataUri: GLASS_ROOF_TEXTURE_DATA?.glass_roof_diamond_lattice?.dataUri || '',
+        description: "Victorian conservatory diagonal diamond lattice with ornate leaded came framing."
+    },
+    glass_roof_hexagonal_honeycomb: {
+        id: "glass_roof_hexagonal_honeycomb",
+        label: "Futuristic Hexagonal Glass",
+        name: "Hexagonal Honeycomb Glass (Solarium)",
+        color: 0x88ccee,
+        transmission: 0.92,
+        ior: 1.52,
+        roughness: 0.02,
+        thickness: 2.0,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.04,
+        reflectivity: 0.6,
+        transparent: true,
+        categoryLabel: "Glass",
+        isGlass: true,
+        texture: 'models/wall/glass_roof_hexagonal_honeycomb.svg',
+        thumbnail: GLASS_ROOF_TEXTURE_DATA?.glass_roof_hexagonal_honeycomb?.dataUri || '',
+        dataUri: GLASS_ROOF_TEXTURE_DATA?.glass_roof_hexagonal_honeycomb?.dataUri || '',
+        description: "Futuristic geodesic solarium roof with titanium hexagonal structural grid."
+    },
+    glass_roof_solid_clear: {
+        id: "glass_roof_solid_clear",
+        label: "Solid Clear Float Glass",
+        name: "Solid Clear Glass (Frameless Skylight)",
+        color: 0xdbeafe,
+        transmission: 0.96,
+        ior: 1.52,
+        roughness: 0.015,
+        thickness: 2.0,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.02,
+        reflectivity: 0.6,
+        transparent: true,
+        categoryLabel: "Glass",
+        isGlass: true,
+        texture: 'models/wall/glass_roof_solid_clear.svg',
+        thumbnail: GLASS_ROOF_TEXTURE_DATA?.glass_roof_solid_clear?.dataUri || '',
+        dataUri: GLASS_ROOF_TEXTURE_DATA?.glass_roof_solid_clear?.dataUri || '',
+        description: "Frameless ultra-clear architectural float glass for unobstructed panoramic sky views."
     }
 };
 

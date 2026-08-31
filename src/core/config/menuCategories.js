@@ -63,12 +63,14 @@ export const getMenuCategories = () => [
         ]
     },
     {
-        id: 'roof_presets', name: 'Roof Presets',
+        id: 'roof_presets', name: 'Roof & Skylights',
         icon: '<path d="M3 10l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>',
         tools: [
             { isDivider: true, name: 'Custom Roofs' },
-            { id: 'roof', name: 'Roof' },
+            { id: 'roof', name: 'Roofs' },
             { id: 'auto_roof', name: 'Generate Auto-Roof', action: 'auto_roof' },
+            { isDivider: true, name: 'Glass & Skylight Addons' },
+            { id: 'skylight', name: 'Glass & Skylights' },
             { isDivider: true, name: 'Dormers' },
             { id: 'dormer', name: 'Dormer' },
             ...Object.keys(PRESET_CATEGORIES).filter(cat => cat !== 'Dormers').reduce((acc, catName) => {
