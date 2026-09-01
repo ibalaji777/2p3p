@@ -320,9 +320,53 @@ export function applyWallPaintWithScope({ wall, side, configId, scope = 'single'
     }
 
     // Fallback: Single Face Mode
+    if (side === 'left' || side === 'right') {
+        wall.params = wall.params || {};
+        const paramKey = side === 'left' ? 'textureLeft' : 'textureRight';
+        wall.params[paramKey] = configId;
+        if (typeof renderer3D.updateMaterialLive === 'function') {
+            renderer3D.updateMaterialLive(wall);
+        }
+
+        // Sync to connected walls at this corner
+        const anchor = side === 'left' ? wall.startAnchor : wall.endAnchor;
+        const pt = side === 'left' 
+            ? { x: wall.startX ?? wall.p1?.x, y: wall.startY ?? wall.p1?.y } 
+            : { x: wall.endX ?? wall.p2?.x, y: wall.endY ?? wall.p2?.y };
+        const allWalls = actualPlanner?.walls || [];
+        allWalls.forEach(cw => {
+            if (!cw || cw === wall || cw.type === 'roof' || cw.type === 'furniture' || cw.type === 'room') return;
+            let isCwStart = false;
+            let isCwEnd = false;
+            if (anchor && (cw.startAnchor === anchor || cw.endAnchor === anchor)) {
+                isCwStart = cw.startAnchor === anchor;
+                isCwEnd = cw.endAnchor === anchor;
+            } else if (pt.x !== undefined && pt.y !== undefined) {
+                const cwP1 = { x: cw.startX ?? cw.p1?.x, y: cw.startY ?? cw.p1?.y };
+                const cwP2 = { x: cw.endX ?? cw.p2?.x, y: cw.endY ?? cw.p2?.y };
+                if (cwP1.x !== undefined && Math.hypot(cwP1.x - pt.x, cwP1.y - pt.y) < 5) isCwStart = true;
+                else if (cwP2.x !== undefined && Math.hypot(cwP2.x - pt.x, cwP2.y - pt.y) < 5) isCwEnd = true;
+            }
+            if (isCwStart) {
+                cw.params = cw.params || {};
+                cw.params.textureLeft = configId;
+                if (typeof renderer3D.updateMaterialLive === 'function') renderer3D.updateMaterialLive(cw);
+            }
+            if (isCwEnd) {
+                cw.params = cw.params || {};
+                cw.params.textureRight = configId;
+                if (typeof renderer3D.updateMaterialLive === 'function') renderer3D.updateMaterialLive(cw);
+            }
+        });
+
+        if (typeof renderer3D.requestRender === 'function') renderer3D.requestRender();
+        return [{ wall }];
+    }
+
     const decor = renderer3D.addWallPattern(wall, configId, side || 'front');
     wall.params = wall.params || {};
-    wall.params[(side || 'front') === 'back' ? 'textureBack' : 'textureFront'] = configId;
+    const paramKey = (side === 'back') ? 'textureBack' : 'textureFront';
+    wall.params[paramKey] = configId;
     if (typeof renderer3D.updateMaterialLive === 'function') {
         renderer3D.updateMaterialLive(wall);
     }

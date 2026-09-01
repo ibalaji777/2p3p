@@ -67,10 +67,10 @@ export function useAppMaterials({
             const target = selectedEntity.value.params.materialTarget || 'all';
             
             if (selectedType.value === 'wall' || selectedType.value === 'arc' || selectedEntity.value?.parentArc) {
-                const side = (target === 'front' || target === 'back') ? target : selectedWallSide.value;
+                const side = (target === 'front' || target === 'back' || target === 'left' || target === 'right') ? target : selectedWallSide.value;
                 const arc = selectedEntity.value.parentArc || (selectedType.value === 'arc' ? selectedEntity.value : null);
                 if (arc && arc.walls) {
-                    const paramKey = side === 'back' ? 'textureBack' : 'textureFront';
+                    const paramKey = side === 'back' ? 'textureBack' : (side === 'left' ? 'textureLeft' : (side === 'right' ? 'textureRight' : 'textureFront'));
                     arc.params = arc.params || {};
                     arc.params[paramKey] = key;
                     if (target === 'all') {
@@ -94,7 +94,45 @@ export function useAppMaterials({
                 }
                 if (renderer3D.value) {
                     const currentScope = paintScope?.value || 'single';
-                    if (currentScope === 'room' || currentScope === 'exterior') {
+                    if (side === 'left' || side === 'right') {
+                        selectedEntity.value.params = selectedEntity.value.params || {};
+                        const pKey = side === 'left' ? 'textureLeft' : 'textureRight';
+                        selectedEntity.value.params[pKey] = key;
+                        renderer3D.value.updateMaterialLive(selectedEntity.value);
+
+                        // Sync to connected walls at this corner
+                        const anchor = side === 'left' ? selectedEntity.value.startAnchor : selectedEntity.value.endAnchor;
+                        const pt = side === 'left' 
+                            ? { x: selectedEntity.value.startX ?? selectedEntity.value.p1?.x, y: selectedEntity.value.startY ?? selectedEntity.value.p1?.y } 
+                            : { x: selectedEntity.value.endX ?? selectedEntity.value.p2?.x, y: selectedEntity.value.endY ?? selectedEntity.value.p2?.y };
+                        const allWalls = (planner?.value || planner)?.walls || [];
+                        allWalls.forEach(cw => {
+                            if (!cw || cw === selectedEntity.value || cw.type === 'roof' || cw.type === 'furniture' || cw.type === 'room') return;
+                            let isCwStart = false;
+                            let isCwEnd = false;
+                            if (anchor && (cw.startAnchor === anchor || cw.endAnchor === anchor)) {
+                                isCwStart = cw.startAnchor === anchor;
+                                isCwEnd = cw.endAnchor === anchor;
+                            } else if (pt.x !== undefined && pt.y !== undefined) {
+                                const cwP1 = { x: cw.startX ?? cw.p1?.x, y: cw.startY ?? cw.p1?.y };
+                                const cwP2 = { x: cw.endX ?? cw.p2?.x, y: cw.endY ?? cw.p2?.y };
+                                if (cwP1.x !== undefined && Math.hypot(cwP1.x - pt.x, cwP1.y - pt.y) < 5) isCwStart = true;
+                                else if (cwP2.x !== undefined && Math.hypot(cwP2.x - pt.x, cwP2.y - pt.y) < 5) isCwEnd = true;
+                            }
+                            if (isCwStart) {
+                                cw.params = cw.params || {};
+                                cw.params.textureLeft = key;
+                                renderer3D.value.updateMaterialLive(cw);
+                            }
+                            if (isCwEnd) {
+                                cw.params = cw.params || {};
+                                cw.params.textureRight = key;
+                                renderer3D.value.updateMaterialLive(cw);
+                            }
+                        });
+
+                        uiTrigger.value++;
+                    } else if (currentScope === 'room' || currentScope === 'exterior') {
                         const results = applyWallPaintWithScope({
                             wall: selectedEntity.value,
                             side,

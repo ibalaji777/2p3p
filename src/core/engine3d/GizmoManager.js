@@ -949,10 +949,10 @@ export class GizmoManager {
                             // 1. Wall and WallDecor Material Management (Material Scope: Selected Face vs Entire Object)
                             if (isWallEntity || isWallDecor) {
                                 const wall = isWallDecor ? (entity.mesh3D?.userData?.parentWall || selectedObj?.parent?.userData?.entity || entity) : entity;
-                                const side = (this.activeFace === 'back' || selectedObj.userData?.side === 'back' || this.activeObject?.userData?.side === 'back') ? 'back' : 'front';
+                                const side = selectedObj?.userData?.side || this.activeObject?.userData?.side || this.activeFace || 'front';
                                 
                                 if (wall.parentArc && wall.parentArc.walls) {
-                                    const paramKey = side === 'back' ? 'textureBack' : 'textureFront';
+                                    const paramKey = side === 'back' ? 'textureBack' : (side === 'left' ? 'textureLeft' : (side === 'right' ? 'textureRight' : (side === 'top' ? 'textureTop' : (side === 'bottom' ? 'textureBottom' : 'textureFront'))));
                                     wall.parentArc.params = wall.parentArc.params || {};
                                     wall.parentArc.params[paramKey] = key;
                                     if (this.materialScope === 'entireObject') {
@@ -1011,6 +1011,65 @@ export class GizmoManager {
                                     }
                                     if (planner && typeof planner.saveHistory === 'function') {
                                         planner.saveHistory();
+                                    }
+                                    this._renderWallMultiMaterialTabs(wall, selectedObj);
+                                    highlightSelectedThumb(key);
+                                    return;
+                                }
+
+                                if (side === 'left' || side === 'right' || side === 'top' || side === 'bottom') {
+                                    const paramKey = side === 'left' ? 'textureLeft' : (side === 'right' ? 'textureRight' : (side === 'top' ? 'textureTop' : 'textureBottom'));
+                                    wall.params = wall.params || {};
+                                    wall.params[paramKey] = key;
+                                    if (this.ctx && typeof this.ctx.updateMaterialLive === 'function') {
+                                        this.ctx.updateMaterialLive(wall);
+                                    }
+
+                                    if (side === 'left' || side === 'right') {
+                                        // Sync corner material to connected neighbor walls at this joint
+                                        const anchor = side === 'left' ? wall.startAnchor : wall.endAnchor;
+                                        const pt = side === 'left' 
+                                            ? { x: wall.startX ?? wall.p1?.x, y: wall.startY ?? wall.p1?.y } 
+                                            : { x: wall.endX ?? wall.p2?.x, y: wall.endY ?? wall.p2?.y };
+                                        
+                                        const planner = window.plannerInstance || this.ctx?.planner;
+                                        const allWalls = planner?.walls || (this.ctx?.structureGroup?.children?.map(c => c.userData?.entity).filter(Boolean)) || [];
+
+                                        allWalls.forEach(cw => {
+                                            if (!cw || cw === wall || cw.type === 'roof' || cw.type === 'furniture' || cw.type === 'room') return;
+                                            let isCwStart = false;
+                                            let isCwEnd = false;
+                                            if (anchor && (cw.startAnchor === anchor || cw.endAnchor === anchor)) {
+                                                isCwStart = cw.startAnchor === anchor;
+                                                isCwEnd = cw.endAnchor === anchor;
+                                            } else if (pt.x !== undefined && pt.y !== undefined) {
+                                                const cwP1 = { x: cw.startX ?? cw.p1?.x, y: cw.startY ?? cw.p1?.y };
+                                                const cwP2 = { x: cw.endX ?? cw.p2?.x, y: cw.endY ?? cw.p2?.y };
+                                                if (cwP1.x !== undefined && Math.hypot(cwP1.x - pt.x, cwP1.y - pt.y) < 5) isCwStart = true;
+                                                else if (cwP2.x !== undefined && Math.hypot(cwP2.x - pt.x, cwP2.y - pt.y) < 5) isCwEnd = true;
+                                            }
+                                            if (isCwStart) {
+                                                cw.params = cw.params || {};
+                                                cw.params.textureLeft = key;
+                                                if (this.ctx && typeof this.ctx.updateMaterialLive === 'function') {
+                                                    this.ctx.updateMaterialLive(cw);
+                                                }
+                                            }
+                                            if (isCwEnd) {
+                                                cw.params = cw.params || {};
+                                                cw.params.textureRight = key;
+                                                if (this.ctx && typeof this.ctx.updateMaterialLive === 'function') {
+                                                    this.ctx.updateMaterialLive(cw);
+                                                }
+                                            }
+                                        });
+                                    }
+
+                                    if (typeof this.ctx.requestRender === 'function') {
+                                        this.ctx.requestRender();
+                                    }
+                                    if (window.plannerInstance && typeof window.plannerInstance.saveHistory === 'function') {
+                                        window.plannerInstance.saveHistory();
                                     }
                                     this._renderWallMultiMaterialTabs(wall, selectedObj);
                                     highlightSelectedThumb(key);
@@ -2066,12 +2125,20 @@ export class GizmoManager {
             let tex = null;
             const isWall = entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'wallDecor' || entity.startX !== undefined;
             if (isWall && this.materialScope === 'selectedFace') {
-                const side = (this.activeFace === 'back' || selectedObj?.userData?.side === 'back' || this.activeObject?.userData?.side === 'back') ? 'back' : 'front';
+                const side = selectedObj?.userData?.side || this.activeObject?.userData?.side || this.activeFace || 'front';
                 const wall = entity.type === 'wallDecor' ? (entity.mesh3D?.userData?.parentWall || selectedObj?.parent?.userData?.entity || entity) : entity;
-                const attachedDecors = (wall.attachedDecor || []).filter(d => d.side === side);
-                const activeDecor = (attachedDecors || []).find(d => d.id === this.activeDecorId) || attachedDecors[0];
-                if (activeDecor) {
-                    tex = activeDecor.configId;
+                if (side === 'left') {
+                    tex = wall.params?.textureLeft || wall.params?.textureSides || wall.params?.texture || null;
+                } else if (side === 'right') {
+                    tex = wall.params?.textureRight || wall.params?.textureSides || wall.params?.texture || null;
+                } else {
+                    const attachedDecors = (wall.attachedDecor || []).filter(d => d.side === side);
+                    const activeDecor = (attachedDecors || []).find(d => d.id === this.activeDecorId) || attachedDecors[0];
+                    if (activeDecor) {
+                        tex = activeDecor.configId;
+                    } else {
+                        tex = side === 'back' ? (wall.params?.textureBack || wall.params?.textureSides || wall.params?.texture) : (wall.params?.textureFront || wall.params?.textureSides || wall.params?.texture);
+                    }
                 }
             } else {
                 tex = targetParams.texture || targetParams.textureFront || null;
@@ -2587,7 +2654,7 @@ export class GizmoManager {
         }
 
         const wall = isWallDecor ? (entity.mesh3D?.userData?.parentWall || selectedObj?.parent?.userData?.entity || entity) : entity;
-        const side = (this.activeFace === 'back' || selectedObj?.userData?.side === 'back' || this.activeObject?.userData?.side === 'back') ? 'back' : 'front';
+        const side = selectedObj?.userData?.side || this.activeObject?.userData?.side || this.activeFace || 'front';
         
         const attachedDecors = (wall.attachedDecor || []).filter(d => d.side === side);
         
@@ -2657,6 +2724,16 @@ export class GizmoManager {
             headerHtml = `
                 <div style="padding: 6px 10px; background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.25); border-radius: 6px; font-size: 10.5px; color: #93c5fd; line-height: 1.4;">
                     📦 <strong>Both Sides:</strong> Material applies to inner and outer faces simultaneously.
+                </div>
+            `;
+        } else if (side === 'left' || side === 'right') {
+            const sideLabel = side === 'left' ? 'Start Corner / Bevel' : 'End Corner / Bevel';
+            headerHtml = `
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Face:</span>
+                        <span style="padding: 4px 10px; border-radius: 6px; background: rgba(59,130,246,0.2); border: 1px solid rgba(59,130,246,0.4); color: #93c5fd; font-size: 11px; font-weight: 700;">📐 ${sideLabel}</span>
+                    </div>
                 </div>
             `;
         } else {
@@ -3366,7 +3443,7 @@ export class GizmoManager {
             if (isWall) {
                 const side = selectedObj.userData?.side || selectedObj.userData?.entity?.side || this.activeFace || 'front';
                 this.activeFace = side;
-                const matIdx = side === 'back' ? 5 : 4;
+                const matIdx = side === 'left' ? 1 : (side === 'right' ? 0 : (side === 'top' ? 2 : (side === 'bottom' ? 3 : (side === 'back' ? 5 : 4))));
                 const wallMesh = entity.wallMesh3D || (selectedObj.parent && selectedObj.parent.userData?.wallMesh) || selectedObj;
                 this.onMaterialFaceSelected(side, -1, wallMesh, matIdx, 'categories');
             } else if (this.materialPanel) {

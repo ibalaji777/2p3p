@@ -943,15 +943,7 @@ export class PremiumWall {
         else if (target === 'left') this.params.textureLeft = key;
         else if (target === 'right') this.params.textureRight = key;
         else if (target === 'front') this.params.textureFront = key;
-        else if (target === 'back') {
-            this.params.textureBack = key;
-            if (!this.params.textureLeft || this.params.textureLeft === this.params.texture || this.params.textureLeft === this.params.textureSides) {
-                this.params.textureLeft = key;
-            }
-            if (!this.params.textureRight || this.params.textureRight === this.params.texture || this.params.textureRight === this.params.textureSides) {
-                this.params.textureRight = key;
-            }
-        }
+        else if (target === 'back') this.params.textureBack = key;
         else if (target === 'all' || target === 'sides') {
             this.params.texture = key;
             this.params.textureSides = key;

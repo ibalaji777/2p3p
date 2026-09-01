@@ -201,8 +201,8 @@ export class Preview3D {
                     applyTex(matTop, resolveTex('textureTop', 'texture'), w, d, 'top');
                     applyTex(matBottom, resolveTex('textureBottom', 'texture'), w, d, 'bottom');
                     applyTex(matSides, resolveTex('textureSides', 'texture'), w, h, 'sides');
-                    applyTex(matLeft, resolveTex('textureLeft', 'textureSides', 'texture'), d, h, 'left');
-                    applyTex(matRight, resolveTex('textureRight', 'textureSides', 'texture'), d, h, 'right');
+                    applyTex(matLeft, resolveTex('textureLeft', 'textureSides', 'texture', 'textureFront', 'textureBack'), d, h, 'left');
+                    applyTex(matRight, resolveTex('textureRight', 'textureSides', 'texture', 'textureFront', 'textureBack'), d, h, 'right');
                     applyTex(matFront, resolveTex('textureFront', 'textureSides', 'texture'), w, h, 'front');
                     applyTex(matBack, resolveTex('textureBack', 'textureSides', 'texture'), w, h, 'back');
                 }

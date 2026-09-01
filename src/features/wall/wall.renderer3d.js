@@ -121,6 +121,9 @@ export class Wall3DBuilder {
         
         finalWallGeo.computeVertexNormals();
 
+        const hasLeftTex = Boolean(wallData.params?.textureLeft || wallData.params?.textureSides || wallData.params?.texture);
+        const hasRightTex = Boolean(wallData.params?.textureRight || wallData.params?.textureSides || wallData.params?.texture);
+
         for (let i = 0; i < pos.count; i += 3) {
             const vAx = pos.getX(i), vAy = pos.getY(i), vAz = pos.getZ(i);
             const vBx = pos.getX(i+1), vBy = pos.getY(i+1), vBz = pos.getZ(i+1);
@@ -139,11 +142,16 @@ export class Wall3DBuilder {
             const absX = Math.abs(nx);
             const absY = Math.abs(ny);
             const absZ = Math.abs(nz);
+            const midZ = (vAz + vBz + vCz) / 3;
             
             let groupIdx = 0;
-            if (absX > absY && absX > absZ) groupIdx = nx > 0 ? 0 : 1;
-            else if (absY > absX && absY > absZ) groupIdx = ny > 0 ? 2 : 3;
-            else groupIdx = nz > 0 ? 4 : 5;
+            if (absY > absX && absY > absZ) {
+                groupIdx = ny > 0 ? 2 : 3;
+            } else if (absX > absY && absX > absZ) {
+                groupIdx = nx > 0 ? 0 : 1;
+            } else {
+                groupIdx = nz > 0 ? 4 : 5;
+            }
             
             finalWallGeo.addGroup(i, 3, groupIdx);
             
@@ -296,7 +304,80 @@ export class Wall3DBuilder {
         const hitBack = new THREE.Mesh(skinGeoBack, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
         hitBack.userData = { isWallSide: true, side: 'back', entity: wallData };
 
-        hitboxes.push(hitFront, hitBack);
+        const extraHitboxes = [];
+        if (startProfileLocal && startProfileLocal.length >= 2) {
+            const startHitGeo = new THREE.BufferGeometry();
+            const hitVerts = [];
+            for (let i = 0; i < startProfileLocal.length - 1; i++) {
+                const p1 = startProfileLocal[i];
+                const p2 = startProfileLocal[i + 1];
+                const dx = p2.x - p1.x;
+                const dz = p2.z - p1.z;
+                const segLen = Math.hypot(dx, dz);
+                let nx = 0, nz = 0;
+                if (segLen > 1e-6) {
+                    nx = -dz / segLen;
+                    nz = dx / segLen;
+                }
+                const off = 0.2;
+                const p1x = p1.x + nx * off;
+                const p1z = p1.z + nz * off;
+                const p2x = p2.x + nx * off;
+                const p2z = p2.z + nz * off;
+
+                hitVerts.push(
+                    p1x, 0, p1z,
+                    p2x, 0, p2z,
+                    p2x, wallHeight, p2z,
+                    p1x, 0, p1z,
+                    p2x, wallHeight, p2z,
+                    p1x, wallHeight, p1z
+                );
+            }
+            startHitGeo.setAttribute('position', new THREE.Float32BufferAttribute(hitVerts, 3));
+            startHitGeo.computeVertexNormals();
+            const hitStart = new THREE.Mesh(startHitGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
+            hitStart.userData = { isWallSide: true, side: 'left', entity: wallData };
+            extraHitboxes.push(hitStart);
+        }
+
+        if (endProfileLocal && endProfileLocal.length >= 2) {
+            const endHitGeo = new THREE.BufferGeometry();
+            const hitVerts = [];
+            for (let i = 0; i < endProfileLocal.length - 1; i++) {
+                const p1 = endProfileLocal[i];
+                const p2 = endProfileLocal[i + 1];
+                const dx = p2.x - p1.x;
+                const dz = p2.z - p1.z;
+                const segLen = Math.hypot(dx, dz);
+                let nx = 0, nz = 0;
+                if (segLen > 1e-6) {
+                    nx = dz / segLen;
+                    nz = -dx / segLen;
+                }
+                const off = 0.2;
+                const p1x = p1.x + nx * off;
+                const p1z = p1.z + nz * off;
+                const p2x = p2.x + nx * off;
+                const p2z = p2.z + nz * off;
+
+                hitVerts.push(
+                    p1x, 0, p1z,
+                    p2x, 0, p2z,
+                    p2x, wallHeight, p2z,
+                    p1x, 0, p1z,
+                    p2x, wallHeight, p2z,
+                    p1x, wallHeight, p1z
+                );
+            }
+            endHitGeo.setAttribute('position', new THREE.Float32BufferAttribute(hitVerts, 3));
+            endHitGeo.computeVertexNormals();
+            const hitEnd = new THREE.Mesh(endHitGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
+            hitEnd.userData = { isWallSide: true, side: 'right', entity: wallData };
+            extraHitboxes.push(hitEnd);
+        }
+
+        hitboxes.push(hitFront, hitBack, ...extraHitboxes);
 
         // If it's a static wall, add a volume trigger to catch "Switch Floor" clicks
         if (isStatic) {

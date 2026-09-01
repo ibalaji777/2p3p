@@ -1236,6 +1236,9 @@ export class EnvironmentBuilder {
         aWallHeight.fill(maxH);
         finalWallGeo.setAttribute('aWallHeight', new THREE.BufferAttribute(aWallHeight, 1));
 
+        const hasLeftTex = Boolean(w.params?.textureLeft || w.params?.textureSides || w.params?.texture);
+        const hasRightTex = Boolean(w.params?.textureRight || w.params?.textureSides || w.params?.texture);
+
         for (let i = 0; i < pos.count; i += 3) {
             const vAx = pos.getX(i), vAy = pos.getY(i), vAz = pos.getZ(i);
             const vBx = pos.getX(i+1), vBy = pos.getY(i+1), vBz = pos.getZ(i+1);
@@ -1254,11 +1257,16 @@ export class EnvironmentBuilder {
             const absX = Math.abs(nx);
             const absY = Math.abs(ny);
             const absZ = Math.abs(nz);
+            const midZ = (vAz + vBz + vCz) / 3;
             
             let groupIdx = 0;
-            if (absX > absY && absX > absZ) groupIdx = nx > 0 ? 0 : 1;
-            else if (absY > absX && absY > absZ) groupIdx = ny > 0 ? 2 : 3;
-            else groupIdx = nz > 0 ? 4 : 5;
+            if (absY > absX && absY > absZ) {
+                groupIdx = ny > 0 ? 2 : 3;
+            } else if (absX > absY && absX > absZ) {
+                groupIdx = nx > 0 ? 0 : 1;
+            } else {
+                groupIdx = nz > 0 ? 4 : 5;
+            }
             
             finalWallGeo.addGroup(i, 3, groupIdx);
             
@@ -1290,6 +1298,79 @@ export class EnvironmentBuilder {
         const hitBack = new THREE.Mesh(skinBackGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
         hitBack.userData = { isWallSide: true, side: 'back', entity: w };
 
+        const extraHitboxes = [];
+        if (startProfileLocal && startProfileLocal.length >= 2) {
+            const startHitGeo = new THREE.BufferGeometry();
+            const hitVerts = [];
+            for (let i = 0; i < startProfileLocal.length - 1; i++) {
+                const p1 = startProfileLocal[i];
+                const p2 = startProfileLocal[i + 1];
+                const dx = p2.x - p1.x;
+                const dz = p2.z - p1.z;
+                const segLen = Math.hypot(dx, dz);
+                let nx = 0, nz = 0;
+                if (segLen > 1e-6) {
+                    nx = -dz / segLen;
+                    nz = dx / segLen;
+                }
+                const off = 0.2;
+                const p1x = p1.x + nx * off;
+                const p1z = p1.z + nz * off;
+                const p2x = p2.x + nx * off;
+                const p2z = p2.z + nz * off;
+
+                hitVerts.push(
+                    p1x, wallBottom, p1z,
+                    p2x, wallBottom, p2z,
+                    p2x, maxH, p2z,
+                    p1x, wallBottom, p1z,
+                    p2x, maxH, p2z,
+                    p1x, maxH, p1z
+                );
+            }
+            startHitGeo.setAttribute('position', new THREE.Float32BufferAttribute(hitVerts, 3));
+            startHitGeo.computeVertexNormals();
+            const hitStart = new THREE.Mesh(startHitGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
+            hitStart.userData = { isWallSide: true, side: 'left', entity: w };
+            extraHitboxes.push(hitStart);
+        }
+
+        if (endProfileLocal && endProfileLocal.length >= 2) {
+            const endHitGeo = new THREE.BufferGeometry();
+            const hitVerts = [];
+            for (let i = 0; i < endProfileLocal.length - 1; i++) {
+                const p1 = endProfileLocal[i];
+                const p2 = endProfileLocal[i + 1];
+                const dx = p2.x - p1.x;
+                const dz = p2.z - p1.z;
+                const segLen = Math.hypot(dx, dz);
+                let nx = 0, nz = 0;
+                if (segLen > 1e-6) {
+                    nx = dz / segLen;
+                    nz = -dx / segLen;
+                }
+                const off = 0.2;
+                const p1x = p1.x + nx * off;
+                const p1z = p1.z + nz * off;
+                const p2x = p2.x + nx * off;
+                const p2z = p2.z + nz * off;
+
+                hitVerts.push(
+                    p1x, wallBottom, p1z,
+                    p2x, wallBottom, p2z,
+                    p2x, maxH, p2z,
+                    p1x, wallBottom, p1z,
+                    p2x, maxH, p2z,
+                    p1x, maxH, p1z
+                );
+            }
+            endHitGeo.setAttribute('position', new THREE.Float32BufferAttribute(hitVerts, 3));
+            endHitGeo.computeVertexNormals();
+            const hitEnd = new THREE.Mesh(endHitGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
+            hitEnd.userData = { isWallSide: true, side: 'right', entity: w };
+            extraHitboxes.push(hitEnd);
+        }
+
         if (w.attachedMoldings) {
             w.attachedMoldings.forEach((mold, idx) => {
                 const mMesh = this.moldingBuilder.buildMolding(mold, length, t, this.ctx.helpers, w);
@@ -1307,8 +1388,8 @@ export class EnvironmentBuilder {
             });
         }
 
-        wallGroup.add(wallMesh, hitFront, hitBack, ...extraMeshes);
-        this.ctx.interactables.push(hitFront, hitBack);
+        wallGroup.add(wallMesh, hitFront, hitBack, ...extraHitboxes, ...extraMeshes);
+        this.ctx.interactables.push(hitFront, hitBack, ...extraHitboxes);
         this.ctx.structureGroup.add(wallGroup);
 
         if (w.attachedDecor) w.attachedDecor.forEach(decor => this.ctx.decorManager.load(w, decor));
@@ -2252,6 +2333,9 @@ export class EnvironmentBuilder {
                         
                         finalWallGeo.computeVertexNormals();
 
+                        const hasLeftTex = Boolean(w.params?.textureLeft || w.params?.textureSides || w.params?.texture);
+                        const hasRightTex = Boolean(w.params?.textureRight || w.params?.textureSides || w.params?.texture);
+
                         for (let i = 0; i < finalPos.count; i += 3) {
                             const vAx = finalPos.getX(i), vAy = finalPos.getY(i), vAz = finalPos.getZ(i);
                             const vBx = finalPos.getX(i+1), vBy = finalPos.getY(i+1), vBz = finalPos.getZ(i+1);
@@ -2270,11 +2354,16 @@ export class EnvironmentBuilder {
                             const absX = Math.abs(nx);
                             const absY = Math.abs(ny);
                             const absZ = Math.abs(nz);
+                            const midZ = (vAz + vBz + vCz) / 3;
                             
                             let groupIdx = 0;
-                            if (absX > absY && absX > absZ) groupIdx = nx > 0 ? 0 : 1;
-                            else if (absY > absX && absY > absZ) groupIdx = ny > 0 ? 2 : 3;
-                            else groupIdx = nz > 0 ? 4 : 5;
+                            if (absY > absX && absY > absZ) {
+                                groupIdx = ny > 0 ? 2 : 3;
+                            } else if (absX > absY && absX > absZ) {
+                                groupIdx = nx > 0 ? 0 : 1;
+                            } else {
+                                groupIdx = nz > 0 ? 4 : 5;
+                            }
                             
                             finalWallGeo.addGroup(i, 3, groupIdx);
                             
@@ -2306,34 +2395,93 @@ export class EnvironmentBuilder {
                         
                         if (!isPreview && viewMode3D === 'full-edit') {
                             // CREATE HITBOXES FOR DIRECT SELECTION IN FULL-BUILDING VIEW
-                            const shearSkin = (geo) => {
-                                const pos = geo.attributes.position;
-                                for (let i = 0; i < pos.count; i++) {
-                                    const x = pos.getX(i);
-                                    const z = pos.getZ(i);
-                                    const tZ = Math.max(0, Math.min(1, (z + w.thickness / 2) / w.thickness));
-                                    const startX = localSR_x + tZ * (localSL_x - localSR_x);
-                                    const endX = localER_x + tZ * (localEL_x - localER_x);
-                                    const tX = x / length;
-                                    pos.setX(i, startX + tX * (endX - startX));
-                                }
-                                geo.computeVertexNormals();
-                            };
-                            
                             const skinFrontGeo = new THREE.PlaneGeometry(length - 0.5, totalH - 0.5);
                             skinFrontGeo.translate(length / 2, totalH / 2, w.thickness / 2 + 0.1);
-                            if (w.pts && w.pts.length === 8) shearSkin(skinFrontGeo);
+                            shearGeo(skinFrontGeo);
                             const hitFront = new THREE.Mesh(skinFrontGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
                             hitFront.userData = { isWallSide: true, side: 'front', entity: w };
 
                             const skinBackGeo = new THREE.PlaneGeometry(length - 0.5, totalH - 0.5);
                             skinBackGeo.translate(length / 2, totalH / 2, -w.thickness / 2 - 0.1);
-                            if (w.pts && w.pts.length === 8) shearSkin(skinBackGeo);
+                            shearGeo(skinBackGeo);
                             const hitBack = new THREE.Mesh(skinBackGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
                             hitBack.userData = { isWallSide: true, side: 'back', entity: w };
 
-                            wallGroup.add(hitFront, hitBack);
-                            this.ctx.interactables.push(hitFront, hitBack);
+                            const extraStaticHitboxes = [];
+                            if (startProfileLocal && startProfileLocal.length >= 2) {
+                                const startHitGeo = new THREE.BufferGeometry();
+                                const hitVerts = [];
+                                for (let si = 0; si < startProfileLocal.length - 1; si++) {
+                                    const p1 = startProfileLocal[si];
+                                    const p2 = startProfileLocal[si + 1];
+                                    const dx = p2.x - p1.x;
+                                    const dz = p2.z - p1.z;
+                                    const segLen = Math.hypot(dx, dz);
+                                    let nx = 0, nz = 0;
+                                    if (segLen > 1e-6) {
+                                        nx = -dz / segLen;
+                                        nz = dx / segLen;
+                                    }
+                                    const off = 0.2;
+                                    const p1x = p1.x + nx * off;
+                                    const p1z = p1.z + nz * off;
+                                    const p2x = p2.x + nx * off;
+                                    const p2z = p2.z + nz * off;
+
+                                    hitVerts.push(
+                                        p1x, 0, p1z,
+                                        p2x, 0, p2z,
+                                        p2x, totalH, p2z,
+                                        p1x, 0, p1z,
+                                        p2x, totalH, p2z,
+                                        p1x, totalH, p1z
+                                    );
+                                }
+                                startHitGeo.setAttribute('position', new THREE.Float32BufferAttribute(hitVerts, 3));
+                                startHitGeo.computeVertexNormals();
+                                const hitStart = new THREE.Mesh(startHitGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
+                                hitStart.userData = { isWallSide: true, side: 'left', entity: w };
+                                extraStaticHitboxes.push(hitStart);
+                            }
+
+                            if (endProfileLocal && endProfileLocal.length >= 2) {
+                                const endHitGeo = new THREE.BufferGeometry();
+                                const hitVerts = [];
+                                for (let ei = 0; ei < endProfileLocal.length - 1; ei++) {
+                                    const p1 = endProfileLocal[ei];
+                                    const p2 = endProfileLocal[ei + 1];
+                                    const dx = p2.x - p1.x;
+                                    const dz = p2.z - p1.z;
+                                    const segLen = Math.hypot(dx, dz);
+                                    let nx = 0, nz = 0;
+                                    if (segLen > 1e-6) {
+                                        nx = dz / segLen;
+                                        nz = -dx / segLen;
+                                    }
+                                    const off = 0.2;
+                                    const p1x = p1.x + nx * off;
+                                    const p1z = p1.z + nz * off;
+                                    const p2x = p2.x + nx * off;
+                                    const p2z = p2.z + nz * off;
+
+                                    hitVerts.push(
+                                        p1x, 0, p1z,
+                                        p2x, 0, p2z,
+                                        p2x, totalH, p2z,
+                                        p1x, 0, p1z,
+                                        p2x, totalH, p2z,
+                                        p1x, totalH, p1z
+                                    );
+                                }
+                                endHitGeo.setAttribute('position', new THREE.Float32BufferAttribute(hitVerts, 3));
+                                endHitGeo.computeVertexNormals();
+                                const hitEnd = new THREE.Mesh(endHitGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
+                                hitEnd.userData = { isWallSide: true, side: 'right', entity: w };
+                                extraStaticHitboxes.push(hitEnd);
+                            }
+
+                            wallGroup.add(hitFront, hitBack, ...extraStaticHitboxes);
+                            this.ctx.interactables.push(hitFront, hitBack, ...extraStaticHitboxes);
                         } else if (!isPreview) {
                             // FALLBACK TRIGGER TO SWITCH LEVELS
                             const hitBox = new THREE.Mesh(wallGeo, new THREE.MeshBasicMaterial({ visible: false }));
