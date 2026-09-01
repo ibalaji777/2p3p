@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { WIDGET_REGISTRY, MOLDING_REGISTRY, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT } from '../registry.js';
+import { WIDGET_REGISTRY } from '../registry.js';
+import { MOLDING_REGISTRY } from '../../features/wall/wall.registry.js';
+import { DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT } from '../constants/units.js';
 import { PremiumWidget } from '../engine2d/PremiumWidget.js';
 import { PremiumMolding } from '../engine2d/PremiumMolding.js';
 import { Molding3DBuilder } from './Molding3DBuilder.js';
@@ -283,7 +285,7 @@ export class WallPlugin3DPlacementSystem {
             const wallH = wallEntity.height || wallEntity.config?.height || 180;
             const preset = planner?.activePresetParams || {};
 
-            const isMolding = tool === 'molding' || tool === 'skirting' || tool.startsWith('molding_') || tool.startsWith('skirting_') || !!MOLDING_REGISTRY[tool];
+            const isMolding = tool === 'molding' || tool === 'skirting' || tool === 'wall_trim' || tool.startsWith('molding_') || tool.startsWith('skirting_') || tool.startsWith('trim_') || tool.startsWith('chair_rail') || tool.startsWith('picture_rail') || !!MOLDING_REGISTRY[tool];
             const isElevationTrim = tool === 'elevation_frieze' || tool === 'elevation_foundation_trim';
             const isDoor = !isMolding && !isElevationTrim && (tool.startsWith('door') || preset.doorType !== undefined);
             const isWindow = !isMolding && !isElevationTrim && (tool.startsWith('window') || preset.windowType !== undefined);
@@ -556,20 +558,59 @@ export class WallPlugin3DPlacementSystem {
             itemW = wallLen;
             t = 0.5;
             projDist = wallLen / 2;
-            const isCrown = tool === 'molding' || tool.includes('crown') || tool === 'elevation_frieze' || (preset.profileType && preset.profileType.includes('crown')) || (preset.type && preset.type.includes('crown'));
-            const isSkirting = tool === 'skirting' || tool.startsWith('skirting_') || tool === 'elevation_foundation_trim' || (preset.profileType && preset.profileType.includes('skirting'));
 
-            if (preset.snapLevel === 'floor' || isSkirting || (!preset.isFixedElevation && localHitY < 30)) {
+            const rawElev = Math.max(0, Math.min(wallH - itemH, Math.round(localHitY - itemH / 2)));
+            
+            // 1. Check for Connected Wall Trims Snap
+            let connectedSnapElev = null;
+            const allWalls = planner?.walls || [];
+            const startA = wallEntity.startAnchor;
+            const endA = wallEntity.endAnchor;
+            const p1 = startA?.position ? startA.position() : (startA || { x: 0, y: 0 });
+            const p2 = endA?.position ? endA.position() : (endA || { x: 0, y: 0 });
+
+            for (const w of allWalls) {
+                if (w === wallEntity || w.id === wallEntity.id) continue;
+                const wp1 = w.startAnchor?.position ? w.startAnchor.position() : (w.startAnchor || { x: 0, y: 0 });
+                const wp2 = w.endAnchor?.position ? w.endAnchor.position() : (w.endAnchor || { x: 0, y: 0 });
+                
+                const isConnected = (startA && (w.startAnchor === startA || w.endAnchor === startA)) ||
+                                    (endA && (w.startAnchor === endA || w.endAnchor === endA)) ||
+                                    (Math.hypot(wp1.x - p1.x, wp1.y - p1.y) < 5) ||
+                                    (Math.hypot(wp1.x - p2.x, wp1.y - p2.y) < 5) ||
+                                    (Math.hypot(wp2.x - p1.x, wp2.y - p1.y) < 5) ||
+                                    (Math.hypot(wp2.x - p2.x, wp2.y - p2.y) < 5);
+
+                if (isConnected && Array.isArray(w.attachedMoldings)) {
+                    for (const m of w.attachedMoldings) {
+                        const mElev = m.heightOffset !== undefined ? m.heightOffset : (m.elevation || 0);
+                        if (Math.abs(rawElev - mElev) <= 15) {
+                            connectedSnapElev = mElev;
+                            break;
+                        }
+                    }
+                }
+                if (connectedSnapElev !== null) break;
+            }
+
+            if (connectedSnapElev !== null) {
+                elev = connectedSnapElev;
+                levelLabel = `CONNECTED WALL SNAP (${Math.round(elev)} cm)`;
+            } else if (rawElev <= 10) {
+                // 2. Bottom Snap (Floor)
                 elev = 0;
                 levelLabel = 'FLOOR (0 cm)';
-            } else if (preset.snapLevel === 'ceiling' || isCrown || (!preset.isFixedElevation && localHitY > wallH - 30)) {
+            } else if (rawElev >= (wallH - itemH - 10)) {
+                // 3. Top Snap (Ceiling)
                 elev = Math.max(0, wallH - itemH);
                 levelLabel = `CEILING (${Math.round(elev)} cm)`;
-            } else if (preset.snapLevel === 'mid' || (!preset.isFixedElevation && Math.abs(localHitY - 90) < 18)) {
+            } else if (Math.abs(rawElev - 90) <= 8) {
+                // 4. Middle Snap (Chair Rail / Standard Mid-Wall ~90cm)
                 elev = 90;
-                levelLabel = 'CHAIR RAIL (90 cm)';
+                levelLabel = 'MID / CHAIR RAIL (90 cm)';
             } else {
-                elev = (preset.heightOffset !== undefined && preset.isFixedElevation) ? preset.heightOffset : Math.max(0, Math.min(wallH - itemH, Math.round(localHitY - itemH / 2)));
+                // 5. User-Controlled Free Placement Anywhere
+                elev = rawElev;
                 levelLabel = `ELEV ${Math.round(elev)} cm`;
             }
         } else if (tool === 'elevation_corner_element') {
@@ -825,7 +866,7 @@ export class WallPlugin3DPlacementSystem {
                     const wAngle = Math.atan2(wdy, wdx);
                     const wThick = wEnt.thickness || wEnt.config?.thickness || 20;
                     const wH = wEnt.height || wEnt.config?.height || 180;
-                    const yBottom = isCrown ? Math.max(0, wH - itemH) : elev;
+                    const yBottom = elev;
                     const yTop = yBottom + itemH;
                     const zOffset = ((wThick / 2) + 0.3) * wFacing;
 
@@ -874,7 +915,7 @@ export class WallPlugin3DPlacementSystem {
                 }
             } else {
                 // Single wall local space ribbon
-                const yBottom = isCrown ? Math.max(0, wallH - itemH) : elev;
+                const yBottom = elev;
                 const yTop = yBottom + itemH;
                 const zOffset = ((thick / 2) + 0.3) * facing;
                 const segments = this.molding3DBuilder.getMoldingSegments(wallLen, yBottom, itemH, wallEntity);
@@ -1081,7 +1122,7 @@ export class WallPlugin3DPlacementSystem {
                 const wAngle = -Math.atan2(wdy, wdx);
                 const wThick = wEnt.thickness || wEnt.config?.thickness || 20;
                 const wH = wEnt.height || wEnt.config?.height || 180;
-                const heightOffset = isCrown ? Math.max(0, wH - mHeight) : (isSkirting ? 0 : elev);
+                const heightOffset = elev;
 
                 const wPts = (typeof wEnt.poly?.points === 'function') ? wEnt.poly.points() : (Array.isArray(wEnt.poly) ? wEnt.poly : null);
                 const angle2D = Math.atan2(wdy, wdx);
@@ -1253,7 +1294,7 @@ export class WallPlugin3DPlacementSystem {
                 const dy = end.y - start.y;
                 const wallLen = Math.hypot(dx, dy);
                 const wallH = wEnt.height || wEnt.config?.height || 180;
-                const heightOffset = isCrown ? Math.max(0, wallH - mH) : (isSkirting ? 0 : (elev !== undefined ? elev : 90));
+                const heightOffset = (elev !== undefined) ? elev : (preset.heightOffset || 0);
 
                 const mold = new PremiumMolding(planner, wEnt, 0.5, moldType);
                 mold.side = (wSide === 'front') ? 'left' : 'right';

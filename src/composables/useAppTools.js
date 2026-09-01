@@ -57,11 +57,11 @@ export function useAppTools({
         } else if (tool === 'skirting' || tool === 'molding' || tool === 'wall_trim' || tool.startsWith('molding_') || tool.startsWith('skirting_') || tool.startsWith('trim_') || tool.startsWith('chair_rail') || tool.startsWith('picture_rail')) {
             if (!activePresetParams.value || (!activePresetParams.value.profileType && !activePresetParams.value.type?.startsWith('molding_'))) {
                 if (tool === 'skirting' || tool.startsWith('skirting_')) {
-                    activePresetParams.value = { type: 'molding_skirting_flat', profileType: 'skirting_flat', heightOffset: 0, moldingHeight: 12, depth: 2, material: 'white_paint', snapLevel: 'floor' };
+                    activePresetParams.value = { type: 'molding_skirting_flat', profileType: 'skirting_flat', heightOffset: 0, moldingHeight: 12, depth: 2, material: 'white_paint' };
                 } else if (tool === 'molding' || tool.includes('crown')) {
-                    activePresetParams.value = { type: 'molding_crown', profileType: 'crown', heightOffset: 110, moldingHeight: 10, depth: 5, material: 'white_paint', snapLevel: 'ceiling' };
+                    activePresetParams.value = { type: 'molding_crown', profileType: 'crown', heightOffset: 170, moldingHeight: 10, depth: 5, material: 'white_paint' };
                 } else {
-                    activePresetParams.value = { type: 'molding_chair_rail', profileType: 'chair_rail', heightOffset: 90, moldingHeight: 8, depth: 2.5, material: 'white_paint', snapLevel: 'mid' };
+                    activePresetParams.value = { type: 'molding_chair_rail', profileType: 'chair_rail', heightOffset: 90, moldingHeight: 8, depth: 2.5, material: 'white_paint' };
                 }
                 planner.value.activePresetParams = activePresetParams.value;
             }

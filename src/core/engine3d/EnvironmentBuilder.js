@@ -1179,8 +1179,20 @@ export class EnvironmentBuilder {
         const interpolateX = (profile, zTarget) => {
             if (!profile || profile.length === 0) return 0;
             if (profile.length === 1) return profile[0].x;
-            if (zTarget <= profile[0].z) return profile[0].x;
-            if (zTarget >= profile[profile.length - 1].z) return profile[profile.length - 1].x;
+            if (zTarget <= profile[0].z) {
+                const pA = profile[0], pB = profile[1];
+                const dz = pB.z - pA.z;
+                if (Math.abs(dz) < 1e-6) return pA.x;
+                const factor = (zTarget - pA.z) / dz;
+                return pA.x + factor * (pB.x - pA.x);
+            }
+            if (zTarget >= profile[profile.length - 1].z) {
+                const pA = profile[profile.length - 2], pB = profile[profile.length - 1];
+                const dz = pB.z - pA.z;
+                if (Math.abs(dz) < 1e-6) return pB.x;
+                const factor = (zTarget - pA.z) / dz;
+                return pA.x + factor * (pB.x - pA.x);
+            }
             for (let j = 0; j < profile.length - 1; j++) {
                 const pA = profile[j];
                 const pB = profile[j + 1];
