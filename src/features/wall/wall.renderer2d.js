@@ -904,8 +904,22 @@ export class PremiumWall {
             this.entranceGroup.visible(false);
         }
 
-        this.attachedWidgets.forEach(w => w.update()); 
-        if (this.attachedMoldings) this.attachedMoldings.forEach(m => m.update());
+        if (this.attachedWidgets) {
+            this.attachedWidgets.forEach(w => {
+                if (typeof w?.update === 'function') w.update();
+            });
+        } 
+        if (this.attachedMoldings) {
+            const wH = this.height !== undefined ? this.height : (this.config?.height || 180);
+            this.attachedMoldings.forEach(m => {
+                const mH = m.moldingHeight || 10;
+                const isCrown = m.profileType === 'crown' || m.profileType === 'ogee' || m.profileType === 'dentil' || m.profileType === 'frieze_exterior';
+                if (isCrown && m.heightOffset !== undefined && m.heightOffset >= 100) {
+                    m.heightOffset = Math.max(0, wH - mH);
+                }
+                if (m.update) m.update();
+            });
+        }
     } 
 
     destroy() { 

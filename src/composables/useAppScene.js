@@ -180,12 +180,18 @@ export function useAppScene({
                         }
                     });
                 } else if (selectedType.value === 'wall' && planner.value) {
-                    const selAnchorId1 = selectedEntity.value.startAnchor?.id;
-                    const selAnchorId2 = selectedEntity.value.endAnchor?.id;
+                    const selA1 = selectedEntity.value.startAnchor;
+                    const selA2 = selectedEntity.value.endAnchor;
+                    const selAnchorId1 = selA1?.id || selA1?._id;
+                    const selAnchorId2 = selA2?.id || selA2?._id;
                     planner.value.walls.forEach(w => {
                         if (w !== selectedEntity.value && !w.hidden) {
-                            if ((selAnchorId1 && (w.startAnchor?.id === selAnchorId1 || w.endAnchor?.id === selAnchorId1)) ||
-                                (selAnchorId2 && (w.startAnchor?.id === selAnchorId2 || w.endAnchor?.id === selAnchorId2))) {
+                            const isConnected = (selA1 && (w.startAnchor === selA1 || w.endAnchor === selA1)) ||
+                                                (selA2 && (w.startAnchor === selA2 || w.endAnchor === selA2)) ||
+                                                (selAnchorId1 && (w.startAnchor?.id === selAnchorId1 || w.endAnchor?.id === selAnchorId1 || w.startAnchor?._id === selAnchorId1 || w.endAnchor?._id === selAnchorId1)) ||
+                                                (selAnchorId2 && (w.startAnchor?.id === selAnchorId2 || w.endAnchor?.id === selAnchorId2 || w.startAnchor?._id === selAnchorId2 || w.endAnchor?._id === selAnchorId2));
+                            if (isConnected) {
+                                if (w.update) w.update();
                                 renderer3D.value.updateWallGeometryLive(w);
                             }
                         }

@@ -1,4 +1,5 @@
 import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
+import { PremiumMolding } from './PremiumMolding.js';
 import { SNAP_DIST } from '../registry.js';
 
 /**
@@ -255,37 +256,88 @@ export class WallReformer {
                 // All parts of this wall were inside the new room box! Destroy and remove it.
                 if (w.wallGroup) w.wallGroup.destroy();
                 if (w.labelGroup) w.labelGroup.destroy();
+                if (w.attachedMoldings) {
+                    w.attachedMoldings.forEach(m => { if (m.destroy) m.destroy(); });
+                    w.attachedMoldings = [];
+                }
                 planner.walls = planner.walls.filter(item => item !== w);
-            } else if (w.attachedWidgets && w.attachedWidgets.length > 0 && origLen > 0) {
-                // Remap attached widgets (doors, windows, openings) proportionally to kept sub-walls
-                const widgetsToDistribute = [...w.attachedWidgets];
-                w.attachedWidgets = [];
+            } else {
+                if (w.attachedWidgets && w.attachedWidgets.length > 0 && origLen > 0) {
+                    // Remap attached widgets (doors, windows, openings) proportionally to kept sub-walls
+                    const widgetsToDistribute = [...w.attachedWidgets];
+                    w.attachedWidgets = [];
 
-                let cumulativeDist = 0;
-                const subWallRanges = subWalls.map(sw => {
-                    const sp1 = sw.startAnchor.position();
-                    const sp2 = sw.endAnchor.position();
-                    const subLen = Math.hypot(sp2.x - sp1.x, sp2.y - sp1.y);
-                    const startDist = cumulativeDist;
-                    const endDist = cumulativeDist + subLen;
-                    cumulativeDist = endDist;
-                    return { wall: sw, startDist, endDist, len: subLen };
-                });
+                    let cumulativeDist = 0;
+                    const subWallRanges = subWalls.map(sw => {
+                        const sp1 = sw.startAnchor.position();
+                        const sp2 = sw.endAnchor.position();
+                        const subLen = Math.hypot(sp2.x - sp1.x, sp2.y - sp1.y);
+                        const startDist = cumulativeDist;
+                        const endDist = cumulativeDist + subLen;
+                        cumulativeDist = endDist;
+                        return { wall: sw, startDist, endDist, len: subLen };
+                    });
 
-                widgetsToDistribute.forEach(widget => {
-                    const origDist = (widget.t !== undefined ? widget.t : 0.5) * origLen;
-                    const range = subWallRanges.find(r => origDist >= r.startDist - 1.0 && origDist <= r.endDist + 1.0);
-                    if (range && range.len > 0) {
-                        const localT = Math.max(0.05, Math.min(0.95, (origDist - range.startDist) / range.len));
-                        widget.wall = range.wall;
-                        widget.t = localT;
-                        if (!range.wall.attachedWidgets) range.wall.attachedWidgets = [];
-                        range.wall.attachedWidgets.push(widget);
-                        if (widget.update) widget.update();
-                    } else if (widget.destroy) {
-                        widget.destroy();
-                    }
-                });
+                    widgetsToDistribute.forEach(widget => {
+                        const origDist = (widget.t !== undefined ? widget.t : 0.5) * origLen;
+                        const range = subWallRanges.find(r => origDist >= r.startDist - 1.0 && origDist <= r.endDist + 1.0);
+                        if (range && range.len > 0) {
+                            const localT = Math.max(0.05, Math.min(0.95, (origDist - range.startDist) / range.len));
+                            widget.wall = range.wall;
+                            widget.t = localT;
+                            if (!range.wall.attachedWidgets) range.wall.attachedWidgets = [];
+                            range.wall.attachedWidgets.push(widget);
+                            if (widget.update) widget.update();
+                        } else if (widget.destroy) {
+                            widget.destroy();
+                        }
+                    });
+                }
+
+                // Propagate attached moldings across all split sub-walls and newly created bay walls
+                if (w.attachedMoldings && w.attachedMoldings.length > 0) {
+                    const moldingsToDistribute = [...w.attachedMoldings];
+                    moldingsToDistribute.forEach(mold => {
+                        const moldData = mold.serialize ? mold.serialize() : { ...mold };
+                        subWalls.forEach(sw => {
+                            if (sw === w) {
+                                if (mold.update) mold.update();
+                                return;
+                            }
+                            if (!sw.attachedMoldings) sw.attachedMoldings = [];
+                            const alreadyHas = sw.attachedMoldings.some(m => m.side === mold.side && Math.abs((m.heightOffset || 0) - (mold.heightOffset || 0)) < 5);
+                            if (!alreadyHas) {
+                                const swp1 = sw.startAnchor.position();
+                                const swp2 = sw.endAnchor.position();
+                                const swLen = Math.hypot(swp2.x - swp1.x, swp2.y - swp1.y);
+                                const nm = new PremiumMolding(planner, sw, 0.5, mold.type || 'molding_chair_rail');
+                                Object.assign(nm, moldData);
+                                nm.wall = sw;
+                                nm.width = swLen;
+                                nm.t = 0.5;
+                                sw.attachedMoldings.push(nm);
+                                nm.update();
+                            }
+                        });
+
+                        createdWalls.forEach(cw => {
+                            if (!cw.attachedMoldings) cw.attachedMoldings = [];
+                            const alreadyHas = cw.attachedMoldings.some(m => m.side === mold.side && Math.abs((m.heightOffset || 0) - (mold.heightOffset || 0)) < 5);
+                            if (!alreadyHas) {
+                                const cwp1 = cw.startAnchor.position();
+                                const cwp2 = cw.endAnchor.position();
+                                const cwLen = Math.hypot(cwp2.x - cwp1.x, cwp2.y - cwp1.y);
+                                const nm = new PremiumMolding(planner, cw, 0.5, mold.type || 'molding_chair_rail');
+                                Object.assign(nm, moldData);
+                                nm.wall = cw;
+                                nm.width = cwLen;
+                                nm.t = 0.5;
+                                cw.attachedMoldings.push(nm);
+                                nm.update();
+                            }
+                        });
+                    });
+                }
             }
         });
 
@@ -483,6 +535,33 @@ export class WallReformer {
             });
         }
 
+        // Transfer attached moldings (trims, baseboards, cornices)
+        if (wall.attachedMoldings && wall.attachedMoldings.length > 0) {
+            wall.attachedMoldings.forEach(mold => {
+                const moldData = mold.serialize ? mold.serialize() : { ...mold };
+                const m1 = new PremiumMolding(planner, wall1, 0.5, mold.type || 'molding_chair_rail');
+                Object.assign(m1, moldData);
+                m1.wall = wall1;
+                m1.width = subLen1;
+                m1.t = 0.5;
+                if (!wall1.attachedMoldings) wall1.attachedMoldings = [];
+                wall1.attachedMoldings.push(m1);
+                m1.update();
+
+                const m2 = new PremiumMolding(planner, wall2, 0.5, mold.type || 'molding_chair_rail');
+                Object.assign(m2, moldData);
+                m2.wall = wall2;
+                m2.width = wallLen - subLen1;
+                m2.t = 0.5;
+                if (!wall2.attachedMoldings) wall2.attachedMoldings = [];
+                wall2.attachedMoldings.push(m2);
+                m2.update();
+
+                if (mold.destroy) mold.destroy();
+            });
+            wall.attachedMoldings = [];
+        }
+
         // Replace wall in planner
         const idx = planner.walls.indexOf(wall);
         if (idx !== -1) {
@@ -565,6 +644,28 @@ export class WallReformer {
             const wEnd = new PremiumWall(planner, ancB, anc2, wall.type || 'outer');
             copyProps(wEnd);
             newWalls.push(wEnd);
+        }
+
+        // Transfer moldings along all new bay walls
+        if (wall.attachedMoldings && wall.attachedMoldings.length > 0) {
+            wall.attachedMoldings.forEach(mold => {
+                const moldData = mold.serialize ? mold.serialize() : { ...mold };
+                newWalls.forEach(nw => {
+                    const nwp1 = nw.startAnchor.position();
+                    const nwp2 = nw.endAnchor.position();
+                    const nwLen = Math.hypot(nwp2.x - nwp1.x, nwp2.y - nwp1.y);
+                    const nm = new PremiumMolding(planner, nw, 0.5, mold.type || 'molding_chair_rail');
+                    Object.assign(nm, moldData);
+                    nm.wall = nw;
+                    nm.width = nwLen;
+                    nm.t = 0.5;
+                    if (!nw.attachedMoldings) nw.attachedMoldings = [];
+                    nw.attachedMoldings.push(nm);
+                    nm.update();
+                });
+                if (mold.destroy) mold.destroy();
+            });
+            wall.attachedMoldings = [];
         }
 
         // Remove old wall and insert new extruded walls

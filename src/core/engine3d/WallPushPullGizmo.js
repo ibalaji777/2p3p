@@ -359,6 +359,11 @@ export class WallPushPullGizmo extends THREE.Group {
     _createConfirmHUDBar() {
         if (typeof document === 'undefined') return;
         
+        // If managed by WallInteractiveSuite, WallInteractiveSuite provides the single unified confirmation HUD
+        if (this.ctx.interactions?.wallInteractiveSuite) {
+            return;
+        }
+
         this.domConfirmBar = document.createElement('div');
         this.domConfirmBar.className = 'sims4-pushpull-confirm-bar';
         this.domConfirmBar.style.cssText = `
@@ -670,6 +675,47 @@ export class WallPushPullGizmo extends THREE.Group {
     }
 
     _updateHUDDimensions(wallLen, wallH, depthText = null) {
+        const selW = Math.round(wallLen * (this.tEnd - this.tStart));
+        const selH = Math.round(this.elevTop - this.elevBottom);
+        const selElev = Math.round(this.elevBottom);
+        const extrudeD = this.currentExtrudeDepth || 0;
+
+        let statusText = '';
+        if (depthText) {
+            statusText = `${depthText} · 📏 W: ${selW} cm · H: ${selH} cm · Elev: ${selElev} cm`;
+        } else if (extrudeD > 0) {
+            statusText = `🧱 Solid Block: +${extrudeD} cm · 📏 W: ${selW} cm · H: ${selH} cm`;
+        } else if (extrudeD < 0) {
+            statusText = `🪟 Niche: ${extrudeD} cm · 📏 W: ${selW} cm · H: ${selH} cm`;
+        } else {
+            statusText = `📏 Width: ${selW} cm · Height: ${selH} cm · Elev: ${selElev} cm`;
+        }
+
+        const suite = this.ctx.interactions?.wallInteractiveSuite;
+        if (suite && suite.confirmStatusBadge) {
+            suite.confirmStatusBadge.textContent = statusText;
+            if (suite.domConfirmBar && this.ctx.camera && this.ctx.renderer) {
+                const dom = this.ctx.renderer.domElement;
+                if (dom) {
+                    const rect = dom.getBoundingClientRect();
+                    const worldPos = new THREE.Vector3();
+                    this.handleFront.getWorldPosition(worldPos);
+                    worldPos.y += 24;
+                    worldPos.project(this.ctx.camera);
+
+                    if (worldPos.z <= 1) {
+                        const screenX = Math.max(120, Math.min(rect.width - 120, ((worldPos.x + 1) * rect.width) / 2));
+                        const screenY = Math.max(50, Math.min(rect.height - 40, ((-worldPos.y + 1) * rect.height) / 2));
+                        suite.domConfirmBar.style.left = `${screenX}px`;
+                        suite.domConfirmBar.style.top = `${screenY - 14}px`;
+                        suite.domConfirmBar.style.display = 'flex';
+                    }
+                }
+            }
+            if (this.domConfirmBar) this.domConfirmBar.style.display = 'none';
+            return;
+        }
+
         if (!this.domConfirmBar || !this.ctx.camera || !this.ctx.renderer) return;
         const dom = this.ctx.renderer.domElement;
         if (!dom) return;
@@ -680,24 +726,10 @@ export class WallPushPullGizmo extends THREE.Group {
         worldPos.y += 24;
         worldPos.project(this.ctx.camera);
 
-        const screenX = ((worldPos.x + 1) * rect.width) / 2;
-        const screenY = ((-worldPos.y + 1) * rect.height) / 2;
+        const screenX = Math.max(120, Math.min(rect.width - 120, ((worldPos.x + 1) * rect.width) / 2));
+        const screenY = Math.max(50, Math.min(rect.height - 40, ((-worldPos.y + 1) * rect.height) / 2));
 
-        const selW = Math.round(wallLen * (this.tEnd - this.tStart));
-        const selH = Math.round(this.elevTop - this.elevBottom);
-        const selElev = Math.round(this.elevBottom);
-        const extrudeD = this.currentExtrudeDepth || 0;
-
-        if (depthText) {
-            this.domBadge.textContent = `${depthText} · 📏 W: ${selW} cm · H: ${selH} cm · Elev: ${selElev} cm`;
-        } else if (extrudeD > 0) {
-            this.domBadge.textContent = `🧱 Solid Block: +${extrudeD} cm · 📏 W: ${selW} cm · H: ${selH} cm`;
-        } else if (extrudeD < 0) {
-            this.domBadge.textContent = `🪟 Niche: ${extrudeD} cm · 📏 W: ${selW} cm · H: ${selH} cm`;
-        } else {
-            this.domBadge.textContent = `📏 Width: ${selW} cm · Height: ${selH} cm · Elev: ${selElev} cm`;
-        }
-
+        if (this.domBadge) this.domBadge.textContent = statusText;
         this.domConfirmBar.style.left = `${screenX}px`;
         this.domConfirmBar.style.top = `${screenY - 14}px`;
         this.domConfirmBar.style.display = 'flex';
@@ -822,6 +854,7 @@ export class WallPushPullGizmo extends THREE.Group {
         if (typeof this.ctx.updateWallGeometryLive === 'function') {
             wallsToUpdate.forEach(w => {
                 try {
+                    if (w.update) w.update();
                     this.ctx.updateWallGeometryLive(w);
                 } catch(err) {
                     console.warn('[WallPushPullGizmo] Live wall update err:', err);

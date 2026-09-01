@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { EVENTS } from '../constants/events.js';
+import { coreEventBus } from '../EventBus.js';
 import { WallPushPullGizmo } from './WallPushPullGizmo.js';
 import { WallCornerVertexGizmo } from './WallCornerVertexGizmo.js';
 import { WallHeightGizmo } from './WallHeightGizmo.js';
@@ -629,9 +631,12 @@ export class WallInteractiveSuite extends THREE.Group {
 
         // Active editing mode: Hide top menu HUD, show confirmation bar
         if (this.domHUD) this.domHUD.style.display = 'none';
+        if (this.ctx.gizmoManager?.transformMenu) {
+            this.ctx.gizmoManager.transformMenu.style.display = 'none';
+        }
         if (this.domConfirmBar) {
             const labels = {
-                push_pull: '↔️ Push / Pull (Select Width & Push/Pull Face Thickness)',
+                push_pull: '↔️ Push / Pull',
                 corner: '📍 Move (Wall Normal, Vertices, Heights & Slopes)',
                 extrude_recess: '🏛️ Bay / Niche (Extrude Bay Window & Niche Recess)',
                 height: '📐 Height & Slope',
@@ -642,6 +647,7 @@ export class WallInteractiveSuite extends THREE.Group {
             if (this.btnPushPullMode) this.btnPushPullMode.style.display = 'none';
             this.domConfirmBar.style.display = 'flex';
         }
+        this._updateHUDPosition();
 
         const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
         if (planner && planner.commandManager) {
@@ -728,6 +734,12 @@ export class WallInteractiveSuite extends THREE.Group {
         const mode = this.activeMode;
         if (this.target) this.target.visible = true;
 
+        if (mode === 'push_pull' && this.pushPullGizmo) {
+            this.pushPullGizmo.commit();
+            this.detach();
+            return;
+        }
+
         if (mode === 'extrude_recess') {
             const depth = this.extrudeCurrentDepth;
             if (Math.abs(depth) >= 5) {
@@ -736,7 +748,32 @@ export class WallInteractiveSuite extends THREE.Group {
                 return;
             }
         } else if (mode === 'split' && this.splitCurrentHit) {
-            this.splitWall(this.splitCurrentHit);
+            const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
+            const wall = this.target?.userData?.entity;
+            if (planner && wall) {
+                const cmd = new SnapshotCommand(planner);
+                const subWalls = WallReformer.splitWallAtPoint(planner, wall, { x: this.splitCurrentHit.x, y: this.splitCurrentHit.z });
+                if (subWalls && planner.commandManager) {
+                    planner.commandManager.execute(cmd);
+                    if (this.ctx.buildScene) {
+                        this.ctx.preventAutoFocus = true;
+                        this.ctx.buildScene(
+                            planner.walls,
+                            planner.rooms,
+                            planner.stairs,
+                            planner.furniture,
+                            planner.roofs,
+                            planner.shapes,
+                            planner.levels || [],
+                            planner.activeLevelIndex || 0,
+                            this.ctx.viewMode3D || 'full-edit',
+                            true
+                        );
+                        this.ctx.preventAutoFocus = false;
+                    }
+                }
+            }
+            this.detach();
             return;
         }
 
@@ -761,6 +798,10 @@ export class WallInteractiveSuite extends THREE.Group {
     cancelChanges() {
         if (this.target) this.target.visible = true;
         const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
+
+        if (this.activeMode === 'push_pull' && this.pushPullGizmo) {
+            this.pushPullGizmo.cancel();
+        }
 
         if (this._snapshotCmd) {
             this._snapshotCmd.undo();

@@ -96,7 +96,9 @@ export class Molding3DBuilder {
         const profileType = moldData.profileType || 'skirting_flat';
         const isGroove = moldData.type === 'molding_groove' || profileType === 'groove';
         
-        const actualLength = width; 
+        const isFullLength = !moldData.isCustomWidth || !moldData.width || Math.abs(moldData.width - wallLength) < 5;
+        const actualLength = isFullLength ? wallLength : (moldData.width || wallLength);
+        moldData.width = actualLength; 
         
         const finalShape = new THREE.Shape();
         const d = depth;

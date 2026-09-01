@@ -41,7 +41,8 @@ export class UniversalRealtimeUpdate {
                 }
                 
                 // 2. If it is a wall itself, update its geometry
-                if (entity.startX !== undefined && entity.endX !== undefined) {
+                if (entity.startAnchor || (entity.startX !== undefined && entity.endX !== undefined)) {
+                    if (entity.update) entity.update();
                     if (this.ctx.updateWallGeometryLive) {
                         this.ctx.updateWallGeometryLive(entity);
                         success = true;

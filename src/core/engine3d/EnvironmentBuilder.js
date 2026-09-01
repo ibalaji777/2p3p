@@ -1143,35 +1143,36 @@ export class EnvironmentBuilder {
             return { x: dx * c + dy * s, z: -dx * s + dy * c };
         };
 
+        const toLocalX = (ptX, ptY) => {
+            const dx_pt = ptX - p1.x;
+            const dy_pt = ptY - p1.y;
+            return dx_pt * Math.cos(angle) + dy_pt * Math.sin(angle);
+        };
+
+        const sTrueL = w.wallShapeData?.startData?.trueCorners?.[0] || (pts && pts.length >= 8 ? { x: pts[0], y: pts[1] } : null);
+        const sTrueR = w.wallShapeData?.startData?.trueCorners?.[1] || (pts && pts.length >= 8 ? { x: pts[6], y: pts[7] } : null);
+        const eTrueL = w.wallShapeData?.endData?.trueCorners?.[0] || (pts && pts.length >= 8 ? { x: pts[2], y: pts[3] } : null);
+        const eTrueR = w.wallShapeData?.endData?.trueCorners?.[1] || (pts && pts.length >= 8 ? { x: pts[4], y: pts[5] } : null);
+
         let startProfileLocal = null;
         let endProfileLocal = null;
 
-        if (!hasStartCap && startProfile && startProfile.length > 0) {
-            startProfileLocal = startProfile.map(p => toLocal(p.x, p.y)).sort((a, b) => a.z - b.z);
-        } else if (!hasStartCap && pts && pts.length >= 8) {
-            const toLocalX = (ptX, ptY) => {
-                const dx_pt = ptX - p1.x;
-                const dy_pt = ptY - p1.y;
-                return dx_pt * Math.cos(angle) + dy_pt * Math.sin(angle);
-            };
-            const sL_x = toLocalX(pts[0], pts[1]);
-            const sR_x = toLocalX(pts[6], pts[7]);
+        if (!hasStartCap && sTrueL && sTrueR) {
+            const sL_x = toLocalX(sTrueL.x, sTrueL.y);
+            const sR_x = toLocalX(sTrueR.x, sTrueR.y);
             startProfileLocal = [{ x: sR_x, z: -t / 2 }, { x: sL_x, z: t / 2 }];
+        } else if (!hasStartCap && startProfile && startProfile.length > 0) {
+            startProfileLocal = startProfile.map(p => toLocal(p.x, p.y)).sort((a, b) => a.z - b.z);
         } else {
             startProfileLocal = [{ x: 0, z: -t / 2 }, { x: 0, z: t / 2 }];
         }
 
-        if (!hasEndCap && endProfile && endProfile.length > 0) {
-            endProfileLocal = endProfile.map(p => toLocal(p.x, p.y)).sort((a, b) => a.z - b.z);
-        } else if (!hasEndCap && pts && pts.length >= 8) {
-            const toLocalX = (ptX, ptY) => {
-                const dx_pt = ptX - p1.x;
-                const dy_pt = ptY - p1.y;
-                return dx_pt * Math.cos(angle) + dy_pt * Math.sin(angle);
-            };
-            const eL_x = toLocalX(pts[2], pts[3]);
-            const eR_x = toLocalX(pts[4], pts[5]);
+        if (!hasEndCap && eTrueL && eTrueR) {
+            const eL_x = toLocalX(eTrueL.x, eTrueL.y);
+            const eR_x = toLocalX(eTrueR.x, eTrueR.y);
             endProfileLocal = [{ x: eR_x, z: -t / 2 }, { x: eL_x, z: t / 2 }];
+        } else if (!hasEndCap && endProfile && endProfile.length > 0) {
+            endProfileLocal = endProfile.map(p => toLocal(p.x, p.y)).sort((a, b) => a.z - b.z);
         } else {
             endProfileLocal = [{ x: length, z: -t / 2 }, { x: length, z: t / 2 }];
         }
@@ -1208,21 +1209,23 @@ export class EnvironmentBuilder {
 
         const shearGeo = (geo) => {
             const pos = geo.attributes.position;
+            if (!pos) return;
             for (let i = 0; i < pos.count; i++) {
                 const x = pos.getX(i);
                 const z = pos.getZ(i);
                 const sX = interpolateX(startProfileLocal, z);
                 const eX = interpolateX(endProfileLocal, z);
                 
-                if (x <= 0.1) {
+                if (x <= 0.5) {
                     pos.setX(i, sX);
-                } else if (x >= length - 0.1) {
+                } else if (x >= length - 0.5) {
                     pos.setX(i, eX);
                 } else {
                     pos.setX(i, x);
                 }
             }
             geo.computeVertexNormals();
+            pos.needsUpdate = true;
         };
 
         shearGeo(wallGeo);
