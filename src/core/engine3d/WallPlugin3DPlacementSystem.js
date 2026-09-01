@@ -6,6 +6,7 @@ import { Molding3DBuilder } from './Molding3DBuilder.js';
 import { coreEventBus } from '../EventBus.js';
 import { EVENTS } from '../constants/events.js';
 import { ComponentRegistry } from './ComponentRegistry.js';
+import { getRoomForWallFace, getRoomWallsAndSides, getExteriorWallsAndSides } from './WallPaintSystem.js';
 
 /**
  * WallPlugin3DPlacementSystem
@@ -18,8 +19,10 @@ import { ComponentRegistry } from './ComponentRegistry.js';
  * - Elevation Fascias & Facade Box Frames (Shape-Accurate C-shape, L-shape, Box)
  * - Sunshades / Chajjas (attached protruding from chosen wall face)
  * - Baseboards & Skirting (miter-sheared corner-to-corner along chosen wall face)
+ * - Wall Trims, Chair Rails, Picture Rails (freeform or smart magnetic height)
  * - Crown Moldings & Friezes (miter-sheared corner-to-corner along top ceiling line)
  * - Elevation Corner Elements, Quoins & Pillars
+ * - Sims 4 Scope Placement (Single Wall, Whole Room Loop, Exterior Perimeter Loop)
  */
 export class WallPlugin3DPlacementSystem {
     constructor(ctx, interactionSystem) {
@@ -35,6 +38,8 @@ export class WallPlugin3DPlacementSystem {
         this.activeLocalX = 0;
         this.activeElevation = 0;
         this.isValidPlacement = true;
+        this.placementScope = 'single'; // 'single', 'room', 'exterior'
+        this.lastPointerEvent = null;
 
         this.molding3DBuilder = new Molding3DBuilder();
 
@@ -86,6 +91,11 @@ export class WallPlugin3DPlacementSystem {
         // 4. Create Stable Static DOM HUD Action Bar
         this.createBadgeDOM();
 
+        this.boundOnKeyDown = (e) => this.onKeyDown(e);
+        this.boundOnKeyUp = (e) => this.onKeyUp(e);
+        window.addEventListener('keydown', this.boundOnKeyDown);
+        window.addEventListener('keyup', this.boundOnKeyUp);
+
         this._lastToolKey = null;
         this.isPinned = false;
     }
@@ -116,13 +126,16 @@ export class WallPlugin3DPlacementSystem {
         `;
 
         this.badgeDom.innerHTML = `
-            <div style="display: flex; flex-direction: column; gap: 6px; min-width: 260px;">
+            <div style="display: flex; flex-direction: column; gap: 6px; min-width: 280px;">
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
                     <div style="display: flex; align-items: center; gap: 7px;">
                         <span id="wall-ui-dot" style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #00f0ff; box-shadow: 0 0 10px #00f0ff;"></span>
                         <span id="wall-ui-title" style="color: #38bdf8; font-weight: 700; font-size: 12px;">Door / Window</span>
                     </div>
-                    <span id="wall-ui-side" style="color: #94a3b8; font-size: 11px;">Face: <strong id="wall-ui-facetxt" style="color: #38bdf8;">FRONT</strong></span>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span id="wall-ui-level-badge" style="background: rgba(56, 189, 248, 0.18); border: 1px solid rgba(56, 189, 248, 0.5); color: #38bdf8; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; display: none;">FLOOR</span>
+                        <span id="wall-ui-side" style="color: #94a3b8; font-size: 11px;">Face: <strong id="wall-ui-facetxt" style="color: #38bdf8;">FRONT</strong></span>
+                    </div>
                 </div>
                 
                 <div id="wall-ui-specs" style="color: #cbd5e1; font-size: 11px; font-weight: 500;">
@@ -130,6 +143,9 @@ export class WallPlugin3DPlacementSystem {
                 </div>
 
                 <div style="display: flex; align-items: center; gap: 6px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.12); margin-top: 2px;">
+                    <button id="wall-ui-btn-scope" type="button" style="display: none; align-items: center; justify-content: center; gap: 3px; background: rgba(147, 51, 234, 0.22); border: 1.5px solid #a855f7; color: #c084fc; border-radius: 7px; padding: 6px 9px; font-size: 11px; font-weight: 700; cursor: pointer; touch-action: manipulation;">
+                        ⎘ Single Wall
+                    </button>
                     <button id="wall-ui-btn-flip" type="button" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; background: rgba(56, 189, 248, 0.25); border: 1.5px solid #38bdf8; color: #38bdf8; border-radius: 7px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; touch-action: manipulation;">
                         ⇄ Flip Face
                     </button>
@@ -147,13 +163,27 @@ export class WallPlugin3DPlacementSystem {
         // Cache stable DOM references
         this.elDot = this.badgeDom.querySelector('#wall-ui-dot');
         this.elTitle = this.badgeDom.querySelector('#wall-ui-title');
+        this.elLevelBadge = this.badgeDom.querySelector('#wall-ui-level-badge');
         this.elFaceTxt = this.badgeDom.querySelector('#wall-ui-facetxt');
         this.elSpecs = this.badgeDom.querySelector('#wall-ui-specs');
+        this.btnScope = this.badgeDom.querySelector('#wall-ui-btn-scope');
         this.btnFlip = this.badgeDom.querySelector('#wall-ui-btn-flip');
         this.btnPlace = this.badgeDom.querySelector('#wall-ui-btn-place');
         this.btnCancel = this.badgeDom.querySelector('#wall-ui-btn-cancel');
 
         // Wire handlers with pointer & click support
+        const onScopeToggle = (ev) => {
+            if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+            if (this.placementScope === 'single') this.placementScope = 'room';
+            else if (this.placementScope === 'room') this.placementScope = 'exterior';
+            else this.placementScope = 'single';
+            this.updateScopeButtonLabel();
+            this._lastToolKey = null; // force preview rebuild
+            if (this.lastPointerEvent) this.onPointerMove(this.lastPointerEvent);
+        };
+        this.btnScope.addEventListener('pointerdown', (e) => e.stopPropagation());
+        this.btnScope.addEventListener('click', onScopeToggle);
+
         const onFlip = (ev) => {
             if (ev) { ev.preventDefault(); ev.stopPropagation(); }
             this.flipFace();
@@ -180,6 +210,51 @@ export class WallPlugin3DPlacementSystem {
         };
         this.btnCancel.addEventListener('pointerdown', (e) => e.stopPropagation());
         this.btnCancel.addEventListener('click', onCancel);
+    }
+
+    updateScopeButtonLabel() {
+        if (!this.btnScope) return;
+        if (this.placementScope === 'room') {
+            this.btnScope.textContent = '🏠 Room Loop';
+            this.btnScope.style.borderColor = '#10b981';
+            this.btnScope.style.color = '#34d399';
+            this.btnScope.style.background = 'rgba(16, 185, 129, 0.25)';
+        } else if (this.placementScope === 'exterior') {
+            this.btnScope.textContent = '🌐 Exterior';
+            this.btnScope.style.borderColor = '#f59e0b';
+            this.btnScope.style.color = '#fbbf24';
+            this.btnScope.style.background = 'rgba(245, 158, 11, 0.25)';
+        } else {
+            this.btnScope.textContent = '⎘ Single Wall';
+            this.btnScope.style.borderColor = '#a855f7';
+            this.btnScope.style.color = '#c084fc';
+            this.btnScope.style.background = 'rgba(147, 51, 234, 0.22)';
+        }
+    }
+
+    onKeyDown(e) {
+        if (!this.isPlacementTool()) return;
+        if (e.key === 'Shift' && this.placementScope !== 'room') {
+            this.placementScope = 'room';
+            this.updateScopeButtonLabel();
+            this._lastToolKey = null;
+            if (this.lastPointerEvent) this.onPointerMove(this.lastPointerEvent);
+        } else if (e.key === 'Alt' && this.placementScope !== 'exterior') {
+            this.placementScope = 'exterior';
+            this.updateScopeButtonLabel();
+            this._lastToolKey = null;
+            if (this.lastPointerEvent) this.onPointerMove(this.lastPointerEvent);
+        }
+    }
+
+    onKeyUp(e) {
+        if (!this.isPlacementTool()) return;
+        if ((e.key === 'Shift' || e.key === 'Alt') && this.placementScope !== 'single') {
+            this.placementScope = 'single';
+            this.updateScopeButtonLabel();
+            this._lastToolKey = null;
+            if (this.lastPointerEvent) this.onPointerMove(this.lastPointerEvent);
+        }
     }
 
     isTouchDevice() {
@@ -244,7 +319,7 @@ export class WallPlugin3DPlacementSystem {
 
         const preset = planner.activePresetParams || {};
         const isOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'opening'].includes(tool);
-        const isMolding = tool === 'molding' || tool === 'skirting' || tool.startsWith('molding_') || tool.startsWith('skirting_') || !!MOLDING_REGISTRY[tool] || (preset && (preset.type?.startsWith('molding_') || preset.profileType?.startsWith('skirting_')));
+        const isMolding = tool === 'molding' || tool === 'skirting' || tool === 'wall_trim' || tool.startsWith('molding_') || tool.startsWith('skirting_') || tool.startsWith('trim_') || tool.startsWith('chair_rail') || tool.startsWith('picture_rail') || tool === 'elevation_frieze' || tool === 'elevation_foundation_trim' || !!MOLDING_REGISTRY[tool] || (preset && (preset.type?.startsWith('molding_') || preset.profileType?.startsWith('skirting_') || preset.profileType === 'chair_rail' || preset.profileType === 'picture_rail'));
         const isWidget = !!WIDGET_REGISTRY[tool];
         const isDecorOrPlugin = tool.startsWith('door') || tool.startsWith('window') || tool === 'jali_panel' || tool === 'sunshade' || tool === 'curtain' || tool === 'wall_art' || tool === 'elevation_fascia' || tool.startsWith('jali_') || tool.startsWith('sunshade_') || tool.startsWith('curtain_') || tool.startsWith('decor_wall_') || tool.startsWith('decor_photo_') || tool.startsWith('fascia_');
 
@@ -361,6 +436,8 @@ export class WallPlugin3DPlacementSystem {
             return false;
         }
 
+        this.lastPointerEvent = e;
+
         // If position is pinned and user is not dragging, preserve the pinned preview
         if (this.isPinned && e.buttons === 0) {
             return true;
@@ -444,7 +521,7 @@ export class WallPlugin3DPlacementSystem {
         const thick = wallEntity.thickness || wallEntity.config?.thickness || 20;
         const wallH = wallEntity.height || wallEntity.config?.height || 180;
 
-        const isMolding = tool === 'molding' || tool === 'skirting' || tool.startsWith('molding_') || tool.startsWith('skirting_') || !!MOLDING_REGISTRY[tool];
+        const isMolding = tool === 'molding' || tool === 'skirting' || tool === 'wall_trim' || tool.startsWith('molding_') || tool.startsWith('skirting_') || tool.startsWith('trim_') || tool.startsWith('chair_rail') || tool.startsWith('picture_rail') || !!MOLDING_REGISTRY[tool] || (preset && (preset.type?.startsWith('molding_') || preset.profileType?.startsWith('skirting_')));
         const isElevationTrim = tool === 'elevation_frieze' || tool === 'elevation_foundation_trim';
         const isAdvOpening = !isMolding && !isElevationTrim && (tool === 'arch_opening' || tool === 'circular_opening' || tool === 'custom_shape_opening' || tool === 'niche_recess' || tool === 'pattern_opening' || tool === 'boolean_cut' || tool === 'opening' || (preset && ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'opening'].includes(preset.type)));
         const isDoor = !isMolding && !isElevationTrim && !isAdvOpening && (tool.startsWith('door') || (!tool.startsWith('window') && !tool.startsWith('sunshade') && !tool.startsWith('jali_') && !tool.startsWith('curtain') && !tool.startsWith('decor_') && preset.doorType !== undefined));
@@ -473,13 +550,28 @@ export class WallPlugin3DPlacementSystem {
         const wallBaseY = wallEntity.elevation || (wallEntity.level && wallEntity.level.elevation) || 0;
         const localHitY = Math.max(0, hitPt.y - wallBaseY);
 
+        let levelLabel = '';
         if (isMolding || isElevationTrim) {
             // Baseboards, Moldings & Wall Trims span the entire wall length
             itemW = wallLen;
             t = 0.5;
             projDist = wallLen / 2;
             const isCrown = tool === 'molding' || tool.includes('crown') || tool === 'elevation_frieze' || (preset.profileType && preset.profileType.includes('crown')) || (preset.type && preset.type.includes('crown'));
-            elev = isCrown ? Math.max(0, wallH - itemH) : (preset.heightOffset || 0);
+            const isSkirting = tool === 'skirting' || tool.startsWith('skirting_') || tool === 'elevation_foundation_trim' || (preset.profileType && preset.profileType.includes('skirting'));
+
+            if (preset.snapLevel === 'floor' || isSkirting || (!preset.isFixedElevation && localHitY < 30)) {
+                elev = 0;
+                levelLabel = 'FLOOR (0 cm)';
+            } else if (preset.snapLevel === 'ceiling' || isCrown || (!preset.isFixedElevation && localHitY > wallH - 30)) {
+                elev = Math.max(0, wallH - itemH);
+                levelLabel = `CEILING (${Math.round(elev)} cm)`;
+            } else if (preset.snapLevel === 'mid' || (!preset.isFixedElevation && Math.abs(localHitY - 90) < 18)) {
+                elev = 90;
+                levelLabel = 'CHAIR RAIL (90 cm)';
+            } else {
+                elev = (preset.heightOffset !== undefined && preset.isFixedElevation) ? preset.heightOffset : Math.max(0, Math.min(wallH - itemH, Math.round(localHitY - itemH / 2)));
+                levelLabel = `ELEV ${Math.round(elev)} cm`;
+            }
         } else if (tool === 'elevation_corner_element') {
             t = (t < 0.5) ? 0 : 1;
             projDist = t * wallLen;
@@ -695,46 +787,126 @@ export class WallPlugin3DPlacementSystem {
         }
 
         if (isMoldingOrTrim) {
-            // For Baseboards & Moldings: shape-accurate ribbons hugging mitered wall face around openings
-            const isCrown = tool === 'molding' || tool.includes('crown') || tool === 'elevation_frieze' || (preset?.profileType && preset?.profileType.includes('crown')) || (preset?.type && preset?.type.includes('crown'));
-            const zOffset = ((thick / 2) + 0.3) * facing;
-            const yBottom = isCrown ? Math.max(0, wallH - itemH) : elev;
-            const yTop = yBottom + itemH;
+            let targetWalls = [{ wall: wallEntity, side: (facing === 1 ? 'front' : 'back') }];
+            const planner = this.getPlanner();
+            if (this.placementScope === 'room') {
+                const room = getRoomForWallFace(wallEntity, (facing === 1 ? 'front' : 'back'), planner, this.ctx);
+                if (room) {
+                    const rTargets = getRoomWallsAndSides(room, planner, this.ctx);
+                    if (rTargets.length > 0) targetWalls = rTargets;
+                }
+            } else if (this.placementScope === 'exterior') {
+                const extTargets = getExteriorWallsAndSides(planner, this.ctx);
+                if (extTargets.length > 0) targetWalls = extTargets;
+            }
 
-            const segments = this.molding3DBuilder.getMoldingSegments(wallLen, yBottom, itemH, wallEntity);
+            const isCrown = tool === 'molding' || tool.includes('crown') || tool === 'elevation_frieze' || (preset?.profileType && preset?.profileType.includes('crown')) || (preset?.type && preset?.type.includes('crown'));
 
             const ribbonGeo = new THREE.BufferGeometry();
             const posList = [];
             const indexList = [];
             let vertOffset = 0;
 
-            for (const seg of segments) {
-                const startX = (seg.start <= 0.1) 
-                    ? ((facing === 1) ? localSL_x : localSR_x)
-                    : seg.start;
-                const endX = (seg.end >= wallLen - 0.1)
-                    ? ((facing === 1) ? localEL_x : localER_x)
-                    : seg.end;
+            if (targetWalls.length > 1) {
+                // Multi-wall world space ribbon rendering for entire room / exterior loop
+                this.placementGroup.position.set(0, 0, 0);
+                this.placementGroup.rotation.y = 0;
 
-                posList.push(
-                    startX, yBottom, zOffset,
-                    endX,   yBottom, zOffset,
-                    endX,   yTop,    zOffset,
-                    startX, yTop,    zOffset
-                );
+                for (const tWall of targetWalls) {
+                    const wEnt = tWall.wall;
+                    const wSide = tWall.side;
+                    const wFacing = (wSide === 'back') ? -1 : 1;
+                    const wp1 = wEnt.startAnchor.position();
+                    const wp2 = wEnt.endAnchor.position();
+                    const wdx = wp2.x - wp1.x;
+                    const wdy = wp2.y - wp1.y;
+                    const wLen = Math.hypot(wdx, wdy);
+                    if (wLen < 1) continue;
+                    const wAngle = Math.atan2(wdy, wdx);
+                    const wThick = wEnt.thickness || wEnt.config?.thickness || 20;
+                    const wH = wEnt.height || wEnt.config?.height || 180;
+                    const yBottom = isCrown ? Math.max(0, wH - itemH) : elev;
+                    const yTop = yBottom + itemH;
+                    const zOffset = ((wThick / 2) + 0.3) * wFacing;
 
-                if (facing === 1) {
-                    indexList.push(
-                        vertOffset, vertOffset + 1, vertOffset + 2,
-                        vertOffset, vertOffset + 2, vertOffset + 3
-                    );
-                } else {
-                    indexList.push(
-                        vertOffset, vertOffset + 2, vertOffset + 1,
-                        vertOffset, vertOffset + 3, vertOffset + 2
-                    );
+                    const wPts = (typeof wEnt.poly?.points === 'function') ? wEnt.poly.points() : (Array.isArray(wEnt.poly) ? wEnt.poly : null);
+                    let wSL_x = 0, wSR_x = 0, wEL_x = wLen, wER_x = wLen;
+                    if (wPts && wPts.length === 8) {
+                        const toLocalX = (ptX, ptY) => (ptX - wp1.x) * Math.cos(wAngle) + (ptY - wp1.y) * Math.sin(wAngle);
+                        wSL_x = toLocalX(wPts[0], wPts[1]);
+                        wEL_x = toLocalX(wPts[2], wPts[3]);
+                        wER_x = toLocalX(wPts[4], wPts[5]);
+                        wSR_x = toLocalX(wPts[6], wPts[7]);
+                    }
+
+                    const segments = this.molding3DBuilder.getMoldingSegments(wLen, yBottom, itemH, wEnt);
+                    for (const seg of segments) {
+                        const startX = (seg.start <= 0.1) ? ((wFacing === 1) ? wSL_x : wSR_x) : seg.start;
+                        const endX = (seg.end >= wLen - 0.1) ? ((wFacing === 1) ? wEL_x : wER_x) : seg.end;
+
+                        // Transform wall local coords (X_loc, Z_loc) into world (X_world, Z_world)
+                        const toWldX = (lx, lz) => wp1.x + lx * Math.cos(wAngle) - lz * Math.sin(wAngle);
+                        const toWldZ = (lx, lz) => wp1.y + lx * Math.sin(wAngle) + lz * Math.cos(wAngle);
+
+                        const p1X = toWldX(startX, zOffset), p1Z = toWldZ(startX, zOffset);
+                        const p2X = toWldX(endX, zOffset),   p2Z = toWldZ(endX, zOffset);
+
+                        posList.push(
+                            p1X, yBottom, p1Z,
+                            p2X, yBottom, p2Z,
+                            p2X, yTop,    p2Z,
+                            p1X, yTop,    p1Z
+                        );
+
+                        if (wFacing === 1) {
+                            indexList.push(
+                                vertOffset, vertOffset + 1, vertOffset + 2,
+                                vertOffset, vertOffset + 2, vertOffset + 3
+                            );
+                        } else {
+                            indexList.push(
+                                vertOffset, vertOffset + 2, vertOffset + 1,
+                                vertOffset, vertOffset + 3, vertOffset + 2
+                            );
+                        }
+                        vertOffset += 4;
+                    }
                 }
-                vertOffset += 4;
+            } else {
+                // Single wall local space ribbon
+                const yBottom = isCrown ? Math.max(0, wallH - itemH) : elev;
+                const yTop = yBottom + itemH;
+                const zOffset = ((thick / 2) + 0.3) * facing;
+                const segments = this.molding3DBuilder.getMoldingSegments(wallLen, yBottom, itemH, wallEntity);
+
+                for (const seg of segments) {
+                    const startX = (seg.start <= 0.1) 
+                        ? ((facing === 1) ? localSL_x : localSR_x)
+                        : seg.start;
+                    const endX = (seg.end >= wallLen - 0.1)
+                        ? ((facing === 1) ? localEL_x : localER_x)
+                        : seg.end;
+
+                    posList.push(
+                        startX, yBottom, zOffset,
+                        endX,   yBottom, zOffset,
+                        endX,   yTop,    zOffset,
+                        startX, yTop,    zOffset
+                    );
+
+                    if (facing === 1) {
+                        indexList.push(
+                            vertOffset, vertOffset + 1, vertOffset + 2,
+                            vertOffset, vertOffset + 2, vertOffset + 3
+                        );
+                    } else {
+                        indexList.push(
+                            vertOffset, vertOffset + 2, vertOffset + 1,
+                            vertOffset, vertOffset + 3, vertOffset + 2
+                        );
+                    }
+                    vertOffset += 4;
+                }
             }
 
             ribbonGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(posList), 3));
@@ -837,7 +1009,7 @@ export class WallPlugin3DPlacementSystem {
         // Rebuild Real 3D Model in Preview Group
         const wallId = wallEntity.id || wallEntity.uid || `${p1.x}_${p1.y}_${p2.x}_${p2.y}`;
         const toolKey = isMoldingOrTrim 
-            ? `${wallId}_${tool}_${itemW}_${itemH}_${elev}_${facing}_${localSL_x}_${localEL_x}_${localSR_x}_${localER_x}`
+            ? `${wallId}_${tool}_${itemW}_${itemH}_${elev}_${facing}_${this.placementScope}_${localSL_x}_${localEL_x}_${localSR_x}_${localER_x}`
             : `${wallId}_${tool}_${itemW}_${itemH}_${depth}_${elev}_${facing}_${projDist}_${preset?.profileType || ''}`;
 
         if (this._lastToolKey !== toolKey) {
@@ -860,49 +1032,96 @@ export class WallPlugin3DPlacementSystem {
         const preset = planner?.activePresetParams || {};
 
         if (isMoldingOrTrim) {
-            const moldMesh = this.molding3DBuilder.buildMolding({
-                side: facing === 1 ? 'left' : 'right',
-                width: itemW,
-                t: 0.5,
-                moldingHeight: itemH,
-                depth: preset.depth || 2,
-                heightOffset: elev,
-                profileType: preset.profileType || (tool === 'molding' || tool.includes('crown') ? 'crown' : 'skirting_flat'),
-                material: preset.material || 'white_paint'
-            }, itemW, thick, this.ctx.helpers, wallEntity);
+            let targetWalls = [{ wall: wallEntity, side: (facing === 1 ? 'front' : 'back') }];
+            if (this.placementScope === 'room') {
+                const room = getRoomForWallFace(wallEntity, (facing === 1 ? 'front' : 'back'), planner, this.ctx);
+                if (room) {
+                    const rTargets = getRoomWallsAndSides(room, planner, this.ctx);
+                    if (rTargets.length > 0) targetWalls = rTargets;
+                }
+            } else if (this.placementScope === 'exterior') {
+                const extTargets = getExteriorWallsAndSides(planner, this.ctx);
+                if (extTargets.length > 0) targetWalls = extTargets;
+            }
 
-            if (moldMesh) {
-                // Apply miter shear to preview mesh so corners match wall perfectly
-                const shearMoldingGeo = (geo) => {
-                    const pos = geo.attributes.position;
-                    if (!pos) return;
-                    for (let i = 0; i < pos.count; i++) {
-                        const x = pos.getX(i);
-                        const z = pos.getZ(i);
-                        const tZ = (z + thick / 2) / thick;
-                        const startX = localSR_x + tZ * (localSL_x - localSR_x);
-                        const endX = localER_x + tZ * (localEL_x - localER_x);
-                        
-                        if (x <= 0.1) {
-                            pos.setX(i, startX);
-                        } else if (x >= wallLen - 0.1) {
-                            pos.setX(i, endX);
-                        }
+            const shearMoldingGeo = (geo, slX, srX, elX, erX, wLen, wThick) => {
+                const pos = geo.attributes.position;
+                if (!pos) return;
+                for (let i = 0; i < pos.count; i++) {
+                    const x = pos.getX(i);
+                    const z = pos.getZ(i);
+                    const tZ = (z + wThick / 2) / wThick;
+                    const startX = srX + tZ * (slX - srX);
+                    const endX = erX + tZ * (elX - erX);
+                    
+                    if (x <= 0.1) {
+                        pos.setX(i, startX);
+                    } else if (x >= wLen - 0.1) {
+                        pos.setX(i, endX);
                     }
-                    geo.computeVertexNormals();
-                    pos.needsUpdate = true;
-                };
+                }
+                geo.computeVertexNormals();
+                pos.needsUpdate = true;
+            };
 
-                if (moldMesh.isGroup && moldMesh.children.length > 0) {
-                    moldMesh.children.forEach(c => {
-                        if (c.geometry) shearMoldingGeo(c.geometry);
-                    });
-                } else if (moldMesh.geometry) {
-                    shearMoldingGeo(moldMesh.geometry);
+            const isCrown = tool === 'molding' || tool.includes('crown') || tool === 'elevation_frieze' || (preset?.profileType && preset?.profileType.includes('crown')) || (preset?.type && preset?.type.includes('crown'));
+            const isSkirting = tool === 'skirting' || tool.startsWith('skirting_') || tool === 'elevation_foundation_trim' || (preset?.profileType && preset?.profileType.includes('skirting'));
+            const pType = preset.profileType || (isCrown ? 'crown' : (isSkirting ? 'skirting_flat' : 'chair_rail'));
+            const mHeight = itemH;
+
+            for (const tWall of targetWalls) {
+                const wEnt = tWall.wall;
+                const wSide = tWall.side;
+                const wp1 = wEnt.startAnchor.position();
+                const wp2 = wEnt.endAnchor.position();
+                const wdx = wp2.x - wp1.x;
+                const wdy = wp2.y - wp1.y;
+                const wLen = Math.hypot(wdx, wdy);
+                if (wLen < 1) continue;
+                const wAngle = -Math.atan2(wdy, wdx);
+                const wThick = wEnt.thickness || wEnt.config?.thickness || 20;
+                const wH = wEnt.height || wEnt.config?.height || 180;
+                const heightOffset = isCrown ? Math.max(0, wH - mHeight) : (isSkirting ? 0 : elev);
+
+                const wPts = (typeof wEnt.poly?.points === 'function') ? wEnt.poly.points() : (Array.isArray(wEnt.poly) ? wEnt.poly : null);
+                const angle2D = Math.atan2(wdy, wdx);
+                let wSL_x = 0, wSR_x = 0, wEL_x = wLen, wER_x = wLen;
+                if (wPts && wPts.length === 8) {
+                    const toLocalX = (ptX, ptY) => (ptX - wp1.x) * Math.cos(angle2D) + (ptY - wp1.y) * Math.sin(angle2D);
+                    wSL_x = toLocalX(wPts[0], wPts[1]);
+                    wEL_x = toLocalX(wPts[2], wPts[3]);
+                    wER_x = toLocalX(wPts[4], wPts[5]);
+                    wSR_x = toLocalX(wPts[6], wPts[7]);
                 }
 
-                moldMesh.traverse(c => { c.raycast = () => {}; });
-                this.modelPreviewGroup.add(moldMesh);
+                const moldMesh = this.molding3DBuilder.buildMolding({
+                    side: wSide === 'front' ? 'left' : 'right',
+                    width: wLen,
+                    t: 0.5,
+                    moldingHeight: mHeight,
+                    depth: preset.depth || 2,
+                    heightOffset: heightOffset,
+                    profileType: pType,
+                    material: preset.material || 'white_paint'
+                }, wLen, wThick, this.ctx.helpers, wEnt);
+
+                if (moldMesh) {
+                    if (moldMesh.isGroup && moldMesh.children.length > 0) {
+                        moldMesh.children.forEach(c => {
+                            if (c.geometry) shearMoldingGeo(c.geometry, wSL_x, wSR_x, wEL_x, wER_x, wLen, wThick);
+                        });
+                    } else if (moldMesh.geometry) {
+                        shearMoldingGeo(moldMesh.geometry, wSL_x, wSR_x, wEL_x, wER_x, wLen, wThick);
+                    }
+
+                    moldMesh.traverse(c => { c.raycast = () => {}; });
+
+                    if (targetWalls.length > 1) {
+                        moldMesh.position.set(wp1.x, 0, wp1.y);
+                        moldMesh.rotation.y = wAngle;
+                    }
+                    this.modelPreviewGroup.add(moldMesh);
+                }
             }
             return;
         }
@@ -997,7 +1216,7 @@ export class WallPlugin3DPlacementSystem {
         const elev = this.activeElevation;
 
         const preset = planner.activePresetParams || {};
-        const isMolding = tool === 'molding' || tool === 'skirting' || tool.startsWith('molding_') || tool.startsWith('skirting_') || !!MOLDING_REGISTRY[tool] || (preset && (preset.type?.startsWith('molding_') || preset.profileType?.startsWith('skirting_')));
+        const isMolding = tool === 'molding' || tool === 'skirting' || tool === 'wall_trim' || tool.startsWith('molding_') || tool.startsWith('skirting_') || tool.startsWith('trim_') || tool.startsWith('chair_rail') || tool.startsWith('picture_rail') || !!MOLDING_REGISTRY[tool] || (preset && (preset.type?.startsWith('molding_') || preset.profileType?.startsWith('skirting_')));
         const isCurtain = tool === 'curtain' || tool.startsWith('curtain_');
         const isWallArt = tool === 'wall_art' || tool.startsWith('decor_wall_') || tool.startsWith('decor_photo_');
         const isFascia = tool === 'elevation_fascia' || tool.startsWith('fascia_');
@@ -1006,36 +1225,61 @@ export class WallPlugin3DPlacementSystem {
         let createdEntity = null;
 
         if (isMolding) {
-            const moldType = MOLDING_REGISTRY[tool] ? tool : (preset.type || (tool === 'molding' ? 'molding_crown' : 'molding_skirting_flat'));
-            createdEntity = new PremiumMolding(planner, wall, 0.5, moldType);
-            const start = wall.startAnchor.position();
-            const end = wall.endAnchor.position();
-            const dx = end.x - start.x;
-            const dy = end.y - start.y;
-            const wallLen = Math.hypot(dx, dy);
-            const wallH = wall.height || wall.config?.height || 180;
-            const mH = preset.moldingHeight || (preset.height && preset.height <= 30 ? preset.height : 12);
-            const isCrown = tool === 'molding' || moldType.includes('crown') || moldType.includes('frieze') || (preset.profileType && preset.profileType.includes('crown'));
-            const heightOffset = isCrown ? Math.max(0, wallH - mH) : (preset.heightOffset || 0);
-
-            createdEntity.side = (side === 'front') ? 'left' : 'right';
-            createdEntity.width = wallLen;
-            createdEntity.moldingHeight = mH;
-            createdEntity.depth = preset.depth || 2;
-            createdEntity.heightOffset = heightOffset;
-            createdEntity.profileType = preset.profileType || (isCrown ? 'crown' : 'skirting_flat');
-            if (preset.material) createdEntity.material = preset.material;
-
-            if (preset) {
-                Object.assign(createdEntity, JSON.parse(JSON.stringify(preset)));
-                createdEntity.side = (side === 'front') ? 'left' : 'right';
-                createdEntity.width = wallLen;
-                createdEntity.heightOffset = heightOffset;
+            let targetWalls = [{ wall, side }];
+            if (this.placementScope === 'room') {
+                const room = getRoomForWallFace(wall, side, planner, this.ctx);
+                if (room) {
+                    const rTargets = getRoomWallsAndSides(room, planner, this.ctx);
+                    if (rTargets.length > 0) targetWalls = rTargets;
+                }
+            } else if (this.placementScope === 'exterior') {
+                const extTargets = getExteriorWallsAndSides(planner, this.ctx);
+                if (extTargets.length > 0) targetWalls = extTargets;
             }
-            createdEntity.update();
-            if (!wall.attachedMoldings) wall.attachedMoldings = [];
-            wall.attachedMoldings.push(createdEntity);
-            planner.selectEntity(createdEntity, 'molding');
+
+            const moldType = MOLDING_REGISTRY[tool] ? tool : (preset.type || (tool === 'molding' ? 'molding_crown' : (tool === 'skirting' ? 'molding_skirting_flat' : 'molding_chair_rail')));
+            const isCrown = tool === 'molding' || moldType.includes('crown') || moldType.includes('frieze') || (preset.profileType && preset.profileType.includes('crown'));
+            const isSkirting = tool === 'skirting' || tool.startsWith('skirting_') || (preset.profileType && preset.profileType.includes('skirting'));
+            const mH = preset.moldingHeight || (preset.height && preset.height <= 30 ? preset.height : (isSkirting ? 12 : (isCrown ? 10 : 8)));
+            const pType = preset.profileType || (isCrown ? 'crown' : (isSkirting ? 'skirting_flat' : 'chair_rail'));
+
+            const createdEntities = [];
+            targetWalls.forEach(tWall => {
+                const wEnt = tWall.wall;
+                const wSide = tWall.side;
+                const start = wEnt.startAnchor.position();
+                const end = wEnt.endAnchor.position();
+                const dx = end.x - start.x;
+                const dy = end.y - start.y;
+                const wallLen = Math.hypot(dx, dy);
+                const wallH = wEnt.height || wEnt.config?.height || 180;
+                const heightOffset = isCrown ? Math.max(0, wallH - mH) : (isSkirting ? 0 : (elev !== undefined ? elev : 90));
+
+                const mold = new PremiumMolding(planner, wEnt, 0.5, moldType);
+                mold.side = (wSide === 'front') ? 'left' : 'right';
+                mold.width = wallLen;
+                mold.moldingHeight = mH;
+                mold.depth = preset.depth || 2;
+                mold.heightOffset = heightOffset;
+                mold.profileType = pType;
+                if (preset.material) mold.material = preset.material;
+                if (preset.color) mold.color = preset.color;
+
+                if (preset) {
+                    Object.assign(mold, JSON.parse(JSON.stringify(preset)));
+                    mold.side = (wSide === 'front') ? 'left' : 'right';
+                    mold.width = wallLen;
+                    mold.heightOffset = heightOffset;
+                    mold.moldingHeight = mH;
+                }
+                mold.update();
+                if (!wEnt.attachedMoldings) wEnt.attachedMoldings = [];
+                wEnt.attachedMoldings.push(mold);
+                createdEntities.push(mold);
+            });
+
+            createdEntity = createdEntities[0] || null;
+            if (createdEntity) planner.selectEntity(createdEntity, 'molding');
         } else if (isWidget) {
             const isAdvOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'opening'].includes(tool) || (preset && ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'opening'].includes(preset.type));
             const isDoor = !isAdvOpening && (tool.startsWith('door') || (preset && (preset.doorType !== undefined || preset.doorStyle !== undefined)));
@@ -1153,6 +1397,8 @@ export class WallPlugin3DPlacementSystem {
 
     dispose() {
         this.hideGhost();
+        if (this.boundOnKeyDown) window.removeEventListener('keydown', this.boundOnKeyDown);
+        if (this.boundOnKeyUp) window.removeEventListener('keyup', this.boundOnKeyUp);
         if (this.badgeDom && this.badgeDom.parentNode) {
             this.badgeDom.parentNode.removeChild(this.badgeDom);
         }

@@ -101,6 +101,15 @@
             <button class="chip-btn" :class="{ active: activeCategoryChip === 'chimney' }" @click="activeCategoryChip = 'chimney'">🧱 Chimney Stacks</button>
         </div>
 
+        <!-- Quick Category Filter Chips (Sims 4 Wall Trims & Moldings) -->
+        <div class="category-chips-bar" v-if="props.type === 'wall_trim'">
+            <button class="chip-btn" :class="{ active: activeCategoryChip === 'all' }" @click="activeCategoryChip = 'all'">All Trims</button>
+            <button class="chip-btn" :class="{ active: activeCategoryChip === 'chair_rail' }" @click="activeCategoryChip = 'chair_rail'">Chair Rails & Bands</button>
+            <button class="chip-btn" :class="{ active: activeCategoryChip === 'skirting' }" @click="activeCategoryChip = 'skirting'">Baseboards</button>
+            <button class="chip-btn" :class="{ active: activeCategoryChip === 'crown' }" @click="activeCategoryChip = 'crown'">Crowns & Cornices</button>
+            <button class="chip-btn" :class="{ active: activeCategoryChip === 'exterior' }" @click="activeCategoryChip = 'exterior'">Exterior Bands</button>
+        </div>
+
         <!-- Responsive Product Cards Grid -->
         <div class="products-grid" v-if="filteredItems && filteredItems.length > 0">
             <template v-for="item in filteredItems" :key="item.id">
@@ -275,6 +284,7 @@ const getCatalogHeaderTitle = () => {
         'roof_finial': 'Apex Finials & Spires',
         'roof_chimney': 'Chimney Stacks Catalog',
         'skirting': 'Baseboards & Skirting Catalog',
+        'wall_trim': 'Wall Trims & Moldings Catalog',
         'molding': 'Molding & Cornice Catalog',
         'elevation_fascia': 'Fascia Catalog',
         'kitchen_catalog': 'Modular Kitchen',
@@ -499,6 +509,30 @@ const moldingCatalog = ref([
     { id: 'molding_door', name: 'Door Frame', badge: 'TRIM', material: 'Oak Trim', image: '', toolId: 'molding', params: { type: 'molding_door', materials: { frame: { id: 'white_paint' } } } },
     { id: 'molding_groove', name: 'Decorative Groove', badge: 'RECESSED', material: 'Grooved Panel', image: '', toolId: 'molding', params: { type: 'molding_groove', materials: { frame: { id: 'white_paint' } } } },
     { id: 'molding_layered', name: 'Layered Projection', badge: 'LAYERED', material: 'Composite', image: '', toolId: 'molding', params: { type: 'molding_layered', materials: { frame: { id: 'white_paint' } } } }
+]);
+
+const wallTrimCatalog = ref([
+    { isDivider: true, id: 'div_chair_rails', name: 'Chair Rails & Wall Bands (Dado)' },
+    { id: 'molding_chair_rail', name: 'Classic Chair Rail (Dado)', badge: 'SIMS 4', material: 'Painted Wood / Plaster', specs: 'Cyma Top & Beaded Waist · 90cm Snap', image: '', toolId: 'wall_trim', params: { type: 'molding_chair_rail', profileType: 'chair_rail', heightOffset: 90, moldingHeight: 8, depth: 2.5, material: 'white_paint', snapLevel: 'mid' } },
+    { id: 'molding_picture_rail', name: 'Picture Rail Trim', badge: 'HERITAGE', material: 'Hardwood Trim', specs: 'Hook Bead & Scoop Cove · Upper Wall', image: '', toolId: 'wall_trim', params: { type: 'molding_picture_rail', profileType: 'picture_rail', heightOffset: 140, moldingHeight: 6, depth: 2.2, material: 'white_paint' } },
+    { id: 'molding_fluted_band', name: 'Fluted Architectural Band', badge: 'FLUTED', material: 'Milled Hardwood', specs: 'Triple Fluted Grooves · 90cm Snap', image: '', toolId: 'wall_trim', params: { type: 'molding_fluted_band', profileType: 'fluted_band', heightOffset: 90, moldingHeight: 10, depth: 2.5, material: 'white_paint', snapLevel: 'mid' } },
+    { id: 'molding_double_bead', name: 'Double Bead Trim', badge: 'CLASSIC', material: 'Carved Wood', specs: 'Dual Half-Round Bead Relief', image: '', toolId: 'wall_trim', params: { type: 'molding_double_bead', profileType: 'double_bead', heightOffset: 90, moldingHeight: 8, depth: 2.2, material: 'white_paint', snapLevel: 'mid' } },
+    { id: 'molding_beveled_trim', name: 'Beveled Accent Band', badge: 'MODERN', material: 'Solid White Oak', specs: 'Double Chamfered Relief', image: '', toolId: 'wall_trim', params: { type: 'molding_beveled_trim', profileType: 'beveled_trim', heightOffset: 90, moldingHeight: 8, depth: 2.0, material: 'wood_white_oak', snapLevel: 'mid' } },
+    { id: 'molding_band', name: 'Flat Wall Band (Modern)', badge: 'MINIMAL', material: 'Painted Plaster', specs: 'Clean Rectangular Ribbon Band', image: '', toolId: 'wall_trim', params: { type: 'molding_band', profileType: 'band', heightOffset: 90, moldingHeight: 10, depth: 2.0, material: 'white_paint', snapLevel: 'mid' } },
+
+    { isDivider: true, id: 'div_skirting_sub', name: 'Baseboards & Skirting (Floor Level)' },
+    { id: 'molding_skirting_flat', name: 'Modern Flat Baseboard', badge: 'POPULAR', material: 'White Plaster / Paint', specs: '120 × 20 mm · Floor Snapped', image: '', toolId: 'wall_trim', params: { type: 'molding_skirting_flat', profileType: 'skirting_flat', heightOffset: 0, moldingHeight: 12, depth: 2, material: 'white_paint', snapLevel: 'floor' } },
+    { id: 'molding_skirting_beveled', name: 'Chamfered Baseboard', badge: 'MODERN', material: 'Solid White Oak', specs: '120 × 20 mm · Floor Snapped', image: '', toolId: 'wall_trim', params: { type: 'molding_skirting_beveled', profileType: 'skirting_beveled', heightOffset: 0, moldingHeight: 12, depth: 2, material: 'wood_white_oak', snapLevel: 'floor' } },
+    { id: 'molding_skirting_torus', name: 'Torus / Bullnose Skirting', badge: 'CLASSIC', material: 'Golden Teak Wood', specs: '140 × 22 mm · Floor Snapped', image: '', toolId: 'wall_trim', params: { type: 'molding_skirting_torus', profileType: 'skirting_torus', heightOffset: 0, moldingHeight: 14, depth: 2.2, material: 'wood_golden_teak', snapLevel: 'floor' } },
+    { id: 'molding_skirting_ogee', name: 'Classic Ogee Victorian', badge: 'VICTORIAN', material: 'Dark Walnut Timber', specs: '150 × 25 mm · Floor Snapped', image: '', toolId: 'wall_trim', params: { type: 'molding_skirting_ogee', profileType: 'skirting_ogee', heightOffset: 0, moldingHeight: 15, depth: 2.5, material: 'wood_dark', snapLevel: 'floor' } },
+    { id: 'molding_skirting_shadow', name: 'Shadow Gap / Reglet Skirting', badge: 'LUXURY', material: 'Matte Black Metal Reveal', specs: '100 × 20 mm · Floor Snapped', image: '', toolId: 'wall_trim', params: { type: 'molding_skirting_shadow', profileType: 'skirting_shadow', heightOffset: 0, moldingHeight: 10, depth: 2, material: 'black_metal', snapLevel: 'floor' } },
+
+    { isDivider: true, id: 'div_crown_sub', name: 'Crown Moldings, Cornices & Friezes' },
+    { id: 'molding_crown', name: 'Classic Crown Molding', badge: 'CEILING', material: 'Carved Wood / Plaster', specs: 'Ceiling Line Cornice Projection', image: '', toolId: 'wall_trim', params: { type: 'molding_crown', profileType: 'crown', heightOffset: 170, moldingHeight: 10, depth: 5, material: 'white_paint', snapLevel: 'ceiling' } },
+    { id: 'molding_ogee', name: 'Ogee Cyma Molding', badge: 'PROFILE', material: 'Polyurethane Cornice', specs: 'Graceful S-Curve Ceiling Trim', image: '', toolId: 'wall_trim', params: { type: 'molding_ogee', profileType: 'ogee', heightOffset: 170, moldingHeight: 10, depth: 5, material: 'white_paint', snapLevel: 'ceiling' } },
+    { id: 'molding_dentil', name: 'Dentil Blocks Molding', badge: 'HERITAGE', material: 'Cast Stone Cornice', specs: 'Classical Tooth Block Relief', image: '', toolId: 'wall_trim', params: { type: 'molding_dentil', profileType: 'dentil', heightOffset: 170, moldingHeight: 12, depth: 6, material: 'white_paint', snapLevel: 'ceiling' } },
+    { id: 'molding_frieze_exterior', name: 'Exterior Architectural Frieze', badge: 'EXTERIOR', material: 'Limestone Masonry', specs: 'Wide Exterior Upper Band & Drip Lip', image: '', toolId: 'wall_trim', params: { type: 'molding_frieze_exterior', profileType: 'frieze_exterior', heightOffset: 165, moldingHeight: 15, depth: 4.5, material: 'limestone', snapLevel: 'ceiling' } },
+    { id: 'molding_foundation_trim', name: 'Exterior Foundation Plinth Trim', badge: 'PLINTH', material: 'Rustic Ashlar Masonry', specs: 'Heavy Base Water-Table 45° Drip', image: '', toolId: 'wall_trim', params: { type: 'molding_foundation_trim', profileType: 'foundation_trim', heightOffset: 0, moldingHeight: 35, depth: 5.0, material: 'rough_stone', snapLevel: 'floor' } }
 ]);
 
 const elevationFasciaCatalog = ref([
@@ -1014,6 +1048,7 @@ const items = computed(() => {
     if (props.type === 'skylight') return skylightCatalog.value;
     if (props.type === 'roof_sculptures' || props.type === 'roof_sculpture' || props.type === 'roof_cresting' || props.type === 'roof_finial' || props.type === 'roof_chimney') return roofSculptureCatalog.value;
     if (props.type === 'skirting') return skirtingCatalog.value;
+    if (props.type === 'wall_trim') return wallTrimCatalog.value;
     if (props.type === 'molding') return moldingCatalog.value;
     if (props.type === 'elevation_fascia') return elevationFasciaCatalog.value;
     if (props.type === 'adv_opening_catalog') return advanceOpeningsCatalog.value;
@@ -1059,6 +1094,16 @@ const filteredItems = computed(() => {
             list = list.filter(i => i.isDivider || i.roomCategory === activeCategoryChip.value);
         } else if (['cresting', 'finial', 'chimney'].includes(activeCategoryChip.value)) {
             list = list.filter(i => i.isDivider || i.params?.sculptureCategory === activeCategoryChip.value);
+        } else if (['chair_rail', 'skirting', 'crown', 'exterior'].includes(activeCategoryChip.value)) {
+            if (activeCategoryChip.value === 'chair_rail') {
+                list = list.filter(i => i.isDivider || i.params?.snapLevel === 'mid' || i.id.includes('chair') || i.id.includes('picture') || i.id.includes('fluted') || i.id.includes('double_bead') || i.id.includes('beveled_trim') || i.id.includes('band'));
+            } else if (activeCategoryChip.value === 'skirting') {
+                list = list.filter(i => i.isDivider || i.params?.snapLevel === 'floor' || i.id.includes('skirting'));
+            } else if (activeCategoryChip.value === 'crown') {
+                list = list.filter(i => i.isDivider || i.params?.snapLevel === 'ceiling' || i.id.includes('crown') || i.id.includes('ogee') || i.id.includes('dentil'));
+            } else if (activeCategoryChip.value === 'exterior') {
+                list = list.filter(i => i.isDivider || i.id.includes('exterior') || i.id.includes('foundation'));
+            }
         } else {
             // Legacy fallbacks just in case
             if (activeCategoryChip.value === 'wood') {

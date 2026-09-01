@@ -22,6 +22,7 @@ export const getMenuCategories = () => [
             { id: 'wall_catalog', name: 'Walls' },
             { id: 'room_box', name: 'Room Box (Rectangle)' },
             { id: 'compound', name: 'Compound Wall' },
+            { id: 'wall_trim', name: 'Wall Trims & Moldings' },
             { id: 'skirting', name: 'Baseboards & Skirting' }
         ]
     },
@@ -43,8 +44,9 @@ export const getMenuCategories = () => [
             { id: 'door', name: 'Door' },
             { id: 'window', name: 'Window' },
             { id: 'elevation_fascia', name: 'Fascia' },
+            { id: 'wall_trim', name: 'Wall Trims & Moldings' },
             { id: 'skirting', name: 'Baseboards & Skirting' },
-            { id: 'molding', name: 'Wall Moldings' },
+            { id: 'molding', name: 'Crown Moldings' },
             { id: 'sunshade', name: 'Sunshade' },
             { id: 'jali_panel', name: 'Jali Panel' },
             { isDivider: true, name: 'Wall Attachments' },

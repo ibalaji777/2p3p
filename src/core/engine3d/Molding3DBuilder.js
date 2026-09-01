@@ -247,6 +247,92 @@ export class Molding3DBuilder {
                 finalShape.lineTo((i + 1) * stepD, (i + 1) * stepH);
             }
             finalShape.lineTo(0, moldingHeight);
+        // ====== WALL TRIMS, CHAIR RAILS & PICTURE RAILS ======
+        } else if (profileType === 'chair_rail' || profileType === 'dado_rail' || profileType === 'molding_chair_rail') {
+            // Classical Chair Rail: Ogee top lip, prominent beaded center, and cove bottom plinth
+            const h = moldingHeight;
+            finalShape.moveTo(0, 0);
+            finalShape.lineTo(d * 0.35, 0);
+            // Lower scoop cove
+            finalShape.bezierCurveTo(d * 0.45, h * 0.15, d * 0.3, h * 0.35, d * 0.65, h * 0.45);
+            // Center prominent rounded bead
+            finalShape.bezierCurveTo(d * 1.05, h * 0.52, d * 1.05, h * 0.68, d * 0.65, h * 0.75);
+            // Upper cyma reversa curve to top lip
+            finalShape.bezierCurveTo(d * 0.55, h * 0.85, d * 0.85, h * 0.95, d, h * 0.95);
+            finalShape.lineTo(d, h);
+            finalShape.lineTo(0, h);
+            finalShape.lineTo(0, 0);
+        } else if (profileType === 'picture_rail' || profileType === 'molding_picture_rail') {
+            // Picture Rail: Slender hook profile with top bead and scooped bottom
+            const h = moldingHeight;
+            finalShape.moveTo(0, 0);
+            finalShape.lineTo(d * 0.3, 0);
+            finalShape.bezierCurveTo(d * 0.35, h * 0.3, d * 0.5, h * 0.5, d * 0.8, h * 0.7);
+            // Top hook rounded roll
+            finalShape.bezierCurveTo(d * 1.05, h * 0.85, d * 0.9, h, d * 0.4, h);
+            finalShape.lineTo(0, h);
+            finalShape.lineTo(0, 0);
+        } else if (profileType === 'fluted_band' || profileType === 'molding_fluted_band') {
+            // Architectural Fluted Horizontal Band: 3 parallel vertical flutes
+            const h = moldingHeight;
+            finalShape.moveTo(0, 0);
+            finalShape.lineTo(d, 0);
+            const fluteH = h / 4;
+            for (let f = 0; f < 3; f++) {
+                const yBase = fluteH * (f + 0.5);
+                finalShape.lineTo(d, yBase - fluteH * 0.3);
+                finalShape.bezierCurveTo(d * 0.6, yBase - fluteH * 0.2, d * 0.6, yBase + fluteH * 0.2, d, yBase + fluteH * 0.3);
+            }
+            finalShape.lineTo(d, h);
+            finalShape.lineTo(0, h);
+            finalShape.lineTo(0, 0);
+        } else if (profileType === 'double_bead' || profileType === 'molding_double_bead') {
+            // Double Beaded Horizontal Trim
+            const h = moldingHeight;
+            finalShape.moveTo(0, 0);
+            finalShape.lineTo(d * 0.4, 0);
+            // Lower bead
+            finalShape.bezierCurveTo(d * 1.0, h * 0.15, d * 1.0, h * 0.4, d * 0.4, h * 0.48);
+            // Quirk notch
+            finalShape.lineTo(d * 0.25, h * 0.5);
+            finalShape.lineTo(d * 0.4, h * 0.52);
+            // Upper bead
+            finalShape.bezierCurveTo(d * 1.0, h * 0.6, d * 1.0, h * 0.85, d * 0.4, h);
+            finalShape.lineTo(0, h);
+            finalShape.lineTo(0, 0);
+        } else if (profileType === 'frieze_exterior' || profileType === 'frieze' || profileType === 'elevation_frieze' || profileType === 'molding_frieze') {
+            // Exterior Architectural Frieze: Stepped bottom drip plinth, wide flat fascia band, projecting top crown
+            const h = moldingHeight;
+            finalShape.moveTo(0, 0);
+            finalShape.lineTo(d * 0.4, 0);
+            finalShape.lineTo(d * 0.4, h * 0.12);
+            finalShape.lineTo(d * 0.6, h * 0.12);
+            finalShape.lineTo(d * 0.6, h * 0.75);
+            // Top crown cantilever projection
+            finalShape.bezierCurveTo(d * 0.8, h * 0.82, d * 0.95, h * 0.9, d, h * 0.92);
+            finalShape.lineTo(d, h);
+            finalShape.lineTo(0, h);
+            finalShape.lineTo(0, 0);
+        } else if (profileType === 'foundation_trim' || profileType === 'elevation_foundation_trim' || profileType === 'molding_foundation') {
+            // Heavy Exterior Masonry Foundation Plinth with 45-degree water-table drip wash
+            const h = moldingHeight;
+            finalShape.moveTo(0, 0);
+            finalShape.lineTo(d, 0);
+            finalShape.lineTo(d, h * 0.6);
+            finalShape.lineTo(d * 0.3, h * 0.88); // 45-degree water-shedding wash slope
+            finalShape.lineTo(d * 0.3, h);
+            finalShape.lineTo(0, h);
+            finalShape.lineTo(0, 0);
+        } else if (profileType === 'beveled_trim' || profileType === 'chamfer_trim') {
+            // Modern Double-Chamfered Accent Trim
+            const h = moldingHeight;
+            const chamfer = Math.min(h * 0.25, d * 0.6);
+            finalShape.moveTo(0, 0);
+            finalShape.lineTo(d * 0.2, 0);
+            finalShape.lineTo(d, chamfer);
+            finalShape.lineTo(d, h - chamfer);
+            finalShape.lineTo(d * 0.2, h);
+            finalShape.lineTo(0, h);
             finalShape.lineTo(0, 0);
         } else if (profileType === 'frame') {
             finalShape.moveTo(0, 0);
@@ -283,7 +369,7 @@ export class Molding3DBuilder {
         let finalMat = this.getMaterial(moldData.material);
 
         // Sharp geometric profiles MUST use flatShading for crisp edges
-        const sharpProfiles = ['skirting_flat', 'flat_baseboard', 'skirting_craftsman', 'craftsman_baseboard', 'skirting_shadow', 'craftsman', 'dentil', 'layered', 'frame', 'flat', 'groove'];
+        const sharpProfiles = ['skirting_flat', 'flat_baseboard', 'skirting_craftsman', 'craftsman_baseboard', 'skirting_shadow', 'craftsman', 'dentil', 'layered', 'frame', 'flat', 'groove', 'foundation_trim', 'beveled_trim', 'fluted_band'];
         if (sharpProfiles.includes(profileType)) {
             finalMat = finalMat.clone();
             finalMat.flatShading = true;

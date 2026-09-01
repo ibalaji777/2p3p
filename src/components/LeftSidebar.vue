@@ -388,7 +388,7 @@ const selectSubTool = (tool) => {
 
 const isCatalogTool = (toolId) => {
     const catalogTools = [
-        'door', 'window', 'skirting', 'sunshade', 'jali_panel', 'curtain', 'wall_art', 'staircase', 'roof', 
+        'door', 'window', 'skirting', 'wall_trim', 'sunshade', 'jali_panel', 'curtain', 'wall_art', 'staircase', 'roof', 
         'skylight', 'roof_sculptures', 'roof_cresting', 'roof_finial', 'roof_chimney', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 
         'outdoor_spaces', 'outdoor_pavement', 'outdoor_patio', 'outdoor_softscape', 'outdoor_other',
         'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'bathroom_catalog', 'electronics_catalog', 
