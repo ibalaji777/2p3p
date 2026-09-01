@@ -540,7 +540,7 @@ export class InteractionSystem {
                 }
             }
 
-            // Direct check for interactive Wall Gizmo handles (Push/Pull, Corners, Height)
+            // Direct check for interactive Wall Gizmo handles (Push/Pull, Corners, Height, Extrude Bay/Niche)
             if (this.wallInteractiveSuite) {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
                 if (this.wallInteractiveSuite.pushPullGizmo && this.wallInteractiveSuite.pushPullGizmo.visible) {
@@ -551,6 +551,19 @@ export class InteractionSystem {
                 }
                 if (this.wallInteractiveSuite.heightGizmo && this.wallInteractiveSuite.heightGizmo.visible) {
                     if (this.raycaster.intersectObjects(this.wallInteractiveSuite.heightGizmo.handles.children, true).length > 0) return;
+                }
+                if (this.wallInteractiveSuite.extrudeGroup && this.wallInteractiveSuite.extrudeGroup.visible) {
+                    const handleObjects = [
+                        this.wallInteractiveSuite.extrudeHandle,
+                        this.wallInteractiveSuite.extrudeStartHandle,
+                        this.wallInteractiveSuite.extrudeEndHandle
+                    ];
+                    if (this.raycaster.intersectObjects(handleObjects, true).length > 0) return;
+                }
+                if (this.wallInteractiveSuite.activeMode && this.wallInteractiveSuite.activeMode !== 'menu' && this.wallInteractiveSuite.activeMode !== 'neutral') {
+                    // Prevent deselecting active wall when clicking around during editing
+                    const wallObj = this.wallInteractiveSuite.target;
+                    if (wallObj && this.raycaster.intersectObject(wallObj, true).length > 0) return;
                 }
             }
             

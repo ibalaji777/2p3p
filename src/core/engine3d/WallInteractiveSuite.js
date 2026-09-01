@@ -354,12 +354,12 @@ export class WallInteractiveSuite extends THREE.Group {
         `;
 
         this.hudButtons = [
-            { id: 'push_pull', label: '↔️ Push/Pull', title: 'Drag wall face in/out' },
-            { id: 'extrude_recess', label: '🏛️ Bay / Niche', title: 'Interactive Extrude Bay / Recess Niche' },
-            { id: 'height', label: '📐 Height', title: 'Drag wall height & slopes' },
-            { id: 'corner', label: '📍 Corners', title: 'Drag corner joints' },
-            { id: 'split', label: '✂️ Split', title: 'Click to slice wall in 3D' },
-            { id: 'slope', label: '📐 Slope', title: 'Toggle flat / single / gable slope' }
+            { id: 'push_pull', label: '↔️ Push / Pull', title: 'Select width on wall face and push/pull thickness with top ledge (Panel #1)' },
+            { id: 'corner', label: '📍 Move', title: 'Move wall normal baseline, corner vertices, slopes & heights (Panel #2)' },
+            { id: 'extrude_recess', label: '🏛️ Bay / Niche', title: 'Extrude bay window extension & niche recess cavity (Panels #5 & #6)' },
+            { id: 'height', label: '📐 Height', title: 'Drag wall height & slopes (Panel #4)' },
+            { id: 'split', label: '✂️ Split', title: 'Click to slice wall in 3D (Panel #3)' },
+            { id: 'slope', label: '📐 Slope', title: 'Toggle flat / single / gable slope (Panel #7)' }
         ];
 
         this.buttonElements = {};
@@ -447,6 +447,29 @@ export class WallInteractiveSuite extends THREE.Group {
         `;
         this.domConfirmBar.appendChild(this.confirmStatusBadge);
 
+        // Sub-Mode Toggle for Push/Pull (Face Thickness vs Move Baseline)
+        this.btnPushPullMode = document.createElement('button');
+        this.btnPushPullMode.style.cssText = `
+            display: none;
+            padding: 4px 10px;
+            border-radius: 14px;
+            border: 1px solid #00f0ff;
+            background: rgba(0, 240, 255, 0.2);
+            color: #00f0ff;
+            font-size: 11px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        `;
+        this.btnPushPullMode.onclick = (e) => {
+            e.stopPropagation();
+            const currentMode = this.pushPullGizmo.mode;
+            const nextMode = currentMode === 'thickness' ? 'baseline' : 'thickness';
+            this.pushPullGizmo.setMode(nextMode);
+            this._updatePushPullModeButton();
+        };
+        this.domConfirmBar.appendChild(this.btnPushPullMode);
+
         // Cancel Button (Red outline/fill)
         const btnCancel = document.createElement('button');
         btnCancel.textContent = '✕ Cancel';
@@ -495,6 +518,24 @@ export class WallInteractiveSuite extends THREE.Group {
 
         const container = this.ctx.renderer?.domElement?.parentElement || document.body;
         container.appendChild(this.domConfirmBar);
+    }
+
+    _updatePushPullModeButton() {
+        if (!this.btnPushPullMode) return;
+        const mode = this.pushPullGizmo?.mode || 'thickness';
+        if (mode === 'thickness') {
+            this.btnPushPullMode.textContent = '🧱 Mode: Face Thickness (Panel #1)';
+            this.btnPushPullMode.title = 'Click to switch to Room Baseline Move (or press Tab)';
+            this.btnPushPullMode.style.borderColor = '#00f0ff';
+            this.btnPushPullMode.style.color = '#00f0ff';
+            this.btnPushPullMode.style.background = 'rgba(0, 240, 255, 0.2)';
+        } else {
+            this.btnPushPullMode.textContent = '🏠 Mode: Move Baseline (Room Resizing)';
+            this.btnPushPullMode.title = 'Click to switch to Face Thickness Push/Pull (or press Tab)';
+            this.btnPushPullMode.style.borderColor = '#facc15';
+            this.btnPushPullMode.style.color = '#facc15';
+            this.btnPushPullMode.style.background = 'rgba(250, 204, 21, 0.2)';
+        }
     }
 
     _createLiveBadges() {
@@ -590,14 +631,15 @@ export class WallInteractiveSuite extends THREE.Group {
         if (this.domHUD) this.domHUD.style.display = 'none';
         if (this.domConfirmBar) {
             const labels = {
-                push_pull: '↔️ Push/Pull',
-                extrude_recess: '🏛️ Bay / Niche',
-                height: '📐 Height',
-                corner: '📍 Corners',
-                split: '✂️ Split',
-                slope: '📐 Slope'
+                push_pull: '↔️ Push / Pull (Select Width & Push/Pull Face Thickness)',
+                corner: '📍 Move (Wall Normal, Vertices, Heights & Slopes)',
+                extrude_recess: '🏛️ Bay / Niche (Extrude Bay Window & Niche Recess)',
+                height: '📐 Height & Slope',
+                split: '✂️ Wall Split',
+                slope: '📐 Slope Toggle'
             };
             this.confirmStatusBadge.textContent = labels[mode] || 'Editing';
+            if (this.btnPushPullMode) this.btnPushPullMode.style.display = 'none';
             this.domConfirmBar.style.display = 'flex';
         }
 
@@ -631,6 +673,13 @@ export class WallInteractiveSuite extends THREE.Group {
             this.heightGizmo.detach();
             this._hideSplitLaser();
             this._hideExtrudeGhost();
+        } else if (mode === 'extrude_recess') {
+            this.pushPullGizmo.detach();
+            this.cornerGizmo.detach();
+            this.heightGizmo.detach();
+            this._hideSplitLaser();
+            this.extrudeCurrentDepth = 0; // Neutral 0cm start on entry
+            this._showExtrudeGhost();
         } else if (mode === 'height') {
             this.pushPullGizmo.detach();
             this.cornerGizmo.detach();
@@ -649,13 +698,6 @@ export class WallInteractiveSuite extends THREE.Group {
             this.heightGizmo.detach();
             this._showSplitLaser();
             this._hideExtrudeGhost();
-        } else if (mode === 'extrude_recess') {
-            this.pushPullGizmo.detach();
-            this.cornerGizmo.detach();
-            this.heightGizmo.detach();
-            this._hideSplitLaser();
-            this.extrudeCurrentDepth = 0; // Neutral 0cm start on entry
-            this._showExtrudeGhost();
         } else if (mode === 'slope') {
             if (wall) {
                 if (!wall.topProfileType || wall.topProfileType === 'normal') {
@@ -1197,7 +1239,7 @@ export class WallInteractiveSuite extends THREE.Group {
                 this._updateExtrudeGhostGeometry();
                 if (this.ctx.requestRender) this.ctx.requestRender();
             }
-        } else if (this.activeMode === 'extrude_recess') {
+        } else if (this.activeMode === 'push_pull' || this.activeMode === 'extrude_recess') {
             // Hover cursor and illumination feedback
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
             const handleObjects = [this.extrudeHandle, this.extrudeStartHandle, this.extrudeEndHandle];
@@ -1248,7 +1290,7 @@ export class WallInteractiveSuite extends THREE.Group {
             return;
         }
 
-        if (this.activeMode === 'extrude_recess') {
+        if (this.activeMode === 'push_pull' || this.activeMode === 'extrude_recess') {
             if (e.button !== 0) return;
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
             const handleObjects = [this.extrudeHandle, this.extrudeStartHandle, this.extrudeEndHandle];
@@ -1314,7 +1356,7 @@ export class WallInteractiveSuite extends THREE.Group {
 
     _onCameraChange() {
         this._updateHUDPosition();
-        if (this.activeMode === 'extrude_recess') {
+        if (this.activeMode === 'push_pull' || this.activeMode === 'extrude_recess') {
             this._updateExtrudeGhostGeometry();
         }
     }
