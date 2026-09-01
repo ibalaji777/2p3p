@@ -3853,6 +3853,60 @@ export const WIDGET_REGISTRY = {
             return finalGroup;
         }
     },
+    'solid_protrusion': {
+        widget: "solid_protrusion", label: "SOLID PROTRUSION", cutsWall: false,
+        events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
+        defaultConfig: { width: 40, height: 50, depth: 10, elevation: 0, thick: 20, facing: 1 },
+        render2D: (group, entity) => {
+            const hw = (entity.width || 40) / 2;
+            const thick = entity.wall ? (entity.wall.thickness || 20) : (entity.thick || 20);
+            const depth = entity.depth || 10;
+            const facing = entity.facing || 1;
+            const yPos = facing === 1 ? (thick / 2) : (-thick / 2 - depth);
+            group.add(new Konva.Rect({
+                x: -hw,
+                y: yPos,
+                width: entity.width || 40,
+                height: depth,
+                stroke: '#00f0ff',
+                strokeWidth: 2,
+                fill: 'rgba(0, 240, 255, 0.3)'
+            }));
+        },
+        render3D: (sceneGroup, entity, helpers) => {
+            const baseElev = entity.elevation !== undefined ? entity.elevation : 0;
+            const h = entity.height || 50;
+            const w = entity.width || 40;
+            const depth = entity.depth || 10;
+            const thick = entity.wall ? (entity.wall.thickness || 20) : (entity.thick || 20);
+            const facing = entity.facing || 1;
+            const zOffset = facing === 1 ? (thick / 2 + depth / 2) : (-thick / 2 - depth / 2);
+
+            const builder = new BIMComponentBuilder(entity, helpers);
+            const opGroup = builder.group;
+            if (entity.localX !== undefined) opGroup.position.set(entity.localX, baseElev, zOffset);
+            else opGroup.position.set(entity.x || 0, baseElev, entity.z || 0);
+
+            const boxGeo = new THREE.BoxGeometry(w, h, depth);
+            const matKey = (facing === 1) ? (entity.wall?.textureFront || entity.wall?.texture) : (entity.wall?.textureBack || entity.wall?.texture);
+            const wallMat = helpers.getDynamicMaterial(matKey || 'plaster_white', 'wall');
+
+            builder.addNode({
+                geometry: boxGeo,
+                material: wallMat,
+                parent: opGroup,
+                position: new THREE.Vector3(0, h / 2, 0),
+                slotName: 'wall_body',
+                castShadow: true,
+                receiveShadow: true
+            });
+
+            opGroup.userData = { isWidget: true, isProtrusion: true, entity: entity };
+            const finalGroup = builder.build();
+            sceneGroup.add(finalGroup);
+            return finalGroup;
+        }
+    },
     'niche_recess': {
         widget: "niche_recess", label: "NICHE & RECESS", cutsWall: false,
         events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],

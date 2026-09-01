@@ -1104,6 +1104,18 @@ export class EnvironmentBuilder {
                     const nicheMesh = new THREE.Mesh(nicheGeo, mm[4]); // inherit wall material
                     nicheMesh.castShadow = true; nicheMesh.receiveShadow = true;
                     extraMeshes.push(nicheMesh);
+                } else if (type === 'solid_protrusion') {
+                    const depth = widg.depth || 10;
+                    const protrusionGeo = new THREE.BoxGeometry(widg.width, h_opening, depth);
+                    const facing = widg.facing || 1;
+                    const zOffset = (facing === 1) ? (t / 2 + depth / 2) : (-t / 2 - depth / 2);
+                    protrusionGeo.translate(wCenter, elev + h_opening / 2, zOffset);
+                    const protrusionMat = (facing === 1) ? mm[4] : mm[5];
+                    const protrusionMesh = new THREE.Mesh(protrusionGeo, protrusionMat);
+                    protrusionMesh.castShadow = true;
+                    protrusionMesh.receiveShadow = true;
+                    protrusionMesh.userData = { isWidget: true, entity: widg };
+                    extraMeshes.push(protrusionMesh);
                 }
             }
             if (hasHole) wallShape.holes.push(hole);
@@ -2228,6 +2240,17 @@ export class EnvironmentBuilder {
                                             const nicheMesh = new THREE.Mesh(nicheGeo, mm[4]); // inherit wall material
                                             nicheMesh.castShadow = true; nicheMesh.receiveShadow = true;
                                             extraMeshes.push(nicheMesh);
+                                        } else if (type === 'solid_protrusion') {
+                                            const depth = widg.depth || 10;
+                                            const protrusionGeo = new THREE.BoxGeometry(widg.width, h_opening, depth);
+                                            const facing = widg.facing || 1;
+                                            const zOffset = (facing === 1) ? (w.thickness / 2 + depth / 2) : (-w.thickness / 2 - depth / 2);
+                                            protrusionGeo.translate(wCenter, elev + h_opening / 2, zOffset);
+                                            const protrusionMat = (facing === 1) ? mm[4] : mm[5];
+                                            const protrusionMesh = new THREE.Mesh(protrusionGeo, protrusionMat);
+                                            protrusionMesh.castShadow = true; protrusionMesh.receiveShadow = true;
+                                            protrusionMesh.userData = { isWidget: true, entity: widg };
+                                            extraMeshes.push(protrusionMesh);
                                         }
                                     }
                                 }
