@@ -45,6 +45,12 @@ export class CameraController {
                 this.toggleSims4TopDown();
             } else if (e.key === 'Home') {
                 this.resetCamera();
+            } else if (e.key === 'PageUp') {
+                if (this.preview3D?.setWallCutawayMode) this.preview3D.setWallCutawayMode('walls_up');
+            } else if (e.key === 'PageDown') {
+                if (this.preview3D?.setWallCutawayMode) this.preview3D.setWallCutawayMode('walls_down');
+            } else if (e.key === 'End') {
+                if (this.preview3D?.setWallCutawayMode) this.preview3D.setWallCutawayMode('cutaway');
             }
         };
         window.addEventListener('keydown', this._onKeyDown);

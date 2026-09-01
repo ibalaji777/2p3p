@@ -30,6 +30,7 @@ import { Stair3DBuilder } from '../features/stairs/stairs.renderer3d.js';
 import { Railing3DBuilder } from '../features/railing/builders/Railing3DBuilder.js';
 import { STAIRCASE_REGISTRY } from '../features/stairs/stairs.registry.js';
 import { UniversalRealtimeUpdate } from './sync/UniversalRealtimeUpdate.js';
+import { WallCutawaySystem } from './engine3d/WallCutawaySystem.js';
 
 export class Preview3D {
     constructor(containerEl) {
@@ -225,6 +226,7 @@ export class Preview3D {
         this.gizmoManager.init();
 
         this.realtimeUpdate = new UniversalRealtimeUpdate(this);
+        this.cutawaySystem = new WallCutawaySystem(this);
 
         this._onTransformChange = () => {
             if (this.currentTransformMode === 'place' && this.gizmoManager.inputX && this.interactions.selectedObject) {
@@ -296,6 +298,10 @@ export class Preview3D {
         // Let camera controller handle its internal damping/updates
         const cameraChanged = this.cameraController.update(); 
         this.navigationCube.update(this.camera);
+
+        if (this.cutawaySystem && (cameraChanged || this.cutawaySystem.getMode() !== 'walls_up')) {
+            this.cutawaySystem.update();
+        }
         
         // Render pass scheduled by RenderCoordinator or active camera movements
         if (this.renderCoordinator.shouldRender() || cameraChanged || this.isUpdatingFromUI) {
@@ -309,6 +315,18 @@ export class Preview3D {
         }
         
         this.updateTransformMenu();
+    }
+
+    setWallCutawayMode(mode) {
+        if (this.cutawaySystem) this.cutawaySystem.setMode(mode);
+    }
+
+    cycleWallCutawayMode() {
+        return this.cutawaySystem ? this.cutawaySystem.cycleMode() : 'walls_up';
+    }
+
+    getWallCutawayMode() {
+        return this.cutawaySystem ? this.cutawaySystem.getMode() : 'walls_up';
     }
 
     showTransformMenu(visible) {

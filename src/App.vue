@@ -67,6 +67,7 @@
         :active-tool="activeTool"
         :is-wall-tracking-enabled="isWallTrackingEnabled"
         :is-xray-mode="isXRayMode"
+        :wall-cutaway-mode="wallCutawayMode"
         :floor-plan-settings="floorPlanSettings"
         :is-rebuilding="isRebuilding"
         :view-mode3D="viewMode3D"
@@ -78,6 +79,7 @@
         @set-advanced-tool="setAdvancedTool"
         @toggle-wall-tracking="toggleWallTracking"
         @toggle-xray-mode="toggleXRayMode"
+        @set-wall-cutaway-mode="setWallCutawayMode"
         @zoom-in="zoomIn"
         @zoom-out="zoomOut"
         @reset-zoom="resetZoom"
@@ -218,7 +220,7 @@ const uiStore = useUIStore();
 const plannerStore = usePlannerStore();
 const settingsStore = useSettingsStore();
 
-const { windowWidth, mobileMenuOpen, activeMobileTab, viewMode, viewMode3D, activeRightTab, showLeftSidebar, uiTrigger, isPlacing3D, activeDecorId, isRebuilding, isXRayMode, showGuide, showAdvancedTools, layerRefreshTrigger, isMobile, isTablet, isDesktop } = storeToRefs(uiStore);
+const { windowWidth, mobileMenuOpen, activeMobileTab, viewMode, viewMode3D, activeRightTab, showLeftSidebar, uiTrigger, isPlacing3D, activeDecorId, isRebuilding, isXRayMode, wallCutawayMode, showGuide, showAdvancedTools, layerRefreshTrigger, isMobile, isTablet, isDesktop } = storeToRefs(uiStore);
 const { planner, renderer3D, workspaceControls, serverService, isDrawing, activeTool, activeCategory, mode3D, activePresetParams, activePresetId, selectedEntity, selectedType, selectedWallSide, selectedNodeIndex, paintScope, levels, activeLevelIndex, referenceLevelIndex, referenceOpacity, canUndo, canRedo, allFloorsVisible } = storeToRefs(plannerStore);
 const { floorPlanSettings, selectedSky, selectedGround, isWallTrackingEnabled } = storeToRefs(settingsStore);
 
@@ -436,6 +438,13 @@ const toggleXRayMode = () => {
     isXRayMode.value = !isXRayMode.value;
     if (renderer3D.value) {
         renderer3D.value.setXRayMode(isXRayMode.value);
+    }
+};
+
+const setWallCutawayMode = (mode) => {
+    wallCutawayMode.value = mode;
+    if (renderer3D.value) {
+        renderer3D.value.setWallCutawayMode(mode);
     }
 };
 

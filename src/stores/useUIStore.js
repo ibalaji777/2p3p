@@ -14,6 +14,7 @@ export const useUIStore = defineStore('ui', {
         activeDecorId: null,
         isRebuilding: false,
         isXRayMode: false,
+        wallCutawayMode: 'walls_up', // 'walls_up' | 'cutaway' | 'walls_down'
         showGuide: false,
         showAdvancedTools: false,
         layerRefreshTrigger: 0
