@@ -61,32 +61,7 @@ describe('Sims 4 Direct 3D Roof Dormers Pipeline', () => {
         expect(meshCount).toBeGreaterThanOrEqual(5);
     });
 
-    it('3. should build an Elegant Eyebrow Dormer with curved wave arch roof and fanlight window', () => {
-        const builder = new RoofDormer3DBuilder(mockCtx);
-        const dormer = builder.buildDormer({
-            id: 'dor_eyebrow_test',
-            type: 'dormer_eyebrow',
-            width: 110,
-            height: 55,
-            depth: 110
-        }, null, 35);
-
-        expect(dormer).toBeDefined();
-        expect(dormer.userData.isRoofDormer).toBe(true);
-
-        let meshCount = 0;
-        let hasBufferGeometry = false;
-        dormer.traverse(child => {
-            if (child.isMesh) {
-                meshCount++;
-                if (child.geometry instanceof THREE.BufferGeometry) hasBufferGeometry = true;
-            }
-        });
-        expect(meshCount).toBeGreaterThanOrEqual(4);
-        expect(hasBufferGeometry).toBe(true);
-    });
-
-    it('4. should build a Heritage Hip Dormer with 3-sided hipped mini roof cap', () => {
+    it('3. should build a Heritage Hip Dormer with 3-sided hipped mini roof cap', () => {
         const builder = new RoofDormer3DBuilder(mockCtx);
         const dormer = builder.buildDormer({
             id: 'dor_hip_test',
@@ -106,7 +81,7 @@ describe('Sims 4 Direct 3D Roof Dormers Pipeline', () => {
         expect(meshCount).toBeGreaterThanOrEqual(5);
     });
 
-    it('5. should build an Arched Barrel Vault Dormer with semicircular roof cylinder', () => {
+    it('4. should build an Arched Barrel Vault Dormer with semicircular roof cylinder', () => {
         const builder = new RoofDormer3DBuilder(mockCtx);
         const dormer = builder.buildDormer({
             id: 'dor_barrel_test',
@@ -126,7 +101,7 @@ describe('Sims 4 Direct 3D Roof Dormers Pipeline', () => {
         expect(meshCount).toBeGreaterThanOrEqual(5);
     });
 
-    it('6. should integrate with Roof3DBuilder and attach dormers directly onto a gable roof slope', () => {
+    it('5. should integrate with Roof3DBuilder and attach dormers directly onto a gable roof slope', () => {
         const roofBuilder = new Roof3DBuilder(mockCtx);
         const targetGroup = new THREE.Group();
 
@@ -139,7 +114,7 @@ describe('Sims 4 Direct 3D Roof Dormers Pipeline', () => {
                 material: 'terracotta_tiles_roof',
                 dormers: [
                     { id: 'dor_1', type: 'dormer_gable', u: 0.3, v: 0.35, width: 90, height: 80 },
-                    { id: 'dor_2', type: 'dormer_eyebrow', u: 0.7, v: 0.35, width: 100, height: 50 }
+                    { id: 'dor_2', type: 'dormer_shed', u: 0.7, v: 0.35, width: 100, height: 80 }
                 ]
             },
             x: 0, y: 0, elevation: 120
@@ -155,7 +130,7 @@ describe('Sims 4 Direct 3D Roof Dormers Pipeline', () => {
         expect(attachedDormers[1].name).toContain('dormer_');
     });
 
-    it('7. should register dormers properly in ROOF_REGISTRY and ComponentRegistry', () => {
+    it('6. should register dormers properly in ROOF_REGISTRY and ComponentRegistry', () => {
         expect(ROOF_REGISTRY['dormer']).toBeDefined();
         const testGroup = new THREE.Group();
         ROOF_REGISTRY['dormer'].render3D(testGroup, { type: 'dormer_gable' }, { ctx: mockCtx });
@@ -165,7 +140,7 @@ describe('Sims 4 Direct 3D Roof Dormers Pipeline', () => {
         expect(dormerAssembly.userData.isRoofDormer).toBe(true);
     });
 
-    it('8. should verify that cheek sidewall vertices strictly extend backwards (-Z <= 0) and NEVER protrude forward (+Z > 0)', () => {
+    it('7. should verify that cheek sidewall vertices strictly extend backwards (-Z <= 0) and NEVER protrude forward (+Z > 0)', () => {
         const builder = new RoofDormer3DBuilder(mockCtx);
         const cheekLeft = builder.buildCheekWallGeometry(true, 100, 85, 120, 4);
         const posAttr = cheekLeft.getAttribute('position');
@@ -176,30 +151,7 @@ describe('Sims 4 Direct 3D Roof Dormers Pipeline', () => {
         }
     });
 
-    it('9. should verify that eyebrow wave canopy has watertight slope-matching boundary conditions', () => {
-        const builder = new RoofDormer3DBuilder(mockCtx);
-        const dormer = builder.buildDormer({
-            id: 'dor_eyebrow_watertight',
-            type: 'dormer_eyebrow',
-            width: 100,
-            height: 60
-        }, null, 35);
-
-        let foundRoofMesh = false;
-        dormer.traverse(child => {
-            if (child.isMesh && child.name === 'eyebrow_roof_canopy') {
-                foundRoofMesh = true;
-                const pos = child.geometry.attributes.position;
-                for (let i = 0; i < pos.count; i++) {
-                    const z = pos.getZ(i);
-                    expect(z).toBeLessThanOrEqual(0.001); // Canopy extends strictly backwards into roof
-                }
-            }
-        });
-        expect(foundRoofMesh).toBe(true);
-    });
-
-    it('10. should support toggle of window assembly (hasWindow: false) to render solid wall dormer', () => {
+    it('8. should support toggle of window assembly (hasWindow: false) to render solid wall dormer', () => {
         const builder = new RoofDormer3DBuilder(mockCtx);
         const dormerWithWin = builder.buildDormer({ id: 'd_win', type: 'dormer_gable', hasWindow: true });
         const dormerSolid = builder.buildDormer({ id: 'd_solid', type: 'dormer_gable', hasWindow: false });
@@ -220,7 +172,7 @@ describe('Sims 4 Direct 3D Roof Dormers Pipeline', () => {
         expect(hasGlass).toBe(false);
     });
 
-    it('11. should tag sub-meshes with distinct CAD/BIM material slots (dormer_siding, dormer_roof, dormer_trim, frame, glass)', () => {
+    it('9. should tag sub-meshes with distinct CAD/BIM material slots (dormer_siding, dormer_roof, dormer_trim, frame, glass)', () => {
         const builder = new RoofDormer3DBuilder(mockCtx);
         const dormer = builder.buildDormer({
             id: 'd_slots',
@@ -244,7 +196,7 @@ describe('Sims 4 Direct 3D Roof Dormers Pipeline', () => {
         expect(slotsFound.has('glass')).toBe(true);
     });
 
-    it('12. should generate physical world UV coordinates on dormer roof meshes matching main roof tiling scale', () => {
+    it('10. should generate physical world UV coordinates on dormer roof meshes matching main roof tiling scale', () => {
         const builder = new RoofDormer3DBuilder(mockCtx);
         const dormer = builder.buildDormer({
             id: 'd_uv_test',
@@ -271,7 +223,7 @@ describe('Sims 4 Direct 3D Roof Dormers Pipeline', () => {
         expect(foundDormerRoof).toBe(true);
     });
 
-    it('13. should open the parent roof slope underneath dormer footprint with aperture void', () => {
+    it('11. should open the parent roof slope underneath dormer footprint with aperture void', () => {
         const roofBuilder = new Roof3DBuilder(mockCtx);
         const groupNoDormer = new THREE.Group();
         const groupWithDormer = new THREE.Group();

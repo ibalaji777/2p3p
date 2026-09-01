@@ -17,7 +17,6 @@
                 <select v-model="entity.type" class="settings-select" @change="onUpdate">
                     <option value="dormer_gable">Gable (A-Frame Classic)</option>
                     <option value="dormer_shed">Shed (Slanted Modern)</option>
-                    <option value="dormer_eyebrow">Eyebrow (Curved Wave Arch)</option>
                     <option value="dormer_hip">Hip (3-Sided Heritage)</option>
                     <option value="dormer_barrel">Barrel Vault (Semicircular)</option>
                 </select>

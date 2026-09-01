@@ -454,7 +454,6 @@
                                 <select v-model="dor.type" class="skylight-select" @change="$emit('sync-engine')">
                                     <option value="dormer_gable">Gable (A-Frame)</option>
                                     <option value="dormer_shed">Shed (Slanted)</option>
-                                    <option value="dormer_eyebrow">Eyebrow (Wave Arch)</option>
                                     <option value="dormer_hip">Hip (3-Sided)</option>
                                     <option value="dormer_barrel">Barrel Vault</option>
                                 </select>

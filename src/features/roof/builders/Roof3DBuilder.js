@@ -1864,7 +1864,7 @@ export class Roof3DBuilder {
                 });
             }
 
-            // 4. Attached 3D Roof Dormers (Gable, Shed, Eyebrow, Hip, Barrel)
+            // 4. Attached 3D Roof Dormers (Gable, Shed, Hip, Barrel)
             const dormerBuilder = new RoofDormer3DBuilder(this.ctx);
             const dormerList = Array.isArray(conf.dormers) ? conf.dormers : (Array.isArray(roof.dormers) ? roof.dormers : []);
             if (dormerList.length > 0) {

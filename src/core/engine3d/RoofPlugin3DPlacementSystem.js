@@ -309,7 +309,7 @@ export class RoofPlugin3DPlacementSystem {
             roof.config.chimneys.push(newChimney);
             roof.chimneys = roof.config.chimneys;
         } else if (cat === 'dormer') {
-            // 3D ROOF DORMER (Gable, Shed, Eyebrow, Hip, Barrel)
+            // 3D ROOF DORMER (Gable, Shed, Hip, Barrel)
             let dType = preset.type || preset.roofType || 'dormer_gable';
             if (dType.startsWith('preset_')) dType = dType.replace('preset_', '');
             if (!dType.startsWith('dormer_')) dType = `dormer_${dType}`;
@@ -321,7 +321,7 @@ export class RoofPlugin3DPlacementSystem {
                 trimMaterial: preset.trimMaterial || 'white_paint',
                 roofMaterial: preset.roofMaterial || roof.material || 'dark_slate',
                 width: Number(preset.width) || (dType === 'dormer_shed' ? 140 : 100),
-                height: Number(preset.height) || (dType === 'dormer_eyebrow' ? 55 : 85),
+                height: Number(preset.height) || 85,
                 depth: Number(preset.depth) || 120,
                 pitch: Number(preset.pitch) || 35,
                 u: Number(u.toFixed(3)),
@@ -512,7 +512,7 @@ export class RoofPlugin3DPlacementSystem {
             if (!dType.startsWith('dormer_')) dType = `dormer_${dType}`;
 
             const width = Number(preset.width) || (dType === 'dormer_shed' ? 140 : 100);
-            const height = Number(preset.height) || (dType === 'dormer_eyebrow' ? 55 : 85);
+            const height = Number(preset.height) || 85;
             const depth = Number(preset.depth) || 120;
 
             this.voidMesh.geometry.dispose();

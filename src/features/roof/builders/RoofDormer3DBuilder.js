@@ -8,9 +8,8 @@ import { ROOF_DECOR_REGISTRY } from '../roof.registry.js';
  * Precision 3D parametric builder for Sims 4-style architectural roof dormers:
  * 1. Gable Dormer (Peaked A-frame roof, bargeboards, pediment, double-hung window)
  * 2. Shed Dormer (Flat/slanted roof, front fascia overhang, wide window)
- * 3. Eyebrow Dormer (Graceful curved wave arch roof, fanlight arched window)
- * 4. Hip Dormer (3-sided hipped mini roof, framed window)
- * 5. Barrel Vault Dormer (Semicircular arch roof, arched window)
+ * 3. Hip Dormer (3-sided hipped mini roof, framed window)
+ * 4. Barrel Vault Dormer (Semicircular arch roof, arched window)
  * 
  * Adheres strictly to the 3-Layer CAD/BIM Component, Highlight & Material Pipeline standard.
  */
@@ -470,7 +469,7 @@ export class RoofDormer3DBuilder {
         if (!type.startsWith('dormer_')) type = `dormer_${type}`;
 
         const width = Number(item.width) || (type === 'dormer_shed' ? 140 : 100);
-        const height = Number(item.height) || (type === 'dormer_eyebrow' ? 55 : 85);
+        const height = Number(item.height) || 85;
         const roofPitch = Math.max(10, Math.min(65, Number(roofPitchDeg) || 35));
         const pitchRad = (roofPitch * Math.PI) / 180;
         const tanPitch = Math.tan(pitchRad);
@@ -497,155 +496,9 @@ export class RoofDormer3DBuilder {
         const wallThick = 4;
         const cheekDepth = height / Math.max(0.15, tanPitch);
 
-        if (type === 'dormer_eyebrow') {
+        if (type === 'dormer_shed') {
             // =================================================================
-            // 1. EYEBROW DORMER (Curved wave arch roof + arched fanlight window)
-            // =================================================================
-            const eyebrowGroup = new THREE.Group();
-            const browDepth = height / Math.max(0.15, tanPitch);
-
-            // 1. Front Wall with Arched Window Opening
-            const frontShape = new THREE.Shape();
-            frontShape.moveTo(-halfW, 0);
-            frontShape.lineTo(-halfW, height * 0.15);
-            // Graceful eyebrow arch across the top
-            frontShape.bezierCurveTo(-halfW * 0.5, height * 1.05, halfW * 0.5, height * 1.05, halfW, height * 0.15);
-            frontShape.lineTo(halfW, 0);
-            frontShape.closePath();
-
-            const winW = width * 0.7;
-            const winH = height * 0.75;
-            const holePath = new THREE.Path();
-
-            if (hasWindow) {
-                // Window opening hole
-                holePath.moveTo(-winW / 2, 4);
-                holePath.lineTo(-winW / 2, winH * 0.25);
-                holePath.bezierCurveTo(-winW * 0.45, winH * 1.0, winW * 0.45, winH * 1.0, winW / 2, winH * 0.25);
-                holePath.lineTo(winW / 2, 4);
-                holePath.closePath();
-                frontShape.holes.push(holePath);
-            }
-
-            const frontGeo = new THREE.ExtrudeGeometry(frontShape, { depth: wallThick, bevelEnabled: false });
-            frontGeo.translate(0, 0, -wallThick);
-            const frontMesh = new THREE.Mesh(frontGeo, sidingMat);
-            frontMesh.userData.materialSlot = 'dormer_siding';
-            frontMesh.castShadow = true;
-            eyebrowGroup.add(frontMesh);
-
-            // 2. Arched Window Assembly (Frame, Sill, Mullions & Glass)
-            if (hasWindow) {
-                const winGroup = new THREE.Group();
-                winGroup.position.set(0, 0, -wallThick / 2);
-
-                // Glass
-                const glassShape = new THREE.Shape();
-                glassShape.moveTo(-winW / 2, 4);
-                glassShape.lineTo(-winW / 2, winH * 0.25);
-                glassShape.bezierCurveTo(-winW * 0.45, winH * 1.0, winW * 0.45, winH * 1.0, winW / 2, winH * 0.25);
-                glassShape.lineTo(winW / 2, 4);
-                glassShape.closePath();
-                const glassMesh = new THREE.Mesh(new THREE.ShapeGeometry(glassShape), glassMat);
-                glassMesh.userData.materialSlot = 'glass';
-                winGroup.add(glassMesh);
-
-                // Mullions
-                const vertMull = new THREE.Mesh(new THREE.BoxGeometry(1.4, winH * 0.85, 1.4), frameMat);
-                vertMull.userData.materialSlot = 'frame';
-                vertMull.position.set(0, winH * 0.45, 0.3);
-                winGroup.add(vertMull);
-
-                [-winW * 0.25, winW * 0.25].forEach(x => {
-                    const subM = new THREE.Mesh(new THREE.BoxGeometry(1.2, winH * 0.6, 1.2), frameMat);
-                    subM.userData.materialSlot = 'frame';
-                    subM.position.set(x, winH * 0.35, 0.3);
-                    winGroup.add(subM);
-                });
-
-                const horizM = new THREE.Mesh(new THREE.BoxGeometry(winW, 1.4, 1.4), frameMat);
-                horizM.userData.materialSlot = 'frame';
-                horizM.position.set(0, winH * 0.38, 0.3);
-                winGroup.add(horizM);
-
-                // Protruding Window Sill
-                const sill = new THREE.Mesh(new THREE.BoxGeometry(winW + 8, 3.5, 6), trimMat);
-                sill.userData.materialSlot = 'dormer_trim';
-                sill.position.set(0, 2, 2);
-                winGroup.add(sill);
-
-                eyebrowGroup.add(winGroup);
-            }
-
-            // 3. Lofted Curved Wave Roof Canopy
-            const uSegments = 32;
-            const vSegments = 24;
-            const roofGeo = new THREE.BufferGeometry();
-            const verts = [];
-            const indices = [];
-            const uvs = [];
-
-            for (let j = 0; j <= vSegments; j++) {
-                const vT = j / vSegments;
-                const z = -vT * browDepth;
-                const yBaseRoof = vT * browDepth * tanPitch;
-                const remainingArchH = Math.max(0, height - yBaseRoof);
-
-                for (let i = 0; i <= uSegments; i++) {
-                    const uT = i / uSegments;
-                    const x = -halfW - 3 + uT * (width + 6);
-                    const normalizedX = (x / (halfW + 3));
-
-                    const cosTerm = Math.cos(Math.max(-Math.PI / 2, Math.min(Math.PI / 2, (normalizedX * Math.PI) / 2)));
-                    const y = yBaseRoof + Math.max(0, cosTerm * cosTerm * remainingArchH);
-
-                    verts.push(x, y, z);
-                    uvs.push((x + halfW + 3) / 100, -z / 100);
-                }
-            }
-
-            for (let j = 0; j < vSegments; j++) {
-                for (let i = 0; i < uSegments; i++) {
-                    const a = j * (uSegments + 1) + i;
-                    const b = (j + 1) * (uSegments + 1) + i;
-                    const c = (j + 1) * (uSegments + 1) + (i + 1);
-                    const d = j * (uSegments + 1) + (i + 1);
-
-                    indices.push(a, b, d);
-                    indices.push(b, c, d);
-                }
-            }
-
-            roofGeo.setIndex(indices);
-            roofGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-            roofGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-            roofGeo.computeVertexNormals();
-
-            const eyebrowRoof = new THREE.Mesh(roofGeo, roofMat);
-            eyebrowRoof.name = 'eyebrow_roof_canopy';
-            eyebrowRoof.userData.materialSlot = 'dormer_roof';
-            eyebrowRoof.castShadow = true;
-            eyebrowRoof.receiveShadow = true;
-            eyebrowGroup.add(eyebrowRoof);
-
-            // Front Brow Trim Eaves Lip
-            const browShape = new THREE.Shape();
-            browShape.moveTo(-halfW - 4, height * 0.12);
-            browShape.bezierCurveTo(-halfW * 0.5, height * 1.08, halfW * 0.5, height * 1.08, halfW + 4, height * 0.12);
-            browShape.lineTo(halfW + 4, height * 0.18);
-            browShape.bezierCurveTo(halfW * 0.5, height * 1.14, -halfW * 0.5, height * 1.14, -halfW - 4, height * 0.18);
-            browShape.closePath();
-            const browGeo = new THREE.ExtrudeGeometry(browShape, { depth: 3.5, bevelEnabled: false });
-            browGeo.translate(0, 0, 0);
-            const browTrim = new THREE.Mesh(browGeo, trimMat);
-            browTrim.userData.materialSlot = 'dormer_trim';
-            browTrim.castShadow = true;
-            eyebrowGroup.add(browTrim);
-
-            group.add(eyebrowGroup);
-        } else if (type === 'dormer_shed') {
-            // =================================================================
-            // 2. SHED DORMER (Flat/slanted roof with front overhang fascia)
+            // 1. SHED DORMER (Flat/slanted roof with front overhang fascia)
             // =================================================================
             const shedGroup = new THREE.Group();
             const shedPitchDeg = Math.max(5, Math.min(20, roofPitch * 0.4));

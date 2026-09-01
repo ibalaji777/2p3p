@@ -104,7 +104,6 @@ ROOF_REGISTRY['chimney_double_brick'] = ROOF_REGISTRY['roof_sculptures'];
 
 ROOF_REGISTRY['dormer_gable'] = ROOF_REGISTRY['dormer'];
 ROOF_REGISTRY['dormer_shed'] = ROOF_REGISTRY['dormer'];
-ROOF_REGISTRY['dormer_eyebrow'] = ROOF_REGISTRY['dormer'];
 ROOF_REGISTRY['dormer_hip'] = ROOF_REGISTRY['dormer'];
 ROOF_REGISTRY['dormer_barrel'] = ROOF_REGISTRY['dormer'];
 
