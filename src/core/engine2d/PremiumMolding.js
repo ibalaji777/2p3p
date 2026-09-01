@@ -48,6 +48,7 @@ export class PremiumMolding {
     hasEvent(eventName) { return this.config.events.includes(eventName); }
     
     requestResize(pos, isLeft) { 
+        this.isCustomWidth = true;
         const wallLen = this.wall.getLength(); let targetT = this.wall.getClosestT(pos); 
         const fixedEdgeT = this.t + (isLeft ? (this.width / 2) / wallLen : -(this.width / 2) / wallLen); 
         let newWidth = Math.abs(fixedEdgeT - targetT) * wallLen; 
@@ -93,9 +94,16 @@ export class PremiumMolding {
         if (!this.wall || !this.wall.startAnchor || !this.wall.endAnchor) return; 
         const start = this.wall.startAnchor.position(), end = this.wall.endAnchor.position(); 
         const dx = end.x - start.x, dy = end.y - start.y; 
+        const wallLen = Math.hypot(dx, dy);
+
+        // Auto-stretch full-length moldings with wall length
+        if (!this.isCustomWidth || this.width === undefined || Math.abs(this.width - wallLen) < 5) {
+            this.width = wallLen;
+            this.t = 0.5;
+        }
         
         let cx = start.x + dx * this.t, cy = start.y + dy * this.t; 
-        const th = this.wall.thickness || this.wall.config.thickness || 8; 
+        const th = this.wall.thickness || this.wall.config?.thickness || 8; 
         
         const wallAngle = Math.atan2(dy, dx); 
         
@@ -109,9 +117,9 @@ export class PremiumMolding {
         
         let px, py;
         let currentWidth = this.width;
-        const wallLen = Math.hypot(dx, dy);
+        const isFullLength = !this.isCustomWidth || Math.abs(this.width - wallLen) < 5;
 
-        if (Math.abs(this.width - wallLen) < 2 && this.wall.wallShapeData) {
+        if (isFullLength && this.wall.wallShapeData) {
             const startTrue = this.wall.wallShapeData.startData.trueCorners || this.wall.wallShapeData.startData.corners;
             const endTrue = this.wall.wallShapeData.endData.trueCorners || this.wall.wallShapeData.endData.corners;
             const edgeStart = this.side === 'right' ? startTrue[1] : startTrue[0];
@@ -135,7 +143,7 @@ export class PremiumMolding {
         
         const visualDepth = Math.max(4, Math.abs(this.depth));
         
-        if (Math.abs(this.width - wallLen) < 2 && this.wall.wallShapeData) {
+        if (isFullLength && this.wall.wallShapeData) {
             // Full-length molding: compute perfectly mitered polygon
             const startTrue = this.wall.wallShapeData.startData.trueCorners || this.wall.wallShapeData.startData.corners;
             const endTrue = this.wall.wallShapeData.endData.trueCorners || this.wall.wallShapeData.endData.corners;
