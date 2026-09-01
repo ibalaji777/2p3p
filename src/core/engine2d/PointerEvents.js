@@ -198,7 +198,17 @@ export function setupPointerEvents(planner) {
                     const proj = planner.getClosestPointOnSegment(pos, start, end);
                     const dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
                     
-                    if (dist < minWallDist) {
+                    let maxWallExtent = (w.thickness || 20) / 2;
+                    if (w.attachedWidgets) {
+                        w.attachedWidgets.forEach(widg => {
+                            if (widg.type === 'solid_protrusion' && widg.depth) {
+                                maxWallExtent += Math.abs(widg.depth);
+                            }
+                        });
+                    }
+                    const maxAllowedDist = Math.max(60 / (planner.stage.scaleX() || 1), maxWallExtent + 40);
+                    
+                    if (dist < maxAllowedDist && dist < minWallDist) {
                         closestWall = w;
                         minWallDist = dist;
                         const dx = end.x - start.x;

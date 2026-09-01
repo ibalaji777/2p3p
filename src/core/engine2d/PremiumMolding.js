@@ -144,21 +144,8 @@ export class PremiumMolding {
         const visualDepth = Math.max(4, Math.abs(this.depth));
         
         if (isFullLength && this.wall.wallShapeData) {
-            // Full-length molding: compute perfectly mitered polygon
-            const startTrue = this.wall.wallShapeData.startData.trueCorners || this.wall.wallShapeData.startData.corners;
-            const endTrue = this.wall.wallShapeData.endData.trueCorners || this.wall.wallShapeData.endData.corners;
-            const edgeStart = this.side === 'right' ? startTrue[1] : startTrue[0];
-            const edgeEnd = this.side === 'right' ? endTrue[1] : endTrue[0];
-            
-            const pStart = start;
-            const vStart = { x: edgeStart.x - pStart.x, y: edgeStart.y - pStart.y };
-            const pEnd = end;
-            const vEnd = { x: edgeEnd.x - pEnd.x, y: edgeEnd.y - pEnd.y };
-            
-            const scaleOuter = (th / 2 + visualDepth) / (th / 2);
-            
-            const outerStart = { x: pStart.x + vStart.x * scaleOuter, y: pStart.y + vStart.y * scaleOuter };
-            const outerEnd = { x: pEnd.x + vEnd.x * scaleOuter, y: pEnd.y + vEnd.y * scaleOuter };
+            // Full-length molding: compute perfectly mitered polygon following continuous wall contour
+            const baseVerts = (this.side === 'right' ? this.wall.wallShapeData.backVerts : this.wall.wallShapeData.frontVerts) || [];
             
             // Convert global points to local space relative to the visualGroup
             const toLocal = (p) => {
@@ -168,13 +155,37 @@ export class PremiumMolding {
                 const sin = Math.sin(-wallAngle);
                 return { x: lx * cos - ly * sin, y: lx * sin + ly * cos };
             };
-            
-            const ls = toLocal(edgeStart);
-            const le = toLocal(edgeEnd);
-            const loe = toLocal(outerEnd);
-            const los = toLocal(outerStart);
-            
-            this.moldingPoly.points([ls.x, ls.y, le.x, le.y, loe.x, loe.y, los.x, los.y]);
+
+            if (baseVerts.length > 2) {
+                const innerPts = baseVerts.map(toLocal);
+                const outerPts = baseVerts.map(v => toLocal({ x: v.x + nx * visualDepth, y: v.y + ny * visualDepth })).reverse();
+                const moldPts = [];
+                innerPts.forEach(p => moldPts.push(p.x, p.y));
+                outerPts.forEach(p => moldPts.push(p.x, p.y));
+                this.moldingPoly.points(moldPts);
+            } else {
+                const startTrue = this.wall.wallShapeData.startData.trueCorners || this.wall.wallShapeData.startData.corners;
+                const endTrue = this.wall.wallShapeData.endData.trueCorners || this.wall.wallShapeData.endData.corners;
+                const edgeStart = this.side === 'right' ? startTrue[1] : startTrue[0];
+                const edgeEnd = this.side === 'right' ? endTrue[1] : endTrue[0];
+                
+                const pStart = start;
+                const vStart = { x: edgeStart.x - pStart.x, y: edgeStart.y - pStart.y };
+                const pEnd = end;
+                const vEnd = { x: edgeEnd.x - pEnd.x, y: edgeEnd.y - pEnd.y };
+                
+                const scaleOuter = (th / 2 + visualDepth) / (th / 2);
+                
+                const outerStart = { x: pStart.x + vStart.x * scaleOuter, y: pStart.y + vStart.y * scaleOuter };
+                const outerEnd = { x: pEnd.x + vEnd.x * scaleOuter, y: pEnd.y + vEnd.y * scaleOuter };
+                
+                const ls = toLocal(edgeStart);
+                const le = toLocal(edgeEnd);
+                const loe = toLocal(outerEnd);
+                const los = toLocal(outerStart);
+                
+                this.moldingPoly.points([ls.x, ls.y, le.x, le.y, loe.x, loe.y, los.x, los.y]);
+            }
         } else {
             // Partial molding: just a rectangle
             this.moldingPoly.points([

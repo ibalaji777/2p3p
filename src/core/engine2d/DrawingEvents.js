@@ -63,8 +63,8 @@ export function setupDrawingEvents(planner) {
                 let targetWall = null;
                 let targetFace = null;
                 
-                if (e.target && e.target.isWallPoly) {
-                    targetWall = e.target.parentWall;
+                if (e.target && (e.target.isWallPoly || e.target.parentWall || e.target.wall || e.target.parent?.parentWall)) {
+                    targetWall = e.target.parentWall || e.target.wall || e.target.parent?.parentWall;
                     const start = targetWall.startAnchor.position();
                     const end = targetWall.endAnchor.position();
                     const dx = end.x - start.x;
@@ -80,7 +80,17 @@ export function setupDrawingEvents(planner) {
                         const proj = planner.getClosestPointOnSegment(pos, start, end);
                         const dist = Math.hypot(pos.x - proj.x, pos.y - proj.y);
                         
-                        if (dist < minWallDist) {
+                        let maxWallExtent = (w.thickness || 20) / 2;
+                        if (w.attachedWidgets) {
+                            w.attachedWidgets.forEach(widg => {
+                                if (widg.type === 'solid_protrusion' && widg.depth) {
+                                    maxWallExtent += Math.abs(widg.depth);
+                                }
+                            });
+                        }
+                        const maxAllowedDist = Math.max(60 / (planner.stage.scaleX() || 1), maxWallExtent + 40);
+                        
+                        if (dist < maxAllowedDist && dist < minWallDist) {
                             targetWall = w;
                             minWallDist = dist;
                             const dx = end.x - start.x;

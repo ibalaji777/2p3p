@@ -1090,8 +1090,10 @@ export class EnvironmentBuilder {
                     extraMeshes.push(patternGroup);
                     if (this.ctx.viewMode3D !== 'preview') this.ctx.interactables.push(hitBox);
 
+                } else if (type === 'solid_protrusion') {
+                    hasHole = false;
                 } else {
-                hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev + h_opening); hole.lineTo(wCenter - halfW, cutElev);
+                    hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev + h_opening); hole.lineTo(wCenter - halfW, cutElev);
                     hasHole = true;
                 }
 
@@ -1114,8 +1116,18 @@ export class EnvironmentBuilder {
                     const protrusionMesh = new THREE.Mesh(protrusionGeo, protrusionMat);
                     protrusionMesh.castShadow = true;
                     protrusionMesh.receiveShadow = true;
-                    protrusionMesh.userData = { isWidget: true, entity: widg };
+                    protrusionMesh.userData = { 
+                        isWidget: true, 
+                        isWallSide: true,
+                        isProtrusion: true,
+                        parentWall: w, 
+                        entity: w, 
+                        widget: widg 
+                    };
                     extraMeshes.push(protrusionMesh);
+                    if (this.ctx.viewMode3D !== 'preview' && this.ctx.interactables) {
+                        this.ctx.interactables.push(protrusionMesh);
+                    }
                 }
             }
             if (hasHole) wallShape.holes.push(hole);
@@ -2226,8 +2238,10 @@ export class EnvironmentBuilder {
                                             extraMeshes.push(patternGroup);
                                             if (!isPreview) this.ctx.interactables.push(hitBox);
 
+                                        } else if (type === 'solid_protrusion') {
+                                            hasHole = false;
                                         } else {
-                                        hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev + h_opening); hole.lineTo(wCenter - halfW, cutElev);
+                                            hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, elev + h_opening); hole.lineTo(wCenter - halfW, elev + h_opening); hole.lineTo(wCenter - halfW, cutElev);
                                             hasHole = true;
                                         }
                                         
@@ -2249,8 +2263,18 @@ export class EnvironmentBuilder {
                                             const protrusionMat = (facing === 1) ? mm[4] : mm[5];
                                             const protrusionMesh = new THREE.Mesh(protrusionGeo, protrusionMat);
                                             protrusionMesh.castShadow = true; protrusionMesh.receiveShadow = true;
-                                            protrusionMesh.userData = { isWidget: true, entity: widg };
+                                            protrusionMesh.userData = { 
+                                                isWidget: true, 
+                                                isWallSide: true,
+                                                isProtrusion: true,
+                                                parentWall: w, 
+                                                entity: w, 
+                                                widget: widg 
+                                            };
                                             extraMeshes.push(protrusionMesh);
+                                            if (!isPreview && this.ctx.interactables) {
+                                                this.ctx.interactables.push(protrusionMesh);
+                                            }
                                         }
                                     }
                                 }

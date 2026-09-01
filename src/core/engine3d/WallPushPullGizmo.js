@@ -3,6 +3,7 @@ import { EVENTS } from '../constants/events.js';
 import { coreEventBus } from '../EventBus.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { WallReformer } from '../engine2d/WallReformer.js';
+import { advance_openings } from '../engine2d/advance_openings.js';
 
 /**
  * WallPushPullGizmo
@@ -833,9 +834,6 @@ export class WallPushPullGizmo extends THREE.Group {
     _updateWallAndSiblings(wall) {
         if (!wall) return;
         const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
-        if (planner && typeof planner.syncAll === 'function') {
-            planner.syncAll();
-        }
 
         const wallsToUpdate = new Set([wall]);
         if (planner && planner.walls) {
@@ -851,15 +849,26 @@ export class WallPushPullGizmo extends THREE.Group {
             });
         }
 
-        if (typeof this.ctx.updateWallGeometryLive === 'function') {
-            wallsToUpdate.forEach(w => {
-                try {
-                    if (w.update) w.update();
-                    this.ctx.updateWallGeometryLive(w);
-                } catch(err) {
-                    console.warn('[WallPushPullGizmo] Live wall update err:', err);
+        wallsToUpdate.forEach(w => {
+            try {
+                if (w.update) w.update();
+                if (w.attachedMoldings) {
+                    w.attachedMoldings.forEach(m => {
+                        if (m.update) m.update();
+                    });
                 }
-            });
+                if (typeof this.ctx.updateWallGeometryLive === 'function') {
+                    this.ctx.updateWallGeometryLive(w);
+                }
+            } catch(err) {
+                console.warn('[WallPushPullGizmo] Live wall update err:', err);
+            }
+        });
+
+        if (planner) {
+            if (typeof planner.syncAll === 'function') planner.syncAll();
+            if (planner.wallLayer && typeof planner.wallLayer.batchDraw === 'function') planner.wallLayer.batchDraw();
+            if (planner.widgetLayer && typeof planner.widgetLayer.batchDraw === 'function') planner.widgetLayer.batchDraw();
         }
     }
 
@@ -1091,50 +1100,48 @@ export class WallPushPullGizmo extends THREE.Group {
             const selH = Math.max(10, Math.round(this.elevTop - this.elevBottom));
             const selElev = Math.round(this.elevBottom);
             const tCenter = (this.tStart + this.tEnd) / 2;
+            const facing = this.activeFacing || 1;
 
-            if (extrudeD > 0) {
-                // --- BAKE SOLID WALL PROTRUSION (SOLID FILL) ---
-                const protrusionWidget = {
-                    id: 'protrusion_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-                    type: 'solid_protrusion',
-                    configId: 'solid_protrusion',
+            // --- SOLID WALL BLOCK / PROTRUSION FOR EXTERIOR DESIGN ---
+            const maxNicheDepth = Math.max(1, (wall.thickness || 20) - 3);
+            const nicheDepth = Math.min(Math.round(Math.abs(extrudeD)), maxNicheDepth);
+            const depthVal = extrudeD > 0 ? Math.round(extrudeD) : nicheDepth;
+            const typeVal = extrudeD > 0 ? 'solid_protrusion' : 'niche_recess';
+
+            let widgetObj = null;
+            if (planner && planner.wallLayer && typeof advance_openings === 'function') {
+                try {
+                    widgetObj = new advance_openings(planner, wall, tCenter, typeVal);
+                    widgetObj.width = selW;
+                    widgetObj.height = selH;
+                    widgetObj.elevation = selElev;
+                    widgetObj.depth = depthVal;
+                    widgetObj.facing = facing;
+                    widgetObj.update();
+                } catch(e) {
+                    widgetObj = null;
+                }
+            }
+            if (!widgetObj) {
+                widgetObj = {
+                    id: (extrudeD > 0 ? 'protrusion_' : 'niche_') + Date.now() + '_' + Math.floor(Math.random() * 1000),
+                    type: typeVal,
+                    configId: typeVal,
                     t: tCenter,
                     width: selW,
                     height: selH,
                     elevation: selElev,
-                    depth: Math.round(extrudeD),
+                    depth: depthVal,
                     thick: (wall.thickness || 20),
-                    facing: this.activeFacing || 1,
+                    facing: facing,
                     wall: wall
                 };
-
-                if (!wall.attachedWidgets) wall.attachedWidgets = [];
-                wall.attachedWidgets.push(protrusionWidget);
-            } else {
-                // --- BAKE SOLID NICHE / RECESS CAVITY ---
-                const maxNicheDepth = Math.max(1, (wall.thickness || 20) - 3);
-                const nicheDepth = Math.min(Math.round(Math.abs(extrudeD)), maxNicheDepth);
-
-                const nicheWidget = {
-                    id: 'niche_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-                    type: 'niche_recess',
-                    configId: 'niche_recess',
-                    t: tCenter,
-                    width: selW,
-                    height: selH,
-                    elevation: selElev,
-                    depth: nicheDepth,
-                    facing: this.activeFacing || 1,
-                    wall: wall
-                };
-
-                if (!wall.attachedWidgets) wall.attachedWidgets = [];
-                wall.attachedWidgets.push(nicheWidget);
             }
 
-            if (typeof this.ctx.updateWallGeometryLive === 'function') {
-                try { this.ctx.updateWallGeometryLive(wall); } catch(err) {}
-            }
+            if (!wall.attachedWidgets) wall.attachedWidgets = [];
+            wall.attachedWidgets.push(widgetObj);
+
+            this._updateWallAndSiblings(wall);
         } else {
             this._updateWallAndSiblings(wall);
         }

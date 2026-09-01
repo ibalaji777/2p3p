@@ -394,7 +394,53 @@ export class Molding3DBuilder {
             componentType
         };
 
+        const protrusions = (wallEntity?.attachedWidgets || []).filter(w => (w.type === 'solid_protrusion' || w.configId === 'solid_protrusion') && w.depth);
+        const relevantProtrusions = protrusions.filter(p => {
+            const pFacing = p.facing !== undefined ? p.facing : 1;
+            const matchSide = (moldData.side === 'right' && pFacing === -1) || (moldData.side !== 'right' && pFacing === 1);
+            if (!matchSide) return false;
+            const pElev = p.elevation !== undefined ? p.elevation : 0;
+            const pH = p.height !== undefined ? p.height : 120;
+            const mElev = heightOffset !== undefined ? heightOffset : 0;
+            const mH = moldingHeight || 10;
+            return Math.max(mElev, pElev) < Math.min(mElev + mH, pElev + pH);
+        });
+
+        const refinedSegments = [];
         for (const seg of segments) {
+            let currentX = seg.start;
+            const intersecting = relevantProtrusions.map(p => {
+                const wCenter = (p.localX !== undefined ? p.localX : (p.t !== undefined ? p.t : 0.5) * wallLength);
+                const halfW = (p.width || 40) / 2;
+                return {
+                    start: Math.max(seg.start, wCenter - halfW),
+                    end: Math.min(seg.end, wCenter + halfW),
+                    depth: p.depth || 10
+                };
+            }).filter(p => p.end > p.start + 0.1).sort((a, b) => a.start - b.start);
+
+            if (intersecting.length === 0) {
+                refinedSegments.push({ start: seg.start, end: seg.end, extraZ: 0 });
+            } else {
+                for (const p of intersecting) {
+                    if (p.start > currentX + 0.5) {
+                        refinedSegments.push({ start: currentX, end: p.start, extraZ: 0 });
+                    }
+                    refinedSegments.push({ start: p.start, end: p.end, extraZ: p.depth, isProtrusionFace: true });
+                    currentX = p.end;
+                }
+                if (currentX < seg.end - 0.5) {
+                    refinedSegments.push({ start: currentX, end: seg.end, extraZ: 0 });
+                }
+            }
+        }
+
+        const signZ = moldData.side === 'right' ? -1 : 1;
+
+        for (let sIdx = 0; sIdx < refinedSegments.length; sIdx++) {
+            const seg = refinedSegments[sIdx];
+            const prevSeg = refinedSegments[sIdx - 1];
+            const nextSeg = refinedSegments[sIdx + 1];
             const segLen = seg.end - seg.start;
             if (segLen < 0.5) continue;
 
@@ -417,15 +463,44 @@ export class Molding3DBuilder {
 
             // Mutate base geometry so it is in Wall Local Space (required for shearGeo)
             segGeo.rotateY(rotY);
+            const extraZOffset = (moldData.side === 'right') ? -(seg.extraZ || 0) : (seg.extraZ || 0);
             if (moldData.side === 'right') {
-                segGeo.translate(seg.start, heightOffset, zOffset);
+                segGeo.translate(seg.start, heightOffset, zOffset + extraZOffset);
             } else {
-                segGeo.translate(seg.end, heightOffset, zOffset);
+                segGeo.translate(seg.end, heightOffset, zOffset + extraZOffset);
             }
 
             if (isGroove || depth < 0) {
                 segGeo.translate(0, 0, moldData.side === 'right' ? depth : -depth);
             }
+
+            // Apply 45-degree corner mitering for protrusion transitions
+            const zBase = zOffset + extraZOffset;
+            const miterStartInside = !seg.isProtrusionFace && prevSeg?.isProtrusionFace && Math.abs(prevSeg.end - seg.start) < 0.5;
+            const miterEndInside = !seg.isProtrusionFace && nextSeg?.isProtrusionFace && Math.abs(nextSeg.start - seg.end) < 0.5;
+            const miterStartOutside = seg.isProtrusionFace;
+            const miterEndOutside = seg.isProtrusionFace;
+
+            const pos = segGeo.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                const x = pos.getX(i);
+                const z = pos.getZ(i);
+                const distZ = (z - zBase) * signZ;
+
+                if (miterStartInside && x <= seg.start + 0.1) {
+                    pos.setX(i, seg.start + distZ);
+                } else if (miterStartOutside && x <= seg.start + 0.1) {
+                    pos.setX(i, seg.start - distZ);
+                }
+
+                if (miterEndInside && x >= seg.end - 0.1) {
+                    pos.setX(i, seg.end - distZ);
+                } else if (miterEndOutside && x >= seg.end - 0.1) {
+                    pos.setX(i, seg.end + distZ);
+                }
+            }
+            pos.needsUpdate = true;
+            segGeo.computeVertexNormals();
 
             let materials = finalMat;
             if (helpers && helpers.getFaceMaterials) {
@@ -442,6 +517,100 @@ export class Molding3DBuilder {
                 componentType
             });
             group.add(segMesh);
+
+            // Add 45-degree mitered side returns if stepped out onto a protrusion
+            if (seg.isProtrusionFace && seg.extraZ > 0.5) {
+                const returnSteps = Math.max(1, Math.floor(seg.extraZ / 10));
+                const z0 = zOffset;
+                const z1 = zOffset + seg.extraZ * signZ;
+                
+                // Start return (connecting base wall at z0 to protrusion face at z1)
+                const startRetGeo = new THREE.ExtrudeGeometry(finalShape, {
+                    depth: seg.extraZ,
+                    bevelEnabled: false,
+                    curveSegments: 12,
+                    steps: returnSteps
+                });
+                
+                if (moldData.side === 'right') {
+                    startRetGeo.rotateY(Math.PI);
+                    startRetGeo.translate(seg.start, heightOffset, zOffset);
+                } else {
+                    startRetGeo.rotateY(Math.PI);
+                    startRetGeo.translate(seg.start, heightOffset, zOffset + seg.extraZ);
+                }
+
+                // Miter start return vertices at both corners
+                const startPos = startRetGeo.attributes.position;
+                for (let i = 0; i < startPos.count; i++) {
+                    const x = startPos.getX(i);
+                    const z = startPos.getZ(i);
+                    const distX = seg.start - x;
+
+                    // Inside Corner 1 at z0
+                    if (Math.abs(z - z0) <= 0.1) {
+                        startPos.setZ(i, z0 + distX * signZ);
+                    }
+                    // Outside Corner 2 at z1
+                    else if (Math.abs(z - z1) <= 0.1) {
+                        startPos.setZ(i, z1 + distX * signZ);
+                    }
+                }
+                startPos.needsUpdate = true;
+                startRetGeo.computeVertexNormals();
+                
+                const startRetMesh = new THREE.Mesh(startRetGeo, materials);
+                startRetMesh.castShadow = true;
+                startRetMesh.receiveShadow = true;
+                startRetMesh.userData = { ...group.userData };
+                ComponentRegistry.registerMesh(moldData, slotName, startRetMesh, {
+                    componentId: `${entityId}_${slotName}`,
+                    componentType
+                });
+                group.add(startRetMesh);
+
+                // End return (connecting protrusion face at z1 back to base wall at z0)
+                const endRetGeo = new THREE.ExtrudeGeometry(finalShape, {
+                    depth: seg.extraZ,
+                    bevelEnabled: false,
+                    curveSegments: 12,
+                    steps: returnSteps
+                });
+                if (moldData.side === 'right') {
+                    endRetGeo.translate(seg.end, heightOffset, zOffset - seg.extraZ);
+                } else {
+                    endRetGeo.translate(seg.end, heightOffset, zOffset);
+                }
+
+                // Miter end return vertices at both corners
+                const endPos = endRetGeo.attributes.position;
+                for (let i = 0; i < endPos.count; i++) {
+                    const x = endPos.getX(i);
+                    const z = endPos.getZ(i);
+                    const distX = x - seg.end;
+
+                    // Outside Corner 3 at z1
+                    if (Math.abs(z - z1) <= 0.1) {
+                        endPos.setZ(i, z1 + distX * signZ);
+                    }
+                    // Inside Corner 4 at z0
+                    else if (Math.abs(z - z0) <= 0.1) {
+                        endPos.setZ(i, z0 + distX * signZ);
+                    }
+                }
+                endPos.needsUpdate = true;
+                endRetGeo.computeVertexNormals();
+                
+                const endRetMesh = new THREE.Mesh(endRetGeo, materials);
+                endRetMesh.castShadow = true;
+                endRetMesh.receiveShadow = true;
+                endRetMesh.userData = { ...group.userData };
+                ComponentRegistry.registerMesh(moldData, slotName, endRetMesh, {
+                    componentId: `${entityId}_${slotName}`,
+                    componentType
+                });
+                group.add(endRetMesh);
+            }
         }
 
         group.traverse(child => {

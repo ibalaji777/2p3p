@@ -31,13 +31,15 @@ export class advance_openings {
         
         this.group = new Konva.Group({ draggable: true });
         
-        // Background cutter punch hole in the wall
+        // Background cutter punch hole in the wall (only for actual openings/voids)
         this.cutter = new Konva.Rect({
             fill: 'black',
             globalCompositeOperation: 'destination-out',
             listening: false
         });
-        this.planner.wallLayer.add(this.cutter);
+        if (this.type !== 'solid_protrusion') {
+            this.planner.wallLayer.add(this.cutter);
+        }
         
         this.shapeGroup = new Konva.Group({ listening: false });
         this.hitBox = new Konva.Rect({ fill: 'transparent', listening: true });
@@ -122,13 +124,18 @@ export class advance_openings {
         const thick = this.wall.thickness || (this.wall.config ? this.wall.config.thickness : 10);
         const hw = this.width / 2;
 
-        // Handle Background Cut
-        this.cutter.width(this.width);
-        this.cutter.height(thick + 4);
-        this.cutter.offsetX(hw);
-        this.cutter.offsetY((thick + 4) / 2);
-        this.cutter.position({ x, y });
-        this.cutter.rotation(angle);
+        // Handle Background Cut (only for openings/voids)
+        if (this.type === 'solid_protrusion') {
+            this.cutter.visible(false);
+        } else {
+            this.cutter.visible(true);
+            this.cutter.width(this.width);
+            this.cutter.height(thick + 4);
+            this.cutter.offsetX(hw);
+            this.cutter.offsetY((thick + 4) / 2);
+            this.cutter.position({ x, y });
+            this.cutter.rotation(angle);
+        }
 
         this.shapeGroup.destroyChildren();
 
@@ -201,6 +208,34 @@ export class advance_openings {
         else if (this.type === 'boolean_cut') {
             this.shapeGroup.add(new Konva.Rect({ x: -hw, y: -thick / 2, width: this.width, height: thick, ...commonProps, dash: [6, 4] }));
             this.shapeGroup.add(new Konva.Text({ x: -hw, y: -6, width: this.width, text: 'BOOL', fontSize: 11, fill: strokeColor, fontStyle: 'bold', align: 'center' }));
+        }
+        else if (this.type === 'solid_protrusion') {
+            const depth = Math.abs(Number(this.depth) || 10);
+            const isBack = (this.facing === -1 || this.facing === 'back' || this.side === 'right');
+            const yPos = isBack ? (-thick / 2 - depth) : (thick / 2);
+            const wallFill = this.wall?.fillColor || '#cbd5e1';
+            const wallStroke = this.wall?.strokeColor || '#475569';
+            
+            this.shapeGroup.add(new Konva.Rect({
+                x: -hw,
+                y: yPos,
+                width: this.width,
+                height: depth,
+                fill: wallFill,
+                stroke: wallStroke,
+                strokeWidth: 1,
+                lineJoin: 'miter'
+            }));
+            this.shapeGroup.add(new Konva.Text({
+                x: -hw,
+                y: yPos + depth / 2 - 5,
+                width: this.width,
+                text: `+${Math.round(depth)}`,
+                fontSize: 10,
+                fill: '#475569',
+                fontStyle: 'bold',
+                align: 'center'
+            }));
         }
 
         // Dynamic Hitbox area
