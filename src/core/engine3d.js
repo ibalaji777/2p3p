@@ -793,7 +793,36 @@ export class Preview3D {
 
     rebuildActiveFloors() {
         if (!this.envBuilder) return;
-        const floorMeshes = this.interactables.filter(m => m.userData && m.userData.isFloor);
+        const planner = this.planner || window.planner?.value || window.plannerInstance;
+        if (!planner) return;
+
+        if (planner.findRooms) {
+            try { planner.findRooms(); } catch(e) {}
+        }
+
+        const shapes = this.shapes || (planner && planner.shapes) || [];
+        const floorCuts = shapes.filter(s => s.type === 'shape_floor_cut');
+        const floorMeshes = this.interactables.filter(m => m.userData && m.userData.isFloor && !m.userData.isOutdoorZone);
+
+        // If number of rooms changed or no floor meshes exist, do a full active floor build
+        const rooms = (planner.rooms || []).filter(r => !r.isDeleted && !r.isHidden);
+        if (floorMeshes.length === 0 || floorMeshes.length !== rooms.length) {
+            const walls = planner.walls || [];
+            try {
+                // Clean old floor meshes
+                floorMeshes.forEach(f => {
+                    this.structureGroup.remove(f);
+                    if (f.geometry && !f.geometry.userData?.keepAlive) f.geometry.dispose();
+                });
+                this.interactables = this.interactables.filter(m => !(m.userData && m.userData.isFloor && !m.userData.isOutdoorZone));
+                this.envBuilder.buildActiveFloor(walls, rooms, shapes);
+            } catch(err) {
+                console.error('[Engine3D] buildActiveFloor err:', err);
+            }
+            if (this.requestRender) this.requestRender('floor_rebuild', 2);
+            return;
+        }
+
         const cleanPolygonPts = (p) => {
             if (!p || p.length < 3) return [];
             const res = [];
@@ -846,7 +875,6 @@ export class Preview3D {
             floorShape.closePath();
 
             const areaSelf = getPolyArea(cleanPath);
-            let isContainerRoom = false;
 
             floorMeshes.forEach(otherMesh => {
                 const otherRoom = otherMesh.userData?.entity;
@@ -862,7 +890,6 @@ export class Preview3D {
                     cy /= otherClean.length;
 
                     if (pointInPoly({ x: cx, y: cy }, cleanPath)) {
-                        isContainerRoom = true;
                         const isHoleCW = THREE.ShapeUtils.isClockWise(otherClean);
                         const holePts = isHoleCW ? otherClean : [...otherClean].reverse();
 
@@ -916,6 +943,8 @@ export class Preview3D {
             }
             floorMesh.geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
         });
+
+        if (this.requestRender) this.requestRender('floor_rebuild', 2);
     }
 
     deepDispose(obj) {

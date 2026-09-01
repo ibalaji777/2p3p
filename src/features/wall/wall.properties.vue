@@ -27,6 +27,22 @@
             </div>
         </div>
         
+        <!-- Sims 4 Interactive 3D Wall Operations -->
+        <div class="sims4-wall-ops-box" v-if="selectedEntity.type !== 'railing'">
+            <div class="ops-header">Sims 4 Wall Operations</div>
+            <div class="ops-btn-grid">
+                <button class="ops-btn" @click="onSplitWall" title="Split wall into two connected segments">
+                    ✂️ Split
+                </button>
+                <button class="ops-btn" @click="onExtrudeBay" title="Extrude middle section outward (Bay Window)">
+                    🏛️ Extrude (+30)
+                </button>
+                <button class="ops-btn" @click="onRecessNiche" title="Recess middle section inward (Niche Alcove)">
+                    🔲 Recess (-20)
+                </button>
+            </div>
+        </div>
+
         <div class="control-group" v-if="selectedEntity.type !== 'railing'" style="flex-direction: column; align-items: flex-start;">
             <label style="margin-bottom: 8px;">Top Profile Type</label>
             <div style="display: flex; gap: 8px; width: 100%;">
@@ -170,6 +186,7 @@ import { storeToRefs } from 'pinia';
 import { usePlannerStore } from '../../stores/usePlannerStore.js';
 import DimensionInput from '../../components/common/DimensionInput.vue';
 import MaterialSizeInput from '../../components/common/MaterialSizeInput.vue';
+import { WallReformer } from '../../core/engine2d/WallReformer.js';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true },
@@ -197,6 +214,30 @@ const { paintScope } = storeToRefs(plannerStore);
 const railingThumbnails = ref({});
 
 let previousScope = 'single';
+
+const onSplitWall = () => {
+    const planner = plannerStore.planner || window.plannerInstance;
+    if (!planner || !props.selectedEntity) return;
+    const p1 = (props.selectedEntity.startAnchor && typeof props.selectedEntity.startAnchor.position === 'function') ? props.selectedEntity.startAnchor.position() : (props.selectedEntity.startAnchor || { x: props.selectedEntity.startX || 0, y: props.selectedEntity.startY || 0 });
+    const p2 = (props.selectedEntity.endAnchor && typeof props.selectedEntity.endAnchor.position === 'function') ? props.selectedEntity.endAnchor.position() : (props.selectedEntity.endAnchor || { x: props.selectedEntity.endX || 0, y: props.selectedEntity.endY || 0 });
+    const midPt = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+    WallReformer.splitWallAtPoint(planner, props.selectedEntity, midPt);
+    emit('sync-engine');
+};
+
+const onExtrudeBay = () => {
+    const planner = plannerStore.planner || window.plannerInstance;
+    if (!planner || !props.selectedEntity) return;
+    WallReformer.extrudeWallSegment(planner, props.selectedEntity, 0.25, 0.75, 30);
+    emit('sync-engine');
+};
+
+const onRecessNiche = () => {
+    const planner = plannerStore.planner || window.plannerInstance;
+    if (!planner || !props.selectedEntity) return;
+    WallReformer.extrudeWallSegment(planner, props.selectedEntity, 0.25, 0.75, -20);
+    emit('sync-engine');
+};
 
 const handleKeyDown = (e) => {
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
@@ -322,5 +363,49 @@ watch(() => plannerStore.renderer3D, (newRenderer) => {
     border-color: #38bdf8;
     color: #ffffff;
     box-shadow: 0 0 12px rgba(14, 165, 233, 0.45);
+}
+
+.sims4-wall-ops-box {
+    margin: 10px 0 14px 0;
+    padding: 10px 12px;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+}
+
+.ops-header {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #475569;
+    margin-bottom: 8px;
+}
+
+.ops-btn-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr 1.2fr;
+    gap: 6px;
+}
+
+.ops-btn {
+    padding: 7px 4px;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 6px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    color: #1e293b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.ops-btn:hover {
+    background: #0ea5e9;
+    border-color: #0284c7;
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(14, 165, 233, 0.35);
 }
 </style>

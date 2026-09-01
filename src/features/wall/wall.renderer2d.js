@@ -674,7 +674,7 @@ export class PremiumWall {
             
             const myRay = rays[myIndex];
             
-            const maxMiterLength = ht * this.miterLimitRatio;
+            const maxMiterLength = ht * Math.min(this.miterLimitRatio || 1.5, 1.5);
 
             // Cross products to determine if the wedge is an inner corner (<180 deg) or outer corner (>180 deg)
             const cpL = myRay.dir.x * rightNeighbor.dir.y - myRay.dir.y * rightNeighbor.dir.x;
@@ -682,12 +682,18 @@ export class PremiumWall {
             let trueL = myRay.L_pt;
             const iL = intersectLines(myRay.L_pt, myRay.dir, rightNeighbor.R_pt, rightNeighbor.dir);
             if (iL) {
-                trueL = iL;
+                const distIL = Math.hypot(iL.x - P.x, iL.y - P.y);
+                if (distIL <= maxMiterLength) {
+                    trueL = iL;
+                } else {
+                    const dirL = { x: (iL.x - P.x) / distIL, y: (iL.y - P.y) / distIL };
+                    trueL = { x: P.x + dirL.x * maxMiterLength, y: P.y + dirL.y * maxMiterLength };
+                }
                 if (cpL >= -1e-5) { 
                     // Inner corner: Always use exact intersection to prevent inner geometry gaps/crossings
-                    leftSideCorner = iL;
+                    leftSideCorner = trueL;
                     leftSideBevel = null;
-                } else if (Math.hypot(iL.x - P.x, iL.y - P.y) <= maxMiterLength) { 
+                } else if (distIL <= maxMiterLength) { 
                     // Outer corner within miter limit
                     leftSideCorner = iL;
                     leftSideBevel = null;
@@ -707,12 +713,18 @@ export class PremiumWall {
             let trueR = myRay.R_pt;
             const iR = intersectLines(myRay.R_pt, myRay.dir, leftNeighbor.L_pt, leftNeighbor.dir);
             if (iR) {
-                trueR = iR;
+                const distIR = Math.hypot(iR.x - P.x, iR.y - P.y);
+                if (distIR <= maxMiterLength) {
+                    trueR = iR;
+                } else {
+                    const dirR = { x: (iR.x - P.x) / distIR, y: (iR.y - P.y) / distIR };
+                    trueR = { x: P.x + dirR.x * maxMiterLength, y: P.y + dirR.y * maxMiterLength };
+                }
                 if (cpR >= -1e-5) {
                     // Inner corner
-                    rightSideCorner = iR;
+                    rightSideCorner = trueR;
                     rightSideBevel = null;
-                } else if (Math.hypot(iR.x - P.x, iR.y - P.y) <= maxMiterLength) {
+                } else if (distIR <= maxMiterLength) {
                     // Outer corner within miter limit
                     rightSideCorner = iR;
                     rightSideBevel = null;

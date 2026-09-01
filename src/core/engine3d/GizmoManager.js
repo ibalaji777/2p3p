@@ -212,6 +212,11 @@ export class GizmoManager {
                     <input type="range" id="gizmo-opening-e-range" min="0" max="300" step="1" style="flex: 1; accent-color:#93c5fd;">
                     <input type="number" id="gizmo-opening-e" step="0.1" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 12px; outline: none; text-align: right;">
                 </div>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;" id="gizmo-opening-d-container">
+                    <span style="font-size:12px; color:#c084fc; font-weight:600; width: 45px;">Depth</span>
+                    <input type="range" id="gizmo-opening-d-range" min="1" max="100" step="1" style="flex: 1; accent-color:#c084fc;">
+                    <input type="number" id="gizmo-opening-d" step="0.1" style="width: 45px; background: transparent; border: none; border-bottom: 1px solid rgba(255,255,255,0.2); color: white; padding: 2px; font-size: 12px; outline: none; text-align: right;">
+                </div>
                 <div style="display: flex; gap: 8px; margin-top: 4px;" id="gizmo-opening-flips">
                     <button id="gizmo-opening-flip-inout" style="flex: 1; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 4px; padding: 4px; font-size: 11px; cursor: pointer; transition: all 0.2s;">Flip In/Out</button>
                     <button id="gizmo-opening-flip-lr" style="flex: 1; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 4px; padding: 4px; font-size: 11px; cursor: pointer; transition: all 0.2s;">Flip L/R</button>
@@ -793,12 +798,18 @@ export class GizmoManager {
             const opHR = document.getElementById('gizmo-opening-h-range');
             const opE = document.getElementById('gizmo-opening-e');
             const opER = document.getElementById('gizmo-opening-e-range');
+            const opD = document.getElementById('gizmo-opening-d');
+            const opDR = document.getElementById('gizmo-opening-d-range');
             const updateOpeningPos = (prop, val) => {
                 if (this.ctx.interactions.selectedObject && this.ctx.interactions.selectedObject.userData.entity) {
                     const entity = this.ctx.interactions.selectedObject.userData.entity;
                     if (prop === 'width') entity.width = val;
                     if (prop === 'height') entity.height = val;
                     if (prop === 'elevation') entity.elevation = val;
+                    if (prop === 'depth') {
+                        entity.depth = val;
+                        if (entity.params) entity.params.depth = val;
+                    }
                     
                     if (this.ctx.realtimeUpdate) {
                         this.ctx.realtimeUpdate.markDirty(entity, 'geometry');
@@ -813,6 +824,7 @@ export class GizmoManager {
             if (opW) { opW.addEventListener('input', e => updateOpeningPos('width', parseFloat(e.target.value))); opWR.addEventListener('input', e => updateOpeningPos('width', parseFloat(e.target.value))); }
             if (opH) { opH.addEventListener('input', e => updateOpeningPos('height', parseFloat(e.target.value))); opHR.addEventListener('input', e => updateOpeningPos('height', parseFloat(e.target.value))); }
             if (opE) { opE.addEventListener('input', e => updateOpeningPos('elevation', parseFloat(e.target.value))); opER.addEventListener('input', e => updateOpeningPos('elevation', parseFloat(e.target.value))); }
+            if (opD) { opD.addEventListener('input', e => updateOpeningPos('depth', parseFloat(e.target.value))); opDR.addEventListener('input', e => updateOpeningPos('depth', parseFloat(e.target.value))); }
             
             const flipInOutBtn = document.getElementById('gizmo-opening-flip-inout');
             const flipLRBtn = document.getElementById('gizmo-opening-flip-lr');
@@ -3260,11 +3272,11 @@ export class GizmoManager {
             if (selectedObj) {
                 this.ctx.interactions.setHighlight(selectedObj, true);
                 
-                // Return camera to normal state when done with gizmo
+                // Return camera to normal state when done with gizmo (only if autofocus is explicitly desired)
                 try {
                     const isRoofObj = selectedObj.userData?.isRoof || (selectedObj.userData?.entity && selectedObj.userData.entity.type === 'roof');
                     const settings = useSettingsStore().floorPlanSettings;
-                    if (!isRoofObj && settings.autoFocus !== false && this.ctx.cameraController) {
+                    if (!isRoofObj && settings.autoFocus !== false && this.ctx.cameraController && !this.ctx.preventAutoFocus && !force) {
                         this.ctx.cameraController.focusOnObject(selectedObj, null, settings.autoRotate !== false, 1.0);
                     }
                 } catch(e) {}
@@ -3277,8 +3289,8 @@ export class GizmoManager {
 
         tc.showY = true;
         tc.showZ = true;
-        // Auto-focus and adjust zoom when entering a gizmo mode (skip for roof to keep camera stable)
-        if (mode !== 'none' && selectedObj) {
+        // Auto-focus and adjust zoom when entering a gizmo mode (skip if autofocus prevented or on roof)
+        if (mode !== 'none' && selectedObj && !this.ctx.preventAutoFocus && !force) {
             try {
                 const isRoofObj = selectedObj.userData?.isRoof || (selectedObj.userData?.entity && selectedObj.userData.entity.type === 'roof');
                 const settings = useSettingsStore().floorPlanSettings;
@@ -3588,6 +3600,9 @@ export class GizmoManager {
         const opHR = document.getElementById('gizmo-opening-h-range');
         const opE = document.getElementById('gizmo-opening-e');
         const opER = document.getElementById('gizmo-opening-e-range');
+        const opD = document.getElementById('gizmo-opening-d');
+        const opDR = document.getElementById('gizmo-opening-d-range');
+        const dContainer = document.getElementById('gizmo-opening-d-container');
         const flipContainer = document.getElementById('gizmo-opening-flips');
         const typeContainer = document.getElementById('gizmo-opening-type-container');
         const typeSelect = document.getElementById('gizmo-opening-type');
@@ -3595,12 +3610,19 @@ export class GizmoManager {
         const w = entity.width || 100;
         let h = entity.height; if (h === undefined) h = (entity.type === 'door') ? 80 : ((entity.type === 'window') ? 45 : 200);
         let e = entity.elevation; if (e === undefined) e = (entity.type === 'window') ? 35 : 0;
+        let d = entity.depth !== undefined ? entity.depth : (entity.params?.depth !== undefined ? entity.params.depth : (entity.type === 'niche_recess' ? 6 : 10));
         if (opW && document.activeElement !== opW) opW.value = w.toFixed(1); if (opWR && document.activeElement !== opWR) opWR.value = w.toFixed(1);
         if (opH && document.activeElement !== opH) opH.value = h.toFixed(1); if (opHR && document.activeElement !== opHR) opHR.value = h.toFixed(1);
         if (opE && document.activeElement !== opE) opE.value = e.toFixed(1); if (opER && document.activeElement !== opER) opER.value = e.toFixed(1);
+        if (opD && document.activeElement !== opD) opD.value = d.toFixed(1); if (opDR && document.activeElement !== opDR) opDR.value = d.toFixed(1);
+
+        if (dContainer) {
+            const hasDepth = entity.type === 'niche_recess' || entity.type === 'sunshade' || entity.type === 'jali_panel' || entity.type === 'elevation_fascia' || entity.type === 'curtain' || entity.type.startsWith('curtain') || entity.type === 'wall_art' || entity.type.startsWith('decor_wall_') || entity.depth !== undefined;
+            dContainer.style.display = hasDepth ? 'flex' : 'none';
+        }
 
         if (flipContainer) {
-            flipContainer.style.display = (entity.type === 'door' || entity.type === 'window' || entity.type === 'jali_panel' || entity.type === 'sunshade' || entity.type === 'curtain' || entity.type.startsWith('curtain') || entity.type === 'wall_art' || entity.type.startsWith('decor_wall_')) ? 'flex' : 'none';
+            flipContainer.style.display = (entity.type === 'door' || entity.type === 'window' || entity.type === 'niche_recess' || entity.type === 'jali_panel' || entity.type === 'sunshade' || entity.type === 'curtain' || entity.type.startsWith('curtain') || entity.type === 'wall_art' || entity.type.startsWith('decor_wall_')) ? 'flex' : 'none';
         }
         if (typeContainer && typeSelect) {
             if (entity.type === 'door') {

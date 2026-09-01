@@ -1131,16 +1131,37 @@ export class EnvironmentBuilder {
         // ====== MITER JOINT SHEARING ======
         const pts = typeof w.poly?.points === 'function' ? w.poly.points() : null;
         let localSL_x = 0, localSR_x = 0, localEL_x = length, localER_x = length;
+        const hasStartCap = w.wallShapeData?.hasStartCap ?? (w.startAnchor ? (w.startAnchor.connectedWalls ? w.startAnchor.connectedWalls.length <= 1 : true) : true);
+        const hasEndCap = w.wallShapeData?.hasEndCap ?? (w.endAnchor ? (w.endAnchor.connectedWalls ? w.endAnchor.connectedWalls.length <= 1 : true) : true);
+
         if (pts && pts.length === 8) {
             const toLocalX = (ptX, ptY) => {
                 const dx_pt = ptX - p1.x;
                 const dy_pt = ptY - p1.y;
                 return dx_pt * Math.cos(angle) + dy_pt * Math.sin(angle);
             };
-            localSL_x = toLocalX(pts[0], pts[1]);
-            localEL_x = toLocalX(pts[2], pts[3]);
-            localER_x = toLocalX(pts[4], pts[5]);
-            localSR_x = toLocalX(pts[6], pts[7]);
+
+            if (!hasStartCap) {
+                localSL_x = toLocalX(pts[0], pts[1]);
+                localSR_x = toLocalX(pts[6], pts[7]);
+                const maxMiterStart = t * 1.0;
+                localSL_x = Math.max(-maxMiterStart, Math.min(maxMiterStart, localSL_x));
+                localSR_x = Math.max(-maxMiterStart, Math.min(maxMiterStart, localSR_x));
+            } else {
+                localSL_x = 0;
+                localSR_x = 0;
+            }
+
+            if (!hasEndCap) {
+                localEL_x = toLocalX(pts[2], pts[3]);
+                localER_x = toLocalX(pts[4], pts[5]);
+                const maxMiterEnd = t * 1.0;
+                localEL_x = Math.max(length - maxMiterEnd, Math.min(length + maxMiterEnd, localEL_x));
+                localER_x = Math.max(length - maxMiterEnd, Math.min(length + maxMiterEnd, localER_x));
+            } else {
+                localEL_x = length;
+                localER_x = length;
+            }
         }
 
         const shearGeo = (geo) => {
@@ -1148,7 +1169,7 @@ export class EnvironmentBuilder {
             for (let i = 0; i < pos.count; i++) {
                 const x = pos.getX(i);
                 const z = pos.getZ(i);
-                const tZ = (z + t / 2) / t;
+                const tZ = Math.max(0, Math.min(1, (z + t / 2) / t));
                 const startX = localSR_x + tZ * (localSL_x - localSR_x);
                 const endX = localER_x + tZ * (localEL_x - localER_x);
                 
@@ -2114,37 +2135,58 @@ export class EnvironmentBuilder {
                         
                         // ====== MITER JOINT SHEARING ======
                         let localSL_x = 0, localSR_x = 0, localEL_x = length, localER_x = length;
+                        const hasStartCap = w.wallShapeData?.hasStartCap ?? true;
+                        const hasEndCap = w.wallShapeData?.hasEndCap ?? true;
+
                         if (w.pts && w.pts.length === 8) {
                             const toLocalX = (ptX, ptY) => {
                                 const dx_pt = ptX - w.startX;
                                 const dy_pt = ptY - w.startY;
                                 return dx_pt * Math.cos(angle) + dy_pt * Math.sin(angle);
                             };
-                            localSL_x = toLocalX(w.pts[0], w.pts[1]);
-                            localEL_x = toLocalX(w.pts[2], w.pts[3]);
-                            localER_x = toLocalX(w.pts[4], w.pts[5]);
-                            localSR_x = toLocalX(w.pts[6], w.pts[7]);
 
-                        const shearGeo = (geo, geomThickness = w.thickness) => {
-                            const pos = geo.attributes.position;
-                            for (let i = 0; i < pos.count; i++) {
-                                const x = pos.getX(i);
-                                const z = pos.getZ(i);
-                                const tZ = Math.max(0, Math.min(1, (z + geomThickness / 2) / geomThickness));
-                                const startX = localSR_x + tZ * (localSL_x - localSR_x);
-                                const endX = localER_x + tZ * (localEL_x - localER_x);
-                                
-                                if (x <= 0.1) {
-                                    pos.setX(i, startX);
-                                } else if (x >= length - 0.1) {
-                                    pos.setX(i, endX);
-                                } else {
-                                    pos.setX(i, x);
-                                }
+                            if (!hasStartCap) {
+                                localSL_x = toLocalX(w.pts[0], w.pts[1]);
+                                localSR_x = toLocalX(w.pts[6], w.pts[7]);
+                                const maxMiterStart = w.thickness * 1.0;
+                                localSL_x = Math.max(-maxMiterStart, Math.min(maxMiterStart, localSL_x));
+                                localSR_x = Math.max(-maxMiterStart, Math.min(maxMiterStart, localSR_x));
+                            } else {
+                                localSL_x = 0;
+                                localSR_x = 0;
                             }
-                            geo.computeVertexNormals();
-                        };
-                        shearGeo(wallGeo, w.thickness);
+
+                            if (!hasEndCap) {
+                                localEL_x = toLocalX(w.pts[2], w.pts[3]);
+                                localER_x = toLocalX(w.pts[4], w.pts[5]);
+                                const maxMiterEnd = w.thickness * 1.0;
+                                localEL_x = Math.max(length - maxMiterEnd, Math.min(length + maxMiterEnd, localEL_x));
+                                localER_x = Math.max(length - maxMiterEnd, Math.min(length + maxMiterEnd, localER_x));
+                            } else {
+                                localEL_x = length;
+                                localER_x = length;
+                            }
+
+                            const shearGeo = (geo, geomThickness = w.thickness) => {
+                                const pos = geo.attributes.position;
+                                for (let i = 0; i < pos.count; i++) {
+                                    const x = pos.getX(i);
+                                    const z = pos.getZ(i);
+                                    const tZ = Math.max(0, Math.min(1, (z + geomThickness / 2) / geomThickness));
+                                    const startX = localSR_x + tZ * (localSL_x - localSR_x);
+                                    const endX = localER_x + tZ * (localEL_x - localER_x);
+                                    
+                                    if (x <= 0.1) {
+                                        pos.setX(i, startX);
+                                    } else if (x >= length - 0.1) {
+                                        pos.setX(i, endX);
+                                    } else {
+                                        pos.setX(i, x);
+                                    }
+                                }
+                                geo.computeVertexNormals();
+                            };
+                            shearGeo(wallGeo, w.thickness);
                         }
                         // ==================================
                         

@@ -417,4 +417,169 @@ export class WallReformer {
 
         return createdWalls;
     }
+
+    /**
+     * Split an existing wall into two connected sub-walls at point P.
+     */
+    static splitWallAtPoint(planner, wall, pt) {
+        if (!planner || !wall || !pt) return null;
+
+        const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
+        const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
+        
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const lenSq = dx * dx + dy * dy;
+        if (lenSq < 25) return null;
+
+        // Project point onto segment
+        let t = ((pt.x - p1.x) * dx + (pt.y - p1.y) * dy) / lenSq;
+        t = Math.max(0.05, Math.min(0.95, t));
+
+        const midX = Math.round(p1.x + t * dx);
+        const midY = Math.round(p1.y + t * dy);
+
+        const anc1 = wall.startAnchor || planner.getOrCreateAnchor(p1.x, p1.y);
+        const anc2 = wall.endAnchor || planner.getOrCreateAnchor(p2.x, p2.y);
+        const ancMid = planner.getOrCreateAnchor(midX, midY);
+
+        if (anc1 === ancMid || anc2 === ancMid) return null;
+
+        // Create Sub-wall 1 (p1 -> mid)
+        const wall1 = new PremiumWall(planner, anc1, ancMid, wall.type || 'outer');
+        wall1.height = wall.height;
+        wall1.thickness = wall.thickness;
+        wall1.elevation = wall.elevation;
+        if (wall.materials) wall1.materials = JSON.parse(JSON.stringify(wall.materials));
+        if (wall.config) wall1.config = JSON.parse(JSON.stringify(wall.config));
+        if (wall.params) wall1.params = JSON.parse(JSON.stringify(wall.params));
+
+        // Create Sub-wall 2 (mid -> p2)
+        const wall2 = new PremiumWall(planner, ancMid, anc2, wall.type || 'outer');
+        wall2.height = wall.height;
+        wall2.thickness = wall.thickness;
+        wall2.elevation = wall.elevation;
+        if (wall.materials) wall2.materials = JSON.parse(JSON.stringify(wall.materials));
+        if (wall.config) wall2.config = JSON.parse(JSON.stringify(wall.config));
+        if (wall.params) wall2.params = JSON.parse(JSON.stringify(wall.params));
+
+        // Transfer attached openings (doors/windows)
+        const wallLen = Math.hypot(dx, dy);
+        const subLen1 = wallLen * t;
+
+        if (wall.attachedEntities && wall.attachedEntities.length > 0) {
+            wall.attachedEntities.forEach(ent => {
+                const entX = ent.localX !== undefined ? ent.localX : (ent.x || 0);
+                if (entX <= subLen1) {
+                    if (!wall1.attachedEntities) wall1.attachedEntities = [];
+                    wall1.attachedEntities.push(ent);
+                    ent.wall = wall1;
+                } else {
+                    if (!wall2.attachedEntities) wall2.attachedEntities = [];
+                    ent.localX = entX - subLen1;
+                    wall2.attachedEntities.push(ent);
+                    ent.wall = wall2;
+                }
+            });
+        }
+
+        // Replace wall in planner
+        const idx = planner.walls.indexOf(wall);
+        if (idx !== -1) {
+            planner.walls.splice(idx, 1);
+            planner.walls.push(wall1, wall2);
+        }
+
+        if (wall.remove2D) wall.remove2D();
+        if (wall1.update) wall1.update();
+        if (wall2.update) wall2.update();
+
+        if (planner.syncAll) planner.syncAll();
+        if (planner.findRooms) planner.findRooms();
+
+        return [wall1, wall2];
+    }
+
+    /**
+     * Extrude or recess a section of a wall outward/inward by depth.
+     */
+    static extrudeWallSegment(planner, wall, tStart = 0.25, tEnd = 0.75, depth = 30) {
+        if (!planner || !wall) return null;
+
+        const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
+        const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
+
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const len = Math.hypot(dx, dy);
+        if (len < 30) return null;
+
+        const nx = -dy / len;
+        const ny = dx / len;
+
+        const ptA = { x: Math.round(p1.x + tStart * dx), y: Math.round(p1.y + tStart * dy) };
+        const ptB = { x: Math.round(p1.x + tEnd * dx), y: Math.round(p1.y + tEnd * dy) };
+        const ptA_ext = { x: Math.round(ptA.x + depth * nx), y: Math.round(ptA.y + depth * ny) };
+        const ptB_ext = { x: Math.round(ptB.x + depth * nx), y: Math.round(ptB.y + depth * ny) };
+
+        const anc1 = wall.startAnchor || planner.getOrCreateAnchor(p1.x, p1.y);
+        const anc2 = wall.endAnchor || planner.getOrCreateAnchor(p2.x, p2.y);
+        const ancA = planner.getOrCreateAnchor(ptA.x, ptA.y);
+        const ancB = planner.getOrCreateAnchor(ptB.x, ptB.y);
+        const ancA_ext = planner.getOrCreateAnchor(ptA_ext.x, ptA_ext.y);
+        const ancB_ext = planner.getOrCreateAnchor(ptB_ext.x, ptB_ext.y);
+
+        const newWalls = [];
+        const copyProps = (targetW) => {
+            targetW.height = wall.height;
+            targetW.thickness = wall.thickness;
+            targetW.elevation = wall.elevation;
+            if (wall.materials) targetW.materials = JSON.parse(JSON.stringify(wall.materials));
+            if (wall.config) targetW.config = JSON.parse(JSON.stringify(wall.config));
+        };
+
+        // 1. Initial segment (p1 -> ptA) if tStart > 0.05
+        if (tStart > 0.05) {
+            const wStart = new PremiumWall(planner, anc1, ancA, wall.type || 'outer');
+            copyProps(wStart);
+            newWalls.push(wStart);
+        }
+
+        // 2. Return Wall 1 (ptA -> ptA_ext)
+        const wReturn1 = new PremiumWall(planner, ancA, ancA_ext, wall.type || 'outer');
+        copyProps(wReturn1);
+        newWalls.push(wReturn1);
+
+        // 3. Front Extruded Face (ptA_ext -> ptB_ext)
+        const wFront = new PremiumWall(planner, ancA_ext, ancB_ext, wall.type || 'outer');
+        copyProps(wFront);
+        newWalls.push(wFront);
+
+        // 4. Return Wall 2 (ptB_ext -> ptB)
+        const wReturn2 = new PremiumWall(planner, ancB_ext, ancB, wall.type || 'outer');
+        copyProps(wReturn2);
+        newWalls.push(wReturn2);
+
+        // 5. Ending segment (ptB -> p2) if tEnd < 0.95
+        if (tEnd < 0.95) {
+            const wEnd = new PremiumWall(planner, ancB, anc2, wall.type || 'outer');
+            copyProps(wEnd);
+            newWalls.push(wEnd);
+        }
+
+        // Remove old wall and insert new extruded walls
+        const idx = planner.walls.indexOf(wall);
+        if (idx !== -1) {
+            planner.walls.splice(idx, 1);
+        }
+        planner.walls.push(...newWalls);
+
+        if (wall.remove2D) wall.remove2D();
+        newWalls.forEach(w => { if (w.update) w.update(); });
+
+        if (planner.syncAll) planner.syncAll();
+        if (planner.findRooms) planner.findRooms();
+
+        return newWalls;
+    }
 }

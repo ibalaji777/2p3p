@@ -1086,8 +1086,16 @@ export class WallPlugin3DPlacementSystem {
             coreEventBus.emit(EVENTS.SAVE_HISTORY, { action: `Place ${tool} in 3D` });
         }
 
-        // 3D In-Place CAD Rebuild
-        if (this.ctx.buildScene && planner) {
+        this.ctx.preventAutoFocus = true;
+
+        // In-Place CAD Rebuild: update the specific wall or rebuild scene cleanly
+        if (this.activeWall && typeof this.ctx.updateWallGeometryLive === 'function') {
+            try {
+                this.ctx.updateWallGeometryLive(this.activeWall);
+            } catch(e) {
+                console.warn('[WallPlugin3DPlacementSystem] In-place wall update fallback:', e);
+            }
+        } else if (this.ctx.buildScene && planner) {
             const levelsConfigArray = (planner.levels || []).map(l => ({ data: l.data, isVisible: l.isVisible !== false }));
             this.ctx.buildScene(
                 planner.walls,
@@ -1108,14 +1116,16 @@ export class WallPlugin3DPlacementSystem {
         if (typeof planner.updateToolStates === 'function') planner.updateToolStates();
         planner.syncAll();
 
-        if (this.ctx.requestRender) {
-            this.ctx.requestRender('3D Placement Complete', 5);
-        }
-
-        // Select new 3D entity smoothly without abruptly moving the camera
+        // Select new 3D entity smoothly without moving the camera
         if (createdEntity && createdEntity.mesh3D && this.interactions) {
             createdEntity.mesh3D.updateWorldMatrix(true, true);
             this.interactions.selectObject(createdEntity.mesh3D, null, true);
+        }
+
+        this.ctx.preventAutoFocus = false;
+
+        if (this.ctx.requestRender) {
+            this.ctx.requestRender('3D Placement Complete', 5);
         }
 
         this.hideGhost();

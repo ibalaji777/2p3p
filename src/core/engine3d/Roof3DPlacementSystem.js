@@ -566,7 +566,7 @@ export class Roof3DPlacementSystem {
             planner.selectEntity(newRoof, 'roof');
             if (newRoof.mesh3D && this.interactions) {
                 const targetMesh = newRoof.mesh3D.children.find(c => c.userData?.isRoof) || newRoof.mesh3D;
-                this.interactions.selectObject(targetMesh);
+                this.interactions.selectObject(targetMesh, null, true);
             }
 
             planner.tool = 'select';

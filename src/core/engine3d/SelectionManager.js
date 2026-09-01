@@ -248,32 +248,47 @@ export class SelectionManager {
             const p1 = w.startAnchor ? w.startAnchor.position() : {x: w.startX, y: w.startY};
             const p2 = w.endAnchor ? w.endAnchor.position() : {x: w.endX, y: w.endY};
             const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-            
+
+            const hasStartCap = w.wallShapeData?.hasStartCap ?? true;
+            const hasEndCap = w.wallShapeData?.hasEndCap ?? true;
+
             const toLocalX = (ptX, ptY) => {
                 const dx_pt = ptX - p1.x;
                 const dy_pt = ptY - p1.y;
                 return dx_pt * Math.cos(angle) + dy_pt * Math.sin(angle);
             };
-            const localSL_x = toLocalX(pts[0], pts[1]);
-            const localEL_x = toLocalX(pts[2], pts[3]);
-            const localER_x = toLocalX(pts[4], pts[5]);
-            const localSR_x = toLocalX(pts[6], pts[7]);
-            
+
+            let localSL_x = 0, localSR_x = 0, localEL_x = w.length3D, localER_x = w.length3D;
+            if (!hasStartCap) {
+                localSL_x = toLocalX(pts[0], pts[1]);
+                localSR_x = toLocalX(pts[6], pts[7]);
+                const maxMiterStart = currentT * 1.0;
+                localSL_x = Math.max(-maxMiterStart, Math.min(maxMiterStart, localSL_x));
+                localSR_x = Math.max(-maxMiterStart, Math.min(maxMiterStart, localSR_x));
+            }
+            if (!hasEndCap) {
+                localEL_x = toLocalX(pts[2], pts[3]);
+                localER_x = toLocalX(pts[4], pts[5]);
+                const maxMiterEnd = currentT * 1.0;
+                localEL_x = Math.max(w.length3D - maxMiterEnd, Math.min(w.length3D + maxMiterEnd, localEL_x));
+                localER_x = Math.max(w.length3D - maxMiterEnd, Math.min(w.length3D + maxMiterEnd, localER_x));
+            }
+
             const pos = targetMesh.geometry.attributes.position;
             for (let i = 0; i < pos.count; i++) {
                 const vx = pos.getX(i);
                 const wallX = (w.length3D / 2) + vx; 
-                const tZ = (zOffset + currentT/2) / currentT;
+                const tZ = Math.max(0, Math.min(1, (zOffset + currentT/2) / currentT));
                 const startX = localSR_x + tZ * (localSL_x - localSR_x);
                 const endX = localER_x + tZ * (localEL_x - localER_x);
-                
+
                 let shearedWallX = wallX;
                 if (wallX <= 0.1) {
                     shearedWallX = startX;
                 } else if (wallX >= w.length3D - 0.1) {
                     shearedWallX = endX;
                 }
-                
+
                 pos.setX(i, shearedWallX - w.length3D / 2);
             }
             targetMesh.geometry.computeVertexNormals();

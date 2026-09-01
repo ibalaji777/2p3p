@@ -12,6 +12,7 @@ import { RoofOverhangGizmo } from '../../features/roof/RoofOverhangGizmo.js';
 import { RoofPitchCurvatureGizmo } from '../../features/roof/RoofPitchCurvatureGizmo.js';
 import { PolygonGizmo } from './PolygonGizmo.js';
 import { WallPushPullGizmo } from './WallPushPullGizmo.js';
+import { WallInteractiveSuite } from './WallInteractiveSuite.js';
 import { Wall3DDrawSystem } from './Wall3DDrawSystem.js';
 import { Shape3DDrawSystem } from './Shape3DDrawSystem.js';
 import { WallPlugin3DPlacementSystem } from './WallPlugin3DPlacementSystem.js';
@@ -456,8 +457,8 @@ export class InteractionSystem {
         this.polygonGizmo = new PolygonGizmo(ctx);
         this.ctx.scene.add(this.polygonGizmo);
 
-        this.wallPushPullGizmo = new WallPushPullGizmo(ctx);
-        this.ctx.scene.add(this.wallPushPullGizmo);
+        this.wallInteractiveSuite = new WallInteractiveSuite(ctx);
+        this.ctx.scene.add(this.wallInteractiveSuite);
 
         this.wall3DDrawSystem = new Wall3DDrawSystem(ctx, this);
         this.shape3DDrawSystem = new Shape3DDrawSystem(ctx, this);
@@ -536,6 +537,20 @@ export class InteractionSystem {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
                 if (this.raycaster.intersectObjects(this.roofPitchGizmo.handles.children, true).length > 0) {
                     return;
+                }
+            }
+
+            // Direct check for interactive Wall Gizmo handles (Push/Pull, Corners, Height)
+            if (this.wallInteractiveSuite) {
+                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+                if (this.wallInteractiveSuite.pushPullGizmo && this.wallInteractiveSuite.pushPullGizmo.visible) {
+                    if (this.raycaster.intersectObjects(this.wallInteractiveSuite.pushPullGizmo.handles.children, true).length > 0) return;
+                }
+                if (this.wallInteractiveSuite.cornerGizmo && this.wallInteractiveSuite.cornerGizmo.visible) {
+                    if (this.raycaster.intersectObjects(this.wallInteractiveSuite.cornerGizmo.handles.children, true).length > 0) return;
+                }
+                if (this.wallInteractiveSuite.heightGizmo && this.wallInteractiveSuite.heightGizmo.visible) {
+                    if (this.raycaster.intersectObjects(this.wallInteractiveSuite.heightGizmo.handles.children, true).length > 0) return;
                 }
             }
             
@@ -912,6 +927,13 @@ export class InteractionSystem {
                 if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
             }
 
+            const isWallObj = object.userData?.isWallSide || object.userData?.isWall || object.userData?.entity?.type === 'outer' || object.userData?.entity?.type === 'inner' || object.userData?.entity?.type === 'compound';
+            if (isWallObj && this.wallInteractiveSuite) {
+                this.wallInteractiveSuite.attach(object, 'menu');
+            } else if (this.wallInteractiveSuite) {
+                this.wallInteractiveSuite.detach();
+            }
+
             if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
             if (window.plannerInstance && object.userData.entity && window.plannerInstance.selectedEntity !== object.userData.entity) {
                 window.plannerInstance.selectEntity(object.userData.entity, type);
@@ -954,7 +976,7 @@ export class InteractionSystem {
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
             if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
             if (this.polygonGizmo) this.polygonGizmo.detach();
-            if (this.wallPushPullGizmo) this.wallPushPullGizmo.detach();
+            if (this.wallInteractiveSuite) this.wallInteractiveSuite.detach();
             this.ctx.currentTransformMode = 'none';
             if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
             
@@ -1005,7 +1027,7 @@ export class InteractionSystem {
         if (this.roofOverhangGizmo && this.roofOverhangGizmo.dispose) this.roofOverhangGizmo.dispose();
         if (this.roofPitchGizmo && this.roofPitchGizmo.dispose) this.roofPitchGizmo.dispose();
         if (this.polygonGizmo && this.polygonGizmo.dispose) this.polygonGizmo.dispose();
-        if (this.wallPushPullGizmo && this.wallPushPullGizmo.dispose) this.wallPushPullGizmo.dispose();
+        if (this.wallInteractiveSuite && this.wallInteractiveSuite.dispose) this.wallInteractiveSuite.dispose();
         if (this.wall3DDrawSystem && this.wall3DDrawSystem.dispose) this.wall3DDrawSystem.dispose();
         if (this.shape3DDrawSystem && this.shape3DDrawSystem.destroy) this.shape3DDrawSystem.destroy();
         if (this.wallPluginPlacementSystem && this.wallPluginPlacementSystem.dispose) this.wallPluginPlacementSystem.dispose();

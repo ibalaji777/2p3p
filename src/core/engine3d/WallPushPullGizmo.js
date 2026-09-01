@@ -28,20 +28,23 @@ export class WallPushPullGizmo extends THREE.Group {
         this._capturedPointerId = null;
         
         this.handles = new THREE.Group();
+        this.handles.name = 'WallPushPull_Handles';
         this.add(this.handles);
         
-        // Materials
-        this.matFront = new THREE.MeshBasicMaterial({ color: 0x0ea5e9, depthTest: false, transparent: true, opacity: 0.9 });
-        this.matBack = new THREE.MeshBasicMaterial({ color: 0x8b5cf6, depthTest: false, transparent: true, opacity: 0.9 });
+        // Materials (Sims 4 Radiant Gold & Cyan Neon Styling)
+        this.matFront = new THREE.MeshBasicMaterial({ color: 0x00f0ff, depthTest: false, transparent: true, opacity: 0.95 });
+        this.matBack = new THREE.MeshBasicMaterial({ color: 0x38bdf8, depthTest: false, transparent: true, opacity: 0.95 });
         this.matHover = new THREE.MeshBasicMaterial({ color: 0xfacc15, depthTest: false, transparent: true, opacity: 1.0 });
         this.matActive = new THREE.MeshBasicMaterial({ color: 0x22c55e, depthTest: false, transparent: true, opacity: 1.0 });
         
         // Build Front and Back handles in local space
-        this.handleFront = this._buildArrowHandle('front', 0x0ea5e9);
-        this.handleBack = this._buildArrowHandle('back', 0x8b5cf6);
+        this.handleFront = this._buildSims4Handle('front', 0x00f0ff);
+        this.handleBack = this._buildSims4Handle('back', 0x38bdf8);
         
         this.handles.add(this.handleFront);
         this.handles.add(this.handleBack);
+
+        this._createLiveBadge();
         
         this._onPointerDown = this._onPointerDown.bind(this);
         this._onPointerMove = this._onPointerMove.bind(this);
@@ -53,40 +56,73 @@ export class WallPushPullGizmo extends THREE.Group {
         dom.addEventListener('pointerup', this._onPointerUp, { passive: false });
     }
 
-    _buildArrowHandle(side, color) {
+    _createLiveBadge() {
+        if (typeof document === 'undefined') return;
+        this.domBadge = document.createElement('div');
+        this.domBadge.className = 'sims4-pushpull-badge';
+        this.domBadge.style.cssText = `
+            position: absolute;
+            display: none;
+            transform: translate(-50%, -100%);
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.92);
+            border: 2px solid #facc15;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 12px rgba(250, 204, 21, 0.5);
+            color: #facc15;
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-size: 13px;
+            font-weight: 800;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 10000;
+            user-select: none;
+        `;
+        const container = this.ctx.renderer?.domElement?.parentElement || document.body;
+        container.appendChild(this.domBadge);
+    }
+
+    _buildSims4Handle(side, color) {
         const group = new THREE.Group();
         group.userData = { isWallPushPullHandle: true, side };
         group.renderOrder = 999;
         
-        // Central grip cylinder
-        const gripGeo = new THREE.CylinderGeometry(16, 16, 7, 24);
-        gripGeo.rotateX(Math.PI / 2);
-        const gripMesh = new THREE.Mesh(gripGeo, new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.9 }));
-        gripMesh.userData = { isWallPushPullHandle: true, side, part: 'grip' };
-        gripMesh.renderOrder = 999;
-        group.add(gripMesh);
+        // 0. Generous invisible hit collider for effortless selection
+        const hitGeo = new THREE.CylinderGeometry(28, 28, 48, 16);
+        hitGeo.rotateX(Math.PI / 2);
+        const hitMesh = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ visible: false }));
+        hitMesh.userData = { isWallPushPullHandle: true, side, part: 'hitbox' };
+        group.add(hitMesh);
 
-        // Center ring accent
-        const ringGeo = new THREE.TorusGeometry(10, 2, 12, 24);
-        const ringMesh = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true, opacity: 0.95 }));
+        // 1. Central glowing pill base
+        const baseGeo = new THREE.CylinderGeometry(14, 14, 6, 24);
+        baseGeo.rotateX(Math.PI / 2);
+        const baseMesh = new THREE.Mesh(baseGeo, new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.9 }));
+        baseMesh.userData = { isWallPushPullHandle: true, side, part: 'base' };
+        baseMesh.renderOrder = 999;
+        group.add(baseMesh);
+
+        // 2. Center ring accent
+        const ringGeo = new THREE.TorusGeometry(9, 1.8, 12, 24);
+        const ringMesh = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
         ringMesh.userData = { isWallPushPullHandle: true, side, part: 'ring' };
         ringMesh.renderOrder = 1000;
         group.add(ringMesh);
 
-        // Forward Cone (Pointing outward along +Z)
-        const arrowGeo = new THREE.ConeGeometry(12, 26, 20);
+        // 3. Outward Arrow Cone (Pointing outward along +Z)
+        const arrowGeo = new THREE.ConeGeometry(11, 24, 20);
         arrowGeo.rotateX(Math.PI / 2);
         const arrowMesh = new THREE.Mesh(arrowGeo, new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.95 }));
-        arrowMesh.position.set(0, 0, 20);
+        arrowMesh.position.set(0, 0, 18);
         arrowMesh.userData = { isWallPushPullHandle: true, side, part: 'arrow' };
         arrowMesh.renderOrder = 999;
         group.add(arrowMesh);
 
-        // Backward Cone (Pointing inward along -Z)
-        const backArrowGeo = new THREE.ConeGeometry(9, 18, 20);
+        // 4. Inward Arrow Cone (Pointing inward along -Z)
+        const backArrowGeo = new THREE.ConeGeometry(8, 16, 20);
         backArrowGeo.rotateX(-Math.PI / 2);
-        const backArrowMesh = new THREE.Mesh(backArrowGeo, new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.8 }));
-        backArrowMesh.position.set(0, 0, -16);
+        const backArrowMesh = new THREE.Mesh(backArrowGeo, new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.85 }));
+        backArrowMesh.position.set(0, 0, -14);
         backArrowMesh.userData = { isWallPushPullHandle: true, side, part: 'backArrow' };
         backArrowMesh.renderOrder = 999;
         group.add(backArrowMesh);
@@ -95,7 +131,9 @@ export class WallPushPullGizmo extends THREE.Group {
     }
 
     updateMouse(e) {
-        const rect = this.ctx.renderer.domElement.getBoundingClientRect();
+        const dom = this.ctx.renderer.domElement;
+        if (!dom) return;
+        const rect = dom.getBoundingClientRect();
         this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     }
@@ -114,7 +152,7 @@ export class WallPushPullGizmo extends THREE.Group {
         this.visible = false;
         this.isDragging = false;
         this.activeHandle = null;
-        this._resetHandleMaterials();
+        if (this.domBadge) this.domBadge.style.display = 'none';
     }
 
     _getWallEntity() {
@@ -145,14 +183,14 @@ export class WallPushPullGizmo extends THREE.Group {
             return;
         }
 
-        const p1 = wall.startAnchor ? wall.startAnchor.position() : { x: wall.startX || 0, y: wall.startY || 0 };
-        const p2 = wall.endAnchor ? wall.endAnchor.position() : { x: wall.endX || 0, y: wall.endY || 0 };
+        const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : { x: wall.startX || 0, y: wall.startY || 0 };
+        const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : { x: wall.endX || 0, y: wall.endY || 0 };
         const dx = p2.x - p1.x;
         const dy = p2.y - p1.y;
         const len = Math.hypot(dx, dy);
         if (len === 0) return;
 
-        const h = (wall.height !== undefined ? wall.height : (wall.config?.height || 300));
+        const h = (wall.height !== undefined ? wall.height : (wall.config?.height || 120));
         const t = (wall.thickness !== undefined ? wall.thickness : 20);
 
         // Align Gizmo transform with the Wall Group in 3D scene space
@@ -182,12 +220,13 @@ export class WallPushPullGizmo extends THREE.Group {
     _setGroupMaterial(group, mat) {
         group.children.forEach(c => {
             if (c.userData && c.userData.part === 'ring') return; // preserve white accent ring
+            if (c.material && c.material.visible === false) return; // preserve invisible hit collider
             if (c.material) c.material = mat;
         });
     }
 
     _onPointerDown(e) {
-        if (!this.visible || (this.ctx.currentTransformMode !== 'wall_push_pull' && this.ctx.currentTransformMode !== 'pushPull')) return;
+        if (!this.visible) return;
         if (e.button !== 0) return;
         
         this.updateMouse(e);
@@ -215,8 +254,8 @@ export class WallPushPullGizmo extends THREE.Group {
             const wall = this._getWallEntity();
             if (!wall) return;
             
-            const p1 = wall.startAnchor ? wall.startAnchor.position() : { x: wall.startX, y: wall.startY };
-            const p2 = wall.endAnchor ? wall.endAnchor.position() : { x: wall.endX, y: wall.endY };
+            const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : { x: wall.startX || 0, y: wall.startY || 0 };
+            const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : { x: wall.endX || 0, y: wall.endY || 0 };
             this.initialStart = { x: p1.x, y: p1.y };
             this.initialEnd = { x: p2.x, y: p2.y };
             
@@ -224,13 +263,17 @@ export class WallPushPullGizmo extends THREE.Group {
             const dy = p2.y - p1.y;
             const len = Math.hypot(dx, dy);
             if (len === 0) return;
-            this.wallNormal2D = { x: -dy / len, y: dx / len };
             
-            // Drag plane facing the camera coplanar with the handle contact point
+            // Wall normal vector in 2D
+            this.wallNormal2D = { x: -dy / len, y: dx / len };
+            if (side === 'back') {
+                this.wallNormal2D.x *= -1;
+                this.wallNormal2D.y *= -1;
+            }
+            
+            // Drag plane horizontal at handle height for stable, smooth 1:1 mouse tracking
             const hitPoint = intersects[0].point;
-            const camDir = new THREE.Vector3();
-            this.ctx.camera.getWorldDirection(camDir);
-            this.dragPlane.setFromNormalAndCoplanarPoint(camDir.negate(), hitPoint);
+            this.dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), hitPoint);
             this.dragStartPoint.copy(hitPoint);
             
             const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
@@ -248,7 +291,7 @@ export class WallPushPullGizmo extends THREE.Group {
     }
 
     _onPointerMove(e) {
-        if (!this.visible || (this.ctx.currentTransformMode !== 'wall_push_pull' && this.ctx.currentTransformMode !== 'pushPull')) return;
+        if (!this.visible) return;
         this.updateMouse(e);
 
         if (this.isDragging && this.activeHandle) {
@@ -266,9 +309,8 @@ export class WallPushPullGizmo extends THREE.Group {
                 // Project displacement vector along the wall normal
                 let dist = (deltaWorldX * this.wallNormal2D.x) + (deltaWorldZ * this.wallNormal2D.y);
                 
-                // Snap to 2.5cm increments for smooth CAD precision
-                const snapStep = 2.5;
-                dist = Math.round(dist / snapStep) * snapStep;
+                // Smooth 1cm stepping for responsive, fluid user control
+                dist = Math.round(dist);
                 
                 const wall = this._getWallEntity();
                 if (wall) {
@@ -286,18 +328,27 @@ export class WallPushPullGizmo extends THREE.Group {
                     wall.endX = newP2.x;
                     wall.endY = newP2.y;
 
-                    if (wall.startAnchor && wall.startAnchor.node) {
-                        wall.startAnchor.node.position(newP1);
+                    if (wall.startAnchor) {
+                        if (typeof wall.startAnchor.position === 'function') wall.startAnchor.position(newP1);
+                        if (wall.startAnchor.node && typeof wall.startAnchor.node.position === 'function') wall.startAnchor.node.position(newP1);
+                        wall.startAnchor.x = newP1.x;
+                        wall.startAnchor.y = newP1.y;
                         wall.startAnchor.lastValidPos = newP1;
                     }
-                    if (wall.endAnchor && wall.endAnchor.node) {
-                        wall.endAnchor.node.position(newP2);
+                    if (wall.endAnchor) {
+                        if (typeof wall.endAnchor.position === 'function') wall.endAnchor.position(newP2);
+                        if (wall.endAnchor.node && typeof wall.endAnchor.node.position === 'function') wall.endAnchor.node.position(newP2);
+                        wall.endAnchor.x = newP2.x;
+                        wall.endAnchor.y = newP2.y;
                         wall.endAnchor.lastValidPos = newP2;
                     }
                     
                     const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
-                    if (planner && typeof planner.syncAll === 'function') {
-                        planner.syncAll();
+                    if (planner) {
+                        if (typeof planner.syncAll === 'function') planner.syncAll();
+                        if (typeof planner.findRooms === 'function') {
+                            try { planner.findRooms(); } catch(err) {}
+                        }
                     }
                     
                     // Live update 3D meshes for moved wall and connected perpendicular walls
@@ -319,7 +370,23 @@ export class WallPushPullGizmo extends THREE.Group {
                         });
                     }
                     
+                    if (typeof this.ctx.rebuildActiveFloors === 'function') {
+                        try { this.ctx.rebuildActiveFloors(); } catch(err) {}
+                    }
+
                     this.updateHandles();
+
+                    // Update live floating badge
+                    if (this.domBadge) {
+                        const dom = this.ctx.renderer.domElement;
+                        const rect = dom.getBoundingClientRect();
+                        const screenX = ((this.mouse.x + 1) * rect.width) / 2;
+                        const screenY = ((-this.mouse.y + 1) * rect.height) / 2;
+                        this.domBadge.textContent = `${dist >= 0 ? '+' : ''}${Math.round(dist)} cm`;
+                        this.domBadge.style.left = `${screenX}px`;
+                        this.domBadge.style.top = `${screenY - 24}px`;
+                        this.domBadge.style.display = 'block';
+                    }
                     
                     if (this.ctx.interactions && this.ctx.interactions.dimensionManager) {
                         this.ctx.interactions.dimensionManager.update();
@@ -359,52 +426,55 @@ export class WallPushPullGizmo extends THREE.Group {
 
     _onPointerUp(e) {
         if (this.isDragging) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-            
-            if (this._capturedPointerId !== null && e.target && typeof e.target.releasePointerCapture === 'function') {
-                try { e.target.releasePointerCapture(this._capturedPointerId); } catch(err) {}
-            }
-            this._capturedPointerId = null;
-
             this.isDragging = false;
             this.activeHandle = null;
             this._resetHandleMaterials();
             
+            if (this.domBadge) this.domBadge.style.display = 'none';
+
+            if (this._capturedPointerId !== null && e.target && typeof e.target.releasePointerCapture === 'function') {
+                try { e.target.releasePointerCapture(this._capturedPointerId); } catch(err) {}
+                this._capturedPointerId = null;
+            }
+            
             if (this.ctx.controls) this.ctx.controls.enabled = true;
             this.ctx.renderer.domElement.style.cursor = 'auto';
             
-            const wall = this._getWallEntity();
             const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
-            
-            if (this._snapshotCmd && this._snapshotCmd.finalize && planner && planner.commandManager) {
+            if (planner) {
+                if (typeof planner.findRooms === 'function') {
+                    try { planner.findRooms(); } catch(err) {}
+                }
+                if (typeof planner.syncAll === 'function') planner.syncAll();
+            }
+            if (typeof this.ctx.rebuildActiveFloors === 'function') {
+                try { this.ctx.rebuildActiveFloors(); } catch(err) {}
+            }
+            if (planner && planner.commandManager && this._snapshotCmd) {
                 planner.commandManager.execute(this._snapshotCmd);
-            }
-            this._snapshotCmd = null;
-            
-            if (planner && typeof planner.syncAll === 'function') {
-                planner.syncAll();
+                this._snapshotCmd = null;
             }
             
-            coreEventBus.emit(EVENTS.WALL_PUSH_PULL_END, { entity: wall });
-            if (this.ctx.requestRender) this.ctx.requestRender('wall_push_pull_end', 2);
+            const wall = this._getWallEntity();
+            if (wall) {
+                coreEventBus.emit(EVENTS.WALL_CHANGE, { entity: wall });
+            }
+            
+            this.updateHandles();
+            if (this.ctx.requestRender) this.ctx.requestRender();
         }
     }
 
     dispose() {
-        const dom = this.ctx.renderer.domElement;
-        dom.removeEventListener('pointerdown', this._onPointerDown);
-        dom.removeEventListener('pointermove', this._onPointerMove);
-        dom.removeEventListener('pointerup', this._onPointerUp);
-        
-        [this.matFront, this.matBack, this.matHover, this.matActive].forEach(m => m.dispose());
-        [this.handleFront, this.handleBack].forEach(group => {
-            group.children.forEach(c => {
-                if (c.geometry) c.geometry.dispose();
-            });
-        });
-        
-        if (this.parent) this.parent.remove(this);
+        const dom = this.ctx.renderer?.domElement;
+        if (dom) {
+            dom.removeEventListener('pointerdown', this._onPointerDown);
+            dom.removeEventListener('pointermove', this._onPointerMove);
+            dom.removeEventListener('pointerup', this._onPointerUp);
+        }
+        if (this.domBadge && this.domBadge.parentElement) {
+            this.domBadge.parentElement.removeChild(this.domBadge);
+        }
+        this.detach();
     }
 }

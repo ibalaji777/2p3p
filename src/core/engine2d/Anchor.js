@@ -248,8 +248,17 @@ export class Anchor {
     }
     
     get x() { return this.node.x(); } 
+    set x(val) { this.node.x(val); this.lastValidPos.x = val; }
     get y() { return this.node.y(); } 
+    set y(val) { this.node.y(val); this.lastValidPos.y = val; }
     show() { this.node.show(); } 
     hide() { this.node.hide(); } 
-    position() { return this.node.position(); }
+    position(pos) { 
+        if (pos !== undefined) {
+            this.node.position(pos);
+            this.lastValidPos = { x: pos.x, y: pos.y };
+            return this;
+        }
+        return this.node.position(); 
+    }
 }

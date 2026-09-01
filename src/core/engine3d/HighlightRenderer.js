@@ -308,242 +308,25 @@ export class HighlightRenderer {
     }
 
     _buildWallHighlight(object, targetMesh, mode = 'normal') {
-        const side = object.userData.side;
-        const wallGroup = object.parent;
+        const side = object.userData?.side || 'front';
+        const wallGroup = object.isGroup ? object : (object.parent || object);
         if (!wallGroup || !wallGroup.userData || !wallGroup.userData.entity) return;
         const w = wallGroup.userData.entity;
 
         wallGroup.add(targetMesh);
 
-        let maxDepth = 0;
-        if (w.attachedDecor) {
-            w.attachedDecor.forEach(d => {
-                if (d.side === side && d.depth > maxDepth) maxDepth = d.depth;
-            });
-        }
+        // Find the authoritative wall skin mesh (hitFront / hitBack)
+        const skinMesh = (object.geometry && object.userData?.isWallSide)
+            ? object
+            : (wallGroup.children?.find(c => c.userData?.isWallSide && c.userData?.side === side)
+               || wallGroup.children?.find(c => c.userData?.isWallSide));
 
-        const isRailing = w.type === 'railing';
-        let currentH = w.height !== undefined ? w.height : (w.config?.height || (isRailing ? 0 : 300));
-        const currentT = w.thickness !== undefined ? w.thickness : (w.config?.thickness || (isRailing ? 4 : 8));
-        const totalH = isRailing ? currentH + 40 : currentH;
-
-        const profileType = w.topProfileType || 'normal';
-        const startH = w.startHeight !== undefined ? w.startHeight : totalH;
-        const endH = w.endHeight !== undefined ? w.endHeight : totalH;
-        const peakH = w.peakHeight !== undefined ? w.peakHeight : totalH;
-
-        // ZERO PADDING: hlWidth and hlHeight match exact wall dimensions
-        const hlWidth = w.length3D + (maxDepth * 2);
-        const hlHeight = totalH;
-        const halfW = hlWidth / 2;
-
-        const shape = new THREE.Shape();
-        shape.moveTo(-halfW, -hlHeight / 2);
-        shape.lineTo(halfW, -hlHeight / 2);
-
-        if (profileType === 'single') {
-            shape.lineTo(halfW, endH - (totalH / 2));
-            shape.lineTo(-halfW, startH - (totalH / 2));
-        } else if (profileType === 'gable') {
-            shape.lineTo(halfW, endH - (totalH / 2));
-            shape.lineTo(0, peakH - (totalH / 2));
-            shape.lineTo(-halfW, startH - (totalH / 2));
-        } else {
-            shape.lineTo(halfW, hlHeight / 2);
-            shape.lineTo(-halfW, hlHeight / 2);
-        }
-        shape.lineTo(-halfW, -hlHeight / 2);
-
-        // Openings Cutouts
-        if (w.attachedWidgets) {
-            w.attachedWidgets.forEach(widg => {
-                const type = widg.type || widg.configId;
-                const isOpening = ['door', 'window', 'jali_panel', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type);
-                if (!isOpening) return;
-
-                const wCenter = w.length3D * widg.t;
-                const halfOpeningW = widg.width / 2;
-                const cx = w.length3D / 2;
-                const cy = totalH / 2;
-                const hx_min = (wCenter - halfOpeningW) - cx;
-                const hx_max = (wCenter + halfOpeningW) - cx;
-
-                let elev = widg.elevation;
-                if (elev === undefined) elev = (type === 'window') ? 35 : 0;
-                let h_opening = widg.height;
-                if (h_opening === undefined) h_opening = (type === 'door') ? 80 : ((type === 'window') ? 45 : 200);
-                elev = Math.max(0, Math.min(elev, currentH));
-                h_opening = Math.max(0, Math.min(h_opening, currentH - elev));
-                const w_y_min = elev;
-                const w_y_max = elev + h_opening;
-
-                if (w_y_max > w_y_min) {
-                    const hy_min = w_y_min - cy;
-                    const hy_max = w_y_max - cy;
-                    const hole = new THREE.Path();
-                    const hCenter = wCenter - cx;
-
-                    const shapeType = widg.doorShape || widg.windowShape || widg.params?.doorShape || widg.params?.windowShape || widg.config?.doorShape || widg.config?.windowShape || widg.shape || (type === 'arch_opening' || widg.configId === 'entry_arched_double' ? 'radius' : 'square');
-
-                    if (shapeType === 'radius' || shapeType === 'arch' || shapeType === 'arched' || type === 'arch_opening') {
-                        const radius = halfOpeningW;
-                        const straightH = Math.max(0, (hy_max - hy_min) - radius);
-                        hole.moveTo(hx_min, hy_min);
-                        hole.lineTo(hx_max, hy_min);
-                        hole.lineTo(hx_max, hy_min + straightH);
-                        if (radius > 0) hole.absarc(hCenter, hy_min + straightH, radius, 0, Math.PI, false);
-                        else hole.lineTo(hx_min, hy_min + straightH);
-                        hole.lineTo(hx_min, hy_min);
-                        shape.holes.push(hole);
-                    } else if (shapeType === 'segment') {
-                        const rise = widg.width * 0.15;
-                        const straightH = Math.max(0, (hy_max - hy_min) - rise);
-                        hole.moveTo(hx_min, hy_min);
-                        hole.lineTo(hx_max, hy_min);
-                        hole.lineTo(hx_max, hy_min + straightH);
-                        hole.quadraticCurveTo(hCenter, hy_min + (hy_max - hy_min) + rise*0.5, hx_min, hy_min + straightH);
-                        hole.lineTo(hx_min, hy_min);
-                        shape.holes.push(hole);
-                    } else if (shapeType === 'gothic') {
-                        const straightH = Math.max(0, (hy_max - hy_min) - (widg.width * 0.7));
-                        hole.moveTo(hx_min, hy_min);
-                        hole.lineTo(hx_max, hy_min);
-                        hole.lineTo(hx_max, hy_min + straightH);
-                        hole.quadraticCurveTo(hCenter + halfOpeningW * 0.2, hy_max, hCenter, hy_max);
-                        hole.quadraticCurveTo(hCenter - halfOpeningW * 0.2, hy_max, hx_min, hy_min + straightH);
-                        hole.lineTo(hx_min, hy_min);
-                        shape.holes.push(hole);
-                    } else if (type === 'circular_opening') {
-                        hole.moveTo(hx_max, hy_min + (hy_max - hy_min) / 2);
-                        hole.absellipse(hCenter, hy_min + (hy_max - hy_min) / 2, halfOpeningW, (hy_max - hy_min) / 2, 0, Math.PI * 2, false, 0);
-                        shape.holes.push(hole);
-                    } else if (type === 'custom_shape_opening') {
-                        hole.moveTo(hCenter, hy_min);
-                        hole.lineTo(hx_max, hy_min + (hy_max - hy_min) / 2);
-                        hole.lineTo(hCenter, hy_max);
-                        hole.lineTo(hx_min, hy_min + (hy_max - hy_min) / 2);
-                        hole.lineTo(hCenter, hy_min);
-                        shape.holes.push(hole);
-                    } else {
-                        hole.moveTo(hx_min, hy_min);
-                        hole.lineTo(hx_max, hy_min);
-                        hole.lineTo(hx_max, hy_max);
-                        hole.lineTo(hx_min, hy_max);
-                        hole.lineTo(hx_min, hy_min);
-                        shape.holes.push(hole);
-                    }
-                }
-            });
-        }
-
-        if (targetMesh.geometry) targetMesh.geometry.dispose();
-        targetMesh.geometry = new THREE.ShapeGeometry(shape);
-        targetMesh.scale.set(1, 1, 1);
-
-        // Precise zOffset sitting flush against wall face
-        const zOffset = side === 'front' ? (currentT / 2 + maxDepth + HIGHLIGHT_CONFIG.SURFACE_OFFSET) : (-currentT / 2 - maxDepth - HIGHLIGHT_CONFIG.SURFACE_OFFSET);
-
-        // Shearing logic for miter joints
-        const startProfile = w.wallShapeData ? w.wallShapeData.startProfile : w.startProfile;
-        const endProfile = w.wallShapeData ? w.wallShapeData.endProfile : w.endProfile;
-        const pts = (w.poly && typeof w.poly.points === 'function') ? w.poly.points() : w.pts;
-
-        if (startProfile && endProfile && !isRailing) {
-            const p1 = w.startAnchor ? w.startAnchor.position() : { x: w.startX, y: w.startY };
-            const p2 = w.endAnchor ? w.endAnchor.position() : { x: w.endX, y: w.endY };
-            const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-
-            const toLocal = (ptX, ptY) => {
-                const dx = ptX - p1.x;
-                const dy = ptY - p1.y;
-                const c = Math.cos(angle);
-                const s = Math.sin(angle);
-                return { x: dx * c + dy * s, z: -dx * s + dy * c };
-            };
-            const startProfileLocal = startProfile.map(p => toLocal(p.x, p.y)).sort((a, b) => a.z - b.z);
-            const endProfileLocal = endProfile.map(p => toLocal(p.x, p.y)).sort((a, b) => a.z - b.z);
-
-            const interpolateX = (profile, zTarget) => {
-                if (profile.length === 1) return profile[0].x;
-                if (zTarget <= profile[0].z) return profile[0].x;
-                if (zTarget >= profile[profile.length - 1].z) return profile[profile.length - 1].x;
-                for (let j = 0; j < profile.length - 1; j++) {
-                    const pr1 = profile[j];
-                    const pr2 = profile[j + 1];
-                    if (zTarget >= pr1.z && zTarget <= pr2.z) {
-                        if (pr2.z === pr1.z) return pr1.x;
-                        const tr = (zTarget - pr1.z) / (pr2.z - pr1.z);
-                        return pr1.x + tr * (pr2.x - pr1.x);
-                    }
-                }
-                return profile[0].x;
-            };
-
-            const pos = targetMesh.geometry.attributes.position;
-            for (let i = 0; i < pos.count; i++) {
-                const vx = pos.getX(i);
-                const wallX = (w.length3D / 2) + vx;
-                const startX = interpolateX(startProfileLocal, zOffset);
-                const endX = interpolateX(endProfileLocal, zOffset);
-
-                let shearedWallX = wallX;
-                if (wallX <= 0.1) {
-                    shearedWallX = startX;
-                } else if (wallX >= w.length3D - 0.1) {
-                    shearedWallX = endX;
-                }
-                pos.setX(i, shearedWallX - w.length3D / 2);
-            }
-            targetMesh.geometry.computeVertexNormals();
-            targetMesh.geometry.computeBoundingBox();
-            targetMesh.geometry.computeBoundingSphere();
-        } else if (pts && pts.length === 8 && !isRailing) {
-            const p1 = w.startAnchor ? w.startAnchor.position() : { x: w.startX, y: w.startY };
-            const p2 = w.endAnchor ? w.endAnchor.position() : { x: w.endX, y: w.endY };
-            const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-
-            const toLocalX = (ptX, ptY) => {
-                const dx_pt = ptX - p1.x;
-                const dy_pt = ptY - p1.y;
-                return dx_pt * Math.cos(angle) + dy_pt * Math.sin(angle);
-            };
-            const localSL_x = toLocalX(pts[0], pts[1]);
-            const localEL_x = toLocalX(pts[2], pts[3]);
-            const localER_x = toLocalX(pts[4], pts[5]);
-            const localSR_x = toLocalX(pts[6], pts[7]);
-
-            const pos = targetMesh.geometry.attributes.position;
-            for (let i = 0; i < pos.count; i++) {
-                const vx = pos.getX(i);
-                const wallX = (w.length3D / 2) + vx;
-                const tZ = (zOffset + currentT / 2) / currentT;
-                const startX = localSR_x + tZ * (localSL_x - localSR_x);
-                const endX = localER_x + tZ * (localEL_x - localER_x);
-
-                let shearedWallX = wallX;
-                if (wallX <= 0.1) {
-                    shearedWallX = startX;
-                } else if (wallX >= w.length3D - 0.1) {
-                    shearedWallX = endX;
-                }
-                pos.setX(i, shearedWallX - w.length3D / 2);
-            }
-            targetMesh.geometry.computeVertexNormals();
-            targetMesh.geometry.computeBoundingBox();
-            targetMesh.geometry.computeBoundingSphere();
-        }
-
-        if (isRailing) {
-            const p1 = w.startAnchor ? w.startAnchor.position() : { x: w.startX, y: w.startY };
-            const p2 = w.endAnchor ? w.endAnchor.position() : { x: w.endX, y: w.endY };
-            const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-            targetMesh.position.set(p1.x, totalH / 2, p1.y);
-            targetMesh.rotation.set(0, -angle, 0);
-            targetMesh.translateX(w.length3D / 2);
-            targetMesh.translateZ(zOffset);
-        } else {
-            targetMesh.position.set(w.length3D / 2, totalH / 2, zOffset);
+        if (skinMesh && skinMesh.geometry) {
+            if (targetMesh.geometry) targetMesh.geometry.dispose();
+            targetMesh.geometry = skinMesh.geometry.clone();
+            targetMesh.position.set(0, 0, 0);
             targetMesh.rotation.set(0, 0, 0);
+            targetMesh.scale.set(1, 1, 1);
         }
 
         // Adjust opacity according to mode
