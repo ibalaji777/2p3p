@@ -84,7 +84,6 @@ export class ThumbnailGenerator {
 
     async generate(type, params) {
         // Normalize specific catalog IDs back to broad categories for special procedural generators
-        if (type && (type.startsWith('preset_dormer_') || type.startsWith('dormer_') || type === 'dormer')) type = 'dormer';
         if (type && (type.startsWith('skylight_') || type === 'skylight')) type = 'skylight';
 
         // 1. Unified Registry Lookup
@@ -98,11 +97,10 @@ export class ThumbnailGenerator {
         else if (STAIRCASE_REGISTRY && (STAIRCASE_REGISTRY[type] || (type && (type.startsWith('stair_v5_') || type.startsWith('stair_v4_') || type === 'staircase')))) registryConfig = STAIRCASE_REGISTRY['staircase'];
         else if (ROOF_REGISTRY && ROOF_REGISTRY[type]) registryConfig = ROOF_REGISTRY[type];
         else if (ROOF_REGISTRY && (type.startsWith('ridge_cresting') || type.startsWith('finial_') || type.startsWith('chimney_') || type.startsWith('roof_sculpture') || type.startsWith('roof_cresting') || type.startsWith('roof_finial') || type.startsWith('roof_chimney'))) registryConfig = ROOF_REGISTRY['roof_sculptures'];
-        else if (ROOF_REGISTRY && (type.startsWith('dormer') || type.startsWith('preset_dormer'))) registryConfig = ROOF_REGISTRY['dormer'];
         else if (ROOF_REGISTRY && (type.startsWith('skylight'))) registryConfig = ROOF_REGISTRY['skylight'];
         else if (ROOF_REGISTRY && type.startsWith('roof')) registryConfig = ROOF_REGISTRY['roof'];
 
-        const allowedNonWidgets = ['staircase', 'roof', 'dormer', 'skylight', 'roof_sculptures', 'roof_cresting', 'roof_finial', 'roof_chimney', 'outer', 'inner', 'compound', 'arc', 'shape_rect', 'shape_circle', 'shape_triangle', 'shape_polygon', 'shape_floor_cut', 'shape_box', 'shape_cyl', 'shape_prism', 'railing', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'opening', 'material_preview', 'material_preview_box'];
+        const allowedNonWidgets = ['staircase', 'roof', 'skylight', 'roof_sculptures', 'roof_cresting', 'roof_finial', 'roof_chimney', 'outer', 'inner', 'compound', 'arc', 'shape_rect', 'shape_circle', 'shape_triangle', 'shape_polygon', 'shape_floor_cut', 'shape_box', 'shape_cyl', 'shape_prism', 'railing', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'opening', 'material_preview', 'material_preview_box'];
         
         if (!registryConfig && !allowedNonWidgets.includes(type) && !type.startsWith('ridge_cresting_') && !type.startsWith('finial_') && !type.startsWith('chimney_')) return null;
 
@@ -177,7 +175,7 @@ export class ThumbnailGenerator {
 
         // 3. Procedural Assets Strategy
         if (!isModelLoaded) {
-            if (type.startsWith('roof') || type === 'dormer') {
+            if (type.startsWith('roof')) {
                 try {
                     if (ROOF_DECOR_REGISTRY['terracotta_tiles_roof']) await this.ctx.assets.getTexture(ROOF_DECOR_REGISTRY['terracotta_tiles_roof']);
                     if (WALL_DECOR_REGISTRY['white_plaster_wall']) await this.ctx.assets.getTexture(WALL_DECOR_REGISTRY['white_plaster_wall']);
@@ -611,7 +609,7 @@ const theta = 145 * Math.PI / 180;
             this.camera.position.set(65, 45, 75);
             this.camera.lookAt(0, 25, 0);
             activeCamera = this.camera;
-        } else if (type.startsWith('ridge_cresting') || type.startsWith('finial_') || type.startsWith('chimney_') || type.startsWith('roof_sculpture') || type.startsWith('roof_cresting') || type.startsWith('roof_finial') || type.startsWith('roof_chimney') || type.startsWith('dormer') || type === 'dormer' || type === 'skylight' || type.startsWith('skylight_')) {
+        } else if (type.startsWith('ridge_cresting') || type.startsWith('finial_') || type.startsWith('chimney_') || type.startsWith('roof_sculpture') || type.startsWith('roof_cresting') || type.startsWith('roof_finial') || type.startsWith('roof_chimney') || type === 'skylight' || type.startsWith('skylight_')) {
             const frustumSize = Math.max(70, maxDim * 1.25);
             this.camera.left = -frustumSize / 2;
             this.camera.right = frustumSize / 2;

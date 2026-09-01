@@ -1,6 +1,5 @@
 import { Roof3DBuilder } from './builders/Roof3DBuilder.js';
 import { RoofSculpture3DBuilder } from './builders/RoofSculpture3DBuilder.js';
-import { RoofDormer3DBuilder } from './builders/RoofDormer3DBuilder.js';
 import { Skylight3DBuilder } from './builders/Skylight3DBuilder.js';
 import * as THREE from 'three';
 
@@ -25,20 +24,6 @@ export const ROOF_REGISTRY = {
                 const errMesh = new THREE.Mesh(new THREE.BoxGeometry(w, 20, d), new THREE.MeshBasicMaterial({color: 0xff0000}));
                 errMesh.position.y = wallH + 10;
                 sceneGroup.add(errMesh);
-            }
-        }
-    },
-    'dormer': {
-        widget: "dormer",
-        label: "DORMER",
-        defaultConfig: { type: 'dormer_gable', width: 100, height: 85, depth: 120, roofType: 'gable', pitch: 35 },
-        render3D: (sceneGroup, entity, helpers) => {
-            try {
-                const builder = new RoofDormer3DBuilder(helpers.ctx);
-                const dormerMesh = builder.buildDormer(entity, null, 35);
-                sceneGroup.add(dormerMesh);
-            } catch(e) {
-                console.error("Dormer preview error", e);
             }
         }
     },
@@ -101,11 +86,6 @@ ROOF_REGISTRY['chimney_brick_traditional'] = ROOF_REGISTRY['roof_sculptures'];
 ROOF_REGISTRY['chimney_stone_tudor'] = ROOF_REGISTRY['roof_sculptures'];
 ROOF_REGISTRY['chimney_metal_flue'] = ROOF_REGISTRY['roof_sculptures'];
 ROOF_REGISTRY['chimney_double_brick'] = ROOF_REGISTRY['roof_sculptures'];
-
-ROOF_REGISTRY['dormer_gable'] = ROOF_REGISTRY['dormer'];
-ROOF_REGISTRY['dormer_shed'] = ROOF_REGISTRY['dormer'];
-ROOF_REGISTRY['dormer_hip'] = ROOF_REGISTRY['dormer'];
-ROOF_REGISTRY['dormer_barrel'] = ROOF_REGISTRY['dormer'];
 
 ROOF_REGISTRY['skylight_square_grid_inset'] = ROOF_REGISTRY['skylight'];
 ROOF_REGISTRY['skylight_diamond_lattice_inset'] = ROOF_REGISTRY['skylight'];

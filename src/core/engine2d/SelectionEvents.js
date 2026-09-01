@@ -11,7 +11,7 @@ export function setupSelectionEvents(planner) {
             if (!pos) return;
             let snapPos = { x: planner.snap(pos.x), y: planner.snap(pos.y) };
 
-            const presetId = planner.tool === 'dormer' ? planner.activePresetParams?.type : planner.tool;
+            const presetId = planner.tool;
             if (presetId && presetId.startsWith('preset_') && PRESET_REGISTRY[presetId] && planner.activePresetParams) {
                 const preset = PRESET_REGISTRY[presetId];
                 const alignData = autoAlign(planner, snapPos, planner.activePresetParams.elevation, planner.activePresetParams.depth);

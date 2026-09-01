@@ -145,7 +145,7 @@
 
                     <!-- Product Title & CAD Specifications (6px Extra Left/Right Padding) -->
                     <div class="card-title-wrap">
-                        <div class="product-rating" v-if="props.type === 'window' || props.type === 'door' || props.type === 'dormer' || props.type.startsWith('roof') || props.type === 'skylight'">
+                        <div class="product-rating" v-if="props.type === 'window' || props.type === 'door' || props.type.startsWith('roof') || props.type === 'skylight'">
                             <span class="star-icon">★★★★☆</span>
                         </div>
                         <span class="product-title">{{ item.name }}</span>
@@ -156,7 +156,7 @@
                             <span class="meta-specs" v-if="item.specs">{{ item.specs }}</span>
                         </div>
                         
-                        <div class="card-extra-meta" v-if="props.type === 'window' || props.type === 'door' || props.type === 'dormer' || props.type.startsWith('roof') || props.type === 'skylight'">
+                        <div class="card-extra-meta" v-if="props.type === 'window' || props.type === 'door' || props.type.startsWith('roof') || props.type === 'skylight'">
                             <span class="meta-tag" v-if="item.badge">{{ item.badge }}</span>
                             <span class="meta-tag" v-else>{{ props.type === 'window' ? 'Double Glass' : (props.type === 'door' ? 'Solid Core' : 'Sims 4 CAD') }}</span>
                             <span class="meta-tag text-green">Available</span>
@@ -268,7 +268,6 @@ const getCatalogHeaderTitle = () => {
         'wall_art': 'Wall Art & Frames Catalog',
         'staircase': 'Staircase Catalog',
         'roof': 'Roof Catalog',
-        'dormer': 'Dormer Catalog',
         'skylight': 'Skylights & Glass Addons',
         'roof_sculptures': 'Roof Sculptures & Decor',
         'roof_sculpture': 'Roof Sculptures & Decor',
@@ -437,13 +436,6 @@ const roofCatalog = ref([
     { id: 'roof_turret_hexagonal', name: 'Hexagonal Turret Roof', badge: '6-SIDED', material: 'Terracotta Green', specs: '40° 6-Sided Pyramid', image: '', toolId: 'roof', params: { roofType: 'turret_hexagonal', pitch: 40, material: 'terracotta_green_roof', type: 'roof' } },
     { id: 'roof_curved', name: 'Curved / Pagoda Roof', badge: 'CURVED', material: 'Blue Ceramic Tiles', specs: '30° Pitch (Curved Arch)', image: '', toolId: 'roof', params: { roofType: 'curved', pitch: 30, curve: -20, material: 'blue_ceramic_tiles_roof', type: 'roof' } },
     { id: 'roof_flat', name: 'Flat Roof / Terrace', badge: 'MODERN', material: 'Concrete Deck', specs: '150 mm Slab', image: '', toolId: 'roof', params: { roofType: 'flat', thick: 15, material: 'white_gravel_roof', type: 'roof' } },
-]);
-
-const dormerCatalog = ref([
-    { id: 'preset_dormer_gable', name: 'Gable Dormer', badge: 'CLASSIC', material: 'Wood Siding & Shingles', specs: 'A-Frame Peaked Roof (Sims 4)', image: '', toolId: 'dormer', params: { type: 'dormer_gable', width: 100, height: 85, depth: 120, roofType: 'gable', pitch: 35, sidingMaterial: 'wood_siding', trimMaterial: 'white_paint' } },
-    { id: 'preset_dormer_shed', name: 'Shed Dormer', badge: 'MODERN', material: 'Slanted Metal Roof', specs: 'Single Slope Overhang (Sims 4)', image: '', toolId: 'dormer', params: { type: 'dormer_shed', width: 140, height: 85, depth: 120, roofType: 'shed', pitch: 15, sidingMaterial: 'wood_siding', trimMaterial: 'white_paint' } },
-    { id: 'preset_dormer_hip', name: 'Hip Dormer', badge: 'HERITAGE', material: '3-Sided Tile Roof', specs: 'Hipped Roof Cap (Sims 4)', image: '', toolId: 'dormer', params: { type: 'dormer_hip', width: 100, height: 85, depth: 120, roofType: 'hip', pitch: 35, sidingMaterial: 'wood_siding', trimMaterial: 'white_paint' } },
-    { id: 'preset_dormer_barrel', name: 'Barrel Vault Dormer', badge: 'ARCHED', material: 'Semicircular Canopy', specs: 'Barrel Arch Roof (Sims 4)', image: '', toolId: 'dormer', params: { type: 'dormer_barrel', width: 100, height: 80, depth: 120, roofType: 'barrel', pitch: 35, sidingMaterial: 'wood_siding', trimMaterial: 'white_paint' } }
 ]);
 
 const skylightCatalog = ref([
@@ -1019,7 +1011,6 @@ const items = computed(() => {
     if (props.type === 'wall_art') return wallArtCatalog.value;
     if (props.type === 'staircase') return staircaseCatalog.value;
     if (props.type === 'roof') return roofCatalog.value;
-    if (props.type === 'dormer') return dormerCatalog.value;
     if (props.type === 'skylight') return skylightCatalog.value;
     if (props.type === 'roof_sculptures' || props.type === 'roof_sculpture' || props.type === 'roof_cresting' || props.type === 'roof_finial' || props.type === 'roof_chimney') return roofSculptureCatalog.value;
     if (props.type === 'skirting') return skirtingCatalog.value;

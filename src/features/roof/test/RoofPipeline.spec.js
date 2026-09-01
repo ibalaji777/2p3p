@@ -52,10 +52,9 @@ describe('Roof Pipeline & 3D Addition', () => {
         };
     });
 
-    it('1. should verify ROOF_REGISTRY contains roof and dormer components', () => {
+    it('1. should verify ROOF_REGISTRY contains roof components', () => {
         expect(ROOF_REGISTRY['roof']).toBeDefined();
         expect(ROOF_REGISTRY['roof'].defaultConfig.roofType).toBe('gable');
-        expect(ROOF_REGISTRY['dormer']).toBeDefined();
         expect(typeof ROOF_REGISTRY['roof'].render3D).toBe('function');
     });
 

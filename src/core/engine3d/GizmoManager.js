@@ -3296,7 +3296,7 @@ export class GizmoManager {
             if (selectedObj) {
                 if (selectedObj.userData.isRoof || (selectedObj.userData?.entity && selectedObj.userData.entity.type === 'roof')) {
                     activeGizmos = GIZMO_REGISTRY.roof;
-                } else if (selectedObj.userData.isRoofAddon || selectedObj.userData.isRoofDormer || selectedObj.userData.isRoofSculpture || selectedObj.userData.isSkylight) {
+                } else if (selectedObj.userData.isRoofAddon || selectedObj.userData.isRoofSculpture || selectedObj.userData.isSkylight) {
                     activeGizmos = ['material', 'move', 'spin'];
                 } else if (type === 'door') {
                     activeGizmos = entity.doorType === 'french' ? GIZMO_REGISTRY.door_french : GIZMO_REGISTRY.door;

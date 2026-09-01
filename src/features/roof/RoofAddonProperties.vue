@@ -9,129 +9,8 @@
             <span class="addon-badge">{{ addonBadge }}</span>
         </div>
 
-        <!-- 1. DORMER CONTROLS -->
-        <div v-if="isDormer" class="addon-section">
-            <h4 class="props-subtitle">Dormer Style</h4>
-            <div class="control-group">
-                <label>Style Architecture</label>
-                <select v-model="entity.type" class="settings-select" @change="onUpdate">
-                    <option value="dormer_gable">Gable (A-Frame Classic)</option>
-                    <option value="dormer_shed">Shed (Slanted Modern)</option>
-                    <option value="dormer_hip">Hip (3-Sided Heritage)</option>
-                    <option value="dormer_barrel">Barrel Vault (Semicircular)</option>
-                </select>
-            </div>
-
-            <h4 class="props-subtitle">Window Assembly Component</h4>
-            <div class="window-toggle-box">
-                <div class="toggle-row">
-                    <span class="toggle-label">Include Window In Dormer</span>
-                    <button class="toggle-btn" :class="{ 'active': entity.hasWindow !== false }" @click="toggleWindow">
-                        {{ entity.hasWindow !== false ? '✓ Window Active' : '✕ No Window (Solid Wall)' }}
-                    </button>
-                </div>
-                <div v-if="entity.hasWindow !== false" class="window-sub-controls">
-                    <div class="control-group">
-                        <label>Window Frame Finish</label>
-                        <select v-model="entity.frameMaterial" class="settings-select" @change="onUpdate">
-                            <option value="white_paint">Clean White Plaster / Vinyl</option>
-                            <option value="metal_dark_steel">Charcoal Dark Steel</option>
-                            <option value="dark_wood">Dark Stained Oak Wood</option>
-                            <option value="metal_bronze">Antique Bronze Metal</option>
-                            <option value="galvanized_steel">Galvanized Silver</option>
-                        </select>
-                    </div>
-                    <div class="control-group">
-                        <label>Glazing Pane</label>
-                        <select v-model="entity.glassMaterial" class="settings-select" @change="onUpdate">
-                            <option value="glass">Clear Transparent Float Glass</option>
-                            <option value="reflective_glass">Reflective Blue Sky Glass</option>
-                            <option value="frosted_glass">Frosted Privacy Glass</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <h4 class="props-subtitle">Dimensions (cm)</h4>
-            <div class="dim-grid">
-                <div class="control-group">
-                    <label>Width</label>
-                    <input type="number" v-model.number="entity.width" min="50" max="300" step="5" class="settings-input" @input="onUpdate" />
-                </div>
-                <div class="control-group">
-                    <label>Height</label>
-                    <input type="number" v-model.number="entity.height" min="40" max="200" step="5" class="settings-input" @input="onUpdate" />
-                </div>
-                <div class="control-group">
-                    <label>Depth</label>
-                    <input type="number" v-model.number="entity.depth" min="50" max="300" step="5" class="settings-input" @input="onUpdate" />
-                </div>
-            </div>
-
-            <h4 class="props-subtitle">Position On Roof Slope</h4>
-            <div class="control-group">
-                <label>Across Roof Width (U)</label>
-                <div class="slider-wrap">
-                    <input type="range" v-model.number="entity.u" min="0.05" max="0.95" step="0.01" class="settings-slider" @input="onUpdate" />
-                    <span class="slider-val">{{ Math.round((entity.u || 0.5) * 100) }}%</span>
-                </div>
-            </div>
-            <div class="control-group">
-                <label>Up/Down Slope (V)</label>
-                <div class="slider-wrap">
-                    <input type="range" v-model.number="entity.v" min="0.05" max="0.95" step="0.01" class="settings-slider" @input="onUpdate" />
-                    <span class="slider-val">{{ Math.round((entity.v || 0.3) * 100) }}%</span>
-                </div>
-            </div>
-
-            <h4 class="props-subtitle">Materials & Siding</h4>
-            <div class="control-group">
-                <div class="label-row">
-                    <label>Cheek Sidewalls & Front</label>
-                    <button class="btn-micro-action" @click="matchOuterWall">Match Walls</button>
-                </div>
-                <select v-model="entity.sidingMaterial" class="settings-select" @change="onUpdate">
-                    <option value="wood_siding">White Wood Siding</option>
-                    <option value="white_paint">Clean White Wall Plaster</option>
-                    <option value="cream_siding">Cream Siding</option>
-                    <option value="red_brick">Red Brick Wall</option>
-                    <option value="rough_stone">Rustic Stone Wall</option>
-                    <option value="dark_wood">Dark Wood Siding</option>
-                    <option value="limestone">Limestone Ashlar</option>
-                </select>
-            </div>
-            <div class="control-group">
-                <div class="label-row">
-                    <label>Dormer Mini Roof Material</label>
-                    <button class="btn-micro-action" @click="matchMainRoof">Match Main Roof</button>
-                </div>
-                <select v-model="entity.roofMaterial" class="settings-select" @change="onUpdate">
-                    <option value="">Match Main Roof</option>
-                    <option value="terracotta_tiles_roof">Terracotta Clay Tiles</option>
-                    <option value="terracotta_red_roof">Terracotta Red Tiles</option>
-                    <option value="terracotta_green_roof">Terracotta Green Tiles</option>
-                    <option value="grey_slate_roof">Grey Slate Tiles</option>
-                    <option value="dark_asphalt_roof">Dark Asphalt Shingles</option>
-                    <option value="white_gravel_roof">White Gravel Mineral</option>
-                    <option value="blue_ceramic_tiles_roof">Blue Ceramic Tiles</option>
-                    <option value="standing_seam_metal">Standing Seam Metal</option>
-                    <option value="wood_shake">Cedar Wood Shake</option>
-                    <option value="glass_roof_square_grid">Square Grid Glass</option>
-                </select>
-            </div>
-            <div class="control-group">
-                <label>Bargeboards / Trim / Fascia</label>
-                <select v-model="entity.trimMaterial" class="settings-select" @change="onUpdate">
-                    <option value="white_paint">Clean White</option>
-                    <option value="metal_dark_steel">Charcoal Dark Steel</option>
-                    <option value="dark_wood">Dark Stained Oak</option>
-                    <option value="galvanized_steel">Galvanized Silver</option>
-                </select>
-            </div>
-        </div>
-
-        <!-- 2. CHIMNEY CONTROLS -->
-        <div v-else-if="isChimney" class="addon-section">
+        <!-- 1. CHIMNEY CONTROLS -->
+        <div v-if="isChimney" class="addon-section">
             <h4 class="props-subtitle">Chimney Stack Style</h4>
             <div class="control-group">
                 <label>Masonry Style</label>
@@ -311,11 +190,6 @@ const emit = defineEmits(['sync-engine', 'delete-entity']);
 
 const entity = computed(() => props.selectedEntity || {});
 
-const isDormer = computed(() => {
-    const t = entity.value.type || entity.value.addonType || '';
-    return t.startsWith('dormer_') || t === 'dormer' || entity.value.addonType === 'dormer';
-});
-
 const isChimney = computed(() => {
     const t = entity.value.type || entity.value.addonType || '';
     return t.startsWith('chimney_') || t === 'chimney' || entity.value.addonType === 'chimney';
@@ -337,7 +211,6 @@ const isSkylight = computed(() => {
 });
 
 const addonIcon = computed(() => {
-    if (isDormer.value) return '🏠';
     if (isChimney.value) return '🧱';
     if (isFinial.value) return '🧭';
     if (isCresting.value) return '⚡';
@@ -346,7 +219,6 @@ const addonIcon = computed(() => {
 });
 
 const addonTitle = computed(() => {
-    if (isDormer.value) return 'Roof Dormer';
     if (isChimney.value) return 'Chimney Stack';
     if (isFinial.value) return 'Apex Finial';
     if (isCresting.value) return 'Ridge Cresting';
@@ -355,7 +227,6 @@ const addonTitle = computed(() => {
 });
 
 const addonCategoryName = computed(() => {
-    if (isDormer.value) return 'Dormer';
     if (isChimney.value) return 'Chimney';
     if (isFinial.value) return 'Finial';
     if (isCresting.value) return 'Cresting';
@@ -364,41 +235,12 @@ const addonCategoryName = computed(() => {
 });
 
 const addonBadge = computed(() => {
-    if (isDormer.value) return 'SIMS 4 DORMER';
     if (isChimney.value) return 'MASONRY';
     if (isFinial.value) return 'PEAK SCULPTURE';
     if (isCresting.value) return 'RIDGE IRONWORK';
     if (isSkylight.value) return 'GLASS INSET';
     return 'ADDON';
 });
-
-function toggleWindow() {
-    if (entity.value.hasWindow === undefined) {
-        entity.value.hasWindow = false;
-    } else {
-        entity.value.hasWindow = !entity.value.hasWindow;
-    }
-    onUpdate();
-}
-
-function matchMainRoof() {
-    const pRoof = props.parentRoof || entity.value.parentRoof;
-    const mat = pRoof?.config?.material || pRoof?.material || '';
-    entity.value.roofMaterial = mat;
-    onUpdate();
-}
-
-function matchOuterWall() {
-    const pRoof = props.parentRoof || entity.value.parentRoof;
-    const planner = pRoof?.planner;
-    let wallMat = 'wood_siding';
-    if (planner?.walls) {
-        const outerWall = planner.walls.find(w => w.type === 'outer' && (w.materialFront || w.material));
-        if (outerWall) wallMat = outerWall.materialFront || outerWall.material;
-    }
-    entity.value.sidingMaterial = wallMat;
-    onUpdate();
-}
 
 function onUpdate() {
     emit('sync-engine');
@@ -409,10 +251,7 @@ function onDelete() {
     const pRoof = props.parentRoof || entity.value.parentRoof;
     if (pRoof) {
         const conf = pRoof.config || pRoof;
-        if (isDormer.value && Array.isArray(conf.dormers)) {
-            const idx = conf.dormers.indexOf(entity.value);
-            if (idx !== -1) conf.dormers.splice(idx, 1);
-        } else if (isChimney.value && Array.isArray(conf.chimneys)) {
+        if (isChimney.value && Array.isArray(conf.chimneys)) {
             const idx = conf.chimneys.indexOf(entity.value);
             if (idx !== -1) conf.chimneys.splice(idx, 1);
         } else if (isFinial.value && Array.isArray(conf.finials)) {

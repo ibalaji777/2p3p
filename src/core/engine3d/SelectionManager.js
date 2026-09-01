@@ -19,7 +19,7 @@ export class SelectionManager {
                 }
             }
             return this.selectWall(object);
-        } else if (object.userData.isFurniture || object.userData.isFloor || object.userData.isWidget || object.userData.isMolding || object.userData.isRoof || object.userData.isPattern || object.userData.isStair || object.userData.isFloorCutProxy || object.userData.isRoofAddon || object.userData.isRoofDormer || object.userData.isRoofSculpture || object.userData.isSkylight) {
+        } else if (object.userData.isFurniture || object.userData.isFloor || object.userData.isWidget || object.userData.isMolding || object.userData.isRoof || object.userData.isPattern || object.userData.isStair || object.userData.isFloorCutProxy || object.userData.isRoofAddon || object.userData.isRoofSculpture || object.userData.isSkylight) {
             return this.selectBasic(object);
         } else {
             if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
@@ -320,7 +320,7 @@ export class SelectionManager {
         else if (object.userData.isWidget) type = 'widget';
         else if (object.userData.isMolding) type = 'molding';
         else if (object.userData.isRoof) type = 'roof';
-        else if (object.userData.isRoofAddon || object.userData.isRoofDormer || object.userData.isRoofSculpture || object.userData.isSkylight) type = 'roof_addon';
+        else if (object.userData.isRoofAddon || object.userData.isRoofSculpture || object.userData.isSkylight) type = 'roof_addon';
         else if (object.userData.isPattern) type = 'advance_openings';
         else if (object.userData.isStair) type = 'stair';
         

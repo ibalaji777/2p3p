@@ -77,9 +77,7 @@ export const getMenuCategories = () => [
             { id: 'roof_cresting', name: 'Ridge Cresting' },
             { id: 'roof_finial', name: 'Apex Finials & Vanes' },
             { id: 'roof_chimney', name: 'Chimney Stacks' },
-            { isDivider: true, name: 'Dormers' },
-            { id: 'dormer', name: 'Dormer' },
-            ...Object.keys(PRESET_CATEGORIES).filter(cat => cat !== 'Dormers').reduce((acc, catName) => {
+            ...Object.keys(PRESET_CATEGORIES).reduce((acc, catName) => {
                 acc.push({ isDivider: true, name: catName });
                 PRESET_CATEGORIES[catName].forEach(preset => acc.push({ id: preset.id, name: preset.name, presetParams: { ...preset.defaultParams } }));
                 return acc;

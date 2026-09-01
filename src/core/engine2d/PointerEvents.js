@@ -307,7 +307,7 @@ export function setupPointerEvents(planner) {
                 return;
             }
 
-            const presetId = planner.tool === 'dormer' ? planner.activePresetParams?.type : planner.tool;
+            const presetId = planner.tool;
             if (presetId && presetId.startsWith('preset_') && PRESET_REGISTRY[presetId] && planner.activePresetParams) {
                 if (!planner.presetPreview) {
                     planner.presetPreview = new Konva.Shape({ stroke: '#4f46e5', strokeWidth: 2, fill: 'rgba(79, 70, 229, 0.2)', dash: [5, 5] });

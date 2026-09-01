@@ -220,77 +220,7 @@ function drawRectIcon(ctx, w, d) {
     ctx.stroke();
 }
 
-export const PRESET_REGISTRY = {
-    preset_dormer_gable: {
-        name: 'Gable Dormer', category: 'Dormers',
-        defaultParams: { width: 120, depth: 150, wallHeight: 120, roofType: 'gable', pitch: 35, elevation: 250 },
-        icon2d: (ctx, w, d) => {
-            drawRectIcon(ctx, w, d);
-            ctx.beginPath(); ctx.moveTo(0, -d/2); ctx.lineTo(0, d/2); ctx.stroke(); // ridge
-        },
-        generate: (planner, origin, p, autoAlignData, parentGroup = null) => {
-            const elev = autoAlignData?.isOnRoof ? autoAlignData.elevation : p.elevation;
-            const rot = autoAlignData?.rotation || 0;
-            const extraHeight = autoAlignData?.addedHeight || 0;
-            
-            if (!parentGroup) {
-                if (!planner.presetGroups) planner.presetGroups = [];
-                parentGroup = new PresetGroup(planner, 'preset_dormer_gable', p, origin, rot);
-                planner.presetGroups.push(parentGroup);
-            }
-            
-            createRectangularStructure(planner, origin, p.width, p.depth, p.wallHeight + extraHeight, p.roofType, p.pitch, elev, rot, parentGroup);
-            
-            if (planner.tool === 'select') planner.selectEntity(parentGroup, 'preset_group');
-            return parentGroup;
-        }
-    },
-    preset_dormer_shed: {
-        name: 'Shed Dormer', category: 'Dormers',
-        defaultParams: { width: 250, depth: 150, wallHeight: 120, roofType: 'flat', pitch: 15, elevation: 250 },
-        icon2d: (ctx, w, d) => { drawRectIcon(ctx, w, d); },
-        generate: (planner, origin, p, autoAlignData, parentGroup = null) => {
-            const elev = autoAlignData?.isOnRoof ? autoAlignData.elevation : p.elevation;
-            const rot = autoAlignData?.rotation || 0;
-            const extraHeight = autoAlignData?.addedHeight || 0;
-            
-            if (!parentGroup) {
-                if (!planner.presetGroups) planner.presetGroups = [];
-                parentGroup = new PresetGroup(planner, 'preset_dormer_shed', p, origin, rot);
-                planner.presetGroups.push(parentGroup);
-            }
-            
-            createRectangularStructure(planner, origin, p.width, p.depth, p.wallHeight + extraHeight, p.roofType, p.pitch, elev, rot, parentGroup);
-            
-            if (planner.tool === 'select') planner.selectEntity(parentGroup, 'preset_group');
-            return parentGroup;
-        }
-    },
-    preset_dormer_hip: {
-        name: 'Hip Dormer', category: 'Dormers',
-        defaultParams: { width: 150, depth: 150, wallHeight: 120, roofType: 'hip', pitch: 35, elevation: 250 },
-        icon2d: (ctx, w, d) => {
-            drawRectIcon(ctx, w, d);
-            ctx.beginPath(); ctx.moveTo(-w/2, 0); ctx.lineTo(w/2, 0); ctx.stroke();
-        },
-        generate: (planner, origin, p, autoAlignData, parentGroup = null) => {
-            const elev = autoAlignData?.isOnRoof ? autoAlignData.elevation : p.elevation;
-            const rot = autoAlignData?.rotation || 0;
-            const extraHeight = autoAlignData?.addedHeight || 0;
-            
-            if (!parentGroup) {
-                if (!planner.presetGroups) planner.presetGroups = [];
-                parentGroup = new PresetGroup(planner, 'preset_dormer_hip', p, origin, rot);
-                planner.presetGroups.push(parentGroup);
-            }
-            
-            createRectangularStructure(planner, origin, p.width, p.depth, p.wallHeight + extraHeight, p.roofType, p.pitch, elev, rot, parentGroup);
-            
-            if (planner.tool === 'select') planner.selectEntity(parentGroup, 'preset_group');
-            return parentGroup;
-        }
-    }
-};
+export const PRESET_REGISTRY = {};
 
 export const PRESET_CATEGORIES = {};
 for (const [id, preset] of Object.entries(PRESET_REGISTRY)) {
@@ -299,3 +229,4 @@ for (const [id, preset] of Object.entries(PRESET_REGISTRY)) {
     }
     PRESET_CATEGORIES[preset.category].push({ id, ...preset });
 }
+

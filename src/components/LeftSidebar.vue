@@ -389,7 +389,7 @@ const selectSubTool = (tool) => {
 const isCatalogTool = (toolId) => {
     const catalogTools = [
         'door', 'window', 'skirting', 'sunshade', 'jali_panel', 'curtain', 'wall_art', 'staircase', 'roof', 
-        'skylight', 'roof_sculptures', 'roof_cresting', 'roof_finial', 'roof_chimney', 'dormer', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 
+        'skylight', 'roof_sculptures', 'roof_cresting', 'roof_finial', 'roof_chimney', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 
         'outdoor_spaces', 'outdoor_pavement', 'outdoor_patio', 'outdoor_softscape', 'outdoor_other',
         'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'bathroom_catalog', 'electronics_catalog', 
         'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 
@@ -427,21 +427,6 @@ const getToolDetails = (toolId, toolName) => {
                 'Traditional brick, stone, and modern metal flue chimney stacks'
             ],
             btnText: 'Place Roof Sculpture'
-        };
-    }
-    if (toolId === 'dormer') {
-        return {
-            title: 'Roof Dormers Catalog',
-            subtitle: 'Sims 4 Architectural Dormers',
-            badge: '🏠 Roof Dormers',
-            icon: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline>',
-            description: 'Snap Gable, Shed, Hip, and Barrel dormers directly onto sloped roof surfaces.',
-            features: [
-                'Sims 4 Gable, Shed, Hip, and Barrel styles',
-                'Automatic roof pitch alignment & slope integration',
-                'Independent cheek siding, window frame, and roof materials'
-            ],
-            btnText: 'Place Roof Dormer'
         };
     }
     if (toolId === 'skylight') {
@@ -567,7 +552,6 @@ const getShortToolName = (toolId, name) => {
     if (toolId === 'roof_cresting') return 'Cresting';
     if (toolId === 'roof_finial') return 'Finials';
     if (toolId === 'roof_chimney') return 'Chimneys';
-    if (toolId === 'dormer') return 'Dormers';
     if (toolId === 'wall_catalog') return 'Walls';
     if (toolId === 'room_box') return 'Room Box';
     if (toolId === 'compound') return 'Compound';

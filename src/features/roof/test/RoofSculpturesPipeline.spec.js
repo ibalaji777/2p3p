@@ -392,20 +392,5 @@ describe('Sims 4 Roof Ridge Cresting, Apex Finials & Chimney Stacks Pipeline', (
             expect(finials.length).toBe(2);
             expect(finials[0].position.x).toBeLessThan(finials[1].position.x); // West apex < East apex
         });
-
-        it('renders procedural 3D thumbnail for dormers in ROOF_REGISTRY', async () => {
-            const { ROOF_REGISTRY } = await import('../roof.components.registry.js');
-            expect(ROOF_REGISTRY['dormer']).toBeDefined();
-            const group = new THREE.Group();
-            const { mockCtx } = createMockCtx();
-
-            ROOF_REGISTRY['dormer'].render3D(group, { type: 'preset_dormer_gable' }, { ctx: mockCtx });
-            expect(group.children.length).toBe(1);
-            const dormerGroup = group.children[0];
-            expect(dormerGroup.userData.isRoofDormer).toBe(true);
-            let meshCount = 0;
-            dormerGroup.traverse(c => { if (c.isMesh) meshCount++; });
-            expect(meshCount).toBeGreaterThanOrEqual(4); // front wall + cheeks + window + roof
-        });
     });
 });
