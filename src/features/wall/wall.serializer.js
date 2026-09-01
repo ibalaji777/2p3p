@@ -30,6 +30,14 @@ export const WallSerializer = {
             elevation: w.elevation,
             pts: typeof w.getExactPolygonPoints === 'function' ? w.getExactPolygonPoints() : (w.poly ? w.poly.points() : null),
             bevels: w.wallShapeData ? { start: w.wallShapeData.startData, end: w.wallShapeData.endData } : null,
+            startProfile: w.wallShapeData?.startProfile || null,
+            endProfile: w.wallShapeData?.endProfile || null,
+            wallShapeData: w.wallShapeData ? {
+                hasStartCap: w.wallShapeData.hasStartCap,
+                hasEndCap: w.wallShapeData.hasEndCap,
+                startProfile: w.wallShapeData.startProfile,
+                endProfile: w.wallShapeData.endProfile
+            } : null,
             elevationLayers: w.elevationLayers,
             widgets: w.attachedWidgets ? w.attachedWidgets.map(wid => {
                 if (typeof wid.serialize === 'function') return wid.serialize();

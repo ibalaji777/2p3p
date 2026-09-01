@@ -1125,58 +1125,87 @@ export class EnvironmentBuilder {
                             }
         });
 
-        const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: t, bevelEnabled: false });
+        const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: t, bevelEnabled: false, steps: 12 });
         wallGeo.translate(0, 0, -t / 2);
         
         // ====== MITER JOINT SHEARING ======
-        const pts = typeof w.poly?.points === 'function' ? w.poly.points() : null;
-        let localSL_x = 0, localSR_x = 0, localEL_x = length, localER_x = length;
+        const startProfile = w.wallShapeData?.startProfile || w.startProfile;
+        const endProfile = w.wallShapeData?.endProfile || w.endProfile;
+        const pts = typeof w.poly?.points === 'function' ? w.poly.points() : (w.pts || null);
         const hasStartCap = w.wallShapeData?.hasStartCap ?? (w.startAnchor ? (w.startAnchor.connectedWalls ? w.startAnchor.connectedWalls.length <= 1 : true) : true);
         const hasEndCap = w.wallShapeData?.hasEndCap ?? (w.endAnchor ? (w.endAnchor.connectedWalls ? w.endAnchor.connectedWalls.length <= 1 : true) : true);
 
-        if (pts && pts.length === 8) {
+        const toLocal = (ptX, ptY) => {
+            const dx = ptX - p1.x;
+            const dy = ptY - p1.y;
+            const c = Math.cos(angle);
+            const s = Math.sin(angle);
+            return { x: dx * c + dy * s, z: -dx * s + dy * c };
+        };
+
+        let startProfileLocal = null;
+        let endProfileLocal = null;
+
+        if (!hasStartCap && startProfile && startProfile.length > 0) {
+            startProfileLocal = startProfile.map(p => toLocal(p.x, p.y)).sort((a, b) => a.z - b.z);
+        } else if (!hasStartCap && pts && pts.length >= 8) {
             const toLocalX = (ptX, ptY) => {
                 const dx_pt = ptX - p1.x;
                 const dy_pt = ptY - p1.y;
                 return dx_pt * Math.cos(angle) + dy_pt * Math.sin(angle);
             };
-
-            if (!hasStartCap) {
-                localSL_x = toLocalX(pts[0], pts[1]);
-                localSR_x = toLocalX(pts[6], pts[7]);
-                const maxMiterStart = t * 1.0;
-                localSL_x = Math.max(-maxMiterStart, Math.min(maxMiterStart, localSL_x));
-                localSR_x = Math.max(-maxMiterStart, Math.min(maxMiterStart, localSR_x));
-            } else {
-                localSL_x = 0;
-                localSR_x = 0;
-            }
-
-            if (!hasEndCap) {
-                localEL_x = toLocalX(pts[2], pts[3]);
-                localER_x = toLocalX(pts[4], pts[5]);
-                const maxMiterEnd = t * 1.0;
-                localEL_x = Math.max(length - maxMiterEnd, Math.min(length + maxMiterEnd, localEL_x));
-                localER_x = Math.max(length - maxMiterEnd, Math.min(length + maxMiterEnd, localER_x));
-            } else {
-                localEL_x = length;
-                localER_x = length;
-            }
+            const sL_x = toLocalX(pts[0], pts[1]);
+            const sR_x = toLocalX(pts[6], pts[7]);
+            startProfileLocal = [{ x: sR_x, z: -t / 2 }, { x: sL_x, z: t / 2 }];
+        } else {
+            startProfileLocal = [{ x: 0, z: -t / 2 }, { x: 0, z: t / 2 }];
         }
+
+        if (!hasEndCap && endProfile && endProfile.length > 0) {
+            endProfileLocal = endProfile.map(p => toLocal(p.x, p.y)).sort((a, b) => a.z - b.z);
+        } else if (!hasEndCap && pts && pts.length >= 8) {
+            const toLocalX = (ptX, ptY) => {
+                const dx_pt = ptX - p1.x;
+                const dy_pt = ptY - p1.y;
+                return dx_pt * Math.cos(angle) + dy_pt * Math.sin(angle);
+            };
+            const eL_x = toLocalX(pts[2], pts[3]);
+            const eR_x = toLocalX(pts[4], pts[5]);
+            endProfileLocal = [{ x: eR_x, z: -t / 2 }, { x: eL_x, z: t / 2 }];
+        } else {
+            endProfileLocal = [{ x: length, z: -t / 2 }, { x: length, z: t / 2 }];
+        }
+
+        const interpolateX = (profile, zTarget) => {
+            if (!profile || profile.length === 0) return 0;
+            if (profile.length === 1) return profile[0].x;
+            if (zTarget <= profile[0].z) return profile[0].x;
+            if (zTarget >= profile[profile.length - 1].z) return profile[profile.length - 1].x;
+            for (let j = 0; j < profile.length - 1; j++) {
+                const pA = profile[j];
+                const pB = profile[j + 1];
+                if (zTarget >= pA.z && zTarget <= pB.z) {
+                    const dz = pB.z - pA.z;
+                    if (Math.abs(dz) < 1e-6) return pA.x;
+                    const factor = (zTarget - pA.z) / dz;
+                    return pA.x + factor * (pB.x - pA.x);
+                }
+            }
+            return profile[profile.length - 1].x;
+        };
 
         const shearGeo = (geo) => {
             const pos = geo.attributes.position;
             for (let i = 0; i < pos.count; i++) {
                 const x = pos.getX(i);
                 const z = pos.getZ(i);
-                const tZ = Math.max(0, Math.min(1, (z + t / 2) / t));
-                const startX = localSR_x + tZ * (localSL_x - localSR_x);
-                const endX = localER_x + tZ * (localEL_x - localER_x);
+                const sX = interpolateX(startProfileLocal, z);
+                const eX = interpolateX(endProfileLocal, z);
                 
                 if (x <= 0.1) {
-                    pos.setX(i, startX);
+                    pos.setX(i, sX);
                 } else if (x >= length - 0.1) {
-                    pos.setX(i, endX);
+                    pos.setX(i, eX);
                 } else {
                     pos.setX(i, x);
                 }
@@ -1184,9 +1213,7 @@ export class EnvironmentBuilder {
             geo.computeVertexNormals();
         };
 
-        if (pts && pts.length === 8) {
-            shearGeo(wallGeo);
-        }
+        shearGeo(wallGeo);
 
         // ====== MULTI-MATERIAL AND UV FIX FOR EXTRUDED WALLS ======
         let finalWallGeo = wallGeo.index ? wallGeo.toNonIndexed() : wallGeo.clone();
@@ -1253,14 +1280,13 @@ export class EnvironmentBuilder {
 
         const skinFrontGeo = new THREE.ShapeGeometry(wallShape);
         skinFrontGeo.translate(0, 0, t / 2 + 0.1);
-        if (pts && pts.length === 8) shearGeo(skinFrontGeo);
+        shearGeo(skinFrontGeo);
         const hitFront = new THREE.Mesh(skinFrontGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
         hitFront.userData = { isWallSide: true, side: 'front', entity: w };
 
         const skinBackGeo = new THREE.ShapeGeometry(wallShape);
-        skinBackGeo.rotateY(Math.PI);
-        skinBackGeo.translate(length, 0, -t / 2 - 0.1);
-        if (pts && pts.length === 8) shearGeo(skinBackGeo);
+        skinBackGeo.translate(0, 0, -t / 2 - 0.1);
+        shearGeo(skinBackGeo);
         const hitBack = new THREE.Mesh(skinBackGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
         hitBack.userData = { isWallSide: true, side: 'back', entity: w };
 
@@ -1269,14 +1295,12 @@ export class EnvironmentBuilder {
                 const mMesh = this.moldingBuilder.buildMolding(mold, length, t, this.ctx.helpers, w);
                 mMesh.userData.entity = mold;
                 mMesh.userData.moldData = mold;
-                if (pts && pts.length === 8) {
-                    if (mMesh.isGroup && mMesh.children.length > 0) {
-                        mMesh.children.forEach(c => {
-                            if (c.geometry) shearGeo(c.geometry);
-                        });
-                    } else if (mMesh.geometry) {
-                        shearGeo(mMesh.geometry);
-                    }
+                if (mMesh.isGroup && mMesh.children.length > 0) {
+                    mMesh.children.forEach(c => {
+                        if (c.geometry) shearGeo(c.geometry);
+                    });
+                } else if (mMesh.geometry) {
+                    shearGeo(mMesh.geometry);
                 }
                 extraMeshes.push(mMesh);
                 this.ctx.interactables.push(mMesh);
@@ -2130,64 +2154,93 @@ export class EnvironmentBuilder {
                                 }
                             });
                         }
-                        const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: w.thickness, bevelEnabled: false });
+                        const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: w.thickness, bevelEnabled: false, steps: 12 });
                         wallGeo.translate(0, 0, -w.thickness / 2);
                         
                         // ====== MITER JOINT SHEARING ======
-                        let localSL_x = 0, localSR_x = 0, localEL_x = length, localER_x = length;
-                        const hasStartCap = w.wallShapeData?.hasStartCap ?? true;
-                        const hasEndCap = w.wallShapeData?.hasEndCap ?? true;
+                        const startProfile = w.wallShapeData?.startProfile || w.startProfile;
+                        const endProfile = w.wallShapeData?.endProfile || w.endProfile;
+                        const hasStartCap = w.wallShapeData?.hasStartCap ?? false;
+                        const hasEndCap = w.wallShapeData?.hasEndCap ?? false;
 
-                        if (w.pts && w.pts.length === 8) {
+                        const toLocal = (ptX, ptY) => {
+                            const dx = ptX - w.startX;
+                            const dy = ptY - w.startY;
+                            const c = Math.cos(angle);
+                            const s = Math.sin(angle);
+                            return { x: dx * c + dy * s, z: -dx * s + dy * c };
+                        };
+
+                        let startProfileLocal = null;
+                        let endProfileLocal = null;
+
+                        if (!hasStartCap && startProfile && startProfile.length > 0) {
+                            startProfileLocal = startProfile.map(p => toLocal(p.x, p.y)).sort((a, b) => a.z - b.z);
+                        } else if (!hasStartCap && w.pts && w.pts.length >= 8) {
                             const toLocalX = (ptX, ptY) => {
                                 const dx_pt = ptX - w.startX;
                                 const dy_pt = ptY - w.startY;
                                 return dx_pt * Math.cos(angle) + dy_pt * Math.sin(angle);
                             };
-
-                            if (!hasStartCap) {
-                                localSL_x = toLocalX(w.pts[0], w.pts[1]);
-                                localSR_x = toLocalX(w.pts[6], w.pts[7]);
-                                const maxMiterStart = w.thickness * 1.0;
-                                localSL_x = Math.max(-maxMiterStart, Math.min(maxMiterStart, localSL_x));
-                                localSR_x = Math.max(-maxMiterStart, Math.min(maxMiterStart, localSR_x));
-                            } else {
-                                localSL_x = 0;
-                                localSR_x = 0;
-                            }
-
-                            if (!hasEndCap) {
-                                localEL_x = toLocalX(w.pts[2], w.pts[3]);
-                                localER_x = toLocalX(w.pts[4], w.pts[5]);
-                                const maxMiterEnd = w.thickness * 1.0;
-                                localEL_x = Math.max(length - maxMiterEnd, Math.min(length + maxMiterEnd, localEL_x));
-                                localER_x = Math.max(length - maxMiterEnd, Math.min(length + maxMiterEnd, localER_x));
-                            } else {
-                                localEL_x = length;
-                                localER_x = length;
-                            }
-
-                            const shearGeo = (geo, geomThickness = w.thickness) => {
-                                const pos = geo.attributes.position;
-                                for (let i = 0; i < pos.count; i++) {
-                                    const x = pos.getX(i);
-                                    const z = pos.getZ(i);
-                                    const tZ = Math.max(0, Math.min(1, (z + geomThickness / 2) / geomThickness));
-                                    const startX = localSR_x + tZ * (localSL_x - localSR_x);
-                                    const endX = localER_x + tZ * (localEL_x - localER_x);
-                                    
-                                    if (x <= 0.1) {
-                                        pos.setX(i, startX);
-                                    } else if (x >= length - 0.1) {
-                                        pos.setX(i, endX);
-                                    } else {
-                                        pos.setX(i, x);
-                                    }
-                                }
-                                geo.computeVertexNormals();
-                            };
-                            shearGeo(wallGeo, w.thickness);
+                            const sL_x = toLocalX(w.pts[0], w.pts[1]);
+                            const sR_x = toLocalX(w.pts[6], w.pts[7]);
+                            startProfileLocal = [{ x: sR_x, z: -w.thickness / 2 }, { x: sL_x, z: w.thickness / 2 }];
+                        } else {
+                            startProfileLocal = [{ x: 0, z: -w.thickness / 2 }, { x: 0, z: w.thickness / 2 }];
                         }
+
+                        if (!hasEndCap && endProfile && endProfile.length > 0) {
+                            endProfileLocal = endProfile.map(p => toLocal(p.x, p.y)).sort((a, b) => a.z - b.z);
+                        } else if (!hasEndCap && w.pts && w.pts.length >= 8) {
+                            const toLocalX = (ptX, ptY) => {
+                                const dx_pt = ptX - w.startX;
+                                const dy_pt = ptY - w.startY;
+                                return dx_pt * Math.cos(angle) + dy_pt * Math.sin(angle);
+                            };
+                            const eL_x = toLocalX(w.pts[2], w.pts[3]);
+                            const eR_x = toLocalX(w.pts[4], w.pts[5]);
+                            endProfileLocal = [{ x: eR_x, z: -w.thickness / 2 }, { x: eL_x, z: w.thickness / 2 }];
+                        } else {
+                            endProfileLocal = [{ x: length, z: -w.thickness / 2 }, { x: length, z: w.thickness / 2 }];
+                        }
+
+                        const interpolateX = (profile, zTarget) => {
+                            if (!profile || profile.length === 0) return 0;
+                            if (profile.length === 1) return profile[0].x;
+                            if (zTarget <= profile[0].z) return profile[0].x;
+                            if (zTarget >= profile[profile.length - 1].z) return profile[profile.length - 1].x;
+                            for (let j = 0; j < profile.length - 1; j++) {
+                                const pA = profile[j];
+                                const pB = profile[j + 1];
+                                if (zTarget >= pA.z && zTarget <= pB.z) {
+                                    const dz = pB.z - pA.z;
+                                    if (Math.abs(dz) < 1e-6) return pA.x;
+                                    const factor = (zTarget - pA.z) / dz;
+                                    return pA.x + factor * (pB.x - pA.x);
+                                }
+                            }
+                            return profile[profile.length - 1].x;
+                        };
+
+                        const shearGeo = (geo) => {
+                            const pos = geo.attributes.position;
+                            for (let i = 0; i < pos.count; i++) {
+                                const x = pos.getX(i);
+                                const z = pos.getZ(i);
+                                const sX = interpolateX(startProfileLocal, z);
+                                const eX = interpolateX(endProfileLocal, z);
+                                
+                                if (x <= 0.1) {
+                                    pos.setX(i, sX);
+                                } else if (x >= length - 0.1) {
+                                    pos.setX(i, eX);
+                                } else {
+                                    pos.setX(i, x);
+                                }
+                            }
+                            geo.computeVertexNormals();
+                        };
+                        shearGeo(wallGeo);
                         // ==================================
                         
                         // Fix for multi-material mapping on static walls

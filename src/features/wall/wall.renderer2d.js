@@ -674,7 +674,7 @@ export class PremiumWall {
             
             const myRay = rays[myIndex];
             
-            const maxMiterLength = ht * Math.min(this.miterLimitRatio || 1.5, 1.5);
+            const maxMiterLength = ht * (this.miterLimitRatio || 3.0);
 
             // Cross products to determine if the wedge is an inner corner (<180 deg) or outer corner (>180 deg)
             const cpL = myRay.dir.x * rightNeighbor.dir.y - myRay.dir.y * rightNeighbor.dir.x;
@@ -691,7 +691,7 @@ export class PremiumWall {
                 }
                 if (cpL >= -1e-5) { 
                     // Inner corner: Always use exact intersection to prevent inner geometry gaps/crossings
-                    leftSideCorner = trueL;
+                    leftSideCorner = iL;
                     leftSideBevel = null;
                 } else if (distIL <= maxMiterLength) { 
                     // Outer corner within miter limit
@@ -721,15 +721,15 @@ export class PremiumWall {
                     trueR = { x: P.x + dirR.x * maxMiterLength, y: P.y + dirR.y * maxMiterLength };
                 }
                 if (cpR >= -1e-5) {
-                    // Inner corner
-                    rightSideCorner = trueR;
+                    // Inner corner: Always use exact intersection
+                    rightSideCorner = iR;
                     rightSideBevel = null;
-                } else if (distIR <= maxMiterLength) {
+                } else if (distIR <= maxMiterLength) { 
                     // Outer corner within miter limit
                     rightSideCorner = iR;
                     rightSideBevel = null;
                 } else {
-                    // Outer corner exceeding miter limit
+                    // Outer corner exceeding miter limit: bevel cutoff
                     rightSideCorner = myRay.R_pt;
                     rightSideBevel = leftNeighbor.L_pt;
                 }
@@ -743,11 +743,13 @@ export class PremiumWall {
             if (isStart) {
                 finalL = leftSideCorner; finalR = rightSideCorner;
                 bevelL = leftSideBevel; bevelR = rightSideBevel;
-                trueFinalL = trueL; trueFinalR = trueR;
+                trueFinalL = (iL && cpL >= -1e-5) ? iL : trueL;
+                trueFinalR = (iR && cpR >= -1e-5) ? iR : trueR;
             } else {
                 finalL = rightSideCorner; finalR = leftSideCorner;
                 bevelL = rightSideBevel; bevelR = leftSideBevel;
-                trueFinalL = trueR; trueFinalR = trueL;
+                trueFinalL = (iR && cpR >= -1e-5) ? iR : trueR;
+                trueFinalR = (iL && cpL >= -1e-5) ? iL : trueL;
             }
 
             return { 
