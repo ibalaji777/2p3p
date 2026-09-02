@@ -1652,8 +1652,21 @@ export class EnvironmentBuilder {
                                             const facing = widg.facing || 1;
                                             const zOffset = (facing === 1) ? (w.thickness / 2 + depth / 2) : (-w.thickness / 2 - depth / 2);
                                             protrusionGeo.translate(wCenter, elev + h_opening / 2, zOffset);
-                                            const protrusionMat = (facing === 1) ? mm[4] : mm[5];
-                                            const protrusionMesh = new THREE.Mesh(protrusionGeo, protrusionMat);
+                                            
+                                            // 6-Face Material Array: [Right, Left, Top, Bottom, Front, Back]
+                                            const defaultMat = (facing === 1) ? mm[4] : mm[5];
+                                            const pParams = widg.params || {};
+                                            const getMat = (key) => key ? MaterialFactory.getMaterial(key, 'wall') : defaultMat;
+
+                                            const matRight = getMat(pParams.textureRight || pParams.textureSides || (facing === 1 ? w.params?.textureRight : w.params?.textureLeft));
+                                            const matLeft = getMat(pParams.textureLeft || pParams.textureSides || (facing === 1 ? w.params?.textureLeft : w.params?.textureRight));
+                                            const matTop = getMat(pParams.textureTop || w.params?.textureTop);
+                                            const matBottom = getMat(pParams.textureBottom || w.params?.textureBottom);
+                                            const matFront = getMat(pParams.textureFront || (facing === 1 ? w.params?.textureFront : w.params?.textureBack));
+                                            const matBack = getMat(pParams.textureBack || (facing === 1 ? w.params?.textureBack : w.params?.textureFront));
+
+                                            const protrusionMats = [matRight, matLeft, matTop, matBottom, matFront, matBack];
+                                            const protrusionMesh = new THREE.Mesh(protrusionGeo, protrusionMats);
                                             protrusionMesh.castShadow = true; protrusionMesh.receiveShadow = true;
                                             protrusionMesh.userData = { 
                                                 isWidget: true, 

@@ -1061,19 +1061,74 @@ export class WallPushPullGizmo extends THREE.Group {
             const selW = Math.max(10, Math.round(len * (this.tEnd - this.tStart)));
             const selH = Math.max(10, Math.round(this.elevTop - this.elevBottom));
             const selElev = Math.round(this.elevBottom);
-            const tCenter = (this.tStart + this.tEnd) / 2;
             const facing = this.activeFacing || 1;
 
-            // --- SOLID WALL BLOCK / PROTRUSION FOR EXTERIOR DESIGN ---
             const maxNicheDepth = Math.max(1, (wall.thickness || 20) - 3);
             const nicheDepth = Math.min(Math.round(Math.abs(extrudeD)), maxNicheDepth);
             const depthVal = extrudeD > 0 ? Math.round(extrudeD) : nicheDepth;
             const typeVal = extrudeD > 0 ? 'solid_protrusion' : 'niche_recess';
 
+            let targetWall = wall;
+
+            // Split into separate wall entity for the pulled solid block section
+            if (this.tStart > 0.05 || this.tEnd < 0.95) {
+                const getAnchor = (x, y) => {
+                    if (planner && typeof planner.getOrCreateAnchor === 'function') return planner.getOrCreateAnchor(x, y);
+                    if (planner && typeof planner.findOrCreateAnchor === 'function') return planner.findOrCreateAnchor(x, y);
+                    const anchorObj = { x, y, position: () => ({ x, y }) };
+                    if (planner && planner.anchors && Array.isArray(planner.anchors)) planner.anchors.push(anchorObj);
+                    return anchorObj;
+                };
+
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                const ptA = { x: Math.round(p1.x + this.tStart * dx), y: Math.round(p1.y + this.tStart * dy) };
+                const ptB = { x: Math.round(p1.x + this.tEnd * dx), y: Math.round(p1.y + this.tEnd * dy) };
+
+                const anc1 = wall.startAnchor || getAnchor(p1.x, p1.y);
+                const anc2 = wall.endAnchor || getAnchor(p2.x, p2.y);
+                const ancA = getAnchor(ptA.x, ptA.y);
+                const ancB = getAnchor(ptB.x, ptB.y);
+
+                const wallOpts = {
+                    type: wall.type || 'outer',
+                    height: wall.height,
+                    thickness: wall.thickness,
+                    elevation: wall.elevation || 0,
+                    params: wall.params ? JSON.parse(JSON.stringify(wall.params)) : {},
+                    addToPlanner: true
+                };
+
+                if (this.tStart > 0.05) {
+                    WallEngine.createWall(planner, {
+                        ...wallOpts,
+                        startAnchor: anc1,
+                        endAnchor: ancA
+                    });
+                }
+
+                targetWall = WallEngine.createWall(planner, {
+                    ...wallOpts,
+                    startAnchor: ancA,
+                    endAnchor: ancB
+                });
+
+                if (this.tEnd < 0.95) {
+                    WallEngine.createWall(planner, {
+                        ...wallOpts,
+                        startAnchor: ancB,
+                        endAnchor: anc2
+                    });
+                }
+
+                // Delete the original uncut wall
+                WallEngine.deleteWall(planner, wall);
+            }
+
             let widgetObj = null;
             if (planner && planner.wallLayer && typeof advance_openings === 'function') {
                 try {
-                    widgetObj = new advance_openings(planner, wall, tCenter, typeVal);
+                    widgetObj = new advance_openings(planner, targetWall, 0.5, typeVal);
                     widgetObj.width = selW;
                     widgetObj.height = selH;
                     widgetObj.elevation = selElev;
@@ -1089,21 +1144,23 @@ export class WallPushPullGizmo extends THREE.Group {
                     id: (extrudeD > 0 ? 'protrusion_' : 'niche_') + Date.now() + '_' + Math.floor(Math.random() * 1000),
                     type: typeVal,
                     configId: typeVal,
-                    t: tCenter,
+                    t: 0.5,
                     width: selW,
                     height: selH,
                     elevation: selElev,
                     depth: depthVal,
-                    thick: (wall.thickness || 20),
+                    thick: (targetWall.thickness || 20),
                     facing: facing,
-                    wall: wall
+                    wall: targetWall
                 };
             }
 
-            if (!wall.attachedWidgets) wall.attachedWidgets = [];
-            wall.attachedWidgets.push(widgetObj);
+            if (!targetWall.attachedWidgets) targetWall.attachedWidgets = [];
+            if (!targetWall.attachedWidgets.includes(widgetObj)) {
+                targetWall.attachedWidgets.push(widgetObj);
+            }
 
-            this._updateWallAndSiblings(wall);
+            this._updateWallAndSiblings(targetWall);
         } else {
             this._updateWallAndSiblings(wall);
         }

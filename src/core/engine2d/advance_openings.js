@@ -108,8 +108,10 @@ export class advance_openings {
     }
     
     update() {
-        const p1 = this.wall.startAnchor.position();
-        const p2 = this.wall.endAnchor.position();
+        if (!this.wall || !this.wall.startAnchor || !this.wall.endAnchor) return;
+        const p1 = typeof this.wall.startAnchor.position === 'function' ? this.wall.startAnchor.position() : this.wall.startAnchor;
+        const p2 = typeof this.wall.endAnchor.position === 'function' ? this.wall.endAnchor.position() : this.wall.endAnchor;
+        if (!p1 || !p2) return;
         
         const dx = p2.x - p1.x;
         const dy = p2.y - p1.y;
@@ -239,24 +241,41 @@ export class advance_openings {
         }
 
         // Dynamic Hitbox area
-        const hitHeight = Math.max(thick + 24, 40);
-        this.hitBox.setAttrs({
-            x: -hw, y: -hitHeight / 2, width: this.width, height: hitHeight
-        });
+        if (this.type === 'solid_protrusion') {
+            const depth = Math.abs(Number(this.depth) || 10);
+            const isBack = (this.facing === -1 || this.facing === 'back' || this.side === 'right');
+            const yPos = isBack ? (-thick / 2 - depth) : (thick / 2);
+            this.hitBox.setAttrs({
+                x: -hw, y: yPos, width: this.width, height: depth
+            });
+        } else {
+            const hitHeight = Math.max(thick + 24, 40);
+            this.hitBox.setAttrs({
+                x: -hw, y: -hitHeight / 2, width: this.width, height: hitHeight
+            });
+        }
     }
     
     setHighlight(isActive) {
         this.update();
     }
     
+    destroy() {
+        this.remove();
+    }
+
     remove() {
         window.removeEventListener('keydown', this.handleKeyDown);
-        this.cutter.destroy();
-        this.group.destroy();
+        if (this.cutter && typeof this.cutter.destroy === 'function') this.cutter.destroy();
+        if (this.group && typeof this.group.destroy === 'function') this.group.destroy();
         if (this.wall && this.wall.attachedWidgets) {
             this.wall.attachedWidgets = this.wall.attachedWidgets.filter(w => w !== this);
         }
-        this.planner.selectEntity(null);
-        this.planner.syncAll();
+        if (this.planner && this.planner.selectedEntity === this) {
+            this.planner.selectEntity(null);
+        }
+        if (this.planner && this.planner.syncAll) {
+            this.planner.syncAll();
+        }
     }
 }

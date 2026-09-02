@@ -735,12 +735,20 @@ export class WallTopologyEngine {
         const ptA_ext = { x: Math.round(ptA.x + depth * nx), y: Math.round(ptA.y + depth * ny) };
         const ptB_ext = { x: Math.round(ptB.x + depth * nx), y: Math.round(ptB.y + depth * ny) };
 
-        const anc1 = wall.startAnchor || planner.getOrCreateAnchor(p1.x, p1.y);
-        const anc2 = wall.endAnchor || planner.getOrCreateAnchor(p2.x, p2.y);
-        const ancA = planner.getOrCreateAnchor(ptA.x, ptA.y);
-        const ancB = planner.getOrCreateAnchor(ptB.x, ptB.y);
-        const ancA_ext = planner.getOrCreateAnchor(ptA_ext.x, ptA_ext.y);
-        const ancB_ext = planner.getOrCreateAnchor(ptB_ext.x, ptB_ext.y);
+        const getAnchor = (x, y) => {
+            if (planner && typeof planner.getOrCreateAnchor === 'function') return planner.getOrCreateAnchor(x, y);
+            if (planner && typeof planner.findOrCreateAnchor === 'function') return planner.findOrCreateAnchor(x, y);
+            const anchorObj = { x, y, position: () => ({ x, y }) };
+            if (planner && planner.anchors && Array.isArray(planner.anchors)) planner.anchors.push(anchorObj);
+            return anchorObj;
+        };
+
+        const anc1 = wall.startAnchor || getAnchor(p1.x, p1.y);
+        const anc2 = wall.endAnchor || getAnchor(p2.x, p2.y);
+        const ancA = getAnchor(ptA.x, ptA.y);
+        const ancB = getAnchor(ptB.x, ptB.y);
+        const ancA_ext = getAnchor(ptA_ext.x, ptA_ext.y);
+        const ancB_ext = getAnchor(ptB_ext.x, ptB_ext.y);
 
         const newWalls = [];
         const wallOpts = {
@@ -752,9 +760,12 @@ export class WallTopologyEngine {
             addToPlanner: true
         };
 
+        let wStart = null;
+        let wEnd = null;
+
         // 1. Initial segment (p1 -> ptA) if tStart > 0.05
         if (tStart > 0.05) {
-            const wStart = this.createWall(planner, {
+            wStart = this.createWall(planner, {
                 ...wallOpts,
                 startAnchor: anc1,
                 endAnchor: ancA
@@ -788,12 +799,48 @@ export class WallTopologyEngine {
 
         // 5. Ending segment (ptB -> p2) if tEnd < 0.95
         if (tEnd < 0.95) {
-            const wEnd = this.createWall(planner, {
+            wEnd = this.createWall(planner, {
                 ...wallOpts,
                 startAnchor: ancB,
                 endAnchor: anc2
             });
             newWalls.push(wEnd);
+        }
+
+        // Transfer attached widgets (openings, windows, doors, protrusions) to appropriate replacement segment
+        if (wall.attachedWidgets && wall.attachedWidgets.length > 0) {
+            wall.attachedWidgets.forEach(widget => {
+                const wT = widget.t !== undefined ? widget.t : 0.5;
+                const widgetData = typeof widget.serialize === 'function' ? widget.serialize() : { ...widget };
+                
+                let targetWall = wFront;
+                let mappedT = 0.5;
+
+                if (wStart && wT < tStart) {
+                    targetWall = wStart;
+                    mappedT = wT / tStart;
+                } else if (wEnd && wT > tEnd) {
+                    targetWall = wEnd;
+                    mappedT = (wT - tEnd) / (1 - tEnd);
+                } else {
+                    targetWall = wFront;
+                    mappedT = (tEnd > tStart) ? (wT - tStart) / (tEnd - tStart) : 0.5;
+                }
+
+                if (targetWall) {
+                    const newWidget = {
+                        ...widgetData,
+                        wall: targetWall,
+                        t: Math.max(0.01, Math.min(0.99, mappedT))
+                    };
+                    if (!targetWall.attachedWidgets) targetWall.attachedWidgets = [];
+                    targetWall.attachedWidgets.push(newWidget);
+                }
+
+                if (widget.destroy) widget.destroy();
+                else if (widget.remove) widget.remove();
+            });
+            wall.attachedWidgets = [];
         }
 
         // Transfer moldings along all new bay walls

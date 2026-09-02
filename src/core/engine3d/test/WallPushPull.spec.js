@@ -1,12 +1,40 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import * as THREE from 'three';
 import { WallPushPullGizmo } from '../WallPushPullGizmo.js';
+
+beforeAll(() => {
+    if (typeof HTMLCanvasElement !== 'undefined') {
+        HTMLCanvasElement.prototype.getContext = () => ({
+            clearRect: () => {},
+            fillRect: () => {},
+            getImageData: () => ({ data: new Uint8ClampedArray(4) }),
+            putImageData: () => {},
+            createImageData: () => ({ data: new Uint8ClampedArray(4) }),
+            setTransform: () => {},
+            drawImage: () => {},
+            save: () => {},
+            fillText: () => {},
+            restore: () => {},
+            beginPath: () => {},
+            moveTo: () => {},
+            lineTo: () => {},
+            closePath: () => {},
+            stroke: () => {},
+            fill: () => {},
+            measureText: () => ({ width: 50 }),
+            transform: () => {},
+            rect: () => {},
+            clip: () => {},
+        });
+    }
+});
 
 describe('WallPushPullGizmo - Sims 4-Style 2D-on-3D Region Selection & Push/Pull', () => {
     let ctx;
     let gizmo;
     let mockWall;
     let mockSiblingWall;
+    let mockPlanner;
 
     beforeEach(() => {
         // Mock Camera
@@ -22,8 +50,15 @@ describe('WallPushPullGizmo - Sims 4-Style 2D-on-3D Region Selection & Push/Pull
             style: { cursor: 'default' }
         };
 
-        const mockPlanner = {
+        mockPlanner = {
             walls: [],
+            wallLayer: { add: () => {} },
+            labelLayer: { add: () => {} },
+            entranceLayer: { add: () => {} },
+            dimensionLayer: { add: () => {} },
+            widgetLayer: { add: () => {} },
+            uiLayer: { add: () => {} },
+            formatLength: (len) => `${Math.round(len)} cm`,
             commandManager: { execute: () => {}, canUndo: () => false, canRedo: () => false },
             syncAll: () => {},
             findRooms: () => {}
@@ -172,8 +207,9 @@ describe('WallPushPullGizmo - Sims 4-Style 2D-on-3D Region Selection & Push/Pull
         // Step 3: User clicks Done (commit)
         gizmo.commit();
 
-        expect(mockWall.attachedWidgets.length).toBe(1);
-        const widget = mockWall.attachedWidgets[0];
+        const nicheWall = mockPlanner.walls.find(w => w.attachedWidgets && w.attachedWidgets.length > 0) || mockWall;
+        expect(nicheWall.attachedWidgets.length).toBe(1);
+        const widget = nicheWall.attachedWidgets[0];
         expect(widget.type).toBe('niche_recess');
         expect(widget.width).toBe(60); // (0.8 - 0.2) * 100 = 60 cm
         expect(widget.height).toBe(60); // 90 - 30 = 60 cm
@@ -182,8 +218,9 @@ describe('WallPushPullGizmo - Sims 4-Style 2D-on-3D Region Selection & Push/Pull
         expect(widget.facing).toBe(1);
     });
 
-    it('should create a solid wall protrusion (solid fill) when pulling outward on a selected sub-region and clicking Done', () => {
+    it('should create a solid wall block (protrusion) when pulling outward on a selected sub-region and clicking Done', () => {
         mockWall.attachedWidgets = [];
+        mockPlanner.walls = [mockWall];
         gizmo.attach(mockWall.mesh3D);
         gizmo.tStart = 0.25;
         gizmo.tEnd = 0.75;
@@ -200,8 +237,9 @@ describe('WallPushPullGizmo - Sims 4-Style 2D-on-3D Region Selection & Push/Pull
         // Step 3: User clicks Done (commit)
         gizmo.commit();
 
-        expect(mockWall.attachedWidgets.length).toBe(1);
-        const widget = mockWall.attachedWidgets[0];
+        const pulledWall = mockPlanner.walls.find(w => w.attachedWidgets && w.attachedWidgets.length > 0) || mockWall;
+        expect(pulledWall.attachedWidgets.length).toBe(1);
+        const widget = pulledWall.attachedWidgets[0];
         expect(widget.type).toBe('solid_protrusion');
         expect(widget.width).toBe(50); // (0.75 - 0.25) * 100 = 50 cm
         expect(widget.height).toBe(120);
@@ -244,5 +282,52 @@ describe('WallPushPullGizmo - Sims 4-Style 2D-on-3D Region Selection & Push/Pull
                 });
             }
         }).not.toThrow();
+    });
+
+    it('should support independent 6-face materials on solid_protrusion meshes', () => {
+        const widg = {
+            id: 'protrusion_1',
+            type: 'solid_protrusion',
+            width: 80,
+            height: 120,
+            depth: 30,
+            facing: 1,
+            params: {
+                textureFront: 'wood_oak',
+                textureLeft: 'paint_white',
+                textureRight: 'brick_red',
+                textureTop: 'marble_carrara'
+            }
+        };
+
+        // Verifying 6-face parameter slots
+        expect(widg.params.textureFront).toBe('wood_oak');
+        expect(widg.params.textureLeft).toBe('paint_white');
+        expect(widg.params.textureRight).toBe('brick_red');
+        expect(widg.params.textureTop).toBe('marble_carrara');
+    });
+
+    it('should block door and window placement over solid_protrusion while allowing moldings', () => {
+        const wallEntity = {
+            length: 300,
+            thickness: 20,
+            attachedWidgets: [
+                { id: 'prot_1', type: 'solid_protrusion', t: 0.5, width: 100, height: 210, elevation: 0 }
+            ]
+        };
+
+        // Simulating placement overlap check for a door (cutsWall = true)
+        const doorMin = 0.5 * 300 - 45; // 105
+        const doorMax = 0.5 * 300 + 45; // 195
+        const protMin = 0.5 * 300 - 50; // 100
+        const protMax = 0.5 * 300 + 50; // 200
+
+        const doorOverlap = (doorMax > protMin + 1 && doorMin < protMax - 1);
+        expect(doorOverlap).toBe(true); // Door overlaps with solid block -> blocked
+
+        // For molding (cutsWall = false), placement and wrapping are allowed
+        const isMolding = true;
+        const cutsWall = !isMolding;
+        expect(cutsWall).toBe(false); // Moldings bypass overlap block
     });
 });

@@ -1168,16 +1168,17 @@ export class GizmoManager {
                             const isFrame = this.activeObject && this.activeObject.userData && this.activeObject.userData.isFrame;
                             
                             // Refactored: Delegate to entity.applyMaterial if available (SOLID: OCP)
-                            if (typeof entity.applyMaterial === 'function') {
-                                const isWallEntity = entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'railing';
+                            if (typeof entity.applyMaterial === 'function' || this.activeObject?.userData?.isProtrusion) {
+                                const isProtrusion = !!this.activeObject?.userData?.isProtrusion;
+                                const isWallEntity = (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'railing') && !isProtrusion;
                                 const targetWallMesh = isWallEntity ? (entity.wallMesh3D || (entity.mesh3D && (entity.mesh3D.userData?.wallMesh || (entity.mesh3D.children ? entity.mesh3D.children.find(c => c.userData?.isWallMesh || (c.isMesh && !c.userData?.isHitbox && !c.userData?.isWallSide && !c.userData?.isDoor && !c.userData?.isWindow && !c.userData?.isFrame && !c.userData?.isGlass && !c.userData?.isHandle)) : null)))) : null;
                                 const meshToApply = targetWallMesh || this.activeObject;
                                 
                                 let newMat = null;
                                 let effectiveMatIndex = this.activeMatIndex;
-                                if (isWallEntity) {
+                                if (isWallEntity || isProtrusion) {
                                     const FACE_MAP = { right: 0, left: 1, top: 2, bottom: 3, front: 4, back: 5 };
-                                    effectiveMatIndex = FACE_MAP[target] !== undefined ? FACE_MAP[target] : (this.activeObject?.userData?.side === 'back' ? 5 : 4);
+                                    effectiveMatIndex = FACE_MAP[target] !== undefined ? FACE_MAP[target] : (this.activeMatIndex !== -1 ? this.activeMatIndex : (this.activeObject?.userData?.side === 'back' ? 5 : 4));
                                 }
 
                                 if (meshToApply && effectiveMatIndex !== undefined && effectiveMatIndex !== -1) {
@@ -1218,6 +1219,26 @@ export class GizmoManager {
                                                 }
                                             } else {
                                                 meshToApply.material = newMat;
+                                            }
+                                        }
+
+                                        if (isProtrusion && meshToApply.userData.widget) {
+                                            const widg = meshToApply.userData.widget;
+                                            widg.params = widg.params || {};
+                                            if (target === 'all' || target === 'sides') {
+                                                widg.params.textureFront = key;
+                                                widg.params.textureBack = key;
+                                                widg.params.textureLeft = key;
+                                                widg.params.textureRight = key;
+                                                widg.params.textureTop = key;
+                                                widg.params.textureBottom = key;
+                                            } else {
+                                                if (effectiveMatIndex === 0) widg.params.textureRight = key;
+                                                else if (effectiveMatIndex === 1) widg.params.textureLeft = key;
+                                                else if (effectiveMatIndex === 2) widg.params.textureTop = key;
+                                                else if (effectiveMatIndex === 3) widg.params.textureBottom = key;
+                                                else if (effectiveMatIndex === 4) widg.params.textureFront = key;
+                                                else if (effectiveMatIndex === 5) widg.params.textureBack = key;
                                             }
                                         }
                                     }
@@ -3400,11 +3421,12 @@ export class GizmoManager {
             }
 
             if (isWall) {
+                const isProtrusion = !!selectedObj.userData?.isProtrusion;
                 const side = selectedObj.userData?.side || selectedObj.userData?.entity?.side || this.activeFace || 'front';
                 this.activeFace = side;
                 const matIdx = side === 'left' ? 1 : (side === 'right' ? 0 : (side === 'top' ? 2 : (side === 'bottom' ? 3 : (side === 'back' ? 5 : 4))));
-                const wallMesh = entity.wallMesh3D || (selectedObj.parent && selectedObj.parent.userData?.wallMesh) || selectedObj;
-                this.onMaterialFaceSelected(side, -1, wallMesh, matIdx, 'categories');
+                const targetMesh = isProtrusion ? selectedObj : (entity.wallMesh3D || (selectedObj.parent && selectedObj.parent.userData?.wallMesh) || selectedObj);
+                this.onMaterialFaceSelected(side, -1, targetMesh, matIdx, 'categories');
             } else if (this.materialPanel) {
                 this.materialPanel.style.display = 'none'; // HIDDEN initially for multi-face objects, waits for face click
             }

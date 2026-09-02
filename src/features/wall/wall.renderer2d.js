@@ -583,6 +583,11 @@ export class PremiumWall {
 
         const protrusions = (this.attachedWidgets || []).filter(w => (w.type === 'solid_protrusion' || w.configId === 'solid_protrusion' || w.type?.includes('protrusion') || w.configId?.includes('protrusion')));
         const wLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        const halfThick = (this.thickness || this.config?.thickness || 20) / 2;
+        const p1L = { x: p1.x + n.x * halfThick, y: p1.y + n.y * halfThick };
+        const p2L = { x: p2.x + n.x * halfThick, y: p2.y + n.y * halfThick };
+        const p1R = { x: p1.x - n.x * halfThick, y: p1.y - n.y * halfThick };
+        const p2R = { x: p2.x - n.x * halfThick, y: p2.y - n.y * halfThick };
 
         if (protrusions.length > 0 && wLen > 1) {
             const isBackFacing = (p) => (p.facing === -1 || p.facing === 'back' || p.side === 'right');
@@ -598,13 +603,13 @@ export class PremiumWall {
                 const d = Math.abs(Number(p.depth) || 10);
 
                 const ptA = {
-                    x: startTrue[0].x + t1 * (endTrue[0].x - startTrue[0].x),
-                    y: startTrue[0].y + t1 * (endTrue[0].y - startTrue[0].y)
+                    x: p1L.x + t1 * (p2L.x - p1L.x),
+                    y: p1L.y + t1 * (p2L.y - p1L.y)
                 };
                 const ptA_out = { x: ptA.x + n.x * d, y: ptA.y + n.y * d };
                 const ptB = {
-                    x: startTrue[0].x + t2 * (endTrue[0].x - startTrue[0].x),
-                    y: startTrue[0].y + t2 * (endTrue[0].y - startTrue[0].y)
+                    x: p1L.x + t2 * (p2L.x - p1L.x),
+                    y: p1L.y + t2 * (p2L.y - p1L.y)
                 };
                 const ptB_out = { x: ptB.x + n.x * d, y: ptB.y + n.y * d };
 
@@ -620,13 +625,13 @@ export class PremiumWall {
                 const d = Math.abs(Number(p.depth) || 10);
 
                 const ptB = {
-                    x: startTrue[1].x + t2 * (endTrue[1].x - startTrue[1].x),
-                    y: startTrue[1].y + t2 * (endTrue[1].y - startTrue[1].y)
+                    x: p1R.x + t2 * (p2R.x - p1R.x),
+                    y: p1R.y + t2 * (p2R.y - p1R.y)
                 };
                 const ptB_out = { x: ptB.x - n.x * d, y: ptB.y - n.y * d };
                 const ptA = {
-                    x: startTrue[1].x + t1 * (endTrue[1].x - startTrue[1].x),
-                    y: startTrue[1].y + t1 * (endTrue[1].y - startTrue[1].y)
+                    x: p1R.x + t1 * (p2R.x - p1R.x),
+                    y: p1R.y + t1 * (p2R.y - p1R.y)
                 };
                 const ptA_out = { x: ptA.x - n.x * d, y: ptA.y - n.y * d };
 
@@ -671,8 +676,8 @@ export class PremiumWall {
 
         const bCoords = [];
         backVerts.forEach(v => bCoords.push(v.x, v.y));
-        this.backHighlight.points(bCoords);
-        this.labelText.text(this.planner.formatLength(this.getLength()));
+        const labelStr = (this.planner && typeof this.planner.formatLength === 'function') ? this.planner.formatLength(this.getLength()) : `${Math.round(this.getLength())}`;
+        this.labelText.text(labelStr);
         this.labelGroup.position({ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 });
         this.labelGroup.offset({ x: this.labelText.width() / 2, y: 15 });
         this.labelGroup.rotation(-(this.planner.settings?.houseRotation || 0));

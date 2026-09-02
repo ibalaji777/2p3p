@@ -721,7 +721,8 @@ export class WallPlugin3DPlacementSystem {
             const pElevMax = elev + itemH;
 
             for (let w of wallEntity.attachedWidgets) {
-                if (w.config?.cutsWall === false || w.cutsWall === false || w.type === 'sunshade' || w.type === 'curtain' || w.type === 'wall_art' || w.type === 'elevation_fascia' || w.configId === 'sunshade') continue;
+                const isProtrusion = w.type === 'solid_protrusion' || w.configId === 'solid_protrusion';
+                if (!isProtrusion && (w.config?.cutsWall === false || w.cutsWall === false || w.type === 'sunshade' || w.type === 'curtain' || w.type === 'wall_art' || w.type === 'elevation_fascia' || w.configId === 'sunshade')) continue;
                 
                 const wW = w.width || 40;
                 const wH = w.height || (w.type === 'window' ? 120 : (w.type === 'door' ? 210 : 100));
