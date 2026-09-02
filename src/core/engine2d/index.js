@@ -19,6 +19,7 @@ import { coreEventBus } from '../EventBus.js';
 
 // SOLID: Import the decoupled 2D entity classes from the same folder
 import { Anchor } from './Anchor.js';
+import { WallFactory } from '../../features/wall/wall.factory.js';
 import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 import { PremiumWidget } from './PremiumWidget.js';
 import { PremiumFurniture } from '../../features/furniture/furniture.renderer2d.js';
@@ -1054,7 +1055,12 @@ export class FloorPlanner {
         const a1 = this.getOrCreateAnchor(cx - hw, cy - hd); const a2 = this.getOrCreateAnchor(cx + hw, cy - hd);
         const a3 = this.getOrCreateAnchor(cx + hw, cy + hd); const a4 = this.getOrCreateAnchor(cx - hw, cy + hd);
 
-        this.walls.push(new PremiumWall(this, a1, a2, 'outer'), new PremiumWall(this, a2, a3, 'outer'), new PremiumWall(this, a3, a4, 'outer'), new PremiumWall(this, a4, a1, 'outer'));
+        this.walls.push(
+            WallFactory.createWall(this, { startAnchor: a1, endAnchor: a2, type: 'outer', addToPlanner: false }),
+            WallFactory.createWall(this, { startAnchor: a2, endAnchor: a3, type: 'outer', addToPlanner: false }),
+            WallFactory.createWall(this, { startAnchor: a3, endAnchor: a4, type: 'outer', addToPlanner: false }),
+            WallFactory.createWall(this, { startAnchor: a4, endAnchor: a1, type: 'outer', addToPlanner: false })
+        );
         this.syncAll();
         this.updateToolStates();
     }
@@ -1863,7 +1869,21 @@ export class FloorPlanner {
             roomPaths: this.roomPaths ? this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y }))) : [],
             presetGroups: this.presetGroups ? this.presetGroups.map(g => g.export()) : []
         };
-        return JSON.stringify(state);
+        const getCircularReplacer = () => {
+            const seen = new WeakSet();
+            return (key, value) => {
+                if (key === 'mesh3D' || key === 'object' || key === 'entity' || key === 'wall' || key === 'parent' || key === 'planner' || key === 'poly' || key === 'wallGroup' || key === 'labelGroup' || key === 'frontHighlight' || key === 'backHighlight' || key === 'profileIndicators' || key === 'entranceGroup') {
+                    return undefined;
+                }
+                if (typeof value === 'object' && value !== null) {
+                    if (value.isObject3D || value.isMesh || value.isGroup || value.isNode || value.isShape) return undefined;
+                    if (seen.has(value)) return undefined;
+                    seen.add(value);
+                }
+                return value;
+            };
+        };
+        return JSON.stringify(state, getCircularReplacer());
     }
 
     /**
@@ -1897,125 +1917,25 @@ export class FloorPlanner {
 
             if (state.walls) {
                 state.walls.forEach(wData => {
-                    let a1, a2;
-                    if (wData.startAnchorId !== undefined && wData.endAnchorId !== undefined && anchorMap.has(wData.startAnchorId) && anchorMap.has(wData.endAnchorId)) {
-                        a1 = anchorMap.get(wData.startAnchorId);
-                        a2 = anchorMap.get(wData.endAnchorId);
-                    } else {
-                        // Fallback for legacy state format
-                        a1 = this.getOrCreateAnchor(wData.startX, wData.startY); 
-                        a2 = this.getOrCreateAnchor(wData.endX, wData.endY);
-                    }
-
                     let wall;
                     if (wData.type === 'railing') {
+                        let a1, a2;
+                        if (wData.startAnchorId !== undefined && wData.endAnchorId !== undefined && anchorMap.has(wData.startAnchorId) && anchorMap.has(wData.endAnchorId)) {
+                            a1 = anchorMap.get(wData.startAnchorId);
+                            a2 = anchorMap.get(wData.endAnchorId);
+                        } else {
+                            a1 = this.getOrCreateAnchor(wData.startX, wData.startY); 
+                            a2 = this.getOrCreateAnchor(wData.endX, wData.endY);
+                        }
                         wall = new Railing(this, a1, a2);
+                        if (wData.id) wall.id = wData.id;
+                        if (wData.height) wall.height = wData.height;
+                        if (wData.thickness) wall.thickness = wData.thickness;
+                        if (wData.configId) wall.configId = wData.configId;
+                        if (wData.hidden !== undefined) wall.hidden = wData.hidden;
                     } else {
-                        wall = new PremiumWall(this, a1, a2, wData.type);
+                        wall = WallSerializer.deserialize(wData, this, anchorMap);
                     }
-                    if (wData.id) wall.id = wData.id;
-                    const activeLvl = this.activeLevel || this.activeLevelConfig;
-                    if (activeLvl?.type === 'plinth' || activeLvl?.type === 'foundation') {
-                        wall.height = Number(activeLvl.height) || (activeLvl.type === 'plinth' ? 18 : 40);
-                    } else if (wData.height) {
-                        wall.height = wData.height;
-                    } else if (activeLvl?.height !== undefined) {
-                        wall.height = Number(activeLvl.height);
-                    }
-                    if (wData.thickness) {
-                        wall.thickness = wData.thickness;
-                    } else if (activeLvl?.defaultWallThickness !== undefined) {
-                        wall.thickness = Number(activeLvl.defaultWallThickness);
-                    }
-                    if (wData.configId) wall.configId = wData.configId;
-                    if (wData.hidden !== undefined) wall.hidden = wData.hidden;
-                    if (wData.description !== undefined) wall.description = wData.description;
-                    if (wData.elevationLayers) wall.elevationLayers = wData.elevationLayers;
-                    if (wData.topProfileType !== undefined) wall.topProfileType = wData.topProfileType;
-                    if (wData.flipSlope !== undefined) wall.flipSlope = wData.flipSlope;
-                    if (wData.startHeight !== undefined) wall.startHeight = wData.startHeight;
-                    if (wData.peakHeight !== undefined) wall.peakHeight = wData.peakHeight;
-                    if (wData.endHeight !== undefined) wall.endHeight = wData.endHeight;
-                    if (wData.isAutoGable !== undefined) wall.isAutoGable = wData.isAutoGable;
-                    if (wData.parentWallId !== undefined) wall.parentWallId = wData.parentWallId;
-                    if (wData.parentRoofId !== undefined) wall.parentRoofId = wData.parentRoofId;
-                    if (wData.elevation !== undefined) wall.elevation = wData.elevation;
-
-                    if (wData.widgets) { 
-                        wData.widgets.forEach(wd => { 
-                            if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut'].includes(wd.type || wd.configId)) {
-                                const advOp = new advance_openings(this, wall, wd.t, wd.type || wd.configId);
-                                if (wd.width !== undefined) advOp.width = wd.width;
-                                if (wd.height !== undefined) advOp.height = wd.height;
-                                if (wd.depth !== undefined) advOp.depth = wd.depth;
-                                if (wd.elevation !== undefined) advOp.elevation = wd.elevation;
-                                if (wd.rows !== undefined) advOp.rows = wd.rows;
-                                if (wd.cols !== undefined) advOp.cols = wd.cols;
-                                if (wd.spacing !== undefined) advOp.spacing = wd.spacing;
-                                if (wd.patternStyle !== undefined) advOp.patternStyle = wd.patternStyle;
-                                if (wd.decorConfigId !== undefined) advOp.decorConfigId = wd.decorConfigId;
-                                if (wd.description !== undefined) advOp.description = wd.description;
-                                wall.attachedWidgets.push(advOp);
-                            } else {
-                                const widget = new PremiumWidget(this, wall, wd.t, wd.configId || wd.type); 
-                                if (wd.width !== undefined) widget.width = wd.width;
-                                if (wd.height !== undefined) widget.height = wd.height;
-                                if (wd.depth !== undefined) widget.depth = wd.depth;
-                                if (wd.elevation !== undefined) widget.elevation = wd.elevation;
-                                if (wd.thick !== undefined) widget.thick = wd.thick;
-                                if (wd.profileType !== undefined) widget.profileType = wd.profileType;
-                                if (wd.fasciaMat !== undefined) widget.fasciaMat = wd.fasciaMat;
-                                if (wd.topArm !== undefined) widget.topArm = wd.topArm;
-                                if (wd.bottomArm !== undefined) widget.bottomArm = wd.bottomArm;
-                                if (wd.sunshadeType !== undefined) widget.sunshadeType = wd.sunshadeType;
-                                if (wd.pattern !== undefined) widget.pattern = wd.pattern;
-                                if (wd.jaliMount !== undefined) widget.jaliMount = wd.jaliMount;
-                                if (wd.description !== undefined) widget.description = wd.description;
-                                if (wd.facing !== undefined) widget.facing = wd.facing;
-                                if (wd.side !== undefined) widget.side = wd.side;
-                                if (wd.doorType) widget.doorType = wd.doorType;
-                                if (wd.doorShape) widget.doorShape = wd.doorShape;
-                                if (wd.doorStyle) widget.doorStyle = wd.doorStyle;
-                                if (wd.doorMat) widget.doorMat = wd.doorMat;
-                                if (wd.windowType) widget.windowType = wd.windowType;
-                                if (wd.windowShape) widget.windowShape = wd.windowShape;
-                                if (wd.frameMat) widget.frameMat = wd.frameMat;
-                                if (wd.glassMat) widget.glassMat = wd.glassMat;
-                                if (wd.grillePattern) widget.grillePattern = wd.grillePattern;
-                                if (wd.grilleProfile) widget.grilleProfile = wd.grilleProfile;
-                                if (wd.materials) widget.materials = JSON.parse(JSON.stringify(wd.materials));
-                                if (wd.params) {
-                                    if (wd.params.doorShape) widget.doorShape = wd.params.doorShape;
-                                    if (wd.params.doorStyle) widget.doorStyle = wd.params.doorStyle;
-                                    if (wd.params.windowShape) widget.windowShape = wd.params.windowShape;
-                                    widget.params = { ...(widget.params || {}), ...wd.params };
-                                }
-                                widget.update();
-                                wall.attachedWidgets.push(widget); 
-                            }
-                        }); 
-                    }
-                    if (wData.moldings) {
-                        wData.moldings.forEach(md => {
-                            const molding = new PremiumMolding(this, wall, md.t, md.type);
-                            if (md.width !== undefined) molding.width = md.width;
-                            if (md.depth !== undefined) molding.depth = md.depth;
-                            if (md.heightOffset !== undefined) molding.heightOffset = md.heightOffset;
-                            if (md.moldingHeight !== undefined) molding.moldingHeight = md.moldingHeight;
-                            if (md.side !== undefined) molding.side = md.side;
-                            if (md.profileType !== undefined) molding.profileType = md.profileType;
-                            molding.material = md.material;
-                            molding.color = md.color;
-                            if (md.layers !== undefined) molding.layers = md.layers;
-                            if (md.layerGap !== undefined) molding.layerGap = md.layerGap;
-                            if (md.grooveWidth !== undefined) molding.grooveWidth = md.grooveWidth;
-                            if (md.frameWidth !== undefined) molding.frameWidth = md.frameWidth;
-                            if (!wall.attachedMoldings) wall.attachedMoldings = [];
-                            wall.attachedMoldings.push(molding);
-                        });
-                    }
-                    if (wData.decors) { wall.attachedDecor = JSON.parse(JSON.stringify(wData.decors)); }
-                    if (wData.params) { wall.params = JSON.parse(JSON.stringify(wData.params)); }
                     this.walls.push(wall);
                 });
             }

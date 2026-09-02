@@ -13,23 +13,39 @@ export class GlassPreviewRenderer {
     }
 
     init() {
-        if (this.initialized) return;
+        if (this.hasFailed) return;
+        if (this.initialized && this.renderer) return;
 
         // 1. Offscreen WebGL Renderer — high precision, anti-aliased
         const size = 256;
-        this.renderer = new THREE.WebGLRenderer({
-            antialias: true,
-            alpha: true,
-            preserveDrawingBuffer: true,
-            powerPreference: 'high-performance'
-        });
-        this.renderer.setSize(size, size);
-        this.renderer.setPixelRatio(2);
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFShadowMap;
-        if (THREE.SRGBColorSpace) this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 1.2;
+        try {
+            this.renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: true,
+                preserveDrawingBuffer: true,
+                powerPreference: 'high-performance'
+            });
+            if (this.renderer.domElement) {
+                this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
+                    e.preventDefault();
+                    console.warn('[GlassPreviewRenderer] WebGL context lost prevented.');
+                    this.dispose();
+                }, false);
+            }
+            this.renderer.setSize(size, size);
+            this.renderer.setPixelRatio(2);
+            this.renderer.shadowMap.enabled = true;
+            this.renderer.shadowMap.type = THREE.PCFShadowMap;
+            if (THREE.SRGBColorSpace) this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+            this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            this.renderer.toneMappingExposure = 1.2;
+        } catch (e) {
+            console.warn('[GlassPreviewRenderer] Failed to initialize WebGLRenderer:', e);
+            this.renderer = null;
+            this.initialized = false;
+            this.hasFailed = true;
+            return;
+        }
 
         // 2. Main render scene
         this.scene = new THREE.Scene();
@@ -454,6 +470,8 @@ export class GlassPreviewRenderer {
                     }
                 }
             }
+            // Dispose WebGL context after prewarm completes to free GPU context limit
+            this.dispose();
         };
 
         if (typeof window !== 'undefined' && window.requestIdleCallback) {
@@ -475,7 +493,13 @@ export class GlassPreviewRenderer {
             return this.cache.get(cacheKey);
         }
 
-        if (!this.initialized) this.init();
+        if (!this.initialized || !this.renderer) {
+            this.init();
+        }
+
+        if (!this.renderer || !this.scene || !this.camera || !this.sphereMesh) {
+            return '';
+        }
 
         // Higher env map intensity for reflective/metallic glass types
         const envIntensity = (config.metalness && config.metalness > 0.2) ? 3.0 : 1.8;
@@ -509,15 +533,37 @@ export class GlassPreviewRenderer {
         this.sphereMesh.rotation.y = 0.35;
 
         // Render
-        this.renderer.render(this.scene, this.camera);
-        const dataUrl = this.renderer.domElement.toDataURL('image/png');
+        try {
+            this.renderer.render(this.scene, this.camera);
+            const dataUrl = this.renderer.domElement.toDataURL('image/png');
 
-        // Cleanup material
-        mat.dispose();
+            // Cleanup material
+            mat.dispose();
 
-        // Cache
-        this.cache.set(cacheKey, dataUrl);
-        return dataUrl;
+            // Cache
+            this.cache.set(cacheKey, dataUrl);
+            return dataUrl;
+        } catch (err) {
+            console.warn('[GlassPreviewRenderer] Render error:', err);
+            mat.dispose();
+            return '';
+        }
+    }
+
+    dispose() {
+        if (this.renderer) {
+            try {
+                this.renderer.dispose();
+                this.renderer.forceContextLoss();
+            } catch (e) {}
+            this.renderer = null;
+        }
+        this.initialized = false;
+        this.scene = null;
+        this.camera = null;
+        this.pmremGenerator = null;
+        this.envTexture = null;
+        this.sphereMesh = null;
     }
 }
 

@@ -47,20 +47,66 @@ export class Preview3D {
         const h = this.container.clientHeight > 0 ? this.container.clientHeight : window.innerHeight;
         
         this.camera = new THREE.PerspectiveCamera(45, w / h, 2, 20000);
-        this.renderer = new THREE.WebGLRenderer({ 
-            antialias: true, 
-            powerPreference: "high-performance", 
-            alpha: true,
-            logarithmicDepthBuffer: true
-        });
-        this.renderer.setSize(w, h);
-        this.renderer.setPixelRatio(window.devicePixelRatio);
-        if (THREE.SRGBColorSpace) this.renderer.outputColorSpace = THREE.SRGBColorSpace; 
-        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 1.0;
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        this.container.appendChild(this.renderer.domElement);
+        try {
+            this.renderer = new THREE.WebGLRenderer({ 
+                antialias: true, 
+                powerPreference: "high-performance", 
+                alpha: true,
+                logarithmicDepthBuffer: true
+            });
+        } catch (e1) {
+            console.warn('[Engine3D] High-performance WebGL context failed, trying fallback:', e1);
+            try {
+                this.renderer = new THREE.WebGLRenderer({ 
+                    antialias: false, 
+                    alpha: true 
+                });
+            } catch (e2) {
+                console.warn('[Engine3D] WebGL unavailable. Initializing fallback container.');
+                const fallbackCanvas = document.createElement('canvas');
+                fallbackCanvas.width = w;
+                fallbackCanvas.height = h;
+                fallbackCanvas.style.width = '100%';
+                fallbackCanvas.style.height = '100%';
+                this.container.appendChild(fallbackCanvas);
+
+                this.renderer = {
+                    domElement: fallbackCanvas,
+                    setSize: () => {},
+                    setPixelRatio: () => {},
+                    render: () => {},
+                    dispose: () => {},
+                    forceContextLoss: () => {},
+                    shadowMap: {},
+                    capabilities: { getMaxAnisotropy: () => 1 }
+                };
+            }
+        }
+
+        if (this.renderer && typeof this.renderer.setSize === 'function' && this.renderer.domElement && !this.container.contains(this.renderer.domElement)) {
+            this.renderer.setSize(w, h);
+            this.renderer.setPixelRatio(window.devicePixelRatio);
+            if (THREE.SRGBColorSpace) this.renderer.outputColorSpace = THREE.SRGBColorSpace; 
+            this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            this.renderer.toneMappingExposure = 1.0;
+            if (this.renderer.shadowMap) {
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            }
+            this.container.appendChild(this.renderer.domElement);
+
+            if (typeof this.renderer.domElement.addEventListener === 'function') {
+                this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
+                    e.preventDefault();
+                    console.warn('[Engine3D] WebGL context lost prevented.');
+                }, false);
+
+                this.renderer.domElement.addEventListener('webglcontextrestored', () => {
+                    console.info('[Engine3D] WebGL context restored.');
+                    if (this.requestRender) this.requestRender('context_restored');
+                }, false);
+            }
+        }
         
         // CSS2D Renderer for measurements and labels
         this.css2DRenderer = new CSS2DRenderer();
@@ -72,9 +118,10 @@ export class Preview3D {
 
         // We bypass EffectComposer completely to allow native WebGL hardware anti-aliasing 
         // to work flawlessly. This removes the jagged edge issues.
-        this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+        if (this.renderer) this.renderer.outputColorSpace = THREE.SRGBColorSpace;
         
-        this.cameraController = new CameraController(this.camera, this.renderer.domElement, this);
+        const domTarget = this.renderer ? this.renderer.domElement : this.container;
+        this.cameraController = new CameraController(this.camera, domTarget, this);
         this.controls = this.cameraController.controls;
         this.controls.addEventListener('start', () => this.renderCoordinator.startContinuousRender('orbit_controls'));
         this.controls.addEventListener('end', () => this.renderCoordinator.stopContinuousRender('orbit_controls'));
@@ -240,12 +287,18 @@ export class Preview3D {
         this.interactions.transformControls.addEventListener('change', this._onTransformChange);
 
         this.envBuilder.setupBaseEnvironment();
-        const pmremGenerator = new THREE.PMREMGenerator(this.renderer); 
-        pmremGenerator.compileEquirectangularShader(); 
-        const roomEnv = new RoomEnvironment();
-        this.scene.environment = pmremGenerator.fromScene(roomEnv).texture;
-        roomEnv.dispose();
-        pmremGenerator.dispose();
+        if (this.renderer && this.renderer.capabilities && typeof this.renderer.compile === 'function') {
+            try {
+                const pmremGenerator = new THREE.PMREMGenerator(this.renderer); 
+                pmremGenerator.compileEquirectangularShader(); 
+                const roomEnv = new RoomEnvironment();
+                this.scene.environment = pmremGenerator.fromScene(roomEnv).texture;
+                roomEnv.dispose();
+                pmremGenerator.dispose();
+            } catch (e) {
+                console.warn('[Engine3D] PMREM generation warning:', e);
+            }
+        }
 
         this._onResize = () => this.resize();
         window.addEventListener('resize', this._onResize); 
@@ -267,8 +320,11 @@ export class Preview3D {
         
         // Clean up WebGL context and renderer
         if (this.renderer) {
-            this.renderer.dispose();
-            this.renderer.forceContextLoss();
+            try {
+                this.renderer.dispose();
+                this.renderer.forceContextLoss();
+            } catch (e) {}
+            this.renderer = null;
         }
     }
 
@@ -278,7 +334,7 @@ export class Preview3D {
             const h = this.container.clientHeight > 0 ? this.container.clientHeight : window.innerHeight; 
             this.camera.aspect = w / h; 
             this.camera.updateProjectionMatrix(); 
-            this.renderer.setSize(w, h); 
+            if (this.renderer) this.renderer.setSize(w, h); 
             if (this.css2DRenderer) this.css2DRenderer.setSize(w, h);
             this.requestRender('window_resize');
         }
@@ -297,7 +353,7 @@ export class Preview3D {
         
         // Let camera controller handle its internal damping/updates
         const cameraChanged = this.cameraController.update(); 
-        this.navigationCube.update(this.camera);
+        if (this.navigationCube) this.navigationCube.update(this.camera);
 
         if (this.cutawaySystem && (cameraChanged || this.cutawaySystem.getMode() !== 'walls_up')) {
             this.cutawaySystem.update();
@@ -305,9 +361,13 @@ export class Preview3D {
         
         // Render pass scheduled by RenderCoordinator or active camera movements
         if (this.renderCoordinator.shouldRender() || cameraChanged || this.isUpdatingFromUI) {
-            this.renderer.render(this.scene, this.camera); 
+            if (this.renderer) {
+                try {
+                    this.renderer.render(this.scene, this.camera);
+                } catch (e) {}
+            } 
             if (this.css2DRenderer) this.css2DRenderer.render(this.scene, this.camera);
-            if (this.interactions && this.interactions.dimensionManager) {
+            if (this.interactions && this.interactions.dimensionManager && this.renderer) {
                 this.interactions.dimensionManager.onCameraUpdate(this.camera, this.renderer.domElement.clientWidth, this.renderer.domElement.clientHeight);
             }
             this.renderCoordinator.onFrameRendered();

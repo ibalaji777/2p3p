@@ -30,9 +30,25 @@ export class NavigationCube {
         this.camera = new THREE.OrthographicCamera(-1.75, 1.75, 1.75, -1.75, 0.1, 10);
         this.camera.position.set(0, 0, 5);
 
-        this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-        this.renderer.setSize(this.size, this.size);
-        this.domElement.appendChild(this.renderer.domElement);
+        try {
+            this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            this.renderer.setSize(this.size, this.size);
+            if (this.renderer.domElement) {
+                this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
+                    e.preventDefault();
+                    console.warn('[NavigationCube] WebGL context lost prevented.');
+                }, false);
+            }
+            this.domElement.appendChild(this.renderer.domElement);
+        } catch (e) {
+            console.warn('[NavigationCube] Failed to create WebGLRenderer:', e);
+            this.renderer = null;
+        }
+
+        if (!this.renderer) {
+            if (this.domElement) this.domElement.style.display = 'none';
+            return;
+        }
 
         this.createCube();
         
@@ -128,7 +144,9 @@ export class NavigationCube {
         ctx.fillText(text, size / 2, size / 2);
 
         const texture = new THREE.CanvasTexture(canvas);
-        texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy() || 4;
+        if (this.renderer && this.renderer.capabilities) {
+            texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy() || 4;
+        }
         
         // Use Phong with zero shininess for a solid, matte white painted look
         return new THREE.MeshPhongMaterial({ 
@@ -282,12 +300,15 @@ export class NavigationCube {
     }
 
     update(mainCamera) {
+        if (!this.renderer || !this.scene || !this.camera || !mainCamera) return;
         // Sync cube rotation with main camera
         // We position the UI camera at a distance of 5 along the main camera's local Z axis,
         // and apply the main camera's rotation so it looks directly at the origin (the cube).
         this.camera.quaternion.copy(mainCamera.quaternion);
         this.camera.position.set(0, 0, 5).applyQuaternion(mainCamera.quaternion);
-        this.renderer.render(this.scene, this.camera);
+        try {
+            this.renderer.render(this.scene, this.camera);
+        } catch (e) {}
     }
 
     dispose() {
@@ -300,6 +321,12 @@ export class NavigationCube {
                 this.domElement.parentNode.removeChild(this.domElement);
             }
         }
-        this.renderer.dispose();
+        if (this.renderer) {
+            try {
+                this.renderer.dispose();
+                this.renderer.forceContextLoss();
+            } catch (e) {}
+            this.renderer = null;
+        }
     }
 }

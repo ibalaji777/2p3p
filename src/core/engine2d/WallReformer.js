@@ -1,3 +1,4 @@
+import { WallFactory } from '../../features/wall/wall.factory.js';
 import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 import { PremiumMolding } from './PremiumMolding.js';
 import { SNAP_DIST } from '../registry.js';
@@ -240,11 +241,16 @@ export class WallReformer {
                     subWalls.push(w);
                     originalWallReused = true;
                 } else {
-                    const newSubWall = new PremiumWall(planner, seg.start, seg.end, w.type);
-                    newSubWall.height = w.height;
-                    newSubWall.thickness = w.thickness;
-                    newSubWall.elevation = w.elevation || 0;
-                    if (w.params) newSubWall.params = JSON.parse(JSON.stringify(w.params));
+                    const newSubWall = WallFactory.createWall(planner, {
+                        startAnchor: seg.start,
+                        endAnchor: seg.end,
+                        type: w.type,
+                        height: w.height,
+                        thickness: w.thickness,
+                        elevation: w.elevation || 0,
+                        params: w.params ? JSON.parse(JSON.stringify(w.params)) : {},
+                        addToPlanner: false
+                    });
 
                     planner.walls.push(newSubWall);
                     createdWalls.push(newSubWall);
@@ -446,11 +452,16 @@ export class WallReformer {
                     continue;
                 }
 
-                const newWall = new PremiumWall(planner, ancA, ancB, wallType);
-                newWall.height = wallHeight;
-                newWall.thickness = wallThick;
-                newWall.elevation = wallElev;
-                if (wallParams) newWall.params = JSON.parse(JSON.stringify(wallParams));
+                const newWall = WallFactory.createWall(planner, {
+                    startAnchor: ancA,
+                    endAnchor: ancB,
+                    type: wallType,
+                    height: wallHeight,
+                    thickness: wallThick,
+                    elevation: wallElev,
+                    params: wallParams ? JSON.parse(JSON.stringify(wallParams)) : {},
+                    addToPlanner: false
+                });
 
                 planner.walls.push(newWall);
                 createdWalls.push(newWall);
@@ -619,29 +630,54 @@ export class WallReformer {
 
         // 1. Initial segment (p1 -> ptA) if tStart > 0.05
         if (tStart > 0.05) {
-            const wStart = new PremiumWall(planner, anc1, ancA, wall.type || 'outer');
+            const wStart = WallFactory.createWall(planner, {
+                startAnchor: anc1,
+                endAnchor: ancA,
+                type: wall.type || 'outer',
+                addToPlanner: false
+            });
             copyProps(wStart);
             newWalls.push(wStart);
         }
 
         // 2. Return Wall 1 (ptA -> ptA_ext)
-        const wReturn1 = new PremiumWall(planner, ancA, ancA_ext, wall.type || 'outer');
+        const wReturn1 = WallFactory.createWall(planner, {
+            startAnchor: ancA,
+            endAnchor: ancA_ext,
+            type: wall.type || 'outer',
+            addToPlanner: false
+        });
         copyProps(wReturn1);
         newWalls.push(wReturn1);
 
         // 3. Front Extruded Face (ptA_ext -> ptB_ext)
-        const wFront = new PremiumWall(planner, ancA_ext, ancB_ext, wall.type || 'outer');
+        const wFront = WallFactory.createWall(planner, {
+            startAnchor: ancA_ext,
+            endAnchor: ancB_ext,
+            type: wall.type || 'outer',
+            addToPlanner: false
+        });
         copyProps(wFront);
         newWalls.push(wFront);
 
         // 4. Return Wall 2 (ptB_ext -> ptB)
-        const wReturn2 = new PremiumWall(planner, ancB_ext, ancB, wall.type || 'outer');
+        const wReturn2 = WallFactory.createWall(planner, {
+            startAnchor: ancB_ext,
+            endAnchor: ancB,
+            type: wall.type || 'outer',
+            addToPlanner: false
+        });
         copyProps(wReturn2);
         newWalls.push(wReturn2);
 
         // 5. Ending segment (ptB -> p2) if tEnd < 0.95
         if (tEnd < 0.95) {
-            const wEnd = new PremiumWall(planner, ancB, anc2, wall.type || 'outer');
+            const wEnd = WallFactory.createWall(planner, {
+                startAnchor: ancB,
+                endAnchor: anc2,
+                type: wall.type || 'outer',
+                addToPlanner: false
+            });
             copyProps(wEnd);
             newWalls.push(wEnd);
         }

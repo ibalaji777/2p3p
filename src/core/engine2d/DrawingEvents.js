@@ -1,6 +1,7 @@
 
 import { WALL_REGISTRY, MOLDING_REGISTRY, WIDGET_REGISTRY, SNAP_DIST } from '../registry.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
+import { WallFactory } from '../../features/wall/wall.factory.js';
 import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 import Konva from 'konva';
 import { PremiumStaircase, getStairCutoutPolygon } from '../../features/stairs/stairs.renderer2d.js';
@@ -387,7 +388,12 @@ export function setupDrawingEvents(planner) {
                                 w.poly.draggable(false); 
                                 w.poly.on('dragstart dragmove dragend', (e) => e.cancelBubble = true);
                             } else {
-                                w = new PremiumWall(planner, prev, curr, planner.tool);
+                                w = WallFactory.createWall(planner, {
+                                    startAnchor: prev,
+                                    endAnchor: curr,
+                                    type: planner.tool,
+                                    addToPlanner: false
+                                });
                             }
                             planner.walls.push(w);
                             planner.lastDrawnEntity = w;
@@ -406,7 +412,12 @@ export function setupDrawingEvents(planner) {
                             planner.lastDrawnEntity = w;
                             planner.currentSessionEntities.push(w);
                         } else {
-                            const w = new PremiumWall(planner, planner.lastAnchor, currentAnchor, planner.tool);
+                            const w = WallFactory.createWall(planner, {
+                                startAnchor: planner.lastAnchor,
+                                endAnchor: currentAnchor,
+                                type: planner.tool,
+                                addToPlanner: false
+                            });
                             planner.walls.push(w); 
                             planner.lastDrawnEntity = w;
                             planner.currentSessionEntities.push(w);

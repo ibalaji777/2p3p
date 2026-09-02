@@ -1,3 +1,4 @@
+import { WallFactory } from '../../features/wall/wall.factory.js';
 import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 import { Anchor } from './Anchor.js';
 import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
@@ -149,10 +150,15 @@ function createRectangularStructure(planner, origin, w, d, wallHeight, roofType,
         for (let i = 0; i < 4; i++) {
             const a1 = anchors[i];
             const a2 = anchors[(i + 1) % 4];
-            const wall = new PremiumWall(planner, a1, a2, 'outer');
-            wall.height = wallHeight;
-            wall.thickness = 10; // Thinner walls for dormers/presets
-            wall.elevation = elevation;
+            const wall = WallFactory.createWall(planner, {
+                startAnchor: a1,
+                endAnchor: a2,
+                type: 'outer',
+                height: wallHeight,
+                thickness: 10,
+                elevation: elevation,
+                addToPlanner: false
+            });
             if (parentGroup) {
                 wall.parentGroup = parentGroup;
                 parentGroup.walls.push(wall);

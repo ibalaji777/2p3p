@@ -3,26 +3,36 @@
  * Formalized commands for mutating walls to replace direct state mutation.
  */
 
-export class Command {
-    execute() { throw new Error("Must implement execute()"); }
-    undo() { throw new Error("Must implement undo()"); }
-}
+import { WallFactory } from './wall.factory.js';
 
-export class DrawWallCommand extends Command {
-    constructor(planner, startAnchor, endAnchor, type) {
-        super();
+export class DrawWallCommand {
+    constructor(planner, startAnchor, endAnchor, type = 'outer', options = {}) {
         this.planner = planner;
         this.startAnchor = startAnchor;
         this.endAnchor = endAnchor;
         this.type = type;
+        this.options = options;
         this.wall = null;
     }
 
     execute() {
-        // Implementation for drawing a wall will be defined here
+        if (!this.wall) {
+            this.wall = WallFactory.createWall(this.planner, {
+                startAnchor: this.startAnchor,
+                endAnchor: this.endAnchor,
+                type: this.type,
+                ...this.options
+            });
+        } else {
+            this.planner.walls.push(this.wall);
+            this.planner.syncAll();
+        }
+        return this.wall;
     }
 
     undo() {
-        // Implementation for removing the wall will be defined here
+        if (!this.wall) return;
+        WallFactory.destroyWall(this.planner, this.wall);
     }
 }
+

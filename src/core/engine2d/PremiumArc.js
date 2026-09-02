@@ -86,26 +86,36 @@ export class PremiumArc {
     }
 
     rebuild() {
-        this.walls.forEach(w => { w.wallGroup.destroy(); w.labelGroup.destroy(); this.planner.walls = this.planner.walls.filter(existing => existing !== w); });
-        this.intermediateAnchors.forEach(a => { a.node.destroy(); this.planner.anchors = this.planner.anchors.filter(existing => existing !== a); });
-        this.walls = []; this.intermediateAnchors = [];
-
-        const p1 = this.p1.position(), p2 = this.p2.position();
-        const dx = p2.x - p1.x, dy = p2.y - p1.y, L = Math.hypot(dx, dy);
-        if (L < 0.5) return;
+        this.walls.forEach(w => {
+            w.wallGroup.destroy();
+            w.labelGroup.destroy();
+            this.planner.walls = this.planner.walls.filter(existing => existing !== w);
+        });
+        this.walls = [];
         
-        const mid = { x: p1.x + dx/2, y: p1.y + dy/2 }, n = { x: -dy/L, y: dx/L };
-        let h = (this.pos.x - mid.x)*n.x + (this.pos.y - mid.y)*n.y;
-        if (Math.abs(Math.abs(h) - L/2) < SNAP_DIST) { h = Math.sign(h) * (L/2); }
-        if (Math.abs(h) < 0.1) h = Math.sign(h) * 0.1 || 0.1;
+        this.intermediateAnchors.forEach(a => {
+            a.node.destroy();
+            this.planner.anchors = this.planner.anchors.filter(existing => existing !== a);
+        });
+        this.intermediateAnchors = [];
         
-        this.pos = { x: mid.x + n.x * h, y: mid.y + n.y * h };
-        this.controlHandle.position(this.pos);
+        const p1 = this.p1.position(), p2 = this.p2.position(), p3 = this.pos;
+        this.centerHandle.position(p3);
         
-        const R = Math.abs(h/2 + (L*L)/(8*h)), dC = (L*L)/(8*h) - h/2;
-        const center = { x: mid.x - n.x * dC, y: mid.y - n.y * dC };
-        const sAng = Math.atan2(p1.y - center.y, p1.x - center.x), eAng = Math.atan2(p2.y - center.y, p2.x - center.x);
-        const ccw = h < 0;
+        const D = 2 * (p1.x * (p2.y - p3.y) + p2.x * (p3.y - p1.y) + p3.x * (p1.y - p2.y));
+        if (Math.abs(D) < 1e-4) return;
+        
+        const p1Sq = p1.x * p1.x + p1.y * p1.y, p2Sq = p2.x * p2.x + p2.y * p2.y, p3Sq = p3.x * p3.x + p3.y * p3.y;
+        const Ux = (p1Sq * (p2.y - p3.y) + p2Sq * (p3.y - p1.y) + p3Sq * (p1.y - p2.y)) / D;
+        const Uy = (p1Sq * (p3.x - p2.x) + p2Sq * (p1.x - p3.x) + p3Sq * (p2.x - p1.x)) / D;
+        const center = { x: Ux, y: Uy }, R = Math.hypot(p1.x - Ux, p1.y - Uy);
+        
+        const sAng = Math.atan2(p1.y - Uy, p1.x - Ux), eAng = Math.atan2(p2.y - Uy, p2.x - Ux), mAng = Math.atan2(p3.y - Uy, p3.x - Ux);
+        
+        let normE = eAng - sAng; while(normE <= 0) normE += Math.PI * 2;
+        let normM = mAng - sAng; while(normM <= 0) normM += Math.PI * 2;
+        const ccw = (normM > normE);
+        
         let sweep = eAng - sAng;
         if (ccw) { while(sweep > 0) sweep -= Math.PI * 2; } else { while(sweep < 0) sweep += Math.PI * 2; }
         
@@ -122,20 +132,24 @@ export class PremiumArc {
             
             if (prevAnchor !== currentAnchor) {
                 if (Math.hypot(currentAnchor.x - prevAnchor.x, currentAnchor.y - prevAnchor.y) > 1.0) {
-                    const newWall = new PremiumWall(this.planner, prevAnchor, currentAnchor, 'outer');
-                    newWall.parentArc = this; newWall.labelGroup.visible(false);
-                    if (this.thickness !== undefined) newWall.thickness = this.thickness;
-                    if (this.height !== undefined) newWall.height = this.height;
-                    if (this.topProfileType !== undefined) newWall.topProfileType = this.topProfileType;
-                    if (this.startHeight !== undefined) newWall.startHeight = this.startHeight;
-                    if (this.endHeight !== undefined) newWall.endHeight = this.endHeight;
-                    if (this.peakHeight !== undefined) newWall.peakHeight = this.peakHeight;
-                    if (this.flipSlope !== undefined) newWall.flipSlope = this.flipSlope;
+                    const newWall = WallFactory.createWall(this.planner, {
+                        startAnchor: prevAnchor,
+                        endAnchor: currentAnchor,
+                        type: 'outer',
+                        thickness: this.thickness,
+                        height: this.height,
+                        topProfileType: this.topProfileType,
+                        startHeight: this.startHeight,
+                        endHeight: this.endHeight,
+                        peakHeight: this.peakHeight,
+                        flipSlope: this.flipSlope,
+                        elevation: this.elevation,
+                        params: this.params ? JSON.parse(JSON.stringify(this.params)) : {},
+                        addToPlanner: false
+                    });
+                    newWall.parentArc = this;
+                    newWall.labelGroup.visible(false);
                     if (this.hidden !== undefined) newWall.hidden = this.hidden;
-                    if (this.elevation !== undefined) newWall.elevation = this.elevation;
-                    if (this.params && Object.keys(this.params).length > 0) {
-                        newWall.params = JSON.parse(JSON.stringify(this.params));
-                    }
                     newWall.poly.off('mousedown touchstart');
                     newWall.poly.on('mousedown touchstart', (e) => { if (this.planner.tool === 'select') { e.cancelBubble = true; this.planner.selectEntity(this, 'arc'); } });
                     newWall.poly.draggable(false); newWall.poly.on('dragstart dragmove dragend', (e) => e.cancelBubble = true);
@@ -143,16 +157,21 @@ export class PremiumArc {
                     
                     // Auto-generate linked railing if enabled
                     if (this.hasRailing) {
-                        const r = new PremiumWall(this.planner, prevAnchor, currentAnchor, 'railing');
+                        const r = WallFactory.createWall(this.planner, {
+                            startAnchor: prevAnchor,
+                            endAnchor: currentAnchor,
+                            type: 'railing',
+                            thickness: this.railingConfig.thickness,
+                            height: this.railingConfig.height,
+                            addToPlanner: false
+                        });
                         r.parentArc = this; r.labelGroup.visible(false);
                         r.configId = this.railingConfig.configId;
-                        if (this.railingConfig.thickness) r.thickness = this.railingConfig.thickness;
-                        if (this.railingConfig.height !== undefined) r.height = this.railingConfig.height;
                         if (this.hidden !== undefined) r.hidden = this.hidden;
                         r.poly.off('mousedown touchstart');
                         r.poly.on('mousedown touchstart', (e) => { 
                             if (this.planner.tool === 'select') { 
-                                e.cancelBubble = true; 
+                                e.cancelBubble = true;
                                 this.planner.selectEntity(r, 'wall'); 
                             } 
                         });

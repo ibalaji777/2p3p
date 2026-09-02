@@ -3,6 +3,7 @@ import { WALL_REGISTRY, WIDGET_REGISTRY, RAILING_REGISTRY, MOLDING_REGISTRY } fr
 import { PremiumWidget } from '../../core/engine2d/PremiumWidget.js';
 import { PremiumMolding } from '../../core/engine2d/PremiumMolding.js';
 import { advance_openings } from '../../core/engine2d/advance_openings.js';
+import { WallSerializer } from './wall.serializer.js';
 
 export class PremiumWall {
     constructor(planner, startAnchor, endAnchor, type = "outer") {
@@ -669,10 +670,27 @@ export class PremiumWall {
             const myIndex = rays.findIndex(r => r.w === this);
             if (myIndex === -1) return { corners: [baseL, baseR], trueCorners: [baseL, baseR], hasCap: true };
             
+            const myRay = rays[myIndex];
+
+            // Check if there is an opposite collinear through-wall (180 deg) at this anchor
+            const collinearOppositeRay = rays.find(r => r !== myRay && Math.abs(r.dir.x * myRay.dir.x + r.dir.y * myRay.dir.y + 1) < 1e-3);
+            
+            if (collinearOppositeRay && rays.length >= 3) {
+                // This wall is part of a continuous straight through-wall meeting a T-junction!
+                // The collinear through-wall remains continuous with a flush perpendicular seam.
+                return {
+                    corners: [baseL, baseR],
+                    trueCorners: [baseL, baseR],
+                    hasCap: false,
+                    leftDir: collinearOppositeRay.dir,
+                    rightDir: collinearOppositeRay.dir,
+                    bevelL: null,
+                    bevelR: null
+                };
+            }
+
             const leftNeighbor = rays[(myIndex - 1 + rays.length) % rays.length];
             const rightNeighbor = rays[(myIndex + 1) % rays.length];
-            
-            const myRay = rays[myIndex];
             
             const maxMiterLength = ht * (this.miterLimitRatio || 3.0);
 
@@ -1092,35 +1110,113 @@ export class PremiumWall {
         if (ctx && ctx.updateMaterialLive) ctx.updateMaterialLive(this);
     }
 
+    // ====== CANONICAL IN-PLACE MUTATION METHODS (CAD-STYLE) ======
+    
+    setThickness(newThickness, shouldSync = true) {
+        this.thickness = Number(newThickness);
+        if (this.config) this.config.thickness = this.thickness;
+        if (shouldSync && this.planner) {
+            this.planner.syncAll();
+            if (this.planner.update3D) this.planner.update3D();
+        }
+    }
+
+    setHeight(newHeight, shouldSync = true) {
+        this.height = Number(newHeight);
+        if (this.config) this.config.height = this.height;
+        if (shouldSync && this.planner) {
+            this.planner.syncAll();
+            if (this.planner.update3D) this.planner.update3D();
+        }
+    }
+
+    setTopProfile(profileType, options = {}, shouldSync = true) {
+        this.topProfileType = profileType || 'normal';
+        if (options.startHeight !== undefined) this.startHeight = Number(options.startHeight);
+        if (options.endHeight !== undefined) this.endHeight = Number(options.endHeight);
+        if (options.peakHeight !== undefined) this.peakHeight = Number(options.peakHeight);
+        if (options.flipSlope !== undefined) this.flipSlope = options.flipSlope;
+        if (shouldSync && this.planner) {
+            this.planner.syncAll();
+            if (this.planner.update3D) this.planner.update3D();
+        }
+    }
+
+    setEndpoints(startPos, endPos, shouldSync = true) {
+        if (startPos && this.startAnchor) {
+            this.startAnchor.x = startPos.x;
+            this.startAnchor.y = startPos.y;
+            if (this.startAnchor.group) this.startAnchor.group.position(startPos);
+        }
+        if (endPos && this.endAnchor) {
+            this.endAnchor.x = endPos.x;
+            this.endAnchor.y = endPos.y;
+            if (this.endAnchor.group) this.endAnchor.group.position(endPos);
+        }
+        if (shouldSync && this.planner) {
+            this.planner.syncAll();
+        }
+    }
+
+    attachWidget(widget, shouldSync = true) {
+        if (!this.attachedWidgets) this.attachedWidgets = [];
+        if (!this.attachedWidgets.includes(widget)) {
+            this.attachedWidgets.push(widget);
+            widget.wall = this;
+        }
+        if (shouldSync && this.planner) {
+            this.planner.syncAll();
+        }
+    }
+
+    removeWidget(widgetOrId, shouldSync = true) {
+        if (!this.attachedWidgets) return;
+        const id = typeof widgetOrId === 'string' ? widgetOrId : widgetOrId?.id;
+        this.attachedWidgets = this.attachedWidgets.filter(w => (id ? w.id !== id : w !== widgetOrId));
+        if (shouldSync && this.planner) {
+            this.planner.syncAll();
+        }
+    }
+
+    attachMolding(molding, shouldSync = true) {
+        if (!this.attachedMoldings) this.attachedMoldings = [];
+        if (!this.attachedMoldings.includes(molding)) {
+            this.attachedMoldings.push(molding);
+            molding.wall = this;
+        }
+        if (shouldSync && this.planner) {
+            this.planner.syncAll();
+        }
+    }
+
+    removeMolding(moldingOrId, shouldSync = true) {
+        if (!this.attachedMoldings) return;
+        const id = typeof moldingOrId === 'string' ? moldingOrId : moldingOrId?.id;
+        this.attachedMoldings = this.attachedMoldings.filter(m => (id ? m.id !== id : m !== moldingOrId));
+        if (shouldSync && this.planner) {
+            this.planner.syncAll();
+        }
+    }
+
+    getLength() {
+        const p1 = (this.startAnchor && typeof this.startAnchor.position === 'function') ? this.startAnchor.position() : (this.startAnchor || { x: this.startX || 0, y: this.startY || 0 });
+        const p2 = (this.endAnchor && typeof this.endAnchor.position === 'function') ? this.endAnchor.position() : (this.endAnchor || { x: this.endX || 0, y: this.endY || 0 });
+        return Math.hypot(p2.x - p1.x, p2.y - p1.y);
+    }
+
+    getAngle() {
+        const p1 = (this.startAnchor && typeof this.startAnchor.position === 'function') ? this.startAnchor.position() : (this.startAnchor || { x: this.startX || 0, y: this.startY || 0 });
+        const p2 = (this.endAnchor && typeof this.endAnchor.position === 'function') ? this.endAnchor.position() : (this.endAnchor || { x: this.endX || 0, y: this.endY || 0 });
+        return Math.atan2(p2.y - p1.y, p2.x - p1.x);
+    }
+
+    getCenterline() {
+        const p1 = (this.startAnchor && typeof this.startAnchor.position === 'function') ? this.startAnchor.position() : (this.startAnchor || { x: this.startX || 0, y: this.startY || 0 });
+        const p2 = (this.endAnchor && typeof this.endAnchor.position === 'function') ? this.endAnchor.position() : (this.endAnchor || { x: this.endX || 0, y: this.endY || 0 });
+        return { p1, p2, length: this.getLength(), angle: this.getAngle() };
+    }
+
     serialize() { 
-        return { 
-            type: this.type, thickness: this.thickness, height: this.height, configId: this.configId, hidden: this.hidden, description: this.description, 
-            startAnchorId: this.startAnchor.id, endAnchorId: this.endAnchor.id, 
-            topProfileType: this.topProfileType,
-            flipSlope: this.flipSlope,
-            startHeight: this.startHeight,
-            peakHeight: this.peakHeight,
-            endHeight: this.endHeight,
-            isAutoGable: this.isAutoGable,
-            parentWallId: this.parentWallId,
-            parentRoofId: this.parentRoofId,
-            elevation: this.elevation,
-            widgets: this.attachedWidgets.map(w => {
-                if (w.serialize) return w.serialize();
-                return { 
-                    t: w.t, type: w.type || w.configId, width: w.width, height: w.height, depth: w.depth, elevation: w.elevation,
-                    thick: w.thick, profileType: w.profileType, fasciaMat: w.fasciaMat, topArm: w.topArm, bottomArm: w.bottomArm,
-                    sunshadeType: w.sunshadeType, pattern: w.pattern, jaliMount: w.jaliMount,
-                    rows: w.rows, cols: w.cols, spacing: w.spacing, patternStyle: w.patternStyle, decorConfigId: w.decorConfigId,
-                    description: w.description, facing: w.facing, side: w.side, doorType: w.doorType,
-                    doorShape: w.doorShape || w.params?.doorShape, doorStyle: w.doorStyle || w.params?.doorStyle, doorMat: w.doorMat,
-                    windowType: w.windowType, windowShape: w.windowShape || w.params?.windowShape, frameMat: w.frameMat, glassMat: w.glassMat,
-                    grillePattern: w.grillePattern, grilleProfile: w.grilleProfile, materials: w.materials, params: w.params 
-                };
-            }), 
-            moldings: (this.attachedMoldings || []).map(m => m.serialize()),
-            decors: JSON.parse(JSON.stringify(this.attachedDecor || [])),
-            elevationLayers: JSON.parse(JSON.stringify(this.elevationLayers))
-        }; 
+        return WallSerializer.serialize(this);
     }
 }

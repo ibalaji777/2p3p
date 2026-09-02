@@ -64,7 +64,7 @@ export class AssetManager {
             
             // Assume the renderer is available on window or somewhere, but ideally passed in context
             // We will set anisotropy in MaterialFactory to keep AssetManager pure, but we can try here if renderer exists
-            if (window.engine3d && window.engine3d.renderer) {
+            if (window.engine3d && window.engine3d.renderer && window.engine3d.renderer.capabilities) {
                 texture.anisotropy = window.engine3d.renderer.capabilities.getMaxAnisotropy();
             }
             

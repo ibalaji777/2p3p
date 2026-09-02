@@ -186,7 +186,7 @@ export class MaterialFactory {
             if (config.flipY !== undefined) {
                 tClone.flipY = config.flipY;
             }
-            if (ctx && ctx.renderer) {
+            if (ctx && ctx.renderer && ctx.renderer.capabilities) {
                 tClone.anisotropy = ctx.renderer.capabilities.getMaxAnisotropy();
             }
             
@@ -205,13 +205,17 @@ export class MaterialFactory {
         newMat.normalMap = setupTex(normalTex, false);
         newMat.roughnessMap = setupTex(roughTex, false);
         newMat.aoMap = setupTex(aoTex, false);
-        if (ctx && ctx.renderer && !MaterialFactory.sharedEnvMap) {
-            const pmremGenerator = new THREE.PMREMGenerator(ctx.renderer);
-            pmremGenerator.compileEquirectangularShader();
-            const roomEnv = new RoomEnvironment();
-            MaterialFactory.sharedEnvMap = pmremGenerator.fromScene(roomEnv).texture;
-            roomEnv.dispose();
-            pmremGenerator.dispose();
+        if (ctx && ctx.renderer && typeof ctx.renderer.compile === 'function' && !MaterialFactory.sharedEnvMap) {
+            try {
+                const pmremGenerator = new THREE.PMREMGenerator(ctx.renderer);
+                pmremGenerator.compileEquirectangularShader();
+                const roomEnv = new RoomEnvironment();
+                MaterialFactory.sharedEnvMap = pmremGenerator.fromScene(roomEnv).texture;
+                roomEnv.dispose();
+                pmremGenerator.dispose();
+            } catch (e) {
+                console.warn('[MaterialFactory] PMREM generation warning:', e);
+            }
         }
 
         if (MaterialFactory.sharedEnvMap) {

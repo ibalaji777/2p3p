@@ -16,23 +16,39 @@ export class MarblePreviewRenderer {
     }
 
     init() {
-        if (this.initialized) return;
+        if (this.hasFailed) return;
+        if (this.initialized && this.renderer) return;
 
         // 1. Offscreen WebGL Renderer — high precision, anti-aliased studio render
         const size = 256;
-        this.renderer = new THREE.WebGLRenderer({
-            antialias: true,
-            alpha: true,
-            preserveDrawingBuffer: true,
-            powerPreference: 'high-performance'
-        });
-        this.renderer.setSize(size, size);
-        this.renderer.setPixelRatio(2);
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFShadowMap;
-        if (THREE.SRGBColorSpace) this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 1.35;
+        try {
+            this.renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: true,
+                preserveDrawingBuffer: true,
+                powerPreference: 'high-performance'
+            });
+            if (this.renderer.domElement) {
+                this.renderer.domElement.addEventListener('webglcontextlost', (e) => {
+                    e.preventDefault();
+                    console.warn('[MarblePreviewRenderer] WebGL context lost prevented.');
+                    this.dispose();
+                }, false);
+            }
+            this.renderer.setSize(size, size);
+            this.renderer.setPixelRatio(2);
+            this.renderer.shadowMap.enabled = true;
+            this.renderer.shadowMap.type = THREE.PCFShadowMap;
+            if (THREE.SRGBColorSpace) this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+            this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            this.renderer.toneMappingExposure = 1.35;
+        } catch (e) {
+            console.warn('[MarblePreviewRenderer] Failed to initialize WebGLRenderer:', e);
+            this.renderer = null;
+            this.initialized = false;
+            this.hasFailed = true;
+            return;
+        }
 
         // 2. Scene
         this.scene = new THREE.Scene();
@@ -239,6 +255,8 @@ export class MarblePreviewRenderer {
                     }
                 }
             }
+            // Dispose WebGL context after prewarm completes to free GPU context limit
+            this.dispose();
         };
 
         if (typeof window !== 'undefined' && window.requestIdleCallback) {
@@ -260,7 +278,13 @@ export class MarblePreviewRenderer {
             return this.cache.get(cacheKey);
         }
 
-        if (!this.initialized) this.init();
+        if (!this.initialized || !this.renderer) {
+            this.init();
+        }
+
+        if (!this.renderer || !this.scene || !this.camera || !this.sphereMesh) {
+            return '';
+        }
 
         const textureUrl = config.texture || config.thumbnail;
 
@@ -286,16 +310,20 @@ export class MarblePreviewRenderer {
                     loadedTex.repeat.set(1.5, 1.5);
                     this.textureCache.set(textureUrl, loadedTex);
                     // Re-render and update cache once texture loads
-                    this.sphereMesh.material.map = loadedTex;
-                    this.sphereMesh.material.needsUpdate = true;
-                    this.renderer.render(this.scene, this.camera);
-                    const updatedDataUrl = this.renderer.domElement.toDataURL('image/png');
-                    this.cache.set(cacheKey, updatedDataUrl);
+                    if (this.sphereMesh && this.renderer && this.scene && this.camera) {
+                        this.sphereMesh.material.map = loadedTex;
+                        this.sphereMesh.material.needsUpdate = true;
+                        try {
+                            this.renderer.render(this.scene, this.camera);
+                            const updatedDataUrl = this.renderer.domElement.toDataURL('image/png');
+                            this.cache.set(cacheKey, updatedDataUrl);
 
-                    // Update DOM element thumbnail if present
-                    const sphereEl = document.querySelector(`#mat-thumb-${matKey}`);
-                    if (sphereEl) {
-                        sphereEl.style.backgroundImage = `url('${updatedDataUrl}')`;
+                            // Update DOM element thumbnail if present
+                            const sphereEl = document.querySelector(`#mat-thumb-${matKey}`);
+                            if (sphereEl) {
+                                sphereEl.style.backgroundImage = `url('${updatedDataUrl}')`;
+                            }
+                        } catch (e) {}
                     }
                 });
                 mat.map = tex;
@@ -308,12 +336,33 @@ export class MarblePreviewRenderer {
         this.sphereMesh.rotation.x = 0.2;
 
         // Render
-        this.renderer.render(this.scene, this.camera);
-        const dataUrl = this.renderer.domElement.toDataURL('image/png');
+        try {
+            this.renderer.render(this.scene, this.camera);
+            const dataUrl = this.renderer.domElement.toDataURL('image/png');
 
-        // Cache initial render
-        this.cache.set(cacheKey, dataUrl);
-        return dataUrl;
+            // Cache initial render
+            this.cache.set(cacheKey, dataUrl);
+            return dataUrl;
+        } catch (err) {
+            console.warn('[MarblePreviewRenderer] Render error:', err);
+            return '';
+        }
+    }
+
+    dispose() {
+        if (this.renderer) {
+            try {
+                this.renderer.dispose();
+                this.renderer.forceContextLoss();
+            } catch (e) {}
+            this.renderer = null;
+        }
+        this.initialized = false;
+        this.scene = null;
+        this.camera = null;
+        this.pmremGenerator = null;
+        this.envTexture = null;
+        this.sphereMesh = null;
     }
 }
 

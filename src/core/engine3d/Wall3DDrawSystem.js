@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { WALL_REGISTRY, SNAP_DIST } from '../registry.js';
-import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
+import { WallFactory } from '../../features/wall/wall.factory.js';
 import { Railing } from '../../features/railing/objects/Railing.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { PremiumOutdoorZone, OUTDOOR_ZONE_TYPES } from '../engine2d/PremiumOutdoorZone.js';
@@ -1178,14 +1178,20 @@ export class Wall3DDrawSystem {
                     let w;
                     if (rawTool === 'railing') {
                         w = new Railing(planner, this.lastAnchor, currentAnchor);
+                        w.elevation = this.drawingElevation !== undefined ? this.drawingElevation : pt.y;
+                        planner.walls.push(w);
+                        planner.lastDrawnEntity = w;
+                        this.currentSessionEntities.push(w);
                     } else {
-                        w = new PremiumWall(planner, this.lastAnchor, currentAnchor, wallType);
+                        w = WallFactory.createWall(planner, {
+                            startAnchor: this.lastAnchor,
+                            endAnchor: currentAnchor,
+                            type: wallType,
+                            elevation: this.drawingElevation !== undefined ? this.drawingElevation : pt.y,
+                            sync: false
+                        });
+                        this.currentSessionEntities.push(w);
                     }
-
-                    w.elevation = this.drawingElevation !== undefined ? this.drawingElevation : pt.y;
-                    planner.walls.push(w);
-                    planner.lastDrawnEntity = w;
-                    this.currentSessionEntities.push(w);
 
                     // Check if closed back on startAnchor (Room loop) or hit opposite wall T-joint (Partition complete)
                     if (currentAnchor === this.startAnchor || isWallEdgeHit) {

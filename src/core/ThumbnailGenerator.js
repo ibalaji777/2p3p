@@ -7,21 +7,57 @@ import { Railing3DBuilder } from '../features/railing/builders/Railing3DBuilder.
 import { FurnitureManager } from '../features/furniture/furniture.renderer3d.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
+let _sharedThumbnailRenderer = null;
+let _sharedThumbnailEnvironment = null;
+
+function getSharedThumbnailRenderer() {
+    if (!_sharedThumbnailRenderer) {
+        try {
+            _sharedThumbnailRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+            _sharedThumbnailRenderer.setSize(512, 512); // High resolution for sharp downscaling
+            _sharedThumbnailRenderer.setPixelRatio(1.5);
+            _sharedThumbnailRenderer.shadowMap.enabled = true;
+            _sharedThumbnailRenderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer, photorealistic shadows
+            if (THREE.SRGBColorSpace) _sharedThumbnailRenderer.outputColorSpace = THREE.SRGBColorSpace;
+            _sharedThumbnailRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+            _sharedThumbnailRenderer.toneMappingExposure = 1.25;
+            if (_sharedThumbnailRenderer.domElement) {
+                _sharedThumbnailRenderer.domElement.addEventListener('webglcontextlost', (e) => {
+                    e.preventDefault();
+                    console.warn('[ThumbnailGenerator] WebGL context lost prevented.');
+                    _sharedThumbnailRenderer = null;
+                    _sharedThumbnailEnvironment = null;
+                }, false);
+            }
+        } catch (e) {
+            console.warn('[ThumbnailGenerator] Failed to create shared WebGLRenderer:', e);
+            return null;
+        }
+    }
+    return _sharedThumbnailRenderer;
+}
+
+function getSharedThumbnailEnvironment(renderer) {
+    if (!renderer || !renderer.capabilities) return null;
+    if (!_sharedThumbnailEnvironment) {
+        try {
+            const pmremGenerator = new THREE.PMREMGenerator(renderer);
+            _sharedThumbnailEnvironment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+            pmremGenerator.dispose();
+        } catch (e) {
+            console.warn('[ThumbnailGenerator] Failed to create PMREM environment:', e);
+        }
+    }
+    return _sharedThumbnailEnvironment;
+}
+
 export class ThumbnailGenerator {
     constructor(ctx) {
         this.ctx = ctx;
         
-        // Create an offscreen renderer with headless fallback
-        try {
-            this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-            this.renderer.setSize(512, 512); // High resolution for sharp downscaling
-            this.renderer.setPixelRatio(2); // High DPI for crispness
-            this.renderer.shadowMap.enabled = true;
-            this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer, photorealistic shadows
-            if (THREE.SRGBColorSpace) this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-            this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            this.renderer.toneMappingExposure = 1.25;
-        } catch (e) {
+        // Use shared offscreen renderer singleton to avoid exhausting WebGL context limit
+        this.renderer = getSharedThumbnailRenderer();
+        if (!this.renderer) {
             this.renderer = {
                 setSize: () => {},
                 setPixelRatio: () => {},
@@ -35,12 +71,10 @@ export class ThumbnailGenerator {
         this.scene.background = new THREE.Color(0xf8fafc); // Clean neutral catalog background
 
         // Photorealistic Studio Lighting for PBR
-        if (this.renderer.capabilities) {
-            try {
-                const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
-                this.scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
-                this.scene.environmentIntensity = 0.8; // Lower intensity to prevent washout while keeping reflections
-            } catch (e) {}
+        const env = getSharedThumbnailEnvironment(this.renderer);
+        if (env) {
+            this.scene.environment = env;
+            this.scene.environmentIntensity = 0.8; // Lower intensity to prevent washout while keeping reflections
         }
         
         // Exact Lighting Match to EnvironmentBuilder.js
