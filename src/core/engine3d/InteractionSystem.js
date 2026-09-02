@@ -23,6 +23,8 @@ import { RoofPlugin3DPlacementSystem } from './RoofPlugin3DPlacementSystem.js';
 import { SelectionManager } from './SelectionManager.js';
 import { HighlightRenderer } from './HighlightRenderer.js';
 import { DimensionManager3D } from './dimensions/DimensionManager3D.js';
+import { CommonInteractionController } from './tools/CommonInteractionController.js';
+import { COMMON_TOOLS } from './tools/CommonToolRegistry.js';
 import { useSettingsStore } from '../../stores/useSettingsStore.js';
 import { usePlannerStore } from '../../stores/usePlannerStore.js';
 import { coreEventBus } from '../EventBus.js';
@@ -324,6 +326,35 @@ export class InteractionSystem {
         this.wallHighlight = this.highlightRenderer.wallSelectionMesh;
         this.wallHoverHighlight = this.highlightRenderer.wallHoverMesh;
 
+        // Sims 4 Direct Move & Footprint System (Zero Obtrusive Arrows)
+        this.sims4FloorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        this._tempFloorHit = new THREE.Vector3();
+        this._grabOffset = new THREE.Vector3();
+        this._pointerDownScreenPos = new THREE.Vector2();
+        this._dragStartPos = new THREE.Vector3();
+        this.isPotentialSims4Drag = false;
+        this.isSims4Dragging = false;
+        this.isPotentialSims4Spin = false;
+        this.isSims4Spinning = false;
+        this._spinPointerDownPos = new THREE.Vector2();
+        this._spinStartAngle = 0;
+
+        this.sims4FootprintMat = new THREE.LineBasicMaterial({
+            color: 0x00f0ff,
+            linewidth: 2.5,
+            depthTest: false,
+            transparent: true,
+            opacity: 0.95
+        });
+        this.sims4Footprint = new THREE.LineSegments(new THREE.BufferGeometry(), this.sims4FootprintMat);
+        this.sims4Footprint.renderOrder = 1008;
+        this.sims4Footprint.raycast = () => {};
+        this.sims4Footprint.visible = false;
+        this.ctx.scene.add(this.sims4Footprint);
+
+        this.commonController = new CommonInteractionController(this.ctx);
+        this.ctx.commonTools = this.commonController;
+
         this.transformControls = new TransformControls(this.ctx.camera, this.ctx.renderer.domElement);
         this._syncUI = () => { 
             if (this.selectedObject && this.selectedObject.userData && this.selectedObject.userData.entity) {
@@ -488,6 +519,73 @@ export class InteractionSystem {
         this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     }
 
+    _updateSims4Footprint(object) {
+        if (!object) {
+            this.sims4Footprint.visible = false;
+            return;
+        }
+        object.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(object);
+        if (box.isEmpty() || !isFinite(box.min.x)) {
+            this.sims4Footprint.visible = false;
+            return;
+        }
+
+        const minX = box.min.x;
+        const maxX = box.max.x;
+        const minZ = box.min.z;
+        const maxZ = box.max.z;
+        const groundY = Math.max(0, box.min.y) + 0.5;
+
+        const w = maxX - minX;
+        const d = maxZ - minZ;
+        const tick = Math.min(w * 0.2, d * 0.2, 8);
+
+        const points = [
+            // Outer rectangle
+            new THREE.Vector3(minX, groundY, minZ), new THREE.Vector3(maxX, groundY, minZ),
+            new THREE.Vector3(maxX, groundY, minZ), new THREE.Vector3(maxX, groundY, maxZ),
+            new THREE.Vector3(maxX, groundY, maxZ), new THREE.Vector3(minX, groundY, maxZ),
+            new THREE.Vector3(minX, groundY, maxZ), new THREE.Vector3(minX, groundY, minZ),
+
+            // Top-left corner tick
+            new THREE.Vector3(minX + tick, groundY, minZ), new THREE.Vector3(minX + tick, groundY, minZ + tick),
+            new THREE.Vector3(minX, groundY, minZ + tick), new THREE.Vector3(minX + tick, groundY, minZ + tick),
+
+            // Top-right corner tick
+            new THREE.Vector3(maxX - tick, groundY, minZ), new THREE.Vector3(maxX - tick, groundY, minZ + tick),
+            new THREE.Vector3(maxX, groundY, minZ + tick), new THREE.Vector3(maxX - tick, groundY, minZ + tick),
+
+            // Bottom-right corner tick
+            new THREE.Vector3(maxX - tick, groundY, maxZ), new THREE.Vector3(maxX - tick, groundY, maxZ - tick),
+            new THREE.Vector3(maxX, groundY, maxZ - tick), new THREE.Vector3(maxX - tick, groundY, maxZ - tick),
+
+            // Bottom-left corner tick
+            new THREE.Vector3(minX + tick, groundY, maxZ), new THREE.Vector3(minX + tick, groundY, maxZ - tick),
+            new THREE.Vector3(minX, groundY, maxZ - tick), new THREE.Vector3(minX + tick, groundY, maxZ - tick)
+        ];
+
+        if (this.sims4Footprint.geometry) this.sims4Footprint.geometry.dispose();
+        this.sims4Footprint.geometry = new THREE.BufferGeometry().setFromPoints(points);
+        this.sims4Footprint.position.set(0, 0, 0);
+        this.sims4Footprint.rotation.set(0, 0, 0);
+        this.sims4Footprint.scale.set(1, 1, 1);
+        this.sims4Footprint.visible = true;
+    }
+
+    rotateSelectedObjectSims4(deltaDeg = 45) {
+        if (!this.selectedObject) return;
+        const ent = this.selectedObject.userData?.entity;
+        if (ent && this.commonController) {
+            this.commonController.transformEngine.executeSpin(ent, deltaDeg);
+            if (this.selectedObject) {
+                this._updateSims4Footprint(this.selectedObject);
+                if (this.highlightRenderer) this.highlightRenderer.setSelectionHighlight(this.selectedObject);
+                this.setHighlight(this.selectedObject, true);
+            }
+        }
+    }
+
     initEvents() {
         const dom = this.ctx.renderer.domElement;
         
@@ -531,6 +629,40 @@ export class InteractionSystem {
             }
 
             if (this.mode === 'camera') return;
+
+            // Universal Material Face Painting Tool
+            if (this.commonController?.activeTool === COMMON_TOOLS.MATERIAL) {
+                this.commonController.paintSystem.onPointerDown(e);
+                return;
+            }
+
+            // Right-click: Start potential Sims 4 Spin / Drag-rotation or 45-deg step
+            if (e.button === 2 && (this.isSims4Dragging || this.isPotentialSims4Drag || this.selectedObject)) {
+                e.preventDefault();
+                e.stopPropagation();
+                const ent = this.selectedObject?.userData?.entity;
+                if (ent && this.commonController?.getCapabilities(ent, this.selectedObject)?.rotatable) {
+                    this.isPotentialSims4Spin = true;
+                    this.isSims4Spinning = false;
+                    this._spinPointerDownPos.set(e.clientX, e.clientY);
+                    this._spinStartAngle = ent.rotation || 0;
+                    if (this.ctx.controls) this.ctx.controls.enabled = false;
+                }
+                return;
+            }
+
+            // Left-click with [ Spin ] Tool active: direct drag rotation
+            if (e.button === 0 && this.commonController?.activeTool === COMMON_TOOLS.SPIN && this.selectedObject) {
+                const ent = this.selectedObject.userData?.entity;
+                if (ent && this.commonController?.getCapabilities(ent, this.selectedObject)?.rotatable) {
+                    this.isSims4Spinning = true;
+                    this._spinPointerDownPos.set(e.clientX, e.clientY);
+                    this._spinStartAngle = ent.rotation || 0;
+                    if (this.ctx.controls) this.ctx.controls.enabled = false;
+                    dom.style.cursor = 'ew-resize';
+                    return;
+                }
+            }
 
             if (this.transformControls && this.transformControls.active) return;
             if (e.button !== 0) return;
@@ -578,8 +710,8 @@ export class InteractionSystem {
             }
             this.lastTapTime = now;
             
-            // If currently in a transform mode, block all other object selections
-            if (this.ctx.currentTransformMode && this.ctx.currentTransformMode !== 'none') {
+            // If currently in a specialized sub-gizmo mode (not Sims 4 move/translate), check gizmo handle raycasts
+            if (this.ctx.currentTransformMode && this.ctx.currentTransformMode !== 'none' && this.ctx.currentTransformMode !== 'translate' && this.ctx.currentTransformMode !== 'move') {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
                 
                 if (this.transformControls && this.transformControls.visible) {
@@ -598,13 +730,6 @@ export class InteractionSystem {
                 if (this.wallPushPullGizmo && this.wallPushPullGizmo.visible) {
                     if (this.raycaster.intersectObjects(this.wallPushPullGizmo.handles.children, true).length > 0) return;
                 }
-                
-                const intersects = this.raycaster.intersectObjects(this.ctx.interactables, true);
-                if (intersects.length === 0) {
-                    // Block clicking outside to close when a gizmo is active! User must click 'Done'
-                    // this.ctx.setTransformMode('none', true);
-                    // this.deselect();
-                }
                 return;
             }
 
@@ -614,7 +739,6 @@ export class InteractionSystem {
                 let mesh = intersects[0].object;
 
                 if (mesh.userData.isFloorTrigger) {
-                    // IGNORE FLOOR CLICKS IF IN FULL BUILDING VIEW
                     if (this.ctx.viewMode3D === 'full-edit') return; 
                     if (this.ctx.onLevelSwitchRequest) {
                         this.ctx.onLevelSwitchRequest(
@@ -628,6 +752,12 @@ export class InteractionSystem {
 
                 while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isMolding && !mesh.userData.isRoof && !mesh.userData.isPattern && !mesh.userData.isStair && !mesh.userData.isFloorCutProxy && !mesh.userData.isRoofAddon && !mesh.userData.isRoofSculpture && !mesh.userData.isSkylight) mesh = mesh.parent;
                 
+                // Fallback: If clicked submesh belongs to an entity (like staircase, furniture, roof), resolve to ent.mesh3D
+                const targetEntity = mesh.userData?.entity || mesh.parent?.userData?.entity;
+                if (targetEntity && targetEntity.mesh3D) {
+                    mesh = targetEntity.mesh3D;
+                }
+
                 if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isMolding || mesh.userData.isRoof || mesh.userData.isPattern || mesh.userData.isStair || mesh.userData.isFloorCutProxy || mesh.userData.isRoofAddon || mesh.userData.isRoofSculpture || mesh.userData.isSkylight)) {
                     if (this.mode === 'edit') {
                         if (mesh.userData.isWallDecor) {
@@ -646,9 +776,40 @@ export class InteractionSystem {
                             }
                         }
                         this.selectObject(mesh, intersects[0]);
+
+                        // Direct Sims 4 Move: Grab object, disable OrbitControls, show footprint & highlight immediately
+                        const ent = mesh.userData?.entity;
+                        const caps = this.commonController?.getCapabilities(ent, mesh) || { movable: false };
+                        if (caps.movable) {
+                            this.isPotentialSims4Drag = true;
+                            this._pointerDownScreenPos.set(e.clientX, e.clientY);
+                            this._dragStartPos.copy(mesh.position);
+                            this._dragStartRot = mesh.rotation.y;
+                            
+                            // Prevent OrbitControls from rotating camera when dragging directly on an object!
+                            if (this.ctx.controls) this.ctx.controls.enabled = false;
+
+                            // Display tactile floor footprint & selection highlight on mouse down
+                            this._updateSims4Footprint(mesh);
+                            if (this.highlightRenderer) this.highlightRenderer.setSelectionHighlight(mesh);
+                            this.setHighlight(mesh, true, 0x00f0ff);
+
+                            this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+                            if (this.raycaster.ray.intersectPlane(this.sims4FloorPlane, this._tempFloorHit)) {
+                                this._grabOffset.subVectors(this._tempFloorHit, mesh.position);
+                            } else {
+                                this._grabOffset.set(0, 0, 0);
+                            }
+                        }
                     }
                 }
-            } else this.deselect();
+            } else {
+                this.deselect();
+                this.isPotentialSims4Drag = false;
+                this.isSims4Dragging = false;
+                this.sims4Footprint.visible = false;
+                if (this.ctx.controls) this.ctx.controls.enabled = true;
+            }
         };
 
         this._onPointerMove = (e) => {
@@ -694,9 +855,112 @@ export class InteractionSystem {
 
             if (this.mode === 'camera') return;
 
+            // Universal Material Face Painting Tool
+            if (this.commonController?.activeTool === COMMON_TOOLS.MATERIAL) {
+                this.commonController.paintSystem.onPointerMove(e);
+                return;
+            }
+
+            // Sims 4 Right-drag or [ Spin ] Tool Spin system
+            if (this.isPotentialSims4Spin && this.selectedObject) {
+                const dist = Math.hypot(e.clientX - this._spinPointerDownPos.x, e.clientY - this._spinPointerDownPos.y);
+                if (dist > 3) {
+                    this.isSims4Spinning = true;
+                    if (this.ctx.controls) this.ctx.controls.enabled = false;
+                    dom.style.cursor = 'ew-resize';
+                }
+            }
+
+            if (this.isSims4Spinning && this.selectedObject) {
+                const ent = this.selectedObject.userData?.entity;
+                if (ent && this.commonController) {
+                    const deltaX = e.clientX - this._spinPointerDownPos.x;
+                    const deltaDeg = Math.round(deltaX * 0.75);
+                    let targetAngle = this._spinStartAngle + deltaDeg;
+
+                    // Snap to 15° increments unless Alt is held
+                    if (!e.altKey) {
+                        targetAngle = Math.round(targetAngle / 15) * 15;
+                    }
+                    targetAngle = ((targetAngle % 360) + 360) % 360;
+
+                    this.commonController.transformEngine.executeSpin(ent, 0, targetAngle);
+                    this._updateSims4Footprint(this.selectedObject);
+                    if (this.highlightRenderer) this.highlightRenderer.setSelectionHighlight(this.selectedObject);
+                    this.setHighlight(this.selectedObject, true, 0x00f0ff);
+                    if (this.ctx.requestRender) this.ctx.requestRender('sims4_spinning');
+                }
+                return;
+            }
+
+            // Sims 4 Direct Move / Dragging System
+            if (this.isPotentialSims4Drag && this.selectedObject) {
+                const dist = Math.hypot(e.clientX - this._pointerDownScreenPos.x, e.clientY - this._pointerDownScreenPos.y);
+                if (dist > 1 || this.commonController?.activeTool === COMMON_TOOLS.MOVE) {
+                    this.isSims4Dragging = true;
+                    if (this.ctx.controls) this.ctx.controls.enabled = false;
+                    dom.style.cursor = 'grabbing';
+                }
+            }
+
+            if (this.isSims4Dragging && this.selectedObject) {
+                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+                const ent = this.selectedObject.userData?.entity;
+
+                // Maintain glowing highlight on the moving object
+                if (this.highlightRenderer) this.highlightRenderer.setSelectionHighlight(this.selectedObject);
+                this.setHighlight(this.selectedObject, true, 0x00f0ff);
+
+                // 1. Wall Plugin / Opening Dragging along wall baseline
+                if (ent?.wall && ent.wall.mesh3D) {
+                    const wallMesh = ent.wall.mesh3D;
+                    const intersects = this.raycaster.intersectObject(wallMesh, true);
+                    if (intersects.length > 0) {
+                        const hit = intersects[0];
+                        const localHit = wallMesh.worldToLocal(hit.point.clone());
+                        const wallLength = ent.wall.length3D || 100;
+                        const newT = Math.max(0.05, Math.min(0.95, (localHit.x + wallLength / 2) / wallLength));
+                        ent.t = newT;
+                        if (this.ctx.realtimeUpdate) this.ctx.realtimeUpdate.markDirty(ent, 'geometry');
+                        this._updateSims4Footprint(this.selectedObject);
+                        this._syncUI();
+                    }
+                }
+                // 2. Floor / Free Object Dragging
+                else if (this.raycaster.ray.intersectPlane(this.sims4FloorPlane, this._tempFloorHit)) {
+                    let newX = this._tempFloorHit.x - this._grabOffset.x;
+                    let newZ = this._tempFloorHit.z - this._grabOffset.z;
+
+                    // Snap to 10cm grid unless Alt is pressed
+                    if (!e.altKey) {
+                        newX = Math.round(newX / 10) * 10;
+                        newZ = Math.round(newZ / 10) * 10;
+                    }
+
+                    this.selectedObject.position.x = newX;
+                    this.selectedObject.position.z = newZ;
+
+                    if (ent) {
+                        ent.x = newX;
+                        ent.y = newZ;
+                        if (ent.group && typeof ent.group.x === 'function') {
+                            ent.group.x(newX);
+                            ent.group.y(newZ);
+                        }
+                        if (typeof ent.update2D === 'function') ent.update2D();
+                        if (this.ctx.realtimeUpdate) this.ctx.realtimeUpdate.markDirty(ent, 'transform');
+                    }
+
+                    this._updateSims4Footprint(this.selectedObject);
+                    this._syncUI();
+                    if (this.ctx.requestRender) this.ctx.requestRender('sims4_dragging');
+                }
+                return;
+            }
+
             if (this.transformControls && this.transformControls.active) return;
             
-            if (this.ctx.currentTransformMode && this.ctx.currentTransformMode !== 'none') {
+            if (this.ctx.currentTransformMode && this.ctx.currentTransformMode !== 'none' && this.ctx.currentTransformMode !== 'translate' && this.ctx.currentTransformMode !== 'move' && this.ctx.currentTransformMode !== 'rotateY' && this.ctx.currentTransformMode !== 'spin') {
                 // Clear hover highlights while using transform gizmos
                 if (this.hoveredObject && this.hoveredObject !== this.selectedObject) {
                     this.setHighlight(this.hoveredObject, false);
@@ -735,6 +999,67 @@ export class InteractionSystem {
 
         this._onPointerUp = (e) => {
             if (this.ctx.viewMode3D === 'preview') return;
+
+            // Universal Material Face Painting Tool
+            if (this.commonController?.activeTool === COMMON_TOOLS.MATERIAL) {
+                this.commonController.paintSystem.onPointerUp(e);
+                return;
+            }
+
+            // Complete Sims 4 Spin / Right-Click Rotation
+            if (this.isPotentialSims4Spin || this.isSims4Spinning) {
+                if (e.button === 2 && !this.isSims4Spinning && this.selectedObject) {
+                    // Single right-click tap: Step rotate 45 degrees
+                    this.rotateSelectedObjectSims4(45);
+                } else if (this.isSims4Spinning && this.selectedObject) {
+                    // Finished dragging rotation: commit to planner history
+                    const ent = this.selectedObject.userData?.entity;
+                    const id = ent?.id || (ent?.group && typeof ent.group.id === 'function' ? ent.group.id() : null);
+                    const plannerInst = window.planner?.value || window.planner;
+                    if (plannerInst && typeof plannerInst.rotate === 'function' && id && ent) {
+                        plannerInst.rotate(id, ent.rotation);
+                    }
+                    if (this.ctx.requestRender) this.ctx.requestRender('sims4_spin_end');
+                }
+                this.isPotentialSims4Spin = false;
+                this.isSims4Spinning = false;
+                if (this.ctx.controls) this.ctx.controls.enabled = (this.mode === 'camera');
+                dom.style.cursor = 'auto';
+                if (this.selectedObject) {
+                    this._updateSims4Footprint(this.selectedObject);
+                    if (this.highlightRenderer) this.highlightRenderer.setSelectionHighlight(this.selectedObject);
+                    this.setHighlight(this.selectedObject, true, 0x00f0ff);
+                }
+            }
+
+            // Complete Sims 4 Direct Drag
+            if (this.isSims4Dragging || this.isPotentialSims4Drag) {
+                if (this.ctx.controls) this.ctx.controls.enabled = (this.mode === 'camera' || !this.isSims4Dragging);
+                dom.style.cursor = 'auto';
+
+                if (this.isSims4Dragging && this.selectedObject && this._dragStartPos) {
+                    const distMoved = this.selectedObject.position.distanceTo(this._dragStartPos);
+                    if (distMoved > 0.1) {
+                        const ent = this.selectedObject.userData?.entity;
+                        const id = ent?.id || (ent?.group && typeof ent.group.id === 'function' ? ent.group.id() : null);
+                        const plannerInst = window.planner?.value || window.planner;
+                        if (plannerInst && typeof plannerInst.move === 'function' && id) {
+                            plannerInst.move(id, this.selectedObject.position.x, this.selectedObject.position.z);
+                        }
+                        if (this.ctx.requestRender) this.ctx.requestRender('sims4_drag_end');
+                    }
+                }
+                this.isSims4Dragging = false;
+                this.isPotentialSims4Drag = false;
+                if (this.selectedObject) {
+                    this._updateSims4Footprint(this.selectedObject);
+                    if (this.highlightRenderer) this.highlightRenderer.setSelectionHighlight(this.selectedObject);
+                    this.setHighlight(this.selectedObject, true, 0x00f0ff);
+                } else {
+                    this.sims4Footprint.visible = false;
+                }
+            }
+
             if (this.wall3DDrawSystem && this.wall3DDrawSystem.isWallDrawingTool()) {
                 if (this.wall3DDrawSystem.onPointerUp && this.wall3DDrawSystem.onPointerUp(e)) return;
             }
@@ -752,6 +1077,7 @@ export class InteractionSystem {
         dom.addEventListener('pointerdown', this._onPointerDown);
         dom.addEventListener('pointermove', this._onPointerMove);
         dom.addEventListener('pointerup', this._onPointerUp);
+        dom.addEventListener('contextmenu', (e) => e.preventDefault());
     }
 
     setTransformMode(mode) {
@@ -792,7 +1118,7 @@ export class InteractionSystem {
             if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
             if (this.roofPitchGizmo && this.selectedObject) this.roofPitchGizmo.attach(this.selectedObject, 'corners');
-        } else if (mode === 'none') {
+        } else if (mode === 'none' || mode === 'translate' || mode === 'move' || mode === 'rotateY' || mode === 'spin' || mode === 'rotate') {
             if (this.transformControls) this.transformControls.detach();
             if (this.openingGizmo) this.openingGizmo.detach();
             if (this.materialGizmo) this.materialGizmo.detach();
@@ -802,7 +1128,7 @@ export class InteractionSystem {
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
             if (this.roofPitchGizmo) {
                 if (this.selectedObject && (this.selectedObject.userData?.isRoof || this.selectedObject.userData?.entity?.type === 'roof')) {
-                    this.roofPitchGizmo.attach(this.selectedObject, 'corners');
+                    this.roofPitchGizmo.attach(this.selectedObject, (mode === 'spin' || mode === 'rotateY') ? 'spin' : 'corners');
                 } else {
                     this.roofPitchGizmo.detach();
                 }
@@ -814,19 +1140,10 @@ export class InteractionSystem {
             if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
             if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
-            const isRoofObj = this.selectedObject && (this.selectedObject.userData?.isRoof || this.selectedObject.userData?.entity?.type === 'roof');
-            if (isRoofObj && (mode === 'translate' || mode === 'move')) {
-                if (this.transformControls) this.transformControls.detach();
-                if (this.roofPitchGizmo) this.roofPitchGizmo.attach(this.selectedObject, 'move');
-            } else if (isRoofObj && (mode === 'rotateY' || mode === 'spin')) {
-                if (this.transformControls) this.transformControls.detach();
-                if (this.roofPitchGizmo) this.roofPitchGizmo.attach(this.selectedObject, 'spin');
-            } else {
-                if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
-                if (this.transformControls) {
-                    this.transformControls.mode = mode;
-                    this.transformControls.attach(this.selectedObject);
-                }
+            if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
+            if (this.transformControls) {
+                this.transformControls.mode = mode;
+                this.transformControls.attach(this.selectedObject);
             }
         }
     }
@@ -860,22 +1177,18 @@ export class InteractionSystem {
         }
     }
 
-    setHighlight(group, active, color = 0x93c5fd) {
+    setHighlight(group, active, color = 0x38bdf8) {
         if (!group) return;
 
         const entity = group.userData?.entity || (group.userData?.entityId ? { id: group.userData.entityId } : null);
         const slotName = group.userData?.materialSlot;
 
         if (entity && entity.id && slotName) {
-            ComponentRegistry.setSlotHighlight(entity.id, slotName, active, active ? (color || 0x93c5fd) : 0, this.ctx);
-            if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
-            return;
+            ComponentRegistry.setSlotHighlight(entity.id, slotName, active, active ? (color || 0x38bdf8) : 0, this.ctx);
         }
 
         if (group.isMesh && group.material) {
-            BIMMaterialSystem.setBIMHighlight(group, active, active ? (color || 0x93c5fd) : 0, this.ctx);
-            if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
-            return;
+            BIMMaterialSystem.setBIMHighlight(group, active, active ? (color || 0x38bdf8) : 0, this.ctx);
         }
 
         if (this.highlightRenderer) {
@@ -891,19 +1204,16 @@ export class InteractionSystem {
 
             if (active) {
                 if (targetGroup.userData && targetGroup.userData.isWallSide) {
-                    if (this.selectionManager) this.selectionManager.hoverWall(targetGroup);
+                    this.highlightRenderer.setSelectionHighlight(targetGroup, this.ctx.currentTransformMode || 'normal');
                 } else {
-                    this.highlightRenderer.setHoverHighlight(targetGroup);
+                    this.highlightRenderer.setSelectionHighlight(targetGroup, 'normal');
                 }
             } else {
-                if (targetGroup.userData && targetGroup.userData.isWallSide) {
-                    this.highlightRenderer.clearHoverHighlight();
-                } else {
-                    this.highlightRenderer.clearHoverHighlight();
-                }
+                this.highlightRenderer.clearSelectionHighlight();
+                this.highlightRenderer.clearHoverHighlight();
             }
-            if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
         }
+        if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
     }
 
     selectObject(object, intersect = null, preventAutoFocus = false) {
@@ -953,6 +1263,7 @@ export class InteractionSystem {
             }
 
             if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
+            if (this.commonController) this.commonController.setSelection(object.userData.entity, object);
             if (window.plannerInstance && object.userData.entity && window.plannerInstance.selectedEntity !== object.userData.entity) {
                 window.plannerInstance.selectEntity(object.userData.entity, type);
             }
@@ -1005,6 +1316,7 @@ export class InteractionSystem {
             this.selectedObject = null;
             if (this.dimensionManager) this.dimensionManager.onDeselect();
             if (this.ctx.onEntitySelect) this.ctx.onEntitySelect(null, null, null);
+            if (this.commonController) this.commonController.clearSelection();
             if (window.plannerInstance && window.plannerInstance.selectedEntity !== null) {
                 window.plannerInstance.selectEntity(null, null);
             }
@@ -1051,7 +1363,14 @@ export class InteractionSystem {
         if (this.wallPluginPlacementSystem && this.wallPluginPlacementSystem.dispose) this.wallPluginPlacementSystem.dispose();
         if (this.stairPlacementSystem && this.stairPlacementSystem.dispose) this.stairPlacementSystem.dispose();
         if (this.furniturePlacementSystem && this.furniturePlacementSystem.dispose) this.furniturePlacementSystem.dispose();
+        if (this.roofPlacementSystem && this.roofPlacementSystem.dispose) this.roofPlacementSystem.dispose();
+        if (this.roofPluginPlacementSystem && this.roofPluginPlacementSystem.dispose) this.roofPluginPlacementSystem.dispose();
         if (this.highlightRenderer && this.highlightRenderer.dispose) this.highlightRenderer.dispose();
         if (this.dimensionManager && this.dimensionManager.dispose) this.dimensionManager.dispose();
+        if (this.sims4Footprint) {
+            if (this.sims4Footprint.geometry) this.sims4Footprint.geometry.dispose();
+            if (this.sims4Footprint.material) this.sims4Footprint.material.dispose();
+            if (this.sims4Footprint.parent) this.sims4Footprint.parent.remove(this.sims4Footprint);
+        }
     }
 }

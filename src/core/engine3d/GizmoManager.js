@@ -3579,12 +3579,13 @@ export class GizmoManager {
             return;
         }
 
-        if (mode === 'translate') {
+        if (mode === 'translate' || mode === 'move') {
+            tc.visible = false;
+            tc.enabled = false;
+            if (tc.detach) tc.detach();
+            if (this.btnMove) this.btnMove.classList.add('active');
+            if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (isOpening) {
-                tc.visible = false;
-                tc.enabled = false;
-                this.btnMove.classList.add('active');
-                if (this.xyPanel) this.xyPanel.style.display = 'none';
                 if (this.ctx.interactions.openingGizmo && selectedObj) {
                     this.ctx.interactions.openingGizmo.attach(selectedObj, 'move');
                 }
@@ -3592,20 +3593,12 @@ export class GizmoManager {
             }
             const isRoof = selectedObj && (selectedObj.userData.isRoof || (entity && entity.type === 'roof'));
             if (isRoof) {
-                tc.visible = false;
-                tc.enabled = false;
-                this.btnMove.classList.add('active');
-                if (this.xyPanel) this.xyPanel.style.display = 'none';
                 if (this.ctx.interactions.roofPitchGizmo && selectedObj) {
-                    this.ctx.interactions.roofPitchGizmo.attach(selectedObj);
+                    this.ctx.interactions.roofPitchGizmo.attach(selectedObj, 'move');
                 }
                 return;
             }
-            tc.mode = 'translate';
-            tc.showTranslate = true; tc.showRotate = false; tc.showScale = false;
-            tc.showX = true; tc.showY = false; tc.showZ = true;
-            this.btnMove.classList.add('active');
-            if (this.xyPanel) this.xyPanel.style.display = 'none';
+            return;
         } else if (mode === 'place') {
             tc.mode = 'place';
             tc.showTranslate = true; tc.showRotate = false; tc.showScale = false;
@@ -3631,26 +3624,22 @@ export class GizmoManager {
             tc.showX = true; tc.showY = false; tc.showZ = false;
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             this.btnTilt.classList.add('active'); // Tilt
-        } else if (mode === 'rotateY') {
+        } else if (mode === 'rotateY' || mode === 'spin') {
+            tc.visible = false;
+            tc.enabled = false;
+            if (tc.detach) tc.detach();
+            if (this.btnSpin) this.btnSpin.classList.add('active');
+            if (this.xyPanel) this.xyPanel.style.display = 'none';
             const isRoof = selectedObj && (selectedObj.userData.isRoof || (entity && entity.type === 'roof'));
             if (isRoof) {
-                tc.visible = false;
-                tc.enabled = false;
-                this.btnSpin.classList.add('active');
-                if (this.xyPanel) this.xyPanel.style.display = 'none';
                 if (this.ctx.interactions.roofPitchGizmo && selectedObj) {
-                    this.ctx.interactions.roofPitchGizmo.attach(selectedObj);
+                    this.ctx.interactions.roofPitchGizmo.attach(selectedObj, 'spin');
                 }
-                return;
             }
-            tc.mode = 'rotate';
-            tc.showTranslate = false; tc.showRotate = true; tc.showScale = false;
-            tc.showX = false; tc.showY = true; tc.showZ = false;
-            if (this.xyPanel) this.xyPanel.style.display = 'none';
-            this.btnSpin.classList.add('active'); // Spin
+            return;
         }
 
-        if (selectedObj) tc.attach(selectedObj);
+        if (selectedObj && tc.visible) tc.attach(selectedObj);
     }
 
     updateTransformMenu() {

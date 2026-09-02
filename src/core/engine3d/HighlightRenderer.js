@@ -9,7 +9,7 @@ export const HIGHLIGHT_CONFIG = {
     HOVER_OPACITY: 0.25,
     POLYGON_OFFSET_FACTOR: -4, // Stronger pull towards camera
     POLYGON_OFFSET_UNITS: -4, // Stronger pull towards camera
-    SELECTION_COLOR: 0x3b82f6,
+    SELECTION_COLOR: 0x00f0ff,
     HOVER_COLOR: 0x93c5fd,
     BIM_HIGHLIGHT_COLOR: 0x00ff00
 };

@@ -73,6 +73,8 @@
         :view-mode3D="viewMode3D"
         :mode3D="mode3D"
         :selected-type="selectedType"
+        :is-desktop="isDesktop"
+        :common-controller="renderer3D?.commonTools"
         @update:show-guide="showGuide = $event"
         @update:show-advanced-tools="showAdvancedTools = $event"
         @handle-adv-trigger-click="handleAdvTriggerClick"

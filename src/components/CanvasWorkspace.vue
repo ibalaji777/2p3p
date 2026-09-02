@@ -17,6 +17,14 @@
 
 
 
+    <!-- Sims 4 Common 3D Tools (Persistent Floating Toolbar) -->
+    <CommonToolbar3D 
+      v-show="viewMode === '3d'"
+      :view-mode="viewMode"
+      :is-desktop="isDesktop"
+      :controller="commonController"
+    />
+
     <div class="bottom-right-toolbar">
         <!-- Sims 4 Wall Visibility Suite (Walls Up / Cutaway / Walls Down) -->
         <div v-show="viewMode === '3d'" class="wall-visibility-pill">
@@ -105,11 +113,14 @@
 
 <script setup>
 import { ref } from 'vue';
+import CommonToolbar3D from './common/CommonToolbar3D.vue';
 
 const props = defineProps({
   hintData: Object, viewMode: String, showGuide: Boolean, showAdvancedTools: Boolean, isAdvancedToolActive: Boolean,
   activeTool: String, isWallTrackingEnabled: Boolean, isXRayMode: Boolean, wallCutawayMode: { type: String, default: 'walls_up' }, floorPlanSettings: Object,
-  isRebuilding: Boolean, viewMode3D: String, mode3D: String, selectedType: String
+  isRebuilding: Boolean, viewMode3D: String, mode3D: String, selectedType: String,
+  isDesktop: { type: Boolean, default: true },
+  commonController: { type: Object, default: null }
 });
 
 const emit = defineEmits([

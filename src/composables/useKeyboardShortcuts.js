@@ -21,6 +21,10 @@ export function useKeyboardShortcuts(dependencies) {
         }
 
         if (viewMode.value === '3d') {
+            if (renderer3D.value?.commonTools && renderer3D.value.commonTools.handleKeyDown(e)) {
+                e.preventDefault();
+                return;
+            }
             if (e.key === 'Delete' || e.key === 'Backspace') { 
                 if (selectedType.value === 'furniture' || selectedType.value === 'stair' ) { handleDelete(); debouncedSaveHistory(); }
             }
