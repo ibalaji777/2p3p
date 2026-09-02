@@ -3189,6 +3189,9 @@ export class GizmoManager {
         if (this.ctx.interactions.wallPushPullGizmo) {
             this.ctx.interactions.wallPushPullGizmo.detach();
         }
+        if (this.ctx.interactions.universalSpinGizmo && mode !== 'rotateY' && mode !== 'spin') {
+            this.ctx.interactions.universalSpinGizmo.detach();
+        }
         if (this.ctx.interactions.materialGizmo && mode !== 'material') {
             this.ctx.interactions.materialGizmo.detach();
             if (this.materialPanel) {
@@ -3295,6 +3298,9 @@ export class GizmoManager {
                 if (this.roofSpinPanel && selectedObj) {
                     this.roofSpinPanel.style.display = 'flex';
                     this.syncRoofSpinPanel(selectedObj.userData.entity);
+                }
+                if (this.ctx.interactions.universalSpinGizmo && selectedObj) {
+                    this.ctx.interactions.universalSpinGizmo.attach(selectedObj);
                 }
                 if (this.ctx.interactions.roofPitchGizmo) {
                     this.ctx.interactions.roofPitchGizmo.attach(selectedObj, 'spin');
@@ -3630,6 +3636,9 @@ export class GizmoManager {
             if (tc.detach) tc.detach();
             if (this.btnSpin) this.btnSpin.classList.add('active');
             if (this.xyPanel) this.xyPanel.style.display = 'none';
+            if (this.ctx.interactions?.universalSpinGizmo && selectedObj) {
+                this.ctx.interactions.universalSpinGizmo.attach(selectedObj);
+            }
             const isRoof = selectedObj && (selectedObj.userData.isRoof || (entity && entity.type === 'roof'));
             if (isRoof) {
                 if (this.ctx.interactions.roofPitchGizmo && selectedObj) {
@@ -3876,6 +3885,9 @@ export class GizmoManager {
         if (this.roofOverhangGizmo && this.roofOverhangGizmo.dispose) this.roofOverhangGizmo.dispose();
         if (this.vertexSlopeGizmo && this.vertexSlopeGizmo.dispose) this.vertexSlopeGizmo.dispose();
         if (this.cornerRadiusGizmo && this.cornerRadiusGizmo.dispose) this.cornerRadiusGizmo.dispose();
+        if (this.ctx?.interactions?.universalSpinGizmo && this.ctx.interactions.universalSpinGizmo.dispose) {
+            this.ctx.interactions.universalSpinGizmo.dispose();
+        }
     }
 }
 

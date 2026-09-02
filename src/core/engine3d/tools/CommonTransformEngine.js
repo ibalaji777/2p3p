@@ -118,6 +118,13 @@ export class CommonTransformEngine {
             }
         }
 
+        // 3. Two-way synchronization with UniversalSpinGizmo & HUD
+        if (this.ctx.interactions?.universalSpinGizmo && this.ctx.interactions.universalSpinGizmo.visible) {
+            this.ctx.interactions.universalSpinGizmo.currentRotation = newAngle;
+            this.ctx.interactions.universalSpinGizmo._updateHeadingArrowRotation(newAngle);
+            this.ctx.interactions.universalSpinGizmo.syncHUD();
+        }
+
         this.notifyTransformChanged(entity);
         return true;
     }

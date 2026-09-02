@@ -11,6 +11,7 @@ import { RoofCornerGizmo } from '../../features/roof/RoofCornerGizmo.js';
 import { RoofOverhangGizmo } from '../../features/roof/RoofOverhangGizmo.js';
 import { RoofPitchCurvatureGizmo } from '../../features/roof/RoofPitchCurvatureGizmo.js';
 import { PolygonGizmo } from './PolygonGizmo.js';
+import { UniversalSpinGizmo } from './UniversalSpinGizmo.js';
 import { WallPushPullGizmo } from './WallPushPullGizmo.js';
 import { WallInteractiveSuite } from './WallInteractiveSuite.js';
 import { Wall3DDrawSystem } from './Wall3DDrawSystem.js';
@@ -488,6 +489,9 @@ export class InteractionSystem {
         this.polygonGizmo = new PolygonGizmo(ctx);
         this.ctx.scene.add(this.polygonGizmo);
 
+        this.universalSpinGizmo = new UniversalSpinGizmo(ctx);
+        this.ctx.scene.add(this.universalSpinGizmo);
+
         this.wallInteractiveSuite = new WallInteractiveSuite(ctx);
         this.ctx.scene.add(this.wallInteractiveSuite);
 
@@ -636,36 +640,16 @@ export class InteractionSystem {
                 return;
             }
 
-            // Right-click: Start potential Sims 4 Spin / Drag-rotation or 45-deg step
-            if (e.button === 2 && (this.isSims4Dragging || this.isPotentialSims4Drag || this.selectedObject)) {
-                e.preventDefault();
-                e.stopPropagation();
-                const ent = this.selectedObject?.userData?.entity;
-                if (ent && this.commonController?.getCapabilities(ent, this.selectedObject)?.rotatable) {
-                    this.isPotentialSims4Spin = true;
-                    this.isSims4Spinning = false;
-                    this._spinPointerDownPos.set(e.clientX, e.clientY);
-                    this._spinStartAngle = ent.rotation || 0;
-                    if (this.ctx.controls) this.ctx.controls.enabled = false;
-                }
-                return;
-            }
+            if (this.transformControls && this.transformControls.active) return;
+            if (e.button !== 0) return;
 
-            // Left-click with [ Spin ] Tool active: direct drag rotation
-            if (e.button === 0 && this.commonController?.activeTool === COMMON_TOOLS.SPIN && this.selectedObject) {
-                const ent = this.selectedObject.userData?.entity;
-                if (ent && this.commonController?.getCapabilities(ent, this.selectedObject)?.rotatable) {
-                    this.isSims4Spinning = true;
-                    this._spinPointerDownPos.set(e.clientX, e.clientY);
-                    this._spinStartAngle = ent.rotation || 0;
-                    if (this.ctx.controls) this.ctx.controls.enabled = false;
-                    dom.style.cursor = 'ew-resize';
+            // Direct check for interactive Universal Spin Gizmo handles
+            if (this.universalSpinGizmo && this.universalSpinGizmo.visible) {
+                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+                if (this.raycaster.intersectObjects(this.universalSpinGizmo.handles.children, true).length > 0) {
                     return;
                 }
             }
-
-            if (this.transformControls && this.transformControls.active) return;
-            if (e.button !== 0) return;
 
             // Direct check for interactive Roof Gizmo handles
             if (this.roofPitchGizmo && this.roofPitchGizmo.visible) {
@@ -1064,19 +1048,85 @@ export class InteractionSystem {
                 if (this.wall3DDrawSystem.onPointerUp && this.wall3DDrawSystem.onPointerUp(e)) return;
             }
             if (this.shape3DDrawSystem && this.shape3DDrawSystem.isShapeDrawingTool()) {
-                if (this.shape3DDrawSystem.onPointerUp(e)) return;
+                if (this.shape3DDrawSystem.onPointerUp && this.shape3DDrawSystem.onPointerUp(e)) return;
             }
             if (this.roofPluginPlacementSystem && this.roofPluginPlacementSystem.isPlacementTool()) {
                 if (this.roofPluginPlacementSystem.onPointerUp && this.roofPluginPlacementSystem.onPointerUp(e)) return;
             }
             if (this.roofPlacementSystem && this.roofPlacementSystem.isPlacementTool()) {
-                if (this.roofPlacementSystem.onPointerUp(e)) return;
+                if (this.roofPlacementSystem.onPointerUp && this.roofPlacementSystem.onPointerUp(e)) return;
+            }
+        };
+
+        // 2-Finger Touch Twist Rotation for Mobile & Tablets
+        let isTouchTwisting = false;
+        let initialTwistAngle = 0;
+        let initialEntityAngle = 0;
+
+        this._onTouchStart = (e) => {
+            if (e.touches && e.touches.length === 2 && this.selectedObject) {
+                const ent = this.selectedObject.userData?.entity;
+                if (ent && this.commonController?.getCapabilities(ent, this.selectedObject)?.rotatable) {
+                    isTouchTwisting = true;
+                    const t1 = e.touches[0];
+                    const t2 = e.touches[1];
+                    initialTwistAngle = Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX) * (180 / Math.PI);
+                    initialEntityAngle = ent.rotation || 0;
+                    if (this.ctx.controls) this.ctx.controls.enabled = false;
+                    if (this.universalSpinGizmo) {
+                        this.universalSpinGizmo.attach(this.selectedObject);
+                    }
+                    e.preventDefault();
+                }
+            }
+        };
+
+        this._onTouchMove = (e) => {
+            if (isTouchTwisting && e.touches && e.touches.length === 2 && this.selectedObject) {
+                const ent = this.selectedObject.userData?.entity;
+                if (!ent) return;
+                const t1 = e.touches[0];
+                const t2 = e.touches[1];
+                const curAngle = Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX) * (180 / Math.PI);
+                let delta = curAngle - initialTwistAngle;
+                let targetAngle = initialEntityAngle + delta;
+
+                // Smart snap to 15 degrees
+                targetAngle = Math.round(targetAngle / 15) * 15;
+                targetAngle = ((targetAngle % 360) + 360) % 360;
+
+                this.commonController.transformEngine.executeSpin(ent, 0, targetAngle);
+                if (this.universalSpinGizmo) {
+                    this.universalSpinGizmo.currentRotation = targetAngle;
+                    this.universalSpinGizmo._updateHeadingArrowRotation(targetAngle);
+                    this.universalSpinGizmo.syncHUD();
+                }
+                if (this.ctx.requestRender) this.ctx.requestRender('touch_twist_rotate');
+                e.preventDefault();
+            }
+        };
+
+        this._onTouchEnd = (e) => {
+            if (isTouchTwisting) {
+                isTouchTwisting = false;
+                if (this.ctx.controls) this.ctx.controls.enabled = (this.mode === 'camera');
+                if (this.selectedObject) {
+                    const ent = this.selectedObject.userData?.entity;
+                    const id = ent?.id || (ent?.group && typeof ent.group.id === 'function' ? ent.group.id() : null);
+                    const plannerInst = window.planner?.value || window.planner;
+                    if (plannerInst && typeof plannerInst.rotate === 'function' && id && ent) {
+                        plannerInst.rotate(id, ent.rotation);
+                    }
+                }
             }
         };
 
         dom.addEventListener('pointerdown', this._onPointerDown);
         dom.addEventListener('pointermove', this._onPointerMove);
         dom.addEventListener('pointerup', this._onPointerUp);
+        dom.addEventListener('touchstart', this._onTouchStart, { passive: false });
+        dom.addEventListener('touchmove', this._onTouchMove, { passive: false });
+        dom.addEventListener('touchend', this._onTouchEnd, { passive: false });
         dom.addEventListener('contextmenu', (e) => e.preventDefault());
     }
 
@@ -1133,7 +1183,15 @@ export class InteractionSystem {
                     this.roofPitchGizmo.detach();
                 }
             }
+            if (mode === 'spin' || mode === 'rotateY') {
+                if (this.universalSpinGizmo && this.selectedObject) {
+                    this.universalSpinGizmo.attach(this.selectedObject);
+                }
+            } else {
+                if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
+            }
         } else {
+            if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
             if (this.openingGizmo) this.openingGizmo.detach();
             if (this.materialGizmo) this.materialGizmo.detach();
             if (this.cornerGizmo) this.cornerGizmo.detach();
@@ -1212,31 +1270,26 @@ export class InteractionSystem {
                 this.highlightRenderer.clearSelectionHighlight();
                 this.highlightRenderer.clearHoverHighlight();
             }
-        }
-        if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
+        }        if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
     }
 
     selectObject(object, intersect = null, preventAutoFocus = false) {
-        if (!object) {
-            this.deselect();
-            return;
-        }
-        if (this.selectedObject === object) return;
-        if (this._isSelecting) return;
+        this.select(object, null, null, preventAutoFocus, intersect);
+    }
+
+    select(object, type = null, side = null, preventAutoFocus = false, intersect = null) {
+        if (!object || this._isSelecting) return;
         this._isSelecting = true;
 
         try {
-            if (this.selectedObject) {
-                this.setHighlight(this.selectedObject, false);
+            if (this.selectedObject === object && this.ctx.currentTransformMode !== 'none') {
+                return;
             }
-            if (this.transformControls) this.transformControls.detach();
-            if (this.highlightRenderer) this.highlightRenderer.clearAll();
 
+            this.deselect();
             this.selectedObject = object;
-            let type = null, side = null;
 
-            // SOLID OCP: Delegate to the centralized Selection Manager
-            const result = this.selectionManager.select(object);
+            const result = this.selectionManager.resolveSelectionType(object);
             if (result) {
                 type = result.type;
                 side = result.side;
@@ -1264,6 +1317,9 @@ export class InteractionSystem {
 
             if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
             if (this.commonController) this.commonController.setSelection(object.userData.entity, object);
+            if (this.commonController?.activeTool === COMMON_TOOLS.SPIN || this.ctx.currentTransformMode === 'rotateY' || this.ctx.currentTransformMode === 'spin') {
+                if (this.universalSpinGizmo) this.universalSpinGizmo.attach(object);
+            }
             if (window.plannerInstance && object.userData.entity && window.plannerInstance.selectedEntity !== object.userData.entity) {
                 window.plannerInstance.selectEntity(object.userData.entity, type);
             }
@@ -1305,6 +1361,7 @@ export class InteractionSystem {
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
             if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
             if (this.polygonGizmo) this.polygonGizmo.detach();
+            if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
             if (this.wallInteractiveSuite) this.wallInteractiveSuite.detach();
             this.ctx.currentTransformMode = 'none';
             if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
@@ -1342,11 +1399,14 @@ export class InteractionSystem {
             if (this.transformControls.dispose) this.transformControls.dispose();
         }
 
-        const dom = this.ctx.renderer.domElement;
+        const dom = this.ctx.renderer?.domElement;
         if (dom) {
             if (this._onPointerDown) dom.removeEventListener('pointerdown', this._onPointerDown);
             if (this._onPointerMove) dom.removeEventListener('pointermove', this._onPointerMove);
             if (this._onPointerUp) dom.removeEventListener('pointerup', this._onPointerUp);
+            if (this._onTouchStart) dom.removeEventListener('touchstart', this._onTouchStart);
+            if (this._onTouchMove) dom.removeEventListener('touchmove', this._onTouchMove);
+            if (this._onTouchEnd) dom.removeEventListener('touchend', this._onTouchEnd);
         }
 
         if (this.openingGizmo && this.openingGizmo.dispose) this.openingGizmo.dispose();
@@ -1357,6 +1417,7 @@ export class InteractionSystem {
         if (this.roofOverhangGizmo && this.roofOverhangGizmo.dispose) this.roofOverhangGizmo.dispose();
         if (this.roofPitchGizmo && this.roofPitchGizmo.dispose) this.roofPitchGizmo.dispose();
         if (this.polygonGizmo && this.polygonGizmo.dispose) this.polygonGizmo.dispose();
+        if (this.universalSpinGizmo && this.universalSpinGizmo.dispose) this.universalSpinGizmo.dispose();
         if (this.wallInteractiveSuite && this.wallInteractiveSuite.dispose) this.wallInteractiveSuite.dispose();
         if (this.wall3DDrawSystem && this.wall3DDrawSystem.dispose) this.wall3DDrawSystem.dispose();
         if (this.shape3DDrawSystem && this.shape3DDrawSystem.destroy) this.shape3DDrawSystem.destroy();

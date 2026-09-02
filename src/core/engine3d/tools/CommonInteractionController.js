@@ -74,7 +74,7 @@ export class CommonInteractionController {
 
         // 2. Transform Tools (Move, Spin, Tilt)
         if (toolId === COMMON_TOOLS.MOVE || toolId === COMMON_TOOLS.SPIN || toolId === COMMON_TOOLS.TILT) {
-            const targetMesh = this.selectedMesh || this.selectedEntity?.mesh3D;
+            const targetMesh = this.selectedMesh || this.selectedEntity?.mesh3D || this.ctx.interactions?.selectedObject;
             if (targetMesh && this.ctx.gizmoManager) {
                 const modeMap = {
                     [COMMON_TOOLS.MOVE]: 'translate',
@@ -82,6 +82,19 @@ export class CommonInteractionController {
                     [COMMON_TOOLS.TILT]: 'rotateX'
                 };
                 this.ctx.gizmoManager.setTransformMode(modeMap[toolId], true);
+            }
+            if (toolId === COMMON_TOOLS.SPIN) {
+                if (targetMesh && this.ctx.interactions?.universalSpinGizmo) {
+                    this.ctx.interactions.universalSpinGizmo.attach(targetMesh);
+                }
+            } else {
+                if (this.ctx.interactions?.universalSpinGizmo) {
+                    this.ctx.interactions.universalSpinGizmo.detach();
+                }
+            }
+        } else {
+            if (this.ctx.interactions?.universalSpinGizmo) {
+                this.ctx.interactions.universalSpinGizmo.detach();
             }
         }
 
@@ -120,8 +133,8 @@ export class CommonInteractionController {
     }
 
     /**
-     * Sets the active selection.
-     * @param {Object|null} entity
+     * Updates selection state and evaluates capabilities.
+     * @param {Object} entity
      * @param {THREE.Object3D|null} mesh
      */
     setSelection(entity, mesh = null) {
@@ -130,7 +143,7 @@ export class CommonInteractionController {
 
         // If currently in a transform tool, update or attach gizmo to new selection
         if (this.activeTool === COMMON_TOOLS.MOVE || this.activeTool === COMMON_TOOLS.SPIN || this.activeTool === COMMON_TOOLS.TILT) {
-            const targetMesh = mesh || entity?.mesh3D;
+            const targetMesh = mesh || entity?.mesh3D || this.ctx.interactions?.selectedObject;
             if (targetMesh && this.ctx.gizmoManager) {
                 const modeMap = {
                     [COMMON_TOOLS.MOVE]: 'translate',
@@ -138,6 +151,9 @@ export class CommonInteractionController {
                     [COMMON_TOOLS.TILT]: 'rotateX'
                 };
                 this.ctx.gizmoManager.setTransformMode(modeMap[this.activeTool], true);
+            }
+            if (this.activeTool === COMMON_TOOLS.SPIN && targetMesh && this.ctx.interactions?.universalSpinGizmo) {
+                this.ctx.interactions.universalSpinGizmo.attach(targetMesh);
             }
         }
 
