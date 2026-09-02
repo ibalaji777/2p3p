@@ -1,6 +1,8 @@
 import { EVENTS, offsetPolygon } from '../../core/registry.js';
 import { coreEventBus } from '../../core/EventBus.js';
 import { getStairCutoutPolygon } from '../stairs/stairs.renderer2d.js';
+import { WallFactory } from '../wall/wall.factory.js';
+import { WallEngine } from '../../core/wall/WallEngine.js';
 import Konva from 'konva';
 
 export class PremiumHipRoof {
@@ -247,27 +249,49 @@ export class PremiumHipRoof {
                 
                 if (isGable && isOuter) {
                     let gableWall = this.planner.walls.find(cw => cw.isAutoGable && cw.parentWallId === w.id && cw.parentRoofId === this.id);
+                    const baseHeight = w.height !== undefined ? w.height : (w.config?.height || 180);
+                    const elevation = (w.elevation || 0) + baseHeight;
+                    const thickness = w.thickness !== undefined ? w.thickness : (w.config?.thickness || 16);
+
                     if (!gableWall) {
-                        const WallClass = w.constructor; // dynamically get the wall class (e.g. PremiumWall)
-                        gableWall = new WallClass(this.planner, w.startAnchor, w.endAnchor, w.type);
+                        gableWall = WallFactory.createWall(this.planner, {
+                            startAnchor: w.startAnchor,
+                            endAnchor: w.endAnchor,
+                            type: w.type || 'outer',
+                            thickness: thickness,
+                            height: 0,
+                            elevation: elevation,
+                            topProfileType: 'gable',
+                            startHeight: 0,
+                            endHeight: 0,
+                            peakHeight: roofH,
+                            params: {
+                                texture: this.config?.gableMaterial || 'white_plaster_wall',
+                                textureFront: this.config?.gableMaterial || 'white_plaster_wall',
+                                textureBack: this.config?.gableMaterial || 'white_plaster_wall'
+                            },
+                            addToPlanner: true
+                        });
                         gableWall.isAutoGable = true;
                         gableWall.parentWallId = w.id;
                         gableWall.parentRoofId = this.id;
                         gableWall.description = "Auto Gable Wall";
-                        gableWall.topProfileType = 'gable';
-                        gableWall.startHeight = 0;
-                        gableWall.endHeight = 0;
-                        this.planner.walls.push(gableWall);
+                    } else {
+                        WallEngine.setElevation(gableWall, elevation, false, this.planner);
+                        WallEngine.setThickness(gableWall, thickness, false, this.planner);
+                        WallEngine.setHeight(gableWall, 0, false, this.planner);
+                        WallEngine.setTopProfile(gableWall, 'gable', {
+                            startHeight: 0,
+                            endHeight: 0,
+                            peakHeight: roofH
+                        }, false, this.planner);
                     }
-                    const baseHeight = w.height !== undefined ? w.height : (w.config?.height || 180);
-                    gableWall.elevation = (w.elevation || 0) + baseHeight;
-                    gableWall.height = 0;
-                    gableWall.peakHeight = roofH;
-                    if (w.thickness !== undefined) gableWall.thickness = w.thickness;
                     if (gableWall.updateGeometry) gableWall.updateGeometry();
                 } else {
                     let gableWall = this.planner.walls.find(cw => cw.isAutoGable && cw.parentWallId === w.id && cw.parentRoofId === this.id);
-                    if (gableWall) gableWall.destroy();
+                    if (gableWall) {
+                        WallEngine.deleteWall(this.planner, gableWall);
+                    }
                 }
             }
         });

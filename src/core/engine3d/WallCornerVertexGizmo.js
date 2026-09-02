@@ -410,11 +410,6 @@ export class WallCornerVertexGizmo extends THREE.Group {
                         y: Math.round(this.initialEndPos.y + this.wallNormal2D.y * dist)
                     };
 
-                    wall.startX = newP1.x;
-                    wall.startY = newP1.y;
-                    wall.endX = newP2.x;
-                    wall.endY = newP2.y;
-
                     WallEngine.setEndpoints(wall, newP1, newP2, false, planner);
 
                     if (planner) {
@@ -453,8 +448,12 @@ export class WallCornerVertexGizmo extends THREE.Group {
                         // Dragging top edge: Uniform overall height
                         const newH = Math.max(20, Math.round((this.initialH + deltaY) / step) * step);
                         WallEngine.setHeight(wall, newH, false, planner);
-                        if (wall.startHeight !== undefined) wall.startHeight = newH;
-                        if (wall.endHeight !== undefined) wall.endHeight = newH;
+                        if (wall.topProfileType && wall.topProfileType !== 'normal') {
+                            WallEngine.setTopProfile(wall, wall.topProfileType, {
+                                startHeight: newH,
+                                endHeight: newH
+                            }, false, planner);
+                        }
 
                         if (this.domBadge) {
                             this._updateBadgeText(`📐 Wall Height: ${newH} cm (${deltaY >= 0 ? '+' : ''}${Math.round(deltaY)} cm)`);
@@ -499,12 +498,12 @@ export class WallCornerVertexGizmo extends THREE.Group {
                     if (anchor) {
                         WallEngine.moveAnchor(anchor, { x: newX, y: newY }, planner, false);
                     } else {
+                        const curStart = { x: wall.startX ?? wall.p1?.x ?? 0, y: wall.startY ?? wall.p1?.y ?? 0 };
+                        const curEnd = { x: wall.endX ?? wall.p2?.x ?? 0, y: wall.endY ?? wall.p2?.y ?? 0 };
                         if (isStart) {
-                            wall.startX = newX;
-                            wall.startY = newY;
+                            WallEngine.setEndpoints(wall, { x: newX, y: newY }, curEnd, false, planner);
                         } else {
-                            wall.endX = newX;
-                            wall.endY = newY;
+                            WallEngine.setEndpoints(wall, curStart, { x: newX, y: newY }, false, planner);
                         }
                     }
 

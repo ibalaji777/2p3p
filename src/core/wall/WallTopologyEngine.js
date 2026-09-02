@@ -6,6 +6,7 @@
  */
 
 import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
+import { PremiumMolding } from '../engine2d/PremiumMolding.js';
 import { WallGeometryEngine } from './WallGeometryEngine.js';
 
 export class WallTopologyEngine {
@@ -710,5 +711,119 @@ export class WallTopologyEngine {
         if (tD > 0.005 && tD < 0.995) splits.push({ point: { x: Math.round(D.x), y: Math.round(D.y) }, t: tD });
 
         return splits;
+    }
+
+    /**
+     * Extrude or recess a section of a wall outward/inward by depth.
+     */
+    static extrudeWallSegment(planner, wall, tStart = 0.25, tEnd = 0.75, depth = 30) {
+        if (!planner || !wall) return null;
+
+        const p1 = WallGeometryEngine.getAnchorPosition(wall.startAnchor);
+        const p2 = WallGeometryEngine.getAnchorPosition(wall.endAnchor);
+
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const len = Math.hypot(dx, dy);
+        if (len < 30) return null;
+
+        const nx = -dy / len;
+        const ny = dx / len;
+
+        const ptA = { x: Math.round(p1.x + tStart * dx), y: Math.round(p1.y + tStart * dy) };
+        const ptB = { x: Math.round(p1.x + tEnd * dx), y: Math.round(p1.y + tEnd * dy) };
+        const ptA_ext = { x: Math.round(ptA.x + depth * nx), y: Math.round(ptA.y + depth * ny) };
+        const ptB_ext = { x: Math.round(ptB.x + depth * nx), y: Math.round(ptB.y + depth * ny) };
+
+        const anc1 = wall.startAnchor || planner.getOrCreateAnchor(p1.x, p1.y);
+        const anc2 = wall.endAnchor || planner.getOrCreateAnchor(p2.x, p2.y);
+        const ancA = planner.getOrCreateAnchor(ptA.x, ptA.y);
+        const ancB = planner.getOrCreateAnchor(ptB.x, ptB.y);
+        const ancA_ext = planner.getOrCreateAnchor(ptA_ext.x, ptA_ext.y);
+        const ancB_ext = planner.getOrCreateAnchor(ptB_ext.x, ptB_ext.y);
+
+        const newWalls = [];
+        const wallOpts = {
+            type: wall.type || 'outer',
+            height: wall.height,
+            thickness: wall.thickness,
+            elevation: wall.elevation || 0,
+            params: wall.params ? JSON.parse(JSON.stringify(wall.params)) : {},
+            addToPlanner: true
+        };
+
+        // 1. Initial segment (p1 -> ptA) if tStart > 0.05
+        if (tStart > 0.05) {
+            const wStart = this.createWall(planner, {
+                ...wallOpts,
+                startAnchor: anc1,
+                endAnchor: ancA
+            });
+            newWalls.push(wStart);
+        }
+
+        // 2. Return Wall 1 (ptA -> ptA_ext)
+        const wReturn1 = this.createWall(planner, {
+            ...wallOpts,
+            startAnchor: ancA,
+            endAnchor: ancA_ext
+        });
+        newWalls.push(wReturn1);
+
+        // 3. Front Extruded Face (ptA_ext -> ptB_ext)
+        const wFront = this.createWall(planner, {
+            ...wallOpts,
+            startAnchor: ancA_ext,
+            endAnchor: ancB_ext
+        });
+        newWalls.push(wFront);
+
+        // 4. Return Wall 2 (ptB_ext -> ptB)
+        const wReturn2 = this.createWall(planner, {
+            ...wallOpts,
+            startAnchor: ancB_ext,
+            endAnchor: ancB
+        });
+        newWalls.push(wReturn2);
+
+        // 5. Ending segment (ptB -> p2) if tEnd < 0.95
+        if (tEnd < 0.95) {
+            const wEnd = this.createWall(planner, {
+                ...wallOpts,
+                startAnchor: ancB,
+                endAnchor: anc2
+            });
+            newWalls.push(wEnd);
+        }
+
+        // Transfer moldings along all new bay walls
+        if (wall.attachedMoldings && wall.attachedMoldings.length > 0) {
+            wall.attachedMoldings.forEach(mold => {
+                const moldData = mold.serialize ? mold.serialize() : { ...mold };
+                newWalls.forEach(nw => {
+                    const nwp1 = WallGeometryEngine.getAnchorPosition(nw.startAnchor);
+                    const nwp2 = WallGeometryEngine.getAnchorPosition(nw.endAnchor);
+                    const nwLen = Math.hypot(nwp2.x - nwp1.x, nwp2.y - nwp1.y);
+                    const nm = new PremiumMolding(planner, nw, 0.5, mold.type || 'molding_chair_rail');
+                    Object.assign(nm, moldData);
+                    nm.wall = nw;
+                    nm.width = nwLen;
+                    nm.t = 0.5;
+                    if (!nw.attachedMoldings) nw.attachedMoldings = [];
+                    nw.attachedMoldings.push(nm);
+                    if (nm.update) nm.update();
+                });
+                if (mold.destroy) mold.destroy();
+            });
+            wall.attachedMoldings = [];
+        }
+
+        // Delete original wall via canonical deleteWall
+        this.deleteWall(planner, wall);
+
+        if (planner.syncAll) planner.syncAll();
+        if (planner.findRooms) planner.findRooms();
+
+        return newWalls;
     }
 }

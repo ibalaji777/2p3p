@@ -375,6 +375,24 @@ export class WallMutationEngine {
             if (updates.elevation !== undefined) {
                 w.elevation = Number(updates.elevation);
             }
+            if (updates.topProfileType !== undefined) {
+                w.topProfileType = updates.topProfileType;
+            }
+            if (updates.startHeight !== undefined) {
+                w.startHeight = Number(updates.startHeight);
+            }
+            if (updates.endHeight !== undefined) {
+                w.endHeight = Number(updates.endHeight);
+            }
+            if (updates.peakHeight !== undefined) {
+                w.peakHeight = Number(updates.peakHeight);
+            }
+            if (updates.peakPos !== undefined) {
+                w.peakPos = Number(updates.peakPos);
+            }
+            if (updates.flipSlope !== undefined) {
+                w.flipSlope = !!updates.flipSlope;
+            }
             if (updates.params) {
                 w.params = { ...(w.params || {}), ...updates.params };
             }

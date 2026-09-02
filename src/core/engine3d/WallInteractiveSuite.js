@@ -6,6 +6,7 @@ import { WallCornerVertexGizmo } from './WallCornerVertexGizmo.js';
 import { WallHeightGizmo } from './WallHeightGizmo.js';
 import { WallReformer } from '../engine2d/WallReformer.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
+import { WallEngine } from '../wall/WallEngine.js';
 
 /**
  * WallInteractiveSuite
@@ -706,15 +707,19 @@ export class WallInteractiveSuite extends THREE.Group {
             this._hideExtrudeGhost();
         } else if (mode === 'slope') {
             if (wall) {
+                const planner = this.ctx.planner || window.plannerInstance;
+                const baseH = wall.height || 120;
                 if (!wall.topProfileType || wall.topProfileType === 'normal') {
-                    wall.topProfileType = 'single';
-                    wall.startHeight = wall.height || 120;
-                    wall.endHeight = (wall.height || 120) * 1.5;
+                    WallEngine.setTopProfile(wall, 'single', {
+                        startHeight: baseH,
+                        endHeight: baseH * 1.5
+                    }, true, planner);
                 } else if (wall.topProfileType === 'single') {
-                    wall.topProfileType = 'gable';
-                    wall.peakHeight = (wall.height || 120) * 1.6;
+                    WallEngine.setTopProfile(wall, 'gable', {
+                        peakHeight: baseH * 1.6
+                    }, true, planner);
                 } else {
-                    wall.topProfileType = 'normal';
+                    WallEngine.setTopProfile(wall, 'normal', {}, true, planner);
                 }
                 if (typeof this.ctx.updateWallGeometryLive === 'function') {
                     this.ctx.updateWallGeometryLive(wall);
@@ -826,25 +831,25 @@ export class WallInteractiveSuite extends THREE.Group {
         } else if (this.target?.userData?.entity && this._initialWallSnapshot) {
             const wall = this.target.userData.entity;
             const snap = this._initialWallSnapshot;
-            wall.startX = snap.startX;
-            wall.startY = snap.startY;
-            wall.endX = snap.endX;
-            wall.endY = snap.endY;
+            const planner = this.ctx.planner || window.plannerInstance;
+
             if (wall.startAnchor && snap.startAnchorPos) {
-                wall.startAnchor.position(snap.startAnchorPos);
+                WallEngine.moveAnchor(wall.startAnchor, snap.startAnchorPos, planner, false);
             }
             if (wall.endAnchor && snap.endAnchorPos) {
-                wall.endAnchor.position(snap.endAnchorPos);
+                WallEngine.moveAnchor(wall.endAnchor, snap.endAnchorPos, planner, false);
             }
-            wall.height = snap.height;
-            wall.thickness = snap.thickness;
-            wall.elevation = snap.elevation;
-            wall.topProfileType = snap.topProfileType;
-            wall.startHeight = snap.startHeight;
-            wall.endHeight = snap.endHeight;
-            wall.peakHeight = snap.peakHeight;
 
-            if (planner && planner.syncAll) planner.syncAll();
+            WallEngine.batchUpdate(planner, [wall], {
+                height: snap.height,
+                thickness: snap.thickness,
+                elevation: snap.elevation,
+                topProfileType: snap.topProfileType,
+                startHeight: snap.startHeight,
+                endHeight: snap.endHeight,
+                peakHeight: snap.peakHeight
+            });
+
             if (typeof this.ctx.updateWallGeometryLive === 'function') {
                 try { this.ctx.updateWallGeometryLive(wall); } catch(err) {}
             }

@@ -234,19 +234,17 @@ export class PremiumWall {
                 const pos = this.planner.getPointerPos ? this.planner.getPointerPos() : this.planner.stage.getPointerPosition();
                 if (!pos) return;
                 
-                const proj = this.planner.getClosestPointOnSegment(pos, this.startAnchor.position(), this.endAnchor.position());
-                const splitAnchor = this.planner.getOrCreateAnchor(proj.x, proj.y);
+                const p1 = this.startAnchor.position();
+                const p2 = this.endAnchor.position();
+                const proj = this.planner.getClosestPointOnSegment(pos, p1, p2);
                 
-                const newWall = new PremiumWall(this.planner, splitAnchor, this.endAnchor, this.type);
-                this.endAnchor = splitAnchor;
-                
-                this.planner.walls.push(newWall);
+                const result = WallEngine.splitWall(this.planner, this, proj);
+                const splitAnchor = (result && result[1]) ? result[1].startAnchor : this.planner.getOrCreateAnchor(proj.x, proj.y);
                 
                 this.planner.tool = 'select';
                 if (this.planner.onToolChange) this.planner.onToolChange('select');
                 this.planner.updateToolStates();
                 this.planner.selectEntity(splitAnchor, 'anchor');
-                this.planner.syncAll();
                 return;
             }
             const isMolding = !!MOLDING_REGISTRY[this.planner.tool];

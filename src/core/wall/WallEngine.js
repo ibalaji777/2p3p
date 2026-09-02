@@ -121,6 +121,10 @@ export class WallEngine {
         return WallTopologyEngine.reformAndAddWallSegments(planner, inputSegments, wallType, wallConfig);
     }
 
+    static extrudeWallSegment(planner, wall, tStart, tEnd, depth) {
+        return WallTopologyEngine.extrudeWallSegment(planner, wall, tStart, tEnd, depth);
+    }
+
     // ==========================================
     // 3. MUTATION AUTHORITY
     // ==========================================

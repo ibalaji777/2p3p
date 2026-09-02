@@ -153,5 +153,45 @@ All doors, windows, openings, baseboards, moldings, sunshades, fascias, curtains
 8. **2-Step Pinned Placement & HUD Confirmation**:
    Clicking on a wall MUST pin the preview highlight and display the floating HUD popup (`⇄ Flip Face`, `✓ Place`, `✕`). Only clicking `✓ Place` commits and applies the element to the actual wall design.
 
+# Universal Wall Push/Pull, Solid Protrusions & 45-Degree Mitered Moldings Rule
 
+**CRITICAL MANDATE**
 
+All wall push/pull operations, exterior solid wall protrusions (`solid_protrusion`), 2D wall polygons, and 3D trim/molding wrapping MUST adhere strictly to the unified architecture defined in the `wall_push_pull` skill:
+
+## Required Behavior
+1. **Monolithic Wall Geometry in 2D (`wall.renderer2d.js`)**:
+   - The host wall polygon (`this.poly.points`) must directly step outward to include the solid block and return cleanly in **one single continuous filled polygon**.
+   - Protrusion vertices (`ptA, ptA_out, ptB_out, ptB`) must be computed directly along the true baseline edge vectors (`p1_L -> p2_L` / `p1_R -> p2_R`). Never interpolate between corner-mitered true corners.
+2. **Zero Erase Cutters & Zero Duplicate Shapes**:
+   - `advance_openings.js` must NEVER add a `destination-out` erasing cutter on `wallLayer` for `solid_protrusion`.
+   - `registry.js['solid_protrusion'].render2D` must not render duplicate overlapping background rectangles. Only the dimension badge (`+depth`) is rendered on `widgetLayer`.
+3. **2D Molding Ribbon Offset with Bisector Mitering (`PremiumMolding.js`)**:
+   - The 2D molding ribbon polygon must calculate segment-by-segment unit normals and corner bisector vectors `B = normalize(n_{i-1} + n_i)`, ensuring uniform thickness across the base wall and all horizontal/vertical returns with zero thin/missing regions.
+4. **Zero-Hole 3D Wall Base (`EnvironmentBuilder.js`)**:
+   - In both active wall and static floor builders, `solid_protrusion` must explicitly set `hasHole = false` so Three.js preserves the solid wall body behind the bump-out.
+5. **3D Continuous Molding Wrapping & $45^\circ$ Geometric Miters (`Molding3DBuilder.js`)**:
+   - Side return geometries must use $180^\circ$ $Y$-rotation (never negative scaling) to preserve positive surface normals and front-facing shading.
+   - All 4 protrusion corners (2 inside corners at base wall, 2 outside corners at protrusion face) must apply $45^\circ$ vertex shearing proportionally to profile depth `distZ` / `distX`, producing gapless carpentry-grade miter joints across any multi-flute or detailed trim profile.
+
+# Universal Centralized Wall Engine & Single Source of Truth Rule
+
+**CRITICAL MANDATE**
+
+All wall creation, movement, anchor repositioning, thickness editing, height editing, sloped top profiles, push/pull, splitting, merging, deletion, graph network slicing, materials, and attached components MUST strictly route through `WallEngine` (`src/core/wall/WallEngine.js`).
+
+## Required Behavior
+1. **Single Source of Truth (`planner.walls[]`)**:
+   - `planner.walls[]` and `planner.anchors[]` are the sole authoritative state.
+   - `new PremiumWall(...)` is ONLY instantiated inside `WallTopologyEngine.createWall`. All tools and systems MUST call `WallEngine.createWall` or `WallEngine.createRoomBox`.
+2. **Zero Direct Wall Mutation Bypasses**:
+   - NEVER write directly to `wall.thickness`, `wall.height`, `wall.elevation`, `wall.topProfileType`, `wall.startHeight`, `wall.endHeight`, `wall.startAnchor`, `wall.endAnchor`, or `wall.startX/Y`.
+   - ALWAYS use `WallEngine.setThickness`, `WallEngine.setHeight`, `WallEngine.setElevation`, `WallEngine.setTopProfile`, `WallEngine.setEndpoints`, `WallEngine.moveAnchor`, `WallEngine.pushPull`, and `WallEngine.batchUpdate`.
+3. **100% Read-Only 2D & 3D Renderers**:
+   - `wall.renderer2d.js` and `wall.renderer3d.js` are strictly passive consumers of canonical state.
+   - Renderers must NEVER modify wall state, dimensions, topology, or materials.
+4. **Centralized Geometry Authority (`WallGeometryEngine.js`)**:
+   - Mathematical wall vectors, centerlines, normals, 2D polygons, aperture voids, and multi-wall radial bisector corner miters MUST be calculated exclusively by `WallGeometryEngine`.
+5. **Deterministic Cascading Cleanup & History**:
+   - Deleting a wall via `WallEngine.deleteWall` must cascade to all child auto-gables, openings, moldings, and unregister degree-0 anchors.
+   - All state mutations must integrate cleanly with `SnapshotCommand` and `WallSerializer`.
