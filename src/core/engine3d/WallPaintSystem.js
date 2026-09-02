@@ -9,6 +9,8 @@
  *    only exterior facade surfaces of outer walls.
  */
 
+import { WallEngine } from '../wall/WallEngine.js';
+
 export function resolvePlanner(planner, renderer3D) {
     if (planner && planner.value && planner.value.walls) return planner.value;
     if (planner && planner.walls) return planner;
@@ -294,11 +296,11 @@ export function applyWallPaintWithScope({ wall, side, configId, scope = 'single'
             const targets = getRoomWallsAndSides(room, actualPlanner, renderer3D);
             targets.forEach(t => {
                 const decor = renderer3D.addWallPattern(t.wall, configId, t.side);
-                t.wall.params = t.wall.params || {};
-                t.wall.params[t.side === 'back' ? 'textureBack' : 'textureFront'] = configId;
-                if (typeof renderer3D.updateMaterialLive === 'function') {
-                    renderer3D.updateMaterialLive(t.wall);
-                }
+                WallEngine.applyMaterial(t.wall, {
+                    target: t.side === 'back' ? 'back' : 'front',
+                    key: configId,
+                    ctx: renderer3D
+                }, actualPlanner);
                 if (decor) appliedDecors.push({ wall: t.wall, decor });
             });
             if (typeof renderer3D.requestRender === 'function') renderer3D.requestRender();
@@ -308,11 +310,11 @@ export function applyWallPaintWithScope({ wall, side, configId, scope = 'single'
         const targets = getExteriorWallsAndSides(actualPlanner, renderer3D);
         targets.forEach(t => {
             const decor = renderer3D.addWallPattern(t.wall, configId, t.side);
-            t.wall.params = t.wall.params || {};
-            t.wall.params[t.side === 'back' ? 'textureBack' : 'textureFront'] = configId;
-            if (typeof renderer3D.updateMaterialLive === 'function') {
-                renderer3D.updateMaterialLive(t.wall);
-            }
+            WallEngine.applyMaterial(t.wall, {
+                target: t.side === 'back' ? 'back' : 'front',
+                key: configId,
+                ctx: renderer3D
+            }, actualPlanner);
             if (decor) appliedDecors.push({ wall: t.wall, decor });
         });
         if (typeof renderer3D.requestRender === 'function') renderer3D.requestRender();
@@ -321,12 +323,7 @@ export function applyWallPaintWithScope({ wall, side, configId, scope = 'single'
 
     // Fallback: Single Face Mode
     if (side === 'left' || side === 'right') {
-        wall.params = wall.params || {};
-        const paramKey = side === 'left' ? 'textureLeft' : 'textureRight';
-        wall.params[paramKey] = configId;
-        if (typeof renderer3D.updateMaterialLive === 'function') {
-            renderer3D.updateMaterialLive(wall);
-        }
+        WallEngine.applyMaterial(wall, { target: side, key: configId, ctx: renderer3D }, actualPlanner);
 
         // Sync to connected walls at this corner
         const anchor = side === 'left' ? wall.startAnchor : wall.endAnchor;
@@ -348,14 +345,10 @@ export function applyWallPaintWithScope({ wall, side, configId, scope = 'single'
                 else if (cwP2.x !== undefined && Math.hypot(cwP2.x - pt.x, cwP2.y - pt.y) < 5) isCwEnd = true;
             }
             if (isCwStart) {
-                cw.params = cw.params || {};
-                cw.params.textureLeft = configId;
-                if (typeof renderer3D.updateMaterialLive === 'function') renderer3D.updateMaterialLive(cw);
+                WallEngine.applyMaterial(cw, { target: 'left', key: configId, ctx: renderer3D }, actualPlanner);
             }
             if (isCwEnd) {
-                cw.params = cw.params || {};
-                cw.params.textureRight = configId;
-                if (typeof renderer3D.updateMaterialLive === 'function') renderer3D.updateMaterialLive(cw);
+                WallEngine.applyMaterial(cw, { target: 'right', key: configId, ctx: renderer3D }, actualPlanner);
             }
         });
 
@@ -364,12 +357,12 @@ export function applyWallPaintWithScope({ wall, side, configId, scope = 'single'
     }
 
     const decor = renderer3D.addWallPattern(wall, configId, side || 'front');
-    wall.params = wall.params || {};
-    const paramKey = (side === 'back') ? 'textureBack' : 'textureFront';
-    wall.params[paramKey] = configId;
-    if (typeof renderer3D.updateMaterialLive === 'function') {
-        renderer3D.updateMaterialLive(wall);
-    }
+    WallEngine.applyMaterial(wall, {
+        target: (side === 'back') ? 'back' : 'front',
+        key: configId,
+        ctx: renderer3D
+    }, actualPlanner);
+
     if (typeof renderer3D.requestRender === 'function') renderer3D.requestRender();
     if (decor) appliedDecors.push({ wall, decor });
     return appliedDecors;

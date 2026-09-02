@@ -4,6 +4,8 @@ import { PremiumWidget } from '../../core/engine2d/PremiumWidget.js';
 import { PremiumMolding } from '../../core/engine2d/PremiumMolding.js';
 import { advance_openings } from '../../core/engine2d/advance_openings.js';
 import { WallSerializer } from './wall.serializer.js';
+import { WallEngine } from '../../core/wall/WallEngine.js';
+import { WallGeometryEngine } from '../../core/wall/WallGeometryEngine.js';
 
 export class PremiumWall {
     constructor(planner, startAnchor, endAnchor, type = "outer") {
@@ -559,245 +561,20 @@ export class PremiumWall {
         this.poly.on('dragend', () => { this.planner.selectEntity(this.planner.selectedEntity, this.planner.selectedType, this.planner.selectedNodeIndex); });
     }
     
-    getClosestT(pos) { const p1 = this.startAnchor.position(), p2 = this.endAnchor.position(), dx = p2.x - p1.x, dy = p2.y - p1.y, lenSq = dx*dx + dy*dy; if (lenSq === 0) return 0.5; let t = ((pos.x - p1.x) * dx + (pos.y - p1.y) * dy) / lenSq; return Math.max(0, Math.min(1, t)); }
+    getClosestT(pos) { const p1 = WallGeometryEngine.getAnchorPosition(this.startAnchor), p2 = WallGeometryEngine.getAnchorPosition(this.endAnchor), dx = p2.x - p1.x, dy = p2.y - p1.y, lenSq = dx*dx + dy*dy; if (lenSq === 0) return 0.5; let t = ((pos.x - p1.x) * dx + (pos.y - p1.y) * dy) / lenSq; return Math.max(0, Math.min(1, t)); }
     
     update() { 
-        const getExactPos = (anchor) => { const p = anchor.position(); return { x: p.x, y: p.y }; };
-        const p1 = getExactPos(this.startAnchor), p2 = getExactPos(this.endAnchor); const vdx = p2.x - p1.x, vdy = p2.y - p1.y, vlen = Math.hypot(vdx, vdy); if (vlen === 0) return;
-        const u = { x: vdx/vlen, y: vdy/vlen }, n = { x: -u.y, y: u.x }, ht = this.thickness / 2;
-        const p1_L = { x: p1.x + n.x * ht, y: p1.y + n.y * ht }, p1_R = { x: p1.x - n.x * ht, y: p1.y - n.y * ht }, p2_L = { x: p2.x + n.x * ht, y: p2.y + n.y * ht }, p2_R = { x: p2.x - n.x * ht, y: p2.y - n.y * ht };
-        
-        let startL = p1_L, startR = p1_R, endL = p2_L, endR = p2_R;
-        const intersectLines = (pA, dA, pB, dB) => { const det = dA.x * dB.y - dA.y * dB.x; if (Math.abs(det) < 1e-5) return null; const t = ((pB.x - pA.x) * dB.y - (pB.y - pA.y) * dB.x) / det; return { x: pA.x + t * dA.x, y: pA.y + t * dA.y }; };
-        const getCorners = (anchor, isStart) => {
-            const baseL = isStart ? p1_L : p2_L, baseR = isStart ? p1_R : p2_R, P = getExactPos(anchor);
-            const connectedWalls = this.planner.walls.filter(w => (w.startAnchor === anchor || w.endAnchor === anchor) && w !== this && w.type !== 'railing' && !w.hidden);
-            
-            const getTJointIntersections = (snappedWall) => {
-                const w2_p1 = getExactPos(snappedWall.startAnchor), w2_p2 = getExactPos(snappedWall.endAnchor), vdx2 = w2_p2.x - w2_p1.x, vdy2 = w2_p2.y - w2_p1.y, vlen2 = Math.hypot(vdx2, vdy2);
-                if (vlen2 > 0) {
-                    const u2 = { x: vdx2/vlen2, y: vdy2/vlen2 }, n2 = { x: -u2.y, y: u2.x }, ht2 = (snappedWall.thickness || snappedWall.config.thickness) / 2;
-                    const edge1_P = { x: w2_p1.x + n2.x * ht2, y: w2_p1.y + n2.y * ht2 }, edge2_P = { x: w2_p1.x - n2.x * ht2, y: w2_p1.y - n2.y * ht2 };
-                    const iL1 = intersectLines(baseL, u, edge1_P, u2), iL2 = intersectLines(baseL, u, edge2_P, u2);
-                    const iR1 = intersectLines(baseR, u, edge1_P, u2), iR2 = intersectLines(baseR, u, edge2_P, u2);
-                    const otherP = isStart ? p2 : p1;
-                    let finalL = baseL, finalR = baseR;
-                    if (iL1 && iL2) finalL = Math.hypot(iL1.x - otherP.x, iL1.y - otherP.y) < Math.hypot(iL2.x - otherP.x, iL2.y - otherP.y) ? iL1 : iL2; else if (iL1) finalL = iL1; else if (iL2) finalL = iL2;
-                    if (iR1 && iR2) finalR = Math.hypot(iR1.x - otherP.x, iR1.y - otherP.y) < Math.hypot(iR2.x - otherP.x, iR2.y - otherP.y) ? iR1 : iR2; else if (iR1) finalR = iR1; else if (iR2) finalR = iR2;
-                    return [finalL, finalR];
-                }
-                return null;
-            };
-            
-            const rays = [];
-            this.planner.walls.forEach(w => {
-                if ((w.startAnchor === anchor || w.endAnchor === anchor) && w.type !== 'railing' && (!w.hidden || w === this)) {
-                    const isWStart = w.startAnchor === anchor;
-                    const wp1 = getExactPos(w.startAnchor);
-                    const wp2 = getExactPos(w.endAnchor);
-                    const wu = { x: wp2.x - wp1.x, y: wp2.y - wp1.y };
-                    const wlen = Math.hypot(wu.x, wu.y);
-                    if (wlen === 0) return;
-                    wu.x /= wlen; wu.y /= wlen;
-                    const wn = { x: -wu.y, y: wu.x };
-                    const wht = (w.thickness || w.config.thickness) / 2;
-                    
-                    const w_p1_L = { x: wp1.x + wn.x * wht, y: wp1.y + wn.y * wht };
-                    const w_p1_R = { x: wp1.x - wn.x * wht, y: wp1.y - wn.y * wht };
-                    const w_p2_L = { x: wp2.x + wn.x * wht, y: wp2.y + wn.y * wht };
-                    const w_p2_R = { x: wp2.x - wn.x * wht, y: wp2.y - wn.y * wht };
-                    
-                    const dir = isWStart ? wu : { x: -wu.x, y: -wu.y };
-                    const angle = Math.atan2(dir.y, dir.x);
-                    
-                    const existingRay = rays.find(r => Math.abs(r.angle - angle) < 1e-4);
-                    if (existingRay) {
-                        if (w === this) existingRay.w = this;
-                    } else {
-                        rays.push({
-                            w: w,
-                            dir: dir,
-                            angle: angle,
-                            L_pt: isWStart ? w_p1_L : w_p2_R,
-                            R_pt: isWStart ? w_p1_R : w_p2_L
-                        });
-                    }
-                }
-            });
-            
-            if (rays.length === 1) {
-                let snappedWall = null; for (let w of this.planner.walls) { if (w === this || w.type === 'railing' || w.hidden) continue; if (this.planner.getDistanceToWall(P, w) < 2) { snappedWall = w; break; } }
-                if (snappedWall) {
-                    const corners = getTJointIntersections(snappedWall);
-                    if (corners) return { corners, trueCorners: corners, hasCap: false };
-                }
-                
-                // Inherit extension length from reference background if drawn as a single wall
-                if (this.planner.referenceGroup) {
-                    const refWalls = this.planner.referenceGroup.getChildren();
-                    for (let rw of refWalls) {
-                        const rPts = rw.getAttr('refPts');
-                        if (rPts && rPts.length === 4) {
-                            const dSS = Math.hypot(rPts[0] - p1.x, rPts[1] - p1.y), dEE = Math.hypot(rPts[2] - p2.x, rPts[3] - p2.y);
-                            const dSE = Math.hypot(rPts[2] - p1.x, rPts[3] - p1.y), dES = Math.hypot(rPts[0] - p2.x, rPts[1] - p2.y);
-                            if ((dSS < 2 && dEE < 2) || (dSE < 2 && dES < 2)) {
-                                const bevels = rw.getAttr('bevels');
-                                if (bevels) {
-                                    const isReversed = (dSE < 2 && dES < 2);
-                                    const bData = isReversed ? (isStart ? bevels.end : bevels.start) : (isStart ? bevels.start : bevels.end);
-                                    if (bData && (bData.trueCorners || bData.corners)) {
-                                        const tCorns = bData.trueCorners || bData.corners;
-                                        const outDir = isStart ? { x: -u.x, y: -u.y } : { x: u.x, y: u.y };
-                                        const c1 = tCorns[0], c2 = tCorns[1];
-                                        const dist1 = (c1.x - P.x) * outDir.x + (c1.y - P.y) * outDir.y;
-                                        const dist2 = (c2.x - P.x) * outDir.x + (c2.y - P.y) * outDir.y;
-                                        const maxDist = Math.max(0, dist1, dist2);
-                                        if (maxDist > 0) {
-                                            const newBaseL = { x: baseL.x + outDir.x * maxDist, y: baseL.y + outDir.y * maxDist };
-                                            const newBaseR = { x: baseR.x + outDir.x * maxDist, y: baseR.y + outDir.y * maxDist };
-                                            return { corners: [newBaseL, newBaseR], trueCorners: [newBaseL, newBaseR], hasCap: true };
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                return { corners: [baseL, baseR], trueCorners: [baseL, baseR], hasCap: true };
-            }
-            
-            rays.sort((a, b) => a.angle - b.angle);
-            const myIndex = rays.findIndex(r => r.w === this);
-            if (myIndex === -1) return { corners: [baseL, baseR], trueCorners: [baseL, baseR], hasCap: true };
-            
-            const myRay = rays[myIndex];
+        const p1 = WallGeometryEngine.getAnchorPosition(this.startAnchor);
+        const p2 = WallGeometryEngine.getAnchorPosition(this.endAnchor);
+        const vlen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        if (vlen === 0) return;
 
-            // Check if there is an opposite collinear through-wall (180 deg) at this anchor
-            const collinearOppositeRay = rays.find(r => r !== myRay && Math.abs(r.dir.x * myRay.dir.x + r.dir.y * myRay.dir.y + 1) < 1e-3);
-            
-            if (collinearOppositeRay && rays.length >= 3) {
-                // This wall is part of a continuous straight through-wall meeting a T-junction!
-                // The collinear through-wall remains continuous with a flush perpendicular seam.
-                return {
-                    corners: [baseL, baseR],
-                    trueCorners: [baseL, baseR],
-                    hasCap: false,
-                    leftDir: collinearOppositeRay.dir,
-                    rightDir: collinearOppositeRay.dir,
-                    bevelL: null,
-                    bevelR: null
-                };
-            }
+        const allWalls = this.planner?.walls || [];
+        WallEngine.recalculateGeometry(this, allWalls);
+        if (!this.wallShapeData) return;
 
-            const leftNeighbor = rays[(myIndex - 1 + rays.length) % rays.length];
-            const rightNeighbor = rays[(myIndex + 1) % rays.length];
-            
-            const maxMiterLength = ht * (this.miterLimitRatio || 3.0);
-
-            // Cross products to determine if the wedge is an inner corner (<180 deg) or outer corner (>180 deg)
-            const cpL = myRay.dir.x * rightNeighbor.dir.y - myRay.dir.y * rightNeighbor.dir.x;
-            let leftSideCorner = myRay.L_pt, leftSideBevel = null;
-            let trueL = myRay.L_pt;
-            const iL = intersectLines(myRay.L_pt, myRay.dir, rightNeighbor.R_pt, rightNeighbor.dir);
-            if (iL) {
-                const distIL = Math.hypot(iL.x - P.x, iL.y - P.y);
-                if (distIL <= maxMiterLength) {
-                    trueL = iL;
-                } else {
-                    const dirL = { x: (iL.x - P.x) / distIL, y: (iL.y - P.y) / distIL };
-                    trueL = { x: P.x + dirL.x * maxMiterLength, y: P.y + dirL.y * maxMiterLength };
-                }
-                if (cpL >= -1e-5) { 
-                    // Inner corner: Always use exact intersection to prevent inner geometry gaps/crossings
-                    leftSideCorner = iL;
-                    leftSideBevel = null;
-                } else if (distIL <= maxMiterLength) { 
-                    // Outer corner within miter limit
-                    leftSideCorner = iL;
-                    leftSideBevel = null;
-                } else {
-                    // Outer corner exceeding miter limit: bevel cutoff
-                    leftSideCorner = myRay.L_pt;
-                    leftSideBevel = rightNeighbor.R_pt;
-                }
-            } else {
-                // Straight continuous wall pass-through (collinear opposite vectors): flush straight joint
-                leftSideCorner = myRay.L_pt;
-                leftSideBevel = null;
-            }
-
-            const cpR = leftNeighbor.dir.x * myRay.dir.y - leftNeighbor.dir.y * myRay.dir.x;
-            let rightSideCorner = myRay.R_pt, rightSideBevel = null;
-            let trueR = myRay.R_pt;
-            const iR = intersectLines(myRay.R_pt, myRay.dir, leftNeighbor.L_pt, leftNeighbor.dir);
-            if (iR) {
-                const distIR = Math.hypot(iR.x - P.x, iR.y - P.y);
-                if (distIR <= maxMiterLength) {
-                    trueR = iR;
-                } else {
-                    const dirR = { x: (iR.x - P.x) / distIR, y: (iR.y - P.y) / distIR };
-                    trueR = { x: P.x + dirR.x * maxMiterLength, y: P.y + dirR.y * maxMiterLength };
-                }
-                if (cpR >= -1e-5) {
-                    // Inner corner: Always use exact intersection
-                    rightSideCorner = iR;
-                    rightSideBevel = null;
-                } else if (distIR <= maxMiterLength) { 
-                    // Outer corner within miter limit
-                    rightSideCorner = iR;
-                    rightSideBevel = null;
-                } else {
-                    // Outer corner exceeding miter limit: bevel cutoff
-                    rightSideCorner = myRay.R_pt;
-                    rightSideBevel = leftNeighbor.L_pt;
-                }
-            } else {
-                // Straight continuous wall pass-through: flush straight joint
-                rightSideCorner = myRay.R_pt;
-                rightSideBevel = null;
-            }
-
-            let finalL, finalR, bevelL, bevelR, trueFinalL, trueFinalR;
-            if (isStart) {
-                finalL = leftSideCorner; finalR = rightSideCorner;
-                bevelL = leftSideBevel; bevelR = rightSideBevel;
-                trueFinalL = (iL && cpL >= -1e-5) ? iL : trueL;
-                trueFinalR = (iR && cpR >= -1e-5) ? iR : trueR;
-            } else {
-                finalL = rightSideCorner; finalR = leftSideCorner;
-                bevelL = rightSideBevel; bevelR = leftSideBevel;
-                trueFinalL = (iR && cpR >= -1e-5) ? iR : trueR;
-                trueFinalR = (iL && cpL >= -1e-5) ? iL : trueL;
-            }
-
-            return { 
-                corners: [finalL, finalR], 
-                trueCorners: [trueFinalL, trueFinalR],
-                hasCap: false, 
-                leftDir: leftNeighbor.dir, 
-                rightDir: rightNeighbor.dir,
-                bevelL: bevelL,
-                bevelR: bevelR
-            };
-        };
-        const startData = getCorners(this.startAnchor, true);
-        const endData = getCorners(this.endAnchor, false);
-        const startCorners = startData.corners;
-        const endCorners = endData.corners;
-        startL = { x: startCorners[0].x, y: startCorners[0].y };
-        startR = { x: startCorners[1].x, y: startCorners[1].y };
-        endL = { x: endCorners[0].x, y: endCorners[0].y };
-        endR = { x: endCorners[1].x, y: endCorners[1].y };
-        
-        this.wallShapeData = {
-            startL, endL, endR, startR,
-            hasStartCap: startData.hasCap,
-            hasEndCap: endData.hasCap,
-            startData,
-            endData,
-            startProfile: [startR, startData.bevelR, startData.bevelL, startL].filter(Boolean),
-            endProfile: [endR, endData.bevelR, endData.bevelL, endL].filter(Boolean)
-        };
+        const { startData, endData } = this.wallShapeData;
+        const n = WallGeometryEngine.getNormal(this);
         
         const startTrue = startData.trueCorners || startData.corners;
         const endTrue = endData.trueCorners || endData.corners;
@@ -1014,209 +791,73 @@ export class PremiumWall {
     } 
 
     destroy() { 
-        if (this.planner) {
-            // Cascade delete any sloped gable extensions sitting on top of this wall
-            this.planner.walls.filter(w => w.parentWallId === this.id).forEach(cw => cw.destroy());
-        }
-        this.wallGroup.destroy(); this.labelGroup.destroy(); this.entranceGroup.destroy(); 
-        this.attachedWidgets.forEach(w => w.destroy ? w.destroy() : null); 
-        if (this.attachedMoldings) this.attachedMoldings.forEach(m => m.destroy ? m.destroy() : null); 
-        this.planner.walls = this.planner.walls.filter(w => w !== this); 
-        if (this.planner.selectedEntity === this) this.planner.selectEntity(null); 
-        this.planner.syncAll(); 
+        WallEngine.deleteWall(this.planner, this);
     } 
 
     getExactPolygonPoints() {
-        if (!this.wallShapeData) return this.poly.points();
-        const { startL, endL, endR, startR, startData, endData } = this.wallShapeData;
-        let pts = [];
-        if (startData.bevelL) pts.push(startData.bevelL.x, startData.bevelL.y);
-        pts.push(startL.x, startL.y);
-        pts.push(endL.x, endL.y);
-        if (endData.bevelL) pts.push(endData.bevelL.x, endData.bevelL.y);
-        if (endData.bevelR) pts.push(endData.bevelR.x, endData.bevelR.y);
-        pts.push(endR.x, endR.y);
-        pts.push(startR.x, startR.y);
-        if (startData.bevelR) pts.push(startData.bevelR.x, startData.bevelR.y);
-        return pts;
+        return WallGeometryEngine.getExactPolygonPoints(this, this.planner?.walls || []);
     }
 
-    applyMaterial({ target, key, newMat, activeMatIndex, activeObject, ctx }) {
-        this.params = this.params || {};
-        if (target === 'top') this.params.textureTop = key;
-        else if (target === 'bottom') this.params.textureBottom = key;
-        else if (target === 'left') this.params.textureLeft = key;
-        else if (target === 'right') this.params.textureRight = key;
-        else if (target === 'front') this.params.textureFront = key;
-        else if (target === 'back') this.params.textureBack = key;
-        else if (target === 'all' || target === 'sides') {
-            this.params.texture = key;
-            this.params.textureSides = key;
-            this.params.textureFront = key;
-            this.params.textureBack = key;
-            this.params.textureLeft = key;
-            this.params.textureRight = key;
-            this.params.textureTop = key;
-            this.params.textureBottom = key;
-        }
-        
-        let wallGroup = null;
-        if (activeObject) {
-            wallGroup = (activeObject.userData?.isWallMesh || activeObject.userData?.isWallSide) ? activeObject.parent : (activeObject.parent?.userData?.isWallGroup ? activeObject.parent : activeObject.parent);
-        } else if (this.mesh3D) {
-            wallGroup = this.mesh3D;
-        }
-
-        const wallMesh = this.wallMesh3D || (wallGroup && (wallGroup.userData?.wallMesh || (wallGroup.children ? wallGroup.children.find(c => c.userData?.isWallMesh || (c.isMesh && !c.userData?.isHitbox && !c.userData?.isWallSide && !c.userData?.isDoor && !c.userData?.isWindow && !c.userData?.isFrame && !c.userData?.isGlass && !c.userData?.isHandle)) : null)));
-        
-        if (wallMesh && wallMesh.isMesh && Array.isArray(wallMesh.material)) {
-            if (target === 'all' || target === 'sides') {
-                for (let idx = 0; idx < 6; idx++) {
-                    if (newMat) wallMesh.material[idx] = newMat.clone ? newMat.clone() : newMat;
-                }
-            } else if (target === 'back') {
-                if (newMat) {
-                    wallMesh.material[5] = newMat;
-                    wallMesh.material[0] = newMat.clone ? newMat.clone() : newMat;
-                    wallMesh.material[1] = newMat.clone ? newMat.clone() : newMat;
-                }
-            } else {
-                let wIndex = 4;
-                if (target === 'right') wIndex = 0;
-                else if (target === 'left') wIndex = 1;
-                else if (target === 'top') wIndex = 2;
-                else if (target === 'bottom') wIndex = 3;
-                else if (target === 'front') wIndex = 4;
-
-                if (newMat) {
-                    wallMesh.material[wIndex] = newMat;
-                }
-            }
-        }
-
-        // Propagate material to all segments if part of an arc
-        if (this.parentArc && this.parentArc.walls && !this._propagatingArcMaterial) {
-            this.parentArc.params = this.parentArc.params || {};
-            this.parentArc.params = { ...this.parentArc.params, ...this.params };
-            
-            this.parentArc.walls.forEach(siblingWall => {
-                if (siblingWall === this) return;
-                siblingWall._propagatingArcMaterial = true;
-                siblingWall.applyMaterial({ target, key, newMat: newMat ? newMat.clone() : null, activeMatIndex, activeObject: null, ctx });
-                siblingWall._propagatingArcMaterial = false;
-            });
-        }
-
-        if (ctx && ctx.updateMaterialLive) ctx.updateMaterialLive(this);
+    applyMaterial(options) {
+        WallEngine.applyMaterial(this, options, this.planner);
     }
 
     // ====== CANONICAL IN-PLACE MUTATION METHODS (CAD-STYLE) ======
     
     setThickness(newThickness, shouldSync = true) {
-        this.thickness = Number(newThickness);
-        if (this.config) this.config.thickness = this.thickness;
-        if (shouldSync && this.planner) {
-            this.planner.syncAll();
-            if (this.planner.update3D) this.planner.update3D();
-        }
+        WallEngine.setThickness(this, newThickness, shouldSync, this.planner);
     }
 
     setHeight(newHeight, shouldSync = true) {
-        this.height = Number(newHeight);
-        if (this.config) this.config.height = this.height;
-        if (shouldSync && this.planner) {
-            this.planner.syncAll();
-            if (this.planner.update3D) this.planner.update3D();
-        }
+        WallEngine.setHeight(this, newHeight, shouldSync, this.planner);
+    }
+
+    setElevation(newElevation, shouldSync = true) {
+        WallEngine.setElevation(this, newElevation, shouldSync, this.planner);
     }
 
     setTopProfile(profileType, options = {}, shouldSync = true) {
-        this.topProfileType = profileType || 'normal';
-        if (options.startHeight !== undefined) this.startHeight = Number(options.startHeight);
-        if (options.endHeight !== undefined) this.endHeight = Number(options.endHeight);
-        if (options.peakHeight !== undefined) this.peakHeight = Number(options.peakHeight);
-        if (options.flipSlope !== undefined) this.flipSlope = options.flipSlope;
-        if (shouldSync && this.planner) {
-            this.planner.syncAll();
-            if (this.planner.update3D) this.planner.update3D();
-        }
+        WallEngine.setTopProfile(this, profileType, options, shouldSync, this.planner);
     }
 
     setEndpoints(startPos, endPos, shouldSync = true) {
-        if (startPos && this.startAnchor) {
-            this.startAnchor.x = startPos.x;
-            this.startAnchor.y = startPos.y;
-            if (this.startAnchor.group) this.startAnchor.group.position(startPos);
-        }
-        if (endPos && this.endAnchor) {
-            this.endAnchor.x = endPos.x;
-            this.endAnchor.y = endPos.y;
-            if (this.endAnchor.group) this.endAnchor.group.position(endPos);
-        }
-        if (shouldSync && this.planner) {
-            this.planner.syncAll();
-        }
+        WallEngine.setEndpoints(this, startPos, endPos, shouldSync, this.planner);
     }
 
     attachWidget(widget, shouldSync = true) {
-        if (!this.attachedWidgets) this.attachedWidgets = [];
-        if (!this.attachedWidgets.includes(widget)) {
-            this.attachedWidgets.push(widget);
-            widget.wall = this;
-        }
-        if (shouldSync && this.planner) {
-            this.planner.syncAll();
-        }
+        WallEngine.attachWidget(this, widget, shouldSync, this.planner);
     }
 
     removeWidget(widgetOrId, shouldSync = true) {
-        if (!this.attachedWidgets) return;
-        const id = typeof widgetOrId === 'string' ? widgetOrId : widgetOrId?.id;
-        this.attachedWidgets = this.attachedWidgets.filter(w => (id ? w.id !== id : w !== widgetOrId));
-        if (shouldSync && this.planner) {
-            this.planner.syncAll();
-        }
+        WallEngine.removeWidget(this, widgetOrId, shouldSync, this.planner);
     }
 
     attachMolding(molding, shouldSync = true) {
-        if (!this.attachedMoldings) this.attachedMoldings = [];
-        if (!this.attachedMoldings.includes(molding)) {
-            this.attachedMoldings.push(molding);
-            molding.wall = this;
-        }
-        if (shouldSync && this.planner) {
-            this.planner.syncAll();
-        }
+        WallEngine.attachMolding(this, molding, shouldSync, this.planner);
     }
 
     removeMolding(moldingOrId, shouldSync = true) {
-        if (!this.attachedMoldings) return;
-        const id = typeof moldingOrId === 'string' ? moldingOrId : moldingOrId?.id;
-        this.attachedMoldings = this.attachedMoldings.filter(m => (id ? m.id !== id : m !== moldingOrId));
-        if (shouldSync && this.planner) {
-            this.planner.syncAll();
-        }
+        WallEngine.removeMolding(this, moldingOrId, shouldSync, this.planner);
     }
 
     getLength() {
-        const p1 = (this.startAnchor && typeof this.startAnchor.position === 'function') ? this.startAnchor.position() : (this.startAnchor || { x: this.startX || 0, y: this.startY || 0 });
-        const p2 = (this.endAnchor && typeof this.endAnchor.position === 'function') ? this.endAnchor.position() : (this.endAnchor || { x: this.endX || 0, y: this.endY || 0 });
-        return Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        return WallGeometryEngine.getLength(this);
     }
 
     getAngle() {
-        const p1 = (this.startAnchor && typeof this.startAnchor.position === 'function') ? this.startAnchor.position() : (this.startAnchor || { x: this.startX || 0, y: this.startY || 0 });
-        const p2 = (this.endAnchor && typeof this.endAnchor.position === 'function') ? this.endAnchor.position() : (this.endAnchor || { x: this.endX || 0, y: this.endY || 0 });
-        return Math.atan2(p2.y - p1.y, p2.x - p1.x);
+        return WallGeometryEngine.getAngle(this);
+    }
+
+    getNormal() {
+        return WallGeometryEngine.getNormal(this);
     }
 
     getCenterline() {
-        const p1 = (this.startAnchor && typeof this.startAnchor.position === 'function') ? this.startAnchor.position() : (this.startAnchor || { x: this.startX || 0, y: this.startY || 0 });
-        const p2 = (this.endAnchor && typeof this.endAnchor.position === 'function') ? this.endAnchor.position() : (this.endAnchor || { x: this.endX || 0, y: this.endY || 0 });
-        return { p1, p2, length: this.getLength(), angle: this.getAngle() };
+        return WallGeometryEngine.getCenterline(this);
     }
 
     serialize() { 
         return WallSerializer.serialize(this);
     }
 }
+

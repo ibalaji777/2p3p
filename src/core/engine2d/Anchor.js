@@ -1,6 +1,8 @@
 import Konva from 'konva';
 import { SNAP_DIST } from '../registry.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
+import { WallEngine } from '../wall/WallEngine.js';
+import { WallGeometryEngine } from '../wall/WallGeometryEngine.js';
 
 export class Anchor {
     constructor(planner, x, y) {
@@ -153,8 +155,12 @@ export class Anchor {
                 } 
             }
             
-            if (collision) { this.node.position(this.lastValidPos); } 
-            else { this.node.position(proposedPos); this.lastValidPos = proposedPos; } 
+            if (collision) { 
+                WallEngine.moveAnchor(this, this.lastValidPos, this.planner, false); 
+            } else { 
+                WallEngine.moveAnchor(this, proposedPos, this.planner, false); 
+                this.lastValidPos = proposedPos; 
+            } 
             
             if (this.planner.wallTrackingEnabled && this.trackedObjects && this.trackedObjects.length > 0) {
                 this.trackedObjects.forEach(item => {

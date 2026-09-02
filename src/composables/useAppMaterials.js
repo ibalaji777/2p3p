@@ -1,4 +1,5 @@
 import { applyWallPaintWithScope } from '../core/engine3d/WallPaintSystem.js';
+import { WallEngine } from '../core/wall/WallEngine.js';
 
 export function useAppMaterials({ 
     selectedEntity, 
@@ -80,14 +81,7 @@ export function useAppMaterials({
                         arc.params.textureSides = key;
                     }
                     arc.walls.forEach(w => {
-                        w.params = w.params || {};
-                        w.params[paramKey] = key;
-                        if (target === 'all') {
-                            w.params.texture = key;
-                            w.params.textureFront = key;
-                            w.params.textureBack = key;
-                            w.params.textureSides = key;
-                        }
+                        WallEngine.applyMaterial(w, { target, key }, planner?.value || planner);
                     });
                     syncEngine('material');
                     return;
@@ -95,10 +89,7 @@ export function useAppMaterials({
                 if (renderer3D.value) {
                     const currentScope = paintScope?.value || 'single';
                     if (side === 'left' || side === 'right') {
-                        selectedEntity.value.params = selectedEntity.value.params || {};
-                        const pKey = side === 'left' ? 'textureLeft' : 'textureRight';
-                        selectedEntity.value.params[pKey] = key;
-                        renderer3D.value.updateMaterialLive(selectedEntity.value);
+                        WallEngine.applyMaterial(selectedEntity.value, { target: side, key, ctx: renderer3D.value }, planner?.value || planner);
 
                         // Sync to connected walls at this corner
                         const anchor = side === 'left' ? selectedEntity.value.startAnchor : selectedEntity.value.endAnchor;
@@ -120,14 +111,10 @@ export function useAppMaterials({
                                 else if (cwP2.x !== undefined && Math.hypot(cwP2.x - pt.x, cwP2.y - pt.y) < 5) isCwEnd = true;
                             }
                             if (isCwStart) {
-                                cw.params = cw.params || {};
-                                cw.params.textureLeft = key;
-                                renderer3D.value.updateMaterialLive(cw);
+                                WallEngine.applyMaterial(cw, { target: 'left', key, ctx: renderer3D.value }, planner?.value || planner);
                             }
                             if (isCwEnd) {
-                                cw.params = cw.params || {};
-                                cw.params.textureRight = key;
-                                renderer3D.value.updateMaterialLive(cw);
+                                WallEngine.applyMaterial(cw, { target: 'right', key, ctx: renderer3D.value }, planner?.value || planner);
                             }
                         });
 
@@ -161,42 +148,7 @@ export function useAppMaterials({
                 return;
             }
             
-            if (target === 'all') {
-                selectedEntity.value.params.texture = key;
-                selectedEntity.value.params.textureTop = key;
-                selectedEntity.value.params.textureBottom = key;
-                selectedEntity.value.params.textureSides = key;
-                selectedEntity.value.params.textureLeft = key;
-                selectedEntity.value.params.textureRight = key;
-                selectedEntity.value.params.textureFront = key;
-                selectedEntity.value.params.textureBack = key;
-            } else if (target === 'top') selectedEntity.value.params.textureTop = key;
-            else if (target === 'bottom') selectedEntity.value.params.textureBottom = key;
-            else if (target === 'sides') {
-                selectedEntity.value.params.textureSides = key;
-                selectedEntity.value.params.textureLeft = key;
-                selectedEntity.value.params.textureRight = key;
-                selectedEntity.value.params.textureFront = key;
-                selectedEntity.value.params.textureBack = key;
-            }
-            else if (target === 'left') selectedEntity.value.params.textureLeft = key;
-            else if (target === 'right') selectedEntity.value.params.textureRight = key;
-            else if (target === 'front') selectedEntity.value.params.textureFront = key;
-            else if (target === 'back') selectedEntity.value.params.textureBack = key;
-
-            if (selectedEntity.value.parentArc) {
-                selectedEntity.value.parentArc.params = { ...(selectedEntity.value.parentArc.params || {}), ...selectedEntity.value.params };
-                if (selectedEntity.value.parentArc.walls) {
-                    selectedEntity.value.parentArc.walls.forEach(w => {
-                        w.params = { ...(w.params || {}), ...selectedEntity.value.params };
-                    });
-                }
-            } else if (selectedEntity.value.type === 'arc' && selectedEntity.value.walls) {
-                selectedEntity.value.params = { ...(selectedEntity.value.params || {}) };
-                selectedEntity.value.walls.forEach(w => {
-                    w.params = { ...(w.params || {}), ...selectedEntity.value.params };
-                });
-            }
+            WallEngine.applyMaterial(selectedEntity.value, { target, key, ctx: renderer3D.value }, planner?.value || planner);
 
             syncEngine();
         }

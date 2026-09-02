@@ -1,6 +1,7 @@
 import { storeToRefs } from 'pinia';
 import { useUIStore } from '../stores/useUIStore.js';
 import { usePlannerStore } from '../stores/usePlannerStore.js';
+import { WallEngine } from '../core/wall/WallEngine.js';
 
 export function useLevelManager(dependencies) {
     const uiStore = useUIStore();
@@ -100,11 +101,7 @@ export function useLevelManager(dependencies) {
         if (activeLvl && planner.value && planner.value.walls) {
             if (activeLvl.type === 'plinth' || activeLvl.type === 'foundation') {
                 const targetH = Number(activeLvl.height) || (activeLvl.type === 'plinth' ? 18 : 40);
-                planner.value.walls.forEach(w => {
-                    w.height = targetH;
-                    if (w.config) w.config.height = targetH;
-                });
-                planner.value.syncAll();
+                WallEngine.batchUpdate(planner.value, planner.value.walls, { height: targetH });
             }
         }
 
@@ -212,11 +209,7 @@ export function useLevelManager(dependencies) {
                 lvl.height = Number(height);
                 // Update walls on active level
                 if (index === activeLevelIndex.value && planner.value && planner.value.walls) {
-                    planner.value.walls.forEach(w => {
-                        w.height = Number(height);
-                        if (w.config) w.config.height = Number(height);
-                    });
-                    planner.value.syncAll();
+                    WallEngine.batchUpdate(planner.value, planner.value.walls, { height: Number(height) });
                 } else if (lvl.data) {
                     try {
                         const parsed = JSON.parse(lvl.data);
@@ -233,11 +226,7 @@ export function useLevelManager(dependencies) {
             if (defaultWallThickness !== undefined) {
                 lvl.defaultWallThickness = Number(defaultWallThickness);
                 if (index === activeLevelIndex.value && planner.value && planner.value.walls) {
-                    planner.value.walls.forEach(w => {
-                        w.thickness = Number(defaultWallThickness);
-                        if (w.config) w.config.thickness = Number(defaultWallThickness);
-                    });
-                    planner.value.syncAll();
+                    WallEngine.batchUpdate(planner.value, planner.value.walls, { thickness: Number(defaultWallThickness) });
                 } else if (lvl.data) {
                     try {
                         const parsed = JSON.parse(lvl.data);
@@ -309,11 +298,7 @@ export function useLevelManager(dependencies) {
             
             planner.value.importState(JSON.stringify(currentData));
             if (planner.value && planner.value.walls) {
-                planner.value.walls.forEach(w => {
-                    w.height = targetHeight;
-                    if (w.config) w.config.height = targetHeight;
-                });
-                planner.value.syncAll();
+                WallEngine.batchUpdate(planner.value, planner.value.walls, { height: targetHeight });
             }
             saveCurrentLevelState();
             saveHistory();

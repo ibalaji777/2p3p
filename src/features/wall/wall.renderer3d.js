@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, RAILING_REGISTRY, WIDGET_REGISTRY } from '../../core/registry.js';
 import { MaterialFactory } from '../../core/engine3d/MaterialFactory.js';
 import { Molding3DBuilder } from '../../core/engine3d/Molding3DBuilder.js';
+import { WallGeometryEngine } from '../../core/wall/WallGeometryEngine.js';
 
 export function getPlasterMaterial() {
     return new THREE.MeshStandardMaterial({ 
@@ -71,18 +72,17 @@ export class Wall3DBuilder {
         }
 
         const matMain = getPlasterMaterial();
-        const startX = options.startX !== undefined ? options.startX : ((w.startAnchor && typeof w.startAnchor.position === 'function') ? w.startAnchor.position().x : (w.startAnchor?.x !== undefined ? w.startAnchor.x : (w.startX || 0)));
-        const startY = options.startY !== undefined ? options.startY : ((w.startAnchor && typeof w.startAnchor.position === 'function') ? w.startAnchor.position().y : (w.startAnchor?.y !== undefined ? w.startAnchor.y : (w.startY || 0)));
-        const p1 = { x: startX, y: startY };
+        const p1 = WallGeometryEngine.getAnchorPosition(w.startAnchor || { x: w.startX, y: w.startY });
+        const startX = options.startX !== undefined ? options.startX : p1.x;
+        const startY = options.startY !== undefined ? options.startY : p1.y;
         
         let length, angle;
         if (options.length !== undefined) {
             length = options.length;
             angle = options.angle !== undefined ? options.angle : 0;
         } else {
-            const endX = (w.endAnchor && typeof w.endAnchor.position === 'function') ? w.endAnchor.position().x : (w.endAnchor?.x !== undefined ? w.endAnchor.x : (w.endX || startX));
-            const endY = (w.endAnchor && typeof w.endAnchor.position === 'function') ? w.endAnchor.position().y : (w.endAnchor?.y !== undefined ? w.endAnchor.y : (w.endY || startY));
-            const dx = endX - startX, dz = endY - startY;
+            const p2 = WallGeometryEngine.getAnchorPosition(w.endAnchor || { x: w.endX, y: w.endY });
+            const dx = p2.x - p1.x, dz = p2.y - p1.y;
             length = Math.hypot(dx, dz);
             angle = Math.atan2(dz, dx);
         }
@@ -96,14 +96,10 @@ export class Wall3DBuilder {
         let h = options.wallHeight !== undefined ? options.wallHeight : (w.height !== undefined ? w.height : (w.config?.height || (w.type === 'compound' ? 80 : defaultH)));
         if (activeLevelConfig?.type === 'plinth' || activeLevelConfig?.type === 'foundation') {
             h = defaultH;
-            w.height = h;
-            if (w.config) w.config.height = h;
         }
         let t = options.wallThickness !== undefined ? options.wallThickness : (w.thickness !== undefined ? w.thickness : (w.config?.thickness || defaultThk));
         if ((activeLevelConfig?.type === 'plinth' || activeLevelConfig?.type === 'foundation') && !w.thickness) {
             t = defaultThk;
-            w.thickness = t;
-            if (w.config) w.config.thickness = t;
         }
 
         // Compute multi-materials (Right 0, Left 1, Top 2, Bottom 3, Front 4, Back 5)

@@ -1,4 +1,5 @@
 import { onBeforeUnmount } from 'vue';
+import { WallEngine } from '../core/wall/WallEngine.js';
 
 export function useAppScene({
     renderer3D,
@@ -141,16 +142,19 @@ export function useAppScene({
                     arc.elevation = selectedEntity.value.elevation;
                     if (selectedEntity.value.configId) arc.configId = selectedEntity.value.configId;
 
+                    WallEngine.batchUpdate(planner.value, arc.walls, {
+                        thickness: selectedEntity.value.thickness,
+                        height: selectedEntity.value.height,
+                        elevation: selectedEntity.value.elevation
+                    });
+
                     arc.walls.forEach(siblingWall => {
-                        siblingWall.thickness = selectedEntity.value.thickness;
-                        siblingWall.height = selectedEntity.value.height;
                         siblingWall.topProfileType = selectedEntity.value.topProfileType;
                         siblingWall.startHeight = selectedEntity.value.startHeight;
                         siblingWall.endHeight = selectedEntity.value.endHeight;
                         siblingWall.peakHeight = selectedEntity.value.peakHeight;
                         siblingWall.flipSlope = selectedEntity.value.flipSlope;
                         siblingWall.hidden = selectedEntity.value.hidden;
-                        siblingWall.elevation = selectedEntity.value.elevation;
                         if (selectedEntity.value.configId) siblingWall.configId = selectedEntity.value.configId;
 
                         if (renderer3D.value.updateWallGeometryLive) {
@@ -161,16 +165,19 @@ export function useAppScene({
                     });
                 } else if (selectedType.value === 'arc' && selectedEntity.value.walls) {
                     const arc = selectedEntity.value;
+                    WallEngine.batchUpdate(planner.value, arc.walls, {
+                        thickness: arc.thickness,
+                        height: arc.height,
+                        elevation: arc.elevation
+                    });
+
                     arc.walls.forEach(siblingWall => {
-                        if (arc.thickness !== undefined) siblingWall.thickness = arc.thickness;
-                        if (arc.height !== undefined) siblingWall.height = arc.height;
                         if (arc.topProfileType !== undefined) siblingWall.topProfileType = arc.topProfileType;
                         if (arc.startHeight !== undefined) siblingWall.startHeight = arc.startHeight;
                         if (arc.endHeight !== undefined) siblingWall.endHeight = arc.endHeight;
                         if (arc.peakHeight !== undefined) siblingWall.peakHeight = arc.peakHeight;
                         if (arc.flipSlope !== undefined) siblingWall.flipSlope = arc.flipSlope;
                         if (arc.hidden !== undefined) siblingWall.hidden = arc.hidden;
-                        if (arc.elevation !== undefined) siblingWall.elevation = arc.elevation;
                         if (arc.configId !== undefined) siblingWall.configId = arc.configId;
 
                         if (renderer3D.value.updateWallGeometryLive) {

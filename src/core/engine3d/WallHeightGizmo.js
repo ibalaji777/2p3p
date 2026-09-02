@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { EVENTS } from '../constants/events.js';
 import { coreEventBus } from '../EventBus.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
+import { WallEngine } from '../wall/WallEngine.js';
 
 /**
  * WallHeightGizmo
@@ -214,16 +215,13 @@ export class WallHeightGizmo extends THREE.Group {
 
                 if (this.activeHandle.handleType === 'uniform_height') {
                     const newH = Math.max(40, Math.min(600, this.initialH + steppedDelta));
-                    wall.height = newH;
-                    if (wall.config) wall.config.height = newH;
+                    WallEngine.setHeight(wall, newH, false, this.ctx.planner);
                 } else if (this.activeHandle.handleType === 'start_slope') {
                     const newStartH = Math.max(40, Math.min(600, this.initialStartH + steppedDelta));
-                    wall.startHeight = newStartH;
-                    wall.topProfileType = 'single';
+                    WallEngine.setTopProfile(wall, 'single', { startHeight: newStartH }, false, this.ctx.planner);
                 } else if (this.activeHandle.handleType === 'end_slope') {
                     const newEndH = Math.max(40, Math.min(600, this.initialEndH + steppedDelta));
-                    wall.endHeight = newEndH;
-                    wall.topProfileType = 'single';
+                    WallEngine.setTopProfile(wall, 'single', { endHeight: newEndH }, false, this.ctx.planner);
                 }
 
                 if (typeof this.ctx.updateWallGeometryLive === 'function') {

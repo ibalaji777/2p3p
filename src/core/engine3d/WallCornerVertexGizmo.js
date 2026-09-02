@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { EVENTS } from '../constants/events.js';
 import { coreEventBus } from '../EventBus.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
+import { WallEngine } from '../wall/WallEngine.js';
 
 /**
  * WallCornerVertexGizmo (Edge / Point Move - Panel #2)
@@ -414,20 +415,7 @@ export class WallCornerVertexGizmo extends THREE.Group {
                     wall.endX = newP2.x;
                     wall.endY = newP2.y;
 
-                    if (wall.startAnchor) {
-                        if (typeof wall.startAnchor.position === 'function') wall.startAnchor.position(newP1);
-                        if (wall.startAnchor.node && typeof wall.startAnchor.node.position === 'function') wall.startAnchor.node.position(newP1);
-                        wall.startAnchor.x = newP1.x;
-                        wall.startAnchor.y = newP1.y;
-                        wall.startAnchor.lastValidPos = newP1;
-                    }
-                    if (wall.endAnchor) {
-                        if (typeof wall.endAnchor.position === 'function') wall.endAnchor.position(newP2);
-                        if (wall.endAnchor.node && typeof wall.endAnchor.node.position === 'function') wall.endAnchor.node.position(newP2);
-                        wall.endAnchor.x = newP2.x;
-                        wall.endAnchor.y = newP2.y;
-                        wall.endAnchor.lastValidPos = newP2;
-                    }
+                    WallEngine.setEndpoints(wall, newP1, newP2, false, planner);
 
                     if (planner) {
                         if (typeof planner.syncAll === 'function') planner.syncAll();
@@ -464,8 +452,7 @@ export class WallCornerVertexGizmo extends THREE.Group {
                     if (this.activeHandle.handleType === 'top_edge_height') {
                         // Dragging top edge: Uniform overall height
                         const newH = Math.max(20, Math.round((this.initialH + deltaY) / step) * step);
-                        wall.height = newH;
-                        if (wall.config) wall.config.height = newH;
+                        WallEngine.setHeight(wall, newH, false, planner);
                         if (wall.startHeight !== undefined) wall.startHeight = newH;
                         if (wall.endHeight !== undefined) wall.endHeight = newH;
 
@@ -475,9 +462,10 @@ export class WallCornerVertexGizmo extends THREE.Group {
                     } else if (this.activeHandle.handleType === 'start_slope_height') {
                         // Dragging start corner top vertex: Adjust startHeight
                         const newStartH = Math.max(10, Math.round((this.initialStartH + deltaY) / step) * step);
-                        wall.startHeight = newStartH;
-                        if (wall.endHeight === undefined) wall.endHeight = this.initialH;
-                        wall.topProfileType = 'single';
+                        WallEngine.setTopProfile(wall, 'single', {
+                            startHeight: newStartH,
+                            endHeight: wall.endHeight !== undefined ? wall.endHeight : this.initialH
+                        }, false, planner);
 
                         if (this.domBadge) {
                             this._updateBadgeText(`📐 Start Height: ${newStartH} cm (${deltaY >= 0 ? '+' : ''}${Math.round(deltaY)} cm)`);
@@ -485,9 +473,10 @@ export class WallCornerVertexGizmo extends THREE.Group {
                     } else if (this.activeHandle.handleType === 'end_slope_height') {
                         // Dragging end corner top vertex: Adjust endHeight
                         const newEndH = Math.max(10, Math.round((this.initialEndH + deltaY) / step) * step);
-                        wall.endHeight = newEndH;
-                        if (wall.startHeight === undefined) wall.startHeight = this.initialH;
-                        wall.topProfileType = 'single';
+                        WallEngine.setTopProfile(wall, 'single', {
+                            startHeight: wall.startHeight !== undefined ? wall.startHeight : this.initialH,
+                            endHeight: newEndH
+                        }, false, planner);
 
                         if (this.domBadge) {
                             this._updateBadgeText(`📐 End Height: ${newEndH} cm (${deltaY >= 0 ? '+' : ''}${Math.round(deltaY)} cm)`);
@@ -508,15 +497,7 @@ export class WallCornerVertexGizmo extends THREE.Group {
                     const isStart = this.activeHandle.handleType.startsWith('start');
 
                     if (anchor) {
-                        if (typeof anchor.position === 'function') {
-                            anchor.position({ x: newX, y: newY });
-                        }
-                        if (anchor.node && typeof anchor.node.position === 'function') {
-                            anchor.node.position({ x: newX, y: newY });
-                        }
-                        anchor.x = newX;
-                        anchor.y = newY;
-                        anchor.lastValidPos = { x: newX, y: newY };
+                        WallEngine.moveAnchor(anchor, { x: newX, y: newY }, planner, false);
                     } else {
                         if (isStart) {
                             wall.startX = newX;

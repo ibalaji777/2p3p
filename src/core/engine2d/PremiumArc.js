@@ -1,7 +1,7 @@
 import Konva from 'konva';
 import { SNAP_DIST, RAILING_REGISTRY } from '../registry.js';
 import { Anchor } from './Anchor.js';
-import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
+import { WallEngine } from '../wall/WallEngine.js';
 
 export class PremiumArc {
     constructor(planner, p1, p2, pos) {
@@ -183,10 +183,10 @@ export class PremiumArc {
                     
                 } else if (i === segments && this.walls.length > 0) { 
                     if (this.hasRailing && this.walls.length >= 2) {
-                        this.walls[this.walls.length - 1].endAnchor = currentAnchor; 
-                        this.walls[this.walls.length - 2].endAnchor = currentAnchor; 
+                        WallEngine.setEndpoints(this.walls[this.walls.length - 1], null, currentAnchor.position(), false, this.planner);
+                        WallEngine.setEndpoints(this.walls[this.walls.length - 2], null, currentAnchor.position(), false, this.planner);
                     } else {
-                        this.walls[this.walls.length - 1].endAnchor = currentAnchor; 
+                        WallEngine.setEndpoints(this.walls[this.walls.length - 1], null, currentAnchor.position(), false, this.planner);
                     }
                 }
             }

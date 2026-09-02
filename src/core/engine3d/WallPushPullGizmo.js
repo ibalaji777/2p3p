@@ -4,6 +4,7 @@ import { coreEventBus } from '../EventBus.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { WallReformer } from '../engine2d/WallReformer.js';
 import { advance_openings } from '../engine2d/advance_openings.js';
+import { WallEngine } from '../wall/WallEngine.js';
 
 /**
  * WallPushPullGizmo
@@ -937,29 +938,13 @@ export class WallPushPullGizmo extends THREE.Group {
                     const isSubRegion = (this.tStart > 0.02 || this.tEnd < 0.98 || this.elevBottom > 2 || this.elevTop < (wallH - 2));
 
                     if (this.mode === 'baseline') {
-                        // --- BASELINE MOVE MODE (Move whole wall perpendicularly) ---
+                        // --- BASELINE MOVE MODE (Move whole wall perpendicularly via WallEngine) ---
                         const shiftDist = Math.round(dist / step) * step;
-                        const shiftX = this.wallNormal2D.x * shiftDist;
-                        const shiftY = this.wallNormal2D.y * shiftDist;
-
-                        const newStartX = this.initialStart.x + shiftX;
-                        const newStartY = this.initialStart.y + shiftY;
-                        const newEndX = this.initialEnd.x + shiftX;
-                        const newEndY = this.initialEnd.y + shiftY;
-
-                        if (wall.startAnchor && typeof wall.startAnchor.position === 'function') {
-                            wall.startAnchor.position({ x: newStartX, y: newStartY });
-                        } else {
-                            wall.startX = newStartX;
-                            wall.startY = newStartY;
-                        }
-
-                        if (wall.endAnchor && typeof wall.endAnchor.position === 'function') {
-                            wall.endAnchor.position({ x: newEndX, y: newEndY });
-                        } else {
-                            wall.endX = newEndX;
-                            wall.endY = newEndY;
-                        }
+                        WallEngine.pushPull(wall, this.activeSide, shiftDist, {
+                            mode: 'baseline',
+                            initialStart: this.initialStart,
+                            initialEnd: this.initialEnd
+                        }, this.planner);
 
                         this._updateWallAndSiblings(wall);
                         if (typeof this.ctx.rebuildActiveFloors === 'function') {
@@ -975,37 +960,14 @@ export class WallPushPullGizmo extends THREE.Group {
 
                         this.updateHandles();
                     } else {
-                        // --- FULL WALL THICKNESS PUSH / PULL (Single-Sided: Pin Opposite Face) ---
+                        // --- FULL WALL THICKNESS PUSH / PULL (Single-Sided: Pin Opposite Face via WallEngine) ---
                         const deltaThick = Math.round(dist / step) * step;
-                        const newThick = Math.max(5, Math.min(120, this.initialThickness + deltaThick));
-                        const actualDelta = newThick - this.initialThickness;
-
-                        wall.thickness = newThick;
-                        if (wall.config) wall.config.thickness = newThick;
-
-                        // Single-Sided: Shift centerline along the handle normal by half the thickness delta
-                        const shift = actualDelta / 2;
-                        const shiftX = this.wallNormal2D.x * shift;
-                        const shiftY = this.wallNormal2D.y * shift;
-
-                        const newStartX = this.initialStart.x + shiftX;
-                        const newStartY = this.initialStart.y + shiftY;
-                        const newEndX = this.initialEnd.x + shiftX;
-                        const newEndY = this.initialEnd.y + shiftY;
-
-                        if (wall.startAnchor && typeof wall.startAnchor.position === 'function') {
-                            wall.startAnchor.position({ x: newStartX, y: newStartY });
-                        } else {
-                            wall.startX = newStartX;
-                            wall.startY = newStartY;
-                        }
-
-                        if (wall.endAnchor && typeof wall.endAnchor.position === 'function') {
-                            wall.endAnchor.position({ x: newEndX, y: newEndY });
-                        } else {
-                            wall.endX = newEndX;
-                            wall.endY = newEndY;
-                        }
+                        WallEngine.pushPull(wall, this.activeSide, deltaThick, {
+                            mode: 'thickness',
+                            initialThickness: this.initialThickness,
+                            initialStart: this.initialStart,
+                            initialEnd: this.initialEnd
+                        }, this.planner);
 
                         this._updateWallAndSiblings(wall);
                         if (typeof this.ctx.rebuildActiveFloors === 'function') {

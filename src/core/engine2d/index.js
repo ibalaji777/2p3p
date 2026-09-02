@@ -19,6 +19,7 @@ import { coreEventBus } from '../EventBus.js';
 
 // SOLID: Import the decoupled 2D entity classes from the same folder
 import { Anchor } from './Anchor.js';
+import { WallEngine } from '../wall/WallEngine.js';
 import { WallFactory } from '../../features/wall/wall.factory.js';
 import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 import { PremiumWidget } from './PremiumWidget.js';
@@ -292,9 +293,18 @@ export class FloorPlanner {
     _applyResize(entityId, values) {
         const entity = this.getEntities().find(e => e.id === entityId || (e.group && typeof e.group.id === 'function' && e.group.id() === entityId));
         if (!entity) return;
-        if (values.width !== undefined) entity.width = values.width;
-        if (values.depth !== undefined) entity.depth = values.depth;
-        if (values.height !== undefined) entity.height = values.height;
+        if (this.walls && this.walls.includes(entity)) {
+            if (values.thickness !== undefined || values.depth !== undefined) {
+                WallEngine.setThickness(entity, values.thickness !== undefined ? values.thickness : values.depth, false, this);
+            }
+            if (values.height !== undefined) {
+                WallEngine.setHeight(entity, values.height, false, this);
+            }
+        } else {
+            if (values.width !== undefined) entity.width = values.width;
+            if (values.depth !== undefined) entity.depth = values.depth;
+            if (values.height !== undefined) entity.height = values.height;
+        }
         if (typeof entity.update2D === 'function') entity.update2D();
         if (typeof entity.update3D === 'function') entity.update3D();
         if (typeof window !== 'undefined') {
@@ -1091,16 +1101,7 @@ export class FloorPlanner {
             this.uiLayer.rotation(0);
         }
 
-        this.walls.forEach(w => w.update());
-        for (let i = 0; i < this.stairs.length; i++) {
-            
-        }
-        this.stairs.forEach(s => s.update());
-        this.furniture.forEach(f => f.update()); 
-        this.roofs.forEach(r => r.update()); 
-        if(this.balconies) this.balconies.forEach(b => b.update()); 
-        if(this.arcs) this.arcs.forEach(a => a.update());
-        if(this.shapes) this.shapes.forEach(s => s.update());
+        WallEngine.sync(this);
         
         this.anchors.forEach(a => {
             if (a.isArcIntermediate || this.activeCategory !== 'walls') {

@@ -13,6 +13,7 @@ import { PatternTextureBlender } from '../services/pattern/PatternTextureBlender
 import { useSettingsStore } from '../../stores/useSettingsStore.js';
 import { SLOT_DEFINITIONS } from '../constants/materialSlots.js';
 import { applyWallPaintWithScope } from './WallPaintSystem.js';
+import { WallEngine } from '../wall/WallEngine.js';
 const TILE_REGISTRY = WALL_DECOR_REGISTRY;
 const WALL_REGISTRY = WALL_DECOR_REGISTRY;
 const ROOF_REGISTRY = ROOF_DECOR_REGISTRY;
@@ -952,32 +953,13 @@ export class GizmoManager {
                                 const side = selectedObj?.userData?.side || this.activeObject?.userData?.side || this.activeFace || 'front';
                                 
                                 if (wall.parentArc && wall.parentArc.walls) {
-                                    const paramKey = side === 'back' ? 'textureBack' : (side === 'left' ? 'textureLeft' : (side === 'right' ? 'textureRight' : (side === 'top' ? 'textureTop' : (side === 'bottom' ? 'textureBottom' : 'textureFront'))));
-                                    wall.parentArc.params = wall.parentArc.params || {};
-                                    wall.parentArc.params[paramKey] = key;
-                                    if (this.materialScope === 'entireObject') {
-                                        wall.parentArc.params.texture = key;
-                                        wall.parentArc.params.textureFront = key;
-                                        wall.parentArc.params.textureBack = key;
-                                        wall.parentArc.params.textureSides = key;
-                                        wall.parentArc.params.textureTop = key;
-                                        wall.parentArc.params.textureBottom = key;
-                                    }
                                     wall.parentArc.walls.forEach(w => {
-                                        w.params = w.params || {};
-                                        w.params[paramKey] = key;
-                                        if (this.materialScope === 'entireObject') {
-                                            w.params.texture = key;
-                                            w.params.textureFront = key;
-                                            w.params.textureBack = key;
-                                            w.params.textureSides = key;
-                                            w.params.textureTop = key;
-                                            w.params.textureBottom = key;
-                                        }
+                                        WallEngine.applyMaterial(w, {
+                                            target: this.materialScope === 'entireObject' ? 'all' : side,
+                                            key,
+                                            ctx: this.ctx
+                                        });
                                     });
-                                    if (this.ctx && typeof this.ctx.updateMaterialLive === 'function') {
-                                        this.ctx.updateMaterialLive(wall);
-                                    }
                                     if (typeof this.ctx.requestRender === 'function') {
                                         this.ctx.requestRender();
                                     }
@@ -1018,12 +1000,7 @@ export class GizmoManager {
                                 }
 
                                 if (side === 'left' || side === 'right' || side === 'top' || side === 'bottom') {
-                                    const paramKey = side === 'left' ? 'textureLeft' : (side === 'right' ? 'textureRight' : (side === 'top' ? 'textureTop' : 'textureBottom'));
-                                    wall.params = wall.params || {};
-                                    wall.params[paramKey] = key;
-                                    if (this.ctx && typeof this.ctx.updateMaterialLive === 'function') {
-                                        this.ctx.updateMaterialLive(wall);
-                                    }
+                                    WallEngine.applyMaterial(wall, { target: side, key, ctx: this.ctx });
 
                                     if (side === 'left' || side === 'right') {
                                         // Sync corner material to connected neighbor walls at this joint
@@ -1049,18 +1026,10 @@ export class GizmoManager {
                                                 else if (cwP2.x !== undefined && Math.hypot(cwP2.x - pt.x, cwP2.y - pt.y) < 5) isCwEnd = true;
                                             }
                                             if (isCwStart) {
-                                                cw.params = cw.params || {};
-                                                cw.params.textureLeft = key;
-                                                if (this.ctx && typeof this.ctx.updateMaterialLive === 'function') {
-                                                    this.ctx.updateMaterialLive(cw);
-                                                }
+                                                WallEngine.applyMaterial(cw, { target: 'left', key, ctx: this.ctx });
                                             }
                                             if (isCwEnd) {
-                                                cw.params = cw.params || {};
-                                                cw.params.textureRight = key;
-                                                if (this.ctx && typeof this.ctx.updateMaterialLive === 'function') {
-                                                    this.ctx.updateMaterialLive(cw);
-                                                }
+                                                WallEngine.applyMaterial(cw, { target: 'right', key, ctx: this.ctx });
                                             }
                                         });
                                     }
@@ -1077,17 +1046,7 @@ export class GizmoManager {
                                 }
 
                                 if (this.materialScope === 'entireObject') {
-                                    // Entire Object: The whole wall structure itself becomes this material (no layers needed)
-                                    wall.params = wall.params || {};
-                                    wall.params.texture = key;
-                                    wall.params.textureFront = key;
-                                    wall.params.textureBack = key;
-                                    wall.params.textureSides = key;
-                                    wall.params.textureTop = key;
-                                    wall.params.textureBottom = key;
-                                    if (this.ctx && typeof this.ctx.updateMaterialLive === 'function') {
-                                        this.ctx.updateMaterialLive(wall);
-                                    }
+                                    WallEngine.applyMaterial(wall, { target: 'all', key, ctx: this.ctx });
                                     if (typeof this.ctx.requestRender === 'function') {
                                         this.ctx.requestRender();
                                     }
