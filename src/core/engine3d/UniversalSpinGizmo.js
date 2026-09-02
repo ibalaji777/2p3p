@@ -605,66 +605,75 @@ export class UniversalSpinGizmo extends THREE.Group {
         this.hudPanel = document.createElement('div');
         this.hudPanel.className = 'universal-spin-hud-panel';
         this.hudPanel.style.cssText = `
-            position: fixed; bottom: 85px; left: 50%; transform: translateX(-50%);
-            display: none; flex-direction: column; gap: 10px; min-width: 320px; max-width: 92vw;
-            background: rgba(15, 23, 42, 0.96); color: white; padding: 14px 18px;
-            border-radius: 18px; border: 1.5px solid rgba(0, 240, 255, 0.5);
-            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 24px rgba(0, 240, 255, 0.25);
-            backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+            display: none; flex-direction: column; align-items: center; gap: 6px; width: 190px;
+            background: rgba(15, 23, 42, 0.94); color: white; padding: 8px 10px;
+            border-radius: 16px; border: 1.5px solid rgba(0, 240, 255, 0.45);
+            box-shadow: 0 14px 36px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 240, 255, 0.2);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             z-index: 100000; font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            pointer-events: auto; user-select: none;
+            pointer-events: auto; user-select: none; transition: box-shadow 0.2s ease;
         `;
 
         this.hudPanel.innerHTML = `
-            <!-- Header: Title & Live Angle Badge -->
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: rgba(0, 240, 255, 0.2); color: #00f0ff; font-size: 13px;">⭮</span>
-                    <span style="font-size: 12px; font-weight: 800; color: #f8fafc; letter-spacing: 0.6px;">UNIVERSAL SPIN</span>
+            <!-- Header: Draggable Grip Bar & Close -->
+            <div id="spin-hud-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: grab; touch-action: none;">
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span style="color: #64748b; font-size: 13px; letter-spacing: -1px; user-select: none;">⠿</span>
+                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: rgba(0, 240, 255, 0.15); color: #00f0ff; font-size: 10px;">⭮</span>
+                    <span style="font-size: 11px; font-weight: 800; color: #f1f5f9; letter-spacing: 0.5px;">SPIN</span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <span id="spin-hud-cardinal-tag" style="font-size: 10px; font-weight: 700; color: #94a3b8; background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px;">FRONT</span>
-                    <span id="spin-hud-angle-display" style="font-size: 14px; font-weight: 800; color: #00f0ff; min-width: 44px; text-align: right;">0°</span>
+                <button id="spin-btn-close-hud" style="background: transparent; border: none; color: #64748b; font-size: 12px; cursor: pointer; padding: 0 2px; line-height: 1; transition: color 0.15s;" title="Close">✕</button>
+            </div>
+
+            <!-- Sleek Interactive Round Slider / Rotary Dial -->
+            <div id="spin-round-slider-container" style="position: relative; width: 104px; height: 104px; margin: 2px 0; cursor: pointer; touch-action: none; display: flex; align-items: center; justify-content: center;">
+                <svg id="spin-round-slider-svg" width="104" height="104" viewBox="0 0 104 104" style="overflow: visible;">
+                    <!-- Background Track -->
+                    <circle cx="52" cy="52" r="40" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="6" />
+                    
+                    <!-- Cardinal Tick Notches -->
+                    <line x1="52" y1="6" x2="52" y2="12" stroke="#facc15" stroke-width="2" stroke-linecap="round" />
+                    <line x1="98" y1="52" x2="92" y2="52" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />
+                    <line x1="52" y1="98" x2="52" y2="92" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />
+                    <line x1="6" y1="52" x2="12" y2="52" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />
+                    
+                    <!-- 45-degree Minor Dots -->
+                    <circle cx="80.28" cy="23.72" r="1.5" fill="rgba(255,255,255,0.3)" />
+                    <circle cx="80.28" cy="80.28" r="1.5" fill="rgba(255,255,255,0.3)" />
+                    <circle cx="23.72" cy="80.28" r="1.5" fill="rgba(255,255,255,0.3)" />
+                    <circle cx="23.72" cy="23.72" r="1.5" fill="rgba(255,255,255,0.3)" />
+
+                    <!-- Active Glowing Sweep Arc -->
+                    <circle id="spin-round-slider-arc" cx="52" cy="52" r="40" fill="none" stroke="#00f0ff" stroke-width="6" stroke-linecap="round" stroke-dasharray="251.327" stroke-dashoffset="251.327" transform="rotate(-90 52 52)" style="filter: drop-shadow(0 0 5px rgba(0,240,255,0.7));" />
+
+                    <!-- Draggable Thumb Knob Indicator -->
+                    <circle id="spin-round-slider-knob" cx="52" cy="12" r="6.5" fill="#22c55e" stroke="#ffffff" stroke-width="2" style="filter: drop-shadow(0 0 6px rgba(34,197,94,0.9)); cursor: grab;" />
+                </svg>
+
+                <!-- Center Live Angle & Direction Readout -->
+                <div style="position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none;">
+                    <span id="spin-hud-angle-display" style="font-size: 15px; font-weight: 800; color: #00f0ff; line-height: 1;">0°</span>
+                    <span id="spin-hud-cardinal-tag" style="font-size: 8.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-top: 2px;">FRONT</span>
                 </div>
             </div>
 
-            <!-- Rotary Scrub Jog-Wheel & Micro-Step Controls -->
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0;">
-                <button id="spin-btn-step-ccw45" class="spin-hud-btn" style="flex: 1; padding: 7px 4px; font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #e2e8f0; border-radius: 8px; cursor: pointer;">↺ -45°</button>
-                <button id="spin-btn-step-ccw15" class="spin-hud-btn" style="flex: 1; padding: 7px 4px; font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #e2e8f0; border-radius: 8px; cursor: pointer;">↺ -15°</button>
-                
-                <!-- Interactive Touch Rotary Scrub Wheel -->
-                <div id="spin-hud-jog-wheel" style="width: 52px; height: 52px; border-radius: 50%; background: radial-gradient(circle, #1e293b 0%, #0f172a 100%); border: 2px solid #00f0ff; position: relative; cursor: ew-resize; touch-action: none; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);">
-                    <div id="spin-hud-jog-indicator" style="position: absolute; top: 4px; width: 6px; height: 6px; border-radius: 50%; background: #22c55e;"></div>
-                    <span style="font-size: 16px; color: #00f0ff;">↻</span>
+            <!-- Row: Flip 180° & Snap Selector -->
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 3px; padding-top: 2px; border-top: 1px solid rgba(255,255,255,0.08);">
+                <!-- Flip 180 Button -->
+                <button id="spin-btn-flip180" style="padding: 3px 5px; font-size: 9px; font-weight: 700; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #fde047; border-radius: 4px; cursor: pointer;" title="Flip 180°">⇄ 180°</button>
+
+                <!-- Snap Mode Pills -->
+                <div style="display: flex; gap: 2px; align-items: center; background: rgba(0,0,0,0.35); padding: 1.5px 3px; border-radius: 4px;">
+                    <button class="spin-snap-mode-btn active" data-snap="15" style="padding: 2px 4px; font-size: 8.5px; font-weight: 700; border-radius: 3px; background: #00f0ff; color: #0f172a; border: none; cursor: pointer;">15°</button>
+                    <button class="spin-snap-mode-btn" data-snap="45" style="padding: 2px 4px; font-size: 8.5px; font-weight: 700; border-radius: 3px; background: transparent; color: #94a3b8; border: none; cursor: pointer;">45°</button>
+                    <button class="spin-snap-mode-btn" data-snap="1" style="padding: 2px 4px; font-size: 8.5px; font-weight: 700; border-radius: 3px; background: transparent; color: #94a3b8; border: none; cursor: pointer;">FREE</button>
                 </div>
 
-                <button id="spin-btn-step-cw15" class="spin-hud-btn" style="flex: 1; padding: 7px 4px; font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #e2e8f0; border-radius: 8px; cursor: pointer;">↻ +15°</button>
-                <button id="spin-btn-step-cw45" class="spin-hud-btn" style="flex: 1; padding: 7px 4px; font-size: 11px; font-weight: 700; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #e2e8f0; border-radius: 8px; cursor: pointer;">↻ +45°</button>
-            </div>
-
-            <!-- Cardinal Presets (0° N, 90° E, 180° S, 270° W) & 180° Flip -->
-            <div style="display: flex; gap: 6px;">
-                <button class="spin-hud-preset-btn" data-angle="0" style="flex: 1; padding: 6px; font-size: 11px; font-weight: 700; background: rgba(0, 240, 255, 0.12); border: 1px solid rgba(0, 240, 255, 0.3); color: #38bdf8; border-radius: 6px; cursor: pointer;">0° N</button>
-                <button class="spin-hud-preset-btn" data-angle="90" style="flex: 1; padding: 6px; font-size: 11px; font-weight: 700; background: rgba(0, 240, 255, 0.12); border: 1px solid rgba(0, 240, 255, 0.3); color: #38bdf8; border-radius: 6px; cursor: pointer;">90° E</button>
-                <button class="spin-hud-preset-btn" data-angle="180" style="flex: 1; padding: 6px; font-size: 11px; font-weight: 700; background: rgba(0, 240, 255, 0.12); border: 1px solid rgba(0, 240, 255, 0.3); color: #38bdf8; border-radius: 6px; cursor: pointer;">180° S</button>
-                <button class="spin-hud-preset-btn" data-angle="270" style="flex: 1; padding: 6px; font-size: 11px; font-weight: 700; background: rgba(0, 240, 255, 0.12); border: 1px solid rgba(0, 240, 255, 0.3); color: #38bdf8; border-radius: 6px; cursor: pointer;">270° W</button>
-                <button id="spin-btn-flip180" style="flex: 1.3; padding: 6px; font-size: 11px; font-weight: 700; background: rgba(245, 158, 11, 0.18); border: 1px solid rgba(245, 158, 11, 0.45); color: #fde047; border-radius: 6px; cursor: pointer;">⇄ 180° Flip</button>
-            </div>
-
-            <!-- Snap Selector & Direct Numeric Input -->
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
-                <div style="display: flex; gap: 4px; align-items: center;">
-                    <span style="font-size: 10px; color: #94a3b8; font-weight: 700;">SNAP:</span>
-                    <button class="spin-snap-mode-btn active" data-snap="15" style="padding: 3px 7px; font-size: 10px; font-weight: 700; border-radius: 4px; background: #00f0ff; color: #0f172a; border: none; cursor: pointer;">15°</button>
-                    <button class="spin-snap-mode-btn" data-snap="45" style="padding: 3px 7px; font-size: 10px; font-weight: 700; border-radius: 4px; background: rgba(255,255,255,0.1); color: white; border: none; cursor: pointer;">45°</button>
-                    <button class="spin-snap-mode-btn" data-snap="1" style="padding: 3px 7px; font-size: 10px; font-weight: 700; border-radius: 4px; background: rgba(255,255,255,0.1); color: white; border: none; cursor: pointer;">FREE</button>
-                </div>
-                
-                <div style="display: flex; align-items: center; gap: 4px;">
-                    <span style="font-size: 10px; color: #94a3b8;">Angle:</span>
-                    <input type="number" id="spin-hud-num-input" min="0" max="360" step="1" value="0" style="width: 48px; background: rgba(0,0,0,0.4); border: 1px solid rgba(0,240,255,0.4); color: white; border-radius: 6px; padding: 3px 5px; font-size: 11px; font-weight: 700; text-align: right; outline: none;">
-                    <span style="font-size: 11px; color: #94a3b8;">°</span>
+                <!-- Angle Number Input -->
+                <div style="display: flex; align-items: center; gap: 1px;">
+                    <input type="number" id="spin-hud-num-input" min="0" max="360" step="1" value="0" style="width: 32px; background: rgba(0,0,0,0.45); border: 1px solid rgba(0,240,255,0.35); color: white; border-radius: 3px; padding: 1px 2px; font-size: 9.5px; font-weight: 700; text-align: right; outline: none;">
+                    <span style="font-size: 9.5px; color: #94a3b8;">°</span>
                 </div>
             </div>
         `;
@@ -678,46 +687,82 @@ export class UniversalSpinGizmo extends THREE.Group {
     _initHUDPanelEvents() {
         if (!this.hudPanel) return;
 
-        // Step Buttons
-        const btnCcw45 = this.hudPanel.querySelector('#spin-btn-step-ccw45');
-        const btnCcw15 = this.hudPanel.querySelector('#spin-btn-step-ccw15');
-        const btnCw15 = this.hudPanel.querySelector('#spin-btn-step-cw15');
-        const btnCw45 = this.hudPanel.querySelector('#spin-btn-step-cw45');
+        // 1. Draggable Window Logic (Move Anywhere on Workspace)
+        const headerEl = this.hudPanel.querySelector('#spin-hud-header');
+        if (headerEl) {
+            let isDraggingHUD = false;
+            let dragOffsetX = 0;
+            let dragOffsetY = 0;
+
+            const onHeaderPointerDown = (e) => {
+                if (e.target.closest('button')) return;
+                isDraggingHUD = true;
+                headerEl.style.cursor = 'grabbing';
+                const rect = this.hudPanel.getBoundingClientRect();
+                dragOffsetX = e.clientX - rect.left;
+                dragOffsetY = e.clientY - rect.top;
+                this.hudPanel.style.boxShadow = '0 16px 40px rgba(0, 0, 0, 0.8), 0 0 24px rgba(0, 240, 255, 0.4)';
+                e.preventDefault();
+            };
+
+            const onWindowPointerMove = (e) => {
+                if (!isDraggingHUD) return;
+                let x = e.clientX - dragOffsetX;
+                let y = e.clientY - dragOffsetY;
+
+                // Viewport boundary clamping
+                const pad = 8;
+                x = Math.max(pad, Math.min(window.innerWidth - this.hudPanel.offsetWidth - pad, x));
+                y = Math.max(pad, Math.min(window.innerHeight - this.hudPanel.offsetHeight - pad, y));
+
+                this.hudPanel.style.left = `${x}px`;
+                this.hudPanel.style.top = `${y}px`;
+                this.hudPanel.style.bottom = 'auto';
+                this.hudPanel.style.transform = 'none';
+            };
+
+            const onWindowPointerUp = () => {
+                if (isDraggingHUD) {
+                    isDraggingHUD = false;
+                    headerEl.style.cursor = 'grab';
+                    this.hudPanel.style.boxShadow = '0 14px 36px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 240, 255, 0.2)';
+                }
+            };
+
+            headerEl.addEventListener('pointerdown', onHeaderPointerDown);
+            window.addEventListener('pointermove', onWindowPointerMove);
+            window.addEventListener('pointerup', onWindowPointerUp);
+        }
+
+        // Close Button
+        const btnClose = this.hudPanel.querySelector('#spin-btn-close-hud');
+        if (btnClose) {
+            btnClose.onclick = () => {
+                if (this.ctx.commonController) {
+                    this.ctx.commonController.setTool('select');
+                } else if (this.ctx.gizmoManager) {
+                    this.ctx.gizmoManager.setTransformMode('none');
+                } else {
+                    this.detach();
+                }
+            };
+            btnClose.onmouseenter = () => { btnClose.style.color = '#ef4444'; };
+            btnClose.onmouseleave = () => { btnClose.style.color = '#64748b'; };
+        }
+
+        // 180° Flip Button
         const btnFlip = this.hudPanel.querySelector('#spin-btn-flip180');
-
-        const stepRotate = (deltaDeg) => {
-            let targetAngle = ((Math.round(this.currentRotation + deltaDeg) % 360) + 360) % 360;
-            if (this.snapMode > 1) {
-                targetAngle = Math.round(targetAngle / this.snapMode) * this.snapMode;
-            }
-            targetAngle = ((targetAngle % 360) + 360) % 360;
-            this.currentRotation = targetAngle;
-            this._applyRotationToEntity(targetAngle);
-            this._updateHeadingArrowRotation(targetAngle);
-            this._commitRotationToPlanner();
-            this.syncHUD();
-            if (this.ctx.requestRender) this.ctx.requestRender('spin_step');
-        };
-
-        if (btnCcw45) btnCcw45.onclick = () => stepRotate(-45);
-        if (btnCcw15) btnCcw15.onclick = () => stepRotate(-15);
-        if (btnCw15) btnCw15.onclick = () => stepRotate(15);
-        if (btnCw45) btnCw45.onclick = () => stepRotate(45);
-        if (btnFlip) btnFlip.onclick = () => stepRotate(180);
-
-        // Cardinal Presets
-        const presets = this.hudPanel.querySelectorAll('.spin-hud-preset-btn');
-        presets.forEach(btn => {
-            btn.onclick = () => {
-                const angle = parseInt(btn.getAttribute('data-angle'), 10) || 0;
-                this.currentRotation = angle;
-                this._applyRotationToEntity(angle);
-                this._updateHeadingArrowRotation(angle);
+        if (btnFlip) {
+            btnFlip.onclick = () => {
+                let targetAngle = ((Math.round(this.currentRotation + 180) % 360) + 360) % 360;
+                this.currentRotation = targetAngle;
+                this._applyRotationToEntity(targetAngle);
+                this._updateHeadingArrowRotation(targetAngle);
                 this._commitRotationToPlanner();
                 this.syncHUD();
-                if (this.ctx.requestRender) this.ctx.requestRender('spin_preset');
+                if (this.ctx.requestRender) this.ctx.requestRender('spin_flip');
             };
-        });
+        }
 
         // Snap Mode Buttons
         const snapBtns = this.hudPanel.querySelectorAll('.spin-snap-mode-btn');
@@ -725,8 +770,8 @@ export class UniversalSpinGizmo extends THREE.Group {
             btn.onclick = () => {
                 snapBtns.forEach(b => {
                     b.classList.remove('active');
-                    b.style.background = 'rgba(255,255,255,0.1)';
-                    b.style.color = 'white';
+                    b.style.background = 'transparent';
+                    b.style.color = '#94a3b8';
                 });
                 btn.classList.add('active');
                 btn.style.background = '#00f0ff';
@@ -750,54 +795,54 @@ export class UniversalSpinGizmo extends THREE.Group {
             };
         }
 
-        // Rotary Scrub Jog-Wheel Interaction (Touch & Mouse)
-        const jogWheel = this.hudPanel.querySelector('#spin-hud-jog-wheel');
-        if (jogWheel) {
-            let isJogging = false;
-            let jogStartAngle = 0;
-            let jogInitialEntityAngle = 0;
+        // 2. Interactive SVG Round Slider (360° Rotary Scrub Dial)
+        const roundSlider = this.hudPanel.querySelector('#spin-round-slider-container');
+        if (roundSlider) {
+            let isDraggingSlider = false;
 
-            const onJogDown = (e) => {
-                isJogging = true;
-                const rect = jogWheel.getBoundingClientRect();
+            const updateFromPointer = (e) => {
+                const rect = roundSlider.getBoundingClientRect();
                 const cx = rect.left + rect.width / 2;
                 const cy = rect.top + rect.height / 2;
-                jogStartAngle = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
-                jogInitialEntityAngle = this.currentRotation;
+                const dx = e.clientX - cx;
+                const dy = e.clientY - cy;
+
+                let deg = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+                deg = ((deg % 360) + 360) % 360;
+
+                if (this.snapMode > 1 && !e.altKey) {
+                    deg = Math.round(deg / this.snapMode) * this.snapMode;
+                }
+                deg = ((Math.round(deg) % 360) + 360) % 360;
+
+                this.currentRotation = deg;
+                this._applyRotationToEntity(deg);
+                this._updateHeadingArrowRotation(deg);
+                this.syncHUD();
+                if (this.ctx.requestRender) this.ctx.requestRender('spin_round_slider');
+            };
+
+            const onSliderDown = (e) => {
+                isDraggingSlider = true;
+                updateFromPointer(e);
                 e.preventDefault();
                 e.stopPropagation();
             };
 
-            const onJogMove = (e) => {
-                if (!isJogging) return;
-                const rect = jogWheel.getBoundingClientRect();
-                const cx = rect.left + rect.width / 2;
-                const cy = rect.top + rect.height / 2;
-                const curAngle = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
-                let delta = curAngle - jogStartAngle;
-
-                let targetAngle = jogInitialEntityAngle + delta;
-                if (this.snapMode > 1 && !e.altKey) {
-                    targetAngle = Math.round(targetAngle / this.snapMode) * this.snapMode;
-                }
-                targetAngle = ((Math.round(targetAngle) % 360) + 360) % 360;
-
-                this.currentRotation = targetAngle;
-                this._applyRotationToEntity(targetAngle);
-                this._updateHeadingArrowRotation(targetAngle);
-                this.syncHUD();
-                if (this.ctx.requestRender) this.ctx.requestRender('spin_jog_wheel');
+            const onSliderMove = (e) => {
+                if (!isDraggingSlider) return;
+                updateFromPointer(e);
             };
 
-            const onJogUp = () => {
-                if (!isJogging) return;
-                isJogging = false;
+            const onSliderUp = () => {
+                if (!isDraggingSlider) return;
+                isDraggingSlider = false;
                 this._commitRotationToPlanner();
             };
 
-            jogWheel.addEventListener('pointerdown', onJogDown);
-            window.addEventListener('pointermove', onJogMove);
-            window.addEventListener('pointerup', onJogUp);
+            roundSlider.addEventListener('pointerdown', onSliderDown);
+            window.addEventListener('pointermove', onSliderMove);
+            window.addEventListener('pointerup', onSliderUp);
         }
     }
 
@@ -819,7 +864,8 @@ export class UniversalSpinGizmo extends THREE.Group {
         const angleDisplay = this.hudPanel.querySelector('#spin-hud-angle-display');
         const numInput = this.hudPanel.querySelector('#spin-hud-num-input');
         const cardinalTag = this.hudPanel.querySelector('#spin-hud-cardinal-tag');
-        const jogIndicator = this.hudPanel.querySelector('#spin-hud-jog-indicator');
+        const arc = this.hudPanel.querySelector('#spin-round-slider-arc');
+        const knob = this.hudPanel.querySelector('#spin-round-slider-knob');
 
         const deg = Math.round(this.currentRotation);
         if (angleDisplay) angleDisplay.innerText = `${deg}°`;
@@ -839,13 +885,19 @@ export class UniversalSpinGizmo extends THREE.Group {
             cardinalTag.innerText = tag;
         }
 
-        // Rotate Jog Indicator
-        if (jogIndicator) {
-            const rad = deg * Math.PI / 180;
-            const r = 20;
-            const x = Math.sin(rad) * r;
-            const y = -Math.cos(rad) * r;
-            jogIndicator.style.transform = `translate(${x}px, ${y}px)`;
+        // Update Round Slider SVG Arc & Knob Position
+        const circumference = 251.327; // 2 * PI * 40
+        if (arc) {
+            const offset = circumference - (circumference * (deg / 360));
+            arc.style.strokeDashoffset = `${offset}`;
+        }
+
+        if (knob) {
+            const rad = (deg - 90) * (Math.PI / 180);
+            const cx = 52 + 40 * Math.cos(rad);
+            const cy = 52 + 40 * Math.sin(rad);
+            knob.setAttribute('cx', cx.toFixed(2));
+            knob.setAttribute('cy', cy.toFixed(2));
         }
     }
 
