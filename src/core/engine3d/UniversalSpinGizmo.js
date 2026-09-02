@@ -372,6 +372,17 @@ export class UniversalSpinGizmo extends THREE.Group {
 
                 this._setHandlesActive(true);
                 if (this.ctx.controls) this.ctx.controls.enabled = false;
+                if (this.ctx.cameraController && typeof this.ctx.cameraController.disableOrbit === 'function') {
+                    this.ctx.cameraController.disableOrbit();
+                }
+
+                try {
+                    const domEl = this.ctx.renderer?.domElement;
+                    if (domEl && domEl.setPointerCapture && e.pointerId !== undefined) {
+                        domEl.setPointerCapture(e.pointerId);
+                        this._activePointerId = e.pointerId;
+                    }
+                } catch (_) {}
 
                 this._showFloatingBadge(`SPIN: ${Math.round(this.initialRotation)}°`, e.clientX, e.clientY);
                 if (this.ctx.requestRender) this.ctx.requestRender('spin_drag_start');
@@ -444,7 +455,18 @@ export class UniversalSpinGizmo extends THREE.Group {
             this._clearDynamicVisuals();
             this._hideFloatingBadge();
 
+            try {
+                const domEl = this.ctx.renderer?.domElement;
+                if (domEl && domEl.releasePointerCapture && this._activePointerId !== null && this._activePointerId !== undefined) {
+                    domEl.releasePointerCapture(this._activePointerId);
+                    this._activePointerId = null;
+                }
+            } catch (_) {}
+
             if (this.ctx.controls) this.ctx.controls.enabled = true;
+            if (this.ctx.cameraController && typeof this.ctx.cameraController.enableOrbit === 'function') {
+                this.ctx.cameraController.enableOrbit();
+            }
             const domEl = this.ctx.renderer?.domElement;
             if (domEl) domEl.style.cursor = 'auto';
 

@@ -269,6 +269,7 @@ export class UniversalMoveGizmo extends THREE.Group {
         this._onPointerDown = (e) => {
             if (e.button !== 0 && e.pointerType === 'mouse') return;
             if (this.ctx.viewMode3D === 'preview') return;
+            if (!this.visible || !this.attachedObject) return;
 
             this._updateMouseCoords(e);
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
@@ -276,7 +277,7 @@ export class UniversalMoveGizmo extends THREE.Group {
             let handleName = null;
 
             // 1. Check Gizmo Handles
-            if (this.visible && this.gizmoVisuals.children.length > 0) {
+            if (this.gizmoVisuals.children.length > 0) {
                 const gizmoIntersects = this.raycaster.intersectObjects(this.gizmoVisuals.children, true);
                 if (gizmoIntersects.length > 0) {
                     handleName = gizmoIntersects[0].object.name;
@@ -291,33 +292,15 @@ export class UniversalMoveGizmo extends THREE.Group {
                 }
             }
 
-            // 3. Check if clicking on any movable interactable in the scene
-            if (!handleName && this.ctx.interactables) {
-                const allIntersects = this.raycaster.intersectObjects(this.ctx.interactables, true);
-                const validHits = allIntersects.filter(i => i.object && !i.object.userData?.isHitbox && i.object.material && i.object.material.opacity !== 0);
-                if (validHits.length > 0) {
-                    let hitObj = validHits[0].object;
-                    while (hitObj.parent && !hitObj.userData.isFurniture && !hitObj.userData.isWallSide && !hitObj.userData.isWallDecor && !hitObj.userData.isFloor && !hitObj.userData.isWidget && !hitObj.userData.isMolding && !hitObj.userData.isRoof && !hitObj.userData.isPattern && !hitObj.userData.isStair && !hitObj.userData.isFloorCutProxy && !hitObj.userData.isRoofAddon && !hitObj.userData.isRoofSculpture && !hitObj.userData.isSkylight) {
-                        hitObj = hitObj.parent;
-                    }
-                    const ent = hitObj.userData?.entity || hitObj.parent?.userData?.entity;
-                    const targetMesh = ent?.mesh3D || hitObj;
-                    const caps = ObjectCapabilityEvaluator.getCapabilities(ent, targetMesh);
-                    if (caps.movable) {
-                        this.attach(targetMesh);
-                        if (this.ctx.interactions?.selectObject) {
-                            this.ctx.interactions.selectObject(targetMesh);
-                        }
-                        handleName = 'handle_center';
-                    }
-                }
-            }
-
             if (handleName && this.attachedObject) {
                 this.isDragging = true;
                 this.activeHandle = handleName.replace('handle_', ''); // 'center' | 'x' | 'z' | 'y'
 
+                // Disable camera controls immediately during object translation
                 if (this.ctx.controls) this.ctx.controls.enabled = false;
+                if (this.ctx.cameraController && typeof this.ctx.cameraController.disableOrbit === 'function') {
+                    this.ctx.cameraController.disableOrbit();
+                }
 
                 try {
                     if (dom.setPointerCapture && e.pointerId !== undefined) {
@@ -447,6 +430,9 @@ export class UniversalMoveGizmo extends THREE.Group {
                 } catch (_) {}
 
                 if (this.ctx.controls) this.ctx.controls.enabled = true;
+                if (this.ctx.cameraController && typeof this.ctx.cameraController.enableOrbit === 'function') {
+                    this.ctx.cameraController.enableOrbit();
+                }
                 this._commitTranslationToPlanner();
                 if (this.dynamicLeaderLine && this.dynamicLeaderLine.parent) {
                     this.dynamicLeaderLine.parent.remove(this.dynamicLeaderLine);
