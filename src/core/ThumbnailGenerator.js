@@ -680,7 +680,7 @@ const theta = 145 * Math.PI / 180;
                     ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'bumpMap'].forEach(slot => {
                         const tex = mat[slot];
                         if (tex && tex.image) {
-                            if (!tex.image.complete) {
+                            if (typeof tex.image.addEventListener === 'function' && tex.image.complete === false) {
                                 pendingTextureProms.push(new Promise(resolve => {
                                     tex.image.addEventListener('load', resolve, { once: true });
                                     tex.image.addEventListener('error', resolve, { once: true });

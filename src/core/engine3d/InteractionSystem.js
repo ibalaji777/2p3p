@@ -12,6 +12,7 @@ import { RoofOverhangGizmo } from '../../features/roof/RoofOverhangGizmo.js';
 import { RoofPitchCurvatureGizmo } from '../../features/roof/RoofPitchCurvatureGizmo.js';
 import { PolygonGizmo } from './PolygonGizmo.js';
 import { UniversalSpinGizmo } from './UniversalSpinGizmo.js';
+import { UniversalMoveGizmo } from './UniversalMoveGizmo.js';
 import { WallPushPullGizmo } from './WallPushPullGizmo.js';
 import { WallInteractiveSuite } from './WallInteractiveSuite.js';
 import { Wall3DDrawSystem } from './Wall3DDrawSystem.js';
@@ -327,18 +328,9 @@ export class InteractionSystem {
         this.wallHighlight = this.highlightRenderer.wallSelectionMesh;
         this.wallHoverHighlight = this.highlightRenderer.wallHoverMesh;
 
-        // Sims 4 Direct Move & Footprint System (Zero Obtrusive Arrows)
         this.sims4FloorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
         this._tempFloorHit = new THREE.Vector3();
         this._grabOffset = new THREE.Vector3();
-        this._pointerDownScreenPos = new THREE.Vector2();
-        this._dragStartPos = new THREE.Vector3();
-        this.isPotentialSims4Drag = false;
-        this.isSims4Dragging = false;
-        this.isPotentialSims4Spin = false;
-        this.isSims4Spinning = false;
-        this._spinPointerDownPos = new THREE.Vector2();
-        this._spinStartAngle = 0;
 
         this.sims4FootprintMat = new THREE.LineBasicMaterial({
             color: 0x00f0ff,
@@ -491,6 +483,9 @@ export class InteractionSystem {
 
         this.universalSpinGizmo = new UniversalSpinGizmo(ctx);
         this.ctx.scene.add(this.universalSpinGizmo);
+
+        this.universalMoveGizmo = new UniversalMoveGizmo(ctx);
+        this.ctx.scene.add(this.universalMoveGizmo);
 
         this.wallInteractiveSuite = new WallInteractiveSuite(ctx);
         this.ctx.scene.add(this.wallInteractiveSuite);
@@ -760,38 +755,10 @@ export class InteractionSystem {
                             }
                         }
                         this.selectObject(mesh, intersects[0]);
-
-                        // Direct Sims 4 Move: Grab object, disable OrbitControls, show footprint & highlight immediately
-                        const ent = mesh.userData?.entity;
-                        const caps = this.commonController?.getCapabilities(ent, mesh) || { movable: false };
-                        if (caps.movable) {
-                            this.isPotentialSims4Drag = true;
-                            this._pointerDownScreenPos.set(e.clientX, e.clientY);
-                            this._dragStartPos.copy(mesh.position);
-                            this._dragStartRot = mesh.rotation.y;
-                            
-                            // Prevent OrbitControls from rotating camera when dragging directly on an object!
-                            if (this.ctx.controls) this.ctx.controls.enabled = false;
-
-                            // Display tactile floor footprint & selection highlight on mouse down
-                            this._updateSims4Footprint(mesh);
-                            if (this.highlightRenderer) this.highlightRenderer.setSelectionHighlight(mesh);
-                            this.setHighlight(mesh, true, 0x00f0ff);
-
-                            this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-                            if (this.raycaster.ray.intersectPlane(this.sims4FloorPlane, this._tempFloorHit)) {
-                                this._grabOffset.subVectors(this._tempFloorHit, mesh.position);
-                            } else {
-                                this._grabOffset.set(0, 0, 0);
-                            }
-                        }
                     }
                 }
             } else {
                 this.deselect();
-                this.isPotentialSims4Drag = false;
-                this.isSims4Dragging = false;
-                this.sims4Footprint.visible = false;
                 if (this.ctx.controls) this.ctx.controls.enabled = true;
             }
         };
@@ -842,103 +809,6 @@ export class InteractionSystem {
             // Universal Material Face Painting Tool
             if (this.commonController?.activeTool === COMMON_TOOLS.MATERIAL) {
                 this.commonController.paintSystem.onPointerMove(e);
-                return;
-            }
-
-            // Sims 4 Right-drag or [ Spin ] Tool Spin system
-            if (this.isPotentialSims4Spin && this.selectedObject) {
-                const dist = Math.hypot(e.clientX - this._spinPointerDownPos.x, e.clientY - this._spinPointerDownPos.y);
-                if (dist > 3) {
-                    this.isSims4Spinning = true;
-                    if (this.ctx.controls) this.ctx.controls.enabled = false;
-                    dom.style.cursor = 'ew-resize';
-                }
-            }
-
-            if (this.isSims4Spinning && this.selectedObject) {
-                const ent = this.selectedObject.userData?.entity;
-                if (ent && this.commonController) {
-                    const deltaX = e.clientX - this._spinPointerDownPos.x;
-                    const deltaDeg = Math.round(deltaX * 0.75);
-                    let targetAngle = this._spinStartAngle + deltaDeg;
-
-                    // Snap to 15° increments unless Alt is held
-                    if (!e.altKey) {
-                        targetAngle = Math.round(targetAngle / 15) * 15;
-                    }
-                    targetAngle = ((targetAngle % 360) + 360) % 360;
-
-                    this.commonController.transformEngine.executeSpin(ent, 0, targetAngle);
-                    this._updateSims4Footprint(this.selectedObject);
-                    if (this.highlightRenderer) this.highlightRenderer.setSelectionHighlight(this.selectedObject);
-                    this.setHighlight(this.selectedObject, true, 0x00f0ff);
-                    if (this.ctx.requestRender) this.ctx.requestRender('sims4_spinning');
-                }
-                return;
-            }
-
-            // Sims 4 Direct Move / Dragging System
-            if (this.isPotentialSims4Drag && this.selectedObject) {
-                const dist = Math.hypot(e.clientX - this._pointerDownScreenPos.x, e.clientY - this._pointerDownScreenPos.y);
-                if (dist > 1 || this.commonController?.activeTool === COMMON_TOOLS.MOVE) {
-                    this.isSims4Dragging = true;
-                    if (this.ctx.controls) this.ctx.controls.enabled = false;
-                    dom.style.cursor = 'grabbing';
-                }
-            }
-
-            if (this.isSims4Dragging && this.selectedObject) {
-                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-                const ent = this.selectedObject.userData?.entity;
-
-                // Maintain glowing highlight on the moving object
-                if (this.highlightRenderer) this.highlightRenderer.setSelectionHighlight(this.selectedObject);
-                this.setHighlight(this.selectedObject, true, 0x00f0ff);
-
-                // 1. Wall Plugin / Opening Dragging along wall baseline
-                if (ent?.wall && ent.wall.mesh3D) {
-                    const wallMesh = ent.wall.mesh3D;
-                    const intersects = this.raycaster.intersectObject(wallMesh, true);
-                    if (intersects.length > 0) {
-                        const hit = intersects[0];
-                        const localHit = wallMesh.worldToLocal(hit.point.clone());
-                        const wallLength = ent.wall.length3D || 100;
-                        const newT = Math.max(0.05, Math.min(0.95, (localHit.x + wallLength / 2) / wallLength));
-                        ent.t = newT;
-                        if (this.ctx.realtimeUpdate) this.ctx.realtimeUpdate.markDirty(ent, 'geometry');
-                        this._updateSims4Footprint(this.selectedObject);
-                        this._syncUI();
-                    }
-                }
-                // 2. Floor / Free Object Dragging
-                else if (this.raycaster.ray.intersectPlane(this.sims4FloorPlane, this._tempFloorHit)) {
-                    let newX = this._tempFloorHit.x - this._grabOffset.x;
-                    let newZ = this._tempFloorHit.z - this._grabOffset.z;
-
-                    // Snap to 10cm grid unless Alt is pressed
-                    if (!e.altKey) {
-                        newX = Math.round(newX / 10) * 10;
-                        newZ = Math.round(newZ / 10) * 10;
-                    }
-
-                    this.selectedObject.position.x = newX;
-                    this.selectedObject.position.z = newZ;
-
-                    if (ent) {
-                        ent.x = newX;
-                        ent.y = newZ;
-                        if (ent.group && typeof ent.group.x === 'function') {
-                            ent.group.x(newX);
-                            ent.group.y(newZ);
-                        }
-                        if (typeof ent.update2D === 'function') ent.update2D();
-                        if (this.ctx.realtimeUpdate) this.ctx.realtimeUpdate.markDirty(ent, 'transform');
-                    }
-
-                    this._updateSims4Footprint(this.selectedObject);
-                    this._syncUI();
-                    if (this.ctx.requestRender) this.ctx.requestRender('sims4_dragging');
-                }
                 return;
             }
 
@@ -1013,34 +883,6 @@ export class InteractionSystem {
                     this._updateSims4Footprint(this.selectedObject);
                     if (this.highlightRenderer) this.highlightRenderer.setSelectionHighlight(this.selectedObject);
                     this.setHighlight(this.selectedObject, true, 0x00f0ff);
-                }
-            }
-
-            // Complete Sims 4 Direct Drag
-            if (this.isSims4Dragging || this.isPotentialSims4Drag) {
-                if (this.ctx.controls) this.ctx.controls.enabled = (this.mode === 'camera' || !this.isSims4Dragging);
-                dom.style.cursor = 'auto';
-
-                if (this.isSims4Dragging && this.selectedObject && this._dragStartPos) {
-                    const distMoved = this.selectedObject.position.distanceTo(this._dragStartPos);
-                    if (distMoved > 0.1) {
-                        const ent = this.selectedObject.userData?.entity;
-                        const id = ent?.id || (ent?.group && typeof ent.group.id === 'function' ? ent.group.id() : null);
-                        const plannerInst = window.planner?.value || window.planner;
-                        if (plannerInst && typeof plannerInst.move === 'function' && id) {
-                            plannerInst.move(id, this.selectedObject.position.x, this.selectedObject.position.z);
-                        }
-                        if (this.ctx.requestRender) this.ctx.requestRender('sims4_drag_end');
-                    }
-                }
-                this.isSims4Dragging = false;
-                this.isPotentialSims4Drag = false;
-                if (this.selectedObject) {
-                    this._updateSims4Footprint(this.selectedObject);
-                    if (this.highlightRenderer) this.highlightRenderer.setSelectionHighlight(this.selectedObject);
-                    this.setHighlight(this.selectedObject, true, 0x00f0ff);
-                } else {
-                    this.sims4Footprint.visible = false;
                 }
             }
 
@@ -1289,10 +1131,17 @@ export class InteractionSystem {
             this.deselect();
             this.selectedObject = object;
 
-            const result = this.selectionManager.resolveSelectionType(object);
+            let result = null;
+            if (this.selectionManager) {
+                if (typeof this.selectionManager.resolveSelectionType === 'function') {
+                    result = this.selectionManager.resolveSelectionType(object);
+                } else if (typeof this.selectionManager.select === 'function') {
+                    result = this.selectionManager.select(object);
+                }
+            }
             if (result) {
-                type = result.type;
-                side = result.side;
+                type = result.type || type;
+                side = result.side || side;
             }
 
             console.info(`%c[InteractionSystem] %cSelected: %c${type || 'Unknown'} %c(Entity ID: ${object.userData?.entity?.id || 'N/A'})`, 
@@ -1317,8 +1166,15 @@ export class InteractionSystem {
 
             if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
             if (this.commonController) this.commonController.setSelection(object.userData.entity, object);
-            if (this.commonController?.activeTool === COMMON_TOOLS.SPIN || this.ctx.currentTransformMode === 'rotateY' || this.ctx.currentTransformMode === 'spin') {
+            if (this.commonController?.activeTool === COMMON_TOOLS.MOVE || this.ctx.currentTransformMode === 'translate' || this.ctx.currentTransformMode === 'move') {
+                if (this.universalMoveGizmo) this.universalMoveGizmo.attach(object);
+                if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
+            } else if (this.commonController?.activeTool === COMMON_TOOLS.SPIN || this.ctx.currentTransformMode === 'rotateY' || this.ctx.currentTransformMode === 'spin') {
                 if (this.universalSpinGizmo) this.universalSpinGizmo.attach(object);
+                if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
+            } else {
+                if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
+                if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
             }
             if (window.plannerInstance && object.userData.entity && window.plannerInstance.selectedEntity !== object.userData.entity) {
                 window.plannerInstance.selectEntity(object.userData.entity, type);
@@ -1361,6 +1217,7 @@ export class InteractionSystem {
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
             if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
             if (this.polygonGizmo) this.polygonGizmo.detach();
+            if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
             if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
             if (this.wallInteractiveSuite) this.wallInteractiveSuite.detach();
             this.ctx.currentTransformMode = 'none';
@@ -1417,6 +1274,7 @@ export class InteractionSystem {
         if (this.roofOverhangGizmo && this.roofOverhangGizmo.dispose) this.roofOverhangGizmo.dispose();
         if (this.roofPitchGizmo && this.roofPitchGizmo.dispose) this.roofPitchGizmo.dispose();
         if (this.polygonGizmo && this.polygonGizmo.dispose) this.polygonGizmo.dispose();
+        if (this.universalMoveGizmo && this.universalMoveGizmo.dispose) this.universalMoveGizmo.dispose();
         if (this.universalSpinGizmo && this.universalSpinGizmo.dispose) this.universalSpinGizmo.dispose();
         if (this.wallInteractiveSuite && this.wallInteractiveSuite.dispose) this.wallInteractiveSuite.dispose();
         if (this.wall3DDrawSystem && this.wall3DDrawSystem.dispose) this.wall3DDrawSystem.dispose();

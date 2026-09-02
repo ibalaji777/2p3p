@@ -83,6 +83,15 @@ export class CommonInteractionController {
                 };
                 this.ctx.gizmoManager.setTransformMode(modeMap[toolId], true);
             }
+            if (toolId === COMMON_TOOLS.MOVE) {
+                if (targetMesh && this.ctx.interactions?.universalMoveGizmo) {
+                    this.ctx.interactions.universalMoveGizmo.attach(targetMesh);
+                }
+            } else {
+                if (this.ctx.interactions?.universalMoveGizmo) {
+                    this.ctx.interactions.universalMoveGizmo.detach();
+                }
+            }
             if (toolId === COMMON_TOOLS.SPIN) {
                 if (targetMesh && this.ctx.interactions?.universalSpinGizmo) {
                     this.ctx.interactions.universalSpinGizmo.attach(targetMesh);
@@ -93,6 +102,9 @@ export class CommonInteractionController {
                 }
             }
         } else {
+            if (this.ctx.interactions?.universalMoveGizmo) {
+                this.ctx.interactions.universalMoveGizmo.detach();
+            }
             if (this.ctx.interactions?.universalSpinGizmo) {
                 this.ctx.interactions.universalSpinGizmo.detach();
             }
@@ -151,6 +163,9 @@ export class CommonInteractionController {
                     [COMMON_TOOLS.TILT]: 'rotateX'
                 };
                 this.ctx.gizmoManager.setTransformMode(modeMap[this.activeTool], true);
+            }
+            if (this.activeTool === COMMON_TOOLS.MOVE && targetMesh && this.ctx.interactions?.universalMoveGizmo) {
+                this.ctx.interactions.universalMoveGizmo.attach(targetMesh);
             }
             if (this.activeTool === COMMON_TOOLS.SPIN && targetMesh && this.ctx.interactions?.universalSpinGizmo) {
                 this.ctx.interactions.universalSpinGizmo.attach(targetMesh);

@@ -340,6 +340,11 @@ export function useAppTools({
     const spawnFurniture = (configId) => {
         if (planner.value) {
             planner.value.create('furniture', { id: configId });
+            planner.value.tool = 'select';
+            planner.value.activePresetParams = null;
+            if (typeof planner.value.updateToolStates === 'function') {
+                planner.value.updateToolStates();
+            }
             debouncedSaveHistory();
         }
     };

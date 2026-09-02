@@ -6,6 +6,11 @@ export class SelectionManager {
         this.system = interactionSystem;
     }
 
+    resolveSelectionType(object) {
+        if (!object) return null;
+        return this.select(object);
+    }
+
     select(object) {
         if (object.userData.isWallSide) {
             return this.selectWall(object);

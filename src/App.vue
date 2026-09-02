@@ -837,13 +837,30 @@ watch(() => selectedEntity.value?.params?.isEditingMaterials, (newVal) => {
 });
 
 const switchTo2D = () => {
-    if(renderer3D.value) renderer3D.value.deselectObject();
-    planner.value.syncAll();
+    if (renderer3D.value) {
+        renderer3D.value.deselectObject();
+        if (renderer3D.value.interactions) {
+            renderer3D.value.interactions.cancelRelocation();
+        }
+    }
+    if (planner.value) planner.value.syncAll();
     viewMode.value = '2d';
 };
 
 const switchTo3D = () => {
-    planner.value.finishChain();
+    if (planner.value) {
+        planner.value.finishChain();
+        // Reset any leftover 2D placement tools so 3D starts in clean SELECT mode
+        planner.value.tool = 'select';
+        planner.value.activePresetParams = null;
+        if (typeof planner.value.updateToolStates === 'function') {
+            planner.value.updateToolStates();
+        }
+    }
+    if (renderer3D.value?.interactions) {
+        renderer3D.value.interactions.cancelRelocation();
+        renderer3D.value.interactions.deselect();
+    }
     saveCurrentLevelState();
     viewMode.value = '3d';
     if (viewMode3D.value === 'preview') mode3D.value = 'camera';
