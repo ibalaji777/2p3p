@@ -81,8 +81,15 @@ export class BIMMaterialSystem {
                     slotName = MaterialSlots.FRAME;
                 }
             } else if (type === 'outer' || type === 'inner' || type === 'compound' || type === 'wall') {
-                componentType = 'wall_face';
-                slotName = `wall_${faceName}`;
+                if (matIndex >= 6 && matIndex <= 11) {
+                    componentType = 'solid_protrusion';
+                    const protFaces = ['right', 'left', 'top', 'bottom', 'front', 'back'];
+                    faceName = protFaces[matIndex - 6];
+                    slotName = `protrusion_${faceName}`;
+                } else {
+                    componentType = 'wall_face';
+                    slotName = `wall_${faceName}`;
+                }
             } else if (type === 'roof') {
                 componentType = mesh.userData?.componentType || 'roof_top';
                 slotName = mesh.userData?.materialSlot || 'top';
@@ -126,28 +133,55 @@ export class BIMMaterialSystem {
         if (!mesh || !mesh.material) return;
 
         const descriptor = target?.componentType ? target : BIMMaterialSystem.resolveBIMTarget(mesh);
-        const { entity, slotName } = descriptor;
+        const { entity, slotName, targetMatIndex } = descriptor || {};
 
-        if (entity && entity.id && slotName) {
+        if (entity && entity.id && slotName && slotName !== MaterialSlots.CUSTOM && !mesh.userData?.isProtrusion) {
             ComponentRegistry.setSlotHighlight(entity.id, slotName, active, color, ctx);
             return;
         }
 
-        // Fallback single mesh highlight
-        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        for (const mat of mats) {
-            if (!mat || mat.type === 'MeshBasicMaterial' || mat.emissive === undefined) continue;
-            if (active) {
-                if (mat.userData.origEmissive === undefined) {
-                    mat.userData.origEmissive = mat.emissive.getHex();
-                    mat.userData.origEmissiveIntensity = mat.emissiveIntensity || 0;
+        // Multi-face material highlight (e.g. solid block box faces)
+        if (Array.isArray(mesh.material)) {
+            const indices = (targetMatIndex !== undefined && targetMatIndex !== null && targetMatIndex !== -1 && targetMatIndex < mesh.material.length)
+                ? [targetMatIndex]
+                : mesh.material.map((_, i) => i);
+
+            for (const idx of indices) {
+                const mat = mesh.material[idx];
+                if (!mat || mat.type === 'MeshBasicMaterial' || mat.emissive === undefined) continue;
+                if (active) {
+                    if (mat.userData.origEmissive === undefined) {
+                        mat.userData.origEmissive = mat.emissive.getHex();
+                        mat.userData.origEmissiveIntensity = mat.emissiveIntensity || 0;
+                    }
+                    mat.emissive.setHex(color);
+                    mat.emissiveIntensity = 0.8;
+                } else {
+                    if (mat.userData.origEmissive !== undefined) {
+                        mat.emissive.setHex(mat.userData.origEmissive);
+                        mat.emissiveIntensity = mat.userData.origEmissiveIntensity;
+                        delete mat.userData.origEmissive;
+                        delete mat.userData.origEmissiveIntensity;
+                    }
                 }
-                mat.emissive.setHex(color);
-                mat.emissiveIntensity = 0.8;
-            } else {
-                if (mat.userData.origEmissive !== undefined) {
-                    mat.emissive.setHex(mat.userData.origEmissive);
-                    mat.emissiveIntensity = mat.userData.origEmissiveIntensity;
+            }
+        } else {
+            const mat = mesh.material;
+            if (mat && mat.type !== 'MeshBasicMaterial' && mat.emissive !== undefined) {
+                if (active) {
+                    if (mat.userData.origEmissive === undefined) {
+                        mat.userData.origEmissive = mat.emissive.getHex();
+                        mat.userData.origEmissiveIntensity = mat.emissiveIntensity || 0;
+                    }
+                    mat.emissive.setHex(color);
+                    mat.emissiveIntensity = 0.8;
+                } else {
+                    if (mat.userData.origEmissive !== undefined) {
+                        mat.emissive.setHex(mat.userData.origEmissive);
+                        mat.emissiveIntensity = mat.userData.origEmissiveIntensity;
+                        delete mat.userData.origEmissive;
+                        delete mat.userData.origEmissiveIntensity;
+                    }
                 }
             }
         }

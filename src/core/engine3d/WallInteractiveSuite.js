@@ -1417,16 +1417,26 @@ export class WallInteractiveSuite extends THREE.Group {
             return;
         }
 
-        const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
-        const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
-        const wallBaseY = (wall.elevation || 0);
-        const wallH = (wall.height !== undefined ? wall.height : (wall.config?.height || 120));
-
-        const mid3D = new THREE.Vector3(
-            (p1.x + p2.x) / 2,
-            wallBaseY + wallH + 18,
-            (p1.y + p2.y) / 2
-        );
+        const mid3D = new THREE.Vector3();
+        if (this.target) {
+            const box = new THREE.Box3().setFromObject(this.target);
+            if (!box.isEmpty()) {
+                box.getCenter(mid3D);
+                mid3D.y = box.max.y + 18;
+            } else {
+                mid3D.set(
+                    (p1.x + p2.x) / 2,
+                    wallBaseY + wallH + 18,
+                    (p1.y + p2.y) / 2
+                );
+            }
+        } else {
+            mid3D.set(
+                (p1.x + p2.x) / 2,
+                wallBaseY + wallH + 18,
+                (p1.y + p2.y) / 2
+            );
+        }
 
         // Project 3D vector to screen 2D
         mid3D.project(this.ctx.camera);
@@ -1438,8 +1448,16 @@ export class WallInteractiveSuite extends THREE.Group {
 
         const dom = this.ctx.renderer.domElement;
         const rect = dom.getBoundingClientRect();
-        const screenX = ((mid3D.x + 1) * rect.width) / 2;
-        const screenY = ((-mid3D.y + 1) * rect.height) / 2;
+        const rawScreenX = ((mid3D.x + 1) * rect.width) / 2;
+        const rawScreenY = ((-mid3D.y + 1) * rect.height) / 2;
+
+        // Viewport Boundary Clamping: prevent HUD from overflowing screen edges
+        const activeDom = (this.activeMode === 'menu') ? this.domHUD : this.domConfirmBar;
+        const hudWidth = activeDom?.offsetWidth || 380;
+        const minX = (hudWidth / 2) + 24;
+        const maxX = Math.max(minX, rect.width - (hudWidth / 2) - 24);
+        const screenX = Math.max(minX, Math.min(maxX, rawScreenX));
+        const screenY = Math.max(48, Math.min(rect.height - 48, rawScreenY));
 
         if (this.domHUD && this.activeMode === 'menu') {
             this.domHUD.style.left = `${screenX}px`;

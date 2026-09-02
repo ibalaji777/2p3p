@@ -461,4 +461,103 @@ export class WallMutationEngine {
             p.syncAll();
         }
     }
+
+    /**
+     * Adds a solid protrusion feature to a host wall.
+     * @param {Object} wall - The host wall entity.
+     * @param {Object} options - { width, height, elevation, depth, t, facing, params }
+     * @param {boolean} shouldSync 
+     * @param {Object} planner 
+     * @returns {Object} The created protrusion widget object
+     */
+    static addSolidProtrusion(wall, options = {}, shouldSync = true, planner = null) {
+        if (!wall) return null;
+        const p = planner || wall.planner;
+        const {
+            id = 'protrusion_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+            width = 50,
+            height = (wall.height !== undefined ? wall.height : (wall.config?.height || 120)),
+            elevation = 0,
+            depth = 20,
+            t = 0.5,
+            facing = 1,
+            params = {}
+        } = options;
+
+        const protrusionWidget = {
+            id,
+            type: 'solid_protrusion',
+            configId: 'solid_protrusion',
+            width: Number(width),
+            height: Number(height),
+            elevation: Number(elevation),
+            depth: Number(depth),
+            t: Number(t),
+            thick: (wall.thickness !== undefined ? wall.thickness : (wall.config?.thickness || 20)),
+            facing: Number(facing),
+            wall: wall,
+            params: { ...params }
+        };
+
+        if (!wall.attachedWidgets) wall.attachedWidgets = [];
+        wall.attachedWidgets.push(protrusionWidget);
+
+        if (shouldSync && p && typeof p.syncAll === 'function') {
+            p.syncAll();
+            if (p.update3D) p.update3D();
+        }
+
+        return protrusionWidget;
+    }
+
+    /**
+     * Updates an existing solid protrusion feature in place on its host wall.
+     * @param {Object} wall - The host wall entity.
+     * @param {Object|string} protrusionOrId - The protrusion widget object or its ID.
+     * @param {Object} updates - { width, height, elevation, depth, t, facing, params }
+     * @param {boolean} shouldSync 
+     * @param {Object} planner 
+     * @returns {Object|null} The updated protrusion widget object
+     */
+    static updateSolidProtrusion(wall, protrusionOrId, updates = {}, shouldSync = true, planner = null) {
+        if (!wall || !wall.attachedWidgets) return null;
+        const p = planner || wall.planner;
+        const targetWidget = typeof protrusionOrId === 'string'
+            ? wall.attachedWidgets.find(w => w.id === protrusionOrId)
+            : protrusionOrId;
+
+        if (!targetWidget) return null;
+
+        if (updates.width !== undefined) targetWidget.width = Number(updates.width);
+        if (updates.height !== undefined) targetWidget.height = Number(updates.height);
+        if (updates.elevation !== undefined) targetWidget.elevation = Number(updates.elevation);
+        if (updates.depth !== undefined) targetWidget.depth = Number(updates.depth);
+        if (updates.t !== undefined) targetWidget.t = Number(updates.t);
+        if (updates.facing !== undefined) targetWidget.facing = Number(updates.facing);
+        if (updates.params) {
+            targetWidget.params = { ...(targetWidget.params || {}), ...updates.params };
+        }
+
+        if (typeof targetWidget.update === 'function') {
+            try { targetWidget.update(); } catch (e) {}
+        }
+
+        if (shouldSync && p && typeof p.syncAll === 'function') {
+            p.syncAll();
+            if (p.update3D) p.update3D();
+        }
+
+        return targetWidget;
+    }
+
+    /**
+     * Removes a solid protrusion feature from a host wall.
+     * @param {Object} wall - The host wall entity.
+     * @param {Object|string} protrusionOrId - The protrusion widget object or its ID.
+     * @param {boolean} shouldSync 
+     * @param {Object} planner 
+     */
+    static removeSolidProtrusion(wall, protrusionOrId, shouldSync = true, planner = null) {
+        return this.removeWidget(wall, protrusionOrId, shouldSync, planner);
+    }
 }

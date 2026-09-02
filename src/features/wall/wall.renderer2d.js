@@ -43,57 +43,81 @@ export class PremiumWall {
         
         this.poly.sceneFunc((ctx, shape) => {
             if (!this.wallShapeData) return;
-            const { startL, endL, endR, startR, hasStartCap, hasEndCap, startData, endData } = this.wallShapeData;
+            const { startL, endL, endR, startR, hasStartCap, hasEndCap, startData, endData, frontVerts, backVerts } = this.wallShapeData;
+
+            const fVerts = (frontVerts && frontVerts.length > 0) ? frontVerts : [startL, endL];
+            const bVerts = (backVerts && backVerts.length > 0) ? backVerts : [endR, startR];
 
             // 1. Fill Path (Solid Interior)
             ctx.beginPath();
-            if (startData.bevelL) { ctx.moveTo(startData.bevelL.x, startData.bevelL.y); ctx.lineTo(startL.x, startL.y); }
-            else { ctx.moveTo(startL.x, startL.y); }
-            
-            ctx.lineTo(endL.x, endL.y);
-            
+            if (startData.bevelL) {
+                ctx.moveTo(startData.bevelL.x, startData.bevelL.y);
+                ctx.lineTo(fVerts[0].x, fVerts[0].y);
+            } else {
+                ctx.moveTo(fVerts[0].x, fVerts[0].y);
+            }
+
+            for (let i = 1; i < fVerts.length; i++) {
+                ctx.lineTo(fVerts[i].x, fVerts[i].y);
+            }
+
             if (endData.bevelL) { ctx.lineTo(endData.bevelL.x, endData.bevelL.y); }
             if (endData.bevelR) { ctx.lineTo(endData.bevelR.x, endData.bevelR.y); }
-            
-            ctx.lineTo(endR.x, endR.y);
-            ctx.lineTo(startR.x, startR.y);
-            
+
+            for (let i = 0; i < bVerts.length; i++) {
+                ctx.lineTo(bVerts[i].x, bVerts[i].y);
+            }
+
             if (startData.bevelR) { ctx.lineTo(startData.bevelR.x, startData.bevelR.y); }
-            
+
             ctx.closePath();
             ctx.fillShape(shape);
 
             // 2. Stroke Path (Exact outlines following bevel rules without overshooting)
             ctx.beginPath();
-            
-            // Left side
-            if (startData.bevelL) { ctx.moveTo(startData.bevelL.x, startData.bevelL.y); ctx.lineTo(startL.x, startL.y); }
-            else { ctx.moveTo(startL.x, startL.y); }
-            
-            ctx.lineTo(endL.x, endL.y);
+
+            // Left / Front side
+            if (startData.bevelL) {
+                ctx.moveTo(startData.bevelL.x, startData.bevelL.y);
+                ctx.lineTo(fVerts[0].x, fVerts[0].y);
+            } else {
+                ctx.moveTo(fVerts[0].x, fVerts[0].y);
+            }
+
+            for (let i = 1; i < fVerts.length; i++) {
+                ctx.lineTo(fVerts[i].x, fVerts[i].y);
+            }
+
             if (endData.bevelL) { ctx.lineTo(endData.bevelL.x, endData.bevelL.y); }
 
             // Handle end cap or start a new right-side stroke
             if (hasEndCap) {
                 if (endData.bevelR) { ctx.lineTo(endData.bevelR.x, endData.bevelR.y); }
-                ctx.lineTo(endR.x, endR.y);
+                ctx.lineTo(bVerts[0].x, bVerts[0].y);
             } else {
-                ctx.strokeShape(shape); // Stroke the left path
-                ctx.beginPath(); // Start new path for right side
-                if (endData.bevelR) { ctx.moveTo(endData.bevelR.x, endData.bevelR.y); ctx.lineTo(endR.x, endR.y); }
-                else { ctx.moveTo(endR.x, endR.y); }
+                ctx.strokeShape(shape); // Stroke the left/front path
+                ctx.beginPath(); // Start new path for right/back side
+                if (endData.bevelR) {
+                    ctx.moveTo(endData.bevelR.x, endData.bevelR.y);
+                    ctx.lineTo(bVerts[0].x, bVerts[0].y);
+                } else {
+                    ctx.moveTo(bVerts[0].x, bVerts[0].y);
+                }
             }
 
-            // Right side (drawn backwards from end to start)
-            ctx.lineTo(startR.x, startR.y);
+            // Right / Back side (drawn backwards from end to start)
+            for (let i = 1; i < bVerts.length; i++) {
+                ctx.lineTo(bVerts[i].x, bVerts[i].y);
+            }
+
             if (startData.bevelR) { ctx.lineTo(startData.bevelR.x, startData.bevelR.y); }
 
             // Handle start cap transition
             if (hasStartCap) {
                 if (startData.bevelL) { ctx.lineTo(startData.bevelL.x, startData.bevelL.y); }
-                else { ctx.lineTo(startL.x, startL.y); }
+                else { ctx.lineTo(fVerts[0].x, fVerts[0].y); }
             }
-            
+
             ctx.strokeShape(shape);
         });
         
@@ -754,6 +778,32 @@ export class PremiumWall {
                     }
                 }
             }
+        }
+
+        // --- Add Solid Wall Bump-out / Protrusion 2D Dimension Reference ---
+        if (protrusions.length > 0 && wLen > 1) {
+            protrusions.forEach(p => {
+                const tCenter = p.t !== undefined ? p.t : 0.5;
+                const d = Math.abs(Number(p.depth) || 10);
+                const isBack = (p.facing === -1 || p.facing === 'back' || p.side === 'right');
+                const edgeSign = isBack ? -1 : 1;
+                const posX = p1.x + tCenter * (p2.x - p1.x) + n.x * (edgeSign * (halfThick + d / 2));
+                const posY = p1.y + tCenter * (p2.y - p1.y) + n.y * (edgeSign * (halfThick + d / 2));
+
+                const badgeText = new Konva.Text({
+                    x: posX,
+                    y: posY,
+                    text: `+${Math.round(d)}`,
+                    fontSize: 10,
+                    fill: isSel ? '#4f46e5' : '#475569',
+                    fontStyle: 'bold',
+                    align: 'center'
+                });
+                badgeText.offsetX(badgeText.width() / 2);
+                badgeText.offsetY(badgeText.height() / 2);
+                badgeText.rotation(-(this.planner.settings?.houseRotation || 0));
+                this.profileIndicators.add(badgeText);
+            });
         }
 
         if (this.planner.settings && this.planner.settings.entranceWallId === this) {

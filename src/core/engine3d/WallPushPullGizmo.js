@@ -512,30 +512,63 @@ export class WallPushPullGizmo extends THREE.Group {
         this.initialExtrudeDepth = 0;
         
         const wall = this._getWallEntity();
+        this.existingProtrusion = object.userData?.widget 
+            || (object.userData?.isProtrusion ? (object.userData.entity?.type === 'solid_protrusion' ? object.userData.entity : null) : null)
+            || (wall?.attachedWidgets?.find(w => (w.type === 'solid_protrusion' || w.configId === 'solid_protrusion') && (w.depth || w.width)));
+        
         if (wall) {
+            const p1 = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : { x: wall.startX || 0, y: wall.startY || 0 };
+            const p2 = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : { x: wall.endX || 0, y: wall.endY || 0 };
+            const len = Math.max(1, Math.hypot(p2.x - p1.x, p2.y - p1.y));
             const h = (wall.height !== undefined ? wall.height : (wall.config?.height || 120));
-            this.elevTop = h;
-            this.elevBottom = 0;
-            this.tStart = 0.0;
-            this.tEnd = 1.0;
+
+            if (this.existingProtrusion && (this.existingProtrusion.type === 'solid_protrusion' || this.existingProtrusion.configId === 'solid_protrusion')) {
+                const protW = this.existingProtrusion.width || len;
+                const protH = this.existingProtrusion.height || h;
+                const protElev = this.existingProtrusion.elevation || 0;
+                const protT = this.existingProtrusion.t !== undefined ? this.existingProtrusion.t : 0.5;
+                const halfT = (protW / 2) / len;
+
+                this.tStart = Math.max(0, protT - halfT);
+                this.tEnd = Math.min(1, protT + halfT);
+                this.elevBottom = protElev;
+                this.elevTop = protElev + protH;
+                this.currentExtrudeDepth = this.existingProtrusion.depth || 0;
+                this.initialExtrudeDepth = this.existingProtrusion.depth || 0;
+                this.activeFacing = this.existingProtrusion.facing || 1;
+                this.activeSide = this.activeFacing === -1 ? 'back' : 'front';
+            } else {
+                this.elevTop = h;
+                this.elevBottom = 0;
+                this.tStart = 0.0;
+                this.tEnd = 1.0;
+                this.activeSide = 'front';
+                this.activeFacing = 1;
+            }
         }
 
         if (this.solidBlockPreview) this.solidBlockPreview.visible = false;
         this.updateHandles();
+        if (this.ctx.requestRender) this.ctx.requestRender();
     }
 
     detach() {
         this.target = null;
+        this.existingProtrusion = null;
         this.visible = false;
         this.isDragging = false;
         this.activeHandle = null;
         this.currentExtrudeDepth = 0;
         if (this.solidBlockPreview) this.solidBlockPreview.visible = false;
         if (this.domConfirmBar) this.domConfirmBar.style.display = 'none';
+        if (this.ctx.requestRender) this.ctx.requestRender();
     }
 
     _getWallEntity() {
         if (!this.target) return null;
+        if (this.target.userData && this.target.userData.parentWall) {
+            return this.target.userData.parentWall;
+        }
         if (this.target.userData && this.target.userData.entity) {
             return this.target.userData.entity;
         }
@@ -623,8 +656,8 @@ export class WallPushPullGizmo extends THREE.Group {
         // Position & Scale the 2D Selection Box on Wall Faces
         const isSubRegion = (this.tStart > 0.02 || this.tEnd < 0.98 || this.elevBottom > 2 || this.elevTop < (h - 2));
         if (this.selectionRectGroup) {
-            this.selectionRectGroup.visible = isSubRegion;
-            if (isSubRegion) {
+            this.selectionRectGroup.visible = isSubRegion && extrudeD === 0;
+            if (isSubRegion && extrudeD === 0) {
                 this.selectionPlaneFront.scale.set(spanW, spanH, 1);
                 this.selectionPlaneFront.position.set(midX, midY, t / 2 + 0.5);
 
@@ -639,20 +672,9 @@ export class WallPushPullGizmo extends THREE.Group {
             }
         }
 
-        // Position & Scale the Solid Block Preview
-        if (this.solidBlockPreview && isSubRegion && extrudeD !== 0) {
-            this.solidBlockPreview.visible = true;
-            const absD = Math.max(1, Math.abs(extrudeD));
-            const facing = this.activeFacing || 1;
-            const zPos = extrudeD > 0
-                ? (facing === 1 ? (t / 2 + absD / 2) : (-t / 2 - absD / 2))
-                : (facing === 1 ? (t / 2 - absD / 2) : (-t / 2 + absD / 2));
-
-            this.previewMesh.scale.set(spanW, spanH, absD);
-            this.previewMesh.position.set(midX, midY, zPos);
-            this.previewEdges.scale.set(spanW, spanH, absD);
-            this.previewEdges.position.set(midX, midY, zPos);
-            this.previewEdgesMat.color.setHex(extrudeD > 0 ? 0x22c55e : 0x38bdf8);
+        // Hide duplicate solidBlockPreview to prevent z-fighting/glitching against real live wallMesh
+        if (this.solidBlockPreview) {
+            this.solidBlockPreview.visible = false;
         }
 
         this.visible = true;
@@ -694,7 +716,7 @@ export class WallPushPullGizmo extends THREE.Group {
         }
 
         const suite = this.ctx.interactions?.wallInteractiveSuite;
-        if (suite && suite.confirmStatusBadge) {
+        if (suite && suite.confirmStatusBadge && (suite.activeMode === 'push_pull' || suite.activeMode === 'extrude_recess')) {
             suite.confirmStatusBadge.textContent = statusText;
             if (suite.domConfirmBar && this.ctx.camera && this.ctx.renderer) {
                 const dom = this.ctx.renderer.domElement;
@@ -935,7 +957,7 @@ export class WallPushPullGizmo extends THREE.Group {
                     const step = 1; // 1cm precision
                     this.currentDragDist = dist;
 
-                    const isSubRegion = (this.tStart > 0.02 || this.tEnd < 0.98 || this.elevBottom > 2 || this.elevTop < (wallH - 2));
+                    const isSubRegion = (this.tStart > 0.02 || this.tEnd < 0.98 || this.elevBottom > 2 || this.elevTop < (wallH - 2)) || !!this.existingProtrusion;
 
                     if (this.mode === 'baseline') {
                         // --- BASELINE MOVE MODE (Move whole wall perpendicularly via WallEngine) ---
@@ -955,8 +977,13 @@ export class WallPushPullGizmo extends THREE.Group {
                     } else if (isSubRegion) {
                         // --- SUB-REGION ELEVATION PUSH / PULL (Step 2: Freely Pull Solid Block & Adjust Inward) ---
                         const deltaD = Math.round(dist);
-                        const newDepth = Math.round(this.initialExtrudeDepth + deltaD);
+                        const newDepth = Math.max(0, Math.round(this.initialExtrudeDepth + deltaD));
                         this.currentExtrudeDepth = newDepth;
+
+                        if (this.existingProtrusion) {
+                            this.existingProtrusion.depth = newDepth;
+                            this._updateWallAndSiblings(wall);
+                        }
 
                         this.updateHandles();
                     } else {
@@ -1032,6 +1059,10 @@ export class WallPushPullGizmo extends THREE.Group {
             
             if (this.ctx.controls) this.ctx.controls.enabled = true;
             this.ctx.renderer.domElement.style.cursor = 'auto';
+
+            if (this.existingProtrusion) {
+                this.commit();
+            }
             
             this.updateHandles();
             if (this.ctx.requestRender) this.ctx.requestRender();
@@ -1054,113 +1085,112 @@ export class WallPushPullGizmo extends THREE.Group {
         const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
         const wallH = wall.height !== undefined ? wall.height : (wall.config?.height || 120);
 
-        const isSubRegion = (this.tStart > 0.02 || this.tEnd < 0.98 || this.elevBottom > 2 || this.elevTop < (wallH - 2));
+        const isSubRegion = (this.tStart > 0.02 || this.tEnd < 0.98 || this.elevBottom > 2 || this.elevTop < (wallH - 2)) || !!this.existingProtrusion;
         const extrudeD = this.currentExtrudeDepth || 0;
 
-        if (isSubRegion && Math.abs(extrudeD) >= 1) {
+        if (this.existingProtrusion) {
+            // Requirement 3 & 4: Re-adjust existing solid block in place without creating any separate walls
+            const depthVal = Math.round(Math.abs(extrudeD));
+            if (depthVal <= 0.5) {
+                WallEngine.removeSolidProtrusion(wall, this.existingProtrusion, true, planner);
+                this.existingProtrusion = null;
+                this.currentExtrudeDepth = 0;
+            } else {
+                const newWidth = Math.max(10, Math.round(len * (this.tEnd - this.tStart)));
+                const newHeight = Math.max(10, Math.round(this.elevTop - this.elevBottom));
+                const newElev = Math.round(this.elevBottom);
+                const newT = (this.tStart + this.tEnd) / 2;
+                const newFacing = this.activeFacing || 1;
+
+                WallEngine.updateSolidProtrusion(wall, this.existingProtrusion, {
+                    depth: depthVal,
+                    width: newWidth,
+                    height: newHeight,
+                    elevation: newElev,
+                    t: newT,
+                    facing: newFacing
+                }, false, planner);
+            }
+            this._updateWallAndSiblings(wall);
+        } else if (isSubRegion && Math.abs(extrudeD) >= 1) {
             const selW = Math.max(10, Math.round(len * (this.tEnd - this.tStart)));
             const selH = Math.max(10, Math.round(this.elevTop - this.elevBottom));
             const selElev = Math.round(this.elevBottom);
             const facing = this.activeFacing || 1;
+            const protT = (this.tStart + this.tEnd) / 2;
 
-            const maxNicheDepth = Math.max(1, (wall.thickness || 20) - 3);
-            const nicheDepth = Math.min(Math.round(Math.abs(extrudeD)), maxNicheDepth);
-            const depthVal = extrudeD > 0 ? Math.round(extrudeD) : nicheDepth;
-            const typeVal = extrudeD > 0 ? 'solid_protrusion' : 'niche_recess';
-
-            let targetWall = wall;
-
-            // Split into separate wall entity for the pulled solid block section
-            if (this.tStart > 0.05 || this.tEnd < 0.95) {
-                const getAnchor = (x, y) => {
-                    if (planner && typeof planner.getOrCreateAnchor === 'function') return planner.getOrCreateAnchor(x, y);
-                    if (planner && typeof planner.findOrCreateAnchor === 'function') return planner.findOrCreateAnchor(x, y);
-                    const anchorObj = { x, y, position: () => ({ x, y }) };
-                    if (planner && planner.anchors && Array.isArray(planner.anchors)) planner.anchors.push(anchorObj);
-                    return anchorObj;
-                };
-
-                const dx = p2.x - p1.x;
-                const dy = p2.y - p1.y;
-                const ptA = { x: Math.round(p1.x + this.tStart * dx), y: Math.round(p1.y + this.tStart * dy) };
-                const ptB = { x: Math.round(p1.x + this.tEnd * dx), y: Math.round(p1.y + this.tEnd * dy) };
-
-                const anc1 = wall.startAnchor || getAnchor(p1.x, p1.y);
-                const anc2 = wall.endAnchor || getAnchor(p2.x, p2.y);
-                const ancA = getAnchor(ptA.x, ptA.y);
-                const ancB = getAnchor(ptB.x, ptB.y);
-
-                const wallOpts = {
-                    type: wall.type || 'outer',
-                    height: wall.height,
-                    thickness: wall.thickness,
-                    elevation: wall.elevation || 0,
-                    params: wall.params ? JSON.parse(JSON.stringify(wall.params)) : {},
-                    addToPlanner: true
-                };
-
-                if (this.tStart > 0.05) {
-                    WallEngine.createWall(planner, {
-                        ...wallOpts,
-                        startAnchor: anc1,
-                        endAnchor: ancA
-                    });
+            if (extrudeD > 0) {
+                // Outward pull -> Solid Protrusion feature on existing host wall
+                const depthVal = Math.round(extrudeD);
+                let widgetObj = null;
+                if (planner && planner.wallLayer && typeof advance_openings === 'function') {
+                    try {
+                        widgetObj = new advance_openings(planner, wall, protT, 'solid_protrusion');
+                        widgetObj.width = selW;
+                        widgetObj.height = selH;
+                        widgetObj.elevation = selElev;
+                        widgetObj.depth = depthVal;
+                        widgetObj.facing = facing;
+                        widgetObj.update();
+                    } catch(e) {
+                        widgetObj = null;
+                    }
                 }
-
-                targetWall = WallEngine.createWall(planner, {
-                    ...wallOpts,
-                    startAnchor: ancA,
-                    endAnchor: ancB
-                });
-
-                if (this.tEnd < 0.95) {
-                    WallEngine.createWall(planner, {
-                        ...wallOpts,
-                        startAnchor: ancB,
-                        endAnchor: anc2
-                    });
+                if (!widgetObj) {
+                    widgetObj = WallEngine.addSolidProtrusion(wall, {
+                        width: selW,
+                        height: selH,
+                        elevation: selElev,
+                        depth: depthVal,
+                        t: protT,
+                        facing: facing
+                    }, false, planner);
+                } else {
+                    if (!wall.attachedWidgets) wall.attachedWidgets = [];
+                    if (!wall.attachedWidgets.includes(widgetObj)) {
+                        wall.attachedWidgets.push(widgetObj);
+                    }
                 }
-
-                // Delete the original uncut wall
-                WallEngine.deleteWall(planner, wall);
-            }
-
-            let widgetObj = null;
-            if (planner && planner.wallLayer && typeof advance_openings === 'function') {
-                try {
-                    widgetObj = new advance_openings(planner, targetWall, 0.5, typeVal);
-                    widgetObj.width = selW;
-                    widgetObj.height = selH;
-                    widgetObj.elevation = selElev;
-                    widgetObj.depth = depthVal;
-                    widgetObj.facing = facing;
-                    widgetObj.update();
-                } catch(e) {
-                    widgetObj = null;
+            } else {
+                // Inward push -> Architectural Niche
+                const maxNicheDepth = Math.max(1, (wall.thickness || 20) - 3);
+                const nicheDepth = Math.min(Math.round(Math.abs(extrudeD)), maxNicheDepth);
+                let widgetObj = null;
+                if (planner && planner.wallLayer && typeof advance_openings === 'function') {
+                    try {
+                        widgetObj = new advance_openings(planner, wall, protT, 'niche_recess');
+                        widgetObj.width = selW;
+                        widgetObj.height = selH;
+                        widgetObj.elevation = selElev;
+                        widgetObj.depth = nicheDepth;
+                        widgetObj.facing = facing;
+                        widgetObj.update();
+                    } catch(e) {
+                        widgetObj = null;
+                    }
+                }
+                if (!widgetObj) {
+                    widgetObj = {
+                        id: 'niche_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+                        type: 'niche_recess',
+                        configId: 'niche_recess',
+                        t: protT,
+                        width: selW,
+                        height: selH,
+                        elevation: selElev,
+                        depth: nicheDepth,
+                        thick: (wall.thickness || 20),
+                        facing: facing,
+                        wall: wall
+                    };
+                }
+                if (!wall.attachedWidgets) wall.attachedWidgets = [];
+                if (!wall.attachedWidgets.includes(widgetObj)) {
+                    wall.attachedWidgets.push(widgetObj);
                 }
             }
-            if (!widgetObj) {
-                widgetObj = {
-                    id: (extrudeD > 0 ? 'protrusion_' : 'niche_') + Date.now() + '_' + Math.floor(Math.random() * 1000),
-                    type: typeVal,
-                    configId: typeVal,
-                    t: 0.5,
-                    width: selW,
-                    height: selH,
-                    elevation: selElev,
-                    depth: depthVal,
-                    thick: (targetWall.thickness || 20),
-                    facing: facing,
-                    wall: targetWall
-                };
-            }
 
-            if (!targetWall.attachedWidgets) targetWall.attachedWidgets = [];
-            if (!targetWall.attachedWidgets.includes(widgetObj)) {
-                targetWall.attachedWidgets.push(widgetObj);
-            }
-
-            this._updateWallAndSiblings(targetWall);
+            this._updateWallAndSiblings(wall);
         } else {
             this._updateWallAndSiblings(wall);
         }

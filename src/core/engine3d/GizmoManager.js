@@ -952,6 +952,47 @@ export class GizmoManager {
                                 const wall = isWallDecor ? (entity.mesh3D?.userData?.parentWall || selectedObj?.parent?.userData?.entity || entity) : entity;
                                 const side = selectedObj?.userData?.side || this.activeObject?.userData?.side || this.activeFace || 'front';
                                 
+                                const isProtrusionTarget = this.activeDescriptor?.isProtrusion 
+                                    || this.activeDescriptor?.componentType === 'solid_protrusion' 
+                                    || (this.activeFace && this.activeFace.startsWith('protrusion_')) 
+                                    || (this.activeMatIndex >= 6 && this.activeMatIndex <= 11)
+                                    || selectedObj?.userData?.isProtrusion;
+
+                                const prot = (wall.attachedWidgets || []).find(w => w.type === 'solid_protrusion' || w.configId === 'solid_protrusion');
+
+                                if (isProtrusionTarget && prot) {
+                                    prot.params = prot.params || {};
+                                    const face = this.activeDescriptor?.faceName || this.activeFace || 'front';
+                                    if (this.materialScope === 'entireObject' || face === 'all' || face === 'entireProtrusion') {
+                                        prot.params.textureFront = key;
+                                        prot.params.textureTop = key;
+                                        prot.params.textureBottom = key;
+                                        prot.params.textureLeft = key;
+                                        prot.params.textureRight = key;
+                                    } else {
+                                        const pKey = face === 'top' ? 'textureTop'
+                                                   : (face === 'bottom' ? 'textureBottom'
+                                                   : (face === 'left' ? 'textureLeft'
+                                                   : (face === 'right' ? 'textureRight'
+                                                   : (face === 'back' ? 'textureBack' : 'textureFront'))));
+                                        prot.params[pKey] = key;
+                                    }
+                                    const planner = window.plannerInstance || this.ctx?.planner;
+                                    WallEngine.updateSolidProtrusion(wall, prot, { params: prot.params }, false, planner);
+                                    if (this.ctx.envBuilder && typeof this.ctx.envBuilder.buildWallGroup === 'function') {
+                                        this.ctx.envBuilder.buildWallGroup(wall);
+                                    }
+                                    if (typeof this.ctx.requestRender === 'function') {
+                                        this.ctx.requestRender();
+                                    }
+                                    if (planner && typeof planner.saveHistory === 'function') {
+                                        planner.saveHistory();
+                                    }
+                                    this._renderWallMultiMaterialTabs(wall, selectedObj);
+                                    highlightSelectedThumb(key);
+                                    return;
+                                }
+
                                 if (wall.parentArc && wall.parentArc.walls) {
                                     wall.parentArc.walls.forEach(w => {
                                         WallEngine.applyMaterial(w, {
@@ -3180,7 +3221,8 @@ export class GizmoManager {
         if (selectedObj) {
             entity = selectedObj.userData.entity || {};
             type = entity.type || '';
-            isOpening = selectedObj.userData.isWidget || selectedObj.userData.isPattern || ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type);
+            const isSolidProtrusion = !!selectedObj.userData.isProtrusion || type === 'solid_protrusion' || selectedObj.userData.widget?.type === 'solid_protrusion';
+            isOpening = !isSolidProtrusion && (selectedObj.userData.isWidget || selectedObj.userData.isPattern || ['door', 'window', 'arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(type));
             const compType = selectedObj?.userData?.entity?.type || '';
             const isStaircaseOrRailing = compType.startsWith('stair_') || compType.startsWith('glass_') || compType.startsWith('metal_') || compType.startsWith('wood_') || compType.startsWith('cable_') || compType === 'staircase' || compType === 'railing';
             supportsFaceMaterials = selectedObj.userData.isShape || selectedObj.userData.isWidget || selectedObj.userData.isMolding || selectedObj.userData.isPattern || selectedObj.userData.isRoof || selectedObj.userData.isStair || isStaircaseOrRailing;
@@ -3274,6 +3316,7 @@ export class GizmoManager {
 
             let activeGizmos = GIZMO_REGISTRY.default;
             if (selectedObj) {
+                const isSolidProt = !!selectedObj.userData.isProtrusion || type === 'solid_protrusion' || selectedObj.userData.widget?.type === 'solid_protrusion';
                 if (selectedObj.userData.isRoof || (selectedObj.userData?.entity && selectedObj.userData.entity.type === 'roof')) {
                     activeGizmos = GIZMO_REGISTRY.roof;
                 } else if (selectedObj.userData.isRoofAddon || selectedObj.userData.isRoofSculpture || selectedObj.userData.isSkylight) {
@@ -3282,6 +3325,8 @@ export class GizmoManager {
                     activeGizmos = entity.doorType === 'french' ? GIZMO_REGISTRY.door_french : GIZMO_REGISTRY.door;
                 } else if (type === 'window') {
                     activeGizmos = GIZMO_REGISTRY.window || GIZMO_REGISTRY.door;
+                } else if (isSolidProt) {
+                    activeGizmos = ['pushPull', 'material'];
                 } else if (isOpening) {
                     activeGizmos = GIZMO_REGISTRY.opening;
                 } else if (type === 'elevation_fascia') {
@@ -3293,7 +3338,7 @@ export class GizmoManager {
                 } else if (selectedObj.userData.isFurniture || (selectedObj.userData.entity && (selectedObj.userData.entity.type === 'furniture' || selectedObj.userData.entity.isFurniture))) {
                     activeGizmos = ['material', 'move', 'place', 'scale', 'spin', 'tilt'];
                 } else if (selectedObj.userData.isWallSide || selectedObj.userData.isWallMesh || selectedObj.userData.isWallDecor || type === 'outer' || type === 'inner' || type === 'compound' || type === 'wall' || type === 'wallDecor') {
-                    activeGizmos = GIZMO_REGISTRY.wall || ['material'];
+                    activeGizmos = GIZMO_REGISTRY.wall || ['pushPull', 'material'];
                 } else if (selectedObj.userData.isFloor || type === 'room' || type === 'floor') {
                     activeGizmos = GIZMO_REGISTRY.floor || GIZMO_REGISTRY.room || ['material'];
                 } else if (supportsFaceMaterials) {
@@ -3413,15 +3458,15 @@ export class GizmoManager {
                 return;
             }
 
-            const isWall = selectedObj && (selectedObj.userData.isWallSide || selectedObj.userData.isWallMesh || selectedObj.userData.isWallDecor || entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'wallDecor');
-            const targetToAttach = (isWall && selectedObj.parent) ? selectedObj.parent : selectedObj;
+            const isProtrusion = !!selectedObj.userData?.isProtrusion || entity.type === 'solid_protrusion' || selectedObj.userData?.widget?.type === 'solid_protrusion';
+            const isWall = selectedObj && (selectedObj.userData.isWallSide || selectedObj.userData.isWallMesh || selectedObj.userData.isWallDecor || isProtrusion || entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'wallDecor');
+            const targetToAttach = (isWall && !isProtrusion && selectedObj.parent) ? selectedObj.parent : selectedObj;
 
             if (this.ctx.interactions.materialGizmo && targetToAttach) {
                 this.ctx.interactions.materialGizmo.attach(targetToAttach);
             }
 
             if (isWall) {
-                const isProtrusion = !!selectedObj.userData?.isProtrusion;
                 const side = selectedObj.userData?.side || selectedObj.userData?.entity?.side || this.activeFace || 'front';
                 this.activeFace = side;
                 const matIdx = side === 'left' ? 1 : (side === 'right' ? 0 : (side === 'top' ? 2 : (side === 'bottom' ? 3 : (side === 'back' ? 5 : 4))));

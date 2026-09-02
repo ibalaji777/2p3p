@@ -215,26 +215,30 @@ export class advance_openings {
             const depth = Math.abs(Number(this.depth) || 10);
             const isBack = (this.facing === -1 || this.facing === 'back' || this.side === 'right');
             const yPos = isBack ? (-thick / 2 - depth) : (thick / 2);
-            const wallFill = this.wall?.fillColor || '#cbd5e1';
-            const wallStroke = this.wall?.strokeColor || '#475569';
-            
-            this.shapeGroup.add(new Konva.Rect({
-                x: -hw,
-                y: yPos,
-                width: this.width,
-                height: depth,
-                fill: wallFill,
-                stroke: wallStroke,
-                strokeWidth: 1,
-                lineJoin: 'miter'
-            }));
+
+            // 1. Interactive Selection Overlay (Only shown when selected in 2D)
+            if (isSelected) {
+                this.shapeGroup.add(new Konva.Rect({
+                    x: -hw,
+                    y: yPos,
+                    width: this.width,
+                    height: depth,
+                    fill: 'rgba(250, 204, 21, 0.15)',
+                    stroke: '#facc15',
+                    strokeWidth: 2,
+                    dash: [4, 4],
+                    lineJoin: 'miter'
+                }));
+            }
+
+            // 2. Dimension badge label (+depth)
             this.shapeGroup.add(new Konva.Text({
                 x: -hw,
-                y: yPos + depth / 2 - 5,
+                y: yPos + depth / 2 - 6,
                 width: this.width,
                 text: `+${Math.round(depth)}`,
                 fontSize: 10,
-                fill: '#475569',
+                fill: isSelected ? '#eab308' : '#475569',
                 fontStyle: 'bold',
                 align: 'center'
             }));

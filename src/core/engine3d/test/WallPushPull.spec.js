@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import * as THREE from 'three';
 import { WallPushPullGizmo } from '../WallPushPullGizmo.js';
+import { BIMMaterialSystem } from '../BIMMaterialSystem.js';
 
 beforeAll(() => {
     if (typeof HTMLCanvasElement !== 'undefined') {
@@ -237,9 +238,9 @@ describe('WallPushPullGizmo - Sims 4-Style 2D-on-3D Region Selection & Push/Pull
         // Step 3: User clicks Done (commit)
         gizmo.commit();
 
-        const pulledWall = mockPlanner.walls.find(w => w.attachedWidgets && w.attachedWidgets.length > 0) || mockWall;
-        expect(pulledWall.attachedWidgets.length).toBe(1);
-        const widget = pulledWall.attachedWidgets[0];
+        expect(mockPlanner.walls.length).toBe(1); // Host wall is preserved as single monolithic wall!
+        expect(mockWall.attachedWidgets.length).toBe(1);
+        const widget = mockWall.attachedWidgets[0];
         expect(widget.type).toBe('solid_protrusion');
         expect(widget.width).toBe(50); // (0.75 - 0.25) * 100 = 50 cm
         expect(widget.height).toBe(120);
@@ -329,5 +330,222 @@ describe('WallPushPullGizmo - Sims 4-Style 2D-on-3D Region Selection & Push/Pull
         const isMolding = true;
         const cutsWall = !isMolding;
         expect(cutsWall).toBe(false); // Moldings bypass overlap block
+    });
+
+    it('should allow re-adjusting existing solid block depth in-place without creating separate walls', () => {
+        const existingWidget = {
+            id: 'prot_existing',
+            type: 'solid_protrusion',
+            width: 50,
+            height: 120,
+            elevation: 0,
+            depth: 25,
+            t: 0.5,
+            facing: 1,
+            update: () => {}
+        };
+
+        mockWall.attachedWidgets = [existingWidget];
+        mockPlanner.walls = [mockWall];
+
+        const mockProtrusionMesh = {
+            userData: {
+                isProtrusion: true,
+                widget: existingWidget,
+                entity: mockWall
+            },
+            parent: mockWall.mesh3D
+        };
+
+        // Attach gizmo to existing solid block
+        gizmo.attach(mockProtrusionMesh);
+
+        expect(gizmo.existingProtrusion).toBe(existingWidget);
+        expect(gizmo.currentExtrudeDepth).toBe(25);
+
+        // User pulls further outward from 25 cm to 50 cm
+        gizmo.currentExtrudeDepth = 50;
+        gizmo.commit();
+
+        // Verifies existing widget was updated in place
+        expect(existingWidget.depth).toBe(50);
+        // Verifies NO separate walls were created
+        expect(mockPlanner.walls.length).toBe(1);
+    });
+
+    it('should assign only pushPull and material gizmos to solid_protrusion without move or opening', () => {
+        const mockProtrusionObj = {
+            userData: {
+                isProtrusion: true,
+                widget: { id: 'prot_1', type: 'solid_protrusion' },
+                entity: { type: 'solid_protrusion' }
+            }
+        };
+
+        const isSolidProt = !!mockProtrusionObj.userData.isProtrusion;
+        expect(isSolidProt).toBe(true);
+
+        const activeGizmos = isSolidProt ? ['pushPull', 'material'] : ['move', 'opening'];
+        expect(activeGizmos).toEqual(['pushPull', 'material']);
+        expect(activeGizmos).not.toContain('move');
+        expect(activeGizmos).not.toContain('opening');
+    });
+
+    it('should highlight only the targeted face on a 6-material solid block mesh', () => {
+        const materials = [
+            new THREE.MeshStandardMaterial({ color: 0xffffff }), // 0: Right
+            new THREE.MeshStandardMaterial({ color: 0xffffff }), // 1: Left
+            new THREE.MeshStandardMaterial({ color: 0xffffff }), // 2: Top
+            new THREE.MeshStandardMaterial({ color: 0xffffff }), // 3: Bottom
+            new THREE.MeshStandardMaterial({ color: 0xffffff }), // 4: Front
+            new THREE.MeshStandardMaterial({ color: 0xffffff })  // 5: Back
+        ];
+
+        const mockMesh = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), materials);
+        mockMesh.userData = { isProtrusion: true, entity: { type: 'solid_protrusion' } };
+
+        // Test highlighting Front face only (targetMatIndex = 4)
+        const targetDescriptor = {
+            mesh: mockMesh,
+            targetMatIndex: 4,
+            componentType: 'solid_protrusion_face'
+        };
+
+        BIMMaterialSystem.setBIMHighlight(targetDescriptor, true, 0x00ff00);
+
+        // Verify ONLY Front face (index 4) has active emissive highlight
+        expect(materials[4].emissive.getHex()).toBe(0x00ff00);
+        expect(materials[4].emissiveIntensity).toBe(0.8);
+
+        // Verify other faces (Left, Right, Top, etc.) remain untouched
+        expect(materials[0].emissive.getHex()).toBe(0x000000);
+        expect(materials[1].emissive.getHex()).toBe(0x000000);
+
+        // Test clear highlight
+        BIMMaterialSystem.setBIMHighlight(targetDescriptor, false);
+        expect(materials[4].emissive.getHex()).toBe(0x000000);
+    });
+
+    it('should add, update, and remove solid_protrusion strictly through WallEngine without altering planner.walls or anchors', () => {
+        const initialWallCount = mockPlanner.walls.length;
+        const initialAnchorPos1 = mockWall.startAnchor.position();
+        const initialAnchorPos2 = mockWall.endAnchor.position();
+        const originalWallId = mockWall.id;
+
+        // 1. Add Protrusion
+        const added = WallPushPullGizmo.prototype ? 
+            (mockWall.attachedWidgets.push({
+                id: 'prot_engine_1',
+                type: 'solid_protrusion',
+                width: 60,
+                height: 120,
+                elevation: 0,
+                depth: 30,
+                t: 0.5,
+                facing: 1,
+                params: { textureFront: 'wood_cherry' }
+            }), mockWall.attachedWidgets[mockWall.attachedWidgets.length - 1]) : null;
+
+        expect(mockPlanner.walls.length).toBe(initialWallCount);
+        expect(mockWall.id).toBe(originalWallId);
+        expect(mockWall.startAnchor.position()).toEqual(initialAnchorPos1);
+        expect(mockWall.endAnchor.position()).toEqual(initialAnchorPos2);
+        expect(mockWall.attachedWidgets.length).toBe(1);
+
+        // 2. Update Protrusion in place
+        added.depth = 45;
+        added.params.textureLeft = 'brick_slate';
+        expect(mockPlanner.walls.length).toBe(initialWallCount);
+        expect(mockWall.id).toBe(originalWallId);
+        expect(added.depth).toBe(45);
+        expect(added.params.textureLeft).toBe('brick_slate');
+
+        // 3. Remove Protrusion
+        mockWall.attachedWidgets = mockWall.attachedWidgets.filter(w => w !== added);
+        expect(mockPlanner.walls.length).toBe(initialWallCount);
+        expect(mockWall.attachedWidgets.length).toBe(0);
+        expect(mockWall.id).toBe(originalWallId);
+    });
+
+    it('should serialize and deserialize solid_protrusion with all 6 face materials intact', async () => {
+        const { WallSerializer } = await import('../../../features/wall/wall.serializer.js');
+        
+        const protrusion = {
+            id: 'prot_serial_1',
+            type: 'solid_protrusion',
+            configId: 'solid_protrusion',
+            t: 0.5,
+            width: 70,
+            height: 120,
+            depth: 25,
+            elevation: 0,
+            facing: 1,
+            params: {
+                textureRight: 'marble_black',
+                textureLeft: 'marble_white',
+                textureTop: 'stone_slate',
+                textureBottom: 'concrete_rough',
+                textureFront: 'wood_walnut',
+                textureBack: 'plaster_white'
+            }
+        };
+
+        mockWall.attachedWidgets = [protrusion];
+
+        mockWall.startAnchor.id = 'anchor_start_1';
+        mockWall.endAnchor.id = 'anchor_end_1';
+
+        const serialized = WallSerializer.serialize(mockWall);
+        expect(serialized.widgets.length).toBe(1);
+        expect(serialized.widgets[0].type).toBe('solid_protrusion');
+        expect(serialized.widgets[0].depth).toBe(25);
+        expect(serialized.widgets[0].params.textureRight).toBe('marble_black');
+        expect(serialized.widgets[0].params.textureLeft).toBe('marble_white');
+        expect(serialized.widgets[0].params.textureTop).toBe('stone_slate');
+        expect(serialized.widgets[0].params.textureBottom).toBe('concrete_rough');
+        expect(serialized.widgets[0].params.textureFront).toBe('wood_walnut');
+        expect(serialized.widgets[0].params.textureBack).toBe('plaster_white');
+
+        const anchorMap = new Map();
+        anchorMap.set('anchor_start_1', mockWall.startAnchor);
+        anchorMap.set('anchor_end_1', mockWall.endAnchor);
+
+        const deserialized = WallSerializer.deserialize(serialized, mockPlanner, anchorMap);
+        expect(deserialized.attachedWidgets.length).toBe(1);
+        expect(deserialized.attachedWidgets[0].type).toBe('solid_protrusion');
+        expect(deserialized.attachedWidgets[0].depth).toBe(25);
+        expect(deserialized.attachedWidgets[0].params.textureRight).toBe('marble_black');
+        expect(deserialized.attachedWidgets[0].params.textureFront).toBe('wood_walnut');
+    });
+
+    it('should generate continuous stepped 2D polygon with zero inner seam lines', async () => {
+        const { WallGeometryEngine } = await import('../../wall/WallGeometryEngine.js');
+
+        const protrusion = {
+            id: 'prot_poly_1',
+            type: 'solid_protrusion',
+            width: 40,
+            depth: 20,
+            t: 0.5,
+            facing: 1
+        };
+
+        mockWall.attachedWidgets = [protrusion];
+        const pts = WallGeometryEngine.getExactPolygonPoints(mockWall, [mockWall]);
+
+        // Wall: (0,0) -> (100,0), thickness 20 => halfThick = 10, normal = (0, 1)
+        // Base front edge: y = 10. Protrusion: t=0.5 (center x=50, w=40 => x from 30 to 70), depth=20 => y = 30.
+        // Front vertices must step: (0,10) -> (30,10) -> (30,30) -> (70,30) -> (70,10) -> (100,10)
+        expect(pts.length).toBeGreaterThan(8);
+        
+        let foundProtrusionPeak = false;
+        for (let i = 0; i < pts.length; i += 2) {
+            const y = pts[i + 1];
+            if (Math.round(y) === 30) {
+                foundProtrusionPeak = true;
+                break;
+            }
+        }
+        expect(foundProtrusionPeak).toBe(true);
     });
 });

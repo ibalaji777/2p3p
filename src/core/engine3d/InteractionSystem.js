@@ -460,6 +460,9 @@ export class InteractionSystem {
         this.wallInteractiveSuite = new WallInteractiveSuite(ctx);
         this.ctx.scene.add(this.wallInteractiveSuite);
 
+        this.wallPushPullGizmo = new WallPushPullGizmo(ctx);
+        this.ctx.scene.add(this.wallPushPullGizmo);
+
         this.wall3DDrawSystem = new Wall3DDrawSystem(ctx, this);
         this.shape3DDrawSystem = new Shape3DDrawSystem(ctx, this);
         this.wallPluginPlacementSystem = new WallPlugin3DPlacementSystem(ctx, this);
@@ -940,8 +943,10 @@ export class InteractionSystem {
                 if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
             }
 
-            const isWallObj = object.userData?.isWallSide || object.userData?.isWall || object.userData?.entity?.type === 'outer' || object.userData?.entity?.type === 'inner' || object.userData?.entity?.type === 'compound';
-            if (isWallObj && this.wallInteractiveSuite) {
+            const wallEntity = object.userData?.parentWall || object.userData?.entity;
+            const isWallType = wallEntity && (wallEntity.type === 'outer' || wallEntity.type === 'inner' || wallEntity.type === 'compound' || wallEntity.type === 'wall');
+            const isBaseWall = (object.userData?.isWallSide || object.userData?.isWall || object.userData?.isWallMesh || isWallType) && !object.userData?.isOpening;
+            if (isBaseWall && this.wallInteractiveSuite) {
                 this.wallInteractiveSuite.attach(object, 'menu');
             } else if (this.wallInteractiveSuite) {
                 this.wallInteractiveSuite.detach();

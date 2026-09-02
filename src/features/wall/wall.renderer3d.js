@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, RAILING_REGISTRY, WIDGET_REGISTRY } from '../../core/registry.js';
 import { MaterialFactory } from '../../core/engine3d/MaterialFactory.js';
 import { Molding3DBuilder } from '../../core/engine3d/Molding3DBuilder.js';
@@ -360,46 +361,11 @@ export class Wall3DBuilder {
                     const nicheMesh = new THREE.Mesh(nicheGeo, mm[4]);
                     nicheMesh.castShadow = true; nicheMesh.receiveShadow = true;
                     extraMeshes.push(nicheMesh);
-                } else if (wType === 'solid_protrusion') {
-                    const depth = widg.depth || 10;
-                    const protrusionGeo = new THREE.BoxGeometry(widg.width, h_opening, depth);
-                    const facing = widg.facing || 1;
-                    const zOffset = (facing === 1) ? (t / 2 + depth / 2) : (-t / 2 - depth / 2);
-                    protrusionGeo.translate(wCenter, wElev + h_opening / 2, zOffset);
-
-                    // 6-Face Material Array: [Right, Left, Top, Bottom, Front, Back]
-                    const defaultMat = (facing === 1) ? mm[4] : mm[5];
-                    const pParams = widg.params || {};
-                    const getMat = (key) => key ? MaterialFactory.getMaterial(key, 'wall') : defaultMat;
-
-                    const matRight = getMat(pParams.textureRight || pParams.textureSides || (facing === 1 ? w.params?.textureRight : w.params?.textureLeft));
-                    const matLeft = getMat(pParams.textureLeft || pParams.textureSides || (facing === 1 ? w.params?.textureLeft : w.params?.textureRight));
-                    const matTop = getMat(pParams.textureTop || w.params?.textureTop);
-                    const matBottom = getMat(pParams.textureBottom || w.params?.textureBottom);
-                    const matFront = getMat(pParams.textureFront || (facing === 1 ? w.params?.textureFront : w.params?.textureBack));
-                    const matBack = getMat(pParams.textureBack || (facing === 1 ? w.params?.textureBack : w.params?.textureFront));
-
-                    const protrusionMats = [matRight, matLeft, matTop, matBottom, matFront, matBack];
-                    const protrusionMesh = new THREE.Mesh(protrusionGeo, protrusionMats);
-                    protrusionMesh.castShadow = true;
-                    protrusionMesh.receiveShadow = true;
-                    protrusionMesh.userData = { 
-                        isWidget: true, 
-                        isWallSide: true, 
-                        isProtrusion: true, 
-                        parentWall: w, 
-                        entity: w, 
-                        widget: widg 
-                    };
-                    extraMeshes.push(protrusionMesh);
-                    if (ctx.viewMode3D !== 'preview' && ctx.interactables) {
-                        ctx.interactables.push(protrusionMesh);
-                    }
                 }
             }
             if (hasHole) wallShape.holes.push(hole);
 
-            if (WIDGET_REGISTRY[wType] && WIDGET_REGISTRY[wType].render3D) {
+            if (wType !== 'solid_protrusion' && WIDGET_REGISTRY[wType] && WIDGET_REGISTRY[wType].render3D) {
                 widg.x = p1.x + Math.cos(angle) * wCenter;
                 widg.z = p1.y + Math.sin(angle) * wCenter;
                 widg.angle = angle;
@@ -415,8 +381,163 @@ export class Wall3DBuilder {
             }
         });
 
-        const wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: t, bevelEnabled: false, steps: 12 });
-        wallGeo.translate(0, 0, -t / 2);
+        // ====== MONOLITHIC 3D WALL GEOMETRY GENERATION ======
+        const protrusions = (w.attachedWidgets || []).filter(widg => (widg.type === 'solid_protrusion' || widg.configId === 'solid_protrusion' || widg.type?.includes('protrusion') || widg.configId?.includes('protrusion')) && (widg.depth || widg.width));
+
+        let wallGeo = null;
+        let segmentInfos = [];
+
+        if (protrusions.length === 0) {
+            wallGeo = new THREE.ExtrudeGeometry(wallShape, { depth: t, bevelEnabled: false, steps: 12 });
+            wallGeo.translate(0, 0, -t / 2);
+        } else {
+            // Collect all X-axis transition points along the wall
+            const cutPoints = new Set([0, length]);
+            protrusions.forEach(p => {
+                const pW = p.width || 40;
+                const pT = p.t !== undefined ? p.t : 0.5;
+                const xCenter = pT * length;
+                const x1 = Math.max(0, Math.min(length, xCenter - pW / 2));
+                const x2 = Math.max(0, Math.min(length, xCenter + pW / 2));
+                cutPoints.add(x1);
+                cutPoints.add(x2);
+            });
+
+            const sortedCuts = Array.from(cutPoints).sort((a, b) => a - b);
+            const uniqueCuts = [sortedCuts[0]];
+            for (let i = 1; i < sortedCuts.length; i++) {
+                if (sortedCuts[i] - uniqueCuts[uniqueCuts.length - 1] > 0.05) {
+                    uniqueCuts.push(sortedCuts[i]);
+                }
+            }
+            if (uniqueCuts[uniqueCuts.length - 1] < length - 0.01) {
+                uniqueCuts.push(length);
+            }
+
+            const segmentGeos = [];
+            segmentInfos = [];
+
+            const getH = (xVal) => {
+                if (type === 'single') {
+                    return startH + (xVal / length) * (endH - startH);
+                } else if (type === 'gable') {
+                    if (xVal <= length / 2) return startH + (xVal / (length / 2)) * (peakH - startH);
+                    return peakH + ((xVal - length / 2) / (length / 2)) * (endH - peakH);
+                }
+                return h;
+            };
+
+            for (let i = 0; i < uniqueCuts.length - 1; i++) {
+                const segX1 = uniqueCuts[i];
+                const segX2 = uniqueCuts[i + 1];
+                const segMidX = (segX1 + segX2) / 2;
+                const segLen = segX2 - segX1;
+                if (segLen < 0.05) continue;
+
+                let frontDepth = 0;
+                let backDepth = 0;
+
+                protrusions.forEach(p => {
+                    const pW = p.width || 40;
+                    const pT = p.t !== undefined ? p.t : 0.5;
+                    const xCenter = pT * length;
+                    const x1 = Math.max(0, xCenter - pW / 2);
+                    const x2 = Math.min(length, xCenter + pW / 2);
+                    if (segMidX >= x1 - 0.05 && segMidX <= x2 + 0.05) {
+                        const d = Math.abs(Number(p.depth) || 10);
+                        const isBack = (p.facing === -1 || p.facing === 'back' || p.side === 'right');
+                        if (isBack) {
+                            if (d > backDepth) backDepth = d;
+                        } else {
+                            if (d > frontDepth) frontDepth = d;
+                        }
+                    }
+                });
+
+                const zFront = t / 2 + frontDepth;
+                const zBack = -t / 2 - backDepth;
+                const segDepth = zFront - zBack;
+                const zCenter = (zFront + zBack) / 2;
+
+                const segShape = new THREE.Shape();
+                const h1 = getH(segX1);
+                const h2 = getH(segX2);
+
+                segShape.moveTo(segX1, wallBottom);
+                segShape.lineTo(segX2, wallBottom);
+                segShape.lineTo(segX2, h2);
+                segShape.lineTo(segX1, h1);
+                segShape.lineTo(segX1, wallBottom);
+
+                // Add any cutout holes that intersect this segment
+                wallShape.holes.forEach(holePath => {
+                    segShape.holes.push(holePath);
+                });
+
+                const segGeo = new THREE.ExtrudeGeometry(segShape, { depth: segDepth, bevelEnabled: false, steps: 1 });
+                segGeo.translate(0, 0, -segDepth / 2 + zCenter);
+                segmentGeos.push(segGeo.toNonIndexed());
+
+                segmentInfos.push({
+                    x1: segX1,
+                    x2: segX2,
+                    zFront,
+                    zBack,
+                    h1,
+                    h2
+                });
+            }
+
+            // Build side return connection quads at segment boundaries
+            for (let i = 0; i < segmentInfos.length - 1; i++) {
+                const s1 = segmentInfos[i];
+                const s2 = segmentInfos[i + 1];
+                const transX = s1.x2;
+                const transH = Math.max(s1.h2, s2.h1);
+
+                // Front transition side return
+                if (Math.abs(s1.zFront - s2.zFront) > 0.05) {
+                    const zA = Math.min(s1.zFront, s2.zFront);
+                    const zB = Math.max(s1.zFront, s2.zFront);
+                    const returnGeo = new THREE.BufferGeometry();
+                    const verts = [
+                        transX, wallBottom, zA,
+                        transX, wallBottom, zB,
+                        transX, transH, zB,
+
+                        transX, wallBottom, zA,
+                        transX, transH, zB,
+                        transX, transH, zA
+                    ];
+                    returnGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+                    returnGeo.computeVertexNormals();
+                    returnGeo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(6 * 2), 2));
+                    segmentGeos.push(returnGeo);
+                }
+
+                // Back transition side return
+                if (Math.abs(s1.zBack - s2.zBack) > 0.05) {
+                    const zA = Math.min(s1.zBack, s2.zBack);
+                    const zB = Math.max(s1.zBack, s2.zBack);
+                    const returnGeo = new THREE.BufferGeometry();
+                    const verts = [
+                        transX, wallBottom, zA,
+                        transX, wallBottom, zB,
+                        transX, transH, zB,
+
+                        transX, wallBottom, zA,
+                        transX, transH, zB,
+                        transX, transH, zA
+                    ];
+                    returnGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+                    returnGeo.computeVertexNormals();
+                    returnGeo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(6 * 2), 2));
+                    segmentGeos.push(returnGeo);
+                }
+            }
+
+            wallGeo = BufferGeometryUtils.mergeGeometries(segmentGeos, false);
+        }
 
         // ====== MITER JOINT SHEARING ======
         const startProfile = w.wallShapeData?.startProfile || w.startProfile;
@@ -470,8 +591,18 @@ export class Wall3DBuilder {
         const interpolateX = (profile, zTarget) => {
             if (!profile || profile.length === 0) return 0;
             if (profile.length === 1) return profile[0].x;
-            if (zTarget <= profile[0].z) return profile[0].x;
-            if (zTarget >= profile[profile.length - 1].z) return profile[profile.length - 1].x;
+            if (zTarget <= profile[0].z) {
+                const p0 = profile[0], p1 = profile[1];
+                const dz = p1.z - p0.z;
+                if (Math.abs(dz) < 1e-6) return p0.x;
+                return p0.x + ((zTarget - p0.z) / dz) * (p1.x - p0.x);
+            }
+            if (zTarget >= profile[profile.length - 1].z) {
+                const pEnd = profile[profile.length - 1], pPrev = profile[profile.length - 2];
+                const dz = pEnd.z - pPrev.z;
+                if (Math.abs(dz) < 1e-6) return pEnd.x;
+                return pEnd.x + ((zTarget - pEnd.z) / dz) * (pEnd.x - pPrev.x);
+            }
             for (let i = 0; i < profile.length - 1; i++) {
                 const pA = profile[i];
                 const pB = profile[i + 1];
@@ -507,6 +638,11 @@ export class Wall3DBuilder {
         };
 
         shearGeo(wallGeo);
+        extraMeshes.forEach(m => {
+            if (m.userData?.isProtrusion && m.geometry) {
+                shearGeo(m.geometry);
+            }
+        });
 
         // ====== MULTI-MATERIAL AND UV FIX FOR EXTRUDED WALLS ======
         let finalWallGeo = wallGeo.index ? wallGeo.toNonIndexed() : wallGeo.clone();
@@ -528,6 +664,23 @@ export class Wall3DBuilder {
         aWallHeight.fill(maxH);
         finalWallGeo.setAttribute('aWallHeight', new THREE.BufferAttribute(aWallHeight, 1));
 
+        let fullMats = [...mm];
+        if (protrusions.length > 0) {
+            const p = protrusions[0];
+            const pParams = p.params || {};
+            const defaultMat = (p.facing === -1) ? mm[5] : mm[4];
+            const getMat = (key) => key ? MaterialFactory.getMaterial(key, 'wall') : defaultMat;
+
+            const matRight = getMat(pParams.textureRight || pParams.textureSides || (p.facing === 1 ? w.params?.textureRight : w.params?.textureLeft));
+            const matLeft = getMat(pParams.textureLeft || pParams.textureSides || (p.facing === 1 ? w.params?.textureLeft : w.params?.textureRight));
+            const matTop = getMat(pParams.textureTop || w.params?.textureTop);
+            const matBottom = getMat(pParams.textureBottom || w.params?.textureBottom);
+            const matFront = getMat(pParams.textureFront || (p.facing === 1 ? w.params?.textureFront : w.params?.textureBack));
+            const matBack = getMat(pParams.textureBack || (p.facing === 1 ? w.params?.textureBack : w.params?.textureFront));
+
+            fullMats.push(matRight, matLeft, matTop, matBottom, matFront, matBack);
+        }
+
         for (let i = 0; i < pos.count; i += 3) {
             const vAx = pos.getX(i), vAy = pos.getY(i), vAz = pos.getZ(i);
             const vBx = pos.getX(i + 1), vBy = pos.getY(i + 1), vBz = pos.getZ(i + 1);
@@ -547,40 +700,154 @@ export class Wall3DBuilder {
             const absY = Math.abs(ny);
             const absZ = Math.abs(nz);
 
+            const midX = (vAx + vBx + vCx) / 3;
+            const midZ = (vAz + vBz + vCz) / 3;
+
+            let isProtFace = false;
+            if (protrusions.length > 0) {
+                const p = protrusions[0];
+                const pW = p.width || 40;
+                const pT = p.t !== undefined ? p.t : 0.5;
+                const xCenter = pT * length;
+                const x1 = Math.max(0, xCenter - pW / 2);
+                const x2 = Math.min(length, xCenter + pW / 2);
+                const facing = p.facing || 1;
+                if (midX >= x1 - 0.05 && midX <= x2 + 0.05) {
+                    if (facing === 1 && midZ >= t / 2 - 0.1) {
+                        isProtFace = true;
+                    } else if (facing === -1 && midZ <= -t / 2 + 0.1) {
+                        isProtFace = true;
+                    }
+                }
+            }
+
             let groupIdx = 0;
-            if (absY > absX && absY > absZ) {
-                groupIdx = ny > 0 ? 2 : 3;
-            } else if (absX > absY && absX > absZ) {
-                groupIdx = nx > 0 ? 0 : 1;
+            if (isProtFace) {
+                if (absY > absX && absY > absZ) {
+                    groupIdx = ny > 0 ? 8 : 9;
+                } else if (absX > absY && absX > absZ) {
+                    groupIdx = nx > 0 ? 6 : 7;
+                } else {
+                    groupIdx = nz > 0 ? 10 : 11;
+                }
             } else {
-                groupIdx = nz > 0 ? 4 : 5;
+                if (absY > absX && absY > absZ) {
+                    groupIdx = ny > 0 ? 2 : 3;
+                } else if (absX > absY && absX > absZ) {
+                    groupIdx = nx > 0 ? 0 : 1;
+                } else {
+                    groupIdx = nz > 0 ? 4 : 5;
+                }
             }
 
             finalWallGeo.addGroup(i, 3, groupIdx);
 
             for (let vIdx = i; vIdx < i + 3; vIdx++) {
                 const vx = pos.getX(vIdx), vy = pos.getY(vIdx), vz = pos.getZ(vIdx);
-                if (groupIdx <= 1) uvs.setXY(vIdx, vz, vy);
-                else if (groupIdx <= 3) uvs.setXY(vIdx, vx, vz);
+                if (groupIdx === 0 || groupIdx === 1 || groupIdx === 6 || groupIdx === 7) uvs.setXY(vIdx, vz, vy);
+                else if (groupIdx === 2 || groupIdx === 3 || groupIdx === 8 || groupIdx === 9) uvs.setXY(vIdx, vx, vz);
                 else uvs.setXY(vIdx, vx, vy);
             }
         }
 
-        const wallMesh = new THREE.Mesh(finalWallGeo, mm);
+        const wallMesh = new THREE.Mesh(finalWallGeo, fullMats);
         wallMesh.castShadow = true; wallMesh.receiveShadow = true;
         wallMesh.userData = { isWallMesh: true, entity: w };
         w.wallMesh3D = wallMesh;
         wallGroup.userData = { entity: w, isWallGroup: true, wallMesh: wallMesh };
 
-        const skinFrontGeo = new THREE.ShapeGeometry(wallShape);
-        skinFrontGeo.translate(0, 0, t / 2 + 0.1);
-        shearGeo(skinFrontGeo);
+        let skinFrontGeo = null;
+        let skinBackGeo = null;
+
+        if (protrusions.length === 0 || segmentInfos.length === 0) {
+            skinFrontGeo = new THREE.ShapeGeometry(wallShape);
+            skinFrontGeo.translate(0, 0, t / 2 + 0.1);
+            shearGeo(skinFrontGeo);
+
+            skinBackGeo = new THREE.ShapeGeometry(wallShape);
+            skinBackGeo.translate(0, 0, -t / 2 - 0.1);
+            shearGeo(skinBackGeo);
+        } else {
+            const frontGeos = [];
+            const backGeos = [];
+
+            for (let i = 0; i < segmentInfos.length; i++) {
+                const s = segmentInfos[i];
+                const segShape = new THREE.Shape();
+                segShape.moveTo(s.x1, wallBottom);
+                segShape.lineTo(s.x2, wallBottom);
+                segShape.lineTo(s.x2, s.h2);
+                segShape.lineTo(s.x1, s.h1);
+                segShape.lineTo(s.x1, wallBottom);
+
+                wallShape.holes.forEach(holePath => {
+                    segShape.holes.push(holePath);
+                });
+
+                const segFrontGeo = new THREE.ShapeGeometry(segShape);
+                segFrontGeo.translate(0, 0, s.zFront + 0.1);
+                frontGeos.push(segFrontGeo);
+
+                const segBackGeo = new THREE.ShapeGeometry(segShape);
+                segBackGeo.translate(0, 0, s.zBack - 0.1);
+                backGeos.push(segBackGeo);
+            }
+
+            for (let i = 0; i < segmentInfos.length - 1; i++) {
+                const s1 = segmentInfos[i];
+                const s2 = segmentInfos[i + 1];
+                const transX = s1.x2;
+                const transH = Math.max(s1.h2, s2.h1);
+
+                if (Math.abs(s1.zFront - s2.zFront) > 0.05) {
+                    const zA = Math.min(s1.zFront, s2.zFront);
+                    const zB = Math.max(s1.zFront, s2.zFront);
+                    const returnGeo = new THREE.BufferGeometry();
+                    const verts = [
+                        transX, wallBottom, zA,
+                        transX, wallBottom, zB,
+                        transX, transH, zB,
+
+                        transX, wallBottom, zA,
+                        transX, transH, zB,
+                        transX, transH, zA
+                    ];
+                    returnGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+                    returnGeo.computeVertexNormals();
+                    returnGeo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(6 * 2), 2));
+                    frontGeos.push(returnGeo);
+                }
+
+                if (Math.abs(s1.zBack - s2.zBack) > 0.05) {
+                    const zA = Math.min(s1.zBack, s2.zBack);
+                    const zB = Math.max(s1.zBack, s2.zBack);
+                    const returnGeo = new THREE.BufferGeometry();
+                    const verts = [
+                        transX, wallBottom, zA,
+                        transX, wallBottom, zB,
+                        transX, transH, zB,
+
+                        transX, wallBottom, zA,
+                        transX, transH, zB,
+                        transX, transH, zA
+                    ];
+                    returnGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+                    returnGeo.computeVertexNormals();
+                    returnGeo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(6 * 2), 2));
+                    backGeos.push(returnGeo);
+                }
+            }
+
+            skinFrontGeo = BufferGeometryUtils.mergeGeometries(frontGeos, false);
+            shearGeo(skinFrontGeo);
+
+            skinBackGeo = BufferGeometryUtils.mergeGeometries(backGeos, false);
+            shearGeo(skinBackGeo);
+        }
+
         const hitFront = new THREE.Mesh(skinFrontGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
         hitFront.userData = { isWallSide: true, side: 'front', entity: w };
 
-        const skinBackGeo = new THREE.ShapeGeometry(wallShape);
-        skinBackGeo.translate(0, 0, -t / 2 - 0.1);
-        shearGeo(skinBackGeo);
         const hitBack = new THREE.Mesh(skinBackGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
         hitBack.userData = { isWallSide: true, side: 'back', entity: w };
 

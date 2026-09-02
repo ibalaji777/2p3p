@@ -1646,40 +1646,6 @@ export class EnvironmentBuilder {
                                             const nicheMesh = new THREE.Mesh(nicheGeo, mm[4]); // inherit wall material
                                             nicheMesh.castShadow = true; nicheMesh.receiveShadow = true;
                                             extraMeshes.push(nicheMesh);
-                                        } else if (type === 'solid_protrusion') {
-                                            const depth = widg.depth || 10;
-                                            const protrusionGeo = new THREE.BoxGeometry(widg.width, h_opening, depth);
-                                            const facing = widg.facing || 1;
-                                            const zOffset = (facing === 1) ? (w.thickness / 2 + depth / 2) : (-w.thickness / 2 - depth / 2);
-                                            protrusionGeo.translate(wCenter, elev + h_opening / 2, zOffset);
-                                            
-                                            // 6-Face Material Array: [Right, Left, Top, Bottom, Front, Back]
-                                            const defaultMat = (facing === 1) ? mm[4] : mm[5];
-                                            const pParams = widg.params || {};
-                                            const getMat = (key) => key ? MaterialFactory.getMaterial(key, 'wall') : defaultMat;
-
-                                            const matRight = getMat(pParams.textureRight || pParams.textureSides || (facing === 1 ? w.params?.textureRight : w.params?.textureLeft));
-                                            const matLeft = getMat(pParams.textureLeft || pParams.textureSides || (facing === 1 ? w.params?.textureLeft : w.params?.textureRight));
-                                            const matTop = getMat(pParams.textureTop || w.params?.textureTop);
-                                            const matBottom = getMat(pParams.textureBottom || w.params?.textureBottom);
-                                            const matFront = getMat(pParams.textureFront || (facing === 1 ? w.params?.textureFront : w.params?.textureBack));
-                                            const matBack = getMat(pParams.textureBack || (facing === 1 ? w.params?.textureBack : w.params?.textureFront));
-
-                                            const protrusionMats = [matRight, matLeft, matTop, matBottom, matFront, matBack];
-                                            const protrusionMesh = new THREE.Mesh(protrusionGeo, protrusionMats);
-                                            protrusionMesh.castShadow = true; protrusionMesh.receiveShadow = true;
-                                            protrusionMesh.userData = { 
-                                                isWidget: true, 
-                                                isWallSide: true,
-                                                isProtrusion: true,
-                                                parentWall: w, 
-                                                entity: w, 
-                                                widget: widg 
-                                            };
-                                            extraMeshes.push(protrusionMesh);
-                                            if (!isPreview && this.ctx.interactables) {
-                                                this.ctx.interactables.push(protrusionMesh);
-                                            }
                                         }
                                     }
                                 }
@@ -1755,8 +1721,18 @@ export class EnvironmentBuilder {
                         const interpolateX = (profile, zTarget) => {
                             if (!profile || profile.length === 0) return 0;
                             if (profile.length === 1) return profile[0].x;
-                            if (zTarget <= profile[0].z) return profile[0].x;
-                            if (zTarget >= profile[profile.length - 1].z) return profile[profile.length - 1].x;
+                            if (zTarget <= profile[0].z) {
+                                const p0 = profile[0], p1 = profile[1];
+                                const dz = p1.z - p0.z;
+                                if (Math.abs(dz) < 1e-6) return p0.x;
+                                return p0.x + ((zTarget - p0.z) / dz) * (p1.x - p0.x);
+                            }
+                            if (zTarget >= profile[profile.length - 1].z) {
+                                const pEnd = profile[profile.length - 1], pPrev = profile[profile.length - 2];
+                                const dz = pEnd.z - pPrev.z;
+                                if (Math.abs(dz) < 1e-6) return pEnd.x;
+                                return pEnd.x + ((zTarget - pEnd.z) / dz) * (pEnd.x - pPrev.x);
+                            }
                             for (let j = 0; j < profile.length - 1; j++) {
                                 const pA = profile[j];
                                 const pB = profile[j + 1];
@@ -1789,6 +1765,11 @@ export class EnvironmentBuilder {
                             geo.computeVertexNormals();
                         };
                         shearGeo(wallGeo);
+                        extraMeshes.forEach(m => {
+                            if (m.userData?.isProtrusion && m.geometry) {
+                                shearGeo(m.geometry);
+                            }
+                        });
                         // ==================================
                         
                         // Fix for multi-material mapping on static walls

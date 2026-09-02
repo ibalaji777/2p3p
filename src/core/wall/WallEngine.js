@@ -82,12 +82,80 @@ export class WallEngine {
         const startProfile = [startR, startData.bevelR, startData.bevelL, startL].filter(Boolean);
         const endProfile = [endR, endData.bevelR, endData.bevelL, endL].filter(Boolean);
 
+        const startTrue = startData.trueCorners || startData.corners;
+        const endTrue = endData.trueCorners || endData.corners;
+
+        const frontVerts = [{ x: startTrue[0].x, y: startTrue[0].y }];
+        const backVerts = [{ x: endTrue[1].x, y: endTrue[1].y }];
+
+        const protrusions = (wall.attachedWidgets || []).filter(w => (w.type === 'solid_protrusion' || w.configId === 'solid_protrusion' || w.type?.includes('protrusion') || w.configId?.includes('protrusion')));
+        const n = WallGeometryEngine.getNormal(wall);
+        const halfThick = (Number(wall.thickness) || Number(wall.config?.thickness) || 20) / 2;
+        const p1L = { x: p1.x + n.x * halfThick, y: p1.y + n.y * halfThick };
+        const p2L = { x: p2.x + n.x * halfThick, y: p2.y + n.y * halfThick };
+        const p1R = { x: p1.x - n.x * halfThick, y: p1.y - n.y * halfThick };
+        const p2R = { x: p2.x - n.x * halfThick, y: p2.y - n.y * halfThick };
+
+        if (protrusions.length > 0 && length > 1) {
+            const isBackFacing = (p) => (p.facing === -1 || p.facing === 'back' || p.side === 'right');
+            const frontProtrusions = protrusions.filter(p => !isBackFacing(p)).sort((a, b) => (a.t || 0.5) - (b.t || 0.5));
+            const backProtrusions = protrusions.filter(p => isBackFacing(p)).sort((a, b) => (b.t || 0.5) - (a.t || 0.5));
+
+            // Front edge protrusions (+n)
+            frontProtrusions.forEach(p => {
+                const halfSpan = Math.min(0.49, (p.width || 40) / (2 * length));
+                const tCenter = p.t !== undefined ? p.t : 0.5;
+                const t1 = Math.max(0.001, tCenter - halfSpan);
+                const t2 = Math.min(0.999, tCenter + halfSpan);
+                const d = Math.abs(Number(p.depth) || 10);
+
+                const ptA = {
+                    x: p1L.x + t1 * (p2L.x - p1L.x),
+                    y: p1L.y + t1 * (p2L.y - p1L.y)
+                };
+                const ptA_out = { x: ptA.x + n.x * d, y: ptA.y + n.y * d };
+                const ptB = {
+                    x: p1L.x + t2 * (p2L.x - p1L.x),
+                    y: p1L.y + t2 * (p2L.y - p1L.y)
+                };
+                const ptB_out = { x: ptB.x + n.x * d, y: ptB.y + n.y * d };
+
+                frontVerts.push(ptA, ptA_out, ptB_out, ptB);
+            });
+
+            // Back edge protrusions (-n)
+            backProtrusions.forEach(p => {
+                const halfSpan = Math.min(0.49, (p.width || 40) / (2 * length));
+                const tCenter = p.t !== undefined ? p.t : 0.5;
+                const t1 = Math.max(0.001, tCenter - halfSpan);
+                const t2 = Math.min(0.999, tCenter + halfSpan);
+                const d = Math.abs(Number(p.depth) || 10);
+
+                const ptB = {
+                    x: p1R.x + t2 * (p2R.x - p1R.x),
+                    y: p1R.y + t2 * (p2R.y - p1R.y)
+                };
+                const ptB_out = { x: ptB.x - n.x * d, y: ptB.y - n.y * d };
+                const ptA = {
+                    x: p1R.x + t1 * (p2R.x - p1R.x),
+                    y: p1R.y + t1 * (p2R.y - p1R.y)
+                };
+                const ptA_out = { x: ptA.x - n.x * d, y: ptA.y - n.y * d };
+
+                backVerts.push(ptB, ptB_out, ptA_out, ptA);
+            });
+        }
+
+        frontVerts.push({ x: endTrue[0].x, y: endTrue[0].y });
+        backVerts.push({ x: startTrue[1].x, y: startTrue[1].y });
+
         wall.wallShapeData = {
             startL, endL, endR, startR,
             hasStartCap: startData.hasCap,
             hasEndCap: endData.hasCap,
             startData, endData,
-            startProfile, endProfile
+            startProfile, endProfile,
+            frontVerts, backVerts
         };
 
         return wall.wallShapeData;
@@ -191,6 +259,18 @@ export class WallEngine {
 
     static removeMolding(wall, moldingOrId, shouldSync = true, planner = null) {
         WallMutationEngine.removeMolding(wall, moldingOrId, shouldSync, planner);
+    }
+
+    static addSolidProtrusion(wall, options = {}, shouldSync = true, planner = null) {
+        return WallMutationEngine.addSolidProtrusion(wall, options, shouldSync, planner);
+    }
+
+    static updateSolidProtrusion(wall, protrusionOrId, updates = {}, shouldSync = true, planner = null) {
+        return WallMutationEngine.updateSolidProtrusion(wall, protrusionOrId, updates, shouldSync, planner);
+    }
+
+    static removeSolidProtrusion(wall, protrusionOrId, shouldSync = true, planner = null) {
+        return WallMutationEngine.removeSolidProtrusion(wall, protrusionOrId, shouldSync, planner);
     }
 
     // ==========================================

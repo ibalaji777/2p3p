@@ -72,7 +72,7 @@ export class MaterialGizmo extends THREE.Group {
         };
 
         this._onPointerUp = (e) => {
-            if (!this.visible || this.ctx.currentTransformMode !== 'material' || !this.target || this.isPanelOpen) return;
+            if (!this.visible || this.ctx.currentTransformMode !== 'material' || !this.target) return;
             if (e.pointerType === 'mouse' && e.button !== 0) return;
             
             if (this.isDragging) return; // Ignore drag actions, only trigger on clear clicks/taps
