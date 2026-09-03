@@ -168,90 +168,126 @@ export class UniversalMoveGizmo extends THREE.Group {
     _buildGizmoGeometry(bbox) {
         this._clearVisuals();
 
-        let sizeX = 40;
-        let sizeZ = 40;
+        let halfW = 20;
+        let halfD = 20;
         if (bbox && !bbox.isEmpty() && isFinite(bbox.min.x)) {
-            sizeX = Math.max(30, bbox.max.x - bbox.min.x);
-            sizeZ = Math.max(30, bbox.max.z - bbox.min.z);
+            halfW = Math.max(14, (bbox.max.x - bbox.min.x) / 2);
+            halfD = Math.max(14, (bbox.max.z - bbox.min.z) / 2);
         }
-        const radius = Math.max(25, Math.hypot(sizeX, sizeZ) * 0.35);
 
-        // 1. Center Planar Grab Disc
-        const centerDiscGeo = new THREE.CircleGeometry(radius * 0.35, 32);
-        centerDiscGeo.rotateX(-Math.PI / 2);
-        const centerDisc = new THREE.Mesh(centerDiscGeo, this.matCenter);
-        centerDisc.name = 'handle_center';
-        centerDisc.renderOrder = 9999;
-        this.gizmoVisuals.add(centerDisc);
+        // Synchronize Gizmo footprint rotation with object orientation
+        const rotY = this.attachedObject?.rotation?.y || 0;
+        this.gizmoVisuals.rotation.y = rotY;
 
-        // Center Ring Outline
-        const centerRingGeo = new THREE.RingGeometry(radius * 0.34, radius * 0.37, 32);
-        centerRingGeo.rotateX(-Math.PI / 2);
-        const centerRing = new THREE.Mesh(centerRingGeo, this.matAxisZ);
-        centerRing.renderOrder = 9999;
-        this.gizmoVisuals.add(centerRing);
+        // 1. Shape-Accurate Floor Pad (Rounded Rectangle matching object physical footprint)
+        const padMargin = 3;
+        const w = halfW + padMargin;
+        const d = halfD + padMargin;
+        const cr = Math.max(2.5, Math.min(w, d) * 0.1);
 
-        // 2. X-Axis (Coral Red) Arm & Grab Handles (+X and -X)
-        const armLength = radius * 1.35;
-        const xLineGeo = new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(-armLength, 0.05, 0),
-            new THREE.Vector3(armLength, 0.05, 0)
-        ]);
-        const xLine = new THREE.Line(xLineGeo, this.matAxisX);
-        xLine.renderOrder = 9999;
-        this.gizmoVisuals.add(xLine);
+        const padShape = new THREE.Shape();
+        padShape.moveTo(-w + cr, -d);
+        padShape.lineTo(w - cr, -d);
+        padShape.quadraticCurveTo(w, -d, w, -d + cr);
+        padShape.lineTo(w, d - cr);
+        padShape.quadraticCurveTo(w, d, w - cr, d);
+        padShape.lineTo(-w + cr, d);
+        padShape.quadraticCurveTo(-w, d, -w, d - cr);
+        padShape.lineTo(-w, -d + cr);
+        padShape.quadraticCurveTo(-w, -d, -w + cr, -d);
 
-        // +X / -X Handles
-        const handleXGeo = new THREE.SphereGeometry(radius * 0.12, 16, 16);
-        const handlePosX = new THREE.Mesh(handleXGeo, this.matAxisX);
-        handlePosX.position.set(armLength, 0.05, 0);
-        handlePosX.name = 'handle_x';
-        handlePosX.renderOrder = 9999;
-        this.gizmoVisuals.add(handlePosX);
+        // Filled Translucent Planar Shape Base
+        const shapeGeo = new THREE.ShapeGeometry(padShape);
+        shapeGeo.rotateX(-Math.PI / 2);
+        const basePad = new THREE.Mesh(shapeGeo, this.matCenter);
+        basePad.position.y = 0.01;
+        basePad.name = 'handle_center';
+        basePad.renderOrder = 9998;
+        this.gizmoVisuals.add(basePad);
 
-        const handleNegX = new THREE.Mesh(handleXGeo, this.matAxisX);
-        handleNegX.position.set(-armLength, 0.05, 0);
-        handleNegX.name = 'handle_x';
-        handleNegX.renderOrder = 9999;
-        this.gizmoVisuals.add(handleNegX);
+        // Glowing Perimeter Border Line Contour
+        const padPoints = padShape.getPoints(24);
+        const perimeterPoints = padPoints.map(p => new THREE.Vector3(p.x, 0.02, p.y));
+        if (perimeterPoints.length > 0) perimeterPoints.push(perimeterPoints[0].clone());
+        const borderGeo = new THREE.BufferGeometry().setFromPoints(perimeterPoints);
+        const borderLine = new THREE.Line(borderGeo, this.matAxisZ);
+        borderLine.name = 'handle_center';
+        borderLine.renderOrder = 9999;
+        this.gizmoVisuals.add(borderLine);
 
-        // 3. Z-Axis (Azure Blue) Arm & Grab Handles (+Z and -Z)
-        const zLineGeo = new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(0, 0.05, -armLength),
-            new THREE.Vector3(0, 0.05, armLength)
-        ]);
-        const zLine = new THREE.Line(zLineGeo, this.matAxisZ);
-        zLine.renderOrder = 9999;
-        this.gizmoVisuals.add(zLine);
+        // 2. 4 Precision CAD Corner L-Brackets at the True Shape Vertices
+        const tick = Math.min(w * 0.25, d * 0.25, 10);
+        const cornerPoints = [
+            // Top-left corner bracket
+            new THREE.Vector3(-w + tick, 0.03, -d), new THREE.Vector3(-w, 0.03, -d),
+            new THREE.Vector3(-w, 0.03, -d), new THREE.Vector3(-w, 0.03, -d + tick),
 
-        // +Z / -Z Handles
-        const handleZGeo = new THREE.SphereGeometry(radius * 0.12, 16, 16);
-        const handlePosZ = new THREE.Mesh(handleZGeo, this.matAxisZ);
-        handlePosZ.position.set(0, 0.05, armLength);
-        handlePosZ.name = 'handle_z';
-        handlePosZ.renderOrder = 9999;
-        this.gizmoVisuals.add(handlePosZ);
+            // Top-right corner bracket
+            new THREE.Vector3(w - tick, 0.03, -d), new THREE.Vector3(w, 0.03, -d),
+            new THREE.Vector3(w, 0.03, -d), new THREE.Vector3(w, 0.03, -d + tick),
 
-        const handleNegZ = new THREE.Mesh(handleZGeo, this.matAxisZ);
-        handleNegZ.position.set(0, 0.05, -armLength);
-        handleNegZ.name = 'handle_z';
-        handleNegZ.renderOrder = 9999;
-        this.gizmoVisuals.add(handleNegZ);
+            // Bottom-right corner bracket
+            new THREE.Vector3(w - tick, 0.03, d), new THREE.Vector3(w, 0.03, d),
+            new THREE.Vector3(w, 0.03, d), new THREE.Vector3(w, 0.03, d - tick),
 
-        // 4. Vertical Y-Axis (Emerald Green) - If Elevation Supported
+            // Bottom-left corner bracket
+            new THREE.Vector3(-w + tick, 0.03, d), new THREE.Vector3(-w, 0.03, d),
+            new THREE.Vector3(-w, 0.03, d), new THREE.Vector3(-w, 0.03, d - tick),
+        ];
+        const cornerGeo = new THREE.BufferGeometry().setFromPoints(cornerPoints);
+        const cornerMesh = new THREE.LineSegments(cornerGeo, this.matAxisZ);
+        cornerMesh.name = 'handle_center';
+        cornerMesh.renderOrder = 9999;
+        this.gizmoVisuals.add(cornerMesh);
+
+        // 3. 4 Directional Chevron Translation Handles at the Outer Edges of the Shape
+        const arrowW = Math.max(3, Math.min(w, d) * 0.16);
+        const arrowLen = Math.max(5, Math.min(w, d) * 0.24);
+
+        const createEdgeArrow = (posX, posZ, angle, name, mat) => {
+            const arrowShape = new THREE.Shape();
+            arrowShape.moveTo(0, arrowLen);
+            arrowShape.lineTo(arrowW, 0);
+            arrowShape.lineTo(arrowW * 0.35, 0);
+            arrowShape.lineTo(arrowW * 0.35, -arrowLen * 0.35);
+            arrowShape.lineTo(-arrowW * 0.35, -arrowLen * 0.35);
+            arrowShape.lineTo(-arrowW * 0.35, 0);
+            arrowShape.lineTo(-arrowW, 0);
+            arrowShape.closePath();
+
+            const aGeo = new THREE.ShapeGeometry(arrowShape);
+            aGeo.rotateX(-Math.PI / 2);
+            aGeo.rotateY(angle);
+
+            const arrowMesh = new THREE.Mesh(aGeo, mat);
+            arrowMesh.position.set(posX, 0.035, posZ);
+            arrowMesh.name = name;
+            arrowMesh.renderOrder = 9999;
+            return arrowMesh;
+        };
+
+        // +X (East Edge) & -X (West Edge)
+        this.gizmoVisuals.add(createEdgeArrow(w + 2, 0, Math.PI / 2, 'handle_x', this.matAxisX));
+        this.gizmoVisuals.add(createEdgeArrow(-w - 2, 0, -Math.PI / 2, 'handle_x', this.matAxisX));
+
+        // +Z (North Edge) & -Z (South Edge)
+        this.gizmoVisuals.add(createEdgeArrow(0, d + 2, 0, 'handle_z', this.matAxisZ));
+        this.gizmoVisuals.add(createEdgeArrow(0, -d - 2, Math.PI, 'handle_z', this.matAxisZ));
+
+        // 4. Subtle Vertical Y Elevation Cone (Only if entity supports vertical elevation)
         const supportsElevation = this.attachedEntity?.elevation !== undefined || this.attachedEntity?.wall;
         if (supportsElevation) {
-            const yHeight = radius * 1.2;
+            const yHeight = Math.max(w, d) * 0.8;
             const yLineGeo = new THREE.BufferGeometry().setFromPoints([
                 new THREE.Vector3(0, 0.05, 0),
                 new THREE.Vector3(0, yHeight, 0)
             ]);
             const yLine = new THREE.Line(yLineGeo, this.matAxisY);
-            yLine.renderOrder = 9999;
+            yLine.renderOrder = 9998;
             this.gizmoVisuals.add(yLine);
 
-            const handleYGeo = new THREE.SphereGeometry(radius * 0.12, 16, 16);
-            const handlePosY = new THREE.Mesh(handleYGeo, this.matAxisY);
+            const coneGeo = new THREE.ConeGeometry(arrowW * 0.8, arrowLen * 0.9, 16);
+            const handlePosY = new THREE.Mesh(coneGeo, this.matAxisY);
             handlePosY.position.set(0, yHeight, 0);
             handlePosY.name = 'handle_y';
             handlePosY.renderOrder = 9999;
@@ -574,65 +610,81 @@ export class UniversalMoveGizmo extends THREE.Group {
     /* -------------------------------------------------------------------------- */
 
     _createHUDPanel() {
+        this._isHUDExpanded = false;
         this.hudPanel = document.createElement('div');
         this.hudPanel.className = 'universal-move-hud-panel';
         this.hudPanel.style.cssText = `
-            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
-            display: none; flex-direction: column; align-items: center; gap: 6px; width: 195px;
-            background: rgba(15, 23, 42, 0.94); color: white; padding: 8px 10px;
-            border-radius: 16px; border: 1.5px solid rgba(0, 240, 255, 0.45);
-            box-shadow: 0 14px 36px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 240, 255, 0.2);
+            position: fixed; top: 130px; left: 50%; transform: translateX(-50%);
+            display: none; flex-direction: column; align-items: center; gap: 6px;
+            background: transparent; color: white; padding: 0;
+            border-radius: 20px; border: none;
             backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             z-index: 100000; font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            pointer-events: auto; user-select: none; transition: box-shadow 0.2s ease;
+            pointer-events: auto; user-select: none; transition: all 0.2s ease;
         `;
 
         this.hudPanel.innerHTML = `
-            <!-- Header: Draggable Grip Bar & Close -->
-            <div id="move-hud-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: grab; touch-action: none;">
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <span style="color: #64748b; font-size: 13px; letter-spacing: -1px; user-select: none;">⠿</span>
-                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: rgba(0, 240, 255, 0.15); color: #00f0ff; font-size: 10px;">⬌</span>
-                    <span style="font-size: 11px; font-weight: 800; color: #f1f5f9; letter-spacing: 0.5px;">MOVE</span>
+            <!-- 1. Small Collapsed Floating Button (Default - Attached Under Top Toolbar) -->
+            <button id="move-hud-mini-btn" style="
+                display: flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 20px;
+                background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(0, 240, 255, 0.5);
+                color: #00f0ff; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 8px rgba(0, 240, 255, 0.2);
+                font-size: 10.5px; font-weight: 700; cursor: pointer; backdrop-filter: blur(12px);
+                transition: transform 0.15s ease, background 0.15s ease;
+            " title="Open Move Precision Controls">
+                <span style="font-size: 11px;">⬌</span>
+                <span>Move Precision</span>
+                <span style="font-size: 9px; opacity: 0.8; margin-left: 2px;">▾</span>
+            </button>
+
+            <!-- 2. Expanded Detail Panel Body (Shown on Click) -->
+            <div id="move-hud-expanded-body" style="display: none; flex-direction: column; align-items: center; gap: 6px; width: 185px;">
+                <!-- Header: Draggable Grip Bar & Close -->
+                <div id="move-hud-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: grab; touch-action: none;">
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <span style="color: #64748b; font-size: 12px; letter-spacing: -1px; user-select: none;">⠿</span>
+                        <span style="display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: rgba(0, 240, 255, 0.15); color: #00f0ff; font-size: 9.5px;">⬌</span>
+                        <span style="font-size: 10.5px; font-weight: 800; color: #f1f5f9; letter-spacing: 0.5px;">MOVE PRECISION</span>
+                    </div>
+                    <button id="move-btn-close-hud" style="background: transparent; border: none; color: #64748b; font-size: 12px; cursor: pointer; padding: 0 2px; line-height: 1; transition: color 0.15s;" title="Minimize to Button">✕</button>
                 </div>
-                <button id="move-btn-close-hud" style="background: transparent; border: none; color: #64748b; font-size: 12px; cursor: pointer; padding: 0 2px; line-height: 1; transition: color 0.15s;" title="Close">✕</button>
-            </div>
 
-            <!-- Precision 4-Way D-Pad Steppers -->
-            <div style="display: grid; grid-template-columns: repeat(3, 34px); grid-template-rows: repeat(3, 26px); gap: 3px; align-items: center; justify-content: center; margin: 2px 0;">
-                <div></div>
-                <button id="move-btn-dpad-n" class="move-dpad-btn" style="width: 34px; height: 26px; border-radius: 5px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); color: #38bdf8; font-size: 11px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Move North (+Z)">▲</button>
-                <div></div>
+                <!-- Precision 4-Way D-Pad Steppers -->
+                <div style="display: grid; grid-template-columns: repeat(3, 36px); grid-template-rows: repeat(3, 28px); gap: 3px; align-items: center; justify-content: center; margin: 3px 0;">
+                    <div></div>
+                    <button id="move-btn-dpad-n" class="move-dpad-btn" style="width: 36px; height: 28px; border-radius: 6px; background: rgba(56, 189, 248, 0.18); border: 1px solid rgba(56, 189, 248, 0.45); color: #38bdf8; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;" title="Move North (+Z)">▲</button>
+                    <div></div>
 
-                <button id="move-btn-dpad-w" class="move-dpad-btn" style="width: 34px; height: 26px; border-radius: 5px; background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.35); color: #f43f5e; font-size: 11px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Move West (-X)">◀</button>
-                <button id="move-btn-center-reset" style="width: 34px; height: 26px; border-radius: 5px; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.25); color: #00f0ff; font-size: 10px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Center">🎯</button>
-                <button id="move-btn-dpad-e" class="move-dpad-btn" style="width: 34px; height: 26px; border-radius: 5px; background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.35); color: #f43f5e; font-size: 11px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Move East (+X)">▶</button>
+                    <button id="move-btn-dpad-w" class="move-dpad-btn" style="width: 36px; height: 28px; border-radius: 6px; background: rgba(244, 63, 94, 0.18); border: 1px solid rgba(244, 63, 94, 0.45); color: #f43f5e; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;" title="Move West (-X)">◀</button>
+                    <button id="move-btn-center-reset" style="width: 36px; height: 28px; border-radius: 6px; background: rgba(0, 240, 255, 0.18); border: 1px solid rgba(0, 240, 255, 0.45); color: #00f0ff; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;" title="Recenter to (0,0)">🎯</button>
+                    <button id="move-btn-dpad-e" class="move-dpad-btn" style="width: 36px; height: 28px; border-radius: 6px; background: rgba(244, 63, 94, 0.18); border: 1px solid rgba(244, 63, 94, 0.45); color: #f43f5e; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;" title="Move East (+X)">▶</button>
 
-                <div></div>
-                <button id="move-btn-dpad-s" class="move-dpad-btn" style="width: 34px; height: 26px; border-radius: 5px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); color: #38bdf8; font-size: 11px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Move South (-Z)">▼</button>
-                <div></div>
-            </div>
-
-            <!-- Direct Numeric Coordinates (X, Z) -->
-            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 4px; padding: 2px 0;">
-                <div style="display: flex; align-items: center; gap: 2px;">
-                    <span style="font-size: 9px; font-weight: 800; color: #f43f5e;">X:</span>
-                    <input type="number" id="move-hud-input-x" step="10" value="0" style="width: 44px; background: rgba(0,0,0,0.45); border: 1px solid rgba(244,63,94,0.35); color: white; border-radius: 4px; padding: 2px 3px; font-size: 9.5px; font-weight: 700; text-align: right; outline: none;">
+                    <div></div>
+                    <button id="move-btn-dpad-s" class="move-dpad-btn" style="width: 36px; height: 28px; border-radius: 6px; background: rgba(56, 189, 248, 0.18); border: 1px solid rgba(56, 189, 248, 0.45); color: #38bdf8; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;" title="Move South (-Z)">▼</button>
+                    <div></div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 2px;">
-                    <span style="font-size: 9px; font-weight: 800; color: #38bdf8;">Z:</span>
-                    <input type="number" id="move-hud-input-z" step="10" value="0" style="width: 44px; background: rgba(0,0,0,0.45); border: 1px solid rgba(38,189,248,0.35); color: white; border-radius: 4px; padding: 2px 3px; font-size: 9.5px; font-weight: 700; text-align: right; outline: none;">
-                </div>
-            </div>
 
-            <!-- Snap Pills Strip -->
-            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding-top: 3px; border-top: 1px solid rgba(255,255,255,0.08);">
-                <span style="font-size: 8.5px; color: #94a3b8; font-weight: 700;">SNAP</span>
-                <div style="display: flex; gap: 2px; align-items: center; background: rgba(0,0,0,0.35); padding: 1.5px 3px; border-radius: 4px;">
-                    <button class="move-snap-mode-btn" data-snap="1" style="padding: 2px 4px; font-size: 8px; font-weight: 700; border-radius: 3px; background: transparent; color: #94a3b8; border: none; cursor: pointer;">1cm</button>
-                    <button class="move-snap-mode-btn active" data-snap="10" style="padding: 2px 4px; font-size: 8px; font-weight: 700; border-radius: 3px; background: #00f0ff; color: #0f172a; border: none; cursor: pointer;">10cm</button>
-                    <button class="move-snap-mode-btn" data-snap="50" style="padding: 2px 4px; font-size: 8px; font-weight: 700; border-radius: 3px; background: transparent; color: #94a3b8; border: none; cursor: pointer;">50cm</button>
-                    <button class="move-snap-mode-btn" data-snap="0" style="padding: 2px 4px; font-size: 8px; font-weight: 700; border-radius: 3px; background: transparent; color: #94a3b8; border: none; cursor: pointer;">FREE</button>
+                <!-- Direct Numeric Coordinates (X, Z) -->
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 4px; padding: 2px 0;">
+                    <div style="display: flex; align-items: center; gap: 2px;">
+                        <span style="font-size: 9px; font-weight: 800; color: #f43f5e;">X:</span>
+                        <input type="number" id="move-hud-input-x" step="10" value="0" style="width: 42px; background: rgba(0,0,0,0.45); border: 1px solid rgba(244,63,94,0.35); color: white; border-radius: 4px; padding: 2px 3px; font-size: 9.5px; font-weight: 700; text-align: right; outline: none;">
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 2px;">
+                        <span style="font-size: 9px; font-weight: 800; color: #38bdf8;">Z:</span>
+                        <input type="number" id="move-hud-input-z" step="10" value="0" style="width: 42px; background: rgba(0,0,0,0.45); border: 1px solid rgba(38,189,248,0.35); color: white; border-radius: 4px; padding: 2px 3px; font-size: 9.5px; font-weight: 700; text-align: right; outline: none;">
+                    </div>
+                </div>
+
+                <!-- Snap Pills Strip -->
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding-top: 3px; border-top: 1px solid rgba(255,255,255,0.08);">
+                    <span style="font-size: 8px; color: #94a3b8; font-weight: 700;">SNAP</span>
+                    <div style="display: flex; gap: 2px; align-items: center; background: rgba(0,0,0,0.35); padding: 1px 3px; border-radius: 4px;">
+                        <button class="move-snap-mode-btn" data-snap="1" style="padding: 1.5px 3.5px; font-size: 7.5px; font-weight: 700; border-radius: 3px; background: transparent; color: #94a3b8; border: none; cursor: pointer;">1cm</button>
+                        <button class="move-snap-mode-btn active" data-snap="10" style="padding: 1.5px 3.5px; font-size: 7.5px; font-weight: 700; border-radius: 3px; background: #00f0ff; color: #0f172a; border: none; cursor: pointer;">10cm</button>
+                        <button class="move-snap-mode-btn" data-snap="50" style="padding: 1.5px 3.5px; font-size: 7.5px; font-weight: 700; border-radius: 3px; background: transparent; color: #94a3b8; border: none; cursor: pointer;">50cm</button>
+                        <button class="move-snap-mode-btn" data-snap="0" style="padding: 1.5px 3.5px; font-size: 7.5px; font-weight: 700; border-radius: 3px; background: transparent; color: #94a3b8; border: none; cursor: pointer;">FREE</button>
+                    </div>
                 </div>
             </div>
         `;
@@ -643,8 +695,53 @@ export class UniversalMoveGizmo extends THREE.Group {
         this._initHUDPanelEvents();
     }
 
+    _setHUDExpanded(expanded) {
+        this._isHUDExpanded = !!expanded;
+        const miniBtn = this.hudPanel?.querySelector('#move-hud-mini-btn');
+        const expandedBody = this.hudPanel?.querySelector('#move-hud-expanded-body');
+        if (miniBtn && expandedBody) {
+            if (this._isHUDExpanded) {
+                miniBtn.style.display = 'none';
+                expandedBody.style.display = 'flex';
+                this.hudPanel.style.padding = '8px 10px';
+                this.hudPanel.style.background = 'rgba(15, 23, 42, 0.94)';
+                this.hudPanel.style.border = '1px solid rgba(0, 240, 255, 0.45)';
+                this.hudPanel.style.borderRadius = '14px';
+                this.hudPanel.style.boxShadow = '0 12px 30px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 240, 255, 0.2)';
+            } else {
+                miniBtn.style.display = 'flex';
+                expandedBody.style.display = 'none';
+                this.hudPanel.style.padding = '0';
+                this.hudPanel.style.background = 'transparent';
+                this.hudPanel.style.border = 'none';
+                this.hudPanel.style.borderRadius = '20px';
+                this.hudPanel.style.boxShadow = 'none';
+            }
+        }
+    }
+
     _initHUDPanelEvents() {
         if (!this.hudPanel) return;
+
+        // Toggle Expand / Collapse Mini Button
+        const miniBtn = this.hudPanel.querySelector('#move-hud-mini-btn');
+        if (miniBtn) {
+            miniBtn.onclick = (e) => {
+                e.stopPropagation();
+                this._setHUDExpanded(true);
+            };
+        }
+
+        // Close / Minimize Button
+        const btnClose = this.hudPanel.querySelector('#move-btn-close-hud');
+        if (btnClose) {
+            btnClose.onclick = (e) => {
+                e.stopPropagation();
+                this._setHUDExpanded(false);
+            };
+            btnClose.onmouseenter = () => { btnClose.style.color = '#ef4444'; };
+            btnClose.onmouseleave = () => { btnClose.style.color = '#64748b'; };
+        }
 
         // 1. Draggable Window Logic
         const headerEl = this.hudPanel.querySelector('#move-hud-header');
@@ -692,22 +789,6 @@ export class UniversalMoveGizmo extends THREE.Group {
             window.addEventListener('pointerup', onWindowPointerUp);
         }
 
-        // Close Button
-        const btnClose = this.hudPanel.querySelector('#move-btn-close-hud');
-        if (btnClose) {
-            btnClose.onclick = () => {
-                if (this.ctx.commonController) {
-                    this.ctx.commonController.setTool('select');
-                } else if (this.ctx.gizmoManager) {
-                    this.ctx.gizmoManager.setTransformMode('none');
-                } else {
-                    this.detach();
-                }
-            };
-            btnClose.onmouseenter = () => { btnClose.style.color = '#ef4444'; };
-            btnClose.onmouseleave = () => { btnClose.style.color = '#64748b'; };
-        }
-
         // D-Pad Steppers (N, S, W, E)
         const step = (dx, dz) => {
             if (!this.attachedObject) return;
@@ -732,10 +813,36 @@ export class UniversalMoveGizmo extends THREE.Group {
         const btnW = this.hudPanel.querySelector('#move-btn-dpad-w');
         const btnE = this.hudPanel.querySelector('#move-btn-dpad-e');
 
-        if (btnN) btnN.onclick = () => step(0, 1);
-        if (btnS) btnS.onclick = () => step(0, -1);
-        if (btnW) btnW.onclick = () => step(-1, 0);
-        if (btnE) btnE.onclick = () => step(1, 0);
+        const bindButtonHold = (btn, dx, dz) => {
+            if (!btn) return;
+            let timer = null;
+            let interval = null;
+
+            const start = (e) => {
+                step(dx, dz);
+                timer = setTimeout(() => {
+                    interval = setInterval(() => {
+                        step(dx, dz);
+                    }, 80);
+                }, 250);
+            };
+
+            const stop = () => {
+                if (timer) { clearTimeout(timer); timer = null; }
+                if (interval) { clearInterval(interval); interval = null; }
+            };
+
+            btn.addEventListener('pointerdown', start);
+            btn.addEventListener('pointerup', stop);
+            btn.addEventListener('pointerleave', stop);
+            btn.addEventListener('pointercancel', stop);
+            btn.onclick = () => step(dx, dz);
+        };
+
+        bindButtonHold(btnN, 0, 1);
+        bindButtonHold(btnS, 0, -1);
+        bindButtonHold(btnW, -1, 0);
+        bindButtonHold(btnE, 1, 0);
 
         // Center / Reset Button
         const btnCenter = this.hudPanel.querySelector('#move-btn-center-reset');
@@ -845,6 +952,7 @@ export class UniversalMoveGizmo extends THREE.Group {
     showHUD() {
         if (this.hudPanel) {
             this.hudPanel.style.display = 'flex';
+            this._setHUDExpanded(false);
         }
     }
 

@@ -425,7 +425,7 @@ export class UniversalSpinGizmo extends THREE.Group {
                     this.planeIntersect.x - this.position.x
                 ) * (180 / Math.PI);
 
-                const angleDelta = -(currentPointerAngle - this.initialPointerAngle);
+                const angleDelta = currentPointerAngle - this.initialPointerAngle;
                 let newRot = this.initialRotation + angleDelta;
 
                 // Smart Magnetic Snapping
@@ -624,78 +624,94 @@ export class UniversalSpinGizmo extends THREE.Group {
     /* -------------------------------------------------------------------------- */
 
     _createHUDPanel() {
+        this._isHUDExpanded = false;
         this.hudPanel = document.createElement('div');
         this.hudPanel.className = 'universal-spin-hud-panel';
         this.hudPanel.style.cssText = `
-            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
-            display: none; flex-direction: column; align-items: center; gap: 6px; width: 190px;
-            background: rgba(15, 23, 42, 0.94); color: white; padding: 8px 10px;
-            border-radius: 16px; border: 1.5px solid rgba(0, 240, 255, 0.45);
-            box-shadow: 0 14px 36px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 240, 255, 0.2);
+            position: fixed; top: 130px; left: 50%; transform: translateX(-50%);
+            display: none; flex-direction: column; align-items: center; gap: 6px;
+            background: transparent; color: white; padding: 0;
+            border-radius: 20px; border: none;
             backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             z-index: 100000; font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            pointer-events: auto; user-select: none; transition: box-shadow 0.2s ease;
+            pointer-events: auto; user-select: none; transition: all 0.2s ease;
         `;
 
         this.hudPanel.innerHTML = `
-            <!-- Header: Draggable Grip Bar & Close -->
-            <div id="spin-hud-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: grab; touch-action: none;">
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <span style="color: #64748b; font-size: 13px; letter-spacing: -1px; user-select: none;">⠿</span>
-                    <span style="display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: rgba(0, 240, 255, 0.15); color: #00f0ff; font-size: 10px;">⭮</span>
-                    <span style="font-size: 11px; font-weight: 800; color: #f1f5f9; letter-spacing: 0.5px;">SPIN</span>
-                </div>
-                <button id="spin-btn-close-hud" style="background: transparent; border: none; color: #64748b; font-size: 12px; cursor: pointer; padding: 0 2px; line-height: 1; transition: color 0.15s;" title="Close">✕</button>
-            </div>
+            <!-- 1. Small Collapsed Floating Button (Default - Attached Under Top Toolbar) -->
+            <button id="spin-hud-mini-btn" style="
+                display: flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 20px;
+                background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(0, 240, 255, 0.5);
+                color: #00f0ff; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 8px rgba(0, 240, 255, 0.2);
+                font-size: 10.5px; font-weight: 700; cursor: pointer; backdrop-filter: blur(12px);
+                transition: transform 0.15s ease, background 0.15s ease;
+            " title="Open Spin Precision Controls">
+                <span style="font-size: 11px;">⭮</span>
+                <span>Spin Precision</span>
+                <span style="font-size: 9px; opacity: 0.8; margin-left: 2px;">▾</span>
+            </button>
 
-            <!-- Sleek Interactive Round Slider / Rotary Dial -->
-            <div id="spin-round-slider-container" style="position: relative; width: 104px; height: 104px; margin: 2px 0; cursor: pointer; touch-action: none; display: flex; align-items: center; justify-content: center;">
-                <svg id="spin-round-slider-svg" width="104" height="104" viewBox="0 0 104 104" style="overflow: visible;">
-                    <!-- Background Track -->
-                    <circle cx="52" cy="52" r="40" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="6" />
-                    
-                    <!-- Cardinal Tick Notches -->
-                    <line x1="52" y1="6" x2="52" y2="12" stroke="#facc15" stroke-width="2" stroke-linecap="round" />
-                    <line x1="98" y1="52" x2="92" y2="52" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />
-                    <line x1="52" y1="98" x2="52" y2="92" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />
-                    <line x1="6" y1="52" x2="12" y2="52" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />
-                    
-                    <!-- 45-degree Minor Dots -->
-                    <circle cx="80.28" cy="23.72" r="1.5" fill="rgba(255,255,255,0.3)" />
-                    <circle cx="80.28" cy="80.28" r="1.5" fill="rgba(255,255,255,0.3)" />
-                    <circle cx="23.72" cy="80.28" r="1.5" fill="rgba(255,255,255,0.3)" />
-                    <circle cx="23.72" cy="23.72" r="1.5" fill="rgba(255,255,255,0.3)" />
-
-                    <!-- Active Glowing Sweep Arc -->
-                    <circle id="spin-round-slider-arc" cx="52" cy="52" r="40" fill="none" stroke="#00f0ff" stroke-width="6" stroke-linecap="round" stroke-dasharray="251.327" stroke-dashoffset="251.327" transform="rotate(-90 52 52)" style="filter: drop-shadow(0 0 5px rgba(0,240,255,0.7));" />
-
-                    <!-- Draggable Thumb Knob Indicator -->
-                    <circle id="spin-round-slider-knob" cx="52" cy="12" r="6.5" fill="#22c55e" stroke="#ffffff" stroke-width="2" style="filter: drop-shadow(0 0 6px rgba(34,197,94,0.9)); cursor: grab;" />
-                </svg>
-
-                <!-- Center Live Angle & Direction Readout -->
-                <div style="position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none;">
-                    <span id="spin-hud-angle-display" style="font-size: 15px; font-weight: 800; color: #00f0ff; line-height: 1;">0°</span>
-                    <span id="spin-hud-cardinal-tag" style="font-size: 8.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-top: 2px;">FRONT</span>
-                </div>
-            </div>
-
-            <!-- Row: Flip 180° & Snap Selector -->
-            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 3px; padding-top: 2px; border-top: 1px solid rgba(255,255,255,0.08);">
-                <!-- Flip 180 Button -->
-                <button id="spin-btn-flip180" style="padding: 3px 5px; font-size: 9px; font-weight: 700; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #fde047; border-radius: 4px; cursor: pointer;" title="Flip 180°">⇄ 180°</button>
-
-                <!-- Snap Mode Pills -->
-                <div style="display: flex; gap: 2px; align-items: center; background: rgba(0,0,0,0.35); padding: 1.5px 3px; border-radius: 4px;">
-                    <button class="spin-snap-mode-btn active" data-snap="15" style="padding: 2px 4px; font-size: 8.5px; font-weight: 700; border-radius: 3px; background: #00f0ff; color: #0f172a; border: none; cursor: pointer;">15°</button>
-                    <button class="spin-snap-mode-btn" data-snap="45" style="padding: 2px 4px; font-size: 8.5px; font-weight: 700; border-radius: 3px; background: transparent; color: #94a3b8; border: none; cursor: pointer;">45°</button>
-                    <button class="spin-snap-mode-btn" data-snap="1" style="padding: 2px 4px; font-size: 8.5px; font-weight: 700; border-radius: 3px; background: transparent; color: #94a3b8; border: none; cursor: pointer;">FREE</button>
+            <!-- 2. Expanded Detail Panel Body (Shown on Click) -->
+            <div id="spin-hud-expanded-body" style="display: none; flex-direction: column; align-items: center; gap: 6px; width: 185px;">
+                <!-- Header: Draggable Grip Bar & Close -->
+                <div id="spin-hud-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: grab; touch-action: none;">
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <span style="color: #64748b; font-size: 12px; letter-spacing: -1px; user-select: none;">⠿</span>
+                        <span style="display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: rgba(0, 240, 255, 0.15); color: #00f0ff; font-size: 9.5px;">⭮</span>
+                        <span style="font-size: 10.5px; font-weight: 800; color: #f1f5f9; letter-spacing: 0.5px;">SPIN PRECISION</span>
+                    </div>
+                    <button id="spin-btn-close-hud" style="background: transparent; border: none; color: #64748b; font-size: 12px; cursor: pointer; padding: 0 2px; line-height: 1; transition: color 0.15s;" title="Minimize to Button">✕</button>
                 </div>
 
-                <!-- Angle Number Input -->
-                <div style="display: flex; align-items: center; gap: 1px;">
-                    <input type="number" id="spin-hud-num-input" min="0" max="360" step="1" value="0" style="width: 32px; background: rgba(0,0,0,0.45); border: 1px solid rgba(0,240,255,0.35); color: white; border-radius: 3px; padding: 1px 2px; font-size: 9.5px; font-weight: 700; text-align: right; outline: none;">
-                    <span style="font-size: 9.5px; color: #94a3b8;">°</span>
+                <!-- Sleek Interactive Round Slider / Rotary Dial -->
+                <div id="spin-round-slider-container" style="position: relative; width: 94px; height: 94px; margin: 2px 0; cursor: pointer; touch-action: none; display: flex; align-items: center; justify-content: center;">
+                    <svg id="spin-round-slider-svg" width="94" height="94" viewBox="0 0 104 104" style="overflow: visible;">
+                        <!-- Background Track -->
+                        <circle cx="52" cy="52" r="40" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="6" />
+                        
+                        <!-- Cardinal Tick Notches -->
+                        <line x1="52" y1="6" x2="52" y2="12" stroke="#facc15" stroke-width="2" stroke-linecap="round" />
+                        <line x1="98" y1="52" x2="92" y2="52" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />
+                        <line x1="52" y1="98" x2="52" y2="92" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />
+                        <line x1="6" y1="52" x2="12" y2="52" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />
+                        
+                        <!-- 45-degree Minor Dots -->
+                        <circle cx="80.28" cy="23.72" r="1.5" fill="rgba(255,255,255,0.3)" />
+                        <circle cx="80.28" cy="80.28" r="1.5" fill="rgba(255,255,255,0.3)" />
+                        <circle cx="23.72" cy="80.28" r="1.5" fill="rgba(255,255,255,0.3)" />
+                        <circle cx="23.72" cy="23.72" r="1.5" fill="rgba(255,255,255,0.3)" />
+
+                        <!-- Active Glowing Sweep Arc -->
+                        <circle id="spin-round-slider-arc" cx="52" cy="52" r="40" fill="none" stroke="#00f0ff" stroke-width="6" stroke-linecap="round" stroke-dasharray="251.327" stroke-dashoffset="251.327" transform="rotate(-90 52 52)" style="filter: drop-shadow(0 0 5px rgba(0,240,255,0.7));" />
+
+                        <!-- Draggable Thumb Knob Indicator -->
+                        <circle id="spin-round-slider-knob" cx="52" cy="12" r="6.5" fill="#22c55e" stroke="#ffffff" stroke-width="2" style="filter: drop-shadow(0 0 6px rgba(34,197,94,0.9)); cursor: grab;" />
+                    </svg>
+
+                    <!-- Center Live Angle & Direction Readout -->
+                    <div style="position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none;">
+                        <span id="spin-hud-angle-display" style="font-size: 14px; font-weight: 800; color: #00f0ff; line-height: 1;">0°</span>
+                        <span id="spin-hud-cardinal-tag" style="font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-top: 1px;">FRONT</span>
+                    </div>
+                </div>
+
+                <!-- Row: Flip 180° & Snap Selector -->
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 3px; padding-top: 2px; border-top: 1px solid rgba(255,255,255,0.08);">
+                    <!-- Flip 180 Button -->
+                    <button id="spin-btn-flip180" style="padding: 2.5px 5px; font-size: 8.5px; font-weight: 700; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #fde047; border-radius: 4px; cursor: pointer;" title="Flip 180°">⇄ 180°</button>
+
+                    <!-- Snap Mode Pills -->
+                    <div style="display: flex; gap: 2px; align-items: center; background: rgba(0,0,0,0.35); padding: 1px 3px; border-radius: 4px;">
+                        <button class="spin-snap-mode-btn active" data-snap="15" style="padding: 1.5px 3.5px; font-size: 7.5px; font-weight: 700; border-radius: 3px; background: #00f0ff; color: #0f172a; border: none; cursor: pointer;">15°</button>
+                        <button class="spin-snap-mode-btn" data-snap="45" style="padding: 1.5px 3.5px; font-size: 7.5px; font-weight: 700; border-radius: 3px; background: transparent; color: #94a3b8; border: none; cursor: pointer;">45°</button>
+                        <button class="spin-snap-mode-btn" data-snap="1" style="padding: 1.5px 3.5px; font-size: 7.5px; font-weight: 700; border-radius: 3px; background: transparent; color: #94a3b8; border: none; cursor: pointer;">FREE</button>
+                    </div>
+
+                    <!-- Angle Number Input -->
+                    <div style="display: flex; align-items: center; gap: 1px;">
+                        <input type="number" id="spin-hud-num-input" min="0" max="360" step="1" value="0" style="width: 32px; background: rgba(0,0,0,0.45); border: 1px solid rgba(0,240,255,0.35); color: white; border-radius: 3px; padding: 1px 2px; font-size: 9.5px; font-weight: 700; text-align: right; outline: none;">
+                        <span style="font-size: 9px; color: #94a3b8;">°</span>
+                    </div>
                 </div>
             </div>
         `;
@@ -706,8 +722,53 @@ export class UniversalSpinGizmo extends THREE.Group {
         this._initHUDPanelEvents();
     }
 
+    _setHUDExpanded(expanded) {
+        this._isHUDExpanded = !!expanded;
+        const miniBtn = this.hudPanel?.querySelector('#spin-hud-mini-btn');
+        const expandedBody = this.hudPanel?.querySelector('#spin-hud-expanded-body');
+        if (miniBtn && expandedBody) {
+            if (this._isHUDExpanded) {
+                miniBtn.style.display = 'none';
+                expandedBody.style.display = 'flex';
+                this.hudPanel.style.padding = '8px 10px';
+                this.hudPanel.style.background = 'rgba(15, 23, 42, 0.94)';
+                this.hudPanel.style.border = '1px solid rgba(0, 240, 255, 0.45)';
+                this.hudPanel.style.borderRadius = '14px';
+                this.hudPanel.style.boxShadow = '0 12px 30px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 240, 255, 0.2)';
+            } else {
+                miniBtn.style.display = 'flex';
+                expandedBody.style.display = 'none';
+                this.hudPanel.style.padding = '0';
+                this.hudPanel.style.background = 'transparent';
+                this.hudPanel.style.border = 'none';
+                this.hudPanel.style.borderRadius = '20px';
+                this.hudPanel.style.boxShadow = 'none';
+            }
+        }
+    }
+
     _initHUDPanelEvents() {
         if (!this.hudPanel) return;
+
+        // Toggle Expand / Collapse Mini Button
+        const miniBtn = this.hudPanel.querySelector('#spin-hud-mini-btn');
+        if (miniBtn) {
+            miniBtn.onclick = (e) => {
+                e.stopPropagation();
+                this._setHUDExpanded(true);
+            };
+        }
+
+        // Close / Minimize Button
+        const btnClose = this.hudPanel.querySelector('#spin-btn-close-hud');
+        if (btnClose) {
+            btnClose.onclick = (e) => {
+                e.stopPropagation();
+                this._setHUDExpanded(false);
+            };
+            btnClose.onmouseenter = () => { btnClose.style.color = '#ef4444'; };
+            btnClose.onmouseleave = () => { btnClose.style.color = '#64748b'; };
+        }
 
         // 1. Draggable Window Logic (Move Anywhere on Workspace)
         const headerEl = this.hudPanel.querySelector('#spin-hud-header');
@@ -755,9 +816,6 @@ export class UniversalSpinGizmo extends THREE.Group {
             window.addEventListener('pointermove', onWindowPointerMove);
             window.addEventListener('pointerup', onWindowPointerUp);
         }
-
-        // Close Button
-        const btnClose = this.hudPanel.querySelector('#spin-btn-close-hud');
         if (btnClose) {
             btnClose.onclick = () => {
                 if (this.ctx.commonController) {
@@ -871,6 +929,7 @@ export class UniversalSpinGizmo extends THREE.Group {
     showHUD() {
         if (this.hudPanel) {
             this.hudPanel.style.display = 'flex';
+            this._setHUDExpanded(false);
         }
     }
 
