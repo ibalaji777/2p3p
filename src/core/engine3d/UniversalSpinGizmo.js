@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { coreEventBus } from '../EventBus.js';
+import { getObjectLocalCenter } from './tools/CommonTransformEngine.js';
 
 /**
  * UniversalSpinGizmo.js
@@ -129,24 +130,41 @@ export class UniversalSpinGizmo extends THREE.Group {
         const entity = this.target.userData?.entity || this.target.userData?.widget || {};
         const isRoof = entity.type === 'roof' || !!this.target.userData?.isRoof || !!entity.config?.roofType;
 
+        // 1. Compute Local Geometric Center of target object
+        this.localCenter = getObjectLocalCenter(this.target);
+
+        // Sync Current Rotation
+        let curRot = 0;
+        if (entity.rotation !== undefined) curRot = entity.rotation;
+        else if (entity.group && typeof entity.group.rotation === 'function') curRot = entity.group.rotation();
+        else if (this.target.rotation) curRot = -this.target.rotation.y * (180 / Math.PI);
+
+        this.currentRotation = ((Math.round(curRot) % 360) + 360) % 360;
+
+        // 2. Compute true world center position using Three.js Vector applyAxisAngle
+        const rotY = -(this.currentRotation * Math.PI / 180);
+        const currentX = entity.x !== undefined ? entity.x : this.target.position.x;
+        const currentY = entity.elevation !== undefined ? entity.elevation : this.target.position.y;
+        const currentZ = entity.y !== undefined ? entity.y : this.target.position.z;
+
+        const rotOffset = this.localCenter.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+        const worldCenter = new THREE.Vector3(currentX, currentY, currentZ).add(rotOffset);
+
+        this.centerWorld.copy(worldCenter);
+
         // Compute Bounding Box & Radius
         const box = new THREE.Box3().setFromObject(this.target);
         const size = new THREE.Vector3();
-        const center = new THREE.Vector3();
 
         if (box.isEmpty()) {
-            this.target.getWorldPosition(center);
             size.set(60, 60, 60);
         } else {
             box.getSize(size);
-            box.getCenter(center);
         }
 
-        this.centerWorld.copy(center);
-
-        // Position Gizmo at Base Ground Level (or center base)
+        // Position Gizmo at Base Ground Level (or center base) directly under Center
         const baseY = isRoof ? (box.min.y + 0.5) : (box.min.y + 0.5);
-        this.position.set(center.x, baseY, center.z);
+        this.position.set(worldCenter.x, baseY, worldCenter.z);
 
         const horizontalSpan = Math.hypot(size.x, size.z);
         const calculatedRadius = Math.max(32, Math.min(250, (horizontalSpan / 2) * 1.35));
@@ -156,13 +174,6 @@ export class UniversalSpinGizmo extends THREE.Group {
             this._rebuildGizmoMeshes(this.currentRadius);
         }
 
-        // Sync Current Rotation
-        let curRot = 0;
-        if (entity.rotation !== undefined) curRot = entity.rotation;
-        else if (entity.group && typeof entity.group.rotation === 'function') curRot = entity.group.rotation();
-        else if (this.target.rotation) curRot = -this.target.rotation.y * (180 / Math.PI);
-
-        this.currentRotation = ((Math.round(curRot) % 360) + 360) % 360;
         this._updateHeadingArrowRotation(this.currentRotation);
     }
 
@@ -533,12 +544,44 @@ export class UniversalSpinGizmo extends THREE.Group {
         if (this.ctx.commonController?.transformEngine) {
             this.ctx.commonController.transformEngine.executeSpin(entity, 0, angleDeg);
         } else {
-            entity.rotation = angleDeg;
-            if (entity.mesh3D) {
-                entity.mesh3D.rotation.y = -(angleDeg * Math.PI / 180);
+            // Standalone fallback: closed-form spin around geometric center
+            const currentRot = entity.rotation !== undefined ? entity.rotation : 0;
+            const newAngle = ((Math.round(angleDeg) % 360) + 360) % 360;
+
+            const localCenter = getObjectLocalCenter(this.target);
+            const currentRotY = -(currentRot * Math.PI / 180);
+
+            const currentX = entity.x !== undefined ? entity.x : this.target.position.x;
+            const currentY = entity.elevation !== undefined ? entity.elevation : this.target.position.y;
+            const currentZ = entity.y !== undefined ? entity.y : this.target.position.z;
+
+            // 1. Calculate Fixed World Center using Three.js Vector applyAxisAngle
+            const currentRotOffset = localCenter.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), currentRotY);
+            const worldCenter = new THREE.Vector3(currentX, currentY, currentZ).add(currentRotOffset);
+
+            // 2. Calculate New Position such that World Center remains 100% stationary
+            const newRotY = -(newAngle * Math.PI / 180);
+            const newRotOffset = localCenter.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), newRotY);
+            const newPos = worldCenter.clone().sub(newRotOffset);
+
+            entity.x = Math.round(newPos.x * 10) / 10;
+            entity.y = Math.round(newPos.z * 10) / 10;
+            entity.rotation = newAngle;
+
+            if (this.target) {
+                this.target.position.x = entity.x;
+                this.target.position.z = entity.y;
+                this.target.rotation.y = newRotY;
             }
-            if (entity.group && typeof entity.group.rotation === 'function') {
-                entity.group.rotation(angleDeg);
+            if (entity.group && typeof entity.group.x === 'function') {
+                entity.group.x(entity.x);
+                entity.group.y(entity.y);
+                if (typeof entity.group.rotation === 'function') {
+                    entity.group.rotation(newAngle);
+                }
+            }
+            if (typeof entity.update2D === 'function') {
+                entity.update2D();
             }
         }
     }
@@ -550,13 +593,20 @@ export class UniversalSpinGizmo extends THREE.Group {
 
         const id = entity.id || (entity.group && typeof entity.group.id === 'function' ? entity.group.id() : null);
         const plannerInst = window.planner?.value || window.planner;
-        if (plannerInst && typeof plannerInst.rotate === 'function' && id) {
-            plannerInst.rotate(id, this.currentRotation);
+        if (plannerInst && id) {
+            if (typeof plannerInst.rotate === 'function') {
+                plannerInst.rotate(id, this.currentRotation);
+            }
+            if (typeof plannerInst.move === 'function' && entity.x !== undefined && entity.y !== undefined) {
+                plannerInst.move(id, entity.x, entity.y);
+            }
         }
 
         coreEventBus.emit('EntityTransformUpdated', {
             entity,
-            rotation: this.currentRotation
+            rotation: this.currentRotation,
+            x: entity.x,
+            y: entity.y
         });
     }
 

@@ -11,6 +11,42 @@ import { ObjectCapabilityEvaluator } from './ObjectCapabilityEvaluator.js';
 import { coreEventBus } from '../../EventBus.js';
 import { usePlannerStore } from '../../../stores/usePlannerStore.js';
 
+/**
+ * Helper to compute local geometric center of any 3D object/group in its own local coordinate space.
+ */
+export function getObjectLocalCenter(obj) {
+    if (!obj) return new THREE.Vector3(0, 0, 0);
+    const localBox = new THREE.Box3();
+    obj.updateMatrixWorld(true);
+    const invMat = obj.matrixWorld.clone().invert();
+
+    obj.traverse(child => {
+        if (child.isMesh && child.geometry && !child.userData?.isGizmoNonInteractive && !child.userData?.isHitbox) {
+            const geo = child.geometry;
+            if (!geo.boundingBox) geo.computeBoundingBox();
+            if (geo.boundingBox) {
+                child.updateMatrixWorld(true);
+                const toLocal = invMat.clone().multiply(child.matrixWorld);
+                const childBox = geo.boundingBox.clone().applyMatrix4(toLocal);
+                localBox.union(childBox);
+            }
+        }
+    });
+
+    const localCenter = new THREE.Vector3();
+    if (!localBox.isEmpty() && isFinite(localBox.min.x)) {
+        localBox.getCenter(localCenter);
+    } else {
+        const ent = obj.userData?.entity;
+        if (ent && (ent.type?.includes('stair') || ent.flight1Steps || ent.stepCount)) {
+            const steps = ent.totalSteps || ent.stepCount || ent.flight1Steps || 15;
+            const depth = ent.stepDepth || 18.33;
+            localCenter.set(0, (ent.height || 150) / 2, (steps * depth) / 2);
+        }
+    }
+    return localCenter;
+}
+
 export class CommonTransformEngine {
     constructor(ctx) {
         this.ctx = ctx;
@@ -76,7 +112,7 @@ export class CommonTransformEngine {
     }
 
     /**
-     * Executes vertical Y-axis rotation (Spin / Yaw).
+     * Executes vertical Y-axis rotation (Spin / Yaw) strictly around the geometric center.
      * @param {Object} entity
      * @param {number} deltaDeg - Angle delta in degrees.
      * @param {number|null} absoluteDeg - Optional absolute angle in degrees.
@@ -86,12 +122,44 @@ export class CommonTransformEngine {
         const caps = ObjectCapabilityEvaluator.getCapabilities(entity);
         if (!caps.rotatable) return false;
 
-        let newAngle = absoluteDeg !== null ? absoluteDeg : ((entity.rotation || 0) + deltaDeg);
+        const currentRot = entity.rotation !== undefined ? entity.rotation : 0;
+        let newAngle = absoluteDeg !== null ? absoluteDeg : (currentRot + deltaDeg);
         newAngle = ((Math.round(newAngle) % 360) + 360) % 360;
+
+        const mesh = entity.mesh3D;
+        if (mesh) {
+            const localCenter = getObjectLocalCenter(mesh);
+            const currentRotY = -(currentRot * Math.PI / 180);
+
+            const currentX = entity.x !== undefined ? entity.x : mesh.position.x;
+            const currentY = entity.elevation !== undefined ? entity.elevation : mesh.position.y;
+            const currentZ = entity.y !== undefined ? entity.y : mesh.position.z;
+
+            // 1. Calculate Fixed World Center using Three.js Vector applyAxisAngle
+            const currentRotOffset = localCenter.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), currentRotY);
+            const worldCenter = new THREE.Vector3(currentX, currentY, currentZ).add(currentRotOffset);
+
+            // 2. Calculate New Position such that World Center remains 100% stationary
+            const newRotY = -(newAngle * Math.PI / 180);
+            const newRotOffset = localCenter.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), newRotY);
+            const newPos = worldCenter.clone().sub(newRotOffset);
+
+            entity.x = Math.round(newPos.x * 10) / 10;
+            entity.y = Math.round(newPos.z * 10) / 10;
+
+            mesh.position.x = entity.x;
+            mesh.position.z = entity.y;
+            mesh.rotation.y = newRotY;
+
+            if (entity.group && typeof entity.group.x === 'function') {
+                entity.group.x(entity.x);
+                entity.group.y(entity.y);
+            }
+        }
 
         entity.rotation = newAngle;
 
-        // 1. Roof Rotation & Ridge Axis
+        // 2. Roof Rotation & Ridge Axis
         if (entity.type === 'roof' || entity.config?.roofType) {
             const conf = entity.config || entity;
             conf.rotation = newAngle;
@@ -105,20 +173,20 @@ export class CommonTransformEngine {
                 this.ctx.interactions.roofPitchGizmo.updateHandlePositions();
             }
         }
-        // 2. Standard 3D Object
+        // 3. Standard 3D Object
         else {
             if (entity.group && typeof entity.group.rotation === 'function') {
                 entity.group.rotation(newAngle);
             }
-            if (entity.mesh3D) {
-                entity.mesh3D.rotation.y = -(newAngle * Math.PI / 180);
+            if (typeof entity.update2D === 'function') {
+                entity.update2D();
             }
             if (this.ctx.realtimeUpdate) {
                 this.ctx.realtimeUpdate.markDirty(entity, 'transform');
             }
         }
 
-        // 3. Two-way synchronization with UniversalSpinGizmo & HUD
+        // 4. Two-way synchronization with UniversalSpinGizmo & HUD
         if (this.ctx.interactions?.universalSpinGizmo && this.ctx.interactions.universalSpinGizmo.visible) {
             this.ctx.interactions.universalSpinGizmo.currentRotation = newAngle;
             this.ctx.interactions.universalSpinGizmo._updateHeadingArrowRotation(newAngle);

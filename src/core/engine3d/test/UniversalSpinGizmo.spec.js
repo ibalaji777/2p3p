@@ -160,6 +160,91 @@ describe('Universal 3D Spin & Protractor Turntable Gizmo System', () => {
             expect(gizmo.currentRotation).toBe(45);
             expect(gizmo.headingArrowGroup.rotation.y).toBeCloseTo(-45 * Math.PI / 180, 4);
         });
+
+        it('should spin strictly around the geometric center of offset objects (e.g. stairs)', () => {
+            // Create a mesh with geometry offset from origin (like a staircase: origin at 0, geometry from Z: 0 to 100 -> center at Z: 50)
+            const stairGeo = new THREE.BoxGeometry(60, 20, 100);
+            stairGeo.translate(0, 10, 50); // local center is at (0, 10, 50)
+            const stairMesh = new THREE.Mesh(stairGeo, new THREE.MeshBasicMaterial());
+            stairMesh.position.set(0, 0, 0);
+
+            const stairEntity = {
+                id: 'staircase_1',
+                type: 'staircase',
+                x: 0,
+                y: 0,
+                rotation: 0,
+                mesh3D: stairMesh
+            };
+            stairMesh.userData = { entity: stairEntity };
+
+            // Initial world bounding box center is at (0, 50)
+            const initialBox = new THREE.Box3().setFromObject(stairMesh);
+            const initialCenter = new THREE.Vector3();
+            initialBox.getCenter(initialCenter);
+            expect(initialCenter.x).toBeCloseTo(0, 1);
+            expect(initialCenter.z).toBeCloseTo(50, 1);
+
+            // Rotate by 180 degrees around center
+            mockCtx.commonController.transformEngine.executeSpin(stairEntity, 180);
+
+            // Center must remain at (0, 50)
+            stairMesh.updateMatrixWorld(true);
+            const rotatedBox = new THREE.Box3().setFromObject(stairMesh);
+            const rotatedCenter = new THREE.Vector3();
+            rotatedBox.getCenter(rotatedCenter);
+
+            expect(rotatedCenter.x).toBeCloseTo(0, 1);
+            expect(rotatedCenter.z).toBeCloseTo(50, 1);
+            expect(stairEntity.rotation).toBe(180);
+        });
+
+        it('should maintain center at (0, 0) across all spin angles (45°, 90°, 180°, 270°) for 10-step staircase', () => {
+            // 10-step staircase with stepDepth 20 -> length = 200, width = 60. Local center is (0, 50, 100).
+            // Positioned at (0, -100) so that its world center is precisely at (0, 0).
+            const group = new THREE.Group();
+            for (let i = 0; i < 10; i++) {
+                const step = new THREE.Mesh(new THREE.BoxGeometry(60, 10, 20), new THREE.MeshBasicMaterial());
+                step.position.set(0, i * 10 + 5, i * 20 + 10);
+                group.add(step);
+            }
+            group.position.set(0, 0, -100);
+
+            const stairEntity = {
+                id: 'stair_10step',
+                type: 'staircase',
+                stepCount: 10,
+                stepDepth: 20,
+                width: 60,
+                x: 0,
+                y: -100,
+                rotation: 0,
+                mesh3D: group
+            };
+            group.userData = { entity: stairEntity };
+
+            // Initial world center is at (0, 0)
+            group.updateMatrixWorld(true);
+            const initialBox = new THREE.Box3().setFromObject(group);
+            const initialCenter = new THREE.Vector3();
+            initialBox.getCenter(initialCenter);
+            expect(initialCenter.x).toBeCloseTo(0, 1);
+            expect(initialCenter.z).toBeCloseTo(0, 1);
+
+            const testAngles = [45, 90, 135, 180, 225, 270, 315, 360];
+            for (const angle of testAngles) {
+                mockCtx.commonController.transformEngine.executeSpin(stairEntity, 0, angle);
+
+                group.updateMatrixWorld(true);
+                const rotatedBox = new THREE.Box3().setFromObject(group);
+                const rotatedCenter = new THREE.Vector3();
+                rotatedBox.getCenter(rotatedCenter);
+
+                expect(rotatedCenter.x).toBeCloseTo(0, 1);
+                expect(rotatedCenter.z).toBeCloseTo(0, 1);
+                expect(stairEntity.rotation).toBe(angle % 360);
+            }
+        });
     });
 
     describe('4. Floating HUD Dock Integration & Disposal', () => {
