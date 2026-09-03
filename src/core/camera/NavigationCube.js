@@ -5,7 +5,8 @@ export class NavigationCube {
         this.container = container;
         this.cameraController = cameraController;
         
-        this.size = 120; // Increased size to compensate for larger camera frustum
+        const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 768;
+        this.size = isSmallScreen ? 60 : 68;
         this.init();
     }
 
@@ -13,12 +14,12 @@ export class NavigationCube {
         // Create container for the cube
         this.domElement = document.createElement('div');
         this.domElement.style.position = 'absolute';
-        this.domElement.style.top = '20px';
-        this.domElement.style.right = '20px';
+        this.domElement.style.top = '10px';
+        this.domElement.style.right = '10px';
         this.domElement.style.width = `${this.size}px`;
         this.domElement.style.height = `${this.size}px`;
         this.domElement.id = 'nav-cube';
-        this.domElement.style.zIndex = '1000';
+        this.domElement.style.zIndex = '900';
         this.domElement.style.cursor = 'pointer';
         this.domElement.style.opacity = '1'; // Solid, not transparent
 
@@ -296,6 +297,13 @@ export class NavigationCube {
 
             const snappedDirection = new THREE.Vector3(x, y, z).normalize();
             this.cameraController.setCameraDirection(snappedDirection);
+        }
+    }
+
+    setRightOffset(offsetPx = 0) {
+        if (this.domElement) {
+            this.domElement.style.right = `${14 + offsetPx}px`;
+            this.domElement.style.transition = 'right 0.28s cubic-bezier(0.16, 1, 0.3, 1)';
         }
     }
 

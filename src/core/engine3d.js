@@ -1182,36 +1182,52 @@ export class Preview3D {
     }
     
     setXRayMode(enabled) {
-        this.isXRayMode = enabled;
+        this.isXRayMode = !!enabled;
         const applyXRay = (group) => {
+            if (!group) return;
             group.traverse((child) => {
                 if (child.isMesh && child.material) {
                     const mats = Array.isArray(child.material) ? child.material : [child.material];
                     mats.forEach(mat => {
                         if (mat.name === 'highlightMaterial' || mat.name === 'cutHighlightMaterial' || child.userData.isHighlight) return;
                         
-                        if (mat._originalOpacity === undefined) {
-                            mat._originalOpacity = mat.opacity;
-                            mat._originalTransparent = mat.transparent;
-                            mat._originalDepthWrite = mat.depthWrite;
-                        }
-
                         if (enabled) {
+                            if (mat._originalOpacity === undefined) {
+                                mat._originalOpacity = (mat.opacity !== undefined && mat.opacity > 0.35) ? mat.opacity : 1.0;
+                                mat._originalTransparent = mat.transparent !== undefined ? mat.transparent : false;
+                                mat._originalDepthWrite = mat.depthWrite !== undefined ? mat.depthWrite : true;
+                            }
                             mat.transparent = true;
                             mat.opacity = 0.3;
                             mat.depthWrite = false;
                         } else {
-                            mat.opacity = mat._originalOpacity !== undefined ? mat._originalOpacity : 1;
-                            mat.transparent = mat._originalTransparent !== undefined ? mat._originalTransparent : false;
-                            mat.depthWrite = mat._originalDepthWrite !== undefined ? mat._originalDepthWrite : true;
+                            const origOp = (mat._originalOpacity !== undefined && mat._originalOpacity > 0.35) ? mat._originalOpacity : 1.0;
+                            const origTrans = mat._originalTransparent !== undefined ? mat._originalTransparent : false;
+                            const origDW = mat._originalDepthWrite !== undefined ? mat._originalDepthWrite : true;
+                            
+                            mat.opacity = origOp;
+                            mat.transparent = origTrans;
+                            mat.depthWrite = origDW;
+
+                            delete mat._originalOpacity;
+                            delete mat._originalTransparent;
+                            delete mat._originalDepthWrite;
                         }
                         mat.needsUpdate = true;
                     });
                 }
             });
         };
+
         applyXRay(this.structureGroup);
         applyXRay(this.staticStructureGroup);
+        if (this.furnitureGroup) applyXRay(this.furnitureGroup);
+        if (this.roofGroup) applyXRay(this.roofGroup);
+        if (this.stairsGroup) applyXRay(this.stairsGroup);
+
+        if (this.requestRender) {
+            this.requestRender('xray_mode_toggle', 5);
+        }
     }
 
     get selectedObject() { return this.interactions.selectedObject; }

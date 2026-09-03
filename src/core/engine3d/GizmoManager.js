@@ -591,17 +591,17 @@ export class GizmoManager {
         this.btnDone.className = 'done-btn';
         this.btnDone.innerHTML = '✓ Done';
         this.btnDone.style.position = 'absolute';
-        this.btnDone.style.bottom = '85px';
+        this.btnDone.style.bottom = '74px';
         this.btnDone.style.left = '50%';
         this.btnDone.style.transform = 'translateX(-50%)';
-        this.btnDone.style.background = 'rgba(16, 185, 129, 0.95)';
-        this.btnDone.style.border = '2px solid rgba(52, 211, 153, 1)';
+        this.btnDone.style.background = '#059669';
+        this.btnDone.style.border = '1px solid rgba(52, 211, 153, 0.9)';
         this.btnDone.style.color = 'white';
-        this.btnDone.style.padding = '10px 30px';
-        this.btnDone.style.borderRadius = '30px';
-        this.btnDone.style.fontWeight = 'bold';
-        this.btnDone.style.fontSize = '15px';
-        this.btnDone.style.boxShadow = '0 4px 15px rgba(0,0,0,0.4)';
+        this.btnDone.style.padding = '8px 26px';
+        this.btnDone.style.borderRadius = '24px';
+        this.btnDone.style.fontWeight = '700';
+        this.btnDone.style.fontSize = '14px';
+        this.btnDone.style.boxShadow = '0 6px 20px rgba(5, 150, 105, 0.45), 0 2px 6px rgba(0,0,0,0.2)';
         this.btnDone.style.cursor = 'pointer';
         this.btnDone.style.zIndex = '3000';
         this.btnDone.style.display = 'none';
@@ -3267,6 +3267,7 @@ export class GizmoManager {
             if (this.btnPolygonEdges) this.btnPolygonEdges.style.display = activeGizmos.includes('polygonEdges') ? 'flex' : 'none';
             if (this.btnPushPull) this.btnPushPull.style.display = activeGizmos.includes('pushPull') ? 'flex' : 'none';
             if (this.btnCloseMenu) this.btnCloseMenu.style.display = 'flex';
+            if (this.transformMenu) this.transformMenu.style.display = 'flex';
             if (this.xyPanel) this.xyPanel.style.display = 'none';
             if (this.openingPanel) this.openingPanel.style.display = 'none';
             if (this.materialPanel) {
@@ -3333,6 +3334,7 @@ export class GizmoManager {
         if (this.btnPolygonEdges) this.btnPolygonEdges.style.display = 'none';
         if (this.btnPushPull) this.btnPushPull.style.display = 'none';
         if (this.btnCloseMenu) this.btnCloseMenu.style.display = 'none';
+        if (this.transformMenu) this.transformMenu.style.display = 'none';
         if (this.btnDone) this.btnDone.style.display = 'flex';
 
         if (selectedObj) tc.detach();

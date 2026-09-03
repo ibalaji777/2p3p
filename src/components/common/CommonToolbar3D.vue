@@ -1,6 +1,6 @@
 <template>
-  <div class="common-toolbar-3d-wrapper" v-show="viewMode === '3d'">
-    <div class="common-toolbar-capsule">
+  <div class="common-toolbar-3d-wrapper" v-show="viewMode === '3d' && !isDrawerOpen">
+    <div class="common-toolbar-vertical-strip">
       <!-- SELECT TOOL -->
       <button 
         class="tool-btn" 
@@ -11,8 +11,6 @@
         <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 3l7 18 3-7 7-3L3 3z"></path>
         </svg>
-        <span class="tool-label">Select</span>
-        <span class="hotkey-badge" v-if="isDesktop">V</span>
       </button>
 
       <!-- MATERIAL TOOL -->
@@ -26,11 +24,9 @@
           <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
           <path d="M12 22.5A8.5 8.5 0 0 0 20.5 14c0-3-2.5-5.5-5.5-8.5"></path>
         </svg>
-        <span class="tool-label">Material</span>
-        <span class="hotkey-badge" v-if="isDesktop">B</span>
       </button>
 
-      <div class="toolbar-divider"></div>
+      <div class="toolbar-divider-h"></div>
 
       <!-- MOVE TOOL -->
       <button 
@@ -48,8 +44,6 @@
           <line x1="2" y1="12" x2="22" y2="12"></line>
           <line x1="12" y1="2" x2="12" y2="22"></line>
         </svg>
-        <span class="tool-label">Move</span>
-        <span class="hotkey-badge" v-if="isDesktop">M</span>
       </button>
 
       <!-- SPIN TOOL -->
@@ -64,29 +58,7 @@
           <path d="M21.5 2v6h-6"></path>
           <path d="M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
         </svg>
-        <span class="tool-label">Spin</span>
-        <span class="hotkey-badge" v-if="isDesktop">R</span>
       </button>
-
-      <!-- TILT TOOL -->
-      <button 
-        class="tool-btn" 
-        :class="{ active: currentTool === 'tilt', disabled: !canTilt }"
-        :disabled="!canTilt"
-        @click="selectTool('tilt')"
-        title="Tilt Pitch (Key: T)"
-      >
-        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="9"></circle>
-          <path d="M3.6 9h16.8"></path>
-          <path d="M3.6 15h16.8"></path>
-          <path d="M12 3a14.5 14.5 0 0 0 0 18"></path>
-        </svg>
-        <span class="tool-label">Tilt</span>
-        <span class="hotkey-badge" v-if="isDesktop">T</span>
-      </button>
-
-      <div class="toolbar-divider"></div>
 
       <!-- ELEVATION AXIS UP -->
       <button 
@@ -100,8 +72,6 @@
           <line x1="12" y1="19" x2="12" y2="5"></line>
           <polyline points="5 12 12 5 19 12"></polyline>
         </svg>
-        <span class="tool-label">↑</span>
-        <span class="hotkey-badge" v-if="isDesktop">]</span>
       </button>
 
       <!-- ELEVATION AXIS DOWN -->
@@ -116,26 +86,19 @@
           <line x1="12" y1="5" x2="12" y2="19"></line>
           <polyline points="19 12 12 19 5 12"></polyline>
         </svg>
-        <span class="tool-label">↓</span>
-        <span class="hotkey-badge" v-if="isDesktop">[</span>
       </button>
 
-      <div class="toolbar-divider"></div>
+      <div class="toolbar-divider-h"></div>
 
-      <!-- HELP & SHORTCUTS BUTTON -->
+      <!-- CATALOG / TOOLS DRAWER TOGGLE -->
       <button 
-        class="tool-btn help-btn" 
-        :class="{ active: showHelpPopup }"
-        @click="showHelpPopup = !showHelpPopup"
-        title="Controls & Shortcuts Guide (Key: ? / H)"
+        class="tool-btn catalog-btn" 
+        @click="$emit('toggle-catalog')"
+        title="Open Catalog & Materials (Key: C)"
       >
         <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          <polyline points="9 18 15 12 9 6"></polyline>
         </svg>
-        <span class="tool-label">Help</span>
-        <span class="hotkey-badge" v-if="isDesktop">?</span>
       </button>
     </div>
 
@@ -496,6 +459,10 @@ const props = defineProps({
   controller: {
     type: Object,
     default: null
+  },
+  isDrawerOpen: {
+    type: Boolean,
+    default: false
   }
 });
 
@@ -582,107 +549,103 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .common-toolbar-3d-wrapper {
-  position: absolute;
-  top: 76px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1040;
+  position: fixed;
+  top: 60px;
+  left: 14px;
+  z-index: 990;
   pointer-events: none;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   user-select: none;
+  transition: left 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.common-toolbar-capsule {
+@media (min-width: 1200px) {
+  .common-toolbar-3d-wrapper {
+    left: calc(68px + 14px);
+  }
+}
+
+.common-toolbar-vertical-strip {
   pointer-events: auto;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(226, 232, 240, 0.85);
   box-shadow: 
-    0 12px 30px -4px rgba(15, 23, 42, 0.12),
-    0 4px 10px -2px rgba(15, 23, 42, 0.05),
-    0 0 0 1px rgba(226, 232, 240, 0.7) inset;
-  border-radius: 28px;
-  padding: 5px 8px;
+    0 12px 30px -4px rgba(15, 23, 42, 0.1),
+    0 4px 10px -2px rgba(15, 23, 42, 0.05);
+  border-radius: 22px;
+  padding: 6px 4px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   box-sizing: border-box;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .tool-btn {
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 20px;
-  padding: 6px 12px;
-  height: 38px;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: #334155;
-  font-weight: 600;
-  font-size: 13.5px;
+  justify-content: center;
+  color: #475569;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  white-space: nowrap;
+  padding: 0;
+  flex-shrink: 0;
 }
 
 .tool-btn:hover:not(.disabled):not(:disabled) {
-  background: rgba(241, 245, 249, 0.9);
+  background: #f1f5f9;
   color: #0f172a;
   transform: translateY(-1px);
 }
 
 .tool-btn:active:not(.disabled):not(:disabled) {
-  transform: translateY(0) scale(0.96);
+  transform: translateY(0) scale(0.95);
 }
 
 .tool-btn.active {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-  color: #1d4ed8;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12), 0 0 0 1px rgba(191, 219, 254, 0.6) inset;
+  background: #2563eb;
+  border-color: #3b82f6;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
 }
 
 .tool-btn.disabled,
 .tool-btn:disabled {
-  opacity: 0.35;
+  opacity: 0.45;
+  color: #94a3b8;
   cursor: not-allowed;
   pointer-events: none;
 }
 
 .tool-icon {
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
   stroke: currentColor;
   flex-shrink: 0;
 }
 
-.tool-label {
-  letter-spacing: 0.2px;
+.toolbar-divider-h {
+  width: 18px;
+  height: 1px;
+  background: rgba(226, 232, 240, 0.9);
+  margin: 3px 0;
+  flex-shrink: 0;
 }
 
-.hotkey-badge {
-  font-size: 10px;
-  font-weight: 700;
-  color: #64748b;
-  background: rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 6px;
-  padding: 1px 5px;
-  margin-left: 2px;
-  line-height: 1.2;
+.catalog-btn {
+  color: #2563eb;
 }
 
-.tool-btn.active .hotkey-badge {
+.catalog-btn:hover {
+  background: #eff6ff;
   color: #1d4ed8;
-  background: rgba(37, 99, 235, 0.08);
-  border-color: rgba(37, 99, 235, 0.2);
-}
-
-.help-btn {
-  color: #475569;
 }
 
 .help-btn:hover {

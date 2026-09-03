@@ -5,6 +5,8 @@
       :view-mode3D="viewMode3D"
       :can-undo="canUndo"
       :can-redo="canRedo"
+      :is-desktop="isDesktop"
+      :common-controller="renderer3D?.commonTools"
       @switch-2d="switchTo2D"
       @switch-3d="switchTo3D"
       @toggle-preview="togglePreviewMode"
@@ -41,8 +43,8 @@
         @toggle-menu="handleToggleMenu"
       />
 
-      <!-- Mobile Left Trigger -->
-      <div class="mobile-left-trigger" v-if="isMobile && !(mobileMenuOpen && activeMobileTab === 'tools')" @click="toggleMobileTab('tools')" title="Open Tools">
+      <!-- Mobile Left Trigger (2D Plan only) -->
+      <div class="mobile-left-trigger" v-if="isMobile && viewMode === '2d' && !(mobileMenuOpen && activeMobileTab === 'tools')" @click="toggleMobileTab('tools')" title="Open Tools">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="9 18 15 12 9 6"></polyline>
         </svg>
@@ -54,7 +56,10 @@
         :is-tablet="isTablet"
         :active-mobile-tab="activeMobileTab"
         :mobile-menu-open="mobileMenuOpen"
+        :view-mode="viewMode"
+        :wall-cutaway-mode="wallCutawayMode"
         @toggle-tab="toggleMobileTab"
+        @set-wall-cutaway-mode="setWallCutawayMode"
       />
       
       <CanvasWorkspace
@@ -74,10 +79,12 @@
         :mode3D="mode3D"
         :selected-type="selectedType"
         :is-desktop="isDesktop"
+        :is-drawer-open="isDrawerOpen"
         :common-controller="renderer3D?.commonTools"
         @update:show-guide="showGuide = $event"
         @update:show-advanced-tools="showAdvancedTools = $event"
         @handle-adv-trigger-click="handleAdvTriggerClick"
+        @toggle-catalog="toggleMobileTab('tools')"
         @set-advanced-tool="setAdvancedTool"
         @toggle-wall-tracking="toggleWallTracking"
         @toggle-xray-mode="toggleXRayMode"
@@ -235,6 +242,10 @@ const displayUnit = computed(() => {
         case 'cm': return 'cm';
         case 'mm': default: return 'mm';
     }
+});
+
+const isDrawerOpen = computed(() => {
+    return !!activeCategory.value || (isMobile.value && mobileMenuOpen.value && activeMobileTab.value === 'tools');
 });
 
 const handleCatalogSelect = (item) => {

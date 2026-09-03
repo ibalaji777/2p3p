@@ -321,6 +321,9 @@ export class CameraController {
         this.animationTargetLookAt.copy(target);
         this.isAnimating = true;
         this.controls.enableDamping = false;
+        if (this.preview3D?.requestRender) {
+            this.preview3D.requestRender('camera_animate', 35);
+        }
     }
 
     updateCameraBounds() {

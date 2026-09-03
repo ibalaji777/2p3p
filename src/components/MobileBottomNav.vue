@@ -24,9 +24,34 @@
       </button>
     </div>
 
-    <!-- EXPANDED STATE: [ Floors ] [ Props ] [ Layers ] [ Settings ] ( v ) -->
+    <!-- EXPANDED STATE: [ Walls ] [ Floors ] [ Props ] [ Layers ] [ Settings ] ( v ) -->
     <div v-else class="nav-capsule expanded-capsule">
       <div class="pills-scroll-group">
+        <!-- Walls Cutaway Pill (In 3D mode) -->
+        <div class="pill-wrapper" v-if="viewMode === '3d'">
+          <button
+            class="nav-pill"
+            :class="{ active: wallCutawayMode !== 'walls_up' }"
+            @click="cycleWallMode"
+            :title="`Wall Mode: ${wallCutawayMode.replace('_', ' ').toUpperCase()} (Tap to cycle)`"
+          >
+            <svg v-if="wallCutawayMode === 'walls_up'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pill-icon">
+              <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+              <line x1="3" y1="9" x2="21" y2="9"></line>
+              <line x1="9" y1="21" x2="9" y2="9"></line>
+            </svg>
+            <svg v-else-if="wallCutawayMode === 'cutaway'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pill-icon">
+              <path d="M3 21h18V12L12 3 3 12v9z"></path>
+              <polyline points="9 21 9 12 15 12 15 21"></polyline>
+            </svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pill-icon">
+              <rect x="3" y="16" width="18" height="5" rx="1"></rect>
+              <path d="M3 16l9-9 9 9"></path>
+            </svg>
+            <span>{{ wallCutawayMode === 'walls_up' ? 'Walls Up' : (wallCutawayMode === 'cutaway' ? 'Cutaway' : 'Walls Down') }}</span>
+          </button>
+        </div>
+
         <!-- Floors Pill -->
         <div class="pill-wrapper">
           <button
@@ -99,10 +124,10 @@
         </div>
       </div>
 
-      <!-- Right Circular Collapse Button -->
+      <!-- Right Circular Action Button (Points UP to afford drawer expansion) -->
       <button class="circular-action-btn" @click.stop="isCollapsed = true" title="Collapse Menu">
         <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="6 9 12 15 18 9"></polyline>
+          <polyline points="18 15 12 9 6 15"></polyline>
         </svg>
       </button>
     </div>
@@ -116,9 +141,18 @@ const props = defineProps({
   isMobile: Boolean,
   isTablet: Boolean,
   activeMobileTab: String,
-  mobileMenuOpen: Boolean
+  mobileMenuOpen: Boolean,
+  viewMode: { type: String, default: '2d' },
+  wallCutawayMode: { type: String, default: 'walls_up' }
 });
-const emit = defineEmits(['toggle-tab']);
+
+const emit = defineEmits(['toggle-tab', 'set-wall-cutaway-mode']);
+
+const cycleWallMode = () => {
+  const modes = ['walls_up', 'cutaway', 'walls_down'];
+  const nextIdx = (modes.indexOf(props.wallCutawayMode) + 1) % modes.length;
+  emit('set-wall-cutaway-mode', modes[nextIdx]);
+};
 
 const isCollapsed = ref(false);
 
