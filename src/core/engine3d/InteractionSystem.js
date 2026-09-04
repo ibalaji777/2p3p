@@ -729,17 +729,37 @@ export class InteractionSystem {
                     return;
                 }
 
-                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isMolding && !mesh.userData.isRoof && !mesh.userData.isPattern && !mesh.userData.isStair && !mesh.userData.isFloorCutProxy && !mesh.userData.isRoofAddon && !mesh.userData.isRoofSculpture && !mesh.userData.isSkylight) mesh = mesh.parent;
+                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isWallMesh && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isMolding && !mesh.userData.isRoof && !mesh.userData.isPattern && !mesh.userData.isStair && !mesh.userData.isFloorCutProxy && !mesh.userData.isRoofAddon && !mesh.userData.isRoofSculpture && !mesh.userData.isSkylight) mesh = mesh.parent;
                 
                 // Fallback: If clicked submesh belongs to an entity (like staircase, furniture, roof), resolve to ent.mesh3D
                 const targetEntity = mesh.userData?.entity || mesh.parent?.userData?.entity;
-                if (targetEntity && targetEntity.mesh3D) {
+                const isWallEntity = targetEntity && (targetEntity.type === 'outer' || targetEntity.type === 'inner' || targetEntity.type === 'compound' || targetEntity.type === 'wall' || mesh.userData?.isWallSide || mesh.userData?.isWallMesh || mesh.userData?.isWallDecor || mesh.userData?.isWallGroup);
+                if (!isWallEntity && targetEntity && targetEntity.mesh3D) {
                     mesh = targetEntity.mesh3D;
                 }
 
-                if (mesh && (mesh.userData.isFurniture || mesh.userData.isWallSide || mesh.userData.isWallDecor || mesh.userData.isFloor || mesh.userData.isWidget || mesh.userData.isMolding || mesh.userData.isRoof || mesh.userData.isPattern || mesh.userData.isStair || mesh.userData.isFloorCutProxy || mesh.userData.isRoofAddon || mesh.userData.isRoofSculpture || mesh.userData.isSkylight)) {
+                const isSelectable = mesh && (
+                    mesh.userData?.isFurniture ||
+                    mesh.userData?.isWallSide ||
+                    mesh.userData?.isWallMesh ||
+                    mesh.userData?.isWallGroup ||
+                    mesh.userData?.isWallDecor ||
+                    mesh.userData?.isFloor ||
+                    mesh.userData?.isWidget ||
+                    mesh.userData?.isMolding ||
+                    mesh.userData?.isRoof ||
+                    mesh.userData?.isPattern ||
+                    mesh.userData?.isStair ||
+                    mesh.userData?.isFloorCutProxy ||
+                    mesh.userData?.isRoofAddon ||
+                    mesh.userData?.isRoofSculpture ||
+                    mesh.userData?.isSkylight ||
+                    isWallEntity
+                );
+
+                if (isSelectable) {
                     if (this.mode === 'edit') {
-                        if (mesh.userData.isWallDecor) {
+                        if (mesh.userData?.isWallDecor) {
                             const decor = mesh.userData.entity;
                             const wall = mesh.userData.parentWall || mesh.parent?.userData?.entity;
                             const side = decor?.side || mesh.userData.side || 'front';

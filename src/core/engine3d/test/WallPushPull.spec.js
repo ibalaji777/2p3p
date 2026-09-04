@@ -62,7 +62,9 @@ describe('WallPushPullGizmo - Sims 4-Style 2D-on-3D Region Selection & Push/Pull
             formatLength: (len) => `${Math.round(len)} cm`,
             commandManager: { execute: () => {}, canUndo: () => false, canRedo: () => false },
             syncAll: () => {},
-            findRooms: () => {}
+            findRooms: () => {},
+            exportState: () => ({ walls: [] }),
+            importState: () => {}
         };
 
         ctx = {
@@ -548,4 +550,87 @@ describe('WallPushPullGizmo - Sims 4-Style 2D-on-3D Region Selection & Push/Pull
         }
         expect(foundProtrusionPeak).toBe(true);
     });
+
+    it('should start dragging on pointer down on center handle without throwing ReferenceError', () => {
+        gizmo.attach(mockWall.mesh3D);
+        expect(gizmo.visible).toBe(true);
+
+        // Simulate raycast hitting front handle base
+        const baseMesh = gizmo.handleFront.children.find(c => c.userData?.part === 'base');
+        expect(baseMesh).toBeDefined();
+
+        const intersect = {
+            object: baseMesh,
+            point: new THREE.Vector3(50, 60, 20)
+        };
+        gizmo.raycaster.intersectObjects = () => [intersect];
+
+        const mockEvent = {
+            button: 0,
+            clientX: 400,
+            clientY: 300,
+            pointerId: 1,
+            preventDefault: () => {},
+            stopPropagation: () => {},
+            target: { setPointerCapture: () => {} }
+        };
+
+        expect(() => {
+            gizmo._onPointerDown(mockEvent);
+        }).not.toThrow();
+
+        expect(gizmo.isDragging).toBe(true);
+        expect(gizmo.activeHandle).toBe('front');
+        expect(gizmo.activeSide).toBe('front');
+        expect(gizmo.activeFacing).toBe(1);
+    });
+
+    it('should dynamically expand wall thickness during live pointer move and revert on cancel', () => {
+        gizmo.attach(mockWall.mesh3D);
+        expect(mockWall.thickness).toBe(20);
+
+        // 1. Pointer Down on front handle
+        const baseMesh = gizmo.handleFront.children.find(c => c.userData?.part === 'base');
+        const intersect = {
+            object: baseMesh,
+            point: new THREE.Vector3(50, 60, 20)
+        };
+        gizmo.raycaster.intersectObjects = () => [intersect];
+
+        const downEvent = {
+            button: 0,
+            clientX: 400,
+            clientY: 300,
+            pointerId: 1,
+            preventDefault: () => {},
+            stopPropagation: () => {},
+            target: { setPointerCapture: () => {} }
+        };
+        gizmo._onPointerDown(downEvent);
+        expect(gizmo.isDragging).toBe(true);
+
+        // 2. Pointer Move outward (deltaWorldZ = +15)
+        gizmo.raycaster.ray.intersectPlane = (plane, target) => {
+            target.set(50, 60, 35); // 35 - 20 = 15cm outward
+            return target;
+        };
+
+        const moveEvent = {
+            clientX: 400,
+            clientY: 250,
+            preventDefault: () => {},
+            stopPropagation: () => {}
+        };
+        gizmo._onPointerMove(moveEvent);
+
+        // Thickness must have grown from 20cm to 35cm
+        expect(mockWall.thickness).toBe(35);
+
+        // 3. Cancel must revert thickness and position cleanly
+        gizmo.cancel();
+        expect(mockWall.thickness).toBe(20);
+        expect(mockWall.startAnchor.position()).toEqual({ x: 0, y: 0 });
+        expect(mockWall.endAnchor.position()).toEqual({ x: 100, y: 0 });
+    });
 });
+

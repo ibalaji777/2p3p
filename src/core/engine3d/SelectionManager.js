@@ -12,9 +12,17 @@ export class SelectionManager {
     }
 
     select(object) {
-        if (object.userData.isWallSide) {
+        const isWall = object.userData && (
+            object.userData.isWallSide || 
+            object.userData.isWallMesh || 
+            object.userData.isWallGroup || 
+            object.userData.isWall || 
+            (object.userData.entity && ['outer', 'inner', 'compound', 'wall'].includes(object.userData.entity.type))
+        );
+
+        if (isWall) {
             return this.selectWall(object);
-        } else if (object.userData.isWallDecor) {
+        } else if (object.userData && object.userData.isWallDecor) {
             const wall = object.userData.parentWall || object.parent?.userData?.entity;
             const side = object.userData.entity?.side || object.userData.side || 'front';
             if (wall && wall.mesh3D) {
@@ -24,7 +32,7 @@ export class SelectionManager {
                 }
             }
             return this.selectWall(object);
-        } else if (object.userData.isFurniture || object.userData.isFloor || object.userData.isWidget || object.userData.isMolding || object.userData.isRoof || object.userData.isPattern || object.userData.isStair || object.userData.isFloorCutProxy || object.userData.isRoofAddon || object.userData.isRoofSculpture || object.userData.isSkylight) {
+        } else if (object.userData && (object.userData.isFurniture || object.userData.isFloor || object.userData.isWidget || object.userData.isMolding || object.userData.isRoof || object.userData.isPattern || object.userData.isStair || object.userData.isFloorCutProxy || object.userData.isRoofAddon || object.userData.isRoofSculpture || object.userData.isSkylight)) {
             return this.selectBasic(object);
         } else {
             if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
@@ -39,7 +47,7 @@ export class SelectionManager {
             this._updateWallHighlightShape(object, this.system.wallHighlight);
         }
         if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
-        return { type: 'wall', side: object.userData.side };
+        return { type: 'wall', side: object.userData?.side || 'front' };
     }
 
     hoverWall(object) {

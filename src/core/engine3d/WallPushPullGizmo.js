@@ -672,9 +672,29 @@ export class WallPushPullGizmo extends THREE.Group {
             }
         }
 
-        // Hide duplicate solidBlockPreview to prevent z-fighting/glitching against real live wallMesh
+        // Show real-time 3D solid block (or niche) ghost preview during sub-region pull/push
         if (this.solidBlockPreview) {
-            this.solidBlockPreview.visible = false;
+            if (isSubRegion && extrudeD !== 0 && !this.existingProtrusion) {
+                this.solidBlockPreview.visible = true;
+                const facing = this.activeFacing || 1;
+                const absD = Math.abs(extrudeD);
+                this.previewMesh.scale.set(spanW, spanH, absD);
+                this.previewEdges.scale.set(spanW, spanH, absD);
+
+                if (extrudeD > 0) {
+                    // Outward solid protrusion
+                    this.previewMesh.position.set(midX, midY, (t / 2 + absD / 2) * facing);
+                    this.previewEdges.position.copy(this.previewMesh.position);
+                    this.previewEdgesMat.color.setHex(0x22c55e); // Emerald Green
+                } else {
+                    // Inward niche cavity
+                    this.previewMesh.position.set(midX, midY, (t / 2 - absD / 2) * facing);
+                    this.previewEdges.position.copy(this.previewMesh.position);
+                    this.previewEdgesMat.color.setHex(0xa855f7); // Amethyst Purple
+                }
+            } else {
+                this.solidBlockPreview.visible = false;
+            }
         }
 
         this.visible = true;
@@ -728,8 +748,13 @@ export class WallPushPullGizmo extends THREE.Group {
                     worldPos.project(this.ctx.camera);
 
                     if (worldPos.z <= 1) {
-                        const screenX = Math.max(120, Math.min(rect.width - 120, ((worldPos.x + 1) * rect.width) / 2));
-                        const screenY = Math.max(50, Math.min(rect.height - 40, ((-worldPos.y + 1) * rect.height) / 2));
+                        const rawScreenX = rect.left + ((worldPos.x + 1) * rect.width) / 2;
+                        const rawScreenY = rect.top + ((-worldPos.y + 1) * rect.height) / 2;
+                        const hudWidth = suite.domConfirmBar?.offsetWidth || 380;
+                        const minX = rect.left + (hudWidth / 2) + 16;
+                        const maxX = Math.max(minX, rect.right - (hudWidth / 2) - 16);
+                        const screenX = Math.max(minX, Math.min(maxX, rawScreenX));
+                        const screenY = Math.max(rect.top + 48, Math.min(rect.bottom - 48, rawScreenY));
                         suite.domConfirmBar.style.left = `${screenX}px`;
                         suite.domConfirmBar.style.top = `${screenY - 14}px`;
                         suite.domConfirmBar.style.display = 'flex';
@@ -782,6 +807,7 @@ export class WallPushPullGizmo extends THREE.Group {
             if (e.stopImmediatePropagation) e.stopImmediatePropagation();
             
             let hitMesh = intersects[0].object;
+            const originalHit = hitMesh;
             while (hitMesh && !hitMesh.userData.isWallPushPullHandle && hitMesh.parent) {
                 hitMesh = hitMesh.parent;
             }
@@ -805,22 +831,39 @@ export class WallPushPullGizmo extends THREE.Group {
             const len = Math.hypot(dx, dy);
             if (len === 0) return;
 
-            const part = hitMesh?.userData?.part;
+            const camDir = new THREE.Vector3();
+            this.ctx.camera.getWorldDirection(camDir);
+
+            const part = hitMesh?.userData?.part || originalHit?.userData?.part;
+            const side = hitMesh?.userData?.side || originalHit?.userData?.side || (intersects[0].object.parent?.userData?.side) || 'front';
+
             if (part === 'boundary_start' || part === 'boundary_end') {
                 this.activeHandle = part;
                 const hitPoint = intersects[0].point;
-                this.dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), hitPoint);
+                const axisW = new THREE.Vector3(dx / len, 0, dy / len);
+                const cross = new THREE.Vector3().crossVectors(camDir, axisW);
+                if (cross.lengthSq() > 0.001) {
+                    const planeNorm = new THREE.Vector3().crossVectors(axisW, cross).normalize();
+                    this.dragPlane.setFromNormalAndCoplanarPoint(planeNorm, hitPoint);
+                } else {
+                    this.dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), hitPoint);
+                }
                 this.dragStartPoint.copy(hitPoint);
             } else if (part === 'boundary_bottom' || part === 'boundary_top') {
                 this.activeHandle = part;
                 const hitPoint = intersects[0].point;
-                const camDir = new THREE.Vector3();
-                this.ctx.camera.getWorldDirection(camDir);
-                this.dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(camDir.x, 0, camDir.z).normalize(), hitPoint);
+                const axisH = new THREE.Vector3(0, 1, 0);
+                const cross = new THREE.Vector3().crossVectors(camDir, axisH);
+                if (cross.lengthSq() > 0.001) {
+                    const planeNorm = new THREE.Vector3().crossVectors(axisH, cross).normalize();
+                    this.dragPlane.setFromNormalAndCoplanarPoint(planeNorm, hitPoint);
+                } else {
+                    this.dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(camDir.x, 0, camDir.z).normalize(), hitPoint);
+                }
                 this.dragStartPoint.copy(hitPoint);
             } else {
-                const side = hitMesh?.userData?.side || (intersects[0].object.parent?.userData?.side) || 'front';
                 this.activeHandle = side;
+                this.activeSide = side;
                 this.activeFacing = side === 'back' ? -1 : 1;
                 this.currentDragDist = 0;
                 
@@ -836,12 +879,21 @@ export class WallPushPullGizmo extends THREE.Group {
                 }
                 
                 const hitPoint = intersects[0].point;
-                this.dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), hitPoint);
+                const axisN = new THREE.Vector3(this.wallNormal2D.x, 0, this.wallNormal2D.y);
+                const cross = new THREE.Vector3().crossVectors(camDir, axisN);
+                if (cross.lengthSq() > 0.001) {
+                    const planeNorm = new THREE.Vector3().crossVectors(axisN, cross).normalize();
+                    this.dragPlane.setFromNormalAndCoplanarPoint(planeNorm, hitPoint);
+                } else if (Math.abs(camDir.y) >= 0.2) {
+                    this.dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), hitPoint);
+                } else {
+                    this.dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(camDir.x, 0, camDir.z).normalize(), hitPoint);
+                }
                 this.dragStartPoint.copy(hitPoint);
             }
             
-            const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
-            if (planner && planner.commandManager) {
+            const planner = this.ctx.planner || window.planner?.value || window.plannerInstance || wall.planner;
+            if (planner && planner.commandManager && typeof planner.exportState === 'function') {
                 this._snapshotCmd = new SnapshotCommand(planner);
             }
             
@@ -856,7 +908,7 @@ export class WallPushPullGizmo extends THREE.Group {
 
     _updateWallAndSiblings(wall) {
         if (!wall) return;
-        const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
+        const planner = this.ctx.planner || window.planner?.value || window.plannerInstance || wall.planner;
 
         const wallsToUpdate = new Set([wall]);
         if (planner && planner.walls) {
@@ -925,6 +977,8 @@ export class WallPushPullGizmo extends THREE.Group {
                 const deltaWorldX = currentPoint.x - this.dragStartPoint.x;
                 const deltaWorldZ = currentPoint.z - this.dragStartPoint.z;
 
+                const planner = this.ctx.planner || window.planner?.value || window.plannerInstance || wall.planner;
+
                 if (this.activeHandle === 'boundary_start') {
                     // --- DRAG START BOUNDARY (Adjust Selected Width) ---
                     const deltaAlongWall = deltaWorldX * dirX + deltaWorldZ * dirZ;
@@ -966,7 +1020,7 @@ export class WallPushPullGizmo extends THREE.Group {
                             mode: 'baseline',
                             initialStart: this.initialStart,
                             initialEnd: this.initialEnd
-                        }, this.planner);
+                        }, planner);
 
                         this._updateWallAndSiblings(wall);
                         if (typeof this.ctx.rebuildActiveFloors === 'function') {
@@ -975,13 +1029,15 @@ export class WallPushPullGizmo extends THREE.Group {
 
                         this.updateHandles();
                     } else if (isSubRegion) {
-                        // --- SUB-REGION ELEVATION PUSH / PULL (Step 2: Freely Pull Solid Block & Adjust Inward) ---
+                        // --- SUB-REGION ELEVATION PUSH / PULL (Step 2: Freely Pull Solid Block & Adjust Inward Niche) ---
                         const deltaD = Math.round(dist);
-                        const newDepth = Math.max(0, Math.round(this.initialExtrudeDepth + deltaD));
+                        const maxNiche = Math.max(1, (wall.thickness || 20) - 3);
+                        const minDepth = this.existingProtrusion ? 0 : -maxNiche;
+                        const newDepth = Math.max(minDepth, Math.round(this.initialExtrudeDepth + deltaD));
                         this.currentExtrudeDepth = newDepth;
 
                         if (this.existingProtrusion) {
-                            this.existingProtrusion.depth = newDepth;
+                            this.existingProtrusion.depth = Math.max(0, newDepth);
                             this._updateWallAndSiblings(wall);
                         }
 
@@ -994,7 +1050,7 @@ export class WallPushPullGizmo extends THREE.Group {
                             initialThickness: this.initialThickness,
                             initialStart: this.initialStart,
                             initialEnd: this.initialEnd
-                        }, this.planner);
+                        }, planner);
 
                         this._updateWallAndSiblings(wall);
                         if (typeof this.ctx.rebuildActiveFloors === 'function') {
@@ -1227,8 +1283,19 @@ export class WallPushPullGizmo extends THREE.Group {
      * Step 3: Cancel changes (triggered by ✕ Cancel button or Esc key)
      */
     cancel() {
+        const wall = this._getWallEntity();
+        const planner = this.ctx.planner || window.planner?.value || window.plannerInstance || wall?.planner;
+        if (wall && this.initialThickness !== undefined && this.initialStart) {
+            wall.thickness = this.initialThickness;
+            if (wall.config) wall.config.thickness = this.initialThickness;
+            WallEngine.setEndpoints(wall, this.initialStart, this.initialEnd, true, planner);
+            this._updateWallAndSiblings(wall);
+        }
         this.currentExtrudeDepth = 0;
         if (this.solidBlockPreview) this.solidBlockPreview.visible = false;
+        if (this._snapshotCmd && this._snapshotCmd.undo) {
+            try { this._snapshotCmd.undo(); } catch(e) {}
+        }
         this._snapshotCmd = null;
         
         if (this.ctx.interactions && this.ctx.interactions.gizmoManager) {

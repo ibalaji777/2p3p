@@ -617,6 +617,7 @@ export class Wall3DBuilder {
         };
 
         const shearGeo = (geo) => {
+            if (!geo || !geo.attributes) return;
             const posAttr = geo.attributes.position;
             if (!posAttr) return;
             for (let i = 0; i < posAttr.count; i++) {
@@ -786,11 +787,11 @@ export class Wall3DBuilder {
 
                 const segFrontGeo = new THREE.ShapeGeometry(segShape);
                 segFrontGeo.translate(0, 0, s.zFront + 0.1);
-                frontGeos.push(segFrontGeo);
+                frontGeos.push(segFrontGeo.toNonIndexed());
 
                 const segBackGeo = new THREE.ShapeGeometry(segShape);
                 segBackGeo.translate(0, 0, s.zBack - 0.1);
-                backGeos.push(segBackGeo);
+                backGeos.push(segBackGeo.toNonIndexed());
             }
 
             for (let i = 0; i < segmentInfos.length - 1; i++) {
@@ -838,10 +839,23 @@ export class Wall3DBuilder {
                 }
             }
 
-            skinFrontGeo = BufferGeometryUtils.mergeGeometries(frontGeos, false);
-            shearGeo(skinFrontGeo);
+            const nonIndexedFront = frontGeos.map(g => g.index ? g.toNonIndexed() : g);
+            skinFrontGeo = BufferGeometryUtils.mergeGeometries(nonIndexedFront, false);
+            if (skinFrontGeo) shearGeo(skinFrontGeo);
 
-            skinBackGeo = BufferGeometryUtils.mergeGeometries(backGeos, false);
+            const nonIndexedBack = backGeos.map(g => g.index ? g.toNonIndexed() : g);
+            skinBackGeo = BufferGeometryUtils.mergeGeometries(nonIndexedBack, false);
+            if (skinBackGeo) shearGeo(skinBackGeo);
+        }
+
+        if (!skinFrontGeo) {
+            skinFrontGeo = new THREE.ShapeGeometry(wallShape);
+            skinFrontGeo.translate(0, 0, t / 2 + 0.1);
+            shearGeo(skinFrontGeo);
+        }
+        if (!skinBackGeo) {
+            skinBackGeo = new THREE.ShapeGeometry(wallShape);
+            skinBackGeo.translate(0, 0, -t / 2 - 0.1);
             shearGeo(skinBackGeo);
         }
 

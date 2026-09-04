@@ -61,7 +61,11 @@ const props = defineProps({
   viewMode3D: String,
   canUndo: Boolean,
   canRedo: Boolean,
-  isDesktop: Boolean
+  isDesktop: Boolean,
+  headerState: {
+    type: String,
+    default: 'normal'
+  }
 });
 
 const emit = defineEmits(['switch-2d', 'switch-3d', 'undo', 'redo']);

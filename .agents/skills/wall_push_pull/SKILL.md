@@ -104,3 +104,56 @@ Every vertex on the molding cross-section (flutes, grooves, ogees, fillets) is s
   - Base segment start: `x = seg.end + distZ`
 
 This produces completely gapless, solid, injection-molded quality 45-degree miter joints matching real architectural carpentry across all complex trim profiles.
+
+---
+
+## 6. 3D Interactive Push/Pull Gizmo & Real-Time Drag Math (`WallPushPullGizmo.js`)
+
+### A. 3-Step Elevation Workflow
+1. **Area Selection**:
+   - Width Boundary Handles (Vertical Cyan Laser Lines at `tStart` and `tEnd`).
+   - Height/Elevation Boundary Handles (Horizontal Gold Laser Lines at `elevBottom` and `elevTop`).
+   - Glowing 2D Selection Box on the wall face framing the selected area.
+2. **Live Dynamic Dragging**:
+   - Central Circle & Bi-directional Arrow Handles (+Z Outward Pull / -Z Inward Push).
+   - Real-time CAD/BIM axis-aligned plane projection.
+   - Dynamic 60 FPS live geometry rebuilds via `ctx.updateWallGeometryLive(w)`.
+3. **HUD Commitment**:
+   - Floating confirmation bar (`✓ Done` commits changes, `✕ Cancel` reverts state).
+
+### B. Camera-Facing Axis-Aligned Projection Plane Math
+When dragging a 3D gizmo handle along a directional axis $\vec{A}$ (such as normal axis $\vec{N}$, width axis $\vec{W}$, or height axis $\vec{H}$), the drag plane MUST contain the translation axis $\vec{A}$ and be tilted directly towards the camera direction $\vec{C}_{\text{cam}}$:
+$$\vec{T} = \vec{C}_{\text{cam}} \times \vec{A}$$
+$$\vec{P}_{\text{normal}} = \text{normalize}(\vec{A} \times \vec{T})$$
+$$\text{dragPlane.setFromNormalAndCoplanarPoint}(\vec{P}_{\text{normal}}, \text{hitPoint})$$
+
+**Why this is mandatory:**
+- If a fixed horizontal plane `(0, 1, 0)` is used, raycasting fails when the camera is at near eye level.
+- With the axis-aligned camera-facing plane, the axis $\vec{A}$ lies strictly on the plane ($\vec{P}_{\text{normal}} \cdot \vec{A} = 0$), guaranteeing 100% intersection reliability and zero dead-zones across any perspective.
+
+### C. Three Dynamic Interaction Modes
+1. **Full Wall Thickness (`mode === 'thickness' && !isSubRegion`)**:
+   - Single-sided expansion: Opposite face remains strictly pinned.
+   - Updates `wall.thickness` and shifts the wall baseline centerline by `actualDelta / 2` via `WallEngine.pushPull`.
+2. **Room Baseline Move (`mode === 'baseline'`)**:
+   - Shifts the entire wall perpendicularly along the normal vector, preserving room topology and moving attached corner junctions.
+3. **Sub-Region Solid Protrusion / Niche (`isSubRegion`)**:
+   - Renders a live 3D `solidBlockPreview` mesh:
+     - **Outward Pull ($+D$)**: Emerald green bounding volume (`0x22c55e`) representing the solid exterior block.
+     - **Inward Push ($-D$)**: Amethyst purple bounding volume (`0xa855f7`) representing the recessed architectural niche cavity.
+
+### D. Safe BufferGeometry Merging Invariants (`wall.renderer3d.js`)
+When assembling stepped 3D wall skins with cutouts and side returns:
+1. **Non-Indexed Uniformity**: All geometries passed to `BufferGeometryUtils.mergeGeometries(frontGeos, false)` must be non-indexed:
+   ```javascript
+   const nonIndexedFront = frontGeos.map(g => g.index ? g.toNonIndexed() : g);
+   skinFrontGeo = BufferGeometryUtils.mergeGeometries(nonIndexedFront, false);
+   ```
+   Mixing indexed `ShapeGeometry` with non-indexed quad `BufferGeometry` causes Three.js merge failures and returns `null`.
+2. **Null-Safe Shearing**: `shearGeo` must guard against null/undefined geometry before accessing `geo.attributes.position`.
+
+### E. Safe State Rollback on Cancel
+When the user clicks `✕ Cancel` or presses `Esc`:
+- If editing full wall thickness, restore `wall.thickness = initialThickness` and reset endpoints to `initialStart` / `initialEnd` via `WallEngine.setEndpoints`.
+- Discard `solidBlockPreview` and roll back any pending `SnapshotCommand`.
+

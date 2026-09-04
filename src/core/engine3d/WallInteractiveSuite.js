@@ -7,6 +7,7 @@ import { WallHeightGizmo } from './WallHeightGizmo.js';
 import { WallReformer } from '../engine2d/WallReformer.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { WallEngine } from '../wall/WallEngine.js';
+import { WallGeometryEngine } from '../wall/WallGeometryEngine.js';
 
 /**
  * WallInteractiveSuite
@@ -336,7 +337,7 @@ export class WallInteractiveSuite extends THREE.Group {
         this.domHUD = document.createElement('div');
         this.domHUD.className = 'sims4-wall-3d-hud';
         this.domHUD.style.cssText = `
-            position: absolute;
+            position: fixed;
             display: none;
             transform: translate(-50%, -100%);
             padding: 5px 8px;
@@ -349,7 +350,7 @@ export class WallInteractiveSuite extends THREE.Group {
             font-size: 12px;
             font-weight: 700;
             white-space: nowrap;
-            z-index: 9999;
+            z-index: 100002;
             backdrop-filter: blur(10px);
             user-select: none;
             gap: 5px;
@@ -412,8 +413,7 @@ export class WallInteractiveSuite extends THREE.Group {
         };
         this.domHUD.appendChild(btnClose);
 
-        const container = this.ctx.renderer?.domElement?.parentElement || document.body;
-        container.appendChild(this.domHUD);
+        document.body.appendChild(this.domHUD);
     }
 
     _createConfirmBar() {
@@ -421,7 +421,7 @@ export class WallInteractiveSuite extends THREE.Group {
         this.domConfirmBar = document.createElement('div');
         this.domConfirmBar.className = 'sims4-wall-confirm-bar';
         this.domConfirmBar.style.cssText = `
-            position: absolute;
+            position: fixed;
             display: none;
             transform: translate(-50%, -100%);
             padding: 6px 12px;
@@ -434,7 +434,7 @@ export class WallInteractiveSuite extends THREE.Group {
             font-size: 12px;
             font-weight: 700;
             white-space: nowrap;
-            z-index: 10001;
+            z-index: 100002;
             backdrop-filter: blur(12px);
             user-select: none;
             gap: 8px;
@@ -519,8 +519,7 @@ export class WallInteractiveSuite extends THREE.Group {
         };
         this.domConfirmBar.appendChild(btnDone);
 
-        const container = this.ctx.renderer?.domElement?.parentElement || document.body;
-        container.appendChild(this.domConfirmBar);
+        document.body.appendChild(this.domConfirmBar);
     }
 
     _updatePushPullModeButton() {
@@ -546,7 +545,7 @@ export class WallInteractiveSuite extends THREE.Group {
         this.splitBadge = document.createElement('div');
         this.splitBadge.className = 'sims4-split-live-badge';
         this.splitBadge.style.cssText = `
-            position: absolute;
+            position: fixed;
             display: none;
             transform: translate(-50%, -100%);
             padding: 5px 12px;
@@ -560,14 +559,14 @@ export class WallInteractiveSuite extends THREE.Group {
             font-weight: 800;
             white-space: nowrap;
             pointer-events: none;
-            z-index: 10000;
+            z-index: 100003;
             user-select: none;
         `;
 
         this.extrudeBadge = document.createElement('div');
         this.extrudeBadge.className = 'sims4-extrude-live-badge';
         this.extrudeBadge.style.cssText = `
-            position: absolute;
+            position: fixed;
             display: none;
             transform: translate(-50%, -100%);
             padding: 5px 12px;
@@ -581,13 +580,12 @@ export class WallInteractiveSuite extends THREE.Group {
             font-weight: 800;
             white-space: nowrap;
             pointer-events: none;
-            z-index: 10000;
+            z-index: 100003;
             user-select: none;
         `;
 
-        const container = this.ctx.renderer?.domElement?.parentElement || document.body;
-        container.appendChild(this.splitBadge);
-        container.appendChild(this.extrudeBadge);
+        document.body.appendChild(this.splitBadge);
+        document.body.appendChild(this.extrudeBadge);
     }
 
     _refreshHUDButtonStates() {
@@ -645,7 +643,10 @@ export class WallInteractiveSuite extends THREE.Group {
                 slope: '📐 Slope Toggle'
             };
             this.confirmStatusBadge.textContent = labels[mode] || 'Editing';
-            if (this.btnPushPullMode) this.btnPushPullMode.style.display = 'none';
+            if (this.btnPushPullMode) {
+                this.btnPushPullMode.style.display = (mode === 'push_pull') ? 'inline-block' : 'none';
+                if (mode === 'push_pull') this._updatePushPullModeButton();
+            }
             this.domConfirmBar.style.display = 'flex';
         }
         this._updateHUDPosition();
@@ -1133,8 +1134,8 @@ export class WallInteractiveSuite extends THREE.Group {
 
             const dom = this.ctx.renderer.domElement;
             const rect = dom.getBoundingClientRect();
-            const screenX = ((worldPos.x + 1) * rect.width) / 2;
-            const screenY = ((-worldPos.y + 1) * rect.height) / 2;
+            const screenX = rect.left + ((worldPos.x + 1) * rect.width) / 2;
+            const screenY = rect.top + ((-worldPos.y + 1) * rect.height) / 2;
 
             if (depth > 0) {
                 this.extrudeBadge.style.background = 'rgba(16, 185, 129, 0.95)';
@@ -1206,8 +1207,8 @@ export class WallInteractiveSuite extends THREE.Group {
                 this.splitLaserPlane.visible = true;
 
                 if (this.splitBadge) {
-                    const screenX = ((this.mouse.x + 1) * rect.width) / 2;
-                    const screenY = ((-this.mouse.y + 1) * rect.height) / 2;
+                    const screenX = rect.left + ((this.mouse.x + 1) * rect.width) / 2;
+                    const screenY = rect.top + ((-this.mouse.y + 1) * rect.height) / 2;
                     const splitDist = Math.round(wallLen * clampedT);
                     this.splitBadge.textContent = `✂️ Click to Split at ${splitDist} cm (Remaining: ${Math.round(wallLen - splitDist)} cm)`;
                     this.splitBadge.style.left = `${screenX}px`;
@@ -1285,7 +1286,7 @@ export class WallInteractiveSuite extends THREE.Group {
                 this._updateExtrudeGhostGeometry();
                 if (this.ctx.requestRender) this.ctx.requestRender();
             }
-        } else if (this.activeMode === 'push_pull' || this.activeMode === 'extrude_recess') {
+        } else if (this.activeMode === 'extrude_recess') {
             // Hover cursor and illumination feedback
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
             const handleObjects = [this.extrudeHandle, this.extrudeStartHandle, this.extrudeEndHandle];
@@ -1336,7 +1337,7 @@ export class WallInteractiveSuite extends THREE.Group {
             return;
         }
 
-        if (this.activeMode === 'push_pull' || this.activeMode === 'extrude_recess') {
+        if (this.activeMode === 'extrude_recess') {
             if (e.button !== 0) return;
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
             const handleObjects = [this.extrudeHandle, this.extrudeStartHandle, this.extrudeEndHandle];
@@ -1359,11 +1360,12 @@ export class WallInteractiveSuite extends THREE.Group {
                 const camDir = new THREE.Vector3();
                 this.ctx.camera.getWorldDirection(camDir);
 
-                // Horizontal ground drag plane through the 3D hit point for smooth 1:1 cursor tracking
-                this.dragPlane.setFromNormalAndCoplanarPoint(
-                    new THREE.Vector3(0, 1, 0),
-                    hitPoint
-                );
+                // Adaptive drag plane: Horizontal ground plane if viewed from angle, camera-facing plane if viewed at eye-level
+                if (Math.abs(camDir.y) >= 0.2) {
+                    this.dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), hitPoint);
+                } else {
+                    this.dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(camDir.x, 0, camDir.z).normalize(), hitPoint);
+                }
                 this.dragStartPoint.copy(hitPoint);
                 this.initialExtrudeDepth = this.extrudeCurrentDepth;
                 this.initialStartT = this.extrudeStartT;
@@ -1418,19 +1420,15 @@ export class WallInteractiveSuite extends THREE.Group {
         }
 
         const mid3D = new THREE.Vector3();
-        if (this.target) {
-            const box = new THREE.Box3().setFromObject(this.target);
-            if (!box.isEmpty()) {
-                box.getCenter(mid3D);
-                mid3D.y = box.max.y + 18;
-            } else {
-                mid3D.set(
-                    (p1.x + p2.x) / 2,
-                    wallBaseY + wallH + 18,
-                    (p1.y + p2.y) / 2
-                );
-            }
+        const box = new THREE.Box3().setFromObject(this.target);
+        if (!box.isEmpty() && isFinite(box.min.x) && isFinite(box.max.x)) {
+            box.getCenter(mid3D);
+            mid3D.y = box.max.y + 18;
         } else {
+            const p1 = WallGeometryEngine.getAnchorPosition(wall.startAnchor || { x: wall.startX, y: wall.startY });
+            const p2 = WallGeometryEngine.getAnchorPosition(wall.endAnchor || { x: wall.endX, y: wall.endY });
+            const wallBaseY = Number(wall.elevation) || 0;
+            const wallH = Number(wall.height !== undefined ? wall.height : (wall.config?.height || 120));
             mid3D.set(
                 (p1.x + p2.x) / 2,
                 wallBaseY + wallH + 18,
@@ -1448,23 +1446,29 @@ export class WallInteractiveSuite extends THREE.Group {
 
         const dom = this.ctx.renderer.domElement;
         const rect = dom.getBoundingClientRect();
-        const rawScreenX = ((mid3D.x + 1) * rect.width) / 2;
-        const rawScreenY = ((-mid3D.y + 1) * rect.height) / 2;
+        const rawScreenX = rect.left + ((mid3D.x + 1) * rect.width) / 2;
+        const rawScreenY = rect.top + ((-mid3D.y + 1) * rect.height) / 2;
 
         // Viewport Boundary Clamping: prevent HUD from overflowing screen edges
         const activeDom = (this.activeMode === 'menu') ? this.domHUD : this.domConfirmBar;
         const hudWidth = activeDom?.offsetWidth || 380;
-        const minX = (hudWidth / 2) + 24;
-        const maxX = Math.max(minX, rect.width - (hudWidth / 2) - 24);
+        const minX = rect.left + (hudWidth / 2) + 16;
+        const maxX = Math.max(minX, rect.right - (hudWidth / 2) - 16);
         const screenX = Math.max(minX, Math.min(maxX, rawScreenX));
-        const screenY = Math.max(48, Math.min(rect.height - 48, rawScreenY));
+        const screenY = Math.max(rect.top + 48, Math.min(rect.bottom - 48, rawScreenY));
 
-        if (this.domHUD && this.activeMode === 'menu') {
+        if (this.domHUD && (this.activeMode === 'menu' || this.activeMode === 'neutral')) {
+            if (this.domHUD.parentElement !== document.body && !this.domHUD.parentElement) {
+                document.body.appendChild(this.domHUD);
+            }
             this.domHUD.style.left = `${screenX}px`;
             this.domHUD.style.top = `${screenY - 14}px`;
             this.domHUD.style.display = 'flex';
         }
-        if (this.domConfirmBar && this.activeMode !== 'menu') {
+        if (this.domConfirmBar && this.activeMode !== 'menu' && this.activeMode !== 'neutral') {
+            if (this.domConfirmBar.parentElement !== document.body && !this.domConfirmBar.parentElement) {
+                document.body.appendChild(this.domConfirmBar);
+            }
             this.domConfirmBar.style.left = `${screenX}px`;
             this.domConfirmBar.style.top = `${screenY - 14}px`;
             this.domConfirmBar.style.display = 'flex';

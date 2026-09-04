@@ -139,9 +139,24 @@ export class HighlightRenderer {
             }
         }
 
-        if (object.userData && object.userData.isWallSide) {
+        const isWall = object.userData && (
+            object.userData.isWallSide || 
+            object.userData.isWallMesh || 
+            object.userData.isWallGroup || 
+            object.userData.isWall || 
+            (object.userData.entity && ['outer', 'inner', 'compound', 'wall'].includes(object.userData.entity.type))
+        );
+
+        if (isWall) {
             const wallEntity = object.userData?.entity || object.parent?.userData?.entity;
-            const side = object.userData.side || 'front';
+            const side = object.userData?.side || 'front';
+            const wallSideMesh = object.userData?.isWallSide ? object : (
+                object.parent?.children?.find(c => c.userData?.isWallSide && c.userData?.side === side) ||
+                object.children?.find(c => c.userData?.isWallSide && c.userData?.side === side) ||
+                object.parent?.children?.find(c => c.userData?.isWallSide) ||
+                object.children?.find(c => c.userData?.isWallSide) ||
+                object
+            );
             
             if (wallEntity?.parentArc && wallEntity.parentArc.walls && wallEntity.parentArc.walls.length > 0) {
                 this._detachMesh(this.wallSelectionMesh);
@@ -156,7 +171,7 @@ export class HighlightRenderer {
                     }
                 });
             } else {
-                this._buildWallHighlight(object, this.wallSelectionMesh, mode);
+                this._buildWallHighlight(wallSideMesh, this.wallSelectionMesh, mode);
             }
         } else {
             this._applyEmissiveHighlight(object, true, HIGHLIGHT_CONFIG.SELECTION_COLOR, mode);
@@ -179,9 +194,24 @@ export class HighlightRenderer {
 
         this.hoveredObject = object;
 
-        if (object.userData && object.userData.isWallSide) {
+        const isWall = object.userData && (
+            object.userData.isWallSide || 
+            object.userData.isWallMesh || 
+            object.userData.isWallGroup || 
+            object.userData.isWall || 
+            (object.userData.entity && ['outer', 'inner', 'compound', 'wall'].includes(object.userData.entity.type))
+        );
+
+        if (isWall) {
             const wallEntity = object.userData?.entity || object.parent?.userData?.entity;
-            const side = object.userData.side || 'front';
+            const side = object.userData?.side || 'front';
+            const wallSideMesh = object.userData?.isWallSide ? object : (
+                object.parent?.children?.find(c => c.userData?.isWallSide && c.userData?.side === side) ||
+                object.children?.find(c => c.userData?.isWallSide && c.userData?.side === side) ||
+                object.parent?.children?.find(c => c.userData?.isWallSide) ||
+                object.children?.find(c => c.userData?.isWallSide) ||
+                object
+            );
             
             if (wallEntity?.parentArc && wallEntity.parentArc.walls && wallEntity.parentArc.walls.length > 0) {
                 this._detachMesh(this.wallHoverMesh);
@@ -196,7 +226,7 @@ export class HighlightRenderer {
                     }
                 });
             } else {
-                this._buildWallHighlight(object, this.wallHoverMesh, 'hover');
+                this._buildWallHighlight(wallSideMesh, this.wallHoverMesh, 'hover');
             }
         } else {
             this._applyEmissiveHighlight(object, true, HIGHLIGHT_CONFIG.HOVER_COLOR, 'hover');
