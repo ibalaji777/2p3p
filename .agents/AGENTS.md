@@ -195,3 +195,23 @@ All wall creation, movement, anchor repositioning, thickness editing, height edi
 5. **Deterministic Cascading Cleanup & History**:
    - Deleting a wall via `WallEngine.deleteWall` must cascade to all child auto-gables, openings, moldings, and unregister degree-0 anchors.
    - All state mutations must integrate cleanly with `SnapshotCommand` and `WallSerializer`.
+
+# Strict Wall Corner Miter & Baseline Geometry Lockdown Rule
+
+**CRITICAL MANDATE - ZERO UNAUTHORIZED CHANGES**
+
+Wall corner miter calculations, bevel logic, endpoint/corner vertex mappings, and 2D/3D corner boundary generation are **strictly locked down**. No AI agent or developer may modify or refactor the wall corner or miter logic without explicit, prior user approval.
+
+## Strictly Locked Invariants:
+1. **Corner Authority & Baseline Mapping (`WallGeometryEngine.getCorners`)**:
+   - `startL` and `startR` are mapped strictly to `startData.corners[0]` and `startData.corners[1]`.
+   - `endL` and `endR` are mapped strictly to `endData.corners[0]` and `endData.corners[1]`.
+   - `frontVerts` MUST strictly start at `startL` and end at `endL`.
+   - `backVerts` MUST strictly start at `endR` and end at `startR`.
+   - NEVER substitute `startTrue` or `endTrue` into `frontVerts` or `backVerts` or connect `bevelL/R` to un-beveled miter points in `sceneFunc`.
+2. **Bevel Integrity & Zero Arrowhead Spikes**:
+   - On acute wall corner intersections, the miter bevel cutoffs (`startData.bevelL`, `startData.bevelR`, `endData.bevelL`, `endData.bevelR`) must connect directly to the baseline corners (`startL`, `startR`, `endL`, `endR`).
+   - Connecting bevel cutoffs to extended un-clamped miter vertices (`startTrue`) is strictly prohibited as it creates visual arrowhead/spike glitches.
+3. **Approval Mandate**:
+   - Before making ANY change to `WallGeometryEngine.getCorners`, `WallGeometryEngine.getExactPolygonPoints`, `WallEngine.recalculateGeometry`, `wall.renderer2d.js:sceneFunc`, or corner shearing in `wall.renderer3d.js`, the agent MUST explain the exact proposed mathematical difference to the user and obtain explicit user approval.
+

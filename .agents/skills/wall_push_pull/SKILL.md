@@ -22,8 +22,11 @@ This skill defines the architectural and geometric standard for wall push/pull o
 
 ### A. Single Monolithic Wall Polygon (`wall.renderer2d.js`)
 - The wall's single 2D polygon (`this.poly.points`) must directly step outward at the protrusion and return cleanly to enclose both the base wall and the protrusion in **one continuous filled polygon**:
-  - Front Face (+n): `startTrue[0] -> ... -> ptA -> ptA_out -> ptB_out -> ptB -> ... -> endTrue[0]`
-  - Back Face (-n): `endTrue[1] -> ... -> ptB -> ptB_out -> ptA_out -> ptA -> ... -> startTrue[1]`
+  - Front Face (+n): `startL -> ... -> ptA -> ptA_out -> ptB_out -> ptB -> ... -> endL`
+  - Back Face (-n): `endR -> ... -> ptB -> ptB_out -> ptA_out -> ptA -> ... -> startR`
+- **Locked Baseline Corners**:
+  - `startL`/`startR` and `endL`/`endR` are strictly bound to `startData.corners` and `endData.corners`.
+  - Corner miter math and bevel cutoffs are locked and must never be altered during push/pull calculations.
 - **Baseline Edge Anchoring**:
   Calculate `ptA` and `ptB` directly along the true baseline edge vectors (`p1_L -> p2_L` for front, `p1_R -> p2_R` for back) using normalized span `t1, t2 = tCenter +/- (width / 2) / length`. Never interpolate between corner-mitered true corners which skew near wall junctions.
 

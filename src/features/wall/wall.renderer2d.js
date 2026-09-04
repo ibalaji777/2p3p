@@ -598,12 +598,17 @@ export class PremiumWall {
         const { startData, endData } = this.wallShapeData;
         const n = WallGeometryEngine.getNormal(this);
         
-        const startTrue = startData.trueCorners || startData.corners;
-        const endTrue = endData.trueCorners || endData.corners;
+        const startCorners = startData.corners;
+        const endCorners = endData.corners;
+
+        const startL = { x: startCorners[0].x, y: startCorners[0].y };
+        const startR = { x: startCorners[1].x, y: startCorners[1].y };
+        const endL = { x: endCorners[0].x, y: endCorners[0].y };
+        const endR = { x: endCorners[1].x, y: endCorners[1].y };
 
         // Construct monolithic wall polygon including all solid exterior protrusions
-        const frontVerts = [ { x: startTrue[0].x, y: startTrue[0].y } ];
-        const backVerts = [ { x: endTrue[1].x, y: endTrue[1].y } ];
+        const frontVerts = [ { x: startL.x, y: startL.y } ];
+        const backVerts = [ { x: endR.x, y: endR.y } ];
 
         const protrusions = (this.attachedWidgets || []).filter(w => (w.type === 'solid_protrusion' || w.configId === 'solid_protrusion' || w.type?.includes('protrusion') || w.configId?.includes('protrusion')));
         const wLen = Math.hypot(p2.x - p1.x, p2.y - p1.y);
@@ -663,15 +668,19 @@ export class PremiumWall {
             });
         }
 
-        frontVerts.push({ x: endTrue[0].x, y: endTrue[0].y });
-        backVerts.push({ x: startTrue[1].x, y: startTrue[1].y });
+        frontVerts.push({ x: endL.x, y: endL.y });
+        backVerts.push({ x: startR.x, y: startR.y });
 
         this.wallShapeData.frontVerts = frontVerts;
         this.wallShapeData.backVerts = backVerts;
 
         const polyCoords = [];
+        if (startData.bevelL) polyCoords.push(startData.bevelL.x, startData.bevelL.y);
         frontVerts.forEach(v => polyCoords.push(v.x, v.y));
+        if (endData.bevelL) polyCoords.push(endData.bevelL.x, endData.bevelL.y);
+        if (endData.bevelR) polyCoords.push(endData.bevelR.x, endData.bevelR.y);
         backVerts.forEach(v => polyCoords.push(v.x, v.y));
+        if (startData.bevelR) polyCoords.push(startData.bevelR.x, startData.bevelR.y);
 
         this.poly.points(polyCoords);
         this.poly.closed(true);

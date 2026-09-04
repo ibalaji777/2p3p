@@ -102,6 +102,34 @@ describe('WallEngine - Single Source of Truth Architecture', () => {
             expect(startCorners2.hasCap).toBe(false);
         });
 
+        it('handles acute angle corner joints cleanly with bevels and aligned frontVerts/backVerts', () => {
+            // Wall 1 from (200, 0) to (0, 0), Wall 2 from (0, 0) to (200, 30) meeting at an acute angle (~8.5 degrees)
+            const corner = { x: 0, y: 0, position: () => ({ x: 0, y: 0 }) };
+            const a1 = { x: 200, y: 0, position: () => ({ x: 200, y: 0 }) };
+            const a2 = { x: 200, y: 30, position: () => ({ x: 200, y: 30 }) };
+
+            const w1 = { startAnchor: a1, endAnchor: corner, thickness: 20, attachedWidgets: [] };
+            const w2 = { startAnchor: corner, endAnchor: a2, thickness: 20, attachedWidgets: [] };
+            const allWalls = [w1, w2];
+
+            WallEngine.recalculateGeometry(w1, allWalls);
+            WallEngine.recalculateGeometry(w2, allWalls);
+
+            expect(w1.wallShapeData).toBeDefined();
+            expect(w2.wallShapeData).toBeDefined();
+
+            // frontVerts and backVerts must start and end at startL, endL, endR, startR
+            expect(w1.wallShapeData.frontVerts[0]).toEqual({ x: w1.wallShapeData.startL.x, y: w1.wallShapeData.startL.y });
+            expect(w1.wallShapeData.frontVerts[w1.wallShapeData.frontVerts.length - 1]).toEqual({ x: w1.wallShapeData.endL.x, y: w1.wallShapeData.endL.y });
+            expect(w1.wallShapeData.backVerts[0]).toEqual({ x: w1.wallShapeData.endR.x, y: w1.wallShapeData.endR.y });
+            expect(w1.wallShapeData.backVerts[w1.wallShapeData.backVerts.length - 1]).toEqual({ x: w1.wallShapeData.startR.x, y: w1.wallShapeData.startR.y });
+
+            expect(w2.wallShapeData.frontVerts[0]).toEqual({ x: w2.wallShapeData.startL.x, y: w2.wallShapeData.startL.y });
+            expect(w2.wallShapeData.frontVerts[w2.wallShapeData.frontVerts.length - 1]).toEqual({ x: w2.wallShapeData.endL.x, y: w2.wallShapeData.endL.y });
+            expect(w2.wallShapeData.backVerts[0]).toEqual({ x: w2.wallShapeData.endR.x, y: w2.wallShapeData.endR.y });
+            expect(w2.wallShapeData.backVerts[w2.wallShapeData.backVerts.length - 1]).toEqual({ x: w2.wallShapeData.startR.x, y: w2.wallShapeData.startR.y });
+        });
+
         it('retains flush square seam for collinear through-walls meeting a 3-way T-junction', () => {
             const joint = { x: 100, y: 100, position: () => ({ x: 100, y: 100 }) };
             const west = { x: 0, y: 100, position: () => ({ x: 0, y: 100 }) };

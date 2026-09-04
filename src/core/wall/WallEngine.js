@@ -85,8 +85,8 @@ export class WallEngine {
         const startTrue = startData.trueCorners || startData.corners;
         const endTrue = endData.trueCorners || endData.corners;
 
-        const frontVerts = [{ x: startTrue[0].x, y: startTrue[0].y }];
-        const backVerts = [{ x: endTrue[1].x, y: endTrue[1].y }];
+        const frontVerts = [{ x: startL.x, y: startL.y }];
+        const backVerts = [{ x: endR.x, y: endR.y }];
 
         const protrusions = (wall.attachedWidgets || []).filter(w => (w.type === 'solid_protrusion' || w.configId === 'solid_protrusion' || w.type?.includes('protrusion') || w.configId?.includes('protrusion')));
         const n = WallGeometryEngine.getNormal(wall);
@@ -146,8 +146,8 @@ export class WallEngine {
             });
         }
 
-        frontVerts.push({ x: endTrue[0].x, y: endTrue[0].y });
-        backVerts.push({ x: startTrue[1].x, y: startTrue[1].y });
+        frontVerts.push({ x: endL.x, y: endL.y });
+        backVerts.push({ x: startR.x, y: startR.y });
 
         wall.wallShapeData = {
             startL, endL, endR, startR,

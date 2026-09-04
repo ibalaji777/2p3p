@@ -141,6 +141,16 @@ WallEngine.deleteWall(planner, wall);
 - All multi-property edits must integrate with `SnapshotCommand` via `planner.exportState()` / `planner.importState()`.
 - `WallSerializer.js` is the single serialization authority. All canonical fields must be preserved during save/load.
 
+### Rule 7: Strict Wall Corner Miter & Baseline Geometry Lockdown (Zero Unauthorized Changes)
+- **Zero Modifications Without Explicit User Approval**: Wall corner miter calculations, bevel logic, endpoint/corner vertex mappings, and 2D/3D corner boundary generation are strictly locked down.
+- **Invariants**:
+  - `startL`/`startR` MUST remain strictly mapped to `startData.corners[0]`/`startData.corners[1]`.
+  - `endL`/`endR` MUST remain strictly mapped to `endData.corners[0]`/`endData.corners[1]`.
+  - `frontVerts` MUST start with `startL` and end with `endL`.
+  - `backVerts` MUST start with `endR` and end with `startR`.
+  - NEVER connect `bevelL`/`bevelR` to `startTrue` or `endTrue` in `sceneFunc` or `recalculateGeometry`.
+- Any proposed change to corner miter math or vertex routing MUST be explicitly presented to and approved by the user first.
+
 ---
 
 ## 4. Quick API Reference Recipes
