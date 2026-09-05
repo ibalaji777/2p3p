@@ -9,6 +9,7 @@ import { Molding3DBuilder } from './Molding3DBuilder.js';
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
 import { Railing3DBuilder } from '../../features/railing/builders/Railing3DBuilder.js';
 import { Wall3DBuilder } from '../../features/wall/wall.renderer3d.js';
+import { Platform3DBuilder } from './Platform3DBuilder.js';
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY, offsetPolygon } from '../../core/registry';
 import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js';
 import { MaterialFactory } from './MaterialFactory.js';
@@ -58,6 +59,7 @@ export class EnvironmentBuilder {
         this.wall3DBuilder = new Wall3DBuilder();
         this.moldingBuilder = new Molding3DBuilder();
         this.stairBuilder = new Stair3DBuilder(ctx.assets, ctx.interactables, ctx.helpers);
+        this.platformBuilder = new Platform3DBuilder(ctx);
     }
 
     setupBaseEnvironment() {
@@ -204,6 +206,12 @@ export class EnvironmentBuilder {
         this.stairBuilder.build(stairs, this.ctx.structureGroup, 0, false, maxWallHeight);
         if (outdoorZones && outdoorZones.length > 0) {
             this.buildOutdoorZones(outdoorZones, this.ctx.structureGroup);
+        }
+
+        const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
+        const platforms = planner?.platforms || [];
+        if (platforms && platforms.length > 0) {
+            this.buildPlatforms(platforms, this.ctx.structureGroup);
         }
 
         const matMain = getPlasterMaterial();
@@ -479,6 +487,17 @@ export class EnvironmentBuilder {
         } catch(e) {
             console.error("Error building railings 3D:", e);
         }
+    }
+
+    buildPlatforms(platforms, targetGroup = this.ctx.structureGroup) {
+        if (!platforms || !this.platformBuilder) return;
+        platforms.forEach(platform => {
+            try {
+                this.platformBuilder.buildPlatform(platform, targetGroup);
+            } catch (err) {
+                console.error("Error building platform in 3D:", err);
+            }
+        });
     }
 
     buildOutdoorZones(outdoorZones, targetGroup = this.ctx.structureGroup) {

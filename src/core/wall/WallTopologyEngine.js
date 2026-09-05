@@ -89,8 +89,16 @@ export class WallTopologyEngine {
             { p1: { x: minX, y: maxY }, p2: { x: minX, y: minY } }  // Left: BL -> TL
         ];
 
-        // Check if existing walls intersect this room box
-        const existingWalls = (planner.walls || []).filter(w => !w.parentArc && w.type !== 'railing' && !w.hidden);
+        // Check if existing walls intersect this room box on the same vertical level
+        const wallElev = elevation !== undefined ? elevation : 0;
+        const isWallOnSameLevel = (w) => {
+            const wBot = Number(w.elevation) || 0;
+            const wTop = wBot + (Number(w.height) || 120);
+            const newBot = Number(wallElev) || 0;
+            const newTop = newBot + Number(height);
+            return Math.max(wBot, newBot) < Math.min(wTop, newTop) - 2.0;
+        };
+        const existingWalls = (planner.walls || []).filter(w => !w.parentArc && w.type !== 'railing' && !w.hidden && isWallOnSameLevel(w));
         let hasIntersections = false;
         for (const seg of roomSegments) {
             for (const w of existingWalls) {
@@ -354,13 +362,58 @@ export class WallTopologyEngine {
     static reformAndAddWallSegments(planner, inputSegments, wallType = 'outer', wallConfig = {}) {
         if (!planner || !inputSegments || inputSegments.length === 0) return [];
 
-        const wallHeight = wallConfig.height !== undefined ? wallConfig.height : 120;
-        const wallThick = wallConfig.thickness !== undefined ? wallConfig.thickness : 16;
-        const wallElev = wallConfig.elevation !== undefined ? wallConfig.elevation : 0;
+        let wallHeight = wallConfig.height !== undefined ? wallConfig.height : 120;
+        let wallThick = wallConfig.thickness !== undefined ? wallConfig.thickness : 16;
+        let wallElev = wallConfig.elevation !== undefined ? wallConfig.elevation : 0;
         const wallParams = wallConfig.params ? JSON.parse(JSON.stringify(wallConfig.params)) : null;
 
+        // Auto-elevate walls drawn directly on top of foundation walls if elevation was not explicitly set
+        if (wallType !== 'foundation' && wallConfig.elevation === undefined) {
+            let foundFoundationTop = 0;
+            const areSegmentsOverlappingCollinear = (A, B, C, D, tolerance = 6.0) => {
+                const dx1 = B.x - A.x, dy1 = B.y - A.y;
+                const lenSq1 = dx1 * dx1 + dy1 * dy1;
+                if (lenSq1 < 1e-6) return false;
+                const len1 = Math.sqrt(lenSq1);
+                const distC = Math.abs((C.x - A.x) * dy1 - (C.y - A.y) * dx1) / len1;
+                const distD = Math.abs((D.x - A.x) * dy1 - (D.y - A.y) * dx1) / len1;
+                if (distC > tolerance || distD > tolerance) return false;
+
+                const tC = ((C.x - A.x) * dx1 + (C.y - A.y) * dy1) / lenSq1;
+                const tD = ((D.x - A.x) * dx1 + (D.y - A.y) * dy1) / lenSq1;
+                const minT = Math.min(tC, tD);
+                const maxT = Math.max(tC, tD);
+                return Math.max(0, minT) < Math.min(1, maxT) - 0.05;
+            };
+
+            (planner.walls || []).forEach(w => {
+                if (w.type === 'foundation' && !w.hidden) {
+                    const wA = WallGeometryEngine.getAnchorPosition(w.startAnchor);
+                    const wB = WallGeometryEngine.getAnchorPosition(w.endAnchor);
+                    inputSegments.forEach(seg => {
+                        if (areSegmentsOverlappingCollinear(wA, wB, seg.p1, seg.p2)) {
+                            const fTop = (Number(w.elevation) || 0) + (Number(w.height) || 40);
+                            if (fTop > foundFoundationTop) foundFoundationTop = fTop;
+                        }
+                    });
+                }
+            });
+            if (foundFoundationTop > 0) {
+                wallElev = foundFoundationTop;
+            }
+        }
+
+        const isWallOnSameLevel = (w) => {
+            const wBot = Number(w.elevation) || 0;
+            const wTop = wBot + (Number(w.height) || 120);
+            const newBot = Number(wallElev) || 0;
+            const newTop = newBot + Number(wallHeight);
+            // Two walls only interact horizontally if their vertical spans overlap
+            return Math.max(wBot, newBot) < Math.min(wTop, newTop) - 2.0;
+        };
+
         const createdWalls = [];
-        const existingWalls = [...planner.walls.filter(w => !w.parentArc && w.type !== 'railing' && !w.hidden)];
+        const existingWalls = [...planner.walls.filter(w => !w.parentArc && w.type !== 'railing' && !w.hidden && isWallOnSameLevel(w))];
 
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
         inputSegments.forEach(seg => {
@@ -479,7 +532,7 @@ export class WallTopologyEngine {
         // ============================================================
         // PHASE 3: Subdivide all NEW input segments
         // ============================================================
-        const currentActiveWalls = [...planner.walls.filter(w => !w.parentArc && w.type !== 'railing' && !w.hidden)];
+        const currentActiveWalls = [...planner.walls.filter(w => !w.parentArc && w.type !== 'railing' && !w.hidden && isWallOnSameLevel(w))];
 
         inputSegments.forEach(seg => {
             const pStart = seg.p1;
@@ -551,7 +604,7 @@ export class WallTopologyEngine {
                 const ancB = planner.getOrCreateAnchor(ptB.x, ptB.y);
                 if (ancA === ancB) continue;
 
-                const existing = planner.walls.find(w =>
+                const existing = currentActiveWalls.find(w =>
                     (w.startAnchor === ancA && w.endAnchor === ancB) ||
                     (w.startAnchor === ancB && w.endAnchor === ancA)
                 );

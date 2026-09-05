@@ -653,19 +653,21 @@ const hintData = computed(() => {
     if (activeTool.value.startsWith('molding_')) return { text: isTouch ? 'MOLDING mode: Tap near any wall edge to place molding precisely.' : 'MOLDING mode: Hover near any wall edge (glows blue), then click to place.', color: '#0ea5e9' };
     if (activeTool.value.startsWith('door') || activeTool.value.startsWith('window') || activeTool.value === 'arch_opening' || activeTool.value === 'sunshade') return { text: isTouch ? 'OPENING mode: Tap near any wall edge to place.' : 'OPENING mode: Hover near any wall edge (glows blue), then click to place.', color: '#0ea5e9' };
     
-    if (activeTool.value === 'room_box') {
+    if (activeTool.value === 'room_box' || activeTool.value === 'foundation_box') {
+        const isFound = activeTool.value === 'foundation_box';
         return {
             text: viewMode.value === '3d'
-                ? 'SIMS 4 ROOM BOX: Click & drag (or click two opposite corners) to draw a 4-wall rectangular room in 3D.'
-                : 'SIMS 4 ROOM BOX: Click & drag (or click two opposite corners) to draw a 4-wall rectangular room in 2D.',
+                ? (isFound ? 'SIMS 4 FOUNDATION BOX: Click & drag to draw a 4-wall raised plinth foundation in 3D.' : 'SIMS 4 ROOM BOX: Click & drag to draw a 4-wall rectangular room in 3D.')
+                : (isFound ? 'SIMS 4 FOUNDATION BOX: Click & drag to draw a 4-wall raised plinth foundation in 2D.' : 'SIMS 4 ROOM BOX: Click & drag to draw a 4-wall rectangular room in 2D.'),
             color: '#0ea5e9'
         };
     }
-    if (activeTool.value === 'wall' || activeTool.value === 'outer' || activeTool.value === 'inner' || activeTool.value === 'compound') {
+    if (activeTool.value === 'wall' || activeTool.value === 'outer' || activeTool.value === 'inner' || activeTool.value === 'compound' || activeTool.value === 'foundation' || activeTool.value === 'half_wall') {
+        const label = activeTool.value === 'foundation' ? 'FOUNDATION WALL' : (activeTool.value === 'half_wall' ? 'HALF WALL / PARAPET' : 'WALL');
         return { 
             text: viewMode.value === '3d' 
-                ? '3D WALL BUILD: Click floor to place corner. Move mouse to stretch wall. Click to chain. Press ESC / Right-Click to finish.' 
-                : 'WALL mode: Click to start drawing a wall. Click again to place corners. Press ESC to finish.', 
+                ? `3D ${label}: Click floor to place corner. Move mouse to stretch. Click to chain. Press ESC / Right-Click to finish.` 
+                : `${label} mode: Click to start drawing. Click again to place corners. Press ESC to finish.`, 
             color: '#0ea5e9' 
         };
     }
@@ -698,7 +700,7 @@ onMounted(() => {
         selectedNodeIndex.value = nodeIdx;
 
         if (viewMode.value === '3d' && renderer3D.value) {
-            if (type === 'furniture' && entity && entity.mesh3D) {
+            if ((type === 'furniture' || type === 'platform') && entity && entity.mesh3D) {
                 if (renderer3D.value.interactions?.selectedObject !== entity.mesh3D) {
                     renderer3D.value.selectObject(entity.mesh3D);
                 }

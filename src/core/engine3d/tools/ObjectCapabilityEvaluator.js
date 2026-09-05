@@ -45,6 +45,7 @@ export class ObjectCapabilityEvaluator {
         const isStair = !!mesh?.userData?.isStair || type === 'stair' || type.startsWith('stair_') || type === 'staircase';
         const isRailing = !!mesh?.userData?.isRailing || type === 'railing' || type.startsWith('railing_');
         const isShape = !!mesh?.userData?.isShape || type.startsWith('shape_') || type === 'shape';
+        const isPlatform = !!mesh?.userData?.isPlatform || type === 'platform';
         const isFloorCut = !!mesh?.userData?.isFloorCutProxy || type === 'shape_floor_cut' || type === 'floor_cut';
         const isRoom = !!mesh?.userData?.isFloor || type === 'room' || type === 'floor' || type === 'outdoor_zone' || type === 'balcony';
         const isSolidProtrusion = !!mesh?.userData?.isProtrusion || type === 'solid_protrusion' || mesh?.userData?.widget?.type === 'solid_protrusion';
@@ -175,6 +176,20 @@ export class ObjectCapabilityEvaluator {
                 elevatable: true,
                 pushPullable: false,
                 apertureResizable: false
+            };
+        }
+
+        // 9b. Platforms (Sims 4 Style)
+        if (isPlatform) {
+            return {
+                selectable: true,
+                material: true,
+                movable: true,
+                rotatable: true,
+                tiltable: false,
+                elevatable: true,
+                pushPullable: false,
+                apertureResizable: true
             };
         }
 

@@ -16,20 +16,34 @@ export const getMenuCategories = () => [
         ]
     },
     {
-        id: 'walls', name: 'Walls',
-        icon: '<path d="M4 4h16v16H4z"></path><path d="M4 12h16"></path><path d="M12 4v16"></path>',
+        id: 'walls', name: 'Walls & Structure',
+        icon: '<polygon points="12 3 21 7 12 11 3 7" stroke-width="1.8" fill="currentColor" fill-opacity="0.2"></polygon><path d="M3 7v10l9 4 9-4V7" stroke-width="1.8"></path><line x1="12" y1="11" x2="12" y2="21" stroke-width="1.8"></line><path d="M3 12l9 4 9-4" stroke-width="1.4"></path><path d="M7.5 9.5v5M16.5 9.5v5" stroke-width="1.2"></path>',
         tools: [
-            { id: 'wall_catalog', name: 'Walls' },
-            { id: 'room_box', name: 'Room Box (Rectangle)' },
+            { id: 'outer', name: 'Wall Tool' },
+            { id: 'room_box', name: 'Room Tool (Box)' },
+            { isDivider: true, name: 'Foundations (Sims 4)' },
+            { id: 'foundation', name: 'Foundation Wall' },
+            { id: 'foundation_box', name: 'Foundation Box' },
+            { isDivider: true, name: 'Half-Walls & Partitions' },
+            { id: 'half_wall', name: 'Half Wall / Parapet' },
             { id: 'compound', name: 'Compound Wall' },
+            { id: 'arc', name: 'Curved Wall' },
+            { isDivider: true, name: 'Trims & Baseboards' },
             { id: 'wall_trim', name: 'Wall Trims & Moldings' },
-            { id: 'skirting', name: 'Baseboards & Skirting' }
+            { id: 'skirting', name: 'Baseboards & Skirting' },
+            { isDivider: true, name: 'Catalogs' },
+            { id: 'wall_catalog', name: 'Walls Catalog' }
         ]
     },
     {
-        id: 'floors', name: 'Floors & Pavements',
+        id: 'floors', name: 'Floors & Platforms',
         icon: '<rect x="3" y="3" width="18" height="18" rx="2" stroke-width="1.8"></rect><path d="M3 9h18M9 21V9" stroke-width="1.8"></path>',
         tools: [
+            { isDivider: true, name: 'Platforms (Sims 4)' },
+            { id: 'platform_catalog', name: 'Platform Catalog' },
+            { id: 'platform_rect', name: 'Platform Box' },
+            { id: 'platform_polygon', name: 'Custom Platform (Polygon)' },
+            { isDivider: true, name: 'Outdoor Pavements' },
             { id: 'outdoor_pavement', name: 'Pavement (Polygon)' },
             { id: 'outdoor_patio', name: 'Patio (Polygon)' },
             { id: 'outdoor_walkway', name: 'Walkway' },

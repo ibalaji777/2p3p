@@ -311,7 +311,11 @@ const getCatalogHeaderTitle = () => {
         'outdoor_pavement': 'Pavements & Hardscapes',
         'outdoor_patio': 'Patios & Sun Decks',
         'outdoor_softscape': 'Lawns & Softscapes',
-        'outdoor_other': 'Outdoor Spaces'
+        'outdoor_other': 'Outdoor Spaces',
+        'platform_catalog': 'Platforms & Stages',
+        'platform': 'Platforms & Stages',
+        'platform_rect': 'Platform Box',
+        'platform_polygon': 'Custom Platform'
     };
     return map[props.type] || 'Product Catalog';
 };
@@ -543,6 +547,172 @@ const elevationFasciaCatalog = ref([
     { id: 'fascia_box', name: 'Full Box Frame', badge: 'BOX', material: 'Powder-Coated Metal', image: '', params: { type: 'elevation_fascia', profileType: 'full_box' } }
 ]);
 
+const platformCatalog = ref([
+    { isDivider: true, id: 'div_platform_stages', name: 'Sims 4 Architectural Platforms & Stages' },
+    {
+        id: 'platform_rect_standard',
+        name: 'Clean Modern Platform Box',
+        badge: 'STAGE',
+        material: 'Golden Teak & White Oak Riser',
+        specs: '120 × 120 × 20 cm',
+        image: '',
+        toolId: 'platform_rect',
+        params: {
+            type: 'platform',
+            shapeType: 'rect',
+            width: 120,
+            depth: 120,
+            height: 20,
+            stepHeight: 15,
+            elevation: 0,
+            trimStyle: 'flat',
+            materials: {
+                top: { id: 'wood_golden_teak' },
+                side: { id: 'wood_white_oak' }
+            }
+        }
+    },
+    {
+        id: 'platform_living_podium',
+        name: 'Living Room Raised Podium (2-Step)',
+        badge: 'POPULAR',
+        material: 'Golden Teak Deck & White Trim',
+        specs: '240 × 180 × 30 cm',
+        image: '',
+        toolId: 'platform_rect',
+        params: {
+            type: 'platform',
+            shapeType: 'rect',
+            width: 240,
+            depth: 180,
+            height: 30,
+            stepHeight: 15,
+            elevation: 0,
+            trimStyle: 'bullnose',
+            materials: {
+                top: { id: 'wood_golden_teak' },
+                side: { id: 'upvc_white' }
+            }
+        }
+    },
+    {
+        id: 'platform_sunken_pit',
+        name: 'Sunken Conversation Pit (-2 Steps)',
+        badge: 'SUNKEN',
+        material: 'Dark Walnut & Cream Travertine',
+        specs: '200 × 200 × -30 cm',
+        image: '',
+        toolId: 'platform_rect',
+        params: {
+            type: 'platform',
+            shapeType: 'rect',
+            width: 200,
+            depth: 200,
+            height: -30,
+            stepHeight: 15,
+            elevation: 0,
+            trimStyle: 'beveled',
+            materials: {
+                top: { id: 'wood_dark_walnut' },
+                side: { id: 'stone_travertine_beige' }
+            }
+        }
+    },
+    {
+        id: 'platform_floating_led',
+        name: 'Floating Stage with LED Reveal',
+        badge: 'LED GLOW',
+        material: 'Polished Basalt & Warm LED Strip',
+        specs: '180 × 180 × 20 cm',
+        image: '',
+        toolId: 'platform_rect',
+        params: {
+            type: 'platform',
+            shapeType: 'rect',
+            width: 180,
+            depth: 180,
+            height: 20,
+            stepHeight: 15,
+            elevation: 0,
+            trimStyle: 'recessed_led',
+            materials: {
+                top: { id: 'stone_basalt_lava' },
+                side: { id: 'metal_brushed_aluminum' }
+            }
+        }
+    },
+    {
+        id: 'platform_classical_stage',
+        name: 'Classical Molded Pedestal',
+        badge: 'CLASSICAL',
+        material: 'Nero Marquina Marble & Molded Riser',
+        specs: '160 × 160 × 40 cm',
+        image: '',
+        toolId: 'platform_rect',
+        params: {
+            type: 'platform',
+            shapeType: 'rect',
+            width: 160,
+            depth: 160,
+            height: 40,
+            stepHeight: 15,
+            elevation: 0,
+            trimStyle: 'classical',
+            materials: {
+                top: { id: 'marble_nero_marquina' },
+                side: { id: 'upvc_white' }
+            }
+        }
+    },
+    {
+        id: 'platform_stone_plinth',
+        name: 'Travertine Stone Plinth',
+        badge: 'STONE',
+        material: 'Travertine Beige Plinth',
+        specs: '200 × 140 × 30 cm',
+        image: '',
+        toolId: 'platform_rect',
+        params: {
+            type: 'platform',
+            shapeType: 'rect',
+            width: 200,
+            depth: 140,
+            height: 30,
+            stepHeight: 15,
+            elevation: 0,
+            trimStyle: 'stone',
+            materials: {
+                top: { id: 'stone_travertine_beige' },
+                side: { id: 'stone_basalt_lava' }
+            }
+        }
+    },
+    { isDivider: true, id: 'div_platform_shapes', name: 'Custom Shapes & Polygon Tools' },
+    {
+        id: 'platform_polygon_freeform',
+        name: 'Custom Polygonal Platform',
+        badge: 'FREEFORM',
+        material: 'Click Canvas to Chain Boundary',
+        specs: 'Arbitrary Polygon Tool',
+        image: '',
+        toolId: 'platform_polygon',
+        params: {
+            type: 'platform',
+            shapeType: 'polygon',
+            width: 120,
+            depth: 120,
+            height: 20,
+            stepHeight: 15,
+            elevation: 0,
+            trimStyle: 'flat',
+            materials: {
+                top: { id: 'wood_golden_teak' },
+                side: { id: 'wood_white_oak' }
+            }
+        }
+    }
+]);
+
 const advanceOpeningsCatalog = ref([
     { id: 'adv_arch', name: 'Arch Opening', badge: 'ARCH', material: 'Wall Cutout', image: '', toolId: 'arch_opening', params: { type: 'arch_opening' } },
     { id: 'adv_circ', name: 'Circular & Oval', badge: 'CIRCULAR', material: 'Wall Cutout', image: '', toolId: 'circular_opening', params: { type: 'circular_opening' } },
@@ -561,11 +731,19 @@ const shapesCatalog = ref([
 ]);
 
 const wallsCatalog = ref([
-    { id: 'wall_outer', name: 'Outer Wall', badge: 'STRUCTURAL', material: 'Brick & Plaster', specs: '230 mm Thick', image: '', toolId: 'outer', params: { type: 'outer' } },
-    { id: 'wall_inner', name: 'Inner Wall', badge: 'PARTITION', material: 'Gypsum / Brick', specs: '115 mm Thick', image: '', toolId: 'inner', params: { type: 'inner' } },
-    { id: 'wall_room_box', name: 'Wall Room (Rectangle)', badge: 'SIMS 4', material: 'Brick & Plaster', specs: '4-Wall Enclosed Room', image: '', toolId: 'room_box', params: { type: 'room_box' } },
-    { id: 'wall_compound', name: 'Compound Wall', badge: 'BOUNDARY', material: 'Stone / Boundary Brick', specs: '150 mm Thick • 1500 mm (5 ft) High', image: '', toolId: 'compound', params: { type: 'compound', height: 80, thickness: 12 } },
-    { id: 'wall_arc', name: 'Curved Wall (Arc)', badge: 'CURVED', material: 'Reinforced Concrete', specs: '230 mm Arc', image: '', toolId: 'arc', params: { type: 'arc' } }
+    { isDivider: true, id: 'div_walls_basic', name: 'Standard Walls & Rooms' },
+    { id: 'wall_outer', name: 'Outer Wall', badge: 'STRUCTURAL', material: 'Brick & Plaster', specs: '230 mm Thick • 2800 mm High', image: '', toolId: 'outer', params: { type: 'outer', thickness: 16, height: 120 } },
+    { id: 'wall_inner', name: 'Inner Partition Wall', badge: 'PARTITION', material: 'Gypsum / Brick', specs: '115 mm Thick • 2800 mm High', image: '', toolId: 'inner', params: { type: 'inner', thickness: 8, height: 120 } },
+    { id: 'wall_room_box', name: 'Room Tool (4-Wall Box)', badge: 'SIMS 4', material: 'Brick & Plaster', specs: 'Enclosed 4-Wall Room', image: '', toolId: 'room_box', params: { type: 'room_box', thickness: 16, height: 120 } },
+
+    { isDivider: true, id: 'div_walls_foundation', name: 'Foundations & Plinths (Sims 4)' },
+    { id: 'wall_foundation', name: 'Foundation Wall', badge: 'PLINTH', material: 'Ashlar Stone / Masonry', specs: '240 mm Thick • 400 mm (Plinth Base)', image: '', toolId: 'foundation', params: { type: 'foundation', thickness: 24, height: 40, material: 'stone_ashlar_grey' } },
+    { id: 'wall_foundation_box', name: 'Foundation Box', badge: 'SIMS 4 PLINTH', material: 'Ashlar Stone / Masonry', specs: '4-Wall Raised Plinth Enclosure', image: '', toolId: 'foundation_box', params: { type: 'foundation_box', thickness: 24, height: 40, material: 'stone_ashlar_grey' } },
+
+    { isDivider: true, id: 'div_walls_half', name: 'Half Walls & Enclosures' },
+    { id: 'wall_half_wall', name: 'Half Wall / Parapet', badge: 'PARAPET', material: 'Plaster with Dark Coping Cap', specs: '100 mm Thick • 500 mm High (Coping Cap)', image: '', toolId: 'half_wall', params: { type: 'half_wall', thickness: 10, height: 50, material: 'white_paint' } },
+    { id: 'wall_compound', name: 'Compound Boundary Wall', badge: 'BOUNDARY', material: 'Stone / Boundary Brick', specs: '150 mm Thick • 1500 mm (5 ft) High', image: '', toolId: 'compound', params: { type: 'compound', height: 80, thickness: 12 } },
+    { id: 'wall_arc', name: 'Curved Wall (Arc)', badge: 'CURVED', material: 'Reinforced Concrete', specs: '230 mm Arc', image: '', toolId: 'arc', params: { type: 'arc', thickness: 10, height: 120 } }
 ]);
 
 const railingCatalog = ref([
@@ -1073,6 +1251,7 @@ const items = computed(() => {
     if (props.type === 'outdoor_patio' || props.type === 'patio') return outdoorPatioCatalog.value;
     if (props.type === 'outdoor_softscape' || props.type === 'outdoor_lawn') return outdoorSoftscapeCatalog.value;
     if (props.type === 'floors' || props.type === 'floor' || props.type === 'outdoor_spaces') return outdoorCatalog.value;
+    if (props.type === 'platform_catalog' || props.type === 'platform' || props.type === 'platform_rect' || props.type === 'platform_polygon') return platformCatalog.value;
     return [];
 });
 

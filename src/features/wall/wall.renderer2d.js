@@ -1,5 +1,6 @@
 import Konva from 'konva';
-import { WALL_REGISTRY, WIDGET_REGISTRY, RAILING_REGISTRY, MOLDING_REGISTRY } from '../../core/registry.js';
+import { WALL_REGISTRY } from './wall.registry.js';
+import { WIDGET_REGISTRY, RAILING_REGISTRY, MOLDING_REGISTRY } from '../../core/registry.js';
 import { PremiumWidget } from '../../core/engine2d/PremiumWidget.js';
 import { PremiumMolding } from '../../core/engine2d/PremiumMolding.js';
 import { advance_openings } from '../../core/engine2d/advance_openings.js';
@@ -21,8 +22,8 @@ export class PremiumWall {
         this.miterFoldLimit = this.config.miterFoldLimit || 20; // Intersection distance multiplier fallback
         
         this.elevationLayers = { front: [{ id: Date.now(), texture: 'none', color: '#e2e8f0', x: 0, y: 0, w: '100%', h: '100%' }], back: [{ id: Date.now()+1, texture: 'none', color: '#f8fafc', x: 0, y: 0, w: '100%', h: '100%' }] };
-        this.fillColor = this.type === 'outer' ? '#e5e5e5' : (this.type === 'compound' ? '#e2e8f0' : '#f3f4f6'); 
-        this.strokeColor = this.type === 'outer' ? '#9ca3af' : (this.type === 'compound' ? '#64748b' : '#d1d5db');
+        this.fillColor = this.type === 'foundation' ? '#cbd5e1' : (this.type === 'half_wall' ? '#f8fafc' : (this.type === 'outer' ? '#e5e5e5' : (this.type === 'compound' ? '#e2e8f0' : '#f3f4f6'))); 
+        this.strokeColor = this.type === 'foundation' ? '#475569' : (this.type === 'half_wall' ? '#94a3b8' : (this.type === 'outer' ? '#9ca3af' : (this.type === 'compound' ? '#64748b' : '#d1d5db')));
         this.isAutoGable = false;
         this.parentWallId = null;
         this.parentRoofId = null;

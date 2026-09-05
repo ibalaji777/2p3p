@@ -327,7 +327,8 @@ export class SelectionManager {
 
     selectBasic(object) {
         let type = null;
-        if (object.userData.isShape || object.userData.isFloorCutProxy) type = 'shape';
+        if (object.userData.isPlatform || object.userData.entity?.type === 'platform') type = 'platform';
+        else if (object.userData.isShape || object.userData.isFloorCutProxy) type = 'shape';
         else if (object.userData.isFurniture) type = 'furniture';
         else if (object.userData.isFloor) type = 'room';
         else if (object.userData.isWidget) type = 'widget';
@@ -339,7 +340,7 @@ export class SelectionManager {
         
         this.system.setHighlight(object, true);
             
-        if (['furniture', 'shape', 'widget', 'molding', 'advance_openings', 'roof', 'stair', 'room', 'roof_addon'].includes(type)) {
+        if (['furniture', 'shape', 'widget', 'molding', 'advance_openings', 'roof', 'stair', 'room', 'roof_addon', 'platform'].includes(type)) {
             if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
             if (object.userData.isFloorCutProxy && this.ctx.setTransformMode) {
                 this.ctx.setTransformMode('polygon_edges', true);

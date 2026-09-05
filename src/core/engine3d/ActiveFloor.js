@@ -7,6 +7,7 @@ import { WALL_HEIGHT, ROOF_DECOR_REGISTRY, FLOOR_REGISTRY, WIDGET_REGISTRY, DOOR
 import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js';
 import { MaterialFactory } from './MaterialFactory.js';
 import { UniversalMaterialManager } from './UniversalMaterialManager.js';
+import { Platform3DBuilder } from './Platform3DBuilder.js';
 
 
 export class ActiveFloor {
@@ -78,12 +79,19 @@ export class ActiveFloor {
             }
         };
         this.stairBuilder = new Stair3DBuilder(assets, interactables, this.helpers);
+        this.platformBuilder = new Platform3DBuilder(this);
     }
 
     build(walls, rooms, roofs, shapes, stairs = [], activeIndex = 0, targetGroup = this.structureGroup, stairsBelow = [], outdoorZones = []) {
         this._buildSlabs(rooms, stairs, targetGroup, stairsBelow);
         if (outdoorZones && outdoorZones.length > 0) {
             this._buildOutdoorZones(outdoorZones, targetGroup);
+        }
+
+        const planner = window.planner?.value || window.plannerInstance;
+        const platforms = (planner && planner.platforms) || [];
+        if (platforms && platforms.length > 0) {
+            this._buildPlatforms(platforms, targetGroup);
         }
 
 
@@ -417,6 +425,18 @@ export class ActiveFloor {
 
     _buildRoofs(roofs, activeIndex, walls, targetGroup = this.structureGroup, shapes = null) {
         new Roof3DBuilder(this.helpers.ctx).buildRoofs(roofs, activeIndex, walls, targetGroup, shapes);
+    }
+
+    _buildPlatforms(platforms, targetGroup = this.structureGroup) {
+        if (!platforms) return;
+        if (!this.platformBuilder) this.platformBuilder = new Platform3DBuilder(this);
+        platforms.forEach(platform => {
+            try {
+                this.platformBuilder.buildPlatform(platform, targetGroup);
+            } catch (err) {
+                console.error("Error building platform in ActiveFloor:", err);
+            }
+        });
     }
 
     _buildOutdoorZones(outdoorZones, targetGroup = this.structureGroup) {

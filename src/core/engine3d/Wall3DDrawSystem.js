@@ -205,14 +205,21 @@ export class Wall3DDrawSystem {
         this.ghostWallMesh.visible = false;
         this.ghostGroup.add(this.ghostWallMesh);
 
-        // 3D Ghost Room Box (4 walls + floor)
-        this.ghostRoomWalls = [
-            this._createGhostWallPiece(),
-            this._createGhostWallPiece(),
-            this._createGhostWallPiece(),
-            this._createGhostWallPiece()
-        ];
-        this.ghostRoomWalls.forEach(w => this.ghostGroup.add(w));
+        // 3D Ghost Room Box Frame (single monolithic 45-degree mitered mesh + edges)
+        this.ghostRoomFrameGeo = new THREE.BufferGeometry();
+        this.ghostRoomFrameMesh = new THREE.Mesh(this.ghostRoomFrameGeo, this.ghostMat);
+        this.ghostRoomFrameMesh.renderOrder = 999;
+
+        this.ghostRoomEdgesGeo = new THREE.BufferGeometry();
+        this.ghostRoomEdgesLine = new THREE.LineSegments(this.ghostRoomEdgesGeo, this.ghostEdgeMat);
+        this.ghostRoomEdgesLine.renderOrder = 1000;
+        this.ghostRoomFrameMesh.add(this.ghostRoomEdgesLine);
+
+        this.ghostRoomFrameMesh.visible = false;
+        this.ghostGroup.add(this.ghostRoomFrameMesh);
+
+        // Keep ghostRoomWalls reference for backwards safety
+        this.ghostRoomWalls = [this.ghostRoomFrameMesh];
         
         const planeGeo = new THREE.PlaneGeometry(1, 1);
         planeGeo.rotateX(-Math.PI / 2);
@@ -354,7 +361,7 @@ export class Wall3DDrawSystem {
 
     isWallDrawingTool() {
         const t = this.activeTool;
-        return ['wall', 'outer', 'inner', 'compound', 'railing', 'room_box'].includes(t) || this.isOutdoorZoneDrawingTool();
+        return ['wall', 'outer', 'inner', 'compound', 'arc', 'railing', 'room_box', 'foundation', 'foundation_box', 'half_wall'].includes(t) || this.isOutdoorZoneDrawingTool();
     }
 
     getFloorElevation() {
@@ -369,6 +376,7 @@ export class Wall3DDrawSystem {
     getWallConfig() {
         const tool = this.activeTool;
         if (tool === 'room_box') return WALL_REGISTRY['outer'] || { thickness: 16, height: 180 };
+        if (tool === 'foundation_box') return WALL_REGISTRY['foundation'] || { thickness: 24, height: 40 };
         return WALL_REGISTRY[tool] || WALL_REGISTRY['outer'] || { thickness: 16, height: 180 };
     }
 
@@ -420,8 +428,10 @@ export class Wall3DDrawSystem {
                 if (entity && entity.startAnchor && entity.endAnchor) {
                     const wallBaseY = entity.elevation || 0;
                     const wallHeight = entity.height || 120;
+                    const isFoundation = entity.type === 'foundation';
+                    const isDrawingWallOnFoundation = isFoundation && this.activeTool !== 'foundation' && this.activeTool !== 'foundation_box';
                     const isNearTop = hit.point.y >= (wallBaseY + wallHeight * 0.5);
-                    const wallElev = isNearTop ? (wallBaseY + wallHeight) : wallBaseY;
+                    const wallElev = (isDrawingWallOnFoundation || isNearTop) ? (wallBaseY + wallHeight) : wallBaseY;
 
                     return {
                         hitPoint3D: hit.point,
@@ -835,8 +845,8 @@ export class Wall3DDrawSystem {
             const h = config.height || 180;
             const t = config.thickness || 16;
 
-            if (this.activeTool === 'room_box') {
-                // Ghost Room Box Preview (4 walls + floor)
+            if (this.activeTool === 'room_box' || this.activeTool === 'foundation_box') {
+                // Ghost Room Box Preview (monolithic 45-degree mitered frame + floor)
                 const p1 = this.startPoint;
                 const p2 = { x: pt.x, y: pt.z };
 
@@ -846,24 +856,24 @@ export class Wall3DDrawSystem {
                 const depth = maxY - minY;
 
                 if (width > 5 && depth > 5) {
-                    // Top Wall
-                    this._positionWallPiece(this.ghostRoomWalls[0], minX, minY, maxX, minY, h, t, elev);
-                    // Right Wall
-                    this._positionWallPiece(this.ghostRoomWalls[1], maxX, minY, maxX, maxY, h, t, elev);
-                    // Bottom Wall
-                    this._positionWallPiece(this.ghostRoomWalls[2], maxX, maxY, minX, maxY, h, t, elev);
-                    // Left Wall
-                    this._positionWallPiece(this.ghostRoomWalls[3], minX, maxY, minX, minY, h, t, elev);
+                    this._updateGhostRoomGeometry(minX, minY, maxX, maxY, h, t, elev);
 
-                    // Floor Slab
+                    // Floor Slab (fitted flush inside the inner room perimeter)
+                    const ht = Math.min(t / 2, Math.max(0.1, Math.min(width, depth) / 2 - 0.1));
+                    const innerW = Math.max(1, (maxX - ht) - (minX + ht));
+                    const innerD = Math.max(1, (maxY - ht) - (minY + ht));
                     this.ghostRoomFloor.position.set((minX + maxX) / 2, elev + 0.2, (minY + maxY) / 2);
-                    this.ghostRoomFloor.scale.set(width, depth, 1);
+                    this.ghostRoomFloor.scale.set(innerW, innerD, 1);
                     this.ghostRoomFloor.visible = true;
 
                     // Dimension Badge
                     const areaSqm = ((width * depth) / 10000).toFixed(2);
                     const label = `📐 ${(width / 100).toFixed(2)}m × ${(depth / 100).toFixed(2)}m  •  ${areaSqm} m²`;
                     this._updateDimensionBadge(label, new THREE.Vector3((minX + maxX) / 2, elev + h + 24, (minY + maxY) / 2));
+                } else {
+                    if (this.ghostRoomFrameMesh) this.ghostRoomFrameMesh.visible = false;
+                    this.ghostRoomFloor.visible = false;
+                    if (this.domBadge) this.domBadge.style.display = 'none';
                 }
             } else {
                 // Ghost Single Wall Preview
@@ -906,12 +916,30 @@ export class Wall3DDrawSystem {
                         this.alignmentMarker.visible = false;
                     }
 
-                    // Dimension Badge: Special Midpoint / Alignment indicator or length readout
+                    // Dimension Badge: Special Midpoint / Alignment indicator, Loop Close, or length readout
                     let label = `${(len / 100).toFixed(2)} m`;
                     let isSpecial = false;
                     let badgeColor = '#00f0ff';
 
-                    if (snapResult.isAlignedWithCorner) {
+                    const startPos = this.startAnchor ? (this.startAnchor.position ? this.startAnchor.position() : { x: this.startAnchor.x, y: this.startAnchor.y }) : null;
+                    const isClosingLoop = !!(
+                        this.startAnchor &&
+                        this.lastAnchor &&
+                        this.startAnchor !== this.lastAnchor &&
+                        startPos &&
+                        (
+                            (snapResult.isAnchor && snapResult.anchor === this.startAnchor) ||
+                            Math.hypot(pt.x - startPos.x, pt.z - startPos.y) < 5
+                        )
+                    );
+
+                    if (isClosingLoop) {
+                        label = `🏠 CLOSE ROOM LOOP • ${(len / 100).toFixed(2)}m`;
+                        isSpecial = true;
+                        badgeColor = '#10b981';
+                        if (this.snapRing && this.snapRing.material) this.snapRing.material.color.setHex(0x10b981);
+                        if (this.snapDot && this.snapDot.material) this.snapDot.material.color.setHex(0x34d399);
+                    } else if (snapResult.isAlignedWithCorner) {
                         label = `📐 ALIGNED WITH CORNER • ${(len / 100).toFixed(2)}m`;
                         isSpecial = true;
                         badgeColor = '#10b981';
@@ -933,6 +961,95 @@ export class Wall3DDrawSystem {
         }
 
         if (this.ctx.requestRender) this.ctx.requestRender('wall3d_move', 2);
+    }
+
+    _updateGhostRoomGeometry(minX, minY, maxX, maxY, h, t, elev) {
+        const width = maxX - minX;
+        const depth = maxY - minY;
+        const ht = Math.min(t / 2, Math.max(0.1, Math.min(width, depth) / 2 - 0.1));
+        const yBot = elev;
+        const yTop = elev + h;
+
+        const O = [
+            { x: minX - ht, z: minY - ht },
+            { x: maxX + ht, z: minY - ht },
+            { x: maxX + ht, z: maxY + ht },
+            { x: minX - ht, z: maxY + ht }
+        ];
+
+        const I = [
+            { x: minX + ht, z: minY + ht },
+            { x: maxX - ht, z: minY + ht },
+            { x: maxX - ht, z: maxY - ht },
+            { x: minX + ht, z: maxY - ht }
+        ];
+
+        // 32 Triangles = 96 vertices = 288 floats
+        const meshPositions = new Float32Array(288);
+        let mIdx = 0;
+        const pushTri = (p1, y1, p2, y2, p3, y3) => {
+            meshPositions[mIdx++] = p1.x; meshPositions[mIdx++] = y1; meshPositions[mIdx++] = p1.z;
+            meshPositions[mIdx++] = p2.x; meshPositions[mIdx++] = y2; meshPositions[mIdx++] = p2.z;
+            meshPositions[mIdx++] = p3.x; meshPositions[mIdx++] = y3; meshPositions[mIdx++] = p3.z;
+        };
+
+        // 32 Lines = 64 vertices = 192 floats
+        const linePositions = new Float32Array(192);
+        let lIdx = 0;
+        const pushLine = (p1, y1, p2, y2) => {
+            linePositions[lIdx++] = p1.x; linePositions[lIdx++] = y1; linePositions[lIdx++] = p1.z;
+            linePositions[lIdx++] = p2.x; linePositions[lIdx++] = y2; linePositions[lIdx++] = p2.z;
+        };
+
+        for (let i = 0; i < 4; i++) {
+            const next = (i + 1) % 4;
+
+            // 1. Outer Wall Quad
+            pushTri(O[i], yBot, O[next], yBot, O[next], yTop);
+            pushTri(O[i], yBot, O[next], yTop, O[i], yTop);
+
+            // 2. Inner Wall Quad
+            pushTri(I[next], yBot, I[i], yBot, I[i], yTop);
+            pushTri(I[next], yBot, I[i], yTop, I[next], yTop);
+
+            // 3. Top Trapezoid Cap (Facing +Y)
+            pushTri(O[i], yTop, O[next], yTop, I[next], yTop);
+            pushTri(O[i], yTop, I[next], yTop, I[i], yTop);
+
+            // 4. Bottom Trapezoid Cap (Facing -Y)
+            pushTri(O[i], yBot, I[next], yBot, O[next], yBot);
+            pushTri(O[i], yBot, I[i], yBot, I[next], yBot);
+
+            // Wireframe Edges (Top & Bottom perimeter + vertical corners + 45 deg miters)
+            // Outer horizontal edges
+            pushLine(O[i], yTop, O[next], yTop);
+            pushLine(O[i], yBot, O[next], yBot);
+            // Outer vertical corner edge
+            pushLine(O[i], yBot, O[i], yTop);
+
+            // Inner horizontal edges
+            pushLine(I[i], yTop, I[next], yTop);
+            pushLine(I[i], yBot, I[next], yBot);
+            // Inner vertical corner edge
+            pushLine(I[i], yBot, I[i], yTop);
+
+            // 45-degree miter seams connecting outer and inner corners
+            pushLine(O[i], yTop, I[i], yTop);
+            pushLine(O[i], yBot, I[i], yBot);
+        }
+
+        this.ghostRoomFrameGeo.setAttribute('position', new THREE.BufferAttribute(meshPositions, 3));
+        this.ghostRoomFrameGeo.attributes.position.needsUpdate = true;
+        this.ghostRoomFrameGeo.computeVertexNormals();
+
+        this.ghostRoomEdgesGeo.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+        this.ghostRoomEdgesGeo.attributes.position.needsUpdate = true;
+
+        this.ghostRoomFrameMesh.position.set(0, 0, 0);
+        this.ghostRoomFrameMesh.rotation.set(0, 0, 0);
+        this.ghostRoomFrameMesh.scale.set(1, 1, 1);
+        this.ghostRoomFrameMesh.visible = true;
+        this.ghostRoomEdgesLine.visible = true;
     }
 
     _positionWallPiece(mesh, x1, y1, x2, y2, h, t, elev) {
@@ -1057,7 +1174,8 @@ export class Wall3DDrawSystem {
                 { p1: { x: minX, y: maxY }, p2: { x: minX, y: minY } }
             ];
 
-            const created = WallReformer.reformAndAddWallSegments(planner, roomSegments, 'outer', {
+            const wallType = this.activeTool === 'foundation_box' ? 'foundation' : 'outer';
+            const created = WallReformer.reformAndAddWallSegments(planner, roomSegments, wallType, {
                 height: wallHeight,
                 thickness: wallThick,
                 elevation: this.drawingElevation !== undefined ? this.drawingElevation : pt.y,
@@ -1074,7 +1192,7 @@ export class Wall3DDrawSystem {
 
     onPointerUp(e) {
         if (!this.isWallDrawingTool()) return false;
-        if (this.activeTool === 'room_box' && this.drawing && this.startPoint) {
+        if ((this.activeTool === 'room_box' || this.activeTool === 'foundation_box') && this.drawing && this.startPoint) {
             const sceneHit = this.getSceneIntersection(e);
             if (sceneHit) {
                 const snapResult = this.getSnappedPoint(sceneHit, e.shiftKey);
@@ -1154,7 +1272,7 @@ export class Wall3DDrawSystem {
                 this._snapshotCmd = new SnapshotCommand(planner);
             }
 
-            if (this.activeTool !== 'room_box') {
+            if (this.activeTool !== 'room_box' && this.activeTool !== 'foundation_box') {
                 const currentAnchor = planner.getOrCreateAnchor(pt.x, pt.z);
                 this.startAnchor = currentAnchor;
                 this.lastAnchor = currentAnchor;
@@ -1167,7 +1285,7 @@ export class Wall3DDrawSystem {
             const rawTool = this.activeTool;
             const wallType = rawTool === 'wall' ? 'outer' : rawTool;
 
-            if (rawTool === 'room_box') {
+            if (rawTool === 'room_box' || rawTool === 'foundation_box') {
                 this._finish3DRoomBox(pt);
             } else {
                 // Wall Chain Mode
@@ -1194,7 +1312,10 @@ export class Wall3DDrawSystem {
                     }
 
                     // Check if closed back on startAnchor (Room loop) or hit opposite wall T-joint (Partition complete)
-                    if (currentAnchor === this.startAnchor || isWallEdgeHit) {
+                    const isSameLevelWallHit = isWallEdgeHit && snapResult.wall && (
+                        Math.abs((snapResult.wall.elevation || 0) - (this.drawingElevation !== undefined ? this.drawingElevation : pt.y)) < 10
+                    );
+                    if (currentAnchor === this.startAnchor || isSameLevelWallHit) {
                         this.finishDrawing();
                         return true;
                     }
@@ -1264,6 +1385,8 @@ export class Wall3DDrawSystem {
     hideGhostMeshes() {
         this.ghostGroup.visible = false;
         this.ghostWallMesh.visible = false;
+        if (this.ghostRoomFrameMesh) this.ghostRoomFrameMesh.visible = false;
+        if (this.ghostRoomEdgesLine) this.ghostRoomEdgesLine.visible = false;
         this.ghostRoomWalls.forEach(w => w.visible = false);
         this.ghostRoomFloor.visible = false;
         if (this.ghostPolygonMesh) this.ghostPolygonMesh.visible = false;
@@ -1286,6 +1409,8 @@ export class Wall3DDrawSystem {
     dispose() {
         window.removeEventListener('keydown', this._onKeyDown);
         this.hideGhostMeshes();
+        if (this.ghostRoomFrameGeo) this.ghostRoomFrameGeo.dispose();
+        if (this.ghostRoomEdgesGeo) this.ghostRoomEdgesGeo.dispose();
         if (this.domBadge && this.domBadge.parentElement) {
             this.domBadge.parentElement.removeChild(this.domBadge);
         }

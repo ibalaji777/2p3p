@@ -209,6 +209,13 @@
                 @sync-engine="$emit('sync-engine', $event)"
                 @delete-entity="$emit('delete-entity')"
             />
+
+            <PlatformPanel
+                v-else-if="selectedType === 'platform' || (selectedEntity && selectedEntity.type === 'platform')"
+                :selected-entity="selectedEntity"
+                @sync-engine="$emit('sync-engine')"
+                @delete-entity="$emit('delete-entity')"
+            />
         </div>
 
         <div class="props-empty" v-else-if="!activeTool || !activeTool.startsWith('preset_')">
@@ -237,6 +244,7 @@ import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../../core/registries/material.regi
 
 import RailingProperties from '../../features/railing/ui/RailingProperties.vue';
 import PresetGroupPanel from '../panels/PresetGroupPanel.vue';
+import PlatformPanel from '../panels/PlatformPanel.vue';
 
 const props = defineProps({
     activeTool: String,

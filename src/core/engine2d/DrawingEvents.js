@@ -40,7 +40,7 @@ export function setupDrawingEvents(planner) {
                 planner._executeRoofPointerDownLogic(pos);
                 return;
             }
-            if (planner.tool === 'room_box') {
+            if (planner.tool === 'room_box' || planner.tool === 'foundation_box') {
                 planner._executeRoomBoxPointerDownLogic(pos, isTouch);
                 return;
             }
@@ -258,10 +258,14 @@ export function setupDrawingEvents(planner) {
                         if (dist < closestDist) { closestDist = dist; snapPos = proj; }
                     }
                 }
-                if (planner.tool === 'shape_rect' || planner.tool === 'shape_circle') {
-                    planner.drawingShapeType = planner.tool; planner.shapeStartPos = snapPos;
-                    if (planner.tool === 'shape_rect') { planner.shapePreviewRect.position(snapPos); planner.shapePreviewRect.width(0); planner.shapePreviewRect.height(0); planner.shapePreviewRect.visible(true); }
-                    else if (planner.tool === 'shape_circle') { planner.shapePreviewCircle.position(snapPos); planner.shapePreviewCircle.radius(0); planner.shapePreviewCircle.visible(true); }
+                if (planner.tool === 'shape_rect' || planner.tool === 'shape_circle' || planner.tool === 'platform' || planner.tool === 'platform_rect') {
+                    planner.drawingShapeType = (planner.tool === 'platform' || planner.tool === 'platform_rect') ? 'platform_rect' : planner.tool;
+                    planner.shapeStartPos = snapPos;
+                    if (planner.drawingShapeType === 'shape_rect' || planner.drawingShapeType === 'platform_rect') {
+                        planner.shapePreviewRect.position(snapPos); planner.shapePreviewRect.width(0); planner.shapePreviewRect.height(0); planner.shapePreviewRect.visible(true);
+                    } else if (planner.tool === 'shape_circle') {
+                        planner.shapePreviewCircle.position(snapPos); planner.shapePreviewCircle.radius(0); planner.shapePreviewCircle.visible(true);
+                    }
                     if (planner.onDrawingChange) planner.onDrawingChange(true);
                     planner.uiLayer.batchDraw();
                 } else if (planner.tool === 'shape_triangle') {
@@ -713,7 +717,7 @@ export function setupDrawingEvents(planner) {
                     listening: false
                 });
 
-                const wallThick = planner.activePresetParams?.thickness || 16;
+                const wallThick = planner.activePresetParams?.thickness || (planner.tool === 'foundation_box' ? 24 : 16);
                 const wallOpts = {
                     points: [snapPos.x, snapPos.y, snapPos.x, snapPos.y],
                     stroke: '#0ea5e9',
@@ -770,9 +774,9 @@ export function setupDrawingEvents(planner) {
                 let cmd = null;
                 if (planner.commandManager) cmd = new SnapshotCommand(planner);
 
-                const wallType = 'outer';
-                const wallHeight = planner.activePresetParams?.height || 120;
-                const wallThick = planner.activePresetParams?.thickness || 16;
+                const wallType = (planner.tool === 'foundation_box' || planner.activePresetParams?.type === 'foundation_box') ? 'foundation' : 'outer';
+                const wallHeight = planner.activePresetParams?.height || (wallType === 'foundation' ? 40 : 120);
+                const wallThick = planner.activePresetParams?.thickness || (wallType === 'foundation' ? 24 : 16);
 
                 // 4 rectangular room box segments in clockwise order
                 const roomSegments = [

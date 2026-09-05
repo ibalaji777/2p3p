@@ -2,6 +2,7 @@ import Konva from 'konva';
 import { WALL_REGISTRY, WIDGET_REGISTRY, MOLDING_REGISTRY, SNAP_DIST } from '../registry.js';
 import { PRESET_REGISTRY, autoAlign } from './presetRegistry.js';
 import { PremiumShape } from './PremiumShape.js';
+import { PremiumPlatform } from './PremiumPlatform.js';
 
 /**
  * Handles core pointer events (mousedown, mousemove, mouseup) for the 2D Engine.
@@ -13,7 +14,7 @@ export function setupPointerEvents(planner) {
             const isTouch = e.evt && (e.evt.touches || e.evt.pointerType === 'touch');
             
             if (isTouch && e.type === 'touchstart') {
-                const isWallTool = ['outer', 'inner', 'railing', 'roof', 'shape_floor_cut', 'room_box'].includes(planner.tool);
+                const isWallTool = ['outer', 'inner', 'compound', 'arc', 'railing', 'roof', 'shape_floor_cut', 'room_box', 'foundation', 'foundation_box', 'half_wall'].includes(planner.tool);
                 if (isWallTool) {
                     if (planner.gestureManager && planner.gestureManager.isActive()) return;
                     const clonedPos = planner.getPointerPos(e);
@@ -74,7 +75,7 @@ export function setupPointerEvents(planner) {
             if (e.evt && e.evt.touches && e.evt.touches.length > 1) return;
             if (planner.gestureManager && planner.gestureManager.isActive()) return;
             
-            const isWallTool = ['outer', 'inner', 'railing', 'roof', 'shape_floor_cut', 'room_box'].includes(planner.tool);
+            const isWallTool = ['outer', 'inner', 'compound', 'arc', 'railing', 'roof', 'shape_floor_cut', 'room_box', 'foundation', 'foundation_box', 'half_wall'].includes(planner.tool);
             if (_isTouchMove && isWallTool && (planner.mobileDrawState === 'ChainWaiting' || planner.mobileIsPanning)) return;
 
             if (e.target === planner.stage || e.target === planner.bgLayer || e.target === planner.mainLayer) {
@@ -88,7 +89,7 @@ export function setupPointerEvents(planner) {
             let rawPos = { x: planner.snap(pos.x), y: planner.snap(pos.y) };
 
             // Real-time Sims 4 Room Box 2D Live Preview
-            if (planner.tool === 'room_box' || planner.drawingRoomBox) {
+            if (planner.tool === 'room_box' || planner.tool === 'foundation_box' || planner.drawingRoomBox) {
                 let snapPos = rawPos;
                 let snappedObj = false;
                 const scale = planner.stage.scaleX() || 1;
@@ -291,10 +292,11 @@ export function setupPointerEvents(planner) {
                 planner.uiLayer.batchDraw();
                 return;
             }
-            if (planner.drawingShapeType === 'shape_rect' && planner.shapeStartPos) {
+            if ((planner.drawingShapeType === 'shape_rect' || planner.drawingShapeType === 'platform_rect') && planner.shapeStartPos) {
                 const w = pos.x - planner.shapeStartPos.x; const h = pos.y - planner.shapeStartPos.y;
                 planner.shapePreviewRect.width(w); planner.shapePreviewRect.height(h);
-                planner.updateInfoBadge(pos.x, pos.y + 30, `W: ${planner.formatLength(Math.abs(w))}\nH: ${planner.formatLength(Math.abs(h))}`, "", false);
+                const title = planner.drawingShapeType === 'platform_rect' ? 'Platform' : 'Box';
+                planner.updateInfoBadge(pos.x, pos.y + 30, `${title}\nW: ${planner.formatLength(Math.abs(w))}\nD: ${planner.formatLength(Math.abs(h))}`, "", false);
                 planner.uiLayer.batchDraw(); return;
             } else if (planner.drawingShapeType === 'shape_circle' && planner.shapeStartPos) {
                 const r = Math.hypot(pos.x - planner.shapeStartPos.x, pos.y - planner.shapeStartPos.y);
@@ -678,7 +680,7 @@ export function setupPointerEvents(planner) {
             planner.mobileIsPanning = false;
             
             const isTouchRelease = e.evt && (e.evt.changedTouches || e.evt.pointerType === 'touch');
-            const isWallTool = ['outer', 'inner', 'railing', 'roof', 'room_box'].includes(planner.tool);
+            const isWallTool = ['outer', 'inner', 'compound', 'arc', 'railing', 'roof', 'room_box', 'foundation', 'foundation_box', 'half_wall'].includes(planner.tool);
 
             const pos = planner.getPointerPos(e) || planner.lastRawTouchPos;
 
@@ -743,6 +745,33 @@ export function setupPointerEvents(planner) {
                             x: cx, y: cy, width: Math.abs(w), height: Math.abs(h)
                         });
                         if (!planner.shapes) planner.shapes = []; planner.shapes.push(newShape); planner.tool = 'select'; planner.updateToolStates(); if (planner.onToolChange) planner.onToolChange('select'); planner.selectEntity(newShape, 'shape');
+                    }
+                    planner.shapePreviewRect.visible(false);
+                } else if (planner.drawingShapeType === 'platform_rect') {
+                    const targetPos = planner.getPointerPos(e);
+                    const cx = (planner.shapeStartPos.x + targetPos.x) / 2;
+                    const cy = (planner.shapeStartPos.y + targetPos.y) / 2;
+                    const w = targetPos.x - planner.shapeStartPos.x;
+                    const h = targetPos.y - planner.shapeStartPos.y;
+                    if (Math.abs(w) > 5 && Math.abs(h) > 5) {
+                        const params = planner.activePresetParams || {};
+                        const newPlatform = new PremiumPlatform(planner, 'platform', {
+                            x: cx,
+                            y: cy,
+                            width: Math.abs(w),
+                            depth: Math.abs(h),
+                            height: params.height !== undefined ? params.height : 20,
+                            stepHeight: params.stepHeight !== undefined ? params.stepHeight : 15,
+                            elevation: params.elevation || 0,
+                            trimStyle: params.trimStyle || 'flat',
+                            materials: params.materials || null
+                        });
+                        if (!planner.platforms) planner.platforms = [];
+                        planner.platforms.push(newPlatform);
+                        planner.tool = 'select';
+                        planner.updateToolStates();
+                        if (planner.onToolChange) planner.onToolChange('select');
+                        planner.selectEntity(newPlatform, 'platform');
                     }
                     planner.shapePreviewRect.visible(false);
                 } else if (planner.drawingShapeType === 'shape_circle') {

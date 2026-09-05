@@ -393,7 +393,8 @@ const isCatalogTool = (toolId) => {
         'outdoor_spaces', 'outdoor_pavement', 'outdoor_patio', 'outdoor_softscape', 'outdoor_other',
         'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'bathroom_catalog', 'electronics_catalog', 
         'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 
-        'household_appliance_catalog', 'wine_cellar_catalog', 'trash_catalog'
+        'household_appliance_catalog', 'wine_cellar_catalog', 'trash_catalog',
+        'platform_catalog', 'platform', 'platform_rect', 'platform_polygon'
     ];
     return catalogTools.includes(toolId) || toolId.includes('catalog') || toolId.startsWith('outdoor_');
 };
@@ -474,6 +475,21 @@ const getToolDetails = (toolId, toolName) => {
             btnText: 'Generate Auto Roof'
         };
     }
+    if (toolId === 'platform_catalog' || toolId === 'platform' || toolId === 'platform_rect' || toolId === 'platform_polygon') {
+        return {
+            title: 'Architectural Platforms & Stages',
+            subtitle: 'Sims 4 Step-by-Step Leveling',
+            badge: '🧱 Sims 4 Platform',
+            icon: '<path d="M2 17l10 5 10-5M2 12l10 5 10-5M12 2L2 7l10 5 10-5-10-5z"></path>',
+            description: 'Build raised stages, split levels, sunken conversation pits, and tiered stepped podiums with custom trims and dual-material styling.',
+            features: [
+                'Sims 4-style 1-click ▲ Raise (+15cm) and ▼ Lower (-15cm) step control',
+                '6 architectural trim profiles: Modern Riser, Chamfer, Bullnose, Classical, LED Reveal, Plinth',
+                'Dual PBR material slots for floor deck surface and perimeter riser trims'
+            ],
+            btnText: 'Draw Platform'
+        };
+    }
     if (toolId && (toolId.includes('smart') || toolId.includes('wizard'))) {
         return {
             title: toolName || 'Smart Wizard Assistant',
@@ -520,6 +536,81 @@ const getToolDetails = (toolId, toolName) => {
             btnText: 'Activate Floor Cut'
         };
     }
+    if (toolId === 'outer') {
+        return {
+            title: 'Wall Tool',
+            subtitle: 'Structural Perimeter & Interior Walls',
+            badge: '🧱 Wall Segment',
+            icon: getToolTabIcon('outer'),
+            description: 'Draw straight load-bearing and partition walls with automatic corner mitering and planar topology.',
+            features: [
+                'Continuous wall chaining with smart vertex snapping',
+                'Automatic 45-degree corner bisector miters',
+                'Supports doors, windows, trims, and surface attachments'
+            ],
+            btnText: 'Start Drawing Wall'
+        };
+    }
+    if (toolId === 'room_box') {
+        return {
+            title: 'Room Tool (Box)',
+            subtitle: 'Sims 4 4-Wall Rectangular Room',
+            badge: '📦 Room Enclosure',
+            icon: getToolTabIcon('room_box'),
+            description: 'Click and drag to generate a complete 4-wall rectangular enclosed room in one effortless motion.',
+            features: [
+                'Instant 4-wall rectangular room generation',
+                'Automatic corner miter resolution on all 4 corners',
+                'Full 2D and 3D direct click-and-drag drawing'
+            ],
+            btnText: 'Place Room Box'
+        };
+    }
+    if (toolId === 'foundation') {
+        return {
+            title: 'Foundation Wall',
+            subtitle: 'Raised Plinth Base (Sims 4)',
+            badge: '🧱 Structural Plinth',
+            icon: getToolTabIcon('foundation'),
+            description: 'Draw heavy-duty foundation walls to raise building plinths off the ground with stone ashlar coursing.',
+            features: [
+                'Default 240mm thickness & 40cm height',
+                'Seamless stone ashlar and masonry plinth textures',
+                'Full load-bearing support for upper-level walls'
+            ],
+            btnText: 'Start Drawing Foundation Wall'
+        };
+    }
+    if (toolId === 'foundation_box') {
+        return {
+            title: 'Foundation Box',
+            subtitle: 'Raised 4-Wall Plinth Room',
+            badge: '📦 4-Wall Plinth',
+            icon: getToolTabIcon('foundation_box'),
+            description: 'Click and drag to create an elevated 4-wall foundation plinth room base like in The Sims 4.',
+            features: [
+                'Instant 4-wall foundation plinth enclosure',
+                'Uniform plinth height with automatic corner joins',
+                'Direct support for walls and upper levels'
+            ],
+            btnText: 'Place Foundation Box'
+        };
+    }
+    if (toolId === 'half_wall') {
+        return {
+            title: 'Half Wall / Parapet',
+            subtitle: 'Low Wall with Top Coping Cap',
+            badge: '🛡️ Parapet & Balcony',
+            icon: getToolTabIcon('half_wall'),
+            description: 'Draw half-height partition walls and balcony/roof parapets featuring distinct top coping cap trims.',
+            features: [
+                'Default 100mm thickness & 50cm height',
+                'Integrated dark coping cap finish on top',
+                'Essential for modern terraces, balconies, and room dividers'
+            ],
+            btnText: 'Start Drawing Half Wall'
+        };
+    }
     return {
         title: toolName || 'Architectural Component',
         subtitle: 'Structural CAD Object',
@@ -552,9 +643,15 @@ const getShortToolName = (toolId, name) => {
     if (toolId === 'roof_cresting') return 'Cresting';
     if (toolId === 'roof_finial') return 'Finials';
     if (toolId === 'roof_chimney') return 'Chimneys';
-    if (toolId === 'wall_catalog') return 'Walls';
+    if (toolId === 'wall_catalog') return 'Catalog';
+    if (toolId === 'outer') return 'Wall Tool';
     if (toolId === 'room_box') return 'Room Box';
+    if (toolId === 'foundation') return 'Foundation';
+    if (toolId === 'foundation_box') return 'Found. Box';
+    if (toolId === 'half_wall') return 'Half Wall';
     if (toolId === 'compound') return 'Compound';
+    if (toolId === 'arc') return 'Curved Wall';
+    if (toolId === 'wall_trim') return 'Wall Trims';
     if (toolId === 'shape_catalog') return '3D Shapes';
     if (toolId === 'railing_catalog') return 'Railings';
     if (toolId === 'furniture_catalog') return 'Furniture';
@@ -567,10 +664,16 @@ const getShortToolName = (toolId, name) => {
     if (toolId === 'outdoor_patio') return 'Patio';
     if (toolId === 'outdoor_softscape') return 'Softscape';
     if (toolId === 'outdoor_other') return 'Other space';
+    if (toolId === 'platform_catalog' || toolId === 'platform') return 'Platforms';
+    if (toolId === 'platform_rect') return 'Platform Box';
+    if (toolId === 'platform_polygon') return 'Custom Platform';
     return name || 'Tool';
 };
 
 const getToolTabIcon = (toolId) => {
+    if (toolId === 'platform_catalog' || toolId === 'platform' || toolId === 'platform_rect' || toolId === 'platform_polygon') {
+        return '<path d="M2 17l10 5 10-5M2 12l10 5 10-5M12 2L2 7l10 5 10-5-10-5z"></path>';
+    }
     if (toolId === 'skylight') {
         return '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="12" x2="21" y2="12"></line><line x1="12" y1="3" x2="12" y2="21"></line>';
     }
@@ -619,11 +722,32 @@ const getToolTabIcon = (toolId) => {
     if (toolId === 'adv_opening_catalog') {
         return '<path d="M4 4h16v16H4V4z"></path><path d="M4 12h16"></path><path d="M8 12V4"></path><path d="M16 12V4"></path>';
     }
-    if (toolId === 'room_box') {
-        return '<rect x="3" y="3" width="18" height="18" rx="2" stroke-width="2"></rect><line x1="3" y1="3" x2="21" y2="21" stroke-dasharray="2 2" stroke-width="1.2"></line>';
+    if (toolId === 'outer') {
+        return '<rect x="3" y="6" width="18" height="13" rx="1" stroke-width="1.8"></rect><path d="M3 10.5h18M3 15h18M9 6v4.5M15 6v4.5M6 10.5v4.5M12 10.5v4.5M18 10.5v4.5M9 15v4M15 15v4" stroke-width="1.4"></path>';
     }
-    if (toolId === 'wall_catalog' || toolId === 'compound') {
-        return '<path d="M4 4h16v16H4z"></path><path d="M4 12h16"></path><path d="M12 4v16"></path>';
+    if (toolId === 'room_box') {
+        return '<polygon points="12 3 20 7 12 11 4 7" stroke-width="1.8" fill="currentColor" fill-opacity="0.15"></polygon><path d="M4 7v10l8 4 8-4V7" stroke-width="1.8"></path><line x1="12" y1="11" x2="12" y2="21" stroke-width="1.8"></line><line x1="4" y1="7" x2="12" y2="11" stroke-width="1.2"></line><line x1="20" y1="7" x2="12" y2="11" stroke-width="1.2"></line>';
+    }
+    if (toolId === 'foundation') {
+        return '<rect x="3" y="9" width="18" height="11" rx="0.5" stroke-width="1.8"></rect><path d="M3 14.5h18M8 9v5.5M15 9v5.5M11 14.5v5.5M18 14.5v5.5" stroke-width="1.4"></path><path d="M2 20h20" stroke-width="2.5"></path>';
+    }
+    if (toolId === 'foundation_box') {
+        return '<polygon points="12 3 19 6.5 12 10 5 6.5" stroke-width="1.6"></polygon><path d="M5 6.5v7.5l7 3.5 7-3.5v-7.5" stroke-width="1.6"></path><line x1="12" y1="10" x2="12" y2="17.5" stroke-width="1.6"></line><path d="M4 14l8 4 8-4v4l-8 4-8-4z" fill="currentColor" fill-opacity="0.3" stroke="currentColor" stroke-width="1.6"></path>';
+    }
+    if (toolId === 'half_wall') {
+        return '<rect x="3" y="11" width="18" height="9" rx="0.5" stroke-width="1.8"></rect><rect x="2" y="9" width="20" height="3" rx="0.5" stroke-width="1.8" fill="currentColor" fill-opacity="0.25"></rect><path d="M3 15.5h18M8 12v3.5M15 12v3.5M11 15.5v4.5M18 15.5v4.5" stroke-width="1.2"></path>';
+    }
+    if (toolId === 'arc') {
+        return '<path d="M4 20C4 11.2 11.2 4 20 4" stroke-width="2.6" stroke-linecap="round"></path><path d="M7.5 20C7.5 13.1 13.1 7.5 20 7.5" stroke-width="1.4" stroke-dasharray="2 2" stroke-linecap="round"></path><circle cx="4" cy="20" r="2.2" fill="currentColor"></circle><circle cx="20" cy="4" r="2.2" fill="currentColor"></circle>';
+    }
+    if (toolId === 'compound') {
+        return '<rect x="2" y="5" width="4" height="15" rx="0.5" stroke-width="1.8"></rect><rect x="18" y="5" width="4" height="15" rx="0.5" stroke-width="1.8"></rect><rect x="6" y="9" width="12" height="9" stroke-width="1.6"></rect><path d="M6 13.5h12M10 9v4.5M14 9v4.5M8 13.5v4.5M13 13.5v4.5" stroke-width="1.2"></path><line x1="1" y1="20" x2="23" y2="20" stroke-width="1.8"></line>';
+    }
+    if (toolId === 'wall_trim') {
+        return '<path d="M3 5h18M3 19h18" stroke-width="1.4" opacity="0.4"></path><rect x="2" y="9.5" width="20" height="5" rx="1" stroke-width="1.8" fill="currentColor" fill-opacity="0.25"></rect><line x1="2" y1="12" x2="22" y2="12" stroke-width="1.2"></line>';
+    }
+    if (toolId === 'wall_catalog') {
+        return '<polygon points="12 3 20 7 12 11 4 7" stroke-width="1.6" fill="currentColor" fill-opacity="0.15"></polygon><path d="M4 7v10l8 4 8-4V7" stroke-width="1.6"></path><line x1="12" y1="11" x2="12" y2="21" stroke-width="1.6"></line><path d="M4 12l8 4 8-4" stroke-width="1.2"></path>';
     }
     if (toolId === 'furniture_catalog') {
         return '<path d="M20 9V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v2"></path><path d="M2 13h20v5H2z"></path>';

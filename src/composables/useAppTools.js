@@ -44,6 +44,26 @@ export function useAppTools({
                 activePresetParams.value = { type: 'room_box', thickness: 16, height: 120 };
                 planner.value.activePresetParams = activePresetParams.value;
             }
+        } else if (tool === 'foundation' || tool === 'foundation_wall') {
+            if (!activePresetParams.value || activePresetParams.value.type !== 'foundation') {
+                activePresetParams.value = { type: 'foundation', thickness: 24, height: 40, material: 'stone_ashlar_grey' };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
+        } else if (tool === 'foundation_box') {
+            if (!activePresetParams.value || activePresetParams.value.type !== 'foundation_box') {
+                activePresetParams.value = { type: 'foundation_box', thickness: 24, height: 40, material: 'stone_ashlar_grey' };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
+        } else if (tool === 'half_wall') {
+            if (!activePresetParams.value || activePresetParams.value.type !== 'half_wall') {
+                activePresetParams.value = { type: 'half_wall', thickness: 10, height: 50, material: 'white_paint' };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
+        } else if (tool === 'outer' || tool === 'wall') {
+            if (!activePresetParams.value || activePresetParams.value.type !== 'outer') {
+                activePresetParams.value = { type: 'outer', thickness: 16, height: 120 };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
         } else if (tool === 'door' || tool.startsWith('door_')) {
             if (!activePresetParams.value || !activePresetParams.value.doorType) {
                 activePresetParams.value = { doorType: 'single', doorStyle: 'flat' };
@@ -172,6 +192,24 @@ export function useAppTools({
                 };
                 planner.value.activePresetParams = activePresetParams.value;
             }
+        } else if (tool === 'platform' || tool.startsWith('platform_') || tool === 'platform_catalog') {
+            if (!activePresetParams.value || activePresetParams.value.type !== 'platform') {
+                activePresetParams.value = {
+                    type: 'platform',
+                    shapeType: tool === 'platform_polygon' ? 'polygon' : 'rect',
+                    width: 120,
+                    depth: 120,
+                    height: 20,
+                    stepHeight: 15,
+                    elevation: 0,
+                    trimStyle: 'flat',
+                    materials: {
+                        top: { id: 'wood_golden_teak' },
+                        side: { id: 'wood_white_oak' }
+                    }
+                };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
         } else if (FURNITURE_REGISTRY && (FURNITURE_REGISTRY[tool] || tool === 'furniture' || tool === 'kitchen' || tool === 'bathroom' || tool === 'electronics' || tool.startsWith('furniture_') || tool.startsWith('kitchen_') || tool.startsWith('bathroom_') || tool.startsWith('sanitary_') || tool.startsWith('electronics_'))) {
             const config = (FURNITURE_REGISTRY && FURNITURE_REGISTRY[tool]) ? FURNITURE_REGISTRY[tool] : {};
             if (!activePresetParams.value) {
@@ -224,7 +262,7 @@ export function useAppTools({
     };
 
     const handleToolClick = (tool) => {
-        const accordionTools = ['door', 'window', 'skirting', 'sunshade', 'jali_panel', 'curtain', 'wall_art', 'staircase', 'roof', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'bathroom_catalog', 'electronics_catalog', 'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 'household_appliance_catalog', 'trash_catalog', 'floors', 'outdoor_spaces', 'outdoor_pavement', 'outdoor_patio', 'outdoor_softscape', 'outdoor_other'];
+        const accordionTools = ['door', 'window', 'skirting', 'sunshade', 'jali_panel', 'curtain', 'wall_art', 'staircase', 'roof', 'molding', 'elevation_fascia', 'wall_catalog', 'shape_catalog', 'adv_opening_catalog', 'railing_catalog', 'furniture_catalog', 'kitchen_catalog', 'bathroom_catalog', 'electronics_catalog', 'sink_catalog', 'tap_catalog', 'hood_catalog', 'small_appliance_catalog', 'household_appliance_catalog', 'trash_catalog', 'floors', 'outdoor_spaces', 'outdoor_pavement', 'outdoor_patio', 'outdoor_softscape', 'outdoor_other', 'platform_catalog', 'platform', 'platform_rect', 'platform_polygon'];
         
         if (tool.action === 'furniture') {
             if (viewMode.value === '3d') {
@@ -289,6 +327,7 @@ export function useAppTools({
             else if (catId === 'shapes') defaultTool = 'shape_catalog';
             else if (catId === 'advance_openings') defaultTool = 'adv_opening_catalog';
             else if (catId === 'floors' || catId === 'floor' || catId === 'outdoor_spaces') defaultTool = 'outdoor_pavement';
+            else if (catId === 'platforms' || catId === 'platform') defaultTool = 'platform_rect';
             else if (catId === 'common') defaultTool = 'railing_catalog';
             
             setTool(defaultTool);

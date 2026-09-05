@@ -221,7 +221,7 @@ export class Preview3D {
                 const h = dimensions?.height || entity?.height || entity?.params?.height || 100;
                 const d = dimensions?.depth || entity?.depth || entity?.params?.depth || 30;
 
-                const isWall = entity && (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.startX !== undefined);
+                const isWall = entity && (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'foundation' || entity.type === 'half_wall' || entity.startX !== undefined);
                 const applyTex = (mat, texKey, faceW, faceH, faceName) => {
                     if (!texKey) return;
                     const config = MaterialManager.resolveMaterialConfig(texKey);
@@ -238,21 +238,25 @@ export class Preview3D {
                     }
                 };
 
-                if (entity && entity.params) {
+                const defaultWallMat = (entity?.type === 'foundation') ? (entity.params?.material || 'stone_ashlar_grey') : null;
+                const defaultCopingMat = (entity?.type === 'half_wall') ? 'black_metal' : null;
+
+                if (entity && (entity.params || defaultWallMat || defaultCopingMat)) {
+                    const ep = entity.params || {};
                     const resolveTex = (...keys) => {
                         for (let k of keys) {
-                            if (entity.params[k] === '' || entity.params[k] === null) return null;
-                            if (entity.params[k] !== undefined) return entity.params[k];
+                            if (ep[k] === '' || ep[k] === null) return null;
+                            if (ep[k] !== undefined) return ep[k];
                         }
                         return null;
                     };
-                    applyTex(matTop, resolveTex('textureTop', 'texture'), w, d, 'top');
-                    applyTex(matBottom, resolveTex('textureBottom', 'texture'), w, d, 'bottom');
-                    applyTex(matSides, resolveTex('textureSides', 'texture'), w, h, 'sides');
-                    applyTex(matLeft, resolveTex('textureLeft', 'textureSides', 'texture', 'textureFront', 'textureBack'), d, h, 'left');
-                    applyTex(matRight, resolveTex('textureRight', 'textureSides', 'texture', 'textureFront', 'textureBack'), d, h, 'right');
-                    applyTex(matFront, resolveTex('textureFront', 'textureSides', 'texture'), w, h, 'front');
-                    applyTex(matBack, resolveTex('textureBack', 'textureSides', 'texture'), w, h, 'back');
+                    applyTex(matTop, resolveTex('textureTop', 'texture') || defaultCopingMat || defaultWallMat, w, d, 'top');
+                    applyTex(matBottom, resolveTex('textureBottom', 'texture') || defaultWallMat, w, d, 'bottom');
+                    applyTex(matSides, resolveTex('textureSides', 'texture') || defaultWallMat, w, h, 'sides');
+                    applyTex(matLeft, resolveTex('textureLeft', 'textureSides', 'texture', 'textureFront', 'textureBack') || defaultWallMat, d, h, 'left');
+                    applyTex(matRight, resolveTex('textureRight', 'textureSides', 'texture', 'textureFront', 'textureBack') || defaultWallMat, d, h, 'right');
+                    applyTex(matFront, resolveTex('textureFront', 'textureSides', 'texture') || defaultWallMat, w, h, 'front');
+                    applyTex(matBack, resolveTex('textureBack', 'textureSides', 'texture') || defaultWallMat, w, h, 'back');
                 }
 
                 return {
@@ -549,6 +553,12 @@ export class Preview3D {
         if ((entity.type === 'furniture' || entity.isFurniture || (entity.configId && ['curtain_', 'rug_', 'decor_'].some(p => entity.configId.startsWith(p)))) && this.furnitureManager) {
             this.furnitureManager.load(entity);
             this.requestRender('furniture_material_update', 2);
+            return true;
+        }
+
+        if (entity.type === 'platform' && obj.userData?.builder) {
+            obj.userData.builder.updatePlatformMaterials(entity);
+            this.requestRender('platform_material_update', 2);
             return true;
         }
 

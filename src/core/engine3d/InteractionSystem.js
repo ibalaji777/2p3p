@@ -17,6 +17,8 @@ import { WallPushPullGizmo } from './WallPushPullGizmo.js';
 import { WallInteractiveSuite } from './WallInteractiveSuite.js';
 import { Wall3DDrawSystem } from './Wall3DDrawSystem.js';
 import { Shape3DDrawSystem } from './Shape3DDrawSystem.js';
+import { Platform3DDrawSystem } from './Platform3DDrawSystem.js';
+import { PlatformInteractiveSuite } from './PlatformInteractiveSuite.js';
 import { WallPlugin3DPlacementSystem } from './WallPlugin3DPlacementSystem.js';
 import { Stair3DPlacementSystem } from './Stair3DPlacementSystem.js';
 import { Furniture3DPlacementSystem } from './Furniture3DPlacementSystem.js';
@@ -490,11 +492,15 @@ export class InteractionSystem {
         this.wallInteractiveSuite = new WallInteractiveSuite(ctx);
         this.ctx.scene.add(this.wallInteractiveSuite);
 
+        this.platformInteractiveSuite = new PlatformInteractiveSuite(ctx);
+        this.ctx.scene.add(this.platformInteractiveSuite);
+
         this.wallPushPullGizmo = new WallPushPullGizmo(ctx);
         this.ctx.scene.add(this.wallPushPullGizmo);
 
         this.wall3DDrawSystem = new Wall3DDrawSystem(ctx, this);
         this.shape3DDrawSystem = new Shape3DDrawSystem(ctx, this);
+        this.platform3DDrawSystem = new Platform3DDrawSystem(ctx, this);
         this.wallPluginPlacementSystem = new WallPlugin3DPlacementSystem(ctx, this);
         this.stairPlacementSystem = new Stair3DPlacementSystem(ctx, this);
         this.furniturePlacementSystem = new Furniture3DPlacementSystem(ctx, this);
@@ -600,6 +606,11 @@ export class InteractionSystem {
             // Direct 3D Shape & Floor Cut Drawing System
             if (this.shape3DDrawSystem && this.shape3DDrawSystem.isShapeDrawingTool()) {
                 if (this.shape3DDrawSystem.onPointerDown(e)) return;
+            }
+
+            // Direct 3D Platform Drawing System
+            if (this.platform3DDrawSystem && this.platform3DDrawSystem.isPlatformDrawingTool()) {
+                if (this.platform3DDrawSystem.onPointerDown(e)) return;
             }
 
             // Direct 3D Door / Window / Wall Plugin Placement System
@@ -798,6 +809,11 @@ export class InteractionSystem {
                 if (this.shape3DDrawSystem.onPointerMove(e)) return;
             }
 
+            // Direct 3D Platform Drawing System
+            if (this.platform3DDrawSystem && this.platform3DDrawSystem.isPlatformDrawingTool()) {
+                if (this.platform3DDrawSystem.onPointerMove(e)) return;
+            }
+
             // Direct 3D Door / Window / Wall Plugin Placement System
             if (this.wallPluginPlacementSystem && this.wallPluginPlacementSystem.isPlacementTool()) {
                 if (this.wallPluginPlacementSystem.onPointerMove(e)) return;
@@ -911,6 +927,9 @@ export class InteractionSystem {
             }
             if (this.shape3DDrawSystem && this.shape3DDrawSystem.isShapeDrawingTool()) {
                 if (this.shape3DDrawSystem.onPointerUp && this.shape3DDrawSystem.onPointerUp(e)) return;
+            }
+            if (this.platform3DDrawSystem && this.platform3DDrawSystem.isPlatformDrawingTool()) {
+                if (this.platform3DDrawSystem.onPointerUp && this.platform3DDrawSystem.onPointerUp(e)) return;
             }
             if (this.roofPluginPlacementSystem && this.roofPluginPlacementSystem.isPlacementTool()) {
                 if (this.roofPluginPlacementSystem.onPointerUp && this.roofPluginPlacementSystem.onPointerUp(e)) return;
@@ -1184,6 +1203,13 @@ export class InteractionSystem {
                 this.wallInteractiveSuite.detach();
             }
 
+            const isPlatform = (object.userData?.isPlatform || object.userData?.entity?.type === 'platform');
+            if (isPlatform && this.platformInteractiveSuite) {
+                this.platformInteractiveSuite.attach(object);
+            } else if (this.platformInteractiveSuite) {
+                this.platformInteractiveSuite.detach();
+            }
+
             if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
             if (this.commonController) this.commonController.setSelection(object.userData.entity, object);
             if (this.commonController?.activeTool === COMMON_TOOLS.MOVE || this.ctx.currentTransformMode === 'translate' || this.ctx.currentTransformMode === 'move') {
@@ -1240,6 +1266,7 @@ export class InteractionSystem {
             if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
             if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
             if (this.wallInteractiveSuite) this.wallInteractiveSuite.detach();
+            if (this.platformInteractiveSuite) this.platformInteractiveSuite.detach();
             this.ctx.currentTransformMode = 'none';
             if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
             
@@ -1299,6 +1326,8 @@ export class InteractionSystem {
         if (this.wallInteractiveSuite && this.wallInteractiveSuite.dispose) this.wallInteractiveSuite.dispose();
         if (this.wall3DDrawSystem && this.wall3DDrawSystem.dispose) this.wall3DDrawSystem.dispose();
         if (this.shape3DDrawSystem && this.shape3DDrawSystem.destroy) this.shape3DDrawSystem.destroy();
+        if (this.platform3DDrawSystem && this.platform3DDrawSystem.destroy) this.platform3DDrawSystem.destroy();
+        if (this.platformInteractiveSuite && this.platformInteractiveSuite.destroy) this.platformInteractiveSuite.destroy();
         if (this.wallPluginPlacementSystem && this.wallPluginPlacementSystem.dispose) this.wallPluginPlacementSystem.dispose();
         if (this.stairPlacementSystem && this.stairPlacementSystem.dispose) this.stairPlacementSystem.dispose();
         if (this.furniturePlacementSystem && this.furniturePlacementSystem.dispose) this.furniturePlacementSystem.dispose();

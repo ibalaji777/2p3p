@@ -35,12 +35,13 @@ import { PremiumArc } from './PremiumArc.js';
 import { StairV4Flight, StairV4Landing, StaircaseV4Solver } from '../../features/stairs/StaircaseV4.js';
 import { PremiumStaircase } from '../../features/stairs/stairs.renderer2d.js';
 import { PremiumMolding } from './PremiumMolding.js';
+import { PremiumPlatform } from './PremiumPlatform.js';
 import { PRESET_REGISTRY, autoAlign } from './presetRegistry.js';
 import { PresetGroup } from './PresetGroup.js';
 import { computeCorridorPolygon } from './DrawingEvents.js';
 
 // Export the specific classes that App.vue needs to spawn items
-export { PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding, PremiumOutdoorZone };
+export { PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding, PremiumOutdoorZone, PremiumPlatform };
 
 /**
  * The core orchestrator for the 2D layout engine. Manages application state, entities, rendering layers, and integrations with input sub-systems.
@@ -128,7 +129,7 @@ export class FloorPlanner {
         this.autoAlign = autoAlign;
         
         /** @deprecated Use getter APIs (e.g. getRooms, getStairs) instead of direct array access */
-        this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.arcs = []; this.shapes = []; this.outdoorZones = []; this.moldings = []; this.presetGroups = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
+        this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.arcs = []; this.shapes = []; this.outdoorZones = []; this.platforms = []; this.moldings = []; this.presetGroups = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
         this.onSelectionChange = null; 
         this.initKonva(); this.gridSystem = new GridSystem(this); this.gridSystem.setupGrid(); this.initHUD(); 
         this.cameraController = new CameraController(this);
@@ -168,6 +169,7 @@ export class FloorPlanner {
     getFurniture() { return this.furniture; }
     getStairs() { return this.stairs; }
     getOutdoorZones() { return this.outdoorZones || []; }
+    getPlatforms() { return this.platforms || []; }
     
     /**
      * @returns {Array<Object>} All physical entities in the scene
@@ -188,6 +190,7 @@ export class FloorPlanner {
             ...(this.stairs || []),
             ...(this.shapes || []),
             ...(this.outdoorZones || []),
+            ...(this.platforms || []),
             ...(this.arcs || []),
             ...(this.presetGroups || []),
             ...(this.rooms || []),
@@ -208,7 +211,8 @@ export class FloorPlanner {
             furniture: this.furniture.length,
             stairs: this.stairs.length,
             roofs: this.roofs.length,
-            outdoorZones: (this.outdoorZones || []).length
+            outdoorZones: (this.outdoorZones || []).length,
+            platforms: (this.platforms || []).length
         };
     }
 
@@ -348,6 +352,7 @@ export class FloorPlanner {
         if (this.arcs) this.arcs = this.arcs.filter(a => a !== entity);
         if (this.shapes) this.shapes = this.shapes.filter(s => s !== entity);
         if (this.outdoorZones) this.outdoorZones = this.outdoorZones.filter(z => z !== entity);
+        if (this.platforms) this.platforms = this.platforms.filter(p => p !== entity);
         if (this.presetGroups) this.presetGroups = this.presetGroups.filter(g => g !== entity);
         if (this.rooms) {
             if (this.rooms.includes(entity)) entity.isDeleted = true;
@@ -452,6 +457,12 @@ export class FloorPlanner {
             if (state.height) item.height = state.height;
             item.update2D();
             this.furniture.push(item);
+            this.syncAll();
+            return item;
+        }
+        if (type === 'platform') {
+            const item = new PremiumPlatform(this, 'platform', state);
+            this.platforms.push(item);
             this.syncAll();
             return item;
         }
@@ -851,6 +862,7 @@ export class FloorPlanner {
         if (this.balconies) this.balconies.forEach(b => { if(b.setHighlight) b.setHighlight(false); });
         if (this.shapes) this.shapes.forEach(s => { if(s.setHighlight) s.setHighlight(false); });
         if (this.outdoorZones) this.outdoorZones.forEach(z => { if(z.setHighlight) z.setHighlight(false); });
+        if (this.platforms) this.platforms.forEach(p => { if(p.setHighlight) p.setHighlight(false); });
         if (this.arcs) this.arcs.forEach(a => { if(a.setHighlight) a.setHighlight(false); });
         if (this.presetGroups) this.presetGroups.forEach(pg => { if(pg.setHighlight) pg.setHighlight(false); });
         
@@ -1076,7 +1088,7 @@ export class FloorPlanner {
     }
 
     getOrCreateAnchor(x, y) { let a = this.anchors.find(a => Math.hypot(a.x - x, a.y - y) < SNAP_DIST); if (a) return a; const newAnchor = new Anchor(this, x, y); this.anchors.push(newAnchor); return newAnchor; }
-    deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.roofs.forEach(r => r.setHighlight(false)); if(this.balconies) this.balconies.forEach(b => b.setHighlight(false)); if(this.shapes) this.shapes.forEach(s => s.setHighlight(false)); if(this.outdoorZones) this.outdoorZones.forEach(z => { if(z.setHighlight) z.setHighlight(false); }); if(this.presetGroups) this.presetGroups.forEach(pg => { if(pg.setHighlight) pg.setHighlight(false); }); this.selectEntity(null); }
+    deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.roofs.forEach(r => r.setHighlight(false)); if(this.balconies) this.balconies.forEach(b => b.setHighlight(false)); if(this.shapes) this.shapes.forEach(s => s.setHighlight(false)); if(this.outdoorZones) this.outdoorZones.forEach(z => { if(z.setHighlight) z.setHighlight(false); }); if(this.platforms) this.platforms.forEach(p => { if(p.setHighlight) p.setHighlight(false); }); if(this.presetGroups) this.presetGroups.forEach(pg => { if(pg.setHighlight) pg.setHighlight(false); }); this.selectEntity(null); }
     syncAll() {
         this.buildingCenter = null;
         if (this.gridLayer) {
@@ -1797,8 +1809,9 @@ export class FloorPlanner {
         if (this.arcs) [...this.arcs].forEach(safeRemove);
         if (this.shapes) [...this.shapes].forEach(safeRemove);
         if (this.outdoorZones) [...this.outdoorZones].forEach(safeRemove);
+        if (this.platforms) [...this.platforms].forEach(safeRemove);
         if (this.shapeTransformer) this.shapeTransformer.nodes([]);
-        this.walls = []; this.furniture = []; this.stairs = []; this.roofs = []; this.balconies = []; this.arcs = []; this.shapes = []; this.outdoorZones = []; this.roomPaths = [];
+        this.walls = []; this.furniture = []; this.stairs = []; this.roofs = []; this.balconies = []; this.arcs = []; this.shapes = []; this.outdoorZones = []; this.platforms = []; this.roomPaths = [];
         this.anchors.forEach(a => { if(a.node) a.node.destroy(); }); this.anchors = [];
         if (this.baseLayer) this.baseLayer.destroyChildren();
         if (this.wallLayer) this.wallLayer.destroyChildren(); if (this.furnitureLayer) this.furnitureLayer.destroyChildren(); if (this.widgetLayer) this.widgetLayer.destroyChildren(); if (this.roofLayer) this.roofLayer.destroyChildren();
@@ -1866,6 +1879,7 @@ export class FloorPlanner {
             })) : [],
             shapes: this.shapes ? this.shapes.map(s => ({ type: s.type, x: s.group.x(), y: s.group.y(), rotation: s.rotation, scaleX: s.group.scaleX(), scaleY: s.group.scaleY(), params: s.params, description: s.description })) : [],
             outdoorZones: this.outdoorZones ? this.outdoorZones.map(z => (typeof z.export === 'function' ? z.export() : (typeof z.toJSON === 'function' ? z.toJSON() : (typeof z.exportState === 'function' ? z.exportState() : z)))) : [],
+            platforms: this.platforms ? this.platforms.map(p => (typeof p.export === 'function' ? p.export() : (typeof p.toJSON === 'function' ? p.toJSON() : p))) : [],
             rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, configId: r.configId, isHidden: r.isHidden, isDeleted: r.isDeleted, materialRepeat: r.materialRepeat, description: r.description })) : [],
             roomPaths: this.roomPaths ? this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y }))) : [],
             presetGroups: this.presetGroups ? this.presetGroups.map(g => g.export()) : []
@@ -2031,6 +2045,13 @@ export class FloorPlanner {
                 state.outdoorZones.forEach(zData => {
                     const zone = new PremiumOutdoorZone(this, 'outdoor_zone', zData);
                     this.outdoorZones.push(zone);
+                });
+            }
+            if (state.platforms) {
+                if (!this.platforms) this.platforms = [];
+                state.platforms.forEach(pData => {
+                    const platform = new PremiumPlatform(this, 'platform', pData);
+                    this.platforms.push(platform);
                 });
             }
             if (state.presetGroups) {

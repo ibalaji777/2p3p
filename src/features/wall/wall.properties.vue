@@ -1,6 +1,8 @@
 <template>
     <div class="props-panel-inner">
         <h4 class="props-subtitle" v-if="selectedEntity.type === 'railing'">Railing Properties</h4>
+        <h4 class="props-subtitle" v-else-if="selectedEntity.type === 'foundation'">Foundation Wall (Plinth) Properties</h4>
+        <h4 class="props-subtitle" v-else-if="selectedEntity.type === 'half_wall'">Half Wall / Parapet Properties</h4>
         <h4 class="props-subtitle" v-else-if="selectedEntity.type === 'compound'">Compound Wall Properties</h4>
         <h4 class="props-subtitle" v-else-if="selectedEntity.parentArc || selectedEntity.type === 'arc'">Curved Wall Properties</h4>
         <h4 class="props-subtitle" v-else>Wall Properties</h4>
@@ -63,6 +65,32 @@
             <div class="input-wrap">
                 <input type="range" v-model.number="selectedEntity.height" min="0" max="500" step="1" @input="$emit('sync-engine')">
                 <DimensionInput v-model="selectedEntity.height" min="0" max="500" step="1" @change="$emit('sync-engine')" />
+            </div>
+        </div>
+
+        <div v-if="selectedEntity.type === 'foundation'" class="control-group" style="margin-top: -6px;">
+            <label style="font-size: 11px; color: #64748b;">Plinth Presets</label>
+            <div style="display: flex; gap: 6px; width: 100%;">
+                <button v-for="h in [20, 40, 60, 80]" :key="h" 
+                        type="button"
+                        class="preset-chip-btn" 
+                        :class="{ active: selectedEntity.height === h }"
+                        @click="selectedEntity.height = h; $emit('sync-engine')">
+                    {{ h }} cm
+                </button>
+            </div>
+        </div>
+
+        <div v-if="selectedEntity.type === 'half_wall'" class="control-group" style="margin-top: -6px;">
+            <label style="font-size: 11px; color: #64748b;">Parapet Presets</label>
+            <div style="display: flex; gap: 6px; width: 100%;">
+                <button v-for="h in [30, 50, 80, 100]" :key="h" 
+                        type="button"
+                        class="preset-chip-btn" 
+                        :class="{ active: selectedEntity.height === h }"
+                        @click="selectedEntity.height = h; $emit('sync-engine')">
+                    {{ h }} cm
+                </button>
             </div>
         </div>
 
@@ -407,5 +435,30 @@ watch(() => plannerStore.renderer3D, (newRenderer) => {
     border-color: #0284c7;
     color: #ffffff;
     box-shadow: 0 2px 8px rgba(14, 165, 233, 0.35);
+}
+
+.preset-chip-btn {
+    flex: 1;
+    padding: 4px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background: #f8fafc;
+    color: #334155;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+}
+
+.preset-chip-btn:hover {
+    background: #e2e8f0;
+    border-color: #94a3b8;
+}
+
+.preset-chip-btn.active {
+    background: #0284c7;
+    color: white;
+    border-color: #0284c7;
 }
 </style>
