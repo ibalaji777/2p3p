@@ -212,25 +212,28 @@ export class WallGeometryEngine {
 
         const leftNeighbor = rays[(myIndex - 1 + rays.length) % rays.length];
         const rightNeighbor = rays[(myIndex + 1) % rays.length];
-        const maxMiterLength = ht * (wall.miterLimitRatio || 3.0);
 
         // Left side intersection with rightNeighbor
+        const rightNeighborHt = (rightNeighbor.w?.thickness || 20) / 2;
+        const cornerDistL = Math.hypot(ht, rightNeighborHt);
+        const maxMiterLengthL = Math.max(ht * (wall.miterLimitRatio || 3.0), cornerDistL * 1.5);
+
         const cpL = myRay.dir.x * rightNeighbor.dir.y - myRay.dir.y * rightNeighbor.dir.x;
         let leftSideCorner = myRay.L_pt, leftSideBevel = null;
         let trueL = myRay.L_pt;
         const iL = this.intersectLines(myRay.L_pt, myRay.dir, rightNeighbor.R_pt, rightNeighbor.dir);
         if (iL) {
             const distIL = Math.hypot(iL.x - P.x, iL.y - P.y);
-            if (distIL <= maxMiterLength) {
+            if (distIL <= maxMiterLengthL) {
                 trueL = iL;
             } else {
                 const dirL = { x: (iL.x - P.x) / distIL, y: (iL.y - P.y) / distIL };
-                trueL = { x: P.x + dirL.x * maxMiterLength, y: P.y + dirL.y * maxMiterLength };
+                trueL = { x: P.x + dirL.x * maxMiterLengthL, y: P.y + dirL.y * maxMiterLengthL };
             }
             if (cpL >= -1e-5) {
                 leftSideCorner = iL;
                 leftSideBevel = null;
-            } else if (distIL <= maxMiterLength) {
+            } else if (distIL <= maxMiterLengthL) {
                 leftSideCorner = iL;
                 leftSideBevel = null;
             } else {
@@ -243,22 +246,26 @@ export class WallGeometryEngine {
         }
 
         // Right side intersection with leftNeighbor
+        const leftNeighborHt = (leftNeighbor.w?.thickness || 20) / 2;
+        const cornerDistR = Math.hypot(ht, leftNeighborHt);
+        const maxMiterLengthR = Math.max(ht * (wall.miterLimitRatio || 3.0), cornerDistR * 1.5);
+
         const cpR = leftNeighbor.dir.x * myRay.dir.y - leftNeighbor.dir.y * myRay.dir.x;
         let rightSideCorner = myRay.R_pt, rightSideBevel = null;
         let trueR = myRay.R_pt;
         const iR = this.intersectLines(myRay.R_pt, myRay.dir, leftNeighbor.L_pt, leftNeighbor.dir);
         if (iR) {
             const distIR = Math.hypot(iR.x - P.x, iR.y - P.y);
-            if (distIR <= maxMiterLength) {
+            if (distIR <= maxMiterLengthR) {
                 trueR = iR;
             } else {
                 const dirR = { x: (iR.x - P.x) / distIR, y: (iR.y - P.y) / distIR };
-                trueR = { x: P.x + dirR.x * maxMiterLength, y: P.y + dirR.y * maxMiterLength };
+                trueR = { x: P.x + dirR.x * maxMiterLengthR, y: P.y + dirR.y * maxMiterLengthR };
             }
             if (cpR >= -1e-5) {
                 rightSideCorner = iR;
                 rightSideBevel = null;
-            } else if (distIR <= maxMiterLength) {
+            } else if (distIR <= maxMiterLengthR) {
                 rightSideCorner = iR;
                 rightSideBevel = null;
             } else {

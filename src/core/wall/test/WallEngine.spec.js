@@ -294,6 +294,38 @@ describe('WallEngine - Single Source of Truth Architecture', () => {
             expect(a2.y).toBeCloseTo(15, 1);
         });
 
+        it('preserves straight 90-degree corners without bevel cutoffs when wall thickness is extended', () => {
+            const a1 = mockPlanner.getOrCreateAnchor(0, 0);
+            const a2 = mockPlanner.getOrCreateAnchor(200, 0);
+            const a3 = mockPlanner.getOrCreateAnchor(0, 200);
+
+            // Wall 1: Horizontal (0,0) -> (200,0)
+            const w1 = WallEngine.createWall(mockPlanner, { startAnchor: a1, endAnchor: a2, thickness: 20 });
+            // Wall 2: Vertical (0,0) -> (0,200)
+            const w2 = WallEngine.createWall(mockPlanner, { startAnchor: a1, endAnchor: a3, thickness: 20 });
+
+            // Pull Wall 1 front face by 40cm (thickness becomes 60cm)
+            WallEngine.pushPull(w1, 'front', 40, {
+                mode: 'thickness',
+                initialThickness: 20,
+                initialStart: { x: 0, y: 0 },
+                initialEnd: { x: 200, y: 0 }
+            }, mockPlanner);
+
+            expect(w1.thickness).toBe(60);
+            expect(w2.thickness).toBe(20);
+
+            // Calculate corners at Anchor a1
+            const cornersW1 = WallGeometryEngine.getCorners(w1, true, mockPlanner.walls);
+            const cornersW2 = WallGeometryEngine.getCorners(w2, true, mockPlanner.walls);
+
+            // Neither wall should have bevel cutoffs (no diagonal chamfer!)
+            expect(cornersW1.bevelL).toBeNull();
+            expect(cornersW1.bevelR).toBeNull();
+            expect(cornersW2.bevelL).toBeNull();
+            expect(cornersW2.bevelR).toBeNull();
+        });
+
         it('applies materials canonically across faces', () => {
             const a1 = mockPlanner.getOrCreateAnchor(0, 0);
             const a2 = mockPlanner.getOrCreateAnchor(100, 0);

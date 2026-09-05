@@ -397,8 +397,10 @@ export class Wall3DBuilder {
                 const pW = p.width || 40;
                 const pT = p.t !== undefined ? p.t : 0.5;
                 const xCenter = pT * length;
-                const x1 = Math.max(0, Math.min(length, xCenter - pW / 2));
-                const x2 = Math.max(0, Math.min(length, xCenter + pW / 2));
+                let x1 = Math.max(0, Math.min(length, xCenter - pW / 2));
+                let x2 = Math.max(0, Math.min(length, xCenter + pW / 2));
+                if (x1 <= 1.0) x1 = 0;
+                if (x2 >= length - 1.0) x2 = length;
                 cutPoints.add(x1);
                 cutPoints.add(x2);
             });
@@ -591,18 +593,8 @@ export class Wall3DBuilder {
         const interpolateX = (profile, zTarget) => {
             if (!profile || profile.length === 0) return 0;
             if (profile.length === 1) return profile[0].x;
-            if (zTarget <= profile[0].z) {
-                const p0 = profile[0], p1 = profile[1];
-                const dz = p1.z - p0.z;
-                if (Math.abs(dz) < 1e-6) return p0.x;
-                return p0.x + ((zTarget - p0.z) / dz) * (p1.x - p0.x);
-            }
-            if (zTarget >= profile[profile.length - 1].z) {
-                const pEnd = profile[profile.length - 1], pPrev = profile[profile.length - 2];
-                const dz = pEnd.z - pPrev.z;
-                if (Math.abs(dz) < 1e-6) return pEnd.x;
-                return pEnd.x + ((zTarget - pEnd.z) / dz) * (pEnd.x - pPrev.x);
-            }
+            if (zTarget <= profile[0].z) return profile[0].x;
+            if (zTarget >= profile[profile.length - 1].z) return profile[profile.length - 1].x;
             for (let i = 0; i < profile.length - 1; i++) {
                 const pA = profile[i];
                 const pB = profile[i + 1];

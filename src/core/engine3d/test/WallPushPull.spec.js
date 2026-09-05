@@ -587,6 +587,7 @@ describe('WallPushPullGizmo - Sims 4-Style 2D-on-3D Region Selection & Push/Pull
 
     it('should dynamically expand wall thickness during live pointer move and revert on cancel', () => {
         gizmo.attach(mockWall.mesh3D);
+        expect(gizmo.mode).toBe('thickness');
         expect(mockWall.thickness).toBe(20);
 
         // 1. Pointer Down on front handle
@@ -627,6 +628,58 @@ describe('WallPushPullGizmo - Sims 4-Style 2D-on-3D Region Selection & Push/Pull
         expect(mockWall.thickness).toBe(35);
 
         // 3. Cancel must revert thickness and position cleanly
+        gizmo.cancel();
+        expect(mockWall.thickness).toBe(20);
+        expect(mockWall.startAnchor.position()).toEqual({ x: 0, y: 0 });
+        expect(mockWall.endAnchor.position()).toEqual({ x: 100, y: 0 });
+    });
+
+    it('should dynamically shift room baseline perpendicularly in baseline mode preserving uniform thickness', () => {
+        gizmo.attach(mockWall.mesh3D);
+        gizmo.setMode('baseline');
+        expect(gizmo.mode).toBe('baseline');
+        expect(mockWall.thickness).toBe(20);
+
+        // 1. Pointer Down on front handle
+        const baseMesh = gizmo.handleFront.children.find(c => c.userData?.part === 'base');
+        const intersect = {
+            object: baseMesh,
+            point: new THREE.Vector3(50, 60, 20)
+        };
+        gizmo.raycaster.intersectObjects = () => [intersect];
+
+        const downEvent = {
+            button: 0,
+            clientX: 400,
+            clientY: 300,
+            pointerId: 1,
+            preventDefault: () => {},
+            stopPropagation: () => {},
+            target: { setPointerCapture: () => {} }
+        };
+        gizmo._onPointerDown(downEvent);
+        expect(gizmo.isDragging).toBe(true);
+
+        // 2. Pointer Move outward (deltaWorldZ = +15)
+        gizmo.raycaster.ray.intersectPlane = (plane, target) => {
+            target.set(50, 60, 35); // 15cm outward
+            return target;
+        };
+
+        const moveEvent = {
+            clientX: 400,
+            clientY: 250,
+            preventDefault: () => {},
+            stopPropagation: () => {}
+        };
+        gizmo._onPointerMove(moveEvent);
+
+        // Baseline move shifts entire wall perpendicularly; thickness remains uniform 20cm!
+        expect(mockWall.thickness).toBe(20);
+        expect(mockWall.startAnchor.position().y).toBe(15);
+        expect(mockWall.endAnchor.position().y).toBe(15);
+
+        // Cancel reverts baseline
         gizmo.cancel();
         expect(mockWall.thickness).toBe(20);
         expect(mockWall.startAnchor.position()).toEqual({ x: 0, y: 0 });

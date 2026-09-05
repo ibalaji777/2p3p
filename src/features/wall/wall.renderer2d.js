@@ -625,46 +625,88 @@ export class PremiumWall {
 
             // Front edge protrusions (+n)
             frontProtrusions.forEach(p => {
-                const halfSpan = Math.min(0.49, (p.width || 40) / (2 * wLen));
+                const halfSpan = (p.width || 40) / (2 * wLen);
                 const tCenter = p.t !== undefined ? p.t : 0.5;
-                const t1 = Math.max(0.001, tCenter - halfSpan);
-                const t2 = Math.min(0.999, tCenter + halfSpan);
+                const t1 = Math.max(0, tCenter - halfSpan);
+                const t2 = Math.min(1, tCenter + halfSpan);
                 const d = Math.abs(Number(p.depth) || 10);
 
-                const ptA = {
-                    x: p1L.x + t1 * (p2L.x - p1L.x),
-                    y: p1L.y + t1 * (p2L.y - p1L.y)
-                };
-                const ptA_out = { x: ptA.x + n.x * d, y: ptA.y + n.y * d };
-                const ptB = {
-                    x: p1L.x + t2 * (p2L.x - p1L.x),
-                    y: p1L.y + t2 * (p2L.y - p1L.y)
-                };
-                const ptB_out = { x: ptB.x + n.x * d, y: ptB.y + n.y * d };
-
-                frontVerts.push(ptA, ptA_out, ptB_out, ptB);
+                if (t1 <= 0.01 && t2 >= 0.99) {
+                    const ptA_out = { x: startL.x + n.x * d, y: startL.y + n.y * d };
+                    const ptB_out = { x: endL.x + n.x * d, y: endL.y + n.y * d };
+                    frontVerts.push(ptA_out, ptB_out);
+                } else if (t1 <= 0.01) {
+                    const ptA_out = { x: startL.x + n.x * d, y: startL.y + n.y * d };
+                    const ptB = {
+                        x: p1L.x + t2 * (p2L.x - p1L.x),
+                        y: p1L.y + t2 * (p2L.y - p1L.y)
+                    };
+                    const ptB_out = { x: ptB.x + n.x * d, y: ptB.y + n.y * d };
+                    frontVerts.push(ptA_out, ptB_out, ptB);
+                } else if (t2 >= 0.99) {
+                    const ptA = {
+                        x: p1L.x + t1 * (p2L.x - p1L.x),
+                        y: p1L.y + t1 * (p2L.y - p1L.y)
+                    };
+                    const ptA_out = { x: ptA.x + n.x * d, y: ptA.y + n.y * d };
+                    const ptB_out = { x: endL.x + n.x * d, y: endL.y + n.y * d };
+                    frontVerts.push(ptA, ptA_out, ptB_out);
+                } else {
+                    const ptA = {
+                        x: p1L.x + t1 * (p2L.x - p1L.x),
+                        y: p1L.y + t1 * (p2L.y - p1L.y)
+                    };
+                    const ptA_out = { x: ptA.x + n.x * d, y: ptA.y + n.y * d };
+                    const ptB = {
+                        x: p1L.x + t2 * (p2L.x - p1L.x),
+                        y: p1L.y + t2 * (p2L.y - p1L.y)
+                    };
+                    const ptB_out = { x: ptB.x + n.x * d, y: ptB.y + n.y * d };
+                    frontVerts.push(ptA, ptA_out, ptB_out, ptB);
+                }
             });
 
             // Back edge protrusions (-n)
             backProtrusions.forEach(p => {
-                const halfSpan = Math.min(0.49, (p.width || 40) / (2 * wLen));
+                const halfSpan = (p.width || 40) / (2 * wLen);
                 const tCenter = p.t !== undefined ? p.t : 0.5;
-                const t1 = Math.max(0.001, tCenter - halfSpan);
-                const t2 = Math.min(0.999, tCenter + halfSpan);
+                const t1 = Math.max(0, tCenter - halfSpan);
+                const t2 = Math.min(1, tCenter + halfSpan);
                 const d = Math.abs(Number(p.depth) || 10);
 
-                const ptB = {
-                    x: p1R.x + t2 * (p2R.x - p1R.x),
-                    y: p1R.y + t2 * (p2R.y - p1R.y)
-                };
-                const ptB_out = { x: ptB.x - n.x * d, y: ptB.y - n.y * d };
-                const ptA = {
-                    x: p1R.x + t1 * (p2R.x - p1R.x),
-                    y: p1R.y + t1 * (p2R.y - p1R.y)
-                };
-                const ptA_out = { x: ptA.x - n.x * d, y: ptA.y - n.y * d };
-
-                backVerts.push(ptB, ptB_out, ptA_out, ptA);
+                if (t1 <= 0.01 && t2 >= 0.99) {
+                    const ptB_out = { x: endR.x - n.x * d, y: endR.y - n.y * d };
+                    const ptA_out = { x: startR.x - n.x * d, y: startR.y - n.y * d };
+                    backVerts.push(ptB_out, ptA_out);
+                } else if (t2 >= 0.99) {
+                    const ptB_out = { x: endR.x - n.x * d, y: endR.y - n.y * d };
+                    const ptA = {
+                        x: p1R.x + t1 * (p2R.x - p1R.x),
+                        y: p1R.y + t1 * (p2R.y - p1R.y)
+                    };
+                    const ptA_out = { x: ptA.x - n.x * d, y: ptA.y - n.y * d };
+                    backVerts.push(ptB_out, ptA_out, ptA);
+                } else if (t1 <= 0.01) {
+                    const ptB = {
+                        x: p1R.x + t2 * (p2R.x - p1R.x),
+                        y: p1R.y + t2 * (p2R.y - p1R.y)
+                    };
+                    const ptB_out = { x: ptB.x - n.x * d, y: ptB.y - n.y * d };
+                    const ptA_out = { x: startR.x - n.x * d, y: startR.y - n.y * d };
+                    backVerts.push(ptB, ptB_out, ptA_out);
+                } else {
+                    const ptB = {
+                        x: p1R.x + t2 * (p2R.x - p1R.x),
+                        y: p1R.y + t2 * (p2R.y - p1R.y)
+                    };
+                    const ptB_out = { x: ptB.x - n.x * d, y: ptB.y - n.y * d };
+                    const ptA = {
+                        x: p1R.x + t1 * (p2R.x - p1R.x),
+                        y: p1R.y + t1 * (p2R.y - p1R.y)
+                    };
+                    const ptA_out = { x: ptA.x - n.x * d, y: ptA.y - n.y * d };
+                    backVerts.push(ptB, ptB_out, ptA_out, ptA);
+                }
             });
         }
 

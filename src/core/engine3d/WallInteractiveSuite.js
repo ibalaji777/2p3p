@@ -526,7 +526,7 @@ export class WallInteractiveSuite extends THREE.Group {
         if (!this.btnPushPullMode) return;
         const mode = this.pushPullGizmo?.mode || 'thickness';
         if (mode === 'thickness') {
-            this.btnPushPullMode.textContent = '🧱 Mode: Face Thickness (Panel #1)';
+            this.btnPushPullMode.textContent = '🧱 Mode: Face Thickness (Single Wall)';
             this.btnPushPullMode.title = 'Click to switch to Room Baseline Move (or press Tab)';
             this.btnPushPullMode.style.borderColor = '#00f0ff';
             this.btnPushPullMode.style.color = '#00f0ff';
@@ -534,9 +534,9 @@ export class WallInteractiveSuite extends THREE.Group {
         } else {
             this.btnPushPullMode.textContent = '🏠 Mode: Move Baseline (Room Resizing)';
             this.btnPushPullMode.title = 'Click to switch to Face Thickness Push/Pull (or press Tab)';
-            this.btnPushPullMode.style.borderColor = '#facc15';
-            this.btnPushPullMode.style.color = '#facc15';
-            this.btnPushPullMode.style.background = 'rgba(250, 204, 21, 0.2)';
+            this.btnPushPullMode.style.borderColor = '#10b981';
+            this.btnPushPullMode.style.color = '#10b981';
+            this.btnPushPullMode.style.background = 'rgba(16, 185, 129, 0.2)';
         }
     }
 

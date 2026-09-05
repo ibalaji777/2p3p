@@ -155,5 +155,61 @@ When assembling stepped 3D wall skins with cutouts and side returns:
 ### E. Safe State Rollback on Cancel
 When the user clicks `✕ Cancel` or presses `Esc`:
 - If editing full wall thickness, restore `wall.thickness = initialThickness` and reset endpoints to `initialStart` / `initialEnd` via `WallEngine.setEndpoints`.
+- If editing a curved wall (`parentArc`), restore `parentArc.thickness = initialThickness` and all sibling walls in `parentArc.walls`, and restore `parentArc.pos` if baseline was changed.
 - Discard `solidBlockPreview` and roll back any pending `SnapshotCommand`.
+
+---
+
+## 4. Curved Wall (`parentArc`) Push & Pull Architecture
+
+Curved walls in the planner are composed of a `PremiumArc` instance containing a sequence of sub-wall segments (`parentArc.walls = [w1, w2, ..., wN]`) connected by intermediate anchors.
+
+### A. Uniform Thickness Propagation
+1. **Zero Straight Endpoint Mutation on Segments**:
+   When pulling/pushing a curved wall segment in `thickness` mode, `WallMutationEngine.pushPull` MUST NOT translate the straight start/end anchors of that individual segment.
+2. **Synchronized Sibling Thickness**:
+   The new thickness `newThick` must be applied to `wall.parentArc.thickness = newThick` and propagated uniformly across every segment in `wall.parentArc.walls` via `WallMutationEngine.setThickness(wall, newThick, false, planner)`.
+3. **Live 3D Batch Updates**:
+   `WallPushPullGizmo._updateWallAndSiblings` adds all `wall.parentArc.walls` to the update set so all segments and bisector miters rebuild synchronously without kinks or tears.
+
+### B. Baseline Curvature Adjustment
+1. In `baseline` mode on a curved wall:
+   The arc control point `arc.pos` is shifted from `initialArcPos` by `normal.x * distance, normal.y * distance`.
+2. `arc.rebuild()` is invoked to smoothly recalculate all intermediate anchors and update all sub-walls along the new curved trajectory.
+
+---
+
+## 5. Wall Thickness Extended Wall & Straight 90-Degree Corner Invariants
+
+### A. Monolithic Single-Wall Thickness Extension
+1. **Single Wall Identity**:
+   - Pulling the wall face in `mode === 'thickness'` extends the host wall's own physical thickness (`wall.thickness = newThick`).
+   - Zero extra walls, duplicate meshes, or detached objects are created.
+2. **Opposite Face Pinning**:
+   - The opposite face remains strictly locked at its original world coordinates.
+   - The wall's centerline shifts by $\frac{\Delta t}{2} \cdot \vec{n}$, moving the pulled face outward by $\Delta t$.
+
+### B. Orthogonal Corner Math & Zero Diagonal Bevels (`WallGeometryEngine.js`)
+When a wall's thickness is extended (e.g., from 20cm to 60cm) meeting a connected perpendicular wall (20cm) at $90^\circ$:
+1. **Multi-Thickness Corner Distance**:
+   The distance from the anchor to the intersection of the two perpendicular wall faces is:
+   $$\text{cornerDist} = \sqrt{ht_{\text{wall}}^2 + ht_{\text{neighbor}}^2}$$
+2. **Dynamic Miter Threshold**:
+   `maxMiterLength` MUST account for the neighbor wall's thickness:
+   $$\text{maxMiterLength} = \max\left(ht_{\text{wall}} \times 3.0, \; \text{cornerDist} \times 1.5\right)$$
+3. **Bevel Suppression on Right Angles**:
+   - For orthogonal building junctions, $\text{distIL} \le \text{maxMiterLength}$ ALWAYS evaluates to true.
+   - `startData.bevelL` and `bevelR` remain `null`, preventing the engine from erroneously truncating a $90^\circ$ rectangular corner into a diagonal bevel chamfer line.
+   - Acute needle-like intersections ($< 25^\circ$) continue to be safely clipped by bevels, preserving the **Strict Wall Corner Miter Lockdown Rule**.
+
+### C. 3D Crisp Normals & Curve Elimination (`wall.renderer3d.js`)
+1. **Clean Linear End Profile**:
+   With `bevelL === null`, `startProfileLocal` contains exactly 2 points (`[startR, startL]`), forming a clean, flat end cut rather than a faceted multi-segment curve.
+2. **Endpoint Shear Isolation**:
+   `shearGeo` strictly shifts vertices at the extreme ends ($x \le 0.1$ and $x \ge \text{length} - 0.1$), leaving all internal vertices un-sheared.
+3. **Endpoint Cut Snapping**:
+   In `cutPoints` calculation, transition points within $1.0\text{cm}$ of wall ends snap to $0$ or $\text{length}$ (`x1 <= 1.0 ? 0 : x1`), preventing micro-slivers at corners.
+4. **Independent Face Normals**:
+   By converting to non-indexed geometry prior to computing vertex normals, each face retains its true perpendicular normal vector, completely eliminating smooth shading leakage that creates optical curve illusions.
+
 

@@ -544,6 +544,7 @@ export class WallPushPullGizmo extends THREE.Group {
                 this.tEnd = 1.0;
                 this.activeSide = 'front';
                 this.activeFacing = 1;
+                this.mode = 'thickness';
             }
         }
 
@@ -1013,7 +1014,21 @@ export class WallPushPullGizmo extends THREE.Group {
 
                     const isSubRegion = (this.tStart > 0.02 || this.tEnd < 0.98 || this.elevBottom > 2 || this.elevTop < (wallH - 2)) || !!this.existingProtrusion;
 
-                    if (this.mode === 'baseline') {
+                    if (isSubRegion) {
+                        // --- SUB-REGION ELEVATION PUSH / PULL (Step 2: Freely Pull Solid Block & Adjust Inward Niche) ---
+                        const deltaD = Math.round(dist);
+                        const maxNiche = Math.max(1, (wall.thickness || 20) - 3);
+                        const minDepth = this.existingProtrusion ? 0 : -maxNiche;
+                        const newDepth = Math.max(minDepth, Math.round(this.initialExtrudeDepth + deltaD));
+                        this.currentExtrudeDepth = newDepth;
+
+                        if (this.existingProtrusion) {
+                            this.existingProtrusion.depth = Math.max(0, newDepth);
+                            this._updateWallAndSiblings(wall);
+                        }
+
+                        this.updateHandles();
+                    } else if (this.mode === 'baseline') {
                         // --- BASELINE MOVE MODE (Move whole wall perpendicularly via WallEngine) ---
                         const shiftDist = Math.round(dist / step) * step;
                         WallEngine.pushPull(wall, this.activeSide, shiftDist, {
@@ -1025,20 +1040,6 @@ export class WallPushPullGizmo extends THREE.Group {
                         this._updateWallAndSiblings(wall);
                         if (typeof this.ctx.rebuildActiveFloors === 'function') {
                             try { this.ctx.rebuildActiveFloors(); } catch(err) {}
-                        }
-
-                        this.updateHandles();
-                    } else if (isSubRegion) {
-                        // --- SUB-REGION ELEVATION PUSH / PULL (Step 2: Freely Pull Solid Block & Adjust Inward Niche) ---
-                        const deltaD = Math.round(dist);
-                        const maxNiche = Math.max(1, (wall.thickness || 20) - 3);
-                        const minDepth = this.existingProtrusion ? 0 : -maxNiche;
-                        const newDepth = Math.max(minDepth, Math.round(this.initialExtrudeDepth + deltaD));
-                        this.currentExtrudeDepth = newDepth;
-
-                        if (this.existingProtrusion) {
-                            this.existingProtrusion.depth = Math.max(0, newDepth);
-                            this._updateWallAndSiblings(wall);
                         }
 
                         this.updateHandles();
