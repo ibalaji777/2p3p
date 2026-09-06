@@ -1,5 +1,6 @@
 import Konva from 'konva';
 import { MOLDING_REGISTRY } from '../registry.js';
+import { WallEngine } from '../wall/WallEngine.js';
 
 export class PremiumMolding {
     constructor(planner, wall, t, configId) {
@@ -237,7 +238,9 @@ export class PremiumMolding {
 
     remove() {
         this.destroy();
-        this.wall.attachedMoldings = this.wall.attachedMoldings.filter(d => d !== this);
+        if (this.wall) {
+            WallEngine.removeMolding(this.wall, this, false, this.planner);
+        }
         this.planner.selectEntity(null);
         this.planner.syncAll();
     }

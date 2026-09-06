@@ -47,5 +47,12 @@ export function computeLevelElevations(levelsConfigArray) {
         elevations[i] = elevations[i + 1] - heights[i];
     }
 
+    // 5. Store authoritative elevation on each level object
+    for (let i = 0; i < count; i++) {
+        if (levelsConfigArray[i] && typeof levelsConfigArray[i] === 'object') {
+            levelsConfigArray[i].elevation = elevations[i];
+        }
+    }
+
     return elevations;
 }

@@ -10,6 +10,7 @@ import { Railing } from '../../features/railing/objects/Railing.js';
 import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
 import { PremiumOutdoorZone, OUTDOOR_ZONE_TYPES } from './PremiumOutdoorZone.js';
 import { WallReformer } from './WallReformer.js';
+import { WallEngine } from '../wall/WallEngine.js';
 
 export { computeCorridorOffsets, computeCorridorPolygon } from './corridorUtils.js';
 import { computeCorridorOffsets, computeCorridorPolygon } from './corridorUtils.js';
@@ -777,18 +778,17 @@ export function setupDrawingEvents(planner) {
                 const wallType = (planner.tool === 'foundation_box' || planner.activePresetParams?.type === 'foundation_box') ? 'foundation' : 'outer';
                 const wallHeight = planner.activePresetParams?.height || (wallType === 'foundation' ? 40 : 120);
                 const wallThick = planner.activePresetParams?.thickness || (wallType === 'foundation' ? 24 : 16);
+                const wallElev = planner.activePresetParams?.elevation !== undefined ? planner.activePresetParams.elevation : (planner.currentFloorElevation || 0);
 
-                // 4 rectangular room box segments in clockwise order
-                const roomSegments = [
-                    { p1: { x: minX, y: minY }, p2: { x: maxX, y: minY } }, // Top
-                    { p1: { x: maxX, y: minY }, p2: { x: maxX, y: maxY } }, // Right
-                    { p1: { x: maxX, y: maxY }, p2: { x: minX, y: maxY } }, // Bottom
-                    { p1: { x: minX, y: maxY }, p2: { x: minX, y: minY } }  // Left
-                ];
-
-                WallReformer.reformAndAddWallSegments(planner, roomSegments, wallType, {
+                WallEngine.createRoomBox(planner, {
+                    minX,
+                    minY,
+                    maxX,
+                    maxY,
+                    type: wallType,
                     height: wallHeight,
                     thickness: wallThick,
+                    elevation: wallElev,
                     params: planner.activePresetParams
                 });
 

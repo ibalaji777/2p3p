@@ -927,6 +927,7 @@ export class WallPushPullGizmo extends THREE.Group {
 
         wallsToUpdate.forEach(w => {
             try {
+                w.wallShapeData = null;
                 if (w.update) w.update();
                 if (w.attachedMoldings) {
                     w.attachedMoldings.forEach(m => {
@@ -1203,10 +1204,7 @@ export class WallPushPullGizmo extends THREE.Group {
                         facing: facing
                     }, false, planner);
                 } else {
-                    if (!wall.attachedWidgets) wall.attachedWidgets = [];
-                    if (!wall.attachedWidgets.includes(widgetObj)) {
-                        wall.attachedWidgets.push(widgetObj);
-                    }
+                    WallEngine.attachWidget(wall, widgetObj, false, planner);
                 }
             } else {
                 // Inward push -> Architectural Niche
@@ -1241,10 +1239,7 @@ export class WallPushPullGizmo extends THREE.Group {
                         wall: wall
                     };
                 }
-                if (!wall.attachedWidgets) wall.attachedWidgets = [];
-                if (!wall.attachedWidgets.includes(widgetObj)) {
-                    wall.attachedWidgets.push(widgetObj);
-                }
+                WallEngine.attachWidget(wall, widgetObj, false, planner);
             }
 
             this._updateWallAndSiblings(wall);
@@ -1287,8 +1282,7 @@ export class WallPushPullGizmo extends THREE.Group {
         const wall = this._getWallEntity();
         const planner = this.ctx.planner || window.planner?.value || window.plannerInstance || wall?.planner;
         if (wall && this.initialThickness !== undefined && this.initialStart) {
-            wall.thickness = this.initialThickness;
-            if (wall.config) wall.config.thickness = this.initialThickness;
+            WallEngine.setThickness(wall, this.initialThickness, false, planner);
             WallEngine.setEndpoints(wall, this.initialStart, this.initialEnd, true, planner);
             this._updateWallAndSiblings(wall);
         }

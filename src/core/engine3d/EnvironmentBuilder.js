@@ -279,6 +279,9 @@ export class EnvironmentBuilder {
 
                     rooms.forEach(otherRoom => {
                         if (otherRoom === room || otherRoom.isDeleted || otherRoom.isHidden) return;
+                        const roomElev = Number(room.elevation) || 0;
+                        const otherElev = Number(otherRoom.elevation) || 0;
+                        if (Math.abs(roomElev - otherElev) >= 5) return;
                         const otherClean = cleanPolygonPts(otherRoom.path);
                         if (otherClean.length < 3) return;
 
@@ -312,6 +315,8 @@ export class EnvironmentBuilder {
                 if (shapes) {
                     shapes.forEach(shape => {
                         if (shape.type === 'shape_floor_cut') {
+                            const roomElev = Number(room.elevation) || 0;
+                            if (shape.elevation !== undefined && Math.abs(Number(shape.elevation) - roomElev) >= 5) return;
                             const rot = (shape.group ? shape.group.rotation() : (shape.rotation || 0)) * Math.PI / 180;
                             const sx = shape.group ? shape.group.x() : (shape.x || shape.params?.x || 0);
                             const sy = shape.group ? shape.group.y() : (shape.y || shape.params?.y || 0);
@@ -380,7 +385,8 @@ export class EnvironmentBuilder {
                     roughness: baseConfig?.roughness || 0.7
                 });
                 const floorMesh = new THREE.Mesh(floorGeo, matFloor);
-                floorMesh.position.y = isSubStructure ? (subH - 0.01) : 0.05;
+                const roomElev = Number(room.elevation) || 0;
+                floorMesh.position.y = isSubStructure ? (subH - 0.01) : (roomElev + 0.05);
                 floorMesh.receiveShadow = true;
                 floorMesh.userData = { isFloor: true, entity: room };
 
@@ -1294,7 +1300,8 @@ export class EnvironmentBuilder {
                             roughness: config?.roughness || 0.7 
                         });
                         const floorMesh = new THREE.Mesh(floorGeo, matFloor);
-                        floorMesh.position.y = isStaticSub ? (subH - 0.01) : 0.05;
+                        const roomElev = Number(room.elevation) || 0;
+                        floorMesh.position.y = isStaticSub ? (subH - 0.01) : (roomElev + 0.05);
                         floorMesh.receiveShadow = true;
                         
                         if (config && config.texture && !isStaticSub) {

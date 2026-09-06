@@ -1,5 +1,6 @@
 import { WallFactory } from '../../features/wall/wall.factory.js';
 import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
+import { WallEngine } from '../wall/WallEngine.js';
 import { Anchor } from './Anchor.js';
 import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
 import { PremiumFurniture } from '../../features/furniture/furniture.renderer2d.js';
@@ -142,10 +143,7 @@ function createRectangularStructure(planner, origin, w, d, wallHeight, roofType,
     let walls = [];
     if (parentGroup && parentGroup.walls && parentGroup.walls.length === 4) {
         walls = parentGroup.walls;
-        walls.forEach((wall) => {
-            wall.height = wallHeight;
-            wall.elevation = elevation;
-        });
+        WallEngine.batchUpdate(planner, walls, { height: wallHeight, elevation });
     } else {
         for (let i = 0; i < 4; i++) {
             const a1 = anchors[i];

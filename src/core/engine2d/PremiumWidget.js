@@ -1,5 +1,6 @@
-    import Konva from 'konva';
+import Konva from 'konva';
 import { WIDGET_REGISTRY } from '../registry.js';
+import { WallEngine } from '../wall/WallEngine.js';
 
 export class PremiumWidget {
     constructor(planner, wall, t, configId) {
@@ -83,8 +84,9 @@ export class PremiumWidget {
                 });
                 if (targetWall !== this.wall) {                    let tempT = targetWall.getClosestT(pos); 
                     if (!this.hasEvent("prevent_overlap") || !this.checkOverlap(targetWall, tempT, this.width)) { 
-                        this.wall.attachedWidgets = this.wall.attachedWidgets.filter(d => d !== this); 
-                        this.wall = targetWall; this.wall.attachedWidgets.push(this); 
+                        WallEngine.removeWidget(this.wall, this, false, this.planner); 
+                        this.wall = targetWall;
+                        WallEngine.attachWidget(targetWall, this, false, this.planner); 
                     } 
                 } 
             } 
@@ -127,7 +129,7 @@ export class PremiumWidget {
     
     remove() { 
         if (this.dragTimeout) clearTimeout(this.dragTimeout);
-        this.cutter.destroy(); this.visualGroup.destroy(); if (this.leftHandle) { this.leftHandle.destroy(); this.rightHandle.destroy(); } this.wall.attachedWidgets = this.wall.attachedWidgets.filter(d => d !== this); this.planner.selectEntity(null); this.planner.syncAll(); 
+        this.cutter.destroy(); this.visualGroup.destroy(); if (this.leftHandle) { this.leftHandle.destroy(); this.rightHandle.destroy(); } if (this.wall) { WallEngine.removeWidget(this.wall, this, false, this.planner); } this.planner.selectEntity(null); this.planner.syncAll(); 
     }
     
     update() {

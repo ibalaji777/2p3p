@@ -967,6 +967,9 @@ export class Preview3D {
             floorMeshes.forEach(otherMesh => {
                 const otherRoom = otherMesh.userData?.entity;
                 if (!otherRoom || otherRoom === room || otherRoom.isDeleted || otherRoom.isHidden) return;
+                const roomElev = Number(room.elevation) || 0;
+                const otherElev = Number(otherRoom.elevation) || 0;
+                if (Math.abs(roomElev - otherElev) >= 5) return;
                 const otherClean = cleanPolygonPts(otherRoom.path);
                 if (otherClean.length < 3) return;
 
@@ -993,6 +996,8 @@ export class Preview3D {
             });
             
             floorCuts.forEach(shape => {
+                const roomElev = Number(room.elevation) || 0;
+                if (shape.elevation !== undefined && Math.abs(Number(shape.elevation) - roomElev) >= 5) return;
                 const rot = (shape.group ? shape.group.rotation() : (shape.rotation || 0)) * Math.PI / 180;
                 const sx = shape.group ? shape.group.x() : (shape.x || shape.params?.x || 0);
                 const sy = shape.group ? shape.group.y() : (shape.y || shape.params?.y || 0);
@@ -1021,7 +1026,8 @@ export class Preview3D {
             if (floorMesh.geometry && !floorMesh.geometry.userData?.keepAlive) floorMesh.geometry.dispose();
             floorMesh.geometry = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
             floorMesh.geometry.rotateX(Math.PI / 2);
-            floorMesh.position.y = 0.05;
+            const roomElev = Number(room.elevation) || 0;
+            floorMesh.position.y = roomElev + 0.05;
             
             const pos = floorMesh.geometry.attributes.position;
             const uvs = new Float32Array(pos.count * 2);

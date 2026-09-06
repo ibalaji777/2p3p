@@ -158,16 +158,19 @@ export class OpeningGizmo extends THREE.Group {
                         const newH = Math.max(10, localTarget.y);
                         entity.height = newH;
                     } else if (this.activeHandle === 'bottom') {
-                        const parentTarget = this.target.parent.worldToLocal(newWorldPos);
-                        const wallH = wall.height || wall.config?.height || 120;
-                        let opH = entity.height; if (opH === undefined) opH = (entity.type === 'window' ? 45 : (entity.type === 'door' ? 80 : 200));
-                        
-                        let currentElev = entity.elevation; if (currentElev === undefined) currentElev = (entity.type === 'window' ? 35 : 0);
-                        let currentTop = currentElev + opH;
-                        let newElev = Math.max(0, Math.min(parentTarget.y, wallH - 10));
-                        if (newElev > currentTop - 10) newElev = currentTop - 10;
-                        entity.elevation = newElev;
-                        entity.height = currentTop - newElev;
+                        const isDoor = entity.type === 'door' || entity.configId === 'door' || entity.doorType !== undefined;
+                        if (!isDoor) {
+                            const parentTarget = this.target.parent.worldToLocal(newWorldPos);
+                            const wallH = wall.height || wall.config?.height || 120;
+                            let opH = entity.height; if (opH === undefined) opH = (entity.type === 'window' ? 45 : (entity.type === 'door' ? 80 : 200));
+                            
+                            let currentElev = entity.elevation; if (currentElev === undefined) currentElev = (entity.type === 'window' ? 35 : 0);
+                            let currentTop = currentElev + opH;
+                            let newElev = Math.max(0, Math.min(parentTarget.y, wallH - 10));
+                            if (newElev > currentTop - 10) newElev = currentTop - 10;
+                            entity.elevation = newElev;
+                            entity.height = currentTop - newElev;
+                        }
                     } else if (this.activeHandle === 'front' || this.activeHandle === 'back') {
                         const newHalfD = Math.max(2, Math.abs(localTarget.z));
                         entity.depth = newHalfD * 2;
@@ -184,10 +187,15 @@ export class OpeningGizmo extends THREE.Group {
                                 entity.t = projT;
                             }
                             
-                            const wallH = wall.height || wall.config?.height || 120;
-                            let opH = entity.height; if (opH === undefined) opH = (entity.type === 'window' ? 45 : (entity.type === 'door' ? 80 : 200));
-                            let newElev = parentTarget.y - opH / 2;
-                            entity.elevation = Math.max(0, Math.min(newElev, wallH - opH));
+                            const isDoor = entity.type === 'door' || entity.configId === 'door' || entity.doorType !== undefined;
+                            if (isDoor) {
+                                entity.elevation = 0;
+                            } else {
+                                const wallH = wall.height || wall.config?.height || 120;
+                                let opH = entity.height; if (opH === undefined) opH = (entity.type === 'window' ? 45 : (entity.type === 'door' ? 80 : 200));
+                                let newElev = parentTarget.y - opH / 2;
+                                entity.elevation = Math.max(0, Math.min(newElev, wallH - opH));
+                            }
                         }
                     }
                     

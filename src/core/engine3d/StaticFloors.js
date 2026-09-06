@@ -200,6 +200,8 @@ export class StaticFloors {
                         }
 
                         const floorMesh = new THREE.Mesh(floorGeo, mat);
+                        const roomElev = Number(room.elevation) || 0;
+                        floorMesh.position.y = isSub ? (subH - 0.01) : (roomElev + 0.05);
                         floorMesh.receiveShadow = true;
                         
                         if (!isPreview) {

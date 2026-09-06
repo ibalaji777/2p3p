@@ -9,6 +9,7 @@ import { coreEventBus } from '../EventBus.js';
 import { EVENTS } from '../constants/events.js';
 import { ComponentRegistry } from './ComponentRegistry.js';
 import { getRoomForWallFace, getRoomWallsAndSides, getExteriorWallsAndSides } from './WallPaintSystem.js';
+import { WallEngine } from '../wall/WallEngine.js';
 
 /**
  * WallPlugin3DPlacementSystem
@@ -1315,8 +1316,8 @@ export class WallPlugin3DPlacementSystem {
                     mold.moldingHeight = mH;
                 }
                 mold.update();
-                if (!wEnt.attachedMoldings) wEnt.attachedMoldings = [];
-                wEnt.attachedMoldings.push(mold);
+                WallEngine.attachMolding(wEnt, mold, false, planner);
+                wEnt.wallShapeData = null;
                 createdEntities.push(mold);
             });
 
@@ -1360,10 +1361,8 @@ export class WallPlugin3DPlacementSystem {
             if (depth) createdEntity.depth = depth;
             
             if (createdEntity.update) createdEntity.update();
-            if (!wall.attachedWidgets) wall.attachedWidgets = [];
-            if (!wall.attachedWidgets.includes(createdEntity)) {
-                wall.attachedWidgets.push(createdEntity);
-            }
+            WallEngine.attachWidget(wall, createdEntity, false, planner);
+            wall.wallShapeData = null;
             planner.selectEntity(createdEntity, isDoor ? 'door' : (isWindow ? 'window' : (isSunshade ? 'sunshade' : (isJali ? 'jali_panel' : (isAdvOpening ? 'advance_openings' : 'widget')))));
         }
 

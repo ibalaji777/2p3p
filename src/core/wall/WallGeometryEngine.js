@@ -145,10 +145,20 @@ export class WallGeometryEngine {
         const baseL = isStart ? { x: p1.x + n.x * ht, y: p1.y + n.y * ht } : { x: p2.x + n.x * ht, y: p2.y + n.y * ht };
         const baseR = isStart ? { x: p1.x - n.x * ht, y: p1.y - n.y * ht } : { x: p2.x - n.x * ht, y: p2.y - n.y * ht };
 
-        // Collect all outgoing rays at this anchor
+        // Collect all outgoing rays at this anchor (only from walls on the same vertical level)
         const rays = [];
+        const wallElev = Number(wall.elevation) || 0;
+        const wallH = Number(wall.height) || Number(wall.config?.height) || 120;
+        const wallBot = wallElev;
+        const wallTop = wallBot + wallH;
+
         allWalls.forEach(w => {
             if ((w.startAnchor === anchor || w.endAnchor === anchor) && w.type !== 'railing' && (!w.hidden || w === wall)) {
+                const wBot = Number(w.elevation) || 0;
+                const wTop = wBot + (Number(w.height) || Number(w.config?.height) || 120);
+                // Two walls only miter at a corner if their vertical spans overlap
+                if (Math.max(wallBot, wBot) >= Math.min(wallTop, wTop) - 2.0) return;
+
                 const isWStart = w.startAnchor === anchor;
                 const wp1 = this.getAnchorPosition(w.startAnchor || { x: w.startX, y: w.startY });
                 const wp2 = this.getAnchorPosition(w.endAnchor || { x: w.endX, y: w.endY });

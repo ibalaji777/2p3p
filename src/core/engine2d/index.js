@@ -1382,11 +1382,14 @@ export class FloorPlanner {
 
     
 
+    findRooms() { 
+        return this.detectRooms(); 
+    }
+
     detectRooms() { 
         this.roomLayer.destroyChildren(); 
         if (this.roomLabelLayer) this.roomLabelLayer.destroyChildren();
         const newRooms = []; 
-        const edges = [];
         
         const isPointOnSegment = (p, p1, p2) => {
             const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
@@ -1401,158 +1404,179 @@ export class FloorPlanner {
 
         const anyCompoundHasFloor = (this.walls || []).some(w => w.type === 'compound' && w.hasFloor);
         const roomWalls = (this.walls || []).filter(w => (w.type !== 'compound' || anyCompoundHasFloor || w.hasFloor) && !w.hidden && w.type !== 'railing');
-        const roomAnchors = new Set();
+
+        // Partition walls by vertical elevation tier (tolerance: 5 cm)
+        const elevationTiers = [];
         roomWalls.forEach(w => {
-            if (w.startAnchor) roomAnchors.add(w.startAnchor);
-            if (w.endAnchor) roomAnchors.add(w.endAnchor);
+            const elev = Number(w.elevation) || 0;
+            let tier = elevationTiers.find(t => Math.abs(t.elevation - elev) < 5);
+            if (!tier) {
+                tier = { elevation: elev, walls: [] };
+                elevationTiers.push(tier);
+            }
+            tier.walls.push(w);
         });
 
-        roomWalls.forEach(w => {
-            const p1 = w.startAnchor;
-            const p2 = w.endAnchor;
-            const pointsOnWall = [];
-            roomAnchors.forEach(a => {
-                if (a === p1 || a === p2) return;
-                if (isPointOnSegment(a.position(), p1.position(), p2.position())) {
-                    pointsOnWall.push(a);
-                }
+        elevationTiers.forEach(tier => {
+            const tierWalls = tier.walls;
+            const tierAnchors = new Set();
+            tierWalls.forEach(w => {
+                if (w.startAnchor) tierAnchors.add(w.startAnchor);
+                if (w.endAnchor) tierAnchors.add(w.endAnchor);
             });
-            pointsOnWall.sort((a, b) => {
-                return Math.hypot(a.x - p1.x, a.y - p1.y) - Math.hypot(b.x - p1.x, b.y - p1.y);
-            });
-            
-            const uniquePoints = [p1];
-            pointsOnWall.forEach(pt => {
-                const last = uniquePoints[uniquePoints.length - 1];
-                if (Math.hypot(pt.x - last.x, pt.y - last.y) > 0.5) {
-                    uniquePoints.push(pt);
-                }
-            });
-            
-            if (Math.hypot(p2.x - uniquePoints[uniquePoints.length - 1].x, p2.y - uniquePoints[uniquePoints.length - 1].y) > 0.5) {
-                uniquePoints.push(p2);
-            } else {
-                uniquePoints[uniquePoints.length - 1] = p2;
-            }
 
-            for (let i = 0; i < uniquePoints.length - 1; i++) {
-                edges.push({ from: uniquePoints[i], to: uniquePoints[i+1], wall: w });
-                edges.push({ from: uniquePoints[i+1], to: uniquePoints[i], wall: w });
-            }
-        });
-
-        const getCluster = (anchor, adjMap) => {
-            for (let cluster of adjMap.keys()) {
-                if (Math.hypot(cluster.x - anchor.x, cluster.y - anchor.y) < 2) {
-                    return cluster;
-                }
-            }
-            return anchor;
-        };
-
-        const adj = new Map();
-        edges.forEach(e => {
-            const clusterFrom = getCluster(e.from, adj);
-            const clusterTo = getCluster(e.to, adj);
-            if (clusterFrom === clusterTo) return;
-            
-            if (!adj.has(clusterFrom)) adj.set(clusterFrom, []);
-            
-            // Prevent duplicate edges from identical overlapping walls (like railings on top of walls)
-            if (!adj.get(clusterFrom).some(ex => ex.to === clusterTo)) {
-                adj.get(clusterFrom).push({ from: clusterFrom, to: clusterTo, wall: e.wall, realFrom: e.from, realTo: e.to });
-            }
-        });
-
-        adj.forEach((outgoing, anchor) => {
-            outgoing.sort((a, b) => {
-                const angleA = Math.atan2(a.to.y - anchor.y, a.to.x - anchor.x);
-                const angleB = Math.atan2(b.to.y - anchor.y, b.to.x - anchor.x);
-                return angleA - angleB;
-            });
-        });
-
-        const visitedEdges = new Set();
-        const faces = [];
-
-        edges.forEach(startEdge => {
-            const clusterStartFrom = getCluster(startEdge.from, adj);
-            const clusterStartTo = getCluster(startEdge.to, adj);
-            if (clusterStartFrom === clusterStartTo) return;
-            
-            const clusteredStartEdges = adj.get(clusterStartFrom);
-            if (!clusteredStartEdges) return;
-            const clusteredStartEdge = clusteredStartEdges.find(e => e.to === clusterStartTo);
-            if (!clusteredStartEdge || visitedEdges.has(clusteredStartEdge)) return;
-            
-            const face = [];
-            let currentEdge = clusteredStartEdge;
-            let isClosed = false;
-
-            while (!visitedEdges.has(currentEdge)) {
-                visitedEdges.add(currentEdge);
-                face.push(currentEdge);
+            const edges = [];
+            tierWalls.forEach(w => {
+                const p1 = w.startAnchor;
+                const p2 = w.endAnchor;
+                const pointsOnWall = [];
+                tierAnchors.forEach(a => {
+                    if (a === p1 || a === p2) return;
+                    if (isPointOnSegment(a.position(), p1.position(), p2.position())) {
+                        pointsOnWall.push(a);
+                    }
+                });
+                pointsOnWall.sort((a, b) => {
+                    return Math.hypot(a.x - p1.x, a.y - p1.y) - Math.hypot(b.x - p1.x, b.y - p1.y);
+                });
                 
-                const nextAnchor = currentEdge.to;
-                const outgoing = adj.get(nextAnchor);
-                if (!outgoing || outgoing.length === 0) break;
+                const uniquePoints = [p1];
+                pointsOnWall.forEach(pt => {
+                    const last = uniquePoints[uniquePoints.length - 1];
+                    if (Math.hypot(pt.x - last.x, pt.y - last.y) > 0.5) {
+                        uniquePoints.push(pt);
+                    }
+                });
                 
-                let revIndex = outgoing.findIndex(e => e.to === currentEdge.from);
-                let nextIndex = (revIndex - 1 + outgoing.length) % outgoing.length;
-                currentEdge = outgoing[nextIndex];
-                
-                if (currentEdge === clusteredStartEdge) {
-                    isClosed = true;
-                    break;
+                if (Math.hypot(p2.x - uniquePoints[uniquePoints.length - 1].x, p2.y - uniquePoints[uniquePoints.length - 1].y) > 0.5) {
+                    uniquePoints.push(p2);
+                } else {
+                    uniquePoints[uniquePoints.length - 1] = p2;
                 }
-            }
 
-            if (isClosed && face.length >= 3) {
-                let area = 0;
-                for (let i = 0; i < face.length; i++) {
-                    const p1 = face[i].from;
-                    const p2 = face[i].to;
-                    area += (p2.x - p1.x) * (p2.y + p1.y);
+                for (let i = 0; i < uniquePoints.length - 1; i++) {
+                    edges.push({ from: uniquePoints[i], to: uniquePoints[i+1], wall: w });
+                    edges.push({ from: uniquePoints[i+1], to: uniquePoints[i], wall: w });
                 }
-                // Reject mathematically impossible slivers and the infinite outer boundary
-                if (area < -50) {
-                    faces.push(face);
-                }
-            }
-        });
-
-        faces.forEach(face => {
-            const path = face.map(e => e.realFrom || e.from);
-            path.push(face[face.length - 1].realTo || face[face.length - 1].to); 
-            
-            let cx = 0, cy = 0;
-            const uniquePoints = path.slice(0, -1);
-            uniquePoints.forEach(p => { cx += p.x; cy += p.y; });
-            cx /= uniquePoints.length;
-            cy /= uniquePoints.length;
-
-            let existingRoom = (this.rooms || []).find(r => {
-                if (Math.hypot(r.cx - cx, r.cy - cy) >= 30) return false;
-                if (!r.path || r.path.length < 3) return false;
-                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-                r.path.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
-                let newMinX = Infinity, newMaxX = -Infinity, newMinY = Infinity, newMaxY = -Infinity;
-                path.forEach(p => { newMinX = Math.min(newMinX, p.x); newMaxX = Math.max(newMaxX, p.x); newMinY = Math.min(newMinY, p.y); newMaxY = Math.max(newMaxY, p.y); });
-                const oldW = maxX - minX, oldH = maxY - minY;
-                const newW = newMaxX - newMinX, newH = newMaxY - newMinY;
-                if (Math.abs(oldW - newW) > 40 || Math.abs(oldH - newH) > 40) return false;
-                return true;
             });
-            let room;
-            if (existingRoom) {
-                existingRoom.path = path;
-                existingRoom.cx = cx;
-                existingRoom.cy = cy;
-                room = existingRoom;
-            } else {
-                room = { path, cx, cy, configId: 'hardwood', isDeleted: false, isHidden: false, materialRepeat: undefined, description: undefined };
-            }
-            newRooms.push(room);
+
+            const getCluster = (anchor, adjMap) => {
+                for (let cluster of adjMap.keys()) {
+                    if (Math.hypot(cluster.x - anchor.x, cluster.y - anchor.y) < 2) {
+                        return cluster;
+                    }
+                }
+                return anchor;
+            };
+
+            const adj = new Map();
+            edges.forEach(e => {
+                const clusterFrom = getCluster(e.from, adj);
+                const clusterTo = getCluster(e.to, adj);
+                if (clusterFrom === clusterTo) return;
+                
+                if (!adj.has(clusterFrom)) adj.set(clusterFrom, []);
+                
+                // Prevent duplicate edges from identical overlapping walls (like railings on top of walls)
+                if (!adj.get(clusterFrom).some(ex => ex.to === clusterTo)) {
+                    adj.get(clusterFrom).push({ from: clusterFrom, to: clusterTo, wall: e.wall, realFrom: e.from, realTo: e.to });
+                }
+            });
+
+            adj.forEach((outgoing, anchor) => {
+                outgoing.sort((a, b) => {
+                    const angleA = Math.atan2(a.to.y - anchor.y, a.to.x - anchor.x);
+                    const angleB = Math.atan2(b.to.y - anchor.y, b.to.x - anchor.x);
+                    return angleA - angleB;
+                });
+            });
+
+            const visitedEdges = new Set();
+            const faces = [];
+
+            edges.forEach(startEdge => {
+                const clusterStartFrom = getCluster(startEdge.from, adj);
+                const clusterStartTo = getCluster(startEdge.to, adj);
+                if (clusterStartFrom === clusterStartTo) return;
+                
+                const clusteredStartEdges = adj.get(clusterStartFrom);
+                if (!clusteredStartEdges) return;
+                const clusteredStartEdge = clusteredStartEdges.find(e => e.to === clusterStartTo);
+                if (!clusteredStartEdge || visitedEdges.has(clusteredStartEdge)) return;
+                
+                const face = [];
+                let currentEdge = clusteredStartEdge;
+                let isClosed = false;
+
+                while (!visitedEdges.has(currentEdge)) {
+                    visitedEdges.add(currentEdge);
+                    face.push(currentEdge);
+                    
+                    const nextAnchor = currentEdge.to;
+                    const outgoing = adj.get(nextAnchor);
+                    if (!outgoing || outgoing.length === 0) break;
+                    
+                    let revIndex = outgoing.findIndex(e => e.to === currentEdge.from);
+                    let nextIndex = (revIndex - 1 + outgoing.length) % outgoing.length;
+                    currentEdge = outgoing[nextIndex];
+                    
+                    if (currentEdge === clusteredStartEdge) {
+                        isClosed = true;
+                        break;
+                    }
+                }
+
+                if (isClosed && face.length >= 3) {
+                    let area = 0;
+                    for (let i = 0; i < face.length; i++) {
+                        const p1 = face[i].from;
+                        const p2 = face[i].to;
+                        area += (p2.x - p1.x) * (p2.y + p1.y);
+                    }
+                    // Reject mathematically impossible slivers and the infinite outer boundary
+                    if (area < -50) {
+                        faces.push(face);
+                    }
+                }
+            });
+
+            faces.forEach(face => {
+                const path = face.map(e => e.realFrom || e.from);
+                path.push(face[face.length - 1].realTo || face[face.length - 1].to); 
+                
+                let cx = 0, cy = 0;
+                const uniquePoints = path.slice(0, -1);
+                uniquePoints.forEach(p => { cx += p.x; cy += p.y; });
+                cx /= uniquePoints.length;
+                cy /= uniquePoints.length;
+
+                const roomElevation = tier.elevation;
+
+                let existingRoom = (this.rooms || []).find(r => {
+                    if (Math.abs((Number(r.elevation) || 0) - roomElevation) > 5) return false;
+                    if (Math.hypot(r.cx - cx, r.cy - cy) >= 30) return false;
+                    if (!r.path || r.path.length < 3) return false;
+                    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                    r.path.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
+                    let newMinX = Infinity, newMaxX = -Infinity, newMinY = Infinity, newMaxY = -Infinity;
+                    path.forEach(p => { newMinX = Math.min(newMinX, p.x); newMaxX = Math.max(newMaxX, p.x); newMinY = Math.min(newMinY, p.y); newMaxY = Math.max(newMaxY, p.y); });
+                    const oldW = maxX - minX, oldH = maxY - minY;
+                    const newW = newMaxX - newMinX, newH = newMaxY - newMinY;
+                    if (Math.abs(oldW - newW) > 40 || Math.abs(oldH - newH) > 40) return false;
+                    return true;
+                });
+                let room;
+                if (existingRoom) {
+                    existingRoom.path = path;
+                    existingRoom.cx = cx;
+                    existingRoom.cy = cy;
+                    existingRoom.elevation = roomElevation;
+                    room = existingRoom;
+                } else {
+                    room = { path, cx, cy, elevation: roomElevation, configId: 'hardwood', isDeleted: false, isHidden: false, materialRepeat: undefined, description: undefined };
+                }
+                newRooms.push(room);
+            });
         });
 
         // Sort rooms so larger container/courtyard rooms are drawn at the bottom layer
@@ -1880,7 +1904,7 @@ export class FloorPlanner {
             shapes: this.shapes ? this.shapes.map(s => ({ type: s.type, x: s.group.x(), y: s.group.y(), rotation: s.rotation, scaleX: s.group.scaleX(), scaleY: s.group.scaleY(), params: s.params, description: s.description })) : [],
             outdoorZones: this.outdoorZones ? this.outdoorZones.map(z => (typeof z.export === 'function' ? z.export() : (typeof z.toJSON === 'function' ? z.toJSON() : (typeof z.exportState === 'function' ? z.exportState() : z)))) : [],
             platforms: this.platforms ? this.platforms.map(p => (typeof p.export === 'function' ? p.export() : (typeof p.toJSON === 'function' ? p.toJSON() : p))) : [],
-            rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, configId: r.configId, isHidden: r.isHidden, isDeleted: r.isDeleted, materialRepeat: r.materialRepeat, description: r.description })) : [],
+            rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, elevation: r.elevation || 0, configId: r.configId, isHidden: r.isHidden, isDeleted: r.isDeleted, materialRepeat: r.materialRepeat, description: r.description })) : [],
             roomPaths: this.roomPaths ? this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y }))) : [],
             presetGroups: this.presetGroups ? this.presetGroups.map(g => g.export()) : []
         };

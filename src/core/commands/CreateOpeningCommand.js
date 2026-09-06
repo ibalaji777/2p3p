@@ -3,6 +3,7 @@
  */
 import { Command } from './Command.js';
 import { PremiumWidget } from '../engine2d/PremiumWidget.js';
+import { WallEngine } from '../wall/WallEngine.js';
 
 export class CreateOpeningCommand extends Command {
     constructor(planner, type, wallId, x, configId, id) {
@@ -43,9 +44,8 @@ export class CreateOpeningCommand extends Command {
             this.planner.windows.push(this.createdEntity);
         }
         
-        // Attach to wall
-        if (!this.wall.attachedWidgets) this.wall.attachedWidgets = [];
-        this.wall.attachedWidgets.push(this.createdEntity);
+        // Attach to wall via WallEngine
+        WallEngine.attachWidget(this.wall, this.createdEntity, false, this.planner);
         
         this.planner.syncAll();
     }
@@ -53,9 +53,9 @@ export class CreateOpeningCommand extends Command {
     undo() {
         if (!this.createdEntity) return;
         this.createdEntity.remove();
-        // Remove from wall
-        if (this.wall && this.wall.attachedWidgets) {
-            this.wall.attachedWidgets = this.wall.attachedWidgets.filter(w => w !== this.createdEntity);
+        // Remove from wall via WallEngine
+        if (this.wall) {
+            WallEngine.removeWidget(this.wall, this.createdEntity, false, this.planner);
         }
         this.planner.syncAll();
     }

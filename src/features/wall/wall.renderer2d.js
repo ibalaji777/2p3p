@@ -193,8 +193,7 @@ export class PremiumWall {
             // Note: advance_openings requires the class to exist globally, fallback to PremiumOpening if needed
             widget = typeof advance_openings !== 'undefined' ? new advance_openings(this.planner, this, t, tool) : new PremiumOpening(this.planner, this, tool);
             this.planner.selectEntity(widget, 'opening');
-            if (!this.attachedWidgets) this.attachedWidgets = [];
-            this.attachedWidgets.push(widget);
+            WallEngine.attachWidget(this, widget, false, this.planner);
         } else if (isMolding) {
             const moldType = MOLDING_REGISTRY[tool] ? tool : (this.planner.activePresetParams?.type || 'molding_skirting_flat');
             widget = new PremiumMolding(this.planner, this, 0.5, moldType);
@@ -211,8 +210,7 @@ export class PremiumWall {
             }
             widget.update();
             this.planner.selectEntity(widget, 'molding');
-            if (!this.attachedMoldings) this.attachedMoldings = [];
-            this.attachedMoldings.push(widget);
+            WallEngine.attachMolding(this, widget, false, this.planner);
         } else if (isWidget) {
             widget = new PremiumWidget(this.planner, this, t, tool);
             widget.facing = (face === 'back') ? -1 : 1;
@@ -223,8 +221,7 @@ export class PremiumWall {
             }
             
             this.planner.selectEntity(widget, 'widget');
-            if (!this.attachedWidgets) this.attachedWidgets = [];
-            this.attachedWidgets.push(widget);
+            WallEngine.attachWidget(this, widget, false, this.planner);
         }
         
         if (!isWidget) {

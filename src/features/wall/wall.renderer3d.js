@@ -4,6 +4,7 @@ import { WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, RAILING_REGISTRY,
 import { MaterialFactory } from '../../core/engine3d/MaterialFactory.js';
 import { Molding3DBuilder } from '../../core/engine3d/Molding3DBuilder.js';
 import { WallGeometryEngine } from '../../core/wall/WallGeometryEngine.js';
+import { WallEngine } from '../../core/wall/WallEngine.js';
 
 export function getPlasterMaterial() {
     return new THREE.MeshStandardMaterial({ 
@@ -542,6 +543,10 @@ export class Wall3DBuilder {
         }
 
         // ====== MITER JOINT SHEARING ======
+        if (!w.wallShapeData) {
+            const allWalls = ctx.planner?.walls || window.planner?.value?.walls || [];
+            WallEngine.recalculateGeometry(w, allWalls);
+        }
         const startProfile = w.wallShapeData?.startProfile || w.startProfile;
         const endProfile = w.wallShapeData?.endProfile || w.endProfile;
         const pts = typeof w.poly?.points === 'function' ? w.poly.points() : (w.pts || null);

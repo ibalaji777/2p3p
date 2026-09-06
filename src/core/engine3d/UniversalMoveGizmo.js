@@ -274,8 +274,9 @@ export class UniversalMoveGizmo extends THREE.Group {
         this.gizmoVisuals.add(createEdgeArrow(0, d + 2, 0, 'handle_z', this.matAxisZ));
         this.gizmoVisuals.add(createEdgeArrow(0, -d - 2, Math.PI, 'handle_z', this.matAxisZ));
 
-        // 4. Subtle Vertical Y Elevation Cone (Only if entity supports vertical elevation)
-        const supportsElevation = this.attachedEntity?.elevation !== undefined || this.attachedEntity?.wall;
+        // 4. Subtle Vertical Y Elevation Cone (Only if entity supports vertical elevation, doors are strictly floor-anchored)
+        const isDoor = this.attachedEntity?.type === 'door' || this.attachedEntity?.configId === 'door' || this.attachedEntity?.doorType !== undefined;
+        const supportsElevation = !isDoor && (this.attachedEntity?.elevation !== undefined || this.attachedEntity?.wall);
         if (supportsElevation) {
             const yHeight = Math.max(w, d) * 0.8;
             const yLineGeo = new THREE.BufferGeometry().setFromPoints([
@@ -514,7 +515,10 @@ export class UniversalMoveGizmo extends THREE.Group {
             const newLocalX = Math.max(5, Math.min(wallLength - 5, startLocalX + delta.x));
             ent.t = newLocalX / wallLength;
 
-            if (delta.y !== 0 && ent.elevation !== undefined) {
+            const isDoor = ent.type === 'door' || ent.configId === 'door' || ent.doorType !== undefined;
+            if (isDoor) {
+                ent.elevation = 0;
+            } else if (delta.y !== 0 && ent.elevation !== undefined) {
                 const wallH = wall.height || wall.config?.height || 300;
                 const opH = ent.height || 80;
                 const startElev = this.startEntityPosition.elevation || 0;

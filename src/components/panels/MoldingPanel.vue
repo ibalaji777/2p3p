@@ -149,6 +149,7 @@ import DimensionInput from '../common/DimensionInput.vue';
 import MaterialCategorySelector from '../common/MaterialCategorySelector.vue';
 import { getRoomForWallFace, getRoomWallsAndSides, getExteriorWallsAndSides } from '../../core/engine3d/WallPaintSystem.js';
 import { PremiumMolding } from '../../core/engine2d/PremiumMolding.js';
+import { WallEngine } from '../../core/wall/WallEngine.js';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true }
@@ -188,9 +189,9 @@ const applyToRoom = () => {
         const targetWall = t.wall;
         const targetSide = t.side;
         const sideVal = targetSide === 'front' ? 'left' : 'right';
-        if (!targetWall.attachedMoldings) targetWall.attachedMoldings = [];
         
-        targetWall.attachedMoldings = targetWall.attachedMoldings.filter(m => !(m.side === sideVal && Math.abs((m.heightOffset || 0) - (mold.heightOffset || 0)) < 15));
+        const toRemove = (targetWall.attachedMoldings || []).filter(m => (m.side === sideVal && Math.abs((m.heightOffset || 0) - (mold.heightOffset || 0)) < 15));
+        toRemove.forEach(m => WallEngine.removeMolding(targetWall, m, false, pl));
 
         const p1 = targetWall.startAnchor.position();
         const p2 = targetWall.endAnchor.position();
@@ -206,7 +207,7 @@ const applyToRoom = () => {
         newMold.material = mold.material || 'white_paint';
         newMold.color = mold.color || '#ffffff';
         newMold.update();
-        targetWall.attachedMoldings.push(newMold);
+        WallEngine.attachMolding(targetWall, newMold, false, pl);
     });
 
     emit('sync-engine');
@@ -224,9 +225,9 @@ const applyToExterior = () => {
         const targetWall = t.wall;
         const targetSide = t.side;
         const sideVal = targetSide === 'front' ? 'left' : 'right';
-        if (!targetWall.attachedMoldings) targetWall.attachedMoldings = [];
         
-        targetWall.attachedMoldings = targetWall.attachedMoldings.filter(m => !(m.side === sideVal && Math.abs((m.heightOffset || 0) - (mold.heightOffset || 0)) < 15));
+        const toRemove = (targetWall.attachedMoldings || []).filter(m => (m.side === sideVal && Math.abs((m.heightOffset || 0) - (mold.heightOffset || 0)) < 15));
+        toRemove.forEach(m => WallEngine.removeMolding(targetWall, m, false, pl));
 
         const p1 = targetWall.startAnchor.position();
         const p2 = targetWall.endAnchor.position();
@@ -242,7 +243,7 @@ const applyToExterior = () => {
         newMold.material = mold.material || 'white_paint';
         newMold.color = mold.color || '#ffffff';
         newMold.update();
-        targetWall.attachedMoldings.push(newMold);
+        WallEngine.attachMolding(targetWall, newMold, false, pl);
     });
 
     emit('sync-engine');

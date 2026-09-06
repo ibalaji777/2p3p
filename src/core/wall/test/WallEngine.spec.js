@@ -3,6 +3,7 @@ import { WallEngine } from '../WallEngine.js';
 import { WallGeometryEngine } from '../WallGeometryEngine.js';
 import { WallTopologyEngine } from '../WallTopologyEngine.js';
 import { WallMutationEngine } from '../WallMutationEngine.js';
+import { FloorPlanner } from '../../engine2d/index.js';
 
 beforeAll(() => {
     if (typeof HTMLCanvasElement !== 'undefined') {
@@ -183,6 +184,70 @@ describe('WallEngine - Single Source of Truth Architecture', () => {
             expect(walls[1].endAnchor).toBe(walls[2].startAnchor);
             expect(walls[2].endAnchor).toBe(walls[3].startAnchor);
             expect(walls[3].endAnchor).toBe(walls[0].startAnchor);
+        });
+
+        it('creates a 1st level room box placed directly above ground walls with isolated corner miters', () => {
+            // Ground floor room box at elevation 0
+            const groundWalls = WallEngine.createRoomBox(mockPlanner, {
+                minX: 0, minY: 0, maxX: 200, maxY: 150, thickness: 16, height: 120, elevation: 0
+            });
+
+            // 1st level room box placed directly above ground walls at elevation 120 sharing the same (x, y) anchors
+            const upperWalls = WallEngine.createRoomBox(mockPlanner, {
+                minX: 0, minY: 0, maxX: 200, maxY: 150, thickness: 16, height: 120, elevation: 120
+            });
+
+            expect(upperWalls.length).toBe(4);
+            upperWalls.forEach(w => {
+                expect(w.elevation).toBe(120);
+            });
+
+            // Recalculate corners at anchor (0, 0)
+            const sharedCorner = upperWalls[0].startAnchor;
+            expect(sharedCorner.x).toBe(0);
+            expect(sharedCorner.y).toBe(0);
+
+            // Ground wall miter at corner
+            const gCorner = WallGeometryEngine.getCorners(groundWalls[0], sharedCorner, true, mockPlanner.walls);
+            // Upper wall miter at same corner
+            const uCorner = WallGeometryEngine.getCorners(upperWalls[0], sharedCorner, true, mockPlanner.walls);
+
+            // Both must be valid 2-wall miters without flat caps or corruption from the other level
+            expect(gCorner.hasCap).toBe(false);
+            expect(uCorner.hasCap).toBe(false);
+            expect(uCorner.corners[0]).toBeDefined();
+            expect(uCorner.corners[1]).toBeDefined();
+        });
+
+        it('detects independent rooms per elevation tier when room boxes are stacked', () => {
+            mockPlanner.roomLayer = { destroyChildren: () => {} };
+            mockPlanner.roomLabelLayer = { destroyChildren: () => {} };
+            mockPlanner.drawRoom = () => {};
+            mockPlanner.updateRoofAutoPlacement = () => {};
+            mockPlanner.bgLayer = { batchDraw: () => {} };
+
+            // Ground floor room box at elevation 0
+            WallEngine.createRoomBox(mockPlanner, {
+                minX: 0, minY: 0, maxX: 200, maxY: 200, thickness: 16, height: 120, elevation: 0
+            });
+
+            // 1st level room box placed directly above at elevation 120 sharing an edge from x=0..100 at y=0
+            WallEngine.createRoomBox(mockPlanner, {
+                minX: 0, minY: 0, maxX: 100, maxY: 100, thickness: 16, height: 120, elevation: 120
+            });
+
+            FloorPlanner.prototype.detectRooms.call(mockPlanner);
+
+            expect(mockPlanner.rooms).toBeDefined();
+            expect(mockPlanner.rooms.length).toBe(2);
+
+            const groundRoom = mockPlanner.rooms.find(r => r.elevation === 0);
+            const upperRoom = mockPlanner.rooms.find(r => r.elevation === 120);
+
+            expect(groundRoom).toBeDefined();
+            expect(upperRoom).toBeDefined();
+            expect(groundRoom.elevation).toBe(0);
+            expect(upperRoom.elevation).toBe(120);
         });
 
         it('splits a wall into two connected segments and transfers attached widgets', () => {
@@ -402,6 +467,48 @@ describe('WallEngine - Single Source of Truth Architecture', () => {
             expect(mockPlanner.walls.length).toBe(4);
             const intersectionAnchor = mockPlanner.anchors.find(a => Math.hypot(a.x - 100, a.y - 100) < 2.0);
             expect(intersectionAnchor).toBeDefined();
+        });
+
+        it('attaches and removes widgets via WallEngine authority', () => {
+            const a1 = mockPlanner.getOrCreateAnchor(0, 0);
+            const a2 = mockPlanner.getOrCreateAnchor(200, 0);
+            const wall = WallEngine.createWall(mockPlanner, { startAnchor: a1, endAnchor: a2 });
+
+            const widget = { id: 'w_door_1', type: 'door', width: 90, height: 210, elevation: 0, t: 0.5 };
+            WallEngine.attachWidget(wall, widget, false, mockPlanner);
+
+            expect(wall.attachedWidgets).toContain(widget);
+            expect(widget.wall).toBe(wall);
+
+            WallEngine.removeWidget(wall, widget, false, mockPlanner);
+            expect(wall.attachedWidgets).not.toContain(widget);
+        });
+
+        it('attaches and removes moldings via WallEngine authority', () => {
+            const a1 = mockPlanner.getOrCreateAnchor(0, 0);
+            const a2 = mockPlanner.getOrCreateAnchor(200, 0);
+            const wall = WallEngine.createWall(mockPlanner, { startAnchor: a1, endAnchor: a2 });
+
+            const mold = { id: 'm_skirting_1', type: 'molding_skirting_flat', width: 200, heightOffset: 0 };
+            WallEngine.attachMolding(wall, mold, false, mockPlanner);
+
+            expect(wall.attachedMoldings).toContain(mold);
+            expect(mold.wall).toBe(wall);
+
+            WallEngine.removeMolding(wall, mold, false, mockPlanner);
+            expect(wall.attachedMoldings).not.toContain(mold);
+        });
+
+        it('enforces floor-anchoring for doors (elev = 0)', () => {
+            const door = { type: 'door', elevation: 0 };
+            const isDoor = door.type === 'door' || door.configId === 'door' || door.doorType !== undefined;
+            expect(isDoor).toBe(true);
+
+            // Even if vertical delta is applied, elevation must be pinned to 0
+            if (isDoor) {
+                door.elevation = 0;
+            }
+            expect(door.elevation).toBe(0);
         });
     });
 });

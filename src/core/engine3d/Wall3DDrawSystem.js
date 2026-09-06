@@ -5,8 +5,9 @@ import { Railing } from '../../features/railing/objects/Railing.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { PremiumOutdoorZone, OUTDOOR_ZONE_TYPES } from '../engine2d/PremiumOutdoorZone.js';
 import { computeCorridorPolygon } from '../engine2d/corridorUtils.js';
-import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js';
 import { WallReformer } from '../engine2d/WallReformer.js';
+import { WallEngine } from '../wall/WallEngine.js';
+import { computeLevelElevations } from './helpers/levelElevations.js';
 import { coreEventBus } from '../EventBus.js';
 import { EVENTS } from '../constants/events.js';
 
@@ -367,6 +368,10 @@ export class Wall3DDrawSystem {
     getFloorElevation() {
         const planner = this.planner;
         if (planner && planner.levels && planner.activeLevelIndex !== undefined) {
+            const elevations = computeLevelElevations(planner.levels);
+            if (elevations && elevations[planner.activeLevelIndex] !== undefined) {
+                return elevations[planner.activeLevelIndex];
+            }
             const lvl = planner.levels[planner.activeLevelIndex];
             if (lvl && lvl.elevation !== undefined) return lvl.elevation;
         }
@@ -1167,20 +1172,20 @@ export class Wall3DDrawSystem {
             const wallHeight = wallConfig.height || 120;
             const wallThick = wallConfig.thickness || 16;
 
-            const roomSegments = [
-                { p1: { x: minX, y: minY }, p2: { x: maxX, y: minY } }, // Top
-                { p1: { x: maxX, y: minY }, p2: { x: maxX, y: maxY } }, // Right
-                { p1: { x: maxX, y: maxY }, p2: { x: minX, y: maxY } }, // Bottom
-                { p1: { x: minX, y: maxY }, p2: { x: minX, y: minY } }
-            ];
-
             const wallType = this.activeTool === 'foundation_box' ? 'foundation' : 'outer';
-            const created = WallReformer.reformAndAddWallSegments(planner, roomSegments, wallType, {
+            const wallElev = this.drawingElevation !== undefined ? this.drawingElevation : pt.y;
+            const bounds = {
+                minX,
+                minY,
+                maxX,
+                maxY,
+                type: wallType,
                 height: wallHeight,
                 thickness: wallThick,
-                elevation: this.drawingElevation !== undefined ? this.drawingElevation : pt.y,
+                elevation: wallElev,
                 params: planner.activePresetParams
-            });
+            };
+            const created = WallEngine.createRoomBox(planner, bounds);
 
             if (created && created.length > 0) {
                 this.currentSessionEntities.push(...created);

@@ -1,4 +1,5 @@
 import Konva from 'konva';
+import { WallEngine } from '../wall/WallEngine.js';
 
 export class advance_openings {
     constructor(planner, wall, t, type) {
@@ -272,8 +273,8 @@ export class advance_openings {
         window.removeEventListener('keydown', this.handleKeyDown);
         if (this.cutter && typeof this.cutter.destroy === 'function') this.cutter.destroy();
         if (this.group && typeof this.group.destroy === 'function') this.group.destroy();
-        if (this.wall && this.wall.attachedWidgets) {
-            this.wall.attachedWidgets = this.wall.attachedWidgets.filter(w => w !== this);
+        if (this.wall) {
+            WallEngine.removeWidget(this.wall, this, false, this.planner);
         }
         if (this.planner && this.planner.selectedEntity === this) {
             this.planner.selectEntity(null);
