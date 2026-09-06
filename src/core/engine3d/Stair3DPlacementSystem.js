@@ -803,16 +803,16 @@ export class Stair3DPlacementSystem {
             );
         }
 
-        // 5. Select Placed Staircase in 3D Scene
+        // 5. Reset tool and sync to select mode
+        planner.tool = 'select';
+        if (typeof planner.updateToolStates === 'function') planner.updateToolStates();
+        planner.syncAll();
+
+        // 6. Select Placed Staircase in 3D Scene
         if (newStair.mesh3D && this.interactions) {
             newStair.mesh3D.updateWorldMatrix(true, true);
             this.interactions.selectObject(newStair.mesh3D, null, true);
         }
-
-        // 6. Reset tool and sync
-        planner.tool = 'select';
-        if (typeof planner.updateToolStates === 'function') planner.updateToolStates();
-        planner.syncAll();
 
         this.hideGhost();
 

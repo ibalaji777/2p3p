@@ -19,6 +19,7 @@ import { Wall3DDrawSystem } from './Wall3DDrawSystem.js';
 import { Shape3DDrawSystem } from './Shape3DDrawSystem.js';
 import { Platform3DDrawSystem } from './Platform3DDrawSystem.js';
 import { PlatformInteractiveSuite } from './PlatformInteractiveSuite.js';
+import { StairInteractiveSuite } from './StairInteractiveSuite.js';
 import { WallPlugin3DPlacementSystem } from './WallPlugin3DPlacementSystem.js';
 import { Stair3DPlacementSystem } from './Stair3DPlacementSystem.js';
 import { Furniture3DPlacementSystem } from './Furniture3DPlacementSystem.js';
@@ -504,6 +505,9 @@ export class InteractionSystem {
         this.platformInteractiveSuite = new PlatformInteractiveSuite(ctx);
         this.ctx.scene.add(this.platformInteractiveSuite);
 
+        this.stairInteractiveSuite = new StairInteractiveSuite(ctx);
+        this.ctx.scene.add(this.stairInteractiveSuite);
+
         this.wallPushPullGizmo = new WallPushPullGizmo(ctx);
         this.ctx.scene.add(this.wallPushPullGizmo);
 
@@ -689,7 +693,7 @@ export class InteractionSystem {
                 if (this.wallInteractiveSuite.extrudeGroup && this.wallInteractiveSuite.extrudeGroup.visible) {
                     const handleObjects = [
                         this.wallInteractiveSuite.extrudeHandle,
-                        this.wallInteractiveSuite.extrudeStartHandle,
+        this.wallInteractiveSuite.extrudeStartHandle,
                         this.wallInteractiveSuite.extrudeEndHandle
                     ];
                     if (this.raycaster.intersectObjects(handleObjects, true).length > 0) return;
@@ -699,6 +703,11 @@ export class InteractionSystem {
                     const wallObj = this.wallInteractiveSuite.target;
                     if (wallObj && this.raycaster.intersectObject(wallObj, true).length > 0) return;
                 }
+            }
+
+            if (this.stairInteractiveSuite && this.stairInteractiveSuite.visible) {
+                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+                if (this.raycaster.intersectObjects(this.stairInteractiveSuite.handlesGroup.children, true).length > 0) return;
             }
             
             const now = Date.now();
@@ -1219,6 +1228,13 @@ export class InteractionSystem {
                 this.platformInteractiveSuite.detach();
             }
 
+            const isStair = Boolean(object.userData?.isStair || object.userData?.entity?.type?.startsWith('stair') || object.userData?.entity?.shape);
+            if (isStair && this.stairInteractiveSuite) {
+                this.stairInteractiveSuite.attach(object);
+            } else if (this.stairInteractiveSuite) {
+                this.stairInteractiveSuite.detach();
+            }
+
             if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
             if (this.commonController) this.commonController.setSelection(object.userData.entity, object);
             if (this.commonController?.activeTool === COMMON_TOOLS.MOVE || this.ctx.currentTransformMode === 'translate' || this.ctx.currentTransformMode === 'move') {
@@ -1231,8 +1247,9 @@ export class InteractionSystem {
                 if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
                 if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
             }
-            if (window.plannerInstance && object.userData.entity && window.plannerInstance.selectedEntity !== object.userData.entity) {
-                window.plannerInstance.selectEntity(object.userData.entity, type);
+            const planner = this.ctx.planner || window.planner?.value || window.planner || window.plannerInstance;
+            if (planner && object.userData.entity && planner.selectedEntity !== object.userData.entity) {
+                planner.selectEntity(object.userData.entity, type);
             }
             
             const settings = useSettingsStore().floorPlanSettings;
@@ -1276,6 +1293,7 @@ export class InteractionSystem {
             if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
             if (this.wallInteractiveSuite) this.wallInteractiveSuite.detach();
             if (this.platformInteractiveSuite) this.platformInteractiveSuite.detach();
+            if (this.stairInteractiveSuite) this.stairInteractiveSuite.detach();
             this.ctx.currentTransformMode = 'none';
             if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
             
@@ -1287,8 +1305,9 @@ export class InteractionSystem {
             if (this.dimensionManager) this.dimensionManager.onDeselect();
             if (this.ctx.onEntitySelect) this.ctx.onEntitySelect(null, null, null);
             if (this.commonController) this.commonController.clearSelection();
-            if (window.plannerInstance && window.plannerInstance.selectedEntity !== null) {
-                window.plannerInstance.selectEntity(null, null);
+            const planner = this.ctx.planner || window.planner?.value || window.planner || window.plannerInstance;
+            if (planner && planner.selectedEntity !== null) {
+                planner.selectEntity(null, null);
             }
             if (this.ctx && typeof this.ctx.requestRender === 'function') {
                 this.ctx.requestRender();
@@ -1337,6 +1356,7 @@ export class InteractionSystem {
         if (this.shape3DDrawSystem && this.shape3DDrawSystem.destroy) this.shape3DDrawSystem.destroy();
         if (this.platform3DDrawSystem && this.platform3DDrawSystem.destroy) this.platform3DDrawSystem.destroy();
         if (this.platformInteractiveSuite && this.platformInteractiveSuite.destroy) this.platformInteractiveSuite.destroy();
+        if (this.stairInteractiveSuite && this.stairInteractiveSuite.destroy) this.stairInteractiveSuite.destroy();
         if (this.wallPluginPlacementSystem && this.wallPluginPlacementSystem.dispose) this.wallPluginPlacementSystem.dispose();
         if (this.stairPlacementSystem && this.stairPlacementSystem.dispose) this.stairPlacementSystem.dispose();
         if (this.furniturePlacementSystem && this.furniturePlacementSystem.dispose) this.furniturePlacementSystem.dispose();

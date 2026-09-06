@@ -652,6 +652,7 @@ export class Stair3DBuilder {
                     
                     child.userData.entity = stair;
                     child.userData.materialSlot = slot;
+                    child.userData.isStair = true;
                     ComponentRegistry.registerMesh(stair, slot, child);
                 }
             });

@@ -723,6 +723,11 @@ onMounted(() => {
     };
 
     renderer3D.value = new Preview3D(canvasWorkspaceRef.value.canvas3D);
+    window.renderer3D = renderer3D.value;
+    if (planner.value) {
+        planner.value.renderer3D = renderer3D.value;
+        planner.value.engine3d = renderer3D.value;
+    }
     if (renderer3D.value?.navigationCube) {
         renderer3D.value.navigationCube.setEntranceFacing(floorPlanSettings.value.mainEntranceFacing);
     }

@@ -1,4 +1,5 @@
 import Konva from 'konva';
+import { StairHeightDetector } from './StairHeightDetector.js';
 
 export class PremiumStaircase {
     constructor(planner, type = 'straight', data = {}) {
@@ -38,6 +39,7 @@ export class PremiumStaircase {
         this.stringerThickness = data.stringerThickness || 20;
         this.beamOffset = data.beamOffset !== undefined ? data.beamOffset : 25; // Distance from edge for double stringers
         this.landingSupports = data.landingSupports !== undefined ? data.landingSupports : false;
+        this.gapWidth = data.gapWidth !== undefined ? Number(data.gapWidth) : 20;
 
         // Shape specific
         if (this.shape === 'straight') {
@@ -161,6 +163,7 @@ export class PremiumStaircase {
     initHandles() {
         // Landing slider handle
         this.landingSlider = new Konva.Circle({ radius: 8, fill: '#f59e0b', stroke: 'white', strokeWidth: 2, draggable: true, visible: false });
+        this.landingSlider.isStairNodeHandle = true;
         this.landingSlider.on('mouseenter', () => document.body.style.cursor = 'ns-resize');
         this.landingSlider.on('mouseleave', () => document.body.style.cursor = 'default');
         
@@ -174,6 +177,7 @@ export class PremiumStaircase {
         });
 
         this.rotHandle = new Konva.Circle({ radius: 8, fill: '#3b82f6', stroke: 'white', strokeWidth: 2, draggable: true, visible: false });
+        this.rotHandle.isStairNodeHandle = true;
         this.rotHandle.on('mouseenter', () => document.body.style.cursor = 'crosshair');
         this.rotHandle.on('mouseleave', () => document.body.style.cursor = 'default');
         this.rotHandle.on('dragmove', (e) => {
@@ -188,7 +192,46 @@ export class PremiumStaircase {
             this.planner.syncAll();
         });
 
-        this.handlesGroup.add(this.landingSlider, this.rotHandle);
+        // Left & Right width resize handles (Sims 4 style side drag)
+        this.leftWidthHandle = new Konva.Circle({ radius: 7, fill: '#06b6d4', stroke: 'white', strokeWidth: 2, draggable: true, visible: false });
+        this.leftWidthHandle.isStairNodeHandle = true;
+        this.leftWidthHandle.on('mouseenter', () => document.body.style.cursor = 'ew-resize');
+        this.leftWidthHandle.on('mouseleave', () => document.body.style.cursor = 'default');
+        this.leftWidthHandle.on('dragmove', (e) => {
+            e.cancelBubble = true;
+            this._isDraggingLeftWidth = true;
+            const localX = this.leftWidthHandle.x();
+            const newW = Math.max(40, Math.min(300, Math.round((-localX * 2) / 5) * 5));
+            this.setWidth(newW);
+        });
+        this.leftWidthHandle.on('dragend', (e) => {
+            e.cancelBubble = true;
+            this._isDraggingLeftWidth = false;
+            this.updateHandles();
+            if (this.planner?.syncAll) this.planner.syncAll();
+            if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
+        });
+
+        this.rightWidthHandle = new Konva.Circle({ radius: 7, fill: '#06b6d4', stroke: 'white', strokeWidth: 2, draggable: true, visible: false });
+        this.rightWidthHandle.isStairNodeHandle = true;
+        this.rightWidthHandle.on('mouseenter', () => document.body.style.cursor = 'ew-resize');
+        this.rightWidthHandle.on('mouseleave', () => document.body.style.cursor = 'default');
+        this.rightWidthHandle.on('dragmove', (e) => {
+            e.cancelBubble = true;
+            this._isDraggingRightWidth = true;
+            const localX = this.rightWidthHandle.x();
+            const newW = Math.max(40, Math.min(300, Math.round((localX * 2) / 5) * 5));
+            this.setWidth(newW);
+        });
+        this.rightWidthHandle.on('dragend', (e) => {
+            e.cancelBubble = true;
+            this._isDraggingRightWidth = false;
+            this.updateHandles();
+            if (this.planner?.syncAll) this.planner.syncAll();
+            if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
+        });
+
+        this.handlesGroup.add(this.landingSlider, this.rotHandle, this.leftWidthHandle, this.rightWidthHandle);
     }
 
     handleLandingDrag() {
@@ -552,6 +595,7 @@ export class PremiumStaircase {
     updateHandles() {
         if (this.isStatic) return;
         const l1 = this.flight1Steps * this.stepDepth;
+        const midY = (this.flight1Steps * this.stepDepth) * 0.5;
         
         if (this.shape !== 'straight') {
             this.landingSlider.position({ x: 0, y: l1 });
@@ -562,6 +606,97 @@ export class PremiumStaircase {
         
         this.rotHandle.position({ x: 0, y: -30 });
         this.rotHandle.show();
+
+        if (this.leftWidthHandle && this.rightWidthHandle) {
+            if (!this._isDraggingLeftWidth) this.leftWidthHandle.position({ x: -this.width / 2, y: midY });
+            if (!this._isDraggingRightWidth) this.rightWidthHandle.position({ x: this.width / 2, y: midY });
+            this.leftWidthHandle.show();
+            this.rightWidthHandle.show();
+        }
+    }
+
+    setWidth(newW) {
+        const val = Math.max(40, Math.min(300, Number(newW) || 100));
+        this.width = val;
+        if (!this.landingSize || this.landingSize === this.width) {
+            this.landingSize = val;
+        }
+        this.update();
+        this._notify3DUpdate();
+    }
+
+    setHeight(newH) {
+        const val = Math.max(20, Math.min(600, Number(newH) || 300));
+        this.height = val;
+        const optimal = StairHeightDetector.calculateOptimalSteps(val, this.shape);
+        this.totalSteps = optimal.totalSteps;
+        this.flight1Steps = optimal.flight1Steps;
+        this.flight2Steps = optimal.flight2Steps;
+        this.stepHeight = optimal.stepHeight;
+        this.update();
+        this._notify3DUpdate();
+    }
+
+    setShape(newShape) {
+        if (newShape === this.shape) return;
+        this.shape = newShape;
+        this.type = `stair_v5_${newShape}`;
+
+        if (newShape === 'straight') {
+            this.totalSteps = (this.flight1Steps || 8) + (this.flight2Steps || 7);
+            this.flight1Steps = this.totalSteps;
+            this.flight2Steps = 0;
+        } else {
+            const total = this.totalSteps || ((this.flight1Steps || 8) + (this.flight2Steps || 7)) || 15;
+            this.flight1Steps = Math.max(2, Math.ceil(total / 2));
+            this.flight2Steps = Math.max(2, total - this.flight1Steps);
+            this.totalSteps = this.flight1Steps + this.flight2Steps;
+            if (!this.turnDirection) this.turnDirection = 'right';
+            if (!this.landingSize) this.landingSize = this.width;
+            if (this.gapWidth === undefined) this.gapWidth = 20;
+        }
+
+        this.update();
+        this._notify3DUpdate();
+    }
+
+    flipTurnDirection() {
+        this.turnDirection = (this.turnDirection === 'right') ? 'left' : 'right';
+        this.update();
+        this._notify3DUpdate();
+    }
+
+    adjustLanding(deltaSteps) {
+        if (this.shape === 'straight') return;
+        const total = this.flight1Steps + this.flight2Steps;
+        const newF1 = this.flight1Steps + deltaSteps;
+        if (newF1 >= 2 && newF1 <= total - 2) {
+            this.flight1Steps = newF1;
+            this.flight2Steps = total - newF1;
+            this.update();
+            this._notify3DUpdate();
+        }
+    }
+
+    _notify3DUpdate() {
+        const realtimeUpdate = this.planner?.renderer3D?.realtimeUpdate ||
+                               this.planner?.engine3d?.realtimeUpdate ||
+                               this.planner?.appState?.scene3D?.realtimeUpdate ||
+                               (typeof window !== 'undefined' && (
+                                   window.renderer3D?.realtimeUpdate ||
+                                   window.preview3D?.realtimeUpdate ||
+                                   window.planner?.renderer3D?.realtimeUpdate ||
+                                   window.planner?.engine3d?.realtimeUpdate ||
+                                   window.plannerInstance?.renderer3D?.realtimeUpdate ||
+                                   window.plannerInstance?.engine3d?.realtimeUpdate ||
+                                   window.scene3D?.realtimeUpdate
+                               ));
+        if (realtimeUpdate) {
+            realtimeUpdate.markDirty(this, 'geometry');
+        }
+        if (this.planner?.syncAll) {
+            this.planner.syncAll();
+        }
     }
 
     setHighlight(isActive) {

@@ -173,7 +173,7 @@ export class UniversalRealtimeUpdate {
         else if (type === 'stair' || subType.startsWith('stair_') || type === 'staircase') {
             renderFunc = (group, ent, helpers) => {
                 const tempWrapper = new THREE.Group();
-                const stairBuilder = new Stair3DBuilder(helpers.ctx?.assets, helpers.ctx?.interactables, helpers);
+                const stairBuilder = new Stair3DBuilder(helpers.ctx?.assets, [], helpers);
                 const wallH = helpers.ctx?.envBuilder?.wallHeight || 300;
                 stairBuilder.build([ent], tempWrapper, 0, false, wallH);
                 const actualStairGroup = tempWrapper.children[0] || tempWrapper;
