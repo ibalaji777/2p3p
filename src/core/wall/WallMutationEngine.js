@@ -11,6 +11,7 @@
  */
 
 import { WallGeometryEngine } from './WallGeometryEngine.js';
+import { isFloorAnchoredDoor } from './WallEngine.js';
 
 export class WallMutationEngine {
     /**
@@ -428,6 +429,9 @@ export class WallMutationEngine {
     static attachWidget(wall, widget, shouldSync = true, planner = null) {
         if (!wall || !widget) return;
         wall.wallShapeData = null;
+        if (isFloorAnchoredDoor(widget)) {
+            widget.elevation = 0;
+        }
         const p = planner || wall.planner;
         if (!wall.attachedWidgets) wall.attachedWidgets = [];
         if (!wall.attachedWidgets.includes(widget)) {
@@ -479,6 +483,37 @@ export class WallMutationEngine {
         const p = planner || wall.planner;
         const id = typeof moldingOrId === 'string' ? moldingOrId : moldingOrId?.id;
         wall.attachedMoldings = wall.attachedMoldings.filter(m => (id ? m.id !== id : m !== moldingOrId));
+        if (shouldSync && p && typeof p.syncAll === 'function') {
+            p.syncAll();
+        }
+    }
+
+    /**
+     * Attaches a decor element (wall art, panel, etc.) to a wall.
+     */
+    static attachDecor(wall, decor, shouldSync = true, planner = null) {
+        if (!wall || !decor) return;
+        wall.wallShapeData = null;
+        const p = planner || wall.planner;
+        if (!wall.attachedDecor) wall.attachedDecor = [];
+        if (!wall.attachedDecor.includes(decor)) {
+            wall.attachedDecor.push(decor);
+            decor.wall = wall;
+        }
+        if (shouldSync && p && typeof p.syncAll === 'function') {
+            p.syncAll();
+        }
+    }
+
+    /**
+     * Removes an attached decor element.
+     */
+    static removeDecor(wall, decorOrId, shouldSync = true, planner = null) {
+        if (!wall || !wall.attachedDecor) return;
+        wall.wallShapeData = null;
+        const p = planner || wall.planner;
+        const id = typeof decorOrId === 'string' ? decorOrId : decorOrId?.id;
+        wall.attachedDecor = wall.attachedDecor.filter(d => (id ? d.id !== id : d !== decorOrId));
         if (shouldSync && p && typeof p.syncAll === 'function') {
             p.syncAll();
         }

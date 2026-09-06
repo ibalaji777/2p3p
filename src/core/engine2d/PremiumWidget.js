@@ -1,6 +1,6 @@
 import Konva from 'konva';
 import { WIDGET_REGISTRY } from '../registry.js';
-import { WallEngine } from '../wall/WallEngine.js';
+import { WallEngine, isFloorAnchoredDoor } from '../wall/WallEngine.js';
 
 export class PremiumWidget {
     constructor(planner, wall, t, configId) {
@@ -9,6 +9,9 @@ export class PremiumWidget {
         this.supportsLiveMaterialPipeline = true;
         this.config = WIDGET_REGISTRY[configId];
         Object.assign(this, JSON.parse(JSON.stringify(this.config.defaultConfig)));
+        if (isFloorAnchoredDoor(this)) {
+            this.elevation = 0;
+        }
         
         this.cutter = new Konva.Rect({ height: (wall.thickness || wall.config.thickness) + 4, fill: 'black', globalCompositeOperation: 'destination-out', listening: false }); 
         if (this.config.cutsWall !== false) this.planner.wallLayer.add(this.cutter);
@@ -133,6 +136,9 @@ export class PremiumWidget {
     }
     
     update() {
+        if (isFloorAnchoredDoor(this)) {
+            this.elevation = 0;
+        }
         const p1 = this.wall.startAnchor.position(), p2 = this.wall.endAnchor.position(), dx = p2.x - p1.x, dy = p2.y - p1.y, angle = Math.atan2(dy, dx) * 180 / Math.PI, absPos = { x: p1.x + dx * this.t, y: p1.y + dy * this.t }, thick = this.wall.thickness || this.wall.config.thickness, hw = this.width / 2;
         this.cutter.width(this.width); this.cutter.height(thick + 4); this.cutter.offsetX(this.width / 2); this.cutter.offsetY((thick + 4) / 2); this.cutter.position(absPos); this.cutter.rotation(angle);
         this.visualGroup.position(absPos); this.visualGroup.rotation(angle); this.frameL.setAttrs({ height: thick, x: -hw, y: -thick/2 }); this.frameR.setAttrs({ height: thick, x: hw - 4, y: -thick/2 });

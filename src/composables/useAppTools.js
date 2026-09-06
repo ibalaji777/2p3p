@@ -1,6 +1,7 @@
 import { PRESET_REGISTRY } from '../core/engine2d/presetRegistry.js';
 import { FURNITURE_REGISTRY } from '../features/furniture/furniture.registry.js';
 import { applyWallPaintWithScope } from '../core/engine3d/WallPaintSystem.js';
+import { WallEngine } from '../core/wall/WallEngine.js';
 
 export function useAppTools({
     activeTool,
@@ -397,7 +398,7 @@ export function useAppTools({
             if (selectedType.value === 'wallDecor') {
                 const wall = planner.value.walls.find(w => w.attachedDecor && w.attachedDecor.some(d => d.id === selectedEntity.value.id));
                 if (wall) {
-                    wall.attachedDecor = wall.attachedDecor.filter(d => d.id !== selectedEntity.value.id);
+                    WallEngine.removeDecor(wall, selectedEntity.value.id, false, planner.value);
                     if (wall.isStatic) updateStaticLevelData(wall);
                 }
                 selectedEntity.value = null;
@@ -426,16 +427,19 @@ export function useAppTools({
     const handleDeleteSpecificDecor = (decorObj) => {
         const decor = decorObj || selectedEntity.value;
         if (decor) {
-            const wall = decor.mesh3D.userData.parentWall;
-            wall.attachedDecor = wall.attachedDecor.filter(d => d !== decor); wall.mesh3D.remove(decor.mesh3D);
-            if (selectedEntity.value === wall || selectedEntity.value === decor) wall.attachedDecor = [...wall.attachedDecor]; 
+            const wall = decor.mesh3D?.userData?.parentWall || (planner.value?.walls.find(w => w.attachedDecor && w.attachedDecor.includes(decor)));
+            if (wall) {
+                WallEngine.removeDecor(wall, decor, false, planner.value);
+                if (decor.mesh3D && wall.mesh3D) wall.mesh3D.remove(decor.mesh3D);
+                if (selectedEntity.value === wall || selectedEntity.value === decor) wall.attachedDecor = [...wall.attachedDecor];
+            }
             if (renderer3D.value && renderer3D.value.selectedObject === decor.mesh3D) { 
                 renderer3D.value.deselectObject(); 
                 if (handleDeselect) handleDeselect(); 
             }
             uiTrigger.value++;
             
-            if (wall.isStatic) updateStaticLevelData(wall);
+            if (wall && wall.isStatic) updateStaticLevelData(wall);
             debouncedSaveHistory();
         }
     };

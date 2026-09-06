@@ -4,6 +4,7 @@ import { WallGeometryEngine } from '../WallGeometryEngine.js';
 import { WallTopologyEngine } from '../WallTopologyEngine.js';
 import { WallMutationEngine } from '../WallMutationEngine.js';
 import { FloorPlanner } from '../../engine2d/index.js';
+import { UpdatePropertyCommand } from '../../commands/UpdatePropertyCommand.js';
 
 beforeAll(() => {
     if (typeof HTMLCanvasElement !== 'undefined') {
@@ -751,6 +752,118 @@ describe('WallEngine - Single Source of Truth Architecture', () => {
 
                 simulateCenterHandle(windowEnt, 150);
                 expect(windowEnt.elevation).toBe(150 - 110 / 2);
+            });
+        });
+
+        describe('Decor Attachment, Invariants & Command Routing', () => {
+            it('attaches and removes decor via WallEngine with cache invalidation', () => {
+                let synced = false;
+                const mockPlanner = { syncAll: () => { synced = true; } };
+                const wall = { id: 'w1', attachedDecor: [], wallShapeData: { cached: true }, planner: mockPlanner };
+                const decor1 = { id: 'd1', type: 'wallDecor', configId: 'brick' };
+                const decor2 = { id: 'd2', type: 'wallDecor', configId: 'wood' };
+
+                // Attach decor1
+                WallEngine.attachDecor(wall, decor1, true, mockPlanner);
+                expect(wall.attachedDecor).toHaveLength(1);
+                expect(wall.attachedDecor[0]).toBe(decor1);
+                expect(decor1.wall).toBe(wall);
+                expect(wall.wallShapeData).toBeNull();
+                expect(synced).toBe(true);
+
+                // Adding duplicate should not double-add
+                WallEngine.attachDecor(wall, decor1, false);
+                expect(wall.attachedDecor).toHaveLength(1);
+
+                // Attach decor2
+                WallEngine.attachDecor(wall, decor2, false);
+                expect(wall.attachedDecor).toHaveLength(2);
+
+                // Remove decor1 by reference
+                wall.wallShapeData = { cached: true };
+                synced = false;
+                WallEngine.removeDecor(wall, decor1, true, mockPlanner);
+                expect(wall.attachedDecor).toHaveLength(1);
+                expect(wall.attachedDecor[0]).toBe(decor2);
+                expect(wall.wallShapeData).toBeNull();
+                expect(synced).toBe(true);
+
+                // Remove decor2 by string ID
+                WallEngine.removeDecor(wall, 'd2', false);
+                expect(wall.attachedDecor).toHaveLength(0);
+            });
+
+            it('clamps door elevation to 0 when attached via WallEngine.attachWidget', () => {
+                const wall = { id: 'w1', attachedWidgets: [], wallShapeData: null };
+                const door = { id: 'door1', type: 'door', elevation: 60, width: 90, height: 210 };
+                const windowEnt = { id: 'win1', type: 'window', elevation: 90, width: 120, height: 120 };
+
+                WallEngine.attachWidget(wall, door, false);
+                expect(door.elevation).toBe(0);
+
+                WallEngine.attachWidget(wall, windowEnt, false);
+                expect(windowEnt.elevation).toBe(90);
+            });
+
+            it('routes wall property updates in UpdatePropertyCommand through WallEngine.batchUpdate', () => {
+                let synced = false;
+                let update3DCalled = false;
+                const mockPlanner = {
+                    syncAll: () => { synced = true; },
+                    update3D: () => { update3DCalled = true; }
+                };
+
+                const wall = {
+                    id: 'w1',
+                    isWall: true,
+                    startAnchor: { x: 0, y: 0 },
+                    endAnchor: { x: 300, y: 0 },
+                    thickness: 20,
+                    height: 280,
+                    elevation: 0,
+                    topProfileType: 'normal',
+                    config: { thickness: 20, height: 280 },
+                    wallShapeData: { cached: true },
+                    planner: mockPlanner
+                };
+
+                mockPlanner.walls = [wall];
+                mockPlanner.entities = [wall];
+                mockPlanner.getEntities = () => [wall];
+
+                const cmd = new UpdatePropertyCommand(
+                    mockPlanner,
+                    'w1',
+                    { thickness: 35, height: 320, elevation: 15, topProfileType: 'gable' },
+                    { thickness: 20, height: 280, elevation: 0, topProfileType: 'normal' }
+                );
+
+                cmd.execute();
+
+                expect(wall.thickness).toBe(35);
+                expect(wall.config.thickness).toBe(35);
+                expect(wall.height).toBe(320);
+                expect(wall.config.height).toBe(320);
+                expect(wall.elevation).toBe(15);
+                expect(wall.topProfileType).toBe('gable');
+                expect(wall.wallShapeData).toBeNull();
+                expect(synced).toBe(true);
+                expect(update3DCalled).toBe(true);
+
+                // Test undo
+                synced = false;
+                update3DCalled = false;
+                cmd.undo();
+
+                expect(wall.thickness).toBe(20);
+                expect(wall.config.thickness).toBe(20);
+                expect(wall.height).toBe(280);
+                expect(wall.config.height).toBe(280);
+                expect(wall.elevation).toBe(0);
+                expect(wall.topProfileType).toBe('normal');
+                expect(wall.wallShapeData).toBeNull();
+                expect(synced).toBe(true);
+                expect(update3DCalled).toBe(true);
             });
         });
     });

@@ -2851,7 +2851,7 @@ export class GizmoManager {
                 const decorId = e.currentTarget.getAttribute('data-decor-id');
                 const decor = (wall.attachedDecor || []).find(d => d.id === decorId);
                 if (decor) {
-                    wall.attachedDecor = wall.attachedDecor.filter(d => d.id !== decorId);
+                    WallEngine.removeDecor(wall, decorId, false, this.ctx ? this.ctx.planner : null);
                     if (decor.mesh3D && decor.mesh3D.parent) {
                         decor.mesh3D.parent.remove(decor.mesh3D);
                     }

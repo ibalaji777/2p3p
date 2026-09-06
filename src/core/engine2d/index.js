@@ -341,9 +341,9 @@ export class FloorPlanner {
         if (this.walls) {
             this.walls = this.walls.filter(w => w !== entity);
             this.walls.forEach(w => {
-                if (w.attachedWidgets) w.attachedWidgets = w.attachedWidgets.filter(item => item !== entity && item.id !== (entity.id || entityOrId));
-                if (w.attachedDecor) w.attachedDecor = w.attachedDecor.filter(item => item !== entity && item.id !== (entity.id || entityOrId));
-                if (w.attachedMoldings) w.attachedMoldings = w.attachedMoldings.filter(item => item !== entity && item.id !== (entity.id || entityOrId));
+                if (w.attachedWidgets) WallEngine.removeWidget(w, entity, false, this);
+                if (w.attachedDecor) WallEngine.removeDecor(w, entity, false, this);
+                if (w.attachedMoldings) WallEngine.removeMolding(w, entity, false, this);
             });
         }
         if (this.furniture) this.furniture = this.furniture.filter(f => f !== entity);

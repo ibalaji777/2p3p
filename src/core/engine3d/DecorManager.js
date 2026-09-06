@@ -5,6 +5,7 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY } from '../../core/registry';
 import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js';
 import { MaterialManager } from './MaterialManager.js';
+import { WallEngine } from '../wall/WallEngine.js';
 
 export class DecorManager {
     constructor(ctx) { this.ctx = ctx; }
@@ -29,8 +30,6 @@ export class DecorManager {
             }
             return { id: 'arc_mat_' + Date.now(), configId, side };
         }
-
-        if (!wallEntity.attachedDecor) wallEntity.attachedDecor = [];
         
         const decor = {
             id: 'decor_' + Math.random().toString(36).substr(2, 9),
@@ -44,7 +43,7 @@ export class DecorManager {
             faces: { front: true, back: false, left: true, right: true } 
         };
 
-        wallEntity.attachedDecor.push(decor);
+        WallEngine.attachDecor(wallEntity, decor, false, this.ctx ? this.ctx.planner : null);
         this.load(wallEntity, decor);
         return decor;
     }
