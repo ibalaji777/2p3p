@@ -18,6 +18,7 @@ export class PremiumStaircase {
         this.y = data.y || 0;
         this.rotation = data.rotation || 0;
         this.elevation = data.elevation || 0;
+        this.height = data.height !== undefined ? Number(data.height) : (data.totalSteps && data.stepHeight ? Number(data.totalSteps) * Number(data.stepHeight) : 300);
         this.direction = data.direction || 'up'; // 'up' means arrow points to second floor
         this.description = data.description || '';
 

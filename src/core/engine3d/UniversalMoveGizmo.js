@@ -14,6 +14,7 @@
 import * as THREE from 'three';
 import { ObjectCapabilityEvaluator } from './tools/ObjectCapabilityEvaluator.js';
 import { isFloorAnchoredDoor } from '../wall/WallEngine.js';
+import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.js';
 
 export class UniversalMoveGizmo extends THREE.Group {
     /**
@@ -556,6 +557,37 @@ export class UniversalMoveGizmo extends THREE.Group {
             ent.y = newZ;
             if (ent.elevation !== undefined && delta.y !== 0) {
                 ent.elevation = newY;
+            }
+
+            // Sims 4 Dynamic Staircase Auto-Detect Height during drag
+            const isStair = Boolean(ent.shape || (ent.type && ent.type.startsWith('stair')) || ent.totalSteps !== undefined);
+            const planner = this.ctx.planner || (this.ctx.appState && this.ctx.appState.planner) || window.planner?.value || window.planner;
+
+            if (isStair && planner) {
+                const detection = StairHeightDetector.detect({
+                    x: newX,
+                    z: newZ,
+                    elevation: ent.elevation || 0,
+                    rotation: ent.rotation || 0,
+                    preset: ent,
+                    planner,
+                    isCenterAnchored: false
+                });
+
+                if (detection.hasTarget) {
+                    const currentH = Number(ent.height) || 300;
+                    if (Math.abs(currentH - detection.detectedHeight) > 1) {
+                        ent.height = detection.detectedHeight;
+                        ent.totalSteps = detection.optimalSteps;
+                        ent.flight1Steps = detection.flight1Steps;
+                        ent.flight2Steps = detection.flight2Steps;
+                        ent.stepHeight = detection.stepHeight;
+                        ent.length = detection.flightLength;
+                        if (this.ctx.realtimeUpdate) {
+                            this.ctx.realtimeUpdate.markDirty(ent, 'geometry');
+                        }
+                    }
+                }
             }
 
             if (ent.group && typeof ent.group.x === 'function') {

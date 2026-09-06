@@ -188,8 +188,11 @@ export class Stair3DBuilder {
 
                 const totalRisers = shape === 'straight' ? f1Steps : (f1Steps + f2Steps);
                 
-                // AUTO-FIT HEIGHT: Enforce perfect fit to next floor height
-                const stepHeight = maxWallHeight / totalRisers;
+                // AUTO-FIT HEIGHT: Respect individual stair height if specified, otherwise fit to maxWallHeight
+                const stairHeight = (stair.height !== undefined && Number(stair.height) > 0)
+                    ? Number(stair.height)
+                    : (Number(maxWallHeight) || WALL_HEIGHT);
+                const stepHeight = stairHeight / (totalRisers > 0 ? totalRisers : 1);
                 const l1 = f1Steps * stepDepth;
                 const l2 = f2Steps * stepDepth;
                 const landingSize = Number(stair.landingSize) || width;

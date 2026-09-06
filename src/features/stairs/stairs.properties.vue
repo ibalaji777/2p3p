@@ -7,6 +7,7 @@
             <MaterialSlotsPanel :entity="selectedEntity" @sync-engine="$emit('sync-engine')" />
 
             <!-- Standard Geometry -->
+            <div class="control-group"><label>Total Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.height" min="15" max="600" @input="onHeightChange"><DimensionInput v-model="selectedEntity.height" @change="onHeightChange" /></div></div>
             <div class="control-group"><label>Width</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.width" min="40" max="300" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.width" @change="$emit('sync-engine')" /></div></div>
             <div class="control-group"><label>Step Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stepDepth" min="15" max="50" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.stepDepth" @change="$emit('sync-engine')" /></div></div>
             <div class="control-group"><label>Step Height</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.stepHeight" min="10" max="30" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.stepHeight" @change="$emit('sync-engine')" /></div></div>
@@ -131,6 +132,7 @@ import { computed } from 'vue';
 import MaterialSlotsPanel from '../../components/common/MaterialSlotsPanel.vue';
 import { RAILING_REGISTRY } from '../railing/registry/railing.registry.js';
 import DimensionInput from '../../components/common/DimensionInput.vue';
+import { StairHeightDetector } from './StairHeightDetector.js';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true }
@@ -140,4 +142,15 @@ const emit = defineEmits([
     'sync-engine',
     'delete-entity'
 ]);
+
+const onHeightChange = () => {
+    if (!props.selectedEntity) return;
+    const h = Number(props.selectedEntity.height) || 300;
+    const optimal = StairHeightDetector.calculateOptimalSteps(h, props.selectedEntity.shape);
+    props.selectedEntity.totalSteps = optimal.totalSteps;
+    props.selectedEntity.flight1Steps = optimal.flight1Steps;
+    props.selectedEntity.flight2Steps = optimal.flight2Steps;
+    props.selectedEntity.stepHeight = optimal.stepHeight;
+    emit('sync-engine');
+};
 </script>

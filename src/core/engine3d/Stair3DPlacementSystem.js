@@ -3,6 +3,7 @@ import { WALL_HEIGHT } from '../constants/units.js';
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
 import { PremiumStaircase, getStairCutoutPolygon } from '../../features/stairs/stairs.renderer2d.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
+import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.js';
 
 /**
  * Stair3DPlacementSystem
@@ -51,6 +52,10 @@ export class Stair3DPlacementSystem {
 
         this.stairBuilder = new Stair3DBuilder(ctx.assets, [], ctx.helpers);
 
+        // Sims 4 Dynamic Height Auto-Detection State
+        this.autoHeightEnabled = true;
+        this.lastDetection = null;
+
         // Master Ghost Group in 3D Scene — positioned at cursor = visual center
         this.ghostGroup = new THREE.Group();
         this.ghostGroup.name = 'Sims4_StairPlacement_GhostGroup';
@@ -82,6 +87,21 @@ export class Stair3DPlacementSystem {
         this.arrowGroup.raycast = () => {};
         this.createDirectionArrow();
         this.ghostGroup.add(this.arrowGroup);
+
+        // 3.5 Glowing Edge Snap Guideline in 3D Scene
+        this.snapGuideMat = new THREE.LineBasicMaterial({
+            color: 0x10b981,
+            linewidth: 3,
+            depthTest: false,
+            transparent: true,
+            opacity: 0.95
+        });
+        this.snapGuideMesh = new THREE.LineSegments(new THREE.BufferGeometry(), this.snapGuideMat);
+        this.snapGuideMesh.name = 'Sims4_StairPlacement_SnapGuide';
+        this.snapGuideMesh.renderOrder = 1010;
+        this.snapGuideMesh.raycast = () => {};
+        this.snapGuideMesh.visible = false;
+        if (this.ctx.scene) this.ctx.scene.add(this.snapGuideMesh);
 
         // 4. Create Stable Static DOM HUD Action Bar
         this.createBadgeDOM();
@@ -146,6 +166,45 @@ export class Stair3DPlacementSystem {
         }
     }
 
+    updateSnapGuideLine(detection) {
+        if (!this.snapGuideMesh) return;
+        if (!detection || !detection.hasTarget || !detection.targetEdge) {
+            this.snapGuideMesh.visible = false;
+            return;
+        }
+
+        const edge = detection.targetEdge;
+        const elev = detection.targetElevation || (this.activeElevation + detection.detectedHeight);
+        const p1 = edge.p1;
+        const p2 = edge.p2;
+
+        const vertices = new Float32Array([
+            p1.x, elev + 0.3, p1.z,
+            p2.x, elev + 0.3, p2.z
+        ]);
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+        if (this.snapGuideMesh.geometry) this.snapGuideMesh.geometry.dispose();
+        this.snapGuideMesh.geometry = geo;
+        this.snapGuideMesh.visible = true;
+    }
+
+    toggleAutoHeight() {
+        this.autoHeightEnabled = !this.autoHeightEnabled;
+        if (this.btnAuto) {
+            this.btnAuto.textContent = this.autoHeightEnabled ? '⚡ Auto: ON' : '⚡ Auto: OFF';
+            this.btnAuto.style.background = this.autoHeightEnabled ? 'rgba(16, 185, 129, 0.22)' : 'rgba(148, 163, 184, 0.22)';
+            this.btnAuto.style.borderColor = this.autoHeightEnabled ? 'rgba(16, 185, 129, 0.6)' : 'rgba(148, 163, 184, 0.6)';
+            this.btnAuto.style.color = this.autoHeightEnabled ? '#34d399' : '#94a3b8';
+        }
+        this._lastPresetHash = '';
+        const preset = this.getPlanner()?.activePresetParams || {};
+        this.updateGhostModel(preset, this.activePos.x, this.activeElevation, this.activePos.z, this.activeRotation);
+        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+            this.ctx.requestRender();
+        }
+    }
+
     createBadgeDOM() {
         this.badgeDom = document.createElement('div');
         this.badgeDom.id = 'sims4-stair-placement-badge';
@@ -185,7 +244,14 @@ export class Stair3DPlacementSystem {
                     1000 × 3300 mm • 12 Steps
                 </div>
 
+                <div id="stair-ui-target" style="display: none; align-items: center; gap: 5px; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.5); color: #34d399; width: fit-content; font-weight: 600;">
+                    ⚡ Auto-Fit: Platform (600 mm)
+                </div>
+
                 <div style="display: flex; align-items: center; gap: 6px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.12); margin-top: 2px;">
+                    <button id="stair-ui-btn-auto" type="button" title="Toggle Auto Height Detection" style="display: flex; align-items: center; justify-content: center; gap: 4px; background: rgba(16, 185, 129, 0.22); border: 1.5px solid rgba(16, 185, 129, 0.6); color: #34d399; border-radius: 7px; padding: 6px 9px; font-size: 11px; font-weight: 700; cursor: pointer; touch-action: manipulation;">
+                        ⚡ Auto: ON
+                    </button>
                     <button id="stair-ui-btn-rot" type="button" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; background: rgba(56, 189, 248, 0.22); border: 1.5px solid rgba(56, 189, 248, 0.6); color: #38bdf8; border-radius: 7px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; touch-action: manipulation;">
                         ↻ Rotate
                     </button>
@@ -207,12 +273,20 @@ export class Stair3DPlacementSystem {
         this.elTitle = this.badgeDom.querySelector('#stair-ui-title');
         this.elRot = this.badgeDom.querySelector('#stair-ui-rot');
         this.elSpecs = this.badgeDom.querySelector('#stair-ui-specs');
+        this.elTarget = this.badgeDom.querySelector('#stair-ui-target');
+        this.btnAuto = this.badgeDom.querySelector('#stair-ui-btn-auto');
         this.btnRot = this.badgeDom.querySelector('#stair-ui-btn-rot');
         this.btnFlip = this.badgeDom.querySelector('#stair-ui-btn-flip');
         this.btnPlace = this.badgeDom.querySelector('#stair-ui-btn-place');
         this.btnCancel = this.badgeDom.querySelector('#stair-ui-btn-cancel');
 
         // Wire handlers once without recreating elements
+        this.btnAuto.addEventListener('pointerdown', (e) => e.stopPropagation());
+        this.btnAuto.addEventListener('click', (ev) => {
+            ev.preventDefault(); ev.stopPropagation();
+            this.toggleAutoHeight();
+        });
+
         this.btnRot.addEventListener('pointerdown', (e) => e.stopPropagation());
         this.btnRot.addEventListener('click', (ev) => {
             ev.preventDefault(); ev.stopPropagation();
@@ -377,15 +451,46 @@ export class Stair3DPlacementSystem {
         const cursorZ = Math.round(hitPoint.z / gridStep) * gridStep;
 
         // Apply grab offset: ghost center = cursor + offset
-        // This prevents the staircase from jumping when the user touches/clicks
-        // on its edge, beginning, or any non-center point.
-        const worldX = cursorX + this._grabOffset.x;
-        const worldZ = cursorZ + this._grabOffset.z;
+        let worldX = cursorX + this._grabOffset.x;
+        let worldZ = cursorZ + this._grabOffset.z;
+
+        // Sims 4 Real-Time Height Auto-Detection
+        const detection = this.autoHeightEnabled ? StairHeightDetector.detect({
+            x: worldX,
+            z: worldZ,
+            elevation: elev,
+            rotation: this.activeRotation,
+            preset,
+            planner,
+            isCenterAnchored: true
+        }) : StairHeightDetector.getDefaultResult(preset, elev, this.getActiveMaxWallHeight());
+
+        this.lastDetection = detection;
+
+        // Apply edge flush snapping if close to a platform or wall edge (unless Alt is held)
+        if (detection.snappedPos && !e.altKey) {
+            worldX = detection.snappedPos.x;
+            worldZ = detection.snappedPos.z;
+        }
 
         this.activePos.set(worldX, elev, worldZ);
 
+        // Update 3D snap guide line along the target edge
+        this.updateSnapGuideLine(detection);
+
+        // Effective stair preset with auto-detected height, steps, and length
+        const effectivePreset = {
+            ...preset,
+            height: detection.detectedHeight,
+            totalSteps: detection.optimalSteps,
+            flight1Steps: detection.flight1Steps,
+            flight2Steps: detection.flight2Steps,
+            stepHeight: detection.stepHeight,
+            length: detection.flightLength
+        };
+
         // Update Ghost 3D Mesh (centers on cursor + offset)
-        this.updateGhostModel(preset, worldX, elev, worldZ, this.activeRotation);
+        this.updateGhostModel(effectivePreset, worldX, elev, worldZ, this.activeRotation);
 
         // Update HUD Badge Information
         this.updateBadgeContent(e);
@@ -403,11 +508,11 @@ export class Stair3DPlacementSystem {
 
         const preset = planner.activePresetParams || {};
         const width = Number(preset.width) || 100;
-        const length = Number(preset.length) || (Number(preset.totalSteps || 12) * Number(preset.stepDepth || 28));
-        const maxWallHeight = this.getActiveMaxWallHeight();
+        const targetHeight = this.lastDetection?.detectedHeight || (Number(preset.height) || this.getActiveMaxWallHeight());
+        const totalSteps = this.lastDetection?.optimalSteps || preset.totalSteps || (Number(preset.flight1Steps || 8) + Number(preset.flight2Steps || 7));
+        const length = Number(preset.length) || (totalSteps * Number(preset.stepDepth || 28));
         const stairName = preset.name || 'Custom Staircase';
-        const totalSteps = preset.totalSteps || (Number(preset.flight1Steps || 8) + Number(preset.flight2Steps || 7));
-        const specsText = `${Math.round(width * 10)} × ${Math.round(length * 10)} mm • Height ${Math.round(maxWallHeight * 10)} mm • ${totalSteps} Steps`;
+        const specsText = `${Math.round(width * 10)} × ${Math.round(length * 10)} mm • Height ${Math.round(targetHeight * 10)} mm • ${totalSteps} Steps`;
         const shape = preset.shape || (preset.type ? preset.type.replace('stair_v5_', '') : 'straight');
         const showFlip = (shape === 'L' || shape === 'U' || shape === 'T');
 
@@ -415,6 +520,15 @@ export class Stair3DPlacementSystem {
         if (this.elRot) this.elRot.textContent = `${this.activeRotation % 360}°`;
         if (this.elSpecs) this.elSpecs.textContent = specsText;
         if (this.btnFlip) this.btnFlip.style.display = showFlip ? 'flex' : 'none';
+
+        if (this.elTarget) {
+            if (this.lastDetection?.hasTarget && this.autoHeightEnabled) {
+                this.elTarget.style.display = 'inline-flex';
+                this.elTarget.textContent = `⚡ Auto-Fit: ${this.lastDetection.targetName} (${Math.round(targetHeight * 10)} mm) • ${totalSteps} Steps`;
+            } else {
+                this.elTarget.style.display = 'none';
+            }
+        }
 
         const isMobileScreen = this.isTouchDevice();
 
@@ -443,9 +557,9 @@ export class Stair3DPlacementSystem {
         this.ghostGroup.rotation.y = -rotation * Math.PI / 180;
         this.ghostGroup.visible = true;
 
-        const maxWallHeight = this.getActiveMaxWallHeight();
+        const targetHeight = Number(preset.height) || this.getActiveMaxWallHeight();
         const shape = preset.shape || (preset.type ? preset.type.replace('stair_v5_', '') : 'straight');
-        const hash = `${preset.id}_${preset.type}_${shape}_${preset.width}_${preset.length}_${maxWallHeight}_${preset.totalSteps}_${preset.flight1Steps}_${preset.flight2Steps}_${this.activeTurnDirection}_${preset.stringerType}`;
+        const hash = `${preset.id}_${preset.type}_${shape}_${preset.width}_${preset.length}_${targetHeight}_${preset.totalSteps}_${preset.flight1Steps}_${preset.flight2Steps}_${this.activeTurnDirection}_${preset.stringerType}`;
 
         if (this._lastPresetHash !== hash) {
             this._lastPresetHash = hash;
@@ -458,6 +572,7 @@ export class Stair3DPlacementSystem {
 
             const stairPayload = {
                 ...preset,
+                height: targetHeight,
                 shape: shape,
                 turnDirection: this.activeTurnDirection || preset.turnDirection || 'right',
                 x: 0,
@@ -467,7 +582,7 @@ export class Stair3DPlacementSystem {
             };
 
             const tempWrapper = new THREE.Group();
-            this.stairBuilder.build([stairPayload], tempWrapper, 0, true, maxWallHeight);
+            this.stairBuilder.build([stairPayload], tempWrapper, 0, true, targetHeight);
             tempWrapper.position.set(0, 0, 0);
 
             // ──── COMPUTE BOUNDING BOX CENTER ────
@@ -646,6 +761,14 @@ export class Stair3DPlacementSystem {
             elevation: this.activeElevation,
             ...preset
         };
+        if (this.lastDetection && this.autoHeightEnabled) {
+            stairData.height = this.lastDetection.detectedHeight;
+            stairData.totalSteps = this.lastDetection.optimalSteps;
+            stairData.flight1Steps = this.lastDetection.flight1Steps;
+            stairData.flight2Steps = this.lastDetection.flight2Steps;
+            stairData.stepHeight = this.lastDetection.stepHeight;
+            stairData.length = this.lastDetection.flightLength;
+        }
         if (this.activeTurnDirection) {
             stairData.turnDirection = this.activeTurnDirection;
         }
@@ -703,6 +826,7 @@ export class Stair3DPlacementSystem {
     hideGhost() {
         if (this.ghostGroup) this.ghostGroup.visible = false;
         if (this.badgeDom) this.badgeDom.style.display = 'none';
+        if (this.snapGuideMesh) this.snapGuideMesh.visible = false;
         this._grabOffset.set(0, 0, 0);
         this._isGrabbing = false;
         if (this.ctx && this.ctx.controls) {
@@ -722,6 +846,11 @@ export class Stair3DPlacementSystem {
         }
         if (this.ghostGroup && this.ctx.scene) {
             this.ctx.scene.remove(this.ghostGroup);
+        }
+        if (this.snapGuideMesh && this.ctx.scene) {
+            this.ctx.scene.remove(this.snapGuideMesh);
+            if (this.snapGuideMesh.geometry) this.snapGuideMesh.geometry.dispose();
+            if (this.snapGuideMat) this.snapGuideMat.dispose();
         }
     }
 }
