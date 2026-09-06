@@ -22,6 +22,7 @@ export class WallMutationEngine {
      */
     static setThickness(wall, newThickness, shouldSync = true, planner = null) {
         if (!wall) return;
+        wall.wallShapeData = null;
         const p = planner || wall.planner;
         const thick = Math.max(2, Math.min(200, Number(newThickness) || 20));
         wall.thickness = thick;
@@ -53,6 +54,7 @@ export class WallMutationEngine {
      */
     static setHeight(wall, newHeight, shouldSync = true, planner = null) {
         if (!wall) return;
+        wall.wallShapeData = null;
         const p = planner || wall.planner;
         const h = Math.max(10, Math.min(1000, Number(newHeight) || 180));
         wall.height = h;
@@ -84,6 +86,7 @@ export class WallMutationEngine {
      */
     static setElevation(wall, newElevation, shouldSync = true, planner = null) {
         if (!wall) return;
+        wall.wallShapeData = null;
         const p = planner || wall.planner;
         wall.elevation = Number(newElevation) || 0;
 
@@ -103,6 +106,7 @@ export class WallMutationEngine {
      */
     static setEndpoints(wall, startPos, endPos, shouldSync = true, planner = null) {
         if (!wall) return;
+        wall.wallShapeData = null;
         const p = planner || wall.planner;
 
         if (startPos) {
@@ -149,6 +153,7 @@ export class WallMutationEngine {
      */
     static setTopProfile(wall, profileType = 'normal', options = {}, shouldSync = true, planner = null) {
         if (!wall) return;
+        wall.wallShapeData = null;
         const p = planner || wall.planner;
         wall.topProfileType = profileType;
 
@@ -257,6 +262,7 @@ export class WallMutationEngine {
      */
     static moveWall(wall, dx, dy, shouldSync = true, planner = null) {
         if (!wall) return;
+        wall.wallShapeData = null;
         const p = planner || wall.planner;
 
         const p1 = WallGeometryEngine.getAnchorPosition(wall.startAnchor);
@@ -285,6 +291,14 @@ export class WallMutationEngine {
             if (anchor.lastValidPos) anchor.lastValidPos = { ...newPosition };
         }
 
+        if (p && p.walls) {
+            p.walls.forEach(w => {
+                if (w.startAnchor === anchor || w.endAnchor === anchor) {
+                    w.wallShapeData = null;
+                }
+            });
+        }
+
         if (shouldSync && p && typeof p.syncAll === 'function') {
             p.syncAll();
             if (p.update3D) p.update3D();
@@ -301,6 +315,7 @@ export class WallMutationEngine {
      */
     static pushPull(wall, side, distance, options = {}, planner = null) {
         if (!wall) return;
+        wall.wallShapeData = null;
         const p = planner || wall.planner;
         const {
             mode = 'thickness',
@@ -318,12 +333,14 @@ export class WallMutationEngine {
         const startPos = initialStart || centerline.p1;
         const endPos = initialEnd || centerline.p2;
 
+        const shouldSync = options.shouldSync !== undefined ? options.shouldSync : true;
+
         if (mode === 'baseline') {
             // BASELINE MOVE: Shifts the entire wall perpendicularly (Room resizing)
             const shiftX = normal.x * distance;
             const shiftY = normal.y * distance;
 
-            this.setEndpoints(wall, { x: startPos.x + shiftX, y: startPos.y + shiftY }, { x: endPos.x + shiftX, y: endPos.y + shiftY }, true, p);
+            this.setEndpoints(wall, { x: startPos.x + shiftX, y: startPos.y + shiftY }, { x: endPos.x + shiftX, y: endPos.y + shiftY }, shouldSync, p);
         } else {
             // THICKNESS ADJUSTMENT: Single-sided with opposite face pinned
             const newThick = Math.max(5, Math.min(120, initialThickness + distance));
@@ -336,7 +353,7 @@ export class WallMutationEngine {
             wall.thickness = newThick;
             if (wall.config) wall.config.thickness = newThick;
 
-            this.setEndpoints(wall, { x: startPos.x + shiftX, y: startPos.y + shiftY }, { x: endPos.x + shiftX, y: endPos.y + shiftY }, true, p);
+            this.setEndpoints(wall, { x: startPos.x + shiftX, y: startPos.y + shiftY }, { x: endPos.x + shiftX, y: endPos.y + shiftY }, shouldSync, p);
         }
     }
 
@@ -364,6 +381,7 @@ export class WallMutationEngine {
         if (!walls || walls.length === 0) return;
 
         walls.forEach(w => {
+            w.wallShapeData = null;
             if (updates.thickness !== undefined) {
                 w.thickness = Number(updates.thickness);
                 if (w.config) w.config.thickness = Number(updates.thickness);
@@ -409,6 +427,7 @@ export class WallMutationEngine {
      */
     static attachWidget(wall, widget, shouldSync = true, planner = null) {
         if (!wall || !widget) return;
+        wall.wallShapeData = null;
         const p = planner || wall.planner;
         if (!wall.attachedWidgets) wall.attachedWidgets = [];
         if (!wall.attachedWidgets.includes(widget)) {
@@ -425,6 +444,7 @@ export class WallMutationEngine {
      */
     static removeWidget(wall, widgetOrId, shouldSync = true, planner = null) {
         if (!wall || !wall.attachedWidgets) return;
+        wall.wallShapeData = null;
         const p = planner || wall.planner;
         const id = typeof widgetOrId === 'string' ? widgetOrId : widgetOrId?.id;
         wall.attachedWidgets = wall.attachedWidgets.filter(w => (id ? w.id !== id : w !== widgetOrId));
@@ -438,6 +458,7 @@ export class WallMutationEngine {
      */
     static attachMolding(wall, molding, shouldSync = true, planner = null) {
         if (!wall || !molding) return;
+        wall.wallShapeData = null;
         const p = planner || wall.planner;
         if (!wall.attachedMoldings) wall.attachedMoldings = [];
         if (!wall.attachedMoldings.includes(molding)) {
@@ -454,6 +475,7 @@ export class WallMutationEngine {
      */
     static removeMolding(wall, moldingOrId, shouldSync = true, planner = null) {
         if (!wall || !wall.attachedMoldings) return;
+        wall.wallShapeData = null;
         const p = planner || wall.planner;
         const id = typeof moldingOrId === 'string' ? moldingOrId : moldingOrId?.id;
         wall.attachedMoldings = wall.attachedMoldings.filter(m => (id ? m.id !== id : m !== moldingOrId));
@@ -472,6 +494,7 @@ export class WallMutationEngine {
      */
     static addSolidProtrusion(wall, options = {}, shouldSync = true, planner = null) {
         if (!wall) return null;
+        wall.wallShapeData = null;
         const p = planner || wall.planner;
         const {
             id = 'protrusion_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
@@ -521,6 +544,7 @@ export class WallMutationEngine {
      */
     static updateSolidProtrusion(wall, protrusionOrId, updates = {}, shouldSync = true, planner = null) {
         if (!wall || !wall.attachedWidgets) return null;
+        wall.wallShapeData = null;
         const p = planner || wall.planner;
         const targetWidget = typeof protrusionOrId === 'string'
             ? wall.attachedWidgets.find(w => w.id === protrusionOrId)

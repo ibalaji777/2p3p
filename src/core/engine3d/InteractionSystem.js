@@ -23,6 +23,7 @@ import { WallPlugin3DPlacementSystem } from './WallPlugin3DPlacementSystem.js';
 import { Stair3DPlacementSystem } from './Stair3DPlacementSystem.js';
 import { Furniture3DPlacementSystem } from './Furniture3DPlacementSystem.js';
 import { Roof3DPlacementSystem } from './Roof3DPlacementSystem.js';
+import { isFloorAnchoredDoor } from '../wall/WallEngine.js';
 import { RoofPlugin3DPlacementSystem } from './RoofPlugin3DPlacementSystem.js';
 import { SelectionManager } from './SelectionManager.js';
 import { HighlightRenderer } from './HighlightRenderer.js';
@@ -158,7 +159,7 @@ export class OpeningGizmo extends THREE.Group {
                         const newH = Math.max(10, localTarget.y);
                         entity.height = newH;
                     } else if (this.activeHandle === 'bottom') {
-                        const isDoor = entity.type === 'door' || entity.configId === 'door' || entity.doorType !== undefined;
+                        const isDoor = isFloorAnchoredDoor(entity);
                         if (!isDoor) {
                             const parentTarget = this.target.parent.worldToLocal(newWorldPos);
                             const wallH = wall.height || wall.config?.height || 120;
@@ -187,7 +188,7 @@ export class OpeningGizmo extends THREE.Group {
                                 entity.t = projT;
                             }
                             
-                            const isDoor = entity.type === 'door' || entity.configId === 'door' || entity.doorType !== undefined;
+                            const isDoor = isFloorAnchoredDoor(entity);
                             if (isDoor) {
                                 entity.elevation = 0;
                             } else {

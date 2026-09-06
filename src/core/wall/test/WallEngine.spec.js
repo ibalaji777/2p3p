@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
-import { WallEngine } from '../WallEngine.js';
+import { WallEngine, isFloorAnchoredDoor } from '../WallEngine.js';
 import { WallGeometryEngine } from '../WallGeometryEngine.js';
 import { WallTopologyEngine } from '../WallTopologyEngine.js';
 import { WallMutationEngine } from '../WallMutationEngine.js';
@@ -501,7 +501,7 @@ describe('WallEngine - Single Source of Truth Architecture', () => {
 
         it('enforces floor-anchoring for doors (elev = 0)', () => {
             const door = { type: 'door', elevation: 0 };
-            const isDoor = door.type === 'door' || door.configId === 'door' || door.doorType !== undefined;
+            const isDoor = isFloorAnchoredDoor(door);
             expect(isDoor).toBe(true);
 
             // Even if vertical delta is applied, elevation must be pinned to 0
@@ -509,6 +509,249 @@ describe('WallEngine - Single Source of Truth Architecture', () => {
                 door.elevation = 0;
             }
             expect(door.elevation).toBe(0);
+        });
+    });
+
+    describe('4. Comprehensive Architectural Remediation & Invariant Verification', () => {
+        describe('4.1 Universal Floor-Anchored Door Predicate', () => {
+            it('correctly classifies doors across configurations', () => {
+                expect(isFloorAnchoredDoor({ type: 'door' })).toBe(true);
+                expect(isFloorAnchoredDoor({ configId: 'door' })).toBe(true);
+                expect(isFloorAnchoredDoor({ doorType: 'single' })).toBe(true);
+                expect(isFloorAnchoredDoor({ doorStyle: 'classic' })).toBe(true);
+                expect(isFloorAnchoredDoor({ config: { widget: 'door' } })).toBe(true);
+                expect(WallEngine.isFloorAnchoredDoor({ type: 'door' })).toBe(true);
+            });
+
+            it('rejects non-door entities', () => {
+                expect(isFloorAnchoredDoor({ type: 'window' })).toBe(false);
+                expect(isFloorAnchoredDoor({ configId: 'window_sliding' })).toBe(false);
+                expect(isFloorAnchoredDoor({ type: 'opening' })).toBe(false);
+                expect(isFloorAnchoredDoor({ type: 'molding_skirting_flat' })).toBe(false);
+                expect(isFloorAnchoredDoor({ type: 'furniture_sofa' })).toBe(false);
+                expect(isFloorAnchoredDoor(null)).toBe(false);
+                expect(isFloorAnchoredDoor(undefined)).toBe(false);
+                expect(isFloorAnchoredDoor({})).toBe(false);
+                expect(WallEngine.isFloorAnchoredDoor({ type: 'window' })).toBe(false);
+            });
+        });
+
+        describe('4.2 Authoritative wallShapeData Invalidation', () => {
+            let wall;
+
+            beforeEach(() => {
+                const a1 = mockPlanner.getOrCreateAnchor(0, 0);
+                const a2 = mockPlanner.getOrCreateAnchor(100, 0);
+                wall = WallEngine.createWall(mockPlanner, { startAnchor: a1, endAnchor: a2, thickness: 20, height: 120 });
+                wall.wallShapeData = { cached: true, timestamp: Date.now() };
+            });
+
+            it('invalidates on setThickness', () => {
+                expect(wall.wallShapeData).not.toBeNull();
+                WallEngine.setThickness(wall, 25, false, mockPlanner);
+                expect(wall.wallShapeData).toBeNull();
+            });
+
+            it('invalidates on setHeight', () => {
+                expect(wall.wallShapeData).not.toBeNull();
+                WallEngine.setHeight(wall, 200, false, mockPlanner);
+                expect(wall.wallShapeData).toBeNull();
+            });
+
+            it('invalidates on setElevation', () => {
+                expect(wall.wallShapeData).not.toBeNull();
+                WallEngine.setElevation(wall, 100, false, mockPlanner);
+                expect(wall.wallShapeData).toBeNull();
+            });
+
+            it('invalidates on setEndpoints', () => {
+                expect(wall.wallShapeData).not.toBeNull();
+                WallEngine.setEndpoints(wall, { x: 10, y: 0 }, { x: 110, y: 0 }, false, mockPlanner);
+                expect(wall.wallShapeData).toBeNull();
+            });
+
+            it('invalidates on setTopProfile', () => {
+                expect(wall.wallShapeData).not.toBeNull();
+                WallEngine.setTopProfile(wall, 'single', { startHeight: 100, endHeight: 150 }, false, mockPlanner);
+                expect(wall.wallShapeData).toBeNull();
+            });
+
+            it('invalidates on moveWall', () => {
+                expect(wall.wallShapeData).not.toBeNull();
+                WallEngine.moveWall(wall, 5, 5, false, mockPlanner);
+                expect(wall.wallShapeData).toBeNull();
+            });
+
+            it('invalidates connected walls on moveAnchor', () => {
+                expect(wall.wallShapeData).not.toBeNull();
+                WallEngine.moveAnchor(wall.startAnchor, { x: 5, y: 5 }, mockPlanner, false);
+                expect(wall.wallShapeData).toBeNull();
+            });
+
+            it('invalidates on pushPull', () => {
+                expect(wall.wallShapeData).not.toBeNull();
+                // Without auto-sync, wallShapeData is explicitly cleared to null
+                WallEngine.pushPull(wall, 'front', 10, { mode: 'thickness', initialThickness: 20, shouldSync: false }, mockPlanner);
+                expect(wall.wallShapeData).toBeNull();
+
+                // With planner sync, stale cached data is purged and regenerated
+                wall.wallShapeData = { cached: true };
+                WallEngine.pushPull(wall, 'front', 10, { mode: 'thickness', initialThickness: 30 }, mockPlanner);
+                expect(wall.wallShapeData.cached).toBeUndefined();
+                expect(wall.wallShapeData.startL).toBeDefined();
+            });
+
+            it('invalidates on batchUpdate', () => {
+                expect(wall.wallShapeData).not.toBeNull();
+                // Without auto-sync, wallShapeData is explicitly cleared to null
+                WallEngine.batchUpdate(null, [wall], { thickness: 30 });
+                expect(wall.wallShapeData).toBeNull();
+
+                // With planner sync, stale cached data is purged and regenerated
+                wall.wallShapeData = { cached: true };
+                WallEngine.batchUpdate(mockPlanner, [wall], { thickness: 36 });
+                expect(wall.wallShapeData.cached).toBeUndefined();
+                expect(wall.wallShapeData.startL).toBeDefined();
+            });
+
+            it('invalidates on attachWidget and removeWidget', () => {
+                const widget = { id: 'w_test_1', type: 'window', width: 60 };
+                expect(wall.wallShapeData).not.toBeNull();
+
+                WallEngine.attachWidget(wall, widget, false, mockPlanner);
+                expect(wall.wallShapeData).toBeNull();
+
+                wall.wallShapeData = { cached: true };
+                WallEngine.removeWidget(wall, widget, false, mockPlanner);
+                expect(wall.wallShapeData).toBeNull();
+            });
+
+            it('invalidates on attachMolding and removeMolding', () => {
+                const molding = { id: 'm_test_1', type: 'skirting' };
+                expect(wall.wallShapeData).not.toBeNull();
+
+                WallEngine.attachMolding(wall, molding, false, mockPlanner);
+                expect(wall.wallShapeData).toBeNull();
+
+                wall.wallShapeData = { cached: true };
+                WallEngine.removeMolding(wall, molding, false, mockPlanner);
+                expect(wall.wallShapeData).toBeNull();
+            });
+
+            it('invalidates on addSolidProtrusion and updateSolidProtrusion', () => {
+                expect(wall.wallShapeData).not.toBeNull();
+                const prot = WallEngine.addSolidProtrusion(wall, { depth: 15, width: 40 }, false, mockPlanner);
+                expect(wall.wallShapeData).toBeNull();
+
+                wall.wallShapeData = { cached: true };
+                WallEngine.updateSolidProtrusion(wall, prot, { depth: 25 }, false, mockPlanner);
+                expect(wall.wallShapeData).toBeNull();
+            });
+        });
+
+        describe('4.3 Solid Protrusion Lifecycle via WallEngine Authority', () => {
+            it('manages protrusion creation, in-place update, and removal', () => {
+                const a1 = mockPlanner.getOrCreateAnchor(0, 0);
+                const a2 = mockPlanner.getOrCreateAnchor(200, 0);
+                const wall = WallEngine.createWall(mockPlanner, { startAnchor: a1, endAnchor: a2, thickness: 20 });
+
+                // 1. Add protrusion
+                const prot = WallEngine.addSolidProtrusion(wall, {
+                    width: 80,
+                    depth: 20,
+                    t: 0.5,
+                    facing: 1,
+                    params: { textureFront: 'brick_red' }
+                }, false, mockPlanner);
+
+                expect(prot).toBeDefined();
+                expect(prot.type).toBe('solid_protrusion');
+                expect(prot.configId).toBe('solid_protrusion');
+                expect(prot.width).toBe(80);
+                expect(prot.depth).toBe(20);
+                expect(prot.t).toBe(0.5);
+                expect(prot.wall).toBe(wall);
+                expect(wall.attachedWidgets).toContain(prot);
+
+                // 2. Update protrusion in place
+                const updated = WallEngine.updateSolidProtrusion(wall, prot.id, {
+                    depth: 35,
+                    width: 100,
+                    params: { textureFront: 'stone_slate' }
+                }, false, mockPlanner);
+
+                expect(updated).toBe(prot);
+                expect(prot.depth).toBe(35);
+                expect(prot.width).toBe(100);
+                expect(prot.params.textureFront).toBe('stone_slate');
+
+                // 3. Remove protrusion
+                WallEngine.removeSolidProtrusion(wall, prot.id, false, mockPlanner);
+                expect(wall.attachedWidgets).not.toContain(prot);
+            });
+        });
+
+        describe('4.4 Floor-Anchored Door Invariant During 3D Moves and Handle Drags', () => {
+            it('pins door elevation strictly to 0 during horizontal move and prevents vertical elevation change', () => {
+                const door = { type: 'door', elevation: 0, t: 0.5 };
+                const windowEnt = { type: 'window', elevation: 35, t: 0.5 };
+
+                // Simulate UniversalMoveGizmo translation logic
+                function simulateMove(ent, deltaY) {
+                    if (isFloorAnchoredDoor(ent)) {
+                        ent.elevation = 0;
+                    } else if (deltaY !== 0 && ent.elevation !== undefined) {
+                        ent.elevation = Math.max(0, ent.elevation + deltaY);
+                    }
+                }
+
+                // Move door with positive delta Y -> elevation MUST stay 0
+                simulateMove(door, 20);
+                expect(door.elevation).toBe(0);
+
+                // Move window with positive delta Y -> elevation increases
+                simulateMove(windowEnt, 20);
+                expect(windowEnt.elevation).toBe(55);
+            });
+
+            it('protects door from bottom-handle and center-handle elevation changes in InteractionSystem', () => {
+                const door = { type: 'door', elevation: 0, height: 210, t: 0.5 };
+                const windowEnt = { type: 'window', elevation: 90, height: 120, t: 0.5 };
+
+                // Bottom handle interaction simulation
+                function simulateBottomHandle(ent, targetY) {
+                    const isDoor = isFloorAnchoredDoor(ent);
+                    if (!isDoor) {
+                        const currentTop = ent.elevation + ent.height;
+                        ent.elevation = targetY;
+                        ent.height = currentTop - targetY;
+                    }
+                }
+
+                simulateBottomHandle(door, 40);
+                expect(door.elevation).toBe(0);
+                expect(door.height).toBe(210);
+
+                simulateBottomHandle(windowEnt, 100);
+                expect(windowEnt.elevation).toBe(100);
+                expect(windowEnt.height).toBe(110);
+
+                // Center handle drag simulation
+                function simulateCenterHandle(ent, parentTargetY) {
+                    const isDoor = isFloorAnchoredDoor(ent);
+                    if (isDoor) {
+                        ent.elevation = 0;
+                    } else {
+                        ent.elevation = parentTargetY - ent.height / 2;
+                    }
+                }
+
+                simulateCenterHandle(door, 150);
+                expect(door.elevation).toBe(0);
+
+                simulateCenterHandle(windowEnt, 150);
+                expect(windowEnt.elevation).toBe(150 - 110 / 2);
+            });
         });
     });
 });

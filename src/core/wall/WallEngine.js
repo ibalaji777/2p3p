@@ -15,7 +15,32 @@ import { WallGeometryEngine } from './WallGeometryEngine.js';
 import { WallTopologyEngine } from './WallTopologyEngine.js';
 import { WallMutationEngine } from './WallMutationEngine.js';
 
+/**
+ * Authoritative predicate for floor-anchored doors.
+ * Used universally across 2D/3D placement, move gizmos, and interaction systems.
+ * @param {Object} entity 
+ * @returns {boolean}
+ */
+export function isFloorAnchoredDoor(entity) {
+    return Boolean(
+        entity && (
+            entity.type === 'door' ||
+            entity.configId === 'door' ||
+            entity.doorType !== undefined ||
+            entity.doorStyle !== undefined ||
+            (entity.config && entity.config.widget === 'door')
+        )
+    );
+}
+
 export class WallEngine {
+    /**
+     * Authoritative predicate for floor-anchored doors.
+     */
+    static isFloorAnchoredDoor(entity) {
+        return isFloorAnchoredDoor(entity);
+    }
+
     // ==========================================
     // 1. GEOMETRY AUTHORITY
     // ==========================================
