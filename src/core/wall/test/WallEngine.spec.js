@@ -392,6 +392,23 @@ describe('WallEngine - Single Source of Truth Architecture', () => {
             expect(cornersW2.bevelR).toBeNull();
         });
 
+        it('disallows reducing wall thickness below initial baseline thickness during pushPull', () => {
+            const a1 = mockPlanner.getOrCreateAnchor(0, 0);
+            const a2 = mockPlanner.getOrCreateAnchor(100, 0);
+            const wall = WallEngine.createWall(mockPlanner, { startAnchor: a1, endAnchor: a2, thickness: 20 });
+
+            // Attempt to push inward with negative distance (-15cm)
+            WallEngine.pushPull(wall, 'front', -15, {
+                mode: 'thickness',
+                initialThickness: 20,
+                initialStart: { x: 0, y: 0 },
+                initialEnd: { x: 100, y: 0 }
+            }, mockPlanner);
+
+            // Thickness must remain at minimum initialThickness (20cm) and not shrink to 5cm
+            expect(wall.thickness).toBe(20);
+        });
+
         it('applies materials canonically across faces', () => {
             const a1 = mockPlanner.getOrCreateAnchor(0, 0);
             const a2 = mockPlanner.getOrCreateAnchor(100, 0);

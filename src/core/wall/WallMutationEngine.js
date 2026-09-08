@@ -344,7 +344,9 @@ export class WallMutationEngine {
             this.setEndpoints(wall, { x: startPos.x + shiftX, y: startPos.y + shiftY }, { x: endPos.x + shiftX, y: endPos.y + shiftY }, shouldSync, p);
         } else {
             // THICKNESS ADJUSTMENT: Single-sided with opposite face pinned
-            const newThick = Math.max(5, Math.min(120, initialThickness + distance));
+            // Disallow reducing the thickness below baseline to prevent paper-thin walls
+            const minThick = options.minThickness !== undefined ? options.minThickness : (initialThickness || Number(wall.config?.thickness) || 16);
+            const newThick = Math.max(minThick, Math.min(120, initialThickness + distance));
             const actualDelta = newThick - initialThickness;
             const shift = actualDelta / 2;
 
