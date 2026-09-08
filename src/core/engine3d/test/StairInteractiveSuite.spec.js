@@ -99,12 +99,8 @@ describe('StairInteractiveSuite - Sims 4 Advanced Staircase Controls', () => {
     });
 
     describe('1. Instantiation & Component Structure', () => {
-        it('should initialize 3D handle meshes and DOM HUD element', () => {
+        it('should initialize handlesGroup and DOM HUD element', () => {
             expect(suite.handlesGroup).toBeDefined();
-            expect(suite.widthHandleLeft).toBeDefined();
-            expect(suite.widthHandleRight).toBeDefined();
-            expect(suite.landingHandle).toBeDefined();
-            expect(suite.heightHandle).toBeDefined();
             expect(suite.domHUD).toBeDefined();
             expect(document.body.contains(suite.domHUD)).toBe(true);
         });
@@ -117,25 +113,23 @@ describe('StairInteractiveSuite - Sims 4 Advanced Staircase Controls', () => {
     });
 
     describe('2. Attach and Detach Behavior', () => {
-        it('should attach to staircase mesh and make handles & HUD visible', () => {
+        it('should attach to staircase mesh and make HUD visible', () => {
             suite.attach(stairGroup);
 
             expect(suite.target).toBe(stairGroup);
             expect(suite.stair).toBe(stairEntity);
             expect(suite.visible).toBe(true);
-            expect(suite.handlesGroup.visible).toBe(true);
             expect(suite.domHUD.style.display).toBe('flex');
             expect(mockCtx.requestRender).toHaveBeenCalled();
         });
 
-        it('should detach cleanly, hiding handles and HUD', () => {
+        it('should detach cleanly, hiding HUD', () => {
             suite.attach(stairGroup);
             suite.detach();
 
             expect(suite.target).toBeNull();
             expect(suite.stair).toBeNull();
             expect(suite.visible).toBe(false);
-            expect(suite.handlesGroup.visible).toBe(false);
             expect(suite.domHUD.style.display).toBe('none');
         });
     });
@@ -251,58 +245,11 @@ describe('StairInteractiveSuite - Sims 4 Advanced Staircase Controls', () => {
     });
 
     describe('7. Pointer Collision Detection', () => {
-        it('should detect when mouse raycasts onto suite handles', () => {
+        it('should return false for isHandlingPointer since in-scene handles are removed', () => {
             suite.attach(stairGroup);
 
             const rayHit = suite.isHandlingPointer(new THREE.Vector2(0, 0), mockCtx.camera);
-            expect(typeof rayHit).toBe('boolean');
-        });
-
-        it('should resolve handle data from child sub-meshes', () => {
-            const leftChildMesh = suite.widthHandleLeft.children[0]; // shaft mesh
-            const resolved = suite._resolveHandleData(leftChildMesh);
-            expect(resolved.isStairWidthHandle).toBe(true);
-            expect(resolved.side).toBe('left');
-
-            const landingChildMesh = suite.landingHandle.children[0]; // ring mesh
-            const resolvedLanding = suite._resolveHandleData(landingChildMesh);
-            expect(resolvedLanding.isStairLandingHandle).toBe(true);
-
-            const heightChildMesh = suite.heightHandle.children[0]; // shaft mesh
-            const resolvedHeight = suite._resolveHandleData(heightChildMesh);
-            expect(resolvedHeight.isStairHeightHandle).toBe(true);
-        });
-
-        it('should disable camera controls on handle drag and re-enable on release', () => {
-            suite.attach(stairGroup);
-
-            // Simulate pointerdown on width handle
-            const fakeEventDown = {
-                button: 0,
-                clientX: 500,
-                clientY: 400,
-                stopPropagation: vi.fn(),
-                pointerId: 1
-            };
-            
-            // Mock raycaster to hit left width handle
-            vi.spyOn(suite.raycaster, 'intersectObjects').mockReturnValue([
-                { object: suite.widthHandleLeft.children[0], point: new THREE.Vector3(-50, 50, 50) }
-            ]);
-
-            suite._onPointerDown(fakeEventDown);
-            expect(suite.isDragging).toBe(true);
-            expect(mockCtx.controls.enabled).toBe(false);
-
-            // Simulate pointerup
-            const fakeEventUp = {
-                stopPropagation: vi.fn(),
-                pointerId: 1
-            };
-            suite._onPointerUp(fakeEventUp);
-            expect(suite.isDragging).toBe(false);
-            expect(mockCtx.controls.enabled).toBe(true);
-            expect(mockCtx.realtimeUpdate.markDirty).toHaveBeenCalledWith(stairEntity, 'geometry');
+            expect(rayHit).toBe(false);
         });
     });
 });

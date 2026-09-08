@@ -36,39 +36,17 @@ export class StairInteractiveSuite extends THREE.Group {
         this.handlesGroup.visible = false;
         this.add(this.handlesGroup);
 
-        this._create3DHandles();
         this._createDOMHUD();
         this._createFloatingTooltip();
 
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
 
-        // Drag interaction states
-        this.isDragging = false;
-        this.activeDragPart = null; // 'width_left' | 'width_right' | 'landing' | 'height'
-        this.dragPlane = new THREE.Plane();
-        this.dragStartPoint = new THREE.Vector3();
-        this.initialWidth = 100;
-        this.initialHeight = 300;
-        this.initialF1Steps = 8;
-        this.initialF2Steps = 7;
-        this.initialTotalSteps = 15;
-
         // Auto-Height detection
         this.autoHeightEnabled = true;
 
-        this._onPointerDown = this._onPointerDown.bind(this);
-        this._onPointerMove = this._onPointerMove.bind(this);
-        this._onPointerUp = this._onPointerUp.bind(this);
         this._onCameraChange = this._onCameraChange.bind(this);
         this._onGeometryUpdated = this._onGeometryUpdated.bind(this);
-
-        const dom = this.ctx.renderer?.domElement;
-        if (dom) {
-            dom.addEventListener('pointerdown', this._onPointerDown, { passive: false });
-            dom.addEventListener('pointermove', this._onPointerMove, { passive: false });
-            dom.addEventListener('pointerup', this._onPointerUp, { passive: false });
-        }
 
         if (this.ctx.controls) {
             this.ctx.controls.addEventListener('change', this._onCameraChange);
@@ -77,115 +55,6 @@ export class StairInteractiveSuite extends THREE.Group {
         if (coreEventBus) {
             coreEventBus.on('EntityGeometryUpdated', this._onGeometryUpdated);
         }
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                              3D HANDLE MESHES                              */
-    /* -------------------------------------------------------------------------- */
-
-    _create3DHandles() {
-        // Transparent material for invisible hit volumes that Three.js Raycaster will detect
-        const hitVolumeMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-
-        // --- 1. Width Handles (Cyan / Emerald) ---
-        this.matWidth = new THREE.MeshBasicMaterial({ color: 0x00f0ff, depthTest: false, transparent: true, opacity: 0.9 });
-        this.matWidthHover = new THREE.MeshBasicMaterial({ color: 0x34d399, depthTest: false, transparent: true, opacity: 1.0 });
-
-        const createWidthArrowMesh = (side) => {
-            const grp = new THREE.Group();
-            grp.name = `Stair_WidthHandle_${side}`;
-            grp.userData = { isStairWidthHandle: true, side };
-
-            // Double-ended arrow shape along X
-            const shaft = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 18, 12), this.matWidth);
-            shaft.rotation.z = Math.PI / 2;
-            shaft.renderOrder = 1010;
-            shaft.userData = { isStairWidthHandle: true, side };
-
-            const head1 = new THREE.Mesh(new THREE.ConeGeometry(4.5, 9, 12), this.matWidth);
-            head1.position.x = 9;
-            head1.rotation.z = -Math.PI / 2;
-            head1.renderOrder = 1010;
-            head1.userData = { isStairWidthHandle: true, side };
-
-            const head2 = new THREE.Mesh(new THREE.ConeGeometry(4.5, 9, 12), this.matWidth);
-            head2.position.x = -9;
-            head2.rotation.z = Math.PI / 2;
-            head2.renderOrder = 1010;
-            head2.userData = { isStairWidthHandle: true, side };
-
-            // Generous invisible hit volume for touch/cursor
-            const hit = new THREE.Mesh(new THREE.BoxGeometry(32, 14, 18), hitVolumeMat);
-            hit.userData = { isStairWidthHandle: true, side };
-
-            grp.add(shaft, head1, head2, hit);
-            return grp;
-        };
-
-        this.widthHandleLeft = createWidthArrowMesh('left');
-        this.widthHandleRight = createWidthArrowMesh('right');
-        this.handlesGroup.add(this.widthHandleLeft, this.widthHandleRight);
-
-        // --- 2. Landing / Bend Handle (Amber / Purple) ---
-        this.matLanding = new THREE.MeshBasicMaterial({ color: 0xf59e0b, depthTest: false, transparent: true, opacity: 0.95 });
-        this.matLandingHover = new THREE.MeshBasicMaterial({ color: 0xfbbf24, depthTest: false, transparent: true, opacity: 1.0 });
-
-        this.landingHandle = new THREE.Group();
-        this.landingHandle.name = 'Stair_LandingHandle';
-        this.landingHandle.userData = { isStairLandingHandle: true };
-
-        const ring = new THREE.Mesh(new THREE.TorusGeometry(8, 1.8, 12, 32), this.matLanding);
-        ring.rotation.x = Math.PI / 2;
-        ring.renderOrder = 1010;
-        ring.userData = { isStairLandingHandle: true };
-
-        const centerSphere = new THREE.Mesh(new THREE.SphereGeometry(4, 16, 16), this.matLanding);
-        centerSphere.renderOrder = 1010;
-        centerSphere.userData = { isStairLandingHandle: true };
-
-        // Slide indicator arrows along Z
-        const arrowZ1 = new THREE.Mesh(new THREE.ConeGeometry(3.5, 7, 12), this.matLanding);
-        arrowZ1.position.z = 10;
-        arrowZ1.rotation.x = Math.PI / 2;
-        arrowZ1.renderOrder = 1010;
-        arrowZ1.userData = { isStairLandingHandle: true };
-
-        const arrowZ2 = new THREE.Mesh(new THREE.ConeGeometry(3.5, 7, 12), this.matLanding);
-        arrowZ2.position.z = -10;
-        arrowZ2.rotation.x = -Math.PI / 2;
-        arrowZ2.renderOrder = 1010;
-        arrowZ2.userData = { isStairLandingHandle: true };
-
-        const landingHit = new THREE.Mesh(new THREE.SphereGeometry(14, 12, 12), hitVolumeMat);
-        landingHit.userData = { isStairLandingHandle: true };
-
-        this.landingHandle.add(ring, centerSphere, arrowZ1, arrowZ2, landingHit);
-        this.handlesGroup.add(this.landingHandle);
-
-        // --- 3. Top Height Handle (Emerald Green) ---
-        this.matHeight = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 0.95 });
-        this.matHeightHover = new THREE.MeshBasicMaterial({ color: 0x6ee7b7, depthTest: false, transparent: true, opacity: 1.0 });
-
-        this.heightHandle = new THREE.Group();
-        this.heightHandle.name = 'Stair_HeightHandle';
-        this.heightHandle.userData = { isStairHeightHandle: true };
-
-        const hShaft = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 1.8, 16, 12), this.matHeight);
-        hShaft.position.y = 8;
-        hShaft.renderOrder = 1010;
-        hShaft.userData = { isStairHeightHandle: true };
-
-        const hHead = new THREE.Mesh(new THREE.ConeGeometry(5, 12, 12), this.matHeight);
-        hHead.position.y = 22;
-        hHead.renderOrder = 1010;
-        hHead.userData = { isStairHeightHandle: true };
-
-        const hHit = new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 32, 12), hitVolumeMat);
-        hHit.position.y = 16;
-        hHit.userData = { isStairHeightHandle: true };
-
-        this.heightHandle.add(hShaft, hHead, hHit);
-        this.handlesGroup.add(this.heightHandle);
     }
 
     /* -------------------------------------------------------------------------- */
@@ -568,22 +437,10 @@ export class StairInteractiveSuite extends THREE.Group {
         this.target.updateMatrixWorld(true);
         const stairMatrix = this.target.matrixWorld;
 
-        // 1. Position Width Handles (Left & Right along Flight 1)
-        const midF1Z = l1 * 0.5;
-        const midF1Y = (f1Steps * 0.5) * stepHeight;
-
-        const leftLocal = new THREE.Vector3(-width / 2, midF1Y, midF1Z);
-        const rightLocal = new THREE.Vector3(width / 2, midF1Y, midF1Z);
-
-        this.widthHandleLeft.position.copy(leftLocal.applyMatrix4(stairMatrix));
-        this.widthHandleRight.position.copy(rightLocal.applyMatrix4(stairMatrix));
-        this.widthHandleLeft.rotation.y = this.target.rotation.y;
-        this.widthHandleRight.rotation.y = this.target.rotation.y;
-
-        // 2. Position Landing / Bend Handle
+        // Calculate center/landing reference point for DOM HUD positioning
         let landingLocal = new THREE.Vector3();
         if (shape === 'straight') {
-            landingLocal.set(0, f1Steps * stepHeight, l1);
+            landingLocal.set(0, f1Steps * stepHeight, l1 * 0.5);
         } else if (shape === 'L') {
             landingLocal.set(0, f1Steps * stepHeight, l1 + landingSize / 2);
         } else if (shape === 'U') {
@@ -593,34 +450,11 @@ export class StairInteractiveSuite extends THREE.Group {
             landingLocal.set(0, f1Steps * stepHeight, l1 + landingSize / 2);
         }
         const landingWorld = landingLocal.clone().applyMatrix4(stairMatrix);
-        this.landingHandle.position.copy(landingWorld);
-        this.landingHandle.rotation.y = this.target.rotation.y;
 
-        // 3. Position Top Height Handle
-        let topLocal = new THREE.Vector3();
-        if (shape === 'straight') {
-            topLocal.set(0, height, l1);
-        } else if (shape === 'L') {
-            const f2X = turnDir === 'right' ? width / 2 : -width / 2;
-            const f2Rot = turnDir === 'right' ? Math.PI / 2 : -Math.PI / 2;
-            topLocal.set(
-                f2X + Math.sin(f2Rot) * l2,
-                height,
-                l1 + landingSize / 2 + Math.cos(f2Rot) * l2
-            );
-        } else if (shape === 'U') {
-            const f2X = turnDir === 'right' ? width + gapWidth : -width - gapWidth;
-            topLocal.set(f2X, height, l1 - l2);
-        } else if (shape === 'T') {
-            topLocal.set(0, height, l1 + landingSize);
-        }
-        this.heightHandle.position.copy(topLocal.applyMatrix4(stairMatrix));
-        this.heightHandle.rotation.y = this.target.rotation.y;
-
-        // 4. Update HUD State
+        // 1. Update HUD State
         this._updateHUDContent(shape, width, height, totalSteps, f1Steps, f2Steps, turnDir);
 
-        // 5. Position HUD in Screen Coordinates
+        // 2. Position HUD in Screen Coordinates
         this._updateHUDPosition(landingWorld);
 
         if (this.ctx.requestRender) {
@@ -710,213 +544,8 @@ export class StairInteractiveSuite extends THREE.Group {
         }
     }
 
-    _resolveHandleData(mesh) {
-        let curr = mesh;
-        while (curr && curr !== this.handlesGroup && curr !== this) {
-            const uData = curr.userData;
-            if (uData && (uData.isStairWidthHandle || uData.isStairLandingHandle || uData.isStairHeightHandle)) {
-                return uData;
-            }
-            curr = curr.parent;
-        }
-        return {};
-    }
-
-    /* -------------------------------------------------------------------------- */
-    /*                         POINTER & DRAG INTERACTIONS                        */
-    /* -------------------------------------------------------------------------- */
-
-    isHandlingPointer(mouseVec2, camera) {
-        this.raycaster.setFromCamera(mouseVec2, camera);
-        const hits = this.raycaster.intersectObjects(this.handlesGroup.children, true);
-        if (hits.length === 0) return false;
-        const uData = this._resolveHandleData(hits[0].object);
-        return Boolean(uData.isStairWidthHandle || uData.isStairLandingHandle || uData.isStairHeightHandle);
-    }
-
-    _onPointerDown(e) {
-        if (!this.visible || !this.stair) return;
-        if (e.button !== 0 && e.button !== undefined) return;
-
-        const dom = this.ctx.renderer?.domElement;
-        if (!dom || !this.ctx.camera) return;
-        const rect = dom.getBoundingClientRect();
-
-        this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-        this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-        const hits = this.raycaster.intersectObjects(this.handlesGroup.children, true);
-
-        if (hits.length > 0) {
-            const uData = this._resolveHandleData(hits[0].object);
-
-            if (uData.isStairWidthHandle || uData.isStairLandingHandle || uData.isStairHeightHandle) {
-                e.stopPropagation();
-
-                // Disable OrbitControls immediately to prevent camera spin while dragging handles
-                if (this.ctx.controls) this.ctx.controls.enabled = false;
-                if (this.ctx.cameraController && typeof this.ctx.cameraController.disableOrbit === 'function') {
-                    this.ctx.cameraController.disableOrbit();
-                }
-
-                if (uData.isStairWidthHandle) {
-                    this.isDragging = true;
-                    this.activeDragPart = uData.side === 'left' ? 'width_left' : 'width_right';
-                    this.initialWidth = Number(this.stair.width) || 100;
-                    this.dragStartPoint.copy(hits[0].point);
-                    try { if (dom.setPointerCapture && e.pointerId !== undefined) dom.setPointerCapture(e.pointerId); } catch (_) {}
-                } else if (uData.isStairLandingHandle) {
-                    this.isDragging = true;
-                    this.activeDragPart = 'landing';
-                    this.initialF1Steps = Number(this.stair.flight1Steps) || 8;
-                    this.initialF2Steps = Number(this.stair.flight2Steps) || 7;
-                    this.initialTotalSteps = (Number(this.stair.flight1Steps) || 8) + (Number(this.stair.flight2Steps) || 7);
-                    this.dragStartPoint.copy(hits[0].point);
-                    try { if (dom.setPointerCapture && e.pointerId !== undefined) dom.setPointerCapture(e.pointerId); } catch (_) {}
-                } else if (uData.isStairHeightHandle) {
-                    this.isDragging = true;
-                    this.activeDragPart = 'height';
-                    this.initialHeight = Number(this.stair.height) || 300;
-                    this.dragStartPoint.copy(hits[0].point);
-                    try { if (dom.setPointerCapture && e.pointerId !== undefined) dom.setPointerCapture(e.pointerId); } catch (_) {}
-                }
-            }
-        }
-    }
-
-    _onPointerMove(e) {
-        const dom = this.ctx.renderer?.domElement;
-        if (!dom || !this.ctx.camera) return;
-        const rect = dom.getBoundingClientRect();
-
-        this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-        if (this.isDragging && this.stair) {
-            e.stopPropagation();
-            this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-
-            if (this.activeDragPart === 'width_left' || this.activeDragPart === 'width_right') {
-                // Dragging width horizontally: project onto floor plane
-                const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.dragStartPoint.y);
-                const currentPt = new THREE.Vector3();
-                this.raycaster.ray.intersectPlane(groundPlane, currentPt);
-
-                if (currentPt) {
-                    // Stair local lateral axis
-                    const rotY = this.target.rotation.y;
-                    const lateralVec = new THREE.Vector3(Math.cos(rotY), 0, -Math.sin(rotY));
-                    const deltaX = currentPt.clone().sub(this.dragStartPoint).dot(lateralVec);
-
-                    const sign = this.activeDragPart === 'width_right' ? 1 : -1;
-                    const newWidth = Math.max(40, Math.min(300, Math.round((this.initialWidth + deltaX * 2 * sign) / 5) * 5));
-
-                    this.stair.setWidth(newWidth);
-                    this._syncRealtimeUpdate();
-                    this._showTooltip(`Width: ${newWidth} cm`, e.clientX, e.clientY);
-                    this.update();
-                }
-            } else if (this.activeDragPart === 'landing') {
-                // Slide landing along flight run: project onto horizontal run plane
-                const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.dragStartPoint.y);
-                const currentPt = new THREE.Vector3();
-                this.raycaster.ray.intersectPlane(groundPlane, currentPt);
-
-                if (currentPt) {
-                    const rotY = this.target.rotation.y;
-                    const fwdVec = new THREE.Vector3(-Math.sin(rotY), 0, -Math.cos(rotY));
-                    const deltaRun = currentPt.clone().sub(this.dragStartPoint).dot(fwdVec);
-                    const stepDepth = Number(this.stair.stepDepth) || 28;
-
-                    const deltaSteps = Math.round(deltaRun / stepDepth);
-                    const minF1 = 2;
-                    const maxF1 = this.initialTotalSteps - 2;
-                    const newF1 = Math.max(minF1, Math.min(maxF1, this.initialF1Steps + deltaSteps));
-                    const newF2 = this.initialTotalSteps - newF1;
-
-                    this.stair.flight1Steps = newF1;
-                    this.stair.flight2Steps = newF2;
-                    this.stair.update();
-                    this._syncRealtimeUpdate();
-
-                    this._showTooltip(`Landing: Step ${newF1} of ${this.initialTotalSteps} (F1: ${newF1} | F2: ${newF2})`, e.clientX, e.clientY);
-                    this.update();
-                }
-            } else if (this.activeDragPart === 'height') {
-                // Dragging top height vertically
-                const camFwd = this.ctx.camera.getWorldDirection(new THREE.Vector3());
-                const vertPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(camFwd.x, 0, camFwd.z).normalize(), this.dragStartPoint);
-                const currentPt = new THREE.Vector3();
-                this.raycaster.ray.intersectPlane(vertPlane, currentPt);
-
-                if (currentPt) {
-                    const deltaY = currentPt.y - this.dragStartPoint.y;
-                    let newH = Math.max(30, Math.min(600, Math.round(this.initialHeight + deltaY)));
-
-                    // Auto-height platform/wall snap
-                    if (this.autoHeightEnabled) {
-                        const planner = this.ctx.planner || (this.ctx.appState && this.ctx.appState.planner) || window.planner?.value || window.planner;
-                        if (planner) {
-                            const detection = StairHeightDetector.detect({
-                                x: this.stair.x || 0,
-                                z: this.stair.y || 0,
-                                elevation: this.stair.elevation || 0,
-                                rotation: this.stair.rotation || 0,
-                                preset: this.stair,
-                                planner,
-                                isCenterAnchored: false
-                            });
-                            if (detection.hasTarget && Math.abs(newH - detection.detectedHeight) < 15) {
-                                newH = detection.detectedHeight;
-                            }
-                        }
-                    }
-
-                    this.stair.setHeight(newH);
-                    this._syncRealtimeUpdate();
-                    this._showTooltip(`Height: ${newH} cm (${this.stair.totalSteps} Steps)`, e.clientX, e.clientY);
-                    this.update();
-                }
-            }
-            return;
-        }
-
-        // Hover feedback
-        this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-        const hits = this.raycaster.intersectObjects(this.handlesGroup.children, true);
-        if (hits.length > 0) {
-            const uData = this._resolveHandleData(hits[0].object);
-            if (uData.isStairWidthHandle) dom.style.cursor = 'ew-resize';
-            else if (uData.isStairLandingHandle) dom.style.cursor = 'grab';
-            else if (uData.isStairHeightHandle) dom.style.cursor = 'ns-resize';
-            else if (!this.isDragging) dom.style.cursor = 'default';
-        } else if (!this.isDragging) {
-            dom.style.cursor = 'default';
-        }
-    }
-
-    _onPointerUp(e) {
-        if (this.isDragging) {
-            e.stopPropagation();
-            this.isDragging = false;
-            this.activeDragPart = null;
-            this._hideTooltip();
-
-            // Re-enable camera controls
-            if (this.ctx.controls) this.ctx.controls.enabled = true;
-            if (this.ctx.cameraController && typeof this.ctx.cameraController.enableOrbit === 'function') {
-                this.ctx.cameraController.enableOrbit();
-            }
-
-            const dom = this.ctx.renderer?.domElement;
-            if (dom && dom.releasePointerCapture && e.pointerId !== undefined) {
-                try { dom.releasePointerCapture(e.pointerId); } catch (err) {}
-            }
-
-            this._syncRealtimeUpdate();
-            this.update();
-        }
+    isHandlingPointer() {
+        return false;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -975,13 +604,6 @@ export class StairInteractiveSuite extends THREE.Group {
     /* -------------------------------------------------------------------------- */
 
     destroy() {
-        const dom = this.ctx.renderer?.domElement;
-        if (dom) {
-            dom.removeEventListener('pointerdown', this._onPointerDown);
-            dom.removeEventListener('pointermove', this._onPointerMove);
-            dom.removeEventListener('pointerup', this._onPointerUp);
-        }
-
         if (this.ctx.controls) {
             this.ctx.controls.removeEventListener('change', this._onCameraChange);
         }

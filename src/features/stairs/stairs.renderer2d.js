@@ -192,46 +192,7 @@ export class PremiumStaircase {
             this.planner.syncAll();
         });
 
-        // Left & Right width resize handles (Sims 4 style side drag)
-        this.leftWidthHandle = new Konva.Circle({ radius: 7, fill: '#06b6d4', stroke: 'white', strokeWidth: 2, draggable: true, visible: false });
-        this.leftWidthHandle.isStairNodeHandle = true;
-        this.leftWidthHandle.on('mouseenter', () => document.body.style.cursor = 'ew-resize');
-        this.leftWidthHandle.on('mouseleave', () => document.body.style.cursor = 'default');
-        this.leftWidthHandle.on('dragmove', (e) => {
-            e.cancelBubble = true;
-            this._isDraggingLeftWidth = true;
-            const localX = this.leftWidthHandle.x();
-            const newW = Math.max(40, Math.min(300, Math.round((-localX * 2) / 5) * 5));
-            this.setWidth(newW);
-        });
-        this.leftWidthHandle.on('dragend', (e) => {
-            e.cancelBubble = true;
-            this._isDraggingLeftWidth = false;
-            this.updateHandles();
-            if (this.planner?.syncAll) this.planner.syncAll();
-            if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
-        });
-
-        this.rightWidthHandle = new Konva.Circle({ radius: 7, fill: '#06b6d4', stroke: 'white', strokeWidth: 2, draggable: true, visible: false });
-        this.rightWidthHandle.isStairNodeHandle = true;
-        this.rightWidthHandle.on('mouseenter', () => document.body.style.cursor = 'ew-resize');
-        this.rightWidthHandle.on('mouseleave', () => document.body.style.cursor = 'default');
-        this.rightWidthHandle.on('dragmove', (e) => {
-            e.cancelBubble = true;
-            this._isDraggingRightWidth = true;
-            const localX = this.rightWidthHandle.x();
-            const newW = Math.max(40, Math.min(300, Math.round((localX * 2) / 5) * 5));
-            this.setWidth(newW);
-        });
-        this.rightWidthHandle.on('dragend', (e) => {
-            e.cancelBubble = true;
-            this._isDraggingRightWidth = false;
-            this.updateHandles();
-            if (this.planner?.syncAll) this.planner.syncAll();
-            if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
-        });
-
-        this.handlesGroup.add(this.landingSlider, this.rotHandle, this.leftWidthHandle, this.rightWidthHandle);
+        this.handlesGroup.add(this.landingSlider, this.rotHandle);
     }
 
     handleLandingDrag() {
@@ -265,7 +226,6 @@ export class PremiumStaircase {
         else if (this.shape === 'T') this.drawTShape();
 
         this.drawRailings();
-        this.drawArrow();
         this.updateHandles();
     }
 
@@ -564,38 +524,12 @@ export class PremiumStaircase {
     }
 
     drawArrow() {
-        const arrowGroup = new Konva.Group();
-        const arrow = new Konva.Arrow({ stroke: '#3b82f6', fill: '#3b82f6', strokeWidth: 3, pointerLength: 8, pointerWidth: 8, hitStrokeWidth: 25 });
-        
-        const l1 = (this.shape === 'straight' ? this.totalSteps : this.flight1Steps) * this.stepDepth;
-        if (this.direction === 'up') {
-            arrow.points([0, 10, 0, l1 - 10]);
-        } else {
-            arrow.points([0, l1 - 10, 0, 10]);
-        }
-        
-        arrowGroup.add(arrow);
-        
-        if (!this.isStatic) {
-            arrowGroup.on('mouseenter', () => { document.body.style.cursor = 'pointer'; arrow.stroke('#2563eb'); arrow.fill('#2563eb'); this.planner.stage.batchDraw(); });
-            arrowGroup.on('mouseleave', () => { document.body.style.cursor = 'default'; arrow.stroke('#3b82f6'); arrow.fill('#3b82f6'); this.planner.stage.batchDraw(); });
-            arrowGroup.on('click tap', (e) => {
-                if (this.planner.tool === 'select') {
-                    e.cancelBubble = true;
-                    this.direction = this.direction === 'up' ? 'down' : 'up';
-                    this.update();
-                    this.planner.syncAll();
-                }
-            });
-        }
-        
-        this.contentGroup.add(arrowGroup);
+        // Direction arrow drawing removed
     }
 
     updateHandles() {
         if (this.isStatic) return;
         const l1 = this.flight1Steps * this.stepDepth;
-        const midY = (this.flight1Steps * this.stepDepth) * 0.5;
         
         if (this.shape !== 'straight') {
             this.landingSlider.position({ x: 0, y: l1 });
@@ -606,13 +540,6 @@ export class PremiumStaircase {
         
         this.rotHandle.position({ x: 0, y: -30 });
         this.rotHandle.show();
-
-        if (this.leftWidthHandle && this.rightWidthHandle) {
-            if (!this._isDraggingLeftWidth) this.leftWidthHandle.position({ x: -this.width / 2, y: midY });
-            if (!this._isDraggingRightWidth) this.rightWidthHandle.position({ x: this.width / 2, y: midY });
-            this.leftWidthHandle.show();
-            this.rightWidthHandle.show();
-        }
     }
 
     setWidth(newW) {

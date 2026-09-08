@@ -81,14 +81,7 @@ export class Stair3DPlacementSystem {
         this.footprintMesh.raycast = () => {};
         this.ghostGroup.add(this.footprintMesh);
 
-        // 3. Glowing Flight Direction Arrow on Floor
-        this.arrowGroup = new THREE.Group();
-        this.arrowGroup.renderOrder = 1009;
-        this.arrowGroup.raycast = () => {};
-        this.createDirectionArrow();
-        this.ghostGroup.add(this.arrowGroup);
-
-        // 3.5 Glowing Edge Snap Guideline in 3D Scene
+        // 3. Glowing Edge Snap Guideline in 3D Scene
         this.snapGuideMat = new THREE.LineBasicMaterial({
             color: 0x10b981,
             linewidth: 3,
@@ -111,59 +104,6 @@ export class Stair3DPlacementSystem {
         window.addEventListener('keydown', this._onKeyDown);
 
         this._lastPresetHash = '';
-    }
-
-    createDirectionArrow() {
-        const arrowGeo = new THREE.BufferGeometry();
-        const vertices = new Float32Array([
-            0, 0.6, 0,
-            0, 0.6, 60,
-            0, 0.6, 60,
-            -15, 0.6, 45,
-            0, 0.6, 60,
-            15, 0.6, 45
-        ]);
-        arrowGeo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-        const arrowMat = new THREE.LineBasicMaterial({
-            color: 0x10b981,
-            linewidth: 3,
-            depthTest: false,
-            transparent: true,
-            opacity: 0.95
-        });
-        this.arrowLine = new THREE.LineSegments(arrowGeo, arrowMat);
-        this.arrowLine.raycast = () => {};
-        this.arrowGroup.add(this.arrowLine);
-    }
-
-    updateDirectionArrow(stairPayload) {
-        const sd = Number(stairPayload.stepDepth) || 28;
-        const steps = Number(stairPayload.totalSteps) || Number(stairPayload.flight1Steps) || 12;
-        const totalL = steps * sd;
-        const cx = this.localCenterOffset.x;
-        const cz = this.localCenterOffset.z;
-        
-        const arrowGeo = new THREE.BufferGeometry();
-        const arrowLen = Math.max(30, totalL * 0.7);
-        const barbLen = Math.min(22, arrowLen * 0.28);
-        const barbW = Math.min(16, barbLen * 0.75);
-        const startZ = Math.max(8, totalL * 0.12) - cz;
-        const endZ = startZ + arrowLen;
-        
-        const vertices = new Float32Array([
-            -cx, 0.8, startZ,
-            -cx, 0.8, endZ,
-            -cx, 0.8, endZ,
-            -cx - barbW, 0.8, endZ - barbLen,
-            -cx, 0.8, endZ,
-            -cx + barbW, 0.8, endZ - barbLen
-        ]);
-        arrowGeo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-        if (this.arrowLine) {
-            this.arrowLine.geometry.dispose();
-            this.arrowLine.geometry = arrowGeo;
-            this.arrowLine.visible = true;
-        }
     }
 
     updateSnapGuideLine(detection) {
@@ -617,9 +557,8 @@ export class Stair3DPlacementSystem {
 
             this.modelPreviewGroup.add(tempWrapper);
 
-            // Build Footprint Perimeter Lines & Scaled Arrow (both shifted by center offset)
+            // Build Footprint Perimeter Lines (shifted by center offset)
             this.updateFootprintGeometry(stairPayload);
-            this.updateDirectionArrow(stairPayload);
         }
     }
 
