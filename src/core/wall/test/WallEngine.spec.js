@@ -883,6 +883,74 @@ describe('WallEngine - Single Source of Truth Architecture', () => {
                 expect(update3DCalled).toBe(true);
             });
         });
+
+        describe('4.5 Universal Wall Thickness Bounds & Push/Pull Authority', () => {
+            it('enforces minThickness and maxThickness across all canonical wall types in WALL_REGISTRY', () => {
+                const types = ['outer', 'inner', 'compound', 'arc', 'railing', 'room_box', 'foundation', 'foundation_box', 'half_wall'];
+                types.forEach(t => {
+                    const w = WallEngine.createWall(mockPlanner, {
+                        startAnchor: mockPlanner.getOrCreateAnchor(0, 0),
+                        endAnchor: mockPlanner.getOrCreateAnchor(100, 0),
+                        type: t
+                    });
+                    expect(w.config.minThickness).toBeDefined();
+                    expect(w.config.maxThickness).toBeDefined();
+                    expect(w.config.minThickness).toBeGreaterThan(0);
+                    expect(w.config.maxThickness).toBeGreaterThan(w.config.minThickness);
+                });
+            });
+
+            it('clamps WallEngine.setThickness strictly within config bounds', () => {
+                const wall = WallEngine.createWall(mockPlanner, {
+                    startAnchor: mockPlanner.getOrCreateAnchor(0, 0),
+                    endAnchor: mockPlanner.getOrCreateAnchor(100, 0),
+                    type: 'outer'
+                });
+                expect(wall.config.minThickness).toBe(12);
+                expect(wall.config.maxThickness).toBe(200);
+
+                // Attempt setting thickness below minimum (e.g. 2cm) -> clamps to minThickness (12cm)
+                WallEngine.setThickness(wall, 2, false, mockPlanner);
+                expect(wall.thickness).toBe(12);
+
+                // Attempt setting thickness above maximum (e.g. 500cm) -> clamps to maxThickness (200cm)
+                WallEngine.setThickness(wall, 500, false, mockPlanner);
+                expect(wall.thickness).toBe(200);
+
+                // Valid thickness within bounds
+                WallEngine.setThickness(wall, 25, false, mockPlanner);
+                expect(wall.thickness).toBe(25);
+            });
+
+            it('guarantees pushPull cannot reduce thickness below baseline across arbitrary inward distances', () => {
+                const wall = WallEngine.createWall(mockPlanner, {
+                    startAnchor: mockPlanner.getOrCreateAnchor(0, 0),
+                    endAnchor: mockPlanner.getOrCreateAnchor(200, 0),
+                    thickness: 20
+                });
+
+                // Pull outward by +30cm -> thickness becomes 50cm
+                WallEngine.pushPull(wall, 'front', 30, {
+                    mode: 'thickness',
+                    initialThickness: 20,
+                    initialStart: { x: 0, y: 0 },
+                    initialEnd: { x: 200, y: 0 }
+                }, mockPlanner);
+                expect(wall.thickness).toBe(50);
+
+                // Push inward by -100cm -> thickness clamps at starting baseline (20cm) and centerline remains stationary
+                WallEngine.pushPull(wall, 'front', -100, {
+                    mode: 'thickness',
+                    initialThickness: 20,
+                    initialStart: { x: 0, y: 0 },
+                    initialEnd: { x: 200, y: 0 }
+                }, mockPlanner);
+                expect(wall.thickness).toBe(20);
+                expect(wall.startAnchor.y).toBe(0);
+                expect(wall.endAnchor.y).toBe(0);
+            });
+        });
     });
 });
+
 

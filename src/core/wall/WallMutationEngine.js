@@ -25,7 +25,9 @@ export class WallMutationEngine {
         if (!wall) return;
         wall.wallShapeData = null;
         const p = planner || wall.planner;
-        const thick = Math.max(2, Math.min(200, Number(newThickness) || 20));
+        const minThk = wall.config?.minThickness !== undefined ? Number(wall.config.minThickness) : 6;
+        const maxThk = wall.config?.maxThickness !== undefined ? Number(wall.config.maxThickness) : 200;
+        const thick = Math.max(minThk, Math.min(maxThk, Number(newThickness) || minThk));
         wall.thickness = thick;
         if (wall.config) wall.config.thickness = thick;
 
@@ -57,7 +59,9 @@ export class WallMutationEngine {
         if (!wall) return;
         wall.wallShapeData = null;
         const p = planner || wall.planner;
-        const h = Math.max(10, Math.min(1000, Number(newHeight) || 180));
+        const minH = wall.config?.minHeight !== undefined ? Number(wall.config.minHeight) : 10;
+        const maxH = wall.config?.maxHeight !== undefined ? Number(wall.config.maxHeight) : 1000;
+        const h = Math.max(minH, Math.min(maxH, Number(newHeight) || minH));
         wall.height = h;
         if (wall.config) wall.config.height = h;
 
@@ -344,9 +348,13 @@ export class WallMutationEngine {
             this.setEndpoints(wall, { x: startPos.x + shiftX, y: startPos.y + shiftY }, { x: endPos.x + shiftX, y: endPos.y + shiftY }, shouldSync, p);
         } else {
             // THICKNESS ADJUSTMENT: Single-sided with opposite face pinned
-            // Disallow reducing the thickness below baseline to prevent paper-thin walls
-            const minThick = options.minThickness !== undefined ? options.minThickness : (initialThickness || Number(wall.config?.thickness) || 16);
-            const newThick = Math.max(minThick, Math.min(120, initialThickness + distance));
+            // In CAD/BIM, pulling a wall face expands thickness outward (+distance).
+            // Pushing inward cannot collapse the wall below its starting baseline or canonical minimum thickness.
+            const baseMin = wall.config?.minThickness !== undefined ? Number(wall.config.minThickness) : 6;
+            const minThick = options.minThickness !== undefined ? options.minThickness : Math.max(baseMin, initialThickness);
+            const maxThick = options.maxThickness !== undefined ? options.maxThickness : (Number(wall.config?.maxThickness) || 200);
+
+            const newThick = Math.max(minThick, Math.min(maxThick, initialThickness + distance));
             const actualDelta = newThick - initialThickness;
             const shift = actualDelta / 2;
 

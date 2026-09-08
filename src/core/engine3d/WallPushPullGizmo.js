@@ -720,6 +720,9 @@ export class WallPushPullGizmo extends THREE.Group {
     }
 
     _updateHUDDimensions(wallLen, wallH, depthText = null) {
+        const wall = this._getWallEntity();
+        const wallT = wall ? (wall.thickness !== undefined ? Math.round(wall.thickness) : 20) : 20;
+        const isSubRegion = (this.tStart > 0.02 || this.tEnd < 0.98 || this.elevBottom > 2 || this.elevTop < (wallH - 2)) || !!this.existingProtrusion;
         const selW = Math.round(wallLen * (this.tEnd - this.tStart));
         const selH = Math.round(this.elevTop - this.elevBottom);
         const selElev = Math.round(this.elevBottom);
@@ -732,6 +735,8 @@ export class WallPushPullGizmo extends THREE.Group {
             statusText = `🧱 Solid Block: +${extrudeD} cm · 📏 W: ${selW} cm · H: ${selH} cm`;
         } else if (extrudeD < 0) {
             statusText = `🪟 Niche: ${extrudeD} cm · 📏 W: ${selW} cm · H: ${selH} cm`;
+        } else if (!isSubRegion && this.mode === 'thickness') {
+            statusText = `🧱 Thickness: ${wallT} cm (Baseline: ${this.initialThickness} cm) · 📏 Length: ${Math.round(wallLen)} cm`;
         } else {
             statusText = `📏 Width: ${selW} cm · Height: ${selH} cm · Elev: ${selElev} cm`;
         }

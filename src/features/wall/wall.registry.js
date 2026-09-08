@@ -2,15 +2,15 @@ import * as THREE from 'three';
 import { Molding3DBuilder } from '../../core/engine3d/Molding3DBuilder.js';
 export { WallFactory } from './wall.factory.js';
 export const WALL_REGISTRY = {
-    'outer': { type: "outer", label: "OUTER WALL", thickness: 16, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
-    'inner': { type: "inner", label: "INNER WALL", thickness: 8, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
-    'compound': { type: "compound", label: "COMPOUND WALL", thickness: 12, height: 80, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
-    'arc': { type: "arc", label: "CURVED WALL", thickness: 10, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall"] },
-    'railing': { type: "railing", label: "RAILING", thickness: 4, height: 0, events: ["proximity_highlight", "snap_preview", "snap_to_wall"] },
-    'room_box': { type: "room_box", label: "WALL ROOM (RECTANGLE)", thickness: 16, height: 120, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
-    'foundation': { type: "foundation", label: "FOUNDATION WALL", thickness: 24, height: 40, material: "stone_ashlar_grey", events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
-    'foundation_box': { type: "foundation_box", label: "FOUNDATION ROOM (BOX)", thickness: 24, height: 40, material: "stone_ashlar_grey", events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
-    'half_wall': { type: "half_wall", label: "HALF WALL / PARAPET", thickness: 10, height: 50, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] }
+    'outer': { type: "outer", label: "OUTER WALL", thickness: 16, minThickness: 12, maxThickness: 200, height: 120, minHeight: 20, maxHeight: 1000, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
+    'inner': { type: "inner", label: "INNER WALL", thickness: 8, minThickness: 6, maxThickness: 200, height: 120, minHeight: 20, maxHeight: 1000, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
+    'compound': { type: "compound", label: "COMPOUND WALL", thickness: 12, minThickness: 8, maxThickness: 200, height: 80, minHeight: 20, maxHeight: 1000, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
+    'arc': { type: "arc", label: "CURVED WALL", thickness: 10, minThickness: 6, maxThickness: 200, height: 120, minHeight: 20, maxHeight: 1000, events: ["proximity_highlight", "snap_preview", "snap_to_wall"] },
+    'railing': { type: "railing", label: "RAILING", thickness: 4, minThickness: 2, maxThickness: 40, height: 0, minHeight: 0, maxHeight: 300, events: ["proximity_highlight", "snap_preview", "snap_to_wall"] },
+    'room_box': { type: "room_box", label: "WALL ROOM (RECTANGLE)", thickness: 16, minThickness: 12, maxThickness: 200, height: 120, minHeight: 20, maxHeight: 1000, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
+    'foundation': { type: "foundation", label: "FOUNDATION WALL", thickness: 24, minThickness: 16, maxThickness: 300, height: 40, minHeight: 20, maxHeight: 1000, material: "stone_ashlar_grey", events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
+    'foundation_box': { type: "foundation_box", label: "FOUNDATION ROOM (BOX)", thickness: 24, minThickness: 16, maxThickness: 300, height: 40, minHeight: 20, maxHeight: 1000, material: "stone_ashlar_grey", events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] },
+    'half_wall': { type: "half_wall", label: "HALF WALL / PARAPET", thickness: 10, minThickness: 6, maxThickness: 200, height: 50, minHeight: 20, maxHeight: 1000, events: ["proximity_highlight", "snap_preview", "snap_to_wall", "collision_detected", "stop_collision"] }
 };
 
 export { MOLDING_REGISTRY, MOLDING_PROFILES, MOLDING_CATALOG } from '../molding/molding.registry.js';
