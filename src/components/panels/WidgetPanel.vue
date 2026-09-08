@@ -111,44 +111,12 @@
                 </div>
             </div>
         </div>
-        <div v-else-if="selectedEntity.type === 'elevation_fascia'">
-            <div class="control-group">
-                <label>Profile Type</label>
-                <select v-model="selectedEntity.profileType" @change="$emit('sync-engine')">
-                    <option value="c_shape_left">C-Shape (Left)</option>
-                    <option value="c_shape_right">C-Shape (Right)</option>
-                    <option value="l_shape_left">L-Shape (Left)</option>
-                    <option value="l_shape_right">L-Shape (Right)</option>
-                    <option value="full_box">Full Box Wrap</option>
-                </select>
-            </div>
-            <div class="control-group" v-if="selectedEntity.profileType !== 'full_box'">
-                <label>Top Arm Length</label>
-                <div class="input-wrap">
-                    <input type="range" :value="selectedEntity.topArm !== undefined ? selectedEntity.topArm : selectedEntity.width" @input="e => { selectedEntity.topArm = parseFloat(e.target.value); $emit('sync-engine'); }" min="10" max="400">
-                    <DimensionInput :modelValue="selectedEntity.topArm !== undefined ? selectedEntity.topArm : selectedEntity.width" @update:modelValue="val => { selectedEntity.topArm = val; $emit('sync-engine'); }" />
-                </div>
-            </div>
-            <div class="control-group" v-if="['c_shape_left', 'c_shape_right'].includes(selectedEntity.profileType)">
-                <label>Bottom Arm Length</label>
-                <div class="input-wrap">
-                    <input type="range" :value="selectedEntity.bottomArm !== undefined ? selectedEntity.bottomArm : selectedEntity.width" @input="e => { selectedEntity.bottomArm = parseFloat(e.target.value); $emit('sync-engine'); }" min="10" max="400">
-                    <DimensionInput :modelValue="selectedEntity.bottomArm !== undefined ? selectedEntity.bottomArm : selectedEntity.width" @update:modelValue="val => { selectedEntity.bottomArm = val; $emit('sync-engine'); }" />
-                </div>
-            </div>
-            <div class="control-group"><label>Depth (Overhang)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.depth" min="5" max="150" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.depth" @change="$emit('sync-engine')" /></div></div>
-            <div class="control-group"><label>Thickness</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.thick" min="2" max="50" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.thick" @change="$emit('sync-engine')" /></div></div>
-            <div class="control-group"><label>Elevation (Bottom)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.elevation" min="0" max="300" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.elevation" @change="$emit('sync-engine')" /></div></div>
-            <div class="control-group">
-                <label>Material</label>
-                <select v-model="selectedEntity.fasciaMat" @change="$emit('sync-engine')">
-                    <option value="white">White Paint</option>
-                    <option value="dark_grey">Dark Grey</option>
-                    <option value="stone">Stone Cladding</option>
-                    <option value="wood">Wood Panel</option>
-                </select>
-            </div>
-        </div>
+        <FasciaProperties 
+            v-else-if="selectedEntity.type === 'elevation_fascia'" 
+            :entity="selectedEntity" 
+            @sync-engine="$emit('sync-engine')" 
+            @delete-entity="$emit('delete-entity')" 
+        />
 
         <button class="hud-delete" @click="$emit('delete-entity')">Delete Object</button>
     </div>
@@ -160,6 +128,7 @@ import MaterialCategorySelector from '../common/MaterialCategorySelector.vue';
 import MaterialSlotsPanel from '../common/MaterialSlotsPanel.vue';
 import DoorProperties from '../../features/door/door.properties.vue';
 import WindowProperties from '../../features/window/window.properties.vue';
+import { FasciaProperties } from '../../features/fascia/index.js';
 
 
 const props = defineProps({

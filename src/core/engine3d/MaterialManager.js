@@ -4,23 +4,23 @@ import { ComponentRegistry } from './ComponentRegistry.js';
 import { MaterialFactory } from './MaterialFactory.js';
 import { coreEventBus } from '../EventBus.js';
 import { EVENTS } from '../constants/events.js';
+import { DOOR_MATERIALS } from '../../features/door/door.registry.js';
+import { WINDOW_FRAME_MATERIALS } from '../../features/window/window.registry.js';
+import { ROOF_DECOR_REGISTRY } from '../../features/roof/roof.registry.js';
 import { 
     WALL_DECOR_REGISTRY, 
     WOOD_REGISTRY, 
     FLOOR_REGISTRY, 
     FABRIC_REGISTRY, 
-    ROOF_DECOR_REGISTRY, 
     GLASS_REGISTRY, 
     MARBLE_REGISTRY, 
     STONE_REGISTRY, 
-    BRICK_REGISTRY,
+    BRICK_REGISTRY, 
     METAL_REGISTRY, 
-    DOOR_MATERIALS,
-    WINDOW_FRAME_MATERIALS,
     PLASTIC_REGISTRY, 
-    LEATHER_REGISTRY,
-    COMMON_MATERIALS
-} from '../registry.js';
+    LEATHER_REGISTRY, 
+    COMMON_MATERIALS 
+} from '../registries/material.registry.js';
 
 /**
  * Enterprise CAD/BIM Material Manager Engine (10/10 Architecture).

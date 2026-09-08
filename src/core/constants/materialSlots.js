@@ -20,10 +20,13 @@ export const MaterialSlots = {
     WALL_BOTTOM: 'wall_bottom',
     CUSTOM: 'custom',
     
-    // Architectural Moldings & Skirting
+    // Architectural Moldings, Skirting & Fascia
     SKIRTING: 'skirting',
     BASEBOARD: 'baseboard',
     MOLDING: 'molding',
+    FASCIA_FRONT: 'fascia_front',
+    FASCIA_FRAME: 'fascia_frame',
+    FASCIA_SIDE: 'fascia_side',
 
     // Soft Furnishings & Fabrics
     FABRIC: 'fabric',
@@ -87,7 +90,8 @@ export const ComponentTypes = {
     DECOR: 'decor',
     SKIRTING: 'skirting',
     BASEBOARD: 'baseboard',
-    MOLDING: 'molding'
+    MOLDING: 'molding',
+    FASCIA: 'fascia'
 };
 
 export const SLOT_DEFINITIONS = {
@@ -101,6 +105,9 @@ export const SLOT_DEFINITIONS = {
     [MaterialSlots.SKIRTING]: { id: MaterialSlots.SKIRTING, label: 'Skirting / Baseboard', inherits: null, paintable: true, defaultCategory: 'categories' },
     [MaterialSlots.BASEBOARD]: { id: MaterialSlots.BASEBOARD, label: 'Baseboard', inherits: null, paintable: true, defaultCategory: 'categories' },
     [MaterialSlots.MOLDING]: { id: MaterialSlots.MOLDING, label: 'Molding Profile', inherits: null, paintable: true, defaultCategory: 'categories' },
+    [MaterialSlots.FASCIA_FRONT]: { id: MaterialSlots.FASCIA_FRONT, label: 'Fascia Face', inherits: null, paintable: true, defaultCategory: 'categories' },
+    [MaterialSlots.FASCIA_FRAME]: { id: MaterialSlots.FASCIA_FRAME, label: 'Fascia Frame', inherits: null, paintable: true, defaultCategory: 'categories' },
+    [MaterialSlots.FASCIA_SIDE]: { id: MaterialSlots.FASCIA_SIDE, label: 'Fascia Return / Sides', inherits: MaterialSlots.FASCIA_FRONT, paintable: true, defaultCategory: 'categories' },
     [MaterialSlots.WALL_FRONT]: { id: MaterialSlots.WALL_FRONT, label: 'Front Wall Face', inherits: null, paintable: true, defaultCategory: 'categories' },
     [MaterialSlots.WALL_BACK]: { id: MaterialSlots.WALL_BACK, label: 'Back Wall Face', inherits: null, paintable: true, defaultCategory: 'categories' },
     [MaterialSlots.WALL_LEFT]: { id: MaterialSlots.WALL_LEFT, label: 'Left Wall Face', inherits: null, paintable: true, defaultCategory: 'categories' },

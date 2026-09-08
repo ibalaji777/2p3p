@@ -1,5 +1,5 @@
 import Konva from 'konva';
-import { MOLDING_REGISTRY } from '../registry.js';
+import { MOLDING_REGISTRY, renderMolding2D } from '../../features/molding/index.js';
 import { WallEngine } from '../wall/WallEngine.js';
 
 export class PremiumMolding {
@@ -93,116 +93,16 @@ export class PremiumMolding {
 
     update() { 
         if (!this.wall || !this.wall.startAnchor || !this.wall.endAnchor) return; 
-        const start = this.wall.startAnchor.position(), end = this.wall.endAnchor.position(); 
-        const dx = end.x - start.x, dy = end.y - start.y; 
-        const wallLen = Math.hypot(dx, dy);
-
-        // Auto-stretch full-length moldings with wall length
-        if (!this.isCustomWidth || this.width === undefined || Math.abs(this.width - wallLen) < 5) {
-            this.width = wallLen;
-            this.t = 0.5;
-        }
         
-        let cx = start.x + dx * this.t, cy = start.y + dy * this.t; 
-        const th = this.wall.thickness || this.wall.config?.thickness || 8; 
-        
-        const wallAngle = Math.atan2(dy, dx); 
-        
-        let nx = -Math.sin(wallAngle);
-        let ny = Math.cos(wallAngle);
-        
-        if (this.side === 'right') {
-            nx = -nx;
-            ny = -ny;
-        }
-        
-        let px, py;
-        let currentWidth = this.width;
-        const isFullLength = !this.isCustomWidth || Math.abs(this.width - wallLen) < 5;
-
-        if (isFullLength && this.wall.wallShapeData) {
-            const startTrue = this.wall.wallShapeData.startData.trueCorners || this.wall.wallShapeData.startData.corners;
-            const endTrue = this.wall.wallShapeData.endData.trueCorners || this.wall.wallShapeData.endData.corners;
-            const edgeStart = this.side === 'right' ? startTrue[1] : startTrue[0];
-            const edgeEnd = this.side === 'right' ? endTrue[1] : endTrue[0];
-            
-            currentWidth = Math.hypot(edgeEnd.x - edgeStart.x, edgeEnd.y - edgeStart.y);
-            const edgeCx = (edgeStart.x + edgeEnd.x) / 2;
-            const edgeCy = (edgeStart.y + edgeEnd.y) / 2;
-            
-            const depthOffset = Math.max(2, this.depth / 2);
-            px = edgeCx + nx * depthOffset;
-            py = edgeCy + ny * depthOffset;
-        } else {
-            const offsetDist = th / 2 + Math.max(2, this.depth / 2);
-            px = cx + nx * offsetDist; 
-            py = cy + ny * offsetDist;
-        }
-
-        this.visualGroup.position({ x: px, y: py }); 
-        this.visualGroup.rotation((wallAngle * 180) / Math.PI); 
-        
-        const visualDepth = Math.max(4, Math.abs(this.depth));
-        
-        if (isFullLength && this.wall.wallShapeData) {
-            // Full-length molding: compute perfectly mitered polygon following continuous wall contour
-            const baseVerts = (this.side === 'right' ? this.wall.wallShapeData.backVerts : this.wall.wallShapeData.frontVerts) || [];
-            
-            // Convert global points to local space relative to the visualGroup
-            const toLocal = (p) => {
-                const lx = p.x - px;
-                const ly = p.y - py;
-                const cos = Math.cos(-wallAngle);
-                const sin = Math.sin(-wallAngle);
-                return { x: lx * cos - ly * sin, y: lx * sin + ly * cos };
-            };
-
-            if (baseVerts.length > 2) {
-                const innerPts = baseVerts.map(toLocal);
-                const outerPts = baseVerts.map(v => toLocal({ x: v.x + nx * visualDepth, y: v.y + ny * visualDepth })).reverse();
-                const moldPts = [];
-                innerPts.forEach(p => moldPts.push(p.x, p.y));
-                outerPts.forEach(p => moldPts.push(p.x, p.y));
-                this.moldingPoly.points(moldPts);
-            } else {
-                const startTrue = this.wall.wallShapeData.startData.trueCorners || this.wall.wallShapeData.startData.corners;
-                const endTrue = this.wall.wallShapeData.endData.trueCorners || this.wall.wallShapeData.endData.corners;
-                const edgeStart = this.side === 'right' ? startTrue[1] : startTrue[0];
-                const edgeEnd = this.side === 'right' ? endTrue[1] : endTrue[0];
-                
-                const pStart = start;
-                const vStart = { x: edgeStart.x - pStart.x, y: edgeStart.y - pStart.y };
-                const pEnd = end;
-                const vEnd = { x: edgeEnd.x - pEnd.x, y: edgeEnd.y - pEnd.y };
-                
-                const scaleOuter = (th / 2 + visualDepth) / (th / 2);
-                
-                const outerStart = { x: pStart.x + vStart.x * scaleOuter, y: pStart.y + vStart.y * scaleOuter };
-                const outerEnd = { x: pEnd.x + vEnd.x * scaleOuter, y: pEnd.y + vEnd.y * scaleOuter };
-                
-                const ls = toLocal(edgeStart);
-                const le = toLocal(edgeEnd);
-                const loe = toLocal(outerEnd);
-                const los = toLocal(outerStart);
-                
-                this.moldingPoly.points([ls.x, ls.y, le.x, le.y, loe.x, loe.y, los.x, los.y]);
-            }
-        } else {
-            // Partial molding: just a rectangle
-            this.moldingPoly.points([
-                -currentWidth / 2, -visualDepth / 2,
-                currentWidth / 2, -visualDepth / 2,
-                currentWidth / 2, visualDepth / 2,
-                -currentWidth / 2, visualDepth / 2
-            ]);
-        }
-
-        this.hitBox.width(currentWidth); 
-        this.hitBox.height(visualDepth + 10); 
-        this.hitBox.x(-currentWidth / 2); 
-        this.hitBox.y(-visualDepth / 2 - 5); 
+        renderMolding2D(this, this.visualGroup, this.moldingPoly, this.hitBox);
 
         if (this.hasEvent("resize_handles_along_wall_axis")) {
+            const start = typeof this.wall.startAnchor.position === 'function' ? this.wall.startAnchor.position() : this.wall.startAnchor;
+            const end = typeof this.wall.endAnchor.position === 'function' ? this.wall.endAnchor.position() : this.wall.endAnchor;
+            const wallAngle = Math.atan2(end.y - start.y, end.x - start.x);
+            const px = this.visualGroup.x();
+            const py = this.visualGroup.y();
+            const currentWidth = this.width || this.wall.getLength();
             this.leftHandle.position({ x: px - Math.cos(wallAngle) * (currentWidth / 2), y: py - Math.sin(wallAngle) * (currentWidth / 2) }); 
             this.rightHandle.position({ x: px + Math.cos(wallAngle) * (currentWidth / 2), y: py + Math.sin(wallAngle) * (currentWidth / 2) }); 
         }

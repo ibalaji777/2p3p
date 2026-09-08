@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { resolveFabricConfig } from '../registry.js';
+import { resolveFabricConfig } from '../registries/material.registry.js';
 
 export class MaterialFactory {
     static materialCache = new Map();

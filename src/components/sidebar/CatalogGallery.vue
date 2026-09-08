@@ -193,6 +193,8 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { usePlannerStore } from '../../stores/usePlannerStore.js';
 import { GLASS_ROOF_TEXTURE_DATA } from '../../features/roof/generators/generate_glass_roof_textures.js';
+import { SKIRTING_CATALOG, CROWN_MOLDING_CATALOG, WALL_TRIM_CATALOG } from '../../features/molding/index.js';
+import { FASCIA_CATALOG } from '../../features/fascia/index.js';
 
 const sortOption = ref('popular');
 const sortMenuOpen = ref(false);
@@ -483,69 +485,10 @@ const roofSculptureCatalog = ref([
     { id: 'chimney_double_brick', name: 'Classical Double Flue Brick Chimney', badge: 'MANOR', material: 'Aged Red Brick & Stone Banding', specs: 'Wide Double Flue Stack & Lip Pots', image: '', toolId: 'roof_chimney', params: { type: 'chimney_double_brick', sculptureCategory: 'chimney', width: 70, depth: 45, height: 90, material: 'red_brick', capMaterial: 'limestone', potMaterial: 'terracotta_clay' } }
 ]);
 
-const skirtingCatalog = ref([
-    { isDivider: true, id: 'div_modern_skirting', name: 'Modern & Minimalist Baseboards' },
-    { id: 'molding_skirting_flat', name: 'Modern Flat Baseboard', badge: 'POPULAR', material: 'White Plaster / Paint', specs: '120 × 20 mm', image: '', toolId: 'skirting', params: { type: 'molding_skirting_flat', profileType: 'skirting_flat', heightOffset: 0, moldingHeight: 12, depth: 2, material: 'white_paint' } },
-    { id: 'molding_skirting_beveled', name: 'Chamfered Baseboard', badge: 'MODERN', material: 'Solid White Oak', specs: '120 × 20 mm', image: '', toolId: 'skirting', params: { type: 'molding_skirting_beveled', profileType: 'skirting_beveled', heightOffset: 0, moldingHeight: 12, depth: 2, material: 'wood_white_oak' } },
-    { id: 'molding_skirting_shadow', name: 'Shadow Gap / Reglet Skirting', badge: 'LUXURY', material: 'Matte Black Metal Reveal', specs: '100 × 20 mm', image: '', toolId: 'skirting', params: { type: 'molding_skirting_shadow', profileType: 'skirting_shadow', heightOffset: 0, moldingHeight: 10, depth: 2, material: 'black_metal' } },
-    
-    { isDivider: true, id: 'div_classic_skirting', name: 'Classic & Heritage Baseboards' },
-    { id: 'molding_skirting_torus', name: 'Torus / Bullnose Skirting', badge: 'CLASSIC', material: 'Golden Teak Wood', specs: '140 × 22 mm', image: '', toolId: 'skirting', params: { type: 'molding_skirting_torus', profileType: 'skirting_torus', heightOffset: 0, moldingHeight: 14, depth: 2.2, material: 'wood_golden_teak' } },
-    { id: 'molding_skirting_ogee', name: 'Classic Ogee Victorian', badge: 'VICTORIAN', material: 'Dark Walnut Timber', specs: '150 × 25 mm', image: '', toolId: 'skirting', params: { type: 'molding_skirting_ogee', profileType: 'skirting_ogee', heightOffset: 0, moldingHeight: 15, depth: 2.5, material: 'wood_dark' } },
-    { id: 'molding_skirting_craftsman', name: 'Stepped Craftsman Skirting', badge: 'STEPPED', material: 'Hardwood Trim', specs: '140 × 22 mm', image: '', toolId: 'skirting', params: { type: 'molding_skirting_craftsman', profileType: 'skirting_craftsman', heightOffset: 0, moldingHeight: 14, depth: 2.2, material: 'wood_dark' } },
-    
-    { isDivider: true, id: 'div_shoe_cove_skirting', name: 'Coves & Shoe Trims' },
-    { id: 'molding_skirting_scotia', name: 'Scotia Cove Baseboard', badge: 'COVE', material: 'Painted Gypsum Plaster', specs: '100 × 20 mm', image: '', toolId: 'skirting', params: { type: 'molding_skirting_scotia', profileType: 'skirting_scotia', heightOffset: 0, moldingHeight: 10, depth: 2, material: 'white_paint' } },
-    { id: 'molding_skirting_shoe', name: 'Quarter Round Shoe Trim', badge: 'SHOE TRIM', material: 'White Pine Trim', specs: '30 × 18 mm', image: '', toolId: 'skirting', params: { type: 'molding_skirting_shoe', profileType: 'skirting_shoe', heightOffset: 0, moldingHeight: 3, depth: 1.8, material: 'white_paint' } }
-]);
-
-const moldingCatalog = ref([
-    { isDivider: true, id: 'div_crowns', name: 'Crown Moldings & Cornices' },
-    { id: 'molding_crown', name: 'Crown Molding', badge: 'CLASSIC', material: 'Carved Wood', image: '', toolId: 'molding', params: { type: 'molding_crown', materials: { frame: { id: 'white_paint' } } } },
-    { id: 'molding_ogee', name: 'Ogee (Cyma)', badge: 'PROFILE', material: 'Polyurethane', image: '', toolId: 'molding', params: { type: 'molding_ogee', materials: { frame: { id: 'white_paint' } } } },
-    { id: 'molding_egg_and_dart', name: 'Egg and Dart', badge: 'DECORATIVE', material: 'Gypsum Plaster', image: '', toolId: 'molding', params: { type: 'molding_egg_and_dart', materials: { frame: { id: 'white_paint' } } } },
-    { id: 'molding_dentil', name: 'Dentil Molding', badge: 'HERITAGE', material: 'Cast Stone', image: '', toolId: 'molding', params: { type: 'molding_dentil', materials: { frame: { id: 'white_paint' } } } },
-    { id: 'molding_craftsman', name: 'Step / Craftsman', badge: 'MODERN', material: 'Hardwood', image: '', toolId: 'molding', params: { type: 'molding_craftsman', materials: { frame: { id: 'white_paint' } } } },
-    
-    { isDivider: true, id: 'div_trims', name: 'Wall Bands & Framing Trims' },
-    { id: 'molding_band', name: 'Horizontal Band', badge: 'FLAT', material: 'Painted Plaster', image: '', toolId: 'molding', params: { type: 'molding_band', materials: { frame: { id: 'white_paint' } } } },
-    { id: 'molding_window', name: 'Window Frame', badge: 'TRIM', material: 'White Vinyl', image: '', toolId: 'molding', params: { type: 'molding_window', materials: { frame: { id: 'white_paint' } } } },
-    { id: 'molding_door', name: 'Door Frame', badge: 'TRIM', material: 'Oak Trim', image: '', toolId: 'molding', params: { type: 'molding_door', materials: { frame: { id: 'white_paint' } } } },
-    { id: 'molding_groove', name: 'Decorative Groove', badge: 'RECESSED', material: 'Grooved Panel', image: '', toolId: 'molding', params: { type: 'molding_groove', materials: { frame: { id: 'white_paint' } } } },
-    { id: 'molding_layered', name: 'Layered Projection', badge: 'LAYERED', material: 'Composite', image: '', toolId: 'molding', params: { type: 'molding_layered', materials: { frame: { id: 'white_paint' } } } }
-]);
-
-const wallTrimCatalog = ref([
-    { isDivider: true, id: 'div_chair_rails', name: 'Chair Rails & Wall Bands (Dado)' },
-    { id: 'molding_chair_rail', name: 'Classic Chair Rail (Dado)', badge: 'SIMS 4', material: 'Painted Wood / Plaster', specs: 'Cyma Top & Beaded Waist', image: '', toolId: 'wall_trim', params: { type: 'molding_chair_rail', profileType: 'chair_rail', heightOffset: 90, moldingHeight: 8, depth: 2.5, material: 'white_paint' } },
-    { id: 'molding_picture_rail', name: 'Picture Rail Trim', badge: 'HERITAGE', material: 'Hardwood Trim', specs: 'Hook Bead & Scoop Cove', image: '', toolId: 'wall_trim', params: { type: 'molding_picture_rail', profileType: 'picture_rail', heightOffset: 140, moldingHeight: 6, depth: 2.2, material: 'white_paint' } },
-    { id: 'molding_fluted_band', name: 'Fluted Architectural Band', badge: 'FLUTED', material: 'Milled Hardwood', specs: 'Triple Fluted Grooves', image: '', toolId: 'wall_trim', params: { type: 'molding_fluted_band', profileType: 'fluted_band', heightOffset: 90, moldingHeight: 10, depth: 2.5, material: 'white_paint' } },
-    { id: 'molding_double_bead', name: 'Double Bead Trim', badge: 'CLASSIC', material: 'Carved Wood', specs: 'Dual Half-Round Bead Relief', image: '', toolId: 'wall_trim', params: { type: 'molding_double_bead', profileType: 'double_bead', heightOffset: 90, moldingHeight: 8, depth: 2.2, material: 'white_paint' } },
-    { id: 'molding_beveled_trim', name: 'Beveled Accent Band', badge: 'MODERN', material: 'Solid White Oak', specs: 'Double Chamfered Relief', image: '', toolId: 'wall_trim', params: { type: 'molding_beveled_trim', profileType: 'beveled_trim', heightOffset: 90, moldingHeight: 8, depth: 2.0, material: 'wood_white_oak' } },
-    { id: 'molding_band', name: 'Flat Wall Band (Modern)', badge: 'MINIMAL', material: 'Painted Plaster', specs: 'Clean Rectangular Ribbon Band', image: '', toolId: 'wall_trim', params: { type: 'molding_band', profileType: 'band', heightOffset: 90, moldingHeight: 10, depth: 2.0, material: 'white_paint' } },
-
-    { isDivider: true, id: 'div_skirting_sub', name: 'Baseboards & Skirting (Floor Level)' },
-    { id: 'molding_skirting_flat', name: 'Modern Flat Baseboard', badge: 'POPULAR', material: 'White Plaster / Paint', specs: '120 × 20 mm', image: '', toolId: 'wall_trim', params: { type: 'molding_skirting_flat', profileType: 'skirting_flat', heightOffset: 0, moldingHeight: 12, depth: 2, material: 'white_paint' } },
-    { id: 'molding_skirting_beveled', name: 'Chamfered Baseboard', badge: 'MODERN', material: 'Solid White Oak', specs: '120 × 20 mm', image: '', toolId: 'wall_trim', params: { type: 'molding_skirting_beveled', profileType: 'skirting_beveled', heightOffset: 0, moldingHeight: 12, depth: 2, material: 'wood_white_oak' } },
-    { id: 'molding_skirting_torus', name: 'Torus / Bullnose Skirting', badge: 'CLASSIC', material: 'Golden Teak Wood', specs: '140 × 22 mm', image: '', toolId: 'wall_trim', params: { type: 'molding_skirting_torus', profileType: 'skirting_torus', heightOffset: 0, moldingHeight: 14, depth: 2.2, material: 'wood_golden_teak' } },
-    { id: 'molding_skirting_ogee', name: 'Classic Ogee Victorian', badge: 'VICTORIAN', material: 'Dark Walnut Timber', specs: '150 × 25 mm', image: '', toolId: 'wall_trim', params: { type: 'molding_skirting_ogee', profileType: 'skirting_ogee', heightOffset: 0, moldingHeight: 15, depth: 2.5, material: 'wood_dark' } },
-    { id: 'molding_skirting_shadow', name: 'Shadow Gap / Reglet Skirting', badge: 'LUXURY', material: 'Matte Black Metal Reveal', specs: '100 × 20 mm', image: '', toolId: 'wall_trim', params: { type: 'molding_skirting_shadow', profileType: 'skirting_shadow', heightOffset: 0, moldingHeight: 10, depth: 2, material: 'black_metal' } },
-
-    { isDivider: true, id: 'div_crown_sub', name: 'Crown Moldings, Cornices & Friezes' },
-    { id: 'molding_crown', name: 'Classic Crown Molding', badge: 'CEILING', material: 'Carved Wood / Plaster', specs: 'Ceiling Line Cornice Projection', image: '', toolId: 'wall_trim', params: { type: 'molding_crown', profileType: 'crown', heightOffset: 170, moldingHeight: 10, depth: 5, material: 'white_paint' } },
-    { id: 'molding_ogee', name: 'Ogee Cyma Molding', badge: 'PROFILE', material: 'Polyurethane Cornice', specs: 'Graceful S-Curve Ceiling Trim', image: '', toolId: 'wall_trim', params: { type: 'molding_ogee', profileType: 'ogee', heightOffset: 170, moldingHeight: 10, depth: 5, material: 'white_paint' } },
-    { id: 'molding_dentil', name: 'Dentil Blocks Molding', badge: 'HERITAGE', material: 'Cast Stone Cornice', specs: 'Classical Tooth Block Relief', image: '', toolId: 'wall_trim', params: { type: 'molding_dentil', profileType: 'dentil', heightOffset: 170, moldingHeight: 12, depth: 6, material: 'white_paint' } },
-    { id: 'molding_frieze_exterior', name: 'Exterior Architectural Frieze', badge: 'EXTERIOR', material: 'Limestone Masonry', specs: 'Wide Exterior Upper Band & Drip Lip', image: '', toolId: 'wall_trim', params: { type: 'molding_frieze_exterior', profileType: 'frieze_exterior', heightOffset: 165, moldingHeight: 15, depth: 4.5, material: 'limestone' } },
-    { id: 'molding_foundation_trim', name: 'Exterior Foundation Plinth Trim', badge: 'PLINTH', material: 'Rustic Ashlar Masonry', specs: 'Heavy Base Water-Table 45° Drip', image: '', toolId: 'wall_trim', params: { type: 'molding_foundation_trim', profileType: 'foundation_trim', heightOffset: 0, moldingHeight: 35, depth: 5.0, material: 'rough_stone' } }
-]);
-
-const elevationFasciaCatalog = ref([
-    { id: 'fascia_c_left', name: 'C-Shape (Left)', badge: 'FACADE', material: 'Aluminium Composite', image: '', params: { type: 'elevation_fascia', profileType: 'c_shape_left' } },
-    { id: 'fascia_c_right', name: 'C-Shape (Right)', badge: 'FACADE', material: 'Aluminium Composite', image: '', params: { type: 'elevation_fascia', profileType: 'c_shape_right' } },
-    { id: 'fascia_l_left', name: 'L-Shape (Left)', badge: 'CORNER', material: 'Anodized Steel', image: '', params: { type: 'elevation_fascia', profileType: 'l_shape_left' } },
-    { id: 'fascia_l_right', name: 'L-Shape (Right)', badge: 'CORNER', material: 'Anodized Steel', image: '', params: { type: 'elevation_fascia', profileType: 'l_shape_right' } },
-    { id: 'fascia_box', name: 'Full Box Frame', badge: 'BOX', material: 'Powder-Coated Metal', image: '', params: { type: 'elevation_fascia', profileType: 'full_box' } }
-]);
+const skirtingCatalog = ref(SKIRTING_CATALOG);
+const moldingCatalog = ref(CROWN_MOLDING_CATALOG);
+const wallTrimCatalog = ref(WALL_TRIM_CATALOG);
+const elevationFasciaCatalog = ref(FASCIA_CATALOG);
 
 const platformCatalog = ref([
     { isDivider: true, id: 'div_platform_stages', name: 'Sims 4 Architectural Platforms & Stages' },
