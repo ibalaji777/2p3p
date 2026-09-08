@@ -80,6 +80,11 @@ export class ValidationLayer {
                 throw new Error('createRoof requires an array of points (min 3).');
             }
         }
+        if (payload.action === 'createStair') {
+            if (typeof payload.x !== 'number' || typeof payload.y !== 'number') {
+                throw new Error('createStair requires x and y coordinates.');
+            }
+        }
     }
 
     static _validateModification(planner, payload, context) {
@@ -127,8 +132,30 @@ export class ValidationLayer {
     }
 
     static findEntity(planner, id) {
-        // Search through standard engine collections
-        const allEntities = planner.getEntities ? planner.getEntities() : [];
-        return allEntities.find(e => e.id === id);
+        if (!planner || !id) return null;
+        if (typeof planner.getEntities === 'function') {
+            const allEntities = planner.getEntities();
+            const found = allEntities.find(e => e && e.id === id);
+            if (found) return found;
+        }
+        const collections = [
+            planner.walls,
+            planner.furniture,
+            planner.stairs,
+            planner.roofs,
+            planner.balconies,
+            planner.arcs,
+            planner.shapes,
+            planner.platforms,
+            planner.outdoorZones,
+            planner.moldings
+        ];
+        for (const col of collections) {
+            if (Array.isArray(col)) {
+                const found = col.find(e => e && e.id === id);
+                if (found) return found;
+            }
+        }
+        return null;
     }
 }

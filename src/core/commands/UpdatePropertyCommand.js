@@ -4,6 +4,7 @@
 import { Command } from './Command.js';
 import { ValidationLayer } from '../api/ValidationLayer.js';
 import { WallEngine } from '../wall/WallEngine.js';
+import { StairEngine } from '../stairs/StairEngine.js';
 
 export class UpdatePropertyCommand extends Command {
     constructor(planner, entityId, properties, oldProperties) {
@@ -60,6 +61,12 @@ export class UpdatePropertyCommand extends Command {
                     this.planner.syncAll();
                 }
             }
+            return;
+        }
+
+        const isStair = entity.constructor.name === 'PremiumStaircase' || (entity.type && entity.type.startsWith('stair_'));
+        if (isStair) {
+            StairEngine.batchUpdate(this.planner, [entity], props);
             return;
         }
 

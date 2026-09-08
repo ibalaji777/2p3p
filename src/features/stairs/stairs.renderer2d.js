@@ -1,5 +1,7 @@
 import Konva from 'konva';
 import { StairHeightDetector } from './StairHeightDetector.js';
+import { StairGeometryEngine } from '../../core/stairs/StairGeometryEngine.js';
+import { StairEngine } from '../../core/stairs/StairEngine.js';
 
 export class PremiumStaircase {
     constructor(planner, type = 'straight', data = {}) {
@@ -154,9 +156,8 @@ export class PremiumStaircase {
         });
 
         this.group.on('dragend', (e) => {
-            this.x = this.group.x();
-            this.y = this.group.y();
-            this.planner.syncAll();
+            StairEngine.setPosition(this.planner, this, this.group.x(), this.group.y());
+            if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
         });
     }
 
@@ -173,6 +174,7 @@ export class PremiumStaircase {
         });
         this.landingSlider.on('dragend', (e) => {
             e.cancelBubble = true;
+            if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
             this.planner.syncAll();
         });
 
@@ -187,9 +189,9 @@ export class PremiumStaircase {
             const groupPos = this.group.getAbsolutePosition();
             const angleRad = Math.atan2(pos.y - groupPos.y, pos.x - groupPos.x);
             let newRot = (angleRad * 180 / Math.PI) - 90;
-            this.rotation = Math.round(newRot / 15) * 15;
-            this.group.rotation(this.rotation);
-            this.planner.syncAll();
+            const snappedRot = Math.round(newRot / 15) * 15;
+            StairEngine.setRotation(this.planner, this, snappedRot);
+            if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
         });
 
         this.handlesGroup.add(this.landingSlider, this.rotHandle);
@@ -205,9 +207,8 @@ export class PremiumStaircase {
         const newFlight1Steps = Math.round(localY / this.stepDepth);
         
         if (newFlight1Steps >= 2 && newFlight1Steps <= totalStepsBefore - 2) {
-            this.flight1Steps = newFlight1Steps;
-            this.flight2Steps = totalStepsBefore - this.flight1Steps;
-            this.update();
+            StairEngine.setFlightSteps(this.planner, this, newFlight1Steps);
+            if (this.planner?.debouncedSaveHistory) this.planner.debouncedSaveHistory();
         } else {
             this.updateHandles();
         }
@@ -543,66 +544,23 @@ export class PremiumStaircase {
     }
 
     setWidth(newW) {
-        const val = Math.max(40, Math.min(300, Number(newW) || 100));
-        this.width = val;
-        if (!this.landingSize || this.landingSize === this.width) {
-            this.landingSize = val;
-        }
-        this.update();
-        this._notify3DUpdate();
+        StairEngine.setWidth(this.planner, this, newW);
     }
 
     setHeight(newH) {
-        const val = Math.max(20, Math.min(600, Number(newH) || 300));
-        this.height = val;
-        const optimal = StairHeightDetector.calculateOptimalSteps(val, this.shape);
-        this.totalSteps = optimal.totalSteps;
-        this.flight1Steps = optimal.flight1Steps;
-        this.flight2Steps = optimal.flight2Steps;
-        this.stepHeight = optimal.stepHeight;
-        this.update();
-        this._notify3DUpdate();
+        StairEngine.setHeight(this.planner, this, newH);
     }
 
     setShape(newShape) {
-        if (newShape === this.shape) return;
-        this.shape = newShape;
-        this.type = `stair_v5_${newShape}`;
-
-        if (newShape === 'straight') {
-            this.totalSteps = (this.flight1Steps || 8) + (this.flight2Steps || 7);
-            this.flight1Steps = this.totalSteps;
-            this.flight2Steps = 0;
-        } else {
-            const total = this.totalSteps || ((this.flight1Steps || 8) + (this.flight2Steps || 7)) || 15;
-            this.flight1Steps = Math.max(2, Math.ceil(total / 2));
-            this.flight2Steps = Math.max(2, total - this.flight1Steps);
-            this.totalSteps = this.flight1Steps + this.flight2Steps;
-            if (!this.turnDirection) this.turnDirection = 'right';
-            if (!this.landingSize) this.landingSize = this.width;
-            if (this.gapWidth === undefined) this.gapWidth = 20;
-        }
-
-        this.update();
-        this._notify3DUpdate();
+        StairEngine.setShape(this.planner, this, newShape);
     }
 
     flipTurnDirection() {
-        this.turnDirection = (this.turnDirection === 'right') ? 'left' : 'right';
-        this.update();
-        this._notify3DUpdate();
+        StairEngine.flipTurnDirection(this.planner, this);
     }
 
     adjustLanding(deltaSteps) {
-        if (this.shape === 'straight') return;
-        const total = this.flight1Steps + this.flight2Steps;
-        const newF1 = this.flight1Steps + deltaSteps;
-        if (newF1 >= 2 && newF1 <= total - 2) {
-            this.flight1Steps = newF1;
-            this.flight2Steps = total - newF1;
-            this.update();
-            this._notify3DUpdate();
-        }
+        StairEngine.adjustLanding(this.planner, this, deltaSteps);
     }
 
     _notify3DUpdate() {
@@ -639,77 +597,10 @@ export class PremiumStaircase {
     }
 
     remove() {
-        this.group.destroy();
-        this.planner.stairs = this.planner.stairs.filter(s => s.id !== this.id);
-        if (this.planner.selectedEntity === this) this.planner.selectEntity(null);
+        StairEngine.deleteStair(this.planner, this);
     }
 }
 
 export function getStairCutoutPolygon(stair) {
-    let width = Number(stair.width) || 100;
-    let sd = Number(stair.stepDepth) || 25;
-    let l1 = stair.flight1Steps !== undefined ? Number(stair.flight1Steps) * sd : (Number(stair.length1) || 200);
-    let l2 = stair.flight2Steps !== undefined ? Number(stair.flight2Steps) * sd : (Number(stair.length2) || 200);
-    let ls = stair.landingSize !== undefined ? Number(stair.landingSize) : width;
-    let gw = Number(stair.gapWidth) || 10;
-    let turn = stair.turnDirection || stair.turnDir || (stair.config && stair.config.turnDirection) || 'right';
-    let sType = stair.shape || (stair.config && stair.config.type) || 'straight';
-    let stairPts = [];
-
-    if (sType === 'straight') {
-        const totalL = (Number(stair.totalSteps) || 12) * sd;
-        let y = 0; let totalLen = totalL;
-        if (stair.hasTopLanding) { y -= ls; totalLen += ls; }
-        if (stair.hasBottomLanding) { totalLen += ls; }
-        stairPts = [
-            {x: -width/2, y: y}, {x: width/2, y: y},
-            {x: width/2, y: y + totalLen}, {x: -width/2, y: y + totalLen}
-        ];
-    } else if (sType === 'L') {
-        let y = 0; let f1Len = l1;
-        if (stair.hasTopLanding) { y -= ls; f1Len += ls; }
-        const f2X = turn === 'right' ? -width/2 : -width/2 - l2;
-        let f2Len = l2 + width + (stair.hasBottomLanding ? ls : 0);
-        let f2Start = f2X - (stair.hasBottomLanding && turn !== 'right' ? ls : 0);
-        if (turn === 'right') {
-            stairPts = [
-                {x: -width/2, y: y}, {x: width/2, y: y}, {x: width/2, y: l1},
-                {x: f2Start + f2Len, y: l1}, {x: f2Start + f2Len, y: l1 + width},
-                {x: -width/2, y: l1 + width}
-            ];
-        } else {
-            stairPts = [
-                {x: -width/2, y: y}, {x: width/2, y: y}, {x: width/2, y: l1 + width},
-                {x: f2Start, y: l1 + width}, {x: f2Start, y: l1}, {x: -width/2, y: l1}
-            ];
-        }
-    } else if (sType === 'U') {
-        let y = 0; let f1Len = l1;
-        if (stair.hasTopLanding) { y -= ls; f1Len += ls; }
-        let f2Y = l1 - l2 - (stair.hasBottomLanding ? ls : 0);
-        let landingY = l1 + ls;
-        if (turn === 'right') {
-            stairPts = [
-                {x: -width/2, y: y}, {x: width/2, y: y}, {x: width/2, y: f2Y},
-                {x: width/2 + gw + width, y: f2Y}, {x: width/2 + gw + width, y: landingY},
-                {x: -width/2, y: landingY}
-            ];
-        } else {
-            stairPts = [
-                {x: -width/2, y: y}, {x: width/2, y: y}, {x: width/2, y: landingY},
-                {x: -width/2 - width - gw, y: landingY}, {x: -width/2 - width - gw, y: f2Y},
-                {x: -width/2, y: f2Y}
-            ];
-        }
-    }
-
-    if (stairPts.length === 0) return [];
-    const rot = (stair.group ? stair.group.rotation() : (Number(stair.rotation) || 0)) * Math.PI / 180;
-    const sx = stair.group ? stair.group.x() : (Number(stair.x) || 0);
-    const sy = stair.group ? stair.group.y() : (Number(stair.y) || 0);
-
-    return stairPts.map(p => ({
-        x: sx + (p.x * Math.cos(rot) - p.y * Math.sin(rot)),
-        y: sy + (p.x * Math.sin(rot) + p.y * Math.cos(rot))
-    }));
+    return StairGeometryEngine.getCutoutPolygon(stair);
 }

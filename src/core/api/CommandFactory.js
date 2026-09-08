@@ -10,6 +10,7 @@ import { CreateWallCommand } from '../commands/CreateWallCommand.js';
 import { CreateFurnitureCommand } from '../commands/CreateFurnitureCommand.js';
 import { CreateOpeningCommand } from '../commands/CreateOpeningCommand.js';
 import { CreateRoofCommand } from '../commands/CreateRoofCommand.js';
+import { CreateStairCommand } from '../commands/CreateStairCommand.js';
 import { DeleteEntityCommand } from '../commands/DeleteEntityCommand.js';
 import { DuplicateEntityCommand } from '../commands/DuplicateEntityCommand.js';
 import { UpdatePropertyCommand } from '../commands/UpdatePropertyCommand.js';
@@ -56,6 +57,12 @@ export class CommandFactory {
                     payload.x,
                     payload.y,
                     payload.configId,
+                    payload.entityId || this._generateId()
+                );
+            case 'createStair':
+                return new CreateStairCommand(
+                    planner,
+                    payload,
                     payload.entityId || this._generateId()
                 );
             case 'deleteEntity':

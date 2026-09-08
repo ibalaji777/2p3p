@@ -7,6 +7,7 @@ import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { Molding3DBuilder } from './Molding3DBuilder.js';
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
+import { StairGeometryEngine } from '../stairs/StairGeometryEngine.js';
 import { Railing3DBuilder } from '../../features/railing/builders/Railing3DBuilder.js';
 import { Wall3DBuilder } from '../../features/wall/wall.renderer3d.js';
 import { Platform3DBuilder } from './Platform3DBuilder.js';
@@ -1153,85 +1154,24 @@ export class EnvironmentBuilder {
                         
                         if (stairsBelow && stairsBelow.length > 0) {
                             stairsBelow.forEach(stair => {
-                                if (stair.type && stair.type.startsWith('stair_v5_')) {
-                                    const width = Number(stair.width) || 100;
-                                    const sd = Number(stair.stepDepth) || 28;
-                                    const ls = Number(stair.landingSize) || width;
-                                    const f1 = Number(stair.flight1Steps) || 6;
-                                    const f2 = Number(stair.flight2Steps) || 6;
-                                    const l1 = f1 * sd;
-                                    const l2 = f2 * sd;
-                                    const turn = stair.turnDirection || 'right';
-                                    const gw = Number(stair.gapWidth) || 20;
-
-                                    const rects = []; 
-
-                                    if (stair.shape === 'straight') {
-                                        const totalL = (Number(stair.totalSteps) || 12) * sd;
-                                        let y = 0; let totalLen = totalL;
-                                        if (stair.hasBottomLanding) { y -= ls; totalLen += ls; }
-                                        if (stair.hasTopLanding) { totalLen += ls; }
-                                        rects.push({ x: -width/2, y: y, w: width, h: totalLen });
-                                    } else if (stair.shape === 'L') {
-                                        let y = 0; let f1Len = l1;
-                                        if (stair.hasBottomLanding) { y -= ls; f1Len += ls; }
-                                        rects.push({ x: -width/2, y: y, w: width, h: f1Len });
-                                        
-                                        const f2X = turn === 'right' ? -width/2 : -width/2 - l2;
-                                        let f2Len = l2 + width;
-                                        let f2Start = f2X;
-                                        if (stair.hasTopLanding) {
-                                            f2Len += ls;
-                                            if (turn !== 'right') f2Start -= ls;
-                                        }
-                                        rects.push({ x: f2Start, y: l1, w: f2Len, h: width });
-                                    } else if (stair.shape === 'U') {
-                                        let y = 0; let f1Len = l1;
-                                        if (stair.hasBottomLanding) { y -= ls; f1Len += ls; }
-                                        rects.push({ x: -width - gw/2, y: y, w: width, h: f1Len });
-
-                                        const midY = l1;
-                                        rects.push({ x: -width - gw/2, y: midY, w: width * 2 + gw, h: ls });
-
-                                        const f2Len = l2;
-                                        rects.push({ x: gw/2, y: midY - f2Len, w: width, h: f2Len });
-                                    }
-                                    
-                                    const sAngle = (stair.rotation || 0) * Math.PI / 180;
-                                    const sX = stair.x || 0;
-                                    const sY = stair.y || 0;
-                                    
-                                    rects.forEach(r => {
-                                        const corners = [
-                                            { x: r.x, y: r.y },
-                                            { x: r.x + r.w, y: r.y },
-                                            { x: r.x + r.w, y: r.y + r.h },
-                                            { x: r.x, y: r.y + r.h }
-                                        ];
-                                        
-                                        const rotC = corners.map(c => ({
-                                            x: sX + (c.x * Math.cos(sAngle) - c.y * Math.sin(sAngle)),
-                                            y: sY + (c.x * Math.sin(sAngle) + c.y * Math.cos(sAngle))
-                                        }));
-
-                                        let minRx = Infinity, maxRx = -Infinity, minRy = Infinity, maxRy = -Infinity;
-                                        path.forEach(p => {
-                                            minRx = Math.min(minRx, p.x); maxRx = Math.max(maxRx, p.x);
-                                            minRy = Math.min(minRy, p.y); maxRy = Math.max(maxRy, p.y);
-                                        });
-
-                                        const overlaps = rotC.some(c => c.x >= minRx && c.x <= maxRx && c.y >= minRy && c.y <= maxRy);
-
-                                        if (overlaps) {
-                                            const hole = new THREE.Path();
-                                            hole.moveTo(rotC[0].x, rotC[0].y);
-                                            hole.lineTo(rotC[1].x, rotC[1].y);
-                                            hole.lineTo(rotC[2].x, rotC[2].y);
-                                            hole.lineTo(rotC[3].x, rotC[3].y);
-                                            hole.lineTo(rotC[0].x, rotC[0].y);
-                                            floorShape.holes.push(hole);
-                                        }
+                                const rotPts = StairGeometryEngine.getCutoutPolygon(stair);
+                                if (rotPts && rotPts.length >= 3) {
+                                    let minRx = Infinity, maxRx = -Infinity, minRy = Infinity, maxRy = -Infinity;
+                                    path.forEach(p => {
+                                        minRx = Math.min(minRx, p.x); maxRx = Math.max(maxRx, p.x);
+                                        minRy = Math.min(minRy, p.y); maxRy = Math.max(maxRy, p.y);
                                     });
+
+                                    const overlaps = rotPts.some(c => c.x >= minRx && c.x <= maxRx && c.y >= minRy && c.y <= maxRy);
+                                    if (overlaps) {
+                                        const hole = new THREE.Path();
+                                        hole.moveTo(rotPts[0].x, rotPts[0].y);
+                                        for (let i = 1; i < rotPts.length; i++) {
+                                            hole.lineTo(rotPts[i].x, rotPts[i].y);
+                                        }
+                                        hole.lineTo(rotPts[0].x, rotPts[0].y);
+                                        floorShape.holes.push(hole);
+                                    }
                                 }
                             });
                         }

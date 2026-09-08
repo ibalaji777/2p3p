@@ -56,11 +56,7 @@ export class Stair3DBuilder {
                 if (!mat) {
                     mat = this.helpers?.getDynamicMaterial?.('wood_oak', 'staircase') || this.defaultMat;
                 }
-                // Clone to ensure each slot has a unique material instance to prevent cross-highlighting
-                if (Array.isArray(mat)) {
-                    return mat.map(m => m.clone ? m.clone() : m);
-                }
-                return mat.clone ? mat.clone() : mat;
+                return mat;
             };
 
             const treadMat = getMat('treads');

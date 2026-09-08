@@ -34,6 +34,9 @@ import { advance_openings } from './advance_openings.js';
 import { PremiumArc } from './PremiumArc.js';
 import { StairV4Flight, StairV4Landing, StaircaseV4Solver } from '../../features/stairs/StaircaseV4.js';
 import { PremiumStaircase } from '../../features/stairs/stairs.renderer2d.js';
+import { StairEngine } from '../stairs/StairEngine.js';
+import { StairTopologyEngine } from '../stairs/StairTopologyEngine.js';
+import { StairGeometryEngine } from '../stairs/StairGeometryEngine.js';
 import { PremiumMolding } from './PremiumMolding.js';
 import { PremiumPlatform } from './PremiumPlatform.js';
 import { PRESET_REGISTRY, autoAlign } from './presetRegistry.js';
@@ -304,6 +307,8 @@ export class FloorPlanner {
             if (values.height !== undefined) {
                 WallEngine.setHeight(entity, values.height, false, this);
             }
+        } else if (this.stairs && this.stairs.includes(entity)) {
+            StairEngine.batchUpdate(this, entity, values);
         } else {
             if (values.width !== undefined) entity.width = values.width;
             if (values.depth !== undefined) entity.depth = values.depth;
@@ -459,6 +464,17 @@ export class FloorPlanner {
             this.furniture.push(item);
             this.syncAll();
             return item;
+        }
+        if (type === 'stair' || (type && type.startsWith('stair_'))) {
+            const stair = StairTopologyEngine.deserialize(this, state);
+            if (stair) {
+                if (!this.stairs) this.stairs = [];
+                if (!this.stairs.includes(stair)) {
+                    this.stairs.push(stair);
+                }
+                this.syncAll();
+                return stair;
+            }
         }
         if (type === 'platform') {
             const item = new PremiumPlatform(this, 'platform', state);
@@ -1988,16 +2004,10 @@ export class FloorPlanner {
                 });
             }
             if (state.stairs) {
-                state.stairs.forEach(sData => { if (sData.type === 'stair_v4_flight') {
-                        const stairV4 = new StairV4Flight(this, sData);
-                        this.stairs.push(stairV4);
-                    } else if (sData.type === 'stair_v4_landing') {
-                        const landingV4 = new StairV4Landing(this, sData);
-                        landingV4.systemId = sData.systemId || landingV4.systemId;
-                        this.stairs.push(landingV4);
-                    } else if (sData.type.startsWith('stair_v5_')) {
-                        const stairV5 = new PremiumStaircase(this, sData.shape, sData);
-                        this.stairs.push(stairV5);
+                state.stairs.forEach(sData => {
+                    const stair = StairTopologyEngine.deserialize(this, sData);
+                    if (stair) {
+                        this.stairs.push(stair);
                     }
                 });
             }
@@ -2169,73 +2179,8 @@ export class FloorPlanner {
             }
             if (state && state.stairs) {
                 state.stairs.forEach(stair => {
-                    let width = Number(stair.width) || 100;
-                    let sd = Number(stair.stepDepth) || 25;
-                    let l1 = stair.flight1Steps !== undefined ? Number(stair.flight1Steps) * sd : (Number(stair.length1) || 200);
-                    let l2 = stair.flight2Steps !== undefined ? Number(stair.flight2Steps) * sd : (Number(stair.length2) || 200);
-                    let ls = stair.landingSize !== undefined ? Number(stair.landingSize) : width;
-                    let gw = Number(stair.gapWidth) || 10;
-                    let turn = stair.turnDirection || stair.turnDir || 'right';
-                    let pts = [];
-                    
-                    if (stair.shape === 'straight') {
-                        const totalL = (Number(stair.totalSteps) || 12) * sd;
-                        let y = 0; let totalLen = totalL;
-                        if (stair.hasTopLanding) { y -= ls; totalLen += ls; }
-                        if (stair.hasBottomLanding) { totalLen += ls; }
-                        pts = [
-                            {x: -width/2, y: y}, {x: width/2, y: y},
-                            {x: width/2, y: y + totalLen}, {x: -width/2, y: y + totalLen}
-                        ];
-                    } else if (stair.shape === 'L') {
-                        let y = 0; let f1Len = l1;
-                        if (stair.hasTopLanding) { y -= ls; f1Len += ls; }
-                        const f2X = turn === 'right' ? -width/2 : -width/2 - l2;
-                        let f2Len = l2 + width;
-                        let f2Start = f2X;
-                        if (stair.hasBottomLanding) {
-                            f2Len += ls;
-                            if (turn !== 'right') f2Start -= ls;
-                        }
-                        if (turn === 'right') {
-                            pts = [
-                                {x: -width/2, y: y}, {x: width/2, y: y}, {x: width/2, y: l1},
-                                {x: f2Start + f2Len, y: l1}, {x: f2Start + f2Len, y: l1 + width},
-                                {x: -width/2, y: l1 + width}
-                            ];
-                        } else {
-                            pts = [
-                                {x: -width/2, y: y}, {x: width/2, y: y}, {x: width/2, y: l1 + width},
-                                {x: f2Start, y: l1 + width}, {x: f2Start, y: l1}, {x: -width/2, y: l1}
-                            ];
-                        }
-                    } else if (stair.shape === 'U') {
-                        let y = 0; let f1Len = l1;
-                        if (stair.hasTopLanding) { y -= ls; f1Len += ls; }
-                        let f2Y = l1 - l2; let f2Len = l2;
-                        if (stair.hasBottomLanding) { f2Y -= ls; f2Len += ls; }
-                        if (turn === 'right') {
-                            pts = [
-                                {x: -width/2, y: y}, {x: width/2, y: y}, {x: width/2, y: f2Y},
-                                {x: width/2 + gw + width, y: f2Y}, {x: width/2 + gw + width, y: l1 + ls},
-                                {x: -width/2, y: l1 + ls}
-                            ];
-                        } else {
-                            pts = [
-                                {x: -width/2, y: y}, {x: width/2, y: y}, {x: width/2, y: l1 + ls},
-                                {x: -width/2 - width - gw, y: l1 + ls}, {x: -width/2 - width - gw, y: f2Y},
-                                {x: -width/2, y: f2Y}
-                            ];
-                        }
-                    }
-
-                    if (pts.length > 0) {
-                        const rot = (Number(stair.rotation) || 0) * Math.PI / 180;
-                        const sx = Number(stair.x) || 0, sy = Number(stair.y) || 0;
-                        const rotatedPts = pts.map(p => ({
-                            x: sx + (p.x * Math.cos(rot) - p.y * Math.sin(rot)),
-                            y: sy + (p.x * Math.sin(rot) + p.y * Math.cos(rot))
-                        }));
+                    const rotatedPts = StairGeometryEngine.getCutoutPolygon(stair);
+                    if (rotatedPts.length > 0) {
                         const flatPts = rotatedPts.flatMap(p => [p.x, p.y]);
                         
                         const stairGhost = new Konva.Line({

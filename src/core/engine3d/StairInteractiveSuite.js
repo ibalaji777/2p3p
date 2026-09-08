@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.js';
+import { StairEngine } from '../stairs/StairEngine.js';
 import { coreEventBus } from '../EventBus.js';
 
 /**
@@ -157,7 +158,8 @@ export class StairInteractiveSuite extends THREE.Group {
             btn.onclick = (e) => {
                 e.stopPropagation();
                 if (this.stair) {
-                    this.stair.setShape(s.id);
+                    const planner = this.ctx.planner || this.stair.planner;
+                    StairEngine.setShape(planner, this.stair, s.id);
                     this._syncRealtimeUpdate();
                     this.update();
                 }
@@ -179,7 +181,8 @@ export class StairInteractiveSuite extends THREE.Group {
         this.btnFlip.onclick = (e) => {
             e.stopPropagation();
             if (this.stair) {
-                this.stair.flipTurnDirection();
+                const planner = this.ctx.planner || this.stair.planner;
+                StairEngine.flipTurnDirection(planner, this.stair);
                 this._syncRealtimeUpdate();
                 this.update();
             }
@@ -195,7 +198,8 @@ export class StairInteractiveSuite extends THREE.Group {
         btnWidthMinus.onclick = (e) => {
             e.stopPropagation();
             if (this.stair) {
-                this.stair.setWidth(Math.max(40, (this.stair.width || 100) - 10));
+                const planner = this.ctx.planner || this.stair.planner;
+                StairEngine.setWidth(planner, this.stair, Math.max(40, (this.stair.width || 100) - 10));
                 this._syncRealtimeUpdate();
                 this.update();
             }
@@ -211,7 +215,8 @@ export class StairInteractiveSuite extends THREE.Group {
         btnWidthPlus.onclick = (e) => {
             e.stopPropagation();
             if (this.stair) {
-                this.stair.setWidth(Math.min(300, (this.stair.width || 100) + 10));
+                const planner = this.ctx.planner || this.stair.planner;
+                StairEngine.setWidth(planner, this.stair, Math.min(300, (this.stair.width || 100) + 10));
                 this._syncRealtimeUpdate();
                 this.update();
             }
@@ -233,7 +238,8 @@ export class StairInteractiveSuite extends THREE.Group {
         btnLandingUp.onclick = (e) => {
             e.stopPropagation();
             if (this.stair) {
-                this.stair.adjustLanding(1);
+                const planner = this.ctx.planner || this.stair.planner;
+                StairEngine.adjustLanding(planner, this.stair, 1);
                 this._syncRealtimeUpdate();
                 this.update();
             }
@@ -247,7 +253,8 @@ export class StairInteractiveSuite extends THREE.Group {
         btnLandingDown.onclick = (e) => {
             e.stopPropagation();
             if (this.stair) {
-                this.stair.adjustLanding(-1);
+                const planner = this.ctx.planner || this.stair.planner;
+                StairEngine.adjustLanding(planner, this.stair, -1);
                 this._syncRealtimeUpdate();
                 this.update();
             }
@@ -557,8 +564,8 @@ export class StairInteractiveSuite extends THREE.Group {
         const types = ['solid', 'mono', 'double', 'side', 'box'];
         const current = this.stair.stringerType || 'solid';
         const next = types[(types.indexOf(current) + 1) % types.length];
-        this.stair.stringerType = next;
-        this.stair.update();
+        const planner = this.ctx.planner || this.stair.planner;
+        StairEngine.setStringerType(planner, this.stair, next);
         this._syncRealtimeUpdate();
         this.update();
     }
@@ -568,18 +575,8 @@ export class StairInteractiveSuite extends THREE.Group {
         const planner = this.ctx.planner || (this.ctx.appState && this.ctx.appState.planner) || window.planner?.value || window.planner;
         if (!planner) return;
 
-        const detection = StairHeightDetector.detect({
-            x: this.stair.x || 0,
-            z: this.stair.y || 0,
-            elevation: this.stair.elevation || 0,
-            rotation: this.stair.rotation || 0,
-            preset: this.stair,
-            planner,
-            isCenterAnchored: false
-        });
-
-        if (detection.hasTarget) {
-            this.stair.setHeight(detection.detectedHeight);
+        const changed = StairEngine.autoFitHeight(planner, this.stair);
+        if (changed) {
             this._syncRealtimeUpdate();
             this.update();
         }
@@ -588,13 +585,10 @@ export class StairInteractiveSuite extends THREE.Group {
     _deleteStaircase() {
         if (!this.stair) return;
         const planner = this.stair.planner || this.ctx.planner;
+        const stairToDelete = this.stair;
         this.detach();
-        if (typeof this.stair.remove === 'function') {
-            this.stair.remove();
-        }
         if (planner) {
-            planner.selectEntity(null);
-            if (planner.syncAll) planner.syncAll();
+            StairEngine.deleteStair(planner, stairToDelete);
             if (planner.debouncedSaveHistory) planner.debouncedSaveHistory();
         }
     }

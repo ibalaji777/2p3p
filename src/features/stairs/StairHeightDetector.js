@@ -9,6 +9,7 @@
  */
 
 import { WALL_HEIGHT } from '../../core/registry.js';
+import { StairGeometryEngine } from '../../core/stairs/StairGeometryEngine.js';
 
 export const STAIR_PROXIMITY_CONFIG = {
     PLATFORM_PROXIMITY: 140, // cm threshold to detect a platform
@@ -325,36 +326,7 @@ export class StairHeightDetector {
      * Standard residential stair rise: ~17.5 cm (clamped between 14cm and 20cm).
      */
     static calculateOptimalSteps(height, shape = 'straight') {
-        const h = Math.max(15, Number(height) || 300);
-
-        let totalSteps;
-        if (h <= 25) {
-            totalSteps = 1;
-        } else if (h <= 42) {
-            totalSteps = 2;
-        } else if (h <= 60) {
-            totalSteps = 3;
-        } else {
-            totalSteps = Math.max(1, Math.round(h / STAIR_PROXIMITY_CONFIG.TARGET_RISER_HEIGHT));
-        }
-
-        const stepHeight = +(h / totalSteps).toFixed(2);
-
-        let flight1Steps = totalSteps;
-        let flight2Steps = 0;
-
-        if (shape === 'L' || shape === 'U' || shape === 'T') {
-            flight1Steps = Math.max(1, Math.ceil(totalSteps / 2));
-            flight2Steps = Math.max(1, totalSteps - flight1Steps);
-            totalSteps = flight1Steps + flight2Steps;
-        }
-
-        return {
-            totalSteps,
-            flight1Steps,
-            flight2Steps,
-            stepHeight
-        };
+        return StairGeometryEngine.calculateOptimalSteps(height, shape);
     }
 
     /**

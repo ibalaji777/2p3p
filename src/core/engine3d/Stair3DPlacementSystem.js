@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { WALL_HEIGHT } from '../constants/units.js';
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
 import { PremiumStaircase, getStairCutoutPolygon } from '../../features/stairs/stairs.renderer2d.js';
+import { StairEngine } from '../stairs/StairEngine.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.js';
 
@@ -261,7 +262,7 @@ export class Stair3DPlacementSystem {
     isPlacementTool() {
         const planner = this.getPlanner();
         if (!planner) return false;
-        const tool = planner.tool;
+        const tool = planner.tool || planner._tool || (planner.tools && planner.tools.currentTool) || '';
         if (!tool || tool === 'select' || tool === 'pan') return false;
 
         const preset = planner.activePresetParams || {};
@@ -712,12 +713,7 @@ export class Stair3DPlacementSystem {
             stairData.turnDirection = this.activeTurnDirection;
         }
 
-        const newStair = new PremiumStaircase(planner, shape, stairData);
-        Object.assign(newStair, stairData);
-        if (newStair.update) newStair.update();
-
-        if (!planner.stairs) planner.stairs = [];
-        planner.stairs.push(newStair);
+        const newStair = StairEngine.createStair(planner, stairData);
 
         // 3. Finalize Undo Command
         if (snapshotCmd && snapshotCmd.finalize() && planner.commandManager) {

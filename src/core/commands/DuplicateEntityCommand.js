@@ -1,9 +1,9 @@
-/**
- * src/core/commands/DuplicateEntityCommand.js
- */
 import { Command } from './Command.js';
 import { ValidationLayer } from '../api/ValidationLayer.js';
 import { PremiumFurniture } from '../../features/furniture/furniture.renderer2d.js';
+
+import { StairEngine } from '../stairs/StairEngine.js';
+import { StairTopologyEngine } from '../stairs/StairTopologyEngine.js';
 
 export class DuplicateEntityCommand extends Command {
     constructor(planner, entityId, id) {
@@ -35,13 +35,21 @@ export class DuplicateEntityCommand extends Command {
                 this.createdEntity.height = sourceEntity.height;
                 this.createdEntity.elevation = sourceEntity.elevation;
                 if (sourceEntity.params) this.createdEntity.params = JSON.parse(JSON.stringify(sourceEntity.params));
+            } else if (sourceEntity.constructor.name === 'PremiumStaircase' || (sourceEntity.type && sourceEntity.type.startsWith('stair_'))) {
+                this.createdEntity = StairEngine.duplicateStair(this.planner, sourceEntity, { x: 30, y: 30 });
+                if (this.id) this.createdEntity.id = this.id;
+                return;
             } else {
-                throw new Error('Duplication currently only supports PremiumFurniture via AutomationAPI');
+                throw new Error('Duplication currently only supports PremiumFurniture and Staircases via AutomationAPI');
             }
         }
         
         if (this.createdEntity.constructor.name === 'PremiumFurniture') {
             this.planner.furniture.push(this.createdEntity);
+        } else if (this.createdEntity.constructor.name === 'PremiumStaircase' || (this.createdEntity.type && this.createdEntity.type.startsWith('stair_'))) {
+            if (!this.planner.stairs.includes(this.createdEntity)) {
+                this.planner.stairs.push(this.createdEntity);
+            }
         }
         
         if (this.createdEntity.group && typeof this.createdEntity.group.show === 'function') {
@@ -52,7 +60,11 @@ export class DuplicateEntityCommand extends Command {
 
     undo() {
         if (!this.createdEntity) return;
-        this.createdEntity.remove();
+        if (this.createdEntity.constructor?.name === 'PremiumStaircase' || (this.createdEntity.type && (this.createdEntity.type.startsWith('stair_') || this.createdEntity.type === 'stair'))) {
+            StairTopologyEngine.deleteStair(this.planner, this.createdEntity);
+        } else if (typeof this.createdEntity.remove === 'function') {
+            this.createdEntity.remove();
+        }
         this.planner.syncAll();
     }
 }

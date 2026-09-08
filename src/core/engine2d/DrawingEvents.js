@@ -11,6 +11,7 @@ import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
 import { PremiumOutdoorZone, OUTDOOR_ZONE_TYPES } from './PremiumOutdoorZone.js';
 import { WallReformer } from './WallReformer.js';
 import { WallEngine } from '../wall/WallEngine.js';
+import { StairEngine } from '../stairs/StairEngine.js';
 
 export { computeCorridorOffsets, computeCorridorPolygon } from './corridorUtils.js';
 import { computeCorridorOffsets, computeCorridorPolygon } from './corridorUtils.js';
@@ -122,9 +123,8 @@ export function setupDrawingEvents(planner) {
             let targetPos = { x: planner.snap(pos.x), y: planner.snap(pos.y) };
             if (planner.tool === 'stair_v4_flight') {
                 const rootId = 'stairv4_' + Math.random().toString(36).substr(2, 9);
-                const flightData = { id: rootId, x: targetPos.x, y: targetPos.y };
-                const flight = new StairV4Flight(planner, flightData);
-                planner.stairs.push(flight);
+                const flightData = { id: rootId, type: 'stair_v4_flight', shape: 'straight', x: targetPos.x, y: targetPos.y };
+                const flight = StairEngine.createStair(planner, flightData);
                 planner.tool = 'select';
                 planner.updateToolStates();
                 planner.selectEntity(flight, 'stair');
@@ -133,9 +133,8 @@ export function setupDrawingEvents(planner) {
             }
             if (planner.tool === 'stair_v4_landing') {
                 const rootId = 'stairv4_landing_' + Math.random().toString(36).substr(2, 9);
-                const landingData = { id: rootId, x: targetPos.x, y: targetPos.y };
-                const landing = new StairV4Landing(planner, landingData);
-                planner.stairs.push(landing);
+                const landingData = { id: rootId, type: 'stair_v4_landing', shape: 'straight', x: targetPos.x, y: targetPos.y };
+                const landing = StairEngine.createStair(planner, landingData);
                 planner.tool = 'select';
                 planner.updateToolStates();
                 planner.selectEntity(landing, 'stair');
@@ -144,9 +143,8 @@ export function setupDrawingEvents(planner) {
             }
             if (planner.tool === 'stair_v4_landing_curve') {
                 const rootId = 'stairv4_landing_' + Math.random().toString(36).substr(2, 9);
-                const landingData = { id: rootId, x: targetPos.x, y: targetPos.y, shape: 'u_curve', length: 100, innerRadius: 40 };
-                const landing = new StairV4Landing(planner, landingData);
-                planner.stairs.push(landing);
+                const landingData = { id: rootId, type: 'stair_v4_landing', shape: 'U', x: targetPos.x, y: targetPos.y, length: 100, innerRadius: 40 };
+                const landing = StairEngine.createStair(planner, landingData);
                 planner.tool = 'select';
                 planner.updateToolStates();
                 planner.selectEntity(landing, 'stair');
@@ -156,20 +154,14 @@ export function setupDrawingEvents(planner) {
             if (planner.tool === 'staircase' || planner.tool.startsWith('stair_v5_')) {
                 const params = planner.tool === 'staircase' ? (planner.activePresetParams || { type: 'stair_v5_straight' }) : { type: planner.tool };
                 const shape = params.type.split('stair_v5_')[1] || 'straight';
-                const targetPos = { x: pos.x, y: pos.y };
-                const stairData = { x: targetPos.x, y: targetPos.y };
-                if (planner.tool === 'staircase' && planner.activePresetParams) {
-                    Object.assign(stairData, planner.activePresetParams);
-                }
-                const stair = new PremiumStaircase(planner, shape, stairData);
+                const stairData = { 
+                    x: pos.x, 
+                    y: pos.y,
+                    shape,
+                    ...(planner.tool === 'staircase' && planner.activePresetParams ? planner.activePresetParams : {})
+                };
                 
-                // Keep the Object.assign just in case there are missing mapped fields
-                if (planner.tool === 'staircase' && planner.activePresetParams) {
-                    Object.assign(stair, planner.activePresetParams);
-                    if (stair.update) stair.update();
-                }
-                
-                planner.stairs.push(stair);
+                const stair = StairEngine.createStair(planner, stairData);
                 planner.tool = 'select';
                 planner.updateToolStates();
                 planner.selectEntity(stair, 'stair');
