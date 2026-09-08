@@ -341,29 +341,33 @@ export class WallInteractiveSuite extends THREE.Group {
             display: none;
             transform: translate(-50%, -100%);
             padding: 5px 8px;
-            border-radius: 24px;
-            background: rgba(15, 23, 42, 0.94);
-            border: 2px solid #00f0ff;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(0, 240, 255, 0.4);
+            border-radius: 9999px;
+            background: rgba(15, 23, 42, 0.90);
+            border: 1.5px solid rgba(56, 189, 248, 0.4);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(56, 189, 248, 0.2);
             color: #ffffff;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             font-size: 12px;
             font-weight: 700;
             white-space: nowrap;
             z-index: 100002;
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             user-select: none;
-            gap: 5px;
+            gap: 4px;
             align-items: center;
+            max-width: calc(100vw - 24px);
+            box-sizing: border-box;
+            pointer-events: auto;
         `;
 
         this.hudButtons = [
-            { id: 'push_pull', label: '↔️ Push / Pull', title: 'Select width on wall face and push/pull thickness with top ledge (Panel #1)' },
-            { id: 'corner', label: '📍 Move', title: 'Move wall normal baseline, corner vertices, slopes & heights (Panel #2)' },
-            { id: 'extrude_recess', label: '🏛️ Bay / Niche', title: 'Extrude bay window extension & niche recess cavity (Panels #5 & #6)' },
-            { id: 'height', label: '📐 Height', title: 'Drag wall height & slopes (Panel #4)' },
-            { id: 'split', label: '✂️ Split', title: 'Click to slice wall in 3D (Panel #3)' },
-            { id: 'slope', label: '📐 Slope', title: 'Toggle flat / single / gable slope (Panel #7)' }
+            { id: 'push_pull', label: '↔️ Push / Pull', title: 'Adjust wall thickness & baseline (Panel #1)' },
+            { id: 'corner', label: '📍 Move', title: 'Move wall vertices, slopes & heights (Panel #2)' },
+            { id: 'extrude_recess', label: '🏛️ Bay / Niche', title: 'Extrude bay window or recessed niche (Panels #5 & #6)' },
+            { id: 'height', label: '📐 Height', title: 'Adjust wall height & slopes (Panel #4)' },
+            { id: 'split', label: '✂️ Split', title: 'Slice wall in 3D (Panel #3)' },
+            { id: 'slope', label: '📐 Slope', title: 'Toggle flat / single / gable profile (Panel #7)' }
         ];
 
         this.buttonElements = {};
@@ -373,16 +377,18 @@ export class WallInteractiveSuite extends THREE.Group {
             el.textContent = btn.label;
             el.title = btn.title;
             el.style.cssText = `
-                padding: 5px 9px;
-                border-radius: 14px;
-                border: 1px solid rgba(255, 255, 255, 0.15);
+                padding: 5px 10px;
+                border-radius: 9999px;
+                border: 1px solid rgba(255, 255, 255, 0.12);
                 background: rgba(255, 255, 255, 0.08);
-                color: #ffffff;
+                color: #e2e8f0;
                 font-size: 11px;
                 font-weight: 700;
                 cursor: pointer;
                 transition: all 0.15s ease;
                 white-space: nowrap;
+                min-height: 28px;
+                touch-action: manipulation;
             `;
             el.onclick = (e) => {
                 e.stopPropagation();
@@ -397,8 +403,8 @@ export class WallInteractiveSuite extends THREE.Group {
         btnClose.textContent = '✕';
         btnClose.title = 'Deselect wall';
         btnClose.style.cssText = `
-            padding: 5px 8px;
-            border-radius: 14px;
+            padding: 5px 9px;
+            border-radius: 9999px;
             border: 1px solid rgba(239, 68, 68, 0.4);
             background: rgba(239, 68, 68, 0.15);
             color: #fca5a5;
@@ -406,6 +412,8 @@ export class WallInteractiveSuite extends THREE.Group {
             font-weight: 800;
             cursor: pointer;
             transition: all 0.15s ease;
+            min-height: 28px;
+            touch-action: manipulation;
         `;
         btnClose.onclick = (e) => {
             e.stopPropagation();
@@ -424,69 +432,55 @@ export class WallInteractiveSuite extends THREE.Group {
             position: fixed;
             display: none;
             transform: translate(-50%, -100%);
-            padding: 6px 12px;
-            border-radius: 28px;
-            background: rgba(15, 23, 42, 0.96);
-            border: 2px solid #38bdf8;
-            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.7), 0 0 16px rgba(56, 189, 248, 0.4);
+            padding: 6px 14px;
+            border-radius: 9999px;
+            background: rgba(15, 23, 42, 0.92);
+            border: 1.5px solid rgba(56, 189, 248, 0.5);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7), 0 0 20px rgba(56, 189, 248, 0.3);
             color: #ffffff;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             font-size: 12px;
             font-weight: 700;
             white-space: nowrap;
             z-index: 100002;
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             user-select: none;
             gap: 8px;
             align-items: center;
+            max-width: calc(100vw - 24px);
+            box-sizing: border-box;
+            pointer-events: auto;
         `;
 
         this.confirmStatusBadge = document.createElement('span');
         this.confirmStatusBadge.style.cssText = `
             font-size: 12px;
-            font-weight: 800;
+            font-weight: 700;
             color: #38bdf8;
             padding-right: 4px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
         `;
         this.domConfirmBar.appendChild(this.confirmStatusBadge);
-
-        // Sub-Mode Toggle for Push/Pull (Face Thickness vs Move Baseline)
-        this.btnPushPullMode = document.createElement('button');
-        this.btnPushPullMode.style.cssText = `
-            display: none;
-            padding: 4px 10px;
-            border-radius: 14px;
-            border: 1px solid #00f0ff;
-            background: rgba(0, 240, 255, 0.2);
-            color: #00f0ff;
-            font-size: 11px;
-            font-weight: 800;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        `;
-        this.btnPushPullMode.onclick = (e) => {
-            e.stopPropagation();
-            const currentMode = this.pushPullGizmo.mode;
-            const nextMode = currentMode === 'thickness' ? 'baseline' : 'thickness';
-            this.pushPullGizmo.setMode(nextMode);
-            this._updatePushPullModeButton();
-        };
-        this.domConfirmBar.appendChild(this.btnPushPullMode);
 
         // Cancel Button (Red outline/fill)
         const btnCancel = document.createElement('button');
         btnCancel.textContent = '✕ Cancel';
-        btnCancel.title = 'Cancel editing and ignore changes';
+        btnCancel.title = 'Cancel editing and ignore changes (Esc)';
         btnCancel.style.cssText = `
             padding: 5px 12px;
-            border-radius: 16px;
-            border: 1px solid #ef4444;
+            border-radius: 9999px;
+            border: 1px solid rgba(239, 68, 68, 0.6);
             background: rgba(239, 68, 68, 0.15);
             color: #fca5a5;
             font-size: 11px;
             font-weight: 800;
             cursor: pointer;
             transition: all 0.15s ease;
+            min-height: 28px;
+            touch-action: manipulation;
         `;
         btnCancel.onmouseenter = () => { btnCancel.style.background = '#ef4444'; btnCancel.style.color = '#ffffff'; };
         btnCancel.onmouseleave = () => { btnCancel.style.background = 'rgba(239, 68, 68, 0.15)'; btnCancel.style.color = '#fca5a5'; };
@@ -499,17 +493,19 @@ export class WallInteractiveSuite extends THREE.Group {
         // Done Button (Emerald Green outline/fill)
         const btnDone = document.createElement('button');
         btnDone.textContent = '✓ Done';
-        btnDone.title = 'Apply and keep changes';
+        btnDone.title = 'Apply and keep changes (Enter)';
         btnDone.style.cssText = `
             padding: 5px 14px;
-            border-radius: 16px;
-            border: 1px solid #10b981;
+            border-radius: 9999px;
+            border: 1px solid rgba(16, 185, 129, 0.7);
             background: rgba(16, 185, 129, 0.25);
             color: #6ee7b7;
             font-size: 11px;
             font-weight: 800;
             cursor: pointer;
             transition: all 0.15s ease;
+            min-height: 28px;
+            touch-action: manipulation;
         `;
         btnDone.onmouseenter = () => { btnDone.style.background = '#10b981'; btnDone.style.color = '#ffffff'; };
         btnDone.onmouseleave = () => { btnDone.style.background = 'rgba(16, 185, 129, 0.25)'; btnDone.style.color = '#6ee7b7'; };
@@ -522,23 +518,7 @@ export class WallInteractiveSuite extends THREE.Group {
         document.body.appendChild(this.domConfirmBar);
     }
 
-    _updatePushPullModeButton() {
-        if (!this.btnPushPullMode) return;
-        const mode = this.pushPullGizmo?.mode || 'thickness';
-        if (mode === 'thickness') {
-            this.btnPushPullMode.textContent = '🧱 Mode: Face Thickness (Single Wall)';
-            this.btnPushPullMode.title = 'Click to switch to Room Baseline Move (or press Tab)';
-            this.btnPushPullMode.style.borderColor = '#00f0ff';
-            this.btnPushPullMode.style.color = '#00f0ff';
-            this.btnPushPullMode.style.background = 'rgba(0, 240, 255, 0.2)';
-        } else {
-            this.btnPushPullMode.textContent = '🏠 Mode: Move Baseline (Room Resizing)';
-            this.btnPushPullMode.title = 'Click to switch to Face Thickness Push/Pull (or press Tab)';
-            this.btnPushPullMode.style.borderColor = '#10b981';
-            this.btnPushPullMode.style.color = '#10b981';
-            this.btnPushPullMode.style.background = 'rgba(16, 185, 129, 0.2)';
-        }
-    }
+    _updatePresetButtonHighlights() {}
 
     _createLiveBadges() {
         if (typeof document === 'undefined') return;
@@ -643,9 +623,12 @@ export class WallInteractiveSuite extends THREE.Group {
                 slope: '📐 Slope Toggle'
             };
             this.confirmStatusBadge.textContent = labels[mode] || 'Editing';
-            if (this.btnPushPullMode) {
-                this.btnPushPullMode.style.display = (mode === 'push_pull') ? 'inline-block' : 'none';
-                if (mode === 'push_pull') this._updatePushPullModeButton();
+            const isPushPullOrBay = (mode === 'push_pull' || mode === 'extrude_recess');
+            if (this.presetContainer) {
+                this.presetContainer.style.display = isPushPullOrBay ? 'inline-flex' : 'none';
+            }
+            if (this.locationContainer) {
+                this.locationContainer.style.display = isPushPullOrBay ? 'inline-flex' : 'none';
             }
             this.domConfirmBar.style.display = 'flex';
         }
@@ -677,17 +660,20 @@ export class WallInteractiveSuite extends THREE.Group {
 
         if (mode === 'push_pull') {
             this.pushPullGizmo.attach(this.target);
+            this.pushPullGizmo.setPreset('middle_bay');
+            this._updatePresetButtonHighlights();
             this.cornerGizmo.detach();
             this.heightGizmo.detach();
             this._hideSplitLaser();
             this._hideExtrudeGhost();
         } else if (mode === 'extrude_recess') {
-            this.pushPullGizmo.detach();
+            this.pushPullGizmo.attach(this.target);
+            this.pushPullGizmo.setPreset('middle_bay');
+            this._updatePresetButtonHighlights();
             this.cornerGizmo.detach();
             this.heightGizmo.detach();
             this._hideSplitLaser();
-            this.extrudeCurrentDepth = 0; // Neutral 0cm start on entry
-            this._showExtrudeGhost();
+            this._hideExtrudeGhost();
         } else if (mode === 'height') {
             this.pushPullGizmo.detach();
             this.cornerGizmo.detach();
@@ -1126,41 +1112,26 @@ export class WallInteractiveSuite extends THREE.Group {
         this.extrudeEndHandle.rotation.set(0, facing === 1 ? 0 : Math.PI, 0);
         this._updateBoundaryLine(this.extrudeEndHandle, wallH);
 
-        // Update Floating HUD Badge Position (Project 3D handle position to Screen)
-        if (this.extrudeBadge) {
-            const worldPos = new THREE.Vector3(midX, midY + wallH / 2 + 16, handleZ);
-            this.extrudeGroup.localToWorld(worldPos);
-            worldPos.project(this.ctx.camera);
-
-            const dom = this.ctx.renderer.domElement;
-            const rect = dom.getBoundingClientRect();
-            const screenX = rect.left + ((worldPos.x + 1) * rect.width) / 2;
-            const screenY = rect.top + ((-worldPos.y + 1) * rect.height) / 2;
-
-            if (depth > 0) {
-                this.extrudeBadge.style.background = 'rgba(16, 185, 129, 0.95)';
-                this.extrudeBadge.style.borderColor = '#34d399';
-                this.extrudeBadge.textContent = `🏛️ Bay Window (+${Math.round(depth)} cm) · Width: ${Math.round(bayLen)} cm — Click [✓ Done] to Apply or [✕ Cancel]`;
-            } else if (depth < 0) {
-                const remainingCore = Math.round(t - Math.abs(depth));
-                if (remainingCore >= 0) {
-                    this.extrudeBadge.style.background = 'rgba(168, 85, 247, 0.95)';
-                    this.extrudeBadge.style.borderColor = '#c084fc';
-                    this.extrudeBadge.textContent = `🔲 Wall Niche (${Math.round(depth)} cm) · Width: ${Math.round(bayLen)} cm · Core: ${remainingCore} cm — Click [✓ Done] to Apply or [✕ Cancel]`;
-                } else {
-                    this.extrudeBadge.style.background = 'rgba(239, 68, 68, 0.95)';
-                    this.extrudeBadge.style.borderColor = '#fca5a5';
-                    this.extrudeBadge.textContent = `⚠️ Niche (${Math.round(depth)} cm) Exceeds Wall Thickness (${t} cm) — Click [✓ Done] to Apply or [✕ Cancel]`;
-                }
+        // Update Floating HUD Status in single unified Confirm Bar
+        let statusMsg = '';
+        if (depth > 0) {
+            statusMsg = `🏛️ Bay Window: +${Math.round(depth)} cm · Width: ${Math.round(bayLen)} cm`;
+        } else if (depth < 0) {
+            const remainingCore = Math.round(t - Math.abs(depth));
+            if (remainingCore >= 0) {
+                statusMsg = `🔲 Niche: ${Math.round(depth)} cm · Width: ${Math.round(bayLen)} cm (Core: ${remainingCore} cm)`;
             } else {
-                this.extrudeBadge.style.background = 'rgba(15, 23, 42, 0.95)';
-                this.extrudeBadge.style.borderColor = '#00f0ff';
-                this.extrudeBadge.textContent = `↔️ Drag Center Arrow (+Bay / -Niche) or Side Brackets · Width: ${Math.round(bayLen)} cm`;
+                statusMsg = `⚠️ Niche: ${Math.round(depth)} cm exceeds wall thickness (${t} cm)`;
             }
+        } else {
+            statusMsg = `🏛️ Extrude Bay (+Z) / Recess Niche (-Z) · Width: ${Math.round(bayLen)} cm`;
+        }
 
-            this.extrudeBadge.style.left = `${screenX}px`;
-            this.extrudeBadge.style.top = `${screenY - 24}px`;
-            this.extrudeBadge.style.display = 'block';
+        if (this.confirmStatusBadge) {
+            this.confirmStatusBadge.textContent = statusMsg;
+        }
+        if (this.extrudeBadge) {
+            this.extrudeBadge.style.display = 'none'; // Suppress duplicate floating badge
         }
     }
 
@@ -1419,50 +1390,21 @@ export class WallInteractiveSuite extends THREE.Group {
             return;
         }
 
-        const mid3D = new THREE.Vector3();
-        const box = new THREE.Box3().setFromObject(this.target);
-        if (!box.isEmpty() && isFinite(box.min.x) && isFinite(box.max.x)) {
-            box.getCenter(mid3D);
-            mid3D.y = box.max.y + 18;
-        } else {
-            const p1 = WallGeometryEngine.getAnchorPosition(wall.startAnchor || { x: wall.startX, y: wall.startY });
-            const p2 = WallGeometryEngine.getAnchorPosition(wall.endAnchor || { x: wall.endX, y: wall.endY });
-            const wallBaseY = Number(wall.elevation) || 0;
-            const wallH = Number(wall.height !== undefined ? wall.height : (wall.config?.height || 120));
-            mid3D.set(
-                (p1.x + p2.x) / 2,
-                wallBaseY + wallH + 18,
-                (p1.y + p2.y) / 2
-            );
-        }
-
-        // Project 3D vector to screen 2D
-        mid3D.project(this.ctx.camera);
-        if (mid3D.z > 1) {
-            if (this.domHUD) this.domHUD.style.display = 'none';
-            if (this.domConfirmBar) this.domConfirmBar.style.display = 'none';
-            return;
-        }
-
         const dom = this.ctx.renderer.domElement;
+        if (!dom) return;
         const rect = dom.getBoundingClientRect();
-        const rawScreenX = rect.left + ((mid3D.x + 1) * rect.width) / 2;
-        const rawScreenY = rect.top + ((-mid3D.y + 1) * rect.height) / 2;
 
-        // Viewport Boundary Clamping: prevent HUD from overflowing screen edges
-        const activeDom = (this.activeMode === 'menu') ? this.domHUD : this.domConfirmBar;
-        const hudWidth = activeDom?.offsetWidth || 380;
-        const minX = rect.left + (hudWidth / 2) + 16;
-        const maxX = Math.max(minX, rect.right - (hudWidth / 2) - 16);
-        const screenX = Math.max(minX, Math.min(maxX, rawScreenX));
-        const screenY = Math.max(rect.top + 48, Math.min(rect.bottom - 48, rawScreenY));
+        // Fixed Top-Center Toaster HUD Placement
+        const screenX = rect.left + rect.width / 2;
+        const screenY = rect.top + 24;
 
         if (this.domHUD && (this.activeMode === 'menu' || this.activeMode === 'neutral')) {
             if (this.domHUD.parentElement !== document.body && !this.domHUD.parentElement) {
                 document.body.appendChild(this.domHUD);
             }
             this.domHUD.style.left = `${screenX}px`;
-            this.domHUD.style.top = `${screenY - 14}px`;
+            this.domHUD.style.top = `${screenY}px`;
+            this.domHUD.style.transform = 'translate(-50%, 0)';
             this.domHUD.style.display = 'flex';
         }
         if (this.domConfirmBar && this.activeMode !== 'menu' && this.activeMode !== 'neutral') {
@@ -1470,7 +1412,8 @@ export class WallInteractiveSuite extends THREE.Group {
                 document.body.appendChild(this.domConfirmBar);
             }
             this.domConfirmBar.style.left = `${screenX}px`;
-            this.domConfirmBar.style.top = `${screenY - 14}px`;
+            this.domConfirmBar.style.top = `${screenY}px`;
+            this.domConfirmBar.style.transform = 'translate(-50%, 0)';
             this.domConfirmBar.style.display = 'flex';
         }
     }

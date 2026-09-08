@@ -142,8 +142,8 @@ describe('WallPushPullGizmo - Sims 4-Style 2D-on-3D Region Selection & Push/Pull
 
         gizmo.attach(mockWall.mesh3D);
         expect(gizmo.visible).toBe(true);
-        expect(gizmo.tStart).toBe(0.0);
-        expect(gizmo.tEnd).toBe(1.0);
+        expect(gizmo.tStart).toBe(0.25);
+        expect(gizmo.tEnd).toBe(0.75);
         expect(gizmo.elevBottom).toBe(0);
         expect(gizmo.elevTop).toBe(120);
     });
@@ -587,6 +587,7 @@ describe('WallPushPullGizmo - Sims 4-Style 2D-on-3D Region Selection & Push/Pull
 
     it('should dynamically expand wall thickness during live pointer move and revert on cancel', () => {
         gizmo.attach(mockWall.mesh3D);
+        gizmo.setPreset('full');
         expect(gizmo.mode).toBe('thickness');
         expect(mockWall.thickness).toBe(20);
 
@@ -634,11 +635,9 @@ describe('WallPushPullGizmo - Sims 4-Style 2D-on-3D Region Selection & Push/Pull
         expect(mockWall.endAnchor.position()).toEqual({ x: 100, y: 0 });
     });
 
-    it('should dynamically shift room baseline perpendicularly in baseline mode preserving uniform thickness', () => {
+    it('should dynamically adjust subregion extrusion depth and preview during drag and commit protrusion', () => {
         gizmo.attach(mockWall.mesh3D);
-        gizmo.setMode('baseline');
-        expect(gizmo.mode).toBe('baseline');
-        expect(mockWall.thickness).toBe(20);
+        expect(gizmo.selectionScope).toBe('subregion');
 
         // 1. Pointer Down on front handle
         const baseMesh = gizmo.handleFront.children.find(c => c.userData?.part === 'base');
@@ -674,16 +673,348 @@ describe('WallPushPullGizmo - Sims 4-Style 2D-on-3D Region Selection & Push/Pull
         };
         gizmo._onPointerMove(moveEvent);
 
-        // Baseline move shifts entire wall perpendicularly; thickness remains uniform 20cm!
-        expect(mockWall.thickness).toBe(20);
-        expect(mockWall.startAnchor.position().y).toBe(15);
-        expect(mockWall.endAnchor.position().y).toBe(15);
+        // Subregion extrude depth must be +15cm
+        expect(gizmo.currentExtrudeDepth).toBe(15);
+        expect(gizmo.solidBlockPreview.visible).toBe(true);
 
-        // Cancel reverts baseline
+        // 3. Commit applies solid protrusion widget
+        gizmo.commit();
+        expect(mockWall.attachedWidgets.length).toBeGreaterThan(0);
+        const prot = mockWall.attachedWidgets[0];
+        expect(prot.type).toBe('solid_protrusion');
+        expect(prot.depth).toBe(15);
+    });
+
+    it('should support dragging 4 corner circular handles to resize width and elevation in 3D scene', () => {
+        gizmo.attach(mockWall.mesh3D);
+        gizmo.selectionScope = 'subregion';
+        gizmo.tStart = 0.2;
+        gizmo.tEnd = 0.8;
+        gizmo.elevBottom = 20;
+        gizmo.elevTop = 100;
+        gizmo.updateHandles();
+
+        expect(gizmo.cornerBL).toBeDefined();
+        expect(gizmo.cornerBR).toBeDefined();
+        expect(gizmo.cornerTL).toBeDefined();
+        expect(gizmo.cornerTR).toBeDefined();
+        expect(gizmo.cornerBL.visible).toBe(true);
+        expect(gizmo.cornerTR.visible).toBe(true);
+
+        // 1. Click on top-right corner handle (corner_tr)
+        const trHitMesh = gizmo.cornerTR.children.find(c => c.userData?.part === 'corner_tr');
+        expect(trHitMesh).toBeDefined();
+
+        const intersect = {
+            object: trHitMesh,
+            point: new THREE.Vector3(80, 100, 20)
+        };
+        gizmo.raycaster.intersectObjects = () => [intersect];
+
+        gizmo._onPointerDown({
+            button: 0,
+            clientX: 500,
+            clientY: 200,
+            pointerId: 1,
+            preventDefault: () => {},
+            stopPropagation: () => {},
+            target: { setPointerCapture: () => {} }
+        });
+        expect(gizmo.isDragging).toBe(true);
+        expect(gizmo.activeHandle).toBe('corner_tr');
+
+        // 2. Drag top-right corner outward along wall (+10cm length -> tEnd = 0.90) and upward (+15cm height -> elevTop = 115cm)
+        gizmo.raycaster.ray.intersectPlane = (plane, target) => {
+            target.set(90, 115, 20);
+            return target;
+        };
+
+        gizmo._onPointerMove({
+            clientX: 550,
+            clientY: 150,
+            preventDefault: () => {},
+            stopPropagation: () => {}
+        });
+
+        expect(gizmo.tEnd).toBe(0.9);
+        expect(gizmo.elevTop).toBe(115);
+
+        // 3. Pointer Up commits the drag
+        gizmo._onPointerUp({
+            target: { releasePointerCapture: () => {} }
+        });
+        expect(gizmo.isDragging).toBe(false);
+    });
+
+    it('should support dragging selection plane in 3D scene (slide_center) to translate selected area', () => {
+        gizmo.attach(mockWall.mesh3D);
+        gizmo.selectionScope = 'subregion';
+        gizmo.tStart = 0.2;
+        gizmo.tEnd = 0.6;
+        gizmo.elevBottom = 10;
+        gizmo.elevTop = 70;
+        gizmo.updateHandles();
+
+        // 1. Click on selection plane front (part: 'slide_center')
+        const planeMesh = gizmo.selectionPlaneFront;
+        const intersect = {
+            object: planeMesh,
+            point: new THREE.Vector3(40, 40, 10)
+        };
+        gizmo.raycaster.intersectObjects = () => [intersect];
+
+        gizmo._onPointerDown({
+            button: 0,
+            clientX: 400,
+            clientY: 300,
+            pointerId: 1,
+            preventDefault: () => {},
+            stopPropagation: () => {},
+            target: { setPointerCapture: () => {} }
+        });
+        expect(gizmo.isDragging).toBe(true);
+        expect(gizmo.activeHandle).toBe('slide_center');
+
+        // 2. Move area by +20cm horizontally (tStart: 0.2 -> 0.4, tEnd: 0.6 -> 0.8) and +30cm vertically (elevBottom: 10 -> 40, elevTop: 70 -> 100)
+        gizmo.raycaster.ray.intersectPlane = (plane, target) => {
+            target.set(60, 70, 10);
+            return target;
+        };
+
+        gizmo._onPointerMove({
+            clientX: 450,
+            clientY: 220,
+            preventDefault: () => {},
+            stopPropagation: () => {}
+        });
+
+        expect(gizmo.tStart).toBe(0.4);
+        expect(gizmo.tEnd).toBe(0.8);
+        expect(gizmo.elevBottom).toBe(40);
+        expect(gizmo.elevTop).toBe(100);
+
+        gizmo._onPointerUp({
+            target: { releasePointerCapture: () => {} }
+        });
+        expect(gizmo.isDragging).toBe(false);
+    });
+
+    it('should set appropriate cursors and highlight on hover', () => {
+        gizmo.attach(mockWall.mesh3D);
+        gizmo.selectionScope = 'subregion';
+        gizmo.updateHandles();
+
+        // 1. Hover on corner_bl
+        const blMesh = gizmo.cornerBL.children.find(c => c.userData?.part === 'corner_bl');
+        gizmo.raycaster.intersectObjects = () => [{ object: blMesh }];
+        gizmo._onPointerMove({ clientX: 200, clientY: 200 });
+        expect(ctx.renderer.domElement.style.cursor).toBe('nesw-resize');
+
+        // 2. Hover on corner_tl
+        const tlMesh = gizmo.cornerTL.children.find(c => c.userData?.part === 'corner_tl');
+        gizmo.raycaster.intersectObjects = () => [{ object: tlMesh }];
+        gizmo._onPointerMove({ clientX: 200, clientY: 100 });
+        expect(ctx.renderer.domElement.style.cursor).toBe('nwse-resize');
+
+        // 3. Hover on width boundary start
+        const startMesh = gizmo.startWidthHandle.children.find(c => c.userData?.part === 'boundary_start');
+        gizmo.raycaster.intersectObjects = () => [{ object: startMesh }];
+        gizmo._onPointerMove({ clientX: 200, clientY: 150 });
+        expect(ctx.renderer.domElement.style.cursor).toBe('ew-resize');
+
+        // 4. Hover on height boundary top
+        const topMesh = gizmo.topHeightHandle.children.find(c => c.userData?.part === 'boundary_top');
+        gizmo.raycaster.intersectObjects = () => [{ object: topMesh }];
+        gizmo._onPointerMove({ clientX: 300, clientY: 100 });
+        expect(ctx.renderer.domElement.style.cursor).toBe('ns-resize');
+    });
+
+    it('should build center handle with reticle disc, tick lines, inner royal blue disc, white ring, and white 4-way arrow', () => {
+        const handle = gizmo.handleFront;
+        expect(handle).toBeDefined();
+
+        const reticle = handle.children.find(c => c.userData?.isReticle);
+        expect(reticle).toBeDefined();
+
+        const ticks = handle.children.find(c => c.userData?.isTicks);
+        expect(ticks).toBeDefined();
+
+        const innerDisc = handle.children.find(c => c.userData?.isInnerDisc);
+        expect(innerDisc).toBeDefined();
+        expect(innerDisc.material.color.getHex()).toBe(0x0070f3);
+
+        const innerRing = handle.children.find(c => c.userData?.isRing);
+        expect(innerRing).toBeDefined();
+        expect(innerRing.material.color.getHex()).toBe(0xffffff);
+
+        const arrow = handle.children.find(c => c.userData?.isArrowFill);
+        expect(arrow).toBeDefined();
+        expect(arrow.material.color.getHex()).toBe(0xffffff);
+    });
+
+    it('should build boundary handles with royal blue disc, solid white border ring, and double arrow', () => {
+        [gizmo.startWidthHandle, gizmo.endWidthHandle, gizmo.bottomHeightHandle, gizmo.topHeightHandle].forEach(h => {
+            const base = h.children.find(c => c.userData?.isBase);
+            expect(base).toBeDefined();
+            expect(base.material.color.getHex()).toBe(0x0070f3);
+
+            const ring = h.children.find(c => c.userData?.isRing);
+            expect(ring).toBeDefined();
+            expect(ring.material.color.getHex()).toBe(0xffffff);
+
+            const arrow = h.children.find(c => c.userData?.isArrowFill);
+            expect(arrow).toBeDefined();
+            expect([0x0070f3, 0xffffff]).toContain(arrow.material.color.getHex());
+        });
+    });
+
+    it('should build corner handles with concentric halo, white donut, royal blue disc, white pip, and core dot', () => {
+        [gizmo.cornerBL, gizmo.cornerBR, gizmo.cornerTL, gizmo.cornerTR].forEach(c => {
+            const halo = c.children.find(ch => ch.userData?.isHalo);
+            expect(halo).toBeDefined();
+
+            const donut = c.children.find(ch => ch.userData?.isDonut);
+            expect(donut).toBeDefined();
+            expect(donut.material.color.getHex()).toBe(0xffffff);
+
+            const base = c.children.find(ch => ch.userData?.isBase);
+            expect(base).toBeDefined();
+            expect(base.material.color.getHex()).toBe(0x0070f3);
+
+            const pip = c.children.find(ch => ch.userData?.isPip);
+            expect(pip).toBeDefined();
+            expect(pip.material.color.getHex()).toBe(0xffffff);
+
+            const core = c.children.find(ch => ch.userData?.isCore);
+            expect(core).toBeDefined();
+            expect(core.material.color.getHex()).toBe(0x0070f3);
+        });
+    });
+
+    it('should build 4 3D CanvasTexture dimension badges attached to dimensionLinesGroup', () => {
+        expect(gizmo.badgeTop).toBeDefined();
+        expect(gizmo.badgeBottom).toBeDefined();
+        expect(gizmo.badgeLeft).toBeDefined();
+        expect(gizmo.badgeRight).toBeDefined();
+        expect(gizmo.dimensionLinesGroup.children).toContain(gizmo.badgeTop);
+        expect(gizmo.dimensionLinesGroup.children).toContain(gizmo.badgeBottom);
+        expect(gizmo.dimensionLinesGroup.children).toContain(gizmo.badgeLeft);
+        expect(gizmo.dimensionLinesGroup.children).toContain(gizmo.badgeRight);
+
+        gizmo.attach(mockWall.mesh3D);
+        gizmo.selectionScope = 'subregion';
+        gizmo.updateHandles();
+
+        expect(gizmo.badgeTop.visible).toBe(true);
+        expect(gizmo.badgeBottom.visible).toBe(true);
+        expect(gizmo.badgeLeft.visible).toBe(true);
+        expect(gizmo.badgeRight.visible).toBe(true);
+    });
+
+    it('should show luminous 3D ghost box, depth leader line, and floating depth badge on 2nd-time existing protrusion edit', () => {
+        // Setup wall with an existing solid protrusion (e.g. depth 20cm, width 50cm, elev 10cm)
+        const existingWidget = {
+            id: 'prot_1',
+            type: 'solid_protrusion',
+            configId: 'solid_protrusion',
+            width: 50,
+            height: 80,
+            elevation: 10,
+            depth: 20,
+            t: 0.5,
+            facing: 1
+        };
+        mockWall.attachedWidgets = [existingWidget];
+
+        gizmo.attach(mockWall.mesh3D);
+        expect(gizmo.existingProtrusion).toBe(existingWidget);
+        expect(gizmo.currentExtrudeDepth).toBe(20);
+        expect(gizmo.solidBlockPreview.visible).toBe(true);
+        expect(gizmo.depthLeaderLine.visible).toBe(true);
+        expect(gizmo.badgeDepth.visible).toBe(true);
+        expect(gizmo.selectionRectGroup.visible).toBe(false);
+        expect(gizmo.previewEdges.visible).toBe(true);
+    });
+
+    it('should keep gizmo, highlights, and Done/Cancel HUD visible on pointer up during 2nd-time adjustments', () => {
+        const existingWidget = {
+            id: 'prot_1',
+            type: 'solid_protrusion',
+            configId: 'solid_protrusion',
+            width: 50,
+            height: 80,
+            elevation: 10,
+            depth: 20,
+            t: 0.5,
+            facing: 1
+        };
+        mockWall.attachedWidgets = [existingWidget];
+
+        gizmo.attach(mockWall.mesh3D);
+        expect(gizmo.visible).toBe(true);
+
+        // Simulate dragging
+        gizmo.isDragging = true;
+        gizmo.activeHandle = 'front';
+        existingWidget.depth = 35;
+        gizmo.currentExtrudeDepth = 35;
+
+        // Pointer up should NOT detach or auto-commit
+        gizmo._onPointerUp({ target: null });
+
+        expect(gizmo.visible).toBe(true);
+        expect(gizmo.isDragging).toBe(false);
+        expect(gizmo.solidBlockPreview.visible).toBe(true);
+        expect(gizmo.existingProtrusion).toBe(existingWidget);
+        expect(existingWidget.depth).toBe(35);
+
+        // Clicking Done commits changes and detaches
+        gizmo.commit();
+        expect(gizmo.visible).toBe(false);
+        expect(existingWidget.depth).toBe(35);
+    });
+
+    it('should revert protrusion parameters back to original state when Cancel is clicked on 2nd-time edit', () => {
+        const existingWidget = {
+            id: 'prot_2',
+            type: 'solid_protrusion',
+            configId: 'solid_protrusion',
+            width: 50,
+            height: 80,
+            elevation: 10,
+            depth: 20,
+            t: 0.5,
+            facing: 1
+        };
+        mockWall.attachedWidgets = [existingWidget];
+
+        gizmo.attach(mockWall.mesh3D);
+        expect(gizmo.origProtrusionState).toEqual({
+            width: 50,
+            height: 80,
+            elevation: 10,
+            depth: 20,
+            t: 0.5,
+            facing: 1
+        });
+
+        // Simulate modifications during drag
+        existingWidget.width = 100;
+        existingWidget.height = 110;
+        existingWidget.elevation = 20;
+        existingWidget.depth = 45;
+        existingWidget.t = 0.7;
+
+        // User clicks Cancel
         gizmo.cancel();
-        expect(mockWall.thickness).toBe(20);
-        expect(mockWall.startAnchor.position()).toEqual({ x: 0, y: 0 });
-        expect(mockWall.endAnchor.position()).toEqual({ x: 100, y: 0 });
+
+        expect(gizmo.visible).toBe(false);
+        expect(existingWidget.width).toBe(50);
+        expect(existingWidget.height).toBe(80);
+        expect(existingWidget.elevation).toBe(10);
+        expect(existingWidget.depth).toBe(20);
+        expect(existingWidget.t).toBe(0.5);
     });
 });
+
 
