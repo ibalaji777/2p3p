@@ -4,6 +4,7 @@
 import { Command } from './Command.js';
 import { ValidationLayer } from '../api/ValidationLayer.js';
 import { StairTopologyEngine } from '../stairs/StairTopologyEngine.js';
+import { WallEngine } from '../wall/WallEngine.js';
 
 export class DeleteEntityCommand extends Command {
     constructor(planner, entityId) {
@@ -12,6 +13,8 @@ export class DeleteEntityCommand extends Command {
         this.entityId = entityId;
         this.deletedEntity = null;
         this.serializedStair = null;
+        this.hostWall = null;
+        this.hostWallId = null;
     }
 
     execute() {
@@ -19,9 +22,26 @@ export class DeleteEntityCommand extends Command {
             this.deletedEntity = ValidationLayer.findEntity(this.planner, this.entityId);
         }
         if (this.deletedEntity) {
+            // Check if entity is an attached widget on a wall
+            const hostWall = this.deletedEntity.wall || this.deletedEntity.parentWall || 
+                (this.planner?.walls && this.planner.walls.find(w => 
+                    (w.attachedWidgets && (w.attachedWidgets.includes(this.deletedEntity) || w.attachedWidgets.some(widg => widg.id === this.entityId))) ||
+                    (w.id === this.deletedEntity.parentWallId)
+                ));
+
+            if (hostWall) {
+                this.hostWall = hostWall;
+                this.hostWallId = hostWall.id;
+            }
+
             if (this.deletedEntity.constructor?.name === 'PremiumStaircase' || (this.deletedEntity.type && (this.deletedEntity.type.startsWith('stair_') || this.deletedEntity.type === 'stair'))) {
                 this.serializedStair = StairTopologyEngine.serialize(this.deletedEntity);
                 StairTopologyEngine.deleteStair(this.planner, this.deletedEntity);
+            } else if (hostWall && (this.deletedEntity.type === 'door' || this.deletedEntity.type === 'window' || this.deletedEntity.doorType || this.deletedEntity.windowType || this.deletedEntity.type?.startsWith('door_') || this.deletedEntity.type?.startsWith('window_') || this.deletedEntity.constructor?.name === 'PremiumWidget')) {
+                if (typeof this.deletedEntity.remove === 'function') {
+                    this.deletedEntity.remove();
+                }
+                WallEngine.removeWidget(hostWall, this.deletedEntity, false, this.planner);
             } else if (typeof this.deletedEntity.remove === 'function') {
                 this.deletedEntity.remove();
             } else if (typeof this.deletedEntity.destroy === 'function') {
@@ -37,6 +57,11 @@ export class DeleteEntityCommand extends Command {
         if (this.deletedEntity) {
             if (this.deletedEntity.type === 'outer' || this.deletedEntity.type === 'inner' || this.deletedEntity.type === 'compound') {
                 this.planner.walls.push(this.deletedEntity);
+            } else if (this.hostWall || this.hostWallId) {
+                const wall = this.hostWall || (this.planner?.walls && this.planner.walls.find(w => w.id === this.hostWallId));
+                if (wall) {
+                    WallEngine.attachWidget(wall, this.deletedEntity, false, this.planner);
+                }
             } else if (this.deletedEntity.constructor?.name === 'PremiumFurniture') {
                 this.planner.furniture.push(this.deletedEntity);
             } else if (this.serializedStair) {

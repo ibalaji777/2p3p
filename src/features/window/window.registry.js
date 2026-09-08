@@ -1,3 +1,7 @@
+import { WINDOW_SILL, WINDOW_HEIGHT } from '../../core/constants/units.js';
+import { renderWindow2D } from './window.renderer2d.js';
+import { renderWindow3D } from './window.renderer3d.js';
+
 export const WINDOW_TYPES = { 
     sliding_std: { label: "Standard Sliding Window", type: "sliding", hasChajja: false }, 
     casement_std: { label: "Casement / Hinged Window", type: "casement", hasChajja: false }, 
@@ -14,5 +18,39 @@ export const WINDOW_TYPES = {
 };
 
 export const WINDOW_FRAME_MATERIALS = {};
-export const WINDOW_GRILLE_PATTERNS = { grid: { label: "Standard Grid" }, horizontal: { label: "Horizontal Bars" }, vertical: { label: "Vertical Bars" }, diamond: { label: "Diamond Pattern" }, none: { label: "No Safety Grille" } };
 
+export const WINDOW_GRILLE_PATTERNS = { 
+    grid: { label: "Standard Grid" }, 
+    horizontal: { label: "Horizontal Bars" }, 
+    vertical: { label: "Vertical Bars" }, 
+    diamond: { label: "Diamond Pattern" }, 
+    none: { label: "No Safety Grille" } 
+};
+
+export const WINDOW_SHAPES_REGISTRY = {
+    'square': { id: 'square', name: 'Square Top' },
+    'radius': { id: 'radius', name: 'Radius Arch' },
+    'segment': { id: 'segment', name: 'Segment Arch' },
+    'gothic': { id: 'gothic', name: 'Gothic Pointed Arch' }
+};
+
+export const WindowRegistry = {
+    widget: "window",
+    label: "WINDOW",
+    events: ["drag_along_wall", "elevation_change", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
+    defaultConfig: {
+        width: 50,
+        height: WINDOW_HEIGHT,
+        elevation: WINDOW_SILL,
+        windowType: 'sliding_std',
+        materials: {
+            frame: { id: 'wood_teak' },
+            glass: { id: 'clear' }
+        },
+        grillePattern: 'grid',
+        facing: 1,
+        side: 1
+    },
+    render2D: renderWindow2D,
+    render3D: renderWindow3D
+};

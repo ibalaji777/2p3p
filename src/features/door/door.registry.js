@@ -1,3 +1,7 @@
+import { DOOR_HEIGHT } from '../../core/constants/units.js';
+import { renderDoor2D } from './door.renderer2d.js';
+import { renderDoor3D } from './door.renderer3d.js';
+
 export const DOOR_TYPES = { 
     single: { label: "Single Hinged Door" }, 
     double: { label: "Double Door" }, 
@@ -12,7 +16,7 @@ export const DOOR_TYPES = {
 export const DOOR_MATERIALS = {};
 
 export const DOOR_MATERIALS_REGISTRY = {
-    // Moved to UNIVERSAL_SURFACE_REGISTRY in material.registry.js
+    // Universal material registry mapping
 };
 
 export const DOOR_STYLES_REGISTRY = {
@@ -51,4 +55,23 @@ export const DOOR_SHAPES_REGISTRY = {
     'square': { id: 'square', name: 'Square Top' },
     'radius': { id: 'radius', name: 'Radius Arch' },
     'segment': { id: 'segment', name: 'Segment Arch' }
+};
+
+export const DoorRegistry = {
+    widget: "door",
+    label: "DOOR",
+    events: ["drag_along_wall", "hinge_flip", "snap_to_corners", "snap_to_center", "prevent_overlap", "resize_handles_along_wall_axis"],
+    defaultConfig: {
+        width: 60,
+        height: DOOR_HEIGHT,
+        doorType: 'single',
+        materials: {
+            leaf: { id: 'wood_golden_teak' },
+            frame: { id: 'wood_golden_teak' }
+        },
+        facing: 1,
+        side: 1
+    },
+    render2D: renderDoor2D,
+    render3D: renderDoor3D
 };

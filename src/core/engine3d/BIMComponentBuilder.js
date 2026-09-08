@@ -58,13 +58,19 @@ export class BIMComponentBuilder {
             return;
         }
 
+        const isFrame = config.userData?.isFrame || config.userData?.isJamb || config.userData?.isHeadJamb || config.userData?.isStop || config.userData?.isSillPlate;
+        const isHandle = config.userData?.isHandle;
+        const isGlass = config.isGlass || config.userData?.isGlass;
+        const defaultSlot = config.isHitbox ? 'hitbox' : (isGlass ? MaterialSlots.GLASS : (isHandle ? MaterialSlots.HARDWARE : (isFrame ? MaterialSlots.FRAME : MaterialSlots.LEAF)));
+        const slot = config.slot || defaultSlot;
+
         let material;
         if (config.isHitbox) {
             material = new THREE.MeshBasicMaterial({ visible: false });
         } else if (config.materialOverride) {
             material = config.materialOverride;
         } else {
-            material = this.getMaterialForSlot(config.slot || MaterialSlots.CUSTOM, config.isGlass);
+            material = this.getMaterialForSlot(slot, isGlass);
             if (config.geometry.type === 'ExtrudeGeometry' && Array.isArray(material)) {
                 material = [material[4] || material[0], material[1] || material[0]];
             }
@@ -88,8 +94,8 @@ export class BIMComponentBuilder {
         mesh.userData = {
             ...(config.userData || {}),
             entity: this.entity,
-            materialSlot: config.slot || MaterialSlots.CUSTOM,
-            componentId: `${this.entity.id}_${config.slot || MaterialSlots.CUSTOM}`,
+            materialSlot: slot,
+            componentId: `${this.entity.id}_${slot}`,
             isHitbox: config.isHitbox || false,
             paintable: config.paintable !== undefined ? config.paintable : true
         };
@@ -101,7 +107,7 @@ export class BIMComponentBuilder {
         }
 
         if (!config.isHitbox) {
-            this.meshes.push({ slot: config.slot || MaterialSlots.CUSTOM, mesh });
+            this.meshes.push({ slot, mesh });
         }
 
         return mesh;

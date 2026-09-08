@@ -159,12 +159,32 @@ export class FloorPlanner {
     getWalls() { return this.walls; }
     getDoors() { 
         let doors = [];
-        this.walls.forEach(w => { if (w.openings) { w.openings.forEach(o => { if (o.type === 'door') doors.push(o); }); } });
+        if (this.walls) {
+            this.walls.forEach(w => {
+                if (w.attachedWidgets) {
+                    w.attachedWidgets.forEach(o => {
+                        if (o.type === 'door' || o.doorType || o.type?.startsWith('door_')) doors.push(o);
+                    });
+                } else if (w.openings) {
+                    w.openings.forEach(o => { if (o.type === 'door') doors.push(o); });
+                }
+            });
+        }
         return doors; 
     }
     getWindows() { 
         let windows = [];
-        this.walls.forEach(w => { if (w.openings) { w.openings.forEach(o => { if (o.type === 'window') windows.push(o); }); } });
+        if (this.walls) {
+            this.walls.forEach(w => {
+                if (w.attachedWidgets) {
+                    w.attachedWidgets.forEach(o => {
+                        if (o.type === 'window' || o.windowType || o.type?.startsWith('window_')) windows.push(o);
+                    });
+                } else if (w.openings) {
+                    w.openings.forEach(o => { if (o.type === 'window') windows.push(o); });
+                }
+            });
+        }
         return windows; 
     }
     getRooms() { return this.rooms || []; }

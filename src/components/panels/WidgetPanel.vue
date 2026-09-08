@@ -16,87 +16,17 @@
                 Flip L/R
             </button>
         </div>
-        <div v-if="selectedEntity.type === 'door'">
-
-            <div class="control-group" v-if="!['pocket', 'folding', 'sliding', 'double_sliding'].includes(selectedEntity.doorType)">
-                <label>Add Sidelights</label>
-                <div class="input-wrap" style="justify-content: flex-end;">
-                    <input type="checkbox" :checked="selectedEntity.hasSidelights" @change="(e) => { selectedEntity.hasSidelights = e.target.checked; if (e.target.checked) { selectedEntity.width = Math.max(selectedEntity.width, selectedEntity.doorType === 'single' ? 100 : 140); } $emit('sync-engine'); }" />
-                </div>
-            </div>
-            <div class="control-group">
-                <label>Door Shape</label>
-                <select :value="selectedEntity.doorShape || 'square'" @change="e => { 
-                    selectedEntity.doorShape = e.target.value; 
-                    if (e.target.value !== 'square' && ['sliding', 'double_sliding', 'pocket', 'folding'].includes(selectedEntity.doorType)) {
-                        selectedEntity.doorType = 'double';
-                    }
-                    $emit('sync-engine'); 
-                }">
-                    <option value="square">Square (Default)</option>
-                    <option value="radius">Radius (True Arch)</option>
-                    <option value="segment">Segment (Eyebrow)</option>
-                </select>
-            </div>
-            <div class="control-group">
-                <label>Door Type</label>
-                <select :value="selectedEntity.doorType || 'single'" @change="e => { selectedEntity.doorType = e.target.value; $emit('sync-engine'); }">
-                    <option value="single">Single Hinged</option>
-                    <option value="double">Double Hinged</option>
-                    <option value="french">Double French Glass</option>
-                    <template v-if="!selectedEntity.doorShape || selectedEntity.doorShape === 'square'">
-                        <option value="sliding">Sliding (1 Panel)</option>
-                        <option value="double_sliding">Sliding (2 Panels)</option>
-                        <option value="pocket">Pocket Door</option>
-                        <option value="folding">Bi-fold</option>
-                    </template>
-                </select>
-            </div>
-            
-            <MaterialSlotsPanel :entity="selectedEntity" @sync-engine="$emit('sync-engine')" />
-        </div>
-        <div v-else-if="selectedEntity.type === 'window'">
-            <div class="control-group">
-                <label>Window Style</label>
-                <select :value="selectedEntity.windowType || 'sliding_std'" @change="e => { selectedEntity.windowType = e.target.value; $emit('sync-engine'); }">
-                    <option value="sliding_std">Sliding Window</option>
-                    <option value="casement_std">Casement Window</option>
-                    <option value="fixed">Fixed Glass Window</option>
-                    <option value="traditional">Traditional Paneled Window</option>
-                    <option value="louver">Louver / Jalousie Window</option>
-                    <option value="bay">Bay Window</option>
-                </select>
-            </div>
-            <div class="control-group">
-                <label>Window Shape</label>
-                <select :value="selectedEntity.windowShape || selectedEntity.doorShape || 'square'" @change="e => { selectedEntity.windowShape = e.target.value; selectedEntity.doorShape = e.target.value; $emit('sync-engine'); }">
-                    <option value="square">Square / Rectangular (Default)</option>
-                    <option value="radius">Radius (Arch Top)</option>
-                    <option value="segment">Eyebrow Segment</option>
-                    <option value="gothic">Gothic Pointed</option>
-                </select>
-            </div>
-            <MaterialSlotsPanel :entity="selectedEntity" @sync-engine="$emit('sync-engine')" />
-
-            <div class="control-group">
-                <label>Grill Pattern</label>
-                <select :value="selectedEntity.grillePattern || 'grid'" @change="e => { selectedEntity.grillePattern = e.target.value; $emit('sync-engine'); }">
-                    <option value="none">No Grill (Clean View)</option>
-                    <option value="grid">Standard Grid</option>
-                    <option value="diamond">Diamond Lattice</option>
-                    <option value="horizontal">Horizontal Security Bars</option>
-                    <option value="vertical">Vertical Security Bars</option>
-                </select>
-            </div>
-            
-            <div class="control-group" v-if="(selectedEntity.grillePattern || 'grid') !== 'none'">
-                <label>Grill Profile</label>
-                <select :value="selectedEntity.grilleProfile || 'flat'" @change="e => { selectedEntity.grilleProfile = e.target.value; $emit('sync-engine'); }">
-                    <option value="flat">Flat / Box (Rectangular)</option>
-                    <option value="round">Round (Steel Rods)</option>
-                </select>
-            </div>
-        </div>
+        <DoorProperties 
+            v-if="selectedEntity.type === 'door'" 
+            :entity="selectedEntity" 
+            @sync-engine="$emit('sync-engine')" 
+            @sync-door-angle="$emit('sync-door-angle')" 
+        />
+        <WindowProperties 
+            v-else-if="selectedEntity.type === 'window'" 
+            :entity="selectedEntity" 
+            @sync-engine="$emit('sync-engine')" 
+        />
         <div v-else-if="selectedEntity.type === 'sunshade'">
             <div class="control-group">
                 <label>Depth (Projection)</label>
@@ -228,6 +158,8 @@
 import DimensionInput from '../common/DimensionInput.vue';
 import MaterialCategorySelector from '../common/MaterialCategorySelector.vue';
 import MaterialSlotsPanel from '../common/MaterialSlotsPanel.vue';
+import DoorProperties from '../../features/door/door.properties.vue';
+import WindowProperties from '../../features/window/window.properties.vue';
 
 
 const props = defineProps({

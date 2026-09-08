@@ -9,6 +9,8 @@
  * - Canonical Aperture Void Definitions (Doors, Windows, Openings)
  */
 
+import { DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT } from '../constants/units.js';
+
 export class WallGeometryEngine {
     /**
      * Resolves anchor position object { x, y } safely from an Anchor instance or coordinates object.
@@ -428,15 +430,19 @@ export class WallGeometryEngine {
         return wall.attachedWidgets.map(widget => {
             const t = widget.t !== undefined ? widget.t : 0.5;
             const wCenter = t * length;
-            const width = Number(widget.width) || (widget.type === 'door' ? 90 : 120);
-            const height = Number(widget.height) || (widget.type === 'door' ? 210 : 120);
-            const elev = widget.elevation !== undefined ? Number(widget.elevation) : (widget.type === 'door' ? 0 : 90);
-
             const isDoor = widget.type === 'door' || widget.doorType || widget.type?.startsWith('door_');
             const isWindow = widget.type === 'window' || widget.windowType || widget.type?.startsWith('window_');
             const isOpening = widget.type === 'opening' || widget.type === 'wall_opening' || widget.type === 'circular_opening' || widget.type === 'arch_opening';
             const isJali = widget.type === 'jali' || widget.type === 'jali_panel';
             const isProtrusion = widget.type === 'solid_protrusion';
+
+            const defaultW = isDoor ? 60 : (isWindow ? 50 : (widget.type === 'circular_opening' ? 40 : (isJali ? 40 : 60)));
+            const defaultH = isDoor ? DOOR_HEIGHT : (isWindow ? WINDOW_HEIGHT : (widget.type === 'circular_opening' ? 40 : (isOpening ? DOOR_HEIGHT : (isJali ? 80 : 60))));
+            const defaultElev = isDoor ? 0 : (isWindow ? WINDOW_SILL : (widget.type === 'circular_opening' ? 60 : 0));
+
+            const width = Number(widget.width) || defaultW;
+            const height = Number(widget.height) || defaultH;
+            const elev = widget.elevation !== undefined ? Number(widget.elevation) : defaultElev;
 
             const hasHole = !isProtrusion && (isDoor || isWindow || isOpening || isJali);
 
@@ -460,5 +466,132 @@ export class WallGeometryEngine {
                 facing: widget.facing !== undefined ? widget.facing : 1
             };
         });
+    }
+
+    /**
+     * Constructs a canonical THREE.Path hole for any attached widget (door, window, opening, jali).
+     * Single source of truth for 3D aperture voids across all 3D wall builders.
+     * @param {Object} widg - The attached widget entity
+     * @param {number} wallLength - Length of the host wall in cm
+     * @param {number} maxH - Maximum height / wall height in cm
+     * @param {number} wallBottom - Elevation of wall bottom (e.g. 0 or floor offset)
+     * @param {Object} THREE - Three.js namespace
+     * @returns {THREE.Path|null}
+     */
+    static createApertureVoidPath(widg, wallLength, maxH = 10000, wallBottom = 0, THREE = null) {
+        if (!widg || !THREE || !THREE.Path) return null;
+        if (widg.type === 'solid_protrusion') return null;
+
+        const hole = new THREE.Path();
+        const t = widg.t !== undefined ? widg.t : 0.5;
+        const wCenter = wallLength * t;
+        const width = Number(widg.width) || 60;
+        const halfW = width / 2;
+        let hasHole = false;
+
+        const wType = (widg.type === 'window' || widg.windowType || (widg.config && widg.config.widget === 'window') || widg.configId === 'window') ? 'window' :
+                      (widg.type === 'door' || widg.doorType || (widg.config && widg.config.widget === 'door') || widg.configId === 'door') ? 'door' :
+                      (widg.type || widg.configId);
+
+        if (wType === 'door') {
+            let dh = widg.height !== undefined ? Number(widg.height) : DOOR_HEIGHT;
+            let wElev = widg.elevation !== undefined ? Number(widg.elevation) : 0;
+            dh = Math.min(dh, maxH - wElev);
+            let cutElev = (wElev <= 0.1) ? wallBottom : wElev;
+
+            const shapeType = widg.doorShape || widg.windowShape || widg.params?.doorShape || widg.params?.windowShape || widg.config?.doorShape || widg.config?.windowShape || widg.shape || (widg.configId === 'entry_arched_double' ? 'radius' : 'square');
+            hole.moveTo(wCenter - halfW, cutElev);
+            hole.lineTo(wCenter + halfW, cutElev);
+
+            if (shapeType === 'radius' || shapeType === 'arch' || shapeType === 'arched') {
+                const straightH = Math.max(0, dh - halfW);
+                hole.lineTo(wCenter + halfW, wElev + straightH);
+                if (halfW > 0) hole.absarc(wCenter, wElev + straightH, halfW, 0, Math.PI, false);
+            } else if (shapeType === 'segment') {
+                const rise = width * 0.15;
+                const straightH = Math.max(0, dh - rise);
+                hole.lineTo(wCenter + halfW, wElev + straightH);
+                hole.quadraticCurveTo(wCenter, wElev + dh + rise * 0.5, wCenter - halfW, wElev + straightH);
+            } else if (shapeType === 'gothic') {
+                const straightH = Math.max(0, dh - (width * 0.7));
+                hole.lineTo(wCenter + halfW, wElev + straightH);
+                hole.quadraticCurveTo(wCenter + halfW * 0.2, wElev + dh, wCenter, wElev + dh);
+                hole.quadraticCurveTo(wCenter - halfW * 0.2, wElev + dh, wCenter - halfW, wElev + straightH);
+            } else {
+                hole.lineTo(wCenter + halfW, wElev + dh);
+                hole.lineTo(wCenter - halfW, wElev + dh);
+            }
+
+            hole.lineTo(wCenter - halfW, cutElev);
+            hasHole = true;
+        } else if (wType === 'window' || wType === 'jali_panel' || wType === 'jali') {
+            let dh = widg.height !== undefined ? Number(widg.height) : (wType === 'window' ? WINDOW_HEIGHT : 100);
+            let wElev = widg.elevation !== undefined ? Number(widg.elevation) : (wType === 'window' ? WINDOW_SILL : 0);
+            dh = Math.min(dh, maxH - wElev);
+            let cutElev = (wElev <= 0.1) ? wallBottom : wElev;
+            const shapeType = widg.windowShape || widg.doorShape || widg.params?.windowShape || widg.params?.doorShape || widg.config?.windowShape || widg.config?.doorShape || widg.shape || 'square';
+
+            hole.moveTo(wCenter - halfW, cutElev);
+            hole.lineTo(wCenter + halfW, cutElev);
+            if (shapeType === 'radius' || shapeType === 'arch' || shapeType === 'arched') {
+                const straightH = Math.max(0, dh - halfW);
+                hole.lineTo(wCenter + halfW, wElev + straightH);
+                if (halfW > 0) hole.absarc(wCenter, wElev + straightH, halfW, 0, Math.PI, false);
+            } else if (shapeType === 'segment') {
+                const rise = width * 0.15;
+                const straightH = Math.max(0, dh - rise);
+                hole.lineTo(wCenter + halfW, wElev + straightH);
+                hole.quadraticCurveTo(wCenter, wElev + dh + rise * 0.5, wCenter - halfW, wElev + straightH);
+            } else if (shapeType === 'gothic') {
+                const straightH = Math.max(0, dh - (width * 0.7));
+                hole.lineTo(wCenter + halfW, wElev + straightH);
+                hole.quadraticCurveTo(wCenter + halfW * 0.2, wElev + dh, wCenter, wElev + dh);
+                hole.quadraticCurveTo(wCenter - halfW * 0.2, wElev + dh, wCenter - halfW, wElev + straightH);
+            } else {
+                hole.lineTo(wCenter + halfW, wElev + dh);
+                hole.lineTo(wCenter - halfW, wElev + dh);
+            }
+            hole.lineTo(wCenter - halfW, cutElev);
+            hasHole = true;
+        } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess', 'opening', 'wall_opening'].includes(wType)) {
+            let wElev = Number(widg.elevation) || 0;
+            let h_opening = widg.height !== undefined ? Number(widg.height) : (wType === 'arch_opening' || wType === 'opening' || wType === 'wall_opening' ? DOOR_HEIGHT : 60);
+            wElev = Math.max(0, Math.min(wElev, maxH));
+            h_opening = Math.max(0, Math.min(h_opening, maxH - wElev));
+            let cutElev = (wElev <= 0.1) ? wallBottom : wElev;
+
+            if (h_opening > 0) {
+                if (wType === 'arch_opening') {
+                    const radius = halfW;
+                    const straightH = Math.max(0, h_opening - radius);
+                    hole.moveTo(wCenter - halfW, cutElev);
+                    hole.lineTo(wCenter + halfW, cutElev);
+                    hole.lineTo(wCenter + halfW, wElev + straightH);
+                    if (radius > 0) hole.absarc(wCenter, wElev + straightH, radius, 0, Math.PI, false);
+                    hole.lineTo(wCenter - halfW, cutElev);
+                    hasHole = true;
+                } else if (wType === 'circular_opening') {
+                    hole.moveTo(wCenter + halfW, wElev + h_opening / 2);
+                    hole.absellipse(wCenter, wElev + h_opening / 2, halfW, h_opening / 2, 0, Math.PI * 2, false, 0);
+                    hasHole = true;
+                } else if (wType === 'custom_shape_opening') {
+                    hole.moveTo(wCenter, cutElev);
+                    hole.lineTo(wCenter + halfW, wElev + h_opening / 2);
+                    hole.lineTo(wCenter, wElev + h_opening);
+                    hole.lineTo(wCenter - halfW, wElev + h_opening / 2);
+                    hole.lineTo(wCenter, cutElev);
+                    hasHole = true;
+                } else {
+                    hole.moveTo(wCenter - halfW, cutElev);
+                    hole.lineTo(wCenter + halfW, cutElev);
+                    hole.lineTo(wCenter + halfW, wElev + h_opening);
+                    hole.lineTo(wCenter - halfW, wElev + h_opening);
+                    hole.lineTo(wCenter - halfW, cutElev);
+                    hasHole = true;
+                }
+            }
+        }
+
+        return hasHole ? hole : null;
     }
 }

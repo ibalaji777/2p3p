@@ -13,7 +13,12 @@ This skill defines the complete authoritative pipeline for building, rendering, 
 
 | Component / Module | Absolute File Path | Description |
 | :--- | :--- | :--- |
+| **Stair Engine (Façade)** | [StairEngine.js](file:///d:/business/android-planner/src/core/stairs/StairEngine.js) | Central authoritative public façade orchestrating geometry, topology, mutations, and synchronization. |
+| **Stair Geometry Engine** | [StairGeometryEngine.js](file:///d:/business/android-planner/src/core/stairs/StairGeometryEngine.js) | Single source of truth for 2D/3D cutout polygons, bounding footprints, IRC/IBC step metrics, and distributions. |
+| **Stair Topology Engine** | [StairTopologyEngine.js](file:///d:/business/android-planner/src/core/stairs/StairTopologyEngine.js) | Manages entity lifecycle (`createStair`, `deleteStair`, `duplicateStair`, `serialize`, `deserialize`). |
+| **Stair Mutation Engine** | [StairMutationEngine.js](file:///d:/business/android-planner/src/core/stairs/StairMutationEngine.js) | Handles shape morphing, height adjustments, auto-fit detection, and atomic `batchUpdate`. |
 | **3D Stair Renderer** | [stairs.renderer3d.js](file:///d:/business/android-planner/src/features/stairs/stairs.renderer3d.js) | Constructs 3D step treads, risers, stringers, solid bases, landings, supports, and attaches railings. |
+| **2D Stair Renderer** | [stairs.renderer2d.js](file:///d:/business/android-planner/src/features/stairs/stairs.renderer2d.js) | Renders 2D Konva representation, flight lines, step notations, and interactive transformation handles. |
 | **Stair Registry** | [stairs.registry.js](file:///d:/business/android-planner/src/features/stairs/stairs.registry.js) | Defines staircase metadata, `defaultConfig`, parametric properties, and shape handlers (`straight`, `L`, `U`, `T`). |
 | **Catalog Gallery** | [CatalogGallery.vue](file:///d:/business/android-planner/src/components/sidebar/CatalogGallery.vue) | Defines staircase catalog presets, material combinations, and thumbnail generation triggers. |
 | **3D Railing Builder** | [Railing3DBuilder.js](file:///d:/business/android-planner/src/features/railing/builders/Railing3DBuilder.js) | Builds 3D stair railings (posts, balusters, handrails, cables, glass panels). |

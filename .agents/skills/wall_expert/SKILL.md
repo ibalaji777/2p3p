@@ -128,9 +128,10 @@ WallEngine.deleteWall(planner, wall);
 - `wall.renderer2d.js` and `wall.renderer3d.js` must NEVER mutate canonical wall properties, anchors, dimensions, or materials.
 - User interactions in 2D or 3D must delegate to `WallEngine` methods.
 
-### Rule 4: Wall Hole Shearing & Miter Joints
-- When applying miter shearing in `Wall3DBuilder.js`, `shearGeo` must ONLY shift vertices at extreme ends (`x <= 0.1` and `x >= length - 0.1`).
-- All internal vertices (openings, cutouts) must be left untouched to preserve rectangular apertures.
+### Rule 4: Canonical Aperture Voids & Zero Shearing on Wall Openings
+- **Single Source of Truth**: All 3D aperture voids (doors, windows, openings, jali panels) are generated exclusively via `WallGeometryEngine.createApertureVoidPath(widg, length, maxH, wallBottom, THREE)`.
+- **Hole Shearing Isolation**: When applying miter shearing in `wall.renderer3d.js` or `EnvironmentBuilder.js`, `shearGeo` must ONLY shift vertices at extreme wall ends (`x <= 0.1` and `x >= length - 0.1`).
+- All internal vertices (openings, cutouts) must be left untouched (`posAttr.setX(i, x)`) to ensure that rigid 3D doors and windows fit mathematically into un-sheared wall cutouts.
 
 ### Rule 5: 3D Push / Pull Architecture
 - **Baseline Move Mode**: Shifts both anchors along $\vec{n}$.
@@ -149,7 +150,11 @@ WallEngine.deleteWall(planner, wall);
   - `frontVerts` MUST start with `startL` and end with `endL`.
   - `backVerts` MUST start with `endR` and end with `startR`.
   - NEVER connect `bevelL`/`bevelR` to `startTrue` or `endTrue` in `sceneFunc` or `recalculateGeometry`.
-- Any proposed change to corner miter math or vertex routing MUST be explicitly presented to and approved by the user first.
+- **Acute Corner Bevel Cutoffs (Anti-Spike Clamping)**:
+  - On acute wall corner intersections ($< 90^\circ$), theoretical miter lines extend outward into extreme arrowhead spikes.
+  - `WallGeometryEngine.getCorners` clamps miter distance and introduces intermediate bevel vertices (`bevelL`, `bevelR`), forming the 3D shearing profile `[startR, bevelR, bevelL, startL]`.
+  - In 3D, `shearGeo` interpolates $X$ across local $Z$ along this profile, producing a clean beveled chamfer face across the sharp corner.
+- Any proposed change to corner miter math or vertex routing MUST be explicitly explained mathematically to and approved by the user first.
 
 ---
 

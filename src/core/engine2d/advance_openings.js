@@ -269,6 +269,27 @@ export class advance_openings {
         this.remove();
     }
 
+    serialize() {
+        return {
+            id: this.id,
+            t: this.t,
+            type: this.type,
+            configId: this.configId || this.type,
+            width: this.width,
+            height: this.height,
+            depth: this.depth,
+            elevation: this.elevation,
+            facing: this.facing,
+            side: this.side,
+            rows: this.rows,
+            cols: this.cols,
+            spacing: this.spacing,
+            patternStyle: this.patternStyle,
+            materials: this.materials ? JSON.parse(JSON.stringify(this.materials)) : {},
+            params: this.params ? JSON.parse(JSON.stringify(this.params)) : {}
+        };
+    }
+
     remove() {
         window.removeEventListener('keydown', this.handleKeyDown);
         if (this.cutter && typeof this.cutter.destroy === 'function') this.cutter.destroy();

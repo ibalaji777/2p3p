@@ -6,30 +6,6 @@
         <div class="control-group" v-if="selectedEntity.type === 'niche_recess'"><label>Depth</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.depth" min="1" max="50" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.depth" @change="$emit('sync-engine')" /></div></div>
         <div class="control-group" v-if="!isFloorAnchoredDoor(selectedEntity)"><label>Elevation (from floor)</label><div class="input-wrap"><input type="range" v-model.number="selectedEntity.elevation" min="0" max="200" @input="$emit('sync-engine')"><DimensionInput v-model="selectedEntity.elevation" @change="$emit('sync-engine')" /></div></div>
 
-        <div v-if="selectedEntity.type === 'door' || selectedEntity.type === 'window'">
-            <MaterialCategorySelector :selected-entity="selectedEntity" @sync-engine="$emit('sync-engine')" />
-        </div>
-
-        <div v-if="selectedEntity.type === 'window'">
-            <div class="control-group">
-                <label>Grille Pattern</label>
-                <select :value="selectedEntity.grillePattern || 'grid'" @change="e => { selectedEntity.grillePattern = e.target.value; $emit('sync-engine'); }" class="settings-select">
-                    <option value="none">None</option>
-                    <option value="grid">Standard Grid</option>
-                    <option value="diamond">Diamond Lattice</option>
-                    <option value="horizontal">Horizontal Lines</option>
-                    <option value="vertical">Vertical Lines</option>
-                </select>
-            </div>
-            <div class="control-group" v-if="(selectedEntity.grillePattern || 'grid') !== 'none'">
-                <label>Grille Profile</label>
-                <select :value="selectedEntity.grilleProfile || 'flat'" @change="e => { selectedEntity.grilleProfile = e.target.value; $emit('sync-engine'); }" class="settings-select">
-                    <option value="flat">Flat / Box (Rectangular)</option>
-                    <option value="round">Round (Steel Rods)</option>
-                </select>
-            </div>
-        </div>
-
         <div v-if="selectedEntity.type === 'pattern_opening'">
             <div class="control-group">
                 <label>Pattern Style</label>
@@ -66,7 +42,6 @@
 
 <script setup>
 import DimensionInput from '../common/DimensionInput.vue';
-import MaterialCategorySelector from '../common/MaterialCategorySelector.vue';
 import { isFloorAnchoredDoor } from '../../core/wall/WallEngine.js';
 
 const props = defineProps({

@@ -142,104 +142,22 @@ export class Wall3DBuilder {
 
         const extraMeshes = [];
         (w.attachedWidgets || []).forEach(widg => {
-            const hole = new THREE.Path(), wCenter = length * widg.t, halfW = widg.width / 2;
-            let hasHole = false;
+            const hole = WallGeometryEngine.createApertureVoidPath(widg, length, maxH, wallBottom, THREE);
+            if (hole) {
+                wallShape.holes.push(hole);
+            }
+
+            const wCenter = length * (widg.t !== undefined ? widg.t : 0.5);
+            const halfW = (Number(widg.width) || 60) / 2;
             const wType = (widg.type === 'window' || widg.windowType || (widg.config && widg.config.widget === 'window') || widg.configId === 'window') ? 'window' :
                           (widg.type === 'door' || widg.doorType || (widg.config && widg.config.widget === 'door') || widg.configId === 'door') ? 'door' :
                           (widg.type || widg.configId);
 
-            if (wType === 'door') {
-                let dh = widg.height !== undefined ? widg.height : DOOR_HEIGHT;
-                let wElev = widg.elevation !== undefined ? widg.elevation : 0;
-                let cutElev = (wElev <= 0.1) ? wallBottom : wElev;
-
-                const shapeType = widg.doorShape || widg.windowShape || widg.params?.doorShape || widg.params?.windowShape || widg.config?.doorShape || widg.config?.windowShape || widg.shape || (widg.configId === 'entry_arched_double' ? 'radius' : 'square');
-                hole.moveTo(wCenter - halfW, cutElev);
-                hole.lineTo(wCenter + halfW, cutElev);
-
-                if (shapeType === 'radius' || shapeType === 'arch' || shapeType === 'arched') {
-                    const straightH = Math.max(0, dh - halfW);
-                    hole.lineTo(wCenter + halfW, wElev + straightH);
-                    if (halfW > 0) hole.absarc(wCenter, wElev + straightH, halfW, 0, Math.PI, false);
-                } else if (shapeType === 'segment') {
-                    const rise = widg.width * 0.15;
-                    const straightH = Math.max(0, dh - rise);
-                    hole.lineTo(wCenter + halfW, wElev + straightH);
-                    hole.quadraticCurveTo(wCenter, wElev + dh + rise * 0.5, wCenter - halfW, wElev + straightH);
-                } else if (shapeType === 'gothic') {
-                    const straightH = Math.max(0, dh - (widg.width * 0.7));
-                    hole.lineTo(wCenter + halfW, wElev + straightH);
-                    hole.quadraticCurveTo(wCenter + halfW * 0.2, wElev + dh, wCenter, wElev + dh);
-                    hole.quadraticCurveTo(wCenter - halfW * 0.2, wElev + dh, wCenter - halfW, wElev + straightH);
-                } else {
-                    hole.lineTo(wCenter + halfW, wElev + dh);
-                    hole.lineTo(wCenter - halfW, wElev + dh);
-                }
-
-                hole.lineTo(wCenter - halfW, cutElev);
-                hasHole = true;
-            } else if (wType === 'window' || wType === 'jali_panel') {
-                let dh = widg.height !== undefined ? widg.height : (wType === 'window' ? WINDOW_HEIGHT : 100);
-                let wElev = widg.elevation !== undefined ? widg.elevation : (wType === 'window' ? WINDOW_SILL : 0);
-                let cutElev = (wElev <= 0.1) ? wallBottom : wElev;
-                const shapeType = widg.windowShape || widg.doorShape || widg.params?.windowShape || widg.params?.doorShape || widg.config?.windowShape || widg.config?.doorShape || widg.shape || 'square';
-
-                hole.moveTo(wCenter - halfW, cutElev);
-                hole.lineTo(wCenter + halfW, cutElev);
-                if (shapeType === 'radius' || shapeType === 'arch' || shapeType === 'arched') {
-                    const straightH = Math.max(0, dh - halfW);
-                    hole.lineTo(wCenter + halfW, wElev + straightH);
-                    if (halfW > 0) hole.absarc(wCenter, wElev + straightH, halfW, 0, Math.PI, false);
-                } else if (shapeType === 'segment') {
-                    const rise = widg.width * 0.15;
-                    const straightH = Math.max(0, dh - rise);
-                    hole.lineTo(wCenter + halfW, wElev + straightH);
-                    hole.quadraticCurveTo(wCenter, wElev + dh + rise * 0.5, wCenter - halfW, wElev + straightH);
-                } else if (shapeType === 'gothic') {
-                    const straightH = Math.max(0, dh - (widg.width * 0.7));
-                    hole.lineTo(wCenter + halfW, wElev + straightH);
-                    hole.quadraticCurveTo(wCenter + halfW * 0.2, wElev + dh, wCenter, wElev + dh);
-                    hole.quadraticCurveTo(wCenter - halfW * 0.2, wElev + dh, wCenter - halfW, wElev + straightH);
-                } else {
-                    hole.lineTo(wCenter + halfW, wElev + dh);
-                    hole.lineTo(wCenter - halfW, wElev + dh);
-                }
-                hole.lineTo(wCenter - halfW, cutElev);
-                hasHole = true;
-            } else if (['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess', 'opening'].includes(wType)) {
+            if (wType === 'pattern_opening') {
                 let wElev = widg.elevation || 0;
-                let h_opening = widg.height || (wType === 'arch_opening' || wType === 'opening' ? DOOR_HEIGHT : 60);
+                let h_opening = widg.height || 60;
                 wElev = Math.max(0, Math.min(wElev, maxH));
                 h_opening = Math.max(0, Math.min(h_opening, maxH - wElev));
-                let cutElev = (wElev <= 0.1) ? wallBottom : wElev;
-
-                if (wType === 'arch_opening') {
-                    const radius = halfW;
-                    const straightH = Math.max(0, h_opening - radius);
-                    hole.moveTo(wCenter - halfW, cutElev);
-                    hole.lineTo(wCenter + halfW, cutElev);
-                    hole.lineTo(wCenter + halfW, wElev + straightH);
-                    if (radius > 0) hole.absarc(wCenter, wElev + straightH, radius, 0, Math.PI, false);
-                    hole.lineTo(wCenter - halfW, cutElev);
-                    hasHole = true;
-                } else if (wType === 'circular_opening') {
-                    hole.moveTo(wCenter + halfW, wElev + h_opening / 2);
-                    hole.absellipse(wCenter, wElev + h_opening / 2, halfW, h_opening / 2, 0, Math.PI * 2, false, 0);
-                    hasHole = true;
-                } else if (wType === 'custom_shape_opening') {
-                    hole.moveTo(wCenter, cutElev);
-                    hole.lineTo(wCenter + halfW, wElev + h_opening / 2);
-                    hole.lineTo(wCenter, wElev + h_opening);
-                    hole.lineTo(wCenter - halfW, wElev + h_opening / 2);
-                    hole.lineTo(wCenter, cutElev);
-                    hasHole = true;
-                } else if (wType === 'pattern_opening') {
-                    hole.moveTo(wCenter - halfW, cutElev);
-                    hole.lineTo(wCenter + halfW, cutElev);
-                    hole.lineTo(wCenter + halfW, wElev + h_opening);
-                    hole.lineTo(wCenter - halfW, wElev + h_opening);
-                    hole.lineTo(wCenter - halfW, cutElev);
-                    hasHole = true;
 
                     const patternShape = new THREE.Shape();
                     patternShape.moveTo(wCenter - halfW, wElev);
@@ -345,15 +263,11 @@ export class Wall3DBuilder {
                     if (ctx.updatePatternLive) ctx.updatePatternLive(widg);
                     extraMeshes.push(patternGroup);
                     if (ctx.viewMode3D !== 'preview' && ctx.interactables) ctx.interactables.push(hitBox);
-
-                } else if (wType === 'solid_protrusion') {
-                    hasHole = false;
-                } else {
-                    hole.moveTo(wCenter - halfW, cutElev); hole.lineTo(wCenter + halfW, cutElev); hole.lineTo(wCenter + halfW, wElev + h_opening); hole.lineTo(wCenter - halfW, wElev + h_opening); hole.lineTo(wCenter - halfW, cutElev);
-                    hasHole = true;
-                }
-
-                if (wType === 'niche_recess') {
+                } else if (wType === 'niche_recess') {
+                    let wElev = widg.elevation || 0;
+                    let h_opening = widg.height || 60;
+                    wElev = Math.max(0, Math.min(wElev, maxH));
+                    h_opening = Math.max(0, Math.min(h_opening, maxH - wElev));
                     const depth = widg.depth || 10;
                     const recessThickness = Math.max(0.5, t - depth);
                     const nicheGeo = new THREE.BoxGeometry(widg.width, h_opening, recessThickness);
@@ -363,8 +277,6 @@ export class Wall3DBuilder {
                     nicheMesh.castShadow = true; nicheMesh.receiveShadow = true;
                     extraMeshes.push(nicheMesh);
                 }
-            }
-            if (hasHole) wallShape.holes.push(hole);
 
             if (wType !== 'solid_protrusion' && WIDGET_REGISTRY[wType] && WIDGET_REGISTRY[wType].render3D) {
                 widg.x = p1.x + Math.cos(angle) * wCenter;
@@ -1356,71 +1268,21 @@ export class Wall3DBuilder {
         if (!widgets) return wallShape;
 
         widgets.forEach(widg => {
-            const hole = new THREE.Path();
-            const wCenter = length * widg.t; 
-            const halfW = widg.width / 2;
+            const wCenter = length * (widg.t !== undefined ? widg.t : 0.5); 
+            const halfW = (Number(widg.width) || 60) / 2;
             const wType = widg.type || widg.configId; 
             
-            if (wType === 'elevation_fascia' || wType === 'niche_recess' || wType === 'solid_protrusion') return;
+            if (wType === 'elevation_fascia' || wType === 'solid_protrusion') return;
             
-            let h_opening = widg.height;
-            if (h_opening === undefined) h_opening = (wType === 'door' || wType === 'arch_opening' || wType === 'opening') ? DOOR_HEIGHT : ((wType === 'window') ? WINDOW_HEIGHT : 60);
-            let elev = widg.elevation;
-            if (elev === undefined) elev = (wType === 'window') ? WINDOW_SILL : 0;
+            const hole = WallGeometryEngine.createApertureVoidPath(widg, length, maxH, wallBottom, THREE);
+            if (hole) {
+                wallShape.holes.push(hole);
+            }
             
-            let cutElev = (elev <= 0.1) ? wallBottom : elev;
+            let h_opening = widg.height !== undefined ? Number(widg.height) : ((wType === 'door' || wType === 'arch_opening' || wType === 'opening') ? DOOR_HEIGHT : ((wType === 'window') ? WINDOW_HEIGHT : 60));
+            let elev = widg.elevation !== undefined ? Number(widg.elevation) : ((wType === 'window') ? WINDOW_SILL : 0);
             elev = Math.max(0, Math.min(elev, maxH));
             h_opening = Math.max(0, Math.min(h_opening, maxH - elev));
-
-            const xMin = wCenter - halfW;
-            const xMax = wCenter + halfW;
-            const yMax = elev + h_opening;
-            const yMid = elev + h_opening / 2;
-
-            const shapeType = widg.doorShape || widg.windowShape || widg.params?.doorShape || widg.params?.windowShape || widg.config?.doorShape || widg.config?.windowShape || widg.shape || (widg.configId === 'entry_arched_double' || wType === 'arch_opening' ? 'radius' : 'square');
-
-            if (shapeType === 'radius' || shapeType === 'arch' || shapeType === 'arched' || wType === 'arch_opening') {
-                const radius = halfW;
-                const straightH = Math.max(0, h_opening - radius);
-                hole.moveTo(xMin, cutElev);
-                hole.lineTo(xMax, cutElev);
-                hole.lineTo(xMax, elev + straightH);
-                if (radius > 0) hole.absarc(wCenter, elev + straightH, radius, 0, Math.PI, false);
-                else hole.lineTo(xMin, elev + straightH);
-                hole.lineTo(xMin, cutElev);
-            } else if (shapeType === 'segment') {
-                const rise = widg.width * 0.15;
-                const straightH = Math.max(0, h_opening - rise);
-                hole.moveTo(xMin, cutElev);
-                hole.lineTo(xMax, cutElev);
-                hole.lineTo(xMax, elev + straightH);
-                hole.quadraticCurveTo(wCenter, elev + h_opening + rise * 0.5, xMin, elev + straightH);
-                hole.lineTo(xMin, cutElev);
-            } else if (shapeType === 'gothic') {
-                const straightH = Math.max(0, h_opening - (widg.width * 0.7));
-                hole.moveTo(xMin, cutElev);
-                hole.lineTo(xMax, cutElev);
-                hole.lineTo(xMax, elev + straightH);
-                hole.quadraticCurveTo(wCenter + halfW * 0.2, elev + h_opening, wCenter, elev + h_opening);
-                hole.quadraticCurveTo(wCenter - halfW * 0.2, elev + h_opening, xMin, elev + straightH);
-                hole.lineTo(xMin, cutElev);
-            } else if (wType === 'circular_opening') {
-                hole.moveTo(xMax, yMid);
-                hole.absellipse(wCenter, yMid, halfW, h_opening / 2, 0, Math.PI * 2, false, 0);
-            } else if (wType === 'custom_shape_opening') {
-                hole.moveTo(wCenter, cutElev);
-                hole.lineTo(xMax, yMid);
-                hole.lineTo(wCenter, yMax);
-                hole.lineTo(xMin, yMid);
-                hole.lineTo(wCenter, cutElev);
-            } else {
-                hole.moveTo(xMin, cutElev); 
-                hole.lineTo(xMax, cutElev); 
-                hole.lineTo(xMax, yMax); 
-                hole.lineTo(xMin, yMax); 
-                hole.lineTo(xMin, cutElev);
-            }
-            wallShape.holes.push(hole);
 
             if (extraMeshes && ['arch_opening', 'circular_opening', 'custom_shape_opening', 'pattern_opening', 'boolean_cut', 'niche_recess'].includes(wType)) {
                 const hitBoxGeo = new THREE.BoxGeometry(widg.width, h_opening, thickness + 4);

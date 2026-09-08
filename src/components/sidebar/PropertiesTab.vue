@@ -147,7 +147,7 @@
             />
 
             <WidgetPanel 
-                v-else-if="selectedType === 'widget'"
+                v-else-if="selectedType === 'widget' || selectedType === 'door' || selectedType === 'window'"
                 :selected-entity="selectedEntity"
                 @sync-engine="$emit('sync-engine')"
                 @sync-door-angle="$emit('sync-door-angle')"

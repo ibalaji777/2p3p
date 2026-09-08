@@ -1,6 +1,6 @@
 ---
 name: Wall Plugin 3D Placement & Aperture Highlighting Expert
-description: Universal CAD/BIM standard for Sims 4-style direct 3D wall placement, camera line-of-sight face detection, shape-accurate aperture void highlighting, 4-vertex mitered ribbon generation, tool preset state isolation, and live ghost preview rendering for all doors, windows, baseboards, moldings, jali panels, sunshades, fascias, curtains, and wall art.
+description: Universal CAD/BIM standard for direct 3D wall placement, camera line-of-sight face detection, shape-accurate aperture void highlighting, 4-vertex mitered ribbon generation, tool preset state isolation, and live ghost preview rendering for all doors, windows, baseboards, moldings, jali panels, sunshades, fascias, curtains, and wall art.
 ---
 
 # Universal 3D Wall Plugin Placement & Aperture Highlighting Expert
@@ -131,7 +131,7 @@ Every 3D wall tool must render a glowing aperture void volume (`#00f0ff` cyan wh
 
 ## 6. 2-Step Pinned Confirmation Workflow & HUD Popup
 
-All 3D wall plugins MUST follow the 2-step CAD / Sims-4 placement and review workflow:
+All 3D wall plugins MUST follow the 2-step CAD placement and review workflow:
 
 1. **Step 1: Real-Time Preview & Hover**:
    - As the pointer moves across walls, `onPointerMove(e)` dynamically updates the glowing aperture highlight and 3D preview model.

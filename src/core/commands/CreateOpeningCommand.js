@@ -38,12 +38,6 @@ export class CreateOpeningCommand extends Command {
             // A simple approximation for the command if the engine handles attaching automatically
         }
         
-        if (this.type === 'door') {
-            this.planner.doors.push(this.createdEntity);
-        } else {
-            this.planner.windows.push(this.createdEntity);
-        }
-        
         // Attach to wall via WallEngine
         WallEngine.attachWidget(this.wall, this.createdEntity, false, this.planner);
         
