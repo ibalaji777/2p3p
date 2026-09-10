@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { EVENTS } from '../../core/registry.js';
 import { coreEventBus } from '../../core/EventBus.js';
 import { offsetPolygon } from '../../core/registry.js';
+import { RoofEngine } from '../../core/roof/RoofEngine.js';
 
 /**
  * RoofPitchCurvatureGizmo
@@ -201,7 +202,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
                     let newPitch = Math.atan2(newRh, span / 2) * (180 / Math.PI);
                     newPitch = Math.max(5, Math.min(75, Math.round(newPitch)));
 
-                    conf.pitch = newPitch;
+                    RoofEngine.setPitch(entity, newPitch, this.ctx.planner || this.ctx);
                     const peakFeet = this._formatFeetInches(newRh);
                     this._updateDOMBadge(`PITCH: ${newPitch}&deg; | Peak: ${peakFeet}`, { x: e.clientX, y: e.clientY });
                 } else if (type === 'move') {
@@ -218,11 +219,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
                     const newGroupX = Math.round(this.initialGroupX + deltaX);
                     const newGroupZ = Math.round(this.initialGroupZ + deltaZ);
 
-                    if (entity.group && typeof entity.group.position === 'function') {
-                        entity.group.position({ x: newGroupX, y: newGroupZ });
-                    }
-                    entity.x = newGroupX;
-                    entity.y = newGroupZ;
+                    RoofEngine.setPosition(entity, newGroupX, newGroupZ, this.ctx.planner || this.ctx);
 
                     const dist = Math.hypot(deltaX, deltaZ);
                     this._updateDOMBadge(`MOVE: ${this._formatFeetInches(dist)} (&Delta;X: ${deltaX >= 0 ? '+' : ''}${this._formatFeetInches(deltaX)}, &Delta;Z: ${deltaZ >= 0 ? '+' : ''}${this._formatFeetInches(deltaZ)})`, { x: e.clientX, y: e.clientY });
@@ -239,10 +236,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
                     }
                     newRot = ((Math.round(newRot) % 360) + 360) % 360;
 
-                    entity.rotation = newRot;
-                    if (entity.group && typeof entity.group.rotation === 'function') {
-                        entity.group.rotation(newRot);
-                    }
+                    RoofEngine.setRotation(entity, newRot, this.ctx.planner || this.ctx);
 
                     // Two-way sync to GizmoManager spin panel
                     if (this.ctx.gizmoManager && this.ctx.gizmoManager.syncRoofSpinPanel) {
@@ -254,7 +248,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
                     // Slope Curvature adjustment
                     const deltaY = this.planeIntersect.y - this.dragStartPos.y;
                     const newCurve = Math.max(-50, Math.min(50, Math.round(this.initialCurve + deltaY * 0.4)));
-                    conf.curve = newCurve;
+                    RoofEngine.setCurve(entity, newCurve, this.ctx.planner || this.ctx);
 
                     const curveLabel = newCurve > 0 ? `Convex (+${newCurve})` : (newCurve < 0 ? `Pagoda (${newCurve})` : 'Flat (0)');
                     this._updateDOMBadge(`CURVATURE: ${curveLabel}`, { x: e.clientX, y: e.clientY });
@@ -275,8 +269,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
                     else if (edgeIdx === 3) delta = -localDeltaX; // West
 
                     const newOverhang = Math.max(0, Math.min(60, Math.round(this.initialOverhang + delta)));
-                    conf.overhang = newOverhang;
-                    if (conf.overhangs) conf.overhangs.fill(newOverhang);
+                    RoofEngine.setOverhang(entity, newOverhang, null, this.ctx.planner || this.ctx);
 
                     this._updateDOMBadge(`OVERHANG: ${this._formatFeetInches(newOverhang)}`, { x: e.clientX, y: e.clientY });
                 } else if (type === 'stretch') {
@@ -307,30 +300,23 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
                         maxY = Math.max(minY + 40, this.initialMaxY + deltaZ);
                     }
 
-                    entity.points = [
+                    const newPts = [
                         { x: minX, y: minY },
                         { x: maxX, y: minY },
                         { x: maxX, y: maxY },
                         { x: minX, y: maxY }
                     ];
 
+                    RoofEngine.setPoints(entity, newPts, this.ctx.planner || this.ctx);
+
                     const curW = maxX - minX, curD = maxY - minY;
                     this._updateDOMBadge(`FOOTPRINT: ${this._formatFeetInches(curW)} &times; ${this._formatFeetInches(curD)}`, { x: e.clientX, y: e.clientY });
                 }
 
-                // Granular In-Place CAD Rebuild via EnvironmentBuilder
-                if (this.ctx.envBuilder && this.ctx.envBuilder.updateRoofLive) {
-                    this.ctx.envBuilder.updateRoofLive(entity);
-                } else if (this.ctx.updateRoofLive) {
-                    this.ctx.updateRoofLive(entity);
-                }
-
-                // Two-way sync to 2D Konva stage
-                if (entity.update) entity.update();
-                if (this.ctx.planner?.stage?.batchDraw) this.ctx.planner.stage.batchDraw();
-
                 this.updateHandlePositions();
-                if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
+                if (this.ctx && typeof this.ctx.requestRender === 'function') {
+                    this.ctx.requestRender();
+                }
                 return;
             }
 

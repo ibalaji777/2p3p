@@ -471,6 +471,7 @@
 import { ref, computed } from 'vue';
 import DimensionInput from '../../components/common/DimensionInput.vue';
 import MaterialSizeInput from '../../components/common/MaterialSizeInput.vue';
+import { RoofEngine } from '../../core/roof/index.js';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true },
@@ -524,8 +525,7 @@ const attachedChimneys = computed(() => {
 });
 
 const removeChimney = (idx) => {
-    if (!roofConfig.value || !roofConfig.value.chimneys) return;
-    roofConfig.value.chimneys.splice(idx, 1);
+    RoofEngine.removeChimney(props.selectedEntity, idx);
     emit('sync-engine');
 };
 
@@ -572,10 +572,7 @@ const handleMaterialClick = (key) => {
 };
 
 const addSkylight = () => {
-    if (!roofConfig.value) return;
-    roofConfig.value.skylights = roofConfig.value.skylights || [];
-    roofConfig.value.skylights.push({
-        id: `sky_${Date.now()}_${Math.floor(Math.random()*1000)}`,
+    RoofEngine.addSkylight(props.selectedEntity, {
         type: 'skylight_velux_frame',
         material: 'glass_roof_square_grid',
         frameMaterial: 'metal_dark_steel',
@@ -589,8 +586,7 @@ const addSkylight = () => {
 };
 
 const removeSkylight = (idx) => {
-    if (!roofConfig.value || !roofConfig.value.skylights) return;
-    roofConfig.value.skylights.splice(idx, 1);
+    RoofEngine.removeSkylight(props.selectedEntity, idx);
     emit('sync-engine');
 };
 

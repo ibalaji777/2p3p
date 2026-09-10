@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { ObjectCapabilityEvaluator } from './ObjectCapabilityEvaluator.js';
 import { coreEventBus } from '../../EventBus.js';
 import { usePlannerStore } from '../../../stores/usePlannerStore.js';
+import { RoofEngine } from '../../roof/RoofEngine.js';
 
 /**
  * Helper to compute local geometric center of any 3D object/group in its own local coordinate space.
@@ -161,14 +162,7 @@ export class CommonTransformEngine {
 
         // 2. Roof Rotation & Ridge Axis
         if (entity.type === 'roof' || entity.config?.roofType) {
-            const conf = entity.config || entity;
-            conf.rotation = newAngle;
-            if (entity.group && typeof entity.group.rotation === 'function') {
-                entity.group.rotation(newAngle);
-            }
-            if (this.ctx.envBuilder?.updateRoofLive) {
-                this.ctx.envBuilder.updateRoofLive(entity);
-            }
+            RoofEngine.setRotation(entity, newAngle, this.ctx.planner || this.ctx);
             if (this.ctx.interactions?.roofPitchGizmo) {
                 this.ctx.interactions.roofPitchGizmo.updateHandlePositions();
             }

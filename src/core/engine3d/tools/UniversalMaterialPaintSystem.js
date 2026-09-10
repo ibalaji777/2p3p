@@ -11,6 +11,7 @@ import { BIMMaterialSystem } from '../BIMMaterialSystem.js';
 import { ComponentRegistry } from '../ComponentRegistry.js';
 import { MaterialManager } from '../MaterialManager.js';
 import { WallEngine } from '../../wall/WallEngine.js';
+import { RoofEngine } from '../../roof/RoofEngine.js';
 import { applyWallPaintWithScope } from '../WallPaintSystem.js';
 import { coreEventBus } from '../../EventBus.js';
 import { EVENTS } from '../../registry.js';
@@ -223,19 +224,8 @@ export class UniversalMaterialPaintSystem {
         }
         // 3. Roofs
         else if (type === 'roof' || entity.config?.roofType) {
-            if (descriptor.isGable || faceName === 'gable') {
-                entity.config = entity.config || {};
-                entity.config.gableMaterial = matKey;
-            } else if (faceName === 'fascia') {
-                entity.config = entity.config || {};
-                entity.config.fasciaMaterial = matKey;
-            } else {
-                entity.config = entity.config || {};
-                entity.config.material = matKey;
-            }
-            if (this.ctx.envBuilder?.updateRoofLive) {
-                this.ctx.envBuilder.updateRoofLive(entity);
-            }
+            const slopeKey = (descriptor.isGable || faceName === 'gable') ? 'gable' : (faceName === 'fascia' ? 'fascia' : null);
+            RoofEngine.setMaterial(entity, matKey, 'single', slopeKey, this.ctx.planner || this.ctx);
         }
         // 4. Floors & Rooms
         else if (type === 'room' || type === 'floor' || entity.isFloor || entity.isRoom) {

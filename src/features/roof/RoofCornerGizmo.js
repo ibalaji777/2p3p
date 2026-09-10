@@ -1,6 +1,7 @@
 import { EVENTS } from '../../core/registry.js';
 import { coreEventBus } from '../../core/EventBus.js';
 import * as THREE from 'three';
+import { RoofEngine } from '../../core/roof/RoofEngine.js';
 
 export class RoofCornerGizmo extends THREE.Group {
     constructor(ctx) {
@@ -103,16 +104,22 @@ export class RoofCornerGizmo extends THREE.Group {
                     const deltaZ = localIntersect.z - localStart.z;
                     
                     const entity = this.target.userData.entity;
-                    
-                    this.selectedIndices.forEach(idx => {
-                        entity.points[idx].x = this.initialPoints[idx].x + deltaX;
-                        entity.points[idx].y = this.initialPoints[idx].y + deltaZ;
+                    const newPoints = (entity.points || []).map((p, idx) => {
+                        if (this.selectedIndices.has(idx) && this.initialPoints[idx]) {
+                            return {
+                                x: this.initialPoints[idx].x + deltaX,
+                                y: this.initialPoints[idx].y + deltaZ
+                            };
+                        }
+                        return { x: p.x, y: p.y };
                     });
                     
+                    RoofEngine.setPoints(entity, newPoints, this.ctx.planner || this.ctx);
                     this.updateHandlePositions();
-                    if (this.ctx.updateRoofLive) {
-                        this.ctx.updateRoofLive(entity);
-                    } else if (typeof window !== 'undefined') {
+                    if (this.ctx && typeof this.ctx.requestRender === 'function') {
+                        this.ctx.requestRender();
+                    }
+                    if (typeof window !== 'undefined') {
                         coreEventBus.emit(EVENTS.ROOF_CORNER_GIZMO_CHANGE, { entity: entity });
                     }
                 }

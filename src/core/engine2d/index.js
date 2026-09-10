@@ -28,6 +28,7 @@ import { PremiumOutdoorZone } from './PremiumOutdoorZone.js';
 import { WallSerializer } from '../../features/wall/wall.serializer.js';
 
 import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
+import { RoofEngine } from '../roof/RoofEngine.js';
 import { Railing } from '../../features/railing/objects/Railing.js';
 import { SmartGuidesTrackingSystem } from './SmartGuidesTrackingSystem.js';
 import { advance_openings } from './advance_openings.js';
@@ -356,6 +357,11 @@ export class FloorPlanner {
             return;
         }
 
+        if (entity.type === 'roof' || entity.constructor?.name === 'PremiumHipRoof') {
+            RoofEngine.deleteRoof(this, entity);
+            return;
+        }
+
         if (typeof entity.remove === 'function') {
             entity.remove();
         } else if (typeof entity.destroy === 'function') {
@@ -662,30 +668,24 @@ export class FloorPlanner {
 
             // If a roof is currently selected and user clicks another roof style (e.g. flat, gable, hip) in catalog:
             if (this.selectedEntity && this.selectedType === 'roof' && this.selectedEntity.config) {
-                if (params.roofType) this.selectedEntity.config.roofType = params.roofType;
-                if (params.pitch !== undefined) this.selectedEntity.config.pitch = params.pitch;
-                if (params.material) {
-                    this.selectedEntity.config.material = params.material;
-                    this.selectedEntity.configId = params.material;
+                if (params.roofType) RoofEngine.setRoofType(this.selectedEntity, params.roofType, this);
+                if (params.pitch !== undefined) RoofEngine.setPitch(this.selectedEntity, params.pitch, this);
+                if (params.material) RoofEngine.setMaterial(this.selectedEntity, params.material, 'single', null, this);
+                if (params.overhang !== undefined) RoofEngine.setOverhang(this.selectedEntity, params.overhang, null, this);
+                if (params.thick !== undefined) {
+                    RoofEngine.setThickness(this.selectedEntity, params.thick, this);
                 }
-                if (params.overhang !== undefined) this.selectedEntity.config.overhang = params.overhang;
-                if (params.thick !== undefined) this.selectedEntity.config.thickness = params.thick;
-                if (this.selectedEntity.update) this.selectedEntity.update();
                 this.syncAll();
                 this.selectEntity(this.selectedEntity, 'roof');
                 return;
             }
 
-            const applyConfig = (roof) => {
-                if (params.roofType) roof.config.roofType = params.roofType;
-                if (params.pitch !== undefined) roof.config.pitch = params.pitch;
-                if (params.material) {
-                    roof.config.material = params.material;
-                    roof.configId = params.material;
-                }
-                if (params.overhang !== undefined) roof.config.overhang = params.overhang;
-                if (params.thick !== undefined) roof.config.thickness = params.thick;
-                if (roof.update) roof.update();
+            const roofConfig = {
+                roofType: params.roofType || 'gable',
+                pitch: params.pitch !== undefined ? params.pitch : 30,
+                material: params.material,
+                overhang: params.overhang !== undefined ? params.overhang : 8,
+                thickness: params.thick !== undefined ? params.thick : 10
             };
 
             let createdRoof = null;
@@ -700,11 +700,7 @@ export class FloorPlanner {
                     });
                     
                     const points = [{x: minX, y: minY}, {x: maxX, y: minY}, {x: maxX, y: maxY}, {x: minX, y: maxY}];
-
-                    const newRoof = new PremiumHipRoof(this, points);
-                    applyConfig(newRoof);
-                    this.roofs.push(newRoof);
-                    createdRoof = newRoof;
+                    createdRoof = RoofEngine.createRoof(this, points, roofConfig);
                 });
             } 
             // SINGLE SHAPE FALLBACK: Wrap all walls in one bounding box
@@ -717,19 +713,12 @@ export class FloorPlanner {
                 });
 
                 const points = [{x: minX, y: minY}, {x: maxX, y: minY}, {x: maxX, y: maxY}, {x: minX, y: maxY}];
-
-                const newRoof = new PremiumHipRoof(this, points);
-                applyConfig(newRoof);
-                this.roofs.push(newRoof);
-                createdRoof = newRoof;
+                createdRoof = RoofEngine.createRoof(this, points, roofConfig);
             } else {
                 // EMPTY CANVAS FALLBACK
                 const cx = this.stage.width()/2; const cy = this.stage.height()/2;
                 const points = [{x: cx - 200, y: cy - 150}, {x: cx + 200, y: cy - 150}, {x: cx + 200, y: cy + 150}, {x: cx - 200, y: cy + 150}];
-                const newRoof = new PremiumHipRoof(this, points);
-                applyConfig(newRoof);
-                this.roofs.push(newRoof);
-                createdRoof = newRoof;
+                createdRoof = RoofEngine.createRoof(this, points, roofConfig);
             }
             
             if (createdRoof) {
@@ -1260,14 +1249,16 @@ export class FloorPlanner {
                     this.syncAll();
                 }, 10);
             } else {
-                const roof = new PremiumHipRoof(this, this.drawingRoofPoints);
-                roof.config.roofType = this.currentRoofToolType || 'hip';
-                this.roofs.push(roof); 
+                const roof = RoofEngine.createRoof(this, this.drawingRoofPoints, {
+                    roofType: this.currentRoofToolType || 'hip'
+                }, { select: true });
+                if (roof && !this.currentSessionEntities) this.currentSessionEntities = [];
+                if (roof) this.currentSessionEntities.push(roof);
                 
                 this.registerTimeout(() => {
                     this.tool = 'select'; this.updateToolStates();
                     if (this.onToolChange) this.onToolChange('select');
-                    this.selectEntity(roof, 'roof');
+                    if (roof) this.selectEntity(roof, 'roof');
                     this.syncAll();
                 }, 10);
             }
@@ -1715,8 +1706,7 @@ export class FloorPlanner {
             }
             
             if (finalPolygon && finalPolygon.length >= 3) {
-                roof.points = finalPolygon;
-                if (roof.updateGeometry) roof.updateGeometry();
+                RoofEngine.setPoints(roof, finalPolygon, this);
             }
         });
         } catch (err) {
@@ -1918,7 +1908,7 @@ export class FloorPlanner {
                     };
                 }
             }),
-            roofs: this.roofs.map(r => ({ id: r.id, x: r.group.x(), y: r.group.y(), rotation: r.rotation, elevation: r.elevation, width: r.config?.width, depth: r.config?.depth, pitch: r.config?.pitch, overhang: r.config?.overhang, thickness: r.config?.thickness, ridgeOffset: r.config?.ridgeOffset, points: r.points, isHip: !!r.points, roofType: r.config?.roofType, material: r.config?.material, configId: r.configId, wallGap: r.config?.wallGap, ridgeAxis: r.config?.ridgeAxis, gableMaterial: r.config?.gableMaterial, autoShapeWalls: r.config?.autoShapeWalls, description: r.description })),
+            roofs: this.roofs.map(r => RoofSerializer.serialize(r)),
             arcs: this.arcs ? this.arcs.map(a => ({ 
                 p1: {x: a.p1.x, y: a.p1.y}, 
                 p2: {x: a.p2.x, y: a.p2.y}, 
@@ -2033,20 +2023,7 @@ export class FloorPlanner {
             }
             if (state.roofs) {
                 state.roofs.forEach(rData => {
-                    let roof;
-                    if (rData.points) {
-                        roof = new PremiumHipRoof(this, rData.points);
-                        roof.group.position({ x: rData.x, y: rData.y });
-                    } else {
-                        return; // Ignore old legacy roofs missing points arrays
-                    }
-                    if(rData.rotation) roof.rotation = rData.rotation;
-                    if(rData.elevation !== undefined) roof.elevation = rData.elevation;
-                    if(roof.config) { roof.config.pitch = rData.pitch; roof.config.overhang = rData.overhang !== undefined ? rData.overhang : 8; roof.config.thickness = rData.thickness; roof.config.ridgeOffset = rData.ridgeOffset; roof.config.roofType = rData.roofType || 'hip'; roof.config.material = rData.material || 'dark_asphalt_roof'; roof.config.wallGap = rData.wallGap || 0; roof.config.ridgeAxis = rData.ridgeAxis || 'x'; roof.config.gableMaterial = rData.gableMaterial || 'white_plaster_wall'; roof.config.autoShapeWalls = !!rData.autoShapeWalls; }
-                    if (rData.id) roof.id = rData.id;
-                    if (rData.configId !== undefined) roof.configId = rData.configId;
-                    if (rData.description !== undefined) roof.description = rData.description;
-                    roof.update(); this.roofs.push(roof);
+                    RoofEngine.deserialize(rData, this);
                 });
             }
             if (state.arcs) {

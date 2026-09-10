@@ -311,8 +311,8 @@ export class WallTopologyEngine {
         if (!wall) return;
 
         // Cascade delete child gable/attic walls
-        if (planner && planner.walls) {
-            planner.walls.filter(w => w.parentWallId === wall.id).forEach(cw => this.deleteWall(planner, cw));
+        if (wall.id && planner && planner.walls) {
+            planner.walls.filter(w => w !== wall && w.parentWallId === wall.id).forEach(cw => this.deleteWall(planner, cw));
         }
 
         // Destroy 2D Konva nodes

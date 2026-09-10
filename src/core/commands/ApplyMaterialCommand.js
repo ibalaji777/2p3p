@@ -3,6 +3,7 @@
  */
 import { Command } from './Command.js';
 import { ValidationLayer } from '../api/ValidationLayer.js';
+import { RoofEngine } from '../roof/RoofEngine.js';
 
 export class ApplyMaterialCommand extends Command {
     constructor(planner, entityId, face, materialId, oldMaterialId) {
@@ -29,6 +30,12 @@ export class ApplyMaterialCommand extends Command {
     }
 
     _applyMat(entity, matId) {
+        if (entity.type === 'roof' || entity.config?.roofType) {
+            const slopeKey = (this.face === 'fascia') ? 'fascia' : (this.face === 'gable' ? 'gable' : (this.face && this.face !== 'all' ? this.face : null));
+            RoofEngine.setMaterial(entity, matId, 'single', slopeKey, this.planner);
+            return;
+        }
+
         if (!entity.params) entity.params = {};
         if (!entity.materials) entity.materials = {};
         

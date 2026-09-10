@@ -1,8 +1,9 @@
 import { EVENTS, offsetPolygon } from '../../core/registry.js';
 import { coreEventBus } from '../../core/EventBus.js';
 import { getStairCutoutPolygon } from '../stairs/stairs.renderer2d.js';
-import { WallFactory } from '../wall/wall.factory.js';
 import { WallEngine } from '../../core/wall/WallEngine.js';
+import { RoofGeometryEngine } from '../../core/roof/RoofGeometryEngine.js';
+import { RoofEngine } from '../../core/roof/RoofEngine.js';
 import Konva from 'konva';
 
 export class PremiumHipRoof {
@@ -13,26 +14,7 @@ export class PremiumHipRoof {
         this.supportsLiveMaterialPipeline = true;
         this.id = 'roof_' + Date.now() + '_' + Math.floor(Math.random()*1000);
         
-        // Copy node points and remove consecutive duplicates to prevent duplicate handles
-        let cleanedPoints = [];
-        for (let p of points) {
-            if (cleanedPoints.length > 0) {
-                const last = cleanedPoints[cleanedPoints.length - 1];
-                if (Math.hypot(p.x - last.x, p.y - last.y) < 1) continue; // Skip consecutive duplicates
-            }
-            cleanedPoints.push({ x: p.x, y: p.y });
-        }
-        
-        // If the roof forms a closed loop but the last point equals the first point, remove the duplicate last point
-        if (cleanedPoints.length > 2) {
-            const first = cleanedPoints[0];
-            const last = cleanedPoints[cleanedPoints.length - 1];
-            if (Math.hypot(first.x - last.x, first.y - last.y) < 1) {
-                cleanedPoints.pop();
-            }
-        }
-        
-        this.points = cleanedPoints;
+        this.points = RoofGeometryEngine.cleanPoints(points);
         
         this.config = {
             pitch: 30,
@@ -93,10 +75,8 @@ export class PremiumHipRoof {
             });
             handle.on('dragmove', (e) => {
                 e.cancelBubble = true;
-                this.points[i].x = handle.x();
-                this.points[i].y = handle.y();
-                this.update();
-                this.planner.syncAll();
+                const newPts = this.points.map((pt, idx) => idx === i ? { x: handle.x(), y: handle.y() } : { x: pt.x, y: pt.y });
+                RoofEngine.setPoints(this, newPts, this.planner);
             });
             this.handles.push(handle);
             this.group.add(handle);
@@ -156,145 +136,8 @@ export class PremiumHipRoof {
     }
     
     update() {
-        this.autoDetectRidgeAxis();
-        this.autoShapeWalls();
         this.boundary.points(this.getFlatPoints());
         this.generateHipLines();
-    }
-    
-    autoDetectRidgeAxis() {
-        if (this.config.roofType !== 'gable') return;
-        if (this.config.manualRidge) return; // User manually set the ridge direction
-        if (!this.planner || !this.planner.walls) return;
-        
-        const gableWalls = this.planner.walls.filter(w => w.topProfileType === 'gable');
-        if (gableWalls.length === 0) return;
-        
-        let dxSum = 0;
-        let dySum = 0;
-        
-        // Offset roof local points by group position to get world coordinates
-        const gx = this.group.x() || 0;
-        const gy = this.group.y() || 0;
-        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        this.points.forEach(p => { 
-            minX = Math.min(minX, p.x + gx); maxX = Math.max(maxX, p.x + gx); 
-            minY = Math.min(minY, p.y + gy); maxY = Math.max(maxY, p.y + gy); 
-        });
-        
-        gableWalls.forEach(w => {
-            const cx = (w.startAnchor.x + w.endAnchor.x) / 2;
-            const cy = (w.startAnchor.y + w.endAnchor.y) / 2;
-            
-            // Check if wall center is under or very close to this roof
-            if (cx >= minX - 20 && cx <= maxX + 20 && cy >= minY - 20 && cy <= maxY + 20) {
-                const wDx = Math.abs(w.endAnchor.x - w.startAnchor.x);
-                const wDy = Math.abs(w.endAnchor.y - w.startAnchor.y);
-                dxSum += wDx;
-                dySum += wDy;
-            }
-        });
-        
-        if (dxSum > 0 || dySum > 0) {
-            // If gable walls are mostly horizontal (dx > dy), ridgeAxis should be 'y' (gables on top/bottom)
-            const newAxis = (dxSum > dySum) ? 'y' : 'x';
-            if (this.config.ridgeAxis !== newAxis) {
-                this.config.ridgeAxis = newAxis;
-            }
-        }
-    }
-    
-    autoShapeWalls() {
-        if (!this.planner || !this.planner.walls) return;
-        
-        if (!this.config.autoShapeWalls || this.config.roofType !== 'gable') {
-            // Clean up any existing auto gables for this roof
-            this.planner.walls.filter(w => w.isAutoGable && w.parentRoofId === this.id).forEach(w => w.destroy());
-            return;
-        }
-
-        // Offset roof local points by group position to get world coordinates
-        const gx = this.group.x() || 0;
-        const gy = this.group.y() || 0;
-        
-        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        this.points.forEach(p => { 
-            minX = Math.min(minX, p.x + gx); maxX = Math.max(maxX, p.x + gx); 
-            minY = Math.min(minY, p.y + gy); maxY = Math.max(maxY, p.y + gy); 
-        });
-
-        const width = (this.config.ridgeAxis === 'y') ? (maxX - minX) : (maxY - minY);
-        const roofH = (width / 2) * Math.tan((this.config.pitch || 30) * Math.PI / 180);
-        
-        this.planner.walls.forEach(w => {
-            if (w.isAutoGable) return; // Ignore already generated gable walls
-            
-            const cx = (w.startAnchor.x + w.endAnchor.x) / 2;
-            const cy = (w.startAnchor.y + w.endAnchor.y) / 2;
-            
-            // Check if wall is under this roof
-            if (cx >= minX - 20 && cx <= maxX + 20 && cy >= minY - 20 && cy <= maxY + 20) {
-                const wDx = Math.abs(w.endAnchor.x - w.startAnchor.x);
-                const wDy = Math.abs(w.endAnchor.y - w.startAnchor.y);
-                
-                const isGable = (this.config.ridgeAxis === 'y') ? (wDx > wDy) : (wDy > wDx);
-                let isOuter = false;
-                if (isGable) {
-                    if (this.config.ridgeAxis === 'y') {
-                        isOuter = Math.abs(cy - minY) < 20 || Math.abs(cy - Math.max(minY, maxY)) < 20;
-                    } else {
-                        isOuter = Math.abs(cx - minX) < 20 || Math.abs(cx - Math.max(minX, maxX)) < 20;
-                    }
-                }
-                
-                if (isGable && isOuter) {
-                    let gableWall = this.planner.walls.find(cw => cw.isAutoGable && cw.parentWallId === w.id && cw.parentRoofId === this.id);
-                    const baseHeight = w.height !== undefined ? w.height : (w.config?.height || 180);
-                    const elevation = (w.elevation || 0) + baseHeight;
-                    const thickness = w.thickness !== undefined ? w.thickness : (w.config?.thickness || 16);
-
-                    if (!gableWall) {
-                        gableWall = WallFactory.createWall(this.planner, {
-                            startAnchor: w.startAnchor,
-                            endAnchor: w.endAnchor,
-                            type: w.type || 'outer',
-                            thickness: thickness,
-                            height: 0,
-                            elevation: elevation,
-                            topProfileType: 'gable',
-                            startHeight: 0,
-                            endHeight: 0,
-                            peakHeight: roofH,
-                            params: {
-                                texture: this.config?.gableMaterial || 'white_plaster_wall',
-                                textureFront: this.config?.gableMaterial || 'white_plaster_wall',
-                                textureBack: this.config?.gableMaterial || 'white_plaster_wall'
-                            },
-                            addToPlanner: true
-                        });
-                        gableWall.isAutoGable = true;
-                        gableWall.parentWallId = w.id;
-                        gableWall.parentRoofId = this.id;
-                        gableWall.description = "Auto Gable Wall";
-                    } else {
-                        WallEngine.setElevation(gableWall, elevation, false, this.planner);
-                        WallEngine.setThickness(gableWall, thickness, false, this.planner);
-                        WallEngine.setHeight(gableWall, 0, false, this.planner);
-                        WallEngine.setTopProfile(gableWall, 'gable', {
-                            startHeight: 0,
-                            endHeight: 0,
-                            peakHeight: roofH
-                        }, false, this.planner);
-                    }
-                    if (gableWall.updateGeometry) gableWall.updateGeometry();
-                } else {
-                    let gableWall = this.planner.walls.find(cw => cw.isAutoGable && cw.parentWallId === w.id && cw.parentRoofId === this.id);
-                    if (gableWall) {
-                        WallEngine.deleteWall(this.planner, gableWall);
-                    }
-                }
-            }
-        });
     }
     
     updateGeometry() {
@@ -303,7 +146,7 @@ export class PremiumHipRoof {
         this.initHandles();
         this.update();
         const mode = this.config?.autoPlacementMode || 'manual';
-        this.handles.forEach(h => h.visible(mode === 'manual' && this.planner.selectedEntity === this));
+        this.handles.forEach(h => h.visible(mode === 'manual' && this.planner?.selectedEntity === this));
     }
     
     generateHipLines() {
@@ -627,6 +470,6 @@ export class PremiumHipRoof {
     }
 
     remove() {
-        this.group.destroy(); this.planner.roofs = this.planner.roofs.filter(r => r !== this); this.planner.selectEntity(null); this.planner.syncAll(); 
+        RoofEngine.deleteRoof(this.planner, this);
     }
 }

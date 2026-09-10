@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Skylight3DBuilder } from '../../features/roof/builders/Skylight3DBuilder.js';
 import { Roof3DBuilder } from '../../features/roof/builders/Roof3DBuilder.js';
 import { RoofSculpture3DBuilder } from '../../features/roof/builders/RoofSculpture3DBuilder.js';
+import { RoofEngine } from '../roof/index.js';
 
 /**
  * RoofPlugin3DPlacementSystem
@@ -243,15 +244,13 @@ export class RoofPlugin3DPlacementSystem {
         if (cat === 'cresting') {
             // WROUGHT IRON RIDGE CRESTING
             const newCresting = {
-                id: `crest_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
                 type: preset.type || 'ridge_cresting_victorian_lace',
                 material: preset.material || 'metal_wrought_iron',
                 height: preset.height || (preset.type === 'ridge_cresting_metal_cap' ? 8 : 18),
                 spacing: preset.spacing || (preset.type === 'ridge_cresting_gothic_spikes' ? 16 : 22),
                 segmentIndex: 0
             };
-            roof.config.crestings = roof.config.crestings || roof.crestings || [];
-            roof.config.crestings.push(newCresting);
+            RoofEngine.addCresting(roof, newCresting, planner);
             roof.crestings = roof.config.crestings;
         } else if (cat === 'finial') {
             // APEX FINIAL / WEATHER VANE
@@ -281,20 +280,17 @@ export class RoofPlugin3DPlacementSystem {
             }
 
             const newFinial = {
-                id: `fin_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
                 type: preset.type || 'finial_victorian_spire',
                 material: preset.material || (preset.type === 'finial_copper_spire' ? 'copper' : 'metal_wrought_iron'),
                 height: preset.height || 45,
                 scale: preset.scale || 1.0,
                 position: closestPos
             };
-            roof.config.finials = roof.config.finials || roof.finials || [];
-            roof.config.finials.push(newFinial);
+            RoofEngine.addFinial(roof, newFinial, planner);
             roof.finials = roof.config.finials;
         } else if (cat === 'chimney') {
             // CHIMNEY STACK
             const newChimney = {
-                id: `chim_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
                 type: preset.type || 'chimney_brick_traditional',
                 material: preset.material || (preset.type === 'chimney_stone_tudor' ? 'rough_stone' : (preset.type === 'chimney_metal_flue' ? 'metal_dark_steel' : 'red_brick')),
                 width: preset.width || (preset.type === 'chimney_metal_flue' ? 24 : 45),
@@ -303,13 +299,11 @@ export class RoofPlugin3DPlacementSystem {
                 u: Number(u.toFixed(3)),
                 v: Number(v.toFixed(3))
             };
-            roof.config.chimneys = roof.config.chimneys || roof.chimneys || [];
-            roof.config.chimneys.push(newChimney);
+            RoofEngine.addChimney(roof, newChimney, planner);
             roof.chimneys = roof.config.chimneys;
         } else {
             // SKYLIGHT / GLASS ADDON
             const newSkylight = {
-                id: `sky_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
                 type: preset.type || 'skylight_flush_flat',
                 material: preset.material || 'glass_roof_square_grid',
                 frameMaterial: preset.frameMaterial || 'metal_dark_steel',
@@ -320,8 +314,7 @@ export class RoofPlugin3DPlacementSystem {
                 v: Number(v.toFixed(3)),
                 coverage: preset.coverage || 'custom'
             };
-            roof.config.skylights = roof.config.skylights || roof.skylights || [];
-            roof.config.skylights.push(newSkylight);
+            RoofEngine.addSkylight(roof, newSkylight, planner);
             roof.skylights = roof.config.skylights;
         }
 

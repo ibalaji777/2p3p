@@ -14,6 +14,7 @@ import { useSettingsStore } from '../../stores/useSettingsStore.js';
 import { SLOT_DEFINITIONS } from '../constants/materialSlots.js';
 import { applyWallPaintWithScope } from './WallPaintSystem.js';
 import { WallEngine } from '../wall/WallEngine.js';
+import { RoofEngine } from '../roof/RoofEngine.js';
 const TILE_REGISTRY = WALL_DECOR_REGISTRY;
 const WALL_REGISTRY = WALL_DECOR_REGISTRY;
 const ROOF_REGISTRY = ROOF_DECOR_REGISTRY;
@@ -3716,20 +3717,10 @@ export class GizmoManager {
 
     updateRoofRotation(roof, newAngle) {
         if (!roof) return;
-        const normAngle = ((Math.round(newAngle) % 360) + 360) % 360;
-        roof.rotation = normAngle;
-        if (roof.group && typeof roof.group.rotation === 'function') {
-            roof.group.rotation(normAngle);
-        }
-        if (this.ctx.envBuilder?.updateRoofLive) {
-            this.ctx.envBuilder.updateRoofLive(roof);
-        }
-        if (roof.update) roof.update();
-        if (this.ctx.planner?.stage?.batchDraw) this.ctx.planner.stage.batchDraw();
-        if (this.ctx.interactions.roofPitchGizmo) {
+        RoofEngine.setRotation(roof, newAngle, this.ctx.planner || this.ctx);
+        if (this.ctx.interactions?.roofPitchGizmo) {
             this.ctx.interactions.roofPitchGizmo.updateHandlePositions();
         }
-        if (this.ctx.requestRender) this.ctx.requestRender();
         this.syncRoofSpinPanel(roof);
     }
 

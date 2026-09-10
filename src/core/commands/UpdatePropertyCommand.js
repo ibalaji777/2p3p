@@ -5,6 +5,7 @@ import { Command } from './Command.js';
 import { ValidationLayer } from '../api/ValidationLayer.js';
 import { WallEngine } from '../wall/WallEngine.js';
 import { StairEngine } from '../stairs/StairEngine.js';
+import { RoofEngine } from '../roof/RoofEngine.js';
 
 export class UpdatePropertyCommand extends Command {
     constructor(planner, entityId, properties, oldProperties) {
@@ -67,6 +68,39 @@ export class UpdatePropertyCommand extends Command {
         const isStair = entity.constructor.name === 'PremiumStaircase' || (entity.type && entity.type.startsWith('stair_'));
         if (isStair) {
             StairEngine.batchUpdate(this.planner, [entity], props);
+            return;
+        }
+
+        const isRoof = entity.type === 'roof' || (entity.config && entity.config.roofType);
+        if (isRoof) {
+            for (const key in props) {
+                const cleanKey = key.startsWith('config.') ? key.substring(7) : key;
+                const val = props[key];
+                if (cleanKey === 'pitch') RoofEngine.setPitch(entity, val, this.planner);
+                else if (cleanKey === 'peakHeight') RoofEngine.setPeakHeight(entity, val, this.planner);
+                else if (cleanKey === 'overhang') RoofEngine.setOverhang(entity, val, null, this.planner);
+                else if (cleanKey === 'roofType') RoofEngine.setRoofType(entity, val, this.planner);
+                else if (cleanKey === 'points') RoofEngine.setPoints(entity, val, this.planner);
+                else if (cleanKey === 'rotation') RoofEngine.setRotation(entity, val, this.planner);
+                else if (cleanKey === 'elevation') RoofEngine.setElevation(entity, val, this.planner);
+                else if (cleanKey === 'ridgeAxis') RoofEngine.setRidgeAxis(entity, val, this.planner);
+                else if (cleanKey === 'curve') RoofEngine.setCurve(entity, val, this.planner);
+                else if (cleanKey === 'wallGap') RoofEngine.setWallGap(entity, val, this.planner);
+                else if (cleanKey === 'thickness') RoofEngine.setThickness(entity, val, this.planner);
+                else if (cleanKey === 'material') RoofEngine.setMaterial(entity, val, 'single', null, this.planner);
+                else if (cleanKey === 'fasciaMaterial') RoofEngine.setMaterial(entity, val, 'single', 'fascia', this.planner);
+                else if (cleanKey === 'gableMaterial') RoofEngine.setMaterial(entity, val, 'single', 'gable', this.planner);
+                else if (cleanKey === 'autoShapeWalls') RoofEngine.setAutoShapeWalls(entity, val, this.planner);
+                else {
+                    if (key.startsWith('config.')) {
+                        if (!entity.config) entity.config = {};
+                        entity.config[cleanKey] = val;
+                    } else {
+                        entity[key] = val;
+                    }
+                    RoofEngine.notifyRoofUpdated(entity, this.planner);
+                }
+            }
             return;
         }
 

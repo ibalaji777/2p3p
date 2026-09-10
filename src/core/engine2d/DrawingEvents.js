@@ -12,6 +12,7 @@ import { PremiumOutdoorZone, OUTDOOR_ZONE_TYPES } from './PremiumOutdoorZone.js'
 import { WallReformer } from './WallReformer.js';
 import { WallEngine } from '../wall/WallEngine.js';
 import { StairEngine } from '../stairs/StairEngine.js';
+import { RoofEngine } from '../roof/index.js';
 
 export { computeCorridorOffsets, computeCorridorPolygon } from './corridorUtils.js';
 import { computeCorridorOffsets, computeCorridorPolygon } from './corridorUtils.js';
@@ -607,13 +608,13 @@ export function setupDrawingEvents(planner) {
                         planner.currentSessionEntities.push(newShape);
                         planner.selectEntity(newShape, 'shape');
                     } else {
-                        const roof = new PremiumHipRoof(planner, planner.drawingRoofPoints);
-                        roof.config.roofType = planner.activePresetParams?.roofType || planner.currentRoofToolType || 'hip';
-                        if (planner.activePresetParams) Object.assign(roof.config, planner.activePresetParams);
-                        planner.roofs.push(roof);
+                        const roofConfig = {
+                            roofType: planner.activePresetParams?.roofType || planner.currentRoofToolType || 'hip',
+                            ...(planner.activePresetParams || {})
+                        };
+                        const roof = RoofEngine.createRoof(planner, planner.drawingRoofPoints, roofConfig, { select: true });
                         if (!planner.currentSessionEntities) planner.currentSessionEntities = [];
-                        planner.currentSessionEntities.push(roof);
-                        planner.selectEntity(roof, 'roof');
+                        if (roof) planner.currentSessionEntities.push(roof);
                     }
                     
                     planner.drawingRoofPoints = null; 

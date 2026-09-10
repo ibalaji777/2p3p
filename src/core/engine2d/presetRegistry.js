@@ -2,7 +2,7 @@ import { WallFactory } from '../../features/wall/wall.factory.js';
 import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 import { WallEngine } from '../wall/WallEngine.js';
 import { Anchor } from './Anchor.js';
-import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
+import { RoofEngine } from '../roof/RoofEngine.js';
 import { PremiumFurniture } from '../../features/furniture/furniture.renderer2d.js';
 import { PresetGroup } from './PresetGroup.js';
 
@@ -187,32 +187,34 @@ function createRectangularStructure(planner, origin, w, d, wallHeight, roofType,
     let roof = null;
     if (parentGroup && parentGroup.roofs && parentGroup.roofs.length === 1) {
         roof = parentGroup.roofs[0];
-        roof.group.position({ x: origin.x, y: origin.y });
-        roof.rotation = rotationDeg;
-        roof.elevation = elevation + wallHeight;
-        // Basic heuristics for roof types (don't override manually set styles when just updating)
+        RoofEngine.setRotation(roof, rotationDeg, planner);
+        RoofEngine.setElevation(roof, elevation + wallHeight, planner);
+        if (roof.group && typeof roof.group.position === 'function') {
+            roof.group.position({ x: origin.x, y: origin.y });
+        }
         if (roofType === 'gable') {
-            roof.config.ridgeAxis = (Math.abs(rotationDeg) % 180 === 90) ? 'x' : 'y';
-            roof.config.autoShapeWalls = true;
+            RoofEngine.setRidgeAxis(roof, (Math.abs(rotationDeg) % 180 === 90) ? 'x' : 'y', false, planner);
+            RoofEngine.setAutoShapeWalls(roof, true, planner);
         }
     } else {
-        roof = new PremiumHipRoof(planner, roofPts);
-        roof.group.position({ x: origin.x, y: origin.y });
-        roof.rotation = rotationDeg;
-        roof.config.roofType = roofType;
-        roof.config.pitch = pitch;
-        roof.elevation = elevation + wallHeight;
-        if (roofType === 'gable') {
-            roof.config.gableMaterial = 'white_plaster_wall';
-            roof.config.ridgeAxis = (Math.abs(rotationDeg) % 180 === 90) ? 'x' : 'y'; // Adjust ridge axis for 90-degree rotations
-            roof.config.autoShapeWalls = true;
-        }
-        if (parentGroup) {
+        const roofConfig = {
+            roofType: roofType,
+            pitch: pitch,
+            gableMaterial: roofType === 'gable' ? 'white_plaster_wall' : undefined,
+            ridgeAxis: roofType === 'gable' ? ((Math.abs(rotationDeg) % 180 === 90) ? 'x' : 'y') : undefined,
+            autoShapeWalls: roofType === 'gable'
+        };
+        roof = RoofEngine.createRoof(planner, roofPts, roofConfig, {
+            rotation: rotationDeg,
+            elevation: elevation + wallHeight,
+            x: origin.x,
+            y: origin.y,
+            addToPlanner: true
+        });
+        if (parentGroup && roof) {
             roof.parentGroup = parentGroup;
             parentGroup.roofs.push(roof);
         }
-        planner.roofs.push(roof);
-        if (roof.update) roof.update();
     }
 
     return { anchors, walls, roofs: [roof] };

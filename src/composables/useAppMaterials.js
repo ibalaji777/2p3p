@@ -1,5 +1,6 @@
 import { applyWallPaintWithScope } from '../core/engine3d/WallPaintSystem.js';
 import { WallEngine } from '../core/wall/WallEngine.js';
+import { RoofEngine } from '../core/roof/RoofEngine.js';
 
 export function useAppMaterials({ 
     selectedEntity, 
@@ -156,39 +157,25 @@ export function useAppMaterials({
 
     const setRoofMaterial = (key, scope = 'single', slopeKey = null) => {
         const currentScope = scope || paintScope?.value || 'single';
-        
-        if (currentScope === 'all') {
-            const plannerInstance = planner?.value || planner || window.planner?.value || window.planner;
-            const roofs = plannerInstance?.roofs || [];
-            roofs.forEach(r => {
-                if (r.config) {
-                    r.config.material = key;
-                    if (r.config.slopes) delete r.config.slopes;
-                } else {
-                    r.material = key;
-                }
-            });
-        } else if (selectedEntity.value && (selectedType.value === 'roof' || selectedEntity.value.type === 'roof' || selectedEntity.value.config?.roofType)) {
-            const r = selectedEntity.value;
-            r.config = r.config || {};
-            if (slopeKey) {
-                r.config.slopes = r.config.slopes || {};
-                r.config.slopes[slopeKey] = key;
-            } else {
-                r.config.material = key;
-            }
+        const plannerInstance = planner?.value || planner || window.planner?.value || window.planner;
+        const target = selectedEntity.value;
+        if (target && (selectedType.value === 'roof' || target.type === 'roof' || target.config?.roofType)) {
+            RoofEngine.setMaterial(target, key, currentScope, slopeKey, plannerInstance);
+        } else if (currentScope === 'all' && plannerInstance?.roofs?.length) {
+            RoofEngine.setMaterial(plannerInstance.roofs[0], key, 'all', slopeKey, plannerInstance);
         }
         syncEngine('material');
         debouncedSaveHistory();
     };
 
     const setRoofFasciaMaterial = (key) => {
-        if (selectedEntity.value && (selectedType.value === 'roof' || selectedEntity.value.type === 'roof' || selectedEntity.value.config?.roofType)) {
-            selectedEntity.value.config = selectedEntity.value.config || {};
-            selectedEntity.value.config.fasciaMaterial = key;
-            syncEngine('material');
-            debouncedSaveHistory();
+        const plannerInstance = planner?.value || planner || window.planner?.value || window.planner;
+        const target = selectedEntity.value;
+        if (target && (selectedType.value === 'roof' || target.type === 'roof' || target.config?.roofType)) {
+            RoofEngine.setMaterial(target, key, 'fascia', 'fascia', plannerInstance);
         }
+        syncEngine('material');
+        debouncedSaveHistory();
     };
 
     return {

@@ -293,6 +293,158 @@ describe('Roof Pipeline & 3D Addition', () => {
         gizmo.dispose();
     });
 
+    it('7b. should interactively adjust pitch, curvature, overhang, and footprint stretch in RoofPitchCurvatureGizmo', async () => {
+        const { RoofPitchCurvatureGizmo } = await import('../RoofPitchCurvatureGizmo.js');
+        const mockEnvBuilder = { updateRoofLive: vi.fn() };
+        const mockCtx = {
+            renderer: { domElement: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }), parentElement: null, style: {} } },
+            camera: new THREE.PerspectiveCamera(45, 1, 1, 1000),
+            scene: new THREE.Group(),
+            controls: { enabled: true },
+            envBuilder: mockEnvBuilder,
+            requestRender: vi.fn()
+        };
+
+        const gizmo = new RoofPitchCurvatureGizmo(mockCtx);
+        const mockRoofEntity = {
+            type: 'roof',
+            id: 'roof_test_gizmo_drag',
+            points: [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 150 }, { x: 0, y: 150 }],
+            config: { roofType: 'gable', pitch: 30, curve: 0, overhang: 8 },
+            elevation: 120,
+            updateGeometry: vi.fn()
+        };
+
+        const mockTargetMesh = new THREE.Mesh();
+        mockTargetMesh.userData = { isRoof: true, entity: mockRoofEntity };
+        gizmo.attach(mockTargetMesh);
+
+        // 1. Simulate pitch drag
+        gizmo.isDragging = true;
+        gizmo.activeHandle = gizmo.peakHandle;
+        gizmo.dragStartPos.set(100, 100, 75);
+        gizmo.planeIntersect.set(100, 140, 75); // deltaY = +40
+        gizmo.initialRh = 43.3;
+        gizmo.initialMaxX = 200; gizmo.initialMinX = 0;
+        gizmo.initialMaxY = 150; gizmo.initialMinY = 0;
+
+        // Mock raycaster intersectPlane to return our simulated intersection
+        gizmo.raycaster.ray.intersectPlane = (plane, target) => {
+            target.copy(gizmo.planeIntersect);
+            return target;
+        };
+
+        gizmo._onPointerMove({ clientX: 400, clientY: 300, preventDefault: () => {}, stopPropagation: () => {} });
+
+        expect(mockRoofEntity.config.pitch).toBeGreaterThan(30);
+        expect(mockEnvBuilder.updateRoofLive).toHaveBeenCalledWith(mockRoofEntity);
+        expect(mockCtx.requestRender).toHaveBeenCalled();
+
+        // 2. Simulate curvature drag
+        gizmo.activeHandle = gizmo.curveHandle;
+        gizmo.initialCurve = 0;
+        gizmo.dragStartPos.set(100, 50, 75);
+        gizmo.planeIntersect.set(100, 80, 75); // deltaY = +30 -> newCurve = 12
+        gizmo._onPointerMove({ clientX: 400, clientY: 280, preventDefault: () => {}, stopPropagation: () => {} });
+
+        expect(mockRoofEntity.config.curve).toBe(12);
+
+        // 3. Simulate overhang drag
+        const overhangTab = gizmo.overhangHandles[1]; // East
+        gizmo.activeHandle = overhangTab;
+        gizmo.initialOverhang = 8;
+        gizmo.dragStartPos.set(208, 124, 75);
+        gizmo.planeIntersect.set(220, 124, 75); // localDeltaX = +12
+        gizmo._onPointerMove({ clientX: 420, clientY: 300, preventDefault: () => {}, stopPropagation: () => {} });
+
+        expect(mockRoofEntity.config.overhang).toBe(20);
+
+        // 4. Simulate corner stretch drag
+        const stretchDiamond = gizmo.stretchHandles[1]; // NE Corner
+        gizmo.activeHandle = stretchDiamond;
+        gizmo.initialMinX = 0; gizmo.initialMaxX = 200;
+        gizmo.initialMinY = 0; gizmo.initialMaxY = 150;
+        gizmo.dragStartPos.set(200, 124, 0);
+        gizmo.planeIntersect.set(230, 124, -20); // deltaX = +30, deltaZ = -20
+        gizmo._onPointerMove({ clientX: 430, clientY: 280, preventDefault: () => {}, stopPropagation: () => {} });
+
+        expect(mockRoofEntity.points[1].x).toBe(230);
+        expect(mockRoofEntity.points[1].y).toBe(-20);
+
+        gizmo.dispose();
+    });
+
+    it('7c. should interactively adjust corner points in RoofCornerGizmo and overhangs in RoofOverhangGizmo', async () => {
+        const { RoofCornerGizmo } = await import('../RoofCornerGizmo.js');
+        const { RoofOverhangGizmo } = await import('../RoofOverhangGizmo.js');
+
+        const mockEnvBuilder = { updateRoofLive: vi.fn() };
+        const mockCtx = {
+            renderer: { domElement: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }), parentElement: null, style: {}, addEventListener: vi.fn(), removeEventListener: vi.fn() } },
+            camera: new THREE.PerspectiveCamera(45, 1, 1, 1000),
+            scene: new THREE.Group(),
+            controls: { enabled: true },
+            envBuilder: mockEnvBuilder,
+            requestRender: vi.fn(),
+            currentTransformMode: 'roof_corners'
+        };
+
+        const cornerGizmo = new RoofCornerGizmo(mockCtx);
+        const mockRoofEntity = {
+            type: 'roof',
+            id: 'roof_corners_test',
+            points: [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 150 }, { x: 0, y: 150 }],
+            config: { roofType: 'gable', pitch: 30, overhang: 8 },
+            elevation: 120,
+            updateGeometry: vi.fn()
+        };
+
+        const mockTargetMesh = new THREE.Mesh();
+        mockTargetMesh.userData = { isRoof: true, entity: mockRoofEntity };
+        cornerGizmo.attach(mockTargetMesh);
+
+        cornerGizmo.isDragging = true;
+        cornerGizmo.activeDragIndex = 1;
+        cornerGizmo.selectedIndices.add(1);
+        cornerGizmo.initialPoints = mockRoofEntity.points.map(p => ({ x: p.x, y: p.y }));
+        cornerGizmo.dragStartPos.set(200, 0, 0);
+
+        // Raycast mock intersection
+        cornerGizmo.raycaster.ray.intersectPlane = (plane, target) => {
+            target.set(225, 0, -15);
+            return target;
+        };
+
+        cornerGizmo._onPointerMove({ clientX: 425, clientY: 285, preventDefault: () => {}, stopPropagation: () => {} });
+
+        expect(mockRoofEntity.points[1].x).toBe(225);
+        expect(mockRoofEntity.points[1].y).toBe(-15);
+        expect(mockEnvBuilder.updateRoofLive).toHaveBeenCalledWith(mockRoofEntity);
+        expect(mockCtx.requestRender).toHaveBeenCalled();
+
+        cornerGizmo.dispose();
+
+        // Now test RoofOverhangGizmo
+        mockCtx.currentTransformMode = 'roof_overhang';
+        const overhangGizmo = new RoofOverhangGizmo(mockCtx);
+        overhangGizmo.attach(mockTargetMesh);
+
+        overhangGizmo.isDragging = true;
+        overhangGizmo.activeDragIndex = 0;
+        overhangGizmo.initialOverhangs = [8, 8, 8, 8];
+        overhangGizmo.dragStartPos.set(100, 0, -8);
+        overhangGizmo.raycaster.ray.intersectPlane = (plane, target) => {
+            target.set(100, 0, -28);
+            return target;
+        };
+
+        overhangGizmo._onPointerMove({ clientX: 400, clientY: 200, preventDefault: () => {}, stopPropagation: () => {}, shiftKey: true });
+        expect(mockRoofEntity.config.overhang).toBeGreaterThan(8);
+        expect(mockEnvBuilder.updateRoofLive).toHaveBeenCalled();
+
+        overhangGizmo.dispose();
+    });
+
     it('8. should build 3D geometry for Round, Octagonal, and Hexagonal Turret roofs', async () => {
         const { Roof3DBuilder } = await import('../builders/Roof3DBuilder.js');
         const sceneGroup = new THREE.Group();

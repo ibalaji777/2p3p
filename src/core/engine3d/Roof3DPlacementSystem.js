@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { SNAP_DIST, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY } from '../registry.js';
 import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
 import { Roof3DBuilder } from '../../features/roof/builders/Roof3DBuilder.js';
+import { RoofEngine } from '../roof/index.js';
 
 /**
  * Roof3DPlacementSystem
@@ -530,22 +531,18 @@ export class Roof3DPlacementSystem {
         const roofElev = elevation !== undefined ? elevation : this.getBaseRoofElevation();
 
         planner.executeWithSnapshot(() => {
-            if (!planner.roofs) planner.roofs = [];
+            const roofConfig = {
+                roofType: params.roofType || 'gable',
+                pitch: params.pitch !== undefined ? params.pitch : 30,
+                curve: params.curve !== undefined ? params.curve : 0,
+                material: params.material,
+                overhang: params.overhang !== undefined ? params.overhang : 8,
+                thickness: params.thick !== undefined ? params.thick : 10
+            };
 
-            const newRoof = new PremiumHipRoof(planner, points);
-            newRoof.elevation = roofElev;
-            if (params.roofType) newRoof.config.roofType = params.roofType;
-            if (params.pitch !== undefined) newRoof.config.pitch = params.pitch;
-            if (params.curve !== undefined) newRoof.config.curve = params.curve;
-            if (params.material) {
-                newRoof.config.material = params.material;
-                newRoof.configId = params.material;
-            }
-            if (params.overhang !== undefined) newRoof.config.overhang = params.overhang;
-            if (params.thick !== undefined) newRoof.config.thickness = params.thick;
-            if (newRoof.update) newRoof.update();
-
-            planner.roofs.push(newRoof);
+            const newRoof = RoofEngine.createRoof(planner, points, roofConfig, {
+                elevation: roofElev
+            });
 
             if (this.ctx.buildScene) {
                 this.ctx.buildScene(

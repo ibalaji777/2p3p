@@ -2,6 +2,7 @@ import { EVENTS } from '../../core/registry.js';
 import { coreEventBus } from '../../core/EventBus.js';
 import * as THREE from 'three';
 import { offsetPolygon } from '../../core/registry.js';
+import { RoofEngine } from '../../core/roof/RoofEngine.js';
 
 export class RoofOverhangGizmo extends THREE.Group {
     constructor(ctx) {
@@ -106,27 +107,18 @@ export class RoofOverhangGizmo extends THREE.Group {
                         const deltaOverhang = dot * 0.25; // Small damper for comfortable weight
                         
                         const entity = this.target.userData.entity;
-                        if (!entity.config.overhangs) {
-                            entity.config.overhangs = Array(entity.points.length).fill(entity.config.overhang || 0);
-                        }
+                        const initO = this.initialOverhangs[this.activeDragIndex] || 0;
+                        const newO = Math.max(0, Math.round(initO + deltaOverhang));
                         
                         if (e.shiftKey) {
-                            this.initialOverhangs.forEach((initO, i) => {
-                                let newO = initO + deltaOverhang;
-                                if (newO < 0) newO = 0;
-                                entity.config.overhangs[i] = newO;
-                            });
+                            RoofEngine.setOverhang(entity, newO, null, this.ctx.planner || this.ctx);
                         } else {
-                            let initO = this.initialOverhangs[this.activeDragIndex];
-                            let newO = initO + deltaOverhang;
-                            if (newO < 0) newO = 0;
-                            entity.config.overhangs[this.activeDragIndex] = newO;
+                            RoofEngine.setOverhang(entity, newO, this.activeDragIndex, this.ctx.planner || this.ctx);
                         }
                         
                         this.updateHandlePositions();
-                        
-                        if (this.ctx.builder && this.ctx.builder.updateRoofLive) {
-                            this.ctx.builder.updateRoofLive(entity);
+                        if (this.ctx && typeof this.ctx.requestRender === 'function') {
+                            this.ctx.requestRender();
                         }
                     }
                 }
@@ -257,5 +249,24 @@ export class RoofOverhangGizmo extends THREE.Group {
     updateHandlePositions() {
         if (!this.target) return;
         this.buildHandles();
+    }
+
+    dispose() {
+        const dom = this.ctx?.renderer?.domElement;
+        if (dom) {
+            dom.removeEventListener('pointerdown', this._onPointerDown, { passive: false });
+            dom.removeEventListener('pointermove', this._onPointerMove, { passive: false });
+            dom.removeEventListener('pointerup', this._onPointerUp, { passive: false });
+        }
+        if (this.handleMat) this.handleMat.dispose();
+        if (this.handleMatHover) this.handleMatHover.dispose();
+        if (this.handleMatActive) this.handleMatActive.dispose();
+        if (this.handleGeo) this.handleGeo.dispose();
+        
+        this.handles.children.forEach(c => {
+            if (c.geometry && c.geometry !== this.handleGeo) c.geometry.dispose();
+        });
+
+        if (this.parent) this.parent.remove(this);
     }
 }

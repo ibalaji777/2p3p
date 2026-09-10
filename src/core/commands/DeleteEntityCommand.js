@@ -5,6 +5,7 @@ import { Command } from './Command.js';
 import { ValidationLayer } from '../api/ValidationLayer.js';
 import { StairTopologyEngine } from '../stairs/StairTopologyEngine.js';
 import { WallEngine } from '../wall/WallEngine.js';
+import { RoofEngine } from '../roof/RoofEngine.js';
 
 export class DeleteEntityCommand extends Command {
     constructor(planner, entityId) {
@@ -13,6 +14,7 @@ export class DeleteEntityCommand extends Command {
         this.entityId = entityId;
         this.deletedEntity = null;
         this.serializedStair = null;
+        this.serializedRoof = null;
         this.hostWall = null;
         this.hostWallId = null;
     }
@@ -37,6 +39,9 @@ export class DeleteEntityCommand extends Command {
             if (this.deletedEntity.constructor?.name === 'PremiumStaircase' || (this.deletedEntity.type && (this.deletedEntity.type.startsWith('stair_') || this.deletedEntity.type === 'stair'))) {
                 this.serializedStair = StairTopologyEngine.serialize(this.deletedEntity);
                 StairTopologyEngine.deleteStair(this.planner, this.deletedEntity);
+            } else if (this.deletedEntity.constructor?.name === 'PremiumHipRoof' || (this.deletedEntity.type && this.deletedEntity.type === 'roof')) {
+                this.serializedRoof = RoofEngine.serialize(this.deletedEntity);
+                RoofEngine.deleteRoof(this.planner, this.deletedEntity);
             } else if (hostWall && (this.deletedEntity.type === 'door' || this.deletedEntity.type === 'window' || this.deletedEntity.doorType || this.deletedEntity.windowType || this.deletedEntity.type?.startsWith('door_') || this.deletedEntity.type?.startsWith('window_') || this.deletedEntity.constructor?.name === 'PremiumWidget')) {
                 if (typeof this.deletedEntity.remove === 'function') {
                     this.deletedEntity.remove();
@@ -64,6 +69,16 @@ export class DeleteEntityCommand extends Command {
                 }
             } else if (this.deletedEntity.constructor?.name === 'PremiumFurniture') {
                 this.planner.furniture.push(this.deletedEntity);
+            } else if (this.serializedRoof) {
+                const restored = RoofEngine.deserialize(this.serializedRoof, this.planner, { addToPlanner: true });
+                if (restored) {
+                    this.deletedEntity = restored;
+                }
+            } else if (this.deletedEntity.constructor?.name === 'PremiumHipRoof' || (this.deletedEntity.type && this.deletedEntity.type === 'roof')) {
+                if (!this.planner.roofs) this.planner.roofs = [];
+                if (!this.planner.roofs.includes(this.deletedEntity)) {
+                    this.planner.roofs.push(this.deletedEntity);
+                }
             } else if (this.serializedStair) {
                 const restored = StairTopologyEngine.deserialize(this.planner, this.serializedStair);
                 if (restored) {

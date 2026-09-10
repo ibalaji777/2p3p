@@ -238,6 +238,7 @@ import ShapePanel from '../panels/ShapePanel.vue';
 import FurniturePanel from '../../features/furniture/furniture.properties.vue';
 import RoofPanel from '../../features/roof/roof.properties.vue';
 import RoofAddonPanel from '../../features/roof/RoofAddonProperties.vue';
+import { RoofEngine } from '../../core/roof/index.js';
 import DimensionInput from '../common/DimensionInput.vue';
 import MaterialSizeInput from '../common/MaterialSizeInput.vue';
 import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../../core/registries/material.registry.js';
@@ -273,29 +274,13 @@ const emit = defineEmits([
 ]);
 
 const calculateRoofPeakHeight = (roof) => {
-    if (!roof || !roof.points || roof.points.length < 3) return 0;
-    const conf = roof.config || roof;
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    roof.points.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
-    const W = maxX - minX, D = maxY - minY;
-    const axis = conf.ridgeAxis || 'x';
-    const maxSpan = (conf.roofType === 'gable' && axis === 'x') ? D : (conf.roofType === 'gable' ? W : Math.min(W, D));
-    const pitch = conf.pitch || 30;
-    return parseFloat((Math.tan(pitch * Math.PI / 180) * (maxSpan / 2)).toFixed(2));
+    return RoofEngine.getPeakHeight(roof);
 };
 
 const updateRoofPitchFromHeight = (e, roof) => {
     const targetHeight = parseFloat(e.target.value);
     if (isNaN(targetHeight) || targetHeight <= 0) return;
-    if (!roof || !roof.points || roof.points.length < 3) return;
-    const conf = roof.config || roof;
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    roof.points.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
-    const W = maxX - minX, D = maxY - minY;
-    const axis = conf.ridgeAxis || 'x';
-    const maxSpan = (conf.roofType === 'gable' && axis === 'x') ? D : (conf.roofType === 'gable' ? W : Math.min(W, D));
-    const newPitch = Math.atan(targetHeight / (maxSpan / 2)) * 180 / Math.PI;
-    conf.pitch = newPitch;
+    RoofEngine.setPeakHeight(roof, targetHeight);
     emit('sync-engine');
 };
 

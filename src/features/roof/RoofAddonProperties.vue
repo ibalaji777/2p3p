@@ -180,6 +180,7 @@
 
 <script setup>
 import { computed } from 'vue';
+import { RoofEngine } from '../../core/roof/RoofEngine.js';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true },
@@ -250,19 +251,15 @@ function onDelete() {
     // Remove addon from parent roof array if parent roof exists
     const pRoof = props.parentRoof || entity.value.parentRoof;
     if (pRoof) {
-        const conf = pRoof.config || pRoof;
-        if (isChimney.value && Array.isArray(conf.chimneys)) {
-            const idx = conf.chimneys.indexOf(entity.value);
-            if (idx !== -1) conf.chimneys.splice(idx, 1);
-        } else if (isFinial.value && Array.isArray(conf.finials)) {
-            const idx = conf.finials.indexOf(entity.value);
-            if (idx !== -1) conf.finials.splice(idx, 1);
-        } else if (isCresting.value && Array.isArray(conf.crestings)) {
-            const idx = conf.crestings.indexOf(entity.value);
-            if (idx !== -1) conf.crestings.splice(idx, 1);
-        } else if (isSkylight.value && Array.isArray(conf.skylights)) {
-            const idx = conf.skylights.indexOf(entity.value);
-            if (idx !== -1) conf.skylights.splice(idx, 1);
+        const targetAddon = entity.value.id || entity.value;
+        if (isChimney.value) {
+            RoofEngine.removeChimney(pRoof, targetAddon);
+        } else if (isFinial.value) {
+            RoofEngine.removeFinial(pRoof, targetAddon);
+        } else if (isCresting.value) {
+            RoofEngine.removeCresting(pRoof, targetAddon);
+        } else if (isSkylight.value) {
+            RoofEngine.removeSkylight(pRoof, targetAddon);
         }
     }
     emit('delete-entity');
