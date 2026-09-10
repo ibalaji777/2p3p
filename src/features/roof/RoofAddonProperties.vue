@@ -244,6 +244,18 @@ const addonBadge = computed(() => {
 });
 
 function onUpdate() {
+    const pRoof = props.parentRoof || entity.value.parentRoof;
+    if (pRoof) {
+        let type = 'chimney';
+        if (isFinial.value) type = 'finial';
+        else if (isCresting.value) type = 'cresting';
+        else if (isSkylight.value) type = 'skylight';
+
+        const targetAddon = entity.value.id || entity.value;
+        const params = { ...entity.value };
+        delete params.parentRoof;
+        RoofEngine.updateAddon(pRoof, type, targetAddon, params);
+    }
     emit('sync-engine');
 }
 

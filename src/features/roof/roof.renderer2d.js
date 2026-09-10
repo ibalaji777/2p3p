@@ -139,6 +139,10 @@ export class PremiumHipRoof {
         this.boundary.points(this.getFlatPoints());
         this.generateHipLines();
     }
+
+    update2D() {
+        this.updateGeometry();
+    }
     
     updateGeometry() {
         this.handles.forEach(h => h.destroy());

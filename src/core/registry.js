@@ -6,7 +6,7 @@ export * from '../features/door/door.registry.js';
 export { createDoorShape, buildDetailedDoorPanel } from '../features/door/door.geometry.js';
 export * from '../features/roof/roof.registry.js';
 export { STAIRCASE_REGISTRY } from '../features/stairs/stairs.registry.js';
-export { ROOF_REGISTRY } from '../features/roof/roof.components.registry.js';
+export { ROOF_COMPONENT_REGISTRY, ROOF_REGISTRY } from '../features/roof/roof.components.registry.js';
 
 export * from '../features/furniture/furniture.registry.js';
 export * from '../features/railing/registry/railing.registry.js';

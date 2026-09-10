@@ -42,8 +42,12 @@ export class RoofSerializer {
             wallGap: conf.wallGap || 0,
             ridgeAxis: conf.ridgeAxis || 'x',
             manualRidge: !!conf.manualRidge,
-            gableMaterial: conf.gableMaterial || 'white_plaster_wall',
+            flipSlope: !!conf.flipSlope,
             autoShapeWalls: !!conf.autoShapeWalls,
+            autoPlacementMode: conf.autoPlacementMode || 'manual',
+            gableMaterial: conf.gableMaterial || 'white_plaster_wall',
+            fasciaMaterial: conf.fasciaMaterial || undefined,
+            tileSize: roof.tileSize !== undefined ? roof.tileSize : (conf.tileSize !== undefined ? conf.tileSize : undefined),
             slopes: conf.slopes ? JSON.parse(JSON.stringify(conf.slopes)) : undefined,
             skylights: conf.skylights ? JSON.parse(JSON.stringify(conf.skylights)) : [],
             crestings: conf.crestings ? JSON.parse(JSON.stringify(conf.crestings)) : [],
@@ -77,8 +81,12 @@ export class RoofSerializer {
             wallGap: rData.wallGap || 0,
             ridgeAxis: rData.ridgeAxis || 'x',
             manualRidge: !!rData.manualRidge,
-            gableMaterial: rData.gableMaterial || 'white_plaster_wall',
+            flipSlope: !!rData.flipSlope,
             autoShapeWalls: !!rData.autoShapeWalls,
+            autoPlacementMode: rData.autoPlacementMode || 'manual',
+            gableMaterial: rData.gableMaterial || 'white_plaster_wall',
+            fasciaMaterial: rData.fasciaMaterial || undefined,
+            tileSize: rData.tileSize !== undefined ? rData.tileSize : undefined,
             slopes: rData.slopes,
             skylights: rData.skylights || [],
             crestings: rData.crestings || [],
@@ -99,8 +107,9 @@ export class RoofSerializer {
             select: options.select || false
         });
 
-        if (roof && rData.configId) {
-            roof.configId = rData.configId;
+        if (roof) {
+            if (rData.configId) roof.configId = rData.configId;
+            if (rData.tileSize !== undefined) roof.tileSize = rData.tileSize;
         }
 
         return roof;

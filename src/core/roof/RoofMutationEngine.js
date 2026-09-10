@@ -578,4 +578,167 @@ export class RoofMutationEngine {
             }
         });
     }
+
+    /**
+     * Sets flip slope for shed roof orientation.
+     * @param {Object} roof 
+     * @param {boolean} flipSlope 
+     * @param {Object} [planner] 
+     */
+    static setFlipSlope(roof, flipSlope, planner = null) {
+        if (!roof) return;
+        roof.config = roof.config || {};
+        roof.config.flipSlope = Boolean(flipSlope);
+        this.notifyRoofUpdated(roof, planner || roof.planner, 'geometry');
+    }
+
+    /**
+     * Sets automatic wall boundary placement mode ('inner' | 'center' | 'outer' | 'manual').
+     * @param {Object} roof 
+     * @param {string} mode 
+     * @param {Object} [planner] 
+     */
+    static setAutoPlacementMode(roof, mode, planner = null) {
+        if (!roof) return;
+        if (mode !== 'inner' && mode !== 'center' && mode !== 'outer' && mode !== 'manual') return;
+        roof.config = roof.config || {};
+        roof.config.autoPlacementMode = mode;
+        this.notifyRoofUpdated(roof, planner || roof.planner, 'geometry');
+    }
+
+    /**
+     * Sets texture repeat tile size for procedural materials.
+     * @param {Object} roof 
+     * @param {number} tileSize 
+     * @param {Object} [planner] 
+     */
+    static setTileSize(roof, tileSize, planner = null) {
+        if (!roof) return;
+        const size = Math.max(10, Math.min(1000, Number(tileSize) || 100));
+        roof.tileSize = size;
+        if (roof.config) roof.config.tileSize = size;
+        this.notifyRoofUpdated(roof, planner || roof.planner, 'material');
+    }
+
+    /**
+     * Updates an attached roof addon (skylight, chimney, cresting, or finial) parameters.
+     * @param {Object} roof 
+     * @param {string} addonType - 'skylight' | 'cresting' | 'finial' | 'chimney'
+     * @param {string|number|Object} idOrIndex 
+     * @param {Object} params 
+     * @param {Object} [planner] 
+     * @returns {boolean}
+     */
+    static updateAddon(roof, addonType, idOrIndex, params = {}, planner = null) {
+        if (!roof || !addonType || !params) return false;
+        roof.config = roof.config || {};
+        
+        let key = '';
+        if (addonType.startsWith('skylight') || addonType === 'skylights') key = 'skylights';
+        else if (addonType.startsWith('cresting') || addonType === 'crestings' || addonType === 'ridge_cresting') key = 'crestings';
+        else if (addonType.startsWith('finial') || addonType === 'finials') key = 'finials';
+        else if (addonType.startsWith('chimney') || addonType === 'chimneys') key = 'chimneys';
+        else key = addonType;
+
+        if (!Array.isArray(roof.config[key])) roof.config[key] = [];
+        const list = roof.config[key];
+
+        let target = null;
+        if (typeof idOrIndex === 'number') {
+            target = list[idOrIndex];
+        } else if (typeof idOrIndex === 'object' && idOrIndex !== null) {
+            target = list.find(item => item === idOrIndex || (item.id && item.id === idOrIndex.id));
+        } else {
+            target = list.find(item => item.id === idOrIndex);
+        }
+
+        if (!target) return false;
+
+        // Domain validation & parameter merging
+        for (const [k, v] of Object.entries(params)) {
+            if (v === undefined) continue;
+            if (k === 'width' || k === 'depth' || k === 'height' || k === 'length') {
+                target[k] = Math.max(5, Number(v) || target[k] || 10);
+            } else if (k === 'u' || k === 'v') {
+                target[k] = Math.max(0.01, Math.min(0.99, Number(v)));
+            } else {
+                target[k] = v;
+            }
+        }
+
+        this.notifyRoofUpdated(roof, planner || roof.planner, 'plugins');
+        return true;
+    }
+
+    /**
+     * Atomically validates and applies multiple property updates with a single synchronization cycle.
+     * @param {Object} roof 
+     * @param {Object} updates 
+     * @param {Object} [planner] 
+     */
+    static batchUpdate(roof, updates = {}, planner = null) {
+        if (!roof || typeof updates !== 'object') return;
+        roof.config = roof.config || {};
+
+        let changedAspect = 'geometry';
+
+        for (const [key, val] of Object.entries(updates)) {
+            if (val === undefined) continue;
+            if (key === 'pitch') {
+                roof.config.pitch = Math.max(0, Math.min(75, Number(val) || 0));
+            } else if (key === 'peakHeight') {
+                const newPitch = RoofGeometryEngine.getPitchFromHeight(roof, val);
+                roof.config.pitch = newPitch;
+            } else if (key === 'curve') {
+                roof.config.curve = Math.max(-50, Math.min(50, Number(val) || 0));
+            } else if (key === 'overhang') {
+                const o = Math.max(0, Math.min(100, Number(val) || 0));
+                roof.config.overhang = o;
+                if (roof.config.overhangs && Array.isArray(roof.config.overhangs)) {
+                    roof.config.overhangs.fill(o);
+                }
+            } else if (key === 'overhangs' && Array.isArray(val)) {
+                roof.config.overhangs = [...val];
+            } else if (key === 'thickness') {
+                roof.config.thickness = Math.max(1, Number(val) || 10);
+            } else if (key === 'wallGap') {
+                roof.config.wallGap = Number(val) || 0;
+            } else if (key === 'roofType') {
+                roof.config.roofType = val;
+                changedAspect = 'structure';
+            } else if (key === 'ridgeAxis' && (val === 'x' || val === 'y')) {
+                roof.config.ridgeAxis = val;
+                roof.config.manualRidge = true;
+            } else if (key === 'flipSlope') {
+                roof.config.flipSlope = Boolean(val);
+            } else if (key === 'autoShapeWalls') {
+                roof.config.autoShapeWalls = Boolean(val);
+            } else if (key === 'autoPlacementMode') {
+                roof.config.autoPlacementMode = val;
+            } else if (key === 'elevation') {
+                roof.elevation = Number(val) || 0;
+            } else if (key === 'rotation') {
+                const rot = ((Math.round(val) % 360) + 360) % 360;
+                roof.rotation = rot;
+                if (roof.group && typeof roof.group.rotation === 'function') roof.group.rotation(rot);
+            } else if (key === 'material') {
+                roof.config.material = val;
+                roof.configId = val;
+            } else if (key === 'gableMaterial') {
+                roof.config.gableMaterial = val;
+            } else if (key === 'fasciaMaterial') {
+                roof.config.fasciaMaterial = val;
+            } else if (key === 'slopes') {
+                roof.config.slopes = val ? JSON.parse(JSON.stringify(val)) : undefined;
+                changedAspect = 'material';
+            } else if (key === 'tileSize') {
+                const size = Math.max(10, Math.min(1000, Number(val) || 100));
+                roof.tileSize = size;
+                roof.config.tileSize = size;
+                changedAspect = 'material';
+            }
+        }
+
+        this.notifyRoofUpdated(roof, planner || roof.planner, changedAspect);
+    }
 }

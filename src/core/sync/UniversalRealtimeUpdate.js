@@ -25,6 +25,13 @@ export class UniversalRealtimeUpdate {
             },
             material: (entity) => {
                 if (!entity || !entity.mesh3D) return false;
+                if (entity.type === 'roof' || entity.config?.roofType || entity.constructor?.name === 'PremiumHipRoof') {
+                    const env = this.ctx?.envBuilder || this.ctx;
+                    if (env && typeof env.updateRoofLive === 'function') {
+                        env.updateRoofLive(entity);
+                        return true;
+                    }
+                }
                 if (typeof this.ctx.updateMaterialLive === 'function') {
                     this.ctx.updateMaterialLive(entity);
                     return true;
@@ -156,14 +163,43 @@ export class UniversalRealtimeUpdate {
      */
     rebuildMeshInPlace(entity) {
         if (!entity) return false;
+
+        const type = entity.type || '';
+        const subType = entity.widgetType || entity.configId || entity.furnitureType || type;
+
+        // 1. Roof Live In-Place WebGL Buffer Swap
+        if (type === 'roof' || entity.config?.roofType || entity.constructor?.name === 'PremiumHipRoof') {
+            const env = this.ctx?.envBuilder || this.ctx;
+            if (env && typeof env.updateRoofLive === 'function') {
+                env.updateRoofLive(entity);
+                if (coreEventBus) coreEventBus.emit('EntityGeometryUpdated', { entity, object3D: entity.mesh3D });
+                if (typeof this.ctx?.requestRender === 'function') this.ctx.requestRender('roof_live_update', 2);
+                return true;
+            }
+        } else if (type === 'roof_addon' || entity.addonType || entity.isRoofAddon) {
+            const parentRoof = entity.parentRoof || (this.ctx?.planner?.roofs && this.ctx.planner.roofs.find(r => 
+                (r.config?.skylights && r.config.skylights.includes(entity)) ||
+                (r.config?.chimneys && r.config.chimneys.includes(entity)) ||
+                (r.config?.crestings && r.config.crestings.includes(entity)) ||
+                (r.config?.finials && r.config.finials.includes(entity))
+            ));
+            if (parentRoof) {
+                const env = this.ctx?.envBuilder || this.ctx;
+                if (env && typeof env.updateRoofLive === 'function') {
+                    env.updateRoofLive(parentRoof);
+                    if (coreEventBus) coreEventBus.emit('EntityGeometryUpdated', { entity: parentRoof, object3D: parentRoof.mesh3D });
+                    if (typeof this.ctx?.requestRender === 'function') this.ctx.requestRender('roof_addon_live_update', 2);
+                    return true;
+                }
+            }
+        }
+
         const oldMesh = entity.mesh3D || (this.ctx.interactables && this.ctx.interactables.find(m => m.userData && m.userData.entity === entity));
         if (!oldMesh) return false;
         const parent = oldMesh.parent || this.ctx.structureGroup;
         if (!parent) return false;
 
         let renderFunc = null;
-        const type = entity.type || '';
-        const subType = entity.widgetType || entity.configId || entity.furnitureType || type;
         
         if (WIDGET_REGISTRY[subType] || WIDGET_REGISTRY[type]) renderFunc = (WIDGET_REGISTRY[subType] || WIDGET_REGISTRY[type]).render3D;
         else if (MOLDING_REGISTRY[subType] || MOLDING_REGISTRY[type]) renderFunc = (MOLDING_REGISTRY[subType] || MOLDING_REGISTRY[type]).render3D;

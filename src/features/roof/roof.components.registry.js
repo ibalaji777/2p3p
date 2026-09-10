@@ -3,7 +3,7 @@ import { RoofSculpture3DBuilder } from './builders/RoofSculpture3DBuilder.js';
 import { Skylight3DBuilder } from './builders/Skylight3DBuilder.js';
 import * as THREE from 'three';
 
-export const ROOF_REGISTRY = {
+export const ROOF_COMPONENT_REGISTRY = {
     'roof': {
         widget: "roof",
         label: "ROOF",
@@ -72,25 +72,27 @@ export const ROOF_REGISTRY = {
 };
 
 // Aliases for direct registry lookups
-ROOF_REGISTRY['roof_cresting'] = ROOF_REGISTRY['roof_sculptures'];
-ROOF_REGISTRY['roof_finial'] = ROOF_REGISTRY['roof_sculptures'];
-ROOF_REGISTRY['roof_chimney'] = ROOF_REGISTRY['roof_sculptures'];
-ROOF_REGISTRY['ridge_cresting_victorian_lace'] = ROOF_REGISTRY['roof_sculptures'];
-ROOF_REGISTRY['ridge_cresting_gothic_spikes'] = ROOF_REGISTRY['roof_sculptures'];
-ROOF_REGISTRY['ridge_cresting_metal_cap'] = ROOF_REGISTRY['roof_sculptures'];
-ROOF_REGISTRY['finial_victorian_spire'] = ROOF_REGISTRY['roof_sculptures'];
-ROOF_REGISTRY['finial_copper_spire'] = ROOF_REGISTRY['roof_sculptures'];
-ROOF_REGISTRY['finial_globe_orb'] = ROOF_REGISTRY['roof_sculptures'];
-ROOF_REGISTRY['finial_weather_rooster'] = ROOF_REGISTRY['roof_sculptures'];
-ROOF_REGISTRY['chimney_brick_traditional'] = ROOF_REGISTRY['roof_sculptures'];
-ROOF_REGISTRY['chimney_stone_tudor'] = ROOF_REGISTRY['roof_sculptures'];
-ROOF_REGISTRY['chimney_metal_flue'] = ROOF_REGISTRY['roof_sculptures'];
-ROOF_REGISTRY['chimney_double_brick'] = ROOF_REGISTRY['roof_sculptures'];
+ROOF_COMPONENT_REGISTRY['roof_cresting'] = ROOF_COMPONENT_REGISTRY['roof_sculptures'];
+ROOF_COMPONENT_REGISTRY['roof_finial'] = ROOF_COMPONENT_REGISTRY['roof_sculptures'];
+ROOF_COMPONENT_REGISTRY['roof_chimney'] = ROOF_COMPONENT_REGISTRY['roof_sculptures'];
+ROOF_COMPONENT_REGISTRY['ridge_cresting_victorian_lace'] = ROOF_COMPONENT_REGISTRY['roof_sculptures'];
+ROOF_COMPONENT_REGISTRY['ridge_cresting_gothic_spikes'] = ROOF_COMPONENT_REGISTRY['roof_sculptures'];
+ROOF_COMPONENT_REGISTRY['ridge_cresting_metal_cap'] = ROOF_COMPONENT_REGISTRY['roof_sculptures'];
+ROOF_COMPONENT_REGISTRY['finial_victorian_spire'] = ROOF_COMPONENT_REGISTRY['roof_sculptures'];
+ROOF_COMPONENT_REGISTRY['finial_copper_spire'] = ROOF_COMPONENT_REGISTRY['roof_sculptures'];
+ROOF_COMPONENT_REGISTRY['finial_globe_orb'] = ROOF_COMPONENT_REGISTRY['roof_sculptures'];
+ROOF_COMPONENT_REGISTRY['finial_weather_rooster'] = ROOF_COMPONENT_REGISTRY['roof_sculptures'];
+ROOF_COMPONENT_REGISTRY['chimney_brick_traditional'] = ROOF_COMPONENT_REGISTRY['roof_sculptures'];
+ROOF_COMPONENT_REGISTRY['chimney_stone_tudor'] = ROOF_COMPONENT_REGISTRY['roof_sculptures'];
+ROOF_COMPONENT_REGISTRY['chimney_metal_flue'] = ROOF_COMPONENT_REGISTRY['roof_sculptures'];
+ROOF_COMPONENT_REGISTRY['chimney_double_brick'] = ROOF_COMPONENT_REGISTRY['roof_sculptures'];
 
-ROOF_REGISTRY['skylight_square_grid_inset'] = ROOF_REGISTRY['skylight'];
-ROOF_REGISTRY['skylight_diamond_lattice_inset'] = ROOF_REGISTRY['skylight'];
-ROOF_REGISTRY['skylight_hexagonal_inset'] = ROOF_REGISTRY['skylight'];
-ROOF_REGISTRY['skylight_solid_clear_inset'] = ROOF_REGISTRY['skylight'];
-ROOF_REGISTRY['skylight_velux_frame'] = ROOF_REGISTRY['skylight'];
-ROOF_REGISTRY['skylight_pyramid_dome'] = ROOF_REGISTRY['skylight'];
-ROOF_REGISTRY['skylight_flush_flat'] = ROOF_REGISTRY['skylight'];
+ROOF_COMPONENT_REGISTRY['skylight_square_grid_inset'] = ROOF_COMPONENT_REGISTRY['skylight'];
+ROOF_COMPONENT_REGISTRY['skylight_diamond_lattice_inset'] = ROOF_COMPONENT_REGISTRY['skylight'];
+ROOF_COMPONENT_REGISTRY['skylight_hexagonal_inset'] = ROOF_COMPONENT_REGISTRY['skylight'];
+ROOF_COMPONENT_REGISTRY['skylight_solid_clear_inset'] = ROOF_COMPONENT_REGISTRY['skylight'];
+ROOF_COMPONENT_REGISTRY['skylight_velux_frame'] = ROOF_COMPONENT_REGISTRY['skylight'];
+ROOF_COMPONENT_REGISTRY['skylight_pyramid_dome'] = ROOF_COMPONENT_REGISTRY['skylight'];
+ROOF_COMPONENT_REGISTRY['skylight_flush_flat'] = ROOF_COMPONENT_REGISTRY['skylight'];
+
+export const ROOF_REGISTRY = ROOF_COMPONENT_REGISTRY;

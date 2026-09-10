@@ -68,6 +68,10 @@ export class RoofEngine {
         return RoofTopologyEngine.deleteRoof(planner, roof);
     }
 
+    static duplicateRoof(planner, roof, offset = { x: 30, y: 30 }) {
+        return RoofTopologyEngine.duplicateRoof(planner, roof, offset);
+    }
+
     static isPointInsideRoof(roof, x, y) {
         return RoofTopologyEngine.isPointInsideRoof(roof, x, y);
     }
@@ -123,12 +127,32 @@ export class RoofEngine {
         RoofMutationEngine.setWallGap(roof, wallGap, planner);
     }
 
+    static setFlipSlope(roof, flipSlope, planner = null) {
+        RoofMutationEngine.setFlipSlope(roof, flipSlope, planner);
+    }
+
+    static setAutoPlacementMode(roof, mode, planner = null) {
+        RoofMutationEngine.setAutoPlacementMode(roof, mode, planner);
+    }
+
+    static setTileSize(roof, tileSize, planner = null) {
+        RoofMutationEngine.setTileSize(roof, tileSize, planner);
+    }
+
     static setMaterial(roof, materialKey, scope = 'single', slopeKey = null, planner = null) {
         RoofMutationEngine.setMaterial(roof, materialKey, scope, slopeKey, planner);
     }
 
     static setAutoShapeWalls(roof, enabled, planner = null) {
         RoofMutationEngine.setAutoShapeWalls(roof, enabled, planner);
+    }
+
+    static updateAddon(roof, addonType, idOrIndex, params, planner = null) {
+        return RoofMutationEngine.updateAddon(roof, addonType, idOrIndex, params, planner);
+    }
+
+    static batchUpdate(roof, updates, planner = null) {
+        RoofMutationEngine.batchUpdate(roof, updates, planner);
     }
 
     static addSkylight(roof, params, planner = null) {

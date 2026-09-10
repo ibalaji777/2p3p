@@ -3679,13 +3679,9 @@ export class GizmoManager {
                 const roof = getActiveRoof();
                 if (roof) {
                     const conf = roof.config || roof;
-                    conf.ridgeAxis = (conf.ridgeAxis === 'y') ? 'x' : 'y';
-                    conf.manualRidge = true;
-                    if (this.ctx.envBuilder?.updateRoofLive) this.ctx.envBuilder.updateRoofLive(roof);
-                    if (roof.update) roof.update();
-                    if (this.ctx.planner?.stage?.batchDraw) this.ctx.planner.stage.batchDraw();
-                    if (this.ctx.interactions.roofPitchGizmo) this.ctx.interactions.roofPitchGizmo.updateHandlePositions();
-                    if (this.ctx.requestRender) this.ctx.requestRender();
+                    const nextAxis = (conf.ridgeAxis === 'y') ? 'x' : 'y';
+                    RoofEngine.setRidgeAxis(roof, nextAxis, this.ctx.planner || this.ctx, true);
+                    if (this.ctx.interactions?.roofPitchGizmo) this.ctx.interactions.roofPitchGizmo.updateHandlePositions();
                 }
             };
         }

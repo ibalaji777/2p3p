@@ -5,6 +5,7 @@ import { UniversalMaterialManager } from './UniversalMaterialManager.js';
 import { Wall3DBuilder } from '../../features/wall/wall.renderer3d.js';
 import { Railing3DBuilder } from '../../features/railing/builders/Railing3DBuilder.js';
 import { Stair3DBuilder } from '../../features/stairs/stairs.renderer3d.js';
+import { Roof3DBuilder } from '../../features/roof/builders/Roof3DBuilder.js';
 import { computeLevelElevations } from './helpers/levelElevations.js';
 
 export class StaticFloors {
@@ -75,6 +76,7 @@ export class StaticFloors {
             }
         };
         this.stairBuilder = new Stair3DBuilder(assets, interactables, this.helpers);
+        this.roofBuilder = new Roof3DBuilder(this.helpers.ctx);
     }
 
     build(levelsConfigArray, activeIndex, viewMode3D, stairs = [], staticStructureGroup) {
@@ -279,204 +281,9 @@ export class StaticFloors {
                     });
                 }
                 
-                // Build Roofs
-                if (data.roofs) {
-                    const hasWalls = data.walls && data.walls.length > 0;
-                    let maxWallHeight = WALL_HEIGHT;
-                    if (hasWalls) {
-                        maxWallHeight = Math.max(...data.walls.map(w => w.height || w.config?.height || WALL_HEIGHT));
-                    }
-                    const baseHeight = (hasWalls || index === 0) ? maxWallHeight : 0;
-
-                    data.roofs.forEach(roofData => {
-                        const basePts = roofData.points;
-                        const roofConf = roofData.config || roofData;
-                        const overhangs = roofConf.overhangs ? roofConf.overhangs : (roofConf.overhang !== undefined ? roofConf.overhang : 8);
-                        const pts = offsetPolygon(basePts, overhangs);
-
-                        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-                        pts.forEach(p => {
-                            minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
-                            minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
-                        });
-
-                        const wallGap = roofData.wallGap || 0;
-                        const W = maxX - minX;
-                        const D = maxY - minY;
-                        const h = baseHeight + wallGap + 0.5;
-
-                        const decor = ROOF_DECOR_REGISTRY[roofData.material] || ROOF_DECOR_REGISTRY['concrete_flat'];
-                        const mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide });
-                        if (decor && decor.texture) {
-                            const tex = new THREE.TextureLoader().load(decor.texture);
-                            tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-                            const baseSize = roofData.tileSize || 100;
-                            const tSize = baseSize * (decor.scaleRatio || 1);
-                            tex.repeat.set(100 / tSize, 100 / tSize);
-                            mat.map = tex;
-                        }
-
-                        let mesh;
-                        if (roofData.roofType === 'flat') {
-                            const shape = new THREE.Shape();
-                            shape.moveTo(pts[0].x, pts[0].y);
-                            for (let i = 1; i < pts.length; i++) shape.lineTo(pts[i].x, pts[i].y);
-                            shape.lineTo(pts[0].x, pts[0].y);
-                            const geo = new THREE.ExtrudeGeometry(shape, { depth: roofData.thickness || 2, bevelEnabled: false });
-                            geo.rotateX(Math.PI / 2); geo.translate(0, roofData.thickness || 2, 0);
-                            
-                            // UV Fix for Flat Roof (ExtrudeGeometry) - World Space Projection
-                            const uvs = geo.attributes.uv;
-                            const pos = geo.attributes.position;
-                            geo.computeVertexNormals();
-                            const norms = geo.attributes.normal;
-                            for (let i = 0; i < uvs.count; i++) {
-                                const nx = Math.abs(norms.getX(i));
-                                const ny = Math.abs(norms.getY(i));
-                                const nz = Math.abs(norms.getZ(i));
-                                const vx = pos.getX(i) / 100;
-                                const vy = pos.getY(i) / 100;
-                                const vz = pos.getZ(i) / 100;
-                                
-                                if (ny > 0.5) uvs.setXY(i, vx, vz); // Top/Bottom
-                                else if (nx > nz) uvs.setXY(i, vz, vy); // Side X
-                                else uvs.setXY(i, vx, vy); // Side Z
-                            }
-
-                            const matId = roofData.configId || roofData.material;
-                            let flatMat = new THREE.MeshStandardMaterial({ 
-                                color: 0xefede5,
-                                roughness: 0.98,
-                                metalness: 0.02,
-                                bumpScale: 0.015
-                            });
-                            
-                            if (matId && ROOF_DECOR_REGISTRY[matId]) {
-                                const decorConf = ROOF_DECOR_REGISTRY[matId];
-                                const tex = new THREE.TextureLoader().load(decorConf.texture);
-                                tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-                                const baseSize = roofData.tileSize || 100;
-                                const tSize = baseSize * (decorConf.scaleRatio || 1);
-                                tex.repeat.set(100 / tSize, 100 / tSize);
-                                flatMat = new THREE.MeshStandardMaterial({ map: tex });
-                            }
-
-                            mesh = new THREE.Mesh(geo, flatMat);
-                        } else if (roofData.roofType === 'gable') {
-                            const pitch = roofData.pitch || 30;
-                            const axis = roofData.ridgeAxis || (roofData.config?.ridgeAxis) || 'x';
-                            const maxSpan = axis === 'x' ? D : W;
-                            const rh = Math.tan(pitch * Math.PI / 180) * (maxSpan / 2);
-                            let cx = minX + W/2;
-                            let cy = minY + D/2;
-
-                            const v = [], uv = [];
-                            const addTriangle = (p0, p1, p2) => {
-                                v.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
-                                uv.push(p0.x / 100, p0.z / 100, p1.x / 100, p1.z / 100, p2.x / 100, p2.z / 100);
-                            };
-                            const addQuad = (p0, p1, p2, p3) => {
-                                addTriangle(p0, p1, p2);
-                                addTriangle(p0, p2, p3);
-                            };
-
-                            const C0 = {x: minX, y: 0, z: minY};
-                            const C1 = {x: maxX, y: 0, z: minY};
-                            const C2 = {x: maxX, y: 0, z: maxY};
-                            const C3 = {x: minX, y: 0, z: maxY};
-
-                            if (axis === 'x') {
-                                const R0 = {x: minX, y: rh, z: cy};
-                                const R1 = {x: maxX, y: rh, z: cy};
-                                addQuad(C1, C0, R0, R1); // Front
-                                addQuad(C3, C2, R1, R0); // Back
-                            } else {
-                                const R0 = {x: cx, y: rh, z: minY};
-                                const R1 = {x: cx, y: rh, z: maxY};
-                                addQuad(C0, C3, R1, R0); // Left
-                                addQuad(C2, C1, R0, R1); // Right
-                            }
-
-                            const geo = new THREE.BufferGeometry();
-                            geo.setAttribute("position", new THREE.Float32BufferAttribute(v, 3));
-                            geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
-                            geo.computeVertexNormals();
-                            mesh = new THREE.Mesh(geo, mat);
-                            
-                            const gableMatId = roofData.gableMaterial || (roofData.config?.gableMaterial) || 'white_plaster_wall';
-                            const wallDecor = WALL_DECOR_REGISTRY[gableMatId] || WALL_DECOR_REGISTRY['white_plaster_wall'];
-                            let gableMat = new THREE.MeshStandardMaterial({ color: 0xefede5 });
-                            if (wallDecor && wallDecor.texture) {
-                                const gTex = new THREE.TextureLoader().load(wallDecor.texture);
-                                gTex.wrapS = gTex.wrapT = THREE.RepeatWrapping;
-                                gTex.repeat.set(100/(wallDecor.scaleRatio || 100), 100/(wallDecor.scaleRatio || 100));
-                                gableMat = new THREE.MeshStandardMaterial({ map: gTex, side: THREE.DoubleSide, bumpMap: gTex, bumpScale: 0.015 });
-                            }
-
-                            const gv = [], guv = [];
-                            const addGableTri = (p0, p1, p2) => {
-                                gv.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
-                                let sc = 1/100;
-                                if (axis === 'x') guv.push(p0.z*sc, p0.y*sc, p1.z*sc, p1.y*sc, p2.z*sc, p2.y*sc);
-                                else guv.push(p0.x*sc, p0.y*sc, p1.x*sc, p1.y*sc, p2.x*sc, p2.y*sc);
-                            };
-
-                            if (axis === 'x') {
-                                const R0 = {x: minX, y: rh, z: cy};
-                                const R1 = {x: maxX, y: rh, z: cy};
-                                addGableTri(C0, C3, R0); // Left
-                                addGableTri(C2, C1, R1); // Right
-                            } else {
-                                const R0 = {x: cx, y: rh, z: minY};
-                                const R1 = {x: cx, y: rh, z: maxY};
-                                addGableTri(C1, C0, R0); // Front
-                                addGableTri(C3, C2, R1); // Back
-                            }
-                            
-                            const gGeo = new THREE.BufferGeometry();
-                            gGeo.setAttribute("position", new THREE.Float32BufferAttribute(gv, 3));
-                            gGeo.setAttribute("uv", new THREE.Float32BufferAttribute(guv, 2));
-                            gGeo.computeVertexNormals();
-                            const gableMesh = new THREE.Mesh(gGeo, gableMat);
-                            mesh.add(gableMesh);
-
-                        } else {
-                            const pitch = roofData.pitch || 30;
-                            const rh = Math.tan(pitch * Math.PI / 180) * (Math.min(W, D) / 2);
-                            
-                            let cx = 0, cy = 0, signedArea = 0;
-                            for (let i = 0; i < pts.length; i++) {
-                                let p0 = pts[i], p1 = pts[(i + 1) % pts.length];
-                                let a = p0.x * p1.y - p1.x * p0.y;
-                                signedArea += a; cx += (p0.x + p1.x) * a; cy += (p0.y + p1.y) * a;
-                            }
-                            signedArea *= 0.5;
-                            if (signedArea !== 0) { cx /= (6.0 * signedArea); cy /= (6.0 * signedArea); } 
-                            else { cx = minX + W/2; cy = minY + D/2; }
-
-                            const top = [cx, rh, cy];
-                            const v = [], uv = [];
-                            for (let i = 0; i < pts.length; i++) {
-                                let p0 = pts[i], p1 = pts[(i + 1) % pts.length];
-                                let dx1 = p1.x - p0.x, dz1 = p1.y - p0.y;
-                                let dx2 = top[0] - p0.x, dz2 = top[2] - p0.y;
-                                let ny = dx1 * dz2 - dz1 * dx2; 
-                                if (ny < 0) { v.push(p1.x, 0, p1.y, p0.x, 0, p0.y, ...top); } 
-                                else { v.push(p0.x, 0, p0.y, p1.x, 0, p1.y, ...top); }
-                                uv.push(0, 0, 1, 0, 0.5, 1);
-                            }
-
-                            const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(v, 3)); geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); geo.computeVertexNormals();
-                            mesh = new THREE.Mesh(geo, mat);
-                        }
-
-                        const roofGroup = new THREE.Group(); roofGroup.position.set(roofData.x || 0, h, roofData.y || 0); roofGroup.rotation.y = -(roofData.rotation || 0) * Math.PI / 180;
-                        mesh.castShadow = true;
-                        mesh.receiveShadow = true;
-                        roofGroup.add(mesh);
-                        
-                        this.target.add(roofGroup);
-                    });
+                // Build Roofs via centralized Roof3DBuilder
+                if (data.roofs && data.roofs.length > 0) {
+                    this.roofBuilder.buildRoofs(data.roofs, index, data.walls, floorGroup, data.shapes);
                 }
 
                 this.target.add(floorGroup);

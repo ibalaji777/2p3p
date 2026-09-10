@@ -11,6 +11,7 @@
 import { RoofGeometryEngine } from './RoofGeometryEngine.js';
 import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
 import { WallEngine } from '../wall/WallEngine.js';
+import { RoofMutationEngine } from './RoofMutationEngine.js';
 
 export class RoofTopologyEngine {
     /**
@@ -67,6 +68,7 @@ export class RoofTopologyEngine {
         roof.config = mergedConfig;
         roof.configId = mergedConfig.material;
         if (options.description !== undefined) roof.description = options.description;
+        if (mergedConfig.tileSize !== undefined) roof.tileSize = mergedConfig.tileSize;
 
         if (options.x !== undefined && options.y !== undefined && roof.group && typeof roof.group.position === 'function') {
             roof.group.position({ x: options.x, y: options.y });
@@ -86,6 +88,91 @@ export class RoofTopologyEngine {
         }
 
         return roof;
+    }
+
+    /**
+     * Duplicates an existing roof entity with deep structural cloning and an offset.
+     * @param {Object} planner 
+     * @param {Object|string} roofOrId 
+     * @param {{x: number, y: number}} [offset={x: 30, y: 30}] 
+     * @returns {Object|null}
+     */
+    static duplicateRoof(planner, roofOrId, offset = { x: 30, y: 30 }) {
+        if (!planner) return null;
+        const roof = (typeof roofOrId === 'string')
+            ? (planner.roofs && planner.roofs.find(r => r.id === roofOrId))
+            : roofOrId;
+        if (!roof || !roof.points || !Array.isArray(roof.points)) return null;
+
+        const ox = offset?.x !== undefined ? offset.x : 30;
+        const oy = offset?.y !== undefined ? offset.y : 30;
+
+        // Deep clone points
+        const clonedPoints = roof.points.map(p => ({ x: p.x, y: p.y }));
+
+        // Deep clone config
+        const origConf = roof.config || {};
+        const clonedConfig = {
+            ...origConf,
+            pitch: origConf.pitch !== undefined ? origConf.pitch : 30,
+            curve: origConf.curve || 0,
+            overhang: origConf.overhang !== undefined ? origConf.overhang : 8,
+            overhangs: origConf.overhangs ? [...origConf.overhangs] : undefined,
+            thickness: origConf.thickness !== undefined ? origConf.thickness : 10,
+            ridgeOffset: origConf.ridgeOffset || 0,
+            roofType: origConf.roofType || 'hip',
+            material: origConf.material || 'dark_asphalt_roof',
+            wallGap: origConf.wallGap || 0,
+            ridgeAxis: origConf.ridgeAxis || 'x',
+            manualRidge: !!origConf.manualRidge,
+            gableMaterial: origConf.gableMaterial || 'white_plaster_wall',
+            fasciaMaterial: origConf.fasciaMaterial,
+            autoShapeWalls: !!origConf.autoShapeWalls,
+            flipSlope: !!origConf.flipSlope,
+            autoPlacementMode: origConf.autoPlacementMode || 'manual',
+            slopes: origConf.slopes ? JSON.parse(JSON.stringify(origConf.slopes)) : undefined,
+            skylights: origConf.skylights ? origConf.skylights.map(s => ({
+                ...JSON.parse(JSON.stringify(s)),
+                id: `sky_${Date.now()}_${Math.floor(Math.random() * 1000)}`
+            })) : [],
+            crestings: origConf.crestings ? origConf.crestings.map(c => ({
+                ...JSON.parse(JSON.stringify(c)),
+                id: `crest_${Date.now()}_${Math.floor(Math.random() * 1000)}`
+            })) : [],
+            finials: origConf.finials ? origConf.finials.map(f => ({
+                ...JSON.parse(JSON.stringify(f)),
+                id: `finial_${Date.now()}_${Math.floor(Math.random() * 1000)}`
+            })) : [],
+            chimneys: origConf.chimneys ? origConf.chimneys.map(ch => ({
+                ...JSON.parse(JSON.stringify(ch)),
+                id: `chimney_${Date.now()}_${Math.floor(Math.random() * 1000)}`
+            })) : []
+        };
+
+        const gx = roof.group && typeof roof.group.x === 'function' ? roof.group.x() : (roof.x || 0);
+        const gy = roof.group && typeof roof.group.y === 'function' ? roof.group.y() : (roof.y || 0);
+
+        const newId = `roof_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+
+        const newRoof = this.createRoof(planner, clonedPoints, clonedConfig, {
+            id: newId,
+            x: gx + ox,
+            y: gy + oy,
+            elevation: roof.elevation !== undefined ? roof.elevation : 120,
+            rotation: roof.rotation || 0,
+            description: roof.description ? `${roof.description} (Copy)` : undefined,
+            addToPlanner: true,
+            select: true
+        });
+
+        if (newRoof) {
+            if (roof.tileSize !== undefined) newRoof.tileSize = roof.tileSize;
+            if (roof.configId) newRoof.configId = roof.configId;
+            
+            RoofMutationEngine.notifyRoofUpdated(newRoof, planner, 'create');
+        }
+
+        return newRoof;
     }
 
     /**
