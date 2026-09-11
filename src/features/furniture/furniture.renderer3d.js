@@ -1619,6 +1619,287 @@ export class FurnitureManager {
                             stem.rotation.z = off * 0.08;
                             eqGroup.add(stem);
                         });
+                    } else if (config.id === 'decor_car_white_sedan' || config.id === 'decor_car_white_hatchback') {
+                        const isHatchback = config.id === 'decor_car_white_hatchback';
+                        const mBody = getDynamicMat('body', 'upvc_white', { color: '#f8fafc', roughness: 0.18, metalness: 0.08, clearcoat: 0.85 });
+                        const mGlass = getDynamicMat('glass', 'glass_tinted', { color: '#0f172a', roughness: 0.04, metalness: 0.8, clearcoat: 1.0 });
+                        const mTrim = getDynamicMat('trim', 'metal_black', { color: '#18181b', roughness: 0.4, metalness: 0.6 });
+                        const mRubber = new THREE.MeshStandardMaterial({ color: '#27272a', roughness: 0.9 });
+                        const mAlloy = new THREE.MeshStandardMaterial({ color: '#e4e4e7', metalness: 0.85, roughness: 0.2 });
+                        const mHeadlight = new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#f1f5f9', emissiveIntensity: 0.8, roughness: 0.1 });
+                        const mTaillight = new THREE.MeshStandardMaterial({ color: '#ef4444', emissive: '#dc2626', emissiveIntensity: 0.5, roughness: 0.1 });
+                        const mPlate = new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.5 });
+
+                        const carLength = isHatchback ? 160 : 180;
+                        const carWidth = isHatchback ? 72 : 76;
+                        const carHeight = 54;
+                        const wheelRadius = 13.5;
+                        const wheelWidth = 8;
+                        const groundClearance = 7;
+
+                        // 1. Lower Body / Rocker Panels
+                        const lowerBodyH = 18;
+                        const lowerBodyL = carLength - 6;
+                        const lowerBodyGeo = new THREE.BoxGeometry(carWidth - 4, lowerBodyH, lowerBodyL);
+                        const lowerBody = new THREE.Mesh(lowerBodyGeo, mBody);
+                        lowerBody.position.set(0, groundClearance + lowerBodyH / 2, 0);
+                        registerSlotMesh(lowerBody, 'body');
+
+                        // 2. Front Hood & Bumper
+                        const hoodL = isHatchback ? 48 : 54;
+                        const hoodH = 8;
+                        const hoodW = carWidth - 6;
+                        const hoodGeo = new THREE.BoxGeometry(hoodW, hoodH, hoodL);
+                        const hood = new THREE.Mesh(hoodGeo, mBody);
+                        const hoodZ = lowerBodyL / 2 - hoodL / 2;
+                        hood.position.set(0, groundClearance + lowerBodyH + hoodH / 2 - 2, hoodZ);
+                        registerSlotMesh(hood, 'body');
+
+                        // Front Bumper Nose Slant
+                        const noseGeo = new THREE.BoxGeometry(hoodW, 14, 8);
+                        const nose = new THREE.Mesh(noseGeo, mBody);
+                        nose.position.set(0, groundClearance + 7, lowerBodyL / 2 + 2);
+                        registerSlotMesh(nose, 'body');
+
+                        // 3. Cabin & Greenhouse (Roof, Windshield, Rear Window)
+                        const cabinL = isHatchback ? 72 : 76;
+                        const cabinW = carWidth - 10;
+                        const cabinH = carHeight - groundClearance - lowerBodyH;
+                        const cabinGeo = new THREE.BoxGeometry(cabinW, cabinH, cabinL);
+                        const cabin = new THREE.Mesh(cabinGeo, mGlass);
+                        const cabinZ = isHatchback ? -12 : -6;
+                        cabin.position.set(0, groundClearance + lowerBodyH + cabinH / 2 - 1, cabinZ);
+                        registerSlotMesh(cabin, 'glass');
+
+                        // Roof Panel on Top of Cabin
+                        const roofGeo = new THREE.BoxGeometry(cabinW - 2, 2.5, cabinL - 10);
+                        const roof = new THREE.Mesh(roofGeo, mBody);
+                        roof.position.set(0, groundClearance + lowerBodyH + cabinH + 0.5, cabinZ + 2);
+                        registerSlotMesh(roof, 'body');
+
+                        // 4. Rear Trunk Deck / Hatchback Spoiler
+                        if (!isHatchback) {
+                            const trunkL = 36;
+                            const trunkGeo = new THREE.BoxGeometry(carWidth - 6, 8, trunkL);
+                            const trunk = new THREE.Mesh(trunkGeo, mBody);
+                            trunk.position.set(0, groundClearance + lowerBodyH + 2, -lowerBodyL / 2 + trunkL / 2);
+                            registerSlotMesh(trunk, 'body');
+                        } else {
+                            const spoilerGeo = new THREE.BoxGeometry(cabinW, 3, 8);
+                            const spoiler = new THREE.Mesh(spoilerGeo, mBody);
+                            spoiler.position.set(0, groundClearance + lowerBodyH + cabinH + 1, cabinZ - cabinL / 2 + 2);
+                            registerSlotMesh(spoiler, 'body');
+                        }
+
+                        // 5. Sleek Horizontal Front Grille & Black Lower Trim
+                        const grilleGeo = new THREE.BoxGeometry(32, 5, 2);
+                        const grille = new THREE.Mesh(grilleGeo, mTrim);
+                        grille.position.set(0, groundClearance + 10, lowerBodyL / 2 + 5.5);
+                        registerSlotMesh(grille, 'trim');
+
+                        const lowerIntakeGeo = new THREE.BoxGeometry(44, 4, 2);
+                        const lowerIntake = new THREE.Mesh(lowerIntakeGeo, mTrim);
+                        lowerIntake.position.set(0, groundClearance + 3, lowerBodyL / 2 + 5.5);
+                        eqGroup.add(lowerIntake);
+
+                        // 6. Modern LED Headlights (Crisp Angled Prisms)
+                        [-1, 1].forEach(side => {
+                            const headlightGeo = new THREE.BoxGeometry(14, 4, 3);
+                            const headlight = new THREE.Mesh(headlightGeo, mHeadlight);
+                            headlight.position.set(side * (hoodW / 2 - 8), groundClearance + 12, lowerBodyL / 2 + 5.2);
+                            headlight.rotation.y = side * 0.1;
+                            eqGroup.add(headlight);
+                        });
+
+                        // 7. Taillights (Red Bar at Rear)
+                        [-1, 1].forEach(side => {
+                            const taillightGeo = new THREE.BoxGeometry(16, 4.5, 2);
+                            const taillight = new THREE.Mesh(taillightGeo, mTaillight);
+                            taillight.position.set(side * (carWidth / 2 - 11), groundClearance + 13, -lowerBodyL / 2 - 2.5);
+                            eqGroup.add(taillight);
+                        });
+
+                        // 8. License Plates (Front and Back)
+                        const frontPlate = new THREE.Mesh(new THREE.BoxGeometry(18, 5, 0.8), mPlate);
+                        frontPlate.position.set(0, groundClearance + 6.5, lowerBodyL / 2 + 6.3);
+                        eqGroup.add(frontPlate);
+
+                        // 9. Aerodynamic Side Mirrors
+                        [-1, 1].forEach(side => {
+                            const mirrorStem = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 4, 8), mTrim);
+                            mirrorStem.rotation.z = side * (Math.PI / 3);
+                            mirrorStem.position.set(side * (cabinW / 2 + 1.5), groundClearance + lowerBodyH + 4, cabinZ + cabinL / 2 - 8);
+                            const mirrorBody = new THREE.Mesh(new THREE.BoxGeometry(4.5, 3, 6), mBody);
+                            mirrorBody.position.set(side * (cabinW / 2 + 4.5), groundClearance + lowerBodyH + 6, cabinZ + cabinL / 2 - 8);
+                            eqGroup.add(mirrorStem, mirrorBody);
+                        });
+
+                        // 10. 4 Alloy Wheels with Rubber Tires
+                        const wheelBaseX = carWidth / 2 - wheelWidth / 2 + 0.5;
+                        const frontWheelZ = lowerBodyL / 2 - 32;
+                        const rearWheelZ = -lowerBodyL / 2 + 32;
+                        [
+                            [wheelBaseX, frontWheelZ],
+                            [-wheelBaseX, frontWheelZ],
+                            [wheelBaseX, rearWheelZ],
+                            [-wheelBaseX, rearWheelZ]
+                        ].forEach(([wX, wZ]) => {
+                            const wheelGroup = new THREE.Group();
+                            wheelGroup.position.set(wX, wheelRadius, wZ);
+
+                            // Tire
+                            const tireGeo = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelWidth, 24);
+                            tireGeo.rotateZ(Math.PI / 2);
+                            const tire = new THREE.Mesh(tireGeo, mRubber);
+                            wheelGroup.add(tire);
+
+                            // Alloy Rim Hub
+                            const rimGeo = new THREE.CylinderGeometry(wheelRadius * 0.68, wheelRadius * 0.68, wheelWidth + 0.3, 16);
+                            rimGeo.rotateZ(Math.PI / 2);
+                            const rim = new THREE.Mesh(rimGeo, mAlloy);
+                            wheelGroup.add(rim);
+
+                            // 5-Spoke Accent Details
+                            for (let sp = 0; sp < 5; sp++) {
+                                const spokeAngle = (sp / 5) * Math.PI * 2;
+                                const spoke = new THREE.Mesh(new THREE.BoxGeometry(wheelWidth + 0.4, 2, wheelRadius * 0.58), mAlloy);
+                                spoke.rotation.x = spokeAngle;
+                                wheelGroup.add(spoke);
+                            }
+
+                            eqGroup.add(wheelGroup);
+                        });
+
+                    } else if (config.id === 'decor_hanging_ivy') {
+                        const mFoliage = getDynamicMat('foliage', 'plant_foliage_green', { color: '#2e5e24', roughness: 0.55, metalness: 0.05 });
+                        const mFoliageLight = new THREE.MeshStandardMaterial({ color: '#3d782e', roughness: 0.5, metalness: 0.05 });
+                        const stemMat = new THREE.MeshStandardMaterial({ color: '#274e1d', roughness: 0.8 });
+
+                        const ivyWidth = Math.max(40, sW);
+                        const ivyHeight = Math.max(20, sH);
+                        const topMount = new THREE.Mesh(new THREE.BoxGeometry(ivyWidth, 2, 2), mFoliage);
+                        topMount.position.set(0, ivyHeight - 1, 0);
+                        registerSlotMesh(topMount, 'foliage');
+
+                        // Staggered cascading tendrils
+                        const numTendrils = Math.max(8, Math.floor(ivyWidth / 6));
+                        const xStep = ivyWidth / (numTendrils + 1);
+
+                        for (let t = 1; t <= numTendrils; t++) {
+                            const posX = -ivyWidth / 2 + t * xStep + (Math.sin(t * 3) * 1.5);
+                            // Vary lengths organically (curtain wave)
+                            const tendrilH = (ivyHeight * 0.4) + Math.abs(Math.sin(t * 1.4)) * (ivyHeight * 0.55);
+                            const curve = new THREE.CatmullRomCurve3([
+                                new THREE.Vector3(posX, ivyHeight - 1, 0),
+                                new THREE.Vector3(posX + Math.sin(t * 2) * 2, ivyHeight - tendrilH * 0.4, Math.cos(t * 1.5) * 1.5),
+                                new THREE.Vector3(posX - Math.cos(t) * 1.8, ivyHeight - tendrilH * 0.7, -Math.sin(t) * 1.2),
+                                new THREE.Vector3(posX + Math.sin(t * 0.7) * 1, ivyHeight - tendrilH, 0)
+                            ]);
+
+                            const stem = new THREE.Mesh(new THREE.TubeGeometry(curve, 10, 0.4, 6, false), stemMat);
+                            eqGroup.add(stem);
+
+                            // Clustered leaves along each drooping tendril
+                            const numLeaves = Math.max(3, Math.floor(tendrilH / 4));
+                            for (let l = 1; l <= numLeaves; l++) {
+                                const frac = l / numLeaves;
+                                const pt = curve.getPoint(frac);
+                                const leafMat = l % 2 === 0 ? mFoliageLight : mFoliage;
+                                const leaf = new THREE.Mesh(new THREE.SphereGeometry(2.2 + (l % 3) * 0.4, 8, 6), leafMat);
+                                leaf.scale.set(1.4, 0.15, 1.0);
+                                leaf.position.copy(pt);
+                                leaf.rotation.set(0.3 + (l % 4) * 0.2, (t + l) * 0.8, (l % 3) * 0.3);
+                                registerSlotMesh(leaf, 'foliage');
+                            }
+                        }
+
+                    } else if (config.id === 'decor_tree_slender') {
+                        const mTrunk = getDynamicMat('trunk', 'wood_dark_walnut', { color: '#453225', roughness: 0.9 });
+                        const mFoliage = getDynamicMat('foliage', 'plant_foliage_green', { color: '#386c2d', roughness: 0.65, metalness: 0.05 });
+                        const mFoliageAccent = new THREE.MeshStandardMaterial({ color: '#4a853b', roughness: 0.55, metalness: 0.05 });
+
+                        const treeH = Math.max(120, sH);
+
+                        // Slender vertical trunk with graceful architectural curves
+                        const trunkCurve = new THREE.CatmullRomCurve3([
+                            new THREE.Vector3(0, 0, 0),
+                            new THREE.Vector3(1.5, treeH * 0.3, 0.5),
+                            new THREE.Vector3(-1.0, treeH * 0.6, -0.8),
+                            new THREE.Vector3(0.8, treeH * 0.85, 0.6),
+                            new THREE.Vector3(0, treeH, 0)
+                        ]);
+                        const trunk = new THREE.Mesh(new THREE.TubeGeometry(trunkCurve, 16, 2.2, 8, false), mTrunk);
+                        registerSlotMesh(trunk, 'trunk');
+
+                        // Primary slender branches
+                        const branchLevels = [
+                            { y: treeH * 0.5, ang: 0.4, len: 18, elevAng: 0.5 },
+                            { y: treeH * 0.62, ang: 2.2, len: 22, elevAng: 0.45 },
+                            { y: treeH * 0.74, ang: 4.1, len: 20, elevAng: 0.55 },
+                            { y: treeH * 0.86, ang: 5.6, len: 16, elevAng: 0.6 },
+                            { y: treeH * 0.94, ang: 1.2, len: 14, elevAng: 0.65 }
+                        ];
+
+                        branchLevels.forEach((b, idx) => {
+                            const bStart = trunkCurve.getPoint(b.y / treeH);
+                            const bEnd = new THREE.Vector3(
+                                bStart.x + Math.sin(b.ang) * b.len,
+                                bStart.y + Math.sin(b.elevAng) * (b.len * 0.8),
+                                bStart.z + Math.cos(b.ang) * b.len
+                            );
+                            const bCurve = new THREE.LineCurve3(bStart, bEnd);
+                            const branch = new THREE.Mesh(new THREE.TubeGeometry(bCurve, 6, 1.1, 6, false), mTrunk);
+                            eqGroup.add(branch);
+
+                            // Airy foliage clouds at each branch tip
+                            const puffCount = 3;
+                            for (let p = 0; p < puffCount; p++) {
+                                const puffMat = (idx + p) % 2 === 0 ? mFoliageAccent : mFoliage;
+                                const puff = new THREE.Mesh(new THREE.SphereGeometry(9 + p * 1.5, 12, 8), puffMat);
+                                puff.scale.set(1.3, 0.85, 1.2);
+                                puff.position.set(
+                                    bEnd.x + (p - 1) * 4 + Math.sin(p * 2) * 2,
+                                    bEnd.y + p * 3,
+                                    bEnd.z + (p - 1) * 3
+                                );
+                                puff.rotation.y = idx * 0.7 + p;
+                                registerSlotMesh(puff, 'foliage');
+                            }
+                        });
+
+                        // Top Crown Foliage
+                        const crownPuff = new THREE.Mesh(new THREE.SphereGeometry(14, 16, 10), mFoliage);
+                        crownPuff.scale.set(1.2, 0.9, 1.2);
+                        crownPuff.position.set(0, treeH + 6, 0);
+                        registerSlotMesh(crownPuff, 'foliage');
+
+                    } else if (config.id === 'decor_hedge_sphere') {
+                        const mFoliage = getDynamicMat('foliage', 'plant_foliage_green', { color: '#27581d', roughness: 0.7, metalness: 0.05 });
+                        const mFoliageTop = new THREE.MeshStandardMaterial({ color: '#357027', roughness: 0.65, metalness: 0.05 });
+
+                        const hedgeRadius = Math.max(10, sW / 2);
+
+                        // Main spherical clipped volume
+                        const mainSphere = new THREE.Mesh(new THREE.SphereGeometry(hedgeRadius, 24, 20), mFoliage);
+                        mainSphere.position.set(0, hedgeRadius + 1, 0);
+                        registerSlotMesh(mainSphere, 'foliage');
+
+                        // Subtle organic surface variation puffs for manicured boxwood look
+                        for (let sp = 0; sp < 6; sp++) {
+                            const ang = (sp / 6) * Math.PI * 2;
+                            const puff = new THREE.Mesh(new THREE.SphereGeometry(hedgeRadius * 0.45, 12, 8), mFoliageTop);
+                            puff.position.set(
+                                Math.sin(ang) * (hedgeRadius * 0.72),
+                                hedgeRadius + 2 + Math.cos(sp * 3) * (hedgeRadius * 0.3),
+                                Math.cos(ang) * (hedgeRadius * 0.72)
+                            );
+                            registerSlotMesh(puff, 'foliage');
+                        }
+
+                        // Base planter collar/soil
+                        const soil = new THREE.Mesh(new THREE.CylinderGeometry(hedgeRadius * 0.8, hedgeRadius * 0.85, 2, 24), new THREE.MeshStandardMaterial({ color: '#1f2937', roughness: 0.95 }));
+                        soil.position.set(0, 1, 0);
+                        eqGroup.add(soil);
                     }
                 }
 

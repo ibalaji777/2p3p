@@ -24,6 +24,34 @@ export const RAILING_REGISTRY = {
             material: 'metal_aluminum'
         }
     },
+    'glass_wood_modern': {
+        name: 'Modern Glass with Wood Handrail',
+        height: 40,
+        thickness: 2,
+        post: {
+            width: 1.5,
+            depth: 1.5,
+            spacing: 54,
+            material: 'metal_stainless'
+        },
+        handrail: {
+            width: 3,
+            height: 1.5,
+            shape: 'rectangle',
+            material: 'wood_oak'
+        },
+        glass: {
+            thickness: 0.5,
+            material: 'glass_clear',
+            bottomGap: 2,
+            maxWidth: 48
+        },
+        bottomRail: {
+            width: 2,
+            height: 1.5,
+            material: 'metal_stainless'
+        }
+    },
     'glass_stainless': {
         name: 'Stainless Glass Railing',
         height: 40,

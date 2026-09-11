@@ -760,5 +760,39 @@ export const FURNITURE_REGISTRY = {
         procedural: true,
         default: { width: 20, height: 16, depth: 12, elevation: 40, materials: { vaseA: { id: 'stone_terrazzo_white' }, vaseB: { id: 'metal_brass' } } },
         shape2D: 'decor_vases'
+    },
+
+    // ==========================================
+    // 🚗 VEHICLES & OUTDOOR ELEVATION PROPS
+    // ==========================================
+    'decor_car_white_sedan': {
+        id: 'decor_car_white_sedan', label: 'Luxury Executive White Sedan',
+        procedural: true,
+        default: { width: 76, height: 56, depth: 180, elevation: 0, materials: { body: { id: 'upvc_white' }, glass: { id: 'glass_tinted' }, trim: { id: 'metal_black' } } },
+        shape2D: 'furniture'
+    },
+    'decor_car_white_hatchback': {
+        id: 'decor_car_white_hatchback', label: 'Modern White Compact Hatchback',
+        procedural: true,
+        default: { width: 72, height: 56, depth: 160, elevation: 0, materials: { body: { id: 'upvc_white' }, glass: { id: 'glass_tinted' }, trim: { id: 'metal_black' } } },
+        shape2D: 'furniture'
+    },
+    'decor_hanging_ivy': {
+        id: 'decor_hanging_ivy', label: 'Cascading Creeping Ivy Vines',
+        procedural: true,
+        default: { width: 100, height: 32, depth: 8, elevation: 0, materials: { foliage: { id: 'plant_foliage_green' } } },
+        shape2D: 'furniture'
+    },
+    'decor_tree_slender': {
+        id: 'decor_tree_slender', label: 'Slender Architectural Ornamental Tree',
+        procedural: true,
+        default: { width: 48, height: 180, depth: 48, elevation: 0, materials: { trunk: { id: 'wood_dark_walnut' }, foliage: { id: 'plant_foliage_green' } } },
+        shape2D: 'decor_plant'
+    },
+    'decor_hedge_sphere': {
+        id: 'decor_hedge_sphere', label: 'Manicured Spherical Topiary Hedge',
+        procedural: true,
+        default: { width: 28, height: 28, depth: 28, elevation: 0, materials: { foliage: { id: 'plant_foliage_green' } } },
+        shape2D: 'decor_plant'
     }
 };

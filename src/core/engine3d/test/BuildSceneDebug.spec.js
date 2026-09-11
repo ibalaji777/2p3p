@@ -7,13 +7,9 @@ import { AssetManager } from '../AssetManager.js';
 import { FurnitureManager } from '../../../features/furniture/furniture.renderer3d.js';
 import { DecorManager } from '../DecorManager.js';
 
-import { createElevationProject } from 'C:/Users/BALAJI I/.gemini/antigravity/brain/65245903-8dab-4066-a530-fc940a7a5336/scratch/generateElevationProject.js';
-
 describe('BuildScene Debug Test', () => {
     it('should build full scene for building_planner_elevation_project.json without throwing', () => {
         const jsonPath = path.resolve(process.cwd(), 'public/building_planner_elevation_project.json');
-        const proj = createElevationProject();
-        fs.writeFileSync(jsonPath, JSON.stringify(proj, null, 2), 'utf8');
 
         const jsonStr = fs.readFileSync(jsonPath, 'utf8');
         const project = JSON.parse(jsonStr);
