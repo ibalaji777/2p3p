@@ -9,6 +9,13 @@
                 <button style="flex: 1; padding: 6px; display: flex; align-items: center; justify-content: center; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; transition: all 0.2s;" :style="{ background: roofConfig.autoPlacementMode === 'outer' ? '#e5e7eb' : 'white', borderColor: roofConfig.autoPlacementMode === 'outer' ? '#9ca3af' : '#d1d5db' }" @click="setAutoPlacementMode('outer')" title="Outer Edge Detection"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg></button>
             </div>
         </div>
+        <div class="control-group" v-if="roofConfig && roofConfig.roofType === 'flat'">
+            <label>Slab Thickness</label>
+            <div class="input-wrap">
+                <input type="range" :value="roofConfig.thickness !== undefined ? roofConfig.thickness : 15" min="2" max="60" @input="updateThickness($event.target.value)">
+                <DimensionInput :modelValue="roofConfig.thickness !== undefined ? roofConfig.thickness : 15" @change="updateThickness($event)" />
+            </div>
+        </div>
         <div class="control-group" v-if="roofConfig && roofConfig.roofType !== 'flat'"><label>Pitch (°)</label><div class="input-wrap"><input type="range" :value="roofConfig.pitch" min="0" max="75" @input="updatePitch($event.target.value)"><input type="number" :value="roofConfig.pitch" min="0" max="75" @input="updatePitch($event.target.value)"></div></div>
         <div class="control-group" v-if="roofConfig && roofConfig.roofType !== 'flat'"><label>Peak Height</label><div class="input-wrap"><DimensionInput :modelValue="calculateRoofPeakHeight(selectedEntity)" @change="(val) => updateRoofPitchFromHeight({ target: { value: val } }, selectedEntity)" /></div></div>
         
@@ -446,16 +453,32 @@
         <div class="decor-gallery" v-if="roofConfig && roofConfig.roofType === 'flat'">
             <MaterialSizeInput :modelValue="selectedEntity.tileSize || selectedEntity.config?.tileSize || 100" :defaultMax="200" @change="updateTileSize($event)" />
             
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; margin-bottom: 6px;">
-                <h4 class="props-subtitle" style="margin: 0;">Change Material (Roof Texture)</h4>
-                <div class="material-filter-chips" style="display: flex; gap: 4px;">
-                    <button class="filter-chip" :class="{ active: materialFilter === 'all' }" @click="materialFilter = 'all'">All</button>
-                    <button class="filter-chip" :class="{ active: materialFilter === 'tiles' }" @click="materialFilter = 'tiles'">Tiles</button>
-                    <button class="filter-chip" :class="{ active: materialFilter === 'glass' }" @click="materialFilter = 'glass'">🪟 Glass</button>
+            <div style="background: rgba(15, 23, 42, 0.04); border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin-top: 12px; margin-bottom: 12px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="font-size: 12px; font-weight: 700; color: #1e293b;">Target Surface</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="scope-chip" :class="{ active: flatTargetSlot === 'fascia' }" @click="flatTargetSlot = 'fascia'" title="Perimeter wall-band / fascia slab sides">Perimeter Sides (Wall)</button>
+                        <button class="scope-chip" :class="{ active: flatTargetSlot === 'top' }" @click="flatTargetSlot = 'top'" title="Top terrace slab surface">Terrace Top</button>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px dashed #cbd5e1; padding-top: 8px; margin-top: 6px;">
+                    <span style="font-size: 11px; font-weight: 600; color: #475569;">Category</span>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="filter-chip" :class="{ active: flatCategory === 'wall' }" @click="flatCategory = 'wall'">🧱 Wall Finishes</button>
+                        <button class="filter-chip" :class="{ active: flatCategory === 'roof' }" @click="flatCategory = 'roof'">Tiles & Roof</button>
+                        <button class="filter-chip" :class="{ active: flatCategory === 'all' }" @click="flatCategory = 'all'">All</button>
+                    </div>
                 </div>
             </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; margin-bottom: 6px;">
+                <h4 class="props-subtitle" style="margin: 0;">
+                    {{ flatTargetSlot === 'fascia' ? 'Perimeter Wall Band Material' : 'Terrace Top Surface Material' }}
+                </h4>
+            </div>
             <div class="decor-grid">
-                <div v-for="(config, key) in filteredRoofDecor" :key="key" class="decor-item" @click="handleFlatMaterialClick(key)" :class="{ active: (selectedEntity.configId === key || roofConfig.material === key) }">
+                <div v-for="(config, key) in filteredFlatMaterials" :key="key" class="decor-item" @click="handleFlatMaterialClick(key)" :class="{ active: isFlatMaterialActive(key) }">
                     <img :src="config.thumbnail || config.texture" />
                     <span>{{ config.name }}</span>
                     <span v-if="config.isGlass" class="glass-pill-tag">Glass</span>
@@ -485,6 +508,8 @@ const materialFilter = ref('all');
 const paintScopeMode = ref('single');
 const enablePerSlope = ref(Boolean(props.selectedEntity?.config?.slopes && Object.keys(props.selectedEntity.config.slopes).length > 0));
 const activeSlopeKey = ref('slope1');
+const flatTargetSlot = ref('fascia');
+const flatCategory = ref('wall');
 
 const roofConfig = computed(() => {
     if (!props.selectedEntity) return null;
@@ -514,6 +539,11 @@ const attachedChimneys = computed(() => {
 
 const setAutoPlacementMode = (mode) => {
     RoofEngine.setAutoPlacementMode(props.selectedEntity, mode);
+    emit('sync-engine');
+};
+
+const updateThickness = (val) => {
+    RoofEngine.setThickness(props.selectedEntity, val);
     emit('sync-engine');
 };
 
@@ -567,8 +597,33 @@ const updateGableMaterial = (key) => {
     emit('sync-engine');
 };
 
+const filteredFlatMaterials = computed(() => {
+    if (flatCategory.value === 'wall') {
+        return props.wallDecorRegistry || {};
+    }
+    if (flatCategory.value === 'roof') {
+        return filteredRoofDecor.value || {};
+    }
+    return Object.assign({}, props.wallDecorRegistry, filteredRoofDecor.value);
+});
+
+const isFlatMaterialActive = (key) => {
+    if (flatTargetSlot.value === 'fascia') {
+        const cur = roofConfig.value?.fasciaMaterial || 'white_plaster_wall';
+        return cur === key;
+    } else {
+        const cur = props.selectedEntity?.configId || roofConfig.value?.material || 'white_plaster_wall';
+        return cur === key;
+    }
+};
+
 const handleFlatMaterialClick = (key) => {
-    RoofEngine.setMaterial(props.selectedEntity, key, 'all');
+    const slot = flatTargetSlot.value;
+    if (slot === 'fascia') {
+        RoofEngine.setMaterial(props.selectedEntity, key, 'fascia', 'fascia');
+    } else {
+        RoofEngine.setMaterial(props.selectedEntity, key, 'single', null);
+    }
     emit('sync-engine');
 };
 

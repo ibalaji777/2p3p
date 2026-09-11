@@ -791,7 +791,8 @@ export class GizmoManager {
                                 registry = Object.assign({}, WOOD_REGISTRY, GLASS_REGISTRY);
                             } else if (selectedObj.userData.entity.type === 'roof') {
                                 if (this.activeObject && this.activeObject.userData && this.activeObject.userData.isGable) registry = WALL_DECOR_REGISTRY;
-                                else registry = ROOF_DECOR_REGISTRY;
+                                else if (this.activeFace === 'sides' || this.activeFace === 'fascia' || this.activeDescriptor?.slotName === 'fascia') registry = WALL_DECOR_REGISTRY;
+                                else registry = Object.assign({}, ROOF_DECOR_REGISTRY, WALL_DECOR_REGISTRY);
                             } else if (selectedObj.userData.isFurniture || selectedObj.userData.entity.type === 'furniture') {
                                 registry = Object.assign({}, FABRIC_REGISTRY, WOOD_REGISTRY, WALL_DECOR_REGISTRY, GLASS_REGISTRY);
                             }
@@ -1033,6 +1034,27 @@ export class GizmoManager {
                                 }
                                 if (window.plannerInstance && typeof window.plannerInstance.saveHistory === 'function') {
                                     window.plannerInstance.saveHistory();
+                                }
+                                highlightSelectedThumb(key);
+                                return;
+                            }
+
+                            if (entity.type === 'roof' || selectedObj.userData?.isRoof) {
+                                const isFascia = (this.activeFace === 'sides' || this.activeFace === 'fascia' || this.activeMatIndex === 1 || this.activeDescriptor?.slotName === 'fascia');
+                                const isGable = (this.activeFace === 'gable' || this.activeDescriptor?.slotName === 'gable');
+                                const slot = isFascia ? 'fascia' : (isGable ? 'gable' : 'single');
+                                const slopeKey = isFascia ? 'fascia' : (isGable ? 'gable' : null);
+                                RoofEngine.setMaterial(entity, key, slot, slopeKey, this.ctx.planner || window.plannerInstance);
+                                if (this.ctx && typeof this.ctx.updateRoofLive === 'function') {
+                                    this.ctx.updateRoofLive(entity);
+                                } else if (this.ctx?.envBuilder && typeof this.ctx.envBuilder.updateRoofLive === 'function') {
+                                    this.ctx.envBuilder.updateRoofLive(entity);
+                                }
+                                if (typeof this.ctx.requestRender === 'function') {
+                                    this.ctx.requestRender();
+                                }
+                                if (window.plannerInstance && typeof window.plannerInstance.syncAll === 'function') {
+                                    window.plannerInstance.syncAll();
                                 }
                                 highlightSelectedThumb(key);
                                 return;
@@ -3175,6 +3197,58 @@ export class GizmoManager {
                 this.roofSpinPanel.style.display = 'none';
             }
 
+            const isFlat = selectedObj?.userData?.entity?.config?.roofType === 'flat' || selectedObj?.userData?.entity?.roofType === 'flat';
+            if (isFlat) {
+                if (this.ctx.interactions.roofPitchGizmo) {
+                    this.ctx.interactions.roofPitchGizmo.detach();
+                }
+                if (mode === 'material') {
+                    if (this.ctx.interactions.flatRoofGizmo) {
+                        this.ctx.interactions.flatRoofGizmo.detach();
+                    }
+                    if (this.ctx.interactions.materialGizmo) {
+                        this.ctx.interactions.materialGizmo.attach(selectedObj);
+                    }
+                    this.onMaterialFaceSelected('top', -1, selectedObj, 0, 'categories');
+                    return;
+                }
+
+                if (this.materialPanel) {
+                    this.materialPanel.classList.remove('active');
+                    this.materialPanel.style.display = 'none';
+                }
+
+                if (mode === 'translate' || mode === 'move') {
+                    if (this.ctx.interactions.flatRoofGizmo) {
+                        this.ctx.interactions.flatRoofGizmo.attach(selectedObj, 'move');
+                    }
+                    return;
+                }
+
+                if (mode === 'rotateY' || mode === 'spin') {
+                    if (this.roofSpinPanel && selectedObj) {
+                        this.roofSpinPanel.style.display = 'flex';
+                        this.syncRoofSpinPanel(selectedObj.userData.entity);
+                    }
+                    if (this.ctx.interactions.universalSpinGizmo && selectedObj) {
+                        this.ctx.interactions.universalSpinGizmo.attach(selectedObj);
+                    }
+                    if (this.ctx.interactions.flatRoofGizmo) {
+                        this.ctx.interactions.flatRoofGizmo.attach(selectedObj, 'spin');
+                    }
+                    return;
+                }
+
+                if (this.ctx.interactions.flatRoofGizmo) {
+                    this.ctx.interactions.flatRoofGizmo.attach(selectedObj, 'corners');
+                }
+                return;
+            }
+
+            if (this.ctx.interactions.flatRoofGizmo) {
+                this.ctx.interactions.flatRoofGizmo.detach();
+            }
+
             if (mode === 'material') {
                 if (this.ctx.interactions.roofPitchGizmo) {
                     this.ctx.interactions.roofPitchGizmo.detach();
@@ -3682,6 +3756,7 @@ export class GizmoManager {
                     const nextAxis = (conf.ridgeAxis === 'y') ? 'x' : 'y';
                     RoofEngine.setRidgeAxis(roof, nextAxis, this.ctx.planner || this.ctx, true);
                     if (this.ctx.interactions?.roofPitchGizmo) this.ctx.interactions.roofPitchGizmo.updateHandlePositions();
+                    if (this.ctx.interactions?.flatRoofGizmo) this.ctx.interactions.flatRoofGizmo.updateHandlePositions();
                 }
             };
         }
@@ -3716,6 +3791,9 @@ export class GizmoManager {
         RoofEngine.setRotation(roof, newAngle, this.ctx.planner || this.ctx);
         if (this.ctx.interactions?.roofPitchGizmo) {
             this.ctx.interactions.roofPitchGizmo.updateHandlePositions();
+        }
+        if (this.ctx.interactions?.flatRoofGizmo) {
+            this.ctx.interactions.flatRoofGizmo.updateHandlePositions();
         }
         this.syncRoofSpinPanel(roof);
     }

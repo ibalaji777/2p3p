@@ -6,6 +6,7 @@ import { RoofSerializer } from '../RoofSerializer.js';
 import { DuplicateEntityCommand } from '../../commands/DuplicateEntityCommand.js';
 import { UniversalRealtimeUpdate } from '../../sync/UniversalRealtimeUpdate.js';
 import { PremiumHipRoof } from '../../../features/roof/roof.renderer2d.js';
+import { FloorPlanner } from '../../engine2d/index.js';
 import * as THREE from 'three';
 
 describe('Roof Remediation Compliance & Architectural Invariants', () => {
@@ -309,6 +310,38 @@ describe('Roof Remediation Compliance & Architectural Invariants', () => {
             const geomSpy = vi.spyOn(roof, 'updateGeometry');
             roof.update2D();
             expect(geomSpy).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('7. FloorPlanner Export & Snapshot Integration', () => {
+        it('exports state with roofs without throwing ReferenceError: RoofSerializer is not defined', () => {
+            const pts = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }];
+            const roof = RoofEngine.createRoof(mockPlanner, pts);
+
+            const fakeFloorPlanner = {
+                anchors: [],
+                walls: [],
+                furniture: [],
+                stairs: [],
+                roofs: [roof],
+                arcs: [],
+                shapes: [],
+                outdoorZones: [],
+                platforms: [],
+                rooms: [],
+                roomPaths: [],
+                presetGroups: [],
+                settings: {},
+                currentUnit: 'in'
+            };
+
+            expect(() => {
+                const jsonStr = FloorPlanner.prototype.exportState.call(fakeFloorPlanner);
+                const state = JSON.parse(jsonStr);
+                expect(state.roofs).toBeDefined();
+                expect(state.roofs.length).toBe(1);
+                expect(state.roofs[0].roofType).toBe('gable');
+            }).not.toThrow();
         });
     });
 });

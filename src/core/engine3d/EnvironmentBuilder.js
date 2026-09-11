@@ -1915,6 +1915,10 @@ export class EnvironmentBuilder {
             if (oldMesh.geometry) oldMesh.geometry.dispose();
             oldMesh.geometry = newMesh.geometry;
             
+            // Swap material
+            oldMesh.material = newMesh.material;
+            oldMesh.userData = { ...newMesh.userData, entity: roof };
+            
             // Swap children (e.g. gableMesh)
             while(oldMesh.children.length > 0) {
                 const child = oldMesh.children[0];

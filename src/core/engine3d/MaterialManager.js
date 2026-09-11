@@ -7,6 +7,7 @@ import { EVENTS } from '../constants/events.js';
 import { DOOR_MATERIALS } from '../../features/door/door.registry.js';
 import { WINDOW_FRAME_MATERIALS } from '../../features/window/window.registry.js';
 import { ROOF_DECOR_REGISTRY } from '../../features/roof/roof.registry.js';
+import { RoofEngine } from '../roof/RoofEngine.js';
 import { 
     WALL_DECOR_REGISTRY, 
     WOOD_REGISTRY, 
@@ -340,6 +341,26 @@ export class MaterialManager {
 
             if (ctx && typeof ctx.updateMaterialLive === 'function') {
                 ctx.updateMaterialLive(entity);
+            }
+            if (ctx && typeof ctx.requestRender === 'function') {
+                ctx.requestRender();
+            }
+            entity.materialDirty = false;
+            return;
+        }
+
+        const isRoof = entity && (entity.type === 'roof' || entity.isRoof || entity.config?.roofType);
+        if (isRoof) {
+            const matKey = config ? (config.id || (typeof matToUse === 'string' ? matToUse : config.texture)) : (typeof matToUse === 'string' ? matToUse : null);
+            if (matKey) {
+                const scope = (slotName === 'fascia' || slotName === 'sides') ? 'fascia' : (slotName === 'gable' ? 'gable' : 'single');
+                const slopeKey = (slotName === 'fascia' || slotName === 'sides') ? 'fascia' : (slotName === 'gable' ? 'gable' : null);
+                RoofEngine.setMaterial(entity, matKey, scope, slopeKey, ctx?.planner || window.plannerInstance);
+            }
+            if (ctx && typeof ctx.updateRoofLive === 'function') {
+                ctx.updateRoofLive(entity);
+            } else if (ctx?.envBuilder && typeof ctx.envBuilder.updateRoofLive === 'function') {
+                ctx.envBuilder.updateRoofLive(entity);
             }
             if (ctx && typeof ctx.requestRender === 'function') {
                 ctx.requestRender();

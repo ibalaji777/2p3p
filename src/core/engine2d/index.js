@@ -28,7 +28,7 @@ import { PremiumOutdoorZone } from './PremiumOutdoorZone.js';
 import { WallSerializer } from '../../features/wall/wall.serializer.js';
 
 import { PremiumHipRoof } from '../../features/roof/roof.renderer2d.js';
-import { RoofEngine } from '../roof/RoofEngine.js';
+import { RoofEngine, RoofSerializer } from '../roof/index.js';
 import { Railing } from '../../features/railing/objects/Railing.js';
 import { SmartGuidesTrackingSystem } from './SmartGuidesTrackingSystem.js';
 import { advance_openings } from './advance_openings.js';
@@ -1908,7 +1908,7 @@ export class FloorPlanner {
                     };
                 }
             }),
-            roofs: this.roofs.map(r => RoofSerializer.serialize(r)),
+            roofs: this.roofs ? this.roofs.map(r => RoofSerializer.serialize(r)).filter(Boolean) : [],
             arcs: this.arcs ? this.arcs.map(a => ({ 
                 p1: {x: a.p1.x, y: a.p1.y}, 
                 p2: {x: a.p2.x, y: a.p2.y}, 

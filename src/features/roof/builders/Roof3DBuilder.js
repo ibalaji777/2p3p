@@ -281,26 +281,33 @@ export class Roof3DBuilder {
 
                 let flatMat = mat;
                 if (!isGlassRoof) {
-                    const matId = roof.configId || conf.material;
-                    flatMat = new THREE.MeshStandardMaterial({ 
-                        color: 0xefede5,
-                        roughness: 0.98,
-                        metalness: 0.02,
-                        bumpScale: 0.015
-                    });
-                    
-                    if (matId && ROOF_DECOR_REGISTRY[matId]) {
-                        const decorConf = ROOF_DECOR_REGISTRY[matId];
-                        const tex = new THREE.TextureLoader().load(decorConf.texture);
-                        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-                        const baseSize = roof.tileSize || 100;
-                        const tSize = baseSize * (decorConf.scaleRatio || 1);
-                        tex.repeat.set(100 / tSize, 100 / tSize);
-                        flatMat.map = tex;
+                    const matId = roof.configId || conf.material || 'white_plaster_wall';
+                    if (this.ctx?.helpers?.getDynamicMaterial) {
+                        flatMat = this.ctx.helpers.getDynamicMaterial(matId, 'wall');
+                    }
+                    if (!flatMat && ROOF_DECOR_REGISTRY[matId]) {
+                        flatMat = resolveRoofMaterial(matId).mat;
+                    }
+                    if (!flatMat) {
+                        flatMat = new THREE.MeshStandardMaterial({ 
+                            color: 0xF5F5F5,
+                            roughness: 0.95,
+                            metalness: 0.05
+                        });
                     }
                 }
 
-                mesh = new THREE.Mesh(geo, isGlassRoof ? [flatMat, fasciaMat] : flatMat);
+                // Perimeter slab side (fascia) defaults to wall plaster finish
+                const defaultFlatFascia = isGlassRoof ? 'metal_dark_steel' : 'white_plaster_wall';
+                const flatFasciaMat = (this.ctx?.helpers?.getDynamicMaterial 
+                    ? this.ctx.helpers.getDynamicMaterial(conf.fasciaMaterial || defaultFlatFascia, isGlassRoof ? 'metal' : 'wall') 
+                    : null) || fasciaMat;
+
+                if (flatMat) flatMat.side = THREE.DoubleSide;
+                if (flatFasciaMat) flatFasciaMat.side = THREE.DoubleSide;
+
+                // ExtrudeGeometry index 0 = top/bottom caps (terrace), index 1 = extruded perimeter sides (wall band)
+                mesh = new THREE.Mesh(geo, [flatMat, flatFasciaMat]);
             } else if (conf.roofType === 'shed') {
                 let bMinX = Infinity, bMaxX = -Infinity, bMinY = Infinity, bMaxY = -Infinity;
                 pts.forEach(p => {
@@ -1614,6 +1621,7 @@ export class Roof3DBuilder {
             
             mesh.userData = { 
                 isRoof: true, 
+                isFlatRoof: conf.roofType === 'flat',
                 entity: roof, 
                 materialSlot: 'top', 
                 componentType: 'roof_top',
@@ -1625,7 +1633,12 @@ export class Roof3DBuilder {
             }
             
             roofGroup.add(mesh);
-            ComponentRegistry.registerMesh(roof, "top", mesh);
+            ComponentRegistry.registerMesh(roof, "top", mesh, { componentId: `${roof.id}_top`, componentType: 'roof_top' });
+            if (conf.roofType === 'flat') {
+                ComponentRegistry.registerMesh(roof, "fascia", mesh, { componentId: `${roof.id}_fascia`, componentType: 'fascia' });
+                mesh.userData.materialSlot = 'top';
+                mesh.userData.componentType = 'roof_top';
+            }
 
             // Render embedded 3D Skylight Windows & Glass Regions
             const skylightList = Array.isArray(conf.skylights) ? conf.skylights : (Array.isArray(roof.skylights) ? roof.skylights : []);

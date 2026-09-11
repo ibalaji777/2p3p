@@ -10,6 +10,7 @@ import { VertexSlopeGizmo } from '../../features/roof/VertexSlopeGizmo.js';
 import { RoofCornerGizmo } from '../../features/roof/RoofCornerGizmo.js';
 import { RoofOverhangGizmo } from '../../features/roof/RoofOverhangGizmo.js';
 import { RoofPitchCurvatureGizmo } from '../../features/roof/RoofPitchCurvatureGizmo.js';
+import { FlatRoofGizmo } from '../../features/roof/FlatRoofGizmo.js';
 import { PolygonGizmo } from './PolygonGizmo.js';
 import { UniversalSpinGizmo } from './UniversalSpinGizmo.js';
 import { UniversalMoveGizmo } from './UniversalMoveGizmo.js';
@@ -490,6 +491,9 @@ export class InteractionSystem {
         this.roofPitchGizmo = new RoofPitchCurvatureGizmo(ctx);
         this.ctx.scene.add(this.roofPitchGizmo);
 
+        this.flatRoofGizmo = new FlatRoofGizmo(ctx);
+        this.ctx.scene.add(this.flatRoofGizmo);
+
         this.polygonGizmo = new PolygonGizmo(ctx);
         this.ctx.scene.add(this.polygonGizmo);
 
@@ -671,6 +675,14 @@ export class InteractionSystem {
             if (this.roofPitchGizmo && this.roofPitchGizmo.visible) {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
                 if (this.raycaster.intersectObjects(this.roofPitchGizmo.handles.children, true).length > 0) {
+                    return;
+                }
+            }
+
+            // Direct check for interactive Flat Roof Gizmo handles
+            if (this.flatRoofGizmo && this.flatRoofGizmo.visible) {
+                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+                if (this.raycaster.intersectObjects(this.flatRoofGizmo.handles.children, true).length > 0) {
                     return;
                 }
             }
@@ -1073,6 +1085,7 @@ export class InteractionSystem {
             if (this.cornerGizmo) this.cornerGizmo.detach();
             this.setHighlight(this.selectedObject, false);
             if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
+            if (this.flatRoofGizmo) this.flatRoofGizmo.detach();
             if (this.materialGizmo) this.materialGizmo.attach(this.selectedObject);
         } else if (mode === 'opening') {
             if (this.transformControls) this.transformControls.detach();
@@ -1082,6 +1095,7 @@ export class InteractionSystem {
             if (this.polygonGizmo) this.polygonGizmo.detach();
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
             if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
+            if (this.flatRoofGizmo) this.flatRoofGizmo.detach();
             if (this.openingGizmo) this.openingGizmo.attach(this.selectedObject);
         } else if (mode === 'corner') {
             if (this.transformControls) this.transformControls.detach();
@@ -1091,6 +1105,7 @@ export class InteractionSystem {
             if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
             if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
+            if (this.flatRoofGizmo) this.flatRoofGizmo.detach();
             if (this.cornerGizmo) this.cornerGizmo.attach(this.selectedObject);
         } else if (mode === 'roof_corners' || mode === 'roof_overhang') {
             if (this.transformControls) this.transformControls.detach();
@@ -1100,7 +1115,15 @@ export class InteractionSystem {
             if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
             if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
-            if (this.roofPitchGizmo && this.selectedObject) this.roofPitchGizmo.attach(this.selectedObject, 'corners');
+            const conf = this.selectedObject?.userData?.entity?.config || this.selectedObject?.userData?.entity;
+            const isFlat = conf?.roofType === 'flat';
+            if (isFlat) {
+                if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
+                if (this.flatRoofGizmo && this.selectedObject) this.flatRoofGizmo.attach(this.selectedObject, 'corners');
+            } else {
+                if (this.flatRoofGizmo) this.flatRoofGizmo.detach();
+                if (this.roofPitchGizmo && this.selectedObject) this.roofPitchGizmo.attach(this.selectedObject, 'corners');
+            }
         } else if (mode === 'none' || mode === 'translate' || mode === 'move' || mode === 'rotateY' || mode === 'spin' || mode === 'rotate') {
             if (this.transformControls) this.transformControls.detach();
             if (this.openingGizmo) this.openingGizmo.detach();
@@ -1109,12 +1132,21 @@ export class InteractionSystem {
             if (this.vertexSlopeGizmo) this.vertexSlopeGizmo.detach();
             if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
-            if (this.roofPitchGizmo) {
-                if (this.selectedObject && (this.selectedObject.userData?.isRoof || this.selectedObject.userData?.entity?.type === 'roof')) {
-                    this.roofPitchGizmo.attach(this.selectedObject, (mode === 'spin' || mode === 'rotateY') ? 'spin' : 'corners');
+            const isRoof = this.selectedObject && (this.selectedObject.userData?.isRoof || this.selectedObject.userData?.entity?.type === 'roof');
+            const conf = this.selectedObject?.userData?.entity?.config || this.selectedObject?.userData?.entity;
+            const isFlat = isRoof && conf?.roofType === 'flat';
+            if (isRoof) {
+                const subMode = (mode === 'spin' || mode === 'rotateY') ? 'spin' : (mode === 'move' || mode === 'translate') ? 'move' : 'corners';
+                if (isFlat) {
+                    if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
+                    if (this.flatRoofGizmo) this.flatRoofGizmo.attach(this.selectedObject, subMode);
                 } else {
-                    this.roofPitchGizmo.detach();
+                    if (this.flatRoofGizmo) this.flatRoofGizmo.detach();
+                    if (this.roofPitchGizmo) this.roofPitchGizmo.attach(this.selectedObject, subMode);
                 }
+            } else {
+                if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
+                if (this.flatRoofGizmo) this.flatRoofGizmo.detach();
             }
             if (mode === 'spin' || mode === 'rotateY') {
                 if (this.universalSpinGizmo && this.selectedObject) {
@@ -1132,6 +1164,7 @@ export class InteractionSystem {
             if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
             if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
+            if (this.flatRoofGizmo) this.flatRoofGizmo.detach();
             if (this.transformControls) {
                 this.transformControls.mode = mode;
                 this.transformControls.attach(this.selectedObject);
@@ -1241,9 +1274,18 @@ export class InteractionSystem {
             if (this.dimensionManager) this.dimensionManager.onSelect(object.userData.entity, object);
 
             if (object.userData?.isRoof || object.userData?.entity?.type === 'roof') {
-                if (this.roofPitchGizmo) this.roofPitchGizmo.attach(object, 'corners');
+                const conf = object.userData?.entity?.config || object.userData?.entity;
+                const isFlat = conf?.roofType === 'flat';
+                if (isFlat) {
+                    if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
+                    if (this.flatRoofGizmo) this.flatRoofGizmo.attach(object, 'corners');
+                } else {
+                    if (this.flatRoofGizmo) this.flatRoofGizmo.detach();
+                    if (this.roofPitchGizmo) this.roofPitchGizmo.attach(object, 'corners');
+                }
             } else {
                 if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
+                if (this.flatRoofGizmo) this.flatRoofGizmo.detach();
             }
 
             const wallEntity = object.userData?.parentWall || object.userData?.entity;
@@ -1322,6 +1364,7 @@ export class InteractionSystem {
             if (this.roofCornerGizmo) this.roofCornerGizmo.detach();
             if (this.roofOverhangGizmo) this.roofOverhangGizmo.detach();
             if (this.roofPitchGizmo) this.roofPitchGizmo.detach();
+            if (this.flatRoofGizmo) this.flatRoofGizmo.detach();
             if (this.polygonGizmo) this.polygonGizmo.detach();
             if (this.universalMoveGizmo) this.universalMoveGizmo.detach();
             if (this.universalSpinGizmo) this.universalSpinGizmo.detach();
@@ -1382,6 +1425,7 @@ export class InteractionSystem {
         if (this.roofCornerGizmo && this.roofCornerGizmo.dispose) this.roofCornerGizmo.dispose();
         if (this.roofOverhangGizmo && this.roofOverhangGizmo.dispose) this.roofOverhangGizmo.dispose();
         if (this.roofPitchGizmo && this.roofPitchGizmo.dispose) this.roofPitchGizmo.dispose();
+        if (this.flatRoofGizmo && this.flatRoofGizmo.dispose) this.flatRoofGizmo.dispose();
         if (this.polygonGizmo && this.polygonGizmo.dispose) this.polygonGizmo.dispose();
         if (this.universalMoveGizmo && this.universalMoveGizmo.dispose) this.universalMoveGizmo.dispose();
         if (this.universalSpinGizmo && this.universalSpinGizmo.dispose) this.universalSpinGizmo.dispose();

@@ -91,8 +91,23 @@ export class BIMMaterialSystem {
                     slotName = `wall_${faceName}`;
                 }
             } else if (type === 'roof') {
-                componentType = mesh.userData?.componentType || 'roof_top';
-                slotName = mesh.userData?.materialSlot || 'top';
+                if (mesh.userData?.isFlatRoof || targetEntity?.config?.roofType === 'flat' || isExtrudeGeo) {
+                    const isTop = (matIndex === 0 || faceName === 'top' || faceName === 'bottom' || (localNormal && Math.abs(localNormal.y) > 0.5));
+                    if (isTop) {
+                        componentType = 'roof_top';
+                        slotName = 'top';
+                        targetMatIndex = 0;
+                        faceName = 'top';
+                    } else {
+                        componentType = 'fascia';
+                        slotName = 'fascia';
+                        targetMatIndex = 1;
+                        faceName = 'sides';
+                    }
+                } else {
+                    componentType = mesh.userData?.componentType || 'roof_top';
+                    slotName = mesh.userData?.materialSlot || 'top';
+                }
             } else if (type === 'chimney' || type?.startsWith('chimney_') || targetEntity.addonType === 'chimney' || mesh.userData?.isRoofSculpture) {
                 componentType = mesh.userData?.componentType || 'roof_sculpture';
                 slotName = mesh.userData?.materialSlot || 'sculpture';
@@ -135,7 +150,7 @@ export class BIMMaterialSystem {
         const descriptor = target?.componentType ? target : BIMMaterialSystem.resolveBIMTarget(mesh);
         const { entity, slotName, targetMatIndex } = descriptor || {};
 
-        if (entity && entity.id && slotName && slotName !== MaterialSlots.CUSTOM && !mesh.userData?.isProtrusion) {
+        if (entity && entity.id && slotName && slotName !== MaterialSlots.CUSTOM && !mesh.userData?.isProtrusion && !mesh.userData?.isFlatRoof && !(Array.isArray(mesh.material) && mesh.material.length > 1)) {
             ComponentRegistry.setSlotHighlight(entity.id, slotName, active, color, ctx);
             return;
         }

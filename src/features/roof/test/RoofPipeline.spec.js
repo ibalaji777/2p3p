@@ -548,4 +548,372 @@ describe('Roof Pipeline & 3D Addition', () => {
         expect(sceneGroup.children.length).toBe(4);
         expect(jerkinheadRoof.mesh3D).toBeDefined();
     });
+
+    it('10. should provide dedicated single-side overhang controls for flat roofs and omit pitch/curve handles', async () => {
+        const { RoofPitchCurvatureGizmo } = await import('../RoofPitchCurvatureGizmo.js');
+        const mockEnvBuilder = { updateRoofLive: vi.fn() };
+        const mockCtx = {
+            renderer: { domElement: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }), parentElement: null, style: {} } },
+            camera: new THREE.PerspectiveCamera(45, 1, 1, 1000),
+            scene: new THREE.Group(),
+            controls: { enabled: true },
+            envBuilder: mockEnvBuilder,
+            requestRender: vi.fn()
+        };
+
+        const gizmo = new RoofPitchCurvatureGizmo(mockCtx);
+        const flatRoofEntity = {
+            type: 'roof',
+            id: 'roof_flat_dedicated_test',
+            points: [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 150 }, { x: 0, y: 150 }],
+            config: { roofType: 'flat', overhang: 8, thickness: 15 },
+            elevation: 120,
+            updateGeometry: vi.fn()
+        };
+
+        const mockTargetMesh = new THREE.Mesh();
+        mockTargetMesh.userData = { isRoof: true, entity: flatRoofEntity };
+
+        // 1. Attach to flat roof
+        gizmo.attach(mockTargetMesh);
+        expect(gizmo.visible).toBe(true);
+
+        // Center apex pitch cone and slope curvature orb MUST NOT exist on flat roof
+        expect(gizmo.peakHandle).toBeNull();
+        expect(gizmo.curveHandle).toBeNull();
+
+        const types = gizmo.handles.children.map(h => h.userData.type);
+        expect(types).not.toContain('pitch');
+        expect(types).not.toContain('curve');
+        expect(types).toContain('overhang');
+        expect(types).toContain('stretch');
+        expect(gizmo.overhangHandles.length).toBe(4);
+
+        // 2. Simulate dragging a single edge overhang (Side 2 / East, edgeIndex: 1) without Shift
+        gizmo.isDragging = true;
+        const side2Handle = gizmo.overhangHandles[1];
+        gizmo.activeHandle = side2Handle;
+        gizmo.initialOverhangs = [8, 8, 8, 8];
+        gizmo.initialOverhang = 8;
+        gizmo.dragStartPos.set(208, 137, 75);
+        gizmo.planeIntersect.set(224, 137, 75); // deltaX = +16
+
+        gizmo.raycaster.ray.intersectPlane = (plane, target) => {
+            target.copy(gizmo.planeIntersect);
+            return target;
+        };
+
+        gizmo._onPointerMove({ clientX: 420, clientY: 300, shiftKey: false, preventDefault: () => {}, stopPropagation: () => {} });
+
+        // Verify ONLY Side 2 (index 1) overhang increased, other sides remain 8!
+        expect(flatRoofEntity.config.overhangs).toBeDefined();
+        expect(flatRoofEntity.config.overhangs[1]).toBe(24);
+        expect(flatRoofEntity.config.overhangs[0]).toBe(8);
+        expect(flatRoofEntity.config.overhangs[2]).toBe(8);
+        expect(flatRoofEntity.config.overhangs[3]).toBe(8);
+
+        // 3. Simulate dragging with Shift key (all sides scale together)
+        gizmo.initialOverhangs = [...flatRoofEntity.config.overhangs];
+        gizmo.planeIntersect.set(220, 137, 75); // deltaX = +12
+        gizmo._onPointerMove({ clientX: 420, clientY: 300, shiftKey: true, preventDefault: () => {}, stopPropagation: () => {} });
+
+        expect(flatRoofEntity.config.overhang).toBe(36);
+        expect(flatRoofEntity.config.overhangs[0]).toBe(36);
+        expect(flatRoofEntity.config.overhangs[1]).toBe(36);
+        expect(flatRoofEntity.config.overhangs[2]).toBe(36);
+        expect(flatRoofEntity.config.overhangs[3]).toBe(36);
+
+        gizmo.dispose();
+    });
+
+    it('11. FlatRoofGizmo: should provide dedicated per-edge push/pull, slab thickness, and mode-separated controls', async () => {
+        const { FlatRoofGizmo } = await import('../FlatRoofGizmo.js');
+        const mockEnvBuilder = { updateRoofLive: vi.fn() };
+        const mockCtx = {
+            renderer: { domElement: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }), parentElement: null, style: {} } },
+            camera: new THREE.PerspectiveCamera(45, 1, 1, 1000),
+            scene: new THREE.Group(),
+            controls: { enabled: true },
+            envBuilder: mockEnvBuilder,
+            requestRender: vi.fn()
+        };
+
+        const flatRoofEntity = {
+            type: 'roof',
+            id: 'roof_flat_dedicated_gizmo_test',
+            points: [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 150 }, { x: 0, y: 150 }],
+            config: { roofType: 'flat', overhang: 8, thickness: 15 },
+            elevation: 120,
+            updateGeometry: vi.fn()
+        };
+
+        const mockTargetMesh = new THREE.Mesh();
+        mockTargetMesh.userData = { isRoof: true, entity: flatRoofEntity };
+
+        const gizmo = new FlatRoofGizmo(mockCtx);
+
+        // 1. Attach in default 'corners' mode
+        gizmo.attach(mockTargetMesh, 'corners');
+        expect(gizmo.visible).toBe(true);
+
+        // Assert handles: 4 edge push/pull handles, 4 corner handles, 1 thickness handle
+        expect(gizmo.edgeHandles.length).toBe(4);
+        expect(gizmo.cornerHandles.length).toBe(4);
+        expect(gizmo.thicknessHandle).not.toBeNull();
+        expect(gizmo.moveHandle).toBeNull();
+        expect(gizmo.spinHandle).toBeNull();
+
+        const types = gizmo.handles.children.map(h => h.userData.type);
+        expect(types).not.toContain('pitch');
+        expect(types).not.toContain('curve');
+        expect(types).toContain('edge');
+        expect(types).toContain('corner');
+        expect(types).toContain('thickness');
+
+        // 2. Drag a single edge handle (Side 1 / North, edgeIndex: 0) without Shift
+        gizmo.isDragging = true;
+        const side0Handle = gizmo.edgeHandles[0];
+        gizmo.activeHandle = side0Handle;
+        gizmo.initialOverhangs = [8, 8, 8, 8];
+        gizmo.initialOverhang = 8;
+        gizmo.dragStartPos.set(100, 137, -8);
+        gizmo.planeIntersect.set(100, 137, -20); // delta = +12 outward
+
+        gizmo.raycaster.ray.intersectPlane = (plane, target) => {
+            target.copy(gizmo.planeIntersect);
+            return target;
+        };
+
+        gizmo._onPointerMove({ clientX: 400, clientY: 250, shiftKey: false, preventDefault: () => {}, stopPropagation: () => {} });
+
+        // ONLY Side 1 (index 0) overhang is adjusted! All other 3 edges remain at 8
+        expect(flatRoofEntity.config.overhangs[0]).toBe(20);
+        expect(flatRoofEntity.config.overhangs[1]).toBe(8);
+        expect(flatRoofEntity.config.overhangs[2]).toBe(8);
+        expect(flatRoofEntity.config.overhangs[3]).toBe(8);
+
+        // 3. Drag with Shift key -> updates all overhangs
+        gizmo.initialOverhangs = [...flatRoofEntity.config.overhangs];
+        gizmo.planeIntersect.set(100, 137, -25); // delta = +17 outward (init 20 + 17 = 37)
+        gizmo._onPointerMove({ clientX: 400, clientY: 250, shiftKey: true, preventDefault: () => {}, stopPropagation: () => {} });
+
+        expect(flatRoofEntity.config.overhang).toBe(37);
+        expect(flatRoofEntity.config.overhangs[0]).toBe(37);
+        expect(flatRoofEntity.config.overhangs[1]).toBe(37);
+        expect(flatRoofEntity.config.overhangs[2]).toBe(37);
+        expect(flatRoofEntity.config.overhangs[3]).toBe(37);
+
+        // 4. Drag thickness handle -> updates slab thickness
+        gizmo.activeHandle = gizmo.thicknessHandle;
+        gizmo.initialThickness = 15;
+        gizmo.dragStartPos.set(100, 145, 75);
+        gizmo.planeIntersect.set(100, 155, 75); // deltaY = +10
+        gizmo._onPointerMove({ clientX: 400, clientY: 200, shiftKey: false, preventDefault: () => {}, stopPropagation: () => {} });
+
+        expect(flatRoofEntity.config.thickness).toBe(25);
+
+        // 5. Switch to 'move' mode -> only move handle is visible
+        gizmo.attach(mockTargetMesh, 'move');
+        expect(gizmo.moveHandle).not.toBeNull();
+        expect(gizmo.edgeHandles.length).toBe(0);
+        expect(gizmo.thicknessHandle).toBeNull();
+        expect(gizmo.handles.children.length).toBe(1);
+        expect(gizmo.handles.children[0].userData.type).toBe('move');
+
+        // 6. Switch to 'spin' mode -> only spin handle is visible
+        gizmo.attach(mockTargetMesh, 'spin');
+        expect(gizmo.spinHandle).not.toBeNull();
+        expect(gizmo.moveHandle).toBeNull();
+        expect(gizmo.edgeHandles.length).toBe(0);
+        expect(gizmo.handles.children.length).toBe(1);
+        expect(gizmo.handles.children[0].userData.type).toBe('spin');
+
+        gizmo.dispose();
+    });
+
+    it('12. InteractionSystem: should route flat roof selection directly to FlatRoofGizmo and pitch roof to RoofPitchCurvatureGizmo', async () => {
+        const { createPinia, setActivePinia } = await import('pinia');
+        setActivePinia(createPinia());
+        const { InteractionSystem } = await import('../../../core/engine3d/InteractionSystem.js');
+        const mockEnvBuilder = { updateRoofLive: vi.fn(), buildWallGroup: vi.fn() };
+        const mockCtx = {
+            renderer: { domElement: { addEventListener: vi.fn(), removeEventListener: vi.fn(), getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }), parentElement: null, style: {} } },
+            camera: new THREE.PerspectiveCamera(45, 1, 1, 1000),
+            scene: new THREE.Group(),
+            controls: { enabled: true, addEventListener: vi.fn(), removeEventListener: vi.fn() },
+            envBuilder: mockEnvBuilder,
+            requestRender: vi.fn(),
+            onEntitySelect: vi.fn(),
+            currentTransformMode: 'none'
+        };
+
+        const interactions = new InteractionSystem(mockCtx);
+        expect(interactions.flatRoofGizmo).toBeDefined();
+        expect(interactions.roofPitchGizmo).toBeDefined();
+
+        // 1. Select flat roof
+        const flatRoof = new THREE.Mesh();
+        flatRoof.userData = { isRoof: true, entity: { type: 'roof', id: 'flat_roof_1', config: { roofType: 'flat', overhang: 8, thickness: 15 } } };
+
+        interactions.selectObject(flatRoof);
+        expect(interactions.flatRoofGizmo.visible).toBe(true);
+        expect(interactions.roofPitchGizmo.visible).toBe(false);
+
+        // 2. Select pitched gable roof
+        const gableRoof = new THREE.Mesh();
+        gableRoof.userData = { isRoof: true, entity: { type: 'roof', id: 'gable_roof_1', config: { roofType: 'gable', pitch: 25, overhang: 8 } } };
+
+        interactions.selectObject(gableRoof);
+        expect(interactions.flatRoofGizmo.visible).toBe(false);
+        expect(interactions.roofPitchGizmo.visible).toBe(true);
+
+        // 3. Deselect
+        interactions.deselect();
+        expect(interactions.flatRoofGizmo.visible).toBe(false);
+        expect(interactions.roofPitchGizmo.visible).toBe(false);
+
+        interactions.dispose();
+    });
+
+    it('13. Roof3DBuilder: Flat roof generates dual materials [topMat, fasciaMat] with wall appearance for perimeter fascia', async () => {
+        const { Roof3DBuilder } = await import('../builders/Roof3DBuilder.js');
+        const targetGroup = new THREE.Group();
+        const mockEnvBuilder = { updateRoofLive: vi.fn() };
+        const mockCtx = {
+            scene: new THREE.Scene(),
+            structureGroup: targetGroup,
+            interactables: [],
+            envBuilder: mockEnvBuilder,
+            assets: { getTexture: vi.fn().mockResolvedValue(null) },
+            helpers: {
+                getDynamicMaterial: (matId, category) => new THREE.MeshStandardMaterial({ name: `${category}_${matId}` })
+            }
+        };
+
+        const flatRoofEntity = {
+            id: 'test_flat_roof_mat',
+            type: 'roof',
+            points: [
+                { x: 0, y: 0 },
+                { x: 200, y: 0 },
+                { x: 200, y: 150 },
+                { x: 0, y: 150 }
+            ],
+            config: {
+                roofType: 'flat',
+                thickness: 15,
+                material: 'white_plaster_wall',
+                fasciaMaterial: 'wall_plaster_white'
+            }
+        };
+
+        const builder = new Roof3DBuilder(mockCtx);
+        builder.buildRoofs([flatRoofEntity], 0, [], targetGroup);
+
+        expect(targetGroup.children.length).toBe(1);
+        const roofGroup = targetGroup.children[0];
+        const flatMesh = roofGroup.children.find(c => c.userData?.isRoof);
+
+        expect(flatMesh).toBeDefined();
+        expect(flatMesh.userData.isFlatRoof).toBe(true);
+        expect(Array.isArray(flatMesh.material)).toBe(true);
+        expect(flatMesh.material.length).toBe(2);
+
+        // Index 0 = Top / Bottom terrace cap
+        expect(flatMesh.material[0].name).toBe('wall_white_plaster_wall');
+        // Index 1 = Perimeter sides (wall band / fascia)
+        expect(flatMesh.material[1].name).toBe('wall_wall_plaster_white');
+    });
+
+    it('14. BIMMaterialSystem: Accurately resolves flat roof top face vs perimeter wall fascia slot', async () => {
+        const { BIMMaterialSystem } = await import('../../../core/engine3d/BIMMaterialSystem.js');
+
+        const flatRoofEntity = {
+            id: 'flat_roof_bim_test',
+            type: 'roof',
+            config: {
+                roofType: 'flat',
+                thickness: 15,
+                material: 'terracotta_tiles_roof',
+                fasciaMaterial: 'white_plaster_wall'
+            }
+        };
+
+        const mockFlatMesh = new THREE.Mesh(
+            new THREE.BoxGeometry(100, 15, 100),
+            [new THREE.MeshStandardMaterial({ name: 'top' }), new THREE.MeshStandardMaterial({ name: 'fascia' })]
+        );
+        mockFlatMesh.userData = {
+            isRoof: true,
+            isFlatRoof: true,
+            entity: flatRoofEntity
+        };
+
+        // 1. Raycast on top face (upward normal)
+        const topNormal = new THREE.Vector3(0, 1, 0);
+        const topDescriptor = BIMMaterialSystem.resolveBIMTarget(mockFlatMesh, 0, topNormal, flatRoofEntity);
+        expect(topDescriptor.slotName).toBe('top');
+        expect(topDescriptor.targetMatIndex).toBe(0);
+        expect(topDescriptor.componentType).toBe('roof_top');
+
+        // 2. Raycast on perimeter side edge (horizontal normal)
+        const sideNormal = new THREE.Vector3(1, 0, 0);
+        const sideDescriptor = BIMMaterialSystem.resolveBIMTarget(mockFlatMesh, 1, sideNormal, flatRoofEntity);
+        expect(sideDescriptor.slotName).toBe('fascia');
+        expect(sideDescriptor.targetMatIndex).toBe(1);
+        expect(sideDescriptor.componentType).toBe('fascia');
+    });
+
+    it('15. RoofEngine & FlatRoofGizmo: Supports dual slot material application and HUD Material trigger', async () => {
+        const { RoofEngine } = await import('../../../core/roof/index.js');
+        const mockEnvBuilder = { updateRoofLive: vi.fn() };
+        const mockPlanner = {
+            envBuilder: mockEnvBuilder,
+            stage: { batchDraw: vi.fn() }
+        };
+
+        const flatRoofEntity = {
+            id: 'flat_roof_apply_test',
+            type: 'roof',
+            planner: mockPlanner,
+            config: {
+                roofType: 'flat',
+                thickness: 15,
+                material: 'concrete_flat',
+                fasciaMaterial: 'white_plaster_wall'
+            }
+        };
+
+        // 1. Apply wall material to perimeter fascia
+        RoofEngine.setMaterial(flatRoofEntity, 'brick_red', 'fascia', 'fascia', mockPlanner);
+        expect(flatRoofEntity.config.fasciaMaterial).toBe('brick_red');
+        expect(mockEnvBuilder.updateRoofLive).toHaveBeenCalledWith(flatRoofEntity);
+
+        // 2. Apply wall/terrace material to top surface
+        RoofEngine.setMaterial(flatRoofEntity, 'stone_granite', 'single', null, mockPlanner);
+        expect(flatRoofEntity.config.material).toBe('stone_granite');
+        expect(mockEnvBuilder.updateRoofLive).toHaveBeenCalledTimes(2);
+
+        // 3. Verify FlatRoofGizmo HUD Material button triggers setTransformMode('material')
+        const { FlatRoofGizmo } = await import('../FlatRoofGizmo.js');
+        const setTransformMode = vi.fn();
+        const mockCtx = {
+            renderer: { domElement: { addEventListener: vi.fn(), removeEventListener: vi.fn(), getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }), parentElement: null, style: {} } },
+            camera: new THREE.PerspectiveCamera(45, 1, 1, 1000),
+            scene: new THREE.Group(),
+            controls: { enabled: true },
+            interactions: { setTransformMode },
+            planner: mockPlanner,
+            requestRender: vi.fn()
+        };
+
+        const gizmo = new FlatRoofGizmo(mockCtx);
+        const btnMat = gizmo.domHUD.querySelector('#fr-btn-mat');
+        expect(btnMat).not.toBeNull();
+
+        btnMat.click();
+        expect(setTransformMode).toHaveBeenCalledWith('material');
+
+        gizmo.dispose();
+    });
 });
