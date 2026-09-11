@@ -26,10 +26,26 @@ export class BIMMaterialSystem {
         if (!mesh) return null;
 
         const targetEntity = entity || mesh.userData?.entity || BIMMaterialSystem._findBIMEntity(mesh);
+        const isWall = targetEntity && (targetEntity.type === 'outer' || targetEntity.type === 'inner' || targetEntity.type === 'compound' || targetEntity.type === 'wall' || targetEntity.type === 'half_wall' || targetEntity.type === 'foundation' || targetEntity.startX !== undefined);
+
+        let targetMesh = mesh;
+        if (isWall) {
+            const actualWallMesh = targetEntity.wallMesh3D 
+                || (mesh.userData?.isWallMesh ? mesh : null)
+                || mesh.parent?.userData?.wallMesh
+                || (mesh.parent?.children ? mesh.parent.children.find(c => c.userData?.isWallMesh || (c.isMesh && !c.userData?.isHitbox && !c.userData?.isWallSide && !c.userData?.isDoor && !c.userData?.isWindow && !c.userData?.isFrame && !c.userData?.isGlass && !c.userData?.isHandle)) : null)
+                || (targetEntity.mesh3D && (targetEntity.mesh3D.userData?.wallMesh || (targetEntity.mesh3D.children ? targetEntity.mesh3D.children.find(c => c.userData?.isWallMesh || (c.isMesh && !c.userData?.isHitbox && !c.userData?.isWallSide)) : null)));
+            if (actualWallMesh) {
+                targetMesh = actualWallMesh;
+            }
+        }
         
         let faceName = 'front';
         if (mesh.userData && mesh.userData.side) {
             faceName = mesh.userData.side;
+        } else if (isWall && matIndex !== undefined && matIndex !== null && matIndex >= 0 && matIndex <= 5) {
+            const INDEX_TO_FACE = ['right', 'left', 'top', 'bottom', 'front', 'back'];
+            faceName = INDEX_TO_FACE[matIndex];
         } else if (localNormal) {
             const absX = Math.abs(localNormal.x);
             const absY = Math.abs(localNormal.y);
@@ -39,12 +55,18 @@ export class BIMMaterialSystem {
             else faceName = localNormal.z > 0 ? 'front' : 'back';
         }
 
-        const isExtrudeGeo = Boolean(mesh.geometry && mesh.geometry.type === 'ExtrudeGeometry' && (!Array.isArray(mesh.material) || mesh.material.length !== 6));
+        const isExtrudeGeo = Boolean(targetMesh.geometry && targetMesh.geometry.type === 'ExtrudeGeometry' && (!Array.isArray(targetMesh.material) || targetMesh.material.length !== 6));
         let targetMatIndex = 0;
 
-        if (isExtrudeGeo) {
+        if (isWall) {
+            if (matIndex >= 6 && matIndex <= 11) {
+                targetMatIndex = matIndex;
+            } else {
+                targetMatIndex = FACE_TO_INDEX[faceName] !== undefined ? FACE_TO_INDEX[faceName] : (matIndex >= 0 && matIndex <= 5 ? matIndex : 4);
+            }
+        } else if (isExtrudeGeo) {
             targetMatIndex = (faceName === 'front' || faceName === 'back') ? 0 : 1;
-        } else if (Array.isArray(mesh.material) && mesh.material.length === 6) {
+        } else if (Array.isArray(targetMesh.material) && targetMesh.material.length === 6) {
             targetMatIndex = FACE_TO_INDEX[faceName] !== undefined ? FACE_TO_INDEX[faceName] : 4;
         } else if (matIndex !== undefined && matIndex !== null && matIndex !== -1) {
             targetMatIndex = matIndex;
@@ -80,7 +102,7 @@ export class BIMMaterialSystem {
                     componentType = 'frame';
                     slotName = MaterialSlots.FRAME;
                 }
-            } else if (type === 'outer' || type === 'inner' || type === 'compound' || type === 'wall') {
+            } else if (type === 'outer' || type === 'inner' || type === 'compound' || type === 'wall' || type === 'half_wall' || type === 'foundation' || isWall) {
                 if (matIndex >= 6 && matIndex <= 11) {
                     componentType = 'solid_protrusion';
                     const protFaces = ['right', 'left', 'top', 'bottom', 'front', 'back'];
@@ -120,12 +142,12 @@ export class BIMMaterialSystem {
         let subMeshIndex = -1;
         if (targetEntity && targetEntity.mesh3D && targetEntity.mesh3D.isGroup) {
             const validChildren = targetEntity.mesh3D.children.filter(c => !c.userData?.isHitbox);
-            subMeshIndex = validChildren.indexOf(mesh);
+            subMeshIndex = validChildren.indexOf(targetMesh);
         }
 
         return {
             entity: targetEntity,
-            mesh: mesh,
+            mesh: targetMesh,
             activeMatIndex: matIndex,
             targetMatIndex: targetMatIndex,
             faceName: faceName,
@@ -149,10 +171,15 @@ export class BIMMaterialSystem {
 
         const descriptor = target?.componentType ? target : BIMMaterialSystem.resolveBIMTarget(mesh);
         const { entity, slotName, targetMatIndex } = descriptor || {};
+        const isWall = entity && (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'half_wall' || entity.type === 'foundation' || entity.startX !== undefined);
 
-        if (entity && entity.id && slotName && slotName !== MaterialSlots.CUSTOM && !mesh.userData?.isProtrusion && !mesh.userData?.isFlatRoof && !(Array.isArray(mesh.material) && mesh.material.length > 1)) {
+        if (!isWall && entity && entity.id && slotName && slotName !== MaterialSlots.CUSTOM && !mesh.userData?.isProtrusion && !mesh.userData?.isFlatRoof && !(Array.isArray(mesh.material) && mesh.material.length > 1)) {
             ComponentRegistry.setSlotHighlight(entity.id, slotName, active, color, ctx);
             return;
+        }
+
+        if (isWall && descriptor?.mesh && Array.isArray(descriptor.mesh.material)) {
+            mesh = descriptor.mesh;
         }
 
         // Multi-face material highlight (e.g. solid block box faces)

@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { MaterialSlots, ComponentTypes } from '../../constants/materialSlots.js';
 import { ComponentRegistry } from '../ComponentRegistry.js';
 import { MaterialManager } from '../MaterialManager.js';
+import { BIMMaterialSystem } from '../BIMMaterialSystem.js';
+import { WallEngine } from '../../wall/WallEngine.js';
 
 describe('10/10 CAD/BIM Component & Material Pipeline', () => {
     let mockEntity;
@@ -182,5 +184,133 @@ describe('10/10 CAD/BIM Component & Material Pipeline', () => {
         // 3. Update existing pattern layer material
         decor1.configId = 'stone_slate';
         expect(wallEntity.attachedDecor[0].configId).toBe('stone_slate');
+    });
+
+    it('9. should resolve wall face descriptor accurately from raycasted wall mesh or hitbox', () => {
+        const wallEntity = {
+            id: 'wall_test_1',
+            type: 'outer',
+            params: {}
+        };
+        const wallGroup = new THREE.Group();
+        const mats = [
+            new THREE.MeshStandardMaterial({ color: 0xffffff }), // 0: right
+            new THREE.MeshStandardMaterial({ color: 0xffffff }), // 1: left
+            new THREE.MeshStandardMaterial({ color: 0xffffff }), // 2: top
+            new THREE.MeshStandardMaterial({ color: 0xffffff }), // 3: bottom
+            new THREE.MeshStandardMaterial({ color: 0xffffff }), // 4: front
+            new THREE.MeshStandardMaterial({ color: 0xffffff })  // 5: back
+        ];
+        const wallMesh = new THREE.Mesh(new THREE.BoxGeometry(100, 280, 20), mats);
+        wallMesh.userData = { isWallMesh: true, entity: wallEntity };
+        wallEntity.wallMesh3D = wallMesh;
+        wallEntity.mesh3D = wallGroup;
+        wallGroup.add(wallMesh);
+
+        const hitFront = new THREE.Mesh(new THREE.PlaneGeometry(100, 280), new THREE.MeshBasicMaterial({ visible: false }));
+        hitFront.userData = { isWallSide: true, side: 'front', entity: wallEntity };
+        wallGroup.add(hitFront);
+
+        const hitBack = new THREE.Mesh(new THREE.PlaneGeometry(100, 280), new THREE.MeshBasicMaterial({ visible: false }));
+        hitBack.userData = { isWallSide: true, side: 'back', entity: wallEntity };
+        wallGroup.add(hitBack);
+
+        // Resolving hitFront should map to wallMesh with face front (index 4)
+        const descFront = BIMMaterialSystem.resolveBIMTarget(hitFront, 0, null, wallEntity);
+        expect(descFront.mesh).toBe(wallMesh);
+        expect(descFront.faceName).toBe('front');
+        expect(descFront.targetMatIndex).toBe(4);
+        expect(descFront.slotName).toBe('wall_front');
+
+        // Resolving hitBack should map to wallMesh with face back (index 5)
+        const descBack = BIMMaterialSystem.resolveBIMTarget(hitBack, 0, null, wallEntity);
+        expect(descBack.mesh).toBe(wallMesh);
+        expect(descBack.faceName).toBe('back');
+        expect(descBack.targetMatIndex).toBe(5);
+        expect(descBack.slotName).toBe('wall_back');
+
+        // Resolving wallMesh directly with index 2 (top)
+        const descTop = BIMMaterialSystem.resolveBIMTarget(wallMesh, 2, null, wallEntity);
+        expect(descTop.mesh).toBe(wallMesh);
+        expect(descTop.faceName).toBe('top');
+        expect(descTop.targetMatIndex).toBe(2);
+        expect(descTop.slotName).toBe('wall_top');
+    });
+
+    it('10. should activate emissive green highlight on the selected wall face material and restore on deactivate', () => {
+        const wallEntity = {
+            id: 'wall_test_highlight',
+            type: 'outer',
+            params: {}
+        };
+        const mats = [
+            new THREE.MeshStandardMaterial({ color: 0xffffff }),
+            new THREE.MeshStandardMaterial({ color: 0xffffff }),
+            new THREE.MeshStandardMaterial({ color: 0xffffff }),
+            new THREE.MeshStandardMaterial({ color: 0xffffff }),
+            new THREE.MeshStandardMaterial({ color: 0xffffff }),
+            new THREE.MeshStandardMaterial({ color: 0xffffff })
+        ];
+        const wallMesh = new THREE.Mesh(new THREE.BoxGeometry(100, 280, 20), mats);
+        wallEntity.wallMesh3D = wallMesh;
+
+        const desc = BIMMaterialSystem.resolveBIMTarget(wallMesh, 4, null, wallEntity);
+        expect(desc.targetMatIndex).toBe(4);
+
+        // Highlight face 4 (front)
+        BIMMaterialSystem.setBIMHighlight(desc, true, 0x00ff00);
+        expect(wallMesh.material[4].emissive.getHex()).toBe(0x00ff00);
+        expect(wallMesh.material[4].emissiveIntensity).toBe(0.8);
+        expect(wallMesh.material[5].emissive.getHex()).toBe(0x000000); // other faces untouched
+
+        // Deactivate highlight
+        BIMMaterialSystem.setBIMHighlight(desc, false);
+        expect(wallMesh.material[4].emissive.getHex()).toBe(0x000000);
+    });
+
+    it('11. should apply material to selected wall face via WallEngine and sync parameters', () => {
+        const wall = {
+            id: 'wall_test_apply',
+            type: 'outer',
+            params: {},
+            planner: { walls: [] }
+        };
+        const mats = [
+            new THREE.MeshStandardMaterial(),
+            new THREE.MeshStandardMaterial(),
+            new THREE.MeshStandardMaterial(),
+            new THREE.MeshStandardMaterial(),
+            new THREE.MeshStandardMaterial(),
+            new THREE.MeshStandardMaterial()
+        ];
+        const wallMesh = new THREE.Mesh(new THREE.BoxGeometry(100, 280, 20), mats);
+        wall.wallMesh3D = wallMesh;
+        wall.mesh3D = wallMesh;
+
+        const newFrontMat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+        WallEngine.applyMaterial(wall, { target: 'front', key: 'brick_red_1', newMat: newFrontMat });
+
+        expect(wall.params.textureFront).toBe('brick_red_1');
+        expect(wallMesh.material[4]).toBe(newFrontMat);
+
+        const newBackMat = new THREE.MeshStandardMaterial({ color: 0x0000ff });
+        WallEngine.applyMaterial(wall, { target: 'back', key: 'stone_slate', newMat: newBackMat });
+
+        expect(wall.params.textureBack).toBe('stone_slate');
+        expect(wallMesh.material[5]).toBe(newBackMat);
+    });
+
+    it('12. should clear wall face material when key is empty string', () => {
+        const wall = {
+            id: 'wall_test_clear',
+            type: 'outer',
+            params: {
+                textureFront: 'brick_red_1',
+                textureBack: 'stone_slate'
+            },
+            planner: { walls: [] }
+        };
+        WallEngine.applyMaterial(wall, { target: 'front', key: '' });
+        expect(wall.params.textureFront).toBe('');
     });
 });

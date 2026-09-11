@@ -842,7 +842,7 @@ export class GizmoManager {
                         if (selectedObj && selectedObj.userData && selectedObj.userData.entity) {
                             const entity = selectedObj.userData.entity;
                             const key = thumb.getAttribute('data-mat');
-                            if (!key) return;
+                            if (key === null) return;
 
                             const isWallEntity = entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.startX !== undefined;
                             const isWallDecor = entity.type === 'wallDecor';
@@ -850,7 +850,7 @@ export class GizmoManager {
                             // 1. Wall and WallDecor Material Management (Material Scope: Selected Face vs Entire Object)
                             if (isWallEntity || isWallDecor) {
                                 const wall = isWallDecor ? (entity.mesh3D?.userData?.parentWall || selectedObj?.parent?.userData?.entity || entity) : entity;
-                                const side = selectedObj?.userData?.side || this.activeObject?.userData?.side || this.activeFace || 'front';
+                                const side = this.activeFace || this.activeObject?.userData?.side || selectedObj?.userData?.side || 'front';
                                 
                                 const isProtrusionTarget = this.activeDescriptor?.isProtrusion 
                                     || this.activeDescriptor?.componentType === 'solid_protrusion' 
@@ -986,31 +986,38 @@ export class GizmoManager {
                                     return;
                                 }
 
+                                const planner = window.plannerInstance || this.ctx?.planner;
                                 if (this.materialScope === 'entireObject') {
-                                    WallEngine.applyMaterial(wall, { target: 'all', key, ctx: this.ctx });
+                                    WallEngine.applyMaterial(wall, { target: 'all', key, ctx: this.ctx }, planner);
                                     if (typeof this.ctx.requestRender === 'function') {
                                         this.ctx.requestRender();
                                     }
-                                    if (window.plannerInstance && typeof window.plannerInstance.saveHistory === 'function') {
-                                        window.plannerInstance.saveHistory();
+                                    if (planner && typeof planner.saveHistory === 'function') {
+                                        planner.saveHistory();
                                     }
                                     this._renderWallMultiMaterialTabs(wall, selectedObj);
                                     highlightSelectedThumb(key);
                                     return;
-                                } else if (this.ctx && typeof this.ctx.addWallPattern === 'function') {
-                                    // Selected Face: Add/customize an extruded layer on the active face
-                                    const decor = this.ctx.addWallPattern(wall, key, side);
-                                    if (wall.attachedDecor) {
-                                        wall.attachedDecor = [...wall.attachedDecor];
+                                } else {
+                                    // Single Face Mode: Apply canonical material via WallEngine
+                                    WallEngine.applyMaterial(wall, { target: side, key, ctx: this.ctx }, planner);
+
+                                    // If pattern decor is also supported, synchronize attached decor
+                                    if (key && this.ctx && typeof this.ctx.addWallPattern === 'function') {
+                                        const decor = this.ctx.addWallPattern(wall, key, side);
+                                        if (wall.attachedDecor) {
+                                            wall.attachedDecor = [...wall.attachedDecor];
+                                        }
+                                        if (decor) {
+                                            this.activeDecorId = decor.id;
+                                        }
                                     }
-                                    if (decor) {
-                                        this.activeDecorId = decor.id;
-                                    }
+
                                     if (typeof this.ctx.requestRender === 'function') {
                                         this.ctx.requestRender();
                                     }
-                                    if (window.plannerInstance && typeof window.plannerInstance.saveHistory === 'function') {
-                                        window.plannerInstance.saveHistory();
+                                    if (planner && typeof planner.saveHistory === 'function') {
+                                        planner.saveHistory();
                                     }
                                     this._renderWallMultiMaterialTabs(wall, selectedObj);
                                     highlightSelectedThumb(key);
@@ -2596,7 +2603,7 @@ export class GizmoManager {
         }
 
         const wall = isWallDecor ? (entity.mesh3D?.userData?.parentWall || selectedObj?.parent?.userData?.entity || entity) : entity;
-        const side = selectedObj?.userData?.side || this.activeObject?.userData?.side || this.activeFace || 'front';
+        const side = this.activeFace || this.activeObject?.userData?.side || selectedObj?.userData?.side || 'front';
         
         const attachedDecors = (wall.attachedDecor || []).filter(d => d.side === side);
         
@@ -2852,6 +2859,19 @@ export class GizmoManager {
                 const targetSide = e.currentTarget.getAttribute('data-side');
                 this.activeFace = targetSide;
                 this.activeDecorId = null;
+                const targetMatIndex = targetSide === 'back' ? 5 : 4;
+                const targetWallMesh = wall.wallMesh3D || (wall.mesh3D && (wall.mesh3D.userData?.wallMesh || (wall.mesh3D.children ? wall.mesh3D.children.find(c => c.userData?.isWallMesh || (c.isMesh && !c.userData?.isHitbox && !c.userData?.isWallSide && !c.userData?.isDoor && !c.userData?.isWindow && !c.userData?.isFrame && !c.userData?.isGlass && !c.userData?.isHandle)) : null))) || selectedObj;
+                this.activeObject = targetWallMesh;
+                this.activeMatIndex = targetMatIndex;
+                if (targetWallMesh && BIMMaterialSystem) {
+                    this.activeDescriptor = BIMMaterialSystem.resolveBIMTarget(targetWallMesh, targetMatIndex, null, wall);
+                    if (this.ctx.interactions?.materialGizmo) {
+                        this.ctx.interactions.materialGizmo.clearHighlight();
+                        BIMMaterialSystem.setBIMHighlight(this.activeDescriptor, true, 0x00ff00, this.ctx);
+                        this.ctx.interactions.materialGizmo.highlightedObject = this.activeDescriptor.mesh;
+                        this.ctx.interactions.materialGizmo.highlightedMatIndex = this.activeDescriptor.targetMatIndex;
+                    }
+                }
                 this._renderWallMultiMaterialTabs(wall, selectedObj);
             });
         });
@@ -3448,10 +3468,10 @@ export class GizmoManager {
             }
 
             if (isWall) {
-                const side = selectedObj.userData?.side || selectedObj.userData?.entity?.side || this.activeFace || 'front';
+                const side = this.activeFace || selectedObj.userData?.side || selectedObj.userData?.entity?.side || 'front';
                 this.activeFace = side;
                 const matIdx = side === 'left' ? 1 : (side === 'right' ? 0 : (side === 'top' ? 2 : (side === 'bottom' ? 3 : (side === 'back' ? 5 : 4))));
-                const targetMesh = isProtrusion ? selectedObj : (entity.wallMesh3D || (selectedObj.parent && selectedObj.parent.userData?.wallMesh) || selectedObj);
+                const targetMesh = isProtrusion ? selectedObj : (entity.wallMesh3D || (selectedObj.parent && selectedObj.parent.userData?.wallMesh) || (selectedObj.children && selectedObj.children.find(c => c.userData?.isWallMesh)) || selectedObj);
                 this.onMaterialFaceSelected(side, -1, targetMesh, matIdx, 'categories');
             } else if (this.materialPanel) {
                 this.materialPanel.style.display = 'none'; // HIDDEN initially for multi-face objects, waits for face click

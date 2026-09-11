@@ -20,7 +20,7 @@ export class MaterialGizmo extends THREE.Group {
         this.isDragging = false;
 
         this._onPointerDown = (e) => {
-            if (!this.visible || this.ctx.currentTransformMode !== 'material' || !this.target || this.isPanelOpen) return;
+            if (!this.visible || this.ctx.currentTransformMode !== 'material' || !this.target) return;
             if (e.pointerType === 'mouse' && e.button !== 0) return;
             this.updateMouse(e);
             this.pointerDownPos.copy(this.mouse);
@@ -28,7 +28,7 @@ export class MaterialGizmo extends THREE.Group {
         };
         
         this._onPointerMove = (e) => {
-            if (!this.visible || this.ctx.currentTransformMode !== 'material' || !this.target || this.isPanelOpen) return;
+            if (!this.visible || this.ctx.currentTransformMode !== 'material' || !this.target) return;
             this.updateMouse(e);
             
             if (this.pointerDownPos.distanceTo(this.mouse) > 0.02) {
@@ -63,7 +63,7 @@ export class MaterialGizmo extends THREE.Group {
                     this.clearHighlight();
                     this.highlightedObject = descriptor.mesh;
                     this.highlightedMatIndex = descriptor.targetMatIndex;
-                    BIMMaterialSystem.setBIMHighlight(descriptor, true);
+                    BIMMaterialSystem.setBIMHighlight(descriptor, true, 0x00ff00, this.ctx);
                 }
             } else {
                 dom.style.cursor = 'auto';
@@ -118,7 +118,7 @@ export class MaterialGizmo extends THREE.Group {
                 console.info(`%c[BIM Highlight] %cEmissive Green activated on %c${descriptor.componentType || 'Mesh'}`, 
                     'color: #10b981; font-weight: bold;', 'color: #9ca3af;', 'color: #f59e0b; font-weight: bold;');
 
-                BIMMaterialSystem.setBIMHighlight(descriptor, true);
+                BIMMaterialSystem.setBIMHighlight(descriptor, true, 0x00ff00, this.ctx);
                 
                 // Dispatch event to Vue UI or GizmoManager
                 if (this.ctx.gizmoManager && this.ctx.gizmoManager.onMaterialFaceSelected) {
@@ -153,7 +153,15 @@ export class MaterialGizmo extends THREE.Group {
     }
 
     attach(target) {
-        this.target = target;
+        let actualTarget = target;
+        if (target) {
+            const entity = target.userData?.entity || target.parent?.userData?.entity;
+            const isWall = target.userData?.isWallSide || target.userData?.isWallMesh || target.userData?.isWallDecor || (entity && (entity.type === 'outer' || entity.type === 'inner' || entity.type === 'compound' || entity.type === 'wall' || entity.type === 'half_wall' || entity.type === 'foundation' || entity.startX !== undefined));
+            if (isWall) {
+                actualTarget = entity?.mesh3D || (target.userData?.isWallSide && target.parent ? target.parent : target);
+            }
+        }
+        this.target = actualTarget;
         this.visible = true;
         this.isPanelOpen = false;
         this.clearHighlight();
