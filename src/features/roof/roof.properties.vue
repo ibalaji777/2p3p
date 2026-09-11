@@ -30,8 +30,8 @@
         <div class="control-group" v-if="roofConfig && ['gable', 'shed', 'gambrel'].includes(roofConfig.roofType)">
             <label>Slope / Ridge Axis</label>
             <div style="display: flex; gap: 8px;">
-                <button style="flex: 1; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer;" :style="{ background: (roofConfig.ridgeAxis === 'x' || !roofConfig.ridgeAxis) ? '#e5e7eb' : 'white', borderColor: (roofConfig.ridgeAxis === 'x' || !roofConfig.ridgeAxis) ? '#9ca3af' : '#d1d5db' }" @click="updateRidgeAxis('x')">Horizontal</button>
-                <button style="flex: 1; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer;" :style="{ background: roofConfig.ridgeAxis === 'y' ? '#e5e7eb' : 'white', borderColor: roofConfig.ridgeAxis === 'y' ? '#9ca3af' : '#d1d5db' }" @click="updateRidgeAxis('y')">Vertical</button>
+                <button style="flex: 1; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer;" :style="{ background: (roofConfig.ridgeAxis === 'x' || !roofConfig.ridgeAxis) ? '#e5e7eb' : 'white', borderColor: (roofConfig.ridgeAxis === 'x' || !roofConfig.ridgeAxis) ? '#9ca3af' : '#d1d5db' }" @click="updateRidgeAxis('x')">Horizontal (X)</button>
+                <button style="flex: 1; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer;" :style="{ background: roofConfig.ridgeAxis === 'y' ? '#e5e7eb' : 'white', borderColor: roofConfig.ridgeAxis === 'y' ? '#9ca3af' : '#d1d5db' }" @click="updateRidgeAxis('y')">Vertical (Y)</button>
             </div>
         </div>
         <div class="control-group" v-if="roofConfig && roofConfig.roofType === 'shed'">
@@ -56,7 +56,7 @@
         
         <div v-if="roofConfig && roofConfig.overhangs && roofConfig.overhangs.length > 0">
             <div class="control-group" v-for="(o, index) in roofConfig.overhangs" :key="index" style="margin-left: 10px; opacity: 0.9;">
-                <label style="font-size: 11px;">Side {{ index + 1 }} Overhang</label>
+                <label style="font-size: 11px;">{{ getSideLabel(index) }}</label>
                 <div class="input-wrap">
                     <input type="range" :value="o" min="0" max="50" @input="updateSideOverhang(index, $event.target.value)">
                     <DimensionInput :modelValue="o" @change="updateSideOverhang(index, $event)" />
@@ -575,6 +575,15 @@ const updateAutoShapeWalls = (checked) => {
 const updateMasterOverhang = (val) => {
     RoofEngine.setOverhang(props.selectedEntity, val);
     emit('sync-engine');
+};
+
+const getSideLabel = (index) => {
+    if (!roofConfig.value || roofConfig.value.roofType !== 'gable') {
+        return `Side ${index + 1} Overhang`;
+    }
+    const axis = roofConfig.value.ridgeAxis || 'x';
+    const isEave = (axis === 'x') ? (index === 0 || index === 2) : (index === 1 || index === 3);
+    return isEave ? `Side ${index + 1} (Eave Overhang)` : `Side ${index + 1} (Gable Rake Overhang)`;
 };
 
 const updateSideOverhang = (index, val) => {

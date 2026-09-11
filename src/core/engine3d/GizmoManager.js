@@ -3218,9 +3218,13 @@ export class GizmoManager {
             }
 
             const isFlat = selectedObj?.userData?.entity?.config?.roofType === 'flat' || selectedObj?.userData?.entity?.roofType === 'flat';
+            const isGable = selectedObj?.userData?.entity?.config?.roofType === 'gable' || selectedObj?.userData?.entity?.roofType === 'gable';
             if (isFlat) {
                 if (this.ctx.interactions.roofPitchGizmo) {
                     this.ctx.interactions.roofPitchGizmo.detach();
+                }
+                if (this.ctx.interactions.gableRoofGizmo) {
+                    this.ctx.interactions.gableRoofGizmo.detach();
                 }
                 if (mode === 'material') {
                     if (this.ctx.interactions.flatRoofGizmo) {
@@ -3265,8 +3269,58 @@ export class GizmoManager {
                 return;
             }
 
+            if (isGable) {
+                if (this.ctx.interactions.roofPitchGizmo) {
+                    this.ctx.interactions.roofPitchGizmo.detach();
+                }
+                if (this.ctx.interactions.flatRoofGizmo) {
+                    this.ctx.interactions.flatRoofGizmo.detach();
+                }
+                if (mode === 'material') {
+                    if (this.ctx.interactions.gableRoofGizmo) {
+                        this.ctx.interactions.gableRoofGizmo.detach();
+                    }
+                    this.onMaterialFaceSelected('top', -1, selectedObj, 0, 'roof');
+                    return;
+                }
+
+                if (this.materialPanel) {
+                    this.materialPanel.classList.remove('active');
+                    this.materialPanel.style.display = 'none';
+                }
+
+                if (mode === 'translate' || mode === 'move') {
+                    if (this.ctx.interactions.gableRoofGizmo) {
+                        this.ctx.interactions.gableRoofGizmo.attach(selectedObj, 'move');
+                    }
+                    return;
+                }
+
+                if (mode === 'rotateY' || mode === 'spin') {
+                    if (this.roofSpinPanel && selectedObj) {
+                        this.roofSpinPanel.style.display = 'flex';
+                        this.syncRoofSpinPanel(selectedObj.userData.entity);
+                    }
+                    if (this.ctx.interactions.universalSpinGizmo && selectedObj) {
+                        this.ctx.interactions.universalSpinGizmo.attach(selectedObj);
+                    }
+                    if (this.ctx.interactions.gableRoofGizmo) {
+                        this.ctx.interactions.gableRoofGizmo.attach(selectedObj, 'spin');
+                    }
+                    return;
+                }
+
+                if (this.ctx.interactions.gableRoofGizmo) {
+                    this.ctx.interactions.gableRoofGizmo.attach(selectedObj, 'corners');
+                }
+                return;
+            }
+
             if (this.ctx.interactions.flatRoofGizmo) {
                 this.ctx.interactions.flatRoofGizmo.detach();
+            }
+            if (this.ctx.interactions.gableRoofGizmo) {
+                this.ctx.interactions.gableRoofGizmo.detach();
             }
 
             if (mode === 'material') {
@@ -3777,6 +3831,7 @@ export class GizmoManager {
                     RoofEngine.setRidgeAxis(roof, nextAxis, this.ctx.planner || this.ctx, true);
                     if (this.ctx.interactions?.roofPitchGizmo) this.ctx.interactions.roofPitchGizmo.updateHandlePositions();
                     if (this.ctx.interactions?.flatRoofGizmo) this.ctx.interactions.flatRoofGizmo.updateHandlePositions();
+                    if (this.ctx.interactions?.gableRoofGizmo) this.ctx.interactions.gableRoofGizmo.updateHandlePositions();
                 }
             };
         }
@@ -3814,6 +3869,9 @@ export class GizmoManager {
         }
         if (this.ctx.interactions?.flatRoofGizmo) {
             this.ctx.interactions.flatRoofGizmo.updateHandlePositions();
+        }
+        if (this.ctx.interactions?.gableRoofGizmo) {
+            this.ctx.interactions.gableRoofGizmo.updateHandlePositions();
         }
         this.syncRoofSpinPanel(roof);
     }

@@ -3,34 +3,49 @@ import { EVENTS } from '../../core/registry.js';
 import { coreEventBus } from '../../core/EventBus.js';
 import { offsetPolygon } from '../../core/registry.js';
 import { RoofEngine } from '../../core/roof/RoofEngine.js';
+import { RoofGeometryEngine } from '../../core/roof/RoofGeometryEngine.js';
 
 /**
- * FlatRoofGizmo
+ * GableRoofGizmo
  * 
- * Dedicated CAD-Style In-Viewport 3D Interactive Gizmo for Flat Roofs & Terraces.
- * Completely independent from pitched roof gizmos.
+ * Dedicated CAD-Style In-Viewport 3D Interactive Gizmo for Gable Roofs.
+ * Completely independent from flat and generic pitched roof gizmos.
  * 
  * Capabilities:
- * 1. Dedicated Edge Push/Pull Handles (One per polygon edge):
- *    - Dragging an edge adjusts ONLY that specific edge's overhang along its outward normal.
- *    - Holding Shift adjusts all edges uniformly.
- *    - Real-time CAD dimension badge displaying current edge overhang.
- * 2. Corner Vertex Handles (Pink Octahedron Crystals):
- *    - Dedicated at each polygon corner to stretch/offset vertices directly.
- * 3. Vertical Slab Thickness Handle (Gold Cone/Shaft on top surface):
- *    - Dragging adjusts slab thickness in cm/inches directly in 3D.
+ * 1. Dedicated Ridge Apex Peak Handle:
+ *    - Positioned along the ridge apex line with ridge tube aligned to ridgeAxis ('x' | 'y').
+ *    - Vertical drag accurately adjusts pitch degrees and peak height based on true gable span.
+ *    - Live CAD dimension badge showing: `GABLE PITCH: 30° | Peak: 4' 11" (150cm)`.
+ * 2. Distinct Eaves vs Gable Rakes Edge Handles:
+ *    - Eave Handles (Cobalt Blue): Positioned at the base low gutters. Dragging adjusts eave overhang.
+ *    - Gable Rake Handles (Royal Purple): Positioned at triangular gable ends. Dragging adjusts rake overhang.
+ *    - Single-edge modification by default; Shift-drag modifies all eaves or all rakes simultaneously.
+ * 3. Footprint Corner Vertex Handles:
+ *    - Pink Octahedron crystals at the 4 footprint corners for CAD sizing.
  * 4. In-Scene Floating HUD Toolbar:
- *    - Quick actions: Flush (0"), Uniform 8" Overhang, Thickness +/-, and Delete.
+ *    - Quick 1-click actions:
+ *      - `⇄ Flip Ridge Axis (X / Y)`
+ *      - `△ Auto Walls (ON / OFF)`
+ *      - `🎨 Material`
+ *      - `Pitch - / +`
+ *      - `⇥ Flush (0")` and `↔ Overhang 8"`
+ * 5. Full Mode Separation:
+ *    - `corners`: Shape mode with ridge, eaves, rakes, and corners.
+ *    - `move`: Emerald 4-way compass pan icon at roof center.
+ *    - `spin`: Indigo rotation wheel with 15° snap increments.
+ * 6. Slope Curvature Control:
+ *    - Dedicated Cyan sphere on the roof slope allowing interactive vertical drag for pagoda (concave) or barrel (convex) arching.
+ *    - In-HUD buttons for 1-click -5 / +5 curve steps and 0 (straight) reset.
  */
-export class FlatRoofGizmo extends THREE.Group {
+export class GableRoofGizmo extends THREE.Group {
     constructor(ctx) {
         super();
         this.ctx = ctx;
-        this.name = 'FlatRoofGizmo';
+        this.name = 'GableRoofGizmo';
         this.mode = 'corners'; // 'corners' | 'move' | 'spin'
         this.target = null;
         this.handles = new THREE.Group();
-        this.handles.name = 'FlatRoofHandles';
+        this.handles.name = 'GableRoofHandles';
         this.add(this.handles);
 
         this.raycaster = new THREE.Raycaster();
@@ -38,27 +53,44 @@ export class FlatRoofGizmo extends THREE.Group {
         this.visible = false;
 
         // Visual Materials (depthTest: false ensures handles render crisp and un-occluded)
-        this.edgeMat = new THREE.MeshBasicMaterial({ color: 0x2563eb, depthTest: false, transparent: true, opacity: 0.95 });
-        this.edgeMatHover = new THREE.MeshBasicMaterial({ color: 0x38bdf8, depthTest: false, transparent: true, opacity: 1.0 });
-        this.edgeMatActive = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 1.0 });
+        // Ridge Apex Pitch (Gold / Amber)
+        this.pitchMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, depthTest: false, transparent: true, opacity: 0.95 });
+        this.pitchMatHover = new THREE.MeshBasicMaterial({ color: 0xfde047, depthTest: false, transparent: true, opacity: 1.0 });
+        this.pitchMatActive = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 1.0 });
 
+        // Eave Overhang (Cobalt Blue)
+        this.eaveMat = new THREE.MeshBasicMaterial({ color: 0x2563eb, depthTest: false, transparent: true, opacity: 0.95 });
+        this.eaveMatHover = new THREE.MeshBasicMaterial({ color: 0x38bdf8, depthTest: false, transparent: true, opacity: 1.0 });
+        this.eaveMatActive = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 1.0 });
+
+        // Gable End Rake Overhang (Royal Purple / Violet)
+        this.rakeMat = new THREE.MeshBasicMaterial({ color: 0x8b5cf6, depthTest: false, transparent: true, opacity: 0.95 });
+        this.rakeMatHover = new THREE.MeshBasicMaterial({ color: 0xa78bfa, depthTest: false, transparent: true, opacity: 1.0 });
+        this.rakeMatActive = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 1.0 });
+
+        // Corner Stretch Crystals (Pink)
         this.cornerMat = new THREE.MeshBasicMaterial({ color: 0xec4899, depthTest: false, transparent: true, opacity: 0.95 });
         this.cornerMatHover = new THREE.MeshBasicMaterial({ color: 0xf472b6, depthTest: false, transparent: true, opacity: 1.0 });
         this.cornerMatActive = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 1.0 });
 
-        this.thickMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, depthTest: false, transparent: true, opacity: 0.95 });
-        this.thickMatHover = new THREE.MeshBasicMaterial({ color: 0xfde047, depthTest: false, transparent: true, opacity: 1.0 });
-        this.thickMatActive = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 1.0 });
-
+        // Move Compass (Emerald)
         this.moveMat = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 0.95 });
         this.moveMatHover = new THREE.MeshBasicMaterial({ color: 0x34d399, depthTest: false, transparent: true, opacity: 1.0 });
         this.moveMatActive = new THREE.MeshBasicMaterial({ color: 0x059669, depthTest: false, transparent: true, opacity: 1.0 });
 
+        // Spin Wheel (Indigo)
         this.spinMat = new THREE.MeshBasicMaterial({ color: 0x6366f1, depthTest: false, transparent: true, opacity: 0.95 });
         this.spinMatHover = new THREE.MeshBasicMaterial({ color: 0x818cf8, depthTest: false, transparent: true, opacity: 1.0 });
         this.spinMatActive = new THREE.MeshBasicMaterial({ color: 0x4f46e5, depthTest: false, transparent: true, opacity: 1.0 });
 
+        // Accents
         this.ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true, opacity: 0.9 });
+        this.ridgeTubeMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24, depthTest: false, transparent: true, opacity: 0.9 });
+
+        // Slope Curvature (Cyan / Teal)
+        this.curveMat = new THREE.MeshBasicMaterial({ color: 0x06b6d4, depthTest: false, transparent: true, opacity: 0.95 });
+        this.curveMatHover = new THREE.MeshBasicMaterial({ color: 0x67e8f9, depthTest: false, transparent: true, opacity: 1.0 });
+        this.curveMatActive = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 1.0 });
 
         this.activeHandle = null;
         this.hoveredHandle = null;
@@ -67,9 +99,12 @@ export class FlatRoofGizmo extends THREE.Group {
         this.dragStartPos = new THREE.Vector3();
         this.planeIntersect = new THREE.Vector3();
 
+        this.initialPitch = 30;
+        this.initialRh = 30;
+        this.initialCurve = 0;
         this.initialOverhang = 8;
         this.initialOverhangs = [];
-        this.initialThickness = 15;
+        this.initialRidgeAxis = 'x';
         this.initialPoints = [];
         this.initialMinX = 0;
         this.initialMaxX = 0;
@@ -82,9 +117,10 @@ export class FlatRoofGizmo extends THREE.Group {
         this.initialRotation = 0;
         this.initialAngle = 0;
 
+        this.peakHandle = null;
+        this.curveHandle = null;
         this.edgeHandles = [];
         this.cornerHandles = [];
-        this.thicknessHandle = null;
         this.moveHandle = null;
         this.spinHandle = null;
 
@@ -120,8 +156,13 @@ export class FlatRoofGizmo extends THREE.Group {
                     conf.overhangs = Array(numEdges).fill(conf.overhang !== undefined ? conf.overhang : 8);
                 }
                 this.initialOverhangs = [...conf.overhangs];
-                this.initialThickness = conf.thickness !== undefined ? conf.thickness : 15;
-                this.initialPoints = (entity.points || []).map(p => ({ x: p.x, y: p.y }));
+                this.initialPitch = conf.pitch !== undefined ? conf.pitch : 30;
+                this.initialCurve = conf.curve !== undefined ? conf.curve : 0;
+                let pts = entity.points;
+                if (!pts || !Array.isArray(pts) || pts.length < 3) {
+                    pts = [{ x: -100, y: -80 }, { x: 100, y: -80 }, { x: 100, y: 80 }, { x: -100, y: 80 }];
+                }
+                this.initialPoints = pts.map(p => ({ x: p.x, y: p.y }));
 
                 let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
                 this.initialPoints.forEach(p => {
@@ -133,18 +174,21 @@ export class FlatRoofGizmo extends THREE.Group {
                 this.initialMinY = minY;
                 this.initialMaxY = maxY;
 
+                const w = maxX - minX, d = maxY - minY;
+                const span = (this.initialRidgeAxis === 'x' ? d : w);
+                this.initialRh = Math.tan(this.initialPitch * Math.PI / 180) * (span / 2);
+
                 const type = handle.userData?.type;
-                if (type === 'edge') {
-                    const edgeIdx = handle.userData?.edgeIndex ?? 0;
-                    this.initialOverhang = this.initialOverhangs[edgeIdx] !== undefined ? this.initialOverhangs[edgeIdx] : (conf.overhang || 8);
-                    // Horizontal drag plane (XZ)
-                    this.dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), intersects[0].point);
-                } else if (type === 'thickness') {
+                if (type === 'pitch' || type === 'curve') {
                     // Vertical drag plane facing camera
                     const camDir = this.ctx.camera.getWorldDirection(new THREE.Vector3()).setY(0).normalize().negate();
                     this.dragPlane.setFromNormalAndCoplanarPoint(camDir, intersects[0].point);
+                } else if (type === 'edge') {
+                    const edgeIdx = handle.userData?.edgeIndex ?? 0;
+                    this.initialOverhang = this.initialOverhangs[edgeIdx] !== undefined ? this.initialOverhangs[edgeIdx] : (conf.overhang || 8);
+                    this.dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), intersects[0].point);
                 } else {
-                    // Corner stretch: horizontal drag plane (XZ)
+                    // Horizontal drag plane (XZ)
                     this.dragPlane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), intersects[0].point);
                 }
 
@@ -201,7 +245,30 @@ export class FlatRoofGizmo extends THREE.Group {
                 const localDeltaX = worldDeltaX * Math.cos(rad) - worldDeltaZ * Math.sin(rad);
                 const localDeltaZ = worldDeltaX * Math.sin(rad) + worldDeltaZ * Math.cos(rad);
 
-                if (type === 'move') {
+                if (type === 'pitch') {
+                    // Dedicated Gable Ridge Apex Pitch adjustment
+                    const deltaY = this.planeIntersect.y - this.dragStartPos.y;
+                    const w = this.initialMaxX - this.initialMinX;
+                    const d = this.initialMaxY - this.initialMinY;
+                    const axis = conf.ridgeAxis || 'x';
+                    const span = (axis === 'x' ? d : w);
+
+                    let newRh = Math.max(5, this.initialRh + deltaY);
+                    let newPitch = Math.atan2(newRh, span / 2) * (180 / Math.PI);
+                    newPitch = Math.max(5, Math.min(75, Math.round(newPitch)));
+
+                    RoofEngine.setPitch(entity, newPitch, this.ctx.planner || this.ctx);
+                    const peakFeet = this._formatFeetInches(newRh);
+                    this._updateDOMBadge(`GABLE PITCH: ${newPitch}&deg; | Ridge: ${peakFeet} (${Math.round(newRh)}cm)`, { x: e.clientX, y: e.clientY });
+                } else if (type === 'curve') {
+                    // Dedicated Slope Curvature adjustment (-50 to +50)
+                    const deltaY = this.planeIntersect.y - this.dragStartPos.y;
+                    const newCurve = Math.max(-50, Math.min(50, Math.round(this.initialCurve + deltaY * 0.4)));
+                    RoofEngine.setCurve(entity, newCurve, this.ctx.planner || this.ctx);
+
+                    const curveLabel = newCurve > 0 ? `Convex (+${newCurve})` : (newCurve < 0 ? `Pagoda (${newCurve})` : 'Straight (0)');
+                    this._updateDOMBadge(`CURVATURE: ${curveLabel}`, { x: e.clientX, y: e.clientY });
+                } else if (type === 'move') {
                     // Smooth, continuous direct 3D planar translation (world space)
                     let deltaX = this.planeIntersect.x - this.dragStartPos.x;
                     let deltaZ = this.planeIntersect.z - this.dragStartPos.z;
@@ -220,7 +287,7 @@ export class FlatRoofGizmo extends THREE.Group {
                     const dist = Math.hypot(deltaX, deltaZ);
                     this._updateDOMBadge(`MOVE: ${this._formatFeetInches(dist)} (&Delta;X: ${deltaX >= 0 ? '+' : ''}${this._formatFeetInches(deltaX)}, &Delta;Z: ${deltaZ >= 0 ? '+' : ''}${this._formatFeetInches(deltaZ)})`, { x: e.clientX, y: e.clientY });
                 } else if (type === 'spin') {
-                    // Smooth, rigid rotation around exact center without vertex deformation
+                    // Smooth, rigid rotation around exact center
                     const worldCx = this.initialGroupX + this.initialCenterX;
                     const worldCz = this.initialGroupZ + this.initialCenterZ;
                     const curAngle = Math.atan2(this.planeIntersect.z - worldCz, this.planeIntersect.x - worldCx);
@@ -240,8 +307,9 @@ export class FlatRoofGizmo extends THREE.Group {
 
                     this._updateDOMBadge(`SPIN: ${newRot}&deg;`, { x: e.clientX, y: e.clientY });
                 } else if (type === 'edge') {
-                    // DEDICATED Edge Push/Pull: projects strictly along edge's outward normal
+                    // Dedicated Edge Push/Pull: projects strictly along edge's outward normal
                     const edgeIdx = this.activeHandle.userData?.edgeIndex ?? 0;
+                    const role = this.activeHandle.userData?.role || 'eave';
                     const nx = this.activeHandle.userData?.nx ?? 0;
                     const ny = this.activeHandle.userData?.ny ?? 0;
 
@@ -259,12 +327,24 @@ export class FlatRoofGizmo extends THREE.Group {
                     const newOverhang = Math.max(0, Math.min(100, Math.round(initO + delta)));
 
                     if (e.shiftKey) {
-                        RoofEngine.setOverhang(entity, newOverhang, null, this.ctx.planner || this.ctx);
-                        this._updateDOMBadge(`ALL OVERHANGS: ${this._formatFeetInches(newOverhang)}`, { x: e.clientX, y: e.clientY });
+                        // Adjust all edges of this same role (all eaves or all rakes)
+                        const numEdges = entity.points?.length || 4;
+                        if (!conf.overhangs || !Array.isArray(conf.overhangs) || conf.overhangs.length !== numEdges) {
+                            conf.overhangs = Array(numEdges).fill(conf.overhang !== undefined ? conf.overhang : 8);
+                        }
+                        this.edgeHandles.forEach(h => {
+                            if (h.userData?.role === role && h.userData.edgeIndex !== undefined) {
+                                conf.overhangs[h.userData.edgeIndex] = newOverhang;
+                            }
+                        });
+                        RoofEngine.notifyRoofUpdated(entity, this.ctx.planner || this.ctx, 'geometry');
+                        const roleLabel = role === 'eave' ? 'ALL EAVES' : 'ALL GABLE RAKES';
+                        this._updateDOMBadge(`${roleLabel}: ${this._formatFeetInches(newOverhang)}`, { x: e.clientX, y: e.clientY });
                     } else {
-                        // SINGLE SIDE dedicated modification
+                        // Dedicated SINGLE EDGE modification
                         RoofEngine.setOverhang(entity, newOverhang, edgeIdx, this.ctx.planner || this.ctx);
-                        this._updateDOMBadge(`SIDE ${edgeIdx + 1} OVERHANG: ${this._formatFeetInches(newOverhang)}`, { x: e.clientX, y: e.clientY });
+                        const roleLabel = role === 'eave' ? `EAVE ${edgeIdx + 1}` : `GABLE RAKE ${edgeIdx + 1}`;
+                        this._updateDOMBadge(`${roleLabel} OVERHANG: ${this._formatFeetInches(newOverhang)}`, { x: e.clientX, y: e.clientY });
                     }
                 } else if (type === 'corner') {
                     // Corner footprint stretch
@@ -295,7 +375,7 @@ export class FlatRoofGizmo extends THREE.Group {
                         ];
                         RoofEngine.setPoints(entity, newPts, this.ctx.planner || this.ctx);
                         const curW = maxX - minX, curD = maxY - minY;
-                        this._updateDOMBadge(`SLAB FOOTPRINT: ${this._formatFeetInches(curW)} &times; ${this._formatFeetInches(curD)}`, { x: e.clientX, y: e.clientY });
+                        this._updateDOMBadge(`GABLE FOOTPRINT: ${this._formatFeetInches(curW)} &times; ${this._formatFeetInches(curD)}`, { x: e.clientX, y: e.clientY });
                     } else if (cIdx !== undefined && this.initialPoints[cIdx]) {
                         const newPts = this.initialPoints.map((p, idx) => {
                             if (idx === cIdx) {
@@ -306,16 +386,11 @@ export class FlatRoofGizmo extends THREE.Group {
                         RoofEngine.setPoints(entity, newPts, this.ctx.planner || this.ctx);
                         this._updateDOMBadge(`CORNER ${cIdx + 1} OFFSET`, { x: e.clientX, y: e.clientY });
                     }
-                } else if (type === 'thickness') {
-                    // Vertical Slab Thickness
-                    const deltaY = this.planeIntersect.y - this.dragStartPos.y;
-                    const newThickness = Math.max(2, Math.min(60, Math.round(this.initialThickness + deltaY)));
-                    RoofEngine.setThickness(entity, newThickness, this.ctx.planner || this.ctx);
-                    this._updateDOMBadge(`SLAB THICKNESS: ${this._formatFeetInches(newThickness)}`, { x: e.clientX, y: e.clientY });
                 }
 
                 this.updateHandlePositions();
                 this._updateHUDPosition();
+                this._updateHUDContent();
                 if (this.ctx && typeof this.ctx.requestRender === 'function') {
                     this.ctx.requestRender();
                 }
@@ -363,7 +438,7 @@ export class FlatRoofGizmo extends THREE.Group {
     _createDOMBadge() {
         if (typeof document === 'undefined') return;
         this.domBadge = document.createElement('div');
-        this.domBadge.className = 'flat-roof-live-badge';
+        this.domBadge.className = 'gable-roof-live-badge';
         this.domBadge.style.cssText = `
             position: absolute;
             display: none;
@@ -372,8 +447,8 @@ export class FlatRoofGizmo extends THREE.Group {
             padding: 7px 16px;
             border-radius: 18px;
             background: rgba(15, 23, 42, 0.95);
-            border: 2px solid #38bdf8;
-            box-shadow: 0 6px 22px rgba(0, 0, 0, 0.7), 0 0 16px rgba(56, 189, 248, 0.4);
+            border: 2px solid #f59e0b;
+            box-shadow: 0 6px 22px rgba(0, 0, 0, 0.7), 0 0 16px rgba(245, 158, 11, 0.4);
             color: #ffffff;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             font-size: 13px;
@@ -407,7 +482,7 @@ export class FlatRoofGizmo extends THREE.Group {
     _createDOMHUD() {
         if (typeof document === 'undefined') return;
         this.domHUD = document.createElement('div');
-        this.domHUD.className = 'flat-roof-floating-hud';
+        this.domHUD.className = 'gable-roof-floating-hud';
         this.domHUD.style.cssText = `
             position: absolute;
             display: none;
@@ -419,7 +494,7 @@ export class FlatRoofGizmo extends THREE.Group {
             border-radius: 20px;
             background: rgba(15, 23, 42, 0.92);
             border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 12px rgba(56, 189, 248, 0.3);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 12px rgba(245, 158, 11, 0.35);
             color: #ffffff;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             font-size: 12px;
@@ -431,22 +506,154 @@ export class FlatRoofGizmo extends THREE.Group {
         `;
 
         this.domHUD.innerHTML = `
-            <span style="font-size: 11px; font-weight: 800; color: #38bdf8; letter-spacing: 0.8px; padding-right: 4px; border-right: 1px solid rgba(255,255,255,0.2);">FLAT ROOF</span>
-            <button id="fr-btn-flush" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25); color: #fff; padding: 4px 10px; border-radius: 12px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s;" title="Set all sides flush to wall baseline">⇥ Flush (0")</button>
-            <button id="fr-btn-overhang8" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25); color: #fff; padding: 4px 10px; border-radius: 12px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s;" title="Apply uniform 8 inch overhang across all sides">↔ Overhang 8"</button>
-            <button id="fr-btn-mat" style="background: rgba(99, 102, 241, 0.25); border: 1px solid rgba(129, 140, 248, 0.5); color: #c7d2fe; padding: 4px 10px; border-radius: 12px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s;" title="Select and apply materials to terrace top or wall band">🎨 Material</button>
+            <span style="font-size: 11px; font-weight: 800; color: #f59e0b; letter-spacing: 0.8px; padding-right: 4px; border-right: 1px solid rgba(255,255,255,0.2);">GABLE ROOF</span>
+            <button id="gr-btn-flip-axis" style="background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.5); color: #fef3c7; padding: 4px 10px; border-radius: 12px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s;" title="Flip gable ridge axis between Horizontal (X) and Vertical (Y)">⇄ Flip Axis (X)</button>
+            <button id="gr-btn-auto-walls" style="background: rgba(139, 92, 246, 0.25); border: 1px solid rgba(167, 139, 250, 0.5); color: #ede9fe; padding: 4px 10px; border-radius: 12px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s;" title="Toggle automatic triangular gable end walls underneath">△ Auto Walls: ON</button>
+            <button id="gr-btn-mat" style="background: rgba(99, 102, 241, 0.25); border: 1px solid rgba(129, 140, 248, 0.5); color: #c7d2fe; padding: 4px 10px; border-radius: 12px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s;" title="Select and apply materials to shingles, fascia, or gable end">🎨 Material</button>
             <div style="display: flex; align-items: center; gap: 4px; padding-left: 4px; border-left: 1px solid rgba(255,255,255,0.2);">
-                <span id="fr-lbl-thick" style="font-size: 11px; color: #94a3b8;">6" Slab</span>
-                <button id="fr-btn-thick-sub" style="background: rgba(255,255,255,0.15); border: none; color: #fff; width: 20px; height: 20px; border-radius: 10px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;">-</button>
-                <button id="fr-btn-thick-add" style="background: rgba(255,255,255,0.15); border: none; color: #fff; width: 20px; height: 20px; border-radius: 10px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;">+</button>
+                <span id="gr-lbl-pitch" style="font-size: 11px; color: #94a3b8;">30° Pitch</span>
+                <button id="gr-btn-pitch-sub" style="background: rgba(255,255,255,0.15); border: none; color: #fff; width: 20px; height: 20px; border-radius: 10px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;" title="Decrease pitch by 5°">-</button>
+                <button id="gr-btn-pitch-add" style="background: rgba(255,255,255,0.15); border: none; color: #fff; width: 20px; height: 20px; border-radius: 10px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;" title="Increase pitch by 5°">+</button>
             </div>
+            <div style="display: flex; align-items: center; gap: 4px; padding-left: 4px; border-left: 1px solid rgba(255,255,255,0.2);">
+                <span id="gr-lbl-curve" style="font-size: 11px; color: #67e8f9;">Curve: 0</span>
+                <button id="gr-btn-curve-sub" style="background: rgba(255,255,255,0.15); border: none; color: #fff; width: 20px; height: 20px; border-radius: 10px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;" title="Pagoda / concave curve (-5)">-</button>
+                <button id="gr-btn-curve-add" style="background: rgba(255,255,255,0.15); border: none; color: #fff; width: 20px; height: 20px; border-radius: 10px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;" title="Convex curve (+5)">+</button>
+                <button id="gr-btn-curve-reset" style="background: rgba(255,255,255,0.1); border: none; color: #94a3b8; width: 18px; height: 18px; border-radius: 9px; cursor: pointer; font-size: 10px; display: flex; align-items: center; justify-content: center;" title="Reset curve to 0 (Straight)">0</button>
+            </div>
+            <button id="gr-btn-flush" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25); color: #fff; padding: 4px 10px; border-radius: 12px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s;" title="Set all overhangs flush to wall baseline (0 inches)">⇥ Flush (0")</button>
+            <button id="gr-btn-overhang8" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25); color: #fff; padding: 4px 10px; border-radius: 12px; cursor: pointer; font-size: 11px; font-weight: 600; transition: all 0.15s;" title="Apply standard 8 inch overhang across all sides">↔ 8" Overhang</button>
         `;
 
         const container = this.ctx.renderer?.domElement?.parentElement || document.body;
         container.appendChild(this.domHUD);
 
         // Bind HUD buttons
-        const btnFlush = this.domHUD.querySelector('#fr-btn-flush');
+        const btnFlipAxis = this.domHUD.querySelector('#gr-btn-flip-axis');
+        if (btnFlipAxis) {
+            btnFlipAxis.onclick = (e) => {
+                e.stopPropagation();
+                const entity = this.target?.userData?.entity;
+                if (!entity) return;
+                const conf = entity.config || entity;
+                const curAxis = conf.ridgeAxis || 'x';
+                const nextAxis = (curAxis === 'x') ? 'y' : 'x';
+                RoofEngine.setRidgeAxis(entity, nextAxis, this.ctx.planner || this.ctx, true);
+                this.rebuildHandles();
+                this.updateHandlePositions();
+                this._updateHUDContent();
+                this._updateHUDPosition();
+                coreEventBus.emit(EVENTS.SYNC_ENGINE);
+            };
+        }
+
+        const btnAutoWalls = this.domHUD.querySelector('#gr-btn-auto-walls');
+        if (btnAutoWalls) {
+            btnAutoWalls.onclick = (e) => {
+                e.stopPropagation();
+                const entity = this.target?.userData?.entity;
+                if (!entity) return;
+                const conf = entity.config || entity;
+                const nextAuto = !conf.autoShapeWalls;
+                RoofEngine.setAutoShapeWalls(entity, nextAuto, this.ctx.planner || this.ctx);
+                this._updateHUDContent();
+                coreEventBus.emit(EVENTS.SYNC_ENGINE);
+            };
+        }
+
+        const btnMat = this.domHUD.querySelector('#gr-btn-mat');
+        if (btnMat) {
+            btnMat.onclick = (e) => {
+                e.stopPropagation();
+                if (this.ctx.interactions) {
+                    this.ctx.interactions.setTransformMode('material');
+                }
+            };
+        }
+
+        const btnPitchSub = this.domHUD.querySelector('#gr-btn-pitch-sub');
+        if (btnPitchSub) {
+            btnPitchSub.onclick = (e) => {
+                e.stopPropagation();
+                const entity = this.target?.userData?.entity;
+                if (!entity) return;
+                const conf = entity.config || entity;
+                const curPitch = conf.pitch !== undefined ? conf.pitch : 30;
+                const nextPitch = Math.max(5, curPitch - 5);
+                RoofEngine.setPitch(entity, nextPitch, this.ctx.planner || this.ctx);
+                this.updateHandlePositions();
+                this._updateHUDPosition();
+                this._updateHUDContent();
+                coreEventBus.emit(EVENTS.SYNC_ENGINE);
+            };
+        }
+
+        const btnPitchAdd = this.domHUD.querySelector('#gr-btn-pitch-add');
+        if (btnPitchAdd) {
+            btnPitchAdd.onclick = (e) => {
+                e.stopPropagation();
+                const entity = this.target?.userData?.entity;
+                if (!entity) return;
+                const conf = entity.config || entity;
+                const curPitch = conf.pitch !== undefined ? conf.pitch : 30;
+                const nextPitch = Math.min(75, curPitch + 5);
+                RoofEngine.setPitch(entity, nextPitch, this.ctx.planner || this.ctx);
+                this.updateHandlePositions();
+                this._updateHUDPosition();
+                this._updateHUDContent();
+                coreEventBus.emit(EVENTS.SYNC_ENGINE);
+            };
+        }
+
+        const btnCurveSub = this.domHUD.querySelector('#gr-btn-curve-sub');
+        if (btnCurveSub) {
+            btnCurveSub.onclick = (e) => {
+                e.stopPropagation();
+                const entity = this.target?.userData?.entity;
+                if (!entity) return;
+                const conf = entity.config || entity;
+                const cur = conf.curve !== undefined ? conf.curve : 0;
+                const next = Math.max(-50, cur - 5);
+                RoofEngine.setCurve(entity, next, this.ctx.planner || this.ctx);
+                this.updateHandlePositions();
+                this._updateHUDPosition();
+                this._updateHUDContent();
+                coreEventBus.emit(EVENTS.SYNC_ENGINE);
+            };
+        }
+
+        const btnCurveAdd = this.domHUD.querySelector('#gr-btn-curve-add');
+        if (btnCurveAdd) {
+            btnCurveAdd.onclick = (e) => {
+                e.stopPropagation();
+                const entity = this.target?.userData?.entity;
+                if (!entity) return;
+                const conf = entity.config || entity;
+                const cur = conf.curve !== undefined ? conf.curve : 0;
+                const next = Math.min(50, cur + 5);
+                RoofEngine.setCurve(entity, next, this.ctx.planner || this.ctx);
+                this.updateHandlePositions();
+                this._updateHUDPosition();
+                this._updateHUDContent();
+                coreEventBus.emit(EVENTS.SYNC_ENGINE);
+            };
+        }
+
+        const btnCurveReset = this.domHUD.querySelector('#gr-btn-curve-reset');
+        if (btnCurveReset) {
+            btnCurveReset.onclick = (e) => {
+                e.stopPropagation();
+                const entity = this.target?.userData?.entity;
+                if (!entity) return;
+                RoofEngine.setCurve(entity, 0, this.ctx.planner || this.ctx);
+                this.updateHandlePositions();
+                this._updateHUDPosition();
+                this._updateHUDContent();
+                coreEventBus.emit(EVENTS.SYNC_ENGINE);
+            };
+        }
+
+        const btnFlush = this.domHUD.querySelector('#gr-btn-flush');
         if (btnFlush) {
             btnFlush.onclick = (e) => {
                 e.stopPropagation();
@@ -457,51 +664,13 @@ export class FlatRoofGizmo extends THREE.Group {
             };
         }
 
-        const btnOverhang8 = this.domHUD.querySelector('#fr-btn-overhang8');
+        const btnOverhang8 = this.domHUD.querySelector('#gr-btn-overhang8');
         if (btnOverhang8) {
             btnOverhang8.onclick = (e) => {
                 e.stopPropagation();
                 const entity = this.target?.userData?.entity;
                 if (!entity) return;
                 RoofEngine.setOverhang(entity, 8, null, this.ctx.planner || this.ctx);
-                coreEventBus.emit(EVENTS.SYNC_ENGINE);
-            };
-        }
-
-        const btnMat = this.domHUD.querySelector('#fr-btn-mat');
-        if (btnMat) {
-            btnMat.onclick = (e) => {
-                e.stopPropagation();
-                if (this.ctx.interactions) {
-                    this.ctx.interactions.setTransformMode('material');
-                }
-            };
-        }
-
-        const btnThickSub = this.domHUD.querySelector('#fr-btn-thick-sub');
-        if (btnThickSub) {
-            btnThickSub.onclick = (e) => {
-                e.stopPropagation();
-                const entity = this.target?.userData?.entity;
-                if (!entity) return;
-                const conf = entity.config || entity;
-                const cur = conf.thickness !== undefined ? conf.thickness : 15;
-                const next = Math.max(5, cur - 5);
-                RoofEngine.setThickness(entity, next, this.ctx.planner || this.ctx);
-                coreEventBus.emit(EVENTS.SYNC_ENGINE);
-            };
-        }
-
-        const btnThickAdd = this.domHUD.querySelector('#fr-btn-thick-add');
-        if (btnThickAdd) {
-            btnThickAdd.onclick = (e) => {
-                e.stopPropagation();
-                const entity = this.target?.userData?.entity;
-                if (!entity) return;
-                const conf = entity.config || entity;
-                const cur = conf.thickness !== undefined ? conf.thickness : 15;
-                const next = Math.min(50, cur + 5);
-                RoofEngine.setThickness(entity, next, this.ctx.planner || this.ctx);
                 coreEventBus.emit(EVENTS.SYNC_ENGINE);
             };
         }
@@ -512,10 +681,32 @@ export class FlatRoofGizmo extends THREE.Group {
         const entity = this.target.userData?.entity;
         if (!entity) return;
         const conf = entity.config || entity;
-        const lbl = this.domHUD.querySelector('#fr-lbl-thick');
-        if (lbl) {
-            const thick = conf.thickness !== undefined ? conf.thickness : 15;
-            lbl.innerText = `${this._formatFeetInches(thick)} Slab`;
+
+        const btnFlipAxis = this.domHUD.querySelector('#gr-btn-flip-axis');
+        if (btnFlipAxis) {
+            const axis = (conf.ridgeAxis || 'x').toUpperCase();
+            btnFlipAxis.innerText = `⇄ Flip Axis (${axis})`;
+        }
+
+        const btnAutoWalls = this.domHUD.querySelector('#gr-btn-auto-walls');
+        if (btnAutoWalls) {
+            const isAuto = Boolean(conf.autoShapeWalls);
+            btnAutoWalls.innerText = `△ Auto Walls: ${isAuto ? 'ON' : 'OFF'}`;
+            btnAutoWalls.style.background = isAuto ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.2)';
+            btnAutoWalls.style.borderColor = isAuto ? 'rgba(52, 211, 153, 0.5)' : 'rgba(248, 113, 113, 0.5)';
+            btnAutoWalls.style.color = isAuto ? '#a7f3d0' : '#fecaca';
+        }
+
+        const lblPitch = this.domHUD.querySelector('#gr-lbl-pitch');
+        if (lblPitch) {
+            const pitch = conf.pitch !== undefined ? conf.pitch : 30;
+            lblPitch.innerText = `${pitch}° Pitch`;
+        }
+
+        const lblCurve = this.domHUD.querySelector('#gr-lbl-curve');
+        if (lblCurve) {
+            const curve = conf.curve || 0;
+            lblCurve.innerText = curve === 0 ? 'Curve: 0' : (curve > 0 ? `+${curve} Convex` : `${curve} Pagoda`);
         }
     }
 
@@ -528,9 +719,23 @@ export class FlatRoofGizmo extends THREE.Group {
         const entity = this.target.userData?.entity;
         if (!entity) return;
         const conf = entity.config || entity;
-        const slabThickness = conf.thickness !== undefined ? conf.thickness : 15;
+        const pitch = conf.pitch !== undefined ? conf.pitch : 30;
+        const axis = conf.ridgeAxis || 'x';
 
-        // Position directly above the slab center
+        let basePts = entity.points;
+        if (!basePts || !Array.isArray(basePts) || basePts.length < 3) {
+            basePts = [{ x: -100, y: -80 }, { x: 100, y: -80 }, { x: 100, y: 80 }, { x: -100, y: 80 }];
+        }
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        basePts.forEach(p => {
+            minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+            minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+        });
+        const w = maxX - minX, d = maxY - minY;
+        const span = (axis === 'x' ? d : w);
+        const rh = Math.tan(pitch * Math.PI / 180) * (span / 2);
+
+        // Position above the ridge apex
         const worldPos = new THREE.Vector3();
         let targetGroup = this.target;
         while (targetGroup.parent && targetGroup.parent !== this.ctx.structureGroup && targetGroup.parent !== this.ctx.scene) {
@@ -538,7 +743,7 @@ export class FlatRoofGizmo extends THREE.Group {
         }
         targetGroup.getWorldPosition(worldPos);
 
-        const hudWorldPos = new THREE.Vector3(worldPos.x, worldPos.y + slabThickness + 20, worldPos.z);
+        const hudWorldPos = new THREE.Vector3(worldPos.x, worldPos.y + rh + 28, worldPos.z);
         const screenPos = hudWorldPos.clone().project(this.ctx.camera);
 
         if (screenPos.z > 1) {
@@ -617,21 +822,32 @@ export class FlatRoofGizmo extends THREE.Group {
         if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
     }
 
+    setMode(mode) {
+        this.mode = mode || 'corners';
+        this.rebuildHandles();
+        this.updateHandlePositions();
+        this._updateHUDContent();
+        this._updateHUDPosition();
+        if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
+    }
+
     rebuildHandles() {
         while (this.handles.children.length > 0) {
             const child = this.handles.children[0];
             this.handles.remove(child);
         }
 
+        this.peakHandle = null;
+        this.curveHandle = null;
         this.edgeHandles = [];
         this.cornerHandles = [];
-        this.thicknessHandle = null;
         this.moveHandle = null;
         this.spinHandle = null;
 
         if (!this.target) return;
         const entity = this.target.userData?.entity;
         if (!entity) return;
+        const conf = entity.config || entity;
 
         if (this.mode === 'move') {
             const moveGroup = new THREE.Group();
@@ -697,24 +913,90 @@ export class FlatRoofGizmo extends THREE.Group {
             return;
         }
 
-        const basePts = entity.points || [];
-        const numPts = basePts.length >= 3 ? basePts.length : 4;
+        // MODE: 'corners' / Default Shape Mode
+        let basePts = entity.points;
+        if (!basePts || !Array.isArray(basePts) || basePts.length < 3) {
+            basePts = [{ x: -100, y: -80 }, { x: 100, y: -80 }, { x: 100, y: 80 }, { x: -100, y: 80 }];
+        }
+        const numPts = basePts.length;
+        const axis = conf.ridgeAxis || 'x';
 
-        // 1. Dedicated Edge Push/Pull Handles (One per polygon edge)
+        // 1. Dedicated Ridge Apex Peak Handle (Gold/Amber Ridge Beam + Vertical Dual-Cone Arrow)
+        const peakGroup = new THREE.Group();
+        peakGroup.userData = { type: 'pitch' };
+
+        const topCone = new THREE.Mesh(new THREE.ConeGeometry(11, 20, 16), this.pitchMat);
+        topCone.position.y = 10;
+        topCone.renderOrder = 9999;
+
+        const bottomCone = new THREE.Mesh(new THREE.ConeGeometry(11, 20, 16), this.pitchMat);
+        bottomCone.rotation.x = Math.PI;
+        bottomCone.position.y = -10;
+        bottomCone.renderOrder = 9999;
+
+        const peakRing = new THREE.Mesh(new THREE.TorusGeometry(14, 2, 8, 24), this.ringMat);
+        peakRing.rotation.x = Math.PI / 2;
+        peakRing.renderOrder = 9999;
+
+        // Ridge Beam Tube aligned with ridgeAxis
+        const ridgeTubeGeo = new THREE.CylinderGeometry(3.5, 3.5, 60, 16);
+        const ridgeTube = new THREE.Mesh(ridgeTubeGeo, this.ridgeTubeMat);
+        if (axis === 'x') {
+            ridgeTube.rotation.z = Math.PI / 2;
+        } else {
+            ridgeTube.rotation.x = Math.PI / 2;
+        }
+        ridgeTube.renderOrder = 9999;
+
+        peakGroup.add(topCone, bottomCone, peakRing, ridgeTube);
+        this.handles.add(peakGroup);
+        this.peakHandle = peakGroup;
+
+        // 2. Dedicated Slope Curvature Handle (Cyan Sphere + Halo Ring on the pitch slope)
+        const curveGroup = new THREE.Group();
+        curveGroup.userData = { type: 'curve' };
+
+        const curveSphere = new THREE.Mesh(new THREE.SphereGeometry(11, 20, 20), this.curveMat);
+        curveSphere.renderOrder = 9999;
+
+        const cRing = new THREE.Mesh(new THREE.TorusGeometry(14, 2, 8, 24), this.ringMat);
+        cRing.rotation.x = Math.PI / 2;
+        cRing.renderOrder = 9999;
+
+        curveGroup.add(curveSphere, cRing);
+        this.handles.add(curveGroup);
+        this.curveHandle = curveGroup;
+
+        // 2. Differentiated Edge Handles: Eaves (Cobalt Blue) vs Gable Rakes (Royal Purple)
         for (let i = 0; i < numPts; i++) {
-            const tabGroup = new THREE.Group();
-            tabGroup.userData = { type: 'edge', edgeIndex: i };
+            const p0 = basePts[i];
+            const p1 = basePts[(i + 1) % numPts];
+            const dx = p1.x - p0.x;
+            const dy = p1.y - p0.y;
+
+            // Determine if edge is Eave (gutter edge) or Rake (triangular end)
+            let isEave = false;
+            if (axis === 'x') {
+                isEave = Math.abs(dx) >= Math.abs(dy); // North & South edges
+            } else {
+                isEave = Math.abs(dy) >= Math.abs(dx); // East & West edges
+            }
+            const role = isEave ? 'eave' : 'rake';
+            const curMat = isEave ? this.eaveMat : this.rakeMat;
+
+            const edgeGroup = new THREE.Group();
+            edgeGroup.userData = { type: 'edge', role, edgeIndex: i };
 
             // Sleek CAD push/pull badge with outward and inward arrowheads
-            const tabBody = new THREE.Mesh(new THREE.BoxGeometry(22, 5, 8), this.edgeMat);
+            const tabBody = new THREE.Mesh(new THREE.BoxGeometry(22, 5, 8), curMat);
             tabBody.renderOrder = 9999;
 
-            const arrowOut = new THREE.Mesh(new THREE.ConeGeometry(4.5, 9, 8), this.edgeMat);
+            const arrowOut = new THREE.Mesh(new THREE.ConeGeometry(4.5, 9, 8), curMat);
             arrowOut.rotation.x = Math.PI / 2;
             arrowOut.position.z = 6;
             arrowOut.renderOrder = 9999;
 
-            const arrowIn = new THREE.Mesh(new THREE.ConeGeometry(4.5, 9, 8), this.edgeMat);
+            const arrowIn = new THREE.Mesh(new THREE.ConeGeometry(4.5, 9, 8), curMat);
             arrowIn.rotation.x = -Math.PI / 2;
             arrowIn.position.z = -6;
             arrowIn.renderOrder = 9999;
@@ -723,12 +1005,12 @@ export class FlatRoofGizmo extends THREE.Group {
             ring.rotation.x = Math.PI / 2;
             ring.renderOrder = 9999;
 
-            tabGroup.add(tabBody, arrowOut, arrowIn, ring);
-            this.handles.add(tabGroup);
-            this.edgeHandles.push(tabGroup);
+            edgeGroup.add(tabBody, arrowOut, arrowIn, ring);
+            this.handles.add(edgeGroup);
+            this.edgeHandles.push(edgeGroup);
         }
 
-        // 2. Corner Vertex Handles (Pink Octahedron Crystals)
+        // 3. Corner Vertex Handles (Pink Octahedron Crystals)
         const corners = ['nw', 'ne', 'se', 'sw'];
         for (let i = 0; i < numPts; i++) {
             const cornerGroup = new THREE.Group();
@@ -750,27 +1032,6 @@ export class FlatRoofGizmo extends THREE.Group {
             this.cornerHandles.push(cornerGroup);
         }
 
-        // 3. Vertical Slab Thickness Handle (Gold Double Arrow on top)
-        const thickGroup = new THREE.Group();
-        thickGroup.userData = { type: 'thickness' };
-
-        const topCone = new THREE.Mesh(new THREE.ConeGeometry(8, 14, 16), this.thickMat);
-        topCone.position.y = 8;
-        topCone.renderOrder = 9999;
-
-        const botCone = new THREE.Mesh(new THREE.ConeGeometry(8, 14, 16), this.thickMat);
-        botCone.rotation.x = Math.PI;
-        botCone.position.y = -8;
-        botCone.renderOrder = 9999;
-
-        const thickRing = new THREE.Mesh(new THREE.TorusGeometry(10, 1.8, 8, 20), this.ringMat);
-        thickRing.rotation.x = Math.PI / 2;
-        thickRing.renderOrder = 9999;
-
-        thickGroup.add(topCone, botCone, thickRing);
-        this.handles.add(thickGroup);
-        this.thicknessHandle = thickGroup;
-
         this.refreshHandleMaterials();
     }
 
@@ -779,8 +1040,10 @@ export class FlatRoofGizmo extends THREE.Group {
         const entity = this.target.userData?.entity;
         if (!entity) return;
         const conf = entity.config || entity;
-        const basePts = entity.points || [];
-        if (basePts.length < 3) return;
+        let basePts = entity.points;
+        if (!basePts || !Array.isArray(basePts) || basePts.length < 3) {
+            basePts = [{ x: -100, y: -80 }, { x: 100, y: -80 }, { x: 100, y: 80 }, { x: -100, y: 80 }];
+        }
 
         const numPts = basePts.length;
         const overhangs = conf.overhangs ? conf.overhangs : (conf.overhang !== undefined ? conf.overhang : 8);
@@ -794,6 +1057,19 @@ export class FlatRoofGizmo extends THREE.Group {
 
         const baseCx = (baseMinX !== Infinity) ? (baseMinX + baseMaxX) / 2 : 0;
         const baseCz = (baseMinY !== Infinity) ? (baseMinY + baseMaxY) / 2 : 0;
+        const baseW = (baseMinX !== Infinity) ? (baseMaxX - baseMinX) : 200;
+        const baseD = (baseMinY !== Infinity) ? (baseMaxY - baseMinY) : 160;
+
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        pts.forEach(p => {
+            minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+            minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+        });
+
+        const axis = conf.ridgeAxis || 'x';
+        const span = (axis === 'x' ? baseD : baseW);
+        const pitch = conf.pitch !== undefined ? conf.pitch : 30;
+        const rh = Math.tan(pitch * Math.PI / 180) * (span / 2);
 
         const worldPos = new THREE.Vector3();
         let targetGroup = this.target;
@@ -808,19 +1084,28 @@ export class FlatRoofGizmo extends THREE.Group {
         this.handles.rotation.y = -rot * Math.PI / 180;
 
         const baseY = worldPos.y;
-        const slabThickness = conf.thickness !== undefined ? conf.thickness : 15;
-        const slabTopY = baseY + slabThickness + 2;
 
         if (this.moveHandle) {
-            this.moveHandle.position.set(0, slabTopY + 2, 0);
+            this.moveHandle.position.set(0, baseY + rh + 2, 0);
         }
         if (this.spinHandle) {
-            this.spinHandle.position.set(0, slabTopY + 2, 0);
+            this.spinHandle.position.set(0, baseY + rh + 2, 0);
         }
 
-        // Position Vertical Slab Thickness handle at center
-        if (this.thicknessHandle) {
-            this.thicknessHandle.position.set(0, slabTopY + 8, 0);
+        // Position Ridge Apex Peak Handle
+        if (this.peakHandle) {
+            this.peakHandle.position.set(0, baseY + rh, 0);
+        }
+
+        // Position Slope Curvature Handle (midpoint of roof slope)
+        if (this.curveHandle) {
+            const curveOffset = conf.curve || 0;
+            const slopeY = baseY + (rh * 0.48) + curveOffset + 6;
+            if (axis === 'x') {
+                this.curveHandle.position.set(0, slopeY, -(baseD * 0.25));
+            } else {
+                this.curveHandle.position.set(-(baseW * 0.25), slopeY, 0);
+            }
         }
 
         let signedArea = 0;
@@ -830,7 +1115,7 @@ export class FlatRoofGizmo extends THREE.Group {
             signedArea += (a.x * b.y - b.x * a.y);
         }
 
-        // Position Edge Push/Pull Handles
+        // Position Edge Handles
         if (this.edgeHandles && this.edgeHandles.length > 0) {
             pts.forEach((p, idx) => {
                 if (idx >= this.edgeHandles.length) return;
@@ -852,7 +1137,11 @@ export class FlatRoofGizmo extends THREE.Group {
 
                 const handle = this.edgeHandles[idx];
                 if (handle) {
-                    handle.position.set(midX - baseCx, slabTopY, midY - baseCz);
+                    const role = handle.userData?.role || 'eave';
+                    // Eaves sit at the base roof trim line; Gable rakes sit halfway up the gable end
+                    const edgeY = (role === 'eave') ? (baseY + 2) : (baseY + rh / 2);
+
+                    handle.position.set(midX - baseCx, edgeY, midY - baseCz);
                     handle.rotation.y = -Math.atan2(ny, nx) + Math.PI / 2;
                     handle.userData.nx = nx;
                     handle.userData.ny = ny;
@@ -861,62 +1150,109 @@ export class FlatRoofGizmo extends THREE.Group {
             });
         }
 
-        // Position Corner Vertex Handles
+        // Position Corner Footprint Handles
         if (this.cornerHandles && this.cornerHandles.length > 0) {
             pts.forEach((p, idx) => {
                 if (idx >= this.cornerHandles.length) return;
                 const handle = this.cornerHandles[idx];
                 if (handle) {
-                    handle.position.set(p.x - baseCx, slabTopY, p.y - baseCz);
-                    handle.userData.cornerIndex = idx;
+                    handle.position.set(p.x - baseCx, baseY + 2, p.y - baseCz);
                 }
             });
         }
     }
 
     refreshHandleMaterials() {
+        // Ridge Apex Handle
+        if (this.peakHandle) {
+            const isHover = (this.hoveredHandle === this.peakHandle);
+            const isActive = (this.activeHandle === this.peakHandle);
+            const curMat = isActive ? this.pitchMatActive : (isHover ? this.pitchMatHover : this.pitchMat);
+            this.peakHandle.traverse(child => {
+                if (child.isMesh && child.material !== this.ringMat && child.material !== this.ridgeTubeMat) {
+                    child.material = curMat;
+                }
+            });
+        }
+
+        // Slope Curvature Handle
+        if (this.curveHandle) {
+            const isHover = (this.hoveredHandle === this.curveHandle);
+            const isActive = (this.activeHandle === this.curveHandle);
+            const curMat = isActive ? this.curveMatActive : (isHover ? this.curveMatHover : this.curveMat);
+            this.curveHandle.traverse(child => {
+                if (child.isMesh && child.material !== this.ringMat) {
+                    child.material = curMat;
+                }
+            });
+        }
+
+        // Edge Handles (Eave vs Rake)
+        this.edgeHandles.forEach(h => {
+            const isHover = (this.hoveredHandle === h);
+            const isActive = (this.activeHandle === h);
+            const role = h.userData?.role || 'eave';
+            let curMat = null;
+            if (role === 'eave') {
+                curMat = isActive ? this.eaveMatActive : (isHover ? this.eaveMatHover : this.eaveMat);
+            } else {
+                curMat = isActive ? this.rakeMatActive : (isHover ? this.rakeMatHover : this.rakeMat);
+            }
+            h.traverse(child => {
+                if (child.isMesh && child.material !== this.ringMat) {
+                    child.material = curMat;
+                }
+            });
+        });
+
+        // Corner Handles
+        this.cornerHandles.forEach(h => {
+            const isHover = (this.hoveredHandle === h);
+            const isActive = (this.activeHandle === h);
+            const curMat = isActive ? this.cornerMatActive : (isHover ? this.cornerMatHover : this.cornerMat);
+            h.traverse(child => {
+                if (child.isMesh && child.material !== this.ringMat) {
+                    child.material = curMat;
+                }
+            });
+        });
+
+        // Move Handle
         if (this.moveHandle) {
-            const isActive = this.activeHandle === this.moveHandle;
-            const isHover = this.hoveredHandle === this.moveHandle;
-            const m = isActive ? this.moveMatActive : (isHover ? this.moveMatHover : this.moveMat);
-            this.moveHandle.children.forEach(c => { if (c.material !== this.ringMat) c.material = m; });
+            const isHover = (this.hoveredHandle === this.moveHandle);
+            const isActive = (this.activeHandle === this.moveHandle);
+            const curMat = isActive ? this.moveMatActive : (isHover ? this.moveMatHover : this.moveMat);
+            this.moveHandle.traverse(child => {
+                if (child.isMesh && child.material !== this.ringMat) {
+                    child.material = curMat;
+                }
+            });
         }
 
+        // Spin Handle
         if (this.spinHandle) {
-            const isActive = this.activeHandle === this.spinHandle;
-            const isHover = this.hoveredHandle === this.spinHandle;
-            const m = isActive ? this.spinMatActive : (isHover ? this.spinMatHover : this.spinMat);
-            this.spinHandle.children.forEach(c => { if (c.material !== this.ringMat) c.material = m; });
-        }
-
-        if (this.edgeHandles) {
-            this.edgeHandles.forEach(h => {
-                const isActive = this.activeHandle === h;
-                const isHover = this.hoveredHandle === h;
-                const m = isActive ? this.edgeMatActive : (isHover ? this.edgeMatHover : this.edgeMat);
-                h.children.forEach(c => { if (c.material !== this.ringMat) c.material = m; });
+            const isHover = (this.hoveredHandle === this.spinHandle);
+            const isActive = (this.activeHandle === this.spinHandle);
+            const curMat = isActive ? this.spinMatActive : (isHover ? this.spinMatHover : this.spinMat);
+            this.spinHandle.traverse(child => {
+                if (child.isMesh && child.material !== this.ringMat) {
+                    child.material = curMat;
+                }
             });
-        }
-
-        if (this.cornerHandles) {
-            this.cornerHandles.forEach(h => {
-                const isActive = this.activeHandle === h;
-                const isHover = this.hoveredHandle === h;
-                const m = isActive ? this.cornerMatActive : (isHover ? this.cornerMatHover : this.cornerMat);
-                h.children.forEach(c => { if (c.material !== this.ringMat) c.material = m; });
-            });
-        }
-
-        if (this.thicknessHandle) {
-            const isActive = this.activeHandle === this.thicknessHandle;
-            const isHover = this.hoveredHandle === this.thicknessHandle;
-            const m = isActive ? this.thickMatActive : (isHover ? this.thickMatHover : this.thickMat);
-            this.thicknessHandle.children.forEach(c => { if (c.material !== this.ringMat) c.material = m; });
         }
     }
 
     dispose() {
         this.detach();
+        if (this._unsubSync && typeof this._unsubSync === 'function') {
+            this._unsubSync();
+        }
+        if (this.domBadge && this.domBadge.parentElement) {
+            this.domBadge.parentElement.removeChild(this.domBadge);
+        }
+        if (this.domHUD && this.domHUD.parentElement) {
+            this.domHUD.parentElement.removeChild(this.domHUD);
+        }
         const dom = this.ctx.renderer?.domElement;
         if (dom && typeof dom.removeEventListener === 'function') {
             dom.removeEventListener('pointerdown', this._onPointerDown, true);
@@ -925,26 +1261,5 @@ export class FlatRoofGizmo extends THREE.Group {
         if (typeof window !== 'undefined') {
             window.removeEventListener('pointerup', this._onPointerUp, false);
         }
-        if (this.domBadge && this.domBadge.parentElement) {
-            this.domBadge.parentElement.removeChild(this.domBadge);
-        }
-        if (this.domHUD && this.domHUD.parentElement) {
-            this.domHUD.parentElement.removeChild(this.domHUD);
-        }
-        if (typeof this._unsubSync === 'function') {
-            this._unsubSync();
-        } else if (this._onSyncEngine) {
-            coreEventBus.off(EVENTS.SYNC_ENGINE, this._onSyncEngine);
-        }
-        if (this.edgeMat) this.edgeMat.dispose();
-        if (this.cornerMat) this.cornerMat.dispose();
-        if (this.thickMat) this.thickMat.dispose();
-        if (this.moveMat) this.moveMat.dispose();
-        if (this.moveMatHover) this.moveMatHover.dispose();
-        if (this.moveMatActive) this.moveMatActive.dispose();
-        if (this.spinMat) this.spinMat.dispose();
-        if (this.spinMatHover) this.spinMatHover.dispose();
-        if (this.spinMatActive) this.spinMatActive.dispose();
-        if (this.ringMat) this.ringMat.dispose();
     }
 }

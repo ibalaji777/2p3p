@@ -603,6 +603,7 @@ describe('Roof Pipeline & 3D Addition', () => {
             return target;
         };
 
+        const oppHandleBeforeX = gizmo.overhangHandles[3].position.x;
         gizmo._onPointerMove({ clientX: 420, clientY: 300, shiftKey: false, preventDefault: () => {}, stopPropagation: () => {} });
 
         // Verify ONLY Side 2 (index 1) overhang increased, other sides remain 8!
@@ -611,6 +612,9 @@ describe('Roof Pipeline & 3D Addition', () => {
         expect(flatRoofEntity.config.overhangs[0]).toBe(8);
         expect(flatRoofEntity.config.overhangs[2]).toBe(8);
         expect(flatRoofEntity.config.overhangs[3]).toBe(8);
+
+        // Verify opposite side handle (Side 4 / West, index 3) remained 100% stationary!
+        expect(gizmo.overhangHandles[3].position.x).toBeCloseTo(oppHandleBeforeX, 2);
 
         // 3. Simulate dragging with Shift key (all sides scale together)
         gizmo.initialOverhangs = [...flatRoofEntity.config.overhangs];
@@ -684,6 +688,10 @@ describe('Roof Pipeline & 3D Addition', () => {
             return target;
         };
 
+        const oppZBefore = gizmo.edgeHandles[2].position.z;
+        const oppCorner2ZBefore = gizmo.cornerHandles[2].position.z;
+        const oppCorner3ZBefore = gizmo.cornerHandles[3].position.z;
+
         gizmo._onPointerMove({ clientX: 400, clientY: 250, shiftKey: false, preventDefault: () => {}, stopPropagation: () => {} });
 
         // ONLY Side 1 (index 0) overhang is adjusted! All other 3 edges remain at 8
@@ -691,6 +699,11 @@ describe('Roof Pipeline & 3D Addition', () => {
         expect(flatRoofEntity.config.overhangs[1]).toBe(8);
         expect(flatRoofEntity.config.overhangs[2]).toBe(8);
         expect(flatRoofEntity.config.overhangs[3]).toBe(8);
+
+        // Verify opposite edge handle (Side 3 / South, index 2) and opposite corners remained 100% stationary!
+        expect(gizmo.edgeHandles[2].position.z).toBeCloseTo(oppZBefore, 2);
+        expect(gizmo.cornerHandles[2].position.z).toBeCloseTo(oppCorner2ZBefore, 2);
+        expect(gizmo.cornerHandles[3].position.z).toBeCloseTo(oppCorner3ZBefore, 2);
 
         // 3. Drag with Shift key -> updates all overhangs
         gizmo.initialOverhangs = [...flatRoofEntity.config.overhangs];
@@ -731,7 +744,7 @@ describe('Roof Pipeline & 3D Addition', () => {
         gizmo.dispose();
     });
 
-    it('12. InteractionSystem: should route flat roof selection directly to FlatRoofGizmo and pitch roof to RoofPitchCurvatureGizmo', async () => {
+    it('12. InteractionSystem: should route flat roof selection directly to FlatRoofGizmo, gable roof to GableRoofGizmo, and other pitch roofs to RoofPitchCurvatureGizmo', async () => {
         const { createPinia, setActivePinia } = await import('pinia');
         setActivePinia(createPinia());
         const { InteractionSystem } = await import('../../../core/engine3d/InteractionSystem.js');
@@ -749,6 +762,7 @@ describe('Roof Pipeline & 3D Addition', () => {
 
         const interactions = new InteractionSystem(mockCtx);
         expect(interactions.flatRoofGizmo).toBeDefined();
+        expect(interactions.gableRoofGizmo).toBeDefined();
         expect(interactions.roofPitchGizmo).toBeDefined();
 
         // 1. Select flat roof
@@ -757,19 +771,31 @@ describe('Roof Pipeline & 3D Addition', () => {
 
         interactions.selectObject(flatRoof);
         expect(interactions.flatRoofGizmo.visible).toBe(true);
+        expect(interactions.gableRoofGizmo.visible).toBe(false);
         expect(interactions.roofPitchGizmo.visible).toBe(false);
 
-        // 2. Select pitched gable roof
+        // 2. Select pitched gable roof -> routes to dedicated GableRoofGizmo
         const gableRoof = new THREE.Mesh();
         gableRoof.userData = { isRoof: true, entity: { type: 'roof', id: 'gable_roof_1', config: { roofType: 'gable', pitch: 25, overhang: 8 } } };
 
         interactions.selectObject(gableRoof);
         expect(interactions.flatRoofGizmo.visible).toBe(false);
+        expect(interactions.gableRoofGizmo.visible).toBe(true);
+        expect(interactions.roofPitchGizmo.visible).toBe(false);
+
+        // 3. Select other pitched roof (e.g. hip) -> routes to RoofPitchCurvatureGizmo
+        const hipRoof = new THREE.Mesh();
+        hipRoof.userData = { isRoof: true, entity: { type: 'roof', id: 'hip_roof_1', config: { roofType: 'hip', pitch: 30, overhang: 8 } } };
+
+        interactions.selectObject(hipRoof);
+        expect(interactions.flatRoofGizmo.visible).toBe(false);
+        expect(interactions.gableRoofGizmo.visible).toBe(false);
         expect(interactions.roofPitchGizmo.visible).toBe(true);
 
-        // 3. Deselect
+        // 4. Deselect
         interactions.deselect();
         expect(interactions.flatRoofGizmo.visible).toBe(false);
+        expect(interactions.gableRoofGizmo.visible).toBe(false);
         expect(interactions.roofPitchGizmo.visible).toBe(false);
 
         interactions.dispose();
@@ -915,5 +941,229 @@ describe('Roof Pipeline & 3D Addition', () => {
         expect(setTransformMode).toHaveBeenCalledWith('material');
 
         gizmo.dispose();
+    });
+
+    it('16. GableRoofGizmo: Dedicated 3D interactive handles for Ridge Peak, Eaves, Gable Rakes, Corners, Flip Axis, and Auto-Walls', async () => {
+        const { GableRoofGizmo } = await import('../GableRoofGizmo.js');
+        const mockEnvBuilder = { updateRoofLive: vi.fn(), buildWallGroup: vi.fn() };
+        const setTransformMode = vi.fn();
+        const mockPlanner = {
+            activeFloor: 0,
+            walls: [],
+            roofs: [],
+            envBuilder: mockEnvBuilder,
+            stage: { batchDraw: vi.fn() }
+        };
+        const mockCtx = {
+            renderer: { domElement: { addEventListener: vi.fn(), removeEventListener: vi.fn(), getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }), parentElement: null, style: {} } },
+            camera: new THREE.PerspectiveCamera(45, 1, 1, 1000),
+            scene: new THREE.Group(),
+            controls: { enabled: true },
+            envBuilder: mockEnvBuilder,
+            interactions: { setTransformMode },
+            planner: mockPlanner,
+            requestRender: vi.fn()
+        };
+
+        const gizmo = new GableRoofGizmo(mockCtx);
+        expect(gizmo.visible).toBe(false);
+
+        const gableRoofEntity = {
+            type: 'roof',
+            id: 'test_gable_gizmo_dedicated',
+            points: [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 150 }, { x: 0, y: 150 }],
+            config: {
+                roofType: 'gable',
+                pitch: 30,
+                overhangs: [8, 8, 8, 8],
+                ridgeAxis: 'x',
+                autoShapeWalls: true
+            },
+            elevation: 120,
+            updateGeometry: vi.fn()
+        };
+
+        const mockTargetMesh = new THREE.Mesh();
+        mockTargetMesh.userData = { isRoof: true, entity: gableRoofEntity };
+
+        // 1. Attach to gable roof in default 'corners' mode
+        gizmo.attach(mockTargetMesh, 'corners');
+        expect(gizmo.visible).toBe(true);
+
+        // Peak handle (ridge arrow + ridge tube)
+        expect(gizmo.peakHandle).not.toBeNull();
+        expect(gizmo.peakHandle.userData.type).toBe('pitch');
+
+        // Curve handle (Slope Curvature sphere)
+        expect(gizmo.curveHandle).not.toBeNull();
+        expect(gizmo.curveHandle.userData.type).toBe('curve');
+
+        // Edge handles (Eaves vs Gable Rakes)
+        expect(gizmo.edgeHandles.length).toBe(4);
+        // With ridgeAxis: 'x', North & South (dx >= dy) are eaves, East & West are rakes
+        expect(gizmo.edgeHandles[0].userData.role).toBe('eave'); // Edge 0: (0,0) -> (200,0)
+        expect(gizmo.edgeHandles[1].userData.role).toBe('rake'); // Edge 1: (200,0) -> (200,150)
+        expect(gizmo.edgeHandles[2].userData.role).toBe('eave'); // Edge 2: (200,150) -> (0,150)
+        expect(gizmo.edgeHandles[3].userData.role).toBe('rake'); // Edge 3: (0,150) -> (0,0)
+
+        // Corner handles
+        expect(gizmo.cornerHandles.length).toBe(4);
+
+        // 2. Simulate dragging an Eave edge handle independently
+        gizmo.isDragging = true;
+        const eaveHandle = gizmo.edgeHandles[0];
+        gizmo.activeHandle = eaveHandle;
+        gizmo.initialOverhangs = [8, 8, 8, 8];
+        gizmo.dragStartPos.set(100, 120, 0);
+        gizmo.planeIntersect.set(100, 120, -15); // Delta outward = +15
+
+        gizmo.raycaster.ray.intersectPlane = (plane, target) => {
+            target.copy(gizmo.planeIntersect);
+            return target;
+        };
+
+        const oppHandle2BeforeZ = gizmo.edgeHandles[2].position.z;
+        const oppCorner2BeforeZ = gizmo.cornerHandles[2].position.z;
+        const oppCorner3BeforeZ = gizmo.cornerHandles[3].position.z;
+
+        gizmo._onPointerMove({ clientX: 400, clientY: 300, shiftKey: false, preventDefault: () => {}, stopPropagation: () => {} });
+        expect(gableRoofEntity.config.overhangs[0]).toBe(23); // 8 + 15
+        expect(gableRoofEntity.config.overhangs[1]).toBe(8);  // untouched rake
+        expect(gableRoofEntity.config.overhangs[2]).toBe(8);
+        expect(gableRoofEntity.config.overhangs[3]).toBe(8);
+
+        // Verify opposite eave handle (South, index 2) and opposite corners remained 100% stationary!
+        expect(gizmo.edgeHandles[2].position.z).toBeCloseTo(oppHandle2BeforeZ, 2);
+        expect(gizmo.cornerHandles[2].position.z).toBeCloseTo(oppCorner2BeforeZ, 2);
+        expect(gizmo.cornerHandles[3].position.z).toBeCloseTo(oppCorner3BeforeZ, 2);
+
+        // 3. Simulate dragging Ridge Peak handle to adjust pitch
+        gizmo.activeHandle = gizmo.peakHandle;
+        gizmo.initialPitch = 30;
+        gizmo.dragStartPos.set(100, 163.3, 75);
+        gizmo.planeIntersect.set(100, 180, 75); // deltaY = +16.7
+        gizmo._onPointerMove({ clientX: 400, clientY: 200, shiftKey: false, preventDefault: () => {}, stopPropagation: () => {} });
+        expect(gableRoofEntity.config.pitch).toBeGreaterThan(30);
+
+        // 3b. Simulate dragging Slope Curvature handle to adjust curvature
+        gizmo.activeHandle = gizmo.curveHandle;
+        gizmo.initialCurve = 0;
+        gizmo.dragStartPos.set(0, 140, -37.5);
+        gizmo.planeIntersect.set(0, 165, -37.5); // deltaY = +25 -> curve = +10
+        gizmo._onPointerMove({ clientX: 400, clientY: 200, shiftKey: false, preventDefault: () => {}, stopPropagation: () => {} });
+        expect(gableRoofEntity.config.curve).toBe(10);
+
+        // 4. Test Floating HUD buttons
+        // Curve buttons
+        const btnCurveReset = gizmo.domHUD.querySelector('#gr-btn-curve-reset');
+        expect(btnCurveReset).not.toBeNull();
+        btnCurveReset.click();
+        expect(gableRoofEntity.config.curve).toBe(0);
+
+        const btnCurveSub = gizmo.domHUD.querySelector('#gr-btn-curve-sub');
+        expect(btnCurveSub).not.toBeNull();
+        btnCurveSub.click();
+        expect(gableRoofEntity.config.curve).toBe(-5);
+
+        const btnCurveAdd = gizmo.domHUD.querySelector('#gr-btn-curve-add');
+        expect(btnCurveAdd).not.toBeNull();
+        btnCurveAdd.click();
+        expect(gableRoofEntity.config.curve).toBe(0);
+
+        // Flip Ridge Axis button
+        const btnFlip = gizmo.domHUD.querySelector('#gr-btn-flip-axis');
+        expect(btnFlip).not.toBeNull();
+        btnFlip.click();
+        expect(gableRoofEntity.config.ridgeAxis).toBe('y');
+        expect(mockEnvBuilder.updateRoofLive).toHaveBeenCalledWith(gableRoofEntity);
+
+        // Auto-Gable Walls toggle button
+        const btnAuto = gizmo.domHUD.querySelector('#gr-btn-auto-walls');
+        expect(btnAuto).not.toBeNull();
+        btnAuto.click();
+        expect(gableRoofEntity.config.autoShapeWalls).toBe(false);
+
+        // Material Mode button
+        const btnMat = gizmo.domHUD.querySelector('#gr-btn-mat');
+        expect(btnMat).not.toBeNull();
+        btnMat.click();
+        expect(setTransformMode).toHaveBeenCalledWith('material');
+
+        // 5. Test mode switching: 'move' and 'spin'
+        gizmo.attach(mockTargetMesh, 'move');
+        expect(gizmo.moveHandle).not.toBeNull();
+        expect(gizmo.peakHandle).toBeNull();
+        expect(gizmo.curveHandle).toBeNull();
+        expect(gizmo.edgeHandles.length).toBe(0);
+
+        gizmo.attach(mockTargetMesh, 'spin');
+        expect(gizmo.spinHandle).not.toBeNull();
+        expect(gizmo.moveHandle).toBeNull();
+        expect(gizmo.curveHandle).toBeNull();
+
+        // Detach
+        gizmo.detach();
+        expect(gizmo.visible).toBe(false);
+        gizmo.dispose();
+    });
+
+    it('17. Roof3DBuilder: Gable roof locks ridge line to building centerline when single-side eave overhang increases', () => {
+        const targetGroup = new THREE.Group();
+        const mockCtx = {
+            structureGroup: targetGroup,
+            interactables: [],
+            helpers: {
+                getDynamicMaterial: vi.fn().mockReturnValue(new THREE.MeshStandardMaterial({ color: 0x888888 }))
+            },
+            assets: {
+                getTexture: vi.fn().mockResolvedValue(new THREE.Texture())
+            }
+        };
+
+        const builder = new Roof3DBuilder(mockCtx);
+        // Base points: 200 wide (X: 0 to 200), 150 deep (Y: 0 to 150)
+        // Centerline Y (baseCy) = 75
+        const points = [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 150 }, { x: 0, y: 150 }];
+
+        // Single side eave overhang increased on North (index 0): 30, while others remain 8
+        const asymmetricGableRoof = {
+            points,
+            config: {
+                roofType: 'gable',
+                pitch: 30,
+                overhangs: [30, 8, 8, 8],
+                ridgeAxis: 'x',
+                material: 'terracotta_tiles_roof'
+            },
+            elevation: 100
+        };
+
+        builder.buildRoofs([asymmetricGableRoof], 0, false, targetGroup);
+        expect(targetGroup.children.length).toBe(1);
+
+        const roofGroup = targetGroup.children[0];
+        const roofMesh = roofGroup.children.find(c => c.userData?.isRoof);
+        expect(roofMesh).toBeDefined();
+
+        // The vertices of the mesh in local space are offset by (-baseCx, 0, -baseCz)
+        // baseCx = 100, baseCz = 75.
+        // Therefore, the ridge line (world/geometry Z = baseCy = 75) in mesh local space is Z = 75 - 75 = 0!
+        const geo = roofMesh.geometry;
+        const pos = geo.attributes.position;
+        let foundRidgeVertexAtZero = false;
+        let maxLocalY = -Infinity;
+
+        for (let i = 0; i < pos.count; i++) {
+            const y = pos.getY(i);
+            const z = pos.getZ(i);
+            if (y > maxLocalY) maxLocalY = y;
+            if (Math.abs(z - 75) < 0.01 && Math.abs(y - 43.3) < 1.0) { // rh = tan(30) * 75 ~= 43.3
+                foundRidgeVertexAtZero = true;
+            }
+        }
+
+        expect(foundRidgeVertexAtZero).toBe(true);
+        // Peak height should be determined by building span baseD (150) / 2 * tan(30) = 43.3
+        expect(maxLocalY).toBeCloseTo(Math.tan(30 * Math.PI / 180) * 75, 1);
     });
 });

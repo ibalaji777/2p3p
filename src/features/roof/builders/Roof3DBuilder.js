@@ -528,14 +528,31 @@ export class Roof3DBuilder {
                 const bW = bMaxX - bMinX;
                 const bD = bMaxY - bMinY;
 
+                let baseMinX = Infinity, baseMaxX = -Infinity, baseMinY = Infinity, baseMaxY = -Infinity;
+                basePts.forEach(p => {
+                    baseMinX = Math.min(baseMinX, p.x); baseMaxX = Math.max(baseMaxX, p.x);
+                    baseMinY = Math.min(baseMinY, p.y); baseMaxY = Math.max(baseMaxY, p.y);
+                });
+                const baseW = (baseMinX !== Infinity) ? (baseMaxX - baseMinX) : bW;
+                const baseD = (baseMinY !== Infinity) ? (baseMaxY - baseMinY) : bD;
+                const baseCx = (baseMinX !== Infinity) ? (baseMinX + baseMaxX) / 2 : (bMinX + bW / 2);
+                const baseCy = (baseMinY !== Infinity) ? (baseMinY + baseMaxY) / 2 : (bMinY + bD / 2);
+
                 const pitch = conf.pitch !== undefined ? conf.pitch : 30;
                 const pitchRad = pitch * Math.PI / 180;
                 const axis = conf.ridgeAxis || 'x';
-                const maxSpan = axis === 'x' ? bD : bW;
+                const maxSpan = axis === 'x' ? baseD : baseW;
                 const rh = Math.tan(pitchRad) * (maxSpan / 2);
-                let cx = bMinX + bW / 2;
-                let cy = bMinY + bD / 2;
+                let cx = axis === 'x' ? (bMinX + bW / 2) : baseCx;
+                let cy = axis === 'x' ? baseCy : (bMinY + bD / 2);
                 const curve = conf.curve || (conf.roofType === 'curved' ? -20 : 0);
+                const gWestX = (baseMinX !== Infinity && !conf.flushGable) ? Math.max(bMinX, Math.min(bMaxX, baseMinX)) : bMinX;
+                const gEastX = (baseMaxX !== -Infinity && !conf.flushGable) ? Math.max(bMinX, Math.min(bMaxX, baseMaxX)) : bMaxX;
+                const gNorthY = (baseMinY !== Infinity && !conf.flushGable) ? Math.max(bMinY, Math.min(bMaxY, baseMinY)) : bMinY;
+                const gSouthY = (baseMaxY !== -Infinity && !conf.flushGable) ? Math.max(bMinY, Math.min(bMaxY, baseMaxY)) : bMaxY;
+
+                const hasAutoGableWalls = conf.autoShapeWalls && hasWalls && (wallsUnderRoof && wallsUnderRoof.length > 0);
+                const shouldGenerateGableEndMesh = (conf.showGableWalls !== false) && !hasAutoGableWalls;
 
                 const v1 = [], uv1 = [];
                 const v2 = [], uv2 = [];
@@ -682,16 +699,18 @@ export class Roof3DBuilder {
 
                         addSegmentedSlopeStripX(v1, uv1, z0, z1, y0, y1);
 
-                        // Gable End Walls (West at bMinX and East at bMaxX)
-                        gv.push(bMinX, 0, z0, bMinX, y0, z0, bMinX, y1, z1);
-                        guv.push(z0/100, 0, z0/100, y0/100, z1/100, y1/100);
-                        gv.push(bMinX, 0, z0, bMinX, y1, z1, bMinX, 0, z1);
-                        guv.push(z0/100, 0, z1/100, y1/100, z1/100, 0);
+                        if (shouldGenerateGableEndMesh) {
+                            // Gable End Walls (West at gWestX and East at gEastX)
+                            gv.push(gWestX, 0, z0, gWestX, y0, z0, gWestX, y1, z1);
+                            guv.push(z0/100, 0, z0/100, y0/100, z1/100, y1/100);
+                            gv.push(gWestX, 0, z0, gWestX, y1, z1, gWestX, 0, z1);
+                            guv.push(z0/100, 0, z1/100, y1/100, z1/100, 0);
 
-                        gv.push(bMaxX, 0, z0, bMaxX, y1, z1, bMaxX, y0, z0);
-                        guv.push(z0/100, 0, z1/100, y1/100, z0/100, y0/100);
-                        gv.push(bMaxX, 0, z0, bMaxX, 0, z1, bMaxX, y1, z1);
-                        guv.push(z0/100, 0, z1/100, 0, z1/100, y1/100);
+                            gv.push(gEastX, 0, z0, gEastX, y1, z1, gEastX, y0, z0);
+                            guv.push(z0/100, 0, z1/100, y1/100, z0/100, y0/100);
+                            gv.push(gEastX, 0, z0, gEastX, 0, z1, gEastX, y1, z1);
+                            guv.push(z0/100, 0, z1/100, 0, z1/100, y1/100);
+                        }
                     }
 
                     // Slope 2: South (cy -> bMaxY)
@@ -705,16 +724,18 @@ export class Roof3DBuilder {
 
                         addSegmentedSlopeStripX(v2, uv2, z0, z1, y0, y1);
 
-                        // Gable End Walls (West at bMinX and East at bMaxX)
-                        gv.push(bMinX, 0, z0, bMinX, y0, z0, bMinX, y1, z1);
-                        guv.push(z0/100, 0, z0/100, y0/100, z1/100, y1/100);
-                        gv.push(bMinX, 0, z0, bMinX, y1, z1, bMinX, 0, z1);
-                        guv.push(z0/100, 0, z1/100, y1/100, z1/100, 0);
+                        if (shouldGenerateGableEndMesh) {
+                            // Gable End Walls (West at gWestX and East at gEastX)
+                            gv.push(gWestX, 0, z0, gWestX, y0, z0, gWestX, y1, z1);
+                            guv.push(z0/100, 0, z0/100, y0/100, z1/100, y1/100);
+                            gv.push(gWestX, 0, z0, gWestX, y1, z1, gWestX, 0, z1);
+                            guv.push(z0/100, 0, z1/100, y1/100, z1/100, 0);
 
-                        gv.push(bMaxX, 0, z0, bMaxX, y1, z1, bMaxX, y0, z0);
-                        guv.push(z0/100, 0, z1/100, y1/100, z0/100, y0/100);
-                        gv.push(bMaxX, 0, z0, bMaxX, 0, z1, bMaxX, y1, z1);
-                        guv.push(z0/100, 0, z1/100, 0, z1/100, y1/100);
+                            gv.push(gEastX, 0, z0, gEastX, y1, z1, gEastX, y0, z0);
+                            guv.push(z0/100, 0, z1/100, y1/100, z0/100, y0/100);
+                            gv.push(gEastX, 0, z0, gEastX, 0, z1, gEastX, y1, z1);
+                            guv.push(z0/100, 0, z1/100, 0, z1/100, y1/100);
+                        }
                     }
                 } else {
                     // Axis Y (Ridge along Y axis, slopes East/West)
@@ -729,16 +750,18 @@ export class Roof3DBuilder {
 
                         addSegmentedSlopeStripY(v1, uv1, x0, x1, y0, y1);
 
-                        // Gable End Walls (North at bMinY and South at bMaxY)
-                        gv.push(x0, 0, bMinY, x1, y1, bMinY, x0, y0, bMinY);
-                        guv.push(x0/100, 0, x1/100, y1/100, x0/100, y0/100);
-                        gv.push(x0, 0, bMinY, x1, 0, bMinY, x1, y1, bMinY);
-                        guv.push(x0/100, 0, x1/100, 0, x1/100, y1/100);
+                        if (shouldGenerateGableEndMesh) {
+                            // Gable End Walls (North at gNorthY and South at gSouthY)
+                            gv.push(x0, 0, gNorthY, x1, y1, gNorthY, x0, y0, gNorthY);
+                            guv.push(x0/100, 0, x1/100, y1/100, x0/100, y0/100);
+                            gv.push(x0, 0, gNorthY, x1, 0, gNorthY, x1, y1, gNorthY);
+                            guv.push(x0/100, 0, x1/100, 0, x1/100, y1/100);
 
-                        gv.push(x0, 0, bMaxY, x0, y0, bMaxY, x1, y1, bMaxY);
-                        guv.push(x0/100, 0, x0/100, y0/100, x1/100, y1/100);
-                        gv.push(x0, 0, bMaxY, x1, y1, bMaxY, x1, 0, bMaxY);
-                        guv.push(x0/100, 0, x1/100, y1/100, x1/100, 0);
+                            gv.push(x0, 0, gSouthY, x0, y0, gSouthY, x1, y1, gSouthY);
+                            guv.push(x0/100, 0, x0/100, y0/100, x1/100, y1/100);
+                            gv.push(x0, 0, gSouthY, x1, y1, gSouthY, x1, 0, gSouthY);
+                            guv.push(x0/100, 0, x1/100, y1/100, x1/100, 0);
+                        }
                     }
 
                     // Slope 2: East (cx -> bMaxX)
@@ -752,16 +775,18 @@ export class Roof3DBuilder {
 
                         addSegmentedSlopeStripY(v2, uv2, x0, x1, y0, y1);
 
-                        // Gable End Walls (North at bMinY and South at bMaxY)
-                        gv.push(x0, 0, bMinY, x1, y1, bMinY, x0, y0, bMinY);
-                        guv.push(x0/100, 0, x1/100, y1/100, x0/100, y0/100);
-                        gv.push(x0, 0, bMinY, x1, 0, bMinY, x1, y1, bMinY);
-                        guv.push(x0/100, 0, x1/100, 0, x1/100, y1/100);
+                        if (shouldGenerateGableEndMesh) {
+                            // Gable End Walls (North at gNorthY and South at gSouthY)
+                            gv.push(x0, 0, gNorthY, x1, y1, gNorthY, x0, y0, gNorthY);
+                            guv.push(x0/100, 0, x1/100, y1/100, x0/100, y0/100);
+                            gv.push(x0, 0, gNorthY, x1, 0, gNorthY, x1, y1, gNorthY);
+                            guv.push(x0/100, 0, x1/100, 0, x1/100, y1/100);
 
-                        gv.push(x0, 0, bMaxY, x0, y0, bMaxY, x1, y1, bMaxY);
-                        guv.push(x0/100, 0, x0/100, y0/100, x1/100, y1/100);
-                        gv.push(x0, 0, bMaxY, x1, y1, bMaxY, x1, 0, bMaxY);
-                        guv.push(x0/100, 0, x1/100, y1/100, x1/100, 0);
+                            gv.push(x0, 0, gSouthY, x0, y0, gSouthY, x1, y1, gSouthY);
+                            guv.push(x0/100, 0, x0/100, y0/100, x1/100, y1/100);
+                            gv.push(x0, 0, gSouthY, x1, y1, gSouthY, x1, 0, gSouthY);
+                            guv.push(x0/100, 0, x1/100, y1/100, x1/100, 0);
+                        }
                     }
                 }
 

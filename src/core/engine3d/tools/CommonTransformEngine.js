@@ -169,6 +169,9 @@ export class CommonTransformEngine {
             if (this.ctx.interactions?.flatRoofGizmo) {
                 this.ctx.interactions.flatRoofGizmo.updateHandlePositions();
             }
+            if (this.ctx.interactions?.gableRoofGizmo) {
+                this.ctx.interactions.gableRoofGizmo.updateHandlePositions();
+            }
         }
         // 3. Standard 3D Object
         else {

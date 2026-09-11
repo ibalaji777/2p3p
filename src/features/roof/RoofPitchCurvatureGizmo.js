@@ -199,7 +199,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
             if (this.raycaster.ray.intersectPlane(this.dragPlane, this.planeIntersect)) {
                 const entity = this.target.userData?.entity;
-                if (!entity) return;
+                if (!entity || !this.activeHandle) return;
                 const conf = entity.config || entity;
                 const type = this.activeHandle.userData?.type;
 
@@ -208,7 +208,8 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
                     const deltaY = this.planeIntersect.y - this.dragStartPos.y;
                     const w = this.initialMaxX - this.initialMinX;
                     const d = this.initialMaxY - this.initialMinY;
-                    const span = Math.min(w, d);
+                    const axis = conf.ridgeAxis || 'x';
+                    const span = (conf.roofType === 'gable' ? (axis === 'x' ? d : w) : Math.min(w, d));
 
                     let newRh = Math.max(4, this.initialRh + deltaY);
                     let newPitch = Math.atan2(newRh, span / 2) * (180 / Math.PI);
@@ -633,8 +634,9 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
             this.peakHandle = peakGroup;
         }
 
-        // Slope Curvature Orb (Dedicated Cyan ◯ Sphere on the North slope face)
-        if (!isFlat && ['gable', 'shed', 'curved', 'gambrel', 'mansard', 'turret_round', 'turret_octagonal', 'turret_hexagonal'].includes(conf.roofType || 'gable')) {
+        // Slope Curvature Orb (Dedicated Cyan ◯ Sphere on the slope face)
+        const supportsCurve = conf.roofType === 'curved' || conf.curve !== undefined || ['gable', 'shed', 'curved', 'gambrel', 'mansard', 'turret_round', 'turret_octagonal', 'turret_hexagonal'].includes(conf.roofType);
+        if (!isFlat && supportsCurve) {
             const curveGroup = new THREE.Group();
             curveGroup.userData = { type: 'curve' };
 
@@ -719,20 +721,20 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
         const overhangs = conf.overhangs ? conf.overhangs : (conf.overhang !== undefined ? conf.overhang : 8);
         const pts = offsetPolygon(basePts, overhangs);
 
-        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        pts.forEach(p => {
-            minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
-            minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+        let baseMinX = Infinity, baseMaxX = -Infinity, baseMinY = Infinity, baseMaxY = -Infinity;
+        basePts.forEach(p => {
+            baseMinX = Math.min(baseMinX, p.x); baseMaxX = Math.max(baseMaxX, p.x);
+            baseMinY = Math.min(baseMinY, p.y); baseMaxY = Math.max(baseMaxY, p.y);
         });
 
-        const cx = (minX + maxX) / 2;
-        const cz = (minY + maxY) / 2;
-        const w = maxX - minX;
-        const d = maxY - minY;
-        const span = Math.min(w, d);
+        const baseCx = (baseMinX !== Infinity) ? (baseMinX + baseMaxX) / 2 : 0;
+        const baseCz = (baseMinY !== Infinity) ? (baseMinY + baseMaxY) / 2 : 0;
+        const baseW = (baseMinX !== Infinity) ? (baseMaxX - baseMinX) : 200;
+        const baseD = (baseMinY !== Infinity) ? (baseMaxY - baseMinY) : 160;
+        const baseSpan = Math.min(baseW, baseD);
 
         const pitch = conf.pitch !== undefined ? conf.pitch : 30;
-        const rh = isFlat ? 0 : Math.tan(pitch * Math.PI / 180) * (span / 2);
+        const rh = isFlat ? 0 : Math.tan(pitch * Math.PI / 180) * (baseSpan / 2);
 
         // Calculate exact 3D world position and rotation of the roof
         const worldPos = new THREE.Vector3();
@@ -771,7 +773,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
         if (this.curveHandle) {
             const curveOffset = (conf.curve || 0);
             const slopeFaceY = baseY + (rh * 0.45) + curveOffset + 8;
-            const slopeFaceZ = -(d * 0.28);
+            const slopeFaceZ = -(baseD * 0.28);
             this.curveHandle.position.set(0, slopeFaceY, slopeFaceZ);
         }
 
@@ -804,7 +806,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
 
                 const handle = this.overhangHandles[idx];
                 if (handle) {
-                    handle.position.set(midX - cx, eaveY, midY - cz);
+                    handle.position.set(midX - baseCx, eaveY, midY - baseCz);
                     handle.rotation.y = -Math.atan2(ny, nx) + Math.PI / 2;
                     handle.userData.nx = nx;
                     handle.userData.ny = ny;
@@ -819,7 +821,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
                 if (idx >= this.stretchHandles.length) return;
                 const handle = this.stretchHandles[idx];
                 if (handle) {
-                    handle.position.set(p.x - cx, cornerY, p.y - cz);
+                    handle.position.set(p.x - baseCx, cornerY, p.y - baseCz);
                     handle.userData.cornerIndex = idx;
                 }
             });
