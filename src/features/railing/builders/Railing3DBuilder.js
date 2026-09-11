@@ -9,6 +9,7 @@ import { CableGenerator } from '../generators/CableGenerator.js';
 import { UniversalRailingGenerator } from '../generators/UniversalRailingGenerator.js';
 import { MaterialManager } from '../materials/MaterialManager.js';
 import { ComponentRegistry } from '../../../core/engine3d/ComponentRegistry.js';
+import { RAILING_REGISTRY } from '../registry/railing.registry.js';
 
 /**
  * Orchestrates the procedural generation of a railing in 3D.
@@ -16,16 +17,17 @@ import { ComponentRegistry } from '../../../core/engine3d/ComponentRegistry.js';
 export class Railing3DBuilder {
     static build(entity) {
         const group = new THREE.Group();
-        if (!entity || !entity.points) return group;
+        if (!entity) return group;
 
-        const pts = entity.points; // [x1, y1, x2, y2]
-        if (pts.length < 4) return group;
+        const pts = entity.points || (entity.startX !== undefined ? [entity.startX, entity.startY, entity.endX, entity.endY] : null);
+        if (!pts || pts.length < 4) return group;
 
         // Map 2D coordinates (x, y) to 3D (x, 0, z)
         const start = new THREE.Vector3(pts[0], 0, pts[1]);
         const end = new THREE.Vector3(pts[2], 0, pts[3]);
 
-        return this.build3D(start, end, entity.config, entity);
+        const config = entity.config || RAILING_REGISTRY[entity.configId || 'glass_stainless'] || RAILING_REGISTRY['glass_stainless'];
+        return this.build3D(start, end, config, entity);
     }
 
     /**

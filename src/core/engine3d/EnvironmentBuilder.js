@@ -1361,6 +1361,29 @@ export class EnvironmentBuilder {
                         const totalH = w.type === 'railing' ? h + 40 : h;
                         const startY = (w.type === 'railing' && underlyingWall && h > 0) ? h : 0;
                         const wallBottom = w.type === 'railing' ? startY : -1;
+
+                        if (w.type === 'railing') {
+                            const configId = w.configId || 'glass_stainless';
+                            const config = RAILING_REGISTRY[configId] || RAILING_REGISTRY['glass_stainless'];
+                            w.config = config;
+                            w.points = [w.startX, w.startY, w.endX, w.endY];
+                            const railingMesh = Railing3DBuilder.build(w);
+                            if (railingMesh) {
+                                railingMesh.position.y = startY;
+                                railingMesh.userData = {
+                                    isRailing: true,
+                                    isWallMesh: true,
+                                    entity: w,
+                                    levelIndex: index,
+                                    wallIndex: wallIndex,
+                                    wallId: w.id
+                                };
+                                const railGroup = new THREE.Group();
+                                railGroup.add(railingMesh);
+                                floorGroup.add(railGroup);
+                                return;
+                            }
+                        }
                         
                         // Compute mm early so holes and patterns can inherit painted materials
                         let mm = [matMain, matMain, matMain, matMain, matMain, matMain];
@@ -1721,7 +1744,7 @@ export class EnvironmentBuilder {
                                 mold.levelIndex = index;
                                 mold.wallIndex = wallIndex;
                                 mold.wallId = w.id;
-                                const mMesh = this.moldingBuilder.buildMolding(mold, length, w.thickness, this.ctx.helpers);
+                                const mMesh = this.moldingBuilder.buildMolding(mold, length, w.thickness, this.ctx.helpers, w);
                                 mMesh.userData = {
                                     ...(mMesh.userData || {}),
                                     levelIndex: index,
