@@ -47,6 +47,7 @@ export class Preview3D {
         const h = this.container.clientHeight > 0 ? this.container.clientHeight : window.innerHeight;
         
         this.camera = new THREE.PerspectiveCamera(45, w / h, 2, 20000);
+        this.camera.position.set(1200, 800, 1200);
         try {
             this.renderer = new THREE.WebGLRenderer({ 
                 antialias: true, 
@@ -91,7 +92,7 @@ export class Preview3D {
             this.renderer.toneMappingExposure = 1.0;
             if (this.renderer.shadowMap) {
                 this.renderer.shadowMap.enabled = true;
-                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                this.renderer.shadowMap.type = THREE.PCFShadowMap;
             }
             this.container.appendChild(this.renderer.domElement);
 
@@ -123,11 +124,61 @@ export class Preview3D {
         const domTarget = this.renderer ? this.renderer.domElement : this.container;
         this.cameraController = new CameraController(this.camera, domTarget, this);
         this.controls = this.cameraController.controls;
+        this.controls.target.set(460, 200, 500);
+        this.controls.update();
+
         this.controls.addEventListener('start', () => this.renderCoordinator.startContinuousRender('orbit_controls'));
         this.controls.addEventListener('end', () => this.renderCoordinator.stopContinuousRender('orbit_controls'));
         this.controls.addEventListener('change', () => this.renderCoordinator.notifyChange('orbit_controls_change', 2));
 
         this.navigationCube = new NavigationCube(this.container, this.cameraController);
+
+        if (typeof window !== 'undefined') {
+            window.debug3D = () => {
+                const box = this.cameraController ? this.cameraController.getBuildingBoundingBox() : new THREE.Box3();
+                const center = new THREE.Vector3();
+                const size = new THREE.Vector3();
+                box.getCenter(center);
+                box.getSize(size);
+                
+                let meshCount = 0;
+                this.scene.traverse(c => { if (c.isMesh) meshCount++; });
+
+                const metrics = {
+                    'View Mode': this.viewMode3D,
+                    'Canvas Client Size': `${this.renderer?.domElement?.clientWidth}x${this.renderer?.domElement?.clientHeight}px`,
+                    'Canvas Buffer Size': `${this.renderer?.domElement?.width}x${this.renderer?.domElement?.height}px`,
+                    'Total Scene Meshes': meshCount,
+                    'Active Floor Meshes': this.structureGroup?.children?.length || 0,
+                    'Static Floor Groups': this.staticStructureGroup?.children?.length || 0,
+                    'Building Center': `X:${center.x.toFixed(1)} Y:${center.y.toFixed(1)} Z:${center.z.toFixed(1)}`,
+                    'Building Dimensions': `W:${size.x.toFixed(1)} H:${size.y.toFixed(1)} D:${size.z.toFixed(1)}`,
+                    'Camera Position': `X:${this.camera.position.x.toFixed(1)} Y:${this.camera.position.y.toFixed(1)} Z:${this.camera.position.z.toFixed(1)}`,
+                    'Camera Target': `X:${this.controls.target.x.toFixed(1)} Y:${this.controls.target.y.toFixed(1)} Z:${this.controls.target.z.toFixed(1)}`,
+                    'Camera Distance': this.camera.position.distanceTo(this.controls.target).toFixed(1),
+                    'Render Dirty Frames': this.renderCoordinator?.dirtyFrames || 0
+                };
+                console.group('%c[3D ENGINE DIAGNOSTICS REPORT]', 'background: #2563eb; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold;');
+                console.table(metrics);
+                console.log('Camera Object:', this.camera);
+                console.log('Controls Object:', this.controls);
+                console.log('Renderer DOM Element:', this.renderer?.domElement);
+                console.groupEnd();
+                return metrics;
+            };
+
+            window.fix3DView = () => {
+                console.info('%c[fix3DView] Re-centering camera and forcing 60 frames...', 'color: #059669; font-weight: bold;');
+                if (this.resize) this.resize();
+                if (this.cameraController) {
+                    this.cameraController.resetCamera();
+                }
+                if (this.requestRender) {
+                    this.requestRender('fix_3d_view', 60);
+                }
+                return window.debug3D();
+            };
+        }
 
         this.interactables = [];
         this.isUpdatingFromUI = false;
@@ -363,12 +414,18 @@ export class Preview3D {
             this.cutawaySystem.update();
         }
         
-        // Render pass scheduled by RenderCoordinator or active camera movements
-        if (this.renderCoordinator.shouldRender() || cameraChanged || this.isUpdatingFromUI) {
+        // Render pass scheduled by RenderCoordinator, dirty flags, or active camera movements
+        if (this.renderCoordinator.shouldRender() || cameraChanged || this.isUpdatingFromUI || this.needsRender) {
             if (this.renderer) {
                 try {
                     this.renderer.render(this.scene, this.camera);
-                } catch (e) {}
+                    this._frameRenderCount = (this._frameRenderCount || 0) + 1;
+                    if (this._frameRenderCount <= 3) {
+                        console.log(`%c[DEBUG-RENDER] Frame #${this._frameRenderCount} rendered | canvas: ${this.renderer.domElement.clientWidth}x${this.renderer.domElement.clientHeight} | camDist: ${this.camera.position.distanceTo(this.controls.target).toFixed(1)}`, 'color: #10b981; font-weight: bold;');
+                    }
+                } catch (e) {
+                    console.error('[Engine3D] Render error:', e);
+                }
             } 
             if (this.css2DRenderer) this.css2DRenderer.render(this.scene, this.camera);
             if (this.interactions && this.interactions.dimensionManager && this.renderer) {
@@ -1097,8 +1154,10 @@ export class Preview3D {
         let stairsBelow = [];
         if (activeIndex > 0 && levelsConfigArray[activeIndex - 1] && levelsConfigArray[activeIndex - 1].data) {
             try {
-                const prevData = JSON.parse(levelsConfigArray[activeIndex - 1].data);
-                if (prevData.stairs) stairsBelow = prevData.stairs;
+                const prevData = typeof levelsConfigArray[activeIndex - 1].data === 'string' 
+                    ? JSON.parse(levelsConfigArray[activeIndex - 1].data) 
+                    : levelsConfigArray[activeIndex - 1].data;
+                if (prevData && prevData.stairs) stairsBelow = prevData.stairs;
             } catch(e) {}
         }
 
@@ -1148,7 +1207,9 @@ export class Preview3D {
         if (this.previousTargetY === undefined) this.previousTargetY = targetY;
         const diff = targetY - this.previousTargetY;
 
-        if (preserveCamera) {
+        const isCameraDegenerate = this.camera.position.lengthSq() < 100 || this.camera.position.distanceTo(this.controls.target) < 50;
+
+        if (preserveCamera && !isCameraDegenerate) {
             if (diff !== 0 && viewMode3D !== 'full-edit') {
                 this.controls.target.y += diff;
                 this.camera.position.y += diff;
@@ -1175,25 +1236,53 @@ export class Preview3D {
                     centerZ /= validCount;
                 }
             }
-            if (isNaN(centerX)) centerX = 0;
-            if (isNaN(centerZ)) centerZ = 0;
-            this.controls.target.set(centerX, targetY, centerZ); 
+            if (isNaN(centerX) || centerX === 0) centerX = 470;
+            if (isNaN(centerZ) || centerZ === 0) centerZ = 500;
+            const lookTargetY = (viewMode3D === 'preview' && levelsConfigArray && levelsConfigArray.length > 1) 
+                ? (levelsConfigArray.length * 55) 
+                : targetY;
+
+            this.controls.target.set(centerX, lookTargetY, centerZ); 
             
-            const baseDir = new THREE.Vector3(1, 1, 1).normalize();
+            const baseDir = new THREE.Vector3(1, 0.85, 1).normalize();
             const angle = (this.cameraController && this.cameraController.entranceAngle) || 0;
             const dir = baseDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
             
-            this.camera.position.set(centerX + dir.x * 1280, targetY + Math.abs(dir.y) * 960, centerZ + dir.z * 1280); 
+            const camDist = (viewMode3D === 'preview' && levelsConfigArray && levelsConfigArray.length > 1) ? 1400 : 1280;
+            this.camera.position.set(centerX + dir.x * camDist, lookTargetY + Math.abs(dir.y) * 960, centerZ + dir.z * camDist); 
             this.controls.update(); 
         }
         this.previousTargetY = targetY;
+
+        const bBox = this.cameraController ? this.cameraController.getBuildingBoundingBox() : null;
+        const bCenter = bBox ? bBox.getCenter(new THREE.Vector3()) : null;
+        const bSize = bBox ? bBox.getSize(new THREE.Vector3()) : null;
+
+        console.groupCollapsed?.('%c[DEBUG-3D] buildScene completed', 'background: #6366f1; color: white; padding: 2px 6px; border-radius: 3px; font-weight: bold;');
+        console.log({
+            viewMode3D,
+            activeIndex,
+            levelsCount: levelsConfigArray?.length,
+            wallsCount: walls?.length,
+            preserveCamera,
+            structureChildren: this.structureGroup.children.length,
+            staticChildren: this.staticStructureGroup.children.length,
+            buildingCenter: bCenter ? `(${bCenter.x.toFixed(1)}, ${bCenter.y.toFixed(1)}, ${bCenter.z.toFixed(1)})` : 'N/A',
+            buildingSize: bSize ? `(${bSize.x.toFixed(1)}, ${bSize.y.toFixed(1)}, ${bSize.z.toFixed(1)})` : 'N/A',
+            cameraPosition: `(${this.camera.position.x.toFixed(1)}, ${this.camera.position.y.toFixed(1)}, ${this.camera.position.z.toFixed(1)})`,
+            controlsTarget: `(${this.controls.target.x.toFixed(1)}, ${this.controls.target.y.toFixed(1)}, ${this.controls.target.z.toFixed(1)})`,
+            camDistance: this.camera.position.distanceTo(this.controls.target).toFixed(1),
+            canvasDomSize: `${this.renderer?.domElement?.clientWidth}x${this.renderer?.domElement?.clientHeight}`,
+            canvasBufferSize: `${this.renderer?.domElement?.width}x${this.renderer?.domElement?.height}`
+        });
+        console.groupEnd?.();
 
         if (this.isXRayMode) {
             this.setXRayMode(true);
         }
 
         if (this.requestRender) {
-            this.requestRender('buildScene', 5);
+            this.requestRender('buildScene', 25);
         }
     }
     

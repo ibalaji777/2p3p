@@ -1959,7 +1959,7 @@ export class FloorPlanner {
         this.clearAll();
         if (!jsonStr) return;
         try {
-            const state = JSON.parse(jsonStr);
+            const state = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
             if (state.settings) {
                 this.settings = state.settings;
                 this.wallTrackingEnabled = this.settings.wallTracking;

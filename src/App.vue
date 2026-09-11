@@ -34,6 +34,7 @@
         @open-credits-popup="creditsPopupRef?.open()"
         @trigger-file-input="triggerFileInput"
         @clear-workspace="clearWorkspace"
+        @load-template-elevation="loadLuxuryElevationTemplate"
         @file-uploaded="handleFileUpload"
         @tool-click="handleToolClick"
         @update:activePresetId="activePresetId = $event"
@@ -757,22 +758,84 @@ onMounted(() => {
         if (isPlacing3D.value !== state) isPlacing3D.value = state;
     };
     
-    renderer3D.value.onLevelSwitchRequest = (targetIndex, entityIndex, entityType) => { 
-        if (viewMode3D.value === 'full-edit') return;
-
+    renderer3D.value.onLevelSwitchRequest = (targetIndex, entityIdentifier, entityType, extraData = {}) => { 
         if (targetIndex !== activeLevelIndex.value) {
             switchLevel(targetIndex);
             
-            if (entityType === 'wall' && entityIndex !== undefined) {
-                setTimeout(() => {
-                    const targetWall = planner.value.walls[entityIndex];
-                    if (targetWall && targetWall.mesh3D) {
-                        planner.value.selectEntity(targetWall, 'wall');
-                        const frontSkin = targetWall.mesh3D.children.find(c => c.userData.side === 'front');
-                        if (frontSkin) renderer3D.value.selectObject(frontSkin);
+            setTimeout(() => {
+                if (!planner.value) return;
+                let targetEntity = null;
+
+                if (entityType === 'wall') {
+                    if (typeof entityIdentifier === 'string') {
+                        targetEntity = planner.value.walls.find(w => w.id === entityIdentifier);
                     }
-                }, 100);
-            }
+                    if (!targetEntity && typeof entityIdentifier === 'number') {
+                        targetEntity = planner.value.walls[entityIdentifier];
+                    }
+                    if (targetEntity && targetEntity.mesh3D) {
+                        planner.value.selectEntity(targetEntity, 'wall');
+                        const side = extraData?.side || 'front';
+                        const wallSkin = targetEntity.mesh3D.children.find(c => (c.userData.isWallSide || c.userData.side) && c.userData.side === side) || targetEntity.mesh3D;
+                        if (wallSkin) renderer3D.value.selectObject(wallSkin);
+                        return;
+                    }
+                }
+
+                if (['widget', 'door', 'window', 'advance_openings'].includes(entityType)) {
+                    for (const w of planner.value.walls) {
+                        const widgets = w.attachedWidgets || w.widgets || [];
+                        const found = widgets.find(item => item.id === entityIdentifier || (typeof entityIdentifier === 'number' && widgets.indexOf(item) === entityIdentifier));
+                        if (found) { targetEntity = found; break; }
+                    }
+                    if (targetEntity) {
+                        planner.value.selectEntity(targetEntity, targetEntity.type || entityType);
+                        if (targetEntity.mesh3D) renderer3D.value.selectObject(targetEntity.mesh3D);
+                        else if (renderer3D.value.onEntitySelect) renderer3D.value.onEntitySelect(targetEntity, targetEntity.type || entityType);
+                        return;
+                    }
+                }
+
+                if (entityType === 'molding') {
+                    for (const w of planner.value.walls) {
+                        const molds = w.moldings || [];
+                        const found = molds.find(m => m.id === entityIdentifier || (typeof entityIdentifier === 'number' && molds.indexOf(m) === entityIdentifier));
+                        if (found) { targetEntity = found; break; }
+                    }
+                    if (targetEntity) {
+                        planner.value.selectEntity(targetEntity, 'molding');
+                        if (renderer3D.value.onEntitySelect) renderer3D.value.onEntitySelect(targetEntity, 'molding');
+                        return;
+                    }
+                }
+
+                if (entityType === 'wallDecor') {
+                    for (const w of planner.value.walls) {
+                        const decors = w.attachedDecor || [];
+                        const found = decors.find(d => d.id === entityIdentifier || (typeof entityIdentifier === 'number' && decors.indexOf(d) === entityIdentifier));
+                        if (found) { targetEntity = found; break; }
+                    }
+                    if (targetEntity) {
+                        planner.value.selectEntity(targetEntity, 'wallDecor');
+                        if (renderer3D.value.onEntitySelect) renderer3D.value.onEntitySelect(targetEntity, 'wallDecor', targetEntity.side || 'front');
+                        return;
+                    }
+                }
+
+                if (entityType === 'stair' && planner.value.stairs) {
+                    targetEntity = planner.value.stairs.find(s => s.id === entityIdentifier) || planner.value.stairs[entityIdentifier];
+                } else if (entityType === 'roof' && planner.value.roofs) {
+                    targetEntity = planner.value.roofs.find(r => r.id === entityIdentifier) || planner.value.roofs[entityIdentifier];
+                } else if (entityType === 'furniture' && planner.value.furniture) {
+                    targetEntity = planner.value.furniture.find(f => f.id === entityIdentifier) || planner.value.furniture[entityIdentifier];
+                }
+
+                if (targetEntity) {
+                    planner.value.selectEntity(targetEntity, entityType);
+                    if (targetEntity.mesh3D) renderer3D.value.selectObject(targetEntity.mesh3D);
+                    else if (renderer3D.value.onEntitySelect) renderer3D.value.onEntitySelect(targetEntity, entityType);
+                }
+            }, 100);
         } 
     };
 
@@ -866,6 +929,7 @@ const switchTo2D = () => {
 };
 
 const switchTo3D = () => {
+    console.log('%c[DEBUG-LOAD] Switching to 3D mode | viewMode3D:', 'color: #3b82f6; font-weight: bold;', viewMode3D.value);
     if (planner.value) {
         planner.value.finishChain();
         // Reset any leftover 2D placement tools so 3D starts in clean SELECT mode
@@ -881,8 +945,7 @@ const switchTo3D = () => {
     }
     saveCurrentLevelState();
     viewMode.value = '3d';
-    if (viewMode3D.value === 'preview') mode3D.value = 'camera';
-    else mode3D.value = 'edit'; 
+    mode3D.value = 'edit'; 
     setTimeout(() => {
         if (renderer3D.value) {
             renderer3D.value.resize();
@@ -891,6 +954,13 @@ const switchTo3D = () => {
             refresh3DScene(false); 
         }
     }, 100);
+    // Trailing pass ensures full rendering once CSS opacity transition (300ms) completes
+    setTimeout(() => {
+        if (renderer3D.value) {
+            renderer3D.value.resize();
+            renderer3D.value.requestRender('transition_settle', 20);
+        }
+    }, 350);
 };
 
 const setViewMode3D = (mode) => {
@@ -1033,8 +1103,9 @@ const saveProject = () => {
 };
 const loadProject = (jsonStr) => {
     try {
-        const parsed = JSON.parse(jsonStr);
+        const parsed = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
         if (parsed.levels && parsed.activeLevelIndex !== undefined) {
+            console.log(`%c[DEBUG-LOAD] Multi-level project loaded: ${parsed.levels.length} levels, active: ${parsed.activeLevelIndex}`, 'color: #10b981; font-weight: bold;');
             levels.value = parsed.levels;
             activeLevelIndex.value = parsed.activeLevelIndex;
             planner.value.importState(levels.value[activeLevelIndex.value].data);
@@ -1049,13 +1120,63 @@ const loadProject = (jsonStr) => {
                 planner.value.commandManager.clear();
             }
             setTimeout(() => saveHistory(), 200);
+
+            // Automatically switch to 3D full-edit mode if multi-story elevation/building project
+            if (parsed.levels.length > 1) {
+                console.log('%c[DEBUG-LOAD] Multi-level detected: switching to 3D full-edit mode', 'color: #10b981;');
+                viewMode3D.value = 'full-edit';
+                mode3D.value = 'edit';
+                switchTo3D();
+            } else if (viewMode.value === '3d') {
+                setTimeout(() => {
+                    if (renderer3D.value) {
+                        renderer3D.value.resize();
+                        updateEnvironment();
+                        refresh3DScene(false);
+                        renderer3D.value.requestRender('project_loaded', 25);
+                    }
+                }, 50);
+            }
         } else {
             // Fallback for single floor plans or old exports
+            console.log('%c[DEBUG-LOAD] Single-level or legacy project format detected', 'color: #f59e0b; font-weight: bold;');
             FileManager.importJSON(planner.value, jsonStr);
+            if (viewMode.value === '3d') {
+                setTimeout(() => {
+                    if (renderer3D.value) {
+                        renderer3D.value.resize();
+                        updateEnvironment();
+                        refresh3DScene(false);
+                        renderer3D.value.requestRender('project_loaded', 25);
+                    }
+                }, 50);
+            }
         }
     } catch(e) {
-        console.error(e);
+        console.error('%c[DEBUG-LOAD] Failed to load project file:', 'color: #ef4444; font-weight: bold;', e);
         alert("Failed to load project file.");
+    }
+};
+window.loadProject = (jsonStr, autoSwitch3D = true) => {
+    loadProject(jsonStr);
+    if (autoSwitch3D) {
+        viewMode3D.value = 'full-edit';
+        mode3D.value = 'edit';
+        switchTo3D();
+    }
+};
+
+const loadLuxuryElevationTemplate = async () => {
+    try {
+        console.log('%c[DEBUG-LOAD] Fetching luxury elevation template JSON...', 'color: #8b5cf6; font-weight: bold;');
+        const res = await fetch('/building_planner_elevation_project.json');
+        const text = await res.text();
+        loadProject(text);
+        viewMode3D.value = 'full-edit';
+        mode3D.value = 'edit';
+        switchTo3D();
+    } catch(e) {
+        console.error('%c[DEBUG-LOAD] Failed to load luxury elevation template:', 'color: #ef4444; font-weight: bold;', e);
     }
 };
 
@@ -1066,6 +1187,9 @@ const handleFileUpload = (event) => {
         const reader = new FileReader();
         reader.onload = (e) => {
             loadProject(e.target.result);
+            viewMode3D.value = 'full-edit';
+            mode3D.value = 'edit';
+            switchTo3D();
             setTimeout(() => saveHistory(), 200);
         };
         reader.readAsText(file);

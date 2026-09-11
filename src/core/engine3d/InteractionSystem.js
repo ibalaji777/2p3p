@@ -608,7 +608,6 @@ export class InteractionSystem {
         const dom = this.ctx.renderer.domElement;
         
         this._onPointerDown = (e) => {
-            if (this.ctx.viewMode3D === 'preview') return;
             this.updateMouse(e);
 
             // Direct 3D Wall / Room Drawing System
@@ -650,8 +649,6 @@ export class InteractionSystem {
             if (this.roofPlacementSystem && this.roofPlacementSystem.isPlacementTool()) {
                 if (this.roofPlacementSystem.onPointerDown(e)) return;
             }
-
-            if (this.mode === 'camera') return;
 
             // Universal Material Face Painting Tool
             if (this.commonController?.activeTool === COMMON_TOOLS.MATERIAL) {
@@ -747,7 +744,6 @@ export class InteractionSystem {
                 let mesh = intersects[0].object;
 
                 if (mesh.userData.isFloorTrigger) {
-                    if (this.ctx.viewMode3D === 'full-edit') return; 
                     if (this.ctx.onLevelSwitchRequest) {
                         this.ctx.onLevelSwitchRequest(
                             mesh.userData.levelIndex, 
@@ -787,33 +783,74 @@ export class InteractionSystem {
                 );
 
                 if (isSelectable) {
-                    if (this.mode === 'edit') {
-                        if (mesh.userData?.isWallDecor) {
-                            const decor = mesh.userData.entity;
-                            const wall = mesh.userData.parentWall || mesh.parent?.userData?.entity;
-                            const side = decor?.side || mesh.userData.side || 'front';
-                            if (wall && wall.mesh3D) {
-                                const wallSideMesh = wall.mesh3D.children.find(c => c.userData.isWallSide && c.userData.side === side);
-                                if (wallSideMesh) {
-                                    if (this.materialGizmo && decor && decor.id) {
-                                        this.materialGizmo.activeDecorId = decor.id;
-                                    }
-                                    this.selectObject(wallSideMesh, intersects[0]);
-                                    return;
+                    // Check if clicked element belongs to another level
+                    const targetLevel = mesh.userData?.levelIndex !== undefined 
+                        ? mesh.userData.levelIndex 
+                        : (targetEntity?.levelIndex !== undefined ? targetEntity.levelIndex : null);
+
+                    if (targetLevel !== null && this.ctx.activeIndex !== undefined && targetLevel !== this.ctx.activeIndex && this.ctx.onLevelSwitchRequest) {
+                        let entityType = 'wall';
+                        let entityId = mesh.userData?.wallId || targetEntity?.id || mesh.userData?.wallIndex;
+                        let extra = {};
+
+                        if (mesh.userData?.isWallSide || isWallEntity) {
+                            entityType = 'wall';
+                            entityId = mesh.userData?.wallId || targetEntity?.id || mesh.userData?.wallIndex;
+                            extra.side = mesh.userData?.side || 'front';
+                        } else if (mesh.userData?.isWidget || targetEntity?.type === 'door' || targetEntity?.type === 'window') {
+                            entityType = targetEntity?.type || 'widget';
+                            entityId = mesh.userData?.widgetId || targetEntity?.id;
+                        } else if (mesh.userData?.isMolding) {
+                            entityType = 'molding';
+                            entityId = mesh.userData?.moldingId || targetEntity?.id;
+                        } else if (mesh.userData?.isWallDecor) {
+                            entityType = 'wallDecor';
+                            entityId = mesh.userData?.decorId || targetEntity?.id;
+                        } else if (mesh.userData?.isStair) {
+                            entityType = 'stair';
+                            entityId = targetEntity?.id;
+                        } else if (mesh.userData?.isRoof) {
+                            entityType = 'roof';
+                            entityId = targetEntity?.id;
+                        } else if (mesh.userData?.isFurniture) {
+                            entityType = 'furniture';
+                            entityId = targetEntity?.id;
+                        }
+
+                        this.ctx.onLevelSwitchRequest(targetLevel, entityId, entityType, extra);
+                        return;
+                    }
+
+                    if (this.mode === 'camera') {
+                        this.setMode('edit');
+                    }
+
+                    if (mesh.userData?.isWallDecor) {
+                        const decor = mesh.userData.entity;
+                        const wall = mesh.userData.parentWall || mesh.parent?.userData?.entity;
+                        const side = decor?.side || mesh.userData.side || 'front';
+                        if (wall && wall.mesh3D) {
+                            const wallSideMesh = wall.mesh3D.children.find(c => c.userData.isWallSide && c.userData.side === side);
+                            if (wallSideMesh) {
+                                if (this.materialGizmo && decor && decor.id) {
+                                    this.materialGizmo.activeDecorId = decor.id;
                                 }
+                                this.selectObject(wallSideMesh, intersects[0]);
+                                return;
                             }
                         }
-                        this.selectObject(mesh, intersects[0]);
                     }
+                    this.selectObject(mesh, intersects[0]);
                 }
             } else {
-                this.deselect();
+                if (this.mode !== 'camera') {
+                    this.deselect();
+                }
                 if (this.ctx.controls) this.ctx.controls.enabled = true;
             }
         };
 
         this._onPointerMove = (e) => {
-            if (this.ctx.viewMode3D === 'preview') return;
             this.updateMouse(e);
 
             // Direct 3D Wall / Room Drawing System
@@ -857,8 +894,6 @@ export class InteractionSystem {
             if (this.roofPlacementSystem && this.roofPlacementSystem.isPlacementTool()) {
                 if (this.roofPlacementSystem.onPointerMove(e)) return;
             }
-
-            if (this.mode === 'camera') return;
 
             // Universal Material Face Painting Tool
             if (this.commonController?.activeTool === COMMON_TOOLS.MATERIAL) {
@@ -906,7 +941,6 @@ export class InteractionSystem {
         };
 
         this._onPointerUp = (e) => {
-            if (this.ctx.viewMode3D === 'preview') return;
 
             // Universal Material Face Painting Tool
             if (this.commonController?.activeTool === COMMON_TOOLS.MATERIAL) {

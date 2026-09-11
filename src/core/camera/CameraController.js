@@ -52,8 +52,14 @@ export class CameraController {
         
         // Default perspective
         this.defaultDistance = 1500;
-        this.defaultPosition = new THREE.Vector3(800, 600, 800);
+        this.defaultPosition = new THREE.Vector3(1200, 800, 1200);
         this.sims4IsoIndex = 0;
+
+        if (this.camera && this.camera.position.lengthSq() < 10) {
+            this.camera.position.copy(this.defaultPosition);
+            this.controls.target.set(460, 200, 500);
+            this.controls.update();
+        }
 
         // Cancel animation if user manually interacts with the camera
         this._onControlStart = () => {
@@ -68,7 +74,6 @@ export class CameraController {
         this._onKeyDown = (e) => {
             if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
             if (document.activeElement?.isContentEditable) return;
-            if (this.preview3D && this.preview3D.viewMode3D === 'preview') return;
 
             const key = e.key;
             const keyLower = key.toLowerCase();
@@ -123,14 +128,24 @@ export class CameraController {
     getBuildingBoundingBox() {
         const box = new THREE.Box3();
         if (this.preview3D.structureGroup) {
-            box.setFromObject(this.preview3D.structureGroup);
+            try {
+                box.setFromObject(this.preview3D.structureGroup);
+            } catch (e) {}
         }
         if (this.preview3D.staticStructureGroup && this.preview3D.staticStructureGroup.children.length > 0) {
-            const staticBox = new THREE.Box3().setFromObject(this.preview3D.staticStructureGroup);
-            if (!staticBox.isEmpty()) box.union(staticBox);
+            try {
+                const staticBox = new THREE.Box3().setFromObject(this.preview3D.staticStructureGroup);
+                if (!staticBox.isEmpty() && !isNaN(staticBox.min.x) && isFinite(staticBox.min.x)) {
+                    if (box.isEmpty() || isNaN(box.min.x) || !isFinite(box.min.x)) {
+                        box.copy(staticBox);
+                    } else {
+                        box.union(staticBox);
+                    }
+                }
+            } catch (e) {}
         }
-        if (box.isEmpty()) {
-            box.setFromCenterAndSize(new THREE.Vector3(0, 0, 0), new THREE.Vector3(1000, 1000, 1000));
+        if (box.isEmpty() || isNaN(box.min.x) || !isFinite(box.min.x) || isNaN(box.max.x) || !isFinite(box.max.x)) {
+            box.setFromCenterAndSize(new THREE.Vector3(470, 200, 500), new THREE.Vector3(1000, 600, 1000));
         }
         return box;
     }
@@ -331,9 +346,30 @@ export class CameraController {
         const center = new THREE.Vector3();
         box.getCenter(center);
 
+        if (isNaN(center.x) || isNaN(center.y) || isNaN(center.z) || !isFinite(center.x)) {
+            console.warn('[CameraController] updateCameraBounds received invalid center, ignoring bounds shift');
+            return;
+        }
+
         const delta = center.clone().sub(this.controls.target);
+        if (isNaN(delta.x) || isNaN(delta.y) || isNaN(delta.z) || !isFinite(delta.x)) {
+            return;
+        }
+
         this.controls.target.copy(center);
         this.camera.position.add(delta);
+
+        // Safeguard: Ensure camera is never inside target or at degenerate distance
+        const currentDist = this.camera.position.distanceTo(this.controls.target);
+        if (currentDist < 100 || isNaN(currentDist) || !isFinite(currentDist)) {
+            const size = new THREE.Vector3();
+            box.getSize(size);
+            const maxDim = Math.max(size.x, size.y, size.z, 500);
+            const safeDist = maxDim * 1.6;
+            const dir = new THREE.Vector3(1, 0.85, 1).normalize();
+            this.camera.position.copy(center).add(dir.multiplyScalar(safeDist));
+        }
+
         this.controls.update();
     }
 

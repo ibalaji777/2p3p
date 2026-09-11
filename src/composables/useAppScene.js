@@ -43,61 +43,65 @@ export function useAppScene({
             const prevSide = selectedWallSide.value;
             const prevMode = renderer3D.value.currentTransformMode;
             
-            if (saveCurrentLevelState) saveCurrentLevelState(); 
-            const levelsConfigArray = levels.value.map(l => ({
-                id: l.id,
-                name: l.name,
-                type: l.type,
-                height: l.height,
-                defaultWallThickness: l.defaultWallThickness,
-                data: l.data,
-                isVisible: l.isVisible !== false
-            }));
-            
-            renderer3D.value.buildScene(
-                planner.value.walls,
-                planner.value.rooms,
-                planner.value.stairs,
-                planner.value.furniture,
-                planner.value.roofs,
-                planner.value.shapes,
-                levelsConfigArray, 
-                activeLevelIndex.value, 
-                viewMode3D.value, 
-                preserveCamera,
-                planner.value.outdoorZones || []
-            ); 
+            try {
+                if (saveCurrentLevelState) saveCurrentLevelState(); 
+                const levelsConfigArray = levels.value.map(l => ({
+                    id: l.id,
+                    name: l.name,
+                    type: l.type,
+                    height: l.height,
+                    defaultWallThickness: l.defaultWallThickness,
+                    data: l.data,
+                    isVisible: l.isVisible !== false
+                }));
+                
+                renderer3D.value.buildScene(
+                    planner.value.walls,
+                    planner.value.rooms,
+                    planner.value.stairs,
+                    planner.value.furniture,
+                    planner.value.roofs,
+                    planner.value.shapes,
+                    levelsConfigArray, 
+                    activeLevelIndex.value, 
+                    viewMode3D.value, 
+                    preserveCamera,
+                    planner.value.outdoorZones || []
+                ); 
 
-            layerItems.value.forEach(item => {
-                if (item.entity.isHidden && item.entity.mesh3D) {
-                    item.entity.mesh3D.visible = false;
-                }
-            });
-
-            if (prevSel) {
-                const newMesh = renderer3D.value.interactables.find(m => {
-                    if (prevType === 'wall' && m.userData.isWallSide && m.userData.entity === prevSel && m.userData.side === prevSide) return true;
-                    if (m.userData && m.userData.entity === prevSel) return true;
-                    return false;
+                layerItems.value.forEach(item => {
+                    if (item.entity.isHidden && item.entity.mesh3D) {
+                        item.entity.mesh3D.visible = false;
+                    }
                 });
-                if (newMesh) {
-                    renderer3D.value.selectObject(newMesh);
-                    if (prevMode && prevMode !== 'none') {
-                        renderer3D.value.setTransformMode(prevMode, true);
+
+                if (prevSel) {
+                    const newMesh = renderer3D.value.interactables.find(m => {
+                        if (prevType === 'wall' && m.userData.isWallSide && m.userData.entity === prevSel && m.userData.side === prevSide) return true;
+                        if (m.userData && m.userData.entity === prevSel) return true;
+                        return false;
+                    });
+                    if (newMesh) {
+                        renderer3D.value.selectObject(newMesh);
+                        if (prevMode && prevMode !== 'none') {
+                            renderer3D.value.setTransformMode(prevMode, true);
+                        }
+                    }
+                    else {
+                        renderer3D.value.isRebuildingScene = false;
+                        renderer3D.value.showTransformMenu(false);
                     }
                 }
-                else {
-                    renderer3D.value.isRebuildingScene = false;
-                    renderer3D.value.showTransformMenu(false);
+                
+                if (!preserveCamera && renderer3D.value?.cameraController) {
+                    renderer3D.value.cameraController.updateCameraBounds();
                 }
+            } catch (err) {
+                console.error('%c[useAppScene] Error during refresh3DScene:', 'color: #ef4444; font-weight: bold;', err);
+            } finally {
+                renderer3D.value.isRebuildingScene = false;
+                isRebuilding.value = false;
             }
-            renderer3D.value.isRebuildingScene = false;
-            
-            if (renderer3D.value?.cameraController) {
-                renderer3D.value.cameraController.updateCameraBounds();
-            }
-            
-            isRebuilding.value = false;
         }
     };
 

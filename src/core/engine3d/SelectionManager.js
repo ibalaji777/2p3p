@@ -331,7 +331,7 @@ export class SelectionManager {
         else if (object.userData.isShape || object.userData.isFloorCutProxy) type = 'shape';
         else if (object.userData.isFurniture) type = 'furniture';
         else if (object.userData.isFloor) type = 'room';
-        else if (object.userData.isWidget) type = 'widget';
+        else if (object.userData.isWidget) type = object.userData.entity?.type || 'widget';
         else if (object.userData.isMolding) type = 'molding';
         else if (object.userData.isRoof) type = 'roof';
         else if (object.userData.isRoofAddon || object.userData.isRoofSculpture || object.userData.isSkylight) type = 'roof_addon';
@@ -340,7 +340,7 @@ export class SelectionManager {
         
         this.system.setHighlight(object, true);
             
-        if (['furniture', 'shape', 'widget', 'molding', 'advance_openings', 'roof', 'stair', 'room', 'roof_addon', 'platform'].includes(type)) {
+        if (['furniture', 'shape', 'widget', 'door', 'window', 'molding', 'advance_openings', 'roof', 'stair', 'room', 'roof_addon', 'platform'].includes(type)) {
             if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(true);
             if (object.userData.isFloorCutProxy && this.ctx.setTransformMode) {
                 this.ctx.setTransformMode('polygon_edges', true);

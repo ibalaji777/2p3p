@@ -93,6 +93,15 @@
                     <span v-if="!isDockExpanded && !isMobile" class="dock-tooltip">Import Project</span>
                 </button>
 
+                <!-- Villa Elevation Template (G+2) -->
+                <button class="dock-btn nav-item-btn" @click="$emit('load-template-elevation')" style="color: #0ea5e9;">
+                    <div class="dock-icon-wrapper">
+                        <svg class="dock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                    </div>
+                    <span v-if="isDockExpanded && !isMobile" class="dock-item-label">Villa Elevation</span>
+                    <span v-if="!isDockExpanded && !isMobile" class="dock-tooltip">Villa Elevation (G+2)</span>
+                </button>
+
                 <!-- Clear Workspace -->
                 <button class="dock-btn nav-item-btn" @click="$emit('clear-workspace')" style="color: #ef4444;">
                     <div class="dock-icon-wrapper">
@@ -288,7 +297,7 @@ const emit = defineEmits([
   'close-mobile-menu', 'toggle-category', 'save-project', 'open-save-popup', 
   'trigger-file-input', 'clear-workspace', 'file-uploaded', 'tool-click', 
   'catalog-select', 'update:activePresetId', 'open-credits-popup', 'toggle-menu', 
-  'toggle-tab', 'open-layers', 'open-settings'
+  'toggle-tab', 'open-layers', 'open-settings', 'load-template-elevation'
 ]);
 
 const catalogSearchQuery = ref('');

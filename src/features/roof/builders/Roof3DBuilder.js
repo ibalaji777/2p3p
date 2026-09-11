@@ -1612,8 +1612,15 @@ export class Roof3DBuilder {
             mesh.castShadow = true;
             mesh.receiveShadow = true;
             
-            mesh.userData = { isRoof: true, entity: roof, materialSlot: 'top', componentType: 'roof_top' }; 
-            if (Array.isArray(this.ctx.interactables) && this.ctx.viewMode3D !== 'preview' && targetGroup === this.ctx.structureGroup) {
+            mesh.userData = { 
+                isRoof: true, 
+                entity: roof, 
+                materialSlot: 'top', 
+                componentType: 'roof_top',
+                levelIndex: activeIndex,
+                roofId: roof.id
+            }; 
+            if (Array.isArray(this.ctx.interactables) && targetGroup === this.ctx.structureGroup) {
                 this.ctx.interactables.push(mesh);
             }
             
@@ -1700,7 +1707,7 @@ export class Roof3DBuilder {
                     skGroup.userData = { isRoofAddon: true, isSkylight: true, addonType: 'skylight', entity: sk, parentRoof: roof };
 
                     roofGroup.add(skGroup);
-                    if (Array.isArray(this.ctx.interactables) && this.ctx.viewMode3D !== 'preview' && targetGroup === this.ctx.structureGroup) {
+                    if (Array.isArray(this.ctx.interactables) && targetGroup === this.ctx.structureGroup) {
                         this.ctx.interactables.push(skGroup);
                     }
                 });
@@ -1726,7 +1733,7 @@ export class Roof3DBuilder {
                     );
                     crestMesh.rotation.y = targetSeg.angleY + ((cr.rotation || 0) * Math.PI / 180);
                     roofGroup.add(crestMesh);
-                    if (Array.isArray(this.ctx.interactables) && this.ctx.viewMode3D !== 'preview' && targetGroup === this.ctx.structureGroup) {
+                    if (Array.isArray(this.ctx.interactables) && targetGroup === this.ctx.structureGroup) {
                         this.ctx.interactables.push(crestMesh);
                     }
                 });
@@ -1766,7 +1773,7 @@ export class Roof3DBuilder {
                             pt.z + (fin.offsetZ || 0)
                         );
                         roofGroup.add(finMesh);
-                        if (Array.isArray(this.ctx.interactables) && this.ctx.viewMode3D !== 'preview' && targetGroup === this.ctx.structureGroup) {
+                        if (Array.isArray(this.ctx.interactables) && targetGroup === this.ctx.structureGroup) {
                             this.ctx.interactables.push(finMesh);
                         }
                     });
@@ -1816,7 +1823,7 @@ export class Roof3DBuilder {
                     // Chimney rises vertically through the roof slope
                     chMesh.position.set(chX - cx, (ch.elevationOffset || 0) + chY, chZ - cz);
                     roofGroup.add(chMesh);
-                    if (Array.isArray(this.ctx.interactables) && this.ctx.viewMode3D !== 'preview' && targetGroup === this.ctx.structureGroup) {
+                    if (Array.isArray(this.ctx.interactables) && targetGroup === this.ctx.structureGroup) {
                         this.ctx.interactables.push(chMesh);
                     }
                 });

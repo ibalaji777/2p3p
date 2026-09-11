@@ -1117,7 +1117,8 @@ export class EnvironmentBuilder {
             if (levelConfig.isVisible === false) return;
 
             try {
-                const data = JSON.parse(levelConfig.data);
+                const data = typeof levelConfig.data === 'string' ? JSON.parse(levelConfig.data) : levelConfig.data;
+                if (!data) return;
                 const floorGroup = new THREE.Group();
                 floorGroup.position.y = levelElevations[index] !== undefined ? levelElevations[index] : (index * WALL_HEIGHT);
 
@@ -1148,8 +1149,10 @@ export class EnvironmentBuilder {
                         let stairsBelow = [];
                         if (index > 0 && levelsConfigArray[index - 1] && levelsConfigArray[index - 1].data) {
                             try {
-                                const prevData = JSON.parse(levelsConfigArray[index - 1].data);
-                                if (prevData.stairs) stairsBelow = prevData.stairs;
+                                const prevData = typeof levelsConfigArray[index - 1].data === 'string' 
+                                    ? JSON.parse(levelsConfigArray[index - 1].data) 
+                                    : levelsConfigArray[index - 1].data;
+                                if (prevData && prevData.stairs) stairsBelow = prevData.stairs;
                             } catch (e) {}
                         }
                         
@@ -1510,9 +1513,9 @@ export class EnvironmentBuilder {
                                             widg.patternMesh3D = patternGroup;
                                             widg.patternMat3D = patternMat;
                                             
-                                            this.ctx.updatePatternLive(widg);
+                                             this.ctx.updatePatternLive(widg);
                                     extraMeshes.push(patternGroup);
-                                    if (!isPreview) this.ctx.interactables.push(hitBox);
+                                    if (this.ctx.interactables) this.ctx.interactables.push(hitBox);
                                 } else if (type === 'niche_recess') {
                                     let elev = widg.elevation || 0;
                                     let h_opening = widg.height || 60;
@@ -1534,13 +1537,25 @@ export class EnvironmentBuilder {
                                     widg.angle = angle;
                                     widg.thick = w.thickness;
                                     widg.wall = w;
+                                    widg.levelIndex = index;
+                                    widg.wallIndex = wallIndex;
                                     
                                     widg.localX = wCenter;
+                                    widg.facing = (widg.facing === -1) ? -1 : 1;
                                     
                                     const widgetGroup = WIDGET_REGISTRY[type].render3D(wallGroup, widg, this.ctx.helpers);
                                     if (widgetGroup) {
                                         widg.mesh3D = widgetGroup;
-                                        this.ctx.interactables.push(widgetGroup);
+                                        widgetGroup.userData = {
+                                            ...(widgetGroup.userData || {}),
+                                            isWidget: true,
+                                            entity: widg,
+                                            levelIndex: index,
+                                            wallIndex: wallIndex,
+                                            wallId: w.id,
+                                            widgetId: widg.id
+                                        };
+                                        if (this.ctx.interactables) this.ctx.interactables.push(widgetGroup);
                                     }
                                 }
                             });
@@ -1698,118 +1713,128 @@ export class EnvironmentBuilder {
                         
                         // EdgesGeometry removed to prevent Z-fighting
 
+                        w.levelIndex = index;
+                        w.wallIndex = wallIndex;
+
                         if (w.moldings) {
                             w.moldings.forEach(mold => {
+                                mold.levelIndex = index;
+                                mold.wallIndex = wallIndex;
+                                mold.wallId = w.id;
                                 const mMesh = this.moldingBuilder.buildMolding(mold, length, w.thickness, this.ctx.helpers);
+                                mMesh.userData = {
+                                    ...(mMesh.userData || {}),
+                                    levelIndex: index,
+                                    wallIndex: wallIndex,
+                                    wallId: w.id,
+                                    moldingId: mold.id
+                                };
                                 extraMeshes.push(mMesh);
-                                if (!isPreview) this.ctx.interactables.push(mMesh);
+                                if (this.ctx.interactables) this.ctx.interactables.push(mMesh);
                             });
                         }
 
                         wallGroup.add(wallMesh, ...extraMeshes);
                         
-                        if (!isPreview && viewMode3D === 'full-edit') {
-                            // CREATE HITBOXES FOR DIRECT SELECTION IN FULL-BUILDING VIEW
-                            const skinFrontGeo = new THREE.PlaneGeometry(length - 0.5, totalH - 0.5);
-                            skinFrontGeo.translate(length / 2, totalH / 2, w.thickness / 2 + 0.1);
-                            shearGeo(skinFrontGeo);
-                            const hitFront = new THREE.Mesh(skinFrontGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
-                            hitFront.userData = { isWallSide: true, side: 'front', entity: w };
+                        // CREATE HITBOXES FOR DIRECT SELECTION IN FULL-BUILDING VIEW
+                        const skinFrontGeo = new THREE.PlaneGeometry(length - 0.5, totalH - 0.5);
+                        skinFrontGeo.translate(length / 2, totalH / 2, w.thickness / 2 + 0.1);
+                        shearGeo(skinFrontGeo);
+                        const hitFront = new THREE.Mesh(skinFrontGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
+                        hitFront.userData = { isWallSide: true, side: 'front', entity: w, levelIndex: index, wallIndex: wallIndex, wallId: w.id };
 
-                            const skinBackGeo = new THREE.PlaneGeometry(length - 0.5, totalH - 0.5);
-                            skinBackGeo.translate(length / 2, totalH / 2, -w.thickness / 2 - 0.1);
-                            shearGeo(skinBackGeo);
-                            const hitBack = new THREE.Mesh(skinBackGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
-                            hitBack.userData = { isWallSide: true, side: 'back', entity: w };
+                        const skinBackGeo = new THREE.PlaneGeometry(length - 0.5, totalH - 0.5);
+                        skinBackGeo.translate(length / 2, totalH / 2, -w.thickness / 2 - 0.1);
+                        shearGeo(skinBackGeo);
+                        const hitBack = new THREE.Mesh(skinBackGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
+                        hitBack.userData = { isWallSide: true, side: 'back', entity: w, levelIndex: index, wallIndex: wallIndex, wallId: w.id };
 
-                            const extraStaticHitboxes = [];
-                            if (startProfileLocal && startProfileLocal.length >= 2) {
-                                const startHitGeo = new THREE.BufferGeometry();
-                                const hitVerts = [];
-                                for (let si = 0; si < startProfileLocal.length - 1; si++) {
-                                    const p1 = startProfileLocal[si];
-                                    const p2 = startProfileLocal[si + 1];
-                                    const dx = p2.x - p1.x;
-                                    const dz = p2.z - p1.z;
-                                    const segLen = Math.hypot(dx, dz);
-                                    let nx = 0, nz = 0;
-                                    if (segLen > 1e-6) {
-                                        nx = -dz / segLen;
-                                        nz = dx / segLen;
-                                    }
-                                    const off = 0.2;
-                                    const p1x = p1.x + nx * off;
-                                    const p1z = p1.z + nz * off;
-                                    const p2x = p2.x + nx * off;
-                                    const p2z = p2.z + nz * off;
-
-                                    hitVerts.push(
-                                        p1x, 0, p1z,
-                                        p2x, 0, p2z,
-                                        p2x, totalH, p2z,
-                                        p1x, 0, p1z,
-                                        p2x, totalH, p2z,
-                                        p1x, totalH, p1z
-                                    );
+                        const extraStaticHitboxes = [];
+                        if (startProfileLocal && startProfileLocal.length >= 2) {
+                            const startHitGeo = new THREE.BufferGeometry();
+                            const hitVerts = [];
+                            for (let si = 0; si < startProfileLocal.length - 1; si++) {
+                                const p1 = startProfileLocal[si];
+                                const p2 = startProfileLocal[si + 1];
+                                const dx = p2.x - p1.x;
+                                const dz = p2.z - p1.z;
+                                const segLen = Math.hypot(dx, dz);
+                                let nx = 0, nz = 0;
+                                if (segLen > 1e-6) {
+                                    nx = -dz / segLen;
+                                    nz = dx / segLen;
                                 }
-                                startHitGeo.setAttribute('position', new THREE.Float32BufferAttribute(hitVerts, 3));
-                                startHitGeo.computeVertexNormals();
-                                const hitStart = new THREE.Mesh(startHitGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
-                                hitStart.userData = { isWallSide: true, side: 'left', entity: w };
-                                extraStaticHitboxes.push(hitStart);
+                                const off = 0.2;
+                                const p1x = p1.x + nx * off;
+                                const p1z = p1.z + nz * off;
+                                const p2x = p2.x + nx * off;
+                                const p2z = p2.z + nz * off;
+
+                                hitVerts.push(
+                                    p1x, 0, p1z,
+                                    p2x, 0, p2z,
+                                    p2x, totalH, p2z,
+                                    p1x, 0, p1z,
+                                    p2x, totalH, p2z,
+                                    p1x, totalH, p1z
+                                );
                             }
-
-                            if (endProfileLocal && endProfileLocal.length >= 2) {
-                                const endHitGeo = new THREE.BufferGeometry();
-                                const hitVerts = [];
-                                for (let ei = 0; ei < endProfileLocal.length - 1; ei++) {
-                                    const p1 = endProfileLocal[ei];
-                                    const p2 = endProfileLocal[ei + 1];
-                                    const dx = p2.x - p1.x;
-                                    const dz = p2.z - p1.z;
-                                    const segLen = Math.hypot(dx, dz);
-                                    let nx = 0, nz = 0;
-                                    if (segLen > 1e-6) {
-                                        nx = dz / segLen;
-                                        nz = -dx / segLen;
-                                    }
-                                    const off = 0.2;
-                                    const p1x = p1.x + nx * off;
-                                    const p1z = p1.z + nz * off;
-                                    const p2x = p2.x + nx * off;
-                                    const p2z = p2.z + nz * off;
-
-                                    hitVerts.push(
-                                        p1x, 0, p1z,
-                                        p2x, 0, p2z,
-                                        p2x, totalH, p2z,
-                                        p1x, 0, p1z,
-                                        p2x, totalH, p2z,
-                                        p1x, totalH, p1z
-                                    );
-                                }
-                                endHitGeo.setAttribute('position', new THREE.Float32BufferAttribute(hitVerts, 3));
-                                endHitGeo.computeVertexNormals();
-                                const hitEnd = new THREE.Mesh(endHitGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
-                                hitEnd.userData = { isWallSide: true, side: 'right', entity: w };
-                                extraStaticHitboxes.push(hitEnd);
-                            }
-
-                            wallGroup.add(hitFront, hitBack, ...extraStaticHitboxes);
-                            this.ctx.interactables.push(hitFront, hitBack, ...extraStaticHitboxes);
-                        } else if (!isPreview) {
-                            // FALLBACK TRIGGER TO SWITCH LEVELS
-                            const hitBox = new THREE.Mesh(wallGeo, new THREE.MeshBasicMaterial({ visible: false }));
-                            hitBox.userData = { isFloorTrigger: true, levelIndex: index, entityIndex: wallIndex, entityType: 'wall' };
-                            wallGroup.add(hitBox);
-                            this.ctx.interactables.push(hitBox);
+                            startHitGeo.setAttribute('position', new THREE.Float32BufferAttribute(hitVerts, 3));
+                            startHitGeo.computeVertexNormals();
+                            const hitStart = new THREE.Mesh(startHitGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
+                            hitStart.userData = { isWallSide: true, side: 'left', entity: w, levelIndex: index, wallIndex: wallIndex, wallId: w.id };
+                            extraStaticHitboxes.push(hitStart);
                         }
+
+                        if (endProfileLocal && endProfileLocal.length >= 2) {
+                            const endHitGeo = new THREE.BufferGeometry();
+                            const hitVerts = [];
+                            for (let ei = 0; ei < endProfileLocal.length - 1; ei++) {
+                                const p1 = endProfileLocal[ei];
+                                const p2 = endProfileLocal[ei + 1];
+                                const dx = p2.x - p1.x;
+                                const dz = p2.z - p1.z;
+                                const segLen = Math.hypot(dx, dz);
+                                let nx = 0, nz = 0;
+                                if (segLen > 1e-6) {
+                                    nx = dz / segLen;
+                                    nz = -dx / segLen;
+                                }
+                                const off = 0.2;
+                                const p1x = p1.x + nx * off;
+                                const p1z = p1.z + nz * off;
+                                const p2x = p2.x + nx * off;
+                                const p2z = p2.z + nz * off;
+
+                                hitVerts.push(
+                                    p1x, 0, p1z,
+                                    p2x, 0, p2z,
+                                    p2x, totalH, p2z,
+                                    p1x, 0, p1z,
+                                    p2x, totalH, p2z,
+                                    p1x, totalH, p1z
+                                );
+                            }
+                            endHitGeo.setAttribute('position', new THREE.Float32BufferAttribute(hitVerts, 3));
+                            endHitGeo.computeVertexNormals();
+                            const hitEnd = new THREE.Mesh(endHitGeo, new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }));
+                            hitEnd.userData = { isWallSide: true, side: 'right', entity: w, levelIndex: index, wallIndex: wallIndex, wallId: w.id };
+                            extraStaticHitboxes.push(hitEnd);
+                        }
+
+                        wallGroup.add(hitFront, hitBack, ...extraStaticHitboxes);
+                        if (this.ctx.interactables) this.ctx.interactables.push(hitFront, hitBack, ...extraStaticHitboxes);
 
                         floorGroup.add(wallGroup);
 
                         // LOAD DECORS VIA MANAGER
                         if (w.attachedDecor) {
-                            w.attachedDecor.forEach(decor => this.ctx.decorManager.load(w, decor));
+                            w.attachedDecor.forEach(decor => {
+                                decor.levelIndex = index;
+                                decor.wallIndex = wallIndex;
+                                decor.wallId = w.id;
+                                this.ctx.decorManager.load(w, decor);
+                            });
                         }
                     });
                 }

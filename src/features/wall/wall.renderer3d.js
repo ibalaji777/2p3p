@@ -262,7 +262,7 @@ export class Wall3DBuilder {
 
                     if (ctx.updatePatternLive) ctx.updatePatternLive(widg);
                     extraMeshes.push(patternGroup);
-                    if (ctx.viewMode3D !== 'preview' && ctx.interactables) ctx.interactables.push(hitBox);
+                    if (ctx.interactables) ctx.interactables.push(hitBox);
                 } else if (wType === 'niche_recess') {
                     let wElev = widg.elevation || 0;
                     let h_opening = widg.height || 60;
@@ -285,6 +285,7 @@ export class Wall3DBuilder {
                 widg.thick = t;
                 widg.wall = w;
                 widg.localX = wCenter;
+                widg.facing = (widg.facing === -1) ? -1 : 1;
 
                 const widgetGroup = WIDGET_REGISTRY[wType].render3D(wallGroup, widg, ctx.helpers);
                 if (widgetGroup) {

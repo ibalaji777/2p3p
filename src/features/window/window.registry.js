@@ -45,7 +45,11 @@ export const WindowRegistry = {
         windowType: 'sliding_std',
         materials: {
             frame: { id: 'wood_teak' },
-            glass: { id: 'clear' }
+            leaf: { id: 'wood_teak' },
+            glass: { id: 'clear' },
+            hardware: { id: 'steel' },
+            seal: { id: 'pvc' },
+            grille: { id: 'alum_powder' }
         },
         grillePattern: 'grid',
         facing: 1,

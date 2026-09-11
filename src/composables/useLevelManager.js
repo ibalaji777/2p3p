@@ -22,7 +22,7 @@ export function useLevelManager(dependencies) {
         const levelIdx = staticWall.levelIndex;
         if (levelIdx === undefined || !levels.value[levelIdx] || !levels.value[levelIdx].data) return;
         
-        const levelData = JSON.parse(levels.value[levelIdx].data);
+        const levelData = typeof levels.value[levelIdx].data === 'string' ? JSON.parse(levels.value[levelIdx].data) : levels.value[levelIdx].data;
         const targetWall = levelData.walls[staticWall.wallIndex];
         
         if (targetWall) {
@@ -212,7 +212,7 @@ export function useLevelManager(dependencies) {
                     WallEngine.batchUpdate(planner.value, planner.value.walls, { height: Number(height) });
                 } else if (lvl.data) {
                     try {
-                        const parsed = JSON.parse(lvl.data);
+                        const parsed = typeof lvl.data === 'string' ? JSON.parse(lvl.data) : lvl.data;
                         if (parsed.walls) {
                             parsed.walls.forEach(w => {
                                 w.height = Number(height);
@@ -229,7 +229,7 @@ export function useLevelManager(dependencies) {
                     WallEngine.batchUpdate(planner.value, planner.value.walls, { thickness: Number(defaultWallThickness) });
                 } else if (lvl.data) {
                     try {
-                        const parsed = JSON.parse(lvl.data);
+                        const parsed = typeof lvl.data === 'string' ? JSON.parse(lvl.data) : lvl.data;
                         if (parsed.walls) {
                             parsed.walls.forEach(w => {
                                 w.thickness = Number(defaultWallThickness);
@@ -256,7 +256,7 @@ export function useLevelManager(dependencies) {
         if (refIdx < 0 || !levels.value[refIdx] || !levels.value[refIdx].data || !planner.value) return false;
         
         try {
-            const refState = JSON.parse(levels.value[refIdx].data);
+            const refState = typeof levels.value[refIdx].data === 'string' ? JSON.parse(levels.value[refIdx].data) : levels.value[refIdx].data;
             if (!refState.walls || refState.walls.length === 0) return false;
             
             saveCurrentLevelState();

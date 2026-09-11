@@ -88,7 +88,7 @@ export class StaticFloors {
             if (levelConfig.isVisible === false) return;
 
             try {
-                const data = JSON.parse(levelConfig.data);
+                const data = typeof levelConfig.data === 'string' ? JSON.parse(levelConfig.data) : levelConfig.data;
                 const floorGroup = new THREE.Group();
                 floorGroup.position.y = levelElevations[index] !== undefined ? levelElevations[index] : (index * WALL_HEIGHT);
 
@@ -112,7 +112,7 @@ export class StaticFloors {
                         let stairsBelow = [];
                         if (index > 0 && levelsConfigArray[index - 1] && levelsConfigArray[index - 1].data) {
                             try {
-                                const prevData = JSON.parse(levelsConfigArray[index - 1].data);
+                                const prevData = typeof levelsConfigArray[index - 1].data === 'string' ? JSON.parse(levelsConfigArray[index - 1].data) : levelsConfigArray[index - 1].data;
                                 if (prevData.stairs) stairsBelow = prevData.stairs;
                             } catch (e) {}
                         }

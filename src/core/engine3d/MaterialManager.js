@@ -136,11 +136,29 @@ export class MaterialManager {
                 entity.materials[MaterialSlots.GLASS] = MaterialManager.normalizeDescriptor(entity.glassMat);
             }
         } else if (entity.type === 'window') {
-            if (!entity.materials[MaterialSlots.FRAME] && entity.frameMat) {
-                entity.materials[MaterialSlots.FRAME] = MaterialManager.normalizeDescriptor(entity.frameMat);
+            if (!entity.materials[MaterialSlots.FRAME]) {
+                const fKey = entity.frameMat || entity.materials?.frame?.id || 'alum_powder';
+                entity.materials[MaterialSlots.FRAME] = MaterialManager.normalizeDescriptor(fKey);
             }
-            if (!entity.materials[MaterialSlots.GLASS] && entity.glassMat) {
-                entity.materials[MaterialSlots.GLASS] = MaterialManager.normalizeDescriptor(entity.glassMat);
+            if (!entity.materials[MaterialSlots.LEAF]) {
+                const lKey = entity.leafMat || entity.sashMat || entity.materials?.leaf?.id || entity.materials[MaterialSlots.FRAME]?.id || 'alum_powder';
+                entity.materials[MaterialSlots.LEAF] = MaterialManager.normalizeDescriptor(lKey);
+            }
+            if (!entity.materials[MaterialSlots.GLASS]) {
+                const gKey = entity.glassMat || entity.materials?.glass?.id || 'clear';
+                entity.materials[MaterialSlots.GLASS] = MaterialManager.normalizeDescriptor(gKey);
+            }
+            if (!entity.materials[MaterialSlots.HARDWARE]) {
+                const hwKey = entity.hwMat || entity.materials?.hardware?.id || 'steel';
+                entity.materials[MaterialSlots.HARDWARE] = MaterialManager.normalizeDescriptor(hwKey);
+            }
+            if (!entity.materials[MaterialSlots.SEAL]) {
+                const sKey = entity.sealMat || entity.materials?.seal?.id || 'pvc';
+                entity.materials[MaterialSlots.SEAL] = MaterialManager.normalizeDescriptor(sKey);
+            }
+            if (!entity.materials[MaterialSlots.GRILLE] && entity.grillePattern && entity.grillePattern !== 'none') {
+                const grKey = entity.grilleMat || entity.materials?.grille?.id || 'alum_powder';
+                entity.materials[MaterialSlots.GRILLE] = MaterialManager.normalizeDescriptor(grKey);
             }
         } else if (entity.params) {
             const p = entity.params;

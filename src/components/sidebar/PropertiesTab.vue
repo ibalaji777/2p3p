@@ -36,7 +36,7 @@
                 </div>
             </div>
 
-            <div class="props-content" v-else-if="(viewMode==='3d' || viewMode==='2d') && selectedEntity && (viewMode === '2d' || viewMode3D !== 'preview')">
+            <div class="props-content" v-else-if="(viewMode==='3d' || viewMode==='2d') && selectedEntity">
             
             <!-- Universal Face Material Editor -->
             <div v-if="selectedEntity.params && selectedEntity.params.isEditingMaterials">
@@ -220,8 +220,7 @@
 
         <div class="props-empty" v-else-if="!activeTool || !activeTool.startsWith('preset_')">
             <span v-if="viewMode==='2d'">Select a wall, door, window, or object on the canvas to edit its properties here.</span>
-            <span v-else-if="viewMode3D==='preview'">Exit Preview Mode to edit.</span>
-            <span v-else>Select a wall or object to edit its properties.</span>
+            <span v-else>Select a wall, door, window, or object to edit its properties.</span>
         </div>
   </div>
 </template>

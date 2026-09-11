@@ -42,13 +42,15 @@ export function renderWindow3D(sceneGroup, entity, helpers) {
     }
 
     const wConf = WINDOW_TYPES[entity.windowType] || WINDOW_TYPES.sliding_std;
+    if (!entity.type) entity.type = 'window';
     MaterialManager.initEntityMaterials(entity);
-    const frameMatKey = entity.materials?.[MaterialSlots.FRAME]?.id;
-    const sashMatKey = entity.materials?.[MaterialSlots.LEAF]?.id;
+    const frameMatKey = entity.materials?.[MaterialSlots.FRAME]?.id || 'wood_teak';
+    const sashMatKey = entity.materials?.[MaterialSlots.LEAF]?.id || frameMatKey;
     const glassMatKey = entity.materials?.[MaterialSlots.GLASS]?.id || 'clear';
 
-    if (!frameMatKey) console.warn(`Missing required parameter for slot FRAME on window entity ${entity.id}`);
-    if (!sashMatKey) console.warn(`Missing required parameter for slot LEAF on window entity ${entity.id}`);
+    const isThumb = !entity.id || (typeof entity.id === 'string' && entity.id.startsWith('thumb_'));
+    if (!frameMatKey && !isThumb) console.warn(`Missing required parameter for slot FRAME on window entity ${entity.id}`);
+    if (!sashMatKey && !isThumb) console.warn(`Missing required parameter for slot LEAF on window entity ${entity.id}`);
 
     const matFrame = helpers.getDynamicMaterial(frameMatKey, 'window_frame');
     const matSash = helpers.getDynamicMaterial(sashMatKey, 'window_sash');
@@ -61,14 +63,15 @@ export function renderWindow3D(sceneGroup, entity, helpers) {
     const fW = isTrad ? 3.5 : 1.8;
     const fThick = isTrad ? wallThickness + 2 : wallThickness + 0.5;
     const zOffset = isBay ? 12 : 0;
+    const facing = (entity.facing === -1) ? -1 : 1;
 
-    const hwMatKey = entity.materials?.[MaterialSlots.HARDWARE]?.id;
-    const sealMatKey = entity.materials?.[MaterialSlots.SEAL]?.id;
-    const grilleMatKey = entity.materials?.[MaterialSlots.GRILLE]?.id;
+    const hwMatKey = entity.materials?.[MaterialSlots.HARDWARE]?.id || 'steel';
+    const sealMatKey = entity.materials?.[MaterialSlots.SEAL]?.id || 'pvc';
+    const grilleMatKey = entity.materials?.[MaterialSlots.GRILLE]?.id || 'alum_powder';
 
-    if (!hwMatKey) console.warn(`Missing required parameter for slot HARDWARE on window entity ${entity.id}`);
-    if (!sealMatKey) console.warn(`Missing required parameter for slot SEAL on window entity ${entity.id}`);
-    if (!grilleMatKey && entity.grillePattern && entity.grillePattern !== 'none') console.warn(`Missing required parameter for slot GRILLE on window entity ${entity.id}`);
+    if (!hwMatKey && !isThumb) console.warn(`Missing required parameter for slot HARDWARE on window entity ${entity.id}`);
+    if (!sealMatKey && !isThumb) console.warn(`Missing required parameter for slot SEAL on window entity ${entity.id}`);
+    if (!grilleMatKey && entity.grillePattern && entity.grillePattern !== 'none' && !isThumb) console.warn(`Missing required parameter for slot GRILLE on window entity ${entity.id}`);
 
     const matMetalHardware = helpers.getDynamicMaterial(hwMatKey, 'hardware');
     const matRubberSeal = helpers.getDynamicMaterial(sealMatKey, 'seal');
@@ -229,10 +232,10 @@ export function renderWindow3D(sceneGroup, entity, helpers) {
         const openAngle = Math.PI / 6;
 
         const sL = makeSash(hw, iH, useGlass, true, 1, MaterialSlots.LEAF);
-        const pL = new THREE.Group(); pL.position.set(-iW / 2, fW, zOffset); sL.position.set(hw / 2, 0, 0); pL.rotation.y = openAngle * entity.facing; pL.add(sL);
+        const pL = new THREE.Group(); pL.position.set(-iW / 2, fW, zOffset); sL.position.set(hw / 2, 0, 0); pL.rotation.y = openAngle * facing; pL.add(sL);
 
         const sR = makeSash(hw, iH, useGlass, true, -1, MaterialSlots.LEAF);
-        const pR = new THREE.Group(); pR.position.set(iW / 2, fW, zOffset); sR.position.set(-hw / 2, 0, 0); pR.rotation.y = -openAngle * entity.facing; pR.add(sR);
+        const pR = new THREE.Group(); pR.position.set(iW / 2, fW, zOffset); sR.position.set(-hw / 2, 0, 0); pR.rotation.y = -openAngle * facing; pR.add(sR);
 
         winGroup.add(pL, pR);
     } else if (wConf.type === 'sliding') {
@@ -243,7 +246,7 @@ export function renderWindow3D(sceneGroup, entity, helpers) {
             const sash = makeSash(hw, iH);
             const zOff = (i % 2 === 0) ? sThick / 2 + 0.15 : -sThick / 2 - 0.15;
             let xPos = -iW / 2 + hw / 2 + (i * (hw - overlap));
-            if (i === panes - 1) xPos -= hw * 0.25 * entity.facing;
+            if (i === panes - 1) xPos -= hw * 0.25 * facing;
 
             const interlockerGeo = new THREE.BoxGeometry(0.4, iH - 0.5, sThick * 0.8);
             builder.addNode({ geometry: interlockerGeo, materialOverride: matMetalHardware, parent: sash, slot: MaterialSlots.HARDWARE, position: [i === 0 ? hw / 2 - 0.4 : -hw / 2 + 0.4, iH / 2, 0], userData: { isHandle: true }, paintable: false });
@@ -301,7 +304,7 @@ export function renderWindow3D(sceneGroup, entity, helpers) {
     const activePattern = entity.grillePattern || 'grid';
     if (activePattern && activePattern !== 'none') {
         const grilleGroup = new THREE.Group();
-        const grilleZ = entity.facing === 1 ? fThick / 2 - 1.0 : -fThick / 2 + 1.0;
+        const grilleZ = facing === 1 ? fThick / 2 - 1.0 : -fThick / 2 + 1.0;
         grilleGroup.position.set(0, 0, zOffset + grilleZ);
 
         const barWidth = 0.8, barDepth = 0.5;

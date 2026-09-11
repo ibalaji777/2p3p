@@ -58,13 +58,30 @@ export class DecorManager {
             const wrapper = new THREE.Group();
             const boxMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), []);
             boxMesh.userData = { isPatternBox: true };
-            const hitBox = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 }));
-            hitBox.userData = { isHitbox: true, isWallDecor: true, entity: decor, parentWall: wallEntity, side: decor.side };
+            const decorLevel = decor.levelIndex !== undefined ? decor.levelIndex : wallEntity.levelIndex;
+            hitBox.userData = { 
+                isHitbox: true, 
+                isWallDecor: true, 
+                entity: decor, 
+                parentWall: wallEntity, 
+                side: decor.side,
+                levelIndex: decorLevel,
+                decorId: decor.id,
+                wallId: wallEntity.id
+            };
             wrapper.add(boxMesh, hitBox);
-            wrapper.userData = { isWallDecor: true, entity: decor, parentWall: wallEntity, side: decor.side };
+            wrapper.userData = { 
+                isWallDecor: true, 
+                entity: decor, 
+                parentWall: wallEntity, 
+                side: decor.side,
+                levelIndex: decorLevel,
+                decorId: decor.id,
+                wallId: wallEntity.id
+            };
             decor.mesh3D = wrapper;
 
-            if (this.ctx.viewMode3D !== 'preview') this.ctx.interactables.push(hitBox);
+            if (this.ctx.interactables) this.ctx.interactables.push(hitBox);
             wallEntity.mesh3D.add(wrapper);
             this.updateLive(decor);
         }

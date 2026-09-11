@@ -17,7 +17,7 @@ function getSharedThumbnailRenderer() {
             _sharedThumbnailRenderer.setSize(512, 512); // High resolution for sharp downscaling
             _sharedThumbnailRenderer.setPixelRatio(1.5);
             _sharedThumbnailRenderer.shadowMap.enabled = true;
-            _sharedThumbnailRenderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer, photorealistic shadows
+            _sharedThumbnailRenderer.shadowMap.type = THREE.PCFShadowMap; // Softer, photorealistic shadows
             if (THREE.SRGBColorSpace) _sharedThumbnailRenderer.outputColorSpace = THREE.SRGBColorSpace;
             _sharedThumbnailRenderer.toneMapping = THREE.ACESFilmicToneMapping;
             _sharedThumbnailRenderer.toneMappingExposure = 1.25;
@@ -397,7 +397,9 @@ export class ThumbnailGenerator {
                 }
             } else {
                 // Dummy entity based on preset params
-                const entity = { ...params };
+                const entity = { ...(registryConfig?.defaultConfig || {}), ...params };
+                if (!entity.type) entity.type = type;
+                if (!entity.id) entity.id = 'thumb_' + type;
                 if (!entity.width) entity.width = type.startsWith('rail') ? 150 : (registryConfig?.defaultConfig?.width || 40);
                 if (!entity.height) entity.height = type.startsWith('rail') ? 40 : (registryConfig?.defaultConfig?.height || (type === 'door' ? 84 : 48));
                 
