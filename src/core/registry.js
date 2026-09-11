@@ -303,12 +303,21 @@ export const WIDGET_REGISTRY = {
                 }
                 iMesh.instanceMatrix.needsUpdate = true;
                 latticeGroup.add(iMesh);
-            } else if (jaliPattern === 'modern') {
+            } else if (jaliPattern === 'modern' || jaliPattern === 'horizontal_slats') {
+                const isHorizontal = entity.orientation === 'horizontal' || entity.params?.orientation === 'horizontal' || entity.horizontal || jaliPattern === 'horizontal_slats';
                 const targetStep = entity.jaliPatternSize || entity.params?.jaliPatternSize || 4;
-                const cols = Math.max(1, Math.round(iW / targetStep));
-                const stepX = iW / cols;
-                for (let c = 1; c < cols; c++) {
-                    builder.addNode({ geometry: new THREE.BoxGeometry(1.5, iH, lThick), slot: MaterialSlots.LEAF, materialOverride: matsBox, parent: latticeGroup, position: new THREE.Vector3(-iW/2 + c * stepX, 0, 0), castShadow: true });
+                if (isHorizontal) {
+                    const rows = Math.max(1, Math.round(iH / targetStep));
+                    const stepY = iH / rows;
+                    for (let r = 1; r < rows; r++) {
+                        builder.addNode({ geometry: new THREE.BoxGeometry(iW, 1.5, lThick), slot: MaterialSlots.LEAF, materialOverride: matsBox, parent: latticeGroup, position: new THREE.Vector3(0, -iH/2 + r * stepY, 0), castShadow: true });
+                    }
+                } else {
+                    const cols = Math.max(1, Math.round(iW / targetStep));
+                    const stepX = iW / cols;
+                    for (let c = 1; c < cols; c++) {
+                        builder.addNode({ geometry: new THREE.BoxGeometry(1.5, iH, lThick), slot: MaterialSlots.LEAF, materialOverride: matsBox, parent: latticeGroup, position: new THREE.Vector3(-iW/2 + c * stepX, 0, 0), castShadow: true });
+                    }
                 }
             } else {
                 const defaultStep = jaliPattern === 'geometric' ? 6 : 8;
@@ -619,10 +628,57 @@ export const WIDGET_REGISTRY = {
                 
                 const botGeo = new THREE.BoxGeometry(cWidth, frameThick, cDepth);
                 builder.addNode({ geometry: botGeo, materialOverride: mmBox, parent: contentGroup, position: new THREE.Vector3(0, -frameDrop + frameThick/2, (cDepth/2)*signZ), castShadow: true });
+            } else if (chajjaStyle === 'cantilever_soffit') {
+                const cWidth = entity.width;
+                const soffitThick = entity.soffitHeight || entity.thick || entity.thickness || 10;
+                const slabGeo = new THREE.BoxGeometry(cWidth, soffitThick, cDepth);
+                builder.addNode({
+                    geometry: slabGeo,
+                    materialOverride: mmBox,
+                    parent: contentGroup,
+                    position: new THREE.Vector3(0, -soffitThick / 2, (cDepth / 2) * signZ),
+                    castShadow: true
+                });
+
+                // Under-soffit architectural recessed downlights (pot lights)
+                const numLights = entity.numLights || (cWidth > 150 ? 3 : 2);
+                const lightSpacing = cWidth / (numLights + 1);
+                const potRadius = 3.5;
+                const potDepth = 0.6;
+                const bezelGeo = new THREE.CylinderGeometry(potRadius + 0.8, potRadius + 0.8, potDepth, 16);
+                const lensGeo = new THREE.CylinderGeometry(potRadius, potRadius, potDepth + 0.1, 16);
+                const matBezel = new THREE.MeshStandardMaterial({ color: 0x1f2937, metalness: 0.8, roughness: 0.25 });
+                const matLens = new THREE.MeshStandardMaterial({
+                    color: 0xfffaed,
+                    emissive: 0xffdf80,
+                    emissiveIntensity: 1.8,
+                    roughness: 0.1
+                });
+
+                for (let i = 1; i <= numLights; i++) {
+                    const posX = -cWidth / 2 + i * lightSpacing;
+                    const posZ = (cDepth / 2) * signZ;
+                    const posY = -soffitThick;
+
+                    builder.addNode({
+                        geometry: bezelGeo,
+                        materialOverride: matBezel,
+                        parent: contentGroup,
+                        position: new THREE.Vector3(posX, posY, posZ),
+                        slot: MaterialSlots.HARDWARE
+                    });
+                    builder.addNode({
+                        geometry: lensGeo,
+                        materialOverride: matLens,
+                        parent: contentGroup,
+                        position: new THREE.Vector3(posX, posY - 0.05, posZ),
+                        slot: MaterialSlots.CUSTOM
+                    });
+                }
             }
 
-            const hbHeight = chajjaStyle === 'box_frame' ? (entity.frameHeight || 150) : 10;
-            const hbY = chajjaStyle === 'box_frame' ? -hbHeight/2 + 6 : 5;
+            const hbHeight = chajjaStyle === 'box_frame' ? (entity.frameHeight || 150) : (chajjaStyle === 'cantilever_soffit' ? (entity.soffitHeight || entity.thick || entity.thickness || 10) : 10);
+            const hbY = chajjaStyle === 'box_frame' ? -hbHeight/2 + 6 : (chajjaStyle === 'cantilever_soffit' ? -hbHeight/2 : 5);
             const hitboxGeo = new THREE.BoxGeometry(entity.width, hbHeight, cDepth);
             builder.addNode({ geometry: hitboxGeo, parent: contentGroup, position: new THREE.Vector3(0, hbY, (cDepth/2)*signZ), isHitbox: true });
             sunshadeGroup.userData = { isWidget: true, entity: entity };

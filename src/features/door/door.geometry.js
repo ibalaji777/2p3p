@@ -1154,18 +1154,55 @@ export function buildDetailedDoorPanel(entity, width, height, thickness, materia
         builder.addNode({ geometry: glassGeo, materialOverride: glassMat, parent: group, position: new THREE.Vector3(0, botRailH + openH / 2, 0), isGlass: true, slot: MaterialSlots.GLASS });
     } else if (style === 'gate_slat_modern') {
         const frameW = 3.5;
+        const frameMatKey = entity.materials?.[MaterialSlots.FRAME]?.id || 'upvc_white';
+        const matFrameObj = helpers?.getDynamicMaterial ? helpers.getDynamicMaterial(frameMatKey, 'door') : material;
+        const matsFrameBox = (helpers && helpers.getFaceMaterials) ? helpers.getFaceMaterials(entity, matFrameObj, { width, height, thick: thickness }).box : matFrameObj;
+        const matsFrameExtrude = Array.isArray(matsFrameBox) ? [matsFrameBox[4] || matsFrameBox[0], matsFrameBox[1] || matsFrameBox[0]] : matsFrameBox;
+
+        const panelMatKey = entity.materials?.custom?.id || entity.materials?.panel?.id;
+        const matPanelObj = panelMatKey && helpers?.getDynamicMaterial ? helpers.getDynamicMaterial(panelMatKey, 'door') : null;
+        const matsPanelBox = matPanelObj ? ((helpers && helpers.getFaceMaterials) ? helpers.getFaceMaterials(entity, matPanelObj, { width, height, thick: thickness }).box : matPanelObj) : null;
+        const matsPanelExtrude = matsPanelBox ? (Array.isArray(matsPanelBox) ? [matsPanelBox[4] || matsPanelBox[0], matsPanelBox[1] || matsPanelBox[0]] : matsPanelBox) : null;
+
         const geoStile = createBeveledRect(frameW, height, thickness);
-        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width / 2 + frameW / 2, height / 2, 0), castShadow: true, receiveShadow: true });
-        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width / 2 - frameW / 2, height / 2, 0), castShadow: true, receiveShadow: true });
+        const geoRailT = rotateUVs(createBeveledRect(width - frameW * 2, frameW, thickness));
+        const geoRailB = rotateUVs(createBeveledRect(width - frameW * 2, frameW, thickness));
+
+        builder.addNode({ geometry: geoStile, materialOverride: matsFrameExtrude, parent: group, slot: MaterialSlots.FRAME, position: new THREE.Vector3(-width / 2 + frameW / 2, height / 2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStile, materialOverride: matsFrameExtrude, parent: group, slot: MaterialSlots.FRAME, position: new THREE.Vector3(width / 2 - frameW / 2, height / 2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailT, materialOverride: matsFrameExtrude, parent: group, slot: MaterialSlots.FRAME, position: new THREE.Vector3(0, height - frameW / 2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailB, materialOverride: matsFrameExtrude, parent: group, slot: MaterialSlots.FRAME, position: new THREE.Vector3(0, frameW / 2, 0), castShadow: true, receiveShadow: true });
 
         const openW = width - frameW * 2;
-        const slatH = 5; const slatGap = 1.2;
-        const numSlats = Math.floor(height / (slatH + slatGap));
-        const actualSpacing = height / numSlats;
+        const openH = height - frameW * 2;
 
-        for (let i = 0; i < numSlats; i++) {
-            const slatGeo = rotateUVs(createBeveledRect(openW, slatH, thickness * 0.7));
-            builder.addNode({ geometry: slatGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, actualSpacing * i + slatH / 2, 0), castShadow: true, receiveShadow: true });
+        if (width > 80 && matsPanelExtrude) {
+            const bayW = (openW - frameW) / 2;
+            const midStileGeo = createBeveledRect(frameW, openH, thickness);
+            builder.addNode({ geometry: midStileGeo, materialOverride: matsFrameExtrude, parent: group, slot: MaterialSlots.FRAME, position: new THREE.Vector3(0, height / 2, 0), castShadow: true, receiveShadow: true });
+
+            const outerBayX = signX === 1 ? (-openW / 2 + bayW / 2) : (openW / 2 - bayW / 2);
+            const innerBayX = signX === 1 ? (openW / 2 - bayW / 2) : (-openW / 2 + bayW / 2);
+
+            const accentGeo = createBeveledRect(bayW - 1, openH - 1, thickness * 0.7);
+            builder.addNode({ geometry: accentGeo, materialOverride: matsPanelExtrude, parent: group, slot: MaterialSlots.CUSTOM, position: new THREE.Vector3(outerBayX, height / 2, 0), castShadow: true, receiveShadow: true });
+
+            const slatH = 4.5; const slatGap = 1.5;
+            const numSlats = Math.floor(openH / (slatH + slatGap));
+            const actualSpacing = openH / numSlats;
+            for (let i = 0; i < numSlats; i++) {
+                const slatGeo = rotateUVs(createBeveledRect(bayW, slatH, thickness * 0.6));
+                builder.addNode({ geometry: slatGeo, materialOverride: matsExtrude, parent: group, slot: MaterialSlots.LEAF, position: new THREE.Vector3(innerBayX, frameW + actualSpacing * i + slatH / 2, 0), castShadow: true, receiveShadow: true });
+            }
+        } else {
+            const slatH = 5; const slatGap = 1.2;
+            const numSlats = Math.floor(openH / (slatH + slatGap));
+            const actualSpacing = openH / numSlats;
+
+            for (let i = 0; i < numSlats; i++) {
+                const slatGeo = rotateUVs(createBeveledRect(openW, slatH, thickness * 0.7));
+                builder.addNode({ geometry: slatGeo, materialOverride: matsExtrude, parent: group, slot: MaterialSlots.LEAF, position: new THREE.Vector3(0, frameW + actualSpacing * i + slatH / 2, 0), castShadow: true, receiveShadow: true });
+            }
         }
     } else if (style === 'gate_wrought_iron') {
         const frameW = 3;
@@ -1191,24 +1228,42 @@ export function buildDetailedDoorPanel(entity, width, height, thickness, materia
         }
     } else if (style === 'gate_pedestrian_wicket' || style === 'gate_driveway_sliding' || style === 'gate_garden_picket') {
         const frameW = 3.5;
+        const frameMatKey = entity.materials?.[MaterialSlots.FRAME]?.id;
+        const matFrameObj = frameMatKey && helpers?.getDynamicMaterial ? helpers.getDynamicMaterial(frameMatKey, 'door') : null;
+        const matsFrameBox = matFrameObj ? ((helpers && helpers.getFaceMaterials) ? helpers.getFaceMaterials(entity, matFrameObj, { width, height, thick: thickness }).box : matFrameObj) : null;
+        const matsFrameExtrude = matsFrameBox ? (Array.isArray(matsFrameBox) ? [matsFrameBox[4] || matsFrameBox[0], matsFrameBox[1] || matsFrameBox[0]] : matsFrameBox) : matsExtrude;
+
         const geoStile = createBeveledRect(frameW, height, thickness);
         const geoRailT = rotateUVs(createBeveledRect(width - frameW * 2, frameW, thickness));
         const geoRailB = rotateUVs(createBeveledRect(width - frameW * 2, frameW, thickness));
 
-        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(-width / 2 + frameW / 2, height / 2, 0), castShadow: true, receiveShadow: true });
-        builder.addNode({ geometry: geoStile, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(width / 2 - frameW / 2, height / 2, 0), castShadow: true, receiveShadow: true });
-        builder.addNode({ geometry: geoRailT, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, height - frameW / 2, 0), castShadow: true, receiveShadow: true });
-        builder.addNode({ geometry: geoRailB, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(0, frameW / 2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStile, materialOverride: matsFrameExtrude, parent: group, slot: MaterialSlots.FRAME, position: new THREE.Vector3(-width / 2 + frameW / 2, height / 2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoStile, materialOverride: matsFrameExtrude, parent: group, slot: MaterialSlots.FRAME, position: new THREE.Vector3(width / 2 - frameW / 2, height / 2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailT, materialOverride: matsFrameExtrude, parent: group, slot: MaterialSlots.FRAME, position: new THREE.Vector3(0, height - frameW / 2, 0), castShadow: true, receiveShadow: true });
+        builder.addNode({ geometry: geoRailB, materialOverride: matsFrameExtrude, parent: group, slot: MaterialSlots.FRAME, position: new THREE.Vector3(0, frameW / 2, 0), castShadow: true, receiveShadow: true });
 
         const openW = width - frameW * 2;
-        const pWidth = 4.5; const pGap = 2;
-        const numPickets = Math.floor(openW / (pWidth + pGap));
-        const spacing = openW / numPickets;
+        const openH = height - frameW * 2;
 
-        for (let i = 0; i < numPickets; i++) {
-            const pX = -openW / 2 + spacing / 2 + i * spacing;
-            const pGeo = createBeveledRect(pWidth, height - frameW * 2, thickness * 0.7);
-            builder.addNode({ geometry: pGeo, materialOverride: matsExtrude, parent: group, position: new THREE.Vector3(pX, height / 2, 0), castShadow: true, receiveShadow: true });
+        if (style === 'gate_pedestrian_wicket') {
+            const pWidth = 6.0;
+            const numPickets = Math.max(1, Math.round(openW / pWidth));
+            const actualW = openW / numPickets;
+            for (let i = 0; i < numPickets; i++) {
+                const pX = -openW / 2 + actualW / 2 + i * actualW;
+                const pGeo = createBeveledRect(actualW - 0.2, openH, thickness * 0.75);
+                builder.addNode({ geometry: pGeo, materialOverride: matsExtrude, parent: group, slot: MaterialSlots.LEAF, position: new THREE.Vector3(pX, height / 2, 0), castShadow: true, receiveShadow: true });
+            }
+        } else {
+            const pWidth = 4.5; const pGap = 2;
+            const numPickets = Math.floor(openW / (pWidth + pGap));
+            const spacing = openW / numPickets;
+
+            for (let i = 0; i < numPickets; i++) {
+                const pX = -openW / 2 + spacing / 2 + i * spacing;
+                const pGeo = createBeveledRect(pWidth, height - frameW * 2, thickness * 0.7);
+                builder.addNode({ geometry: pGeo, materialOverride: matsExtrude, parent: group, slot: MaterialSlots.LEAF, position: new THREE.Vector3(pX, height / 2, 0), castShadow: true, receiveShadow: true });
+            }
         }
     } else {
         // Fallback: Default Flat / Arched Door Leaf Body

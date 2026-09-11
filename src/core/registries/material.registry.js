@@ -1,7 +1,255 @@
 import { GLASS_ROOF_TEXTURE_DATA } from '../../features/roof/generators/generate_glass_roof_textures.js';
 
+export function generateWalnutSidingSVG() {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="plankGrad1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#553a29" />
+      <stop offset="6%" stop-color="#4a3223" />
+      <stop offset="85%" stop-color="#3d271a" />
+      <stop offset="96%" stop-color="#2a180e" />
+      <stop offset="100%" stop-color="#140b06" />
+    </linearGradient>
+    <linearGradient id="plankGrad2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#5b3e2c" />
+      <stop offset="6%" stop-color="#4f3525" />
+      <stop offset="85%" stop-color="#3f291c" />
+      <stop offset="96%" stop-color="#2c1a10" />
+      <stop offset="100%" stop-color="#140b06" />
+    </linearGradient>
+    <linearGradient id="grooveShadow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#100804" />
+      <stop offset="60%" stop-color="#180e08" />
+      <stop offset="100%" stop-color="#5a3d2b" />
+    </linearGradient>
+    <pattern id="woodGrain" width="512" height="128" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="12" x2="512" y2="12" stroke="#362215" stroke-width="0.8" opacity="0.3" />
+      <line x1="0" y1="28" x2="512" y2="28" stroke="#5c402e" stroke-width="1.2" opacity="0.25" />
+      <line x1="0" y1="45" x2="512" y2="45" stroke="#331f13" stroke-width="0.7" opacity="0.3" />
+      <line x1="0" y1="62" x2="512" y2="62" stroke="#5c402e" stroke-width="1.0" opacity="0.2" />
+      <line x1="0" y1="80" x2="512" y2="80" stroke="#362215" stroke-width="0.9" opacity="0.35" />
+      <line x1="0" y1="98" x2="512" y2="98" stroke="#5a3d2a" stroke-width="1.1" opacity="0.25" />
+      <line x1="0" y1="112" x2="512" y2="112" stroke="#301c10" stroke-width="0.8" opacity="0.3" />
+    </pattern>
+  </defs>
+  <rect x="0" y="0" width="512" height="120" fill="url(#plankGrad1)" />
+  <rect x="0" y="0" width="512" height="120" fill="url(#woodGrain)" />
+  <line x1="0" y1="1" x2="512" y2="1" stroke="#6e4c36" stroke-width="1.5" opacity="0.6" />
+  <rect x="0" y="120" width="512" height="8" fill="url(#grooveShadow)" />
+
+  <rect x="0" y="128" width="512" height="120" fill="url(#plankGrad2)" />
+  <rect x="0" y="128" width="512" height="120" fill="url(#woodGrain)" />
+  <line x1="0" y1="129" x2="512" y2="129" stroke="#725039" stroke-width="1.5" opacity="0.6" />
+  <rect x="0" y="248" width="512" height="8" fill="url(#grooveShadow)" />
+
+  <rect x="0" y="256" width="512" height="120" fill="url(#plankGrad1)" />
+  <rect x="0" y="256" width="512" height="120" fill="url(#woodGrain)" />
+  <line x1="0" y1="257" x2="512" y2="257" stroke="#6e4c36" stroke-width="1.5" opacity="0.6" />
+  <rect x="0" y="376" width="512" height="8" fill="url(#grooveShadow)" />
+
+  <rect x="0" y="384" width="512" height="120" fill="url(#plankGrad2)" />
+  <rect x="0" y="384" width="512" height="120" fill="url(#woodGrain)" />
+  <line x1="0" y1="385" x2="512" y2="385" stroke="#725039" stroke-width="1.5" opacity="0.6" />
+  <rect x="0" y="504" width="512" height="8" fill="url(#grooveShadow)" />
+</svg>`;
+}
+
+export const WALNUT_SIDING_SVG_DATA_URI = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(generateWalnutSidingSVG()).replace(/'/g, '%27').replace(/"/g, '%22')}`;
+
+export function generateStackedSlateSVG() {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="slateGrad1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#3d434d" />
+      <stop offset="12%" stop-color="#323740" />
+      <stop offset="85%" stop-color="#24282f" />
+      <stop offset="100%" stop-color="#181a1f" />
+    </linearGradient>
+    <linearGradient id="slateGrad2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#464d57" />
+      <stop offset="12%" stop-color="#3a4049" />
+      <stop offset="85%" stop-color="#2b3037" />
+      <stop offset="100%" stop-color="#1a1c22" />
+    </linearGradient>
+    <linearGradient id="slateGrad3" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#343942" />
+      <stop offset="12%" stop-color="#2b3038" />
+      <stop offset="85%" stop-color="#1f2329" />
+      <stop offset="100%" stop-color="#14161a" />
+    </linearGradient>
+    <linearGradient id="slateGroove" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0f1013" />
+      <stop offset="60%" stop-color="#15171c" />
+      <stop offset="100%" stop-color="#2e333b" />
+    </linearGradient>
+    <pattern id="slateCleft" width="512" height="64" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="6" x2="512" y2="6" stroke="#1a1d22" stroke-width="0.8" opacity="0.35" />
+      <line x1="0" y1="14" x2="512" y2="14" stroke="#505864" stroke-width="0.6" opacity="0.25" />
+      <line x1="0" y1="24" x2="512" y2="24" stroke="#16181d" stroke-width="0.9" opacity="0.4" />
+      <line x1="0" y1="36" x2="512" y2="36" stroke="#58616f" stroke-width="0.7" opacity="0.2" />
+      <line x1="0" y1="48" x2="512" y2="48" stroke="#1c1f25" stroke-width="0.8" opacity="0.35" />
+      <line x1="0" y1="58" x2="512" y2="58" stroke="#4a535f" stroke-width="0.6" opacity="0.25" />
+    </pattern>
+  </defs>
+  <rect x="0" y="0" width="512" height="512" fill="#181a1f" />
+  
+  <rect x="0" y="0" width="160" height="26" fill="url(#slateGrad1)" />
+  <rect x="160" y="0" width="210" height="26" fill="url(#slateGrad2)" />
+  <rect x="370" y="0" width="142" height="26" fill="url(#slateGrad3)" />
+  <line x1="160" y1="0" x2="160" y2="26" stroke="#111316" stroke-width="1.5" />
+  <line x1="370" y1="0" x2="370" y2="26" stroke="#111316" stroke-width="1.5" />
+  <line x1="0" y1="1" x2="512" y2="1" stroke="#5a6370" stroke-width="1.0" opacity="0.45" />
+  <rect x="0" y="26" width="512" height="4" fill="url(#slateGroove)" />
+
+  <rect x="0" y="30" width="240" height="22" fill="url(#slateGrad3)" />
+  <rect x="240" y="30" width="190" height="22" fill="url(#slateGrad1)" />
+  <rect x="430" y="30" width="82" height="22" fill="url(#slateGrad2)" />
+  <line x1="240" y1="30" x2="240" y2="52" stroke="#111316" stroke-width="1.5" />
+  <line x1="430" y1="30" x2="430" y2="52" stroke="#111316" stroke-width="1.5" />
+  <line x1="0" y1="31" x2="512" y2="31" stroke="#5a6370" stroke-width="1.0" opacity="0.4" />
+  <rect x="0" y="52" width="512" height="4" fill="url(#slateGroove)" />
+
+  <rect x="0" y="56" width="130" height="32" fill="url(#slateGrad2)" />
+  <rect x="130" y="56" width="220" height="32" fill="url(#slateGrad1)" />
+  <rect x="350" y="56" width="162" height="32" fill="url(#slateGrad3)" />
+  <line x1="130" y1="56" x2="130" y2="88" stroke="#111316" stroke-width="1.5" />
+  <line x1="350" y1="56" x2="350" y2="88" stroke="#111316" stroke-width="1.5" />
+  <line x1="0" y1="57" x2="512" y2="57" stroke="#5a6370" stroke-width="1.0" opacity="0.45" />
+  <rect x="0" y="88" width="512" height="4" fill="url(#slateGroove)" />
+
+  <rect x="0" y="92" width="210" height="24" fill="url(#slateGrad1)" />
+  <rect x="210" y="92" width="180" height="24" fill="url(#slateGrad3)" />
+  <rect x="390" y="92" width="122" height="24" fill="url(#slateGrad2)" />
+  <line x1="210" y1="92" x2="210" y2="116" stroke="#111316" stroke-width="1.5" />
+  <line x1="390" y1="92" x2="390" y2="116" stroke="#111316" stroke-width="1.5" />
+  <line x1="0" y1="93" x2="512" y2="93" stroke="#5a6370" stroke-width="1.0" opacity="0.4" />
+  <rect x="0" y="116" width="512" height="4" fill="url(#slateGroove)" />
+
+  <rect x="0" y="120" width="170" height="30" fill="url(#slateGrad3)" />
+  <rect x="170" y="120" width="200" height="30" fill="url(#slateGrad2)" />
+  <rect x="370" y="120" width="142" height="30" fill="url(#slateGrad1)" />
+  <line x1="170" y1="120" x2="170" y2="150" stroke="#111316" stroke-width="1.5" />
+  <line x1="370" y1="120" x2="370" y2="150" stroke="#111316" stroke-width="1.5" />
+  <line x1="0" y1="121" x2="512" y2="121" stroke="#5a6370" stroke-width="1.0" opacity="0.45" />
+  <rect x="0" y="150" width="512" height="4" fill="url(#slateGroove)" />
+
+  <rect x="0" y="154" width="260" height="20" fill="url(#slateGrad2)" />
+  <rect x="260" y="154" width="160" height="20" fill="url(#slateGrad1)" />
+  <rect x="420" y="154" width="92" height="20" fill="url(#slateGrad3)" />
+  <line x1="260" y1="154" x2="260" y2="174" stroke="#111316" stroke-width="1.5" />
+  <line x1="420" y1="154" x2="420" y2="174" stroke="#111316" stroke-width="1.5" />
+  <line x1="0" y1="155" x2="512" y2="155" stroke="#5a6370" stroke-width="1.0" opacity="0.4" />
+  <rect x="0" y="174" width="512" height="4" fill="url(#slateGroove)" />
+
+  <rect x="0" y="178" width="140" height="34" fill="url(#slateGrad1)" />
+  <rect x="140" y="178" width="230" height="34" fill="url(#slateGrad3)" />
+  <rect x="370" y="178" width="142" height="34" fill="url(#slateGrad2)" />
+  <line x1="140" y1="178" x2="140" y2="212" stroke="#111316" stroke-width="1.5" />
+  <line x1="370" y1="178" x2="370" y2="212" stroke="#111316" stroke-width="1.5" />
+  <line x1="0" y1="179" x2="512" y2="179" stroke="#5a6370" stroke-width="1.0" opacity="0.45" />
+  <rect x="0" y="212" width="512" height="4" fill="url(#slateGroove)" />
+
+  <rect x="0" y="216" width="190" height="22" fill="url(#slateGrad2)" />
+  <rect x="190" y="216" width="210" height="22" fill="url(#slateGrad1)" />
+  <rect x="400" y="216" width="112" height="22" fill="url(#slateGrad3)" />
+  <line x1="190" y1="216" x2="190" y2="238" stroke="#111316" stroke-width="1.5" />
+  <line x1="400" y1="216" x2="400" y2="238" stroke="#111316" stroke-width="1.5" />
+  <line x1="0" y1="217" x2="512" y2="217" stroke="#5a6370" stroke-width="1.0" opacity="0.4" />
+  <rect x="0" y="238" width="512" height="4" fill="url(#slateGroove)" />
+
+  <rect x="0" y="242" width="220" height="30" fill="url(#slateGrad3)" />
+  <rect x="220" y="242" width="170" height="30" fill="url(#slateGrad2)" />
+  <rect x="390" y="242" width="122" height="30" fill="url(#slateGrad1)" />
+  <line x1="220" y1="242" x2="220" y2="272" stroke="#111316" stroke-width="1.5" />
+  <line x1="390" y1="242" x2="390" y2="272" stroke="#111316" stroke-width="1.5" />
+  <line x1="0" y1="243" x2="512" y2="243" stroke="#5a6370" stroke-width="1.0" opacity="0.45" />
+  <rect x="0" y="272" width="512" height="4" fill="url(#slateGroove)" />
+
+  <rect x="0" y="276" width="150" height="26" fill="url(#slateGrad1)" />
+  <rect x="150" y="276" width="220" height="26" fill="url(#slateGrad3)" />
+  <rect x="370" y="276" width="142" height="26" fill="url(#slateGrad2)" />
+  <line x1="150" y1="276" x2="150" y2="302" stroke="#111316" stroke-width="1.5" />
+  <line x1="370" y1="276" x2="370" y2="302" stroke="#111316" stroke-width="1.5" />
+  <line x1="0" y1="277" x2="512" y2="277" stroke="#5a6370" stroke-width="1.0" opacity="0.4" />
+  <rect x="0" y="302" width="512" height="4" fill="url(#slateGroove)" />
+
+  <rect x="0" y="306" width="180" height="32" fill="url(#slateGrad2)" />
+  <rect x="180" y="306" width="190" height="32" fill="url(#slateGrad1)" />
+  <rect x="370" y="306" width="142" height="32" fill="url(#slateGrad3)" />
+  <line x1="180" y1="306" x2="180" y2="338" stroke="#111316" stroke-width="1.5" />
+  <line x1="370" y1="306" x2="370" y2="338" stroke="#111316" stroke-width="1.5" />
+  <line x1="0" y1="307" x2="512" y2="307" stroke="#5a6370" stroke-width="1.0" opacity="0.45" />
+  <rect x="0" y="338" width="512" height="4" fill="url(#slateGroove)" />
+
+  <rect x="0" y="342" width="230" height="22" fill="url(#slateGrad1)" />
+  <rect x="230" y="342" width="180" height="22" fill="url(#slateGrad3)" />
+  <rect x="410" y="342" width="102" height="22" fill="url(#slateGrad2)" />
+  <line x1="230" y1="342" x2="230" y2="364" stroke="#111316" stroke-width="1.5" />
+  <line x1="410" y1="342" x2="410" y2="364" stroke="#111316" stroke-width="1.5" />
+  <line x1="0" y1="343" x2="512" y2="343" stroke="#5a6370" stroke-width="1.0" opacity="0.4" />
+  <rect x="0" y="364" width="512" height="4" fill="url(#slateGroove)" />
+
+  <rect x="0" y="368" width="140" height="30" fill="url(#slateGrad3)" />
+  <rect x="140" y="368" width="220" height="30" fill="url(#slateGrad2)" />
+  <rect x="360" y="368" width="152" height="30" fill="url(#slateGrad1)" />
+  <line x1="140" y1="368" x2="140" y2="398" stroke="#111316" stroke-width="1.5" />
+  <line x1="360" y1="368" x2="360" y2="398" stroke="#111316" stroke-width="1.5" />
+  <line x1="0" y1="369" x2="512" y2="369" stroke="#5a6370" stroke-width="1.0" opacity="0.45" />
+  <rect x="0" y="398" width="512" height="4" fill="url(#slateGroove)" />
+
+  <rect x="0" y="402" width="200" height="24" fill="url(#slateGrad2)" />
+  <rect x="200" y="402" width="190" height="24" fill="url(#slateGrad1)" />
+  <rect x="390" y="402" width="122" height="24" fill="url(#slateGrad3)" />
+  <line x1="200" y1="402" x2="200" y2="426" stroke="#111316" stroke-width="1.5" />
+  <line x1="390" y1="402" x2="390" y2="426" stroke="#111316" stroke-width="1.5" />
+  <line x1="0" y1="403" x2="512" y2="403" stroke="#5a6370" stroke-width="1.0" opacity="0.4" />
+  <rect x="0" y="426" width="512" height="4" fill="url(#slateGroove)" />
+
+  <rect x="0" y="430" width="160" height="34" fill="url(#slateGrad1)" />
+  <rect x="160" y="430" width="210" height="34" fill="url(#slateGrad3)" />
+  <rect x="370" y="430" width="142" height="34" fill="url(#slateGrad2)" />
+  <line x1="160" y1="430" x2="160" y2="464" stroke="#111316" stroke-width="1.5" />
+  <line x1="370" y1="430" x2="370" y2="464" stroke="#111316" stroke-width="1.5" />
+  <line x1="0" y1="431" x2="512" y2="431" stroke="#5a6370" stroke-width="1.0" opacity="0.45" />
+  <rect x="0" y="464" width="512" height="4" fill="url(#slateGroove)" />
+
+  <rect x="0" y="468" width="220" height="40" fill="url(#slateGrad2)" />
+  <rect x="220" y="468" width="170" height="40" fill="url(#slateGrad1)" />
+  <rect x="390" y="468" width="122" height="40" fill="url(#slateGrad3)" />
+  <line x1="220" y1="468" x2="220" y2="508" stroke="#111316" stroke-width="1.5" />
+  <line x1="390" y1="468" x2="390" y2="508" stroke="#111316" stroke-width="1.5" />
+  <line x1="0" y1="469" x2="512" y2="469" stroke="#5a6370" stroke-width="1.0" opacity="0.4" />
+  <rect x="0" y="508" width="512" height="4" fill="url(#slateGroove)" />
+
+  <rect x="0" y="0" width="512" height="512" fill="url(#slateCleft)" pointer-events="none" />
+</svg>`;
+}
+
+export const STACKED_SLATE_SVG_DATA_URI = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(generateStackedSlateSVG()).replace(/'/g, '%27').replace(/"/g, '%22')}`;
+
 export const WOOD_REGISTRY = {
     // 🪵 Photorealistic Wood Species
+    'wood_siding_walnut': {
+        id: 'wood_siding_walnut',
+        category: 'wood',
+        name: 'Architectural Walnut Shiplap Siding',
+        texture: WALNUT_SIDING_SVG_DATA_URI,
+        thumbnail: WALNUT_SIDING_SVG_DATA_URI,
+        dataUri: WALNUT_SIDING_SVG_DATA_URI,
+        color: 0x483222,
+        roughness: 0.45,
+        metalness: 0.05,
+        bumpScale: 0.02,
+        defaultWidth: 100,
+        defaultHeight: 100,
+        defaultDepth: 0.2,
+        defaultRepeat: 1,
+        tileSize: 36,
+        orientation: 'HORIZONTAL',
+        preventAutoRotate: true,
+        rotation: 0,
+        scaleMultiplier: 1
+    },
     'wood_golden_teak': {
         id: 'wood_golden_teak',
         category: 'wood',
@@ -78,6 +326,38 @@ export const COMMON_MATERIALS = {
     wood_teak: { label: "Teak Wood", color: 0x6b4226, roughness: 0.55, metalness: 0.05, texture: 'textures/wood/wood_golden_teak.png', bumpScale: 0.010 }, 
     wood_oak: { label: "Natural Oak Wood", color: 0x8b6544, roughness: 0.5, metalness: 0.05, texture: 'textures/wood/wood_golden_teak.png', bumpScale: 0.010 }, 
     wood_walnut: { label: "Dark Walnut Wood", color: 0x3d2314, roughness: 0.45, metalness: 0.05, texture: 'textures/wood/wood_golden_teak.png', bumpScale: 0.010 }, 
+    wood_siding_walnut: {
+        id: 'wood_siding_walnut',
+        label: "Walnut Shiplap Siding",
+        name: 'Architectural Walnut Shiplap Siding',
+        category: 'wood',
+        color: 0x483222,
+        roughness: 0.45,
+        metalness: 0.05,
+        texture: WALNUT_SIDING_SVG_DATA_URI,
+        thumbnail: WALNUT_SIDING_SVG_DATA_URI,
+        bumpScale: 0.02,
+        tileSize: 36,
+        orientation: 'HORIZONTAL',
+        preventAutoRotate: true,
+        rotation: 0
+    },
+    stone_slate_charcoal: {
+        id: 'stone_slate_charcoal',
+        label: "Stacked Charcoal Ledger Slate",
+        name: 'Charcoal Horizontal Stacked Ledger Slate',
+        category: 'stone',
+        color: 0x2b3036,
+        roughness: 0.72,
+        metalness: 0.05,
+        texture: STACKED_SLATE_SVG_DATA_URI,
+        thumbnail: STACKED_SLATE_SVG_DATA_URI,
+        dataUri: STACKED_SLATE_SVG_DATA_URI,
+        tileSize: 36,
+        orientation: 'HORIZONTAL',
+        preventAutoRotate: true,
+        rotation: 0
+    },
     steel_ms: { label: "MS Steel Frame", color: 0x222222, roughness: 0.35, metalness: 0.9 },
     plant_foliage_green: { label: "Lush Botanical Green", color: 0x2e5e24, roughness: 0.5, metalness: 0.05, clearcoat: 0.15 }
 };
@@ -551,8 +831,8 @@ export const GLASS_REGISTRY = {
         clearcoat: 1.0,
         clearcoatRoughness: 0.01,
         bumpScale: 0.002,
-        attenuationColor: 0xdcfce7,
-        attenuationDistance: 15.0,
+        attenuationColor: 0xffffff,
+        attenuationDistance: 200.0,
         transparent: true,
         categoryLabel: "Glass",
         description: "Crystal clear float glass with 8mm thickness, 1.52 float glass refraction, 1.0 clearcoat specular highlights, signature float glass blue-green tint, and environment reflections."
@@ -915,10 +1195,19 @@ export const STONE_REGISTRY = {
     },
     'stone_slate_charcoal': {
         id: 'stone_slate_charcoal',
-        name: 'Charcoal Black Cleft Slate',
-        texture: 'textures/stones/stone_slate_charcoal.png',
-        thumbnail: 'textures/stones/stone_slate_charcoal.png',
-        roughness: 0.65, clearcoat: 0.1, defaultTileSize: DEFAULT_UNIVERSAL_TILE_SIZE
+        category: 'stone',
+        name: 'Charcoal Horizontal Stacked Ledger Slate',
+        texture: STACKED_SLATE_SVG_DATA_URI,
+        thumbnail: STACKED_SLATE_SVG_DATA_URI,
+        dataUri: STACKED_SLATE_SVG_DATA_URI,
+        color: 0x2b3036,
+        roughness: 0.72,
+        metalness: 0.05,
+        defaultTileSize: 36,
+        tileSize: 36,
+        orientation: 'HORIZONTAL',
+        preventAutoRotate: true,
+        rotation: 0
     },
     'stone_travertine_beige': {
         id: 'stone_travertine_beige',
@@ -1038,6 +1327,42 @@ export const BRICK_REGISTRY = {
 };
 
 export const WALL_DECOR_REGISTRY = {
+    'wood_siding_walnut': {
+        id: 'wood_siding_walnut',
+        name: 'Architectural Walnut Shiplap Siding',
+        texture: WALNUT_SIDING_SVG_DATA_URI,
+        thumbnail: WALNUT_SIDING_SVG_DATA_URI,
+        color: 0x483222,
+        roughness: 0.45,
+        metalness: 0.05,
+        bumpScale: 0.02,
+        defaultWidth: 100,
+        defaultHeight: 100,
+        defaultDepth: 0.2,
+        defaultRepeat: 1,
+        tileSize: 36,
+        orientation: 'HORIZONTAL',
+        preventAutoRotate: true,
+        rotation: 0
+    },
+    'stone_slate_charcoal': {
+        id: 'stone_slate_charcoal',
+        name: 'Charcoal Horizontal Stacked Ledger Slate',
+        texture: STACKED_SLATE_SVG_DATA_URI,
+        thumbnail: STACKED_SLATE_SVG_DATA_URI,
+        dataUri: STACKED_SLATE_SVG_DATA_URI,
+        color: 0x2b3036,
+        roughness: 0.72,
+        metalness: 0.05,
+        defaultWidth: 100,
+        defaultHeight: 100,
+        defaultDepth: 0.2,
+        defaultRepeat: 1,
+        tileSize: 36,
+        orientation: 'HORIZONTAL',
+        preventAutoRotate: true,
+        rotation: 0
+    },
     'brick_wall': {
         id: 'brick_wall',
         name: 'Red Bricks',

@@ -86,6 +86,14 @@ export class MaterialFactory {
     }
 
     static resolveOrientation(config, dimensions, faceName) {
+        const matId = config.id || (typeof config === 'string' ? config : '');
+        const isSiding = typeof matId === 'string' && matId.includes('siding');
+
+        // Architectural siding and materials with preventAutoRotate must strictly follow their authored rotation
+        if (config.preventAutoRotate || isSiding) {
+            return config.rotation !== undefined ? config.rotation : 0;
+        }
+
         let mode = config.orientation || 'AUTO';
         
         if (mode === 'CUSTOM' && config.rotation !== undefined) {
@@ -98,7 +106,6 @@ export class MaterialFactory {
         // AUTO mode
         if (config.rotation !== undefined) return config.rotation;
         
-        const matId = config.id || (typeof config === 'string' ? config : '');
         const isWood = typeof matId === 'string' && matId.includes('wood');
         
         if (isWood) {
