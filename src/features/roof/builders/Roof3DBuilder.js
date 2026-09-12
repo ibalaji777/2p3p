@@ -333,7 +333,7 @@ export class Roof3DBuilder {
                 const curve = conf.curve || 0;
                 const flip = !!conf.flipSlope;
 
-                const hasAutoGableCADWalls = hasWalls && wallList.some(w => w.isAutoGable && w.parentRoofId === roof.id);
+                const hasAutoGableCADWalls = hasWalls && wallList.some(w => w.isAutoGable && w.parentRoofId === roof.id && w.mesh3D && w.mesh3D.parent);
                 const shouldGenerateGableEndMesh = (conf.showGableWalls !== false) && (conf.autoShapeWalls !== false) && !hasAutoGableCADWalls && (rh > 0.5);
 
                 const v = [], uv = [];
@@ -658,7 +658,7 @@ export class Roof3DBuilder {
                 const gNorthY = (baseMinY !== Infinity && !conf.flushGable) ? Math.max(bMinY, Math.min(bMaxY, baseMinY)) : bMinY;
                 const gSouthY = (baseMaxY !== -Infinity && !conf.flushGable) ? Math.max(bMinY, Math.min(bMaxY, baseMaxY)) : bMaxY;
 
-                const hasAutoGableCADWalls = hasWalls && wallList.some(w => w.isAutoGable && w.parentRoofId === roof.id);
+                const hasAutoGableCADWalls = hasWalls && wallList.some(w => w.isAutoGable && w.parentRoofId === roof.id && w.mesh3D && w.mesh3D.parent);
                 const shouldGenerateGableEndMesh = (conf.showGableWalls !== false) && (conf.autoShapeWalls !== false) && !hasAutoGableCADWalls && (rh > 0.5);
 
                 const v1 = [], uv1 = [];
@@ -708,9 +708,13 @@ export class Roof3DBuilder {
 
                 // Calculate aperture cutouts for any upper-level walls/rooms intersecting this roof (Sims 4 Room roof void clipping)
                 const wallCutouts = [];
-                if (wallList && wallList.length > 0) {
+                const rotDeg = roof.rotation || (roof.group && typeof roof.group.rotation === 'function' ? roof.group.rotation() : 0);
+                const isRotated = Math.abs(rotDeg % 360) > 0.01;
+                const isInteracting = Boolean(roof._isDragging || roof._isRotating || roof.isDragging);
+
+                if (!isRotated && !isInteracting && wallList && wallList.length > 0) {
                     const roofElev = roof.elevation !== undefined ? roof.elevation : 120;
-                    const upperWalls = wallList.filter(w => !w.hidden && (w.elevation || 0) >= (roofElev - 5));
+                    const upperWalls = wallList.filter(w => !w.hidden && !w.isAutoGable && w.parentRoofId !== roof.id && (w.elevation || 0) >= (roofElev + 5));
 
                     if (upperWalls.length > 0) {
                         let uMinX = Infinity, uMaxX = -Infinity, uMinZ = Infinity, uMaxZ = -Infinity;
@@ -733,7 +737,9 @@ export class Roof3DBuilder {
                             }
                         });
 
-                        if (hasUpperWallInRoof && uMinX !== Infinity) {
+                        const isFullRoofCover = (uMinX <= bMinX + 1 && uMaxX >= bMaxX - 1 && uMinZ <= bMinY + 1 && uMaxZ >= bMaxY - 1) ||
+                                                (uMaxX - uMinX >= bW - 20 && uMaxZ - uMinZ >= bD - 20);
+                        if (hasUpperWallInRoof && uMinX !== Infinity && !isFullRoofCover) {
                             wallCutouts.push({
                                 x0: uMinX,
                                 x1: uMaxX,

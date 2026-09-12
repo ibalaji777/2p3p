@@ -110,6 +110,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
 
                 const entity = this.target.userData?.entity;
                 if (!entity) return;
+                entity._isDragging = true;
                 const conf = entity.config || entity;
                 this.initialPitch = conf.pitch !== undefined ? conf.pitch : 30;
                 this.initialCurve = conf.curve !== undefined ? conf.curve : 0;
@@ -138,8 +139,13 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
 
                 const type = handle.userData?.type;
                 if (type === 'pitch' || type === 'curve') {
-                    // Vertical drag plane facing camera
-                    const camDir = this.ctx.camera.getWorldDirection(new THREE.Vector3()).setY(0).normalize().negate();
+                    // Vertical drag plane facing camera (safe against top-down NaN)
+                    let camDir = this.ctx.camera.getWorldDirection(new THREE.Vector3()).setY(0);
+                    if (camDir.lengthSq() < 1e-4) {
+                        camDir.set(0, 0, 1);
+                    } else {
+                        camDir.normalize().negate();
+                    }
                     this.dragPlane.setFromNormalAndCoplanarPoint(camDir, intersects[0].point);
                 } else {
                     // Horizontal drag plane (XZ)
@@ -159,6 +165,8 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
                 }
 
                 this.dragStartPos.copy(intersects[0].point);
+                this.startClientX = e.clientX;
+                this.startClientY = e.clientY;
                 this.initialRotation = (entity.group && typeof entity.group.rotation === 'function') ? entity.group.rotation() : (entity.rotation || 0);
                 const worldCx = this.initialGroupX + this.initialCenterX;
                 const worldCz = this.initialGroupZ + this.initialCenterZ;
@@ -197,15 +205,25 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
 
             // Dragging an active handle
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-            if (this.raycaster.ray.intersectPlane(this.dragPlane, this.planeIntersect)) {
+            const hasIntersect = this.raycaster.ray.intersectPlane(this.dragPlane, this.planeIntersect);
+            if (hasIntersect || (this.activeHandle && (this.activeHandle.userData?.type === 'pitch' || this.activeHandle.userData?.type === 'curve'))) {
                 const entity = this.target.userData?.entity;
                 if (!entity || !this.activeHandle) return;
                 const conf = entity.config || entity;
                 const type = this.activeHandle.userData?.type;
 
+                // World per pixel scaling for stable screen-space delta fallback
+                const dist = this.ctx.camera.position.distanceTo(this.dragStartPos);
+                const vFov = ((this.ctx.camera.fov || 45) * Math.PI) / 180;
+                const domH = this.ctx.renderer?.domElement?.clientHeight || window.innerHeight || 800;
+                const worldPerPixel = (2 * Math.tan(vFov / 2) * dist) / domH;
+                const screenDeltaY = this.startClientY !== undefined ? -(e.clientY - this.startClientY) : 0;
+                const screenY = screenDeltaY * worldPerPixel;
+
                 if (type === 'pitch') {
                     // Apex Pitch adjustment
-                    const deltaY = this.planeIntersect.y - this.dragStartPos.y;
+                    const rayDeltaY = hasIntersect ? (this.planeIntersect.y - this.dragStartPos.y) : null;
+                    const deltaY = (hasIntersect && Math.abs(rayDeltaY) < 3000) ? rayDeltaY : screenY;
                     const w = this.initialMaxX - this.initialMinX;
                     const d = this.initialMaxY - this.initialMinY;
                     const axis = conf.ridgeAxis || 'x';
@@ -213,10 +231,19 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
 
                     let newRh = Math.max(0, this.initialRh + deltaY);
                     let newPitch = Math.atan2(newRh, span / 2) * (180 / Math.PI);
-                    newPitch = Math.max(0, Math.min(75, Math.round(newPitch)));
+                    newPitch = Math.max(0, Math.min(88, Math.round(newPitch)));
+
+                    // Prevent dead-zone: clamp accumulator so reversing mouse direction responds immediately
+                    const clampedRh = Math.tan(newPitch * Math.PI / 180) * (span / 2);
+                    if (hasIntersect && newRh !== clampedRh) {
+                        this.dragStartPos.y = this.planeIntersect.y - (clampedRh - this.initialRh);
+                    }
+                    if (this.startClientY !== undefined && worldPerPixel > 0) {
+                        this.startClientY = e.clientY + (clampedRh - this.initialRh) / worldPerPixel;
+                    }
 
                     RoofEngine.setPitch(entity, newPitch, this.ctx.planner || this.ctx);
-                    const peakFeet = this._formatFeetInches(newRh);
+                    const peakFeet = this._formatFeetInches(clampedRh);
                     const pitchLabel = newPitch === 0 ? '0° (Flat)' : `${newPitch}°`;
                     this._updateDOMBadge(`PITCH: ${pitchLabel} | Peak: ${peakFeet}`, { x: e.clientX, y: e.clientY });
                 } else if (type === 'move') {
@@ -292,7 +319,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
                     const initO = (this.initialOverhangs && this.initialOverhangs[edgeIdx] !== undefined)
                         ? this.initialOverhangs[edgeIdx]
                         : (this.initialOverhang !== undefined ? this.initialOverhang : 8);
-                    const newOverhang = Math.max(0, Math.min(100, Math.round(initO + delta)));
+                    const newOverhang = Math.max(0, Math.min(500, Math.round(initO + delta)));
 
                     if (isFlat) {
                         if (e.shiftKey) {
@@ -389,6 +416,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
                 
                 const entity = this.target?.userData?.entity;
                 if (entity) {
+                    entity._isDragging = false;
                     coreEventBus.emit(EVENTS.ROOF_CORNER_GIZMO_END, { entity });
                     coreEventBus.emit(EVENTS.ROOF_OVERHANG_GIZMO_END, { entity });
                 }
@@ -617,62 +645,59 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
             const peakGroup = new THREE.Group();
             peakGroup.userData = { type: 'pitch' };
             
-            const topCone = new THREE.Mesh(new THREE.ConeGeometry(13, 24, 16), this.pitchMat);
-            topCone.position.y = 12;
-            topCone.renderOrder = 9999;
+            const collar = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, 2, 16), this.pitchMat);
+            collar.position.y = 1;
+            collar.renderOrder = 9999;
 
-            const bottomCone = new THREE.Mesh(new THREE.ConeGeometry(13, 24, 16), this.pitchMat);
-            bottomCone.rotation.x = Math.PI;
-            bottomCone.position.y = -12;
-            bottomCone.renderOrder = 9999;
+            const stem = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 14, 16), this.pitchMat);
+            stem.position.y = 9;
+            stem.renderOrder = 9999;
 
-            const ring = new THREE.Mesh(new THREE.TorusGeometry(15, 2.2, 8, 24), this.ringMat);
-            ring.rotation.x = Math.PI / 2;
-            ring.renderOrder = 9999;
+            const head = new THREE.Mesh(new THREE.ConeGeometry(7, 14, 20), this.pitchMat);
+            head.position.y = 23;
+            head.renderOrder = 9999;
 
-            peakGroup.add(topCone, bottomCone, ring);
+            peakGroup.add(collar, stem, head);
             this.handles.add(peakGroup);
             this.peakHandle = peakGroup;
         }
 
-        // Slope Curvature Orb (Dedicated Cyan ◯ Sphere on the slope face)
+        // Slope Curvature Orb (Sims 4 Clean Sphere on the slope face)
         const supportsCurve = conf.roofType === 'curved' || conf.curve !== undefined || ['gable', 'shed', 'curved', 'gambrel', 'mansard', 'turret_round', 'turret_octagonal', 'turret_hexagonal'].includes(conf.roofType);
         if (!isFlat && supportsCurve) {
             const curveGroup = new THREE.Group();
             curveGroup.userData = { type: 'curve' };
 
-            const curveSphere = new THREE.Mesh(new THREE.SphereGeometry(12, 24, 24), this.curveMat);
+            const curveSphere = new THREE.Mesh(new THREE.SphereGeometry(10, 24, 24), this.curveMat);
             curveSphere.renderOrder = 9999;
 
-            const cRing = new THREE.Mesh(new THREE.TorusGeometry(15, 2, 8, 24), this.ringMat);
-            cRing.rotation.x = Math.PI / 2;
-            cRing.renderOrder = 9999;
-
-            curveGroup.add(curveSphere, cRing);
+            curveGroup.add(curveSphere);
             this.handles.add(curveGroup);
             this.curveHandle = curveGroup;
         }
 
-        // Eave Overhang Pull-Tabs (Dedicated Blue ↔ Pull-Tabs at center eave edges)
+        // Eave Overhang Pull-Tabs (Sims 4 Outward 3D Arrows)
         this.overhangHandles = [];
         for (let i = 0; i < numPts; i++) {
             const tabGroup = new THREE.Group();
             tabGroup.userData = { type: 'overhang', edgeIndex: i };
 
-            const tabBody = new THREE.Mesh(new THREE.BoxGeometry(22, 5, 8), this.overhangMat);
-            tabBody.renderOrder = 9999;
+            const eCollar = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 2, 16), this.overhangMat);
+            eCollar.rotation.x = Math.PI / 2;
+            eCollar.position.z = 1;
+            eCollar.renderOrder = 9999;
 
-            const arrow1 = new THREE.Mesh(new THREE.ConeGeometry(4.5, 9, 8), this.overhangMat);
-            arrow1.rotation.x = Math.PI / 2; arrow1.position.z = 6; arrow1.renderOrder = 9999;
+            const eStem = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 14, 16), this.overhangMat);
+            eStem.rotation.x = Math.PI / 2;
+            eStem.position.z = 9;
+            eStem.renderOrder = 9999;
 
-            const arrow2 = new THREE.Mesh(new THREE.ConeGeometry(4.5, 9, 8), this.overhangMat);
-            arrow2.rotation.x = -Math.PI / 2; arrow2.position.z = -6; arrow2.renderOrder = 9999;
+            const eHead = new THREE.Mesh(new THREE.ConeGeometry(6.5, 13, 20), this.overhangMat);
+            eHead.rotation.x = Math.PI / 2;
+            eHead.position.z = 22.5;
+            eHead.renderOrder = 9999;
 
-            const tRing = new THREE.Mesh(new THREE.TorusGeometry(11, 1.8, 6, 16), this.ringMat);
-            tRing.rotation.x = Math.PI / 2;
-            tRing.renderOrder = 9999;
-
-            tabGroup.add(tabBody, arrow1, arrow2, tRing);
+            tabGroup.add(eCollar, eStem, eHead);
 
             if (i === 1) tabGroup.rotation.y = Math.PI / 2;        // East
             else if (i === 2) tabGroup.rotation.y = Math.PI;       // South
@@ -682,7 +707,7 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
             this.overhangHandles.push(tabGroup);
         }
 
-        // Boundary Corner Stretch Crystals (Dedicated Pink ⬡ Octahedron Diamonds at Footprint Corners)
+        // Boundary Corner Stretch Handles (Sims 4 Diagonal Corner Arrows)
         this.stretchHandles = [];
         const corners = ['nw', 'ne', 'se', 'sw'];
         for (let i = 0; i < numPts; i++) {
@@ -693,14 +718,22 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
                 corner: (numPts === 4 && i < 4) ? corners[i] : `corner_${i}` 
             };
 
-            const diamond = new THREE.Mesh(new THREE.OctahedronGeometry(11, 0), this.stretchMat);
-            diamond.renderOrder = 9999;
+            const cCollar = new THREE.Mesh(new THREE.CylinderGeometry(3.8, 3.8, 2, 16), this.stretchMat);
+            cCollar.rotation.x = Math.PI / 2;
+            cCollar.position.z = 1;
+            cCollar.renderOrder = 9999;
 
-            const dRing = new THREE.Mesh(new THREE.TorusGeometry(13, 1.8, 6, 16), this.ringMat);
-            dRing.rotation.x = Math.PI / 2;
-            dRing.renderOrder = 9999;
+            const cStem = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 10, 16), this.stretchMat);
+            cStem.rotation.x = Math.PI / 2;
+            cStem.position.z = 7;
+            cStem.renderOrder = 9999;
 
-            stretchGroup.add(diamond, dRing);
+            const cHead = new THREE.Mesh(new THREE.ConeGeometry(6, 12, 18), this.stretchMat);
+            cHead.rotation.x = Math.PI / 2;
+            cHead.position.z = 18;
+            cHead.renderOrder = 9999;
+
+            stretchGroup.add(cCollar, cStem, cHead);
 
             this.handles.add(stretchGroup);
             this.stretchHandles.push(stretchGroup);
@@ -816,13 +849,16 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
             });
         }
 
-        // Boundary Corner Stretch Crystals (Dedicated at footprint corners)
+        // Boundary Corner Stretch Handles (Sims 4 Diagonal Corner Arrows)
         if (this.stretchHandles && this.stretchHandles.length > 0) {
             pts.forEach((p, idx) => {
                 if (idx >= this.stretchHandles.length) return;
                 const handle = this.stretchHandles[idx];
                 if (handle) {
+                    const dx = p.x - baseCx;
+                    const dy = p.y - baseCz;
                     handle.position.set(p.x - baseCx, cornerY, p.y - baseCz);
+                    handle.rotation.y = -Math.atan2(dy, dx) + Math.PI / 2;
                     handle.userData.cornerIndex = idx;
                 }
             });

@@ -179,7 +179,7 @@ export class RoofGeometryEngine {
      * @param {number} peakHeight 
      * @param {string} [roofType='gable'] 
      * @param {string} [ridgeAxis='x'] 
-     * @returns {number} Pitch in degrees [0..75]
+     * @returns {number} Pitch in degrees [0..88]
      */
     static getPitchFromHeight(pointsOrRoof, peakHeight, roofType = 'gable', ridgeAxis = 'x') {
         let points = pointsOrRoof;
@@ -203,7 +203,7 @@ export class RoofGeometryEngine {
 
         const rad = Math.atan(peakHeight / effSpan);
         const deg = Math.round(rad * 180 / Math.PI);
-        return Math.max(0, Math.min(75, deg));
+        return Math.max(0, Math.min(88, deg));
     }
 
     /**
@@ -225,8 +225,11 @@ export class RoofGeometryEngine {
      */
     static getUpperWallCutouts(roof, walls = []) {
         if (!roof || !walls || walls.length === 0) return [];
+        const rotDeg = roof.rotation || (roof.group && typeof roof.group.rotation === 'function' ? roof.group.rotation() : 0);
+        if (Math.abs(rotDeg % 360) > 0.01 || roof._isDragging || roof.isDragging) return [];
+
         const roofElev = roof.elevation !== undefined ? roof.elevation : 120;
-        const upperWalls = walls.filter(w => !w.hidden && (w.elevation || 0) >= (roofElev - 5));
+        const upperWalls = walls.filter(w => !w.hidden && !w.isAutoGable && w.parentRoofId !== roof.id && (w.elevation || 0) >= (roofElev + 5));
         if (upperWalls.length === 0) return [];
 
         const bounds = this.getBounds(roof.points, { x: roof.x || 0, y: roof.y || 0 });
@@ -257,7 +260,9 @@ export class RoofGeometryEngine {
             }
         });
 
-        if (hasUpperWallInRoof && uMinX !== Infinity) {
+        const isFullRoofCover = (uMinX <= bounds.minX + 1 && uMaxX >= bounds.maxX - 1 && uMinZ <= bounds.minY + 1 && uMaxZ >= bounds.maxY - 1) ||
+                                (uMaxX - uMinX >= bounds.width - 20 && uMaxZ - uMinZ >= bounds.depth - 20);
+        if (hasUpperWallInRoof && uMinX !== Infinity && !isFullRoofCover) {
             cutouts.push({
                 x0: uMinX,
                 x1: uMaxX,

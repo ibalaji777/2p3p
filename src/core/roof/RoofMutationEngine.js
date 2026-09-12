@@ -96,13 +96,13 @@ export class RoofMutationEngine {
     /**
      * Sets the slope pitch in degrees.
      * @param {Object} roof 
-     * @param {number} pitch [0..75]
+     * @param {number} pitch [0..88]
      * @param {Object} [planner]
      */
     static setPitch(roof, pitch, planner = null) {
         if (!roof) return;
         roof.config = roof.config || {};
-        roof.config.pitch = Math.max(0, Math.min(75, Number(pitch) || 0));
+        roof.config.pitch = Math.max(0, Math.min(88, Number(pitch) || 0));
         this.notifyRoofUpdated(roof, planner || roof.planner, 'geometry');
     }
 
@@ -128,7 +128,7 @@ export class RoofMutationEngine {
     static setOverhang(roof, overhang, edgeIndex = null, planner = null) {
         if (!roof) return;
         roof.config = roof.config || {};
-        const val = Math.max(0, Math.min(100, Number(overhang) || 0));
+        const val = Math.max(0, Math.min(500, Number(overhang) || 0));
 
         if (edgeIndex === null || edgeIndex === undefined) {
             roof.config.overhang = val;
@@ -255,7 +255,7 @@ export class RoofMutationEngine {
     static setCurve(roof, curve, planner = null) {
         if (!roof) return;
         roof.config = roof.config || {};
-        roof.config.curve = Math.max(-50, Math.min(50, Number(curve) || 0));
+        roof.config.curve = Math.max(-80, Math.min(80, Number(curve) || 0));
         this.notifyRoofUpdated(roof, planner || roof.planner, 'geometry');
     }
 
@@ -686,14 +686,14 @@ export class RoofMutationEngine {
         for (const [key, val] of Object.entries(updates)) {
             if (val === undefined) continue;
             if (key === 'pitch') {
-                roof.config.pitch = Math.max(0, Math.min(75, Number(val) || 0));
+                roof.config.pitch = Math.max(0, Math.min(88, Number(val) || 0));
             } else if (key === 'peakHeight') {
                 const newPitch = RoofGeometryEngine.getPitchFromHeight(roof, val);
                 roof.config.pitch = newPitch;
             } else if (key === 'curve') {
-                roof.config.curve = Math.max(-50, Math.min(50, Number(val) || 0));
+                roof.config.curve = Math.max(-80, Math.min(80, Number(val) || 0));
             } else if (key === 'overhang') {
-                const o = Math.max(0, Math.min(100, Number(val) || 0));
+                const o = Math.max(0, Math.min(500, Number(val) || 0));
                 roof.config.overhang = o;
                 if (roof.config.overhangs && Array.isArray(roof.config.overhangs)) {
                     roof.config.overhangs.fill(o);

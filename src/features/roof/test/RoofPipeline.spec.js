@@ -1546,4 +1546,60 @@ describe('Roof Pipeline & 3D Addition', () => {
         const autoGablesOnWalls = roofMeshWalls.children.filter(c => c.userData?.isGableWall || c.userData?.isGable);
         expect(autoGablesOnWalls.length).toBeGreaterThanOrEqual(1);
     });
+
+    it('17. Gable Roof Rotation & Overhang: should never trigger erroneous wall cutouts or erase the roof during rotation, dragging, or overhang adjustments', () => {
+        const sceneGroup = new THREE.Group();
+        const mockCtx = {
+            structureGroup: sceneGroup,
+            interactables: [],
+            helpers: {
+                getDynamicMaterial: vi.fn().mockReturnValue(new THREE.MeshStandardMaterial({ color: 0x888888 }))
+            },
+            assets: {
+                getTexture: vi.fn().mockResolvedValue(new THREE.Texture())
+            }
+        };
+        const builder = new Roof3DBuilder(mockCtx);
+        const pts = [{ x: 0, y: 0 }, { x: 300, y: 0 }, { x: 300, y: 200 }, { x: 0, y: 200 }];
+        const walls = [
+            { id: 'w1', startAnchor: { x: 0, y: 0 }, endAnchor: { x: 300, y: 0 }, height: 120 },
+            { id: 'w2', startAnchor: { x: 300, y: 0 }, endAnchor: { x: 300, y: 200 }, height: 120 },
+            { id: 'w3', startAnchor: { x: 300, y: 200 }, endAnchor: { x: 0, y: 200 }, height: 120 },
+            { id: 'w4', startAnchor: { x: 0, y: 200 }, endAnchor: { x: 0, y: 0 }, height: 120 },
+            // Auto-gable walls generated under the roof
+            { id: 'gw1', startAnchor: { x: 0, y: 0 }, endAnchor: { x: 0, y: 200 }, elevation: 120, height: 0, isAutoGable: true, parentRoofId: 'gable_1' },
+            { id: 'gw2', startAnchor: { x: 300, y: 0 }, endAnchor: { x: 300, y: 200 }, elevation: 120, height: 0, isAutoGable: true, parentRoofId: 'gable_1' }
+        ];
+
+        const gableRoof = {
+            id: 'gable_1',
+            points: pts,
+            elevation: 120,
+            rotation: 45, // Rotated roof
+            _isDragging: true, // While dragging
+            config: {
+                roofType: 'gable',
+                pitch: 30,
+                overhang: 8,
+                ridgeAxis: 'x',
+                autoShapeWalls: true,
+                showGableWalls: true
+            }
+        };
+
+        builder.buildRoofs([gableRoof], 0, walls, sceneGroup);
+        expect(sceneGroup.children.length).toBe(1);
+        const roofGroup = sceneGroup.children[0];
+        const roofMesh = roofGroup.children.find(c => c.userData?.isRoof);
+        expect(roofMesh).toBeDefined();
+
+        // The roof positions count must NOT be hollowed out or 0
+        const posAttr = roofMesh.geometry.getAttribute('position');
+        expect(posAttr.count).toBeGreaterThan(100);
+
+        // 3D gable wall triangles are rendered and present
+        const gableEndMeshes = roofMesh.children.filter(c => c.userData?.isGable);
+        expect(gableEndMeshes.length).toBeGreaterThanOrEqual(1);
+    });
 });
+

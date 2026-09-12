@@ -139,6 +139,7 @@ export class HalfGableRoofGizmo extends THREE.Group {
 
                 const entity = this.target.userData?.entity;
                 if (!entity) return;
+                entity._isDragging = true;
                 const conf = entity.config || entity;
                 const numEdges = entity.points?.length || 4;
 
@@ -171,8 +172,13 @@ export class HalfGableRoofGizmo extends THREE.Group {
 
                 const type = handle.userData?.type;
                 if (type === 'pitch' || type === 'curve') {
-                    // Vertical drag plane facing camera
-                    const camDir = this.ctx.camera.getWorldDirection(new THREE.Vector3()).setY(0).normalize().negate();
+                    // Vertical drag plane facing camera (safe against top-down NaN)
+                    let camDir = this.ctx.camera.getWorldDirection(new THREE.Vector3()).setY(0);
+                    if (camDir.lengthSq() < 1e-4) {
+                        camDir.set(0, 0, 1);
+                    } else {
+                        camDir.normalize().negate();
+                    }
                     this.dragPlane.setFromNormalAndCoplanarPoint(camDir, intersects[0].point);
                 } else if (type === 'edge') {
                     const edgeIdx = handle.userData?.edgeIndex ?? 0;
@@ -184,6 +190,8 @@ export class HalfGableRoofGizmo extends THREE.Group {
                 }
 
                 this.dragStartPos.copy(intersects[0].point);
+                this.startClientX = e.clientX;
+                this.startClientY = e.clientY;
                 this.initialGroupX = (entity.group && typeof entity.group.x === 'function') ? entity.group.x() : (entity.x || 0);
                 this.initialGroupZ = (entity.group && typeof entity.group.y === 'function') ? entity.group.y() : (entity.y || 0);
                 this.initialCenterX = (minX + maxX) / 2;
@@ -223,7 +231,8 @@ export class HalfGableRoofGizmo extends THREE.Group {
 
             // Handle active drag
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
-            if (this.raycaster.ray.intersectPlane(this.dragPlane, this.planeIntersect)) {
+            const hasIntersect = this.raycaster.ray.intersectPlane(this.dragPlane, this.planeIntersect);
+            if (hasIntersect || (this.activeHandle && (this.activeHandle.userData?.type === 'pitch' || this.activeHandle.userData?.type === 'curve'))) {
                 const entity = this.target.userData?.entity;
                 if (!entity) return;
                 const conf = entity.config || entity;
@@ -231,14 +240,24 @@ export class HalfGableRoofGizmo extends THREE.Group {
 
                 const rot = (entity.group && typeof entity.group.rotation === 'function') ? entity.group.rotation() : (entity.rotation || 0);
                 const rad = rot * Math.PI / 180;
-                const worldDeltaX = this.planeIntersect.x - this.dragStartPos.x;
-                const worldDeltaZ = this.planeIntersect.z - this.dragStartPos.z;
+                const worldDeltaX = hasIntersect ? (this.planeIntersect.x - this.dragStartPos.x) : 0;
+                const worldDeltaZ = hasIntersect ? (this.planeIntersect.z - this.dragStartPos.z) : 0;
                 const localDeltaX = worldDeltaX * Math.cos(rad) - worldDeltaZ * Math.sin(rad);
                 const localDeltaZ = worldDeltaX * Math.sin(rad) + worldDeltaZ * Math.cos(rad);
 
+                // World per pixel scaling for stable screen-space delta fallback
+                const dist = this.ctx.camera.position.distanceTo(this.dragStartPos);
+                const vFov = ((this.ctx.camera.fov || 45) * Math.PI) / 180;
+                const domH = this.ctx.renderer?.domElement?.clientHeight || window.innerHeight || 800;
+                const worldPerPixel = (2 * Math.tan(vFov / 2) * dist) / domH;
+                const screenDeltaY = this.startClientY !== undefined ? -(e.clientY - this.startClientY) : 0;
+                const screenY = screenDeltaY * worldPerPixel;
+
                 if (type === 'pitch') {
                     // Dedicated Half-Gable High Ridge Pitch adjustment
-                    const deltaY = this.planeIntersect.y - this.dragStartPos.y;
+                    const rayDeltaY = hasIntersect ? (this.planeIntersect.y - this.dragStartPos.y) : null;
+                    const deltaY = (hasIntersect && Math.abs(rayDeltaY) < 3000) ? rayDeltaY : screenY;
+
                     let minX = this.initialMinX, maxX = this.initialMaxX;
                     let minY = this.initialMinY, maxY = this.initialMaxY;
                     if (minX === undefined || maxX === undefined || isNaN(minX)) {
@@ -258,26 +277,36 @@ export class HalfGableRoofGizmo extends THREE.Group {
 
                     let newRh = Math.max(0, initRh + deltaY);
                     let newPitch = Math.atan2(newRh, span) * (180 / Math.PI);
-                    newPitch = Math.max(0, Math.min(75, Math.round(newPitch)));
+                    newPitch = Math.max(0, Math.min(88, Math.round(newPitch)));
+
+                    // Prevent dead-zone: clamp accumulator so reversing mouse direction responds immediately
+                    const clampedRh = Math.tan(newPitch * Math.PI / 180) * span;
+                    if (hasIntersect && newRh !== clampedRh) {
+                        this.dragStartPos.y = this.planeIntersect.y - (clampedRh - initRh);
+                    }
+                    if (this.startClientY !== undefined && worldPerPixel > 0) {
+                        this.startClientY = e.clientY + (clampedRh - initRh) / worldPerPixel;
+                    }
 
                     RoofEngine.setPitch(entity, newPitch, this.ctx.planner || this.ctx);
                     const pitchLabel = newPitch === 0 ? '0° (Flat)' : `${newPitch}°`;
                     this.showDimensionBadge(
-                        `HALF-GABLE PITCH: ${pitchLabel} | Peak: ${this.formatDim(newRh)}`,
+                        `HALF-GABLE PITCH: ${pitchLabel} | Peak: ${this.formatDim(clampedRh)}`,
                         this.activeHandle.position
                     );
                 } else if (type === 'curve') {
                     // Dedicated Half-Gable Slope Curvature adjustment
-                    const deltaY = this.planeIntersect.y - this.dragStartPos.y;
+                    const rayDeltaY = hasIntersect ? (this.planeIntersect.y - this.dragStartPos.y) : null;
+                    const deltaY = (hasIntersect && Math.abs(rayDeltaY) < 3000) ? rayDeltaY : screenY;
                     const initC = this.initialCurve !== undefined ? this.initialCurve : (conf.curve || 0);
                     let newCurve = initC + (deltaY * 0.4);
-                    newCurve = Math.max(-50, Math.min(50, Math.round(newCurve)));
+                    newCurve = Math.max(-80, Math.min(80, Math.round(newCurve)));
 
                     RoofEngine.setCurve(entity, newCurve, this.ctx.planner || this.ctx);
                     const label = newCurve > 0 ? `Convex +${newCurve}` : (newCurve < 0 ? `Pagoda ${newCurve}` : `Flat 0`);
                     this.showDimensionBadge(`SLOPE CURVATURE: ${label}`, this.activeHandle.position);
                 } else if (type === 'edge') {
-                    // Overhang push/pull on specific edge
+                    // Overhang push/pull on specific edge (up to 500 cm)
                     const edgeIdx = this.activeHandle.userData?.edgeIndex ?? 0;
                     const nx = this.activeHandle.userData?.nx || 0;
                     const ny = this.activeHandle.userData?.ny || 0;
@@ -293,7 +322,7 @@ export class HalfGableRoofGizmo extends THREE.Group {
                     const initO = (this.initialOverhangs && this.initialOverhangs[edgeIdx] !== undefined)
                         ? this.initialOverhangs[edgeIdx]
                         : (this.initialOverhang !== undefined ? this.initialOverhang : (conf.overhang || 8));
-                    let newOverhang = Math.max(0, Math.min(100, Math.round(initO + projDelta)));
+                    let newOverhang = Math.max(0, Math.min(500, Math.round(initO + projDelta)));
 
                     if (e.shiftKey) {
                         RoofEngine.setOverhang(entity, newOverhang, null, this.ctx.planner || this.ctx);
@@ -400,6 +429,8 @@ export class HalfGableRoofGizmo extends THREE.Group {
                 this.activeHandle = null;
                 this.hideDimensionBadge();
                 this.refreshHandleMaterials();
+                const entity = this.target?.userData?.entity;
+                if (entity) entity._isDragging = false;
                 if (this.ctx.controls) this.ctx.controls.enabled = true;
                 if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
             }
@@ -539,49 +570,34 @@ export class HalfGableRoofGizmo extends THREE.Group {
         const axis = conf.ridgeAxis || 'x';
         const flip = !!conf.flipSlope;
 
-        // 1. Dedicated High Ridge Apex Peak Handle (Gold/Amber Ridge Beam + Vertical Dual-Cone Arrow)
+        // 1. Dedicated High Ridge Apex Peak Handle (Sims 4 Vertical Pitch Arrow)
         const peakGroup = new THREE.Group();
         peakGroup.userData = { type: 'pitch', role: 'peak' };
 
-        const topCone = new THREE.Mesh(new THREE.ConeGeometry(11, 20, 16), this.pitchMat);
-        topCone.position.y = 10;
-        topCone.renderOrder = 9999;
+        const collar = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, 2, 16), this.pitchMat);
+        collar.position.y = 1;
+        collar.renderOrder = 9999;
 
-        const bottomCone = new THREE.Mesh(new THREE.ConeGeometry(11, 20, 16), this.pitchMat);
-        bottomCone.rotation.x = Math.PI;
-        bottomCone.position.y = -10;
-        bottomCone.renderOrder = 9999;
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 14, 16), this.pitchMat);
+        stem.position.y = 9;
+        stem.renderOrder = 9999;
 
-        const peakRing = new THREE.Mesh(new THREE.TorusGeometry(14, 2, 8, 24), this.ringMat);
-        peakRing.rotation.x = Math.PI / 2;
-        peakRing.renderOrder = 9999;
+        const head = new THREE.Mesh(new THREE.ConeGeometry(7, 14, 20), this.pitchMat);
+        head.position.y = 23;
+        head.renderOrder = 9999;
 
-        // Ridge Beam Tube aligned with high ridge edge
-        const ridgeTubeGeo = new THREE.CylinderGeometry(3.5, 3.5, 60, 16);
-        const ridgeTube = new THREE.Mesh(ridgeTubeGeo, this.ridgeTubeMat);
-        if (axis === 'x') {
-            ridgeTube.rotation.z = Math.PI / 2;
-        } else {
-            ridgeTube.rotation.x = Math.PI / 2;
-        }
-        ridgeTube.renderOrder = 9999;
-
-        peakGroup.add(topCone, bottomCone, peakRing, ridgeTube);
+        peakGroup.add(collar, stem, head);
         this.handles.add(peakGroup);
         this.peakHandle = peakGroup;
 
-        // 2. Dedicated Slope Curvature Handle (Cyan Sphere + Halo Ring on the pitch slope)
+        // 2. Dedicated Slope Curvature Handle (Sims 4 Clean Sphere on slope face)
         const curveGroup = new THREE.Group();
         curveGroup.userData = { type: 'curve', role: 'slope_curve' };
 
-        const curveSphere = new THREE.Mesh(new THREE.SphereGeometry(11, 20, 20), this.curveMat);
+        const curveSphere = new THREE.Mesh(new THREE.SphereGeometry(10, 24, 24), this.curveMat);
         curveSphere.renderOrder = 9999;
 
-        const cRing = new THREE.Mesh(new THREE.TorusGeometry(14, 2, 8, 24), this.ringMat);
-        cRing.rotation.x = Math.PI / 2;
-        cRing.renderOrder = 9999;
-
-        curveGroup.add(curveSphere, cRing);
+        curveGroup.add(curveSphere);
         this.handles.add(curveGroup);
         this.curveHandle = curveGroup;
 
@@ -640,30 +656,28 @@ export class HalfGableRoofGizmo extends THREE.Group {
             const edgeGroup = new THREE.Group();
             edgeGroup.userData = { type: 'edge', role, edgeIndex: i };
 
-            // Sleek CAD push/pull badge with outward and inward arrowheads
-            const tabBody = new THREE.Mesh(new THREE.BoxGeometry(22, 5, 8), curMat);
-            tabBody.renderOrder = 9999;
+            // Outward 3D Arrow (Sims 4 Eave / Rake Arrow)
+            const eCollar = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 2, 16), curMat);
+            eCollar.rotation.x = Math.PI / 2;
+            eCollar.position.z = 1;
+            eCollar.renderOrder = 9999;
 
-            const arrowOut = new THREE.Mesh(new THREE.ConeGeometry(4.5, 9, 8), curMat);
-            arrowOut.rotation.x = Math.PI / 2;
-            arrowOut.position.z = 6;
-            arrowOut.renderOrder = 9999;
+            const eStem = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 14, 16), curMat);
+            eStem.rotation.x = Math.PI / 2;
+            eStem.position.z = 9;
+            eStem.renderOrder = 9999;
 
-            const arrowIn = new THREE.Mesh(new THREE.ConeGeometry(4.5, 9, 8), curMat);
-            arrowIn.rotation.x = -Math.PI / 2;
-            arrowIn.position.z = -6;
-            arrowIn.renderOrder = 9999;
+            const eHead = new THREE.Mesh(new THREE.ConeGeometry(6.5, 13, 20), curMat);
+            eHead.rotation.x = Math.PI / 2;
+            eHead.position.z = 22.5;
+            eHead.renderOrder = 9999;
 
-            const ring = new THREE.Mesh(new THREE.TorusGeometry(11, 1.8, 6, 16), this.ringMat);
-            ring.rotation.x = Math.PI / 2;
-            ring.renderOrder = 9999;
-
-            edgeGroup.add(tabBody, arrowOut, arrowIn, ring);
+            edgeGroup.add(eCollar, eStem, eHead);
             this.handles.add(edgeGroup);
             this.edgeHandles.push(edgeGroup);
         }
 
-        // 4. Corner Vertex Handles (Pink Octahedron Crystals)
+        // 4. Corner Vertex Handles (Sims 4 Diagonal Corner Arrows)
         const corners = ['nw', 'ne', 'se', 'sw'];
         for (let i = 0; i < numPts; i++) {
             const cornerGroup = new THREE.Group();
@@ -673,14 +687,22 @@ export class HalfGableRoofGizmo extends THREE.Group {
                 corner: (numPts === 4 && i < 4) ? corners[i] : `corner_${i}` 
             };
 
-            const diamond = new THREE.Mesh(new THREE.OctahedronGeometry(11, 0), this.cornerMat);
-            diamond.renderOrder = 9999;
+            const cCollar = new THREE.Mesh(new THREE.CylinderGeometry(3.8, 3.8, 2, 16), this.cornerMat);
+            cCollar.rotation.x = Math.PI / 2;
+            cCollar.position.z = 1;
+            cCollar.renderOrder = 9999;
 
-            const dRing = new THREE.Mesh(new THREE.TorusGeometry(13, 1.8, 6, 16), this.ringMat);
-            dRing.rotation.x = Math.PI / 2;
-            dRing.renderOrder = 9999;
+            const cStem = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.2, 10, 16), this.cornerMat);
+            cStem.rotation.x = Math.PI / 2;
+            cStem.position.z = 7;
+            cStem.renderOrder = 9999;
 
-            cornerGroup.add(diamond, dRing);
+            const cHead = new THREE.Mesh(new THREE.ConeGeometry(6, 12, 18), this.cornerMat);
+            cHead.rotation.x = Math.PI / 2;
+            cHead.position.z = 18;
+            cHead.renderOrder = 9999;
+
+            cornerGroup.add(cCollar, cStem, cHead);
             this.handles.add(cornerGroup);
             this.cornerHandles.push(cornerGroup);
         }
@@ -824,7 +846,10 @@ export class HalfGableRoofGizmo extends THREE.Group {
                         const isHigh = !flip ? (p.x >= (baseMinX + baseW / 2)) : (p.x <= (baseMinX + baseW / 2));
                         if (isHigh) cornerY = baseY + rh + 2;
                     }
+                    const dx = p.x - baseCx;
+                    const dy = p.y - baseCz;
                     handle.position.set(p.x - baseCx, cornerY, p.y - baseCz);
+                    handle.rotation.y = -Math.atan2(dy, dx) + Math.PI / 2;
                 }
             });
         }
@@ -922,58 +947,105 @@ export class HalfGableRoofGizmo extends THREE.Group {
         this.domHUD.style.position = 'fixed';
         this.domHUD.style.zIndex = '999999';
         this.domHUD.style.display = 'none';
-        this.domHUD.style.background = 'rgba(15, 23, 42, 0.92)';
+        this.domHUD.style.background = 'rgba(15, 23, 42, 0.94)';
         this.domHUD.style.backdropFilter = 'blur(10px)';
-        this.domHUD.style.border = '1px solid rgba(255, 255, 255, 0.15)';
+        this.domHUD.style.border = '1px solid rgba(255, 255, 255, 0.18)';
         this.domHUD.style.borderRadius = '8px';
-        this.domHUD.style.padding = '8px 12px';
-        this.domHUD.style.boxShadow = '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)';
+        this.domHUD.style.padding = '5px 8px';
+        this.domHUD.style.boxShadow = '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 4px 10px -3px rgba(0, 0, 0, 0.4)';
         this.domHUD.style.color = '#f8fafc';
         this.domHUD.style.fontFamily = 'system-ui, -apple-system, sans-serif';
-        this.domHUD.style.fontSize = '12px';
+        this.domHUD.style.fontSize = '11px';
         this.domHUD.style.userSelect = 'none';
         this.domHUD.style.pointerEvents = 'auto';
+        this.domHUD.style.width = 'max-content';
+        this.domHUD.style.maxWidth = '360px';
 
         this.domHUD.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;">
-                <span style="font-weight: 700; color: #fbbf24; display: flex; align-items: center; gap: 5px;">
-                    <span style="display: inline-block; width: 8px; height: 8px; background: #fbbf24; border-radius: 50%;"></span>
-                    HALF-GABLE (SHED)
-                </span>
-                <span id="hg-hud-badge" style="font-size: 11px; color: #94a3b8;">Pitch: 20°</span>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 3px;">
+                <div style="display: flex; align-items: center; gap: 3px;">
+                    <button id="hg-btn-rot-ccw" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 22px; height: 22px; border-radius: 4px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;" title="Rotate Counter-Clockwise 15° (Shift: 90°)">↶</button>
+                    <button id="hg-btn-mode-move" style="background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(52, 211, 153, 0.4); color: #a7f3d0; width: 22px; height: 22px; border-radius: 4px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;" title="Move Roof (Toggle Move Compass)">✢</button>
+                    <button id="hg-btn-rot-cw" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 22px; height: 22px; border-radius: 4px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center;" title="Rotate Clockwise 15° (Shift: 90°)">↷</button>
+                    <button id="hg-btn-duplicate" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 22px; height: 22px; border-radius: 4px; cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: center;" title="Duplicate / Copy Roof">⧉</button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <span style="font-weight: 700; font-size: 10.5px; color: #fbbf24; letter-spacing: 0.5px;">• HALF-GABLE</span>
+                    <span id="hg-hud-badge" style="font-size: 10px; color: #94a3b8; font-weight: 600;">20°</span>
+                </div>
+                <button id="hg-btn-mat" style="background: #059669; hover: #10b981; border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 3px;" title="Materials">🎨</button>
             </div>
-            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                <button id="hg-btn-flip-slope" style="background: #334155; hover: #475569; border: 1px solid rgba(255,255,255,0.1); color: #f8fafc; border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Invert Low/High side">
-                    ⇄ Flip Slope
-                </button>
-                <button id="hg-btn-flip-axis" style="background: #334155; hover: #475569; border: 1px solid rgba(255,255,255,0.1); color: #f8fafc; border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Toggle between Horizontal (X) and Vertical (Y) slope">
-                    ⇄ Flip Axis
-                </button>
-                <button id="hg-btn-auto-walls" style="background: #334155; border: 1px solid rgba(255,255,255,0.1); color: #f8fafc; border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Toggle automatic wall shaping">
-                    △ Auto Walls
-                </button>
-                <div style="display: flex; align-items: center; background: #1e293b; border-radius: 4px; padding: 2px 4px; border: 1px solid rgba(255,255,255,0.1);">
-                    <button id="hg-btn-curve-sub" style="background: transparent; border: none; color: #38bdf8; font-weight: bold; cursor: pointer; padding: 2px 6px; font-size: 12px;" title="Arch Inward (Pagoda)">-</button>
-                    <span id="hg-lbl-curve" style="font-size: 10px; color: #94a3b8; min-width: 44px; text-align: center;">Curve: 0</span>
-                    <button id="hg-btn-curve-add" style="background: transparent; border: none; color: #38bdf8; font-weight: bold; cursor: pointer; padding: 2px 6px; font-size: 12px;" title="Arch Outward (Convex)">+</button>
-                    <button id="hg-btn-curve-reset" style="background: transparent; border: none; color: #94a3b8; cursor: pointer; padding: 2px 4px; font-size: 10px;" title="Reset Curve">0</button>
+            <div style="display: flex; align-items: center; gap: 4px; flex-wrap: nowrap;">
+                <button id="hg-btn-flip-slope" style="background: #334155; border: 1px solid rgba(255,255,255,0.1); color: #f8fafc; border-radius: 4px; padding: 2px 6px; font-size: 10px; cursor: pointer; white-space: nowrap;" title="Invert Low/High side">⇄ Slope</button>
+                <button id="hg-btn-flip-axis" style="background: #334155; border: 1px solid rgba(255,255,255,0.1); color: #f8fafc; border-radius: 4px; padding: 2px 6px; font-size: 10px; cursor: pointer; white-space: nowrap;" title="Toggle X / Y slope">⇄ Axis</button>
+                <button id="hg-btn-auto-walls" style="background: #334155; border: 1px solid rgba(255,255,255,0.1); color: #f8fafc; border-radius: 4px; padding: 2px 6px; font-size: 10px; cursor: pointer; white-space: nowrap;" title="Toggle automatic wall shaping">△ Walls: ON</button>
+                <div style="display: flex; align-items: center; background: #1e293b; border-radius: 4px; padding: 1px 3px; border: 1px solid rgba(255,255,255,0.1);" title="Pagoda / Convex Curvature">
+                    <button id="hg-btn-curve-sub" style="background: transparent; border: none; color: #38bdf8; font-weight: bold; cursor: pointer; padding: 1px 3px; font-size: 10px;">-</button>
+                    <span id="hg-lbl-curve" style="font-size: 9.5px; color: #94a3b8; min-width: 16px; text-align: center;">0</span>
+                    <button id="hg-btn-curve-add" style="background: transparent; border: none; color: #38bdf8; font-weight: bold; cursor: pointer; padding: 1px 3px; font-size: 10px;">+</button>
+                    <button id="hg-btn-curve-reset" style="background: transparent; border: none; color: #64748b; cursor: pointer; padding: 1px 2px; font-size: 9px;" title="Reset">0</button>
                 </div>
-                <div style="display: flex; align-items: center; background: #1e293b; border-radius: 4px; padding: 2px 4px; border: 1px solid rgba(255,255,255,0.1);">
-                    <button id="hg-btn-pitch-sub" style="background: transparent; border: none; color: #f59e0b; font-weight: bold; cursor: pointer; padding: 2px 6px; font-size: 12px;">-</button>
-                    <span id="hg-lbl-pitch" style="font-size: 10px; color: #94a3b8; min-width: 44px; text-align: center;">Pitch: 20°</span>
-                    <button id="hg-btn-pitch-add" style="background: transparent; border: none; color: #f59e0b; font-weight: bold; cursor: pointer; padding: 2px 6px; font-size: 12px;">+</button>
+                <div style="display: flex; align-items: center; background: #1e293b; border-radius: 4px; padding: 1px 3px; border: 1px solid rgba(255,255,255,0.1);" title="Pitch degrees">
+                    <button id="hg-btn-pitch-sub" style="background: transparent; border: none; color: #f59e0b; font-weight: bold; cursor: pointer; padding: 1px 3px; font-size: 10px;">-</button>
+                    <span id="hg-lbl-pitch" style="font-size: 9.5px; color: #94a3b8; min-width: 22px; text-align: center;">20°</span>
+                    <button id="hg-btn-pitch-add" style="background: transparent; border: none; color: #f59e0b; font-weight: bold; cursor: pointer; padding: 1px 3px; font-size: 10px;">+</button>
                 </div>
-                <button id="hg-btn-flush" style="background: #1e293b; border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; border-radius: 4px; padding: 4px 6px; font-size: 10px; cursor: pointer;" title="Set 0 Overhang">Flush</button>
-                <button id="hg-btn-overhang" style="background: #1e293b; border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; border-radius: 4px; padding: 4px 6px; font-size: 10px; cursor: pointer;" title="Set 8 in Overhang">8" Overhang</button>
-                <button id="hg-btn-mat" style="background: #059669; hover: #10b981; border: 1px solid rgba(255,255,255,0.2); color: white; border-radius: 4px; padding: 4px 8px; font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-                    🎨 Material
-                </button>
+                <div style="display: flex; align-items: center; background: #1e293b; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden;">
+                    <button id="hg-btn-flush" style="background: transparent; border: none; color: #cbd5e1; padding: 2px 5px; font-size: 9.5px; cursor: pointer; border-right: 1px solid rgba(255,255,255,0.1);" title="0 inch flush overhang">0"</button>
+                    <button id="hg-btn-overhang" style="background: transparent; border: none; color: #cbd5e1; padding: 2px 5px; font-size: 9.5px; cursor: pointer;" title="8 inch standard overhang">8"</button>
+                </div>
             </div>
         `;
 
         document.body.appendChild(this.domHUD);
 
         // Bind HUD events
+        this.domHUD.querySelector('#hg-btn-rot-ccw').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!this.target) return;
+            const entity = this.target.userData?.entity;
+            if (!entity) return;
+            const step = e.shiftKey ? 90 : 15;
+            const curRot = (entity.group && typeof entity.group.rotation === 'function') ? entity.group.rotation() : (entity.rotation || 0);
+            const newRot = (((curRot - step) % 360) + 360) % 360;
+            RoofEngine.setRotation(entity, newRot, this.ctx.planner || this.ctx);
+            if (this.ctx.gizmoManager?.syncRoofSpinPanel) this.ctx.gizmoManager.syncRoofSpinPanel(entity);
+            this.updateHandlePositions();
+            this.updateHUDPosition();
+            coreEventBus.emit(EVENTS.SYNC_ENGINE);
+        });
+
+        this.domHUD.querySelector('#hg-btn-rot-cw').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!this.target) return;
+            const entity = this.target.userData?.entity;
+            if (!entity) return;
+            const step = e.shiftKey ? 90 : 15;
+            const curRot = (entity.group && typeof entity.group.rotation === 'function') ? entity.group.rotation() : (entity.rotation || 0);
+            const newRot = (((curRot + step) % 360) + 360) % 360;
+            RoofEngine.setRotation(entity, newRot, this.ctx.planner || this.ctx);
+            if (this.ctx.gizmoManager?.syncRoofSpinPanel) this.ctx.gizmoManager.syncRoofSpinPanel(entity);
+            this.updateHandlePositions();
+            this.updateHUDPosition();
+            coreEventBus.emit(EVENTS.SYNC_ENGINE);
+        });
+
+        this.domHUD.querySelector('#hg-btn-mode-move').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const nextMode = (this.mode === 'move') ? 'corners' : 'move';
+            this.setMode(nextMode);
+        });
+
+        this.domHUD.querySelector('#hg-btn-duplicate').addEventListener('click', (e) => {
+            e.stopPropagation();
+            const entity = this.target?.userData?.entity;
+            if (!entity || !this.ctx.planner) return;
+            const newConf = JSON.parse(JSON.stringify(entity.config || {}));
+            const newPts = (entity.points || []).map(p => ({ x: p.x + 30, y: p.y + 30 }));
+            RoofEngine.createRoof(this.ctx.planner, newPts, newConf);
+            coreEventBus.emit(EVENTS.SYNC_ENGINE);
+        });
+
         this.domHUD.querySelector('#hg-btn-flip-slope').addEventListener('click', (e) => {
             e.stopPropagation();
             if (!this.target) return;
@@ -1042,7 +1114,7 @@ export class HalfGableRoofGizmo extends THREE.Group {
             if (!entity) return;
             const conf = entity.config || entity;
             const cur = conf.curve || 0;
-            RoofEngine.setCurve(entity, Math.min(50, cur + 5), this.ctx.planner || this.ctx);
+            RoofEngine.setCurve(entity, Math.min(80, cur + 5), this.ctx.planner || this.ctx);
             this.updateHandlePositions();
             this.updateHUDPosition();
             if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
@@ -1079,7 +1151,7 @@ export class HalfGableRoofGizmo extends THREE.Group {
             if (!entity) return;
             const conf = entity.config || entity;
             const cur = conf.pitch !== undefined ? conf.pitch : 20;
-            RoofEngine.setPitch(entity, Math.min(75, cur + 5), this.ctx.planner || this.ctx);
+            RoofEngine.setPitch(entity, Math.min(85, cur + 5), this.ctx.planner || this.ctx);
             this.updateHandlePositions();
             this.updateHUDPosition();
             if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
@@ -1132,18 +1204,18 @@ export class HalfGableRoofGizmo extends THREE.Group {
         const pitch = conf.pitch !== undefined ? conf.pitch : 20;
         const badge = this.domHUD.querySelector('#hg-hud-badge');
         if (badge) {
-            badge.innerText = pitch === 0 ? 'Pitch: 0° (Flat)' : `Pitch: ${pitch}°`;
+            badge.innerText = pitch === 0 ? '0°' : `${pitch}°`;
         }
 
         const lblPitch = this.domHUD.querySelector('#hg-lbl-pitch');
         if (lblPitch) {
-            lblPitch.innerText = pitch === 0 ? '0° Flat' : `${pitch}° Pitch`;
+            lblPitch.innerText = pitch === 0 ? '0° Flat' : `${pitch}°`;
         }
 
         const btnAutoWalls = this.domHUD.querySelector('#hg-btn-auto-walls');
         if (btnAutoWalls) {
             const isAuto = conf.autoShapeWalls !== false && conf.showGableWalls !== false;
-            btnAutoWalls.innerText = `△ Auto Walls: ${isAuto ? 'ON' : 'OFF'}`;
+            btnAutoWalls.innerText = `△ Walls: ${isAuto ? 'ON' : 'OFF'}`;
             btnAutoWalls.style.background = isAuto ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.2)';
             btnAutoWalls.style.borderColor = isAuto ? 'rgba(52, 211, 153, 0.5)' : 'rgba(248, 113, 113, 0.5)';
             btnAutoWalls.style.color = isAuto ? '#a7f3d0' : '#fecaca';
@@ -1170,7 +1242,7 @@ export class HalfGableRoofGizmo extends THREE.Group {
         const x = ((pos2D.x + 1) * rect.width) / 2 + rect.left;
         const y = ((-pos2D.y + 1) * rect.height) / 2 + rect.top - 70;
 
-        this.domHUD.style.left = `${Math.max(20, Math.min(window.innerWidth - 380, x - 180))}px`;
+        this.domHUD.style.left = `${Math.max(20, Math.min(window.innerWidth - 360, x - 170))}px`;
         this.domHUD.style.top = `${Math.max(20, y)}px`;
     }
 

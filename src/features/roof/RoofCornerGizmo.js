@@ -15,9 +15,9 @@ export class RoofCornerGizmo extends THREE.Group {
         this.mouse = new THREE.Vector2();
         this.visible = false;
         
-        this.handleMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, depthTest: false, transparent: true, opacity: 0.9 });
-        this.handleMatHover = new THREE.MeshBasicMaterial({ color: 0x60a5fa, depthTest: false, transparent: true, opacity: 1.0 });
-        this.handleMatActive = new THREE.MeshBasicMaterial({ color: 0x4ade80, depthTest: false, transparent: true, opacity: 1.0 });
+        this.handleMat = new THREE.MeshBasicMaterial({ color: 0xec4899, depthTest: false, transparent: true, opacity: 0.95 });
+        this.handleMatHover = new THREE.MeshBasicMaterial({ color: 0xf472b6, depthTest: false, transparent: true, opacity: 1.0 });
+        this.handleMatActive = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false, transparent: true, opacity: 1.0 });
         this.handleGeo = new THREE.SphereGeometry(15, 16, 16);
         
         this.selectedIndices = new Set();
@@ -69,6 +69,7 @@ export class RoofCornerGizmo extends THREE.Group {
                 
                 const entity = this.target.userData.entity;
                 if (!entity.points) return;
+                entity._isDragging = true;
                 
                 this.initialPoints = entity.points.map(p => ({ x: p.x, y: p.y }));
                 
@@ -147,6 +148,7 @@ export class RoofCornerGizmo extends THREE.Group {
                 this.isDragging = false;
                 if (this.ctx.controls) this.ctx.controls.enabled = true;
                 if (this.target && this.target.userData.entity) {
+                    this.target.userData.entity._isDragging = false;
                     coreEventBus.emit(EVENTS.ROOF_CORNER_GIZMO_END, { entity: this.target.userData.entity });
                     if (this.ctx.syncToUI) this.ctx.syncToUI();
                 }
