@@ -250,9 +250,9 @@ export class WallGeometryEngine {
         // 2 RAYS WITH UNEQUAL HEIGHTS: Smart Butt-Joint (Taller wall runs full to outer corner; shorter wall butts into inner face)
         if (rays.length === 2) {
             const otherRay = rays[1 - myIndex];
-            const otherH = otherRay.height ?? (Number(otherRay.w?.height) || Number(otherRay.w?.config?.height) || 120);
-            const hDiff = wallH - otherH;
-            if (Math.abs(hDiff) > 2.0) {
+            const otherTop = otherRay.top ?? ((Number(otherRay.w?.elevation) || 0) + (Number(otherRay.w?.height) || Number(otherRay.w?.config?.height) || 120));
+            const topDiff = wallTop - otherTop;
+            if (Math.abs(topDiff) > 2.0) {
                 const cp = myRay.dir.x * otherRay.dir.y - myRay.dir.y * otherRay.dir.x;
                 let myOuterPt, otherOuterPt, myInnerPt, otherInnerPt;
                 if (cp > 0) {
@@ -273,7 +273,7 @@ export class WallGeometryEngine {
                 const innerPt = this.intersectLines(myInnerPt, myRay.dir, otherInnerPt, otherRay.dir) || P;
 
                 let distAlongDir = 0;
-                if (hDiff > 2.0) {
+                if (topDiff > 2.0) {
                     // Current wall is TALLER (dominant): extends full to outer corner boundary
                     distAlongDir = (outerPt.x - P.x) * myRay.dir.x + (outerPt.y - P.y) * myRay.dir.y;
                 } else {

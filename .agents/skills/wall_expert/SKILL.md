@@ -156,6 +156,26 @@ WallEngine.deleteWall(planner, wall);
   - In 3D, `shearGeo` interpolates $X$ across local $Z$ along this profile, producing a clean beveled chamfer face across the sharp corner.
 - Any proposed change to corner miter math or vertex routing MUST be explicitly explained mathematically to and approved by the user first.
 
+### Rule 8: Height-Segmented Miters & Unequal Height Corner Architecture
+- **Co-Spanning Rays Evaluation**:
+  - When computing corner geometry in `WallGeometryEngine.getCorners(wall, anchor, isStart, allWalls)`, ray neighbors must be filtered by vertical reach:
+    ```javascript
+    const coSpanningRays = rays.filter(r => (r.top ?? (wElev + wH)) >= wallTop - 2.0);
+    ```
+  - **3-Wall T-Junctions (Attached Room Boxes)**: When a tall room (e.g., 350 cm) is attached to or collinear with a shorter exterior wall (e.g., 280 cm), the tall room walls MUST evaluate their corner against other co-spanning walls in `coSpanningRays` and miter at $45^\circ$ across their full height ($0 \to 350\text{ cm}$). Never treat tall room walls as collinear through-walls with shorter exterior segments, which leaves an empty rectangular notch / missing volume above the shorter wall.
+  - The shorter exterior wall butts squarely into the solid corner body up to its own height ($0 \to 280\text{ cm}$).
+- **2-Wall Unequal Height L-Corners (Dominant / Butt Cut)**:
+  - When two walls of different heights meet at an L-corner (e.g., Wall 1 at 350 cm, Wall 2 at 280 cm):
+    - **Taller Wall (Dominant)**: Runs full to the outer corner boundary ($P_{outer}$) with a square cut ($90^\circ$ flat end cap), presenting a flat, vertical wall face above the shorter wall. Never apply a $45^\circ$ miter across the full height of a taller wall meeting a shorter wall, as this leaves an exposed $45^\circ$ slanted ramp in mid-air above the ledge.
+    - **Shorter Wall (Butt)**: Butts squarely into the inner face of the taller wall ($P_{inner}$).
+  - **Mathematical Intersection Formulas**:
+    - $cp = myRay.dir.x \cdot otherRay.dir.y - myRay.dir.y \cdot otherRay.dir.x$
+    - $cp > 0$ (turning left): $P_{outer} = \text{intersect}(myRay.R, otherRay.L)$, $P_{inner} = \text{intersect}(myRay.L, otherRay.R)$
+    - $cp < 0$ (turning right): $P_{outer} = \text{intersect}(myRay.L, otherRay.R)$, $P_{inner} = \text{intersect}(myRay.R, otherRay.L)$
+    - Taller distance: $d = (P_{outer} - P) \cdot \vec{dir}$
+    - Shorter distance: $d = (P_{inner} - P) \cdot \vec{dir}$
+  - **Seam Guarantee**: Outer faces are 100% flush, inner corner is a clean $90^\circ$ angle, and the top step of the shorter wall forms a clean horizontal ledge meeting a flat vertical wall face.
+
 ---
 
 ## 4. Quick API Reference Recipes

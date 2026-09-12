@@ -212,6 +212,11 @@ Wall corner miter calculations, bevel logic, endpoint/corner vertex mappings, an
 2. **Bevel Integrity & Zero Arrowhead Spikes**:
    - On acute wall corner intersections, the miter bevel cutoffs (`startData.bevelL`, `startData.bevelR`, `endData.bevelL`, `endData.bevelR`) must connect directly to the baseline corners (`startL`, `startR`, `endL`, `endR`).
    - Connecting bevel cutoffs to extended un-clamped miter vertices (`startTrue`) is strictly prohibited as it creates visual arrowhead/spike glitches.
-3. **Approval Mandate**:
+3. **Height-Segmented Co-Spanning Miters & Gapless Junctions**:
+   - `WallGeometryEngine.getCorners` must evaluate ray neighbors using height-segmented co-spanning rays (`r.top >= wallTop - 2.0`).
+   - At 3-wall junctions where taller room walls attach to or run collinear with shorter exterior walls, the taller room walls must miter together at $45^\circ$ across their full height to prevent open rectangular voids/notches above the shorter wall.
+   - For 2-wall L-corners with unequal heights, the taller wall must run full to the outer corner boundary ($P_{outer}$) with a square cut, and the shorter wall must butt squarely into the inner face of the taller wall ($P_{inner}$), preventing mid-air slanted ramps.
+4. **Approval Mandate**:
    - Before making ANY change to `WallGeometryEngine.getCorners`, `WallGeometryEngine.getExactPolygonPoints`, `WallEngine.recalculateGeometry`, `wall.renderer2d.js:sceneFunc`, or corner shearing in `wall.renderer3d.js`, the agent MUST explain the exact proposed mathematical difference to the user and obtain explicit user approval.
+
 
