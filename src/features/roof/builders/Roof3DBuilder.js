@@ -127,8 +127,9 @@ export class Roof3DBuilder {
             
             // Find walls that intersect or are near this roof
             let localWallHeight = maxWallHeight;
+            let wallsUnderRoof = [];
             if (hasWalls) {
-                const wallsUnderRoof = wallList.filter(w => {
+                wallsUnderRoof = wallList.filter(w => {
                     const p1 = (w.startAnchor && typeof w.startAnchor.position === 'function') ? w.startAnchor.position() : (w.startAnchor || { x: w.startX || 0, y: w.startY || 0 });
                     const p2 = (w.endAnchor && typeof w.endAnchor.position === 'function') ? w.endAnchor.position() : (w.endAnchor || { x: w.endX || 0, y: w.endY || 0 });
                     const midX = (p1.x + p2.x) / 2;
@@ -308,7 +309,7 @@ export class Roof3DBuilder {
 
                 // ExtrudeGeometry index 0 = top/bottom caps (terrace), index 1 = extruded perimeter sides (wall band)
                 mesh = new THREE.Mesh(geo, [flatMat, flatFasciaMat]);
-            } else if (conf.roofType === 'shed') {
+            } else if (conf.roofType === 'shed' || conf.roofType === 'half_gable') {
                 let bMinX = Infinity, bMaxX = -Infinity, bMinY = Infinity, bMaxY = -Infinity;
                 pts.forEach(p => {
                     bMinX = Math.min(bMinX, p.x); bMaxX = Math.max(bMaxX, p.x);
@@ -317,15 +318,26 @@ export class Roof3DBuilder {
                 const bW = bMaxX - bMinX;
                 const bD = bMaxY - bMinY;
 
-                const pitch = conf.pitch || 20;
+                let baseMinX = Infinity, baseMaxX = -Infinity, baseMinY = Infinity, baseMaxY = -Infinity;
+                basePts.forEach(p => {
+                    baseMinX = Math.min(baseMinX, p.x); baseMaxX = Math.max(baseMaxX, p.x);
+                    baseMinY = Math.min(baseMinY, p.y); baseMaxY = Math.max(baseMaxY, p.y);
+                });
+                const baseW = (baseMinX !== Infinity) ? (baseMaxX - baseMinX) : bW;
+                const baseD = (baseMinY !== Infinity) ? (baseMaxY - baseMinY) : bD;
+
+                const pitch = conf.pitch !== undefined ? conf.pitch : 20;
                 const axis = conf.ridgeAxis || 'x';
-                const span = axis === 'x' ? bD : bW;
+                const span = axis === 'x' ? baseD : baseW;
                 const rh = Math.tan(pitch * Math.PI / 180) * span;
                 const curve = conf.curve || 0;
                 const flip = !!conf.flipSlope;
 
+                const hasAutoGableCADWalls = hasWalls && wallList.some(w => w.isAutoGable && w.parentRoofId === roof.id);
+                const shouldGenerateGableEndMesh = (conf.showGableWalls !== false) && (conf.autoShapeWalls !== false) && !hasAutoGableCADWalls && (rh > 0.5);
+
                 const v = [], uv = [];
-                const numSubdivs = curve !== 0 ? 12 : 1;
+                const numSubdivs = curve !== 0 ? 32 : 1;
                 for (let i = 0; i < numSubdivs; i++) {
                     const t0 = i / numSubdivs;
                     const t1 = (i + 1) / numSubdivs;
@@ -368,33 +380,126 @@ export class Roof3DBuilder {
                     }
                 }
 
-                // Side gable walls and rear high wall for Shed roof
+                // Triangular side rake walls and high eave closure wall for Shed / Half-Gable roof
                 const gv = [], guv = [];
-                if (axis === 'x') {
-                    const zLow = flip ? bMaxY : bMinY;
-                    const zHigh = flip ? bMinY : bMaxY;
-                    gv.push(bMinX, 0, zLow, bMinX, rh, zHigh, bMinX, 0, zHigh);
-                    guv.push(0, 0, 1, 1, 1, 0);
-                    gv.push(bMaxX, 0, zLow, bMaxX, 0, zHigh, bMaxX, rh, zHigh);
-                    guv.push(0, 0, 1, 0, 1, 1);
-                    gv.push(bMinX, 0, zHigh, bMaxX, 0, zHigh, bMaxX, rh, zHigh);
-                    guv.push(0, 0, 1, 0, 1, 1);
-                    gv.push(bMinX, 0, zHigh, bMaxX, rh, zHigh, bMinX, rh, zHigh);
-                    guv.push(0, 0, 1, 1, 0, 1);
-                } else {
-                    const xLow = flip ? bMaxX : bMinX;
-                    const xHigh = flip ? bMinX : bMaxX;
-                    gv.push(xLow, 0, bMinY, xHigh, rh, bMinY, xHigh, 0, bMinY);
-                    guv.push(0, 0, 1, 1, 1, 0);
-                    gv.push(xLow, 0, bMaxY, xHigh, 0, bMaxY, xHigh, rh, bMaxY);
-                    guv.push(0, 0, 1, 0, 1, 1);
-                    gv.push(xHigh, 0, bMinY, xHigh, rh, bMinY, xHigh, 0, bMaxY);
-                    guv.push(0, 0, 0, 1, 1, 0);
-                    gv.push(xHigh, rh, bMinY, xHigh, rh, bMaxY, xHigh, 0, bMaxY);
-                    guv.push(0, 1, 1, 1, 1, 0);
+                const T = conf.thickness || 8;
+                if (shouldGenerateGableEndMesh) {
+                    const gWestX = (baseMinX !== Infinity && !conf.flushGable) ? Math.max(bMinX, Math.min(bMaxX, baseMinX)) : bMinX;
+                    const gEastX = (baseMaxX !== -Infinity && !conf.flushGable) ? Math.max(bMinX, Math.min(bMaxX, baseMaxX)) : bMaxX;
+                    const gNorthY = (baseMinY !== Infinity && !conf.flushGable) ? Math.max(bMinY, Math.min(bMaxY, baseMinY)) : bMinY;
+                    const gSouthY = (baseMaxY !== -Infinity && !conf.flushGable) ? Math.max(bMinY, Math.min(bMaxY, baseMaxY)) : bMaxY;
+
+                    const wallSpanX = Math.max(1, gEastX - gWestX);
+                    const wallSpanZ = Math.max(1, gSouthY - gNorthY);
+                    const wallSubdivs = Math.max(1, numSubdivs);
+
+                    const getUndersideY = (t) => {
+                        let y = t * rh;
+                        if (curve !== 0) {
+                            y += curve * Math.sin(Math.PI * t);
+                        }
+                        return Math.max(0, y - T);
+                    };
+
+                    if (axis === 'x') {
+                        // Slopes along Z (North <-> South). High side is gSouthY (if !flip) or gNorthY (if flip).
+                        for (let i = 0; i < wallSubdivs; i++) {
+                            const u0 = i / wallSubdivs;
+                            const u1 = (i + 1) / wallSubdivs;
+
+                            const z0 = gNorthY + u0 * wallSpanZ;
+                            const z1 = gNorthY + u1 * wallSpanZ;
+
+                            const t0 = flip ? (bMaxY - z0) / bD : (z0 - bMinY) / bD;
+                            const t1 = flip ? (bMaxY - z1) / bD : (z1 - bMinY) / bD;
+
+                            const wallTopY0 = getUndersideY(Math.max(0, Math.min(1, t0)));
+                            const wallTopY1 = getUndersideY(Math.max(0, Math.min(1, t1)));
+
+                            // West Rake Gable Wall (at X = gWestX, facing -X)
+                            gv.push(gWestX, 0, z0, gWestX, wallTopY0, z0, gWestX, wallTopY1, z1);
+                            guv.push(z0 / 100, 0, z0 / 100, wallTopY0 / 100, z1 / 100, wallTopY1 / 100);
+                            gv.push(gWestX, 0, z0, gWestX, wallTopY1, z1, gWestX, 0, z1);
+                            guv.push(z0 / 100, 0, z1 / 100, wallTopY1 / 100, z1 / 100, 0);
+
+                            // East Rake Gable Wall (at X = gEastX, facing +X)
+                            gv.push(gEastX, 0, z0, gEastX, wallTopY1, z1, gEastX, wallTopY0, z0);
+                            guv.push(z0 / 100, 0, z1 / 100, wallTopY1 / 100, z0 / 100, wallTopY0 / 100);
+                            gv.push(gEastX, 0, z0, gEastX, 0, z1, gEastX, wallTopY1, z1);
+                            guv.push(z0 / 100, 0, z1 / 100, 0, z1 / 100, wallTopY1 / 100);
+                        }
+
+                        // High Eave Wall (closing the high peak gap at gSouthY or gNorthY)
+                        const zHigh = flip ? gNorthY : gSouthY;
+                        const tHigh = flip ? (bMaxY - zHigh) / bD : (zHigh - bMinY) / bD;
+                        const yHigh = getUndersideY(Math.max(0, Math.min(1, tHigh)));
+
+                        if (yHigh > 0.5) {
+                            if (!flip) {
+                                // High Eave at South (facing +Z)
+                                gv.push(gWestX, 0, zHigh, gEastX, 0, zHigh, gEastX, yHigh, zHigh);
+                                guv.push(gWestX / 100, 0, gEastX / 100, 0, gEastX / 100, yHigh / 100);
+                                gv.push(gWestX, 0, zHigh, gEastX, yHigh, zHigh, gWestX, yHigh, zHigh);
+                                guv.push(gWestX / 100, 0, gEastX / 100, yHigh / 100, gWestX / 100, yHigh / 100);
+                            } else {
+                                // High Eave at North (facing -Z)
+                                gv.push(gWestX, 0, zHigh, gEastX, yHigh, zHigh, gEastX, 0, zHigh);
+                                guv.push(gWestX / 100, 0, gEastX / 100, yHigh / 100, gEastX / 100, 0);
+                                gv.push(gWestX, 0, zHigh, gWestX, yHigh, zHigh, gEastX, yHigh, zHigh);
+                                guv.push(gWestX / 100, 0, gWestX / 100, yHigh / 100, gEastX / 100, yHigh / 100);
+                            }
+                        }
+                    } else {
+                        // Slopes along X (West <-> East). High side is gEastX (if !flip) or gWestX (if flip).
+                        for (let i = 0; i < wallSubdivs; i++) {
+                            const u0 = i / wallSubdivs;
+                            const u1 = (i + 1) / wallSubdivs;
+
+                            const x0 = gWestX + u0 * wallSpanX;
+                            const x1 = gWestX + u1 * wallSpanX;
+
+                            const t0 = flip ? (bMaxX - x0) / bW : (x0 - bMinX) / bW;
+                            const t1 = flip ? (bMaxX - x1) / bW : (x1 - bMinX) / bW;
+
+                            const wallTopY0 = getUndersideY(Math.max(0, Math.min(1, t0)));
+                            const wallTopY1 = getUndersideY(Math.max(0, Math.min(1, t1)));
+
+                            // North Rake Gable Wall (at Z = gNorthY, facing -Z)
+                            gv.push(x0, 0, gNorthY, x1, wallTopY1, gNorthY, x0, wallTopY0, gNorthY);
+                            guv.push(x0 / 100, 0, x1 / 100, wallTopY1 / 100, x0 / 100, wallTopY0 / 100);
+                            gv.push(x0, 0, gNorthY, x1, 0, gNorthY, x1, wallTopY1, gNorthY);
+                            guv.push(x0 / 100, 0, x1 / 100, 0, x1 / 100, wallTopY1 / 100);
+
+                            // South Rake Gable Wall (at Z = gSouthY, facing +Z)
+                            gv.push(x0, 0, gSouthY, x0, wallTopY0, gSouthY, x1, wallTopY1, gSouthY);
+                            guv.push(x0 / 100, 0, x0 / 100, wallTopY0 / 100, x1 / 100, wallTopY1 / 100);
+                            gv.push(x0, 0, gSouthY, x1, wallTopY1, gSouthY, x1, 0, gSouthY);
+                            guv.push(x0 / 100, 0, x1 / 100, wallTopY1 / 100, x1 / 100, 0);
+                        }
+
+                        // High Eave Wall (closing the high peak gap at gEastX or gWestX)
+                        const xHigh = flip ? gWestX : gEastX;
+                        const tHigh = flip ? (bMaxX - xHigh) / bW : (xHigh - bMinX) / bW;
+                        const yHigh = getUndersideY(Math.max(0, Math.min(1, tHigh)));
+
+                        if (yHigh > 0.5) {
+                            if (!flip) {
+                                // High Eave at East (facing +X)
+                                gv.push(xHigh, 0, gNorthY, xHigh, yHigh, gNorthY, xHigh, yHigh, gSouthY);
+                                guv.push(gNorthY / 100, 0, gNorthY / 100, yHigh / 100, gSouthY / 100, yHigh / 100);
+                                gv.push(xHigh, 0, gNorthY, xHigh, yHigh, gSouthY, xHigh, 0, gSouthY);
+                                guv.push(gNorthY / 100, 0, gSouthY / 100, yHigh / 100, gSouthY / 100, 0);
+                            } else {
+                                // High Eave at West (facing -X)
+                                gv.push(xHigh, 0, gNorthY, xHigh, yHigh, gSouthY, xHigh, yHigh, gNorthY);
+                                guv.push(gNorthY / 100, 0, gSouthY / 100, yHigh / 100, gNorthY / 100, yHigh / 100);
+                                gv.push(xHigh, 0, gNorthY, xHigh, 0, gSouthY, xHigh, yHigh, gSouthY);
+                                guv.push(gNorthY / 100, 0, gSouthY / 100, 0, gSouthY / 100, yHigh / 100);
+                            }
+                        }
+                    }
                 }
 
-                const T = conf.thickness || 8;
                 const {v: vThick, uv: uvThick} = thickenGeometry(v, uv, T);
 
                 const geo = new THREE.BufferGeometry();
@@ -411,10 +516,12 @@ export class Roof3DBuilder {
                     gGeo.setAttribute("uv", new THREE.Float32BufferAttribute(guv, 2));
                     gGeo.computeVertexNormals();
 
-                    let gableMat = this.ctx.helpers.getDynamicMaterial(conf.gableMaterial || 'white_plaster_wall', 'wall') || new THREE.MeshStandardMaterial({color: 0xefede5});
+                    let gableMat = (this.ctx?.helpers?.getDynamicMaterial ? this.ctx.helpers.getDynamicMaterial(conf.gableMaterial || 'white_plaster_wall', 'wall') : null) || new THREE.MeshStandardMaterial({color: 0xefede5});
                     gableMat.side = THREE.DoubleSide;
                     const gableMesh = new THREE.Mesh(gGeo, gableMat);
-                    gableMesh.userData = { isRoof: true, isGable: true, entity: roof, materialSlot: 'gable', componentType: 'gable_wall' };
+                    gableMesh.castShadow = true;
+                    gableMesh.receiveShadow = true;
+                    gableMesh.userData = { isRoof: true, isGable: true, isGableWall: true, entity: roof, materialSlot: 'gable', componentType: 'gable_wall' };
                     mesh.add(gableMesh);
                     ComponentRegistry.registerMesh(roof, "gable", gableMesh);
                 }
@@ -515,7 +622,7 @@ export class Roof3DBuilder {
                     let gableMat = this.ctx.helpers.getDynamicMaterial(conf.gableMaterial || 'white_plaster_wall', 'wall') || new THREE.MeshStandardMaterial({color: 0xefede5});
                     gableMat.side = THREE.DoubleSide;
                     const gableMesh = new THREE.Mesh(gGeo, gableMat);
-                    gableMesh.userData = { isRoof: true, isGable: true, entity: roof, materialSlot: 'gable', componentType: 'gable_wall' };
+                    gableMesh.userData = { isRoof: true, isGable: true, isGableWall: true, entity: roof, materialSlot: 'gable', componentType: 'gable_wall' };
                     mesh.add(gableMesh);
                     ComponentRegistry.registerMesh(roof, "gable", gableMesh);
                 }
@@ -551,8 +658,8 @@ export class Roof3DBuilder {
                 const gNorthY = (baseMinY !== Infinity && !conf.flushGable) ? Math.max(bMinY, Math.min(bMaxY, baseMinY)) : bMinY;
                 const gSouthY = (baseMaxY !== -Infinity && !conf.flushGable) ? Math.max(bMinY, Math.min(bMaxY, baseMaxY)) : bMaxY;
 
-                const hasAutoGableWalls = conf.autoShapeWalls && hasWalls && (wallsUnderRoof && wallsUnderRoof.length > 0);
-                const shouldGenerateGableEndMesh = (conf.showGableWalls !== false) && !hasAutoGableWalls;
+                const hasAutoGableCADWalls = hasWalls && wallList.some(w => w.isAutoGable && w.parentRoofId === roof.id);
+                const shouldGenerateGableEndMesh = (conf.showGableWalls !== false) && (conf.autoShapeWalls !== false) && !hasAutoGableCADWalls && (rh > 0.5);
 
                 const v1 = [], uv1 = [];
                 const v2 = [], uv2 = [];
@@ -1713,7 +1820,7 @@ export class Roof3DBuilder {
                             const distFromRidge = Math.abs(skX - cx);
                             skY = rh * Math.max(0, 1 - distFromRidge / (bW / 2));
                         }
-                    } else if (conf.roofType === 'shed') {
+                    } else if (conf.roofType === 'shed' || conf.roofType === 'half_gable') {
                         const shedRh = Math.tan(pitchRad) * (axis === 'x' ? bD : bW);
                         if (axis === 'x') {
                             tiltX = conf.flipSlope ? -pitchRad : pitchRad;
@@ -1844,7 +1951,7 @@ export class Roof3DBuilder {
                             const distFromRidge = Math.abs(chX - cx);
                             chY = rh * Math.max(0, 1 - distFromRidge / (bW / 2));
                         }
-                    } else if (conf.roofType === 'shed') {
+                    } else if (conf.roofType === 'shed' || conf.roofType === 'half_gable') {
                         const shedRh = Math.tan(pitchRad) * (axis === 'x' ? bD : bW);
                         if (axis === 'x') {
                             const t = conf.flipSlope ? (ptsMaxY - chZ) / bD : (chZ - ptsMinY) / bD;
@@ -2012,7 +2119,7 @@ export class Roof3DBuilder {
                 angleY: Math.PI / 2,
                 axis: 'x'
             });
-        } else if (roofType === 'shed') {
+        } else if (roofType === 'shed' || roofType === 'half_gable') {
             const shedRh = Math.tan(pitchRad) * (axis === 'x' ? bD : bW);
             if (axis === 'x') {
                 const zPos = conf.flipSlope ? (ptsMinY - cz) : (ptsMaxY - cz);
@@ -2104,7 +2211,7 @@ export class Roof3DBuilder {
             apexes.push({ id: 'ne', x: wTop / 2, y: rh, z: -dTop / 2, label: 'NE Corner' });
             apexes.push({ id: 'sw', x: -wTop / 2, y: rh, z: dTop / 2, label: 'SW Corner' });
             apexes.push({ id: 'se', x: wTop / 2, y: rh, z: dTop / 2, label: 'SE Corner' });
-        } else if (roofType === 'shed') {
+        } else if (roofType === 'shed' || roofType === 'half_gable') {
             const shedRh = Math.tan(pitchRad) * (axis === 'x' ? bD : bW);
             if (axis === 'x') {
                 const zPos = conf.flipSlope ? (ptsMinY - cz) : (ptsMaxY - cz);

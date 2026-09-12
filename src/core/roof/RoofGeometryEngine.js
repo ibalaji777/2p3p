@@ -163,10 +163,13 @@ export class RoofGeometryEngine {
         if (rType === 'flat') return 0;
 
         const bounds = this.getBounds(points);
-        const span = (rType === 'gable' && axis === 'y') ? bounds.width : (rType === 'gable' ? bounds.depth : Math.min(bounds.width, bounds.depth));
-        const halfSpan = span / 2;
-        const rad = (p || 30) * Math.PI / 180;
-        const height = halfSpan * Math.tan(rad);
+        const isShed = rType === 'shed' || rType === 'half_gable';
+        const span = (axis === 'y') ? bounds.width : (axis === 'x' ? bounds.depth : Math.min(bounds.width, bounds.depth));
+        const effSpan = isShed ? span : span / 2;
+        const pitchVal = (p !== undefined && p !== null) ? Number(p) : 30;
+        if (pitchVal <= 0) return 0;
+        const rad = pitchVal * Math.PI / 180;
+        const height = effSpan * Math.tan(rad);
         return Math.max(0, Math.round(height * 10) / 10);
     }
 
@@ -193,11 +196,12 @@ export class RoofGeometryEngine {
         if (rType === 'flat' || !peakHeight || peakHeight <= 0) return 0;
 
         const bounds = this.getBounds(points);
-        const span = (rType === 'gable' && axis === 'y') ? bounds.width : (rType === 'gable' ? bounds.depth : Math.min(bounds.width, bounds.depth));
-        const halfSpan = span / 2;
-        if (halfSpan <= 0) return 30;
+        const isShed = rType === 'shed' || rType === 'half_gable';
+        const span = (axis === 'y') ? bounds.width : (axis === 'x' ? bounds.depth : Math.min(bounds.width, bounds.depth));
+        const effSpan = isShed ? span : span / 2;
+        if (effSpan <= 0) return 0;
 
-        const rad = Math.atan(peakHeight / halfSpan);
+        const rad = Math.atan(peakHeight / effSpan);
         const deg = Math.round(rad * 180 / Math.PI);
         return Math.max(0, Math.min(75, deg));
     }

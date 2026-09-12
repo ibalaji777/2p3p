@@ -53,7 +53,7 @@ export class RoofTopologyEngine {
             ridgeAxis: RoofGeometryEngine.getEffectiveRidgeAxis(cleaned, config.ridgeAxis, config.manualRidge),
             manualRidge: !!config.manualRidge,
             gableMaterial: 'white_plaster_wall',
-            autoShapeWalls: false,
+            autoShapeWalls: true,
             skylights: [],
             crestings: [],
             finials: [],

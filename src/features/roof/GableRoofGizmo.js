@@ -253,13 +253,14 @@ export class GableRoofGizmo extends THREE.Group {
                     const axis = conf.ridgeAxis || 'x';
                     const span = (axis === 'x' ? d : w);
 
-                    let newRh = Math.max(5, this.initialRh + deltaY);
+                    let newRh = Math.max(0, this.initialRh + deltaY);
                     let newPitch = Math.atan2(newRh, span / 2) * (180 / Math.PI);
-                    newPitch = Math.max(5, Math.min(75, Math.round(newPitch)));
+                    newPitch = Math.max(0, Math.min(75, Math.round(newPitch)));
 
                     RoofEngine.setPitch(entity, newPitch, this.ctx.planner || this.ctx);
                     const peakFeet = this._formatFeetInches(newRh);
-                    this._updateDOMBadge(`GABLE PITCH: ${newPitch}&deg; | Ridge: ${peakFeet} (${Math.round(newRh)}cm)`, { x: e.clientX, y: e.clientY });
+                    const pitchLabel = newPitch === 0 ? '0° (Flat)' : `${newPitch}°`;
+                    this._updateDOMBadge(`GABLE PITCH: ${pitchLabel} | Ridge: ${peakFeet} (${Math.round(newRh)}cm)`, { x: e.clientX, y: e.clientY });
                 } else if (type === 'curve') {
                     // Dedicated Slope Curvature adjustment (-50 to +50)
                     const deltaY = this.planeIntersect.y - this.dragStartPos.y;
@@ -579,7 +580,7 @@ export class GableRoofGizmo extends THREE.Group {
                 if (!entity) return;
                 const conf = entity.config || entity;
                 const curPitch = conf.pitch !== undefined ? conf.pitch : 30;
-                const nextPitch = Math.max(5, curPitch - 5);
+                const nextPitch = Math.max(0, curPitch - 5);
                 RoofEngine.setPitch(entity, nextPitch, this.ctx.planner || this.ctx);
                 this.updateHandlePositions();
                 this._updateHUDPosition();
@@ -700,7 +701,7 @@ export class GableRoofGizmo extends THREE.Group {
         const lblPitch = this.domHUD.querySelector('#gr-lbl-pitch');
         if (lblPitch) {
             const pitch = conf.pitch !== undefined ? conf.pitch : 30;
-            lblPitch.innerText = `${pitch}° Pitch`;
+            lblPitch.innerText = pitch === 0 ? '0° (Flat)' : `${pitch}° Pitch`;
         }
 
         const lblCurve = this.domHUD.querySelector('#gr-lbl-curve');

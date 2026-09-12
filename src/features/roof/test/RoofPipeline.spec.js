@@ -763,6 +763,7 @@ describe('Roof Pipeline & 3D Addition', () => {
         const interactions = new InteractionSystem(mockCtx);
         expect(interactions.flatRoofGizmo).toBeDefined();
         expect(interactions.gableRoofGizmo).toBeDefined();
+        expect(interactions.halfGableRoofGizmo).toBeDefined();
         expect(interactions.roofPitchGizmo).toBeDefined();
 
         // 1. Select flat roof
@@ -772,6 +773,7 @@ describe('Roof Pipeline & 3D Addition', () => {
         interactions.selectObject(flatRoof);
         expect(interactions.flatRoofGizmo.visible).toBe(true);
         expect(interactions.gableRoofGizmo.visible).toBe(false);
+        expect(interactions.halfGableRoofGizmo.visible).toBe(false);
         expect(interactions.roofPitchGizmo.visible).toBe(false);
 
         // 2. Select pitched gable roof -> routes to dedicated GableRoofGizmo
@@ -781,6 +783,26 @@ describe('Roof Pipeline & 3D Addition', () => {
         interactions.selectObject(gableRoof);
         expect(interactions.flatRoofGizmo.visible).toBe(false);
         expect(interactions.gableRoofGizmo.visible).toBe(true);
+        expect(interactions.halfGableRoofGizmo.visible).toBe(false);
+        expect(interactions.roofPitchGizmo.visible).toBe(false);
+
+        // 2b. Select shed / half_gable roof -> routes to dedicated HalfGableRoofGizmo
+        const shedRoof = new THREE.Mesh();
+        shedRoof.userData = { isRoof: true, entity: { type: 'roof', id: 'shed_roof_1', config: { roofType: 'shed', pitch: 20, overhang: 8 } } };
+
+        interactions.selectObject(shedRoof);
+        expect(interactions.flatRoofGizmo.visible).toBe(false);
+        expect(interactions.gableRoofGizmo.visible).toBe(false);
+        expect(interactions.halfGableRoofGizmo.visible).toBe(true);
+        expect(interactions.roofPitchGizmo.visible).toBe(false);
+
+        const halfGableRoof = new THREE.Mesh();
+        halfGableRoof.userData = { isRoof: true, entity: { type: 'roof', id: 'half_gable_roof_1', config: { roofType: 'half_gable', pitch: 20, overhang: 8 } } };
+
+        interactions.selectObject(halfGableRoof);
+        expect(interactions.flatRoofGizmo.visible).toBe(false);
+        expect(interactions.gableRoofGizmo.visible).toBe(false);
+        expect(interactions.halfGableRoofGizmo.visible).toBe(true);
         expect(interactions.roofPitchGizmo.visible).toBe(false);
 
         // 3. Select other pitched roof (e.g. hip) -> routes to RoofPitchCurvatureGizmo
@@ -790,12 +812,14 @@ describe('Roof Pipeline & 3D Addition', () => {
         interactions.selectObject(hipRoof);
         expect(interactions.flatRoofGizmo.visible).toBe(false);
         expect(interactions.gableRoofGizmo.visible).toBe(false);
+        expect(interactions.halfGableRoofGizmo.visible).toBe(false);
         expect(interactions.roofPitchGizmo.visible).toBe(true);
 
         // 4. Deselect
         interactions.deselect();
         expect(interactions.flatRoofGizmo.visible).toBe(false);
         expect(interactions.gableRoofGizmo.visible).toBe(false);
+        expect(interactions.halfGableRoofGizmo.visible).toBe(false);
         expect(interactions.roofPitchGizmo.visible).toBe(false);
 
         interactions.dispose();
@@ -1165,5 +1189,361 @@ describe('Roof Pipeline & 3D Addition', () => {
         expect(foundRidgeVertexAtZero).toBe(true);
         // Peak height should be determined by building span baseD (150) / 2 * tan(30) = 43.3
         expect(maxLocalY).toBeCloseTo(Math.tan(30 * Math.PI / 180) * 75, 1);
+    });
+
+    it('18. HalfGableRoofGizmo: Dedicated 3D interactive handles for High Ridge Peak, Curvature, Low Eave, High Eave, Side Rakes, Corners, Flip Slope/Axis, and In-place HUD', async () => {
+        const { HalfGableRoofGizmo } = await import('../HalfGableRoofGizmo.js');
+        const mockEnvBuilder = { updateRoofLive: vi.fn(), buildWallGroup: vi.fn() };
+        const setTransformMode = vi.fn();
+        const mockCtx = {
+            renderer: { domElement: { addEventListener: vi.fn(), removeEventListener: vi.fn(), getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }), parentElement: null, style: {} } },
+            camera: new THREE.PerspectiveCamera(45, 1, 1, 1000),
+            scene: new THREE.Group(),
+            controls: { enabled: true, addEventListener: vi.fn(), removeEventListener: vi.fn() },
+            envBuilder: mockEnvBuilder,
+            requestRender: vi.fn(),
+            setTransformMode: setTransformMode,
+            planner: { executeWithSnapshot: (fn) => fn(), syncAll: vi.fn(), walls: [] }
+        };
+
+        const gizmo = new HalfGableRoofGizmo(mockCtx);
+        expect(gizmo.visible).toBe(false);
+
+        const halfGableRoofEntity = {
+            id: 'roof_half_gable_test',
+            type: 'roof',
+            points: [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 150 }, { x: 0, y: 150 }],
+            config: {
+                roofType: 'half_gable',
+                pitch: 20,
+                curve: 0,
+                overhangs: [8, 8, 8, 8],
+                ridgeAxis: 'x',
+                flipSlope: false,
+                autoShapeWalls: true
+            },
+            elevation: 120,
+            updateGeometry: vi.fn()
+        };
+
+        const mockTargetMesh = new THREE.Mesh();
+        mockTargetMesh.userData = { isRoof: true, entity: halfGableRoofEntity };
+
+        // 1. Attach to half_gable roof in default 'corners' mode
+        gizmo.attach(mockTargetMesh, 'corners');
+        expect(gizmo.visible).toBe(true);
+
+        // Peak handle (High Ridge beam tube + dual-cone arrow)
+        expect(gizmo.peakHandle).not.toBeNull();
+        expect(gizmo.peakHandle.userData.type).toBe('pitch');
+        expect(gizmo.peakHandle.userData.role).toBe('peak');
+
+        // Slope Curvature handle (Cyan / Teal sphere)
+        expect(gizmo.curveHandle).not.toBeNull();
+        expect(gizmo.curveHandle.userData.type).toBe('curve');
+        expect(gizmo.curveHandle.userData.role).toBe('slope_curve');
+
+        // Edge handles (Low Eave vs High Eave vs Side Rakes)
+        expect(gizmo.edgeHandles.length).toBe(4);
+        // With ridgeAxis: 'x', flipSlope: false:
+        // Edge 0 (North, dy=0, y=0) is Low Eave (Cobalt Blue)
+        // Edge 2 (South, dy=0, y=150) is High Eave (Amber Gold)
+        // Edge 1 (East) & Edge 3 (West) are Side Rakes (Purple)
+        expect(gizmo.edgeHandles[0].userData.role).toBe('low_eave');
+        expect(gizmo.edgeHandles[1].userData.role).toBe('rake');
+        expect(gizmo.edgeHandles[2].userData.role).toBe('high_eave');
+        expect(gizmo.edgeHandles[3].userData.role).toBe('rake');
+
+        // Corner handles (4 corner crystals)
+        expect(gizmo.cornerHandles.length).toBe(4);
+        // Heights conform to low vs high eave
+        const lowCornerY = gizmo.cornerHandles[0].position.y;
+        const highCornerY = gizmo.cornerHandles[2].position.y;
+        expect(highCornerY).toBeGreaterThan(lowCornerY);
+
+        // 2. Simulate dragging Low Eave handle independently
+        gizmo.isDragging = true;
+        const lowEaveHandle = gizmo.edgeHandles[0];
+        gizmo.activeHandle = lowEaveHandle;
+        gizmo.initialOverhangs = [8, 8, 8, 8];
+        gizmo.dragStartPos.set(100, 120, 0);
+        gizmo.planeIntersect.set(100, 120, -15); // Delta outward = +15
+
+        gizmo.raycaster.ray.intersectPlane = (plane, target) => {
+            target.copy(gizmo.planeIntersect);
+            return target;
+        };
+
+        const oppHandle2BeforeZ = gizmo.edgeHandles[2].position.z;
+        const oppCorner2BeforeZ = gizmo.cornerHandles[2].position.z;
+        const oppCorner3BeforeZ = gizmo.cornerHandles[3].position.z;
+
+        gizmo._onPointerMove({ clientX: 400, clientY: 300, shiftKey: false, preventDefault: () => {}, stopPropagation: () => {} });
+        expect(halfGableRoofEntity.config.overhangs[0]).toBe(23); // 8 + 15
+        expect(halfGableRoofEntity.config.overhangs[1]).toBe(8);  // untouched
+        expect(halfGableRoofEntity.config.overhangs[2]).toBe(8);  // untouched
+        expect(halfGableRoofEntity.config.overhangs[3]).toBe(8);  // untouched
+
+        // Verify opposite high eave handle (South, index 2) and opposite corners remained 100% stationary!
+        expect(gizmo.edgeHandles[2].position.z).toBeCloseTo(oppHandle2BeforeZ, 2);
+        expect(gizmo.cornerHandles[2].position.z).toBeCloseTo(oppCorner2BeforeZ, 2);
+        expect(gizmo.cornerHandles[3].position.z).toBeCloseTo(oppCorner3BeforeZ, 2);
+
+        // 2b. Simulate dragging corner handle 2 (SE corner)
+        const cornerHandle2 = gizmo.cornerHandles[2];
+        gizmo.activeHandle = cornerHandle2;
+        gizmo.initialPoints = halfGableRoofEntity.points.map(p => ({ x: p.x, y: p.y }));
+        gizmo.initialMinX = 0; gizmo.initialMaxX = 200;
+        gizmo.initialMinY = 0; gizmo.initialMaxY = 150;
+        gizmo.dragStartPos.set(200, 120, 150);
+        gizmo.planeIntersect.set(230, 120, 180);
+        gizmo._onPointerMove({ clientX: 500, clientY: 400, shiftKey: false, preventDefault: () => {}, stopPropagation: () => {} });
+        expect(halfGableRoofEntity.points[2].x).toBe(230);
+        expect(halfGableRoofEntity.points[2].y).toBe(180);
+
+        // 3. Simulate dragging Ridge Peak handle to adjust pitch
+        gizmo.activeHandle = gizmo.peakHandle;
+        gizmo.initialPitch = 20;
+        gizmo.dragStartPos.set(100, 174.6, 150);
+        gizmo.planeIntersect.set(100, 195, 150); // deltaY = +20.4
+        gizmo._onPointerMove({ clientX: 400, clientY: 200, shiftKey: false, preventDefault: () => {}, stopPropagation: () => {} });
+        expect(halfGableRoofEntity.config.pitch).toBeGreaterThan(20);
+
+        // 3b. Simulate dragging Slope Curvature handle to adjust curvature
+        gizmo.activeHandle = gizmo.curveHandle;
+        gizmo.initialCurve = 0;
+        gizmo.dragStartPos.set(100, 140, 75);
+        gizmo.planeIntersect.set(100, 165, 75); // deltaY = +25 -> curve = +10
+        gizmo._onPointerMove({ clientX: 400, clientY: 200, shiftKey: false, preventDefault: () => {}, stopPropagation: () => {} });
+        expect(halfGableRoofEntity.config.curve).toBe(10);
+
+        // 3c. Simulate dragging pitch down to 0 (flat roof)
+        gizmo.activeHandle = gizmo.peakHandle;
+        gizmo.initialPitch = 20;
+        gizmo.initialRh = Math.tan(20 * Math.PI / 180) * 150;
+        gizmo.dragStartPos.set(100, 174.6, 150);
+        gizmo.planeIntersect.set(100, 0, 150); // deltaY = -174.6
+        gizmo._onPointerMove({ clientX: 400, clientY: 600, shiftKey: false, preventDefault: () => {}, stopPropagation: () => {} });
+        expect(halfGableRoofEntity.config.pitch).toBe(0);
+        expect(gizmo.dimBadge.innerText).toContain('0° (Flat)');
+
+        // 4. Test Floating HUD buttons
+        // Pitch buttons
+        const btnPitchSub = gizmo.domHUD.querySelector('#hg-btn-pitch-sub');
+        expect(btnPitchSub).not.toBeNull();
+        halfGableRoofEntity.config.pitch = 5;
+        btnPitchSub.click();
+        expect(halfGableRoofEntity.config.pitch).toBe(0);
+        const lblPitch = gizmo.domHUD.querySelector('#hg-lbl-pitch');
+        expect(lblPitch.innerText).toBe('0° Flat');
+
+        // Curve buttons
+        const btnCurveReset = gizmo.domHUD.querySelector('#hg-btn-curve-reset');
+        expect(btnCurveReset).not.toBeNull();
+        btnCurveReset.click();
+        expect(halfGableRoofEntity.config.curve).toBe(0);
+
+        const btnCurveSub = gizmo.domHUD.querySelector('#hg-btn-curve-sub');
+        expect(btnCurveSub).not.toBeNull();
+        btnCurveSub.click();
+        expect(halfGableRoofEntity.config.curve).toBe(-5);
+
+        const btnCurveAdd = gizmo.domHUD.querySelector('#hg-btn-curve-add');
+        expect(btnCurveAdd).not.toBeNull();
+        btnCurveAdd.click();
+        expect(halfGableRoofEntity.config.curve).toBe(0);
+
+        // Flip Slope button
+        const btnFlipSlope = gizmo.domHUD.querySelector('#hg-btn-flip-slope');
+        expect(btnFlipSlope).not.toBeNull();
+        btnFlipSlope.click();
+        expect(halfGableRoofEntity.config.flipSlope).toBe(true);
+        // After flipSlope, Edge 0 becomes High Eave and Edge 2 becomes Low Eave!
+        expect(gizmo.edgeHandles[0].userData.role).toBe('high_eave');
+        expect(gizmo.edgeHandles[2].userData.role).toBe('low_eave');
+
+        // Flip Ridge Axis button
+        const btnFlipAxis = gizmo.domHUD.querySelector('#hg-btn-flip-axis');
+        expect(btnFlipAxis).not.toBeNull();
+        btnFlipAxis.click();
+        expect(halfGableRoofEntity.config.ridgeAxis).toBe('y');
+        expect(mockEnvBuilder.updateRoofLive).toHaveBeenCalledWith(halfGableRoofEntity);
+
+        // Auto-Walls toggle button: default kept on, toggles off and on
+        const btnAuto = gizmo.domHUD.querySelector('#hg-btn-auto-walls');
+        expect(btnAuto).not.toBeNull();
+        btnAuto.click();
+        expect(halfGableRoofEntity.config.autoShapeWalls).toBe(false);
+        btnAuto.click();
+        expect(halfGableRoofEntity.config.autoShapeWalls).toBe(true);
+
+        // Material Mode button
+        const btnMat = gizmo.domHUD.querySelector('#hg-btn-mat');
+        expect(btnMat).not.toBeNull();
+        btnMat.click();
+        expect(setTransformMode).toHaveBeenCalledWith('material');
+
+        // 5. Test mode switching: 'move' and 'spin'
+        gizmo.attach(mockTargetMesh, 'move');
+        expect(gizmo.moveHandle).not.toBeNull();
+        expect(gizmo.peakHandle).toBeNull();
+        expect(gizmo.curveHandle).toBeNull();
+        expect(gizmo.edgeHandles.length).toBe(0);
+
+        gizmo.attach(mockTargetMesh, 'spin');
+        expect(gizmo.spinHandle).not.toBeNull();
+        expect(gizmo.moveHandle).toBeNull();
+        expect(gizmo.curveHandle).toBeNull();
+
+        // Detach
+        gizmo.detach();
+        expect(gizmo.visible).toBe(false);
+        gizmo.dispose();
+    });
+
+    it('19. Roof3DBuilder: builds half_gable roof with mono-pitch slope, gable end walls, and curved subdivisions', () => {
+        const targetGroup = new THREE.Group();
+        const mockCtx = {
+            structureGroup: targetGroup,
+            interactables: [],
+            helpers: {
+                getDynamicMaterial: vi.fn().mockReturnValue(new THREE.MeshStandardMaterial({ color: 0x888888 }))
+            },
+            assets: {
+                getTexture: vi.fn().mockResolvedValue(new THREE.Texture())
+            }
+        };
+
+        const builder = new Roof3DBuilder(mockCtx);
+        const points = [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 150 }, { x: 0, y: 150 }];
+
+        // 1. Build half_gable roof with default config (auto wall kept on)
+        const halfGableRoof = {
+            points,
+            config: {
+                roofType: 'half_gable',
+                pitch: 25,
+                curve: 15,
+                overhang: 8,
+                ridgeAxis: 'x',
+                material: 'terracotta_tiles_roof'
+            },
+            elevation: 100
+        };
+
+        builder.buildRoofs([halfGableRoof], 0, false, targetGroup);
+        expect(targetGroup.children.length).toBe(1);
+
+        const roofGroup = targetGroup.children[0];
+        const roofMesh = roofGroup.children.find(c => c.userData?.isRoof);
+        expect(roofMesh).toBeDefined();
+
+        // Check that geometry was created with curve subdivisions (32 subdivisions)
+        const pos = roofMesh.geometry.attributes.position;
+        expect(pos.count).toBeGreaterThan(100);
+
+        // Verify gable end walls and high eave wall are generated and do not exceed roof underside
+        const gableEndMeshes = roofMesh.children.filter(c => c.userData?.isGableWall || c.userData?.isGable);
+        expect(gableEndMeshes.length).toBeGreaterThanOrEqual(1);
+        const gableWallPos = gableEndMeshes[0].geometry.attributes.position;
+        let maxWallY = -Infinity;
+        for (let i = 0; i < gableWallPos.count; i++) {
+            maxWallY = Math.max(maxWallY, gableWallPos.getY(i));
+        }
+        const span = 150;
+        const rh = Math.tan(25 * Math.PI / 180) * span;
+        expect(maxWallY).toBeLessThanOrEqual(rh);
+
+        // 2. Build half_gable roof with autoShapeWalls: false -> ZERO gable end walls
+        const targetGroupNoWalls = new THREE.Group();
+        mockCtx.structureGroup = targetGroupNoWalls;
+        const halfGableRoofNoWalls = {
+            points,
+            config: {
+                roofType: 'half_gable',
+                pitch: 25,
+                overhang: 8,
+                ridgeAxis: 'x',
+                autoShapeWalls: false,
+                material: 'terracotta_tiles_roof'
+            },
+            elevation: 100
+        };
+
+        builder.buildRoofs([halfGableRoofNoWalls], 0, false, targetGroupNoWalls);
+        const roofGroupNoWalls = targetGroupNoWalls.children[0];
+        const roofMeshNoWalls = roofGroupNoWalls.children.find(c => c.userData?.isRoof);
+        const gableEndMeshesNoWalls = roofMeshNoWalls.children.filter(c => c.userData?.isGableWall || c.userData?.isGable);
+        expect(gableEndMeshesNoWalls.length).toBe(0);
+
+        // 3. Build half_gable roof with pitch 0 (flat) -> zero gable end walls even if autoShapeWalls: true
+        const targetGroupFlat = new THREE.Group();
+        mockCtx.structureGroup = targetGroupFlat;
+        const flatHalfGable = {
+            points,
+            config: {
+                roofType: 'half_gable',
+                pitch: 0,
+                overhang: 8,
+                ridgeAxis: 'x',
+                autoShapeWalls: true
+            },
+            elevation: 100
+        };
+        builder.buildRoofs([flatHalfGable], 0, false, targetGroupFlat);
+        const flatRoofMesh = targetGroupFlat.children[0].children.find(c => c.userData?.isRoof);
+        const flatGableWalls = flatRoofMesh.children.filter(c => c.userData?.isGableWall || c.userData?.isGable);
+        expect(flatGableWalls.length).toBe(0);
+
+        // 4. Build shed roof alias
+        const shedGroup = new THREE.Group();
+        mockCtx.structureGroup = shedGroup;
+        const shedRoof = {
+            points,
+            config: {
+                roofType: 'shed',
+                pitch: 20,
+                overhang: 8,
+                ridgeAxis: 'y',
+                material: 'terracotta_tiles_roof'
+            },
+            elevation: 100
+        };
+
+        builder.buildRoofs([shedRoof], 0, false, shedGroup);
+        expect(shedGroup.children.length).toBe(1);
+        const shedMesh = shedGroup.children[0].children.find(c => c.userData?.isRoof);
+        expect(shedMesh).toBeDefined();
+
+        // 5. CRITICAL: Build half_gable roof on top of REAL room walls in the 3D scene (walls array passed!)
+        const sceneGroupWithWalls = new THREE.Group();
+        mockCtx.structureGroup = sceneGroupWithWalls;
+        const roomWalls = [
+            { id: 'w1', startAnchor: { x: 0, y: 0 }, endAnchor: { x: 200, y: 0 }, height: 240, thickness: 15 },
+            { id: 'w2', startAnchor: { x: 200, y: 0 }, endAnchor: { x: 200, y: 150 }, height: 240, thickness: 15 },
+            { id: 'w3', startAnchor: { x: 200, y: 150 }, endAnchor: { x: 0, y: 150 }, height: 240, thickness: 15 },
+            { id: 'w4', startAnchor: { x: 0, y: 150 }, endAnchor: { x: 0, y: 0 }, height: 240, thickness: 15 }
+        ];
+        const halfGableRoofOnWalls = {
+            id: 'half_gable_on_walls',
+            points,
+            config: {
+                roofType: 'half_gable',
+                pitch: 20,
+                overhang: 8,
+                ridgeAxis: 'x',
+                material: 'terracotta_tiles_roof'
+            }
+        };
+
+        builder.buildRoofs([halfGableRoofOnWalls], 0, roomWalls, sceneGroupWithWalls);
+        expect(sceneGroupWithWalls.children.length).toBe(1);
+        const roofGroupWalls = sceneGroupWithWalls.children[0];
+        const roofMeshWalls = roofGroupWalls.children.find(c => c.userData?.isRoof);
+        expect(roofMeshWalls).toBeDefined();
+
+        // Verify that auto walls ARE generated and shown on top of the room walls in the 3D scene!
+        const autoGablesOnWalls = roofMeshWalls.children.filter(c => c.userData?.isGableWall || c.userData?.isGable);
+        expect(autoGablesOnWalls.length).toBeGreaterThanOrEqual(1);
     });
 });

@@ -19,7 +19,7 @@
         <div class="control-group" v-if="roofConfig && roofConfig.roofType !== 'flat'"><label>Pitch (°)</label><div class="input-wrap"><input type="range" :value="roofConfig.pitch" min="0" max="75" @input="updatePitch($event.target.value)"><input type="number" :value="roofConfig.pitch" min="0" max="75" @input="updatePitch($event.target.value)"></div></div>
         <div class="control-group" v-if="roofConfig && roofConfig.roofType !== 'flat'"><label>Peak Height</label><div class="input-wrap"><DimensionInput :modelValue="calculateRoofPeakHeight(selectedEntity)" @change="(val) => updateRoofPitchFromHeight({ target: { value: val } }, selectedEntity)" /></div></div>
         
-        <div class="control-group" v-if="roofConfig && ['gable', 'shed', 'curved', 'gambrel', 'mansard', 'turret_round', 'turret_octagonal', 'turret_hexagonal'].includes(roofConfig.roofType)">
+        <div class="control-group" v-if="roofConfig && ['gable', 'shed', 'half_gable', 'curved', 'gambrel', 'mansard', 'turret_round', 'turret_octagonal', 'turret_hexagonal'].includes(roofConfig.roofType)">
             <label>Curvature / Arch</label>
             <div class="input-wrap">
                 <input type="range" :value="roofConfig.curve || 0" min="-50" max="50" @input="updateCurve($event.target.value)">
@@ -27,20 +27,20 @@
             </div>
         </div>
 
-        <div class="control-group" v-if="roofConfig && ['gable', 'shed', 'gambrel'].includes(roofConfig.roofType)">
+        <div class="control-group" v-if="roofConfig && ['gable', 'shed', 'half_gable', 'gambrel'].includes(roofConfig.roofType)">
             <label>Slope / Ridge Axis</label>
             <div style="display: flex; gap: 8px;">
                 <button style="flex: 1; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer;" :style="{ background: (roofConfig.ridgeAxis === 'x' || !roofConfig.ridgeAxis) ? '#e5e7eb' : 'white', borderColor: (roofConfig.ridgeAxis === 'x' || !roofConfig.ridgeAxis) ? '#9ca3af' : '#d1d5db' }" @click="updateRidgeAxis('x')">Horizontal (X)</button>
                 <button style="flex: 1; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer;" :style="{ background: roofConfig.ridgeAxis === 'y' ? '#e5e7eb' : 'white', borderColor: roofConfig.ridgeAxis === 'y' ? '#9ca3af' : '#d1d5db' }" @click="updateRidgeAxis('y')">Vertical (Y)</button>
             </div>
         </div>
-        <div class="control-group" v-if="roofConfig && roofConfig.roofType === 'shed'">
+        <div class="control-group" v-if="roofConfig && (roofConfig.roofType === 'shed' || roofConfig.roofType === 'half_gable')">
             <label>Flip High/Low Side</label>
             <div class="input-wrap" style="justify-content: flex-end;">
                 <input type="checkbox" :checked="!!roofConfig.flipSlope" @change="updateFlipSlope($event.target.checked)">
             </div>
         </div>
-        <div class="control-group" v-if="roofConfig && roofConfig.roofType === 'gable'">
+        <div class="control-group" v-if="roofConfig && ['gable', 'shed', 'half_gable'].includes(roofConfig.roofType)">
             <label>Auto-Shape Walls</label>
             <div class="input-wrap" style="justify-content: flex-end;">
                 <input type="checkbox" :checked="!!roofConfig.autoShapeWalls" @change="updateAutoShapeWalls($event.target.checked)">
@@ -79,7 +79,7 @@
                     </div>
                 </div>
 
-                <div v-if="['gable', 'curved', 'shed', 'hip', 'half_hip', 'dutch_gable', 'jerkinhead', 'gambrel', 'mansard'].includes(roofConfig.roofType)" style="border-top: 1px dashed #cbd5e1; padding-top: 8px; margin-top: 6px;">
+                <div v-if="['gable', 'curved', 'shed', 'half_gable', 'hip', 'half_hip', 'dutch_gable', 'jerkinhead', 'gambrel', 'mansard'].includes(roofConfig.roofType)" style="border-top: 1px dashed #cbd5e1; padding-top: 8px; margin-top: 6px;">
                     <div style="display: flex; align-items: center; justify-content: space-between;">
                         <label style="font-size: 11px; font-weight: 600; color: #475569; cursor: pointer; display: flex; align-items: center; gap: 6px;">
                             <input type="checkbox" v-model="enablePerSlope" @change="handlePerSlopeToggle">
@@ -89,7 +89,7 @@
                     </div>
 
                     <div v-if="enablePerSlope" style="display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap;">
-                        <template v-if="['gable', 'curved', 'shed'].includes(roofConfig.roofType)">
+                        <template v-if="['gable', 'curved', 'shed', 'half_gable'].includes(roofConfig.roofType)">
                             <button class="slope-select-btn" :class="{ active: activeSlopeKey === 'slope1' }" @click="activeSlopeKey = 'slope1'">
                                 Slope 1 ({{ (roofConfig.ridgeAxis === 'y') ? 'West' : 'North' }})
                                 <span class="slope-mat-indicator" :title="getSlopeMatName('slope1')">{{ getSlopeMatName('slope1') }}</span>
@@ -439,7 +439,7 @@
                 </div>
             </div>
 
-            <div v-if="['gable', 'shed', 'half_hip', 'curved', 'gambrel', 'dutch_gable', 'jerkinhead'].includes(roofConfig.roofType)">
+            <div v-if="['gable', 'shed', 'half_gable', 'half_hip', 'curved', 'gambrel', 'dutch_gable', 'jerkinhead'].includes(roofConfig.roofType)">
                 <h4 class="props-subtitle" style="margin-top: 15px;">Gable Wall Material</h4>
                 <div class="decor-grid">
                     <div v-for="(config, key) in wallDecorRegistry" :key="'g'+key" class="decor-item" @click="updateGableMaterial(key)" :class="{ active: roofConfig.gableMaterial === key }">
@@ -578,12 +578,28 @@ const updateMasterOverhang = (val) => {
 };
 
 const getSideLabel = (index) => {
-    if (!roofConfig.value || roofConfig.value.roofType !== 'gable') {
-        return `Side ${index + 1} Overhang`;
-    }
+    if (!roofConfig.value) return `Side ${index + 1} Overhang`;
+    const rType = roofConfig.value.roofType;
     const axis = roofConfig.value.ridgeAxis || 'x';
-    const isEave = (axis === 'x') ? (index === 0 || index === 2) : (index === 1 || index === 3);
-    return isEave ? `Side ${index + 1} (Eave Overhang)` : `Side ${index + 1} (Gable Rake Overhang)`;
+    const flip = !!roofConfig.value.flipSlope;
+    if (rType === 'gable') {
+        const isEave = (axis === 'x') ? (index === 0 || index === 2) : (index === 1 || index === 3);
+        return isEave ? `Side ${index + 1} (Eave Overhang)` : `Side ${index + 1} (Gable Rake Overhang)`;
+    }
+    if (rType === 'shed' || rType === 'half_gable') {
+        let role = 'Rake';
+        if (axis === 'x') {
+            if (index === 0) role = flip ? 'High Ridge Overhang' : 'Low Eave Overhang';
+            else if (index === 2) role = flip ? 'Low Eave Overhang' : 'High Ridge Overhang';
+            else role = 'Gable Rake Overhang';
+        } else {
+            if (index === 1) role = flip ? 'Low Eave Overhang' : 'High Ridge Overhang';
+            else if (index === 3) role = flip ? 'High Ridge Overhang' : 'Low Eave Overhang';
+            else role = 'Gable Rake Overhang';
+        }
+        return `Side ${index + 1} (${role})`;
+    }
+    return `Side ${index + 1} Overhang`;
 };
 
 const updateSideOverhang = (index, val) => {
@@ -724,7 +740,7 @@ const removeChimney = (idx) => {
 };
 
 const activeSlopeLabel = computed(() => {
-    if (['gable', 'curved', 'shed'].includes(roofConfig.value?.roofType)) {
+    if (['gable', 'curved', 'shed', 'half_gable'].includes(roofConfig.value?.roofType)) {
         return activeSlopeKey.value === 'slope1' ? 'Slope 1' : 'Slope 2';
     }
     return activeSlopeKey.value.toUpperCase();

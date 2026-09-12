@@ -211,13 +211,14 @@ export class RoofPitchCurvatureGizmo extends THREE.Group {
                     const axis = conf.ridgeAxis || 'x';
                     const span = (conf.roofType === 'gable' ? (axis === 'x' ? d : w) : Math.min(w, d));
 
-                    let newRh = Math.max(4, this.initialRh + deltaY);
+                    let newRh = Math.max(0, this.initialRh + deltaY);
                     let newPitch = Math.atan2(newRh, span / 2) * (180 / Math.PI);
-                    newPitch = Math.max(5, Math.min(75, Math.round(newPitch)));
+                    newPitch = Math.max(0, Math.min(75, Math.round(newPitch)));
 
                     RoofEngine.setPitch(entity, newPitch, this.ctx.planner || this.ctx);
                     const peakFeet = this._formatFeetInches(newRh);
-                    this._updateDOMBadge(`PITCH: ${newPitch}&deg; | Peak: ${peakFeet}`, { x: e.clientX, y: e.clientY });
+                    const pitchLabel = newPitch === 0 ? '0° (Flat)' : `${newPitch}°`;
+                    this._updateDOMBadge(`PITCH: ${pitchLabel} | Peak: ${peakFeet}`, { x: e.clientX, y: e.clientY });
                 } else if (type === 'move') {
                     // Smooth, continuous direct 3D planar translation (world space)
                     let deltaX = this.planeIntersect.x - this.dragStartPos.x;

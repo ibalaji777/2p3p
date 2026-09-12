@@ -319,6 +319,7 @@ export class RoofMutationEngine {
         if (!roof) return;
         roof.config = roof.config || {};
         roof.config.autoShapeWalls = Boolean(enabled);
+        roof.config.showGableWalls = Boolean(enabled);
         this.notifyRoofUpdated(roof, planner || roof.planner, 'geometry');
     }
 
@@ -493,8 +494,8 @@ export class RoofMutationEngine {
             return;
         }
 
-        const gx = roof.group ? roof.group.x() : (roof.x || 0);
-        const gy = roof.group ? roof.group.y() : (roof.y || 0);
+        const gx = (roof.group && typeof roof.group.x === 'function') ? roof.group.x() : (roof.x || 0);
+        const gy = (roof.group && typeof roof.group.y === 'function') ? roof.group.y() : (roof.y || 0);
         const bounds = RoofGeometryEngine.getBounds(roof.points, { x: gx, y: gy });
         const roofH = RoofGeometryEngine.getPeakHeight(roof);
 

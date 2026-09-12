@@ -192,7 +192,7 @@ function createRectangularStructure(planner, origin, w, d, wallHeight, roofType,
         if (roof.group && typeof roof.group.position === 'function') {
             roof.group.position({ x: origin.x, y: origin.y });
         }
-        if (roofType === 'gable') {
+        if (['gable', 'shed', 'half_gable'].includes(roofType)) {
             RoofEngine.setRidgeAxis(roof, (Math.abs(rotationDeg) % 180 === 90) ? 'x' : 'y', false, planner);
             RoofEngine.setAutoShapeWalls(roof, true, planner);
         }
@@ -200,9 +200,9 @@ function createRectangularStructure(planner, origin, w, d, wallHeight, roofType,
         const roofConfig = {
             roofType: roofType,
             pitch: pitch,
-            gableMaterial: roofType === 'gable' ? 'white_plaster_wall' : undefined,
-            ridgeAxis: roofType === 'gable' ? ((Math.abs(rotationDeg) % 180 === 90) ? 'x' : 'y') : undefined,
-            autoShapeWalls: roofType === 'gable'
+            gableMaterial: ['gable', 'shed', 'half_gable'].includes(roofType) ? 'white_plaster_wall' : undefined,
+            ridgeAxis: ['gable', 'shed', 'half_gable'].includes(roofType) ? ((Math.abs(rotationDeg) % 180 === 90) ? 'x' : 'y') : undefined,
+            autoShapeWalls: ['gable', 'shed', 'half_gable'].includes(roofType)
         };
         roof = RoofEngine.createRoof(planner, roofPts, roofConfig, {
             rotation: rotationDeg,
