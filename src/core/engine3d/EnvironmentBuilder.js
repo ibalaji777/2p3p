@@ -210,7 +210,7 @@ export class EnvironmentBuilder {
             this.buildOutdoorZones(outdoorZones, this.ctx.structureGroup);
         }
 
-        const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
+        const planner = this.ctx.planner || (typeof window !== 'undefined' ? (window.plannerInstance || window.planner?.value || window.planner) : null);
         const platforms = planner?.platforms || [];
         if (platforms && platforms.length > 0) {
             this.buildPlatforms(platforms, this.ctx.structureGroup);

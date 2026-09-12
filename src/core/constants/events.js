@@ -21,5 +21,7 @@ export const EVENTS = {
     WALL_PUSH_PULL_CHANGE: 'wall-push-pull-change',
     WALL_PUSH_PULL_END: 'wall-push-pull-end',
     MATERIAL_GIZMO_APPLY: 'material-gizmo-apply',
-    MATERIAL_GIZMO_SELECT: 'material-gizmo-select'
+    MATERIAL_GIZMO_SELECT: 'material-gizmo-select',
+    WALL_CHANGE: 'wall-change',
+    WALL_HEIGHT_CHANGE: 'wall-height-change'
 };

@@ -117,6 +117,20 @@ export class CommonInteractionController {
             }
         }
 
+        // 4. Building Rise Mode (Sims 4 Style)
+        if (toolId === COMMON_TOOLS.BUILDING_RISE) {
+            if (this.ctx.gizmoManager) {
+                this.ctx.gizmoManager.setTransformMode('none', true);
+            }
+            if (this.ctx.interactions?.roomInteractiveSuite) {
+                this.ctx.interactions.roomInteractiveSuite.activateBuildingRiseMode();
+            }
+        } else {
+            if (this.ctx.interactions?.roomInteractiveSuite && (!this.selectedEntity || !this.selectedEntity.path)) {
+                this.ctx.interactions.roomInteractiveSuite.deactivateBuildingRiseMode();
+            }
+        }
+
         // Emit global event for reactive UI updates
         coreEventBus.emit('CommonToolChanged', {
             activeTool: this.activeTool,
@@ -219,6 +233,9 @@ export class CommonInteractionController {
                 break;
             case SHORTCUT_ACTIONS.MATERIAL:
                 this.setTool(COMMON_TOOLS.MATERIAL);
+                break;
+            case SHORTCUT_ACTIONS.BUILDING_RISE:
+                this.setTool(COMMON_TOOLS.BUILDING_RISE);
                 break;
             case SHORTCUT_ACTIONS.MOVE:
                 this.setTool(COMMON_TOOLS.MOVE);

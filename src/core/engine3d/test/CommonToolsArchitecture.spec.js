@@ -12,7 +12,7 @@ import { MaterialSlots } from '../../constants/materialSlots.js';
 
 describe('Universal 3D Scene Common Tools Architecture (Sims 4 Style)', () => {
     describe('1. CommonToolRegistry', () => {
-        it('should define all 7 common tools', () => {
+        it('should define all 8 common tools', () => {
             expect(COMMON_TOOLS.SELECT).toBe('select');
             expect(COMMON_TOOLS.MATERIAL).toBe('material');
             expect(COMMON_TOOLS.MOVE).toBe('move');
@@ -20,13 +20,18 @@ describe('Universal 3D Scene Common Tools Architecture (Sims 4 Style)', () => {
             expect(COMMON_TOOLS.TILT).toBe('tilt');
             expect(COMMON_TOOLS.AXIS_UP).toBe('axis_up');
             expect(COMMON_TOOLS.AXIS_DOWN).toBe('axis_down');
+            expect(COMMON_TOOLS.BUILDING_RISE).toBe('building_rise');
         });
 
         it('should have complete tool metadata definitions', () => {
-            expect(COMMON_TOOL_DEFINITIONS.length).toBe(7);
+            expect(COMMON_TOOL_DEFINITIONS.length).toBe(8);
             const selectDef = getToolDefinition(COMMON_TOOLS.SELECT);
             expect(selectDef).toBeDefined();
             expect(selectDef.hotkey).toBe('V');
+
+            const riseDef = getToolDefinition(COMMON_TOOLS.BUILDING_RISE);
+            expect(riseDef).toBeDefined();
+            expect(riseDef.hotkey).toBe('U');
 
             const matDef = getToolDefinition(COMMON_TOOLS.MATERIAL);
             expect(matDef.hotkey).toBe('B');

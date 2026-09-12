@@ -308,8 +308,12 @@ export class WallEngine {
         WallMutationEngine.pushPull(wall, side, distance, options, planner);
     }
 
-    static batchUpdate(planner, walls, updates) {
-        WallMutationEngine.batchUpdate(planner, walls, updates);
+    static batchUpdate(planner, walls, updates, shouldSync = true) {
+        WallMutationEngine.batchUpdate(planner, walls, updates, shouldSync);
+    }
+
+    static batchMutateOnly(walls, updates) {
+        WallMutationEngine.batchMutateOnly(walls, updates);
     }
 
     static attachWidget(wall, widget, shouldSync = true, planner = null) {

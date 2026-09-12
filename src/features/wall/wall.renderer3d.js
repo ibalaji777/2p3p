@@ -455,9 +455,8 @@ export class Wall3DBuilder {
             wallGeo = BufferGeometryUtils.mergeGeometries(segmentGeos, false);
         }
 
-        // ====== MITER JOINT SHEARING ======
+        const allWalls = ctx.planner?.walls || window.planner?.value?.walls || [];
         if (!w.wallShapeData) {
-            const allWalls = ctx.planner?.walls || window.planner?.value?.walls || [];
             WallEngine.recalculateGeometry(w, allWalls);
         }
         const startProfile = w.wallShapeData?.startProfile || w.startProfile;

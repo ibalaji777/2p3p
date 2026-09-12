@@ -1580,6 +1580,7 @@ export class FloorPlanner {
                 const roomElevation = tier.elevation;
 
                 let existingRoom = (this.rooms || []).find(r => {
+                    if (newRooms.includes(r)) return false;
                     if (Math.abs((Number(r.elevation) || 0) - roomElevation) > 5) return false;
                     if (Math.hypot(r.cx - cx, r.cy - cy) >= 30) return false;
                     if (!r.path || r.path.length < 3) return false;
@@ -1592,15 +1593,42 @@ export class FloorPlanner {
                     if (Math.abs(oldW - newW) > 40 || Math.abs(oldH - newH) > 40) return false;
                     return true;
                 });
+
+                // Fallback: If elevation changed, match by 2D footprint so custom elevation & materials are preserved
+                if (!existingRoom) {
+                    existingRoom = (this.rooms || []).find(r => {
+                        if (newRooms.includes(r)) return false;
+                        if (Math.hypot(r.cx - cx, r.cy - cy) >= 30) return false;
+                        if (!r.path || r.path.length < 3) return false;
+                        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                        r.path.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); });
+                        let newMinX = Infinity, newMaxX = -Infinity, newMinY = Infinity, newMaxY = -Infinity;
+                        path.forEach(p => { newMinX = Math.min(newMinX, p.x); newMaxX = Math.max(newMaxX, p.x); newMinY = Math.min(newMinY, p.y); newMaxY = Math.max(newMaxY, p.y); });
+                        const oldW = maxX - minX, oldH = maxY - minY;
+                        const newW = newMaxX - newMinX, newH = newMaxY - newMinY;
+                        if (Math.abs(oldW - newW) > 40 || Math.abs(oldH - newH) > 40) return false;
+                        return true;
+                    });
+                }
+
                 let room;
+                const roomWalls = [...new Set(face.map(e => e.wall).filter(Boolean))];
+                const boundingWallH = roomWalls.find(w => w.height !== undefined)?.height;
+                const targetWallH = boundingWallH !== undefined 
+                    ? Number(boundingWallH) 
+                    : (existingRoom?.wallHeight !== undefined 
+                        ? Number(existingRoom.wallHeight) 
+                        : (tierWalls.length > 0 && tierWalls[0].height !== undefined ? Number(tierWalls[0].height) : 300));
                 if (existingRoom) {
                     existingRoom.path = path;
                     existingRoom.cx = cx;
                     existingRoom.cy = cy;
                     existingRoom.elevation = roomElevation;
+                    existingRoom.wallHeight = targetWallH;
+                    if (roomWalls.length > 0) existingRoom.walls = roomWalls;
                     room = existingRoom;
                 } else {
-                    room = { path, cx, cy, elevation: roomElevation, configId: 'hardwood', isDeleted: false, isHidden: false, materialRepeat: undefined, description: undefined };
+                    room = { path, cx, cy, elevation: roomElevation, wallHeight: targetWallH, configId: 'hardwood', isDeleted: false, isHidden: false, materialRepeat: undefined, description: undefined, walls: roomWalls };
                 }
                 newRooms.push(room);
             });

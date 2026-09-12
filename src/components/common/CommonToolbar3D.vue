@@ -26,6 +26,22 @@
         </svg>
       </button>
 
+      <!-- BUILDING RISE & ROOM LIFT TOOL (SIMS 4) -->
+      <button 
+        class="tool-btn" 
+        :class="{ active: currentTool === 'building_rise' }"
+        @click="selectTool('building_rise')"
+        title="Sims 4 Building Rise & Room Lift Tool (Key: U)"
+      >
+        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="10" width="16" height="11" rx="1.5"></rect>
+          <line x1="8" y1="10" x2="8" y2="21"></line>
+          <line x1="16" y1="10" x2="16" y2="21"></line>
+          <polyline points="9 5 12 2 15 5"></polyline>
+          <polyline points="9 7 12 10 15 7"></polyline>
+        </svg>
+      </button>
+
       <div class="toolbar-divider-h"></div>
 
       <!-- MOVE TOOL -->
@@ -225,6 +241,16 @@
                   </div>
                   <div class="keys-container">
                     <kbd class="key-chip">B</kbd>
+                  </div>
+                </div>
+
+                <div class="shortcut-item">
+                  <div class="action-desc">
+                    <strong>Rise Tool (All Walls & Room Lift)</strong>
+                    <span>Adjust all wall heights/elevations or lift room</span>
+                  </div>
+                  <div class="keys-container">
+                    <kbd class="key-chip">U</kbd>
                   </div>
                 </div>
 

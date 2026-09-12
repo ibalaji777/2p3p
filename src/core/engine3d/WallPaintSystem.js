@@ -16,7 +16,11 @@ export function resolvePlanner(planner, renderer3D) {
     if (planner && planner.walls) return planner;
     if (renderer3D && renderer3D.planner) return renderer3D.planner;
     if (renderer3D && renderer3D.ctx && renderer3D.ctx.planner) return renderer3D.ctx.planner;
-    if (typeof window !== 'undefined' && window.plannerInstance) return window.plannerInstance;
+    if (typeof window !== 'undefined') {
+        if (window.plannerInstance) return window.plannerInstance;
+        if (window.planner && window.planner.walls) return window.planner;
+        if (window.planner && window.planner.value && window.planner.value.walls) return window.planner.value;
+    }
     return null;
 }
 

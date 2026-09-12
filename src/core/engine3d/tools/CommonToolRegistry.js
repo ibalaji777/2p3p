@@ -10,7 +10,8 @@ export const COMMON_TOOLS = {
     SPIN: 'spin',
     TILT: 'tilt',
     AXIS_UP: 'axis_up',
-    AXIS_DOWN: 'axis_down'
+    AXIS_DOWN: 'axis_down',
+    BUILDING_RISE: 'building_rise'
 };
 
 export const COMMON_TOOL_DEFINITIONS = [
@@ -30,6 +31,15 @@ export const COMMON_TOOL_DEFINITIONS = [
         hotkey: 'B',
         tooltip: 'Paint Material (B)',
         description: 'Hover and click any face to apply materials consecutively.',
+        requiresSelection: false
+    },
+    {
+        id: COMMON_TOOLS.BUILDING_RISE,
+        label: 'Rise Tool',
+        icon: 'building-rise',
+        hotkey: 'U',
+        tooltip: 'Sims 4 Building Rise Tool (All Walls & Room Lift)',
+        description: 'Adjust wall heights and elevations for all walls simultaneously or select a specific room to lift its elevation.',
         requiresSelection: false
     },
     {

@@ -360,6 +360,14 @@ export class Preview3D {
         this._animateId = requestAnimationFrame(() => this.animate());
     }
 
+    get planner() {
+        return this._planner || (typeof window !== 'undefined' ? (window.plannerInstance || window.planner?.value || window.planner) : null);
+    }
+
+    set planner(val) {
+        this._planner = val;
+    }
+
     dispose() {
         if (this._onTransformChange && this.interactions && this.interactions.transformControls) {
             this.interactions.transformControls.removeEventListener('change', this._onTransformChange);
@@ -430,6 +438,9 @@ export class Preview3D {
             if (this.css2DRenderer) this.css2DRenderer.render(this.scene, this.camera);
             if (this.interactions && this.interactions.dimensionManager && this.renderer) {
                 this.interactions.dimensionManager.onCameraUpdate(this.camera, this.renderer.domElement.clientWidth, this.renderer.domElement.clientHeight);
+            }
+            if (this.interactions?.roomInteractiveSuite?.visible) {
+                this.interactions.roomInteractiveSuite.updateHUDPosition();
             }
             this.renderCoordinator.onFrameRendered();
             this.needsRender = false;
@@ -938,7 +949,7 @@ export class Preview3D {
 
     rebuildActiveFloors() {
         if (!this.envBuilder) return;
-        const planner = this.planner || window.planner?.value || window.plannerInstance;
+        const planner = this.planner || (typeof window !== 'undefined' ? (window.plannerInstance || window.planner?.value || window.planner) : null);
         if (!planner) return;
 
         if (planner.findRooms) {
@@ -1004,9 +1015,28 @@ export class Preview3D {
             return inside;
         };
 
-        floorMeshes.forEach(floorMesh => {
-            const room = floorMesh.userData.entity;
+        floorMeshes.forEach((floorMesh, idx) => {
+            let room = floorMesh.userData?.entity;
+            const canonicalRoom = (room && rooms.find(r => r === room))
+                || (room && rooms.find(r => Math.hypot((r.cx ?? 0) - (room.cx ?? 0), (r.cy ?? 0) - (room.cy ?? 0)) < 50))
+                || rooms[idx];
+            if (canonicalRoom) {
+                room = canonicalRoom;
+                floorMesh.userData.entity = canonicalRoom;
+                canonicalRoom.mesh3D = floorMesh;
+            }
             if (!room || !room.path || room.path.length < 3) return;
+
+            // Ensure room elevation matches walls if wall elevation was updated
+            if ((!room.elevation || Number(room.elevation) === 0) && planner.walls) {
+                const nonRailing = planner.walls.filter(w => !w.hidden && w.type !== 'railing');
+                if (nonRailing.length > 0 && Number(nonRailing[0].elevation) > 0) {
+                    const allElev = Number(nonRailing[0].elevation);
+                    if (nonRailing.every(w => Number(w.elevation) === allElev)) {
+                        room.elevation = allElev;
+                    }
+                }
+            }
             
             const cleanPath = cleanPolygonPts(room.path);
             if (cleanPath.length < 3) return;

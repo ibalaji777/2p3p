@@ -675,9 +675,9 @@ const shapesCatalog = ref([
 
 const wallsCatalog = ref([
     { isDivider: true, id: 'div_walls_basic', name: 'Standard Walls & Rooms' },
-    { id: 'wall_outer', name: 'Outer Wall', badge: 'STRUCTURAL', material: 'Brick & Plaster', specs: '230 mm Thick • 2800 mm High', image: '', toolId: 'outer', params: { type: 'outer', thickness: 16, height: 120 } },
-    { id: 'wall_inner', name: 'Inner Partition Wall', badge: 'PARTITION', material: 'Gypsum / Brick', specs: '115 mm Thick • 2800 mm High', image: '', toolId: 'inner', params: { type: 'inner', thickness: 8, height: 120 } },
-    { id: 'wall_room_box', name: 'Room Tool (4-Wall Box)', badge: 'SIMS 4', material: 'Brick & Plaster', specs: 'Enclosed 4-Wall Room', image: '', toolId: 'room_box', params: { type: 'room_box', thickness: 16, height: 120 } },
+    { id: 'wall_outer', name: 'Outer Wall', badge: 'STRUCTURAL', material: 'Brick & Plaster', specs: '230 mm Thick • 3000 mm High', image: '', toolId: 'outer', params: { type: 'outer', thickness: 16, height: 300 } },
+    { id: 'wall_inner', name: 'Inner Partition Wall', badge: 'PARTITION', material: 'Gypsum / Brick', specs: '115 mm Thick • 3000 mm High', image: '', toolId: 'inner', params: { type: 'inner', thickness: 8, height: 300 } },
+    { id: 'wall_room_box', name: 'Room Tool (4-Wall Box)', badge: 'SIMS 4', material: 'Brick & Plaster', specs: 'Enclosed 4-Wall Room • 3000 mm High', image: '', toolId: 'room_box', params: { type: 'room_box', thickness: 16, height: 300 } },
 
     { isDivider: true, id: 'div_walls_foundation', name: 'Foundations & Plinths (Sims 4)' },
     { id: 'wall_foundation', name: 'Foundation Wall', badge: 'PLINTH', material: 'Ashlar Stone / Masonry', specs: '240 mm Thick • 400 mm (Plinth Base)', image: '', toolId: 'foundation', params: { type: 'foundation', thickness: 24, height: 40, material: 'stone_ashlar_grey' } },
@@ -686,7 +686,7 @@ const wallsCatalog = ref([
     { isDivider: true, id: 'div_walls_half', name: 'Half Walls & Enclosures' },
     { id: 'wall_half_wall', name: 'Half Wall / Parapet', badge: 'PARAPET', material: 'Plaster with Dark Coping Cap', specs: '100 mm Thick • 500 mm High (Coping Cap)', image: '', toolId: 'half_wall', params: { type: 'half_wall', thickness: 10, height: 50, material: 'white_paint' } },
     { id: 'wall_compound', name: 'Compound Boundary Wall', badge: 'BOUNDARY', material: 'Stone / Boundary Brick', specs: '150 mm Thick • 1500 mm (5 ft) High', image: '', toolId: 'compound', params: { type: 'compound', height: 80, thickness: 12 } },
-    { id: 'wall_arc', name: 'Curved Wall (Arc)', badge: 'CURVED', material: 'Reinforced Concrete', specs: '230 mm Arc', image: '', toolId: 'arc', params: { type: 'arc', thickness: 10, height: 120 } }
+    { id: 'wall_arc', name: 'Curved Wall (Arc)', badge: 'CURVED', material: 'Reinforced Concrete', specs: '230 mm Arc • 3000 mm High', image: '', toolId: 'arc', params: { type: 'arc', thickness: 10, height: 300 } }
 ]);
 
 const railingCatalog = ref([

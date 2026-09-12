@@ -42,7 +42,7 @@ export function useAppTools({
             planner.value.activePresetParams = activePresetParams.value;
         } else if (tool === 'room_box') {
             if (!activePresetParams.value || activePresetParams.value.type !== 'room_box') {
-                activePresetParams.value = { type: 'room_box', thickness: 16, height: 120 };
+                activePresetParams.value = { type: 'room_box', thickness: 16, height: 300 };
                 planner.value.activePresetParams = activePresetParams.value;
             }
         } else if (tool === 'foundation' || tool === 'foundation_wall') {
@@ -62,7 +62,7 @@ export function useAppTools({
             }
         } else if (tool === 'outer' || tool === 'wall') {
             if (!activePresetParams.value || activePresetParams.value.type !== 'outer') {
-                activePresetParams.value = { type: 'outer', thickness: 16, height: 120 };
+                activePresetParams.value = { type: 'outer', thickness: 16, height: 300 };
                 planner.value.activePresetParams = activePresetParams.value;
             }
         } else if (tool === 'door' || tool.startsWith('door_')) {

@@ -64,6 +64,10 @@ export class WallMutationEngine {
         const h = Math.max(minH, Math.min(maxH, Number(newHeight) || minH));
         wall.height = h;
         if (wall.config) wall.config.height = h;
+        if (!wall.topProfileType || wall.topProfileType === 'normal') {
+            if (wall.startHeight !== undefined) wall.startHeight = h;
+            if (wall.endHeight !== undefined) wall.endHeight = h;
+        }
 
         if (wall.parentArc && wall.parentArc.walls && !wall._propagatingArcHeight) {
             wall.parentArc.height = h;
@@ -387,19 +391,43 @@ export class WallMutationEngine {
      * @param {Object} planner 
      * @param {Array<Object>} walls 
      * @param {Object} updates - { thickness, height, elevation, params }
+     * @param {boolean} shouldSync - If true, triggers planner.syncAll() and update3D(). Default is true.
      */
-    static batchUpdate(planner, walls = [], updates = {}) {
+    static batchUpdate(planner, walls = [], updates = {}, shouldSync = true) {
+        if (!walls || walls.length === 0) return;
+
+        this.batchMutateOnly(walls, updates);
+
+        if (shouldSync && planner && typeof planner.syncAll === 'function') {
+            planner.syncAll();
+            if (planner.update3D) planner.update3D();
+        }
+    }
+
+    /**
+     * Mutates wall data properties in-place without triggering planner.syncAll() or 2D redraw.
+     * Ideal for live interactive dragging (60 FPS performance).
+     * @param {Array<Object>} walls 
+     * @param {Object} updates 
+     */
+    static batchMutateOnly(walls = [], updates = {}) {
         if (!walls || walls.length === 0) return;
 
         walls.forEach(w => {
             w.wallShapeData = null;
             if (updates.thickness !== undefined) {
-                w.thickness = Number(updates.thickness);
-                if (w.config) w.config.thickness = Number(updates.thickness);
+                const thick = Number(updates.thickness);
+                w.thickness = thick;
+                if (w.config) w.config.thickness = thick;
             }
             if (updates.height !== undefined) {
-                w.height = Number(updates.height);
-                if (w.config) w.config.height = Number(updates.height);
+                const h = Number(updates.height);
+                w.height = h;
+                if (w.config) w.config.height = h;
+                if (!w.topProfileType || w.topProfileType === 'normal') {
+                    if (w.startHeight !== undefined) w.startHeight = h;
+                    if (w.endHeight !== undefined) w.endHeight = h;
+                }
             }
             if (updates.elevation !== undefined) {
                 w.elevation = Number(updates.elevation);
@@ -426,11 +454,6 @@ export class WallMutationEngine {
                 w.params = { ...(w.params || {}), ...updates.params };
             }
         });
-
-        if (planner && typeof planner.syncAll === 'function') {
-            planner.syncAll();
-            if (planner.update3D) planner.update3D();
-        }
     }
 
     /**

@@ -362,6 +362,7 @@ export class WallInteractiveSuite extends THREE.Group {
         `;
 
         this.hudButtons = [
+            { id: 'room_suite', label: '🏠 Room & Building', title: 'Open Sims 4 Room & Building Height Controls' },
             { id: 'push_pull', label: '↔️ Push / Pull', title: 'Adjust wall thickness & baseline (Panel #1)' },
             { id: 'corner', label: '📍 Move', title: 'Move wall vertices, slopes & heights (Panel #2)' },
             { id: 'extrude_recess', label: '🏛️ Bay / Niche', title: 'Extrude bay window or recessed niche (Panels #5 & #6)' },
@@ -592,6 +593,15 @@ export class WallInteractiveSuite extends THREE.Group {
 
     setMode(mode) {
         mode = mode || 'menu';
+        if (mode === 'room_suite') {
+            const targetObj = this.target;
+            this.detach();
+            if (this.ctx.interactions?.roomInteractiveSuite && targetObj) {
+                this.ctx.interactions.roomInteractiveSuite.attach(targetObj);
+            }
+            return;
+        }
+
         this.activeMode = mode;
         this.isSplitMode = (mode === 'split');
 

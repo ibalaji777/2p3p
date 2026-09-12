@@ -182,14 +182,22 @@ export class WallGeometryEngine {
 
                 const existingRay = rays.find(r => Math.abs(r.angle - angle) < 1e-4);
                 if (existingRay) {
-                    if (w === wall) existingRay.w = wall;
+                    if (w === wall) {
+                        existingRay.w = wall;
+                        existingRay.top = wTop;
+                        existingRay.bot = wBot;
+                        existingRay.height = wTop - wBot;
+                    }
                 } else {
                     rays.push({
                         w: w,
                         dir: dir,
                         angle: angle,
                         L_pt: isWStart ? w_p1_L : w_p2_R,
-                        R_pt: isWStart ? w_p1_R : w_p2_L
+                        R_pt: isWStart ? w_p1_R : w_p2_L,
+                        top: wTop,
+                        bot: wBot,
+                        height: wTop - wBot
                     });
                 }
             }
@@ -208,9 +216,26 @@ export class WallGeometryEngine {
 
         const myRay = rays[myIndex];
 
+        // Height-segmented co-spanning ray evaluation:
+        // Identify neighbor walls that also reach this wall's full height
+        const coSpanningRays = rays.filter(r => (r.top ?? ((Number(r.w?.elevation) || 0) + (Number(r.w?.height) || Number(r.w?.config?.height) || 120))) >= wallTop - 2.0);
+
+        let activeRays = rays;
+        if (coSpanningRays.length >= 2) {
+            // At this wall's height level, evaluate corners against the co-spanning neighbors
+            activeRays = coSpanningRays;
+        }
+
+        activeRays.sort((a, b) => a.angle - b.angle);
+        const activeMyIndex = activeRays.findIndex(r => r.w === wall);
+        if (activeMyIndex === -1) {
+            return { corners: [baseL, baseR], trueCorners: [baseL, baseR], hasCap: true, bevelL: null, bevelR: null };
+        }
+        const activeMyRay = activeRays[activeMyIndex];
+
         // 3+ RAYS: Check if this wall is part of a straight collinear through-wall meeting a T-junction
-        const collinearOppositeRay = rays.find(r => r !== myRay && Math.abs(r.dir.x * myRay.dir.x + r.dir.y * myRay.dir.y + 1) < 1e-3);
-        if (collinearOppositeRay && rays.length >= 3) {
+        const collinearOppositeRay = activeRays.find(r => r !== activeMyRay && Math.abs(r.dir.x * activeMyRay.dir.x + r.dir.y * activeMyRay.dir.y + 1) < 1e-3);
+        if (collinearOppositeRay && activeRays.length >= 3) {
             return {
                 corners: [baseL, baseR],
                 trueCorners: [baseL, baseR],
@@ -222,8 +247,67 @@ export class WallGeometryEngine {
             };
         }
 
-        const leftNeighbor = rays[(myIndex - 1 + rays.length) % rays.length];
-        const rightNeighbor = rays[(myIndex + 1) % rays.length];
+        // 2 RAYS WITH UNEQUAL HEIGHTS: Smart Butt-Joint (Taller wall runs full to outer corner; shorter wall butts into inner face)
+        if (rays.length === 2) {
+            const otherRay = rays[1 - myIndex];
+            const otherH = otherRay.height ?? (Number(otherRay.w?.height) || Number(otherRay.w?.config?.height) || 120);
+            const hDiff = wallH - otherH;
+            if (Math.abs(hDiff) > 2.0) {
+                const cp = myRay.dir.x * otherRay.dir.y - myRay.dir.y * otherRay.dir.x;
+                let myOuterPt, otherOuterPt, myInnerPt, otherInnerPt;
+                if (cp > 0) {
+                    // Turning left
+                    myOuterPt = myRay.R_pt;
+                    otherOuterPt = otherRay.L_pt;
+                    myInnerPt = myRay.L_pt;
+                    otherInnerPt = otherRay.R_pt;
+                } else {
+                    // Turning right
+                    myOuterPt = myRay.L_pt;
+                    otherOuterPt = otherRay.R_pt;
+                    myInnerPt = myRay.R_pt;
+                    otherInnerPt = otherRay.L_pt;
+                }
+
+                const outerPt = this.intersectLines(myOuterPt, myRay.dir, otherOuterPt, otherRay.dir) || P;
+                const innerPt = this.intersectLines(myInnerPt, myRay.dir, otherInnerPt, otherRay.dir) || P;
+
+                let distAlongDir = 0;
+                if (hDiff > 2.0) {
+                    // Current wall is TALLER (dominant): extends full to outer corner boundary
+                    distAlongDir = (outerPt.x - P.x) * myRay.dir.x + (outerPt.y - P.y) * myRay.dir.y;
+                } else {
+                    // Current wall is SHORTER: butts squarely against inner face of taller wall
+                    distAlongDir = (innerPt.x - P.x) * myRay.dir.x + (innerPt.y - P.y) * myRay.dir.y;
+                }
+
+                const myNorm = { x: -myRay.dir.y, y: myRay.dir.x };
+                const buttL = {
+                    x: P.x + myNorm.x * ht + myRay.dir.x * distAlongDir,
+                    y: P.y + myNorm.y * ht + myRay.dir.y * distAlongDir
+                };
+                const buttR = {
+                    x: P.x - myNorm.x * ht + myRay.dir.x * distAlongDir,
+                    y: P.y - myNorm.y * ht + myRay.dir.y * distAlongDir
+                };
+
+                const finalL = isStart ? buttL : buttR;
+                const finalR = isStart ? buttR : buttL;
+
+                return {
+                    corners: [finalL, finalR],
+                    trueCorners: [finalL, finalR],
+                    hasCap: false,
+                    leftDir: otherRay.dir,
+                    rightDir: otherRay.dir,
+                    bevelL: null,
+                    bevelR: null
+                };
+            }
+        }
+
+        const leftNeighbor = activeRays[(activeMyIndex - 1 + activeRays.length) % activeRays.length];
+        const rightNeighbor = activeRays[(activeMyIndex + 1) % activeRays.length];
 
         // Left side intersection with rightNeighbor
         const rightNeighborHt = (rightNeighbor.w?.thickness || 20) / 2;

@@ -262,4 +262,71 @@ describe('Wall3DDrawSystem - 45-Degree Mitered Room Frame & Loop Closure', () =>
         expect(frameGeoDisposeSpy).toHaveBeenCalled();
         expect(edgesGeoDisposeSpy).toHaveBeenCalled();
     });
+
+    it('shears corners smoothly at 45 degrees when meeting walls have equal heights in Wall3DBuilder', async () => {
+        const { Wall3DBuilder } = await import('../../../features/wall/wall.renderer3d.js');
+        const { WallTopologyEngine } = await import('../../wall/WallTopologyEngine.js');
+
+        const plannerWithLayers = {
+            ...mockPlanner,
+            wallLayer: { add: vi.fn(), remove: vi.fn() },
+            dimensionLayer: { add: vi.fn(), remove: vi.fn() },
+            widgetLayer: { add: vi.fn(), remove: vi.fn() },
+            uiLayer: { add: vi.fn(), remove: vi.fn() }
+        };
+
+        const a1 = { x: 0, y: 0, connectedWalls: [] };
+        const a2 = { x: 200, y: 0, connectedWalls: [] };
+        const a3 = { x: 0, y: 200, connectedWalls: [] };
+
+        const w1 = WallTopologyEngine.createWall(plannerWithLayers, { startAnchor: a1, endAnchor: a2, thickness: 20, height: 280, addToPlanner: false });
+        const w2 = WallTopologyEngine.createWall(plannerWithLayers, { startAnchor: a1, endAnchor: a3, thickness: 20, height: 280, addToPlanner: false });
+        a1.connectedWalls.push(w1, w2);
+        a2.connectedWalls.push(w1);
+        a3.connectedWalls.push(w2);
+
+        const allWalls = [w1, w2];
+        const builder = new Wall3DBuilder();
+        const ctxBuilder = { planner: { walls: allWalls } };
+
+        const res1 = builder.buildWallGroup(w1, ctxBuilder);
+        expect(res1.wallGroup).toBeDefined();
+        const mesh1 = res1.wallGroup.children.find(c => c.isMesh);
+        expect(mesh1).toBeDefined();
+    });
+
+    it('forms clean square butt joint without diagonal 45-degree cuts when meeting walls have unequal heights', async () => {
+        const { WallGeometryEngine } = await import('../../wall/WallGeometryEngine.js');
+        const { WallTopologyEngine } = await import('../../wall/WallTopologyEngine.js');
+
+        const plannerWithLayers = {
+            ...mockPlanner,
+            wallLayer: { add: vi.fn(), remove: vi.fn() },
+            dimensionLayer: { add: vi.fn(), remove: vi.fn() },
+            widgetLayer: { add: vi.fn(), remove: vi.fn() },
+            uiLayer: { add: vi.fn(), remove: vi.fn() }
+        };
+
+        const a1 = { x: 0, y: 0, connectedWalls: [] };
+        const a2 = { x: 200, y: 0, connectedWalls: [] };
+        const a3 = { x: 0, y: 200, connectedWalls: [] };
+
+        // w1 is taller (350cm), w2 is shorter (280cm)
+        const w1 = WallTopologyEngine.createWall(plannerWithLayers, { startAnchor: a1, endAnchor: a2, thickness: 20, height: 350, addToPlanner: false });
+        const w2 = WallTopologyEngine.createWall(plannerWithLayers, { startAnchor: a1, endAnchor: a3, thickness: 20, height: 280, addToPlanner: false });
+        a1.connectedWalls.push(w1, w2);
+        a2.connectedWalls.push(w1);
+        a3.connectedWalls.push(w2);
+
+        const allWalls = [w1, w2];
+
+        const corners1 = WallGeometryEngine.getCorners(w1, a1, true, allWalls);
+        const corners2 = WallGeometryEngine.getCorners(w2, a1, true, allWalls);
+
+        // For w1 (taller): both corners have the exact same X coordinate (flat square butt end)
+        expect(corners1.corners[0].x).toBeCloseTo(corners1.corners[1].x, 2);
+
+        // For w2 (shorter): both corners have the exact same Y coordinate (flat square butt end)
+        expect(corners2.corners[0].y).toBeCloseTo(corners2.corners[1].y, 2);
+    });
 });

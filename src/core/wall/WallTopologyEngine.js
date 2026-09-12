@@ -74,13 +74,15 @@ export class WallTopologyEngine {
      * @returns {Array<PremiumWall>}
      */
     static createRoomBox(planner, bounds = {}) {
-        const { minX, minY, maxX, maxY, type = 'outer', height = 120, thickness = 16, elevation = 0, params } = bounds;
+        const activeParams = bounds.params || planner?.activePresetParams || {};
+        const { minX, minY, maxX, maxY, type = 'outer', elevation = 0 } = bounds;
+        const defaultThick = planner?.activeLevelConfig?.defaultWallThickness ? Number(planner.activeLevelConfig.defaultWallThickness) : (type === 'outer' ? 20 : (type === 'compound' ? 12 : 10));
+        const thickness = bounds.thickness !== undefined ? Number(bounds.thickness) : (activeParams.thickness !== undefined ? Number(activeParams.thickness) : defaultThick);
+        const height = bounds.height !== undefined ? Number(bounds.height) : (activeParams.height !== undefined ? Number(activeParams.height) : 300);
         const width = maxX - minX;
         const depth = maxY - minY;
 
         if (width <= 5 || depth <= 5 || !planner) return [];
-
-        const activeParams = params || planner.activePresetParams || {};
 
         const roomSegments = [
             { p1: { x: minX, y: minY }, p2: { x: maxX, y: minY } }, // Top: TL -> TR
@@ -93,7 +95,7 @@ export class WallTopologyEngine {
         const wallElev = elevation !== undefined ? elevation : 0;
         const isWallOnSameLevel = (w) => {
             const wBot = Number(w.elevation) || 0;
-            const wTop = wBot + (Number(w.height) || 120);
+            const wTop = wBot + (Number(w.height) || 300);
             const newBot = Number(wallElev) || 0;
             const newTop = newBot + Number(height);
             return Math.max(wBot, newBot) < Math.min(wTop, newTop) - 2.0;
@@ -105,7 +107,17 @@ export class WallTopologyEngine {
                 const wA = WallGeometryEngine.getAnchorPosition(w.startAnchor);
                 const wB = WallGeometryEngine.getAnchorPosition(w.endAnchor);
                 const hit = this.getSegmentIntersection(seg.p1, seg.p2, wA, wB);
-                if (hit && hit.isInternal1) {
+                if (hit && (hit.isInternal1 || hit.isInternal2)) {
+                    hasIntersections = true;
+                    break;
+                }
+                const colSplits = this.getCollinearOverlapSplits(wA, wB, seg.p1, seg.p2);
+                if (colSplits && colSplits.length > 0) {
+                    hasIntersections = true;
+                    break;
+                }
+                if (this.isPointOnSegment(seg.p1, wA, wB, 10.0) || this.isPointOnSegment(seg.p2, wA, wB, 10.0) ||
+                    this.isPointOnSegment(wA, seg.p1, seg.p2, 10.0) || this.isPointOnSegment(wB, seg.p1, seg.p2, 10.0)) {
                     hasIntersections = true;
                     break;
                 }
@@ -363,7 +375,8 @@ export class WallTopologyEngine {
         if (!planner || !inputSegments || inputSegments.length === 0) return [];
 
         let wallHeight = wallConfig.height !== undefined ? wallConfig.height : 120;
-        let wallThick = wallConfig.thickness !== undefined ? wallConfig.thickness : 16;
+        const defaultThick = planner?.activeLevelConfig?.defaultWallThickness ? Number(planner.activeLevelConfig.defaultWallThickness) : (wallType === 'outer' ? 20 : (wallType === 'compound' ? 12 : 10));
+        let wallThick = wallConfig.thickness !== undefined ? Number(wallConfig.thickness) : defaultThick;
         let wallElev = wallConfig.elevation !== undefined ? wallConfig.elevation : 0;
         const wallParams = wallConfig.params ? JSON.parse(JSON.stringify(wallConfig.params)) : null;
 

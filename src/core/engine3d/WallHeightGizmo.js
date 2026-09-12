@@ -3,6 +3,7 @@ import { EVENTS } from '../constants/events.js';
 import { coreEventBus } from '../EventBus.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { WallEngine } from '../wall/WallEngine.js';
+import { getRoomWallsAndSides, getRoomForWallFace } from './WallPaintSystem.js';
 
 /**
  * WallHeightGizmo
@@ -193,6 +194,29 @@ export class WallHeightGizmo extends THREE.Group {
         }
     }
 
+    _getConnectedWalls(wall, planner = this.ctx.planner || window.planner?.value || window.plannerInstance) {
+        if (!wall) return [];
+        if (!planner || !planner.walls) return [wall];
+
+        const side = wall.side || 'front';
+        const room = getRoomForWallFace(wall, side, planner, this.ctx.engine3d || this.ctx);
+        if (room && Array.isArray(room.path)) {
+            const suite = this.ctx.interactions?.roomInteractiveSuite;
+            if (suite && typeof suite._getRoomBoundingWalls === 'function') {
+                const roomWalls = suite._getRoomBoundingWalls(room);
+                if (roomWalls.includes(wall) && roomWalls.length > 0) {
+                    return roomWalls;
+                }
+            }
+            const roomWalls = getRoomWallsAndSides(room, planner, this.ctx.engine3d || this.ctx)?.map(r => r.wall) || [];
+            if (roomWalls.includes(wall) && roomWalls.length > 0) {
+                return roomWalls;
+            }
+        }
+
+        return [wall];
+    }
+
     _onPointerMove(e) {
         if (!this.visible) return;
         this.updateMouse(e);
@@ -213,19 +237,35 @@ export class WallHeightGizmo extends THREE.Group {
                 const wall = this._getWallEntity();
                 if (!wall) return;
 
+                const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
+
                 if (this.activeHandle.handleType === 'uniform_height') {
                     const newH = Math.max(40, Math.min(600, this.initialH + steppedDelta));
-                    WallEngine.setHeight(wall, newH, false, this.ctx.planner);
+                    const connectedWalls = this._getConnectedWalls(wall, planner);
+                    WallEngine.batchUpdate(planner, connectedWalls, { height: newH }, false);
+                    connectedWalls.forEach(w => {
+                        if (typeof this.ctx.updateWallGeometryLive === 'function') {
+                            try { this.ctx.updateWallGeometryLive(w); } catch(err) {}
+                        }
+                    });
+                    (planner?.rooms || []).forEach(r => {
+                        const rWalls = r.walls;
+                        if (Array.isArray(rWalls) && rWalls.some(rw => connectedWalls.includes(rw))) {
+                            r.wallHeight = newH;
+                        }
+                    });
                 } else if (this.activeHandle.handleType === 'start_slope') {
                     const newStartH = Math.max(40, Math.min(600, this.initialStartH + steppedDelta));
-                    WallEngine.setTopProfile(wall, 'single', { startHeight: newStartH }, false, this.ctx.planner);
+                    WallEngine.setTopProfile(wall, 'single', { startHeight: newStartH }, false, planner);
+                    if (typeof this.ctx.updateWallGeometryLive === 'function') {
+                        try { this.ctx.updateWallGeometryLive(wall); } catch(err) {}
+                    }
                 } else if (this.activeHandle.handleType === 'end_slope') {
                     const newEndH = Math.max(40, Math.min(600, this.initialEndH + steppedDelta));
-                    WallEngine.setTopProfile(wall, 'single', { endHeight: newEndH }, false, this.ctx.planner);
-                }
-
-                if (typeof this.ctx.updateWallGeometryLive === 'function') {
-                    try { this.ctx.updateWallGeometryLive(wall); } catch(err) {}
+                    WallEngine.setTopProfile(wall, 'single', { endHeight: newEndH }, false, planner);
+                    if (typeof this.ctx.updateWallGeometryLive === 'function') {
+                        try { this.ctx.updateWallGeometryLive(wall); } catch(err) {}
+                    }
                 }
 
                 this.updateHandles();
@@ -271,6 +311,9 @@ export class WallHeightGizmo extends THREE.Group {
             if (this.ctx.controls) this.ctx.controls.enabled = true;
 
             const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
+            if (planner && typeof planner.syncAll === 'function') {
+                planner.syncAll();
+            }
             if (planner && planner.commandManager && this._snapshotCmd) {
                 planner.commandManager.execute(this._snapshotCmd);
                 this._snapshotCmd = null;

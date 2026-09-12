@@ -728,6 +728,8 @@ onMounted(() => {
     if (planner.value) {
         planner.value.renderer3D = renderer3D.value;
         planner.value.engine3d = renderer3D.value;
+        renderer3D.value.planner = planner.value;
+        window.plannerInstance = planner.value;
     }
     if (renderer3D.value?.navigationCube) {
         renderer3D.value.navigationCube.setEntranceFacing(floorPlanSettings.value.mainEntranceFacing);

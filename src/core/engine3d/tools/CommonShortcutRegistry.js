@@ -13,6 +13,7 @@ export const SHORTCUT_ACTIONS = {
     TILT: COMMON_TOOLS.TILT,
     AXIS_UP: COMMON_TOOLS.AXIS_UP,
     AXIS_DOWN: COMMON_TOOLS.AXIS_DOWN,
+    BUILDING_RISE: COMMON_TOOLS.BUILDING_RISE,
     DELETE: 'delete',
     UNDO: 'undo',
     REDO: 'redo',
@@ -32,6 +33,7 @@ export class CommonShortcutRegistry {
         // Core Tools
         this.bindKey('v', SHORTCUT_ACTIONS.SELECT);
         this.bindKey('b', SHORTCUT_ACTIONS.MATERIAL);
+        this.bindKey('u', SHORTCUT_ACTIONS.BUILDING_RISE);
         this.bindKey('m', SHORTCUT_ACTIONS.MOVE);
         this.bindKey('g', SHORTCUT_ACTIONS.MOVE);
         this.bindKey('r', SHORTCUT_ACTIONS.SPIN);

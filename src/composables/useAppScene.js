@@ -129,7 +129,28 @@ export function useAppScene({
             }
             
             if (renderer3D.value && selectedEntity.value) {
-                if (selectedType.value === 'room' || updateType === 'material') {
+                if (selectedType.value === 'room') {
+                    if (updateType === 'material') {
+                        if (renderer3D.value.updateMaterialLive) renderer3D.value.updateMaterialLive(selectedEntity.value);
+                    } else if (updateType === 'height' || updateType === 'elevation') {
+                        const plannerInst = planner.value;
+                        const allWalls = plannerInst?.walls?.filter(w => !w.hidden && w.type !== 'railing') || [];
+                        const roomWalls = (Array.isArray(selectedEntity.value.walls) && selectedEntity.value.walls.length > 0)
+                            ? selectedEntity.value.walls
+                            : allWalls;
+                        roomWalls.forEach(w => {
+                            if (renderer3D.value.updateWallGeometryLive) {
+                                renderer3D.value.updateWallGeometryLive(w);
+                            }
+                        });
+                        if (updateType === 'elevation' && renderer3D.value.rebuildActiveFloors) {
+                            renderer3D.value.rebuildActiveFloors();
+                        }
+                        if (renderer3D.value.interactions?.roomInteractiveSuite?.visible) {
+                            renderer3D.value.interactions.roomInteractiveSuite.update();
+                        }
+                    }
+                } else if (updateType === 'material') {
                     if (renderer3D.value.updateMaterialLive) renderer3D.value.updateMaterialLive(selectedEntity.value);
                 }
                 renderer3D.value.updateEntity(selectedEntity.value, updateType);
