@@ -10,6 +10,8 @@ import { EVENTS } from '../constants/events.js';
 import { ComponentRegistry } from './ComponentRegistry.js';
 import { getRoomForWallFace, getRoomWallsAndSides, getExteriorWallsAndSides } from './WallPaintSystem.js';
 import { WallEngine } from '../wall/WallEngine.js';
+import { createStarterElevationSegment } from '../../features/elevation/elevationSegment.registry.js';
+import { renderElevationSegment3D } from '../../features/elevation/elevationSegment.renderer3d.js';
 
 /**
  * WallPlugin3DPlacementSystem
@@ -298,18 +300,19 @@ export class WallPlugin3DPlacementSystem {
             const isCurtain = !isMolding && !isElevationTrim && (tool === 'curtain' || tool.startsWith('curtain_'));
             const isWallArt = !isMolding && !isElevationTrim && (tool === 'wall_art' || tool.startsWith('decor_wall_') || tool.startsWith('decor_photo_'));
             const isFascia = !isMolding && !isElevationTrim && (tool === 'elevation_fascia' || tool.startsWith('fascia_'));
+            const isElevSegment = tool === 'elevation_segment';
             const isDrapes = isCurtain && (!preset.curtainType || preset.curtainType.includes('drapes'));
 
             let itemW = (isMolding || isElevationTrim)
                 ? wallLen
-                : (preset.width || (isDoor ? 40 : (isWindow ? 60 : (isJali ? 60 : (isSunshade ? 60 : (isFascia ? 100 : (isCurtain ? (isDrapes ? 80 : 50) : (isWallArt ? 50 : 80))))))));
+                : (isElevSegment ? (preset.length || 180) : (preset.width || (isDoor ? 40 : (isWindow ? 60 : (isJali ? 60 : (isSunshade ? 60 : (isFascia ? 100 : (isCurtain ? (isDrapes ? 80 : 50) : (isWallArt ? 50 : 80)))))))));
             let itemH = (isMolding || isElevationTrim)
                 ? (preset.moldingHeight || (preset.height && preset.height <= 30 ? preset.height : 12))
-                : (preset.height || (isDoor ? DOOR_HEIGHT : (isWindow ? WINDOW_HEIGHT : (isJali ? 80 : (isSunshade ? 10 : (isFascia ? 120 : (isCurtain ? (isDrapes ? 95 : 50) : 35)))))));
-            let depth = preset.depth || (isSunshade ? 30 : (isFascia ? 40 : (isCurtain ? 8 : 3)));
+                : (isElevSegment ? (preset.width || 30) : (preset.height || (isDoor ? DOOR_HEIGHT : (isWindow ? WINDOW_HEIGHT : (isJali ? 80 : (isSunshade ? 10 : (isFascia ? 120 : (isCurtain ? (isDrapes ? 95 : 50) : 35))))))));
+            let depth = isElevSegment ? (preset.depth || 40) : (preset.depth || (isSunshade ? 30 : (isFascia ? 40 : (isCurtain ? 8 : 3))));
             const projDist = t * wallLen;
 
-            this.updateApertureAndModel(tool, wallEntity, t, elev, facing, wallLen, dx, dy, p1, p2, thick, wallH, itemW, itemH, depth, this.isValidPlacement, isMolding || isElevationTrim, !isDoor && !isWindow && !isJali, isFascia, projDist, preset);
+            this.updateApertureAndModel(tool, wallEntity, t, elev, facing, wallLen, dx, dy, p1, p2, thick, wallH, itemW, itemH, depth, this.isValidPlacement, isMolding || isElevationTrim, !isDoor && !isWindow && !isJali && !isFascia, isFascia, projDist, preset);
         }
 
         if (this.ctx && typeof this.ctx.requestRender === 'function') {
@@ -327,7 +330,7 @@ export class WallPlugin3DPlacementSystem {
         const isOpening = ['arch_opening', 'circular_opening', 'custom_shape_opening', 'niche_recess', 'pattern_opening', 'boolean_cut', 'opening'].includes(tool);
         const isMolding = tool === 'molding' || tool === 'skirting' || tool === 'wall_trim' || tool.startsWith('molding_') || tool.startsWith('skirting_') || tool.startsWith('trim_') || tool.startsWith('chair_rail') || tool.startsWith('picture_rail') || tool === 'elevation_frieze' || tool === 'elevation_foundation_trim' || !!MOLDING_REGISTRY[tool] || (preset && (preset.type?.startsWith('molding_') || preset.profileType?.startsWith('skirting_') || preset.profileType === 'chair_rail' || preset.profileType === 'picture_rail'));
         const isWidget = !!WIDGET_REGISTRY[tool];
-        const isDecorOrPlugin = tool.startsWith('door') || tool.startsWith('window') || tool === 'jali_panel' || tool === 'sunshade' || tool === 'curtain' || tool === 'wall_art' || tool === 'elevation_fascia' || tool.startsWith('jali_') || tool.startsWith('sunshade_') || tool.startsWith('curtain_') || tool.startsWith('decor_wall_') || tool.startsWith('decor_photo_') || tool.startsWith('fascia_');
+        const isDecorOrPlugin = tool === 'elevation_segment' || tool.startsWith('door') || tool.startsWith('window') || tool === 'jali_panel' || tool === 'sunshade' || tool === 'curtain' || tool === 'wall_art' || tool === 'elevation_fascia' || tool.startsWith('jali_') || tool.startsWith('sunshade_') || tool.startsWith('curtain_') || tool.startsWith('decor_wall_') || tool.startsWith('decor_photo_') || tool.startsWith('fascia_');
 
         return isOpening || isMolding || isWidget || isDecorOrPlugin;
     }
@@ -556,6 +559,14 @@ export class WallPlugin3DPlacementSystem {
         const side = dotCam >= 0 ? 'front' : 'back';
         const facing = (side === 'back') ? -1 : 1;
 
+        // 100% Shared CAD Host Wall Highlight
+        const hr = this.ctx.interactions?.highlightRenderer;
+        if (hr) {
+            const wallSideMesh = hitMesh.userData?.isWallSide ? hitMesh : 
+                (wallEntity?.mesh3D?.children?.find(c => c.userData?.isWallSide && c.userData?.side === side) || hitMesh);
+            hr.setHoverHighlight(wallSideMesh);
+        }
+
         // Dimensions & Elevation calculations
         const preset = planner.activePresetParams || {};
         const thick = wallEntity.thickness || wallEntity.config?.thickness || 20;
@@ -571,18 +582,63 @@ export class WallPlugin3DPlacementSystem {
         const isCurtain = !isMolding && !isElevationTrim && !isAdvOpening && (tool === 'curtain' || tool.startsWith('curtain_'));
         const isWallArt = !isMolding && !isElevationTrim && !isAdvOpening && (tool === 'wall_art' || tool.startsWith('decor_wall_') || tool.startsWith('decor_photo_'));
         const isFascia = !isMolding && !isElevationTrim && !isAdvOpening && (tool === 'elevation_fascia' || tool.startsWith('fascia_'));
+        const isElevSegment = tool === 'elevation_segment';
 
         const isDrapes = isCurtain && (!preset.curtainType || preset.curtainType.includes('drapes'));
 
-        let itemW = isMolding || isElevationTrim
-            ? wallLen
-            : (preset.width || (isDoor ? 40 : (isWindow ? 60 : (isJali ? 60 : (isSunshade ? 60 : (isFascia ? 100 : (isCurtain ? (isDrapes ? 80 : 50) : (isWallArt ? (tool.includes('gallery') || preset.artType?.includes('gallery') ? 60 : 50) : (isAdvOpening ? (tool === 'circular_opening' || preset.type === 'circular_opening' ? 40 : (tool === 'niche_recess' || preset.type === 'niche_recess' ? 40 : 50)) : (tool === 'elevation_corner_element' ? 26 : 80))))))))));
-        
-        let itemH = (isMolding || isElevationTrim)
-            ? (preset.moldingHeight || (preset.height && preset.height <= 30 ? preset.height : 12))
-            : (preset.height || (isDoor ? DOOR_HEIGHT : (isWindow ? WINDOW_HEIGHT : (isJali ? 80 : (isSunshade ? 10 : (isFascia ? 120 : (isCurtain ? (isDrapes ? 95 : 50) : (isWallArt ? 35 : (isAdvOpening ? (tool === 'circular_opening' || preset.type === 'circular_opening' ? 40 : (tool === 'arch_opening' || preset.type === 'arch_opening' || tool === 'opening' || preset.type === 'opening' ? DOOR_HEIGHT : 60)) : (tool === 'elevation_corner_element' ? wallH : (tool === 'elevation_frieze' ? 18 : (tool === 'elevation_foundation_trim' ? 45 : 20))))))))))));
+        let itemW = isMolding || isElevationTrim ? wallLen : (preset.width || 80);
+        let itemH = (isMolding || isElevationTrim) ? (preset.moldingHeight || 12) : (preset.height || 20);
+        let depth = preset.depth || 10;
 
-        let depth = preset.depth || (isSunshade ? 40 : (isFascia ? 40 : (isCurtain ? (isDrapes ? 8 : 4) : (isWallArt ? 3 : (tool === 'niche_recess' || preset.type === 'niche_recess' ? 6 : 10)))));
+        if (isElevSegment) {
+            itemW = preset.length || 180;
+            itemH = preset.width || 30;
+            depth = preset.depth || 40;
+        } else if (isDoor) {
+            itemW = preset.width || 40;
+            itemH = preset.height || DOOR_HEIGHT;
+            depth = preset.depth || 10;
+        } else if (isWindow) {
+            itemW = preset.width || 60;
+            itemH = preset.height || WINDOW_HEIGHT;
+            depth = preset.depth || 10;
+        } else if (isJali) {
+            itemW = preset.width || 60;
+            itemH = preset.height || 80;
+            depth = preset.depth || 10;
+        } else if (isSunshade) {
+            itemW = preset.width || 60;
+            itemH = preset.height || 10;
+            depth = preset.depth || 40;
+        } else if (isFascia) {
+            itemW = preset.width || 100;
+            itemH = preset.height || 120;
+            depth = preset.depth || 40;
+        } else if (isCurtain) {
+            itemW = preset.width || (isDrapes ? 80 : 50);
+            itemH = preset.height || (isDrapes ? 95 : 50);
+            depth = preset.depth || (isDrapes ? 8 : 4);
+        } else if (isWallArt) {
+            itemW = preset.width || (tool.includes('gallery') || preset.artType?.includes('gallery') ? 60 : 50);
+            itemH = preset.height || 35;
+            depth = preset.depth || 3;
+        } else if (isAdvOpening) {
+            itemW = (tool === 'circular_opening' || preset.type === 'circular_opening' ? 40 : (tool === 'niche_recess' || preset.type === 'niche_recess' ? 40 : 50));
+            itemH = (tool === 'circular_opening' || preset.type === 'circular_opening' ? 40 : (tool === 'arch_opening' || preset.type === 'arch_opening' || tool === 'opening' || preset.type === 'opening' ? DOOR_HEIGHT : 60));
+            depth = (tool === 'niche_recess' || preset.type === 'niche_recess' ? 6 : 10);
+        } else if (tool === 'elevation_corner_element') {
+            itemW = 26;
+            itemH = wallH;
+            depth = preset.depth || 10;
+        } else if (tool === 'elevation_frieze') {
+            itemW = wallLen;
+            itemH = 18;
+            depth = preset.depth || 10;
+        } else if (tool === 'elevation_foundation_trim') {
+            itemW = wallLen;
+            itemH = 45;
+            depth = preset.depth || 10;
+        }
         let elev = 0;
 
         let t = projDist / wallLen;
@@ -743,6 +799,45 @@ export class WallPlugin3DPlacementSystem {
             projDist = t * wallLen;
             let artElev = Math.max(0, Math.min(wallH - itemH, Math.round(localHitY - itemH / 2)));
             elev = (preset.isFixedElevation && preset.elevation !== undefined) ? preset.elevation : artElev;
+        } else if (isElevSegment) {
+            // Smart Snapping along wall length
+            const halfW = itemW / 2;
+            let rawProjDist = t * wallLen;
+
+            if (rawProjDist <= halfW + 18) {
+                projDist = halfW;
+                levelLabel = 'SNAP: WALL START';
+            } else if (rawProjDist >= wallLen - halfW - 18) {
+                projDist = wallLen - halfW;
+                levelLabel = 'SNAP: WALL END';
+            } else if (Math.abs(rawProjDist - wallLen / 2) <= 15) {
+                projDist = wallLen / 2;
+                levelLabel = 'SNAP: WALL CENTER';
+            } else {
+                projDist = Math.max(0, Math.min(wallLen, rawProjDist));
+            }
+            t = wallLen > 0 ? (projDist / wallLen) : 0.5;
+
+            // Smart Snapping along wall height
+            let rawElev = Math.max(0, Math.min(wallH - itemH, Math.round(localHitY - itemH / 2)));
+            if (rawElev <= 12) {
+                elev = 0;
+                levelLabel = levelLabel ? `${levelLabel} | FLOOR` : 'FLOOR (0 cm)';
+            } else if (Math.abs(rawElev - 80) <= 10) {
+                elev = 80;
+                levelLabel = levelLabel ? `${levelLabel} | SILL 80cm` : 'WINDOW SILL (80 cm)';
+            } else if (Math.abs(rawElev - 90) <= 10) {
+                elev = 90;
+                levelLabel = levelLabel ? `${levelLabel} | MID 90cm` : 'MID-WALL (90 cm)';
+            } else if (Math.abs(rawElev - 210) <= 12) {
+                elev = 210;
+                levelLabel = levelLabel ? `${levelLabel} | LINTEL 210cm` : 'LINTEL (210 cm)';
+            } else if (rawElev >= wallH - itemH - 15) {
+                elev = Math.max(0, wallH - itemH);
+                levelLabel = levelLabel ? `${levelLabel} | CEILING` : `CEILING (${Math.round(elev)} cm)`;
+            } else {
+                elev = (preset.isFixedElevation && preset.elevation !== undefined) ? preset.elevation : rawElev;
+            }
         } else {
             elev = preset.elevation !== undefined ? preset.elevation : Math.max(0, localHitY);
             t = Math.max(0, Math.min(1, t));
@@ -751,7 +846,7 @@ export class WallPlugin3DPlacementSystem {
 
         // Overlap Validation Check (only for entities that cut the wall: doors, windows, jali)
         let isValid = true;
-        const cutsWall = !isMolding && !isElevationTrim && !isSunshade && !isCurtain && !isWallArt && !isFascia && (WIDGET_REGISTRY[tool]?.cutsWall !== false);
+        const cutsWall = !isMolding && !isElevationTrim && !isSunshade && !isCurtain && !isWallArt && !isFascia && !isElevSegment && (WIDGET_REGISTRY[tool]?.cutsWall !== false);
         if (cutsWall && wallEntity.attachedWidgets && wallEntity.attachedWidgets.length > 0) {
             const pMin = projDist - itemW / 2;
             const pMax = projDist + itemW / 2;
@@ -760,7 +855,7 @@ export class WallPlugin3DPlacementSystem {
 
             for (let w of wallEntity.attachedWidgets) {
                 const isProtrusion = w.type === 'solid_protrusion' || w.configId === 'solid_protrusion';
-                if (!isProtrusion && (w.config?.cutsWall === false || w.cutsWall === false || w.type === 'sunshade' || w.type === 'curtain' || w.type === 'wall_art' || w.type === 'elevation_fascia' || w.configId === 'sunshade')) continue;
+                if (!isProtrusion && (w.config?.cutsWall === false || w.cutsWall === false || w.type === 'sunshade' || w.type === 'curtain' || w.type === 'wall_art' || w.type === 'elevation_fascia' || w.type === 'elevation_segment' || w.configId === 'sunshade')) continue;
                 
                 const wW = w.width || 40;
                 const wH = w.height || (w.type === 'window' ? 120 : (w.type === 'door' ? 210 : 100));
@@ -789,7 +884,7 @@ export class WallPlugin3DPlacementSystem {
         this.activeElevation = elev;
         this.isValidPlacement = isValid;
 
-        const isAttachedSurfaceElement = isSunshade || isCurtain || isWallArt;
+        const isAttachedSurfaceElement = isSunshade || isCurtain || isWallArt || isElevSegment;
 
         // Position & Update Aperture Highlight & 3D Model
         this.updateApertureAndModel(tool, wallEntity, t, elev, facing, wallLen, dx, dy, p1, p2, thick, wallH, itemW, itemH, depth, isValid, isMolding || isElevationTrim, isAttachedSurfaceElement, isFascia, projDist, preset);
@@ -1206,6 +1301,26 @@ export class WallPlugin3DPlacementSystem {
             return;
         }
 
+        if (tool === 'elevation_segment') {
+            const wallOffset = ((thick / 2) + (depth / 2)) * facing;
+            const cutoutY = elev + itemH / 2;
+            const geo = new THREE.BoxGeometry(itemW, itemH, depth);
+            let mat = new THREE.MeshStandardMaterial({
+                color: 0x8b5a2b,
+                roughness: 0.6
+            });
+            if (this.ctx.helpers && this.ctx.helpers.getDynamicMaterial) {
+                mat = this.ctx.helpers.getDynamicMaterial(preset.material || 'wood', 'fascia') || mat;
+            }
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(projDist, cutoutY, wallOffset);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            mesh.raycast = () => {};
+            this.modelPreviewGroup.add(mesh);
+            return;
+        }
+
         const isDoor = tool.startsWith('door') || (preset && (preset.doorType !== undefined || preset.doorStyle !== undefined));
         const isWindow = tool.startsWith('window') || (preset && preset.windowType !== undefined);
         const isSunshade = tool === 'sunshade' || tool.startsWith('sunshade_') || tool === 'chajja' || (preset && preset.chajjaType !== undefined);
@@ -1266,6 +1381,19 @@ export class WallPlugin3DPlacementSystem {
     onPointerDown(e) {
         if (!this.isPlacementTool()) return false;
 
+        const planner = this.getPlanner();
+        const tool = planner?.tool;
+
+        // Instant 1-Click Direct Placement for Elevation Segment (Professional Lumion CAD standard)
+        if (tool === 'elevation_segment') {
+            this.onPointerMove(e);
+            if (this.activeWall && this.isValidPlacement) {
+                this.placePlugin();
+                return true;
+            }
+            return false;
+        }
+
         this.isPinned = false;
         this.onPointerMove(e);
 
@@ -1304,7 +1432,57 @@ export class WallPlugin3DPlacementSystem {
 
         let createdEntity = null;
 
-        if (isMolding) {
+        if (tool === 'elevation_segment') {
+            const facing = (side === 'back') ? -1 : 1;
+            const startAnchor = (wall.startAnchor && typeof wall.startAnchor.position === 'function') ? wall.startAnchor.position() : (wall.startAnchor || { x: wall.startX || 0, y: wall.startY || 0 });
+            const endAnchor = (wall.endAnchor && typeof wall.endAnchor.position === 'function') ? wall.endAnchor.position() : (wall.endAnchor || { x: wall.endX || 0, y: wall.endY || 0 });
+            const wallLen = Math.hypot(endAnchor.x - startAnchor.x, endAnchor.y - startAnchor.y);
+            const localX = t * wallLen;
+            const itemH = preset.width || 30;
+            const beamCenterY = (elev !== undefined && elev !== null) ? (elev + itemH / 2) : 150;
+            createdEntity = createStarterElevationSegment(wall, localX, beamCenterY, facing, preset);
+
+            if (!planner.elevationSegments) planner.elevationSegments = [];
+            planner.elevationSegments.push(createdEntity);
+
+            const targetGroup = this.ctx?.structureGroup || this.ctx?.scene;
+            if (targetGroup) {
+                renderElevationSegment3D(targetGroup, createdEntity, this.ctx.helpers);
+                if (createdEntity.mesh3D && this.ctx.interactables) {
+                    if (!this.ctx.interactables.includes(createdEntity.mesh3D)) {
+                        this.ctx.interactables.push(createdEntity.mesh3D);
+                    }
+                    createdEntity.mesh3D.traverse(child => {
+                        if (child.isMesh && !this.ctx.interactables.includes(child)) {
+                            this.ctx.interactables.push(child);
+                        }
+                    });
+                }
+            }
+
+            this.hideGhost();
+
+            if (coreEventBus) {
+                coreEventBus.emit(EVENTS.SAVE_HISTORY, { action: `Place ${tool} in 3D` });
+            }
+
+            if (planner.tool === 'elevation_segment') {
+                planner.tool = 'select';
+                if (planner.onToolChange) planner.onToolChange('select');
+                if (typeof planner.updateToolStates === 'function') planner.updateToolStates();
+            }
+
+            planner.selectEntity(createdEntity, 'elevation_segment');
+            if (this.interactions && createdEntity.mesh3D) {
+                this.interactions.selectObject(createdEntity.mesh3D);
+            }
+
+            if (this.ctx.requestRender) {
+                this.ctx.requestRender('elevation_segment_placed', 2);
+            }
+
+            return createdEntity;
+        } else if (isMolding) {
             let targetWalls = [{ wall, side }];
             if (this.placementScope === 'room') {
                 const room = getRoomForWallFace(wall, side, planner, this.ctx);
@@ -1465,6 +1643,10 @@ export class WallPlugin3DPlacementSystem {
         this.activeWall = null;
         this.activeT = null;
         this._lastToolKey = null;
+        const hr = this.ctx.interactions?.highlightRenderer;
+        if (hr) {
+            hr.clearHoverHighlight();
+        }
         if (this.ctx && this.ctx.controls) {
             this.ctx.controls.enableRotate = (this.interactions?.mode === 'camera');
         }

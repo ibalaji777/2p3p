@@ -13,6 +13,7 @@ import { Wall3DBuilder } from '../../features/wall/wall.renderer3d.js';
 import { WallGeometryEngine } from '../wall/WallGeometryEngine.js';
 import { Platform3DBuilder } from './Platform3DBuilder.js';
 import { renderFacadeRibbon3D } from '../../features/facade/facadeRibbon.renderer3d.js';
+import { renderElevationSegment3D } from '../../features/elevation/elevationSegment.renderer3d.js';
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY, offsetPolygon } from '../../core/registry';
 import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js';
 import { MaterialFactory } from './MaterialFactory.js';
@@ -220,6 +221,11 @@ export class EnvironmentBuilder {
         const ribbons = planner?.facadeRibbons || [];
         if (ribbons && ribbons.length > 0) {
             this.buildFacadeRibbons(ribbons, this.ctx.structureGroup);
+        }
+
+        const elevSegs = planner?.elevationSegments || [];
+        if (elevSegs && elevSegs.length > 0) {
+            this.buildElevationSegments(elevSegs, this.ctx.structureGroup);
         }
 
         const matMain = getPlasterMaterial();
@@ -535,6 +541,31 @@ export class EnvironmentBuilder {
                 }
             } catch (err) {
                 console.error("Error building facade ribbon in 3D:", err);
+            }
+        });
+    }
+
+    buildElevationSegments(segments, targetGroup = this.ctx.structureGroup) {
+        if (!segments || segments.length === 0) return;
+        segments.forEach(seg => {
+            try {
+                if (!seg || seg.isDeleted || seg.isHidden) return;
+                if (seg.mesh3D && seg.mesh3D.parent) {
+                    seg.mesh3D.parent.remove(seg.mesh3D);
+                }
+                const group = renderElevationSegment3D(targetGroup, seg, this.ctx.helpers);
+                if (group && this.ctx.interactables) {
+                    if (!this.ctx.interactables.includes(group)) {
+                        this.ctx.interactables.push(group);
+                    }
+                    group.traverse(child => {
+                        if (child.isMesh && !this.ctx.interactables.includes(child)) {
+                            this.ctx.interactables.push(child);
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error("Error building elevation segment in 3D:", err);
             }
         });
     }

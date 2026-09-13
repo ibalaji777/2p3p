@@ -219,6 +219,7 @@ export class FloorPlanner {
             ...(this.presetGroups || []),
             ...(this.rooms || []),
             ...(this.facadeRibbons || []),
+            ...(this.elevationSegments || []),
             ...attached
         ];
     }
@@ -392,6 +393,9 @@ export class FloorPlanner {
         }
         if (this.facadeRibbons) {
             this.facadeRibbons = this.facadeRibbons.filter(r => r !== entity);
+        }
+        if (this.elevationSegments) {
+            this.elevationSegments = this.elevationSegments.filter(r => r !== entity);
         }
 
         // Clean up 3D visual mesh if present

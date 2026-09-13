@@ -31,6 +31,8 @@ export const getMenuCategories = () => [
             { isDivider: true, name: 'Trims & Baseboards' },
             { id: 'wall_trim', name: 'Wall Trims & Moldings' },
             { id: 'skirting', name: 'Baseboards & Skirting' },
+            { isDivider: true, name: 'Elevation & Facade' },
+            { id: 'elevation_segment', name: 'Elevation Segment' },
             { isDivider: true, name: 'Catalogs' },
             { id: 'wall_catalog', name: 'Walls Catalog' }
         ]

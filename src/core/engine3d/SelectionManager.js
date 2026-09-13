@@ -32,7 +32,7 @@ export class SelectionManager {
                 }
             }
             return this.selectWall(object);
-        } else if (object.userData && (object.userData.isFurniture || object.userData.isFloor || object.userData.isWidget || object.userData.isMolding || object.userData.isRoof || object.userData.isPattern || object.userData.isStair || object.userData.isFloorCutProxy || object.userData.isRoofAddon || object.userData.isRoofSculpture || object.userData.isSkylight)) {
+        } else if (object.userData && (object.userData.isFurniture || object.userData.isFloor || object.userData.isWidget || object.userData.isMolding || object.userData.isRoof || object.userData.isPattern || object.userData.isStair || object.userData.isFloorCutProxy || object.userData.isRoofAddon || object.userData.isRoofSculpture || object.userData.isSkylight || object.userData.isElevationSegment || object.userData.isFacadeRibbon || object.userData.entity?.type === 'elevation_segment' || object.userData.entity?.type === 'facade_ribbon')) {
             return this.selectBasic(object);
         } else {
             if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
@@ -337,6 +337,8 @@ export class SelectionManager {
         else if (object.userData.isRoofAddon || object.userData.isRoofSculpture || object.userData.isSkylight) type = 'roof_addon';
         else if (object.userData.isPattern) type = 'advance_openings';
         else if (object.userData.isStair) type = 'stair';
+        else if (object.userData.isElevationSegment || object.userData.entity?.type === 'elevation_segment') type = 'elevation_segment';
+        else if (object.userData.isFacadeRibbon || object.userData.entity?.type === 'facade_ribbon') type = 'facade_ribbon';
         
         this.system.setHighlight(object, true);
             

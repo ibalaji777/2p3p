@@ -18,6 +18,7 @@ import { UniversalSpinGizmo } from './UniversalSpinGizmo.js';
 import { UniversalMoveGizmo } from './UniversalMoveGizmo.js';
 import { WallPushPullGizmo } from './WallPushPullGizmo.js';
 import { WallInteractiveSuite } from './WallInteractiveSuite.js';
+import { ElevationSegmentGizmo } from './ElevationSegmentGizmo.js';
 import { Wall3DDrawSystem } from './Wall3DDrawSystem.js';
 import { Shape3DDrawSystem } from './Shape3DDrawSystem.js';
 import { Ribbon3DDrawSystem } from './Ribbon3DDrawSystem.js';
@@ -528,6 +529,9 @@ export class InteractionSystem {
         this.wallPushPullGizmo = new WallPushPullGizmo(ctx);
         this.ctx.scene.add(this.wallPushPullGizmo);
 
+        this.elevationSegmentGizmo = new ElevationSegmentGizmo(ctx);
+        this.ctx.scene.add(this.elevationSegmentGizmo);
+
         this.wall3DDrawSystem = new Wall3DDrawSystem(ctx, this);
         this.shape3DDrawSystem = new Shape3DDrawSystem(ctx, this);
         this.ribbon3DDrawSystem = new Ribbon3DDrawSystem(ctx, this);
@@ -759,6 +763,12 @@ export class InteractionSystem {
                 if (this.raycaster.intersectObjects(this.roomInteractiveSuite.liftHandleGroup.children, true).length > 0) return;
                 if (this.raycaster.intersectObjects(this.roomInteractiveSuite.edgeArrowsGroup.children, true).length > 0) return;
             }
+
+            // Direct check for interactive Elevation Segment Gizmo handles (Push/Pull, Extrude, Bend, Elev)
+            if (this.elevationSegmentGizmo && this.elevationSegmentGizmo.visible) {
+                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+                if (this.raycaster.intersectObjects(this.elevationSegmentGizmo.handles.children, true).length > 0) return;
+            }
             
             const now = Date.now();
             if (now - this.lastTapTime < 350) {
@@ -788,6 +798,9 @@ export class InteractionSystem {
                 if (this.wallPushPullGizmo && this.wallPushPullGizmo.visible) {
                     if (this.raycaster.intersectObjects(this.wallPushPullGizmo.handles.children, true).length > 0) return;
                 }
+                if (this.elevationSegmentGizmo && this.elevationSegmentGizmo.visible) {
+                    if (this.raycaster.intersectObjects(this.elevationSegmentGizmo.handles.children, true).length > 0) return;
+                }
                 return;
             }
 
@@ -807,9 +820,9 @@ export class InteractionSystem {
                     return;
                 }
 
-                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isWallMesh && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isMolding && !mesh.userData.isRoof && !mesh.userData.isPattern && !mesh.userData.isStair && !mesh.userData.isFloorCutProxy && !mesh.userData.isRoofAddon && !mesh.userData.isRoofSculpture && !mesh.userData.isSkylight) mesh = mesh.parent;
+                while (mesh.parent && !mesh.userData.isFurniture && !mesh.userData.isWallSide && !mesh.userData.isWallDecor && !mesh.userData.isWallMesh && !mesh.userData.isFloor && !mesh.userData.isWidget && !mesh.userData.isMolding && !mesh.userData.isRoof && !mesh.userData.isPattern && !mesh.userData.isStair && !mesh.userData.isFloorCutProxy && !mesh.userData.isRoofAddon && !mesh.userData.isRoofSculpture && !mesh.userData.isSkylight && !mesh.userData.isElevationSegment && !mesh.userData.isFacadeRibbon) mesh = mesh.parent;
                 
-                // Fallback: If clicked submesh belongs to an entity (like staircase, furniture, roof), resolve to ent.mesh3D
+                // Fallback: If clicked submesh belongs to an entity (like staircase, furniture, roof, elevation segment), resolve to ent.mesh3D
                 const targetEntity = mesh.userData?.entity || mesh.parent?.userData?.entity;
                 const isWallEntity = targetEntity && (targetEntity.type === 'outer' || targetEntity.type === 'inner' || targetEntity.type === 'compound' || targetEntity.type === 'wall' || mesh.userData?.isWallSide || mesh.userData?.isWallMesh || mesh.userData?.isWallDecor || mesh.userData?.isWallGroup);
                 if (!isWallEntity && targetEntity && targetEntity.mesh3D) {
@@ -832,6 +845,10 @@ export class InteractionSystem {
                     mesh.userData?.isRoofAddon ||
                     mesh.userData?.isRoofSculpture ||
                     mesh.userData?.isSkylight ||
+                    mesh.userData?.isElevationSegment ||
+                    mesh.userData?.isFacadeRibbon ||
+                    targetEntity?.type === 'elevation_segment' ||
+                    targetEntity?.type === 'facade_ribbon' ||
                     isWallEntity
                 );
 
@@ -867,6 +884,12 @@ export class InteractionSystem {
                             entityId = targetEntity?.id;
                         } else if (mesh.userData?.isFurniture) {
                             entityType = 'furniture';
+                            entityId = targetEntity?.id;
+                        } else if (mesh.userData?.isElevationSegment || targetEntity?.type === 'elevation_segment') {
+                            entityType = 'elevation_segment';
+                            entityId = targetEntity?.id;
+                        } else if (mesh.userData?.isFacadeRibbon || targetEntity?.type === 'facade_ribbon') {
+                            entityType = 'facade_ribbon';
                             entityId = targetEntity?.id;
                         }
 
@@ -1434,6 +1457,13 @@ export class InteractionSystem {
                 this.stairInteractiveSuite.detach();
             }
 
+            const isElevSegment = Boolean(object.userData?.isElevationSegment || object.userData?.entity?.type === 'elevation_segment');
+            if (isElevSegment && this.elevationSegmentGizmo) {
+                this.elevationSegmentGizmo.attach(object);
+            } else if (this.elevationSegmentGizmo) {
+                this.elevationSegmentGizmo.detach();
+            }
+
             if (type && this.ctx.onEntitySelect) this.ctx.onEntitySelect(object.userData.entity, type, side);
             if (this.commonController) this.commonController.setSelection(object.userData.entity, object);
             if (this.commonController?.activeTool === COMMON_TOOLS.MOVE || this.ctx.currentTransformMode === 'translate' || this.ctx.currentTransformMode === 'move') {
@@ -1497,6 +1527,7 @@ export class InteractionSystem {
             if (this.platformInteractiveSuite) this.platformInteractiveSuite.detach();
             if (this.roomInteractiveSuite && !this.roomInteractiveSuite.isBuildingRiseMode) this.roomInteractiveSuite.detach();
             if (this.stairInteractiveSuite) this.stairInteractiveSuite.detach();
+            if (this.elevationSegmentGizmo) this.elevationSegmentGizmo.detach();
             this.ctx.currentTransformMode = 'none';
             if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
             
@@ -1567,6 +1598,7 @@ export class InteractionSystem {
         if (this.stairInteractiveSuite && this.stairInteractiveSuite.destroy) this.stairInteractiveSuite.destroy();
         if (this.wallPluginPlacementSystem && this.wallPluginPlacementSystem.dispose) this.wallPluginPlacementSystem.dispose();
         if (this.stairPlacementSystem && this.stairPlacementSystem.dispose) this.stairPlacementSystem.dispose();
+        if (this.elevationSegmentGizmo && this.elevationSegmentGizmo.destroy) this.elevationSegmentGizmo.destroy();
         if (this.furniturePlacementSystem && this.furniturePlacementSystem.dispose) this.furniturePlacementSystem.dispose();
         if (this.roofPlacementSystem && this.roofPlacementSystem.dispose) this.roofPlacementSystem.dispose();
         if (this.roofPluginPlacementSystem && this.roofPluginPlacementSystem.dispose) this.roofPluginPlacementSystem.dispose();

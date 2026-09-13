@@ -250,16 +250,28 @@ export const buildRibbon3DGeometry = (points, options = {}) => {
             [3, 0]  // Back
         ];
 
-        faces.forEach(([idx0, idx1]) => {
+        // Intrinsic outward normals for the 4 faces around the cross section
+        const targetFaceNormals = [
+            frameA.widthVec ? frameA.widthVec.clone().normalize() : new THREE.Vector3(0, 1, 0),              // Face 0: Top face
+            frameA.normal ? frameA.normal.clone().normalize() : new THREE.Vector3(0, 0, 1),                  // Face 1: Front face
+            frameA.widthVec ? frameA.widthVec.clone().negate().normalize() : new THREE.Vector3(0, -1, 0),    // Face 2: Bottom face
+            frameA.normal ? frameA.normal.clone().negate().normalize() : new THREE.Vector3(0, 0, -1)        // Face 3: Back face
+        ];
+
+        faces.forEach(([idx0, idx1], faceIdx) => {
             const p00 = frameA[idx0];
             const p01 = frameA[idx1];
             const p10 = frameB[idx0];
             const p11 = frameB[idx1];
 
-            // Face normal
-            const vA = p01.clone().sub(p00);
-            const vB = p10.clone().sub(p00);
-            const norm = vA.clone().cross(vB).normalize();
+            const outNorm = targetFaceNormals[faceIdx];
+
+            // Determine CCW triangle winding against outward normal
+            const testTriNorm = new THREE.Vector3().crossVectors(
+                p01.clone().sub(p00),
+                p11.clone().sub(p01)
+            );
+            const isCCW = testTriNorm.dot(outNorm) >= 0;
 
             positions.push(
                 p00.x, p00.y, p00.z,
@@ -269,7 +281,7 @@ export const buildRibbon3DGeometry = (points, options = {}) => {
             );
 
             for (let k = 0; k < 4; k++) {
-                normals.push(norm.x, norm.y, norm.z);
+                normals.push(outNorm.x, outNorm.y, outNorm.z);
             }
 
             uvs.push(
@@ -279,10 +291,17 @@ export const buildRibbon3DGeometry = (points, options = {}) => {
                 u1, 0
             );
 
-            indices.push(
-                vertexOffset, vertexOffset + 1, vertexOffset + 2,
-                vertexOffset, vertexOffset + 2, vertexOffset + 3
-            );
+            if (isCCW) {
+                indices.push(
+                    vertexOffset, vertexOffset + 1, vertexOffset + 2,
+                    vertexOffset, vertexOffset + 2, vertexOffset + 3
+                );
+            } else {
+                indices.push(
+                    vertexOffset, vertexOffset + 2, vertexOffset + 1,
+                    vertexOffset, vertexOffset + 3, vertexOffset + 2
+                );
+            }
             vertexOffset += 4;
         });
     }
@@ -292,29 +311,45 @@ export const buildRibbon3DGeometry = (points, options = {}) => {
         // Start Cap (at node 0)
         const startF = nodeFrames[0];
         const startNorm = new THREE.Vector3(pts[0].x - pts[1].x, pts[0].y - pts[1].y, pts[0].z - pts[1].z).normalize();
+        const sc0 = startF[0], sc1 = startF[3], sc2 = startF[2], sc3 = startF[1];
+        const scTriNorm = new THREE.Vector3().crossVectors(sc1.clone().sub(sc0), sc2.clone().sub(sc1));
+        const scIsCCW = scTriNorm.dot(startNorm) >= 0;
+
         positions.push(
-            startF[0].x, startF[0].y, startF[0].z,
-            startF[3].x, startF[3].y, startF[3].z,
-            startF[2].x, startF[2].y, startF[2].z,
-            startF[1].x, startF[1].y, startF[1].z
+            sc0.x, sc0.y, sc0.z,
+            sc1.x, sc1.y, sc1.z,
+            sc2.x, sc2.y, sc2.z,
+            sc3.x, sc3.y, sc3.z
         );
         for (let k = 0; k < 4; k++) normals.push(startNorm.x, startNorm.y, startNorm.z);
         uvs.push(0, 0, 0, 1, 1, 1, 1, 0);
-        indices.push(vertexOffset, vertexOffset + 1, vertexOffset + 2, vertexOffset, vertexOffset + 2, vertexOffset + 3);
+        if (scIsCCW) {
+            indices.push(vertexOffset, vertexOffset + 1, vertexOffset + 2, vertexOffset, vertexOffset + 2, vertexOffset + 3);
+        } else {
+            indices.push(vertexOffset, vertexOffset + 2, vertexOffset + 1, vertexOffset, vertexOffset + 3, vertexOffset + 2);
+        }
         vertexOffset += 4;
 
         // End Cap (at node n-1)
         const endF = nodeFrames[numPoints - 1];
         const endNorm = new THREE.Vector3(pts[numPoints - 1].x - pts[numPoints - 2].x, pts[numPoints - 1].y - pts[numPoints - 2].y, pts[numPoints - 1].z - pts[numPoints - 2].z).normalize();
+        const ec0 = endF[0], ec1 = endF[1], ec2 = endF[2], ec3 = endF[3];
+        const ecTriNorm = new THREE.Vector3().crossVectors(ec1.clone().sub(ec0), ec2.clone().sub(ec1));
+        const ecIsCCW = ecTriNorm.dot(endNorm) >= 0;
+
         positions.push(
-            endF[0].x, endF[0].y, endF[0].z,
-            endF[1].x, endF[1].y, endF[1].z,
-            endF[2].x, endF[2].y, endF[2].z,
-            endF[3].x, endF[3].y, endF[3].z
+            ec0.x, ec0.y, ec0.z,
+            ec1.x, ec1.y, ec1.z,
+            ec2.x, ec2.y, ec2.z,
+            ec3.x, ec3.y, ec3.z
         );
         for (let k = 0; k < 4; k++) normals.push(endNorm.x, endNorm.y, endNorm.z);
         uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
-        indices.push(vertexOffset, vertexOffset + 1, vertexOffset + 2, vertexOffset, vertexOffset + 2, vertexOffset + 3);
+        if (ecIsCCW) {
+            indices.push(vertexOffset, vertexOffset + 1, vertexOffset + 2, vertexOffset, vertexOffset + 2, vertexOffset + 3);
+        } else {
+            indices.push(vertexOffset, vertexOffset + 2, vertexOffset + 1, vertexOffset, vertexOffset + 3, vertexOffset + 2);
+        }
         vertexOffset += 4;
     }
 

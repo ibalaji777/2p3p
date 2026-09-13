@@ -223,6 +223,13 @@
                 @sync-engine="$emit('sync-engine')"
                 @delete-entity="$emit('delete-entity')"
             />
+
+            <ElevationSegmentPanel
+                v-else-if="selectedType === 'elevation_segment' || (selectedEntity && selectedEntity.type === 'elevation_segment')"
+                :selected-entity="selectedEntity"
+                @sync-engine="$emit('sync-engine')"
+                @delete-entity="$emit('delete-entity')"
+            />
         </div>
 
         <div class="props-empty" v-else-if="!activeTool || !activeTool.startsWith('preset_')">
@@ -253,6 +260,7 @@ import RailingProperties from '../../features/railing/ui/RailingProperties.vue';
 import PresetGroupPanel from '../panels/PresetGroupPanel.vue';
 import PlatformPanel from '../panels/PlatformPanel.vue';
 import FacadeRibbonPanel from '../panels/FacadeRibbonPanel.vue';
+import ElevationSegmentPanel from '../panels/ElevationSegmentPanel.vue';
 
 const props = defineProps({
     activeTool: String,
