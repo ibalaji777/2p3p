@@ -8,7 +8,10 @@ import {
     sproutBranchFromNode,
     setNodeCornerStyle,
     getConnectedWallCorner,
-    wrapElevationSegmentToAdjacentWall
+    wrapElevationSegmentToAdjacentWall,
+    snapEndpointToWallCorner,
+    getEndpointCornerStatus,
+    wrapElevationSegmentAllConnectedWalls
 } from '../elevationSegment.registry.js';
 import {
     expandPathWithFillets,
@@ -617,6 +620,196 @@ describe('Elevation Segment ("Sprout & Bend") Engine Suite', () => {
             const assembly = buildElevationSegmentGeometry(seg.points, { width: 30, depth: 40 });
             expect(assembly).toBeDefined();
             expect(assembly.geometry.attributes.position.count).toBeGreaterThanOrEqual(40);
+        });
+
+        it('should NOT show wrap arrow or allow duplicate wrap after wrapping onto adjacent wall', () => {
+            const wallA = {
+                id: 'wall_A',
+                startX: 0,
+                startY: 0,
+                endX: 300,
+                endY: 0,
+                thickness: 20
+            };
+            const wallB = {
+                id: 'wall_B',
+                startX: 300,
+                startY: 0,
+                endX: 300,
+                endY: 300,
+                thickness: 20
+            };
+            const mockPlanner = { walls: [wallA, wallB] };
+
+            const seg = createStarterElevationSegment(wallA, 220, 150, 1, { length: 140 });
+            // Point 1 wraps onto Wall B
+            const wrapResult = wrapElevationSegmentToAdjacentWall(seg, 1, mockPlanner);
+            expect(wrapResult).toBeDefined();
+            expect(seg.points.length).toBe(3); // Start, Corner, End
+
+            // 1. Arrow check: endpoint at index 2 must NOT detect corner at (300, 0)
+            const connAfterWrap = getConnectedWallCorner(seg, 2, mockPlanner, 80);
+            expect(connAfterWrap).toBeNull(); // Arrow MUST disappear!
+
+            // 2. Duplicate wrap prevention: calling wrap again at index 2 must return null
+            const dupWrap = wrapElevationSegmentToAdjacentWall(seg, 2, mockPlanner);
+            expect(dupWrap).toBeNull();
+            expect(seg.points.length).toBe(3); // Points count must remain strictly 3 (no 2nd curve)
+        });
+
+        it('should snap an overshooting endpoint flush against the wall corner anchor', () => {
+            const wallA = {
+                id: 'wall_A',
+                startX: 0,
+                startY: 0,
+                endX: 300,
+                endY: 0,
+                thickness: 20
+            };
+            const wallB = {
+                id: 'wall_B',
+                startX: 300,
+                startY: 0,
+                endX: 300,
+                endY: 300,
+                thickness: 20
+            };
+            const mockPlanner = { walls: [wallA, wallB] };
+
+            // Segment overshooting the corner (x = 340, while wall corner is at 300)
+            const seg = {
+                id: 'seg_overshoot',
+                wallId: 'wall_A',
+                facing: 1,
+                depth: 40,
+                width: 30,
+                points: [
+                    { x: 100, y: 150, z: 10.3, normal: { x: 0, y: 0, z: 1 } },
+                    { x: 340, y: 150, z: 10.3, normal: { x: 0, y: 0, z: 1 } }
+                ],
+                nodes: [
+                    { x: 100, y: 150, z: 10.3 },
+                    { x: 340, y: 150, z: 10.3 }
+                ]
+            };
+
+            const snapRes = snapEndpointToWallCorner(seg, 1, mockPlanner);
+            expect(snapRes).toBeDefined();
+            // Snapped X should be flush with corner anchor (x = 300)
+            expect(seg.points[1].x).toBe(300);
+            expect(seg.points[1].z).toBeCloseTo(10.3, 1);
+            expect(seg.nodes[1].x).toBe(300);
+        });
+
+        it('should report accurate endpoint corner status for UI panels and 3D gizmo HUD', () => {
+            const wallA = {
+                id: 'wall_A',
+                startX: 0,
+                startY: 0,
+                endX: 300,
+                endY: 0,
+                thickness: 20
+            };
+            const wallB = {
+                id: 'wall_B',
+                startX: 300,
+                startY: 0,
+                endX: 300,
+                endY: 300,
+                thickness: 20
+            };
+            const mockPlanner = { walls: [wallA, wallB] };
+
+            const seg = {
+                id: 'seg_status_test',
+                wallId: 'wall_A',
+                facing: 1,
+                depth: 40,
+                width: 30,
+                points: [
+                    { x: 50, y: 150, z: 10.3, normal: { x: 0, y: 0, z: 1 } },
+                    { x: 280, y: 150, z: 10.3, normal: { x: 0, y: 0, z: 1 } }
+                ]
+            };
+
+            // Point 1 is 20cm from corner (300, 0)
+            const status = getEndpointCornerStatus(seg, 1, mockPlanner);
+            expect(status).toBeDefined();
+            expect(status.hasConnectedWall).toBe(true);
+            expect(status.canWrap).toBe(true);
+            expect(status.adjWall.id).toBe('wall_B');
+            expect(status.distToCorner).toBeLessThanOrEqual(30);
+            expect(status.isAtCorner).toBe(true);
+
+            // Point 0 is 250cm away from corner
+            const status0 = getEndpointCornerStatus(seg, 0, mockPlanner);
+            expect(status0.hasConnectedWall).toBe(false);
+        });
+
+        it('should wrap onto adjacent wall with custom distance and curved fillet', () => {
+            const wallA = { id: 'wall_A', startX: 0, startY: 0, endX: 300, endY: 0, thickness: 20 };
+            const wallB = { id: 'wall_B', startX: 300, startY: 0, endX: 300, endY: 300, thickness: 20 };
+            const mockPlanner = { walls: [wallA, wallB] };
+
+            const seg = createStarterElevationSegment(wallA, 220, 150, 1, { length: 140 });
+            const wrapRes = wrapElevationSegmentToAdjacentWall(seg, 1, mockPlanner, {
+                distance: 85,
+                cornerStyle: 'fillet',
+                radius: 40
+            });
+
+            expect(wrapRes).toBeDefined();
+            expect(seg.points.length).toBe(3);
+
+            // Corner point fillet properties
+            const cornerPt = seg.points[1];
+            expect(cornerPt.cornerStyle).toBe('fillet');
+            expect(cornerPt.radius).toBe(40);
+
+            // End point arm length along adjacent wall
+            const endPt = seg.points[2];
+            const armDist = Math.hypot(endPt.x - cornerPt.x, endPt.z - cornerPt.z);
+            expect(armDist).toBeCloseTo(85, 1);
+        });
+
+        it('should wrap onto adjacent wall spanning the full wall length', () => {
+            const wallA = { id: 'wall_A', startX: 0, startY: 0, endX: 300, endY: 0, thickness: 20 };
+            const wallB = { id: 'wall_B', startX: 300, startY: 0, endX: 300, endY: 400, thickness: 20 };
+            const mockPlanner = { walls: [wallA, wallB] };
+
+            const seg = createStarterElevationSegment(wallA, 220, 150, 1, { length: 140 });
+            const wrapRes = wrapElevationSegmentToAdjacentWall(seg, 1, mockPlanner, {
+                fullWall: true,
+                cornerStyle: 'sharp'
+            });
+
+            expect(wrapRes).toBeDefined();
+            expect(seg.points.length).toBe(3);
+
+            // Adjacent wall B has length 400. Full wall arm should span to awLen - 5 (395)
+            const cornerPt = seg.points[1];
+            const endPt = seg.points[2];
+            expect(endPt.z).toBe(395);
+            const armDist = Math.hypot(endPt.x - cornerPt.x, endPt.z - cornerPt.z);
+            expect(armDist).toBeCloseTo(385, 0);
+        });
+
+        it('should wrap around all connected walls in a room loop', () => {
+            // Closed room with 4 walls
+            const wall1 = { id: 'w1', startX: 0, startY: 0, endX: 300, endY: 0, thickness: 20 };
+            const wall2 = { id: 'w2', startX: 300, startY: 0, endX: 300, endY: 300, thickness: 20 };
+            const wall3 = { id: 'w3', startX: 300, startY: 300, endX: 0, endY: 300, thickness: 20 };
+            const wall4 = { id: 'w4', startX: 0, startY: 300, endX: 0, endY: 0, thickness: 20 };
+            const mockPlanner = { walls: [wall1, wall2, wall3, wall4] };
+
+            const seg = createStarterElevationSegment(wall1, 200, 150, 1, { length: 160 });
+            const wrappedCount = wrapElevationSegmentAllConnectedWalls(seg, mockPlanner, {
+                cornerStyle: 'sharp'
+            });
+
+            // Should wrap across all connected walls
+            expect(wrappedCount).toBeGreaterThanOrEqual(2);
+            expect(seg.points.length).toBeGreaterThanOrEqual(4);
         });
     });
 

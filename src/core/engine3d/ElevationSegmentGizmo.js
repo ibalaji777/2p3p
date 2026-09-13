@@ -3,7 +3,9 @@ import {
     sproutBendAtEndpoint, 
     setNodeCornerStyle, 
     getConnectedWallCorner, 
-    wrapElevationSegmentToAdjacentWall 
+    wrapElevationSegmentToAdjacentWall,
+    snapEndpointToWallCorner,
+    getEndpointCornerStatus
 } from '../../features/elevation/elevationSegment.registry.js';
 import { renderElevationSegment3D } from '../../features/elevation/elevationSegment.renderer3d.js';
 
@@ -229,11 +231,24 @@ export class ElevationSegmentGizmo extends THREE.Group {
             }
 
             // 3. Wall Corner Wrap Handle (↳): If near an adjacent connected wall corner
-            const conn = getConnectedWallCorner(entity, ptIdx, this.ctx?.planner, 85);
+            const conn = getConnectedWallCorner(entity, ptIdx, this.ctx?.planner, 80);
             if (conn) {
-                this._createCornerWrapHandle(ptIdx, capCenter.x + dir.x * 20, capCenter.y, capCenter.z + dir.z * 20, dir);
+                const { adjWall, adjCornerIsStart } = conn;
+                const ap1 = (adjWall.startAnchor && typeof adjWall.startAnchor.position === 'function') ? adjWall.startAnchor.position() : (adjWall.startAnchor || { x: adjWall.startX || 0, y: adjWall.startY || 0 });
+                const ap2 = (adjWall.endAnchor && typeof adjWall.endAnchor.position === 'function') ? adjWall.endAnchor.position() : (adjWall.endAnchor || { x: adjWall.endX || 0, y: adjWall.endY || 0 });
+                const adjStart = adjCornerIsStart ? ap1 : ap2;
+                const adjEnd = adjCornerIsStart ? ap2 : ap1;
+                const awdx = adjEnd.x - adjStart.x;
+                const awdy = adjEnd.y - adjStart.y;
+                const awLen = Math.hypot(awdx, awdy) || 1;
+                const adjDir = new THREE.Vector3(awdx / awLen, 0, awdy / awLen);
+
+                const wrapOrigin = capCenter.clone().add(dir.clone().multiplyScalar(12));
+                this._createCornerWrapHandle(ptIdx, wrapOrigin.x, wrapOrigin.y, wrapOrigin.z, dir, adjDir);
             }
         });
+
+
 
         // 4. Interior Bend Junction Nodes (1 to N - 2)
         for (let i = 1; i < n - 1; i++) {
@@ -265,33 +280,70 @@ export class ElevationSegmentGizmo extends THREE.Group {
         }
     }
 
-    _createCornerWrapHandle(nodeIndex, x, y, z, dir) {
+    _createCornerWrapHandle(nodeIndex, x, y, z, dir, adjDir) {
         const group = new THREE.Group();
         group.position.set(x, y, z);
         group.userData = { isElevationHandle: true, handleType: 'corner_wrap', nodeIndex };
         group.renderOrder = 2505;
 
-        // Reliable invisible hit collider
+        const uIn = dir ? dir.clone().normalize() : new THREE.Vector3(1, 0, 0);
+        const uOut = adjDir ? adjDir.clone().normalize() : uIn.clone();
+        const yAxis = new THREE.Vector3(0, 1, 0);
+
+        // 1. Invisible hit collider covering the entire turn arrow area
         const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0, depthWrite: false });
-        const hitMesh = new THREE.Mesh(new THREE.SphereGeometry(18, 12, 12), hitMat);
+        const hitMesh = new THREE.Mesh(new THREE.SphereGeometry(24, 12, 12), hitMat);
+        const colliderOffset = uIn.clone().multiplyScalar(6).add(uOut.clone().multiplyScalar(12));
+        hitMesh.position.copy(colliderOffset);
         hitMesh.userData = { isElevationHandle: true, handleType: 'corner_wrap', nodeIndex };
         group.add(hitMesh);
 
-        // Glowing Wrap Torus segment (90 degree curve)
-        const wrapGeo = new THREE.TorusGeometry(8.5, 1.6, 8, 20, Math.PI * 0.7);
-        const wrapMesh = new THREE.Mesh(wrapGeo, new THREE.MeshBasicMaterial({ color: 0x00f0ff, depthTest: false }));
-        wrapMesh.rotation.x = Math.PI / 2;
-        wrapMesh.userData = { isElevationHandle: true, handleType: 'corner_wrap', nodeIndex };
-        wrapMesh.renderOrder = 2506;
-        group.add(wrapMesh);
+        // Materials: Vibrant emerald & mint with depthTest: false to remain visible above walls
+        const matStem = new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false });
+        const matHead = new THREE.MeshBasicMaterial({ color: 0x34d399, depthTest: false });
+        const matAccent = new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false });
 
-        // Emerald Arrow Tip (↳)
-        const cone = new THREE.Mesh(new THREE.ConeGeometry(4, 8, 12), new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false }));
-        cone.position.set(dir.x * 10, 0, dir.z * 10);
-        cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-        cone.userData = { isElevationHandle: true, handleType: 'corner_wrap', nodeIndex };
-        cone.renderOrder = 2507;
-        group.add(cone);
+        // 2. Base anchor ring at origin
+        const baseRing = new THREE.Mesh(new THREE.TorusGeometry(4.5, 1.0, 8, 16), matAccent);
+        baseRing.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), uIn);
+        baseRing.userData = { isElevationHandle: true, handleType: 'corner_wrap', nodeIndex };
+        baseRing.renderOrder = 2506;
+        group.add(baseRing);
+
+        // 3. Approach stem along uIn (length 8)
+        const stemGeo = new THREE.CylinderGeometry(2.4, 2.4, 8, 14);
+        const stemMesh = new THREE.Mesh(stemGeo, matStem);
+        stemMesh.position.copy(uIn.clone().multiplyScalar(4));
+        stemMesh.quaternion.setFromUnitVectors(yAxis, uIn);
+        stemMesh.userData = { isElevationHandle: true, handleType: 'corner_wrap', nodeIndex };
+        stemMesh.renderOrder = 2506;
+        group.add(stemMesh);
+
+        // 4. Elbow corner sphere at turn (position uIn * 8)
+        const elbowPos = uIn.clone().multiplyScalar(8);
+        const elbowMesh = new THREE.Mesh(new THREE.SphereGeometry(3.2, 12, 12), matAccent);
+        elbowMesh.position.copy(elbowPos);
+        elbowMesh.userData = { isElevationHandle: true, handleType: 'corner_wrap', nodeIndex };
+        elbowMesh.renderOrder = 2506;
+        group.add(elbowMesh);
+
+        // 5. Turn shaft along uOut (length 14)
+        const shaftGeo = new THREE.CylinderGeometry(2.6, 2.6, 14, 14);
+        const shaftMesh = new THREE.Mesh(shaftGeo, matStem);
+        shaftMesh.position.copy(elbowPos.clone().add(uOut.clone().multiplyScalar(7)));
+        shaftMesh.quaternion.setFromUnitVectors(yAxis, uOut);
+        shaftMesh.userData = { isElevationHandle: true, handleType: 'corner_wrap', nodeIndex };
+        shaftMesh.renderOrder = 2507;
+        group.add(shaftMesh);
+
+        // 6. Prominent 3D Arrowhead Cone pointing along uOut (radius 6.5, length 14)
+        const coneGeo = new THREE.ConeGeometry(6.5, 14, 16);
+        const coneMesh = new THREE.Mesh(coneGeo, matHead);
+        coneMesh.position.copy(elbowPos.clone().add(uOut.clone().multiplyScalar(14 + 7)));
+        coneMesh.quaternion.setFromUnitVectors(yAxis, uOut);
+        coneMesh.userData = { isElevationHandle: true, handleType: 'corner_wrap', nodeIndex };
+        coneMesh.renderOrder = 2508;
+        group.add(coneMesh);
 
         this.handles.add(group);
     }
@@ -366,40 +418,6 @@ export class ElevationSegmentGizmo extends THREE.Group {
         discMesh.userData = { isElevationHandle: true, handleType: 'push_pull', nodeIndex, dir: dir.clone() };
         discMesh.renderOrder = 2502;
         group.add(discMesh);
-
-        this.handles.add(group);
-    }
-
-    _createCornerWrapHandle(nodeIndex, x, y, z, dir) {
-        const group = new THREE.Group();
-        group.position.set(x, y, z);
-        group.userData = { isElevationHandle: true, handleType: 'corner_wrap', nodeIndex, dir: dir.clone() };
-        group.renderOrder = 2515;
-
-        // Large easy-to-click collider
-        const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0, depthWrite: false });
-        const hitMesh = new THREE.Mesh(new THREE.SphereGeometry(18, 12, 12), hitMat);
-        hitMesh.userData = { isElevationHandle: true, handleType: 'corner_wrap', nodeIndex, dir: dir.clone() };
-        group.add(hitMesh);
-
-        // Glowing Emerald Core Disc (↳ Wrap Around Corner)
-        const disc = new THREE.Mesh(
-            new THREE.SphereGeometry(6.5, 16, 16),
-            new THREE.MeshBasicMaterial({ color: 0x10b981, depthTest: false })
-        );
-        disc.userData = { isElevationHandle: true, handleType: 'corner_wrap', nodeIndex, dir: dir.clone() };
-        disc.renderOrder = 2516;
-        group.add(disc);
-
-        // Radiant Emerald Halo Ring
-        const ring = new THREE.Mesh(
-            new THREE.TorusGeometry(9.5, 1.4, 8, 24),
-            new THREE.MeshBasicMaterial({ color: 0x34d399, depthTest: false })
-        );
-        ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
-        ring.userData = { isElevationHandle: true, handleType: 'corner_wrap', nodeIndex, dir: dir.clone() };
-        ring.renderOrder = 2517;
-        group.add(ring);
 
         this.handles.add(group);
     }
@@ -679,7 +697,7 @@ export class ElevationSegmentGizmo extends THREE.Group {
                     }
                 } else {
                     dom.style.cursor = 'auto';
-                    if (this.badgeDom && !this.isDragging) this.badgeDom.style.display = 'none';
+                    if (this.domBadge && !this.isDragging) this.domBadge.style.display = 'none';
                 }
             }
             return;
@@ -835,27 +853,29 @@ export class ElevationSegmentGizmo extends THREE.Group {
                 const p1 = (w.startAnchor && typeof w.startAnchor.position === 'function') ? w.startAnchor.position() : (w.startAnchor || { x: w.startX || 0, y: w.startY || 0 });
                 const p2 = (w.endAnchor && typeof w.endAnchor.position === 'function') ? w.endAnchor.position() : (w.endAnchor || { x: w.endX || 0, y: w.endY || 0 });
 
-                // Project wall endpoints onto the active surface face
-                const p1_faceX = p1.x + norm.x * surfaceOffset;
-                const p1_faceZ = p1.y + norm.z * surfaceOffset;
-                const p2_faceX = p2.x + norm.x * surfaceOffset;
-                const p2_faceZ = p2.y + norm.z * surfaceOffset;
+                const anchors = [p1, p2];
+                for (const anch of anchors) {
+                    const anch_faceX = anch.x + norm.x * surfaceOffset;
+                    const anch_faceZ = anch.y + norm.z * surfaceOffset;
 
-                if (Math.hypot(newPtX - p1_faceX, newPtZ - p1_faceZ) <= 24) {
-                    const distToCorner = Math.hypot(p1_faceX - neighbor.x, p1_faceZ - neighbor.z);
-                    newLen = Math.max(25, Math.round(distToCorner));
-                    newPtX = Math.round(neighbor.x + axis.x * newLen);
-                    newPtZ = Math.round(neighbor.z + axis.z * newLen);
-                    snapMsg = ' (Snap: Wall Corner)';
-                    break;
-                } else if (Math.hypot(newPtX - p2_faceX, newPtZ - p2_faceZ) <= 24) {
-                    const distToCorner = Math.hypot(p2_faceX - neighbor.x, p2_faceZ - neighbor.z);
-                    newLen = Math.max(25, Math.round(distToCorner));
-                    newPtX = Math.round(neighbor.x + axis.x * newLen);
-                    newPtZ = Math.round(neighbor.z + axis.z * newLen);
-                    snapMsg = ' (Snap: Wall Corner)';
-                    break;
+                    // Axial distance along segment from neighbor to this corner anchor
+                    const toAnchX = anch_faceX - neighbor.x;
+                    const toAnchZ = anch_faceZ - neighbor.z;
+                    const distAlongAxis = toAnchX * axis.x + toAnchZ * axis.z;
+
+                    if (distAlongAxis > 20) {
+                        const diff = newLen - distAlongAxis;
+                        // Magnetic latch: approaching within 35cm OR overshooting up to 50cm
+                        if (Math.abs(diff) <= 35 || (diff > 0 && diff <= 50)) {
+                            newLen = Math.max(25, Math.round(distAlongAxis));
+                            newPtX = Math.round(neighbor.x + axis.x * newLen);
+                            newPtZ = Math.round(neighbor.z + axis.z * newLen);
+                            snapMsg = ' (📍 Snapped Flush to Corner)';
+                            break;
+                        }
+                    }
                 }
+                if (snapMsg) break;
             }
         } else if (Math.abs(axis.y) > 0.8) {
             // Vertical segment: snap to floor levels
