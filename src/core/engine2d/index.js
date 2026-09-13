@@ -218,6 +218,7 @@ export class FloorPlanner {
             ...(this.arcs || []),
             ...(this.presetGroups || []),
             ...(this.rooms || []),
+            ...(this.facadeRibbons || []),
             ...attached
         ];
     }
@@ -388,6 +389,14 @@ export class FloorPlanner {
         if (this.rooms) {
             if (this.rooms.includes(entity)) entity.isDeleted = true;
             else this.rooms = this.rooms.filter(r => r !== entity);
+        }
+        if (this.facadeRibbons) {
+            this.facadeRibbons = this.facadeRibbons.filter(r => r !== entity);
+        }
+
+        // Clean up 3D visual mesh if present
+        if (entity.mesh3D && entity.mesh3D.parent) {
+            entity.mesh3D.parent.remove(entity.mesh3D);
         }
 
         // Clean up visual nodes if present

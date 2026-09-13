@@ -5,6 +5,11 @@
         <div class="control-group">
             <label>Profile Type</label>
             <select v-model="entity.profileType" @change="$emit('sync-engine')">
+                <option value="tower_corner_wrap_left">Tower & Corner Wrap (Left)</option>
+                <option value="tower_corner_wrap_right">Tower & Corner Wrap (Right)</option>
+                <option value="corner_wrap_left">Corner Wrap (Left)</option>
+                <option value="corner_wrap_right">Corner Wrap (Right)</option>
+                <option value="c_wrap_terrace_frame">Continuous Terrace Frame</option>
                 <option value="c_shape_left">C-Shape (Left)</option>
                 <option value="c_shape_right">C-Shape (Right)</option>
                 <option value="l_shape_left">L-Shape (Left)</option>
@@ -14,22 +19,62 @@
         </div>
 
         <div class="control-group">
-            <label>Width</label>
+            <label>Width (Front Span)</label>
             <div class="input-wrap">
                 <input type="range" v-model.number="entity.width" min="10" max="400" @input="$emit('sync-engine')">
                 <DimensionInput v-model="entity.width" @change="$emit('sync-engine')" />
             </div>
         </div>
 
+        <div class="control-group" v-if="entity.profileType?.includes('wrap')">
+            <label>Side Return (Wrap Span)</label>
+            <div class="input-wrap">
+                <input type="range" v-model.number="entity.returnLength" min="10" max="400" @input="$emit('sync-engine')">
+                <DimensionInput v-model="entity.returnLength" @change="$emit('sync-engine')" />
+            </div>
+        </div>
+
+        <div class="control-group" v-if="entity.profileType?.includes('tower') || entity.profileType === 'c_wrap_terrace_frame'">
+            <label>Tower Height (To Terrace)</label>
+            <div class="input-wrap">
+                <input type="range" v-model.number="entity.towerHeight" min="50" max="1000" @input="$emit('sync-engine')">
+                <DimensionInput v-model="entity.towerHeight" @change="$emit('sync-engine')" />
+            </div>
+        </div>
+
+        <div class="control-group" v-if="entity.profileType?.includes('tower') || entity.profileType === 'c_wrap_terrace_frame'">
+            <label>Tower Width</label>
+            <div class="input-wrap">
+                <input type="range" v-model.number="entity.towerWidth" min="20" max="200" @input="$emit('sync-engine')">
+                <DimensionInput v-model="entity.towerWidth" @change="$emit('sync-engine')" />
+            </div>
+        </div>
+
+        <div class="control-group" v-if="entity.profileType?.includes('wrap') || entity.profileType?.includes('tower')">
+            <label>Soffit Spotlights</label>
+            <div class="input-wrap" style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="fascia-spotlights-check" v-model="entity.hasSpotlights" @change="$emit('sync-engine')" style="width: auto;">
+                <label for="fascia-spotlights-check" style="cursor: pointer; font-size: 11px;">Enable Under-Soffit Downlights</label>
+            </div>
+        </div>
+
+        <div class="control-group" v-if="entity.hasSpotlights && (entity.profileType?.includes('wrap') || entity.profileType?.includes('tower'))">
+            <label>Front Spotlights Count</label>
+            <div class="input-wrap">
+                <input type="range" v-model.number="entity.spotlightCount" min="1" max="10" @input="$emit('sync-engine')">
+                <input type="number" v-model.number="entity.spotlightCount" min="1" max="10" @change="$emit('sync-engine')" style="width: 50px; text-align: center;">
+            </div>
+        </div>
+
         <div class="control-group">
-            <label>Height (Drop)</label>
+            <label>Height (Beam Drop)</label>
             <div class="input-wrap">
                 <input type="range" v-model.number="entity.height" min="10" max="400" @input="$emit('sync-engine')">
                 <DimensionInput v-model="entity.height" @change="$emit('sync-engine')" />
             </div>
         </div>
 
-        <div class="control-group" v-if="entity.profileType !== 'full_box'">
+        <div class="control-group" v-if="['c_shape_left', 'c_shape_right', 'l_shape_left', 'l_shape_right', 'c_wrap_terrace_frame'].includes(entity.profileType)">
             <label>Top Arm Length</label>
             <div class="input-wrap">
                 <input type="range" :value="entity.topArm !== undefined ? entity.topArm : entity.width" @input="e => { entity.topArm = parseFloat(e.target.value); $emit('sync-engine'); }" min="10" max="400">

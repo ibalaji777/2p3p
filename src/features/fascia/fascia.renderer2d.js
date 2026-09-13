@@ -35,4 +35,40 @@ export const renderFascia2D = (group, entity) => {
         dash: [4, 4]
     });
     group.add(projRect);
+
+    // Corner Wrap & Tower 2D Footprint Representation
+    const pType = entity.profileType || '';
+    if (pType.includes('wrap')) {
+        const retLen = entity.returnLength || 120;
+        const isLeft = pType.includes('left') || pType === 'c_wrap_terrace_frame';
+        const retX = isLeft ? -hw : (hw - d);
+        const retY = projDir === 1 ? (h / 2 - retLen) : (h / 2);
+        const returnRect = new Konva.Rect({
+            x: retX,
+            y: retY,
+            width: d,
+            height: retLen,
+            stroke: '#2563eb',
+            strokeWidth: 1,
+            dash: [4, 4],
+            fill: 'rgba(96, 165, 250, 0.2)'
+        });
+        group.add(returnRect);
+
+        // Vertical Tower footprint
+        if (pType.includes('tower') || pType === 'c_wrap_terrace_frame') {
+            const towerW = entity.towerWidth || 60;
+            const towerX = isLeft ? -hw : (hw - towerW);
+            const towerRect = new Konva.Rect({
+                x: towerX,
+                y: projY,
+                width: towerW,
+                height: d,
+                fill: 'rgba(37, 99, 235, 0.35)',
+                stroke: '#1d4ed8',
+                strokeWidth: 1.5
+            });
+            group.add(towerRect);
+        }
+    }
 };

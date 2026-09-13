@@ -563,64 +563,68 @@ export class RoomInteractiveSuite extends THREE.Group {
             z-index: 100003;
             user-select: none;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            filter: drop-shadow(0 16px 36px rgba(0, 0, 0, 0.65));
+            filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.75));
         `;
 
         ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'wheel', 'touchstart', 'touchend'].forEach(evt => {
             this.domRoomHUD.addEventListener(evt, (e) => e.stopPropagation());
         });
 
-        // Card Container (White / Clean Sims 4 Theme with subtle border)
+        // Card Container (Balanced Compact Dark Theme with glassmorphism)
         const bubble = document.createElement('div');
         bubble.style.cssText = `
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 7px;
-            background: rgba(255, 255, 255, 0.96);
-            border: 2px solid #e2e8f0;
-            border-radius: 18px;
-            padding: 8px 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+            gap: 5px;
+            background: rgba(15, 23, 42, 0.94);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            padding: 5px 9px;
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            min-width: 290px;
+            box-sizing: border-box;
         `;
 
-        // Top Row: Scope Switcher [ 🏠 Room | 🏢 Building ] + [ ✓ Done ]
-        const headerRow = document.createElement('div');
-        headerRow.style.cssText = `
+        // Row 1: Scope Switcher + Action Icons + Done/Close
+        const mainRow = document.createElement('div');
+        mainRow.style.cssText = `
             display: flex;
             align-items: center;
             justify-content: space-between;
             width: 100%;
-            gap: 8px;
-            padding-bottom: 4px;
-            border-bottom: 1px solid #f1f5f9;
+            gap: 5px;
         `;
 
-        // Scope Switcher Pills
+        // Scope Switcher Container
         const scopeContainer = document.createElement('div');
         scopeContainer.style.cssText = `
             display: flex;
             align-items: center;
-            background: #e2e8f0;
+            background: rgba(255, 255, 255, 0.08);
             border-radius: 9999px;
-            padding: 2px;
-            gap: 2px;
+            padding: 1.5px;
+            gap: 1.5px;
+            flex-shrink: 0;
         `;
 
         this.btnScopeRoom = document.createElement('button');
         this.btnScopeRoom.innerHTML = `<span>🏠 Room</span>`;
-        this.btnScopeRoom.title = 'Edit Selected Room & Walls';
+        this.btnScopeRoom.title = 'Edit Selected Room';
         this.btnScopeRoom.style.cssText = `
             border: none;
             border-radius: 9999px;
-            padding: 3px 9px;
-            font-size: 11px;
+            padding: 2px 6px;
+            height: 22px;
+            font-size: 10px;
             cursor: pointer;
             transition: all 0.15s ease;
             outline: none;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            white-space: nowrap;
         `;
         this.btnScopeRoom.onclick = (e) => {
             e.stopPropagation();
@@ -628,16 +632,21 @@ export class RoomInteractiveSuite extends THREE.Group {
         };
 
         this.btnScopeBuilding = document.createElement('button');
-        this.btnScopeBuilding.innerHTML = `<span>🏢 Building</span>`;
-        this.btnScopeBuilding.title = 'Edit All Building Walls Simultaneously';
+        this.btnScopeBuilding.innerHTML = `<span>🏢 Bldg</span>`;
+        this.btnScopeBuilding.title = 'Edit All Building Walls';
         this.btnScopeBuilding.style.cssText = `
             border: none;
             border-radius: 9999px;
-            padding: 3px 9px;
-            font-size: 11px;
+            padding: 2px 6px;
+            height: 22px;
+            font-size: 10px;
             cursor: pointer;
             transition: all 0.15s ease;
             outline: none;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            white-space: nowrap;
         `;
         this.btnScopeBuilding.onclick = (e) => {
             e.stopPropagation();
@@ -647,130 +656,44 @@ export class RoomInteractiveSuite extends THREE.Group {
         scopeContainer.appendChild(this.btnScopeRoom);
         scopeContainer.appendChild(this.btnScopeBuilding);
 
-        // Header Right: Done & Close
-        const headerRight = document.createElement('div');
-        headerRight.style.cssText = `
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        `;
-
-        const btnDone = document.createElement('button');
-        btnDone.innerHTML = `✓ Done`;
-        btnDone.title = 'Finish & Exit (Enter / Esc)';
-        btnDone.style.cssText = `
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 24px;
-            padding: 0 10px;
-            border-radius: 9999px;
-            border: 1.5px solid #10b981;
-            background: #10b981;
-            color: #ffffff;
-            font-size: 11px;
-            font-weight: 800;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            box-shadow: 0 2px 6px rgba(16, 185, 129, 0.35);
-            outline: none;
-            white-space: nowrap;
-        `;
-        btnDone.onmouseenter = () => {
-            btnDone.style.transform = 'translateY(-1px) scale(1.04)';
-            btnDone.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.5)';
-        };
-        btnDone.onmouseleave = () => {
-            btnDone.style.transform = 'translateY(0) scale(1)';
-            btnDone.style.boxShadow = '0 2px 6px rgba(16, 185, 129, 0.35)';
-        };
-        btnDone.onclick = (e) => {
-            e.stopPropagation();
-            this.finishAndExit();
-        };
-
-        const btnClose = document.createElement('button');
-        btnClose.textContent = '✕';
-        btnClose.title = 'Close (Esc)';
-        btnClose.style.cssText = `
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 24px;
-            height: 24px;
-            border-radius: 9999px;
-            border: 1px solid #cbd5e1;
-            background: #ffffff;
-            color: #64748b;
-            font-size: 11px;
-            font-weight: 800;
-            cursor: pointer;
-            transition: all 0.15s ease;
-            outline: none;
-        `;
-        btnClose.onmouseenter = () => {
-            btnClose.style.borderColor = '#ef4444';
-            btnClose.style.color = '#ef4444';
-        };
-        btnClose.onmouseleave = () => {
-            btnClose.style.borderColor = '#cbd5e1';
-            btnClose.style.color = '#64748b';
-        };
-        btnClose.onclick = (e) => {
-            e.stopPropagation();
-            this.finishAndExit();
-        };
-
-        headerRight.appendChild(btnDone);
-        headerRight.appendChild(btnClose);
-
-        headerRow.appendChild(scopeContainer);
-        headerRow.appendChild(headerRight);
-
-        // Middle Row: Mode-Specific Action Buttons
+        // Room Action Buttons Container
         this.roomActionsContainer = document.createElement('div');
         this.roomActionsContainer.style.cssText = `
             display: flex;
             align-items: center;
-            gap: 6px;
-            width: 100%;
+            gap: 3px;
             justify-content: center;
         `;
 
-        // Room Mode Buttons:
-        // 1. Lower Platform (⬇)
+        // Room Mode Buttons (Balanced 25px × 25px):
         const btnLower = document.createElement('button');
         btnLower.innerHTML = `⬇`;
         btnLower.title = 'Lower Platform Elevation (-15cm)';
         this._styleBubbleButton(btnLower, '#f59e0b');
         btnLower.onclick = (e) => { e.stopPropagation(); this.stepRoomElevation(-15); };
 
-        // 2. Raise Platform (⬆)
         const btnRaise = document.createElement('button');
         btnRaise.innerHTML = `⬆`;
         btnRaise.title = 'Raise Platform Elevation (+15cm)';
         this._styleBubbleButton(btnRaise, '#10b981');
         btnRaise.onclick = (e) => { e.stopPropagation(); this.stepRoomElevation(15); };
 
-        // 3. Rotate CCW (↺)
         const btnRotateCCW = document.createElement('button');
         btnRotateCCW.innerHTML = `↺`;
         btnRotateCCW.title = 'Rotate Counter-Clockwise (90°)';
         this._styleBubbleButton(btnRotateCCW, '#38bdf8');
         btnRotateCCW.onclick = (e) => { e.stopPropagation(); this.rotateRoom(-90); };
 
-        // 4. Rotate CW (↻)
         const btnRotateCW = document.createElement('button');
         btnRotateCW.innerHTML = `↻`;
         btnRotateCW.title = 'Rotate Clockwise (90°)';
         this._styleBubbleButton(btnRotateCW, '#38bdf8');
         btnRotateCW.onclick = (e) => { e.stopPropagation(); this.rotateRoom(90); };
 
-        // 5. Move Room (✥)
         const btnMove = document.createElement('button');
         btnMove.innerHTML = `✥`;
         btnMove.title = 'Move / Translate Room across floor';
-        this._styleBubbleButton(btnMove, '#6366f1');
+        this._styleBubbleButton(btnMove, '#818cf8');
         btnMove.onclick = (e) => {
             e.stopPropagation();
             if (this.ctx.interactions?.universalMoveGizmo && this.target) {
@@ -778,14 +701,12 @@ export class RoomInteractiveSuite extends THREE.Group {
             }
         };
 
-        // 6. Duplicate Room (❐)
         const btnCopy = document.createElement('button');
         btnCopy.innerHTML = `❐`;
         btnCopy.title = 'Duplicate Room Enclosure';
-        this._styleBubbleButton(btnCopy, '#8b5cf6');
+        this._styleBubbleButton(btnCopy, '#a78bfa');
         btnCopy.onclick = (e) => { e.stopPropagation(); this.duplicateRoom(); };
 
-        // 7. Delete Room (🗑️)
         const btnDelete = document.createElement('button');
         btnDelete.innerHTML = `🗑️`;
         btnDelete.title = 'Delete Room & Walls';
@@ -800,36 +721,35 @@ export class RoomInteractiveSuite extends THREE.Group {
         this.roomActionsContainer.appendChild(btnCopy);
         this.roomActionsContainer.appendChild(btnDelete);
 
-        // Building Mode Buttons Container:
+        // Building Mode Buttons Container
         this.buildingActionsContainer = document.createElement('div');
         this.buildingActionsContainer.style.cssText = `
             display: none;
             align-items: center;
-            gap: 6px;
-            width: 100%;
+            gap: 3px;
             justify-content: center;
         `;
 
         const btnBldgFoundDown = document.createElement('button');
-        btnBldgFoundDown.innerHTML = `⬇ Foundation -15`;
+        btnBldgFoundDown.innerHTML = `⬇ Fnd`;
         btnBldgFoundDown.title = 'Lower Building Foundation (-15cm)';
         this._styleBubbleButton(btnBldgFoundDown, '#f59e0b', true);
         btnBldgFoundDown.onclick = (e) => { e.stopPropagation(); this.stepAllWallsElevation(-15); };
 
         const btnBldgFoundUp = document.createElement('button');
-        btnBldgFoundUp.innerHTML = `⬆ Foundation +15`;
+        btnBldgFoundUp.innerHTML = `⬆ Fnd`;
         btnBldgFoundUp.title = 'Lift Building Foundation (+15cm)';
         this._styleBubbleButton(btnBldgFoundUp, '#10b981', true);
         btnBldgFoundUp.onclick = (e) => { e.stopPropagation(); this.stepAllWallsElevation(15); };
 
         const btnBldgWallDown = document.createElement('button');
-        btnBldgWallDown.innerHTML = `▼ Wall -10`;
+        btnBldgWallDown.innerHTML = `▼ Wall`;
         btnBldgWallDown.title = 'Lower All Wall Heights (-10cm)';
         this._styleBubbleButton(btnBldgWallDown, '#38bdf8', true);
         btnBldgWallDown.onclick = (e) => { e.stopPropagation(); this.stepAllWallsHeight(-10); };
 
         const btnBldgWallUp = document.createElement('button');
-        btnBldgWallUp.innerHTML = `▲ Wall +10`;
+        btnBldgWallUp.innerHTML = `▲ Wall`;
         btnBldgWallUp.title = 'Raise All Wall Heights (+10cm)';
         this._styleBubbleButton(btnBldgWallUp, '#38bdf8', true);
         btnBldgWallUp.onclick = (e) => { e.stopPropagation(); this.stepAllWallsHeight(10); };
@@ -839,23 +759,111 @@ export class RoomInteractiveSuite extends THREE.Group {
         this.buildingActionsContainer.appendChild(btnBldgWallDown);
         this.buildingActionsContainer.appendChild(btnBldgWallUp);
 
-        // Bottom Row: Live Badge & Wall Height Presets
+        // Header Right: Done & Close
+        const headerRight = document.createElement('div');
+        headerRight.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            flex-shrink: 0;
+        `;
+
+        const btnDone = document.createElement('button');
+        btnDone.innerHTML = `✓ Done`;
+        btnDone.title = 'Finish & Exit (Enter / Esc)';
+        btnDone.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 22px;
+            padding: 0 8px;
+            border-radius: 9999px;
+            border: 1px solid #10b981;
+            background: #10b981;
+            color: #ffffff;
+            font-size: 10.5px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            box-shadow: 0 1px 4px rgba(16, 185, 129, 0.4);
+            outline: none;
+            white-space: nowrap;
+        `;
+        btnDone.onmouseenter = () => {
+            btnDone.style.transform = 'translateY(-1px) scale(1.04)';
+            btnDone.style.boxShadow = '0 2px 8px rgba(16, 185, 129, 0.6)';
+        };
+        btnDone.onmouseleave = () => {
+            btnDone.style.transform = 'translateY(0) scale(1)';
+            btnDone.style.boxShadow = '0 1px 4px rgba(16, 185, 129, 0.4)';
+        };
+        btnDone.onclick = (e) => {
+            e.stopPropagation();
+            this.finishAndExit();
+        };
+
+        const btnClose = document.createElement('button');
+        btnClose.textContent = '✕';
+        btnClose.title = 'Close (Esc)';
+        btnClose.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            border-radius: 9999px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.08);
+            color: #94a3b8;
+            font-size: 10px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            outline: none;
+            flex-shrink: 0;
+        `;
+        btnClose.onmouseenter = () => {
+            btnClose.style.borderColor = '#ef4444';
+            btnClose.style.background = 'rgba(239, 68, 68, 0.2)';
+            btnClose.style.color = '#fca5a5';
+        };
+        btnClose.onmouseleave = () => {
+            btnClose.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+            btnClose.style.background = 'rgba(255, 255, 255, 0.08)';
+            btnClose.style.color = '#94a3b8';
+        };
+        btnClose.onclick = (e) => {
+            e.stopPropagation();
+            this.finishAndExit();
+        };
+
+        headerRight.appendChild(btnDone);
+        headerRight.appendChild(btnClose);
+
+        mainRow.appendChild(scopeContainer);
+        mainRow.appendChild(this.roomActionsContainer);
+        mainRow.appendChild(this.buildingActionsContainer);
+        mainRow.appendChild(headerRight);
+
+        // Row 2: Live Badge & Wall Height Presets
         const metaRow = document.createElement('div');
         metaRow.style.cssText = `
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             width: 100%;
             justify-content: space-between;
-            padding-top: 2px;
+            padding-top: 3px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
         `;
 
         this.roomBadge = document.createElement('div');
         this.roomBadge.style.cssText = `
-            font-size: 11px;
-            font-weight: 800;
-            color: #0f172a;
+            font-size: 10px;
+            font-weight: 700;
+            color: #e2e8f0;
             white-space: nowrap;
+            line-height: 16px;
         `;
         this.roomBadge.textContent = 'Room: +0cm';
 
@@ -863,10 +871,11 @@ export class RoomInteractiveSuite extends THREE.Group {
         this.heightPills.style.cssText = `
             display: flex;
             align-items: center;
-            background: #f1f5f9;
+            background: rgba(255, 255, 255, 0.08);
             border-radius: 9999px;
-            padding: 2px;
-            gap: 2px;
+            padding: 1.5px;
+            gap: 1.5px;
+            height: 19px;
         `;
 
         const heights = [
@@ -881,14 +890,17 @@ export class RoomInteractiveSuite extends THREE.Group {
         btnMinus.style.cssText = `
             border: none;
             background: transparent;
-            color: #64748b;
-            font-size: 10px;
+            color: #94a3b8;
+            font-size: 8.5px;
             font-weight: 800;
-            padding: 2px 5px;
+            padding: 0 3px;
+            height: 16px;
             border-radius: 9999px;
             cursor: pointer;
             transition: all 0.12s;
         `;
+        btnMinus.onmouseenter = () => { btnMinus.style.color = '#38bdf8'; };
+        btnMinus.onmouseleave = () => { btnMinus.style.color = '#94a3b8'; };
         btnMinus.onclick = (e) => {
             e.stopPropagation();
             this.stepWallHeight(-10);
@@ -903,10 +915,11 @@ export class RoomInteractiveSuite extends THREE.Group {
             pill.style.cssText = `
                 border: none;
                 background: transparent;
-                color: #475569;
-                font-size: 10px;
+                color: #94a3b8;
+                font-size: 9.5px;
                 font-weight: 700;
-                padding: 2px 7px;
+                padding: 0 4px;
+                height: 16px;
                 border-radius: 9999px;
                 cursor: pointer;
                 transition: all 0.12s;
@@ -924,14 +937,17 @@ export class RoomInteractiveSuite extends THREE.Group {
         btnPlus.style.cssText = `
             border: none;
             background: transparent;
-            color: #64748b;
-            font-size: 10px;
+            color: #94a3b8;
+            font-size: 8.5px;
             font-weight: 800;
-            padding: 2px 5px;
+            padding: 0 3px;
+            height: 16px;
             border-radius: 9999px;
             cursor: pointer;
             transition: all 0.12s;
         `;
+        btnPlus.onmouseenter = () => { btnPlus.style.color = '#38bdf8'; };
+        btnPlus.onmouseleave = () => { btnPlus.style.color = '#94a3b8'; };
         btnPlus.onclick = (e) => {
             e.stopPropagation();
             this.stepWallHeight(10);
@@ -941,9 +957,7 @@ export class RoomInteractiveSuite extends THREE.Group {
         metaRow.appendChild(this.roomBadge);
         metaRow.appendChild(this.heightPills);
 
-        bubble.appendChild(headerRow);
-        bubble.appendChild(this.roomActionsContainer);
-        bubble.appendChild(this.buildingActionsContainer);
+        bubble.appendChild(mainRow);
         bubble.appendChild(metaRow);
 
         // Speech bubble triangular tail pointing downward
@@ -951,11 +965,11 @@ export class RoomInteractiveSuite extends THREE.Group {
         tail.style.cssText = `
             width: 0;
             height: 0;
-            border-left: 9px solid transparent;
-            border-right: 9px solid transparent;
-            border-top: 9px solid rgba(255, 255, 255, 0.96);
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 6px solid rgba(15, 23, 42, 0.94);
             margin-top: -1px;
-            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.1));
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));
         `;
 
         this.domRoomHUD.appendChild(bubble);
@@ -971,10 +985,10 @@ export class RoomInteractiveSuite extends THREE.Group {
             btn.style.background = '#0284c7';
             btn.style.color = '#ffffff';
             btn.style.fontWeight = '800';
-            btn.style.boxShadow = '0 2px 6px rgba(2, 132, 199, 0.4)';
+            btn.style.boxShadow = '0 1px 6px rgba(2, 132, 199, 0.5)';
         } else {
             btn.style.background = 'transparent';
-            btn.style.color = '#64748b';
+            btn.style.color = '#94a3b8';
             btn.style.fontWeight = '700';
             btn.style.boxShadow = 'none';
         }
@@ -1009,13 +1023,15 @@ export class RoomInteractiveSuite extends THREE.Group {
                 if (!pill.dataset?.val) return;
                 const val = Number(pill.dataset.val);
                 if (val === curH) {
-                    pill.style.background = '#38bdf8';
+                    pill.style.background = '#0ea5e9';
                     pill.style.color = '#ffffff';
                     pill.style.fontWeight = '800';
+                    pill.style.boxShadow = '0 1px 4px rgba(14, 165, 233, 0.4)';
                 } else {
                     pill.style.background = 'transparent';
-                    pill.style.color = '#475569';
+                    pill.style.color = '#94a3b8';
                     pill.style.fontWeight = '700';
+                    pill.style.boxShadow = 'none';
                 }
             });
         }
@@ -1029,7 +1045,7 @@ export class RoomInteractiveSuite extends THREE.Group {
             } else if (this.room) {
                 const elev = Number(this.room.elevation) || 0;
                 const areaM2 = (this._getRoomArea(this.room.path) / 10000).toFixed(1);
-                this.roomBadge.innerHTML = `Elev <span style="color:#10b981;">+${elev}cm</span> • Wall <span style="color:#38bdf8;">${curH}cm</span> • ${areaM2}m²`;
+                this.roomBadge.innerHTML = `Elev <span style="color:#10b981;">+${elev}cm</span> • Wall <span style="color:#38bdf8;">${curH}cm</span> • <span style="color:#94a3b8;">${areaM2}m²</span>`;
             }
         }
     }
@@ -1039,28 +1055,32 @@ export class RoomInteractiveSuite extends THREE.Group {
             display: flex;
             align-items: center;
             justify-content: center;
-            ${isWide ? 'height: 28px; padding: 0 10px;' : 'width: 32px; height: 32px;'}
-            border-radius: 10px;
-            border: 1.5px solid #cbd5e1;
-            background: #ffffff;
-            color: #1e293b;
-            font-size: 12px;
+            ${isWide ? 'height: 22px; padding: 0 6px;' : 'width: 25px; height: 25px;'}
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.07);
+            color: #e2e8f0;
+            font-size: 11px;
             font-weight: 800;
             cursor: pointer;
             transition: all 0.15s ease;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.06);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
             outline: none;
             white-space: nowrap;
         `;
         btn.onmouseenter = () => {
             btn.style.borderColor = accentColor;
-            btn.style.transform = 'translateY(-2px) scale(1.08)';
-            btn.style.boxShadow = `0 6px 14px rgba(0,0,0,0.15), 0 0 8px ${accentColor}40`;
+            btn.style.color = '#ffffff';
+            btn.style.background = 'rgba(255, 255, 255, 0.16)';
+            btn.style.transform = 'scale(1.06)';
+            btn.style.boxShadow = `0 2px 8px rgba(0,0,0,0.4), 0 0 6px ${accentColor}60`;
         };
         btn.onmouseleave = () => {
-            btn.style.borderColor = '#cbd5e1';
-            btn.style.transform = 'translateY(0) scale(1)';
-            btn.style.boxShadow = '0 2px 5px rgba(0,0,0,0.06)';
+            btn.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+            btn.style.color = '#e2e8f0';
+            btn.style.background = 'rgba(255, 255, 255, 0.07)';
+            btn.style.transform = 'scale(1)';
+            btn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.3)';
         };
     }
 

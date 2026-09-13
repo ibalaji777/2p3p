@@ -95,8 +95,16 @@ export const calculateFasciaAssembly = (entity) => {
     const radii = entity.cornerRadii || [];
     const getR = (idx) => Math.max(0, radii[idx] || 0);
 
+    const returnLength = entity.returnLength !== undefined ? entity.returnLength : 120;
+    const towerHeight = entity.towerHeight !== undefined ? entity.towerHeight : 350;
+    const towerWidth = entity.towerWidth !== undefined ? entity.towerWidth : 60;
+    const towerDepth = entity.towerDepth !== undefined ? entity.towerDepth : depth;
+    const hasSpotlights = entity.hasSpotlights !== false;
+    const spotlightCount = entity.spotlightCount !== undefined ? entity.spotlightCount : 4;
+
     const blocks = [];
     const fillets = [];
+    const spotlights = [];
     let computedPts = [];
 
     if (profileType === 'c_shape_left') {
@@ -174,6 +182,119 @@ export const calculateFasciaAssembly = (entity) => {
             new THREE.Vector2(width / 2 - thick, height - thick),
             new THREE.Vector2(width / 2 - thick, thick)
         ];
+    } else if (profileType === 'tower_corner_wrap_left') {
+        // Front Cantilever Beam
+        blocks.push({ w: width, h: height, d: depth, x: 0, y: 0, z: zOffset, radii: [0, 0, 0, 0], slot: 'fascia_frame' });
+        // Side Return Cantilever Beam (wrapping around left corner onto side wall)
+        blocks.push({ w: depth, h: height, d: returnLength, x: -width / 2 + depth / 2, y: 0, z: zOffset - (returnLength / 2) * facing, radii: [0, 0, 0, 0], slot: 'fascia_side' });
+        // Vertical Accent Tower (extending up to terrace level)
+        blocks.push({ w: towerWidth, h: towerHeight, d: towerDepth, x: -width / 2 + towerWidth / 2, y: 0, z: zOffset + ((towerDepth - depth) / 2) * facing, radii: [0, 0, 0, 0], slot: 'fascia_front' });
+
+        computedPts = [
+            new THREE.Vector2(-width / 2, 0),
+            new THREE.Vector2(width / 2, 0),
+            new THREE.Vector2(width / 2, height),
+            new THREE.Vector2(-width / 2 + towerWidth, height),
+            new THREE.Vector2(-width / 2 + towerWidth, towerHeight),
+            new THREE.Vector2(-width / 2, towerHeight)
+        ];
+    } else if (profileType === 'tower_corner_wrap_right') {
+        // Front Cantilever Beam
+        blocks.push({ w: width, h: height, d: depth, x: 0, y: 0, z: zOffset, radii: [0, 0, 0, 0], slot: 'fascia_frame' });
+        // Side Return Cantilever Beam (wrapping around right corner onto side wall)
+        blocks.push({ w: depth, h: height, d: returnLength, x: width / 2 - depth / 2, y: 0, z: zOffset - (returnLength / 2) * facing, radii: [0, 0, 0, 0], slot: 'fascia_side' });
+        // Vertical Accent Tower (extending up to terrace level)
+        blocks.push({ w: towerWidth, h: towerHeight, d: towerDepth, x: width / 2 - towerWidth / 2, y: 0, z: zOffset + ((towerDepth - depth) / 2) * facing, radii: [0, 0, 0, 0], slot: 'fascia_front' });
+
+        computedPts = [
+            new THREE.Vector2(-width / 2, 0),
+            new THREE.Vector2(width / 2, 0),
+            new THREE.Vector2(width / 2, towerHeight),
+            new THREE.Vector2(width / 2 - towerWidth, towerHeight),
+            new THREE.Vector2(width / 2 - towerWidth, height),
+            new THREE.Vector2(-width / 2, height)
+        ];
+    } else if (profileType === 'corner_wrap_left') {
+        // Front Cantilever Beam
+        blocks.push({ w: width, h: height, d: depth, x: 0, y: 0, z: zOffset, radii: [0, 0, 0, 0], slot: 'fascia_frame' });
+        // Side Return Cantilever Beam
+        blocks.push({ w: depth, h: height, d: returnLength, x: -width / 2 + depth / 2, y: 0, z: zOffset - (returnLength / 2) * facing, radii: [0, 0, 0, 0], slot: 'fascia_side' });
+
+        computedPts = [
+            new THREE.Vector2(-width / 2, 0),
+            new THREE.Vector2(width / 2, 0),
+            new THREE.Vector2(width / 2, height),
+            new THREE.Vector2(-width / 2, height)
+        ];
+    } else if (profileType === 'corner_wrap_right') {
+        // Front Cantilever Beam
+        blocks.push({ w: width, h: height, d: depth, x: 0, y: 0, z: zOffset, radii: [0, 0, 0, 0], slot: 'fascia_frame' });
+        // Side Return Cantilever Beam
+        blocks.push({ w: depth, h: height, d: returnLength, x: width / 2 - depth / 2, y: 0, z: zOffset - (returnLength / 2) * facing, radii: [0, 0, 0, 0], slot: 'fascia_side' });
+
+        computedPts = [
+            new THREE.Vector2(-width / 2, 0),
+            new THREE.Vector2(width / 2, 0),
+            new THREE.Vector2(width / 2, height),
+            new THREE.Vector2(-width / 2, height)
+        ];
+    } else if (profileType === 'c_wrap_terrace_frame') {
+        // Lower Front Cantilever Beam
+        blocks.push({ w: width, h: height, d: depth, x: 0, y: 0, z: zOffset, radii: [0, 0, 0, 0], slot: 'fascia_frame' });
+        // Side Return Cantilever Beam
+        blocks.push({ w: depth, h: height, d: returnLength, x: -width / 2 + depth / 2, y: 0, z: zOffset - (returnLength / 2) * facing, radii: [0, 0, 0, 0], slot: 'fascia_side' });
+        // Vertical Accent Tower to Terrace
+        blocks.push({ w: towerWidth, h: towerHeight, d: towerDepth, x: -width / 2 + towerWidth / 2, y: 0, z: zOffset + ((towerDepth - depth) / 2) * facing, radii: [0, 0, 0, 0], slot: 'fascia_front' });
+        // Upper Terrace Overhang Return Arm
+        const tArm = topArm !== undefined ? topArm : width;
+        blocks.push({ w: tArm, h: thick, d: depth, x: -width / 2 + tArm / 2, y: towerHeight - thick, z: zOffset, radii: [0, 0, 0, 0], slot: 'fascia_frame' });
+
+        computedPts = [
+            new THREE.Vector2(-width / 2, 0),
+            new THREE.Vector2(width / 2, 0),
+            new THREE.Vector2(width / 2, height),
+            new THREE.Vector2(-width / 2 + towerWidth, height),
+            new THREE.Vector2(-width / 2 + towerWidth, towerHeight - thick),
+            new THREE.Vector2(-width / 2 + tArm, towerHeight - thick),
+            new THREE.Vector2(-width / 2 + tArm, towerHeight),
+            new THREE.Vector2(-width / 2, towerHeight)
+        ];
+    }
+
+    // Generate Recessed Under-Soffit Spotlights for continuous wraps and towers
+    if (hasSpotlights && (profileType.includes('wrap') || profileType.includes('tower'))) {
+        const count = Math.max(1, spotlightCount);
+        const frontMargin = 25;
+        const span = Math.max(10, width - 2 * frontMargin);
+        for (let i = 0; i < count; i++) {
+            const t = count > 1 ? i / (count - 1) : 0.5;
+            const spX = -width / 2 + frontMargin + t * span;
+            spotlights.push({
+                x: spX,
+                y: 0.5,
+                z: zOffset,
+                r: 4,
+                h: 1.5,
+                slot: 'light_lens'
+            });
+        }
+
+        // Return arm spotlights
+        const isLeft = profileType.includes('left') || profileType === 'c_wrap_terrace_frame';
+        const retCount = Math.max(1, Math.floor(returnLength / 60));
+        const cornerX = isLeft ? (-width / 2 + depth / 2) : (width / 2 - depth / 2);
+        for (let j = 0; j < retCount; j++) {
+            const tRet = (j + 0.5) / retCount;
+            const retZ = zOffset - (tRet * returnLength) * facing;
+            spotlights.push({
+                x: cornerX,
+                y: 0.5,
+                z: retZ,
+                r: 4,
+                h: 1.5,
+                slot: 'light_lens'
+            });
+        }
     }
 
     return {
@@ -184,6 +305,7 @@ export const calculateFasciaAssembly = (entity) => {
         zOffset,
         blocks,
         fillets,
+        spotlights,
         computedPts
     };
 };

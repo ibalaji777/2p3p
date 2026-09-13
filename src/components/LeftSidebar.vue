@@ -644,6 +644,7 @@ const getShortToolName = (toolId, name) => {
     if (toolId === 'sunshade') return 'Sunshade';
     if (toolId === 'jali_panel') return 'Jali';
     if (toolId === 'elevation_fascia') return 'Fascia';
+    if (toolId === 'facade_ribbon_draw') return 'Ribbon Draw';
     if (toolId === 'molding') return 'Molding';
     if (toolId === 'staircase') return 'Staircase';
     if (toolId === 'roof') return 'Roofs';
@@ -721,6 +722,9 @@ const getToolTabIcon = (toolId) => {
     }
     if (toolId === 'elevation_fascia') {
         return '<rect x="3" y="3" width="18" height="18" rx="2" fill="none"></rect><path d="M7 3v18M17 3v18M3 7h18"></path>';
+    }
+    if (toolId === 'facade_ribbon_draw') {
+        return '<path d="M4 18L10 6L16 12L20 4" fill="none" stroke="currentColor" stroke-width="2"></path><circle cx="4" cy="18" r="2"></circle><circle cx="10" cy="6" r="2"></circle><circle cx="16" cy="12" r="2"></circle><circle cx="20" cy="4" r="2"></circle>';
     }
     if (toolId === 'curtain') {
         return '<path d="M3 3h18v2H3zM4 5v16h6V5zm10 0v16h6V5z"></path>';

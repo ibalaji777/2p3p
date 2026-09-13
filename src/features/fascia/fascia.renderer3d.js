@@ -97,11 +97,45 @@ export const renderFascia3D = (sceneGroup, entity, helpers) => {
         fasciaGroup.add(mesh);
     });
 
-    // Selection Hitbox
-    const hitboxGeo = new THREE.BoxGeometry(width + 10, height + 10, depth + 20);
+    // Render Recessed Soffit Spotlights
+    if (assembly.spotlights && assembly.spotlights.length > 0) {
+        const spotGeo = new THREE.CylinderGeometry(3.5, 3.5, 1, 16);
+        const spotSlot = MaterialSlots.LIGHT_LENS || 'light_lens';
+        const spotMat = new THREE.MeshStandardMaterial({
+            color: 0xfffbeb,
+            emissive: 0xfef08a,
+            emissiveIntensity: 0.8,
+            roughness: 0.2
+        });
+
+        assembly.spotlights.forEach((spot, idx) => {
+            const spotMesh = new THREE.Mesh(spotGeo, spotMat);
+            spotMesh.position.set(spot.x, spot.y, spot.z);
+            spotMesh.castShadow = false;
+            spotMesh.receiveShadow = false;
+            spotMesh.userData = {
+                entity,
+                materialSlot: spotSlot,
+                componentId: `${entity.id || 'fascia'}_spotlight_${idx}`,
+                componentType: ComponentTypes.FASCIA || 'fascia'
+            };
+
+            ComponentRegistry.registerMesh(entity, spotSlot, spotMesh, {
+                componentId: `${entity.id || 'fascia'}_spotlight_${idx}`,
+                componentType: ComponentTypes.FASCIA || 'fascia'
+            });
+
+            fasciaGroup.add(spotMesh);
+        });
+    }
+
+    // Selection Hitbox spanning total extents (including vertical tower and side return)
+    const maxH = Math.max(height, (entity.profileType?.includes('tower') || entity.profileType === 'c_wrap_terrace_frame') ? (entity.towerHeight || 350) : height);
+    const maxD = Math.max(depth, (entity.profileType?.includes('wrap') ? (entity.returnLength || 120) : depth));
+    const hitboxGeo = new THREE.BoxGeometry(width + 20, maxH + 20, maxD + 20);
     const hitboxMat = new THREE.MeshBasicMaterial({ visible: false });
     const hitboxMesh = new THREE.Mesh(hitboxGeo, hitboxMat);
-    hitboxMesh.position.set(0, height / 2, assembly.zOffset);
+    hitboxMesh.position.set(0, maxH / 2, assembly.zOffset);
     hitboxMesh.userData = { isHitbox: true, entity };
     fasciaGroup.add(hitboxMesh);
 
@@ -110,6 +144,20 @@ export const renderFascia3D = (sceneGroup, entity, helpers) => {
         entity,
         componentType: ComponentTypes.FASCIA || 'fascia'
     };
+
+    // Universal Component Registration verification pass
+    fasciaGroup.traverse((child) => {
+        if (child.isMesh && !child.userData.isHitbox) {
+            child.userData.entity = entity;
+            if (!child.userData.materialSlot) {
+                child.userData.materialSlot = MaterialSlots.FASCIA_FRAME;
+            }
+            ComponentRegistry.registerMesh(entity, child.userData.materialSlot, child, {
+                componentId: child.userData.componentId || `${entity.id || 'fascia'}_${child.userData.materialSlot}`,
+                componentType: ComponentTypes.FASCIA || 'fascia'
+            });
+        }
+    });
 
     if (sceneGroup) {
         sceneGroup.add(fasciaGroup);

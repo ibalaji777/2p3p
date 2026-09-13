@@ -58,6 +58,7 @@ export const getMenuCategories = () => [
             { id: 'door', name: 'Door' },
             { id: 'window', name: 'Window' },
             { id: 'elevation_fascia', name: 'Fascia' },
+            { id: 'facade_ribbon_draw', name: 'Draw Facade Ribbon' },
             { id: 'wall_trim', name: 'Wall Trims & Moldings' },
             { id: 'skirting', name: 'Baseboards & Skirting' },
             { id: 'molding', name: 'Crown Moldings' },

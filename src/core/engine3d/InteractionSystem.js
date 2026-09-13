@@ -20,6 +20,7 @@ import { WallPushPullGizmo } from './WallPushPullGizmo.js';
 import { WallInteractiveSuite } from './WallInteractiveSuite.js';
 import { Wall3DDrawSystem } from './Wall3DDrawSystem.js';
 import { Shape3DDrawSystem } from './Shape3DDrawSystem.js';
+import { Ribbon3DDrawSystem } from './Ribbon3DDrawSystem.js';
 import { Platform3DDrawSystem } from './Platform3DDrawSystem.js';
 import { PlatformInteractiveSuite } from './PlatformInteractiveSuite.js';
 import { RoomInteractiveSuite } from './RoomInteractiveSuite.js';
@@ -529,6 +530,7 @@ export class InteractionSystem {
 
         this.wall3DDrawSystem = new Wall3DDrawSystem(ctx, this);
         this.shape3DDrawSystem = new Shape3DDrawSystem(ctx, this);
+        this.ribbon3DDrawSystem = new Ribbon3DDrawSystem(ctx, this);
         this.platform3DDrawSystem = new Platform3DDrawSystem(ctx, this);
         this.wallPluginPlacementSystem = new WallPlugin3DPlacementSystem(ctx, this);
         this.stairPlacementSystem = new Stair3DPlacementSystem(ctx, this);
@@ -634,6 +636,11 @@ export class InteractionSystem {
             // Direct 3D Shape & Floor Cut Drawing System
             if (this.shape3DDrawSystem && this.shape3DDrawSystem.isShapeDrawingTool()) {
                 if (this.shape3DDrawSystem.onPointerDown(e)) return;
+            }
+
+            // Direct 3D Facade Ribbon Path Drawing System
+            if (this.ribbon3DDrawSystem && this.ribbon3DDrawSystem.isRibbonTool()) {
+                if (this.ribbon3DDrawSystem.onPointerDown(e)) return;
             }
 
             // Direct 3D Platform Drawing System
@@ -910,6 +917,11 @@ export class InteractionSystem {
                 if (this.shape3DDrawSystem.onPointerMove(e)) return;
             }
 
+            // Direct 3D Facade Ribbon Path Drawing System
+            if (this.ribbon3DDrawSystem && this.ribbon3DDrawSystem.isRibbonTool()) {
+                if (this.ribbon3DDrawSystem.onPointerMove(e)) return;
+            }
+
             // Direct 3D Platform Drawing System
             if (this.platform3DDrawSystem && this.platform3DDrawSystem.isPlatformDrawingTool()) {
                 if (this.platform3DDrawSystem.onPointerMove(e)) return;
@@ -1025,6 +1037,9 @@ export class InteractionSystem {
             }
             if (this.shape3DDrawSystem && this.shape3DDrawSystem.isShapeDrawingTool()) {
                 if (this.shape3DDrawSystem.onPointerUp && this.shape3DDrawSystem.onPointerUp(e)) return;
+            }
+            if (this.ribbon3DDrawSystem && this.ribbon3DDrawSystem.isRibbonTool()) {
+                if (this.ribbon3DDrawSystem.onPointerUp && this.ribbon3DDrawSystem.onPointerUp(e)) return;
             }
             if (this.platform3DDrawSystem && this.platform3DDrawSystem.isPlatformDrawingTool()) {
                 if (this.platform3DDrawSystem.onPointerUp && this.platform3DDrawSystem.onPointerUp(e)) return;
@@ -1545,6 +1560,7 @@ export class InteractionSystem {
         if (this.wallInteractiveSuite && this.wallInteractiveSuite.dispose) this.wallInteractiveSuite.dispose();
         if (this.wall3DDrawSystem && this.wall3DDrawSystem.dispose) this.wall3DDrawSystem.dispose();
         if (this.shape3DDrawSystem && this.shape3DDrawSystem.destroy) this.shape3DDrawSystem.destroy();
+        if (this.ribbon3DDrawSystem && this.ribbon3DDrawSystem.destroy) this.ribbon3DDrawSystem.destroy();
         if (this.platform3DDrawSystem && this.platform3DDrawSystem.destroy) this.platform3DDrawSystem.destroy();
         if (this.platformInteractiveSuite && this.platformInteractiveSuite.destroy) this.platformInteractiveSuite.destroy();
         if (this.roomInteractiveSuite && this.roomInteractiveSuite.dispose) this.roomInteractiveSuite.dispose();

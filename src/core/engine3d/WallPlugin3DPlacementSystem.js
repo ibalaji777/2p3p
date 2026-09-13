@@ -110,6 +110,9 @@ export class WallPlugin3DPlacementSystem {
             position: fixed;
             display: none;
             pointer-events: auto;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
             background: rgba(15, 23, 42, 0.96);
             backdrop-filter: blur(16px);
             border: 1.5px solid rgba(56, 189, 248, 0.85);
@@ -125,7 +128,7 @@ export class WallPlugin3DPlacementSystem {
             user-select: none;
             -webkit-user-select: none;
             touch-action: manipulation;
-            transition: opacity 0.15s ease, transform 0.1s ease;
+            transition: opacity 0.15s ease;
         `;
 
         this.badgeDom.innerHTML = `
@@ -334,18 +337,52 @@ export class WallPlugin3DPlacementSystem {
     }
 
     /**
-     * Create exact Shape-Accurate 3D Geometry for Elevation Fascias (C-shape, L-shape, Box frame)
+     * Create exact Shape-Accurate 3D Geometry for Elevation Fascias (C-shape, L-shape, Box frame, Towers & Wraps)
      */
-    createFasciaShapeGeometry(profileType, width, height, depth, thick, topArm, bottomArm) {
+    createFasciaShapeGeometry(profileType, width, height, depth, thick, topArm, bottomArm, towerHeight, towerWidth) {
         const w = width;
         const h = height;
         const t = thick || 10;
         const tArm = topArm !== undefined ? topArm : w;
         const bArm = bottomArm !== undefined ? bottomArm : w;
+        const towerH = towerHeight || 350;
+        const towerW = towerWidth || 60;
 
         const shape = new THREE.Shape();
 
-        if (profileType === 'l_shape_left') {
+        if (profileType === 'tower_corner_wrap_left') {
+            shape.moveTo(-w/2, 0);
+            shape.lineTo(w/2, 0);
+            shape.lineTo(w/2, h);
+            shape.lineTo(-w/2 + towerW, h);
+            shape.lineTo(-w/2 + towerW, towerH);
+            shape.lineTo(-w/2, towerH);
+            shape.closePath();
+        } else if (profileType === 'tower_corner_wrap_right') {
+            shape.moveTo(-w/2, 0);
+            shape.lineTo(w/2, 0);
+            shape.lineTo(w/2, towerH);
+            shape.lineTo(w/2 - towerW, towerH);
+            shape.lineTo(w/2 - towerW, h);
+            shape.lineTo(-w/2, h);
+            shape.closePath();
+        } else if (profileType === 'corner_wrap_left' || profileType === 'corner_wrap_right') {
+            shape.moveTo(-w/2, 0);
+            shape.lineTo(w/2, 0);
+            shape.lineTo(w/2, h);
+            shape.lineTo(-w/2, h);
+            shape.closePath();
+        } else if (profileType === 'c_wrap_terrace_frame') {
+            shape.moveTo(-w/2, 0);
+            shape.lineTo(w/2, 0);
+            shape.lineTo(w/2, h);
+            shape.lineTo(-w/2 + towerW, h);
+            shape.lineTo(-w/2 + towerW, towerH - t);
+            shape.lineTo(-w/2 + tArm, towerH - t);
+            shape.lineTo(-w/2 + tArm, towerH);
+            shape.lineTo(-w/2, towerH);
+            shape.closePath();
+        } else if (profileType === 'l_shape_left') {
             shape.moveTo(-w/2, 0);
             shape.lineTo(w/2, 0);
             shape.lineTo(w/2, t);
@@ -397,7 +434,7 @@ export class WallPlugin3DPlacementSystem {
             shape.lineTo(w/2 - t, t);
             shape.lineTo(w/2 - bArm, t);
             shape.closePath();
-        } else if (profileType === 'box') {
+        } else if (profileType === 'box' || profileType === 'full_box') {
             shape.moveTo(-w/2, 0);
             shape.lineTo(w/2, 0);
             shape.lineTo(w/2, h);
@@ -783,9 +820,9 @@ export class WallPlugin3DPlacementSystem {
             this.badgeDom.style.transform = 'translateX(-50%)';
         } else {
             this.badgeDom.style.bottom = 'auto';
-            this.badgeDom.style.transform = 'translate(-50%, -135%)';
-            this.badgeDom.style.left = `${e.clientX}px`;
-            this.badgeDom.style.top = `${e.clientY}px`;
+            this.badgeDom.style.top = '24px';
+            this.badgeDom.style.left = '50%';
+            this.badgeDom.style.transform = 'translateX(-50%)';
         }
 
         this.badgeDom.style.borderColor = statusColor;
@@ -975,7 +1012,7 @@ export class WallPlugin3DPlacementSystem {
             const wallOffset = ((thick / 2) + (depth / 2)) * facing;
 
             this.apertureVoidMesh.geometry.dispose();
-            this.apertureVoidMesh.geometry = this.createFasciaShapeGeometry(pType, itemW, itemH, depth, fThick, preset?.topArm, preset?.bottomArm);
+            this.apertureVoidMesh.geometry = this.createFasciaShapeGeometry(pType, itemW, itemH, depth, fThick, preset?.topArm, preset?.bottomArm, preset?.towerHeight, preset?.towerWidth);
             this.apertureVoidMesh.position.set(projDist, elev, wallOffset);
 
             this.apertureVoidMat.color.setHex(0x00f0ff);

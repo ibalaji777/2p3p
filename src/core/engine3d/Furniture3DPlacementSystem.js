@@ -80,6 +80,9 @@ export class Furniture3DPlacementSystem {
             position: fixed;
             display: none;
             pointer-events: auto;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
             background: rgba(15, 23, 42, 0.96);
             backdrop-filter: blur(16px);
             border: 1.5px solid rgba(56, 189, 248, 0.85);
@@ -95,7 +98,7 @@ export class Furniture3DPlacementSystem {
             user-select: none;
             -webkit-user-select: none;
             touch-action: manipulation;
-            transition: opacity 0.15s ease, transform 0.1s ease;
+            transition: opacity 0.15s ease;
         `;
 
         this.badgeDom.innerHTML = `
@@ -321,11 +324,11 @@ export class Furniture3DPlacementSystem {
             this.badgeDom.style.top = 'auto';
             this.badgeDom.style.bottom = '90px';
             this.badgeDom.style.transform = 'translateX(-50%)';
-        } else if (pointerEvent) {
+        } else {
             this.badgeDom.style.bottom = 'auto';
-            this.badgeDom.style.transform = 'translate(-50%, -135%)';
-            this.badgeDom.style.left = `${pointerEvent.clientX}px`;
-            this.badgeDom.style.top = `${pointerEvent.clientY}px`;
+            this.badgeDom.style.top = '24px';
+            this.badgeDom.style.left = '50%';
+            this.badgeDom.style.transform = 'translateX(-50%)';
         }
 
         this.badgeDom.style.display = 'block';

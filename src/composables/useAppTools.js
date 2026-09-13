@@ -91,6 +91,11 @@ export function useAppTools({
                 activePresetParams.value = { type: 'elevation_fascia', profileType: 'c_shape_left', width: 100, height: 120, depth: 40, thick: 10, elevation: 0, fasciaMat: 'white' };
                 planner.value.activePresetParams = activePresetParams.value;
             }
+        } else if (tool === 'facade_ribbon_draw' || tool === 'facade_ribbon') {
+            if (!activePresetParams.value || activePresetParams.value.type !== 'facade_ribbon') {
+                activePresetParams.value = { type: 'facade_ribbon', width: 40, depth: 50, material: 'wood', hasSpotlights: true, spotlightSpacing: 80 };
+                planner.value.activePresetParams = activePresetParams.value;
+            }
         } else if (tool === 'sunshade' || tool.startsWith('sunshade_') || tool === 'chajja') {
             if (!activePresetParams.value || (activePresetParams.value.type !== 'sunshade' && !activePresetParams.value.chajjaType)) {
                 activePresetParams.value = { type: 'sunshade', chajjaType: 'concrete_slab', width: 60, depth: 30, thick: 4, elevation: 80 };

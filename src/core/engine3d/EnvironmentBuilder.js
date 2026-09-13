@@ -12,6 +12,7 @@ import { Railing3DBuilder } from '../../features/railing/builders/Railing3DBuild
 import { Wall3DBuilder } from '../../features/wall/wall.renderer3d.js';
 import { WallGeometryEngine } from '../wall/WallGeometryEngine.js';
 import { Platform3DBuilder } from './Platform3DBuilder.js';
+import { renderFacadeRibbon3D } from '../../features/facade/facadeRibbon.renderer3d.js';
 import { WIDGET_REGISTRY, FURNITURE_REGISTRY, WALL_DECOR_REGISTRY, ROOF_DECOR_REGISTRY, WALL_HEIGHT, DOOR_HEIGHT, WINDOW_SILL, WINDOW_HEIGHT, FLOOR_REGISTRY, RAILING_REGISTRY, SKY_REGISTRY, GROUND_REGISTRY, DOOR_MATERIALS, WINDOW_FRAME_MATERIALS, GLASS_REGISTRY, offsetPolygon } from '../../core/registry';
 import { DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js';
 import { MaterialFactory } from './MaterialFactory.js';
@@ -214,6 +215,11 @@ export class EnvironmentBuilder {
         const platforms = planner?.platforms || [];
         if (platforms && platforms.length > 0) {
             this.buildPlatforms(platforms, this.ctx.structureGroup);
+        }
+
+        const ribbons = planner?.facadeRibbons || [];
+        if (ribbons && ribbons.length > 0) {
+            this.buildFacadeRibbons(ribbons, this.ctx.structureGroup);
         }
 
         const matMain = getPlasterMaterial();
@@ -504,6 +510,31 @@ export class EnvironmentBuilder {
                 this.platformBuilder.buildPlatform(platform, targetGroup);
             } catch (err) {
                 console.error("Error building platform in 3D:", err);
+            }
+        });
+    }
+
+    buildFacadeRibbons(ribbons, targetGroup = this.ctx.structureGroup) {
+        if (!ribbons || ribbons.length === 0) return;
+        ribbons.forEach(ribbon => {
+            try {
+                if (!ribbon || ribbon.isDeleted || ribbon.isHidden) return;
+                if (ribbon.mesh3D && ribbon.mesh3D.parent) {
+                    ribbon.mesh3D.parent.remove(ribbon.mesh3D);
+                }
+                const group = renderFacadeRibbon3D(targetGroup, ribbon, this.ctx.helpers);
+                if (group && this.ctx.interactables) {
+                    if (!this.ctx.interactables.includes(group)) {
+                        this.ctx.interactables.push(group);
+                    }
+                    group.traverse(child => {
+                        if (child.isMesh && !this.ctx.interactables.includes(child)) {
+                            this.ctx.interactables.push(child);
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error("Error building facade ribbon in 3D:", err);
             }
         });
     }
