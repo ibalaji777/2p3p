@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { FACADE_RIBBON_MATERIALS } from '../facade/facadeRibbon.registry.js';
+import { renderElevationSegment2D, syncElevationSegments2D, computeElevationSegment2DFootprint, computeElevationSegmentSpotlights2D } from './elevationSegment.renderer2d.js';
+
+export { renderElevationSegment2D, syncElevationSegments2D, computeElevationSegment2DFootprint, computeElevationSegmentSpotlights2D };
 
 export const ELEVATION_SEGMENT_MATERIALS = {
     ...FACADE_RIBBON_MATERIALS
@@ -9,6 +12,7 @@ export const ELEVATION_SEGMENT_CONFIG = {
     id: 'elevation_segment',
     label: 'Elevation Segment',
     description: 'Start with a straight elevation segment on a wall. Drag endpoints to extend, or use ↑/↓ sprout arrows to bend into L, U, Z, and branched facade shapes.',
+    render2D: renderElevationSegment2D,
     defaultParams: {
         width: 30,             // Cross-section beam drop / thickness (cm)
         depth: 40,             // Cantilever overhang / projection from wall (cm)
@@ -75,7 +79,7 @@ export function createStarterElevationSegment(wall, localHitX, hitY, facing = 1,
         radius: 0
     };
 
-    const id = 'elevation_segment_' + Date.now();
+    const id = 'elevation_segment_' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
 
     return {
         id,

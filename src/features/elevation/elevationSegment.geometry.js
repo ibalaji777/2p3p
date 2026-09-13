@@ -85,20 +85,51 @@ export function expandPathWithFillets(points, defaultWidth = 30, defaultDepth = 
 
         const arcAngle = radiusStartVec.angleTo(radiusEndVec);
 
-        // Generate 6 arc samples for smooth CAD-grade curvature
-        const SAMPLES = 6;
-        const normal = node.normal || points[0].normal;
+        // Generate 16 arc samples for smooth CAD-grade curvature
+        const SAMPLES = 16;
+
+        // Compute start and end normals for the turn
+        const normStartVec = (points[i - 1] && points[i - 1].normal)
+            ? new THREE.Vector3(points[i - 1].normal.x, points[i - 1].normal.y, points[i - 1].normal.z).normalize()
+            : null;
+        const normEndVec = (points[i + 1] && points[i + 1].normal)
+            ? new THREE.Vector3(points[i + 1].normal.x, points[i + 1].normal.y, points[i + 1].normal.z).normalize()
+            : null;
+        const fallbackNorm = (node && node.normal)
+            ? new THREE.Vector3(node.normal.x, node.normal.y, node.normal.z).normalize()
+            : (points[0] && points[0].normal
+                ? new THREE.Vector3(points[0].normal.x, points[0].normal.y, points[0].normal.z).normalize()
+                : new THREE.Vector3(0, 0, 1));
+
+        const normStart = normStartVec || fallbackNorm;
+        const normEnd = normEndVec || fallbackNorm;
 
         for (let k = 0; k <= SAMPLES; k++) {
             const frac = k / SAMPLES;
             const currentVec = radiusStartVec.clone().applyAxisAngle(rotAxis, arcAngle * frac);
             const arcPt = arcCenter.clone().add(currentVec);
 
+            let sampleNormal;
+            if (k === 0) {
+                sampleNormal = normStart.clone();
+            } else if (k === SAMPLES) {
+                sampleNormal = normEnd.clone();
+            } else {
+                if (normStart.distanceToSquared(normEnd) < 0.001) {
+                    sampleNormal = normStart.clone();
+                } else {
+                    sampleNormal = normStart.clone().applyAxisAngle(rotAxis, arcAngle * frac).normalize();
+                    if (sampleNormal.dot(normEnd) < normStart.dot(normEnd) && arcAngle > 0.05) {
+                        sampleNormal = normStart.clone().applyAxisAngle(rotAxis, -arcAngle * frac).normalize();
+                    }
+                }
+            }
+
             expanded.push({
                 x: arcPt.x,
                 y: arcPt.y,
                 z: arcPt.z,
-                normal: normal ? { ...normal } : null,
+                normal: { x: sampleNormal.x, y: sampleNormal.y, z: sampleNormal.z },
                 isFilletSample: true,
                 parentBendIndex: i
             });
@@ -128,6 +159,14 @@ export function buildElevationSegmentGeometry(points, options = {}) {
     let prevFrame = null;
     for (let i = 0; i < numPoints; i++) {
         const frame = computeNodeFrame(path, i, width, depth, options.defaultNormal, prevFrame, false);
+        // Pin inner (back) vertices to the sharp wall corner node so inner edge stays flush against the wall
+        if (path[i].isFilletSample && path[i].parentBendIndex !== undefined && points[path[i].parentBendIndex]) {
+            const pCorner = points[path[i].parentBendIndex];
+            frame[0].x = pCorner.x;
+            frame[0].z = pCorner.z;
+            frame[3].x = pCorner.x;
+            frame[3].z = pCorner.z;
+        }
         nodeFrames.push(frame);
         prevFrame = frame;
     }
@@ -181,7 +220,38 @@ export function buildElevationSegmentGeometry(points, options = {}) {
             const p10 = frameB[idx0];
             const p11 = frameB[idx1];
 
+            // Face 3 is the back face against the wall.
+            // On a corner fillet fan, both frameA and frameB back vertices meet at the sharp wall corner.
+            if (faceIdx === 3 && path[i].isFilletSample && path[i + 1].isFilletSample) {
+                return;
+            }
+
             const outNorm = targetFaceNormals[faceIdx];
+            const vHeight = (faceIdx === 0 || faceIdx === 2) ? (depth / 100) : (width / 100);
+
+            // If p00 and p10 meet at the sharp wall corner (Face 0 Top or Face 2 Bottom),
+            // render a clean 3-vertex triangle fan instead of a degenerate quad:
+            if ((faceIdx === 0 || faceIdx === 2) && p00.distanceToSquared(p10) < 0.01) {
+                const triNorm = new THREE.Vector3().crossVectors(
+                    p01.clone().sub(p00),
+                    p11.clone().sub(p01)
+                );
+                const isCCW = triNorm.dot(outNorm) >= 0;
+                positions.push(
+                    p00.x, p00.y, p00.z,
+                    p01.x, p01.y, p01.z,
+                    p11.x, p11.y, p11.z
+                );
+                for (let k = 0; k < 3; k++) normals.push(outNorm.x, outNorm.y, outNorm.z);
+                uvs.push(u0, 0, u0, vHeight, u1, vHeight);
+                if (isCCW) {
+                    indices.push(vertexOffset, vertexOffset + 1, vertexOffset + 2);
+                } else {
+                    indices.push(vertexOffset, vertexOffset + 2, vertexOffset + 1);
+                }
+                vertexOffset += 3;
+                return;
+            }
 
             // Determine CCW triangle winding against outward normal
             const testTriNorm = new THREE.Vector3().crossVectors(
@@ -197,12 +267,24 @@ export function buildElevationSegmentGeometry(points, options = {}) {
                 p10.x, p10.y, p10.z
             );
 
-            for (let k = 0; k < 4; k++) normals.push(outNorm.x, outNorm.y, outNorm.z);
+            if (faceIdx === 1) {
+                // Smooth vertex normals along the front face (curved cylinder / continuous ribbon)
+                const normA = frameA.normal ? frameA.normal.clone().normalize() : outNorm;
+                const normB = frameB.normal ? frameB.normal.clone().normalize() : outNorm;
+                normals.push(
+                    normA.x, normA.y, normA.z,
+                    normA.x, normA.y, normA.z,
+                    normB.x, normB.y, normB.z,
+                    normB.x, normB.y, normB.z
+                );
+            } else {
+                for (let k = 0; k < 4; k++) normals.push(outNorm.x, outNorm.y, outNorm.z);
+            }
 
             uvs.push(
                 u0, 0,
-                u0, 1,
-                u1, 1,
+                u0, vHeight,
+                u1, vHeight,
                 u1, 0
             );
 

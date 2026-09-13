@@ -43,6 +43,7 @@ import { PremiumPlatform } from './PremiumPlatform.js';
 import { PRESET_REGISTRY, autoAlign } from './presetRegistry.js';
 import { PresetGroup } from './PresetGroup.js';
 import { computeCorridorPolygon } from './DrawingEvents.js';
+import { syncElevationSegments2D } from '../../features/elevation/elevationSegment.renderer2d.js';
 
 // Export the specific classes that App.vue needs to spawn items
 export { PremiumFurniture, PremiumHipRoof, StairV4Flight, StairV4Landing, PremiumMolding, PremiumOutdoorZone, PremiumPlatform };
@@ -133,7 +134,7 @@ export class FloorPlanner {
         this.autoAlign = autoAlign;
         
         /** @deprecated Use getter APIs (e.g. getRooms, getStairs) instead of direct array access */
-        this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.arcs = []; this.shapes = []; this.outdoorZones = []; this.platforms = []; this.moldings = []; this.presetGroups = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
+        this.anchors = []; this.roomPaths = []; this.stairs = []; this.furniture = []; this.roofs = []; this.arcs = []; this.shapes = []; this.outdoorZones = []; this.platforms = []; this.moldings = []; this.presetGroups = []; this.elevationSegments = []; this.selectedEntity = null; this.selectedType = null; this.selectedNodeIndex = -1;
         this.onSelectionChange = null; 
         this.initKonva(); this.gridSystem = new GridSystem(this); this.gridSystem.setupGrid(); this.initHUD(); 
         this.cameraController = new CameraController(this);
@@ -411,6 +412,7 @@ export class FloorPlanner {
         if (entity.visualGroup && typeof entity.visualGroup.destroy === 'function') entity.visualGroup.destroy();
         if (entity.cutter && typeof entity.cutter.destroy === 'function') entity.cutter.destroy();
         if (entity.group && typeof entity.group.destroy === 'function') entity.group.destroy();
+        if (entity.group2D && typeof entity.group2D.destroy === 'function') entity.group2D.destroy();
         
         if (this.selectedEntity === entity) {
             this.selectedEntity = null;
@@ -903,6 +905,7 @@ export class FloorPlanner {
         if (this.platforms) this.platforms.forEach(p => { if(p.setHighlight) p.setHighlight(false); });
         if (this.arcs) this.arcs.forEach(a => { if(a.setHighlight) a.setHighlight(false); });
         if (this.presetGroups) this.presetGroups.forEach(pg => { if(pg.setHighlight) pg.setHighlight(false); });
+        if (this.elevationSegments) this.elevationSegments.forEach(e => { if(e.setHighlight) e.setHighlight(false); });
         
         this.selectedEntity = entity; this.selectedType = type; this.selectedNodeIndex = nodeIndex; this.selectedSide = side;
         
@@ -1126,7 +1129,7 @@ export class FloorPlanner {
     }
 
     getOrCreateAnchor(x, y) { let a = this.anchors.find(a => Math.hypot(a.x - x, a.y - y) < SNAP_DIST); if (a) return a; const newAnchor = new Anchor(this, x, y); this.anchors.push(newAnchor); return newAnchor; }
-    deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.roofs.forEach(r => r.setHighlight(false)); if(this.balconies) this.balconies.forEach(b => b.setHighlight(false)); if(this.shapes) this.shapes.forEach(s => s.setHighlight(false)); if(this.outdoorZones) this.outdoorZones.forEach(z => { if(z.setHighlight) z.setHighlight(false); }); if(this.platforms) this.platforms.forEach(p => { if(p.setHighlight) p.setHighlight(false); }); if(this.presetGroups) this.presetGroups.forEach(pg => { if(pg.setHighlight) pg.setHighlight(false); }); this.selectEntity(null); }
+    deselectAll() { this.walls.forEach(w => w.setHighlight(false)); this.stairs.forEach(s => s.setHighlight(false)); this.furniture.forEach(f => f.setHighlight(false)); this.roofs.forEach(r => r.setHighlight(false)); if(this.balconies) this.balconies.forEach(b => b.setHighlight(false)); if(this.shapes) this.shapes.forEach(s => s.setHighlight(false)); if(this.outdoorZones) this.outdoorZones.forEach(z => { if(z.setHighlight) z.setHighlight(false); }); if(this.platforms) this.platforms.forEach(p => { if(p.setHighlight) p.setHighlight(false); }); if(this.presetGroups) this.presetGroups.forEach(pg => { if(pg.setHighlight) pg.setHighlight(false); }); if(this.elevationSegments) this.elevationSegments.forEach(e => { if(e.setHighlight) e.setHighlight(false); }); this.selectEntity(null); }
     syncAll() {
         this.buildingCenter = null;
         if (this.gridLayer) {
@@ -1152,6 +1155,7 @@ export class FloorPlanner {
         }
 
         WallEngine.sync(this);
+        syncElevationSegments2D(this);
         
         this.anchors.forEach(a => {
             if (a.isArcIntermediate || this.activeCategory !== 'walls') {
@@ -1901,8 +1905,9 @@ export class FloorPlanner {
         if (this.shapes) [...this.shapes].forEach(safeRemove);
         if (this.outdoorZones) [...this.outdoorZones].forEach(safeRemove);
         if (this.platforms) [...this.platforms].forEach(safeRemove);
+        if (this.elevationSegments) [...this.elevationSegments].forEach(safeRemove);
         if (this.shapeTransformer) this.shapeTransformer.nodes([]);
-        this.walls = []; this.furniture = []; this.stairs = []; this.roofs = []; this.balconies = []; this.arcs = []; this.shapes = []; this.outdoorZones = []; this.platforms = []; this.roomPaths = [];
+        this.walls = []; this.furniture = []; this.stairs = []; this.roofs = []; this.balconies = []; this.arcs = []; this.shapes = []; this.outdoorZones = []; this.platforms = []; this.roomPaths = []; this.elevationSegments = [];
         this.anchors.forEach(a => { if(a.node) a.node.destroy(); }); this.anchors = [];
         if (this.baseLayer) this.baseLayer.destroyChildren();
         if (this.wallLayer) this.wallLayer.destroyChildren(); if (this.furnitureLayer) this.furnitureLayer.destroyChildren(); if (this.widgetLayer) this.widgetLayer.destroyChildren(); if (this.roofLayer) this.roofLayer.destroyChildren();
@@ -1973,7 +1978,22 @@ export class FloorPlanner {
             platforms: this.platforms ? this.platforms.map(p => (typeof p.export === 'function' ? p.export() : (typeof p.toJSON === 'function' ? p.toJSON() : p))) : [],
             rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, elevation: r.elevation || 0, configId: r.configId, isHidden: r.isHidden, isDeleted: r.isDeleted, materialRepeat: r.materialRepeat, description: r.description })) : [],
             roomPaths: this.roomPaths ? this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y }))) : [],
-            presetGroups: this.presetGroups ? this.presetGroups.map(g => g.export()) : []
+            presetGroups: this.presetGroups ? this.presetGroups.map(g => g.export()) : [],
+            elevationSegments: this.elevationSegments ? this.elevationSegments.map(seg => ({
+                id: seg.id,
+                type: 'elevation_segment',
+                wallId: seg.wallId,
+                wallFacing: seg.wallFacing,
+                width: seg.width,
+                depth: seg.depth,
+                material: seg.material,
+                hasSpotlights: seg.hasSpotlights,
+                spotlightSpacing: seg.spotlightSpacing,
+                points: seg.points ? JSON.parse(JSON.stringify(seg.points)) : [],
+                nodes: seg.nodes ? JSON.parse(JSON.stringify(seg.nodes)) : [],
+                segments: seg.segments ? JSON.parse(JSON.stringify(seg.segments)) : [],
+                branches: seg.branches ? JSON.parse(JSON.stringify(seg.branches)) : []
+            })) : []
         };
         const getCircularReplacer = () => {
             const seen = new WeakSet();
@@ -2141,6 +2161,12 @@ export class FloorPlanner {
                     
                     this.presetGroups.push(group);
                 });
+            }
+            if (state.elevationSegments && Array.isArray(state.elevationSegments)) {
+                this.elevationSegments = state.elevationSegments.map(seg => ({
+                    ...seg,
+                    type: 'elevation_segment'
+                }));
             }
             // Auto-solve all stairs to repair any corrupted elevations/positions from old bugs
             if (this.stairs && this.stairs.length > 0) {

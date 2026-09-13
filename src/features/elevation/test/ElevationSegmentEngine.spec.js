@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import * as THREE from 'three';
 import {
     ELEVATION_SEGMENT_CONFIG,
@@ -15,11 +15,44 @@ import {
     buildElevationSegmentGeometry
 } from '../elevationSegment.geometry.js';
 import { renderElevationSegment3D } from '../elevationSegment.renderer3d.js';
+import {
+    computeElevationSegment2DFootprint,
+    computeElevationSegmentSpotlights2D,
+    renderElevationSegment2D,
+    syncElevationSegments2D,
+    createElevationSegment2DGroup
+} from '../elevationSegment.renderer2d.js';
+import Konva from 'konva';
 import { ComponentRegistry } from '../../../core/engine3d/ComponentRegistry.js';
 import { MaterialSlots } from '../../../core/constants/materialSlots.js';
 
 describe('Elevation Segment ("Sprout & Bend") Engine Suite', () => {
     let mockWall;
+
+    beforeAll(() => {
+        if (typeof HTMLCanvasElement !== 'undefined') {
+            HTMLCanvasElement.prototype.getContext = () => ({
+                clearRect: () => {},
+                fillRect: () => {},
+                getImageData: () => ({ data: [0, 0, 0, 0] }),
+                putImageData: () => {},
+                createImageData: () => ({ data: [0, 0, 0, 0] }),
+                setTransform: () => {},
+                drawImage: () => {},
+                save: () => {},
+                fillText: () => {},
+                restore: () => {},
+                beginPath: () => {},
+                moveTo: () => {},
+                lineTo: () => {},
+                closePath: () => {},
+                stroke: () => {},
+                fill: () => {},
+                arc: () => {},
+                measureText: () => ({ width: 0 })
+            });
+        }
+    });
 
     beforeEach(() => {
         ComponentRegistry.slotRegistry.clear();
@@ -191,6 +224,169 @@ describe('Elevation Segment ("Sprout & Bend") Engine Suite', () => {
             expect(ok).toBe(true);
             expect(seg.points[1].cornerStyle).toBe('fillet');
             expect(seg.points[1].radius).toBe(35);
+        });
+
+        it('should rotate outward normal continuously radial around a 90-degree corner turn', () => {
+            const points = [
+                { x: 100, y: 150, z: 0, normal: { x: 0, y: 0, z: 1 } },
+                { x: 300, y: 150, z: 0, normal: { x: -0.707, y: 0, z: 0.707 }, cornerStyle: 'fillet', radius: 30 },
+                { x: 300, y: 150, z: 200, normal: { x: -1, y: 0, z: 0 } }
+            ];
+
+            const expanded = expandPathWithFillets(points, 30, 40);
+            const filletSamples = expanded.filter(p => p.isFilletSample);
+
+            expect(filletSamples.length).toBe(17); // SAMPLES = 16 (0 to 16 inclusive)
+
+            // Start sample normal should match incoming normal (0, 0, 1)
+            const nStart = filletSamples[0].normal;
+            expect(nStart.x).toBeCloseTo(0, 1);
+            expect(nStart.z).toBeCloseTo(1, 1);
+
+            // Mid sample (k = 8) normal should be at ~45 degrees
+            const nMid = filletSamples[8].normal;
+            expect(nMid.x).toBeLessThan(-0.5);
+            expect(nMid.z).toBeGreaterThan(0.5);
+
+            // End sample normal should match outgoing normal (-1, 0, 0)
+            const nEnd = filletSamples[filletSamples.length - 1].normal;
+            expect(nEnd.x).toBeCloseTo(-1, 1);
+            expect(nEnd.z).toBeCloseTo(0, 1);
+
+            // Monotonic rotation: n.x should strictly decrease from ~0 to ~ -1
+            for (let i = 1; i < filletSamples.length; i++) {
+                expect(filletSamples[i].normal.x).toBeLessThanOrEqual(filletSamples[i - 1].normal.x + 0.001);
+                expect(filletSamples[i].normal.z).toBeLessThanOrEqual(filletSamples[i - 1].normal.z + 0.001);
+            }
+        });
+
+        it('should compute exact concentric 2D footprint outer arc with uniform depth distance', () => {
+            const entity = {
+                id: 'seg_fillet_concentric',
+                depth: 40,
+                width: 30,
+                points: [
+                    { x: 100, y: 150, z: 0, normal: { x: 0, y: 0, z: 1 } },
+                    { x: 300, y: 150, z: 0, normal: { x: -0.707, y: 0, z: 0.707 }, cornerStyle: 'fillet', radius: 30 },
+                    { x: 300, y: 150, z: 200, normal: { x: -1, y: 0, z: 0 } }
+                ]
+            };
+
+            const footprint = computeElevationSegment2DFootprint(entity);
+            expect(footprint).toBeDefined();
+
+            const expandedPts = expandPathWithFillets(entity.points, 30, 40);
+            const n = expandedPts.length;
+
+            // For every single point, outer distance |Q[i] - P[i]| MUST equal exactly 40cm (+- 0.5cm)
+            // with ZERO flat diagonal chamfer distortion
+            for (let i = 0; i < n; i++) {
+                const p = footprint.P[i];
+                const q = footprint.Q[i];
+                const dist = Math.hypot(q.x - p.x, q.y - p.y);
+                expect(dist).toBeCloseTo(40, 0);
+            }
+        });
+
+        it('should interpolate smooth front face vertex normals in 3D without faceted shading', () => {
+            const points = [
+                { x: 100, y: 150, z: 0, normal: { x: 0, y: 0, z: 1 } },
+                { x: 300, y: 150, z: 0, normal: { x: -0.707, y: 0, z: 0.707 }, cornerStyle: 'fillet', radius: 30 },
+                { x: 300, y: 150, z: 200, normal: { x: -1, y: 0, z: 0 } }
+            ];
+
+            const assembly = buildElevationSegmentGeometry(points, { width: 30, depth: 40 });
+            expect(assembly).toBeDefined();
+
+            const normals = assembly.geometry.attributes.normal;
+            expect(normals).toBeDefined();
+
+            // Check that normals along the curve are not all identical static values
+            const uniqueXNormals = new Set();
+            for (let i = 0; i < normals.count; i++) {
+                uniqueXNormals.add(Math.round(normals.getX(i) * 10) / 10);
+            }
+            // Over a 90 degree turn with smooth vertex normals, there should be multiple distinct normal angles
+            expect(uniqueXNormals.size).toBeGreaterThanOrEqual(5);
+        });
+
+        it('should keep inner wall contact line sharp against the wall corner while outer edge curves', () => {
+            const entity = {
+                id: 'seg_fillet_sharp_inner',
+                depth: 40,
+                width: 30,
+                points: [
+                    { x: 100, y: 150, z: 0, normal: { x: 0, y: 0, z: 1 } },
+                    { x: 300, y: 150, z: 0, normal: { x: -0.707, y: 0, z: 0.707 }, cornerStyle: 'fillet', radius: 30 },
+                    { x: 300, y: 150, z: 200, normal: { x: -1, y: 0, z: 0 } }
+                ]
+            };
+
+            const footprint = computeElevationSegment2DFootprint(entity);
+            expect(footprint).toBeDefined();
+
+            // innerCoords MUST only contain the 3 baseline wall vertices [P0, Pcorner, P2]
+            // and have ZERO inner curve subdivisions cutting through the wall
+            expect(footprint.innerCoords.length).toBe(6); // [x0, y0, xc, yc, x2, y2]
+            expect(footprint.innerCoords[0]).toBe(100);
+            expect(footprint.innerCoords[1]).toBe(0);
+            expect(footprint.innerCoords[2]).toBe(300);
+            expect(footprint.innerCoords[3]).toBe(0); // exactly at sharp wall corner (300, 0)
+            expect(footprint.innerCoords[4]).toBe(300);
+            expect(footprint.innerCoords[5]).toBe(200);
+
+            // outerCoords MUST contain the smooth 16-sample circular arc
+            expect(footprint.outerCoords.length).toBeGreaterThan(20);
+        });
+
+        it('should ensure outer dashed line is strictly parallel to vertical and horizontal walls with zero slant and zero pinching', () => {
+            // Replicate the exact L-turn wrap from the user's screenshot:
+            // Vertical wall going UP: (100, 150, 300) -> (100, 150, 100)
+            // Horizontal wall going RIGHT: (100, 150, 100) -> (300, 150, 100)
+            // Outer side is -X on vertical wall, -Z on horizontal wall
+            const entity = {
+                id: 'seg_fillet_zero_slant_l_turn',
+                depth: 40,
+                width: 30,
+                points: [
+                    { x: 100, y: 150, z: 300, normal: { x: -1, y: 0, z: 0 } },
+                    { x: 100, y: 150, z: 100, normal: { x: -0.707, y: 0, z: -0.707 }, cornerStyle: 'fillet', radius: 30 },
+                    { x: 300, y: 150, z: 100, normal: { x: 0, y: 0, z: -1 } }
+                ]
+            };
+
+            const footprint = computeElevationSegment2DFootprint(entity);
+            expect(footprint).toBeDefined();
+
+            // 1. Check vertical wall segment outer edge (Q[0] and Q[1]):
+            // Baseline goes from (100, 300) to (100, 100).
+            // With depth = 40 and outward normal (-1, 0), outer line MUST be 100% strictly vertical at X = 60!
+            expect(footprint.Q[0].x).toBeCloseTo(60, 2);
+            expect(footprint.Q[0].y).toBeCloseTo(300, 2);
+            expect(footprint.Q[1].x).toBeCloseTo(60, 2);
+            expect(footprint.Q[1].y).toBeCloseTo(100, 2);
+            // ZERO SLANT: X coordinates along vertical segment MUST be completely identical!
+            expect(footprint.Q[0].x).toBe(footprint.Q[1].x);
+
+            // 2. Check horizontal wall segment outer edge (Q[17] and Q[18]):
+            // Baseline goes from (100, 100) to (300, 100).
+            // With depth = 40 and outward normal (0, -1), outer line MUST be 100% strictly horizontal at Y = 60!
+            const nQ = footprint.Q.length;
+            expect(footprint.Q[nQ - 2].x).toBeCloseTo(100, 2);
+            expect(footprint.Q[nQ - 2].y).toBeCloseTo(60, 2);
+            expect(footprint.Q[nQ - 1].x).toBeCloseTo(300, 2);
+            expect(footprint.Q[nQ - 1].y).toBeCloseTo(60, 2);
+            // ZERO SLANT: Y coordinates along horizontal segment MUST be completely identical!
+            expect(footprint.Q[nQ - 2].y).toBe(footprint.Q[nQ - 1].y);
+
+            // 3. Check smooth concentric circular arc across the corner:
+            // Midpoint of arc (index 9) MUST have exact distance 40cm from the corner (100, 100)
+            const midQ = footprint.Q[9];
+            const distFromCorner = Math.hypot(midQ.x - 100, midQ.y - 100);
+            expect(distFromCorner).toBeCloseTo(40, 1); // EXACTLY 40cm, ZERO PINCHING!
+
+            // 4. Inner wall contact line MUST be sharp against the 90° wall corner:
+            expect(footprint.innerCoords).toEqual([100, 300, 100, 100, 300, 100]);
         });
     });
 
@@ -421,6 +617,144 @@ describe('Elevation Segment ("Sprout & Bend") Engine Suite', () => {
             const assembly = buildElevationSegmentGeometry(seg.points, { width: 30, depth: 40 });
             expect(assembly).toBeDefined();
             expect(assembly.geometry.attributes.position.count).toBeGreaterThanOrEqual(40);
+        });
+    });
+
+    describe('6. 2D Floor Plan Representation & Synchronization Suite', () => {
+        it('should compute exact 2D footprint polygon and cantilever overhang for straight segment', () => {
+            const seg = createStarterElevationSegment(mockWall, 250, 150, 1, { length: 180, width: 30, depth: 40 });
+            const footprint = computeElevationSegment2DFootprint(seg);
+
+            expect(footprint).toBeDefined();
+            expect(footprint.P.length).toBe(2);
+            expect(footprint.Q.length).toBe(2);
+            expect(footprint.totalLength).toBeCloseTo(180, 0);
+
+            // 4 vertices around the band = 8 flat coordinates in polyCoords
+            expect(footprint.polyCoords.length).toBe(8);
+
+            // Baseline coordinates (inner against wall)
+            expect(footprint.innerCoords.length).toBe(4); // [x0, y0, x1, y1]
+            expect(footprint.outerCoords.length).toBe(4); // [qx0, qy0, qx1, qy1]
+
+            // Cantilever depth overhang distance between P0 and Q0 should be 40
+            const p0 = footprint.P[0];
+            const q0 = footprint.Q[0];
+            const overhangDist = Math.hypot(q0.x - p0.x, q0.y - p0.y);
+            expect(overhangDist).toBeCloseTo(40, 1);
+        });
+
+        it('should compute mitered 2D outer corner vertex for multi-wall wrapped segment', () => {
+            const multiSeg = {
+                id: 'seg_corner_2d',
+                depth: 40,
+                width: 30,
+                points: [
+                    { x: 100, y: 150, z: 10, normal: { x: 0, y: 0, z: 1 } },
+                    { x: 300, y: 150, z: 10, normal: { x: 0, y: 0, z: 1 } },
+                    { x: 300, y: 150, z: 150, normal: { x: -1, y: 0, z: 0 } }
+                ]
+            };
+
+            const footprint = computeElevationSegment2DFootprint(multiSeg);
+            expect(footprint).toBeDefined();
+            expect(footprint.P.length).toBe(3);
+            expect(footprint.Q.length).toBe(3);
+
+            // Total 6 boundary vertices = 12 coordinates
+            expect(footprint.polyCoords.length).toBe(12);
+
+            // The corner vertex Q[1] should be expanded past the 40cm perpendicular depth to form miter
+            const pCorner = footprint.P[1];
+            const qCorner = footprint.Q[1];
+            const cornerMiterDist = Math.hypot(qCorner.x - pCorner.x, qCorner.y - pCorner.y);
+            expect(cornerMiterDist).toBeGreaterThan(40); // 40 * sqrt(2) ~ 56.5 cm
+        });
+
+        it('should compute 2D recessed spotlight positions along segment centerline', () => {
+            const seg = createStarterElevationSegment(mockWall, 250, 150, 1, {
+                length: 200,
+                hasSpotlights: true,
+                spotlightSpacing: 80
+            });
+            const footprint = computeElevationSegment2DFootprint(seg);
+            const spots = computeElevationSegmentSpotlights2D(seg, footprint);
+
+            expect(spots.length).toBeGreaterThan(0);
+            spots.forEach(pt => {
+                expect(typeof pt.x).toBe('number');
+                expect(typeof pt.y).toBe('number');
+                // Spotlight should lie between start and end X
+                expect(pt.x).toBeGreaterThanOrEqual(footprint.P[0].x);
+                expect(pt.x).toBeLessThanOrEqual(footprint.P[1].x);
+            });
+        });
+
+        it('should render Konva 2D visual nodes and handle selection highlight', () => {
+            const seg = createStarterElevationSegment(mockWall, 250, 150, 1, {
+                length: 180,
+                hasSpotlights: true,
+                depth: 40
+            });
+            const mockPlanner = {
+                tool: 'select',
+                selectedEntity: null,
+                selectEntity(ent, type) {
+                    this.selectedEntity = ent;
+                }
+            };
+
+            const group = new Konva.Group();
+            renderElevationSegment2D(group, seg, mockPlanner);
+
+            // Sub-nodes should be created
+            const fillPoly = group.findOne('.elev-fill-poly');
+            const wallLine = group.findOne('.elev-wall-line');
+            const outerDashed = group.findOne('.elev-outer-dashed');
+            const spotsGroup = group.findOne('.elev-spots-group');
+            const badgeGroup = group.findOne('.elev-badge-group');
+            const handlesGroup = group.findOne('.elev-handles-group');
+
+            expect(fillPoly).toBeDefined();
+            expect(wallLine).toBeDefined();
+            expect(outerDashed).toBeDefined();
+            expect(outerDashed.dash()).toEqual([6, 4]);
+            expect(spotsGroup).toBeDefined();
+            expect(badgeGroup).toBeDefined();
+            expect(handlesGroup).toBeDefined();
+
+            // When unselected, handles are hidden
+            expect(handlesGroup.visible()).toBe(false);
+
+            // When selected, handles become visible
+            mockPlanner.selectedEntity = seg;
+            renderElevationSegment2D(group, seg, mockPlanner);
+            expect(handlesGroup.visible()).toBe(true);
+            expect(fillPoly.strokeWidth()).toBe(2);
+        });
+
+        it('should synchronize elevation segments with widgetLayer on FloorPlanner', () => {
+            const seg1 = createStarterElevationSegment(mockWall, 200, 150, 1);
+            const seg2 = createStarterElevationSegment(mockWall, 350, 150, 1);
+
+            const widgetLayer = new Konva.Group();
+            const mockPlanner = {
+                elevationSegments: [seg1, seg2],
+                widgetLayer,
+                tool: 'select'
+            };
+
+            // Initial sync: creates 2 groups on widgetLayer
+            syncElevationSegments2D(mockPlanner);
+            expect(widgetLayer.getChildren().length).toBe(2);
+            expect(seg1.group2D).toBeDefined();
+            expect(seg2.group2D).toBeDefined();
+
+            // Remove seg2 from planner.elevationSegments and sync again
+            mockPlanner.elevationSegments = [seg1];
+            syncElevationSegments2D(mockPlanner);
+            expect(widgetLayer.getChildren().length).toBe(1);
+            expect(widgetLayer.getChildren()[0].id()).toBe(seg1.id);
         });
     });
 });

@@ -26,7 +26,10 @@ export const renderElevationSegment3D = (sceneGroup, entity, helpers = null) => 
 
     if (!assembly || !assembly.geometry) return null;
 
-    const geo = normalizeRibbonUVs(assembly.geometry, assembly.totalLength, width * 2 + depth * 2);
+    const hasFillet = Boolean(assembly.expandedPath && assembly.expandedPath.some(p => p.isFilletSample));
+    const geo = hasFillet
+        ? assembly.geometry
+        : normalizeRibbonUVs(assembly.geometry, assembly.totalLength, width * 2 + depth * 2);
 
     const defaultColor = matPreset.color || 0x8b5a2b;
     const fallbackMat = new THREE.MeshStandardMaterial({
@@ -143,7 +146,10 @@ export const renderElevationSegment3D = (sceneGroup, entity, helpers = null) => 
                     hasSpotlights: false
                 });
                 if (branchAssembly && branchAssembly.geometry) {
-                    const branchGeo = normalizeRibbonUVs(branchAssembly.geometry, branchAssembly.totalLength, width * 2 + depth * 2);
+                    const branchHasFillet = Boolean(branchAssembly.expandedPath && branchAssembly.expandedPath.some(p => p.isFilletSample));
+                    const branchGeo = branchHasFillet
+                        ? branchAssembly.geometry
+                        : normalizeRibbonUVs(branchAssembly.geometry, branchAssembly.totalLength, width * 2 + depth * 2);
                     const branchMesh = new THREE.Mesh(branchGeo, mainMat);
                     branchMesh.castShadow = true;
                     branchMesh.receiveShadow = true;

@@ -114,7 +114,8 @@ export const computeNodeFrame = (points, index, width, depth, defaultNormal = nu
     let miterScaleDepth = 1.0;
     let miterScaleWidth = 1.0;
 
-    if (dirIn && dirOut) {
+    const isFilletSample = Boolean(points[index] && points[index].isFilletSample);
+    if (dirIn && dirOut && !isFilletSample) {
         const dot = dirIn.dot(dirOut);
         const clampedDot = Math.max(-0.85, Math.min(0.99, dot));
         const angleFactor = Math.sqrt(2 / (1 + clampedDot));

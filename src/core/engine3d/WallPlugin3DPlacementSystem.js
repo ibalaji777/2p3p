@@ -1477,6 +1477,10 @@ export class WallPlugin3DPlacementSystem {
                 this.interactions.selectObject(createdEntity.mesh3D);
             }
 
+            if (planner.syncAll) {
+                planner.syncAll();
+            }
+
             if (this.ctx.requestRender) {
                 this.ctx.requestRender('elevation_segment_placed', 2);
             }
