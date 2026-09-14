@@ -385,7 +385,18 @@ export class StairInteractiveSuite extends THREE.Group {
         this.target = object.isGroup ? object : (object.parent?.isGroup ? object.parent : object);
         this.stair = object.userData?.entity || (object.parent?.userData?.entity) || null;
 
-        if (!this.stair) {
+        const isActualStair = Boolean(
+            object.userData?.isStair ||
+            object.parent?.userData?.isStair ||
+            (this.stair && (
+                this.stair.type === 'staircase' ||
+                (typeof this.stair.type === 'string' && this.stair.type.startsWith('stair')) ||
+                this.stair.constructor?.name === 'PremiumStaircase' ||
+                this.stair.totalSteps !== undefined
+            ))
+        ) && !object.userData?.isFloor && !object.userData?.isPlatform && !object.userData?.isRoomFloor && !object.userData?.isWall && !object.userData?.isWallMesh && !object.userData?.isWallSide;
+
+        if (!this.stair || !isActualStair) {
             this.detach();
             return;
         }

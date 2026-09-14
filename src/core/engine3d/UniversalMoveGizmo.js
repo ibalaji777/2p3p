@@ -560,7 +560,11 @@ export class UniversalMoveGizmo extends THREE.Group {
             }
 
             // Sims 4 Dynamic Staircase Auto-Detect Height during drag
-            const isStair = Boolean(ent.shape || (ent.type && ent.type.startsWith('stair')) || ent.totalSteps !== undefined);
+            const isStair = !ent.isFloor && !ent.isPlatform && Boolean(
+                (typeof ent.type === 'string' && ent.type.startsWith('stair')) ||
+                ent.constructor?.name === 'PremiumStaircase' ||
+                ent.totalSteps !== undefined
+            );
             const planner = this.ctx.planner || (this.ctx.appState && this.ctx.appState.planner) || window.planner?.value || window.planner;
 
             if (isStair && planner) {

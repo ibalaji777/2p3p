@@ -91,15 +91,18 @@ export class Platform3DBuilder {
         ComponentRegistry.unregisterEntity(platform);
 
         // 2. Build Top Surface Geometry
+        // Traverse contour points in reverse (CW in 2D) so that after rotateX(Math.PI / 2)
+        // (x, y) maps to (x, y) in 3D (X, Z) and the face normal points UP (+Y).
         const topShape = new THREE.Shape();
-        topShape.moveTo(contourPts[0].x, contourPts[0].y);
-        for (let i = 1; i < contourPts.length; i++) {
+        const last = contourPts.length - 1;
+        topShape.moveTo(contourPts[last].x, contourPts[last].y);
+        for (let i = last - 1; i >= 0; i--) {
             topShape.lineTo(contourPts[i].x, contourPts[i].y);
         }
         topShape.closePath();
 
         const topGeo = new THREE.ShapeGeometry(topShape);
-        topGeo.rotateX(-Math.PI / 2); // Lay horizontal
+        topGeo.rotateX(Math.PI / 2); // Lay horizontal (+Z matches +Y in 2D)
         topGeo.translate(0, isSunken ? 0.05 : absH, 0);
 
         // Apply physical planar world UVs to top geometry
@@ -110,7 +113,9 @@ export class Platform3DBuilder {
 
         // 4. Create or reuse PBR materials
         const matTop = this._resolveMaterial(platform.materials?.top?.id || 'wood_golden_teak', 'floor');
+        matTop.side = THREE.DoubleSide;
         const matSide = this._resolveMaterial(platform.materials?.side?.id || 'wood_white_oak', 'trim');
+        matSide.side = THREE.DoubleSide;
 
         // Top Mesh
         const topMesh = new THREE.Mesh(topGeo, matTop);

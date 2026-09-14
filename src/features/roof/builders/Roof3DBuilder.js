@@ -137,7 +137,7 @@ export class Roof3DBuilder {
                     return midX >= minX - 40 && midX <= maxX + 40 && midY >= minY - 40 && midY <= maxY + 40;
                 });
                 if (wallsUnderRoof.length > 0) {
-                    localWallHeight = Math.max(...wallsUnderRoof.map(w => w.height !== undefined ? w.height : (w.config?.height || 120)));
+                    localWallHeight = Math.max(...wallsUnderRoof.map(w => (Number(w.elevation) || 0) + (w.height !== undefined ? Number(w.height) : (Number(w.config?.height) || 120))));
                 }
             }
 

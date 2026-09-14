@@ -958,20 +958,24 @@ export class Preview3D {
 
         const shapes = this.shapes || (planner && planner.shapes) || [];
         const floorCuts = shapes.filter(s => s.type === 'shape_floor_cut');
-        const floorMeshes = this.interactables.filter(m => m.userData && m.userData.isFloor && !m.userData.isOutdoorZone);
+        const isStandardRoomFloor = (m) => m.userData && m.userData.isFloor && !m.userData.isOutdoorZone && !m.userData.isPlatform && !m.userData.isPlatformTop && !m.userData.isPlatformSide;
+        const floorMeshes = this.interactables.filter(isStandardRoomFloor);
 
         // If number of rooms changed or no floor meshes exist, do a full active floor build
         const rooms = (planner.rooms || []).filter(r => !r.isDeleted && !r.isHidden);
         if (floorMeshes.length === 0 || floorMeshes.length !== rooms.length) {
             const walls = planner.walls || [];
             try {
-                // Clean old floor meshes
+                // Clean old floor meshes (do not touch platforms)
                 floorMeshes.forEach(f => {
                     this.structureGroup.remove(f);
                     if (f.geometry && !f.geometry.userData?.keepAlive) f.geometry.dispose();
                 });
-                this.interactables = this.interactables.filter(m => !(m.userData && m.userData.isFloor && !m.userData.isOutdoorZone));
+                this.interactables = this.interactables.filter(m => !isStandardRoomFloor(m));
                 this.envBuilder.buildActiveFloor(walls, rooms, shapes);
+                if (planner.platforms && planner.platforms.length > 0 && this.envBuilder.buildPlatforms) {
+                    this.envBuilder.buildPlatforms(planner.platforms, this.structureGroup);
+                }
             } catch(err) {
                 console.error('[Engine3D] buildActiveFloor err:', err);
             }

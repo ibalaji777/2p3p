@@ -320,7 +320,7 @@ export function getConnectedWallCorner(entity, nodeIndex, planner, maxDist = 70)
 /**
  * Wraps an elevation segment around a 90° corner onto an adjacent connected wall.
  */
-export function wrapElevationSegmentToAdjacentWall(entity, nodeIndex, planner) {
+export function wrapElevationSegmentToAdjacentWall(entity, nodeIndex, planner, options = {}) {
     if (!entity || !entity.points || entity.points.length < 2) return null;
     const n = entity.points.length;
     if (nodeIndex !== 0 && nodeIndex !== n - 1) return null;
@@ -374,27 +374,44 @@ export function wrapElevationSegmentToAdjacentWall(entity, nodeIndex, planner) {
     const adjThick = adjWall.thickness || 20;
     const cornerOffset = ((wallThick / 2) + 0.3) * miterScale;
 
+    const cornerStyle = options.cornerStyle || 'sharp';
+    const radius = (cornerStyle === 'fillet') ? (options.radius !== undefined ? options.radius : 25) : 0;
+
     // Corner point sitting flush on the corner miter
     const cornerPt = {
         x: Math.round(cornerAnchor.x + bisectorNorm.x * cornerOffset),
         y: targetPt.y,
         z: Math.round(cornerAnchor.y + bisectorNorm.z * cornerOffset),
         normal: { x: bisectorNorm.x, y: 0, z: bisectorNorm.z },
-        cornerStyle: 'sharp',
-        radius: 0
+        cornerStyle,
+        radius
     };
 
-    // Extended endpoint along the adjacent wall face (120 cm arm)
-    const armLen = Math.min(120, awLen * 0.7);
     const adjSurfaceOffset = (adjWall.thickness || 20) / 2 + 0.3;
-    const endPt = {
-        x: Math.round(cornerAnchor.x + adjDirX * armLen + adjNorm.x * adjSurfaceOffset),
-        y: targetPt.y,
-        z: Math.round(cornerAnchor.y + adjDirZ * armLen + adjNorm.z * adjSurfaceOffset),
-        normal: { x: adjNorm.x, y: 0, z: adjNorm.z },
-        cornerStyle: 'sharp',
-        radius: 0
-    };
+
+    // Extended endpoint along the adjacent wall face
+    let endPt;
+    if (options.fullWall) {
+        const fullArm = Math.max(10, awLen - 5);
+        endPt = {
+            x: Math.round(cornerAnchor.x + adjDirX * fullArm + adjNorm.x * adjSurfaceOffset),
+            y: targetPt.y,
+            z: Math.round(cornerAnchor.y + adjDirZ * fullArm + adjNorm.z * adjSurfaceOffset),
+            normal: { x: adjNorm.x, y: 0, z: adjNorm.z },
+            cornerStyle: 'sharp',
+            radius: 0
+        };
+    } else {
+        const armDistTarget = (options.distance !== undefined) ? options.distance : Math.min(120, awLen * 0.7);
+        endPt = {
+            x: Math.round(cornerPt.x + adjDirX * armDistTarget),
+            y: targetPt.y,
+            z: Math.round(cornerPt.z + adjDirZ * armDistTarget),
+            normal: { x: adjNorm.x, y: 0, z: adjNorm.z },
+            cornerStyle: 'sharp',
+            radius: 0
+        };
+    }
 
     const cornerNodeId = `${entity.id}_c${Date.now()}`;
     const endNodeId = `${entity.id}_e${Date.now()}`;
@@ -442,3 +459,176 @@ export function wrapElevationSegmentToAdjacentWall(entity, nodeIndex, planner) {
         entity
     };
 }
+
+/**
+ * Snaps an overshooting or near-corner endpoint flush against the wall corner anchor.
+ */
+export function snapEndpointToWallCorner(entity, nodeIndex, planner) {
+    if (!entity || !entity.points || entity.points.length < 2) return null;
+    const n = entity.points.length;
+    if (nodeIndex !== 0 && nodeIndex !== n - 1) return null;
+
+    const conn = getConnectedWallCorner(entity, nodeIndex, planner, 150);
+    if (!conn) return null;
+
+    const { hostWall, cornerAnchor } = conn;
+    const targetPt = entity.points[nodeIndex];
+
+    let hostNorm;
+    if (targetPt.normal) {
+        hostNorm = new THREE.Vector3(targetPt.normal.x, targetPt.normal.y, targetPt.normal.z).normalize();
+    } else {
+        const p1 = (hostWall.startAnchor && typeof hostWall.startAnchor.position === 'function') ? hostWall.startAnchor.position() : (hostWall.startAnchor || { x: hostWall.startX || 0, y: hostWall.startY || 0 });
+        const p2 = (hostWall.endAnchor && typeof hostWall.endAnchor.position === 'function') ? hostWall.endAnchor.position() : (hostWall.endAnchor || { x: hostWall.endX || 0, y: hostWall.endY || 0 });
+        const dx = p2.x - p1.x;
+        const dz = p2.y - p1.y;
+        const len = Math.hypot(dx, dz) || 1;
+        const facing = entity.wallFacing || entity.facing || 1;
+        hostNorm = new THREE.Vector3(-dz / len * facing, 0, dx / len * facing);
+    }
+
+    let currOffset = (targetPt.x - cornerAnchor.x) * hostNorm.x + (targetPt.z - cornerAnchor.y) * hostNorm.z;
+    if (Math.abs(currOffset) < 0.01) {
+        currOffset = ((hostWall.thickness || 20) / 2) + 0.3;
+    }
+
+    const snappedX = Math.round((cornerAnchor.x + hostNorm.x * currOffset) * 10) / 10;
+    const snappedZ = Math.round((cornerAnchor.y + hostNorm.z * currOffset) * 10) / 10;
+
+    targetPt.x = snappedX;
+    targetPt.z = snappedZ;
+
+    if (entity.nodes && entity.nodes[nodeIndex]) {
+        entity.nodes[nodeIndex].x = snappedX;
+        entity.nodes[nodeIndex].z = snappedZ;
+    }
+
+    return {
+        success: true,
+        targetPt,
+        cornerAnchor,
+        hostWall
+    };
+}
+
+/**
+ * Reports detailed corner connectivity status for an endpoint.
+ */
+export function getEndpointCornerStatus(entity, nodeIndex, planner) {
+    const emptyStatus = {
+        hasConnectedWall: false,
+        canWrap: false,
+        distToCorner: Infinity,
+        isAtCorner: false,
+        turnDirection: 'none',
+        turnArrow: '',
+        turnLabel: 'No Connected Wall',
+        hostWall: null,
+        adjWall: null,
+        cornerAnchor: null
+    };
+
+    if (!entity || !entity.points || entity.points.length < 2) return emptyStatus;
+    const n = entity.points.length;
+    if (nodeIndex !== 0 && nodeIndex !== n - 1) return emptyStatus;
+
+    const targetPt = entity.points[nodeIndex];
+    const isStart = (nodeIndex === 0);
+    const neighborPt = isStart ? entity.points[1] : entity.points[n - 2];
+
+    const conn = getConnectedWallCorner(entity, nodeIndex, planner, 150);
+    if (!conn || !conn.adjWall) return emptyStatus;
+
+    const { hostWall, adjWall, cornerAnchor, adjCornerIsStart } = conn;
+
+    let hostNorm;
+    if (targetPt.normal) {
+        hostNorm = new THREE.Vector3(targetPt.normal.x, targetPt.normal.y, targetPt.normal.z).normalize();
+    } else {
+        const p1 = (hostWall.startAnchor && typeof hostWall.startAnchor.position === 'function') ? hostWall.startAnchor.position() : (hostWall.startAnchor || { x: hostWall.startX || 0, y: hostWall.startY || 0 });
+        const p2 = (hostWall.endAnchor && typeof hostWall.endAnchor.position === 'function') ? hostWall.endAnchor.position() : (hostWall.endAnchor || { x: hostWall.endX || 0, y: hostWall.endY || 0 });
+        const dx = p2.x - p1.x;
+        const dz = p2.y - p1.y;
+        const len = Math.hypot(dx, dz) || 1;
+        const facing = entity.wallFacing || entity.facing || 1;
+        hostNorm = new THREE.Vector3(-dz / len * facing, 0, dx / len * facing);
+    }
+
+    let currOffset = (targetPt.x - cornerAnchor.x) * hostNorm.x + (targetPt.z - cornerAnchor.y) * hostNorm.z;
+    if (Math.abs(currOffset) < 0.01) {
+        currOffset = ((hostWall.thickness || 20) / 2) + 0.3;
+    }
+
+    const cornerSurfaceX = cornerAnchor.x + hostNorm.x * currOffset;
+    const cornerSurfaceZ = cornerAnchor.y + hostNorm.z * currOffset;
+    const distToCorner = Math.round(Math.hypot(targetPt.x - cornerSurfaceX, targetPt.z - cornerSurfaceZ));
+    const isAtCorner = distToCorner <= 30;
+
+    // Adjacent wall endpoints
+    const aw1 = (adjWall.startAnchor && typeof adjWall.startAnchor.position === 'function') ? adjWall.startAnchor.position() : (adjWall.startAnchor || { x: adjWall.startX || 0, y: adjWall.startY || 0 });
+    const aw2 = (adjWall.endAnchor && typeof adjWall.endAnchor.position === 'function') ? adjWall.endAnchor.position() : (adjWall.endAnchor || { x: adjWall.endX || 0, y: adjWall.endY || 0 });
+
+    const adjFrom = adjCornerIsStart ? aw1 : aw2;
+    const adjTo = adjCornerIsStart ? aw2 : aw1;
+    const awDx = adjTo.x - adjFrom.x;
+    const awDz = adjTo.y - adjFrom.y;
+    const awLen = Math.hypot(awDx, awDz) || 1;
+    const adjDirX = awDx / awLen;
+    const adjDirZ = awDz / awLen;
+
+    const dIn = new THREE.Vector3(cornerAnchor.x - neighborPt.x, 0, cornerAnchor.y - neighborPt.z).normalize();
+    const dOut = new THREE.Vector3(adjDirX, 0, adjDirZ).normalize();
+    const crossY = dIn.z * dOut.x - dIn.x * dOut.z;
+
+    const isLeft = crossY > 0.01;
+    const turnDirection = isLeft ? 'left' : 'right';
+    const turnArrow = isLeft ? '↰' : '↱';
+    const turnLabel = isLeft ? '90° Left Turn' : '90° Right Turn';
+
+    return {
+        hasConnectedWall: true,
+        canWrap: true,
+        distToCorner,
+        isAtCorner,
+        turnDirection,
+        turnArrow,
+        turnLabel,
+        hostWall,
+        adjWall,
+        cornerAnchor,
+        adjCornerIsStart
+    };
+}
+
+/**
+ * Wraps an elevation segment around all connected walls in sequence.
+ */
+export function wrapElevationSegmentAllConnectedWalls(entity, planner, options = {}) {
+    if (!entity || !entity.points || entity.points.length < 2 || !planner?.walls?.length) return 0;
+
+    let wrappedCount = 0;
+    const maxSteps = Math.min(20, planner.walls.length + 2);
+    const visitedWallIds = new Set(entity.wallIds || [entity.wallId].filter(Boolean));
+
+    for (let step = 0; step < maxSteps; step++) {
+        const lastIdx = entity.points.length - 1;
+        const conn = getConnectedWallCorner(entity, lastIdx, planner, 150);
+        if (!conn || !conn.adjWall) break;
+
+        // If we've already wrapped onto this wall, stop loop
+        if (visitedWallIds.has(conn.adjWall.id)) break;
+
+        const res = wrapElevationSegmentToAdjacentWall(entity, lastIdx, planner, {
+            ...options,
+            fullWall: true
+        });
+
+        if (!res) break;
+
+        visitedWallIds.add(res.adjWall.id);
+        wrappedCount++;
+    }
+
+    return wrappedCount;
+}
+

@@ -1450,7 +1450,14 @@ export class InteractionSystem {
                 }
             }
 
-            const isStair = Boolean(object.userData?.isStair || object.userData?.entity?.type?.startsWith('stair') || object.userData?.entity?.shape);
+            const isStair = !object.userData?.isFloor && !object.userData?.isRoomFloor && !object.userData?.isPlatform && !isBaseWall && Boolean(
+                object.userData?.isStair ||
+                (object.userData?.entity && (
+                    object.userData.entity.type === 'staircase' ||
+                    (typeof object.userData.entity.type === 'string' && object.userData.entity.type.startsWith('stair')) ||
+                    object.userData.entity.constructor?.name === 'PremiumStaircase'
+                ))
+            );
             if (isStair && this.stairInteractiveSuite) {
                 this.stairInteractiveSuite.attach(object);
             } else if (this.stairInteractiveSuite) {

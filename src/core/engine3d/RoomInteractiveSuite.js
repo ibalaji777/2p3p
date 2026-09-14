@@ -4,6 +4,8 @@ import { coreEventBus } from '../EventBus.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { WallEngine } from '../wall/WallEngine.js';
 import { getRoomWallsAndSides, getRoomForWallFace, getRoomsList } from './WallPaintSystem.js';
+import { PremiumPlatform } from '../engine2d/PremiumPlatform.js';
+import { Platform3DBuilder } from './Platform3DBuilder.js';
 
 /**
  * RoomInteractiveSuite
@@ -38,6 +40,7 @@ export class RoomInteractiveSuite extends THREE.Group {
         this.room = null;   // Canonical room entity
         this.isBuildingRiseMode = false;
         this.scopeMode = 'room'; // 'room' | 'building'
+        this.targetAdjustMode = 'wall'; // 'wall' | 'foundation' | 'platform'
         this.downX = 0;
         this.downY = 0;
         this.dragDistance = 0;
@@ -85,6 +88,10 @@ export class RoomInteractiveSuite extends THREE.Group {
         this.dragPlane = new THREE.Plane();
         this.dragStartPoint = new THREE.Vector3();
 
+        this._bindEvents();
+    }
+
+    _bindEvents() {
         this._onPointerDown = this._onPointerDown.bind(this);
         this._onPointerMove = this._onPointerMove.bind(this);
         this._onPointerUp = this._onPointerUp.bind(this);
@@ -121,8 +128,45 @@ export class RoomInteractiveSuite extends THREE.Group {
     }
 
     /**
+     * Changes active target adjustment mode ('wall' | 'foundation' | 'platform').
+     */
+    setTargetAdjustMode(mode) {
+        if (mode !== 'wall' && mode !== 'foundation' && mode !== 'platform') return;
+        this.targetAdjustMode = mode;
+        this._updateHUDControls();
+        this._setGizmoPartHighlight(null);
+        if (this.ctx.requestRender) this.ctx.requestRender('target_mode_changed');
+    }
+
+    /**
+     * Steps the active target parameter upwards.
+     */
+    stepTargetUp() {
+        if (this.targetAdjustMode === 'wall') {
+            this.stepWallHeight(10);
+        } else if (this.targetAdjustMode === 'foundation') {
+            this.stepElevation(15);
+        } else if (this.targetAdjustMode === 'platform') {
+            this.stepRoomPlatform(15);
+        }
+    }
+
+    /**
+     * Steps the active target parameter downwards.
+     */
+    stepTargetDown() {
+        if (this.targetAdjustMode === 'wall') {
+            this.stepWallHeight(-10);
+        } else if (this.targetAdjustMode === 'foundation') {
+            this.stepElevation(-15);
+        } else if (this.targetAdjustMode === 'platform') {
+            this.stepRoomPlatform(-15);
+        }
+    }
+
+    /**
      * Constructs the Sims 4-style 3D Room Lift Gizmo.
-     * Positioned in mid-air in the center of the room volume.
+     * Streamlined vertical handle with Top Up arrow and Bottom Down arrow.
      */
     _create3DLiftGizmo() {
         while (this.liftHandleGroup.children.length > 0) {
@@ -131,7 +175,7 @@ export class RoomInteractiveSuite extends THREE.Group {
             if (c.geometry) c.geometry.dispose();
         }
 
-        // Authentic Sims 4 pearl-white / brushed chrome materials
+        // Authentic Sims 4 pearl-white / brushed chrome base material
         this.matBase = new THREE.MeshStandardMaterial({
             color: 0xf8fafc,
             metalness: 0.35,
@@ -139,10 +183,31 @@ export class RoomInteractiveSuite extends THREE.Group {
             depthTest: false,
             depthWrite: false
         });
+
+        // Dynamic Mode Highlight Materials
         this.matHighlight = new THREE.MeshStandardMaterial({
             color: 0x38bdf8,
             emissive: 0x0284c7,
             emissiveIntensity: 0.45,
+            metalness: 0.3,
+            roughness: 0.2,
+            depthTest: false,
+            depthWrite: false
+        });
+        this.matHighlightWall = this.matHighlight;
+        this.matHighlightFoundation = new THREE.MeshStandardMaterial({
+            color: 0x10b981,
+            emissive: 0x059669,
+            emissiveIntensity: 0.5,
+            metalness: 0.3,
+            roughness: 0.2,
+            depthTest: false,
+            depthWrite: false
+        });
+        this.matHighlightPlatform = new THREE.MeshStandardMaterial({
+            color: 0xf59e0b,
+            emissive: 0xd97706,
+            emissiveIntensity: 0.5,
             metalness: 0.3,
             roughness: 0.2,
             depthTest: false,
@@ -156,14 +221,7 @@ export class RoomInteractiveSuite extends THREE.Group {
         this.stemMesh.userData = { isRoomLiftHandle: true, part: 'stem' };
         this.liftHandleGroup.add(this.stemMesh);
 
-        // 2. Central Cube Block (Sims 4 Center Box for room translation)
-        const cubeGeo = new THREE.BoxGeometry(22, 22, 22);
-        this.cubeMesh = new THREE.Mesh(cubeGeo, this.matBase);
-        this.cubeMesh.renderOrder = 3011;
-        this.cubeMesh.userData = { isRoomLiftHandle: true, part: 'cube' };
-        this.liftHandleGroup.add(this.cubeMesh);
-
-        // 3. Top Flange Collar Disk & Cone Arrow (Platform Elevation UP)
+        // 2. Top Flange Collar Disk & Cone Arrow (UP)
         const topCollarGeo = new THREE.CylinderGeometry(13, 13, 2.8, 24);
         this.topCollarMesh = new THREE.Mesh(topCollarGeo, this.matBase);
         this.topCollarMesh.position.y = 33;
@@ -178,7 +236,7 @@ export class RoomInteractiveSuite extends THREE.Group {
         this.topConeMesh.userData = { isRoomLiftHandle: true, part: 'up' };
         this.liftHandleGroup.add(this.topConeMesh);
 
-        // 4. Bottom Flange Collar Disk & Cone Arrow (Platform Elevation DOWN)
+        // 3. Bottom Flange Collar Disk & Cone Arrow (DOWN)
         const btmCollarGeo = new THREE.CylinderGeometry(13, 13, 2.8, 24);
         this.btmCollarMesh = new THREE.Mesh(btmCollarGeo, this.matBase);
         this.btmCollarMesh.position.y = -33;
@@ -194,29 +252,7 @@ export class RoomInteractiveSuite extends THREE.Group {
         this.btmConeMesh.userData = { isRoomLiftHandle: true, part: 'down' };
         this.liftHandleGroup.add(this.btmConeMesh);
 
-        // 5. Angled Diagonal Handle on Front Face of Cube (Sims 4 Wall Height)
-        const diagGroup = new THREE.Group();
-        diagGroup.position.set(0, 0, 11);
-        diagGroup.rotation.x = Math.PI / 4;
-
-        const diagStalkGeo = new THREE.CylinderGeometry(3.0, 3.0, 14, 20);
-        this.diagStalkMesh = new THREE.Mesh(diagStalkGeo, this.matBase);
-        this.diagStalkMesh.position.y = 7;
-        this.diagStalkMesh.renderOrder = 3012;
-        this.diagStalkMesh.userData = { isRoomLiftHandle: true, part: 'diagonal' };
-        diagGroup.add(this.diagStalkMesh);
-
-        const diagConeGeo = new THREE.ConeGeometry(10, 20, 24);
-        this.diagConeMesh = new THREE.Mesh(diagConeGeo, this.matBase);
-        this.diagConeMesh.position.y = 19;
-        this.diagConeMesh.renderOrder = 3013;
-        this.diagConeMesh.userData = { isRoomLiftHandle: true, part: 'diagonal' };
-        diagGroup.add(this.diagConeMesh);
-
-        diagGroup.userData = { isRoomLiftHandle: true, part: 'diagonal' };
-        this.liftHandleGroup.add(diagGroup);
-
-        // 6. Raycastable Invisible Colliders (transparent: true, opacity: 0 - 100% raycastable in Three.js)
+        // 4. Raycastable Invisible Colliders
         const matCollider = new THREE.MeshBasicMaterial({
             transparent: true,
             opacity: 0,
@@ -234,43 +270,30 @@ export class RoomInteractiveSuite extends THREE.Group {
         hitDown.position.y = -43;
         hitDown.userData = { isRoomLiftHandle: true, part: 'down' };
         this.liftHandleGroup.add(hitDown);
-
-        // Hitbox Diagonal (box covering diagonal stalk + cone)
-        const hitDiag = new THREE.Mesh(new THREE.BoxGeometry(26, 26, 28), matCollider);
-        hitDiag.position.set(0, 12, 18);
-        hitDiag.userData = { isRoomLiftHandle: true, part: 'diagonal' };
-        this.liftHandleGroup.add(hitDiag);
-
-        // Hitbox Cube / Center (generous box covering center)
-        const hitCube = new THREE.Mesh(new THREE.BoxGeometry(32, 32, 32), matCollider);
-        hitCube.userData = { isRoomLiftHandle: true, part: 'cube' };
-        this.liftHandleGroup.add(hitCube);
     }
 
     /**
      * Toggles hover highlight materials on gizmo parts.
      */
     _setGizmoPartHighlight(part) {
-        if (!this.topConeMesh || !this.matBase || !this.matHighlight) return;
+        if (!this.topConeMesh || !this.matBase) return;
+
+        let activeHighlight = this.matHighlightWall;
+        if (this.targetAdjustMode === 'foundation') {
+            activeHighlight = this.matHighlightFoundation;
+        } else if (this.targetAdjustMode === 'platform') {
+            activeHighlight = this.matHighlightPlatform;
+        }
 
         // Up arrow & collar
         const isUp = (part === 'up');
-        if (this.topConeMesh) this.topConeMesh.material = isUp ? this.matHighlight : this.matBase;
-        if (this.topCollarMesh) this.topCollarMesh.material = isUp ? this.matHighlight : this.matBase;
+        if (this.topConeMesh) this.topConeMesh.material = isUp ? activeHighlight : this.matBase;
+        if (this.topCollarMesh) this.topCollarMesh.material = isUp ? activeHighlight : this.matBase;
 
         // Down arrow & collar
         const isDown = (part === 'down');
-        if (this.btmConeMesh) this.btmConeMesh.material = isDown ? this.matHighlight : this.matBase;
-        if (this.btmCollarMesh) this.btmCollarMesh.material = isDown ? this.matHighlight : this.matBase;
-
-        // Diagonal stalk & cone
-        const isDiag = (part === 'diagonal');
-        if (this.diagConeMesh) this.diagConeMesh.material = isDiag ? this.matHighlight : this.matBase;
-        if (this.diagStalkMesh) this.diagStalkMesh.material = isDiag ? this.matHighlight : this.matBase;
-
-        // Cube
-        const isCube = (part === 'cube');
-        if (this.cubeMesh) this.cubeMesh.material = isCube ? this.matHighlight : this.matBase;
+        if (this.btmConeMesh) this.btmConeMesh.material = isDown ? activeHighlight : this.matBase;
+        if (this.btmCollarMesh) this.btmCollarMesh.material = isDown ? activeHighlight : this.matBase;
 
         if (this.ctx.requestRender) this.ctx.requestRender('gizmo_hover');
     }
@@ -610,20 +633,22 @@ export class RoomInteractiveSuite extends THREE.Group {
         `;
 
         this.btnScopeRoom = document.createElement('button');
-        this.btnScopeRoom.innerHTML = `<span>🏠 Room</span>`;
+        this.btnScopeRoom.innerHTML = `🏠`;
         this.btnScopeRoom.title = 'Edit Selected Room';
         this.btnScopeRoom.style.cssText = `
             border: none;
             border-radius: 9999px;
-            padding: 2px 6px;
-            height: 22px;
-            font-size: 10px;
+            width: 24px;
+            height: 24px;
+            font-size: 12px;
             cursor: pointer;
             transition: all 0.15s ease;
             outline: none;
             display: flex;
             align-items: center;
-            gap: 2px;
+            justify-content: center;
+            padding: 0;
+            line-height: 1;
             white-space: nowrap;
         `;
         this.btnScopeRoom.onclick = (e) => {
@@ -632,20 +657,22 @@ export class RoomInteractiveSuite extends THREE.Group {
         };
 
         this.btnScopeBuilding = document.createElement('button');
-        this.btnScopeBuilding.innerHTML = `<span>🏢 Bldg</span>`;
+        this.btnScopeBuilding.innerHTML = `🏢`;
         this.btnScopeBuilding.title = 'Edit All Building Walls';
         this.btnScopeBuilding.style.cssText = `
             border: none;
             border-radius: 9999px;
-            padding: 2px 6px;
-            height: 22px;
-            font-size: 10px;
+            width: 24px;
+            height: 24px;
+            font-size: 12px;
             cursor: pointer;
             transition: all 0.15s ease;
             outline: none;
             display: flex;
             align-items: center;
-            gap: 2px;
+            justify-content: center;
+            padding: 0;
+            line-height: 1;
             white-space: nowrap;
         `;
         this.btnScopeBuilding.onclick = (e) => {
@@ -665,18 +692,112 @@ export class RoomInteractiveSuite extends THREE.Group {
             justify-content: center;
         `;
 
-        // Room Mode Buttons (Balanced 25px × 25px):
-        const btnLower = document.createElement('button');
-        btnLower.innerHTML = `⬇`;
-        btnLower.title = 'Lower Platform Elevation (-15cm)';
-        this._styleBubbleButton(btnLower, '#f59e0b');
-        btnLower.onclick = (e) => { e.stopPropagation(); this.stepRoomElevation(-15); };
+        // 3-Mode Switcher Container (Wall, Foundation, Platform)
+        this.modeSwitcherContainer = document.createElement('div');
+        this.modeSwitcherContainer.style.cssText = `
+            display: flex;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 9999px;
+            padding: 1.5px;
+            gap: 1.5px;
+            flex-shrink: 0;
+        `;
 
-        const btnRaise = document.createElement('button');
-        btnRaise.innerHTML = `⬆`;
-        btnRaise.title = 'Raise Platform Elevation (+15cm)';
-        this._styleBubbleButton(btnRaise, '#10b981');
-        btnRaise.onclick = (e) => { e.stopPropagation(); this.stepRoomElevation(15); };
+        this.btnModeWall = document.createElement('button');
+        this.btnModeWall.innerHTML = `🧱`;
+        this.btnModeWall.title = 'Adjust Wall Height';
+        this.btnModeWall.style.cssText = `
+            border: none;
+            border-radius: 9999px;
+            width: 24px;
+            height: 24px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            outline: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            line-height: 1;
+            white-space: nowrap;
+        `;
+        this.btnModeWall.onclick = (e) => {
+            e.stopPropagation();
+            this.setTargetAdjustMode('wall');
+        };
+
+        this.btnModeFoundation = document.createElement('button');
+        this.btnModeFoundation.innerHTML = `🏛️`;
+        this.btnModeFoundation.title = 'Adjust Foundation Elevation';
+        this.btnModeFoundation.style.cssText = `
+            border: none;
+            border-radius: 9999px;
+            width: 24px;
+            height: 24px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            outline: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            line-height: 1;
+            white-space: nowrap;
+        `;
+        this.btnModeFoundation.onclick = (e) => {
+            e.stopPropagation();
+            this.setTargetAdjustMode('foundation');
+        };
+
+        this.btnModePlatform = document.createElement('button');
+        this.btnModePlatform.innerHTML = `🪜`;
+        this.btnModePlatform.title = 'Adjust Platform Height';
+        this.btnModePlatform.style.cssText = `
+            border: none;
+            border-radius: 9999px;
+            width: 24px;
+            height: 24px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            outline: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            line-height: 1;
+            white-space: nowrap;
+        `;
+        this.btnModePlatform.onclick = (e) => {
+            e.stopPropagation();
+            this.setTargetAdjustMode('platform');
+        };
+
+        this.modeSwitcherContainer.appendChild(this.btnModeWall);
+        this.modeSwitcherContainer.appendChild(this.btnModeFoundation);
+        this.modeSwitcherContainer.appendChild(this.btnModePlatform);
+
+        // Single Up and Down Pair
+        this.btnStepDown = document.createElement('button');
+        this.btnStepDown.innerHTML = `⬇`;
+        this.btnStepDown.title = 'Lower Value';
+        this._styleBubbleButton(this.btnStepDown, '#f59e0b');
+        this.btnStepDown.onclick = (e) => {
+            e.stopPropagation();
+            this.stepTargetDown();
+        };
+
+        this.btnStepUp = document.createElement('button');
+        this.btnStepUp.innerHTML = `⬆`;
+        this.btnStepUp.title = 'Raise Value';
+        this._styleBubbleButton(this.btnStepUp, '#10b981');
+        this.btnStepUp.onclick = (e) => {
+            e.stopPropagation();
+            this.stepTargetUp();
+        };
 
         const btnRotateCCW = document.createElement('button');
         btnRotateCCW.innerHTML = `↺`;
@@ -713,51 +834,15 @@ export class RoomInteractiveSuite extends THREE.Group {
         this._styleBubbleButton(btnDelete, '#ef4444');
         btnDelete.onclick = (e) => { e.stopPropagation(); this.deleteRoom(); };
 
-        this.roomActionsContainer.appendChild(btnLower);
-        this.roomActionsContainer.appendChild(btnRaise);
         this.roomActionsContainer.appendChild(btnRotateCCW);
         this.roomActionsContainer.appendChild(btnRotateCW);
         this.roomActionsContainer.appendChild(btnMove);
         this.roomActionsContainer.appendChild(btnCopy);
         this.roomActionsContainer.appendChild(btnDelete);
 
-        // Building Mode Buttons Container
+        // Building Mode Container (deprecated, modeSwitcher & up/down handles work universally)
         this.buildingActionsContainer = document.createElement('div');
-        this.buildingActionsContainer.style.cssText = `
-            display: none;
-            align-items: center;
-            gap: 3px;
-            justify-content: center;
-        `;
-
-        const btnBldgFoundDown = document.createElement('button');
-        btnBldgFoundDown.innerHTML = `⬇ Fnd`;
-        btnBldgFoundDown.title = 'Lower Building Foundation (-15cm)';
-        this._styleBubbleButton(btnBldgFoundDown, '#f59e0b', true);
-        btnBldgFoundDown.onclick = (e) => { e.stopPropagation(); this.stepAllWallsElevation(-15); };
-
-        const btnBldgFoundUp = document.createElement('button');
-        btnBldgFoundUp.innerHTML = `⬆ Fnd`;
-        btnBldgFoundUp.title = 'Lift Building Foundation (+15cm)';
-        this._styleBubbleButton(btnBldgFoundUp, '#10b981', true);
-        btnBldgFoundUp.onclick = (e) => { e.stopPropagation(); this.stepAllWallsElevation(15); };
-
-        const btnBldgWallDown = document.createElement('button');
-        btnBldgWallDown.innerHTML = `▼ Wall`;
-        btnBldgWallDown.title = 'Lower All Wall Heights (-10cm)';
-        this._styleBubbleButton(btnBldgWallDown, '#38bdf8', true);
-        btnBldgWallDown.onclick = (e) => { e.stopPropagation(); this.stepAllWallsHeight(-10); };
-
-        const btnBldgWallUp = document.createElement('button');
-        btnBldgWallUp.innerHTML = `▲ Wall`;
-        btnBldgWallUp.title = 'Raise All Wall Heights (+10cm)';
-        this._styleBubbleButton(btnBldgWallUp, '#38bdf8', true);
-        btnBldgWallUp.onclick = (e) => { e.stopPropagation(); this.stepAllWallsHeight(10); };
-
-        this.buildingActionsContainer.appendChild(btnBldgFoundDown);
-        this.buildingActionsContainer.appendChild(btnBldgFoundUp);
-        this.buildingActionsContainer.appendChild(btnBldgWallDown);
-        this.buildingActionsContainer.appendChild(btnBldgWallUp);
+        this.buildingActionsContainer.style.display = 'none';
 
         // Header Right: Done & Close
         const headerRight = document.createElement('div');
@@ -769,28 +854,30 @@ export class RoomInteractiveSuite extends THREE.Group {
         `;
 
         const btnDone = document.createElement('button');
-        btnDone.innerHTML = `✓ Done`;
+        btnDone.innerHTML = `✓`;
         btnDone.title = 'Finish & Exit (Enter / Esc)';
         btnDone.style.cssText = `
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 22px;
-            padding: 0 8px;
+            width: 24px;
+            height: 24px;
+            padding: 0;
             border-radius: 9999px;
             border: 1px solid #10b981;
             background: #10b981;
             color: #ffffff;
-            font-size: 10.5px;
+            font-size: 12px;
             font-weight: 800;
             cursor: pointer;
             transition: all 0.15s ease;
             box-shadow: 0 1px 4px rgba(16, 185, 129, 0.4);
             outline: none;
+            line-height: 1;
             white-space: nowrap;
         `;
         btnDone.onmouseenter = () => {
-            btnDone.style.transform = 'translateY(-1px) scale(1.04)';
+            btnDone.style.transform = 'translateY(-1px) scale(1.08)';
             btnDone.style.boxShadow = '0 2px 8px rgba(16, 185, 129, 0.6)';
         };
         btnDone.onmouseleave = () => {
@@ -809,28 +896,32 @@ export class RoomInteractiveSuite extends THREE.Group {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 22px;
-            height: 22px;
+            width: 24px;
+            height: 24px;
             border-radius: 9999px;
             border: 1px solid rgba(255, 255, 255, 0.12);
             background: rgba(255, 255, 255, 0.08);
             color: #94a3b8;
-            font-size: 10px;
+            font-size: 11px;
             font-weight: 800;
             cursor: pointer;
             transition: all 0.15s ease;
             outline: none;
+            padding: 0;
+            line-height: 1;
             flex-shrink: 0;
         `;
         btnClose.onmouseenter = () => {
             btnClose.style.borderColor = '#ef4444';
             btnClose.style.background = 'rgba(239, 68, 68, 0.2)';
             btnClose.style.color = '#fca5a5';
+            btnClose.style.transform = 'scale(1.08)';
         };
         btnClose.onmouseleave = () => {
             btnClose.style.borderColor = 'rgba(255, 255, 255, 0.12)';
             btnClose.style.background = 'rgba(255, 255, 255, 0.08)';
             btnClose.style.color = '#94a3b8';
+            btnClose.style.transform = 'scale(1)';
         };
         btnClose.onclick = (e) => {
             e.stopPropagation();
@@ -841,8 +932,10 @@ export class RoomInteractiveSuite extends THREE.Group {
         headerRight.appendChild(btnClose);
 
         mainRow.appendChild(scopeContainer);
+        mainRow.appendChild(this.modeSwitcherContainer);
+        mainRow.appendChild(this.btnStepDown);
+        mainRow.appendChild(this.btnStepUp);
         mainRow.appendChild(this.roomActionsContainer);
-        mainRow.appendChild(this.buildingActionsContainer);
         mainRow.appendChild(headerRight);
 
         // Row 2: Live Badge & Wall Height Presets
@@ -994,6 +1087,21 @@ export class RoomInteractiveSuite extends THREE.Group {
         }
     }
 
+    _styleModeButton(btn, isActive, accentColor = '#38bdf8') {
+        if (!btn) return;
+        if (isActive) {
+            btn.style.background = accentColor;
+            btn.style.color = '#ffffff';
+            btn.style.fontWeight = '800';
+            btn.style.boxShadow = `0 1px 6px ${accentColor}80`;
+        } else {
+            btn.style.background = 'transparent';
+            btn.style.color = '#94a3b8';
+            btn.style.fontWeight = '700';
+            btn.style.boxShadow = 'none';
+        }
+    }
+
     _updateHUDControls() {
         if (!this.domRoomHUD) return;
         const isBuilding = (this.scopeMode === 'building');
@@ -1004,12 +1112,34 @@ export class RoomInteractiveSuite extends THREE.Group {
             this._styleScopeButton(this.btnScopeBuilding, isBuilding);
         }
 
-        // Toggle actions containers
+        // Update Target Adjust Mode button styles
+        if (this.btnModeWall && this.btnModeFoundation && this.btnModePlatform) {
+            this._styleModeButton(this.btnModeWall, this.targetAdjustMode === 'wall', '#0284c7');
+            this._styleModeButton(this.btnModeFoundation, this.targetAdjustMode === 'foundation', '#059669');
+            this._styleModeButton(this.btnModePlatform, this.targetAdjustMode === 'platform', '#d97706');
+        }
+
+        // Update single Up/Down step buttons tooltips based on active mode & scope
+        if (this.btnStepDown && this.btnStepUp) {
+            const scopeLabel = isBuilding ? 'Building' : 'Room';
+            if (this.targetAdjustMode === 'wall') {
+                this.btnStepDown.title = `Lower ${scopeLabel} Wall Height (-10cm)`;
+                this.btnStepUp.title = `Raise ${scopeLabel} Wall Height (+10cm)`;
+            } else if (this.targetAdjustMode === 'foundation') {
+                this.btnStepDown.title = `Lower ${isBuilding ? 'Building' : 'Room'} Foundation (-15cm)`;
+                this.btnStepUp.title = `Lift ${isBuilding ? 'Building' : 'Room'} Foundation (+15cm)`;
+            } else if (this.targetAdjustMode === 'platform') {
+                this.btnStepDown.title = 'Lower Platform Height (-15cm)';
+                this.btnStepUp.title = 'Raise Platform Height (+15cm)';
+            }
+        }
+
+        // Toggle room-specific transform operations (Rotate, Move, Copy, Delete)
         if (this.roomActionsContainer) {
             this.roomActionsContainer.style.display = isBuilding ? 'none' : 'flex';
         }
         if (this.buildingActionsContainer) {
-            this.buildingActionsContainer.style.display = isBuilding ? 'flex' : 'none';
+            this.buildingActionsContainer.style.display = 'none';
         }
 
         // Update active height pill styling
@@ -1044,8 +1174,9 @@ export class RoomInteractiveSuite extends THREE.Group {
                 this.roomBadge.innerHTML = `Building <span style="color:#10b981;">+${elev}cm</span> • Wall <span style="color:#38bdf8;">${curH}cm</span>`;
             } else if (this.room) {
                 const elev = Number(this.room.elevation) || 0;
+                const pltH = Number(this.room.platformHeight) || 0;
                 const areaM2 = (this._getRoomArea(this.room.path) / 10000).toFixed(1);
-                this.roomBadge.innerHTML = `Elev <span style="color:#10b981;">+${elev}cm</span> • Wall <span style="color:#38bdf8;">${curH}cm</span> • <span style="color:#94a3b8;">${areaM2}m²</span>`;
+                this.roomBadge.innerHTML = `Fnd <span style="color:#10b981;">+${elev}cm</span> • Plt <span style="color:#34d399;">${pltH >= 0 ? '+' : ''}${pltH}cm</span> • Wall <span style="color:#38bdf8;">${curH}cm</span> • <span style="color:#94a3b8;">${areaM2}m²</span>`;
             }
         }
     }
@@ -1055,8 +1186,9 @@ export class RoomInteractiveSuite extends THREE.Group {
             display: flex;
             align-items: center;
             justify-content: center;
-            ${isWide ? 'height: 22px; padding: 0 6px;' : 'width: 25px; height: 25px;'}
-            border-radius: 6px;
+            width: 24px;
+            height: 24px;
+            border-radius: 9999px;
             border: 1px solid rgba(255, 255, 255, 0.12);
             background: rgba(255, 255, 255, 0.07);
             color: #e2e8f0;
@@ -1066,13 +1198,15 @@ export class RoomInteractiveSuite extends THREE.Group {
             transition: all 0.15s ease;
             box-shadow: 0 1px 3px rgba(0,0,0,0.3);
             outline: none;
+            padding: 0;
+            line-height: 1;
             white-space: nowrap;
         `;
         btn.onmouseenter = () => {
             btn.style.borderColor = accentColor;
             btn.style.color = '#ffffff';
             btn.style.background = 'rgba(255, 255, 255, 0.16)';
-            btn.style.transform = 'scale(1.06)';
+            btn.style.transform = 'scale(1.08)';
             btn.style.boxShadow = `0 2px 8px rgba(0,0,0,0.4), 0 0 6px ${accentColor}60`;
         };
         btn.onmouseleave = () => {
@@ -1603,6 +1737,287 @@ export class RoomInteractiveSuite extends THREE.Group {
         }
     }
 
+    _getPlatformBuilder() {
+        if (this.ctx.envBuilder?.platformBuilder) return this.ctx.envBuilder.platformBuilder;
+        if (this.ctx.platformBuilder) return this.ctx.platformBuilder;
+        if (this.ctx.engine3d?.platformBuilder) return this.ctx.engine3d.platformBuilder;
+        if (!this.platformBuilder) {
+            try {
+                this.platformBuilder = new Platform3DBuilder(this.ctx);
+            } catch (err) {
+                console.warn('[RoomInteractiveSuite] Could not instantiate Platform3DBuilder:', err);
+            }
+        }
+        return this.platformBuilder;
+    }
+
+    /**
+     * Automatically creates, updates, or removes foundation platforms
+     * underneath rooms or the whole building when raised above ground.
+     */
+    _syncFoundationPlatforms(newElev) {
+        const planner = this.planner;
+        if (!planner) return;
+        if (!planner.platforms) planner.platforms = [];
+
+        // Determine target rooms or building bounding footprint
+        let targetRooms = [];
+        if (this.scopeMode === 'building') {
+            if (Array.isArray(planner.rooms) && planner.rooms.length > 0) {
+                targetRooms = planner.rooms.filter(r => r.path && r.path.length >= 3);
+            } else if (this.room && this.room.path && this.room.path.length >= 3) {
+                targetRooms = [this.room];
+            }
+        } else {
+            // Room mode
+            if (this.room && this.room.path && this.room.path.length >= 3) {
+                targetRooms = [this.room];
+            } else if (Array.isArray(planner.rooms) && planner.rooms.length > 0) {
+                targetRooms = planner.rooms.filter(r => r.path && r.path.length >= 3);
+            }
+        }
+
+        // Fallback to building bounding box from walls if targetRooms is empty
+        if (targetRooms.length === 0) {
+            const walls = planner.walls?.filter(w => !w.hidden && w.type !== 'railing') || [];
+            if (walls.length > 0) {
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                walls.forEach(w => {
+                    const s = typeof w.startAnchor?.position === 'function' ? w.startAnchor.position() : w.startAnchor || { x: w.startX, y: w.startY };
+                    const e = typeof w.endAnchor?.position === 'function' ? w.endAnchor.position() : w.endAnchor || { x: w.endX, y: w.endY };
+                    if (s) { minX = Math.min(minX, s.x); maxX = Math.max(maxX, s.x); minY = Math.min(minY, s.y); maxY = Math.max(maxY, s.y); }
+                    if (e) { minX = Math.min(minX, e.x); maxX = Math.max(maxX, e.x); minY = Math.min(minY, e.y); maxY = Math.max(maxY, e.y); }
+                });
+                if (minX !== Infinity && maxX > minX && maxY > minY) {
+                    targetRooms = [{
+                        id: 'bldg_foundation_bounds',
+                        path: [
+                            { x: minX, y: minY },
+                            { x: maxX, y: minY },
+                            { x: maxX, y: maxY },
+                            { x: minX, y: maxY }
+                        ],
+                        cx: (minX + maxX) / 2,
+                        cy: (minY + maxY) / 2
+                    }];
+                }
+            }
+        }
+
+        const builder = this._getPlatformBuilder();
+        const targetGroup = this.ctx.structureGroup || this.ctx.scene;
+
+        if (newElev <= 0) {
+            // Clean up foundation platforms
+            const targetIds = new Set(targetRooms.map(r => r.id || r._id).filter(Boolean));
+            const toRemove = planner.platforms.filter(p => p.isBuildingFoundation && (this.scopeMode === 'building' || targetIds.has(p.associatedRoomId)));
+
+            toRemove.forEach(p => {
+                const idx = planner.platforms.indexOf(p);
+                if (idx !== -1) planner.platforms.splice(idx, 1);
+                if (p.mesh3D) {
+                    if (p.mesh3D.parent) p.mesh3D.parent.remove(p.mesh3D);
+                    p.mesh3D.traverse(child => {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) {
+                            if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                            else child.material.dispose();
+                        }
+                    });
+                    p.mesh3D = null;
+                }
+                if (typeof p.destroy === 'function') {
+                    try { p.destroy(); } catch (err) {}
+                }
+            });
+            return;
+        }
+
+        // newElev > 0: create or update foundation platforms
+        targetRooms.forEach(r => {
+            if (!r.path || r.path.length < 3) return;
+            const rId = r.id || r._id || ('room_' + Math.round(r.cx ?? 0) + '_' + Math.round(r.cy ?? 0));
+            let platform = planner.platforms.find(p => p.isBuildingFoundation && p.associatedRoomId === rId);
+
+            let cx = 0, cy = 0;
+            r.path.forEach(pt => { cx += pt.x; cy += pt.y; });
+            cx /= r.path.length;
+            cy /= r.path.length;
+
+            if (platform) {
+                platform.height = newElev;
+                platform.elevation = 0;
+                platform.x = cx;
+                platform.y = cy;
+                platform.points = r.path.map(pt => ({ x: pt.x - cx, y: pt.y - cy }));
+
+                if (builder && targetGroup) {
+                    try { builder.buildPlatform(platform, targetGroup); } catch (err) {}
+                }
+            } else {
+                try {
+                    const pParams = {
+                        shapeType: 'polygon',
+                        x: cx,
+                        y: cy,
+                        points: r.path.map(pt => ({ x: pt.x - cx, y: pt.y - cy })),
+                        height: newElev,
+                        elevation: 0,
+                        trimStyle: 'stone',
+                        materials: {
+                            top: { id: r.material || r.configId || 'wood_golden_teak' },
+                            side: { id: 'stone_ashlar_grey' }
+                        }
+                    };
+                    platform = new PremiumPlatform(planner, 'platform', pParams);
+                    platform.associatedRoomId = rId;
+                    platform.isBuildingFoundation = true;
+                    planner.platforms.push(platform);
+
+                    if (builder && targetGroup) {
+                        builder.buildPlatform(platform, targetGroup);
+                    }
+                } catch (err) {
+                    console.warn('[RoomInteractiveSuite] Could not create foundation platform:', err);
+                }
+            }
+        });
+
+        if (this.ctx.requestRender) {
+            this.ctx.requestRender('foundation_platforms_synced');
+        }
+    }
+
+    /**
+     * Automatically creates, updates, or removes interior room platforms
+     * (Sims 4 split-level stage or sunken conversation pit).
+     */
+    _syncInteriorPlatforms(pltH = (this.room?.platformHeight || 0)) {
+        const planner = this.planner;
+        if (!planner || !this.room) return;
+        if (!planner.platforms) planner.platforms = [];
+
+        const r = this.room;
+        if (!r.path || r.path.length < 3) return;
+        const rId = r.id || r._id || ('room_' + Math.round(r.cx ?? 0) + '_' + Math.round(r.cy ?? 0));
+        const builder = this._getPlatformBuilder();
+        const targetGroup = this.ctx.structureGroup || this.ctx.scene;
+        const roomElev = Number(r.elevation) || 0;
+
+        let platform = planner.platforms.find(p => p.isRoomInteriorPlatform && p.associatedRoomId === rId);
+
+        if (pltH === 0) {
+            if (platform) {
+                const idx = planner.platforms.indexOf(platform);
+                if (idx !== -1) planner.platforms.splice(idx, 1);
+                if (platform.mesh3D) {
+                    if (platform.mesh3D.parent) platform.mesh3D.parent.remove(platform.mesh3D);
+                    platform.mesh3D.traverse(child => {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) {
+                            if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                            else child.material.dispose();
+                        }
+                    });
+                    platform.mesh3D = null;
+                }
+                if (typeof platform.destroy === 'function') {
+                    try { platform.destroy(); } catch (err) {}
+                }
+            }
+            if (this.ctx.requestRender) this.ctx.requestRender('interior_platforms_synced');
+            return;
+        }
+
+        let cx = 0, cy = 0;
+        r.path.forEach(pt => { cx += pt.x; cy += pt.y; });
+        cx /= r.path.length;
+        cy /= r.path.length;
+
+        if (platform) {
+            platform.height = pltH;
+            platform.elevation = roomElev;
+            platform.x = cx;
+            platform.y = cy;
+            platform.points = r.path.map(pt => ({ x: pt.x - cx, y: pt.y - cy }));
+
+            if (builder && targetGroup) {
+                try { builder.buildPlatform(platform, targetGroup); } catch (err) {}
+            }
+        } else {
+            try {
+                const pParams = {
+                    shapeType: 'polygon',
+                    x: cx,
+                    y: cy,
+                    points: r.path.map(pt => ({ x: pt.x - cx, y: pt.y - cy })),
+                    height: pltH,
+                    elevation: roomElev,
+                    trimStyle: 'wood_bevel',
+                    materials: {
+                        top: { id: r.material || r.configId || 'wood_golden_teak' },
+                        side: { id: 'wood_oak_natural' }
+                    }
+                };
+                platform = new PremiumPlatform(planner, 'platform', pParams);
+                platform.associatedRoomId = rId;
+                platform.isRoomInteriorPlatform = true;
+                planner.platforms.push(platform);
+
+                if (builder && targetGroup) {
+                    builder.buildPlatform(platform, targetGroup);
+                }
+            } catch (err) {
+                console.warn('[RoomInteractiveSuite] Could not create interior platform:', err);
+            }
+        }
+
+        if (this.ctx.requestRender) {
+            this.ctx.requestRender('interior_platforms_synced');
+        }
+    }
+
+    /**
+     * Steps the active room interior platform height up or down (15cm increment).
+     * Walls and roofs DO NOT move when changing interior platform height!
+     */
+    stepRoomPlatform(delta = 15) {
+        if (!this.room) return;
+        const currentPltH = Number(this.room.platformHeight) || 0;
+        const newPltH = Math.max(-150, Math.min(300, currentPltH + delta));
+        this.setRoomPlatformHeight(newPltH);
+    }
+
+    setRoomPlatformHeight(newPltH) {
+        if (!this.room) return;
+        const planner = this.planner;
+        if (planner && planner.commandManager) {
+            const cmd = new SnapshotCommand(planner);
+            this._applyRoomPlatformInternal(newPltH, planner);
+            cmd.finalize();
+            planner.commandManager.execute(cmd);
+        } else {
+            this._applyRoomPlatformInternal(newPltH, planner);
+        }
+    }
+
+    _applyRoomPlatformLive(newPltH, planner = this.planner) {
+        if (!this.room) return;
+        this.room.platformHeight = newPltH;
+        this._syncInteriorPlatforms(newPltH);
+        this._updateHUDControls();
+        this.updateHUDPosition();
+        if (this.ctx.requestRender) this.ctx.requestRender('room_platform_drag');
+    }
+
+    _applyRoomPlatformInternal(newPltH, planner = this.planner) {
+        if (!this.room) return;
+        this.room.platformHeight = newPltH;
+        this._syncInteriorPlatforms(newPltH);
+        this.update();
+        coreEventBus.emit(EVENTS.WALL_CHANGE, { room: this.room, platformOnly: true });
+    }
+
     /**
      * Steps the active room elevation up or down.
      */
@@ -1649,6 +2064,25 @@ export class RoomInteractiveSuite extends THREE.Group {
             });
         }
 
+        // Move roof meshes live in 3D
+        const engine = this.ctx.engine3d || this.ctx;
+        if (engine.structureGroup) {
+            const elevDiff = newElev - this.initialElev;
+            engine.structureGroup.children.forEach(c => {
+                if (c.userData && c.userData.isRoof) {
+                    if (c.userData._baseRoofY === undefined) {
+                        c.userData._baseRoofY = c.position.y;
+                    }
+                    c.position.y = c.userData._baseRoofY + elevDiff;
+                }
+            });
+        }
+
+        // Synchronize foundation platforms live under raised room
+        this._syncFoundationPlatforms(newElev);
+        // Synchronize interior platform elevation with room floor
+        this._syncInteriorPlatforms(this.room?.platformHeight || 0);
+
         // Live in-place update of gizmo and HUD without heavy geometry recreation
         const wallH = this._getRoomWallHeight();
         const centerVolY = newElev + wallH * 0.45;
@@ -1661,6 +2095,9 @@ export class RoomInteractiveSuite extends THREE.Group {
 
     _applyRoomElevationInternal(newElev, planner = this.planner) {
         if (!this.room) return;
+        const prevElev = Number(this.room.elevation) || 0;
+        const deltaElev = newElev - prevElev;
+
         this.room.elevation = newElev;
         if (this.room.mesh3D) {
             this.room.mesh3D.position.y = newElev + 0.05;
@@ -1683,11 +2120,25 @@ export class RoomInteractiveSuite extends THREE.Group {
             this._syncWalls3D(roomWalls);
         }
 
+        // Update roofs in planner to follow raised room
+        const allRoofs = planner.roofs || this.ctx.engine3d?.roofs || [];
+        allRoofs.forEach(rf => {
+            if (rf.elevation !== undefined && deltaElev !== 0) {
+                rf.elevation = Math.max(0, (Number(rf.elevation) || 0) + deltaElev);
+            }
+        });
+        this._syncRoofs();
+
         if (typeof this.ctx.rebuildActiveFloors === 'function') {
             try { this.ctx.rebuildActiveFloors(); } catch (err) {}
         } else if (typeof this.ctx.buildActiveFloor === 'function') {
             try { this.ctx.buildActiveFloor(); } catch (err) {}
         }
+
+        // Synchronize foundation platforms under raised room
+        this._syncFoundationPlatforms(newElev);
+        // Synchronize interior platform elevation with room floor
+        this._syncInteriorPlatforms(this.room?.platformHeight || 0);
 
         this.update();
         coreEventBus.emit(EVENTS.WALL_CHANGE, { room: this.room });
@@ -1916,6 +2367,9 @@ export class RoomInteractiveSuite extends THREE.Group {
         const targetWalls = planner.walls.filter(w => !w.hidden && w.type !== 'railing');
         if (targetWalls.length === 0) return;
 
+        const prevElev = Number(targetWalls[0].elevation) || 0;
+        const deltaElev = newElev - prevElev;
+
         if (planner.commandManager) {
             const cmd = new SnapshotCommand(planner);
             WallEngine.batchUpdate(planner, targetWalls, { elevation: newElev });
@@ -1941,14 +2395,23 @@ export class RoomInteractiveSuite extends THREE.Group {
             if (this.room.mesh3D) this.room.mesh3D.position.y = newElev + 0.05;
         }
 
-        // Directly move interactable floor meshes in 3D
+        // Directly move interactable floor meshes in 3D (skip platform meshes as they anchor at ground)
         if (this.ctx.interactables) {
             this.ctx.interactables.forEach(m => {
-                if (m.userData && m.userData.isFloor && !m.userData.isOutdoorZone) {
+                if (m.userData && m.userData.isFloor && !m.userData.isOutdoorZone && !m.userData.isPlatform) {
                     m.position.y = newElev + 0.05;
                 }
             });
         }
+
+        // Update roofs in planner to follow raised walls
+        const allRoofs = planner.roofs || this.ctx.engine3d?.roofs || [];
+        allRoofs.forEach(rf => {
+            if (rf.elevation !== undefined && deltaElev !== 0) {
+                rf.elevation = Math.max(0, (Number(rf.elevation) || 0) + deltaElev);
+            }
+        });
+        this._syncRoofs();
 
         // Rebuild active floors so meshes stay fully synchronized
         if (typeof this.ctx.rebuildActiveFloors === 'function') {
@@ -1956,6 +2419,25 @@ export class RoomInteractiveSuite extends THREE.Group {
         } else if (typeof this.ctx.engine3d?.rebuildActiveFloors === 'function') {
             try { this.ctx.engine3d.rebuildActiveFloors(); } catch(err) {}
         }
+
+        // Synchronize foundation platforms under raised building
+        this._syncFoundationPlatforms(newElev);
+
+        // Synchronize interior platform elevation under raised rooms
+        (planner.rooms || []).forEach(r => {
+            if (r.platformHeight) {
+                const rId = r.id || r._id || ('room_' + Math.round(r.cx ?? 0) + '_' + Math.round(r.cy ?? 0));
+                const p = (planner.platforms || []).find(plt => plt.isRoomInteriorPlatform && plt.associatedRoomId === rId);
+                if (p) {
+                    p.elevation = newElev;
+                    const builder = this._getPlatformBuilder();
+                    const targetGroup = this.ctx.structureGroup || this.ctx.scene;
+                    if (builder && targetGroup) {
+                        try { builder.buildPlatform(p, targetGroup); } catch (err) {}
+                    }
+                }
+            }
+        });
 
         this.update();
         coreEventBus.emit(EVENTS.WALL_CHANGE, { building: true });
@@ -2004,11 +2486,44 @@ export class RoomInteractiveSuite extends THREE.Group {
         // Directly move any interactable floor meshes in 3D
         if (this.ctx.interactables) {
             this.ctx.interactables.forEach(m => {
-                if (m.userData && m.userData.isFloor && !m.userData.isOutdoorZone) {
+                if (m.userData && m.userData.isFloor && !m.userData.isOutdoorZone && !m.userData.isPlatform) {
                     m.position.y = newElev + 0.05;
                 }
             });
         }
+
+        // Move roof meshes live in 3D
+        const engine = this.ctx.engine3d || this.ctx;
+        if (engine.structureGroup) {
+            const elevDiff = newElev - this.initialElev;
+            engine.structureGroup.children.forEach(c => {
+                if (c.userData && c.userData.isRoof) {
+                    if (c.userData._baseRoofY === undefined) {
+                        c.userData._baseRoofY = c.position.y;
+                    }
+                    c.position.y = c.userData._baseRoofY + elevDiff;
+                }
+            });
+        }
+
+        // Synchronize foundation platforms live
+        this._syncFoundationPlatforms(newElev);
+
+        // Synchronize interior platform elevation live under raised rooms
+        (planner.rooms || []).forEach(r => {
+            if (r.platformHeight) {
+                const rId = r.id || r._id || ('room_' + Math.round(r.cx ?? 0) + '_' + Math.round(r.cy ?? 0));
+                const p = (planner.platforms || []).find(plt => plt.isRoomInteriorPlatform && plt.associatedRoomId === rId);
+                if (p) {
+                    p.elevation = newElev;
+                    const builder = this._getPlatformBuilder();
+                    const targetGroup = this.ctx.structureGroup || this.ctx.scene;
+                    if (builder && targetGroup) {
+                        try { builder.buildPlatform(p, targetGroup); } catch (err) {}
+                    }
+                }
+            }
+        });
 
         const wallH = this._getRoomWallHeight();
         const centerVolY = newElev + wallH * 0.45;
@@ -2072,7 +2587,7 @@ export class RoomInteractiveSuite extends THREE.Group {
                     let obj = h.object;
                     while (obj && !obj.userData?.part) obj = obj.parent;
                     const p = obj?.userData?.part;
-                    return p === 'diagonal' || p === 'up' || p === 'down';
+                    return p === 'up' || p === 'down';
                 });
                 if (specificHit) chosenHit = specificHit;
 
@@ -2104,6 +2619,7 @@ export class RoomInteractiveSuite extends THREE.Group {
                     ? Math.max(Number(bldgWall?.elevation) || 0, roomElev)
                     : Math.max(roomWallElev, roomElev);
                 this.initialWallHeight = this._getRoomWallHeight();
+                this.initialPlatformHeight = Number(this.room?.platformHeight) || 0;
                 this._lastLiveWallHeight = null;
                 this.initialRoomCenter = { x: this.room.cx || 0, y: this.room.cy || 0 };
 
@@ -2169,59 +2685,67 @@ export class RoomInteractiveSuite extends THREE.Group {
             }
         }
 
-        // 1. Dragging: Up / Down / Diagonal Cones -> Stretch Room Wall Height (All Connected Walls)
-        if (this.activeDragMode === 'up' || this.activeDragMode === 'down' || this.activeDragMode === 'diagonal') {
-            e.stopPropagation();
-            e.preventDefault();
+        // 1. Dragging: Up / Down Cones -> Adjust based on targetAdjustMode
+        if (this.activeDragMode === 'up' || this.activeDragMode === 'down') {
+            if (e.stopPropagation) e.stopPropagation();
+            if (e.preventDefault) e.preventDefault();
 
-            const deltaPixels = this.dragStartY - e.clientY;
-            const deltaCm = deltaPixels * 0.6;
-            const newWallH = Math.max(80, Math.min(600, Math.round((this.initialWallHeight + deltaCm) / 10) * 10));
+            const deltaPixelsY = this.dragStartY - e.clientY;
 
-            if (this.scopeMode === 'building') {
-                if (newWallH !== this._lastLiveWallHeight) {
-                    this._lastLiveWallHeight = newWallH;
-                    if (this.room) this.room.wallHeight = newWallH;
-                    const planner = this.planner;
-                    const targetWalls = planner?.walls?.filter(w => !w.hidden && w.type !== 'railing') || [];
-                    if (targetWalls.length > 0) {
-                        WallEngine.batchUpdate(planner, targetWalls, { height: newWallH }, false);
-                        this._syncWalls3D(targetWalls);
+            if (this.targetAdjustMode === 'wall') {
+                const deltaCm = deltaPixelsY * 0.6;
+                const newWallH = Math.max(80, Math.min(600, Math.round((this.initialWallHeight + deltaCm) / 10) * 10));
+
+                if (this.scopeMode === 'building') {
+                    if (newWallH !== this._lastLiveWallHeight) {
+                        this._lastLiveWallHeight = newWallH;
+                        if (this.room) this.room.wallHeight = newWallH;
+                        const planner = this.planner;
+                        const targetWalls = planner?.walls?.filter(w => !w.hidden && w.type !== 'railing') || [];
+                        if (targetWalls.length > 0) {
+                            WallEngine.batchUpdate(planner, targetWalls, { height: newWallH }, false);
+                            this._syncWalls3D(targetWalls);
+                        }
+                        (planner?.rooms || []).forEach(r => { r.wallHeight = newWallH; });
+                        this._updateGizmoLive(newWallH);
                     }
-                    (planner?.rooms || []).forEach(r => { r.wallHeight = newWallH; });
-                    this._updateGizmoLive(newWallH);
-                }
-                this._showTooltip(`Building Wall Height: ${newWallH} cm`, e.clientX, e.clientY);
-            } else {
-                if (newWallH !== this._lastLiveWallHeight) {
-                    this._lastLiveWallHeight = newWallH;
-                    if (this.room) this.room.wallHeight = newWallH;
-                    const roomWalls = this._getRoomBoundingWalls();
-                    const planner = this.planner;
-                    if (roomWalls.length > 0) {
-                        WallEngine.batchUpdate(planner, roomWalls, { height: newWallH }, false);
-                        this._syncWalls3D(roomWalls);
+                    this._showTooltip(`Building Wall Height: ${newWallH} cm`, e.clientX, e.clientY);
+                } else {
+                    if (newWallH !== this._lastLiveWallHeight) {
+                        this._lastLiveWallHeight = newWallH;
+                        if (this.room) this.room.wallHeight = newWallH;
+                        const roomWalls = this._getRoomBoundingWalls();
+                        const planner = this.planner;
+                        if (roomWalls.length > 0) {
+                            WallEngine.batchUpdate(planner, roomWalls, { height: newWallH }, false);
+                            this._syncWalls3D(roomWalls);
+                        }
+                        this._updateGizmoLive(newWallH);
                     }
-                    this._updateGizmoLive(newWallH);
+                    this._showTooltip(`Room Wall Height: ${newWallH} cm`, e.clientX, e.clientY);
                 }
-                this._showTooltip(`Room Wall Height: ${newWallH} cm`, e.clientX, e.clientY);
+            } else if (this.targetAdjustMode === 'foundation') {
+                const deltaCm = deltaPixelsY * 0.6;
+                const newElev = Math.max(0, Math.min(600, Math.round((this.initialElev + deltaCm) / 15) * 15));
+
+                if (this.scopeMode === 'building') {
+                    this._applyBuildingElevationLive(newElev);
+                    this._showTooltip(`Building Elevation: +${newElev} cm`, e.clientX, e.clientY);
+                } else {
+                    this._applyRoomElevationLive(newElev);
+                    this._showTooltip(`Room Elevation: +${newElev} cm`, e.clientX, e.clientY);
+                }
+            } else if (this.targetAdjustMode === 'platform') {
+                const deltaCm = deltaPixelsY * 0.6;
+                const newPltH = Math.max(-150, Math.min(300, Math.round((this.initialPlatformHeight + deltaCm) / 15) * 15));
+
+                this._applyRoomPlatformLive(newPltH);
+                this._showTooltip(`Room Platform: ${newPltH >= 0 ? '+' : ''}${newPltH} cm`, e.clientX, e.clientY);
             }
             return;
         }
 
-        // 3. Dragging: Center Cube -> Translate / Move Entire Room
-        if (this.activeDragMode === 'cube') {
-            e.stopPropagation();
-            e.preventDefault();
-
-            const deltaX = Math.round((e.clientX - this.dragStartX) / 10) * 10;
-            const deltaY = Math.round((e.clientY - this.dragStartY) / 10) * 10;
-
-            this._showTooltip(`Move Room: ΔX ${deltaX}cm, ΔZ ${-deltaY}cm`, e.clientX, e.clientY);
-            return;
-        }
-
-        // 4. Dragging: Wall Edge Push/Pull Arrows
+        // 2. Dragging: Wall Edge Push/Pull Arrows
         if (this.activeDragMode === 'edge_pushpull' && this.activeEdge) {
             e.stopPropagation();
             e.preventDefault();
@@ -2270,7 +2794,7 @@ export class RoomInteractiveSuite extends THREE.Group {
                     let obj = h.object;
                     while (obj && !obj.userData?.part) obj = obj.parent;
                     const p = obj?.userData?.part;
-                    return p === 'diagonal' || p === 'up' || p === 'down';
+                    return p === 'up' || p === 'down';
                 });
                 if (specificHit) chosenHit = specificHit;
 
@@ -2282,10 +2806,8 @@ export class RoomInteractiveSuite extends THREE.Group {
 
                 if (part === 'up' || part === 'down') {
                     dom.style.cursor = 'ns-resize';
-                } else if (part === 'diagonal') {
-                    dom.style.cursor = 'nesw-resize';
                 } else {
-                    dom.style.cursor = 'move';
+                    dom.style.cursor = 'auto';
                 }
                 this.liftHandleGroup.scale.set(1.08, 1.08, 1.08);
             } else {
@@ -2311,45 +2833,36 @@ export class RoomInteractiveSuite extends THREE.Group {
             if (isSingleClick) {
                 this._snapshotCmd = null; // Single clicks use their own atomic SnapshotCommands
                 if (mode === 'up') {
-                    this.stepWallHeight(10);
+                    this.stepTargetUp();
                 } else if (mode === 'down') {
-                    this.stepWallHeight(-10);
-                } else if (mode === 'diagonal') {
-                    this.cycleWallHeight();
+                    this.stepTargetDown();
                 }
             } else {
-                // Commit room move if dragged
-                if (mode === 'cube' && planner) {
-                    const deltaX = Math.round((e.clientX - this.dragStartX) / 10) * 10;
-                    const deltaY = -Math.round((e.clientY - this.dragStartY) / 10) * 10;
-                    if (Math.hypot(deltaX, deltaY) >= 10) {
-                        const roomWalls = this._getRoomBoundingWalls();
-                        const anchorSet = new Set();
-                        roomWalls.forEach(w => {
-                            if (w.startAnchor) anchorSet.add(w.startAnchor);
-                            if (w.endAnchor) anchorSet.add(w.endAnchor);
-                        });
-                        anchorSet.forEach(a => {
-                            const pos = typeof a.position === 'function' ? a.position() : a;
-                            WallEngine.moveAnchor(a, { x: pos.x + deltaX, y: pos.y + deltaY }, planner, false);
-                        });
-                        planner.syncAll();
-                        if (planner.update3D) planner.update3D();
+                if (mode === 'up' || mode === 'down') {
+                    const deltaPixelsY = this.dragStartY - e.clientY;
+                    if (this.targetAdjustMode === 'wall') {
+                        const roomWalls = (this.scopeMode === 'building')
+                            ? (planner?.walls?.filter(w => !w.hidden && w.type !== 'railing') || [])
+                            : this._getRoomBoundingWalls();
+                        if (planner && typeof planner.syncAll === 'function') {
+                            planner.syncAll();
+                        }
                         this._syncWalls3D(roomWalls);
+                        this._syncRoofs();
+                        coreEventBus.emit(EVENTS.WALL_CHANGE, { room: this.room, building: (this.scopeMode === 'building') });
+                    } else if (this.targetAdjustMode === 'foundation') {
+                        const deltaCm = deltaPixelsY * 0.6;
+                        const newElev = Math.max(0, Math.min(600, Math.round((this.initialElev + deltaCm) / 15) * 15));
+                        if (this.scopeMode === 'building') {
+                            this.setAllWallsElevation(newElev);
+                        } else {
+                            this.setRoomElevation(newElev);
+                        }
+                    } else if (this.targetAdjustMode === 'platform') {
+                        const deltaCm = deltaPixelsY * 0.6;
+                        const newPltH = Math.max(-150, Math.min(300, Math.round((this.initialPlatformHeight + deltaCm) / 15) * 15));
+                        this.setRoomPlatformHeight(newPltH);
                     }
-                }
-
-                // Finalize height drag for up, down, or diagonal
-                if (mode === 'up' || mode === 'down' || mode === 'diagonal') {
-                    const roomWalls = (this.scopeMode === 'building')
-                        ? (planner?.walls?.filter(w => !w.hidden && w.type !== 'railing') || [])
-                        : this._getRoomBoundingWalls();
-                    if (planner && typeof planner.syncAll === 'function') {
-                        planner.syncAll();
-                    }
-                    this._syncWalls3D(roomWalls);
-                    this._syncRoofs();
-                    coreEventBus.emit(EVENTS.WALL_CHANGE, { room: this.room, building: (this.scopeMode === 'building') });
                 }
 
                 if (planner && planner.commandManager && this._snapshotCmd) {
@@ -2357,6 +2870,16 @@ export class RoomInteractiveSuite extends THREE.Group {
                     planner.commandManager.execute(this._snapshotCmd);
                     this._snapshotCmd = null;
                 }
+            }
+
+            // Reset any live roof drag base position
+            const engine = this.ctx.engine3d || this.ctx;
+            if (engine.structureGroup) {
+                engine.structureGroup.children.forEach(c => {
+                    if (c.userData && c.userData.isRoof) {
+                        delete c.userData._baseRoofY;
+                    }
+                });
             }
 
             const dom = this.ctx.renderer?.domElement;

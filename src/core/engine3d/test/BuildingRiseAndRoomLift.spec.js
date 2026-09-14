@@ -238,13 +238,13 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
         expect(suite.liftHandleGroup.position.z).toBe(150);
         expect(suite.liftHandleGroup.position.y).toBe(135); // 0 + 300 * 0.45
 
-        // Check handle parts (stem, cube, up cone, down cone, diagonal)
+        // Check handle parts (stem, up cone, down cone)
         const parts = suite.liftHandleGroup.children.map(c => c.userData?.part).filter(Boolean);
         expect(parts).toContain('stem');
-        expect(parts).toContain('cube');
         expect(parts).toContain('up');
         expect(parts).toContain('down');
-        expect(parts).toContain('diagonal');
+        expect(parts).not.toContain('cube');
+        expect(parts).not.toContain('diagonal');
 
         // Check perimeter cage line count
         expect(suite.roomCage.children.length).toBeGreaterThan(0);
@@ -408,7 +408,7 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
         expect(suite.isBuildingRiseMode).toBe(false);
     });
 
-    it('Click-to-Step Hybrid: single click on Up, Down, and Diagonal cones immediately steps values', () => {
+    it('Click-to-Step Hybrid: single click on Up and Down immediately steps values based on mode', () => {
         WallEngine.createRoomBox(mockPlanner, {
             minX: 0, minY: 0, maxX: 400, maxY: 300, thickness: 20, height: 300, elevation: 0
         });
@@ -429,7 +429,8 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
         floorMesh.userData = { isFloor: true, entity: room };
         suite.attach(floorMesh);
 
-        // 1. Simulate single click on Up Cone (delta distance = 0)
+        // 1. In 'wall' mode: simulate single click on Up Cone (delta distance = 0)
+        suite.setTargetAdjustMode('wall');
         suite.activeDragMode = 'up';
         suite.dragDistance = 2; // < 6px implies single click
         suite._onPointerUp({ clientX: 100, clientY: 100 });
@@ -437,7 +438,7 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
         expect(room.wallHeight).toBe(310);
         mockPlanner.walls.forEach(w => expect(w.height).toBe(310));
 
-        // 2. Simulate single click on Down Cone (delta distance = 0)
+        // 2. In 'wall' mode: simulate single click on Down Cone (delta distance = 0)
         suite.activeDragMode = 'down';
         suite.dragDistance = 1; // < 6px implies single click
         suite._onPointerUp({ clientX: 100, clientY: 100 });
@@ -445,25 +446,15 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
         expect(room.wallHeight).toBe(300);
         mockPlanner.walls.forEach(w => expect(w.height).toBe(300));
 
-        // 3. Simulate single click on Diagonal Cone: cycles height 300 -> 360 -> 240
-        suite.activeDragMode = 'diagonal';
+        // 3. Switch to 'foundation' mode: single click on Up steps elevation +15cm and forms platform
+        suite.setTargetAdjustMode('foundation');
+        suite.activeDragMode = 'up';
         suite.dragDistance = 0; // single click
         suite._onPointerUp({ clientX: 100, clientY: 100 });
 
-        // Wall height was 300, should cycle to 360
-        mockPlanner.walls.forEach(w => expect(w.height).toBe(360));
-
-        // Click diagonal again: 360 -> 240
-        suite.activeDragMode = 'diagonal';
-        suite.dragDistance = 0;
-        suite._onPointerUp({ clientX: 100, clientY: 100 });
-        mockPlanner.walls.forEach(w => expect(w.height).toBe(240));
-
-        // Click diagonal again: 240 -> 300
-        suite.activeDragMode = 'diagonal';
-        suite.dragDistance = 0;
-        suite._onPointerUp({ clientX: 100, clientY: 100 });
-        mockPlanner.walls.forEach(w => expect(w.height).toBe(300));
+        expect(room.elevation).toBe(15);
+        expect(mockPlanner.platforms.length).toBeGreaterThan(0);
+        expect(mockPlanner.platforms[0].height).toBe(15);
     });
 
     it('Keyboard Shortcuts: Escape or Enter key finishes and exits cleanly', () => {
@@ -495,9 +486,9 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
         };
         suite.attach(room);
 
-        // Check lift handle colliders
+        // Check lift handle colliders (Top Up and Bottom Down colliders)
         const colliders = suite.liftHandleGroup.children.filter(c => c.material && c.material.transparent && c.material.opacity === 0);
-        expect(colliders.length).toBeGreaterThanOrEqual(4);
+        expect(colliders.length).toBe(2);
 
         colliders.forEach(c => {
             // In Three.js, raycast aborts if material.visible === false.
@@ -525,7 +516,6 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
         // Verify collar disks exist
         expect(suite.topCollarMesh).toBeDefined();
         expect(suite.btmCollarMesh).toBeDefined();
-        expect(suite.cubeMesh).toBeDefined();
         expect(suite.topConeMesh).toBeDefined();
         expect(suite.btmConeMesh).toBeDefined();
 
@@ -593,7 +583,6 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
         suite._setGizmoPartHighlight(null);
         expect(suite.topConeMesh.material).toBe(suite.matBase);
         expect(suite.btmConeMesh.material).toBe(suite.matBase);
-        expect(suite.cubeMesh.material).toBe(suite.matBase);
     });
 
     it('3D Wall Synchronization: setRoomWallHeight triggers updateWallGeometryLive on all room bounding walls', () => {
@@ -722,7 +711,7 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
         expect(mockCtx.updateWallGeometryLive).toHaveBeenCalledTimes(4);
     });
 
-    it('3D Wall Synchronization: diagonal height drag invokes updateWallGeometryLive during live movement', () => {
+    it('3D Wall Synchronization: up height drag invokes updateWallGeometryLive during live movement', () => {
         WallEngine.createRoomBox(mockPlanner, {
             minX: 0, minY: 0, maxX: 400, maxY: 300, thickness: 20, height: 300, elevation: 0
         });
@@ -745,8 +734,8 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
 
         mockCtx.updateWallGeometryLive.mockClear();
 
-        // Simulate pointer down on diagonal cone
-        suite.activeDragMode = 'diagonal';
+        // Simulate pointer down on up cone
+        suite.activeDragMode = 'up';
         suite.dragStartY = 200;
         suite.initialWallHeight = 300;
         suite.downX = 100;
@@ -764,6 +753,47 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
             expect(w.height).toBe(360);
         });
         expect(mockCtx.updateWallGeometryLive).toHaveBeenCalledTimes(4);
+    });
+
+    it('Raiser Controls: foundation mode adjusts elevation and forms foundation platform on drag', () => {
+        WallEngine.createRoomBox(mockPlanner, {
+            minX: 0, minY: 0, maxX: 400, maxY: 300, thickness: 20, height: 300, elevation: 0
+        });
+
+        const room = {
+            path: [
+                { x: 0, y: 0 },
+                { x: 400, y: 0 },
+                { x: 400, y: 300 },
+                { x: 0, y: 300 }
+            ],
+            cx: 200,
+            cy: 150,
+            elevation: 0
+        };
+
+        const floorMesh = new THREE.Mesh(new THREE.BufferGeometry());
+        floorMesh.userData = { isFloor: true, entity: room };
+        suite.attach(floorMesh);
+
+        // Switch to foundation mode and simulate drag on up handle
+        suite.setTargetAdjustMode('foundation');
+        suite.activeDragMode = 'up';
+        suite.dragStartY = 200;
+        suite.initialElev = 0;
+        suite.downX = 100;
+        suite.downY = 200;
+
+        suite._onPointerMove({
+            clientX: 100,
+            clientY: 100,
+            stopPropagation: vi.fn(),
+            preventDefault: vi.fn()
+        });
+
+        expect(room.elevation).toBe(60);
+        expect(mockPlanner.platforms.length).toBeGreaterThan(0);
+        expect(mockPlanner.platforms[0].height).toBe(60);
     });
 
     it('stepWallHeight: increases and decreases wall height by delta in both building and room scope', () => {
@@ -969,7 +999,7 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
         expect(suite._getRoomWallHeight()).toBe(240);
     });
 
-    it('Diagonal Cone Drag: stretches room wall height smoothly and preserves it after finishAndExit', () => {
+    it('Foundation Drag: stretches room foundation elevation smoothly and preserves it after finishAndExit', () => {
         WallEngine.createRoomBox(mockPlanner, {
             minX: 0, minY: 0, maxX: 500, maxY: 400, thickness: 20, height: 120, elevation: 60
         });
@@ -1001,8 +1031,9 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
         expect(suite.room.elevation).toBe(60);
         expect(suite._getRoomWallHeight()).toBe(120);
 
-        // Simulate pointer down on diagonal cone handle
-        suite.activeDragMode = 'diagonal';
+        // Switch to foundation mode and simulate pointer down on up cone handle
+        suite.setTargetAdjustMode('foundation');
+        suite.activeDragMode = 'up';
         suite.dragStartY = 400;
         suite.dragStartX = 300;
         suite.downX = 300;
@@ -1010,38 +1041,36 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
         suite.initialWallHeight = 120;
         suite.initialElev = 60;
 
-        // Simulate dragging upward by 200 pixels (deltaPixels = 200 -> deltaCm = 120 -> newWallH = 240)
+        // Simulate dragging upward by 100 pixels (deltaPixels = 100 -> deltaCm = 60 -> newElev = 120)
         suite._onPointerMove({
             clientX: 300,
-            clientY: 200,
+            clientY: 300,
             stopPropagation: vi.fn(),
             preventDefault: vi.fn()
         });
 
-        // Verify wall height grew during live drag
-        expect(suite._getRoomWallHeight()).toBe(240);
-        expect(suite.room.wallHeight).toBe(240);
-        mockPlanner.walls.forEach(w => {
-            expect(w.height).toBe(240);
-        });
+        // Verify elevation grew during live drag and platform was created
+        expect(suite.room.elevation).toBe(120);
+        expect(mockPlanner.platforms.length).toBeGreaterThan(0);
+        expect(mockPlanner.platforms[0].height).toBe(120);
 
         // Finalize pointer up
         suite._onPointerUp({
             clientX: 300,
-            clientY: 200,
+            clientY: 300,
             pointerId: 1
         });
         expect(suite.activeDragMode).toBeNull();
-        expect(suite._getRoomWallHeight()).toBe(240);
+        expect(suite.room.elevation).toBe(120);
+        expect(mockPlanner.platforms[0].height).toBe(120);
 
         // Deselect & Done
         suite.finishAndExit();
         expect(suite.visible).toBe(false);
 
-        // Re-attach: must remain at elevation 60 and wallHeight 240
+        // Re-attach: must remain at elevation 120
         suite.attach(floorMesh);
-        expect(suite.room.elevation).toBe(60);
-        expect(suite._getRoomWallHeight()).toBe(240);
+        expect(suite.room.elevation).toBe(120);
     });
 
     it('Building Rise Mode: lifting foundation and changing wall height keeps walls and all floors synchronized', () => {
@@ -1246,6 +1275,486 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
         suite.setScopeMode('room');
         expect(suite.scopeMode).toBe('room');
         expect(suite.room.elevation).toBe(90);
+    });
+
+    describe('Foundation Platform Generation & Center of Raiser Interactions', () => {
+        it('automatically creates a 3D foundation platform when building elevation is raised', () => {
+            WallEngine.createRoomBox(mockPlanner, {
+                minX: 0, minY: 0, maxX: 400, maxY: 300, thickness: 20, height: 300, elevation: 0
+            });
+            const room = {
+                id: 'room_test_foundation',
+                path: [
+                    { x: 0, y: 0 },
+                    { x: 400, y: 0 },
+                    { x: 400, y: 300 },
+                    { x: 0, y: 300 }
+                ],
+                cx: 200,
+                cy: 150,
+                elevation: 0
+            };
+            mockPlanner.rooms = [room];
+            suite.attach(room);
+            suite.setScopeMode('building');
+
+            // Initially no platform at elevation 0
+            expect(mockPlanner.platforms?.length || 0).toBe(0);
+
+            // Raise building elevation by +30cm
+            suite.stepAllWallsElevation(30);
+
+            expect(mockPlanner.platforms.length).toBe(1);
+            const p = mockPlanner.platforms[0];
+            expect(p.height).toBe(30);
+            expect(p.elevation).toBe(0);
+            expect(p.isBuildingFoundation).toBe(true);
+            expect(p.trimStyle).toBe('stone');
+            expect(p.materials.side.id).toBe('stone_ashlar_grey');
+
+            // Raise further by +15cm -> height becomes 45cm
+            suite.stepAllWallsElevation(15);
+            expect(mockPlanner.platforms.length).toBe(1);
+            expect(p.height).toBe(45);
+
+            // Lower back to 0 -> foundation platform is cleanly removed
+            suite.setAllWallsElevation(0);
+            expect(mockPlanner.platforms.length).toBe(0);
+        });
+
+        it('in foundation mode, single click on up arrow raises elevation and adds foundation platform', () => {
+            WallEngine.createRoomBox(mockPlanner, {
+                minX: 0, minY: 0, maxX: 300, maxY: 300, thickness: 20, height: 280, elevation: 0
+            });
+            const room = {
+                id: 'room_center_click',
+                path: [
+                    { x: 0, y: 0 },
+                    { x: 300, y: 0 },
+                    { x: 300, y: 300 },
+                    { x: 0, y: 300 }
+                ],
+                cx: 150,
+                cy: 150,
+                elevation: 0
+            };
+            mockPlanner.rooms = [room];
+            suite.attach(room);
+            suite.setScopeMode('building');
+            suite.setTargetAdjustMode('foundation');
+
+            // Simulate clicking up arrow
+            suite.activeDragMode = 'up';
+            suite.dragDistance = 2; // single click < 6px
+            suite._onPointerUp({ clientX: 100, clientY: 100 });
+
+            // Building elevation raised by +15cm
+            expect(mockPlanner.walls[0].elevation).toBe(15);
+            expect(room.elevation).toBe(15);
+
+            // Platform automatically added underneath
+            expect(mockPlanner.platforms.length).toBe(1);
+            expect(mockPlanner.platforms[0].height).toBe(15);
+            expect(mockPlanner.platforms[0].isBuildingFoundation).toBe(true);
+        });
+
+        it('in building mode with foundation active, stepTargetUp also raises elevation and adds platform', () => {
+            WallEngine.createRoomBox(mockPlanner, {
+                minX: 0, minY: 0, maxX: 300, maxY: 300, thickness: 20, height: 280, elevation: 0
+            });
+            const room = {
+                id: 'room_diag_bldg',
+                path: [
+                    { x: 0, y: 0 },
+                    { x: 300, y: 0 },
+                    { x: 300, y: 300 },
+                    { x: 0, y: 300 }
+                ],
+                cx: 150,
+                cy: 150,
+                elevation: 0
+            };
+            mockPlanner.rooms = [room];
+            suite.attach(room);
+            suite.setScopeMode('building');
+            suite.setTargetAdjustMode('foundation');
+
+            // Single click step target up
+            suite.stepTargetUp();
+
+            expect(mockPlanner.walls[0].elevation).toBe(15);
+            expect(mockPlanner.platforms.length).toBe(1);
+            expect(mockPlanner.platforms[0].height).toBe(15);
+        });
+
+        it('dragging up arrow vertically in foundation mode raises building elevation and live updates platform', () => {
+            WallEngine.createRoomBox(mockPlanner, {
+                minX: 0, minY: 0, maxX: 400, maxY: 400, thickness: 20, height: 300, elevation: 0
+            });
+            const room = {
+                id: 'room_vert_drag',
+                path: [
+                    { x: 0, y: 0 },
+                    { x: 400, y: 0 },
+                    { x: 400, y: 400 },
+                    { x: 0, y: 400 }
+                ],
+                cx: 200,
+                cy: 200,
+                elevation: 0
+            };
+            mockPlanner.rooms = [room];
+            suite.attach(room);
+            suite.setScopeMode('building');
+            suite.setTargetAdjustMode('foundation');
+
+            suite.activeDragMode = 'up';
+            suite.initialElev = 0;
+            suite.dragStartY = 200;
+            suite.dragStartX = 100;
+            suite.downX = 100;
+            suite.downY = 200;
+
+            // Drag up by 100 pixels (clientY = 100)
+            suite._onPointerMove({ clientX: 100, clientY: 100 });
+
+            // 100px * 0.6 = 60cm
+            expect(mockPlanner.walls[0].elevation).toBe(60);
+            expect(mockPlanner.platforms.length).toBe(1);
+            expect(mockPlanner.platforms[0].height).toBe(60);
+
+            // Finalize drag
+            suite.dragDistance = 100;
+            suite._onPointerUp({ clientX: 100, clientY: 100 });
+
+            expect(mockPlanner.walls[0].elevation).toBe(60);
+            expect(mockPlanner.platforms[0].height).toBe(60);
+        });
+
+        it('raising room elevation in room mode creates platform for that specific room', () => {
+            WallEngine.createRoomBox(mockPlanner, {
+                minX: 0, minY: 0, maxX: 300, maxY: 300, thickness: 20, height: 280, elevation: 0
+            });
+            const room = {
+                id: 'room_specific_lift',
+                path: [
+                    { x: 0, y: 0 },
+                    { x: 300, y: 0 },
+                    { x: 300, y: 300 },
+                    { x: 0, y: 300 }
+                ],
+                cx: 150,
+                cy: 150,
+                elevation: 0
+            };
+            mockPlanner.rooms = [room];
+            suite.attach(room);
+            expect(suite.scopeMode).toBe('room');
+
+            suite.stepRoomElevation(15);
+            expect(room.elevation).toBe(15);
+            expect(mockPlanner.platforms.length).toBe(1);
+            expect(mockPlanner.platforms[0].height).toBe(15);
+            expect(mockPlanner.platforms[0].associatedRoomId).toBe('room_specific_lift');
+        });
+    });
+
+    describe('Sims 4 Dual Foundation and Interior Platform Pipeline', () => {
+        it('should have unified Up and Down handles with mode-based highlighting', () => {
+            expect(suite.topConeMesh).toBeDefined();
+            expect(suite.btmConeMesh).toBeDefined();
+            expect(suite.stemMesh).toBeDefined();
+
+            // Default mode is 'wall'
+            expect(suite.targetAdjustMode).toBe('wall');
+
+            // In wall mode: highlight color is matHighlightWall (cyan 0x38bdf8)
+            suite._setGizmoPartHighlight('up');
+            expect(suite.topConeMesh.material).toBe(suite.matHighlightWall);
+            expect(suite.matHighlightWall.color.getHex()).toBe(0x38bdf8);
+
+            // In foundation mode: highlight color is matHighlightFoundation (emerald 0x10b981)
+            suite.setTargetAdjustMode('foundation');
+            suite._setGizmoPartHighlight('up');
+            expect(suite.topConeMesh.material).toBe(suite.matHighlightFoundation);
+            expect(suite.matHighlightFoundation.color.getHex()).toBe(0x10b981);
+
+            // In platform mode: highlight color is matHighlightPlatform (amber 0xf59e0b)
+            suite.setTargetAdjustMode('platform');
+            suite._setGizmoPartHighlight('up');
+            expect(suite.topConeMesh.material).toBe(suite.matHighlightPlatform);
+            expect(suite.matHighlightPlatform.color.getHex()).toBe(0xf59e0b);
+
+            suite._setGizmoPartHighlight(null);
+            expect(suite.topConeMesh.material).toBe(suite.matBase);
+        });
+
+        it('clicking up arrow in platform mode raises room platform height (+15cm) without moving walls or roofs', () => {
+            WallEngine.createRoomBox(mockPlanner, {
+                minX: 0, minY: 0, maxX: 300, maxY: 300, thickness: 20, height: 300, elevation: 0
+            });
+            const room = {
+                id: 'room_plt_test',
+                path: [
+                    { x: 0, y: 0 },
+                    { x: 300, y: 0 },
+                    { x: 300, y: 300 },
+                    { x: 0, y: 300 }
+                ],
+                cx: 150,
+                cy: 150,
+                elevation: 0,
+                platformHeight: 0
+            };
+            mockPlanner.rooms = [room];
+            mockPlanner.roofs = [{ id: 'roof_1', elevation: 300 }];
+            suite.attach(room);
+
+            // Verify initial state
+            expect(room.platformHeight).toBe(0);
+            expect(mockPlanner.walls[0].elevation).toBe(0);
+            expect(mockPlanner.walls[0].height).toBe(300);
+            expect(mockPlanner.roofs[0].elevation).toBe(300);
+
+            // Switch to platform mode
+            suite.setTargetAdjustMode('platform');
+
+            // Single click on up arrow
+            suite.activeDragMode = 'up';
+            suite.dragDistance = 2; // < 6px is single click
+            suite._onPointerUp({ clientX: 100, clientY: 100 });
+
+            // Platform height is raised by 15cm
+            expect(room.platformHeight).toBe(15);
+
+            // CRITICAL: Walls and roofs MUST NOT MOVE!
+            expect(mockPlanner.walls[0].elevation).toBe(0);
+            expect(mockPlanner.walls[0].height).toBe(300);
+            expect(mockPlanner.roofs[0].elevation).toBe(300);
+
+            // Interior platform created inside the room
+            expect(mockPlanner.platforms.length).toBe(1);
+            const interiorPlt = mockPlanner.platforms[0];
+            expect(interiorPlt.isRoomInteriorPlatform).toBe(true);
+            expect(interiorPlt.height).toBe(15);
+            expect(interiorPlt.elevation).toBe(0);
+            expect(interiorPlt.trimStyle).toBe('wood_bevel');
+            expect(interiorPlt.associatedRoomId).toBe('room_plt_test');
+        });
+
+        it('raising foundation elevation subsequently keeps interior platform stacked on top of room floor', () => {
+            WallEngine.createRoomBox(mockPlanner, {
+                minX: 0, minY: 0, maxX: 300, maxY: 300, thickness: 20, height: 300, elevation: 0
+            });
+            const room = {
+                id: 'room_stacked_test',
+                path: [
+                    { x: 0, y: 0 },
+                    { x: 300, y: 0 },
+                    { x: 300, y: 300 },
+                    { x: 0, y: 300 }
+                ],
+                cx: 150,
+                cy: 150,
+                elevation: 0,
+                platformHeight: 0
+            };
+            mockPlanner.rooms = [room];
+            suite.attach(room);
+
+            // 1. Add 30cm interior stage inside room
+            suite.setTargetAdjustMode('platform');
+            suite.stepRoomPlatform(30);
+            expect(room.platformHeight).toBe(30);
+            expect(mockPlanner.platforms.length).toBe(1);
+            const interiorPlt = mockPlanner.platforms.find(p => p.isRoomInteriorPlatform);
+            expect(interiorPlt).toBeDefined();
+            expect(interiorPlt.elevation).toBe(0);
+            expect(interiorPlt.height).toBe(30);
+
+            // 2. Now raise foundation elevation by +45cm
+            suite.setTargetAdjustMode('foundation');
+            suite.stepRoomElevation(45);
+            expect(room.elevation).toBe(45);
+            expect(mockPlanner.walls[0].elevation).toBe(45);
+
+            // There are now 2 platforms: Foundation Plinth (exterior) + Stage (interior)
+            expect(mockPlanner.platforms.length).toBe(2);
+
+            const foundationPlt = mockPlanner.platforms.find(p => p.isBuildingFoundation);
+            expect(foundationPlt).toBeDefined();
+            expect(foundationPlt.elevation).toBe(0);
+            expect(foundationPlt.height).toBe(45);
+            expect(foundationPlt.trimStyle).toBe('stone');
+
+            // Interior platform should now have its base elevated to 45cm so it stacks on top
+            expect(interiorPlt.elevation).toBe(45);
+            expect(interiorPlt.height).toBe(30);
+        });
+
+        it('dragging up arrow vertically in platform mode live-adjusts room platform height', () => {
+            WallEngine.createRoomBox(mockPlanner, {
+                minX: 0, minY: 0, maxX: 300, maxY: 300, thickness: 20, height: 300, elevation: 0
+            });
+            const room = {
+                id: 'room_drag_plt',
+                path: [
+                    { x: 0, y: 0 },
+                    { x: 300, y: 0 },
+                    { x: 300, y: 300 },
+                    { x: 0, y: 300 }
+                ],
+                cx: 150,
+                cy: 150,
+                elevation: 0,
+                platformHeight: 0
+            };
+            mockPlanner.rooms = [room];
+            suite.attach(room);
+
+            suite.setTargetAdjustMode('platform');
+            suite.activeDragMode = 'up';
+            suite.initialPlatformHeight = 0;
+            suite.dragStartY = 200;
+            suite.dragStartX = 100;
+            suite.downX = 100;
+            suite.downY = 200;
+
+            // Drag up by 75px (clientY = 125) -> 75 * 0.6 = 45cm
+            suite._onPointerMove({ clientX: 100, clientY: 125 });
+            expect(room.platformHeight).toBe(45);
+            expect(mockPlanner.platforms.length).toBe(1);
+            expect(mockPlanner.platforms[0].height).toBe(45);
+
+            // Finalize drag
+            suite.dragDistance = 75;
+            suite._onPointerUp({ clientX: 100, clientY: 125 });
+
+            expect(room.platformHeight).toBe(45);
+            expect(mockPlanner.platforms.length).toBe(1);
+            expect(mockPlanner.platforms[0].height).toBe(45);
+        });
+
+        it('stepping platform down to 0 cleanly removes interior platform', () => {
+            WallEngine.createRoomBox(mockPlanner, {
+                minX: 0, minY: 0, maxX: 300, maxY: 300, thickness: 20, height: 300, elevation: 0
+            });
+            const room = {
+                id: 'room_zero_plt',
+                path: [
+                    { x: 0, y: 0 },
+                    { x: 300, y: 0 },
+                    { x: 300, y: 300 },
+                    { x: 0, y: 300 }
+                ],
+                cx: 150,
+                cy: 150,
+                elevation: 0,
+                platformHeight: 15
+            };
+            mockPlanner.rooms = [room];
+            suite.attach(room);
+
+            // Set up platform at 15
+            suite.setRoomPlatformHeight(15);
+            expect(mockPlanner.platforms.length).toBe(1);
+
+            // Step down by 15cm -> 0
+            suite.stepRoomPlatform(-15);
+            expect(room.platformHeight).toBe(0);
+            expect(mockPlanner.platforms.length).toBe(0);
+        });
+
+        it('HUD badge displays both Foundation and Platform metrics clearly', () => {
+            WallEngine.createRoomBox(mockPlanner, {
+                minX: 0, minY: 0, maxX: 300, maxY: 300, thickness: 20, height: 300, elevation: 0
+            });
+            const room = {
+                id: 'room_hud_badge',
+                path: [
+                    { x: 0, y: 0 },
+                    { x: 300, y: 0 },
+                    { x: 300, y: 300 },
+                    { x: 0, y: 300 }
+                ],
+                cx: 150,
+                cy: 150,
+                elevation: 30,
+                platformHeight: 15
+            };
+            mockPlanner.rooms = [room];
+            suite.attach(room);
+
+            suite._updateHUDControls();
+            expect(suite.roomBadge.innerHTML).toContain('Fnd <span style="color:#10b981;">+30cm</span>');
+            expect(suite.roomBadge.innerHTML).toContain('Plt <span style="color:#34d399;">+15cm</span>');
+            expect(suite.roomBadge.innerHTML).toContain('Wall <span style="color:#38bdf8;">300cm</span>');
+        });
+
+        it('HUD 3-icon mode switcher and single up/down arrow buttons dynamically update titles and behavior', () => {
+            expect(suite.btnModeWall).toBeDefined();
+            expect(suite.btnModeFoundation).toBeDefined();
+            expect(suite.btnModePlatform).toBeDefined();
+            expect(suite.btnStepDown).toBeDefined();
+            expect(suite.btnStepUp).toBeDefined();
+
+            // 1. Default mode: 'wall'
+            suite.setTargetAdjustMode('wall');
+            expect(suite.targetAdjustMode).toBe('wall');
+            expect(suite.btnStepDown.title).toContain('Wall Height');
+            expect(suite.btnStepUp.title).toContain('Wall Height');
+
+            // 2. Foundation mode
+            suite.setTargetAdjustMode('foundation');
+            expect(suite.targetAdjustMode).toBe('foundation');
+            expect(suite.btnStepDown.title).toContain('Foundation');
+            expect(suite.btnStepUp.title).toContain('Foundation');
+
+            // 3. Platform mode
+            suite.setTargetAdjustMode('platform');
+            expect(suite.targetAdjustMode).toBe('platform');
+            expect(suite.btnStepDown.title).toContain('Platform');
+            expect(suite.btnStepUp.title).toContain('Platform');
+        });
+
+        it('HUD buttons are compact pure icons with no text labels', () => {
+            // Check that button labels contain only the icons without text words
+            expect(suite.btnScopeRoom.innerHTML).toBe('🏠');
+            expect(suite.btnScopeBuilding.innerHTML).toBe('🏢');
+            expect(suite.btnModeWall.innerHTML).toBe('🧱');
+            expect(suite.btnModeFoundation.innerHTML).toBe('🏛️');
+            expect(suite.btnModePlatform.innerHTML).toBe('🪜');
+            expect(suite.btnStepDown.innerHTML).toBe('⬇');
+            expect(suite.btnStepUp.innerHTML).toBe('⬆');
+        });
+
+        it('StairInteractiveSuite strictly rejects floor, platform, and room meshes', async () => {
+            const { StairInteractiveSuite } = await import('../StairInteractiveSuite.js');
+            const stairSuite = new StairInteractiveSuite(mockCtx);
+
+            // A floor mesh with Konva 2D shape must NEVER attach to stair suite
+            const floorMesh = new THREE.Mesh();
+            floorMesh.userData = {
+                isFloor: true,
+                entity: { id: 'floor_1', type: 'floor', shape: { dummy: 'konva_shape' } }
+            };
+
+            stairSuite.attach(floorMesh);
+            expect(stairSuite.visible).toBe(false);
+            expect(stairSuite.target).toBeNull();
+            expect(stairSuite.stair).toBeNull();
+
+            // A platform mesh must also NEVER attach to stair suite
+            const platformMesh = new THREE.Mesh();
+            platformMesh.userData = {
+                isPlatform: true,
+                entity: { id: 'plt_1', type: 'platform', shape: { dummy: 'konva_shape' } }
+            };
+
+            stairSuite.attach(platformMesh);
+            expect(stairSuite.visible).toBe(false);
+            expect(stairSuite.target).toBeNull();
+        });
     });
 });
 
