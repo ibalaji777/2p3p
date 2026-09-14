@@ -705,6 +705,15 @@ onMounted(() => {
                 if (renderer3D.value.interactions?.selectedObject !== entity.mesh3D) {
                     renderer3D.value.selectObject(entity.mesh3D);
                 }
+            } else if (type === 'wall' && entity && entity.mesh3D) {
+                const targetMesh = entity.mesh3D.children?.find(c => c.userData?.isWallSide) || entity.mesh3D;
+                if (renderer3D.value.interactions?.selectedObject !== targetMesh && renderer3D.value.interactions?.selectedObject !== entity.mesh3D) {
+                    renderer3D.value.selectObject(targetMesh);
+                }
+            } else if (type === 'room' && entity && entity.mesh3D) {
+                if (renderer3D.value.interactions?.selectedObject !== entity.mesh3D) {
+                    renderer3D.value.selectObject(entity.mesh3D);
+                }
             } else if (!entity && renderer3D.value.interactions?.selectedObject) {
                 renderer3D.value.deselectObject();
             }
@@ -749,6 +758,15 @@ onMounted(() => {
         if (isRebuilding.value && !entity) return; // Prevent losing slider focus during rebuilds
         selectedEntity.value = entity; selectedType.value = type; 
         if (type !== 'wallDecor') { selectedWallSide.value = side; activeDecorId.value = null; }
+
+        // Synchronize 3D selection back to 2D planner
+        if (planner.value && !isRebuilding.value) {
+            if (entity && planner.value.selectedEntity !== entity) {
+                planner.value.selectEntity(entity, type);
+            } else if (!entity && planner.value.selectedEntity) {
+                planner.value.selectEntity(null);
+            }
+        }
 
         if (entity && !isRebuilding.value) {
             activeRightTab.value = 'properties';
@@ -920,13 +938,17 @@ watch(() => selectedEntity.value?.params?.isEditingMaterials, (newVal) => {
 });
 
 const switchTo2D = () => {
-    if (renderer3D.value) {
-        renderer3D.value.deselectObject();
-        if (renderer3D.value.interactions) {
-            renderer3D.value.interactions.cancelRelocation();
+    const prevSel = selectedEntity.value;
+    const prevType = selectedType.value;
+    if (renderer3D.value?.interactions) {
+        renderer3D.value.interactions.cancelRelocation();
+    }
+    if (planner.value) {
+        planner.value.syncAll();
+        if (prevSel) {
+            planner.value.selectEntity(prevSel, prevType);
         }
     }
-    if (planner.value) planner.value.syncAll();
     viewMode.value = '2d';
 };
 
@@ -943,7 +965,6 @@ const switchTo3D = () => {
     }
     if (renderer3D.value?.interactions) {
         renderer3D.value.interactions.cancelRelocation();
-        renderer3D.value.interactions.deselect();
     }
     saveCurrentLevelState();
     viewMode.value = '3d';

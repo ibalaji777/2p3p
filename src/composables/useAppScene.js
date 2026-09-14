@@ -55,6 +55,9 @@ export function useAppScene({
                     isVisible: l.isVisible !== false
                 }));
                 
+                if (planner.value) {
+                    renderer3D.value.platforms = planner.value.platforms || [];
+                }
                 renderer3D.value.buildScene(
                     planner.value.walls,
                     planner.value.rooms,

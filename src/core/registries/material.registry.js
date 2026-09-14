@@ -227,6 +227,95 @@ export function generateStackedSlateSVG() {
 
 export const STACKED_SLATE_SVG_DATA_URI = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(generateStackedSlateSVG()).replace(/'/g, '%27').replace(/"/g, '%22')}`;
 
+export function generateAshlarStoneSVG() {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="ashlarGrad1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#8a929e" />
+      <stop offset="15%" stop-color="#7c8490" />
+      <stop offset="85%" stop-color="#6c7480" />
+      <stop offset="100%" stop-color="#585f6a" />
+    </linearGradient>
+    <linearGradient id="ashlarGrad2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#949ca8" />
+      <stop offset="15%" stop-color="#848c98" />
+      <stop offset="85%" stop-color="#727a86" />
+      <stop offset="100%" stop-color="#5e6672" />
+    </linearGradient>
+    <linearGradient id="ashlarGrad3" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7e8692" />
+      <stop offset="15%" stop-color="#707884" />
+      <stop offset="85%" stop-color="#626a76" />
+      <stop offset="100%" stop-color="#505762" />
+    </linearGradient>
+    <pattern id="stoneGrain" width="32" height="32" patternUnits="userSpaceOnUse">
+      <circle cx="4" cy="4" r="1" fill="#444a54" opacity="0.3" />
+      <circle cx="18" cy="12" r="1.2" fill="#9da5b2" opacity="0.25" />
+      <circle cx="28" cy="24" r="0.8" fill="#363b43" opacity="0.35" />
+      <circle cx="10" cy="26" r="1" fill="#a4acb8" opacity="0.2" />
+    </pattern>
+  </defs>
+
+  <!-- Dark Mortar Background -->
+  <rect width="512" height="512" fill="#22252a" />
+
+  <!-- Course 1 (y: 3 to 123) -->
+  <rect x="3" y="3" width="220" height="120" rx="1.5" fill="url(#ashlarGrad1)" />
+  <line x1="4" y1="5" x2="222" y2="5" stroke="#aab2be" stroke-width="1" opacity="0.6" />
+  <line x1="4" y1="122" x2="222" y2="122" stroke="#25292f" stroke-width="1.5" opacity="0.7" />
+
+  <rect x="229" y="3" width="210" height="120" rx="1.5" fill="url(#ashlarGrad2)" />
+  <line x1="230" y1="5" x2="438" y2="5" stroke="#aab2be" stroke-width="1" opacity="0.6" />
+  <line x1="230" y1="122" x2="438" y2="122" stroke="#25292f" stroke-width="1.5" opacity="0.7" />
+
+  <rect x="445" y="3" width="64" height="120" rx="1.5" fill="url(#ashlarGrad3)" />
+  <line x1="446" y1="5" x2="508" y2="5" stroke="#aab2be" stroke-width="1" opacity="0.6" />
+
+  <!-- Course 2 (y: 131 to 251) -->
+  <rect x="3" y="131" width="120" height="120" rx="1.5" fill="url(#ashlarGrad3)" />
+  <line x1="4" y1="133" x2="122" y2="133" stroke="#aab2be" stroke-width="1" opacity="0.6" />
+  <line x1="4" y1="250" x2="122" y2="250" stroke="#25292f" stroke-width="1.5" opacity="0.7" />
+
+  <rect x="129" y="131" width="230" height="120" rx="1.5" fill="url(#ashlarGrad1)" />
+  <line x1="130" y1="133" x2="358" y2="133" stroke="#aab2be" stroke-width="1" opacity="0.6" />
+  <line x1="130" y1="250" x2="358" y2="250" stroke="#25292f" stroke-width="1.5" opacity="0.7" />
+
+  <rect x="365" y="131" width="144" height="120" rx="1.5" fill="url(#ashlarGrad2)" />
+  <line x1="366" y1="133" x2="508" y2="133" stroke="#aab2be" stroke-width="1" opacity="0.6" />
+  <line x1="366" y1="250" x2="508" y2="250" stroke="#25292f" stroke-width="1.5" opacity="0.7" />
+
+  <!-- Course 3 (y: 259 to 379) -->
+  <rect x="3" y="259" width="250" height="120" rx="1.5" fill="url(#ashlarGrad2)" />
+  <line x1="4" y1="261" x2="252" y2="261" stroke="#aab2be" stroke-width="1" opacity="0.6" />
+  <line x1="4" y1="378" x2="252" y2="378" stroke="#25292f" stroke-width="1.5" opacity="0.7" />
+
+  <rect x="259" y="259" width="180" height="120" rx="1.5" fill="url(#ashlarGrad3)" />
+  <line x1="260" y1="261" x2="438" y2="261" stroke="#aab2be" stroke-width="1" opacity="0.6" />
+  <line x1="260" y1="378" x2="438" y2="378" stroke="#25292f" stroke-width="1.5" opacity="0.7" />
+
+  <rect x="445" y="259" width="64" height="120" rx="1.5" fill="url(#ashlarGrad1)" />
+  <line x1="446" y1="261" x2="508" y2="261" stroke="#aab2be" stroke-width="1" opacity="0.6" />
+
+  <!-- Course 4 (y: 387 to 507) -->
+  <rect x="3" y="387" width="160" height="120" rx="1.5" fill="url(#ashlarGrad1)" />
+  <line x1="4" y1="389" x2="162" y2="389" stroke="#aab2be" stroke-width="1" opacity="0.6" />
+  <line x1="4" y1="506" x2="162" y2="506" stroke="#25292f" stroke-width="1.5" opacity="0.7" />
+
+  <rect x="169" y="387" width="220" height="120" rx="1.5" fill="url(#ashlarGrad2)" />
+  <line x1="170" y1="389" x2="388" y2="389" stroke="#aab2be" stroke-width="1" opacity="0.6" />
+  <line x1="170" y1="506" x2="388" y2="506" stroke="#25292f" stroke-width="1.5" opacity="0.7" />
+
+  <rect x="395" y="387" width="114" height="120" rx="1.5" fill="url(#ashlarGrad3)" />
+  <line x1="396" y1="389" x2="508" y2="389" stroke="#aab2be" stroke-width="1" opacity="0.6" />
+  <line x1="396" y1="506" x2="508" y2="506" stroke="#25292f" stroke-width="1.5" opacity="0.7" />
+
+  <!-- Micro-texture overlay -->
+  <rect width="512" height="512" fill="url(#stoneGrain)" pointer-events="none" />
+</svg>`;
+}
+
+export const ASHLAR_STONE_SVG_DATA_URI = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(generateAshlarStoneSVG()).replace(/'/g, '%27').replace(/"/g, '%22')}`;
+
 export const WOOD_REGISTRY = {
     // 🪵 Photorealistic Wood Species
     'wood_siding_walnut': {
@@ -354,6 +443,22 @@ export const COMMON_MATERIALS = {
         thumbnail: STACKED_SLATE_SVG_DATA_URI,
         dataUri: STACKED_SLATE_SVG_DATA_URI,
         tileSize: 36,
+        orientation: 'HORIZONTAL',
+        preventAutoRotate: true,
+        rotation: 0
+    },
+    stone_ashlar_grey: {
+        id: 'stone_ashlar_grey',
+        label: "Ashlar Foundation Stone",
+        name: 'Dressed Ashlar Foundation Stone',
+        category: 'stone',
+        color: 0x7c838d,
+        roughness: 0.75,
+        metalness: 0.05,
+        texture: ASHLAR_STONE_SVG_DATA_URI,
+        thumbnail: ASHLAR_STONE_SVG_DATA_URI,
+        dataUri: ASHLAR_STONE_SVG_DATA_URI,
+        tileSize: 60,
         orientation: 'HORIZONTAL',
         preventAutoRotate: true,
         rotation: 0
@@ -1205,6 +1310,22 @@ export const STONE_REGISTRY = {
         metalness: 0.05,
         defaultTileSize: 36,
         tileSize: 36,
+        orientation: 'HORIZONTAL',
+        preventAutoRotate: true,
+        rotation: 0
+    },
+    'stone_ashlar_grey': {
+        id: 'stone_ashlar_grey',
+        label: "Ashlar Foundation Stone",
+        name: 'Dressed Ashlar Foundation Stone',
+        category: 'stone',
+        color: 0x7c838d,
+        roughness: 0.75,
+        metalness: 0.05,
+        texture: ASHLAR_STONE_SVG_DATA_URI,
+        thumbnail: ASHLAR_STONE_SVG_DATA_URI,
+        dataUri: ASHLAR_STONE_SVG_DATA_URI,
+        tileSize: 60,
         orientation: 'HORIZONTAL',
         preventAutoRotate: true,
         rotation: 0

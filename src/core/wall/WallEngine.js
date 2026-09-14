@@ -14,6 +14,8 @@
 import { WallGeometryEngine } from './WallGeometryEngine.js';
 import { WallTopologyEngine } from './WallTopologyEngine.js';
 import { WallMutationEngine } from './WallMutationEngine.js';
+import { WallHeightPolicy } from './WallHeightPolicy.js';
+import { WallConnectivity } from './WallConnectivity.js';
 
 /**
  * Authoritative predicate for floor-anchored doors.
@@ -270,6 +272,29 @@ export class WallEngine {
 
     static setHeight(wall, height, shouldSync = true, planner = null) {
         WallMutationEngine.setHeight(wall, height, shouldSync, planner);
+    }
+
+    /**
+     * Raises or lowers a wall or set of walls based on scope.
+     * @param {Object} wall - Primary target wall
+     * @param {number} height - Target height in cm
+     * @param {'wall'|'room'|'building'|'connected'} scope 
+     * @param {boolean} shouldSync 
+     * @param {Object} planner 
+     */
+    static raiseWall(wall, height, scope = 'wall', shouldSync = true, planner = null) {
+        if (!wall) return;
+        const p = planner || wall.planner || window.planner?.value || window.plannerInstance;
+        const targetWalls = WallConnectivity.getScopeWalls(wall, scope, p);
+        const validH = WallHeightPolicy.clamp(height);
+        this.batchUpdate(p, targetWalls, { height: validH }, shouldSync);
+        if (p && Array.isArray(p.rooms)) {
+            p.rooms.forEach(r => {
+                if (Array.isArray(r.walls) && r.walls.some(rw => targetWalls.includes(rw))) {
+                    r.wallHeight = validH;
+                }
+            });
+        }
     }
 
     static setElevation(wall, elevation, shouldSync = true, planner = null) {

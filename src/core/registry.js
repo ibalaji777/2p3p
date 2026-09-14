@@ -1355,34 +1355,52 @@ export const WIDGET_REGISTRY = {
 };
 
 export function offsetPolygon(points, offsetAmount) {
-    if (points.length < 3) return points;
+    if (!points || points.length < 3) return points;
     
     let isArray = Array.isArray(offsetAmount);
     if (!isArray && (!offsetAmount || offsetAmount === 0)) return points;
+
+    // Sanitize points: remove duplicate adjacent vertices and duplicate closing vertex
+    const pts = [];
+    for (let i = 0; i < points.length; i++) {
+        const pt = points[i];
+        if (!pt || typeof pt.x !== 'number' || typeof pt.y !== 'number') continue;
+        if (pts.length > 0) {
+            const prev = pts[pts.length - 1];
+            if (Math.hypot(pt.x - prev.x, pt.y - prev.y) < 1e-4) continue;
+        }
+        pts.push({ x: pt.x, y: pt.y });
+    }
+    if (pts.length > 2 && Math.hypot(pts[0].x - pts[pts.length - 1].x, pts[0].y - pts[pts.length - 1].y) < 1e-4) {
+        pts.pop();
+    }
+    if (pts.length < 3) return points;
     
     let signedArea = 0;
-    for (let i = 0; i < points.length; i++) {
-        let p0 = points[i];
-        let p1 = points[(i + 1) % points.length];
+    const n = pts.length;
+    for (let i = 0; i < n; i++) {
+        let p0 = pts[i];
+        let p1 = pts[(i + 1) % n];
         signedArea += (p0.x * p1.y - p1.x * p0.y);
     }
     
     const result = [];
-    const n = points.length;
     for (let i = 0; i < n; i++) {
-        let prev = points[(i - 1 + n) % n];
-        let curr = points[i];
-        let next = points[(i + 1) % n];
+        let prev = pts[(i - 1 + n) % n];
+        let curr = pts[i];
+        let next = pts[(i + 1) % n];
         
         let e1x = curr.x - prev.x;
         let e1y = curr.y - prev.y;
         let len1 = Math.sqrt(e1x * e1x + e1y * e1y);
-        if(len1 > 0) { e1x /= len1; e1y /= len1; }
+        if (len1 > 1e-5) { e1x /= len1; e1y /= len1; }
+        else { e1x = 1; e1y = 0; }
         
         let e2x = next.x - curr.x;
         let e2y = next.y - curr.y;
         let len2 = Math.sqrt(e2x * e2x + e2y * e2y);
-        if(len2 > 0) { e2x /= len2; e2y /= len2; }
+        if (len2 > 1e-5) { e2x /= len2; e2y /= len2; }
+        else { e2x = 1; e2y = 0; }
         
         let n1x = -e1y; let n1y = e1x;
         if (signedArea > 0) { n1x = e1y; n1y = -e1x; }
@@ -1401,7 +1419,7 @@ export function offsetPolygon(points, offsetAmount) {
         
         let cross = e1x * e2y - e1y * e2x;
         
-        if (Math.abs(cross) < 1e-6) {
+        if (Math.abs(cross) < 1e-5) {
             let bx = n1x + n2x;
             let by = n1y + n2y;
             let blen = Math.sqrt(bx * bx + by * by);
@@ -1412,16 +1430,33 @@ export function offsetPolygon(points, offsetAmount) {
             if (Math.abs(dot) < 0.1) dot = 0.1;
             let avgOff = (off1 + off2) / 2;
             let dist = avgOff / dot;
+            const maxClamp = Math.max(Math.abs(off1), Math.abs(off2), 5) * 3;
+            if (Math.abs(dist) > maxClamp) dist = Math.sign(dist) * maxClamp;
             
             result.push({ x: curr.x + bx * dist, y: curr.y + by * dist });
         } else {
             let dx = p2x - p1x;
             let dy = p2y - p1y;
             let t = (dx * e2y - dy * e2x) / cross;
+            let rx = p1x + t * e1x;
+            let ry = p1y + t * e1y;
+            
+            // Clamp miter extension on acute angles to avoid arrow spikes
+            const maxMiter = Math.max(Math.abs(off1), Math.abs(off2), 5) * 4;
+            if (Math.hypot(rx - curr.x, ry - curr.y) > maxMiter) {
+                let bx = n1x + n2x;
+                let by = n1y + n2y;
+                let blen = Math.hypot(bx, by);
+                if (blen > 1e-4) {
+                    bx /= blen; by /= blen;
+                    rx = curr.x + bx * maxMiter;
+                    ry = curr.y + by * maxMiter;
+                }
+            }
             
             result.push({
-                x: p1x + t * e1x,
-                y: p1y + t * e1y
+                x: rx,
+                y: ry
             });
         }
     }

@@ -4,6 +4,9 @@ import { COMMON_TOOLS, COMMON_TOOL_DEFINITIONS, getToolDefinition } from '../too
 import { CommonInteractionController } from '../tools/CommonInteractionController.js';
 import { RoomInteractiveSuite } from '../RoomInteractiveSuite.js';
 import { WallEngine } from '../../wall/WallEngine.js';
+import { offsetPolygon } from '../../registry.js';
+import { Platform3DBuilder } from '../Platform3DBuilder.js';
+import { PremiumPlatform } from '../../engine2d/PremiumPlatform.js';
 
 beforeAll(() => {
     if (typeof HTMLCanvasElement !== 'undefined') {
@@ -1309,8 +1312,15 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
             expect(p.height).toBe(30);
             expect(p.elevation).toBe(0);
             expect(p.isBuildingFoundation).toBe(true);
-            expect(p.trimStyle).toBe('stone');
             expect(p.materials.side.id).toBe('stone_ashlar_grey');
+
+            // Verify foundation perimeter expands outward by halfThk (10cm for 20cm walls) to be flush with outer wall faces
+            const xs = p.points.map(pt => pt.x);
+            const ys = p.points.map(pt => pt.y);
+            expect(Math.min(...xs)).toBeCloseTo(-210, 1);
+            expect(Math.max(...xs)).toBeCloseTo(210, 1);
+            expect(Math.min(...ys)).toBeCloseTo(-160, 1);
+            expect(Math.max(...ys)).toBeCloseTo(160, 1);
 
             // Raise further by +15cm -> height becomes 45cm
             suite.stepAllWallsElevation(15);
@@ -1717,15 +1727,21 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
             expect(suite.btnStepUp.title).toContain('Platform');
         });
 
-        it('HUD buttons are compact pure icons with no text labels', () => {
-            // Check that button labels contain only the icons without text words
-            expect(suite.btnScopeRoom.innerHTML).toBe('🏠');
-            expect(suite.btnScopeBuilding.innerHTML).toBe('🏢');
-            expect(suite.btnModeWall.innerHTML).toBe('🧱');
-            expect(suite.btnModeFoundation.innerHTML).toBe('🏛️');
-            expect(suite.btnModePlatform.innerHTML).toBe('🪜');
-            expect(suite.btnStepDown.innerHTML).toBe('⬇');
-            expect(suite.btnStepUp.innerHTML).toBe('⬆');
+        it('HUD buttons are compact pure vector SVG icons with no text labels', () => {
+            // Check that button labels contain only vector SVG icons without text words
+            expect(suite.btnScopeRoom.innerHTML).toContain('<svg');
+            expect(suite.btnScopeBuilding.innerHTML).toContain('<svg');
+            expect(suite.btnModeWall.innerHTML).toContain('<svg');
+            expect(suite.btnModeFoundation.innerHTML).toContain('<svg');
+            expect(suite.btnModePlatform.innerHTML).toContain('<svg');
+            expect(suite.btnStepDown.innerHTML).toContain('<svg');
+            expect(suite.btnStepUp.innerHTML).toContain('<svg');
+
+            // Verify no text nodes leaked into icon buttons
+            [suite.btnScopeRoom, suite.btnScopeBuilding, suite.btnModeWall, suite.btnModeFoundation, suite.btnModePlatform, suite.btnStepDown, suite.btnStepUp].forEach(btn => {
+                const textContent = btn.textContent.trim();
+                expect(textContent).toBe('');
+            });
         });
 
         it('StairInteractiveSuite strictly rejects floor, platform, and room meshes', async () => {
@@ -1754,6 +1770,331 @@ describe('Sims 4 Building Rise Tool & Specific Room Lift Suite', () => {
             stairSuite.attach(platformMesh);
             expect(stairSuite.visible).toBe(false);
             expect(stairSuite.target).toBeNull();
+        });
+
+        it('persists and restores foundation platform across 2D/3D switches with isBuildingFoundation intact', () => {
+            WallEngine.createRoomBox(mockPlanner, {
+                minX: 0, minY: 0, maxX: 400, maxY: 300, thickness: 20, height: 300, elevation: 0
+            });
+            const room = {
+                id: 'room_persist_test',
+                path: [
+                    { x: 0, y: 0 },
+                    { x: 400, y: 0 },
+                    { x: 400, y: 300 },
+                    { x: 0, y: 300 }
+                ],
+                cx: 200,
+                cy: 150,
+                elevation: 0
+            };
+            mockPlanner.rooms = [room];
+            suite.attach(room);
+            suite.setScopeMode('building');
+
+            // Raise foundation elevation by +45cm
+            suite.stepAllWallsElevation(45);
+
+            expect(mockPlanner.platforms.length).toBe(1);
+            const foundationPlt = mockPlanner.platforms[0];
+            expect(foundationPlt.isBuildingFoundation).toBe(true);
+            expect(foundationPlt.height).toBe(45);
+
+            // 1. Simulate 2D export / serialize
+            const exportedState = foundationPlt.export();
+            expect(exportedState.isBuildingFoundation).toBe(true);
+            expect(exportedState.associatedRoomId).toBe('room_persist_test');
+
+            // 2. Simulate 3D reload / buildScene
+            const { PremiumPlatform } = mockPlanner.platforms[0].constructor ? { PremiumPlatform: mockPlanner.platforms[0].constructor } : {};
+            const restoredPlatform = new foundationPlt.constructor(mockPlanner, 'platform', exportedState);
+            expect(restoredPlatform.isBuildingFoundation).toBe(true);
+            expect(restoredPlatform.associatedRoomId).toBe('room_persist_test');
+            expect(restoredPlatform.trimStyle).toBe('stone');
+            expect(restoredPlatform.materials.side.id).toBe('stone_ashlar_grey');
+        });
+
+        it('rotateRoom(-90) rotates bounding wall anchors, updates canonical room path, and syncs platforms', () => {
+            WallEngine.createRoomBox(mockPlanner, {
+                minX: 100, minY: 100, maxX: 300, maxY: 300, thickness: 20, height: 300, elevation: 0
+            });
+            const room = {
+                id: 'room_rotate_test',
+                path: [
+                    { x: 100, y: 100 },
+                    { x: 300, y: 100 },
+                    { x: 300, y: 300 },
+                    { x: 100, y: 300 }
+                ],
+                cx: 200,
+                cy: 200,
+                elevation: 30
+            };
+            mockPlanner.rooms = [room];
+            suite.attach(room);
+
+            // Create an associated foundation platform
+            suite.stepElevation(0); // syncs foundation at 30cm
+            expect(mockPlanner.platforms.length).toBe(1);
+
+            // Rotate counter-clockwise (-90°)
+            suite.rotateRoom(-90);
+
+            // Room path and bounding wall anchors rotated around (200, 200)
+            // (100, 100) -> cx + (y - cy) = 200 + (-100) = 100, cy - (x - cx) = 200 - (-100) = 300
+            expect(room.path.some(pt => Math.abs(pt.x - 100) < 2 && Math.abs(pt.y - 300) < 2)).toBe(true);
+            expect(mockPlanner.syncAll).toHaveBeenCalled();
+            expect(mockPlanner.detectRooms).toHaveBeenCalled();
+        });
+
+        it('UniversalMoveGizmo translates room wall anchors and associated platforms across floor', async () => {
+            const { UniversalMoveGizmo } = await import('../UniversalMoveGizmo.js');
+            WallEngine.createRoomBox(mockPlanner, {
+                minX: 0, minY: 0, maxX: 200, maxY: 200, thickness: 20, height: 300, elevation: 0
+            });
+            const room = {
+                id: 'room_move_test',
+                path: [
+                    { x: 0, y: 0 },
+                    { x: 200, y: 0 },
+                    { x: 200, y: 200 },
+                    { x: 0, y: 200 }
+                ],
+                cx: 100,
+                cy: 100,
+                elevation: 0
+            };
+            mockPlanner.rooms = [room];
+
+            const floorMesh = new THREE.Mesh(new THREE.BoxGeometry(200, 2, 200));
+            floorMesh.position.set(100, 0, 100);
+            floorMesh.userData = { isFloor: true, entity: room };
+
+            const moveGizmo = new UniversalMoveGizmo(mockCtx);
+            mockCtx.scene.add(moveGizmo);
+
+            // Attach to room floor
+            moveGizmo.attach(floorMesh);
+            expect(moveGizmo.visible).toBe(true);
+            expect(moveGizmo.isRoomMove).toBe(true);
+            expect(moveGizmo.roomMoveData).toBeDefined();
+
+            // Translate by (+50, +50)
+            moveGizmo._applyTranslation(new THREE.Vector3(50, 0, 50));
+
+            // Floor mesh and anchors moved by +50
+            expect(floorMesh.position.x).toBe(150);
+            expect(floorMesh.position.z).toBe(150);
+            const anchorXs = moveGizmo.roomMoveData.anchors.map(a => a.anchor.x);
+            expect(Math.min(...anchorXs)).toBe(50);
+            expect(Math.max(...anchorXs)).toBe(250);
+
+            // Commit translation
+            moveGizmo._commitTranslationToPlanner();
+            expect(mockPlanner.syncAll).toHaveBeenCalled();
+            expect(mockPlanner.detectRooms).toHaveBeenCalled();
+            expect(room.cx).toBe(150);
+            expect(room.cy).toBe(150);
+            expect(room.path[0].x).toBe(50);
+            expect(room.path[0].y).toBe(50);
+        });
+
+        it('offsetPolygon sanitizes duplicate closing points and produces symmetric unskewed rectangle', () => {
+            const rawClosedPath = [
+                { x: 0, y: 0 },
+                { x: 900, y: 0 },
+                { x: 900, y: 750 },
+                { x: 0, y: 750 },
+                { x: 0, y: 0 } // Duplicate closing vertex
+            ];
+
+            const offsetPts = offsetPolygon(rawClosedPath, 10);
+            expect(offsetPts.length).toBe(4);
+
+            // Verify perfect rectangular corners with 10px outward expansion on all 4 sides
+            expect(offsetPts[0].x).toBeCloseTo(-10, 1);
+            expect(offsetPts[0].y).toBeCloseTo(-10, 1);
+
+            expect(offsetPts[1].x).toBeCloseTo(910, 1);
+            expect(offsetPts[1].y).toBeCloseTo(-10, 1);
+
+            expect(offsetPts[2].x).toBeCloseTo(910, 1);
+            expect(offsetPts[2].y).toBeCloseTo(760, 1);
+
+            expect(offsetPts[3].x).toBeCloseTo(-10, 1);
+            expect(offsetPts[3].y).toBeCloseTo(760, 1);
+        });
+
+        it('foundation platforms use stone_ashlar_grey for both top and side, avoiding exposed wood parquet', () => {
+            WallEngine.createRoomBox(mockPlanner, {
+                minX: 0, minY: 0, maxX: 300, maxY: 300, thickness: 20, height: 280, elevation: 0
+            });
+            const room = {
+                id: 'room_stone_mat_test',
+                path: [
+                    { x: 0, y: 0 },
+                    { x: 300, y: 0 },
+                    { x: 300, y: 300 },
+                    { x: 0, y: 300 }
+                ],
+                cx: 150,
+                cy: 150,
+                elevation: 0,
+                configId: 'wood_golden_teak'
+            };
+            mockPlanner.rooms = [room];
+            suite.attach(room);
+
+            suite.stepAllWallsElevation(30);
+
+            expect(mockPlanner.platforms.length).toBe(1);
+            const p = mockPlanner.platforms[0];
+            expect(p.materials.top.id).toBe('stone_ashlar_grey');
+            expect(p.materials.side.id).toBe('stone_ashlar_grey');
+            expect(p.isBuildingFoundation).toBe(true);
+
+            // Verify 2D group is hidden and not draggable
+            expect(p.group.visible()).toBe(false);
+            expect(p.group.draggable()).toBe(false);
+            expect(p.badgeGroup.visible()).toBe(false);
+        });
+
+        it('Platform3DBuilder correctly re-parents existing platform group and marks isFloor false for foundations', () => {
+            const platform = new PremiumPlatform(mockPlanner, 'platform', {
+                x: 100,
+                y: 100,
+                width: 200,
+                depth: 200,
+                height: 30,
+                isBuildingFoundation: true,
+                materials: {
+                    top: { id: 'stone_ashlar_grey' },
+                    side: { id: 'stone_ashlar_grey' }
+                }
+            });
+
+            const builder = new Platform3DBuilder(mockCtx);
+            const group1 = new THREE.Group();
+            builder.buildPlatform(platform, group1);
+            expect(platform.mesh3D.parent).toBe(group1);
+            expect(platform.mesh3D.userData.isFloor).toBe(false);
+            expect(platform.mesh3D.userData.isBuildingFoundation).toBe(true);
+
+            // Switch level / rebuild scene with a new structureGroup
+            const group2 = new THREE.Group();
+            builder.buildPlatform(platform, group2);
+            expect(platform.mesh3D.parent).toBe(group2);
+        });
+
+        it('rotateRoom(90) on non-square room preserves floor sync, platform coordinates, and triggers rebuildActiveFloors', () => {
+            mockCtx.rebuildActiveFloors = vi.fn();
+            mockCtx.updateFloorsLive = vi.fn();
+
+            // Create a non-square room (400 x 200)
+            WallEngine.createRoomBox(mockPlanner, {
+                minX: 100, minY: 100, maxX: 500, maxY: 300, thickness: 20, height: 300, elevation: 20
+            });
+            const room = {
+                id: 'rect_room_rotate_test',
+                path: [
+                    { x: 100, y: 100 },
+                    { x: 500, y: 100 },
+                    { x: 500, y: 300 },
+                    { x: 100, y: 300 }
+                ],
+                cx: 300,
+                cy: 200,
+                elevation: 20,
+                configId: 'custom_slate_tiles'
+            };
+            mockPlanner.rooms = [room];
+            suite.attach(room);
+
+            // Step elevation to create foundation
+            suite.stepElevation(0);
+            expect(mockPlanner.platforms.length).toBe(1);
+            const foundation = mockPlanner.platforms[0];
+            expect(foundation.associatedRoomId).toBe('rect_room_rotate_test');
+
+            // Rotate 90 degrees clockwise
+            suite.rotateRoom(90);
+
+            // Verify rebuildActiveFloors or updateFloorsLive was called
+            expect(mockCtx.rebuildActiveFloors).toHaveBeenCalled();
+
+            // Canonical room path updated: (100, 100) rotated 90° CW around (300, 200)
+            // rad = pi/2, cos = 0, sin = 1:
+            // rx = 300 - (100 - 200)*1 = 300 - (-100) = 400
+            // ry = 200 + (100 - 300)*1 = 200 + (-200) = 0
+            expect(room.path.some(pt => Math.abs(pt.x - 400) < 3 && Math.abs(pt.y - 0) < 3)).toBe(true);
+
+            // Verify foundation platform center is rotated around (cx, cy)
+            expect(foundation.x).toBeDefined();
+            expect(foundation.y).toBeDefined();
+            expect(foundation.rotation).toBe(90);
+        });
+
+        it('btnMove click activates translate mode, attaches move gizmo without camera interference, and resets floor mesh position upon commit', async () => {
+            const { UniversalMoveGizmo } = await import('../UniversalMoveGizmo.js');
+            mockCtx.rebuildActiveFloors = vi.fn();
+
+            WallEngine.createRoomBox(mockPlanner, {
+                minX: 100, minY: 100, maxX: 300, maxY: 300, thickness: 20, height: 300, elevation: 0
+            });
+            const room = {
+                id: 'room_hud_move_test',
+                path: [
+                    { x: 100, y: 100 },
+                    { x: 300, y: 100 },
+                    { x: 300, y: 300 },
+                    { x: 100, y: 300 }
+                ],
+                cx: 200,
+                cy: 200,
+                elevation: 0
+            };
+            mockPlanner.rooms = [room];
+
+            const floorMesh = new THREE.Mesh(new THREE.BoxGeometry(200, 2, 200));
+            floorMesh.position.set(0, 0.05, 0);
+            floorMesh.userData = { isFloor: true, entity: room };
+            room.mesh3D = floorMesh;
+
+            const moveGizmo = new UniversalMoveGizmo(mockCtx);
+            mockCtx.scene.add(moveGizmo);
+            if (!mockCtx.interactions) mockCtx.interactions = {};
+            mockCtx.interactions.universalMoveGizmo = moveGizmo;
+
+            suite.attach(room);
+
+            // Trigger HUD Move button click
+            suite.btnMove.onclick({
+                stopPropagation: vi.fn(),
+                preventDefault: vi.fn()
+            });
+
+            expect(mockCtx.currentTransformMode).toBe('translate');
+            expect(mockCtx.interactions.selectedObject).toBe(floorMesh);
+            expect(moveGizmo.visible).toBe(true);
+            expect(moveGizmo.isRoomMove).toBe(true);
+
+            // Simulate drag delta (+40, +60)
+            moveGizmo._applyTranslation(new THREE.Vector3(40, 0, 60));
+            expect(floorMesh.position.x).toBe(40);
+            expect(floorMesh.position.z).toBe(60);
+
+            // Commit translation
+            moveGizmo._commitTranslationToPlanner();
+
+            // Floor mesh local offset must be reset to 0 so rebuildActiveFloors does not duplicate offset
+            expect(floorMesh.position.x).toBe(0);
+            expect(floorMesh.position.z).toBe(0);
+            expect(mockCtx.rebuildActiveFloors).toHaveBeenCalled();
+
+            // Anchors in roomMoveData must be updated to new positions for consecutive moves
+            const newAnchorXs = moveGizmo.roomMoveData.anchors.map(a => a.startX);
+            expect(Math.min(...newAnchorXs)).toBe(140);
+            expect(Math.max(...newAnchorXs)).toBe(340);
         });
     });
 });

@@ -357,16 +357,18 @@ export class WallInteractiveSuite extends THREE.Group {
             gap: 4px;
             align-items: center;
             max-width: calc(100vw - 24px);
+            overflow-x: auto;
+            scrollbar-width: none;
             box-sizing: border-box;
             pointer-events: auto;
         `;
 
         this.hudButtons = [
-            { id: 'room_suite', label: '🏠 Room & Building', title: 'Open Sims 4 Room & Building Height Controls' },
+            { id: 'height', label: '📐 Height', title: 'Adjust wall uniform height (Wall / Room Scope)' },
+            { id: 'room_suite', label: '🏠 Room & Building', title: 'Open Room & Building Height / Foundation Controls' },
             { id: 'push_pull', label: '↔️ Push / Pull', title: 'Adjust wall thickness & baseline (Panel #1)' },
-            { id: 'corner', label: '📍 Move', title: 'Move wall vertices, slopes & heights (Panel #2)' },
+            { id: 'corner', label: '📍 Vertices', title: 'Move wall vertices & slope corners (Panel #2)' },
             { id: 'extrude_recess', label: '🏛️ Bay / Niche', title: 'Extrude bay window or recessed niche (Panels #5 & #6)' },
-            { id: 'height', label: '📐 Height', title: 'Adjust wall height & slopes (Panel #4)' },
             { id: 'split', label: '✂️ Split', title: 'Slice wall in 3D (Panel #3)' },
             { id: 'slope', label: '📐 Slope', title: 'Toggle flat / single / gable profile (Panel #7)' }
         ];

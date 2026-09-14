@@ -407,6 +407,9 @@ export class FloorPlanner {
         // Clean up visual nodes if present
         if (entity.wallGroup && typeof entity.wallGroup.destroy === 'function') entity.wallGroup.destroy();
         if (entity.labelGroup && typeof entity.labelGroup.destroy === 'function') entity.labelGroup.destroy();
+        if (entity.entranceGroup && typeof entity.entranceGroup.destroy === 'function') entity.entranceGroup.destroy();
+        if (entity.profileIndicators && typeof entity.profileIndicators.destroy === 'function') entity.profileIndicators.destroy();
+        if (entity.raiserGroup && typeof entity.raiserGroup.destroy === 'function') entity.raiserGroup.destroy();
         if (entity.line && typeof entity.line.destroy === 'function') entity.line.destroy();
         if (entity.line2 && typeof entity.line2.destroy === 'function') entity.line2.destroy();
         if (entity.visualGroup && typeof entity.visualGroup.destroy === 'function') entity.visualGroup.destroy();
@@ -1607,7 +1610,9 @@ export class FloorPlanner {
                     path.forEach(p => { newMinX = Math.min(newMinX, p.x); newMaxX = Math.max(newMaxX, p.x); newMinY = Math.min(newMinY, p.y); newMaxY = Math.max(newMaxY, p.y); });
                     const oldW = maxX - minX, oldH = maxY - minY;
                     const newW = newMaxX - newMinX, newH = newMaxY - newMinY;
-                    if (Math.abs(oldW - newW) > 40 || Math.abs(oldH - newH) > 40) return false;
+                    const isNormalMatch = Math.abs(oldW - newW) <= 40 && Math.abs(oldH - newH) <= 40;
+                    const isRotatedMatch = Math.abs(oldW - newH) <= 40 && Math.abs(oldH - newW) <= 40;
+                    if (!isNormalMatch && !isRotatedMatch) return false;
                     return true;
                 });
 
@@ -1623,7 +1628,9 @@ export class FloorPlanner {
                         path.forEach(p => { newMinX = Math.min(newMinX, p.x); newMaxX = Math.max(newMaxX, p.x); newMinY = Math.min(newMinY, p.y); newMaxY = Math.max(newMaxY, p.y); });
                         const oldW = maxX - minX, oldH = maxY - minY;
                         const newW = newMaxX - newMinX, newH = newMaxY - newMinY;
-                        if (Math.abs(oldW - newW) > 40 || Math.abs(oldH - newH) > 40) return false;
+                        const isNormalMatch = Math.abs(oldW - newW) <= 40 && Math.abs(oldH - newH) <= 40;
+                        const isRotatedMatch = Math.abs(oldW - newH) <= 40 && Math.abs(oldH - newW) <= 40;
+                        if (!isNormalMatch && !isRotatedMatch) return false;
                         return true;
                     });
                 }
@@ -1975,7 +1982,7 @@ export class FloorPlanner {
             })) : [],
             shapes: this.shapes ? this.shapes.map(s => ({ type: s.type, x: s.group.x(), y: s.group.y(), rotation: s.rotation, scaleX: s.group.scaleX(), scaleY: s.group.scaleY(), params: s.params, description: s.description })) : [],
             outdoorZones: this.outdoorZones ? this.outdoorZones.map(z => (typeof z.export === 'function' ? z.export() : (typeof z.toJSON === 'function' ? z.toJSON() : (typeof z.exportState === 'function' ? z.exportState() : z)))) : [],
-            platforms: this.platforms ? this.platforms.map(p => (typeof p.export === 'function' ? p.export() : (typeof p.toJSON === 'function' ? p.toJSON() : p))) : [],
+            platforms: this.platforms ? this.platforms.map(p => (typeof p.exportState === 'function' ? p.exportState() : (typeof p.export === 'function' ? p.export() : (typeof p.toJSON === 'function' ? p.toJSON() : p)))) : [],
             rooms: this.rooms ? this.rooms.map(r => ({ path: r.path.map(p => ({ x: p.x, y: p.y })), cx: r.cx, cy: r.cy, elevation: r.elevation || 0, configId: r.configId, isHidden: r.isHidden, isDeleted: r.isDeleted, materialRepeat: r.materialRepeat, description: r.description })) : [],
             roomPaths: this.roomPaths ? this.roomPaths.map(path => path.map(p => ({ x: p.x, y: p.y }))) : [],
             presetGroups: this.presetGroups ? this.presetGroups.map(g => g.export()) : [],
@@ -1998,7 +2005,7 @@ export class FloorPlanner {
         const getCircularReplacer = () => {
             const seen = new WeakSet();
             return (key, value) => {
-                if (key === 'mesh3D' || key === 'object' || key === 'entity' || key === 'wall' || key === 'parent' || key === 'planner' || key === 'poly' || key === 'wallGroup' || key === 'labelGroup' || key === 'frontHighlight' || key === 'backHighlight' || key === 'profileIndicators' || key === 'entranceGroup') {
+                if (key === 'mesh3D' || key === 'object' || key === 'entity' || key === 'wall' || key === 'parent' || key === 'planner' || key === 'poly' || key === 'wallGroup' || key === 'labelGroup' || key === 'frontHighlight' || key === 'backHighlight' || key === 'profileIndicators' || key === 'entranceGroup' || key === 'raiserGroup' || key === 'raiserHit' || key === 'raiserBg' || key === 'raiserText') {
                     return undefined;
                 }
                 if (typeof value === 'object' && value !== null) {
@@ -2143,6 +2150,16 @@ export class FloorPlanner {
                 if (!this.platforms) this.platforms = [];
                 state.platforms.forEach(pData => {
                     const platform = new PremiumPlatform(this, 'platform', pData);
+                    if (pData.isBuildingFoundation) {
+                        platform.isBuildingFoundation = true;
+                        platform.associatedRoomId = pData.associatedRoomId || null;
+                        if (platform.group) {
+                            platform.group.visible(false);
+                            platform.group.listening(false);
+                            platform.group.draggable(false);
+                        }
+                        if (platform.badgeGroup) platform.badgeGroup.visible(false);
+                    }
                     this.platforms.push(platform);
                 });
             }

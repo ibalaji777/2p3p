@@ -3,7 +3,7 @@ import { ComponentRegistry } from './ComponentRegistry.js';
 import { MaterialSlots } from '../constants/materialSlots.js';
 import { MaterialFactory } from './MaterialFactory.js';
 import { UniversalMaterialManager } from './UniversalMaterialManager.js';
-import { FLOOR_REGISTRY, WOOD_REGISTRY, DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js';
+import { FLOOR_REGISTRY, WOOD_REGISTRY, STONE_REGISTRY, BRICK_REGISTRY, DEFAULT_UNIVERSAL_TILE_SIZE } from '../registries/material.registry.js';
 
 /**
  * Platform3DBuilder
@@ -39,6 +39,9 @@ export class Platform3DBuilder {
             group.name = `Platform_${platform.id}`;
             platform.mesh3D = group;
             if (targetGroup) targetGroup.add(group);
+        } else if (targetGroup && group.parent !== targetGroup) {
+            if (group.parent) group.parent.remove(group);
+            targetGroup.add(group);
         }
 
         group.position.set(
@@ -50,8 +53,9 @@ export class Platform3DBuilder {
 
         group.userData = {
             entity: platform,
-            isPlatform: true,
-            isFloor: true,
+            isPlatform: !platform.isBuildingFoundation,
+            isBuildingFoundation: Boolean(platform.isBuildingFoundation),
+            isFloor: !platform.isBuildingFoundation,
             paintable: true,
             builder: this
         };
@@ -125,8 +129,9 @@ export class Platform3DBuilder {
         topMesh.userData = {
             entity: platform,
             materialSlot: 'top',
-            isPlatformTop: true,
-            isFloor: true,
+            isPlatformTop: !platform.isBuildingFoundation,
+            isBuildingFoundation: Boolean(platform.isBuildingFoundation),
+            isFloor: !platform.isBuildingFoundation,
             paintable: true
         };
         group.add(topMesh);
@@ -141,6 +146,7 @@ export class Platform3DBuilder {
             entity: platform,
             materialSlot: 'side',
             isPlatformSide: true,
+            isBuildingFoundation: Boolean(platform.isBuildingFoundation),
             paintable: true
         };
         group.add(sideMesh);
@@ -411,7 +417,7 @@ export class Platform3DBuilder {
      * Resolves PBR Material from registry.
      */
     _resolveMaterial(matId, fallbackType = 'floor') {
-        const config = FLOOR_REGISTRY[matId] || WOOD_REGISTRY[matId] || UniversalMaterialManager.getMaterial(matId);
+        const config = FLOOR_REGISTRY[matId] || WOOD_REGISTRY[matId] || STONE_REGISTRY[matId] || BRICK_REGISTRY[matId] || UniversalMaterialManager.getMaterial(matId);
         const mat = new THREE.MeshStandardMaterial({
             color: 0xffffff,
             roughness: 0.6,
@@ -420,7 +426,8 @@ export class Platform3DBuilder {
         });
 
         if (config) {
-            const cfg = { ...config, tileSize: 100 };
+            const ts = config.tileSize || config.defaultTileSize || 100;
+            const cfg = { ...config, tileSize: ts };
             MaterialFactory.buildPBRMaterial({
                 material: mat,
                 config: cfg,
@@ -437,7 +444,7 @@ export class Platform3DBuilder {
                 if (this.ctx?.requestRender) this.ctx.requestRender('material_loaded', 2);
             });
         } else {
-            mat.color.setHex(fallbackType === 'floor' ? 0xd4a373 : 0xf8fafc);
+            mat.color.setHex(fallbackType === 'floor' ? 0xd4a373 : 0x7c838d);
         }
 
         return mat;

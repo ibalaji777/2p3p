@@ -764,6 +764,21 @@ export class InteractionSystem {
                 if (this.raycaster.intersectObjects(this.roomInteractiveSuite.edgeArrowsGroup.children, true).length > 0) return;
             }
 
+            // Direct check for interactive Universal Move Gizmo handles or attached entity
+            if (this.universalMoveGizmo && this.universalMoveGizmo.visible) {
+                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+                const hitsGizmo = this.raycaster.intersectObjects(this.universalMoveGizmo.gizmoVisuals.children, true).length > 0;
+                let hitsAttached = false;
+                if (!hitsGizmo && this.universalMoveGizmo.attachedObject) {
+                    hitsAttached = this.raycaster.intersectObject(this.universalMoveGizmo.attachedObject, true).length > 0;
+                    if (!hitsAttached && this.universalMoveGizmo.isRoomMove && this.universalMoveGizmo.roomMoveData?.walls) {
+                        const wallMeshes = this.universalMoveGizmo.roomMoveData.walls.map(w => w.mesh3D).filter(Boolean);
+                        hitsAttached = this.raycaster.intersectObjects(wallMeshes, true).length > 0;
+                    }
+                }
+                if (hitsGizmo || hitsAttached) return;
+            }
+
             // Direct check for interactive Elevation Segment Gizmo handles (Push/Pull, Extrude, Bend, Elev)
             if (this.elevationSegmentGizmo && this.elevationSegmentGizmo.visible) {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
@@ -916,7 +931,8 @@ export class InteractionSystem {
                             }
                         }
                     }
-                    this.selectObject(mesh, intersects[0]);
+                    const preventCameraJump = (this.ctx.currentTransformMode === 'translate' || this.ctx.currentTransformMode === 'move');
+                    this.selectObject(mesh, intersects[0], preventCameraJump);
                 }
             } else {
                 if (this.mode !== 'camera') {
@@ -1423,11 +1439,19 @@ export class InteractionSystem {
             const isWallType = wallEntity && (wallEntity.type === 'outer' || wallEntity.type === 'inner' || wallEntity.type === 'compound' || wallEntity.type === 'wall');
             const isBaseWall = (object.userData?.isWallSide || object.userData?.isWall || object.userData?.isWallMesh || isWallType) && !object.userData?.isOpening;
             const isRiseMode = this.commonController?.activeTool === COMMON_TOOLS.BUILDING_RISE || Boolean(this.roomInteractiveSuite?.isBuildingRiseMode);
-            const isRoom = Boolean(object.userData?.isFloor || type === 'room' || object.userData?.entity?.path);
+            
+            const isFoundation = Boolean(object.userData?.isBuildingFoundation || object.userData?.entity?.isBuildingFoundation);
+            let foundationTarget = null;
+            if (isFoundation) {
+                const rId = object.userData?.entity?.associatedRoomId;
+                const planner = this.ctx.planner || window.planner?.value || window.planner || window.plannerInstance;
+                foundationTarget = (planner?.rooms || []).find(r => (r.id || r._id) === rId) || (planner?.rooms?.[0] || null);
+            }
+            const isRoom = Boolean(object.userData?.isFloor || type === 'room' || object.userData?.entity?.path || foundationTarget);
 
             if (isRiseMode && (isRoom || isBaseWall)) {
                 if (this.roomInteractiveSuite) {
-                    this.roomInteractiveSuite.attach(object);
+                    this.roomInteractiveSuite.attach(foundationTarget || object);
                 }
                 if (isBaseWall && this.wallInteractiveSuite) {
                     this.wallInteractiveSuite.detach();
@@ -1439,7 +1463,9 @@ export class InteractionSystem {
                     this.wallInteractiveSuite.detach();
                 }
 
-                if (isRoom && this.roomInteractiveSuite) {
+                if (foundationTarget && this.roomInteractiveSuite) {
+                    this.roomInteractiveSuite.attach(foundationTarget);
+                } else if (isRoom && this.roomInteractiveSuite) {
                     this.roomInteractiveSuite.attach(object);
                 } else if (this.roomInteractiveSuite && !this.roomInteractiveSuite.isBuildingRiseMode) {
                     const activeRoomWalls = this.roomInteractiveSuite.room ? this.roomInteractiveSuite._getRoomBoundingWalls() : [];
@@ -1450,7 +1476,7 @@ export class InteractionSystem {
                 }
             }
 
-            const isStair = !object.userData?.isFloor && !object.userData?.isRoomFloor && !object.userData?.isPlatform && !isBaseWall && Boolean(
+            const isStair = !isFoundation && !object.userData?.isFloor && !object.userData?.isRoomFloor && !object.userData?.isPlatform && !isBaseWall && Boolean(
                 object.userData?.isStair ||
                 (object.userData?.entity && (
                     object.userData.entity.type === 'staircase' ||

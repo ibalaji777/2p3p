@@ -332,6 +332,7 @@ export class WallTopologyEngine {
         if (wall.labelGroup && typeof wall.labelGroup.destroy === 'function') wall.labelGroup.destroy();
         if (wall.entranceGroup && typeof wall.entranceGroup.destroy === 'function') wall.entranceGroup.destroy();
         if (wall.profileIndicators && typeof wall.profileIndicators.destroy === 'function') wall.profileIndicators.destroy();
+        if (wall.raiserGroup && typeof wall.raiserGroup.destroy === 'function') wall.raiserGroup.destroy();
 
         // Destroy attached widgets & moldings
         if (wall.attachedWidgets) {

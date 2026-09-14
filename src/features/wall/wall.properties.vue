@@ -24,8 +24,8 @@
         <div class="control-group">
             <label>Thickness</label>
             <div class="input-wrap">
-                <input type="range" v-model.number="selectedEntity.thickness" min="1" max="100" step="1" @input="$emit('sync-engine')">
-                <DimensionInput v-model="selectedEntity.thickness" min="1" max="100" step="1" @change="$emit('sync-engine')" />
+                <input type="range" :value="selectedEntity.thickness" min="1" max="100" step="1" @input="updateThickness($event.target.value)">
+                <DimensionInput :model-value="selectedEntity.thickness" min="1" max="100" step="1" @update:model-value="updateThickness($event)" />
             </div>
         </div>
         
@@ -48,13 +48,13 @@
         <div class="control-group" v-if="selectedEntity.type !== 'railing'" style="flex-direction: column; align-items: flex-start;">
             <label style="margin-bottom: 8px;">Top Profile Type</label>
             <div style="display: flex; gap: 8px; width: 100%;">
-                <button style="flex: 1; padding: 6px; display: flex; align-items: center; justify-content: center; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; transition: all 0.2s;" :style="{ background: (!selectedEntity.topProfileType || selectedEntity.topProfileType === 'normal') ? '#e5e7eb' : 'white', borderColor: (!selectedEntity.topProfileType || selectedEntity.topProfileType === 'normal') ? '#9ca3af' : '#d1d5db' }" @click="selectedEntity.topProfileType = 'normal'; $emit('sync-engine')" title="Normal Wall">
+                <button style="flex: 1; padding: 6px; display: flex; align-items: center; justify-content: center; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; transition: all 0.2s;" :style="{ background: (!selectedEntity.topProfileType || selectedEntity.topProfileType === 'normal') ? '#e5e7eb' : 'white', borderColor: (!selectedEntity.topProfileType || selectedEntity.topProfileType === 'normal') ? '#9ca3af' : '#d1d5db' }" @click="setTopProfile('normal')" title="Normal Wall">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="16" rx="2" ry="2"></rect></svg>
                 </button>
-                <button style="flex: 1; padding: 6px; display: flex; align-items: center; justify-content: center; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; transition: all 0.2s;" :style="{ background: selectedEntity.topProfileType === 'single' ? '#e5e7eb' : 'white', borderColor: selectedEntity.topProfileType === 'single' ? '#9ca3af' : '#d1d5db' }" @click="selectedEntity.topProfileType = 'single'; $emit('sync-engine')" title="Single Slope">
+                <button style="flex: 1; padding: 6px; display: flex; align-items: center; justify-content: center; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; transition: all 0.2s;" :style="{ background: selectedEntity.topProfileType === 'single' ? '#e5e7eb' : 'white', borderColor: selectedEntity.topProfileType === 'single' ? '#9ca3af' : '#d1d5db' }" @click="setTopProfile('single')" title="Single Slope">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16V6l-16 8v8z"></path></svg>
                 </button>
-                <button style="flex: 1; padding: 6px; display: flex; align-items: center; justify-content: center; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; transition: all 0.2s;" :style="{ background: selectedEntity.topProfileType === 'gable' ? '#e5e7eb' : 'white', borderColor: selectedEntity.topProfileType === 'gable' ? '#9ca3af' : '#d1d5db' }" @click="selectedEntity.topProfileType = 'gable'; $emit('sync-engine')" title="Gable Slope">
+                <button style="flex: 1; padding: 6px; display: flex; align-items: center; justify-content: center; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer; transition: all 0.2s;" :style="{ background: selectedEntity.topProfileType === 'gable' ? '#e5e7eb' : 'white', borderColor: selectedEntity.topProfileType === 'gable' ? '#9ca3af' : '#d1d5db' }" @click="setTopProfile('gable')" title="Gable Slope">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16V10L12 4 4 10v12z"></path></svg>
                 </button>
             </div>
@@ -63,8 +63,8 @@
         <div v-if="!selectedEntity.topProfileType || selectedEntity.topProfileType === 'normal' || selectedEntity.type === 'railing'" class="control-group">
             <label>Height</label>
             <div class="input-wrap">
-                <input type="range" v-model.number="selectedEntity.height" min="0" max="500" step="1" @input="$emit('sync-engine')">
-                <DimensionInput v-model="selectedEntity.height" min="0" max="500" step="1" @change="$emit('sync-engine')" />
+                <input type="range" :value="selectedEntity.height" min="0" max="500" step="1" @input="updateHeight($event.target.value)">
+                <DimensionInput :model-value="selectedEntity.height" min="0" max="500" step="1" @update:model-value="updateHeight($event)" />
             </div>
         </div>
 
@@ -75,7 +75,7 @@
                         type="button"
                         class="preset-chip-btn" 
                         :class="{ active: selectedEntity.height === h }"
-                        @click="selectedEntity.height = h; $emit('sync-engine')">
+                        @click="updateHeight(h)">
                     {{ h }} cm
                 </button>
             </div>
@@ -88,7 +88,7 @@
                         type="button"
                         class="preset-chip-btn" 
                         :class="{ active: selectedEntity.height === h }"
-                        @click="selectedEntity.height = h; $emit('sync-engine')">
+                        @click="updateHeight(h)">
                     {{ h }} cm
                 </button>
             </div>
@@ -98,29 +98,29 @@
             <div class="control-group">
                 <label>Start Height</label>
                 <div class="input-wrap">
-                    <input type="range" v-model.number="selectedEntity.startHeight" min="0" max="500" step="1" @input="$emit('sync-engine')">
-                    <DimensionInput v-model="selectedEntity.startHeight" min="0" max="500" step="1" @change="$emit('sync-engine')" />
+                    <input type="range" :value="selectedEntity.startHeight" min="0" max="500" step="1" @input="updateSlopeProp('startHeight', $event.target.value)">
+                    <DimensionInput :model-value="selectedEntity.startHeight" min="0" max="500" step="1" @update:model-value="updateSlopeProp('startHeight', $event)" />
                 </div>
             </div>
             <div class="control-group" v-if="selectedEntity.topProfileType === 'gable'">
                 <label>Peak Height</label>
                 <div class="input-wrap">
-                    <input type="range" v-model.number="selectedEntity.peakHeight" min="0" max="500" step="1" @input="$emit('sync-engine')">
-                    <DimensionInput v-model="selectedEntity.peakHeight" min="0" max="500" step="1" @change="$emit('sync-engine')" />
+                    <input type="range" :value="selectedEntity.peakHeight" min="0" max="500" step="1" @input="updateSlopeProp('peakHeight', $event.target.value)">
+                    <DimensionInput :model-value="selectedEntity.peakHeight" min="0" max="500" step="1" @update:model-value="updateSlopeProp('peakHeight', $event)" />
                 </div>
             </div>
             <div class="control-group">
                 <label>End Height</label>
                 <div class="input-wrap">
-                    <input type="range" v-model.number="selectedEntity.endHeight" min="0" max="500" step="1" @input="$emit('sync-engine')">
-                    <DimensionInput v-model="selectedEntity.endHeight" min="0" max="500" step="1" @change="$emit('sync-engine')" />
+                    <input type="range" :value="selectedEntity.endHeight" min="0" max="500" step="1" @input="updateSlopeProp('endHeight', $event.target.value)">
+                    <DimensionInput :model-value="selectedEntity.endHeight" min="0" max="500" step="1" @update:model-value="updateSlopeProp('endHeight', $event)" />
                 </div>
             </div>
             <div class="control-group">
                 <label>Slope Direction</label>
                 <div style="display: flex; gap: 8px;">
-                    <button style="flex: 1; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer;" :style="{ background: !selectedEntity.flipSlope ? '#e5e7eb' : 'white', borderColor: !selectedEntity.flipSlope ? '#9ca3af' : '#d1d5db' }" @click="selectedEntity.flipSlope = false; $emit('sync-engine')">Default</button>
-                    <button style="flex: 1; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer;" :style="{ background: selectedEntity.flipSlope ? '#e5e7eb' : 'white', borderColor: selectedEntity.flipSlope ? '#9ca3af' : '#d1d5db' }" @click="selectedEntity.flipSlope = true; $emit('sync-engine')">Flipped</button>
+                    <button style="flex: 1; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer;" :style="{ background: !selectedEntity.flipSlope ? '#e5e7eb' : 'white', borderColor: !selectedEntity.flipSlope ? '#9ca3af' : '#d1d5db' }" @click="setSlopeDirection(false)">Default</button>
+                    <button style="flex: 1; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; background: white; cursor: pointer;" :style="{ background: selectedEntity.flipSlope ? '#e5e7eb' : 'white', borderColor: selectedEntity.flipSlope ? '#9ca3af' : '#d1d5db' }" @click="setSlopeDirection(true)">Flipped</button>
                 </div>
             </div>
         </template>
@@ -215,6 +215,8 @@ import { usePlannerStore } from '../../stores/usePlannerStore.js';
 import DimensionInput from '../../components/common/DimensionInput.vue';
 import MaterialSizeInput from '../../components/common/MaterialSizeInput.vue';
 import { WallReformer } from '../../core/engine2d/WallReformer.js';
+import { WallEngine } from '../../core/wall/WallEngine.js';
+import { WallHeightPolicy } from '../../core/wall/WallHeightPolicy.js';
 
 const props = defineProps({
     selectedEntity: { type: Object, required: true },
@@ -242,6 +244,44 @@ const { paintScope } = storeToRefs(plannerStore);
 const railingThumbnails = ref({});
 
 let previousScope = 'single';
+
+const updateThickness = (val) => {
+    const planner = plannerStore.planner || window.plannerInstance;
+    const num = Number(val);
+    if (isNaN(num) || num <= 0) return;
+    WallEngine.setThickness(props.selectedEntity, num, false, planner);
+    emit('sync-engine');
+};
+
+const updateHeight = (val) => {
+    const planner = plannerStore.planner || window.plannerInstance;
+    const num = Number(val);
+    if (isNaN(num)) return;
+    const validH = WallHeightPolicy.processInputHeight(num);
+    WallEngine.setHeight(props.selectedEntity, validH, false, planner);
+    emit('sync-engine');
+};
+
+const setTopProfile = (profileType) => {
+    const planner = plannerStore.planner || window.plannerInstance;
+    WallEngine.setTopProfile(props.selectedEntity, profileType, {}, false, planner);
+    emit('sync-engine');
+};
+
+const updateSlopeProp = (prop, val) => {
+    const planner = plannerStore.planner || window.plannerInstance;
+    const num = Number(val);
+    if (isNaN(num)) return;
+    const validH = WallHeightPolicy.processInputHeight(num);
+    WallEngine.batchUpdate(planner, [props.selectedEntity], { [prop]: validH }, false);
+    emit('sync-engine');
+};
+
+const setSlopeDirection = (isFlipped) => {
+    const planner = plannerStore.planner || window.plannerInstance;
+    WallEngine.batchUpdate(planner, [props.selectedEntity], { flipSlope: isFlipped }, false);
+    emit('sync-engine');
+};
 
 const onSplitWall = () => {
     const planner = plannerStore.planner || window.plannerInstance;

@@ -2,6 +2,7 @@ import { storeToRefs } from 'pinia';
 import { useUIStore } from '../stores/useUIStore.js';
 import { usePlannerStore } from '../stores/usePlannerStore.js';
 import { WallEngine } from '../core/wall/WallEngine.js';
+import { WallHeightPolicy } from '../core/wall/WallHeightPolicy.js';
 
 export function useLevelManager(dependencies) {
     const uiStore = useUIStore();
@@ -206,17 +207,18 @@ export function useLevelManager(dependencies) {
             if (name !== undefined) lvl.name = name;
             if (description !== undefined) lvl.description = description;
             if (height !== undefined) {
-                lvl.height = Number(height);
+                const validH = WallHeightPolicy.processInputHeight(height);
+                lvl.height = validH;
                 // Update walls on active level
                 if (index === activeLevelIndex.value && planner.value && planner.value.walls) {
-                    WallEngine.batchUpdate(planner.value, planner.value.walls, { height: Number(height) });
+                    WallEngine.batchUpdate(planner.value, planner.value.walls, { height: validH });
                 } else if (lvl.data) {
                     try {
                         const parsed = typeof lvl.data === 'string' ? JSON.parse(lvl.data) : lvl.data;
                         if (parsed.walls) {
                             parsed.walls.forEach(w => {
-                                w.height = Number(height);
-                                if (w.config) w.config.height = Number(height);
+                                w.height = validH;
+                                if (w.config) w.config.height = validH;
                             });
                             lvl.data = JSON.stringify(parsed);
                         }

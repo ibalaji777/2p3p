@@ -756,6 +756,16 @@ export class Preview3D {
                 this.interactions.highlightRenderer.setSelectionHighlight(newMesh);
             }
         }
+
+        if (this.interactions) {
+            const suite = this.interactions.wallInteractiveSuite;
+            if (suite && suite.visible && (suite.target?.userData?.entity === w || suite.target === w.mesh3D || suite.target?.parent === w.mesh3D)) {
+                suite.target = w.mesh3D;
+                if (typeof suite.updateHandles === 'function') {
+                    suite.updateHandles();
+                }
+            }
+        }
         
         this.requestRender('wall_geometry_update', 2);
     }
@@ -947,6 +957,10 @@ export class Preview3D {
         });
     }
 
+    updateFloorsLive() {
+        this.rebuildActiveFloors();
+    }
+
     rebuildActiveFloors() {
         if (!this.envBuilder) return;
         const planner = this.planner || (typeof window !== 'undefined' ? (window.plannerInstance || window.planner?.value || window.planner) : null);
@@ -1118,6 +1132,8 @@ export class Preview3D {
             floorMesh.geometry = new THREE.ExtrudeGeometry(floorShape, { depth: 2, bevelEnabled: false });
             floorMesh.geometry.rotateX(Math.PI / 2);
             const roomElev = Number(room.elevation) || 0;
+            floorMesh.position.x = 0;
+            floorMesh.position.z = 0;
             floorMesh.position.y = roomElev + 0.05;
             
             const pos = floorMesh.geometry.attributes.position;
@@ -1166,6 +1182,7 @@ export class Preview3D {
         this.levelsConfigArray = levelsConfigArray;
         this.outdoorZones = outdoorZones;
         this.activeIndex = activeIndex;
+        this.platforms = this.planner?.platforms || this.platforms || [];
         
         while(this.structureGroup.children.length > 0) { 
             const c = this.structureGroup.children[0]; 
@@ -1226,6 +1243,14 @@ export class Preview3D {
                     this.envBuilder.buildShapes(shapes);
                 } catch(e) {
                     console.error("Error building shapes:", e);
+                }
+            }
+            const platformList = this.platforms || this.planner?.platforms || [];
+            if (platformList && platformList.length > 0 && this.envBuilder && typeof this.envBuilder.buildPlatforms === 'function') {
+                try {
+                    this.envBuilder.buildPlatforms(platformList, this.structureGroup);
+                } catch(e) {
+                    console.error("Error building platforms in buildScene:", e);
                 }
             }
         }

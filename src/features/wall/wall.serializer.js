@@ -12,7 +12,7 @@ function safeClone(obj) {
     try {
         const seen = new WeakSet();
         return JSON.parse(JSON.stringify(obj, (key, value) => {
-            if (key === 'mesh3D' || key === 'object' || key === 'entity' || key === 'wall' || key === 'parent' || key === 'planner' || key === 'startAnchor' || key === 'endAnchor' || key === 'poly' || key === 'wallGroup' || key === 'labelGroup' || key === 'frontHighlight' || key === 'backHighlight' || key === 'profileIndicators' || key === 'entranceGroup') {
+            if (key === 'mesh3D' || key === 'object' || key === 'entity' || key === 'wall' || key === 'parent' || key === 'planner' || key === 'startAnchor' || key === 'endAnchor' || key === 'poly' || key === 'wallGroup' || key === 'labelGroup' || key === 'frontHighlight' || key === 'backHighlight' || key === 'profileIndicators' || key === 'entranceGroup' || key === 'raiserGroup' || key === 'raiserHit' || key === 'raiserBg' || key === 'raiserText') {
                 return undefined;
             }
             if (typeof value === 'object' && value !== null) {

@@ -3,9 +3,11 @@ import { EVENTS } from '../constants/events.js';
 import { coreEventBus } from '../EventBus.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { WallEngine } from '../wall/WallEngine.js';
+import { WallHeightPolicy } from '../wall/WallHeightPolicy.js';
 import { getRoomWallsAndSides, getRoomForWallFace, getRoomsList } from './WallPaintSystem.js';
 import { PremiumPlatform } from '../engine2d/PremiumPlatform.js';
 import { Platform3DBuilder } from './Platform3DBuilder.js';
+import { offsetPolygon } from '../registry.js';
 
 /**
  * RoomInteractiveSuite
@@ -633,14 +635,13 @@ export class RoomInteractiveSuite extends THREE.Group {
         `;
 
         this.btnScopeRoom = document.createElement('button');
-        this.btnScopeRoom.innerHTML = `🏠`;
+        this.btnScopeRoom.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`;
         this.btnScopeRoom.title = 'Edit Selected Room';
         this.btnScopeRoom.style.cssText = `
             border: none;
             border-radius: 9999px;
-            width: 24px;
-            height: 24px;
-            font-size: 12px;
+            width: 26px;
+            height: 26px;
             cursor: pointer;
             transition: all 0.15s ease;
             outline: none;
@@ -657,14 +658,13 @@ export class RoomInteractiveSuite extends THREE.Group {
         };
 
         this.btnScopeBuilding = document.createElement('button');
-        this.btnScopeBuilding.innerHTML = `🏢`;
+        this.btnScopeBuilding.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="9" y1="6" x2="9" y2="6.01"/><line x1="15" y1="6" x2="15" y2="6.01"/><line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/><line x1="9" y1="14" x2="9" y2="14.01"/><line x1="15" y1="14" x2="15" y2="14.01"/><path d="M10 22v-4h4v4"/></svg>`;
         this.btnScopeBuilding.title = 'Edit All Building Walls';
         this.btnScopeBuilding.style.cssText = `
             border: none;
             border-radius: 9999px;
-            width: 24px;
-            height: 24px;
-            font-size: 12px;
+            width: 26px;
+            height: 26px;
             cursor: pointer;
             transition: all 0.15s ease;
             outline: none;
@@ -705,14 +705,13 @@ export class RoomInteractiveSuite extends THREE.Group {
         `;
 
         this.btnModeWall = document.createElement('button');
-        this.btnModeWall.innerHTML = `🧱`;
+        this.btnModeWall.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9.5" x2="21" y2="9.5"/><line x1="3" y1="14.5" x2="21" y2="14.5"/><line x1="9" y1="4" x2="9" y2="9.5"/><line x1="15" y1="4" x2="15" y2="9.5"/><line x1="6" y1="9.5" x2="6" y2="14.5"/><line x1="12" y1="9.5" x2="12" y2="14.5"/><line x1="18" y1="9.5" x2="18" y2="14.5"/><line x1="9" y1="14.5" x2="9" y2="20"/><line x1="15" y1="14.5" x2="15" y2="20"/></svg>`;
         this.btnModeWall.title = 'Adjust Wall Height';
         this.btnModeWall.style.cssText = `
             border: none;
             border-radius: 9999px;
-            width: 24px;
-            height: 24px;
-            font-size: 12px;
+            width: 26px;
+            height: 26px;
             cursor: pointer;
             transition: all 0.15s ease;
             outline: none;
@@ -729,14 +728,13 @@ export class RoomInteractiveSuite extends THREE.Group {
         };
 
         this.btnModeFoundation = document.createElement('button');
-        this.btnModeFoundation.innerHTML = `🏛️`;
+        this.btnModeFoundation.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M4 20v-5h16v5"/><path d="M6 15V8"/><path d="M10 15V8"/><path d="M14 15V8"/><path d="M18 15V8"/><path d="M3 8h18"/><path d="M12 3L3 8h18z"/></svg>`;
         this.btnModeFoundation.title = 'Adjust Foundation Elevation';
         this.btnModeFoundation.style.cssText = `
             border: none;
             border-radius: 9999px;
-            width: 24px;
-            height: 24px;
-            font-size: 12px;
+            width: 26px;
+            height: 26px;
             cursor: pointer;
             transition: all 0.15s ease;
             outline: none;
@@ -753,14 +751,13 @@ export class RoomInteractiveSuite extends THREE.Group {
         };
 
         this.btnModePlatform = document.createElement('button');
-        this.btnModePlatform.innerHTML = `🪜`;
+        this.btnModePlatform.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h20"/><path d="M5 20v-4h4v-4h5v-4h5v12"/></svg>`;
         this.btnModePlatform.title = 'Adjust Platform Height';
         this.btnModePlatform.style.cssText = `
             border: none;
             border-radius: 9999px;
-            width: 24px;
-            height: 24px;
-            font-size: 12px;
+            width: 26px;
+            height: 26px;
             cursor: pointer;
             transition: all 0.15s ease;
             outline: none;
@@ -782,7 +779,7 @@ export class RoomInteractiveSuite extends THREE.Group {
 
         // Single Up and Down Pair
         this.btnStepDown = document.createElement('button');
-        this.btnStepDown.innerHTML = `⬇`;
+        this.btnStepDown.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>`;
         this.btnStepDown.title = 'Lower Value';
         this._styleBubbleButton(this.btnStepDown, '#f59e0b');
         this.btnStepDown.onclick = (e) => {
@@ -791,7 +788,7 @@ export class RoomInteractiveSuite extends THREE.Group {
         };
 
         this.btnStepUp = document.createElement('button');
-        this.btnStepUp.innerHTML = `⬆`;
+        this.btnStepUp.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`;
         this.btnStepUp.title = 'Raise Value';
         this._styleBubbleButton(this.btnStepUp, '#10b981');
         this.btnStepUp.onclick = (e) => {
@@ -799,37 +796,59 @@ export class RoomInteractiveSuite extends THREE.Group {
             this.stepTargetUp();
         };
 
+        const steppersContainer = document.createElement('div');
+        steppersContainer.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 3px;
+        `;
+        steppersContainer.appendChild(this.btnStepDown);
+        steppersContainer.appendChild(this.btnStepUp);
+
         const btnRotateCCW = document.createElement('button');
-        btnRotateCCW.innerHTML = `↺`;
+        btnRotateCCW.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>`;
         btnRotateCCW.title = 'Rotate Counter-Clockwise (90°)';
         this._styleBubbleButton(btnRotateCCW, '#38bdf8');
         btnRotateCCW.onclick = (e) => { e.stopPropagation(); this.rotateRoom(-90); };
 
         const btnRotateCW = document.createElement('button');
-        btnRotateCW.innerHTML = `↻`;
+        btnRotateCW.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`;
         btnRotateCW.title = 'Rotate Clockwise (90°)';
         this._styleBubbleButton(btnRotateCW, '#38bdf8');
         btnRotateCW.onclick = (e) => { e.stopPropagation(); this.rotateRoom(90); };
 
-        const btnMove = document.createElement('button');
-        btnMove.innerHTML = `✥`;
+        this.btnMove = document.createElement('button');
+        const btnMove = this.btnMove;
+        btnMove.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>`;
         btnMove.title = 'Move / Translate Room across floor';
         this._styleBubbleButton(btnMove, '#818cf8');
         btnMove.onclick = (e) => {
             e.stopPropagation();
-            if (this.ctx.interactions?.universalMoveGizmo && this.target) {
-                this.ctx.interactions.universalMoveGizmo.attach(this.target);
+            e.preventDefault();
+            const moveTarget = (this.room && this.room.mesh3D) ? this.room.mesh3D : this.target;
+            if (this.ctx.interactions?.universalMoveGizmo && moveTarget) {
+                this.ctx.currentTransformMode = 'translate';
+                if (this.ctx.gizmoManager?.setTransformMode) {
+                    this.ctx.gizmoManager.setTransformMode('translate', true);
+                }
+                if (this.ctx.interactions) {
+                    this.ctx.interactions.selectedObject = moveTarget;
+                    if (this.ctx.interactions.commonController) {
+                        this.ctx.interactions.commonController.activeTool = 'move';
+                    }
+                }
+                this.ctx.interactions.universalMoveGizmo.attach(moveTarget);
             }
         };
 
         const btnCopy = document.createElement('button');
-        btnCopy.innerHTML = `❐`;
+        btnCopy.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
         btnCopy.title = 'Duplicate Room Enclosure';
         this._styleBubbleButton(btnCopy, '#a78bfa');
         btnCopy.onclick = (e) => { e.stopPropagation(); this.duplicateRoom(); };
 
         const btnDelete = document.createElement('button');
-        btnDelete.innerHTML = `🗑️`;
+        btnDelete.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
         btnDelete.title = 'Delete Room & Walls';
         this._styleBubbleButton(btnDelete, '#ef4444');
         btnDelete.onclick = (e) => { e.stopPropagation(); this.deleteRoom(); };
@@ -854,21 +873,19 @@ export class RoomInteractiveSuite extends THREE.Group {
         `;
 
         const btnDone = document.createElement('button');
-        btnDone.innerHTML = `✓`;
+        btnDone.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
         btnDone.title = 'Finish & Exit (Enter / Esc)';
         btnDone.style.cssText = `
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 24px;
-            height: 24px;
+            width: 26px;
+            height: 26px;
             padding: 0;
             border-radius: 9999px;
             border: 1px solid #10b981;
             background: #10b981;
             color: #ffffff;
-            font-size: 12px;
-            font-weight: 800;
             cursor: pointer;
             transition: all 0.15s ease;
             box-shadow: 0 1px 4px rgba(16, 185, 129, 0.4);
@@ -890,20 +907,18 @@ export class RoomInteractiveSuite extends THREE.Group {
         };
 
         const btnClose = document.createElement('button');
-        btnClose.textContent = '✕';
+        btnClose.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
         btnClose.title = 'Close (Esc)';
         btnClose.style.cssText = `
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 24px;
-            height: 24px;
+            width: 26px;
+            height: 26px;
             border-radius: 9999px;
             border: 1px solid rgba(255, 255, 255, 0.12);
             background: rgba(255, 255, 255, 0.08);
             color: #94a3b8;
-            font-size: 11px;
-            font-weight: 800;
             cursor: pointer;
             transition: all 0.15s ease;
             outline: none;
@@ -931,11 +946,20 @@ export class RoomInteractiveSuite extends THREE.Group {
         headerRight.appendChild(btnDone);
         headerRight.appendChild(btnClose);
 
+        const makeDivider = () => {
+            const d = document.createElement('div');
+            d.style.cssText = `width: 1px; height: 16px; background: rgba(255, 255, 255, 0.12); margin: 0 2px; flex-shrink: 0;`;
+            return d;
+        };
+
         mainRow.appendChild(scopeContainer);
+        mainRow.appendChild(makeDivider());
         mainRow.appendChild(this.modeSwitcherContainer);
-        mainRow.appendChild(this.btnStepDown);
-        mainRow.appendChild(this.btnStepUp);
+        mainRow.appendChild(makeDivider());
+        mainRow.appendChild(steppersContainer);
+        mainRow.appendChild(makeDivider());
         mainRow.appendChild(this.roomActionsContainer);
+        mainRow.appendChild(makeDivider());
         mainRow.appendChild(headerRight);
 
         // Row 2: Live Badge & Wall Height Presets
@@ -1186,8 +1210,8 @@ export class RoomInteractiveSuite extends THREE.Group {
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 24px;
-            height: 24px;
+            width: 26px;
+            height: 26px;
             border-radius: 9999px;
             border: 1px solid rgba(255, 255, 255, 0.12);
             background: rgba(255, 255, 255, 0.07);
@@ -1603,10 +1627,7 @@ export class RoomInteractiveSuite extends THREE.Group {
                     this.room.elevation = existingElev;
                     if (this.room.mesh3D) this.room.mesh3D.position.y = existingElev + 0.05;
                 }
-                bldgWalls.forEach(w => {
-                    w.elevation = existingElev;
-                    if (w.mesh3D) w.mesh3D.position.y = existingElev;
-                });
+                WallEngine.batchUpdate(planner, bldgWalls, { elevation: existingElev }, false);
                 (planner?.rooms || []).forEach(r => {
                     r.elevation = existingElev;
                     if (r.mesh3D) r.mesh3D.position.y = existingElev + 0.05;
@@ -1782,12 +1803,20 @@ export class RoomInteractiveSuite extends THREE.Group {
             const walls = planner.walls?.filter(w => !w.hidden && w.type !== 'railing') || [];
             if (walls.length > 0) {
                 let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                let maxThk = 20;
                 walls.forEach(w => {
                     const s = typeof w.startAnchor?.position === 'function' ? w.startAnchor.position() : w.startAnchor || { x: w.startX, y: w.startY };
                     const e = typeof w.endAnchor?.position === 'function' ? w.endAnchor.position() : w.endAnchor || { x: w.endX, y: w.endY };
                     if (s) { minX = Math.min(minX, s.x); maxX = Math.max(maxX, s.x); minY = Math.min(minY, s.y); maxY = Math.max(maxY, s.y); }
                     if (e) { minX = Math.min(minX, e.x); maxX = Math.max(maxX, e.x); minY = Math.min(minY, e.y); maxY = Math.max(maxY, e.y); }
+                    const thk = Number(w.thickness) || 20;
+                    if (thk > maxThk) maxThk = thk;
                 });
+                const halfThk = maxThk / 2;
+                minX -= halfThk;
+                maxX += halfThk;
+                minY -= halfThk;
+                maxY += halfThk;
                 if (minX !== Infinity && maxX > minX && maxY > minY) {
                     targetRooms = [{
                         id: 'bldg_foundation_bounds',
@@ -1839,17 +1868,75 @@ export class RoomInteractiveSuite extends THREE.Group {
             const rId = r.id || r._id || ('room_' + Math.round(r.cx ?? 0) + '_' + Math.round(r.cy ?? 0));
             let platform = planner.platforms.find(p => p.isBuildingFoundation && p.associatedRoomId === rId);
 
+            // Clean polygon points to remove consecutive duplicates or duplicate closing vertex
+            const raw = r.path || [];
+            const cleanPts = [];
+            for (let i = 0; i < raw.length; i++) {
+                const pt = raw[i];
+                if (!pt || typeof pt.x !== 'number' || typeof pt.y !== 'number') continue;
+                if (cleanPts.length > 0) {
+                    const prev = cleanPts[cleanPts.length - 1];
+                    if (Math.hypot(pt.x - prev.x, pt.y - prev.y) < 1e-4) continue;
+                }
+                cleanPts.push({ x: pt.x, y: pt.y });
+            }
+            if (cleanPts.length > 2 && Math.hypot(cleanPts[0].x - cleanPts[cleanPts.length - 1].x, cleanPts[0].y - cleanPts[cleanPts.length - 1].y) < 1e-4) {
+                cleanPts.pop();
+            }
+            if (cleanPts.length < 3) return;
+
+            // Compute outward offset so foundation sits flush with outer face of exterior walls (Sims 4 style)
+            const roomWalls = this._getRoomBoundingWalls(r);
+            let maxThk = 20;
+            if (roomWalls && roomWalls.length > 0) {
+                maxThk = Math.max(...roomWalls.map(w => Number(w.thickness) || 20));
+            }
+
+            const edgeOffsets = [];
+            for (let i = 0; i < cleanPts.length; i++) {
+                const p1 = cleanPts[i];
+                const p2 = cleanPts[(i + 1) % cleanPts.length];
+                const matchedWall = (roomWalls || []).find(w => {
+                    const s = typeof w.startAnchor?.position === 'function' ? w.startAnchor.position() : (w.startAnchor || { x: w.startX, y: w.startY });
+                    const e = typeof w.endAnchor?.position === 'function' ? w.endAnchor.position() : (w.endAnchor || { x: w.endX, y: w.endY });
+                    if (!s || !e) return false;
+                    const d1 = Math.hypot(s.x - p1.x, s.y - p1.y) + Math.hypot(e.x - p2.x, e.y - p2.y);
+                    const d2 = Math.hypot(s.x - p2.x, s.y - p2.y) + Math.hypot(e.x - p1.x, e.y - p1.y);
+                    return d1 < 5 || d2 < 5;
+                });
+                const thk = Number(matchedWall?.thickness) || maxThk;
+                edgeOffsets.push(thk / 2);
+            }
+
+            const expandedPath = offsetPolygon(cleanPts, edgeOffsets);
+            const usePath = (expandedPath && expandedPath.length >= 3) ? expandedPath : cleanPts;
+
             let cx = 0, cy = 0;
-            r.path.forEach(pt => { cx += pt.x; cy += pt.y; });
-            cx /= r.path.length;
-            cy /= r.path.length;
+            usePath.forEach(pt => { cx += pt.x; cy += pt.y; });
+            cx /= usePath.length;
+            cy /= usePath.length;
+
+            const foundationMaterials = {
+                top: { id: 'stone_ashlar_grey' },
+                side: { id: 'stone_ashlar_grey' }
+            };
 
             if (platform) {
+                platform.isBuildingFoundation = true;
+                platform.associatedRoomId = rId;
                 platform.height = newElev;
                 platform.elevation = 0;
                 platform.x = cx;
                 platform.y = cy;
-                platform.points = r.path.map(pt => ({ x: pt.x - cx, y: pt.y - cy }));
+                platform.points = usePath.map(pt => ({ x: pt.x - cx, y: pt.y - cy }));
+                platform.trimStyle = 'stone';
+                platform.materials = foundationMaterials;
+                if (platform.group) {
+                    platform.group.visible(false);
+                    platform.group.draggable(false);
+                    platform.group.listening(false);
+                }
+                if (platform.badgeGroup) platform.badgeGroup.visible(false);
 
                 if (builder && targetGroup) {
                     try { builder.buildPlatform(platform, targetGroup); } catch (err) {}
@@ -1860,14 +1947,13 @@ export class RoomInteractiveSuite extends THREE.Group {
                         shapeType: 'polygon',
                         x: cx,
                         y: cy,
-                        points: r.path.map(pt => ({ x: pt.x - cx, y: pt.y - cy })),
+                        points: usePath.map(pt => ({ x: pt.x - cx, y: pt.y - cy })),
                         height: newElev,
                         elevation: 0,
                         trimStyle: 'stone',
-                        materials: {
-                            top: { id: r.material || r.configId || 'wood_golden_teak' },
-                            side: { id: 'stone_ashlar_grey' }
-                        }
+                        materials: foundationMaterials,
+                        isBuildingFoundation: true,
+                        associatedRoomId: rId
                     };
                     platform = new PremiumPlatform(planner, 'platform', pParams);
                     platform.associatedRoomId = rId;
@@ -2189,37 +2275,111 @@ export class RoomInteractiveSuite extends THREE.Group {
     rotateRoom(degrees = 90) {
         if (!this.room || !this.room.path) return;
         const planner = this.planner;
+        if (!planner) return;
+
+        const roomWalls = this._getRoomBoundingWalls();
+        if (roomWalls.length === 0) return;
+
         const rad = (degrees * Math.PI) / 180;
         const cos = Math.cos(rad);
         const sin = Math.sin(rad);
-        const cx = this.room.cx || 0;
-        const cy = this.room.cy || 0;
+        let cx = this.room.cx;
+        let cy = this.room.cy;
+        if (typeof cx !== 'number' || typeof cy !== 'number' || isNaN(cx) || isNaN(cy)) {
+            cx = 0; cy = 0;
+            this.room.path.forEach(pt => { cx += pt.x; cy += pt.y; });
+            cx /= this.room.path.length;
+            cy /= this.room.path.length;
+            this.room.cx = cx;
+            this.room.cy = cy;
+        }
 
-        const roomWalls = this._getRoomBoundingWalls();
-        if (roomWalls.length === 0 || !planner) return;
+        const cmd = planner.commandManager ? new SnapshotCommand(planner) : null;
 
-        if (planner.commandManager) {
-            const cmd = new SnapshotCommand(planner);
-            const anchorSet = new Set();
-            roomWalls.forEach(w => {
-                if (w.startAnchor) anchorSet.add(w.startAnchor);
-                if (w.endAnchor) anchorSet.add(w.endAnchor);
-            });
+        // 1. Collect unique wall anchors and rotate around (cx, cy)
+        const anchorSet = new Set();
+        roomWalls.forEach(w => {
+            if (w.startAnchor) anchorSet.add(w.startAnchor);
+            if (w.endAnchor) anchorSet.add(w.endAnchor);
+        });
 
-            anchorSet.forEach(a => {
-                const pos = typeof a.position === 'function' ? a.position() : a;
-                const rx = cx + (pos.x - cx) * cos - (pos.y - cy) * sin;
-                const ry = cy + (pos.x - cx) * sin + (pos.y - cy) * cos;
-                WallEngine.moveAnchor(a, { x: rx, y: ry }, planner, false);
-            });
+        anchorSet.forEach(a => {
+            const pos = typeof a.position === 'function' ? a.position() : a;
+            const rx = Math.round(cx + (pos.x - cx) * cos - (pos.y - cy) * sin);
+            const ry = Math.round(cy + (pos.x - cx) * sin + (pos.y - cy) * cos);
+            WallEngine.moveAnchor(a, { x: rx, y: ry }, planner, false);
+        });
+        WallEngine.sync(planner);
 
-            planner.syncAll();
-            if (planner.update3D) planner.update3D();
+        // 2. Rotate associated foundation and interior platforms
+        const rId = this.room.id || this.room._id;
+        const associatedPlatforms = (planner.platforms || []).filter(p => p.associatedRoomId === rId);
+        associatedPlatforms.forEach(p => {
+            const oldPx = p.x ?? cx;
+            const oldPy = p.y ?? cy;
+            p.x = Math.round(cx + (oldPx - cx) * cos - (oldPy - cy) * sin);
+            p.y = Math.round(cy + (oldPx - cx) * sin + (oldPy - cy) * cos);
+            if (Array.isArray(p.points)) {
+                p.points = p.points.map(pt => ({
+                    x: Math.round(pt.x * cos - pt.y * sin),
+                    y: Math.round(pt.x * sin + pt.y * cos)
+                }));
+            }
+            if (p.mesh3D) {
+                p.mesh3D.position.x = p.x;
+                p.mesh3D.position.z = p.y;
+            }
+            p.rotation = ((p.rotation || 0) + degrees) % 360;
+        });
+
+        // 3. Update canonical room path
+        this.room.path = this.room.path.map(pt => ({
+            x: Math.round(cx + (pt.x - cx) * cos - (pt.y - cy) * sin),
+            y: Math.round(cy + (pt.x - cx) * sin + (pt.y - cy) * cos)
+        }));
+
+        // 4. Full 2D topology & room detection sync
+        planner.syncAll();
+        if (typeof planner.detectRooms === 'function') {
+            planner.detectRooms();
+        }
+
+        // Rebind to updated canonical room if available
+        const updatedRoom = (planner.rooms || []).find(r => Math.hypot((r.cx ?? 0) - cx, (r.cy ?? 0) - cy) < 40)
+            || this.room;
+        if (updatedRoom !== this.room) {
+            updatedRoom.elevation = this.room.elevation;
+            updatedRoom.wallHeight = this.room.wallHeight;
+            updatedRoom.platformHeight = this.room.platformHeight;
+            this.room = updatedRoom;
+            if (updatedRoom.mesh3D) this.target = updatedRoom.mesh3D;
+        }
+
+        // 5. Rebuild 3D walls, active floor, and platforms
+        this._syncWalls3D(roomWalls);
+        if (typeof this.ctx.rebuildActiveFloors === 'function') {
+            this.ctx.rebuildActiveFloors();
+        } else if (typeof this.ctx.updateFloorsLive === 'function') {
+            this.ctx.updateFloorsLive();
+        } else if (this.ctx.envBuilder?.buildActiveFloor) {
+            this.ctx.envBuilder.buildActiveFloor(planner.walls, planner.rooms, planner.shapes);
+        }
+
+        const elev = Number(this.room.elevation) || 0;
+        if (elev > 0) {
+            this._syncFoundationPlatforms(elev);
+        }
+        if (this.room.platformHeight) {
+            this._syncInteriorPlatforms(this.room.platformHeight);
+        }
+
+        if (cmd && planner.commandManager) {
             cmd.finalize();
             planner.commandManager.execute(cmd);
         }
 
         this.update();
+        if (this.ctx.requestRender) this.ctx.requestRender('room_rotated');
     }
 
     duplicateRoom() {
@@ -2295,31 +2455,23 @@ export class RoomInteractiveSuite extends THREE.Group {
         const targetWalls = planner.walls.filter(w => !w.hidden && w.type !== 'railing');
         if (targetWalls.length === 0) return;
 
+        const validH = WallHeightPolicy.clamp(height);
         if (this.room) {
-            this.room.wallHeight = height;
+            this.room.wallHeight = validH;
         }
 
         if (planner.commandManager) {
             const cmd = new SnapshotCommand(planner);
-            WallEngine.batchUpdate(planner, targetWalls, { height });
+            WallEngine.batchUpdate(planner, targetWalls, { height: validH });
             cmd.finalize();
             planner.commandManager.execute(cmd);
         } else {
-            WallEngine.batchUpdate(planner, targetWalls, { height });
+            WallEngine.batchUpdate(planner, targetWalls, { height: validH });
         }
-
-        targetWalls.forEach(w => {
-            w.height = height;
-            if (w.config) w.config.height = height;
-            if (!w.topProfileType || w.topProfileType === 'normal') {
-                if (w.startHeight !== undefined) w.startHeight = height;
-                if (w.endHeight !== undefined) w.endHeight = height;
-            }
-        });
 
         // Synchronize all planner rooms
         (planner.rooms || []).forEach(r => {
-            r.wallHeight = height;
+            r.wallHeight = validH;
         });
 
         this._syncWalls3D(targetWalls);

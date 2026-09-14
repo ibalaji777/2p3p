@@ -7,6 +7,8 @@ import { advance_openings } from '../../core/engine2d/advance_openings.js';
 import { WallSerializer } from './wall.serializer.js';
 import { WallEngine } from '../../core/wall/WallEngine.js';
 import { WallGeometryEngine } from '../../core/wall/WallGeometryEngine.js';
+import { WallHeightPolicy } from '../../core/wall/WallHeightPolicy.js';
+import { WallHeightTransaction } from '../../core/wall/WallHeightTransaction.js';
 
 export class PremiumWall {
     constructor(planner, startAnchor, endAnchor, type = "outer") {
@@ -140,6 +142,31 @@ export class PremiumWall {
         this.entranceText = new Konva.Text({ fill: 'white', padding: 4, fontSize: 10, fontStyle: 'bold' });
         this.entranceGroup.add(this.entranceBg, this.entranceText);
         this.planner.uiLayer.add(this.entranceGroup);
+
+        // Interactive 2D Wall Raiser Handle Overlay
+        this.raiserGroup = new Konva.Group({ visible: false });
+        this.raiserHit = new Konva.Rect({ fill: 'transparent' });
+        this.raiserBg = new Konva.Rect({
+            fill: '#1e293b',
+            stroke: '#3b82f6',
+            strokeWidth: 1.5,
+            cornerRadius: 10,
+            shadowColor: 'rgba(0, 0, 0, 0.4)',
+            shadowBlur: 6,
+            shadowOffset: { x: 0, y: 2 }
+        });
+        this.raiserText = new Konva.Text({
+            fill: '#ffffff',
+            fontSize: 10,
+            fontStyle: 'bold',
+            align: 'center',
+            padding: 5
+        });
+        this.raiserGroup.add(this.raiserHit, this.raiserBg, this.raiserText);
+        if (this.planner?.uiLayer) {
+            this.planner.uiLayer.add(this.raiserGroup);
+        }
+
         this.initEvents(); this.update();
     }
     
@@ -155,12 +182,20 @@ export class PremiumWall {
             this.poly.shadowBlur(5);
             this.poly.shadowOpacity(0.3);
             this.poly.shadowOffset({ x: 0, y: 0 });
+            if (this.raiserGroup && !this.hidden && this.type !== 'railing') {
+                this.positionRaiserHandle();
+                this.updateRaiserBadge(this.height);
+                this.raiserGroup.visible(true);
+            }
         } else {
             this.poly.fill(this.hidden ? '#cbd5e1' : this.fillColor);
             this.poly.stroke(this.hidden ? '#475569' : this.strokeColor);
             this.poly.strokeWidth(1.5);
             this.poly.shadowBlur(0);
             this.poly.shadowOpacity(0);
+            if (this.raiserGroup) {
+                this.raiserGroup.visible(false);
+            }
         }
         this.planner.stage.batchDraw(); 
     }
@@ -579,6 +614,69 @@ export class PremiumWall {
             this.planner.syncAll(); 
         }); 
         this.poly.on('dragend', () => { this.planner.selectEntity(this.planner.selectedEntity, this.planner.selectedType, this.planner.selectedNodeIndex); });
+
+        if (this.raiserGroup) {
+            this.raiserGroup.on('mouseenter', () => {
+                document.body.style.cursor = 'ns-resize';
+                if (this.raiserBg) this.raiserBg.fill('#2563eb');
+                if (this.planner?.stage) this.planner.stage.batchDraw();
+            });
+            this.raiserGroup.on('mouseleave', () => {
+                if (!this._isRaiserDragging) {
+                    document.body.style.cursor = 'default';
+                    if (this.raiserBg) this.raiserBg.fill('#1e293b');
+                    if (this.planner?.stage) this.planner.stage.batchDraw();
+                }
+            });
+            this.raiserGroup.on('mousedown touchstart', (e) => {
+                e.cancelBubble = true;
+                if (e.evt) e.evt.stopPropagation();
+                
+                this._isRaiserDragging = true;
+                document.body.style.cursor = 'ns-resize';
+                if (this.raiserBg) this.raiserBg.fill('#2563eb');
+                
+                const startEvt = e.evt || {};
+                const startY = (startEvt.touches ? startEvt.touches[0].clientY : startEvt.clientY) || 0;
+                const startH = this.height !== undefined ? this.height : WallHeightPolicy.DEFAULT_HEIGHT;
+                
+                const tx = new WallHeightTransaction(this.planner);
+                tx.begin(this, 'wall');
+                
+                const onPointerMove = (moveEvt) => {
+                    if (!this._isRaiserDragging) return;
+                    const currentY = (moveEvt.touches ? moveEvt.touches[0].clientY : moveEvt.clientY) || 0;
+                    const deltaY = currentY - startY;
+                    const snapStep = moveEvt.shiftKey ? WallHeightPolicy.SNAP_FINE : WallHeightPolicy.SNAP_DRAG;
+                    const rawH = startH - deltaY;
+                    const validH = tx.update(rawH, { snapStep });
+                    this.updateRaiserBadge(validH);
+                    if (this.planner?.stage) this.planner.stage.batchDraw();
+                    if (this.planner?.renderer3D && typeof this.planner.renderer3D.requestRender === 'function') {
+                        this.planner.renderer3D.requestRender();
+                    }
+                };
+                
+                const onPointerUp = () => {
+                    if (!this._isRaiserDragging) return;
+                    this._isRaiserDragging = false;
+                    document.body.style.cursor = 'default';
+                    if (this.raiserBg) this.raiserBg.fill('#1e293b');
+                    window.removeEventListener('pointermove', onPointerMove);
+                    window.removeEventListener('pointerup', onPointerUp);
+                    window.removeEventListener('touchmove', onPointerMove);
+                    window.removeEventListener('touchend', onPointerUp);
+                    tx.commit();
+                    this.update();
+                    if (this.planner?.stage) this.planner.stage.batchDraw();
+                };
+                
+                window.addEventListener('pointermove', onPointerMove);
+                window.addEventListener('pointerup', onPointerUp);
+                window.addEventListener('touchmove', onPointerMove, { passive: false });
+                window.addEventListener('touchend', onPointerUp);
+            });
+        }
     }
     
     getClosestT(pos) { const p1 = WallGeometryEngine.getAnchorPosition(this.startAnchor), p2 = WallGeometryEngine.getAnchorPosition(this.endAnchor), dx = p2.x - p1.x, dy = p2.y - p1.y, lenSq = dx*dx + dy*dy; if (lenSq === 0) return 0.5; let t = ((pos.x - p1.x) * dx + (pos.y - p1.y) * dy) / lenSq; return Math.max(0, Math.min(1, t)); }
@@ -756,6 +854,17 @@ export class PremiumWall {
         this.labelGroup.rotation(-(this.planner.settings?.houseRotation || 0));
         this.labelGroup.visible(this.planner.settings ? this.planner.settings.showDimensionLabels : true);
 
+        // --- Add Interactive 2D Wall Raiser Overlay ---
+        if (this.raiserGroup) {
+            if (isSel && !this.hidden && this.type !== 'railing') {
+                this.positionRaiserHandle();
+                this.updateRaiserBadge(this.height);
+                this.raiserGroup.visible(true);
+            } else {
+                this.raiserGroup.visible(false);
+            }
+        }
+
         // --- Add Wall Profile (Sloped/Gable) Visualization ---
         this.profileIndicators.destroyChildren();
         if (this.topProfileType === 'gable' || this.topProfileType === 'single') {
@@ -892,7 +1001,45 @@ export class PremiumWall {
         }
     } 
 
+    positionRaiserHandle() {
+        if (!this.raiserGroup) return;
+        const p1 = WallGeometryEngine.getAnchorPosition(this.startAnchor);
+        const p2 = WallGeometryEngine.getAnchorPosition(this.endAnchor);
+        const midX = (p1.x + p2.x) / 2;
+        const midY = (p1.y + p2.y) / 2;
+        const n = WallGeometryEngine.getNormal(this);
+        const halfThick = (this.thickness || 20) / 2;
+        const pillDist = halfThick + 20;
+        
+        this.raiserGroup.position({
+            x: midX + n.x * pillDist,
+            y: midY + n.y * pillDist
+        });
+        this.raiserGroup.rotation(-(this.planner?.settings?.houseRotation || 0));
+    }
+
+    updateRaiserBadge(h) {
+        if (!this.raiserText || !this.raiserBg) return;
+        const currentH = Math.round(h !== undefined ? h : (this.height || WallHeightPolicy.DEFAULT_HEIGHT));
+        this.raiserText.text(`▲ ${currentH} cm ▼`);
+        const pad = 5;
+        const w = this.raiserText.width() + pad * 2;
+        const ht = this.raiserText.height() + pad * 2;
+        this.raiserBg.width(w);
+        this.raiserBg.height(ht);
+        if (this.raiserHit) {
+            this.raiserHit.width(w + 14);
+            this.raiserHit.height(ht + 14);
+            this.raiserHit.position({ x: -7, y: -7 });
+        }
+        this.raiserGroup.offset({ x: w / 2, y: ht / 2 });
+    }
+
     destroy() { 
+        if (this.raiserGroup) {
+            this.raiserGroup.destroy();
+            this.raiserGroup = null;
+        }
         WallEngine.deleteWall(this.planner, this);
     } 
 

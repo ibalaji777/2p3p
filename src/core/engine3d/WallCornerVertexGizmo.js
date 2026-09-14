@@ -3,6 +3,7 @@ import { EVENTS } from '../constants/events.js';
 import { coreEventBus } from '../EventBus.js';
 import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { WallEngine } from '../wall/WallEngine.js';
+import { WallHeightPolicy } from '../wall/WallHeightPolicy.js';
 
 /**
  * WallCornerVertexGizmo (Edge / Point Move - Panel #2)
@@ -446,7 +447,7 @@ export class WallCornerVertexGizmo extends THREE.Group {
 
                     if (this.activeHandle.handleType === 'top_edge_height') {
                         // Dragging top edge: Uniform overall height
-                        const newH = Math.max(20, Math.round((this.initialH + deltaY) / step) * step);
+                        const newH = WallHeightPolicy.processDragHeight(this.initialH + deltaY, 5);
                         WallEngine.setHeight(wall, newH, false, planner);
                         if (wall.topProfileType && wall.topProfileType !== 'normal') {
                             WallEngine.setTopProfile(wall, wall.topProfileType, {
@@ -460,7 +461,7 @@ export class WallCornerVertexGizmo extends THREE.Group {
                         }
                     } else if (this.activeHandle.handleType === 'start_slope_height') {
                         // Dragging start corner top vertex: Adjust startHeight
-                        const newStartH = Math.max(10, Math.round((this.initialStartH + deltaY) / step) * step);
+                        const newStartH = WallHeightPolicy.processDragHeight(this.initialStartH + deltaY, 5);
                         WallEngine.setTopProfile(wall, 'single', {
                             startHeight: newStartH,
                             endHeight: wall.endHeight !== undefined ? wall.endHeight : this.initialH
@@ -471,7 +472,7 @@ export class WallCornerVertexGizmo extends THREE.Group {
                         }
                     } else if (this.activeHandle.handleType === 'end_slope_height') {
                         // Dragging end corner top vertex: Adjust endHeight
-                        const newEndH = Math.max(10, Math.round((this.initialEndH + deltaY) / step) * step);
+                        const newEndH = WallHeightPolicy.processDragHeight(this.initialEndH + deltaY, 5);
                         WallEngine.setTopProfile(wall, 'single', {
                             startHeight: wall.startHeight !== undefined ? wall.startHeight : this.initialH,
                             endHeight: newEndH
@@ -584,7 +585,8 @@ export class WallCornerVertexGizmo extends THREE.Group {
             if (planner) {
                 if (typeof planner.syncAll === 'function') planner.syncAll();
                 if (planner.commandManager && this._snapshotCmd) {
-                    planner.commandManager.execute(this._snapshotCmd);
+                    const changed = this._snapshotCmd.finalize();
+                    if (changed) planner.commandManager.execute(this._snapshotCmd);
                     this._snapshotCmd = null;
                 }
             }

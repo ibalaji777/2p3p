@@ -61,6 +61,8 @@ export class PremiumPlatform {
         this.mesh3D = null;
         this.isDragging = false;
         this.attachedWall = null;
+        this.isBuildingFoundation = Boolean(params.isBuildingFoundation);
+        this.associatedRoomId = params.associatedRoomId || null;
 
         this._initKonva();
     }
@@ -74,7 +76,9 @@ export class PremiumPlatform {
             x: this.x,
             y: this.y,
             rotation: this.rotation,
-            draggable: true,
+            draggable: !this.isBuildingFoundation,
+            listening: !this.isBuildingFoundation,
+            visible: !this.isBuildingFoundation,
             name: 'platform-group'
         });
 
@@ -239,6 +243,7 @@ export class PremiumPlatform {
         });
 
         this.group.on('mousedown touchstart', (e) => {
+            if (this.isBuildingFoundation) return;
             this.group.moveToTop();
             if (this.planner?.tool === 'select') {
                 e.cancelBubble = true;
@@ -406,6 +411,17 @@ export class PremiumPlatform {
     /* -------------------------------------------------------------------------- */
 
     update() {
+        if (this.isBuildingFoundation) {
+            if (this.group) {
+                this.group.visible(false);
+                this.group.listening(false);
+                this.group.draggable(false);
+            }
+            if (this.badgeGroup) this.badgeGroup.visible(false);
+            if (this.group?.layer) this.group.layer.batchDraw();
+            return;
+        }
+
         this.isSunken = this.height < 0;
         const colorBorder = this.isSunken ? '#ef4444' : '#d97706';
         const colorFill = this.isSunken ? 'rgba(239, 68, 68, 0.22)' : 'rgba(245, 158, 11, 0.22)';
@@ -541,7 +557,9 @@ export class PremiumPlatform {
             y: this.y,
             points: (this.points || []).map(p => ({ x: p.x, y: p.y })),
             fill: this.fill,
-            stroke: this.stroke
+            stroke: this.stroke,
+            isBuildingFoundation: Boolean(this.isBuildingFoundation),
+            associatedRoomId: this.associatedRoomId || null
         };
     }
 

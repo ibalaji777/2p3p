@@ -13,7 +13,7 @@
 
 import * as THREE from 'three';
 import { ObjectCapabilityEvaluator } from './tools/ObjectCapabilityEvaluator.js';
-import { isFloorAnchoredDoor } from '../wall/WallEngine.js';
+import { WallEngine, isFloorAnchoredDoor } from '../wall/WallEngine.js';
 import { StairHeightDetector } from '../../features/stairs/StairHeightDetector.js';
 
 export class UniversalMoveGizmo extends THREE.Group {
@@ -122,6 +122,45 @@ export class UniversalMoveGizmo extends THREE.Group {
                 elevation: entity.elevation !== undefined ? entity.elevation : mesh.position.y,
                 t: entity.t !== undefined ? entity.t : 0.5
             };
+        }
+
+        const isRoom = Boolean(mesh.userData?.isFloor || mesh.userData?.isRoomFloor || (entity && entity.path));
+        if (isRoom && entity) {
+            this.isRoomMove = true;
+            const planner = this.ctx.planner || window.planner?.value || window.planner || window.plannerInstance;
+            const allWalls = planner?.walls?.filter(w => !w.hidden && w.type !== 'railing') || [];
+            const suite = this.ctx.interactions?.roomInteractiveSuite;
+            const matchedWalls = (suite && typeof suite._getRoomBoundingWalls === 'function')
+                ? suite._getRoomBoundingWalls(entity)
+                : allWalls.filter(w => {
+                    const s = typeof w.startAnchor?.position === 'function' ? w.startAnchor.position() : (w.startAnchor || { x: w.startX, y: w.startY });
+                    const e = typeof w.endAnchor?.position === 'function' ? w.endAnchor.position() : (w.endAnchor || { x: w.endX, y: w.endY });
+                    return (entity.path || []).some(p => Math.hypot(p.x - s.x, p.y - s.y) < 2 || Math.hypot(p.x - e.x, p.y - e.y) < 2);
+                });
+
+            const anchorSet = new Set();
+            matchedWalls.forEach(w => {
+                if (w.startAnchor) anchorSet.add(w.startAnchor);
+                if (w.endAnchor) anchorSet.add(w.endAnchor);
+            });
+
+            const rId = entity.id || entity._id;
+            this.roomMoveData = {
+                room: entity,
+                walls: matchedWalls,
+                anchors: Array.from(anchorSet).map(a => {
+                    const p = typeof a.position === 'function' ? a.position() : a;
+                    return { anchor: a, startX: p.x, startY: p.y };
+                }),
+                platforms: (planner?.platforms || []).filter(p => p.associatedRoomId === rId).map(p => ({
+                    platform: p,
+                    startX: p.x,
+                    startY: p.y
+                }))
+            };
+        } else {
+            this.isRoomMove = false;
+            this.roomMoveData = null;
         }
 
         // Build 3D Move Handles
@@ -331,12 +370,22 @@ export class UniversalMoveGizmo extends THREE.Group {
                 }
             }
 
+            // 2b. Check if clicked on any bounding walls of the attached room
+            if (!handleName && this.isRoomMove && this.roomMoveData?.walls) {
+                const wallMeshes = this.roomMoveData.walls.map(w => w.mesh3D).filter(Boolean);
+                const wallIntersects = this.raycaster.intersectObjects(wallMeshes, true);
+                if (wallIntersects.length > 0) {
+                    handleName = 'handle_center';
+                }
+            }
+
             if (handleName && this.attachedObject) {
                 this.isDragging = true;
                 this.activeHandle = handleName.replace('handle_', ''); // 'center' | 'x' | 'z' | 'y'
 
                 // Disable camera controls immediately during object translation
                 if (this.ctx.controls) this.ctx.controls.enabled = false;
+                if (this.ctx.cameraController?.controls) this.ctx.cameraController.controls.enabled = false;
                 if (this.ctx.cameraController && typeof this.ctx.cameraController.disableOrbit === 'function') {
                     this.ctx.cameraController.disableOrbit();
                 }
@@ -384,6 +433,7 @@ export class UniversalMoveGizmo extends THREE.Group {
                 }
 
                 e.stopPropagation();
+                if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
                 e.preventDefault();
             }
         };
@@ -469,6 +519,7 @@ export class UniversalMoveGizmo extends THREE.Group {
                 } catch (_) {}
 
                 if (this.ctx.controls) this.ctx.controls.enabled = true;
+                if (this.ctx.cameraController?.controls) this.ctx.cameraController.controls.enabled = true;
                 if (this.ctx.cameraController && typeof this.ctx.cameraController.enableOrbit === 'function') {
                     this.ctx.cameraController.enableOrbit();
                 }
@@ -486,7 +537,7 @@ export class UniversalMoveGizmo extends THREE.Group {
             }
         };
 
-        dom.addEventListener('pointerdown', this._onPointerDown);
+        dom.addEventListener('pointerdown', this._onPointerDown, { capture: true, passive: false });
         window.addEventListener('pointermove', this._onPointerMove);
         window.addEventListener('pointerup', this._onPointerUp);
     }
@@ -539,7 +590,41 @@ export class UniversalMoveGizmo extends THREE.Group {
                 bbox.getCenter(center);
                 this.position.set(center.x, bbox.min.y + 0.05, center.z);
             }
+        } else if (this.isRoomMove && this.roomMoveData) {
+            const dx = delta.x;
+            const dy = delta.z;
+            const planner = this.ctx.planner || window.planner?.value || window.planner || window.plannerInstance;
+
+            // Translate all unique bounding wall anchors
+            this.roomMoveData.anchors.forEach(a => {
+                WallEngine.moveAnchor(a.anchor, { x: Math.round(a.startX + dx), y: Math.round(a.startY + dy) }, planner, false);
+            });
+
+            // Translate associated room platforms
+            this.roomMoveData.platforms.forEach(p => {
+                p.platform.x = Math.round(p.startX + dx);
+                p.platform.y = Math.round(p.startY + dy);
+                if (p.platform.mesh3D) {
+                    p.platform.mesh3D.position.x = p.platform.x;
+                    p.platform.mesh3D.position.z = p.platform.y;
+                }
+            });
+
+            // Live-update 3D wall meshes
+            if (this.ctx.interactions?.roomInteractiveSuite) {
+                this.ctx.interactions.roomInteractiveSuite._syncWalls3D(this.roomMoveData.walls);
+            }
+
+            // Translate floor mesh position live
+            this.attachedObject.position.x = this.startMeshPos.x + dx;
+            this.attachedObject.position.z = this.startMeshPos.z + dy;
+            this.attachedObject.updateMatrixWorld(true);
+
+            // Keep gizmo centered
+            this.position.set(this.startGizmoPos.x + dx, this.startGizmoPos.y, this.startGizmoPos.z + dy);
+            return;
         }
+
         // 2. Free Planar Objects (Furniture, Shapes, Stairs, Roofs, Elevation Elements)
         else {
             const newX = this.startMeshPos.x + delta.x;
@@ -634,6 +719,68 @@ export class UniversalMoveGizmo extends THREE.Group {
     _commitTranslationToPlanner() {
         if (!this.attachedEntity) return;
         const ent = this.attachedEntity;
+
+        if (this.isRoomMove && this.roomMoveData) {
+            const planner = this.ctx.planner || window.planner?.value || window.planner || window.plannerInstance;
+            const dx = Math.round(this.position.x - this.startGizmoPos.x);
+            const dy = Math.round(this.position.z - this.startGizmoPos.z);
+
+            if (this.roomMoveData.room && Array.isArray(this.roomMoveData.room.path) && (dx !== 0 || dy !== 0)) {
+                this.roomMoveData.room.path = this.roomMoveData.room.path.map(p => ({
+                    x: p.x + dx,
+                    y: p.y + dy
+                }));
+                if (typeof this.roomMoveData.room.cx === 'number') this.roomMoveData.room.cx += dx;
+                if (typeof this.roomMoveData.room.cy === 'number') this.roomMoveData.room.cy += dy;
+            }
+
+            // Reset floor mesh translation so rebuilt floor geometry does not receive double offset
+            if (this.attachedObject) {
+                this.attachedObject.position.x = 0;
+                this.attachedObject.position.z = 0;
+            }
+
+            if (planner) {
+                WallEngine.sync(planner);
+                planner.syncAll();
+                if (typeof planner.detectRooms === 'function') planner.detectRooms();
+            }
+
+            if (typeof this.ctx.rebuildActiveFloors === 'function') {
+                this.ctx.rebuildActiveFloors();
+            } else if (typeof this.ctx.updateFloorsLive === 'function') {
+                this.ctx.updateFloorsLive();
+            } else if (this.ctx.envBuilder?.buildActiveFloor) {
+                this.ctx.envBuilder.buildActiveFloor(planner.walls, planner.rooms, planner.shapes);
+            }
+
+            // Update start anchors & platforms for consecutive moves without re-attaching
+            this.startGizmoPos.copy(this.position);
+            this.startMeshPos.copy(this.attachedObject.position);
+            this.roomMoveData.anchors.forEach(a => {
+                const p = typeof a.anchor?.position === 'function' ? a.anchor.position() : a.anchor;
+                if (p) {
+                    a.startX = p.x;
+                    a.startY = p.y;
+                }
+            });
+            this.roomMoveData.platforms.forEach(p => {
+                p.startX = p.platform.x;
+                p.startY = p.platform.y;
+            });
+
+            if (this.ctx.interactions?.roomInteractiveSuite) {
+                const suite = this.ctx.interactions.roomInteractiveSuite;
+                const rElev = Number(this.roomMoveData.room?.elevation) || 0;
+                if (rElev > 0 && typeof suite._syncFoundationPlatforms === 'function') {
+                    suite._syncFoundationPlatforms(rElev);
+                }
+                suite.update();
+            }
+            if (this.ctx.requestRender) this.ctx.requestRender('room_moved');
+            return;
+        }
+
         const id = ent.id || (ent.group && typeof ent.group.id === 'function' ? ent.group.id() : null);
         const plannerInst = window.planner?.value || window.planner || window.plannerInstance;
 
@@ -1022,6 +1169,12 @@ export class UniversalMoveGizmo extends THREE.Group {
 
     dispose() {
         this.detach();
+        const dom = this.ctx.renderer?.domElement || window;
+        if (this._onPointerDown && dom.removeEventListener) {
+            dom.removeEventListener('pointerdown', this._onPointerDown, { capture: true });
+        }
+        if (this._onPointerMove) window.removeEventListener('pointermove', this._onPointerMove);
+        if (this._onPointerUp) window.removeEventListener('pointerup', this._onPointerUp);
         if (this.hudPanel && this.hudPanel.parentNode) {
             this.hudPanel.parentNode.removeChild(this.hudPanel);
         }

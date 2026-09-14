@@ -1,17 +1,19 @@
 import * as THREE from 'three';
 import { EVENTS } from '../constants/events.js';
 import { coreEventBus } from '../EventBus.js';
-import { SnapshotCommand } from '../commands/SnapshotCommand.js';
 import { WallEngine } from '../wall/WallEngine.js';
-import { getRoomWallsAndSides, getRoomForWallFace } from './WallPaintSystem.js';
+import { WallHeightPolicy } from '../wall/WallHeightPolicy.js';
+import { WallConnectivity } from '../wall/WallConnectivity.js';
+import { WallHeightTransaction } from '../wall/WallHeightTransaction.js';
 
 /**
  * WallHeightGizmo
  * 
- * Provides interactive Sims 4-style 3D height & slope handles:
- * 1. Center-Top Vertical Arrow: Adjusts overall wall height (w.height).
+ * Provides interactive 3D height & slope handles:
+ * 1. Center-Top Vertical Arrow: Adjusts overall wall height (w.height) with live HUD feedback.
  * 2. Left-Top & Right-Top Handles: Adjusts independent sloped top heights (startHeight, endHeight).
- * 3. Center-Apex Handle: Adjusts gable peak height (peakHeight).
+ * 3. Unified WallHeightTransaction with guaranteed atomic Undo/Redo (SnapshotCommand finalize).
+ * 4. Camera-distance scaling and mobile-friendly touch targets.
  */
 export class WallHeightGizmo extends THREE.Group {
     constructor(ctx) {
@@ -27,8 +29,11 @@ export class WallHeightGizmo extends THREE.Group {
         this.activeHandle = null;
         this.dragPlane = new THREE.Plane();
         this.dragStartPoint = new THREE.Vector3();
-        this.initialH = 120;
+        this.initialH = WallHeightPolicy.DEFAULT_HEIGHT;
+        this.initialStartH = WallHeightPolicy.DEFAULT_HEIGHT;
+        this.initialEndH = WallHeightPolicy.DEFAULT_HEIGHT;
         this._capturedPointerId = null;
+        this.transaction = null;
         
         this.handles = new THREE.Group();
         this.handles.name = 'WallHeight_Handles';
@@ -39,19 +44,98 @@ export class WallHeightGizmo extends THREE.Group {
         this.matSlope = new THREE.MeshBasicMaterial({ color: 0xf59e0b, depthTest: false, transparent: true, opacity: 0.95 });
         this.matHover = new THREE.MeshBasicMaterial({ color: 0xfacc15, depthTest: false, transparent: true, opacity: 1.0 });
         this.matActive = new THREE.MeshBasicMaterial({ color: 0x22c55e, depthTest: false, transparent: true, opacity: 1.0 });
+
+        this._createLiveBadge();
         
         this._onPointerDown = this._onPointerDown.bind(this);
         this._onPointerMove = this._onPointerMove.bind(this);
         this._onPointerUp = this._onPointerUp.bind(this);
+        this._onCameraChange = this._onCameraChange.bind(this);
         
-        const dom = this.ctx.renderer.domElement;
-        dom.addEventListener('pointerdown', this._onPointerDown, { passive: false });
-        dom.addEventListener('pointermove', this._onPointerMove, { passive: false });
-        dom.addEventListener('pointerup', this._onPointerUp, { passive: false });
+        const dom = this.ctx.renderer?.domElement;
+        if (dom) {
+            dom.addEventListener('pointerdown', this._onPointerDown, { passive: false });
+            dom.addEventListener('pointermove', this._onPointerMove, { passive: false });
+            dom.addEventListener('pointerup', this._onPointerUp, { passive: false });
+        }
+
+        if (this.ctx.controls) {
+            this.ctx.controls.addEventListener('change', this._onCameraChange);
+        }
+    }
+
+    _createLiveBadge() {
+        if (typeof document === 'undefined') return;
+        this.domBadge = document.createElement('div');
+        this.domBadge.className = 'sims4-wallheight-badge';
+        this.domBadge.style.cssText = `
+            position: fixed;
+            display: none;
+            transform: translate(-50%, -100%);
+            padding: 5px 12px;
+            border-radius: 9999px;
+            background: rgba(15, 23, 42, 0.94);
+            border: 2px solid #10b981;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 0 16px rgba(16, 185, 129, 0.4);
+            color: #ffffff;
+            font-family: 'Inter', -apple-system, sans-serif;
+            font-size: 13px;
+            font-weight: 800;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 100005;
+            user-select: none;
+            backdrop-filter: blur(8px);
+        `;
+        document.body.appendChild(this.domBadge);
+    }
+
+    _updateBadgeText(text, clientX = null, clientY = null) {
+        if (!this.domBadge) return;
+        this.domBadge.textContent = text;
+        this.domBadge.style.display = 'block';
+
+        if (clientX !== null && clientY !== null) {
+            this.domBadge.style.left = `${clientX}px`;
+            this.domBadge.style.top = `${clientY - 18}px`;
+        } else if (this.centerHandleGroup && this.ctx.camera && this.ctx.renderer) {
+            const worldPos = new THREE.Vector3();
+            this.centerHandleGroup.getWorldPosition(worldPos);
+            worldPos.y += 10;
+            worldPos.project(this.ctx.camera);
+            const dom = this.ctx.renderer.domElement;
+            const rect = dom.getBoundingClientRect();
+            const x = (worldPos.x * 0.5 + 0.5) * rect.width + rect.left;
+            const y = (-(worldPos.y * 0.5) + 0.5) * rect.height + rect.top;
+            this.domBadge.style.left = `${Math.round(x)}px`;
+            this.domBadge.style.top = `${Math.round(y)}px`;
+        }
+    }
+
+    _hideBadge() {
+        if (this.domBadge) this.domBadge.style.display = 'none';
+    }
+
+    _onCameraChange() {
+        if (this.visible) {
+            this._updateHandleScales();
+        }
+    }
+
+    _updateHandleScales() {
+        if (!this.ctx.camera) return;
+        const cam = this.ctx.camera;
+        this.handles.children.forEach(group => {
+            const worldPos = new THREE.Vector3();
+            group.getWorldPosition(worldPos);
+            const dist = cam.position.distanceTo(worldPos);
+            const scale = Math.max(0.5, Math.min(2.5, dist / 320));
+            group.scale.set(scale, scale, scale);
+        });
     }
 
     updateMouse(e) {
-        const dom = this.ctx.renderer.domElement;
+        const dom = this.ctx.renderer?.domElement;
         if (!dom) return;
         const rect = dom.getBoundingClientRect();
         this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -72,6 +156,7 @@ export class WallHeightGizmo extends THREE.Group {
         this.visible = false;
         this.isDragging = false;
         this.activeHandle = null;
+        this._hideBadge();
         while (this.handles.children.length > 0) {
             const c = this.handles.children[0];
             this.handles.remove(c);
@@ -103,7 +188,7 @@ export class WallHeightGizmo extends THREE.Group {
         const midX = (p1.x + p2.x) / 2;
         const midZ = (p1.y + p2.y) / 2;
         const wallBaseY = (wall.elevation || 0);
-        const wallH = (wall.height !== undefined ? wall.height : (wall.config?.height || 120));
+        const wallH = (wall.height !== undefined ? wall.height : WallHeightPolicy.resolveDefault(wall));
         const startH = (wall.startHeight !== undefined ? wall.startHeight : wallH);
         const endH = (wall.endHeight !== undefined ? wall.endHeight : wallH);
         const peakH = (wall.peakHeight !== undefined ? wall.peakHeight : wallH);
@@ -113,7 +198,14 @@ export class WallHeightGizmo extends THREE.Group {
         const centerGroup = new THREE.Group();
         centerGroup.position.set(midX, wallBaseY + (profileType === 'gable' ? peakH : wallH) + 6, midZ);
         centerGroup.userData = { isWallHeightHandle: true, handleType: 'uniform_height' };
+        this.centerHandleGroup = centerGroup;
         
+        // Generous invisible hit collider for touch/mobile
+        const hitGeo = new THREE.CylinderGeometry(14, 14, 30, 12);
+        const hitMesh = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial({ visible: false }));
+        hitMesh.userData = { isWallHeightHandle: true, handleType: 'uniform_height' };
+        centerGroup.add(hitMesh);
+
         const arrowGeo = new THREE.ConeGeometry(5, 14, 16);
         const arrowMesh = new THREE.Mesh(arrowGeo, this.matHeight.clone());
         arrowMesh.userData = { isWallHeightHandle: true, handleType: 'uniform_height' };
@@ -130,6 +222,11 @@ export class WallHeightGizmo extends THREE.Group {
         const leftSlopeGroup = new THREE.Group();
         leftSlopeGroup.position.set(p1.x, wallBaseY + startH + 4, p1.y);
         leftSlopeGroup.userData = { isWallHeightHandle: true, handleType: 'start_slope' };
+        
+        const leftHit = new THREE.Mesh(new THREE.BoxGeometry(16, 16, 16), new THREE.MeshBasicMaterial({ visible: false }));
+        leftHit.userData = { isWallHeightHandle: true, handleType: 'start_slope' };
+        leftSlopeGroup.add(leftHit);
+
         const leftBox = new THREE.Mesh(new THREE.BoxGeometry(6, 6, 6), this.matSlope.clone());
         leftBox.userData = { isWallHeightHandle: true, handleType: 'start_slope' };
         leftSlopeGroup.add(leftBox);
@@ -139,10 +236,17 @@ export class WallHeightGizmo extends THREE.Group {
         const rightSlopeGroup = new THREE.Group();
         rightSlopeGroup.position.set(p2.x, wallBaseY + endH + 4, p2.y);
         rightSlopeGroup.userData = { isWallHeightHandle: true, handleType: 'end_slope' };
+        
+        const rightHit = new THREE.Mesh(new THREE.BoxGeometry(16, 16, 16), new THREE.MeshBasicMaterial({ visible: false }));
+        rightHit.userData = { isWallHeightHandle: true, handleType: 'end_slope' };
+        rightSlopeGroup.add(rightHit);
+
         const rightBox = new THREE.Mesh(new THREE.BoxGeometry(6, 6, 6), this.matSlope.clone());
         rightBox.userData = { isWallHeightHandle: true, handleType: 'end_slope' };
         rightSlopeGroup.add(rightBox);
         this.handles.add(rightSlopeGroup);
+
+        this._updateHandleScales();
     }
 
     _onPointerDown(e) {
@@ -165,12 +269,11 @@ export class WallHeightGizmo extends THREE.Group {
 
             const hitMesh = intersects[0].object;
             this.activeHandle = hitMesh.userData;
-            hitMesh.material = this.matActive;
 
             const wall = this._getWallEntity();
             if (!wall) return;
 
-            const wallH = (wall.height !== undefined ? wall.height : (wall.config?.height || 120));
+            const wallH = (wall.height !== undefined ? wall.height : WallHeightPolicy.resolveDefault(wall));
             this.initialH = wallH;
             this.initialStartH = (wall.startHeight !== undefined ? wall.startHeight : wallH);
             this.initialEndH = (wall.endHeight !== undefined ? wall.endHeight : wallH);
@@ -181,9 +284,10 @@ export class WallHeightGizmo extends THREE.Group {
             this.dragStartPoint.copy(intersects[0].point);
 
             const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
-            if (planner && planner.commandManager) {
-                this._snapshotCmd = new SnapshotCommand(planner);
-            }
+            const connectedWalls = WallConnectivity.getConnectedRoomWalls(wall, planner);
+
+            this.transaction = new WallHeightTransaction(planner);
+            this.transaction.begin(connectedWalls, 'room');
 
             this.isDragging = true;
             this._capturedPointerId = e.pointerId;
@@ -191,30 +295,9 @@ export class WallHeightGizmo extends THREE.Group {
                 try { e.target.setPointerCapture(e.pointerId); } catch(err) {}
             }
             if (this.ctx.controls) this.ctx.controls.enabled = false;
+
+            this._updateBadgeText(`📐 Wall Height: ${Math.round(wallH)} cm`, e.clientX, e.clientY);
         }
-    }
-
-    _getConnectedWalls(wall, planner = this.ctx.planner || window.planner?.value || window.plannerInstance) {
-        if (!wall) return [];
-        if (!planner || !planner.walls) return [wall];
-
-        const side = wall.side || 'front';
-        const room = getRoomForWallFace(wall, side, planner, this.ctx.engine3d || this.ctx);
-        if (room && Array.isArray(room.path)) {
-            const suite = this.ctx.interactions?.roomInteractiveSuite;
-            if (suite && typeof suite._getRoomBoundingWalls === 'function') {
-                const roomWalls = suite._getRoomBoundingWalls(room);
-                if (roomWalls.includes(wall) && roomWalls.length > 0) {
-                    return roomWalls;
-                }
-            }
-            const roomWalls = getRoomWallsAndSides(room, planner, this.ctx.engine3d || this.ctx)?.map(r => r.wall) || [];
-            if (roomWalls.includes(wall) && roomWalls.length > 0) {
-                return roomWalls;
-            }
-        }
-
-        return [wall];
     }
 
     _onPointerMove(e) {
@@ -231,38 +314,46 @@ export class WallHeightGizmo extends THREE.Group {
 
             if (this.raycaster.ray.intersectPlane(this.dragPlane, currentPoint)) {
                 const deltaY = currentPoint.y - this.dragStartPoint.y;
-                const snap = 5.0; // 5cm CAD height snap
-                const steppedDelta = Math.round(deltaY / snap) * snap;
-
                 const wall = this._getWallEntity();
                 if (!wall) return;
 
                 const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
 
                 if (this.activeHandle.handleType === 'uniform_height') {
-                    const newH = Math.max(40, Math.min(600, this.initialH + steppedDelta));
-                    const connectedWalls = this._getConnectedWalls(wall, planner);
-                    WallEngine.batchUpdate(planner, connectedWalls, { height: newH }, false);
+                    const targetH = this.initialH + deltaY;
+                    const appliedH = this.transaction
+                        ? this.transaction.update(targetH, { snapStep: WallHeightPolicy.SNAP_DRAG })
+                        : WallHeightPolicy.processDragHeight(targetH);
+
+                    const deltaReport = Math.round(appliedH - this.initialH);
+                    this._updateBadgeText(
+                        `📐 Wall Height: ${appliedH} cm (${deltaReport >= 0 ? '+' : ''}${deltaReport} cm)`,
+                        e.clientX,
+                        e.clientY
+                    );
+
+                    const connectedWalls = this.transaction?.targetWalls || [wall];
                     connectedWalls.forEach(w => {
                         if (typeof this.ctx.updateWallGeometryLive === 'function') {
                             try { this.ctx.updateWallGeometryLive(w); } catch(err) {}
                         }
                     });
-                    (planner?.rooms || []).forEach(r => {
-                        const rWalls = r.walls;
-                        if (Array.isArray(rWalls) && rWalls.some(rw => connectedWalls.includes(rw))) {
-                            r.wallHeight = newH;
-                        }
-                    });
+
+                    // Live 2D update during 3D drag
+                    if (planner?.wallLayer && typeof planner.wallLayer.batchDraw === 'function') {
+                        try { planner.wallLayer.batchDraw(); } catch(err) {}
+                    }
                 } else if (this.activeHandle.handleType === 'start_slope') {
-                    const newStartH = Math.max(40, Math.min(600, this.initialStartH + steppedDelta));
+                    const newStartH = WallHeightPolicy.processDragHeight(this.initialStartH + deltaY);
                     WallEngine.setTopProfile(wall, 'single', { startHeight: newStartH }, false, planner);
+                    this._updateBadgeText(`📐 Start Slope: ${newStartH} cm`, e.clientX, e.clientY);
                     if (typeof this.ctx.updateWallGeometryLive === 'function') {
                         try { this.ctx.updateWallGeometryLive(wall); } catch(err) {}
                     }
                 } else if (this.activeHandle.handleType === 'end_slope') {
-                    const newEndH = Math.max(40, Math.min(600, this.initialEndH + steppedDelta));
+                    const newEndH = WallHeightPolicy.processDragHeight(this.initialEndH + deltaY);
                     WallEngine.setTopProfile(wall, 'single', { endHeight: newEndH }, false, planner);
+                    this._updateBadgeText(`📐 End Slope: ${newEndH} cm`, e.clientX, e.clientY);
                     if (typeof this.ctx.updateWallGeometryLive === 'function') {
                         try { this.ctx.updateWallGeometryLive(wall); } catch(err) {}
                     }
@@ -281,7 +372,7 @@ export class WallHeightGizmo extends THREE.Group {
             this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
             const meshes = [];
             this.handles.traverse(c => {
-                if (c.isMesh && c.userData.isWallHeightHandle) meshes.push(c);
+                if (c.isMesh && c.userData.isWallHeightHandle && c.material?.visible !== false) meshes.push(c);
             });
 
             meshes.forEach(m => {
@@ -292,7 +383,7 @@ export class WallHeightGizmo extends THREE.Group {
             const intersects = this.raycaster.intersectObjects(meshes, false);
             if (intersects.length > 0) {
                 intersects[0].object.material = this.matHover;
-                intersects[0].object.scale.set(1.3, 1.3, 1.3);
+                intersects[0].object.scale.set(1.25, 1.25, 1.25);
                 if (this.ctx.requestRender) this.ctx.requestRender();
             }
         }
@@ -302,6 +393,7 @@ export class WallHeightGizmo extends THREE.Group {
         if (this.isDragging) {
             this.isDragging = false;
             this.activeHandle = null;
+            this._hideBadge();
 
             if (this._capturedPointerId !== null && e.target && typeof e.target.releasePointerCapture === 'function') {
                 try { e.target.releasePointerCapture(this._capturedPointerId); } catch(err) {}
@@ -310,13 +402,9 @@ export class WallHeightGizmo extends THREE.Group {
 
             if (this.ctx.controls) this.ctx.controls.enabled = true;
 
-            const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
-            if (planner && typeof planner.syncAll === 'function') {
-                planner.syncAll();
-            }
-            if (planner && planner.commandManager && this._snapshotCmd) {
-                planner.commandManager.execute(this._snapshotCmd);
-                this._snapshotCmd = null;
+            if (this.transaction) {
+                this.transaction.commit();
+                this.transaction = null;
             }
 
             this.updateHandles();
@@ -330,6 +418,12 @@ export class WallHeightGizmo extends THREE.Group {
             dom.removeEventListener('pointerdown', this._onPointerDown);
             dom.removeEventListener('pointermove', this._onPointerMove);
             dom.removeEventListener('pointerup', this._onPointerUp);
+        }
+        if (this.ctx.controls) {
+            this.ctx.controls.removeEventListener('change', this._onCameraChange);
+        }
+        if (this.domBadge && this.domBadge.parentElement) {
+            this.domBadge.parentElement.removeChild(this.domBadge);
         }
         this.detach();
     }

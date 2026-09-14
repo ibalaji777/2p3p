@@ -12,6 +12,7 @@
 
 import { WallGeometryEngine } from './WallGeometryEngine.js';
 import { isFloorAnchoredDoor } from './WallEngine.js';
+import { WallHeightPolicy } from './WallHeightPolicy.js';
 
 export class WallMutationEngine {
     /**
@@ -59,14 +60,24 @@ export class WallMutationEngine {
         if (!wall) return;
         wall.wallShapeData = null;
         const p = planner || wall.planner;
-        const minH = wall.config?.minHeight !== undefined ? Number(wall.config.minHeight) : 10;
-        const maxH = wall.config?.maxHeight !== undefined ? Number(wall.config.maxHeight) : 1000;
-        const h = Math.max(minH, Math.min(maxH, Number(newHeight) || minH));
+        const minH = wall.config?.minHeight !== undefined ? Number(wall.config.minHeight) : WallHeightPolicy.MIN_HEIGHT;
+        const maxH = wall.config?.maxHeight !== undefined ? Number(wall.config.maxHeight) : WallHeightPolicy.MAX_HEIGHT;
+        const prevH = wall.height !== undefined ? Number(wall.height) : (wall.config?.height || WallHeightPolicy.DEFAULT_HEIGHT);
+        const h = WallHeightPolicy.clamp(newHeight, minH, maxH);
+        const deltaH = h - prevH;
         wall.height = h;
         if (wall.config) wall.config.height = h;
-        if (!wall.topProfileType || wall.topProfileType === 'normal') {
+
+        if (wall.topProfileType === 'single' || wall.topProfileType === 'gable') {
+            if (wall.startHeight !== undefined) wall.startHeight = Math.max(minH, wall.startHeight + deltaH);
+            if (wall.endHeight !== undefined) wall.endHeight = Math.max(minH, wall.endHeight + deltaH);
+            if (wall.topProfileType === 'gable' && wall.peakHeight !== undefined) {
+                wall.peakHeight = Math.max(minH, wall.peakHeight + deltaH);
+            }
+        } else {
             if (wall.startHeight !== undefined) wall.startHeight = h;
             if (wall.endHeight !== undefined) wall.endHeight = h;
+            if (wall.peakHeight !== undefined) wall.peakHeight = h;
         }
 
         if (wall.parentArc && wall.parentArc.walls && !wall._propagatingArcHeight) {
@@ -421,12 +432,21 @@ export class WallMutationEngine {
                 if (w.config) w.config.thickness = thick;
             }
             if (updates.height !== undefined) {
-                const h = Number(updates.height);
+                const prevH = w.height !== undefined ? Number(w.height) : (w.config?.height || WallHeightPolicy.DEFAULT_HEIGHT);
+                const h = WallHeightPolicy.clamp(updates.height);
+                const deltaH = h - prevH;
                 w.height = h;
                 if (w.config) w.config.height = h;
-                if (!w.topProfileType || w.topProfileType === 'normal') {
+                if (w.topProfileType === 'single' || w.topProfileType === 'gable') {
+                    if (w.startHeight !== undefined) w.startHeight = Math.max(WallHeightPolicy.MIN_HEIGHT, w.startHeight + deltaH);
+                    if (w.endHeight !== undefined) w.endHeight = Math.max(WallHeightPolicy.MIN_HEIGHT, w.endHeight + deltaH);
+                    if (w.topProfileType === 'gable' && w.peakHeight !== undefined) {
+                        w.peakHeight = Math.max(WallHeightPolicy.MIN_HEIGHT, w.peakHeight + deltaH);
+                    }
+                } else {
                     if (w.startHeight !== undefined) w.startHeight = h;
                     if (w.endHeight !== undefined) w.endHeight = h;
+                    if (w.peakHeight !== undefined) w.peakHeight = h;
                 }
             }
             if (updates.elevation !== undefined) {

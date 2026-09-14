@@ -68,6 +68,7 @@ const emit = defineEmits([
 const settingsStore = useSettingsStore();
 
 import { WallEngine } from '../../core/wall/WallEngine.js';
+import { WallHeightPolicy } from '../../core/wall/WallHeightPolicy.js';
 import { SnapshotCommand } from '../../core/commands/SnapshotCommand.js';
 import { getRoomWallsAndSides } from '../../core/engine3d/WallPaintSystem.js';
 
@@ -107,10 +108,6 @@ const stepElevation = (delta) => {
         const boundingWalls = getBoundingWalls(props.selectedEntity, planner);
         if (boundingWalls.length > 0) {
             WallEngine.batchUpdate(planner, boundingWalls, { elevation: newElev });
-            boundingWalls.forEach(w => {
-                w.elevation = newElev;
-                if (w.mesh3D) w.mesh3D.position.y = newElev;
-            });
         }
         if (planner.detectRooms) planner.detectRooms();
         if (cmd) planner.commandManager.execute(cmd);
@@ -119,21 +116,14 @@ const stepElevation = (delta) => {
 };
 
 const setWallHeight = (height) => {
-    props.selectedEntity.wallHeight = height;
+    const validH = WallHeightPolicy.processInputHeight(height);
+    props.selectedEntity.wallHeight = validH;
     const planner = resolvePlanner();
     if (planner) {
         const cmd = planner.commandManager ? new SnapshotCommand(planner) : null;
         const boundingWalls = getBoundingWalls(props.selectedEntity, planner);
         if (boundingWalls.length > 0) {
-            WallEngine.batchUpdate(planner, boundingWalls, { height });
-            boundingWalls.forEach(w => {
-                w.height = height;
-                if (w.config) w.config.height = height;
-                if (!w.topProfileType || w.topProfileType === 'normal') {
-                    if (w.startHeight !== undefined) w.startHeight = height;
-                    if (w.endHeight !== undefined) w.endHeight = height;
-                }
-            });
+            WallEngine.batchUpdate(planner, boundingWalls, { height: validH });
         }
         if (cmd) planner.commandManager.execute(cmd);
     }
