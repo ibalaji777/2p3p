@@ -9,7 +9,8 @@ export class Anchor {
         this.planner = planner; this.lastValidPos = { x, y };
         this.node = new Konva.Group({ x, y, draggable: true, visible: false });
         this.node.add(new Konva.Circle({ radius: 35, fill: 'transparent' })); // Large invisible touch target
-        this.node.add(new Konva.Circle({ radius: 8, fill: "#111827", stroke: "white", strokeWidth: 2 }));
+        this.innerCircle = new Konva.Circle({ radius: 8, fill: "#111827", stroke: "white", strokeWidth: 2 });
+        this.node.add(this.innerCircle);
         const arrowOffset = 11; const arrowSize = 4;
         const makeArrow = (points) => new Konva.Line({ points, fill: '#111827', closed: true });
         this.node.add(makeArrow([0, -arrowOffset, -arrowSize, -arrowOffset+arrowSize, arrowSize, -arrowOffset+arrowSize]));
@@ -17,6 +18,13 @@ export class Anchor {
         this.node.add(makeArrow([-arrowOffset, 0, -arrowOffset+arrowSize, -arrowSize, -arrowOffset+arrowSize, arrowSize]));
         this.node.add(makeArrow([arrowOffset, 0, arrowOffset-arrowSize, -arrowSize, arrowOffset-arrowSize, arrowSize]));
         
+        this.node.on('click tap', (e) => {
+            if (this.planner.tool !== 'select') return;
+            e.cancelBubble = true;
+            this.planner.selectEntity(this, 'anchor');
+            this.planner.syncAll();
+        });
+
         this.node.on('dragstart', (e) => {
             if (this.planner.tool !== 'select') { e.target.stopDrag(); return; }
             let attachedWalls = this.planner.walls.filter(w => w.startAnchor === this || w.endAnchor === this); 
@@ -251,6 +259,129 @@ export class Anchor {
             this.planner.syncAll(); 
         }); 
         this.planner.uiLayer.add(this.node);
+
+        // 2D Interactive Corner Fillet Drag Handle (Figma / CAD style)
+        this.filletGroup = new Konva.Group({ visible: false, listening: true });
+        this.filletLine = new Konva.Line({
+            points: [0, 0, 0, 0],
+            stroke: '#10b981',
+            strokeWidth: 2,
+            dash: [4, 4],
+            listening: false
+        });
+        this.filletHandle = new Konva.Circle({
+            radius: 8.5,
+            fill: '#10b981',
+            stroke: '#ffffff',
+            strokeWidth: 2,
+            draggable: true,
+            shadowColor: '#10b981',
+            shadowBlur: 8,
+            shadowOpacity: 0.6
+        });
+        this.filletInnerDot = new Konva.Circle({
+            radius: 3,
+            fill: '#ffffff',
+            listening: false
+        });
+
+        this.filletGroup.add(this.filletLine);
+        this.filletGroup.add(this.filletHandle);
+        this.filletGroup.add(this.filletInnerDot);
+        if (this.planner.uiLayer) this.planner.uiLayer.add(this.filletGroup);
+
+        this.node.on('destroy', () => {
+            if (this.filletGroup) {
+                this.filletGroup.destroy();
+                this.filletGroup = null;
+            }
+        });
+
+        this.filletHandle.on('mouseenter', () => {
+            if (this.planner.tool === 'select') document.body.style.cursor = 'grab';
+        });
+        this.filletHandle.on('mouseleave', () => {
+            if (!this._isFilletDragging) document.body.style.cursor = 'default';
+        });
+
+        this.filletHandle.on('dragstart', (e) => {
+            e.cancelBubble = true;
+            this._isFilletDragging = true;
+            document.body.style.cursor = 'grabbing';
+            if (this.planner.commandManager) {
+                this._filletSnapshotCmd = new SnapshotCommand(this.planner);
+            }
+        });
+
+        this.filletHandle.on('dragmove', (e) => {
+            e.cancelBubble = true;
+            if (!this._filletData) return;
+            const { pC, b, factorK, maxRadius } = this._filletData;
+            const hPos = this.filletHandle.position();
+            const d = (hPos.x - pC.x) * b.x + (hPos.y - pC.y) * b.y;
+
+            if (d <= 12) {
+                this._candidateRadius = 0;
+                this.filletHandle.fill('#00f0ff');
+                this.filletHandle.shadowColor('#00f0ff');
+                const targetX = pC.x + 14 * b.x;
+                const targetY = pC.y + 14 * b.y;
+                this.filletHandle.position({ x: targetX, y: targetY });
+                this.filletInnerDot.position({ x: targetX, y: targetY });
+                if (this._ghostArc2D) this._ghostArc2D.visible(false);
+                if (typeof this.planner.updateInfoBadge === 'function') {
+                    this.planner.updateInfoBadge(targetX, targetY, 'Sharp', '90°', false);
+                }
+            } else {
+                const rawR = d / factorK;
+                const stepR = Math.max(20, Math.min(maxRadius || 200, Math.round(rawR / 5) * 5));
+                this._candidateRadius = stepR;
+                this.filletHandle.fill('#10b981');
+                this.filletHandle.shadowColor('#10b981');
+                const actualD = stepR * factorK;
+                const targetX = pC.x + actualD * b.x;
+                const targetY = pC.y + actualD * b.y;
+                this.filletHandle.position({ x: targetX, y: targetY });
+                this.filletInnerDot.position({ x: targetX, y: targetY });
+                this._render2DGhostArc(stepR);
+                if (typeof this.planner.updateInfoBadge === 'function') {
+                    this.planner.updateInfoBadge(targetX, targetY, 'Radius', `${stepR} cm`, false);
+                }
+            }
+
+            if (this.planner.uiLayer) this.planner.uiLayer.batchDraw();
+            if (this.planner.stage) this.planner.stage.batchDraw();
+        });
+
+        this.filletHandle.on('dragend', (e) => {
+            e.cancelBubble = true;
+            this._isFilletDragging = false;
+            document.body.style.cursor = 'default';
+            if (this._ghostArc2D) {
+                this._ghostArc2D.visible(false);
+            }
+            if (typeof this.planner.hideInfoBadge === 'function') {
+                this.planner.hideInfoBadge();
+            }
+
+            if (this._candidateRadius !== undefined && this._candidateRadius !== null) {
+                if (this._candidateRadius <= 0) {
+                    WallEngine.unfilletCorner(this.planner, this);
+                } else {
+                    WallEngine.filletCorner(this.planner, this, this._candidateRadius);
+                }
+                this._candidateRadius = null;
+            }
+
+            if (this._filletSnapshotCmd && this._filletSnapshotCmd.finalize()) {
+                this.planner.commandManager.execute(this._filletSnapshotCmd);
+            }
+            this._filletSnapshotCmd = null;
+            if (typeof this.planner.syncAll === 'function') this.planner.syncAll();
+            if (typeof this.planner.findRooms === 'function') this.planner.findRooms();
+            if (typeof this.planner.update3D === 'function') this.planner.update3D();
+            this._updateFilletHandle();
+        });
     }
     
     get x() { return this.node.x(); } 
@@ -266,5 +397,185 @@ export class Anchor {
             return this;
         }
         return this.node.position(); 
+    }
+    setHighlight(active) {
+        if (this.innerCircle) {
+            this.innerCircle.fill(active ? '#0284c7' : '#111827');
+            this.innerCircle.stroke(active ? '#38bdf8' : 'white');
+            this.innerCircle.strokeWidth(active ? 3 : 2);
+            if (this.node && this.node.getLayer()) this.node.getLayer().batchDraw();
+        }
+        if (this.planner && this.planner.walls) {
+            this.planner.walls.filter(w => w.startAnchor === this || w.endAnchor === this)
+                .forEach(w => { if (w.setHighlight) w.setHighlight(active); });
+        }
+        if (active) {
+            this._updateFilletHandle();
+        } else {
+            this._hideFilletHandle();
+        }
+    }
+
+    _updateFilletHandle() {
+        if (!this.planner || !this.filletGroup) return;
+        const cd = WallEngine.getCornerData(this.planner, this);
+        if (!cd || !cd.isCorner) {
+            this._hideFilletHandle();
+            return;
+        }
+
+        const walls = cd.walls || [];
+        if (walls.length < 2) {
+            this._hideFilletHandle();
+            return;
+        }
+
+        const [w1, w2] = walls;
+        const pC = cd.filletData?.apexPos || this.filletData?.apexPos || WallGeometryEngine.getAnchorPosition(this);
+        const other1 = cd.filletData?.origEndpoint1 === 'start' ? w1.endAnchor : (w1.startAnchor === this ? w1.endAnchor : w1.startAnchor);
+        const other2 = cd.filletData?.origEndpoint2 === 'start' ? w2.endAnchor : (w2.startAnchor === this ? w2.endAnchor : w2.startAnchor);
+        const p1 = WallGeometryEngine.getAnchorPosition(other1);
+        const p2 = WallGeometryEngine.getAnchorPosition(other2);
+
+        const v1 = { x: p1.x - pC.x, y: p1.y - pC.y };
+        const v2 = { x: p2.x - pC.x, y: p2.y - pC.y };
+        const l1 = Math.hypot(v1.x, v1.y);
+        const l2 = Math.hypot(v2.x, v2.y);
+        if (l1 < 1 || l2 < 1) {
+            this._hideFilletHandle();
+            return;
+        }
+
+        const u1 = { x: v1.x / l1, y: v1.y / l1 };
+        const u2 = { x: v2.x / l2, y: v2.y / l2 };
+        const dot = Math.max(-0.9999, Math.min(0.9999, u1.x * u2.x + u1.y * u2.y));
+        const theta = Math.acos(dot);
+        const sinHalf = Math.max(0.05, Math.sin(theta / 2));
+        const factorK = Math.max(0.05, (1 / sinHalf) - 1);
+        const maxRadius = cd.maxRadius || 200;
+
+        const bx = u1.x + u2.x;
+        const by = u1.y + u2.y;
+        const bLen = Math.hypot(bx, by);
+        if (bLen < 0.001) {
+            this._hideFilletHandle();
+            return;
+        }
+        const b = { x: bx / bLen, y: by / bLen };
+
+        const isFilleted = cd.isFilleted;
+        const curRadius = isFilleted ? (cd.radius || 80) : 0;
+        const curDist = curRadius > 0 ? (curRadius * factorK) : 22;
+        const maxDist = Math.max(curDist + 30, maxRadius * factorK);
+
+        this._filletData = { pC, b, factorK, maxRadius, isFilleted, curRadius, u1, u2, l1, l2, theta, sinHalf };
+
+        const hX = pC.x + curDist * b.x;
+        const hY = pC.y + curDist * b.y;
+
+        this.filletLine.points([pC.x, pC.y, pC.x + maxDist * b.x, pC.y + maxDist * b.y]);
+        this.filletLine.stroke(isFilleted ? '#10b981' : '#00f0ff');
+        this.filletHandle.position({ x: hX, y: hY });
+        this.filletHandle.fill(isFilleted ? '#10b981' : '#00f0ff');
+        this.filletHandle.shadowColor(isFilleted ? '#10b981' : '#00f0ff');
+        this.filletInnerDot.position({ x: hX, y: hY });
+
+        if (this._ghostArc2D) this._ghostArc2D.visible(false);
+
+        this.filletGroup.visible(true);
+        this.filletGroup.moveToTop();
+        if (this.planner.uiLayer) this.planner.uiLayer.batchDraw();
+    }
+
+    _render2DGhostArc(radius) {
+        if (!this.filletGroup || !this._filletData || !radius || radius <= 0) {
+            if (this._ghostArc2D) this._ghostArc2D.visible(false);
+            return;
+        }
+
+        const { pC, u1, u2, b, theta, sinHalf, l1, l2 } = this._filletData;
+        const deltaPhi = Math.PI - theta;
+        const tanHalfDelta = Math.tan(deltaPhi / 2);
+        let T = radius * tanHalfDelta;
+        const maxT = Math.min(l1, l2) * 0.85;
+        if (T > maxT) {
+            T = maxT;
+            radius = T / tanHalfDelta;
+        }
+
+        const pT1 = { x: pC.x + T * u1.x, y: pC.y + T * u1.y };
+        const pT2 = { x: pC.x + T * u2.x, y: pC.y + T * u2.y };
+        const D_O = radius / Math.max(0.01, sinHalf);
+        const O = { x: pC.x + D_O * b.x, y: pC.y + D_O * b.y };
+        const pMid = { x: pC.x + (D_O - radius) * b.x, y: pC.y + (D_O - radius) * b.y };
+
+        const v1 = { x: pT1.x - O.x, y: pT1.y - O.y };
+        const v2 = { x: pT2.x - O.x, y: pT2.y - O.y };
+        const vMid = { x: pMid.x - O.x, y: pMid.y - O.y };
+
+        const a1 = Math.atan2(v1.y, v1.x);
+        const a2 = Math.atan2(v2.y, v2.x);
+        const aMid = Math.atan2(vMid.y, vMid.x);
+
+        let d1 = aMid - a1;
+        while (d1 <= -Math.PI) d1 += 2 * Math.PI;
+        while (d1 > Math.PI) d1 -= 2 * Math.PI;
+
+        let d2 = a2 - aMid;
+        while (d2 <= -Math.PI) d2 += 2 * Math.PI;
+        while (d2 > Math.PI) d2 -= 2 * Math.PI;
+
+        const totalSweep = d1 + d2;
+        const N = 16;
+        const pts = [];
+
+        for (let i = 0; i <= N; i++) {
+            const t = i / N;
+            const ang = a1 + t * totalSweep;
+            pts.push(O.x + radius * Math.cos(ang), O.y + radius * Math.sin(ang));
+        }
+
+        if (!this._ghostArc2D) {
+            this._ghostArc2D = new Konva.Line({
+                points: pts,
+                stroke: '#10b981',
+                strokeWidth: 4,
+                dash: [6, 4],
+                lineCap: 'round',
+                lineJoin: 'round',
+                listening: false,
+                opacity: 0.9
+            });
+            this.filletGroup.add(this._ghostArc2D);
+        } else {
+            this._ghostArc2D.points(pts);
+            this._ghostArc2D.visible(true);
+        }
+        this._ghostArc2D.moveToTop();
+        this.filletHandle.moveToTop();
+        this.filletInnerDot.moveToTop();
+    }
+
+    _hideFilletHandle() {
+        if (this._ghostArc2D) this._ghostArc2D.visible(false);
+        if (this.filletGroup) {
+            this.filletGroup.visible(false);
+            if (this.planner?.uiLayer) this.planner.uiLayer.batchDraw();
+        }
+    }
+
+    destroy() {
+        this._hideFilletHandle();
+        if (this._ghostArc2D) {
+            this._ghostArc2D.destroy();
+            this._ghostArc2D = null;
+        }
+        if (this.filletGroup) {
+            this.filletGroup.destroy();
+            this.filletGroup = null;
+        }
+        if (this.node) {
+            this.node.destroy();
+        }
     }
 }

@@ -413,4 +413,50 @@ export class WallEngine {
         // 4. Invalidate 3D on demand
         if (planner.update3D) planner.update3D();
     }
+
+    // ==========================================
+    // 5. CORNER FILLET (MODERN CURVED CORNERS)
+    // ==========================================
+
+    /**
+     * Inspects a corner anchor and returns metadata (isCorner, isFilleted, angle, maxRadius, etc.).
+     * @param {Object} planner 
+     * @param {Object} anchor 
+     * @returns {Object|null}
+     */
+    static getCornerData(planner, anchor) {
+        return WallTopologyEngine.getCornerData(planner, anchor);
+    }
+
+    /**
+     * Converts a sharp corner into a modern tangential curved corner (fillet).
+     * @param {Object} planner 
+     * @param {Object} anchor 
+     * @param {number} radius 
+     * @returns {Object}
+     */
+    static filletCorner(planner, anchor, radius = 80) {
+        return WallTopologyEngine.filletCorner(planner, anchor, radius);
+    }
+
+    /**
+     * Reverts a curved corner back to a sharp miter joint.
+     * @param {Object} planner 
+     * @param {Object} target 
+     * @returns {boolean}
+     */
+    static unfilletCorner(planner, target) {
+        return WallTopologyEngine.unfilletCorner(planner, target);
+    }
+
+    /**
+     * Sets or updates the fillet radius of an existing curved corner.
+     * @param {Object} planner 
+     * @param {Object} target 
+     * @param {number} newRadius 
+     * @returns {Object}
+     */
+    static setCornerFilletRadius(planner, target, newRadius) {
+        return WallTopologyEngine.setCornerFilletRadius(planner, target, newRadius);
+    }
 }

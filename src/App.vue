@@ -201,8 +201,7 @@
         @saved="debouncedSaveHistory"
       />
 
-      <CreditsPopup ref="creditsPopupRef" />
-
+       <CreditsPopup ref="creditsPopupRef" />
     </div>
   </div>
 </template>
@@ -658,8 +657,8 @@ const hintData = computed(() => {
         const isFound = activeTool.value === 'foundation_box';
         return {
             text: viewMode.value === '3d'
-                ? (isFound ? 'SIMS 4 FOUNDATION BOX: Click & drag to draw a 4-wall raised plinth foundation in 3D.' : 'SIMS 4 ROOM BOX: Click & drag to draw a 4-wall rectangular room in 3D.')
-                : (isFound ? 'SIMS 4 FOUNDATION BOX: Click & drag to draw a 4-wall raised plinth foundation in 2D.' : 'SIMS 4 ROOM BOX: Click & drag to draw a 4-wall rectangular room in 2D.'),
+                ? (isFound ? 'FOUNDATION BOX: Click & drag to draw a 4-wall raised plinth foundation in 3D.' : 'ROOM BOX: Click & drag to draw a 4-wall rectangular room in 3D.')
+                : (isFound ? 'FOUNDATION BOX: Click & drag to draw a 4-wall raised plinth foundation in 2D.' : 'ROOM BOX: Click & drag to draw a 4-wall rectangular room in 2D.'),
             color: '#0ea5e9'
         };
     }
@@ -703,16 +702,16 @@ onMounted(() => {
         if (viewMode.value === '3d' && renderer3D.value) {
             if ((type === 'furniture' || type === 'platform') && entity && entity.mesh3D) {
                 if (renderer3D.value.interactions?.selectedObject !== entity.mesh3D) {
-                    renderer3D.value.selectObject(entity.mesh3D);
+                    renderer3D.value.selectObject(entity.mesh3D, true);
                 }
             } else if (type === 'wall' && entity && entity.mesh3D) {
                 const targetMesh = entity.mesh3D.children?.find(c => c.userData?.isWallSide) || entity.mesh3D;
                 if (renderer3D.value.interactions?.selectedObject !== targetMesh && renderer3D.value.interactions?.selectedObject !== entity.mesh3D) {
-                    renderer3D.value.selectObject(targetMesh);
+                    renderer3D.value.selectObject(targetMesh, true);
                 }
             } else if (type === 'room' && entity && entity.mesh3D) {
                 if (renderer3D.value.interactions?.selectedObject !== entity.mesh3D) {
-                    renderer3D.value.selectObject(entity.mesh3D);
+                    renderer3D.value.selectObject(entity.mesh3D, true);
                 }
             } else if (!entity && renderer3D.value.interactions?.selectedObject) {
                 renderer3D.value.deselectObject();
@@ -797,7 +796,7 @@ onMounted(() => {
                         planner.value.selectEntity(targetEntity, 'wall');
                         const side = extraData?.side || 'front';
                         const wallSkin = targetEntity.mesh3D.children.find(c => (c.userData.isWallSide || c.userData.side) && c.userData.side === side) || targetEntity.mesh3D;
-                        if (wallSkin) renderer3D.value.selectObject(wallSkin);
+                        if (wallSkin) renderer3D.value.selectObject(wallSkin, true);
                         return;
                     }
                 }
@@ -810,7 +809,7 @@ onMounted(() => {
                     }
                     if (targetEntity) {
                         planner.value.selectEntity(targetEntity, targetEntity.type || entityType);
-                        if (targetEntity.mesh3D) renderer3D.value.selectObject(targetEntity.mesh3D);
+                        if (targetEntity.mesh3D) renderer3D.value.selectObject(targetEntity.mesh3D, true);
                         else if (renderer3D.value.onEntitySelect) renderer3D.value.onEntitySelect(targetEntity, targetEntity.type || entityType);
                         return;
                     }
@@ -852,7 +851,7 @@ onMounted(() => {
 
                 if (targetEntity) {
                     planner.value.selectEntity(targetEntity, entityType);
-                    if (targetEntity.mesh3D) renderer3D.value.selectObject(targetEntity.mesh3D);
+                    if (targetEntity.mesh3D) renderer3D.value.selectObject(targetEntity.mesh3D, true);
                     else if (renderer3D.value.onEntitySelect) renderer3D.value.onEntitySelect(targetEntity, entityType);
                 }
             }, 100);

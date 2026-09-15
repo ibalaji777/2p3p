@@ -75,7 +75,7 @@
                     <span style="font-size: 12px; font-weight: 700; color: #1e293b;">Painting Mode</span>
                     <div style="display: flex; gap: 4px;">
                         <button class="scope-chip" :class="{ active: paintScopeMode === 'single' }" @click="paintScopeMode = 'single'" title="Paint only this selected roof">Single Roof</button>
-                        <button class="scope-chip" :class="{ active: paintScopeMode === 'all' }" @click="paintScopeMode = 'all'" title="Paint all roofs on the building (Sims 4 Shift+Click)">All Roofs ⚡</button>
+                        <button class="scope-chip" :class="{ active: paintScopeMode === 'all' }" @click="paintScopeMode = 'all'" title="Paint all roofs on the building (Shift+Click)">All Roofs ⚡</button>
                     </div>
                 </div>
 

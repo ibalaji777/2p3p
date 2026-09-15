@@ -1161,17 +1161,26 @@ export class FloorPlanner {
         syncElevationSegments2D(this);
         
         this.anchors.forEach(a => {
-            if (a.isArcIntermediate || this.activeCategory !== 'walls') {
+            if (a.isArcIntermediate) {
                 a.hide();
                 return;
             }
+            const isCategoryConflict = this.activeCategory && this.activeCategory !== 'walls';
+            const isSelected = this.selectedEntity === a || 
+                (this.selectedEntity && this.selectedType === 'wall' && (this.selectedEntity.startAnchor === a || this.selectedEntity.endAnchor === a)) ||
+                (this.selectedEntity && this.selectedType === 'arc' && (this.selectedEntity.p1 === a || this.selectedEntity.p2 === a));
+
+            if (isCategoryConflict && !isSelected) {
+                a.hide();
+                return;
+            }
+
             let connectedCount = this.walls.filter(w => w.startAnchor === a || w.endAnchor === a).length;
-            if (connectedCount >= 2) {
+            if (connectedCount >= 2 || isSelected || this.tool === 'corner') {
                 a.show();
-            } else if (this.selectedEntity && this.selectedType === 'wall' && (this.selectedEntity.startAnchor === a || this.selectedEntity.endAnchor === a)) {
-                a.show();
-            } else if (this.selectedEntity && this.selectedType === 'arc' && (this.selectedEntity.p1 === a || this.selectedEntity.p2 === a)) {
-                a.show();
+                if (this.tool === 'corner' && a.setHighlight && connectedCount >= 2) {
+                    a.setHighlight(true);
+                }
             } else if (this.drawing && (this.startAnchor === a || this.lastAnchor === a)) {
                 a.show();
             } else {

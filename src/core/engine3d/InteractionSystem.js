@@ -37,6 +37,8 @@ import { HighlightRenderer } from './HighlightRenderer.js';
 import { DimensionManager3D } from './dimensions/DimensionManager3D.js';
 import { CommonInteractionController } from './tools/CommonInteractionController.js';
 import { COMMON_TOOLS } from './tools/CommonToolRegistry.js';
+import { AllWallCornersGizmo } from './AllWallCornersGizmo.js';
+import { WallCornerFilletGizmo } from './WallCornerFilletGizmo.js';
 import { useSettingsStore } from '../../stores/useSettingsStore.js';
 import { usePlannerStore } from '../../stores/usePlannerStore.js';
 import { coreEventBus } from '../EventBus.js';
@@ -365,6 +367,40 @@ export class InteractionSystem {
 
         this.commonController = new CommonInteractionController(this.ctx);
         this.ctx.commonTools = this.commonController;
+
+        this.allWallCornersGizmo = new AllWallCornersGizmo(this.ctx);
+        this.ctx.scene.add(this.allWallCornersGizmo);
+        this.ctx.allWallCornersGizmo = this.allWallCornersGizmo;
+
+        this.cornerFilletGizmo = new WallCornerFilletGizmo(this.ctx);
+        this.ctx.scene.add(this.cornerFilletGizmo);
+        this.ctx.cornerFilletGizmo = this.cornerFilletGizmo;
+
+        this._onSelectionChanged = ({ entity, type }) => {
+            if (!this.cornerFilletGizmo) return;
+            if (type === 'anchor' || entity?.isCornerApex || entity?.cornerApexAnchor) {
+                const targetAnchor = entity.cornerApexAnchor || entity;
+                this.cornerFilletGizmo.attach(targetAnchor);
+            } else if (entity?.isCornerFillet && entity.p1) {
+                const targetAnchor = entity.cornerApexAnchor || entity.p1;
+                this.cornerFilletGizmo.attach(targetAnchor);
+            } else if (entity?.parentArc?.isCornerFillet) {
+                const targetAnchor = entity.parentArc.cornerApexAnchor || entity.parentArc.p1;
+                this.cornerFilletGizmo.attach(targetAnchor);
+            } else if (entity && this.cornerFilletGizmo.visible && this.cornerFilletGizmo.cornerData) {
+                const cdWalls = this.cornerFilletGizmo.cornerData.walls || [];
+                const isPart = cdWalls.some(w => w === entity || (w.id && entity.id && w.id === entity.id)) || (entity.parentArc && entity.parentArc.isCornerFillet);
+                if (isPart) {
+                    return;
+                }
+                if (!this.allWallCornersGizmo?.isActive) {
+                    this.cornerFilletGizmo.detach();
+                }
+            } else if (this.cornerFilletGizmo.visible && !this.allWallCornersGizmo?.isActive) {
+                this.cornerFilletGizmo.detach();
+            }
+        };
+        coreEventBus.on(EVENTS.SELECTION_CHANGED, this._onSelectionChanged);
 
         this.transformControls = new TransformControls(this.ctx.camera, this.ctx.renderer.domElement);
         this._syncUI = () => { 
@@ -726,6 +762,14 @@ export class InteractionSystem {
                 }
             }
 
+            // Direct check for interactive Corner Fillet Gizmo handles
+            if (this.cornerFilletGizmo && this.cornerFilletGizmo.visible) {
+                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+                if (this.raycaster.intersectObjects(this.cornerFilletGizmo.interactiveMeshes, false).length > 0) {
+                    return;
+                }
+            }
+
             // Direct check for interactive Wall Gizmo handles (Push/Pull, Corners, Height, Extrude Bay/Niche)
             if (this.wallInteractiveSuite) {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
@@ -783,6 +827,16 @@ export class InteractionSystem {
             if (this.elevationSegmentGizmo && this.elevationSegmentGizmo.visible) {
                 this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
                 if (this.raycaster.intersectObjects(this.elevationSegmentGizmo.handles.children, true).length > 0) return;
+            }
+
+            // Direct check for Wall Corner Fillet Gizmo & All Wall Corners Gizmo handles
+            if (this.cornerFilletGizmo && this.cornerFilletGizmo.visible) {
+                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+                if (this.raycaster.intersectObjects(this.cornerFilletGizmo.interactiveMeshes, true).length > 0) return;
+            }
+            if (this.allWallCornersGizmo && this.allWallCornersGizmo.visible) {
+                this.raycaster.setFromCamera(this.mouse, this.ctx.camera);
+                if (this.raycaster.intersectObjects(this.allWallCornersGizmo.interactiveMeshes, true).length > 0) return;
             }
             
             const now = Date.now();
@@ -931,11 +985,11 @@ export class InteractionSystem {
                             }
                         }
                     }
-                    const preventCameraJump = (this.ctx.currentTransformMode === 'translate' || this.ctx.currentTransformMode === 'move');
+                    const preventCameraJump = true;
                     this.selectObject(mesh, intersects[0], preventCameraJump);
                 }
             } else {
-                if (this.mode !== 'camera') {
+                if (this.mode !== 'camera' && !this.allWallCornersGizmo?.isActive) {
                     this.deselect();
                 }
                 if (this.ctx.controls) this.ctx.controls.enabled = true;
@@ -1368,11 +1422,11 @@ export class InteractionSystem {
         }        if (this.ctx && typeof this.ctx.requestRender === 'function') this.ctx.requestRender();
     }
 
-    selectObject(object, intersect = null, preventAutoFocus = false) {
+    selectObject(object, intersect = null, preventAutoFocus = true) {
         this.select(object, null, null, preventAutoFocus, intersect);
     }
 
-    select(object, type = null, side = null, preventAutoFocus = false, intersect = null) {
+    select(object, type = null, side = null, preventAutoFocus = true, intersect = null) {
         if (!object || this._isSelecting) return;
         this._isSelecting = true;
 
@@ -1514,13 +1568,29 @@ export class InteractionSystem {
                 planner.selectEntity(object.userData.entity, type);
             }
             
-            const settings = useSettingsStore().floorPlanSettings;
-            const shouldAutoFocus = settings.autoFocus !== false; // default true
-            const shouldAutoRotate = settings.autoRotate !== false; // default true
+            // CAD Standard & User Mandate: Never auto-zoom, auto-rotate, or jump camera on object clicks
+            // Camera remains completely stable and permanent when selecting doors, windows, walls, floors, corners, etc.
+            const isInteractiveToolActive = Boolean(
+                this.allWallCornersGizmo?.isActive ||
+                this.cornerFilletGizmo?.visible ||
+                this.wallPluginPlacementSystem?.isPlacementTool?.() ||
+                this.wall3DDrawSystem?.isWallDrawingTool?.() ||
+                this.commonController?.activeTool
+            );
 
-            // Auto focus the camera on the selected object only when not explicitly prevented
-            if (this.ctx.cameraController && object && shouldAutoFocus && !preventAutoFocus) {
-                this.ctx.cameraController.focusOnObject(object, intersect, shouldAutoRotate);
+            const entType = object?.userData?.entity?.type || type;
+            const isDoorOrWindow = entType === 'door' || entType === 'window' || object?.userData?.isWidget;
+            const isWall = isBaseWall || entType === 'wall' || object?.userData?.isWallSide || object?.userData?.isWallMesh;
+            const isFloorObj = isRoom || isFoundation || object?.userData?.isFloor || object?.userData?.isRoomFloor;
+            const isCornerObj = object?.userData?.isCornerApex || object?.userData?.isCornerFillet || object?.userData?.anchor;
+
+            const shouldSkipCameraMotion = preventAutoFocus || this.ctx.preventAutoFocus || isInteractiveToolActive || isDoorOrWindow || isWall || isFloorObj || isCornerObj;
+
+            if (!shouldSkipCameraMotion && this.ctx.cameraController && object) {
+                const settings = useSettingsStore().floorPlanSettings;
+                if (settings && settings.autoFocus === true) {
+                    this.ctx.cameraController.focusOnObject(object, intersect, settings.autoRotate === true);
+                }
             }
 
             if (this.ctx && typeof this.ctx.requestRender === 'function') {
@@ -1561,6 +1631,7 @@ export class InteractionSystem {
             if (this.roomInteractiveSuite && !this.roomInteractiveSuite.isBuildingRiseMode) this.roomInteractiveSuite.detach();
             if (this.stairInteractiveSuite) this.stairInteractiveSuite.detach();
             if (this.elevationSegmentGizmo) this.elevationSegmentGizmo.detach();
+            if (this.cornerFilletGizmo && !this.allWallCornersGizmo?.isActive) this.cornerFilletGizmo.detach();
             this.ctx.currentTransformMode = 'none';
             if (this.ctx.showTransformMenu) this.ctx.showTransformMenu(false);
             
@@ -1636,7 +1707,10 @@ export class InteractionSystem {
         if (this.roofPlacementSystem && this.roofPlacementSystem.dispose) this.roofPlacementSystem.dispose();
         if (this.roofPluginPlacementSystem && this.roofPluginPlacementSystem.dispose) this.roofPluginPlacementSystem.dispose();
         if (this.highlightRenderer && this.highlightRenderer.dispose) this.highlightRenderer.dispose();
-        if (this.dimensionManager && this.dimensionManager.dispose) this.dimensionManager.dispose();
+        if (this.cornerFilletGizmo && this.cornerFilletGizmo.destroy) this.cornerFilletGizmo.destroy();
+        if (this._onSelectionChanged) {
+            coreEventBus.off(EVENTS.SELECTION_CHANGED, this._onSelectionChanged);
+        }
         if (this.sims4Footprint) {
             if (this.sims4Footprint.geometry) this.sims4Footprint.geometry.dispose();
             if (this.sims4Footprint.material) this.sims4Footprint.material.dispose();

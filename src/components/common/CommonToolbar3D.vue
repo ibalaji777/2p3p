@@ -26,12 +26,12 @@
         </svg>
       </button>
 
-      <!-- BUILDING RISE & ROOM LIFT TOOL (SIMS 4) -->
+      <!-- BUILDING RISE & ROOM LIFT TOOL -->
       <button 
         class="tool-btn" 
         :class="{ active: currentTool === 'building_rise' }"
         @click="selectTool('building_rise')"
-        title="Sims 4 Building Rise & Room Lift Tool (Key: U)"
+        title="Building Rise & Room Lift Tool (Key: U)"
       >
         <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <rect x="4" y="10" width="16" height="11" rx="1.5"></rect>
@@ -39,6 +39,20 @@
           <line x1="16" y1="10" x2="16" y2="21"></line>
           <polyline points="9 5 12 2 15 5"></polyline>
           <polyline points="9 7 12 10 15 7"></polyline>
+        </svg>
+      </button>
+
+      <!-- WALL CORNERS / CURVE TOOL -->
+      <button 
+        class="tool-btn" 
+        :class="{ active: currentTool === 'wall_corners' }"
+        @click="selectTool('wall_corners')"
+        title="Wall Corners: Show all wall corners & curve joints (Key: C)"
+      >
+        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 20V10a6 6 0 0 1 6-6h10"></path>
+          <circle cx="4" cy="20" r="2.2" fill="currentColor"></circle>
+          <circle cx="20" cy="4" r="2.2" fill="currentColor"></circle>
         </svg>
       </button>
 
@@ -173,7 +187,7 @@
             <div class="guide-section">
               <div class="section-title">
                 <span class="section-badge">Objects</span>
-                <h4>Direct Object Manipulation (Sims 4 Style)</h4>
+                <h4>Direct Object Manipulation</h4>
               </div>
               <div class="shortcuts-grid">
                 <div class="shortcut-item">
@@ -284,7 +298,7 @@
             <div class="guide-section">
               <div class="section-title">
                 <span class="section-badge camera">Camera</span>
-                <h4>Sims 4 Scene Navigation</h4>
+                <h4>Scene Navigation</h4>
               </div>
               <div class="shortcuts-grid">
                 <div class="shortcut-item">
@@ -525,6 +539,9 @@ const canElevate = computed(() => {
 });
 
 const selectTool = (toolId) => {
+  if (currentTool.value === toolId && toolId === 'wall_corners') {
+    toolId = 'select';
+  }
   currentTool.value = toolId;
   if (props.controller) {
     props.controller.setTool(toolId);

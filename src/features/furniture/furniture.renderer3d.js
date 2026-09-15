@@ -2088,7 +2088,7 @@ export class FurnitureManager {
             this.updateLive(entity);
 
             if (this.ctx && this.ctx.interactions && this.ctx.interactions.selectedObject && this.ctx.interactions.selectedObject.userData.entity === entity) {
-                this.ctx.interactions.selectObject(wrapper);
+                this.ctx.interactions.selectObject(wrapper, null, true);
             }
             return wrapper;
         } catch (e) { 

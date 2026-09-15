@@ -2,9 +2,10 @@ import Konva from 'konva';
 import { SNAP_DIST, RAILING_REGISTRY } from '../registry.js';
 import { Anchor } from './Anchor.js';
 import { WallEngine } from '../wall/WallEngine.js';
+import { WallFactory } from '../../features/wall/wall.factory.js';
 
 export class PremiumArc {
-    constructor(planner, p1, p2, pos) {
+    constructor(planner, p1, p2, pos, options = {}) {
         this.planner = planner;
         this.type = 'arc';
         this.p1 = p1; 
@@ -14,7 +15,14 @@ export class PremiumArc {
         this.intermediateAnchors = [];
         this.hasRailing = false;
         this.railingConfig = { configId: this.planner?.activePresetParams?.type || 'rail_1', thickness: 4, height: undefined };
-        this.params = {};
+        this.params = options.params ? JSON.parse(JSON.stringify(options.params)) : {};
+        if (options.thickness !== undefined) this.thickness = options.thickness;
+        if (options.height !== undefined) this.height = options.height;
+        if (options.elevation !== undefined) this.elevation = options.elevation;
+        if (options.wallType !== undefined) this.wallType = options.wallType;
+        if (options.topProfileType !== undefined) this.topProfileType = options.topProfileType;
+        if (options.isCornerFillet) this.isCornerFillet = true;
+        if (options.cornerData) this.cornerData = options.cornerData;
         
         this.group = new Konva.Group();
         this.controlHandle = new Konva.Circle({
@@ -50,14 +58,17 @@ export class PremiumArc {
     }
     
     setHighlight(isActive) {
-        this.controlHandle.visible(isActive);
-        if (isActive) {
+        this.controlHandle.visible(isActive && !this.isCornerFillet);
+        if (isActive && !this.isCornerFillet) {
             this.controlHandle.position(this.pos);
             this.controlHandle.moveToTop();
         }
         this.walls.forEach(w => {
             w.poly.stroke(isActive ? '#3b82f6' : this.getBaseColor(w));
         });
+        if (this.isCornerFillet && this.cornerApexAnchor && typeof this.cornerApexAnchor.setHighlight === 'function') {
+            this.cornerApexAnchor.setHighlight(isActive);
+        }
         this.planner.stage.batchDraw();
     }
 
@@ -89,6 +100,11 @@ export class PremiumArc {
         this.walls.forEach(w => {
             w.wallGroup.destroy();
             w.labelGroup.destroy();
+            if (w.mesh3D) {
+                if (w.mesh3D.parent) w.mesh3D.parent.remove(w.mesh3D);
+                w.mesh3D.traverse?.(c => { if (c.geometry) c.geometry.dispose(); });
+                w.mesh3D = null;
+            }
             this.planner.walls = this.planner.walls.filter(existing => existing !== w);
         });
         this.walls = [];
@@ -100,7 +116,7 @@ export class PremiumArc {
         this.intermediateAnchors = [];
         
         const p1 = this.p1.position(), p2 = this.p2.position(), p3 = this.pos;
-        this.centerHandle.position(p3);
+        if (this.controlHandle) this.controlHandle.position(p3);
         
         const D = 2 * (p1.x * (p2.y - p3.y) + p2.x * (p3.y - p1.y) + p3.x * (p1.y - p2.y));
         if (Math.abs(D) < 1e-4) return;
@@ -135,7 +151,7 @@ export class PremiumArc {
                     const newWall = WallFactory.createWall(this.planner, {
                         startAnchor: prevAnchor,
                         endAnchor: currentAnchor,
-                        type: 'outer',
+                        type: this.wallType || 'outer',
                         thickness: this.thickness,
                         height: this.height,
                         topProfileType: this.topProfileType,
@@ -200,5 +216,24 @@ export class PremiumArc {
     
     update() { const p1 = this.p1.position(), p2 = this.p2.position(); if (!this.lastP1 || !this.lastP2 || this.lastP1.x !== p1.x || this.lastP1.y !== p1.y || this.lastP2.x !== p2.x || this.lastP2.y !== p2.y) this.rebuild(); }
     
-    remove() { this.walls.forEach(w => { w.wallGroup.destroy(); w.labelGroup.destroy(); this.planner.walls = this.planner.walls.filter(existing => existing !== w); }); this.intermediateAnchors.forEach(a => { a.node.destroy(); this.planner.anchors = this.planner.anchors.filter(existing => existing !== a); }); this.group.destroy(); this.planner.arcs = (this.planner.arcs || []).filter(a => a !== this); this.planner.selectEntity(null); this.planner.syncAll(); }
+    remove() { 
+        this.walls.forEach(w => { 
+            if (w.wallGroup) w.wallGroup.destroy(); 
+            if (w.labelGroup) w.labelGroup.destroy(); 
+            if (w.mesh3D) {
+                if (w.mesh3D.parent) w.mesh3D.parent.remove(w.mesh3D);
+                w.mesh3D.traverse?.(c => { if (c.geometry) c.geometry.dispose(); });
+                w.mesh3D = null;
+            }
+            this.planner.walls = (this.planner.walls || []).filter(existing => existing !== w); 
+        }); 
+        this.intermediateAnchors.forEach(a => { 
+            if (a.node) a.node.destroy(); 
+            this.planner.anchors = (this.planner.anchors || []).filter(existing => existing !== a); 
+        }); 
+        if (this.group) this.group.destroy(); 
+        this.planner.arcs = (this.planner.arcs || []).filter(a => a !== this); 
+        if (typeof this.planner?.selectEntity === 'function') this.planner.selectEntity(null); 
+        if (typeof this.planner?.syncAll === 'function') this.planner.syncAll(); 
+    }
 }

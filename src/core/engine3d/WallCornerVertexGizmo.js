@@ -365,6 +365,9 @@ export class WallCornerVertexGizmo extends THREE.Group {
             this.dragStartPoint.copy(hitPoint);
 
             const planner = this.ctx.planner || window.planner?.value || window.plannerInstance;
+            if (planner && this.activeHandle.anchor && typeof planner.selectEntity === 'function') {
+                planner.selectEntity(this.activeHandle.anchor, 'anchor');
+            }
             if (planner && planner.commandManager) {
                 this._snapshotCmd = new SnapshotCommand(planner);
             }

@@ -26,8 +26,8 @@
 
     <!-- Unified Top-Right 3D Camera Controls Bar (Paired with Navigation Cube) -->
     <div v-show="viewMode === '3d'" class="scene-view-bar">
-        <!-- 1. Sims 4 Isometric 3D View -->
-        <button class="view-bar-btn" @click="$emit('set-sims4-view')" title="Sims 4 Isometric 3D View">
+        <!-- 1. Isometric 3D View -->
+        <button class="view-bar-btn" @click="$emit('set-sims4-view')" title="Isometric 3D View">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
                 <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>

@@ -483,7 +483,7 @@ export class Preview3D {
     }
     setInteractionMode(mode) { this.interactions.setMode(mode); }
     cancelRelocation() { this.interactions.cancelRelocation(); }
-    selectObject(obj) { this.interactions.selectObject(obj); }
+    selectObject(obj, preventAutoFocus = true) { this.interactions.selectObject(obj, null, preventAutoFocus); }
     deselectObject() { this.interactions.deselect(); }
     
     addWallPattern(w, id, s) { return this.decorManager.add(w, id, s); }

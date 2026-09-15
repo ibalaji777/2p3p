@@ -167,7 +167,7 @@
                         
                         <div class="card-extra-meta" v-if="props.type === 'window' || props.type === 'door' || props.type.startsWith('roof') || props.type === 'skylight'">
                             <span class="meta-tag" v-if="item.badge">{{ item.badge }}</span>
-                            <span class="meta-tag" v-else>{{ props.type === 'window' ? 'Double Glass' : (props.type === 'door' ? 'Solid Core' : 'Sims 4 CAD') }}</span>
+                            <span class="meta-tag" v-else>{{ props.type === 'window' ? 'Double Glass' : (props.type === 'door' ? 'Solid Core' : 'Standard CAD') }}</span>
                             <span class="meta-tag text-green">Available</span>
                         </div>
                     </div>
@@ -455,7 +455,7 @@ const roofCatalog = ref([
 ]);
 
 const skylightCatalog = ref([
-    { isDivider: true, id: 'div_glass_insets', name: 'Sims 4 Architectural Glass Insets' },
+    { isDivider: true, id: 'div_glass_insets', name: 'Architectural Glass Insets' },
     { id: 'skylight_square_grid_inset', name: 'Modern Square Grid Glass Inset', badge: 'ATRIUM', material: 'Charcoal Steel Grid & Glass', specs: 'Customizable Rectangle', image: '', toolId: 'skylight', params: { type: 'skylight_square_grid_inset', width: 120, length: 180, material: 'glass_roof_square_grid', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
     { id: 'skylight_diamond_lattice_inset', name: 'Victorian Diamond Lattice Inset', badge: 'CONSERVATORY', material: 'Leaded Bronze 45° Lattice', specs: 'Customizable Rectangle', image: '', toolId: 'skylight', params: { type: 'skylight_diamond_lattice', width: 120, length: 180, material: 'glass_roof_diamond_lattice', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
     { id: 'skylight_hexagonal_inset', name: 'Futuristic Hex Solarium Inset', badge: 'SOLARIUM', material: 'Titanium Hex Grid & Glass', specs: 'Customizable Rectangle', image: '', toolId: 'skylight', params: { type: 'skylight_flush_flat', width: 140, length: 200, material: 'glass_roof_hexagonal_honeycomb', frameMaterial: 'metal_dark_steel', coverage: 'custom' } },
@@ -491,7 +491,7 @@ const wallTrimCatalog = ref(WALL_TRIM_CATALOG);
 const elevationFasciaCatalog = ref(FASCIA_CATALOG);
 
 const platformCatalog = ref([
-    { isDivider: true, id: 'div_platform_stages', name: 'Sims 4 Architectural Platforms & Stages' },
+    { isDivider: true, id: 'div_platform_stages', name: 'Architectural Platforms & Stages' },
     {
         id: 'platform_rect_standard',
         name: 'Clean Modern Platform Box',
@@ -677,16 +677,17 @@ const wallsCatalog = ref([
     { isDivider: true, id: 'div_walls_basic', name: 'Standard Walls & Rooms' },
     { id: 'wall_outer', name: 'Outer Wall', badge: 'STRUCTURAL', material: 'Brick & Plaster', specs: '230 mm Thick • 3000 mm High', image: '', toolId: 'outer', params: { type: 'outer', thickness: 16, height: 300 } },
     { id: 'wall_inner', name: 'Inner Partition Wall', badge: 'PARTITION', material: 'Gypsum / Brick', specs: '115 mm Thick • 3000 mm High', image: '', toolId: 'inner', params: { type: 'inner', thickness: 8, height: 300 } },
-    { id: 'wall_room_box', name: 'Room Tool (4-Wall Box)', badge: 'SIMS 4', material: 'Brick & Plaster', specs: 'Enclosed 4-Wall Room • 3000 mm High', image: '', toolId: 'room_box', params: { type: 'room_box', thickness: 16, height: 300 } },
+    { id: 'wall_room_box', name: 'Room Tool (4-Wall Box)', badge: 'ROOM', material: 'Brick & Plaster', specs: 'Enclosed 4-Wall Room • 3000 mm High', image: '', toolId: 'room_box', params: { type: 'room_box', thickness: 16, height: 300 } },
+    { id: 'wall_arc', name: 'Curved Wall (Arc)', badge: 'CURVED', material: 'Reinforced Concrete', specs: '230 mm Arc • 3000 mm High', image: '', toolId: 'arc', params: { type: 'arc', thickness: 10, height: 300 } },
+    { id: 'wall_corner', name: 'Wall Corners (Curved Joint)', badge: 'FILLET', material: 'Tangential Fillet Arc', specs: 'Curved Wall Joint • Custom Radius', image: '', toolId: 'corner', params: { type: 'corner' } },
 
-    { isDivider: true, id: 'div_walls_foundation', name: 'Foundations & Plinths (Sims 4)' },
+    { isDivider: true, id: 'div_walls_foundation', name: 'Foundations & Plinths' },
     { id: 'wall_foundation', name: 'Foundation Wall', badge: 'PLINTH', material: 'Ashlar Stone / Masonry', specs: '240 mm Thick • 400 mm (Plinth Base)', image: '', toolId: 'foundation', params: { type: 'foundation', thickness: 24, height: 40, material: 'stone_ashlar_grey' } },
-    { id: 'wall_foundation_box', name: 'Foundation Box', badge: 'SIMS 4 PLINTH', material: 'Ashlar Stone / Masonry', specs: '4-Wall Raised Plinth Enclosure', image: '', toolId: 'foundation_box', params: { type: 'foundation_box', thickness: 24, height: 40, material: 'stone_ashlar_grey' } },
+    { id: 'wall_foundation_box', name: 'Foundation Box', badge: 'PLINTH', material: 'Ashlar Stone / Masonry', specs: '4-Wall Raised Plinth Enclosure', image: '', toolId: 'foundation_box', params: { type: 'foundation_box', thickness: 24, height: 40, material: 'stone_ashlar_grey' } },
 
     { isDivider: true, id: 'div_walls_half', name: 'Half Walls & Enclosures' },
     { id: 'wall_half_wall', name: 'Half Wall / Parapet', badge: 'PARAPET', material: 'Plaster with Dark Coping Cap', specs: '100 mm Thick • 500 mm High (Coping Cap)', image: '', toolId: 'half_wall', params: { type: 'half_wall', thickness: 10, height: 50, material: 'white_paint' } },
-    { id: 'wall_compound', name: 'Compound Boundary Wall', badge: 'BOUNDARY', material: 'Stone / Boundary Brick', specs: '150 mm Thick • 1500 mm (5 ft) High', image: '', toolId: 'compound', params: { type: 'compound', height: 80, thickness: 12 } },
-    { id: 'wall_arc', name: 'Curved Wall (Arc)', badge: 'CURVED', material: 'Reinforced Concrete', specs: '230 mm Arc • 3000 mm High', image: '', toolId: 'arc', params: { type: 'arc', thickness: 10, height: 300 } }
+    { id: 'wall_compound', name: 'Compound Boundary Wall', badge: 'BOUNDARY', material: 'Stone / Boundary Brick', specs: '150 mm Thick • 1500 mm (5 ft) High', image: '', toolId: 'compound', params: { type: 'compound', height: 80, thickness: 12 } }
 ]);
 
 const railingCatalog = ref([

@@ -117,7 +117,7 @@ export class CommonInteractionController {
             }
         }
 
-        // 4. Building Rise Mode (Sims 4 Style)
+        // 4. Building Rise Mode
         if (toolId === COMMON_TOOLS.BUILDING_RISE) {
             if (this.ctx.gizmoManager) {
                 this.ctx.gizmoManager.setTransformMode('none', true);
@@ -128,6 +128,20 @@ export class CommonInteractionController {
         } else {
             if (this.ctx.interactions?.roomInteractiveSuite && (!this.selectedEntity || !this.selectedEntity.path)) {
                 this.ctx.interactions.roomInteractiveSuite.deactivateBuildingRiseMode();
+            }
+        }
+
+        // 5. Wall Corners Mode (Show all wall corners)
+        if (toolId === COMMON_TOOLS.WALL_CORNERS) {
+            if (this.ctx.gizmoManager) {
+                this.ctx.gizmoManager.setTransformMode('none', true);
+            }
+            if (this.ctx.interactions?.allWallCornersGizmo) {
+                this.ctx.interactions.allWallCornersGizmo.show(true);
+            }
+        } else {
+            if (this.ctx.interactions?.allWallCornersGizmo) {
+                this.ctx.interactions.allWallCornersGizmo.show(false);
             }
         }
 
@@ -236,6 +250,9 @@ export class CommonInteractionController {
                 break;
             case SHORTCUT_ACTIONS.BUILDING_RISE:
                 this.setTool(COMMON_TOOLS.BUILDING_RISE);
+                break;
+            case SHORTCUT_ACTIONS.WALL_CORNERS:
+                this.setTool(this.activeTool === COMMON_TOOLS.WALL_CORNERS ? COMMON_TOOLS.SELECT : COMMON_TOOLS.WALL_CORNERS);
                 break;
             case SHORTCUT_ACTIONS.MOVE:
                 this.setTool(COMMON_TOOLS.MOVE);

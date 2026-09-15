@@ -427,7 +427,7 @@ const getToolDetails = (toolId, toolName) => {
     if (toolId === 'roof_sculptures' || toolId === 'roof_cresting' || toolId === 'roof_finial' || toolId === 'roof_chimney') {
         return {
             title: 'Roof Sculptures & Cresting',
-            subtitle: 'Sims 4 Architectural Decor',
+            subtitle: 'Architectural Decor',
             badge: '🏷️ Roof Sculptures',
             icon: '<path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path>',
             description: 'Snap wrought iron cresting along roof ridges, place spires and weather vanes at peak apexes, and mount chimney stacks on roof slopes.',
@@ -487,12 +487,12 @@ const getToolDetails = (toolId, toolName) => {
     if (toolId === 'platform_catalog' || toolId === 'platform' || toolId === 'platform_rect' || toolId === 'platform_polygon') {
         return {
             title: 'Architectural Platforms & Stages',
-            subtitle: 'Sims 4 Step-by-Step Leveling',
-            badge: '🧱 Sims 4 Platform',
+            subtitle: 'Step-by-Step Leveling',
+            badge: '🧱 Platform',
             icon: '<path d="M2 17l10 5 10-5M2 12l10 5 10-5M12 2L2 7l10 5 10-5-10-5z"></path>',
             description: 'Build raised stages, split levels, sunken conversation pits, and tiered stepped podiums with custom trims and dual-material styling.',
             features: [
-                'Sims 4-style 1-click ▲ Raise (+15cm) and ▼ Lower (-15cm) step control',
+                '1-click ▲ Raise (+15cm) and ▼ Lower (-15cm) step control',
                 '6 architectural trim profiles: Modern Riser, Chamfer, Bullnose, Classical, LED Reveal, Plinth',
                 'Dual PBR material slots for floor deck surface and perimeter riser trims'
             ],
@@ -563,7 +563,7 @@ const getToolDetails = (toolId, toolName) => {
     if (toolId === 'room_box') {
         return {
             title: 'Room Tool (Box)',
-            subtitle: 'Sims 4 4-Wall Rectangular Room',
+            subtitle: '4-Wall Rectangular Room',
             badge: '📦 Room Enclosure',
             icon: getToolTabIcon('room_box'),
             description: 'Click and drag to generate a complete 4-wall rectangular enclosed room in one effortless motion.',
@@ -575,10 +575,25 @@ const getToolDetails = (toolId, toolName) => {
             btnText: 'Place Room Box'
         };
     }
+    if (toolId === 'corner') {
+        return {
+            title: 'Wall Corners & Curvature',
+            subtitle: 'Modern Curved House Joints',
+            badge: '╭ Modern Fillet',
+            icon: '<path d="M4 20V10a6 6 0 0 1 6-6h10" stroke-width="2"></path><circle cx="4" cy="20" r="2.5"></circle><circle cx="20" cy="4" r="2.5"></circle>',
+            description: 'Inspect and convert sharp wall corners into smooth modern curved walls with customizable fillet radiuses.',
+            features: [
+                'Click any corner joint to view its exact angle in degrees',
+                'Toggle between Sharp (90°) and Modern Curved corners in 1 click',
+                'Seamless CAD tangential continuity (G1) with zero gaps'
+            ],
+            btnText: 'Show Wall Corners'
+        };
+    }
     if (toolId === 'foundation') {
         return {
             title: 'Foundation Wall',
-            subtitle: 'Raised Plinth Base (Sims 4)',
+            subtitle: 'Raised Plinth Base',
             badge: '🧱 Structural Plinth',
             icon: getToolTabIcon('foundation'),
             description: 'Draw heavy-duty foundation walls to raise building plinths off the ground with stone ashlar coursing.',
@@ -596,7 +611,7 @@ const getToolDetails = (toolId, toolName) => {
             subtitle: 'Raised 4-Wall Plinth Room',
             badge: '📦 4-Wall Plinth',
             icon: getToolTabIcon('foundation_box'),
-            description: 'Click and drag to create an elevated 4-wall foundation plinth room base like in The Sims 4.',
+            description: 'Click and drag to create an elevated 4-wall foundation plinth room base.',
             features: [
                 'Instant 4-wall foundation plinth enclosure',
                 'Uniform plinth height with automatic corner joins',
@@ -661,6 +676,7 @@ const getShortToolName = (toolId, name) => {
     if (toolId === 'half_wall') return 'Half Wall';
     if (toolId === 'compound') return 'Compound';
     if (toolId === 'arc') return 'Curved Wall';
+    if (toolId === 'corner') return 'Corners';
     if (toolId === 'wall_trim') return 'Wall Trims';
     if (toolId === 'shape_catalog') return '3D Shapes';
     if (toolId === 'railing_catalog') return 'Railings';
@@ -743,6 +759,9 @@ const getToolTabIcon = (toolId) => {
     }
     if (toolId === 'room_box') {
         return '<polygon points="12 3 20 7 12 11 4 7" stroke-width="1.8" fill="currentColor" fill-opacity="0.15"></polygon><path d="M4 7v10l8 4 8-4V7" stroke-width="1.8"></path><line x1="12" y1="11" x2="12" y2="21" stroke-width="1.8"></line><line x1="4" y1="7" x2="12" y2="11" stroke-width="1.2"></line><line x1="20" y1="7" x2="12" y2="11" stroke-width="1.2"></line>';
+    }
+    if (toolId === 'corner') {
+        return '<path d="M4 20V10a6 6 0 0 1 6-6h10" stroke-width="2.2" stroke-linecap="round"></path><circle cx="4" cy="20" r="2.2" fill="currentColor"></circle><circle cx="20" cy="4" r="2.2" fill="currentColor"></circle>';
     }
     if (toolId === 'foundation') {
         return '<rect x="3" y="9" width="18" height="11" rx="0.5" stroke-width="1.8"></rect><path d="M3 14.5h18M8 9v5.5M15 9v5.5M11 14.5v5.5M18 14.5v5.5" stroke-width="1.4"></path><path d="M2 20h20" stroke-width="2.5"></path>';

@@ -24,7 +24,7 @@ describe('Universal 3D Scene Common Tools Architecture (Sims 4 Style)', () => {
         });
 
         it('should have complete tool metadata definitions', () => {
-            expect(COMMON_TOOL_DEFINITIONS.length).toBe(8);
+            expect(COMMON_TOOL_DEFINITIONS.length).toBe(9);
             const selectDef = getToolDefinition(COMMON_TOOLS.SELECT);
             expect(selectDef).toBeDefined();
             expect(selectDef.hotkey).toBe('V');

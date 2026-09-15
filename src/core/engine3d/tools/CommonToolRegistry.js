@@ -11,7 +11,8 @@ export const COMMON_TOOLS = {
     TILT: 'tilt',
     AXIS_UP: 'axis_up',
     AXIS_DOWN: 'axis_down',
-    BUILDING_RISE: 'building_rise'
+    BUILDING_RISE: 'building_rise',
+    WALL_CORNERS: 'wall_corners'
 };
 
 export const COMMON_TOOL_DEFINITIONS = [
@@ -38,8 +39,17 @@ export const COMMON_TOOL_DEFINITIONS = [
         label: 'Rise Tool',
         icon: 'building-rise',
         hotkey: 'U',
-        tooltip: 'Sims 4 Building Rise Tool (All Walls & Room Lift)',
+        tooltip: 'Building Rise Tool (All Walls & Room Lift)',
         description: 'Adjust wall heights and elevations for all walls simultaneously or select a specific room to lift its elevation.',
+        requiresSelection: false
+    },
+    {
+        id: COMMON_TOOLS.WALL_CORNERS,
+        label: 'Wall Corners',
+        icon: 'corner',
+        hotkey: 'C',
+        tooltip: 'Wall Corners: Show all wall corners & curve joints (Key: C)',
+        description: 'Display and interact with all wall corner joints to create curved walls and fillet bends.',
         requiresSelection: false
     },
     {

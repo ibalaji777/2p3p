@@ -16,8 +16,8 @@ export const useSettingsStore = defineStore('settings', {
             showWorkspaceLabels: true,
             wallTracking: true,
             entranceWallId: null,
-            autoFocus: true,
-            autoRotate: true
+            autoFocus: false,
+            autoRotate: false
         },
         selectedSky: 'venice_sunset',
         selectedGround: 'studio_dark',

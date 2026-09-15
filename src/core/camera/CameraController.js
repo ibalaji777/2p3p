@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { useSettingsStore } from '../../stores/useSettingsStore.js';
 
 export class CameraController {
     constructor(camera, domElement, preview3D) {
@@ -192,6 +193,13 @@ export class CameraController {
 
     focusOnObject(object, intersect = null, autoRotate = true, zoomMultiplier = 1.0) {
         if (!object) return;
+        if (this.preview3D?.preventAutoFocus || this.preview3D?.ctx?.preventAutoFocus) return;
+        try {
+            const settings = useSettingsStore().floorPlanSettings;
+            if (settings && settings.autoFocus !== true) return;
+        } catch (e) {
+            return;
+        }
         
         let intersectPoint = null;
         let intersectNormal = null;

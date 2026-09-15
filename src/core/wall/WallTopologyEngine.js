@@ -7,6 +7,7 @@
 
 import { PremiumWall } from '../../features/wall/wall.renderer2d.js';
 import { PremiumMolding } from '../engine2d/PremiumMolding.js';
+import { PremiumArc } from '../engine2d/PremiumArc.js';
 import { WallGeometryEngine } from './WallGeometryEngine.js';
 
 export class WallTopologyEngine {
@@ -939,5 +940,383 @@ export class WallTopologyEngine {
         if (planner.findRooms) planner.findRooms();
 
         return newWalls;
+    }
+
+    /**
+     * Inspects a given anchor to determine if it forms a corner between two walls,
+     * whether it is currently filleted, and returns geometric corner metadata.
+     * @param {Object} planner 
+     * @param {Object} anchor 
+     * @returns {Object|null}
+     */
+    static getCornerData(planner, anchor) {
+        if (!planner || !anchor) return null;
+
+        // Helper to compute geometric angles and safe bounds for an existing filleted corner
+        const computeFilletedCornerMeta = (fd, apexAnchor, arcRef) => {
+            const w1 = fd.w1;
+            const w2 = fd.w2;
+            const pC = fd.apexPos || WallGeometryEngine.getAnchorPosition(apexAnchor);
+            let angleDeg = 90;
+            let angleRad = Math.PI / 2;
+            let maxRadius = 200;
+
+            if (w1 && w2) {
+                const other1 = fd.origEndpoint1 === 'start' ? w1.endAnchor : w1.startAnchor;
+                const other2 = fd.origEndpoint2 === 'start' ? w2.endAnchor : w2.startAnchor;
+                const p1 = WallGeometryEngine.getAnchorPosition(other1);
+                const p2 = WallGeometryEngine.getAnchorPosition(other2);
+                const v1 = { x: p1.x - pC.x, y: p1.y - pC.y };
+                const v2 = { x: p2.x - pC.x, y: p2.y - pC.y };
+                const l1 = Math.hypot(v1.x, v1.y);
+                const l2 = Math.hypot(v2.x, v2.y);
+                if (l1 > 1 && l2 > 1) {
+                    const u1 = { x: v1.x / l1, y: v1.y / l1 };
+                    const u2 = { x: v2.x / l2, y: v2.y / l2 };
+                    const dot = Math.max(-0.9999, Math.min(0.9999, u1.x * u2.x + u1.y * u2.y));
+                    angleRad = Math.acos(dot);
+                    angleDeg = Math.round(angleRad * 180 / Math.PI);
+                    maxRadius = Math.floor(Math.min(l1, l2) * 0.85 * Math.tan(angleRad / 2));
+                }
+            }
+
+            return {
+                isCorner: true,
+                isFilleted: true,
+                filletData: fd,
+                radius: arcRef?.filletRadius || fd.radius || 80,
+                arc: arcRef || fd.arc,
+                angleDeg,
+                angleRad,
+                maxRadius: Math.max(40, maxRadius),
+                defaultRadius: 80,
+                walls: [w1, w2].filter(Boolean),
+                anchor: apexAnchor
+            };
+        };
+
+        // 1. Check if anchor is already an apex of an active fillet
+        if (anchor.isCornerApex && anchor.filletData) {
+            return computeFilletedCornerMeta(anchor.filletData, anchor, anchor.filletData.arc);
+        }
+
+        // 2. Check if anchor is connected to a fillet arc
+        if (planner.arcs) {
+            const matchingArc = planner.arcs.find(a => (a.p1 === anchor || a.p2 === anchor) && a.isCornerFillet);
+            if (matchingArc && matchingArc.cornerApexAnchor && matchingArc.cornerApexAnchor.filletData) {
+                return computeFilletedCornerMeta(matchingArc.cornerApexAnchor.filletData, matchingArc.cornerApexAnchor, matchingArc);
+            }
+        }
+
+        // 3. Find connected walls (excluding hidden, railings, and arc-segments)
+        const connected = (planner.walls || []).filter(w =>
+            (w.startAnchor === anchor || w.endAnchor === anchor) &&
+            !w.hidden &&
+            w.type !== 'railing' &&
+            !w.parentArc
+        );
+
+        if (connected.length !== 2) {
+            return { isCorner: false, wallCount: connected.length, walls: connected, anchor };
+        }
+
+        const [w1, w2] = connected;
+        const pC = WallGeometryEngine.getAnchorPosition(anchor);
+        const other1 = w1.startAnchor === anchor ? w1.endAnchor : w1.startAnchor;
+        const other2 = w2.startAnchor === anchor ? w2.endAnchor : w2.startAnchor;
+        const p1 = WallGeometryEngine.getAnchorPosition(other1);
+        const p2 = WallGeometryEngine.getAnchorPosition(other2);
+
+        const v1 = { x: p1.x - pC.x, y: p1.y - pC.y };
+        const v2 = { x: p2.x - pC.x, y: p2.y - pC.y };
+        const l1 = Math.hypot(v1.x, v1.y);
+        const l2 = Math.hypot(v2.x, v2.y);
+        if (l1 < 1 || l2 < 1) return { isCorner: false, anchor, walls: connected };
+
+        const u1 = { x: v1.x / l1, y: v1.y / l1 };
+        const u2 = { x: v2.x / l2, y: v2.y / l2 };
+        const dot = Math.max(-0.9999, Math.min(0.9999, u1.x * u2.x + u1.y * u2.y));
+        const angleRad = Math.acos(dot);
+        const angleDeg = Math.round(angleRad * 180 / Math.PI);
+
+        // Near 180 is straight collinear through-wall, near 0 is overlapping
+        if (angleDeg > 175 || angleDeg < 15) {
+            return { isCorner: false, isCollinear: true, angleDeg, walls: [w1, w2], anchor };
+        }
+
+        const maxRadius = Math.floor(Math.min(l1, l2) * 0.85 * Math.tan(angleRad / 2));
+
+        return {
+            isCorner: true,
+            isFilleted: false,
+            angleDeg,
+            angleRad,
+            walls: [w1, w2],
+            anchor,
+            maxRadius: Math.max(20, maxRadius),
+            defaultRadius: Math.min(80, Math.max(30, Math.round(maxRadius * 0.5)))
+        };
+    }
+
+    /**
+     * Converts a sharp corner anchor between two walls into a smooth tangential curved corner (fillet).
+     * @param {Object} planner 
+     * @param {Object} anchor 
+     * @param {number} radius - Desired fillet radius in cm
+     * @returns {Object} { success: boolean, arc, a1, a2, radius }
+     */
+    static filletCorner(planner, anchor, radius = 80) {
+        if (!planner || !anchor) return { success: false, reason: 'invalid_arguments' };
+
+        // If already filleted, adjust radius
+        if (anchor.isCornerApex && anchor.filletData) {
+            return this.setCornerFilletRadius(planner, anchor, radius);
+        }
+
+        const cornerData = this.getCornerData(planner, anchor);
+        if (!cornerData || !cornerData.isCorner) {
+            return { success: false, reason: 'not_a_valid_sharp_corner', cornerData };
+        }
+
+        // If corner is already filleted (e.g. resolved from tangent anchor or apex via getCornerData)
+        if (cornerData.isFilleted) {
+            const apex = cornerData.anchor || (anchor.filletData ? anchor : null);
+            if (apex) {
+                return this.setCornerFilletRadius(planner, apex, radius);
+            }
+        }
+
+        const [w1, w2] = cornerData.walls;
+        const isW1Start = (w1.startAnchor === anchor);
+        const isW2Start = (w2.startAnchor === anchor);
+        const other1 = isW1Start ? w1.endAnchor : w1.startAnchor;
+        const other2 = isW2Start ? w2.endAnchor : w2.startAnchor;
+
+        const pC = WallGeometryEngine.getAnchorPosition(anchor);
+        const p1 = WallGeometryEngine.getAnchorPosition(other1);
+        const p2 = WallGeometryEngine.getAnchorPosition(other2);
+
+        const v1 = { x: p1.x - pC.x, y: p1.y - pC.y };
+        const v2 = { x: p2.x - pC.x, y: p2.y - pC.y };
+        const l1 = Math.hypot(v1.x, v1.y);
+        const l2 = Math.hypot(v2.x, v2.y);
+        if (l1 < 5 || l2 < 5) return { success: false, reason: 'walls_too_short' };
+
+        const u1 = { x: v1.x / l1, y: v1.y / l1 };
+        const u2 = { x: v2.x / l2, y: v2.y / l2 };
+
+        const dot = Math.max(-0.9999, Math.min(0.9999, u1.x * u2.x + u1.y * u2.y));
+        const theta = Math.acos(dot); // Interior angle
+        const deltaPhi = Math.PI - theta; // Turn angle
+        if (deltaPhi < 0.05) return { success: false, reason: 'walls_almost_straight' };
+
+        // Tangent setback: T = R * tan(deltaPhi / 2) = R / tan(theta / 2)
+        const tanHalfDelta = Math.tan(deltaPhi / 2);
+        let requestedR = Number(radius) || 80;
+        let T = requestedR * tanHalfDelta;
+
+        // Clamp T so it doesn't consume more than 85% of either wall
+        const maxT = Math.min(l1, l2) * 0.85;
+        if (T > maxT) {
+            T = maxT;
+            requestedR = T / tanHalfDelta;
+        }
+        if (T < 2) return { success: false, reason: 'radius_too_small' };
+
+        // Tangent points along the two walls
+        const pT1 = { x: pC.x + T * u1.x, y: pC.y + T * u1.y };
+        const pT2 = { x: pC.x + T * u2.x, y: pC.y + T * u2.y };
+
+        // Circle center & arc midpoint
+        const bisectorX = u1.x + u2.x;
+        const bisectorY = u1.y + u2.y;
+        const bisectorLen = Math.hypot(bisectorX, bisectorY);
+        if (bisectorLen < 1e-4) return { success: false, reason: 'degenerate_bisector' };
+
+        const b = { x: bisectorX / bisectorLen, y: bisectorY / bisectorLen };
+        const sinHalfTheta = Math.sin(theta / 2);
+        const D_O = requestedR / Math.max(0.01, sinHalfTheta);
+        const arcBulgeDist = D_O - requestedR;
+        const pMid = { x: pC.x + arcBulgeDist * b.x, y: pC.y + arcBulgeDist * b.y };
+
+        // Create new tangent anchors
+        const a1 = planner.getOrCreateAnchor(pT1.x, pT1.y);
+        const a2 = planner.getOrCreateAnchor(pT2.x, pT2.y);
+
+        // Retarget w1 and w2 to tangent anchors
+        if (isW1Start) w1.startAnchor = a1; else w1.endAnchor = a1;
+        if (isW2Start) w2.startAnchor = a2; else w2.endAnchor = a2;
+
+        w1.wallShapeData = null;
+        w2.wallShapeData = null;
+
+        // Preserve original apex anchor
+        anchor.isCornerApex = true;
+        if (typeof anchor.hide === 'function') anchor.hide();
+
+        // Create PremiumArc segment connecting a1 and a2 through pMid
+        const arcThickness = w1.thickness || 20;
+        const arcHeight = w1.height || 120;
+        const arcElevation = w1.elevation || 0;
+        const arcParams = w1.params ? JSON.parse(JSON.stringify(w1.params)) : {};
+        const arcWallType = w1.type || 'outer';
+
+        const arc = new PremiumArc(planner, a1, a2, pMid, {
+            thickness: arcThickness,
+            height: arcHeight,
+            elevation: arcElevation,
+            params: arcParams,
+            wallType: arcWallType,
+            isCornerFillet: true,
+            cornerData: {
+                apexPos: { x: pC.x, y: pC.y },
+                radius: requestedR,
+                w1Id: w1.id,
+                w2Id: w2.id
+            }
+        });
+
+        arc.isCornerFillet = true;
+        arc.cornerApexAnchor = anchor;
+        arc.filletRadius = requestedR;
+
+        if (!planner.arcs) planner.arcs = [];
+        if (!planner.arcs.includes(arc)) planner.arcs.push(arc);
+
+        anchor.filletData = {
+            radius: requestedR,
+            arc,
+            a1,
+            a2,
+            w1,
+            w2,
+            origEndpoint1: isW1Start ? 'start' : 'end',
+            origEndpoint2: isW2Start ? 'start' : 'end',
+            apexPos: { x: pC.x, y: pC.y }
+        };
+
+        if (planner.syncAll) planner.syncAll();
+        if (planner.findRooms) planner.findRooms();
+        if (planner.update3D) planner.update3D();
+
+        return {
+            success: true,
+            arc,
+            a1,
+            a2,
+            radius: requestedR,
+            anchor,
+            w1,
+            w2
+        };
+    }
+
+    /**
+     * Reverts a filleted corner back to its original sharp miter joint.
+     * @param {Object} planner 
+     * @param {Object} target - Either the corner Anchor or the PremiumArc
+     * @returns {boolean}
+     */
+    static unfilletCorner(planner, target) {
+        if (!planner || !target) return false;
+
+        let anchor = null;
+        let filletData = null;
+
+        if (target.isCornerApex && target.filletData) {
+            anchor = target;
+            filletData = target.filletData;
+        } else if (target.cornerApexAnchor && target.cornerApexAnchor.filletData) {
+            anchor = target.cornerApexAnchor;
+            filletData = anchor.filletData;
+        } else if (target.isCornerFillet && target.p1 && target.p2) {
+            anchor = (planner.anchors || []).find(a => a.isCornerApex && a.filletData?.arc === target);
+            filletData = anchor?.filletData;
+        }
+
+        if (!anchor || !filletData) return false;
+
+        const { w1, w2, a1, a2, origEndpoint1, origEndpoint2, arc } = filletData;
+
+        // Restore endpoints of w1 and w2 to apex anchor
+        if (w1) {
+            if (origEndpoint1 === 'start') w1.startAnchor = anchor;
+            else w1.endAnchor = anchor;
+            w1.wallShapeData = null;
+        }
+        if (w2) {
+            if (origEndpoint2 === 'start') w2.startAnchor = anchor;
+            else w2.endAnchor = anchor;
+            w2.wallShapeData = null;
+        }
+
+        // Clean up arc
+        if (arc) {
+            if (typeof arc.remove === 'function') {
+                arc.remove();
+            } else {
+                if (arc.walls) {
+                    arc.walls.forEach(w => {
+                        if (w.wallGroup) w.wallGroup.destroy();
+                        if (w.labelGroup) w.labelGroup.destroy();
+                        if (w.mesh3D) {
+                            if (w.mesh3D.parent) w.mesh3D.parent.remove(w.mesh3D);
+                            w.mesh3D.traverse?.(c => { if (c.geometry) c.geometry.dispose(); });
+                            w.mesh3D = null;
+                        }
+                        if (planner.walls) planner.walls = planner.walls.filter(item => item !== w);
+                    });
+                }
+                if (arc.group) arc.group.destroy();
+                if (planner.arcs) planner.arcs = planner.arcs.filter(item => item !== arc);
+            }
+        }
+
+        // Clean up temporary tangent anchors if not used by other walls
+        [a1, a2].forEach(a => {
+            if (!a) return;
+            const otherConnected = (planner.walls || []).filter(w => (w.startAnchor === a || w.endAnchor === a) && !w.hidden);
+            if (otherConnected.length === 0) {
+                if (a.node && typeof a.node.destroy === 'function') a.node.destroy();
+                if (planner.anchors) planner.anchors = planner.anchors.filter(item => item !== a);
+            }
+        });
+
+        // Reset anchor state
+        anchor.isCornerApex = false;
+        anchor.filletData = null;
+        if (typeof anchor.show === 'function') anchor.show();
+
+        if (planner.syncAll) planner.syncAll();
+        if (planner.findRooms) planner.findRooms();
+        if (planner.update3D) planner.update3D();
+
+        return true;
+    }
+
+    /**
+     * Dynamically updates the fillet radius of an already curved corner.
+     * @param {Object} planner 
+     * @param {Object} target 
+     * @param {number} newRadius 
+     * @returns {Object}
+     */
+    static setCornerFilletRadius(planner, target, newRadius) {
+        let anchor = null;
+        if (target.isCornerApex && target.filletData) {
+            anchor = target;
+        } else if (target.cornerApexAnchor) {
+            anchor = target.cornerApexAnchor;
+        } else if (target.isCornerFillet) {
+            anchor = (planner.anchors || []).find(a => a.isCornerApex && a.filletData?.arc === target);
+        }
+
+        if (!anchor || !anchor.filletData) return { success: false, reason: 'not_filleted' };
+
+        // Unfillet then re-fillet with new radius
+        const unfilletOk = this.unfilletCorner(planner, anchor);
+        if (!unfilletOk) return { success: false, reason: 'unfillet_failed' };
+
+        return this.filletCorner(planner, anchor, newRadius);
     }
 }

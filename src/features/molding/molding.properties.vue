@@ -47,9 +47,9 @@
             </button>
         </div>
 
-        <!-- Sims 4 Scope Batch Apply Actions -->
+        <!-- Scope Batch Apply Actions -->
         <div class="control-group" style="flex-direction: column; gap: 6px; margin-top: 4px;">
-            <label style="font-size: 11px; color: #94a3b8;">Sims 4 Scope Actions</label>
+            <label style="font-size: 11px; color: #94a3b8;">Scope Batch Actions</label>
             <div style="display: flex; gap: 6px; width: 100%;">
                 <button class="btn-secondary" style="flex: 1; padding: 6px 8px; font-size: 11px; font-weight: 600; color: #34d399; border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.1);" @click="applyToRoom">
                     🏠 Apply to Room Loop

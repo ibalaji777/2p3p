@@ -85,7 +85,7 @@ export function useAppScene({
                         return false;
                     });
                     if (newMesh) {
-                        renderer3D.value.selectObject(newMesh);
+                        renderer3D.value.selectObject(newMesh, true);
                         if (prevMode && prevMode !== 'none') {
                             renderer3D.value.setTransformMode(prevMode, true);
                         }

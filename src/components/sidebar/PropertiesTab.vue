@@ -230,6 +230,12 @@
                 @sync-engine="$emit('sync-engine')"
                 @delete-entity="$emit('delete-entity')"
             />
+
+            <CornerPanel
+                v-else-if="selectedType === 'anchor' || (selectedEntity && (selectedEntity.isCornerApex || selectedEntity.isCornerFillet))"
+                :selected-entity="selectedEntity"
+                @sync-engine="$emit('sync-engine')"
+            />
         </div>
 
         <div class="props-empty" v-else-if="!activeTool || !activeTool.startsWith('preset_')">
@@ -261,6 +267,7 @@ import PresetGroupPanel from '../panels/PresetGroupPanel.vue';
 import PlatformPanel from '../panels/PlatformPanel.vue';
 import FacadeRibbonPanel from '../panels/FacadeRibbonPanel.vue';
 import ElevationSegmentPanel from '../panels/ElevationSegmentPanel.vue';
+import CornerPanel from '../panels/CornerPanel.vue';
 
 const props = defineProps({
     activeTool: String,

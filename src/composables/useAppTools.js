@@ -32,6 +32,20 @@ export function useAppTools({
             if (wall) { wall.split(); debouncedSaveHistory(); }
             return;
         }
+        if (tool === 'corner') {
+            activeTool.value = 'corner';
+            if (renderer3D?.value?.interactions?.commonController) {
+                renderer3D.value.interactions.commonController.setTool('wall_corners');
+            }
+            if (planner.value) {
+                planner.value.tool = 'corner';
+                planner.value.syncAll();
+            }
+            return;
+        }
+        if (renderer3D?.value?.interactions?.commonController?.activeTool === 'wall_corners') {
+            renderer3D.value.interactions.commonController.setTool('select');
+        }
         activeTool.value = tool; 
         
         if (params !== undefined) {

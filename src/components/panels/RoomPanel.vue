@@ -8,9 +8,9 @@
             @update:modelValue="$emit('sync-engine', 'material')"
         />
 
-        <!-- Sims 4 Room Elevation Lift & Wall Height -->
+        <!-- Room Elevation Lift & Wall Height -->
         <div class="control-group" style="margin-top: 12px; flex-direction: column; gap: 8px;">
-            <h4 class="props-subtitle" style="margin-bottom: 2px;">Sims 4 Room Elevation & Height</h4>
+            <h4 class="props-subtitle" style="margin-bottom: 2px;">Room Elevation & Height</h4>
             
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
                 <label style="font-size: 11px; color: #94a3b8; font-weight: 600;">Room Elevation</label>

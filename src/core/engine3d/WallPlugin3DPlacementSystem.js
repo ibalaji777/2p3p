@@ -1474,7 +1474,7 @@ export class WallPlugin3DPlacementSystem {
 
             planner.selectEntity(createdEntity, 'elevation_segment');
             if (this.interactions && createdEntity.mesh3D) {
-                this.interactions.selectObject(createdEntity.mesh3D);
+                this.interactions.selectObject(createdEntity.mesh3D, null, true);
             }
 
             if (planner.syncAll) {

@@ -29,9 +29,9 @@
             </div>
         </div>
         
-        <!-- Sims 4 Interactive 3D Wall Operations -->
+        <!-- Interactive 3D Wall Operations -->
         <div class="sims4-wall-ops-box" v-if="selectedEntity.type !== 'railing'">
-            <div class="ops-header">Sims 4 Wall Operations</div>
+            <div class="ops-header">Wall Operations</div>
             <div class="ops-btn-grid">
                 <button class="ops-btn" @click="onSplitWall" title="Split wall into two connected segments">
                     ✂️ Split
@@ -41,6 +41,31 @@
                 </button>
                 <button class="ops-btn" @click="onRecessNiche" title="Recess middle section inward (Niche Alcove)">
                     🔲 Recess (-20)
+                </button>
+            </div>
+        </div>
+
+        <!-- Modern Curved Corner Quick Operations -->
+        <div class="sims4-wall-ops-box" v-if="selectedEntity.type !== 'railing' && !selectedEntity.parentArc">
+            <div class="ops-header">Modern Curved Corner</div>
+            <div class="ops-btn-grid" style="grid-template-columns: 1fr 1fr;">
+                <button 
+                    class="ops-btn" 
+                    :disabled="!startCornerData?.isCorner" 
+                    :class="{ active: startCornerData?.isFilleted }"
+                    @click="toggleCornerCurve('start')" 
+                    :title="startCornerData?.isCorner ? (startCornerData.isFilleted ? 'Reset Start Corner to Sharp' : 'Curve Start Corner') : 'Not a 2-wall corner'"
+                >
+                    {{ startCornerData?.isFilleted ? '◰ Sharp Start' : '╭ Curve Start' }}
+                </button>
+                <button 
+                    class="ops-btn" 
+                    :disabled="!endCornerData?.isCorner" 
+                    :class="{ active: endCornerData?.isFilleted }"
+                    @click="toggleCornerCurve('end')" 
+                    :title="endCornerData?.isCorner ? (endCornerData.isFilleted ? 'Reset End Corner to Sharp' : 'Curve End Corner') : 'Not a 2-wall corner'"
+                >
+                    {{ endCornerData?.isFilleted ? '◰ Sharp End' : '╭ Curve End' }}
                 </button>
             </div>
         </div>
@@ -209,7 +234,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { storeToRefs } from 'pinia';
 import { usePlannerStore } from '../../stores/usePlannerStore.js';
 import DimensionInput from '../../components/common/DimensionInput.vue';
@@ -244,6 +269,42 @@ const { paintScope } = storeToRefs(plannerStore);
 const railingThumbnails = ref({});
 
 let previousScope = 'single';
+
+const startCornerData = computed(() => {
+    const p = plannerStore.planner || window.plannerInstance;
+    const anc = props.selectedEntity?.startAnchor;
+    if (!anc || !p) return null;
+    return WallEngine.getCornerData(p, anc);
+});
+
+const endCornerData = computed(() => {
+    const p = plannerStore.planner || window.plannerInstance;
+    const anc = props.selectedEntity?.endAnchor;
+    if (!anc || !p) return null;
+    return WallEngine.getCornerData(p, anc);
+});
+
+const toggleCornerCurve = (which) => {
+    const p = plannerStore.planner || window.plannerInstance;
+    if (!p) return;
+    const anc = which === 'start' ? props.selectedEntity.startAnchor : props.selectedEntity.endAnchor;
+    const cd = which === 'start' ? startCornerData.value : endCornerData.value;
+    if (!anc || !cd || !cd.isCorner) return;
+
+    if (cd.isFilleted) {
+        WallEngine.unfilletCorner(p, anc);
+        if (p.selectEntity) p.selectEntity(anc, 'anchor');
+    } else {
+        const radius = cd.defaultRadius || 80;
+        const res = WallEngine.filletCorner(p, anc, radius);
+        if (res && res.arc && p.selectEntity) {
+            p.selectEntity(res.arc, 'arc');
+        } else if (p.selectEntity) {
+            p.selectEntity(anc, 'anchor');
+        }
+    }
+    emit('sync-engine');
+};
 
 const updateThickness = (val) => {
     const planner = plannerStore.planner || window.plannerInstance;

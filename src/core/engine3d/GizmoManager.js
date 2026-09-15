@@ -3489,15 +3489,6 @@ export class GizmoManager {
             
             if (selectedObj) {
                 this.ctx.interactions.setHighlight(selectedObj, true);
-                
-                // Return camera to normal state when done with gizmo (only if autofocus is explicitly desired)
-                try {
-                    const isRoofObj = selectedObj.userData?.isRoof || (selectedObj.userData?.entity && selectedObj.userData.entity.type === 'roof');
-                    const settings = useSettingsStore().floorPlanSettings;
-                    if (!isRoofObj && settings.autoFocus !== false && this.ctx.cameraController && !this.ctx.preventAutoFocus && !force) {
-                        this.ctx.cameraController.focusOnObject(selectedObj, null, settings.autoRotate !== false, 1.0);
-                    }
-                } catch(e) {}
             }
             tc.detach(); // Completely detach the gizmo to avoid hidden raycast interference
             if (this.ctx.controls) this.ctx.controls.enabled = true;
@@ -3507,20 +3498,6 @@ export class GizmoManager {
 
         tc.showY = true;
         tc.showZ = true;
-        // Auto-focus and adjust zoom when entering a gizmo mode (skip if autofocus prevented or on roof)
-        if (mode !== 'none' && selectedObj && !this.ctx.preventAutoFocus && !force) {
-            try {
-                const isRoofObj = selectedObj.userData?.isRoof || (selectedObj.userData?.entity && selectedObj.userData.entity.type === 'roof');
-                const settings = useSettingsStore().floorPlanSettings;
-                if (!isRoofObj && settings.autoFocus !== false && this.ctx.cameraController) {
-                    // Zoom in close for materials, zoom out wider for move/opening/scale so gizmo handles fit on screen
-                    const zoomMult = mode === 'material' ? 1.0 : 1.7;
-                    this.ctx.cameraController.focusOnObject(selectedObj, null, settings.autoRotate !== false, zoomMult);
-                }
-            } catch(e) {
-                // Ignore if store not ready
-            }
-        }
 
         tc.visible = true;
         tc.enabled = true;
